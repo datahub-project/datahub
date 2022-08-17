@@ -1,9 +1,8 @@
 import logging
 from datetime import timedelta
-from typing import Dict, Optional, List
+from typing import Dict, List, Optional
 
-from pydantic import Field, PositiveInt
-from pydantic import root_validator
+from pydantic import Field, PositiveInt, root_validator
 
 from datahub.configuration.common import AllowDenyPattern
 from datahub.ingestion.source.usage.usage_common import BaseUsageConfig
@@ -66,6 +65,21 @@ class BigQueryV2Config(BigQueryConfig):
             logging.warning(
                 "schema_pattern will be ignored in favour of dataset_pattern. schema_pattern will be deprecated, please use dataset_pattern only."
             )
+
+        project_id_config = values.get("project_id")
+        if project_id_config:
+            if values.get("project_id_pattern") != AllowDenyPattern.allow_all():
+                logging.warning(
+                    "project_id config property ignored because project_id_pattern is set. project_id property is deprecated, use only project_id_pattern"
+                )
+            else:
+                logging.warning(
+                    "project_id config property is deprecated, please use project_id_pattern instead"
+                )
+
+                allow_pattern = AllowDenyPattern()
+                allow_pattern.allow = [f"^{project_id_config}$"]
+                values["project_id_pattern"] = allow_pattern
 
         return values
 

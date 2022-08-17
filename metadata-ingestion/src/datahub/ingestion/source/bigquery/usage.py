@@ -25,15 +25,13 @@ from datahub.ingestion.source.bigquery.bigquery_audit import (
     BigQueryTableRef,
     QueryEvent,
     ReadEvent,
+    _make_gcp_logging_client,
     _table_ref_to_urn,
 )
 from datahub.ingestion.source.bigquery.bigquery_config import BigQueryV2Config
 from datahub.ingestion.source.bigquery.bigquery_report import BigQueryV2Report
 from datahub.ingestion.source.usage.usage_common import GenericAggregatedDataset
-from datahub.metadata.schema_classes import (
-    OperationClass,
-    OperationTypeClass,
-)
+from datahub.metadata.schema_classes import OperationClass, OperationTypeClass
 from datahub.utilities.delayed_iter import delayed_iter
 
 logger: logging.Logger = logging.getLogger(__name__)
@@ -179,8 +177,8 @@ class BigQueryUsageExtractor:
                 bigquery_log_entries
             )
         else:
-            logging_client: GCPLoggingClient = self._make_bigquery_logging_client(
-                project_id
+            logging_client: GCPLoggingClient = _make_gcp_logging_client(
+                self.config.storage_project_id, self.config.extra_client_options
             )
             bigquery_log_entries = self._get_bigquery_log_entries_via_gcp_logging(
                 logging_client
@@ -232,13 +230,6 @@ class BigQueryUsageExtractor:
 
     def _make_bigquery_client(self, project_id: str) -> BigQueryClient:
         return BigQueryClient(project=project_id)
-
-    def _make_bigquery_logging_client(self, project_id: str) -> GCPLoggingClient:
-        # See https://github.com/googleapis/google-cloud-python/issues/2674 for
-        # why we disable gRPC here.
-        client_options = self.config.extra_client_options.copy()
-        client_options["_use_grpc"] = False
-        return GCPLoggingClient(**client_options, project=project_id)
 
     def _get_bigquery_log_entries_via_exported_bigquery_audit_metadata(
         self, client: BigQueryClient
@@ -783,7 +774,7 @@ class BigQueryUsageExtractor:
     def test_capability(self, project_id: str) -> None:
         lineage_metadata: dict[str, set[str]]
         if self.config.use_exported_bigquery_audit_metadata:
-            _client: BigQueryClient = BigQueryClient(project=self.config.project_id)
+            _client: BigQueryClient = BigQueryClient(project=project_id)
             entries = self._get_exported_bigquery_audit_metadata(
                 bigquery_client=_client,
                 allow_filter=self.config.get_pattern_string(
@@ -796,8 +787,8 @@ class BigQueryUsageExtractor:
                     f"Connection test got one exported_bigquery_audit_metadata {entry}"
                 )
         else:
-            logging_client: GCPLoggingClient = self._make_bigquery_logging_client(
-                project_id
+            logging_client: GCPLoggingClient = _make_gcp_logging_client(
+                project_id, self.config.extra_client_options
             )
             bigquery_log_entries = self._get_bigquery_log_entries_via_gcp_logging(
                 logging_client

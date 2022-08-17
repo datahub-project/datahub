@@ -126,9 +126,8 @@ BIGQUERY_FIELD_TYPE_MAPPINGS: dict[
 # See https://cloud.google.com/bigquery/docs/table-snapshots-intro.
 SNAPSHOT_TABLE_REGEX = re.compile(r"^(.+)@(\d{13})$")
 
+
 # We can't use close as it is not called if the ingestion is not successful
-
-
 def cleanup(config: BigQueryV2Config) -> None:
     if config._credentials_path is not None:
         logger.debug(
@@ -189,6 +188,8 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
 
     def get_bigquery_client(self) -> bigquery.Client:
         client_options = self.config.extra_client_options.copy()
+        if self.config.project_id:
+            client_options["project"] = self.config.project_id
         return bigquery.Client(**client_options)
 
     @staticmethod
@@ -216,25 +217,28 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
             connection_conf.end_time = datetime.now() + timedelta(minutes=1)
 
             report: BigQueryV2Report = BigQueryV2Report()
+            project_ids: List[str] = []
+            projects = client.list_projects()
+            for project in projects:
+                if connection_conf.project_id_pattern.allowed(project.project_id):
+                    project_ids.append(project.project_id)
+
             lineage_extractor = BigqueryLineageExtractor(connection_conf, report)
-            try:
-                lineage_extractor.test_capability()
+            for id in project_ids:
+                try:
+                    lineage_extractor.test_capability(id)
+                except Exception as e:
+                    _report[SourceCapability.LINEAGE_COARSE] = CapabilityReport(
+                        capable=False,
+                        failure_reason=f"Lineage capability test failed with: {e}",
+                    )
+                    break
+
+            if SourceCapability.LINEAGE_COARSE not in _report:
                 _report[SourceCapability.LINEAGE_COARSE] = CapabilityReport(
                     capable=True
                 )
-            except Exception as e:
-                _report[SourceCapability.LINEAGE_COARSE] = CapabilityReport(
-                    capable=False,
-                    failure_reason=f"Lineage capability test failed with: {e}",
-                )
 
-            project_ids: List[str] = []
-            if connection_conf.project_id:
-                project_ids.append(connection_conf.project_id)
-            else:
-                projects = client.list_projects()
-                for project in projects:
-                    project_ids.append(project.project_id)
             usage_extractor = BigQueryUsageExtractor(connection_conf, report)
             for project_id in project_ids:
                 try:
@@ -246,6 +250,7 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
                         failure_reason=f"Usage capability test failed with: {e} for project {project_id}",
                     )
                     break
+
             if SourceCapability.USAGE_STATS not in _report:
                 _report[SourceCapability.USAGE_STATS] = CapabilityReport(capable=True)
 

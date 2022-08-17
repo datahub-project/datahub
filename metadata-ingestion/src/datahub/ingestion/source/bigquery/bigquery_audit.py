@@ -6,6 +6,7 @@ from datetime import datetime
 from typing import Any, Dict, List, Optional, Tuple
 
 from dateutil import parser
+from google.cloud.logging_v2.client import Client as GCPLoggingClient
 
 from datahub.emitter.mce_builder import make_dataset_urn
 
@@ -86,6 +87,19 @@ AuditLogEntry = Any
 BigQueryAuditMetadata = Any
 
 logger: logging.Logger = logging.getLogger(__name__)
+
+
+def _make_gcp_logging_client(
+    project_id: Optional[str] = None, extra_client_options: Dict[str, Any] = {}
+) -> GCPLoggingClient:
+    # See https://github.com/googleapis/google-cloud-python/issues/2674 for
+    # why we disable gRPC here.
+    client_options = extra_client_options.copy()
+    client_options["_use_grpc"] = False
+    if project_id is not None:
+        return GCPLoggingClient(**client_options, project=project_id)
+    else:
+        return GCPLoggingClient(**client_options)
 
 
 @dataclass(frozen=True, order=True)
