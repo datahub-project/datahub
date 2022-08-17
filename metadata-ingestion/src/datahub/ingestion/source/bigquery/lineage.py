@@ -1,7 +1,7 @@
 import collections
 import logging
 import textwrap
-from typing import Any, Dict, Iterable, List, Optional, Set, Union
+from typing import Any, Dict, Iterable, List, Optional, Set, Tuple, Union
 
 from google.cloud.bigquery import Client as BigQueryClient
 from google.cloud.logging_v2.client import Client as GCPLoggingClient
@@ -456,7 +456,7 @@ class BigqueryLineageExtractor:
 
     def get_upstream_lineage_info(
         self, table_identifier: BigqueryTableIdentifier, platform: str
-    ) -> Optional[tuple[UpstreamLineageClass, Dict[str, str]]]:
+    ) -> Optional[Tuple[UpstreamLineageClass, Dict[str, str]]]:
         if self.lineage_metadata is None:
             self.lineage_metadata = self._compute_bigquery_lineage(
                 table_identifier.project_id
