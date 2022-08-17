@@ -15,8 +15,10 @@ source:
         password: "\${HIVE_PASSWORD}"# Your Hive password, e.g. password_01
 `;
 
+export const HIVE = 'hive';
+
 const hiveConfig: SourceConfig = {
-    type: 'hive',
+    type: HIVE,
     placeholderRecipe,
     displayName: 'Hive',
     docsUrl: 'https://datahubproject.io/docs/generated/ingestion/sources/hive/',
