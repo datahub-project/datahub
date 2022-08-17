@@ -91,16 +91,19 @@ class DeltaLakeSourceConfig(PlatformSourceConfigBase, EnvBasedSourceConfigBase):
             return None
         return v
 
-    @pydantic.root_validator()
-    def validate_config(cls, values: Dict) -> Dict[str, Any]:
-        # breakpoint()
-        is_s3 = is_s3_uri(values.get("base_path", ""))
-        if is_s3:
-            if values.get("s3") is None:
-                raise ValueError("s3 config must be set for s3 path")
-        values["_complete_path"] = values.get("base_path")
-        if values.get("relative_path") is not None:
-            values[
-                "_complete_path"
-            ] = f"{values['_complete_path'].rstrip('/')}/{values['relative_path'].lstrip('/')}"
-        return values
+
+#    @pydantic.root_validator()
+#    def validate_config(cls, values: Dict) -> Dict[str, Any]:
+#        is_s3 = is_s3_uri(values.get("base_path", ""))
+#        if is_s3:
+#            if values.get("s3") is None:
+#                raise ValueError("s3 config must be set for s3 path")
+# =======
+#        values["_is_s3"] = is_s3_uri(values.get("base_path", ""))
+# >>>>>>> upstream/master
+#        values["_complete_path"] = values.get("base_path")
+#        if values.get("relative_path") is not None:
+#            values[
+#                "_complete_path"
+#            ] = f"{values['_complete_path'].rstrip('/')}/{values['relative_path'].lstrip('/')}"
+#        return values

@@ -68,6 +68,7 @@ class DataHubValidationAction(ValidationAction):
         data_context: DataContext,
         server_url: str,
         env: str = builder.DEFAULT_ENV,
+        platform_alias: Optional[str] = None,
         platform_instance_map: Optional[Dict[str, str]] = None,
         graceful_exceptions: bool = True,
         token: Optional[str] = None,
@@ -75,11 +76,13 @@ class DataHubValidationAction(ValidationAction):
         retry_status_codes: Optional[List[int]] = None,
         retry_max_times: Optional[int] = None,
         extra_headers: Optional[Dict[str, str]] = None,
+        exclude_dbname: Optional[bool] = None,
         parse_table_names_from_sql: bool = False,
     ):
         super().__init__(data_context)
         self.server_url = server_url
         self.env = env
+        self.platform_alias = platform_alias
         self.platform_instance_map = platform_instance_map
         self.graceful_exceptions = graceful_exceptions
         self.token = token
@@ -87,6 +90,7 @@ class DataHubValidationAction(ValidationAction):
         self.retry_status_codes = retry_status_codes
         self.retry_max_times = retry_max_times
         self.extra_headers = extra_headers
+        self.exclude_dbname = exclude_dbname
         self.parse_table_names_from_sql = parse_table_names_from_sql
 
     def _run(
@@ -190,11 +194,12 @@ class DataHubValidationAction(ValidationAction):
             result = "DataHub notification succeeded"
         except Exception as e:
             result = "DataHub notification failed"
-            if not self.graceful_exceptions:
+            if self.graceful_exceptions:
+                logger.error(e)
+                logger.info("Supressing error because graceful_exceptions is set")
+            else:
                 raise
 
-            logger.error(e)
-            logger.info("Suppressing error because graceful_exceptions is set")
         return {"datahub_notification_result": result}
 
     def get_assertions_with_results(
@@ -589,6 +594,8 @@ class DataHubValidationAction(ValidationAction):
                     self.get_platform_instance(
                         data_asset.active_batch_definition.datasource_name
                     ),
+                    self.exclude_dbname,
+                    self.platform_alias,
                 )
                 batchSpec = BatchSpec(
                     nativeBatchId=batch_identifier,
@@ -650,6 +657,8 @@ class DataHubValidationAction(ValidationAction):
                         self.get_platform_instance(
                             data_asset.active_batch_definition.datasource_name
                         ),
+                        self.exclude_dbname,
+                        self.platform_alias,
                     )
                     dataset_partitions.append(
                         {
@@ -675,9 +684,9 @@ class DataHubValidationAction(ValidationAction):
         return dataset_partitions
 
     def get_platform_instance(self, datasource_name):
-        if self.platform_instance_map:
-            if datasource_name in self.platform_instance_map:
-                return self.platform_instance_map[datasource_name]
+        if self.platform_instance_map and datasource_name in self.platform_instance_map:
+            return self.platform_instance_map[datasource_name]
+        else:
             warn(
                 f"Datasource {datasource_name} is not present in platform_instance_map"
             )
@@ -685,7 +694,13 @@ class DataHubValidationAction(ValidationAction):
 
 
 def make_dataset_urn_from_sqlalchemy_uri(
-    sqlalchemy_uri, schema_name, table_name, env, platform_instance=None
+    sqlalchemy_uri,
+    schema_name,
+    table_name,
+    env,
+    platform_instance=None,
+    exclude_dbname=None,
+    platform_alias=None,
 ):
 
     data_platform = get_platform_from_sqlalchemy_uri(str(sqlalchemy_uri))
@@ -701,7 +716,11 @@ def make_dataset_urn_from_sqlalchemy_uri(
                 f"DataHubValidationAction failed to locate database name for {data_platform}."
             )
             return None
-        schema_name = f"{url_instance.database}.{schema_name}"
+        schema_name = (
+            schema_name
+            if exclude_dbname
+            else "{}.{}".format(url_instance.database, schema_name)
+        )
     elif data_platform == "mssql":
         schema_name = schema_name or "dbo"
         if url_instance.database is None:
@@ -709,7 +728,11 @@ def make_dataset_urn_from_sqlalchemy_uri(
                 f"DataHubValidationAction failed to locate database name for {data_platform}."
             )
             return None
-        schema_name = f"{url_instance.database}.{schema_name}"
+        schema_name = (
+            schema_name
+            if exclude_dbname
+            else "{}.{}".format(url_instance.database, schema_name)
+        )
     elif data_platform in ["trino", "snowflake"]:
         if schema_name is None or url_instance.database is None:
             warn(
@@ -721,12 +744,17 @@ def make_dataset_urn_from_sqlalchemy_uri(
         # If data platform is snowflake, we artificially lowercase the Database name.
         # This is because DataHub also does this during ingestion.
         # Ref: https://github.com/datahub-project/datahub/blob/master/metadata-ingestion%2Fsrc%2Fdatahub%2Fingestion%2Fsource%2Fsql%2Fsnowflake.py#L272
-        schema_name = "{}.{}".format(
+        database_name = (
             url_instance.database.lower()
             if data_platform == "snowflake"
-            else url_instance.database,
-            schema_name,
+            else url_instance.database
         )
+        schema_name = (
+            schema_name
+            if exclude_dbname
+            else "{}.{}".format(database_name, schema_name)
+        )
+
     elif data_platform == "bigquery":
         if url_instance.host is None or url_instance.database is None:
             warn(
@@ -735,7 +763,7 @@ def make_dataset_urn_from_sqlalchemy_uri(
                 )
             )
             return None
-        schema_name = f"{url_instance.host}.{url_instance.database}"
+        schema_name = "{}.{}".format(url_instance.host, url_instance.database)
 
     schema_name = schema_name or url_instance.database
     if schema_name is None:
@@ -747,7 +775,7 @@ def make_dataset_urn_from_sqlalchemy_uri(
     dataset_name = f"{schema_name}.{table_name}"
 
     dataset_urn = builder.make_dataset_urn_with_platform_instance(
-        platform=data_platform,
+        platform=data_platform if platform_alias is None else platform_alias,
         name=dataset_name,
         platform_instance=platform_instance,
         env=env,

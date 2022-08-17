@@ -1,6 +1,6 @@
 # Website
 
-This website is built using [Docusaurus 2](https://v2.docusaurus.io/), a modern static website generator.
+This website is built using [Docusaurus](https://docusaurus.io/), a modern static website generator.
 
 ## Installation
 
@@ -11,32 +11,27 @@ yarn install
 ## Local Development
 
 ```console
+../gradlew yarnStart
+
+# You may also have success running the underlying commands manually.
 yarn run lint
 yarn run generate
 yarn run start
 ```
 
-This command starts a local development server and open up a browser window. Most changes are reflected live without having to restart the server.
+This command starts a local development server and open up a browser window.
 
 ## Build
 
 ```console
-yarn build
+../gradlew yarnBuild
 ```
 
-This command generates static content into the `build` directory and can be served using any static contents hosting service.
-
-## Deployment
-
-```console
-GIT_USER=<Your GitHub username> USE_SSH=true yarn deploy
-```
-
-If you are using GitHub pages for hosting, this command is a convenient way to build the website and push to the `gh-pages` branch.
+This command generates static content into the `dist` directory and can be served using any static contents hosting service. You can preview the built static site using `../gradlew serve`, although we're recommend using the local development instructions locally.
 
 ## Generating GraphQL API Docs
 
-To regenerate GraphQL API docs, simplym rebuild the docs-website directory. 
+To regenerate GraphQL API docs, simply rebuild the docs-website directory. 
 
 ```console
 ./gradlew docs-website:build

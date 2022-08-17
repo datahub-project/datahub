@@ -28,13 +28,13 @@ from datahub.ingestion.source.aws.s3_util import (
     get_key_prefix,
     strip_s3_prefix,
 )
-from datahub.ingestion.source.data_lake.data_lake_utils import ContainerWUCreator
 from datahub.ingestion.source.delta_lake.config import DeltaLakeSourceConfig
 from datahub.ingestion.source.delta_lake.delta_lake_utils import (
     get_file_count,
     read_delta_table,
 )
 from datahub.ingestion.source.delta_lake.report import DeltaLakeSourceReport
+from datahub.ingestion.source.s3.data_lake_utils import ContainerWUCreator
 from datahub.ingestion.source.schema_inference.csv_tsv import tableschema_type_map
 from datahub.metadata.com.linkedin.pegasus2avro.metadata.snapshot import DatasetSnapshot
 from datahub.metadata.com.linkedin.pegasus2avro.mxe import MetadataChangeEvent

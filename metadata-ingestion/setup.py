@@ -107,9 +107,9 @@ sql_common = {
     # Required for all SQL sources.
     "sqlalchemy==1.3.24",
     # Required for SQL profiling.
-    "great-expectations>=0.14.11,<0.15.3",
-    # datahub does not depend on Jinja2 directly but great expectations does. With Jinja2 3.1.0 GE 0.14.11 is breaking
-    "Jinja2<3.1.0",
+    "great-expectations>=0.15.12",
+    # GE added handling for higher version of jinja2
+    # https://github.com/great-expectations/great_expectations/pull/5382/files
     # datahub does not depend on traitlets directly but great expectations does.
     # https://github.com/ipython/traitlets/issues/741
     "traitlets<5.2.2",
@@ -167,7 +167,13 @@ trino = {
 
 microsoft_common = {"msal==1.16.0"}
 
-data_lake_base = {
+iceberg_common = {
+    # Iceberg Python SDK
+    "acryl-iceberg-legacy==0.0.4",
+    "azure-identity==1.10.0",
+}
+
+s3_base = {
     *aws_common,
     "parse>=1.19.0",
     "pyarrow>=6.0.1",
@@ -175,20 +181,14 @@ data_lake_base = {
     "ujson>=4.3.0",
     "types-ujson>=4.2.1",
     "smart-open[s3]>=5.2.1",
+    "moto[s3]",
+    *path_spec_common,
 }
 
 data_lake_profiling = {
     "pydeequ==1.0.1",
     "pyspark==3.0.3",
 }
-
-iceberg_common = {
-    # Iceberg Python SDK
-    "acryl-iceberg-legacy==0.0.4",
-    "azure-identity==1.10.0",
-}
-
-s3_base = {*data_lake_base, "moto[s3]", *path_spec_common}
 
 delta_lake = {
     *s3_base,
@@ -230,8 +230,6 @@ plugins: Dict[str, Set[str]] = {
     },
     "datahub-lineage-file": set(),
     "datahub-business-glossary": set(),
-    "data-lake": {*data_lake_base, *data_lake_profiling},
-    "s3": {*s3_base, *data_lake_profiling},
     "delta-lake": {*data_lake_profiling, *delta_lake},
     "dbt": {"requests", "cached_property"} | aws_common,
     "druid": sql_common | {"pydruid>=0.6.2"},
@@ -282,6 +280,7 @@ plugins: Dict[str, Set[str]] = {
     "redash": {"redash-toolbelt", "sql-metadata", "sqllineage==1.3.5"},
     "redshift": sql_common | redshift_common,
     "redshift-usage": sql_common | usage_common | redshift_common,
+    "s3": {*s3_base, *data_lake_profiling},
     "sagemaker": aws_common,
     "salesforce": {"simple-salesforce"},
     "snowflake": snowflake_common,
@@ -290,6 +289,7 @@ plugins: Dict[str, Set[str]] = {
     | {
         "more-itertools>=8.12.0",
     },
+    "snowflake-beta": snowflake_common | usage_common,
     "sqlalchemy": sql_common,
     "superset": {
         "requests",
@@ -382,7 +382,6 @@ base_dev_requirements = {
             "redash",
             "redshift",
             "redshift-usage",
-            "data-lake",
             "s3",
             "tableau",
             "trino",
@@ -467,7 +466,6 @@ entry_points = {
         "bigquery-usage = datahub.ingestion.source.usage.bigquery_usage:BigQueryUsageSource",
         "clickhouse = datahub.ingestion.source.sql.clickhouse:ClickHouseSource",
         "clickhouse-usage = datahub.ingestion.source.usage.clickhouse_usage:ClickHouseUsageSource",
-        "data-lake = datahub.ingestion.source.data_lake:DataLakeSource",
         "delta-lake = datahub.ingestion.source.delta_lake:DeltaLakeSource",
         "s3 = datahub.ingestion.source.s3:S3Source",
         "dbt = datahub.ingestion.source.dbt:DBTSource",
@@ -499,6 +497,7 @@ entry_points = {
         "redshift-usage = datahub.ingestion.source.usage.redshift_usage:RedshiftUsageSource",
         "snowflake = datahub.ingestion.source.sql.snowflake:SnowflakeSource",
         "snowflake-usage = datahub.ingestion.source.usage.snowflake_usage:SnowflakeUsageSource",
+        "snowflake-beta = datahub.ingestion.source.snowflake.snowflake_v2:SnowflakeV2Source",
         "superset = datahub.ingestion.source.superset:SupersetSource",
         "tableau = datahub.ingestion.source.tableau:TableauSource",
         "openapi = datahub.ingestion.source.openapi:OpenApiSource",
