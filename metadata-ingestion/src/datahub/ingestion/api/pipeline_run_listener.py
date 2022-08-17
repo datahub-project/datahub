@@ -4,14 +4,14 @@ from typing import Any, Dict
 from datahub.ingestion.api.common import PipelineContext
 
 
-class IngestionRunSummaryReporter(ABC):
+class PipelineRunListener(ABC):
     @abstractmethod
-    def notify_on_pipeline_start(self, ctx: PipelineContext) -> None:
+    def on_start(self, ctx: PipelineContext) -> None:
         # Perform
         pass
 
     @abstractmethod
-    def notify_on_pipeline_completion(
+    def on_completion(
         self,
         status: str,
         report: Dict[str, Any],
@@ -21,8 +21,6 @@ class IngestionRunSummaryReporter(ABC):
 
     @classmethod
     @abstractmethod
-    def create(
-        cls, config_dict: dict, ctx: PipelineContext
-    ) -> "IngestionRunSummaryReporter":
+    def create(cls, config_dict: dict, ctx: PipelineContext) -> "PipelineRunListener":
         # Creation and initialization.
         pass

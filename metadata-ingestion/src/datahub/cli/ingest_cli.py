@@ -11,7 +11,6 @@ from typing import Optional
 
 import click
 from click_default_group import DefaultGroup
-from pydantic import ValidationError
 from tabulate import tabulate
 
 import datahub as datahub_package
@@ -179,9 +178,6 @@ def run(
         pipeline = Pipeline.create(
             pipeline_config, dry_run, preview, preview_workunits, report_to
         )
-    except ValidationError as e:
-        click.echo(e, err=True)
-        sys.exit(1)
     except Exception as e:
         # The pipeline_config may contain sensitive information, so we wrap the exception
         # in a SensitiveError to prevent detailed variable-level information from being logged.

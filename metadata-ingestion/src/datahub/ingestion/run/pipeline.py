@@ -17,9 +17,7 @@ from datahub.configuration.common import (
 )
 from datahub.ingestion.api.committable import CommitPolicy
 from datahub.ingestion.api.common import EndOfStream, PipelineContext, RecordEnvelope
-from datahub.ingestion.api.ingestion_run_summary_reporter import (
-    IngestionRunSummaryReporter,
-)
+from datahub.ingestion.api.pipeline_run_listener import PipelineRunListener
 from datahub.ingestion.api.sink import Sink, WriteCallback
 from datahub.ingestion.api.source import Extractor, Source
 from datahub.ingestion.api.transform import Transformer
@@ -117,6 +115,10 @@ class LoggingCallback(WriteCallback):
         )
 
 
+class PipelineInitError(Exception):
+    pass
+
+
 class Pipeline:
     config: PipelineConfig
     ctx: PipelineContext
@@ -125,9 +127,7 @@ class Pipeline:
     transformers: List[Transformer]
 
     def _record_initialization_failure(self, e: Exception, msg: str) -> None:
-        self.pipeline_init_exception: Optional[Exception] = e
-        self.pipeline_init_failures: Optional[str] = f"{msg} due to {e}"
-        logger.exception(e)
+        raise PipelineInitError(msg) from e
 
     def __init__(
         self,
@@ -142,23 +142,27 @@ class Pipeline:
         self.preview_mode = preview_mode
         self.preview_workunits = preview_workunits
         self.report_to = report_to
-        self.ctx = PipelineContext(
-            run_id=self.config.run_id,
-            datahub_api=self.config.datahub_api,
-            pipeline_name=self.config.pipeline_name,
-            dry_run=dry_run,
-            preview_mode=preview_mode,
-            pipeline_config=self.config,
-        )
-        self.pipeline_init_failures = None
-        self.pipeline_init_exception = None
-        self.reporters: List[IngestionRunSummaryReporter] = []
+        self.reporters: List[PipelineRunListener] = []
+
+        try:
+            self.ctx = PipelineContext(
+                run_id=self.config.run_id,
+                datahub_api=self.config.datahub_api,
+                pipeline_name=self.config.pipeline_name,
+                dry_run=dry_run,
+                preview_mode=preview_mode,
+                pipeline_config=self.config,
+            )
+        except Exception as e:
+            self._record_initialization_failure(e, "Failed to set up framework context")
 
         sink_type = self.config.sink.type
         try:
             sink_class = sink_registry.get(sink_type)
         except Exception as e:
-            self._record_initialization_failure(e, "Failed to create a sink")
+            self._record_initialization_failure(
+                e, f"Failed to find a registered sink for type {sink_type}"
+            )
             return
 
         try:
@@ -170,6 +174,12 @@ class Pipeline:
             self._record_initialization_failure(
                 e, f"Failed to configure sink ({sink_type})"
             )
+
+        # once a sink is configured, we can configure reporting immediately to get observability
+        try:
+            self._configure_reporting()
+        except Exception as e:
+            self._record_initialization_failure(e, "Failed to configure reporters")
             return
 
         try:
@@ -204,12 +214,6 @@ class Pipeline:
             self._record_initialization_failure(e, "Failed to configure transformers")
             return
 
-        try:
-            self._configure_reporting()
-        except Exception as e:
-            self._record_initialization_failure(e, "Failed to configure reporters")
-            return
-
     def _configure_transforms(self) -> None:
         self.transformers = []
         if self.config.transformers is not None:
@@ -240,19 +244,26 @@ class Pipeline:
             )
             logger.debug(f"Reporter type:{reporter_type},{reporter_class} configured.")
 
-    def _notify_repoters_on_ingestion_start(self) -> None:
+    def _notify_reporters_on_ingestion_start(self) -> None:
         for reporter in self.reporters:
-            reporter.notify_on_pipeline_start(ctx=self.ctx)
+            try:
+                reporter.on_start(ctx=self.ctx)
+            except Exception as e:
+                logger.warning("Reporting failed on start", exc_info=e)
 
-    def _notify_repoters_on_ingestion_completion(self) -> None:
+    def _notify_reporters_on_ingestion_completion(self) -> None:
         for reporter in self.reporters:
-            reporter.notify_on_pipeline_completion(
-                status="FAILED"
-                if self.source.get_report().failures or self.sink.get_report().failures
-                else "SUCCESS",
-                report=self._get_structured_report(),
-                ctx=self.ctx,
-            )
+            try:
+                reporter.on_completion(
+                    status="FAILED"
+                    if self.source.get_report().failures
+                    or self.sink.get_report().failures
+                    else "SUCCESS",
+                    report=self._get_structured_report(),
+                    ctx=self.ctx,
+                )
+            except Exception as e:
+                logger.warning("Reporting failed on completion", exc_info=e)
 
     @classmethod
     def create(
@@ -273,11 +284,8 @@ class Pipeline:
         )
 
     def run(self) -> None:
-        if self.pipeline_init_failures:
-            # no point continuing, return early
-            return
 
-        self._notify_repoters_on_ingestion_start()
+        self._notify_reporters_on_ingestion_start()
         try:
             callback = LoggingCallback()
             extractor: Extractor = self.extractor_class()
@@ -320,7 +328,7 @@ class Pipeline:
             self.sink.close()
             self.process_commits()
         finally:
-            self._notify_repoters_on_ingestion_completion()
+            self._notify_reporters_on_ingestion_completion()
 
     def transform(self, records: Iterable[RecordEnvelope]) -> Iterable[RecordEnvelope]:
         """
@@ -373,9 +381,6 @@ class Pipeline:
                 logger.info(f"Successfully committed changes for {name}.")
 
     def raise_from_status(self, raise_warnings: bool = False) -> None:
-        if self.pipeline_init_exception:
-            raise self.pipeline_init_exception
-
         if self.source.get_report().failures:
             raise PipelineExecutionError(
                 "Source reported errors", self.source.get_report()
@@ -390,18 +395,17 @@ class Pipeline:
             )
 
     def log_ingestion_stats(self) -> None:
-        if not self.pipeline_init_failures:
-            telemetry.telemetry_instance.ping(
-                "ingest_stats",
-                {
-                    "source_type": self.config.source.type,
-                    "sink_type": self.config.sink.type,
-                    "records_written": stats.discretize(
-                        self.sink.get_report().records_written
-                    ),
-                },
-                self.ctx.graph,
-            )
+        telemetry.telemetry_instance.ping(
+            "ingest_stats",
+            {
+                "source_type": self.config.source.type,
+                "sink_type": self.config.sink.type,
+                "records_written": stats.discretize(
+                    self.sink.get_report().records_written
+                ),
+            },
+            self.ctx.graph,
+        )
 
     def _count_all_vals(self, d: Dict[str, List]) -> int:
         result = 0
@@ -411,9 +415,6 @@ class Pipeline:
 
     def pretty_print_summary(self, warnings_as_failure: bool = False) -> int:
         click.echo()
-        if self.pipeline_init_failures:
-            click.secho(f"{self.pipeline_init_failures}", fg="red")
-            return 1
         click.secho(f"Source ({self.config.source.type}) report:", bold=True)
         click.echo(self.source.get_report().as_string())
         click.secho(f"Sink ({self.config.sink.type}) report:", bold=True)

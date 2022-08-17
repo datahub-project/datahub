@@ -7,9 +7,7 @@ from datahub.configuration.common import ConfigModel, ConfigurationError
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.emitter.mcp_builder import make_data_platform_urn
 from datahub.ingestion.api.common import PipelineContext
-from datahub.ingestion.api.ingestion_run_summary_reporter import (
-    IngestionRunSummaryReporter,
-)
+from datahub.ingestion.api.pipeline_run_listener import PipelineRunListener
 from datahub.ingestion.graph.client import DatahubClientConfig, DataHubGraph
 from datahub.metadata.schema_classes import (
     DataHubIngestionSourceConfigClass,
@@ -26,7 +24,7 @@ class DatahubIngestionRunSummaryProviderConfig(ConfigModel):
     datahub_api: Optional[DatahubClientConfig] = DatahubClientConfig()
 
 
-class DatahubIngestionRunSummaryProvider(IngestionRunSummaryReporter):
+class DatahubIngestionRunSummaryProvider(PipelineRunListener):
 
     _EXECUTOR_ID: str = "__datahub_cli_"
     _EXECUTION_REQUEST_SOURCE_TYPE: str = "INGESTION_SOURCE"
@@ -38,8 +36,10 @@ class DatahubIngestionRunSummaryProvider(IngestionRunSummaryReporter):
 
     @classmethod
     def create(
-        cls, config_dict: Dict[str, Any], ctx: PipelineContext
-    ) -> IngestionRunSummaryReporter:
+        cls,
+        config_dict: Dict[str, Any],
+        ctx: PipelineContext,
+    ) -> PipelineRunListener:
         if ctx.graph:
             return cls(ctx.graph, ctx)
         elif config_dict is None:
@@ -115,7 +115,7 @@ class DatahubIngestionRunSummaryProvider(IngestionRunSummaryReporter):
             )
         )
 
-    def notify_on_pipeline_start(self, ctx: PipelineContext) -> None:
+    def on_start(self, ctx: PipelineContext) -> None:
         assert ctx.pipeline_config is not None
         # Construct the dataHubExecutionRequestInput aspect
         execution_input_aspect = ExecutionRequestInputClass(
@@ -138,7 +138,7 @@ class DatahubIngestionRunSummaryProvider(IngestionRunSummaryReporter):
             aspect_value=execution_input_aspect,
         )
 
-    def notify_on_pipeline_completion(
+    def on_completion(
         self,
         status: str,
         report: Dict[str, Any],
