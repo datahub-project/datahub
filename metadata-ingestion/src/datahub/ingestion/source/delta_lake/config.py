@@ -2,6 +2,7 @@ import logging
 from typing import Any, Dict, Optional
 
 import pydantic
+from cached_property import cached_property
 from pydantic import Field
 
 from datahub.configuration.common import AllowDenyPattern
@@ -33,8 +34,8 @@ class S3(ConfigModel):
 
 
 class DeltaLakeSourceConfig(PlatformSourceConfigBase, EnvBasedSourceConfigBase):
-    class Config:
-        arbitrary_types_allowed = True
+    # class Config:
+    #    arbitrary_types_allowed = True
 
     base_path: str = Field(
         description="Path to table (s3 or local file system). If path is not a delta table path "
@@ -67,14 +68,22 @@ class DeltaLakeSourceConfig(PlatformSourceConfigBase, EnvBasedSourceConfigBase):
     s3: Optional[S3] = Field()
 
     # to be set internally
-    _is_s3: bool
-    _complete_path: str
+    # _is_s3: bool = False
+    # _complete_path: str
 
+    @cached_property
     def is_s3(self):
-        return self._is_s3
+        return is_s3_uri(self.base_path or "")
 
-    def get_complete_path(self):
-        return self._complete_path
+    @cached_property
+    def complete_path(self):
+        complete_path = self.base_path
+        if self.relative_path is not None:
+            complete_path = (
+                f"{complete_path.rstrip('/')}/{self.relative_path.lstrip('/')}"
+            )
+
+        return complete_path
 
     @pydantic.validator("version_history_lookback")
     def negative_version_history_implies_no_limit(cls, v):
@@ -84,8 +93,9 @@ class DeltaLakeSourceConfig(PlatformSourceConfigBase, EnvBasedSourceConfigBase):
 
     @pydantic.root_validator()
     def validate_config(cls, values: Dict) -> Dict[str, Any]:
-        values["_is_s3"] = is_s3_uri(values.get("base_path", ""))
-        if values["_is_s3"]:
+        # breakpoint()
+        is_s3 = is_s3_uri(values.get("base_path", ""))
+        if is_s3:
             if values.get("s3") is None:
                 raise ValueError("s3 config must be set for s3 path")
         values["_complete_path"] = values.get("base_path")

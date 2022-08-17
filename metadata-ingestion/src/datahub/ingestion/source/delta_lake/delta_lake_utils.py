@@ -11,7 +11,7 @@ def read_delta_table(
     delta_table = None
     try:
         opts = {}
-        if delta_lake_config.is_s3():
+        if delta_lake_config.is_s3:
             if delta_lake_config.s3 is None:
                 raise ValueError("aws_config not set. Cannot browse s3")
             if delta_lake_config.s3.aws_config is None:

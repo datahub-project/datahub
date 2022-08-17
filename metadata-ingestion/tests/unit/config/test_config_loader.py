@@ -102,7 +102,7 @@ from datahub.configuration.config_loader import load_config_file
                                 "stuff8",
                                 "test_url$vanillavar",
                                 "test_urlstuff9vanillaVarstuff10",
-                                "stuff11",
+                                "${VAR11}",
                             ]
                         },
                     ],
@@ -134,4 +134,5 @@ def test_load(pytestconfig, filename, golden_config, env, error_type):
                 _ = load_config_file(filepath)
         else:
             loaded_config = load_config_file(filepath)
+            # breakpoint()
             assert loaded_config == golden_config
