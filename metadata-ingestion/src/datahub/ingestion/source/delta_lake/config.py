@@ -34,8 +34,6 @@ class S3(ConfigModel):
 
 
 class DeltaLakeSourceConfig(PlatformSourceConfigBase, EnvBasedSourceConfigBase):
-    # class Config:
-    #    arbitrary_types_allowed = True
 
     base_path: str = Field(
         description="Path to table (s3 or local file system). If path is not a delta table path "

@@ -134,5 +134,4 @@ def test_load(pytestconfig, filename, golden_config, env, error_type):
                 _ = load_config_file(filepath)
         else:
             loaded_config = load_config_file(filepath)
-            # breakpoint()
             assert loaded_config == golden_config
