@@ -27,7 +27,7 @@ class DatahubIngestionRunSummaryProviderConfig(ConfigModel):
 class DatahubIngestionRunSummaryProvider(PipelineRunListener):
 
     _EXECUTOR_ID: str = "__datahub_cli_"
-    _EXECUTION_REQUEST_SOURCE_TYPE: str = "INGESTION_SOURCE"
+    _EXECUTION_REQUEST_SOURCE_TYPE: str = "CLI_INGESTION_SOURCE"
     _INGESTION_TASK_NAME: str = "CLI Ingestion"
 
     @staticmethod

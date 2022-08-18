@@ -218,6 +218,8 @@ def test_data_lake_incorrect_config_raises_error(tmp_path, mock_time):
     with pytest.raises(PipelineInitError) as e_info:
         Pipeline.create(config_dict)
 
+    logging.error(e_info, exc_info=e_info._excinfo)
+    # breakpoint()
     assert e_info._excinfo
     assert isinstance(e_info._excinfo[1].__cause__, ValidationError)
     logging.debug(e_info)
