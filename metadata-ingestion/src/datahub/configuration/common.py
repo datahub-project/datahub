@@ -12,7 +12,6 @@ class ConfigModel(BaseModel):
     class Config:
         extra = Extra.forbid
         underscore_attrs_are_private = True
-        # arbitrary_types_allowed = True
         keep_untouched = (
             cached_property,
         )  # needed to allow cached_property to work. See https://github.com/samuelcolvin/pydantic/issues/1241 for more info.
