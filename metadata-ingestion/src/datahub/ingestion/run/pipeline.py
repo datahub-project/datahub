@@ -63,6 +63,7 @@ class Pipeline:
         preview_mode: bool = False,
         preview_workunits: int = 10,
         report_to: Optional[str] = None,
+        no_default_report: bool = False,
     ):
         self.config = config
         self.dry_run = dry_run
@@ -104,7 +105,7 @@ class Pipeline:
 
         # once a sink is configured, we can configure reporting immediately to get observability
         try:
-            self._configure_reporting(report_to)
+            self._configure_reporting(report_to, no_default_report)
         except Exception as e:
             self._record_initialization_failure(e, "Failed to configure reporters")
             return
@@ -155,12 +156,15 @@ class Pipeline:
                     f"Transformer type:{transformer_type},{transformer_class} configured"
                 )
 
-    def _configure_reporting(self, report_to: Optional[str]) -> None:
+    def _configure_reporting(
+        self, report_to: Optional[str], no_default_report: bool
+    ) -> None:
         if report_to == "datahub":
             # we add the default datahub reporter unless a datahub reporter is already configured
-            if not self.config.reporting or "datahub" not in [
-                x.type for x in self.config.reporting
-            ]:
+            if not no_default_report and (
+                not self.config.reporting
+                or "datahub" not in [x.type for x in self.config.reporting]
+            ):
                 self.config.reporting.append(
                     ReporterConfig.parse_obj({"type": "datahub"})
                 )
@@ -223,6 +227,7 @@ class Pipeline:
         preview_mode: bool = False,
         preview_workunits: int = 10,
         report_to: Optional[str] = None,
+        no_default_report: bool = False,
         raw_config: Optional[dict] = None,
     ) -> "Pipeline":
         config = PipelineConfig.from_dict(config_dict, raw_config)
@@ -232,6 +237,7 @@ class Pipeline:
             preview_mode=preview_mode,
             preview_workunits=preview_workunits,
             report_to=report_to,
+            no_default_report=no_default_report,
         )
 
     def run(self) -> None:

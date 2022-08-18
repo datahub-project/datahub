@@ -95,7 +95,14 @@ def ingest() -> None:
     "--report-to",
     type=str,
     default="datahub",
-    help="Provide an destination to send a structured report from the run. Default is 'datahub' and sends the report directly to the datahub server. Any other string is currently assumed to be a file that you want to write the report to. Supplements the reporting configuration in the recipe",
+    help="Provide an destination to send a structured report from the run. The default is 'datahub' and sends the report directly to the datahub server (using the sink configured in your recipe). Use the --no-default-report flag to turn off this default feature. Any other parameter passed to this argument is currently assumed to be a file that you want to write the report to. Supplements the reporting configuration in the recipe",
+)
+@click.option(
+    "--no-default-report",
+    type=bool,
+    is_flag=True,
+    default=False,
+    help="Turn off default reporting of ingestion results to DataHub",
 )
 @click.pass_context
 @telemetry.with_telemetry
@@ -110,6 +117,7 @@ def run(
     suppress_error_logs: bool,
     test_source_connection: bool,
     report_to: str,
+    no_default_report: bool,
 ) -> None:
     """Ingest metadata into DataHub."""
 
@@ -185,6 +193,7 @@ def run(
             preview,
             preview_workunits,
             report_to,
+            no_default_report,
             raw_pipeline_config,
         )
     except Exception as e:
