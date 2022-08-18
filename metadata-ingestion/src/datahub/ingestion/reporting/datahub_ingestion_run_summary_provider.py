@@ -105,7 +105,7 @@ class DatahubIngestionRunSummaryProvider(PipelineRunListener):
         self.execution_request_input_urn: Urn = Urn(
             entity_type="dataHubExecutionRequest", entity_id=[ctx.run_id]
         )
-        self.start_time_ms: int = int(time.time() * 1000)
+        self.start_time_ms: int = self.get_cur_time_in_ms()
 
         # Construct the dataHubIngestionSourceInfo aspect
         source_info_aspect = DataHubIngestionSourceInfoClass(
@@ -133,7 +133,6 @@ class DatahubIngestionRunSummaryProvider(PipelineRunListener):
     def _emit_aspect(
         self, entity_urn: Urn, aspect_name: str, aspect_value: _Aspect
     ) -> None:
-        breakpoint()
         self.sink.write_record_async(
             RecordEnvelope(
                 record=MetadataChangeProposalWrapper(
