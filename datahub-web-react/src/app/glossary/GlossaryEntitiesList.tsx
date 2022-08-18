@@ -1,4 +1,5 @@
 import React from 'react';
+import { Empty } from 'antd';
 import styled from 'styled-components/macro';
 import { GlossaryNodeFragment } from '../../graphql/fragments.generated';
 import { GlossaryNode, GlossaryTerm } from '../../types.generated';
@@ -20,25 +21,29 @@ function GlossaryEntitiesList(props: Props) {
     const { nodes, terms } = props;
     const entityRegistry = useEntityRegistry();
 
-    return (
-        <EntitiesWrapper>
-            {nodes.map((node) => (
-                <GlossaryEntityItem
-                    name={node.properties?.name || ''}
-                    urn={node.urn}
-                    type={node.type}
-                    count={(node as GlossaryNodeFragment).children?.count}
-                />
-            ))}
-            {terms.map((term) => (
-                <GlossaryEntityItem
-                    name={entityRegistry.getDisplayName(term.type, term)}
-                    urn={term.urn}
-                    type={term.type}
-                />
-            ))}
-        </EntitiesWrapper>
-    );
+    const contentsData =
+        nodes.length === 0 && terms.length === 0 ? (
+            <Empty description="No Contents!" image={Empty.PRESENTED_IMAGE_SIMPLE} />
+        ) : (
+            <EntitiesWrapper>
+                {nodes.map((node) => (
+                    <GlossaryEntityItem
+                        name={node.properties?.name || ''}
+                        urn={node.urn}
+                        type={node.type}
+                        count={(node as GlossaryNodeFragment).children?.count}
+                    />
+                ))}
+                {terms.map((term) => (
+                    <GlossaryEntityItem
+                        name={entityRegistry.getDisplayName(term.type, term)}
+                        urn={term.urn}
+                        type={term.type}
+                    />
+                ))}
+            </EntitiesWrapper>
+        );
+    return contentsData;
 }
 
 export default GlossaryEntitiesList;
