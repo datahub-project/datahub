@@ -1,18 +1,10 @@
 package com.linkedin.datahub.graphql.resolvers.mutate;
 
-import com.datahub.authentication.Authentication;
-import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.ImmutableSet;
 import com.linkedin.common.AuditStamp;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.generated.UpdateUserSettingsInput;
 import com.linkedin.datahub.graphql.generated.UserSetting;
-import com.linkedin.entity.Aspect;
-import com.linkedin.entity.EntityResponse;
-import com.linkedin.entity.EnvelopedAspect;
-import com.linkedin.entity.EnvelopedAspectMap;
-import com.linkedin.entity.client.EntityClient;
 import com.linkedin.events.metadata.ChangeType;
 import com.linkedin.identity.CorpUserSettings;
 import com.linkedin.metadata.Constants;
@@ -20,7 +12,6 @@ import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.utils.GenericRecordUtils;
 import com.linkedin.mxe.MetadataChangeProposal;
 import graphql.schema.DataFetchingEnvironment;
-import java.util.HashSet;
 import org.mockito.Mockito;
 import org.testng.annotations.Test;
 
