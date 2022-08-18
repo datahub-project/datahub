@@ -39,7 +39,7 @@ const FilterWrapper = styled.div`
     display: flex;
 `;
 
-enum IngestionSourceType {
+export enum IngestionSourceType {
     ALL,
     UI,
     CLI,
