@@ -1,14 +1,18 @@
 import json
+import logging
 import time
-from typing import Any, Dict, Optional
+from typing import Any, Dict
 
 from datahub import nice_version_name
-from datahub.configuration.common import ConfigModel, ConfigurationError
+from datahub.configuration.common import ConfigModel, DynamicTypedConfig
+from datahub.emitter.mce_builder import datahub_guid
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.emitter.mcp_builder import make_data_platform_urn
-from datahub.ingestion.api.common import PipelineContext
+from datahub.ingestion.api.common import PipelineContext, RecordEnvelope
 from datahub.ingestion.api.pipeline_run_listener import PipelineRunListener
-from datahub.ingestion.graph.client import DatahubClientConfig, DataHubGraph
+from datahub.ingestion.api.sink import NoopWriteCallback, Sink
+from datahub.ingestion.run.pipeline_config import PipelineConfig
+from datahub.ingestion.sink.sink_registry import sink_registry
 from datahub.metadata.schema_classes import (
     DataHubIngestionSourceConfigClass,
     DataHubIngestionSourceInfoClass,
@@ -19,9 +23,11 @@ from datahub.metadata.schema_classes import (
 )
 from datahub.utilities.urns.urn import Urn
 
+logger = logging.getLogger(__name__)
+
 
 class DatahubIngestionRunSummaryProviderConfig(ConfigModel):
-    datahub_api: Optional[DatahubClientConfig] = DatahubClientConfig()
+    sink: DynamicTypedConfig
 
 
 class DatahubIngestionRunSummaryProvider(PipelineRunListener):
@@ -34,48 +40,68 @@ class DatahubIngestionRunSummaryProvider(PipelineRunListener):
     def get_cur_time_in_ms() -> int:
         return int(time.time() * 1000)
 
+    @staticmethod
+    def generate_unique_key(pipeline_config: PipelineConfig) -> dict:
+        key = {}
+        key["type"] = pipeline_config.source.type
+        if pipeline_config.pipeline_name:
+            key["pipeline_name"] = pipeline_config.pipeline_name
+        if hasattr(pipeline_config.source.config, "platform_instance"):
+            key["platform_instance"] = getattr(
+                pipeline_config.source.config, "platform_instance"
+            )
+        return key
+
     @classmethod
     def create(
         cls,
         config_dict: Dict[str, Any],
         ctx: PipelineContext,
     ) -> PipelineRunListener:
-        if ctx.graph:
-            return cls(ctx.graph, ctx)
-        elif config_dict is None:
-            raise ConfigurationError("Missing provider configuration.")
-        else:
+
+        if config_dict:
             reporter_config = DatahubIngestionRunSummaryProviderConfig.parse_obj(
                 config_dict
             )
-            if reporter_config.datahub_api:
-                graph = DataHubGraph(reporter_config.datahub_api)
-                return cls(graph, ctx)
-            else:
-                raise ConfigurationError(
-                    "Missing datahub_api. Provide either a global one or under the state_provider."
+            sink_config_holder: DynamicTypedConfig = reporter_config.sink
+        else:
+            assert ctx.pipeline_config
+            sink_config_holder = ctx.pipeline_config.sink
+            # Global instances are safe to use only if the types are datahub-rest and datahub-kafka
+            # Re-using a shared file sink will result in clobbering the events
+            if sink_config_holder.type not in ["datahub-rest", "datahub-kafka"]:
+                raise ValueError(
+                    f"Datahub ingestion reporter will be disabled because sink type {sink_config_holder.type} is not supported"
                 )
 
-    def __init__(self, graph: DataHubGraph, ctx: PipelineContext) -> None:
+        sink_type = sink_config_holder.type
+        sink_class = sink_registry.get(sink_type)
+        sink_config = sink_config_holder.dict().get("config") or {}
+        sink: Sink = sink_class.create(sink_config, ctx)
+        return cls(sink, ctx)
+
+    def __init__(self, sink: Sink, ctx: PipelineContext) -> None:
         assert ctx.pipeline_config is not None
 
-        def generate_entity_name() -> str:
-            assert ctx.pipeline_config is not None
+        def generate_entity_name(key: dict) -> str:
             # Construct the unique entity name
-            entity_name_parts = ["CLI", ctx.pipeline_config.source.type]
-            if ctx.pipeline_config.pipeline_name:
-                entity_name_parts.append(ctx.pipeline_config.pipeline_name)
-            try:
-                entity_name_parts.append(getattr(ctx.pipeline_config.source, "platform_instance"))  # type: ignore
-            except AttributeError:
-                pass
-            return "-".join(entity_name_parts)
+            entity_name = f"[CLI] {key['type']}"
+            if "platform_instance" in key:
+                entity_name = f"{entity_name} ({key['platform_instance']})"
 
-        self.graph: DataHubGraph = graph
-        self.entity_name: str = generate_entity_name()
+            if "pipeline_name" in key:
+                entity_name = f"{entity_name} [{key['pipeline_name']}]"
+            return entity_name
+
+        self.sink: Sink = sink
+        ingestion_source_key = self.generate_unique_key(ctx.pipeline_config)
+        self.entity_name: str = generate_entity_name(ingestion_source_key)
+
         self.ingestion_source_urn: Urn = Urn(
-            entity_type="dataHubIngestionSource", entity_id=[self.entity_name]
+            entity_type="dataHubIngestionSource",
+            entity_id=["cli-" + datahub_guid(ingestion_source_key)],
         )
+        logger.debug(f"Ingestion source urn = {self.ingestion_source_urn}")
         self.execution_request_input_urn: Urn = Urn(
             entity_type="dataHubExecutionRequest", entity_id=[ctx.run_id]
         )
@@ -107,14 +133,19 @@ class DatahubIngestionRunSummaryProvider(PipelineRunListener):
     def _emit_aspect(
         self, entity_urn: Urn, aspect_name: str, aspect_value: _Aspect
     ) -> None:
-        self.graph.emit_mcp(
-            MetadataChangeProposalWrapper(
-                entityType=entity_urn.get_type(),
-                entityUrn=str(entity_urn),
-                aspectName=aspect_name,
-                aspect=aspect_value,
-                changeType="UPSERT",
-            )
+        breakpoint()
+        self.sink.write_record_async(
+            RecordEnvelope(
+                record=MetadataChangeProposalWrapper(
+                    entityType=entity_urn.get_type(),
+                    entityUrn=str(entity_urn),
+                    aspectName=aspect_name,
+                    aspect=aspect_value,
+                    changeType="UPSERT",
+                ),
+                metadata={},
+            ),
+            NoopWriteCallback(),
         )
 
     def on_start(self, ctx: PipelineContext) -> None:
@@ -162,3 +193,4 @@ class DatahubIngestionRunSummaryProvider(PipelineRunListener):
             aspect_name="dataHubExecutionRequestResult",
             aspect_value=execution_result_aspect,
         )
+        self.sink.close()
