@@ -61,9 +61,6 @@ public class RestoreDbtSiblingsIndices implements BootstrapStep {
     log.info("Attempting to run RestoreDbtSiblingsIndices upgrade..");
     log.info(String.format("Waiting %s seconds..", SLEEP_SECONDS));
 
-    // Sleep to ensure deployment process finishes.
-    Thread.sleep(SLEEP_SECONDS * 1000);
-
     EntityResponse response = _entityService.getEntityV2(
         Constants.DATA_HUB_UPGRADE_ENTITY_NAME, SIBLING_UPGRADE_URN,
         Collections.singleton(Constants.DATA_HUB_UPGRADE_REQUEST_ASPECT_NAME)
@@ -76,6 +73,9 @@ public class RestoreDbtSiblingsIndices implements BootstrapStep {
         return;
       }
     }
+
+    // Sleep to ensure deployment process finishes.
+    Thread.sleep(SLEEP_SECONDS * 1000);
 
     log.info("Bootstrapping sibling aspects");
 
