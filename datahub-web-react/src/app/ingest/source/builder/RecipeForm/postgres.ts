@@ -31,7 +31,7 @@ export const POSTGRES_PASSWORD: RecipeField = {
     name: 'password',
     label: 'Password',
     tooltip: 'Password',
-    type: FieldType.TEXT,
+    type: FieldType.SECRET,
     fieldPath: 'source.config.password',
     rules: null,
 };

@@ -23,7 +23,7 @@ function GlossaryEntitiesList(props: Props) {
 
     const contentsData =
         nodes.length === 0 && terms.length === 0 ? (
-            <Empty description="No Contents!" image={Empty.PRESENTED_IMAGE_SIMPLE} />
+            <Empty description="No Terms or Term Groups!" image={Empty.PRESENTED_IMAGE_SIMPLE} />
         ) : (
             <EntitiesWrapper>
                 {nodes.map((node) => (
