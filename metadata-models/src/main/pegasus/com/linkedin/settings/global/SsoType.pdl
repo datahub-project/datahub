@@ -1,0 +1,11 @@
+namespace com.linkedin.settings.global
+
+/**
+ * Enum to define SSO protocol type.
+ */
+enum SsoType {
+  /**
+   * OIDC SSO is used.
+   */
+  OIDC
+}

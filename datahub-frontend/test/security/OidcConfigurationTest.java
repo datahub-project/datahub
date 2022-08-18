@@ -313,7 +313,9 @@ public class OidcConfigurationTest {
   public void readTimeoutPropagation() {
 
     CONFIG.withValue(OIDC_READ_TIMEOUT, ConfigValueFactory.fromAnyRef("10000"));
-    OidcConfigs oidcConfigs = new OidcConfigs(CONFIG);
+    OidcConfigs.Builder oidcConfigsBuilder = new OidcConfigs.Builder();
+    oidcConfigsBuilder.from(CONFIG);
+    OidcConfigs oidcConfigs = oidcConfigsBuilder.build();
     OidcProvider oidcProvider = new OidcProvider(oidcConfigs);
     assertEquals(10000, ((OidcClient) oidcProvider.client()).getConfiguration().getReadTimeout());
   }

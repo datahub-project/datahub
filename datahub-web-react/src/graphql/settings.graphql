@@ -47,10 +47,27 @@ query getNotificationSettings {
     }
 }
 
+query getSsoSettings {
+    globalSettings {
+        ssoSettings {
+            oidcSettings {
+                enabled
+                clientId
+                clientSecret
+                discoveryUri
+            }
+        }
+    }
+}
+
 mutation updateGlobalIntegrationSettings($input: UpdateGlobalIntegrationSettingsInput!) {
     updateGlobalSettings(input: { integrationSettings: $input })
 }
 
 mutation updateGlobalNotificationSettings($input: UpdateGlobalNotificationSettingsInput!) {
     updateGlobalSettings(input: { notificationSettings: $input })
+}
+
+mutation updateSsoSettings($input: UpdateSsoSettingsInput!) {
+    updateGlobalSettings(input: { ssoSettings: $input })
 }

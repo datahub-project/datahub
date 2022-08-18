@@ -14,7 +14,9 @@ import com.linkedin.datahub.graphql.generated.StringMapEntryInput;
 import com.linkedin.datahub.graphql.generated.UpdateGlobalIntegrationSettingsInput;
 import com.linkedin.datahub.graphql.generated.UpdateGlobalNotificationSettingsInput;
 import com.linkedin.datahub.graphql.generated.UpdateGlobalSettingsInput;
+import com.linkedin.datahub.graphql.generated.UpdateOidcSettingsInput;
 import com.linkedin.datahub.graphql.generated.UpdateSlackIntegrationSettingsInput;
+import com.linkedin.datahub.graphql.generated.UpdateSsoSettingsInput;
 import com.linkedin.entity.Aspect;
 import com.linkedin.entity.EntityResponse;
 import com.linkedin.entity.EnvelopedAspect;
@@ -33,6 +35,7 @@ import com.linkedin.settings.global.GlobalSettingsInfo;
 import com.linkedin.settings.global.SlackIntegrationSettings;
 import graphql.schema.DataFetchingEnvironment;
 import org.mockito.Mockito;
+import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
 import static com.linkedin.datahub.graphql.resolvers.ingest.IngestTestUtils.*;
@@ -40,17 +43,32 @@ import static org.testng.Assert.*;
 
 
 public class UpdateGlobalSettingsResolverTest {
+  private static final String BASE_URL_VALUE = "http://localhost:9002";
+  private static final String CLIENT_ID_VALUE = "clientId";
+  private static final String CLIENT_SECRET_VALUE = "clientSecret";
+  private static final String DISCOVERY_URI_VALUE = "https://idp.com/.well-known/openid-configuration";
+  private static final UpdateGlobalSettingsInput TEST_INPUT = new UpdateGlobalSettingsInput();
 
-  private static final UpdateGlobalSettingsInput TEST_INPUT = new UpdateGlobalSettingsInput(
-      new UpdateGlobalIntegrationSettingsInput(new UpdateSlackIntegrationSettingsInput(true, "channel", "token")),
-      new UpdateGlobalNotificationSettingsInput(ImmutableList.of(
-          new NotificationSettingInput(
-              NotificationScenarioType.DATASET_SCHEMA_CHANGE,
-              NotificationSettingValue.ENABLED,
-              ImmutableList.of(new StringMapEntryInput("key", "value"))
-          )
-      ))
-  );
+  @BeforeMethod
+  public void setUp() {
+    TEST_INPUT.setIntegrationSettings(
+        new UpdateGlobalIntegrationSettingsInput(new UpdateSlackIntegrationSettingsInput(true, "channel", "token")));
+    TEST_INPUT.setNotificationSettings(new UpdateGlobalNotificationSettingsInput(ImmutableList.of(
+        new NotificationSettingInput(NotificationScenarioType.DATASET_SCHEMA_CHANGE, NotificationSettingValue.ENABLED,
+            ImmutableList.of(new StringMapEntryInput("key", "value"))))));
+
+    final UpdateSsoSettingsInput updateSsoSettingsInput = new UpdateSsoSettingsInput();
+    updateSsoSettingsInput.setBaseUrl(BASE_URL_VALUE);
+
+    final UpdateOidcSettingsInput updateOidcSettingsInput = new UpdateOidcSettingsInput();
+    updateOidcSettingsInput.setEnabled(true);
+    updateOidcSettingsInput.setClientId(CLIENT_ID_VALUE);
+    updateOidcSettingsInput.setClientSecret(CLIENT_SECRET_VALUE);
+    updateOidcSettingsInput.setDiscoveryUri(DISCOVERY_URI_VALUE);
+    updateSsoSettingsInput.setOidcSettings(updateOidcSettingsInput);
+
+    TEST_INPUT.setSsoSettings(updateSsoSettingsInput);
+  }
 
   @Test
   public void testGetSuccess() throws Exception {
@@ -77,6 +95,7 @@ public class UpdateGlobalSettingsResolverTest {
                     )))));
 
     Mockito.when(mockSecretService.encrypt("token")).thenReturn("token");
+    Mockito.when(mockSecretService.encrypt(CLIENT_SECRET_VALUE)).thenReturn(CLIENT_SECRET_VALUE);
 
     UpdateGlobalSettingsResolver resolver = new UpdateGlobalSettingsResolver(mockClient, mockSecretService);
 

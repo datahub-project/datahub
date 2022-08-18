@@ -1,22 +1,22 @@
 # DataHub UI Application-Specific GraphQL Types
 
 extend type Query {
-    """
-    Fetch details associated with the authenticated user, provided via an auth cookie or header
-    """
-    me: AuthenticatedUser
+  """
+  Fetch details associated with the authenticated user, provided via an auth cookie or header
+  """
+  me: AuthenticatedUser
 
-    """
-    Fetch configurations
-    Used by DataHub UI
-    """
-    appConfig: AppConfig
+  """
+  Fetch configurations
+  Used by DataHub UI
+  """
+  appConfig: AppConfig
 
-    """
-    Global (platform-level) settings for DataHub.
-    Requires the 'Manage Platform Settings' Platform Privilege.
-    """
-    globalSettings: GlobalSettings
+  """
+  Global (platform-level) settings for DataHub.
+  Requires the 'Manage Platform Settings' Platform Privilege.
+  """
+  globalSettings: GlobalSettings
 }
 
 extend type Mutation {
@@ -235,7 +235,6 @@ type AuthConfig {
   tokenAuthEnabled: Boolean!
 }
 
-
 """
 Configurations related to the Policies Feature
 """
@@ -345,6 +344,11 @@ type GlobalSettings {
   Global Notification Settings
   """
   notificationSettings: GlobalNotificationSettings!
+
+  """
+  Global SSO Settings
+  """
+  ssoSettings: SsoSettings
 }
 
 """
@@ -385,6 +389,99 @@ type GlobalNotificationSettings {
   The notification settings themselves.
   """
   settings: [NotificationSetting!]!
+}
+
+"""
+Global (platform-level) SSO settings.
+"""
+type SsoSettings {
+  """
+  OIDC settings. May or may not be filled in
+  """
+  oidcSettings: OidcSettings
+}
+
+type OidcSettings {
+  """
+  Whether OIDC SSO is enabled.
+  """
+  enabled: Boolean!
+
+  """
+  Unique client id issued by the identity provider.
+  """
+  clientId: String!
+
+  """
+  Unique client secret issued by the identity provider.
+  """
+  clientSecret: String!
+
+  """
+  The IdP OIDC discovery url.
+  """
+  discoveryUri: String!
+
+  """
+  ADVANCED. The attribute / claim used to derive the DataHub username. Defaults to "preferred_username".
+  """
+  userNameClaim: String
+
+  """
+  ADVANCED. String representing the requested scope from the IdP. Defaults to "oidc email profile"
+  """
+  scope: String
+
+  """
+  ADVANCED. Which authentication method to use to pass credentials (clientId and clientSecret) to the token endpoint: Defaults to "client_secret_basic".
+  """
+  clientAuthenticationMethod: String
+
+  """
+  ADVANCED. Whether DataHub users should be provisioned on login if they do not exist. Defaults to true.
+  """
+  jitProvisioningEnabled: Boolean
+
+  """
+  ADVANCED. Whether the user should already exist in DataHub on login, failing login if they are not. Defaults to false.
+  """
+  preProvisioningRequired: Boolean
+
+  """
+  ADVANCED. Whether groups should be extracted from a claim in the OIDC profile. Only applies if JIT provisioning is enabled. Groups will be created if they do not exist. Defaults to true.
+  """
+  extractGroupsEnabled: Boolean
+
+  """
+  ADVANCED. The OIDC claim to extract groups information from. Defaults to 'groups'
+  """
+  groupsClaim: String
+
+  """
+  ADVANCED. Response type.
+  """
+  responseType: String
+
+  """
+  ADVANCED. Response mode.
+  """
+  responseMode: String
+
+  """
+  ADVANCED. Use Nonce
+  """
+  useNonce: Boolean
+
+  """
+  ADVANCED. Read timeout.
+  """
+  readTimeout: Long
+
+  """
+  ADVANCED. Whether to extract claims from JWT access token. Defaults to false.
+  """
+  extractJwtAccessTokenClaims: Boolean
+
 }
 
 """
@@ -495,6 +592,10 @@ input UpdateGlobalSettingsInput {
   Input required to update notifications settings
   """
   notificationSettings: UpdateGlobalNotificationSettingsInput
+  """
+  Input required to update SSO settings
+  """
+  ssoSettings: UpdateSsoSettingsInput
 }
 
 """
@@ -555,4 +656,104 @@ input NotificationSettingInput {
   A set of option params, e.g. slack.channel, slack.enabled.
   """
   params: [StringMapEntryInput!]
+}
+
+"""
+Input required to update SSO Settings.
+"""
+input UpdateSsoSettingsInput {
+  """
+  Auth base URL.
+  """
+  baseUrl: String!
+
+  """
+  Input required to update OIDC SSO Settings
+  """
+  oidcSettings: UpdateOidcSettingsInput
+}
+
+"""
+Input required to OIDC SSO settings.
+"""
+input UpdateOidcSettingsInput {
+  """
+  Whether OIDC SSO is enabled.
+  """
+  enabled: Boolean!
+
+  """
+  Unique client id issued by the identity provider.
+  """
+  clientId: String!
+
+  """
+  Unique client secret issued by the identity provider.
+  """
+  clientSecret: String!
+
+  """
+  The IdP OIDC discovery url.
+  """
+  discoveryUri: String!
+
+  """
+  ADVANCED. The attribute / claim used to derive the DataHub username. Defaults to "preferred_username".
+  """
+  userNameClaim: String
+
+  """
+  ADVANCED. String representing the requested scope from the IdP. Defaults to "oidc email profile"
+  """
+  scope: String
+
+  """
+  ADVANCED. Which authentication method to use to pass credentials (clientId and clientSecret) to the token endpoint: Defaults to "client_secret_basic".
+  """
+  clientAuthenticationMethod: String
+
+  """
+  ADVANCED. Whether DataHub users should be provisioned on login if they do not exist. Defaults to true.
+  """
+  jitProvisioningEnabled: Boolean
+
+  """
+  ADVANCED. Whether the user should already exist in DataHub on login, failing login if they are not. Defaults to false.
+  """
+  preProvisioningRequired: Boolean
+
+  """
+  ADVANCED. Whether groups should be extracted from a claim in the OIDC profile. Only applies if JIT provisioning is enabled. Groups will be created if they do not exist. Defaults to true.
+  """
+  extractGroupsEnabled: Boolean
+
+  """
+  ADVANCED. The OIDC claim to extract groups information from. Defaults to 'groups'
+  """
+  groupsClaim: String
+
+  """
+  ADVANCED. Response type.
+  """
+  responseType: String
+
+  """
+  ADVANCED. Response mode.
+  """
+  responseMode: String
+
+  """
+  ADVANCED. Use Nonce
+  """
+  useNonce: Boolean
+
+  """
+  ADVANCED. Read timeout.
+  """
+  readTimeout: Long
+
+  """
+  ADVANCED. Whether to extract claims from JWT access token. Defaults to false.
+  """
+  extractJwtAccessTokenClaims: Boolean
 }
