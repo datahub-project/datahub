@@ -8,3 +8,4 @@ reporting_provider_registry.register_from_entrypoint(
 
 # These providers are always enabled
 assert reporting_provider_registry.get("datahub")
+assert reporting_provider_registry.get("file")

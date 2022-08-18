@@ -1,6 +1,5 @@
 import datetime
 import itertools
-import json
 import logging
 import uuid
 from typing import Any, Dict, Iterable, List, Optional
@@ -53,7 +52,7 @@ class PipelineConfig(ConfigModel):
     source: SourceConfig
     sink: DynamicTypedConfig
     transformers: Optional[List[DynamicTypedConfig]]
-    reporting: Optional[List[ReporterConfig]] = None
+    reporting: List[ReporterConfig] = []
     run_id: str = "__DEFAULT_RUN_ID"
     datahub_api: Optional[DatahubClientConfig] = None
     pipeline_name: Optional[str] = None
@@ -196,7 +195,7 @@ class Pipeline:
 
         # once a sink is configured, we can configure reporting immediately to get observability
         try:
-            self._configure_reporting()
+            self._configure_reporting(report_to)
         except Exception as e:
             self._record_initialization_failure(e, "Failed to configure reporters")
             return
@@ -247,10 +246,17 @@ class Pipeline:
                     f"Transformer type:{transformer_type},{transformer_class} configured"
                 )
 
-    def _configure_reporting(self) -> None:
-        if self.config.reporting is None:
-            # if reporting is not specified we add the default reporter
-            self.config.reporting = [ReporterConfig.parse_obj({"type": "datahub"})]
+    def _configure_reporting(self, report_to: Optional[str]) -> None:
+        if report_to == "datahub":
+            # we add the datahub reporter
+            self.config.reporting.append(ReporterConfig.parse_obj({"type": "datahub"}))
+        elif report_to:
+            # we assume this is a file name, and add the file reporter
+            self.config.reporting.append(
+                ReporterConfig.parse_obj(
+                    {"type": "file", "config": {"filename": report_to}}
+                )
+            )
 
         for reporter in self.config.reporting:
             reporter_type = reporter.type
@@ -489,14 +495,3 @@ class Pipeline:
                 "report": self.sink.get_report().as_obj(),
             },
         }
-
-    def write_structured_report(self) -> None:
-        if not self.report_to:
-            return
-        report = self._get_structured_report()
-        try:
-            with open(self.report_to, "w") as report_out:
-                json.dump(report, report_out)
-            logger.info(f"Wrote report successfully to {report_out}")
-        except Exception as e:
-            logger.error(f"Failed to write structured report due to {e}")

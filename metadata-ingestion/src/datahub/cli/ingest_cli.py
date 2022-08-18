@@ -94,7 +94,8 @@ def ingest() -> None:
 @click.option(
     "--report-to",
     type=str,
-    help="Provide an output file to produce a structured report from the run",
+    default="datahub",
+    help="Provide an destination to send a structured report from the run. Default is 'datahub' and sends the report directly to the datahub server. Any other string is currently assumed to be a file that you want to write the report to. Supplements the reporting configuration in the recipe",
 )
 @click.pass_context
 @telemetry.with_telemetry
@@ -135,7 +136,6 @@ def run(
         else:
             logger.info("Finished metadata ingestion")
             pipeline.log_ingestion_stats()
-            pipeline.write_structured_report()
             ret = pipeline.pretty_print_summary(warnings_as_failure=strict_warnings)
             return ret
 
