@@ -380,7 +380,7 @@
             }, {
               "name" : "message",
               "type" : "string",
-              "doc" : "Additional message to keep track of in the event",
+              "doc" : "Additional context around how DataHub was informed of the particular change. For example: was the change created by an automated process, or manually.",
               "optional" : true
             } ]
           },
@@ -1891,6 +1891,11 @@
       "Searchable" : {
         "fieldType" : "TEXT_PARTIAL"
       }
+    }, {
+      "name" : "slack",
+      "type" : "string",
+      "doc" : "Slack channel for the group",
+      "optional" : true
     } ],
     "Aspect" : {
       "EntityUrns" : [ "com.linkedin.common.CorpGroupUrn" ],

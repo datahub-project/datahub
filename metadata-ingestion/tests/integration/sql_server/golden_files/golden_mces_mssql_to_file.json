@@ -887,6 +887,8 @@
                                 "jsonPath": null,
                                 "nullable": true,
                                 "description": null,
+                                "created": null,
+                                "lastModified": null,
                                 "type": {
                                     "type": {
                                         "com.linkedin.pegasus2avro.schema.NumberType": {}
@@ -897,6 +899,7 @@
                                 "globalTags": null,
                                 "glossaryTerms": null,
                                 "isPartOfKey": false,
+                                "isPartitioningKey": null,
                                 "jsonProps": null
                             },
                             {
@@ -904,6 +907,8 @@
                                 "jsonPath": null,
                                 "nullable": true,
                                 "description": null,
+                                "created": null,
+                                "lastModified": null,
                                 "type": {
                                     "type": {
                                         "com.linkedin.pegasus2avro.schema.StringType": {}
@@ -914,6 +919,7 @@
                                 "globalTags": null,
                                 "glossaryTerms": null,
                                 "isPartOfKey": false,
+                                "isPartitioningKey": null,
                                 "jsonProps": null
                             }
                         ],
@@ -1100,6 +1106,8 @@
                                 "jsonPath": null,
                                 "nullable": true,
                                 "description": null,
+                                "created": null,
+                                "lastModified": null,
                                 "type": {
                                     "type": {
                                         "com.linkedin.pegasus2avro.schema.NumberType": {}
@@ -1110,6 +1118,7 @@
                                 "globalTags": null,
                                 "glossaryTerms": null,
                                 "isPartOfKey": false,
+                                "isPartitioningKey": null,
                                 "jsonProps": null
                             },
                             {
@@ -1117,6 +1126,8 @@
                                 "jsonPath": null,
                                 "nullable": true,
                                 "description": null,
+                                "created": null,
+                                "lastModified": null,
                                 "type": {
                                     "type": {
                                         "com.linkedin.pegasus2avro.schema.StringType": {}
@@ -1127,6 +1138,7 @@
                                 "globalTags": null,
                                 "glossaryTerms": null,
                                 "isPartOfKey": false,
+                                "isPartitioningKey": null,
                                 "jsonProps": null
                             }
                         ],
@@ -1237,6 +1249,8 @@
                                 "jsonPath": null,
                                 "nullable": false,
                                 "description": null,
+                                "created": null,
+                                "lastModified": null,
                                 "type": {
                                     "type": {
                                         "com.linkedin.pegasus2avro.schema.NumberType": {}
@@ -1247,6 +1261,7 @@
                                 "globalTags": null,
                                 "glossaryTerms": null,
                                 "isPartOfKey": true,
+                                "isPartitioningKey": null,
                                 "jsonProps": null
                             },
                             {
@@ -1254,6 +1269,8 @@
                                 "jsonPath": null,
                                 "nullable": false,
                                 "description": "Description for column LastName of table Persons of schema Foo.",
+                                "created": null,
+                                "lastModified": null,
                                 "type": {
                                     "type": {
                                         "com.linkedin.pegasus2avro.schema.StringType": {}
@@ -1264,6 +1281,7 @@
                                 "globalTags": null,
                                 "glossaryTerms": null,
                                 "isPartOfKey": false,
+                                "isPartitioningKey": null,
                                 "jsonProps": null
                             },
                             {
@@ -1271,6 +1289,8 @@
                                 "jsonPath": null,
                                 "nullable": true,
                                 "description": null,
+                                "created": null,
+                                "lastModified": null,
                                 "type": {
                                     "type": {
                                         "com.linkedin.pegasus2avro.schema.StringType": {}
@@ -1281,6 +1301,7 @@
                                 "globalTags": null,
                                 "glossaryTerms": null,
                                 "isPartOfKey": false,
+                                "isPartitioningKey": null,
                                 "jsonProps": null
                             },
                             {
@@ -1288,6 +1309,8 @@
                                 "jsonPath": null,
                                 "nullable": true,
                                 "description": null,
+                                "created": null,
+                                "lastModified": null,
                                 "type": {
                                     "type": {
                                         "com.linkedin.pegasus2avro.schema.NumberType": {}
@@ -1298,6 +1321,7 @@
                                 "globalTags": null,
                                 "glossaryTerms": null,
                                 "isPartOfKey": false,
+                                "isPartitioningKey": null,
                                 "jsonProps": null
                             }
                         ],
@@ -1408,6 +1432,8 @@
                                 "jsonPath": null,
                                 "nullable": false,
                                 "description": null,
+                                "created": null,
+                                "lastModified": null,
                                 "type": {
                                     "type": {
                                         "com.linkedin.pegasus2avro.schema.NumberType": {}
@@ -1418,6 +1444,7 @@
                                 "globalTags": null,
                                 "glossaryTerms": null,
                                 "isPartOfKey": true,
+                                "isPartitioningKey": null,
                                 "jsonProps": null
                             },
                             {
@@ -1425,6 +1452,8 @@
                                 "jsonPath": null,
                                 "nullable": true,
                                 "description": null,
+                                "created": null,
+                                "lastModified": null,
                                 "type": {
                                     "type": {
                                         "com.linkedin.pegasus2avro.schema.StringType": {}
@@ -1435,6 +1464,7 @@
                                 "globalTags": null,
                                 "glossaryTerms": null,
                                 "isPartOfKey": false,
+                                "isPartitioningKey": null,
                                 "jsonProps": null
                             }
                         ],

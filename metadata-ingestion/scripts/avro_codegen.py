@@ -126,6 +126,7 @@ def annotate_aspects(aspects: List[dict], schema_class_file: Path) -> None:
 
 class _Aspect(DictWrapper):
     ASPECT_NAME: str = None  # type: ignore
+    ASPECT_TYPE: str = "default"
 
     def __init__(self):
         if type(self) is _Aspect:
@@ -135,6 +136,10 @@ class _Aspect(DictWrapper):
     @classmethod
     def get_aspect_name(cls) -> str:
         return cls.ASPECT_NAME  # type: ignore
+
+    @classmethod
+    def get_aspect_type(cls) -> str:
+        return cls.ASPECT_TYPE
 """
 
     for aspect in aspects:
@@ -157,7 +162,24 @@ class _Aspect(DictWrapper):
             .startswith("RECORD_SCHEMA = ")
         ):
             empty_line += 1
-        schema_classes_lines[empty_line] = f"\n    ASPECT_NAME = '{aspectName}'"
+        schema_classes_lines[empty_line] = "\n"
+        schema_classes_lines[empty_line] += f"\n    ASPECT_NAME = '{aspectName}'"
+        if "type" in aspect["Aspect"]:
+            schema_classes_lines[
+                empty_line
+            ] += f"\n    ASPECT_TYPE = '{aspect['Aspect']['type']}'"
+
+    # Finally, generate a big list of all available aspects.
+    newline = "\n"
+    schema_classes_lines.append(
+        f"""
+from typing import Type
+
+_ASPECT_CLASSES: List[Type[_Aspect]] = [
+    {f',{newline}    '.join(f"{aspect['name']}Class" for aspect in aspects)}
+]
+"""
+    )
 
     schema_class_file.write_text("\n".join(schema_classes_lines))
 
