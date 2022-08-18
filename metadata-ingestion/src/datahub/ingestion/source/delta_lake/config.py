@@ -67,10 +67,6 @@ class DeltaLakeSourceConfig(PlatformSourceConfigBase, EnvBasedSourceConfigBase):
 
     s3: Optional[S3] = Field()
 
-    # to be set internally
-    # _is_s3: bool = False
-    # _complete_path: str
-
     @cached_property
     def is_s3(self):
         return is_s3_uri(self.base_path or "")
@@ -90,20 +86,3 @@ class DeltaLakeSourceConfig(PlatformSourceConfigBase, EnvBasedSourceConfigBase):
         if v and v < 0:
             return None
         return v
-
-
-#    @pydantic.root_validator()
-#    def validate_config(cls, values: Dict) -> Dict[str, Any]:
-#        is_s3 = is_s3_uri(values.get("base_path", ""))
-#        if is_s3:
-#            if values.get("s3") is None:
-#                raise ValueError("s3 config must be set for s3 path")
-# =======
-#        values["_is_s3"] = is_s3_uri(values.get("base_path", ""))
-# >>>>>>> upstream/master
-#        values["_complete_path"] = values.get("base_path")
-#        if values.get("relative_path") is not None:
-#            values[
-#                "_complete_path"
-#            ] = f"{values['_complete_path'].rstrip('/')}/{values['relative_path'].lstrip('/')}"
-#        return values
