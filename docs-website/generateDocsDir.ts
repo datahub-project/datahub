@@ -84,8 +84,25 @@ function list_markdown_files(): string[] {
       .filter((filepath) => !all_generated_markdown_files.includes(filepath));
 
     if (untracked_files.length > 0) {
-      console.log(`Including untracked files in docs list: ${untracked_files}`);
+      console.log(
+        `Including untracked files in docs list: [${untracked_files}]`
+      );
       all_markdown_files = [...all_markdown_files, ...untracked_files];
+    }
+
+    // But we should also exclude any files that have been deleted.
+    const deleted_files = execSync(
+      "(git ls-files --full-name --deleted --exclude-standard .. | grep '.md$') || true"
+    )
+      .toString()
+      .trim()
+      .split("\n");
+
+    if (deleted_files.length > 0) {
+      console.log(`Removing deleted files from docs list: [${deleted_files}]`);
+      all_markdown_files = all_markdown_files.filter(
+        (filepath) => !deleted_files.includes(filepath)
+      );
     }
   }
 
@@ -395,7 +412,7 @@ function markdown_sanitize_and_linkify(content: string): string {
 
 function pretty_format_date(datetime: string): string {
   const d = new Date(Date.parse(datetime));
-  return d.toDateString();
+  return d.toISOString().split("T")[0];
 }
 
 function make_link_anchor(text: string): string {
@@ -417,26 +434,34 @@ custom_edit_url: https://github.com/datahub-project/datahub/blob/master/docs-web
 ## Summary\n\n`);
 
   const releases_list = await octokit.rest.repos.listReleases({
-    owner: "linkedin",
+    owner: "datahub-project",
     repo: "datahub",
   });
 
+  // We only embed release notes for releases in the last 3 months.
+  const release_notes_date_cutoff = new Date(
+    Date.now() - 1000 * 60 * 60 * 24 * 30 * 3
+  );
+
   // Construct a summary table.
-  let pastVersionCutoff = false;
   const releaseNoteVersions = new Set();
   contents.content += "| Version | Release Date | Links |\n";
   contents.content += "| ------- | ------------ | ----- |\n";
   for (const release of releases_list.data) {
+    if (release.prerelease || release.draft) {
+      continue;
+    }
+    const release_date = new Date(Date.parse(release.created_at));
+
     let row = `| **${release.tag_name}** | ${pretty_format_date(
       release.created_at
     )} |`;
-    if (release.tag_name == "v0.6.1") {
-      pastVersionCutoff = true;
-    } else if (!pastVersionCutoff) {
+    if (release_date > release_notes_date_cutoff) {
       row += `[Release Notes](#${make_link_anchor(release.tag_name)}), `;
       releaseNoteVersions.add(release.tag_name);
     }
     row += `[View on GitHub](${release.html_url}) |\n`;
+
     contents.content += row;
   }
   contents.content += "\n\n";
@@ -445,7 +470,7 @@ custom_edit_url: https://github.com/datahub-project/datahub/blob/master/docs-web
   for (const release of releases_list.data) {
     let body: string;
     if (releaseNoteVersions.has(release.tag_name)) {
-      body = release.body;
+      body = release.body ?? "";
       body = markdown_sanitize_and_linkify(body);
 
       // Redo the heading levels. First we find the min heading level, and then

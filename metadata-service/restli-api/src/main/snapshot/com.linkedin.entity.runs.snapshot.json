@@ -1648,6 +1648,11 @@
       "Searchable" : {
         "fieldType" : "TEXT_PARTIAL"
       }
+    }, {
+      "name" : "slack",
+      "type" : "string",
+      "doc" : "Slack channel for the group",
+      "optional" : true
     } ],
     "Aspect" : {
       "EntityUrns" : [ "com.linkedin.common.CorpGroupUrn" ],

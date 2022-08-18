@@ -153,6 +153,7 @@ export const dataset1 = {
             logoUrl: '',
         },
     },
+    lastIngested: null,
     dataPlatformInstance: null,
     platformNativeType: 'TABLE',
     name: 'The Great Test Dataset',
@@ -256,6 +257,7 @@ export const dataset2 = {
         },
         type: EntityType.DataPlatform,
     },
+    lastIngested: null,
     dataPlatformInstance: null,
     platformNativeType: 'TABLE',
     name: 'Some Other Dataset',
@@ -345,6 +347,7 @@ export const dataset3 = {
         },
         type: EntityType.DataPlatform,
     },
+    lastIngested: null,
     dataPlatformInstance: null,
     platformNativeType: 'STREAM',
     name: 'Yet Another Dataset',
@@ -817,6 +820,7 @@ export const container1 = {
     urn: 'urn:li:container:DATABASE',
     type: EntityType.Container,
     platform: dataPlatform,
+    lastIngested: null,
     properties: {
         name: 'database1',
         __typename: 'ContainerProperties',
@@ -828,6 +832,7 @@ export const container2 = {
     urn: 'urn:li:container:SCHEMA',
     type: EntityType.Container,
     platform: dataPlatform,
+    lastIngested: null,
     properties: {
         name: 'schema1',
         __typename: 'ContainerProperties',
@@ -1120,6 +1125,7 @@ export const dataFlow1 = {
     orchestrator: 'Airflow',
     flowId: 'flowId1',
     cluster: 'cluster1',
+    lastIngested: null,
     properties: {
         name: 'DataFlowInfoName',
         description: 'DataFlowInfo1 Description',
@@ -1188,6 +1194,7 @@ export const dataJob1 = {
     type: EntityType.DataJob,
     dataFlow: dataFlow1,
     jobId: 'jobId1',
+    lastIngested: null,
     ownership: {
         __typename: 'Ownership',
         owners: [
@@ -1333,6 +1340,7 @@ export const dataJob3 = {
     type: EntityType.DataJob,
     dataFlow: dataFlow1,
     jobId: 'jobId3',
+    lastIngested: null,
     ownership: {
         __typename: 'Ownership',
         owners: [
@@ -1400,6 +1408,7 @@ export const mlModel = {
     name: 'trust model',
     description: 'a ml trust model',
     origin: 'PROD',
+    lastIngested: null,
     platform: {
         urn: 'urn:li:dataPlatform:kafka',
         name: 'Kafka',

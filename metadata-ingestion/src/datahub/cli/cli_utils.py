@@ -14,47 +14,9 @@ from pydantic import BaseModel, ValidationError
 from requests.models import Response
 from requests.sessions import Session
 
-from datahub.emitter.mce_builder import Aspect
 from datahub.emitter.request_helper import _make_curl_command
 from datahub.emitter.serialization_helper import post_json_transform
-from datahub.metadata.schema_classes import (
-    AssertionRunEventClass,
-    BrowsePathsClass,
-    ChartInfoClass,
-    ChartKeyClass,
-    ContainerClass,
-    ContainerKeyClass,
-    ContainerPropertiesClass,
-    DatahubIngestionCheckpointClass,
-    DatahubIngestionRunSummaryClass,
-    DataJobInputOutputClass,
-    DataJobKeyClass,
-    DataPlatformInstanceClass,
-    DataProcessInfoClass,
-    DatasetDeprecationClass,
-    DatasetKeyClass,
-    DatasetProfileClass,
-    DatasetPropertiesClass,
-    DatasetUpstreamLineageClass,
-    DatasetUsageStatisticsClass,
-    EditableDatasetPropertiesClass,
-    EditableSchemaMetadataClass,
-    GlobalTagsClass,
-    GlossaryTermsClass,
-    InstitutionalMemoryClass,
-    MLFeatureKeyClass,
-    MLFeaturePropertiesClass,
-    MLPrimaryKeyKeyClass,
-    MLPrimaryKeyPropertiesClass,
-    OperationClass,
-    OwnershipClass,
-    SchemaMetadataClass,
-    StatusClass,
-    SubTypesClass,
-    UpstreamLineageClass,
-    ViewPropertiesClass,
-    _Aspect,
-)
+from datahub.metadata.schema_classes import _ASPECT_CLASSES, _Aspect
 from datahub.utilities.urns.urn import Urn
 
 log = logging.getLogger(__name__)
@@ -621,48 +583,19 @@ def post_entity(
 
 
 type_class_to_name_map = {
-    DatasetKeyClass: "datasetKey",
-    UpstreamLineageClass: "upstreamLineage",
-    DataJobKeyClass: "datajobKey",
-    DataJobInputOutputClass: "dataJobInputOutput",
-    SchemaMetadataClass: "schemaMetadata",
-    MLPrimaryKeyKeyClass: "mlPrimaryKey",
-    MLPrimaryKeyPropertiesClass: "mlPrimaryKeyProperties",
-    MLFeatureKeyClass: "mlFeatureKey",
-    MLFeaturePropertiesClass: "mlFeatureProperties",
-    InstitutionalMemoryClass: "institutionalMemory",
-    OwnershipClass: "ownership",
-    BrowsePathsClass: "browsePaths",
-    DataPlatformInstanceClass: "dataPlatformInstance",
-    GlobalTagsClass: "globalTags",
-    StatusClass: "status",
-    DatasetPropertiesClass: "datasetProperties",
-    GlossaryTermsClass: "glossaryTerms",
-    SubTypesClass: "subTypes",
-    EditableSchemaMetadataClass: "editableSchemaMetadata",
-    ViewPropertiesClass: "viewProperties",
-    EditableDatasetPropertiesClass: "editableDatasetProperties",
-    DatasetDeprecationClass: "datasetDeprecation",
-    DatasetUpstreamLineageClass: "datasetUpstreamLineage",
-    ChartInfoClass: "chartInfo",
-    DataProcessInfoClass: "dataProcessInfo",
-    ChartKeyClass: "chartKey",
-    ContainerClass: "container",
-    ContainerKeyClass: "containerKey",
-    ContainerPropertiesClass: "containerProperties",
+    AspectClass: AspectClass.get_aspect_name()
+    for AspectClass in _ASPECT_CLASSES
+    if AspectClass.get_aspect_type() == "default"
 }
 
-timeseries_class_to_aspect_name_map: Dict[Type, str] = {
-    DatahubIngestionCheckpointClass: "datahubIngestionCheckpoint",
-    DatahubIngestionRunSummaryClass: "datahubIngestionRunSummary",
-    DatasetUsageStatisticsClass: "datasetUsageStatistics",
-    DatasetProfileClass: "datasetProfile",
-    AssertionRunEventClass: "assertionRunEvent",
-    OperationClass: "operation",
+timeseries_class_to_aspect_name_map = {
+    AspectClass: AspectClass.get_aspect_name()
+    for AspectClass in _ASPECT_CLASSES
+    if AspectClass.get_aspect_type() == "timeseries"
 }
 
 
-def _get_pydantic_class_from_aspect_name(aspect_name: str) -> Optional[Type[Aspect]]:
+def _get_pydantic_class_from_aspect_name(aspect_name: str) -> Optional[Type[_Aspect]]:
     candidates = [k for (k, v) in type_class_to_name_map.items() if v == aspect_name]
     candidates.extend(
         [
@@ -672,17 +605,6 @@ def _get_pydantic_class_from_aspect_name(aspect_name: str) -> Optional[Type[Aspe
         ]
     )
     return candidates[0] if candidates else None
-
-
-def _get_aspect_name_from_aspect_class(aspect_class: str) -> str:
-    class_to_name_map = {
-        k.RECORD_SCHEMA.fullname.replace("pegasus2avro.", ""): v  # type: ignore
-        for (k, v) in (
-            set(type_class_to_name_map.items())
-            | set(timeseries_class_to_aspect_name_map.items())
-        )
-    }
-    return class_to_name_map.get(aspect_class, "unknown")
 
 
 def get_latest_timeseries_aspect_values(
