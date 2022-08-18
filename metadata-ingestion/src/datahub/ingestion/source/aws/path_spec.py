@@ -132,20 +132,39 @@ class PathSpec(ConfigModel):
             )
         return v
 
+    @pydantic.validator("table_name", always=True)
+    def table_name_in_include(cls, v, values):
+        if "include" not in values:
+            return v
+
+        parsable_include = PathSpec.get_parsable_include(values["include"])
+        compiled_include = parse.compile(parsable_include)
+
+        if v is None:
+            if "{table}" in values["include"]:
+                v = "{table}"
+        else:
+            logger.debug(f"include fields: {compiled_include.named_fields}")
+            logger.debug(f"table_name fields: {parse.compile(v).named_fields}")
+            if not all(
+                x in compiled_include.named_fields
+                for x in parse.compile(v).named_fields
+            ):
+                raise ValueError(
+                    f"Not all named variables used in path_spec.table_name {v} are specified in path_spec.include {values['include']}"
+                )
+        return v
+
     @cached_property
     def is_s3(self):
         return is_s3_uri(self.include)
 
     @cached_property
-    def parsable_include(self):
-        parsable_include = PathSpec.get_parsable_include(self.include)
-        logger.debug(f"Setting _parsable_include: {parsable_include}")
-        return parsable_include
-
-    @cached_property
     def compiled_include(self):
-        compiled_include = parse.compile(self.parsable_include)
-        logger.debug(f"Setting _compiled_include: {compiled_include}")
+        parsable_include = PathSpec.get_parsable_include(self.include)
+        logger.debug(f"parsable_include: {parsable_include}")
+        compiled_include = parse.compile(parsable_include)
+        logger.debug(f"Setting compiled_include: {compiled_include}")
         return compiled_include
 
     @cached_property
@@ -177,28 +196,6 @@ class PathSpec(ConfigModel):
                 f"file type specified ({include_ext}) in path_spec.include is not in specified file "
                 f'types. Please select one from {values.get("file_types")} or specify ".*" to allow all types'
             )
-
-        values["_parsable_include"] = PathSpec.get_parsable_include(values["include"])
-        compiled_include = parse.compile(values["_parsable_include"])
-        values["_glob_include"] = re.sub(r"\{[^}]+\}", "*", values["include"])
-        logger.debug(f'Setting _glob_include: {values.get("_glob_include")}')
-
-        if values.get("table_name") is None:
-            if "{table}" in values["include"]:
-                values["table_name"] = "{table}"
-        else:
-            logger.debug(f"include fields: {compiled_include.named_fields}")
-            logger.debug(
-                f"table_name fields: {parse.compile(values['table_name']).named_fields}"
-            )
-            if not all(
-                x in compiled_include.named_fields
-                for x in parse.compile(values["table_name"]).named_fields
-            ):
-                raise ValueError(
-                    "Not all named variables used in path_spec.table_name are specified in "
-                    "path_spec.include"
-                )
 
         return values
 

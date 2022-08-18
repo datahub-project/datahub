@@ -107,15 +107,12 @@ class PipelineConfig(ConfigModel):
                 v = DatahubClientConfig.parse_obj(sink_config)
         return v
 
-    def set_raw_dict(self, raw_dict: Optional[dict]) -> None:
-        self._raw_dict = raw_dict
-
     @classmethod
     def from_dict(
         cls, resolved_dict: dict, raw_dict: Optional[dict]
     ) -> "PipelineConfig":
         config = cls.parse_obj(resolved_dict)
-        config.set_raw_dict(raw_dict)
+        config._raw_dict = raw_dict
         return config
 
 
