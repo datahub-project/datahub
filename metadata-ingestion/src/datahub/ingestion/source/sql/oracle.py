@@ -24,6 +24,8 @@ from datahub.ingestion.source.sql.sql_common import (
     make_sqlalchemy_type,
 )
 
+logger = logging.getLogger(__name__)
+
 extra_oracle_types = {
     make_sqlalchemy_type("SDO_GEOMETRY"),
     make_sqlalchemy_type("SDO_POINT_TYPE"),
@@ -79,7 +81,7 @@ class OracleConfig(BasicSQLAlchemyConfig):
 class OracleInspectorObjectWrapper:
     """
     Inspector class wrapper to resolve linear issue
-    https://linear.app/acryl-data/issue/ACR-3367/github-oracle-ingestion-not-ingesting-system-table-space-5167
+    https://github.com/datahub-project/datahub/issues/5167
     """
 
     def __init__(self, inspector_instance: Inspector):
@@ -89,7 +91,7 @@ class OracleInspectorObjectWrapper:
         self.exclude_tablespaces: Tuple[str, str] = ("SYSTEM", "SYSAUX")
 
     def get_schema_names(self) -> List[str]:
-        self.log.debug("OracleInspectorObjectWrapper is in used")
+        logger.debug("OracleInspectorObjectWrapper is in used")
         s = "SELECT username FROM dba_users ORDER BY username"
         cursor = self._inspector_instance.bind.execute(s)
         return [
@@ -100,7 +102,7 @@ class OracleInspectorObjectWrapper:
         """
         skip order_by, we are not using order_by
         """
-        self.log.debug("OracleInspectorObjectWrapper is in used")
+        logger.debug("OracleInspectorObjectWrapper is in used")
         schema = self._inspector_instance.dialect.denormalize_name(
             schema or self.default_schema_name
         )
@@ -114,7 +116,7 @@ class OracleInspectorObjectWrapper:
                 ", ".join(["'%s'" % ts for ts in self.exclude_tablespaces])
             )
         sql_str += "OWNER = :owner " "AND IOT_NAME IS NULL "
-        self.log.debug("SQL = {}".format(sql_str))
+        logger.debug("SQL = {}".format(sql_str))
         cursor = self._inspector_instance.bind.execute(sql.text(sql_str), owner=schema)
 
         return [
