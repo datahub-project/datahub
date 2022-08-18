@@ -1,10 +1,11 @@
-import { CopyOutlined, DeleteOutlined, PlusOutlined, RedoOutlined } from '@ant-design/icons';
+import { CodeOutlined, CopyOutlined, DeleteOutlined, PlusOutlined, RedoOutlined } from '@ant-design/icons';
 import React, { useCallback, useEffect, useState } from 'react';
 import * as QueryString from 'query-string';
 import { useLocation } from 'react-router';
-import { Button, Empty, Image, message, Modal, Pagination, Tooltip, Typography } from 'antd';
+import { Button, Empty, Image, message, Modal, Pagination, Select, Tooltip, Typography } from 'antd';
 import styled from 'styled-components';
 import cronstrue from 'cronstrue';
+import { blue } from '@ant-design/colors';
 import {
     useCreateIngestionExecutionRequestMutation,
     useCreateIngestionSourceMutation,
@@ -18,6 +19,7 @@ import { IngestionSourceBuilderModal } from './builder/IngestionSourceBuilderMod
 import { StyledTable } from '../../entity/shared/components/styled/StyledTable';
 import { IngestionSourceExecutionList } from './IngestionSourceExecutionList';
 import {
+    CLI_EXECUTOR_ID,
     getExecutionRequestStatusDisplayColor,
     getExecutionRequestStatusDisplayText,
     getExecutionRequestStatusIcon,
@@ -30,6 +32,8 @@ import { capitalizeFirstLetter } from '../../shared/textUtil';
 import { SearchBar } from '../../search/SearchBar';
 import { useEntityRegistry } from '../../useEntityRegistry';
 import { ExecutionDetailsModal } from './ExecutionRequestDetailsModal';
+import { ANTD_GRAY } from '../../entity/shared/constants';
+import RecipeViewerModal from './RecipeViewerModal';
 
 const SourceContainer = styled.div``;
 
@@ -62,6 +66,63 @@ const ActionButtonContainer = styled.div`
     justify-content: right;
 `;
 
+const TypeWrapper = styled.div`
+    align-items: center;
+    display: flex;
+`;
+
+const CliBadge = styled.span`
+    margin-left: 20px;
+    border-radius: 15px;
+    border: 1px solid ${ANTD_GRAY[8]};
+    padding: 1px 4px;
+    font-size: 10px;
+
+    font-size: 8px;
+    font-weight: bold;
+    letter-spacing: 0.5px;
+    border: 1px solid ${blue[6]};
+    color: ${blue[6]};
+
+    svg {
+        display: none;
+        margin-right: 5px;
+    }
+`;
+
+const StyledSourceTable = styled(StyledTable)`
+    .cliIngestion {
+        td {
+            background-color: ${ANTD_GRAY[2]} !important;
+        }
+    }
+` as typeof StyledTable;
+
+const StyledSelect = styled(Select)`
+    margin-right: 15px;
+    min-width: 75px;
+`;
+
+const FilterWrapper = styled.div`
+    display: flex;
+`;
+
+enum IngestionSourceType {
+    ALL,
+    UI,
+    CLI,
+}
+
+function shouldIncludeSource(source: any, sourceFilter: IngestionSourceType) {
+    if (sourceFilter === IngestionSourceType.CLI) {
+        return source.config.executorId === CLI_EXECUTOR_ID;
+    }
+    if (sourceFilter === IngestionSourceType.UI) {
+        return source.config.executorId !== CLI_EXECUTOR_ID;
+    }
+    return true;
+}
+
 const DEFAULT_PAGE_SIZE = 25;
 
 const removeExecutionsFromIngestionSource = (source) => {
@@ -90,12 +151,14 @@ export const IngestionSourceList = () => {
     const start = (page - 1) * pageSize;
 
     const [isBuildingSource, setIsBuildingSource] = useState<boolean>(false);
+    const [isViewingRecipe, setIsViewingRecipe] = useState<boolean>(false);
     const [focusSourceUrn, setFocusSourceUrn] = useState<undefined | string>(undefined);
     const [focusExecutionUrn, setFocusExecutionUrn] = useState<undefined | string>(undefined);
     const [lastRefresh, setLastRefresh] = useState(0);
     // Set of removed urns used to account for eventual consistency
     const [removedUrns, setRemovedUrns] = useState<string[]>([]);
     const [refreshInterval, setRefreshInterval] = useState<NodeJS.Timeout | null>(null);
+    const [sourceFilter, setSourceFilter] = useState(IngestionSourceType.ALL);
 
     // Ingestion Source Queries
     const { loading, error, data, refetch } = useListIngestionSourcesQuery({
@@ -116,7 +179,9 @@ export const IngestionSourceList = () => {
 
     const totalSources = data?.listIngestionSources?.total || 0;
     const sources = data?.listIngestionSources?.ingestionSources || [];
-    const filteredSources = sources.filter((user) => !removedUrns.includes(user.urn));
+    const filteredSources = sources.filter(
+        (source) => !removedUrns.includes(source.urn) && shouldIncludeSource(source, sourceFilter),
+    );
     const focusSource =
         (focusSourceUrn && filteredSources.find((source) => source.urn === focusSourceUrn)) || undefined;
 
@@ -279,6 +344,11 @@ export const IngestionSourceList = () => {
         setFocusSourceUrn(urn);
     };
 
+    const onView = (urn: string) => {
+        setIsViewingRecipe(true);
+        setFocusSourceUrn(urn);
+    };
+
     const onExecute = (urn: string) => {
         Modal.confirm({
             title: `Confirm Source Execution`,
@@ -309,6 +379,7 @@ export const IngestionSourceList = () => {
 
     const onCancel = () => {
         setIsBuildingSource(false);
+        setIsViewingRecipe(false);
         setFocusSourceUrn(undefined);
     };
 
@@ -317,15 +388,27 @@ export const IngestionSourceList = () => {
             title: 'Type',
             dataIndex: 'type',
             key: 'type',
-            render: (type: string) => {
+            render: (type: string, record: any) => {
                 const iconUrl = sourceTypeToIconUrl(type);
                 const typeDisplayName = capitalizeFirstLetter(type);
                 return (
-                    (iconUrl && (
-                        <Tooltip overlay={typeDisplayName}>
-                            <PreviewImage preview={false} src={iconUrl} alt={type || ''} />
-                        </Tooltip>
-                    )) || <Typography.Text strong>{typeDisplayName}</Typography.Text>
+                    <TypeWrapper>
+                        {iconUrl ? (
+                            <Tooltip overlay={typeDisplayName}>
+                                <PreviewImage preview={false} src={iconUrl} alt={type || ''} />
+                            </Tooltip>
+                        ) : (
+                            <Typography.Text strong>{typeDisplayName}</Typography.Text>
+                        )}
+                        {record.cliIngestion && (
+                            <Tooltip title="This source is ingested from the command-line interface (CLI)">
+                                <CliBadge>
+                                    <CodeOutlined />
+                                    CLI
+                                </CliBadge>
+                            </Tooltip>
+                        )}
+                    </TypeWrapper>
                 );
             },
         },
@@ -404,11 +487,22 @@ export const IngestionSourceList = () => {
                             />
                         </Tooltip>
                     )}
-                    <Button style={{ marginRight: 16 }} onClick={() => onEdit(record.urn)}>
-                        EDIT
-                    </Button>
+                    {!record.cliIngestion && (
+                        <Button style={{ marginRight: 16 }} onClick={() => onEdit(record.urn)}>
+                            EDIT
+                        </Button>
+                    )}
+                    {record.cliIngestion && (
+                        <Button style={{ marginRight: 16 }} onClick={() => onView(record.urn)}>
+                            VIEW
+                        </Button>
+                    )}
                     {record.lastExecStatus !== RUNNING && (
-                        <Button style={{ marginRight: 16 }} onClick={() => onExecute(record.urn)}>
+                        <Button
+                            disabled={record.cliIngestion}
+                            style={{ marginRight: 16 }}
+                            onClick={() => onExecute(record.urn)}
+                        >
                             EXECUTE
                         </Button>
                     )}
@@ -417,7 +511,6 @@ export const IngestionSourceList = () => {
                             DETAILS
                         </Button>
                     )}
-
                     <Button onClick={() => onDelete(record.urn)} type="text" shape="circle" danger>
                         <DeleteOutlined />
                     </Button>
@@ -443,6 +536,7 @@ export const IngestionSourceList = () => {
             source.executions?.total &&
             source.executions?.total > 0 &&
             source.executions?.executionRequests[0].result?.status,
+        cliIngestion: source.config.executorId === CLI_EXECUTOR_ID,
     }));
 
     return (
@@ -460,27 +554,39 @@ export const IngestionSourceList = () => {
                             <RedoOutlined /> Refresh
                         </Button>
                     </div>
-                    <SearchBar
-                        initialQuery={query || ''}
-                        placeholderText="Search sources..."
-                        suggestions={[]}
-                        style={{
-                            maxWidth: 220,
-                            padding: 0,
-                        }}
-                        inputStyle={{
-                            height: 32,
-                            fontSize: 12,
-                        }}
-                        onSearch={() => null}
-                        onQueryChange={(q) => setQuery(q)}
-                        entityRegistry={entityRegistry}
-                    />
+                    <FilterWrapper>
+                        <StyledSelect
+                            value={sourceFilter}
+                            onChange={(selection) => setSourceFilter(selection as IngestionSourceType)}
+                        >
+                            <Select.Option value={IngestionSourceType.ALL}>All</Select.Option>
+                            <Select.Option value={IngestionSourceType.UI}>UI</Select.Option>
+                            <Select.Option value={IngestionSourceType.CLI}>CLI</Select.Option>
+                        </StyledSelect>
+
+                        <SearchBar
+                            initialQuery={query || ''}
+                            placeholderText="Search sources..."
+                            suggestions={[]}
+                            style={{
+                                maxWidth: 220,
+                                padding: 0,
+                            }}
+                            inputStyle={{
+                                height: 32,
+                                fontSize: 12,
+                            }}
+                            onSearch={() => null}
+                            onQueryChange={(q) => setQuery(q)}
+                            entityRegistry={entityRegistry}
+                        />
+                    </FilterWrapper>
                 </TabToolbar>
-                <StyledTable
+                <StyledSourceTable
                     columns={tableColumns}
                     dataSource={tableData}
                     rowKey="urn"
+                    rowClassName={(record, _) => (record.cliIngestion ? 'cliIngestion' : '')}
                     locale={{
                         emptyText: <Empty description="No Ingestion Sources!" image={Empty.PRESENTED_IMAGE_SIMPLE} />,
                     }}
@@ -520,6 +626,7 @@ export const IngestionSourceList = () => {
                 onSubmit={onSubmit}
                 onCancel={onCancel}
             />
+            {isViewingRecipe && <RecipeViewerModal recipe={focusSource?.config.recipe} onCancel={onCancel} />}
             {focusExecutionUrn && (
                 <ExecutionDetailsModal
                     urn={focusExecutionUrn}
