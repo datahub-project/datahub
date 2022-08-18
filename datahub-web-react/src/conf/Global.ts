@@ -9,6 +9,7 @@ export enum PageRoutes {
     AUTHENTICATE = '/authenticate',
     SIGN_UP = '/signup',
     LOG_IN = '/login',
+    LOG_OUT = '/logout',
     RESET_CREDENTIALS = '/reset',
     SEARCH_RESULTS = '/search/:type?',
     SEARCH = '/search',

@@ -2,6 +2,7 @@ import React from 'react';
 import { Switch, Route, RouteProps, Redirect } from 'react-router-dom';
 import { useReactiveVar } from '@apollo/client';
 import { LogIn } from './auth/LogIn';
+import { LogOut } from './auth/LogOut';
 import { SignUp } from './auth/SignUp';
 import { ResetCredentials } from './auth/ResetCredentials';
 import { NoPageFound } from './shared/NoPageFound';
@@ -34,6 +35,7 @@ export const Routes = (): JSX.Element => {
     return (
         <Switch>
             <Route path={PageRoutes.LOG_IN} component={LogIn} />
+            <Route path={PageRoutes.LOG_OUT} component={LogOut} />
             <Route path={PageRoutes.SIGN_UP} component={SignUp} />
             <Route path={PageRoutes.RESET_CREDENTIALS} component={ResetCredentials} />
             <ProtectedRoute isLoggedIn={isLoggedIn} render={() => <ProtectedRoutes />} />

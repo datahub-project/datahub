@@ -1,14 +1,10 @@
 import React from 'react';
-import Cookies from 'js-cookie';
 import { Menu, Dropdown } from 'antd';
 import { CaretDownOutlined } from '@ant-design/icons';
 import styled, { useTheme } from 'styled-components';
 import { EntityType } from '../../types.generated';
 import { useEntityRegistry } from '../useEntityRegistry';
-import { GlobalCfg } from '../../conf';
-import { isLoggedInVar } from '../auth/checkAuthStatus';
 import CustomAvatar from './avatar/CustomAvatar';
-import analytics, { EventType } from '../analytics';
 import { ANTD_GRAY } from '../entity/shared/constants';
 import { useAppConfig } from '../useAppConfig';
 
@@ -54,11 +50,6 @@ export const ManageAccount = ({ urn: _urn, pictureLink: _pictureLink, name }: Pr
     const entityRegistry = useEntityRegistry();
     const themeConfig = useTheme();
     const { config } = useAppConfig();
-    const handleLogout = () => {
-        analytics.event({ type: EventType.LogOutEvent });
-        isLoggedInVar(false);
-        Cookies.remove(GlobalCfg.CLIENT_AUTH_COOKIE);
-    };
     const version = config?.appVersion;
     const menu = (
         <Menu style={{ width: '120px' }}>
@@ -100,9 +91,7 @@ export const ManageAccount = ({ urn: _urn, pictureLink: _pictureLink, name }: Pr
             </MenuItem>
             <Menu.Divider />
             <MenuItem danger key="logout" tabIndex={0}>
-                <a href="/logOut" onClick={handleLogout}>
-                    Sign Out
-                </a>
+                <a href="/logOut">Sign Out</a>
             </MenuItem>
         </Menu>
     );
