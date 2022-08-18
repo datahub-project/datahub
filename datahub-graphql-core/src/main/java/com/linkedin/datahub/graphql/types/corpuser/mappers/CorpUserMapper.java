@@ -64,7 +64,7 @@ public class CorpUserMapper implements ModelMapper<EntityResponse, CorpUser> {
     private void mapCorpUserSettings(@Nonnull CorpUser corpUser, EnvelopedAspect envelopedAspect) {
         CorpUserSettings corpUserSettings = new CorpUserSettings();
         if (envelopedAspect != null) {
-            corpUserSettings = new CorpUserSettings(envelopedAspect.data());
+            corpUserSettings = new CorpUserSettings(envelopedAspect.getValue().data());
         }
 
         com.linkedin.datahub.graphql.generated.CorpUserSettings result =

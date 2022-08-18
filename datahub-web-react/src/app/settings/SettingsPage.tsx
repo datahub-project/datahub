@@ -9,7 +9,7 @@ import { ManagePolicies } from '../policy/ManagePolicies';
 import { useAppConfig } from '../useAppConfig';
 import { useGetAuthenticatedUser } from '../useGetAuthenticatedUser';
 import { AccessTokens } from './AccessTokens';
-import { UserSettings } from './UserSettings';
+import { Preferences } from './Preferences';
 
 const PageContainer = styled.div`
     display: flex;
@@ -50,7 +50,7 @@ const PATHS = [
     { path: 'tokens', content: <AccessTokens /> },
     { path: 'identities', content: <ManageIdentities /> },
     { path: 'policies', content: <ManagePolicies /> },
-    { path: 'usersettings', content: <UserSettings /> },
+    { path: 'preferences', content: <Preferences /> },
 ];
 
 /**
@@ -117,8 +117,8 @@ export const SettingsPage = () => {
                             )}
                         </Menu.ItemGroup>
                     )}
-                    <Menu.ItemGroup title="Settings">
-                        <Menu.Item key="usersettings">
+                    <Menu.ItemGroup title="Preferences">
+                        <Menu.Item key="preferences">
                             <ToolOutlined />
                             <ItemTitle>User Settings</ItemTitle>
                         </Menu.Item>

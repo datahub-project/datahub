@@ -77,7 +77,7 @@ export const HomePageRecommendations = ({ userUrn }: Props) => {
     const [showGettingStartedModal, setShowGettingStartedModal] = useState(false);
     const user = useGetAuthenticatedUser()?.corpUser;
 
-    const showSimplifiedHomepage = user?.settings?.showSimplifiedHomepage || true;
+    const showSimplifiedHomepage = user?.settings?.showSimplifiedHomepage;
 
     const { data: entityCountData } = useGetEntityCountsQuery({
         variables: {
