@@ -65,6 +65,9 @@ export const SearchSelect = ({ fixedEntityTypes, placeholderText, selectedEntiti
     const [numResultsPerPage, setNumResultsPerPage] = useState(SearchCfg.RESULTS_PER_PAGE);
 
     // Compute search filters
+    const filtersWithoutEntities: Array<FacetFilterInput> = filters.filter(
+        (filter) => filter.field !== ENTITY_FILTER_NAME,
+    );
     const entityFilters: Array<EntityType> = filters
         .filter((filter) => filter.field === ENTITY_FILTER_NAME)
         .map((filter) => filter.value.toUpperCase() as EntityType);
@@ -78,7 +81,7 @@ export const SearchSelect = ({ fixedEntityTypes, placeholderText, selectedEntiti
                 query,
                 start: (page - 1) * numResultsPerPage,
                 count: numResultsPerPage,
-                filters,
+                filters: filtersWithoutEntities,
             },
         },
     });
@@ -96,6 +99,7 @@ export const SearchSelect = ({ fixedEntityTypes, placeholderText, selectedEntiti
     };
 
     const onChangeFilters = (newFilters: Array<FacetFilterInput>) => {
+        setPage(1);
         setFilters(newFilters);
     };
 

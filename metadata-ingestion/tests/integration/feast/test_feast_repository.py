@@ -1,5 +1,4 @@
 import os
-import sys
 
 import pytest
 from freezegun import freeze_time
@@ -13,9 +12,6 @@ FROZEN_TIME = "2020-04-14 07:00:00"
 @freeze_time(FROZEN_TIME)
 @pytest.mark.skipif(
     os.getenv("AIRFLOW1_TEST") == "true", reason="feast requires Airflow 2.0 or newer"
-)
-@pytest.mark.skipif(
-    sys.version_info < (3, 7), reason="feast requires Python 3.7 or newer"
 )
 def test_feast_repository_ingest(pytestconfig, tmp_path, mock_time):
     test_resources_dir = pytestconfig.rootpath / "tests/integration/feast"

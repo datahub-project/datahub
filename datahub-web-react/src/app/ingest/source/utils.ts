@@ -4,6 +4,7 @@ import { ANTD_GRAY, REDESIGN_COLORS } from '../../entity/shared/constants';
 import { SOURCE_TEMPLATE_CONFIGS } from './conf/sources';
 import { EntityType, FacetMetadata } from '../../../types.generated';
 import { capitalizeFirstLetterOnly, pluralize } from '../../shared/textUtil';
+import EntityRegistry from '../../entity/EntityRegistry';
 
 export const sourceTypeToIconUrl = (type: string) => {
     return SOURCE_TEMPLATE_CONFIGS.find((config) => config.type === type)?.logoUrl;
@@ -54,6 +55,21 @@ export const getExecutionRequestStatusDisplayText = (status: string) => {
     );
 };
 
+export const getExecutionRequestSummaryText = (status: string) => {
+    switch (status) {
+        case RUNNING:
+            return 'Ingestion is running';
+        case SUCCESS:
+            return 'Ingestion successfully completed';
+        case FAILURE:
+            return 'Ingestion completed with errors';
+        case CANCELLED:
+            return 'Ingestion was cancelled';
+        default:
+            return 'Ingestion status not recognized';
+    }
+};
+
 export const getExecutionRequestStatusDisplayColor = (status: string) => {
     return (
         (status === RUNNING && REDESIGN_COLORS.BLUE) ||
@@ -82,34 +98,40 @@ type EntityTypeCount = {
  * @param subTypeFacets the filter facets for sub types.
  */
 export const extractEntityTypeCountsFromFacets = (
+    entityRegistry: EntityRegistry,
     entityTypeFacets: FacetMetadata,
     subTypeFacets?: FacetMetadata | null,
 ): EntityTypeCount[] => {
     const finalCounts: EntityTypeCount[] = [];
 
     if (subTypeFacets) {
-        subTypeFacets.aggregations.forEach((agg) =>
-            finalCounts.push({
-                count: agg.count,
-                displayName: pluralize(agg.count, capitalizeFirstLetterOnly(agg.value) || ''),
-            }),
-        );
-        entityTypeFacets.aggregations
-            .filter((agg) => !ENTITIES_WITH_SUBTYPES.has(agg.value.toLowerCase()))
+        subTypeFacets.aggregations
+            .filter((agg) => agg.count > 0)
             .forEach((agg) =>
                 finalCounts.push({
                     count: agg.count,
                     displayName: pluralize(agg.count, capitalizeFirstLetterOnly(agg.value) || ''),
                 }),
             );
+        entityTypeFacets.aggregations
+            .filter((agg) => agg.count > 0)
+            .filter((agg) => !ENTITIES_WITH_SUBTYPES.has(agg.value.toLowerCase()))
+            .forEach((agg) =>
+                finalCounts.push({
+                    count: agg.count,
+                    displayName: entityRegistry.getCollectionName(agg.value as EntityType),
+                }),
+            );
     } else {
         // Only use Entity Types- no subtypes.
-        entityTypeFacets.aggregations.forEach((agg) =>
-            finalCounts.push({
-                count: agg.count,
-                displayName: pluralize(agg.count, capitalizeFirstLetterOnly(agg.value) || ''),
-            }),
-        );
+        entityTypeFacets.aggregations
+            .filter((agg) => agg.count > 0)
+            .forEach((agg) =>
+                finalCounts.push({
+                    count: agg.count,
+                    displayName: entityRegistry.getCollectionName(agg.value as EntityType),
+                }),
+            );
     }
 
     return finalCounts;

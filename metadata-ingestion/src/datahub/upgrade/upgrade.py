@@ -160,25 +160,24 @@ async def retrieve_version_stats(
     server: Optional[DataHubGraph] = None,
 ) -> Optional[DataHubVersionStats]:
 
-    client_version_stats_future = asyncio.ensure_future(get_client_version_stats())
-    github_stats_future = asyncio.ensure_future(get_github_stats())
-    server_config_future = asyncio.ensure_future(get_server_version_stats(server))
-    tasks = [client_version_stats_future, github_stats_future, server_config_future]
+    try:
+        results = await asyncio.gather(
+            get_client_version_stats(),
+            get_github_stats(),
+            get_server_version_stats(server),
+            return_exceptions=False,
+        )
+    except Exception as e:
+        log.debug(f"Failed to compute versions due to {e}. Continuing...")
+        return None
 
-    while len(tasks):
-        done, pending = await asyncio.wait(tasks, timeout=0.1)
-        for t in done:
-            if t == client_version_stats_future:
-                client_version_stats = t.result()
-            elif t == github_stats_future:
-                (last_server_version, last_server_date) = t.result()
-            elif t == server_config_future:
-                (
-                    current_server_type,
-                    current_server_version,
-                    current_server_release_date,
-                ) = server_config_future.result()
-            tasks.remove(t)
+    client_version_stats = results[0]
+    (last_server_version, last_server_date) = results[1]
+    (
+        current_server_type,
+        current_server_version,
+        current_server_release_date,
+    ) = results[2]
 
     server_version_stats = None
     if current_server_version:

@@ -2,10 +2,10 @@ import React from 'react';
 import { Button, Checkbox, Form, Input, Select, Tooltip } from 'antd';
 import styled from 'styled-components/macro';
 import { MinusCircleOutlined, PlusOutlined, QuestionCircleOutlined } from '@ant-design/icons';
-import { FieldType, RecipeField } from './utils';
 import { ANTD_GRAY } from '../../../../entity/shared/constants';
+import { RecipeField, FieldType } from './common';
 import { Secret } from '../../../../../types.generated';
-import SecretField from './SecretField/SecretField';
+import SecretField, { StyledFormItem } from './SecretField/SecretField';
 
 const Label = styled.div`
     font-weight: bold;
@@ -27,28 +27,6 @@ const StyledRemoveIcon = styled(MinusCircleOutlined)`
     margin-left: 10px;
 `;
 
-const StyledSelectField = styled(Select)`
-    margin-left: 10px;
-`;
-
-const StyledFormItem = styled(Form.Item)<{ alignLeft: boolean; removeMargin: boolean }>`
-    margin-bottom: ${(props) => (props.removeMargin ? '0' : '16px')};
-
-    ${(props) =>
-        props.alignLeft &&
-        `
-        .ant-form-item {
-            flex-direction: row;
-
-        }
-
-        .ant-form-item-label {
-            padding: 0;
-            margin-right: 10px;
-        }
-    `}
-`;
-
 const ListWrapper = styled.div<{ removeMargin: boolean }>`
     margin-bottom: ${(props) => (props.removeMargin ? '0' : '16px')};
 `;
@@ -60,6 +38,7 @@ interface ListFieldProps {
 
 interface SelectFieldProps {
     field: RecipeField;
+    removeMargin?: boolean;
 }
 
 function ListField({ field, removeMargin }: ListFieldProps) {
@@ -76,7 +55,7 @@ function ListField({ field, removeMargin }: ListFieldProps) {
                     {fields.map((item) => (
                         <Form.Item key={item.fieldKey} style={{ marginBottom: '10px' }}>
                             <Form.Item {...item} noStyle>
-                                <Input style={{ width: '80%' }} />
+                                <Input style={{ width: '80%' }} placeholder={field.placeholder} />
                             </Form.Item>
                             <StyledRemoveIcon onClick={() => remove(item.name)} />
                         </Form.Item>
@@ -90,22 +69,17 @@ function ListField({ field, removeMargin }: ListFieldProps) {
     );
 }
 
-function SelectField({ field }: SelectFieldProps) {
+function SelectField({ field, removeMargin }: SelectFieldProps) {
     return (
-        <Form.Item
-            name={field.name}
-            label={field.label}
-            tooltip={field.tooltip}
-            style={{ flexDirection: 'row', width: '80%', display: 'flex', alignItems: 'baseline' }}
-        >
+        <StyledFormItem name={field.name} label={field.label} tooltip={field.tooltip} removeMargin={!!removeMargin}>
             {field.options && (
-                <StyledSelectField>
+                <Select placeholder={field.placeholder}>
                     {field.options.map((option) => (
                         <Select.Option value={option.value}>{option.label}</Select.Option>
                     ))}
-                </StyledSelectField>
+                </Select>
             )}
-        </Form.Item>
+        </StyledFormItem>
     );
 }
 
@@ -121,13 +95,15 @@ function FormField(props: Props) {
 
     if (field.type === FieldType.LIST) return <ListField field={field} removeMargin={removeMargin} />;
 
-    if (field.type === FieldType.SELECT) return <SelectField field={field} />;
+    if (field.type === FieldType.SELECT) return <SelectField field={field} removeMargin={removeMargin} />;
 
     if (field.type === FieldType.SECRET)
-        return <SecretField field={field} secrets={secrets} refetchSecrets={refetchSecrets} />;
+        return (
+            <SecretField field={field} secrets={secrets} removeMargin={removeMargin} refetchSecrets={refetchSecrets} />
+        );
 
     const isBoolean = field.type === FieldType.BOOLEAN;
-    const input = isBoolean ? <Checkbox /> : <Input />;
+    const input = isBoolean ? <Checkbox /> : <Input placeholder={field.placeholder} />;
     const valuePropName = isBoolean ? 'checked' : 'value';
     const getValueFromEvent = isBoolean ? undefined : (e) => (e.target.value === '' ? null : e.target.value);
 

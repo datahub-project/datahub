@@ -9,13 +9,12 @@ from dataclasses import dataclass
 from dataclasses import field as dataclass_field
 from enum import Enum
 from time import sleep
-from typing import Any, Dict, Iterable, List, Optional, Set, Tuple
+from typing import Any, Dict, Iterable, List, Optional, Tuple
 from xmlrpc.client import Boolean
 
 import msal
 import pydantic
 import requests
-from orderedset import OrderedSet
 
 import datahub.emitter.mce_builder as builder
 from datahub.configuration.common import ConfigurationError
@@ -50,6 +49,7 @@ from datahub.metadata.schema_classes import (
     OwnershipTypeClass,
     StatusClass,
 )
+from datahub.utilities.dedup_list import deduplicate_list
 
 # Logger instance
 LOGGER = logging.getLogger(__name__)
@@ -928,7 +928,7 @@ class Mapper:
         """
 
         def __eq__(self, instance):
-            return self.id == self.id
+            return self.id == instance.id
 
         def __hash__(self):
             return id(self.id)
@@ -1096,14 +1096,12 @@ class Mapper:
 
     # written in this style to fix linter error
     def to_urn_set(self, mcps: List[MetadataChangeProposalWrapper]) -> List[str]:
-        return list(
-            OrderedSet(
-                [
-                    mcp.entityUrn
-                    for mcp in mcps
-                    if mcp is not None and mcp.entityUrn is not None
-                ]
-            )
+        return deduplicate_list(
+            [
+                mcp.entityUrn
+                for mcp in mcps
+                if mcp is not None and mcp.entityUrn is not None
+            ]
         )
 
     def __to_datahub_dashboard(
@@ -1298,7 +1296,7 @@ class Mapper:
 
     def to_datahub_work_units(
         self, dashboard: PowerBiAPI.Dashboard
-    ) -> Set[EquableMetadataWorkUnit]:
+    ) -> List[EquableMetadataWorkUnit]:
         mcps = []
 
         LOGGER.info(
@@ -1321,7 +1319,7 @@ class Mapper:
         # Convert MCP to work_units
         work_units = map(self.__to_work_unit, mcps)
         # Return set of work_unit
-        return OrderedSet([wu for wu in work_units if wu is not None])
+        return deduplicate_list([wu for wu in work_units if wu is not None])
 
 
 @dataclass
