@@ -197,4 +197,4 @@ siblings:
   enabled: ${ENABLE_SIBLING_HOOK:true} # enable to turn on automatic sibling associations for dbt
 
 featureFlags:
-  simplifiedHomepageDefaultOn: ${SHOW_SIMPLIFIED_HOMEPAGE_BY_DEFAULT:true} # shows a simplified homepage with just datasets, charts and dashboards by default to users. this can be configured in user settings
+  simplifiedHomepageDefaultOn: ${SHOW_SIMPLIFIED_HOMEPAGE_BY_DEFAULT:false} # shows a simplified homepage with just datasets, charts and dashboards by default to users. this can be configured in user settings
