@@ -137,6 +137,7 @@ export const IngestionSourceList = () => {
             }
         } else if (refreshInterval) {
             clearInterval(refreshInterval);
+            setRefreshInterval(null);
         }
     }, [filteredSources, refreshInterval, onRefresh]);
 
