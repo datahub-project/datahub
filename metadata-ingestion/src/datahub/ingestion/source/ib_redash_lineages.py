@@ -30,7 +30,7 @@ class IBRedashLineagesSourceConfig(ConfigModel):
     api_page_limit: int = Field(
         default=sys.maxsize,
         description="Limit on number of pages queried for ingesting dashboards and charts API "
-        "during pagination. ",
+                    "during pagination. ",
     )
 
 
@@ -82,8 +82,7 @@ class IBRedashLineagesSource(Source):
     def get_workunits(self) -> Iterable[Union[MetadataWorkUnit, UsageStatsWorkUnit]]:
         lineages_json = self.get_lineages(self.config.lineage_query_id)
         lineages_grouped = pd.read_json(json.dumps(lineages_json)).groupby(
-            ["DstType", "DstLocationCode", "DstDBName", "DstSchemaName", "DstTableName"]
-        )
+            ["DstType", "DstLocationCode", "DstDBName", "DstSchemaName", "DstTableName"], dropna=False)
 
         for key_tuple, lineages in lineages_grouped:
             first = lineages.iloc[0]
@@ -121,7 +120,7 @@ class IBRedashLineagesSource(Source):
 
     @staticmethod
     def build_dataset_urn(
-        dataset_type, location_code, db_name, schema_name, table_name
+            dataset_type, location_code, db_name, schema_name, table_name
     ) -> str:
         if dataset_type.lower() == "kafka":
             return builder.make_dataset_urn(
