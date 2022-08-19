@@ -1036,7 +1036,11 @@ class LookerDashboardSource(Source):
         mcps.append(dashboard_mcp)
 
         workunits = [
-            MetadataWorkUnit(id=f"looker-{mcp.aspectName}-{mcp.entityUrn}", mcp=mcp, treat_errors_as_warnings=True)
+            MetadataWorkUnit(
+                id=f"looker-{mcp.aspectName}-{mcp.entityUrn}",
+                mcp=mcp,
+                treat_errors_as_warnings=True,
+            )
             for mcp in mcps
         ]
 
