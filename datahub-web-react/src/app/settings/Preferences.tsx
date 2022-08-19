@@ -61,8 +61,8 @@ export const Preferences = () => {
             <SourceContainer>
                 <TokensContainer>
                     <TokensHeaderContainer>
-                        <TokensTitle level={2}>Preferences</TokensTitle>
-                        <Typography.Paragraph type="secondary">Manage your settings.</Typography.Paragraph>
+                        <TokensTitle level={2}>Appearance</TokensTitle>
+                        <Typography.Paragraph type="secondary">Manage your appearance settings.</Typography.Paragraph>
                     </TokensHeaderContainer>
                 </TokensContainer>
                 <Divider />

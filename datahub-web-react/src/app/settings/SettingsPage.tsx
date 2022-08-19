@@ -120,7 +120,7 @@ export const SettingsPage = () => {
                     <Menu.ItemGroup title="Preferences">
                         <Menu.Item key="preferences">
                             <ToolOutlined />
-                            <ItemTitle>User Settings</ItemTitle>
+                            <ItemTitle>Appearance</ItemTitle>
                         </Menu.Item>
                     </Menu.ItemGroup>
                 </Menu>
