@@ -1,7 +1,7 @@
 import json
 import logging
 import time
-from typing import Any, Dict
+from typing import Any, Dict, Optional
 
 from datahub import nice_version_name
 from datahub.configuration.common import ConfigModel, DynamicTypedConfig
@@ -27,7 +27,8 @@ logger = logging.getLogger(__name__)
 
 
 class DatahubIngestionRunSummaryProviderConfig(ConfigModel):
-    sink: DynamicTypedConfig
+    report_recipe: bool = True
+    sink: Optional[DynamicTypedConfig] = None
 
 
 class DatahubIngestionRunSummaryProvider(PipelineRunListener):
@@ -73,12 +74,16 @@ class DatahubIngestionRunSummaryProvider(PipelineRunListener):
         ctx: PipelineContext,
     ) -> PipelineRunListener:
 
-        if config_dict:
-            reporter_config = DatahubIngestionRunSummaryProviderConfig.parse_obj(
-                config_dict
-            )
-            sink_config_holder: DynamicTypedConfig = reporter_config.sink
-        else:
+        sink_config_holder: Optional[DynamicTypedConfig] = None
+
+        reporter_config = DatahubIngestionRunSummaryProviderConfig.parse_obj(
+            config_dict or {}
+        )
+        if reporter_config.sink:
+            sink_config_holder = reporter_config.sink
+
+        if sink_config_holder is None:
+            # Populate sink from global recipe
             assert ctx.pipeline_config
             sink_config_holder = ctx.pipeline_config.sink
             # Global instances are safe to use only if the types are datahub-rest and datahub-kafka
@@ -92,12 +97,13 @@ class DatahubIngestionRunSummaryProvider(PipelineRunListener):
         sink_class = sink_registry.get(sink_type)
         sink_config = sink_config_holder.dict().get("config") or {}
         sink: Sink = sink_class.create(sink_config, ctx)
-        return cls(sink, ctx)
+        return cls(sink, reporter_config.report_recipe, ctx)
 
-    def __init__(self, sink: Sink, ctx: PipelineContext) -> None:
+    def __init__(self, sink: Sink, report_recipe: bool, ctx: PipelineContext) -> None:
         assert ctx.pipeline_config is not None
 
         self.sink: Sink = sink
+        self.report_recipe = report_recipe
         ingestion_source_key = self.generate_unique_key(ctx.pipeline_config)
         self.entity_name: str = self.generate_entity_name(ingestion_source_key)
 
@@ -119,9 +125,7 @@ class DatahubIngestionRunSummaryProvider(PipelineRunListener):
                 getattr(ctx.pipeline_config.source, "platform", "unknown")
             ),
             config=DataHubIngestionSourceConfigClass(
-                recipe=json.dumps(ctx.pipeline_config._raw_dict)
-                if ctx.pipeline_config._raw_dict
-                else "",
+                recipe=self._get_recipe_to_report(ctx),
                 version=nice_version_name(),
                 executorId=self._EXECUTOR_ID,
             ),
@@ -133,6 +137,13 @@ class DatahubIngestionRunSummaryProvider(PipelineRunListener):
             aspect_name="dataHubIngestionSourceInfo",
             aspect_value=source_info_aspect,
         )
+
+    def _get_recipe_to_report(self, ctx: PipelineContext) -> str:
+        assert ctx.pipeline_config
+        if not self.report_recipe or not ctx.pipeline_config._raw_dict:
+            return ""
+        else:
+            return json.dumps(ctx.pipeline_config._raw_dict)
 
     def _emit_aspect(
         self, entity_urn: Urn, aspect_name: str, aspect_value: _Aspect
@@ -157,9 +168,7 @@ class DatahubIngestionRunSummaryProvider(PipelineRunListener):
         execution_input_aspect = ExecutionRequestInputClass(
             task=self._INGESTION_TASK_NAME,
             args={
-                "recipe": json.dumps(ctx.pipeline_config._raw_dict)
-                if ctx.pipeline_config._raw_dict
-                else "",
+                "recipe": self._get_recipe_to_report(ctx),
                 "version": nice_version_name(),
             },
             executorId=self._EXECUTOR_ID,

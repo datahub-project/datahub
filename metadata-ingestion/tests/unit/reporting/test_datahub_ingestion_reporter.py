@@ -2,6 +2,7 @@ import pytest
 
 from datahub.ingestion.reporting.datahub_ingestion_run_summary_provider import (
     DatahubIngestionRunSummaryProvider,
+    DatahubIngestionRunSummaryProviderConfig,
 )
 from datahub.ingestion.run.pipeline_config import PipelineConfig
 
@@ -43,3 +44,9 @@ def test_unique_key_gen(pipeline_config, expected_key):
     config = PipelineConfig.from_dict(pipeline_config)
     key = DatahubIngestionRunSummaryProvider.generate_unique_key(config)
     assert key == expected_key
+
+
+def test_default_config():
+    typed_config = DatahubIngestionRunSummaryProviderConfig.parse_obj({})
+    assert typed_config.sink is None
+    assert typed_config.report_recipe is True

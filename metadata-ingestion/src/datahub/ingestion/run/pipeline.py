@@ -209,7 +209,7 @@ class Pipeline:
         for reporter in self.reporters:
             try:
                 reporter.on_completion(
-                    status="FAILED"
+                    status="FAILURE"
                     if self.source.get_report().failures
                     or self.sink.get_report().failures
                     else "SUCCESS",
