@@ -88,7 +88,7 @@ class PipelineConfig(ConfigModel):
 
     @classmethod
     def from_dict(
-        cls, resolved_dict: dict, raw_dict: Optional[dict]
+        cls, resolved_dict: dict, raw_dict: Optional[dict] = None
     ) -> "PipelineConfig":
         config = cls.parse_obj(resolved_dict)
         config._raw_dict = raw_dict

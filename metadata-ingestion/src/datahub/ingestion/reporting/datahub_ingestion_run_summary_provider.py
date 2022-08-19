@@ -46,11 +46,25 @@ class DatahubIngestionRunSummaryProvider(PipelineRunListener):
         key["type"] = pipeline_config.source.type
         if pipeline_config.pipeline_name:
             key["pipeline_name"] = pipeline_config.pipeline_name
-        if hasattr(pipeline_config.source.config, "platform_instance"):
-            key["platform_instance"] = getattr(
-                pipeline_config.source.config, "platform_instance"
-            )
+        if (
+            pipeline_config.source.config
+            and "platform_instance" in pipeline_config.source.config
+        ):
+            key["platform_instance"] = pipeline_config.source.config[
+                "platform_instance"
+            ]
         return key
+
+    @staticmethod
+    def generate_entity_name(key: dict) -> str:
+        # Construct the unique entity name
+        entity_name = f"[CLI] {key['type']}"
+        if "platform_instance" in key:
+            entity_name = f"{entity_name} ({key['platform_instance']})"
+
+        if "pipeline_name" in key:
+            entity_name = f"{entity_name} [{key['pipeline_name']}]"
+        return entity_name
 
     @classmethod
     def create(
@@ -83,19 +97,9 @@ class DatahubIngestionRunSummaryProvider(PipelineRunListener):
     def __init__(self, sink: Sink, ctx: PipelineContext) -> None:
         assert ctx.pipeline_config is not None
 
-        def generate_entity_name(key: dict) -> str:
-            # Construct the unique entity name
-            entity_name = f"[CLI] {key['type']}"
-            if "platform_instance" in key:
-                entity_name = f"{entity_name} ({key['platform_instance']})"
-
-            if "pipeline_name" in key:
-                entity_name = f"{entity_name} [{key['pipeline_name']}]"
-            return entity_name
-
         self.sink: Sink = sink
         ingestion_source_key = self.generate_unique_key(ctx.pipeline_config)
-        self.entity_name: str = generate_entity_name(ingestion_source_key)
+        self.entity_name: str = self.generate_entity_name(ingestion_source_key)
 
         self.ingestion_source_urn: Urn = Urn(
             entity_type="dataHubIngestionSource",
