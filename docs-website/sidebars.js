@@ -56,6 +56,7 @@ module.exports = {
       "docs/saas",
     ],
     "Get Started": [
+      "docs/wip/get-started",
       {
        "Self-Hosted DataHub": [
           "docs/quickstart",
@@ -157,7 +158,6 @@ module.exports = {
       },
     ],
     "Enrich Metadata": [
-      
       "docs/wip/csv-enrichment",
       "docs/wip/ui-based-enrichment",
       "docs/domains",
@@ -172,6 +172,7 @@ module.exports = {
     ],
 
     "Act on Metadata": [
+      "docs/wip/act-on-metadata",
       {
         "Actions Framework": [
           "docs/actions/README",
@@ -256,6 +257,7 @@ module.exports = {
       },
     ],
     "Developer Guides": [
+      "docs/wip/developer-guides",
       "docs/cli",
       {
         "GraphQL API": [
@@ -368,6 +370,7 @@ module.exports = {
       "metadata-ingestion/docs/dev_guides/reporting_telemetry",
     ],
     "Tutorials": [
+      "docs/wip/tutorials",
       "docs/how/search",
       "docs/schema-history",
       "docs/dev-guides/timeline",
@@ -419,6 +422,7 @@ module.exports = {
       "docker/datahub-upgrade/README",
       {
         "Advanced Tutorials": [
+          "docs/wip/advanced-guides",
           "docs/wip/search-ranking",
           "docs/advanced/no-code-modeling",
           "docs/how/delete-metadata",
@@ -495,6 +499,7 @@ module.exports = {
       // - "docker/postgres/README",
       // - "perf-test/README",
       // "metadata-jobs/README",
+      // "docs/how/add-user-data",
     // ],
 
   },
