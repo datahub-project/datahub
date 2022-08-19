@@ -71,6 +71,7 @@ const user1 = {
             },
         ],
     },
+    settings: { showSimplifiedHomepage: false },
 };
 
 const user2 = {
@@ -114,6 +115,7 @@ const user2 = {
             },
         ],
     },
+    settings: { showSimplifiedHomepage: false },
 };
 
 const dataPlatform = {
