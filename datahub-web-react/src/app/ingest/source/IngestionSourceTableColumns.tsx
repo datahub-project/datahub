@@ -170,7 +170,7 @@ export function ActionsColumn({
                     style={{ marginRight: 16 }}
                     onClick={() => onExecute(record.urn)}
                 >
-                    EXECUTE
+                    RUN
                 </Button>
             )}
             {record.lastExecStatus === RUNNING && (
