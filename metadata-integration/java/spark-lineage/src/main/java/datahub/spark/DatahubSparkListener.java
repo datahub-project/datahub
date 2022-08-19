@@ -277,7 +277,7 @@ public class DatahubSparkListener extends SparkListener {
     String appId = ctx.applicationId();
     Config datahubConfig = appConfig.get(appId);
     if (datahubConfig == null) {
-      Config datahubConf = LineageUtils.parseSparkConfig();
+      Config datahubConf = SparkConfigUtil.parseSparkConfig();
       appConfig.put(appId, datahubConf);
       Config pipelineConfig = datahubConf.hasPath(PIPELINE_KEY) ? datahubConf.getConfig(PIPELINE_KEY)
           : com.typesafe.config.ConfigFactory.empty();
@@ -296,7 +296,7 @@ public class DatahubSparkListener extends SparkListener {
   }
 
   private String getPipelineName(SparkContext cx) {
-    Config datahubConfig = appConfig.computeIfAbsent(cx.applicationId(), s -> LineageUtils.parseSparkConfig());
+    Config datahubConfig = appConfig.computeIfAbsent(cx.applicationId(), s -> SparkConfigUtil.parseSparkConfig());
     String name = "";
     if (datahubConfig.hasPath(DATABRICKS_CLUSTER_KEY)) {
       name = datahubConfig.getString(DATABRICKS_CLUSTER_KEY) + "_" + cx.applicationId();

@@ -95,9 +95,15 @@ dependencies {
   provided(externalDependency.sparkSql)
   provided(externalDependency.sparkHive)
 
+  implementation(externalDependency.sparkBigQuery){
+        exclude group: 'com.fasterxml.jackson.core'
+        exclude group: 'com.fasterxml.jackson.module'
+  }
+  
   // Tests need a concrete log4j available. Providing it here
   testImplementation 'org.apache.logging.log4j:log4j-api:2.17.1'
   testImplementation 'org.apache.logging.log4j:log4j-core:2.17.1'
+  
 
 
   testImplementation(externalDependency.postgresql){
@@ -105,7 +111,7 @@ dependencies {
   }
 
   testImplementation externalDependency.mockito
-
+  testImplementation 'org.mockito:mockito-inline:4.2.0' 
   testImplementation(externalDependency.mockServer){
     exclude group: "com.fasterxml.jackson.core"
   } // older version to allow older guava
@@ -149,6 +155,23 @@ shadowJar {
   relocate 'com.typesafe','datahub.spark2.shaded.typesafe'
   relocate 'io.opentracing','datahub.spark2.shaded.io.opentracing'
   relocate 'io.netty','datahub.spark2.shaded.io.netty'
+  
+  //packages addedd for bigquery
+  relocate 'org.apache.beam', 'datahub.spark2.shaded.org.apache.beam'
+  relocate 'io.opencensus', 'datahub.spark2.shaded.io.opencensus'
+  relocate 'org.apache.arrow', 'datahub.spark2.shaded.org.apache.arrow'
+  relocate 'io.grpc', 'datahub.spark2.shaded.io.grpc.alts'
+  relocate 'google', 'datahub.spark2.shaded.google'
+  relocate 'org.checkerframework', 'datahub.spark2.shaded.org.checkerframework'
+  relocate 'org.conscrypt', 'datahub.spark2.shaded.org.conscrypt'
+  relocate 'org.threeten', 'datahub.spark2.shaded.org.threeten'
+  relocate 'org.joda', 'datahub.spark2.shaded.org.joda'
+  relocate 'org.json', 'datahub.spark2.shaded.org.json'
+  relocate 'io.perfmark', 'datahub.spark2.shaded.io.perfmark'
+  relocate 'grpc', 'datahub.spark2.shaded.grpc'
+  relocate 'codegen', 'datahub.spark2.shaded.codegen'
+  relocate 'android', 'datahub.spark2.shaded.android'
+
   finalizedBy checkShadowJar
 }
 

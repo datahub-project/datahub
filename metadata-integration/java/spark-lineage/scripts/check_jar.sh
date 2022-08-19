@@ -33,7 +33,12 @@ jar -tvf $jarFile |\
       grep -v "linux/" |\
       grep -v "darwin" |\
       grep -v "MetadataChangeProposal.avsc" |\
-      grep -v "aix"
+      grep -v "aix" |\
+      # added for bigquery
+      grep -v "spark-bigquery-connector.properties" |\
+      grep -v "dependencies.properties" |\
+      grep -v "storage.v1.json" |\
+      grep -v "bigquery.v2.json"
 
 if [ $? -ne 0 ]; then
   echo "✅ No unexpected class paths found in ${jarFile}"

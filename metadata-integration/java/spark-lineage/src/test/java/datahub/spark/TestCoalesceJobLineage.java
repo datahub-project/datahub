@@ -79,7 +79,7 @@ public class TestCoalesceJobLineage {
   };
 
   private static String addLocalPath(String s) {
-    return s.replaceAll("file:/" + RESOURCE_DIR, "file://" + Paths.get(RESOURCE_DIR).toAbsolutePath().toString());
+    return s.replaceAll("file:/" + RESOURCE_DIR, "file:" + Paths.get(RESOURCE_DIR).toAbsolutePath().toString());
   }
 
   public static void resetBaseExpectations() {
@@ -161,10 +161,10 @@ public class TestCoalesceJobLineage {
 
   @Test
   public void testHiveInHiveOutCoalesce() throws Exception {
-    Dataset<Row> df1 = spark.read().option("header", "true").csv(new File(DATA_DIR + "/in1.csv").getAbsolutePath()).withColumnRenamed("c1", "a")
+    Dataset<Row> df1 = spark.read().option("header", "true").csv(DATA_DIR + "/in1.csv").withColumnRenamed("c1", "a")
         .withColumnRenamed("c2", "b");
 
-    Dataset<Row> df2 = spark.read().option("header", "true").csv(new File(DATA_DIR + "/in2.csv").getAbsolutePath()).withColumnRenamed("c1", "c")
+    Dataset<Row> df2 = spark.read().option("header", "true").csv(DATA_DIR + "/in2.csv").withColumnRenamed("c1", "c")
         .withColumnRenamed("c2", "d");
 
     df1.createOrReplaceTempView("v1");
