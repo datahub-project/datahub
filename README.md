@@ -106,6 +106,7 @@ Join our [Slack workspace](https://slack.datahubproject.io) for discussions and 
 
 Here are the companies that have officially adopted DataHub. Please feel free to add yours to the list if we missed it.
 
+- [ABLY](https://ably.team/)
 - [Adevinta](https://www.adevinta.com/)
 - [Banksalad](https://www.banksalad.com)
 - [Cabify](https://cabify.tech/)

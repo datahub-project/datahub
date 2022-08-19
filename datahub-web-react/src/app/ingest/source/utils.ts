@@ -55,6 +55,21 @@ export const getExecutionRequestStatusDisplayText = (status: string) => {
     );
 };
 
+export const getExecutionRequestSummaryText = (status: string) => {
+    switch (status) {
+        case RUNNING:
+            return 'Ingestion is running';
+        case SUCCESS:
+            return 'Ingestion successfully completed';
+        case FAILURE:
+            return 'Ingestion completed with errors';
+        case CANCELLED:
+            return 'Ingestion was cancelled';
+        default:
+            return 'Ingestion status not recognized';
+    }
+};
+
 export const getExecutionRequestStatusDisplayColor = (status: string) => {
     return (
         (status === RUNNING && REDESIGN_COLORS.BLUE) ||

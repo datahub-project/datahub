@@ -93,6 +93,7 @@ entities:
       - corpUserCredentials
       - nativeGroupMembership
       - corpUserSettings
+      - origin
   - name: corpGroup
     doc: CorpGroup represents an identity of a group of users in the enterprise.
     keyAspect: corpGroupKey
