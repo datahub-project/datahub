@@ -1,14 +1,9 @@
-import sys
-
-import pytest
-from freezegun import freeze_time
-
-if sys.version_info < (3, 7):
-    pytest.skip("iceberg not available for python < 3.7", allow_module_level=True)
 from pathlib import PosixPath
 from typing import Union
 from unittest.mock import patch
 
+import pytest
+from freezegun import freeze_time
 from iceberg.core.filesystem.file_status import FileStatus
 from iceberg.core.filesystem.local_filesystem import LocalFileSystem
 
@@ -20,7 +15,6 @@ FROZEN_TIME = "2020-04-14 07:00:00"
 
 @freeze_time(FROZEN_TIME)
 @pytest.mark.integration
-@pytest.mark.skipif(sys.version_info < (3, 7), reason="iceberg requires Python 3.7+")
 def test_iceberg_ingest(pytestconfig, tmp_path, mock_time):
     test_resources_dir = pytestconfig.rootpath / "tests/integration/iceberg/"
 
@@ -57,7 +51,6 @@ def test_iceberg_ingest(pytestconfig, tmp_path, mock_time):
 
 @freeze_time(FROZEN_TIME)
 @pytest.mark.integration
-@pytest.mark.skipif(sys.version_info < (3, 7), reason="iceberg requires Python 3.7+")
 def test_iceberg_profiling(pytestconfig, tmp_path, mock_time):
     """
     This test is using a table created using https://github.com/tabular-io/docker-spark-iceberg.

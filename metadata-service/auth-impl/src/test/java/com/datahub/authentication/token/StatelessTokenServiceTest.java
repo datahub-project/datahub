@@ -46,7 +46,30 @@ public class StatelessTokenServiceTest {
     assertEquals(claimsMap.get(TOKEN_TYPE_CLAIM_NAME), "PERSONAL");
     assertEquals(claimsMap.get(ACTOR_TYPE_CLAIM_NAME), "USER");
     assertEquals(claimsMap.get(ACTOR_ID_CLAIM_NAME), "datahub");
+  }
 
+  @Test
+  public void testGenerateAccessTokenPersonalTokenEternal() throws Exception {
+    StatelessTokenService statelessTokenService = new StatelessTokenService(TEST_SIGNING_KEY, "HS256");
+    String token = statelessTokenService.generateAccessToken(TokenType.PERSONAL,
+            new Actor(ActorType.USER, "datahub"),
+            null);
+    assertNotNull(token);
+
+    // Verify token claims
+    TokenClaims claims = statelessTokenService.validateAccessToken(token);
+
+    assertEquals(claims.getTokenVersion(), TokenVersion.ONE);
+    assertEquals(claims.getTokenType(), TokenType.PERSONAL);
+    assertEquals(claims.getActorType(), ActorType.USER);
+    assertEquals(claims.getActorId(), "datahub");
+    assertNull(claims.getExpirationInMs());
+
+    Map<String, Object> claimsMap = claims.asMap();
+    assertEquals(claimsMap.get(TOKEN_VERSION_CLAIM_NAME), 1);
+    assertEquals(claimsMap.get(TOKEN_TYPE_CLAIM_NAME), "PERSONAL");
+    assertEquals(claimsMap.get(ACTOR_TYPE_CLAIM_NAME), "USER");
+    assertEquals(claimsMap.get(ACTOR_ID_CLAIM_NAME), "datahub");
   }
 
   @Test

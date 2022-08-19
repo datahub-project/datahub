@@ -41,6 +41,7 @@ public class IngestionResolverUtils {
 
     final ExecutionRequest result = new ExecutionRequest();
     result.setUrn(entityUrn.toString());
+    result.setId(entityUrn.getId());
 
     // Map input aspect. Must be present.
     final EnvelopedAspect envelopedInput = aspects.get(Constants.EXECUTION_REQUEST_INPUT_ASPECT_NAME);

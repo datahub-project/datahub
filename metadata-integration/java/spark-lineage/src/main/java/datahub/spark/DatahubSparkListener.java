@@ -320,6 +320,7 @@ public class DatahubSparkListener extends SparkListener {
     LogicalPlan plan = queryExec.optimizedPlan();
     SparkSession sess = queryExec.sparkSession();
     SparkContext ctx = sess.sparkContext();
+    checkOrCreateApplicationSetup(ctx);
     (new SqlStartTask(sqlStart, plan, ctx)).run();
   }
 

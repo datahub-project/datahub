@@ -46,6 +46,15 @@ public interface EntitySearchService {
   void deleteDocument(@Nonnull String entityName, @Nonnull String docId);
 
   /**
+   * Appends a run id to the list for a certain document
+   *
+   * @param entityName name of the entity
+   * @param urn the urn of the user
+   * @param runId the ID of the run
+   */
+  void appendRunId(@Nonnull String entityName, @Nonnull Urn urn, @Nullable String runId);
+
+  /**
    * Gets a list of documents that match given search request. The results are aggregated and filters are applied to the
    * search hits and not the aggregation results.
    *

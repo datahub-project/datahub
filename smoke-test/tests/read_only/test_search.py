@@ -1,25 +1,55 @@
 import pytest
-import requests
 
 from tests.test_result_msg import add_datahub_stats
-from tests.utils import get_frontend_url, get_gms_url
+from tests.utils import get_frontend_session, get_frontend_url
 
 restli_default_headers = {
     "X-RestLi-Protocol-Version": "2.0.0",
 }
 
+ENTITY_TO_MAP = {
+    "chart": "CHART",
+    "dataset": "DATASET",
+    "dashboard": "DASHBOARD",
+    "dataJob": "DATA_JOB",
+    "dataFlow": "DATA_FLOW",
+    "container": "CONTAINER",
+    "tag": "TAG",
+    "corpUser": "CORP_USER",
+    "mlFeature": "MLFEATURE",
+    "glossaryTerm": "GLOSSARY_TERM",
+    "domain": "DOMAIN",
+    "mlPrimaryKey": "MLPRIMARY_KEY",
+    "corpGroup": "CORP_GROUP",
+    "mlFeatureTable": "MLFEATURE_TABLE",
+    "glossaryNode": "GLOSSARY_NODE",
+    "mlModel": "MLMODEL",
+}
 
-def _get_search_result(entity: str):
-    json = {"input": "*", "entity": entity, "start": 0, "count": 1}
-    response = requests.post(
-        f"{get_gms_url()}/entities?action=search",
-        headers=restli_default_headers,
-        json=json,
-    )
+
+def _get_search_result(frontend_session, entity: str):
+    json = {
+        "query": """
+        query search($input: SearchInput!) {
+            search(input: $input) {
+                total
+                searchResults {
+                    entity {
+                        urn
+                    }
+                }
+            }
+        }
+        """,
+        "variables": {"input": {"type": ENTITY_TO_MAP.get(entity), "query": "*"}},
+    }
+    response = frontend_session.post(f"{get_frontend_url()}/api/v2/graphql", json=json)
+    print(f"Response text was {response.text}")
     res_data = response.json()
     assert res_data, f"response data was {res_data}"
-    assert res_data["value"], f"response data was {res_data}"
-    return res_data["value"]
+    assert res_data["data"], f"response data was {res_data}"
+    assert res_data["data"]["search"], f"response data was {res_data}"
+    return res_data["data"]["search"]
 
 
 @pytest.mark.read_only
@@ -56,16 +86,17 @@ def _get_search_result(entity: str):
         ("mlModel", "mlModel"),
     ],
 )
-def test_search_works(frontend_session, entity_type, api_name):
-    search_result = _get_search_result(entity_type)
-    num_entities = search_result["numEntities"]
+def test_search_works(entity_type, api_name):
+    frontend_session = get_frontend_session()
+    search_result = _get_search_result(frontend_session, entity_type)
+    num_entities = search_result["total"]
     add_datahub_stats(f"num-{entity_type}", num_entities)
     if num_entities == 0:
         print(f"[WARN] No results for {entity_type}")
         return
-    entities = search_result["entities"]
+    entities = search_result["searchResults"]
 
-    first_urn = entities[0]["entity"]
+    first_urn = entities[0]["entity"]["urn"]
 
     json = {
         "query": """

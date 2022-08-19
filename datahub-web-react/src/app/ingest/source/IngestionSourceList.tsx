@@ -1,5 +1,5 @@
 import { CopyOutlined, DeleteOutlined, PlusOutlined, RedoOutlined } from '@ant-design/icons';
-import React, { useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import * as QueryString from 'query-string';
 import { useLocation } from 'react-router';
 import { Button, Empty, Image, message, Modal, Pagination, Tooltip, Typography } from 'antd';
@@ -21,6 +21,7 @@ import {
     getExecutionRequestStatusDisplayColor,
     getExecutionRequestStatusDisplayText,
     getExecutionRequestStatusIcon,
+    RUNNING,
     sourceTypeToIconUrl,
 } from './utils';
 import { DEFAULT_EXECUTOR_ID, SourceBuilderState } from './builder/types';
@@ -28,6 +29,7 @@ import { UpdateIngestionSourceInput } from '../../../types.generated';
 import { capitalizeFirstLetter } from '../../shared/textUtil';
 import { SearchBar } from '../../search/SearchBar';
 import { useEntityRegistry } from '../../useEntityRegistry';
+import { ExecutionDetailsModal } from './ExecutionRequestDetailsModal';
 
 const SourceContainer = styled.div``;
 
@@ -48,6 +50,11 @@ const StatusContainer = styled.div`
     display: flex;
     justify-content: left;
     align-items: center;
+`;
+
+const StatusButton = styled(Button)`
+    padding: 0px;
+    margin: 0px;
 `;
 
 const ActionButtonContainer = styled.div`
@@ -84,9 +91,11 @@ export const IngestionSourceList = () => {
 
     const [isBuildingSource, setIsBuildingSource] = useState<boolean>(false);
     const [focusSourceUrn, setFocusSourceUrn] = useState<undefined | string>(undefined);
+    const [focusExecutionUrn, setFocusExecutionUrn] = useState<undefined | string>(undefined);
     const [lastRefresh, setLastRefresh] = useState(0);
     // Set of removed urns used to account for eventual consistency
     const [removedUrns, setRemovedUrns] = useState<string[]>([]);
+    const [refreshInterval, setRefreshInterval] = useState<NodeJS.Timeout | null>(null);
 
     // Ingestion Source Queries
     const { loading, error, data, refetch } = useListIngestionSourcesQuery({
@@ -111,11 +120,26 @@ export const IngestionSourceList = () => {
     const focusSource =
         (focusSourceUrn && filteredSources.find((source) => source.urn === focusSourceUrn)) || undefined;
 
-    const onRefresh = () => {
+    const onRefresh = useCallback(() => {
         refetch();
         // Used to force a re-render of the child execution request list.
         setLastRefresh(new Date().getMilliseconds());
-    };
+    }, [refetch]);
+
+    useEffect(() => {
+        const runningSource = filteredSources.find((source) =>
+            source.executions?.executionRequests.find((request) => request.result?.status === RUNNING),
+        );
+        if (runningSource) {
+            if (!refreshInterval) {
+                const interval = setInterval(onRefresh, 3000);
+                setRefreshInterval(interval);
+            }
+        } else if (refreshInterval) {
+            clearInterval(refreshInterval);
+            setRefreshInterval(null);
+        }
+    }, [filteredSources, refreshInterval, onRefresh]);
 
     const executeIngestionSource = (urn: string) => {
         createExecutionRequestMutation({
@@ -130,7 +154,7 @@ export const IngestionSourceList = () => {
                     content: `Successfully submitted ingestion execution request!`,
                     duration: 3,
                 });
-                setInterval(() => onRefresh(), 3000);
+                setTimeout(() => onRefresh(), 3000);
             })
             .catch((e) => {
                 message.destroy();
@@ -348,16 +372,18 @@ export const IngestionSourceList = () => {
             title: 'Last Status',
             dataIndex: 'lastExecStatus',
             key: 'lastExecStatus',
-            render: (status: any) => {
+            render: (status: any, record) => {
                 const Icon = getExecutionRequestStatusIcon(status);
                 const text = getExecutionRequestStatusDisplayText(status);
                 const color = getExecutionRequestStatusDisplayColor(status);
                 return (
                     <StatusContainer>
                         {Icon && <Icon style={{ color }} />}
-                        <Typography.Text strong style={{ color, marginLeft: 8 }}>
-                            {text || 'N/A'}
-                        </Typography.Text>
+                        <StatusButton type="link" onClick={() => setFocusExecutionUrn(record.lastExecUrn)}>
+                            <Typography.Text strong style={{ color, marginLeft: 8 }}>
+                                {text || 'N/A'}
+                            </Typography.Text>
+                        </StatusButton>
                     </StatusContainer>
                 );
             },
@@ -382,13 +408,16 @@ export const IngestionSourceList = () => {
                     <Button style={{ marginRight: 16 }} onClick={() => onEdit(record.urn)}>
                         EDIT
                     </Button>
-                    <Button
-                        disabled={record.lastExecStatus === 'RUNNING'}
-                        style={{ marginRight: 16 }}
-                        onClick={() => onExecute(record.urn)}
-                    >
-                        EXECUTE
-                    </Button>
+                    {record.lastExecStatus !== RUNNING && (
+                        <Button style={{ marginRight: 16 }} onClick={() => onExecute(record.urn)}>
+                            EXECUTE
+                        </Button>
+                    )}
+                    {record.lastExecStatus === RUNNING && (
+                        <Button style={{ marginRight: 16 }} onClick={() => setFocusExecutionUrn(record.lastExecUrn)}>
+                            DETAILS
+                        </Button>
+                    )}
 
                     <Button onClick={() => onDelete(record.urn)} type="text" shape="circle" danger>
                         <DeleteOutlined />
@@ -405,6 +434,8 @@ export const IngestionSourceList = () => {
         schedule: source.schedule?.interval,
         timezone: source.schedule?.timezone,
         execCount: source.executions?.total || 0,
+        lastExecUrn:
+            source.executions?.total && source.executions?.total > 0 && source.executions?.executionRequests[0].urn,
         lastExecTime:
             source.executions?.total &&
             source.executions?.total > 0 &&
@@ -490,6 +521,13 @@ export const IngestionSourceList = () => {
                 onSubmit={onSubmit}
                 onCancel={onCancel}
             />
+            {focusExecutionUrn && (
+                <ExecutionDetailsModal
+                    urn={focusExecutionUrn}
+                    visible
+                    onClose={() => setFocusExecutionUrn(undefined)}
+                />
+            )}
         </>
     );
 };

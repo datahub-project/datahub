@@ -58,8 +58,8 @@ from datahub.ingestion.source.aws.s3_util import (
     get_key_prefix,
     strip_s3_prefix,
 )
-from datahub.ingestion.source.data_lake.data_lake_utils import ContainerWUCreator
 from datahub.ingestion.source.s3.config import DataLakeSourceConfig, PathSpec
+from datahub.ingestion.source.s3.data_lake_utils import ContainerWUCreator
 from datahub.ingestion.source.s3.profiling import _SingleTableProfiler
 from datahub.ingestion.source.s3.report import DataLakeSourceReport
 from datahub.ingestion.source.schema_inference import avro, csv_tsv, json, parquet
@@ -437,9 +437,14 @@ class S3Source(Source):
         # read in the whole table with Spark for profiling
         table = None
         try:
-            table = self.read_file_spark(
-                table_data.table_path, os.path.splitext(table_data.full_path)[1]
-            )
+            if table_data.partitions:
+                table = self.read_file_spark(
+                    table_data.table_path, os.path.splitext(table_data.full_path)[1]
+                )
+            else:
+                table = self.read_file_spark(
+                    table_data.full_path, os.path.splitext(table_data.full_path)[1]
+                )
         except Exception as e:
             logger.error(e)
 

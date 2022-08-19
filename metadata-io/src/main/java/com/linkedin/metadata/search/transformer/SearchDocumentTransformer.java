@@ -47,7 +47,10 @@ public class SearchDocumentTransformer {
     return Optional.of(searchDocument.toString());
   }
 
-  public Optional<String> transformAspect(final Urn urn, final RecordTemplate aspect, final AspectSpec aspectSpec,
+  public Optional<String> transformAspect(
+      final Urn urn,
+      final RecordTemplate aspect,
+      final AspectSpec aspectSpec,
       final Boolean forDelete) {
     final Map<SearchableFieldSpec, List<Object>> extractedSearchableFields =
         FieldExtractor.extractFields(aspect, aspectSpec.getSearchableFieldSpecs());

@@ -6,6 +6,7 @@
     "platform_instance": "my-platform",
     "table_pattern": {
       "allow": ["s*"]
-    }
+    },
+    "version_history_lookback": -1
   }
 }
