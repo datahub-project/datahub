@@ -20,14 +20,77 @@ fragment runResults on DataProcessInstanceResult {
             timestampMillis
         }
         inputs: relationships(input: { types: ["Consumes"], direction: OUTGOING, start: 0, count: 20 }) {
-            ...fullRelationshipResults
+            ...runRelationshipResults
         }
         outputs: relationships(input: { types: ["Produces"], direction: OUTGOING, start: 0, count: 20 }) {
-            ...fullRelationshipResults
+            ...runRelationshipResults
         }
         parentTemplate: relationships(input: { types: ["InstanceOf"], direction: OUTGOING, start: 0, count: 1 }) {
-            ...fullRelationshipResults
+            ...runRelationshipResults
         }
         externalUrl
+    }
+}
+
+fragment runRelationshipResults on EntityRelationshipsResult {
+    start
+    count
+    total
+    relationships {
+        type
+        direction
+        entity {
+            urn
+            type
+            ... on Dataset {
+                name
+                properties {
+                    name
+                    description
+                    qualifiedName
+                }
+                editableProperties {
+                    description
+                }
+                platform {
+                    ...platformFields
+                }
+                subTypes {
+                    typeNames
+                }
+                status {
+                    removed
+                }
+            }
+            ... on DataJob {
+                urn
+                type
+                dataFlow {
+                    ...nonRecursiveDataFlowFields
+                }
+                jobId
+                properties {
+                    name
+                    description
+                    externalUrl
+                    customProperties {
+                        key
+                        value
+                    }
+                }
+                deprecation {
+                    ...deprecationFields
+                }
+                dataPlatformInstance {
+                    ...dataPlatformInstanceFields
+                }
+                editableProperties {
+                    description
+                }
+                status {
+                    removed
+                }
+            }
+        }
     }
 }

@@ -177,6 +177,7 @@ fragment nonRecursiveDatasetFields on Dataset {
     type
     origin
     uri
+    lastIngested
     platform {
         ...platformFields
     }
@@ -292,6 +293,7 @@ fragment nonRecursiveDataJobFields on DataJob {
 fragment dataJobFields on DataJob {
     urn
     type
+    lastIngested
     dataFlow {
         ...nonRecursiveDataFlowFields
     }
@@ -337,6 +339,7 @@ fragment dataJobFields on DataJob {
 fragment dashboardFields on Dashboard {
     urn
     type
+    lastIngested
     tool
     dashboardId
     properties {
@@ -413,6 +416,7 @@ fragment dashboardFields on Dashboard {
 fragment nonRecursiveMLFeature on MLFeature {
     urn
     type
+    lastIngested
     name
     featureNamespace
     description
@@ -480,6 +484,7 @@ fragment nonRecursiveMLFeature on MLFeature {
 fragment nonRecursiveMLPrimaryKey on MLPrimaryKey {
     urn
     type
+    lastIngested
     name
     featureNamespace
     description
@@ -547,6 +552,7 @@ fragment nonRecursiveMLPrimaryKey on MLPrimaryKey {
 fragment nonRecursiveMLFeatureTable on MLFeatureTable {
     urn
     type
+    lastIngested
     name
     platform {
         ...platformFields
@@ -666,6 +672,7 @@ fragment schemaMetadataFields on SchemaMetadata {
 fragment nonRecursiveMLModel on MLModel {
     urn
     type
+    lastIngested
     name
     description
     origin
@@ -730,6 +737,7 @@ fragment nonRecursiveMLModel on MLModel {
 fragment nonRecursiveMLModelGroupFields on MLModelGroup {
     urn
     type
+    lastIngested
     name
     description
     origin
@@ -768,6 +776,7 @@ fragment nonRecursiveMLModelGroupFields on MLModelGroup {
 fragment platformFields on DataPlatform {
     urn
     type
+    lastIngested
     name
     properties {
         type
