@@ -84,8 +84,25 @@ function list_markdown_files(): string[] {
       .filter((filepath) => !all_generated_markdown_files.includes(filepath));
 
     if (untracked_files.length > 0) {
-      console.log(`Including untracked files in docs list: ${untracked_files}`);
+      console.log(
+        `Including untracked files in docs list: [${untracked_files}]`
+      );
       all_markdown_files = [...all_markdown_files, ...untracked_files];
+    }
+
+    // But we should also exclude any files that have been deleted.
+    const deleted_files = execSync(
+      "(git ls-files --full-name --deleted --exclude-standard .. | grep '.md$') || true"
+    )
+      .toString()
+      .trim()
+      .split("\n");
+
+    if (deleted_files.length > 0) {
+      console.log(`Removing deleted files from docs list: [${deleted_files}]`);
+      all_markdown_files = all_markdown_files.filter(
+        (filepath) => !deleted_files.includes(filepath)
+      );
     }
   }
 
@@ -453,7 +470,7 @@ custom_edit_url: https://github.com/datahub-project/datahub/blob/master/docs-web
   for (const release of releases_list.data) {
     let body: string;
     if (releaseNoteVersions.has(release.tag_name)) {
-      body = release.body;
+      body = release.body ?? "";
       body = markdown_sanitize_and_linkify(body);
 
       // Redo the heading levels. First we find the min heading level, and then
