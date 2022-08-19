@@ -14,6 +14,7 @@ from pyhive import hive  # noqa: F401
 from sqlalchemy import create_engine, text
 from sqlalchemy.engine.reflection import Inspector
 
+from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.emitter.mce_builder import make_dataset_urn_with_platform_instance
 from datahub.emitter.mcp_builder import PlatformKey, gen_containers
 from datahub.ingestion.api.common import PipelineContext
@@ -33,12 +34,18 @@ from datahub.ingestion.source.sql.sql_common import (
     SqlContainerSubTypes,
     SqlWorkUnit,
     get_schema_metadata,
+    make_sqlalchemy_uri,
 )
 from datahub.metadata.com.linkedin.pegasus2avro.common import StatusClass
 from datahub.metadata.com.linkedin.pegasus2avro.metadata.snapshot import DatasetSnapshot
 from datahub.metadata.com.linkedin.pegasus2avro.mxe import MetadataChangeEvent
 from datahub.metadata.com.linkedin.pegasus2avro.schema import SchemaField
-from datahub.metadata.schema_classes import DatasetPropertiesClass, ViewPropertiesClass
+from datahub.metadata.schema_classes import (
+    DatasetPropertiesClass,
+    ViewPropertiesClass,
+    ChangeTypeClass,
+    SubTypesClass,
+)
 from datahub.utilities.hive_schema_to_avro import get_schema_fields_for_hive_column
 
 logger: logging.Logger = logging.getLogger(__name__)
@@ -69,11 +76,32 @@ class PrestoOnHiveConfig(BasicSQLAlchemyConfig):
         description="Host URL and port to connect to. Example: localhost:3306",
     )
     scheme: str = Field(default="mysql+pymysql", description="", exclude=True)
+    metastore_db_name: Optional[str] = Field(
+        default=None,
+        description="""Name of the Hive metastore's database (usually: metastore).
+        For backwardcompatibility, if this field is not provided, the 'database' field will be used.
+        If both the 'database' and 'metastore_db_name' fields are set then the 'database'
+        field will be used to filter the hive/presto/trino database"""
+        )
     mode: PrestoOnHiveConfigMode = Field(
         default=PrestoOnHiveConfigMode.presto_on_hive,
         description="""The ingested data will be stored under this platform.
         Valid options: [presto-on-hive, trino, presto, hive]""",
     )
+
+
+    def get_sql_alchemy_url(self, uri_opts: Optional[Dict[str, Any]] = None) -> str:
+        if not ((self.host_port and self.scheme) or self.sqlalchemy_uri):
+            raise ValueError("host_port and schema or connect_uri required.")
+
+        return self.sqlalchemy_uri or make_sqlalchemy_uri(
+            self.scheme,  # type: ignore
+            self.username,
+            self.password.get_secret_value() if self.password is not None else None,
+            self.host_port,  # type: ignore
+            self.metastore_db_name if self.metastore_db_name else self.database,
+            uri_opts=uri_opts,
+        )
 
 @platform_name("Presto on Hive")
 @config_class(PrestoOnHiveConfig)
@@ -199,14 +227,16 @@ class PrestoOnHiveSource(SQLAlchemySource):
     ) -> Iterable[MetadataWorkUnit]:
 
         assert isinstance(self.config, PrestoOnHiveConfig)
+        where_clause_suffix = self.config.schemas_where_clause_suffix + \
+            " " + self._get_db_filter_where_clause()
 
         statement: str = (
             PrestoOnHiveSource._SCHEMAS_POSTGRES_SQL_STATEMENT.format(
-                where_clause_suffix=self.config.schemas_where_clause_suffix
+                where_clause_suffix=where_clause_suffix
             )
             if "postgresql" in self.config.scheme
             else PrestoOnHiveSource._SCHEMAS_SQL_STATEMENT.format(
-                where_clause_suffix=self.config.schemas_where_clause_suffix
+                where_clause_suffix=where_clause_suffix
             )
         )
 
@@ -235,14 +265,15 @@ class PrestoOnHiveSource(SQLAlchemySource):
     ) -> Iterable[Union[SqlWorkUnit, MetadataWorkUnit]]:
 
         assert isinstance(sql_config, PrestoOnHiveConfig)
-
+        where_clause_suffix = sql_config.tables_where_clause_suffix + \
+            " " + self._get_db_filter_where_clause()
         statement: str = (
             PrestoOnHiveSource._TABLES_POSTGRES_SQL_STATEMENT.format(
-                where_clause_suffix=sql_config.tables_where_clause_suffix
+                where_clause_suffix=where_clause_suffix
             )
             if "postgresql" in sql_config.scheme
             else PrestoOnHiveSource._TABLES_SQL_STATEMENT.format(
-                where_clause_suffix=sql_config.tables_where_clause_suffix
+                where_clause_suffix=where_clause_suffix
             )
         )
 
@@ -322,6 +353,21 @@ class PrestoOnHiveSource(SQLAlchemySource):
             if dpi_aspect:
                 yield dpi_aspect
 
+            subtypes_aspect = MetadataWorkUnit(
+                id=f"{dataset_name}-subtypes",
+                mcp=MetadataChangeProposalWrapper(
+                    entityType="dataset",
+                    changeType=ChangeTypeClass.UPSERT,
+                    entityUrn=dataset_urn,
+                    aspectName="subTypes",
+                    aspect=SubTypesClass(typeNames=["table"]),
+                ),
+            )
+            self.report.report_workunit(subtypes_aspect)
+            yield subtypes_aspect
+
+
+
             yield from self._get_domain_wu(
                 dataset_name=dataset_name,
                 entity_urn=dataset_urn,
@@ -337,14 +383,15 @@ class PrestoOnHiveSource(SQLAlchemySource):
     ) -> Iterable[Union[SqlWorkUnit, MetadataWorkUnit]]:
 
         assert isinstance(sql_config, PrestoOnHiveConfig)
-
+        where_clause_suffix = sql_config.views_where_clause_suffix + \
+            " " + self._get_db_filter_where_clause()
         statement: str = (
             PrestoOnHiveSource._VIEWS_POSTGRES_SQL_STATEMENT.format(
-                where_clause_suffix=sql_config.views_where_clause_suffix
+                where_clause_suffix=where_clause_suffix
             )
             if "postgresql" in sql_config.scheme
             else PrestoOnHiveSource._VIEWS_SQL_STATEMENT.format(
-                where_clause_suffix=sql_config.views_where_clause_suffix
+                where_clause_suffix=where_clause_suffix
             )
         )
         iter_res = self._alchemy_client.execute_query(statement)
@@ -426,6 +473,11 @@ class PrestoOnHiveSource(SQLAlchemySource):
                 entity_type="dataset",
                 sql_config=sql_config,
             )
+
+    def _get_db_filter_where_clause(self):
+        if self.config.metastore_db_name is None:
+            return "" #  read metastore_db_name field discription why 
+        return f"AND d.\"NAME\" = '{self.config.database}'"
 
     def _get_table_key(self, row: Dict[str, Any]) -> TableKey:
         return TableKey(schema=row["schema_name"], table=row["table_name"])
