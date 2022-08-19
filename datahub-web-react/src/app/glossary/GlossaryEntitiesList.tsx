@@ -24,18 +24,16 @@ const ButtonContainer = styled.div`
 interface Props {
     nodes: (GlossaryNode | GlossaryNodeFragment)[];
     terms: GlossaryTerm[];
-    refetchForTerms?: () => void;
-    refetchForNodes?: () => void;
 }
 
 function GlossaryEntitiesList(props: Props) {
-    const { nodes, terms, refetchForTerms, refetchForNodes } = props;
+    const { nodes, terms } = props;
     const entityRegistry = useEntityRegistry();
     const [isCreateTermModalVisible, setIsCreateTermModalVisible] = useState(false);
     const [isCreateNodeModalVisible, setIsCreateNodeModalVisible] = useState(false);
 
-    const contentsData =
-        nodes.length === 0 && terms.length === 0 ? (
+    if (!nodes.length && !terms.length) {
+        return (
             <>
                 <Empty description="No Terms or Term Groups!" image={Empty.PRESENTED_IMAGE_SIMPLE} />
                 <ButtonContainer>
@@ -51,37 +49,37 @@ function GlossaryEntitiesList(props: Props) {
                     <CreateGlossaryEntityModal
                         entityType={EntityType.GlossaryTerm}
                         onClose={() => setIsCreateTermModalVisible(false)}
-                        refetchData={refetchForTerms}
                     />
                 )}
                 {isCreateNodeModalVisible && (
                     <CreateGlossaryEntityModal
                         entityType={EntityType.GlossaryNode}
                         onClose={() => setIsCreateNodeModalVisible(false)}
-                        refetchData={refetchForNodes}
                     />
                 )}
             </>
-        ) : (
-            <EntitiesWrapper>
-                {nodes.map((node) => (
-                    <GlossaryEntityItem
-                        name={node.properties?.name || ''}
-                        urn={node.urn}
-                        type={node.type}
-                        count={(node as GlossaryNodeFragment).children?.count}
-                    />
-                ))}
-                {terms.map((term) => (
-                    <GlossaryEntityItem
-                        name={entityRegistry.getDisplayName(term.type, term)}
-                        urn={term.urn}
-                        type={term.type}
-                    />
-                ))}
-            </EntitiesWrapper>
         );
-    return contentsData;
+    }
+
+    return (
+        <EntitiesWrapper>
+            {nodes.map((node) => (
+                <GlossaryEntityItem
+                    name={node.properties?.name || ''}
+                    urn={node.urn}
+                    type={node.type}
+                    count={(node as GlossaryNodeFragment).children?.count}
+                />
+            ))}
+            {terms.map((term) => (
+                <GlossaryEntityItem
+                    name={entityRegistry.getDisplayName(term.type, term)}
+                    urn={term.urn}
+                    type={term.type}
+                />
+            ))}
+        </EntitiesWrapper>
+    );
 }
 
 export default GlossaryEntitiesList;
