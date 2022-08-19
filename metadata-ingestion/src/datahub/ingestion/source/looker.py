@@ -266,7 +266,6 @@ class LookerDashboardElement:
     look_id: Optional[str]
     type: Optional[str] = None
     description: Optional[str] = None
-    upstream_fields: Optional[List[str]] = None
     input_fields: Optional[List[InputFieldElement]] = None
 
     def url(self, base_url: str) -> str:
@@ -470,6 +469,17 @@ class LookerDashboardSource(Source):
                     )
                 )
             if "measure" in field:
+                # for measure, we can also make sure to index the underlying field that the measure uses
+                based_on = field["based_on"]
+                if based_on is not None:
+                    result.append(
+                        InputFieldElement(
+                            based_on,
+                            view_field=None,
+                            model=query.model,
+                            explore=query.view,
+                        )
+                    )
                 result.append(
                     InputFieldElement(
                         name=field["measure"],
@@ -526,89 +536,17 @@ class LookerDashboardSource(Source):
 
         return result
 
-    def _get_upstream_fields_from_query(self, query: Optional[Query]) -> List[str]:
-        if query is None:
-            return []
-
-        all_fields = set()
-
-        # query.dynamic_fields can contain:
-        # - looker table calculations: https://docs.looker.com/exploring-data/using-table-calculations
-        # - looker custom measures: https://docs.looker.com/de/exploring-data/adding-fields/custom-measure
-        # - looker custom dimensions: https://docs.looker.com/exploring-data/adding-fields/custom-measure#creating_a_custom_dimension_using_a_looker_expression
-        try:
-            dynamic_fields = json.loads(
-                query.dynamic_fields if query.dynamic_fields is not None else "[]"
-            )
-        except JSONDecodeError as e:
-            logger.warning(
-                f"Json load failed on loading dynamic field with error: {e}. The field value was: {query.dynamic_fields}"
-            )
-            dynamic_fields = "[]"
-
-        custom_field_to_underlying_field = {}
-        for field in dynamic_fields:
-
-            # Table calculations can only reference fields used in the fields section, so this will always be a subset of of the query.fields
-            if "table_calculation" in field:
-                continue
-            # Looker custom measures can reference fields in arbitrary views, so this needs to be parsed to find the underlying view field the custom measure is based on
-            if "measure" in field:
-                measure = field["measure"]
-                based_on = field["based_on"]
-                custom_field_to_underlying_field[measure] = based_on
-
-            # Looker custom dimensions can reference fields in arbitrary views, so this needs to be parsed to find the underlying view field the custom measure is based on
-            # However, unlike custom measures custom dimensions can be defined using an arbitrary expression
-            # We are not going to support parsing arbitrary Looker expressions here, so going to ignore these fields for now
-            if "dimension" in field:
-                dimension = field["dimension"]
-                custom_field_to_underlying_field[dimension] = None
-
-        # A query uses fields defined in views, find the views those fields use
-        fields: Sequence[str] = query.fields if query.fields is not None else []
-        for field in fields:
-            # If the field is a custom field, look up the field it is based on
-            field_name = (
-                custom_field_to_underlying_field[field]
-                if field in custom_field_to_underlying_field
-                else field
-            )
-            if field_name is None:
-                continue
-
-            all_fields.add(field_name)
-
-        # A query uses fields for filtering and those fields are defined in views, find the views those fields use
-        filters: MutableMapping[str, Any] = (
-            query.filters if query.filters is not None else {}
-        )
-        for field in filters.keys():
-            # If the field is a custom field, look up the field it is based on
-            field_name = (
-                custom_field_to_underlying_field[field]
-                if field in custom_field_to_underlying_field
-                else field
-            )
-            if field_name is None:
-                continue
-            all_fields.add(field_name)
-
-        return list(all_fields)
-
     def _get_looker_dashboard_element(  # noqa: C901
         self, element: DashboardElement
     ) -> Optional[LookerDashboardElement]:
         # Dashboard elements can use raw usage_queries against explores
         explores: List[str]
-        upstream_fields: List[str]
         input_fields: List[InputFieldElement]
 
         if element.id is None:
             raise ValueError("Element ID can't be None")
 
         if element.query is not None:
-            upstream_fields = self._get_upstream_fields_from_query(element.query)
             input_fields = self._get_input_fields_from_query(element.query)
 
             # Get the explore from the view directly
@@ -630,7 +568,6 @@ class LookerDashboardSource(Source):
                     LookerExplore(model_name=element.query.model, name=exp)
                     for exp in explores
                 ],
-                upstream_fields=upstream_fields,
                 input_fields=input_fields,
             )
 
@@ -645,9 +582,6 @@ class LookerDashboardSource(Source):
                 else ""
             )
             if element.look.query is not None:
-                upstream_fields = self._get_upstream_fields_from_query(
-                    element.look.query
-                )
                 input_fields = self._get_input_fields_from_query(element.look.query)
                 if element.look.query.view is not None:
                     explores = [element.look.query.view]
@@ -672,14 +606,12 @@ class LookerDashboardSource(Source):
                         LookerExplore(model_name=element.look.query.model, name=exp)
                         for exp in explores
                     ],
-                    upstream_fields=upstream_fields,
                     input_fields=input_fields,
                 )
 
         # Failing the above two approaches, pick out details from result_maker
         elif element.result_maker is not None:
             model: str = ""
-            upstream_fields = []
             input_fields = []
 
             explores = []
@@ -687,9 +619,6 @@ class LookerDashboardSource(Source):
                 model = element.result_maker.query.model
                 if element.result_maker.query.view is not None:
                     explores.append(element.result_maker.query.view)
-                upstream_fields = self._get_upstream_fields_from_query(
-                    element.result_maker.query
-                )
                 input_fields = self._get_input_fields_from_query(
                     element.result_maker.query
                 )
@@ -711,10 +640,18 @@ class LookerDashboardSource(Source):
                     explores.append(filterable.view)
                     self.explores_to_fetch_set.add((filterable.model, filterable.view))
                 listen = filterable.listen
+                query = element.result_maker.query
                 if listen is not None:
                     for listener in listen:
                         if listener.field is not None:
-                            upstream_fields.append(listener.field)
+                            input_fields.append(
+                                InputFieldElement(
+                                    listener.field,
+                                    view_field=None,
+                                    model=query.model if query is not None else "",
+                                    explore=query.view if query is not None else "",
+                                )
+                            )
 
             explores = list(set(explores))  # dedup the list of views
 
@@ -731,7 +668,6 @@ class LookerDashboardSource(Source):
                 upstream_explores=[
                     LookerExplore(model_name=model, name=exp) for exp in explores
                 ],
-                upstream_fields=upstream_fields,
                 input_fields=input_fields,
             )
 
@@ -800,9 +736,9 @@ class LookerDashboardSource(Source):
             inputs=dashboard_element.get_view_urns(self.source_config),
             customProperties={
                 "upstream_fields": ",".join(
-                    sorted(set(dashboard_element.upstream_fields))
+                    sorted(set(field.name for field in dashboard_element.input_fields))
                 )
-                if dashboard_element.upstream_fields
+                if dashboard_element.input_fields
                 else ""
             },
         )
@@ -1100,7 +1036,7 @@ class LookerDashboardSource(Source):
         mcps.append(dashboard_mcp)
 
         workunits = [
-            MetadataWorkUnit(id=f"looker-{mcp.aspectName}-{mcp.entityUrn}", mcp=mcp)
+            MetadataWorkUnit(id=f"looker-{mcp.aspectName}-{mcp.entityUrn}", mcp=mcp, treat_errors_as_warnings=True)
             for mcp in mcps
         ]
 

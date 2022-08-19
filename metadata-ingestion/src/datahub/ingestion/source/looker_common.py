@@ -661,7 +661,7 @@ class LookerExplore:
                             view_fields.append(
                                 ViewField(
                                     name=measure_field.name,
-                                    label=dim_field.label_short,
+                                    label=measure_field.label_short,
                                     description=measure_field.description
                                     if measure_field.description
                                     else "",
