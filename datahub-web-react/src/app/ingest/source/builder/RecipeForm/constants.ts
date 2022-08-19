@@ -74,6 +74,8 @@ import {
     TOPIC_ALLOW,
     TOPIC_DENY,
 } from './kafka';
+import { HIVE } from '../../conf/hive/hive';
+import { HIVE_HOST_PORT, HIVE_DATABASE, HIVE_USERNAME, HIVE_PASSWORD } from './hive';
 
 interface RecipeFields {
     [key: string]: {
@@ -162,6 +164,20 @@ export const RECIPE_FIELDS: RecipeFields = {
         ],
         filterFields: [TOPIC_ALLOW, TOPIC_DENY],
         advancedFields: [STATEFUL_INGESTION_ENABLED],
+        filterSectionTooltip:
+            'Filter out data assets based on allow/deny regex patterns we match against. Deny patterns take precedence over allow patterns.',
+    },
+    [HIVE]: {
+        fields: [HIVE_HOST_PORT, HIVE_DATABASE, HIVE_USERNAME, HIVE_PASSWORD],
+        filterFields: [
+            REDSHIFT_SCHEMA_ALLOW,
+            REDSHIFT_SCHEMA_DENY,
+            REDSHIFT_TABLE_ALLOW,
+            REDSHIFT_TABLE_DENY,
+            REDSHIFT_VIEW_ALLOW,
+            REDSHIFT_VIEW_DENY,
+        ],
+        advancedFields: [STATEFUL_INGESTION_ENABLED, PROFILING_ENABLED],
         filterSectionTooltip:
             'Filter out data assets based on allow/deny regex patterns we match against. Deny patterns take precedence over allow patterns.',
     },

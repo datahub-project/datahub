@@ -13,6 +13,9 @@ import {
     getExecutionRequestStatusDisplayColor,
     getExecutionRequestStatusIcon,
     getExecutionRequestStatusDisplayText,
+    CLI_INGESTION_SOURCE,
+    SCHEDULED_INGESTION_SOURCE,
+    MANUAL_INGESTION_SOURCE,
 } from './utils';
 
 const ListContainer = styled.div`
@@ -160,8 +163,9 @@ export const IngestionSourceExecutionList = ({ urn, lastRefresh, onRefresh }: Pr
             key: 'source',
             render: (source: string) => {
                 return (
-                    (source === 'MANUAL_INGESTION_SOURCE' && 'Manual Execution') ||
-                    (source === 'SCHEDULED_INGESTION_SOURCE' && 'Scheduled Execution') ||
+                    (source === MANUAL_INGESTION_SOURCE && 'Manual Execution') ||
+                    (source === SCHEDULED_INGESTION_SOURCE && 'Scheduled Execution') ||
+                    (source === CLI_INGESTION_SOURCE && 'CLI Execution') ||
                     'N/A'
                 );
             },

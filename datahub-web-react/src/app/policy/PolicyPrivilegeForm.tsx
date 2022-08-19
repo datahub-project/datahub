@@ -224,34 +224,30 @@ export default function PolicyPrivilegeForm({
         const entityTypes = resourceTypeSelectValue
             .map((resourceType) => mapResourceTypeToEntityType(resourceType, resourcePrivileges))
             .filter((entityType): entityType is EntityType => !!entityType);
-        if (text.length > 2) {
-            searchResources({
-                variables: {
-                    input: {
-                        types: entityTypes,
-                        query: text,
-                        start: 0,
-                        count: 10,
-                    },
+        searchResources({
+            variables: {
+                input: {
+                    types: entityTypes,
+                    query: text,
+                    start: 0,
+                    count: 10,
                 },
-            });
-        }
+            },
+        });
     };
 
     // Handle domain search, if the domain type has an associated EntityType mapping.
     const handleDomainSearch = (text: string) => {
-        if (text.length > 2) {
-            searchDomains({
-                variables: {
-                    input: {
-                        type: EntityType.Domain,
-                        query: text,
-                        start: 0,
-                        count: 10,
-                    },
+        searchDomains({
+            variables: {
+                input: {
+                    type: EntityType.Domain,
+                    query: text,
+                    start: 0,
+                    count: 10,
                 },
-            });
-        }
+            },
+        });
     };
 
     const renderSearchResult = (result) => {
