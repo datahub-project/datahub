@@ -1,4 +1,5 @@
 import React from 'react';
+import { Redirect } from 'react-router';
 import Cookies from 'js-cookie';
 import analytics, { EventType } from '../analytics';
 import { isLoggedInVar } from './checkAuthStatus';
@@ -13,5 +14,5 @@ export const LogOut = () => {
 
     handleLogout();
 
-    return <></>;
+    return <Redirect path="/" />;
 };
