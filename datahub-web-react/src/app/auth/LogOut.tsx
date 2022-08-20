@@ -14,5 +14,5 @@ export const LogOut = () => {
 
     handleLogout();
 
-    return <Redirect path="/" />;
+    return <Redirect to="/" />;
 };
