@@ -1,6 +1,6 @@
 import FeatureAvailability from '@site/src/components/FeatureAvailability';
 
-# [WIP] Personal Access Tokens Guide
+# Personal Access Tokens Guide
 
 <FeatureAvailability/>
 

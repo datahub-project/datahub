@@ -1,3 +1,3 @@
-# Act on Metadata Overview
+# Slack Notifications
 
 This page is under construction - more details coming soon!

@@ -1,6 +1,6 @@
 import FeatureAvailability from '@site/src/components/FeatureAvailability';
 
-# [WIP] Invite with Email Link
+# Invite with Email Link
 
 <FeatureAvailability/>
 

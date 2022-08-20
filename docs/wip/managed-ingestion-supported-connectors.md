@@ -1,2 +1,2 @@
-# [WIP] Managed Ingestion - Supported Connectors
+# Managed Ingestion - Supported Connectors
 This page is under construction - more details coming soon!

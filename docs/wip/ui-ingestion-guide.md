@@ -1,6 +1,6 @@
 import FeatureAvailability from '@site/src/components/FeatureAvailability';
 
-# [WIP] UI Ingestion Guide
+# UI Ingestion Guide
 
 <FeatureAvailability/>
 

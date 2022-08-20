@@ -1,6 +1,6 @@
 import FeatureAvailability from '@site/src/components/FeatureAvailability';
 
-# [WIP] Metadata Tests
+# Metadata Tests
 
 <FeatureAvailability saasOnly />
 

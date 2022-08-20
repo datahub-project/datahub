@@ -1,6 +1,6 @@
 import FeatureAvailability from '@site/src/components/FeatureAvailability';
 
-# [WIP] Managed DataHub Setup
+# Managed DataHub Setup
 
 <FeatureAvailability saasOnly />
 

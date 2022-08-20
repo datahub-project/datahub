@@ -1,2 +1,3 @@
-# [WIP] Search Ranking
+# Search Ranking
+
 This page is under construction - more details coming soon!

@@ -1,3 +1,3 @@
-# [WIP] Developer Guides Overview
+# Developer Guides Overview
 
 This page is under construction - more details coming soon!

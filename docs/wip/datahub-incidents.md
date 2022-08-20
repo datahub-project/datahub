@@ -1,6 +1,6 @@
 import FeatureAvailability from '@site/src/components/FeatureAvailability';
 
-# [WIP] DataHub Incidents
+# DataHub Incidents
 
 <FeatureAvailability saasOnly />
 

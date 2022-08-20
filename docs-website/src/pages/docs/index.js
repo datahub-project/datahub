@@ -24,27 +24,27 @@ const deploymentGuideContent = [
   {
     title: "Managed DataHub",
     platformIcon: "acryl",
-    to: "/docs/quickstart",
+    to: "docs/saas",
   },
   {
     title: "Docker",
     platformIcon: "docker",
-    to: "/docs/quickstart",
+    to: "docs/docker",
   },
-  {
-    title: "AWS ECS",
-    platformIcon: "amazon-ecs",
-    to: "/docs/quickstart",
-  },
+  // {
+  //   title: "AWS ECS",
+  //   platformIcon: "amazon-ecs",
+  //   to: "docs/deploy/aws",
+  // },
   {
     title: "AWS EKS",
     platformIcon: "amazon-eks",
-    to: "/docs/quickstart",
+    to: "docs/deploy/aws",
   },
   {
     title: "GCP",
     platformIcon: "google-cloud",
-    to: "/docs/quickstart",
+    to: "docs/deploy/gcp",
   },
 ];
 
@@ -52,58 +52,58 @@ const ingestionGuideContent = [
   {
     title: "Snowflake",
     platformIcon: "snowflake",
-    to: "/docs/quickstart",
+    to: "docs/generated/ingestion/sources/snowflake",
   },
   {
     title: "Looker",
     platformIcon: "looker",
-    to: "/docs/quickstart",
+    to: "docs/generated/ingestion/sources/looker",
   },
   {
     title: "Redshift",
     platformIcon: "redshift",
-    to: "/docs/quickstart",
+    to: "docs/generated/ingestion/sources/redshift",
   },
   {
     title: "Hive",
     platformIcon: "hive",
-    to: "/docs/quickstart",
+    to: "docs/generated/ingestion/sources/hive",
   },
   {
     title: "BigQuery",
     platformIcon: "bigquery",
-    to: "/docs/quickstart",
+    to: "docs/generated/ingestion/sources/bigquery",
   },
   {
     title: "dbt",
     platformIcon: "dbt",
-    to: "/docs/quickstart",
+    to: "docs/generated/ingestion/sources/dbt",
   },
   {
     title: "Athena",
     platformIcon: "athena",
-    to: "/docs/quickstart",
+    to: "docs/generated/ingestion/sources/athena",
   },
   {
     title: "PostgreSQL",
     platformIcon: "postgres",
-    to: "/docs/quickstart",
+    to: "docs/generated/ingestion/sources/postgres",
   },
 ];
 
 const featureGuideContent = [
-  { title: "Domains", icon: <FolderTwoTone />, to: "/docs/quickstart" },
-  { title: "Glossary Terms", icon: <BookTwoTone />, to: "/docs/quickstart" },
-  { title: "Tags", icon: <TagsTwoTone />, to: "/docs/quickstart" },
-  { title: "UI-Based Ingestion", icon: <ApiTwoTone />, to: "/docs/quickstart" },
-  { title: "Search", icon: <SearchOutlined />, to: "/docs/quickstart" },
-  { title: "Browse", icon: <CompassTwoTone />, to: "/docs/quickstart" },
-  { title: "Impact Analysis", icon: <NodeExpandOutlined />, to: "/docs/quickstart" },
-  { title: "Metadata Tests", icon: <CheckCircleTwoTone />, to: "/docs/quickstart" },
-  { title: "Approval Flows", icon: <SafetyCertificateTwoTone />, to: "/docs/quickstart" },
-  { title: "Personal Access Tokens", icon: <LockTwoTone />, to: "/docs/quickstart" },
-  { title: "Slack Notifications", icon: <SlackOutlined />, to: "/docs/quickstart" },
-  { title: "Schema History", icon: <HistoryOutlined />, to: "/docs/quickstart" },
+  { title: "Domains", icon: <FolderTwoTone />, to: "docs/domains" },
+  { title: "Glossary Terms", icon: <BookTwoTone />, to: "docs/how/business-glossary-guide" },
+  { title: "Tags", icon: <TagsTwoTone />, to: "docs/tags" },
+  { title: "UI-Based Ingestion", icon: <ApiTwoTone />, to: "docs/ui-ingestion" },
+  { title: "Search", icon: <SearchOutlined />, to: "docs/how/search" },
+  // { title: "Browse", icon: <CompassTwoTone />, to: "/docs/quickstart" },
+  { title: "Impact Analysis", icon: <NodeExpandOutlined />, to: "docs/wip/impact-analysis" },
+  { title: "Metadata Tests", icon: <CheckCircleTwoTone />, to: "docs/wip/metadata-tests" },
+  { title: "Approval Flows", icon: <SafetyCertificateTwoTone />, to: "docs/wip/approval-workflows" },
+  { title: "Personal Access Tokens", icon: <LockTwoTone />, to: "docs/authentication/personal-access-tokens" },
+  { title: "Slack Notifications", icon: <SlackOutlined />, to: "docs/wip/slack-notifications" },
+  { title: "Schema History", icon: <HistoryOutlined />, to: "docs/schema-history" },
 ];
 
 function Docs() {
