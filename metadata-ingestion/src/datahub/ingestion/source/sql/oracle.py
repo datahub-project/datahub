@@ -80,8 +80,7 @@ class OracleConfig(BasicSQLAlchemyConfig):
 
 class OracleInspectorObjectWrapper:
     """
-    Inspector class wrapper to resolve linear issue
-    https://github.com/datahub-project/datahub/issues/5167
+    Inspector class wrapper, which queries DBA_TABLES instead of ALL_TABLES
     """
 
     def __init__(self, inspector_instance: Inspector):
@@ -112,11 +111,13 @@ class OracleInspectorObjectWrapper:
 
         sql_str = "SELECT table_name FROM dba_tables WHERE "
         if self.exclude_tablespaces:
-            sql_str += "nvl(tablespace_name, 'no tablespace') " "NOT IN (%s) AND " % (
-                ", ".join(["'%s'" % ts for ts in self.exclude_tablespaces])
+            tablespace_str = ", ".join([f"'{ts}'" for ts in self.exclude_tablespaces])
+            sql_str += (
+                f"nvl(tablespace_name, 'no tablespace') NOT IN ({tablespace_str}) AND "
             )
-        sql_str += "OWNER = :owner " "AND IOT_NAME IS NULL "
-        logger.debug("SQL = {}".format(sql_str))
+
+        sql_str += "OWNER = :owner AND IOT_NAME IS NULL "
+        logger.debug(f"SQL = {sql_str}")
         cursor = self._inspector_instance.bind.execute(sql.text(sql_str), owner=schema)
 
         return [

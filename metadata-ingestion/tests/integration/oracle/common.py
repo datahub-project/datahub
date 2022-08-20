@@ -24,10 +24,10 @@ class OracleSourceMockDataBase:
         assert arg or kwargs
         key: Optional[str] = None
 
-        if arg and type(arg[0]) == str:
+        if arg and isinstance(arg[0], str):
             key = arg[0]
 
-        if arg and type(arg[0]) == TextClause and kwargs:
+        if arg and isinstance(arg[0], TextClause) and kwargs:
             key = kwargs.get("owner")
         # key should present in MOCK_DATA
         assert key in OracleSourceMockDataBase.MOCK_DATA
@@ -85,7 +85,7 @@ class OracleTestCaseBase:
 
     def get_test_resource_dir(
         self,
-    ) -> pathlib.Path:  # lintFix is detecting this return value as pathlib.Path
+    ) -> pathlib.Path:
         return self.pytestconfig.rootpath / "tests/integration/oracle"
 
     def get_recipe_sink(self, output_path: str) -> dict:
