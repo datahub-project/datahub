@@ -55,6 +55,18 @@ query getSsoSettings {
                 clientId
                 clientSecret
                 discoveryUri
+                userNameClaim
+                scope
+                clientAuthenticationMethod
+                jitProvisioningEnabled
+                preProvisioningRequired
+                extractGroupsEnabled
+                groupsClaim
+                responseType
+                responseMode
+                useNonce
+                readTimeout
+                extractJwtAccessTokenClaims
             }
         }
     }

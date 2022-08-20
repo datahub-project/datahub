@@ -93,64 +93,6 @@ export const OidcIntegration = () => {
                 <Typography.Text type="secondary">Configure SSO with your OIDC provider</Typography.Text>
                 <Divider />
                 <Row>
-                    <InstructionsCard
-                        title={
-                            <>
-                                <InfoCircleOutlined style={{ color: REDESIGN_COLORS.BLUE }} />
-                                <InstructionsTitle strong>Prerequisites</InstructionsTitle>
-                            </>
-                        }
-                    >
-                        <Typography.Paragraph>
-                            Enabling the SSO OIDC integration requires that you first register as a client with your
-                            Identity Provider. Instructions are provided below for common OIDC Identity Providers. For
-                            more detailed information, please read the official{' '}
-                            <a
-                                target="_blank"
-                                rel="noreferrer"
-                                href="https://datahubproject.io/docs/authentication/guides/sso/configure-oidc-react"
-                            >
-                                DataHub docs
-                            </a>
-                            .
-                            <ul>
-                                <li>
-                                    <a target="_blank" rel="noreferrer" href="https://www.okta.com/openid-connect/">
-                                        Okta
-                                    </a>
-                                </li>
-                                <li>
-                                    <a
-                                        target="_blank"
-                                        rel="noreferrer"
-                                        href="https://developers.google.com/identity/protocols/oauth2/openid-connect"
-                                    >
-                                        Google
-                                    </a>
-                                </li>
-                                <li>
-                                    <a
-                                        target="_blank"
-                                        rel="noreferrer"
-                                        href="https://docs.microsoft.com/en-us/azure/active-directory/fundamentals/auth-oidc"
-                                    >
-                                        Azure AD
-                                    </a>
-                                </li>
-                                <li>
-                                    <a
-                                        target="_blank"
-                                        rel="noreferrer"
-                                        href="https://www.keycloak.org/docs/latest/securing_apps/"
-                                    >
-                                        Keycloak
-                                    </a>
-                                </li>
-                            </ul>
-                        </Typography.Paragraph>
-                    </InstructionsCard>
-                </Row>
-                <Row>
                     <Col xs={12} xl={12}>
                         <Form layout="vertical">
                             <Form.Item label={<Typography.Text strong>Enabled</Typography.Text>}>
@@ -268,7 +210,7 @@ export const OidcIntegration = () => {
                                         <Typography.Text type="secondary">
                                             Whether groups should be extracted from a claim in the OIDC profile. Only
                                             applies if JIT provisioning is enabled. Groups will be created if they do
-                                            not exist. Defaults to <b> true</b>
+                                            not exist. Defaults to <b> false</b>
                                         </Typography.Text>
                                         <SettingValueContainer>
                                             <Switch
@@ -373,6 +315,64 @@ export const OidcIntegration = () => {
                         >
                             Update
                         </Button>
+                    </Col>
+                    <Col xs={12} xl={12}>
+                        <InstructionsCard
+                            title={
+                                <>
+                                    <InfoCircleOutlined style={{ color: REDESIGN_COLORS.BLUE }} />
+                                    <InstructionsTitle strong>Prerequisites</InstructionsTitle>
+                                </>
+                            }
+                        >
+                            <Typography.Paragraph>
+                                Enabling the SSO OIDC integration requires that you first register as a client with your
+                                Identity Provider. Instructions are provided below for common OIDC Identity Providers.
+                                For more detailed information, please read the official{' '}
+                                <a
+                                    target="_blank"
+                                    rel="noreferrer"
+                                    href="https://datahubproject.io/docs/authentication/guides/sso/configure-oidc-react"
+                                >
+                                    DataHub docs
+                                </a>
+                                .
+                                <ul>
+                                    <li>
+                                        <a target="_blank" rel="noreferrer" href="https://www.okta.com/openid-connect/">
+                                            Okta
+                                        </a>
+                                    </li>
+                                    <li>
+                                        <a
+                                            target="_blank"
+                                            rel="noreferrer"
+                                            href="https://developers.google.com/identity/protocols/oauth2/openid-connect"
+                                        >
+                                            Google
+                                        </a>
+                                    </li>
+                                    <li>
+                                        <a
+                                            target="_blank"
+                                            rel="noreferrer"
+                                            href="https://docs.microsoft.com/en-us/azure/active-directory/fundamentals/auth-oidc"
+                                        >
+                                            Azure AD
+                                        </a>
+                                    </li>
+                                    <li>
+                                        <a
+                                            target="_blank"
+                                            rel="noreferrer"
+                                            href="https://www.keycloak.org/docs/latest/securing_apps/"
+                                        >
+                                            Keycloak
+                                        </a>
+                                    </li>
+                                </ul>
+                            </Typography.Paragraph>
+                        </InstructionsCard>
                     </Col>
                 </Row>
             </ContentContainer>
