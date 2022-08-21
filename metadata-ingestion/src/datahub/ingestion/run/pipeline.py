@@ -1,13 +1,19 @@
 import itertools
 import logging
+import platform
+import sys
+import time
+from dataclasses import dataclass
 from typing import Any, Dict, Iterable, List, Optional
 
 import click
 
+import datahub
 from datahub.configuration.common import PipelineExecutionError
 from datahub.ingestion.api.committable import CommitPolicy
 from datahub.ingestion.api.common import EndOfStream, PipelineContext, RecordEnvelope
 from datahub.ingestion.api.pipeline_run_listener import PipelineRunListener
+from datahub.ingestion.api.report import Report
 from datahub.ingestion.api.sink import Sink, WriteCallback
 from datahub.ingestion.api.source import Extractor, Source
 from datahub.ingestion.api.transform import Transformer
@@ -28,7 +34,7 @@ class LoggingCallback(WriteCallback):
     def on_success(
         self, record_envelope: RecordEnvelope, success_metadata: dict
     ) -> None:
-        logger.info(f"sink wrote workunit {record_envelope.metadata['workunit_id']}")
+        logger.debug(f"sink wrote workunit {record_envelope.metadata['workunit_id']}")
 
     def on_failure(
         self,
@@ -44,6 +50,15 @@ class LoggingCallback(WriteCallback):
 
 class PipelineInitError(Exception):
     pass
+
+
+@dataclass
+class CliReport(Report):
+    cli_version: str = datahub.nice_version_name()
+    cli_entry_location: str = datahub.__file__
+    py_version: str = sys.version
+    py_exec_path: str = sys.executable
+    os_details: str = platform.platform()
 
 
 class Pipeline:
@@ -71,6 +86,9 @@ class Pipeline:
         self.preview_workunits = preview_workunits
         self.report_to = report_to
         self.reporters: List[PipelineRunListener] = []
+        self.num_intermediate_workunits = 0
+        self.last_time_printed = int(time.time())
+        self.cli_report = CliReport()
 
         try:
             self.ctx = PipelineContext(
@@ -240,6 +258,17 @@ class Pipeline:
             no_default_report=no_default_report,
         )
 
+    def _time_to_print(self) -> bool:
+        self.num_intermediate_workunits += 1
+        if self.num_intermediate_workunits > 1000:
+            current_time = int(time.time())
+            if current_time - self.last_time_printed > 10:
+                # we print
+                self.num_intermediate_workunits = 0
+                self.last_time_printed = current_time
+                return True
+        return False
+
     def run(self) -> None:
 
         self._notify_reporters_on_ingestion_start()
@@ -250,6 +279,8 @@ class Pipeline:
                 self.source.get_workunits(),
                 self.preview_workunits if self.preview_mode else None,
             ):
+                if self._time_to_print():
+                    self.pretty_print_summary(currently_running=True)
                 # TODO: change extractor interface
                 extractor.configure({}, self.ctx)
 
@@ -370,8 +401,12 @@ class Pipeline:
             result += len(val)
         return result
 
-    def pretty_print_summary(self, warnings_as_failure: bool = False) -> int:
+    def pretty_print_summary(
+        self, warnings_as_failure: bool = False, currently_running: bool = False
+    ) -> int:
         click.echo()
+        click.secho("Cli report:", bold=True)
+        click.secho(self.cli_report.as_string())
         click.secho(f"Source ({self.config.source.type}) report:", bold=True)
         click.echo(self.source.get_report().as_string())
         click.secho(f"Sink ({self.config.sink.type}) report:", bold=True)
@@ -383,7 +418,7 @@ class Pipeline:
                 self.source.get_report().failures
             )
             click.secho(
-                f"Pipeline finished with {num_failures_source} failures in source producing {workunits_produced} workunits",
+                f"Pipeline {'running' if currently_running else 'finished'} with {num_failures_source} failures in source producing {workunits_produced} events",
                 fg="bright_red",
                 bold=True,
             )
@@ -391,14 +426,14 @@ class Pipeline:
         elif self.source.get_report().warnings or self.sink.get_report().warnings:
             num_warn_source = self._count_all_vals(self.source.get_report().warnings)
             click.secho(
-                f"Pipeline finished with {num_warn_source} warnings in source producing {workunits_produced} workunits",
+                f"Pipeline {'running' if currently_running else 'finished'} with {num_warn_source} warnings in source producing {workunits_produced} events",
                 fg="yellow",
                 bold=True,
             )
             return 1 if warnings_as_failure else 0
         else:
             click.secho(
-                f"Pipeline finished successfully producing {workunits_produced} workunits",
+                f"Pipeline {'running' if currently_running else 'finished'} successfully producing {workunits_produced} events",
                 fg="green",
                 bold=True,
             )
