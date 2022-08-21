@@ -118,14 +118,15 @@ class FileSourceReport(SourceReport):
             if self.total_bytes_on_disk
             else -1
         )
-        self.estimated_time_to_completion_in_minutes = int(
-            (
-                self.running_time_in_seconds
-                * (100 - self.percentage_completion)
-                / self.percentage_completion
+        if self.percentage_completion > 0:
+            self.estimated_time_to_completion_in_minutes = int(
+                (
+                    self.running_time_in_seconds
+                    * (100 - self.percentage_completion)
+                    / self.percentage_completion
+                )
+                / 60
             )
-            / 60
-        )
 
 
 @platform_name("File")

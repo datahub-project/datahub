@@ -2,7 +2,9 @@ import concurrent.futures
 import contextlib
 import functools
 import logging
+from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass
+from threading import BoundedSemaphore
 from typing import Union, cast
 
 from datahub.cli.cli_utils import set_env_variables_override_config
@@ -24,12 +26,47 @@ logger = logging.getLogger(__name__)
 
 
 class DatahubRestSinkConfig(DatahubClientConfig):
-    pass
+    max_pending_requests = 1000
 
 
 @dataclass
 class DataHubRestSinkReport(SinkReport):
     gms_version: str = ""
+    pending_requests: int = 0
+
+    def compute_stats(self) -> None:
+        super().compute_stats()
+
+
+class BoundedExecutor:
+    """BoundedExecutor behaves as a ThreadPoolExecutor which will block on
+    calls to submit() once the limit given as "bound" work items are queued for
+    execution.
+    :param bound: Integer - the maximum number of items in the work queue
+    :param max_workers: Integer - the size of the thread pool
+    """
+
+    def __init__(self, bound, max_workers):
+        self.executor = ThreadPoolExecutor(max_workers)
+        self.semaphore = BoundedSemaphore(bound + max_workers)
+
+    """See concurrent.futures.Executor#submit"""
+
+    def submit(self, fn, *args, **kwargs):
+        self.semaphore.acquire()
+        try:
+            future = self.executor.submit(fn, *args, **kwargs)
+        except Exception:
+            self.semaphore.release()
+            raise
+        else:
+            future.add_done_callback(lambda x: self.semaphore.release())
+            return future
+
+    """See concurrent.futures.Executor#shutdown"""
+
+    def shutdown(self, wait=True):
+        self.executor.shutdown(wait)
 
 
 @dataclass
@@ -71,8 +108,9 @@ class DatahubRestSink(Sink):
         set_env_variables_override_config(self.config.server, self.config.token)
         logger.debug("Setting gms config")
         set_gms_config(gms_config)
-        self.executor = concurrent.futures.ThreadPoolExecutor(
-            max_workers=self.config.max_threads
+        self.executor = BoundedExecutor(
+            max_workers=self.config.max_threads,
+            bound=self.config.max_pending_requests,
         )
 
     @classmethod
@@ -94,6 +132,7 @@ class DatahubRestSink(Sink):
         write_callback: WriteCallback,
         future: concurrent.futures.Future,
     ) -> None:
+        self.report.pending_requests -= 1
         if future.cancelled():
             self.report.report_failure({"error": "future was cancelled"})
             write_callback.on_failure(
@@ -103,8 +142,6 @@ class DatahubRestSink(Sink):
             e = future.exception()
             if not e:
                 self.report.report_record_written(record_envelope)
-                start_time, end_time = future.result()
-                self.report.report_downstream_latency(start_time, end_time)
                 write_callback.on_success(record_envelope, {})
             elif isinstance(e, OperationalError):
                 # only OperationalErrors should be ignored
@@ -145,13 +182,13 @@ class DatahubRestSink(Sink):
         write_callback: WriteCallback,
     ) -> None:
         record = record_envelope.record
-
         write_future = self.executor.submit(self.emitter.emit, record)
         write_future.add_done_callback(
             functools.partial(
                 self._write_done_callback, record_envelope, write_callback
             )
         )
+        self.report.pending_requests += 1
 
     def get_report(self) -> SinkReport:
         return self.report
