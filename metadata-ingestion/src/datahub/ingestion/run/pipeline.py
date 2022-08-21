@@ -418,7 +418,7 @@ class Pipeline:
                 self.source.get_report().failures
             )
             click.secho(
-                f"Pipeline {'running' if currently_running else 'finished'} with {num_failures_source} failures in source producing {workunits_produced} events",
+                f"{'⏳' if currently_running else ''} Pipeline {'running' if currently_running else 'finished'} with {num_failures_source} failures {'so far' if currently_running else ''}; produced {workunits_produced} events",
                 fg="bright_red",
                 bold=True,
             )
@@ -426,14 +426,14 @@ class Pipeline:
         elif self.source.get_report().warnings or self.sink.get_report().warnings:
             num_warn_source = self._count_all_vals(self.source.get_report().warnings)
             click.secho(
-                f"Pipeline {'running' if currently_running else 'finished'} with {num_warn_source} warnings in source producing {workunits_produced} events",
+                f"{'⏳' if currently_running else ''} Pipeline {'running' if currently_running else 'finished'} with {num_warn_source} warnings {'so far' if currently_running else ''}; produced {workunits_produced} events",
                 fg="yellow",
                 bold=True,
             )
             return 1 if warnings_as_failure else 0
         else:
             click.secho(
-                f"Pipeline {'running' if currently_running else 'finished'} successfully producing {workunits_produced} events",
+                f"{'⏳' if currently_running else ''} Pipeline {'running' if currently_running else 'finished'} successfully {'so far' if currently_running else ''}; produced {workunits_produced} events",
                 fg="green",
                 bold=True,
             )
