@@ -137,7 +137,6 @@ def test_kafka_ingest_with_stateful(
             "reporting": [
                 {
                     "type": "datahub",
-                    "config": {"datahub_api": {"server": GMS_SERVER}},
                 }
             ],
         }
@@ -148,14 +147,10 @@ def test_kafka_ingest_with_stateful(
         ) as kafka_ctx, patch(
             "datahub.ingestion.source.state_provider.datahub_ingestion_checkpointing_provider.DataHubGraph",
             mock_datahub_graph,
-        ) as mock_checkpoint, patch(
-            "datahub.ingestion.reporting.datahub_ingestion_reporting_provider.DataHubGraph",
-            mock_datahub_graph,
-        ) as mock_reporting:
+        ) as mock_checkpoint:
 
             # both checkpoint and reporting will use the same mocked graph instance
             mock_checkpoint.return_value = mock_datahub_graph
-            mock_reporting.return_value = mock_datahub_graph
 
             # 1. Do the first run of the pipeline and get the default job's checkpoint.
             pipeline_run1 = run_and_get_pipeline(pipeline_config_dict)
@@ -193,8 +188,8 @@ def test_kafka_ingest_with_stateful(
             # NOTE: The following validation asserts for presence of state as well
             # and validates reporting.
             validate_all_providers_have_committed_successfully(
-                pipeline=pipeline_run1, expected_providers=2
+                pipeline=pipeline_run1, expected_providers=1
             )
             validate_all_providers_have_committed_successfully(
-                pipeline=pipeline_run1, expected_providers=2
+                pipeline=pipeline_run1, expected_providers=1
             )

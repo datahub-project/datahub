@@ -3,12 +3,14 @@ from typing import Any, Dict, Optional, cast
 from datahub.ingestion.api.committable import StatefulCommittable
 from datahub.ingestion.run.pipeline import Pipeline
 from datahub.ingestion.source.sql.mysql import MySQLConfig, MySQLSource
-from datahub.ingestion.source.sql.sql_common import BaseSQLAlchemyCheckpointState
+from datahub.ingestion.source.sql.sql_common import \
+    BaseSQLAlchemyCheckpointState
 from datahub.ingestion.source.state.checkpoint import Checkpoint
 from sqlalchemy import create_engine
 from sqlalchemy.sql import text
 
-from tests.utils import get_gms_url, get_mysql_url, get_mysql_username, get_mysql_password
+from tests.utils import (get_gms_url, get_mysql_password, get_mysql_url,
+                         get_mysql_username)
 
 
 def test_stateful_ingestion(wait_for_healthchecks):
@@ -39,7 +41,7 @@ def test_stateful_ingestion(wait_for_healthchecks):
             stateful_committable = cast(StatefulCommittable, provider)
             assert stateful_committable.has_successfully_committed()
             assert stateful_committable.state_to_commit
-        assert provider_count == 2
+        assert provider_count == 1
 
     def get_current_checkpoint_from_pipeline(
         pipeline: Pipeline,
@@ -50,7 +52,7 @@ def test_stateful_ingestion(wait_for_healthchecks):
         )
 
     source_config_dict: Dict[str, Any] = {
-        "host_port": get_mysql_url(), 
+        "host_port": get_mysql_url(),
         "username": get_mysql_username(),
         "password": get_mysql_password(),
         "database": "datahub",

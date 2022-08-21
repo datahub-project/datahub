@@ -11,7 +11,6 @@ from typing import Optional
 
 import click
 from click_default_group import DefaultGroup
-from pydantic import ValidationError
 from tabulate import tabulate
 
 import datahub as datahub_package
@@ -95,7 +94,15 @@ def ingest() -> None:
 @click.option(
     "--report-to",
     type=str,
-    help="Provide an output file to produce a structured report from the run",
+    default="datahub",
+    help="Provide an destination to send a structured report from the run. The default is 'datahub' and sends the report directly to the datahub server (using the sink configured in your recipe). Use the --no-default-report flag to turn off this default feature. Any other parameter passed to this argument is currently assumed to be a file that you want to write the report to. Supplements the reporting configuration in the recipe",
+)
+@click.option(
+    "--no-default-report",
+    type=bool,
+    is_flag=True,
+    default=False,
+    help="Turn off default reporting of ingestion results to DataHub",
 )
 @click.pass_context
 @telemetry.with_telemetry
@@ -110,6 +117,7 @@ def run(
     suppress_error_logs: bool,
     test_source_connection: bool,
     report_to: str,
+    no_default_report: bool,
 ) -> None:
     """Ingest metadata into DataHub."""
 
@@ -136,7 +144,6 @@ def run(
         else:
             logger.info("Finished metadata ingestion")
             pipeline.log_ingestion_stats()
-            pipeline.write_structured_report()
             ret = pipeline.pretty_print_summary(warnings_as_failure=strict_warnings)
             return ret
 
@@ -170,18 +177,25 @@ def run(
     logger.info("DataHub CLI version: %s", datahub_package.nice_version_name())
 
     config_file = pathlib.Path(config)
-    pipeline_config = load_config_file(config_file)
+    pipeline_config = load_config_file(
+        config_file, squirrel_original_config=True, squirrel_field="__raw_config"
+    )
+    raw_pipeline_config = pipeline_config["__raw_config"]
+    pipeline_config = {k: v for k, v in pipeline_config.items() if k != "__raw_config"}
     if test_source_connection:
         _test_source_connection(report_to, pipeline_config)
 
     try:
         logger.debug(f"Using config: {pipeline_config}")
         pipeline = Pipeline.create(
-            pipeline_config, dry_run, preview, preview_workunits, report_to
+            pipeline_config,
+            dry_run,
+            preview,
+            preview_workunits,
+            report_to,
+            no_default_report,
+            raw_pipeline_config,
         )
-    except ValidationError as e:
-        click.echo(e, err=True)
-        sys.exit(1)
     except Exception as e:
         # The pipeline_config may contain sensitive information, so we wrap the exception
         # in a SensitiveError to prevent detailed variable-level information from being logged.

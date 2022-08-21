@@ -31,8 +31,8 @@ Business terms can be linked to specific entities/tables and columns in a data a
 ### Sample Business Glossary Definition
 |URN|Business Term |Definition  | Domain/Namespace | Owner | Ext Source| Ext Reference |
 |--|--|--|--|--|--|--|
-|urn:li:glossaryTerm:instrument.cashInstrument | instrument.cashInstrument| time point including a date and a time, optionally including a time zone offset| Foundation | abc@domain.com | fibo | https://spec.edmcouncil.org/fibo/ontology/FBC/FinancialInstruments/FinancialInstruments/CashInstrument |
-|urn:li:glossaryTerm:common.dateTime | common.dateTime| a financial instrument whose value is determined by the market and that is readily transferable (highly liquid)| Finance | xyz@domain.com | fibo | https://spec.edmcouncil.org/fibo/ontology/FND/DatesAndTimes/FinancialDates/DateTime |
+|urn:li:glossaryTerm:instrument.cashInstrument | instrument.cashInstrument| a financial instrument whose value is determined by the market and that is readily transferable (highly liquid) | Finance | abc@domain.com | fibo | https://spec.edmcouncil.org/fibo/ontology/FBC/FinancialInstruments/FinancialInstruments/CashInstrument |
+|urn:li:glossaryTerm:common.dateTime | common.dateTime| time point including a date and a time, optionally including a time zone offset | Foundation | xyz@domain.com | fibo | https://spec.edmcouncil.org/fibo/ontology/FND/DatesAndTimes/FinancialDates/DateTime |
 |urn:li:glossaryTerm:market.bidSize | market.bidSize| The bid size represents the quantity of a security that investors are willing to purchase at a specified bid price| Trading | xyz@domain.com | - | - | - |
 |--|--|--|--|--|--|--|
 | | | | | | | |
@@ -43,7 +43,7 @@ Business terms can be linked to specific entities/tables and columns in a data a
 |--|--|--|--|--|
 | recordId| int| N| | |n the case of FX QuoteData the RecordId is equal to the UIC from SymbolsBase|
 | arrivalTime| TimestampTicks| N| | Time the price book was received by the TickCollector. 100s of Nanoseconds since 1st January 1970 (ticks)|
-| bid1Price| com.xxxx.yyy.schema.common.Price| N| **common.monetoryAmount**|The bid price with rank 1/29.|
+| bid1Price| com.xxxx.yyy.schema.common.Price| N| **common.monetaryAmount**|The bid price with rank 1/29.|
 | bid1Size| int| N| market.bidSize| The amount the bid price with rank 5/29 is good for.|
 |--|--|--|--|--|--|--|
 | | | | | | | |
@@ -170,7 +170,7 @@ record GlossaryTermInfo {
 ```
 
 ### Business Term Realationship with Owner
-Business Terms will be owened by certain business users
+Business Terms will be owned by certain business users
 
 ```
 /**
@@ -193,7 +193,7 @@ record OwnedBy includes BaseRelationship {
 ```
 
 ### Business Glossary Aspect
-Business Term can be asociated with Dataset Field as well as Dataset. Defning the aspect that can be asociated with Dataset and DatasetField 
+Business Term can be associated with Dataset Field as well as Dataset. Defining the aspect that can be associated with Dataset and DatasetField
 
 ```
 record GlossaryTerms {
@@ -254,7 +254,7 @@ typeref DatasetAspect = union[
 
 ## Metadata Graph
 
-This might not be a crtical requirement, but nice to have.
+This might not be a critical requirement, but nice to have.
 
 1. Users should be able to search for Business Terms and would like to see all the Datasets that have elements that linked to that Business term.  
 
@@ -265,7 +265,7 @@ We should create/update user guides to educate users for:
  - Search & discovery experience through business terms (how to find a relevant datasets quickly in DataHub)
 
 ## Alternatives
-This is a new feature in Datahub that brings the common vocabulry across data stake holders and also enable better discoverability to the datasets. I see there is no clear alternative to this feature, at the most users can document the `business term` outside the `Data Catalog` and can reference/assosciate those terms as an additional property to Dataset column.
+This is a new feature in Datahub that brings the common vocabulary across data stake holders and also enable better discoverability to the datasets. I see there is no clear alternative to this feature, at the most users can document the `business term` outside the `Data Catalog` and can reference/associate those terms as an additional property to Dataset column.
 
 
 ## Rollout / Adoption Strategy
