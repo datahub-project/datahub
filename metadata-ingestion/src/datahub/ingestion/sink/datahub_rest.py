@@ -4,8 +4,11 @@ import functools
 import logging
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass
+from datetime import timedelta
 from threading import BoundedSemaphore
 from typing import Union, cast
+
+from tdigest import TDigest
 
 from datahub.cli.cli_utils import set_env_variables_override_config
 from datahub.configuration.common import ConfigurationError, OperationalError
@@ -33,9 +36,15 @@ class DatahubRestSinkConfig(DatahubClientConfig):
 class DataHubRestSinkReport(SinkReport):
     gms_version: str = ""
     pending_requests: int = 0
+    _digest = TDigest()
 
     def compute_stats(self) -> None:
         super().compute_stats()
+        self.ninety_fifth_percentile_write_latency = self._digest.percentile(95)
+        self.fiftieth_percentile_write_latency = self._digest.percentile(50)
+
+    def report_write_latency(self, delta: timedelta) -> None:
+        self._digest.update(round(delta.total_seconds() * 1000.0))
 
 
 class BoundedExecutor:
@@ -141,7 +150,9 @@ class DatahubRestSink(Sink):
         elif future.done():
             e = future.exception()
             if not e:
+                start_time, end_time = future.result()
                 self.report.report_record_written(record_envelope)
+                self.report.report_write_latency(end_time - start_time)
                 write_callback.on_success(record_envelope, {})
             elif isinstance(e, OperationalError):
                 # only OperationalErrors should be ignored
