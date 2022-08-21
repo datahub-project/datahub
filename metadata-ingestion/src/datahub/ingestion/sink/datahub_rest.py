@@ -40,8 +40,10 @@ class DataHubRestSinkReport(SinkReport):
 
     def compute_stats(self) -> None:
         super().compute_stats()
-        self.ninety_fifth_percentile_write_latency = self._digest.percentile(95)
-        self.fiftieth_percentile_write_latency = self._digest.percentile(50)
+        self.ninety_fifth_percentile_write_latency_in_millis = self._digest.percentile(
+            95
+        )
+        self.fiftieth_percentile_write_latency_in_millis = self._digest.percentile(50)
 
     def report_write_latency(self, delta: timedelta) -> None:
         self._digest.update(round(delta.total_seconds() * 1000.0))
