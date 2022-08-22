@@ -280,12 +280,13 @@ class RedshiftUsageSource(Source):
             )
             return False
         # Check schema/table allow/deny patterns
-        full_table_name: str = f"{row['database']}.{row['schema']}.{row['table']}"
-        if not self.config.schema_pattern.allowed(row["schema"]):
+        full_schema_name = f"{row['database']}.{row['schema']}"
+        full_table_name: str = f"{full_schema_name}.{row['table']}"
+        if not self.config.schema_pattern.allowed(full_schema_name):
             logger.debug(f"Filtering out {full_table_name} due to schema_pattern.")
             self.report.report_dropped(full_table_name)
             return False
-        if not self.config.table_pattern.allowed(row["table"]):
+        if not self.config.table_pattern.allowed(full_table_name):
             logger.debug(f"Filtering out {full_table_name} due to table_pattern.")
             self.report.report_dropped(full_table_name)
             return False
