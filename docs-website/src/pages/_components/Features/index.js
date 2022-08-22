@@ -25,8 +25,7 @@ const featuresContent = [
     icon: <HddTwoTone />,
     description: (
       <>
-        Lorem ipsum dolor sit amet, consectetur adipiscing elit. Nulla venenatis libero enim, eu porta tortor faucibus eu. Donec id risus lacus.
-        Suspendisse feugiat pharetra blandit. Aliquam porta posuere purus, nec maximus ex.
+        Act on changes in metadata in real time: notify key stakeholders, circuit-break business-critcal pipelines, propogate metadata across entites, and more.
       </>
     ),
   },
