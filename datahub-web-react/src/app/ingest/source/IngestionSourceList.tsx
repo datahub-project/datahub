@@ -120,7 +120,7 @@ export const IngestionSourceList = () => {
     const onRefresh = useCallback(() => {
         refetch();
         // Used to force a re-render of the child execution request list.
-        setLastRefresh(new Date().getMilliseconds());
+        setLastRefresh(new Date().getTime());
     }, [refetch]);
 
     useEffect(() => {
