@@ -96,6 +96,9 @@ class DatahubIngestionRunSummaryProvider(PipelineRunListener):
         sink_type = sink_config_holder.type
         sink_class = sink_registry.get(sink_type)
         sink_config = sink_config_holder.dict().get("config") or {}
+        if sink_type == "datahub-rest":
+            sink_config["use_sync_emitter_on_async_failure"] = True
+
         sink: Sink = sink_class.create(sink_config, ctx)
         return cls(sink, reporter_config.report_recipe, ctx)
 

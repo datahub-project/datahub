@@ -5212,6 +5212,11 @@ enum DataProcessInstanceRunResultType {
     The run was skipped
     """
     SKIPPED
+
+    """
+    The run failed and is up for retry
+    """
+    UP_FOR_RETRY
 }
 
 
