@@ -297,7 +297,7 @@ class DBTConfig(StatefulIngestionConfigBase):
         description="Whether or not to strip email id while adding owners using dbt meta actions.",
     )
     enable_owner_extraction: bool = Field(
-        default=True, description="When enabled, ownership info will be extracted from "
+        default=True, description="When enabled, ownership info will be extracted from the dbt meta"
     )
     owner_extraction_pattern: Optional[str] = Field(
         default=None,
