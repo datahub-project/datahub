@@ -25,7 +25,7 @@ const featuresContent = [
     icon: <HddTwoTone />,
     description: (
       <>
-        Act on changes in metadata in real time: notify key stakeholders, circuit-break business-critcal pipelines, propogate metadata across entites, and more.
+        Act on changes in metadata in real time by notifying key stakeholders, circuit-breaking business-critcal pipelines, propogating metadata across entites, and more.
       </>
     ),
   },

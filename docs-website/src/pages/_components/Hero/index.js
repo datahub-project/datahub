@@ -31,7 +31,7 @@ const Hero = ({}) => {
               DataHub's extensible metadata platform enables data discovery, data observability and federated governance that helps tame the
               complexity of your data ecosystem.
             </p>
-            <Link className="button button--primary button--lg" to={useBaseUrl("docs/quickstart")}>
+            <Link className="button button--primary button--lg" to={useBaseUrl("docs/")}>
               Get Started →
             </Link>
             <Link className="button button--secondary button--outline button--lg" to="https://slack.datahubproject.io">
