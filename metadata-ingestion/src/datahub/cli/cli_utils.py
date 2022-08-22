@@ -645,7 +645,7 @@ def get_aspects_for_entity(
     )
     aspect_list: Dict[str, dict] = entity_response["aspects"]
 
-    # Process timeseries aspects & append to aspect_list
+    # Process timeseries aspects & add to aspect_list
     timeseries_aspects: List[str] = [
         a for a in aspects if a in timeseries_class_to_aspect_name_map.values()
     ]
@@ -659,18 +659,13 @@ def get_aspects_for_entity(
                 timeseries_aspect
             )
             if aspect_cls is not None:
-                aspect_value = values[0]
+                ts_aspect = values[0]["aspect"]
                 # Decode the json-encoded generic aspect value.
-                aspect_value["aspect"]["value"] = json.loads(
-                    aspect_value["aspect"]["value"]
-                )
-                aspect_list[
-                    aspect_cls.RECORD_SCHEMA.fullname.replace("pegasus2avro.", "")
-                ] = aspect_value
+                ts_aspect["value"] = json.loads(ts_aspect["value"])
+                aspect_list[timeseries_aspect] = ts_aspect
 
     aspect_map: Dict[str, Union[dict, _Aspect]] = {}
-    for a in aspect_list.values():
-        aspect_name = a["name"]
+    for aspect_name, a in aspect_list.items():
         aspect_py_class: Optional[Type[Any]] = _get_pydantic_class_from_aspect_name(
             aspect_name
         )

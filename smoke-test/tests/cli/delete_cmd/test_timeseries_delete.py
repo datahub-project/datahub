@@ -6,8 +6,7 @@ from typing import Any, Dict, List, Optional
 from click.testing import CliRunner, Result
 
 import datahub.emitter.mce_builder as builder
-from datahub.emitter.serialization_helper import (post_json_transform,
-                                                  pre_json_transform)
+from datahub.emitter.serialization_helper import pre_json_transform
 from datahub.entrypoints import datahub
 from datahub.metadata.schema_classes import DatasetProfileClass
 from tests.aspect_generators.timeseries.dataset_profile_gen import \
@@ -60,10 +59,9 @@ def datahub_get_and_verify_profile(
     if expected_profile is None:
         assert not get_result_output_obj
     else:
-        profile_as_dict: Dict = post_json_transform(
+        profile_from_get = DatasetProfileClass.from_obj(
             get_result_output_obj["datasetProfile"]
         )
-        profile_from_get = DatasetProfileClass.from_obj(profile_as_dict)
         assert profile_from_get == expected_profile
 
 
