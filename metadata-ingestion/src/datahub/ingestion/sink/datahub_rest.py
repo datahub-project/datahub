@@ -29,7 +29,8 @@ logger = logging.getLogger(__name__)
 
 
 class DatahubRestSinkConfig(DatahubClientConfig):
-    max_pending_requests = 1000
+    max_pending_requests: int = 1000
+    use_sync_emitter_on_async_failure: bool = False
 
 
 @dataclass
@@ -158,15 +159,16 @@ class DatahubRestSink(Sink):
                 write_callback.on_success(record_envelope, {})
             elif isinstance(e, OperationalError):
                 # only OperationalErrors should be ignored
+                # trim exception stacktraces in all cases when reporting
+                if "stackTrace" in e.info:
+                    with contextlib.suppress(Exception):
+                        e.info["stackTrace"] = "\n".join(
+                            e.info["stackTrace"].split("\n")[:3]
+                        )
+
                 if not self.treat_errors_as_warnings:
                     self.report.report_failure({"error": e.message, "info": e.info})
                 else:
-                    # trim exception stacktraces when reporting warnings
-                    if "stackTrace" in e.info:
-                        with contextlib.suppress(Exception):
-                            e.info["stackTrace"] = "\n".join(
-                                e.info["stackTrace"].split("\n")[:2]
-                            )
                     record = record_envelope.record
                     if isinstance(record, MetadataChangeProposalWrapper):
                         # include information about the entity that failed
@@ -195,13 +197,23 @@ class DatahubRestSink(Sink):
         write_callback: WriteCallback,
     ) -> None:
         record = record_envelope.record
-        write_future = self.executor.submit(self.emitter.emit, record)
-        write_future.add_done_callback(
-            functools.partial(
-                self._write_done_callback, record_envelope, write_callback
+        try:
+            write_future = self.executor.submit(self.emitter.emit, record)
+            write_future.add_done_callback(
+                functools.partial(
+                    self._write_done_callback, record_envelope, write_callback
+                )
             )
-        )
-        self.report.pending_requests += 1
+            self.report.pending_requests += 1
+        except RuntimeError:
+            if self.config.use_sync_emitter_on_async_failure:
+                try:
+                    (start, end) = self.emitter.emit(record)
+                    write_callback.on_success(record_envelope, success_metadata={})
+                except Exception as e:
+                    write_callback.on_failure(record_envelope, e, failure_metadata={})
+            else:
+                raise
 
     def get_report(self) -> SinkReport:
         return self.report
