@@ -48,18 +48,16 @@ export const SetDomainModal = ({ urns, onCloseModal, refetch }: Props) => {
     };
 
     const handleSearch = (text: string) => {
-        if (text.length > 2) {
-            domainSearch({
-                variables: {
-                    input: {
-                        type: EntityType.Domain,
-                        query: text,
-                        start: 0,
-                        count: 5,
-                    },
+        domainSearch({
+            variables: {
+                input: {
+                    type: EntityType.Domain,
+                    query: text,
+                    start: 0,
+                    count: 5,
                 },
-            });
-        }
+            },
+        });
     };
 
     // Renders a search result in the select dropdown.

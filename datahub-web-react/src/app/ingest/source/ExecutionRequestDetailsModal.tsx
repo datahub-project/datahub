@@ -90,15 +90,9 @@ type Props = {
 };
 
 export const ExecutionDetailsModal = ({ urn, visible, onClose }: Props) => {
-    const [showExpandedLogs, setShowExpandedLogs] = useState(true);
+    const [showExpandedLogs, setShowExpandedLogs] = useState(false);
     const { data, loading, error, refetch } = useGetIngestionExecutionRequestQuery({ variables: { urn } });
     const output = data?.executionRequest?.result?.report || 'No output found.';
-
-    useEffect(() => {
-        if (output.length > 100) {
-            setShowExpandedLogs(false);
-        }
-    }, [output, setShowExpandedLogs]);
 
     const downloadLogs = () => {
         downloadFile(output, `exec-${urn}.log`);
@@ -167,7 +161,7 @@ export const ExecutionDetailsModal = ({ urn, visible, onClose }: Props) => {
                         </Button>
                     </SectionSubHeader>
                     <Typography.Paragraph ellipsis>
-                        <pre>{`${logs}${!showExpandedLogs ? '...' : ''}`}</pre>
+                        <pre>{`${logs}${!showExpandedLogs && isOutputExpandable ? '...' : ''}`}</pre>
                         {isOutputExpandable && (
                             <ShowMoreButton type="link" onClick={() => setShowExpandedLogs(!showExpandedLogs)}>
                                 {showExpandedLogs ? 'Hide' : 'Show More'}

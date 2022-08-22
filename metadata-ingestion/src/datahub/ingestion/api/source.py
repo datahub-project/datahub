@@ -1,16 +1,25 @@
-import platform
-import sys
+import collections
 from abc import ABCMeta, abstractmethod
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import Dict, Generic, Iterable, List, Optional, TypeVar, Union
+from typing import (
+    Deque,
+    Dict,
+    Generic,
+    Iterable,
+    Iterator,
+    List,
+    Optional,
+    TypeVar,
+    Union,
+)
 
 from pydantic import BaseModel
 
-import datahub
 from datahub.ingestion.api.closeable import Closeable
 from datahub.ingestion.api.common import PipelineContext, RecordEnvelope, WorkUnit
 from datahub.ingestion.api.report import Report
+from datahub.utilities.time import get_current_time_in_seconds
 
 
 class SourceCapability(Enum):
@@ -29,18 +38,55 @@ class SourceCapability(Enum):
     CONTAINERS = "Asset Containers"
 
 
+T = TypeVar("T")
+
+
+class LossyList(List[T]):
+    """A list that only preserves the head and tail of lists longer than a certain number"""
+
+    def __init__(
+        self, max_elements: int = 10, section_breaker: Optional[str] = "..."
+    ) -> None:
+        super().__init__()
+        self.max_elements = max_elements
+        self.list_head: List[T] = []
+        self.list_tail: Deque[T] = collections.deque([], maxlen=int(max_elements / 2))
+        self.head_full = False
+        self.total_elements = 0
+        self.section_breaker = section_breaker
+
+    def __iter__(self) -> Iterator[T]:
+        yield from self.list_head
+        if self.section_breaker and len(self.list_tail):
+            yield f"{self.section_breaker} {self.total_elements - len(self.list_head) - len(self.list_tail)} more elements"  # type: ignore
+        yield from self.list_tail
+
+    def append(self, __object: T) -> None:
+        if self.head_full:
+            self.list_tail.append(__object)
+        else:
+            self.list_head.append(__object)
+            if len(self.list_head) > int(self.max_elements / 2):
+                self.head_full = True
+        self.total_elements += 1
+
+    def __len__(self) -> int:
+        return self.total_elements
+
+    def __repr__(self) -> str:
+        return repr(list(self.__iter__()))
+
+    def __str__(self) -> str:
+        return str(list(self.__iter__()))
+
+
 @dataclass
 class SourceReport(Report):
     workunits_produced: int = 0
-    workunit_ids: List[str] = field(default_factory=list)
+    workunit_ids: List[str] = field(default_factory=LossyList)
 
     warnings: Dict[str, List[str]] = field(default_factory=dict)
     failures: Dict[str, List[str]] = field(default_factory=dict)
-    cli_version: str = datahub.nice_version_name()
-    cli_entry_location: str = datahub.__file__
-    py_version: str = sys.version
-    py_exec_path: str = sys.executable
-    os_details: str = platform.platform()
 
     def report_workunit(self, wu: WorkUnit) -> None:
         self.workunits_produced += 1
@@ -55,6 +101,20 @@ class SourceReport(Report):
         if key not in self.failures:
             self.failures[key] = []
         self.failures[key].append(reason)
+
+    def __post_init__(self) -> None:
+        self.starting_time = get_current_time_in_seconds()
+        self.running_time_in_seconds = 0
+
+    def compute_stats(self) -> None:
+        current_time = get_current_time_in_seconds()
+        running_time = current_time - self.starting_time
+        workunits_produced = self.workunits_produced
+        if running_time > 0:
+            self.read_rate = workunits_produced / running_time
+            self.running_time_in_seconds = running_time
+        else:
+            self.read_rate = 0
 
 
 class CapabilityReport(BaseModel):
