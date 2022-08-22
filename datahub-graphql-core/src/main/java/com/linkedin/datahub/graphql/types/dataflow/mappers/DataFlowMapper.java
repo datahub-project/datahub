@@ -22,6 +22,7 @@ import com.linkedin.datahub.graphql.types.common.mappers.OwnershipMapper;
 import com.linkedin.datahub.graphql.types.common.mappers.StatusMapper;
 import com.linkedin.datahub.graphql.types.common.mappers.CustomPropertiesMapper;
 import com.linkedin.datahub.graphql.types.common.mappers.util.MappingHelper;
+import com.linkedin.datahub.graphql.types.common.mappers.util.SystemMetadataUtils;
 import com.linkedin.datahub.graphql.types.domain.DomainAssociationMapper;
 import com.linkedin.datahub.graphql.types.glossary.mappers.GlossaryTermsMapper;
 import com.linkedin.datahub.graphql.types.mappers.ModelMapper;
@@ -54,6 +55,9 @@ public class DataFlowMapper implements ModelMapper<EntityResponse, DataFlow> {
         Urn entityUrn = entityResponse.getUrn();
 
         EnvelopedAspectMap aspectMap = entityResponse.getAspects();
+        Long lastIngested = SystemMetadataUtils.getLastIngested(aspectMap);
+        result.setLastIngested(lastIngested);
+
         MappingHelper<DataFlow> mappingHelper = new MappingHelper<>(aspectMap, result);
         mappingHelper.mapToResult(DATA_FLOW_KEY_ASPECT_NAME, this::mapKey);
         mappingHelper.mapToResult(DATA_FLOW_INFO_ASPECT_NAME, (entity, dataMap) -> this.mapInfo(entity, dataMap, entityUrn));

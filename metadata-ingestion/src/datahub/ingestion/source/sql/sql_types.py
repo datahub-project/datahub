@@ -227,6 +227,16 @@ def resolve_postgres_modified_type(type_string: str) -> Any:
     return None
 
 
+def resolve_trino_modified_type(type_string: str) -> Any:
+    # for cases like timestamp(3), decimal(10,0), row(...)
+    match = re.match(r"([a-zA-Z]+)\(.+\)", type_string)
+    if match:
+        modified_type_base: str = match.group(1)
+        return TRINO_SQL_TYPES_MAP[modified_type_base]
+    else:
+        return TRINO_SQL_TYPES_MAP[type_string]
+
+
 # see https://docs.snowflake.com/en/sql-reference/intro-summary-data-types.html
 SNOWFLAKE_TYPES_MAP: Dict[str, Any] = {
     "NUMBER": NumberType,
@@ -307,4 +317,26 @@ SPARK_SQL_TYPES_MAP: Dict[str, Any] = {
     "array": ArrayType,
     "struct": RecordType,
     "map": RecordType,
+}
+
+# https://trino.io/docs/current/language/types.html
+# https://github.com/trinodb/trino-python-client/blob/master/trino/sqlalchemy/datatype.py#L75
+TRINO_SQL_TYPES_MAP = {
+    "boolean": BooleanType,
+    "tinyint": NumberType,
+    "smallint": NumberType,
+    "int": NumberType,
+    "integer": NumberType,
+    "bigint": NumberType,
+    "real": NumberType,
+    "double": NumberType,
+    "decimal": NumberType,
+    "varchar": StringType,
+    "char": StringType,
+    "varbinary": BytesType,
+    "json": RecordType,
+    "date": DateType,
+    "time": TimeType,
+    "timestamp": TimeType,
+    "row": RecordType,
 }

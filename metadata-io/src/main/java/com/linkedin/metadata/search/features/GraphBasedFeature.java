@@ -35,7 +35,7 @@ public class GraphBasedFeature implements FeatureExtractor {
 
   private int getOutDegree(Urn urn) {
     RelatedEntitiesResult graphResult =
-        _graphService.findRelatedEntities("", QueryUtils.EMPTY_FILTER, "", QueryUtils.newFilter("urn", urn.toString()),
+        _graphService.findRelatedEntities(null, QueryUtils.EMPTY_FILTER, null, QueryUtils.newFilter("urn", urn.toString()),
             RELEVANT_RELATIONSHIP_TYPES,
             Neo4jUtil.newRelationshipFilter(QueryUtils.EMPTY_FILTER, RelationshipDirection.OUTGOING), 0, 1000);
     return graphResult.getCount();

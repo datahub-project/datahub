@@ -226,10 +226,9 @@ def _is_single_row_query_method(query: Any) -> bool:
     return False
 
 
-# mypy does not yet support ParamSpec. See https://github.com/python/mypy/issues/8645.
 def _run_with_query_combiner(
-    method: Callable[Concatenate["_SingleDatasetProfiler", P], None]  # type: ignore
-) -> Callable[Concatenate["_SingleDatasetProfiler", P], None]:  # type: ignore
+    method: Callable[Concatenate["_SingleDatasetProfiler", P], None]
+) -> Callable[Concatenate["_SingleDatasetProfiler", P], None]:
     @functools.wraps(method)
     def inner(
         self: "_SingleDatasetProfiler", *args: P.args, **kwargs: P.kwargs
@@ -529,14 +528,6 @@ class _SingleDatasetProfiler(BasicDatasetProfilerBase):
         assert profile.rowCount is not None
         row_count: int = profile.rowCount
 
-        telemetry.telemetry_instance.ping(
-            "profile_sql_table",
-            # bucket by taking floor of log of the number of rows scanned
-            {
-                "rows_profiled": stats.discretize(row_count),
-            },
-        )
-
         for column_spec in columns_profiling_queue:
             column = column_spec.column
             column_profile = column_spec.column_profile
@@ -664,6 +655,7 @@ class DatahubGEProfiler:
     report: SQLSourceReport
     config: GEProfilingConfig
     times_taken: List[float]
+    total_row_count: int
 
     base_engine: Engine
     platform: str  # passed from parent source config
@@ -681,6 +673,7 @@ class DatahubGEProfiler:
         self.report = report
         self.config = config
         self.times_taken = []
+        self.total_row_count = 0
 
         # TRICKY: The call to `.engine` is quite important here. Connection.connect()
         # returns a "branched" connection, which does not actually use a new underlying
@@ -798,6 +791,7 @@ class DatahubGEProfiler:
                         {
                             "total_time_taken": stats.discretize(total_time_taken),
                             "count": stats.discretize(len(self.times_taken)),
+                            "total_row_count": stats.discretize(self.total_row_count),
                             "platform": self.platform,
                             **time_percentiles,
                         },
@@ -839,6 +833,16 @@ class DatahubGEProfiler:
             logger.warning(
                 f"Unable to delete bigquery temporary table: {bigquery_temp_table}"
             )
+
+    def _drop_trino_temp_table(self, temp_dataset: Dataset) -> None:
+        schema = temp_dataset._table.schema
+        table = temp_dataset._table.name
+        try:
+            with self.base_engine.connect() as connection:
+                connection.execute(f"drop view if exists {schema}.{table}")
+                logger.debug(f"View {schema}.{table} was dropped.")
+        except Exception:
+            logger.warning(f"Unable to delete trino temporary table: {schema}.{table}")
 
     def _generate_single_profile(
         self,
@@ -931,6 +935,8 @@ class DatahubGEProfiler:
                     f"Finished profiling {pretty_name}; took {time_taken:.3f} seconds"
                 )
                 self.times_taken.append(time_taken)
+                if profile.rowCount is not None:
+                    self.total_row_count += profile.rowCount
 
                 return profile
             except Exception as e:
@@ -940,7 +946,9 @@ class DatahubGEProfiler:
                 self.report.report_failure(pretty_name, f"Profiling exception {e}")
                 return None
             finally:
-                if bigquery_temp_table:
+                if self.base_engine.engine.name == "trino":
+                    self._drop_trino_temp_table(batch)
+                elif bigquery_temp_table:
                     self._drop_bigquery_temp_table(bigquery_temp_table)
 
     def _get_ge_dataset(

@@ -74,7 +74,6 @@ public class CreateTestConnectionRequestResolver implements DataFetcher<Completa
 
         Map<String, String> arguments = new HashMap<>();
         arguments.put(RECIPE_ARG_NAME, input.getRecipe());
-        arguments.put(VERSION_ARG_NAME, _ingestionConfiguration.getDefaultCliVersion());
         execInput.setArgs(new StringMap(arguments));
 
         proposal.setEntityType(Constants.EXECUTION_REQUEST_ENTITY_NAME);

@@ -16,8 +16,9 @@ public class MappingsBuilderTest {
     Map<String, Object> result = MappingsBuilder.getMappings(TestEntitySpecBuilder.getSpec());
     assertEquals(result.size(), 1);
     Map<String, Object> properties = (Map<String, Object>) result.get("properties");
-    assertEquals(properties.size(), 14);
+    assertEquals(properties.size(), 15);
     assertEquals(properties.get("urn"), ImmutableMap.of("type", "keyword"));
+    assertEquals(properties.get("runId"), ImmutableMap.of("type", "keyword"));
     assertTrue(properties.containsKey("browsePaths"));
     // KEYWORD
     Map<String, Object> keyPart3Field = (Map<String, Object>) properties.get("keyPart3");

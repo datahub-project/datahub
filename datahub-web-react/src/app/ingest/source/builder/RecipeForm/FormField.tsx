@@ -1,9 +1,11 @@
-import { Button, Checkbox, Form, Input, Tooltip } from 'antd';
 import React from 'react';
+import { Button, Checkbox, Form, Input, Select, Tooltip } from 'antd';
 import styled from 'styled-components/macro';
 import { MinusCircleOutlined, PlusOutlined, QuestionCircleOutlined } from '@ant-design/icons';
-import { FieldType, RecipeField } from './utils';
 import { ANTD_GRAY } from '../../../../entity/shared/constants';
+import { RecipeField, FieldType } from './common';
+import { Secret } from '../../../../../types.generated';
+import SecretField, { StyledFormItem } from './SecretField/SecretField';
 
 const Label = styled.div`
     font-weight: bold;
@@ -25,29 +27,16 @@ const StyledRemoveIcon = styled(MinusCircleOutlined)`
     margin-left: 10px;
 `;
 
-const StyledFormItem = styled(Form.Item)<{ alignLeft: boolean; removeMargin: boolean }>`
-    margin-bottom: ${(props) => (props.removeMargin ? '0' : '16px')};
-
-    ${(props) =>
-        props.alignLeft &&
-        `
-        .ant-form-item {
-            flex-direction: row;
-
-        }
-
-        .ant-form-item-label {
-            padding: 0;
-            margin-right: 10px;
-        }
-    `}
-`;
-
 const ListWrapper = styled.div<{ removeMargin: boolean }>`
     margin-bottom: ${(props) => (props.removeMargin ? '0' : '16px')};
 `;
 
 interface ListFieldProps {
+    field: RecipeField;
+    removeMargin?: boolean;
+}
+
+interface SelectFieldProps {
     field: RecipeField;
     removeMargin?: boolean;
 }
@@ -66,13 +55,13 @@ function ListField({ field, removeMargin }: ListFieldProps) {
                     {fields.map((item) => (
                         <Form.Item key={item.fieldKey} style={{ marginBottom: '10px' }}>
                             <Form.Item {...item} noStyle>
-                                <Input style={{ width: '80%' }} />
+                                <Input style={{ width: '80%' }} placeholder={field.placeholder} />
                             </Form.Item>
                             <StyledRemoveIcon onClick={() => remove(item.name)} />
                         </Form.Item>
                     ))}
                     <StyledButton type="dashed" onClick={() => add()} style={{ width: '80%' }} icon={<PlusOutlined />}>
-                        Add pattern
+                        {field.buttonLabel}
                     </StyledButton>
                 </ListWrapper>
             )}
@@ -80,18 +69,41 @@ function ListField({ field, removeMargin }: ListFieldProps) {
     );
 }
 
+function SelectField({ field, removeMargin }: SelectFieldProps) {
+    return (
+        <StyledFormItem name={field.name} label={field.label} tooltip={field.tooltip} removeMargin={!!removeMargin}>
+            {field.options && (
+                <Select placeholder={field.placeholder}>
+                    {field.options.map((option) => (
+                        <Select.Option value={option.value}>{option.label}</Select.Option>
+                    ))}
+                </Select>
+            )}
+        </StyledFormItem>
+    );
+}
+
 interface Props {
     field: RecipeField;
+    secrets: Secret[];
+    refetchSecrets: () => void;
     removeMargin?: boolean;
 }
 
 function FormField(props: Props) {
-    const { field, removeMargin } = props;
+    const { field, secrets, refetchSecrets, removeMargin } = props;
 
     if (field.type === FieldType.LIST) return <ListField field={field} removeMargin={removeMargin} />;
 
+    if (field.type === FieldType.SELECT) return <SelectField field={field} removeMargin={removeMargin} />;
+
+    if (field.type === FieldType.SECRET)
+        return (
+            <SecretField field={field} secrets={secrets} removeMargin={removeMargin} refetchSecrets={refetchSecrets} />
+        );
+
     const isBoolean = field.type === FieldType.BOOLEAN;
-    const input = isBoolean ? <Checkbox /> : <Input />;
+    const input = isBoolean ? <Checkbox /> : <Input placeholder={field.placeholder} />;
     const valuePropName = isBoolean ? 'checked' : 'value';
     const getValueFromEvent = isBoolean ? undefined : (e) => (e.target.value === '' ? null : e.target.value);
 

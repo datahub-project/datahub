@@ -13,15 +13,7 @@
                             "table_creation_time": "1655831648843",
                             "id": "de711767-c7b9-4c33-99d7-510978dc1fa5",
                             "version": "4",
-                            "location": "tests/integration/delta_lake/test_data/delta_tables",
-                            "operation": "WRITE",
-                            "operationParameters": "{}",
-                            "readVersion": "3",
-                            "isolationLevel": "Serializable",
-                            "isBlindAppend": "True",
-                            "operationMetrics": "{}",
-                            "engineInfo": "local Delta-Standalone/0.4.0",
-                            "version_creation_time": "1655831649788"
+                            "location": "tests/integration/delta_lake/test_data/delta_tables"
                         },
                         "externalUrl": null,
                         "name": "my_table_no_name",
@@ -516,6 +508,101 @@
 },
 {
     "auditHeader": null,
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:delta-lake,my-platform.tests/integration/delta_lake/test_data/delta_tables/my_table_no_name,UAT)",
+    "entityKeyAspect": null,
+    "changeType": "UPSERT",
+    "aspectName": "operation",
+    "aspect": {
+        "value": "{\"timestampMillis\": 1615443388097, \"partitionSpec\": {\"type\": \"FULL_TABLE\", \"partition\": \"FULL_TABLE_SNAPSHOT\"}, \"operationType\": \"CUSTOM\", \"customOperationType\": \"WRITE\", \"customProperties\": {\"isolationLevel\": \"Serializable\", \"isBlindAppend\": \"True\", \"engineInfo\": \"local Delta-Standalone/0.4.0\"}, \"lastUpdatedTimestamp\": 1655831649166}",
+        "contentType": "application/json"
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "allow_table.json",
+        "registryName": null,
+        "registryVersion": null,
+        "properties": null
+    }
+},
+{
+    "auditHeader": null,
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:delta-lake,my-platform.tests/integration/delta_lake/test_data/delta_tables/my_table_no_name,UAT)",
+    "entityKeyAspect": null,
+    "changeType": "UPSERT",
+    "aspectName": "operation",
+    "aspect": {
+        "value": "{\"timestampMillis\": 1615443388097, \"partitionSpec\": {\"type\": \"FULL_TABLE\", \"partition\": \"FULL_TABLE_SNAPSHOT\"}, \"operationType\": \"CUSTOM\", \"customOperationType\": \"WRITE\", \"customProperties\": {\"readVersion\": \"0\", \"isolationLevel\": \"Serializable\", \"isBlindAppend\": \"True\", \"engineInfo\": \"local Delta-Standalone/0.4.0\"}, \"lastUpdatedTimestamp\": 1655831649715}",
+        "contentType": "application/json"
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "allow_table.json",
+        "registryName": null,
+        "registryVersion": null,
+        "properties": null
+    }
+},
+{
+    "auditHeader": null,
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:delta-lake,my-platform.tests/integration/delta_lake/test_data/delta_tables/my_table_no_name,UAT)",
+    "entityKeyAspect": null,
+    "changeType": "UPSERT",
+    "aspectName": "operation",
+    "aspect": {
+        "value": "{\"timestampMillis\": 1615443388097, \"partitionSpec\": {\"type\": \"FULL_TABLE\", \"partition\": \"FULL_TABLE_SNAPSHOT\"}, \"operationType\": \"CUSTOM\", \"customOperationType\": \"WRITE\", \"customProperties\": {\"readVersion\": \"1\", \"isolationLevel\": \"Serializable\", \"isBlindAppend\": \"True\", \"engineInfo\": \"local Delta-Standalone/0.4.0\"}, \"lastUpdatedTimestamp\": 1655831649731}",
+        "contentType": "application/json"
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "allow_table.json",
+        "registryName": null,
+        "registryVersion": null,
+        "properties": null
+    }
+},
+{
+    "auditHeader": null,
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:delta-lake,my-platform.tests/integration/delta_lake/test_data/delta_tables/my_table_no_name,UAT)",
+    "entityKeyAspect": null,
+    "changeType": "UPSERT",
+    "aspectName": "operation",
+    "aspect": {
+        "value": "{\"timestampMillis\": 1615443388097, \"partitionSpec\": {\"type\": \"FULL_TABLE\", \"partition\": \"FULL_TABLE_SNAPSHOT\"}, \"operationType\": \"CUSTOM\", \"customOperationType\": \"WRITE\", \"customProperties\": {\"readVersion\": \"2\", \"isolationLevel\": \"Serializable\", \"isBlindAppend\": \"True\", \"engineInfo\": \"local Delta-Standalone/0.4.0\"}, \"lastUpdatedTimestamp\": 1655831649754}",
+        "contentType": "application/json"
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "allow_table.json",
+        "registryName": null,
+        "registryVersion": null,
+        "properties": null
+    }
+},
+{
+    "auditHeader": null,
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:delta-lake,my-platform.tests/integration/delta_lake/test_data/delta_tables/my_table_no_name,UAT)",
+    "entityKeyAspect": null,
+    "changeType": "UPSERT",
+    "aspectName": "operation",
+    "aspect": {
+        "value": "{\"timestampMillis\": 1615443388097, \"partitionSpec\": {\"type\": \"FULL_TABLE\", \"partition\": \"FULL_TABLE_SNAPSHOT\"}, \"operationType\": \"CUSTOM\", \"customOperationType\": \"WRITE\", \"customProperties\": {\"readVersion\": \"3\", \"isolationLevel\": \"Serializable\", \"isBlindAppend\": \"True\", \"engineInfo\": \"local Delta-Standalone/0.4.0\"}, \"lastUpdatedTimestamp\": 1655831649788}",
+        "contentType": "application/json"
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "allow_table.json",
+        "registryName": null,
+        "registryVersion": null,
+        "properties": null
+    }
+},
+{
+    "auditHeader": null,
     "proposedSnapshot": {
         "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
             "urn": "urn:li:dataset:(urn:li:dataPlatform:delta-lake,my-platform.tests/integration/delta_lake/test_data/delta_tables/sales,UAT)",
@@ -528,14 +615,7 @@
                             "table_creation_time": "1655664813952",
                             "id": "eca9d2a0-4ce6-4ace-a732-75fda0157fb8",
                             "version": "0",
-                            "location": "tests/integration/delta_lake/test_data/delta_tables",
-                            "operation": "CONVERT",
-                            "operationParameters": "{}",
-                            "isolationLevel": "Serializable",
-                            "isBlindAppend": "True",
-                            "operationMetrics": "{}",
-                            "engineInfo": "local Delta-Standalone/0.4.0",
-                            "version_creation_time": "1655664815399"
+                            "location": "tests/integration/delta_lake/test_data/delta_tables"
                         },
                         "externalUrl": null,
                         "name": "my_table",
@@ -729,6 +809,25 @@
 },
 {
     "auditHeader": null,
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:delta-lake,my-platform.tests/integration/delta_lake/test_data/delta_tables/sales,UAT)",
+    "entityKeyAspect": null,
+    "changeType": "UPSERT",
+    "aspectName": "operation",
+    "aspect": {
+        "value": "{\"timestampMillis\": 1615443388097, \"partitionSpec\": {\"type\": \"FULL_TABLE\", \"partition\": \"FULL_TABLE_SNAPSHOT\"}, \"operationType\": \"CUSTOM\", \"customOperationType\": \"CONVERT\", \"customProperties\": {\"isolationLevel\": \"Serializable\", \"isBlindAppend\": \"True\", \"engineInfo\": \"local Delta-Standalone/0.4.0\"}, \"lastUpdatedTimestamp\": 1655664815399}",
+        "contentType": "application/json"
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "allow_table.json",
+        "registryName": null,
+        "registryVersion": null,
+        "properties": null
+    }
+},
+{
+    "auditHeader": null,
     "proposedSnapshot": {
         "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
             "urn": "urn:li:dataset:(urn:li:dataPlatform:delta-lake,my-platform.tests/integration/delta_lake/test_data/delta_tables/my_table_basic,UAT)",
@@ -741,15 +840,7 @@
                             "table_creation_time": "1655831476360",
                             "id": "628d06df-ecb0-4314-a97e-75d8872db7c3",
                             "version": "4",
-                            "location": "tests/integration/delta_lake/test_data/delta_tables",
-                            "operation": "WRITE",
-                            "operationParameters": "{}",
-                            "readVersion": "3",
-                            "isolationLevel": "Serializable",
-                            "isBlindAppend": "True",
-                            "operationMetrics": "{}",
-                            "engineInfo": "local Delta-Standalone/0.4.0",
-                            "version_creation_time": "1655831477768"
+                            "location": "tests/integration/delta_lake/test_data/delta_tables"
                         },
                         "externalUrl": null,
                         "name": "test-table-basic",
@@ -883,6 +974,101 @@
 },
 {
     "auditHeader": null,
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:delta-lake,my-platform.tests/integration/delta_lake/test_data/delta_tables/my_table_basic,UAT)",
+    "entityKeyAspect": null,
+    "changeType": "UPSERT",
+    "aspectName": "operation",
+    "aspect": {
+        "value": "{\"timestampMillis\": 1615443388097, \"partitionSpec\": {\"type\": \"FULL_TABLE\", \"partition\": \"FULL_TABLE_SNAPSHOT\"}, \"operationType\": \"CUSTOM\", \"customOperationType\": \"WRITE\", \"customProperties\": {\"isolationLevel\": \"Serializable\", \"isBlindAppend\": \"True\", \"engineInfo\": \"local Delta-Standalone/0.4.0\"}, \"lastUpdatedTimestamp\": 1655831476907}",
+        "contentType": "application/json"
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "allow_table.json",
+        "registryName": null,
+        "registryVersion": null,
+        "properties": null
+    }
+},
+{
+    "auditHeader": null,
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:delta-lake,my-platform.tests/integration/delta_lake/test_data/delta_tables/my_table_basic,UAT)",
+    "entityKeyAspect": null,
+    "changeType": "UPSERT",
+    "aspectName": "operation",
+    "aspect": {
+        "value": "{\"timestampMillis\": 1615443388097, \"partitionSpec\": {\"type\": \"FULL_TABLE\", \"partition\": \"FULL_TABLE_SNAPSHOT\"}, \"operationType\": \"CUSTOM\", \"customOperationType\": \"WRITE\", \"customProperties\": {\"readVersion\": \"0\", \"isolationLevel\": \"Serializable\", \"isBlindAppend\": \"True\", \"engineInfo\": \"local Delta-Standalone/0.4.0\"}, \"lastUpdatedTimestamp\": 1655831477701}",
+        "contentType": "application/json"
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "allow_table.json",
+        "registryName": null,
+        "registryVersion": null,
+        "properties": null
+    }
+},
+{
+    "auditHeader": null,
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:delta-lake,my-platform.tests/integration/delta_lake/test_data/delta_tables/my_table_basic,UAT)",
+    "entityKeyAspect": null,
+    "changeType": "UPSERT",
+    "aspectName": "operation",
+    "aspect": {
+        "value": "{\"timestampMillis\": 1615443388097, \"partitionSpec\": {\"type\": \"FULL_TABLE\", \"partition\": \"FULL_TABLE_SNAPSHOT\"}, \"operationType\": \"CUSTOM\", \"customOperationType\": \"WRITE\", \"customProperties\": {\"readVersion\": \"1\", \"isolationLevel\": \"Serializable\", \"isBlindAppend\": \"True\", \"engineInfo\": \"local Delta-Standalone/0.4.0\"}, \"lastUpdatedTimestamp\": 1655831477726}",
+        "contentType": "application/json"
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "allow_table.json",
+        "registryName": null,
+        "registryVersion": null,
+        "properties": null
+    }
+},
+{
+    "auditHeader": null,
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:delta-lake,my-platform.tests/integration/delta_lake/test_data/delta_tables/my_table_basic,UAT)",
+    "entityKeyAspect": null,
+    "changeType": "UPSERT",
+    "aspectName": "operation",
+    "aspect": {
+        "value": "{\"timestampMillis\": 1615443388097, \"partitionSpec\": {\"type\": \"FULL_TABLE\", \"partition\": \"FULL_TABLE_SNAPSHOT\"}, \"operationType\": \"CUSTOM\", \"customOperationType\": \"WRITE\", \"customProperties\": {\"readVersion\": \"2\", \"isolationLevel\": \"Serializable\", \"isBlindAppend\": \"True\", \"engineInfo\": \"local Delta-Standalone/0.4.0\"}, \"lastUpdatedTimestamp\": 1655831477745}",
+        "contentType": "application/json"
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "allow_table.json",
+        "registryName": null,
+        "registryVersion": null,
+        "properties": null
+    }
+},
+{
+    "auditHeader": null,
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:delta-lake,my-platform.tests/integration/delta_lake/test_data/delta_tables/my_table_basic,UAT)",
+    "entityKeyAspect": null,
+    "changeType": "UPSERT",
+    "aspectName": "operation",
+    "aspect": {
+        "value": "{\"timestampMillis\": 1615443388097, \"partitionSpec\": {\"type\": \"FULL_TABLE\", \"partition\": \"FULL_TABLE_SNAPSHOT\"}, \"operationType\": \"CUSTOM\", \"customOperationType\": \"WRITE\", \"customProperties\": {\"readVersion\": \"3\", \"isolationLevel\": \"Serializable\", \"isBlindAppend\": \"True\", \"engineInfo\": \"local Delta-Standalone/0.4.0\"}, \"lastUpdatedTimestamp\": 1655831477768}",
+        "contentType": "application/json"
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "allow_table.json",
+        "registryName": null,
+        "registryVersion": null,
+        "properties": null
+    }
+},
+{
+    "auditHeader": null,
     "proposedSnapshot": {
         "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
             "urn": "urn:li:dataset:(urn:li:dataPlatform:delta-lake,my-platform.tests/integration/delta_lake/test_data/delta_tables/level1/my_table_inner,UAT)",
@@ -895,15 +1081,7 @@
                             "table_creation_time": "1655831864836",
                             "id": "3775a0fd-4f58-4dea-b71a-e3fedb10f5b4",
                             "version": "4",
-                            "location": "tests/integration/delta_lake/test_data/delta_tables",
-                            "operation": "WRITE",
-                            "operationParameters": "{}",
-                            "readVersion": "3",
-                            "isolationLevel": "Serializable",
-                            "isBlindAppend": "True",
-                            "operationMetrics": "{}",
-                            "engineInfo": "local Delta-Standalone/0.4.0",
-                            "version_creation_time": "1655831866541"
+                            "location": "tests/integration/delta_lake/test_data/delta_tables"
                         },
                         "externalUrl": null,
                         "name": "test-table-inner",
@@ -1101,6 +1279,101 @@
     "aspectName": "container",
     "aspect": {
         "value": "{\"container\": \"urn:li:container:3df8f6b0f3a70d42cf70612a2fe5e5ef\"}",
+        "contentType": "application/json"
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "allow_table.json",
+        "registryName": null,
+        "registryVersion": null,
+        "properties": null
+    }
+},
+{
+    "auditHeader": null,
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:delta-lake,my-platform.tests/integration/delta_lake/test_data/delta_tables/level1/my_table_inner,UAT)",
+    "entityKeyAspect": null,
+    "changeType": "UPSERT",
+    "aspectName": "operation",
+    "aspect": {
+        "value": "{\"timestampMillis\": 1615443388097, \"partitionSpec\": {\"type\": \"FULL_TABLE\", \"partition\": \"FULL_TABLE_SNAPSHOT\"}, \"operationType\": \"CUSTOM\", \"customOperationType\": \"WRITE\", \"customProperties\": {\"isolationLevel\": \"Serializable\", \"isBlindAppend\": \"True\", \"engineInfo\": \"local Delta-Standalone/0.4.0\"}, \"lastUpdatedTimestamp\": 1655831865396}",
+        "contentType": "application/json"
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "allow_table.json",
+        "registryName": null,
+        "registryVersion": null,
+        "properties": null
+    }
+},
+{
+    "auditHeader": null,
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:delta-lake,my-platform.tests/integration/delta_lake/test_data/delta_tables/level1/my_table_inner,UAT)",
+    "entityKeyAspect": null,
+    "changeType": "UPSERT",
+    "aspectName": "operation",
+    "aspect": {
+        "value": "{\"timestampMillis\": 1615443388097, \"partitionSpec\": {\"type\": \"FULL_TABLE\", \"partition\": \"FULL_TABLE_SNAPSHOT\"}, \"operationType\": \"CUSTOM\", \"customOperationType\": \"WRITE\", \"customProperties\": {\"readVersion\": \"0\", \"isolationLevel\": \"Serializable\", \"isBlindAppend\": \"True\", \"engineInfo\": \"local Delta-Standalone/0.4.0\"}, \"lastUpdatedTimestamp\": 1655831866337}",
+        "contentType": "application/json"
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "allow_table.json",
+        "registryName": null,
+        "registryVersion": null,
+        "properties": null
+    }
+},
+{
+    "auditHeader": null,
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:delta-lake,my-platform.tests/integration/delta_lake/test_data/delta_tables/level1/my_table_inner,UAT)",
+    "entityKeyAspect": null,
+    "changeType": "UPSERT",
+    "aspectName": "operation",
+    "aspect": {
+        "value": "{\"timestampMillis\": 1615443388097, \"partitionSpec\": {\"type\": \"FULL_TABLE\", \"partition\": \"FULL_TABLE_SNAPSHOT\"}, \"operationType\": \"CUSTOM\", \"customOperationType\": \"WRITE\", \"customProperties\": {\"readVersion\": \"1\", \"isolationLevel\": \"Serializable\", \"isBlindAppend\": \"True\", \"engineInfo\": \"local Delta-Standalone/0.4.0\"}, \"lastUpdatedTimestamp\": 1655831866398}",
+        "contentType": "application/json"
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "allow_table.json",
+        "registryName": null,
+        "registryVersion": null,
+        "properties": null
+    }
+},
+{
+    "auditHeader": null,
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:delta-lake,my-platform.tests/integration/delta_lake/test_data/delta_tables/level1/my_table_inner,UAT)",
+    "entityKeyAspect": null,
+    "changeType": "UPSERT",
+    "aspectName": "operation",
+    "aspect": {
+        "value": "{\"timestampMillis\": 1615443388097, \"partitionSpec\": {\"type\": \"FULL_TABLE\", \"partition\": \"FULL_TABLE_SNAPSHOT\"}, \"operationType\": \"CUSTOM\", \"customOperationType\": \"WRITE\", \"customProperties\": {\"readVersion\": \"2\", \"isolationLevel\": \"Serializable\", \"isBlindAppend\": \"True\", \"engineInfo\": \"local Delta-Standalone/0.4.0\"}, \"lastUpdatedTimestamp\": 1655831866447}",
+        "contentType": "application/json"
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "allow_table.json",
+        "registryName": null,
+        "registryVersion": null,
+        "properties": null
+    }
+},
+{
+    "auditHeader": null,
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:delta-lake,my-platform.tests/integration/delta_lake/test_data/delta_tables/level1/my_table_inner,UAT)",
+    "entityKeyAspect": null,
+    "changeType": "UPSERT",
+    "aspectName": "operation",
+    "aspect": {
+        "value": "{\"timestampMillis\": 1615443388097, \"partitionSpec\": {\"type\": \"FULL_TABLE\", \"partition\": \"FULL_TABLE_SNAPSHOT\"}, \"operationType\": \"CUSTOM\", \"customOperationType\": \"WRITE\", \"customProperties\": {\"readVersion\": \"3\", \"isolationLevel\": \"Serializable\", \"isBlindAppend\": \"True\", \"engineInfo\": \"local Delta-Standalone/0.4.0\"}, \"lastUpdatedTimestamp\": 1655831866541}",
         "contentType": "application/json"
     },
     "systemMetadata": {

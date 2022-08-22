@@ -94,6 +94,7 @@ export type GenericEntityProperties = {
     parentNodes?: Maybe<ParentNodesResult>;
     isAChildren?: Maybe<EntityRelationshipsResult>;
     siblingPlatforms?: Maybe<DataPlatform[]>;
+    lastIngested?: Maybe<number>;
 };
 
 export type GenericEntityUpdate = {
@@ -131,4 +132,9 @@ export type EntityContextType = {
 
 export type RequiredAndNotNull<T> = {
     [P in keyof T]-?: Exclude<T[P], null | undefined>;
+};
+
+export type EntityAndType = {
+    urn: string;
+    type: EntityType;
 };

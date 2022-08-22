@@ -19,6 +19,7 @@
                             "dbt_file_path": "models/transform/customer_details.sql",
                             "manifest_schema": "https://schemas.getdbt.com/dbt/manifest/v1.json",
                             "manifest_version": "0.19.1",
+                            "manifest_adapter": "postgres",
                             "catalog_schema": "https://schemas.getdbt.com/dbt/catalog/v1.json",
                             "catalog_version": "0.19.1"
                         },
@@ -129,6 +130,7 @@
                             "catalog_type": "BASE TABLE",
                             "manifest_schema": "https://schemas.getdbt.com/dbt/manifest/v1.json",
                             "manifest_version": "0.19.1",
+                            "manifest_adapter": "postgres",
                             "catalog_schema": "https://schemas.getdbt.com/dbt/catalog/v1.json",
                             "catalog_version": "0.19.1"
                         },
@@ -197,6 +199,7 @@
                             "catalog_type": "VIEW",
                             "manifest_schema": "https://schemas.getdbt.com/dbt/manifest/v1.json",
                             "manifest_version": "0.19.1",
+                            "manifest_adapter": "postgres",
                             "catalog_schema": "https://schemas.getdbt.com/dbt/catalog/v1.json",
                             "catalog_version": "0.19.1"
                         },
@@ -310,6 +313,7 @@
                             "catalog_type": "BASE TABLE",
                             "manifest_schema": "https://schemas.getdbt.com/dbt/manifest/v1.json",
                             "manifest_version": "0.19.1",
+                            "manifest_adapter": "postgres",
                             "catalog_schema": "https://schemas.getdbt.com/dbt/catalog/v1.json",
                             "catalog_version": "0.19.1"
                         },
@@ -371,6 +375,7 @@
                             "catalog_type": "BASE TABLE",
                             "manifest_schema": "https://schemas.getdbt.com/dbt/manifest/v1.json",
                             "manifest_version": "0.19.1",
+                            "manifest_adapter": "postgres",
                             "catalog_schema": "https://schemas.getdbt.com/dbt/catalog/v1.json",
                             "catalog_version": "0.19.1"
                         },
@@ -429,6 +434,7 @@
                             "catalog_type": "BASE TABLE",
                             "manifest_schema": "https://schemas.getdbt.com/dbt/manifest/v1.json",
                             "manifest_version": "0.19.1",
+                            "manifest_adapter": "postgres",
                             "catalog_schema": "https://schemas.getdbt.com/dbt/catalog/v1.json",
                             "catalog_version": "0.19.1"
                         },
@@ -471,6 +477,7 @@
                             "catalog_type": "BASE TABLE",
                             "manifest_schema": "https://schemas.getdbt.com/dbt/manifest/v1.json",
                             "manifest_version": "0.19.1",
+                            "manifest_adapter": "postgres",
                             "catalog_schema": "https://schemas.getdbt.com/dbt/catalog/v1.json",
                             "catalog_version": "0.19.1"
                         },
@@ -513,6 +520,7 @@
                             "catalog_type": "BASE TABLE",
                             "manifest_schema": "https://schemas.getdbt.com/dbt/manifest/v1.json",
                             "manifest_version": "0.19.1",
+                            "manifest_adapter": "postgres",
                             "catalog_schema": "https://schemas.getdbt.com/dbt/catalog/v1.json",
                             "catalog_version": "0.19.1"
                         },
@@ -558,6 +566,7 @@
                             "catalog_type": "BASE TABLE",
                             "manifest_schema": "https://schemas.getdbt.com/dbt/manifest/v1.json",
                             "manifest_version": "0.19.1",
+                            "manifest_adapter": "postgres",
                             "catalog_schema": "https://schemas.getdbt.com/dbt/catalog/v1.json",
                             "catalog_version": "0.19.1"
                         },
@@ -616,6 +625,7 @@
                             "catalog_type": "BASE TABLE",
                             "manifest_schema": "https://schemas.getdbt.com/dbt/manifest/v1.json",
                             "manifest_version": "0.19.1",
+                            "manifest_adapter": "postgres",
                             "catalog_schema": "https://schemas.getdbt.com/dbt/catalog/v1.json",
                             "catalog_version": "0.19.1"
                         },
@@ -658,6 +668,7 @@
                             "catalog_type": "BASE TABLE",
                             "manifest_schema": "https://schemas.getdbt.com/dbt/manifest/v1.json",
                             "manifest_version": "0.19.1",
+                            "manifest_adapter": "postgres",
                             "catalog_schema": "https://schemas.getdbt.com/dbt/catalog/v1.json",
                             "catalog_version": "0.19.1"
                         },
@@ -704,6 +715,7 @@
                             "catalog_type": "BASE TABLE",
                             "manifest_schema": "https://schemas.getdbt.com/dbt/manifest/v1.json",
                             "manifest_version": "0.19.1",
+                            "manifest_adapter": "postgres",
                             "catalog_schema": "https://schemas.getdbt.com/dbt/catalog/v1.json",
                             "catalog_version": "0.19.1"
                         },
@@ -762,6 +774,7 @@
                             "catalog_type": "BASE TABLE",
                             "manifest_schema": "https://schemas.getdbt.com/dbt/manifest/v1.json",
                             "manifest_version": "0.19.1",
+                            "manifest_adapter": "postgres",
                             "catalog_schema": "https://schemas.getdbt.com/dbt/catalog/v1.json",
                             "catalog_version": "0.19.1"
                         },
@@ -804,6 +817,7 @@
                             "catalog_type": "BASE TABLE",
                             "manifest_schema": "https://schemas.getdbt.com/dbt/manifest/v1.json",
                             "manifest_version": "0.19.1",
+                            "manifest_adapter": "postgres",
                             "catalog_schema": "https://schemas.getdbt.com/dbt/catalog/v1.json",
                             "catalog_version": "0.19.1"
                         },
@@ -846,6 +860,7 @@
                             "catalog_type": "BASE TABLE",
                             "manifest_schema": "https://schemas.getdbt.com/dbt/manifest/v1.json",
                             "manifest_version": "0.19.1",
+                            "manifest_adapter": "postgres",
                             "catalog_schema": "https://schemas.getdbt.com/dbt/catalog/v1.json",
                             "catalog_version": "0.19.1"
                         },

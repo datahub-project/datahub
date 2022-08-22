@@ -16,4 +16,9 @@ record GlobalSettingsInfo {
    * Global notifications settings
    */
   notifications: GlobalNotificationSettings
+
+  /**
+   * SSO integrations between DataHub and identity providers
+   */
+  sso: optional SsoSettings
 }

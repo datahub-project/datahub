@@ -12,13 +12,29 @@ from datahub.cli.json_file import check_mce_file
 from datahub.emitter import mce_builder
 from datahub.ingestion.run.pipeline import Pipeline
 from datahub.ingestion.source.file import iterate_mce_file
-from datahub.metadata.schema_classes import MetadataChangeEventClass
+from datahub.metadata.schema_classes import (
+    MetadataChangeEventClass,
+    OwnershipClass,
+    _Aspect,
+)
 from datahub.metadata.schemas import getMetadataChangeEventSchema
 from tests.test_helpers import mce_helpers
 from tests.test_helpers.click_helpers import run_datahub_cmd
 from tests.test_helpers.type_helpers import PytestConfig
 
 FROZEN_TIME = "2021-07-22 18:54:06"
+
+
+def test_codegen_aspect_name():
+    assert issubclass(OwnershipClass, _Aspect)
+
+    assert OwnershipClass.ASPECT_NAME == "ownership"
+    assert OwnershipClass.get_aspect_name() == "ownership"
+
+
+def test_cannot_instantiated_codegen_aspect():
+    with pytest.raises(TypeError, match="instantiate"):
+        _Aspect()
 
 
 @freeze_time(FROZEN_TIME)
