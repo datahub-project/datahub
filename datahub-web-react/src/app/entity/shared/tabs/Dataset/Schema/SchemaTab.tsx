@@ -14,6 +14,8 @@ import { SchemaFieldBlame, SemanticVersionStruct } from '../../../../../../types
 import SchemaTable from './SchemaTable';
 import useGetSemanticVersionFromUrlParams from './utils/useGetSemanticVersionFromUrlParams';
 import { useGetVersionedDatasetQuery } from '../../../../../../graphql/versionedDataset.generated';
+import { useEntityRegistry } from '../../../../../useEntityRegistry';
+import { filterSchemaRows } from './utils/filterSchemaRows';
 
 const NoSchema = styled(Empty)`
     color: ${ANTD_GRAY[6]};
@@ -26,6 +28,7 @@ const SchemaTableContainer = styled.div`
 `;
 export const SchemaTab = ({ properties }: { properties?: any }) => {
     const { entityData } = useEntityData();
+    const entityRegistry = useEntityRegistry();
     const baseEntity = useBaseEntity<GetDatasetQuery>();
     const maybeEntityData = entityData || {};
     let schemaMetadata: any = maybeEntityData?.schemaMetadata || undefined;
@@ -33,6 +36,7 @@ export const SchemaTab = ({ properties }: { properties?: any }) => {
     const datasetUrn: string = baseEntity?.dataset?.urn || '';
     const usageStats = baseEntity?.dataset?.usageStats;
     const [showRaw, setShowRaw] = useState(false);
+    const [filterText, setFilterText] = useState('');
     const hasRawSchema = useMemo(
         () =>
             schemaMetadata?.platformSchema?.__typename === 'TableSchema' &&
@@ -123,6 +127,8 @@ export const SchemaTab = ({ properties }: { properties?: any }) => {
     const schemaFieldBlameList: Array<SchemaFieldBlame> =
         (getSchemaBlameData?.getSchemaBlame?.schemaFieldBlameList as Array<SchemaFieldBlame>) || [];
 
+    const filteredRows = filterSchemaRows(rows, editableSchemaMetadata, filterText, entityRegistry);
+
     return (
         <>
             <SchemaHeader
@@ -139,6 +145,8 @@ export const SchemaTab = ({ properties }: { properties?: any }) => {
                 versionList={versionList}
                 showSchemaAuditView={showSchemaAuditView}
                 setShowSchemaAuditView={setShowSchemaAuditView}
+                filterText={filterText}
+                setFilterText={setFilterText}
             />
             <SchemaTableContainer>
                 {/* eslint-disable-next-line no-nested-ternary */}
@@ -148,12 +156,12 @@ export const SchemaTab = ({ properties }: { properties?: any }) => {
                         editMode={editMode}
                         showKeySchema={showKeySchema}
                     />
-                ) : rows && rows.length > 0 ? (
+                ) : filteredRows && filteredRows.length > 0 ? (
                     <>
                         <SchemaEditableContext.Provider value={editMode}>
                             <SchemaTable
                                 schemaMetadata={schemaMetadata}
-                                rows={rows}
+                                rows={filteredRows}
                                 editMode={editMode}
                                 editableSchemaMetadata={editableSchemaMetadata}
                                 usageStats={usageStats}

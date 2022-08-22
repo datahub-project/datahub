@@ -1,14 +1,15 @@
 import React from 'react';
 import { useHistory, useLocation } from 'react-router-dom';
-import { Button, Popover, Select, Tooltip, Typography } from 'antd';
+import { Button, Input, Popover, Select, Tooltip, Typography } from 'antd';
 import {
     AuditOutlined,
     CaretDownOutlined,
     FileTextOutlined,
     QuestionCircleOutlined,
+    SearchOutlined,
     TableOutlined,
 } from '@ant-design/icons';
-import styled from 'styled-components';
+import styled from 'styled-components/macro';
 import CustomPagination from './CustomPagination';
 import TabToolbar from '../../../../shared/components/styled/TabToolbar';
 import { SemanticVersionStruct } from '../../../../../../types.generated';
@@ -20,7 +21,6 @@ import SchemaTimeStamps from './SchemaTimeStamps';
 const SchemaHeaderContainer = styled.div`
     display: flex;
     justify-content: space-between;
-    padding-bottom: 16px;
     width: 100%;
 `;
 
@@ -60,7 +60,7 @@ const ValueButton = styled(Button)<{ $highlighted: boolean }>`
 
 const KeyValueButtonGroup = styled.div`
     margin-right: 10px;
-    display: inline-block;
+    display: flex;
 `;
 
 // Below styles are for buttons on the right side of the Schema Header
@@ -111,6 +111,10 @@ const StyledCaretDownOutlined = styled(CaretDownOutlined)`
     }
 `;
 
+const StyledInput = styled(Input)`
+    border-radius: 70px;
+`;
+
 type Props = {
     maxVersion?: number;
     fetchVersions?: (version1: number, version2: number) => void;
@@ -128,6 +132,8 @@ type Props = {
     versionList: Array<SemanticVersionStruct>;
     showSchemaAuditView: boolean;
     setShowSchemaAuditView: any;
+    filterText: string;
+    setFilterText: (text: string) => void;
 };
 
 export default function SchemaHeader({
@@ -147,6 +153,8 @@ export default function SchemaHeader({
     versionList,
     showSchemaAuditView,
     setShowSchemaAuditView,
+    filterText,
+    setFilterText,
 }: Props) {
     const history = useHistory();
     const location = useLocation();
@@ -213,12 +221,14 @@ export default function SchemaHeader({
                             </ValueButton>
                         </KeyValueButtonGroup>
                     )}
-                    {maxVersion > 0 &&
-                        (editMode ? (
-                            <ShowVersionButton onClick={() => setEditMode?.(false)}>Version Blame</ShowVersionButton>
-                        ) : (
-                            <ShowVersionButton onClick={() => setEditMode?.(true)}>Back</ShowVersionButton>
-                        ))}
+                    <ShowVersionButton onClick={() => setEditMode?.(false)}>Version Blame</ShowVersionButton>
+                    <StyledInput
+                        value={filterText}
+                        placeholder="Search in schema"
+                        onChange={(e) => setFilterText(e.target.value.toLocaleLowerCase())}
+                        allowClear
+                        prefix={<SearchOutlined />}
+                    />
                 </LeftButtonsGroup>
                 <RightButtonsGroup>
                     <SchemaTimeStamps lastObserved={lastObserved} lastUpdated={lastUpdated} />
