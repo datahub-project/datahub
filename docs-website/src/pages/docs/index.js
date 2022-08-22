@@ -126,8 +126,8 @@ function Docs() {
           </div>
           <QuickLinkCards />
           <GuideList title="Deployment Guides" content={deploymentGuideContent} />
-          <GuideList title="Ingestion Guides" content={ingestionGuideContent} seeMoreLink={{ label: "See all 36 sources", to: "/docs/quickstart" }} />
-          <GuideList title="Feature Guides" content={featureGuideContent} seeMoreLink={{ label: "See all guides", to: "/docs/quickstart" }} />
+          <GuideList title="Ingestion Guides" content={ingestionGuideContent} seeMoreLink={{ label: "See all 50+ sources", to: "/docs/lineage/airflow" }} />
+          <GuideList title="Feature Guides" content={featureGuideContent} seeMoreLink={{ label: "See all guides", to: "/docs/how/search" }} />
         </div>
       </header>
     </Layout>
