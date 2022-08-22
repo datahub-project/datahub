@@ -531,6 +531,8 @@ function write_markdown_file(
     "docs/actions/sources",
     "docs/actions/guides",
     "metadata-ingestion/archived",
+    "docs/what",
+    "docs/wip",
   ];
   for (const filepath of markdown_files) {
     if (
