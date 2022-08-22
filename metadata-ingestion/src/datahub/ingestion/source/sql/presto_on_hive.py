@@ -300,7 +300,7 @@ class PrestoOnHiveSource(SQLAlchemySource):
             )
             dataset_snapshot = DatasetSnapshot(
                 urn=dataset_urn,
-                aspects=[],
+                aspects=[StatusClass(removed=False)],
             )
 
             # add table schema fields

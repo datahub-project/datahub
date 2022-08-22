@@ -92,13 +92,14 @@ def presto_on_hive_config(events_file):
             "type": "presto-on-hive",
             "config": {
                 "host_port": "localhost:5432",
-                "database": "metastore",
+                "database": "db1",
                 "database_alias": "hive",
                 "username": "postgres",
                 "scheme": "postgresql+psycopg2",
                 "include_views": True,
                 "include_tables": True,
                 "schema_pattern": {"allow": ["^public"]},
+                "metastore_db_name": "metastore",
                 "mode": "hive",
             },
         },
@@ -133,6 +134,8 @@ def test_presto_on_hive_ingest(
             # example: root[2]['proposedSnapshot']['com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot']['aspects'][0]['com.linkedin.pegasus2avro.dataset.DatasetProperties']['customProperties']['Table Parameters: transient_lastDdlTime']
             r"root\[\d+\]\['proposedSnapshot'\]\['com\.linkedin\.pegasus2avro\.metadata\.snapshot\.DatasetSnapshot'\]\['aspects'\]\[\d+\]\['com\.linkedin\.pegasus2avro\.dataset\.DatasetProperties'\]\['customProperties'\]\['.*Time.*'\]",
             r"root\[\d+\]\['proposedSnapshot'\]\['com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot'\]\['aspects'\]\[\d+\]\['com.linkedin.pegasus2avro.schema.SchemaMetadata'\]\['fields'\]\[\d+\]\['nativeDataType'\]",
+            r"root\[\d+\]\['proposedSnapshot'\]\['com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot'\]\['aspects'\]\[\d+\]\['com.linkedin.pegasus2avro.schema.SchemaMetadata'\]\['fields'\]\[\d+\]\['jsonProps'\]",
+            r"root\[\d+\]\['proposedSnapshot'\]\['com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot'\]\['aspects'\]\[\d+\]\['com\.linkedin\.pegasus2avro\.dataset\.DatasetProperties'\]\[customProperties\]",
         ],
     )
 
