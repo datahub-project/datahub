@@ -40,8 +40,8 @@ module.exports = {
 
   overviewSidebar: {
     "What is DataHub?": [
-    // By the end of this section, readers should understand the core use cases that DataHub addresses, 
-    // target end-users, high-level architecture, & hosting options
+// By the end of this section, readers should understand the core use cases that DataHub addresses,
+// target end-users, high-level architecture, & hosting options
       // "docs/wip/what-is-datahub",
       "docs/features",
       {
@@ -56,6 +56,13 @@ module.exports = {
       "docs/saas",
     ],
     "Get Started": [
+// The goal of this section is to provide the bare-minimum steps required to:
+//   - Get DataHub Running
+//   - Optionally configure SSO
+//   - Add/invite Users
+//   - Create Polices & assign roles
+//   - Ingest at least one source (ie. data warehouse)
+//   - Understand high-level options for enriching metadata
       "docs/wip/get-started",
       {
        "Self-Hosted DataHub": [
@@ -94,6 +101,9 @@ module.exports = {
       },
     ],
     "Ingest Metadata": [
+// The purpose of this section is to provide a deeper understanding of how ingestion works.
+// Readers should be able to find details for ingesting from all systems, apply transformers, understand sinks,
+// and understand key concepts of the Ingestion Framework (Sources, Sinks, Transformers, and Recipes)
       {
         "Overview": [
           "metadata-ingestion/README",
@@ -150,6 +160,7 @@ module.exports = {
       },
     ],
     "Enrich Metadata": [
+// The purpose of this section is to provide direction on how to enrich metadata when shift-left isn’t an option
       // "docs/wip/csv-enrichment",
       // "docs/wip/ui-based-enrichment",
       "docs/domains",
@@ -230,6 +241,7 @@ module.exports = {
     ],
 
     "Deploying DataHub":[
+// The purpose of this section is to provide the minimum steps required to deploy DataHub to the vendor of your choosing
       "docs/deploy/aws",
       "docs/deploy/gcp",
       "docker/README",
@@ -249,6 +261,8 @@ module.exports = {
       },
     ],
     "Developer Guides": [
+// The purpose of this section is to provide developers & technical users with
+// concrete tutorials for how to work with the DataHub CLI & APIs
       // "docs/wip/developer-guides",
       "docs/cli",
       {
