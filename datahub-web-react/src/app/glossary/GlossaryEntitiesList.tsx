@@ -1,24 +1,14 @@
-import React, { useState } from 'react';
-import { Empty } from 'antd';
-import { PlusOutlined } from '@ant-design/icons';
-
+import React from 'react';
 import styled from 'styled-components/macro';
 import { GlossaryNodeFragment } from '../../graphql/fragments.generated';
-import { EntityType, GlossaryNode, GlossaryTerm } from '../../types.generated';
+import { GlossaryNode, GlossaryTerm } from '../../types.generated';
 import { useEntityRegistry } from '../useEntityRegistry';
 import GlossaryEntityItem from './GlossaryEntityItem';
-import StyledButton from '../entity/shared/components/styled/StyledButton';
-import CreateGlossaryEntityModal from '../entity/shared/EntityDropdown/CreateGlossaryEntityModal';
 
 const EntitiesWrapper = styled.div`
     flex: 1;
     overflow: auto;
     padding-bottom: 20px;
-`;
-
-const ButtonContainer = styled.div`
-    display: flex;
-    justify-content: center;
 `;
 
 interface Props {
@@ -29,37 +19,6 @@ interface Props {
 function GlossaryEntitiesList(props: Props) {
     const { nodes, terms } = props;
     const entityRegistry = useEntityRegistry();
-    const [isCreateTermModalVisible, setIsCreateTermModalVisible] = useState(false);
-    const [isCreateNodeModalVisible, setIsCreateNodeModalVisible] = useState(false);
-
-    if (!nodes.length && !terms.length) {
-        return (
-            <>
-                <Empty description="No Terms or Term Groups!" image={Empty.PRESENTED_IMAGE_SIMPLE} />
-                <ButtonContainer>
-                    <StyledButton onClick={() => setIsCreateTermModalVisible(true)}>
-                        <PlusOutlined /> Add Term
-                    </StyledButton>
-                    <StyledButton onClick={() => setIsCreateNodeModalVisible(true)} style={{ marginLeft: '10px' }}>
-                        <PlusOutlined /> Add Term Group
-                    </StyledButton>
-                </ButtonContainer>
-
-                {isCreateTermModalVisible && (
-                    <CreateGlossaryEntityModal
-                        entityType={EntityType.GlossaryTerm}
-                        onClose={() => setIsCreateTermModalVisible(false)}
-                    />
-                )}
-                {isCreateNodeModalVisible && (
-                    <CreateGlossaryEntityModal
-                        entityType={EntityType.GlossaryNode}
-                        onClose={() => setIsCreateNodeModalVisible(false)}
-                    />
-                )}
-            </>
-        );
-    }
 
     return (
         <EntitiesWrapper>
