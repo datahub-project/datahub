@@ -68,4 +68,8 @@ export class GroupEntity implements Entity<CorpGroup> {
     getGenericEntityProperties = (group: CorpGroup) => {
         return getDataForEntityType({ data: group, entityType: this.type, getOverrideProperties: (data) => data });
     };
+
+    supportedCapabilities = () => {
+        return new Set([]);
+    };
 }

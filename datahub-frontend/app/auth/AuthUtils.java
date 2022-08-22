@@ -1,11 +1,10 @@
 package auth;
 
 import com.linkedin.common.urn.CorpuserUrn;
-import lombok.extern.slf4j.Slf4j;
-import play.mvc.Http;
-
 import java.time.Duration;
 import java.time.temporal.ChronoUnit;
+import lombok.extern.slf4j.Slf4j;
+import play.mvc.Http;
 
 @Slf4j
 public class AuthUtils {
@@ -52,6 +51,27 @@ public class AuthUtils {
     public static final String TITLE = "title";
     public static final String INVITE_TOKEN = "inviteToken";
     public static final String RESET_TOKEN = "resetToken";
+    public static final String BASE_URL = "baseUrl";
+    public static final String OIDC_ENABLED = "oidcEnabled";
+    public static final String CLIENT_ID = "clientId";
+    public static final String CLIENT_SECRET = "clientSecret";
+    public static final String DISCOVERY_URI = "discoveryUri";
+
+    public static final String USER_NAME_CLAIM = "userNameClaim";
+    public static final String USER_NAME_CLAIM_REGEX = "userNameClaimRegex";
+    public static final String SCOPE = "scope";
+    public static final String CLIENT_NAME = "clientName";
+    public static final String CLIENT_AUTHENTICATION_METHOD = "clientAuthenticationMethod";
+    public static final String JIT_PROVISIONING_ENABLED = "jitProvisioningEnabled";
+    public static final String PRE_PROVISIONING_REQUIRED = "preProvisioningRequired";
+    public static final String EXTRACT_GROUPS_ENABLED = "extractGroupsEnabled";
+    public static final String GROUPS_CLAIM = "groupsClaim";
+    public static final String RESPONSE_TYPE = "responseType";
+    public static final String RESPONSE_MODE = "responseMode";
+    public static final String USE_NONCE = "useNonce";
+    public static final String READ_TIMEOUT = "readTimeout";
+    public static final String EXTRACT_JWT_ACCESS_TOKEN_CLAIMS = "extractJwtAccessTokenClaims";
+
 
     /**
      * Determines whether the inbound request should be forward to downstream Metadata Service. Today, this simply
@@ -96,11 +116,11 @@ public class AuthUtils {
      */
     public static Http.Cookie createActorCookie(final String actorUrn, final Integer ttlInHours) {
         return Http.Cookie.builder(ACTOR, actorUrn)
-                .withHttpOnly(false)
-                .withMaxAge(Duration.of(ttlInHours, ChronoUnit.HOURS))
-                .build();
+            .withHttpOnly(false)
+            .withMaxAge(Duration.of(ttlInHours, ChronoUnit.HOURS))
+            .build();
     }
 
-    private AuthUtils() { }
-
+    private AuthUtils() {
+    }
 }

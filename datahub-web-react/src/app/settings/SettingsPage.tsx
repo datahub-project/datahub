@@ -6,6 +6,7 @@ import {
     UsergroupAddOutlined,
     AppstoreOutlined,
     BellOutlined,
+    LoginOutlined,
 } from '@ant-design/icons';
 import { Redirect, Route, useHistory, useLocation, useRouteMatch, Switch } from 'react-router';
 import styled from 'styled-components';
@@ -17,6 +18,7 @@ import { useGetAuthenticatedUser } from '../useGetAuthenticatedUser';
 import { AccessTokens } from './AccessTokens';
 import { PlatformIntegrations } from './platform/PlatformIntegrations';
 import { PlatformNotifications } from './platform/PlatformNotifications';
+import { PlatformSsoIntegrations } from './platform/PlatformSsoIntegrations';
 
 const PageContainer = styled.div`
     display: flex;
@@ -53,6 +55,7 @@ const ItemTitle = styled.span`
 const ACRYL_PATHS = [
     { path: 'integrations', content: <PlatformIntegrations /> },
     { path: 'notifications', content: <PlatformNotifications /> },
+    { path: 'sso', content: <PlatformSsoIntegrations /> },
 ];
 
 /**
@@ -134,6 +137,10 @@ export const SettingsPage = () => {
                     {
                         /* acryl-main only */ showGlobalSettings && (
                             <Menu.ItemGroup title="Platform">
+                                <Menu.Item key="sso">
+                                    <LoginOutlined />
+                                    <ItemTitle>SSO</ItemTitle>
+                                </Menu.Item>
                                 <Menu.Item key="integrations">
                                     <AppstoreOutlined />
                                     <ItemTitle>Integrations</ItemTitle>

@@ -10,7 +10,8 @@
     "deploy": "docusaurus deploy",
     "serve": "docusaurus serve",
     "clear": "docusaurus clear && rm -rf genDocs/*",
-    "generate": "rm -rf genDocs/* && ts-node -O '{ \"lib\": [\"es2020\"], \"target\": \"es6\" }' generateDocsDir.ts && mv -v docs/* genDocs/",
+    "generate-graphql-internal": "docusaurus docs:generate:graphql",
+    "generate": "rm -rf docs genDocs && mkdir docs genDocs && yarn generate-graphql-internal && ts-node -O '{ \"lib\": [\"es2020\"], \"target\": \"es6\" }' generateDocsDir.ts && mv -v docs/* genDocs/ && rmdir docs",
     "lint": "prettier -w generateDocsDir.ts sidebars.js src/pages/index.js",
     "lint-check": "prettier -l generateDocsDir.ts sidebars.js src/pages/index.js",
     "lint-fix": "prettier --write generateDocsDir.ts sidebars.js src/pages/index.js"

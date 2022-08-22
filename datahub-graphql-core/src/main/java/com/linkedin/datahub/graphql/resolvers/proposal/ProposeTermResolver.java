@@ -9,6 +9,7 @@ import com.linkedin.datahub.graphql.exception.DataHubGraphQLException;
 import com.linkedin.datahub.graphql.generated.TermAssociationInput;
 import com.linkedin.datahub.graphql.resolvers.mutate.util.LabelUtils;
 import com.linkedin.entity.client.EntityClient;
+import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.entity.EntityService;
 import graphql.schema.DataFetcher;
 import graphql.schema.DataFetchingEnvironment;
@@ -36,12 +37,12 @@ public class ProposeTermResolver implements DataFetcher<CompletableFuture<Boolea
     }
 
     return CompletableFuture.supplyAsync(() -> {
-      LabelUtils.validateInput(
+      LabelUtils.validateResourceAndLabel(
           termUrn,
           targetUrn,
           input.getSubResource(),
           input.getSubResourceType(),
-          "glossaryTerm",
+          Constants.GLOSSARY_TERM_ENTITY_NAME,
           _entityService,
           false
       );

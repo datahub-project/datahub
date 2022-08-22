@@ -21,7 +21,7 @@ import { DomainLink } from './DomainLink';
 import { TagProfileDrawer } from './TagProfileDrawer';
 import { useAcceptProposalMutation, useRejectProposalMutation } from '../../../graphql/actionRequest.generated';
 import ProposalModal from './ProposalModal';
-import AddTagsTermsModal from './AddTagsTermsModal';
+import EditTagTermsModal from './AddTagsTermsModal';
 
 const PropagateThunderbolt = styled(ThunderboltOutlined)`
     color: rgba(0, 143, 100, 0.95);
@@ -34,7 +34,7 @@ type Props = {
     editableTags?: GlobalTags | null;
     editableGlossaryTerms?: GlossaryTerms | null;
     uneditableGlossaryTerms?: GlossaryTerms | null;
-    domain?: Domain | null;
+    domain?: Domain | undefined | null;
     canRemove?: boolean;
     canAddTag?: boolean;
     canAddTerm?: boolean;
@@ -431,7 +431,7 @@ export default function TagTermGroup({
                     </NoElementButton>
                 )}
             {showAddModal && !!entityUrn && !!entityType && (
-                <AddTagsTermsModal
+                <EditTagTermsModal
                     type={addModalType}
                     visible
                     onCloseModal={() => {
@@ -439,9 +439,15 @@ export default function TagTermGroup({
                         setShowAddModal(false);
                         setTimeout(() => refetch?.(), 2000);
                     }}
-                    entityUrn={entityUrn}
+                    resources={[
+                        {
+                            resourceUrn: entityUrn,
+                            subResource: entitySubresource,
+                            subResourceType: entitySubresource ? SubResourceType.DatasetField : null,
+                        },
+                    ]}
                     entityType={entityType}
-                    entitySubresource={entitySubresource}
+                    showPropose={entityType === EntityType.Dataset}
                 />
             )}
         </>

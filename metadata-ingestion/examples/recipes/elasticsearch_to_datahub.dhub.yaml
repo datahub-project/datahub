@@ -11,7 +11,11 @@ source:
     client_key: "./path/client.key"
     ssl_assert_hostname: False
     ssl_assert_fingerprint: "./path/cert.fingerprint"
-
+    ingest_index_templates: False
+    # index_template_pattern:
+    #   allow:
+    #     - "^.+"
+    
 sink:
   type: "datahub-rest"
   config:

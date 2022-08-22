@@ -42,11 +42,22 @@ class AthenaConfig(SQLAlchemyConfig):
     aws_region: str = pydantic.Field(
         description="Aws region where your Athena database is located"
     )
+    aws_role_arn: Optional[str] = pydantic.Field(
+        default=None,
+        description="AWS Role arn for Pyathena to assume in its connection",
+    )
+    aws_role_assumption_duration: int = pydantic.Field(
+        default=3600,
+        description="Duration to assume the AWS Role for. Maximum of 43200 (12 hours)",
+    )
     s3_staging_dir: str = pydantic.Field(
         description="Staging s3 location where the Athena query results will be stored"
     )
     work_group: str = pydantic.Field(
         description="The name of your Amazon Athena Workgroups"
+    )
+    catalog_name: str = pydantic.Field(
+        default="awsdatacatalog", description="Athena Catalog Name"
     )
 
     include_views = False  # not supported for Athena
@@ -61,6 +72,9 @@ class AthenaConfig(SQLAlchemyConfig):
             uri_opts={
                 "s3_staging_dir": self.s3_staging_dir,
                 "work_group": self.work_group,
+                "catalog_name": self.catalog_name,
+                "role_arn": self.aws_role_arn,
+                "duration_seconds": str(self.aws_role_assumption_duration),
             },
         )
 
@@ -81,12 +95,6 @@ class AthenaSource(SQLAlchemySource):
     This plugin supports extracting the following metadata from Athena
     - Tables, schemas etc.
     - Profiling when enabled.
-
-    :::note
-
-    Athena source only works with python 3.7+.
-
-    :::
     """
 
     def __init__(self, config, ctx):
@@ -100,7 +108,7 @@ class AthenaSource(SQLAlchemySource):
 
     def get_table_properties(
         self, inspector: Inspector, schema: str, table: str
-    ) -> Tuple[Optional[str], Optional[Dict[str, str]], Optional[str]]:
+    ) -> Tuple[Optional[str], Dict[str, str], Optional[str]]:
         if not self.cursor:
             self.cursor = inspector.dialect._raw_connection(inspector.engine).cursor()
 

@@ -99,6 +99,7 @@ entities:
       - status
       - corpUserCredentials
       - nativeGroupMembership
+      - origin
   - name: corpGroup
     doc: CorpGroup represents an identity of a group of users in the enterprise.
     keyAspect: corpGroupKey
@@ -181,6 +182,7 @@ entities:
       - assertionInfo
       - dataPlatformInstance
       - assertionRunEvent
+      - status
   - name: dataHubRetention
     category: internal
     keyAspect: dataHubRetentionKey

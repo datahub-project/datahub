@@ -4,6 +4,7 @@
   "viewportHeight": 960,
   "viewportWidth": 1536,
   "projectId": "1d7nwt",
+  "defaultCommandTimeout": 10000,
   "retries": {
     "runMode": 2,
     "openMode": 0

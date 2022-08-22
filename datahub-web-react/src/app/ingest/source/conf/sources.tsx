@@ -15,6 +15,7 @@ import oktaConfig from './okta/okta';
 import { SourceConfig } from './types';
 import hiveConfig from './hive/hive';
 import oracleConfig from './oracle/oracle';
+import tableauConfig from './tableau/tableau';
 
 const baseUrl = window.location.origin;
 
@@ -37,6 +38,7 @@ export const SOURCE_TEMPLATE_CONFIGS: Array<SourceConfig> = [
     snowflakeConfig,
     kafkaConfig,
     lookerConfig,
+    tableauConfig,
     mysqlConfig,
     postgresConfig,
     mongoConfig,

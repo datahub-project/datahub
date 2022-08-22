@@ -8,7 +8,9 @@ import com.linkedin.datahub.graphql.generated.StringMapEntryInput;
 import com.linkedin.datahub.graphql.generated.UpdateGlobalIntegrationSettingsInput;
 import com.linkedin.datahub.graphql.generated.UpdateGlobalNotificationSettingsInput;
 import com.linkedin.datahub.graphql.generated.UpdateGlobalSettingsInput;
+import com.linkedin.datahub.graphql.generated.UpdateOidcSettingsInput;
 import com.linkedin.datahub.graphql.generated.UpdateSlackIntegrationSettingsInput;
+import com.linkedin.datahub.graphql.generated.UpdateSsoSettingsInput;
 import com.linkedin.entity.client.EntityClient;
 import com.linkedin.events.metadata.ChangeType;
 import com.linkedin.metadata.Constants;
@@ -21,7 +23,9 @@ import com.linkedin.settings.NotificationSettingValue;
 import com.linkedin.settings.global.GlobalIntegrationSettings;
 import com.linkedin.settings.global.GlobalNotificationSettings;
 import com.linkedin.settings.global.GlobalSettingsInfo;
+import com.linkedin.settings.global.OidcSettings;
 import com.linkedin.settings.global.SlackIntegrationSettings;
+import com.linkedin.settings.global.SsoSettings;
 import graphql.schema.DataFetcher;
 import graphql.schema.DataFetchingEnvironment;
 import java.util.List;
@@ -66,7 +70,7 @@ public class UpdateGlobalSettingsResolver implements DataFetcher<CompletableFutu
             _entityClient.ingestProposal(proposal, context.getAuthentication());
             return true;
           } catch (Exception e) {
-            throw new RuntimeException(String.format("Failed to update global settings! %s", input.toString()), e);
+            throw new RuntimeException(String.format("Failed to update global settings! %s", input), e);
           }
       }
       throw new AuthorizationException("Unauthorized to perform this action. Please contact your DataHub administrator.");
@@ -79,6 +83,11 @@ public class UpdateGlobalSettingsResolver implements DataFetcher<CompletableFutu
     }
     if (update.getNotificationSettings() != null) {
       updateGlobalNotificationSettings(existingSettings.getNotifications(), update.getNotificationSettings());
+    }
+    if (update.getSsoSettings() != null) {
+      SsoSettings existingSsoSettings = existingSettings.hasSso() ? existingSettings.getSso() : new SsoSettings();
+      updateSsoSettings(existingSsoSettings, update.getSsoSettings());
+      existingSettings.setSso(existingSsoSettings);
     }
   }
 
@@ -121,6 +130,56 @@ public class UpdateGlobalSettingsResolver implements DataFetcher<CompletableFutu
       } else {
         existingSettings.setSettings(newSettings);
       }
+    }
+  }
+
+  private void updateSsoSettings(final SsoSettings ssoSettings, final UpdateSsoSettingsInput update) {
+    ssoSettings.setBaseUrl(update.getBaseUrl());
+
+    if (update.getOidcSettings() != null) {
+      OidcSettings oidcSettings = ssoSettings.hasOidcSettings() ? ssoSettings.getOidcSettings() : new OidcSettings();
+      updateOidcSettings(oidcSettings, update.getOidcSettings());
+      ssoSettings.setOidcSettings(oidcSettings);
+    }
+  }
+
+  private void updateOidcSettings(final OidcSettings oidcSettings, final UpdateOidcSettingsInput update) {
+    oidcSettings.setEnabled(update.getEnabled());
+    oidcSettings.setClientId(update.getClientId());
+    oidcSettings.setClientSecret(_secretService.encrypt(update.getClientSecret()));
+    oidcSettings.setDiscoveryUri(update.getDiscoveryUri());
+    if (update.getUserNameClaim() != null) {
+      oidcSettings.setUserNameClaim(update.getUserNameClaim());
+    }
+    if (update.getScope() != null) {
+      oidcSettings.setScope(update.getScope());
+    }
+    if (update.getClientAuthenticationMethod() != null) {
+      oidcSettings.setClientAuthenticationMethod(update.getClientAuthenticationMethod());
+    }
+    if (update.getJitProvisioningEnabled() != null) {
+      oidcSettings.setJitProvisioningEnabled(update.getJitProvisioningEnabled());
+    }
+    if (update.getPreProvisioningRequired() != null) {
+      oidcSettings.setPreProvisioningRequired(update.getPreProvisioningRequired());
+    }
+    if (update.getGroupsClaim() != null) {
+      oidcSettings.setGroupsClaim(update.getGroupsClaim());
+    }
+    if (update.getResponseType() != null) {
+      oidcSettings.setResponseType(update.getResponseType());
+    }
+    if (update.getResponseMode() != null) {
+      oidcSettings.setResponseMode(update.getResponseMode());
+    }
+    if (update.getUseNonce() != null) {
+      oidcSettings.setUseNonce(update.getUseNonce());
+    }
+    if (update.getReadTimeout() != null) {
+      oidcSettings.setReadTimeout(update.getReadTimeout());
+    }
+    if (update.getExtractJwtAccessTokenClaims() != null) {
+      oidcSettings.setExtractJwtAccessTokenClaims(update.getExtractJwtAccessTokenClaims());
     }
   }
 

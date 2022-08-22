@@ -1,6 +1,7 @@
 !.gitignore
 
-/genDocs/*
+/docs
+/genDocs
 
 # Generated GraphQL
 /graphql/combined.graphql

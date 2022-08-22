@@ -1,0 +1,20 @@
+namespace com.linkedin.metadata.search.features
+
+import com.linkedin.common.Urn
+
+@Aspect = {
+  "name": "costFeatures"
+}
+record CostFeatures {
+
+  /**
+   * Cost over last 30 days. The currency type is set with costCurrencyCode.
+   */
+  costLast30Days: optional float
+
+  /**
+  * The currency code for the given cost.
+  */
+  costCurrencyCode: optional CostCurrencyCode
+
+}
