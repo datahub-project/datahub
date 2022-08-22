@@ -56,6 +56,8 @@ framework_common = {
     "packaging",
     "aiohttp<4",
     "cached_property",
+    "ijson",
+    "tdigest"
 }
 
 kafka_common = {
