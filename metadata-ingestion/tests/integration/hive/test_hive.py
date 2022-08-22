@@ -83,29 +83,31 @@ def test_hive_ingest(
 
     # Limitation - native data types for union does not show up as expected
 
+
 def presto_on_hive_config(events_file):
 
     return {
-            "run_id": "hive-test",
-            "source": {
-                "type": "presto-on-hive",
-                "config": {
-                    "host_port": "localhost:5432",
-                    "database": "metastore",
-                    "database_alias": "hive",
-                    "username": "postgres",
-                    "scheme": "postgresql+psycopg2",
-                    "include_views": True,
-                    "include_tables": True,
-                    "schema_pattern": {"allow": ["^public"]},
-                    "mode": "hive",
-                },
+        "run_id": "hive-test",
+        "source": {
+            "type": "presto-on-hive",
+            "config": {
+                "host_port": "localhost:5432",
+                "database": "metastore",
+                "database_alias": "hive",
+                "username": "postgres",
+                "scheme": "postgresql+psycopg2",
+                "include_views": True,
+                "include_tables": True,
+                "schema_pattern": {"allow": ["^public"]},
+                "mode": "hive",
             },
+        },
         "sink": {
             "type": "file",
             "config": FileSinkConfig(filename=str(events_file)).dict(),
         },
     }
+
 
 @freeze_time(FROZEN_TIME)
 @pytest.mark.integration_batch_1
@@ -130,9 +132,10 @@ def test_presto_on_hive_ingest(
             # example: root[1]['proposedSnapshot']['com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot']['aspects'][0]['com.linkedin.pegasus2avro.dataset.DatasetProperties']['customProperties']['CreateTime:']
             # example: root[2]['proposedSnapshot']['com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot']['aspects'][0]['com.linkedin.pegasus2avro.dataset.DatasetProperties']['customProperties']['Table Parameters: transient_lastDdlTime']
             r"root\[\d+\]\['proposedSnapshot'\]\['com\.linkedin\.pegasus2avro\.metadata\.snapshot\.DatasetSnapshot'\]\['aspects'\]\[\d+\]\['com\.linkedin\.pegasus2avro\.dataset\.DatasetProperties'\]\['customProperties'\]\['.*Time.*'\]",
-            r"root\[6\]\['proposedSnapshot'\]\['com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot'\]\['aspects'\]\[\d+\]\['com.linkedin.pegasus2avro.schema.SchemaMetadata'\]\['fields'\]\[\d+\]\['nativeDataType'\]",
+            r"root\[\d+\]\['proposedSnapshot'\]\['com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot'\]\['aspects'\]\[\d+\]\['com.linkedin.pegasus2avro.schema.SchemaMetadata'\]\['fields'\]\[\d+\]\['nativeDataType'\]",
         ],
     )
+
 
 @freeze_time(FROZEN_TIME)
 @pytest.mark.integration_batch_1
