@@ -115,7 +115,7 @@ export class MLModelGroupEntity implements Entity<MlModelGroup> {
             name: entity.name,
             type: EntityType.MlmodelGroup,
             icon: entity.platform?.properties?.logoUrl || undefined,
-            platform: entity.platform?.name,
+            platform: entity.platform,
         };
     };
 

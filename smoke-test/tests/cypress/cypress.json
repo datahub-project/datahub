@@ -4,6 +4,7 @@
   "viewportHeight": 960,
   "viewportWidth": 1536,
   "projectId": "hkrxk5",
+  "defaultCommandTimeout": 10000,
   "retries": {
     "runMode": 2,
     "openMode": 0

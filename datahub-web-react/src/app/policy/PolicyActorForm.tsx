@@ -121,18 +121,16 @@ export default function PolicyActorForm({ policyType, actors, setActors }: Props
 
     // Invokes the search API as the user types
     const handleSearch = (type: EntityType, text: string, searchQuery: any) => {
-        if (text.length > 2) {
-            searchQuery({
-                variables: {
-                    input: {
-                        type,
-                        query: text,
-                        start: 0,
-                        count: 10,
-                    },
+        searchQuery({
+            variables: {
+                input: {
+                    type,
+                    query: text,
+                    start: 0,
+                    count: 10,
                 },
-            });
-        }
+            },
+        });
     };
 
     // Invokes the user search API as the user types

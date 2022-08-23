@@ -4,12 +4,13 @@ import requests
 from time import sleep
 
 from tests.utils import get_frontend_url, wait_for_healthcheck_util, get_admin_credentials
-from datahub.cli.ingest_cli import get_session_and_host
+
 
 # Disable telemetry
-os.putenv("DATAHUB_TELEMETRY_ENABLED", "false")
+os.environ["DATAHUB_TELEMETRY_ENABLED"] = "false"
 
 (admin_user, admin_pass) = get_admin_credentials()
+
 
 @pytest.fixture(scope="session")
 def wait_for_healthchecks():
