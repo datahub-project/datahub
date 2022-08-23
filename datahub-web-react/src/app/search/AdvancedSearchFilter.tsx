@@ -8,6 +8,7 @@ import { SearchFilterLabel } from './SearchFilterLabel';
 
 type Props = {
     filter: FacetFilterInput;
+    onClose: () => void;
 };
 
 const FilterContainer = styled.div`
@@ -18,7 +19,10 @@ const FilterContainer = styled.div`
 `;
 
 const FieldFilterSection = styled.span`
+    color: ${ANTD_GRAY[9]};
     padding: 4px;
+    display: flex;
+    justify-content: space-between;
 `;
 
 const ValueFilterSection = styled.div`
@@ -26,21 +30,24 @@ const ValueFilterSection = styled.div`
     border-top: 1px solid ${ANTD_GRAY[5]};
 `;
 
-const ConditionFilterSection = styled.span``;
-
 const conditionToReadable = {
     [SearchCondition.Contain]: 'contains',
     [SearchCondition.Equal]: 'is',
     [SearchCondition.In]: 'in',
 };
 
-export const AdvancedSearchFilter = ({ filter }: Props) => {
+export const AdvancedSearchFilter = ({ filter, onClose }: Props) => {
     return (
         <FilterContainer>
-            <FieldFilterSection>{capitalizeFirstLetter(filter.field)}</FieldFilterSection>
-            <ConditionFilterSection>
-                {conditionToReadable[filter.condition || SearchCondition.Contain]}
-            </ConditionFilterSection>
+            <FieldFilterSection>
+                <span>
+                    {capitalizeFirstLetter(filter.field)}{' '}
+                    {conditionToReadable[filter.condition || SearchCondition.Contain]}
+                </span>
+                <button type="button" onClick={onClose}>
+                    x
+                </button>
+            </FieldFilterSection>
             <ValueFilterSection>
                 {filter.values.map((value) => (
                     <SearchFilterLabel

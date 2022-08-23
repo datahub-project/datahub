@@ -23,7 +23,7 @@ type Props = {
 };
 
 const SearchFilterWrapper = styled.div`
-    padding: 0 25px 15px 0px;
+    padding: 0 25px 15px 25px;
 `;
 
 const Title = styled.div`

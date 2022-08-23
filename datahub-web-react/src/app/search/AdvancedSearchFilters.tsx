@@ -59,7 +59,12 @@ export const AdvancedSearchFilters = ({ selectedFilters, onFilterSelect }: Props
                 <Option value="columnTerm">Column Term</Option>
             </Select>
             {selectedFilters.map((filter) => (
-                <AdvancedSearchFilter filter={filter} />
+                <AdvancedSearchFilter
+                    filter={filter}
+                    onClose={() => {
+                        onFilterSelect(selectedFilters.filter((f) => f !== filter));
+                    }}
+                />
             ))}
             {filterField && (
                 <SelectFilterValueModal
