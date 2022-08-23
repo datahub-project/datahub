@@ -89,6 +89,7 @@ export const SearchPage = () => {
     };
 
     const onChangePage = (newPage: number) => {
+        window.scrollTo({ top: 0, left: 0 });
         navigateToSearchUrl({ type: activeType, query, page: newPage, filters, history });
     };
 
