@@ -257,7 +257,7 @@ def get_mces_from_term(
 @dataclass
 class BusinessGlossaryFileSource(Source):
     """
-    This plugin pulls business glossary metadata from a yaml-formatted file. An example of one such file is located in the examples directory [here](../examples/bootstrap_data/business_glossary.yml).
+    This plugin pulls business glossary metadata from a yaml-formatted file. An example of one such file is located in the examples directory [here](https://github.com/datahub-project/datahub/blob/master/metadata-ingestion/examples/bootstrap_data/business_glossary.yml).
     """
 
     config: BusinessGlossarySourceConfig
