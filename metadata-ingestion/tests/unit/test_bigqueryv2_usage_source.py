@@ -95,7 +95,7 @@ AND
          AND (
             protoPayload.metadata.jobChange.job.jobStats.queryStats.referencedTables =~ \"projects/.*/datasets/.*/tables/test-regex|test-regex-1\"
             
-                OR
+         OR
             protoPayload.metadata.tableDataRead.reason = \"JOB\"
         )
     )
@@ -107,7 +107,7 @@ AND
 AND
 timestamp >= \"2021-07-18T23:45:00Z\"
 AND
-timestamp < \"2021-07-21T00:15:00Z\""""  # noqa: W293
+timestamp < \"2021-07-20T00:15:00Z\""""  # noqa: W293
 
     source = BigQueryUsageExtractor(config, BigQueryV2Report())
     filter: str = source._generate_filter(BQ_AUDIT_V2)
@@ -153,7 +153,7 @@ AND
             NOT (
                 protoPayload.metadata.jobChange.job.jobStats.queryStats.referencedTables =~ \"projects/.*/datasets/.*/tables/excluded_table_regex|excluded-regex-2\"
             )
-                OR
+         OR
             protoPayload.metadata.tableDataRead.reason = \"JOB\"
         )
     )
@@ -165,7 +165,7 @@ AND
 AND
 timestamp >= \"2021-07-18T23:45:00Z\"
 AND
-timestamp < \"2021-07-21T00:15:00Z\""""  # noqa: W293
+timestamp < \"2021-07-20T00:15:00Z\""""  # noqa: W293
     source = BigQueryUsageExtractor(config, BigQueryV2Report())
     filter: str = source._generate_filter(BQ_AUDIT_V2)
     assert filter == expected_filter
