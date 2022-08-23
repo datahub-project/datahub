@@ -9,6 +9,7 @@ interface Props {
     setFocusExecutionUrn: (urn: string) => void;
     handleViewDetails: (urn: string) => void;
     handleCancelExecution: (urn: string) => void;
+    handleRollbackExecution: (runId: string) => void;
 }
 
 export default function IngestionExecutionTable({
@@ -16,6 +17,7 @@ export default function IngestionExecutionTable({
     setFocusExecutionUrn,
     handleViewDetails,
     handleCancelExecution,
+    handleRollbackExecution,
 }: Props) {
     const tableColumns = [
         {
@@ -62,18 +64,21 @@ export default function IngestionExecutionTable({
                     record={record}
                     handleViewDetails={handleViewDetails}
                     handleCancelExecution={handleCancelExecution}
+                    handleRollbackExecution={handleRollbackExecution}
                 />
             ),
         },
     ];
 
-    const tableData = executionRequests.map((execution) => ({
+    const tableData = executionRequests.map((execution, index) => ({
         urn: execution.urn,
+        id: execution.id,
         source: execution.input.source.type,
         requestedAt: execution.input?.requestedAt,
         executedAt: execution.result?.startTimeMs,
         duration: execution.result?.durationMs,
         status: execution.result?.status,
+        isLatestExecution: index === 0,
     }));
 
     return (

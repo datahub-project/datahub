@@ -4,6 +4,7 @@ import styled from 'styled-components';
 import {
     useGetIngestionSourceQuery,
     useCancelIngestionExecutionRequestMutation,
+    useRollbackIngestionMutation,
 } from '../../../../graphql/ingestion.generated';
 import { Message } from '../../../shared/Message';
 import { ExecutionDetailsModal } from '../ExecutionRequestDetailsModal';
@@ -35,6 +36,7 @@ export const IngestionSourceExecutionList = ({ urn, lastRefresh, onRefresh }: Pr
     });
 
     const [cancelExecutionRequestMutation] = useCancelIngestionExecutionRequestMutation();
+    const [rollbackIngestion] = useRollbackIngestionMutation();
 
     useEffect(() => {
         refetch();
@@ -86,6 +88,22 @@ export const IngestionSourceExecutionList = ({ urn, lastRefresh, onRefresh }: Pr
         });
     };
 
+    function handleRollbackExecution(runId: string) {
+        Modal.confirm({
+            title: `Confirm Rollback`,
+            content:
+                'Rolling back this ingestion run will soft delete any data associated with it. Are you sure you want to continue?',
+            onOk() {
+                rollbackIngestion({ variables: { input: { runId } } });
+            },
+            onCancel() {},
+            okText: 'Rollback',
+            cancelText: 'Close',
+            maskClosable: true,
+            closable: true,
+        });
+    }
+
     const executionRequests = (data?.ingestionSource?.executions?.executionRequests as ExecutionRequest[]) || [];
 
     return (
@@ -97,6 +115,7 @@ export const IngestionSourceExecutionList = ({ urn, lastRefresh, onRefresh }: Pr
                 setFocusExecutionUrn={setFocusExecutionUrn}
                 handleCancelExecution={handleCancelExecution}
                 handleViewDetails={handleViewDetails}
+                handleRollbackExecution={handleRollbackExecution}
             />
             {focusExecutionUrn && (
                 <ExecutionDetailsModal

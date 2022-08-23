@@ -9,6 +9,7 @@ import {
     CLI_INGESTION_SOURCE,
     SCHEDULED_INGESTION_SOURCE,
     MANUAL_INGESTION_SOURCE,
+    RUNNING,
 } from '../utils';
 
 const StatusContainer = styled.div`
@@ -63,9 +64,15 @@ interface ButtonsColumnProps {
     record: any;
     handleViewDetails: (urn: string) => void;
     handleCancelExecution: (urn: string) => void;
+    handleRollbackExecution: (runId: string) => void;
 }
 
-export function ButtonsColumn({ record, handleViewDetails, handleCancelExecution }: ButtonsColumnProps) {
+export function ButtonsColumn({
+    record,
+    handleViewDetails,
+    handleCancelExecution,
+    handleRollbackExecution,
+}: ButtonsColumnProps) {
     return (
         <div style={{ display: 'flex', justifyContent: 'right' }}>
             {record.urn && navigator.clipboard && (
@@ -84,9 +91,14 @@ export function ButtonsColumn({ record, handleViewDetails, handleCancelExecution
                     DETAILS
                 </Button>
             )}
-            {record.status === 'RUNNING' && (
+            {record.status === RUNNING && (
                 <Button style={{ marginRight: 16 }} onClick={() => handleCancelExecution(record.urn)}>
                     CANCEL
+                </Button>
+            )}
+            {record.status !== RUNNING && record.isLatestExecution && (
+                <Button style={{ marginRight: 16 }} onClick={() => handleRollbackExecution(record.id)}>
+                    ROLLBACK
                 </Button>
             )}
         </div>
