@@ -25,7 +25,7 @@ class AddDatasetDomainSemanticsConfig(TransformerSemanticsConfigModel):
 
 
 class SimpleDatasetDomainSemanticsConfig(TransformerSemanticsConfigModel):
-    domain_urns: List[str]
+    domains: List[str]
 
 
 class PatternDatasetDomainSemanticsConfig(TransformerSemanticsConfigModel):
@@ -128,7 +128,7 @@ class SimpleAddDatasetDomain(AddDatasetDomain):
         self, config: SimpleDatasetDomainSemanticsConfig, ctx: PipelineContext
     ):
         AddDatasetDomain.raise_ctx_configuration_error(ctx)
-        domains = AddDatasetDomain.get_domain_class(ctx.graph, config.domain_urns)
+        domains = AddDatasetDomain.get_domain_class(ctx.graph, config.domains)
         generic_config = AddDatasetDomainSemanticsConfig(
             get_domains_to_add=lambda _: domains,
             semantics=config.semantics,

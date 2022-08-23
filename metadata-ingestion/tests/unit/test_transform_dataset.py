@@ -1016,11 +1016,6 @@ def test_simple_add_dataset_properties_overwrite(mock_datahub_graph):
     custom_properties_aspect: models.DatasetPropertiesClass = cast(
         models.DatasetPropertiesClass, output[0].record.aspect
     )
-    assert custom_properties_aspect.customProperties != {
-        **EXISTING_PROPERTIES,
-        **new_properties,
-        **server_properties,
-    }
 
     assert custom_properties_aspect.customProperties == {
         **EXISTING_PROPERTIES,
@@ -1095,11 +1090,6 @@ def test_simple_add_dataset_properties_replace_existing(mock_time):
     custom_properties_aspect: models.DatasetPropertiesClass = cast(
         models.DatasetPropertiesClass, outputs[0].record.aspect
     )
-
-    assert custom_properties_aspect.customProperties != {
-        **EXISTING_PROPERTIES,
-        **new_properties,
-    }
 
     assert custom_properties_aspect.customProperties == {
         **new_properties,
@@ -1682,7 +1672,7 @@ def test_simple_add_dataset_domain(mock_datahub_graph):
     output = run_dataset_transformer_pipeline(
         transformer_type=SimpleAddDatasetDomain,
         aspect=models.DomainsClass(domains=[gslab_domain]),
-        config={"domain_urns": [acryl_domain]},
+        config={"domains": [acryl_domain]},
         pipeline_context=pipeline_context,
     )
 
@@ -1710,7 +1700,7 @@ def test_simple_add_dataset_domain_replace_existing(mock_datahub_graph):
     output = run_dataset_transformer_pipeline(
         transformer_type=SimpleAddDatasetDomain,
         aspect=models.DomainsClass(domains=[gslab_domain]),
-        config={"replace_existing": True, "domain_urns": [acryl_domain]},
+        config={"replace_existing": True, "domains": [acryl_domain]},
         pipeline_context=pipeline_context,
     )
 
@@ -1745,7 +1735,7 @@ def test_simple_add_dataset_domain_semantics_overwrite(mock_datahub_graph):
         aspect=models.DomainsClass(domains=[gslab_domain]),
         config={
             "semantics": TransformerSemantics.OVERWRITE,
-            "domain_urns": [acryl_domain],
+            "domains": [acryl_domain],
         },
         pipeline_context=pipeline_context,
     )
@@ -1785,7 +1775,7 @@ def test_simple_add_dataset_domain_semantics_patch(
         config={
             "replace_existing": False,
             "semantics": TransformerSemantics.PATCH,
-            "domain_urns": [acryl_domain],
+            "domains": [acryl_domain],
         },
         pipeline_context=pipeline_context,
     )
