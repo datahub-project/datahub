@@ -1,4 +1,4 @@
-from typing import List, Optional
+from typing import List, Optional, cast
 
 from datahub.configuration.common import (
     TransformerSemantics,
@@ -82,8 +82,12 @@ class AddDatasetBrowsePathTransformer(DatasetBrowsePathsTransformer):
 
         if self.config.semantics == TransformerSemantics.PATCH:
             assert self.ctx.graph
-            browse_paths = AddDatasetBrowsePathTransformer.get_browse_paths_to_set(
+            patch_browse_paths: Optional[
+                BrowsePathsClass
+            ] = AddDatasetBrowsePathTransformer.get_browse_paths_to_set(
                 self.ctx.graph, entity_urn, browse_paths
-            )  # type: ignore[assignment]
+            )
+            if patch_browse_paths is not None:
+                browse_paths = patch_browse_paths
 
-        return browse_paths  # type: ignore[return-value]
+        return cast(Optional[Aspect], browse_paths)
