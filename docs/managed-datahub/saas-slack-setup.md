@@ -1,3 +1,7 @@
-# Slack Integration
+import FeatureAvailability from '@site/src/components/FeatureAvailability';
 
-This page will help you set up the Acryl Data Slack integration by manually installing DataHub's Slack App into your Slack workspace.
+# Configure Slack Notifications
+
+<FeatureAvailability saasOnly />
+
+This page is under construction - more details coming soon!

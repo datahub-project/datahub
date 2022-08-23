@@ -37,7 +37,7 @@ const deploymentGuideContent = [
   //   to: "docs/deploy/aws",
   // },
   {
-    title: "AWS EKS",
+    title: "AWS",
     platformIcon: "amazon-eks",
     to: "docs/deploy/aws",
   },

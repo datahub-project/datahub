@@ -42,6 +42,7 @@ module.exports = {
     "What is DataHub?": [
 // By the end of this section, readers should understand the core use cases that DataHub addresses,
 // target end-users, high-level architecture, & hosting options
+     
       // "docs/wip/what-is-datahub",
       "docs/features",
       {
@@ -240,15 +241,46 @@ module.exports = {
 
     ],
 
-    "Deploying DataHub":[
+    "Deploy DataHub":[
 // The purpose of this section is to provide the minimum steps required to deploy DataHub to the vendor of your choosing
       "docs/deploy/aws",
       "docs/deploy/gcp",
       "docker/README",
       "docs/deploy/kubernetes",
       {
+        Authentication: [
+          "docs/authentication/README",
+          "docs/authentication/concepts",
+        {
+          "Frontend Authentication": [
+            "docs/authentication/guides/jaas",
+            {
+            "OIDC Authentication": [
+              "docs/authentication/guides/sso/configure-oidc-react",
+              "docs/authentication/guides/sso/configure-oidc-react-google",
+              "docs/authentication/guides/sso/configure-oidc-react-okta",
+              "docs/authentication/guides/sso/configure-oidc-react-azure",
+              ],
+            },
+          ],
+        },
+          "docs/authentication/introducing-metadata-service-authentication",
+          "docs/authentication/personal-access-tokens",      
+        ],
+      },
+      {
+        Authorization: [
+          "docs/authorization/README",
+          "docs/authorization/policies",
+          "docs/authorization/groups",
+        ],
+      
+      },
+      {
         "Advanced Guides": [
+          "docs/how/delete-metadata",
           "docs/how/updating-datahub",
+          "datahub-ranger-plugin/README",
           "docs/how/backup-datahub",
           "docs/how/restore-indices",
           "docs/advanced/db-retention",
@@ -257,6 +289,7 @@ module.exports = {
           "docs/deploy/telemetry",
           "docs/how/kafka-config",
           "docs/deploy/confluent-cloud",
+          "docs/advanced/no-code-upgrade",
         ],
       },
     ],
@@ -344,6 +377,7 @@ module.exports = {
             type: "doc",
             id: "docs/api/openapi/openapi-usage-guide",
           },
+          "docs/dev-guides/timeline",
         ],
       },
       {
@@ -356,6 +390,7 @@ module.exports = {
         "DataHub Metadata Model": [
           "docs/modeling/metadata-model",
           "docs/modeling/extending-the-metadata-model",
+          "docs/what/mxe",
           {
             Entities: [
               {
@@ -370,17 +405,46 @@ module.exports = {
         "Developing on DataHub": [
           "docs/developers",
           "docs/docker/development",
+          {
+            "Modules": [
+              "datahub-web-react/README",
+              "datahub-frontend/README",
+              "datahub-graphql-core/README",
+              "metadata-service/README",
+              "metadata-jobs/mae-consumer-job/README",
+              "metadata-jobs/mce-consumer-job/README",
+            ],
+          },
         ],
       },
       "docs/debugging",
-      "metadata-ingestion/docs/dev_guides/reporting_telemetry",
+      
+      {
+        "Advanced": [
+          "metadata-ingestion/docs/dev_guides/reporting_telemetry",
+          "docs/advanced/mcp-mcl",
+          "docker/datahub-upgrade/README",
+          "docs/advanced/no-code-modeling",
+          "datahub-web-react/src/app/analytics/README",
+          "docs/advanced/aspect-versioning",
+          "docs/advanced/es-7-upgrade",          
+          "docs/how/migrating-graph-service-implementation",
+          "docs/advanced/field-path-spec-v2",
+          "metadata-ingestion/developing",
+          "metadata-ingestion/adding-source",
+          "docs/how/add-custom-ingestion-source",
+          "docs/how/add-custom-data-platform",
+        ],        
+      },   
     ],
-    "Tutorials": [
+    "Feature Guides": [
       // "docs/wip/tutorials",
       "docs/how/search",
       "docs/schema-history",
-      "docs/dev-guides/timeline",
       "docs/how/ui-tabs-guide",
+      "docs/domains",
+      "docs/how/business-glossary-guide",
+      "docs/tags",
       // {
       //   type: "doc",
       //   id: "docs/wip/slack-notifications",
@@ -389,64 +453,11 @@ module.exports = {
       // "docs/wip/ui-ingestion-guide", -- not needed
       // "docs/wip/tags-guide", -- not needed
       // "docs/wip/personal-access-tokens-guide", -- not needed
-      {
-        "Modules": [
-          "datahub-web-react/README",
-          "datahub-frontend/README",
-          "datahub-graphql-core/README",
-          "metadata-service/README",
-          "metadata-jobs/mae-consumer-job/README",
-          "metadata-jobs/mce-consumer-job/README",
-        ],
-      },
-      "docs/what/mxe",
-      "docs/advanced/mcp-mcl",
-      {
-        Authentication: [
-          "docs/authentication/README",
-          "docs/authentication/concepts",
-        {
-          "Frontend Authentication": [
-            "docs/authentication/guides/jaas",
-            {
-            "OIDC Authentication": [
-              "docs/authentication/guides/sso/configure-oidc-react",
-              "docs/authentication/guides/sso/configure-oidc-react-google",
-              "docs/authentication/guides/sso/configure-oidc-react-okta",
-              "docs/authentication/guides/sso/configure-oidc-react-azure",
-              ],
-            },
-          ],
-        },
-          "docs/authentication/introducing-metadata-service-authentication",
-          "docs/authentication/personal-access-tokens",      
-        ],
-      },
-      {
-        Authorization: [
-          "docs/authorization/README",
-          "docs/authorization/policies",
-          "docs/authorization/groups",
-        ],
       
-      },
-      "docker/datahub-upgrade/README",
       {
         "Advanced Tutorials": [
           // "docs/wip/advanced-guides",
           // "docs/wip/search-ranking",
-          "docs/advanced/no-code-modeling",
-          "docs/how/delete-metadata",
-          "datahub-web-react/src/app/analytics/README",
-          "docs/advanced/aspect-versioning",
-          "docs/advanced/es-7-upgrade",          
-          "docs/advanced/no-code-upgrade",
-          "docs/how/migrating-graph-service-implementation",
-          "docs/advanced/field-path-spec-v2",
-          "metadata-ingestion/developing",
-          "metadata-ingestion/adding-source",
-          "docs/how/add-custom-ingestion-source",
-          "docs/how/add-custom-data-platform",
         ],
       },
     ],
