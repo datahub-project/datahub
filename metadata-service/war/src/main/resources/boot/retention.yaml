@@ -1,9 +1,15 @@
-- entity: "*"
-  aspect: "*"
+- entity: "dataHubExecutionRequest"
+  aspect: "dataHubExecutionRequestResult"
   config:
     retention:
       version:
-        maxVersions: 20
+        maxVersions: 5
+#- entity: "*"
+#  aspect: "*"
+#  config:
+#    retention:
+#      version:
+#        maxVersions: 20
 #- entity: dataset
 #  aspect: datasetProperties
 #  config:
