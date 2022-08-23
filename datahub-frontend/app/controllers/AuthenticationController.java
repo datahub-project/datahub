@@ -275,8 +275,17 @@ public class AuthenticationController extends Controller {
             _logger.debug("Found previous login attempt. Removing it manually to prevent unexpected errors.");
             _playSessionStore.set(playWebContext, client.getName() + ATTEMPTED_AUTHENTICATION_SUFFIX, "");
         }
-        final HttpAction action = client.redirect(playWebContext);
-        return new PlayHttpActionAdapter().adapt(action.getCode(), playWebContext);
+
+        try {
+            final HttpAction action = client.redirect(playWebContext);
+            return new PlayHttpActionAdapter().adapt(action.getCode(), playWebContext);
+        } catch (Exception e) {
+            _logger.error("Caught exception while attempting to redirect to SSO identity provider! It's likely that SSO integration is mis-configured", e);
+            return redirect(
+                String.format("/login?error_msg=%s",
+                URLEncoder.encode("Failed to redirect to Single Sign-On provider. Please contact your DataHub Administrator, "
+                    + "or refer to server logs for more information.")));
+        }
     }
 
     private String encodeRedirectUri(final String redirectUri) {
