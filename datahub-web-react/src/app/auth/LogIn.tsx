@@ -86,7 +86,9 @@ export const LogIn: React.VFC<LogInProps> = () => {
 
     return (
         <div className={styles.login_page}>
-            {(maybeRedirectError || '').length > 0 && <Message type="error" content={maybeRedirectError} />}
+            {maybeRedirectError && maybeRedirectError.length > 0 && (
+                <Message type="error" content={maybeRedirectError} />
+            )}
             <div className={styles.login_box}>
                 <div className={styles.login_logo_box}>
                     <Image wrapperClassName={styles.logo_image} src={themeConfig.assets?.logoUrl} preview={false} />
