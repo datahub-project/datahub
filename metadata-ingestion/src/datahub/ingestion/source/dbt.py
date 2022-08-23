@@ -296,6 +296,10 @@ class DBTConfig(StatefulIngestionConfigBase):
         default=False,
         description="Whether or not to strip email id while adding owners using dbt meta actions.",
     )
+    enable_owner_extraction: bool = Field(
+        default=True,
+        description="When enabled, ownership info will be extracted from the dbt meta",
+    )
     owner_extraction_pattern: Optional[str] = Field(
         default=None,
         description='Regex string to extract owner from the dbt node using the `(?P<name>...) syntax` of the [match object](https://docs.python.org/3/library/re.html#match-objects), where the group name must be `owner`. Examples: (1)`r"(?P<owner>(.*)): (\\w+) (\\w+)"` will extract `jdoe` as the owner from `"jdoe: John Doe"` (2) `r"@(?P<owner>(.*))"` will extract `alice` as the owner from `"@alice"`.',
@@ -1817,11 +1821,12 @@ class DBTSource(StatefulIngestionSourceBase):
         status = StatusClass(removed=False)
         aspects.append(status)
         # add owners aspect
-        # we need to aggregate owners added by meta properties and the owners that are coming from server.
-        meta_owner_aspects = meta_aspects.get(Constants.ADD_OWNER_OPERATION)
-        aggregated_owners = self._aggregate_owners(node, meta_owner_aspects)
-        if aggregated_owners:
-            aspects.append(OwnershipClass(owners=aggregated_owners))
+        if self.config.enable_owner_extraction:
+            # we need to aggregate owners added by meta properties and the owners that are coming from server.
+            meta_owner_aspects = meta_aspects.get(Constants.ADD_OWNER_OPERATION)
+            aggregated_owners = self._aggregate_owners(node, meta_owner_aspects)
+            if aggregated_owners:
+                aspects.append(OwnershipClass(owners=aggregated_owners))
 
         # add tags aspects
         meta_tags_aspect = meta_aspects.get(Constants.ADD_TAG_OPERATION)
