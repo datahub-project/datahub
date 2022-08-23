@@ -457,7 +457,7 @@ class Pipeline:
                 "source_type": self.config.source.type,
                 "sink_type": self.config.sink.type,
                 "records_written": stats.discretize(
-                    self.sink.get_report().records_written
+                    self.sink.get_report().total_records_written
                 ),
             },
             self.ctx.graph,
@@ -480,7 +480,7 @@ class Pipeline:
         click.secho(f"Sink ({self.config.sink.type}) report:", bold=True)
         click.echo(self.sink.get_report().as_string())
         click.echo()
-        workunits_produced = self.source.get_report().workunits_produced
+        workunits_produced = self.source.get_report().events_produced
         if self.source.get_report().failures or self.sink.get_report().failures:
             num_failures_source = self._count_all_vals(
                 self.source.get_report().failures
