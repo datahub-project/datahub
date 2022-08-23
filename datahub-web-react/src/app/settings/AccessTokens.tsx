@@ -92,7 +92,7 @@ export const AccessTokens = () => {
     const filters: Array<FacetFilterInput> = [
         {
             field: 'ownerUrn',
-            value: currentUserUrn,
+            values: [currentUserUrn],
         },
     ];
 

@@ -22,7 +22,7 @@ export const navigateToEntitySearchUrl = ({
 }) => {
     const constructedFilters = newFilters || [];
     if (newType) {
-        constructedFilters.push({ field: 'entity', value: newType });
+        constructedFilters.push({ field: 'entity', values: [newType] });
     }
 
     const search = QueryString.stringify(

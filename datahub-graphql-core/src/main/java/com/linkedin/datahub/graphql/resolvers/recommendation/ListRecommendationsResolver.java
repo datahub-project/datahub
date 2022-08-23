@@ -14,11 +14,11 @@ import com.linkedin.datahub.graphql.generated.RecommendationRequestContext;
 import com.linkedin.datahub.graphql.generated.SearchParams;
 import com.linkedin.datahub.graphql.resolvers.EntityTypeMapper;
 import com.linkedin.datahub.graphql.types.common.mappers.UrnToEntityMapper;
-import com.linkedin.metadata.query.filter.Criterion;
 import com.linkedin.metadata.query.filter.CriterionArray;
 import com.linkedin.metadata.recommendation.EntityRequestContext;
 import com.linkedin.metadata.recommendation.RecommendationsService;
 import com.linkedin.metadata.recommendation.SearchRequestContext;
+import graphql.com.google.common.collect.ImmutableList;
 import graphql.schema.DataFetcher;
 import graphql.schema.DataFetchingEnvironment;
 import io.opentelemetry.extension.annotations.WithSpan;
@@ -31,7 +31,7 @@ import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
-import static com.linkedin.datahub.graphql.resolvers.ResolverUtils.bindArgument;
+import static com.linkedin.datahub.graphql.resolvers.ResolverUtils.*;
 
 
 @Slf4j
@@ -88,7 +88,7 @@ public class ListRecommendationsResolver implements DataFetcher<CompletableFutur
         searchRequestContext.setFilters(new CriterionArray(requestContext.getSearchRequestContext()
             .getFilters()
             .stream()
-            .map(facetField -> new Criterion().setField(facetField.getField()).setValue(facetField.getValue()))
+            .map(facetField -> criterionFromFilter(facetField))
             .collect(Collectors.toList())));
       }
       mappedRequestContext.setSearchRequestContext(searchRequestContext);
@@ -148,7 +148,8 @@ public class ListRecommendationsResolver implements DataFetcher<CompletableFutur
         searchParams.setFilters(params.getSearchParams()
             .getFilters()
             .stream()
-            .map(criterion -> Filter.builder().setField(criterion.getField()).setValue(criterion.getValue()).build())
+            .map(criterion -> Filter.builder().setField(criterion.getField()).setValues(
+                ImmutableList.of(criterion.getValue())).build())
             .collect(Collectors.toList()));
       }
       mappedParams.setSearchParams(searchParams);

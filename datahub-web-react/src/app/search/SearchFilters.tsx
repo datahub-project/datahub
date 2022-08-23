@@ -1,7 +1,7 @@
 import * as React from 'react';
 import styled from 'styled-components';
 import { useEffect, useState } from 'react';
-import { FacetMetadata } from '../../types.generated';
+import { FacetFilterInput, FacetMetadata } from '../../types.generated';
 import { SearchFilter } from './SearchFilter';
 
 const TOP_FILTERS = ['degree', 'entity', 'tags', 'glossaryTerms', 'domains', 'owners'];
@@ -24,26 +24,15 @@ export const SearchFilterWrapper = styled.div`
 
 interface Props {
     facets: Array<FacetMetadata>;
-    selectedFilters: Array<{
-        field: string;
-        value: string;
-    }>;
-    onFilterSelect: (
-        newFilters: Array<{
-            field: string;
-            value: string;
-        }>,
-    ) => void;
+    selectedFilters: Array<FacetFilterInput>;
+    onFilterSelect: (newFilters: Array<FacetFilterInput>) => void;
     loading: boolean;
 }
 
 export const SearchFilters = ({ facets, selectedFilters, onFilterSelect, loading }: Props) => {
     const [cachedProps, setCachedProps] = useState<{
         facets: Array<FacetMetadata>;
-        selectedFilters: Array<{
-            field: string;
-            value: string;
-        }>;
+        selectedFilters: Array<FacetFilterInput>;
     }>({
         facets,
         selectedFilters,
@@ -58,8 +47,8 @@ export const SearchFilters = ({ facets, selectedFilters, onFilterSelect, loading
 
     const onFilterSelectAndSetCache = (selected: boolean, field: string, value: string) => {
         const newFilters = selected
-            ? [...selectedFilters, { field, value }]
-            : selectedFilters.filter((filter) => filter.field !== field || filter.value !== value);
+            ? [...selectedFilters, { field, values: [value] }]
+            : selectedFilters.filter((filter) => filter.field !== field || !filter.values.includes(value));
         setCachedProps({ ...cachedProps, selectedFilters: newFilters });
         onFilterSelect(newFilters);
     };

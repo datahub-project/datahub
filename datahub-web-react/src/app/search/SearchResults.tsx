@@ -1,5 +1,5 @@
 import React from 'react';
-import { Pagination, Typography } from 'antd';
+import { Pagination, Typography, Tabs } from 'antd';
 import styled from 'styled-components';
 import { Message } from '../shared/Message';
 import {
@@ -22,6 +22,7 @@ import { SearchResultList } from './SearchResultList';
 import { isListSubset } from '../entity/shared/utils';
 import TabToolbar from '../entity/shared/components/styled/TabToolbar';
 import { EntityAndType } from '../entity/shared/types';
+import { AdvancedSearchFilters } from './AdvancedSearchFilters';
 
 const SearchBody = styled.div`
     display: flex;
@@ -33,6 +34,7 @@ const FiltersContainer = styled.div`
     display: block;
     max-width: 260px;
     min-width: 260px;
+    overflow-wrap: break-word;
     border-right: 1px solid;
     border-color: ${(props) => props.theme.styles['border-color-base']};
 `;
@@ -122,6 +124,11 @@ interface Props {
     refetch: () => void;
 }
 
+const AdvancedFilterTabToggle = styled(Tabs)`
+    margin-left: 8px;
+    margin-right: 8px;
+`;
+
 export const SearchResults = ({
     query,
     page,
@@ -160,14 +167,24 @@ export const SearchResults = ({
                 <SearchBody>
                     <FiltersContainer>
                         <FiltersHeader>Filter</FiltersHeader>
-                        <SearchFilterContainer>
-                            <SearchFilters
-                                loading={loading}
-                                facets={filters || []}
-                                selectedFilters={selectedFilters}
-                                onFilterSelect={(newFilters) => onChangeFilters(newFilters)}
-                            />
-                        </SearchFilterContainer>
+                        <AdvancedFilterTabToggle>
+                            <Tabs.TabPane tab="Simple" key="1">
+                                <SearchFilterContainer>
+                                    <SearchFilters
+                                        loading={loading}
+                                        facets={filters || []}
+                                        selectedFilters={selectedFilters}
+                                        onFilterSelect={(newFilters) => onChangeFilters(newFilters)}
+                                    />
+                                </SearchFilterContainer>
+                            </Tabs.TabPane>
+                            <Tabs.TabPane tab="Advanced" key="2">
+                                <AdvancedSearchFilters
+                                    selectedFilters={selectedFilters}
+                                    onFilterSelect={(newFilters) => onChangeFilters(newFilters)}
+                                />
+                            </Tabs.TabPane>
+                        </AdvancedFilterTabToggle>
                     </FiltersContainer>
                     <ResultContainer>
                         <PaginationInfoContainer>

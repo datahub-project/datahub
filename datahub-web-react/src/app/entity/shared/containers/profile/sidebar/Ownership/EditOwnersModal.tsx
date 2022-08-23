@@ -41,6 +41,8 @@ type Props = {
     onCloseModal: () => void;
     refetch?: () => Promise<any>;
     entityType?: EntityType; // Only used for tracking events
+    onOkOverride?: (result: SelectedOwner[]) => void;
+    title?: string;
 };
 
 // value: {ownerUrn: string, ownerEntityType: EntityType}
@@ -57,6 +59,8 @@ export const EditOwnersModal = ({
     onCloseModal,
     refetch,
     entityType,
+    onOkOverride,
+    title,
 }: Props) => {
     const entityRegistry = useEntityRegistry();
     const [inputValue, setInputValue] = useState('');
@@ -251,6 +255,11 @@ export const EditOwnersModal = ({
         if (selectedOwners.length === 0) {
             return;
         }
+        if (onOkOverride) {
+            onOkOverride(selectedOwners);
+            return;
+        }
+
         const inputs = selectedOwners.map((selectedActor) => {
             const input = {
                 ownerUrn: selectedActor.value.ownerUrn,
@@ -273,7 +282,7 @@ export const EditOwnersModal = ({
 
     return (
         <Modal
-            title={`${operationType === OperationType.ADD ? 'Add' : 'Remove'} Owners`}
+            title={title || `${operationType === OperationType.ADD ? 'Add' : 'Remove'} Owners`}
             visible
             onCancel={onModalClose}
             keyboard

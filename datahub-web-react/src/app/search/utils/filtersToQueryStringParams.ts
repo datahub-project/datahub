@@ -7,7 +7,7 @@ export default function filtersToQueryStringParams(filters: Array<FacetFilterInp
     return filters.reduce((acc, filter) => {
         acc[`${FILTER_URL_PREFIX}${filter.field}`] = [
             ...(acc[`${FILTER_URL_PREFIX}${filter.field}`] || []),
-            encodeComma(filter.value),
+            ...filter.values.map((value) => encodeComma(value)),
         ];
         return acc;
     }, {} as Record<string, string[]>);

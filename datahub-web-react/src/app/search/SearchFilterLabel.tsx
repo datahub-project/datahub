@@ -25,6 +25,7 @@ import { IconStyleType } from '../entity/Entity';
 type Props = {
     aggregation: AggregationMetadata;
     field: string;
+    hideCounts?: boolean;
 };
 
 const PreviewImage = styled.img`
@@ -38,7 +39,8 @@ const PreviewImage = styled.img`
 const MAX_COUNT_VAL = 10000;
 
 // SearchFilterLabel renders custom labels for entity, tag, term & data platform filters. All other filters use the default behavior.
-export const SearchFilterLabel = ({ aggregation, field }: Props) => {
+export const SearchFilterLabel = ({ aggregation, field, hideCounts }: Props) => {
+    console.log(hideCounts);
     const entityRegistry = useEntityRegistry();
     const countText = aggregation.count === MAX_COUNT_VAL ? '10000+' : aggregation.count;
 

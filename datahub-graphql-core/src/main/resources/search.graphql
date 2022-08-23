@@ -140,15 +140,42 @@ input SearchAcrossLineageInput {
 Facet filters to apply to search results
 """
 input FacetFilterInput {
-  """
-  Name of field to filter by
-  """
+    """
+    Name of field to filter by
+    """
 	field: String!
 
 	"""
-	Value of the field to filter by
+    Values, one of which the intended field should match.
 	"""
-	value: String!
+	values: [String!]!
+
+    """
+    If the filter should or should not be matched
+    """
+    negated: Boolean
+
+    """
+    Condition for the values. How to If unset, assumed to be equality
+    """
+    condition: SearchCondition
+}
+
+enum SearchCondition {
+    """
+    Represent the relation: String field contains value, e.g. name contains Profile
+    """
+    CONTAIN,
+
+    """
+    Represent the relation: field = value, e.g. platform = hdfs
+    """
+    EQUAL
+
+    """
+    * Represent the relation: String field is one of the array values to, e.g. name in ["Profile", "Event"]
+    """
+    IN
 }
 
 """

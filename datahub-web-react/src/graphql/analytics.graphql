@@ -61,7 +61,7 @@ fragment analyticsChart on AnalyticsChart {
                         query
                         filters {
                             field
-                            value
+                            values
                         }
                     }
                     entityProfileParams {

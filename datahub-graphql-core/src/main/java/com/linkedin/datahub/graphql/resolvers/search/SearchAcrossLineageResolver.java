@@ -89,7 +89,7 @@ public class SearchAcrossLineageResolver
   private Integer getMaxHops(List<FacetFilterInput> filters) {
     Set<String> degreeFilterValues = filters.stream()
         .filter(filter -> filter.getField().equals("degree"))
-        .map(FacetFilterInput::getValue)
+        .flatMap(filter -> filter.getValues().stream())
         .collect(Collectors.toSet());
     Integer maxHops = null;
     if (!degreeFilterValues.contains("3+")) {

@@ -7,7 +7,7 @@ export const ContainerEntitiesTab = () => {
 
     const fixedFilter = {
         field: 'container',
-        value: urn,
+        values: [urn],
     };
 
     return (

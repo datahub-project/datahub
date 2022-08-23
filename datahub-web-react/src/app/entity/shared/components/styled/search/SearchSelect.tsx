@@ -70,7 +70,7 @@ export const SearchSelect = ({ fixedEntityTypes, placeholderText, selectedEntiti
     );
     const entityFilters: Array<EntityType> = filters
         .filter((filter) => filter.field === ENTITY_FILTER_NAME)
-        .map((filter) => filter.value.toUpperCase() as EntityType);
+        .flatMap((filter) => filter.values.map((value) => value.toUpperCase() as EntityType));
     const finalEntityTypes = (entityFilters.length > 0 && entityFilters) || fixedEntityTypes || [];
 
     // Execute search

@@ -3,10 +3,12 @@ package com.linkedin.datahub.graphql.resolvers;
 import com.datahub.authentication.Authentication;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.collect.ImmutableSet;
+import com.linkedin.data.template.StringArray;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.exception.ValidationException;
 import com.linkedin.datahub.graphql.generated.FacetFilterInput;
 
+import com.linkedin.metadata.query.filter.Condition;
 import com.linkedin.metadata.query.filter.Criterion;
 import com.linkedin.metadata.query.filter.CriterionArray;
 import com.linkedin.metadata.query.filter.Filter;
@@ -81,7 +83,7 @@ public class ResolverUtils {
             if (!validFacetFields.contains(facetFilterInput.getField())) {
                 throw new ValidationException(String.format("Unrecognized facet with name %s provided", facetFilterInput.getField()));
             }
-            facetFilters.put(facetFilterInput.getField(), facetFilterInput.getValue());
+            facetFilters.put(facetFilterInput.getField(), facetFilterInput.getValues().get(0));
         });
 
         return facetFilters;
@@ -93,8 +95,29 @@ public class ResolverUtils {
             return null;
         }
         return new Filter().setOr(new ConjunctiveCriterionArray(new ConjunctiveCriterion().setAnd(new CriterionArray(facetFilterInputs.stream()
-            .map(filter -> new Criterion().setField(getFilterField(filter.getField())).setValue(filter.getValue()))
+            .map(filter -> criterionFromFilter(filter))
             .collect(Collectors.toList())))));
+    }
+
+    public static Criterion criterionFromFilter(final FacetFilterInput filter) {
+        Criterion result = new Criterion();
+        result.setField(getFilterField(filter.getField()));
+        result.setValue(filter.getValues().get(0));
+        if (filter.getValues() != null) {
+            result.setValues(new StringArray(filter.getValues()));
+        }
+
+        if (filter.getCondition() != null) {
+            result.setCondition(Condition.valueOf(filter.getCondition().toString()));
+        } else {
+            result.setCondition(Condition.EQUAL);
+        }
+
+        if (filter.getNegated() != null) {
+            result.setNegated(filter.getNegated());
+        }
+
+        return result;
     }
 
     private static String getFilterField(final String originalField) {

@@ -15,7 +15,7 @@ export const UserAssets = ({ urn }: Props) => {
     return (
         <UserAssetsWrapper>
             <EmbeddedListSearchSection
-                fixedFilter={{ field: 'owners', value: urn }}
+                fixedFilter={{ field: 'owners', values: [urn] }}
                 emptySearchQuery="*"
                 placeholderText="Filter entities..."
             />
