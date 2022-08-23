@@ -38,6 +38,7 @@ from datahub.metadata.schema_classes import (  # GroupMembershipClass,
     GroupMembershipClass,
     OriginClass,
     OriginTypeClass,
+    StatusClass,
 )
 
 logger = logging.getLogger(__name__)
@@ -279,11 +280,7 @@ class OktaSource(Source):
                 datahub_corp_group_snapshots
             ):
                 mce = MetadataChangeEvent(proposedSnapshot=datahub_corp_group_snapshot)
-                wu_id = (
-                    f"group-{group_count + 1}"
-                    if self.config.mask_group_id
-                    else datahub_corp_group_snapshot.urn
-                )
+                wu_id = f"group-snapshot-{group_count + 1 if self.config.mask_group_id else datahub_corp_group_snapshot.urn}"
                 wu = MetadataWorkUnit(id=wu_id, mce=mce)
                 self.report.report_workunit(wu)
                 yield wu
@@ -295,16 +292,26 @@ class OktaSource(Source):
                     aspectName="origin",
                     aspect=OriginClass(OriginTypeClass.EXTERNAL, "OKTA"),
                 )
-                group_origin_wu_id = (
-                    f"group-origin-{group_count + 1}"
-                    if self.config.mask_group_id
-                    else datahub_corp_group_snapshot.urn
-                )
+                group_origin_wu_id = f"group-origin-{group_count + 1 if self.config.mask_group_id else datahub_corp_group_snapshot.urn}"
                 group_origin_wu = MetadataWorkUnit(
                     id=group_origin_wu_id, mcp=group_origin_mcp
                 )
                 self.report.report_workunit(group_origin_wu)
                 yield group_origin_wu
+
+                group_status_mcp = MetadataChangeProposalWrapper(
+                    entityType="corpGroup",
+                    entityUrn=datahub_corp_group_snapshot.urn,
+                    changeType=ChangeTypeClass.UPSERT,
+                    aspectName="status",
+                    aspect=StatusClass(removed=False),
+                )
+                group_status_wu_id = f"group-status-{group_count + 1 if self.config.mask_group_id else datahub_corp_group_snapshot.urn}"
+                group_status_wu = MetadataWorkUnit(
+                    id=group_status_wu_id, mcp=group_status_mcp
+                )
+                self.report.report_workunit(group_status_wu)
+                yield group_status_wu
 
         # Step 2: Populate GroupMembership Aspects for CorpUsers
         datahub_corp_user_urn_to_group_membership: Dict[str, GroupMembershipClass] = {}
@@ -370,11 +377,7 @@ class OktaSource(Source):
                     assert datahub_group_membership is not None
                     datahub_corp_user_snapshot.aspects.append(datahub_group_membership)
                 mce = MetadataChangeEvent(proposedSnapshot=datahub_corp_user_snapshot)
-                wu_id = (
-                    f"user-{user_count + 1}"
-                    if self.config.mask_user_id
-                    else datahub_corp_user_snapshot.urn
-                )
+                wu_id = f"user-snapshot-{user_count + 1 if self.config.mask_user_id else datahub_corp_user_snapshot.urn}"
                 wu = MetadataWorkUnit(id=wu_id, mce=mce)
                 self.report.report_workunit(wu)
                 yield wu
@@ -386,16 +389,26 @@ class OktaSource(Source):
                     aspectName="origin",
                     aspect=OriginClass(OriginTypeClass.EXTERNAL, "OKTA"),
                 )
-                user_origin_wu_id = (
-                    f"user-origin-{user_count + 1}"
-                    if self.config.mask_user_id
-                    else datahub_corp_user_snapshot.urn
-                )
+                user_origin_wu_id = f"user-origin-{user_count + 1 if self.config.mask_user_id else datahub_corp_user_snapshot.urn}"
                 user_origin_wu = MetadataWorkUnit(
                     id=user_origin_wu_id, mcp=user_origin_mcp
                 )
                 self.report.report_workunit(user_origin_wu)
                 yield user_origin_wu
+
+                user_status_mcp = MetadataChangeProposalWrapper(
+                    entityType="corpuser",
+                    entityUrn=datahub_corp_user_snapshot.urn,
+                    changeType=ChangeTypeClass.UPSERT,
+                    aspectName="status",
+                    aspect=StatusClass(removed=False),
+                )
+                user_status_wu_id = f"user-status-{user_count + 1 if self.config.mask_user_id else datahub_corp_user_snapshot.urn}"
+                user_status_wu = MetadataWorkUnit(
+                    id=user_status_wu_id, mcp=user_status_mcp
+                )
+                self.report.report_workunit(user_status_wu)
+                yield user_status_wu
 
         # Step 4: Close the event loop
         event_loop.close()
