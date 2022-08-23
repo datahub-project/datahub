@@ -272,13 +272,13 @@ class Pipeline:
         for reporter in self.reporters:
             try:
                 reporter.on_completion(
-                    status="FAILURE"
+                    status="CANCELLED"
+                    if self.final_status == "cancelled"
+                    else "FAILURE"
                     if self.source.get_report().failures
                     or self.sink.get_report().failures
                     else "SUCCESS"
                     if self.final_status == "completed"
-                    else "CANCELLED"
-                    if self.final_status == "cancelled"
                     else "UNKNOWN",
                     report=self._get_structured_report(),
                     ctx=self.ctx,
