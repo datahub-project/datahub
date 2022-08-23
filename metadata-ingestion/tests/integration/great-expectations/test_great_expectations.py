@@ -38,7 +38,22 @@ class MockDatahubEmitter:
 
 @freeze_time(FROZEN_TIME)
 @pytest.mark.integration
-def test_ge_ingest(docker_compose_runner, pytestconfig, tmp_path, mock_time, **kwargs):
+@pytest.mark.parametrize(
+    "checkpoint, golden_json",
+    [
+        ("test_checkpoint", "ge_mcps_golden.json"),
+        ("test_checkpoint_2", "ge_mcps_golden_2.json"),
+    ],
+)
+def test_ge_ingest(
+    docker_compose_runner,
+    pytestconfig,
+    tmp_path,
+    mock_time,
+    checkpoint,
+    golden_json,
+    **kwargs,
+):
 
     test_resources_dir = pytestconfig.rootpath / "tests/integration/great-expectations"
 
@@ -57,13 +72,13 @@ def test_ge_ingest(docker_compose_runner, pytestconfig, tmp_path, mock_time, **k
             tmp_path / "great_expectations",
         )
         context = ge.DataContext.create(tmp_path)
-        context.run_checkpoint(checkpoint_name="test_checkpoint")
+        context.run_checkpoint(checkpoint_name=checkpoint)
 
         emitter.write_to_file(tmp_path / "ge_mcps.json")
 
         mce_helpers.check_golden_file(
             pytestconfig,
             output_path=tmp_path / "ge_mcps.json",
-            golden_path=test_resources_dir / "ge_mcps_golden.json",
+            golden_path=test_resources_dir / golden_json,
             ignore_paths=[],
         )

@@ -1,6 +1,7 @@
 import io
 import json
 import pathlib
+from unittest.mock import patch
 
 import fastavro
 import pytest
@@ -11,7 +12,7 @@ import datahub.metadata.schema_classes as models
 from datahub.cli.json_file import check_mce_file
 from datahub.emitter import mce_builder
 from datahub.ingestion.run.pipeline import Pipeline
-from datahub.ingestion.source.file import iterate_mce_file
+from datahub.ingestion.source.file import FileSourceConfig, GenericFileSource
 from datahub.metadata.schema_classes import (
     MetadataChangeEventClass,
     OwnershipClass,
@@ -58,7 +59,6 @@ def test_serde_to_json(
 
     output_filename = "output.json"
     output_file = tmp_path / output_filename
-
     pipeline = Pipeline.create(
         {
             "source": {"type": "file", "config": {"filename": str(golden_file)}},
@@ -85,31 +85,43 @@ def test_serde_to_json(
     ],
 )
 @freeze_time(FROZEN_TIME)
-def test_serde_to_avro(pytestconfig: PytestConfig, json_filename: str) -> None:
+def test_serde_to_avro(
+    pytestconfig: PytestConfig,
+    json_filename: str,
+) -> None:
     # In this test, we want to read in from JSON -> MCE object.
     # Next we serialize from MCE to Avro and then deserialize back to MCE.
     # Finally, we want to compare the two MCE objects.
+    with patch(
+        "datahub.ingestion.api.common.PipelineContext", autospec=True
+    ) as mock_pipeline_context:
 
-    json_path = pytestconfig.rootpath / json_filename
-    mces = list(iterate_mce_file(str(json_path)))
+        json_path = pytestconfig.rootpath / json_filename
+        source = GenericFileSource(
+            ctx=mock_pipeline_context, config=FileSourceConfig(path=str(json_path))
+        )
+        mces = list(source.iterate_mce_file(str(json_path)))
 
-    # Serialize to Avro.
-    parsed_schema = fastavro.parse_schema(json.loads(getMetadataChangeEventSchema()))
-    fo = io.BytesIO()
-    out_records = [mce.to_obj(tuples=True) for mce in mces]
-    fastavro.writer(fo, parsed_schema, out_records)
+        # Serialize to Avro.
+        parsed_schema = fastavro.parse_schema(
+            json.loads(getMetadataChangeEventSchema())
+        )
+        fo = io.BytesIO()
+        out_records = [mce.to_obj(tuples=True) for mce in mces]
+        fastavro.writer(fo, parsed_schema, out_records)
 
-    # Deserialized from Avro.
-    fo.seek(0)
-    in_records = list(fastavro.reader(fo, return_record_name=True))
-    in_mces = [
-        MetadataChangeEventClass.from_obj(record, tuples=True) for record in in_records
-    ]
+        # Deserialized from Avro.
+        fo.seek(0)
+        in_records = list(fastavro.reader(fo, return_record_name=True))
+        in_mces = [
+            MetadataChangeEventClass.from_obj(record, tuples=True)
+            for record in in_records
+        ]
 
-    # Check diff
-    assert len(mces) == len(in_mces)
-    for i in range(len(mces)):
-        assert mces[i] == in_mces[i]
+        # Check diff
+        assert len(mces) == len(in_mces)
+        for i in range(len(mces)):
+            assert mces[i] == in_mces[i]
 
 
 @pytest.mark.parametrize(
@@ -148,8 +160,11 @@ def test_check_mce_schema_failure(
 ) -> None:
     json_file_path = pytestconfig.rootpath / json_filename
 
-    with pytest.raises((ValueError, AssertionError)):
+    try:
         check_mce_file(str(json_file_path))
+        raise AssertionError("MCE File validated successfully when it should not have")
+    except Exception as e:
+        assert "is missing required field: active" in str(e)
 
 
 def test_field_discriminator() -> None:
