@@ -64,6 +64,7 @@ public class SendMAEStep implements UpgradeStep {
 
       int totalRowsMigrated = 0;
       int start = 0;
+      int ignored = 0;
       int count = getBatchSize(context.parsedArgs());
       while (start < rowCount) {
 
@@ -80,6 +81,7 @@ public class SendMAEStep implements UpgradeStep {
             context.report()
                 .addLine(String.format("Failed to bind Urn with value %s into Urn object: %s. Ignoring row.",
                     aspect.getKey().getUrn(), e));
+            ignored = ignored + 1;
             continue;
           }
 
@@ -92,6 +94,7 @@ public class SendMAEStep implements UpgradeStep {
             context.report()
                 .addLine(String.format("Failed to find entity with name %s in Entity Registry: %s. Ignoring row.",
                     entityName, e));
+            ignored = ignored + 1;
             continue;
           }
           final String aspectName = aspect.getKey().getAspect();
@@ -102,6 +105,7 @@ public class SendMAEStep implements UpgradeStep {
             context.report()
                 .addLine(String.format("Failed to find aspect with name %s associated with entity named %s", aspectName,
                     entityName));
+            ignored = ignored + 1;
             continue;
           }
 
@@ -113,6 +117,7 @@ public class SendMAEStep implements UpgradeStep {
             context.report()
                 .addLine(String.format("Failed to deserialize row %s for entity %s, aspect %s: %s. Ignoring row.",
                     aspect.getMetadata(), entityName, aspectName, e));
+            ignored = ignored + 1;  
             continue;
           }
 
@@ -126,7 +131,7 @@ public class SendMAEStep implements UpgradeStep {
 
           totalRowsMigrated++;
         }
-        context.report().addLine(String.format("Successfully sent MAEs for %s rows", totalRowsMigrated));
+        context.report().addLine(String.format("Successfully sent MAEs for %s/%s rows (%.2f%%). %s rows ignored (%.2f%%)", totalRowsMigrated, rowCount, (float)totalRowsMigrated*100/rowCount, ignored, (float)ignored*100/rowCount));
         start = start + count;
         try {
           TimeUnit.MILLISECONDS.sleep(getBatchDelayMs(context.parsedArgs()));
@@ -135,7 +140,7 @@ public class SendMAEStep implements UpgradeStep {
         }
       }
       if (totalRowsMigrated != rowCount) {
-        context.report().addLine(String.format("Failed to send MAEs for %d rows...", rowCount - totalRowsMigrated));
+        context.report().addLine(String.format("Failed to send MAEs for %d rows (%.2f%%).", rowCount - totalRowsMigrated, (float)(rowCount - totalRowsMigrated)*100/rowCount));
       }
       return new DefaultUpgradeStepResult(id(), UpgradeStepResult.Result.SUCCEEDED);
     };
