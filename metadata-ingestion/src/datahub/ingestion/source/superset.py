@@ -84,7 +84,7 @@ class SupersetConfig(ConfigModel):
     def default_display_uri_to_connect_uri(cls, values):
         base = values.get("display_uri")
         if base is None:
-            values.set("display_uri", values.get("connect_uri"))
+            values["display_uri"] = values.get("connect_uri")
         return values
 
 
