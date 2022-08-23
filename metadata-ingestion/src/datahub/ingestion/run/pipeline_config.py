@@ -9,6 +9,7 @@ from datahub.cli.cli_utils import get_url_and_token
 from datahub.configuration import config_loader
 from datahub.configuration.common import ConfigModel, DynamicTypedConfig
 from datahub.ingestion.graph.client import DatahubClientConfig
+from datahub.ingestion.sink.file import FileSinkConfig
 
 logger = logging.getLogger(__name__)
 
@@ -24,6 +25,14 @@ class ReporterConfig(DynamicTypedConfig):
     )
 
 
+class FailureLoggingConfig(ConfigModel):
+    enabled: bool = Field(
+        False,
+        description="When enabled, records that fail to be sent to DataHub are logged to disk",
+    )
+    log_config: Optional[FileSinkConfig] = None
+
+
 class PipelineConfig(ConfigModel):
     # Once support for discriminated unions gets merged into Pydantic, we can
     # simplify this configuration and validation.
@@ -36,6 +45,7 @@ class PipelineConfig(ConfigModel):
     run_id: str = "__DEFAULT_RUN_ID"
     datahub_api: Optional[DatahubClientConfig] = None
     pipeline_name: Optional[str] = None
+    failure_log: FailureLoggingConfig = FailureLoggingConfig()
 
     _raw_dict: Optional[
         dict

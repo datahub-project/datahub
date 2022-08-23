@@ -1,13 +1,19 @@
 import itertools
 import logging
-from typing import Any, Dict, Iterable, List, Optional
+import platform
+import sys
+import time
+from dataclasses import dataclass
+from typing import Any, Dict, Iterable, List, Optional, cast
 
 import click
 
+import datahub
 from datahub.configuration.common import PipelineExecutionError
 from datahub.ingestion.api.committable import CommitPolicy
 from datahub.ingestion.api.common import EndOfStream, PipelineContext, RecordEnvelope
 from datahub.ingestion.api.pipeline_run_listener import PipelineRunListener
+from datahub.ingestion.api.report import Report
 from datahub.ingestion.api.sink import Sink, WriteCallback
 from datahub.ingestion.api.source import Extractor, Source
 from datahub.ingestion.api.transform import Transformer
@@ -16,19 +22,27 @@ from datahub.ingestion.reporting.reporting_provider_registry import (
     reporting_provider_registry,
 )
 from datahub.ingestion.run.pipeline_config import PipelineConfig, ReporterConfig
+from datahub.ingestion.sink.file import FileSink, FileSinkConfig
 from datahub.ingestion.sink.sink_registry import sink_registry
 from datahub.ingestion.source.source_registry import source_registry
 from datahub.ingestion.transformer.transform_registry import transform_registry
+from datahub.metadata.schema_classes import MetadataChangeProposalClass
 from datahub.telemetry import stats, telemetry
 
 logger = logging.getLogger(__name__)
 
 
 class LoggingCallback(WriteCallback):
+    def __init__(self, name: str = "") -> None:
+        super().__init__()
+        self.name = name
+
     def on_success(
         self, record_envelope: RecordEnvelope, success_metadata: dict
     ) -> None:
-        logger.info(f"sink wrote workunit {record_envelope.metadata['workunit_id']}")
+        logger.debug(
+            f"{self.name} sink wrote workunit {record_envelope.metadata['workunit_id']}"
+        )
 
     def on_failure(
         self,
@@ -37,13 +51,59 @@ class LoggingCallback(WriteCallback):
         failure_metadata: dict,
     ) -> None:
         logger.error(
-            f"failed to write record with workunit {record_envelope.metadata['workunit_id']}"
+            f"{self.name} failed to write record with workunit {record_envelope.metadata['workunit_id']}"
             f" with {failure_exception} and info {failure_metadata}"
         )
 
 
+class DeadLetterQueueCallback(WriteCallback):
+    def __init__(self, ctx: PipelineContext, config: Optional[FileSinkConfig]) -> None:
+        if not config:
+            config = FileSinkConfig.parse_obj({"filename": "failed_events.json"})
+        self.file_sink: FileSink = FileSink(ctx, config)
+        self.logging_callback = LoggingCallback(name="failure-queue")
+        logger.info(f"Failure logging enabled. Will log to {config.filename}.")
+
+    def on_success(
+        self, record_envelope: RecordEnvelope, success_metadata: dict
+    ) -> None:
+        pass
+
+    def on_failure(
+        self,
+        record_envelope: RecordEnvelope,
+        failure_exception: Exception,
+        failure_metadata: dict,
+    ) -> None:
+        if "workunit_id" in record_envelope.metadata:
+            if isinstance(record_envelope.record, MetadataChangeProposalClass):
+                mcp = cast(MetadataChangeProposalClass, record_envelope.record)
+                if mcp.systemMetadata:
+                    if not mcp.systemMetadata.properties:
+                        mcp.systemMetadata.properties = {}
+                    if "workunit_id" not in mcp.systemMetadata.properties:
+                        # update the workunit id
+                        mcp.systemMetadata.properties[
+                            "workunit_id"
+                        ] = record_envelope.metadata["workunit_id"]
+                record_envelope.record = mcp
+        self.file_sink.write_record_async(record_envelope, self.logging_callback)
+
+    def close(self) -> None:
+        self.file_sink.close()
+
+
 class PipelineInitError(Exception):
     pass
+
+
+@dataclass
+class CliReport(Report):
+    cli_version: str = datahub.nice_version_name()
+    cli_entry_location: str = datahub.__file__
+    py_version: str = sys.version
+    py_exec_path: str = sys.executable
+    os_details: str = platform.platform()
 
 
 class Pipeline:
@@ -71,6 +131,9 @@ class Pipeline:
         self.preview_workunits = preview_workunits
         self.report_to = report_to
         self.reporters: List[PipelineRunListener] = []
+        self.num_intermediate_workunits = 0
+        self.last_time_printed = int(time.time())
+        self.cli_report = CliReport()
 
         try:
             self.ctx = PipelineContext(
@@ -209,10 +272,14 @@ class Pipeline:
         for reporter in self.reporters:
             try:
                 reporter.on_completion(
-                    status="FAILURE"
+                    status="CANCELLED"
+                    if self.final_status == "cancelled"
+                    else "FAILURE"
                     if self.source.get_report().failures
                     or self.sink.get_report().failures
-                    else "SUCCESS",
+                    else "SUCCESS"
+                    if self.final_status == "completed"
+                    else "UNKNOWN",
                     report=self._get_structured_report(),
                     ctx=self.ctx,
                 )
@@ -240,16 +307,36 @@ class Pipeline:
             no_default_report=no_default_report,
         )
 
-    def run(self) -> None:
+    def _time_to_print(self) -> bool:
+        self.num_intermediate_workunits += 1
+        if self.num_intermediate_workunits > 1000:
+            current_time = int(time.time())
+            if current_time - self.last_time_printed > 10:
+                # we print
+                self.num_intermediate_workunits = 0
+                self.last_time_printed = current_time
+                return True
+        return False
 
+    def run(self) -> None:
+        self.final_status = "unknown"
         self._notify_reporters_on_ingestion_start()
+        callback = None
         try:
-            callback = LoggingCallback()
+            callback = (
+                LoggingCallback()
+                if not self.config.failure_log.enabled
+                else DeadLetterQueueCallback(
+                    self.ctx, self.config.failure_log.log_config
+                )
+            )
             extractor: Extractor = self.extractor_class()
             for wu in itertools.islice(
                 self.source.get_workunits(),
                 self.preview_workunits if self.preview_mode else None,
             ):
+                if self._time_to_print():
+                    self.pretty_print_summary(currently_running=True)
                 # TODO: change extractor interface
                 extractor.configure({}, self.ctx)
 
@@ -261,8 +348,12 @@ class Pipeline:
                         if not self.dry_run:
                             self.sink.write_record_async(record_envelope, callback)
 
+                except RuntimeError:
+                    raise
+                except SystemExit:
+                    raise
                 except Exception as e:
-                    logger.error(f"Failed to extract some records due to: {e}")
+                    logger.error("Failed to process some records. Continuing.", e)
 
                 extractor.close()
                 if not self.dry_run:
@@ -284,7 +375,15 @@ class Pipeline:
 
             self.sink.close()
             self.process_commits()
+            self.final_status = "completed"
+        except (SystemExit, RuntimeError) as e:
+            self.final_status = "cancelled"
+            logger.error("Caught error", e)
+            raise
         finally:
+            if callback and hasattr(callback, "close"):
+                callback.close()  # type: ignore
+
             self._notify_reporters_on_ingestion_completion()
 
     def transform(self, records: Iterable[RecordEnvelope]) -> Iterable[RecordEnvelope]:
@@ -370,8 +469,12 @@ class Pipeline:
             result += len(val)
         return result
 
-    def pretty_print_summary(self, warnings_as_failure: bool = False) -> int:
+    def pretty_print_summary(
+        self, warnings_as_failure: bool = False, currently_running: bool = False
+    ) -> int:
         click.echo()
+        click.secho("Cli report:", bold=True)
+        click.secho(self.cli_report.as_string())
         click.secho(f"Source ({self.config.source.type}) report:", bold=True)
         click.echo(self.source.get_report().as_string())
         click.secho(f"Sink ({self.config.sink.type}) report:", bold=True)
@@ -382,23 +485,25 @@ class Pipeline:
             num_failures_source = self._count_all_vals(
                 self.source.get_report().failures
             )
+            num_failures_sink = len(self.sink.get_report().failures)
             click.secho(
-                f"Pipeline finished with {num_failures_source} failures in source producing {workunits_produced} workunits",
+                f"{'⏳' if currently_running else ''} Pipeline {'running' if currently_running else 'finished'} with {num_failures_source+num_failures_sink} failures {'so far' if currently_running else ''}; produced {workunits_produced} events",
                 fg="bright_red",
                 bold=True,
             )
             return 1
         elif self.source.get_report().warnings or self.sink.get_report().warnings:
             num_warn_source = self._count_all_vals(self.source.get_report().warnings)
+            num_warn_sink = len(self.sink.get_report().warnings)
             click.secho(
-                f"Pipeline finished with {num_warn_source} warnings in source producing {workunits_produced} workunits",
+                f"{'⏳' if currently_running else ''} Pipeline {'running' if currently_running else 'finished'} with {num_warn_source+num_warn_sink} warnings {'so far' if currently_running else ''}; produced {workunits_produced} events",
                 fg="yellow",
                 bold=True,
             )
             return 1 if warnings_as_failure else 0
         else:
             click.secho(
-                f"Pipeline finished successfully producing {workunits_produced} workunits",
+                f"{'⏳' if currently_running else ''} Pipeline {'running' if currently_running else 'finished'} successfully {'so far' if currently_running else ''}; produced {workunits_produced} events",
                 fg="green",
                 bold=True,
             )

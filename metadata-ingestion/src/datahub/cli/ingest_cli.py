@@ -209,7 +209,7 @@ def _test_source_connection(report_to: Optional[str], pipeline_config: dict) -> 
     try:
         connection_report = ConnectionManager().test_source_connection(pipeline_config)
         logger.info(connection_report.as_json())
-        if report_to:
+        if report_to and report_to != "datahub":
             with open(report_to, "w") as out_fp:
                 out_fp.write(connection_report.as_json())
             logger.info(f"Wrote report successfully to {report_to}")
