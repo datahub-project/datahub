@@ -35,11 +35,12 @@ const StatusButton = styled(Button)`
 
 type Props = {
     urn: string;
+    isExpanded: boolean;
     lastRefresh: number;
     onRefresh: () => void;
 };
 
-export const IngestionSourceExecutionList = ({ urn, lastRefresh, onRefresh }: Props) => {
+export const IngestionSourceExecutionList = ({ urn, isExpanded, lastRefresh, onRefresh }: Props) => {
     const [focusExecutionUrn, setFocusExecutionUrn] = useState<undefined | string>(undefined);
 
     const start = 0;
@@ -56,8 +57,10 @@ export const IngestionSourceExecutionList = ({ urn, lastRefresh, onRefresh }: Pr
     const [cancelExecutionRequestMutation] = useCancelIngestionExecutionRequestMutation();
 
     useEffect(() => {
-        refetch();
-    }, [lastRefresh, refetch]);
+        if (isExpanded) {
+            refetch();
+        }
+    }, [lastRefresh, isExpanded, refetch]);
 
     const handleViewDetails = (focusUrn: string) => {
         setFocusExecutionUrn(focusUrn);
