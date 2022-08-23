@@ -147,16 +147,16 @@ import com.linkedin.datahub.graphql.resolvers.mutate.AddTagResolver;
 import com.linkedin.datahub.graphql.resolvers.mutate.AddTagsResolver;
 import com.linkedin.datahub.graphql.resolvers.mutate.AddTermResolver;
 import com.linkedin.datahub.graphql.resolvers.mutate.AddTermsResolver;
-import com.linkedin.datahub.graphql.resolvers.mutate.MutableTypeBatchResolver;
 import com.linkedin.datahub.graphql.resolvers.mutate.BatchAddOwnersResolver;
 import com.linkedin.datahub.graphql.resolvers.mutate.BatchAddTagsResolver;
 import com.linkedin.datahub.graphql.resolvers.mutate.BatchAddTermsResolver;
 import com.linkedin.datahub.graphql.resolvers.mutate.BatchRemoveOwnersResolver;
 import com.linkedin.datahub.graphql.resolvers.mutate.BatchRemoveTagsResolver;
 import com.linkedin.datahub.graphql.resolvers.mutate.BatchRemoveTermsResolver;
-import com.linkedin.datahub.graphql.resolvers.mutate.BatchUpdateDeprecationResolver;
 import com.linkedin.datahub.graphql.resolvers.mutate.BatchSetDomainResolver;
+import com.linkedin.datahub.graphql.resolvers.mutate.BatchUpdateDeprecationResolver;
 import com.linkedin.datahub.graphql.resolvers.mutate.BatchUpdateSoftDeletedResolver;
+import com.linkedin.datahub.graphql.resolvers.mutate.MutableTypeBatchResolver;
 import com.linkedin.datahub.graphql.resolvers.mutate.MutableTypeResolver;
 import com.linkedin.datahub.graphql.resolvers.mutate.RemoveLinkResolver;
 import com.linkedin.datahub.graphql.resolvers.mutate.RemoveOwnerResolver;
@@ -172,6 +172,8 @@ import com.linkedin.datahub.graphql.resolvers.policy.GetGrantedPrivilegesResolve
 import com.linkedin.datahub.graphql.resolvers.policy.ListPoliciesResolver;
 import com.linkedin.datahub.graphql.resolvers.policy.UpsertPolicyResolver;
 import com.linkedin.datahub.graphql.resolvers.recommendation.ListRecommendationsResolver;
+import com.linkedin.datahub.graphql.resolvers.role.BatchAssignRoleToActors;
+import com.linkedin.datahub.graphql.resolvers.role.ListRolesResolver;
 import com.linkedin.datahub.graphql.resolvers.search.AutoCompleteForMultipleResolver;
 import com.linkedin.datahub.graphql.resolvers.search.AutoCompleteResolver;
 import com.linkedin.datahub.graphql.resolvers.search.SearchAcrossEntitiesResolver;
@@ -660,6 +662,7 @@ public class GmsGraphQLEngine {
             .dataFetcher("entityExists", new EntityExistsResolver(this.entityService))
             .dataFetcher("getNativeUserInviteToken", new GetNativeUserInviteTokenResolver(this.nativeUserService))
             .dataFetcher("entity", getEntityResolver())
+            .dataFetcher("listRoles", new ListRolesResolver(this.entityClient))
         );
     }
 
@@ -765,6 +768,8 @@ public class GmsGraphQLEngine {
             .dataFetcher("batchUpdateSoftDeleted", new BatchUpdateSoftDeletedResolver(this.entityService))
             .dataFetcher("updateUserSetting", new UpdateUserSettingResolver(this.entityService))
             .dataFetcher("rollbackIngestion", new RollbackIngestionResolver(this.entityClient))
+            .dataFetcher("batchAssignRoleToActors", new BatchAssignRoleToActors(this.entityService, this.entityClient))
+
         );
     }
 

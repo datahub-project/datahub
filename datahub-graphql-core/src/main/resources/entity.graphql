@@ -505,9 +505,9 @@ type Mutation {
     updateUserSetting(input: UpdateUserSettingInput!): Boolean
 
     """
-    Batch assign roles to actors
+    Batch assign roles to users
     """
-    batchAssignToActors(input: BatchAssignRoleInput!): Boolean
+    batchAssignRoleToActors(input: BatchAssignRoleToActorsInput!): Boolean
 }
 
 """
@@ -673,6 +673,11 @@ enum EntityType {
     A DataHub Test
     """
     TEST
+
+    """
+    A DataHub Role
+    """
+    ROLE
 }
 
 """
@@ -7348,6 +7353,11 @@ type ActorFilter {
   groups: [String!]
 
   """
+  A disjunctive set of roles to apply the policy to
+  """
+  roles: [String!]
+
+  """
   Whether the filter should return TRUE for owners of a particular resource
   Only applies to policies of type METADATA, which have a resource associated with them
   """
@@ -7373,15 +7383,10 @@ type ActorFilter {
   """
   resolvedGroups: [CorpGroup!]
 
-    """
-    A disjunctive set of roles to apply the policy to
-    """
-    roles: [String!]
-
-    """
-    The list of roles on the Policy, resolved.
-    """
-    resolvedGroups: [Role!]
+  """
+  The list of roles on the Policy, resolved.
+  """
+  resolvedRoles: [Role!]
 }
 
 """
@@ -9202,19 +9207,29 @@ type ListRolesResult {
 """
 A DataHub Role is a high-level abstraction on top of Policies that dictates what actions users can take.
 """
-type Role {
+type Role implements Entity {
     """
-    The primary key of the Role
+    The primary key of the role
     """
     urn: String!
 
     """
-    The name of the Role
+    The standard Entity Type
+    """
+    type: EntityType!
+
+    """
+    Granular API for querying edges extending from the Role
+    """
+    relationships(input: RelationshipsInput!): EntityRelationshipsResult
+
+    """
+    The name of the Role.
     """
     name: String!
 
     """
     The description of the Role
     """
-    description: String
+    description: String!
 }

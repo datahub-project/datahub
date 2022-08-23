@@ -254,7 +254,7 @@ entities:
     keyAspect: schemaFieldKey
     aspects: []
   - name: dataHubRole
-    category: internal
+    category: core
     keyAspect: dataHubRoleKey
     aspects:
       - dataHubRoleInfo

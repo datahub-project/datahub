@@ -1,0 +1,30 @@
+[
+  {
+    "urn": "urn:li:dataHubRole:OrganizationAdmin",
+    "info": {
+      "name":"Organization Admin",
+      "description":"Top-level DataHub administrator. Has ALL privileges."
+    }
+  },
+  {
+    "urn": "urn:li:dataHubRole:AccessAdmin",
+    "info": {
+      "name":"Access Admin",
+      "description":"Able to manage users (including resetting passwords for native users) and groups. Can also edit policies and access tokens."
+    }
+  },
+  {
+    "urn": "urn:li:dataHubRole:MetadataSteward",
+    "info": {
+      "name":"Metadata Steward",
+      "description":"Able to both read and modify all assets across DataHub. Cannot make changes to users, group, policies and credentials."
+    }
+  },
+  {
+    "urn": "urn:li:dataHubRole:MetadataReader",
+    "info": {
+      "name":"Metadata Reader",
+      "description":"Able to read metadata, but cannot change it by default (unless they are an owner of an asset)."
+    }
+  }
+]
