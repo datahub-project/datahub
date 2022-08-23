@@ -40,6 +40,10 @@ const DomainNameContainer = styled.div`
     margin-right: 16px;
 `;
 
+const AvatarGroupWrapper = styled.div`
+    margin-right: 10px;
+`;
+
 type Props = {
     domain: Domain;
     onDelete?: () => void;
@@ -70,7 +74,9 @@ export default function DomainListItem({ domain, onDelete }: Props) {
                 </DomainStartContainer>
                 <DomainEndContainer>
                     {owners && owners.length > 0 && (
-                        <AvatarsGroup size={24} owners={owners} entityRegistry={entityRegistry} maxCount={4} />
+                        <AvatarGroupWrapper>
+                            <AvatarsGroup size={24} owners={owners} entityRegistry={entityRegistry} maxCount={4} />
+                        </AvatarGroupWrapper>
                     )}
                     <EntityDropdown
                         urn={domain.urn}
