@@ -10,16 +10,16 @@ from datahub.ingestion.api.report import Report
 
 @dataclass
 class SinkReport(Report):
-    records_written: int = 0
+    total_records_written: int = 0
+    records_written_per_second: int = 0
     warnings: List[Any] = field(default_factory=list)
     failures: List[Any] = field(default_factory=list)
     start_time: datetime.datetime = datetime.datetime.now()
     current_time: Optional[datetime.datetime] = None
     total_duration_in_seconds: Optional[float] = None
-    write_rate: float = -1
 
     def report_record_written(self, record_envelope: RecordEnvelope) -> None:
-        self.records_written += 1
+        self.total_records_written += 1
 
     def report_warning(self, info: Any) -> None:
         self.warnings.append(info)
@@ -35,7 +35,9 @@ class SinkReport(Report):
                 self.current_time - self.start_time
             ).total_seconds()
             if self.total_duration_in_seconds > 0:
-                self.write_rate = self.records_written / self.total_duration_in_seconds
+                self.records_written_per_second = int(
+                    self.total_records_written / self.total_duration_in_seconds
+                )
 
 
 class WriteCallback(metaclass=ABCMeta):
