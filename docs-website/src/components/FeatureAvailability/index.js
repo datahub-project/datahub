@@ -8,7 +8,7 @@ const FeatureAvailability = ({ saasOnly, ossOnly }) => (
     <strong>Feature Availability</strong>
     <div>
       <span className={clsx(styles.platform, !saasOnly && styles.platformAvailable)}>
-        Open Source DataHub {saasOnly ? <CloseCircleFilled /> : <CheckCircleFilled />}
+        Self-Hosted DataHub {saasOnly ? <CloseCircleFilled /> : <CheckCircleFilled />}
       </span>
     </div>
     <div>
