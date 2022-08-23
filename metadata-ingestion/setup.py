@@ -136,13 +136,9 @@ looker_common = {
 
 bigquery_common = {
     "google-api-python-client",
-    #Google cloud core needs to be set speed up dependency resoulution
-    "google_cloud_core>=2.3.0",
     # Google cloud logging library
-    "google-cloud-logging",
-    "google-cloud-bigquery>=3.0.0",
-    # Version set to 2.x+ to speed up dependency resolution
-    "google-resumable-media>=2.0.0",
+    "google-cloud-logging<3.1.2",
+    "google-cloud-bigquery",
     "more-itertools>=8.12.0",
 }
 
