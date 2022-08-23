@@ -30,13 +30,11 @@ default_args = {
 )
 def datahub_lineage_backend_taskflow_demo():
     @task(
-        inlets={
-            "datasets": [
-                Dataset("snowflake", "mydb.schema.tableA"),
-                Dataset("snowflake", "mydb.schema.tableB"),
-            ],
-        },
-        outlets={"datasets": [Dataset("snowflake", "mydb.schema.tableC")]},
+        inlets=[
+            Dataset("snowflake", "mydb.schema.tableA"),
+            Dataset("snowflake", "mydb.schema.tableB"),
+        ],
+        outlets=[Dataset("snowflake", "mydb.schema.tableC")],
     )
     def run_data_task():
         # This is where you might run your data tooling.

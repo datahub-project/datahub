@@ -46,6 +46,7 @@ We recommend you use the lineage plugin if you are on Airflow version >= 2.0.2 o
     |---|---|---|
     | datahub.datahub_conn_id | datahub_rest_default  | The name of the datahub connection you set in step 1.  |
     | datahub.cluster |  prod | name of the airflow cluster  |
+    | capture_executions | false | If true, it captures task runs as DataHub DataProcessInstances.  |
     | datahub.capture_ownership_info | true  |  If true, the owners field of the DAG will be capture as a DataHub corpuser.   |
     | datahub.capture_tags_info  | true   | If true, the tags field of the DAG will be captured as DataHub tags.  |
     | datahub.graceful_exceptions  | true  | If set to true, most runtime errors in the lineage backend will be suppressed and will not cause the overall task to fail. Note that configuration issues will still throw exceptions.|
@@ -101,6 +102,7 @@ If you are looking to run Airflow and DataHub using docker locally, follow the g
    datahub_kwargs = {
        "datahub_conn_id": "datahub_rest_default",
        "cluster": "prod",
+       "capture_executions": true,
        "capture_ownership_info": true,
        "capture_tags_info": true,
        "graceful_exceptions": true }
