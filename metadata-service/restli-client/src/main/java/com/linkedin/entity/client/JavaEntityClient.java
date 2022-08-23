@@ -51,6 +51,8 @@ import java.util.Set;
 import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
+import javax.mail.MethodNotSupportedException;
+
 import lombok.RequiredArgsConstructor;
 import lombok.SneakyThrows;
 import lombok.extern.slf4j.Slf4j;
@@ -479,6 +481,12 @@ public class JavaEntityClient implements EntityClient {
         @Nonnull PlatformEvent event,
         @Nonnull Authentication authentication) throws Exception {
         _eventProducer.producePlatformEvent(name, key, event);
+    }
+
+    @SneakyThrows
+    @Override
+    public void rollbackIngestion(@Nonnull String runId, @Nonnull Authentication authentication) throws Exception {
+        throw new MethodNotSupportedException();
     }
 
     private void tryIndexRunId(Urn entityUrn, @Nullable SystemMetadata systemMetadata) {

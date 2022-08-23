@@ -72,6 +72,11 @@ extend type Mutation {
   input: Input required for creating a test connection request
   """
   createTestConnectionRequest(input: CreateTestConnectionRequestInput!): String
+
+  """
+  Rollback a specific ingestion execution run based on its runId
+  """
+  rollbackIngestion(input: RollbackIngestionInput!): String
 }
 
 """
@@ -544,3 +549,14 @@ type SecretValue {
   """
   value: String!
 }
+
+"""
+Input for rolling back an ingestion execution
+"""
+input RollbackIngestionInput {
+  """
+  An ingestion run ID
+  """
+  runId: String!
+}
+

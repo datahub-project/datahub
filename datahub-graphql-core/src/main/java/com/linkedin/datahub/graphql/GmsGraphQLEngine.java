@@ -119,6 +119,7 @@ import com.linkedin.datahub.graphql.resolvers.ingest.execution.CreateIngestionEx
 import com.linkedin.datahub.graphql.resolvers.ingest.execution.CreateTestConnectionRequestResolver;
 import com.linkedin.datahub.graphql.resolvers.ingest.execution.GetIngestionExecutionRequestResolver;
 import com.linkedin.datahub.graphql.resolvers.ingest.execution.IngestionSourceExecutionRequestsResolver;
+import com.linkedin.datahub.graphql.resolvers.ingest.execution.RollbackIngestionResolver;
 import com.linkedin.datahub.graphql.resolvers.ingest.secret.CreateSecretResolver;
 import com.linkedin.datahub.graphql.resolvers.ingest.secret.DeleteSecretResolver;
 import com.linkedin.datahub.graphql.resolvers.ingest.secret.GetSecretValuesResolver;
@@ -280,6 +281,7 @@ import static graphql.Scalars.*;
 public class GmsGraphQLEngine {
 
     private final EntityClient entityClient;
+    private final EntityClient restliEntityClient;
     private final GraphClient graphClient;
     private final UsageClient usageClient;
     private final SiblingGraphService siblingGraphService;
@@ -358,6 +360,7 @@ public class GmsGraphQLEngine {
 
     public GmsGraphQLEngine(
         final EntityClient entityClient,
+        final EntityClient _restliEntityClient,
         final GraphClient graphClient,
         final UsageClient usageClient,
         final AnalyticsService analyticsService,
@@ -376,6 +379,7 @@ public class GmsGraphQLEngine {
         final SiblingGraphService siblingGraphService, final GroupService groupService) {
 
         this.entityClient = entityClient;
+        this.restliEntityClient = _restliEntityClient;
         this.graphClient = graphClient;
         this.usageClient = usageClient;
         this.siblingGraphService = siblingGraphService;
@@ -756,7 +760,7 @@ public class GmsGraphQLEngine {
             .dataFetcher("createNativeUserInviteToken", new CreateNativeUserInviteTokenResolver(this.nativeUserService))
             .dataFetcher("createNativeUserResetToken", new CreateNativeUserResetTokenResolver(this.nativeUserService))
             .dataFetcher("batchUpdateSoftDeleted", new BatchUpdateSoftDeletedResolver(this.entityService))
-
+            .dataFetcher("rollbackIngestion", new RollbackIngestionResolver(this.restliEntityClient))
         );
     }
 

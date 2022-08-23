@@ -7,6 +7,7 @@ import com.linkedin.datahub.graphql.GmsGraphQLEngine;
 import com.linkedin.datahub.graphql.GraphQLEngine;
 import com.linkedin.datahub.graphql.analytics.service.AnalyticsService;
 import com.linkedin.entity.client.JavaEntityClient;
+import com.linkedin.entity.client.RestliEntityClient;
 import com.linkedin.gms.factory.auth.DataHubTokenServiceFactory;
 import com.linkedin.gms.factory.common.GitVersionFactory;
 import com.linkedin.gms.factory.common.IndexConventionFactory;
@@ -54,6 +55,10 @@ public class GraphQLEngineFactory {
   @Autowired
   @Qualifier("javaEntityClient")
   private JavaEntityClient _entityClient;
+
+  @Autowired
+  @Qualifier("restliEntityClient")
+  private RestliEntityClient _restliEntityClient;
 
   @Autowired
   @Qualifier("graphClient")
@@ -122,6 +127,7 @@ public class GraphQLEngineFactory {
     if (isAnalyticsEnabled) {
       return new GmsGraphQLEngine(
           _entityClient,
+          _restliEntityClient,
           _graphClient,
           _usageClient,
           new AnalyticsService(elasticClient, indexConvention),
@@ -148,6 +154,7 @@ public class GraphQLEngineFactory {
     }
     return new GmsGraphQLEngine(
         _entityClient,
+        _restliEntityClient,
         _graphClient,
         _usageClient,
         null,
