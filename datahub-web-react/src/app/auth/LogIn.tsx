@@ -43,6 +43,8 @@ export type LogInProps = Record<string, never>;
 export const LogIn: React.VFC<LogInProps> = () => {
     const isLoggedIn = useReactiveVar(isLoggedInVar);
     const location = useLocation();
+    const params = QueryString.parse(location.search);
+    const maybeRedirectError = params.error_msg;
 
     const themeConfig = useTheme();
     const [loading, setLoading] = useState(false);
@@ -78,13 +80,15 @@ export const LogIn: React.VFC<LogInProps> = () => {
     );
 
     if (isLoggedIn) {
-        const params = QueryString.parse(location.search);
         const maybeRedirectUri = params.redirect_uri;
         return <Redirect to={(maybeRedirectUri && decodeURIComponent(maybeRedirectUri as string)) || '/'} />;
     }
 
     return (
         <div className={styles.login_page}>
+            {maybeRedirectError && maybeRedirectError.length > 0 && (
+                <Message type="error" content={maybeRedirectError} />
+            )}
             <div className={styles.login_box}>
                 <div className={styles.login_logo_box}>
                     <Image wrapperClassName={styles.logo_image} src={themeConfig.assets?.logoUrl} preview={false} />

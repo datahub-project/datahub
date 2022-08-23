@@ -25,6 +25,7 @@ from pydantic import BaseModel, root_validator, validator
 from pydantic.fields import Field
 
 from datahub.configuration.common import AllowDenyPattern, ConfigurationError
+from datahub.configuration.github import GitHubInfo
 from datahub.emitter import mce_builder
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.common import PipelineContext
@@ -296,6 +297,10 @@ class DBTConfig(StatefulIngestionConfigBase):
         default=False,
         description="Whether or not to strip email id while adding owners using dbt meta actions.",
     )
+    enable_owner_extraction: bool = Field(
+        default=True,
+        description="When enabled, ownership info will be extracted from the dbt meta",
+    )
     owner_extraction_pattern: Optional[str] = Field(
         default=None,
         description='Regex string to extract owner from the dbt node using the `(?P<name>...) syntax` of the [match object](https://docs.python.org/3/library/re.html#match-objects), where the group name must be `owner`. Examples: (1)`r"(?P<owner>(.*)): (\\w+) (\\w+)"` will extract `jdoe` as the owner from `"jdoe: John Doe"` (2) `r"@(?P<owner>(.*))"` will extract `alice` as the owner from `"@alice"`.',
@@ -311,6 +316,10 @@ class DBTConfig(StatefulIngestionConfigBase):
     backcompat_skip_source_on_lineage_edge: bool = Field(
         False,
         description="Prior to version 0.8.41, lineage edges to sources were directed to the target platform node rather than the dbt source node. This contradicted the established pattern for other lineage edges to point to upstream dbt nodes. To revert lineage logic to this legacy approach, set this flag to true.",
+    )
+    github_info: Optional[GitHubInfo] = Field(
+        None,
+        description="Reference to your github location to enable easy navigation from DataHub to your dbt files.",
     )
 
     @property
@@ -1778,6 +1787,12 @@ class DBTSource(StatefulIngestionSourceBase):
             tags=node.tags,
             name=node.name,
         )
+        if self.config.github_info is not None:
+            github_file_url = self.config.github_info.get_url_for_file_path(
+                node.dbt_file_path
+            )
+            dbt_properties.externalUrl = github_file_url
+
         return dbt_properties
 
     def _create_view_properties_aspect(self, node: DBTNode) -> ViewPropertiesClass:
@@ -1817,11 +1832,12 @@ class DBTSource(StatefulIngestionSourceBase):
         status = StatusClass(removed=False)
         aspects.append(status)
         # add owners aspect
-        # we need to aggregate owners added by meta properties and the owners that are coming from server.
-        meta_owner_aspects = meta_aspects.get(Constants.ADD_OWNER_OPERATION)
-        aggregated_owners = self._aggregate_owners(node, meta_owner_aspects)
-        if aggregated_owners:
-            aspects.append(OwnershipClass(owners=aggregated_owners))
+        if self.config.enable_owner_extraction:
+            # we need to aggregate owners added by meta properties and the owners that are coming from server.
+            meta_owner_aspects = meta_aspects.get(Constants.ADD_OWNER_OPERATION)
+            aggregated_owners = self._aggregate_owners(node, meta_owner_aspects)
+            if aggregated_owners:
+                aspects.append(OwnershipClass(owners=aggregated_owners))
 
         # add tags aspects
         meta_tags_aspect = meta_aspects.get(Constants.ADD_TAG_OPERATION)
