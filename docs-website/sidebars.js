@@ -40,33 +40,33 @@ module.exports = {
 
   overviewSidebar: {
     "What is DataHub?": [
-// By the end of this section, readers should understand the core use cases that DataHub addresses,
-// target end-users, high-level architecture, & hosting options
-     
+      // By the end of this section, readers should understand the core use cases that DataHub addresses,
+      // target end-users, high-level architecture, & hosting options
+
       // "docs/wip/what-is-datahub",
       "docs/features",
       {
-       Architecture: [
-        "docs/architecture/architecture",
-        "docs/components",
-        "docs/architecture/metadata-ingestion",
-        "docs/architecture/metadata-serving",
+        Architecture: [
+          "docs/architecture/architecture",
+          "docs/components",
+          "docs/architecture/metadata-ingestion",
+          "docs/architecture/metadata-serving",
         ],
       },
       "docs/demo", // rename this to "DataHub Demo"
       "docs/saas",
     ],
     "Get Started": [
-// The goal of this section is to provide the bare-minimum steps required to:
-//   - Get DataHub Running
-//   - Optionally configure SSO
-//   - Add/invite Users
-//   - Create Polices & assign roles
-//   - Ingest at least one source (ie. data warehouse)
-//   - Understand high-level options for enriching metadata
+      // The goal of this section is to provide the bare-minimum steps required to:
+      //   - Get DataHub Running
+      //   - Optionally configure SSO
+      //   - Add/invite Users
+      //   - Create Polices & assign roles
+      //   - Ingest at least one source (ie. data warehouse)
+      //   - Understand high-level options for enriching metadata
       "docs/wip/get-started",
       {
-       "Self-Hosted DataHub": [
+        "Self-Hosted DataHub": [
           "docs/quickstart",
           // "docs/wip/configure-sso",
           "docs/authentication/guides/add-users",
@@ -76,7 +76,7 @@ module.exports = {
           // "docs/wip/guide-enrich-your-metadata", // remove this; add in enrichment detail in ingest-your-first-source
         ],
       },
-      {  
+      {
         "Managed DataHub": [
           // {
           //   type: "doc",
@@ -102,29 +102,27 @@ module.exports = {
       },
     ],
     "Ingest Metadata": [
-// The purpose of this section is to provide a deeper understanding of how ingestion works.
-// Readers should be able to find details for ingesting from all systems, apply transformers, understand sinks,
-// and understand key concepts of the Ingestion Framework (Sources, Sinks, Transformers, and Recipes)
+      // The purpose of this section is to provide a deeper understanding of how ingestion works.
+      // Readers should be able to find details for ingesting from all systems, apply transformers, understand sinks,
+      // and understand key concepts of the Ingestion Framework (Sources, Sinks, Transformers, and Recipes)
       {
-        "Overview": [
+        Overview: [
           "metadata-ingestion/README",
           // "docs/wip/ingestion-overview",
-          "docs/ui-ingestion", 
+          "docs/ui-ingestion",
         ],
       },
-      
+
       {
         "Shift Left": [
           // "docs/wip/importance-of-shift-left",
         ],
       },
       {
-        "Sources": [ // collapse these; add push-based at top
+        Sources: [
+          // collapse these; add push-based at top
           {
-            Airflow: [
-              "docs/lineage/airflow", 
-              "docker/airflow/local_airflow"
-            ],
+            Airflow: ["docs/lineage/airflow", "docker/airflow/local_airflow"],
           },
           "metadata-integration/java/spark-lineage/README",
           "metadata-ingestion/integration_docs/great-expectations",
@@ -161,17 +159,14 @@ module.exports = {
       },
     ],
     "Enrich Metadata": [
-// The purpose of this section is to provide direction on how to enrich metadata when shift-left isn’t an option
+      // The purpose of this section is to provide direction on how to enrich metadata when shift-left isn’t an option
       // "docs/wip/csv-enrichment",
       // "docs/wip/ui-based-enrichment",
       "docs/domains",
       "docs/how/business-glossary-guide",
       "docs/tags",
       {
-        Lineage: [
-          "docs/lineage/intro", 
-          "docs/lineage/sample_code"
-        ],
+        Lineage: ["docs/lineage/intro", "docs/lineage/sample_code"],
       },
     ],
 
@@ -216,33 +211,32 @@ module.exports = {
           },
         ],
       },
-     //  {
-     //    type: "doc",
-     //    id: "docs/wip/metadata-tests",
-     //    className: "saasOnly",
-     //  },     
-     //  "docs/wip/metadata-analytics",
-     //  "docs/wip/impact-analysis",
-     // {
-     //    type: "doc",
-     //    id: "docs/wip/events-bridge",
-     //    className: "saasOnly",
-     //  },
-     //  {
-     //    type: "doc",
-     //    id: "docs/wip/datahub-incidents", // rename this to "Incidents"
-     //    className: "saasOnly",
-     //  },
-     //  {
-     //    type: "doc",
-     //    id: "docs/wip/approval-workflows",
-     //    className: "saasOnly",
-     //  },
-
+      //  {
+      //    type: "doc",
+      //    id: "docs/wip/metadata-tests",
+      //    className: "saasOnly",
+      //  },
+      //  "docs/wip/metadata-analytics",
+      //  "docs/wip/impact-analysis",
+      // {
+      //    type: "doc",
+      //    id: "docs/wip/events-bridge",
+      //    className: "saasOnly",
+      //  },
+      //  {
+      //    type: "doc",
+      //    id: "docs/wip/datahub-incidents", // rename this to "Incidents"
+      //    className: "saasOnly",
+      //  },
+      //  {
+      //    type: "doc",
+      //    id: "docs/wip/approval-workflows",
+      //    className: "saasOnly",
+      //  },
     ],
 
-    "Deploy DataHub":[
-// The purpose of this section is to provide the minimum steps required to deploy DataHub to the vendor of your choosing
+    "Deploy DataHub": [
+      // The purpose of this section is to provide the minimum steps required to deploy DataHub to the vendor of your choosing
       "docs/deploy/aws",
       "docs/deploy/gcp",
       "docker/README",
@@ -251,21 +245,21 @@ module.exports = {
         Authentication: [
           "docs/authentication/README",
           "docs/authentication/concepts",
-        {
-          "Frontend Authentication": [
-            "docs/authentication/guides/jaas",
-            {
-            "OIDC Authentication": [
-              "docs/authentication/guides/sso/configure-oidc-react",
-              "docs/authentication/guides/sso/configure-oidc-react-google",
-              "docs/authentication/guides/sso/configure-oidc-react-okta",
-              "docs/authentication/guides/sso/configure-oidc-react-azure",
-              ],
-            },
-          ],
-        },
+          {
+            "Frontend Authentication": [
+              "docs/authentication/guides/jaas",
+              {
+                "OIDC Authentication": [
+                  "docs/authentication/guides/sso/configure-oidc-react",
+                  "docs/authentication/guides/sso/configure-oidc-react-google",
+                  "docs/authentication/guides/sso/configure-oidc-react-okta",
+                  "docs/authentication/guides/sso/configure-oidc-react-azure",
+                ],
+              },
+            ],
+          },
           "docs/authentication/introducing-metadata-service-authentication",
-          "docs/authentication/personal-access-tokens",      
+          "docs/authentication/personal-access-tokens",
         ],
       },
       {
@@ -274,7 +268,6 @@ module.exports = {
           "docs/authorization/policies",
           "docs/authorization/groups",
         ],
-      
       },
       {
         "Advanced Guides": [
@@ -294,8 +287,8 @@ module.exports = {
       },
     ],
     "Developer Guides": [
-// The purpose of this section is to provide developers & technical users with
-// concrete tutorials for how to work with the DataHub CLI & APIs
+      // The purpose of this section is to provide developers & technical users with
+      // concrete tutorials for how to work with the DataHub CLI & APIs
       // "docs/wip/developer-guides",
       "docs/cli",
       {
@@ -381,7 +374,7 @@ module.exports = {
         ],
       },
       {
-        "SDKs": [
+        SDKs: [
           "metadata-ingestion/as-a-library",
           "metadata-integration/java/as-a-library",
         ],
@@ -406,7 +399,7 @@ module.exports = {
           "docs/developers",
           "docs/docker/development",
           {
-            "Modules": [
+            Modules: [
               "datahub-web-react/README",
               "datahub-frontend/README",
               "datahub-graphql-core/README",
@@ -418,24 +411,24 @@ module.exports = {
         ],
       },
       "docs/debugging",
-      
+
       {
-        "Advanced": [
+        Advanced: [
           "metadata-ingestion/docs/dev_guides/reporting_telemetry",
           "docs/advanced/mcp-mcl",
           "docker/datahub-upgrade/README",
           "docs/advanced/no-code-modeling",
           "datahub-web-react/src/app/analytics/README",
           "docs/advanced/aspect-versioning",
-          "docs/advanced/es-7-upgrade",          
+          "docs/advanced/es-7-upgrade",
           "docs/how/migrating-graph-service-implementation",
           "docs/advanced/field-path-spec-v2",
           "metadata-ingestion/developing",
           "metadata-ingestion/adding-source",
           "docs/how/add-custom-ingestion-source",
           "docs/how/add-custom-data-platform",
-        ],        
-      },   
+        ],
+      },
     ],
     "Feature Guides": [
       // "docs/wip/tutorials",
@@ -453,7 +446,7 @@ module.exports = {
       // "docs/wip/ui-ingestion-guide", -- not needed
       // "docs/wip/tags-guide", -- not needed
       // "docs/wip/personal-access-tokens-guide", -- not needed
-      
+
       {
         "Advanced Tutorials": [
           // "docs/wip/advanced-guides",
@@ -461,7 +454,7 @@ module.exports = {
         ],
       },
     ],
-    
+
     "Join the Community": [
       "docs/slack",
       "docs/townhalls",
@@ -475,54 +468,51 @@ module.exports = {
       },
     ],
 
-    "Release History": [
-      "releases",
-    ],
+    "Release History": ["releases"],
 
     // "Candidates for Deprecation": [
-      // "README",
-      // "docs/roadmap",
-      // "docs/advanced/backfilling", 
-      //"docs/advanced/derived-aspects",
-      //"docs/advanced/entity-hierarchy",
-      //"docs/advanced/partial-update",
-      //"docs/advanced/pdl-best-practices",
-      //"docs/introducing-metadata-service-authentication"
-      //"metadata-models-custom/README"
-      //"metadata-ingestion/examples/transforms/README"
-      //"docs/what/graph",
-      //"docs/what/search-index",
-      //"docs/how/add-new-aspect",
-      //"docs/how/build-metadata-service",
-      //"docs/how/graph-onboarding",
-      //"docs/demo/graph-onboarding",
-      //"metadata-ingestion-modules/airflow-plugin/README"
-      // "metadata-ingestion/schedule_docs/datahub", // we can delete this
-      // TODO: change the titles of these, removing the "What is..." portion from the sidebar"
-      // "docs/what/entity",
-      // "docs/what/aspect",
-      // "docs/what/urn",
-      // "docs/what/relationship",
-      // "docs/advanced/high-cardinality",
-      // "docs/what/search-document",
-      // "docs/what/snapshot",
-      // "docs/what/delta",
-      // - "docker/datahub-frontend/README",
-      // - "docker/datahub-gms/README",
-      // - "docker/datahub-mae-consumer/README",
-      // - "docker/datahub-mce-consumer/README",
-      // - "docker/datahub-ingestion/README",
-      // - "docker/elasticsearch-setup/README",
-      // - "docker/ingestion/README",
-      // - "docker/kafka-setup/README",
-      // - "docker/mariadb/README",
-      // - "docker/mysql/README",
-      // - "docker/neo4j/README",
-      // - "docker/postgres/README",
-      // - "perf-test/README",
-      // "metadata-jobs/README",
-      // "docs/how/add-user-data",
+    // "README",
+    // "docs/roadmap",
+    // "docs/advanced/backfilling",
+    //"docs/advanced/derived-aspects",
+    //"docs/advanced/entity-hierarchy",
+    //"docs/advanced/partial-update",
+    //"docs/advanced/pdl-best-practices",
+    //"docs/introducing-metadata-service-authentication"
+    //"metadata-models-custom/README"
+    //"metadata-ingestion/examples/transforms/README"
+    //"docs/what/graph",
+    //"docs/what/search-index",
+    //"docs/how/add-new-aspect",
+    //"docs/how/build-metadata-service",
+    //"docs/how/graph-onboarding",
+    //"docs/demo/graph-onboarding",
+    //"metadata-ingestion-modules/airflow-plugin/README"
+    // "metadata-ingestion/schedule_docs/datahub", // we can delete this
+    // TODO: change the titles of these, removing the "What is..." portion from the sidebar"
+    // "docs/what/entity",
+    // "docs/what/aspect",
+    // "docs/what/urn",
+    // "docs/what/relationship",
+    // "docs/advanced/high-cardinality",
+    // "docs/what/search-document",
+    // "docs/what/snapshot",
+    // "docs/what/delta",
+    // - "docker/datahub-frontend/README",
+    // - "docker/datahub-gms/README",
+    // - "docker/datahub-mae-consumer/README",
+    // - "docker/datahub-mce-consumer/README",
+    // - "docker/datahub-ingestion/README",
+    // - "docker/elasticsearch-setup/README",
+    // - "docker/ingestion/README",
+    // - "docker/kafka-setup/README",
+    // - "docker/mariadb/README",
+    // - "docker/mysql/README",
+    // - "docker/neo4j/README",
+    // - "docker/postgres/README",
+    // - "perf-test/README",
+    // "metadata-jobs/README",
+    // "docs/how/add-user-data",
     // ],
-
   },
 };
