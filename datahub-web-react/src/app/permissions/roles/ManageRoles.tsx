@@ -7,13 +7,14 @@ import { useListRolesQuery } from '../../../graphql/role.generated';
 import { Message } from '../../shared/Message';
 import TabToolbar from '../../entity/shared/components/styled/TabToolbar';
 import { StyledTable } from '../../entity/shared/components/styled/StyledTable';
-import AvatarsGroup from '../policy/AvatarsGroup';
+import AvatarsGroup from '../AvatarsGroup';
 import { useEntityRegistry } from '../../useEntityRegistry';
 import { SearchBar } from '../../search/SearchBar';
 import { SearchSelectModal } from '../../entity/shared/components/styled/search/SearchSelectModal';
 import { EntityCapabilityType } from '../../entity/Entity';
 import { useBatchAssignRoleToActorsMutation } from '../../../graphql/mutations.generated';
-import { CorpUser } from '../../../types.generated';
+import { CorpUser, Role } from '../../../types.generated';
+import RoleDetailsModal from './RoleDetailsModal';
 
 const SourceContainer = styled.div``;
 
@@ -22,7 +23,7 @@ const PaginationContainer = styled.div`
     justify-content: center;
 `;
 
-const PolicyName = styled.span`
+const RoleName = styled.span`
     cursor: pointer;
     font-weight: 700;
 `;
@@ -41,7 +42,8 @@ export const ManageRoles = () => {
     const paramsQuery = (params?.query as string) || undefined;
     const [query, setQuery] = useState<undefined | string>(undefined);
     const [isBatchAddRolesModalVisible, setIsBatchAddRolesModalVisible] = useState(false);
-    const [activeRoleInModal, setActiveRoleInModal] = useState('');
+    const [focusRole, setFocusRole] = useState<Role>();
+    const [showViewRoleModal, setShowViewRoleModal] = useState(false);
     useEffect(() => setQuery(paramsQuery), [paramsQuery]);
 
     // Role list paging.
@@ -67,22 +69,34 @@ export const ManageRoles = () => {
 
     const totalRoles = rolesData?.listRoles?.total || 0;
     const roles = useMemo(() => rolesData?.listRoles?.roles || [], [rolesData]);
+    const onViewRole = (role: Role) => {
+        setFocusRole(role);
+        setShowViewRoleModal(true);
+    };
+    const resetRoleState = () => {
+        setIsBatchAddRolesModalVisible(false);
+        setShowViewRoleModal(false);
+        setFocusRole(undefined);
+    };
 
     const [batchAssignRoleToActorsMutation] = useBatchAssignRoleToActorsMutation();
     // eslint-disable-next-line
     const batchAssignRoleToActors = (actorUrns: Array<string>) => {
+        if (!focusRole || !focusRole.urn) {
+            return;
+        }
         batchAssignRoleToActorsMutation({
             variables: {
                 input: {
-                    roleUrn: activeRoleInModal,
+                    roleUrn: focusRole?.urn,
                     actors: actorUrns,
                 },
             },
         })
             .then(({ errors }) => {
                 if (!errors) {
-                    setIsBatchAddRolesModalVisible(false);
-                    setActiveRoleInModal('');
+                    // setIsBatchAddRolesModalVisible(false);
+                    // setFocusRole(undefined);
                     message.success({
                         content: `Assigned Role to users!`,
                         duration: 2,
@@ -95,6 +109,9 @@ export const ManageRoles = () => {
             .catch((e) => {
                 message.destroy();
                 message.error({ content: `Failed to assign Role to users: \n ${e.message || ''}`, duration: 3 });
+            })
+            .finally(() => {
+                resetRoleState();
             });
     };
 
@@ -109,7 +126,12 @@ export const ManageRoles = () => {
             key: 'name',
             render: (_, record: any) => {
                 return (
-                    <PolicyName style={{ color: record?.editable ? '#000000' : '#8C8C8C' }}>{record?.name}</PolicyName>
+                    <RoleName
+                        onClick={() => onViewRole(record.role)}
+                        style={{ color: record?.editable ? '#000000' : '#8C8C8C' }}
+                    >
+                        {record?.name}
+                    </RoleName>
                 );
             },
         },
@@ -166,7 +188,7 @@ export const ManageRoles = () => {
                         <Button
                             onClick={() => {
                                 setIsBatchAddRolesModalVisible(true);
-                                setActiveRoleInModal(record.urn);
+                                setFocusRole(record.role);
                             }}
                         >
                             ASSIGN
@@ -178,6 +200,7 @@ export const ManageRoles = () => {
     ];
 
     const tableData = roles?.map((role) => ({
+        role,
         urn: role?.urn,
         type: role?.type,
         description: role?.description,
@@ -211,13 +234,10 @@ export const ManageRoles = () => {
                     />
                     {isBatchAddRolesModalVisible && (
                         <SearchSelectModal
-                            titleText={`Assign ${activeRoleInModal} Role to Users`}
+                            titleText={`Assign ${focusRole?.name} Role to Users`}
                             continueText="Add"
                             onContinue={batchAssignRoleToActors}
-                            onCancel={() => {
-                                setIsBatchAddRolesModalVisible(false);
-                                setActiveRoleInModal('');
-                            }}
+                            onCancel={resetRoleState}
                             fixedEntityTypes={Array.from(
                                 entityRegistry.getTypesWithSupportedCapabilities(EntityCapabilityType.ROLES),
                             )}
@@ -245,6 +265,9 @@ export const ManageRoles = () => {
                     showSizeChanger={false}
                 />
             </PaginationContainer>
+            {showViewRoleModal && (
+                <RoleDetailsModal role={focusRole as Role} visible={showViewRoleModal} onClose={resetRoleState} />
+            )}
         </PageContainer>
     );
 };

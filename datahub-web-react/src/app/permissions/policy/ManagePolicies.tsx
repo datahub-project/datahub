@@ -28,7 +28,7 @@ import { Message } from '../../shared/Message';
 import { EMPTY_POLICY } from './policyUtils';
 import TabToolbar from '../../entity/shared/components/styled/TabToolbar';
 import { StyledTable } from '../../entity/shared/components/styled/StyledTable';
-import AvatarsGroup from './AvatarsGroup';
+import AvatarsGroup from '../AvatarsGroup';
 import { useEntityRegistry } from '../../useEntityRegistry';
 import { ANTD_GRAY } from '../../entity/shared/constants';
 import { SearchBar } from '../../search/SearchBar';

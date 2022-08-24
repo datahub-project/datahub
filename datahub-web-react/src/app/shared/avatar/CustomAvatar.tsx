@@ -31,6 +31,7 @@ type Props = {
     placement?: TooltipPlacement;
     size?: number;
     isGroup?: boolean;
+    isRole?: boolean;
 };
 
 export default function CustomAvatar({
@@ -42,6 +43,7 @@ export default function CustomAvatar({
     placement,
     size,
     isGroup = false,
+    isRole = false,
 }: Props) {
     const avatarWithInitial = name ? (
         <AvatarStyled style={style} size={size} $backgroundColor={getAvatarColor(name)}>
@@ -64,8 +66,14 @@ export default function CustomAvatar({
     if (!name) {
         return url ? <Link to={url}>{avatar}</Link> : avatar;
     }
+    let title = `${name}`;
+    if (isGroup) {
+        title = `${title} - Group`;
+    } else if (isRole) {
+        title = `${title} - Role`;
+    }
     return (
-        <Tooltip title={isGroup ? `${name} - Group` : name} placement={placement}>
+        <Tooltip title={title} placement={placement}>
             {url ? <Link to={url}>{avatar}</Link> : avatar}
         </Tooltip>
     );

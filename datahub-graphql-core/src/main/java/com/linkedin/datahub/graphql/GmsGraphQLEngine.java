@@ -1389,6 +1389,9 @@ public class GmsGraphQLEngine {
             })).dataFetcher("resolvedGroups", new LoadableTypeBatchResolver<>(corpGroupType, (env) -> {
             final ActorFilter filter = env.getSource();
             return filter.getGroups();
+        })).dataFetcher("resolvedRoles", new LoadableTypeBatchResolver<>(roleType, (env) -> {
+            final ActorFilter filter = env.getSource();
+            return filter.getRoles();
         })));
     }
 

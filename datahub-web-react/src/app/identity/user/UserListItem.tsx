@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import styled from 'styled-components';
 import { Dropdown, List, Menu, Tag, Tooltip, Typography } from 'antd';
 import { Link } from 'react-router-dom';
-import { DeleteOutlined, MoreOutlined, UnlockOutlined, UserSwitchOutlined } from '@ant-design/icons';
+import { DeleteOutlined, CaretDownOutlined, MoreOutlined, UnlockOutlined, UserSwitchOutlined } from '@ant-design/icons';
 import { CorpUser, CorpUserStatus, EntityType, Role } from '../../../types.generated';
 import CustomAvatar from '../../shared/avatar/CustomAvatar';
 import { useEntityRegistry } from '../../useEntityRegistry';
@@ -37,6 +37,11 @@ const ButtonGroup = styled.div`
     display: flex;
     justify-content: space-evenly;
     align-items: center;
+`;
+
+const UserRoleTag = styled.div`
+    display: flex;
+    justify-content: space-between;
 `;
 
 const MenuIcon = styled(MoreOutlined)<{ fontSize?: number }>`
@@ -113,11 +118,9 @@ export default function UserListItem({ user, canManageUserCredentials, roles, on
             </UserItemContainer>
             <ButtonGroup>
                 <Dropdown
-                    trigger={['hover']}
+                    trigger={['click']}
                     overlay={
                         <Menu>
-                            {/* <Menu.Item>&nbsp; Organization Admin</Menu.Item>
-                            <Menu.Item>&nbsp; Metadata Reader</Menu.Item> */}
                             {filteredRoles.map((role) => (
                                 <Menu.Item
                                     onClick={() => {
@@ -131,9 +134,24 @@ export default function UserListItem({ user, canManageUserCredentials, roles, on
                         </Menu>
                     }
                 >
-                    <Tag style={{ minWidth: 125 }} color={ANTD_GRAY[6]}>
-                        <UserSwitchOutlined />
-                        <Typography.Text style={{ color: 'white' }}>{userRoleName || 'No Role'}</Typography.Text>
+                    <Tag
+                        style={{
+                            minWidth: 160,
+                            paddingTop: 3,
+                            paddingBottom: 3,
+                            textAlign: 'left',
+                        }}
+                        color={ANTD_GRAY[7]}
+                    >
+                        <UserRoleTag>
+                            <div>
+                                <UserSwitchOutlined style={{ marginRight: 6 }} />
+                                <Typography.Text style={{ color: 'white', fontSize: 12 }}>
+                                    {userRoleName || 'No Role'}
+                                </Typography.Text>
+                            </div>
+                            <CaretDownOutlined style={{ marginTop: 4 }} />
+                        </UserRoleTag>
                     </Tag>
                 </Dropdown>
 
