@@ -141,6 +141,11 @@ export const RunsTab = () => {
         );
     }
 
+    const onChangePage = (newPage: number) => {
+        window.scrollTo({ top: 0, left: 0 });
+        setPage(newPage);
+    };
+
     return (
         <>
             <Table dataSource={tableData} columns={columns} pagination={false} />
@@ -150,7 +155,7 @@ export const RunsTab = () => {
                     pageSize={PAGE_SIZE}
                     total={data?.dataJob?.runs?.total || 0}
                     showLessItems
-                    onChange={(newPage) => setPage(newPage)}
+                    onChange={onChangePage}
                     showSizeChanger={false}
                 />
             </PaginationControlContainer>

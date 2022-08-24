@@ -96,6 +96,7 @@ export default function GroupMembers({ urn, pageSize, isExternalGroup, onChangeM
     const [removeGroupMembersMutation] = useRemoveGroupMembersMutation();
 
     const onChangeMembersPage = (newPage: number) => {
+        window.scrollTo({ top: 0, left: 0 });
         setPage(newPage);
     };
 

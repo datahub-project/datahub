@@ -150,6 +150,11 @@ export const OperationsTab = () => {
             parentTemplate: run?.parentTemplate?.relationships?.[0]?.entity,
         }));
 
+    const onChangePage = (newPage: number) => {
+        window.scrollTo({ top: 0, left: 0 });
+        setPage(newPage);
+    };
+
     return (
         <>
             <ReadWriteButtonGroup>
@@ -181,7 +186,7 @@ export const OperationsTab = () => {
                             pageSize={PAGE_SIZE}
                             total={data?.dataset?.runs?.total || 0}
                             showLessItems
-                            onChange={(newPage) => setPage(newPage)}
+                            onChange={onChangePage}
                             showSizeChanger={false}
                         />
                     </PaginationControlContainer>

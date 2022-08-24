@@ -200,6 +200,7 @@ export const AccessTokens = () => {
     ];
 
     const onChangePage = (newPage: number) => {
+        window.scrollTo({ top: 0, left: 0 });
         setPage(newPage);
     };
 

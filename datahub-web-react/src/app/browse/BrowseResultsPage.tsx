@@ -44,6 +44,7 @@ export const BrowseResultsPage = () => {
     }
 
     const onChangePage = (newPage: number) => {
+        window.scrollTo({ top: 0, left: 0 });
         history.push({
             pathname: rootPath,
             search: `&page=${newPage}`,

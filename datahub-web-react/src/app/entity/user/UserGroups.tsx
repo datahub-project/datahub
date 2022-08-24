@@ -81,6 +81,7 @@ export default function UserGroups({ urn, initialRelationships, pageSize }: Prop
     const [getGroups, { data: groupsData }] = useGetUserGroupsLazyQuery();
 
     const onChangeGroupsPage = (newPage: number) => {
+        window.scrollTo({ top: 0, left: 0 });
         setPage(newPage);
         const start = (newPage - 1) * pageSize;
         getGroups({ variables: { urn, start, count: pageSize } });

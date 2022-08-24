@@ -74,6 +74,7 @@ export const DomainsList = () => {
     const filteredDomains = domains.filter((domain) => !removedUrns.includes(domain.urn));
 
     const onChangePage = (newPage: number) => {
+        window.scrollTo({ top: 0, left: 0 });
         setPage(newPage);
     };
 

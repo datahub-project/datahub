@@ -61,6 +61,7 @@ export const GroupList = () => {
     const filteredGroups = groups.filter((group) => !removedUrns.includes(group.urn));
 
     const onChangePage = (newPage: number) => {
+        window.scrollTo({ top: 0, left: 0 });
         setPage(newPage);
     };
 
