@@ -91,10 +91,22 @@ export const IngestionSourceExecutionList = ({ urn, lastRefresh, onRefresh }: Pr
     function handleRollbackExecution(runId: string) {
         Modal.confirm({
             title: `Confirm Rollback`,
-            content:
-                'Rolling back this ingestion run will soft delete any data associated with it. Are you sure you want to continue?',
+            content: (
+                <div>
+                    Rolling back this ingestion run will soft delete any data specifically associated with with this
+                    run. If overlapping data has been ingested in previous runs, it may not be removed.
+                    <br />
+                    <br /> Are you sure you want to continue?
+                </div>
+            ),
             onOk() {
-                rollbackIngestion({ variables: { input: { runId } } });
+                message.loading('Rolling back...');
+                rollbackIngestion({ variables: { input: { runId } } }).then(() => {
+                    refetch();
+                    onRefresh();
+                    message.destroy();
+                    message.success('Successfully rolled back ingestion run');
+                });
             },
             onCancel() {},
             okText: 'Rollback',

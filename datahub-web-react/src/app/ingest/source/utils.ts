@@ -1,5 +1,11 @@
 import YAML from 'yamljs';
-import { CheckCircleOutlined, ClockCircleOutlined, CloseCircleOutlined, LoadingOutlined } from '@ant-design/icons';
+import {
+    CheckCircleOutlined,
+    ClockCircleOutlined,
+    CloseCircleOutlined,
+    LoadingOutlined,
+    WarningOutlined,
+} from '@ant-design/icons';
 import { ANTD_GRAY, REDESIGN_COLORS } from '../../entity/shared/constants';
 import { SOURCE_TEMPLATE_CONFIGS } from './conf/sources';
 import { EntityType, FacetMetadata } from '../../../types.generated';
@@ -35,6 +41,7 @@ export const SUCCESS = 'SUCCESS';
 export const FAILURE = 'FAILURE';
 export const CANCELLED = 'CANCELLED';
 export const UP_FOR_RETRY = 'UP_FOR_RETRY';
+export const ROLLED_BACK = 'ROLLED_BACK';
 
 export const CLI_EXECUTOR_ID = '__datahub_cli_';
 export const MANUAL_INGESTION_SOURCE = 'MANUAL_INGESTION_SOURCE';
@@ -48,6 +55,7 @@ export const getExecutionRequestStatusIcon = (status: string) => {
         (status === FAILURE && CloseCircleOutlined) ||
         (status === CANCELLED && CloseCircleOutlined) ||
         (status === UP_FOR_RETRY && ClockCircleOutlined) ||
+        (status === ROLLED_BACK && WarningOutlined) ||
         undefined
     );
 };
@@ -59,6 +67,7 @@ export const getExecutionRequestStatusDisplayText = (status: string) => {
         (status === FAILURE && 'Failed') ||
         (status === CANCELLED && 'Cancelled') ||
         (status === UP_FOR_RETRY && 'Up for Retry') ||
+        (status === ROLLED_BACK && 'Rolled Back') ||
         status
     );
 };
@@ -73,6 +82,8 @@ export const getExecutionRequestSummaryText = (status: string) => {
             return 'Ingestion completed with errors';
         case CANCELLED:
             return 'Ingestion was cancelled';
+        case ROLLED_BACK:
+            return 'Ingestion was rolled back';
         default:
             return 'Ingestion status not recognized';
     }
@@ -85,6 +96,7 @@ export const getExecutionRequestStatusDisplayColor = (status: string) => {
         (status === FAILURE && 'red') ||
         (status === UP_FOR_RETRY && 'orange') ||
         (status === CANCELLED && ANTD_GRAY[9]) ||
+        (status === ROLLED_BACK && 'orange') ||
         ANTD_GRAY[7]
     );
 };

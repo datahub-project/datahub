@@ -10,6 +10,7 @@ import {
     SCHEDULED_INGESTION_SOURCE,
     MANUAL_INGESTION_SOURCE,
     RUNNING,
+    SUCCESS,
 } from '../utils';
 
 const StatusContainer = styled.div`
@@ -96,7 +97,7 @@ export function ButtonsColumn({
                     CANCEL
                 </Button>
             )}
-            {record.status !== RUNNING && record.isLatestExecution && (
+            {record.status === SUCCESS && record.isLatestExecution && (
                 <Button style={{ marginRight: 16 }} onClick={() => handleRollbackExecution(record.id)}>
                     ROLLBACK
                 </Button>
