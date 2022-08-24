@@ -23,16 +23,18 @@ describe('DefineRecipeStep', () => {
 
     it('should not render the RecipeBuilder if the type is not in CONNECTORS_WITH_FORM', () => {
         const { getByText, queryByText } = render(
-            <DefineRecipeStep
-                state={{ type: 'postgres' }}
-                updateState={() => {}}
-                goTo={() => {}}
-                submit={() => {}}
-                cancel={() => {}}
-            />,
+            <MockedProvider>
+                <DefineRecipeStep
+                    state={{ type: 'glue' }}
+                    updateState={() => {}}
+                    goTo={() => {}}
+                    submit={() => {}}
+                    cancel={() => {}}
+                />
+            </MockedProvider>,
         );
 
-        expect(getByText('Configure Postgres Recipe')).toBeInTheDocument();
+        expect(getByText('Configure Glue Recipe')).toBeInTheDocument();
         expect(queryByText('Connection')).toBeNull();
     });
 });

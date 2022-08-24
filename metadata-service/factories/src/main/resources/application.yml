@@ -73,7 +73,7 @@ datahub:
 entityService:
   impl: ${ENTITY_SERVICE_IMPL:ebean}
   retention:
-    enabled: ${ENTITY_SERVICE_ENABLE_RETENTION:false}
+    enabled: ${ENTITY_SERVICE_ENABLE_RETENTION:true}
 
 graphService:
   type: ${GRAPH_SERVICE_IMPL:elasticsearch}
