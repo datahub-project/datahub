@@ -58,6 +58,8 @@ export const AdvancedSearchFilters = ({ facets, selectedFilters, onFilterSelect 
                 <Option value="columnTag">Column Tag</Option>
                 <Option value="term">Term</Option>
                 <Option value="columnTerm">Column Term</Option>
+                <Option value="columnName">Column</Option>
+                <Option value="description">Description</Option>
             </Select>
             {selectedFilters.map((filter) => (
                 <AdvancedSearchFilter
@@ -65,6 +67,16 @@ export const AdvancedSearchFilters = ({ facets, selectedFilters, onFilterSelect 
                     filter={filter}
                     onClose={() => {
                         onFilterSelect(selectedFilters.filter((f) => f !== filter));
+                    }}
+                    onUpdate={(newValue) => {
+                        onFilterSelect(
+                            selectedFilters.map((f) => {
+                                if (f === filter) {
+                                    return newValue;
+                                }
+                                return f;
+                            }),
+                        );
                     }}
                 />
             ))}

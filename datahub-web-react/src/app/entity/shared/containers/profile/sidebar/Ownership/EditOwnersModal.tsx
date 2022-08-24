@@ -43,12 +43,26 @@ type Props = {
     entityType?: EntityType; // Only used for tracking events
     onOkOverride?: (result: SelectedOwner[]) => void;
     title?: string;
+    initialUrns?: string[];
 };
 
 // value: {ownerUrn: string, ownerEntityType: EntityType}
 type SelectedOwner = {
     label: string;
-    value;
+    value: {
+        ownerUrn: string;
+        ownerEntityType: EntityType;
+    };
+};
+
+const urnToSelectedOwners = (urns: string[]): SelectedOwner[] => {
+    return urns.map((urn) => ({
+        label: urn,
+        value: {
+            ownerUrn: urn,
+            ownerEntityType: EntityType.CorpUser,
+        },
+    }));
 };
 
 export const EditOwnersModal = ({
@@ -61,13 +75,15 @@ export const EditOwnersModal = ({
     entityType,
     onOkOverride,
     title,
+    initialUrns,
 }: Props) => {
     const entityRegistry = useEntityRegistry();
     const [inputValue, setInputValue] = useState('');
     const [batchAddOwnersMutation] = useBatchAddOwnersMutation();
     const [batchRemoveOwnersMutation] = useBatchRemoveOwnersMutation();
     const ownershipTypes = OWNERSHIP_DISPLAY_TYPES;
-    const [selectedOwners, setSelectedOwners] = useState<SelectedOwner[]>([]);
+    const [selectedOwners, setSelectedOwners] = useState<SelectedOwner[]>(urnToSelectedOwners(initialUrns || []));
+    console.log({ selectedOwners, initialUrns });
     const [selectedOwnerType, setSelectedOwnerType] = useState<OwnershipType>(defaultOwnerType || OwnershipType.None);
 
     // User and group dropdown search results!
@@ -153,7 +169,7 @@ export const EditOwnersModal = ({
                     label: selectedValue.value,
                     value: {
                         ownerUrn: selectedValue.value,
-                        ownerEntityType,
+                        ownerEntityType: ownerEntityType as unknown as EntityType,
                     },
                 },
             ];
@@ -163,6 +179,11 @@ export const EditOwnersModal = ({
 
     // When a owner search result is deselected, remove the Owner
     const onDeselectOwner = (selectedValue: { key: string; label: React.ReactNode; value: string }) => {
+        console.log({
+            deselecting: 'deselecting',
+            selectedValue,
+            selectedOwners,
+        });
         setInputValue('');
         const newValues = selectedOwners.filter((owner) => owner.label !== selectedValue.value);
         setSelectedOwners(newValues);
@@ -321,7 +342,12 @@ export const EditOwnersModal = ({
                             }}
                             tagRender={tagRender}
                             onBlur={handleBlur}
-                            value={selectedOwners}
+                            value={selectedOwners as any}
+                            defaultValue={selectedOwners.map((owner) => ({
+                                key: owner.value.ownerUrn,
+                                value: owner.value.ownerUrn,
+                                label: owner.value.ownerUrn,
+                            }))}
                         >
                             {ownerSearchOptions}
                         </SelectInput>

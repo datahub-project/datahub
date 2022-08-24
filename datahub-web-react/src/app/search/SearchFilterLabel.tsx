@@ -25,7 +25,7 @@ import { IconStyleType } from '../entity/Entity';
 type Props = {
     aggregation: AggregationMetadata;
     field: string;
-    hideCounts?: boolean;
+    hideCount?: boolean;
 };
 
 const PreviewImage = styled.img`
@@ -39,16 +39,16 @@ const PreviewImage = styled.img`
 const MAX_COUNT_VAL = 10000;
 
 // SearchFilterLabel renders custom labels for entity, tag, term & data platform filters. All other filters use the default behavior.
-export const SearchFilterLabel = ({ aggregation, field, hideCounts }: Props) => {
-    console.log(hideCounts);
+export const SearchFilterLabel = ({ aggregation, field, hideCount }: Props) => {
     const entityRegistry = useEntityRegistry();
-    const countText = aggregation.count === MAX_COUNT_VAL ? '10000+' : aggregation.count;
+    const countText = hideCount ? '' : ` (${aggregation.count === MAX_COUNT_VAL ? '10000+' : aggregation.count})`;
 
     if (field === ENTITY_FILTER_NAME) {
         const entityType = aggregation.value.toUpperCase() as EntityType;
         return (
             <span>
-                {entityType ? entityRegistry.getCollectionName(entityType) : aggregation.value} ({countText})
+                {entityType ? entityRegistry.getCollectionName(entityType) : aggregation.value}
+                {countText}
             </span>
         );
     }
@@ -62,7 +62,7 @@ export const SearchFilterLabel = ({ aggregation, field, hideCounts }: Props) => 
                 <StyledTag $colorHash={tag?.urn} $color={tag?.properties?.colorHex}>
                     {truncatedDisplayName}
                 </StyledTag>
-                ({countText})
+                {countText}
             </Tooltip>
         );
     }
@@ -82,7 +82,8 @@ export const SearchFilterLabel = ({ aggregation, field, hideCounts }: Props) => 
                         marginRight: 8,
                     }}
                 />
-                {displayName} ({countText})
+                {displayName}
+                {countText}
             </Tooltip>
         );
     }
@@ -96,7 +97,8 @@ export const SearchFilterLabel = ({ aggregation, field, hideCounts }: Props) => 
                 <span style={{ marginRight: 8 }}>
                     {entityRegistry.getIcon(EntityType.CorpGroup, 16, IconStyleType.ACCENT)}
                 </span>
-                {truncatedDisplayName} ({countText})
+                {truncatedDisplayName}
+                {countText}
             </Tooltip>
         );
     }
@@ -111,7 +113,7 @@ export const SearchFilterLabel = ({ aggregation, field, hideCounts }: Props) => 
                     <BookOutlined style={{ marginRight: '3%' }} />
                     {truncatedDisplayName}
                 </Tag>
-                ({countText})
+                {countText}
             </Tooltip>
         );
     }
@@ -126,7 +128,8 @@ export const SearchFilterLabel = ({ aggregation, field, hideCounts }: Props) => 
                     <PreviewImage src={platform.properties?.logoUrl} alt={platform.name} />
                 )}
                 <span>
-                    {truncatedDisplayName} ({countText})
+                    {truncatedDisplayName}
+                    {countText}
                 </span>
             </Tooltip>
         );
@@ -138,7 +141,8 @@ export const SearchFilterLabel = ({ aggregation, field, hideCounts }: Props) => 
         const truncatedDisplayName = displayName.length > 25 ? `${displayName.slice(0, 25)}...` : displayName;
         return (
             <Tooltip title={displayName}>
-                {truncatedDisplayName} ({countText})
+                {truncatedDisplayName}
+                {countText}
             </Tooltip>
         );
     }
@@ -153,7 +157,8 @@ export const SearchFilterLabel = ({ aggregation, field, hideCounts }: Props) => 
                     <PreviewImage src={container.platform?.properties?.logoUrl} alt={container.properties?.name} />
                 )}
                 <span>
-                    {truncatedDisplayName} ({countText})
+                    {truncatedDisplayName}
+                    {countText}
                 </span>
             </Tooltip>
         );
@@ -165,7 +170,8 @@ export const SearchFilterLabel = ({ aggregation, field, hideCounts }: Props) => 
         const truncatedDomainName = displayName.length > 25 ? `${displayName.slice(0, 25)}...` : displayName;
         return (
             <Tooltip title={displayName}>
-                <DomainLink urn={domain.urn} name={truncatedDomainName} />({countText})
+                <DomainLink urn={domain.urn} name={truncatedDomainName} />
+                {countText}
             </Tooltip>
         );
     }
@@ -177,7 +183,8 @@ export const SearchFilterLabel = ({ aggregation, field, hideCounts }: Props) => 
         return (
             <Tooltip title={displayName}>
                 <span>
-                    {truncatedDomainName} ({countText})
+                    {truncatedDomainName}
+                    {countText}
                 </span>
             </Tooltip>
         );
@@ -188,7 +195,8 @@ export const SearchFilterLabel = ({ aggregation, field, hideCounts }: Props) => 
     }
     return (
         <>
-            {aggregation.value} ({countText})
+            {aggregation.value}
+            {countText}
         </>
     );
 };
