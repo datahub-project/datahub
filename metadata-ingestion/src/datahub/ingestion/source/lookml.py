@@ -1213,7 +1213,7 @@ class LookMLSource(Source):
 
         if (
             self.source_config.tag_measures_and_dimensions
-            and self.reporter.workunits_produced != 0
+            and self.reporter.events_produced != 0
         ):
             # Emit tag MCEs for measures and dimensions:
             for tag_mce in LookerUtil.get_tag_mces():

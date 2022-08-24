@@ -21,4 +21,4 @@ def check_mce_file(filepath: str) -> str:
             f"Failed to process file due to {mce_source.get_report().failures}"
         )
     else:
-        return f"{mce_source.get_report().workunits_produced} MCEs found - all valid"
+        return f"{mce_source.get_report().events_produced} MCEs found - all valid"

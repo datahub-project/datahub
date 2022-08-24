@@ -66,13 +66,15 @@ def test_presto_on_hive_ingest(
                 "type": data_platform,
                 "config": {
                     "host_port": "localhost:5432",
-                    "database": "metastore",
+                    "database": "db1",
+                    "metastore_db_name": "metastore",
                     "database_alias": "hive",
                     "username": "postgres",
                     "scheme": "postgresql+psycopg2",
                     "include_views": True,
                     "include_tables": True,
                     "schema_pattern": {"allow": ["^public"]},
+                    "mode": "hive",
                 },
             },
             "sink": {

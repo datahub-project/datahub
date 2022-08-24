@@ -57,11 +57,11 @@ class DataHubRestSinkReport(SinkReport):
         super().compute_stats()
         self._lock.acquire()
         try:
-            self.ninety_fifth_percentile_write_latency_in_millis = (
+            self.ninety_fifth_percentile_write_latency_in_millis = int(
                 self._digest.percentile(95)
             )
-            self.fiftieth_percentile_write_latency_in_millis = self._digest.percentile(
-                50
+            self.fiftieth_percentile_write_latency_in_millis = int(
+                self._digest.percentile(50)
             )
         finally:
             self._lock.release()
