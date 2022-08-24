@@ -9,6 +9,7 @@ import { LegacyBrowsePath } from './LegacyBrowsePath';
 import { PageRoutes } from '../../conf/Global';
 import { useEntityRegistry } from '../useEntityRegistry';
 import { Message } from '../shared/Message';
+import { scrollToTop } from '../shared/searchUtils';
 
 type BrowseResultsPageParams = {
     type: string;
@@ -44,7 +45,7 @@ export const BrowseResultsPage = () => {
     }
 
     const onChangePage = (newPage: number) => {
-        window.scrollTo({ top: 0, left: 0 });
+        scrollToTop();
         history.push({
             pathname: rootPath,
             search: `&page=${newPage}`,

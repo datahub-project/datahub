@@ -4,6 +4,7 @@ import { Link } from 'react-router-dom';
 import styled from 'styled-components';
 import { useGetUserGroupsLazyQuery } from '../../../graphql/user.generated';
 import { CorpGroup, EntityRelationshipsResult, EntityType } from '../../../types.generated';
+import { scrollToTop } from '../../shared/searchUtils';
 import { useEntityRegistry } from '../../useEntityRegistry';
 
 type Props = {
@@ -81,7 +82,7 @@ export default function UserGroups({ urn, initialRelationships, pageSize }: Prop
     const [getGroups, { data: groupsData }] = useGetUserGroupsLazyQuery();
 
     const onChangeGroupsPage = (newPage: number) => {
-        window.scrollTo({ top: 0, left: 0 });
+        scrollToTop();
         setPage(newPage);
         const start = (newPage - 1) * pageSize;
         getGroups({ variables: { urn, start, count: pageSize } });

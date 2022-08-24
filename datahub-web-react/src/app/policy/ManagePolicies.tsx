@@ -32,6 +32,7 @@ import AvatarsGroup from './AvatarsGroup';
 import { useEntityRegistry } from '../useEntityRegistry';
 import { ANTD_GRAY } from '../entity/shared/constants';
 import { SearchBar } from '../search/SearchBar';
+import { scrollToTop } from '../shared/searchUtils';
 
 const PoliciesContainer = styled.div`
     padding-top: 20px;
@@ -199,7 +200,7 @@ export const ManagePolicies = () => {
     const policies = useMemo(() => policiesData?.listPolicies?.policies || [], [policiesData]);
 
     const onChangePage = (newPage: number) => {
-        window.scrollTo({ top: 0, left: 0 });
+        scrollToTop();
         setPage(newPage);
     };
 

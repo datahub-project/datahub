@@ -22,6 +22,7 @@ import { useEntityRegistry } from '../../useEntityRegistry';
 import { ExecutionDetailsModal } from './ExecutionRequestDetailsModal';
 import RecipeViewerModal from './RecipeViewerModal';
 import IngestionSourceTable from './IngestionSourceTable';
+import { scrollToTop } from '../../shared/searchUtils';
 
 const SourceContainer = styled.div``;
 
@@ -223,7 +224,7 @@ export const IngestionSourceList = () => {
     };
 
     const onChangePage = (newPage: number) => {
-        window.scrollTo({ top: 0, left: 0 });
+        scrollToTop();
         setPage(newPage);
     };
 

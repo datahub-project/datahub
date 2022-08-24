@@ -12,6 +12,7 @@ import TabToolbar from '../../entity/shared/components/styled/TabToolbar';
 import CreateGroupModal from './CreateGroupModal';
 import { SearchBar } from '../../search/SearchBar';
 import { useEntityRegistry } from '../../useEntityRegistry';
+import { scrollToTop } from '../../shared/searchUtils';
 
 const GroupContainer = styled.div``;
 
@@ -61,7 +62,7 @@ export const GroupList = () => {
     const filteredGroups = groups.filter((group) => !removedUrns.includes(group.urn));
 
     const onChangePage = (newPage: number) => {
-        window.scrollTo({ top: 0, left: 0 });
+        scrollToTop();
         setPage(newPage);
     };
 

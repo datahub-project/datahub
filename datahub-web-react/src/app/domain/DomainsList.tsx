@@ -12,6 +12,7 @@ import TabToolbar from '../entity/shared/components/styled/TabToolbar';
 import DomainListItem from './DomainListItem';
 import { SearchBar } from '../search/SearchBar';
 import { useEntityRegistry } from '../useEntityRegistry';
+import { scrollToTop } from '../shared/searchUtils';
 
 const DomainsContainer = styled.div``;
 
@@ -74,7 +75,7 @@ export const DomainsList = () => {
     const filteredDomains = domains.filter((domain) => !removedUrns.includes(domain.urn));
 
     const onChangePage = (newPage: number) => {
-        window.scrollTo({ top: 0, left: 0 });
+        scrollToTop();
         setPage(newPage);
     };
 

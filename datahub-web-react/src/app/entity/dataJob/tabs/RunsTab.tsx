@@ -14,6 +14,7 @@ import { CompactEntityNameList } from '../../../recommendations/renderer/compone
 import { ANTD_GRAY } from '../../shared/constants';
 import { useEntityData } from '../../shared/EntityContext';
 import { ReactComponent as LoadingSvg } from '../../../../images/datahub-logo-color-loading_pendulum.svg';
+import { scrollToTop } from '../../../shared/searchUtils';
 
 const ExternalUrlLink = styled.a`
     font-size: 16px;
@@ -142,7 +143,7 @@ export const RunsTab = () => {
     }
 
     const onChangePage = (newPage: number) => {
-        window.scrollTo({ top: 0, left: 0 });
+        scrollToTop();
         setPage(newPage);
     };
 
