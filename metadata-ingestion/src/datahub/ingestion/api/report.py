@@ -39,7 +39,12 @@ class Report:
         else:
             return Report.to_str(some_val)
 
+    def compute_stats(self) -> None:
+        """A hook to compute derived stats"""
+        pass
+
     def as_obj(self) -> dict:
+        self.compute_stats()
         return {
             str(key): Report.to_dict(value)
             for (key, value) in self.__dict__.items()
