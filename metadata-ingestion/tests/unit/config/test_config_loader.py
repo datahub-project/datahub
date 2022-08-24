@@ -102,7 +102,7 @@ from datahub.configuration.config_loader import load_config_file
                                 "stuff8",
                                 "test_url$vanillavar",
                                 "test_urlstuff9vanillaVarstuff10",
-                                "stuff11",
+                                "${VAR11}",
                             ]
                         },
                     ],
