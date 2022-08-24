@@ -35,6 +35,11 @@ export const SUCCESS = 'SUCCESS';
 export const FAILURE = 'FAILURE';
 export const CANCELLED = 'CANCELLED';
 
+export const CLI_EXECUTOR_ID = '__datahub_cli_';
+export const MANUAL_INGESTION_SOURCE = 'MANUAL_INGESTION_SOURCE';
+export const SCHEDULED_INGESTION_SOURCE = 'SCHEDULED_INGESTION_SOURCE';
+export const CLI_INGESTION_SOURCE = 'CLI_INGESTION_SOURCE';
+
 export const getExecutionRequestStatusIcon = (status: string) => {
     return (
         (status === RUNNING && LoadingOutlined) ||

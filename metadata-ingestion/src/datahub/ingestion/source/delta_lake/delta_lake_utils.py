@@ -11,7 +11,7 @@ def read_delta_table(
     delta_table = None
     try:
         opts = {}
-        if delta_lake_config.is_s3():
+        if delta_lake_config.is_s3:
             if (
                 delta_lake_config.s3 is not None
                 and delta_lake_config.s3.aws_config is not None
