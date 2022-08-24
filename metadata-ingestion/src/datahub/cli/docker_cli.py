@@ -56,9 +56,11 @@ GITHUB_ELASTIC_QUICKSTART_COMPOSE_URL = (
 GITHUB_M1_QUICKSTART_COMPOSE_URL = f"{GITHUB_BASE_URL}/{M1_QUICKSTART_COMPOSE_FILE}"
 GITHUB_BOOTSTRAP_MCES_URL = f"{GITHUB_BASE_URL}/{BOOTSTRAP_MCES_FILE}"
 
-DOCKER_COMPOSE_PLATFORM = subprocess.run(
-    ["uname", "-m"], stdout=subprocess.PIPE
-).stdout.decode("utf-8").rstrip()
+DOCKER_COMPOSE_PLATFORM = (
+    subprocess.run(["uname", "-m"], stdout=subprocess.PIPE)
+    .stdout.decode("utf-8")
+    .rstrip()
+)
 
 
 @click.group()
@@ -649,7 +651,7 @@ def quickstart(
             env={
                 **os.environ,
                 "DOCKER_DEFAULT_PLATFORM": DOCKER_COMPOSE_PLATFORM,
-            }
+            },
         )
         click.secho("Finished pulling docker images!")
     except subprocess.CalledProcessError:
@@ -688,7 +690,7 @@ def quickstart(
         if (datetime.datetime.now() - start_time) > up_attempts * up_interval:
             click.echo()
             subprocess.run(
-                base_command + ["up", "-d", "--remove-orphans"], 
+                base_command + ["up", "-d", "--remove-orphans"],
                 env={
                     **os.environ,
                     "DOCKER_DEFAULT_PLATFORM": DOCKER_COMPOSE_PLATFORM,
