@@ -4,7 +4,7 @@ from typing import Dict, List, Optional
 
 from pydantic import Field, PositiveInt, root_validator
 
-from datahub.configuration.common import AllowDenyPattern
+from datahub.configuration.common import AllowDenyPattern, ConfigurationError
 from datahub.ingestion.source.usage.usage_common import BaseUsageConfig
 from datahub.ingestion.source_config.sql.bigquery import BigQueryConfig
 
@@ -46,7 +46,7 @@ class BigQueryV2Config(BigQueryConfig):
     def validate_unsupported_configs(cls, values: Dict) -> Dict:
         value = values.get("profiling")
         if value is not None and value.enabled and not value.profile_table_level_only:
-            raise ValueError(
+            raise ConfigurationError(
                 "Only table level profiling is supported. Set `profiling.profile_table_level_only` to True.",
             )
         return values
@@ -74,5 +74,5 @@ class BigQueryV2Config(BigQueryConfig):
 
         return values
 
-    def get_pattern_string(self, pattern: List[str]) -> str:
+    def get_table_pattern(self, pattern: List[str]) -> str:
         return "|".join(pattern) if self.table_pattern else ""

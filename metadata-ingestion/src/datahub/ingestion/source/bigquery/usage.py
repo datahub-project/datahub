@@ -239,7 +239,7 @@ class BigQueryUsageExtractor:
             list_entries: Iterable[
                 BigQueryAuditMetadata
             ] = self._get_exported_bigquery_audit_metadata(
-                client, self.config.get_pattern_string(self.config.table_pattern.allow)
+                client, self.config.get_table_pattern(self.config.table_pattern.allow)
             )
             i: int = 0
             for i, entry in enumerate(list_entries):
@@ -370,7 +370,7 @@ class BigQueryUsageExtractor:
         use_deny_filter = self.config.table_pattern and self.config.table_pattern.deny
         allow_regex = (
             audit_templates["BQ_FILTER_REGEX_ALLOW_TEMPLATE"].format(
-                table_allow_pattern=self.config.get_pattern_string(
+                table_allow_pattern=self.config.get_table_pattern(
                     self.config.table_pattern.allow
                 )
             )
@@ -379,7 +379,7 @@ class BigQueryUsageExtractor:
         )
         deny_regex = (
             audit_templates["BQ_FILTER_REGEX_DENY_TEMPLATE"].format(
-                table_deny_pattern=self.config.get_pattern_string(
+                table_deny_pattern=self.config.get_table_pattern(
                     self.config.table_pattern.deny
                 ),
                 logical_operator="AND" if use_allow_filter else "",
@@ -774,7 +774,7 @@ class BigQueryUsageExtractor:
             _client: BigQueryClient = BigQueryClient(project=project_id)
             entries = self._get_exported_bigquery_audit_metadata(
                 bigquery_client=_client,
-                allow_filter=self.config.get_pattern_string(
+                allow_filter=self.config.get_table_pattern(
                     self.config.table_pattern.allow
                 ),
                 limit=1,
