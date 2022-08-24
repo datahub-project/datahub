@@ -23,6 +23,7 @@ import com.linkedin.datahub.graphql.generated.MLModel;
 import com.linkedin.datahub.graphql.generated.MLModelGroup;
 import com.linkedin.datahub.graphql.generated.MLPrimaryKey;
 import com.linkedin.datahub.graphql.generated.Notebook;
+import com.linkedin.datahub.graphql.generated.Role;
 import com.linkedin.datahub.graphql.generated.Tag;
 import com.linkedin.datahub.graphql.generated.Test;
 import com.linkedin.datahub.graphql.types.mappers.ModelMapper;
@@ -148,6 +149,11 @@ public class UrnToEntityMapper implements ModelMapper<com.linkedin.common.urn.Ur
       partialEntity = new Test();
       ((Assertion) partialEntity).setUrn(input.toString());
       ((Assertion) partialEntity).setType(EntityType.TEST);
+    }
+    if (input.getEntityType().equals("dataHubRole")) {
+      partialEntity = new Role();
+      ((Role) partialEntity).setUrn(input.toString());
+      ((Role) partialEntity).setType(EntityType.ROLE);
     }
     return partialEntity;
   }

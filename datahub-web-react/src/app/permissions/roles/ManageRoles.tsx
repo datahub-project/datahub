@@ -1,9 +1,9 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { Button, Empty, message, Pagination, Tooltip } from 'antd';
 import styled from 'styled-components';
 import * as QueryString from 'query-string';
 import { useLocation } from 'react-router';
-import { useListPoliciesQuery } from '../../../graphql/policy.generated';
+import { useListRolesQuery } from '../../../graphql/role.generated';
 import { Message } from '../../shared/Message';
 import TabToolbar from '../../entity/shared/components/styled/TabToolbar';
 import { StyledTable } from '../../entity/shared/components/styled/StyledTable';
@@ -12,6 +12,8 @@ import { useEntityRegistry } from '../../useEntityRegistry';
 import { SearchBar } from '../../search/SearchBar';
 import { SearchSelectModal } from '../../entity/shared/components/styled/search/SearchSelectModal';
 import { EntityCapabilityType } from '../../entity/Entity';
+import { useBatchAssignRoleToActorsMutation } from '../../../graphql/mutations.generated';
+import { CorpUser } from '../../../types.generated';
 
 const SourceContainer = styled.div``;
 
@@ -42,16 +44,17 @@ export const ManageRoles = () => {
     const [activeRoleInModal, setActiveRoleInModal] = useState('');
     useEffect(() => setQuery(paramsQuery), [paramsQuery]);
 
-    // Policy list paging.
+    // Role list paging.
     const [page, setPage] = useState(1);
     const pageSize = DEFAULT_PAGE_SIZE;
     const start = (page - 1) * pageSize;
 
     const {
-        loading: policiesLoading,
-        error: policiesError,
-        data: policiesData,
-    } = useListPoliciesQuery({
+        loading: rolesLoading,
+        error: rolesError,
+        data: rolesData,
+        refetch: rolesRefetch,
+    } = useListRolesQuery({
         fetchPolicy: 'no-cache',
         variables: {
             input: {
@@ -61,6 +64,39 @@ export const ManageRoles = () => {
             },
         },
     });
+
+    const totalRoles = rolesData?.listRoles?.total || 0;
+    const roles = useMemo(() => rolesData?.listRoles?.roles || [], [rolesData]);
+
+    const [batchAssignRoleToActorsMutation] = useBatchAssignRoleToActorsMutation();
+    // eslint-disable-next-line
+    const batchAssignRoleToActors = (actorUrns: Array<string>) => {
+        batchAssignRoleToActorsMutation({
+            variables: {
+                input: {
+                    roleUrn: activeRoleInModal,
+                    actors: actorUrns,
+                },
+            },
+        })
+            .then(({ errors }) => {
+                if (!errors) {
+                    setIsBatchAddRolesModalVisible(false);
+                    setActiveRoleInModal('');
+                    message.success({
+                        content: `Assigned Role to users!`,
+                        duration: 2,
+                    });
+                    setTimeout(function () {
+                        rolesRefetch();
+                    }, 3000);
+                }
+            })
+            .catch((e) => {
+                message.destroy();
+                message.error({ content: `Failed to assign Role to users: \n ${e.message || ''}`, duration: 3 });
+            });
+    };
 
     const onChangePage = (newPage: number) => {
         setPage(newPage);
@@ -88,7 +124,6 @@ export const ManageRoles = () => {
             dataIndex: 'assignees',
             key: 'assignees',
             render: (_: any, record: any) => {
-                console.log('🚀 ~ file: ManageRoles.tsx ~ line 95 ~ ManageRoles ~ record', record);
                 return (
                     <>
                         <AvatarsGroup
@@ -123,7 +158,6 @@ export const ManageRoles = () => {
         //     },
         // },
         {
-            title: 'Assign Role',
             dataIndex: 'assign',
             key: 'assign',
             render: (_: any, record: any) => {
@@ -132,7 +166,7 @@ export const ManageRoles = () => {
                         <Button
                             onClick={() => {
                                 setIsBatchAddRolesModalVisible(true);
-                                setActiveRoleInModal(record.name);
+                                setActiveRoleInModal(record.urn);
                             }}
                         >
                             ASSIGN
@@ -143,38 +177,20 @@ export const ManageRoles = () => {
         },
     ];
 
-    const tableData = [
-        {
-            urn: 'urn:li:role1',
-            name: 'Organization Admin',
-            description: 'Top-level DataHub administrator. Has ALL privileges.',
-            users: ['urn:li:corpuser:datahub'],
-            documentation: 'https://datahubproject.io/',
-        },
-        {
-            urn: 'urn:li:role2',
-            name: 'Access Admin',
-            description:
-                'Able to manage users (including resetting passwords for native users) and groups. Can also edit policies and access tokens.',
-            users: ['urn:li:corpuser:aditya@acryl.io', 'urn:li:corpuser:jdoe'],
-            documentation: 'https://datahubproject.io/',
-        },
-        {
-            urn: 'urn:li:role3',
-            name: 'Metadata Steward',
-            description:
-                'Able to both read and modify all assets across DataHub. Cannot make changes to users, group, policies and credentials.',
-            users: ['urn:li:corpuser:admin'],
-            documentation: 'https://datahubproject.io/',
-        },
-    ];
+    const tableData = roles?.map((role) => ({
+        urn: role?.urn,
+        type: role?.type,
+        description: role?.description,
+        name: role?.name,
+        users: role?.relationships?.relationships.map((relationship) => relationship.entity as CorpUser),
+    }));
 
     return (
         <PageContainer>
-            {policiesLoading && !policiesData && (
+            {rolesLoading && !rolesData && (
                 <Message type="loading" content="Loading roles..." style={{ marginTop: '10%' }} />
             )}
-            {policiesError && message.error('Failed to load roles :(')}
+            {rolesError && message.error('Failed to load roles :(')}
             <SourceContainer>
                 <TabToolbar>
                     <SearchBar
@@ -197,8 +213,11 @@ export const ManageRoles = () => {
                         <SearchSelectModal
                             titleText={`Assign ${activeRoleInModal} Role to Users`}
                             continueText="Add"
-                            onContinue={() => {}}
-                            onCancel={() => setIsBatchAddRolesModalVisible(false)}
+                            onContinue={batchAssignRoleToActors}
+                            onCancel={() => {
+                                setIsBatchAddRolesModalVisible(false);
+                                setActiveRoleInModal('');
+                            }}
                             fixedEntityTypes={Array.from(
                                 entityRegistry.getTypesWithSupportedCapabilities(EntityCapabilityType.ROLES),
                             )}
@@ -220,7 +239,7 @@ export const ManageRoles = () => {
                     style={{ margin: 40 }}
                     current={page}
                     pageSize={pageSize}
-                    total={3}
+                    total={totalRoles}
                     showLessItems
                     onChange={onChangePage}
                     showSizeChanger={false}

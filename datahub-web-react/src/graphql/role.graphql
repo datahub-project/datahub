@@ -1,0 +1,39 @@
+query listRoles($input: ListRolesInput!) {
+    listRoles(input: $input) {
+        start
+        count
+        total
+        roles {
+            urn
+            type
+            name
+            description
+            relationships(input: { types: ["IsMemberOfRole"], direction: INCOMING, start: 0 }) {
+                start
+                count
+                total
+                relationships {
+                    entity {
+                        ... on CorpUser {
+                            urn
+                            username
+                            info {
+                                active
+                                displayName
+                                title
+                                firstName
+                                lastName
+                                fullName
+                            }
+                            editableProperties {
+                                displayName
+                                title
+                                pictureLink
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}

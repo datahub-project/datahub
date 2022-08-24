@@ -232,6 +232,7 @@ import com.linkedin.datahub.graphql.types.mlmodel.MLModelGroupType;
 import com.linkedin.datahub.graphql.types.mlmodel.MLModelType;
 import com.linkedin.datahub.graphql.types.mlmodel.MLPrimaryKeyType;
 import com.linkedin.datahub.graphql.types.notebook.NotebookType;
+import com.linkedin.datahub.graphql.types.role.RoleType;
 import com.linkedin.datahub.graphql.types.tag.TagType;
 import com.linkedin.datahub.graphql.types.test.TestType;
 import com.linkedin.entity.client.EntityClient;
@@ -337,6 +338,7 @@ public class GmsGraphQLEngine {
     private final DataPlatformInstanceType dataPlatformInstanceType;
     private final AccessTokenMetadataType accessTokenMetadataType;
     private final TestType testType;
+    private final RoleType roleType;
 
     /**
      * Configures the graph objects that can be fetched primary key.
@@ -435,33 +437,14 @@ public class GmsGraphQLEngine {
         this.dataPlatformInstanceType = new DataPlatformInstanceType(entityClient);
         this.accessTokenMetadataType = new AccessTokenMetadataType(entityClient);
         this.testType = new TestType(entityClient);
+        this.roleType = new RoleType(entityClient);
         // Init Lists
         this.entityTypes = ImmutableList.of(
             datasetType,
-            corpUserType,
-            corpGroupType,
-            dataPlatformType,
-            chartType,
-            dashboardType,
-            tagType,
-            mlModelType,
-            mlModelGroupType,
-            mlFeatureType,
-            mlFeatureTableType,
-            mlPrimaryKeyType,
-            dataFlowType,
-            dataJobType,
-            glossaryTermType,
-            glossaryNodeType,
-            containerType,
-            notebookType,
-            domainType,
-            assertionType,
-            versionedDatasetType,
-            dataPlatformInstanceType,
-            accessTokenMetadataType,
-            testType
-        );
+            corpUserType, corpGroupType, dataPlatformType, chartType, dashboardType, tagType, mlModelType,
+            mlModelGroupType, mlFeatureType, mlFeatureTableType, mlPrimaryKeyType, dataFlowType, dataJobType,
+            glossaryTermType, glossaryNodeType, containerType, notebookType, domainType, assertionType,
+            versionedDatasetType, dataPlatformInstanceType, accessTokenMetadataType, testType, roleType);
         this.loadableTypes = new ArrayList<>(entityTypes);
         this.ownerTypes = ImmutableList.of(corpUserType, corpGroupType);
         this.searchableTypes = loadableTypes.stream()
@@ -518,6 +501,7 @@ public class GmsGraphQLEngine {
         configureVersionedDatasetResolvers(builder);
         configureAccessAccessTokenMetadataResolvers(builder);
         configureTestResultResolvers(builder);
+        configureRoleResolvers(builder);
     }
 
     public GraphQLEngine.Builder builder() {
@@ -1398,35 +1382,28 @@ public class GmsGraphQLEngine {
 
     private void configurePolicyResolvers(final RuntimeWiring.Builder builder) {
         // Register resolvers for "resolvedUsers" and "resolvedGroups" field of the Policy type.
-        builder.type("ActorFilter", typeWiring -> typeWiring
-            .dataFetcher("resolvedUsers", new LoadableTypeBatchResolver<>(corpUserType,
-                (env) -> {
-                    final ActorFilter filter = env.getSource();
-                    return filter.getUsers();
-                }
-            ))
-            .dataFetcher("resolvedGroups", new LoadableTypeBatchResolver<>(corpGroupType,
-                    (env) -> {
-                        final ActorFilter filter = env.getSource();
-                        return filter.getGroups();
-                    }
-            ))
-        );
+        builder.type("ActorFilter", typeWiring -> typeWiring.dataFetcher("resolvedUsers",
+            new LoadableTypeBatchResolver<>(corpUserType, (env) -> {
+                final ActorFilter filter = env.getSource();
+                return filter.getUsers();
+            })).dataFetcher("resolvedGroups", new LoadableTypeBatchResolver<>(corpGroupType, (env) -> {
+            final ActorFilter filter = env.getSource();
+            return filter.getGroups();
+        })));
+    }
+
+    private void configureRoleResolvers(final RuntimeWiring.Builder builder) {
+        // Register resolvers for "resolvedUsers" and "resolvedGroups" field of the Policy type.
+        builder.type("Role",
+            typeWiring -> typeWiring.dataFetcher("relationships", new EntityRelationshipsResultResolver(graphClient)));
     }
 
     private void configureDataProcessInstanceResolvers(final RuntimeWiring.Builder builder) {
-        builder.type("DataProcessInstance", typeWiring -> typeWiring
-            .dataFetcher("relationships", new EntityRelationshipsResultResolver(graphClient))
-            .dataFetcher("lineage", new EntityLineageResultResolver(siblingGraphService))
-            .dataFetcher("state",
-                new TimeSeriesAspectResolver(
-                    this.entityClient,
-                    "dataProcessInstance",
-                    DATA_PROCESS_INSTANCE_RUN_EVENT_ASPECT_NAME,
-                    DataProcessInstanceRunEventMapper::map
-                )
-            )
-        );
+        builder.type("DataProcessInstance",
+            typeWiring -> typeWiring.dataFetcher("relationships", new EntityRelationshipsResultResolver(graphClient))
+                .dataFetcher("lineage", new EntityLineageResultResolver(siblingGraphService))
+                .dataFetcher("state", new TimeSeriesAspectResolver(this.entityClient, "dataProcessInstance",
+                    DATA_PROCESS_INSTANCE_RUN_EVENT_ASPECT_NAME, DataProcessInstanceRunEventMapper::map)));
     }
 
     private void configureTestResultResolvers(final RuntimeWiring.Builder builder) {

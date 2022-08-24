@@ -29,7 +29,7 @@ query getUser($urn: String!, $groupsCount: Int!) {
         }
         relationships(
             input: {
-                types: ["IsMemberOfGroup", "IsMemberOfNativeGroup"]
+                types: ["IsMemberOfGroup", "IsMemberOfNativeGroup", "IsMemberOfRole"]
                 direction: OUTGOING
                 start: 0
                 count: $groupsCount
@@ -52,6 +52,16 @@ query getUser($urn: String!, $groupsCount: Int!) {
                         relationships(
                             input: { types: ["IsMemberOfGroup", "IsMemberOfNativeGroup"], direction: INCOMING }
                         ) {
+                            start
+                            count
+                            total
+                        }
+                    }
+                    ... on Role {
+                        urn
+                        type
+                        name
+                        relationships(input: { types: ["IsMemberOfRole"], direction: INCOMING }) {
                             start
                             count
                             total
@@ -125,6 +135,25 @@ query listUsers($input: ListUsersInput!) {
                 skills
             }
             status
+            relationships(input: { types: ["IsMemberOfRole"], direction: OUTGOING, start: 0 }) {
+                start
+                count
+                total
+                relationships {
+                    entity {
+                        ... on Role {
+                            urn
+                            type
+                            name
+                            relationships(input: { types: ["IsMemberOfRole"], direction: INCOMING }) {
+                                start
+                                count
+                                total
+                            }
+                        }
+                    }
+                }
+            }
         }
     }
 }

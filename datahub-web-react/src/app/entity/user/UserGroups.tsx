@@ -3,13 +3,13 @@ import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
 import styled from 'styled-components';
 import { useGetUserGroupsLazyQuery } from '../../../graphql/user.generated';
-import { CorpGroup, EntityRelationshipsResult, EntityType } from '../../../types.generated';
+import { CorpGroup, EntityRelationship, EntityType } from '../../../types.generated';
 import { scrollToTop } from '../../shared/searchUtils';
 import { useEntityRegistry } from '../../useEntityRegistry';
 
 type Props = {
     urn: string;
-    initialRelationships?: EntityRelationshipsResult | null;
+    initialRelationships?: Array<EntityRelationship> | null;
     pageSize: number;
 };
 
@@ -88,9 +88,9 @@ export default function UserGroups({ urn, initialRelationships, pageSize }: Prop
         getGroups({ variables: { urn, start, count: pageSize } });
     };
 
-    const relationships = groupsData ? groupsData.corpUser?.relationships : initialRelationships;
-    const total = relationships?.total || 0;
-    const userGroups = relationships?.relationships?.map((rel) => rel.entity as CorpGroup) || [];
+    const relationships = groupsData ? groupsData.corpUser?.relationships?.relationships : initialRelationships;
+    const total = relationships?.length || 0;
+    const userGroups = relationships?.map((rel) => rel.entity as CorpGroup) || [];
 
     return (
         <GroupsViewWrapper>

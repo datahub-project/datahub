@@ -7,12 +7,13 @@ import { useLocation } from 'react-router';
 import UserListItem from './UserListItem';
 import { Message } from '../../shared/Message';
 import { useListUsersQuery } from '../../../graphql/user.generated';
-import { CorpUser } from '../../../types.generated';
+import { CorpUser, Role } from '../../../types.generated';
 import TabToolbar from '../../entity/shared/components/styled/TabToolbar';
 import { SearchBar } from '../../search/SearchBar';
 import { useEntityRegistry } from '../../useEntityRegistry';
 import ViewInviteTokenModal from './ViewInviteTokenModal';
 import { useGetAuthenticatedUser } from '../../useGetAuthenticatedUser';
+import { useListRolesQuery } from '../../../graphql/role.generated';
 import { scrollToTop } from '../../shared/searchUtils';
 
 const UserContainer = styled.div``;
@@ -49,7 +50,12 @@ export const UserList = () => {
     const pageSize = DEFAULT_PAGE_SIZE;
     const start = (page - 1) * pageSize;
 
-    const { loading, error, data, refetch } = useListUsersQuery({
+    const {
+        loading: usersLoading,
+        error: usersError,
+        data: usersData,
+        refetch: usersRefetch,
+    } = useListUsersQuery({
         variables: {
             input: {
                 start,
@@ -60,8 +66,8 @@ export const UserList = () => {
         fetchPolicy: 'no-cache',
     });
 
-    const totalUsers = data?.listUsers?.total || 0;
-    const users = data?.listUsers?.users || [];
+    const totalUsers = usersData?.listUsers?.total || 0;
+    const users = usersData?.listUsers?.users || [];
     const filteredUsers = users.filter((user) => !removedUrns.includes(user.urn));
 
     const onChangePage = (newPage: number) => {
@@ -74,9 +80,28 @@ export const UserList = () => {
         const newRemovedUrns = [...removedUrns, urn];
         setRemovedUrns(newRemovedUrns);
         setTimeout(function () {
-            refetch?.();
+            usersRefetch?.();
         }, 3000);
     };
+
+    const {
+        loading: rolesLoading,
+        error: rolesError,
+        data: rolesData,
+    } = useListRolesQuery({
+        fetchPolicy: 'no-cache',
+        variables: {
+            input: {
+                start,
+                count: pageSize,
+                query,
+            },
+        },
+    });
+
+    const loading = usersLoading || rolesLoading;
+    const error = usersError || rolesError;
+    const roles = rolesData?.listRoles?.roles?.map((role) => role as Role) || [];
 
     return (
         <>
@@ -122,6 +147,8 @@ export const UserList = () => {
                             onDelete={() => handleDelete(item.urn as string)}
                             user={item as CorpUser}
                             canManageUserCredentials={canManageUserCredentials}
+                            roles={roles}
+                            refetch={usersRefetch}
                         />
                     )}
                 />

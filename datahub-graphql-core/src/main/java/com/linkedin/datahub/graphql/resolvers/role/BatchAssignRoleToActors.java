@@ -43,7 +43,7 @@ public class BatchAssignRoleToActors implements DataFetcher<CompletableFuture<Bo
 
       try {
         Urn roleUrn = Urn.createFromString(roleUrnStr);
-        if (_entityService.exists(roleUrn)) {
+        if (!_entityService.exists(roleUrn)) {
           throw new RuntimeException(String.format("Role %s does not exist", roleUrnStr));
         }
         actors.forEach(actor -> {

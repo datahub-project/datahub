@@ -3,17 +3,20 @@ import styled from 'styled-components';
 import { Dropdown, List, Menu, Tag, Tooltip, Typography } from 'antd';
 import { Link } from 'react-router-dom';
 import { DeleteOutlined, MoreOutlined, UnlockOutlined, UserSwitchOutlined } from '@ant-design/icons';
-import { CorpUser, CorpUserStatus, EntityType } from '../../../types.generated';
+import { CorpUser, CorpUserStatus, EntityType, Role } from '../../../types.generated';
 import CustomAvatar from '../../shared/avatar/CustomAvatar';
 import { useEntityRegistry } from '../../useEntityRegistry';
 import { ANTD_GRAY, REDESIGN_COLORS } from '../../entity/shared/constants';
 import ViewResetTokenModal from './ViewResetTokenModal';
 import useDeleteEntity from '../../entity/shared/EntityDropdown/useDeleteEntity';
+import ViewAssignRoleModal from './ViewAssignRoleModal';
 
 type Props = {
     user: CorpUser;
     canManageUserCredentials: boolean;
+    roles: Array<Role>;
     onDelete?: () => void;
+    refetch?: () => void;
 };
 
 const UserItemContainer = styled.div`
@@ -45,12 +48,17 @@ const MenuIcon = styled(MoreOutlined)<{ fontSize?: number }>`
     margin-left: 5px;
 `;
 
-export default function UserListItem({ user, canManageUserCredentials, onDelete }: Props) {
+export default function UserListItem({ user, canManageUserCredentials, roles, onDelete, refetch }: Props) {
     const entityRegistry = useEntityRegistry();
     const [isViewingResetToken, setIsViewingResetToken] = useState(false);
+    const [isViewingAssignRole, setIsViewingAssignRole] = useState(false);
+    const [roleToAssign, setRoleToAssign] = useState<Role>();
     const displayName = entityRegistry.getDisplayName(EntityType.CorpUser, user);
     const isNativeUser: boolean = user.isNativeUser as boolean;
     const shouldShowPasswordReset: boolean = canManageUserCredentials && isNativeUser;
+    const userRelationships = user.relationships?.relationships;
+    const userRoleName =
+        userRelationships && userRelationships.length > 0 && (userRelationships[0]?.entity as Role).name;
 
     const { onDeleteEntity } = useDeleteEntity(user.urn, EntityType.CorpUser, user, onDelete);
 
@@ -75,6 +83,7 @@ export default function UserListItem({ user, canManageUserCredentials, onDelete 
     const userStatus = user.status; // Support case where the user status is undefined.
     const userStatusToolTip = userStatus && getUserStatusToolTip(userStatus);
     const userStatusColor = userStatus && getUserStatusColor(userStatus);
+    const filteredRoles = roles.filter((role) => role.name !== userRoleName);
 
     return (
         <List.Item>
@@ -107,14 +116,24 @@ export default function UserListItem({ user, canManageUserCredentials, onDelete 
                     trigger={['hover']}
                     overlay={
                         <Menu>
-                            <Menu.Item>&nbsp; Organization Admin</Menu.Item>
-                            <Menu.Item>&nbsp; Metadata Reader</Menu.Item>
+                            {/* <Menu.Item>&nbsp; Organization Admin</Menu.Item>
+                            <Menu.Item>&nbsp; Metadata Reader</Menu.Item> */}
+                            {filteredRoles.map((role) => (
+                                <Menu.Item
+                                    onClick={() => {
+                                        setRoleToAssign(role);
+                                        setIsViewingAssignRole(true);
+                                    }}
+                                >
+                                    {role.name}
+                                </Menu.Item>
+                            ))}
                         </Menu>
                     }
                 >
-                    <Tag color={ANTD_GRAY[6]}>
+                    <Tag style={{ minWidth: 125 }} color={ANTD_GRAY[6]}>
                         <UserSwitchOutlined />
-                        <Typography.Text style={{ color: 'white' }}>Metadata Steward</Typography.Text>
+                        <Typography.Text style={{ color: 'white' }}>{userRoleName || 'No Role'}</Typography.Text>
                     </Tag>
                 </Dropdown>
 
@@ -134,6 +153,19 @@ export default function UserListItem({ user, canManageUserCredentials, onDelete 
                     <MenuIcon fontSize={20} />
                 </Dropdown>
             </ButtonGroup>
+            <ViewAssignRoleModal
+                visible={isViewingAssignRole}
+                roleToAssign={roleToAssign}
+                userUrn={user.urn}
+                username={user.username}
+                onClose={() => setIsViewingAssignRole(false)}
+                onConfirm={() => {
+                    setIsViewingAssignRole(false);
+                    setTimeout(function () {
+                        refetch?.();
+                    }, 3000);
+                }}
+            />
             <ViewResetTokenModal
                 visible={isViewingResetToken}
                 userUrn={user.urn}

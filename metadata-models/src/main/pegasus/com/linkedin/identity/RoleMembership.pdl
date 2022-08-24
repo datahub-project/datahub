@@ -12,7 +12,7 @@ record RoleMembership {
   @Relationship = {
     "/*": {
       "name": "IsMemberOfRole",
-      "entityTypes": [ "corpuser" ]
+      "entityTypes": [ "dataHubRole" ]
     }
   }
   roles: array[Urn]
