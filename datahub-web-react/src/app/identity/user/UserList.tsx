@@ -13,6 +13,7 @@ import { SearchBar } from '../../search/SearchBar';
 import { useEntityRegistry } from '../../useEntityRegistry';
 import ViewInviteTokenModal from './ViewInviteTokenModal';
 import { useGetAuthenticatedUser } from '../../useGetAuthenticatedUser';
+import { scrollToTop } from '../../shared/searchUtils';
 
 const UserContainer = styled.div``;
 
@@ -64,6 +65,7 @@ export const UserList = () => {
     const filteredUsers = users.filter((user) => !removedUrns.includes(user.urn));
 
     const onChangePage = (newPage: number) => {
+        scrollToTop();
         setPage(newPage);
     };
 
