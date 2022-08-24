@@ -270,7 +270,7 @@ export const EntityProfile = <T, U>({
                                 headerActionItems={headerActionItems}
                                 subHeader={subHeader}
                             />
-                            <Divider style={{ margin: '0' }} />
+                            <Divider style={{ marginBottom: '0' }} />
                             <EntitySidebar sidebarSections={sideBarSectionsWithDefaults} />
                         </>
                     )}
