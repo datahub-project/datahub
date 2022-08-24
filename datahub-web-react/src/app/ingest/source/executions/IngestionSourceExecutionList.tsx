@@ -7,7 +7,7 @@ import {
     useRollbackIngestionMutation,
 } from '../../../../graphql/ingestion.generated';
 import { Message } from '../../../shared/Message';
-import { ExecutionDetailsModal } from '../ExecutionRequestDetailsModal';
+import { ExecutionDetailsModal } from './ExecutionRequestDetailsModal';
 import IngestionExecutionTable from './IngestionExecutionTable';
 import { ExecutionRequest } from '../../../../types.generated';
 

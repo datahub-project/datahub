@@ -19,7 +19,7 @@ import { DEFAULT_EXECUTOR_ID, SourceBuilderState } from './builder/types';
 import { IngestionSource, UpdateIngestionSourceInput } from '../../../types.generated';
 import { SearchBar } from '../../search/SearchBar';
 import { useEntityRegistry } from '../../useEntityRegistry';
-import { ExecutionDetailsModal } from './ExecutionRequestDetailsModal';
+import { ExecutionDetailsModal } from './executions/ExecutionRequestDetailsModal';
 import RecipeViewerModal from './RecipeViewerModal';
 import IngestionSourceTable from './IngestionSourceTable';
 import { scrollToTop } from '../../shared/searchUtils';
