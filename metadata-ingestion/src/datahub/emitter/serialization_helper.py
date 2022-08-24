@@ -1,5 +1,5 @@
 from collections import OrderedDict
-from typing import Any
+from typing import Any, Union
 
 
 def _json_transform(obj: Any, from_pattern: str, to_pattern: str) -> Any:
@@ -43,3 +43,18 @@ def post_json_transform(obj: Any) -> Any:
     return _json_transform(
         obj, from_pattern="com.linkedin.", to_pattern="com.linkedin.pegasus2avro."
     )
+
+
+def remove_empties(value: Union[dict, list]) -> Union[dict, list]:
+    """
+    Recursively remove all None values from dictionaries and lists, and returns
+    the result as a new dictionary or list.
+    """
+    if isinstance(value, list):
+        return [remove_empties(x) for x in value if x is not None]
+    elif isinstance(value, dict):
+        return {
+            key: remove_empties(val) for key, val in value.items() if val is not None
+        }
+    else:
+        return value
