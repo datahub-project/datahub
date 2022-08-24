@@ -13,6 +13,7 @@ import { useGetAuthenticatedUser } from '../useGetAuthenticatedUser';
 import CreateTokenModal from './CreateTokenModal';
 import { useAppConfigQuery } from '../../graphql/app.generated';
 import { getLocaleTimezone } from '../shared/time/timeUtils';
+import { scrollToTop } from '../shared/searchUtils';
 
 const SourceContainer = styled.div`
     width: 100%;
@@ -200,6 +201,7 @@ export const AccessTokens = () => {
     ];
 
     const onChangePage = (newPage: number) => {
+        scrollToTop();
         setPage(newPage);
     };
 

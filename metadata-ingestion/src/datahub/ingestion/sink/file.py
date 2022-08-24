@@ -5,6 +5,7 @@ from typing import Union
 
 from datahub.configuration.common import ConfigModel
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
+from datahub.emitter.serialization_helper import remove_empties
 from datahub.ingestion.api.common import PipelineContext, RecordEnvelope
 from datahub.ingestion.api.sink import Sink, SinkReport, WriteCallback
 from datahub.metadata.com.linkedin.pegasus2avro.mxe import (
@@ -58,7 +59,7 @@ class FileSink(Sink):
         write_callback: WriteCallback,
     ) -> None:
         record = record_envelope.record
-        obj = record.to_obj()
+        obj = remove_empties(record.to_obj())
 
         if self.wrote_something:
             self.file.write(",\n")
@@ -66,10 +67,6 @@ class FileSink(Sink):
         json.dump(obj, self.file, indent=4)
         self.wrote_something = True
 
-        # record_string = str(record_envelope.record)
-        # metadata = record_envelope.metadata
-        # metadata["workunit-id"] = self.id
-        # out_line=f'{{"record": {record_string}, "metadata": {metadata}}}\n'
         self.report.report_record_written(record_envelope)
         write_callback.on_success(record_envelope, {})
 

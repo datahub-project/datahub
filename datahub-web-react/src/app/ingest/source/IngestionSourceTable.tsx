@@ -129,10 +129,11 @@ function IngestionSourceTable({
                 emptyText: <Empty description="No Ingestion Sources!" image={Empty.PRESENTED_IMAGE_SIMPLE} />,
             }}
             expandable={{
-                expandedRowRender: (record) => {
+                expandedRowRender: (record, _index, _indent, expanded) => {
                     return (
                         <IngestionSourceExecutionList
                             urn={record.urn}
+                            isExpanded={expanded}
                             lastRefresh={lastRefresh}
                             onRefresh={onRefresh}
                         />

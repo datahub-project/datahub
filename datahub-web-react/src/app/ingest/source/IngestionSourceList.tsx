@@ -22,6 +22,7 @@ import { useEntityRegistry } from '../../useEntityRegistry';
 import { ExecutionDetailsModal } from './ExecutionRequestDetailsModal';
 import RecipeViewerModal from './RecipeViewerModal';
 import IngestionSourceTable from './IngestionSourceTable';
+import { scrollToTop } from '../../shared/searchUtils';
 
 const SourceContainer = styled.div``;
 
@@ -120,7 +121,7 @@ export const IngestionSourceList = () => {
     const onRefresh = useCallback(() => {
         refetch();
         // Used to force a re-render of the child execution request list.
-        setLastRefresh(new Date().getMilliseconds());
+        setLastRefresh(new Date().getTime());
     }, [refetch]);
 
     useEffect(() => {
@@ -223,6 +224,7 @@ export const IngestionSourceList = () => {
     };
 
     const onChangePage = (newPage: number) => {
+        scrollToTop();
         setPage(newPage);
     };
 

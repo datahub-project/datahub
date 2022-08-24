@@ -734,8 +734,8 @@ class BigQueryUsageSource(Source):
     #    return BigQueryUsageConfig
 
     def add_config_to_report(self):
-        self.report.start_time = self.config.start_time
-        self.report.end_time = self.config.end_time
+        self.report.window_start_time = self.config.start_time
+        self.report.window_end_time = self.config.end_time
         self.report.use_v2_audit_metadata = self.config.use_v2_audit_metadata
         self.report.query_log_delay = self.config.query_log_delay
         self.report.log_page_size = self.config.log_page_size

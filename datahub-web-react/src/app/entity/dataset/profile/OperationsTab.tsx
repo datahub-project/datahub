@@ -19,6 +19,7 @@ import { CompactEntityNameList } from '../../../recommendations/renderer/compone
 import { ANTD_GRAY } from '../../shared/constants';
 import { useEntityData } from '../../shared/EntityContext';
 import { ReactComponent as LoadingSvg } from '../../../../images/datahub-logo-color-loading_pendulum.svg';
+import { scrollToTop } from '../../../shared/searchUtils';
 
 const ExternalUrlLink = styled.a`
     font-size: 16px;
@@ -150,6 +151,11 @@ export const OperationsTab = () => {
             parentTemplate: run?.parentTemplate?.relationships?.[0]?.entity,
         }));
 
+    const onChangePage = (newPage: number) => {
+        scrollToTop();
+        setPage(newPage);
+    };
+
     return (
         <>
             <ReadWriteButtonGroup>
@@ -181,7 +187,7 @@ export const OperationsTab = () => {
                             pageSize={PAGE_SIZE}
                             total={data?.dataset?.runs?.total || 0}
                             showLessItems
-                            onChange={(newPage) => setPage(newPage)}
+                            onChange={onChangePage}
                             showSizeChanger={false}
                         />
                     </PaginationControlContainer>
