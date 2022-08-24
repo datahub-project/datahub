@@ -14,7 +14,9 @@ export default function useFilters(params: QueryString.ParsedQuery<string>): Arr
                 // transform the filters currently in format [key, [value1, value2]] to [{key: key, value: value1}, { key: key, value: value2}] format that graphql expects
                 .map(([key, value]) => {
                     // remove the `filter_` prefix
-                    const field = key.replace(FILTER_URL_PREFIX, '');
+                    const fieldIndex = key.replace(FILTER_URL_PREFIX, '');
+                    const fieldParts = fieldIndex.split('___');
+                    const field = fieldParts[0];
                     if (!value) return null;
 
                     if (Array.isArray(value)) {

@@ -6,6 +6,7 @@ import styled from 'styled-components';
 import { FacetFilterInput, FacetMetadata, SearchCondition } from '../../types.generated';
 import { AdvancedSearchFilter } from './AdvancedSearchFilter';
 import { SelectFilterValueModal } from './SelectFilterValueModal';
+import { FIELD_TO_LABEL } from './utils/constants';
 
 export const SearchFilterWrapper = styled.div`
     min-height: 100%;
@@ -53,13 +54,9 @@ export const AdvancedSearchFilters = ({ facets, selectedFilters, onFilterSelect 
                         <span>Add Filter</span>
                     </Button>
                 </Option>
-                <Option value="owners">Owner</Option>
-                <Option value="tag">Tag</Option>
-                <Option value="columnTag">Column Tag</Option>
-                <Option value="term">Term</Option>
-                <Option value="columnTerm">Column Term</Option>
-                <Option value="columnName">Column</Option>
-                <Option value="description">Description</Option>
+                {Object.keys(FIELD_TO_LABEL).map((key) => (
+                    <Option value={key}>{FIELD_TO_LABEL[key]}</Option>
+                ))}
             </Select>
             {selectedFilters.map((filter) => (
                 <AdvancedSearchFilter
@@ -82,6 +79,7 @@ export const AdvancedSearchFilters = ({ facets, selectedFilters, onFilterSelect 
             ))}
             {filterField && (
                 <SelectFilterValueModal
+                    facet={facets.find((facet) => facet.field === filterField) || facets[0]}
                     onCloseModal={() => setFilterField(null)}
                     filterField={filterField}
                     onSelect={(values) => {

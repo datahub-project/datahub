@@ -3,9 +3,9 @@ import styled from 'styled-components';
 
 import { FacetFilterInput, FacetMetadata, SearchCondition } from '../../types.generated';
 import { ANTD_GRAY } from '../entity/shared/constants';
-import { capitalizeFirstLetter } from '../shared/textUtil';
 import { SearchFilterLabel } from './SearchFilterLabel';
 import { SelectFilterValueModal } from './SelectFilterValueModal';
+import { FIELD_TO_LABEL } from './utils/constants';
 
 type Props = {
     facet: FacetMetadata;
@@ -49,9 +49,11 @@ const FilterFieldLabel = styled.span`
 
 const conditionToReadable = {
     [SearchCondition.Contain]: 'contain',
-    [SearchCondition.Equal]: 'is',
-    [SearchCondition.In]: 'in',
+    [SearchCondition.Equal]: 'contain',
+    [SearchCondition.In]: 'contain',
 };
+
+const TEXT_FILTERS = ['fieldPaths'];
 
 export const AdvancedSearchFilter = ({ facet, filter, onClose, onUpdate }: Props) => {
     const [isEditing, setIsEditing] = useState(false);
@@ -59,7 +61,7 @@ export const AdvancedSearchFilter = ({ facet, filter, onClose, onUpdate }: Props
         <FilterContainer>
             <FieldFilterSection>
                 <span>
-                    <FilterFieldLabel>{capitalizeFirstLetter(filter.field)} </FilterFieldLabel>
+                    <FilterFieldLabel>{FIELD_TO_LABEL[filter.field]} </FilterFieldLabel>
                     {conditionToReadable[filter.condition || SearchCondition.Contain]}
                 </span>
                 <CloseSpan role="button" onClick={onClose} tabIndex={0} onKeyPress={onClose}>
@@ -71,21 +73,24 @@ export const AdvancedSearchFilter = ({ facet, filter, onClose, onUpdate }: Props
                     setIsEditing(!isEditing);
                 }}
             >
-                {filter.values.map((value) => (
-                    <StyledSearchFilterLabel>
-                        <SearchFilterLabel
-                            hideCount
-                            aggregation={
-                                facet.aggregations.find((aggregation) => aggregation.value === value) ||
-                                facet.aggregations[0]
-                            }
-                            field={value}
-                        />
-                    </StyledSearchFilterLabel>
-                ))}
+                {TEXT_FILTERS.indexOf(filter.field) === -1 &&
+                    filter.values.map((value) => (
+                        <StyledSearchFilterLabel>
+                            <SearchFilterLabel
+                                hideCount
+                                aggregation={
+                                    facet.aggregations.find((aggregation) => aggregation.value === value) ||
+                                    facet.aggregations[0]
+                                }
+                                field={value}
+                            />
+                        </StyledSearchFilterLabel>
+                    ))}
+                {TEXT_FILTERS.indexOf(filter.field) !== -1 && filter.values.map((value) => <span>{value}</span>)}
             </ValueFilterSection>
             {isEditing && (
                 <SelectFilterValueModal
+                    facet={facet}
                     onCloseModal={() => setIsEditing(false)}
                     filterField={filter.field}
                     onSelect={(values) => {
@@ -96,7 +101,7 @@ export const AdvancedSearchFilter = ({ facet, filter, onClose, onUpdate }: Props
                         };
                         onUpdate(newFilter);
                     }}
-                    initialUrns={filter.values}
+                    initialValues={filter.values}
                 />
             )}
         </FilterContainer>

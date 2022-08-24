@@ -16,6 +16,7 @@ import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.metadata.query.filter.SortCriterion;
 import com.linkedin.metadata.search.AggregationMetadata;
 import com.linkedin.metadata.search.AggregationMetadataArray;
+import com.linkedin.metadata.search.FilterValue;
 import com.linkedin.metadata.search.FilterValueArray;
 import com.linkedin.metadata.search.MatchedField;
 import com.linkedin.metadata.search.MatchedFieldArray;
@@ -30,6 +31,7 @@ import io.opentelemetry.extension.annotations.WithSpan;
 import java.net.URISyntaxException;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -463,8 +465,9 @@ public class SearchRequestHandler {
       originalMetadata.add(buildAggregationMetadata(
           finalFacetField,
           _filtersToDisplayName.getOrDefault(finalFacetField, finalFacetField),
-          new LongMap(ImmutableMap.of(criterion.getValue(), 0L)),
-          new FilterValueArray(ImmutableList.of(createFilterValue(criterion.getValue(), 0L))))
+          new LongMap(criterion.getValues().stream().collect(Collectors.toMap(i -> i, i -> 0L))),
+          new FilterValueArray(criterion.getValues().stream().map(value -> createFilterValue(value, 0L)).collect(
+              Collectors.toList())))
       );
     }
   }

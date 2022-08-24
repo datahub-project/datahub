@@ -43,26 +43,16 @@ type Props = {
     entityType?: EntityType; // Only used for tracking events
     onOkOverride?: (result: SelectedOwner[]) => void;
     title?: string;
-    initialUrns?: string[];
+    defaultValues?: { urn: string; entity?: Entity | null }[];
 };
 
 // value: {ownerUrn: string, ownerEntityType: EntityType}
 type SelectedOwner = {
-    label: string;
+    label: string | React.ReactNode;
     value: {
         ownerUrn: string;
         ownerEntityType: EntityType;
     };
-};
-
-const urnToSelectedOwners = (urns: string[]): SelectedOwner[] => {
-    return urns.map((urn) => ({
-        label: urn,
-        value: {
-            ownerUrn: urn,
-            ownerEntityType: EntityType.CorpUser,
-        },
-    }));
 };
 
 export const EditOwnersModal = ({
@@ -75,15 +65,49 @@ export const EditOwnersModal = ({
     entityType,
     onOkOverride,
     title,
-    initialUrns,
+    defaultValues,
 }: Props) => {
     const entityRegistry = useEntityRegistry();
+
+    // Renders a search result in the select dropdown.
+    const renderSearchResult = (entity: Entity) => {
+        const avatarUrl =
+            entity.type === EntityType.CorpUser
+                ? (entity as CorpUser).editableProperties?.pictureLink || undefined
+                : undefined;
+        const displayName = entityRegistry.getDisplayName(entity.type, entity);
+        return (
+            <Select.Option value={entity.urn} key={entity.urn}>
+                <OwnerLabel name={displayName} avatarUrl={avatarUrl} type={entity.type} />
+            </Select.Option>
+        );
+    };
+
+    const renderDropdownResult = (entity: Entity) => {
+        const avatarUrl =
+            entity.type === EntityType.CorpUser
+                ? (entity as CorpUser).editableProperties?.pictureLink || undefined
+                : undefined;
+        const displayName = entityRegistry.getDisplayName(entity.type, entity);
+        return <OwnerLabel name={displayName} avatarUrl={avatarUrl} type={entity.type} />;
+    };
+
+    const urnToSelectedOwners = (vals: { urn: string; entity?: Entity | null }[]): SelectedOwner[] => {
+        return vals.map((defaultValue) => ({
+            label: defaultValue.entity ? renderDropdownResult(defaultValue.entity) : defaultValue.urn,
+            value: {
+                ownerUrn: defaultValue.urn,
+                ownerEntityType: EntityType.CorpUser,
+            },
+        }));
+    };
+
     const [inputValue, setInputValue] = useState('');
     const [batchAddOwnersMutation] = useBatchAddOwnersMutation();
     const [batchRemoveOwnersMutation] = useBatchRemoveOwnersMutation();
     const ownershipTypes = OWNERSHIP_DISPLAY_TYPES;
-    const [selectedOwners, setSelectedOwners] = useState<SelectedOwner[]>(urnToSelectedOwners(initialUrns || []));
-    console.log({ selectedOwners, initialUrns });
+    const [selectedOwners, setSelectedOwners] = useState<SelectedOwner[]>(urnToSelectedOwners(defaultValues || []));
+    console.log({ selectedOwners });
     const [selectedOwnerType, setSelectedOwnerType] = useState<OwnershipType>(defaultOwnerType || OwnershipType.None);
 
     // User and group dropdown search results!
@@ -119,20 +143,6 @@ export const EditOwnersModal = ({
     const handleActorSearch = (text: string) => {
         handleSearch(EntityType.CorpUser, text, userSearch);
         handleSearch(EntityType.CorpGroup, text, groupSearch);
-    };
-
-    // Renders a search result in the select dropdown.
-    const renderSearchResult = (entity: Entity) => {
-        const avatarUrl =
-            entity.type === EntityType.CorpUser
-                ? (entity as CorpUser).editableProperties?.pictureLink || undefined
-                : undefined;
-        const displayName = entityRegistry.getDisplayName(entity.type, entity);
-        return (
-            <Select.Option value={entity.urn} key={entity.urn}>
-                <OwnerLabel name={displayName} avatarUrl={avatarUrl} type={entity.type} />
-            </Select.Option>
-        );
     };
 
     const ownerResult = !inputValue || inputValue.length === 0 ? recommendedData : combinedSearchResults;
@@ -185,7 +195,9 @@ export const EditOwnersModal = ({
             selectedOwners,
         });
         setInputValue('');
-        const newValues = selectedOwners.filter((owner) => owner.label !== selectedValue.value);
+        const newValues = selectedOwners.filter(
+            (owner) => owner.label !== selectedValue.value && owner.value.ownerUrn !== selectedValue.value,
+        );
         setSelectedOwners(newValues);
     };
 
@@ -346,7 +358,7 @@ export const EditOwnersModal = ({
                             defaultValue={selectedOwners.map((owner) => ({
                                 key: owner.value.ownerUrn,
                                 value: owner.value.ownerUrn,
-                                label: owner.value.ownerUrn,
+                                label: owner.label,
                             }))}
                         >
                             {ownerSearchOptions}

@@ -22,3 +22,13 @@ export const FILTERS_TO_TRUNCATE = [
     PLATFORM_FILTER_NAME,
 ];
 export const TRUNCATED_FILTER_LENGTH = 5;
+
+export const FIELD_TO_LABEL = {
+    owners: 'Owners',
+    tags: 'Tags',
+    fieldTags: 'Column Tags',
+    glossaryTerms: 'Terms',
+    fieldGlossaryTerms: 'Column Terms',
+    fieldPaths: 'Columns',
+    description: 'Description',
+};
