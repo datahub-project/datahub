@@ -930,8 +930,8 @@ class SnowflakeV2Source(
         self.report.include_usage_stats = self.config.include_usage_stats
         self.report.include_operational_stats = self.config.include_operational_stats
         if self.report.include_usage_stats or self.config.include_operational_stats:
-            self.report.start_time = self.config.start_time
-            self.report.end_time = self.config.end_time
+            self.report.window_start_time = self.config.start_time
+            self.report.window_end_time = self.config.end_time
 
     def inspect_session_metadata(self, conn: SnowflakeConnection) -> None:
         try:
@@ -1028,7 +1028,7 @@ class SnowflakeV2Source(
             )
             summary.numWarnings = len(self.report.warnings)
             summary.numErrors = len(self.report.failures)
-            summary.numEntities = self.report.workunits_produced
+            summary.numEntities = self.report.events_produced
 
     def update_usage_job_run_summary(self):
         summary = self.get_job_run_summary(self.get_usage_ingestion_job_id())
