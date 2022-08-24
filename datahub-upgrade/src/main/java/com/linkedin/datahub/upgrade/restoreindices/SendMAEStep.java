@@ -131,7 +131,13 @@ public class SendMAEStep implements UpgradeStep {
 
           totalRowsMigrated++;
         }
-        context.report().addLine(String.format("Successfully sent MAEs for %s/%s rows (%.2f%%). %s rows ignored (%.2f%%)", totalRowsMigrated, rowCount, (float)totalRowsMigrated*100/rowCount, ignored, (float)ignored*100/rowCount));
+        float percentSent = 0.0;
+        float percentIgnored = 0.0;
+        if (rowCount > 0) {
+          percentSent = (float)totalRowsMigrated*100/rowCount;
+          percentIgnored = (float)ignored*100/rowCount;
+        }
+        context.report().addLine(String.format("Successfully sent MAEs for %s/%s rows (%.2f%%). %s rows ignored (%.2f%%)", totalRowsMigrated, rowCount, percentSent, ignored, percentIgnored));
         start = start + count;
         try {
           TimeUnit.MILLISECONDS.sleep(getBatchDelayMs(context.parsedArgs()));
