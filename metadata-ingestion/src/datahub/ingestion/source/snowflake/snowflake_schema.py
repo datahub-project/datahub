@@ -111,12 +111,13 @@ class SnowflakeDataDictionary(SnowflakeQueryMixin):
             conn,
             SnowflakeQuery.schemas_for_database(db_name),
         )
+
         for schema in cur:
             snowflake_schema = SnowflakeSchema(
-                name=schema["schema_name"],
-                created=schema["created"],
-                last_altered=schema["last_altered"],
-                comment=schema["comment"],
+                name=schema["SCHEMA_NAME"],
+                created=schema["CREATED"],
+                last_altered=schema["LAST_ALTERED"],
+                comment=schema["COMMENT"],
             )
             snowflake_schemas.append(snowflake_schema)
         return snowflake_schemas
@@ -136,17 +137,17 @@ class SnowflakeDataDictionary(SnowflakeQueryMixin):
             return None
 
         for table in cur:
-            if table["table_schema"] not in tables:
-                tables[table["table_schema"]] = []
-            tables[table["table_schema"]].append(
+            if table["TABLE_SCHEMA"] not in tables:
+                tables[table["TABLE_SCHEMA"]] = []
+            tables[table["TABLE_SCHEMA"]].append(
                 SnowflakeTable(
-                    name=table["table_name"],
-                    created=table["created"],
-                    last_altered=table["last_altered"],
-                    size_in_bytes=table["bytes"],
-                    rows_count=table["row_count"],
-                    comment=table["comment"],
-                    clustering_key=table["clustering_key"],
+                    name=table["TABLE_NAME"],
+                    created=table["CREATED"],
+                    last_altered=table["LAST_ALTERED"],
+                    size_in_bytes=table["BYTES"],
+                    rows_count=table["ROW_COUNT"],
+                    comment=table["COMMENT"],
+                    clustering_key=table["CLUSTERING_KEY"],
                 )
             )
         return tables
@@ -164,13 +165,13 @@ class SnowflakeDataDictionary(SnowflakeQueryMixin):
         for table in cur:
             tables.append(
                 SnowflakeTable(
-                    name=table["table_name"],
-                    created=table["created"],
-                    last_altered=table["last_altered"],
-                    size_in_bytes=table["bytes"],
-                    rows_count=table["row_count"],
-                    comment=table["comment"],
-                    clustering_key=table["clustering_key"],
+                    name=table["TABLE_NAME"],
+                    created=table["CREATED"],
+                    last_altered=table["LAST_ALTERED"],
+                    size_in_bytes=table["BYTES"],
+                    rows_count=table["ROW_COUNT"],
+                    comment=table["COMMENT"],
+                    clustering_key=table["CLUSTERING_KEY"],
                 )
             )
         return tables
@@ -235,15 +236,15 @@ class SnowflakeDataDictionary(SnowflakeQueryMixin):
             return None
 
         for column in cur:
-            if column["table_name"] not in columns:
-                columns[column["table_name"]] = []
-            columns[column["table_name"]].append(
+            if column["TABLE_NAME"] not in columns:
+                columns[column["TABLE_NAME"]] = []
+            columns[column["TABLE_NAME"]].append(
                 SnowflakeColumn(
-                    name=column["column_name"],
-                    ordinal_position=column["ordinal_position"],
-                    is_nullable=column["is_nullable"] == "YES",
-                    data_type=column["data_type"],
-                    comment=column["comment"],
+                    name=column["COLUMN_NAME"],
+                    ordinal_position=column["ORDINAL_POSITION"],
+                    is_nullable=column["IS_NULLABLE"] == "YES",
+                    data_type=column["DATA_TYPE"],
+                    comment=column["COMMENT"],
                 )
             )
         return columns
@@ -261,11 +262,11 @@ class SnowflakeDataDictionary(SnowflakeQueryMixin):
         for column in cur:
             columns.append(
                 SnowflakeColumn(
-                    name=column["column_name"],
-                    ordinal_position=column["ordinal_position"],
-                    is_nullable=column["is_nullable"] == "YES",
-                    data_type=column["data_type"],
-                    comment=column["comment"],
+                    name=column["COLUMN_NAME"],
+                    ordinal_position=column["ORDINAL_POSITION"],
+                    is_nullable=column["IS_NULLABLE"] == "YES",
+                    data_type=column["DATA_TYPE"],
+                    comment=column["COMMENT"],
                 )
             )
         return columns

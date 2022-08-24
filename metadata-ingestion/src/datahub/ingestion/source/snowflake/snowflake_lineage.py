@@ -134,20 +134,21 @@ class SnowflakeLineageExtractor(SnowflakeQueryMixin, SnowflakeCommonMixin):
             for db_row in self.query(conn, query):
                 # key is the down-stream table name
                 key: str = self.get_dataset_identifier_from_qualified_name(
-                    db_row["downstream_table_name"]
+                    db_row["DOWNSTREAM_TABLE_NAME"]
                 )
                 if not self._is_dataset_pattern_allowed(key, "table"):
                     continue
                 self._external_lineage_map[key] |= {
-                    *json.loads(db_row["upstream_locations"])
+                    *json.loads(db_row["UPSTREAM_LOCATIONS"])
                 }
                 logger.debug(
                     f"ExternalLineage[Table(Down)={key}]:External(Up)={self._external_lineage_map[key]} via access_history"
                 )
         except Exception as e:
-            logger.warning(
+            self.warn(
+                "external_lineage",
                 f"Populating table external lineage from Snowflake failed."
-                f"Please check your premissions. Continuing...\nError was {e}."
+                f"Please check your premissions. Continuing...\nError was {e}.",
             )
         # Handles the case for explicitly created external tables.
         # NOTE: Snowflake does not log this information to the access_history table.
@@ -187,10 +188,10 @@ class SnowflakeLineageExtractor(SnowflakeQueryMixin, SnowflakeCommonMixin):
             for db_row in self.query(conn, query):
                 # key is the down-stream table name
                 key: str = self.get_dataset_identifier_from_qualified_name(
-                    db_row["downstream_table_name"]
+                    db_row["DOWNSTREAM_TABLE_NAME"]
                 )
                 upstream_table_name = self.get_dataset_identifier_from_qualified_name(
-                    db_row["upstream_table_name"]
+                    db_row["UPSTREAM_TABLE_NAME"]
                 )
                 if not (
                     self._is_dataset_pattern_allowed(key, "table")
@@ -201,8 +202,8 @@ class SnowflakeLineageExtractor(SnowflakeQueryMixin, SnowflakeCommonMixin):
                     # (<upstream_table_name>, <json_list_of_upstream_columns>, <json_list_of_downstream_columns>)
                     (
                         upstream_table_name,
-                        db_row["upstream_table_columns"],
-                        db_row["downstream_table_columns"],
+                        db_row["UPSTREAM_TABLE_COLUMNS"],
+                        db_row["DOWNSTREAM_TABLE_COLUMNS"],
                     )
                 )
                 num_edges += 1
@@ -234,14 +235,14 @@ class SnowflakeLineageExtractor(SnowflakeQueryMixin, SnowflakeCommonMixin):
             for db_row in self.query(conn, view_upstream_lineage_query):
                 # Process UpstreamTable/View/ExternalTable/Materialized View->View edge.
                 view_upstream: str = self.get_dataset_identifier_from_qualified_name(
-                    db_row["view_upstream"]
+                    db_row["VIEW_UPSTREAM"]
                 )
                 view_name: str = self.get_dataset_identifier_from_qualified_name(
-                    db_row["downstream_view"]
+                    db_row["DOWNSTREAM_VIEW"]
                 )
                 if not self._is_dataset_pattern_allowed(
                     dataset_name=view_name,
-                    dataset_type=db_row["referencing_object_domain"],
+                    dataset_type=db_row["REFERENCING_OBJECT_DOMAIN"],
                 ):
                     continue
                 # key is the downstream view name
@@ -288,22 +289,22 @@ class SnowflakeLineageExtractor(SnowflakeQueryMixin, SnowflakeCommonMixin):
         else:
             for db_row in db_rows:
                 view_name: str = self.get_dataset_identifier_from_qualified_name(
-                    db_row["view_name"]
+                    db_row["VIEW_NAME"]
                 )
                 if not self._is_dataset_pattern_allowed(
-                    view_name, db_row["view_domain"]
+                    view_name, db_row["VIEW_DOMAIN"]
                 ):
                     continue
                 downstream_table: str = self.get_dataset_identifier_from_qualified_name(
-                    db_row["downstream_table_name"]
+                    db_row["DOWNSTREAM_TABLE_NAME"]
                 )
                 # Capture view->downstream table lineage.
                 self._lineage_map[downstream_table].append(
                     # (<upstream_view_name>, <json_list_of_upstream_view_columns>, <json_list_of_downstream_columns>)
                     (
                         view_name,
-                        db_row["view_columns"],
-                        db_row["downstream_table_columns"],
+                        db_row["VIEW_COLUMNS"],
+                        db_row["DOWNSTREAM_TABLE_COLUMNS"],
                     )
                 )
                 self.report.num_view_to_table_edges_scanned += 1

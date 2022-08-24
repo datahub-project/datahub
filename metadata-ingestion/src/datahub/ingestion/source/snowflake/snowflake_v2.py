@@ -168,7 +168,11 @@ SNOWFLAKE_FIELD_TYPE_MAPPINGS = {
     SourceCapability.USAGE_STATS,
     "Enabled by default, can be disabled via configuration `include_usage_stats",
 )
-@capability(SourceCapability.DELETION_DETECTION, "Coming soon", supported=False)
+@capability(
+    SourceCapability.DELETION_DETECTION,
+    "Optionally enabled via `stateful_ingestion.remove_stale_metadata`",
+    supported=True,
+)
 class SnowflakeV2Source(
     SnowflakeQueryMixin,
     SnowflakeCommonMixin,
@@ -234,6 +238,7 @@ class SnowflakeV2Source(
             test_report.capability_report = SnowflakeV2Source.check_capabilities(
                 connection, connection_conf
             )
+            connection.close()
 
         except Exception as e:
             logger.error(f"Failed to test connection due to {e}", exc_info=e)
@@ -406,6 +411,8 @@ class SnowflakeV2Source(
 
             yield from self._process_database(conn, snowflake_db)
 
+        conn.close()
+
         if self.is_stateful_ingestion_configured():
             # For database, schema, table, view
             removed_entity_workunits = self.gen_removed_entity_workunits()
@@ -436,7 +443,8 @@ class SnowflakeV2Source(
                 conn, db_name
             )
         except Exception as e:
-            self.report.report_warning(
+            self.warn(
+                self.logger,
                 db_name,
                 f"unable to get metadata information for database {db_name} due to an error -> {e}",
             )
