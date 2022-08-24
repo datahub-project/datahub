@@ -3,6 +3,7 @@ import { Empty } from 'antd';
 import { StyledTable } from '../../../entity/shared/components/styled/StyledTable';
 import { ExecutionRequest } from '../../../../types.generated';
 import { ButtonsColumn, SourceColumn, StatusColumn, TimeColumn } from './IngestionExecutionTableColumns';
+import { SUCCESS } from '../utils';
 
 interface Props {
     executionRequests: ExecutionRequest[];
@@ -70,7 +71,9 @@ export default function IngestionExecutionTable({
         },
     ];
 
-    const tableData = executionRequests.map((execution, index) => ({
+    const mostRecentSuccessfulExecution = executionRequests.find((execution) => execution.result?.status === SUCCESS);
+
+    const tableData = executionRequests.map((execution) => ({
         urn: execution.urn,
         id: execution.id,
         source: execution.input.source.type,
@@ -78,7 +81,7 @@ export default function IngestionExecutionTable({
         executedAt: execution.result?.startTimeMs,
         duration: execution.result?.durationMs,
         status: execution.result?.status,
-        isLatestExecution: index === 0,
+        showRollback: execution.urn === mostRecentSuccessfulExecution?.urn,
     }));
 
     return (

@@ -97,7 +97,7 @@ export function ButtonsColumn({
                     CANCEL
                 </Button>
             )}
-            {record.status === SUCCESS && record.isLatestExecution && (
+            {record.status === SUCCESS && record.showRollback && (
                 <Button style={{ marginRight: 16 }} onClick={() => handleRollbackExecution(record.id)}>
                     ROLLBACK
                 </Button>
