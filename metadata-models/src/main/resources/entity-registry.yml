@@ -57,6 +57,7 @@ entities:
       - domains
       - container
       - deprecation
+      - inputFields
   - name: dashboard
     keyAspect: dashboardKey
     aspects:
@@ -64,6 +65,7 @@ entities:
       - container
       - deprecation
       - dashboardUsageStatistics
+      - inputFields
   - name: notebook
     doc: Notebook represents a combination of query, text, chart and etc. This is in BETA version
     keyAspect: notebookKey
@@ -244,4 +246,8 @@ entities:
     keyAspect: inviteTokenKey
     aspects:
       - inviteToken
+  - name: schemaField
+    category: core
+    keyAspect: schemaFieldKey
+    aspects: []
 events:

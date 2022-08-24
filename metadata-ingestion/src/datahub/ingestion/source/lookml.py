@@ -541,9 +541,12 @@ class LookerView:
             name = field_dict["name"]
             native_type = field_dict.get("type", "string")
             description = field_dict.get("description", "")
+            label = field_dict.get("label", "")
+
             field = ViewField(
                 name=name,
                 type=native_type,
+                label=label,
                 description=description,
                 is_primary_key=is_primary_key,
                 field_type=type_cls,
@@ -706,7 +709,7 @@ class LookerView:
                     # it seems like the view is defined purely as sql, let's try using the column names to populate the schema
                     fields = [
                         # set types to unknown for now as our sql parser doesn't give us column types yet
-                        ViewField(c, "unknown", "", ViewFieldType.UNKNOWN)
+                        ViewField(c, "", "unknown", "", ViewFieldType.UNKNOWN)
                         for c in column_names
                     ]
             except Exception as e:
