@@ -134,7 +134,6 @@ def wrap_aspect_as_workunit(
     entityUrn: str,
     aspectName: str,
     aspect: _Aspect,
-    report: SourceReport,
 ) -> MetadataWorkUnit:
     wu = MetadataWorkUnit(
         id=f"{aspectName}-for-{entityUrn}",
@@ -146,7 +145,6 @@ def wrap_aspect_as_workunit(
             changeType=ChangeType.UPSERT,
         ),
     )
-    report.report_workunit(wu)
     return wu
 
 

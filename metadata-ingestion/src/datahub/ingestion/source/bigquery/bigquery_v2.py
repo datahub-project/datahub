@@ -162,7 +162,6 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
         self.platform: str = "bigquery"
 
         # For database, schema, tables, views, etc
-        self.data_dictionary = BigQueryDataDictionary()
         self.lineage_extractor = BigqueryLineageExtractor(config, self.report)
         self.usage_extractor = BigQueryUsageExtractor(config, self.report)
         # Currently caching using instance variables
@@ -310,7 +309,7 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
             )
 
             return wrap_aspect_as_workunit(
-                "dataset", dataset_urn, "dataPlatformInstance", aspect, self.report
+                "dataset", dataset_urn, "dataPlatformInstance", aspect
             )
         else:
             return None
@@ -492,7 +491,7 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
         conn: bigquery.Client = self.get_bigquery_client()
         self.add_config_to_report()
 
-        projects: List[BigqueryProject] = self.data_dictionary.get_project_ids(conn)
+        projects: List[BigqueryProject] = BigQueryDataDictionary.get_project_ids(conn)
         for project_id in projects:
             if not self.config.project_id_pattern.allowed(project_id.id):
                 self.report.report_dropped(project_id.id)
@@ -518,7 +517,7 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
             self.report.report_workunit(wu)
             yield wu
 
-        bigquery_project.datasets = self.data_dictionary.get_datasets_for_project_id(
+        bigquery_project.datasets = BigQueryDataDictionary.get_datasets_for_project_id(
             conn, project_id
         )
 
@@ -687,14 +686,16 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
             upstream_lineage = None
 
         status = Status(removed=False)
-        yield wrap_aspect_as_workunit(
-            "dataset", dataset_urn, "status", status, self.report
-        )
+        wu = wrap_aspect_as_workunit("dataset", dataset_urn, "status", status)
+        yield wu
+        self.report.report_workunit(wu)
 
         schema_metadata = self.get_schema_metadata(table, str(datahub_dataset_name))
-        yield wrap_aspect_as_workunit(
-            "dataset", dataset_urn, "schemaMetadata", schema_metadata, self.report
+        wu = wrap_aspect_as_workunit(
+            "dataset", dataset_urn, "schemaMetadata", schema_metadata
         )
+        yield wu
+        self.report.report_workunit(wu)
 
         dataset_properties = DatasetProperties(
             name=str(datahub_dataset_name),
@@ -702,9 +703,11 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
             qualifiedName=str(datahub_dataset_name),
             customProperties={**upstream_column_props},
         )
-        yield wrap_aspect_as_workunit(
-            "dataset", dataset_urn, "datasetProperties", dataset_properties, self.report
+        wu = wrap_aspect_as_workunit(
+            "dataset", dataset_urn, "datasetProperties", dataset_properties
         )
+        yield wu
+        self.report.report_workunit(wu)
 
         yield from self.add_table_to_dataset_container(
             dataset_urn,
@@ -713,14 +716,15 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
         )
         dpi_aspect = self.get_dataplatform_instance_aspect(dataset_urn=dataset_urn)
         if dpi_aspect:
+            self.report.report_workunit(dpi_aspect)
             yield dpi_aspect
 
         subTypes = SubTypes(
             typeNames=["view"] if isinstance(table, BigqueryView) else ["table"]
         )
-        yield wrap_aspect_as_workunit(
-            "dataset", dataset_urn, "subTypes", subTypes, self.report
-        )
+        wu = wrap_aspect_as_workunit("dataset", dataset_urn, "subTypes", subTypes)
+        yield wu
+        self.report.report_workunit(wu)
 
         yield from self._get_domain_wu(
             dataset_name=str(datahub_dataset_name),
@@ -730,9 +734,10 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
 
         if upstream_lineage is not None:
             # Emit the lineage work unit
-            yield wrap_aspect_as_workunit(
-                "dataset", dataset_urn, "upstreamLineage", upstream_lineage, self.report
+            wu = wrap_aspect_as_workunit(
+                "dataset", dataset_urn, "upstreamLineage", upstream_lineage
             )
+            self.report.report_workunit(wu)
 
         if isinstance(table, BigqueryTable) and self.config.profiling.enabled:
             if self.config.profiling.allow_deny_patterns.allowed(
@@ -745,13 +750,13 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
                     rowCount=table.rows_count,
                 )
                 self.report.report_entity_profiled(str(datahub_dataset_name))
-                yield wrap_aspect_as_workunit(
+                wu = wrap_aspect_as_workunit(
                     "dataset",
                     dataset_urn,
                     "datasetProfile",
                     dataset_profile,
-                    self.report,
                 )
+                self.report.report_workunit(wu)
 
             else:
                 self.report.report_dropped(f"Profile for {str(datahub_dataset_name)}")
@@ -762,13 +767,13 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
             view_properties_aspect = ViewProperties(
                 materialized=False, viewLanguage="SQL", viewLogic=view_definition_string
             )
-            yield wrap_aspect_as_workunit(
+            wu = wrap_aspect_as_workunit(
                 "dataset",
                 dataset_urn,
                 "viewProperties",
                 view_properties_aspect,
-                self.report,
             )
+            self.report.report_workunit(wu)
 
         if self.is_stateful_ingestion_configured():
             cur_checkpoint = self.get_current_checkpoint(
@@ -833,7 +838,7 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
 
         # In bigquery there is no way to query all tables in a Project id
         if tables is None:
-            return self.data_dictionary.get_tables_for_dataset(
+            return BigQueryDataDictionary.get_tables_for_dataset(
                 conn, project_id, dataset_name
             )
 
@@ -852,7 +857,7 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
         # get all views for database failed,
         # falling back to get views for schema
         if views is None:
-            return self.data_dictionary.get_views_for_dataset(
+            return BigQueryDataDictionary.get_views_for_dataset(
                 conn, project_id, dataset_name
             )
 
@@ -867,7 +872,7 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
             table_identifier.project_id,
             table_identifier.dataset,
         ) not in self.schema_columns.keys():
-            columns = self.data_dictionary.get_columns_for_dataset(
+            columns = BigQueryDataDictionary.get_columns_for_dataset(
                 conn, table_identifier.project_id, table_identifier.dataset
             )
             self.schema_columns[
@@ -881,7 +886,7 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
         # get all columns for schema failed,
         # falling back to get columns for table
         if columns is None:
-            return self.data_dictionary.get_columns_for_table(conn, table_identifier)
+            return BigQueryDataDictionary.get_columns_for_table(conn, table_identifier)
 
         # Access to table but none of its columns - is this possible ?
         return columns.get(table_identifier.table, [])

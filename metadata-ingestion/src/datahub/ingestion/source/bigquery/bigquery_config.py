@@ -24,7 +24,11 @@ class BigQueryUsageConfig(BaseUsageConfig):
 
 
 class BigQueryV2Config(BigQueryConfig):
-    project_id_pattern: AllowDenyPattern = AllowDenyPattern()
+    project_id_pattern: AllowDenyPattern = Field(
+        default=AllowDenyPattern.allow_all(),
+        description="Regex patterns for project_id to filter in ingestion.",
+    )
+
     usage: BigQueryUsageConfig = Field(
         default=BigQueryUsageConfig(), description="Usage related configs"
     )

@@ -9,8 +9,6 @@ from ratelimiter import RateLimiter
 
 from datahub.emitter import mce_builder
 from datahub.ingestion.source.bigquery.bigquery_audit import (
-    BQ_DATE_SHARD_FORMAT,
-    BQ_DATETIME_FORMAT,
     AuditLogEntry,
     BigQueryAuditMetadata,
     BigqueryTableIdentifier,
@@ -20,6 +18,10 @@ from datahub.ingestion.source.bigquery.bigquery_audit import (
 )
 from datahub.ingestion.source.bigquery.bigquery_config import BigQueryV2Config
 from datahub.ingestion.source.bigquery.bigquery_report import BigQueryV2Report
+from datahub.ingestion.source.bigquery.common import (
+    BQ_DATE_SHARD_FORMAT,
+    BQ_DATETIME_FORMAT,
+)
 from datahub.metadata.schema_classes import (
     DatasetLineageTypeClass,
     UpstreamClass,

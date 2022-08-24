@@ -1,0 +1,2 @@
+BQ_DATETIME_FORMAT = "%Y-%m-%dT%H:%M:%SZ"
+BQ_DATE_SHARD_FORMAT = "%Y%m%d"

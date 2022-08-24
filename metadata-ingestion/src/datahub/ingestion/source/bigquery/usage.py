@@ -17,8 +17,6 @@ from datahub.emitter.mcp_builder import wrap_aspect_as_workunit
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.bigquery.bigquery_audit import (
     BQ_AUDIT_V2,
-    BQ_DATE_SHARD_FORMAT,
-    BQ_DATETIME_FORMAT,
     AuditEvent,
     AuditLogEntry,
     BigQueryAuditMetadata,
@@ -26,10 +24,13 @@ from datahub.ingestion.source.bigquery.bigquery_audit import (
     QueryEvent,
     ReadEvent,
     _make_gcp_logging_client,
-    _table_ref_to_urn,
 )
 from datahub.ingestion.source.bigquery.bigquery_config import BigQueryV2Config
 from datahub.ingestion.source.bigquery.bigquery_report import BigQueryV2Report
+from datahub.ingestion.source.bigquery.common import (
+    BQ_DATETIME_FORMAT,
+    BQ_DATE_SHARD_FORMAT,
+)
 from datahub.ingestion.source.usage.usage_common import GenericAggregatedDataset
 from datahub.metadata.schema_classes import OperationClass, OperationTypeClass
 from datahub.utilities.delayed_iter import delayed_iter
@@ -479,10 +480,7 @@ class BigQueryUsageExtractor:
             for table in event.query_event.referencedTables:
                 try:
                     affected_datasets.append(
-                        _table_ref_to_urn(
-                            table.get_sanitized_name(),
-                            self.config.env,
-                        )
+                        table.get_sanitized_name().table_ref_to_urn(self.config.env)
                     )
                 except Exception as e:
                     self.report.report_warning(
@@ -508,8 +506,7 @@ class BigQueryUsageExtractor:
 
         return wrap_aspect_as_workunit(
             "dataset",
-            _table_ref_to_urn(
-                destination_table,
+            destination_table.table_ref_to_urn(
                 env=self.config.env,
             ),
             "operation",
@@ -765,7 +762,7 @@ class BigQueryUsageExtractor:
     def _make_usage_stat(self, agg: AggregatedDataset) -> MetadataWorkUnit:
         return agg.make_usage_workunit(
             self.config.bucket_duration,
-            lambda resource: _table_ref_to_urn(resource, self.config.env),
+            lambda resource: resource.table_ref_to_urn(self.config.env),
             self.config.usage.top_n_queries,
             self.config.usage.format_sql_queries,
             self.config.usage.include_top_n_queries,

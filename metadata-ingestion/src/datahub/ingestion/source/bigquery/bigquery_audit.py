@@ -21,14 +21,6 @@ from datahub.utilities.parsing_util import (
     get_first_missing_key_any,
 )
 
-# Handle table snapshots
-# See https://cloud.google.com/bigquery/docs/table-snapshots-intro.
-SNAPSHOT_TABLE_REGEX = re.compile(r"^(.+)@(\d{13})$")
-PARTITION_SUMMARY_REGEXP = re.compile(r"^(.+)\$__PARTITIONS_SUMMARY__$")
-
-BQ_DATETIME_FORMAT = "%Y-%m-%dT%H:%M:%SZ"
-BQ_DATE_SHARD_FORMAT = "%Y%m%d"
-
 BQ_AUDIT_V2 = {
     "BQ_FILTER_REGEX_ALLOW_TEMPLATE": """protoPayload.metadata.jobChange.job.jobStats.queryStats.referencedTables =~ "projects/.*/datasets/.*/tables/{table_allow_pattern}"
 """.strip(
@@ -109,6 +101,7 @@ class BigqueryTableIdentifier:
     table: str
 
     _BIGQUERY_DEFAULT_SHARDED_TABLE_REGEX: str = "((.+)[_$])?(\\d{4,10})$"
+    PARTITION_SUMMARY_REGEXP = re.compile(r"^(.+)\$__PARTITIONS_SUMMARY__$")
 
     def _get_table_and_shard(self, table_name: str) -> Tuple[str, Optional[str]]:
         match = re.search(
@@ -146,7 +139,7 @@ class BigqueryTableIdentifier:
         if not table_name:
             table_name = self.dataset
 
-        matches = SNAPSHOT_TABLE_REGEX.match(table_name)
+        matches = BigQueryTableRef.SNAPSHOT_TABLE_REGEX.match(table_name)
         if matches:
             table_name = matches.group(1)
             logger.debug(f"Found table snapshot. Using {table_name} as the table name.")
@@ -168,6 +161,10 @@ class BigqueryTableIdentifier:
 
 @dataclass(frozen=True, order=True)
 class BigQueryTableRef:
+    # Handle table snapshots
+    # See https://cloud.google.com/bigquery/docs/table-snapshots-intro.
+    SNAPSHOT_TABLE_REGEX = re.compile(r"^(.+)@(\d{13})$")
+
     table_identifier: BigqueryTableIdentifier
 
     @classmethod
@@ -202,16 +199,15 @@ class BigQueryTableRef:
             BigqueryTableIdentifier.from_string_name(sanitized_table)
         )
 
+    def table_ref_to_urn(self, env: str) -> str:
+        return make_dataset_urn(
+            "bigquery",
+            f"{self.table_identifier.project_id}.{self.table_identifier.dataset}.{self.table_identifier.table}",
+            env,
+        )
+
     def __str__(self) -> str:
         return f"projects/{self.table_identifier.project_id}/datasets/{self.table_identifier.dataset}/tables/{self.table_identifier.table}"
-
-
-def _table_ref_to_urn(ref: BigQueryTableRef, env: str) -> str:
-    return make_dataset_urn(
-        "bigquery",
-        f"{ref.table_identifier.project_id}.{ref.table_identifier.dataset}.{ref.table_identifier.table}",
-        env,
-    )
 
 
 @dataclass
