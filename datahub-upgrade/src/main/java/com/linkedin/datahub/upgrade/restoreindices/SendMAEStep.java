@@ -146,7 +146,11 @@ public class SendMAEStep implements UpgradeStep {
         }
       }
       if (totalRowsMigrated != rowCount) {
-        context.report().addLine(String.format("Failed to send MAEs for %d rows (%.2f%%).", rowCount - totalRowsMigrated, (float)(rowCount - totalRowsMigrated)*100/rowCount));
+        float percentFailed = 0.0;
+        if (rowCount > 0) {
+          percentFailed = (float)(rowCount - totalRowsMigrated)*100/rowCount;
+        }
+        context.report().addLine(String.format("Failed to send MAEs for %d rows (%.2f%%).", rowCount - totalRowsMigrated, percentFailed));
       }
       return new DefaultUpgradeStepResult(id(), UpgradeStepResult.Result.SUCCEEDED);
     };
