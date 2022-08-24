@@ -1,12 +1,13 @@
 import * as React from 'react';
 import styled from 'styled-components';
 
-import { FacetFilterInput, SearchCondition } from '../../types.generated';
+import { FacetFilterInput, FacetMetadata, SearchCondition } from '../../types.generated';
 import { ANTD_GRAY } from '../entity/shared/constants';
 import { capitalizeFirstLetter } from '../shared/textUtil';
 import { SearchFilterLabel } from './SearchFilterLabel';
 
 type Props = {
+    facet: FacetMetadata;
     filter: FacetFilterInput;
     onClose: () => void;
 };
@@ -30,13 +31,19 @@ const ValueFilterSection = styled.div`
     border-top: 1px solid ${ANTD_GRAY[5]};
 `;
 
+const CloseSpan = styled.span`
+    :hover {
+        cursor: pointer;
+    }
+`;
+
 const conditionToReadable = {
     [SearchCondition.Contain]: 'contains',
     [SearchCondition.Equal]: 'is',
     [SearchCondition.In]: 'in',
 };
 
-export const AdvancedSearchFilter = ({ filter, onClose }: Props) => {
+export const AdvancedSearchFilter = ({ facet, filter, onClose }: Props) => {
     return (
         <FilterContainer>
             <FieldFilterSection>
@@ -44,19 +51,18 @@ export const AdvancedSearchFilter = ({ filter, onClose }: Props) => {
                     {capitalizeFirstLetter(filter.field)}{' '}
                     {conditionToReadable[filter.condition || SearchCondition.Contain]}
                 </span>
-                <button type="button" onClick={onClose}>
+                <CloseSpan role="button" onClick={onClose} tabIndex={0} onKeyPress={onClose}>
                     x
-                </button>
+                </CloseSpan>
             </FieldFilterSection>
             <ValueFilterSection>
                 {filter.values.map((value) => (
                     <SearchFilterLabel
                         hideCounts
-                        aggregation={{
-                            value,
-                            count: 1,
-                            entity: null,
-                        }}
+                        aggregation={
+                            facet.aggregations.find((aggregation) => aggregation.value === value) ||
+                            facet.aggregations[0]
+                        }
                         field={value}
                     />
                 ))}

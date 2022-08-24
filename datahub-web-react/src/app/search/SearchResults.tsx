@@ -182,6 +182,7 @@ export const SearchResults = ({
                                 <AdvancedSearchFilters
                                     selectedFilters={selectedFilters}
                                     onFilterSelect={(newFilters) => onChangeFilters(newFilters)}
+                                    facets={filters || []}
                                 />
                             </Tabs.TabPane>
                         </AdvancedFilterTabToggle>

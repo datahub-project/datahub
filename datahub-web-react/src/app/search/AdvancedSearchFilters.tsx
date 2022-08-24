@@ -3,7 +3,7 @@ import { Button, Select } from 'antd';
 import * as React from 'react';
 import { useState } from 'react';
 import styled from 'styled-components';
-import { FacetFilterInput, SearchCondition } from '../../types.generated';
+import { FacetFilterInput, FacetMetadata, SearchCondition } from '../../types.generated';
 import { AdvancedSearchFilter } from './AdvancedSearchFilter';
 import { SelectFilterValueModal } from './SelectFilterValueModal';
 
@@ -25,12 +25,13 @@ export const SearchFilterWrapper = styled.div`
 
 interface Props {
     selectedFilters: Array<FacetFilterInput>;
+    facets: Array<FacetMetadata>;
     onFilterSelect: (newFilters: Array<FacetFilterInput>) => void;
 }
 
 const { Option } = Select;
 
-export const AdvancedSearchFilters = ({ selectedFilters, onFilterSelect }: Props) => {
+export const AdvancedSearchFilters = ({ facets, selectedFilters, onFilterSelect }: Props) => {
     console.log(onFilterSelect);
     const [filterField, setFilterField] = useState<null | string>(null);
 
@@ -60,6 +61,7 @@ export const AdvancedSearchFilters = ({ selectedFilters, onFilterSelect }: Props
             </Select>
             {selectedFilters.map((filter) => (
                 <AdvancedSearchFilter
+                    facet={facets.find((facet) => facet.field === filter.field) || facets[0]}
                     filter={filter}
                     onClose={() => {
                         onFilterSelect(selectedFilters.filter((f) => f !== filter));
