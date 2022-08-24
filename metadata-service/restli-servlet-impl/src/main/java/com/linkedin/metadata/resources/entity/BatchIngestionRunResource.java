@@ -1,13 +1,17 @@
 package com.linkedin.metadata.resources.entity;
 
 import com.codahale.metrics.MetricRegistry;
+import com.linkedin.common.AuditStamp;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.entity.EnvelopedAspect;
+import com.linkedin.events.metadata.ChangeType;
+import com.linkedin.execution.ExecutionRequestResult;
 import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.aspect.VersionedAspect;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.entity.RollbackRunResult;
+import com.linkedin.metadata.key.ExecutionRequestKey;
 import com.linkedin.metadata.restli.RestliUtil;
 import com.linkedin.metadata.run.AspectRowSummary;
 import com.linkedin.metadata.run.AspectRowSummaryArray;
@@ -18,6 +22,9 @@ import com.linkedin.metadata.run.UnsafeEntityInfo;
 import com.linkedin.metadata.run.UnsafeEntityInfoArray;
 import com.linkedin.metadata.search.utils.ESUtils;
 import com.linkedin.metadata.systemmetadata.SystemMetadataService;
+import com.linkedin.metadata.utils.EntityKeyUtils;
+import com.linkedin.metadata.utils.GenericRecordUtils;
+import com.linkedin.mxe.MetadataChangeProposal;
 import com.linkedin.parseq.Task;
 import com.linkedin.restli.server.annotations.Action;
 import com.linkedin.restli.server.annotations.ActionParam;
@@ -50,6 +57,7 @@ public class BatchIngestionRunResource extends CollectionResourceTaskTemplate<St
   private static final boolean DEFAULT_HARD_DELETE = false;
   private static final Integer ELASTIC_MAX_PAGE_SIZE = 10000;
   private static final Integer ELASTIC_BATCH_DELETE_SLEEP_SEC = 5;
+  private static final String ROLLED_BACK_STATUS = "ROLLED_BACK";
 
   @Inject
   @Named("systemMetadataService")
@@ -195,6 +203,8 @@ public class BatchIngestionRunResource extends CollectionResourceTaskTemplate<St
 
       log.info("calculation done.");
 
+      updateExecutionRequestStatus(runId);
+
       return response.setAspectsAffected(affectedAspects)
           .setAspectsReverted(aspectsReverted)
           .setEntitiesAffected(affectedEntities)
@@ -218,6 +228,30 @@ public class BatchIngestionRunResource extends CollectionResourceTaskTemplate<St
       TimeUnit.SECONDS.sleep(seconds);
     } catch (InterruptedException e) {
       e.printStackTrace();
+    }
+  }
+
+  private void updateExecutionRequestStatus(String runId) {
+    try {
+      final Urn executionRequestUrn = EntityKeyUtils.convertEntityKeyToUrn(new ExecutionRequestKey().setId(runId), Constants.EXECUTION_REQUEST_ENTITY_NAME);
+      EnvelopedAspect aspect =
+          _entityService.getLatestEnvelopedAspect(executionRequestUrn.getEntityType(), executionRequestUrn, Constants.EXECUTION_REQUEST_RESULT_ASPECT_NAME);
+      if (aspect == null) {
+        log.warn("Aspect for execution request with runId {} not found", runId);
+      } else {
+        final MetadataChangeProposal proposal = new MetadataChangeProposal();
+        ExecutionRequestResult requestResult = new ExecutionRequestResult(aspect.getValue().data());
+        requestResult.setStatus(ROLLED_BACK_STATUS);
+        proposal.setEntityUrn(executionRequestUrn);
+        proposal.setEntityType(Constants.EXECUTION_REQUEST_ENTITY_NAME);
+        proposal.setAspectName(Constants.EXECUTION_REQUEST_RESULT_ASPECT_NAME);
+        proposal.setAspect(GenericRecordUtils.serializeAspect(requestResult));
+        proposal.setChangeType(ChangeType.UPSERT);
+
+        _entityService.ingestProposal(proposal, new AuditStamp().setActor(UrnUtils.getUrn(Constants.SYSTEM_ACTOR)).setTime(System.currentTimeMillis()));
+      }
+    } catch (Exception e) {
+      log.warn(String.format("Not able to update execution result aspect with runId %s.", runId), e);
     }
   }
 
