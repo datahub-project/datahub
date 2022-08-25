@@ -14,7 +14,7 @@ from datahub.cli.cli_utils import get_system_auth
 from datahub.configuration.common import ConfigurationError, OperationalError
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.emitter.request_helper import _make_curl_command
-from datahub.emitter.serialization_helper import pre_json_transform
+from datahub.emitter.serialization_helper import pre_json_transform, remove_empties
 from datahub.metadata.com.linkedin.pegasus2avro.mxe import (
     MetadataChangeEvent,
     MetadataChangeProposal,
@@ -202,7 +202,7 @@ class DataHubRestEmitter:
             "entity": {"value": {snapshot_fqn: mce_obj}},
             "systemMetadata": system_metadata_obj,
         }
-        payload = json.dumps(snapshot)
+        payload = json.dumps(remove_empties(snapshot))
 
         self._emit_generic(url, payload)
 

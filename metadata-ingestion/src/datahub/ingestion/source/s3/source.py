@@ -619,7 +619,7 @@ class S3Source(Source):
         table_data = None
         table_data = TableData(
             display_name=table_name,
-            is_s3=path_spec.is_s3(),
+            is_s3=path_spec.is_s3,
             full_path=path,
             partitions=None,
             timestamp=timestamp,

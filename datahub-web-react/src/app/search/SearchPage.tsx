@@ -13,6 +13,7 @@ import { SearchCfg } from '../../conf';
 import { ENTITY_FILTER_NAME } from './utils/constants';
 import { GetSearchResultsParams } from '../entity/shared/components/styled/search/types';
 import { EntityAndType } from '../entity/shared/types';
+import { scrollToTop } from '../shared/searchUtils';
 
 type SearchPageParams = {
     type?: string;
@@ -89,6 +90,7 @@ export const SearchPage = () => {
     };
 
     const onChangePage = (newPage: number) => {
+        scrollToTop();
         navigateToSearchUrl({ type: activeType, query, page: newPage, filters, history });
     };
 

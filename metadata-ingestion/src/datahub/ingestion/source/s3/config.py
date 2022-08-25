@@ -86,7 +86,7 @@ class DataLakeSourceConfig(PlatformSourceConfigBase, EnvBasedSourceConfigBase):
 
         bucket_name: str = ""
         for path_spec in values.get("path_specs", []):
-            if path_spec.is_s3():
+            if path_spec.is_s3:
                 platform = "s3"
             else:
                 if values.get("use_s3_object_tags") or values.get("use_s3_bucket_tags"):

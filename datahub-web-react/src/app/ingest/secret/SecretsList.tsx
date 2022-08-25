@@ -16,6 +16,7 @@ import { SecretBuilderState } from './types';
 import { StyledTable } from '../../entity/shared/components/styled/StyledTable';
 import { SearchBar } from '../../search/SearchBar';
 import { useEntityRegistry } from '../../useEntityRegistry';
+import { scrollToTop } from '../../shared/searchUtils';
 
 const DeleteButtonContainer = styled.div`
     display: flex;
@@ -84,6 +85,7 @@ export const SecretsList = () => {
     };
 
     const onChangePage = (newPage: number) => {
+        scrollToTop();
         setPage(newPage);
     };
 
