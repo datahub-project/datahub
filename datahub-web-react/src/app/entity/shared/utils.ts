@@ -1,3 +1,5 @@
+import * as QueryString from 'query-string';
+
 import { MatchedField } from '../../../types.generated';
 import { FIELDS_TO_HIGHLIGHT } from '../dataset/search/highlights';
 import { GenericEntityProperties } from './types';
@@ -87,9 +89,22 @@ export const getMatchPrioritizingPrimary = (
     matchedFields: MatchedField[],
     primaryField: string,
 ): MatchedField | undefined => {
-    const primaryMatch = matchedFields.find((field) => field.name === primaryField);
-    if (primaryMatch) {
-        return primaryMatch;
+    const { location } = window;
+    const params = QueryString.parse(location.search, { arrayFormat: 'comma' });
+    const query: string = decodeURIComponent(params.query ? (params.query as string) : '');
+
+    console.log({
+        matchedFields,
+    });
+    const primaryMatches = matchedFields.filter((field) => field.name === primaryField);
+    if (primaryMatches.length > 0) {
+        const primaryMatch = primaryMatches.find(
+            (field) => query.toLowerCase().indexOf(field.value.toLowerCase()) !== -1,
+        );
+        if (primaryMatch) {
+            return primaryMatch;
+        }
+        return primaryMatches[0];
     }
 
     return matchedFields.find((field) => FIELDS_TO_HIGHLIGHT.has(field.name));

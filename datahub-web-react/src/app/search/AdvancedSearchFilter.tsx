@@ -48,9 +48,9 @@ const FilterFieldLabel = styled.span`
 `;
 
 const conditionToReadable = {
-    [SearchCondition.Contain]: 'contain',
-    [SearchCondition.Equal]: 'contain',
-    [SearchCondition.In]: 'contain',
+    [SearchCondition.Contain]: 'include',
+    [SearchCondition.Equal]: 'include',
+    [SearchCondition.In]: 'include',
 };
 
 const TEXT_FILTERS = ['fieldPaths'];
