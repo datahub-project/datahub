@@ -96,14 +96,14 @@ export const IngestionSourceExecutionList = ({ urn, isExpanded, lastRefresh, onR
             title: `Confirm Rollback`,
             content: (
                 <div>
-                    Rolling back this ingestion run will soft delete any data specifically associated with with this
-                    run. If overlapping data has been ingested in previous runs, it may not be removed.
+                    Rolling back this ingestion run will delete any data specifically associated with with this run. If
+                    overlapping data has been ingested in previous runs, it may not be removed.
                     <br />
                     <br /> Are you sure you want to continue?
                 </div>
             ),
             onOk() {
-                message.loading('Rolling back...');
+                message.loading({ content: 'Rolling back...', duration: 30 });
                 rollbackIngestion({ variables: { input: { runId } } }).then(() => {
                     refetch();
                     onRefresh();
