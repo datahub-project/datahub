@@ -66,84 +66,114 @@ class BigqueryQuery:
         "select schema_name from {project_id}.INFORMATION_SCHEMA.SCHEMATA"
     )
 
-    datasets_for_project_id: str = """select s.CATALOG_NAME as catalog_name
-        , s.schema_name as table_schema
-        , s.location as location
-        , s.CREATION_TIME as created
-        , s.LAST_MODIFIED_TIME as last_altered
-        , o.OPTION_VALUE as comment
-        from {project_id}.INFORMATION_SCHEMA.SCHEMATA as s
-        left join {project_id}.INFORMATION_SCHEMA.SCHEMATA_OPTIONS as o on o.schema_name = s.schema_name and o.option_name = "description"
-        order by s.schema_name"""
+    datasets_for_project_id: str = """
+select
+  s.CATALOG_NAME as catalog_name,
+  s.schema_name as table_schema,
+  s.location as location,
+  s.CREATION_TIME as created,
+  s.LAST_MODIFIED_TIME as last_altered,
+  o.OPTION_VALUE as comment
+from
+  {project_id}.INFORMATION_SCHEMA.SCHEMATA as s
+  left join {project_id}.INFORMATION_SCHEMA.SCHEMATA_OPTIONS as o on o.schema_name = s.schema_name
+  and o.option_name = "description"
+order by
+  s.schema_name
+"""
 
     # https://cloud.google.com/bigquery/docs/information-schema-table-storage?hl=en
     tables_for_dataset = """
-        SELECT t.table_catalog as table_catalog,
-        t.table_schema as table_schema,
-        t.table_name as table_name,
-        t.table_type as table_type,
-        t.creation_time as created,
-        ts.last_modified_time as last_altered,
-        tos.OPTION_VALUE as comment,
-        is_insertable_into,
-        ddl,
-        row_count,
-        size_bytes as bytes
-        FROM `{project_id}`.{dataset_name}.INFORMATION_SCHEMA.TABLES t
-        join `{project_id}`.{dataset_name}.__TABLES__ as ts on ts.table_id = t.TABLE_NAME
-        left join `{project_id}`.{dataset_name}.INFORMATION_SCHEMA.TABLE_OPTIONS as tos on t.table_schema = tos.table_schema and t.TABLE_NAME = tos.TABLE_NAME and tos.OPTION_NAME = "description"
-        WHERE table_type in ('BASE TABLE', 'EXTERNAL TABLE')
-        order by table_schema, table_name"""
+SELECT
+  t.table_catalog as table_catalog,
+  t.table_schema as table_schema,
+  t.table_name as table_name,
+  t.table_type as table_type,
+  t.creation_time as created,
+  ts.last_modified_time as last_altered,
+  tos.OPTION_VALUE as comment,
+  is_insertable_into,
+  ddl,
+  row_count,
+  size_bytes as bytes
+FROM
+  `{project_id}`.{dataset_name}.INFORMATION_SCHEMA.TABLES t
+  join `{project_id}`.{dataset_name}.__TABLES__ as ts on ts.table_id = t.TABLE_NAME
+  left join `{project_id}`.{dataset_name}.INFORMATION_SCHEMA.TABLE_OPTIONS as tos on t.table_schema = tos.table_schema
+  and t.TABLE_NAME = tos.TABLE_NAME
+  and tos.OPTION_NAME = "description"
+WHERE
+  table_type in ('BASE TABLE', 'EXTERNAL TABLE')
+order by
+  table_schema,
+  table_name
+"""
 
     views_for_dataset: str = """
-        SELECT t.table_catalog as table_catalog,
-        t.table_schema as table_schema,
-        t.table_name as table_name,
-        t.table_type as table_type,
-        t.creation_time as created,
-        ts.last_modified_time as last_altered,
-        tos.OPTION_VALUE as comment,
-        is_insertable_into,
-        ddl as view_definition,
-        row_count,
-        size_bytes
-        FROM `{project_id}`.{dataset_name}.INFORMATION_SCHEMA.TABLES t
-        join `{project_id}`.{dataset_name}.__TABLES__ as ts on ts.table_id = t.TABLE_NAME
-        left join `{project_id}`.{dataset_name}.INFORMATION_SCHEMA.TABLE_OPTIONS as tos on t.table_schema = tos.table_schema and t.TABLE_NAME = tos.TABLE_NAME and tos.OPTION_NAME = "description"
-        WHERE table_type in ( 'VIEW MATERIALIZED', 'VIEW')
-        order by table_schema, table_name"""
+SELECT
+  t.table_catalog as table_catalog,
+  t.table_schema as table_schema,
+  t.table_name as table_name,
+  t.table_type as table_type,
+  t.creation_time as created,
+  ts.last_modified_time as last_altered,
+  tos.OPTION_VALUE as comment,
+  is_insertable_into,
+  ddl as view_definition,
+  row_count,
+  size_bytes
+FROM
+  `{project_id}`.{dataset_name}.INFORMATION_SCHEMA.TABLES t
+  join `{project_id}`.{dataset_name}.__TABLES__ as ts on ts.table_id = t.TABLE_NAME
+  left join `{project_id}`.{dataset_name}.INFORMATION_SCHEMA.TABLE_OPTIONS as tos on t.table_schema = tos.table_schema
+  and t.TABLE_NAME = tos.TABLE_NAME
+  and tos.OPTION_NAME = "description"
+WHERE
+  table_type in ('VIEW MATERIALIZED', 'VIEW')
+order by
+  table_schema,
+  table_name
+"""
 
     columns_for_dataset: str = """
-        select
-        c.table_catalog as table_catalog,
-        c.table_schema as table_schema,
-        c.table_name as table_name,
-        c.column_name as column_name,
-        c.ordinal_position as ordinal_position,
-        c.is_nullable as is_nullable,
-        c.data_type as data_type,
-        description as comment,
-        c.is_hidden as is_hidden,
-        c.is_partitioning_column as is_partitioning_column
-        from `{project_id}`.`{dataset_name}`.INFORMATION_SCHEMA.COLUMNS c
-        join `{project_id}`.`{dataset_name}`.INFORMATION_SCHEMA.COLUMN_FIELD_PATHS as cfp on cfp.table_name = c.table_name and cfp.column_name = c.column_name
-        ORDER BY ordinal_position"""
+select
+  c.table_catalog as table_catalog,
+  c.table_schema as table_schema,
+  c.table_name as table_name,
+  c.column_name as column_name,
+  c.ordinal_position as ordinal_position,
+  c.is_nullable as is_nullable,
+  c.data_type as data_type,
+  description as comment,
+  c.is_hidden as is_hidden,
+  c.is_partitioning_column as is_partitioning_column
+from
+  `{project_id}`.`{dataset_name}`.INFORMATION_SCHEMA.COLUMNS c
+  join `{project_id}`.`{dataset_name}`.INFORMATION_SCHEMA.COLUMN_FIELD_PATHS as cfp on cfp.table_name = c.table_name
+  and cfp.column_name = c.column_name
+ORDER BY
+  ordinal_position"""
 
-    columns_for_table: str = """select
-        c.table_catalog as table_catalog,
-        c.table_schema as table_schema,
-        c.table_name as table_name,
-        c.column_name as column_name,
-        c.ordinal_position as ordinal_position,
-        c.is_nullable as is_nullable,
-        c.data_type as data_type,
-        c.is_hidden as is_hidden,
-        c.is_partitioning_column as is_partitioning_column,
-        description as comment
-        from `{table_identifier.project_id}`.{table_identifier.dataset}.INFORMATION_SCHEMA.COLUMNS as c
-        join `{table_identifier.project_id}`.{table_identifier.dataset}.INFORMATION_SCHEMA.COLUMN_FIELD_PATHS as cfp on cfp.table_name = c.table_name and cfp.column_name = c.column_name
-        where c.table_name='{table_identifier.table}'
-        ORDER BY ordinal_position"""
+    columns_for_table: str = """
+select
+  c.table_catalog as table_catalog,
+  c.table_schema as table_schema,
+  c.table_name as table_name,
+  c.column_name as column_name,
+  c.ordinal_position as ordinal_position,
+  c.is_nullable as is_nullable,
+  c.data_type as data_type,
+  c.is_hidden as is_hidden,
+  c.is_partitioning_column as is_partitioning_column,
+  description as comment
+from
+  `{table_identifier.project_id}`.{table_identifier.dataset}.INFORMATION_SCHEMA.COLUMNS as c
+  join `{table_identifier.project_id}`.{table_identifier.dataset}.INFORMATION_SCHEMA.COLUMN_FIELD_PATHS as cfp on cfp.table_name = c.table_name
+  and cfp.column_name = c.column_name
+where
+  c.table_name = '{table_identifier.table}'
+ORDER BY
+  ordinal_position"""
 
 
 class BigQueryDataDictionary:
@@ -230,15 +260,18 @@ class BigQueryDataDictionary:
 
     @staticmethod
     def get_columns_for_dataset(
-        conn: bigquery.Client, project_id: str, schema_name: str
+        conn: bigquery.Client, project_id: str, dataset_name: str
     ) -> Optional[Dict[str, List[BigqueryColumn]]]:
         columns: Dict[str, List[BigqueryColumn]] = {}
         try:
             cur = BigQueryDataDictionary.get_query_result(
-                conn, BigqueryQuery.columns_for_dataset.format(project_id, schema_name)
+                conn,
+                BigqueryQuery.columns_for_dataset.format(
+                    project_id=project_id, dataset_name=dataset_name
+                ),
             )
         except Exception as e:
-            logger.debug(e)
+            logger.warning(f"Columns for dataset query failed with exception: {e}")
             # Error - Information schema query returned too much data.
             # Please repeat query with more selective predicates.
             return None
@@ -256,6 +289,7 @@ class BigQueryDataDictionary:
                     is_partition_column=column.is_partitioning_column == "YES",
                 )
             )
+
         return columns
 
     @staticmethod

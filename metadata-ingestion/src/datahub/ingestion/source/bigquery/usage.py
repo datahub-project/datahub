@@ -23,13 +23,13 @@ from datahub.ingestion.source.bigquery.bigquery_audit import (
     BigQueryTableRef,
     QueryEvent,
     ReadEvent,
-    _make_gcp_logging_client,
 )
 from datahub.ingestion.source.bigquery.bigquery_config import BigQueryV2Config
 from datahub.ingestion.source.bigquery.bigquery_report import BigQueryV2Report
 from datahub.ingestion.source.bigquery.common import (
     BQ_DATETIME_FORMAT,
     BQ_DATE_SHARD_FORMAT,
+    _make_gcp_logging_client,
 )
 from datahub.ingestion.source.usage.usage_common import GenericAggregatedDataset
 from datahub.metadata.schema_classes import OperationClass, OperationTypeClass
@@ -167,23 +167,13 @@ class BigQueryUsageExtractor:
         parsed_bigquery_log_events: Iterable[
             Union[ReadEvent, QueryEvent, MetadataWorkUnit]
         ]
+
+        bigquery_log_entries = self._get_parsed_bigquery_log_events(project_id)
         if self.config.use_exported_bigquery_audit_metadata:
-            bigquery_client = self._make_bigquery_client(self.config.project_id)
-            bigquery_log_entries = (
-                self._get_bigquery_log_entries_via_exported_bigquery_audit_metadata(
-                    bigquery_client
-                )
-            )
             parsed_bigquery_log_events = self._parse_exported_bigquery_audit_metadata(
                 bigquery_log_entries
             )
         else:
-            logging_client: GCPLoggingClient = _make_gcp_logging_client(
-                project_id, self.config.extra_client_options
-            )
-            bigquery_log_entries = self._get_bigquery_log_entries_via_gcp_logging(
-                logging_client
-            )
             parsed_bigquery_log_events = self._parse_bigquery_log_entries(
                 bigquery_log_entries
             )
@@ -309,11 +299,6 @@ class BigQueryUsageExtractor:
                     yield from query_job
             else:
                 yield from query_job
-
-    def _get_entry_timestamp(
-        self, entry: Union[AuditLogEntry, BigQueryAuditMetadata]
-    ) -> datetime:
-        return entry.timestamp
 
     def _get_bigquery_log_entries_via_gcp_logging(
         self, client: GCPLoggingClient, limit: Optional[int] = None
@@ -480,7 +465,7 @@ class BigQueryUsageExtractor:
             for table in event.query_event.referencedTables:
                 try:
                     affected_datasets.append(
-                        table.get_sanitized_name().table_ref_to_urn(self.config.env)
+                        table.get_sanitized_name().to_urn(self.config.env)
                     )
                 except Exception as e:
                     self.report.report_warning(
@@ -506,12 +491,11 @@ class BigQueryUsageExtractor:
 
         return wrap_aspect_as_workunit(
             "dataset",
-            destination_table.table_ref_to_urn(
+            destination_table.to_urn(
                 env=self.config.env,
             ),
             "operation",
             operation_aspect,
-            self.report,
         )
 
     def _create_operational_custom_properties(
@@ -762,34 +746,34 @@ class BigQueryUsageExtractor:
     def _make_usage_stat(self, agg: AggregatedDataset) -> MetadataWorkUnit:
         return agg.make_usage_workunit(
             self.config.bucket_duration,
-            lambda resource: resource.table_ref_to_urn(self.config.env),
+            lambda resource: resource.to_urn(self.config.env),
             self.config.usage.top_n_queries,
             self.config.usage.format_sql_queries,
             self.config.usage.include_top_n_queries,
         )
 
-    def test_capability(self, project_id: str) -> None:
-        lineage_metadata: Dict[str, Set[str]]
+    def _get_parsed_bigquery_log_events(
+        self, project_id: str, limit: Optional[int] = None
+    ) -> Iterable[Union[ReadEvent, QueryEvent, MetadataWorkUnit]]:
         if self.config.use_exported_bigquery_audit_metadata:
             _client: BigQueryClient = BigQueryClient(project=project_id)
-            entries = self._get_exported_bigquery_audit_metadata(
+            return self._get_exported_bigquery_audit_metadata(
                 bigquery_client=_client,
                 allow_filter=self.config.get_table_pattern(
                     self.config.table_pattern.allow
                 ),
-                limit=1,
+                limit=limit,
             )
-            for entry in entries:
-                logger.debug(
-                    f"Connection test got one exported_bigquery_audit_metadata {entry}"
-                )
         else:
             logging_client: GCPLoggingClient = _make_gcp_logging_client(
                 project_id, self.config.extra_client_options
             )
-            bigquery_log_entries = self._get_bigquery_log_entries_via_gcp_logging(
-                logging_client
+            return self._get_bigquery_log_entries_via_gcp_logging(
+                logging_client, limit=limit
             )
 
-            for entry in bigquery_log_entries:
-                logger.debug(f"Connection test got one usage metadata entry {entry}")
+    def test_capability(self, project_id: str) -> None:
+        lineage_metadata: Dict[str, Set[str]]
+        for entry in self._get_parsed_bigquery_log_events(project_id, limit=1):
+            logger.debug(f"Connection test got one {entry}")
+            return

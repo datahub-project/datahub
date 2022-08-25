@@ -22,8 +22,9 @@ class BigQueryBaseConfig(ConfigModel):
     )
 
     sharded_table_pattern: str = pydantic.Field(
+        deprecated=True,
         default=_BIGQUERY_DEFAULT_SHARDED_TABLE_REGEX,
-        description="DEPRECATED: The regex pattern to match sharded tables and group as one table. This is a very low level config parameter, only change if you know what you are doing, ",
+        description="The regex pattern to match sharded tables and group as one table. This is a very low level config parameter, only change if you know what you are doing, ",
     )
 
     @pydantic.validator("sharded_table_pattern")

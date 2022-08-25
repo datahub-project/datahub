@@ -6,16 +6,9 @@ from datetime import datetime
 from typing import Any, Dict, List, Optional, Tuple
 
 from dateutil import parser
-from google.cloud.logging_v2.client import Client as GCPLoggingClient
 
 from datahub.emitter.mce_builder import make_dataset_urn
 
-# ProtobufEntry is generated dynamically using a namedtuple, so mypy
-# can't really deal with it. As such, we short circuit mypy's typing
-# but keep the code relatively clear by retaining dummy types.
-#
-# from google.cloud.logging_v2 import ProtobufEntry
-# AuditLogEntry = ProtobufEntry
 from datahub.utilities.parsing_util import (
     get_first_missing_key,
     get_first_missing_key_any,
@@ -79,19 +72,6 @@ AuditLogEntry = Any
 BigQueryAuditMetadata = Any
 
 logger: logging.Logger = logging.getLogger(__name__)
-
-
-def _make_gcp_logging_client(
-    project_id: Optional[str] = None, extra_client_options: Dict[str, Any] = {}
-) -> GCPLoggingClient:
-    # See https://github.com/googleapis/google-cloud-python/issues/2674 for
-    # why we disable gRPC here.
-    client_options = extra_client_options.copy()
-    client_options["_use_grpc"] = False
-    if project_id is not None:
-        return GCPLoggingClient(**client_options, project=project_id)
-    else:
-        return GCPLoggingClient(**client_options)
 
 
 @dataclass(frozen=True, order=True)
@@ -199,7 +179,7 @@ class BigQueryTableRef:
             BigqueryTableIdentifier.from_string_name(sanitized_table)
         )
 
-    def table_ref_to_urn(self, env: str) -> str:
+    def to_urn(self, env: str) -> str:
         return make_dataset_urn(
             "bigquery",
             f"{self.table_identifier.project_id}.{self.table_identifier.dataset}.{self.table_identifier.table}",

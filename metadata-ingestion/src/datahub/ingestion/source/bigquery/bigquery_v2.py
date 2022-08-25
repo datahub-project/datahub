@@ -37,9 +37,7 @@ from datahub.ingestion.api.decorators import (
 from datahub.ingestion.api.ingestion_job_checkpointing_provider_base import JobId
 from datahub.ingestion.api.source import (
     CapabilityReport,
-    Source,
     SourceCapability,
-    SourceReport,
     TestableSource,
     TestConnectionReport,
 )
@@ -95,33 +93,6 @@ from datahub.utilities.registries.domain_registry import DomainRegistry
 
 logger: logging.Logger = logging.getLogger(__name__)
 
-# https://cloud.google.com/bigquery/docs/reference/standard-sql/data-types
-BIGQUERY_FIELD_TYPE_MAPPINGS: Dict[
-    str, Type[Union[BytesType, BooleanType, NumberType, StringType, TimeType, NullType]]
-] = {
-    "BYTES": BytesType,
-    "BOOL": BooleanType,
-    "DECIMAL": NumberType,
-    "NUMERIC": NumberType,
-    "BIGNUMERIC": NumberType,
-    "BIGDECIMAL": NumberType,
-    "FLOAT64": NumberType,
-    "INT": NumberType,
-    "INT64": NumberType,
-    "SMALLINT": NumberType,
-    "INTEGER": NumberType,
-    "BIGINT": NumberType,
-    "TINYINT": NumberType,
-    "BYTEINT": NumberType,
-    "STRING": StringType,
-    "TIME": TimeType,
-    "TIMESTAMP": TimeType,
-    "DATE": TimeType,
-    "DATETIME": TimeType,
-    "GEOGRAPHY": NullType,
-    "JSON": NullType,
-    "INTERVAL": NullType,
-}
 # Handle table snapshots
 # See https://cloud.google.com/bigquery/docs/table-snapshots-intro.
 SNAPSHOT_TABLE_REGEX = re.compile(r"^(.+)@(\d{13})$")
@@ -155,6 +126,35 @@ def cleanup(config: BigQueryV2Config) -> None:
     supported=True,
 )
 class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
+    # https://cloud.google.com/bigquery/docs/reference/standard-sql/data-types
+    BIGQUERY_FIELD_TYPE_MAPPINGS: Dict[
+        str,
+        Type[Union[BytesType, BooleanType, NumberType, StringType, TimeType, NullType]],
+    ] = {
+        "BYTES": BytesType,
+        "BOOL": BooleanType,
+        "DECIMAL": NumberType,
+        "NUMERIC": NumberType,
+        "BIGNUMERIC": NumberType,
+        "BIGDECIMAL": NumberType,
+        "FLOAT64": NumberType,
+        "INT": NumberType,
+        "INT64": NumberType,
+        "SMALLINT": NumberType,
+        "INTEGER": NumberType,
+        "BIGINT": NumberType,
+        "TINYINT": NumberType,
+        "BYTEINT": NumberType,
+        "STRING": StringType,
+        "TIME": TimeType,
+        "TIMESTAMP": TimeType,
+        "DATE": TimeType,
+        "DATETIME": TimeType,
+        "GEOGRAPHY": NullType,
+        "JSON": NullType,
+        "INTERVAL": NullType,
+    }
+
     def __init__(self, ctx: PipelineContext, config: BigQueryV2Config):
         super(BigqueryV2Source, self).__init__(config, ctx)
         self.config: BigQueryV2Config = config
@@ -181,15 +181,62 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
         atexit.register(cleanup, config)
 
     @classmethod
-    def create(cls, config_dict: dict, ctx: PipelineContext) -> "Source":
+    def create(cls, config_dict: dict, ctx: PipelineContext) -> "BigqueryV2Source":
         config = BigQueryV2Config.parse_obj(config_dict)
         return cls(ctx, config)
 
     def get_bigquery_client(self) -> bigquery.Client:
-        client_options = self.config.extra_client_options.copy()
+        client_options = self.config.extra_client_options
         if self.config.project_id:
             client_options["project"] = self.config.project_id
         return bigquery.Client(**client_options)
+
+    @staticmethod
+    def connectivity_test(client) -> CapabilityReport:
+        ret = client.query("select 1")
+        if ret.error_result:
+            return CapabilityReport(
+                capable=False, failure_reason=f"{ret.error_result['message']}"
+            )
+        else:
+            return CapabilityReport(capable=True)
+
+    @staticmethod
+    def lineage_capability_test(
+        connection_conf: BigQueryV2Config,
+        project_ids: List[str],
+        report: BigQueryV2Report,
+    ) -> CapabilityReport:
+        lineage_extractor = BigqueryLineageExtractor(connection_conf, report)
+        for project_id in project_ids:
+            try:
+                logger.info((f"Lineage capability test for project {project_id}"))
+                lineage_extractor.test_capability(project_id)
+            except Exception as e:
+                return CapabilityReport(
+                    capable=False,
+                    failure_reason=f"Lineage capability test failed with: {e}",
+                )
+
+        return CapabilityReport(capable=True)
+
+    @staticmethod
+    def usage_capability_test(
+        connection_conf: BigQueryV2Config,
+        project_ids: List[str],
+        report: BigQueryV2Report,
+    ) -> CapabilityReport:
+        usage_extractor = BigQueryUsageExtractor(connection_conf, report)
+        for project_id in project_ids:
+            try:
+                logger.info((f"Usage capability test for project {project_id}"))
+                usage_extractor.test_capability(project_id)
+            except Exception as e:
+                return CapabilityReport(
+                    capable=False,
+                    failure_reason=f"Usage capability test failed with: {e} for project {project_id}",
+                )
+        return CapabilityReport(capable=True)
 
     @staticmethod
     def test_connection(config_dict: dict) -> TestConnectionReport:
@@ -204,13 +251,7 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
             client: bigquery.Client = bigquery.Client()
             assert client
 
-            ret = client.query("select 1")
-            if ret.error_result:
-                test_report.basic_connectivity = CapabilityReport(
-                    capable=False, failure_reason=f"{ret.error_result['message']}"
-                )
-            else:
-                test_report.basic_connectivity = CapabilityReport(capable=True)
+            test_report.basic_connectivity = BigqueryV2Source.connectivity_test(client)
 
             connection_conf.start_time = datetime.now()
             connection_conf.end_time = datetime.now() + timedelta(minutes=1)
@@ -218,41 +259,22 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
             report: BigQueryV2Report = BigQueryV2Report()
             project_ids: List[str] = []
             projects = client.list_projects()
+
             for project in projects:
                 if connection_conf.project_id_pattern.allowed(project.project_id):
                     project_ids.append(project.project_id)
 
-            lineage_extractor = BigqueryLineageExtractor(connection_conf, report)
-            for project_id in project_ids:
-                try:
-                    logger.info((f"Lineage capability test for project {project_id}"))
-                    lineage_extractor.test_capability(project_id)
-                except Exception as e:
-                    _report[SourceCapability.LINEAGE_COARSE] = CapabilityReport(
-                        capable=False,
-                        failure_reason=f"Lineage capability test failed with: {e}",
-                    )
-                    break
-
+            lineage_capability = BigqueryV2Source.lineage_capability_test(
+                connection_conf, project_ids, report
+            )
             if SourceCapability.LINEAGE_COARSE not in _report:
-                _report[SourceCapability.LINEAGE_COARSE] = CapabilityReport(
-                    capable=True
-                )
+                _report[SourceCapability.LINEAGE_COARSE] = lineage_capability
 
-            usage_extractor = BigQueryUsageExtractor(connection_conf, report)
-            for project_id in project_ids:
-                try:
-                    logger.info((f"Usage capability test for project {project_id}"))
-                    usage_extractor.test_capability(project_id)
-                except Exception as e:
-                    _report[SourceCapability.USAGE_STATS] = CapabilityReport(
-                        capable=False,
-                        failure_reason=f"Usage capability test failed with: {e} for project {project_id}",
-                    )
-                    break
-
+            usage_capability = BigqueryV2Source.usage_capability_test(
+                connection_conf, project_ids, report
+            )
             if SourceCapability.USAGE_STATS not in _report:
-                _report[SourceCapability.USAGE_STATS] = CapabilityReport(capable=True)
+                _report[SourceCapability.USAGE_STATS] = usage_capability
 
             test_report.capability_report = _report
             return test_report
@@ -278,7 +300,7 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
         """
         Keeping the same job_id as for the old source
         """
-        return JobId("common_ingest_from_sql_source")
+        return JobId("ingest_from_bigquery_source")
 
     def create_checkpoint(self, job_id: JobId) -> Optional[Checkpoint]:
         """
@@ -319,10 +341,7 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
         The source identifier such as the specific source host address required for stateful ingestion.
         Individual subclasses need to override this method appropriately.
         """
-        config_dict = self.config.dict()
-        host_port = config_dict.get("host_port", "no_host_port")
-        database = config_dict.get("database", "no_database")
-        return f"{self.platform}_{host_port}_{database}"
+        return f"{self.platform}"
 
     def gen_removed_entity_workunits(self) -> Iterable[MetadataWorkUnit]:
         last_checkpoint = self.get_last_checkpoint(
@@ -342,10 +361,7 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
             logger.debug("Checking for stale entity removal.")
 
             def soft_delete_item(urn: str, type: str) -> Iterable[MetadataWorkUnit]:
-                entity_type: str = "dataset"
-
-                if type == "container":
-                    entity_type = "container"
+                entity_type: str = type if type == "container" else "dataset"
 
                 logger.info(f"Soft-deleting stale entity of type {type} - {urn}.")
                 mcp = MetadataChangeProposalWrapper(
@@ -737,6 +753,7 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
             wu = wrap_aspect_as_workunit(
                 "dataset", dataset_urn, "upstreamLineage", upstream_lineage
             )
+            yield wu
             self.report.report_workunit(wu)
 
         if isinstance(table, BigqueryTable) and self.config.profiling.enabled:
@@ -756,6 +773,7 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
                     "datasetProfile",
                     dataset_profile,
                 )
+                yield wu
                 self.report.report_workunit(wu)
 
             else:
@@ -773,6 +791,7 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
                 "viewProperties",
                 view_properties_aspect,
             )
+            yield wu
             self.report.report_workunit(wu)
 
         if self.is_stateful_ingestion_configured():
@@ -803,7 +822,7 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
                 SchemaField(
                     fieldPath=col.name,
                     type=SchemaFieldDataType(
-                        BIGQUERY_FIELD_TYPE_MAPPINGS.get(col.data_type, NullType)()
+                        self.BIGQUERY_FIELD_TYPE_MAPPINGS.get(col.data_type, NullType)()
                     ),
                     # NOTE: nativeDataType will not be in sync with older connector
                     nativeDataType=col.data_type,
@@ -824,7 +843,7 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
         )
         return schema_metadata
 
-    def get_report(self) -> SourceReport:
+    def get_report(self) -> BigQueryV2Report:
         return self.report
 
     def get_tables_for_dataset(
@@ -837,7 +856,7 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
         tables = self.db_tables.get(dataset_name)
 
         # In bigquery there is no way to query all tables in a Project id
-        if tables is None:
+        if not tables:
             return BigQueryDataDictionary.get_tables_for_dataset(
                 conn, project_id, dataset_name
             )
@@ -856,7 +875,7 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
 
         # get all views for database failed,
         # falling back to get views for schema
-        if views is None:
+        if not views:
             return BigQueryDataDictionary.get_views_for_dataset(
                 conn, project_id, dataset_name
             )
@@ -873,7 +892,9 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
             table_identifier.dataset,
         ) not in self.schema_columns.keys():
             columns = BigQueryDataDictionary.get_columns_for_dataset(
-                conn, table_identifier.project_id, table_identifier.dataset
+                conn,
+                project_id=table_identifier.project_id,
+                dataset_name=table_identifier.dataset,
             )
             self.schema_columns[
                 (table_identifier.project_id, table_identifier.dataset)
@@ -885,14 +906,23 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
 
         # get all columns for schema failed,
         # falling back to get columns for table
-        if columns is None:
+        if not columns:
             return BigQueryDataDictionary.get_columns_for_table(conn, table_identifier)
 
         # Access to table but none of its columns - is this possible ?
         return columns.get(table_identifier.table, [])
 
     def add_config_to_report(self):
-        return
+        self.report.window_start_time = self.config.start_time
+        self.report.window_end_time = self.config.end_time
+        self.report.include_table_lineage = self.config.include_table_lineage
+        self.report.use_date_sharded_audit_log_tables = (
+            self.config.use_date_sharded_audit_log_tables
+        )
+        self.report.log_page_size = self.config.log_page_size
+        self.report.use_exported_bigquery_audit_metadata = (
+            self.config.use_exported_bigquery_audit_metadata
+        )
 
     def warn(self, log: logging.Logger, key: str, reason: str) -> None:
         self.report.report_warning(key, reason)

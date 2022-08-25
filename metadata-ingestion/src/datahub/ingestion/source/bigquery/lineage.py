@@ -1,7 +1,7 @@
 import collections
 import logging
 import textwrap
-from typing import Any, Dict, Iterable, List, Optional, Set, Tuple, Union
+from typing import Dict, Iterable, List, Optional, Set, Tuple, Union
 
 from google.cloud.bigquery import Client as BigQueryClient
 from google.cloud.logging_v2.client import Client as GCPLoggingClient
@@ -14,13 +14,13 @@ from datahub.ingestion.source.bigquery.bigquery_audit import (
     BigqueryTableIdentifier,
     BigQueryTableRef,
     QueryEvent,
-    _make_gcp_logging_client,
 )
 from datahub.ingestion.source.bigquery.bigquery_config import BigQueryV2Config
 from datahub.ingestion.source.bigquery.bigquery_report import BigQueryV2Report
 from datahub.ingestion.source.bigquery.common import (
     BQ_DATE_SHARD_FORMAT,
     BQ_DATETIME_FORMAT,
+    _make_gcp_logging_client,
 )
 from datahub.metadata.schema_classes import (
     DatasetLineageTypeClass,
@@ -31,7 +31,9 @@ from datahub.utilities.bigquery_sql_parser import BigQuerySQLParser
 
 logger: logging.Logger = logging.getLogger(__name__)
 
-BQ_FILTER_RULE_TEMPLATE_V2 = """
+
+class BigqueryLineageExtractor:
+    BQ_FILTER_RULE_TEMPLATE_V2 = """
 resource.type=("bigquery_project")
 AND
 (
@@ -67,87 +69,85 @@ AND
 timestamp < "{end_time}"
 """.strip()
 
-
-def bigquery_audit_metadata_query_template(
-    dataset: str, use_date_sharded_tables: bool, limit: Optional[int] = None
-) -> str:
-    """
-    Receives a dataset (with project specified) and returns a query template that is used to query exported
-    AuditLogs containing protoPayloads of type BigQueryAuditMetadata.
-    Include only those that:
-    - have been completed (jobStatus.jobState = "DONE")
-    - do not contain errors (jobStatus.errorResults is none)
-    :param dataset: the dataset to query against in the form of $PROJECT.$DATASET
-    :param use_date_sharded_tables: whether to read from date sharded audit log tables or time partitioned audit log
-           tables
-    :param limit: set a limit for the maximum event to return. It is used for connection testing currently
-    :return: a query template, when supplied start_time and end_time, can be used to query audit logs from BigQuery
-    """
-    query: str
-    if use_date_sharded_tables:
-        query = (
-            f"""
-        SELECT
-            timestamp,
-            logName,
-            insertId,
-            protopayload_auditlog AS protoPayload,
-            protopayload_auditlog.metadataJson AS metadata
-        FROM
-            `{dataset}.cloudaudit_googleapis_com_data_access_*`
-        """
-            + """
-        WHERE
-            _TABLE_SUFFIX BETWEEN "{start_date}" AND "{end_date}" AND
-        """
-        )
-    else:
-        query = f"""
-        SELECT
-            timestamp,
-            logName,
-            insertId,
-            protopayload_auditlog AS protoPayload,
-            protopayload_auditlog.metadataJson AS metadata
-        FROM
-            `{dataset}.cloudaudit_googleapis_com_data_access`
-        WHERE
-        """
-
-    audit_log_filter = """    timestamp >= "{start_time}"
-    AND timestamp < "{end_time}"
-    AND protopayload_auditlog.serviceName="bigquery.googleapis.com"
-    AND JSON_EXTRACT_SCALAR(protopayload_auditlog.metadataJson, "$.jobChange.job.jobStatus.jobState") = "DONE"
-    AND JSON_EXTRACT(protopayload_auditlog.metadataJson, "$.jobChange.job.jobStatus.errorResults") IS NULL
-    AND JSON_EXTRACT(protopayload_auditlog.metadataJson, "$.jobChange.job.jobConfig.queryConfig") IS NOT NULL
-    """
-
-    if limit is not None:
-        audit_log_filter = audit_log_filter + f" LIMIT {limit}"
-    query = textwrap.dedent(query) + audit_log_filter + ";"
-
-    return textwrap.dedent(query)
-
-
-class BigqueryLineageExtractor:
     def __init__(self, config: BigQueryV2Config, report: BigQueryV2Report):
         self.config = config
         self.report = report
         self.lineage_metadata: Optional[Dict[str, Set[str]]] = None
 
-    def error(self, log: logging.Logger, key: str, reason: str) -> Any:
+    def error(self, log: logging.Logger, key: str, reason: str) -> None:
         self.report.report_failure(key, reason)
         log.error(f"{key} => {reason}")
+
+    @staticmethod
+    def bigquery_audit_metadata_query_template(
+        dataset: str, use_date_sharded_tables: bool, limit: Optional[int] = None
+    ) -> str:
+        """
+        Receives a dataset (with project specified) and returns a query template that is used to query exported
+        AuditLogs containing protoPayloads of type BigQueryAuditMetadata.
+        Include only those that:
+        - have been completed (jobStatus.jobState = "DONE")
+        - do not contain errors (jobStatus.errorResults is none)
+        :param dataset: the dataset to query against in the form of $PROJECT.$DATASET
+        :param use_date_sharded_tables: whether to read from date sharded audit log tables or time partitioned audit log
+               tables
+        :param limit: set a limit for the maximum event to return. It is used for connection testing currently
+        :return: a query template, when supplied start_time and end_time, can be used to query audit logs from BigQuery
+        """
+        query: str
+        if use_date_sharded_tables:
+            query = (
+                f"""
+            SELECT
+                timestamp,
+                logName,
+                insertId,
+                protopayload_auditlog AS protoPayload,
+                protopayload_auditlog.metadataJson AS metadata
+            FROM
+                `{dataset}.cloudaudit_googleapis_com_data_access_*`
+            """
+                + """
+            WHERE
+                _TABLE_SUFFIX BETWEEN "{start_time}" AND "{end_time}" AND
+            """
+            )
+        else:
+            query = f"""
+            SELECT
+                timestamp,
+                logName,
+                insertId,
+                protopayload_auditlog AS protoPayload,
+                protopayload_auditlog.metadataJson AS metadata
+            FROM
+                `{dataset}.cloudaudit_googleapis_com_data_access`
+            WHERE
+            """
+
+        audit_log_filter = """    timestamp >= "{start_time}"
+        AND timestamp < "{end_time}"
+        AND protopayload_auditlog.serviceName="bigquery.googleapis.com"
+        AND JSON_EXTRACT_SCALAR(protopayload_auditlog.metadataJson, "$.jobChange.job.jobStatus.jobState") = "DONE"
+        AND JSON_EXTRACT(protopayload_auditlog.metadataJson, "$.jobChange.job.jobStatus.errorResults") IS NULL
+        AND JSON_EXTRACT(protopayload_auditlog.metadataJson, "$.jobChange.job.jobConfig.queryConfig") IS NOT NULL
+        """
+
+        if limit is not None:
+            audit_log_filter = audit_log_filter + f" LIMIT {limit}"
+        query = textwrap.dedent(query) + audit_log_filter + ";"
+
+        return textwrap.dedent(query)
 
     def compute_bigquery_lineage_via_gcp_logging(
         self, project_id: Optional[str]
     ) -> Dict[str, Set[str]]:
         logger.info("Populating lineage info via GCP audit logs")
         try:
-            _clients: GCPLoggingClient = _make_gcp_logging_client(project_id)
+            clients: GCPLoggingClient = _make_gcp_logging_client(project_id)
 
             log_entries: Iterable[AuditLogEntry] = self._get_bigquery_log_entries(
-                _clients
+                clients
             )
             parsed_entries: Iterable[QueryEvent] = self._parse_bigquery_log_entries(
                 log_entries
@@ -157,7 +157,7 @@ class BigqueryLineageExtractor:
             self.error(
                 logger,
                 "lineage-gcp-logs",
-                f"Error was {e}",
+                f"Failed to get lineage gcp logging. The error message was {e}",
             )
             return {}
 
@@ -199,7 +199,7 @@ class BigqueryLineageExtractor:
         )
         self.report.log_entry_end_time = end_time
 
-        filter = BQ_FILTER_RULE_TEMPLATE_V2.format(
+        filter = self.BQ_FILTER_RULE_TEMPLATE_V2.format(
             start_time=start_time,
             end_time=end_time,
         )
@@ -239,12 +239,20 @@ class BigqueryLineageExtractor:
 
         start_time: str = (
             self.config.start_time - self.config.max_query_duration
-        ).strftime(BQ_DATETIME_FORMAT)
+        ).strftime(
+            BQ_DATE_SHARD_FORMAT
+            if self.config.use_date_sharded_audit_log_tables
+            else BQ_DATETIME_FORMAT
+        )
         self.report.audit_start_time = start_time
 
         end_time: str = (
             self.config.end_time + self.config.max_query_duration
-        ).strftime(BQ_DATETIME_FORMAT)
+        ).strftime(
+            BQ_DATE_SHARD_FORMAT
+            if self.config.use_date_sharded_audit_log_tables
+            else BQ_DATETIME_FORMAT
+        )
         self.report.audit_end_time = end_time
 
         for dataset in self.config.bigquery_audit_metadata_datasets:
@@ -252,27 +260,13 @@ class BigqueryLineageExtractor:
                 f"Start loading log entries from BigQueryAuditMetadata in {dataset}"
             )
 
-            query: str
-            if self.config.use_date_sharded_audit_log_tables:
-                start_date: str = (
-                    self.config.start_time - self.config.max_query_duration
-                ).strftime(BQ_DATE_SHARD_FORMAT)
-                end_date: str = (
-                    self.config.end_time + self.config.max_query_duration
-                ).strftime(BQ_DATE_SHARD_FORMAT)
-
-                query = bigquery_audit_metadata_query_template(
-                    dataset, self.config.use_date_sharded_audit_log_tables
-                ).format(
-                    start_time=start_time,
-                    end_time=end_time,
-                    start_date=start_date,
-                    end_date=end_date,
-                )
-            else:
-                query = bigquery_audit_metadata_query_template(
-                    dataset, self.config.use_date_sharded_audit_log_tables
-                ).format(start_time=start_time, end_time=end_time)
+            query: str = self.bigquery_audit_metadata_query_template(
+                dataset=dataset,
+                use_date_sharded_tables=self.config.use_date_sharded_audit_log_tables,
+            ).format(
+                start_time=start_time,
+                end_time=end_time,
+            )
 
             if limit is not None:
                 query = query + f" LIMIT {limit}"
@@ -475,11 +469,7 @@ class BigqueryLineageExtractor:
                 upstream_table_class = UpstreamClass(
                     mce_builder.make_dataset_urn_with_platform_instance(
                         platform,
-                        "{project}.{database}.{table}".format(
-                            project=upstream_table.table_identifier.project_id,
-                            database=upstream_table.table_identifier.dataset,
-                            table=upstream_table.table_identifier.table,
-                        ),
+                        f"{upstream_table.table_identifier.project_id}.{upstream_table.table_identifier.dataset}.{upstream_table.table_identifier.table}",
                         self.config.platform_instance,
                         self.config.env,
                     ),
@@ -509,12 +499,9 @@ class BigqueryLineageExtractor:
                 logger.debug(
                     f"Connection test got one exported_bigquery_audit_metadata {entry}"
                 )
-
-            return
         else:
             gcp_logging_client: GCPLoggingClient = _make_gcp_logging_client(
                 project_id, self.config.extra_client_options
             )
             for entry in self._get_bigquery_log_entries(gcp_logging_client, limit=1):
                 logger.debug(f"Connection test got one audit metadata entry {entry}")
-            return
