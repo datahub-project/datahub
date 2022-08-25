@@ -17,16 +17,13 @@ from datahub.ingestion.source.snowflake.snowflake_schema import (
     SnowflakeDatabase,
     SnowflakeTable,
 )
-from datahub.ingestion.source.snowflake.snowflake_utils import (
-    SnowflakeCommonMixin,
-    SnowflakeQueryMixin,
-)
+from datahub.ingestion.source.snowflake.snowflake_utils import SnowflakeCommonMixin
 from datahub.metadata.com.linkedin.pegasus2avro.dataset import DatasetProfile
 
 logger = logging.getLogger(__name__)
 
 
-class SnowflakeProfiler(SnowflakeCommonMixin, SnowflakeQueryMixin):
+class SnowflakeProfiler(SnowflakeCommonMixin):
     def __init__(self, config: SnowflakeV2Config, report: SnowflakeV2Report) -> None:
         self.config = config
         self.report = report
@@ -49,8 +46,12 @@ class SnowflakeProfiler(SnowflakeCommonMixin, SnowflakeQueryMixin):
 
         # Otherwise, if column level profiling is enabled, use  GE profiler.
         for db in databases:
+            if not self.config.database_pattern.allowed(db.name):
+                continue
             profile_requests = []
             for schema in db.schemas:
+                if not self.config.schema_pattern.allowed(schema.name):
+                    continue
                 for table in schema.tables:
 
                     # Emit the profile work unit
