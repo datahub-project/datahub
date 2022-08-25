@@ -41,7 +41,9 @@ export const SUCCESS = 'SUCCESS';
 export const FAILURE = 'FAILURE';
 export const CANCELLED = 'CANCELLED';
 export const UP_FOR_RETRY = 'UP_FOR_RETRY';
+export const ROLLING_BACK = 'ROLLING_BACK';
 export const ROLLED_BACK = 'ROLLED_BACK';
+export const ROLLBACK_FAILED = 'ROLLBACK_FAILED';
 
 export const CLI_EXECUTOR_ID = '__datahub_cli_';
 export const MANUAL_INGESTION_SOURCE = 'MANUAL_INGESTION_SOURCE';
@@ -56,6 +58,8 @@ export const getExecutionRequestStatusIcon = (status: string) => {
         (status === CANCELLED && CloseCircleOutlined) ||
         (status === UP_FOR_RETRY && ClockCircleOutlined) ||
         (status === ROLLED_BACK && WarningOutlined) ||
+        (status === ROLLING_BACK && LoadingOutlined) ||
+        (status === ROLLBACK_FAILED && CloseCircleOutlined) ||
         undefined
     );
 };
@@ -68,6 +72,8 @@ export const getExecutionRequestStatusDisplayText = (status: string) => {
         (status === CANCELLED && 'Cancelled') ||
         (status === UP_FOR_RETRY && 'Up for Retry') ||
         (status === ROLLED_BACK && 'Rolled Back') ||
+        (status === ROLLING_BACK && 'Rolling Back') ||
+        (status === ROLLBACK_FAILED && 'Rollback Failed') ||
         status
     );
 };
@@ -84,6 +90,10 @@ export const getExecutionRequestSummaryText = (status: string) => {
             return 'Ingestion was cancelled';
         case ROLLED_BACK:
             return 'Ingestion was rolled back';
+        case ROLLING_BACK:
+            return 'Ingestion is in the process of rolling back';
+        case ROLLBACK_FAILED:
+            return 'Ingestion rollback failed';
         default:
             return 'Ingestion status not recognized';
     }
@@ -97,6 +107,8 @@ export const getExecutionRequestStatusDisplayColor = (status: string) => {
         (status === UP_FOR_RETRY && 'orange') ||
         (status === CANCELLED && ANTD_GRAY[9]) ||
         (status === ROLLED_BACK && 'orange') ||
+        (status === ROLLING_BACK && 'orange') ||
+        (status === ROLLBACK_FAILED && 'red') ||
         ANTD_GRAY[7]
     );
 };

@@ -10,10 +10,16 @@ import { Message } from '../../../shared/Message';
 import { ExecutionDetailsModal } from './ExecutionRequestDetailsModal';
 import IngestionExecutionTable from './IngestionExecutionTable';
 import { ExecutionRequest } from '../../../../types.generated';
+import { ROLLING_BACK, RUNNING } from '../utils';
+import useRefreshIngestionData from './useRefreshIngestionData';
 
 const ListContainer = styled.div`
     margin-left: 28px;
 `;
+
+export function isExecutionRequestActive(executionRequest: ExecutionRequest) {
+    return executionRequest.result?.status === RUNNING || executionRequest.result?.status === ROLLING_BACK;
+}
 
 type Props = {
     urn: string;
@@ -35,6 +41,13 @@ export const IngestionSourceExecutionList = ({ urn, isExpanded, lastRefresh, onR
             runCount: count,
         },
     });
+
+    function hasActiveExecution() {
+        return !!data?.ingestionSource?.executions?.executionRequests.find((request) =>
+            isExecutionRequestActive(request as ExecutionRequest),
+        );
+    }
+    useRefreshIngestionData(refetch, hasActiveExecution);
 
     const [cancelExecutionRequestMutation] = useCancelIngestionExecutionRequestMutation();
     const [rollbackIngestion] = useRollbackIngestionMutation();
@@ -103,13 +116,19 @@ export const IngestionSourceExecutionList = ({ urn, isExpanded, lastRefresh, onR
                 </div>
             ),
             onOk() {
-                message.loading({ content: 'Rolling back...', duration: 30 });
-                rollbackIngestion({ variables: { input: { runId } } }).then(() => {
-                    refetch();
-                    onRefresh();
-                    message.destroy();
-                    message.success('Successfully rolled back ingestion run');
-                });
+                message.loading('Requesting rollback...');
+                rollbackIngestion({ variables: { input: { runId } } })
+                    .then(() => {
+                        setTimeout(() => {
+                            message.destroy();
+                            refetch();
+                            onRefresh();
+                            message.success('Successfully requested ingestion rollback');
+                        }, 2000);
+                    })
+                    .catch(() => {
+                        message.error('Error requesting ingestion rollback');
+                    });
             },
             onCancel() {},
             okText: 'Rollback',
