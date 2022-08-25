@@ -64,7 +64,7 @@ module.exports = {
 //   - Create Polices & assign roles
 //   - Ingest at least one source (ie. data warehouse)
 //   - Understand high-level options for enriching metadata
-      "docs/wip/get-started",
+      // "docs/wip/get-started",
       {
        "Self-Hosted DataHub": [
           "docs/quickstart",
