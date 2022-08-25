@@ -27,8 +27,8 @@ from datahub.ingestion.source.bigquery.bigquery_audit import (
 from datahub.ingestion.source.bigquery.bigquery_config import BigQueryV2Config
 from datahub.ingestion.source.bigquery.bigquery_report import BigQueryV2Report
 from datahub.ingestion.source.bigquery.common import (
-    BQ_DATETIME_FORMAT,
     BQ_DATE_SHARD_FORMAT,
+    BQ_DATETIME_FORMAT,
     _make_gcp_logging_client,
 )
 from datahub.ingestion.source.usage.usage_common import GenericAggregatedDataset

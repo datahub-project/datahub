@@ -1,4 +1,5 @@
-from typing import Optional, Any, Dict
+from typing import Any, Dict, Optional
+
 from google.cloud.logging_v2.client import Client as GCPLoggingClient
 
 BQ_DATETIME_FORMAT = "%Y-%m-%dT%H:%M:%SZ"
