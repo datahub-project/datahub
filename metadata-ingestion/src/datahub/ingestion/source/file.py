@@ -13,6 +13,7 @@ from pydantic import root_validator, validator
 from pydantic.fields import Field
 
 from datahub.configuration.common import ConfigModel
+from datahub.configuration.pydantic_helpers import pydantic_enum_case_insensitive
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.decorators import (
     SupportStatus,
@@ -57,10 +58,7 @@ class FileSourceConfig(ConfigModel):
         100 * 1000 * 1000  # Must be at least 100MB before we use streaming mode
     )
 
-    @validator("read_mode", pre=True)
-    def read_mode_str_to_enum(cls, v):
-        if v and isinstance(v, str):
-            return v.upper()
+    pydantic_enum_case_insensitive("read_mode")
 
     @root_validator(pre=True)
     def filename_populates_path_if_present(
