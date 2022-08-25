@@ -1,9 +1,8 @@
 import React, { useState } from 'react';
 import styled from 'styled-components';
-import { Dropdown, List, Menu, Tag, Tooltip, Typography } from 'antd';
+import { Dropdown, List, Menu, Select, Tag, Tooltip, Typography } from 'antd';
 import { Link } from 'react-router-dom';
 import {
-    CaretDownOutlined,
     DeleteOutlined,
     EditOutlined,
     MoreOutlined,
@@ -19,6 +18,7 @@ import { ANTD_GRAY, REDESIGN_COLORS } from '../../entity/shared/constants';
 import ViewResetTokenModal from './ViewResetTokenModal';
 import useDeleteEntity from '../../entity/shared/EntityDropdown/useDeleteEntity';
 import ViewAssignRoleModal from './ViewAssignRoleModal';
+// import UserProfile from '../../entity/user/UserProfile';
 
 type Props = {
     user: CorpUser;
@@ -48,11 +48,6 @@ const ButtonGroup = styled.div`
     align-items: center;
 `;
 
-const UserRoleTag = styled.div`
-    display: flex;
-    justify-content: space-between;
-`;
-
 const MenuIcon = styled(MoreOutlined)<{ fontSize?: number }>`
     display: flex;
     justify-content: center;
@@ -71,8 +66,9 @@ export default function UserListItem({ user, canManageUserCredentials, roles, on
     const isNativeUser: boolean = user.isNativeUser as boolean;
     const shouldShowPasswordReset: boolean = canManageUserCredentials && isNativeUser;
     const userRelationships = user.relationships?.relationships;
-    const userRoleName =
-        userRelationships && userRelationships.length > 0 && (userRelationships[0]?.entity as Role).name;
+    const userRole = userRelationships && userRelationships.length > 0 && (userRelationships[0]?.entity as Role);
+    // const userRoleName = userRole && userRole.name;
+    const userRoleUrn = userRole && userRole.urn;
 
     const { onDeleteEntity } = useDeleteEntity(user.urn, EntityType.CorpUser, user, onDelete);
 
@@ -97,7 +93,10 @@ export default function UserListItem({ user, canManageUserCredentials, roles, on
     const userStatus = user.status; // Support case where the user status is undefined.
     const userStatusToolTip = userStatus && getUserStatusToolTip(userStatus);
     const userStatusColor = userStatus && getUserStatusColor(userStatus);
-    const filteredRoles = roles.filter((role) => role.name !== userRoleName);
+    const rolesMap: Map<string, Role> = new Map();
+    roles.forEach((role) => {
+        rolesMap.set(role.urn, role);
+    });
 
     const mapRoleIcon = (roleName) => {
         if (roleName === 'Admin') {
@@ -111,6 +110,16 @@ export default function UserListItem({ user, canManageUserCredentials, roles, on
         }
         return <UserOutlined style={{ marginRight: 6, fontSize: 12 }} />;
     };
+
+    const selectOptions = () =>
+        roles.map((role) => {
+            return (
+                <Select.Option value={role.urn}>
+                    {mapRoleIcon(role.name)}
+                    {role.name}
+                </Select.Option>
+            );
+        });
 
     return (
         <List.Item>
@@ -139,44 +148,24 @@ export default function UserListItem({ user, canManageUserCredentials, roles, on
                 </Link>
             </UserItemContainer>
             <ButtonGroup>
-                <Dropdown
-                    trigger={['click']}
-                    overlay={
-                        <Menu>
-                            {filteredRoles.map((role) => (
-                                <Menu.Item
-                                    onClick={() => {
-                                        setRoleToAssign(role);
-                                        setIsViewingAssignRole(true);
-                                    }}
-                                >
-                                    {role.name}
-                                </Menu.Item>
-                            ))}
-                        </Menu>
+                <Select
+                    style={{ minWidth: 100, backgroundColor: userRoleUrn ? ANTD_GRAY[7] : '#cf1322' }}
+                    placeholder={
+                        <>
+                            <UserOutlined style={{ marginRight: 6, fontSize: 12 }} />
+                            No Role
+                        </>
                     }
+                    value={userRoleUrn || undefined}
+                    onChange={(e) => {
+                        const roleUrn: string = e as string;
+                        const roleFromMap: Role = rolesMap.get(roleUrn) as Role;
+                        setRoleToAssign(roleFromMap);
+                        setIsViewingAssignRole(true);
+                    }}
                 >
-                    <Tag
-                        style={{
-                            minWidth: 100,
-                            paddingTop: 3,
-                            paddingBottom: 3,
-                            textAlign: 'left',
-                        }}
-                        color={userRoleName ? ANTD_GRAY[7] : '#cf1322'}
-                    >
-                        <UserRoleTag>
-                            <div>
-                                {/* <UserSwitchOutlined style={{ marginRight: 6 }} /> */}
-                                {mapRoleIcon(userRoleName)}
-                                <Typography.Text style={{ color: 'white', fontSize: 12 }}>
-                                    {userRoleName || 'No Role'}
-                                </Typography.Text>
-                            </div>
-                            <CaretDownOutlined style={{ marginTop: 4 }} />
-                        </UserRoleTag>
-                    </Tag>
-                </Dropdown>
+                    {selectOptions()}
+                </Select>
 
                 <Dropdown
                     trigger={['click']}
