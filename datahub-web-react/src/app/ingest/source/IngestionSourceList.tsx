@@ -92,7 +92,6 @@ export const IngestionSourceList = () => {
     const [lastRefresh, setLastRefresh] = useState(0);
     // Set of removed urns used to account for eventual consistency
     const [removedUrns, setRemovedUrns] = useState<string[]>([]);
-    // const [refreshInterval, setRefreshInterval] = useState<NodeJS.Timeout | null>(null);
     const [sourceFilter, setSourceFilter] = useState(IngestionSourceType.ALL);
 
     // Ingestion Source Queries
