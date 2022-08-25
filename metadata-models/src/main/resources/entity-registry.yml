@@ -186,6 +186,8 @@ entities:
       - dataPlatformInstanceProperties
       - ownership
       - globalTags
+      - institutionalMemory
+      - deprecation
       - status
   - name: mlModel
     category: core
