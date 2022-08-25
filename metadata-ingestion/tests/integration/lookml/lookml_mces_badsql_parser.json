@@ -25,12 +25,14 @@
                         "created": {
                             "time": 0,
                             "actor": "urn:li:corpuser:unknown",
-                            "impersonator": null
+                            "impersonator": null,
+                            "message": null
                         },
                         "lastModified": {
                             "time": 0,
                             "actor": "urn:li:corpuser:unknown",
-                            "impersonator": null
+                            "impersonator": null,
+                            "message": null
                         },
                         "deleted": null,
                         "dataset": null,
@@ -47,6 +49,9 @@
                                 "jsonPath": null,
                                 "nullable": false,
                                 "description": "The country",
+                                "label": "",
+                                "created": null,
+                                "lastModified": null,
                                 "type": {
                                     "type": {
                                         "com.linkedin.pegasus2avro.schema.StringType": {}
@@ -57,12 +62,14 @@
                                 "globalTags": {
                                     "tags": [
                                         {
-                                            "tag": "urn:li:tag:Dimension"
+                                            "tag": "urn:li:tag:Dimension",
+                                            "context": null
                                         }
                                     ]
                                 },
                                 "glossaryTerms": null,
                                 "isPartOfKey": false,
+                                "isPartitioningKey": null,
                                 "jsonProps": null
                             },
                             {
@@ -70,6 +77,9 @@
                                 "jsonPath": null,
                                 "nullable": false,
                                 "description": "City",
+                                "label": "",
+                                "created": null,
+                                "lastModified": null,
                                 "type": {
                                     "type": {
                                         "com.linkedin.pegasus2avro.schema.StringType": {}
@@ -80,12 +90,14 @@
                                 "globalTags": {
                                     "tags": [
                                         {
-                                            "tag": "urn:li:tag:Dimension"
+                                            "tag": "urn:li:tag:Dimension",
+                                            "context": null
                                         }
                                     ]
                                 },
                                 "glossaryTerms": null,
                                 "isPartOfKey": false,
+                                "isPartitioningKey": null,
                                 "jsonProps": null
                             },
                             {
@@ -93,6 +105,9 @@
                                 "jsonPath": null,
                                 "nullable": false,
                                 "description": "Is latest data",
+                                "label": "",
+                                "created": null,
+                                "lastModified": null,
                                 "type": {
                                     "type": {
                                         "com.linkedin.pegasus2avro.schema.BooleanType": {}
@@ -103,12 +118,14 @@
                                 "globalTags": {
                                     "tags": [
                                         {
-                                            "tag": "urn:li:tag:Dimension"
+                                            "tag": "urn:li:tag:Dimension",
+                                            "context": null
                                         }
                                     ]
                                 },
                                 "glossaryTerms": null,
                                 "isPartOfKey": false,
+                                "isPartitioningKey": null,
                                 "jsonProps": null
                             },
                             {
@@ -116,6 +133,9 @@
                                 "jsonPath": null,
                                 "nullable": false,
                                 "description": "Timestamp of measurement",
+                                "label": "",
+                                "created": null,
+                                "lastModified": null,
                                 "type": {
                                     "type": {
                                         "com.linkedin.pegasus2avro.schema.TimeType": {}
@@ -126,15 +146,18 @@
                                 "globalTags": {
                                     "tags": [
                                         {
-                                            "tag": "urn:li:tag:Dimension"
+                                            "tag": "urn:li:tag:Dimension",
+                                            "context": null
                                         },
                                         {
-                                            "tag": "urn:li:tag:Temporal"
+                                            "tag": "urn:li:tag:Temporal",
+                                            "context": null
                                         }
                                     ]
                                 },
                                 "glossaryTerms": null,
                                 "isPartOfKey": false,
+                                "isPartitioningKey": null,
                                 "jsonProps": null
                             },
                             {
@@ -142,6 +165,9 @@
                                 "jsonPath": null,
                                 "nullable": false,
                                 "description": "My measurement",
+                                "label": "",
+                                "created": null,
+                                "lastModified": null,
                                 "type": {
                                     "type": {
                                         "com.linkedin.pegasus2avro.schema.NumberType": {}
@@ -152,12 +178,14 @@
                                 "globalTags": {
                                     "tags": [
                                         {
-                                            "tag": "urn:li:tag:Measure"
+                                            "tag": "urn:li:tag:Measure",
+                                            "context": null
                                         }
                                     ]
                                 },
                                 "glossaryTerms": null,
                                 "isPartOfKey": false,
+                                "isPartitioningKey": null,
                                 "jsonProps": null
                             }
                         ],
@@ -255,12 +283,14 @@
                         "created": {
                             "time": 0,
                             "actor": "urn:li:corpuser:unknown",
-                            "impersonator": null
+                            "impersonator": null,
+                            "message": null
                         },
                         "lastModified": {
                             "time": 0,
                             "actor": "urn:li:corpuser:unknown",
-                            "impersonator": null
+                            "impersonator": null,
+                            "message": null
                         },
                         "deleted": null,
                         "dataset": null,
@@ -277,6 +307,9 @@
                                 "jsonPath": null,
                                 "nullable": false,
                                 "description": "The country",
+                                "label": "",
+                                "created": null,
+                                "lastModified": null,
                                 "type": {
                                     "type": {
                                         "com.linkedin.pegasus2avro.schema.StringType": {}
@@ -287,12 +320,14 @@
                                 "globalTags": {
                                     "tags": [
                                         {
-                                            "tag": "urn:li:tag:Dimension"
+                                            "tag": "urn:li:tag:Dimension",
+                                            "context": null
                                         }
                                     ]
                                 },
                                 "glossaryTerms": null,
                                 "isPartOfKey": false,
+                                "isPartitioningKey": null,
                                 "jsonProps": null
                             },
                             {
@@ -300,6 +335,9 @@
                                 "jsonPath": null,
                                 "nullable": false,
                                 "description": "City",
+                                "label": "",
+                                "created": null,
+                                "lastModified": null,
                                 "type": {
                                     "type": {
                                         "com.linkedin.pegasus2avro.schema.StringType": {}
@@ -310,12 +348,14 @@
                                 "globalTags": {
                                     "tags": [
                                         {
-                                            "tag": "urn:li:tag:Dimension"
+                                            "tag": "urn:li:tag:Dimension",
+                                            "context": null
                                         }
                                     ]
                                 },
                                 "glossaryTerms": null,
                                 "isPartOfKey": false,
+                                "isPartitioningKey": null,
                                 "jsonProps": null
                             },
                             {
@@ -323,6 +363,9 @@
                                 "jsonPath": null,
                                 "nullable": false,
                                 "description": "Timestamp of measurement",
+                                "label": "",
+                                "created": null,
+                                "lastModified": null,
                                 "type": {
                                     "type": {
                                         "com.linkedin.pegasus2avro.schema.TimeType": {}
@@ -333,15 +376,18 @@
                                 "globalTags": {
                                     "tags": [
                                         {
-                                            "tag": "urn:li:tag:Dimension"
+                                            "tag": "urn:li:tag:Dimension",
+                                            "context": null
                                         },
                                         {
-                                            "tag": "urn:li:tag:Temporal"
+                                            "tag": "urn:li:tag:Temporal",
+                                            "context": null
                                         }
                                     ]
                                 },
                                 "glossaryTerms": null,
                                 "isPartOfKey": false,
+                                "isPartitioningKey": null,
                                 "jsonProps": null
                             },
                             {
@@ -349,6 +395,9 @@
                                 "jsonPath": null,
                                 "nullable": false,
                                 "description": "My measurement",
+                                "label": "",
+                                "created": null,
+                                "lastModified": null,
                                 "type": {
                                     "type": {
                                         "com.linkedin.pegasus2avro.schema.NumberType": {}
@@ -359,12 +408,14 @@
                                 "globalTags": {
                                     "tags": [
                                         {
-                                            "tag": "urn:li:tag:Measure"
+                                            "tag": "urn:li:tag:Measure",
+                                            "context": null
                                         }
                                     ]
                                 },
                                 "glossaryTerms": null,
                                 "isPartOfKey": false,
+                                "isPartitioningKey": null,
                                 "jsonProps": null
                             }
                         ],
@@ -461,7 +512,8 @@
                                 "auditStamp": {
                                     "time": 0,
                                     "actor": "urn:li:corpuser:unknown",
-                                    "impersonator": null
+                                    "impersonator": null,
+                                    "message": null
                                 },
                                 "dataset": "urn:li:dataset:(urn:li:dataPlatform:snowflake,default_db.looker_schema.include_able,PROD)",
                                 "type": "VIEW"
@@ -558,7 +610,8 @@
                                 "auditStamp": {
                                     "time": 0,
                                     "actor": "urn:li:corpuser:unknown",
-                                    "impersonator": null
+                                    "impersonator": null,
+                                    "message": null
                                 },
                                 "dataset": "urn:li:dataset:(urn:li:dataPlatform:snowflake,default_db.looker_schema.events,PROD)",
                                 "type": "VIEW"
@@ -655,7 +708,8 @@
                                 "auditStamp": {
                                     "time": 0,
                                     "actor": "urn:li:corpuser:unknown",
-                                    "impersonator": null
+                                    "impersonator": null,
+                                    "message": null
                                 },
                                 "dataset": "urn:li:dataset:(urn:li:dataPlatform:snowflake,default_db.looker_schema.events,PROD)",
                                 "type": "VIEW"
@@ -672,12 +726,14 @@
                         "created": {
                             "time": 0,
                             "actor": "urn:li:corpuser:unknown",
-                            "impersonator": null
+                            "impersonator": null,
+                            "message": null
                         },
                         "lastModified": {
                             "time": 0,
                             "actor": "urn:li:corpuser:unknown",
-                            "impersonator": null
+                            "impersonator": null,
+                            "message": null
                         },
                         "deleted": null,
                         "dataset": null,
@@ -694,6 +750,9 @@
                                 "jsonPath": null,
                                 "nullable": false,
                                 "description": "",
+                                "label": "",
+                                "created": null,
+                                "lastModified": null,
                                 "type": {
                                     "type": {
                                         "com.linkedin.pegasus2avro.schema.NumberType": {}
@@ -704,12 +763,14 @@
                                 "globalTags": {
                                     "tags": [
                                         {
-                                            "tag": "urn:li:tag:Measure"
+                                            "tag": "urn:li:tag:Measure",
+                                            "context": null
                                         }
                                     ]
                                 },
                                 "glossaryTerms": null,
                                 "isPartOfKey": false,
+                                "isPartitioningKey": null,
                                 "jsonProps": null
                             }
                         ],
@@ -806,7 +867,8 @@
                                 "auditStamp": {
                                     "time": 0,
                                     "actor": "urn:li:corpuser:unknown",
-                                    "impersonator": null
+                                    "impersonator": null,
+                                    "message": null
                                 },
                                 "dataset": "urn:li:dataset:(urn:li:dataPlatform:snowflake,default_db.default_schema.autodetect_sql_name_based_on_view_name,PROD)",
                                 "type": "VIEW"
@@ -903,7 +965,8 @@
                                 "auditStamp": {
                                     "time": 0,
                                     "actor": "urn:li:corpuser:unknown",
-                                    "impersonator": null
+                                    "impersonator": null,
+                                    "message": null
                                 },
                                 "dataset": "urn:li:dataset:(urn:li:dataPlatform:snowflake,default_db.looker_schema.include_able,PROD)",
                                 "type": "VIEW"
@@ -1155,7 +1218,8 @@
                         "lastModified": {
                             "time": 0,
                             "actor": "urn:li:corpuser:unknown",
-                            "impersonator": null
+                            "impersonator": null,
+                            "message": null
                         }
                     }
                 },
@@ -1196,7 +1260,8 @@
                         "lastModified": {
                             "time": 0,
                             "actor": "urn:li:corpuser:unknown",
-                            "impersonator": null
+                            "impersonator": null,
+                            "message": null
                         }
                     }
                 },
@@ -1237,7 +1302,8 @@
                         "lastModified": {
                             "time": 0,
                             "actor": "urn:li:corpuser:unknown",
-                            "impersonator": null
+                            "impersonator": null,
+                            "message": null
                         }
                     }
                 },

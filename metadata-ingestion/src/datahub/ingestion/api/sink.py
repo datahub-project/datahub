@@ -31,9 +31,9 @@ class SinkReport(Report):
         super().compute_stats()
         self.current_time = datetime.datetime.now()
         if self.start_time:
-            self.total_duration_in_seconds = (
-                self.current_time - self.start_time
-            ).total_seconds()
+            self.total_duration_in_seconds = round(
+                (self.current_time - self.start_time).total_seconds(), 2
+            )
             if self.total_duration_in_seconds > 0:
                 self.records_written_per_second = int(
                     self.total_records_written / self.total_duration_in_seconds
