@@ -10,6 +10,7 @@ from pydantic import Field, root_validator
 from datahub.configuration.common import ConfigModel, ConfigurationError
 from datahub.configuration.kafka import KafkaProducerConnectionConfig
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
+from datahub.emitter.serialization_helper import remove_empties
 from datahub.metadata.com.linkedin.pegasus2avro.mxe import (
     MetadataChangeEvent,
     MetadataChangeProposal,
@@ -69,7 +70,7 @@ class DatahubKafkaEmitter:
         def convert_mce_to_dict(
             mce: MetadataChangeEvent, ctx: SerializationContext
         ) -> dict:
-            return mce.to_obj(tuples=True)
+            return remove_empties(mce.to_obj(tuples=True))  # type: ignore
 
         mce_avro_serializer = AvroSerializer(
             schema_str=getMetadataChangeEventSchema(),
@@ -81,7 +82,7 @@ class DatahubKafkaEmitter:
             mcp: Union[MetadataChangeProposal, MetadataChangeProposalWrapper],
             ctx: SerializationContext,
         ) -> dict:
-            return mcp.to_obj(tuples=True)
+            return remove_empties(mcp.to_obj(tuples=True))  # type: ignore
 
         mcp_avro_serializer = AvroSerializer(
             schema_str=getMetadataChangeProposalSchema(),
