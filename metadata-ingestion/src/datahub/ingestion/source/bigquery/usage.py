@@ -219,9 +219,6 @@ class BigQueryUsageExtractor:
             f"Number of buckets created = {len(self.aggregated_info)}. Per-bucket details:{bucket_level_stats}"
         )
 
-    def _make_bigquery_client(self, project_id: Optional[str]) -> BigQueryClient:
-        return BigQueryClient(project=project_id)
-
     def _get_bigquery_log_entries_via_exported_bigquery_audit_metadata(
         self, client: BigQueryClient
     ) -> Iterable[BigQueryAuditMetadata]:
@@ -259,36 +256,34 @@ class BigQueryUsageExtractor:
 
         start_time: str = (
             self.config.start_time - self.config.max_query_duration
-        ).strftime(BQ_DATETIME_FORMAT)
+        ).strftime(
+            BQ_DATE_SHARD_FORMAT
+            if self.config.use_date_sharded_audit_log_tables
+            else BQ_DATETIME_FORMAT
+        )
+        self.report.audit_start_time = start_time
+
         end_time: str = (
             self.config.end_time + self.config.max_query_duration
-        ).strftime(BQ_DATETIME_FORMAT)
+        ).strftime(
+            BQ_DATE_SHARD_FORMAT
+            if self.config.use_date_sharded_audit_log_tables
+            else BQ_DATETIME_FORMAT
+        )
+        self.report.audit_end_time = end_time
 
         for dataset in self.config.bigquery_audit_metadata_datasets:
             logger.info(
                 f"Start loading log entries from BigQueryAuditMetadata in {dataset}"
             )
             query: str
-            if self.config.use_date_sharded_audit_log_tables:
-                start_date: str = (
-                    self.config.start_time - self.config.max_query_duration
-                ).strftime(BQ_DATE_SHARD_FORMAT)
-                end_date: str = (
-                    self.config.end_time + self.config.max_query_duration
-                ).strftime(BQ_DATE_SHARD_FORMAT)
 
-                query = bigquery_audit_metadata_query_template(
-                    dataset, self.config.use_date_sharded_audit_log_tables, allow_filter
-                ).format(
-                    start_time=start_time,
-                    end_time=end_time,
-                    start_date=start_date,
-                    end_date=end_date,
-                )
-            else:
-                query = bigquery_audit_metadata_query_template(
-                    dataset, self.config.use_date_sharded_audit_log_tables, allow_filter
-                ).format(start_time=start_time, end_time=end_time)
+            query = bigquery_audit_metadata_query_template(
+                dataset, self.config.use_date_sharded_audit_log_tables, allow_filter
+            ).format(
+                start_time=start_time,
+                end_time=end_time,
+            )
 
             query_job = bigquery_client.query(query)
             logger.info(

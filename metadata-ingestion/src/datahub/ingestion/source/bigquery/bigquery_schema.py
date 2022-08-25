@@ -184,7 +184,7 @@ class BigQueryDataDictionary:
         return resp.result()
 
     @staticmethod
-    def get_project_ids(conn: bigquery.Client) -> List[BigqueryProject]:
+    def get_projects(conn: bigquery.Client) -> List[BigqueryProject]:
         projects = conn.list_projects()
 
         return [

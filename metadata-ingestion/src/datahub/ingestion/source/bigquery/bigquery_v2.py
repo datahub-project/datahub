@@ -507,13 +507,13 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
         conn: bigquery.Client = self.get_bigquery_client()
         self.add_config_to_report()
 
-        projects: List[BigqueryProject] = BigQueryDataDictionary.get_project_ids(conn)
+        projects: List[BigqueryProject] = BigQueryDataDictionary.get_projects(conn)
         for project_id in projects:
             if not self.config.project_id_pattern.allowed(project_id.id):
                 self.report.report_dropped(project_id.id)
                 continue
 
-            yield from self._process_project_id(conn, project_id)
+            yield from self._process_project(conn, project_id)
 
         if self.config.include_usage_statistics:
             yield from self.usage_extractor.report_usage_stat()
@@ -522,7 +522,7 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
             # Clean up stale entities.
             yield from self.gen_removed_entity_workunits()
 
-    def _process_project_id(
+    def _process_project(
         self, conn: bigquery.Client, bigquery_project: BigqueryProject
     ) -> Iterable[MetadataWorkUnit]:
         project_id = bigquery_project.id
