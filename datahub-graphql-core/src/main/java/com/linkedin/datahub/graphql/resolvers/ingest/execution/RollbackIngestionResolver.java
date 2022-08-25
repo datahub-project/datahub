@@ -32,12 +32,15 @@ public class RollbackIngestionResolver implements DataFetcher<CompletableFuture<
       final RollbackIngestionInput input = bindArgument(environment.getArgument("input"), RollbackIngestionInput.class);
       final String runId = input.getRunId();
 
-      try {
-        _entityClient.rollbackIngestion(runId, context.getAuthentication());
+      CompletableFuture.supplyAsync(() -> {
+          try {
+              _entityClient.rollbackIngestion(runId, context.getAuthentication());
+              return true;
+          } catch (Exception e) {
+            throw new RuntimeException("Failed to rollback ingestion execution", e);
+          }
+        });
         return true;
-      } catch (Exception e) {
-        throw new RuntimeException("Failed to rollback ingestion execution", e);
-      }
     });
   }
 
