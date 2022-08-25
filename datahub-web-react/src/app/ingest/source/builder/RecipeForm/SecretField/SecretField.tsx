@@ -1,5 +1,5 @@
 import React from 'react';
-import { Divider, Form, Select } from 'antd';
+import { Divider, Form, Select, Tooltip } from 'antd';
 import styled from 'styled-components/macro';
 import { Secret } from '../../../../../../types.generated';
 import CreateSecretButton from './CreateSecretButton';
@@ -36,25 +36,30 @@ interface SecretFieldProps {
 
 function SecretField({ field, secrets, removeMargin, refetchSecrets }: SecretFieldProps) {
     return (
-        <StyledFormItem name={field.name} label={field.label} tooltip={field.tooltip} removeMargin={!!removeMargin}>
-            <Select
-                showSearch
-                filterOption={(input, option) => !!option?.children.toLowerCase().includes(input.toLowerCase())}
-                dropdownRender={(menu) => (
-                    <>
-                        {menu}
-                        <StyledDivider />
-                        <CreateSecretButton refetchSecrets={refetchSecrets} />
-                    </>
-                )}
-            >
-                {secrets.map((secret) => (
-                    <Select.Option key={secret.urn} value={`\${${secret.name}}`}>
-                        {secret.name}
-                    </Select.Option>
-                ))}
-            </Select>
-        </StyledFormItem>
+        <>
+            <StyledFormItem name={field.name} label={field.label} tooltip={field.tooltip} removeMargin={!!removeMargin}>
+                <Tooltip title="This field requires you to use a DataHub Secret. For more information on Secrets in DataHub, please review the docs.">
+                    Secret Field
+                </Tooltip>
+                <Select
+                    showSearch
+                    filterOption={(input, option) => !!option?.children.toLowerCase().includes(input.toLowerCase())}
+                    dropdownRender={(menu) => (
+                        <>
+                            {menu}
+                            <StyledDivider />
+                            <CreateSecretButton refetchSecrets={refetchSecrets} />
+                        </>
+                    )}
+                >
+                    {secrets.map((secret) => (
+                        <Select.Option key={secret.urn} value={`\${${secret.name}}`}>
+                            {secret.name}
+                        </Select.Option>
+                    ))}
+                </Select>
+            </StyledFormItem>
+        </>
     );
 }
 
