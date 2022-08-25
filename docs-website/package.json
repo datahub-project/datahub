@@ -17,8 +17,9 @@
     "lint-fix": "prettier --write generateDocsDir.ts sidebars.js src/pages/index.js"
   },
   "dependencies": {
+    "@ant-design/icons": "^4.7.0",
     "@docusaurus/core": "^2.0.0-beta.7",
-    "@docusaurus/plugin-ideal-image": "2.0.0-beta.7",
+    "@docusaurus/plugin-ideal-image": "2.0.0-beta.8",
     "@docusaurus/preset-classic": "^2.0.0-beta.7",
     "@octokit/plugin-retry": "^3.0.9",
     "@octokit/plugin-throttling": "^3.5.1",
@@ -26,6 +27,7 @@
     "clsx": "^1.1.1",
     "docusaurus-graphql-plugin": "0.5.0",
     "docusaurus-plugin-sass": "^0.2.1",
+    "dotenv": "^16.0.1",
     "react": "^16.12.0",
     "react-dom": "^16.12.0",
     "sass": "^1.43.2"

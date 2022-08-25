@@ -63,14 +63,16 @@
         display: none;
       }
       li[role="tab"] {
+        color: var(--ifm-color-primary);
         border-radius: 100em;
         padding: 0.5em 1em;
         margin: 0 0.25em;
         border: none;
         white-space: nowrap;
+        border: 1px solid transparent;
         &[aria-selected="true"] {
-          border: none;
-          background-color: var(--ifm-hover-overlay);
+          color: var(--ifm-text-color);
+          border-color: var(--ifm-hr-border-color);
         }
       }
     }
@@ -91,6 +93,9 @@
 .large {
   height: 100px;
 }
-.small {
+.medium {
   height: 30px;
+}
+.small {
+  height: 20px;
 }

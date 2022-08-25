@@ -1,0 +1,41 @@
+.availabilityCard {
+  display: flex;
+  align-items: center;
+  padding: 0.5rem 0.25rem;
+  margin-bottom: 1rem;
+  @media (min-width: 768px) {
+    flex-direction: row;
+  }
+
+  > * {
+    padding: 0.5rem 1rem;
+    display: flex;
+
+    @media (min-width: 768px) {
+      padding: 0 1rem;
+    }
+  }
+}
+
+.managedIcon {
+  svg {
+    color: #262626;
+    width: 1.5rem;
+    height: 1.5rem;
+    margin-right: 0.25rem;
+  }
+}
+
+.platform {
+  opacity: 0.5;
+  svg {
+    color: #262626;
+  }
+}
+
+.platformAvailable {
+  opacity: 1;
+  svg {
+    color: #52c41a;
+  }
+}

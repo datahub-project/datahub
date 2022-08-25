@@ -5,7 +5,7 @@ import TabItem from "@theme/TabItem";
 import Link from "@docusaurus/Link";
 import useBaseUrl from "@docusaurus/useBaseUrl";
 
-import styles from "../styles/logos.module.scss";
+import styles from "./logos.module.scss";
 
 const companiesByIndustry = [
   {
@@ -14,42 +14,47 @@ const companiesByIndustry = [
       {
         name: "LinkedIn",
         imageUrl: "/img/logos/companies/linkedin.svg",
-        size: "small",
+        imageSize: "medium",
       },
       {
         name: "Udemy",
         imageUrl: "/img/logos/companies/udemy.png",
-        size: "defualt",
+        imageSize: "medium",
+      },
+      {
+        name: "Coursera",
+        imageUrl: "/img/logos/companies/coursera.svg",
+        imageSize: "small",
       },
       {
         name: "Geotab",
         imageUrl: "/img/logos/companies/geotab.jpg",
-        size: "small",
+        imageSize: "small",
       },
       {
         name: "ThoughtWorks",
         imageUrl: "/img/logos/companies/thoughtworks.png",
-        size: "default",
+        imageSize: "medium",
       },
       {
         name: "Expedia Group",
         imageUrl: "/img/logos/companies/expedia.svg",
-        size: "default",
+        imageSize: "medium",
       },
       {
         name: "Typeform",
         imageUrl: "/img/logos/companies/typeform.svg",
-        size: "small",
+        imageSize: "medium",
       },
       {
         name: "Peloton",
         imageUrl: "/img/logos/companies/peloton.png",
-        size: "large",
+        imageSize: "default",
       },
       {
         name: "Zynga",
         imageUrl: "/img/logos/companies/zynga.png",
-        size: "default",
+        imageSize: "default",
       },
     ],
   },
@@ -59,37 +64,37 @@ const companiesByIndustry = [
       {
         name: "Saxo Bank",
         imageUrl: "/img/logos/companies/saxobank.svg",
-        size: "default",
+        imageSize: "default",
       },
       {
         name: "Klarna",
         imageUrl: "/img/logos/companies/klarna.svg",
-        size: "small",
+        imageSize: "medium",
       },
       {
         name: "N26",
         imageUrl: "/img/logos/companies/n26.svg",
-        size: "large",
+        imageSize: "medium",
       },
       {
         name: "BankSalad",
         imageUrl: "/img/logos/companies/banksalad.png",
-        size: "large",
+        imageSize: "default",
       },
       {
         name: "Uphold",
         imageUrl: "/img/logos/companies/uphold.png",
-        size: "large",
+        imageSize: "default",
       },
       {
         name: "Stash",
         imageUrl: "/img/logos/companies/stash.svg",
-        size: "large",
+        imageSize: "medium",
       },
       {
         name: "SumUp",
         imageUrl: "/img/logos/companies/sumup.png",
-        size: "large",
+        imageSize: "medium",
       },
     ],
   },
@@ -99,31 +104,32 @@ const companiesByIndustry = [
       {
         name: "Adevinta",
         imageUrl: "/img/logos/companies/adevinta.png",
-        size: "default",
-      },      {
+        imageSize: "medium",
+      },
+      {
         name: "Grofers",
         imageUrl: "/img/logos/companies/grofers.png",
-        size: "default",
+        imageSize: "medium",
       },
       {
         name: "SpotHero",
         imageUrl: "/img/logos/companies/spothero.png",
-        size: "default",
+        imageSize: "default",
       },
       {
         name: "hipages",
         imageUrl: "/img/logos/companies/hipages.png",
-        size: "default",
+        imageSize: "medium",
       },
       {
         name: "Wolt",
         imageUrl: "/img/logos/companies/wolt.png",
-        size: "large",
+        imageSize: "default",
       },
       {
         name: "Showroomprive.com",
         imageUrl: "/img/logos/companies/showroomprive.png",
-        size: "default",
+        imageSize: "small",
       },
     ],
   },
@@ -133,32 +139,32 @@ const companiesByIndustry = [
       {
         name: "Cabify",
         imageUrl: "/img/logos/companies/cabify.png",
-        size: "large",
+        imageSize: "medium",
       },
       {
         name: "Digital Turbine",
         imageUrl: "/img/logos/companies/digitalturbine.svg",
-        size: "defualt",
+        imageSize: "medium",
       },
       {
         name: "Viasat",
         imageUrl: "/img/logos/companies/viasat.png",
-        size: "large",
+        imageSize: "medium",
       },
       {
         name: "DFDS",
         imageUrl: "/img/logos/companies/dfds.png",
-        size: "large",
+        imageSize: "medium",
       },
       {
         name: "Moloco",
         imageUrl: "/img/logos/companies/moloco.png",
-        size: "default",
+        imageSize: "medium",
       },
       {
         name: "Optum",
         imageUrl: "/img/logos/companies/optum.jpg",
-        size: "large",
+        imageSize: "medium",
       },
     ],
   },
@@ -275,7 +281,7 @@ export const CompanyLogos = () => (
                 alt={company.name}
                 title={company.name}
                 key={idx}
-                className={clsx(styles.companyLogo, styles[company.size])}
+                className={clsx(styles.companyLogo, styles[company.imageSize])}
               />
             ))}
           </div>
