@@ -3,9 +3,10 @@ package com.linkedin.datahub.graphql.resolvers.mutate;
 import com.linkedin.common.AuditStamp;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.datahub.graphql.QueryContext;
-import com.linkedin.datahub.graphql.generated.UpdateUserSettingsInput;
+import com.linkedin.datahub.graphql.generated.UpdateUserSettingInput;
 import com.linkedin.datahub.graphql.generated.UserSetting;
 import com.linkedin.events.metadata.ChangeType;
+import com.linkedin.identity.AppearanceCorpUserSettings;
 import com.linkedin.identity.CorpUserSettings;
 import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.entity.EntityService;
@@ -31,14 +32,14 @@ public class UpdateUserSettingResolverTest {
     // Execute resolver
     QueryContext mockContext = getMockAllowContext();
     DataFetchingEnvironment mockEnv = Mockito.mock(DataFetchingEnvironment.class);
-    UpdateUserSettingsInput input = new UpdateUserSettingsInput();
+    UpdateUserSettingInput input = new UpdateUserSettingInput();
     input.setName(UserSetting.SHOW_SIMPLIFIED_HOMEPAGE);
     input.setValue(true);
     Mockito.when(mockEnv.getArgument(Mockito.eq("input"))).thenReturn(input);
     Mockito.when(mockEnv.getContext()).thenReturn(mockContext);
     resolver.get(mockEnv).get();
 
-    CorpUserSettings newSettings = new CorpUserSettings().setShowSimplifiedHomepage(true);
+    CorpUserSettings newSettings = new CorpUserSettings().setAppearance(new AppearanceCorpUserSettings().setShowSimplifiedHomepage(true));
     final MetadataChangeProposal proposal = new MetadataChangeProposal();
     proposal.setEntityUrn(Urn.createFromString(TEST_USER_URN));
     proposal.setEntityType(Constants.CORP_USER_ENTITY_NAME);

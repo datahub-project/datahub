@@ -5,6 +5,7 @@ import com.linkedin.common.urn.Urn;
 import com.linkedin.data.DataMap;
 import com.linkedin.data.template.RecordTemplate;
 import com.linkedin.datahub.graphql.featureflags.GraphqlFeatureFlags;
+import com.linkedin.datahub.graphql.generated.AppearanceCorpUserSettings;
 import com.linkedin.datahub.graphql.generated.CorpUser;
 import com.linkedin.datahub.graphql.generated.EntityType;
 import com.linkedin.datahub.graphql.types.common.mappers.util.MappingHelper;
@@ -69,11 +70,14 @@ public class CorpUserMapper implements ModelMapper<EntityResponse, CorpUser> {
 
         com.linkedin.datahub.graphql.generated.CorpUserSettings result =
             new com.linkedin.datahub.graphql.generated.CorpUserSettings();
-        result.setShowSimplifiedHomepage(GraphqlFeatureFlags.getDefaultShowSimplifiedHomepage());
 
-        if (corpUserSettings.hasShowSimplifiedHomepage()) {
-            result.setShowSimplifiedHomepage(corpUserSettings.isShowSimplifiedHomepage());
+        AppearanceCorpUserSettings appearanceResult = new AppearanceCorpUserSettings();
+        appearanceResult.setShowSimplifiedHomepage(GraphqlFeatureFlags.getDefaultShowSimplifiedHomepage());
+        if (corpUserSettings.hasAppearance()) {
+            appearanceResult.setShowSimplifiedHomepage(corpUserSettings.getAppearance().isShowSimplifiedHomepage());
         }
+
+        result.setAppearance(appearanceResult);
 
         corpUser.setSettings(result);
     }
