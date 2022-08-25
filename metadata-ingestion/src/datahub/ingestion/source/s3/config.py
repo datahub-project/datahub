@@ -64,7 +64,7 @@ class DataLakeSourceConfig(PlatformSourceConfigBase, EnvBasedSourceConfigBase):
         description="Maximum number of rows to use when inferring schemas for TSV and CSV files.",
     )
 
-    is_newline_json: bool = Field(
+    is_newline_json: Optional[bool] = Field(
         default=False,
         description="Whether to infer schemas for newline JSON files."
     )
