@@ -5,7 +5,7 @@ from typing import Dict, List, Optional
 
 from google.cloud import bigquery
 
-from datahub.ingestion.source.bigquery.bigquery_audit import BigqueryTableIdentifier
+from datahub.ingestion.source.bigquery_v2.bigquery_audit import BigqueryTableIdentifier
 
 logger: logging.Logger = logging.getLogger(__name__)
 

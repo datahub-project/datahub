@@ -15,7 +15,7 @@ from datahub.configuration.time_window_config import get_time_bucket
 from datahub.emitter.mce_builder import make_user_urn
 from datahub.emitter.mcp_builder import wrap_aspect_as_workunit
 from datahub.ingestion.api.workunit import MetadataWorkUnit
-from datahub.ingestion.source.bigquery.bigquery_audit import (
+from datahub.ingestion.source.bigquery_v2.bigquery_audit import (
     BQ_AUDIT_V2,
     AuditEvent,
     AuditLogEntry,
@@ -24,9 +24,9 @@ from datahub.ingestion.source.bigquery.bigquery_audit import (
     QueryEvent,
     ReadEvent,
 )
-from datahub.ingestion.source.bigquery.bigquery_config import BigQueryV2Config
-from datahub.ingestion.source.bigquery.bigquery_report import BigQueryV2Report
-from datahub.ingestion.source.bigquery.common import (
+from datahub.ingestion.source.bigquery_v2.bigquery_config import BigQueryV2Config
+from datahub.ingestion.source.bigquery_v2.bigquery_report import BigQueryV2Report
+from datahub.ingestion.source.bigquery_v2.common import (
     BQ_DATE_SHARD_FORMAT,
     BQ_DATETIME_FORMAT,
     _make_gcp_logging_client,

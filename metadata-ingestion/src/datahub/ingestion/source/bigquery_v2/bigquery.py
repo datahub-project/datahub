@@ -42,10 +42,10 @@ from datahub.ingestion.api.source import (
     TestConnectionReport,
 )
 from datahub.ingestion.api.workunit import MetadataWorkUnit
-from datahub.ingestion.source.bigquery.bigquery_audit import BigqueryTableIdentifier
-from datahub.ingestion.source.bigquery.bigquery_config import BigQueryV2Config
-from datahub.ingestion.source.bigquery.bigquery_report import BigQueryV2Report
-from datahub.ingestion.source.bigquery.bigquery_schema import (
+from datahub.ingestion.source.bigquery_v2.bigquery_audit import BigqueryTableIdentifier
+from datahub.ingestion.source.bigquery_v2.bigquery_config import BigQueryV2Config
+from datahub.ingestion.source.bigquery_v2.bigquery_report import BigQueryV2Report
+from datahub.ingestion.source.bigquery_v2.bigquery_schema import (
     BigqueryColumn,
     BigQueryDataDictionary,
     BigqueryDataset,
@@ -53,8 +53,8 @@ from datahub.ingestion.source.bigquery.bigquery_schema import (
     BigqueryTable,
     BigqueryView,
 )
-from datahub.ingestion.source.bigquery.lineage import BigqueryLineageExtractor
-from datahub.ingestion.source.bigquery.usage import BigQueryUsageExtractor
+from datahub.ingestion.source.bigquery_v2.lineage import BigqueryLineageExtractor
+from datahub.ingestion.source.bigquery_v2.usage import BigQueryUsageExtractor
 from datahub.ingestion.source.state.checkpoint import Checkpoint
 from datahub.ingestion.source.state.sql_common_state import (
     BaseSQLAlchemyCheckpointState,

@@ -3,14 +3,14 @@ import os
 
 from freezegun import freeze_time
 
-from datahub.ingestion.source.bigquery.bigquery_audit import (
+from datahub.ingestion.source.bigquery_v2.bigquery_audit import (
     BQ_AUDIT_V2,
     BigqueryTableIdentifier,
     BigQueryTableRef,
 )
-from datahub.ingestion.source.bigquery.bigquery_config import BigQueryV2Config
-from datahub.ingestion.source.bigquery.bigquery_report import BigQueryV2Report
-from datahub.ingestion.source.bigquery.usage import BigQueryUsageExtractor
+from datahub.ingestion.source.bigquery_v2.bigquery_config import BigQueryV2Config
+from datahub.ingestion.source.bigquery_v2.bigquery_report import BigQueryV2Report
+from datahub.ingestion.source.bigquery_v2.usage import BigQueryUsageExtractor
 
 FROZEN_TIME = "2021-07-20 00:00:00"
 
