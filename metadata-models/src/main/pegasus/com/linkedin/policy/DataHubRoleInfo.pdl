@@ -24,4 +24,9 @@ record DataHubRoleInfo {
     "fieldType": "TEXT"
   }
   description: string
+
+  /**
+   * Whether the role should be editable via the UI
+   */
+  editable: boolean = false
 }

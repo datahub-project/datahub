@@ -1396,7 +1396,6 @@ public class GmsGraphQLEngine {
     }
 
     private void configureRoleResolvers(final RuntimeWiring.Builder builder) {
-        // Register resolvers for "resolvedUsers" and "resolvedGroups" field of the Policy type.
         builder.type("Role",
             typeWiring -> typeWiring.dataFetcher("relationships", new EntityRelationshipsResultResolver(graphClient)));
     }

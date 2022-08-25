@@ -36,5 +36,11 @@ record DataHubActorFilter {
   /**
    * A specific set of roles to apply the policy to (disjunctive).
    */
+  @Relationship = {
+    "/*": {
+      "name": "IsAssociatedWithRole",
+      "entityTypes": [ "dataHubRole" ]
+    }
+  }
   roles: optional array[Urn]
 }

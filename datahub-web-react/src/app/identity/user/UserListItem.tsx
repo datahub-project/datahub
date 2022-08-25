@@ -2,7 +2,16 @@ import React, { useState } from 'react';
 import styled from 'styled-components';
 import { Dropdown, List, Menu, Tag, Tooltip, Typography } from 'antd';
 import { Link } from 'react-router-dom';
-import { DeleteOutlined, CaretDownOutlined, MoreOutlined, UnlockOutlined, UserSwitchOutlined } from '@ant-design/icons';
+import {
+    CaretDownOutlined,
+    DeleteOutlined,
+    EditOutlined,
+    MoreOutlined,
+    ReadOutlined,
+    SettingOutlined,
+    UnlockOutlined,
+    UserOutlined,
+} from '@ant-design/icons';
 import { CorpUser, CorpUserStatus, EntityType, Role } from '../../../types.generated';
 import CustomAvatar from '../../shared/avatar/CustomAvatar';
 import { useEntityRegistry } from '../../useEntityRegistry';
@@ -90,6 +99,19 @@ export default function UserListItem({ user, canManageUserCredentials, roles, on
     const userStatusColor = userStatus && getUserStatusColor(userStatus);
     const filteredRoles = roles.filter((role) => role.name !== userRoleName);
 
+    const mapRoleIcon = (roleName) => {
+        if (roleName === 'Admin') {
+            return <SettingOutlined style={{ marginRight: 6, fontSize: 12 }} />;
+        }
+        if (roleName === 'Editor') {
+            return <EditOutlined style={{ marginRight: 6, fontSize: 12 }} />;
+        }
+        if (roleName === 'Reader') {
+            return <ReadOutlined style={{ marginRight: 6, fontSize: 12 }} />;
+        }
+        return <UserOutlined style={{ marginRight: 6, fontSize: 12 }} />;
+    };
+
     return (
         <List.Item>
             <UserItemContainer>
@@ -136,16 +158,17 @@ export default function UserListItem({ user, canManageUserCredentials, roles, on
                 >
                     <Tag
                         style={{
-                            minWidth: 160,
+                            minWidth: 100,
                             paddingTop: 3,
                             paddingBottom: 3,
                             textAlign: 'left',
                         }}
-                        color={ANTD_GRAY[7]}
+                        color={userRoleName ? ANTD_GRAY[7] : '#cf1322'}
                     >
                         <UserRoleTag>
                             <div>
-                                <UserSwitchOutlined style={{ marginRight: 6 }} />
+                                {/* <UserSwitchOutlined style={{ marginRight: 6 }} /> */}
+                                {mapRoleIcon(userRoleName)}
                                 <Typography.Text style={{ color: 'white', fontSize: 12 }}>
                                     {userRoleName || 'No Role'}
                                 </Typography.Text>

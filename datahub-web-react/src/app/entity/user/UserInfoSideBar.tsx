@@ -103,7 +103,7 @@ export default function UserInfoSideBar({ sideBarData, refetch }: Props) {
                     <Name>{name || <EmptyValue />}</Name>
                     {role && <TitleRole>{role}</TitleRole>}
                     {team && <Team>{team}</Team>}
-                    {dataHubRoleName && <Tag color={ANTD_GRAY[6]}>{dataHubRoleName}</Tag>}
+                    {dataHubRoleName && <Tag color={ANTD_GRAY[7]}>{dataHubRoleName}</Tag>}
                     <Divider className="divider-infoSection" />
                     <SocialDetails>
                         <Space>

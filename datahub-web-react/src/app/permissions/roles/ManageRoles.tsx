@@ -126,12 +126,14 @@ export const ManageRoles = () => {
             key: 'name',
             render: (_, record: any) => {
                 return (
-                    <RoleName
-                        onClick={() => onViewRole(record.role)}
-                        style={{ color: record?.editable ? '#000000' : '#8C8C8C' }}
-                    >
-                        {record?.name}
-                    </RoleName>
+                    <>
+                        <RoleName
+                            onClick={() => onViewRole(record.role)}
+                            style={{ color: record?.editable ? '#000000' : '#8C8C8C' }}
+                        >
+                            {record?.name}
+                        </RoleName>
+                    </>
                 );
             },
         },
@@ -142,9 +144,9 @@ export const ManageRoles = () => {
             render: (description: string) => description || '',
         },
         {
-            title: 'Assignees',
-            dataIndex: 'assignees',
-            key: 'assignees',
+            title: 'Users',
+            dataIndex: 'users',
+            key: 'users',
             render: (_: any, record: any) => {
                 return (
                     <>
@@ -160,28 +162,8 @@ export const ManageRoles = () => {
             },
         },
         {
-            title: 'Assignee Count',
-            dataIndex: 'assignee_count',
-            key: 'assignee_count',
-            render: (_: any, record: any) => record?.users.length || '',
-        },
-        // {
-        //     title: 'Documentation',
-        //     dataIndex: 'documentation',
-        //     key: 'documentation',
-        //     render: (_: any, record: any) => {
-        //         return (
-        //             <Tooltip title={`View documentation for ${record.name}`}>
-        //                 <Button type="link" href={record.documentation} target="_blank" rel="noreferrer">
-        //                     <LinkOutlined />
-        //                 </Button>
-        //             </Tooltip>
-        //         );
-        //     },
-        // },
-        {
-            dataIndex: 'assign',
-            key: 'assign',
+            dataIndex: 'add_users',
+            key: 'add_users',
             render: (_: any, record: any) => {
                 return (
                     <Tooltip title={`Assign ${record.name} role to users`}>
@@ -191,7 +173,7 @@ export const ManageRoles = () => {
                                 setFocusRole(record.role);
                             }}
                         >
-                            ASSIGN
+                            ADD USERS
                         </Button>
                     </Tooltip>
                 );
