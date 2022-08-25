@@ -1,6 +1,7 @@
 from typing import IO, Dict, List, Type, Union
 
 import ujson
+import newlinejson as nlj
 
 from datahub.ingestion.source.schema_inference.base import SchemaInferenceBase
 from datahub.ingestion.source.schema_inference.object import construct_schema
@@ -29,12 +30,18 @@ _field_type_mapping: Dict[Union[Type, str], Type] = {
 
 
 class JsonInferrer(SchemaInferenceBase):
+    def __init__(self, is_newline_json: bool) -> None:
+        super().__init__()
+        self.is_newline_json = is_newline_json
+
     def infer_schema(self, file: IO[bytes]) -> List[SchemaField]:
+        if self.is_newline_json:
+            datastore = nlj.open(file, json_lib=ujson)
+        else:
+            datastore = ujson.load(file)
 
-        datastore = ujson.load(file)
-
-        if not isinstance(datastore, list):
-            datastore = [datastore]
+            if not isinstance(datastore, list):
+                datastore = [datastore]
 
         schema = construct_schema(datastore, delimiter=".")
         fields: List[SchemaField] = []
