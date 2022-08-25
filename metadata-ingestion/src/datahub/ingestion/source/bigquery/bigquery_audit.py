@@ -63,8 +63,6 @@ timestamp < "{end_time}"
     ),
 }
 
-DEBUG_INCLUDE_FULL_PAYLOADS = False
-
 AuditLogEntry = Any
 
 # BigQueryAuditMetadata is the v2 format in which audit logs are exported to BigQuery
@@ -79,10 +77,12 @@ class BigqueryTableIdentifier:
     dataset: str
     table: str
 
+    invalid_chars = {"$", "@"}
     _BIGQUERY_DEFAULT_SHARDED_TABLE_REGEX: str = "((.+)[_$])?(\\d{4,10})$"
     PARTITION_SUMMARY_REGEXP = re.compile(r"^(.+)\$__PARTITIONS_SUMMARY__$")
 
-    def _get_table_and_shard(self, table_name: str) -> Tuple[str, Optional[str]]:
+    @staticmethod
+    def _get_table_and_shard(table_name: str) -> Tuple[str, Optional[str]]:
         match = re.search(
             BigqueryTableIdentifier._BIGQUERY_DEFAULT_SHARDED_TABLE_REGEX,
             table_name,
@@ -99,20 +99,20 @@ class BigqueryTableIdentifier:
         parts = table.split(".")
         return cls(parts[0], parts[1], parts[2])
 
-    def raw_table(self):
+    def raw_table_name(self):
         return f"{self.project_id}.{self.dataset}.{self.table}"
 
     @staticmethod
-    def _remove_suffix(input_string, suffix):
-        if suffix and input_string.endswith(suffix):
-            return input_string[: -len(suffix)]
+    def _remove_suffix(input_string: str, suffixes: List[str]):
+        for suffix in suffixes:
+            if input_string.endswith(suffix):
+                return input_string[: -len(suffix)]
         return input_string
 
-    def get_table(self) -> str:
+    def get_table_name(self) -> str:
         shortened_table_name = self.table
         # if table name ends in _* or * then we strip it as that represents a query on a sharded table
-        shortened_table_name = self._remove_suffix(shortened_table_name, "_*")
-        shortened_table_name = self._remove_suffix(shortened_table_name, "*")
+        shortened_table_name = self._remove_suffix(shortened_table_name, ["_*", "*"])
 
         table_name, _ = self._get_table_and_shard(shortened_table_name)
         if not table_name:
@@ -125,7 +125,7 @@ class BigqueryTableIdentifier:
 
         # Handle exceptions
         invalid_chars_in_table_name: List[str] = [
-            c for c in {"$", "@"} if c in table_name
+            c for c in self.invalid_chars if c in table_name
         ]
         if invalid_chars_in_table_name:
             raise ValueError(
@@ -135,7 +135,7 @@ class BigqueryTableIdentifier:
         return f"{self.project_id}.{self.dataset}.{table_name}"
 
     def __str__(self) -> str:
-        return self.get_table()
+        return self.get_table_name()
 
 
 @dataclass(frozen=True, order=True)
@@ -154,7 +154,12 @@ class BigQueryTableRef:
 
     @classmethod
     def from_spec_obj(cls, spec: dict) -> "BigQueryTableRef":
+        for key in ["projectId", "datasetId", "tableId"]:
+            if key not in spec.keys():
+                raise ValueError(f"invalid BigQuery table reference dict: {spec}")
+
         return cls(
+            # spec dict always has to have projectId, datasetId, tableId otherwise it is an ivalid spec
             BigqueryTableIdentifier(
                 spec["projectId"], spec["datasetId"], spec["tableId"]
             )
@@ -163,16 +168,24 @@ class BigQueryTableRef:
     @classmethod
     def from_string_name(cls, ref: str) -> "BigQueryTableRef":
         parts = ref.split("/")
-        if parts[0] != "projects" or parts[2] != "datasets" or parts[4] != "tables":
+        if (
+            len(parts) != 6
+            or parts[0] != "projects"
+            or parts[2] != "datasets"
+            or parts[4] != "tables"
+        ):
             raise ValueError(f"invalid BigQuery table reference: {ref}")
         return cls(BigqueryTableIdentifier(parts[1], parts[3], parts[5]))
 
-    def is_temporary_table(self, prefix: str) -> bool:
+    def is_temporary_table(self, prefixes: List[str]) -> bool:
+        for prefix in prefixes:
+            if self.table_identifier.dataset.startswith(prefix):
+                return True
         # Temporary tables will have a dataset that begins with an underscore.
-        return self.table_identifier.dataset.startswith(prefix)
+        return False
 
-    def get_sanitized_name(self) -> "BigQueryTableRef":
-        sanitized_table = self.table_identifier.get_table()
+    def get_sanitized_table_ref(self) -> "BigQueryTableRef":
+        sanitized_table = self.table_identifier.get_table_name()
         # Handle partitioned and sharded tables.
         return BigQueryTableRef(
             BigqueryTableIdentifier.from_string_name(sanitized_table)
@@ -232,7 +245,9 @@ class QueryEvent:
         return None
 
     @classmethod
-    def from_entry(cls, entry: AuditLogEntry) -> "QueryEvent":
+    def from_entry(
+        cls, entry: AuditLogEntry, debug_include_full_payloads: bool = False
+    ) -> "QueryEvent":
         job: Dict = entry.payload["serviceData"]["jobCompletedEvent"]["job"]
         job_query_conf: Dict = job["jobConfiguration"]["query"]
         # basic query_event
@@ -283,7 +298,7 @@ class QueryEvent:
                 BigQueryTableRef.from_spec_obj(spec) for spec in raw_ref_views
             ]
         # payload
-        query_event.payload = entry.payload if DEBUG_INCLUDE_FULL_PAYLOADS else None
+        query_event.payload = entry.payload if debug_include_full_payloads else None
         if not query_event.job_name:
             logger.debug(
                 "jobName from query events is absent. "
@@ -307,7 +322,7 @@ class QueryEvent:
 
     @classmethod
     def from_exported_bigquery_audit_metadata(
-        cls, row: BigQueryAuditMetadata
+        cls, row: BigQueryAuditMetadata, debug_include_full_payloads: bool = False
     ) -> "QueryEvent":
 
         payload: Dict = row["protoPayload"]
@@ -357,7 +372,7 @@ class QueryEvent:
                 BigQueryTableRef.from_string_name(spec) for spec in raw_ref_views
             ]
         # payload
-        query_event.payload = payload if DEBUG_INCLUDE_FULL_PAYLOADS else None
+        query_event.payload = payload if debug_include_full_payloads else None
 
         if not query_event.job_name:
             logger.debug(
@@ -371,7 +386,9 @@ class QueryEvent:
         return query_event
 
     @classmethod
-    def from_entry_v2(cls, row: BigQueryAuditMetadata) -> "QueryEvent":
+    def from_entry_v2(
+        cls, row: BigQueryAuditMetadata, debug_include_full_payloads: bool = False
+    ) -> "QueryEvent":
         payload: Dict = row.payload
         metadata: Dict = payload["metadata"]
         job: Dict = metadata["jobChange"]["job"]
@@ -419,7 +436,7 @@ class QueryEvent:
                 BigQueryTableRef.from_string_name(spec) for spec in raw_ref_views
             ]
         # payload
-        query_event.payload = payload if DEBUG_INCLUDE_FULL_PAYLOADS else None
+        query_event.payload = payload if debug_include_full_payloads else None
 
         if not query_event.job_name:
             logger.debug(
@@ -478,7 +495,9 @@ class ReadEvent:
         return missing_key
 
     @classmethod
-    def from_entry(cls, entry: AuditLogEntry) -> "ReadEvent":
+    def from_entry(
+        cls, entry: AuditLogEntry, debug_include_full_payloads: bool = False
+    ) -> "ReadEvent":
         user = entry.payload["authenticationInfo"]["principalEmail"]
         resourceName = entry.payload["resourceName"]
         readInfo = entry.payload["metadata"]["tableDataRead"]
@@ -498,7 +517,7 @@ class ReadEvent:
             fieldsRead=fields,
             readReason=readReason,
             jobName=jobName,
-            payload=entry.payload if DEBUG_INCLUDE_FULL_PAYLOADS else None,
+            payload=entry.payload if debug_include_full_payloads else None,
         )
         if readReason == "JOB" and not jobName:
             logger.debug(
@@ -509,7 +528,7 @@ class ReadEvent:
 
     @classmethod
     def from_exported_bigquery_audit_metadata(
-        cls, row: BigQueryAuditMetadata
+        cls, row: BigQueryAuditMetadata, debug_include_full_payloads: bool = False
     ) -> "ReadEvent":
         payload = row["protoPayload"]
         user = payload["authenticationInfo"]["principalEmail"]
@@ -532,7 +551,7 @@ class ReadEvent:
             fieldsRead=fields,
             readReason=readReason,
             jobName=jobName,
-            payload=payload if DEBUG_INCLUDE_FULL_PAYLOADS else None,
+            payload=payload if debug_include_full_payloads else None,
         )
         if readReason == "JOB" and not jobName:
             logger.debug(

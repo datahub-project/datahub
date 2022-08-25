@@ -401,9 +401,11 @@ class BigQueryUsageExtractor:
             and event.query_event
             and event.query_event.destinationTable
         ):
-            destination_table = event.query_event.destinationTable.get_sanitized_name()
+            destination_table = (
+                event.query_event.destinationTable.get_sanitized_table_ref()
+            )
         elif event.read_event:
-            destination_table = event.read_event.resource.get_sanitized_name()
+            destination_table = event.read_event.resource.get_sanitized_table_ref()
         else:
             # TODO: CREATE_SCHEMA operation ends up here, maybe we should capture that as well
             # but it is tricky as we only get the query so it can't be tied to anything
@@ -460,7 +462,7 @@ class BigQueryUsageExtractor:
             for table in event.query_event.referencedTables:
                 try:
                     affected_datasets.append(
-                        table.get_sanitized_name().to_urn(self.config.env)
+                        table.get_sanitized_table_ref().to_urn(self.config.env)
                     )
                 except Exception as e:
                     self.report.report_warning(
@@ -543,7 +545,9 @@ class BigQueryUsageExtractor:
 
             missing_read_entry = ReadEvent.get_missing_key_entry(entry)
             if missing_read_entry is None:
-                event = ReadEvent.from_entry(entry)
+                event = ReadEvent.from_entry(
+                    entry, self.config.debug_include_full_payloads
+                )
                 if not self._is_table_allowed(event.resource):
                     self.report.num_filtered_read_events += 1
                     continue
@@ -562,7 +566,9 @@ class BigQueryUsageExtractor:
             missing_query_entry_v2 = QueryEvent.get_missing_key_entry_v2(entry)
 
             if event is None and missing_query_entry_v2 is None:
-                event = QueryEvent.from_entry_v2(entry)
+                event = QueryEvent.from_entry_v2(
+                    entry, self.config.debug_include_full_payloads
+                )
                 self.report.num_query_events += 1
 
             if event is None:
@@ -589,7 +595,9 @@ class BigQueryUsageExtractor:
                 )
             )
             if missing_query_event_exported_audit is None:
-                event = QueryEvent.from_exported_bigquery_audit_metadata(audit_metadata)
+                event = QueryEvent.from_exported_bigquery_audit_metadata(
+                    audit_metadata, self.config.debug_include_full_payloads
+                )
 
             missing_read_event_exported_audit = (
                 ReadEvent.get_missing_key_exported_bigquery_audit_metadata(
@@ -597,7 +605,9 @@ class BigQueryUsageExtractor:
                 )
             )
             if missing_read_event_exported_audit is None:
-                event = ReadEvent.from_exported_bigquery_audit_metadata(audit_metadata)
+                event = ReadEvent.from_exported_bigquery_audit_metadata(
+                    audit_metadata, self.config.debug_include_full_payloads
+                )
 
             if event is not None:
                 yield event
@@ -697,7 +707,7 @@ class BigQueryUsageExtractor:
         )
         resource: Optional[BigQueryTableRef] = None
         try:
-            resource = event.read_event.resource.get_sanitized_name()
+            resource = event.read_event.resource.get_sanitized_table_ref()
         except Exception as e:
             self.report.report_warning(
                 str(event.read_event.resource), f"Failed to clean up resource, {e}"
@@ -707,7 +717,7 @@ class BigQueryUsageExtractor:
             )
             return datasets
 
-        if resource.is_temporary_table(self.config.temp_table_dataset_prefix):
+        if resource.is_temporary_table([self.config.temp_table_dataset_prefix]):
             logger.debug(f"Dropping temporary table {resource}")
             self.report.report_dropped(str(resource))
             return datasets

@@ -42,6 +42,11 @@ class BigQueryV2Config(BigQueryConfig):
         description="Regex patterns for dataset to filter in ingestion. Specify regex to only match the schema name. e.g. to match all tables in schema analytics, use the regex 'analytics'",
     )
 
+    debug_include_full_payloads: bool = Field(
+        default=False,
+        description="Include full payload into events. It is only for debugging and internal use.",
+    )
+
     @root_validator(pre=False)
     def validate_unsupported_configs(cls, values: Dict) -> Dict:
         value = values.get("profiling")

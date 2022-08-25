@@ -176,7 +176,7 @@ def test_bigquery_table_sanitasitation():
         BigqueryTableIdentifier("project-1234", "dataset-4567", "foo_*")
     )
     new_table_ref = BigqueryTableIdentifier.from_string_name(
-        table_ref.table_identifier.get_table()
+        table_ref.table_identifier.get_table_name()
     )
     assert new_table_ref.table == "foo"
     assert new_table_ref.project_id == "project-1234"
@@ -186,7 +186,7 @@ def test_bigquery_table_sanitasitation():
         BigqueryTableIdentifier("project-1234", "dataset-4567", "foo_2022")
     )
     new_table_ref = BigqueryTableIdentifier.from_string_name(
-        table_ref.table_identifier.get_table()
+        table_ref.table_identifier.get_table_name()
     )
     assert new_table_ref.table == "foo"
     assert new_table_ref.project_id == "project-1234"
@@ -196,7 +196,7 @@ def test_bigquery_table_sanitasitation():
         BigqueryTableIdentifier("project-1234", "dataset-4567", "foo_20222110")
     )
     new_table_ref = BigqueryTableIdentifier.from_string_name(
-        table_ref.table_identifier.get_table()
+        table_ref.table_identifier.get_table_name()
     )
     assert new_table_ref.table == "foo"
     assert new_table_ref.project_id == "project-1234"
@@ -206,7 +206,7 @@ def test_bigquery_table_sanitasitation():
         BigqueryTableIdentifier("project-1234", "dataset-4567", "foo")
     )
     new_table_ref = BigqueryTableIdentifier.from_string_name(
-        table_ref.table_identifier.get_table()
+        table_ref.table_identifier.get_table_name()
     )
     assert new_table_ref.table == "foo"
     assert new_table_ref.project_id == "project-1234"
@@ -216,7 +216,7 @@ def test_bigquery_table_sanitasitation():
         BigqueryTableIdentifier("project-1234", "dataset-4567", "foo_2016*")
     )
     new_table_ref = BigqueryTableIdentifier.from_string_name(
-        table_ref.table_identifier.get_table()
+        table_ref.table_identifier.get_table_name()
     )
     assert new_table_ref.table == "foo"
     assert new_table_ref.project_id == "project-1234"

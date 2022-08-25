@@ -572,8 +572,8 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
                 )
                 if (
                     last_table_identifier
-                    and last_table_identifier.get_table()
-                    == table_identifier.get_table()
+                    and last_table_identifier.get_table_name()
+                    == table_identifier.get_table_name()
                 ):
                     logger.debug(
                         f"Skipping table {table.name} with identifier {last_table_identifier} as we already processed this table"
@@ -586,7 +586,7 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
                     self.config.temp_table_dataset_prefix
                 ):
                     logger.debug(f"Dropping temporary table {table_identifier}")
-                    self.report.report_dropped(table_identifier.raw_table())
+                    self.report.report_dropped(table_identifier.raw_table_name())
                     continue
 
                 yield from self._process_table(conn, table, project_id, dataset_name)
@@ -608,10 +608,10 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
     ) -> Iterable[MetadataWorkUnit]:
         table_identifier = BigqueryTableIdentifier(project_id, schema_name, table.name)
 
-        self.report.report_entity_scanned(table_identifier.raw_table())
+        self.report.report_entity_scanned(table_identifier.raw_table_name())
 
-        if not self.config.table_pattern.allowed(table_identifier.raw_table()):
-            self.report.report_dropped(table_identifier.raw_table())
+        if not self.config.table_pattern.allowed(table_identifier.raw_table_name()):
+            self.report.report_dropped(table_identifier.raw_table_name())
             return
 
         table.columns = self.get_columns_for_table(conn, table_identifier)
@@ -640,10 +640,10 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
 
         table_identifier = BigqueryTableIdentifier(project_id, dataset_name, view.name)
 
-        self.report.report_entity_scanned(table_identifier.raw_table(), "view")
+        self.report.report_entity_scanned(table_identifier.raw_table_name(), "view")
 
-        if not self.config.view_pattern.allowed(table_identifier.raw_table()):
-            self.report.report_dropped(table_identifier.raw_table())
+        if not self.config.view_pattern.allowed(table_identifier.raw_table_name()):
+            self.report.report_dropped(table_identifier.raw_table_name())
             return
 
         view.columns = self.get_columns_for_table(conn, table_identifier)
@@ -758,7 +758,7 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
 
         if isinstance(table, BigqueryTable) and self.config.profiling.enabled:
             if self.config.profiling.allow_deny_patterns.allowed(
-                datahub_dataset_name.raw_table()
+                datahub_dataset_name.raw_table_name()
             ):
                 # Emit the profile work unit
                 dataset_profile = DatasetProfile(

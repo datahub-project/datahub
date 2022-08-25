@@ -294,11 +294,16 @@ timestamp < "{end_time}"
 
             missing_entry = QueryEvent.get_missing_key_entry(entry=entry)
             if missing_entry is None:
-                event = QueryEvent.from_entry(entry)
+                event = QueryEvent.from_entry(
+                    entry,
+                    debug_include_full_payloads=self.config.debug_include_full_payloads,
+                )
 
             missing_entry_v2 = QueryEvent.get_missing_key_entry_v2(entry=entry)
             if event is None and missing_entry_v2 is None:
-                event = QueryEvent.from_entry_v2(entry)
+                event = QueryEvent.from_entry_v2(
+                    entry, self.config.debug_include_full_payloads
+                )
 
             if event is None:
                 self.error(
@@ -331,7 +336,9 @@ timestamp < "{end_time}"
             )
 
             if missing_exported_audit is None:
-                event = QueryEvent.from_exported_bigquery_audit_metadata(audit_metadata)
+                event = QueryEvent.from_exported_bigquery_audit_metadata(
+                    audit_metadata, self.config.debug_include_full_payloads
+                )
 
             if event is None:
                 self.error(
@@ -358,7 +365,7 @@ timestamp < "{end_time}"
                 self.report.num_skipped_lineage_entries_missing_data += 1
                 continue
             # Skip if schema/table pattern don't allow the destination table
-            destination_table_str = str(e.destinationTable.get_sanitized_name())
+            destination_table_str = str(e.destinationTable.get_sanitized_table_ref())
             destination_table_str_parts = destination_table_str.split("/")
             if not self.config.dataset_pattern.allowed(
                 destination_table_str_parts[3]
@@ -367,13 +374,13 @@ timestamp < "{end_time}"
                 continue
             has_table = False
             for ref_table in e.referencedTables:
-                ref_table_str = str(ref_table.get_sanitized_name())
+                ref_table_str = str(ref_table.get_sanitized_table_ref())
                 if ref_table_str != destination_table_str:
                     lineage_map[destination_table_str].add(ref_table_str)
                     has_table = True
             has_view = False
             for ref_view in e.referencedViews:
-                ref_view_str = str(ref_view.get_sanitized_name())
+                ref_view_str = str(ref_view.get_sanitized_table_ref())
                 if ref_view_str != destination_table_str:
                     lineage_map[destination_table_str].add(ref_view_str)
                     has_view = True
@@ -434,7 +441,9 @@ timestamp < "{end_time}"
         assert self.lineage_metadata
         for ref_table in self.lineage_metadata[str(bq_table)]:
             upstream_table = BigQueryTableRef.from_string_name(ref_table)
-            if upstream_table.is_temporary_table(self.config.temp_table_dataset_prefix):
+            if upstream_table.is_temporary_table(
+                [self.config.temp_table_dataset_prefix]
+            ):
                 # making sure we don't process a table twice and not get into a recursive loop
                 if ref_table in tables_seen:
                     logger.debug(
