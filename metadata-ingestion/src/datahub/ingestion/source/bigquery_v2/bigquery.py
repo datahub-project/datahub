@@ -192,7 +192,7 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
         return bigquery.Client(**client_options)
 
     @staticmethod
-    def connectivity_test(client) -> CapabilityReport:
+    def connectivity_test(client: bigquery.Client) -> CapabilityReport:
         ret = client.query("select 1")
         if ret.error_result:
             return CapabilityReport(
@@ -913,8 +913,8 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
         return columns.get(table_identifier.table, [])
 
     def add_config_to_report(self):
-        self.report.window_start_time = self.config.start_time
-        self.report.window_end_time = self.config.end_time
+        self.report.start_time = self.config.start_time
+        self.report.end_time = self.config.end_time
         self.report.include_table_lineage = self.config.include_table_lineage
         self.report.use_date_sharded_audit_log_tables = (
             self.config.use_date_sharded_audit_log_tables

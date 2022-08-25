@@ -103,7 +103,7 @@ class BigqueryTableIdentifier:
         return f"{self.project_id}.{self.dataset}.{self.table}"
 
     @staticmethod
-    def _remove_suffix(input_string: str, suffixes: List[str]):
+    def _remove_suffix(input_string: str, suffixes: List[str]) -> str:
         for suffix in suffixes:
             if input_string.endswith(suffix):
                 return input_string[: -len(suffix)]

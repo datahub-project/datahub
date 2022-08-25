@@ -4,6 +4,7 @@ from datetime import datetime
 from typing import Dict, List, Optional
 
 from google.cloud import bigquery
+from google.cloud.bigquery.table import RowIterator
 
 from datahub.ingestion.source.bigquery_v2.bigquery_audit import BigqueryTableIdentifier
 
@@ -178,7 +179,7 @@ ORDER BY
 
 class BigQueryDataDictionary:
     @staticmethod
-    def get_query_result(conn: bigquery.Client, query: str):
+    def get_query_result(conn: bigquery.Client, query: str) -> RowIterator:
         logger.debug("Query : {}".format(query))
         resp = conn.query(query)
         return resp.result()
