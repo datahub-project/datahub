@@ -104,13 +104,13 @@ class FileSourceReport(SourceReport):
     total_deserialize_time_in_seconds: float = 0
 
     def add_deserialize_time(self, delta: datetime.timedelta) -> None:
-        self.total_deserialize_time_in_seconds += delta.total_seconds()
+        self.total_deserialize_time_in_seconds += round(delta.total_seconds(), 2)
 
     def add_parse_time(self, delta: datetime.timedelta) -> None:
-        self.total_parse_time_in_seconds += delta.total_seconds()
+        self.total_parse_time_in_seconds += round(delta.total_seconds(), 2)
 
     def add_count_time(self, delta: datetime.timedelta) -> None:
-        self.total_count_time_in_seconds += delta.total_seconds()
+        self.total_count_time_in_seconds += round(delta.total_seconds(), 2)
 
     def append_total_bytes_on_disk(self, delta: int) -> None:
         if self.total_bytes_on_disk is not None:
