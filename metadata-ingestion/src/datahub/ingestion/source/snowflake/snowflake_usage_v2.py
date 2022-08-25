@@ -164,7 +164,7 @@ class SnowflakeUsageExtractor(SnowflakeQueryMixin, SnowflakeCommonMixin):
                 ],
             )
             dataset_urn = make_dataset_urn_with_platform_instance(
-                "snowflake",
+                self.platform,
                 self.get_dataset_identifier_from_qualified_name(row["OBJECT_NAME"]),
                 self.config.platform_instance,
                 self.config.env,
@@ -292,7 +292,7 @@ class SnowflakeUsageExtractor(SnowflakeQueryMixin, SnowflakeCommonMixin):
 
                 resource = obj.objectName
                 dataset_urn = make_dataset_urn_with_platform_instance(
-                    "snowflake",
+                    self.platform,
                     self.get_dataset_identifier_from_qualified_name(resource),
                     self.config.platform_instance,
                     self.config.env,

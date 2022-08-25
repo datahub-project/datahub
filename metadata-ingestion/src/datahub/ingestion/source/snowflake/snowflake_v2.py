@@ -47,6 +47,7 @@ from datahub.ingestion.source.snowflake.snowflake_config import SnowflakeV2Confi
 from datahub.ingestion.source.snowflake.snowflake_lineage import (
     SnowflakeLineageExtractor,
 )
+from datahub.ingestion.source.snowflake.snowflake_profiler import SnowflakeProfiler
 from datahub.ingestion.source.snowflake.snowflake_report import SnowflakeV2Report
 from datahub.ingestion.source.snowflake.snowflake_schema import (
     SnowflakeColumn,
@@ -77,7 +78,6 @@ from datahub.ingestion.source.state.stateful_ingestion_base import (
 from datahub.ingestion.source.state.usage_common_state import BaseUsageCheckpointState
 from datahub.metadata.com.linkedin.pegasus2avro.common import Status, SubTypes
 from datahub.metadata.com.linkedin.pegasus2avro.dataset import (
-    DatasetProfile,
     DatasetProperties,
     UpstreamLineage,
     ViewProperties,
@@ -157,7 +157,7 @@ SNOWFLAKE_FIELD_TYPE_MAPPINGS = {
 @capability(SourceCapability.SCHEMA_METADATA, "Enabled by default")
 @capability(
     SourceCapability.DATA_PROFILING,
-    "Optionally enabled via configuration, only table level profiling is supported",
+    "Optionally enabled via configuration `profiling.enabled`",
 )
 @capability(SourceCapability.DESCRIPTIONS, "Enabled by default")
 @capability(
@@ -183,7 +183,6 @@ class SnowflakeV2Source(
         super().__init__(config, ctx)
         self.config: SnowflakeV2Config = config
         self.report: SnowflakeV2Report = SnowflakeV2Report()
-        self.platform: str = "snowflake"
         self.logger = logger
 
         if self.config.domain:
@@ -194,11 +193,17 @@ class SnowflakeV2Source(
         # For database, schema, tables, views, etc
         self.data_dictionary = SnowflakeDataDictionary()
 
-        # For lineage
-        self.lineage_extractor = SnowflakeLineageExtractor(config, self.report)
+        if config.include_table_lineage:
+            # For lineage
+            self.lineage_extractor = SnowflakeLineageExtractor(config, self.report)
 
-        # For usage stats
-        self.usage_extractor = SnowflakeUsageExtractor(config, self.report)
+        if config.include_usage_stats or config.include_operational_stats:
+            # For usage stats
+            self.usage_extractor = SnowflakeUsageExtractor(config, self.report)
+
+        if config.profiling.enabled:
+            # For profiling
+            self.profiler = SnowflakeProfiler(config, self.report)
 
         # Currently caching using instance variables
         # TODO - rewrite cache for readability or use out of the box solution
@@ -412,13 +417,15 @@ class SnowflakeV2Source(
             yield from self._process_database(conn, snowflake_db)
 
         conn.close()
-
         if self.is_stateful_ingestion_configured():
             # For database, schema, table, view
             removed_entity_workunits = self.gen_removed_entity_workunits()
             for wu in removed_entity_workunits:
                 self.report.report_workunit(wu)
                 yield wu
+
+        if self.config.profiling.enabled and len(databases) != 0:
+            yield from self.profiler.get_workunits(databases)
 
         if self.config.include_usage_stats or self.config.include_operational_stats:
             self.should_skip_usage_run = self._should_skip_usage_run()
@@ -507,7 +514,11 @@ class SnowflakeV2Source(
         )
         dataset_name = self.get_dataset_identifier(table.name, schema_name, db_name)
 
-        lineage_info = self.lineage_extractor._get_upstream_lineage_info(dataset_name)
+        lineage_info = None
+        if self.config.include_table_lineage:
+            lineage_info = self.lineage_extractor._get_upstream_lineage_info(
+                dataset_name
+            )
 
         yield from self.gen_dataset_workunits(table, schema_name, db_name, lineage_info)
 
@@ -527,7 +538,9 @@ class SnowflakeV2Source(
             return
 
         view.columns = self.get_columns_for_table(conn, view.name, schema_name, db_name)
-        lineage_info = self.lineage_extractor._get_upstream_lineage_info(view_name)
+        lineage_info = None
+        if self.config.include_table_lineage:
+            self.lineage_extractor._get_upstream_lineage_info(view_name)
         yield from self.gen_dataset_workunits(view, schema_name, db_name, lineage_info)
 
     def gen_dataset_workunits(
@@ -606,25 +619,6 @@ class SnowflakeV2Source(
             yield self.wrap_aspect_as_workunit(
                 "dataset", dataset_urn, "upstreamLineage", upstream_lineage
             )
-
-        if isinstance(table, SnowflakeTable) and self.config.profiling.enabled:
-            if self.config.profiling.allow_deny_patterns.allowed(dataset_name):
-                # Emit the profile work unit
-                dataset_profile = DatasetProfile(
-                    timestampMillis=round(datetime.now().timestamp() * 1000),
-                    columnCount=len(table.columns),
-                    rowCount=table.rows_count,
-                )
-                self.report.report_entity_profiled(dataset_name)
-                yield self.wrap_aspect_as_workunit(
-                    "dataset",
-                    dataset_urn,
-                    "datasetProfile",
-                    dataset_profile,
-                )
-
-            else:
-                self.report.report_dropped(f"Profile for {dataset_name}")
 
         if isinstance(table, SnowflakeView):
             view = cast(SnowflakeView, table)

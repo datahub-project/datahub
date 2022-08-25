@@ -34,9 +34,6 @@ class SnowflakeLineageExtractor(SnowflakeQueryMixin, SnowflakeCommonMixin):
         self, dataset_name: str
     ) -> Optional[Tuple[UpstreamLineage, Dict[str, str]]]:
 
-        if not self.config.include_table_lineage:
-            return None
-
         if self._lineage_map is None or self._external_lineage_map is None:
             conn = self.config.get_connection()
         if self._lineage_map is None:

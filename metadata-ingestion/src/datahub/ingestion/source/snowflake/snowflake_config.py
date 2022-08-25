@@ -1,11 +1,12 @@
 import logging
 from typing import Dict, Optional, cast
 
-from pydantic import Field, root_validator
+from pydantic import Field, SecretStr, root_validator
 
 from datahub.configuration.common import AllowDenyPattern
 from datahub.ingestion.source.sql.sql_common import SQLAlchemyStatefulIngestionConfig
 from datahub.ingestion.source_config.sql.snowflake import (
+    BaseSnowflakeConfig,
     SnowflakeConfig,
     SnowflakeProvisionRoleConfig,
 )
@@ -52,12 +53,6 @@ class SnowflakeV2Config(SnowflakeConfig, SnowflakeUsageConfig):
                 "Provision role is currently not supported. Set `provision_role.enabled` to False."
             )
 
-        value = values.get("profiling")
-        if value is not None and value.enabled and not value.profile_table_level_only:
-            raise ValueError(
-                "Only table level profiling is supported. Set `profiling.profile_table_level_only` to True.",
-            )
-
         value = values.get("check_role_grants")
         if value is not None and value:
             raise ValueError(
@@ -77,3 +72,14 @@ class SnowflakeV2Config(SnowflakeConfig, SnowflakeUsageConfig):
             cast(AllowDenyPattern, schema_pattern).deny.append(r"^INFORMATION_SCHEMA$")
 
         return values
+
+    def get_sql_alchemy_url(
+        self,
+        database: str = None,
+        username: Optional[str] = None,
+        password: Optional[SecretStr] = None,
+        role: Optional[str] = None,
+    ) -> str:
+        return BaseSnowflakeConfig.get_sql_alchemy_url(
+            self, database=database, username=username, password=password, role=role
+        )
