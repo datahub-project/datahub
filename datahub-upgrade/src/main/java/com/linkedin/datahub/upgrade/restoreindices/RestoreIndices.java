@@ -18,6 +18,7 @@ import java.util.List;
 public class RestoreIndices implements Upgrade {
   public static final String BATCH_SIZE_ARG_NAME = "batchSize";
   public static final String BATCH_DELAY_MS_ARG_NAME = "batchDelayMs";
+  public static final String NUM_THREADS_ARG_NAME = "numThreads";
 
   private final List<UpgradeStep> _steps;
 
