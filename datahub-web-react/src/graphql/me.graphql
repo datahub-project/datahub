@@ -20,7 +20,9 @@ query getMe {
                 skills
             }
             settings {
-                showSimplifiedHomepage
+                appearance {
+                    showSimplifiedHomepage
+                }
             }
         }
         platformPrivileges {
@@ -41,6 +43,6 @@ query getMe {
     }
 }
 
-mutation updateUserSetting($input: UpdateUserSettingsInput!) {
+mutation updateUserSetting($input: UpdateUserSettingInput!) {
     updateUserSetting(input: $input)
 }

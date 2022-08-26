@@ -53,7 +53,7 @@ export const Preferences = () => {
     // Current User Urn
     const { data, refetch } = useGetMeQuery({ fetchPolicy: 'no-cache' });
 
-    const showSimplifiedHomepage = !!data?.me?.corpUser?.settings?.showSimplifiedHomepage;
+    const showSimplifiedHomepage = !!data?.me?.corpUser?.settings?.appearance?.showSimplifiedHomepage;
     const [updateUserSettingMutation] = useUpdateUserSettingMutation();
 
     return (
