@@ -675,6 +675,11 @@ enum EntityType {
     TEST
 
     """
+    A DataHub Policy
+    """
+    DATAHUB_POLICY
+
+    """
     A DataHub Role
     """
     ROLE
@@ -7266,16 +7271,26 @@ enum PolicyState {
 """
 An DataHub Platform Access Policy Access Policies determine who can perform what actions against which resources on the platform
 """
-type Policy {
+type Policy implements Entity {
   """
   The primary key of the Policy
   """
   urn: String!
 
   """
+  The standard Entity Type
+  """
+  type: EntityType!
+
+  """
+  Granular API for querying edges extending from the Role
+  """
+  relationships(input: RelationshipsInput!): EntityRelationshipsResult
+
+  """
   The type of the Policy
   """
-  type: PolicyType!
+  policyType: PolicyType!
 
   """
   The name of the Policy

@@ -64,7 +64,7 @@ export default function PolicyDetailsModal({ policy, visible, onClose, privilege
     const entityRegistry = useEntityRegistry();
 
     const isActive = policy?.state === PolicyState.Active;
-    const isMetadataPolicy = policy?.type === PolicyType.Metadata;
+    const isMetadataPolicy = policy?.policyType === PolicyType.Metadata;
 
     const resources = convertLegacyResourceFilter(policy?.resources);
     const resourceTypes = getFieldValues(resources?.filter, 'RESOURCE_TYPE') || [];
@@ -108,7 +108,7 @@ export default function PolicyDetailsModal({ policy, visible, onClose, privilege
                 <div>
                     <Typography.Title level={5}>Type</Typography.Title>
                     <ThinDivider />
-                    <PoliciesTag>{policy?.type}</PoliciesTag>
+                    <PoliciesTag>{policy?.policyType}</PoliciesTag>
                 </div>
                 <div>
                     <Typography.Title level={5}>State</Typography.Title>

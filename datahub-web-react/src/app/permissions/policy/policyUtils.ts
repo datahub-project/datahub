@@ -1,5 +1,6 @@
 import { Maybe } from 'graphql/jsutils/Maybe';
 import {
+    EntityType,
     PolicyMatchCondition,
     PolicyMatchCriterion,
     PolicyMatchCriterionValue,
@@ -12,7 +13,8 @@ import {
 } from '../../../types.generated';
 
 export const EMPTY_POLICY = {
-    type: PolicyType.Metadata,
+    type: EntityType.DatahubPolicy,
+    policyType: PolicyType.Metadata,
     name: '',
     description: '',
     state: PolicyState.Active,

@@ -31,6 +31,7 @@ type Props = {
     placement?: TooltipPlacement;
     size?: number;
     isGroup?: boolean;
+    isPolicy?: boolean;
     isRole?: boolean;
 };
 
@@ -43,6 +44,7 @@ export default function CustomAvatar({
     placement,
     size,
     isGroup = false,
+    isPolicy = false,
     isRole = false,
 }: Props) {
     const avatarWithInitial = name ? (
@@ -69,6 +71,8 @@ export default function CustomAvatar({
     let title = `${name}`;
     if (isGroup) {
         title = `${title} - Group`;
+    } else if (isPolicy) {
+        title = `${title}`;
     } else if (isRole) {
         title = `${title} - Role`;
     }

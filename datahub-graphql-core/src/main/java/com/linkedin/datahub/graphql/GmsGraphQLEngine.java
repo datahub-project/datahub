@@ -232,6 +232,7 @@ import com.linkedin.datahub.graphql.types.mlmodel.MLModelGroupType;
 import com.linkedin.datahub.graphql.types.mlmodel.MLModelType;
 import com.linkedin.datahub.graphql.types.mlmodel.MLPrimaryKeyType;
 import com.linkedin.datahub.graphql.types.notebook.NotebookType;
+import com.linkedin.datahub.graphql.types.policy.PolicyType;
 import com.linkedin.datahub.graphql.types.role.RoleType;
 import com.linkedin.datahub.graphql.types.tag.TagType;
 import com.linkedin.datahub.graphql.types.test.TestType;
@@ -338,6 +339,7 @@ public class GmsGraphQLEngine {
     private final DataPlatformInstanceType dataPlatformInstanceType;
     private final AccessTokenMetadataType accessTokenMetadataType;
     private final TestType testType;
+    private final PolicyType policyType;
     private final RoleType roleType;
 
     /**
@@ -437,14 +439,15 @@ public class GmsGraphQLEngine {
         this.dataPlatformInstanceType = new DataPlatformInstanceType(entityClient);
         this.accessTokenMetadataType = new AccessTokenMetadataType(entityClient);
         this.testType = new TestType(entityClient);
+        this.policyType = new PolicyType(entityClient);
         this.roleType = new RoleType(entityClient);
         // Init Lists
-        this.entityTypes = ImmutableList.of(
-            datasetType,
-            corpUserType, corpGroupType, dataPlatformType, chartType, dashboardType, tagType, mlModelType,
-            mlModelGroupType, mlFeatureType, mlFeatureTableType, mlPrimaryKeyType, dataFlowType, dataJobType,
-            glossaryTermType, glossaryNodeType, containerType, notebookType, domainType, assertionType,
-            versionedDatasetType, dataPlatformInstanceType, accessTokenMetadataType, testType, roleType);
+        this.entityTypes =
+            ImmutableList.of(datasetType, corpUserType, corpGroupType, dataPlatformType, chartType, dashboardType,
+                tagType, mlModelType, mlModelGroupType, mlFeatureType, mlFeatureTableType, mlPrimaryKeyType,
+                dataFlowType, dataJobType, glossaryTermType, glossaryNodeType, containerType, notebookType, domainType,
+                assertionType, versionedDatasetType, dataPlatformInstanceType, accessTokenMetadataType, testType,
+                policyType, roleType);
         this.loadableTypes = new ArrayList<>(entityTypes);
         this.ownerTypes = ImmutableList.of(corpUserType, corpGroupType);
         this.searchableTypes = loadableTypes.stream()

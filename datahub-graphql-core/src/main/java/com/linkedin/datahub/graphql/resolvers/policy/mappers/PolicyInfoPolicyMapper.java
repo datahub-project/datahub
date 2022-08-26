@@ -2,6 +2,7 @@ package com.linkedin.datahub.graphql.resolvers.policy.mappers;
 
 import com.linkedin.common.urn.Urn;
 import com.linkedin.datahub.graphql.generated.ActorFilter;
+import com.linkedin.datahub.graphql.generated.EntityType;
 import com.linkedin.datahub.graphql.generated.Policy;
 import com.linkedin.datahub.graphql.generated.PolicyMatchCondition;
 import com.linkedin.datahub.graphql.generated.PolicyMatchCriterion;
@@ -34,9 +35,10 @@ public class PolicyInfoPolicyMapper implements ModelMapper<DataHubPolicyInfo, Po
   @Override
   public Policy apply(DataHubPolicyInfo info) {
     final Policy result = new Policy();
+    result.setType(EntityType.DATAHUB_POLICY);
     result.setDescription(info.getDescription());
     // Careful - we assume no other Policy types or states have been ingested using a backdoor.
-    result.setType(PolicyType.valueOf(info.getType()));
+    result.setPolicyType(PolicyType.valueOf(info.getType()));
     result.setState(PolicyState.valueOf(info.getState()));
     result.setName(info.getDisplayName()); // Rebrand to 'name'
     result.setPrivileges(info.getPrivileges());

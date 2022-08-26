@@ -13,7 +13,7 @@ import { SearchBar } from '../../search/SearchBar';
 import { SearchSelectModal } from '../../entity/shared/components/styled/search/SearchSelectModal';
 import { EntityCapabilityType } from '../../entity/Entity';
 import { useBatchAssignRoleToActorsMutation } from '../../../graphql/mutations.generated';
-import { CorpUser, Role } from '../../../types.generated';
+import { CorpUser, Role, Policy } from '../../../types.generated';
 import RoleDetailsModal from './RoleDetailsModal';
 
 const SourceContainer = styled.div``;
@@ -187,7 +187,12 @@ export const ManageRoles = () => {
         type: role?.type,
         description: role?.description,
         name: role?.name,
-        users: role?.relationships?.relationships.map((relationship) => relationship.entity as CorpUser),
+        users: role?.relationships?.relationships
+            .filter((relationship) => relationship?.entity?.__typename === 'CorpUser')
+            .map((relationship) => relationship.entity as CorpUser),
+        policies: role?.relationships?.relationships
+            .filter((relationship) => relationship?.entity?.__typename === 'Policy')
+            .map((relationship) => relationship.entity as Policy),
     }));
 
     return (

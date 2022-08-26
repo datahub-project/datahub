@@ -8,7 +8,7 @@ query listRoles($input: ListRolesInput!) {
             type
             name
             description
-            relationships(input: { types: ["IsMemberOfRole"], direction: INCOMING, start: 0 }) {
+            relationships(input: { types: ["IsMemberOfRole", "IsAssociatedWithRole"], direction: INCOMING, start: 0 }) {
                 start
                 count
                 total
@@ -16,6 +16,7 @@ query listRoles($input: ListRolesInput!) {
                     entity {
                         ... on CorpUser {
                             urn
+                            type
                             username
                             info {
                                 active
@@ -29,6 +30,16 @@ query listRoles($input: ListRolesInput!) {
                                 displayName
                                 title
                                 pictureLink
+                            }
+                        }
+                        ... on Policy {
+                            urn
+                            type
+                            name
+                            relationships(input: { types: ["IsAssociatedWithRole"], direction: OUTGOING }) {
+                                start
+                                count
+                                total
                             }
                         }
                     }

@@ -67,7 +67,6 @@ export default function UserListItem({ user, canManageUserCredentials, roles, on
     const shouldShowPasswordReset: boolean = canManageUserCredentials && isNativeUser;
     const userRelationships = user.relationships?.relationships;
     const userRole = userRelationships && userRelationships.length > 0 && (userRelationships[0]?.entity as Role);
-    // const userRoleName = userRole && userRole.name;
     const userRoleUrn = userRole && userRole.urn;
 
     const { onDeleteEntity } = useDeleteEntity(user.urn, EntityType.CorpUser, user, onDelete);
