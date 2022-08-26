@@ -190,8 +190,9 @@ class SnowflakeV2Source(
                 cached_domains=[k for k in self.config.domain], graph=self.ctx.graph
             )
 
-        # For database, schema, tables, views, etc
-        self.data_dictionary = SnowflakeDataDictionary()
+        if self.config.include_technical_schema:
+            # For database, schema, tables, views, etc
+            self.data_dictionary = SnowflakeDataDictionary()
 
         if config.include_table_lineage:
             # For lineage
@@ -408,24 +409,28 @@ class SnowflakeV2Source(
         self.add_config_to_report()
         self.inspect_session_metadata(conn)
 
-        databases: List[SnowflakeDatabase] = self.data_dictionary.get_databases(conn)
-        for snowflake_db in databases:
-            if not self.config.database_pattern.allowed(snowflake_db.name):
-                self.report.report_dropped(snowflake_db.name)
-                continue
+        self.report.include_technical_schema = self.config.include_technical_schema
+        if self.config.include_technical_schema:
+            databases: List[SnowflakeDatabase] = self.data_dictionary.get_databases(
+                conn
+            )
+            for snowflake_db in databases:
+                if not self.config.database_pattern.allowed(snowflake_db.name):
+                    self.report.report_dropped(f"{snowflake_db.name}.*")
+                    continue
 
-            yield from self._process_database(conn, snowflake_db)
+                yield from self._process_database(conn, snowflake_db)
 
-        conn.close()
-        if self.is_stateful_ingestion_configured():
-            # For database, schema, table, view
-            removed_entity_workunits = self.gen_removed_entity_workunits()
-            for wu in removed_entity_workunits:
-                self.report.report_workunit(wu)
-                yield wu
+            conn.close()
+            if self.is_stateful_ingestion_configured():
+                # For database, schema, table, view
+                removed_entity_workunits = self.gen_removed_entity_workunits()
+                for wu in removed_entity_workunits:
+                    self.report.report_workunit(wu)
+                    yield wu
 
-        if self.config.profiling.enabled and len(databases) != 0:
-            yield from self.profiler.get_workunits(databases)
+            if self.config.profiling.enabled and len(databases) != 0:
+                yield from self.profiler.get_workunits(databases)
 
         if self.config.include_usage_stats or self.config.include_operational_stats:
             self.should_skip_usage_run = self._should_skip_usage_run()
@@ -455,13 +460,13 @@ class SnowflakeV2Source(
                 db_name,
                 f"unable to get metadata information for database {db_name} due to an error -> {e}",
             )
-            self.report.report_dropped(db_name)
+            self.report.report_dropped(f"{db_name}.*")
             return
 
         for snowflake_schema in snowflake_db.schemas:
 
             if not self.config.schema_pattern.allowed(snowflake_schema.name):
-                self.report.report_dropped(f"{snowflake_schema.name}.*")
+                self.report.report_dropped(f"{db_name}.{snowflake_schema.name}.*")
                 continue
 
             yield from self._process_schema(conn, snowflake_schema, db_name)
@@ -844,6 +849,7 @@ class SnowflakeV2Source(
         # get all tables for database failed,
         # falling back to get tables for schema
         if tables is None:
+            self.report.num_get_tables_for_schema_queries += 1
             return self.data_dictionary.get_tables_for_schema(
                 conn, schema_name, db_name
             )
@@ -864,6 +870,7 @@ class SnowflakeV2Source(
         # get all views for database failed,
         # falling back to get views for schema
         if views is None:
+            self.report.num_get_views_for_schema_queries += 1
             return self.data_dictionary.get_views_for_schema(conn, schema_name, db_name)
 
         # Some schema may not have any table
@@ -884,6 +891,7 @@ class SnowflakeV2Source(
         # get all columns for schema failed,
         # falling back to get columns for table
         if columns is None:
+            self.report.num_get_columns_for_table_queries += 1
             return self.data_dictionary.get_columns_for_table(
                 conn, table_name, schema_name, db_name
             )
@@ -1030,7 +1038,7 @@ class SnowflakeV2Source(
             )
             summary.numWarnings = len(self.report.warnings)
             summary.numErrors = len(self.report.failures)
-            summary.numEntities = self.report.events_produced
+            summary.numAspects = self.report.workunits_produced
 
     def update_usage_job_run_summary(self):
         summary = self.get_job_run_summary(self.get_usage_ingestion_job_id())

@@ -16,6 +16,7 @@ from datahub.ingestion.source.snowflake.snowflake_utils import (
 )
 from datahub.metadata.com.linkedin.pegasus2avro.dataset import UpstreamLineage
 from datahub.metadata.schema_classes import DatasetLineageTypeClass, UpstreamClass
+from datahub.utilities.perf_timer import PerfTimer
 
 logger: logging.Logger = logging.getLogger(__name__)
 
@@ -37,10 +38,16 @@ class SnowflakeLineageExtractor(SnowflakeQueryMixin, SnowflakeCommonMixin):
         if self._lineage_map is None or self._external_lineage_map is None:
             conn = self.config.get_connection()
         if self._lineage_map is None:
-            self._populate_lineage(conn)
-            self._populate_view_lineage(conn)
+            with PerfTimer() as timer:
+                self._populate_lineage(conn)
+                self.report.table_lineage_query_secs = timer.elapsed_seconds()
+            if self.config.include_view_lineage:
+                self._populate_view_lineage(conn)
+
         if self._external_lineage_map is None:
-            self._populate_external_lineage(conn)
+            with PerfTimer() as timer:
+                self._populate_external_lineage(conn)
+                self.report.external_lineage_queries_secs = timer.elapsed_seconds()
 
         assert self._lineage_map is not None
         assert self._external_lineage_map is not None
@@ -110,10 +117,12 @@ class SnowflakeLineageExtractor(SnowflakeQueryMixin, SnowflakeCommonMixin):
         return None
 
     def _populate_view_lineage(self, conn: SnowflakeConnection) -> None:
-        if not self.config.include_view_lineage:
-            return
-        self._populate_view_upstream_lineage(conn)
-        self._populate_view_downstream_lineage(conn)
+        with PerfTimer() as timer:
+            self._populate_view_upstream_lineage(conn)
+            self.report.view_upstream_lineage_query_secs = timer.elapsed_seconds()
+        with PerfTimer() as timer:
+            self._populate_view_downstream_lineage(conn)
+            self.report.view_downstream_lineage_query_secs = timer.elapsed_seconds()
 
     def _populate_external_lineage(self, conn: SnowflakeConnection) -> None:
         # Handles the case where a table is populated from an external location via copy.

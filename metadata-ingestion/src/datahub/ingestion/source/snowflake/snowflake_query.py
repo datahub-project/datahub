@@ -78,7 +78,7 @@ class SnowflakeQuery:
         clustering_key AS "CLUSTERING_KEY",
         auto_clustering_on AS "AUTO_CLUSTERING_ON"
         FROM {db_clause}information_schema.tables t
-        where schema_name='{schema_name}'
+        where table_schema='{schema_name}'
         and table_type in ('BASE TABLE', 'EXTERNAL TABLE')
         order by table_schema, table_name"""
 
@@ -113,7 +113,7 @@ class SnowflakeQuery:
         comment AS "COMMENT",
         view_definition AS "VIEW_DEFINITION"
         FROM {db_clause}information_schema.views t
-        where schema_name='{schema_name}'
+        where table_schema='{schema_name}'
         order by table_schema, table_name"""
 
     @staticmethod
@@ -349,6 +349,15 @@ class SnowflakeQuery:
         FROM external_table_lineage_history
         WHERE downstream_table_domain = 'Table'
         QUALIFY ROW_NUMBER() OVER (PARTITION BY downstream_table_name ORDER BY query_start_time DESC) = 1"""
+
+    @staticmethod
+    def get_access_history_date_range() -> str:
+        return """
+            select
+                min(query_start_time) as "MIN_TIME",
+                max(query_start_time) as "MAX_TIME"
+            from snowflake.account_usage.access_history
+        """
 
     @staticmethod
     def usage_per_object_per_time_bucket_for_time_window(

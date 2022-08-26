@@ -46,15 +46,14 @@ OPERATION_STATEMENT_TYPES = {
 }
 
 
-@pydantic.dataclasses.dataclass
-class SnowflakeColumnReference:
-    columnId: int
-    columnName: str
-
-
 class PermissiveModel(pydantic.BaseModel):
     class Config:
         extra = "allow"
+
+
+class SnowflakeColumnReference(PermissiveModel):
+    columnId: int
+    columnName: str
 
 
 class SnowflakeObjectAccessEntry(PermissiveModel):
@@ -237,15 +236,11 @@ class SnowflakeUsageExtractor(SnowflakeQueryMixin, SnowflakeCommonMixin):
 
     def _check_usage_date_ranges(self, conn: SnowflakeConnection) -> Any:
 
-        query = """
-            select
-                min(query_start_time) as "MIN_TIME",
-                max(query_start_time) as "MAX_TIME"
-            from snowflake.account_usage.access_history
-        """
         with PerfTimer() as timer:
             try:
-                results = self.query(conn, query)
+                results = self.query(
+                    conn, SnowflakeQuery.get_access_history_date_range()
+                )
             except Exception as e:
                 self.warn(
                     "check-usage-data",

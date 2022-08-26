@@ -35,6 +35,11 @@ class SnowflakeV2Config(SnowflakeConfig, SnowflakeUsageConfig):
         description="If enabled, populates the snowflake usage statistics. Requires appropriate grants given to the role.",
     )
 
+    include_technical_schema: bool = Field(
+        default=True,
+        description="If enabled, populates the snowflake technical schema and descriptions.",
+    )
+
     check_role_grants: bool = Field(
         default=False,
         description="Not supported",
@@ -70,6 +75,26 @@ class SnowflakeV2Config(SnowflakeConfig, SnowflakeUsageConfig):
         if schema_pattern is not None and schema_pattern:
             logger.debug("Adding deny for INFORMATION_SCHEMA to schema_pattern.")
             cast(AllowDenyPattern, schema_pattern).deny.append(r"^INFORMATION_SCHEMA$")
+
+        include_technical_schema = values.get("include_technical_schema")
+        include_profiles = (
+            values.get("profiling") is not None and values["profiling"].enabled
+        )
+        delete_detection_enabled = (
+            values.get("stateful_ingestion") is not None
+            and values["stateful_ingestion"].enabled
+            and values["stateful_ingestion"].remove_stale_metadata
+        )
+        include_table_lineage = values.get("include_table_lineage")
+
+        # TODO: Allow lineage extraction irrespective of basic schema extraction,
+        # as it seems possible with some refractor
+        if not include_technical_schema and any(
+            [include_profiles, delete_detection_enabled, include_table_lineage]
+        ):
+            raise ValueError(
+                "Can not perform Deletion Detection, Lineage Extraction, Profiling without extracting snowflake technical schema.  Set `include_technical_schema` to True or disable Deletion Detection, Lineage Extraction, Profiling."
+            )
 
         return values
 

@@ -132,7 +132,9 @@ class SnowflakeDataDictionary(SnowflakeQueryMixin):
                 SnowflakeQuery.tables_for_database(db_name),
             )
         except Exception as e:
-            logger.debug(e)
+            logger.debug(
+                f"Failed to get all tables for database - {db_name}", exc_info=e
+            )
             # Error - Information schema query returned too much data. Please repeat query with more selective predicates.
             return None
 
@@ -183,7 +185,9 @@ class SnowflakeDataDictionary(SnowflakeQueryMixin):
         try:
             cur = self.query(conn, SnowflakeQuery.show_views_for_database(db_name))
         except Exception as e:
-            logger.debug(e)
+            logger.debug(
+                f"Failed to get all views for database - {db_name}", exc_info=e
+            )
             # Error - Information schema query returned too much data. Please repeat query with more selective predicates.
             return None
 
@@ -230,7 +234,9 @@ class SnowflakeDataDictionary(SnowflakeQueryMixin):
                 conn, SnowflakeQuery.columns_for_schema(schema_name, db_name)
             )
         except Exception as e:
-            logger.debug(e)
+            logger.debug(
+                f"Failed to get all columns for schema - {schema_name}", exc_info=e
+            )
             # Error - Information schema query returned too much data.
             # Please repeat query with more selective predicates.
             return None
