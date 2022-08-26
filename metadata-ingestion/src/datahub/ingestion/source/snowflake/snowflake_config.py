@@ -4,22 +4,11 @@ from typing import Dict, Optional, cast
 from pydantic import Field, root_validator
 
 from datahub.configuration.common import AllowDenyPattern
-from datahub.ingestion.source.sql.sql_common import SQLAlchemyStatefulIngestionConfig
 from datahub.ingestion.source_config.sql.snowflake import (
     SnowflakeConfig,
     SnowflakeProvisionRoleConfig,
 )
-from datahub.ingestion.source_config.usage.snowflake_usage import (
-    SnowflakeStatefulIngestionConfig,
-    SnowflakeUsageConfig,
-)
-
-
-class SnowflakeV2StatefulIngestionConfig(
-    SQLAlchemyStatefulIngestionConfig, SnowflakeStatefulIngestionConfig
-):
-    pass
-
+from datahub.ingestion.source_config.usage.snowflake_usage import SnowflakeUsageConfig
 
 logger = logging.Logger(__name__)
 
