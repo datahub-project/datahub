@@ -57,9 +57,9 @@ fi
 # kubernetes deployments
 auth_resource_dir=${AUTH_RESOURCES_DIR:-"/etc/datahub/plugins/auth/resources"}
 # Option --classes ${AUTH_RESOURCE_LOOK_UP_DIR} is added for Apache Ranger library to load the ranger-datahub-security.xml from classpath
-EXTRA_AUTH_RESOURCE_DIR=""
+CLASSES_DIR=""
 if [[ ${RANGER_AUTHORIZER_ENABLED} == true ]]; then
-  EXTRA_AUTH_RESOURCE_DIR="--classes ${auth_resource_dir}"
+  CLASSES_DIR="--classes ${auth_resource_dir}"
 fi
 
 COMMON="
@@ -73,7 +73,7 @@ COMMON="
     $PROMETHEUS_AGENT \
     -jar /jetty-runner.jar \
     --jar jetty-util.jar \
-    --jar jetty-jmx.jar ${EXTRA_AUTH_RESOURCE_DIR} \
+    --jar jetty-jmx.jar ${CLASSES_DIR} \
     --config /datahub/datahub-gms/scripts/jetty.xml \
     /datahub/datahub-gms/bin/war.war"
 
