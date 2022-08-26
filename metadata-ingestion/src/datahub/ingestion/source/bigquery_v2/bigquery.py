@@ -187,8 +187,6 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
 
     def get_bigquery_client(self) -> bigquery.Client:
         client_options = self.config.extra_client_options
-        if self.config.project_id:
-            client_options["project"] = self.config.project_id
         return bigquery.Client(**client_options)
 
     @staticmethod
@@ -913,8 +911,6 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
         return columns.get(table_identifier.table, [])
 
     def add_config_to_report(self):
-        self.report.start_time = self.config.start_time
-        self.report.end_time = self.config.end_time
         self.report.include_table_lineage = self.config.include_table_lineage
         self.report.use_date_sharded_audit_log_tables = (
             self.config.use_date_sharded_audit_log_tables
