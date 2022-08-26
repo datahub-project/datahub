@@ -20,7 +20,7 @@ const quickLinkContent = [
     title: "Get Started",
     icon: <ThunderboltTwoTone />,
     description: "Details on how to get DataHub up and running",
-    to: "/docs/quickstart",
+    to: "/docs/wip/get-started",
   },
   {
     title: "Ingest Metadata",
