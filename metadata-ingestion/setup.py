@@ -55,6 +55,8 @@ framework_common = {
     "humanfriendly",
     "packaging",
     "aiohttp<4",
+    "cached_property",
+    "ijson",
 }
 
 kafka_common = {
@@ -231,7 +233,7 @@ plugins: Dict[str, Set[str]] = {
     "datahub-lineage-file": set(),
     "datahub-business-glossary": set(),
     "delta-lake": {*data_lake_profiling, *delta_lake},
-    "dbt": {"requests", "cached_property"} | aws_common,
+    "dbt": {"requests"} | aws_common,
     "druid": sql_common | {"pydruid>=0.6.2"},
     # Starting with 7.14.0 python client is checking if it is connected to elasticsearch client. If its not it throws
     # UnsupportedProductError
@@ -265,7 +267,7 @@ plugins: Dict[str, Set[str]] = {
     | {"lkml>=1.1.2", "sql-metadata==2.2.2", "sqllineage==1.3.5"},
     "metabase": {"requests", "sqllineage==1.3.5"},
     "mode": {"requests", "sqllineage==1.3.5", "tenacity>=8.0.1"},
-    "mongodb": {"pymongo>=3.11", "packaging"},
+    "mongodb": {"pymongo[srv]>=3.11", "packaging"},
     "mssql": sql_common | {"sqlalchemy-pytds>=0.3"},
     "mssql-odbc": sql_common | {"pyodbc"},
     "mysql": sql_common | {"pymysql>=1.0.2"},
@@ -522,7 +524,8 @@ entry_points = {
         "datahub = datahub.ingestion.source.state_provider.datahub_ingestion_checkpointing_provider:DatahubIngestionCheckpointingProvider",
     ],
     "datahub.ingestion.reporting_provider.plugins": [
-        "datahub = datahub.ingestion.reporting.datahub_ingestion_reporting_provider:DatahubIngestionReportingProvider",
+        "datahub = datahub.ingestion.reporting.datahub_ingestion_run_summary_provider:DatahubIngestionRunSummaryProvider",
+        "file = datahub.ingestion.reporting.file_reporter:FileReporter",
     ],
     "apache_airflow_provider": ["provider_info=datahub_provider:get_provider_info"],
 }

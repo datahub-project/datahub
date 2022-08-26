@@ -3,6 +3,7 @@ package controllers;
 import client.AuthServiceClient;
 import com.datahub.authentication.Authentication;
 import com.linkedin.entity.client.EntityClient;
+import java.net.URLEncoder;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionStage;
 import javax.annotation.Nonnull;
@@ -45,11 +46,21 @@ public class SsoCallbackController extends CallbackController {
   public CompletionStage<Result> handleCallback(String protocol) {
     if (shouldHandleCallback(protocol)) {
       log.debug(String.format("Handling SSO callback. Protocol: %s", protocol));
-      return callback();
+      return callback().handle((res, e) -> {
+        if (e != null) {
+          log.error("Caught exception while attempting to handle SSO callback! It's likely that SSO integration is mis-configured.", e);
+          return redirect(
+              String.format("/login?error_msg=%s",
+                  URLEncoder.encode("Failed to sign in using Single Sign-On provider. Please contact your DataHub Administrator, "
+                      + "or refer to server logs for more information.")));
+        }
+        return res;
+      });
     }
     return CompletableFuture.completedFuture(internalServerError(
         String.format("Failed to perform SSO callback. SSO is not enabled for protocol: %s", protocol)));
   }
+
 
   /**
    * Logic responsible for delegating to protocol-specific callback logic.

@@ -5,5 +5,5 @@ from typing import Optional
 
 @dataclass
 class BaseTimeWindowReport:
-    end_time: Optional[datetime] = None
-    start_time: Optional[datetime] = None
+    window_end_time: Optional[datetime] = None
+    window_start_time: Optional[datetime] = None

@@ -83,6 +83,7 @@ services:
     - PE_CONSUMER_ENABLED=true
     - UI_INGESTION_ENABLED=true
     - UI_INGESTION_DEFAULT_CLI_VERSION=0.8.42
+    - ENTITY_SERVICE_ENABLE_RETENTION=true
     hostname: datahub-gms
     image: ${DATAHUB_GMS_IMAGE:-linkedin/datahub-gms}:${DATAHUB_VERSION:-head}
     ports:

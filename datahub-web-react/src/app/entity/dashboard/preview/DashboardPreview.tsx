@@ -39,6 +39,7 @@ export const DashboardPreview = ({
     externalUrl,
     parentContainers,
     deprecation,
+    snippet,
 }: {
     urn: string;
     platform: string;
@@ -60,6 +61,7 @@ export const DashboardPreview = ({
     createdMs?: number | null;
     externalUrl?: string | null;
     parentContainers?: ParentContainersResult | null;
+    snippet?: React.ReactNode | null;
 }): JSX.Element => {
     const entityRegistry = useEntityRegistry();
     const capitalizedPlatform = capitalizeFirstLetter(platform);
@@ -85,6 +87,7 @@ export const DashboardPreview = ({
             parentContainers={parentContainers}
             externalUrl={externalUrl}
             topUsers={statsSummary?.topUsersLast30Days}
+            snippet={snippet}
             subHeader={
                 <DashboardStatsSummaryView
                     chartCount={chartCount}
