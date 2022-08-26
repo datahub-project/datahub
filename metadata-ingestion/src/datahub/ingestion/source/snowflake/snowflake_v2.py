@@ -212,7 +212,7 @@ class SnowflakeV2Source(
         self.db_views: Dict[str, Optional[Dict[str, List[SnowflakeView]]]] = {}
 
         # For column related queries and constraints, we currently query at schema level
-        # In future, we may consider using queries and caching at database level first
+        # TODO: In future, we may consider using queries and caching at database level first
         self.schema_columns: Dict[
             Tuple[str, str], Optional[Dict[str, List[SnowflakeColumn]]]
         ] = {}
@@ -402,8 +402,6 @@ class SnowflakeV2Source(
         return _report
 
     def get_workunits(self) -> Iterable[WorkUnit]:
-
-        # TODO: Support column level profiling
 
         conn: SnowflakeConnection = self.config.get_connection()
         self.add_config_to_report()
