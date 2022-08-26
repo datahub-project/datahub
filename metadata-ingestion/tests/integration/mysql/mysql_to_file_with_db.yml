@@ -5,19 +5,8 @@ source:
   config:
     username: root
     password: example
-    database: metagalaxy
     host_port: localhost:53307
-    schema_pattern:
-      allow:
-        - "^metagalaxy"
-        - "^northwind"
-        - "^datacharmer"
-        - "^test_cases"
-    profile_pattern:
-      allow:
-        - "^northwind"
-        - "^datacharmer"
-        - "^test_cases"
+    database: northwind
     profiling:
       enabled: True
       include_field_null_count: true
@@ -33,7 +22,7 @@ source:
     domain:
       "urn:li:domain:sales":
         allow:
-          - "^metagalaxy"
+          - "^northwind"
 sink:
   type: file
   config:
