@@ -123,7 +123,7 @@ class ElasticToSchemaFieldConverter:
         self, elastic_schema_dict: Dict[str, Any]
     ) -> Generator[SchemaField, None, None]:
         # append each schema field (sort so output is consistent)
-        PROPERTIES:str = "properties"
+        PROPERTIES: str = "properties"
         for columnName, column in elastic_schema_dict.items():
             elastic_type: Optional[str] = column.get("type")
             nested_props: Optional[Dict[str, Any]] = column.get(PROPERTIES)

@@ -1303,7 +1303,7 @@ schema_test_cases: Dict[str, Tuple[str, List[str]]] = {
             "[version=2.0].[type=properties].userCounts",
             "[version=2.0].[type=properties].userCounts.[type=integer].count",
             "[version=2.0].[type=properties].userCounts.[type=keyword].user",
-            "[version=2.0].[type=properties].userCounts.[type=keyword].userEmail"
+            "[version=2.0].[type=properties].userCounts.[type=keyword].userEmail",
         ],
     ),
     "datasetindex_v2": (
@@ -1727,7 +1727,7 @@ schema_test_cases: Dict[str, Tuple[str, List[str]]] = {
             "[version=2.0].[type=properties].state.[type=keyword].step",
             "[version=2.0].[type=properties].state.[type=text].step_info",
             "[version=2.0].[type=properties].state.[type=date].step_time",
-            "[version=2.0].[type=boolean].success"
+            "[version=2.0].[type=boolean].success",
         ],
     ),
     "mlfeatureindex_v2": (
