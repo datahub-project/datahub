@@ -2,7 +2,6 @@ import concurrent.futures
 import contextlib
 import functools
 import logging
-import threading
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass
 from datetime import timedelta
@@ -11,7 +10,6 @@ from threading import BoundedSemaphore
 from typing import Union, cast
 
 from pydantic import validator
-from tdigest import TDigest
 
 from datahub.cli.cli_utils import set_env_variables_override_config
 from datahub.configuration.common import ConfigurationError, OperationalError
@@ -50,28 +48,12 @@ class DatahubRestSinkConfig(DatahubClientConfig):
 class DataHubRestSinkReport(SinkReport):
     gms_version: str = ""
     pending_requests: int = 0
-    _digest = TDigest()
-    _lock = threading.Lock()
 
     def compute_stats(self) -> None:
         super().compute_stats()
-        self._lock.acquire()
-        try:
-            self.ninety_fifth_percentile_write_latency_in_millis = int(
-                self._digest.percentile(95)
-            )
-            self.fiftieth_percentile_write_latency_in_millis = int(
-                self._digest.percentile(50)
-            )
-        finally:
-            self._lock.release()
 
     def report_write_latency(self, delta: timedelta) -> None:
-        self._lock.acquire()
-        try:
-            self._digest.update(round(delta.total_seconds() * 1000.0))
-        finally:
-            self._lock.release()
+        pass
 
 
 class BoundedExecutor:
