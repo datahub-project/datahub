@@ -71,7 +71,7 @@ type GetSchemaVersionListResult {
     """
     Latest and current semantic version
     """
-    latestVersion: SemanticVersionStruct!
+    latestVersion: SemanticVersionStruct
     """
     Selected semantic version
     """

@@ -1,5 +1,7 @@
 import { DashboardFilled, DashboardOutlined } from '@ant-design/icons';
 import * as React from 'react';
+import { Typography } from 'antd';
+
 import {
     GetDashboardQuery,
     useGetDashboardQuery,
@@ -22,6 +24,8 @@ import { SidebarDomainSection } from '../shared/containers/profile/sidebar/Domai
 import { EntityMenuItems } from '../shared/EntityDropdown/EntityDropdown';
 import { LineageTab } from '../shared/tabs/Lineage/LineageTab';
 import { DashboardStatsSummarySubHeader } from './profile/DashboardStatsSummarySubHeader';
+import { FIELDS_TO_HIGHLIGHT } from '../dataset/search/highlights';
+import { getMatchPrioritizingPrimary } from '../shared/utils';
 
 /**
  * Definition of the DataHub Dashboard entity.
@@ -180,6 +184,8 @@ export class DashboardEntity implements Entity<Dashboard> {
 
     renderSearch = (result: SearchResult) => {
         const data = result.entity as Dashboard;
+        const matchedField = getMatchPrioritizingPrimary(result.matchedFields, 'fieldLabels');
+
         return (
             <DashboardPreview
                 urn={data.urn}
@@ -201,6 +207,13 @@ export class DashboardEntity implements Entity<Dashboard> {
                 statsSummary={data.statsSummary}
                 lastUpdatedMs={data.properties?.lastModified?.time}
                 createdMs={data.properties?.created?.time}
+                snippet={
+                    matchedField && (
+                        <Typography.Text>
+                            Matches {FIELDS_TO_HIGHLIGHT.get(matchedField.name)} <b>{matchedField.value}</b>
+                        </Typography.Text>
+                    )
+                }
             />
         );
     };

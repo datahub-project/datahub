@@ -50,6 +50,7 @@ def test_looker_ingest(pytestconfig, tmp_path, mock_time):
                     subtitle_text="Some text",
                     query=Query(
                         model="data",
+                        fields=["dim1"],
                         view="my_view",
                         dynamic_fields='[{"table_calculation":"calc","label":"foobar","expression":"offset(${my_table.value},1)","value_format":null,"value_format_name":"eur","_kind_hint":"measure","_type_hint":"number"}]',
                     ),
@@ -109,6 +110,7 @@ def test_looker_ingest_joins(pytestconfig, tmp_path, mock_time):
                     subtitle_text="Some text",
                     query=Query(
                         model="data",
+                        fields=["dim1"],
                         view="my_view",
                         dynamic_fields='[{"table_calculation":"calc","label":"foobar","expression":"offset(${my_table.value},1)","value_format":null,"value_format_name":"eur","_kind_hint":"measure","_type_hint":"number"}]',
                     ),
@@ -169,6 +171,7 @@ def test_looker_ingest_unaliased_joins(pytestconfig, tmp_path, mock_time):
                     query=Query(
                         model="data",
                         view="my_view",
+                        fields=["dim1"],
                         dynamic_fields='[{"table_calculation":"calc","label":"foobar","expression":"offset(${my_table.value},1)","value_format":null,"value_format_name":"eur","_kind_hint":"measure","_type_hint":"number"}]',
                     ),
                 )
@@ -221,7 +224,10 @@ def setup_mock_explore_with_joins(mocked_client):
         fields=LookmlModelExploreFieldset(
             dimensions=[
                 LookmlModelExploreField(
-                    name="dim1", type="string", dimension_group=None
+                    name="dim1",
+                    type="string",
+                    description="dimension one description",
+                    label_short="Dimensions One Label",
                 )
             ]
         ),
@@ -257,7 +263,11 @@ def setup_mock_explore_unaliased_with_joins(mocked_client):
         fields=LookmlModelExploreFieldset(
             dimensions=[
                 LookmlModelExploreField(
-                    name="dim1", type="string", dimension_group=None
+                    name="dim1",
+                    type="string",
+                    dimension_group=None,
+                    description="dimension one description",
+                    label_short="Dimensions One Label",
                 )
             ]
         ),
@@ -290,7 +300,11 @@ def setup_mock_explore(mocked_client):
         fields=LookmlModelExploreFieldset(
             dimensions=[
                 LookmlModelExploreField(
-                    name="dim1", type="string", dimension_group=None
+                    name="dim1",
+                    type="string",
+                    dimension_group=None,
+                    description="dimension one description",
+                    label_short="Dimensions One Label",
                 )
             ]
         ),
@@ -422,6 +436,7 @@ def test_looker_ingest_allow_pattern(pytestconfig, tmp_path, mock_time):
                     subtitle_text="Some text",
                     query=Query(
                         model="data",
+                        fields=["dim1"],
                         view="my_view",
                         dynamic_fields='[{"table_calculation":"calc","label":"foobar","expression":"offset(${my_table.value},1)","value_format":null,"value_format_name":"eur","_kind_hint":"measure","_type_hint":"number"}]',
                     ),

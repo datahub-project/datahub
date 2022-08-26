@@ -1,5 +1,5 @@
 import YAML from 'yamljs';
-import { CheckCircleOutlined, CloseCircleOutlined, LoadingOutlined } from '@ant-design/icons';
+import { CheckCircleOutlined, ClockCircleOutlined, CloseCircleOutlined, LoadingOutlined } from '@ant-design/icons';
 import { ANTD_GRAY, REDESIGN_COLORS } from '../../entity/shared/constants';
 import { SOURCE_TEMPLATE_CONFIGS } from './conf/sources';
 import { EntityType, FacetMetadata } from '../../../types.generated';
@@ -34,6 +34,12 @@ export const RUNNING = 'RUNNING';
 export const SUCCESS = 'SUCCESS';
 export const FAILURE = 'FAILURE';
 export const CANCELLED = 'CANCELLED';
+export const UP_FOR_RETRY = 'UP_FOR_RETRY';
+
+export const CLI_EXECUTOR_ID = '__datahub_cli_';
+export const MANUAL_INGESTION_SOURCE = 'MANUAL_INGESTION_SOURCE';
+export const SCHEDULED_INGESTION_SOURCE = 'SCHEDULED_INGESTION_SOURCE';
+export const CLI_INGESTION_SOURCE = 'CLI_INGESTION_SOURCE';
 
 export const getExecutionRequestStatusIcon = (status: string) => {
     return (
@@ -41,6 +47,7 @@ export const getExecutionRequestStatusIcon = (status: string) => {
         (status === SUCCESS && CheckCircleOutlined) ||
         (status === FAILURE && CloseCircleOutlined) ||
         (status === CANCELLED && CloseCircleOutlined) ||
+        (status === UP_FOR_RETRY && ClockCircleOutlined) ||
         undefined
     );
 };
@@ -51,8 +58,24 @@ export const getExecutionRequestStatusDisplayText = (status: string) => {
         (status === SUCCESS && 'Succeeded') ||
         (status === FAILURE && 'Failed') ||
         (status === CANCELLED && 'Cancelled') ||
+        (status === UP_FOR_RETRY && 'Up for Retry') ||
         status
     );
+};
+
+export const getExecutionRequestSummaryText = (status: string) => {
+    switch (status) {
+        case RUNNING:
+            return 'Ingestion is running';
+        case SUCCESS:
+            return 'Ingestion successfully completed';
+        case FAILURE:
+            return 'Ingestion completed with errors';
+        case CANCELLED:
+            return 'Ingestion was cancelled';
+        default:
+            return 'Ingestion status not recognized';
+    }
 };
 
 export const getExecutionRequestStatusDisplayColor = (status: string) => {
@@ -60,6 +83,7 @@ export const getExecutionRequestStatusDisplayColor = (status: string) => {
         (status === RUNNING && REDESIGN_COLORS.BLUE) ||
         (status === SUCCESS && 'green') ||
         (status === FAILURE && 'red') ||
+        (status === UP_FOR_RETRY && 'orange') ||
         (status === CANCELLED && ANTD_GRAY[9]) ||
         ANTD_GRAY[7]
     );

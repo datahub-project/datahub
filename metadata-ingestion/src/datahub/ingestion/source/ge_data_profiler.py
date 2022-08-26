@@ -834,6 +834,16 @@ class DatahubGEProfiler:
                 f"Unable to delete bigquery temporary table: {bigquery_temp_table}"
             )
 
+    def _drop_trino_temp_table(self, temp_dataset: Dataset) -> None:
+        schema = temp_dataset._table.schema
+        table = temp_dataset._table.name
+        try:
+            with self.base_engine.connect() as connection:
+                connection.execute(f"drop view if exists {schema}.{table}")
+                logger.debug(f"View {schema}.{table} was dropped.")
+        except Exception:
+            logger.warning(f"Unable to delete trino temporary table: {schema}.{table}")
+
     def _generate_single_profile(
         self,
         query_combiner: SQLAlchemyQueryCombiner,
@@ -864,7 +874,7 @@ class DatahubGEProfiler:
             if profiler_args is not None:
                 temp_table_db = profiler_args.get("temp_table_db", schema)
                 if platform is not None and platform == "bigquery":
-                    ge_config["schema"] = temp_table_db
+                    ge_config["schema"] = None
 
             if self.config.bigquery_temp_table_schema:
                 num_parts = self.config.bigquery_temp_table_schema.split(".")
@@ -936,7 +946,9 @@ class DatahubGEProfiler:
                 self.report.report_failure(pretty_name, f"Profiling exception {e}")
                 return None
             finally:
-                if bigquery_temp_table:
+                if self.base_engine.engine.name == "trino":
+                    self._drop_trino_temp_table(batch)
+                elif bigquery_temp_table:
                     self._drop_bigquery_temp_table(bigquery_temp_table)
 
     def _get_ge_dataset(

@@ -49,8 +49,11 @@ from datahub.ingestion.source.looker.looker_common import (
     LookerCommonConfig,
     LookerExplore,
     LookerUtil,
+    ViewField,
+    ViewFieldType,
 )
 from datahub.ingestion.source.looker.looker_lib_wrapper import (
+    InputFieldElement,
     LookerAPI,
     LookerAPIConfig,
     LookerDashboard,
@@ -70,9 +73,12 @@ from datahub.metadata.com.linkedin.pegasus2avro.metadata.snapshot import (
 from datahub.metadata.com.linkedin.pegasus2avro.mxe import MetadataChangeEvent
 from datahub.metadata.schema_classes import (
     BrowsePathsClass,
+    ChangeTypeClass,
     ChartInfoClass,
     ChartTypeClass,
     DashboardInfoClass,
+    InputFieldClass,
+    InputFieldsClass,
     OwnerClass,
     OwnershipClass,
     OwnershipTypeClass,
@@ -172,10 +178,6 @@ class LookerDashboardSourceReport(SourceReport):
         ).total_seconds()
 
 
-# TODO: Move looker related data-classes to looker_lib_wrapper
-# and provide conversion function from Looker data-classes to DataHub data-classes functions
-
-
 @platform_name("Looker")
 @support_status(SupportStatus.CERTIFIED)
 @config_class(LookerDashboardSourceConfig)
@@ -196,7 +198,9 @@ class LookerDashboardSource(Source):
     reporter: LookerDashboardSourceReport
     client: Looker31SDK
     user_registry: LookerUserRegistry
-    explore_set: Set[Tuple[str, str]] = set()
+    explores_to_fetch_set: Set[Tuple[str, str]] = set()
+    resolved_explores_map: Dict[Tuple[str, str], LookerExplore] = {}
+    resolved_dashboards_map: Dict[str, LookerDashboard] = {}
     accessed_dashboards: int = 0
     resolved_user_ids: int = 0
     email_ids_missing: int = 0  # resolved users with missing email addresses
@@ -250,11 +254,12 @@ class LookerDashboardSource(Source):
 
         return list(views)
 
-    def _get_fields_from_query(self, query: Optional[Query]) -> List[str]:
+    def _get_input_fields_from_query(
+        self, query: Optional[Query]
+    ) -> List[InputFieldElement]:
         if query is None:
             return []
-
-        all_fields = set()
+        result = []
 
         # query.dynamic_fields can contain:
         # - looker table calculations: https://docs.looker.com/exploring-data/using-table-calculations
@@ -268,76 +273,110 @@ class LookerDashboardSource(Source):
             logger.warning(
                 f"Json load failed on loading dynamic field with error: {e}. The field value was: {query.dynamic_fields}"
             )
-            dynamic_fields = "[]"
+            dynamic_fields = []
 
-        custom_field_to_underlying_field = {}
         for field in dynamic_fields:
-            # Table calculations can only reference fields used in the fields section, so this will always be a subset of of the query.fields
             if "table_calculation" in field:
-                continue
-            # Looker custom measures can reference fields in arbitrary views, so this needs to be parsed to find the underlying view field the custom measure is based on
+                result.append(
+                    InputFieldElement(
+                        name=field["table_calculation"],
+                        view_field=ViewField(
+                            name=field["table_calculation"],
+                            label=field["label"],
+                            field_type=ViewFieldType.UNKNOWN,
+                            type="string",
+                            description="",
+                        ),
+                    )
+                )
             if "measure" in field:
-                measure = field["measure"]
+                # for measure, we can also make sure to index the underlying field that the measure uses
                 based_on = field["based_on"]
-                custom_field_to_underlying_field[measure] = based_on
-
-            # Looker custom dimensions can reference fields in arbitrary views, so this needs to be parsed to find the underlying view field the custom measure is based on
-            # However, unlike custom measures custom dimensions can be defined using an arbitrary expression
-            # We are not going to support parsing arbitrary Looker expressions here, so going to ignore these fields for now
+                if based_on is not None:
+                    result.append(
+                        InputFieldElement(
+                            based_on,
+                            view_field=None,
+                            model=query.model,
+                            explore=query.view,
+                        )
+                    )
+                result.append(
+                    InputFieldElement(
+                        name=field["measure"],
+                        view_field=ViewField(
+                            name=field["measure"],
+                            label=field["label"],
+                            field_type=ViewFieldType.MEASURE,
+                            type="string",
+                            description="",
+                        ),
+                    )
+                )
             if "dimension" in field:
-                dimension = field["dimension"]
-                custom_field_to_underlying_field[dimension] = None
+                result.append(
+                    InputFieldElement(
+                        name=field["dimension"],
+                        view_field=ViewField(
+                            name=field["dimension"],
+                            label=field["label"],
+                            field_type=ViewFieldType.DIMENSION,
+                            type="string",
+                            description="",
+                        ),
+                    )
+                )
 
-        # A query uses fields defined in views, find the views those fields use
+        # A query uses fields defined in explores, find the metadata about that field
         fields: Sequence[str] = query.fields if query.fields is not None else []
         for field in fields:
-            # If the field is a custom field, look up the field it is based on
-            field_name = (
-                custom_field_to_underlying_field[field]
-                if field in custom_field_to_underlying_field
-                else field
-            )
-            if field_name is None:
+            if field is None:
                 continue
 
-            all_fields.add(field_name)
+            # we haven't loaded in metadata about the explore yet, so we need to wait until explores are populated later to fetch this
+            result.append(
+                InputFieldElement(
+                    name=field, view_field=None, model=query.model, explore=query.view
+                )
+            )
 
         # A query uses fields for filtering and those fields are defined in views, find the views those fields use
         filters: MutableMapping[str, Any] = (
             query.filters if query.filters is not None else {}
         )
         for field in filters.keys():
-            # If the field is a custom field, look up the field it is based on
-            field_name = (
-                custom_field_to_underlying_field[field]
-                if field in custom_field_to_underlying_field
-                else field
-            )
-            if field_name is None:
+            if field is None:
                 continue
-            all_fields.add(field_name)
 
-        return list(all_fields)
+            # we haven't loaded in metadata about the explore yet, so we need to wait until explores are populated later to fetch this
+            result.append(
+                InputFieldElement(
+                    name=field, view_field=None, model=query.model, explore=query.view
+                )
+            )
+
+        return result
 
     def _get_looker_dashboard_element(  # noqa: C901
         self, element: DashboardElement
     ) -> Optional[LookerDashboardElement]:
         # Dashboard elements can use raw usage_queries against explores
         explores: List[str]
-        fields: List[str]
+        input_fields: List[InputFieldElement]
 
         if element.id is None:
             raise ValueError("Element ID can't be None")
 
         if element.query is not None:
-            fields = self._get_fields_from_query(element.query)
+            input_fields = self._get_input_fields_from_query(element.query)
+
             # Get the explore from the view directly
             explores = [element.query.view] if element.query.view is not None else []
             logger.debug(
                 "Element {}: Explores added: {}".format(element.title, explores)
             )
             for exp in explores:
-                self.explore_set.add((element.query.model, exp))
+                self.explores_to_fetch_set.add((element.query.model, exp))
 
             return LookerDashboardElement(
                 id=element.id,
@@ -350,7 +389,7 @@ class LookerDashboardSource(Source):
                     LookerExplore(model_name=element.query.model, name=exp)
                     for exp in explores
                 ],
-                upstream_fields=fields,
+                input_fields=input_fields,
             )
 
         # Dashboard elements can *alternatively* link to an existing look
@@ -364,14 +403,14 @@ class LookerDashboardSource(Source):
                 else ""
             )
             if element.look.query is not None:
-                fields = self._get_fields_from_query(element.look.query)
+                input_fields = self._get_input_fields_from_query(element.look.query)
                 if element.look.query.view is not None:
                     explores = [element.look.query.view]
                 logger.debug(
                     "Element {}: Explores added: {}".format(element.title, explores)
                 )
                 for exp in explores:
-                    self.explore_set.add((element.look.query.model, exp))
+                    self.explores_to_fetch_set.add((element.look.query.model, exp))
 
                 if element.look.query and element.look.query.slug:
                     slug = element.look.query.slug
@@ -388,25 +427,31 @@ class LookerDashboardSource(Source):
                         LookerExplore(model_name=element.look.query.model, name=exp)
                         for exp in explores
                     ],
-                    upstream_fields=fields,
+                    input_fields=input_fields,
                 )
 
         # Failing the above two approaches, pick out details from result_maker
         elif element.result_maker is not None:
             model: str = ""
-            fields = []
+            input_fields = []
+
             explores = []
             if element.result_maker.query is not None:
                 model = element.result_maker.query.model
                 if element.result_maker.query.view is not None:
                     explores.append(element.result_maker.query.view)
-                fields = self._get_fields_from_query(element.result_maker.query)
+                input_fields = self._get_input_fields_from_query(
+                    element.result_maker.query
+                )
+
                 logger.debug(
                     "Element {}: Explores added: {}".format(element.title, explores)
                 )
 
                 for exp in explores:
-                    self.explore_set.add((element.result_maker.query.model, exp))
+                    self.explores_to_fetch_set.add(
+                        (element.result_maker.query.model, exp)
+                    )
 
             # In addition to the query, filters can point to fields as well
             assert element.result_maker.filterables is not None
@@ -414,12 +459,20 @@ class LookerDashboardSource(Source):
                 if filterable.view is not None and filterable.model is not None:
                     model = filterable.model
                     explores.append(filterable.view)
-                    self.explore_set.add((filterable.model, filterable.view))
+                    self.explores_to_fetch_set.add((filterable.model, filterable.view))
                 listen = filterable.listen
+                query = element.result_maker.query
                 if listen is not None:
                     for listener in listen:
                         if listener.field is not None:
-                            fields.append(listener.field)
+                            input_fields.append(
+                                InputFieldElement(
+                                    listener.field,
+                                    view_field=None,
+                                    model=query.model if query is not None else "",
+                                    explore=query.view if query is not None else "",
+                                )
+                            )
 
             explores = list(set(explores))  # dedup the list of views
 
@@ -436,7 +489,7 @@ class LookerDashboardSource(Source):
                 upstream_explores=[
                     LookerExplore(model_name=model, name=exp) for exp in explores
                 ],
-                upstream_fields=fields,
+                input_fields=input_fields,
             )
 
         return None
@@ -491,7 +544,7 @@ class LookerDashboardSource(Source):
         )
         chart_snapshot = ChartSnapshot(
             urn=chart_urn,
-            aspects=[],
+            aspects=[Status(removed=False)],
         )
 
         chart_type = self._get_chart_type(dashboard_element)
@@ -504,12 +557,13 @@ class LookerDashboardSource(Source):
             inputs=dashboard_element.get_view_urns(self.source_config),
             customProperties={
                 "upstream_fields": ",".join(
-                    sorted(set(dashboard_element.upstream_fields))
+                    sorted(set(field.name for field in dashboard_element.input_fields))
                 )
-                if dashboard_element.upstream_fields
+                if dashboard_element.input_fields
                 else ""
             },
         )
+
         chart_snapshot.aspects.append(chart_info)
 
         ownership = self.get_ownership(dashboard)
@@ -528,8 +582,10 @@ class LookerDashboardSource(Source):
             max_workers=self.source_config.max_threads
         ) as async_executor:
             explore_futures = [
-                async_executor.submit(self.fetch_one_explore, model, explore)
-                for (model, explore) in self.explore_set
+                async_executor.submit(
+                    self.fetch_one_explore, model, explore, self.resolved_explores_map
+                )
+                for (model, explore) in self.explores_to_fetch_set
             ]
             for future in concurrent.futures.as_completed(explore_futures):
                 events, explore_id, start_time, end_time = future.result()
@@ -542,7 +598,10 @@ class LookerDashboardSource(Source):
         return explore_events
 
     def fetch_one_explore(
-        self, model: str, explore: str
+        self,
+        model: str,
+        explore: str,
+        resolved_explores_map: Dict[Tuple[str, str], LookerExplore],
     ) -> Tuple[
         List[Union[MetadataChangeEvent, MetadataChangeProposalWrapper]],
         str,
@@ -561,6 +620,7 @@ class LookerDashboardSource(Source):
             else None,
         )
         if looker_explore is not None:
+            resolved_explores_map[(model, explore)] = looker_explore
             events = (
                 looker_explore._to_metadata_events(
                     self.source_config, self.reporter, self.source_config.base_url
@@ -758,6 +818,127 @@ class LookerDashboardSource(Source):
 
         return user
 
+    def process_metrics_dimensions_and_fields_for_dashboard(
+        self, dashboard_id: str
+    ) -> Tuple[List[MetadataWorkUnit], str, datetime.datetime, datetime.datetime]:
+        start_time = datetime.datetime.now()
+
+        dashboard = self.resolved_dashboards_map[dashboard_id]
+        chart_mcps = [
+            self._make_metrics_dimensions_chart_mcp(element, dashboard)
+            for element in dashboard.dashboard_elements
+        ]
+        dashboard_mcp = self._make_metrics_dimensions_dashboard_mcp(dashboard)
+
+        mcps = chart_mcps
+        mcps.append(dashboard_mcp)
+
+        workunits = [
+            MetadataWorkUnit(
+                id=f"looker-{mcp.aspectName}-{mcp.entityUrn}",
+                mcp=mcp,
+                treat_errors_as_warnings=True,
+            )
+            for mcp in mcps
+        ]
+
+        return workunits, dashboard_id, start_time, datetime.datetime.now()
+
+    def _input_fields_from_dashboard_element(
+        self, dashboard_element: LookerDashboardElement
+    ) -> List[InputFieldClass]:
+        input_fields = (
+            dashboard_element.input_fields
+            if dashboard_element.input_fields is not None
+            else []
+        )
+
+        fields_for_mcp = []
+
+        # enrich the input_fields with the fully hydrated ViewField from the now fetched explores
+        for input_field in input_fields:
+            entity_urn = builder.make_chart_urn(
+                self.source_config.platform_name, dashboard_element.get_urn_element_id()
+            )
+            view_field_for_reference = input_field.view_field
+
+            if input_field.view_field is None:
+                explore = self.resolved_explores_map.get(
+                    (input_field.model, input_field.explore)
+                )
+                if explore is not None:
+                    entity_urn = explore.get_explore_urn(self.source_config)
+                    explore_fields = (
+                        explore.fields if explore.fields is not None else []
+                    )
+
+                    relevant_field = next(
+                        (
+                            field
+                            for field in explore_fields
+                            if field.name == input_field.name
+                        ),
+                        None,
+                    )
+                    if relevant_field is not None:
+                        view_field_for_reference = relevant_field
+
+            if view_field_for_reference is not None:
+                fields_for_mcp.append(
+                    InputFieldClass(
+                        schemaFieldUrn=builder.make_schema_field_urn(
+                            entity_urn, view_field_for_reference.name
+                        ),
+                        schemaField=LookerUtil.view_field_to_schema_field(
+                            view_field_for_reference,
+                            self.reporter,
+                            self.source_config.tag_measures_and_dimensions,
+                        ),
+                    )
+                )
+
+        return fields_for_mcp
+
+    def _make_metrics_dimensions_dashboard_mcp(
+        self, dashboard: LookerDashboard
+    ) -> MetadataChangeProposalWrapper:
+        dashboard_urn = builder.make_dashboard_urn(
+            self.source_config.platform_name, dashboard.get_urn_dashboard_id()
+        )
+        all_fields = []
+        for dashboard_element in dashboard.dashboard_elements:
+            all_fields.extend(
+                self._input_fields_from_dashboard_element(dashboard_element)
+            )
+
+        input_fields_aspect = InputFieldsClass(fields=all_fields)
+
+        return MetadataChangeProposalWrapper(
+            entityType="dashboard",
+            entityUrn=dashboard_urn,
+            changeType=ChangeTypeClass.UPSERT,
+            aspectName="inputFields",
+            aspect=input_fields_aspect,
+        )
+
+    def _make_metrics_dimensions_chart_mcp(
+        self, dashboard_element: LookerDashboardElement, dashboard: LookerDashboard
+    ) -> MetadataChangeProposalWrapper:
+        chart_urn = builder.make_chart_urn(
+            self.source_config.platform_name, dashboard_element.get_urn_element_id()
+        )
+        input_fields_aspect = InputFieldsClass(
+            fields=self._input_fields_from_dashboard_element(dashboard_element)
+        )
+
+        return MetadataChangeProposalWrapper(
+            entityType="chart",
+            entityUrn=chart_urn,
+            changeType=ChangeTypeClass.UPSERT,
+            aspectName="inputFields",
+            aspect=input_fields_aspect,
+        )
+
     def process_dashboard(
         self, dashboard_id: str, fields: List[str]
     ) -> Tuple[
@@ -801,6 +982,7 @@ class LookerDashboardSource(Source):
                 return [], None, dashboard_id, start_time, datetime.datetime.now()
 
         looker_dashboard = self._get_looker_dashboard(dashboard_object, self.client)
+        self.resolved_dashboards_map[looker_dashboard.id] = looker_dashboard
         mces = self._make_dashboard_and_chart_mces(looker_dashboard)
         # for mce in mces:
         workunits = [
@@ -848,6 +1030,7 @@ class LookerDashboardSource(Source):
         return mcps
 
     def get_workunits(self) -> Iterable[MetadataWorkUnit]:
+
         dashboards = self.client.all_dashboards(
             fields="id",
             transport_options=self.source_config.transport_options.get_transport_options()
@@ -981,6 +1164,29 @@ class LookerDashboardSource(Source):
                 )
                 self.reporter.report_workunit(workunit)
                 yield workunit
+
+        # after fetching explores, we need to go back and enrich each chart and dashboard with
+        # metadata about the fields
+        with concurrent.futures.ThreadPoolExecutor(
+            max_workers=self.source_config.max_threads
+        ) as async_executor:
+            async_workunits = [
+                async_executor.submit(
+                    self.process_metrics_dimensions_and_fields_for_dashboard,  # type: ignore
+                    dashboard_id,
+                )
+                for dashboard_id in dashboard_ids
+                if dashboard_id is not None
+            ]
+            for async_workunit in concurrent.futures.as_completed(async_workunits):
+                work_units, dashboard_id, start_time, end_time = async_workunit.result()  # type: ignore
+                logger.debug(
+                    f"Running time of process_metrics_dimensions_and_fields_for_dashboard for {dashboard_id} = {(end_time - start_time).total_seconds()}"
+                )
+                self.reporter.report_upstream_latency(start_time, end_time)
+                for mwu in work_units:
+                    yield mwu
+                    self.reporter.report_workunit(mwu)
 
     def get_report(self) -> SourceReport:
         return self.reporter

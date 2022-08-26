@@ -20,6 +20,7 @@ from datahub.configuration.common import ConfigurationError
 from datahub.ingestion.source.looker.looker_common import (
     LookerCommonConfig,
     LookerExplore,
+    ViewField,
 )
 
 logger = logging.getLogger(__name__)
@@ -111,6 +112,15 @@ class LookerAPI:
         return data
 
 
+# These function will avoid to create LookerDashboard object to get the Looker Dashboard urn id part
+def get_urn_looker_dashboard_id(id_: str) -> str:
+    return f"dashboards.{id_}"
+
+
+def get_urn_looker_element_id(id_: str) -> str:
+    return f"dashboard_elements.{id_}"
+
+
 @dataclass
 class LookerUser:
     id: int
@@ -139,13 +149,12 @@ class LookerUser:
             return builder.make_user_urn(self.email)
 
 
-# These function will avoid to create LookerDashboard object to get the Looker Dashboard urn id part
-def get_urn_looker_dashboard_id(id_: str) -> str:
-    return f"dashboards.{id_}"
-
-
-def get_urn_looker_element_id(id_: str) -> str:
-    return f"dashboard_elements.{id_}"
+@dataclass
+class InputFieldElement:
+    name: str
+    view_field: Optional[ViewField]
+    model: str = ""
+    explore: str = ""
 
 
 @dataclass
@@ -157,7 +166,7 @@ class LookerDashboardElement:
     look_id: Optional[str]
     type: Optional[str] = None
     description: Optional[str] = None
-    upstream_fields: Optional[List[str]] = None
+    input_fields: Optional[List[InputFieldElement]] = None
 
     def url(self, base_url: str) -> str:
         # A dashboard element can use a look or just a raw query against an explore
@@ -172,7 +181,7 @@ class LookerDashboardElement:
 
     def get_urn_element_id(self):
         # A dashboard element can use a look or just a raw query against an explore
-        return get_urn_looker_element_id(self.id)
+        return f"dashboard_elements.{self.id}"
 
     def get_view_urns(self, config: LookerCommonConfig) -> List[str]:
         return [v.get_explore_urn(config) for v in self.upstream_explores]
