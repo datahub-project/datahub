@@ -20,8 +20,9 @@ def test_config_enum():
     assert Fruit.ORANGE.value == "ORANGE"
 
     # Check that config loading works.
-    assert FruitConfig.parse_obj({"fruit": "APPLE"}).fruit == Fruit.APPLE
-    assert FruitConfig.parse_obj({"fruit": "apple"}).fruit == Fruit.APPLE
+    assert FruitConfig.parse_obj({}).fruit == Fruit.APPLE
+    assert FruitConfig.parse_obj({"fruit": "PEAR"}).fruit == Fruit.PEAR
+    assert FruitConfig.parse_obj({"fruit": "pear"}).fruit == Fruit.PEAR
     assert FruitConfig.parse_obj({"fruit": "Orange"}).fruit == Fruit.ORANGE
 
     # Check that errors are thrown.
