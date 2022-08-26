@@ -1,11 +1,28 @@
+from enum import Enum
+
 import pydantic
+import pydantic.types
+import pydantic.validators
 
 
-def _make_uppercase(cls: pydantic.BaseModel, value: str) -> str:
-    if value and isinstance(value, str):
-        return value.upper()
-    return value
+class ConfigEnum(Enum):
+    # Ideally we would use @staticmethod here, but some versions of Python don't support it.
+    # See https://github.com/python/mypy/issues/7591.
+    def _generate_next_value_(  # type: ignore
+        name: str, start, count, last_values
+    ) -> str:
+        # This makes the enum value match the enum option name.
+        # From https://stackoverflow.com/a/44785241/5004662.
+        return name
 
+    @classmethod
+    def __get_validators__(cls) -> "pydantic.types.CallableGenerator":
+        # We convert the text to uppercase before attempting to match it to an enum value.
+        yield cls.validate
+        yield pydantic.validators.enum_member_validator
 
-def pydantic_enum_case_insensitive(field: str) -> classmethod:
-    return pydantic.validator(field, pre=True, allow_reuse=True)(_make_uppercase)
+    @classmethod
+    def validate(cls, v):  # type: ignore[no-untyped-def]
+        if v and isinstance(v, str):
+            return v.upper()
+        return v

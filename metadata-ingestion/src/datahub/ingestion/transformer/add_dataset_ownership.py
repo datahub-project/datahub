@@ -1,4 +1,3 @@
-from enum import Enum
 from typing import Callable, List, Optional, Union
 
 from pydantic import validator
@@ -8,6 +7,7 @@ from datahub.configuration.common import (
     ConfigModel,
     ConfigurationError,
     KeyValuePattern,
+    TransformerSemantics,
 )
 from datahub.configuration.import_resolver import pydantic_resolve_key
 from datahub.ingestion.api.common import PipelineContext
@@ -24,13 +24,6 @@ from datahub.metadata.schema_classes import (
 )
 
 
-class Semantics(Enum):
-    """Describes semantics for ownership changes"""
-
-    OVERWRITE = "OVERWRITE"  # Apply changes blindly
-    PATCH = "PATCH"  # Only apply differences from what exists already on the server
-
-
 class AddDatasetOwnershipConfig(ConfigModel):
     # Workaround for https://github.com/python/mypy/issues/708.
     # Suggested by https://stackoverflow.com/a/64528725/5004662.
@@ -39,15 +32,9 @@ class AddDatasetOwnershipConfig(ConfigModel):
         Callable[[DatasetSnapshotClass], List[OwnerClass]],
     ]
     default_actor: str = builder.make_user_urn("etl")
-    semantics: Semantics = Semantics.OVERWRITE
+    semantics: TransformerSemantics = TransformerSemantics.OVERWRITE
 
     _resolve_owner_fn = pydantic_resolve_key("get_owners_to_add")
-
-    @validator("semantics", pre=True)
-    def ensure_semantics_is_upper_case(cls, v):
-        if isinstance(v, str):
-            return v.upper()
-        return v
 
 
 class AddDatasetOwnership(DatasetOwnershipTransformer):
@@ -60,7 +47,10 @@ class AddDatasetOwnership(DatasetOwnershipTransformer):
         super().__init__()
         self.ctx = ctx
         self.config = config
-        if self.config.semantics == Semantics.PATCH and self.ctx.graph is None:
+        if (
+            self.config.semantics == TransformerSemantics.PATCH
+            and self.ctx.graph is None
+        ):
             raise ConfigurationError(
                 "With PATCH semantics, AddDatasetOwnership requires a datahub_api to connect to. Consider using the datahub-rest sink or provide a datahub_api: configuration on your ingestion recipe"
             )
@@ -119,7 +109,7 @@ class AddDatasetOwnership(DatasetOwnershipTransformer):
             )
             ownership.owners.extend(owners_to_add)
 
-            if self.config.semantics == Semantics.PATCH:
+            if self.config.semantics == TransformerSemantics.PATCH:
                 assert self.ctx.graph
                 patch_ownership = AddDatasetOwnership.get_ownership_to_set(
                     self.ctx.graph, mce.proposedSnapshot.urn, ownership
@@ -137,13 +127,7 @@ class DatasetOwnershipBaseConfig(ConfigModel):
 class SimpleDatasetOwnershipConfig(DatasetOwnershipBaseConfig):
     owner_urns: List[str]
     default_actor: str = builder.make_user_urn("etl")
-    semantics: Semantics = Semantics.OVERWRITE
-
-    @validator("semantics", pre=True)
-    def upper_case_semantics(cls, v):
-        if isinstance(v, str):
-            return v.upper()
-        return v
+    semantics: TransformerSemantics = TransformerSemantics.OVERWRITE
 
 
 class SimpleAddDatasetOwnership(AddDatasetOwnership):

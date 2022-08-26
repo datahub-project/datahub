@@ -3,7 +3,6 @@ import logging
 import re
 from dataclasses import dataclass, field
 from datetime import datetime
-from enum import Enum
 from typing import (
     Any,
     Callable,
@@ -26,6 +25,7 @@ from pydantic.fields import Field
 
 from datahub.configuration.common import AllowDenyPattern, ConfigurationError
 from datahub.configuration.github import GitHubInfo
+from datahub.configuration.pydantic_helpers import ConfigEnum
 from datahub.emitter import mce_builder
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.common import PipelineContext
@@ -137,7 +137,7 @@ class DBTSourceReport(StatefulIngestionReport):
         self.soft_deleted_stale_entities.append(urn)
 
 
-class EmitDirective(Enum):
+class EmitDirective(ConfigEnum):
     """A holder for directives for emission for specific types of entities"""
 
     YES = "YES"  # Okay to emit for this type
@@ -170,10 +170,6 @@ class DBTEntitiesEnabled(BaseModel):
     test_results: EmitDirective = Field(
         "Yes", description="Emit metadata for test results when set to Yes or Only"
     )
-
-    @validator("*", pre=True, always=True)
-    def to_upper(cls, v):
-        return v.upper() if isinstance(v, str) else v
 
     @root_validator
     def only_one_can_be_set_to_only(cls, values):

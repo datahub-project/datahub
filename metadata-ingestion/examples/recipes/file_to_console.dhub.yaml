@@ -4,6 +4,7 @@ source:
   type: "file"
   config:
     filename: "./examples/mce_files/single_mce.json"
+    read_mode: "stream"
 
 # see https://datahubproject.io/docs/metadata-ingestion/sink_docs/console for complete documentation
 sink:

@@ -4,7 +4,7 @@ from typing import List, Optional
 
 from datahub.configuration.common import ConfigModel
 from datahub.ingestion.api.common import PipelineContext
-from datahub.ingestion.transformer.add_dataset_ownership import Semantics
+from datahub.ingestion.transformer.add_dataset_ownership import TransformerSemantics
 from datahub.ingestion.transformer.base_transformer import (
     BaseTransformer,
     SingleAspectTransformer,
@@ -18,7 +18,7 @@ from datahub.metadata.schema_classes import (
 
 class AddCustomOwnershipConfig(ConfigModel):
     owners_json: str
-    semantics: Semantics = Semantics.OVERWRITE
+    semantics: TransformerSemantics = TransformerSemantics.OVERWRITE
 
 
 class AddCustomOwnership(BaseTransformer, SingleAspectTransformer):

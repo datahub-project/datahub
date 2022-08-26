@@ -6,7 +6,6 @@ import threading
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass
 from datetime import timedelta
-from enum import Enum
 from threading import BoundedSemaphore
 from typing import Union, cast
 
@@ -15,6 +14,7 @@ from tdigest import TDigest
 
 from datahub.cli.cli_utils import set_env_variables_override_config
 from datahub.configuration.common import ConfigurationError, OperationalError
+from datahub.configuration.pydantic_helpers import ConfigEnum
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.emitter.rest_emitter import DatahubRestEmitter
 from datahub.ingestion.api.common import PipelineContext, RecordEnvelope, WorkUnit
@@ -31,7 +31,7 @@ from datahub.utilities.server_config_util import set_gms_config
 logger = logging.getLogger(__name__)
 
 
-class SyncOrAsync(Enum):
+class SyncOrAsync(ConfigEnum):
     SYNC = "SYNC"
     ASYNC = "ASYNC"
 
@@ -39,11 +39,6 @@ class SyncOrAsync(Enum):
 class DatahubRestSinkConfig(DatahubClientConfig):
     max_pending_requests: int = 1000
     mode: SyncOrAsync = SyncOrAsync.ASYNC
-
-    @validator("mode", pre=True)
-    def str_to_enum_value(cls, v):
-        if v and isinstance(v, str):
-            return v.upper()
 
 
 @dataclass
