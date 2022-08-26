@@ -2,9 +2,8 @@
 import json
 from typing import List, Optional
 
-from datahub.configuration.common import ConfigModel
+from datahub.configuration.common import ConfigModel, TransformerSemantics
 from datahub.ingestion.api.common import PipelineContext
-from datahub.ingestion.transformer.add_dataset_ownership import TransformerSemantics
 from datahub.ingestion.transformer.base_transformer import (
     BaseTransformer,
     SingleAspectTransformer,

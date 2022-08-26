@@ -23,9 +23,12 @@ from cached_property import cached_property
 from pydantic import BaseModel, root_validator, validator
 from pydantic.fields import Field
 
-from datahub.configuration.common import AllowDenyPattern, ConfigurationError
+from datahub.configuration.common import (
+    AllowDenyPattern,
+    ConfigEnum,
+    ConfigurationError,
+)
 from datahub.configuration.github import GitHubInfo
-from datahub.configuration.pydantic_helpers import ConfigEnum
 from datahub.emitter import mce_builder
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.common import PipelineContext

@@ -11,8 +11,7 @@ import ijson
 from pydantic import root_validator, validator
 from pydantic.fields import Field
 
-from datahub.configuration.common import ConfigModel
-from datahub.configuration.pydantic_helpers import ConfigEnum
+from datahub.configuration.common import ConfigEnum, ConfigModel
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.decorators import (
     SupportStatus,

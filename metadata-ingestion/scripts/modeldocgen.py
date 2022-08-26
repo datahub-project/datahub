@@ -11,8 +11,7 @@ from typing import Any, Dict, List, Optional, Tuple, Union
 import avro.schema
 import click
 
-from datahub.configuration.common import ConfigModel
-from datahub.configuration.pydantic_helpers import ConfigEnum
+from datahub.configuration.common import ConfigEnum, ConfigModel
 from datahub.emitter.mce_builder import make_data_platform_urn, make_dataset_urn
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.emitter.rest_emitter import DatahubRestEmitter

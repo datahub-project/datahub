@@ -9,12 +9,14 @@ from datetime import timedelta
 from threading import BoundedSemaphore
 from typing import Union, cast
 
-from pydantic import validator
 from tdigest import TDigest
 
 from datahub.cli.cli_utils import set_env_variables_override_config
-from datahub.configuration.common import ConfigurationError, OperationalError
-from datahub.configuration.pydantic_helpers import ConfigEnum
+from datahub.configuration.common import (
+    ConfigEnum,
+    ConfigurationError,
+    OperationalError,
+)
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.emitter.rest_emitter import DatahubRestEmitter
 from datahub.ingestion.api.common import PipelineContext, RecordEnvelope, WorkUnit

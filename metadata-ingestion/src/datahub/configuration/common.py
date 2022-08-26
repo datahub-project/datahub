@@ -6,7 +6,7 @@ from cached_property import cached_property
 from pydantic import BaseModel, Extra
 from pydantic.fields import Field
 
-from datahub.configuration.pydantic_helpers import ConfigEnum
+from datahub.configuration._config_enum import ConfigEnum
 
 
 class ConfigModel(BaseModel):
