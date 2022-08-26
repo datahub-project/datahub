@@ -1,13 +1,9 @@
 package com.linkedin.datahub.graphql.resolvers.ingest.execution;
 
 import com.datahub.authentication.Authentication;
-import com.linkedin.common.AuditStamp;
 import com.linkedin.datahub.graphql.QueryContext;
-import com.linkedin.datahub.graphql.generated.CreateTestConnectionRequestInput;
 import com.linkedin.datahub.graphql.generated.RollbackIngestionInput;
 import com.linkedin.entity.client.EntityClient;
-import com.linkedin.metadata.config.IngestionConfiguration;
-import com.linkedin.mxe.MetadataChangeProposal;
 import graphql.schema.DataFetchingEnvironment;
 import org.mockito.Mockito;
 import org.testng.annotations.Test;

@@ -360,7 +360,7 @@ public class GmsGraphQLEngine {
 
     public GmsGraphQLEngine(
         final EntityClient entityClient,
-        final EntityClient _restliEntityClient,
+        final EntityClient restliEntityClient,
         final GraphClient graphClient,
         final UsageClient usageClient,
         final AnalyticsService analyticsService,
@@ -379,7 +379,7 @@ public class GmsGraphQLEngine {
         final SiblingGraphService siblingGraphService, final GroupService groupService) {
 
         this.entityClient = entityClient;
-        this.restliEntityClient = _restliEntityClient;
+        this.restliEntityClient = restliEntityClient;
         this.graphClient = graphClient;
         this.usageClient = usageClient;
         this.siblingGraphService = siblingGraphService;
