@@ -48,10 +48,13 @@ class FileSourceConfig(ConfigModel):
         description="Path to folder or file to ingest. If pointed to a folder, all files with extension {file_extension} (default json) within that folder will be processed."
     )
     file_extension: str = Field(
-        "json",
+        ".json",
         description="When providing a folder to use to read files, set this field to control file extensions that you want the source to process. * is a special value that means process every file regardless of extension",
     )
     read_mode: FileReadMode = FileReadMode.AUTO
+    aspect: Optional[str] = Field(
+        description="Set to an aspect to only read this aspect for ingestion."
+    )
 
     _minsize_for_streaming_mode_in_bytes: int = (
         100 * 1000 * 1000  # Must be at least 100MB before we use streaming mode
@@ -102,6 +105,8 @@ class FileSourceReport(SourceReport):
     total_parse_time_in_seconds: float = 0
     total_count_time_in_seconds: float = 0
     total_deserialize_time_in_seconds: float = 0
+    aspect_counts: Dict[str, int] = field(default_factory=dict)
+    entity_type_counts: Dict[str, int] = field(default_factory=dict)
 
     def add_deserialize_time(self, delta: datetime.timedelta) -> None:
         self.total_deserialize_time_in_seconds += round(delta.total_seconds(), 2)
@@ -202,6 +207,19 @@ class GenericFileSource(TestableSource):
                 if isinstance(obj, UsageAggregationClass):
                     wu = UsageStatsWorkUnit(f"file://{f}:{i}", obj)
                 elif isinstance(obj, MetadataChangeProposal):
+                    self.report.entity_type_counts[obj.entityType] = (
+                        self.report.entity_type_counts.get(obj.entityType, 0) + 1
+                    )
+                    if obj.aspectName is not None:
+                        cur_aspect_name = str(obj.aspectName)
+                        self.report.aspect_counts[cur_aspect_name] = (
+                            self.report.aspect_counts.get(cur_aspect_name, 0) + 1
+                        )
+                        if (
+                            self.config.aspect is not None
+                            and cur_aspect_name != self.config.aspect
+                        ):
+                            continue
                     wu = MetadataWorkUnit(f"file://{f}:{i}", mcp_raw=obj)
                 else:
                     wu = MetadataWorkUnit(f"file://{f}:{i}", mce=obj)
