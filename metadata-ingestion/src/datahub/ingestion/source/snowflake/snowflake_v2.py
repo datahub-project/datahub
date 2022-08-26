@@ -1038,7 +1038,7 @@ class SnowflakeV2Source(
             )
             summary.numWarnings = len(self.report.warnings)
             summary.numErrors = len(self.report.failures)
-            summary.numAspects = self.report.workunits_produced
+            summary.numAspects = self.report.events_produced
 
     def update_usage_job_run_summary(self):
         summary = self.get_job_run_summary(self.get_usage_ingestion_job_id())
