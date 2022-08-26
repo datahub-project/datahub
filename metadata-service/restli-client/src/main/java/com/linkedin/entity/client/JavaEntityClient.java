@@ -182,6 +182,7 @@ public class JavaEntityClient implements EntityClient {
     }
 
     @SneakyThrows
+    @Deprecated
     public void update(@Nonnull final Entity entity, @Nonnull final Authentication authentication)
         throws RemoteInvocationException {
         Objects.requireNonNull(authentication, "authentication must not be null");
@@ -192,6 +193,7 @@ public class JavaEntityClient implements EntityClient {
     }
 
     @SneakyThrows
+    @Deprecated
     public void updateWithSystemMetadata(
         @Nonnull final Entity entity,
         @Nullable final SystemMetadata systemMetadata,
@@ -206,15 +208,17 @@ public class JavaEntityClient implements EntityClient {
         auditStamp.setTime(Clock.systemUTC().millis());
 
         _entityService.ingestEntity(entity, auditStamp, systemMetadata);
+        tryIndexRunId(com.datahub.util.ModelUtils.getUrnFromSnapshotUnion(entity.getValue()), systemMetadata);
     }
 
     @SneakyThrows
+    @Deprecated
     public void batchUpdate(@Nonnull final Set<Entity> entities, @Nonnull final Authentication authentication)
         throws RemoteInvocationException {
         AuditStamp auditStamp = new AuditStamp();
         auditStamp.setActor(Urn.createFromString(authentication.getActor().toUrnStr()));
         auditStamp.setTime(Clock.systemUTC().millis());
-      _entityService.ingestEntities(entities.stream().collect(Collectors.toList()), auditStamp, ImmutableList.of());
+        _entityService.ingestEntities(entities.stream().collect(Collectors.toList()), auditStamp, ImmutableList.of());
     }
 
     /**
@@ -433,6 +437,7 @@ public class JavaEntityClient implements EntityClient {
 
         Urn urn = _entityService.ingestProposal(metadataChangeProposal, auditStamp).getUrn();
         additionalChanges.forEach(proposal -> _entityService.ingestProposal(proposal, auditStamp));
+        tryIndexRunId(urn, metadataChangeProposal.getSystemMetadata());
         return urn.toString();
     }
 
@@ -474,5 +479,11 @@ public class JavaEntityClient implements EntityClient {
         @Nonnull PlatformEvent event,
         @Nonnull Authentication authentication) throws Exception {
         _eventProducer.producePlatformEvent(name, key, event);
+    }
+
+    private void tryIndexRunId(Urn entityUrn, @Nullable SystemMetadata systemMetadata) {
+        if (systemMetadata != null && systemMetadata.hasRunId()) {
+            _entitySearchService.appendRunId(entityUrn.getEntityType(), entityUrn, systemMetadata.getRunId());
+        }
     }
 }

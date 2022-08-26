@@ -20,6 +20,10 @@ const NoSchema = styled(Empty)`
     padding-top: 60px;
 `;
 
+const SchemaTableContainer = styled.div`
+    overflow: auto;
+    height: 100%;
+`;
 export const SchemaTab = ({ properties }: { properties?: any }) => {
     const { entityData } = useEntityData();
     const baseEntity = useBaseEntity<GetDatasetQuery>();
@@ -120,7 +124,7 @@ export const SchemaTab = ({ properties }: { properties?: any }) => {
         (getSchemaBlameData?.getSchemaBlame?.schemaFieldBlameList as Array<SchemaFieldBlame>) || [];
 
     return (
-        <div>
+        <>
             <SchemaHeader
                 editMode={editMode}
                 showRaw={showRaw}
@@ -136,30 +140,32 @@ export const SchemaTab = ({ properties }: { properties?: any }) => {
                 showSchemaAuditView={showSchemaAuditView}
                 setShowSchemaAuditView={setShowSchemaAuditView}
             />
-            {/* eslint-disable-next-line no-nested-ternary */}
-            {showRaw ? (
-                <SchemaRawView
-                    schemaDiff={{ current: schemaMetadata }}
-                    editMode={editMode}
-                    showKeySchema={showKeySchema}
-                />
-            ) : rows && rows.length > 0 ? (
-                <>
-                    <SchemaEditableContext.Provider value={editMode}>
-                        <SchemaTable
-                            schemaMetadata={schemaMetadata}
-                            rows={rows}
-                            editMode={editMode}
-                            editableSchemaMetadata={editableSchemaMetadata}
-                            usageStats={usageStats}
-                            schemaFieldBlameList={schemaFieldBlameList}
-                            showSchemaAuditView={showSchemaAuditView}
-                        />
-                    </SchemaEditableContext.Provider>
-                </>
-            ) : (
-                <NoSchema />
-            )}
-        </div>
+            <SchemaTableContainer>
+                {/* eslint-disable-next-line no-nested-ternary */}
+                {showRaw ? (
+                    <SchemaRawView
+                        schemaDiff={{ current: schemaMetadata }}
+                        editMode={editMode}
+                        showKeySchema={showKeySchema}
+                    />
+                ) : rows && rows.length > 0 ? (
+                    <>
+                        <SchemaEditableContext.Provider value={editMode}>
+                            <SchemaTable
+                                schemaMetadata={schemaMetadata}
+                                rows={rows}
+                                editMode={editMode}
+                                editableSchemaMetadata={editableSchemaMetadata}
+                                usageStats={usageStats}
+                                schemaFieldBlameList={schemaFieldBlameList}
+                                showSchemaAuditView={showSchemaAuditView}
+                            />
+                        </SchemaEditableContext.Provider>
+                    </>
+                ) : (
+                    <NoSchema />
+                )}
+            </SchemaTableContainer>
+        </>
     );
 };

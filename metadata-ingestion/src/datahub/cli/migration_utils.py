@@ -5,6 +5,7 @@ from typing import Dict, Iterable, List
 from avrogen.dict_wrapper import DictWrapper
 
 from datahub.cli import cli_utils
+from datahub.emitter.mce_builder import Aspect
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.metadata.schema_classes import (
     ChangeTypeClass,
@@ -212,11 +213,11 @@ class UrnListModifier:
 
 def modify_urn_list_for_aspect(
     aspect_name: str,
-    aspect: DictWrapper,
+    aspect: Aspect,
     relationship_type: str,
     old_urn: str,
     new_urn: str,
-) -> DictWrapper:
+) -> Aspect:
 
     if hasattr(UrnListModifier, f"{aspect_name}_modifier"):
         modifier = getattr(UrnListModifier, f"{aspect_name}_modifier")

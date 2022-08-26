@@ -1,3 +1,5 @@
+import { MatchedField } from '../../../types.generated';
+import { FIELDS_TO_HIGHLIGHT } from '../dataset/search/highlights';
 import { GenericEntityProperties } from './types';
 
 export function dictToQueryStringParams(params: Record<string, string | boolean>) {
@@ -73,3 +75,22 @@ export function getPlatformName(entityData: GenericEntityProperties | null) {
 export const EDITED_DESCRIPTIONS_CACHE_NAME = 'editedDescriptions';
 
 export const FORBIDDEN_URN_CHARS_REGEX = /.*[(),\\].*/;
+
+/**
+ * Utility function for checking whether a list is a subset of another.
+ */
+export const isListSubset = (l1, l2): boolean => {
+    return l1.every((result) => l2.indexOf(result) >= 0);
+};
+
+export const getMatchPrioritizingPrimary = (
+    matchedFields: MatchedField[],
+    primaryField: string,
+): MatchedField | undefined => {
+    const primaryMatch = matchedFields.find((field) => field.name === primaryField);
+    if (primaryMatch) {
+        return primaryMatch;
+    }
+
+    return matchedFields.find((field) => FIELDS_TO_HIGHLIGHT.has(field.name));
+};

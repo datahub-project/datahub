@@ -13,19 +13,34 @@ import {
     getExecutionRequestStatusDisplayColor,
     getExecutionRequestStatusIcon,
     getExecutionRequestStatusDisplayText,
+    CLI_INGESTION_SOURCE,
+    SCHEDULED_INGESTION_SOURCE,
+    MANUAL_INGESTION_SOURCE,
 } from './utils';
 
 const ListContainer = styled.div`
     margin-left: 28px;
 `;
 
+const StatusContainer = styled.div`
+    display: flex;
+    justify-content: left;
+    align-items: center;
+`;
+
+const StatusButton = styled(Button)`
+    padding: 0px;
+    margin: 0px;
+`;
+
 type Props = {
     urn: string;
+    isExpanded: boolean;
     lastRefresh: number;
     onRefresh: () => void;
 };
 
-export const IngestionSourceExecutionList = ({ urn, lastRefresh, onRefresh }: Props) => {
+export const IngestionSourceExecutionList = ({ urn, isExpanded, lastRefresh, onRefresh }: Props) => {
     const [focusExecutionUrn, setFocusExecutionUrn] = useState<undefined | string>(undefined);
 
     const start = 0;
@@ -42,8 +57,10 @@ export const IngestionSourceExecutionList = ({ urn, lastRefresh, onRefresh }: Pr
     const [cancelExecutionRequestMutation] = useCancelIngestionExecutionRequestMutation();
 
     useEffect(() => {
-        refetch();
-    }, [lastRefresh, refetch]);
+        if (isExpanded) {
+            refetch();
+        }
+    }, [lastRefresh, isExpanded, refetch]);
 
     const handleViewDetails = (focusUrn: string) => {
         setFocusExecutionUrn(focusUrn);
@@ -127,19 +144,19 @@ export const IngestionSourceExecutionList = ({ urn, lastRefresh, onRefresh }: Pr
             title: 'Status',
             dataIndex: 'status',
             key: 'status',
-            render: (status: any) => {
+            render: (status: any, record) => {
                 const Icon = getExecutionRequestStatusIcon(status);
                 const text = getExecutionRequestStatusDisplayText(status);
                 const color = getExecutionRequestStatusDisplayColor(status);
                 return (
-                    <>
-                        <div style={{ display: 'flex', justifyContent: 'left', alignItems: 'center' }}>
-                            {Icon && <Icon style={{ color }} />}
+                    <StatusContainer>
+                        {Icon && <Icon style={{ color }} />}
+                        <StatusButton type="link" onClick={() => setFocusExecutionUrn(record.urn)}>
                             <Typography.Text strong style={{ color, marginLeft: 8 }}>
                                 {text || 'N/A'}
                             </Typography.Text>
-                        </div>
-                    </>
+                        </StatusButton>
+                    </StatusContainer>
                 );
             },
         },
@@ -149,8 +166,9 @@ export const IngestionSourceExecutionList = ({ urn, lastRefresh, onRefresh }: Pr
             key: 'source',
             render: (source: string) => {
                 return (
-                    (source === 'MANUAL_INGESTION_SOURCE' && 'Manual Execution') ||
-                    (source === 'SCHEDULED_INGESTION_SOURCE' && 'Scheduled Execution') ||
+                    (source === MANUAL_INGESTION_SOURCE && 'Manual Execution') ||
+                    (source === SCHEDULED_INGESTION_SOURCE && 'Scheduled Execution') ||
+                    (source === CLI_INGESTION_SOURCE && 'CLI Execution') ||
                     'N/A'
                 );
             },

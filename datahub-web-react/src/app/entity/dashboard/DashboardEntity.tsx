@@ -1,12 +1,14 @@
 import { DashboardFilled, DashboardOutlined } from '@ant-design/icons';
 import * as React from 'react';
+import { Typography } from 'antd';
+
 import {
     GetDashboardQuery,
     useGetDashboardQuery,
     useUpdateDashboardMutation,
 } from '../../../graphql/dashboard.generated';
 import { Dashboard, EntityType, OwnershipType, SearchResult } from '../../../types.generated';
-import { Entity, IconStyleType, PreviewType } from '../Entity';
+import { Entity, EntityCapabilityType, IconStyleType, PreviewType } from '../Entity';
 import { EntityProfile } from '../shared/containers/profile/EntityProfile';
 import { SidebarOwnerSection } from '../shared/containers/profile/sidebar/Ownership/SidebarOwnerSection';
 import { SidebarAboutSection } from '../shared/containers/profile/sidebar/SidebarAboutSection';
@@ -22,6 +24,8 @@ import { SidebarDomainSection } from '../shared/containers/profile/sidebar/Domai
 import { EntityMenuItems } from '../shared/EntityDropdown/EntityDropdown';
 import { LineageTab } from '../shared/tabs/Lineage/LineageTab';
 import { DashboardStatsSummarySubHeader } from './profile/DashboardStatsSummarySubHeader';
+import { FIELDS_TO_HIGHLIGHT } from '../dataset/search/highlights';
+import { getMatchPrioritizingPrimary } from '../shared/utils';
 
 /**
  * Definition of the DataHub Dashboard entity.
@@ -180,6 +184,8 @@ export class DashboardEntity implements Entity<Dashboard> {
 
     renderSearch = (result: SearchResult) => {
         const data = result.entity as Dashboard;
+        const matchedField = getMatchPrioritizingPrimary(result.matchedFields, 'fieldLabels');
+
         return (
             <DashboardPreview
                 urn={data.urn}
@@ -201,6 +207,13 @@ export class DashboardEntity implements Entity<Dashboard> {
                 statsSummary={data.statsSummary}
                 lastUpdatedMs={data.properties?.lastModified?.time}
                 createdMs={data.properties?.created?.time}
+                snippet={
+                    matchedField && (
+                        <Typography.Text>
+                            Matches {FIELDS_TO_HIGHLIGHT.get(matchedField.name)} <b>{matchedField.value}</b>
+                        </Typography.Text>
+                    )
+                }
             />
         );
     };
@@ -211,7 +224,7 @@ export class DashboardEntity implements Entity<Dashboard> {
             name: entity.properties?.name || '',
             type: EntityType.Dashboard,
             icon: entity?.platform?.properties?.logoUrl || '',
-            platform: entity?.platform.properties?.displayName || entity?.platform.name,
+            platform: entity?.platform,
         };
     };
 
@@ -225,5 +238,16 @@ export class DashboardEntity implements Entity<Dashboard> {
             entityType: this.type,
             getOverrideProperties: this.getOverridePropertiesFromEntity,
         });
+    };
+
+    supportedCapabilities = () => {
+        return new Set([
+            EntityCapabilityType.OWNERS,
+            EntityCapabilityType.GLOSSARY_TERMS,
+            EntityCapabilityType.TAGS,
+            EntityCapabilityType.DOMAINS,
+            EntityCapabilityType.DEPRECATION,
+            EntityCapabilityType.SOFT_DELETE,
+        ]);
     };
 }
