@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Button, Empty, List, message, Pagination, Typography } from 'antd';
+import { Button, Empty, List, Pagination, Typography } from 'antd';
 import { useLocation } from 'react-router';
 import styled from 'styled-components';
 import * as QueryString from 'query-string';
@@ -90,7 +90,7 @@ export const DomainsList = () => {
     return (
         <>
             {!data && loading && <Message type="loading" content="Loading domains..." />}
-            {error && message.error({ content: `Failed to load domains: \n ${error.message || ''}`, duration: 3 })}
+            {error && <Message type="error" content="Failed to load domains! An unexpected error occurred." />}
             <DomainsContainer>
                 <TabToolbar>
                     <div>
@@ -113,6 +113,7 @@ export const DomainsList = () => {
                         onSearch={() => null}
                         onQueryChange={(q) => setQuery(q)}
                         entityRegistry={entityRegistry}
+                        hideRecommendations
                     />
                 </TabToolbar>
                 <DomainsStyledList
