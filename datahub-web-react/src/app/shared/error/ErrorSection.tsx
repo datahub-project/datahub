@@ -74,7 +74,7 @@ export const ErrorSection = (): JSX.Element => {
                 </MessageSection>
                 <div>
                     <DetailParagraph type="secondary">
-                        <b>Need support?</b> Check out the following resources:
+                        <b>Need support?</b> Check out these resources:
                     </DetailParagraph>
                     <ResourceList>
                         {resources.map((resource) => (
