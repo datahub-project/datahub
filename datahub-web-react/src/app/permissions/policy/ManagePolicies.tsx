@@ -93,7 +93,7 @@ const toFilterInput = (filter: PolicyMatchFilter): PolicyMatchFilterInput => {
 
 const toPolicyInput = (policy: Omit<Policy, 'urn'>): PolicyUpdateInput => {
     let policyInput: PolicyUpdateInput = {
-        type: policy.policyType,
+        type: policy.type,
         name: policy.name,
         state: policy.state,
         description: policy.description,
@@ -201,7 +201,7 @@ export const ManagePolicies = () => {
 
     const getPrivilegeNames = (policy: Omit<Policy, 'urn'>) => {
         let privileges: PrivilegeOptionType[] = [];
-        if (policy?.policyType === PolicyType.Platform) {
+        if (policy?.type === PolicyType.Platform) {
             privileges = platformPrivileges
                 .filter((platformPrivilege) => policy.privileges.includes(platformPrivilege.type))
                 .map((platformPrivilege) => {
@@ -409,7 +409,7 @@ export const ManagePolicies = () => {
         resolvedUsers: policy?.actors?.resolvedUsers,
         resources: policy?.resources,
         state: policy?.state,
-        type: policy?.policyType,
+        type: policy?.type,
         urn: policy?.urn,
     }));
 

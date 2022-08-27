@@ -7,7 +7,7 @@ import { useLocation } from 'react-router';
 import UserListItem from './UserListItem';
 import { Message } from '../../shared/Message';
 import { useListUsersQuery } from '../../../graphql/user.generated';
-import { CorpUser, Role } from '../../../types.generated';
+import { CorpUser, DataHubRole } from '../../../types.generated';
 import TabToolbar from '../../entity/shared/components/styled/TabToolbar';
 import { SearchBar } from '../../search/SearchBar';
 import { useEntityRegistry } from '../../useEntityRegistry';
@@ -101,7 +101,7 @@ export const UserList = () => {
 
     const loading = usersLoading || rolesLoading;
     const error = usersError || rolesError;
-    const roles = rolesData?.listRoles?.roles?.map((role) => role as Role) || [];
+    const roles = rolesData?.listRoles?.roles?.map((role) => role as DataHubRole) || [];
 
     return (
         <>

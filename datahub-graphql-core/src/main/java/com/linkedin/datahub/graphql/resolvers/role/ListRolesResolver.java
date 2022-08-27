@@ -2,10 +2,10 @@ package com.linkedin.datahub.graphql.resolvers.role;
 
 import com.linkedin.common.urn.Urn;
 import com.linkedin.datahub.graphql.QueryContext;
+import com.linkedin.datahub.graphql.generated.DataHubRole;
 import com.linkedin.datahub.graphql.generated.ListRolesInput;
 import com.linkedin.datahub.graphql.generated.ListRolesResult;
-import com.linkedin.datahub.graphql.generated.Role;
-import com.linkedin.datahub.graphql.types.role.mappers.RoleMapper;
+import com.linkedin.datahub.graphql.types.role.mappers.DataHubRoleMapper;
 import com.linkedin.entity.EntityResponse;
 import com.linkedin.entity.client.EntityClient;
 import com.linkedin.metadata.search.SearchEntity;
@@ -67,7 +67,7 @@ public class ListRolesResolver implements DataFetcher<CompletableFuture<ListRole
     });
   }
 
-  private List<Role> mapEntitiesToRoles(final Collection<EntityResponse> entities) {
-    return entities.stream().map(RoleMapper::map).collect(Collectors.toList());
+  private List<DataHubRole> mapEntitiesToRoles(final Collection<EntityResponse> entities) {
+    return entities.stream().map(DataHubRoleMapper::map).collect(Collectors.toList());
   }
 }

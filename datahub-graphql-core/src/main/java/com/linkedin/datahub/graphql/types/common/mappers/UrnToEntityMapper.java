@@ -8,6 +8,8 @@ import com.linkedin.datahub.graphql.generated.CorpGroup;
 import com.linkedin.datahub.graphql.generated.CorpUser;
 import com.linkedin.datahub.graphql.generated.Dashboard;
 import com.linkedin.datahub.graphql.generated.DataFlow;
+import com.linkedin.datahub.graphql.generated.DataHubPolicy;
+import com.linkedin.datahub.graphql.generated.DataHubRole;
 import com.linkedin.datahub.graphql.generated.DataJob;
 import com.linkedin.datahub.graphql.generated.DataPlatform;
 import com.linkedin.datahub.graphql.generated.DataPlatformInstance;
@@ -23,8 +25,6 @@ import com.linkedin.datahub.graphql.generated.MLModel;
 import com.linkedin.datahub.graphql.generated.MLModelGroup;
 import com.linkedin.datahub.graphql.generated.MLPrimaryKey;
 import com.linkedin.datahub.graphql.generated.Notebook;
-import com.linkedin.datahub.graphql.generated.Policy;
-import com.linkedin.datahub.graphql.generated.Role;
 import com.linkedin.datahub.graphql.generated.Tag;
 import com.linkedin.datahub.graphql.generated.Test;
 import com.linkedin.datahub.graphql.types.mappers.ModelMapper;
@@ -152,14 +152,14 @@ public class UrnToEntityMapper implements ModelMapper<com.linkedin.common.urn.Ur
       ((Assertion) partialEntity).setType(EntityType.TEST);
     }
     if (input.getEntityType().equals("dataHubRole")) {
-      partialEntity = new Role();
-      ((Role) partialEntity).setUrn(input.toString());
-      ((Role) partialEntity).setType(EntityType.ROLE);
+      partialEntity = new DataHubRole();
+      ((DataHubRole) partialEntity).setUrn(input.toString());
+      ((DataHubRole) partialEntity).setType(EntityType.DATAHUB_ROLE);
     }
     if (input.getEntityType().equals("dataHubPolicy")) {
-      partialEntity = new Policy();
-      ((Policy) partialEntity).setUrn(input.toString());
-      ((Policy) partialEntity).setType(EntityType.DATAHUB_POLICY);
+      partialEntity = new DataHubPolicy();
+      ((DataHubPolicy) partialEntity).setUrn(input.toString());
+      ((DataHubPolicy) partialEntity).setType(EntityType.DATAHUB_POLICY);
     }
     return partialEntity;
   }

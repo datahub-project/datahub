@@ -1,11 +1,12 @@
-package com.linkedin.datahub.graphql.types.policy;
+package com.linkedin.datahub.graphql.types.role;
 
 import com.google.common.collect.ImmutableSet;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.datahub.graphql.QueryContext;
+import com.linkedin.datahub.graphql.generated.DataHubRole;
 import com.linkedin.datahub.graphql.generated.Entity;
 import com.linkedin.datahub.graphql.generated.EntityType;
-import com.linkedin.datahub.graphql.generated.Policy;
+import com.linkedin.datahub.graphql.types.role.mappers.DataHubRoleMapper;
 import com.linkedin.entity.EntityResponse;
 import com.linkedin.entity.client.EntityClient;
 import graphql.execution.DataFetcherResult;
@@ -24,13 +25,13 @@ import static com.linkedin.metadata.Constants.*;
 
 
 @RequiredArgsConstructor
-public class PolicyType implements com.linkedin.datahub.graphql.types.EntityType<Policy, String> {
-  static final Set<String> ASPECTS_TO_FETCH = ImmutableSet.of(DATAHUB_POLICY_INFO_ASPECT_NAME);
+public class DataHubRoleType implements com.linkedin.datahub.graphql.types.EntityType<DataHubRole, String> {
+  static final Set<String> ASPECTS_TO_FETCH = ImmutableSet.of(DATAHUB_ROLE_INFO_ASPECT_NAME);
   private final EntityClient _entityClient;
 
   @Override
   public EntityType type() {
-    return EntityType.DATAHUB_POLICY;
+    return EntityType.DATAHUB_ROLE;
   }
 
   @Override
@@ -39,18 +40,18 @@ public class PolicyType implements com.linkedin.datahub.graphql.types.EntityType
   }
 
   @Override
-  public Class<Policy> objectClass() {
-    return Policy.class;
+  public Class<DataHubRole> objectClass() {
+    return DataHubRole.class;
   }
 
   @Override
-  public List<DataFetcherResult<Policy>> batchLoad(@Nonnull List<String> urns, @Nonnull QueryContext context)
+  public List<DataFetcherResult<DataHubRole>> batchLoad(@Nonnull List<String> urns, @Nonnull QueryContext context)
       throws Exception {
     final List<Urn> roleUrns = urns.stream().map(this::getUrn).collect(Collectors.toList());
 
     try {
       final Map<Urn, EntityResponse> entities =
-          _entityClient.batchGetV2(POLICY_ENTITY_NAME, new HashSet<>(roleUrns), ASPECTS_TO_FETCH,
+          _entityClient.batchGetV2(DATAHUB_ROLE_ENTITY_NAME, new HashSet<>(roleUrns), ASPECTS_TO_FETCH,
               context.getAuthentication());
 
       final List<EntityResponse> gmsResults = new ArrayList<>();
@@ -59,7 +60,7 @@ public class PolicyType implements com.linkedin.datahub.graphql.types.EntityType
       }
       return gmsResults.stream()
           .map(gmsResult -> gmsResult == null ? null
-              : DataFetcherResult.<Policy>newResult().data(PolicyMapper.map(gmsResult)).build())
+              : DataFetcherResult.<DataHubRole>newResult().data(DataHubRoleMapper.map(gmsResult)).build())
           .collect(Collectors.toList());
     } catch (Exception e) {
       throw new RuntimeException("Failed to batch load Roles", e);

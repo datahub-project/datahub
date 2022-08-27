@@ -682,7 +682,7 @@ enum EntityType {
     """
     A DataHub Role
     """
-    ROLE
+    DATAHUB_ROLE
 }
 
 """
@@ -7269,9 +7269,61 @@ enum PolicyState {
 }
 
 """
+DEPRECATED
+TODO: Eventually get rid of this in favor of DataHub Policy
 An DataHub Platform Access Policy Access Policies determine who can perform what actions against which resources on the platform
 """
-type Policy implements Entity {
+type Policy {
+    """
+    The primary key of the Policy
+    """
+    urn: String!
+
+    """
+    The type of the Policy
+    """
+    type: PolicyType!
+
+    """
+    The name of the Policy
+    """
+    name: String!
+
+    """
+    The present state of the Policy
+    """
+    state: PolicyState!
+
+    """
+    The description of the Policy
+    """
+    description: String
+
+    """
+    The resources that the Policy privileges apply to
+    """
+    resources: ResourceFilter
+
+    """
+    The privileges that the Policy grants
+    """
+    privileges: [String!]!
+
+    """
+    The actors that the Policy grants privileges to
+    """
+    actors: ActorFilter!
+
+    """
+    Whether the Policy is editable, ie system policies, or not
+    """
+    editable: Boolean!
+}
+
+"""
+An DataHub Platform Access Policy -  Policies determine who can perform what actions against which resources on the platform
+"""
+type DataHubPolicy implements Entity {
   """
   The primary key of the Policy
   """
@@ -7401,7 +7453,7 @@ type ActorFilter {
   """
   The list of roles on the Policy, resolved.
   """
-  resolvedRoles: [Role!]
+  resolvedRoles: [DataHubRole!]
 }
 
 """
@@ -9216,13 +9268,13 @@ type ListRolesResult {
     """
     The Roles themselves
     """
-    roles: [Role!]!
+    roles: [DataHubRole!]!
 }
 
 """
 A DataHub Role is a high-level abstraction on top of Policies that dictates what actions users can take.
 """
-type Role implements Entity {
+type DataHubRole implements Entity {
     """
     The primary key of the role
     """

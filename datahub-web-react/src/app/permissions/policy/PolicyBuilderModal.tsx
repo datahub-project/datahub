@@ -59,12 +59,12 @@ export default function PolicyBuilderModal({ policy, setPolicy, visible, onClose
     };
 
     // Change the type of policy, either Metadata or Platform
-    const setPolicyType = (policyType: PolicyType) => {
+    const setPolicyType = (type: PolicyType) => {
         // Important: If the policy type itself is changing, we need to clear policy state.
-        if (policyType === PolicyType.Platform) {
-            setPolicy({ ...policy, policyType, resources: EMPTY_POLICY.resources, privileges: [] });
+        if (type === PolicyType.Platform) {
+            setPolicy({ ...policy, type, resources: EMPTY_POLICY.resources, privileges: [] });
         }
-        setPolicy({ ...policy, policyType, privileges: [] });
+        setPolicy({ ...policy, type, privileges: [] });
     };
 
     // Step 1: Choose Policy Type
@@ -73,15 +73,15 @@ export default function PolicyBuilderModal({ policy, setPolicy, visible, onClose
             title: 'Choose Policy Type',
             content: (
                 <PolicyTypeForm
-                    policyType={policy.policyType}
-                    setPolicyType={(policyType: PolicyType) => setPolicyType(policyType)}
+                    policyType={policy.type}
+                    setPolicyType={(type: PolicyType) => setPolicyType(type)}
                     policyName={policy.name}
                     setPolicyName={(name: string) => setPolicy({ ...policy, name })}
                     policyDescription={policy.description || ''}
                     setPolicyDescription={(description: string) => setPolicy({ ...policy, description })}
                 />
             ),
-            complete: policy.policyType && policy.name && policy.name.length > 0, // Whether the "next" button should appear.
+            complete: policy.type && policy.name && policy.name.length > 0, // Whether the "next" button should appear.
         };
     };
 
@@ -90,7 +90,7 @@ export default function PolicyBuilderModal({ policy, setPolicy, visible, onClose
         title: 'Configure Privileges',
         content: (
             <PolicyPrivilegeForm
-                policyType={policy.policyType}
+                policyType={policy.type}
                 resources={policy.resources!}
                 setResources={(resources: ResourceFilter) => {
                     setPolicy({ ...policy, resources });
@@ -108,7 +108,7 @@ export default function PolicyBuilderModal({ policy, setPolicy, visible, onClose
             title: 'Assign Users & Groups',
             content: (
                 <PolicyActorForm
-                    policyType={policy.policyType}
+                    policyType={policy.type}
                     actors={policy.actors}
                     setActors={(actors: ActorFilter) =>
                         setPolicy({

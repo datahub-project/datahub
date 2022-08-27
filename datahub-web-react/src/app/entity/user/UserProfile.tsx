@@ -68,7 +68,7 @@ export default function UserProfile() {
         (relationship) => relationship?.entity?.type === EntityType.CorpGroup,
     );
     const roleMemberRelationships: Array<EntityRelationship> = relatedEntities.filter(
-        (relationship) => relationship?.entity?.type === EntityType.Role,
+        (relationship) => relationship?.entity?.type === EntityType.DatahubRole,
     );
 
     // Routed Tabs Constants

@@ -1,5 +1,5 @@
 import React from 'react';
-import { CorpGroup, CorpUser, EntityType, Maybe, Policy, Role } from '../../types.generated';
+import { CorpGroup, CorpUser, EntityType, Maybe, DataHubPolicy, DataHubRole } from '../../types.generated';
 import EntityRegistry from '../entity/EntityRegistry';
 import { CustomAvatar } from '../shared/avatar';
 import { SpacedAvatarGroup } from '../shared/avatar/SpaceAvatarGroup';
@@ -7,8 +7,8 @@ import { SpacedAvatarGroup } from '../shared/avatar/SpaceAvatarGroup';
 type Props = {
     users?: Maybe<Array<CorpUser>>;
     groups?: Maybe<Array<CorpGroup>>;
-    policies?: Maybe<Array<Policy>>;
-    roles?: Maybe<Array<Role>>;
+    policies?: Maybe<Array<DataHubPolicy>>;
+    roles?: Maybe<Array<DataHubRole>>;
     entityRegistry: EntityRegistry;
     maxCount?: number;
     size?: number;

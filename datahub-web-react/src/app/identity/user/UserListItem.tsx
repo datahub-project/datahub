@@ -11,7 +11,7 @@ import {
     UnlockOutlined,
     UserOutlined,
 } from '@ant-design/icons';
-import { CorpUser, CorpUserStatus, EntityType, Role } from '../../../types.generated';
+import { CorpUser, CorpUserStatus, EntityType, DataHubRole } from '../../../types.generated';
 import CustomAvatar from '../../shared/avatar/CustomAvatar';
 import { useEntityRegistry } from '../../useEntityRegistry';
 import { ANTD_GRAY, REDESIGN_COLORS } from '../../entity/shared/constants';
@@ -23,7 +23,7 @@ import ViewAssignRoleModal from './ViewAssignRoleModal';
 type Props = {
     user: CorpUser;
     canManageUserCredentials: boolean;
-    roles: Array<Role>;
+    roles: Array<DataHubRole>;
     onDelete?: () => void;
     refetch?: () => void;
 };
@@ -61,12 +61,12 @@ export default function UserListItem({ user, canManageUserCredentials, roles, on
     const entityRegistry = useEntityRegistry();
     const [isViewingResetToken, setIsViewingResetToken] = useState(false);
     const [isViewingAssignRole, setIsViewingAssignRole] = useState(false);
-    const [roleToAssign, setRoleToAssign] = useState<Role>();
+    const [roleToAssign, setRoleToAssign] = useState<DataHubRole>();
     const displayName = entityRegistry.getDisplayName(EntityType.CorpUser, user);
     const isNativeUser: boolean = user.isNativeUser as boolean;
     const shouldShowPasswordReset: boolean = canManageUserCredentials && isNativeUser;
     const userRelationships = user.relationships?.relationships;
-    const userRole = userRelationships && userRelationships.length > 0 && (userRelationships[0]?.entity as Role);
+    const userRole = userRelationships && userRelationships.length > 0 && (userRelationships[0]?.entity as DataHubRole);
     const userRoleUrn = userRole && userRole.urn;
 
     const { onDeleteEntity } = useDeleteEntity(user.urn, EntityType.CorpUser, user, onDelete);
@@ -92,7 +92,7 @@ export default function UserListItem({ user, canManageUserCredentials, roles, on
     const userStatus = user.status; // Support case where the user status is undefined.
     const userStatusToolTip = userStatus && getUserStatusToolTip(userStatus);
     const userStatusColor = userStatus && getUserStatusColor(userStatus);
-    const rolesMap: Map<string, Role> = new Map();
+    const rolesMap: Map<string, DataHubRole> = new Map();
     roles.forEach((role) => {
         rolesMap.set(role.urn, role);
     });
@@ -158,7 +158,7 @@ export default function UserListItem({ user, canManageUserCredentials, roles, on
                     value={userRoleUrn || undefined}
                     onChange={(e) => {
                         const roleUrn: string = e as string;
-                        const roleFromMap: Role = rolesMap.get(roleUrn) as Role;
+                        const roleFromMap: DataHubRole = rolesMap.get(roleUrn) as DataHubRole;
                         setRoleToAssign(roleFromMap);
                         setIsViewingAssignRole(true);
                     }}

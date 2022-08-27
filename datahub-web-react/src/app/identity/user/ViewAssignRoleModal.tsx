@@ -1,11 +1,11 @@
 import React from 'react';
 import { Button, message, Modal, Typography } from 'antd';
 import { useBatchAssignRoleToActorsMutation } from '../../../graphql/mutations.generated';
-import { Role } from '../../../types.generated';
+import { DataHubRole } from '../../../types.generated';
 
 type Props = {
     visible: boolean;
-    roleToAssign: Role | undefined;
+    roleToAssign: DataHubRole | undefined;
     userUrn: string;
     username: string;
     onClose: () => void;

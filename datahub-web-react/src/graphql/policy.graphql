@@ -5,7 +5,7 @@ query listPolicies($input: ListPoliciesInput!) {
         total
         policies {
             urn
-            policyType
+            type
             name
             description
             state

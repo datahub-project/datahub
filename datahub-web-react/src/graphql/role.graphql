@@ -32,7 +32,7 @@ query listRoles($input: ListRolesInput!) {
                                 pictureLink
                             }
                         }
-                        ... on Policy {
+                        ... on DataHubPolicy {
                             urn
                             type
                             name

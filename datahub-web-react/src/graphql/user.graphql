@@ -57,7 +57,7 @@ query getUser($urn: String!, $groupsCount: Int!) {
                             total
                         }
                     }
-                    ... on Role {
+                    ... on DataHubRole {
                         urn
                         type
                         name
@@ -141,7 +141,7 @@ query listUsers($input: ListUsersInput!) {
                 total
                 relationships {
                     entity {
-                        ... on Role {
+                        ... on DataHubRole {
                             urn
                             type
                             name
@@ -184,9 +184,8 @@ query getNativeUserInviteToken {
     }
 }
 
-mutation createNativeUserResetToken($input: CreateNativeUserResetTokenInput!)  {
+mutation createNativeUserResetToken($input: CreateNativeUserResetTokenInput!) {
     createNativeUserResetToken(input: $input) {
         resetToken
     }
 }
-

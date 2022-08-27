@@ -1,8 +1,8 @@
 package com.linkedin.datahub.graphql.types.role.mappers;
 
 import com.linkedin.data.DataMap;
+import com.linkedin.datahub.graphql.generated.DataHubRole;
 import com.linkedin.datahub.graphql.generated.EntityType;
-import com.linkedin.datahub.graphql.generated.Role;
 import com.linkedin.datahub.graphql.types.common.mappers.util.MappingHelper;
 import com.linkedin.datahub.graphql.types.mappers.ModelMapper;
 import com.linkedin.entity.EntityResponse;
@@ -13,28 +13,27 @@ import javax.annotation.Nonnull;
 import static com.linkedin.metadata.Constants.*;
 
 
-public class RoleMapper implements ModelMapper<EntityResponse, Role> {
+public class DataHubRoleMapper implements ModelMapper<EntityResponse, DataHubRole> {
 
-  public static final com.linkedin.datahub.graphql.types.role.mappers.RoleMapper INSTANCE =
-      new com.linkedin.datahub.graphql.types.role.mappers.RoleMapper();
+  public static final DataHubRoleMapper INSTANCE = new DataHubRoleMapper();
 
-  public static Role map(@Nonnull final EntityResponse entityResponse) {
+  public static DataHubRole map(@Nonnull final EntityResponse entityResponse) {
     return INSTANCE.apply(entityResponse);
   }
 
   @Override
-  public Role apply(@Nonnull final EntityResponse entityResponse) {
-    final Role result = new Role();
+  public DataHubRole apply(@Nonnull final EntityResponse entityResponse) {
+    final DataHubRole result = new DataHubRole();
 
     result.setUrn(entityResponse.getUrn().toString());
-    result.setType(EntityType.ROLE);
+    result.setType(EntityType.DATAHUB_ROLE);
     EnvelopedAspectMap aspectMap = entityResponse.getAspects();
-    MappingHelper<Role> mappingHelper = new MappingHelper<>(aspectMap, result);
+    MappingHelper<DataHubRole> mappingHelper = new MappingHelper<>(aspectMap, result);
     mappingHelper.mapToResult(DATAHUB_ROLE_INFO_ASPECT_NAME, this::mapDataHubRoleInfo);
     return mappingHelper.getResult();
   }
 
-  private void mapDataHubRoleInfo(@Nonnull Role role, @Nonnull DataMap dataMap) {
+  private void mapDataHubRoleInfo(@Nonnull DataHubRole role, @Nonnull DataMap dataMap) {
     DataHubRoleInfo roleInfo = new DataHubRoleInfo(dataMap);
     role.setName(roleInfo.getName());
     role.setDescription(roleInfo.getDescription());

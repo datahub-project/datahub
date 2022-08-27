@@ -2,11 +2,11 @@ import React from 'react';
 import { Button, Divider, Modal, Typography } from 'antd';
 import styled from 'styled-components';
 import { useEntityRegistry } from '../../useEntityRegistry';
-import { CorpUser, EntityType, Policy, Role } from '../../../types.generated';
+import { CorpUser, EntityType, DataHubPolicy, DataHubRole } from '../../../types.generated';
 import AvatarsGroup from '../AvatarsGroup';
 
 type Props = {
-    role: Role;
+    role: DataHubRole;
     visible: boolean;
     onClose: () => void;
 };
@@ -48,7 +48,7 @@ export default function RoleDetailsModal({ role, visible, onClose }: Props) {
         .map((relationship) => relationship.entity as CorpUser);
     const policies = role?.relationships?.relationships
         .filter((relationship) => relationship?.entity?.type === EntityType.DatahubPolicy)
-        .map((relationship) => relationship.entity as Policy);
+        .map((relationship) => relationship.entity as DataHubPolicy);
 
     return (
         <Modal title={role?.name} visible={visible} onCancel={onClose} closable width={800} footer={actionButtons}>

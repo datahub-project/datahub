@@ -2,7 +2,7 @@ import { Divider, message, Space, Button, Typography, Tag } from 'antd';
 import React, { useState } from 'react';
 import { EditOutlined, MailOutlined, PhoneOutlined, SlackOutlined } from '@ant-design/icons';
 import { useUpdateCorpUserPropertiesMutation } from '../../../graphql/user.generated';
-import { EntityRelationship, Role } from '../../../types.generated';
+import { EntityRelationship, DataHubRole } from '../../../types.generated';
 import UserEditProfileModal from './UserEditProfileModal';
 import CustomAvatar from '../../shared/avatar/CustomAvatar';
 import { useGetAuthenticatedUser } from '../../useGetAuthenticatedUser';
@@ -94,7 +94,7 @@ export default function UserInfoSideBar({ sideBarData, refetch }: Props) {
                 refetch();
             });
     };
-    const dataHubRoleName = dataHubRoles && dataHubRoles.length > 0 && (dataHubRoles[0]?.entity as Role).name;
+    const dataHubRoleName = dataHubRoles && dataHubRoles.length > 0 && (dataHubRoles[0]?.entity as DataHubRole).name;
     return (
         <>
             <SideBar>

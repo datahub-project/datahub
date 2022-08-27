@@ -13,7 +13,7 @@ import { SearchBar } from '../../search/SearchBar';
 import { SearchSelectModal } from '../../entity/shared/components/styled/search/SearchSelectModal';
 import { EntityCapabilityType } from '../../entity/Entity';
 import { useBatchAssignRoleToActorsMutation } from '../../../graphql/mutations.generated';
-import { CorpUser, Role, Policy } from '../../../types.generated';
+import { CorpUser, DataHubRole, DataHubPolicy } from '../../../types.generated';
 import RoleDetailsModal from './RoleDetailsModal';
 
 const SourceContainer = styled.div``;
@@ -42,7 +42,7 @@ export const ManageRoles = () => {
     const paramsQuery = (params?.query as string) || undefined;
     const [query, setQuery] = useState<undefined | string>(undefined);
     const [isBatchAddRolesModalVisible, setIsBatchAddRolesModalVisible] = useState(false);
-    const [focusRole, setFocusRole] = useState<Role>();
+    const [focusRole, setFocusRole] = useState<DataHubRole>();
     const [showViewRoleModal, setShowViewRoleModal] = useState(false);
     useEffect(() => setQuery(paramsQuery), [paramsQuery]);
 
@@ -69,7 +69,7 @@ export const ManageRoles = () => {
 
     const totalRoles = rolesData?.listRoles?.total || 0;
     const roles = useMemo(() => rolesData?.listRoles?.roles || [], [rolesData]);
-    const onViewRole = (role: Role) => {
+    const onViewRole = (role: DataHubRole) => {
         setFocusRole(role);
         setShowViewRoleModal(true);
     };
@@ -95,8 +95,6 @@ export const ManageRoles = () => {
         })
             .then(({ errors }) => {
                 if (!errors) {
-                    // setIsBatchAddRolesModalVisible(false);
-                    // setFocusRole(undefined);
                     message.success({
                         content: `Assigned Role to users!`,
                         duration: 2,
@@ -191,8 +189,8 @@ export const ManageRoles = () => {
             .filter((relationship) => relationship?.entity?.__typename === 'CorpUser')
             .map((relationship) => relationship.entity as CorpUser),
         policies: role?.relationships?.relationships
-            .filter((relationship) => relationship?.entity?.__typename === 'Policy')
-            .map((relationship) => relationship.entity as Policy),
+            .filter((relationship) => relationship?.entity?.__typename === 'DataHubPolicy')
+            .map((relationship) => relationship.entity as DataHubPolicy),
     }));
 
     return (
@@ -253,7 +251,11 @@ export const ManageRoles = () => {
                 />
             </PaginationContainer>
             {showViewRoleModal && (
-                <RoleDetailsModal role={focusRole as Role} visible={showViewRoleModal} onClose={resetRoleState} />
+                <RoleDetailsModal
+                    role={focusRole as DataHubRole}
+                    visible={showViewRoleModal}
+                    onClose={resetRoleState}
+                />
             )}
         </PageContainer>
     );
