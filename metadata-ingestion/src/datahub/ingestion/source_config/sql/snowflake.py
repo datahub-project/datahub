@@ -126,7 +126,7 @@ class BaseSnowflakeConfig(BaseTimeWindowConfig):
         description="DEPRECATED: Snowflake account. e.g. abc48144"
     )  # Deprecated
     account_id: Optional[str] = pydantic.Field(
-        description="Snowflake account. e.g. abc48144"
+        description="Snowflake account identifier. e.g. xy12345,  xy12345.us-east-2.aws, xy12345.us-central1.gcp, xy12345.central-us.azure. Refer [Account Identifiers](https://docs.snowflake.com/en/user-guide/admin-account-identifier.html#format-2-legacy-account-locator-in-a-region) for more details."
     )  # Once host_port is removed this will be made mandatory
     warehouse: Optional[str] = pydantic.Field(description="Snowflake warehouse.")
     role: Optional[str] = pydantic.Field(description="Snowflake role.")
@@ -319,6 +319,8 @@ class SnowflakeConfig(BaseSnowflakeConfig, SQLAlchemyConfig):
         options_connect_args: Dict = super().get_sql_alchemy_connect_args()
         options_connect_args.update(self.options.get("connect_args", {}))
         self.options["connect_args"] = options_connect_args
+        if self.connect_args is not None:
+            self.options["connect_args"].update(self.connect_args)
         return self.options
 
     def get_oauth_connection(self):
