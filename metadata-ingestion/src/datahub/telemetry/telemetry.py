@@ -86,6 +86,7 @@ if any(var in os.environ for var in CI_ENV_VARS):
     ENV_ENABLED = False
 
 TIMEOUT = int(os.environ.get("DATAHUB_TELEMETRY_TIMEOUT", "10"))
+MIXPANEL_ENDPOINT = "track.datahubproject.io/mp"
 MIXPANEL_TOKEN = "5ee83d940754d63cacbf7d34daa6f44a"
 
 
@@ -113,7 +114,10 @@ class Telemetry:
         if self.enabled:
             try:
                 self.mp = Mixpanel(
-                    MIXPANEL_TOKEN, consumer=Consumer(request_timeout=int(TIMEOUT))
+                    MIXPANEL_TOKEN,
+                    consumer=Consumer(
+                        request_timeout=int(TIMEOUT), api_host=MIXPANEL_ENDPOINT
+                    ),
                 )
             except Exception as e:
                 logger.debug(f"Error connecting to mixpanel: {e}")
@@ -214,7 +218,7 @@ class Telemetry:
                 },
             )
         except Exception as e:
-            logger.debug(f"Error reporting telemetry: {e}")
+            logger.debug(f"Error initializing telemetry: {e}")
         self.init_track = True
 
     def ping(
