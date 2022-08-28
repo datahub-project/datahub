@@ -244,15 +244,19 @@ public class SendMAEStep implements UpgradeStep {
         KafkaJobResult tmpResult = iterateFutures(futures);
         if (tmpResult != null) {
           totalRowsMigrated += tmpResult.rowsMigrated;
-          ignored = tmpResult.ignored;
+          ignored += tmpResult.ignored;
+          reportStats(context, totalRowsMigrated, ignored, rowCount);
         }
-
-        float percentSent = (float) totalRowsMigrated * 100 / rowCount;
-        float percentIgnored = (float) ignored * 100 / rowCount;
-        context.report().addLine(String.format(
-                "Successfully sent MAEs for %s/%s rows (%.2f%%). %s rows ignored (%.2f%%)",
-                totalRowsMigrated, rowCount, percentSent, ignored, percentIgnored));
       }
+      while (futures.size() > 0) {
+        KafkaJobResult tmpResult = iterateFutures(futures);
+        if (tmpResult != null) {
+          totalRowsMigrated += tmpResult.rowsMigrated;
+          ignored += tmpResult.ignored;
+          reportStats(context, totalRowsMigrated, ignored, rowCount);
+        }
+      }
+      executor.shutdown();
       if (totalRowsMigrated != rowCount) {
         float percentFailed = 0.0f;
         if (rowCount > 0) {
@@ -263,6 +267,14 @@ public class SendMAEStep implements UpgradeStep {
       }
       return new DefaultUpgradeStepResult(id(), UpgradeStepResult.Result.SUCCEEDED);
     };
+  }
+
+  private static void reportStats(UpgradeContext context, int totalRowsMigrated, int ignored, int rowCount) {
+    float percentSent = (float) totalRowsMigrated * 100 / rowCount;
+    float percentIgnored = (float) ignored * 100 / rowCount;
+    context.report().addLine(String.format(
+            "Successfully sent MAEs for %s/%s rows (%.2f%%). %s rows ignored (%.2f%%)",
+            totalRowsMigrated, rowCount, percentSent, ignored, percentIgnored));
   }
 
   private PagedList<EbeanAspectV2> getPagedAspects(final int start, final int pageSize, Optional<String> aspectName,
