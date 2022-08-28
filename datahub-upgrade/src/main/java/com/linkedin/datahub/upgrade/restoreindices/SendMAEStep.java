@@ -193,6 +193,8 @@ public class SendMAEStep implements UpgradeStep {
   public Function<UpgradeContext, UpgradeStepResult> executable() {
     return (context) -> {
 
+      long startTime = System.currentTimeMillis();
+
       int batchSize = getBatchSize(context.parsedArgs());
       int numThreads = getThreadCount(context.parsedArgs());
       long batchDelayMs = getBatchDelayMs(context.parsedArgs());
@@ -245,7 +247,7 @@ public class SendMAEStep implements UpgradeStep {
         if (tmpResult != null) {
           totalRowsMigrated += tmpResult.rowsMigrated;
           ignored += tmpResult.ignored;
-          reportStats(context, totalRowsMigrated, ignored, rowCount);
+          reportStats(context, totalRowsMigrated, ignored, rowCount, startTime);
         }
       }
       while (futures.size() > 0) {
@@ -253,7 +255,7 @@ public class SendMAEStep implements UpgradeStep {
         if (tmpResult != null) {
           totalRowsMigrated += tmpResult.rowsMigrated;
           ignored += tmpResult.ignored;
-          reportStats(context, totalRowsMigrated, ignored, rowCount);
+          reportStats(context, totalRowsMigrated, ignored, rowCount, startTime);
         }
       }
       executor.shutdown();
@@ -269,12 +271,21 @@ public class SendMAEStep implements UpgradeStep {
     };
   }
 
-  private static void reportStats(UpgradeContext context, int totalRowsMigrated, int ignored, int rowCount) {
+  private static void reportStats(UpgradeContext context, int totalRowsMigrated, int ignored, int rowCount,
+                                  long startTime) {
+    long currentTime = System.currentTimeMillis();
+    float timeSoFarMinutes = (float) (currentTime - startTime) / 1000 / 60;
     float percentSent = (float) totalRowsMigrated * 100 / rowCount;
     float percentIgnored = (float) ignored * 100 / rowCount;
+    float estimatedTimeMinutesComplete = -1;
+    if (percentSent > 0) {
+      estimatedTimeMinutesComplete = timeSoFarMinutes * (100 - percentSent) / percentSent;
+    }
     context.report().addLine(String.format(
             "Successfully sent MAEs for %s/%s rows (%.2f%%). %s rows ignored (%.2f%%)",
             totalRowsMigrated, rowCount, percentSent, ignored, percentIgnored));
+    context.report().addLine(String.format("%.2f minutes taken. %.2f estimate minutes to completion",
+            timeSoFarMinutes, estimatedTimeMinutesComplete));
   }
 
   private PagedList<EbeanAspectV2> getPagedAspects(final int start, final int pageSize, Optional<String> aspectName,
