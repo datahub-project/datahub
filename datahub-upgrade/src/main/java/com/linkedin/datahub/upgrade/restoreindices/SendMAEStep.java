@@ -18,6 +18,7 @@ import com.linkedin.metadata.models.EntitySpec;
 import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.mxe.SystemMetadata;
 import io.ebean.EbeanServer;
+import io.ebean.ExpressionList;
 import io.ebean.PagedList;
 
 import java.util.ArrayList;
@@ -59,10 +60,12 @@ public class SendMAEStep implements UpgradeStep {
       UpgradeContext context;
       int start;
       int batchSize;
-      public KafkaJob(UpgradeContext context, int start, int batchSize) {
+      Optional<String> aspectName;
+      public KafkaJob(UpgradeContext context, int start, int batchSize, Optional<String> aspectName) {
         this.context = context;
         this.start = start;
         this.batchSize = batchSize;
+        this.aspectName = aspectName;
       }
       @Override
       public KafkaJobResult call() {
@@ -70,7 +73,7 @@ public class SendMAEStep implements UpgradeStep {
         int rowsMigrated = 0;
         context.report()
                 .addLine(String.format("Reading rows %s through %s from the aspects table.", start, start + batchSize));
-        PagedList<EbeanAspectV2> rows = getPagedAspects(start, batchSize);
+        PagedList<EbeanAspectV2> rows = getPagedAspects(start, batchSize, aspectName);
 
         for (EbeanAspectV2 aspect : rows.getList()) {
           // 1. Extract an Entity type from the entity Urn
@@ -186,6 +189,7 @@ public class SendMAEStep implements UpgradeStep {
       int batchSize = getBatchSize(context.parsedArgs());
       int numThreads = getThreadCount(context.parsedArgs());
       long batchDelayMs = getBatchDelayMs(context.parsedArgs());
+      Optional<String> aspectName = context.parsedArgs().get("aspectName");
 
       ThreadPoolExecutor executor = (ThreadPoolExecutor) Executors.newFixedThreadPool(numThreads);
 
@@ -203,7 +207,7 @@ public class SendMAEStep implements UpgradeStep {
       List<Future<KafkaJobResult>> futures = new ArrayList<>();
       while (start < rowCount) {
         while (futures.size() < numThreads) {
-          futures.add(executor.submit(new KafkaJob(context, start, batchSize)));
+          futures.add(executor.submit(new KafkaJob(context, start, batchSize, aspectName)));
           start = start + batchSize;
         }
         KafkaJobResult tmpResult = iterateFutures(futures);
@@ -230,12 +234,15 @@ public class SendMAEStep implements UpgradeStep {
     };
   }
 
-  private PagedList<EbeanAspectV2> getPagedAspects(final int start, final int pageSize) {
-    return _server.find(EbeanAspectV2.class)
-        .select(EbeanAspectV2.ALL_COLUMNS)
-        .where()
-        .eq(EbeanAspectV2.VERSION_COLUMN, ASPECT_LATEST_VERSION)
-        .orderBy()
+  private PagedList<EbeanAspectV2> getPagedAspects(final int start, final int pageSize, Optional<String> aspectName) {
+    ExpressionList<EbeanAspectV2> exp = _server.find(EbeanAspectV2.class)
+            .select(EbeanAspectV2.ALL_COLUMNS)
+            .where()
+            .eq(EbeanAspectV2.VERSION_COLUMN, ASPECT_LATEST_VERSION);
+    if (aspectName.isPresent()) {
+      exp = exp.eq(EbeanAspectV2.ASPECT_COLUMN, aspectName);
+    }
+    return  exp.orderBy()
         .asc(EbeanAspectV2.URN_COLUMN)
         .orderBy()
         .asc(EbeanAspectV2.ASPECT_COLUMN)
