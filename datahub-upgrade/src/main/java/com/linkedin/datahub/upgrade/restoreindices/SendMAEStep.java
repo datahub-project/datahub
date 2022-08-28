@@ -8,7 +8,6 @@ import com.linkedin.datahub.upgrade.UpgradeContext;
 import com.linkedin.datahub.upgrade.UpgradeStep;
 import com.linkedin.datahub.upgrade.UpgradeStepResult;
 import com.linkedin.datahub.upgrade.impl.DefaultUpgradeStepResult;
-import com.linkedin.datahub.upgrade.nocode.NoCodeUpgrade;
 import com.linkedin.events.metadata.ChangeType;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.entity.EntityUtils;
@@ -61,11 +60,14 @@ public class SendMAEStep implements UpgradeStep {
       int start;
       int batchSize;
       Optional<String> aspectName;
-      public KafkaJob(UpgradeContext context, int start, int batchSize, Optional<String> aspectName) {
+      Optional<String> urn;
+      public KafkaJob(UpgradeContext context, int start, int batchSize, Optional<String> aspectName,
+                      Optional<String> urn) {
         this.context = context;
         this.start = start;
         this.batchSize = batchSize;
         this.aspectName = aspectName;
+        this.urn = urn;
       }
       @Override
       public KafkaJobResult call() {
@@ -73,7 +75,7 @@ public class SendMAEStep implements UpgradeStep {
         int rowsMigrated = 0;
         context.report()
                 .addLine(String.format("Reading rows %s through %s from the aspects table.", start, start + batchSize));
-        PagedList<EbeanAspectV2> rows = getPagedAspects(start, batchSize, aspectName);
+        PagedList<EbeanAspectV2> rows = getPagedAspects(start, batchSize, aspectName, urn);
 
         for (EbeanAspectV2 aspect : rows.getList()) {
           // 1. Extract an Entity type from the entity Urn
@@ -101,8 +103,6 @@ public class SendMAEStep implements UpgradeStep {
             continue;
           }
           final String aspectName = aspect.getKey().getAspect();
-
-          context.report().addLine(String.format("Aspect name is %s", aspectName));
 
           // 3. Verify that the aspect is a valid aspect associated with the entity
           AspectSpec aspectSpec = entitySpec.getAspectSpec(aspectName);
@@ -189,15 +189,39 @@ public class SendMAEStep implements UpgradeStep {
       int batchSize = getBatchSize(context.parsedArgs());
       int numThreads = getThreadCount(context.parsedArgs());
       long batchDelayMs = getBatchDelayMs(context.parsedArgs());
-      Optional<String> aspectName = context.parsedArgs().get("aspectName");
+      Optional<String> aspectName;
+      if (containsKey(context.parsedArgs(), RestoreIndices.ASPECT_NAME_ARG_NAME)) {
+        aspectName = context.parsedArgs().get(RestoreIndices.ASPECT_NAME_ARG_NAME);
+        context.report().addLine(String.format("Found aspectName arg as %s", aspectName));
+      } else {
+        aspectName = Optional.empty();
+        context.report().addLine(String.format("No aspectName arg present"));
+      }
+      Optional<String> urn;
+      if (containsKey(context.parsedArgs(), RestoreIndices.URN_ARG_NAME)) {
+        urn = context.parsedArgs().get(RestoreIndices.URN_ARG_NAME);
+        context.report().addLine(String.format("Found urn arg as %s", urn));
+      } else {
+        urn = Optional.empty();
+        context.report().addLine(String.format("No urn arg present"));
+      }
 
       ThreadPoolExecutor executor = (ThreadPoolExecutor) Executors.newFixedThreadPool(numThreads);
 
       context.report().addLine(
               String.format("Sending MAE from local DB with %s batch size, %s threads, %s batchDelayMs",
                       batchSize, numThreads, batchDelayMs));
-      final int rowCount =
-          _server.find(EbeanAspectV2.class).where().eq(EbeanAspectV2.VERSION_COLUMN, ASPECT_LATEST_VERSION).findCount();
+      ExpressionList<EbeanAspectV2> countExp =
+          _server.find(EbeanAspectV2.class)
+            .where()
+            .eq(EbeanAspectV2.VERSION_COLUMN, ASPECT_LATEST_VERSION);
+      if (aspectName.isPresent()) {
+        countExp = countExp.eq(EbeanAspectV2.ASPECT_COLUMN, aspectName.get());
+      }
+      if (urn.isPresent()) {
+        countExp = countExp.eq(EbeanAspectV2.URN_COLUMN, urn.get());
+      }
+      final int rowCount = countExp.findCount();
       context.report().addLine(String.format("Found %s latest aspects in aspects table", rowCount));
 
       int totalRowsMigrated = 0;
@@ -207,7 +231,7 @@ public class SendMAEStep implements UpgradeStep {
       List<Future<KafkaJobResult>> futures = new ArrayList<>();
       while (start < rowCount) {
         while (futures.size() < numThreads) {
-          futures.add(executor.submit(new KafkaJob(context, start, batchSize, aspectName)));
+          futures.add(executor.submit(new KafkaJob(context, start, batchSize, aspectName, urn)));
           start = start + batchSize;
         }
         KafkaJobResult tmpResult = iterateFutures(futures);
@@ -234,13 +258,17 @@ public class SendMAEStep implements UpgradeStep {
     };
   }
 
-  private PagedList<EbeanAspectV2> getPagedAspects(final int start, final int pageSize, Optional<String> aspectName) {
+  private PagedList<EbeanAspectV2> getPagedAspects(final int start, final int pageSize, Optional<String> aspectName,
+                                                   Optional<String> urn) {
     ExpressionList<EbeanAspectV2> exp = _server.find(EbeanAspectV2.class)
             .select(EbeanAspectV2.ALL_COLUMNS)
             .where()
             .eq(EbeanAspectV2.VERSION_COLUMN, ASPECT_LATEST_VERSION);
     if (aspectName.isPresent()) {
-      exp = exp.eq(EbeanAspectV2.ASPECT_COLUMN, aspectName);
+      exp = exp.eq(EbeanAspectV2.ASPECT_COLUMN, aspectName.get());
+    }
+    if (urn.isPresent()) {
+      exp = exp.eq(EbeanAspectV2.URN_COLUMN, urn.get());
     }
     return  exp.orderBy()
         .asc(EbeanAspectV2.URN_COLUMN)
@@ -257,8 +285,7 @@ public class SendMAEStep implements UpgradeStep {
 
   private long getBatchDelayMs(final Map<String, Optional<String>> parsedArgs) {
     long resolvedBatchDelayMs = DEFAULT_BATCH_DELAY_MS;
-    if (parsedArgs.containsKey(RestoreIndices.BATCH_DELAY_MS_ARG_NAME) && parsedArgs.get(
-        NoCodeUpgrade.BATCH_DELAY_MS_ARG_NAME).isPresent()) {
+    if (containsKey(parsedArgs, RestoreIndices.BATCH_DELAY_MS_ARG_NAME)) {
       resolvedBatchDelayMs = Long.parseLong(parsedArgs.get(RestoreIndices.BATCH_DELAY_MS_ARG_NAME).get());
     }
     return resolvedBatchDelayMs;
@@ -270,10 +297,13 @@ public class SendMAEStep implements UpgradeStep {
 
   private int getInt(final Map<String, Optional<String>> parsedArgs, int defaultVal, String argKey) {
     int result = defaultVal;
-    if (parsedArgs.containsKey(argKey) && parsedArgs.get(argKey)
-        .isPresent()) {
+    if (containsKey(parsedArgs, argKey)) {
       result = Integer.parseInt(parsedArgs.get(argKey).get());
     }
     return result;
+  }
+
+  public static boolean containsKey(final Map<String, Optional<String>> parsedArgs, String key) {
+    return parsedArgs.containsKey(key) && parsedArgs.get(key).isPresent();
   }
 }
