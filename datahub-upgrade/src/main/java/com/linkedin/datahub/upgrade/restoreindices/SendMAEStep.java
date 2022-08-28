@@ -202,7 +202,7 @@ public class SendMAEStep implements UpgradeStep {
         context.report().addLine(String.format("Found aspectName arg as %s", aspectName));
       } else {
         aspectName = Optional.empty();
-        context.report().addLine(String.format("No aspectName arg present"));
+        context.report().addLine("No aspectName arg present");
       }
       Optional<String> urn;
       if (containsKey(context.parsedArgs(), RestoreIndices.URN_ARG_NAME)) {
@@ -210,7 +210,7 @@ public class SendMAEStep implements UpgradeStep {
         context.report().addLine(String.format("Found urn arg as %s", urn));
       } else {
         urn = Optional.empty();
-        context.report().addLine(String.format("No urn arg present"));
+        context.report().addLine("No urn arg present");
       }
 
       ThreadPoolExecutor executor = (ThreadPoolExecutor) Executors.newFixedThreadPool(numThreads);
