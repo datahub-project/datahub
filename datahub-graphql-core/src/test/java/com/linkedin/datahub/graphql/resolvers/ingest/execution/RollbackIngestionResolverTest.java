@@ -29,12 +29,8 @@ public class RollbackIngestionResolverTest {
     Mockito.when(mockEnv.getArgument(Mockito.eq("input"))).thenReturn(TEST_INPUT);
     Mockito.when(mockEnv.getContext()).thenReturn(mockContext);
 
-    resolver.get(mockEnv).get();
-
-    Mockito.verify(mockClient, Mockito.times(1)).rollbackIngestion(
-        Mockito.eq(RUN_ID),
-        Mockito.any(Authentication.class)
-    );
+    Boolean result = resolver.get(mockEnv).get();
+    assertTrue(result);
   }
 
   @Test
@@ -56,23 +52,31 @@ public class RollbackIngestionResolverTest {
   }
 
   @Test
-  public void testGetEntityClientException() throws Exception {
-    // Create resolver
+  public void testRollbackIngestionMethod() throws Exception {
     EntityClient mockClient = Mockito.mock(EntityClient.class);
+    RollbackIngestionResolver resolver = new RollbackIngestionResolver(mockClient);
 
+    QueryContext mockContext = getMockAllowContext();
+    resolver.rollbackIngestion(RUN_ID, mockContext).get();
+
+    Mockito.verify(mockClient, Mockito.times(1)).rollbackIngestion(
+        Mockito.eq(RUN_ID),
+        Mockito.any(Authentication.class)
+    );
+  }
+
+  @Test
+  public void testGetEntityClientException() throws Exception {
+    EntityClient mockClient = Mockito.mock(EntityClient.class);
     Mockito.doThrow(RuntimeException.class).when(mockClient).rollbackIngestion(
         Mockito.any(),
         Mockito.any(Authentication.class));
 
     RollbackIngestionResolver resolver = new RollbackIngestionResolver(mockClient);
 
-    // Execute resolver
     QueryContext mockContext = getMockAllowContext();
-    DataFetchingEnvironment mockEnv = Mockito.mock(DataFetchingEnvironment.class);
-    Mockito.when(mockEnv.getArgument(Mockito.eq("input"))).thenReturn(TEST_INPUT);
-    Mockito.when(mockEnv.getContext()).thenReturn(mockContext);
 
-    assertThrows(RuntimeException.class, () -> resolver.get(mockEnv).join());
+    assertThrows(RuntimeException.class, () -> resolver.rollbackIngestion(RUN_ID, mockContext).join());
   }
 }
 
