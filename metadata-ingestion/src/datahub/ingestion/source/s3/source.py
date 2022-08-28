@@ -412,7 +412,7 @@ class S3Source(Source):
                 ).infer_schema(file)
             elif extension == ".json":
                 fields = json.JsonInferrer(
-                    is_newline_json=True    
+                    is_newline_json=self.source_config.is_newline_json    
                 ).infer_schema(file)
             elif extension == ".avro":
                 fields = avro.AvroInferrer().infer_schema(file)

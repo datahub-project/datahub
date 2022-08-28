@@ -168,6 +168,7 @@ nbconvert==6.5.1
 nbformat==5.4.0
 nest-asyncio==1.5.5
 networkx==2.8.4
+NewlineJSON==1.0
 notebook==6.4.12
 numpy==1.22.4
 oauthlib==3.2.0
