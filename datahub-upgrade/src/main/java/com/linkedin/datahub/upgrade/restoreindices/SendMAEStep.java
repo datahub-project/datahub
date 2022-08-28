@@ -59,13 +59,15 @@ public class SendMAEStep implements UpgradeStep {
       UpgradeContext context;
       int start;
       int batchSize;
+      long batchDelayMs;
       Optional<String> aspectName;
       Optional<String> urn;
-      public KafkaJob(UpgradeContext context, int start, int batchSize, Optional<String> aspectName,
+      public KafkaJob(UpgradeContext context, int start, int batchSize, long batchDelayMs, Optional<String> aspectName,
                       Optional<String> urn) {
         this.context = context;
         this.start = start;
         this.batchSize = batchSize;
+        this.batchDelayMs = batchDelayMs;
         this.aspectName = aspectName;
         this.urn = urn;
       }
@@ -137,6 +139,11 @@ public class SendMAEStep implements UpgradeStep {
           rowsMigrated++;
         }
 
+        try {
+          TimeUnit.MILLISECONDS.sleep(batchDelayMs);
+        } catch (InterruptedException e) {
+          throw new RuntimeException("Thread interrupted while sleeping after successful batch migration.");
+        }
         return new KafkaJobResult(ignored, rowsMigrated);
       }
   }
@@ -231,7 +238,7 @@ public class SendMAEStep implements UpgradeStep {
       List<Future<KafkaJobResult>> futures = new ArrayList<>();
       while (start < rowCount) {
         while (futures.size() < numThreads) {
-          futures.add(executor.submit(new KafkaJob(context, start, batchSize, aspectName, urn)));
+          futures.add(executor.submit(new KafkaJob(context, start, batchSize, batchDelayMs, aspectName, urn)));
           start = start + batchSize;
         }
         KafkaJobResult tmpResult = iterateFutures(futures);
