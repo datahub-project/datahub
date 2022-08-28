@@ -179,6 +179,9 @@ class AllowDenyPattern(ConfigModel):
         assert self.is_fully_specified_allow_list()
         return [a for a in self.allow if self.allowed(a)]
 
+    def __eq__(self, other):  # type: ignore
+        return isinstance(other, self.__class__) and self.__dict__ == other.__dict__
+
 
 class KeyValuePattern(ConfigModel):
     """A class to store allow deny regexes"""

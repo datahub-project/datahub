@@ -2439,6 +2439,16 @@
                 "fieldType" : "TEXT"
               }
             }, {
+              "name" : "label",
+              "type" : "string",
+              "doc" : "Label of the field. Provides a more human-readable name for the field than field path. Some sources will\nprovide this metadata but not all sources have the concept of a label. If just one string is associated with\na field in a source, that is most likely a description.",
+              "optional" : true,
+              "Searchable" : {
+                "boostScore" : 0.2,
+                "fieldName" : "fieldLabel",
+                "fieldType" : "TEXT"
+              }
+            }, {
               "name" : "created",
               "type" : "com.linkedin.common.AuditStamp",
               "doc" : "An AuditStamp corresponding to the creation of this schema field.",

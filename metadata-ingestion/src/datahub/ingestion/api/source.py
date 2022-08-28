@@ -1,4 +1,5 @@
 import collections
+import datetime
 from abc import ABCMeta, abstractmethod
 from dataclasses import dataclass, field
 from enum import Enum
@@ -19,7 +20,6 @@ from pydantic import BaseModel
 from datahub.ingestion.api.closeable import Closeable
 from datahub.ingestion.api.common import PipelineContext, RecordEnvelope, WorkUnit
 from datahub.ingestion.api.report import Report
-from datahub.utilities.time import get_current_time_in_seconds
 
 
 class SourceCapability(Enum):
@@ -82,15 +82,16 @@ class LossyList(List[T]):
 
 @dataclass
 class SourceReport(Report):
-    workunits_produced: int = 0
-    workunit_ids: List[str] = field(default_factory=LossyList)
+    events_produced: int = 0
+    events_produced_per_sec: int = 0
+    event_ids: List[str] = field(default_factory=LossyList)
 
     warnings: Dict[str, List[str]] = field(default_factory=dict)
     failures: Dict[str, List[str]] = field(default_factory=dict)
 
     def report_workunit(self, wu: WorkUnit) -> None:
-        self.workunits_produced += 1
-        self.workunit_ids.append(wu.id)
+        self.events_produced += 1
+        self.event_ids.append(wu.id)
 
     def report_warning(self, key: str, reason: str) -> None:
         if key not in self.warnings:
@@ -103,16 +104,15 @@ class SourceReport(Report):
         self.failures[key].append(reason)
 
     def __post_init__(self) -> None:
-        self.starting_time = get_current_time_in_seconds()
+        self.start_time = datetime.datetime.now()
         self.running_time_in_seconds = 0
 
     def compute_stats(self) -> None:
-        current_time = get_current_time_in_seconds()
-        running_time = current_time - self.starting_time
-        workunits_produced = self.workunits_produced
-        if running_time > 0:
-            self.read_rate = workunits_produced / running_time
-            self.running_time_in_seconds = running_time
+        duration = int((datetime.datetime.now() - self.start_time).total_seconds())
+        workunits_produced = self.events_produced
+        if duration > 0:
+            self.events_produced_per_sec: int = int(workunits_produced / duration)
+            self.running_time_in_seconds = duration
         else:
             self.read_rate = 0
 
