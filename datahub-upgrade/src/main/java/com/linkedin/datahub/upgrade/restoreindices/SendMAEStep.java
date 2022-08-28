@@ -24,7 +24,12 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
-import java.util.concurrent.*;
+import java.util.concurrent.Callable;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
+import java.util.concurrent.ThreadPoolExecutor;
+import java.util.concurrent.TimeUnit;
 import java.util.function.Function;
 
 import static com.linkedin.metadata.Constants.ASPECT_LATEST_VERSION;
@@ -94,6 +99,8 @@ public class SendMAEStep implements UpgradeStep {
           }
           final String aspectName = aspect.getKey().getAspect();
 
+          context.report().addLine(String.format("Aspect name is %s", aspectName));
+
           // 3. Verify that the aspect is a valid aspect associated with the entity
           AspectSpec aspectSpec = entitySpec.getAspectSpec(aspectName);
           if (aspectSpec == null) {
@@ -147,6 +154,31 @@ public class SendMAEStep implements UpgradeStep {
     return 0;
   }
 
+  private KafkaJobResult iterateFutures(List<Future<KafkaJobResult>> futures) {
+    int beforeSize = futures.size();
+    int afterSize = futures.size();
+    while (beforeSize == afterSize) {
+      try {
+        TimeUnit.SECONDS.sleep(1);
+      } catch (InterruptedException e) {
+        // suppress
+      }
+      for (Future<KafkaJobResult> future: new ArrayList<>(futures)) {
+        if (future.isDone()) {
+          try {
+            KafkaJobResult result = future.get();
+            futures.remove(future);
+            return result;
+          } catch (InterruptedException | ExecutionException e) {
+            e.printStackTrace();
+          }
+        }
+      }
+      afterSize = futures.size();
+    }
+    return null;
+  }
+
   @Override
   public Function<UpgradeContext, UpgradeStepResult> executable() {
     return (context) -> {
@@ -170,30 +202,29 @@ public class SendMAEStep implements UpgradeStep {
 
       List<Future<KafkaJobResult>> futures = new ArrayList<>();
       while (start < rowCount) {
-        while (executor.getActiveCount() == numThreads) {
-          try {
-            TimeUnit.MILLISECONDS.sleep(batchDelayMs);
-          } catch (InterruptedException e) {
-            throw new RuntimeException("Thread interrupted while sleeping after successful batch migration.");
-          }
+        while (futures.size() < numThreads) {
+          futures.add(executor.submit(new KafkaJob(context, start, batchSize)));
+          start = start + batchSize;
         }
-        futures.add(executor.submit(new KafkaJob(context, start, batchSize)));
-        start = start + batchSize;
+        KafkaJobResult tmpResult = iterateFutures(futures);
+        if (tmpResult != null) {
+          totalRowsMigrated += tmpResult.rowsMigrated;
+          ignored = tmpResult.ignored;
+        }
 
-        float percentSent = 0.0f;
-        float percentIgnored = 0.0f;
-        if (rowCount > 0) {
-          percentSent = (float)totalRowsMigrated*100/rowCount;
-          percentIgnored = (float)ignored*100/rowCount;
-        }
-        context.report().addLine(String.format("Successfully sent MAEs for %s/%s rows (%.2f%%). %s rows ignored (%.2f%%)", totalRowsMigrated, rowCount, percentSent, ignored, percentIgnored));
+        float percentSent = (float) totalRowsMigrated * 100 / rowCount;
+        float percentIgnored = (float) ignored * 100 / rowCount;
+        context.report().addLine(String.format(
+                "Successfully sent MAEs for %s/%s rows (%.2f%%). %s rows ignored (%.2f%%)",
+                totalRowsMigrated, rowCount, percentSent, ignored, percentIgnored));
       }
       if (totalRowsMigrated != rowCount) {
         float percentFailed = 0.0f;
         if (rowCount > 0) {
-          percentFailed = (float)(rowCount - totalRowsMigrated)*100/rowCount;
+          percentFailed = (float) (rowCount - totalRowsMigrated) * 100 / rowCount;
         }
-        context.report().addLine(String.format("Failed to send MAEs for %d rows (%.2f%%).", rowCount - totalRowsMigrated, percentFailed));
+        context.report().addLine(String.format(
+                "Failed to send MAEs for %d rows (%.2f%%).", rowCount - totalRowsMigrated, percentFailed));
       }
       return new DefaultUpgradeStepResult(id(), UpgradeStepResult.Result.SUCCEEDED);
     };
@@ -230,8 +261,8 @@ public class SendMAEStep implements UpgradeStep {
     return getInt(parsedArgs, DEFAULT_THREADS, RestoreIndices.NUM_THREADS_ARG_NAME);
   }
 
-  private int getInt(final Map<String, Optional<String>> parsedArgs, int default, String argKey) {
-    int result = DEFAULT_BATCH_SIZE;
+  private int getInt(final Map<String, Optional<String>> parsedArgs, int defaultVal, String argKey) {
+    int result = defaultVal;
     if (parsedArgs.containsKey(argKey) && parsedArgs.get(argKey)
         .isPresent()) {
       result = Integer.parseInt(parsedArgs.get(argKey).get());
