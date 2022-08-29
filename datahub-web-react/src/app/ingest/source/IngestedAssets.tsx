@@ -6,6 +6,7 @@ import { EmbeddedListSearchModal } from '../../entity/shared/components/styled/s
 import { ANTD_GRAY } from '../../entity/shared/constants';
 import { formatNumber } from '../../shared/formatNumber';
 import { Message } from '../../shared/Message';
+import { useEntityRegistry } from '../../useEntityRegistry';
 import { extractEntityTypeCountsFromFacets } from './utils';
 
 const HeaderContainer = styled.div`
@@ -31,6 +32,8 @@ const EntityCountsContainer = styled.div`
     display: flex;
     justify-content: left;
     align-items: center;
+    max-width: 100%;
+    flex-wrap: wrap;
 `;
 
 const EntityCount = styled.div`
@@ -49,7 +52,12 @@ type Props = {
     id: string;
 };
 
+const ENTITY_FACET_NAME = 'entity';
+const TYPE_NAMES_FACET_NAME = 'typeNames';
+
 export default function IngestedAssets({ id }: Props) {
+    const entityRegistry = useEntityRegistry();
+
     // First thing to do is to search for all assets with the id as the run id!
     const [showAssetSearch, setShowAssetSearch] = useState(false);
 
@@ -74,13 +82,14 @@ export default function IngestedAssets({ id }: Props) {
     const facets = data?.searchAcrossEntities?.facets;
 
     // Extract facets to construct the per-entity type breakdown stats
-    const hasEntityTypeFacet = (facets?.findIndex((facet) => facet.field === 'entity') || -1) >= 0;
+    const hasEntityTypeFacet = (facets || []).findIndex((facet) => facet.field === ENTITY_FACET_NAME) >= 0;
     const entityTypeFacets =
-        (hasEntityTypeFacet && facets?.filter((facet) => facet.field === 'entity')[0]) || undefined;
-    const hasSubTypeFacet = (facets?.findIndex((facet) => facet.field === 'typeNames') || -1) >= 0;
-    const subTypeFacets = (hasSubTypeFacet && facets?.filter((facet) => facet.field === 'typeNames')[0]) || undefined;
+        (hasEntityTypeFacet && facets?.filter((facet) => facet.field === ENTITY_FACET_NAME)[0]) || undefined;
+    const hasSubTypeFacet = (facets || []).findIndex((facet) => facet.field === TYPE_NAMES_FACET_NAME) >= 0;
+    const subTypeFacets =
+        (hasSubTypeFacet && facets?.filter((facet) => facet.field === TYPE_NAMES_FACET_NAME)[0]) || undefined;
     const countsByEntityType =
-        (entityTypeFacets && extractEntityTypeCountsFromFacets(entityTypeFacets, subTypeFacets)) || [];
+        (entityTypeFacets && extractEntityTypeCountsFromFacets(entityRegistry, entityTypeFacets, subTypeFacets)) || [];
 
     // The total number of assets ingested
     const total = data?.searchAcrossEntities?.total || 0;

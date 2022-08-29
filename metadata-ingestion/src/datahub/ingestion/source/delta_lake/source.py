@@ -28,13 +28,13 @@ from datahub.ingestion.source.aws.s3_util import (
     get_key_prefix,
     strip_s3_prefix,
 )
-from datahub.ingestion.source.data_lake.data_lake_utils import ContainerWUCreator
 from datahub.ingestion.source.delta_lake.config import DeltaLakeSourceConfig
 from datahub.ingestion.source.delta_lake.delta_lake_utils import (
     get_file_count,
     read_delta_table,
 )
 from datahub.ingestion.source.delta_lake.report import DeltaLakeSourceReport
+from datahub.ingestion.source.s3.data_lake_utils import ContainerWUCreator
 from datahub.ingestion.source.schema_inference.csv_tsv import tableschema_type_map
 from datahub.metadata.com.linkedin.pegasus2avro.metadata.snapshot import DatasetSnapshot
 from datahub.metadata.com.linkedin.pegasus2avro.mxe import MetadataChangeEvent
@@ -164,7 +164,7 @@ class DeltaLakeSource(Source):
             for key, val in hist.items():
                 if val is not None:
                     if isinstance(val, dict):
-                        for k, v in val:
+                        for k, v in val.items():
                             if v is not None:
                                 operation_custom_properties[f"{key}_{k}"] = str(v)
                     else:
@@ -209,7 +209,7 @@ class DeltaLakeSource(Source):
         logger.debug(f"Ingesting table {table_name} from location {path}")
         if self.source_config.relative_path is None:
             browse_path: str = (
-                strip_s3_prefix(path) if self.source_config.is_s3() else path.strip("/")
+                strip_s3_prefix(path) if self.source_config.is_s3 else path.strip("/")
             )
         else:
             browse_path = path.split(self.source_config.base_path)[1].strip("/")
@@ -233,7 +233,7 @@ class DeltaLakeSource(Source):
             "table_creation_time": str(delta_table.metadata().created_time),
             "id": str(delta_table.metadata().id),
             "version": str(delta_table.version()),
-            "location": self.source_config.get_complete_path(),
+            "location": self.source_config.complete_path,
         }
 
         dataset_properties = DatasetPropertiesClass(
@@ -255,7 +255,7 @@ class DeltaLakeSource(Source):
         dataset_snapshot.aspects.append(schema_metadata)
 
         if (
-            self.source_config.is_s3()
+            self.source_config.is_s3
             and self.source_config.s3
             and (
                 self.source_config.s3.use_s3_bucket_tags
@@ -281,7 +281,7 @@ class DeltaLakeSource(Source):
         yield wu
 
         container_wus = self.container_WU_creator.create_container_hierarchy(
-            browse_path, self.source_config.is_s3(), dataset_urn
+            browse_path, self.source_config.is_s3, dataset_urn
         )
         for wu in container_wus:
             self.report.report_workunit(wu)
@@ -324,13 +324,9 @@ class DeltaLakeSource(Source):
             self.source_config.env,
         )
         get_folders = (
-            self.s3_get_folders
-            if self.source_config.is_s3()
-            else self.local_get_folders
+            self.s3_get_folders if self.source_config.is_s3 else self.local_get_folders
         )
-        for wu in self.process_folder(
-            self.source_config.get_complete_path(), get_folders
-        ):
+        for wu in self.process_folder(self.source_config.complete_path, get_folders):
             yield wu
 
     def get_report(self) -> SourceReport:

@@ -5,7 +5,7 @@ import YAML from 'yamljs';
 import { ApiOutlined, FilterOutlined, QuestionCircleOutlined, SettingOutlined } from '@ant-design/icons';
 import styled from 'styled-components/macro';
 import { jsonToYaml } from '../../utils';
-import { RECIPE_FIELDS } from './utils';
+import { RECIPE_FIELDS } from './constants';
 import FormField from './FormField';
 import TestConnectionButton from './TestConnection/TestConnectionButton';
 import { SNOWFLAKE } from '../../conf/snowflake/snowflake';

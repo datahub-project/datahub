@@ -108,7 +108,6 @@ source:
 
 The current implementation of the support for `PROTOBUF` schema type has the following limitations:
 
-+ Requires Python 3.7 & above.
 + Recursive types are not supported.
 + If the schemas of different topics define a type in the same package, the source would raise an exception.
 

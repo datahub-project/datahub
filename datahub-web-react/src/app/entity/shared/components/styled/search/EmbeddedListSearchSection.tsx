@@ -52,6 +52,7 @@ export const EmbeddedListSearchSection = ({
             baseParams,
             query: q,
             page: 1,
+            filters,
             history,
         });
     };
