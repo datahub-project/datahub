@@ -53,7 +53,7 @@ public class DataHubUsageEventsProcessor {
     Optional<DataHubUsageEventTransformer.TransformedDocument> eventDocument =
         dataHubUsageEventTransformer.transformDataHubUsageEvent(record);
     if (!eventDocument.isPresent()) {
-      log.info("failed transform: {}", record);
+      log.warn("Failed to apply usage events transform to record: {}", record);
       return;
     }
     JsonElasticEvent elasticEvent = new JsonElasticEvent(eventDocument.get().getDocument());

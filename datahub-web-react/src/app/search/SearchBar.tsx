@@ -206,6 +206,7 @@ export const SearchBar = ({
 
     const searchEntityTypes = entityRegistry.getSearchEntityTypes();
     const userUrn = useGetAuthenticatedUserUrn();
+
     const { data } = useListRecommendationsQuery({
         variables: {
             input: {

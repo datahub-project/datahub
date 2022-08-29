@@ -66,12 +66,6 @@ from datahub.metadata.schema_classes import (
 logger = logging.getLogger(__name__)
 
 
-def remove_view_from_field_name(field):
-    split_field = field.split(".")
-    split_field.pop(0)
-    return ".".join(split_field)
-
-
 # @dataclass
 class NamingPattern(BaseModel):
     allowed_vars: List[str]

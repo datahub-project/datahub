@@ -1,5 +1,5 @@
 import React from 'react';
-import { Alert, Col, Row } from 'antd';
+import { Col, Row } from 'antd';
 import styled from 'styled-components';
 import { useGetGroupQuery } from '../../../graphql/group.generated';
 import useUserParams from '../../shared/entitySearch/routingUtils/useUserParams';
@@ -10,6 +10,7 @@ import { decodeUrn } from '../shared/utils';
 import { RoutedTabs } from '../../shared/RoutedTabs';
 import GroupInfoSidebar from './GroupInfoSideBar';
 import { GroupAssets } from './GroupAssets';
+import { ErrorSection } from '../../shared/error/ErrorSection';
 
 const messageStyle = { marginTop: '10%' };
 
@@ -47,10 +48,6 @@ export default function GroupProfile() {
     const { urn: encodedUrn } = useUserParams();
     const urn = encodedUrn && decodeUrn(encodedUrn);
     const { loading, error, data, refetch } = useGetGroupQuery({ variables: { urn, membersCount: MEMBER_PAGE_SIZE } });
-
-    if (error || (!loading && !error && !data)) {
-        return <Alert type="error" message={error?.message || 'Group failed to load :('} />;
-    }
 
     const groupMemberRelationships = data?.corpGroup?.relationships as EntityRelationshipsResult;
     const isExternalGroup: boolean = data?.corpGroup?.origin?.type === OriginType.External;
@@ -115,6 +112,7 @@ export default function GroupProfile() {
 
     return (
         <>
+            {error && <ErrorSection />}
             {loading && <Message type="loading" content="Loading..." style={messageStyle} />}
             {data && data?.corpGroup && (
                 <GroupProfileWrapper>
