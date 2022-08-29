@@ -68,16 +68,21 @@ export default function CustomAvatar({
     if (!name) {
         return url ? <Link to={url}>{avatar}</Link> : avatar;
     }
-    let title = `${name}`;
-    if (isGroup) {
-        title = `${title} - Group`;
-    } else if (isPolicy) {
-        title = `${title}`;
-    } else if (isRole) {
-        title = `${title} - Role`;
-    }
+
+    const renderTitle = (input) => {
+        let title = `${input}`;
+        if (isGroup) {
+            title = `${title} - Group`;
+        } else if (isPolicy) {
+            title = `${title}`;
+        } else if (isRole) {
+            title = `${title} - Role`;
+        }
+        return title;
+    };
+
     return (
-        <Tooltip title={title} placement={placement}>
+        <Tooltip title={renderTitle(name)} placement={placement}>
             {url ? <Link to={url}>{avatar}</Link> : avatar}
         </Tooltip>
     );

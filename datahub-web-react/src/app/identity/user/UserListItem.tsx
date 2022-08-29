@@ -48,6 +48,15 @@ const ButtonGroup = styled.div`
     align-items: center;
 `;
 
+const RoleSelect = styled(Select)`
+    min-width: 100px;
+`;
+
+const RoleIcon = styled.span`
+    margin-right: 6px;
+    font-size: 12px;
+`;
+
 const MenuIcon = styled(MoreOutlined)<{ fontSize?: number }>`
     display: flex;
     justify-content: center;
@@ -98,16 +107,17 @@ export default function UserListItem({ user, canManageUserCredentials, roles, on
     });
 
     const mapRoleIcon = (roleName) => {
+        let icon = <UserOutlined />;
         if (roleName === 'Admin') {
-            return <SettingOutlined style={{ marginRight: 6, fontSize: 12 }} />;
+            icon = <SettingOutlined />;
         }
         if (roleName === 'Editor') {
-            return <EditOutlined style={{ marginRight: 6, fontSize: 12 }} />;
+            icon = <EditOutlined />;
         }
         if (roleName === 'Reader') {
-            return <ReadOutlined style={{ marginRight: 6, fontSize: 12 }} />;
+            icon = <ReadOutlined />;
         }
-        return <UserOutlined style={{ marginRight: 6, fontSize: 12 }} />;
+        return <RoleIcon>{icon}</RoleIcon>;
     };
 
     const selectOptions = () =>
@@ -147,13 +157,12 @@ export default function UserListItem({ user, canManageUserCredentials, roles, on
                 </Link>
             </UserItemContainer>
             <ButtonGroup>
-                <Select
-                    style={{ minWidth: 100 }}
+                <RoleSelect
                     placeholder={
-                        <>
-                            <UserOutlined style={{ marginRight: 6, fontSize: 12 }} />
+                        <RoleIcon>
+                            <UserOutlined />
                             No Role
-                        </>
+                        </RoleIcon>
                     }
                     value={userRoleUrn || undefined}
                     onChange={(e) => {
@@ -164,7 +173,7 @@ export default function UserListItem({ user, canManageUserCredentials, roles, on
                     }}
                 >
                     {selectOptions()}
-                </Select>
+                </RoleSelect>
 
                 <Dropdown
                     trigger={['click']}

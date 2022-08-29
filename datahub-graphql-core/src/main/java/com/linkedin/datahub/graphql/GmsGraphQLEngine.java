@@ -1399,7 +1399,7 @@ public class GmsGraphQLEngine {
     }
 
     private void configureRoleResolvers(final RuntimeWiring.Builder builder) {
-        builder.type("Role",
+        builder.type("DataHubRole",
             typeWiring -> typeWiring.dataFetcher("relationships", new EntityRelationshipsResultResolver(graphClient)));
     }
 

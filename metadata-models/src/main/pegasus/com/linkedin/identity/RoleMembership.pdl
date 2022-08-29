@@ -3,7 +3,7 @@ namespace com.linkedin.identity
 import com.linkedin.common.Urn
 
 /**
- * Carries information about the CorpGroups a user is in.
+ * Carries information about which roles a user is assigned to.
  */
 @Aspect = {
   "name": "roleMembership"

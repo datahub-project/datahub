@@ -105,7 +105,7 @@ export const UserList = () => {
 
     return (
         <>
-            {!data && loading && <Message type="loading" content="Loading users..." />}
+            {!usersData && loading && <Message type="loading" content="Loading users..." />}
             {error && <Message type="error" content="Failed to load users! An unexpected error occurred." />}
             <UserContainer>
                 <TabToolbar>

@@ -32,6 +32,7 @@ import AvatarsGroup from '../AvatarsGroup';
 import { useEntityRegistry } from '../../useEntityRegistry';
 import { ANTD_GRAY } from '../../entity/shared/constants';
 import { SearchBar } from '../../search/SearchBar';
+import { scrollToTop } from '../../shared/searchUtils';
 
 const SourceContainer = styled.div``;
 

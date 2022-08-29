@@ -30,6 +30,8 @@ import com.linkedin.datahub.graphql.generated.Test;
 import com.linkedin.datahub.graphql.types.mappers.ModelMapper;
 import javax.annotation.Nonnull;
 
+import static com.linkedin.metadata.Constants.*;
+
 
 public class UrnToEntityMapper implements ModelMapper<com.linkedin.common.urn.Urn, Entity>  {
   public static final UrnToEntityMapper INSTANCE = new UrnToEntityMapper();
@@ -151,12 +153,12 @@ public class UrnToEntityMapper implements ModelMapper<com.linkedin.common.urn.Ur
       ((Assertion) partialEntity).setUrn(input.toString());
       ((Assertion) partialEntity).setType(EntityType.TEST);
     }
-    if (input.getEntityType().equals("dataHubRole")) {
+    if (input.getEntityType().equals(DATAHUB_ROLE_ENTITY_NAME)) {
       partialEntity = new DataHubRole();
       ((DataHubRole) partialEntity).setUrn(input.toString());
       ((DataHubRole) partialEntity).setType(EntityType.DATAHUB_ROLE);
     }
-    if (input.getEntityType().equals("dataHubPolicy")) {
+    if (input.getEntityType().equals(POLICY_ENTITY_NAME)) {
       partialEntity = new DataHubPolicy();
       ((DataHubPolicy) partialEntity).setUrn(input.toString());
       ((DataHubPolicy) partialEntity).setType(EntityType.DATAHUB_POLICY);

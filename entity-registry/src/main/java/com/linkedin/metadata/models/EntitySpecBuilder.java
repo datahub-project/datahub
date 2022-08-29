@@ -24,7 +24,6 @@ import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
-import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import lombok.extern.slf4j.Slf4j;
@@ -164,17 +163,15 @@ public class EntitySpecBuilder {
   /**
    * Build a config-based {@link EntitySpec}, as opposed to a Snapshot-based {@link EntitySpec}
    */
-  public EntitySpec buildConfigEntitySpec(
-      @Nonnull final String entityName,
-      @Nonnull final String keyAspect,
+  public EntitySpec buildConfigEntitySpec(@Nonnull final String entityName, @Nonnull final String keyAspect,
       @Nonnull final List<AspectSpec> aspectSpecs) {
     return new ConfigEntitySpec(entityName, keyAspect, aspectSpecs);
   }
 
   public EntitySpec buildPartialEntitySpec(@Nonnull final String entityName, @Nullable final String keyAspectName,
       @Nonnull final List<AspectSpec> aspectSpecs) {
-      EntitySpec entitySpec = new PartialEntitySpec(aspectSpecs, new EntityAnnotation(entityName, keyAspectName));
-      return entitySpec;
+    EntitySpec entitySpec = new PartialEntitySpec(aspectSpecs, new EntityAnnotation(entityName, keyAspectName));
+    return entitySpec;
   }
 
   public AspectSpec buildAspectSpec(@Nonnull final DataSchema aspectDataSchema,
