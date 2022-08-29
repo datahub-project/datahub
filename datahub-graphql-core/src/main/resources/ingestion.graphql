@@ -322,6 +322,11 @@ type IngestionConfig {
   Advanced: The version of the ingestion framework to use
   """
   version: String
+
+  """
+  Advanced: Whether or not to run ingestion in debug mode
+  """
+  debugMode: Boolean
 }
 
 """
@@ -458,6 +463,11 @@ input UpdateIngestionSourceConfigInput {
   The id of the executor to use for executing the recipe
   """
   executorId: String!
+
+  """
+  Whether or not to run ingestion in debug mode
+  """
+  debugMode: Boolean!
 }
 
 """

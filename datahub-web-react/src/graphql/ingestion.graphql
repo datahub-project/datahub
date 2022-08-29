@@ -11,6 +11,7 @@ query listIngestionSources($input: ListIngestionSourcesInput!) {
                 recipe
                 version
                 executorId
+                debugMode
             }
             schedule {
                 interval
@@ -46,6 +47,7 @@ query getIngestionSource($urn: String!, $runStart: Int, $runCount: Int) {
             recipe
             version
             executorId
+            debugMode
         }
         schedule {
             interval
