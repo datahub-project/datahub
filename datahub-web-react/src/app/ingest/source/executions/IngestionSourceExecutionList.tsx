@@ -109,8 +109,8 @@ export const IngestionSourceExecutionList = ({ urn, isExpanded, lastRefresh, onR
             title: `Confirm Rollback`,
             content: (
                 <div>
-                    Rolling back this ingestion run will delete any data specifically associated with with this run. If
-                    overlapping data has been ingested in previous runs, it may not be removed.
+                    Rolling back this ingestion run will remove any new data ingested during the run. This may exclude
+                    data that was previously extracted, but did not change during this run.
                     <br />
                     <br /> Are you sure you want to continue?
                 </div>
@@ -143,7 +143,9 @@ export const IngestionSourceExecutionList = ({ urn, isExpanded, lastRefresh, onR
     return (
         <ListContainer>
             {!data && loading && <Message type="loading" content="Loading executions..." />}
-            {error && message.error('Failed to load executions :(')}
+            {error && (
+                <Message type="error" content="Failed to load ingestion executions! An unexpected error occurred." />
+            )}
             <IngestionExecutionTable
                 executionRequests={executionRequests}
                 setFocusExecutionUrn={setFocusExecutionUrn}
