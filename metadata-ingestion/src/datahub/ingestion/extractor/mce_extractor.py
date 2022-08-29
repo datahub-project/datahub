@@ -4,7 +4,6 @@ from datahub.configuration.common import ConfigModel
 from datahub.emitter.mce_builder import get_sys_time
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api import RecordEnvelope
-from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.source import Extractor, WorkUnit
 from datahub.ingestion.api.workunit import MetadataWorkUnit, UsageStatsWorkUnit
 from datahub.metadata.com.linkedin.pegasus2avro.mxe import (
@@ -24,13 +23,10 @@ class WorkUnitRecordExtractorConfig(ConfigModel):
     set_system_metadata = True
 
 
-class WorkUnitRecordExtractor(Extractor):
+class WorkUnitRecordExtractor(
+    Extractor[MetadataWorkUnit, WorkUnitRecordExtractorConfig]
+):
     """An extractor that simply returns the data inside workunits back as records."""
-
-    CONFIG_CLASS = WorkUnitRecordExtractorConfig
-
-    ctx: PipelineContext
-    config: WorkUnitRecordExtractorConfig
 
     def get_records(
         self, workunit: WorkUnit
