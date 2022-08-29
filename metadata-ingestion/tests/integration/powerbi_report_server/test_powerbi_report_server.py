@@ -13,7 +13,7 @@ POWERBI_REPORT_SERVER_USER_DAO_GET_OWNER = "datahub.ingestion.source.powerbi_rep
 
 def mock_user(*args, **kwargs):
     user_data = dict(
-        urn=f"urn:li:corpuser:User1",
+        urn="urn:li:corpuser:User1",
         type=Constant.CORP_USER,
         username="User1",
         properties=dict(active=True, displayName="User1", email="User1@foo.com"),

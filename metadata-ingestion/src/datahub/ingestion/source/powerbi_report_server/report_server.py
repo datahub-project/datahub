@@ -43,9 +43,9 @@ from datahub.metadata.schema_classes import (
     StatusClass,
 )
 
-from .constants import API_ENDPOINTS, Constant
-from .graphql_domain import CorpUser
-from .report_server_domain import LinkedReport, MobileReport, PowerBiReport, Report
+from datahub.ingestion.source.powerbi_report_server.constants import API_ENDPOINTS, Constant
+from datahub.ingestion.source.powerbi_report_server.graphql_domain import CorpUser
+from datahub.ingestion.source.powerbi_report_server.report_server_domain import LinkedReport, MobileReport, PowerBiReport, Report
 
 LOGGER = logging.getLogger(__name__)
 

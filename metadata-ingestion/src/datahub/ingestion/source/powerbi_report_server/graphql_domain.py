@@ -3,7 +3,7 @@ from typing import List, Optional
 
 from pydantic import BaseModel, Field
 
-from .constants import RelationshipDirection
+from datahub.ingestion.source.powerbi_report_server.constants import RelationshipDirection
 
 
 class CorpUserEditableInfo(BaseModel):
