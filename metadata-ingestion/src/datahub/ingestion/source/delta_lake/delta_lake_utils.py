@@ -21,6 +21,10 @@ def read_delta_table(
                     "AWS_ACCESS_KEY_ID": creds.get("aws_access_key_id", ""),
                     "AWS_SECRET_ACCESS_KEY": creds.get("aws_secret_access_key", ""),
                 }
+                if delta_lake_config.s3.aws_config.aws_endpoint_url:
+                    opts[
+                        "AWS_ENDPOINT_URL"
+                    ] = delta_lake_config.s3.aws_config.aws_endpoint_url
         delta_table = DeltaTable(path, storage_options=opts)
 
     except PyDeltaTableError as e:
