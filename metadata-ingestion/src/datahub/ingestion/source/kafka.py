@@ -1,6 +1,6 @@
 import logging
 from dataclasses import dataclass, field
-from typing import Dict, Iterable, List, Optional, Type, cast
+from typing import Dict, Iterable, List, Optional, Type
 
 import confluent_kafka
 import pydantic
@@ -29,12 +29,17 @@ from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.kafka_schema_registry_base import KafkaSchemaRegistryBase
 from datahub.ingestion.source.state.checkpoint import Checkpoint
 from datahub.ingestion.source.state.kafka_state import KafkaCheckpointState
+from datahub.ingestion.source.state.stale_entity_checkpoint_base import (
+    StaleEntityRemovalSourceReport,
+    StatefulStaleMetadataRemovalConfig,
+)
 from datahub.ingestion.source.state.stateful_ingestion_base import (
     JobId,
-    StatefulIngestionConfig,
     StatefulIngestionConfigBase,
-    StatefulIngestionReport,
     StatefulIngestionSourceBase,
+)
+from datahub.ingestion.source.state_handler.stale_entity_removal_handler import (
+    StaleEntityRemovalHandler,
 )
 from datahub.metadata.com.linkedin.pegasus2avro.common import Status
 from datahub.metadata.com.linkedin.pegasus2avro.metadata.snapshot import DatasetSnapshot
@@ -43,7 +48,6 @@ from datahub.metadata.schema_classes import (
     BrowsePathsClass,
     ChangeTypeClass,
     DataPlatformInstanceClass,
-    JobStatusClass,
     SubTypesClass,
 )
 from datahub.utilities.registries.domain_registry import DomainRegistry
@@ -51,14 +55,14 @@ from datahub.utilities.registries.domain_registry import DomainRegistry
 logger = logging.getLogger(__name__)
 
 
-class KafkaSourceStatefulIngestionConfig(StatefulIngestionConfig):
+class KafkaSourceStatefulIngestionConfig(StatefulStaleMetadataRemovalConfig):
     """
-    Specialization of the basic StatefulIngestionConfig to add custom config.
+    Specialization of StatefulStaleMetadataRemovalConfig to adding custom config.
     This will be used to override the stateful_ingestion config param of StatefulIngestionConfigBase
-    in the KafkaSourceConfig.
+    in the SQLAlchemyConfig.
     """
 
-    remove_stale_metadata: bool = True
+    _entity_types: List[str] = pydantic.Field(default=["topic"])
 
 
 class KafkaSourceConfig(StatefulIngestionConfigBase, DatasetSourceConfigBase):
@@ -85,21 +89,30 @@ class KafkaSourceConfig(StatefulIngestionConfigBase, DatasetSourceConfigBase):
         description="Disables warnings reported for non-AVRO/Protobuf value or key schemas if set.",
     )
 
+    @pydantic.root_validator
+    def validate_platform_instance(cls: "KafkaSourceConfig", values: Dict) -> Dict:
+        stateful_ingestion = values.get("stateful_ingestion")
+        if (
+            stateful_ingestion
+            and stateful_ingestion.enabled
+            and not values.get("platform_instance")
+        ):
+            raise ConfigurationError(
+                "Enabling kafka stateful ingestion requires to specify a platform instance."
+            )
+        return values
+
 
 @dataclass
-class KafkaSourceReport(StatefulIngestionReport):
+class KafkaSourceReport(StaleEntityRemovalSourceReport):
     topics_scanned: int = 0
     filtered: List[str] = field(default_factory=list)
-    soft_deleted_stale_entities: List[str] = field(default_factory=list)
 
     def report_topic_scanned(self, topic: str) -> None:
         self.topics_scanned += 1
 
     def report_dropped(self, topic: str) -> None:
         self.filtered.append(topic)
-
-    def report_stale_entity_soft_deleted(self, urn: str) -> None:
-        self.soft_deleted_stale_entities.append(urn)
 
 
 @platform_name("Kafka")
@@ -127,14 +140,6 @@ class KafkaSource(StatefulIngestionSourceBase):
     def __init__(self, config: KafkaSourceConfig, ctx: PipelineContext):
         super().__init__(config, ctx)
         self.source_config: KafkaSourceConfig = config
-        if (
-            self.is_stateful_ingestion_configured()
-            and not self.source_config.platform_instance
-        ):
-            raise ConfigurationError(
-                "Enabling kafka stateful ingestion requires to specify a platform instance."
-            )
-
         self.consumer: confluent_kafka.Consumer = confluent_kafka.Consumer(
             {
                 "group.id": "test",
@@ -151,17 +156,12 @@ class KafkaSource(StatefulIngestionSourceBase):
                 cached_domains=[k for k in self.source_config.domain],
                 graph=self.ctx.graph,
             )
-
-    def is_checkpointing_enabled(self, job_id: JobId) -> bool:
-        if (
-            job_id == self.get_default_ingestion_job_id()
-            and self.is_stateful_ingestion_configured()
-            and self.source_config.stateful_ingestion
-            and self.source_config.stateful_ingestion.remove_stale_metadata
-        ):
-            return True
-
-        return False
+        self.stale_entity_removal_handler = StaleEntityRemovalHandler(
+            source=self,
+            config=self.source_config.stateful_ingestion,
+            state_type_class=KafkaCheckpointState,
+            job_id=self.get_default_ingestion_job_id(),
+        )
 
     def get_default_ingestion_job_id(self) -> JobId:
         """
@@ -194,74 +194,26 @@ class KafkaSource(StatefulIngestionSourceBase):
         config: KafkaSourceConfig = KafkaSourceConfig.parse_obj(config_dict)
         return cls(config, ctx)
 
-    def gen_removed_entity_workunits(self) -> Iterable[MetadataWorkUnit]:
-        last_checkpoint = self.get_last_checkpoint(
-            self.get_default_ingestion_job_id(), KafkaCheckpointState
-        )
-        cur_checkpoint = self.get_current_checkpoint(
-            self.get_default_ingestion_job_id()
-        )
-        if (
-            self.source_config.stateful_ingestion
-            and self.source_config.stateful_ingestion.remove_stale_metadata
-            and last_checkpoint is not None
-            and last_checkpoint.state is not None
-            and cur_checkpoint is not None
-            and cur_checkpoint.state is not None
-        ):
-            logger.debug("Checking for stale entity removal.")
-
-            def soft_delete_dataset(urn: str, type: str) -> Iterable[MetadataWorkUnit]:
-                logger.info(f"Soft-deleting stale entity of type {type} - {urn}.")
-                mcp = MetadataChangeProposalWrapper(
-                    entityType="dataset",
-                    entityUrn=urn,
-                    changeType=ChangeTypeClass.UPSERT,
-                    aspectName="status",
-                    aspect=Status(removed=True),
-                )
-                wu = MetadataWorkUnit(id=f"soft-delete-{type}-{urn}", mcp=mcp)
-                self.report.report_workunit(wu)
-                self.report.report_stale_entity_soft_deleted(urn)
-                yield wu
-
-            last_checkpoint_state = cast(KafkaCheckpointState, last_checkpoint.state)
-            cur_checkpoint_state = cast(KafkaCheckpointState, cur_checkpoint.state)
-
-            for topic_urn in last_checkpoint_state.get_topic_urns_not_in(
-                cur_checkpoint_state
-            ):
-                yield from soft_delete_dataset(topic_urn, "topic")
-
     def get_workunits(self) -> Iterable[MetadataWorkUnit]:
         topics = self.consumer.list_topics().topics
         for t in topics:
             self.report.report_topic_scanned(t)
             if self.source_config.topic_patterns.allowed(t):
                 yield from self._extract_record(t)
-                # add topic to checkpoint if stateful ingestion is enabled
-                if self.is_stateful_ingestion_configured():
-                    self._add_topic_to_checkpoint(t)
-            else:
-                self.report.report_dropped(t)
-        if self.is_stateful_ingestion_configured():
-            # Clean up stale entities.
-            yield from self.gen_removed_entity_workunits()
-
-    def _add_topic_to_checkpoint(self, topic: str) -> None:
-        cur_checkpoint = self.get_current_checkpoint(
-            self.get_default_ingestion_job_id()
-        )
-        if cur_checkpoint is not None:
-            checkpoint_state = cast(KafkaCheckpointState, cur_checkpoint.state)
-            checkpoint_state.add_topic_urn(
-                make_dataset_urn_with_platform_instance(
+                # add topic to checkpoint
+                topic_urn = make_dataset_urn_with_platform_instance(
                     platform=self.platform,
-                    name=topic,
+                    name=t,
                     platform_instance=self.source_config.platform_instance,
                     env=self.source_config.env,
                 )
-            )
+                self.stale_entity_removal_handler.add_entity_to_state(
+                    type="topic", urn=topic_urn
+                )
+            else:
+                self.report.report_dropped(t)
+        # Clean up stale entities.
+        yield from self.stale_entity_removal_handler.gen_removed_entity_workunits()
 
     def _extract_record(self, topic: str) -> Iterable[MetadataWorkUnit]:
         logger.debug(f"topic = {topic}")
@@ -351,20 +303,7 @@ class KafkaSource(StatefulIngestionSourceBase):
     def get_report(self) -> KafkaSourceReport:
         return self.report
 
-    def update_default_job_run_summary(self) -> None:
-        summary = self.get_job_run_summary(self.get_default_ingestion_job_id())
-        if summary is not None:
-            # For now just add the config and the report.
-            summary.config = self.source_config.json()
-            summary.custom_summary = self.report.as_string()
-            summary.runStatus = (
-                JobStatusClass.FAILED
-                if self.get_report().failures
-                else JobStatusClass.COMPLETED
-            )
-
     def close(self) -> None:
-        self.update_default_job_run_summary()
         self.prepare_for_commit()
         if self.consumer:
             self.consumer.close()

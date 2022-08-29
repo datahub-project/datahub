@@ -2,11 +2,12 @@ import logging
 import platform
 from dataclasses import dataclass
 from datetime import datetime
-from typing import Any, Dict, Optional, Type, cast
+from typing import Any, Dict, Generic, Optional, TypeVar, cast
 
 import psutil
 import pydantic
 from pydantic.fields import Field
+from pydantic.generics import GenericModel
 
 from datahub.configuration.common import (
     ConfigModel,
@@ -85,12 +86,19 @@ class StatefulIngestionConfig(ConfigModel):
         return values
 
 
-class StatefulIngestionConfigBase(DatasetSourceConfigBase):
+CustomConfig = TypeVar("CustomConfig", bound=StatefulIngestionConfig)
+
+
+class StatefulIngestionConfigBase(
+    DatasetSourceConfigBase, GenericModel, Generic[CustomConfig]
+):
     """
     Base configuration class for stateful ingestion for source configs to inherit from.
     """
 
-    stateful_ingestion: Optional[StatefulIngestionConfig] = None
+    stateful_ingestion: Optional[CustomConfig] = Field(
+        default=None, description="Stateful Ingestion Config"
+    )
 
 
 @dataclass
@@ -98,7 +106,10 @@ class StatefulIngestionReport(SourceReport):
     pass
 
 
-class StatefulIngestionSourceBase(Source):
+StateType = TypeVar("StateType", bound=CheckpointStateBase)
+
+
+class StatefulIngestionSourceBase(Source, Generic[StateType]):
     """
     Defines the base class for all stateful sources.
     """
@@ -200,7 +211,7 @@ class StatefulIngestionSourceBase(Source):
         raise NotImplementedError("Sub-classes must implement this method.")
 
     def _get_last_checkpoint(
-        self, job_id: JobId, checkpoint_state_class: Type[CheckpointStateBase]
+        self, job_id: JobId, checkpoint_state_class: StateType
     ) -> Optional[Checkpoint]:
         """
         This is a template method implementation for querying the last checkpoint state.
@@ -214,7 +225,7 @@ class StatefulIngestionSourceBase(Source):
                 job_name=job_id,
             )
             # Convert it to a first-class Checkpoint object.
-            last_checkpoint = Checkpoint.create_from_checkpoint_aspect(
+            last_checkpoint = Checkpoint[StateType].create_from_checkpoint_aspect(
                 job_name=job_id,
                 checkpoint_aspect=last_checkpoint_aspect,
                 config_class=self.source_config_type,
@@ -224,7 +235,7 @@ class StatefulIngestionSourceBase(Source):
 
     # Base-class implementations for common state management tasks.
     def get_last_checkpoint(
-        self, job_id: JobId, checkpoint_state_class: Type[CheckpointStateBase]
+        self, job_id: JobId, checkpoint_state_class: StateType
     ) -> Optional[Checkpoint]:
         if not self.is_stateful_ingestion_configured() or (
             self.stateful_ingestion_config
@@ -274,6 +285,7 @@ class StatefulIngestionSourceBase(Source):
         for job_name, job_checkpoint in self.cur_checkpoints.items():
             if job_checkpoint is None:
                 continue
+            job_checkpoint.prepare_for_commit()
             try:
                 checkpoint_aspect = job_checkpoint.to_checkpoint_aspect(
                     self.stateful_ingestion_config.max_checkpoint_state_size  # type: ignore

@@ -3,7 +3,7 @@ import logging
 import re
 from dataclasses import dataclass
 from hashlib import md5
-from typing import Iterable, List, Optional, Tuple, cast
+from typing import Iterable, List, Optional, Tuple
 
 import requests
 
@@ -32,6 +32,9 @@ from datahub.ingestion.source.state.kafka_state import KafkaCheckpointState
 from datahub.ingestion.source.state.stateful_ingestion_base import (
     JobId,
     StatefulIngestionSourceBase,
+)
+from datahub.ingestion.source.state_handler.stale_entity_removal_handler import (
+    StaleEntityRemovalHandler,
 )
 from datahub.ingestion.source_config.pulsar import PulsarSourceConfig
 from datahub.ingestion.source_report.pulsar import PulsarSourceReport
@@ -98,16 +101,14 @@ class PulsarSource(StatefulIngestionSourceBase):
         self.platform: str = "pulsar"
         self.config: PulsarSourceConfig = config
         self.report: PulsarSourceReport = PulsarSourceReport()
+        self.stale_entity_removal_handler = StaleEntityRemovalHandler(
+            source=self,
+            config=self.config.stateful_ingestion,
+            state_type_class=KafkaCheckpointState,
+            job_id=self.get_default_ingestion_job_id(),
+        )
         self.base_url: str = f"{self.config.web_service_url}/admin/v2"
         self.tenants: List[str] = config.tenants
-
-        if (
-            self.is_stateful_ingestion_configured()
-            and not self.config.platform_instance
-        ):
-            raise ConfigurationError(
-                "Enabling Pulsar stateful ingestion requires to specify a platform instance."
-            )
 
         self.session = requests.Session()
         self.session.verify = self.config.verify_ssl
@@ -219,14 +220,6 @@ class PulsarSource(StatefulIngestionSourceBase):
                 f"An ambiguous exception occurred while handling the request: {e}"
             )
 
-    def is_checkpointing_enabled(self, job_id: JobId) -> bool:
-        return job_id == (
-            self.get_default_ingestion_job_id()
-            and self.is_stateful_ingestion_configured()
-            and self.config.stateful_ingestion
-            and self.config.stateful_ingestion.remove_stale_metadata
-        )
-
     def get_default_ingestion_job_id(self) -> JobId:
         """
         Default ingestion job name that kafka provides.
@@ -263,45 +256,6 @@ class PulsarSource(StatefulIngestionSourceBase):
             config.topic_patterns.deny.append(r".*-partition-[0-9]+")
 
         return cls(config, ctx)
-
-    def soft_delete_dataset(self, urn: str, type: str) -> Iterable[MetadataWorkUnit]:
-        logger.debug(f"Soft-deleting stale entity of type {type} - {urn}.")
-        mcp = MetadataChangeProposalWrapper(
-            entityType="dataset",
-            entityUrn=urn,
-            changeType=ChangeTypeClass.UPSERT,
-            aspectName="status",
-            aspect=StatusClass(removed=True),
-        )
-        wu = MetadataWorkUnit(id=f"soft-delete-{type}-{urn}", mcp=mcp)
-        self.report.report_workunit(wu)
-        self.report.report_stale_entity_soft_deleted(urn)
-        yield wu
-
-    def gen_removed_entity_workunits(self) -> Iterable[MetadataWorkUnit]:
-        last_checkpoint = self.get_last_checkpoint(
-            self.get_default_ingestion_job_id(), KafkaCheckpointState
-        )
-        cur_checkpoint = self.get_current_checkpoint(
-            self.get_default_ingestion_job_id()
-        )
-        if (
-            self.config.stateful_ingestion
-            and self.config.stateful_ingestion.remove_stale_metadata
-            and last_checkpoint is not None
-            and last_checkpoint.state is not None
-            and cur_checkpoint is not None
-            and cur_checkpoint.state is not None
-        ):
-            logger.debug("Checking for stale entity removal.")
-
-            last_checkpoint_state = cast(KafkaCheckpointState, last_checkpoint.state)
-            cur_checkpoint_state = cast(KafkaCheckpointState, cur_checkpoint.state)
-
-            for topic_urn in last_checkpoint_state.get_topic_urns_not_in(
-                cur_checkpoint_state
-            ):
-                yield from self.soft_delete_dataset(topic_urn, "topic")
 
     def get_workunits(self) -> Iterable[MetadataWorkUnit]:
         """
@@ -374,35 +328,23 @@ class PulsarSource(StatefulIngestionSourceBase):
 
                                 yield from self._extract_record(topic, is_partitioned)
                                 # Add topic to checkpoint if stateful ingestion is enabled
-                                if self.is_stateful_ingestion_configured():
-                                    self._add_topic_to_checkpoint(topic)
+                                topic_urn = make_dataset_urn_with_platform_instance(
+                                    platform=self.platform,
+                                    name=topic,
+                                    platform_instance=self.config.platform_instance,
+                                    env=self.config.env,
+                                )
+                                self.stale_entity_removal_handler.add_entity_to_state(
+                                    type="topic", urn=topic_urn
+                                )
                             else:
                                 self.report.report_topics_dropped(topic)
-
-                        if self.is_stateful_ingestion_configured():
-                            # Clean up stale entities.
-                            yield from self.gen_removed_entity_workunits()
-
                     else:
                         self.report.report_namespaces_dropped(namespace)
             else:
                 self.report.report_tenants_dropped(tenant)
-
-    def _add_topic_to_checkpoint(self, topic: str) -> None:
-        cur_checkpoint = self.get_current_checkpoint(
-            self.get_default_ingestion_job_id()
-        )
-
-        if cur_checkpoint is not None:
-            checkpoint_state = cast(KafkaCheckpointState, cur_checkpoint.state)
-            checkpoint_state.add_topic_urn(
-                make_dataset_urn_with_platform_instance(
-                    platform=self.platform,
-                    name=topic,
-                    platform_instance=self.config.platform_instance,
-                    env=self.config.env,
-                )
-            )
+        # Clean up stale entities.
+        yield from self.stale_entity_removal_handler.gen_removed_entity_workunits()
 
     def _is_token_authentication_configured(self) -> bool:
         return self.config.token is not None
