@@ -1,5 +1,5 @@
-import React from 'react';
-import { Divider, Form, Select, Tooltip } from 'antd';
+import React, { ReactNode } from 'react';
+import { Divider, Form, Select } from 'antd';
 import styled from 'styled-components/macro';
 import { Secret } from '../../../../../../types.generated';
 import CreateSecretButton from './CreateSecretButton';
@@ -14,7 +14,11 @@ export const SecretFieldLabel = styled.span`
     color: ${ANTD_GRAY[7]};
 `;
 
-export const StyledFormItem = styled(Form.Item)<{ alignLeft?: boolean; removeMargin: boolean }>`
+export const StyledFormItem = styled(Form.Item)<{
+    alignLeft?: boolean;
+    removeMargin: boolean;
+    isSecretField?: boolean;
+}>`
     margin-bottom: ${(props) => (props.removeMargin ? '0' : '16px')};
 
     ${(props) =>
@@ -22,11 +26,27 @@ export const StyledFormItem = styled(Form.Item)<{ alignLeft?: boolean; removeMar
         `
         .ant-form-item {
             flex-direction: row;
+
         }
 
         .ant-form-item-label {
             padding: 0;
             margin-right: 10px;
+        }
+    `}
+
+    ${(props) =>
+        props.isSecretField &&
+        `
+        .ant-form-item-label {
+            &:after {
+                content: 'Secret Field';
+                color: ${ANTD_GRAY[7]};
+                font-style: italic;
+                font-weight: 100;
+                margin-left: 5px;
+                font-size: 10px;
+            }
         }
     `}
 `;
@@ -38,9 +58,10 @@ interface SecretFieldProps {
     refetchSecrets: () => void;
 }
 
-function getTooltip() {
+function SecretFieldTooltip({ tooltipLabel }: { tooltipLabel?: string | ReactNode }) {
     return (
         <div>
+            {tooltipLabel}
             <p>
                 This field requires you to use a DataHub Secret. For more information on Secrets in DataHub, please
                 review{' '}
@@ -51,6 +72,7 @@ function getTooltip() {
                 >
                     the docs
                 </a>
+                .
             </p>
         </div>
     );
@@ -58,10 +80,13 @@ function getTooltip() {
 
 function SecretField({ field, secrets, removeMargin, refetchSecrets }: SecretFieldProps) {
     return (
-        <StyledFormItem name={field.name} label={field.label} tooltip={field.tooltip} removeMargin={!!removeMargin}>
-            <Tooltip title={getTooltip}>
-                <SecretFieldLabel>Secret Field</SecretFieldLabel>
-            </Tooltip>
+        <StyledFormItem
+            name={field.name}
+            label={field.label}
+            tooltip={<SecretFieldTooltip tooltipLabel={field?.tooltip} />}
+            removeMargin={!!removeMargin}
+            isSecretField
+        >
             <Select
                 showSearch
                 filterOption={(input, option) => !!option?.children.toLowerCase().includes(input.toLowerCase())}
