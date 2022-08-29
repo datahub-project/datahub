@@ -19,3 +19,11 @@ skip_glob = 'src/datahub/metadata'
 
 [tool.pyright]
 extraPaths = ['tests']
+
+[tool.vulture]
+exclude = ["src/datahub/metadata/"]
+ignore_decorators = ["@click.*", "@validator", "@root_validator", "@pydantic.validator", "@pydantic.root_validator"]
+ignore_names = ["*Source", "*Sink", "*Report"]
+# min_confidence = 80
+paths = ["src"]
+sort_by_size = true

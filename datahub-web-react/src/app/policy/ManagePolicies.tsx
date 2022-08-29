@@ -435,8 +435,8 @@ export const ManagePolicies = () => {
             {policiesLoading && !policiesData && (
                 <Message type="loading" content="Loading policies..." style={{ marginTop: '10%' }} />
             )}
-            {policiesError && message.error('Failed to load policies :(')}
-            {updateError && message.error('Failed to update the Policy :(')}
+            {policiesError && <Message type="error" content="Failed to load policies! An unexpected error occurred." />}
+            {updateError && message.error('Failed to update policies. An unexpected error occurred.')}
             <PoliciesContainer>
                 <PoliciesHeaderContainer>
                     <PoliciesTitle level={2}>Manage Access Policies</PoliciesTitle>
@@ -467,6 +467,7 @@ export const ManagePolicies = () => {
                         onSearch={() => null}
                         onQueryChange={(q) => setQuery(q)}
                         entityRegistry={entityRegistry}
+                        hideRecommendations
                     />
                 </TabToolbar>
                 <StyledTable

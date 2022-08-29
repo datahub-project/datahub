@@ -58,6 +58,7 @@ entities:
       - container
       - deprecation
       - inputFields
+      - chartUsageStatistics
   - name: dashboard
     keyAspect: dashboardKey
     aspects:

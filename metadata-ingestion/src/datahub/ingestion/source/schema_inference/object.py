@@ -155,6 +155,9 @@ def construct_schema(
         # if single type detected, mark that as the type to go with
         if len(field_types.keys()) == 1:
             field_type = next(iter(field_types))
+        elif set(field_types.keys()) == {int, float}:
+            # If there's only floats and ints, it's not really a mixed type.
+            field_type = float
         field_extended: SchemaDescription = {
             "types": schema[field_path]["types"],
             "count": schema[field_path]["count"],

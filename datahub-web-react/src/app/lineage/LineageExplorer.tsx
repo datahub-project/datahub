@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useHistory } from 'react-router';
 
-import { Alert, Button, Drawer } from 'antd';
+import { Button, Drawer } from 'antd';
 import { InfoCircleOutlined } from '@ant-design/icons';
 import styled from 'styled-components';
 
@@ -16,6 +16,7 @@ import { capitalizeFirstLetter } from '../shared/textUtil';
 import { ANTD_GRAY } from '../entity/shared/constants';
 import { GetEntityLineageQuery, useGetEntityLineageQuery } from '../../graphql/lineage.generated';
 import { useIsSeparateSiblingsMode } from '../entity/shared/siblingUtils';
+import { ErrorSection } from '../shared/error/ErrorSection';
 
 const DEFAULT_DISTANCE_FROM_TOP = 106;
 
@@ -115,15 +116,12 @@ export default function LineageExplorer({ urn, type }: Props) {
         }
     }, [entityData, setAsyncEntities, maybeAddAsyncLoadedEntity, urn, previousUrn, type, loading]);
 
-    if (error || (!loading && !error && !data)) {
-        return <Alert type="error" message={error?.message || 'Entity failed to load'} />;
-    }
-
     const drawerDistanceFromTop =
         drawerRef && drawerRef.current ? drawerRef.current.offsetTop : DEFAULT_DISTANCE_FROM_TOP;
 
     return (
         <>
+            {error && <ErrorSection />}
             {loading && <LoadingMessage type="loading" content="Loading..." />}
             {!!data && (
                 <div>

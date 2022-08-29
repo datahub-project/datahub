@@ -1,0 +1,76 @@
+.hero {
+  :global {
+    .button {
+      margin-right: 1rem;
+    }
+    .hero__alert {
+      margin-bottom: 2rem;
+      @media (min-width: 690px) {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+      }
+      .button {
+        text-decoration: none;
+        margin: 0.5rem 0 0 0;
+        display: block;
+        white-space: nowrap;
+        @media (min-width: 690px) {
+          margin: 0 0 0 0.5rem;
+        }
+      }
+    }
+    .hero__image {
+      margin: 2rem 0;
+    }
+    .hero__alert {
+      margin-bottom: 2rem;
+      @media (min-width: 690px) {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+      }
+      .button {
+        text-decoration: none;
+        margin: 0.5rem 0 0 0;
+        display: block;
+        white-space: nowrap;
+        @media (min-width: 690px) {
+          margin: 0 0 0 0.5rem;
+        }
+      }
+    }
+  }
+}
+
+.quickLinks {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 1rem;
+  font-weight: bold;
+  margin-bottom: -2.5vh;
+  @media (min-width: 768px) {
+    flex-direction: row;
+  }
+
+  > * {
+    padding: 0.5rem 1rem;
+    display: inline-block;
+
+    @media (min-width: 768px) {
+      padding: 0 1rem;
+    }
+  }
+}
+
+.quickLinksLabel {
+  display: flex;
+  align-items: center;
+  svg {
+    width: 24px;
+    height: 24px;
+    color: var(--ifm-text-color) !important;
+    margin-right: 0.5rem;
+  }
+}
