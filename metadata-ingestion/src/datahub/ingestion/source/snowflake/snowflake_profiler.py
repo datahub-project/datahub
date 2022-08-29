@@ -99,6 +99,7 @@ class SnowflakeProfiler(SnowflakeCommonMixin):
                     dataset_name = self.get_dataset_identifier(
                         table.name, schema.name, db.name
                     )
+                    skip_profiling = False
                     # no need to filter by size_in_bytes and row_count limits,
                     # if table level profilin, since its not expensive
                     if not self.is_dataset_eligible_for_profiling(
