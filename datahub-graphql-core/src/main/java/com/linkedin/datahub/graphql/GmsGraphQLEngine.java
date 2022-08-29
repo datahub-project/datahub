@@ -172,7 +172,7 @@ import com.linkedin.datahub.graphql.resolvers.policy.GetGrantedPrivilegesResolve
 import com.linkedin.datahub.graphql.resolvers.policy.ListPoliciesResolver;
 import com.linkedin.datahub.graphql.resolvers.policy.UpsertPolicyResolver;
 import com.linkedin.datahub.graphql.resolvers.recommendation.ListRecommendationsResolver;
-import com.linkedin.datahub.graphql.resolvers.role.BatchAssignRoleToActors;
+import com.linkedin.datahub.graphql.resolvers.role.BatchAssignRoleToActorsResolver;
 import com.linkedin.datahub.graphql.resolvers.role.ListRolesResolver;
 import com.linkedin.datahub.graphql.resolvers.search.AutoCompleteForMultipleResolver;
 import com.linkedin.datahub.graphql.resolvers.search.AutoCompleteResolver;

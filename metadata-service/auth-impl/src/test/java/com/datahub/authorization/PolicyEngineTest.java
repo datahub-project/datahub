@@ -20,6 +20,7 @@ import com.linkedin.entity.EnvelopedAspectMap;
 import com.linkedin.entity.client.EntityClient;
 import com.linkedin.identity.CorpUserInfo;
 import com.linkedin.identity.GroupMembership;
+import com.linkedin.identity.RoleMembership;
 import com.linkedin.policy.DataHubActorFilter;
 import com.linkedin.policy.DataHubPolicyInfo;
 import com.linkedin.policy.DataHubResourceFilter;
@@ -250,7 +251,6 @@ public class PolicyEngineTest {
     // Verify we are not making any network calls for these predicates.
     verify(_entityClient, times(0)).batchGetV2(any(), any(), any(), any());
   }
-
   @Test
   public void testEvaluatePolicyActorFilterGroupMatch() throws Exception {
 
@@ -322,6 +322,85 @@ public class PolicyEngineTest {
 
     // Verify we are only calling for group during these requests.
     verify(_entityClient, times(2)).batchGetV2(eq(CORP_USER_ENTITY_NAME),
+        eq(Collections.singleton(unauthorizedUserUrn)), eq(null), any());
+  }
+
+  @Test
+  // Write a test to verify that the policy engine is able to evaluate a policy with a role match
+  public void testEvaluatePolicyActorFilterRoleMatch() throws Exception {
+
+    final DataHubPolicyInfo dataHubPolicyInfo = new DataHubPolicyInfo();
+    dataHubPolicyInfo.setType(METADATA_POLICY_TYPE);
+    dataHubPolicyInfo.setState(ACTIVE_POLICY_STATE);
+    dataHubPolicyInfo.setPrivileges(new StringArray("EDIT_ENTITY_TAGS"));
+    dataHubPolicyInfo.setDisplayName("My Test Display");
+    dataHubPolicyInfo.setDescription("My test display!");
+    dataHubPolicyInfo.setEditable(true);
+
+    final DataHubActorFilter actorFilter = new DataHubActorFilter();
+    final UrnArray rolesUrnArray = new UrnArray();
+    rolesUrnArray.add(Urn.createFromString("urn:li:dataHubRole:admin"));
+    actorFilter.setRoles(rolesUrnArray);
+    actorFilter.setResourceOwners(false);
+    actorFilter.setAllUsers(false);
+    actorFilter.setAllGroups(false);
+    dataHubPolicyInfo.setActors(actorFilter);
+
+    final DataHubResourceFilter resourceFilter = new DataHubResourceFilter();
+    resourceFilter.setAllResources(true);
+    resourceFilter.setType("dataset");
+    dataHubPolicyInfo.setResources(resourceFilter);
+
+    ResolvedResourceSpec resourceSpec = buildResourceResolvers("dataset", RESOURCE_URN);
+    // Assert authorized user can edit entity tags.
+    PolicyEngine.PolicyEvaluationResult authorizedResult =
+        _policyEngine.evaluatePolicy(dataHubPolicyInfo, AUTHORIZED_PRINCIPAL, "EDIT_ENTITY_TAGS",
+            Optional.of(resourceSpec));
+
+    assertTrue(authorizedResult.isGranted());
+
+    // Verify we are only calling for roles during these requests.
+    verify(_entityClient, times(1)).batchGetV2(eq(CORP_USER_ENTITY_NAME), eq(Collections.singleton(authorizedUserUrn)),
+        eq(null), any());
+  }
+
+  @Test
+  // Write a test to verify that the policy engine is able to evaluate a policy with a role match
+  public void testEvaluatePolicyActorFilterNoRoleMatch() throws Exception {
+
+    final DataHubPolicyInfo dataHubPolicyInfo = new DataHubPolicyInfo();
+    dataHubPolicyInfo.setType(METADATA_POLICY_TYPE);
+    dataHubPolicyInfo.setState(ACTIVE_POLICY_STATE);
+    dataHubPolicyInfo.setPrivileges(new StringArray("EDIT_ENTITY_TAGS"));
+    dataHubPolicyInfo.setDisplayName("My Test Display");
+    dataHubPolicyInfo.setDescription("My test display!");
+    dataHubPolicyInfo.setEditable(true);
+
+    final DataHubActorFilter actorFilter = new DataHubActorFilter();
+    final UrnArray rolesUrnArray = new UrnArray();
+    rolesUrnArray.add(Urn.createFromString("urn:li:dataHubRole:admin"));
+    actorFilter.setRoles(rolesUrnArray);
+    actorFilter.setResourceOwners(false);
+    actorFilter.setAllUsers(false);
+    actorFilter.setAllGroups(false);
+    dataHubPolicyInfo.setActors(actorFilter);
+
+    final DataHubResourceFilter resourceFilter = new DataHubResourceFilter();
+    resourceFilter.setAllResources(true);
+    resourceFilter.setType("dataset");
+    dataHubPolicyInfo.setResources(resourceFilter);
+
+    ResolvedResourceSpec resourceSpec = buildResourceResolvers("dataset", RESOURCE_URN);
+    // Assert authorized user can edit entity tags.
+    PolicyEngine.PolicyEvaluationResult unauthorizedResult =
+        _policyEngine.evaluatePolicy(dataHubPolicyInfo, UNAUTHORIZED_PRINCIPAL, "EDIT_ENTITY_TAGS",
+            Optional.of(resourceSpec));
+
+    assertFalse(unauthorizedResult.isGranted());
+
+
+    // Verify we are only calling for roles during these requests.
+    verify(_entityClient, times(1)).batchGetV2(eq(CORP_USER_ENTITY_NAME),
         eq(Collections.singleton(unauthorizedUserUrn)), eq(null), any());
   }
 
@@ -976,6 +1055,12 @@ public class PolicyEngineTest {
     groupsAspect.setGroups(groups);
     aspectMap.put(GROUP_MEMBERSHIP_ASPECT_NAME, new EnvelopedAspect().setValue(new Aspect(groupsAspect.data())));
 
+    final RoleMembership rolesAspect = new RoleMembership();
+    final UrnArray roles = new UrnArray();
+    roles.add(Urn.createFromString("urn:li:dataHubRole:admin"));
+    rolesAspect.setRoles(roles);
+    aspectMap.put(ROLE_MEMBERSHIP_ASPECT_NAME, new EnvelopedAspect().setValue(new Aspect(rolesAspect.data())));
+
     entityResponse.setAspects(aspectMap);
     return entityResponse;
   }
@@ -998,6 +1083,12 @@ public class PolicyEngineTest {
     groups.add(Urn.createFromString("urn:li:corpGroup:unauthorizedGroup"));
     groupsAspect.setGroups(groups);
     aspectMap.put(GROUP_MEMBERSHIP_ASPECT_NAME, new EnvelopedAspect().setValue(new Aspect(groupsAspect.data())));
+
+    final RoleMembership rolesAspect = new RoleMembership();
+    final UrnArray roles = new UrnArray();
+    roles.add(Urn.createFromString("urn:li:dataHubRole:reader"));
+    rolesAspect.setRoles(roles);
+    aspectMap.put(ROLE_MEMBERSHIP_ASPECT_NAME, new EnvelopedAspect().setValue(new Aspect(rolesAspect.data())));
 
     entityResponse.setAspects(aspectMap);
     return entityResponse;

@@ -122,6 +122,8 @@ public class PolicyEngine {
       final Optional<ResolvedResourceSpec> resource,
       final PolicyEvaluationContext context
   ) {
+    // TODO: Add optimization to fetch using _entityClient.batchGetV2 only once and share across methods
+
     // If policy is inactive, simply return DENY.
     if (PoliciesConfig.INACTIVE_POLICY_STATE.equals(policy.getState())) {
       return false;
@@ -327,9 +329,13 @@ public class PolicyEngine {
 
   private boolean isRoleMatch(final Urn actor, final DataHubActorFilter actorFilter,
       final PolicyEvaluationContext context) {
+    // Can immediately return false if the actor filter does not have any roles
+    if (!actorFilter.hasRoles()) {
+      return false;
+    }
     // If the actor has a matching "Role" in the actor filter, return true immediately.
     Set<Urn> actorRoles = resolveRoles(actor, context);
-    return actorFilter.hasRoles() && Objects.requireNonNull(actorFilter.getRoles())
+    return Objects.requireNonNull(actorFilter.getRoles())
         .stream()
         .anyMatch(actorRoles::contains);
   }
@@ -340,8 +346,9 @@ public class PolicyEngine {
     }
 
     try {
-      final EntityResponse corpUser = _entityClient.batchGetV2(CORP_USER_ENTITY_NAME, Collections.singleton(actor),
-          Collections.singleton(ROLE_MEMBERSHIP_ASPECT_NAME), _systemAuthentication).get(actor);
+      final EntityResponse corpUser =
+          _entityClient.batchGetV2(CORP_USER_ENTITY_NAME, Collections.singleton(actor), null, _systemAuthentication)
+              .get(actor);
       final EnvelopedAspectMap aspectMap = corpUser.getAspects();
 
       if (aspectMap.containsKey(ROLE_MEMBERSHIP_ASPECT_NAME)) {
@@ -362,6 +369,8 @@ public class PolicyEngine {
     if (context.groups != null) {
       return context.groups;
     }
+
+    // TODO: Share a call to EntityClient.batchGetV2() for both group membership and native group membership
 
     Set<Urn> groups = new HashSet<>();
     Optional<GroupMembership> maybeGroupMembership = resolveGroupMembership(actor);

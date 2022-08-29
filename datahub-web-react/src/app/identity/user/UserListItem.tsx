@@ -148,7 +148,7 @@ export default function UserListItem({ user, canManageUserCredentials, roles, on
             </UserItemContainer>
             <ButtonGroup>
                 <Select
-                    style={{ minWidth: 100, backgroundColor: userRoleUrn ? ANTD_GRAY[7] : '#cf1322' }}
+                    style={{ minWidth: 100 }}
                     placeholder={
                         <>
                             <UserOutlined style={{ marginRight: 6, fontSize: 12 }} />

@@ -2,6 +2,7 @@ package com.linkedin.datahub.graphql.resolvers.role;
 
 import com.linkedin.common.urn.Urn;
 import com.linkedin.datahub.graphql.QueryContext;
+import com.linkedin.datahub.graphql.exception.AuthorizationException;
 import com.linkedin.datahub.graphql.generated.DataHubRole;
 import com.linkedin.datahub.graphql.generated.ListRolesInput;
 import com.linkedin.datahub.graphql.generated.ListRolesResult;
@@ -22,6 +23,7 @@ import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
+import static com.linkedin.datahub.graphql.authorization.AuthorizationUtils.*;
 import static com.linkedin.datahub.graphql.resolvers.ResolverUtils.*;
 import static com.linkedin.metadata.Constants.*;
 
@@ -38,6 +40,11 @@ public class ListRolesResolver implements DataFetcher<CompletableFuture<ListRole
   @Override
   public CompletableFuture<ListRolesResult> get(final DataFetchingEnvironment environment) throws Exception {
     final QueryContext context = environment.getContext();
+    if (!canManagePolicies(context)) {
+      throw new AuthorizationException(
+          "Unauthorized to view roles. Please contact your DataHub administrator if this needs corrective action.");
+    }
+
     final ListRolesInput input = bindArgument(environment.getArgument("input"), ListRolesInput.class);
     final Integer start = input.getStart() == null ? DEFAULT_START : input.getStart();
     final Integer count = input.getCount() == null ? DEFAULT_COUNT : input.getCount();
@@ -45,12 +52,12 @@ public class ListRolesResolver implements DataFetcher<CompletableFuture<ListRole
 
     return CompletableFuture.supplyAsync(() -> {
       try {
-        // First, get all policy Urns.
+        // First, get all role Urns.
         final SearchResult gmsResult =
             _entityClient.search(DATAHUB_ROLE_ENTITY_NAME, query, Collections.emptyMap(), start, count,
                 context.getAuthentication());
 
-        // Then, get hydrate all users.
+        // Then, get and hydrate all users.
         final Map<Urn, EntityResponse> entities = _entityClient.batchGetV2(DATAHUB_ROLE_ENTITY_NAME,
             new HashSet<>(gmsResult.getEntities().stream().map(SearchEntity::getEntity).collect(Collectors.toList())),
             null, context.getAuthentication());

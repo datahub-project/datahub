@@ -4,11 +4,11 @@ import com.datahub.authentication.Authentication;
 import com.linkedin.common.UrnArray;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.datahub.graphql.QueryContext;
+import com.linkedin.datahub.graphql.exception.AuthorizationException;
 import com.linkedin.datahub.graphql.generated.BatchAssignRoleToActorsInput;
 import com.linkedin.entity.client.EntityClient;
 import com.linkedin.events.metadata.ChangeType;
 import com.linkedin.identity.RoleMembership;
-import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.utils.GenericRecordUtils;
 import com.linkedin.mxe.MetadataChangeProposal;
 import com.linkedin.r2.RemoteInvocationException;
@@ -20,37 +20,42 @@ import java.util.concurrent.CompletableFuture;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
+import static com.linkedin.datahub.graphql.authorization.AuthorizationUtils.*;
 import static com.linkedin.datahub.graphql.resolvers.ResolverUtils.*;
 import static com.linkedin.metadata.Constants.*;
 
 
 @Slf4j
 @RequiredArgsConstructor
-public class BatchAssignRoleToActors implements DataFetcher<CompletableFuture<Boolean>> {
-  private final EntityService _entityService;
+public class BatchAssignRoleToActorsResolver implements DataFetcher<CompletableFuture<Boolean>> {
   private final EntityClient _entityClient;
 
   @Override
   public CompletableFuture<Boolean> get(DataFetchingEnvironment environment) throws Exception {
+    final QueryContext context = environment.getContext();
+    if (!canManagePolicies(context)) {
+      throw new AuthorizationException(
+          "Unauthorized to assign roles. Please contact your DataHub administrator if this needs corrective action.");
+    }
+
     final BatchAssignRoleToActorsInput input =
         bindArgument(environment.getArgument("input"), BatchAssignRoleToActorsInput.class);
     final String roleUrnStr = input.getRoleUrn();
     final List<String> actors = input.getActors();
-    final QueryContext context = environment.getContext();
     final Authentication authentication = context.getAuthentication();
 
     return CompletableFuture.supplyAsync(() -> {
-
       try {
         Urn roleUrn = Urn.createFromString(roleUrnStr);
-        if (!_entityService.exists(roleUrn)) {
+        if (!_entityClient.exists(roleUrn, authentication)) {
           throw new RuntimeException(String.format("Role %s does not exist", roleUrnStr));
         }
+
         actors.forEach(actor -> {
           try {
             assignRoleToActor(actor, roleUrn, authentication);
           } catch (Exception e) {
-            throw new RuntimeException(String.format("Failed to assign role to actor %s", actor));
+            log.error(String.format("Failed to assign role to actor %s", actor), e);
           }
         });
         return true;
@@ -64,7 +69,7 @@ public class BatchAssignRoleToActors implements DataFetcher<CompletableFuture<Bo
   private void assignRoleToActor(String actor, Urn roleUrn, Authentication authentication)
       throws URISyntaxException, RemoteInvocationException {
     Urn actorUrn = Urn.createFromString(actor);
-    if (!_entityService.exists(actorUrn)) {
+    if (!_entityClient.exists(actorUrn, authentication)) {
       log.error(String.format("Actor %s does not exist", actor));
       return;
     }
