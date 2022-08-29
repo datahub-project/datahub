@@ -15,7 +15,8 @@ from tableauserverclient import (
 )
 
 import datahub.emitter.mce_builder as builder
-from datahub.configuration.common import ConfigModel, ConfigurationError
+from datahub.configuration.common import ConfigurationError
+from datahub.configuration.source_common import DatasetLineageProviderConfigBase
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.emitter.mcp_builder import (
     PlatformKey,
@@ -36,6 +37,7 @@ from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.tableau_common import (
     FIELD_TYPE_MAPPING,
     MetadataQueryException,
+    TableauLineageOverrides,
     clean_query,
     custom_sql_graphql_query,
     get_field_value_in_sheet,
@@ -89,7 +91,7 @@ logger: logging.Logger = logging.getLogger(__name__)
 REPLACE_SLASH_CHAR = "|"
 
 
-class TableauConfig(ConfigModel):
+class TableauConfig(DatasetLineageProviderConfigBase):
     connect_uri: str = Field(description="Tableau host URL.")
     username: Optional[str] = Field(
         default=None,
@@ -145,6 +147,11 @@ class TableauConfig(ConfigModel):
     env: str = Field(
         default=builder.DEFAULT_ENV,
         description="Environment to use in namespace when constructing URNs.",
+    )
+
+    lineage_overrides: Optional[TableauLineageOverrides] = Field(
+        default=None,
+        description="Mappings to change generated dataset urns. Use only if you really know what you are doing.",
     )
 
     @validator("connect_uri")
@@ -419,12 +426,15 @@ class TableauSource(Source):
                     f"Omitting schema for upstream table {table['id']}, schema included in table name"
                 )
                 schema = ""
+
             table_urn = make_table_urn(
                 self.config.env,
                 upstream_db,
                 table.get("connectionType", ""),
                 schema,
                 table_name,
+                self.config.platform_instance_map,
+                self.config.lineage_overrides,
             )
 
             upstream_table = UpstreamClass(
@@ -447,7 +457,7 @@ class TableauSource(Source):
         return upstream_tables
 
     def emit_custom_sql_datasources(self) -> Iterable[MetadataWorkUnit]:
-        count_on_query = len(self.custom_sql_ids_being_used)
+        count_on_query = self.config.page_size
         custom_sql_filter = f"idWithin: {json.dumps(self.custom_sql_ids_being_used)}"
         custom_sql_connection, total_count, has_next_page = self.get_connection_object(
             custom_sql_graphql_query, "customSQLTablesConnection", custom_sql_filter
@@ -823,7 +833,7 @@ class TableauSource(Source):
             )
 
     def emit_published_datasources(self) -> Iterable[MetadataWorkUnit]:
-        count_on_query = len(self.datasource_ids_being_used)
+        count_on_query = self.config.page_size
         datasource_filter = f"idWithin: {json.dumps(self.datasource_ids_being_used)}"
         (
             published_datasource_conn,
