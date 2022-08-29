@@ -47,6 +47,7 @@ from datahub.metadata.schema_classes import (
     NumberTypeClass,
     OtherSchemaClass,
     RecordTypeClass,
+    SchemaFieldDataTypeClass,
     StringTypeClass,
     SubTypesClass,
 )
@@ -122,9 +123,10 @@ class ElasticToSchemaFieldConverter:
         self, elastic_schema_dict: Dict[str, Any]
     ) -> Generator[SchemaField, None, None]:
         # append each schema field (sort so output is consistent)
+        PROPERTIES: str = "properties"
         for columnName, column in elastic_schema_dict.items():
             elastic_type: Optional[str] = column.get("type")
-            nested_props: Optional[Dict[str, Any]] = column.get("properties")
+            nested_props: Optional[Dict[str, Any]] = column.get(PROPERTIES)
             if elastic_type is not None:
                 self._prefix_name_stack.append(f"[type={elastic_type}].{columnName}")
                 schema_field_data_type = self.get_column_type(elastic_type)
@@ -139,7 +141,16 @@ class ElasticToSchemaFieldConverter:
                 yield schema_field
                 self._prefix_name_stack.pop()
             elif nested_props:
-                self._prefix_name_stack.append(f"[type={columnName}]")
+                self._prefix_name_stack.append(f"[type={PROPERTIES}].{columnName}")
+                schema_field = SchemaField(
+                    fieldPath=self._get_cur_field_path(),
+                    nativeDataType=PROPERTIES,
+                    type=SchemaFieldDataTypeClass(RecordTypeClass()),
+                    description=None,
+                    nullable=True,
+                    recursive=False,
+                )
+                yield schema_field
                 yield from self._get_schema_fields(nested_props)
                 self._prefix_name_stack.pop()
             else:

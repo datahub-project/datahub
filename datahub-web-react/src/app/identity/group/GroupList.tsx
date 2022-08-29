@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Button, Empty, List, message, Pagination } from 'antd';
+import { Button, Empty, List, Pagination } from 'antd';
 import styled from 'styled-components';
 import { useLocation } from 'react-router';
 import * as QueryString from 'query-string';
@@ -78,7 +78,7 @@ export const GroupList = () => {
     return (
         <>
             {!data && loading && <Message type="loading" content="Loading groups..." />}
-            {error && message.error('Failed to load groups :(')}
+            {error && <Message type="error" content="Failed to load groups! An unexpected error occurred." />}
             <GroupContainer>
                 <TabToolbar>
                     <div>
@@ -101,6 +101,7 @@ export const GroupList = () => {
                         onSearch={() => null}
                         onQueryChange={(q) => setQuery(q)}
                         entityRegistry={entityRegistry}
+                        hideRecommendations
                     />
                 </TabToolbar>
                 <GroupStyledList
