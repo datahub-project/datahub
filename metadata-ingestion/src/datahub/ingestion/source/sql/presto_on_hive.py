@@ -79,15 +79,11 @@ class PrestoOnHiveConfig(BasicSQLAlchemyConfig):
     scheme: str = Field(default="mysql+pymysql", description="", exclude=True)
     metastore_db_name: Optional[str] = Field(
         default=None,
-        description="""Name of the Hive metastore's database (usually: metastore).
-        For backwardcompatibility, if this field is not provided, the 'database' field will be used.
-        If both the 'database' and 'metastore_db_name' fields are set then the 'database'
-        field will be used to filter the hive/presto/trino database""",
+        description="Name of the Hive metastore's database (usually: metastore). For backward compatibility, if this field is not provided, the database field will be used. If both the 'database' and 'metastore_db_name' fields are set then the 'database' field will be used to filter the hive/presto/trino database",
     )
     mode: PrestoOnHiveConfigMode = Field(
         default=PrestoOnHiveConfigMode.presto_on_hive,
-        description=f"""The ingested data will be stored under this platform.
-        Valid options: {[e.value for e in PrestoOnHiveConfigMode]}""",
+        description=f"The ingested data will be stored under this platform. Valid options: {[e.value for e in PrestoOnHiveConfigMode]}",
     )
 
     def get_sql_alchemy_url(self, uri_opts: Optional[Dict[str, Any]] = None) -> str:

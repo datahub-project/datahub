@@ -50,6 +50,9 @@ class SnowflakeQueryMixin:
 
 
 class SnowflakeCommonMixin:
+
+    platform = "snowflake"
+
     def _is_dataset_pattern_allowed(
         self: SnowflakeCommonProtocol,
         dataset_name: Optional[str],

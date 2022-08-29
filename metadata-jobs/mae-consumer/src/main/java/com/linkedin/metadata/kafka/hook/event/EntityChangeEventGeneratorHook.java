@@ -147,7 +147,7 @@ public class EntityChangeEventGeneratorHook implements MetadataChangeLogHook {
             platformEvent,
             String.format("%s-%s", Constants.CHANGE_EVENT_PLATFORM_EVENT_NAME, event.getEntityUrn())
         );
-        log.info("Successfully emitted change event. category: {}, operation: {}, entity urn: {}",
+        log.debug("Successfully emitted change event. category: {}, operation: {}, entity urn: {}",
             event.getCategory(),
             event.getOperation(),
             event.getEntityUrn());
@@ -204,7 +204,7 @@ public class EntityChangeEventGeneratorHook implements MetadataChangeLogHook {
    */
   private RecordTemplate convertRawEventToChangeEvent(final ChangeEvent rawChangeEvent) {
     com.linkedin.platform.event.v1.EntityChangeEvent changeEvent = new com.linkedin.platform.event.v1.EntityChangeEvent();
-    log.info(String.format("Attempting to convert %s", rawChangeEvent));
+    log.debug(String.format("Attempting to convert %s", rawChangeEvent));
     try {
       Urn entityUrn = Urn.createFromString(rawChangeEvent.getEntityUrn());
       changeEvent.setEntityType(entityUrn.getEntityType());
@@ -220,7 +220,6 @@ public class EntityChangeEventGeneratorHook implements MetadataChangeLogHook {
             new Parameters(new DataMap(rawChangeEvent.getParameters()))
         );
       }
-      System.out.println(changeEvent.toString());
       return changeEvent;
     } catch (Exception e) {
       throw new RuntimeException("Failed to convert raw change event into PDL change", e);

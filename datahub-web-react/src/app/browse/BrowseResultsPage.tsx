@@ -1,7 +1,7 @@
 import React from 'react';
 import { Redirect, useHistory, useLocation, useParams } from 'react-router';
 import * as QueryString from 'query-string';
-import { Affix, Alert } from 'antd';
+import { Affix } from 'antd';
 import { BrowseCfg } from '../../conf';
 import { BrowseResults } from './BrowseResults';
 import { useGetBrowseResultsQuery } from '../../graphql/browse.generated';
@@ -10,6 +10,7 @@ import { PageRoutes } from '../../conf/Global';
 import { useEntityRegistry } from '../useEntityRegistry';
 import { Message } from '../shared/Message';
 import { scrollToTop } from '../shared/searchUtils';
+import { ErrorSection } from '../shared/error/ErrorSection';
 
 type BrowseResultsPageParams = {
     type: string;
@@ -40,10 +41,6 @@ export const BrowseResultsPage = () => {
         },
     });
 
-    if (error || (!loading && !error && !data)) {
-        return <Alert type="error" message={error?.message || 'Entity failed to load'} />;
-    }
-
     const onChangePage = (newPage: number) => {
         scrollToTop();
         history.push({
@@ -61,6 +58,7 @@ export const BrowseResultsPage = () => {
             <Affix offsetTop={60}>
                 <LegacyBrowsePath type={entityType} path={path} isBrowsable />
             </Affix>
+            {error && <ErrorSection />}
             {loading && <Message type="loading" content="Loading..." style={{ marginTop: '10%' }} />}
             {data && data.browse && !loading && (
                 <BrowseResults
