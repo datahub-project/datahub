@@ -5,7 +5,7 @@ import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.generated.UpdateUserSettingInput;
 import com.linkedin.datahub.graphql.generated.UserSetting;
-import com.linkedin.identity.AppearanceCorpUserSettings;
+import com.linkedin.identity.CorpUserAppearanceSettings;
 import com.linkedin.identity.CorpUserSettings;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.mxe.MetadataChangeProposal;
@@ -40,10 +40,10 @@ public class UpdateUserSettingResolver implements DataFetcher<CompletableFuture<
         // In the future with more settings, we'll need to do a read-modify-write
         // for now though, we can just write since there is only 1 setting
         CorpUserSettings newSettings = new CorpUserSettings();
-        newSettings.setAppearance(new AppearanceCorpUserSettings());
+        newSettings.setAppearance(new CorpUserAppearanceSettings());
         if (name.equals(UserSetting.SHOW_SIMPLIFIED_HOMEPAGE)) {
-          newSettings.setAppearance(new AppearanceCorpUserSettings().setShowSimplifiedHomepage(value));
-        } else {
+          newSettings.setAppearance(new CorpUserAppearanceSettings().setShowSimplifiedHomepage(value));
+        } else{
           log.error("User Setting name {} not currently supported", name);
           throw new RuntimeException(String.format("User Setting name %s not currently supported", name));
         }

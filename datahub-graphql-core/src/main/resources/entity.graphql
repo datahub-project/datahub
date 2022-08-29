@@ -2888,15 +2888,15 @@ Settings that a user can customize through the datahub ui
 """
 type CorpUserSettings {
     """
-    Settings that control looka and feel of the DataHub UI for the user
+    Settings that control look and feel of the DataHub UI for the user
     """
-    appearance: AppearanceCorpUserSettings
+    appearance: CorpUserAppearanceSettings
 }
 
 """
-Settings that control looka and feel of the DataHub UI for the user
+Settings that control look and feel of the DataHub UI for the user
 """
-type AppearanceCorpUserSettings {
+type CorpUserAppearanceSettings {
     """
     Flag whether the user should see a homepage with only datasets, charts & dashboards. Intended for users
     who have less operational use cases for the datahub tool.
