@@ -265,7 +265,7 @@ public class SendMAEStep implements UpgradeStep {
           percentFailed = (float) (rowCount - totalRowsMigrated) * 100 / rowCount;
         }
         context.report().addLine(String.format(
-                "Failed to send MAEs for %d rows (%.2f%%).", rowCount - totalRowsMigrated, percentFailed));
+                "Failed to send MAEs for %d rows (%.2f%% of total).", rowCount - totalRowsMigrated, percentFailed));
       }
       return new DefaultUpgradeStepResult(id(), UpgradeStepResult.Result.SUCCEEDED);
     };
