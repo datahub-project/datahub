@@ -282,7 +282,7 @@ public class SendMAEStep implements UpgradeStep {
       estimatedTimeMinutesComplete = timeSoFarMinutes * (100 - percentSent) / percentSent;
     }
     context.report().addLine(String.format(
-            "Successfully sent MAEs for %s/%s rows (%.2f%%). %s rows ignored (%.2f%%)",
+            "Successfully sent MAEs for %s/%s rows (%.2f%% of total). %s rows ignored (%.2f%% of total)",
             totalRowsMigrated, rowCount, percentSent, ignored, percentIgnored));
     context.report().addLine(String.format("%.2f minutes taken. %.2f estimate minutes to completion",
             timeSoFarMinutes, estimatedTimeMinutesComplete));
