@@ -13,6 +13,8 @@ import com.linkedin.data.template.RecordTemplate;
 import com.linkedin.data.template.StringArray;
 import com.linkedin.entity.Entity;
 import com.linkedin.entity.EntityResponse;
+import com.linkedin.entity.RunsDoRollbackRequestBuilder;
+import com.linkedin.entity.RunsRequestBuilders;
 import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.aspect.EnvelopedAspect;
 import com.linkedin.metadata.aspect.EnvelopedAspectArray;
@@ -74,6 +76,8 @@ public class JavaEntityClient implements EntityClient {
     private final LineageSearchService _lineageSearchService;
     private final TimeseriesAspectService _timeseriesAspectService;
     private final EventProducer _eventProducer;
+    private final RestliEntityClient _restliEntityClient;
+    private static final RunsRequestBuilders RUNS_REQUEST_BUILDERS = new RunsRequestBuilders();
 
     @Nullable
     public EntityResponse getV2(
@@ -483,10 +487,9 @@ public class JavaEntityClient implements EntityClient {
         _eventProducer.producePlatformEvent(name, key, event);
     }
 
-    @SneakyThrows
     @Override
     public void rollbackIngestion(@Nonnull String runId, @Nonnull Authentication authentication) throws Exception {
-        throw new MethodNotSupportedException();
+        _restliEntityClient.rollbackIngestion(runId, authentication);
     }
 
     private void tryIndexRunId(Urn entityUrn, @Nullable SystemMetadata systemMetadata) {

@@ -281,7 +281,6 @@ import static graphql.Scalars.*;
 public class GmsGraphQLEngine {
 
     private final EntityClient entityClient;
-    private final EntityClient restliEntityClient;
     private final GraphClient graphClient;
     private final UsageClient usageClient;
     private final SiblingGraphService siblingGraphService;
@@ -360,7 +359,6 @@ public class GmsGraphQLEngine {
 
     public GmsGraphQLEngine(
         final EntityClient entityClient,
-        final EntityClient restliEntityClient,
         final GraphClient graphClient,
         final UsageClient usageClient,
         final AnalyticsService analyticsService,
@@ -379,7 +377,6 @@ public class GmsGraphQLEngine {
         final SiblingGraphService siblingGraphService, final GroupService groupService) {
 
         this.entityClient = entityClient;
-        this.restliEntityClient = restliEntityClient;
         this.graphClient = graphClient;
         this.usageClient = usageClient;
         this.siblingGraphService = siblingGraphService;
@@ -760,7 +757,7 @@ public class GmsGraphQLEngine {
             .dataFetcher("createNativeUserInviteToken", new CreateNativeUserInviteTokenResolver(this.nativeUserService))
             .dataFetcher("createNativeUserResetToken", new CreateNativeUserResetTokenResolver(this.nativeUserService))
             .dataFetcher("batchUpdateSoftDeleted", new BatchUpdateSoftDeletedResolver(this.entityService))
-            .dataFetcher("rollbackIngestion", new RollbackIngestionResolver(this.restliEntityClient))
+            .dataFetcher("rollbackIngestion", new RollbackIngestionResolver(this.entityClient))
         );
     }
 
