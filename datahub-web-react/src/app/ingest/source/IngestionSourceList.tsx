@@ -263,6 +263,7 @@ export const IngestionSourceList = () => {
                         (recipeBuilderState.config?.executorId?.length &&
                             (recipeBuilderState.config?.executorId as string)) ||
                         DEFAULT_EXECUTOR_ID,
+                    debugMode: recipeBuilderState.config?.debugMode || false,
                 },
                 schedule: recipeBuilderState.schedule && {
                     interval: recipeBuilderState.schedule?.interval as string,
