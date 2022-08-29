@@ -46,15 +46,14 @@ OPERATION_STATEMENT_TYPES = {
 }
 
 
-@pydantic.dataclasses.dataclass
-class SnowflakeColumnReference:
-    columnId: int
-    columnName: str
-
-
 class PermissiveModel(pydantic.BaseModel):
     class Config:
         extra = "allow"
+
+
+class SnowflakeColumnReference(PermissiveModel):
+    columnId: int
+    columnName: str
 
 
 class SnowflakeObjectAccessEntry(PermissiveModel):
@@ -113,6 +112,8 @@ class SnowflakeUsageExtractor(SnowflakeQueryMixin, SnowflakeCommonMixin):
             for event in access_events:
                 yield from self._get_operation_aspect_work_unit(event)
 
+        conn.close()
+
     def get_usage_workunits(
         self, conn: SnowflakeConnection
     ) -> Iterable[MetadataWorkUnit]:
@@ -133,37 +134,37 @@ class SnowflakeUsageExtractor(SnowflakeQueryMixin, SnowflakeCommonMixin):
             self.report.usage_aggregation_query_secs = timer.elapsed_seconds()
 
         for row in results:
-            assert row["object_name"] is not None, "Null objectName not allowed"
+            assert row["OBJECT_NAME"] is not None, "Null objectName not allowed"
             if not self._is_dataset_pattern_allowed(
-                row["object_name"],
-                row["object_domain"],
+                row["OBJECT_NAME"],
+                row["OBJECT_DOMAIN"],
             ):
                 continue
 
             stats = DatasetUsageStatistics(
-                timestampMillis=int(row["bucket_start_time"].timestamp() * 1000),
+                timestampMillis=int(row["BUCKET_START_TIME"].timestamp() * 1000),
                 eventGranularity=TimeWindowSize(
                     unit=self.config.bucket_duration, multiple=1
                 ),
-                totalSqlQueries=row["total_queries"],
-                uniqueUserCount=row["total_users"],
+                totalSqlQueries=row["TOTAL_QUERIES"],
+                uniqueUserCount=row["TOTAL_USERS"],
                 topSqlQueries=self._map_top_sql_queries(
-                    json.loads(row["top_sql_queries"])
+                    json.loads(row["TOP_SQL_QUERIES"])
                 )
                 if self.config.include_top_n_queries
                 else None,
-                userCounts=self._map_user_counts(json.loads(row["user_counts"])),
+                userCounts=self._map_user_counts(json.loads(row["USER_COUNTS"])),
                 fieldCounts=[
                     DatasetFieldUsageCounts(
-                        fieldPath=self.snowflake_identifier(field_count["column_name"]),
-                        count=field_count["total_queries"],
+                        fieldPath=self.snowflake_identifier(field_count["col"]),
+                        count=field_count["total"],
                     )
-                    for field_count in json.loads(row["field_counts"])
+                    for field_count in json.loads(row["FIELD_COUNTS"])
                 ],
             )
             dataset_urn = make_dataset_urn_with_platform_instance(
-                "snowflake",
-                self.get_dataset_identifier_from_qualified_name(row["object_name"]),
+                self.platform,
+                self.get_dataset_identifier_from_qualified_name(row["OBJECT_NAME"]),
                 self.config.platform_instance,
                 self.config.env,
             )
@@ -190,7 +191,7 @@ class SnowflakeUsageExtractor(SnowflakeQueryMixin, SnowflakeCommonMixin):
         filtered_user_counts = []
         for user_count in user_counts:
             user_email = user_count.get(
-                "user_email",
+                "email",
                 "{0}@{1}".format(
                     user_count["user_name"], self.config.email_domain
                 ).lower()
@@ -207,7 +208,7 @@ class SnowflakeUsageExtractor(SnowflakeQueryMixin, SnowflakeCommonMixin):
                     user=make_user_urn(
                         self.get_user_identifier(user_count["user_name"], user_email)
                     ),
-                    count=user_count["total_queries"],
+                    count=user_count["total"],
                     # NOTE: Generated emails may be incorrect, as email may be different than
                     # username@email_domain
                     userEmail=user_email,
@@ -235,15 +236,11 @@ class SnowflakeUsageExtractor(SnowflakeQueryMixin, SnowflakeCommonMixin):
 
     def _check_usage_date_ranges(self, conn: SnowflakeConnection) -> Any:
 
-        query = """
-            select
-                min(query_start_time) as "min_time",
-                max(query_start_time) as "max_time"
-            from snowflake.account_usage.access_history
-        """
         with PerfTimer() as timer:
             try:
-                results = self.query(conn, query)
+                results = self.query(
+                    conn, SnowflakeQuery.get_access_history_date_range()
+                )
             except Exception as e:
                 self.warn(
                     "check-usage-data",
@@ -254,18 +251,18 @@ class SnowflakeUsageExtractor(SnowflakeQueryMixin, SnowflakeCommonMixin):
                 for db_row in results:
                     if (
                         len(db_row) < 2
-                        or db_row["min_time"] is None
-                        or db_row["max_time"] is None
+                        or db_row["MIN_TIME"] is None
+                        or db_row["MAX_TIME"] is None
                     ):
                         self.warn(
                             "check-usage-data",
                             f"Missing data for access_history {db_row} - Check if using Enterprise edition of Snowflake",
                         )
                         continue
-                    self.report.min_access_history_time = db_row["min_time"].astimezone(
+                    self.report.min_access_history_time = db_row["MIN_TIME"].astimezone(
                         tz=timezone.utc
                     )
-                    self.report.max_access_history_time = db_row["max_time"].astimezone(
+                    self.report.max_access_history_time = db_row["MAX_TIME"].astimezone(
                         tz=timezone.utc
                     )
                     self.report.access_history_range_query_secs = round(
@@ -290,7 +287,7 @@ class SnowflakeUsageExtractor(SnowflakeQueryMixin, SnowflakeCommonMixin):
 
                 resource = obj.objectName
                 dataset_urn = make_dataset_urn_with_platform_instance(
-                    "snowflake",
+                    self.platform,
                     self.get_dataset_identifier_from_qualified_name(resource),
                     self.config.platform_instance,
                     self.config.env,
@@ -328,54 +325,56 @@ class SnowflakeUsageExtractor(SnowflakeQueryMixin, SnowflakeCommonMixin):
             event_dict = dict(row)
 
         # no use processing events that don't have a query text
-        if not event_dict["query_text"]:
+        if not event_dict["QUERY_TEXT"]:
             self.report.rows_missing_query_text += 1
             return
 
-        event_dict["base_objects_accessed"] = [
+        event_dict["BASE_OBJECTS_ACCESSED"] = [
             obj
-            for obj in json.loads(event_dict["base_objects_accessed"])
+            for obj in json.loads(event_dict["BASE_OBJECTS_ACCESSED"])
             if self._is_object_valid(obj)
         ]
-        if len(event_dict["base_objects_accessed"]) == 0:
+        if len(event_dict["BASE_OBJECTS_ACCESSED"]) == 0:
             self.report.rows_zero_base_objects_accessed += 1
 
-        event_dict["direct_objects_accessed"] = [
+        event_dict["DIRECT_OBJECTS_ACCESSED"] = [
             obj
-            for obj in json.loads(event_dict["direct_objects_accessed"])
+            for obj in json.loads(event_dict["DIRECT_OBJECTS_ACCESSED"])
             if self._is_object_valid(obj)
         ]
-        if len(event_dict["direct_objects_accessed"]) == 0:
+        if len(event_dict["DIRECT_OBJECTS_ACCESSED"]) == 0:
             self.report.rows_zero_direct_objects_accessed += 1
 
-        event_dict["objects_modified"] = [
+        event_dict["OBJECTS_MODIFIED"] = [
             obj
-            for obj in json.loads(event_dict["objects_modified"])
+            for obj in json.loads(event_dict["OBJECTS_MODIFIED"])
             if self._is_object_valid(obj)
         ]
-        if len(event_dict["objects_modified"]) == 0:
+        if len(event_dict["OBJECTS_MODIFIED"]) == 0:
             self.report.rows_zero_objects_modified += 1
 
-        event_dict["query_start_time"] = (event_dict["query_start_time"]).astimezone(
+        event_dict["QUERY_START_TIME"] = (event_dict["QUERY_START_TIME"]).astimezone(
             tz=timezone.utc
         )
 
         if (
-            not event_dict["email"]
+            not event_dict["EMAIL"]
             and self.config.email_domain
-            and event_dict["user_name"]
+            and event_dict["USER_NAME"]
         ):
             # NOTE: Generated emails may be incorrect, as email may be different than
             # username@email_domain
             event_dict[
-                "email"
-            ] = f'{event_dict["user_name"]}@{self.config.email_domain}'.lower()
+                "EMAIL"
+            ] = f'{event_dict["USER_NAME"]}@{self.config.email_domain}'.lower()
 
-        if not event_dict["email"]:
+        if not event_dict["EMAIL"]:
             self.report.rows_missing_email += 1
 
         try:  # big hammer try block to ensure we don't fail on parsing events
-            event = SnowflakeJoinedAccessEvent(**event_dict)
+            event = SnowflakeJoinedAccessEvent(
+                **{k.lower(): v for k, v in event_dict.items()}
+            )
             yield event
         except Exception as e:
             self.report.rows_parsing_error += 1

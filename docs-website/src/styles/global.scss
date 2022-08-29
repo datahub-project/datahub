@@ -8,15 +8,7 @@
 /* You can override the default Infima variables here. */
 :root {
   font-family: "Manrope", sans-serif;
-
-  /* DataHub blue theme */
-  --ifm-color-primary: #1890ff;
-  --ifm-color-primary-dark: #0082fb;
-  --ifm-color-primary-darker: #007bed;
-  --ifm-color-primary-darkest: #0065c3;
-  --ifm-color-primary-light: #349dff;
-  --ifm-color-primary-lighter: #42a4ff;
-  --ifm-color-primary-lightest: #6cb8ff;
+  --ifm-background-color: #ffffff;
 
   /* Typography */
   --ifm-heading-font-weight: 600;
@@ -27,6 +19,7 @@
   --ifm-button-border-radius: 1000em;
 
   /* Navbar */
+  --ifm-navbar-background-color: var(--ifm-background-color);
   --ifm-navbar-height: 70px;
   --ifm-navbar-item-padding-horizontal: 1rem;
 
@@ -36,11 +29,25 @@
   /* Rule */
   --ifm-hr-border-width: 1px 0 0 0;
   --ifm-hr-border-color: #e3e3e3;
+
+  /* More Colors */
+  --ifm-hero-background-color: var(--ifm-background-color);
+  --ifm-background-surface-color: #fafafa;
+
+  /* Cards */
+  --ifm-card-background-color: --ifm-background-color;
+  --ifm-card-border-radius: calc(var(--ifm-global-radius) * 1.5);
 }
 
 html[data-theme="dark"] {
+  --ifm-background-color: #0d0d0d;
   --ifm-heading-color: #ffffff;
   --ifm-hr-border-color: #313131;
+  --ifm-background-surface-color: #0b0b0b;
+
+  .button--primary {
+    color: #fff;
+  }
 }
 
 h1 {
@@ -160,4 +167,92 @@ div[class^="announcementBarContent"] {
 
 .button {
   white-space: initial;
+}
+
+.card {
+  box-shadow: none;
+  border: 1px solid var(--ifm-hr-border-color);
+  padding: 2rem;
+}
+
+.anticon {
+  svg {
+    color: var(--ifm-color-primary);
+    path[fill="#e6f7ff"] {
+      fill: var(--ifm-color-primary);
+      opacity: 0.15;
+    }
+    path[fill="#1890ff"] {
+      fill: var(--ifm-color-primary);
+    }
+  }
+}
+
+.hero {
+  padding: 5vh 0;
+}
+
+.hero__subtitle {
+  font-size: 1.25em;
+  margin: 1rem auto 3rem;
+  max-width: 800px;
+}
+.hero__content {
+  text-align: center;
+  padding: 2rem 0;
+  height: 100%;
+}
+
+.theme-doc-sidebar-menu ul li.saasOnly a.menu__link {
+  &:after {
+    content: "";
+    display: block;
+    width: 20px;
+    height: 20px;
+    flex-shrink: 0;
+    margin-right: auto;
+    margin-left: 10px;
+    color: currentColor;
+    opacity: 0.5;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='64 64 896 896' focusable='false' data-icon='cloud' width='1em' height='1em' fill='currentColor' aria-hidden='true'%3E%3Cpath d='M811.4 418.7C765.6 297.9 648.9 212 512.2 212S258.8 297.8 213 418.6C127.3 441.1 64 519.1 64 612c0 110.5 89.5 200 199.9 200h496.2C870.5 812 960 722.5 960 612c0-92.7-63.1-170.7-148.6-193.3zm36.3 281a123.07 123.07 0 01-87.6 36.3H263.9c-33.1 0-64.2-12.9-87.6-36.3A123.3 123.3 0 01140 612c0-28 9.1-54.3 26.2-76.3a125.7 125.7 0 0166.1-43.7l37.9-9.9 13.9-36.6c8.6-22.8 20.6-44.1 35.7-63.4a245.6 245.6 0 0152.4-49.9c41.1-28.9 89.5-44.2 140-44.2s98.9 15.3 140 44.2c19.9 14 37.5 30.8 52.4 49.9 15.1 19.3 27.1 40.7 35.7 63.4l13.8 36.5 37.8 10c54.3 14.5 92.1 63.8 92.1 120 0 33.1-12.9 64.3-36.3 87.7z'%3E%3C/path%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: 50% 50%;
+    background-size: 20px 20px;
+  }
+}
+
+[data-theme="light"] .DocSearch {
+  /* --docsearch-primary-color: var(--ifm-color-primary); */
+  /* --docsearch-text-color: var(--ifm-font-color-base); */
+  --docsearch-muted-color: var(--ifm-color-secondary-darkest);
+  --docsearch-container-background: rgba(111, 111, 111, 0.7);
+  /* Modal */
+  --docsearch-modal-background: var(--ifm-color-secondary-lighter);
+  /* Search box */
+  --docsearch-searchbox-background: var(--ifm-color-secondary-lighter);
+  --docsearch-searchbox-focus-background: var(--ifm-color-white);
+  /* Hit */
+  --docsearch-hit-color: var(--ifm-font-color-base);
+  --docsearch-hit-active-color: var(--ifm-color-white);
+  --docsearch-hit-background: var(--ifm-color-white);
+  /* Footer */
+  --docsearch-footer-background: var(--ifm-color-white);
+}
+
+[data-theme="dark"] .DocSearch {
+  --docsearch-text-color: var(--ifm-font-color-base);
+  --docsearch-muted-color: var(--ifm-color-secondary-darkest);
+  --docsearch-container-background: rgba(71, 71, 71, 0.7);
+  /* Modal */
+  --docsearch-modal-background: var(--ifm-background-color);
+  /* Search box */
+  --docsearch-searchbox-background: #070707;
+  --docsearch-searchbox-focus-background: var(--ifm-color-black);
+  /* Hit */
+  --docsearch-hit-color: var(--ifm-font-color-base);
+  --docsearch-hit-active-color: var(--ifm-color-white);
+  --docsearch-hit-background: var(--ifm-color-emphasis-100);
+  /* Footer */
+  --docsearch-footer-background: var(--ifm-background-surface-color);
+  --docsearch-key-gradient: linear-gradient(-26.5deg, var(--ifm-color-emphasis-200) 0%, var(--ifm-color-emphasis-100) 100%);
 }

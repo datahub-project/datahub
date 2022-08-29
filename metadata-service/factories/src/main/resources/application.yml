@@ -191,7 +191,7 @@ springdoc:
     disabled: true
 
 metadataTests:
-  enabled: ${METADATA_TESTS_ENABLED:true}
+  enabled: ${METADATA_TESTS_ENABLED:false}
 
 siblings:
   enabled: ${ENABLE_SIBLING_HOOK:true} # enable to turn on automatic sibling associations for dbt

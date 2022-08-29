@@ -1,4 +1,4 @@
-import { Alert, Col, Row } from 'antd';
+import { Col, Row } from 'antd';
 import React from 'react';
 import styled from 'styled-components';
 import useUserParams from '../../shared/entitySearch/routingUtils/useUserParams';
@@ -10,6 +10,7 @@ import { UserAssets } from './UserAssets';
 import { decodeUrn } from '../shared/utils';
 import UserInfoSideBar from './UserInfoSideBar';
 import { useEntityRegistry } from '../../useEntityRegistry';
+import { ErrorSection } from '../../shared/error/ErrorSection';
 
 export interface Props {
     onTabChange: (selectedTab: string) => void;
@@ -58,13 +59,9 @@ export default function UserProfile() {
     const urn = decodeUrn(encodedUrn);
     const entityRegistry = useEntityRegistry();
 
-    const { loading, error, data, refetch } = useGetUserQuery({ variables: { urn, groupsCount: GROUP_PAGE_SIZE } });
+    const { error, data, refetch } = useGetUserQuery({ variables: { urn, groupsCount: GROUP_PAGE_SIZE } });
 
     const groupMemberRelationships = data?.corpUser?.relationships as EntityRelationshipsResult;
-
-    if (error || (!loading && !error && !data)) {
-        return <Alert type="error" message={error?.message || 'Entity failed to load'} />;
-    }
 
     // Routed Tabs Constants
     const getTabs = () => {
@@ -115,6 +112,7 @@ export default function UserProfile() {
     };
     return (
         <>
+            {error && <ErrorSection />}
             <UserProfileWrapper>
                 <Row>
                     <Col xl={5} lg={5} md={5} sm={24} xs={24}>

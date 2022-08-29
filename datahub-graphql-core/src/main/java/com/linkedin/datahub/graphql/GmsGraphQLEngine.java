@@ -119,6 +119,7 @@ import com.linkedin.datahub.graphql.resolvers.ingest.execution.CreateIngestionEx
 import com.linkedin.datahub.graphql.resolvers.ingest.execution.CreateTestConnectionRequestResolver;
 import com.linkedin.datahub.graphql.resolvers.ingest.execution.GetIngestionExecutionRequestResolver;
 import com.linkedin.datahub.graphql.resolvers.ingest.execution.IngestionSourceExecutionRequestsResolver;
+import com.linkedin.datahub.graphql.resolvers.ingest.execution.RollbackIngestionResolver;
 import com.linkedin.datahub.graphql.resolvers.ingest.secret.CreateSecretResolver;
 import com.linkedin.datahub.graphql.resolvers.ingest.secret.DeleteSecretResolver;
 import com.linkedin.datahub.graphql.resolvers.ingest.secret.GetSecretValuesResolver;
@@ -758,7 +759,7 @@ public class GmsGraphQLEngine {
             .dataFetcher("createNativeUserResetToken", new CreateNativeUserResetTokenResolver(this.nativeUserService))
             .dataFetcher("batchUpdateSoftDeleted", new BatchUpdateSoftDeletedResolver(this.entityService))
             .dataFetcher("updateUserSetting", new UpdateUserSettingResolver(this.entityService))
-
+            .dataFetcher("rollbackIngestion", new RollbackIngestionResolver(this.entityClient))
         );
     }
 
