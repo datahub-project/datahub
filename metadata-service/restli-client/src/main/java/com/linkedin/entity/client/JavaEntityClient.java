@@ -13,8 +13,6 @@ import com.linkedin.data.template.RecordTemplate;
 import com.linkedin.data.template.StringArray;
 import com.linkedin.entity.Entity;
 import com.linkedin.entity.EntityResponse;
-import com.linkedin.entity.RunsDoRollbackRequestBuilder;
-import com.linkedin.entity.RunsRequestBuilders;
 import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.aspect.EnvelopedAspect;
 import com.linkedin.metadata.aspect.EnvelopedAspectArray;
@@ -53,7 +51,6 @@ import java.util.Set;
 import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
-import javax.mail.MethodNotSupportedException;
 
 import lombok.RequiredArgsConstructor;
 import lombok.SneakyThrows;
@@ -77,7 +74,6 @@ public class JavaEntityClient implements EntityClient {
     private final TimeseriesAspectService _timeseriesAspectService;
     private final EventProducer _eventProducer;
     private final RestliEntityClient _restliEntityClient;
-    private static final RunsRequestBuilders RUNS_REQUEST_BUILDERS = new RunsRequestBuilders();
 
     @Nullable
     public EntityResponse getV2(
