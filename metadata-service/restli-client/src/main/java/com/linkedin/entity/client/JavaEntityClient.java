@@ -51,6 +51,7 @@ import java.util.Set;
 import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
+
 import lombok.RequiredArgsConstructor;
 import lombok.SneakyThrows;
 import lombok.extern.slf4j.Slf4j;
@@ -72,6 +73,7 @@ public class JavaEntityClient implements EntityClient {
     private final LineageSearchService _lineageSearchService;
     private final TimeseriesAspectService _timeseriesAspectService;
     private final EventProducer _eventProducer;
+    private final RestliEntityClient _restliEntityClient;
 
     @Nullable
     public EntityResponse getV2(
@@ -479,6 +481,11 @@ public class JavaEntityClient implements EntityClient {
         @Nonnull PlatformEvent event,
         @Nonnull Authentication authentication) throws Exception {
         _eventProducer.producePlatformEvent(name, key, event);
+    }
+
+    @Override
+    public void rollbackIngestion(@Nonnull String runId, @Nonnull Authentication authentication) throws Exception {
+        _restliEntityClient.rollbackIngestion(runId, authentication);
     }
 
     private void tryIndexRunId(Urn entityUrn, @Nullable SystemMetadata systemMetadata) {
