@@ -74,8 +74,6 @@ export const IngestionSourceBuilderModal = ({ initialState, visible, onSubmit, o
     const [modalExpanded, setModalExpanded] = useState(false);
     const [ingestionBuilderState, setIngestionBuilderState] = useState<SourceBuilderState>({});
 
-    console.log('initialState', initialState);
-
     // Reset the ingestion builder modal state when the modal is re-opened.
     const prevInitialState = useRef(initialState);
     useEffect(() => {
