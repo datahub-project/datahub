@@ -16,10 +16,12 @@ def _json_transform(obj: Any, from_pattern: str, to_pattern: str) -> Any:
             field = obj["fieldDiscriminator"]
             return {field: _json_transform(obj[field], from_pattern, to_pattern)}
 
-        new_obj: Any = {}
-        for key, value in obj.items():
-            if value is not None:
-                new_obj[key] = _json_transform(value, from_pattern, to_pattern)
+        new_obj: Any = {
+            key: _json_transform(value, from_pattern, to_pattern)
+            for key, value in obj.items()
+            if value is not None
+        }
+
         return new_obj
     elif isinstance(obj, list):
         new_obj = [_json_transform(item, from_pattern, to_pattern) for item in obj]

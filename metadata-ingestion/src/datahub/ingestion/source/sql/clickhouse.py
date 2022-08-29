@@ -139,7 +139,8 @@ class ClickHouseConfig(
 
 
 PROPERTIES_COLUMNS = (
-    "engine, partition_key, sorting_key, primary_key, sampling_key, storage_policy"
+    "engine, partition_key, sorting_key, primary_key, sampling_key, storage_policy, "
+    + "metadata_modification_time, total_rows, total_bytes, data_paths, metadata_path"
 )
 
 

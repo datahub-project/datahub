@@ -1,8 +1,6 @@
 import React from 'react';
-import { Button, Divider, Empty, List, ListProps, Pagination, Typography } from 'antd';
+import { Pagination, Typography } from 'antd';
 import styled from 'styled-components';
-import { RocketOutlined } from '@ant-design/icons';
-import { useHistory } from 'react-router';
 import { Message } from '../shared/Message';
 import {
     Entity,
@@ -11,29 +9,19 @@ import {
     FacetMetadata,
     MatchedField,
     SearchAcrossEntitiesInput,
-    SearchResult,
 } from '../../types.generated';
 import { SearchFilters } from './SearchFilters';
-import { useEntityRegistry } from '../useEntityRegistry';
-import analytics from '../analytics/analytics';
-import { EventType } from '../analytics';
 import { SearchCfg } from '../../conf';
-import { navigateToSearchUrl } from './utils/navigateToSearchUrl';
-import { ANTD_GRAY } from '../entity/shared/constants';
 import { SearchResultsRecommendations } from './SearchResultsRecommendations';
 import { useGetAuthenticatedUser } from '../useGetAuthenticatedUser';
 import { SearchResultsInterface } from '../entity/shared/components/styled/search/types';
 import SearchExtendedMenu from '../entity/shared/components/styled/search/SearchExtendedMenu';
-
-const ResultList = styled(List)`
-    &&& {
-        width: 100%;
-        border-color: ${(props) => props.theme.styles['border-color-base']};
-        margin-top: 8px;
-        padding: 16px 32px;
-        border-radius: 0px;
-    }
-`;
+import { combineSiblingsInSearchResults } from '../entity/shared/siblingUtils';
+import { SearchSelectBar } from '../entity/shared/components/styled/search/SearchSelectBar';
+import { SearchResultList } from './SearchResultList';
+import { isListSubset } from '../entity/shared/utils';
+import TabToolbar from '../entity/shared/components/styled/TabToolbar';
+import { EntityAndType } from '../entity/shared/types';
 
 const SearchBody = styled.div`
     display: flex;
@@ -62,12 +50,14 @@ const PaginationControlContainer = styled.div`
 `;
 
 const PaginationInfoContainer = styled.div`
-    margin-top: 15px;
-    padding-left: 16px;
+    padding-left: 32px;
+    padding-right: 32px;
+    height: 47px;
     border-bottom: 1px solid;
     border-color: ${(props) => props.theme.styles['border-color-base']};
     display: flex;
     justify-content: space-between;
+    align-items: center;
 `;
 
 const FiltersHeader = styled.div`
@@ -89,25 +79,16 @@ const SearchFilterContainer = styled.div`
     padding-top: 10px;
 `;
 
-const NoDataContainer = styled.div`
-    > div {
-        margin-top: 28px;
-        margin-bottom: 28px;
-    }
-`;
-
-const ThinDivider = styled(Divider)`
-    margin-top: 16px;
-    margin-bottom: 16px;
-`;
-
 const SearchResultsRecommendationsContainer = styled.div`
     margin-top: 40px;
 `;
 
-const SearchMenuContainer = styled.div`
-    margin-right: 10px;
+const StyledTabToolbar = styled(TabToolbar)`
+    padding-left: 32px;
+    padding-right: 32px;
 `;
+
+const SearchMenuContainer = styled.div``;
 
 interface Props {
     query: string;
@@ -131,6 +112,14 @@ interface Props {
     }) => Promise<SearchResultsInterface | null | undefined>;
     entityFilters: EntityType[];
     filtersWithoutEntities: FacetFilterInput[];
+    numResultsPerPage: number;
+    setNumResultsPerPage: (numResults: number) => void;
+    isSelectMode: boolean;
+    selectedEntities: EntityAndType[];
+    setSelectedEntities: (entities: EntityAndType[]) => void;
+    setIsSelectMode: (showSelectMode: boolean) => any;
+    onChangeSelectAll: (selected: boolean) => void;
+    refetch: () => void;
 }
 
 export const SearchResults = ({
@@ -145,31 +134,24 @@ export const SearchResults = ({
     callSearchOnVariables,
     entityFilters,
     filtersWithoutEntities,
+    numResultsPerPage,
+    setNumResultsPerPage,
+    isSelectMode,
+    selectedEntities,
+    setIsSelectMode,
+    setSelectedEntities,
+    onChangeSelectAll,
+    refetch,
 }: Props) => {
     const pageStart = searchResponse?.start || 0;
     const pageSize = searchResponse?.count || 0;
     const totalResults = searchResponse?.total || 0;
     const lastResultIndex = pageStart + pageSize > totalResults ? totalResults : pageStart + pageSize;
-
-    const entityRegistry = useEntityRegistry();
     const authenticatedUserUrn = useGetAuthenticatedUser()?.corpUser?.urn;
+    const combinedSiblingSearchResults = combineSiblingsInSearchResults(searchResponse?.searchResults);
 
-    const onResultClick = (result: SearchResult, index: number) => {
-        analytics.event({
-            type: EventType.SearchResultClickEvent,
-            query,
-            entityUrn: result.entity.urn,
-            entityType: result.entity.type,
-            index,
-            total: totalResults,
-        });
-    };
-
-    const onFilterSelect = (newFilters) => {
-        onChangeFilters(newFilters);
-    };
-
-    const history = useHistory();
+    const searchResultUrns = combinedSiblingSearchResults.map((result) => result.entity.urn) || [];
+    const selectedEntityUrns = selectedEntities.map((entity) => entity.urn);
 
     return (
         <>
@@ -183,70 +165,65 @@ export const SearchResults = ({
                                 loading={loading}
                                 facets={filters || []}
                                 selectedFilters={selectedFilters}
-                                onFilterSelect={onFilterSelect}
+                                onFilterSelect={(newFilters) => onChangeFilters(newFilters)}
                             />
                         </SearchFilterContainer>
                     </FiltersContainer>
                     <ResultContainer>
                         <PaginationInfoContainer>
-                            <Typography.Paragraph>
-                                Showing{' '}
-                                <b>
-                                    {lastResultIndex > 0 ? (page - 1) * pageSize + 1 : 0} - {lastResultIndex}
-                                </b>{' '}
-                                of <b>{totalResults}</b> results
-                            </Typography.Paragraph>
-                            <SearchMenuContainer>
-                                <SearchExtendedMenu
-                                    callSearchOnVariables={callSearchOnVariables}
-                                    entityFilters={entityFilters}
-                                    filters={filtersWithoutEntities}
-                                    query={query}
-                                />
-                            </SearchMenuContainer>
+                            <>
+                                <Typography.Text>
+                                    Showing{' '}
+                                    <b>
+                                        {lastResultIndex > 0 ? (page - 1) * pageSize + 1 : 0} - {lastResultIndex}
+                                    </b>{' '}
+                                    of <b>{totalResults}</b> results
+                                </Typography.Text>
+                                <SearchMenuContainer>
+                                    <SearchExtendedMenu
+                                        callSearchOnVariables={callSearchOnVariables}
+                                        entityFilters={entityFilters}
+                                        filters={filtersWithoutEntities}
+                                        query={query}
+                                        setShowSelectMode={setIsSelectMode}
+                                    />
+                                </SearchMenuContainer>
+                            </>
                         </PaginationInfoContainer>
+                        {isSelectMode && (
+                            <StyledTabToolbar>
+                                <SearchSelectBar
+                                    isSelectAll={
+                                        selectedEntities.length > 0 &&
+                                        isListSubset(searchResultUrns, selectedEntityUrns)
+                                    }
+                                    selectedEntities={selectedEntities}
+                                    onChangeSelectAll={onChangeSelectAll}
+                                    onCancel={() => setIsSelectMode(false)}
+                                    refetch={refetch}
+                                />
+                            </StyledTabToolbar>
+                        )}
                         {!loading && (
                             <>
-                                <ResultList<React.FC<ListProps<SearchResult>>>
-                                    dataSource={searchResponse?.searchResults}
-                                    split={false}
-                                    locale={{
-                                        emptyText: (
-                                            <NoDataContainer>
-                                                <Empty
-                                                    style={{ fontSize: 18, color: ANTD_GRAY[8] }}
-                                                    description={`No results found for "${query}"`}
-                                                />
-                                                <Button
-                                                    onClick={() =>
-                                                        navigateToSearchUrl({ query: '*', page: 0, history })
-                                                    }
-                                                >
-                                                    <RocketOutlined /> Explore your metadata
-                                                </Button>
-                                            </NoDataContainer>
-                                        ),
-                                    }}
-                                    renderItem={(item, index) => (
-                                        <>
-                                            <List.Item
-                                                style={{ padding: 0 }}
-                                                onClick={() => onResultClick(item, index)}
-                                            >
-                                                {entityRegistry.renderSearchResult(item.entity.type, item)}
-                                            </List.Item>
-                                            <ThinDivider />
-                                        </>
-                                    )}
+                                <SearchResultList
+                                    query={query}
+                                    searchResults={combinedSiblingSearchResults}
+                                    totalResultCount={totalResults}
+                                    isSelectMode={isSelectMode}
+                                    selectedEntities={selectedEntities}
+                                    setSelectedEntities={setSelectedEntities}
                                 />
                                 <PaginationControlContainer>
                                     <Pagination
                                         current={page}
-                                        pageSize={SearchCfg.RESULTS_PER_PAGE}
+                                        pageSize={numResultsPerPage}
                                         total={totalResults}
                                         showLessItems
                                         onChange={onChangePage}
-                                        showSizeChanger={false}
+                                        showSizeChanger={totalResults > SearchCfg.RESULTS_PER_PAGE}
+                                        onShowSizeChange={(_currNum, newNum) => setNumResultsPerPage(newNum)}
+                                        pageSizeOptions={['10', '20', '50']}
                                     />
                                 </PaginationControlContainer>
                                 {authenticatedUserUrn && (

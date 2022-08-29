@@ -2,7 +2,7 @@ import * as React from 'react';
 import { DotChartOutlined } from '@ant-design/icons';
 import { MlPrimaryKey, EntityType, SearchResult, OwnershipType } from '../../../types.generated';
 import { Preview } from './preview/Preview';
-import { Entity, IconStyleType, PreviewType } from '../Entity';
+import { Entity, EntityCapabilityType, IconStyleType, PreviewType } from '../Entity';
 import { getDataForEntityType } from '../shared/containers/profile/utils';
 import { GenericEntityProperties } from '../shared/types';
 import { GetMlPrimaryKeyQuery, useGetMlPrimaryKeyQuery } from '../../../graphql/mlPrimaryKey.generated';
@@ -148,7 +148,7 @@ export class MLPrimaryKeyEntity implements Entity<MlPrimaryKey> {
     };
 
     displayName = (data: MlPrimaryKey) => {
-        return data.name;
+        return data.name || data.urn;
     };
 
     getGenericEntityProperties = (mlPrimaryKey: MlPrimaryKey) => {
@@ -169,5 +169,16 @@ export class MLPrimaryKeyEntity implements Entity<MlPrimaryKey> {
             // eslint-disable-next-line
             platform: entity?.['featureTables']?.relationships?.[0]?.entity?.platform?.name,
         };
+    };
+
+    supportedCapabilities = () => {
+        return new Set([
+            EntityCapabilityType.OWNERS,
+            EntityCapabilityType.GLOSSARY_TERMS,
+            EntityCapabilityType.TAGS,
+            EntityCapabilityType.DOMAINS,
+            EntityCapabilityType.DEPRECATION,
+            EntityCapabilityType.SOFT_DELETE,
+        ]);
     };
 }

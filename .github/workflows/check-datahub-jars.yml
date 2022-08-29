@@ -5,6 +5,7 @@ on:
     branches:
       - master
     paths-ignore:
+      - "docker/**"
       - "docs/**"
       - "**.md"
   pull_request:
@@ -16,6 +17,10 @@ on:
       - "**.md"
   release:
     types: [published, edited]
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
 
 jobs:
 

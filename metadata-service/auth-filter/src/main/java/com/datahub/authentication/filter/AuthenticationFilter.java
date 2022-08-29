@@ -11,6 +11,7 @@ import com.datahub.authentication.AuthenticatorContext;
 import com.datahub.authentication.authenticator.AuthenticatorChain;
 import com.datahub.authentication.authenticator.DataHubSystemAuthenticator;
 import com.datahub.authentication.authenticator.NoOpAuthenticator;
+import com.datahub.authentication.token.StatefulTokenService;
 import com.google.common.collect.ImmutableMap;
 import com.linkedin.gms.factory.config.ConfigurationProvider;
 import com.linkedin.metadata.entity.EntityService;
@@ -48,6 +49,10 @@ public class AuthenticationFilter implements Filter {
   @Inject
   @Named("entityService")
   private EntityService _entityService;
+
+  @Inject
+  @Named("dataHubTokenService")
+  private StatefulTokenService _tokenService;
 
   private AuthenticatorChain authenticatorChain;
 
@@ -109,8 +114,12 @@ public class AuthenticationFilter implements Filter {
     boolean isAuthEnabled = this.configurationProvider.getAuthentication().isEnabled();
 
     // Create authentication context object to pass to authenticator instances. They can use it as needed.
-    final AuthenticatorContext authenticatorContext = new AuthenticatorContext(ImmutableMap.of(ENTITY_SERVICE,
-        this._entityService));
+    final AuthenticatorContext authenticatorContext = new AuthenticatorContext(ImmutableMap.of(
+        ENTITY_SERVICE,
+        this._entityService,
+        TOKEN_SERVICE,
+        this._tokenService
+    ));
 
     if (isAuthEnabled) {
       log.info("Auth is enabled. Building authenticator chain...");

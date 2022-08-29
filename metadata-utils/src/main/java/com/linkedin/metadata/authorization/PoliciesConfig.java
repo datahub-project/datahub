@@ -52,7 +52,6 @@ public class PoliciesConfig {
       "Generate Personal Access Tokens",
       "Generate personal access tokens for use with DataHub APIs.");
 
-
   public static final Privilege MANAGE_ACCESS_TOKENS = Privilege.of(
       "MANAGE_ACCESS_TOKENS",
       "Manage All Access Tokens",
@@ -75,6 +74,25 @@ public class PoliciesConfig {
       "Manage Glossaries",
       "Create, edit, and remove Glossary Entities");
 
+  public static final Privilege MANAGE_USER_CREDENTIALS_PRIVILEGE =
+      Privilege.of("MANAGE_USER_CREDENTIALS", "Manage User Credentials",
+          "Manage credentials for native DataHub users, including inviting new users and resetting passwords");
+
+  public static final Privilege MANAGE_TAGS_PRIVILEGE = Privilege.of(
+      "MANAGE_TAGS",
+      "Manage Tags",
+      "Create and remove Tags.");
+
+  public static final Privilege CREATE_TAGS_PRIVILEGE = Privilege.of(
+      "CREATE_TAGS",
+      "Create Tags",
+      "Create new Tags.");
+
+  public static final Privilege CREATE_DOMAINS_PRIVILEGE = Privilege.of(
+      "CREATE_DOMAINS",
+      "Create Domains",
+      "Create new Domains.");
+
   public static final List<Privilege> PLATFORM_PRIVILEGES = ImmutableList.of(
       MANAGE_POLICIES_PRIVILEGE,
       MANAGE_USERS_AND_GROUPS_PRIVILEGE,
@@ -85,7 +103,11 @@ public class PoliciesConfig {
       GENERATE_PERSONAL_ACCESS_TOKENS_PRIVILEGE,
       MANAGE_ACCESS_TOKENS,
       MANAGE_TESTS_PRIVILEGE,
-      MANAGE_GLOSSARIES_PRIVILEGE
+      MANAGE_GLOSSARIES_PRIVILEGE,
+      MANAGE_USER_CREDENTIALS_PRIVILEGE,
+      MANAGE_TAGS_PRIVILEGE,
+      CREATE_TAGS_PRIVILEGE,
+      CREATE_DOMAINS_PRIVILEGE
   );
 
   // Resource Privileges //
@@ -150,6 +172,11 @@ public class PoliciesConfig {
       "Edit All",
       "The ability to edit any information about an entity. Super user privileges.");
 
+  public static final Privilege DELETE_ENTITY_PRIVILEGE = Privilege.of(
+      "DELETE_ENTITY",
+      "Delete",
+      "The ability to delete the delete this entity.");
+
   public static final List<Privilege> COMMON_ENTITY_PRIVILEGES = ImmutableList.of(
       VIEW_ENTITY_PAGE_PRIVILEGE,
       EDIT_ENTITY_TAGS_PRIVILEGE,
@@ -160,7 +187,8 @@ public class PoliciesConfig {
       EDIT_ENTITY_STATUS_PRIVILEGE,
       EDIT_ENTITY_DOMAINS_PRIVILEGE,
       EDIT_ENTITY_DEPRECATION_PRIVILEGE,
-      EDIT_ENTITY_PRIVILEGE
+      EDIT_ENTITY_PRIVILEGE,
+      DELETE_ENTITY_PRIVILEGE
   );
 
   // Dataset Privileges
@@ -278,7 +306,7 @@ public class PoliciesConfig {
       "Tags",
       "Tags indexed by DataHub",
       ImmutableList.of(VIEW_ENTITY_PAGE_PRIVILEGE, EDIT_ENTITY_OWNERS_PRIVILEGE, EDIT_TAG_COLOR_PRIVILEGE,
-          EDIT_ENTITY_DOCS_PRIVILEGE, EDIT_ENTITY_PRIVILEGE)
+          EDIT_ENTITY_DOCS_PRIVILEGE, EDIT_ENTITY_PRIVILEGE, DELETE_ENTITY_PRIVILEGE)
   );
 
   // Container Privileges
@@ -295,7 +323,7 @@ public class PoliciesConfig {
       "Domains",
       "Domains created on DataHub",
       ImmutableList.of(VIEW_ENTITY_PAGE_PRIVILEGE, EDIT_ENTITY_OWNERS_PRIVILEGE, EDIT_ENTITY_DOCS_PRIVILEGE,
-          EDIT_ENTITY_DOC_LINKS_PRIVILEGE, EDIT_ENTITY_PRIVILEGE)
+          EDIT_ENTITY_DOC_LINKS_PRIVILEGE, EDIT_ENTITY_PRIVILEGE, DELETE_ENTITY_PRIVILEGE)
   );
 
   // Glossary Term Privileges

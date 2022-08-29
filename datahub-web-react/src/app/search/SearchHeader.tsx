@@ -10,7 +10,7 @@ import EntityRegistry from '../entity/EntityRegistry';
 import AdhocLink from '../create/AdhocLink';
 import HelpLink from '../shared/admin/HelpLink';
 import { ANTD_GRAY } from '../entity/shared/constants';
-import { AdminHeaderLinks } from '../shared/admin/AdminHeaderLinks';
+import { HeaderLinks } from '../shared/admin/HeaderLinks';
 import ContactLink from '../shared/admin/ContactLink';
 import { useAppConfig } from '../useAppConfig';
 import { DEFAULT_APP_CONFIG } from '../../appConfigContext';
@@ -110,7 +110,7 @@ export const SearchHeader = ({
                 <ContactLink />
                 <HelpLink />
                 <AdhocLink />
-                <AdminHeaderLinks areLinksHidden={isSearchBarFocused} />
+                <HeaderLinks areLinksHidden={isSearchBarFocused} />
                 <ManageAccount urn={authenticatedUserUrn} pictureLink={authenticatedUserPictureLink || ''} />
             </NavGroup>
         </Header>

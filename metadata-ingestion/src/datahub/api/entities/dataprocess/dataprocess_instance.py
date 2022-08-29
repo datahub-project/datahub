@@ -55,7 +55,7 @@ class DataProcessInstance:
         template_urn (Optional[Union[DataJobUrn, DataFlowUrn]]): The parent DataJob or DataFlow which was instantiated if applicable
         parent_instance (Optional[DataProcessInstanceUrn]): The parent execution's urn if applicable
         properties Dict[str, str]: Custom properties to set for the DataProcessInstance
-        url (Optional[str]): Url which points to the exection at the orchestrator
+        url (Optional[str]): Url which points to the execution at the orchestrator
         inlets (List[str]): List of entities the DataProcessInstance consumes
         outlets (List[str]): List of entities the DataProcessInstance produces
     """
@@ -118,10 +118,10 @@ class DataProcessInstance:
         """
 
         :rtype: None
-        :param emitter: Datahub Emitter to emit the proccess event
+        :param emitter: Datahub Emitter to emit the process event
         :param start_timestamp_millis: (int) the execution start time in milliseconds
         :param attempt: the number of attempt of the execution with the same execution id
-        :param emit_template: (bool) If it is set the template of the execution (datajob, datflow) will be emitted as well.
+        :param emit_template: (bool) If it is set the template of the execution (datajob, dataflow) will be emitted as well.
         :param callback: (Optional[Callable[[Exception, str], None]]) the callback method for KafkaEmitter if it is used
         """
         if emit_template and self.template_urn is not None:
@@ -312,8 +312,8 @@ class DataProcessInstance:
 
         :param datajob: (DataJob) the datajob from generate the DataProcessInstance
         :param id: (str) the id for the DataProcessInstance
-        :param clone_inlets: (bool) wheather to clone datajob's inlets
-        :param clone_outlets: (bool) wheather to clone datajob's outlets
+        :param clone_inlets: (bool) whether to clone datajob's inlets
+        :param clone_outlets: (bool) whether to clone datajob's outlets
         :return: DataProcessInstance
         """
         dpi: DataProcessInstance = DataProcessInstance(

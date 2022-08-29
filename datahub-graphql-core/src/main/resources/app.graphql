@@ -53,6 +53,11 @@ type PlatformPrivileges {
   generatePersonalAccessTokens: Boolean!
 
   """
+  Whether the user should be able to create new Domains
+  """
+  createDomains: Boolean!
+
+  """
   Whether the user should be able to manage Domains
   """
   manageDomains: Boolean!
@@ -81,6 +86,21 @@ type PlatformPrivileges {
   Whether the user should be able to manage Glossaries
   """
   manageGlossaries: Boolean!
+
+  """
+  Whether the user is able to manage user credentials
+  """
+  manageUserCredentials: Boolean!
+
+  """
+  Whether the user should be able to create new Tags
+  """
+  createTags: Boolean!
+
+  """
+  Whether the user should be able to create and delete all Tags
+  """
+  manageTags: Boolean!
 }
 
 """

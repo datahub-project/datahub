@@ -1,0 +1,7 @@
+{
+  "type": "delta-lake",
+  "config": {
+    "env": "UAT",
+    "base_path": "tests/integration/delta_lake/test_data/delta_tables/my_table_basic"
+  }
+}

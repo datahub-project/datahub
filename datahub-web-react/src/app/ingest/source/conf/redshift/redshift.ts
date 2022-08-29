@@ -1,8 +1,6 @@
 import { SourceConfig } from '../types';
 import redshiftLogo from '../../../../../images/redshiftlogo.png';
 
-const baseUrl = window.location.origin;
-
 const placeholderRecipe = `\
 source: 
     type: redshift
@@ -16,22 +14,19 @@ source:
         username: "\${REDSHIFT_USERNAME}" # Your Redshift username, e.g. admin
         password: "\${REDSHIFT_PASSWORD}" # Your Redshift password, e.g. password_01
 
-        # Options
-        include_tables: True
-        include_views: True
-
-        # Profiling
+        table_lineage_mode: stl_scan_based
+        include_table_lineage: true
+        include_view_lineage: true
         profiling:
-            enabled: false
-sink: 
-    type: datahub-rest 
-    config: 
-        server: "${baseUrl}/api/gms"
-        # Add a secret in secrets Tab
-        token: "\${GMS_TOKEN}"`;
+            enabled: true
+        stateful_ingestion:
+            enabled: true
+`;
+
+export const REDSHIFT = 'redshift';
 
 const redshiftConfig: SourceConfig = {
-    type: 'redshift',
+    type: REDSHIFT,
     placeholderRecipe,
     displayName: 'Redshift',
     docsUrl: 'https://datahubproject.io/docs/generated/ingestion/sources/redshift/',

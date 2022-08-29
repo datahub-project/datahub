@@ -36,13 +36,15 @@ authorization:
 
   # Optional: A set of custom authorizers, serving in addition to the default DataHub policies-based authorizer.
   authorizers:
-  # - type: com.datahub.authorization.authorizer.CustomAuthorizer
-  #   configs:
-  #     config1: value1
+    - type: com.datahub.authorization.ranger.RangerAuthorizer
+      enabled: ${RANGER_AUTHORIZER_ENABLED:false}
+      configs:
+        username: ${RANGER_USERNAME}
+        password: ${RANGER_PASSWORD}
 
 ingestion:
   enabled: ${UI_INGESTION_ENABLED:true}
-  defaultCliVersion: '${UI_INGESTION_DEFAULT_CLI_VERSION:0.8.35}'
+  defaultCliVersion: '${UI_INGESTION_DEFAULT_CLI_VERSION:0.8.42}'
 
 telemetry:
   enabledCli: ${CLI_TELEMETRY_ENABLED:true}
@@ -56,8 +58,8 @@ secretService:
 datahub:
   serverType: ${DATAHUB_SERVER_TYPE:prod}
   gms:
-    host: ${DATAHUB_GMS_HOST:${GMS_HOST:localhost}}
-    port: ${DATAHUB_GMS_PORT:${GMS_PORT:8080}}
+    host: ${DATAHUB_GMS_HOST:localhost}
+    port: ${DATAHUB_GMS_PORT:8080}
     useSSL: ${DATAHUB_GMS_USE_SSL:${GMS_USE_SSL:false}}
     sslContext:
       protocol: ${DATAHUB_GMS_SSL_PROTOCOL:${GMS_SSL_PROTOCOL:#{null}}}
@@ -85,7 +87,7 @@ configEntityRegistry:
   path: ${ENTITY_REGISTRY_CONFIG_PATH:../../metadata-models/src/main/resources/entity-registry.yml}
 
 platformAnalytics:
-  enabled: ${ANALYTICS_ENABLED:true}
+  enabled: ${DATAHUB_ANALYTICS_ENABLED:true}
 
 visualConfig:
   assets:
@@ -145,7 +147,7 @@ elasticsearch:
     prefix: ${INDEX_PREFIX:}
     numShards: ${ELASTICSEARCH_NUM_SHARDS_PER_INDEX:1}
     numReplicas: ${ELASTICSEARCH_NUM_REPLICAS_PER_INDEX:1}
-    numRetries: ${ELASTICSEARCH_INDEX_BUILDER_NUM_RETRIES :3}
+    numRetries: ${ELASTICSEARCH_INDEX_BUILDER_NUM_RETRIES:3}
     maxArrayLength: ${SEARCH_DOCUMENT_MAX_ARRAY_LENGTH:1000}
     mainTokenizer: ${ELASTICSEARCH_MAIN_TOKENIZER:#{null}}
 
@@ -160,6 +162,10 @@ kafka:
     awsGlue:
       region: ${AWS_GLUE_SCHEMA_REGISTRY_REGION:us-east-1}
       registryName: ${AWS_GLUE_SCHEMA_REGISTRY_NAME:#{null}}
+  schema:
+    registry:
+      security:
+        protocol: ${KAFKA_PROPERTIES_SECURITY_PROTOCOL:PLAINTEXT}
 
 # Only required if GraphService type is neo4j
 neo4j:
@@ -176,6 +182,9 @@ spring:
   mvc:
     servlet:
       path: /openapi
+  kafka:
+    security:
+      protocol: ${KAFKA_PROPERTIES_SECURITY_PROTOCOL:PLAINTEXT}
 
 springdoc:
   cache:
@@ -183,3 +192,6 @@ springdoc:
 
 metadataTests:
   enabled: ${METADATA_TESTS_ENABLED:true}
+
+siblings:
+  enabled: ${ENABLE_SIBLING_HOOK:true} # enable to turn on automatic sibling associations for dbt

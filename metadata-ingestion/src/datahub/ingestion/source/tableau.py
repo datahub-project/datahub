@@ -5,7 +5,7 @@ from functools import lru_cache
 from typing import Any, Dict, Iterable, List, Optional, Tuple, Union
 
 import dateutil.parser as dp
-from pydantic import validator
+from pydantic import root_validator, validator
 from pydantic.fields import Field
 from tableauserverclient import (
     PersonalAccessTokenAuth,
@@ -132,10 +132,16 @@ class TableauConfig(ConfigModel):
         description="Ingest details for tables external to (not embedded in) tableau as entities.",
     )
 
-    workbooks_page_size: int = Field(
-        default=10,
-        description="Number of workbooks to query at a time using Tableau api.",
+    workbooks_page_size: Optional[int] = Field(
+        default=None,
+        description="@deprecated(use page_size instead) Number of workbooks to query at a time using Tableau api.",
     )
+
+    page_size: int = Field(
+        default=10,
+        description="Number of metadata objects (e.g. CustomSQLTable, PublishedDatasource, etc) to query at a time using Tableau api.",
+    )
+
     env: str = Field(
         default=builder.DEFAULT_ENV,
         description="Environment to use in namespace when constructing URNs.",
@@ -144,6 +150,17 @@ class TableauConfig(ConfigModel):
     @validator("connect_uri")
     def remove_trailing_slash(cls, v):
         return config_clean.remove_trailing_slashes(v)
+
+    @root_validator()
+    def show_warning_for_deprecated_config_field(
+        cls, values: Dict[str, Any]
+    ) -> Dict[str, Any]:
+        if values.get("workbooks_page_size") is not None:
+            logger.warn(
+                "Config workbooks_page_size is deprecated. Please use config page_size instead."
+            )
+
+        return values
 
 
 class WorkbookKey(PlatformKey):
@@ -247,6 +264,9 @@ class TableauSource(Source):
         count: int = 0,
         current_count: int = 0,
     ) -> Tuple[dict, int, int]:
+        logger.debug(
+            f"Query {connection_type} to get {count} objects with offset {current_count}"
+        )
         query_data = query_metadata(
             self.server, query, connection_type, count, current_count, query_filter
         )
@@ -267,7 +287,12 @@ class TableauSource(Source):
         has_next_page = connection_object.get("pageInfo", {}).get("hasNextPage", False)
         return connection_object, total_count, has_next_page
 
-    def emit_workbooks(self, workbooks_page_size: int) -> Iterable[MetadataWorkUnit]:
+    def emit_workbooks(self) -> Iterable[MetadataWorkUnit]:
+        count_on_query = (
+            self.config.page_size
+            if self.config.workbooks_page_size is None
+            else self.config.workbooks_page_size
+        )
 
         projects = (
             f"projectNameWithin: {json.dumps(self.config.projects)}"
@@ -282,8 +307,8 @@ class TableauSource(Source):
         current_count = 0
         while has_next_page:
             count = (
-                workbooks_page_size
-                if current_count + workbooks_page_size < total_count
+                count_on_query
+                if current_count + count_on_query < total_count
                 else total_count - current_count
             )
             (
@@ -305,7 +330,7 @@ class TableauSource(Source):
                 yield from self.emit_sheets_as_charts(workbook)
                 yield from self.emit_dashboards(workbook)
                 yield from self.emit_embedded_datasource(workbook)
-                yield from self.emit_upstream_tables()
+            yield from self.emit_upstream_tables()
 
     def _track_custom_sql_ids(self, field: dict) -> None:
         # Tableau shows custom sql datasource as a table in ColumnField.
@@ -355,18 +380,27 @@ class TableauSource(Source):
             return upstream_tables
 
         for table in datasource.get("upstreamTables", []):
-            # skip upstream tables when there is no column info when retrieving embedded datasource
-            # and when table name is None
-            # Schema details for these will be taken care in self.emit_custom_sql_ds()
+            # skip upstream tables when there is no column info when retrieving datasource
+            # Lineage and Schema details for these will be taken care in self.emit_custom_sql_datasources()
             if not is_custom_sql and not table.get("columns"):
+                logger.debug(
+                    f"Skipping upstream table with id {table['id']}, no columns"
+                )
                 continue
             elif table["name"] is None:
+                logger.warning(
+                    f"Skipping upstream table {table['id']} from lineage since its name is none"
+                )
                 continue
 
             schema = table.get("schema", "")
             table_name = table.get("name", "")
             full_name = table.get("fullName", "")
-            upstream_db = table.get("database", {}).get("name", "")
+            upstream_db = (
+                table.get("database", {}).get("name", "")
+                if table.get("database") is not None
+                else ""
+            )
             logger.debug(
                 "Processing Table with Connection Type: {0} and id {1}".format(
                     table.get("connectionType", ""), table.get("id", "")
@@ -381,6 +415,9 @@ class TableauSource(Source):
                 and table_name == full_name
                 and schema in table_name
             ):
+                logger.debug(
+                    f"Omitting schema for upstream table {table['id']}, schema included in table name"
+                )
                 schema = ""
             table_urn = make_table_urn(
                 self.config.env,
@@ -398,22 +435,20 @@ class TableauSource(Source):
 
             table_path = None
             if project and datasource.get("name"):
-                table_name = table.get("name") if table.get("name") else table["id"]
+                table_name = table.get("name") or table["id"]
                 table_path = f"{project.replace('/', REPLACE_SLASH_CHAR)}/{datasource['name']}/{table_name}"
 
             self.upstream_tables[table_urn] = (
                 table.get("columns", []),
                 table_path,
-                table.get("isEmbedded") if table.get("isEmbedded") else False,
+                table.get("isEmbedded") or False,
             )
 
         return upstream_tables
 
     def emit_custom_sql_datasources(self) -> Iterable[MetadataWorkUnit]:
         count_on_query = len(self.custom_sql_ids_being_used)
-        custom_sql_filter = "idWithin: {}".format(
-            json.dumps(self.custom_sql_ids_being_used)
-        )
+        custom_sql_filter = f"idWithin: {json.dumps(self.custom_sql_ids_being_used)}"
         custom_sql_connection, total_count, has_next_page = self.get_connection_object(
             custom_sql_graphql_query, "customSQLTablesConnection", custom_sql_filter
         )
@@ -491,7 +526,7 @@ class TableauSource(Source):
                     dataset_snapshot.aspects.append(schema_metadata)
 
                 # Browse path
-                csql_name = csql.get("name") if csql.get("name") else csql_id
+                csql_name = csql.get("name") or csql_id
 
                 if project and datasource_name:
                     browse_paths = BrowsePathsClass(
@@ -526,28 +561,34 @@ class TableauSource(Source):
     def get_schema_metadata_for_custom_sql(
         self, columns: List[dict]
     ) -> Optional[SchemaMetadata]:
+        fields = []
         schema_metadata = None
         for field in columns:
             # Datasource fields
-            fields = []
+
+            if field.get("name") is None:
+                logger.warning(
+                    f"Skipping field {field['id']} from schema since its name is none"
+                )
+                continue
             nativeDataType = field.get("remoteType", "UNKNOWN")
             TypeClass = FIELD_TYPE_MAPPING.get(nativeDataType, NullTypeClass)
             schema_field = SchemaField(
-                fieldPath=field.get("name", ""),
+                fieldPath=field["name"],
                 type=SchemaFieldDataType(type=TypeClass()),
                 nativeDataType=nativeDataType,
                 description=field.get("description", ""),
             )
             fields.append(schema_field)
 
-            schema_metadata = SchemaMetadata(
-                schemaName="test",
-                platform=f"urn:li:dataPlatform:{self.platform}",
-                version=0,
-                fields=fields,
-                hash="",
-                platformSchema=OtherSchema(rawSchema=""),
-            )
+        schema_metadata = SchemaMetadata(
+            schemaName="test",
+            platform=f"urn:li:dataPlatform:{self.platform}",
+            version=0,
+            fields=fields,
+            hash="",
+            platformSchema=OtherSchema(rawSchema=""),
+        )
         return schema_metadata
 
     def _create_lineage_from_csql_datasource(
@@ -605,10 +646,14 @@ class TableauSource(Source):
         self, datasource_fields: List[dict]
     ) -> Optional[SchemaMetadata]:
         fields = []
-        schema_metadata = None
         for field in datasource_fields:
             # check datasource - custom sql relations from a field being referenced
             self._track_custom_sql_ids(field)
+            if field.get("name") is None:
+                logger.warning(
+                    f"Skipping field {field['id']} from schema since its name is none"
+                )
+                continue
 
             nativeDataType = field.get("dataType", "UNKNOWN")
             TypeClass = FIELD_TYPE_MAPPING.get(nativeDataType, NullTypeClass)
@@ -632,8 +677,8 @@ class TableauSource(Source):
             )
             fields.append(schema_field)
 
-        if fields:
-            schema_metadata = SchemaMetadata(
+        return (
+            SchemaMetadata(
                 schemaName="test",
                 platform=f"urn:li:dataPlatform:{self.platform}",
                 version=0,
@@ -641,8 +686,9 @@ class TableauSource(Source):
                 hash="",
                 platformSchema=OtherSchema(rawSchema=""),
             )
-
-        return schema_metadata
+            if fields
+            else None
+        )
 
     def get_metadata_change_event(
         self, snap_shot: Union["DatasetSnapshot", "DashboardSnapshot", "ChartSnapshot"]
@@ -697,9 +743,7 @@ class TableauSource(Source):
             aspects=[],
         )
 
-        datasource_name = (
-            datasource.get("name") if datasource.get("name") else datasource_id
-        )
+        datasource_name = datasource.get("name") or datasource_id
         if is_embedded_ds and workbook and workbook.get("name"):
             datasource_name = f"{workbook['name']}/{datasource_name}"
         # Browse path
@@ -780,9 +824,7 @@ class TableauSource(Source):
 
     def emit_published_datasources(self) -> Iterable[MetadataWorkUnit]:
         count_on_query = len(self.datasource_ids_being_used)
-        datasource_filter = "idWithin: {}".format(
-            json.dumps(self.datasource_ids_being_used)
-        )
+        datasource_filter = f"idWithin: {json.dumps(self.datasource_ids_being_used)}"
         (
             published_datasource_conn,
             total_count,
@@ -819,7 +861,7 @@ class TableauSource(Source):
     def emit_upstream_tables(self) -> Iterable[MetadataWorkUnit]:
         for (table_urn, (columns, path, is_embedded)) in self.upstream_tables.items():
             if not is_embedded and not self.config.ingest_tables_external:
-                logger.error(
+                logger.debug(
                     f"Skipping external table {table_urn} as ingest_tables_external is set to False"
                 )
                 continue
@@ -840,6 +882,11 @@ class TableauSource(Source):
             if columns:
                 fields = []
                 for field in columns:
+                    if field.get("name") is None:
+                        logger.warning(
+                            f"Skipping field {field['id']} from schema since its name is none"
+                        )
+                        continue
                     nativeDataType = field.get("remoteType", "UNKNOWN")
                     TypeClass = FIELD_TYPE_MAPPING.get(nativeDataType, NullTypeClass)
 
@@ -881,7 +928,7 @@ class TableauSource(Source):
                 aspects=[],
             )
 
-            creator = workbook.get("owner", {}).get("username", "")
+            creator: Optional[str] = workbook["owner"].get("username")
             created_at = sheet.get("createdAt", datetime.now())
             updated_at = sheet.get("updatedAt", datetime.now())
             last_modified = self.get_last_modified(creator, created_at, updated_at)
@@ -914,8 +961,6 @@ class TableauSource(Source):
             data_sources = self.get_sheetwise_upstream_datasources(sheet)
 
             for ds_id in data_sources:
-                if ds_id is None or not ds_id:
-                    continue
                 ds_urn = builder.make_dataset_urn(self.platform, ds_id, self.config.env)
                 datasource_urn.append(ds_urn)
                 if ds_id not in self.datasource_ids_being_used:
@@ -933,7 +978,7 @@ class TableauSource(Source):
             chart_snapshot.aspects.append(chart_info)
 
             if workbook.get("projectName") and workbook.get("name"):
-                sheet_name = sheet.get("name") if sheet.get("name") else sheet["id"]
+                sheet_name = sheet.get("name") or sheet["id"]
                 # Browse path
                 browse_path = BrowsePathsClass(
                     paths=[
@@ -1050,7 +1095,7 @@ class TableauSource(Source):
             dashboard_snapshot.aspects.append(dashboard_info_class)
 
             if workbook.get("projectName") and workbook.get("name"):
-                dashboard_name = title if title else dashboard["id"]
+                dashboard_name = title or dashboard["id"]
                 # browse path
                 browse_paths = BrowsePathsClass(
                     paths=[
@@ -1104,13 +1149,13 @@ class TableauSource(Source):
     def _extract_schema_from_fullName(self, fullName: str) -> str:
         # fullName is observed to be in format [schemaName].[tableName]
         # OR simply tableName OR [tableName]
-        if fullName.startswith("[") and fullName.find("].[") >= 0:
+        if fullName.startswith("[") and "].[" in fullName:
             return fullName[1 : fullName.index("]")]
         return ""
 
     @lru_cache(maxsize=None)
     def get_last_modified(
-        self, creator: str, created_at: bytes, updated_at: bytes
+        self, creator: Optional[str], created_at: bytes, updated_at: bytes
     ) -> ChangeAuditStamps:
         last_modified = ChangeAuditStamps()
         if creator:
@@ -1148,7 +1193,7 @@ class TableauSource(Source):
         if self.server is None or not self.server.is_signed_in():
             return
         try:
-            yield from self.emit_workbooks(self.config.workbooks_page_size)
+            yield from self.emit_workbooks()
             if self.datasource_ids_being_used:
                 yield from self.emit_published_datasources()
             if self.custom_sql_ids_being_used:

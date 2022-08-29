@@ -67,6 +67,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.apache.maven.artifact.versioning.ComparableVersion;
 
 import static com.linkedin.metadata.entity.ValidationUtils.*;
+import static com.linkedin.metadata.resources.entity.ResourceUtils.*;
 import static com.linkedin.metadata.resources.restli.RestliConstants.*;
 import static com.linkedin.metadata.utils.PegasusUtils.*;
 
@@ -85,10 +86,13 @@ public class EntityResource extends CollectionResourceTaskTemplate<String, Entit
   private static final String ACTION_BATCH_INGEST = "batchIngest";
   private static final String ACTION_LIST_URNS = "listUrns";
   private static final String ACTION_FILTER = "filter";
+  private static final String ACTION_EXISTS = "exists";
+
   private static final String PARAM_ENTITY = "entity";
   private static final String PARAM_ENTITIES = "entities";
   private static final String PARAM_COUNT = "count";
   private static final String PARAM_VALUE = "value";
+  private static final String PARAM_URN = "urn";
   private static final String SYSTEM_METADATA = "systemMetadata";
 
   private final Clock _clock = Clock.systemUTC();
@@ -96,6 +100,10 @@ public class EntityResource extends CollectionResourceTaskTemplate<String, Entit
   @Inject
   @Named("entityService")
   private EntityService _entityService;
+
+  @Inject
+  @Named("deleteEntityService")
+  private DeleteEntityService _deleteEntityService;
 
   @Inject
   @Named("searchService")
@@ -120,10 +128,6 @@ public class EntityResource extends CollectionResourceTaskTemplate<String, Entit
   @Inject
   @Named("graphService")
   private GraphService _graphService;
-
-  @Inject
-  @Named("deleteEntityService")
-  private DeleteEntityService _deleteEntityService;
 
   /**
    * Retrieves the value for an entity that is made up of latest versions of specified aspects.
@@ -196,14 +200,13 @@ public class EntityResource extends CollectionResourceTaskTemplate<String, Entit
 
     Authentication authentication = AuthenticationContext.getAuthentication();
     String actorUrnStr = authentication.getActor().toUrnStr();
-    // Getting actor from AuthenticationContext
-    log.debug(String.format("Retrieving AuthenticationContext for Actor with : %s", actorUrnStr));
     final AuditStamp auditStamp = new AuditStamp().setTime(_clock.millis()).setActor(Urn.createFromString(actorUrnStr));
 
     // variables referenced in lambdas are required to be final
     final SystemMetadata finalSystemMetadata = systemMetadata;
     return RestliUtil.toTask(() -> {
       _entityService.ingestEntity(entity, auditStamp, finalSystemMetadata);
+      tryIndexRunId(com.datahub.util.ModelUtils.getUrnFromSnapshotUnion(entity.getValue()), systemMetadata, _entitySearchService);
       return null;
     }, MetricRegistry.name(this.getClass(), "ingest"));
   }
@@ -224,8 +227,6 @@ public class EntityResource extends CollectionResourceTaskTemplate<String, Entit
 
     Authentication authentication = AuthenticationContext.getAuthentication();
     String actorUrnStr = authentication.getActor().toUrnStr();
-    // Getting actor from AuthenticationContext
-    log.debug(String.format("Retrieving AuthenticationContext for Actor with : %s", actorUrnStr));
     final AuditStamp auditStamp = new AuditStamp().setTime(_clock.millis()).setActor(Urn.createFromString(actorUrnStr));
 
     if (systemMetadataList == null) {
@@ -240,8 +241,14 @@ public class EntityResource extends CollectionResourceTaskTemplate<String, Entit
         .map(systemMetadata -> populateDefaultFieldsIfEmpty(systemMetadata))
         .collect(Collectors.toList());
 
+    SystemMetadata[] finalSystemMetadataList1 = systemMetadataList;
     return RestliUtil.toTask(() -> {
       _entityService.ingestEntities(Arrays.asList(entities), auditStamp, finalSystemMetadataList);
+      for (int i = 0; i < entities.length; i++) {
+        SystemMetadata systemMetadata = finalSystemMetadataList1[i];
+        Entity entity = entities[i];
+        tryIndexRunId(com.datahub.util.ModelUtils.getUrnFromSnapshotUnion(entity.getValue()), systemMetadata, _entitySearchService);
+      }
       return null;
     }, MetricRegistry.name(this.getClass(), "batchIngest"));
   }
@@ -280,16 +287,16 @@ public class EntityResource extends CollectionResourceTaskTemplate<String, Entit
   public Task<LineageSearchResult> searchAcrossLineage(@ActionParam(PARAM_URN) @Nonnull String urnStr,
       @ActionParam(PARAM_DIRECTION) String direction,
       @ActionParam(PARAM_ENTITIES) @Optional @Nullable String[] entities,
-      @ActionParam(PARAM_INPUT) @Optional @Nullable String input, @ActionParam(PARAM_FILTER) @Optional @Nullable Filter filter,
-      @ActionParam(PARAM_SORT) @Optional @Nullable SortCriterion sortCriterion, @ActionParam(PARAM_START) int start,
-      @ActionParam(PARAM_COUNT) int count) throws URISyntaxException {
+      @ActionParam(PARAM_INPUT) @Optional @Nullable String input, @ActionParam(PARAM_MAX_HOPS) @Optional @Nullable Integer maxHops,
+      @ActionParam(PARAM_FILTER) @Optional @Nullable Filter filter, @ActionParam(PARAM_SORT) @Optional @Nullable SortCriterion sortCriterion,
+      @ActionParam(PARAM_START) int start, @ActionParam(PARAM_COUNT) int count) throws URISyntaxException {
     Urn urn = Urn.createFromString(urnStr);
     List<String> entityList = entities == null ? Collections.emptyList() : Arrays.asList(entities);
     log.info("GET SEARCH RESULTS ACROSS RELATIONSHIPS for source urn {}, direction {}, entities {} with query {}",
         urnStr, direction, entityList, input);
     return RestliUtil.toTask(
         () -> _lineageSearchService.searchAcrossLineage(urn, LineageDirection.valueOf(direction), entityList,
-            input, filter, sortCriterion, start, count), "searchAcrossRelationships");
+            input, maxHops, filter, sortCriterion, start, count), "searchAcrossRelationships");
   }
 
   @Action(name = ACTION_LIST)
@@ -350,7 +357,7 @@ public class EntityResource extends CollectionResourceTaskTemplate<String, Entit
   }
 
   /*
-  Used to delete all data related to a filter criteria based on registryId, runId etc.
+   Used to delete all data related to a filter criteria based on registryId, runId etc.
    */
   @Action(name = "deleteAll")
   @Nonnull
@@ -488,5 +495,15 @@ public class EntityResource extends CollectionResourceTaskTemplate<String, Entit
     log.info("FILTER RESULTS for {} with filter {}", entityName, filter);
     return RestliUtil.toTask(() -> _entitySearchService.filter(entityName, filter, sortCriterion, start, count),
         MetricRegistry.name(this.getClass(), "search"));
+  }
+
+  @Action(name = ACTION_EXISTS)
+  @Nonnull
+  @WithSpan
+  public Task<Boolean> exists(@ActionParam(PARAM_URN) @Nonnull String urnStr) throws URISyntaxException {
+    log.info("EXISTS for {}", urnStr);
+    Urn urn = Urn.createFromString(urnStr);
+    return RestliUtil.toTask(() -> _entityService.exists(urn),
+        MetricRegistry.name(this.getClass(), "exists"));
   }
 }

@@ -1,4 +1,4 @@
-import React, { useMemo } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { useHistory } from 'react-router';
 import { Typography, Image, Row, Button, Tag } from 'antd';
 import styled, { useTheme } from 'styled-components';
@@ -9,14 +9,15 @@ import { useEntityRegistry } from '../useEntityRegistry';
 import { navigateToSearchUrl } from '../search/utils/navigateToSearchUrl';
 import { SearchBar } from '../search/SearchBar';
 import {
+    GetAutoCompleteMultipleResultsQuery,
     useGetAutoCompleteMultipleResultsLazyQuery,
     useGetSearchResultsForMultipleQuery,
 } from '../../graphql/search.generated';
 import { EntityType } from '../../types.generated';
 import analytics, { EventType } from '../analytics';
+import { HeaderLinks } from '../shared/admin/HeaderLinks';
 import AdhocLink from '../create/AdhocLink';
 import HelpLink from '../shared/admin/HelpLink';
-import { AdminHeaderLinks } from '../shared/admin/AdminHeaderLinks';
 import { ANTD_GRAY } from '../entity/shared/constants';
 import ContactLink from '../shared/admin/ContactLink';
 import { useAppConfig } from '../useAppConfig';
@@ -122,6 +123,13 @@ export const HomePageHeader = () => {
     const user = useGetAuthenticatedUser()?.corpUser;
     const themeConfig = useTheme();
     const appConfig = useAppConfig();
+    const [newSuggestionData, setNewSuggestionData] = useState<GetAutoCompleteMultipleResultsQuery | undefined>();
+
+    useEffect(() => {
+        if (suggestionsData !== undefined) {
+            setNewSuggestionData(suggestionsData);
+        }
+    }, [suggestionsData]);
 
     const onSearch = (query: string, type?: EntityType) => {
         if (!query || query.trim().length === 0) {
@@ -146,7 +154,7 @@ export const HomePageHeader = () => {
                 variables: {
                     input: {
                         query,
-                        limit: 30,
+                        limit: 10,
                     },
                 },
             });
@@ -160,7 +168,7 @@ export const HomePageHeader = () => {
                 types: [],
                 query: '*',
                 start: 0,
-                count: 20,
+                count: 6,
                 filters: [],
             },
         },
@@ -191,10 +199,10 @@ export const HomePageHeader = () => {
                     )}
                 </WelcomeText>
                 <NavGroup>
+                    <HeaderLinks />
                     <ContactLink />
                     <HelpLink />
                     <AdhocLink />
-                    <AdminHeaderLinks />
                     <ManageAccount
                         urn={user?.urn || ''}
                         pictureLink={user?.editableProperties?.pictureLink || ''}
@@ -218,7 +226,7 @@ export const HomePageHeader = () => {
                 <SearchBarContainer>
                     <SearchBar
                         placeholderText={themeConfig.content.search.searchbarMessage}
-                        suggestions={suggestionsData?.autoCompleteForMultiple?.suggestions || []}
+                        suggestions={newSuggestionData?.autoCompleteForMultiple?.suggestions || []}
                         onSearch={onSearch}
                         onQueryChange={onAutoComplete}
                         autoCompleteStyle={styles.searchBox}

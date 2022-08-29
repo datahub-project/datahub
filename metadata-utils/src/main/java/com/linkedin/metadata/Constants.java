@@ -15,6 +15,8 @@ public class Constants {
 
   public static final String DEFAULT_RUN_ID = "no-run-id-provided";
 
+  public static final String GLOBAL_INVITE_TOKEN = "urn:li:inviteToken:global";
+
   /**
    * Entities
    */
@@ -45,6 +47,8 @@ public class Constants {
   public static final String DATA_PLATFORM_INSTANCE_ENTITY_NAME = "dataPlatformInstance";
   public static final String ACCESS_TOKEN_ENTITY_NAME = "dataHubAccessToken";
   public static final String DATA_HUB_UPGRADE_ENTITY_NAME = "dataHubUpgrade";
+  public static final String INVITE_TOKEN_ENTITY_NAME = "inviteToken";
+
 
   /**
    * Aspects
@@ -60,14 +64,18 @@ public class Constants {
   public static final String SUB_TYPES_ASPECT_NAME = "subTypes";
   public static final String DEPRECATION_ASPECT_NAME = "deprecation";
   public static final String OPERATION_ASPECT_NAME = "operation";
+  public static final String SIBLINGS_ASPECT_NAME = "siblings";
+  public static final String ORIGIN_ASPECT_NAME = "origin";
 
   // User
   public static final String CORP_USER_KEY_ASPECT_NAME = "corpUserKey";
   public static final String CORP_USER_EDITABLE_INFO_NAME = "corpUserEditableInfo";
   public static final String GROUP_MEMBERSHIP_ASPECT_NAME = "groupMembership";
+  public static final String NATIVE_GROUP_MEMBERSHIP_ASPECT_NAME = "nativeGroupMembership";
   public static final String CORP_USER_EDITABLE_INFO_ASPECT_NAME = "corpUserEditableInfo";
   public static final String CORP_USER_INFO_ASPECT_NAME = "corpUserInfo";
   public static final String CORP_USER_STATUS_ASPECT_NAME = "corpUserStatus";
+  public static final String CORP_USER_CREDENTIALS_ASPECT_NAME = "corpUserCredentials";
 
   // Group
   public static final String CORP_GROUP_KEY_ASPECT_NAME = "corpGroupKey";
@@ -91,11 +99,13 @@ public class Constants {
   public static final String CHART_INFO_ASPECT_NAME = "chartInfo";
   public static final String EDITABLE_CHART_PROPERTIES_ASPECT_NAME = "editableChartProperties";
   public static final String CHART_QUERY_ASPECT_NAME = "chartQuery";
+  public static final String CHART_USAGE_STATISTICS_ASPECT_NAME = "chartUsageStatistics";
 
   // Dashboard
   public static final String DASHBOARD_KEY_ASPECT_NAME = "dashboardKey";
   public static final String DASHBOARD_INFO_ASPECT_NAME = "dashboardInfo";
   public static final String EDITABLE_DASHBOARD_PROPERTIES_ASPECT_NAME = "editableDashboardProperties";
+  public static final String DASHBOARD_USAGE_STATISTICS_ASPECT_NAME = "dashboardUsageStatistics";
 
   // Notebook
   public static final String NOTEBOOK_KEY_ASPECT_NAME = "notebookKey";
@@ -217,6 +227,14 @@ public class Constants {
   public static final String DATA_HUB_UPGRADE_RESULT_ASPECT_NAME = "dataHubUpgradeResult";
 
 
+  // Invite Token
+  public static final String INVITE_TOKEN_ASPECT_NAME = "inviteToken";
+
+  // Relationships
+  public static final String IS_MEMBER_OF_GROUP_RELATIONSHIP_NAME = "IsMemberOfGroup";
+  public static final String IS_MEMBER_OF_NATIVE_GROUP_RELATIONSHIP_NAME = "IsMemberOfNativeGroup";
+
+  // acryl-main only
   public static final String CHANGE_EVENT_PLATFORM_EVENT_NAME = "entityChangeEvent";
 
   /**

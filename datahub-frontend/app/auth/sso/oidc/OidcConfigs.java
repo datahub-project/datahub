@@ -37,6 +37,7 @@ public class OidcConfigs extends SsoConfigs {
     public static final String OIDC_USE_NONCE = "auth.oidc.useNonce";
     public static final String OIDC_CUSTOM_PARAM_RESOURCE = "auth.oidc.customParam.resource";
     public static final String OIDC_READ_TIMEOUT = "auth.oidc.readTimeout";
+    public static final String OIDC_EXTRACT_JWT_ACCESS_TOKEN_CLAIMS = "auth.oidc.extractJwtAccessTokenClaims";
     public static final String OIDC_RESOURCE_CLIENT_ROLE = "auth.oidc.resource.clientRole";
 
     /**
@@ -70,6 +71,7 @@ public class OidcConfigs extends SsoConfigs {
     private Optional<Boolean> useNonce;
     private Optional<String> customParamResource;
     private String readTimeout;
+    private Optional<Boolean> extractJwtAccessTokenClaims;
 
     private Optional<String> resourceClientRole;
 
@@ -98,5 +100,6 @@ public class OidcConfigs extends SsoConfigs {
         customParamResource = getOptional(configs, OIDC_CUSTOM_PARAM_RESOURCE);
         resourceClientRole = getOptional(configs, OIDC_RESOURCE_CLIENT_ROLE);
         readTimeout = getOptional(configs, OIDC_READ_TIMEOUT, DEFAULT_OIDC_READ_TIMEOUT);
+        extractJwtAccessTokenClaims = getOptional(configs, OIDC_EXTRACT_JWT_ACCESS_TOKEN_CLAIMS).map(Boolean::parseBoolean);
     }
 }

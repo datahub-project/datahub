@@ -1,7 +1,5 @@
 import logging
-import types
 from dataclasses import dataclass, field
-from importlib import import_module
 from typing import Dict, Iterable, List, Optional, Type, cast
 
 import confluent_kafka
@@ -26,6 +24,7 @@ from datahub.ingestion.api.decorators import (
     platform_name,
     support_status,
 )
+from datahub.ingestion.api.registry import import_path
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.kafka_schema_registry_base import KafkaSchemaRegistryBase
 from datahub.ingestion.source.state.checkpoint import Checkpoint
@@ -47,6 +46,7 @@ from datahub.metadata.schema_classes import (
     JobStatusClass,
     SubTypesClass,
 )
+from datahub.utilities.registries.domain_registry import DomainRegistry
 
 logger = logging.getLogger(__name__)
 
@@ -119,11 +119,7 @@ class KafkaSource(StatefulIngestionSourceBase):
         cls, config: KafkaSourceConfig, report: KafkaSourceReport
     ) -> KafkaSchemaRegistryBase:
         try:
-            module_path: str
-            class_name: str
-            module_path, class_name = config.schema_registry_class.rsplit(".", 1)
-            module: types.ModuleType = import_module(module_path)
-            schema_registry_class: Type = getattr(module, class_name)
+            schema_registry_class: Type = import_path(config.schema_registry_class)
             return schema_registry_class.create(config, report)
         except (ImportError, AttributeError):
             raise ImportError(config.schema_registry_class)
@@ -150,6 +146,11 @@ class KafkaSource(StatefulIngestionSourceBase):
         self.schema_registry_client: KafkaSchemaRegistryBase = (
             KafkaSource.create_schema_registry(config, self.report)
         )
+        if self.source_config.domain:
+            self.domain_registry = DomainRegistry(
+                cached_domains=[k for k in self.source_config.domain],
+                graph=self.ctx.graph,
+            )
 
     def is_checkpointing_enabled(self, job_id: JobId) -> bool:
         if (
@@ -333,7 +334,9 @@ class KafkaSource(StatefulIngestionSourceBase):
         # 6. Emit domains aspect MCPW
         for domain, pattern in self.source_config.domain.items():
             if pattern.allowed(dataset_name):
-                domain_urn = make_domain_urn(domain)
+                domain_urn = make_domain_urn(
+                    self.domain_registry.get_domain_urn(domain)
+                )
 
         if domain_urn:
             wus = add_domain_to_entity_wu(

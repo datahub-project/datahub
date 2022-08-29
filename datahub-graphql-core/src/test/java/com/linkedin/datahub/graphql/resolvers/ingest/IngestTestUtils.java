@@ -64,7 +64,7 @@ public class IngestTestUtils {
     info.setName("My Test Source");
     info.setType("mysql");
     info.setSchedule(new DataHubIngestionSourceSchedule().setTimezone("UTC").setInterval("* * * * *"));
-    info.setConfig(new DataHubIngestionSourceConfig().setVersion("0.8.18").setRecipe("my recipe").setExecutorId("executor id"));
+    info.setConfig(new DataHubIngestionSourceConfig().setVersion("0.8.18").setRecipe("{}").setExecutorId("executor id"));
     return info;
   }
 

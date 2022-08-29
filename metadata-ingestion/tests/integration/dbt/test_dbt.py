@@ -1,14 +1,26 @@
 from os import PathLike
-from typing import Any, Dict, Optional, Union, cast
+from typing import Any, Dict, Optional, Type, Union, cast
 from unittest.mock import patch
 
 import pytest
 import requests_mock
 from freezegun import freeze_time
 
-from datahub.ingestion.run.pipeline import Pipeline
-from datahub.ingestion.source.dbt import DBTSource
-from datahub.ingestion.source.state.checkpoint import Checkpoint
+from datahub.configuration.common import DynamicTypedConfig
+from datahub.ingestion.api.ingestion_job_checkpointing_provider_base import JobId
+from datahub.ingestion.run.pipeline import Pipeline, PipelineConfig, SourceConfig
+from datahub.ingestion.source.dbt import (
+    DBTConfig,
+    DBTEntitiesEnabled,
+    DBTSource,
+    EmitDirective,
+)
+from datahub.ingestion.source.sql.sql_types import (
+    TRINO_SQL_TYPES_MAP,
+    resolve_trino_modified_type,
+)
+from datahub.ingestion.source.state.checkpoint import Checkpoint, CheckpointStateBase
+from datahub.ingestion.source.state.dbt_state import DbtCheckpointState
 from datahub.ingestion.source.state.sql_common_state import (
     BaseSQLAlchemyCheckpointState,
 )
@@ -61,6 +73,11 @@ class DbtTestConfig:
                 "enable_meta_mapping": False,
                 "write_semantics": "OVERRIDE",
                 "meta_mapping": {
+                    "owner": {
+                        "match": "^@(.*)",
+                        "operation": "add_owner",
+                        "config": {"owner_type": "user"},
+                    },
                     "business_owner": {
                         "match": ".*",
                         "operation": "add_owner",
@@ -253,6 +270,18 @@ def test_dbt_ingest(pytestconfig, tmp_path, mock_time, **kwargs):
                 "platform_instance": "dbt-instance-1",
             },
         ),
+        DbtTestConfig(
+            "dbt-test-with-target-platform-instance",
+            test_resources_dir,
+            test_resources_dir,
+            tmp_path,
+            "dbt_test_with_target_platform_instance_mces.json",
+            "dbt_test_with_target_platform_instance_mces_golden.json",
+            source_config_modifiers={
+                "load_schemas": True,
+                "target_platform_instance": "ps-instance-1",
+            },
+        ),
     ]
 
     for config in config_variants:
@@ -383,9 +412,9 @@ def test_dbt_stateful(pytestconfig, tmp_path, mock_time, mock_datahub_graph):
 
         # Perform all assertions on the states. The deleted table should not be
         # part of the second state
-        state1 = cast(BaseSQLAlchemyCheckpointState, checkpoint1.state)
-        state2 = cast(BaseSQLAlchemyCheckpointState, checkpoint2.state)
-        difference_urns = list(state1.get_table_urns_not_in(state2))
+        state1 = cast(DbtCheckpointState, checkpoint1.state)
+        state2 = cast(DbtCheckpointState, checkpoint2.state)
+        difference_urns = list(state1.get_node_urns_not_in(state2))
 
         assert len(difference_urns) == 2
 
@@ -409,3 +438,395 @@ def test_dbt_stateful(pytestconfig, tmp_path, mock_time, mock_datahub_graph):
             output_path=deleted_mces_path,
             golden_path=deleted_actor_golden_mcs,
         )
+
+
+@pytest.mark.integration
+@freeze_time(FROZEN_TIME)
+def test_dbt_state_backward_compatibility(
+    pytestconfig, tmp_path, mock_time, mock_datahub_graph
+):
+    test_resources_dir = pytestconfig.rootpath / "tests/integration/dbt"
+    manifest_path = f"{test_resources_dir}/dbt_manifest.json"
+    catalog_path = f"{test_resources_dir}/dbt_catalog.json"
+    sources_path = f"{test_resources_dir}/dbt_sources.json"
+
+    stateful_config: Dict[str, Any] = {
+        "stateful_ingestion": {
+            "enabled": True,
+            "remove_stale_metadata": True,
+            "state_provider": {
+                "type": "datahub",
+                "config": {"datahub_api": {"server": GMS_SERVER}},
+            },
+        },
+    }
+
+    scd_config: Dict[str, Any] = {
+        "manifest_path": manifest_path,
+        "catalog_path": catalog_path,
+        "sources_path": sources_path,
+        "target_platform": "postgres",
+        "load_schemas": True,
+        # This will bypass check in get_workunits function of dbt.py
+        "write_semantics": "OVERRIDE",
+        "owner_extraction_pattern": r"^@(?P<owner>(.*))",
+        # enable stateful ingestion
+        **stateful_config,
+    }
+
+    pipeline_config_dict: Dict[str, Any] = {
+        "source": {
+            "type": "dbt",
+            "config": scd_config,
+        },
+        "sink": {
+            # we are not really interested in the resulting events for this test
+            "type": "console"
+        },
+        "pipeline_name": "statefulpipeline",
+    }
+
+    with patch(
+        "datahub.ingestion.source.state_provider.datahub_ingestion_checkpointing_provider.DataHubGraph",
+        mock_datahub_graph,
+    ) as mock_checkpoint:
+        mock_checkpoint.return_value = mock_datahub_graph
+        pipeline = Pipeline.create(pipeline_config_dict)
+        dbt_source = cast(DBTSource, pipeline.source)
+
+        def get_fake_base_sql_alchemy_checkpoint_state(
+            job_id: JobId, checkpoint_state_class: Type[CheckpointStateBase]
+        ) -> Optional[Checkpoint]:
+            if checkpoint_state_class is DbtCheckpointState:
+                raise Exception(
+                    "DBT source will call this function again with BaseSQLAlchemyCheckpointState"
+                )
+
+            sql_state = BaseSQLAlchemyCheckpointState()
+            urn1 = "urn:li:dataset:(urn:li:dataPlatform:dbt,pagila.public.actor,PROD)"
+            urn2 = (
+                "urn:li:dataset:(urn:li:dataPlatform:postgres,pagila.public.actor,PROD)"
+            )
+            sql_state.add_table_urn(urn1)
+            sql_state.add_table_urn(urn2)
+
+            assert dbt_source.ctx.pipeline_name is not None
+
+            return Checkpoint(
+                job_name=dbt_source.get_default_ingestion_job_id(),
+                pipeline_name=dbt_source.ctx.pipeline_name,
+                platform_instance_id=dbt_source.get_platform_instance_id(),
+                run_id=dbt_source.ctx.run_id,
+                config=dbt_source.config,
+                state=sql_state,
+            )
+
+        # Set fake method to return BaseSQLAlchemyCheckpointState
+        dbt_source.get_last_checkpoint = get_fake_base_sql_alchemy_checkpoint_state  # type: ignore[assignment]
+        last_checkpoint = dbt_source.get_last_dbt_checkpoint(
+            dbt_source.get_default_ingestion_job_id(), DbtCheckpointState
+        )
+        # Our fake method is returning BaseSQLAlchemyCheckpointState,however it should get converted to DbtCheckpointState
+        assert last_checkpoint is not None and isinstance(
+            last_checkpoint.state, DbtCheckpointState
+        )
+
+        pipeline.run()
+        pipeline.raise_from_status()
+
+
+@pytest.mark.integration
+@freeze_time(FROZEN_TIME)
+def test_dbt_tests(pytestconfig, tmp_path, mock_time, **kwargs):
+    test_resources_dir = pytestconfig.rootpath / "tests/integration/dbt"
+
+    # Run the metadata ingestion pipeline.
+    output_file = tmp_path / "dbt_test_events.json"
+    golden_path = test_resources_dir / "dbt_test_events_golden.json"
+
+    pipeline = Pipeline(
+        config=PipelineConfig(
+            source=SourceConfig(
+                type="dbt",
+                config=DBTConfig(
+                    manifest_path=str(
+                        (test_resources_dir / "jaffle_shop_manifest.json").resolve()
+                    ),
+                    catalog_path=str(
+                        (test_resources_dir / "jaffle_shop_catalog.json").resolve()
+                    ),
+                    target_platform="postgres",
+                    delete_tests_as_datasets=True,
+                    test_results_path=str(
+                        (test_resources_dir / "jaffle_shop_test_results.json").resolve()
+                    ),
+                    # this is just here to avoid needing to access datahub server
+                    write_semantics="OVERRIDE",
+                ),
+            ),
+            sink=DynamicTypedConfig(type="file", config={"filename": str(output_file)}),
+        )
+    )
+    pipeline.run()
+    pipeline.raise_from_status()
+    # Verify the output.
+    mce_helpers.check_golden_file(
+        pytestconfig,
+        output_path=output_file,
+        golden_path=golden_path,
+        ignore_paths=[],
+    )
+
+
+@pytest.mark.integration
+@freeze_time(FROZEN_TIME)
+def test_dbt_stateful_tests(pytestconfig, tmp_path, mock_time, mock_datahub_graph):
+
+    test_resources_dir = pytestconfig.rootpath / "tests/integration/dbt"
+    output_file = tmp_path / "dbt_stateful_tests.json"
+    golden_path = test_resources_dir / "dbt_stateful_tests_golden.json"
+    manifest_path = str((test_resources_dir / "jaffle_shop_manifest.json").resolve())
+    catalog_path = str((test_resources_dir / "jaffle_shop_catalog.json").resolve())
+    test_results_path = str(
+        (test_resources_dir / "jaffle_shop_test_results.json").resolve()
+    )
+
+    stateful_config = {
+        "stateful_ingestion": {
+            "enabled": True,
+            "remove_stale_metadata": True,
+            "state_provider": {
+                "type": "datahub",
+                "config": {"datahub_api": {"server": GMS_SERVER}},
+            },
+        },
+    }
+
+    scd: Dict[str, Any] = {
+        "manifest_path": manifest_path,
+        "catalog_path": catalog_path,
+        "test_results_path": test_results_path,
+        "target_platform": "postgres",
+        "load_schemas": True,
+        # This will bypass check in get_workunits function of dbt.py
+        "write_semantics": "OVERRIDE",
+        "owner_extraction_pattern": r"^@(?P<owner>(.*))",
+        # enable stateful ingestion
+        **stateful_config,
+    }
+
+    pipeline_config_dict: Dict[str, Any] = {
+        "source": {
+            "type": "dbt",
+            "config": scd,
+        },
+        "sink": {
+            # we are not really interested in the resulting events for this test
+            "type": "file",
+            "config": {"filename": str(output_file)},
+        },
+        "pipeline_name": "statefulpipeline",
+        "run_id": "test_pipeline",
+    }
+
+    with patch(
+        "datahub.ingestion.source.state_provider.datahub_ingestion_checkpointing_provider.DataHubGraph",
+        mock_datahub_graph,
+    ) as mock_checkpoint:
+        mock_checkpoint.return_value = mock_datahub_graph
+        pipeline = Pipeline.create(pipeline_config_dict)
+        pipeline.run()
+        pipeline.raise_from_status()
+        # Verify the output.
+        mce_helpers.check_golden_file(
+            pytestconfig,
+            output_path=output_file,
+            golden_path=golden_path,
+            ignore_paths=[],
+        )
+
+
+@pytest.mark.parametrize(
+    "data_type, expected_data_type",
+    [
+        ("boolean", "boolean"),
+        ("tinyint", "tinyint"),
+        ("smallint", "smallint"),
+        ("int", "int"),
+        ("integer", "integer"),
+        ("bigint", "bigint"),
+        ("real", "real"),
+        ("double", "double"),
+        ("decimal(10,0)", "decimal"),
+        ("varchar(20)", "varchar"),
+        ("char", "char"),
+        ("varbinary", "varbinary"),
+        ("json", "json"),
+        ("date", "date"),
+        ("time", "time"),
+        ("time(12)", "time"),
+        ("timestamp", "timestamp"),
+        ("timestamp(3)", "timestamp"),
+        ("row(x bigint, y double)", "row"),
+    ],
+)
+def test_resolve_trino_modified_type(data_type, expected_data_type):
+    assert (
+        resolve_trino_modified_type(data_type)
+        == TRINO_SQL_TYPES_MAP[expected_data_type]
+    )
+
+
+@pytest.mark.integration
+@freeze_time(FROZEN_TIME)
+def test_dbt_tests_only_assertions(pytestconfig, tmp_path, mock_time, **kwargs):
+    test_resources_dir = pytestconfig.rootpath / "tests/integration/dbt"
+
+    # Run the metadata ingestion pipeline.
+    output_file = tmp_path / "test_only_assertions.json"
+
+    pipeline = Pipeline(
+        config=PipelineConfig(
+            source=SourceConfig(
+                type="dbt",
+                config=DBTConfig(
+                    manifest_path=str(
+                        (test_resources_dir / "jaffle_shop_manifest.json").resolve()
+                    ),
+                    catalog_path=str(
+                        (test_resources_dir / "jaffle_shop_catalog.json").resolve()
+                    ),
+                    target_platform="postgres",
+                    delete_tests_as_datasets=True,
+                    test_results_path=str(
+                        (test_resources_dir / "jaffle_shop_test_results.json").resolve()
+                    ),
+                    # this is just here to avoid needing to access datahub server
+                    write_semantics="OVERRIDE",
+                    entities_enabled=DBTEntitiesEnabled(
+                        test_results=EmitDirective.ONLY
+                    ),
+                ),
+            ),
+            sink=DynamicTypedConfig(type="file", config={"filename": str(output_file)}),
+        )
+    )
+    pipeline.run()
+    pipeline.raise_from_status()
+    # Verify the output.
+    # No datasets were emitted, and more than 20 events were emitted
+    assert (
+        mce_helpers.assert_entity_urn_not_like(
+            entity_type="dataset",
+            regex_pattern="urn:li:dataset:\\(urn:li:dataPlatform:dbt",
+            file=output_file,
+        )
+        > 20
+    )
+    number_of_valid_assertions_in_test_results = 23
+    assert (
+        mce_helpers.assert_entity_urn_like(
+            entity_type="assertion", regex_pattern="urn:li:assertion:", file=output_file
+        )
+        == number_of_valid_assertions_in_test_results
+    )
+    # no assertionInfo should be emitted
+    try:
+        mce_helpers.assert_for_each_entity(
+            entity_type="assertion",
+            aspect_name="assertionInfo",
+            aspect_field_matcher={},
+            file=output_file,
+        )
+    except AssertionError:
+        pass
+
+    # all assertions must have an assertionRunEvent emitted (except for one assertion)
+    assert (
+        mce_helpers.assert_for_each_entity(
+            entity_type="assertion",
+            aspect_name="assertionRunEvent",
+            aspect_field_matcher={},
+            file=output_file,
+            exception_urns=["urn:li:assertion:2ff754df689ea951ed2e12cbe356708f"],
+        )
+        == number_of_valid_assertions_in_test_results
+    )
+
+
+@pytest.mark.integration
+@freeze_time(FROZEN_TIME)
+def test_dbt_only_test_definitions_and_results(
+    pytestconfig, tmp_path, mock_time, **kwargs
+):
+    test_resources_dir = pytestconfig.rootpath / "tests/integration/dbt"
+
+    # Run the metadata ingestion pipeline.
+    output_file = tmp_path / "test_only_definitions_and_assertions.json"
+
+    pipeline = Pipeline(
+        config=PipelineConfig(
+            source=SourceConfig(
+                type="dbt",
+                config=DBTConfig(
+                    manifest_path=str(
+                        (test_resources_dir / "jaffle_shop_manifest.json").resolve()
+                    ),
+                    catalog_path=str(
+                        (test_resources_dir / "jaffle_shop_catalog.json").resolve()
+                    ),
+                    target_platform="postgres",
+                    test_results_path=str(
+                        (test_resources_dir / "jaffle_shop_test_results.json").resolve()
+                    ),
+                    # this is just here to avoid needing to access datahub server
+                    write_semantics="OVERRIDE",
+                    entities_enabled=DBTEntitiesEnabled(
+                        sources=EmitDirective.NO,
+                        seeds=EmitDirective.NO,
+                        models=EmitDirective.NO,
+                    ),
+                ),
+            ),
+            sink=DynamicTypedConfig(type="file", config={"filename": str(output_file)}),
+        )
+    )
+    pipeline.run()
+    pipeline.raise_from_status()
+    # Verify the output. No datasets were emitted
+    assert (
+        mce_helpers.assert_entity_urn_not_like(
+            entity_type="dataset",
+            regex_pattern="urn:li:dataset:\\(urn:li:dataPlatform:dbt",
+            file=output_file,
+        )
+        > 20
+    )
+    number_of_assertions = 24
+    assert (
+        mce_helpers.assert_entity_urn_like(
+            entity_type="assertion", regex_pattern="urn:li:assertion:", file=output_file
+        )
+        == number_of_assertions
+    )
+    # all assertions must have an assertionInfo emitted
+    assert (
+        mce_helpers.assert_for_each_entity(
+            entity_type="assertion",
+            aspect_name="assertionInfo",
+            aspect_field_matcher={},
+            file=output_file,
+        )
+        == number_of_assertions
+    )
+    # all assertions must have an assertionRunEvent emitted (except for one assertion)
+    assert (
+        mce_helpers.assert_for_each_entity(
+            entity_type="assertion",
+            aspect_name="assertionRunEvent",
+            aspect_field_matcher={},
+            file=output_file,
+            exception_urns=["urn:li:assertion:2ff754df689ea951ed2e12cbe356708f"],
+        )
+        == number_of_assertions - 1
+    )

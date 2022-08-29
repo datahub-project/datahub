@@ -6,6 +6,8 @@ import { useEntityRegistry } from '../../../../../useEntityRegistry';
 import { useEntityData, useRefetch } from '../../../EntityContext';
 
 const EntityTitle = styled(Typography.Title)`
+    margin-right: 10px;
+
     &&& {
         margin-bottom: 0;
         word-break: break-all;

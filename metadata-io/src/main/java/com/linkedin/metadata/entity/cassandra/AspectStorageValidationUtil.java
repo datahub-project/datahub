@@ -16,8 +16,8 @@ public class AspectStorageValidationUtil {
    * @return {@code true} if table exists.
    */
   public static boolean checkTableExists(@Nonnull CqlSession session) {
-    String query = String.format("SELECT columnfamily_name\n "
-        + "FROM schema_columnfamilies WHERE keyspace_name='%s';",
+    String query = String.format("SELECT table_name \n "
+        + "FROM system_schema.tables where table_name = '%s' allow filtering;",
         CassandraAspect.TABLE_NAME);
     ResultSet rs = session.execute(query);
     return rs.all().size() > 0;

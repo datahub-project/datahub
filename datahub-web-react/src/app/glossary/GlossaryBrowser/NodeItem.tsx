@@ -7,6 +7,8 @@ import { useEntityRegistry } from '../../useEntityRegistry';
 import { useGetGlossaryNodeQuery } from '../../../graphql/glossaryNode.generated';
 import TermItem, { TermLink as NodeLink, NameWrapper } from './TermItem';
 import { useEntityData } from '../../entity/shared/EntityContext';
+import { sortGlossaryNodes } from '../../entity/glossaryNode/utils';
+import { sortGlossaryTerms } from '../../entity/glossaryTerm/utils';
 
 const ItemWrapper = styled.div`
     display: flex;
@@ -49,17 +51,22 @@ interface Props {
     hideTerms?: boolean;
     openToEntity?: boolean;
     refreshBrowser?: boolean;
+    nodeUrnToHide?: string;
     selectTerm?: (urn: string, displayName: string) => void;
     selectNode?: (urn: string, displayName: string) => void;
 }
 
 function NodeItem(props: Props) {
-    const { node, isSelecting, hideTerms, openToEntity, refreshBrowser, selectTerm, selectNode } = props;
+    const { node, isSelecting, hideTerms, openToEntity, refreshBrowser, nodeUrnToHide, selectTerm, selectNode } = props;
+    const shouldHideNode = nodeUrnToHide === node.urn;
 
     const [areChildrenVisible, setAreChildrenVisible] = useState(false);
     const entityRegistry = useEntityRegistry();
     const { entityData } = useEntityData();
-    const { data } = useGetGlossaryNodeQuery({ variables: { urn: node.urn }, skip: !areChildrenVisible });
+    const { data } = useGetGlossaryNodeQuery({
+        variables: { urn: node.urn },
+        skip: !areChildrenVisible || shouldHideNode,
+    });
 
     useEffect(() => {
         if (openToEntity && entityData && entityData.parentNodes?.nodes.some((parent) => parent.urn === node.urn)) {
@@ -88,11 +95,15 @@ function NodeItem(props: Props) {
     const childNodes =
         (children as any)
             ?.filter((child) => child.entity?.type === EntityType.GlossaryNode)
+            .sort((nodeA, nodeB) => sortGlossaryNodes(entityRegistry, nodeA.entity, nodeB.entity))
             .map((child) => child.entity) || [];
     const childTerms =
         (children as any)
             ?.filter((child) => child.entity?.type === EntityType.GlossaryTerm)
+            .sort((termA, termB) => sortGlossaryTerms(entityRegistry, termA.entity, termB.entity))
             .map((child) => child.entity) || [];
+
+    if (shouldHideNode) return null;
 
     return (
         <ItemWrapper>
@@ -123,6 +134,7 @@ function NodeItem(props: Props) {
                             isSelecting={isSelecting}
                             hideTerms={hideTerms}
                             openToEntity={openToEntity}
+                            nodeUrnToHide={nodeUrnToHide}
                             selectTerm={selectTerm}
                             selectNode={selectNode}
                         />

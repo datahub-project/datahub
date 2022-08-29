@@ -487,12 +487,32 @@
     }
   },
   {
+    "urn": "urn:li:dataPlatform:salesforce",
+    "aspect": {
+      "datasetNameDelimiter": ".",
+      "name": "salesforce",
+      "displayName": "Salesforce",
+      "type": "OTHERS",
+      "logoUrl": "/assets/platforms/logo-salesforce.svg"
+    }
+  },
+  {
     "urn": "urn:li:dataPlatform:unknown",
     "aspect": {
       "datasetNameDelimiter": ".",
       "name": "Unknown Platform",
       "displayName": "N/A",
       "type": "OTHERS"
+    }
+  },
+  {
+    "urn": "urn:li:dataPlatform:delta-lake",
+    "aspect": {
+      "datasetNameDelimiter": ".",
+      "name": "delta-lake",
+      "displayName": "Delta Lake",
+      "type": "OTHERS",
+      "logoUrl": "/assets/platforms/deltalakelogo.png"
     }
   }
 ]

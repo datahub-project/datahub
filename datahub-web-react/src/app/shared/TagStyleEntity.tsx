@@ -17,7 +17,7 @@ import { useUpdateDescriptionMutation, useSetTagColorMutation } from '../../grap
 import { useGetSearchResultsForMultipleQuery } from '../../graphql/search.generated';
 import analytics, { EventType, EntityActionType } from '../analytics';
 import { GetSearchResultsParams, SearchResultInterface } from '../entity/shared/components/styled/search/types';
-import { AddOwnersModal } from '../entity/shared/containers/profile/sidebar/Ownership/AddOwnersModal';
+import { EditOwnersModal } from '../entity/shared/containers/profile/sidebar/Ownership/EditOwnersModal';
 import CopyUrn from './CopyUrn';
 import EntityDropdown from '../entity/shared/EntityDropdown';
 import { EntityMenuItems } from '../entity/shared/EntityDropdown/EntityDropdown';
@@ -330,7 +330,12 @@ export default function TagStyleEntity({ urn, useGetSearchResults = useWrappedSe
                 </div>
                 <ActionButtons>
                     <CopyUrn urn={urn} isActive={copiedUrn} onClick={() => setCopiedUrn(true)} />
-                    <EntityDropdown menuItems={new Set([EntityMenuItems.COPY_URL])} />
+                    <EntityDropdown
+                        urn={urn}
+                        entityType={EntityType.Tag}
+                        entityData={data?.tag}
+                        menuItems={new Set([EntityMenuItems.COPY_URL, EntityMenuItems.DELETE])}
+                    />
                 </ActionButtons>
                 {displayColorPicker && (
                     <ColorPickerPopOver ref={colorPickerRef}>
@@ -414,16 +419,17 @@ export default function TagStyleEntity({ urn, useGetSearchResults = useWrappedSe
                         </Button>
                     </div>
                     <div>
-                        <AddOwnersModal
-                            hideOwnerType
-                            visible={showAddModal}
-                            refetch={refetch}
-                            onCloseModal={() => {
-                                setShowAddModal(false);
-                            }}
-                            urn={urn}
-                            type={EntityType.Tag}
-                        />
+                        {showAddModal && (
+                            <EditOwnersModal
+                                hideOwnerType
+                                refetch={refetch}
+                                onCloseModal={() => {
+                                    setShowAddModal(false);
+                                }}
+                                urns={[urn]}
+                                entityType={EntityType.Tag}
+                            />
+                        )}
                     </div>
                 </div>
             </DetailsLayout>

@@ -1,7 +1,7 @@
 import * as React from 'react';
 import { FolderOutlined } from '@ant-design/icons';
 import { Domain, EntityType, SearchResult } from '../../../types.generated';
-import { Entity, IconStyleType, PreviewType } from '../Entity';
+import { Entity, EntityCapabilityType, IconStyleType, PreviewType } from '../Entity';
 import { Preview } from './preview/Preview';
 import { EntityProfile } from '../shared/containers/profile/EntityProfile';
 import { DocumentationTab } from '../shared/tabs/Documentation/DocumentationTab';
@@ -11,6 +11,8 @@ import { getDataForEntityType } from '../shared/containers/profile/utils';
 import { useGetDomainQuery } from '../../../graphql/domain.generated';
 import { DomainEntitiesTab } from './DomainEntitiesTab';
 import { EntityMenuItems } from '../shared/EntityDropdown/EntityDropdown';
+import { EntityActionItem } from '../shared/entity/EntityActions';
+// import { EntityActionItem } from '../shared/entity/EntityActions';
 
 /**
  * Definition of the DataHub Domain entity.
@@ -64,7 +66,9 @@ export class DomainEntity implements Entity<Domain> {
             useEntityQuery={useGetDomainQuery}
             useUpdateQuery={undefined}
             getOverrideProperties={this.getOverridePropertiesFromEntity}
-            headerDropdownItems={new Set([EntityMenuItems.COPY_URL])}
+            headerDropdownItems={new Set([EntityMenuItems.COPY_URL, EntityMenuItems.DELETE])}
+            headerActionItems={new Set([EntityActionItem.BATCH_ADD_DOMAIN])}
+            isNameEditable
             tabs={[
                 {
                     name: 'Entities',
@@ -117,7 +121,7 @@ export class DomainEntity implements Entity<Domain> {
     };
 
     displayName = (data: Domain) => {
-        return data?.properties?.name || data?.id;
+        return data?.properties?.name || data?.id || data.urn;
     };
 
     getOverridePropertiesFromEntity = (data: Domain) => {
@@ -132,5 +136,10 @@ export class DomainEntity implements Entity<Domain> {
             entityType: this.type,
             getOverrideProperties: this.getOverridePropertiesFromEntity,
         });
+    };
+
+    supportedCapabilities = () => {
+        // TODO.. Determine whether SOFT_DELETE should go into here.
+        return new Set([EntityCapabilityType.OWNERS]);
     };
 }

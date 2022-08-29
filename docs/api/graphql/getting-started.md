@@ -24,7 +24,7 @@ Today, DataHub's GraphQL endpoint is available for use in multiple places. The o
 
 1. **Metadata Service**: The DataHub Metadata Service (backend) is the source-of-truth for the GraphQL endpoint. The endpoint is located at `/api/graphql` path of the DNS address
 where your instance of the `datahub-gms` container is deployed. For example, in local deployments it is typically located at `http://localhost:8080/api/graphql`. By default,
-the Metadata Service has no explicit authentication checks. However, it does have *Authorization checks*. DataHub [Access Policies](../../../docs/policies.md) will be enforced by the GraphQL API. This means you'll need to provide an actor identity when querying the GraphQL API. 
+the Metadata Service has no explicit authentication checks. However, it does have *Authorization checks*. DataHub [Access Policies](../../authorization/policies.md) will be enforced by the GraphQL API. This means you'll need to provide an actor identity when querying the GraphQL API. 
 To do so, include the `X-DataHub-Actor` header with an Authorized Corp User URN as the value in your request. Because anyone is able to set the value of this header, we recommend using this endpoint only in trusted environments, either by administrators themselves or programs that they own directly. 
    
 2. **Frontend Proxy**: The DataHub Frontend Proxy Service (frontend) is a basic web server & reverse proxy to the Metadata Service. As such, the 

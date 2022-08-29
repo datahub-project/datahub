@@ -100,8 +100,8 @@ public class SendMAEStep implements UpgradeStep {
           AspectSpec aspectSpec = entitySpec.getAspectSpec(aspectName);
           if (aspectSpec == null) {
             context.report()
-                .addLine(String.format("Failed to find aspect with name %s associated with entity named %s",
-                    aspectName, entityName));
+                .addLine(String.format("Failed to find aspect with name %s associated with entity named %s", aspectName,
+                    entityName));
             continue;
           }
 
@@ -135,11 +135,7 @@ public class SendMAEStep implements UpgradeStep {
         }
       }
       if (totalRowsMigrated != rowCount) {
-        context.report()
-            .addLine(
-                String.format("Number of MAEs sent %s does not equal the number of input rows %s...", totalRowsMigrated,
-                    rowCount));
-        return new DefaultUpgradeStepResult(id(), UpgradeStepResult.Result.FAILED);
+        context.report().addLine(String.format("Failed to send MAEs for %d rows...", rowCount - totalRowsMigrated));
       }
       return new DefaultUpgradeStepResult(id(), UpgradeStepResult.Result.SUCCEEDED);
     };

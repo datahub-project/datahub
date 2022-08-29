@@ -12,6 +12,81 @@ This file documents any backwards-incompatible changes in DataHub and assists pe
 
 ### Other notable Changes
 
+## `v0.8.42`
+
+### Breaking Changes
+- #5451 `GMS_HOST` and `GMS_PORT` environment variables deprecated in `v0.8.39` have been removed. Use `DATAHUB_GMS_HOST` and `DATAHUB_GMS_PORT` instead.
+- #5478 DataHub CLI `delete` command when used with `--hard` option will delete soft-deleted entities which match the other filters given.
+- #5471 Looker now populates `userEmail` in dashboard user usage stats. This version of looker connnector will not work with older version of  **datahub-gms** if you have `extract_usage_history` looker config enabled.
+- #5529 - `ANALYTICS_ENABLED` environment variable in **datahub-gms** is now deprecated. Use `DATAHUB_ANALYTICS_ENABLED` instead.
+
+### Potential Downtime
+
+### Deprecations
+
+### Other notable Changes
+
+## `v0.8.41`
+
+### Breaking Changes
+- The `should_overwrite` flag in `csv-enricher` has been replaced with `write_semantics` to match the format used for other sources. See the [documentation](https://datahubproject.io/docs/generated/ingestion/sources/csv/) for more details
+- Closing an authorization hole in creating tags adding a Platform Privilege called `Create Tags` for creating tags. This is assigned to `datahub` root user, along 
+with default All Users policy. Notice: You may need to add this privilege (or `Manage Tags`) to existing users that need the ability to create tags on the platform. 
+- #5329 Below profiling config parameters are now supported in `BigQuery`:
+  - profiling.profile_if_updated_since_days (default=1)
+  - profiling.profile_table_size_limit (default=1GB)
+  - profiling.profile_table_row_limit (default=50000)
+  
+  Set above parameters to `null` if you want older behaviour.
+
+### Potential Downtime
+
+### Deprecations
+
+### Other notable Changes
+
+## `v0.8.40`
+
+### Breaking Changes
+- #5240 `lineage_client_project_id` in `bigquery` source is removed. Use `storage_project_id` instead.
+
+### Potential Downtime
+
+### Deprecations
+
+### Other notable Changes
+
+## `v0.8.39`
+
+### Breaking Changes
+- Refactored the `health` field of the `Dataset` GraphQL Type to be of type **list of HealthStatus** (was type **HealthStatus**). See [this PR](https://github.com/datahub-project/datahub/pull/5222/files) for more details.
+
+### Potential Downtime
+
+### Deprecations
+- #5208 `GMS_HOST` and `GMS_PORT` environment variables being set in various containers are deprecated in favour of `DATAHUB_GMS_HOST` and `DATAHUB_GMS_PORT`.
+- `KAFKA_TOPIC_NAME` environment variable in **datahub-mae-consumer** and **datahub-gms** is now deprecated. Use `METADATA_AUDIT_EVENT_NAME` instead.
+- `KAFKA_MCE_TOPIC_NAME` environment variable in **datahub-mce-consumer** and **datahub-gms** is now deprecated. Use `METADATA_CHANGE_EVENT_NAME` instead.
+- `KAFKA_FMCE_TOPIC_NAME` environment variable in **datahub-mce-consumer** and **datahub-gms** is now deprecated. Use `FAILED_METADATA_CHANGE_EVENT_NAME` instead.
+
+
+### Other notable Changes
+- #5132 Profile tables in `snowflake` source only if they have been updated since configured (default: `1`) number of day(s). Update the config `profiling.profile_if_updated_since_days` as per your profiling schedule or set it to `None` if you want older behaviour.
+
+## `v0.8.38`
+
+### Breaking Changes
+
+### Potential Downtime
+
+### Deprecations
+
+### Other notable Changes
+- Create & Revoke Access Tokens via the UI
+- Create and Manage new users via the UI 
+- Improvements to Business Glossary UI
+- FIX - Do not require reindexing to migrate to using the UI business glossary 
+
 ## `v0.8.36`
 
 ### Breaking Changes

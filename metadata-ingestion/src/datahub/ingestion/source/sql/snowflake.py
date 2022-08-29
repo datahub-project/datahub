@@ -1,6 +1,8 @@
 import json
 import logging
 from collections import defaultdict
+from dataclasses import dataclass
+from datetime import datetime
 from typing import Any, Dict, Iterable, List, Optional, Set, Tuple, Union
 
 import pydantic
@@ -8,6 +10,7 @@ import pydantic
 # This import verifies that the dependencies are available.
 import snowflake.sqlalchemy  # noqa: F401
 import sqlalchemy.engine
+from snowflake import connector
 from snowflake.sqlalchemy import custom_types, snowdialect
 from sqlalchemy import create_engine, inspect
 from sqlalchemy.engine.reflection import Inspector
@@ -23,6 +26,11 @@ from datahub.ingestion.api.decorators import (
     config_class,
     platform_name,
     support_status,
+)
+from datahub.ingestion.api.source import (
+    CapabilityReport,
+    TestableSource,
+    TestConnectionReport,
 )
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.aws.s3_util import make_s3_urn
@@ -59,11 +67,13 @@ snowdialect.ischema_names["GEOGRAPHY"] = sqltypes.NullType
 @support_status(SupportStatus.CERTIFIED)
 @capability(SourceCapability.PLATFORM_INSTANCE, "Enabled by default")
 @capability(SourceCapability.DOMAINS, "Supported via the `domain` config field")
+@capability(SourceCapability.CONTAINERS, "Enabled by default")
+@capability(SourceCapability.SCHEMA_METADATA, "Enabled by default")
 @capability(SourceCapability.DATA_PROFILING, "Optionally enabled via configuration")
 @capability(SourceCapability.DESCRIPTIONS, "Enabled by default")
 @capability(SourceCapability.LINEAGE_COARSE, "Optionally enabled via configuration")
 @capability(SourceCapability.DELETION_DETECTION, "Enabled via stateful ingestion")
-class SnowflakeSource(SQLAlchemySource):
+class SnowflakeSource(SQLAlchemySource, TestableSource):
     def __init__(self, config: SnowflakeConfig, ctx: PipelineContext):
         super().__init__(config, ctx, "snowflake")
         self._lineage_map: Optional[Dict[str, List[Tuple[str, str, str]]]] = None
@@ -71,11 +81,180 @@ class SnowflakeSource(SQLAlchemySource):
         self.report: SnowflakeReport = SnowflakeReport()
         self.config: SnowflakeConfig = config
         self.provision_role_in_progress: bool = False
+        self.profile_candidates: Dict[str, List[str]] = {}
+
+    @staticmethod
+    def check_capabilities(
+        conn: connector.SnowflakeConnection, connection_conf: SnowflakeConfig
+    ) -> Dict[Union[SourceCapability, str], CapabilityReport]:
+
+        # Currently only overall capabilities are reported.
+        # Resource level variations in capabilities are not considered.
+
+        @dataclass
+        class SnowflakePrivilege:
+            privilege: str
+            object_name: str
+            object_type: str
+
+        def query(query):
+            logger.info("Query : {}".format(query))
+            resp = conn.cursor().execute(query)
+            return resp
+
+        _report: Dict[Union[SourceCapability, str], CapabilityReport] = dict()
+        privileges: List[SnowflakePrivilege] = []
+        capabilities: List[SourceCapability] = [c.capability for c in SnowflakeSource.get_capabilities() if c.capability not in (SourceCapability.PLATFORM_INSTANCE, SourceCapability.DOMAINS, SourceCapability.DELETION_DETECTION)]  # type: ignore
+
+        cur = query("select current_role()")
+        current_role = [row[0] for row in cur][0]
+
+        cur = query("select current_secondary_roles()")
+        secondary_roles_str = json.loads([row[0] for row in cur][0])["roles"]
+        secondary_roles = (
+            [] if secondary_roles_str == "" else secondary_roles_str.split(",")
+        )
+
+        roles = [current_role] + secondary_roles
+
+        # PUBLIC role is automatically granted to every role
+        if "PUBLIC" not in roles:
+            roles.append("PUBLIC")
+        i = 0
+
+        while i < len(roles):
+            role = roles[i]
+            i = i + 1
+            # for some roles, quoting is necessary. for example test-role
+            cur = query(f'show grants to role "{role}"')
+            for row in cur:
+                privilege = SnowflakePrivilege(
+                    privilege=row[1], object_type=row[2], object_name=row[3]
+                )
+                privileges.append(privilege)
+
+                if privilege.object_type in (
+                    "DATABASE",
+                    "SCHEMA",
+                ) and privilege.privilege in ("OWNERSHIP", "USAGE"):
+                    _report[SourceCapability.CONTAINERS] = CapabilityReport(
+                        capable=True
+                    )
+                elif privilege.object_type in (
+                    "TABLE",
+                    "VIEW",
+                    "MATERIALIZED_VIEW",
+                ):
+                    _report[SourceCapability.SCHEMA_METADATA] = CapabilityReport(
+                        capable=True
+                    )
+                    _report[SourceCapability.DESCRIPTIONS] = CapabilityReport(
+                        capable=True
+                    )
+
+                    if privilege.privilege in ("SELECT", "OWNERSHIP"):
+                        _report[SourceCapability.DATA_PROFILING] = CapabilityReport(
+                            capable=True
+                        )
+
+                    if privilege.object_name.startswith("SNOWFLAKE.ACCOUNT_USAGE."):
+                        # if access to "snowflake" shared database, access to all account_usage views is automatically granted
+                        # Finer access control is not yet supported for shares
+                        # https://community.snowflake.com/s/article/Error-Granting-individual-privileges-on-imported-database-is-not-allowed-Use-GRANT-IMPORTED-PRIVILEGES-instead
+                        _report[SourceCapability.LINEAGE_COARSE] = CapabilityReport(
+                            capable=True
+                        )
+                # If all capabilities supported, no need to continue
+                if set(capabilities) == set(_report.keys()):
+                    break
+
+                # Due to this, entire role hierarchy is considered
+                if (
+                    privilege.object_type == "ROLE"
+                    and privilege.privilege == "USAGE"
+                    and privilege.object_name not in roles
+                ):
+                    roles.append(privilege.object_name)
+
+        cur = query("select current_warehouse()")
+        current_warehouse = [row[0] for row in cur][0]
+
+        default_failure_messages = {
+            SourceCapability.SCHEMA_METADATA: "Either no tables exist or current role does not have permissions to access them",
+            SourceCapability.DESCRIPTIONS: "Either no tables exist or current role does not have permissions to access them",
+            SourceCapability.DATA_PROFILING: "Either no tables exist or current role does not have permissions to access them",
+            SourceCapability.CONTAINERS: "Current role does not have permissions to use any database",
+            SourceCapability.LINEAGE_COARSE: "Current role does not have permissions to snowflake account usage views",
+        }
+
+        for c in capabilities:  # type:ignore
+
+            # These capabilities do not work without active warehouse
+            if current_warehouse is None and c in (
+                SourceCapability.SCHEMA_METADATA,
+                SourceCapability.DESCRIPTIONS,
+                SourceCapability.DATA_PROFILING,
+                SourceCapability.LINEAGE_COARSE,
+            ):
+                failure_message = (
+                    f"Current role does not have permissions to use warehouse {connection_conf.warehouse}"
+                    if connection_conf.warehouse is not None
+                    else "No default warehouse set for user. Either set default warehouse for user or configure warehouse in recipe"
+                )
+                _report[c] = CapabilityReport(
+                    capable=False,
+                    failure_reason=failure_message,
+                )
+
+            if c in _report.keys():
+                continue
+
+            # If some capabilities are missing, then mark them as not capable
+            _report[c] = CapabilityReport(
+                capable=False,
+                failure_reason=default_failure_messages[c],
+            )
+
+        return _report
 
     @classmethod
     def create(cls, config_dict, ctx):
         config = SnowflakeConfig.parse_obj(config_dict)
         return cls(config, ctx)
+
+    @staticmethod
+    def test_connection(config_dict: dict) -> TestConnectionReport:
+        test_report = TestConnectionReport()
+
+        try:
+            SnowflakeConfig.Config.extra = (
+                pydantic.Extra.allow
+            )  # we are okay with extra fields during this stage
+            connection_conf = SnowflakeConfig.parse_obj(config_dict)
+
+            connection: connector.SnowflakeConnection = connection_conf.get_connection()
+            assert connection
+
+            test_report.basic_connectivity = CapabilityReport(capable=True)
+
+            test_report.capability_report = SnowflakeSource.check_capabilities(
+                connection, connection_conf
+            )
+
+        except Exception as e:
+            logger.error(f"Failed to test connection due to {e}", exc_info=e)
+            if test_report.basic_connectivity is None:
+                test_report.basic_connectivity = CapabilityReport(
+                    capable=False, failure_reason=f"{e}"
+                )
+            else:
+                test_report.internal_failure = True
+                test_report.internal_failure_reason = f"{e}"
+        finally:
+            SnowflakeConfig.Config.extra = (
+                pydantic.Extra.forbid
+            )  # set config flexibility back to strict
+            return test_report
 
     def get_metadata_engine(
         self, database: Optional[str] = None
@@ -177,8 +356,12 @@ class SnowflakeSource(SQLAlchemySource):
             else:
                 self.report.report_dropped(db)
 
-    def get_identifier(self, *, schema: str, entity: str, **kwargs: Any) -> str:
-        regular = super().get_identifier(schema=schema, entity=entity, **kwargs)
+    def get_identifier(
+        self, *, schema: str, entity: str, inspector: Inspector, **kwargs: Any
+    ) -> str:
+        regular = super().get_identifier(
+            schema=schema, entity=entity, inspector=inspector, **kwargs
+        )
         return f"{self.current_database.lower()}.{regular}"
 
     def _populate_view_upstream_lineage(self, engine: sqlalchemy.engine.Engine) -> None:
@@ -747,6 +930,44 @@ QUALIFY ROW_NUMBER() OVER (PARTITION BY downstream_table_name, upstream_table_na
         ):
             return False
         return True
+
+    def generate_profile_candidates(
+        self, inspector: Inspector, threshold_time: Optional[datetime], schema: str
+    ) -> Optional[List[str]]:
+        if threshold_time is None:
+            return None
+        db_name = self.current_database
+        if self.profile_candidates.get(db_name) is not None:
+            #  snowflake profile candidates are available at database level,
+            #  no need to regenerate for every schema
+            return self.profile_candidates[db_name]
+        self.report.profile_if_updated_since = threshold_time
+        _profile_candidates = []
+        logger.debug(f"Generating profiling candidates for db {db_name}")
+        db_rows = inspector.engine.execute(
+            text(
+                """
+select table_catalog, table_schema, table_name
+from information_schema.tables
+where last_altered >= to_timestamp_ltz({timestamp}, 3) and table_type= 'BASE TABLE'
+            """.format(
+                    timestamp=round(threshold_time.timestamp() * 1000)
+                )
+            )
+        )
+
+        for db_row in db_rows:
+            _profile_candidates.append(
+                self.get_identifier(
+                    schema=db_row.table_schema,
+                    entity=db_row.table_name,
+                    inspector=inspector,
+                ).lower()
+            )
+
+        self.report.profile_candidates[db_name] = _profile_candidates
+        self.profile_candidates[db_name] = _profile_candidates
+        return _profile_candidates
 
     # Stateful Ingestion specific overrides
     # NOTE: There is no special state associated with this source yet than what is provided by sql_common.
