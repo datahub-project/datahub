@@ -723,7 +723,7 @@ class LookerDashboardSource(Source):
         )
         chart_snapshot = ChartSnapshot(
             urn=chart_urn,
-            aspects=[],
+            aspects=[Status(removed=False)],
         )
 
         chart_type = self._get_chart_type(dashboard_element)

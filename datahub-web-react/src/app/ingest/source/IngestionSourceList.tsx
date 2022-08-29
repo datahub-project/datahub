@@ -321,8 +321,9 @@ export const IngestionSourceList = () => {
     return (
         <>
             {!data && loading && <Message type="loading" content="Loading ingestion sources..." />}
-            {error &&
-                message.error({ content: `Failed to load ingestion sources! \n ${error.message || ''}`, duration: 3 })}
+            {error && (
+                <Message type="error" content="Failed to load ingestion sources! An unexpected error occurred." />
+            )}
             <SourceContainer>
                 <TabToolbar>
                     <div>
