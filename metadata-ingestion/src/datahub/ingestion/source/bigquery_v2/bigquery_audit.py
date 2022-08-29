@@ -3,7 +3,7 @@ import logging
 import re
 from dataclasses import dataclass, field
 from datetime import datetime
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, ClassVar, Dict, List, Optional, Pattern, Set, Tuple
 
 from dateutil import parser
 
@@ -77,9 +77,11 @@ class BigqueryTableIdentifier:
     dataset: str
     table: str
 
-    invalid_chars = {"$", "@"}
-    _BIGQUERY_DEFAULT_SHARDED_TABLE_REGEX: str = "((.+)[_$])?(\\d{4,10})$"
-    PARTITION_SUMMARY_REGEXP = re.compile(r"^(.+)\$__PARTITIONS_SUMMARY__$")
+    invalid_chars: ClassVar[Set[str]] = {"$", "@"}
+    _BIGQUERY_DEFAULT_SHARDED_TABLE_REGEX: ClassVar[str] = "((.+)[_$])?(\\d{4,10})$"
+    PARTITION_SUMMARY_REGEXP: ClassVar[Pattern[str]] = re.compile(
+        r"^(.+)\$__PARTITIONS_SUMMARY__$"
+    )
 
     @staticmethod
     def _get_table_and_shard(table_name: str) -> Tuple[str, Optional[str]]:
@@ -142,7 +144,7 @@ class BigqueryTableIdentifier:
 class BigQueryTableRef:
     # Handle table snapshots
     # See https://cloud.google.com/bigquery/docs/table-snapshots-intro.
-    SNAPSHOT_TABLE_REGEX = re.compile(r"^(.+)@(\d{13})$")
+    SNAPSHOT_TABLE_REGEX: ClassVar[Pattern[str]] = re.compile(r"^(.+)@(\d{13})$")
 
     table_identifier: BigqueryTableIdentifier
 

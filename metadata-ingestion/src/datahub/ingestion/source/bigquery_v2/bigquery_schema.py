@@ -1,4 +1,5 @@
 import logging
+from collections import defaultdict
 from dataclasses import dataclass, field
 from datetime import datetime
 from typing import Dict, List, Optional
@@ -180,7 +181,7 @@ ORDER BY
 class BigQueryDataDictionary:
     @staticmethod
     def get_query_result(conn: bigquery.Client, query: str) -> RowIterator:
-        logger.debug("Query : {}".format(query))
+        logger.debug(f"Query : {query}")
         resp = conn.query(query)
         return resp.result()
 
@@ -263,7 +264,7 @@ class BigQueryDataDictionary:
     def get_columns_for_dataset(
         conn: bigquery.Client, project_id: str, dataset_name: str
     ) -> Optional[Dict[str, List[BigqueryColumn]]]:
-        columns: Dict[str, List[BigqueryColumn]] = {}
+        columns: Dict[str, List[BigqueryColumn]] = defaultdict(list)
         try:
             cur = BigQueryDataDictionary.get_query_result(
                 conn,
@@ -278,8 +279,6 @@ class BigQueryDataDictionary:
             return None
 
         for column in cur:
-            if column.table_name not in columns:
-                columns[column.table_name] = []
             columns[column.table_name].append(
                 BigqueryColumn(
                     name=column.column_name,

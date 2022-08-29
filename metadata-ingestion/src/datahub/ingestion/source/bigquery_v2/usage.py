@@ -2,6 +2,7 @@ import collections
 import logging
 import textwrap
 import time
+from dataclasses import dataclass
 from datetime import datetime
 from typing import Any, Dict, Iterable, List, MutableMapping, Optional, Set, Union, cast
 
@@ -53,6 +54,14 @@ OPERATION_STATEMENT_TYPES = {
 READ_STATEMENT_TYPES: List[str] = ["SELECT"]
 
 
+@dataclass(frozen=True, order=True)
+class OperationalDataMeta:
+    statement_type: str
+    last_updated_timestamp: int
+    actor_email: str
+    custom_type: Optional[str] = None
+
+
 def bigquery_audit_metadata_query_template(
     dataset: str,
     use_date_sharded_tables: bool,
@@ -90,7 +99,7 @@ def bigquery_audit_metadata_query_template(
         """
             + """
         WHERE
-            _TABLE_SUFFIX BETWEEN "{start_date}" AND "{end_date}"
+            _TABLE_SUFFIX BETWEEN "{start_time}" AND "{end_time}"
         """
         )
     else:
@@ -276,7 +285,6 @@ class BigQueryUsageExtractor:
             logger.info(
                 f"Start loading log entries from BigQueryAuditMetadata in {dataset}"
             )
-            query: str
 
             query = bigquery_audit_metadata_query_template(
                 dataset, self.config.use_date_sharded_audit_log_tables, allow_filter
@@ -321,7 +329,6 @@ class BigQueryUsageExtractor:
                 if i == 0:
                     logger.info("Starting log load from GCP Logging")
                 self.report.total_query_log_entries += 1
-                logger.info(f"Entry: {entry}")
                 yield entry
 
             logger.info(
@@ -388,24 +395,16 @@ class BigQueryUsageExtractor:
         )
         return filter
 
-    def _create_operation_aspect_work_unit(
-        self, event: AuditEvent
-    ) -> Optional[MetadataWorkUnit]:
-
-        if not event.read_event and not event.query_event:
-            return None
-
-        destination_table: BigQueryTableRef
+    @staticmethod
+    def _get_destination_table(event: AuditEvent) -> Optional[BigQueryTableRef]:
         if (
             not event.read_event
             and event.query_event
             and event.query_event.destinationTable
         ):
-            destination_table = (
-                event.query_event.destinationTable.get_sanitized_table_ref()
-            )
+            return event.query_event.destinationTable.get_sanitized_table_ref()
         elif event.read_event:
-            destination_table = event.read_event.resource.get_sanitized_table_ref()
+            return event.read_event.resource.get_sanitized_table_ref()
         else:
             # TODO: CREATE_SCHEMA operation ends up here, maybe we should capture that as well
             # but it is tricky as we only get the query so it can't be tied to anything
@@ -413,21 +412,23 @@ class BigQueryUsageExtractor:
             logger.warning(f"Unable to find destination table in event {event}")
             return None
 
-        if not self._is_table_allowed(destination_table):
-            return None
-
-        statement_type: str
-        custom_type: Optional[str] = None
-        last_updated_timestamp: int
-        actor_email: str
+    def _extract_operational_meta(
+        self, event: AuditEvent
+    ) -> Optional[OperationalDataMeta]:
         # If we don't have Query object that means this is a queryless read operation or a read operation which was not executed as JOB
         # https://cloud.google.com/bigquery/docs/reference/auditlogs/rest/Shared.Types/BigQueryAuditMetadata.TableDataRead.Reason/
+        operation_meta: OperationalDataMeta
         if not event.query_event and event.read_event:
-            statement_type = OperationTypeClass.CUSTOM
-            custom_type = "CUSTOM_READ"
-            last_updated_timestamp = int(event.read_event.timestamp.timestamp() * 1000)
-            actor_email = event.read_event.actor_email
+            return OperationalDataMeta(
+                statement_type=OperationTypeClass.CUSTOM,
+                custom_type="CUSTOM_READ",
+                last_updated_timestamp=int(
+                    event.read_event.timestamp.timestamp() * 1000
+                ),
+                actor_email=event.read_event.actor_email,
+            )
         elif event.query_event:
+            custom_type = None
             # If AuditEvent only have queryEvent that means it is the target of the Insert Operation
             if (
                 event.query_event.statementType in OPERATION_STATEMENT_TYPES
@@ -446,13 +447,37 @@ class BigQueryUsageExtractor:
                 self.report.operation_types_stat.get(event.query_event.statementType, 0)
                 + 1
             )
-            last_updated_timestamp = int(event.query_event.timestamp.timestamp() * 1000)
-            actor_email = event.query_event.actor_email
+            return OperationalDataMeta(
+                statement_type=statement_type,
+                custom_type=custom_type,
+                last_updated_timestamp=int(
+                    event.query_event.timestamp.timestamp() * 1000
+                ),
+                actor_email=event.query_event.actor_email,
+            )
         else:
             return None
 
+    def _create_operation_aspect_work_unit(
+        self, event: AuditEvent
+    ) -> Optional[MetadataWorkUnit]:
+
+        if not event.read_event and not event.query_event:
+            return None
+
+        destination_table = self._get_destination_table(event)
+        if destination_table is None:
+            return None
+
+        if not self._is_table_allowed(destination_table):
+            return None
+
+        operational_meta = self._extract_operational_meta(event)
+        if not operational_meta:
+            return None
+
         if not self.config.usage.include_read_operational_stats and (
-            statement_type not in OPERATION_STATEMENT_TYPES.values()
+            operational_meta.statement_type not in OPERATION_STATEMENT_TYPES.values()
         ):
             return None
 
@@ -472,10 +497,10 @@ class BigQueryUsageExtractor:
 
         operation_aspect = OperationClass(
             timestampMillis=reported_time,
-            lastUpdatedTimestamp=last_updated_timestamp,
-            actor=make_user_urn(actor_email.split("@")[0]),
-            operationType=statement_type,
-            customOperationType=custom_type if custom_type else None,
+            lastUpdatedTimestamp=operational_meta.last_updated_timestamp,
+            actor=make_user_urn(operational_meta.actor_email.split("@")[0]),
+            operationType=operational_meta.statement_type,
+            customOperationType=operational_meta.custom_type,
             affectedDatasets=affected_datasets,
         )
 
