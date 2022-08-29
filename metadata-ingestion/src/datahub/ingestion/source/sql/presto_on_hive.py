@@ -98,10 +98,6 @@ class PrestoOnHiveConfig(BasicSQLAlchemyConfig):
             self.metastore_db_name if self.metastore_db_name else self.database,
             uri_opts=uri_opts,
         )
-<<<<<<< Updated upstream
-=======
->>>>>>> Stashed changes
->>>>>>> Stashed changes
 
 
 @platform_name("Presto on Hive")
