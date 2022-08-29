@@ -11,12 +11,14 @@ from typing import (
     Iterator,
     List,
     Optional,
+    Type,
     TypeVar,
     Union,
 )
 
 from pydantic import BaseModel
 
+from datahub.configuration.common import ConfigModel
 from datahub.ingestion.api.closeable import Closeable
 from datahub.ingestion.api.common import PipelineContext, RecordEnvelope, WorkUnit
 from datahub.ingestion.api.report import Report
@@ -139,9 +141,15 @@ WorkUnitType = TypeVar("WorkUnitType", bound=WorkUnit)
 
 
 class Extractor(Generic[WorkUnitType], Closeable, metaclass=ABCMeta):
-    @abstractmethod
-    def configure(self, config_dict: dict, ctx: PipelineContext) -> None:
-        pass
+    CONFIG_CLASS: Optional[Type[ConfigModel]] = None
+
+    def __init__(self, config_dict: dict, ctx: PipelineContext) -> None:
+        super().__init__()
+
+        assert self.CONFIG_CLASS, "Extractor must set a config class type"
+
+        self.ctx = ctx
+        self.config = self.CONFIG_CLASS.parse_obj(config_dict)
 
     @abstractmethod
     def get_records(self, workunit: WorkUnitType) -> Iterable[RecordEnvelope]:
