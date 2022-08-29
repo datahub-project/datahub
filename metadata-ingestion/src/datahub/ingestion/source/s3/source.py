@@ -437,9 +437,14 @@ class S3Source(Source):
         # read in the whole table with Spark for profiling
         table = None
         try:
-            table = self.read_file_spark(
-                table_data.table_path, os.path.splitext(table_data.full_path)[1]
-            )
+            if table_data.partitions:
+                table = self.read_file_spark(
+                    table_data.table_path, os.path.splitext(table_data.full_path)[1]
+                )
+            else:
+                table = self.read_file_spark(
+                    table_data.full_path, os.path.splitext(table_data.full_path)[1]
+                )
         except Exception as e:
             logger.error(e)
 

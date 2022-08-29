@@ -1,0 +1,19 @@
+namespace com.linkedin.common
+
+/**
+ * Carries information about where an entity originated from.
+ */
+@Aspect = {
+  "name": "origin"
+}
+record Origin {
+  /**
+   * Where an entity originated from. Either NATIVE or EXTERNAL.
+   */
+  type: OriginType
+
+  /**
+   * Only populated if type is EXTERNAL. The externalType of the entity, such as the name of the identity provider.
+   */
+  externalType: optional string
+}

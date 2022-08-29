@@ -14,8 +14,10 @@ source:
         client_secret: "\${LOOKER_CLIENT_SECRET}" # Your Looker password, e.g. password_01
 `;
 
+export const LOOKER = 'looker';
+
 const lookerConfig: SourceConfig = {
-    type: 'looker',
+    type: LOOKER,
     placeholderRecipe,
     displayName: 'Looker',
     docsUrl: 'https://datahubproject.io/docs/generated/ingestion/sources/looker/',

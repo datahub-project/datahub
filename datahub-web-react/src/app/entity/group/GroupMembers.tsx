@@ -1,9 +1,9 @@
 import React, { useState } from 'react';
 import { MoreOutlined, UserAddOutlined, UserDeleteOutlined } from '@ant-design/icons';
-import { Col, Dropdown, Menu, message, Modal, Pagination, Row, Empty } from 'antd';
+import { Col, Dropdown, Menu, message, Modal, Pagination, Row, Empty, Button, Typography } from 'antd';
 import { Link } from 'react-router-dom';
 import styled from 'styled-components';
-import { useGetGroupMembersQuery, useRemoveGroupMembersMutation } from '../../../graphql/group.generated';
+import { useGetAllGroupMembersQuery, useRemoveGroupMembersMutation } from '../../../graphql/group.generated';
 import { CorpUser, EntityType } from '../../../types.generated';
 import { CustomAvatar } from '../../shared/avatar';
 import { useEntityRegistry } from '../../useEntityRegistry';
@@ -18,19 +18,21 @@ const AVATAR_STYLE = { margin: '5px 5px 5px 0' };
 /**
  * Styled Components
  */
-const AddMember = styled(Col)`
-    font-family: Manrope;
-    font-style: normal;
-    font-weight: 500;
-    font-size: 12px;
-    line-height: 20px;
-    color: #262626;
-    padding: 13px 30px;
+const AddMember = styled(Button)`
+    padding: 13px 13px 30px 30px;
     cursor: pointer;
 
     &&& .anticon.anticon-user-add {
         margin-right: 6px;
     }
+`;
+
+const AddMemberText = styled(Typography.Text)`
+    font-family: Manrope;
+    font-style: normal;
+    font-weight: 500;
+    font-size: 12px;
+    line-height: 20px;
 `;
 
 const MemberNameSection = styled.div`
@@ -77,17 +79,18 @@ const NoGroupMembers = styled(Empty)`
 type Props = {
     urn: string;
     pageSize: number;
+    isExternalGroup: boolean;
     onChangeMembers?: () => void;
 };
 
-export default function GroupMembers({ urn, pageSize, onChangeMembers }: Props) {
+export default function GroupMembers({ urn, pageSize, isExternalGroup, onChangeMembers }: Props) {
     const entityRegistry = useEntityRegistry();
 
     const [page, setPage] = useState(1);
     /* eslint-disable @typescript-eslint/no-unused-vars */
     const [isEditingMembers, setIsEditingMembers] = useState(false);
     const start = (page - 1) * pageSize;
-    const { data: membersData, refetch } = useGetGroupMembersQuery({
+    const { data: membersData, refetch } = useGetAllGroupMembersQuery({
         variables: { urn, start, count: pageSize },
     });
     const [removeGroupMembersMutation] = useRemoveGroupMembersMutation();
@@ -165,7 +168,7 @@ export default function GroupMembers({ urn, pageSize, onChangeMembers }: Props) 
                         <UserAddOutlined /> Make owner
                     </span>
                 </Menu.Item>
-                <Menu.Item key="remove">
+                <Menu.Item disabled={isExternalGroup} key="remove">
                     <span>
                         <UserDeleteOutlined /> Remove from Group
                     </span>
@@ -177,9 +180,9 @@ export default function GroupMembers({ urn, pageSize, onChangeMembers }: Props) 
     return (
         <>
             <Row style={ADD_MEMBER_STYLE}>
-                <AddMember onClick={onClickEditMembers}>
+                <AddMember type="text" disabled={isExternalGroup} onClick={onClickEditMembers}>
                     <UserAddOutlined />
-                    Add Member
+                    <AddMemberText>Add Member</AddMemberText>
                 </AddMember>
             </Row>
             <GroupMemberWrapper>

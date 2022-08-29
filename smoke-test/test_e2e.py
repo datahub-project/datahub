@@ -785,7 +785,7 @@ def test_add_remove_members_from_group(frontend_session):
         "query": """query corpUser($urn: String!) {\n
             corpUser(urn: $urn) {\n
                 urn\n
-                relationships(input: { types: ["IsMemberOfGroup"], direction: OUTGOING, start: 0, count: 1 }) {\n
+                relationships(input: { types: ["IsMemberOfNativeGroup"], direction: OUTGOING, start: 0, count: 1 }) {\n
                     total\n
                 }\n
             }\n
@@ -824,7 +824,7 @@ def test_add_remove_members_from_group(frontend_session):
         "query": """query corpUser($urn: String!) {\n
             corpUser(urn: $urn) {\n
                 urn\n
-                relationships(input: { types: ["IsMemberOfGroup"], direction: OUTGOING, start: 0, count: 1 }) {\n
+                relationships(input: { types: ["IsMemberOfNativeGroup"], direction: OUTGOING, start: 0, count: 1 }) {\n
                     total\n
                 }\n
             }\n
@@ -864,7 +864,7 @@ def test_add_remove_members_from_group(frontend_session):
         "query": """query corpUser($urn: String!) {\n
             corpUser(urn: $urn) {\n
                 urn\n
-                relationships(input: { types: ["IsMemberOfGroup"], direction: OUTGOING, start: 0, count: 1 }) {\n
+                relationships(input: { types: ["IsMemberOfNativeGroup"], direction: OUTGOING, start: 0, count: 1 }) {\n
                     total\n
                 }\n
             }\n

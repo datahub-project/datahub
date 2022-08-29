@@ -66,6 +66,12 @@ extend type Mutation {
   Cancel a running execution request, provided the urn of the original execution request
   """
   cancelIngestionExecutionRequest(input: CancelIngestionExecutionRequestInput!): String
+
+  """
+  Create a request to execute a test ingestion connection job
+  input: Input required for creating a test connection request
+  """
+  createTestConnectionRequest(input: CreateTestConnectionRequestInput!): String
 }
 
 """
@@ -127,6 +133,29 @@ type ExecutionRequestResult {
   """
   report: String
 
+  """
+  A structured report for this Execution Request
+  """
+  structuredReport: StructuredReport
+
+}
+
+"""
+A flexible carrier for structured results of an execution request.
+"""
+type StructuredReport {
+  """
+  The type of the structured report. (e.g. INGESTION_REPORT, TEST_CONNECTION_REPORT, etc.)
+  """
+  type: String!
+  """
+  The serialized value of the structured report
+  """
+  serializedValue: String!
+  """
+  The content-type of the serialized value (e.g. application/json, application/json;gzip etc.)
+  """
+  contentType: String!
 }
 
 """
@@ -137,6 +166,11 @@ type ExecutionRequest {
   Urn of the execution request
   """
   urn: String!
+
+  """
+  Unique id for the execution request
+  """
+  id: String!
 
   """
   Input provided when creating the Execution Request
@@ -158,6 +192,16 @@ input CreateIngestionExecutionRequestInput {
   Urn of the ingestion source to execute
   """
   ingestionSourceUrn: String!
+}
+
+"""
+Input for creating a test connection request
+"""
+input CreateTestConnectionRequestInput {
+  """
+  A JSON-encoded recipe
+  """
+  recipe: String!
 }
 
 """

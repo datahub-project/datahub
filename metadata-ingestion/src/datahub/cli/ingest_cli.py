@@ -200,9 +200,6 @@ def _test_source_connection(report_to: Optional[str], pipeline_config: dict) -> 
                 out_fp.write(connection_report.as_json())
             logger.info(f"Wrote report successfully to {report_to}")
         sys.exit(0)
-    except NotImplementedError:
-        logger.error("Source does not implement test connection")
-        sys.exit(1)
     except Exception as e:
         logger.error(f"Failed to test connection due to {e}")
         if connection_report:

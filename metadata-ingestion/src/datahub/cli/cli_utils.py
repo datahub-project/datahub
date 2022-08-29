@@ -10,7 +10,6 @@ from typing import Any, Dict, Iterable, List, Optional, Tuple, Type, Union
 import click
 import requests
 import yaml
-from avrogen.dict_wrapper import DictWrapper
 from pydantic import BaseModel, ValidationError
 from requests.models import Response
 from requests.sessions import Session
@@ -54,6 +53,7 @@ from datahub.metadata.schema_classes import (
     SubTypesClass,
     UpstreamLineageClass,
     ViewPropertiesClass,
+    _Aspect,
 )
 from datahub.utilities.urns.urn import Urn
 
@@ -70,8 +70,6 @@ ENV_METADATA_HOST_URL = "DATAHUB_GMS_URL"
 ENV_METADATA_HOST = "DATAHUB_GMS_HOST"
 ENV_METADATA_PORT = "DATAHUB_GMS_PORT"
 ENV_METADATA_PROTOCOL = "DATAHUB_GMS_PROTOCOL"
-ENV_METADATA_HOST_DEPRECATED = "GMS_HOST"
-ENV_METADATA_PORT_DEPRECATED = "GMS_PORT"
 ENV_METADATA_TOKEN = "DATAHUB_GMS_TOKEN"
 ENV_DATAHUB_SYSTEM_CLIENT_ID = "DATAHUB_SYSTEM_CLIENT_ID"
 ENV_DATAHUB_SYSTEM_CLIENT_SECRET = "DATAHUB_SYSTEM_CLIENT_SECRET"
@@ -144,12 +142,8 @@ def get_details_from_config():
 
 
 def get_details_from_env() -> Tuple[Optional[str], Optional[str]]:
-    host = os.environ.get(ENV_METADATA_HOST) or os.environ.get(
-        ENV_METADATA_HOST_DEPRECATED
-    )
-    port = os.environ.get(ENV_METADATA_PORT) or os.environ.get(
-        ENV_METADATA_PORT_DEPRECATED
-    )
+    host = os.environ.get(ENV_METADATA_HOST)
+    port = os.environ.get(ENV_METADATA_PORT)
     token = os.environ.get(ENV_METADATA_TOKEN)
     protocol = os.environ.get(ENV_METADATA_PROTOCOL, "http")
     url = os.environ.get(ENV_METADATA_HOST_URL)
@@ -372,10 +366,11 @@ def post_delete_endpoint_with_session_and_url(
 
 def get_urns_by_filter(
     platform: Optional[str],
-    env: Optional[str],
+    env: Optional[str] = None,
     entity_type: str = "dataset",
     search_query: str = "*",
     include_removed: bool = False,
+    only_soft_deleted: Optional[bool] = None,
 ) -> Iterable[str]:
     session, gms_host = get_session_and_host()
     endpoint: str = "/entities?action=search"
@@ -407,7 +402,15 @@ def get_urns_by_filter(
             }
         )
 
-    if include_removed:
+    if only_soft_deleted:
+        filter_criteria.append(
+            {
+                "field": "removed",
+                "value": "true",
+                "condition": "EQUAL",
+            }
+        )
+    elif include_removed:
         filter_criteria.append(
             {
                 "field": "removed",
@@ -709,7 +712,7 @@ def get_aspects_for_entity(
     aspects: List[str] = [],
     typed: bool = False,
     cached_session_host: Optional[Tuple[Session, str]] = None,
-) -> Dict[str, Union[dict, DictWrapper]]:
+) -> Dict[str, Union[dict, _Aspect]]:
     # Process non-timeseries aspects
     non_timeseries_aspects: List[str] = [
         a for a in aspects if a not in timeseries_class_to_aspect_name_map.values()
@@ -742,7 +745,7 @@ def get_aspects_for_entity(
                     aspect_cls.RECORD_SCHEMA.fullname.replace("pegasus2avro.", "")
                 ] = aspect_value
 
-    aspect_map: Dict[str, Union[dict, DictWrapper]] = {}
+    aspect_map: Dict[str, Union[dict, _Aspect]] = {}
     for a in aspect_list.values():
         aspect_name = a["name"]
         aspect_py_class: Optional[Type[Any]] = _get_pydantic_class_from_aspect_name(
