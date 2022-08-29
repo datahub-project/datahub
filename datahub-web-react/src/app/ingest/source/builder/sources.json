@@ -1,0 +1,8 @@
+[
+    {
+        "urn": "urn:li:dataPlatform:snowflake",
+        "name": "snowflake",
+        "displayName": "Snowflake",
+        "recipe": ""
+    }
+]

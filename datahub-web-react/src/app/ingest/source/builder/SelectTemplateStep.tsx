@@ -1,10 +1,12 @@
 import { Button } from 'antd';
-import React from 'react';
+import React, { useEffect } from 'react';
 import styled from 'styled-components';
 import { LogoCountCard } from '../../../shared/LogoCountCard';
-import { SourceBuilderState, StepProps } from './types';
+import { IngestionSource, SourceBuilderState, StepProps } from './types';
 import { SOURCE_TEMPLATE_CONFIGS } from '../conf/sources';
 import { IngestionSourceBuilderStep } from './steps';
+import { useGetDataPlatformLazyQuery } from '../../../../graphql/dataPlatform.generated';
+import { SOURCE_TO_LOGO } from './constants';
 
 const Section = styled.div`
     display: flex;
@@ -25,10 +27,36 @@ const CancelButton = styled(Button)`
     }
 `;
 
+interface SourceOptionProps {
+    source: IngestionSource;
+    onClick: () => void;
+}
+
+function SourceOption({ source, onClick }: SourceOptionProps) {
+    const { urn, name } = source;
+
+    const [getDataPlatform, { data, loading }] = useGetDataPlatformLazyQuery();
+    const logoInMemory = SOURCE_TO_LOGO[urn];
+
+    useEffect(() => {
+        if (!logoInMemory && !data && !loading) {
+            getDataPlatform({ variables: { urn } });
+        }
+    });
+
+    return (
+        <LogoCountCard
+            onClick={onClick}
+            name={name}
+            logoUrl={logoInMemory || data?.dataPlatform?.properties?.logoUrl}
+        />
+    );
+}
+
 /**
  * Component responsible for selecting the mechanism for constructing a new Ingestion Source
  */
-export const SelectTemplateStep = ({ state, updateState, goTo, cancel }: StepProps) => {
+export const SelectTemplateStep = ({ state, updateState, goTo, cancel, ingestionSources }: StepProps) => {
     // Reoslve the supported platform types to their logos and names.
 
     const onSelectTemplate = (type: string) => {
@@ -45,6 +73,9 @@ export const SelectTemplateStep = ({ state, updateState, goTo, cancel }: StepPro
         <>
             <Section>
                 <PlatformListContainer>
+                    {ingestionSources.map((source) => (
+                        <SourceOption key={source.urn} source={source} onClick={() => onSelectTemplate(source.name)} />
+                    ))}
                     {SOURCE_TEMPLATE_CONFIGS.map((configs, _) => (
                         <LogoCountCard
                             key={configs.type}
