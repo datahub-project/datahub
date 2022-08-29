@@ -2,6 +2,7 @@ package com.linkedin.gms.factory.config;
 
 import com.datahub.authentication.AuthenticationConfiguration;
 import com.datahub.authorization.AuthorizationConfiguration;
+import com.linkedin.datahub.graphql.featureflags.FeatureFlags;
 import com.linkedin.metadata.config.DatahubConfiguration;
 import com.linkedin.metadata.config.IngestionConfiguration;
 import com.linkedin.metadata.config.TestsConfiguration;
@@ -9,6 +10,7 @@ import com.linkedin.metadata.telemetry.TelemetryConfiguration;
 import com.linkedin.gms.factory.spring.YamlPropertySourceFactory;
 import com.linkedin.metadata.config.VisualConfiguration;
 import lombok.Data;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.context.properties.ConfigurationProperties;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.PropertySource;
@@ -47,4 +49,9 @@ public class ConfigurationProvider {
    * DataHub top-level server configurations
    */
   private DatahubConfiguration datahub;
+
+  /**
+   * Feature flags indicating what is turned on vs turned off
+   */
+  private FeatureFlags featureFlags;
 }

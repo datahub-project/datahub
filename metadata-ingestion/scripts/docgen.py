@@ -112,9 +112,10 @@ def get_enum_description(
     missed_symbols = [symbol for symbol in enum_symbols if symbol not in description]
     if missed_symbols:
         description = (
-            description + "."
-            if description
-            else "") + " Allowed symbols are " + ", ".join(enum_symbols)
+            (description + "." if description else "")
+            + " Allowed symbols are "
+            + ", ".join(enum_symbols)
+        )
 
     return description
 
@@ -394,7 +395,7 @@ def get_additional_deps_for_extra(extra_name: str) -> List[str]:
     base_deps = set([x.split(";")[0] for x in all_requirements if "extra ==" not in x])
     # filter for dependencies for this extra
     extra_deps = set(
-        [x.split(";")[0] for x in all_requirements if f'extra == "{extra_name}"' in x]
+        [x.split(";")[0] for x in all_requirements if f"extra == '{extra_name}'" in x]
     )
     # calculate additional deps that this extra adds
     delta_deps = extra_deps - base_deps

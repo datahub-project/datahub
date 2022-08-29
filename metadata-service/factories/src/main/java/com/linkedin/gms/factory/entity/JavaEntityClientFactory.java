@@ -1,6 +1,7 @@
 package com.linkedin.gms.factory.entity;
 
 import com.linkedin.entity.client.JavaEntityClient;
+import com.linkedin.entity.client.RestliEntityClient;
 import com.linkedin.gms.factory.kafka.DataHubKafkaProducerFactory;
 import com.linkedin.metadata.entity.DeleteEntityService;
 import com.linkedin.metadata.entity.EntityService;
@@ -52,6 +53,10 @@ public class JavaEntityClientFactory {
   @Qualifier("kafkaEventProducer")
   private EventProducer _eventProducer;
 
+  @Autowired
+  @Qualifier("restliEntityClient")
+  private RestliEntityClient _restliEntityClient;
+
   @Bean("javaEntityClient")
   public JavaEntityClient getJavaEntityClient() {
     return new JavaEntityClient(
@@ -62,6 +67,7 @@ public class JavaEntityClientFactory {
         _searchService,
         _lineageSearchService,
         _timeseriesAspectService,
-        _eventProducer);
+        _eventProducer,
+        _restliEntityClient);
   }
 }

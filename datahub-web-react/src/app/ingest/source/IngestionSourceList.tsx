@@ -263,6 +263,7 @@ export const IngestionSourceList = () => {
                         (recipeBuilderState.config?.executorId?.length &&
                             (recipeBuilderState.config?.executorId as string)) ||
                         DEFAULT_EXECUTOR_ID,
+                    debugMode: recipeBuilderState.config?.debugMode || false,
                 },
                 schedule: recipeBuilderState.schedule && {
                     interval: recipeBuilderState.schedule?.interval as string,
@@ -321,8 +322,9 @@ export const IngestionSourceList = () => {
     return (
         <>
             {!data && loading && <Message type="loading" content="Loading ingestion sources..." />}
-            {error &&
-                message.error({ content: `Failed to load ingestion sources! \n ${error.message || ''}`, duration: 3 })}
+            {error && (
+                <Message type="error" content="Failed to load ingestion sources! An unexpected error occurred." />
+            )}
             <SourceContainer>
                 <TabToolbar>
                     <div>

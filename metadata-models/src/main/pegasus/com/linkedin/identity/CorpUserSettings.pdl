@@ -10,5 +10,5 @@ record CorpUserSettings {
   /**
    *Settings for a user around the appearance of their DataHub U
    */
-  appearance: AppearanceCorpUserSettings
+  appearance: CorpUserAppearanceSettings
 }

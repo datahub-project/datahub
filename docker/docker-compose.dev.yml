@@ -48,7 +48,6 @@ services:
       - ../metadata-models/src/main/resources/:/datahub/datahub-gms/resources
       - ../metadata-service/war/build/libs/:/datahub/datahub-gms/bin
       - ${HOME}/.datahub/plugins:/etc/datahub/plugins
-      - ${HOME}/.datahub/plugins/auth/resources/:/etc/datahub/plugins/auth/resources
 
   datahub-frontend-react:
     image: linkedin/datahub-frontend-react:debug
