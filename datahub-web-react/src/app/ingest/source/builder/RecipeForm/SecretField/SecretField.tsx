@@ -62,6 +62,7 @@ function SecretFieldTooltip({ tooltipLabel }: { tooltipLabel?: string | ReactNod
     return (
         <div>
             {tooltipLabel}
+            <hr />
             <p>
                 This field requires you to use a DataHub Secret. For more information on Secrets in DataHub, please
                 review{' '}
