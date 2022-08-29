@@ -1,6 +1,6 @@
 import pytest
 
-from tests.utils import delete_urns_from_file, get_frontend_url, ingest_file_via_rest
+from tests.utils import delete_urns_from_file, get_frontend_url, ingest_file_via_rest, wait_for_healthcheck_util
 
 
 @pytest.fixture(scope="module", autouse=True)
@@ -11,6 +11,11 @@ def ingest_cleanup_data(request):
     print("removing test data")
     delete_urns_from_file("tests/tests/data.json")
 
+
+@pytest.fixture(scope="session")
+def wait_for_healthchecks():
+    wait_for_healthcheck_util()
+    yield
 
 @pytest.mark.dependency()
 def test_healthchecks(wait_for_healthchecks):
