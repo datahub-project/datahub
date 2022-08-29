@@ -13,7 +13,6 @@ def wait_for_healthchecks():
     yield
 
 
-
 @pytest.mark.dependency()
 def test_healthchecks(wait_for_healthchecks):
     # Call to wait_for_healthchecks fixture will do the actual functionality.
