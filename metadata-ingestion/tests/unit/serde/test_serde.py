@@ -1,6 +1,7 @@
 import io
 import json
 import pathlib
+import shutil
 from unittest.mock import patch
 
 import fastavro
@@ -142,10 +143,29 @@ def test_serde_to_avro(
     ],
 )
 @freeze_time(FROZEN_TIME)
-def test_check_mce_schema(pytestconfig: PytestConfig, json_filename: str) -> None:
+def test_check_metadata_schema(pytestconfig: PytestConfig, json_filename: str) -> None:
     json_file_path = pytestconfig.rootpath / json_filename
 
-    run_datahub_cmd(["check", "mce-file", f"{json_file_path}"])
+    run_datahub_cmd(["check", "metadata-file", f"{json_file_path}"])
+
+
+def test_check_metadata_rewrite(
+    pytestconfig: PytestConfig, tmp_path: pathlib.Path
+) -> None:
+    json_input = (
+        pytestconfig.rootpath / "tests/unit/serde/test_canonicalization_input.json"
+    )
+    json_output_reference = (
+        pytestconfig.rootpath / "tests/unit/serde/test_canonicalization_output.json"
+    )
+
+    output_file_path = tmp_path / "output.json"
+    shutil.copyfile(json_input, output_file_path)
+    run_datahub_cmd(["check", "metadata-file", f"{output_file_path}", "--rewrite"])
+
+    mce_helpers.check_golden_file(
+        pytestconfig, output_path=output_file_path, golden_path=json_output_reference
+    )
 
 
 @pytest.mark.parametrize(
