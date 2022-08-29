@@ -10,6 +10,10 @@ const StyledDivider = styled(Divider)`
     margin: 0;
 `;
 
+export const SecretFieldLabel = styled.span`
+    color: ${ANTD_GRAY[7]};
+`;
+
 export const StyledFormItem = styled(Form.Item)<{ alignLeft?: boolean; removeMargin: boolean }>`
     margin-bottom: ${(props) => (props.removeMargin ? '0' : '16px')};
 
@@ -56,7 +60,7 @@ function SecretField({ field, secrets, removeMargin, refetchSecrets }: SecretFie
     return (
         <StyledFormItem name={field.name} label={field.label} tooltip={field.tooltip} removeMargin={!!removeMargin}>
             <Tooltip title={getTooltip}>
-                <span style={{ color: ANTD_GRAY[7] }}>Secret Field</span>
+                <SecretFieldLabel>Secret Field</SecretFieldLabel>
             </Tooltip>
             <Select
                 showSearch
