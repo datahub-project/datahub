@@ -394,7 +394,7 @@ def get_tags_from_params(params: List[str] = []) -> GlobalTagsClass:
     return GlobalTagsClass(tags=tags)
 
 
-@lru_cache
+@lru_cache(128)
 def get_platform(connection_type: str) -> str:
     # connection_type taken from
     # https://help.tableau.com/current/api/rest_api/en-us/REST/rest_api_concepts_connectiontype.htm
@@ -426,7 +426,7 @@ def get_platform(connection_type: str) -> str:
     return platform
 
 
-@lru_cache
+@lru_cache(128)
 def get_fully_qualified_table_name(
     platform: str,
     upstream_db: str,
