@@ -21,6 +21,7 @@ public class RestoreIndices implements Upgrade {
   public static final String NUM_THREADS_ARG_NAME = "numThreads";
   public static final String ASPECT_NAME_ARG_NAME = "aspectName";
   public static final String URN_ARG_NAME = "urn";
+  public static final String URN_LIKE_ARG_NAME = "urnLike";
 
   private final List<UpgradeStep> _steps;
 
