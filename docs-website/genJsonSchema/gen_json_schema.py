@@ -85,6 +85,11 @@ def get_base() -> Any:
                         "type": "string",
                         "description": "Extra headers which will be added to the request.",
                     },
+                    "disable_ssl_verification": {
+                        "type": "bool",
+                        "description": "Disable SSL verification for HTTPS communications.",
+                        "default": False,
+                    },
                 },
                 "required": ["server"],
                 "additionalProperties": False,

@@ -33,13 +33,13 @@ import static com.linkedin.datahub.graphql.types.timeline.utils.TimelineUtils.*;
 public class SchemaBlameMapper {
 
   public static GetSchemaBlameResult map(List<ChangeTransaction> changeTransactions, @Nullable String versionCutoff) {
+    GetSchemaBlameResult result = new GetSchemaBlameResult();
     if (changeTransactions.isEmpty()) {
       log.debug("Change transactions are empty");
-      return null;
+      return result;
     }
 
     Map<String, SchemaFieldBlame> schemaBlameMap = new HashMap<>();
-    GetSchemaBlameResult result = new GetSchemaBlameResult();
 
     String latestSemanticVersionString =
         truncateSemanticVersion(changeTransactions.get(changeTransactions.size() - 1).getSemVer());

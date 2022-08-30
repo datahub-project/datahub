@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Button, Empty, List, message, Pagination } from 'antd';
+import { Button, Empty, List, Pagination } from 'antd';
 import styled from 'styled-components';
 import * as QueryString from 'query-string';
 import { UsergroupAddOutlined } from '@ant-design/icons';
@@ -13,6 +13,7 @@ import { SearchBar } from '../../search/SearchBar';
 import { useEntityRegistry } from '../../useEntityRegistry';
 import ViewInviteTokenModal from './ViewInviteTokenModal';
 import { useGetAuthenticatedUser } from '../../useGetAuthenticatedUser';
+import { scrollToTop } from '../../shared/searchUtils';
 
 const UserContainer = styled.div``;
 
@@ -64,6 +65,7 @@ export const UserList = () => {
     const filteredUsers = users.filter((user) => !removedUrns.includes(user.urn));
 
     const onChangePage = (newPage: number) => {
+        scrollToTop();
         setPage(newPage);
     };
 
@@ -79,7 +81,7 @@ export const UserList = () => {
     return (
         <>
             {!data && loading && <Message type="loading" content="Loading users..." />}
-            {error && message.error('Failed to load users :(')}
+            {error && <Message type="error" content="Failed to load users! An unexpected error occurred." />}
             <UserContainer>
                 <TabToolbar>
                     <div>
@@ -106,6 +108,7 @@ export const UserList = () => {
                         onSearch={() => null}
                         onQueryChange={(q) => setQuery(q)}
                         entityRegistry={entityRegistry}
+                        hideRecommendations
                     />
                 </TabToolbar>
                 <UserStyledList

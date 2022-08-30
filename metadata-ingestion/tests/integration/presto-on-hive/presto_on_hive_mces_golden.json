@@ -2,12 +2,12 @@
 {
     "auditHeader": null,
     "entityType": "container",
-    "entityUrn": "urn:li:container:e998a77f6edaa92d1326dec9d37c96ab",
+    "entityUrn": "urn:li:container:939ecec0f01fb6bb1ca15fe6f0ead918",
     "entityKeyAspect": null,
     "changeType": "UPSERT",
     "aspectName": "containerProperties",
     "aspect": {
-        "value": "{\"customProperties\": {\"platform\": \"presto-on-hive\", \"instance\": \"PROD\", \"database\": \"hive\"}, \"name\": \"hive\"}",
+        "value": "{\"customProperties\": {\"platform\": \"hive\", \"instance\": \"PROD\", \"database\": \"hive\"}, \"name\": \"hive\"}",
         "contentType": "application/json"
     },
     "systemMetadata": {
@@ -21,12 +21,12 @@
 {
     "auditHeader": null,
     "entityType": "container",
-    "entityUrn": "urn:li:container:e998a77f6edaa92d1326dec9d37c96ab",
+    "entityUrn": "urn:li:container:939ecec0f01fb6bb1ca15fe6f0ead918",
     "entityKeyAspect": null,
     "changeType": "UPSERT",
     "aspectName": "dataPlatformInstance",
     "aspect": {
-        "value": "{\"platform\": \"urn:li:dataPlatform:presto-on-hive\"}",
+        "value": "{\"platform\": \"urn:li:dataPlatform:hive\"}",
         "contentType": "application/json"
     },
     "systemMetadata": {
@@ -40,7 +40,7 @@
 {
     "auditHeader": null,
     "entityType": "container",
-    "entityUrn": "urn:li:container:e998a77f6edaa92d1326dec9d37c96ab",
+    "entityUrn": "urn:li:container:939ecec0f01fb6bb1ca15fe6f0ead918",
     "entityKeyAspect": null,
     "changeType": "UPSERT",
     "aspectName": "subTypes",
@@ -59,12 +59,12 @@
 {
     "auditHeader": null,
     "entityType": "container",
-    "entityUrn": "urn:li:container:84049b8c8ef453056f88e05ff64e7e25",
+    "entityUrn": "urn:li:container:f5e571e4a9acce86333e6b427ba1651f",
     "entityKeyAspect": null,
     "changeType": "UPSERT",
     "aspectName": "containerProperties",
     "aspect": {
-        "value": "{\"customProperties\": {\"platform\": \"presto-on-hive\", \"instance\": \"PROD\", \"database\": \"hive\", \"schema\": \"default\"}, \"name\": \"default\"}",
+        "value": "{\"customProperties\": {\"platform\": \"hive\", \"instance\": \"PROD\", \"database\": \"hive\", \"schema\": \"db1\"}, \"name\": \"db1\"}",
         "contentType": "application/json"
     },
     "systemMetadata": {
@@ -78,12 +78,12 @@
 {
     "auditHeader": null,
     "entityType": "container",
-    "entityUrn": "urn:li:container:84049b8c8ef453056f88e05ff64e7e25",
+    "entityUrn": "urn:li:container:f5e571e4a9acce86333e6b427ba1651f",
     "entityKeyAspect": null,
     "changeType": "UPSERT",
     "aspectName": "dataPlatformInstance",
     "aspect": {
-        "value": "{\"platform\": \"urn:li:dataPlatform:presto-on-hive\"}",
+        "value": "{\"platform\": \"urn:li:dataPlatform:hive\"}",
         "contentType": "application/json"
     },
     "systemMetadata": {
@@ -97,7 +97,7 @@
 {
     "auditHeader": null,
     "entityType": "container",
-    "entityUrn": "urn:li:container:84049b8c8ef453056f88e05ff64e7e25",
+    "entityUrn": "urn:li:container:f5e571e4a9acce86333e6b427ba1651f",
     "entityKeyAspect": null,
     "changeType": "UPSERT",
     "aspectName": "subTypes",
@@ -116,164 +116,12 @@
 {
     "auditHeader": null,
     "entityType": "container",
-    "entityUrn": "urn:li:container:84049b8c8ef453056f88e05ff64e7e25",
+    "entityUrn": "urn:li:container:f5e571e4a9acce86333e6b427ba1651f",
     "entityKeyAspect": null,
     "changeType": "UPSERT",
     "aspectName": "container",
     "aspect": {
-        "value": "{\"container\": \"urn:li:container:e998a77f6edaa92d1326dec9d37c96ab\"}",
-        "contentType": "application/json"
-    },
-    "systemMetadata": {
-        "lastObserved": 1632398400000,
-        "runId": "presto-on-hive-test",
-        "registryName": null,
-        "registryVersion": null,
-        "properties": null
-    }
-},
-{
-    "auditHeader": null,
-    "entityType": "container",
-    "entityUrn": "urn:li:container:acb8ba02419d602faa8b977c1db6860d",
-    "entityKeyAspect": null,
-    "changeType": "UPSERT",
-    "aspectName": "containerProperties",
-    "aspect": {
-        "value": "{\"customProperties\": {\"platform\": \"presto-on-hive\", \"instance\": \"PROD\", \"database\": \"hive\", \"schema\": \"db2\"}, \"name\": \"db2\"}",
-        "contentType": "application/json"
-    },
-    "systemMetadata": {
-        "lastObserved": 1632398400000,
-        "runId": "presto-on-hive-test",
-        "registryName": null,
-        "registryVersion": null,
-        "properties": null
-    }
-},
-{
-    "auditHeader": null,
-    "entityType": "container",
-    "entityUrn": "urn:li:container:acb8ba02419d602faa8b977c1db6860d",
-    "entityKeyAspect": null,
-    "changeType": "UPSERT",
-    "aspectName": "dataPlatformInstance",
-    "aspect": {
-        "value": "{\"platform\": \"urn:li:dataPlatform:presto-on-hive\"}",
-        "contentType": "application/json"
-    },
-    "systemMetadata": {
-        "lastObserved": 1632398400000,
-        "runId": "presto-on-hive-test",
-        "registryName": null,
-        "registryVersion": null,
-        "properties": null
-    }
-},
-{
-    "auditHeader": null,
-    "entityType": "container",
-    "entityUrn": "urn:li:container:acb8ba02419d602faa8b977c1db6860d",
-    "entityKeyAspect": null,
-    "changeType": "UPSERT",
-    "aspectName": "subTypes",
-    "aspect": {
-        "value": "{\"typeNames\": [\"Schema\"]}",
-        "contentType": "application/json"
-    },
-    "systemMetadata": {
-        "lastObserved": 1632398400000,
-        "runId": "presto-on-hive-test",
-        "registryName": null,
-        "registryVersion": null,
-        "properties": null
-    }
-},
-{
-    "auditHeader": null,
-    "entityType": "container",
-    "entityUrn": "urn:li:container:acb8ba02419d602faa8b977c1db6860d",
-    "entityKeyAspect": null,
-    "changeType": "UPSERT",
-    "aspectName": "container",
-    "aspect": {
-        "value": "{\"container\": \"urn:li:container:e998a77f6edaa92d1326dec9d37c96ab\"}",
-        "contentType": "application/json"
-    },
-    "systemMetadata": {
-        "lastObserved": 1632398400000,
-        "runId": "presto-on-hive-test",
-        "registryName": null,
-        "registryVersion": null,
-        "properties": null
-    }
-},
-{
-    "auditHeader": null,
-    "entityType": "container",
-    "entityUrn": "urn:li:container:bb66ab4651750f727700446f9b3aa2df",
-    "entityKeyAspect": null,
-    "changeType": "UPSERT",
-    "aspectName": "containerProperties",
-    "aspect": {
-        "value": "{\"customProperties\": {\"platform\": \"presto-on-hive\", \"instance\": \"PROD\", \"database\": \"hive\", \"schema\": \"db1\"}, \"name\": \"db1\"}",
-        "contentType": "application/json"
-    },
-    "systemMetadata": {
-        "lastObserved": 1632398400000,
-        "runId": "presto-on-hive-test",
-        "registryName": null,
-        "registryVersion": null,
-        "properties": null
-    }
-},
-{
-    "auditHeader": null,
-    "entityType": "container",
-    "entityUrn": "urn:li:container:bb66ab4651750f727700446f9b3aa2df",
-    "entityKeyAspect": null,
-    "changeType": "UPSERT",
-    "aspectName": "dataPlatformInstance",
-    "aspect": {
-        "value": "{\"platform\": \"urn:li:dataPlatform:presto-on-hive\"}",
-        "contentType": "application/json"
-    },
-    "systemMetadata": {
-        "lastObserved": 1632398400000,
-        "runId": "presto-on-hive-test",
-        "registryName": null,
-        "registryVersion": null,
-        "properties": null
-    }
-},
-{
-    "auditHeader": null,
-    "entityType": "container",
-    "entityUrn": "urn:li:container:bb66ab4651750f727700446f9b3aa2df",
-    "entityKeyAspect": null,
-    "changeType": "UPSERT",
-    "aspectName": "subTypes",
-    "aspect": {
-        "value": "{\"typeNames\": [\"Schema\"]}",
-        "contentType": "application/json"
-    },
-    "systemMetadata": {
-        "lastObserved": 1632398400000,
-        "runId": "presto-on-hive-test",
-        "registryName": null,
-        "registryVersion": null,
-        "properties": null
-    }
-},
-{
-    "auditHeader": null,
-    "entityType": "container",
-    "entityUrn": "urn:li:container:bb66ab4651750f727700446f9b3aa2df",
-    "entityKeyAspect": null,
-    "changeType": "UPSERT",
-    "aspectName": "container",
-    "aspect": {
-        "value": "{\"container\": \"urn:li:container:e998a77f6edaa92d1326dec9d37c96ab\"}",
+        "value": "{\"container\": \"urn:li:container:939ecec0f01fb6bb1ca15fe6f0ead918\"}",
         "contentType": "application/json"
     },
     "systemMetadata": {
@@ -287,12 +135,12 @@
 {
     "auditHeader": null,
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:presto-on-hive,db1.map_test,PROD)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:hive,db1.map_test,PROD)",
     "entityKeyAspect": null,
     "changeType": "UPSERT",
     "aspectName": "container",
     "aspect": {
-        "value": "{\"container\": \"urn:li:container:bb66ab4651750f727700446f9b3aa2df\"}",
+        "value": "{\"container\": \"urn:li:container:f5e571e4a9acce86333e6b427ba1651f\"}",
         "contentType": "application/json"
     },
     "systemMetadata": {
@@ -307,22 +155,29 @@
     "auditHeader": null,
     "proposedSnapshot": {
         "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
-            "urn": "urn:li:dataset:(urn:li:dataPlatform:presto-on-hive,db1.map_test,PROD)",
+            "urn": "urn:li:dataset:(urn:li:dataPlatform:hive,db1.map_test,PROD)",
             "aspects": [
+                {
+                    "com.linkedin.pegasus2avro.common.Status": {
+                        "removed": false
+                    }
+                },
                 {
                     "com.linkedin.pegasus2avro.schema.SchemaMetadata": {
                         "schemaName": "db1.map_test",
-                        "platform": "urn:li:dataPlatform:presto-on-hive",
+                        "platform": "urn:li:dataPlatform:hive",
                         "version": 0,
                         "created": {
                             "time": 0,
                             "actor": "urn:li:corpuser:unknown",
-                            "impersonator": null
+                            "impersonator": null,
+                            "message": null
                         },
                         "lastModified": {
                             "time": 0,
                             "actor": "urn:li:corpuser:unknown",
-                            "impersonator": null
+                            "impersonator": null,
+                            "message": null
                         },
                         "deleted": null,
                         "dataset": null,
@@ -339,6 +194,8 @@
                                 "jsonPath": null,
                                 "nullable": true,
                                 "description": null,
+                                "created": null,
+                                "lastModified": null,
                                 "type": {
                                     "type": {
                                         "com.linkedin.pegasus2avro.schema.StringType": {}
@@ -357,6 +214,8 @@
                                 "jsonPath": null,
                                 "nullable": true,
                                 "description": null,
+                                "created": null,
+                                "lastModified": null,
                                 "type": {
                                     "type": {
                                         "com.linkedin.pegasus2avro.schema.MapType": {
@@ -382,7 +241,7 @@
                 {
                     "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
                         "customProperties": {
-                            "create_date": "2022-05-26",
+                            "create_date": "2022-08-23",
                             "table_type": "MANAGED_TABLE",
                             "table_location": "hdfs://namenode:8020/user/hive/warehouse/db1.db/map_test"
                         },
@@ -409,12 +268,31 @@
 {
     "auditHeader": null,
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:presto-on-hive,db1.union_test,PROD)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:hive,db1.map_test,PROD)",
+    "entityKeyAspect": null,
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+        "value": "{\"typeNames\": [\"table\"]}",
+        "contentType": "application/json"
+    },
+    "systemMetadata": {
+        "lastObserved": 1632398400000,
+        "runId": "presto-on-hive-test",
+        "registryName": null,
+        "registryVersion": null,
+        "properties": null
+    }
+},
+{
+    "auditHeader": null,
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:hive,db1.union_test,PROD)",
     "entityKeyAspect": null,
     "changeType": "UPSERT",
     "aspectName": "container",
     "aspect": {
-        "value": "{\"container\": \"urn:li:container:bb66ab4651750f727700446f9b3aa2df\"}",
+        "value": "{\"container\": \"urn:li:container:f5e571e4a9acce86333e6b427ba1651f\"}",
         "contentType": "application/json"
     },
     "systemMetadata": {
@@ -429,22 +307,29 @@
     "auditHeader": null,
     "proposedSnapshot": {
         "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
-            "urn": "urn:li:dataset:(urn:li:dataPlatform:presto-on-hive,db1.union_test,PROD)",
+            "urn": "urn:li:dataset:(urn:li:dataPlatform:hive,db1.union_test,PROD)",
             "aspects": [
+                {
+                    "com.linkedin.pegasus2avro.common.Status": {
+                        "removed": false
+                    }
+                },
                 {
                     "com.linkedin.pegasus2avro.schema.SchemaMetadata": {
                         "schemaName": "db1.union_test",
-                        "platform": "urn:li:dataPlatform:presto-on-hive",
+                        "platform": "urn:li:dataPlatform:hive",
                         "version": 0,
                         "created": {
                             "time": 0,
                             "actor": "urn:li:corpuser:unknown",
-                            "impersonator": null
+                            "impersonator": null,
+                            "message": null
                         },
                         "lastModified": {
                             "time": 0,
                             "actor": "urn:li:corpuser:unknown",
-                            "impersonator": null
+                            "impersonator": null,
+                            "message": null
                         },
                         "deleted": null,
                         "dataset": null,
@@ -461,6 +346,8 @@
                                 "jsonPath": null,
                                 "nullable": true,
                                 "description": null,
+                                "created": null,
+                                "lastModified": null,
                                 "type": {
                                     "type": {
                                         "com.linkedin.pegasus2avro.schema.UnionType": {
@@ -481,6 +368,8 @@
                                 "jsonPath": null,
                                 "nullable": true,
                                 "description": null,
+                                "created": null,
+                                "lastModified": null,
                                 "type": {
                                     "type": {
                                         "com.linkedin.pegasus2avro.schema.UnionType": {
@@ -501,6 +390,8 @@
                                 "jsonPath": null,
                                 "nullable": true,
                                 "description": null,
+                                "created": null,
+                                "lastModified": null,
                                 "type": {
                                     "type": {
                                         "com.linkedin.pegasus2avro.schema.UnionType": {
@@ -521,6 +412,8 @@
                                 "jsonPath": null,
                                 "nullable": true,
                                 "description": null,
+                                "created": null,
+                                "lastModified": null,
                                 "type": {
                                     "type": {
                                         "com.linkedin.pegasus2avro.schema.UnionType": {
@@ -541,6 +434,8 @@
                                 "jsonPath": null,
                                 "nullable": true,
                                 "description": null,
+                                "created": null,
+                                "lastModified": null,
                                 "type": {
                                     "type": {
                                         "com.linkedin.pegasus2avro.schema.UnionType": {
@@ -561,6 +456,8 @@
                                 "jsonPath": null,
                                 "nullable": true,
                                 "description": null,
+                                "created": null,
+                                "lastModified": null,
                                 "type": {
                                     "type": {
                                         "com.linkedin.pegasus2avro.schema.NumberType": {}
@@ -579,6 +476,8 @@
                                 "jsonPath": null,
                                 "nullable": true,
                                 "description": null,
+                                "created": null,
+                                "lastModified": null,
                                 "type": {
                                     "type": {
                                         "com.linkedin.pegasus2avro.schema.StringType": {}
@@ -601,7 +500,7 @@
                 {
                     "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
                         "customProperties": {
-                            "create_date": "2022-05-26",
+                            "create_date": "2022-08-23",
                             "table_type": "MANAGED_TABLE",
                             "table_location": "hdfs://namenode:8020/user/hive/warehouse/db1.db/union_test"
                         },
@@ -628,12 +527,31 @@
 {
     "auditHeader": null,
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:presto-on-hive,db1.nested_struct_test,PROD)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:hive,db1.union_test,PROD)",
+    "entityKeyAspect": null,
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+        "value": "{\"typeNames\": [\"table\"]}",
+        "contentType": "application/json"
+    },
+    "systemMetadata": {
+        "lastObserved": 1632398400000,
+        "runId": "presto-on-hive-test",
+        "registryName": null,
+        "registryVersion": null,
+        "properties": null
+    }
+},
+{
+    "auditHeader": null,
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:hive,db1.nested_struct_test,PROD)",
     "entityKeyAspect": null,
     "changeType": "UPSERT",
     "aspectName": "container",
     "aspect": {
-        "value": "{\"container\": \"urn:li:container:bb66ab4651750f727700446f9b3aa2df\"}",
+        "value": "{\"container\": \"urn:li:container:f5e571e4a9acce86333e6b427ba1651f\"}",
         "contentType": "application/json"
     },
     "systemMetadata": {
@@ -648,22 +566,29 @@
     "auditHeader": null,
     "proposedSnapshot": {
         "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
-            "urn": "urn:li:dataset:(urn:li:dataPlatform:presto-on-hive,db1.nested_struct_test,PROD)",
+            "urn": "urn:li:dataset:(urn:li:dataPlatform:hive,db1.nested_struct_test,PROD)",
             "aspects": [
+                {
+                    "com.linkedin.pegasus2avro.common.Status": {
+                        "removed": false
+                    }
+                },
                 {
                     "com.linkedin.pegasus2avro.schema.SchemaMetadata": {
                         "schemaName": "db1.nested_struct_test",
-                        "platform": "urn:li:dataPlatform:presto-on-hive",
+                        "platform": "urn:li:dataPlatform:hive",
                         "version": 0,
                         "created": {
                             "time": 0,
                             "actor": "urn:li:corpuser:unknown",
-                            "impersonator": null
+                            "impersonator": null,
+                            "message": null
                         },
                         "lastModified": {
                             "time": 0,
                             "actor": "urn:li:corpuser:unknown",
-                            "impersonator": null
+                            "impersonator": null,
+                            "message": null
                         },
                         "deleted": null,
                         "dataset": null,
@@ -680,6 +605,8 @@
                                 "jsonPath": null,
                                 "nullable": true,
                                 "description": null,
+                                "created": null,
+                                "lastModified": null,
                                 "type": {
                                     "type": {
                                         "com.linkedin.pegasus2avro.schema.NumberType": {}
@@ -698,6 +625,8 @@
                                 "jsonPath": null,
                                 "nullable": true,
                                 "description": null,
+                                "created": null,
+                                "lastModified": null,
                                 "type": {
                                     "type": {
                                         "com.linkedin.pegasus2avro.schema.RecordType": {}
@@ -716,6 +645,8 @@
                                 "jsonPath": null,
                                 "nullable": true,
                                 "description": null,
+                                "created": null,
+                                "lastModified": null,
                                 "type": {
                                     "type": {
                                         "com.linkedin.pegasus2avro.schema.StringType": {}
@@ -734,6 +665,8 @@
                                 "jsonPath": null,
                                 "nullable": true,
                                 "description": null,
+                                "created": null,
+                                "lastModified": null,
                                 "type": {
                                     "type": {
                                         "com.linkedin.pegasus2avro.schema.RecordType": {}
@@ -752,6 +685,8 @@
                                 "jsonPath": null,
                                 "nullable": true,
                                 "description": null,
+                                "created": null,
+                                "lastModified": null,
                                 "type": {
                                     "type": {
                                         "com.linkedin.pegasus2avro.schema.StringType": {}
@@ -770,6 +705,8 @@
                                 "jsonPath": null,
                                 "nullable": true,
                                 "description": null,
+                                "created": null,
+                                "lastModified": null,
                                 "type": {
                                     "type": {
                                         "com.linkedin.pegasus2avro.schema.NumberType": {}
@@ -792,7 +729,7 @@
                 {
                     "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
                         "customProperties": {
-                            "create_date": "2022-05-26",
+                            "create_date": "2022-08-23",
                             "table_type": "MANAGED_TABLE",
                             "table_location": "hdfs://namenode:8020/user/hive/warehouse/db1.db/nested_struct_test"
                         },
@@ -819,12 +756,31 @@
 {
     "auditHeader": null,
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:presto-on-hive,db1.array_struct_test,PROD)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:hive,db1.nested_struct_test,PROD)",
+    "entityKeyAspect": null,
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+        "value": "{\"typeNames\": [\"table\"]}",
+        "contentType": "application/json"
+    },
+    "systemMetadata": {
+        "lastObserved": 1632398400000,
+        "runId": "presto-on-hive-test",
+        "registryName": null,
+        "registryVersion": null,
+        "properties": null
+    }
+},
+{
+    "auditHeader": null,
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:hive,db1.array_struct_test,PROD)",
     "entityKeyAspect": null,
     "changeType": "UPSERT",
     "aspectName": "container",
     "aspect": {
-        "value": "{\"container\": \"urn:li:container:bb66ab4651750f727700446f9b3aa2df\"}",
+        "value": "{\"container\": \"urn:li:container:f5e571e4a9acce86333e6b427ba1651f\"}",
         "contentType": "application/json"
     },
     "systemMetadata": {
@@ -839,22 +795,29 @@
     "auditHeader": null,
     "proposedSnapshot": {
         "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
-            "urn": "urn:li:dataset:(urn:li:dataPlatform:presto-on-hive,db1.array_struct_test,PROD)",
+            "urn": "urn:li:dataset:(urn:li:dataPlatform:hive,db1.array_struct_test,PROD)",
             "aspects": [
+                {
+                    "com.linkedin.pegasus2avro.common.Status": {
+                        "removed": false
+                    }
+                },
                 {
                     "com.linkedin.pegasus2avro.schema.SchemaMetadata": {
                         "schemaName": "db1.array_struct_test",
-                        "platform": "urn:li:dataPlatform:presto-on-hive",
+                        "platform": "urn:li:dataPlatform:hive",
                         "version": 0,
                         "created": {
                             "time": 0,
                             "actor": "urn:li:corpuser:unknown",
-                            "impersonator": null
+                            "impersonator": null,
+                            "message": null
                         },
                         "lastModified": {
                             "time": 0,
                             "actor": "urn:li:corpuser:unknown",
-                            "impersonator": null
+                            "impersonator": null,
+                            "message": null
                         },
                         "deleted": null,
                         "dataset": null,
@@ -871,6 +834,8 @@
                                 "jsonPath": null,
                                 "nullable": true,
                                 "description": null,
+                                "created": null,
+                                "lastModified": null,
                                 "type": {
                                     "type": {
                                         "com.linkedin.pegasus2avro.schema.NumberType": {}
@@ -889,6 +854,8 @@
                                 "jsonPath": null,
                                 "nullable": true,
                                 "description": null,
+                                "created": null,
+                                "lastModified": null,
                                 "type": {
                                     "type": {
                                         "com.linkedin.pegasus2avro.schema.ArrayType": {
@@ -911,6 +878,8 @@
                                 "jsonPath": null,
                                 "nullable": true,
                                 "description": null,
+                                "created": null,
+                                "lastModified": null,
                                 "type": {
                                     "type": {
                                         "com.linkedin.pegasus2avro.schema.StringType": {}
@@ -929,6 +898,8 @@
                                 "jsonPath": null,
                                 "nullable": true,
                                 "description": null,
+                                "created": null,
+                                "lastModified": null,
                                 "type": {
                                     "type": {
                                         "com.linkedin.pegasus2avro.schema.ArrayType": {
@@ -955,7 +926,7 @@
                 {
                     "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
                         "customProperties": {
-                            "create_date": "2022-05-26",
+                            "create_date": "2022-08-23",
                             "table_type": "MANAGED_TABLE",
                             "table_location": "hdfs://namenode:8020/user/hive/warehouse/db1.db/array_struct_test"
                         },
@@ -982,12 +953,31 @@
 {
     "auditHeader": null,
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:presto-on-hive,db1.struct_test,PROD)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:hive,db1.array_struct_test,PROD)",
+    "entityKeyAspect": null,
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+        "value": "{\"typeNames\": [\"table\"]}",
+        "contentType": "application/json"
+    },
+    "systemMetadata": {
+        "lastObserved": 1632398400000,
+        "runId": "presto-on-hive-test",
+        "registryName": null,
+        "registryVersion": null,
+        "properties": null
+    }
+},
+{
+    "auditHeader": null,
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:hive,db1.struct_test,PROD)",
     "entityKeyAspect": null,
     "changeType": "UPSERT",
     "aspectName": "container",
     "aspect": {
-        "value": "{\"container\": \"urn:li:container:bb66ab4651750f727700446f9b3aa2df\"}",
+        "value": "{\"container\": \"urn:li:container:f5e571e4a9acce86333e6b427ba1651f\"}",
         "contentType": "application/json"
     },
     "systemMetadata": {
@@ -1002,22 +992,29 @@
     "auditHeader": null,
     "proposedSnapshot": {
         "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
-            "urn": "urn:li:dataset:(urn:li:dataPlatform:presto-on-hive,db1.struct_test,PROD)",
+            "urn": "urn:li:dataset:(urn:li:dataPlatform:hive,db1.struct_test,PROD)",
             "aspects": [
+                {
+                    "com.linkedin.pegasus2avro.common.Status": {
+                        "removed": false
+                    }
+                },
                 {
                     "com.linkedin.pegasus2avro.schema.SchemaMetadata": {
                         "schemaName": "db1.struct_test",
-                        "platform": "urn:li:dataPlatform:presto-on-hive",
+                        "platform": "urn:li:dataPlatform:hive",
                         "version": 0,
                         "created": {
                             "time": 0,
                             "actor": "urn:li:corpuser:unknown",
-                            "impersonator": null
+                            "impersonator": null,
+                            "message": null
                         },
                         "lastModified": {
                             "time": 0,
                             "actor": "urn:li:corpuser:unknown",
-                            "impersonator": null
+                            "impersonator": null,
+                            "message": null
                         },
                         "deleted": null,
                         "dataset": null,
@@ -1034,6 +1031,8 @@
                                 "jsonPath": null,
                                 "nullable": true,
                                 "description": null,
+                                "created": null,
+                                "lastModified": null,
                                 "type": {
                                     "type": {
                                         "com.linkedin.pegasus2avro.schema.NumberType": {}
@@ -1052,6 +1051,8 @@
                                 "jsonPath": null,
                                 "nullable": true,
                                 "description": null,
+                                "created": null,
+                                "lastModified": null,
                                 "type": {
                                     "type": {
                                         "com.linkedin.pegasus2avro.schema.RecordType": {}
@@ -1070,6 +1071,8 @@
                                 "jsonPath": null,
                                 "nullable": true,
                                 "description": null,
+                                "created": null,
+                                "lastModified": null,
                                 "type": {
                                     "type": {
                                         "com.linkedin.pegasus2avro.schema.StringType": {}
@@ -1088,6 +1091,8 @@
                                 "jsonPath": null,
                                 "nullable": true,
                                 "description": null,
+                                "created": null,
+                                "lastModified": null,
                                 "type": {
                                     "type": {
                                         "com.linkedin.pegasus2avro.schema.ArrayType": {
@@ -1114,7 +1119,7 @@
                 {
                     "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
                         "customProperties": {
-                            "create_date": "2022-05-26",
+                            "create_date": "2022-08-23",
                             "table_type": "MANAGED_TABLE",
                             "table_location": "hdfs://namenode:8020/user/hive/warehouse/db1.db/struct_test"
                         },
@@ -1141,12 +1146,31 @@
 {
     "auditHeader": null,
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:presto-on-hive,db1._test_table_underscore,PROD)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:hive,db1.struct_test,PROD)",
+    "entityKeyAspect": null,
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+        "value": "{\"typeNames\": [\"table\"]}",
+        "contentType": "application/json"
+    },
+    "systemMetadata": {
+        "lastObserved": 1632398400000,
+        "runId": "presto-on-hive-test",
+        "registryName": null,
+        "registryVersion": null,
+        "properties": null
+    }
+},
+{
+    "auditHeader": null,
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:hive,db1._test_table_underscore,PROD)",
     "entityKeyAspect": null,
     "changeType": "UPSERT",
     "aspectName": "container",
     "aspect": {
-        "value": "{\"container\": \"urn:li:container:bb66ab4651750f727700446f9b3aa2df\"}",
+        "value": "{\"container\": \"urn:li:container:f5e571e4a9acce86333e6b427ba1651f\"}",
         "contentType": "application/json"
     },
     "systemMetadata": {
@@ -1161,22 +1185,29 @@
     "auditHeader": null,
     "proposedSnapshot": {
         "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
-            "urn": "urn:li:dataset:(urn:li:dataPlatform:presto-on-hive,db1._test_table_underscore,PROD)",
+            "urn": "urn:li:dataset:(urn:li:dataPlatform:hive,db1._test_table_underscore,PROD)",
             "aspects": [
+                {
+                    "com.linkedin.pegasus2avro.common.Status": {
+                        "removed": false
+                    }
+                },
                 {
                     "com.linkedin.pegasus2avro.schema.SchemaMetadata": {
                         "schemaName": "db1._test_table_underscore",
-                        "platform": "urn:li:dataPlatform:presto-on-hive",
+                        "platform": "urn:li:dataPlatform:hive",
                         "version": 0,
                         "created": {
                             "time": 0,
                             "actor": "urn:li:corpuser:unknown",
-                            "impersonator": null
+                            "impersonator": null,
+                            "message": null
                         },
                         "lastModified": {
                             "time": 0,
                             "actor": "urn:li:corpuser:unknown",
-                            "impersonator": null
+                            "impersonator": null,
+                            "message": null
                         },
                         "deleted": null,
                         "dataset": null,
@@ -1193,6 +1224,8 @@
                                 "jsonPath": null,
                                 "nullable": true,
                                 "description": null,
+                                "created": null,
+                                "lastModified": null,
                                 "type": {
                                     "type": {
                                         "com.linkedin.pegasus2avro.schema.NumberType": {}
@@ -1211,6 +1244,8 @@
                                 "jsonPath": null,
                                 "nullable": true,
                                 "description": null,
+                                "created": null,
+                                "lastModified": null,
                                 "type": {
                                     "type": {
                                         "com.linkedin.pegasus2avro.schema.StringType": {}
@@ -1233,7 +1268,7 @@
                 {
                     "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
                         "customProperties": {
-                            "create_date": "2022-05-26",
+                            "create_date": "2022-08-23",
                             "table_type": "MANAGED_TABLE",
                             "table_location": "hdfs://namenode:8020/user/hive/warehouse/db1.db/_test_table_underscore"
                         },
@@ -1260,12 +1295,31 @@
 {
     "auditHeader": null,
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:presto-on-hive,db2.pokes,PROD)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:hive,db1._test_table_underscore,PROD)",
+    "entityKeyAspect": null,
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+        "value": "{\"typeNames\": [\"table\"]}",
+        "contentType": "application/json"
+    },
+    "systemMetadata": {
+        "lastObserved": 1632398400000,
+        "runId": "presto-on-hive-test",
+        "registryName": null,
+        "registryVersion": null,
+        "properties": null
+    }
+},
+{
+    "auditHeader": null,
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:hive,db1.pokes,PROD)",
     "entityKeyAspect": null,
     "changeType": "UPSERT",
     "aspectName": "container",
     "aspect": {
-        "value": "{\"container\": \"urn:li:container:acb8ba02419d602faa8b977c1db6860d\"}",
+        "value": "{\"container\": \"urn:li:container:f5e571e4a9acce86333e6b427ba1651f\"}",
         "contentType": "application/json"
     },
     "systemMetadata": {
@@ -1280,22 +1334,29 @@
     "auditHeader": null,
     "proposedSnapshot": {
         "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
-            "urn": "urn:li:dataset:(urn:li:dataPlatform:presto-on-hive,db2.pokes,PROD)",
+            "urn": "urn:li:dataset:(urn:li:dataPlatform:hive,db1.pokes,PROD)",
             "aspects": [
                 {
+                    "com.linkedin.pegasus2avro.common.Status": {
+                        "removed": false
+                    }
+                },
+                {
                     "com.linkedin.pegasus2avro.schema.SchemaMetadata": {
-                        "schemaName": "db2.pokes",
-                        "platform": "urn:li:dataPlatform:presto-on-hive",
+                        "schemaName": "db1.pokes",
+                        "platform": "urn:li:dataPlatform:hive",
                         "version": 0,
                         "created": {
                             "time": 0,
                             "actor": "urn:li:corpuser:unknown",
-                            "impersonator": null
+                            "impersonator": null,
+                            "message": null
                         },
                         "lastModified": {
                             "time": 0,
                             "actor": "urn:li:corpuser:unknown",
-                            "impersonator": null
+                            "impersonator": null,
+                            "message": null
                         },
                         "deleted": null,
                         "dataset": null,
@@ -1312,6 +1373,8 @@
                                 "jsonPath": null,
                                 "nullable": true,
                                 "description": null,
+                                "created": null,
+                                "lastModified": null,
                                 "type": {
                                     "type": {
                                         "com.linkedin.pegasus2avro.schema.NumberType": {}
@@ -1326,10 +1389,32 @@
                                 "jsonProps": "{\"native_data_type\": \"int\", \"_nullable\": true}"
                             },
                             {
+                                "fieldPath": "[version=2.0].[type=string].baz",
+                                "jsonPath": null,
+                                "nullable": true,
+                                "description": null,
+                                "created": null,
+                                "lastModified": null,
+                                "type": {
+                                    "type": {
+                                        "com.linkedin.pegasus2avro.schema.StringType": {}
+                                    }
+                                },
+                                "nativeDataType": "string",
+                                "recursive": false,
+                                "globalTags": null,
+                                "glossaryTerms": null,
+                                "isPartOfKey": false,
+                                "isPartitioningKey": null,
+                                "jsonProps": "{\"native_data_type\": \"string\", \"_nullable\": true}"
+                            },
+                            {
                                 "fieldPath": "[version=2.0].[type=string].bar",
                                 "jsonPath": null,
                                 "nullable": true,
                                 "description": null,
+                                "created": null,
+                                "lastModified": null,
                                 "type": {
                                     "type": {
                                         "com.linkedin.pegasus2avro.schema.StringType": {}
@@ -1352,9 +1437,10 @@
                 {
                     "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
                         "customProperties": {
-                            "create_date": "2022-05-26",
+                            "create_date": "2022-08-23",
                             "table_type": "MANAGED_TABLE",
-                            "table_location": "hdfs://namenode:8020/user/hive/warehouse/db2.db/pokes"
+                            "table_location": "hdfs://namenode:8020/user/hive/warehouse/db1.db/pokes",
+                            "partitioned_columns": "baz"
                         },
                         "externalUrl": null,
                         "name": null,
@@ -1379,133 +1465,14 @@
 {
     "auditHeader": null,
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:presto-on-hive,db1.pokes,PROD)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:hive,db1.pokes,PROD)",
     "entityKeyAspect": null,
     "changeType": "UPSERT",
-    "aspectName": "container",
+    "aspectName": "subTypes",
     "aspect": {
-        "value": "{\"container\": \"urn:li:container:bb66ab4651750f727700446f9b3aa2df\"}",
+        "value": "{\"typeNames\": [\"table\"]}",
         "contentType": "application/json"
     },
-    "systemMetadata": {
-        "lastObserved": 1632398400000,
-        "runId": "presto-on-hive-test",
-        "registryName": null,
-        "registryVersion": null,
-        "properties": null
-    }
-},
-{
-    "auditHeader": null,
-    "proposedSnapshot": {
-        "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
-            "urn": "urn:li:dataset:(urn:li:dataPlatform:presto-on-hive,db1.pokes,PROD)",
-            "aspects": [
-                {
-                    "com.linkedin.pegasus2avro.schema.SchemaMetadata": {
-                        "schemaName": "db1.pokes",
-                        "platform": "urn:li:dataPlatform:presto-on-hive",
-                        "version": 0,
-                        "created": {
-                            "time": 0,
-                            "actor": "urn:li:corpuser:unknown",
-                            "impersonator": null
-                        },
-                        "lastModified": {
-                            "time": 0,
-                            "actor": "urn:li:corpuser:unknown",
-                            "impersonator": null
-                        },
-                        "deleted": null,
-                        "dataset": null,
-                        "cluster": null,
-                        "hash": "",
-                        "platformSchema": {
-                            "com.linkedin.pegasus2avro.schema.MySqlDDL": {
-                                "tableSchema": ""
-                            }
-                        },
-                        "fields": [
-                            {
-                                "fieldPath": "[version=2.0].[type=int].foo",
-                                "jsonPath": null,
-                                "nullable": true,
-                                "description": null,
-                                "type": {
-                                    "type": {
-                                        "com.linkedin.pegasus2avro.schema.NumberType": {}
-                                    }
-                                },
-                                "nativeDataType": "int",
-                                "recursive": false,
-                                "globalTags": null,
-                                "glossaryTerms": null,
-                                "isPartOfKey": false,
-                                "isPartitioningKey": null,
-                                "jsonProps": "{\"native_data_type\": \"int\", \"_nullable\": true}"
-                            },
-                            {
-                                "fieldPath": "[version=2.0].[type=string].baz",
-                                "jsonPath": null,
-                                "nullable": true,
-                                "description": null,
-                                "type": {
-                                    "type": {
-                                        "com.linkedin.pegasus2avro.schema.StringType": {}
-                                    }
-                                },
-                                "nativeDataType": "string",
-                                "recursive": false,
-                                "globalTags": null,
-                                "glossaryTerms": null,
-                                "isPartOfKey": false,
-                                "isPartitioningKey": null,
-                                "jsonProps": "{\"native_data_type\": \"string\", \"_nullable\": true}"
-                            },
-                            {
-                                "fieldPath": "[version=2.0].[type=string].bar",
-                                "jsonPath": null,
-                                "nullable": true,
-                                "description": null,
-                                "type": {
-                                    "type": {
-                                        "com.linkedin.pegasus2avro.schema.StringType": {}
-                                    }
-                                },
-                                "nativeDataType": "string",
-                                "recursive": false,
-                                "globalTags": null,
-                                "glossaryTerms": null,
-                                "isPartOfKey": false,
-                                "isPartitioningKey": null,
-                                "jsonProps": "{\"native_data_type\": \"string\", \"_nullable\": true}"
-                            }
-                        ],
-                        "primaryKeys": null,
-                        "foreignKeysSpecs": null,
-                        "foreignKeys": null
-                    }
-                },
-                {
-                    "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
-                        "customProperties": {
-                            "create_date": "2022-05-26",
-                            "table_type": "MANAGED_TABLE",
-                            "table_location": "hdfs://namenode:8020/user/hive/warehouse/db1.db/pokes",
-                            "partitioned_columns": "baz"
-                        },
-                        "externalUrl": null,
-                        "name": null,
-                        "qualifiedName": null,
-                        "description": null,
-                        "uri": null,
-                        "tags": []
-                    }
-                }
-            ]
-        }
-    },
-    "proposedDelta": null,
     "systemMetadata": {
         "lastObserved": 1632398400000,
         "runId": "presto-on-hive-test",
