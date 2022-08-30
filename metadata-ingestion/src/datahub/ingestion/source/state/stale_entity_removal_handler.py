@@ -106,19 +106,37 @@ class StaleEntityRemovalHandler:
             and config.remove_stale_metadata
         )
 
+    def _ignore_old_state(self) -> bool:
+        if (
+            self.is_checkpointing_enabled
+            and self.config is not None
+            and self.config.ignore_old_state
+        ):
+            return True
+        return False
+
+    def _ignore_new_state(self) -> bool:
+        if (
+            self.is_checkpointing_enabled
+            and self.config is not None
+            and self.config.ignore_new_state
+        ):
+            return True
+        return False
+
     def create_checkpoint(self) -> Optional[Checkpoint]:
-        if self.is_checkpointing_enabled:
-            assert self.config is not None
-            assert self.pipeline_name is not None
-            return Checkpoint(
-                job_name=self.job_id,
-                pipeline_name=self.pipeline_name,
-                platform_instance_id=self.source.get_platform_instance_id(),
-                run_id=self.run_id,
-                config=self.config,
-                state=self.state_type_class(),
-            )
-        return None
+        if self._ignore_new_state():
+            return None
+        assert self.config is not None
+        assert self.pipeline_name is not None
+        return Checkpoint(
+            job_name=self.job_id,
+            pipeline_name=self.pipeline_name,
+            platform_instance_id=self.source.get_platform_instance_id(),
+            run_id=self.run_id,
+            config=self.config,
+            state=self.state_type_class(),
+        )
 
     def _create_soft_delete_workunit(self, urn: str, type: str) -> MetadataWorkUnit:
 
@@ -138,7 +156,7 @@ class StaleEntityRemovalHandler:
         return wu
 
     def gen_removed_entity_workunits(self) -> Iterable[MetadataWorkUnit]:
-        if not self.is_checkpointing_enabled:
+        if self._ignore_old_state():
             return
         logger.debug("Checking for stale entity removal.")
         last_checkpoint: Optional[Checkpoint] = self.source.get_last_checkpoint(
@@ -162,7 +180,7 @@ class StaleEntityRemovalHandler:
                 yield self._create_soft_delete_workunit(urn, type)
 
     def add_entity_to_state(self, type: str, urn: str) -> None:
-        if not self.is_checkpointing_enabled:
+        if self._ignore_new_state():
             return
         cur_checkpoint = self.source.get_current_checkpoint(self.job_id)
         assert cur_checkpoint is not None

@@ -1,13 +1,12 @@
 import json
 import logging
 from dataclasses import dataclass
-from datetime import datetime, timezone
+from datetime import datetime
 from typing import Dict, Iterable, List, Optional, Tuple, Union, cast
 
 import pydantic
 from snowflake.connector import SnowflakeConnection
 
-from datahub.configuration.time_window_config import get_time_bucket
 from datahub.emitter.mce_builder import (
     make_data_platform_urn,
     make_dataplatform_instance_urn,
@@ -68,15 +67,18 @@ from datahub.ingestion.source.snowflake.snowflake_utils import (
 )
 from datahub.ingestion.source.sql.sql_common import SqlContainerSubTypes
 from datahub.ingestion.source.state.checkpoint import Checkpoint
+from datahub.ingestion.source.state.redundant_run_skip_handler import (
+    RedundantRunSkipHandler,
+    StatefulRedundantRunSkipConfig,
+)
 from datahub.ingestion.source.state.sql_common_state import (
     BaseSQLAlchemyCheckpointState,
 )
+from datahub.ingestion.source.state.stale_entity_removal_handler import (
+    StaleEntityRemovalHandler,
+)
 from datahub.ingestion.source.state.stateful_ingestion_base import (
     StatefulIngestionSourceBase,
-)
-from datahub.ingestion.source.state.usage_common_state import BaseUsageCheckpointState
-from datahub.ingestion.source.state_handler.stale_entity_removal_handler import (
-    StaleEntityRemovalHandler,
 )
 from datahub.metadata.com.linkedin.pegasus2avro.common import Status, SubTypes
 from datahub.metadata.com.linkedin.pegasus2avro.dataset import (
@@ -103,6 +105,7 @@ from datahub.metadata.com.linkedin.pegasus2avro.schema import (
 )
 from datahub.metadata.schema_classes import ChangeTypeClass, DataPlatformInstanceClass
 from datahub.utilities.registries.domain_registry import DomainRegistry
+from datahub.utilities.time import datetime_to_ts_millis
 
 logger: logging.Logger = logging.getLogger(__name__)
 
@@ -183,6 +186,16 @@ class SnowflakeV2Source(
             config=self.config.stateful_ingestion,
             state_type_class=BaseSQLAlchemyCheckpointState,
             job_id=self.get_default_ingestion_job_id(),
+            pipeline_name=self.ctx.pipeline_name,
+            run_id=self.ctx.run_id,
+        )
+
+        self.redundant_run_skip_handler = RedundantRunSkipHandler(
+            source=self,
+            config=cast(StatefulRedundantRunSkipConfig, self.config.stateful_ingestion),
+            job_id=self.get_usage_ingestion_job_id(),
+            pipeline_name=self.ctx.pipeline_name,
+            run_id=self.ctx.run_id,
         )
 
         if self.config.domain:
@@ -413,11 +426,14 @@ class SnowflakeV2Source(
         yield from self.stale_entity_removal_handler.gen_removed_entity_workunits()
 
         if self.config.include_usage_stats or self.config.include_operational_stats:
-            self.should_skip_usage_run = self._should_skip_usage_run()
-            if self.should_skip_usage_run:
+            if self.redundant_run_skip_handler.should_skip_this_run(
+                cur_start_time_millis=datetime_to_ts_millis(self.config.start_time)
+            ):
+                # Skip this run
                 return
-            # creating checkpoint for usage ingestion
-            self.get_current_checkpoint(self.get_usage_ingestion_job_id())
+
+            # Trigger checkpoint creation for this run.
+            self.redundant_run_skip_handler.init_checkpoints()
             yield from self.usage_extractor.get_workunits()
 
     def _process_database(
@@ -965,63 +981,13 @@ class SnowflakeV2Source(
     def create_checkpoint(self, job_id: JobId) -> Optional[Checkpoint]:
         assert self.ctx.pipeline_name is not None
         if job_id == self.get_default_ingestion_job_id():
-            return Checkpoint(
-                job_name=job_id,
-                pipeline_name=self.ctx.pipeline_name,
-                platform_instance_id=self.get_platform_instance_id(),
-                run_id=self.ctx.run_id,
-                config=self.config,
-                state=BaseSQLAlchemyCheckpointState(),
-            )
+            return self.stale_entity_removal_handler.create_checkpoint()
         elif job_id == self.get_usage_ingestion_job_id():
-            return Checkpoint(
-                job_name=job_id,
-                pipeline_name=self.ctx.pipeline_name,
-                platform_instance_id=self.get_platform_instance_id(),
-                run_id=self.ctx.run_id,
-                config=self.config,
-                state=BaseUsageCheckpointState(
-                    begin_timestamp_millis=int(
-                        self.config.start_time.timestamp() * 1000
-                    ),
-                    end_timestamp_millis=int(self.config.end_time.timestamp() * 1000),
-                ),
+            return self.redundant_run_skip_handler.create_checkpoint(
+                start_time_millis=datetime_to_ts_millis(self.config.start_time),
+                end_time_millis=datetime_to_ts_millis(self.config.end_time),
             )
         return None
 
     def close(self):
         self.prepare_for_commit()
-
-    def _should_skip_usage_run(self) -> bool:
-        # Check if forced rerun.
-        if (
-            self.config.stateful_ingestion
-            and self.config.stateful_ingestion.ignore_old_state
-        ):
-            return False
-        # Determine from the last check point state
-        last_successful_pipeline_run_end_time_millis: Optional[int] = None
-        last_checkpoint = self.get_last_checkpoint(
-            self.get_usage_ingestion_job_id(), BaseUsageCheckpointState
-        )
-        if last_checkpoint and last_checkpoint.state:
-            state = cast(BaseUsageCheckpointState, last_checkpoint.state)
-            last_successful_pipeline_run_end_time_millis = state.end_timestamp_millis
-
-        if last_successful_pipeline_run_end_time_millis is not None:
-            last_run_bucket_start = get_time_bucket(
-                datetime.fromtimestamp(
-                    last_successful_pipeline_run_end_time_millis / 1000, tz=timezone.utc
-                ),
-                self.config.bucket_duration,
-            )
-            if self.config.start_time < last_run_bucket_start:
-                warn_msg = (
-                    f"Skippig usage run, since the last run's bucket duration start: "
-                    f"{last_run_bucket_start}"
-                    f" is later than the current start_time: {self.config.start_time}"
-                )
-                logger.warning(warn_msg)
-                self.report.report_warning("skip-run", warn_msg)
-                return True
-        return False
