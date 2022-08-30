@@ -20,7 +20,7 @@ from datahub.configuration.common import ConfigurationError
 from datahub.configuration.github import GitHubInfo
 from datahub.configuration.source_common import DatasetSourceConfigBase
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
-from datahub.ingestion.api.report import LossySet
+from datahub.ingestion.api.report import LossySet, Report
 from datahub.ingestion.api.source import LossyList, SourceReport
 from datahub.ingestion.source.sql.sql_types import (
     POSTGRES_TYPES_MAP,
@@ -790,6 +790,25 @@ class LookerExplore:
         return [mce, mcp]
 
 
+class StageLatency(Report):
+    name: str
+    start_time: Optional[datetime.datetime]
+    end_time: Optional[datetime.datetime] = None
+
+    def __init__(self, name: str, start_time: datetime.datetime):
+        self.name = name
+        self.start_time = start_time
+
+    def compute_stats(self) -> None:
+        if self.end_time and self.start_time:
+            self.latency_seconds = round(
+                (self.end_time - self.start_time).total_seconds(), 2
+            )
+            # clear out start and end times to keep logs clean
+            self.start_time = None
+            self.end_time = None
+
+
 @dataclass
 class LookerDashboardSourceReport(SourceReport):
     dashboards_scanned: int = 0
@@ -803,6 +822,7 @@ class LookerDashboardSourceReport(SourceReport):
         default_factory=LossySet
     )
     query_latency: Dict[str, float] = dataclasses_field(default_factory=dict)
+    stage_latency: List[StageLatency] = dataclasses_field(default_factory=list)
 
     def report_dashboards_scanned(self) -> None:
         self.dashboards_scanned += 1
@@ -831,3 +851,12 @@ class LookerDashboardSourceReport(SourceReport):
 
     def report_query_latency(self, query_type: str, latency_seconds: float) -> None:
         self.query_latency[query_type] = round(latency_seconds, 2)
+
+    def report_stage_start(self, stage_name: str) -> None:
+        self.stage_latency.append(
+            StageLatency(name=stage_name, start_time=datetime.datetime.now())
+        )
+
+    def report_stage_end(self, stage_name: str) -> None:
+        if self.stage_latency[-1].name == stage_name:
+            self.stage_latency[-1].end_time = datetime.datetime.now()

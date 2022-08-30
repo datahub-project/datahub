@@ -1028,6 +1028,7 @@ class LookerDashboardSource(Source):
 
     def get_workunits(self) -> Iterable[MetadataWorkUnit]:
 
+        self.reporter.report_stage_start("list_dashboards")
         dashboards = self.client.all_dashboards(
             fields="id",
             transport_options=self.source_config.transport_options.get_transport_options()
@@ -1062,6 +1063,8 @@ class LookerDashboardSource(Source):
             else:
                 selected_dashboard_ids.append(id)
         dashboard_ids = selected_dashboard_ids
+        self.reporter.report_stage_end("list_dashboards")
+
         # List dashboard fields to extract for processing
         fields = [
             "id",
@@ -1089,6 +1092,8 @@ class LookerDashboardSource(Source):
         ingested_looker_dashboards: List[
             Dashboard
         ] = []  # looker dashboards for which metadata is ingested into the DataHub
+        self.reporter.report_stage_start("dashboard_chart_metadata")
+
         with concurrent.futures.ThreadPoolExecutor(
             max_workers=self.source_config.max_threads
         ) as async_executor:
@@ -1117,6 +1122,8 @@ class LookerDashboardSource(Source):
                 if dashboard_object is not None:
                     ingested_looker_dashboards.append(dashboard_object)
 
+        self.reporter.report_stage_end("dashboard_chart_metadata")
+
         if (
             self.source_config.extract_owners
             and self.resolved_user_ids > 0
@@ -1128,6 +1135,7 @@ class LookerDashboardSource(Source):
                 "Failed to extract owners emails for any dashboards. Please enable the see_users permission for your Looker API key",
             )
 
+        self.reporter.report_stage_start("explore_metadata")
         explore_events = self._make_explore_metadata_events()
         for event in explore_events:
             if isinstance(event, MetadataChangeEvent):
@@ -1148,6 +1156,7 @@ class LookerDashboardSource(Source):
 
             self.reporter.report_workunit(workunit)
             yield workunit
+        self.reporter.report_stage_end("explore_metadata")
 
         if self.source_config.tag_measures_and_dimensions and explore_events != []:
             # Emit tag MCEs for measures and dimensions if we produced any explores:
@@ -1161,6 +1170,7 @@ class LookerDashboardSource(Source):
 
         # Extract usage history is enabled
         if self.source_config.extract_usage_history:
+            self.reporter.report_stage_start("usage_extraction")
             usage_mcps: List[MetadataChangeProposalWrapper] = self.extract_usage_stat(
                 ingested_looker_dashboards
             )
@@ -1171,9 +1181,11 @@ class LookerDashboardSource(Source):
                 )
                 self.reporter.report_workunit(workunit)
                 yield workunit
+            self.reporter.report_stage_end("usage_extraction")
 
         # after fetching explores, we need to go back and enrich each chart and dashboard with
         # metadata about the fields
+        self.reporter.report_stage_start("field_metadata")
         with concurrent.futures.ThreadPoolExecutor(
             max_workers=self.source_config.max_threads
         ) as async_executor:
@@ -1194,6 +1206,7 @@ class LookerDashboardSource(Source):
                 for mwu in work_units:
                     yield mwu
                     self.reporter.report_workunit(mwu)
+        self.reporter.report_stage_end("field_metadata")
 
     def get_report(self) -> SourceReport:
         return self.reporter
