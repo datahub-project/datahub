@@ -75,6 +75,9 @@ from datahub.ingestion.source.state.stateful_ingestion_base import (
     StatefulIngestionSourceBase,
 )
 from datahub.ingestion.source.state.usage_common_state import BaseUsageCheckpointState
+from datahub.ingestion.source.state_handler.stale_entity_removal_handler import (
+    StaleEntityRemovalHandler,
+)
 from datahub.metadata.com.linkedin.pegasus2avro.common import Status, SubTypes
 from datahub.metadata.com.linkedin.pegasus2avro.dataset import (
     DatasetProfile,
@@ -98,13 +101,7 @@ from datahub.metadata.com.linkedin.pegasus2avro.schema import (
     StringType,
     TimeType,
 )
-from datahub.metadata.schema_classes import (
-    ChangeTypeClass,
-    DataPlatformInstanceClass,
-    JobStatusClass,
-    StatusClass,
-    TimeWindowSizeClass,
-)
+from datahub.metadata.schema_classes import ChangeTypeClass, DataPlatformInstanceClass
 from datahub.utilities.registries.domain_registry import DomainRegistry
 
 logger: logging.Logger = logging.getLogger(__name__)
@@ -181,6 +178,12 @@ class SnowflakeV2Source(
         self.report: SnowflakeV2Report = SnowflakeV2Report()
         self.platform: str = "snowflake"
         self.logger = logger
+        self.stale_entity_removal_handler = StaleEntityRemovalHandler(
+            source=self,
+            config=self.config.stateful_ingestion,
+            state_type_class=BaseSQLAlchemyCheckpointState,
+            job_id=self.get_default_ingestion_job_id(),
+        )
 
         if self.config.domain:
             self.domain_registry = DomainRegistry(
@@ -406,12 +409,8 @@ class SnowflakeV2Source(
 
             yield from self._process_database(conn, snowflake_db)
 
-        if self.is_stateful_ingestion_configured():
-            # For database, schema, table, view
-            removed_entity_workunits = self.gen_removed_entity_workunits()
-            for wu in removed_entity_workunits:
-                self.report.report_workunit(wu)
-                yield wu
+        # Emit State entity workunits
+        yield from self.stale_entity_removal_handler.gen_removed_entity_workunits()
 
         if self.config.include_usage_stats or self.config.include_operational_stats:
             self.should_skip_usage_run = self._should_skip_usage_run()
@@ -537,18 +536,12 @@ class SnowflakeV2Source(
             self.config.env,
         )
 
-        if self.is_stateful_ingestion_configured():
-            cur_checkpoint = self.get_current_checkpoint(
-                self.get_default_ingestion_job_id()
-            )
-            if cur_checkpoint is not None:
-                checkpoint_state = cast(
-                    BaseSQLAlchemyCheckpointState, cur_checkpoint.state
-                )
-                if isinstance(table, SnowflakeTable):
-                    checkpoint_state.add_table_urn(dataset_urn)
-                else:
-                    checkpoint_state.add_view_urn(dataset_urn)
+        # Add the entity to the state.
+        type = "table" if isinstance(table, SnowflakeTable) else "view"
+        self.stale_entity_removal_handler.add_entity_to_state(
+            type=type, urn=dataset_urn
+        )
+
         if lineage_info is not None:
             upstream_lineage, upstream_column_props = lineage_info
         else:
@@ -996,113 +989,8 @@ class SnowflakeV2Source(
             )
         return None
 
-    # Stateful Ingestion Overrides.
-    def is_checkpointing_enabled(self, job_id: JobId) -> bool:
-        if job_id == self.get_default_ingestion_job_id():
-            if (
-                job_id == self.get_default_ingestion_job_id()
-                and self.is_stateful_ingestion_configured()
-                and self.config.stateful_ingestion
-                and self.config.stateful_ingestion.remove_stale_metadata
-            ):
-                return True
-        elif job_id == self.get_usage_ingestion_job_id():
-            assert self.config.stateful_ingestion
-            return self.config.stateful_ingestion.enabled
-        return False
-
-    def update_job_run_summary(self):
-        self.update_default_job_run_summary()
-        if self.config.include_usage_stats or self.config.include_operational_stats:
-            self.update_usage_job_run_summary()
-
-    def update_default_job_run_summary(self) -> None:
-        summary = self.get_job_run_summary(self.get_default_ingestion_job_id())
-        if summary is not None:
-            summary.config = self.config.json()
-            summary.custom_summary = self.report.as_string()
-            summary.runStatus = (
-                JobStatusClass.FAILED
-                if self.get_report().failures
-                else JobStatusClass.COMPLETED
-            )
-            summary.numWarnings = len(self.report.warnings)
-            summary.numErrors = len(self.report.failures)
-            summary.numEntities = self.report.events_produced
-
-    def update_usage_job_run_summary(self):
-        summary = self.get_job_run_summary(self.get_usage_ingestion_job_id())
-        if summary is not None:
-            summary.runStatus = (
-                JobStatusClass.SKIPPED
-                if self.should_skip_usage_run
-                else JobStatusClass.COMPLETED
-            )
-            summary.eventGranularity = TimeWindowSizeClass(
-                unit=self.config.bucket_duration, multiple=1
-            )
-
     def close(self):
-        self.update_job_run_summary()
         self.prepare_for_commit()
-
-    def gen_removed_entity_workunits(self) -> Iterable[MetadataWorkUnit]:
-        last_checkpoint = self.get_last_checkpoint(
-            self.get_default_ingestion_job_id(), BaseSQLAlchemyCheckpointState
-        )
-        cur_checkpoint = self.get_current_checkpoint(
-            self.get_default_ingestion_job_id()
-        )
-        if (
-            self.config.stateful_ingestion
-            and self.config.stateful_ingestion.remove_stale_metadata
-            and last_checkpoint is not None
-            and last_checkpoint.state is not None
-            and cur_checkpoint is not None
-            and cur_checkpoint.state is not None
-        ):
-            logger.debug("Checking for stale entity removal.")
-
-            def soft_delete_item(urn: str, type: str) -> Iterable[MetadataWorkUnit]:
-                entity_type: str = "dataset"
-
-                if type == "container":
-                    entity_type = "container"
-
-                logger.info(f"Soft-deleting stale entity of type {type} - {urn}.")
-                mcp = MetadataChangeProposalWrapper(
-                    entityType=entity_type,
-                    entityUrn=urn,
-                    changeType=ChangeTypeClass.UPSERT,
-                    aspectName="status",
-                    aspect=StatusClass(removed=True),
-                )
-                wu = MetadataWorkUnit(id=f"soft-delete-{type}-{urn}", mcp=mcp)
-                self.report.report_workunit(wu)
-                self.report.report_stale_entity_soft_deleted(urn)
-                yield wu
-
-            last_checkpoint_state = cast(
-                BaseSQLAlchemyCheckpointState, last_checkpoint.state
-            )
-            cur_checkpoint_state = cast(
-                BaseSQLAlchemyCheckpointState, cur_checkpoint.state
-            )
-
-            for table_urn in last_checkpoint_state.get_table_urns_not_in(
-                cur_checkpoint_state
-            ):
-                yield from soft_delete_item(table_urn, "table")
-
-            for view_urn in last_checkpoint_state.get_view_urns_not_in(
-                cur_checkpoint_state
-            ):
-                yield from soft_delete_item(view_urn, "view")
-
-            for container_urn in last_checkpoint_state.get_container_urns_not_in(
-                cur_checkpoint_state
-            ):
-                yield from soft_delete_item(container_urn, "container")
 
     def _should_skip_usage_run(self) -> bool:
         # Check if forced rerun.
