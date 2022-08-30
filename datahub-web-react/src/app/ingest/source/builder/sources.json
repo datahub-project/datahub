@@ -1,12 +1,5 @@
 [
     {
-        "urn": "urn:li:dataPlatform:snowflake",
-        "name": "snowflake",
-        "displayName": "Snowflake",
-        "docsUrl": "https://datahubproject.io/docs/generated/ingestion/sources/snowflake/",
-        "recipe": "source: \n    type: snowflake\n    config:\n        account_id: \"example_id\"\n        warehouse: \"example_warehouse\"\n        role: \"datahub_role\"\n        include_table_lineage: true\n        include_view_lineage: true\n        profiling:\n            enabled: true\n        stateful_ingestion:\n            enabled: true"
-    },
-    {
         "urn": "urn:li:dataPlatform:bigquery",
         "name": "bigquery",
         "displayName": "BigQuery",
@@ -19,6 +12,13 @@
         "displayName": "Redshift",
         "docsUrl": "https://datahubproject.io/docs/generated/ingestion/sources/redshift/",
         "recipe": "source: \n    type: redshift\n    config:\n        # Coordinates\n        host_port: # Your Redshift host and post, e.g. example.something.us-west-2.redshift.amazonaws.com:5439\n        database: # Your Redshift database, e.g. SampleDatabase\n\n        # Credentials\n        # Add secret in Secrets Tab with relevant names for each variable\n        username: \"${REDSHIFT_USERNAME}\" # Your Redshift username, e.g. admin\n        password: \"${REDSHIFT_PASSWORD}\" # Your Redshift password, e.g. password_01\n\n        table_lineage_mode: stl_scan_based\n        include_table_lineage: true\n        include_view_lineage: true\n        profiling:\n            enabled: true\n        stateful_ingestion:\n            enabled: true"
+    },
+    {
+        "urn": "urn:li:dataPlatform:snowflake",
+        "name": "snowflake",
+        "displayName": "Snowflake",
+        "docsUrl": "https://datahubproject.io/docs/generated/ingestion/sources/snowflake/",
+        "recipe": "source: \n    type: snowflake\n    config:\n        account_id: \"example_id\"\n        warehouse: \"example_warehouse\"\n        role: \"datahub_role\"\n        include_table_lineage: true\n        include_view_lineage: true\n        profiling:\n            enabled: true\n        stateful_ingestion:\n            enabled: true"
     },
     {
         "urn": "urn:li:dataPlatform:kafka",

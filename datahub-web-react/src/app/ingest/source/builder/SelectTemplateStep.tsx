@@ -31,11 +31,11 @@ interface SourceOptionProps {
 }
 
 function SourceOption({ source, onClick }: SourceOptionProps) {
-    const { urn, name } = source;
+    const { urn, displayName } = source;
 
     const logoUrl = useGetSourceLogoUrl(urn);
 
-    return <LogoCountCard onClick={onClick} name={name} logoUrl={logoUrl} />;
+    return <LogoCountCard onClick={onClick} name={displayName} logoUrl={logoUrl} />;
 }
 
 /**
