@@ -3,12 +3,12 @@ import itertools
 import logging
 import pathlib
 import re
+import sys
 from dataclasses import dataclass
 from dataclasses import field as dataclass_field
 from dataclasses import replace
 from typing import Any, Dict, Iterable, List, Optional, Set, Tuple, Type
 
-import lkml
 import pydantic
 from looker_sdk.error import SDKError
 from looker_sdk.sdk.api31.methods import Looker31SDK
@@ -31,18 +31,18 @@ from datahub.ingestion.api.decorators import (
 from datahub.ingestion.api.registry import import_path
 from datahub.ingestion.api.source import Source, SourceReport
 from datahub.ingestion.api.workunit import MetadataWorkUnit
-from datahub.ingestion.source.looker import (
-    LookerAPI,
-    LookerAPIConfig,
-    TransportOptionsConfig,
-)
-from datahub.ingestion.source.looker_common import (
+from datahub.ingestion.source.looker.looker_common import (
     LookerCommonConfig,
     LookerExplore,
     LookerUtil,
     LookerViewId,
     ViewField,
     ViewFieldType,
+)
+from datahub.ingestion.source.looker.looker_lib_wrapper import (
+    LookerAPI,
+    LookerAPIConfig,
+    TransportOptionsConfig,
 )
 from datahub.metadata.com.linkedin.pegasus2avro.common import BrowsePaths, Status
 from datahub.metadata.com.linkedin.pegasus2avro.dataset import (
@@ -59,6 +59,11 @@ from datahub.metadata.schema_classes import (
     SubTypesClass,
 )
 from datahub.utilities.sql_parser import SQLParser
+
+if sys.version_info >= (3, 7):
+    import lkml
+else:
+    raise ModuleNotFoundError("The lookml plugin requires Python 3.7 or newer.")
 
 logger = logging.getLogger(__name__)
 
