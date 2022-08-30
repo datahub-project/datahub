@@ -58,6 +58,7 @@ framework_common = {
     "aiohttp<4",
     "cached_property",
     "ijson",
+    "click-spinner",
 }
 
 kafka_common = {

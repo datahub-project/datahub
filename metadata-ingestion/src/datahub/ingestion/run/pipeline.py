@@ -483,13 +483,16 @@ class Pipeline:
         click.echo(self.sink.get_report().as_string())
         click.echo()
         workunits_produced = self.source.get_report().events_produced
+        duration_message = (
+            f"in {self.source.get_report().running_time_in_seconds} seconds."
+        )
         if self.source.get_report().failures or self.sink.get_report().failures:
             num_failures_source = self._count_all_vals(
                 self.source.get_report().failures
             )
             num_failures_sink = len(self.sink.get_report().failures)
             click.secho(
-                f"{'⏳' if currently_running else ''} Pipeline {'running' if currently_running else 'finished'} with {num_failures_source+num_failures_sink} failures {'so far' if currently_running else ''}; produced {workunits_produced} events",
+                f"{'⏳' if currently_running else ''} Pipeline {'running' if currently_running else 'finished'} with {num_failures_source+num_failures_sink} failures {'so far' if currently_running else ''}; produced {workunits_produced} events {duration_message}",
                 fg="bright_red",
                 bold=True,
             )
@@ -498,14 +501,14 @@ class Pipeline:
             num_warn_source = self._count_all_vals(self.source.get_report().warnings)
             num_warn_sink = len(self.sink.get_report().warnings)
             click.secho(
-                f"{'⏳' if currently_running else ''} Pipeline {'running' if currently_running else 'finished'} with {num_warn_source+num_warn_sink} warnings {'so far' if currently_running else ''}; produced {workunits_produced} events",
+                f"{'⏳' if currently_running else ''} Pipeline {'running' if currently_running else 'finished'} with {num_warn_source+num_warn_sink} warnings {'so far' if currently_running else ''}; produced {workunits_produced} events {duration_message}",
                 fg="yellow",
                 bold=True,
             )
             return 1 if warnings_as_failure else 0
         else:
             click.secho(
-                f"{'⏳' if currently_running else ''} Pipeline {'running' if currently_running else 'finished'} successfully {'so far' if currently_running else ''}; produced {workunits_produced} events",
+                f"{'⏳' if currently_running else ''} Pipeline {'running' if currently_running else 'finished'} successfully {'so far' if currently_running else ''}; produced {workunits_produced} events {duration_message}",
                 fg="green",
                 bold=True,
             )
