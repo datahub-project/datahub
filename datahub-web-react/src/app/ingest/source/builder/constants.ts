@@ -17,6 +17,10 @@ import clickhouseLogo from '../../../../images/clickhouselogo.png';
 import dbtLogo from '../../../../images/dbtlogo.png';
 import druidLogo from '../../../../images/druidlogo.png';
 import elasticsearchLogo from '../../../../images/elasticsearchlogo.png';
+import feastLogo from '../../../../images/feastlogo.png';
+import mariadbLogo from '../../../../images/mariadblogo.png';
+import metabaseLogo from '../../../../images/metabaselogo.png';
+import modeLogo from '../../../../images/modelogo.png';
 
 export const SNOWFLAKE_URN = 'urn:li:dataPlatform:snowflake';
 export const SNOWFLAKE = 'snowflake';
@@ -56,6 +60,14 @@ export const DRUID_URN = 'urn:li:dataPlatform:druid';
 export const DRUID = 'druid';
 export const ELASTICSEARCH_URN = 'urn:li:dataPlatform:elasticsearch';
 export const ELASTICSEARCH = 'elasticsearch';
+export const FEAST_URN = 'urn:li:dataPlatform:feast';
+export const FEAST = 'feast';
+export const MARIA_DB_URN = 'urn:li:dataPlatform:mariadb';
+export const MARIA_DB = 'mariadb';
+export const METABASE_URN = 'urn:li:dataPlatform:metabase';
+export const METABASE = 'metabase';
+export const MODE_URN = 'urn:li:dataPlatform:mode';
+export const MODE = 'mode';
 
 export const SOURCE_URN_TO_LOGO = {
     [SNOWFLAKE_URN]: snowflakeLogo,
@@ -77,6 +89,10 @@ export const SOURCE_URN_TO_LOGO = {
     [DBT_URN]: dbtLogo,
     [DRUID_URN]: druidLogo,
     [ELASTICSEARCH_URN]: elasticsearchLogo,
+    [FEAST_URN]: feastLogo,
+    [MARIA_DB_URN]: mariadbLogo,
+    [METABASE_URN]: metabaseLogo,
+    [MODE_URN]: modeLogo,
 };
 
 export const SOURCE_TO_SOURCE_URN = {
@@ -99,4 +115,8 @@ export const SOURCE_TO_SOURCE_URN = {
     [DBT]: DBT_URN,
     [DRUID]: DRUID_URN,
     [ELASTICSEARCH]: ELASTICSEARCH_URN,
+    [FEAST]: FEAST_URN,
+    [MARIA_DB]: MARIA_DB_URN,
+    [METABASE]: METABASE_URN,
+    [MODE]: MODE_URN,
 };

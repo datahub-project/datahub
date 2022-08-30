@@ -131,5 +131,33 @@
         "displayName": "Elasticsearch",
         "docsUrl": "https://datahubproject.io/docs/generated/ingestion/sources/elastic-search/",
         "recipe": "source:\n  type: \"elasticsearch\"\n  config:\n    # Coordinates\n    host: 'localhost:9200'\n\n    # Credentials\n    username: user # optional\n    password: pass # optional\n\n    # SSL support\n    use_ssl: False\n    verify_certs: False\n    ca_certs: \"./path/ca.cert\"\n    client_cert: \"./path/client.cert\"\n    client_key: \"./path/client.key\"\n    ssl_assert_hostname: False\n    ssl_assert_fingerprint: \"./path/cert.fingerprint\"\n\n    # Options\n    url_prefix: \"\" # optional url_prefix\n    env: \"PROD\"\n    index_pattern:\n      allow: [\".*some_index_name_pattern*\"]\n      deny: [\".*skip_index_name_pattern*\"]\n    ingest_index_templates: False\n    index_template_pattern:\n      allow: [\".*some_index_template_name_pattern*\"]"
+    },
+    {
+        "urn": "urn:li:dataPlatform:feast",
+        "name": "feast",
+        "displayName": "Feast",
+        "docsUrl": "https://datahubproject.io/docs/generated/ingestion/sources/feast/",
+        "recipe": "source:\n  type: feast\n  config:\n    # Coordinates\n    core_url: \"localhost:6565\""
+    },
+    {
+        "urn": "urn:li:dataPlatform:mariadb",
+        "name": "mariadb",
+        "displayName": "MariaDB",
+        "docsUrl": "https://datahubproject.io/docs/generated/ingestion/sources/mariadb/",
+        "recipe": "source:\n  type: mariadb\n  config:\n    # Coordinates\n    host_port: localhost:3306\n    database: dbname\n\n    # Credentials\n    username: root\n    password: example"
+    },
+    {
+        "urn": "urn:li:dataPlatform:metabase",
+        "name": "metabase",
+        "displayName": "Metabase",
+        "docsUrl": "https://datahubproject.io/docs/generated/ingestion/sources/metabase/",
+        "recipe": "source:\n  type: metabase\n  config:\n    # Coordinates\n    connect_uri:\n\n    # Credentials\n    username: root\n    password: example"
+    },
+    {
+        "urn": "urn:li:dataPlatform:mode",
+        "name": "mode",
+        "displayName": "Mode",
+        "docsUrl": "https://datahubproject.io/docs/generated/ingestion/sources/mode/",
+        "recipe": "source:\n  type: mode\n  config:\n    # Coordinates\n    connect_uri: http://app.mode.com\n\n    # Credentials\n    token: token\n    password: pass\n\n    # Options\n    workspace: \"datahub\"\n    default_schema: \"public\"\n    owner_username_instead_of_email: False\n    api_options:\n      retry_backoff_multiplier: 2\n      max_retry_interval: 10\n      max_attempts: 5"
     }
 ]
