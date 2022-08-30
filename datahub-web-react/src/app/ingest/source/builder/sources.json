@@ -159,5 +159,12 @@
         "displayName": "Mode",
         "docsUrl": "https://datahubproject.io/docs/generated/ingestion/sources/mode/",
         "recipe": "source:\n  type: mode\n  config:\n    # Coordinates\n    connect_uri: http://app.mode.com\n\n    # Credentials\n    token: token\n    password: pass\n\n    # Options\n    workspace: \"datahub\"\n    default_schema: \"public\"\n    owner_username_instead_of_email: False\n    api_options:\n      retry_backoff_multiplier: 2\n      max_retry_interval: 10\n      max_attempts: 5"
+    },
+    {
+        "urn": "urn:li:dataPlatform:custom",
+        "name": "custom",
+        "displayName": "Custom",
+        "docsUrl": "https://datahubproject.io/docs/metadata-ingestion/",
+        "recipe": "source:\n  type: <source-type>\n  config:\n    # Source-type specifics config\n    <source-configs>"
     }
 ]

@@ -1,10 +1,13 @@
 import { Button } from 'antd';
+import { FormOutlined } from '@ant-design/icons';
 import React from 'react';
 import styled from 'styled-components';
 import { LogoCountCard } from '../../../shared/LogoCountCard';
 import { SourceConfig, SourceBuilderState, StepProps } from './types';
 import { IngestionSourceBuilderStep } from './steps';
 import useGetSourceLogoUrl from './useGetSourceLogoUrl';
+import { CUSTOM_URN } from './constants';
+import { ANTD_GRAY } from '../../../entity/shared/constants';
 
 const Section = styled.div`
     display: flex;
@@ -34,8 +37,12 @@ function SourceOption({ source, onClick }: SourceOptionProps) {
     const { urn, displayName } = source;
 
     const logoUrl = useGetSourceLogoUrl(urn);
+    let logoComponent;
+    if (urn === CUSTOM_URN) {
+        logoComponent = <FormOutlined style={{ color: ANTD_GRAY[8], fontSize: 28 }} />;
+    }
 
-    return <LogoCountCard onClick={onClick} name={displayName} logoUrl={logoUrl} />;
+    return <LogoCountCard onClick={onClick} name={displayName} logoUrl={logoUrl} logoComponent={logoComponent} />;
 }
 
 /**

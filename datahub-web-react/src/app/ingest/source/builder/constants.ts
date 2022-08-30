@@ -68,6 +68,8 @@ export const METABASE_URN = 'urn:li:dataPlatform:metabase';
 export const METABASE = 'metabase';
 export const MODE_URN = 'urn:li:dataPlatform:mode';
 export const MODE = 'mode';
+export const CUSTOM_URN = 'urn:li:dataPlatform:custom';
+export const CUSTOM = 'custom';
 
 export const SOURCE_URN_TO_LOGO = {
     [SNOWFLAKE_URN]: snowflakeLogo,
@@ -119,4 +121,5 @@ export const SOURCE_TO_SOURCE_URN = {
     [MARIA_DB]: MARIA_DB_URN,
     [METABASE]: METABASE_URN,
     [MODE]: MODE_URN,
+    [CUSTOM]: CUSTOM_URN,
 };
