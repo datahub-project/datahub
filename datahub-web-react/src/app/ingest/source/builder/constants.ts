@@ -12,6 +12,11 @@ import oktaLogo from '../../../../images/oktalogo.png';
 import glueLogo from '../../../../images/gluelogo.png';
 import oracleLogo from '../../../../images/oraclelogo.png';
 import hiveLogo from '../../../../images/hivelogo.png';
+import athenaLogo from '../../../../images/awsathenalogo.png';
+import clickhouseLogo from '../../../../images/clickhouselogo.png';
+import dbtLogo from '../../../../images/dbtlogo.png';
+import druidLogo from '../../../../images/druidlogo.png';
+import elasticsearchLogo from '../../../../images/elasticsearchlogo.png';
 
 export const SNOWFLAKE_URN = 'urn:li:dataPlatform:snowflake';
 export const SNOWFLAKE = 'snowflake';
@@ -41,6 +46,16 @@ export const ORACLE_URN = 'urn:li:dataPlatform:oracle';
 export const ORACLE = 'oracle';
 export const HIVE_URN = 'urn:li:dataPlatform:hive';
 export const HIVE = 'hive';
+export const ATHENA_URN = 'urn:li:dataPlatform:athena';
+export const ATHENA = 'athena';
+export const CLICKHOUSE_URN = 'urn:li:dataPlatform:clickhouse';
+export const CLICKHOUSE = 'athenaLogo';
+export const DBT_URN = 'urn:li:dataPlatform:dbt';
+export const DBT = 'dbt';
+export const DRUID_URN = 'urn:li:dataPlatform:druid';
+export const DRUID = 'druid';
+export const ELASTICSEARCH_URN = 'urn:li:dataPlatform:elasticsearch';
+export const ELASTICSEARCH = 'elasticsearch';
 
 export const SOURCE_URN_TO_LOGO = {
     [SNOWFLAKE_URN]: snowflakeLogo,
@@ -57,6 +72,11 @@ export const SOURCE_URN_TO_LOGO = {
     [GLUE_URN]: glueLogo,
     [ORACLE_URN]: oracleLogo,
     [HIVE_URN]: hiveLogo,
+    [ATHENA_URN]: athenaLogo,
+    [CLICKHOUSE_URN]: clickhouseLogo,
+    [DBT_URN]: dbtLogo,
+    [DRUID_URN]: druidLogo,
+    [ELASTICSEARCH_URN]: elasticsearchLogo,
 };
 
 export const SOURCE_TO_SOURCE_URN = {
@@ -74,4 +94,9 @@ export const SOURCE_TO_SOURCE_URN = {
     [GLUE]: GLUE_URN,
     [ORACLE]: ORACLE_URN,
     [HIVE]: HIVE_URN,
+    [ATHENA]: ATHENA_URN,
+    [CLICKHOUSE]: CLICKHOUSE_URN,
+    [DBT]: DBT_URN,
+    [DRUID]: DRUID_URN,
+    [ELASTICSEARCH]: ELASTICSEARCH_URN,
 };
