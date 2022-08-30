@@ -10,12 +10,7 @@ import { EntityAndType } from '../../../types';
 
 const SearchBody = styled.div`
     height: 100%;
-    overflow-y: scroll;
     display: flex;
-`;
-
-const PaginationInfo = styled(Typography.Text)`
-    padding: 0px;
 `;
 
 const FiltersContainer = styled.div`
@@ -26,22 +21,6 @@ const FiltersContainer = styled.div`
     min-width: 260px;
     border-right: 1px solid;
     border-color: ${(props) => props.theme.styles['border-color-base']};
-`;
-
-const ResultContainer = styled.div`
-    height: auto;
-    overflow: auto;
-    flex: 1;
-`;
-
-const PaginationInfoContainer = styled.span`
-    padding: 8px;
-    padding-left: 16px;
-    border-top: 1px solid;
-    border-color: ${(props) => props.theme.styles['border-color-base']};
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
 `;
 
 const FiltersHeader = styled.div`
@@ -60,11 +39,6 @@ const FiltersHeader = styled.div`
     border-color: ${(props) => props.theme.styles['border-color-base']};
 `;
 
-const StyledPagination = styled(Pagination)`
-    margin: 0px;
-    padding: 0px;
-`;
-
 const SearchFilterContainer = styled.div`
     padding-top: 10px;
     flex: 1 1 auto;
@@ -77,6 +51,31 @@ const LoadingContainer = styled.div`
     width: 100%;
     text-align: center;
     flex: 1;
+`;
+
+const ResultContainer = styled.div`
+    height: auto;
+    overflow: auto;
+    flex: 1;
+`;
+
+const PaginationInfoContainer = styled.span`
+    padding: 8px;
+    padding-left: 16px;
+    border-top: 1px solid;
+    border-color: ${(props) => props.theme.styles['border-color-base']};
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+`;
+
+const PaginationInfo = styled(Typography.Text)`
+    padding: 0px;
+`;
+
+const StyledPagination = styled(Pagination)`
+    margin: 0px;
+    padding: 0px;
 `;
 
 interface Props {
