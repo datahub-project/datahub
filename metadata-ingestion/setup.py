@@ -256,7 +256,8 @@ plugins: Dict[str, Set[str]] = {
         # - 0.6.11 adds support for table comments and column comments,
         #   and also releases HTTP and HTTPS transport schemes
         # - 0.6.12 adds support for Spark Thrift Server
-        "acryl-pyhive[hive]>=0.6.13"
+        "acryl-pyhive[hive]>=0.6.13",
+        "databricks-dbapi",
     },
     "iceberg": iceberg_common,
     "kafka": {*kafka_common, *kafka_protobuf},
