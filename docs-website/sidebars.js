@@ -217,7 +217,7 @@ module.exports = {
       //    className: "saasOnly",
       //  },
       //  "docs/wip/metadata-analytics",
-       "docs/act-on-metadata/impact-analysis",
+      "docs/act-on-metadata/impact-analysis",
       // {
       //    type: "doc",
       //    id: "docs/wip/events-bridge",
