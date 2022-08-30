@@ -68,8 +68,8 @@ Follow these simple steps to understand the full dependency chain of your data e
 
 ### GraphQL
 
-* [searchAcrossLineage](./docs/graphql/queries/#searchacrosslineage)
-* [searchAcrossLineageInput](./docs/graphql/inputObjects#searchacrosslineageinput)
+* [searchAcrossLineage](./docs-website/genDocs/graphql/queries.md#searchacrosslineage)
+* [searchAcrossLineageInput](./docs-website/genDocs/graphql/inputObjects.md#searchacrosslineageinput)
 
 ### DataHub Blog
 
