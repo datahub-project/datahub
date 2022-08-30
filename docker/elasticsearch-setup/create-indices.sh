@@ -54,19 +54,25 @@ function create_if_not_exists {
   elif [ $RESOURCE_STATUS -eq 404 ]; then
     # resource doesn't exist -> need to create it
     echo -e "\n>>> creating $RESOURCE_ADDRESS ..."
-    # use the given path as definition, but first replace all occurences of PREFIX with the actual prefix
+    # use the given path as definition, but first replace all occurences of PREFIX within the file with the actual prefix
     TMP_SOURCE_PATH="/tmp/$RESOURCE_DEFINITION_NAME"
     sed -e "s/PREFIX/$PREFIX/g" "$INDEX_DEFINITIONS_ROOT/$RESOURCE_DEFINITION_NAME" | tee -a "$TMP_SOURCE_PATH"
     curl -s -XPUT --header "$ELASTICSEARCH_AUTH_HEADER" "$ELASTICSEARCH_URL/$RESOURCE_ADDRESS" -H 'Content-Type: application/json' --data "@$TMP_SOURCE_PATH"
 
-  elif [ $RESOURCE_STATUS -eq 401 ] || [ $RESOURCE_STATUS -eq 405 ]; then
-    echo -e "\n>>> failed to GET $RESOURCE_ADDRESS ($RESOURCE_STATUS) !"
-    echo "... make sure you have correct USE_AWS_ELASTICSEARCH env value set (current=$USE_AWS_ELASTICSEARCH)"
-    exit 1
-
   else
-    echo -e "\n>>> unexpected $RESOURCE_ADDRESS status $RESOURCE_STATUS !"
-    exit 1
+    echo -e "\n>>> failed to GET $RESOURCE_ADDRESS ($RESOURCE_STATUS) !"
+
+    # when `USE_AWS_ELASTICSEARCH` was forgotten to be set to `true` when running against AWS ES OSS,
+    # this script will use wrong paths (e.g. `_ilm/policy/` instead of AWS-compatible `_opendistro/_ism/policies/`)
+    # and the ES endpoint will return `401 Unauthorized` or `405 Method Not Allowed`
+    # let's use this as chance to point that wrong config might be used!
+    if [ $RESOURCE_STATUS -eq 401 ] || [ $RESOURCE_STATUS -eq 405 ]; then
+      if [[ ! $USE_AWS_ELASTICSEARCH ]] && [[ $ELASTICSEARCH_URL == *"amazonaws"* ]]; then
+        echo "... looks like AWS OpenSearch is used; please set USE_AWS_ELASTICSEARCH env value to true"
+        exit 1
+      fi
+    fi
+
   fi
 }
 
