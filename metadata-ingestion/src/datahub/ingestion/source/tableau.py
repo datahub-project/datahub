@@ -337,7 +337,6 @@ class TableauSource(Source):
                 yield from self.emit_sheets_as_charts(workbook)
                 yield from self.emit_dashboards(workbook)
                 yield from self.emit_embedded_datasource(workbook)
-            yield from self.emit_upstream_tables()
 
     def _track_custom_sql_ids(self, field: dict) -> None:
         # Tableau shows custom sql datasource as a table in ColumnField.
@@ -565,7 +564,7 @@ class TableauSource(Source):
                 yield self.get_metadata_change_proposal(
                     dataset_snapshot.urn,
                     aspect_name="subTypes",
-                    aspect=SubTypesClass(typeNames=["View", "Custom SQL"]),
+                    aspect=SubTypesClass(typeNames=["view", "Custom SQL"]),
                 )
 
     def get_schema_metadata_for_custom_sql(
@@ -1208,6 +1207,7 @@ class TableauSource(Source):
                 yield from self.emit_published_datasources()
             if self.custom_sql_ids_being_used:
                 yield from self.emit_custom_sql_datasources()
+            yield from self.emit_upstream_tables()
         except MetadataQueryException as md_exception:
             self.report.report_failure(
                 key="tableau-metadata",
