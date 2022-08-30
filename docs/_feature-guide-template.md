@@ -2,6 +2,8 @@ import FeatureAvailability from '@site/src/components/FeatureAvailability';
 
 # About DataHub [Feature Name]
 
+<!-- All Feature Guides should begin with `About DataHub ` to improve SEO -->
+
 <!-- 
 Update feature availability; by default, feature availabilty is Self-Hosted and Managed DataHub
 
@@ -29,10 +31,12 @@ Add in `saasOnly` for Managed DataHub-only features
 
 <!-- Plain-language instructions of how to use the feature
 
+Provide a step-by-step guide to use feature, including relevant screenshots and/or GIFs
+
 * Where/how do you access it?
-* Step-by-step guide to use feature
 * What best practices exist?
-* What are common code snippets? -->
+* What are common code snippets?
+ -->
 
 ## Additional Resources
 
