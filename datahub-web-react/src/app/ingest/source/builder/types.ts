@@ -13,10 +13,11 @@ export enum ModalSize {
  */
 export const DEFAULT_EXECUTOR_ID = 'default';
 
-export interface IngestionSource {
+export interface SourceConfig {
     urn: string;
     name: string;
     displayName: string;
+    docsUrl: string;
     recipe: string;
 }
 
@@ -30,7 +31,7 @@ export type StepProps = {
     prev?: () => void;
     submit: (shouldRun?: boolean) => void;
     cancel: () => void;
-    ingestionSources: IngestionSource[];
+    ingestionSources: SourceConfig[];
 };
 
 /**

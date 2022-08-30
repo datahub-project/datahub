@@ -390,6 +390,11 @@ type IngestionSource {
   schedule: IngestionSchedule
 
   """
+  The data platform associated with this ingestion source
+  """
+  platform: DataPlatform
+
+  """
   An type-specific set of configurations for the ingestion source
   """
   config: IngestionConfig!

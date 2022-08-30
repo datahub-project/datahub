@@ -3,6 +3,28 @@
         "urn": "urn:li:dataPlatform:snowflake",
         "name": "snowflake",
         "displayName": "Snowflake",
-        "recipe": ""
+        "docsUrl": "https://datahubproject.io/docs/generated/ingestion/sources/snowflake/",
+        "recipe": "{\"source\":{\"type\":\"snowflake\",\"config\":{\"account_id\":\"example_id\",\"warehouse\":\"example_warehouse\",\"role\":\"datahub_role\",\"include_table_lineage\":true,\"include_view_lineage\":true,\"profiling\":{\"enabled\":true},\"stateful_ingestion\":{\"enabled\":true}}}}"
+    },
+    {
+        "urn": "urn:li:dataPlatform:bigquery",
+        "name": "bigquery",
+        "displayName": "BigQuery",
+        "docsUrl": "https://datahubproject.io/docs/generated/ingestion/sources/bigquery/",
+        "recipe": "{\"source\":{\"type\":\"bigquery\",\"config\":{\"project_id\":null,\"credential\":{\"project_id\":null,\"private_key_id\":\"${BQ_PRIVATE_KEY_ID}\",\"private_key\":\"${BQ_PRIVATE_KEY}\",\"client_email\":null,\"client_id\":null},\"include_table_lineage\":true,\"include_view_lineage\":true,\"profiling\":{\"enabled\":true},\"stateful_ingestion\":{\"enabled\":true}}}}"
+    },
+    {
+        "urn": "urn:li:dataPlatform:redshift",
+        "name": "redshift",
+        "displayName": "Redshift",
+        "docsUrl": "https://datahubproject.io/docs/generated/ingestion/sources/redshift/",
+        "recipe": "{\"source\":{\"type\":\"redshift\",\"config\":{\"host_port\":null,\"database\":null,\"username\":\"${REDSHIFT_USERNAME}\",\"password\":\"${REDSHIFT_PASSWORD}\",\"table_lineage_mode\":\"stl_scan_based\",\"include_table_lineage\":true,\"include_view_lineage\":true,\"profiling\":{\"enabled\":true},\"stateful_ingestion\":{\"enabled\":true}}}}"
+    },
+    {
+        "urn": "urn:li:dataPlatform:kafka",
+        "name": "kafka",
+        "displayName": "Kafka",
+        "docsUrl": "https://datahubproject.io/docs/generated/ingestion/sources/kafka/",
+        "recipe": "{\"source\":{\"type\":\"kafka\",\"config\":{\"connection\":{\"consumer_config\":{\"security.protocol\":\"SASL_SSL\",\"sasl.mechanism\":\"PLAIN\"}},\"stateful_ingestion\":{\"enabled\":true}}}}"
     }
 ]

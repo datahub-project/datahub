@@ -6,6 +6,7 @@ import React from 'react';
 import styled from 'styled-components/macro';
 import { ANTD_GRAY } from '../../entity/shared/constants';
 import { capitalizeFirstLetter } from '../../shared/textUtil';
+import useGetSourceLogoUrl from './builder/useGetSourceLogoUrl';
 import {
     getExecutionRequestStatusDisplayColor,
     getExecutionRequestStatusDisplayText,
@@ -63,7 +64,8 @@ const CliBadge = styled.span`
 `;
 
 export function TypeColumn(type: string, record: any) {
-    const iconUrl = sourceTypeToIconUrl(type);
+    let iconUrl = useGetSourceLogoUrl(record.platformUrn || '');
+    if (!iconUrl) iconUrl = sourceTypeToIconUrl(type);
     const typeDisplayName = capitalizeFirstLetter(type);
 
     return (
