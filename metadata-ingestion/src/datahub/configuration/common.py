@@ -105,7 +105,7 @@ class OauthConfiguration(ConfigModel):
     scopes: Optional[List[str]] = Field(
         description="scopes required to connect to snowflake"
     )
-    use_certificate: Optional[str] = Field(
+    use_certificate: Optional[bool] = Field(
         description="Do you want to use certificate and private key to authenticate using oauth",
         default=False,
     )
