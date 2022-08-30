@@ -98,11 +98,25 @@
         "recipe": "source: \n    type: hive\n    config:\n        # Coordinates\n        host_port: # Your Hive host and port, e.g. hive:10000\n        database: # Your Hive database name, e.g. SampleDatabase (Optional, if not specified, ingests from all databases)\n\n        # Credentials\n        # Add secret in Secrets Tab with relevant names for each variable\n        username: \"${HIVE_USERNAME}\" # Your Hive username, e.g. admin\n        password: \"${HIVE_PASSWORD}\"# Your Hive password, e.g. password_01\n        stateful_ingestion:\n            enabled: true"
     },
     {
+        "urn": "urn:li:dataPlatform:superset",
+        "name": "superset",
+        "displayName": "Superset",
+        "docsUrl": "https://datahubproject.io/docs/generated/ingestion/sources/superset/",
+        "recipe": "source:\n  type: superset\n  config:\n    # Coordinates\n    connect_uri: http://localhost:8088\n\n    # Credentials\n    username: user\n    password: pass\n    provider: ldap"
+    },
+    {
         "urn": "urn:li:dataPlatform:athena",
         "name": "athena",
         "displayName": "Athena",
         "docsUrl": "https://datahubproject.io/docs/generated/ingestion/sources/athena/",
         "recipe": "source:\n  type: athena\n  config:\n    # Coordinates\n    aws_region: my_aws_region\n    work_group: primary\n\n    # Options\n    s3_staging_dir: \"s3://my_staging_athena_results_bucket/results/\""
+    },
+    {
+        "urn": "urn:li:dataPlatform:mssql",
+        "name": "mssql",
+        "displayName": "SQL Server",
+        "docsUrl": "https://datahubproject.io/docs/generated/ingestion/sources/mssql/",
+        "recipe": "source:\n  type: mssql\n  config:\n    # Coordinates\n    host_port: localhost:1433\n    database: DemoDatabase\n\n    # Credentials\n    username: user\n    password: pass"
     },
     {
         "urn": "urn:li:dataPlatform:clickhouse",
@@ -112,11 +126,11 @@
         "recipe": "source:\n  type: clickhouse\n  config:\n    # Coordinates\n    host_port: localhost:9000\n\n    # Credentials\n    username: user\n    password: pass\n\n    # Options\n    platform_instance: DatabaseNameToBeIngested\n\n    include_views: True # whether to include views, defaults to True\n    include_tables: True # whether to include views, defaults to True\n\nsink:\n  # sink configs\n\n#---------------------------------------------------------------------------\n# For the HTTP interface:\n#---------------------------------------------------------------------------\nsource:\n  type: clickhouse\n  config:\n    host_port: localhost:8443\n    protocol: https\n\n#---------------------------------------------------------------------------\n# For the Native interface:\n#---------------------------------------------------------------------------\n\nsource:\n  type: clickhouse\n  config:\n    host_port: localhost:9440\n    scheme: clickhouse+native\n    secure: True"
     },
     {
-        "urn": "urn:li:dataPlatform:dbt",
-        "name": "dbt",
-        "displayName": "dbt",
-        "docsUrl": "https://datahubproject.io/docs/generated/ingestion/sources/dbt/",
-        "recipe": "source:\n  type: \"dbt\"\n  config:\n    # Coordinates\n    # To use this as-is, set the environment variable DBT_PROJECT_ROOT to the root folder of your dbt project\n    manifest_path: \"${DBT_PROJECT_ROOT}/target/manifest_file.json\"\n    catalog_path: \"${DBT_PROJECT_ROOT}/target/catalog_file.json\"\n    sources_path: \"${DBT_PROJECT_ROOT}/target/sources_file.json\"  # optional for freshness\n    test_results_path: \"${DBT_PROJECT_ROOT}/target/run_results.json\" # optional for recording dbt test results after running dbt test\n\n    # Options\n    target_platform: \"my_target_platform_id\" # e.g. bigquery/postgres/etc.\n    load_schemas: False # note: enable this only if you are not ingesting metadata from your warehouse"
+        "urn": "urn:li:dataPlatform:trino",
+        "name": "trino",
+        "displayName": "Trino",
+        "docsUrl": "https://datahubproject.io/docs/generated/ingestion/sources/trino/",
+        "recipe": "source:\n    type: starburst-trino-usage\n    config:\n        # Coordinates\n        host_port: yourtrinohost:port\n        # The name of the catalog from getting the usage\n        database: hive\n        # Credentials\n        username: trino_username\n        password: trino_password\n        email_domain: test.com\n        audit_catalog: audit\n        audit_schema: audit_schema"
     },
     {
         "urn": "urn:li:dataPlatform:druid",
@@ -126,27 +140,6 @@
         "recipe": "source:\n  type: druid\n  config:\n    # Coordinates\n    host_port: \"localhost:8082\"\n\n    # Credentials\n    username: admin\n    password: password"
     },
     {
-        "urn": "urn:li:dataPlatform:elasticsearch",
-        "name": "elasticsearch",
-        "displayName": "Elasticsearch",
-        "docsUrl": "https://datahubproject.io/docs/generated/ingestion/sources/elastic-search/",
-        "recipe": "source:\n  type: \"elasticsearch\"\n  config:\n    # Coordinates\n    host: 'localhost:9200'\n\n    # Credentials\n    username: user # optional\n    password: pass # optional\n\n    # SSL support\n    use_ssl: False\n    verify_certs: False\n    ca_certs: \"./path/ca.cert\"\n    client_cert: \"./path/client.cert\"\n    client_key: \"./path/client.key\"\n    ssl_assert_hostname: False\n    ssl_assert_fingerprint: \"./path/cert.fingerprint\"\n\n    # Options\n    url_prefix: \"\" # optional url_prefix\n    env: \"PROD\"\n    index_pattern:\n      allow: [\".*some_index_name_pattern*\"]\n      deny: [\".*skip_index_name_pattern*\"]\n    ingest_index_templates: False\n    index_template_pattern:\n      allow: [\".*some_index_template_name_pattern*\"]"
-    },
-    {
-        "urn": "urn:li:dataPlatform:feast",
-        "name": "feast",
-        "displayName": "Feast",
-        "docsUrl": "https://datahubproject.io/docs/generated/ingestion/sources/feast/",
-        "recipe": "source:\n  type: feast\n  config:\n    # Coordinates\n    core_url: \"localhost:6565\""
-    },
-    {
-        "urn": "urn:li:dataPlatform:mariadb",
-        "name": "mariadb",
-        "displayName": "MariaDB",
-        "docsUrl": "https://datahubproject.io/docs/generated/ingestion/sources/mariadb/",
-        "recipe": "source:\n  type: mariadb\n  config:\n    # Coordinates\n    host_port: localhost:3306\n    database: dbname\n\n    # Credentials\n    username: root\n    password: example"
-    },
-    {
         "urn": "urn:li:dataPlatform:metabase",
         "name": "metabase",
         "displayName": "Metabase",
@@ -154,11 +147,11 @@
         "recipe": "source:\n  type: metabase\n  config:\n    # Coordinates\n    connect_uri:\n\n    # Credentials\n    username: root\n    password: example"
     },
     {
-        "urn": "urn:li:dataPlatform:mode",
-        "name": "mode",
-        "displayName": "Mode",
-        "docsUrl": "https://datahubproject.io/docs/generated/ingestion/sources/mode/",
-        "recipe": "source:\n  type: mode\n  config:\n    # Coordinates\n    connect_uri: http://app.mode.com\n\n    # Credentials\n    token: token\n    password: pass\n\n    # Options\n    workspace: \"datahub\"\n    default_schema: \"public\"\n    owner_username_instead_of_email: False\n    api_options:\n      retry_backoff_multiplier: 2\n      max_retry_interval: 10\n      max_attempts: 5"
+        "urn": "urn:li:dataPlatform:mariadb",
+        "name": "mariadb",
+        "displayName": "MariaDB",
+        "docsUrl": "https://datahubproject.io/docs/generated/ingestion/sources/mariadb/",
+        "recipe": "source:\n  type: mariadb\n  config:\n    # Coordinates\n    host_port: localhost:3306\n    database: dbname\n\n    # Credentials\n    username: root\n    password: example"
     },
     {
         "urn": "urn:li:dataPlatform:custom",

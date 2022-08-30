@@ -12,15 +12,17 @@ import oktaLogo from '../../../../images/oktalogo.png';
 import glueLogo from '../../../../images/gluelogo.png';
 import oracleLogo from '../../../../images/oraclelogo.png';
 import hiveLogo from '../../../../images/hivelogo.png';
+import supersetLogo from '../../../../images/supersetlogo.png';
 import athenaLogo from '../../../../images/awsathenalogo.png';
+import mssqlLogo from '../../../../images/mssqllogo.png';
 import clickhouseLogo from '../../../../images/clickhouselogo.png';
+import trinoLogo from '../../../../images/trinologo.png';
 import dbtLogo from '../../../../images/dbtlogo.png';
 import druidLogo from '../../../../images/druidlogo.png';
 import elasticsearchLogo from '../../../../images/elasticsearchlogo.png';
 import feastLogo from '../../../../images/feastlogo.png';
 import mariadbLogo from '../../../../images/mariadblogo.png';
 import metabaseLogo from '../../../../images/metabaselogo.png';
-import modeLogo from '../../../../images/modelogo.png';
 
 export const SNOWFLAKE_URN = 'urn:li:dataPlatform:snowflake';
 export const SNOWFLAKE = 'snowflake';
@@ -50,10 +52,16 @@ export const ORACLE_URN = 'urn:li:dataPlatform:oracle';
 export const ORACLE = 'oracle';
 export const HIVE_URN = 'urn:li:dataPlatform:hive';
 export const HIVE = 'hive';
+export const SUPERSET_URN = 'urn:li:dataPlatform:superset';
+export const SUPERSET = 'superset';
 export const ATHENA_URN = 'urn:li:dataPlatform:athena';
 export const ATHENA = 'athena';
+export const MSSQL_URN = 'urn:li:dataPlatform:mssql';
+export const MSSQL = 'mssql';
 export const CLICKHOUSE_URN = 'urn:li:dataPlatform:clickhouse';
-export const CLICKHOUSE = 'athenaLogo';
+export const CLICKHOUSE = 'clickhouse';
+export const TRINO_URN = 'urn:li:dataPlatform:trino';
+export const TRINO = 'trino';
 export const DBT_URN = 'urn:li:dataPlatform:dbt';
 export const DBT = 'dbt';
 export const DRUID_URN = 'urn:li:dataPlatform:druid';
@@ -66,8 +74,6 @@ export const MARIA_DB_URN = 'urn:li:dataPlatform:mariadb';
 export const MARIA_DB = 'mariadb';
 export const METABASE_URN = 'urn:li:dataPlatform:metabase';
 export const METABASE = 'metabase';
-export const MODE_URN = 'urn:li:dataPlatform:mode';
-export const MODE = 'mode';
 export const CUSTOM_URN = 'urn:li:dataPlatform:custom';
 export const CUSTOM = 'custom';
 
@@ -86,15 +92,17 @@ export const SOURCE_URN_TO_LOGO = {
     [GLUE_URN]: glueLogo,
     [ORACLE_URN]: oracleLogo,
     [HIVE_URN]: hiveLogo,
+    [SUPERSET_URN]: supersetLogo,
     [ATHENA_URN]: athenaLogo,
+    [MSSQL_URN]: mssqlLogo,
     [CLICKHOUSE_URN]: clickhouseLogo,
+    [TRINO_URN]: trinoLogo,
     [DBT_URN]: dbtLogo,
     [DRUID_URN]: druidLogo,
     [ELASTICSEARCH_URN]: elasticsearchLogo,
     [FEAST_URN]: feastLogo,
     [MARIA_DB_URN]: mariadbLogo,
     [METABASE_URN]: metabaseLogo,
-    [MODE_URN]: modeLogo,
 };
 
 export const SOURCE_TO_SOURCE_URN = {
@@ -112,14 +120,16 @@ export const SOURCE_TO_SOURCE_URN = {
     [GLUE]: GLUE_URN,
     [ORACLE]: ORACLE_URN,
     [HIVE]: HIVE_URN,
+    [SUPERSET]: SUPERSET_URN,
     [ATHENA]: ATHENA_URN,
+    [MSSQL]: MSSQL_URN,
     [CLICKHOUSE]: CLICKHOUSE_URN,
+    [TRINO]: TRINO_URN,
     [DBT]: DBT_URN,
     [DRUID]: DRUID_URN,
     [ELASTICSEARCH]: ELASTICSEARCH_URN,
     [FEAST]: FEAST_URN,
     [MARIA_DB]: MARIA_DB_URN,
     [METABASE]: METABASE_URN,
-    [MODE]: MODE_URN,
     [CUSTOM]: CUSTOM_URN,
 };
