@@ -40,7 +40,7 @@ export const jsonToYaml = (json: string): string => {
 
 export function getPlaceholderRecipe(ingestionSources: SourceConfig[], type?: string) {
     const selectedSource = ingestionSources.find((source) => source.name === type);
-    return jsonToYaml(selectedSource?.recipe || '');
+    return selectedSource?.recipe || '';
 }
 
 export const RUNNING = 'RUNNING';
