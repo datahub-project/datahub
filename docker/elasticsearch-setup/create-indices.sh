@@ -67,12 +67,12 @@ function create_if_not_exists {
     # and the ES endpoint will return `401 Unauthorized` or `405 Method Not Allowed`
     # let's use this as chance to point that wrong config might be used!
     if [ $RESOURCE_STATUS -eq 401 ] || [ $RESOURCE_STATUS -eq 405 ]; then
-      if [[ ! $USE_AWS_ELASTICSEARCH ]] && [[ $ELASTICSEARCH_URL == *"amazonaws"* ]]; then
+      if [[ $USE_AWS_ELASTICSEARCH == false ]] && [[ $ELASTICSEARCH_URL == *"amazonaws"* ]]; then
         echo "... looks like AWS OpenSearch is used; please set USE_AWS_ELASTICSEARCH env value to true"
-        exit 1
       fi
     fi
 
+    exit 1
   fi
 }
 
