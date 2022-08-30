@@ -1,25 +1,15 @@
 import logging
 from typing import Dict, Optional, cast
 
-from pydantic import Field, root_validator
+from pydantic import Field, SecretStr, root_validator
 
 from datahub.configuration.common import AllowDenyPattern
-from datahub.ingestion.source.sql.sql_common import SQLAlchemyStatefulIngestionConfig
 from datahub.ingestion.source_config.sql.snowflake import (
+    BaseSnowflakeConfig,
     SnowflakeConfig,
     SnowflakeProvisionRoleConfig,
 )
-from datahub.ingestion.source_config.usage.snowflake_usage import (
-    SnowflakeStatefulIngestionConfig,
-    SnowflakeUsageConfig,
-)
-
-
-class SnowflakeV2StatefulIngestionConfig(
-    SQLAlchemyStatefulIngestionConfig, SnowflakeStatefulIngestionConfig
-):
-    pass
-
+from datahub.ingestion.source_config.usage.snowflake_usage import SnowflakeUsageConfig
 
 logger = logging.Logger(__name__)
 
@@ -32,6 +22,11 @@ class SnowflakeV2Config(SnowflakeConfig, SnowflakeUsageConfig):
     include_usage_stats: bool = Field(
         default=True,
         description="If enabled, populates the snowflake usage statistics. Requires appropriate grants given to the role.",
+    )
+
+    include_technical_schema: bool = Field(
+        default=True,
+        description="If enabled, populates the snowflake technical schema and descriptions.",
     )
 
     check_role_grants: bool = Field(
@@ -52,12 +47,6 @@ class SnowflakeV2Config(SnowflakeConfig, SnowflakeUsageConfig):
                 "Provision role is currently not supported. Set `provision_role.enabled` to False."
             )
 
-        value = values.get("profiling")
-        if value is not None and value.enabled and not value.profile_table_level_only:
-            raise ValueError(
-                "Only table level profiling is supported. Set `profiling.profile_table_level_only` to True.",
-            )
-
         value = values.get("check_role_grants")
         if value is not None and value:
             raise ValueError(
@@ -76,4 +65,35 @@ class SnowflakeV2Config(SnowflakeConfig, SnowflakeUsageConfig):
             logger.debug("Adding deny for INFORMATION_SCHEMA to schema_pattern.")
             cast(AllowDenyPattern, schema_pattern).deny.append(r"^INFORMATION_SCHEMA$")
 
+        include_technical_schema = values.get("include_technical_schema")
+        include_profiles = (
+            values.get("profiling") is not None and values["profiling"].enabled
+        )
+        delete_detection_enabled = (
+            values.get("stateful_ingestion") is not None
+            and values["stateful_ingestion"].enabled
+            and values["stateful_ingestion"].remove_stale_metadata
+        )
+        include_table_lineage = values.get("include_table_lineage")
+
+        # TODO: Allow lineage extraction irrespective of basic schema extraction,
+        # as it seems possible with some refractor
+        if not include_technical_schema and any(
+            [include_profiles, delete_detection_enabled, include_table_lineage]
+        ):
+            raise ValueError(
+                "Can not perform Deletion Detection, Lineage Extraction, Profiling without extracting snowflake technical schema.  Set `include_technical_schema` to True or disable Deletion Detection, Lineage Extraction, Profiling."
+            )
+
         return values
+
+    def get_sql_alchemy_url(
+        self,
+        database: str = None,
+        username: Optional[str] = None,
+        password: Optional[SecretStr] = None,
+        role: Optional[str] = None,
+    ) -> str:
+        return BaseSnowflakeConfig.get_sql_alchemy_url(
+            self, database=database, username=username, password=password, role=role
+        )

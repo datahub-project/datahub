@@ -86,7 +86,6 @@ services:
     - ${DATAHUB_MAPPED_GMS_PORT:-8080}:8080
     volumes:
     - ${HOME}/.datahub/plugins:/etc/datahub/plugins
-    - ${HOME}/.datahub/plugins/auth/resources/:/etc/datahub/plugins/auth/resources
   elasticsearch:
     container_name: elasticsearch
     environment:

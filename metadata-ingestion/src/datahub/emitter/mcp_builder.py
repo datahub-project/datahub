@@ -10,6 +10,7 @@ from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.metadata.com.linkedin.pegasus2avro.common import DataPlatformInstance
 from datahub.metadata.com.linkedin.pegasus2avro.container import ContainerProperties
+from datahub.metadata.com.linkedin.pegasus2avro.events.metadata import ChangeType
 from datahub.metadata.schema_classes import (
     ChangeTypeClass,
     ContainerClass,
@@ -20,6 +21,7 @@ from datahub.metadata.schema_classes import (
     OwnershipTypeClass,
     SubTypesClass,
     TagAssociationClass,
+    _Aspect,
 )
 
 
@@ -124,6 +126,25 @@ def add_tags_to_entity_wu(
     )
     wu = MetadataWorkUnit(id=f"tags-to-{entity_urn}", mcp=mcp)
     yield wu
+
+
+def wrap_aspect_as_workunit(
+    entityName: str,
+    entityUrn: str,
+    aspectName: str,
+    aspect: _Aspect,
+) -> MetadataWorkUnit:
+    wu = MetadataWorkUnit(
+        id=f"{aspectName}-for-{entityUrn}",
+        mcp=MetadataChangeProposalWrapper(
+            entityType=entityName,
+            entityUrn=entityUrn,
+            aspectName=aspectName,
+            aspect=aspect,
+            changeType=ChangeType.UPSERT,
+        ),
+    )
+    return wu
 
 
 def gen_containers(

@@ -59,6 +59,7 @@ entities:
       - deprecation
       - chartUsageStatistics
       - inputFields
+      - chartUsageStatistics
   - name: dashboard
     keyAspect: dashboardKey
     aspects:

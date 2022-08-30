@@ -2,13 +2,15 @@ import datetime
 from abc import ABCMeta, abstractmethod
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import Dict, Generic, Iterable, List, Optional, TypeVar, Union
+from typing import Dict, Generic, Iterable, List, Optional, Type, TypeVar, Union, cast
 
 from pydantic import BaseModel
 
+from datahub.configuration.common import ConfigModel
 from datahub.ingestion.api.closeable import Closeable
 from datahub.ingestion.api.common import PipelineContext, RecordEnvelope, WorkUnit
 from datahub.ingestion.api.report import LossyList, Report
+from datahub.utilities.type_annotations import get_class_from_annotation
 
 
 class SourceCapability(Enum):
@@ -83,12 +85,26 @@ class TestConnectionReport(Report):
 
 
 WorkUnitType = TypeVar("WorkUnitType", bound=WorkUnit)
+ExtractorConfig = TypeVar("ExtractorConfig", bound=ConfigModel)
 
 
-class Extractor(Generic[WorkUnitType], Closeable, metaclass=ABCMeta):
-    @abstractmethod
-    def configure(self, config_dict: dict, ctx: PipelineContext) -> None:
-        pass
+class Extractor(Generic[WorkUnitType, ExtractorConfig], Closeable, metaclass=ABCMeta):
+    ctx: PipelineContext
+    config: ExtractorConfig
+
+    @classmethod
+    def get_config_class(cls) -> Type[ExtractorConfig]:
+        config_class = get_class_from_annotation(cls, Extractor, ConfigModel)
+        assert config_class, "Extractor subclasses must define a config class"
+        return cast(Type[ExtractorConfig], config_class)
+
+    def __init__(self, config_dict: dict, ctx: PipelineContext) -> None:
+        super().__init__()
+
+        config_class = self.get_config_class()
+
+        self.ctx = ctx
+        self.config = config_class.parse_obj(config_dict)
 
     @abstractmethod
     def get_records(self, workunit: WorkUnitType) -> Iterable[RecordEnvelope]:
