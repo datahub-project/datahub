@@ -75,7 +75,7 @@ export const IngestionSourceBuilderModal = ({ initialState, visible, onSubmit, o
     const [modalExpanded, setModalExpanded] = useState(false);
     const [ingestionBuilderState, setIngestionBuilderState] = useState<SourceBuilderState>({});
 
-    const ingestionSources = JSON.parse(JSON.stringify(sourcesJson));
+    const ingestionSources = JSON.parse(JSON.stringify(sourcesJson)); // TODO: replace with call to server once we have access to dynamic list of sources
 
     // Reset the ingestion builder modal state when the modal is re-opened.
     const prevInitialState = useRef(initialState);
