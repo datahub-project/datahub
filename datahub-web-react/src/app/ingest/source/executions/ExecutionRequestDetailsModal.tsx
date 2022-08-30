@@ -2,11 +2,11 @@ import { DownloadOutlined } from '@ant-design/icons';
 import { Button, message, Modal, Typography } from 'antd';
 import React, { useEffect, useState } from 'react';
 import styled from 'styled-components';
-import { useGetIngestionExecutionRequestQuery } from '../../../graphql/ingestion.generated';
-import { ANTD_GRAY } from '../../entity/shared/constants';
-import { downloadFile } from '../../search/utils/csvUtils';
-import { Message } from '../../shared/Message';
-import IngestedAssets from './IngestedAssets';
+import { useGetIngestionExecutionRequestQuery } from '../../../../graphql/ingestion.generated';
+import { ANTD_GRAY } from '../../../entity/shared/constants';
+import { downloadFile } from '../../../search/utils/csvUtils';
+import { Message } from '../../../shared/Message';
+import IngestedAssets from '../IngestedAssets';
 import {
     getExecutionRequestStatusDisplayColor,
     getExecutionRequestStatusDisplayText,
@@ -14,7 +14,7 @@ import {
     getExecutionRequestSummaryText,
     RUNNING,
     SUCCESS,
-} from './utils';
+} from '../utils';
 
 const StyledTitle = styled(Typography.Title)`
     padding: 0px;

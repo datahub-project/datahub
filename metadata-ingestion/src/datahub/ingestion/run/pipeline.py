@@ -110,6 +110,7 @@ class Pipeline:
     config: PipelineConfig
     ctx: PipelineContext
     source: Source
+    extractor: Extractor
     sink: Sink
     transformers: List[Transformer]
 
@@ -185,6 +186,7 @@ class Pipeline:
                 self.config.source.dict().get("config", {}), self.ctx
             )
             logger.debug(f"Source type:{source_type},{source_class} configured")
+            logger.info("Source configured successfully.")
         except Exception as e:
             self._record_initialization_failure(
                 e, f"Failed to configure source ({source_type})"
@@ -192,7 +194,10 @@ class Pipeline:
             return
 
         try:
-            self.extractor_class = extractor_registry.get(self.config.source.extractor)
+            extractor_class = extractor_registry.get(self.config.source.extractor)
+            self.extractor = extractor_class(
+                self.config.source.extractor_config, self.ctx
+            )
         except Exception as e:
             self._record_initialization_failure(
                 e, f"Failed to configure extractor ({self.config.source.extractor})"
@@ -330,20 +335,17 @@ class Pipeline:
                     self.ctx, self.config.failure_log.log_config
                 )
             )
-            extractor: Extractor = self.extractor_class()
             for wu in itertools.islice(
                 self.source.get_workunits(),
                 self.preview_workunits if self.preview_mode else None,
             ):
                 if self._time_to_print():
                     self.pretty_print_summary(currently_running=True)
-                # TODO: change extractor interface
-                extractor.configure({}, self.ctx)
 
                 if not self.dry_run:
                     self.sink.handle_work_unit_start(wu)
                 try:
-                    record_envelopes = extractor.get_records(wu)
+                    record_envelopes = self.extractor.get_records(wu)
                     for record_envelope in self.transform(record_envelopes):
                         if not self.dry_run:
                             self.sink.write_record_async(record_envelope, callback)
@@ -355,7 +357,7 @@ class Pipeline:
                 except Exception as e:
                     logger.error("Failed to process some records. Continuing.", e)
 
-                extractor.close()
+                self.extractor.close()
                 if not self.dry_run:
                     self.sink.handle_work_unit_end(wu)
             self.source.close()
