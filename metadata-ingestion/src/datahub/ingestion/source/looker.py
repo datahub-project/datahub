@@ -18,6 +18,7 @@ from typing import (
     Set,
     Tuple,
     Union,
+    cast,
 )
 
 import looker_sdk
@@ -44,7 +45,13 @@ from datahub.ingestion.api.decorators import (
     platform_name,
     support_status,
 )
-from datahub.ingestion.api.source import Source, SourceReport
+from datahub.ingestion.api.source import (
+    CapabilityReport,
+    SourceCapability,
+    SourceReport,
+    TestableSource,
+    TestConnectionReport,
+)
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.looker_common import (
     LookerCommonConfig,
@@ -144,7 +151,7 @@ class LookerAPI:
         # try authenticating current user to check connectivity
         # (since it's possible to initialize an invalid client without any complaints)
         try:
-            self.client.me(
+            self.me = self.client.me(
                 transport_options=config.transport_options.get_transport_options()
                 if config.transport_options is not None
                 else None
@@ -156,6 +163,19 @@ class LookerAPI:
 
     def get_client(self) -> Looker31SDK:
         return self.client
+
+    def get_available_permissions(self) -> Set[str]:
+        user_id = self.me.id
+        assert user_id
+
+        roles = self.client.user_roles(user_id)
+
+        permissions: Set[str] = set()
+        for role in roles:
+            if role.permission_set and role.permission_set.permissions:
+                permissions.update(role.permission_set.permissions)
+
+        return permissions
 
 
 class LookerDashboardSourceConfig(LookerAPIConfig, LookerCommonConfig):
@@ -379,7 +399,7 @@ class LookerDashboard:
 @platform_name("Looker")
 @support_status(SupportStatus.CERTIFIED)
 @config_class(LookerDashboardSourceConfig)
-class LookerDashboardSource(Source):
+class LookerDashboardSource(TestableSource):
     """
     This plugin extracts the following:
     - Looker dashboards, dashboard elements (charts) and explores
@@ -407,8 +427,43 @@ class LookerDashboardSource(Source):
         super().__init__(ctx)
         self.source_config = config
         self.reporter = LookerDashboardSourceReport()
-        self.client = LookerAPI(self.source_config).get_client()
+        self.looker_api = LookerAPI(self.source_config)
+        self.client = self.looker_api.get_client()
         self.user_registry = LookerUserRegistry(self.client)
+
+    @staticmethod
+    def test_connection(config_dict: dict) -> TestConnectionReport:
+        test_report = TestConnectionReport()
+        try:
+            self = cast(
+                LookerDashboardSource,
+                LookerDashboardSource.create(
+                    config_dict, PipelineContext("looker-test-connection")
+                ),
+            )
+            test_report.basic_connectivity = CapabilityReport(capable=True)
+            test_report.capability_report = {}
+
+            permissions = self.looker_api.get_available_permissions()
+
+            if {
+                "access_data",
+            }.issubset(permissions):
+                # TODO add full list of capabilities required here.
+                test_report.capability_report[
+                    SourceCapability.DELETION_DETECTION
+                ] = CapabilityReport(capable=True)
+        except Exception as e:
+            logger.exception(f"Failed to test connection due to {e}")
+            test_report.internal_failure = True
+            test_report.internal_failure_reason = f"{e}"
+
+            if test_report.basic_connectivity is None:
+                test_report.basic_connectivity = CapabilityReport(
+                    capable=False, failure_reason=f"{e}"
+                )
+
+        return test_report
 
     @staticmethod
     def _extract_view_from_field(field: str) -> str:
