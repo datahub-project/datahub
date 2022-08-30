@@ -29,12 +29,12 @@ from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.extractor import schema_util
 from datahub.ingestion.source.state.checkpoint import Checkpoint
 from datahub.ingestion.source.state.kafka_state import KafkaCheckpointState
+from datahub.ingestion.source.state.stale_entity_removal_handler import (
+    StaleEntityRemovalHandler,
+)
 from datahub.ingestion.source.state.stateful_ingestion_base import (
     JobId,
     StatefulIngestionSourceBase,
-)
-from datahub.ingestion.source.state_handler.stale_entity_removal_handler import (
-    StaleEntityRemovalHandler,
 )
 from datahub.ingestion.source_config.pulsar import PulsarSourceConfig
 from datahub.ingestion.source_report.pulsar import PulsarSourceReport
@@ -49,7 +49,6 @@ from datahub.metadata.schema_classes import (
     ChangeTypeClass,
     DataPlatformInstanceClass,
     DatasetPropertiesClass,
-    JobStatusClass,
     SubTypesClass,
 )
 
@@ -106,6 +105,8 @@ class PulsarSource(StatefulIngestionSourceBase):
             config=self.config.stateful_ingestion,
             state_type_class=KafkaCheckpointState,
             job_id=self.get_default_ingestion_job_id(),
+            pipeline_name=self.ctx.pipeline_name,
+            run_id=self.ctx.run_id,
         )
         self.base_url: str = f"{self.config.web_service_url}/admin/v2"
         self.tenants: List[str] = config.tenants
@@ -230,17 +231,8 @@ class PulsarSource(StatefulIngestionSourceBase):
         """
         Create a custom checkpoint with empty state for the job.
         """
-        assert self.ctx.pipeline_name is not None
         if job_id == self.get_default_ingestion_job_id():
-            return Checkpoint(
-                job_name=job_id,
-                pipeline_name=self.ctx.pipeline_name,
-                platform_instance_id=self.get_platform_instance_id(),
-                run_id=self.ctx.run_id,
-                config=self.config,
-                # TODO Create a PulsarCheckpointState ?
-                state=KafkaCheckpointState(),
-            )
+            self.stale_entity_removal_handler.create_checkpoint()
         return None
 
     def get_platform_instance_id(self) -> str:
@@ -574,19 +566,6 @@ class PulsarSource(StatefulIngestionSourceBase):
     def get_report(self):
         return self.report
 
-    def update_default_job_run_summary(self) -> None:
-        summary = self.get_job_run_summary(self.get_default_ingestion_job_id())
-        if summary is not None:
-            # For now just add the config and the report.
-            summary.config = self.config.json()
-            summary.custom_summary = self.report.as_string()
-            summary.runStatus = (
-                JobStatusClass.FAILED
-                if self.get_report().failures
-                else JobStatusClass.COMPLETED
-            )
-
     def close(self):
-        self.update_default_job_run_summary()
         self.prepare_for_commit()
         self.session.close()

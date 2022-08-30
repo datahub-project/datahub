@@ -6,7 +6,7 @@ from pydantic import Field, root_validator, validator
 
 from datahub.configuration.common import AllowDenyPattern, ConfigurationError
 from datahub.configuration.source_common import DEFAULT_ENV, DatasetSourceConfigBase
-from datahub.ingestion.source.state.stale_entity_checkpoint_base import (
+from datahub.ingestion.source.state.stale_entity_removal_handler import (
     StatefulStaleMetadataRemovalConfig,
 )
 from datahub.ingestion.source.state.stateful_ingestion_base import (

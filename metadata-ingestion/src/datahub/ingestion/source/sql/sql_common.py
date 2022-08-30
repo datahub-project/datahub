@@ -50,7 +50,8 @@ from datahub.ingestion.source.state.checkpoint import Checkpoint
 from datahub.ingestion.source.state.sql_common_state import (
     BaseSQLAlchemyCheckpointState,
 )
-from datahub.ingestion.source.state.stale_entity_checkpoint_base import (
+from datahub.ingestion.source.state.stale_entity_removal_handler import (
+    StaleEntityRemovalHandler,
     StaleEntityRemovalSourceReport,
     StatefulStaleMetadataRemovalConfig,
 )
@@ -58,9 +59,6 @@ from datahub.ingestion.source.state.stateful_ingestion_base import (
     JobId,
     StatefulIngestionConfigBase,
     StatefulIngestionSourceBase,
-)
-from datahub.ingestion.source.state_handler.stale_entity_removal_handler import (
-    StaleEntityRemovalHandler,
 )
 from datahub.metadata.com.linkedin.pegasus2avro.common import StatusClass
 from datahub.metadata.com.linkedin.pegasus2avro.dataset import UpstreamLineage
@@ -486,6 +484,8 @@ class SQLAlchemySource(StatefulIngestionSourceBase):
             config=self.config.stateful_ingestion,
             state_type_class=BaseSQLAlchemyCheckpointState,
             job_id=self.get_default_ingestion_job_id(),
+            pipeline_name=self.ctx.pipeline_name,
+            run_id=self.ctx.run_id,
         )
 
         config_report = {
@@ -556,16 +556,8 @@ class SQLAlchemySource(StatefulIngestionSourceBase):
         """
         Create the custom checkpoint with empty state for the job.
         """
-        assert self.ctx.pipeline_name is not None
         if job_id == self.get_default_ingestion_job_id():
-            return Checkpoint(
-                job_name=job_id,
-                pipeline_name=self.ctx.pipeline_name,
-                platform_instance_id=self.get_platform_instance_id(),
-                run_id=self.ctx.run_id,
-                config=self.config,
-                state=BaseSQLAlchemyCheckpointState(),
-            )
+            return self.stale_entity_removal_handler.create_checkpoint()
         return None
 
     def get_schema_names(self, inspector):

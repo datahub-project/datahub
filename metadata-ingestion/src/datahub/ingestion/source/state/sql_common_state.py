@@ -3,7 +3,7 @@ from typing import Iterable, List
 import pydantic
 
 from datahub.emitter.mce_builder import container_urn_to_key, make_container_urn
-from datahub.ingestion.source.state.stale_entity_checkpoint_base import (
+from datahub.ingestion.source.state.stale_entity_removal_handler import (
     StaleEntityCheckpointStateBase,
 )
 from datahub.utilities.checkpoint_state_util import CheckpointStateUtil

@@ -4,7 +4,7 @@ from typing import Callable, Dict, Iterable, List
 import pydantic
 
 from datahub.emitter.mce_builder import make_assertion_urn
-from datahub.ingestion.source.state.stale_entity_checkpoint_base import (
+from datahub.ingestion.source.state.stale_entity_removal_handler import (
     StaleEntityCheckpointStateBase,
 )
 from datahub.utilities.checkpoint_state_util import CheckpointStateUtil
