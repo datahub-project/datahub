@@ -3,8 +3,6 @@ import datetime
 import json
 import logging
 import os
-from dataclasses import dataclass
-from dataclasses import field as dataclass_field
 from json import JSONDecodeError
 from typing import (
     Any,
@@ -14,7 +12,6 @@ from typing import (
     MutableMapping,
     Optional,
     Sequence,
-    Set,
     Tuple,
     Union,
     cast,
@@ -47,6 +44,7 @@ from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.looker import looker_usage
 from datahub.ingestion.source.looker.looker_common import (
     LookerCommonConfig,
+    LookerDashboardSourceReport,
     LookerExplore,
     LookerUtil,
     ViewField,
@@ -144,40 +142,6 @@ class LookerDashboardSourceConfig(LookerAPIConfig, LookerCommonConfig):
         raise ConfigurationError("Looker Source doesn't support platform instances")
 
 
-@dataclass
-class LookerDashboardSourceReport(SourceReport):
-    dashboards_scanned: int = 0
-    charts_scanned: int = 0
-    filtered_dashboards: List[str] = dataclass_field(default_factory=list)
-    filtered_charts: List[str] = dataclass_field(default_factory=list)
-    upstream_start_time: Optional[datetime.datetime] = None
-    upstream_end_time: Optional[datetime.datetime] = None
-    upstream_total_latency_in_seconds: Optional[float] = None
-
-    def report_dashboards_scanned(self) -> None:
-        self.dashboards_scanned += 1
-
-    def report_charts_scanned(self) -> None:
-        self.charts_scanned += 1
-
-    def report_dashboards_dropped(self, model: str) -> None:
-        self.filtered_dashboards.append(model)
-
-    def report_charts_dropped(self, view: str) -> None:
-        self.filtered_charts.append(view)
-
-    def report_upstream_latency(
-        self, start_time: datetime.datetime, end_time: datetime.datetime
-    ) -> None:
-        if self.upstream_start_time is None or self.upstream_start_time > start_time:
-            self.upstream_start_time = start_time
-        if self.upstream_end_time is None or self.upstream_end_time < end_time:
-            self.upstream_end_time = end_time
-        self.upstream_total_latency_in_seconds = (
-            self.upstream_end_time - self.upstream_start_time
-        ).total_seconds()
-
-
 @platform_name("Looker")
 @support_status(SupportStatus.CERTIFIED)
 @config_class(LookerDashboardSourceConfig)
@@ -198,7 +162,7 @@ class LookerDashboardSource(Source):
     reporter: LookerDashboardSourceReport
     client: Looker31SDK
     user_registry: LookerUserRegistry
-    explores_to_fetch_set: Set[Tuple[str, str]] = set()
+    explores_to_fetch_set: Dict[Tuple[str, str], List[str]] = {}
     resolved_explores_map: Dict[Tuple[str, str], LookerExplore] = {}
     resolved_dashboards_map: Dict[str, LookerDashboard] = {}
     accessed_dashboards: int = 0
@@ -224,11 +188,13 @@ class LookerDashboardSource(Source):
         )
 
         self.dashboard_stat_generator = looker_usage.create_stat_entity_generator(
-            looker_usage.SupportedStatEntity.DASHBOARD, config=stat_generator_config
+            looker_usage.SupportedStatEntity.DASHBOARD,
+            config=stat_generator_config,
         )
 
         self.chart_stat_generator = looker_usage.create_stat_entity_generator(
-            looker_usage.SupportedStatEntity.CHART, config=stat_generator_config
+            looker_usage.SupportedStatEntity.CHART,
+            config=stat_generator_config,
         )
 
     @staticmethod
@@ -357,6 +323,12 @@ class LookerDashboardSource(Source):
 
         return result
 
+    def add_explore_to_fetch(self, model: str, explore: str, via: str) -> None:
+        if (model, explore) not in self.explores_to_fetch_set:
+            self.explores_to_fetch_set[(model, explore)] = []
+
+        self.explores_to_fetch_set[(model, explore)].append(via)
+
     def _get_looker_dashboard_element(  # noqa: C901
         self, element: DashboardElement
     ) -> Optional[LookerDashboardElement]:
@@ -376,7 +348,12 @@ class LookerDashboardSource(Source):
                 "Element {}: Explores added: {}".format(element.title, explores)
             )
             for exp in explores:
-                self.explores_to_fetch_set.add((element.query.model, exp))
+                self.add_explore_to_fetch(
+                    model=element.query.model,
+                    explore=exp,
+                    via=f"look:{element.look_id}:query:{element.dashboard_id}",
+                )
+                # self.explores_to_fetch_set.add((element.query.model, exp))
 
             return LookerDashboardElement(
                 id=element.id,
@@ -410,7 +387,12 @@ class LookerDashboardSource(Source):
                     "Element {}: Explores added: {}".format(element.title, explores)
                 )
                 for exp in explores:
-                    self.explores_to_fetch_set.add((element.look.query.model, exp))
+                    self.add_explore_to_fetch(
+                        model=element.look.query.model,
+                        explore=exp,
+                        via=f"Look:{element.look_id}:query:{element.dashboard_id}",
+                    )
+                #                    self.explores_to_fetch_set.add((element.look.query.model, exp))
 
                 if element.look.query and element.look.query.slug:
                     slug = element.look.query.slug
@@ -449,9 +431,14 @@ class LookerDashboardSource(Source):
                 )
 
                 for exp in explores:
-                    self.explores_to_fetch_set.add(
-                        (element.result_maker.query.model, exp)
+                    self.add_explore_to_fetch(
+                        model=element.result_maker.query.model,
+                        explore=exp,
+                        via=f"Look:{element.look_id}:resultmaker:query",
                     )
+            #                    self.explores_to_fetch_set.add(
+            #                        (element.result_maker.query.model, exp)
+            #                    )
 
             # In addition to the query, filters can point to fields as well
             assert element.result_maker.filterables is not None
@@ -459,7 +446,12 @@ class LookerDashboardSource(Source):
                 if filterable.view is not None and filterable.model is not None:
                     model = filterable.model
                     explores.append(filterable.view)
-                    self.explores_to_fetch_set.add((filterable.model, filterable.view))
+                    self.add_explore_to_fetch(
+                        model=filterable.model,
+                        explore=filterable.view,
+                        via=f"Look:{element.look_id}:resultmaker:filterable",
+                    )
+                #                    self.explores_to_fetch_set.add((filterable.model, filterable.view))
                 listen = filterable.listen
                 query = element.result_maker.query
                 if listen is not None:
@@ -823,7 +815,10 @@ class LookerDashboardSource(Source):
     ) -> Tuple[List[MetadataWorkUnit], str, datetime.datetime, datetime.datetime]:
         start_time = datetime.datetime.now()
 
-        dashboard = self.resolved_dashboards_map[dashboard_id]
+        dashboard = self.resolved_dashboards_map.get(dashboard_id)
+        if dashboard is None:
+            return [], dashboard_id, start_time, datetime.datetime.now()
+
         chart_mcps = [
             self._make_metrics_dimensions_chart_mcp(element, dashboard)
             for element in dashboard.dashboard_elements
@@ -1019,8 +1014,10 @@ class LookerDashboardSource(Source):
             )
 
         usage_stat_generators = [
-            self.dashboard_stat_generator(cast(List[model.Model], looker_dashboards)),
-            self.chart_stat_generator(cast(List[model.Model], looks)),
+            self.dashboard_stat_generator(
+                cast(List[model.Model], looker_dashboards), self.reporter
+            ),
+            self.chart_stat_generator(cast(List[model.Model], looks), self.reporter),
         ]
 
         for usage_stat_generator in usage_stat_generators:
@@ -1055,6 +1052,16 @@ class LookerDashboardSource(Source):
         dashboard_ids.extend(
             [deleted_dashboard.id for deleted_dashboard in deleted_dashboards]
         )
+        selected_dashboard_ids: List[Optional[str]] = []
+        for id in dashboard_ids:
+            if id is None:
+                continue
+            self.reporter.report_dashboards_scanned()
+            if not self.source_config.dashboard_pattern.allowed(id):
+                self.reporter.report_dashboards_dropped(id)
+            else:
+                selected_dashboard_ids.append(id)
+        dashboard_ids = selected_dashboard_ids
         # List dashboard fields to extract for processing
         fields = [
             "id",

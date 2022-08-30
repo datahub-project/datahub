@@ -1,6 +1,8 @@
+import datetime
 import logging
 import re
 from dataclasses import dataclass
+from dataclasses import field as dataclasses_field
 from enum import Enum
 from typing import Dict, Iterable, List, Optional, Tuple, Union
 
@@ -18,7 +20,8 @@ from datahub.configuration.common import ConfigurationError
 from datahub.configuration.github import GitHubInfo
 from datahub.configuration.source_common import DatasetSourceConfigBase
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
-from datahub.ingestion.api.source import SourceReport
+from datahub.ingestion.api.report import LossySet
+from datahub.ingestion.api.source import LossyList, SourceReport
 from datahub.ingestion.source.sql.sql_types import (
     POSTGRES_TYPES_MAP,
     SNOWFLAKE_TYPES_MAP,
@@ -661,12 +664,14 @@ class LookerExplore:
                 source_file=explore.source_file,
             )
         except SDKError as e:
-            logger.warning(
-                f"Failed to extract explore {explore_name} from model {model}."
-            )
-            logger.debug(
-                f"Failed to extract explore {explore_name} from model {model} with {e}"
-            )
+            if "<title>Looker Not Found (404)</title>" in str(e):
+                logger.info(
+                    f"Explore {explore_name} in model {model} is referred to, but missing. Continuing..."
+                )
+            else:
+                logger.warning(
+                    f"Failed to extract explore {explore_name} from model {model}.", e
+                )
 
         except AssertionError:
             reporter.report_warning(
@@ -783,3 +788,46 @@ class LookerExplore:
         )
 
         return [mce, mcp]
+
+
+@dataclass
+class LookerDashboardSourceReport(SourceReport):
+    dashboards_scanned: int = 0
+    looks_scanned: int = 0
+    filtered_dashboards: LossyList[str] = dataclasses_field(default_factory=LossyList)
+    filtered_looks: LossyList[str] = dataclasses_field(default_factory=LossyList)
+    dashboards_scanned_for_usage: int = 0
+    charts_scanned_for_usage: int = 0
+    charts_with_activity: LossySet[str] = dataclasses_field(default_factory=LossySet)
+    dashboards_with_activity: LossySet[str] = dataclasses_field(
+        default_factory=LossySet
+    )
+    query_latency: Dict[str, float] = dataclasses_field(default_factory=dict)
+
+    def report_dashboards_scanned(self) -> None:
+        self.dashboards_scanned += 1
+
+    def report_charts_scanned(self) -> None:
+        self.looks_scanned += 1
+
+    def report_dashboards_dropped(self, model: str) -> None:
+        self.filtered_dashboards.append(model)
+
+    def report_charts_dropped(self, view: str) -> None:
+        self.filtered_looks.append(view)
+
+    def report_dashboards_scanned_for_usage(self, num_dashboards: int) -> None:
+        self.dashboards_scanned_for_usage += num_dashboards
+
+    def report_charts_scanned_for_usage(self, num_charts: int) -> None:
+        self.charts_scanned_for_usage += num_charts
+
+    def report_upstream_latency(
+        self, start_time: datetime.datetime, end_time: datetime.datetime
+    ) -> None:
+        # recording total combined latency is not very useful, keeping this method as a placeholder
+        # for future implementation of min / max / percentiles etc.
+        pass
+
+    def report_query_latency(self, query_type: str, latency_seconds: float) -> None:
+        self.query_latency[query_type] = round(latency_seconds, 2)
