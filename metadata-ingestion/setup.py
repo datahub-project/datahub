@@ -59,6 +59,7 @@ framework_common = {
     "cached_property",
     "ijson",
     "click-spinner",
+    "types-click-spinner",
 }
 
 kafka_common = {

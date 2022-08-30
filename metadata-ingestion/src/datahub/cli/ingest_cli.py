@@ -124,7 +124,9 @@ def run(
         pipeline: Pipeline, structured_report: Optional[str] = None
     ) -> int:
         logger.info("Starting metadata ingestion")
-        with click_spinner.spinner():
+        with click_spinner.spinner(
+            beep=False, disable=False, force=False, stream=sys.stdout
+        ):
             try:
                 pipeline.run()
             except Exception as e:
