@@ -59,7 +59,6 @@ framework_common = {
     "cached_property",
     "ijson",
     "click-spinner",
-    "types-click-spinner",
 }
 
 kafka_common = {
@@ -337,6 +336,7 @@ mypy_stubs = {
     # avrogen package requires this
     "types-pytz",
     "types-pyOpenSSL",
+    "types-click-spinner",
 }
 
 base_dev_requirements = {
