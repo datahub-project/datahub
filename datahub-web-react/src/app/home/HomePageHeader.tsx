@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { useHistory } from 'react-router';
-import { Typography, Image, Row, Button, Tag } from 'antd';
+import { Typography, Image, Row, Button, Tag, Menu } from 'antd';
 import styled, { useTheme } from 'styled-components';
 
 import { ManageAccount } from '../shared/ManageAccount';
@@ -17,11 +17,10 @@ import { EntityType } from '../../types.generated';
 import analytics, { EventType } from '../analytics';
 import { HeaderLinks } from '../shared/admin/HeaderLinks';
 import AdhocLink from '../create/AdhocLink';
-import HelpLink from '../shared/admin/HelpLink';
 import { ANTD_GRAY } from '../entity/shared/constants';
-import ContactLink from '../shared/admin/ContactLink';
 import { useAppConfig } from '../useAppConfig';
 import { DEFAULT_APP_CONFIG } from '../../appConfigContext';
+import { env } from '../../env';
 
 const Background = styled.div`
     width: 100%;
@@ -200,9 +199,21 @@ export const HomePageHeader = () => {
                 </WelcomeText>
                 <NavGroup>
                     <HeaderLinks />
-                    <ContactLink />
-                    <HelpLink />
                     <AdhocLink />
+                    <Menu mode="horizontal">
+                        <Menu.SubMenu key="SubMenu" title="Links">
+                            <Menu.Item key="contact">
+                                <a href={env.CONTACTUS} target="_blank" rel="noopener noreferrer">
+                                    Contact Us
+                                </a>
+                            </Menu.Item>
+                            <Menu.Item key="faq">
+                                <a href={env.FAQ} target="_blank" rel="noopener noreferrer">
+                                    FAQ
+                                </a>
+                            </Menu.Item>
+                        </Menu.SubMenu>
+                    </Menu>
                     <ManageAccount
                         urn={user?.urn || ''}
                         pictureLink={user?.editableProperties?.pictureLink || ''}
