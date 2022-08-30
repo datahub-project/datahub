@@ -78,21 +78,34 @@ function create_if_not_exists {
 
 # create indices for ES (non-AWS)
 function create_datahub_usage_event_datastream() {
+  # non-AWS env requires creation of two resources for Datahub usage events:
+  #   1. ILM policy
   create_if_not_exists "_ilm/policy/${PREFIX}datahub_usage_event_policy" policy.json
+  #   2. index template
   create_if_not_exists "_index_template/${PREFIX}datahub_usage_event_index_template" index_template.json
 }
 
 # create indices for ES OSS (AWS)
 function create_datahub_usage_event_aws_elasticsearch() {
+  # AWS env requires creation of three resources for Datahub usage events:
+  #   1. ISM policy
   create_if_not_exists "_opendistro/_ism/policies/${PREFIX}datahub_usage_event_policy" aws_es_ism_policy.json
+
+  #   2. index template
   create_if_not_exists "_template/${PREFIX}datahub_usage_event_index_template" aws_es_index_template.json
 
-  # this fixes the case when datahub_usage_event was created by GMS before datahub_usage_event-000001
+  #   3. event index datahub_usage_event-000001
+  #     (note that AWS *rollover* indices need to use `^.*-\d+$` naming pattern)
+  #     -> https://aws.amazon.com/premiumsupport/knowledge-center/opensearch-failed-rollover-index/
+  INDEX_SUFFIX="000001"
+  #     ... but first check whether `datahub_usage_event` wasn't already autocreated by GMS before `datahub_usage_event-000001`
+  #     (as is common case when this script was initially run without properly setting `USE_AWS_ELASTICSEARCH` to `true`)
+  #     -> https://github.com/datahub-project/datahub/issues/5376
   USAGE_EVENT_STATUS=$(curl -o /dev/null -s -w "%{http_code}\n" --header "$ELASTICSEARCH_AUTH_HEADER" "$ELASTICSEARCH_URL/${PREFIX}datahub_usage_event")
   if [ $USAGE_EVENT_STATUS -eq 200 ]; then
     USAGE_EVENT_DEFINITION=$(curl -s --header "$ELASTICSEARCH_AUTH_HEADER" "$ELASTICSEARCH_URL/${PREFIX}datahub_usage_event")
     # the definition is expected to contain "datahub_usage_event-000001" string
-    if [[ $USAGE_EVENT_DEFINITION != *"datahub_usage_event-000001"* ]]; then
+    if [[ $USAGE_EVENT_DEFINITION != *"datahub_usage_event-$INDEX_SUFFIX"* ]]; then
       # ... if it doesn't, we need to drop it
       echo -e "\n>>> deleting invalid datahub_usage_event ..."
       curl -s -XDELETE --header "$ELASTICSEARCH_AUTH_HEADER" "$ELASTICSEARCH_URL/${PREFIX}datahub_usage_event"
@@ -100,7 +113,8 @@ function create_datahub_usage_event_aws_elasticsearch() {
     fi
   fi
 
-  create_if_not_exists "${PREFIX}datahub_usage_event-000001" aws_es_usage_event.json
+  #   ... now we are safe to create the index
+  create_if_not_exists "${PREFIX}datahub_usage_event-$INDEX_SUFFIX" aws_es_index.json
 }
 
 if [[ $DATAHUB_ANALYTICS_ENABLED == true ]]; then
