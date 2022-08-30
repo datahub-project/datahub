@@ -14,22 +14,17 @@ from datahub.ingestion.api.workunit import MetadataWorkUnit, UsageStatsWorkUnit
 from datahub.metadata.com.linkedin.pegasus2avro.metadata.snapshot import DatasetSnapshot
 from datahub.metadata.com.linkedin.pegasus2avro.mxe import MetadataChangeEvent
 from datahub.metadata.schema_classes import (
-    BooleanTypeClass,
     BrowsePathsClass,
     DatasetPropertiesClass,
-    NumberTypeClass,
+    KafkaSchemaClass,
+    OwnershipSourceTypeClass,
+    OwnershipTypeClass,
     SchemaFieldClass,
     SchemaFieldDataTypeClass,
     SchemalessClass,
-    KafkaSchemaClass,
     SchemaMetadataClass,
-    StringTypeClass,
-    BytesTypeClass,
-    DateTypeClass,
-    NullTypeClass,
-    OwnershipSourceTypeClass,
-    OwnershipTypeClass,
 )
+from src.datahub.ingestion.source.ib.ib_common import get_type_class
 
 logger = logging.getLogger(__name__)
 
@@ -91,7 +86,7 @@ def map_snapshot(table: OrientRecord) -> MetadataWorkUnit:
         name=name,
         description=table.oRecordData.get("description"),
         customProperties=table.oRecordData.get("customFields"),
-        qualifiedName=f"{'.'.join(parents)}.{name}"
+        qualifiedName=f"{'.'.join(parents)}.{name}",
     )
 
     browse_paths = BrowsePathsClass([f"/prod/{platform}/{'/'.join(parents)}/{name}"])
@@ -108,9 +103,11 @@ def map_snapshot(table: OrientRecord) -> MetadataWorkUnit:
 
     technical_owner_name = table.oRecordData.get("dbTechnicalOwner")
     if technical_owner_name:
-        ownership = builder.make_ownership_aspect_from_urn_list([builder.make_group_urn(technical_owner_name)],
-                                                                OwnershipSourceTypeClass.SERVICE,
-                                                                OwnershipTypeClass.TECHNICAL_OWNER)
+        ownership = builder.make_ownership_aspect_from_urn_list(
+            [builder.make_group_urn(technical_owner_name)],
+            OwnershipSourceTypeClass.SERVICE,
+            OwnershipTypeClass.TECHNICAL_OWNER,
+        )
         aspects = [properties, browse_paths, schema, ownership]
 
     else:
@@ -127,37 +124,13 @@ def map_snapshot(table: OrientRecord) -> MetadataWorkUnit:
 
 def map_column(column: Dict[str, str]) -> SchemaFieldClass:
     data_type = column.get("dataType")
-    data_type = data_type.lower() if data_type is not None else "undefined"
-    type_class = get_type_class(data_type)
 
     return SchemaFieldClass(
         fieldPath=column["name"],
         description=column.get("description"),
-        type=SchemaFieldDataTypeClass(type=type_class),
+        type=SchemaFieldDataTypeClass(type=get_type_class(data_type)),
         nativeDataType=data_type,
     )
-
-
-def get_type_class(type_str: str):
-    type_class: Union[
-        "StringTypeClass", "BooleanTypeClass", "NumberTypeClass", "BytesTypeClass", "DateTypeClass", "NullTypeClass"]
-    if type_str in ["string",
-                    "char", "nchar",
-                    "varchar", "varchar(n)", "varchar(max)",
-                    "nvarchar", "nvarchar(max)",
-                    "text"]:
-        return StringTypeClass()
-    elif type_str in ["bit", "boolean"]:
-        return BooleanTypeClass()
-    elif type_str in ["integer", "int", "tinyint", "smallint", "bigint",
-                      "float", "real", "decimal", "numeric", "money"]:
-        return NumberTypeClass()
-    elif type_str in ["binary", "varbinary", "varbinary(max)"]:
-        return BytesTypeClass()
-    elif type_str in ["date", "smalldatetime", "datetime", "datetime2", "timestamp"]:
-        return DateTypeClass()
-    else:
-        return NullTypeClass()
 
 
 class DataCatalogSourceConfig(ConfigModel):
