@@ -142,3 +142,7 @@ mutation cancelIngestionExecutionRequest($input: CancelIngestionExecutionRequest
 mutation createTestConnectionRequest($input: CreateTestConnectionRequestInput!) {
     createTestConnectionRequest(input: $input)
 }
+
+mutation rollbackIngestion($input: RollbackIngestionInput!) {
+    rollbackIngestion(input: $input)
+}
