@@ -77,6 +77,8 @@ public class Constants {
   public static final String CORP_USER_STATUS_ASPECT_NAME = "corpUserStatus";
   public static final String CORP_USER_CREDENTIALS_ASPECT_NAME = "corpUserCredentials";
 
+  public static final String CORP_USER_SETTINGS_ASPECT_NAME = "corpUserSettings";
+
   // Group
   public static final String CORP_GROUP_KEY_ASPECT_NAME = "corpGroupKey";
   public static final String CORP_GROUP_INFO_ASPECT_NAME = "corpGroupInfo";
