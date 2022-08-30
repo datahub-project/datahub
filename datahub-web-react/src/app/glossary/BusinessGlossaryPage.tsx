@@ -45,8 +45,18 @@ export const MIN_BROWSWER_WIDTH = 200;
 
 function BusinessGlossaryPage() {
     const [browserWidth, setBrowserWidth] = useState(window.innerWidth * 0.2);
-    const { data: termsData, refetch: refetchForTerms, loading: termsLoading } = useGetRootGlossaryTermsQuery();
-    const { data: nodesData, refetch: refetchForNodes, loading: nodesLoading } = useGetRootGlossaryNodesQuery();
+    const {
+        data: termsData,
+        refetch: refetchForTerms,
+        loading: termsLoading,
+        error: termsError,
+    } = useGetRootGlossaryTermsQuery();
+    const {
+        data: nodesData,
+        refetch: refetchForNodes,
+        loading: nodesLoading,
+        error: nodesError,
+    } = useGetRootGlossaryNodesQuery();
     const entityRegistry = useEntityRegistry();
 
     const terms = termsData?.getRootGlossaryTerms?.terms.sort((termA, termB) =>
@@ -66,6 +76,9 @@ function BusinessGlossaryPage() {
             <GlossaryWrapper>
                 {(termsLoading || nodesLoading) && (
                     <Message type="loading" content="Loading Glossary..." style={{ marginTop: '10%' }} />
+                )}
+                {(termsError || nodesError) && (
+                    <Message type="error" content="Failed to load glossary! An unexpected error occurred." />
                 )}
                 <BrowserWrapper width={browserWidth}>
                     <GlossarySearch />
@@ -93,7 +106,12 @@ function BusinessGlossaryPage() {
                     </HeaderWrapper>
                     {hasTermsOrNodes && <GlossaryEntitiesList nodes={nodes || []} terms={terms || []} />}
                     {!(termsLoading || nodesLoading) && !hasTermsOrNodes && (
-                        <EmptyGlossarySection refetchForTerms={refetchForTerms} refetchForNodes={refetchForNodes} />
+                        <EmptyGlossarySection
+                            title="Empty Glossary"
+                            description="Create Terms and Term Groups to organize data assets using a shared vocabulary."
+                            refetchForTerms={refetchForTerms}
+                            refetchForNodes={refetchForNodes}
+                        />
                     )}
                 </MainContentWrapper>
             </GlossaryWrapper>

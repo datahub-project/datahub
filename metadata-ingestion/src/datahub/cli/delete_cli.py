@@ -23,9 +23,6 @@ from datahub.upgrade import upgrade
 
 logger = logging.getLogger(__name__)
 
-ELASTIC_MAX_PAGE_SIZE = 10000
-
-RUNS_TABLE_COLUMNS = ["runId", "rows", "created at"]
 RUN_TABLE_COLUMNS = ["urn", "aspect name", "created at"]
 
 UNKNOWN_NUM_RECORDS = -1

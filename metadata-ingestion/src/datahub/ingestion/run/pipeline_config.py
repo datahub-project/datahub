@@ -9,12 +9,17 @@ from datahub.cli.cli_utils import get_url_and_token
 from datahub.configuration import config_loader
 from datahub.configuration.common import ConfigModel, DynamicTypedConfig
 from datahub.ingestion.graph.client import DatahubClientConfig
+from datahub.ingestion.sink.file import FileSinkConfig
 
 logger = logging.getLogger(__name__)
+
+# Sentinel value used to check if the run ID is the default value.
+DEFAULT_RUN_ID = "__DEFAULT_RUN_ID"
 
 
 class SourceConfig(DynamicTypedConfig):
     extractor: str = "generic"
+    extractor_config: dict = Field(default_factory=dict)
 
 
 class ReporterConfig(DynamicTypedConfig):
@@ -22,6 +27,14 @@ class ReporterConfig(DynamicTypedConfig):
         False,
         description="Whether the reporter is a required reporter or not. If not required, then configuration and reporting errors will be treated as warnings, not errors",
     )
+
+
+class FailureLoggingConfig(ConfigModel):
+    enabled: bool = Field(
+        False,
+        description="When enabled, records that fail to be sent to DataHub are logged to disk",
+    )
+    log_config: Optional[FileSinkConfig] = None
 
 
 class PipelineConfig(ConfigModel):
@@ -33,9 +46,10 @@ class PipelineConfig(ConfigModel):
     sink: DynamicTypedConfig
     transformers: Optional[List[DynamicTypedConfig]]
     reporting: List[ReporterConfig] = []
-    run_id: str = "__DEFAULT_RUN_ID"
+    run_id: str = DEFAULT_RUN_ID
     datahub_api: Optional[DatahubClientConfig] = None
     pipeline_name: Optional[str] = None
+    failure_log: FailureLoggingConfig = FailureLoggingConfig()
 
     _raw_dict: Optional[
         dict
@@ -45,7 +59,7 @@ class PipelineConfig(ConfigModel):
     def run_id_should_be_semantic(
         cls, v: Optional[str], values: Dict[str, Any], **kwargs: Any
     ) -> str:
-        if v == "__DEFAULT_RUN_ID":
+        if v == DEFAULT_RUN_ID:
             if "source" in values and hasattr(values["source"], "type"):
                 source_type = values["source"].type
                 current_time = datetime.datetime.now().strftime("%Y_%m_%d-%H_%M_%S")

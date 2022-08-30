@@ -35,7 +35,8 @@ framework_common = {
     "entrypoints",
     "docker",
     "expandvars>=0.6.5",
-    "avro-gen3==0.7.4",
+    "avro-gen3==0.7.5",
+    # "avro-gen3 @ git+https://github.com/acryldata/avro_gen@master#egg=avro-gen3",
     "avro>=1.10.2,<1.11",
     "python-dateutil>=2.8.0",
     "stackprinter>=0.2.6",
@@ -56,6 +57,7 @@ framework_common = {
     "packaging",
     "aiohttp<4",
     "cached_property",
+    "ijson",
 }
 
 kafka_common = {
@@ -254,7 +256,8 @@ plugins: Dict[str, Set[str]] = {
         # - 0.6.11 adds support for table comments and column comments,
         #   and also releases HTTP and HTTPS transport schemes
         # - 0.6.12 adds support for Spark Thrift Server
-        "acryl-pyhive[hive]>=0.6.13"
+        "acryl-pyhive[hive]>=0.6.13",
+        "databricks-dbapi",
     },
     "iceberg": iceberg_common,
     "kafka": {*kafka_common, *kafka_protobuf},
@@ -266,7 +269,7 @@ plugins: Dict[str, Set[str]] = {
     | {"lkml>=1.1.2", "sql-metadata==2.2.2", "sqllineage==1.3.5"},
     "metabase": {"requests", "sqllineage==1.3.5"},
     "mode": {"requests", "sqllineage==1.3.5", "tenacity>=8.0.1"},
-    "mongodb": {"pymongo>=3.11", "packaging"},
+    "mongodb": {"pymongo[srv]>=3.11", "packaging"},
     "mssql": sql_common | {"sqlalchemy-pytds>=0.3"},
     "mssql-odbc": sql_common | {"pyodbc"},
     "mysql": sql_common | {"pymysql>=1.0.2"},

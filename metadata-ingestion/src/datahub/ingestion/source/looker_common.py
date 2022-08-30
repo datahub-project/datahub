@@ -228,6 +228,7 @@ class ViewFieldType(Enum):
 @dataclass
 class ViewField:
     name: str
+    label: Optional[str]
     type: str
     description: str
     field_type: ViewFieldType
@@ -427,6 +428,26 @@ class LookerUtil:
         ]
 
     @staticmethod
+    def view_field_to_schema_field(
+        field: ViewField,
+        reporter: SourceReport,
+        tag_measures_and_dimensions: bool = True,
+    ) -> SchemaField:
+        return SchemaField(
+            fieldPath=field.name,
+            type=LookerUtil._get_field_type(field.type, reporter),
+            nativeDataType=field.type,
+            label=field.label,
+            description=field.description
+            if tag_measures_and_dimensions is True
+            else f"{field.field_type.value}. {field.description}",
+            globalTags=LookerUtil._get_tags_from_field_type(field.field_type, reporter)
+            if tag_measures_and_dimensions is True
+            else None,
+            isPartOfKey=field.is_primary_key,
+        )
+
+    @staticmethod
     def _get_fields_and_primary_keys(
         view_fields: List[ViewField],
         reporter: SourceReport,
@@ -435,19 +456,8 @@ class LookerUtil:
         primary_keys: List = []
         fields = []
         for field in view_fields:
-            schema_field = SchemaField(
-                fieldPath=field.name,
-                type=LookerUtil._get_field_type(field.type, reporter),
-                nativeDataType=field.type,
-                description=f"{field.description}"
-                if tag_measures_and_dimensions is True
-                else f"{field.field_type.value}. {field.description}",
-                globalTags=LookerUtil._get_tags_from_field_type(
-                    field.field_type, reporter
-                )
-                if tag_measures_and_dimensions is True
-                else None,
-                isPartOfKey=field.is_primary_key,
+            schema_field = LookerUtil.view_field_to_schema_field(
+                field, reporter, tag_measures_and_dimensions
             )
             fields.append(schema_field)
             if field.is_primary_key:
@@ -622,6 +632,7 @@ class LookerExplore:
                             view_fields.append(
                                 ViewField(
                                     name=dim_field.name,
+                                    label=dim_field.label_short,
                                     description=dim_field.description
                                     if dim_field.description
                                     else "",
@@ -644,6 +655,7 @@ class LookerExplore:
                             view_fields.append(
                                 ViewField(
                                     name=measure_field.name,
+                                    label=measure_field.label_short,
                                     description=measure_field.description
                                     if measure_field.description
                                     else "",

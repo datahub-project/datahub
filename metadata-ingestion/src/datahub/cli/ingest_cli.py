@@ -31,8 +31,6 @@ from datahub.utilities import memory_leak_detector
 
 logger = logging.getLogger(__name__)
 
-ELASTIC_MAX_PAGE_SIZE = 10000
-
 RUNS_TABLE_COLUMNS = ["runId", "rows", "created at"]
 RUN_TABLE_COLUMNS = ["urn", "aspect name", "created at"]
 
@@ -209,7 +207,7 @@ def _test_source_connection(report_to: Optional[str], pipeline_config: dict) -> 
     try:
         connection_report = ConnectionManager().test_source_connection(pipeline_config)
         logger.info(connection_report.as_json())
-        if report_to:
+        if report_to and report_to != "datahub":
             with open(report_to, "w") as out_fp:
                 out_fp.write(connection_report.as_json())
             logger.info(f"Wrote report successfully to {report_to}")
@@ -219,10 +217,6 @@ def _test_source_connection(report_to: Optional[str], pipeline_config: dict) -> 
         if connection_report:
             logger.error(connection_report.as_json())
         sys.exit(1)
-
-
-def get_runs_url(gms_host: str) -> str:
-    return f"{gms_host}/runs?action=rollback"
 
 
 def parse_restli_response(response):
