@@ -26,6 +26,7 @@ import { LineageTab } from '../shared/tabs/Lineage/LineageTab';
 import { DashboardStatsSummarySubHeader } from './profile/DashboardStatsSummarySubHeader';
 import { FIELDS_TO_HIGHLIGHT } from '../dataset/search/highlights';
 import { getMatchPrioritizingPrimary } from '../shared/utils';
+import { InputFieldsTab } from '../shared/tabs/Entity/InputFieldsTab';
 
 /**
  * Definition of the DataHub Dashboard entity.
@@ -84,6 +85,16 @@ export class DashboardEntity implements Entity<Dashboard> {
                 component: DashboardStatsSummarySubHeader,
             }}
             tabs={[
+                {
+                    name: 'Fields',
+                    component: InputFieldsTab,
+                    display: {
+                        visible: (_, dashboard: GetDashboardQuery) =>
+                            (dashboard?.dashboard?.inputFields?.fields?.length || 0) > 0,
+                        enabled: (_, dashboard: GetDashboardQuery) =>
+                            (dashboard?.dashboard?.inputFields?.fields?.length || 0) > 0,
+                    },
+                },
                 {
                     name: 'Documentation',
                     component: DocumentationTab,

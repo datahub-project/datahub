@@ -22,6 +22,7 @@ import { LineageTab } from '../shared/tabs/Lineage/LineageTab';
 import { ChartStatsSummarySubHeader } from './profile/stats/ChartStatsSummarySubHeader';
 import { getMatchPrioritizingPrimary } from '../shared/utils';
 import { FIELDS_TO_HIGHLIGHT } from '../dataset/search/highlights';
+import { InputFieldsTab } from '../shared/tabs/Entity/InputFieldsTab';
 
 /**
  * Definition of the DataHub Chart entity.
@@ -80,6 +81,14 @@ export class ChartEntity implements Entity<Chart> {
                 component: ChartStatsSummarySubHeader,
             }}
             tabs={[
+                {
+                    name: 'Fields',
+                    component: InputFieldsTab,
+                    display: {
+                        visible: (_, chart: GetChartQuery) => (chart?.chart?.inputFields?.fields?.length || 0) > 0,
+                        enabled: (_, chart: GetChartQuery) => (chart?.chart?.inputFields?.fields?.length || 0) > 0,
+                    },
+                },
                 {
                     name: 'Documentation',
                     component: DocumentationTab,
