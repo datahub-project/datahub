@@ -263,8 +263,9 @@ public class EntityResource extends CollectionResourceTaskTemplate<String, Entit
 
     log.info("GET SEARCH RESULTS for {} with query {}", entityName, input);
     // TODO - change it to use _searchService once we are confident on it's latency
-    return RestliUtil.toTask(() -> _entitySearchService.search(entityName, input, filter, sortCriterion, start, count),
-        MetricRegistry.name(this.getClass(), "search"));
+    return RestliUtil.toTask(
+        () -> validateSearchResult(_entitySearchService.search(entityName, input, filter, sortCriterion, start, count),
+            _entityService), MetricRegistry.name(this.getClass(), "search"));
   }
 
   @Action(name = ACTION_SEARCH_ACROSS_ENTITIES)
@@ -276,9 +277,9 @@ public class EntityResource extends CollectionResourceTaskTemplate<String, Entit
       @ActionParam(PARAM_COUNT) int count) {
     List<String> entityList = entities == null ? Collections.emptyList() : Arrays.asList(entities);
     log.info("GET SEARCH RESULTS ACROSS ENTITIES for {} with query {}", entityList, input);
-    return RestliUtil.toTask(
-        () -> _searchService.searchAcrossEntities(entityList, input, filter, sortCriterion, start, count, null),
-        "searchAcrossEntities");
+    return RestliUtil.toTask(() -> validateSearchResult(
+        _searchService.searchAcrossEntities(entityList, input, filter, sortCriterion, start, count, null),
+        _entityService), "searchAcrossEntities");
   }
 
   @Action(name = ACTION_SEARCH_ACROSS_LINEAGE)
@@ -294,9 +295,9 @@ public class EntityResource extends CollectionResourceTaskTemplate<String, Entit
     List<String> entityList = entities == null ? Collections.emptyList() : Arrays.asList(entities);
     log.info("GET SEARCH RESULTS ACROSS RELATIONSHIPS for source urn {}, direction {}, entities {} with query {}",
         urnStr, direction, entityList, input);
-    return RestliUtil.toTask(
-        () -> _lineageSearchService.searchAcrossLineage(urn, LineageDirection.valueOf(direction), entityList,
-            input, maxHops, filter, sortCriterion, start, count), "searchAcrossRelationships");
+    return RestliUtil.toTask(() -> validateLineageSearchResult(
+        _lineageSearchService.searchAcrossLineage(urn, LineageDirection.valueOf(direction), entityList, input, maxHops,
+            filter, sortCriterion, start, count), _entityService), "searchAcrossRelationships");
   }
 
   @Action(name = ACTION_LIST)
@@ -308,8 +309,8 @@ public class EntityResource extends CollectionResourceTaskTemplate<String, Entit
       @ActionParam(PARAM_COUNT) int count) {
 
     log.info("GET LIST RESULTS for {} with filter {}", entityName, filter);
-    return RestliUtil.toTask(
-        () -> toListResult(_entitySearchService.filter(entityName, filter, sortCriterion, start, count)),
+    return RestliUtil.toTask(() -> validateListResult(
+            toListResult(_entitySearchService.filter(entityName, filter, sortCriterion, start, count)), _entityService),
         MetricRegistry.name(this.getClass(), "filter"));
   }
 
@@ -332,7 +333,8 @@ public class EntityResource extends CollectionResourceTaskTemplate<String, Entit
       @ActionParam(PARAM_START) int start, @ActionParam(PARAM_LIMIT) int limit) {
 
     log.info("GET BROWSE RESULTS for {} at path {}", entityName, path);
-    return RestliUtil.toTask(() -> _entitySearchService.browse(entityName, path, filter, start, limit),
+    return RestliUtil.toTask(
+        () -> validateBrowseResult(_entitySearchService.browse(entityName, path, filter, start, limit), _entityService),
         MetricRegistry.name(this.getClass(), "browse"));
   }
 
@@ -493,8 +495,9 @@ public class EntityResource extends CollectionResourceTaskTemplate<String, Entit
       @ActionParam(PARAM_COUNT) int count) {
 
     log.info("FILTER RESULTS for {} with filter {}", entityName, filter);
-    return RestliUtil.toTask(() -> _entitySearchService.filter(entityName, filter, sortCriterion, start, count),
-        MetricRegistry.name(this.getClass(), "search"));
+    return RestliUtil.toTask(
+        () -> validateSearchResult(_entitySearchService.filter(entityName, filter, sortCriterion, start, count),
+            _entityService), MetricRegistry.name(this.getClass(), "search"));
   }
 
   @Action(name = ACTION_EXISTS)
@@ -503,7 +506,6 @@ public class EntityResource extends CollectionResourceTaskTemplate<String, Entit
   public Task<Boolean> exists(@ActionParam(PARAM_URN) @Nonnull String urnStr) throws URISyntaxException {
     log.info("EXISTS for {}", urnStr);
     Urn urn = Urn.createFromString(urnStr);
-    return RestliUtil.toTask(() -> _entityService.exists(urn),
-        MetricRegistry.name(this.getClass(), "exists"));
+    return RestliUtil.toTask(() -> _entityService.exists(urn), MetricRegistry.name(this.getClass(), "exists"));
   }
 }
