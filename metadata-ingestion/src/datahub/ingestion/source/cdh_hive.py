@@ -2,9 +2,9 @@
 import json
 import logging
 import time
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from datetime import datetime, timedelta
-from typing import Any, Dict, Iterable, List, Type
+from typing import Any, Dict, Iterable, List, Optional, Type
 
 import jaydebeapi
 import jpype
@@ -13,10 +13,21 @@ from krbcontext.context import krbContext
 from pandas_profiling import ProfileReport
 
 from datahub.configuration.common import AllowDenyPattern, ConfigModel
+from datahub.emitter.mce_builder import (
+    make_data_platform_urn,
+    make_dataplatform_instance_urn,
+    make_dataset_urn_with_platform_instance,
+)
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
-from datahub.ingestion.api.source import Source, SourceReport
+from datahub.emitter.mcp_builder import (
+    DatabaseKey,
+    add_dataset_to_container,
+    gen_containers,
+)
+from datahub.ingestion.api.source import Source
 from datahub.ingestion.api.workunit import MetadataWorkUnit
-from datahub.ingestion.source.kudu import PPProfilingConfig
+from datahub.ingestion.source.kudu import KuduDBSourceReport, PPProfilingConfig
+from datahub.ingestion.source.sql.sql_common import SqlWorkUnit
 from datahub.metadata.com.linkedin.pegasus2avro.common import AuditStamp
 from datahub.metadata.com.linkedin.pegasus2avro.metadata.snapshot import DatasetSnapshot
 from datahub.metadata.com.linkedin.pegasus2avro.mxe import MetadataChangeEvent
@@ -35,12 +46,11 @@ from datahub.metadata.com.linkedin.pegasus2avro.schema import (
 )
 from datahub.metadata.schema_classes import (
     ChangeTypeClass,
+    DataPlatformInstanceClass,
     DatasetFieldProfileClass,
     DatasetProfileClass,
     DatasetPropertiesClass,
-    OwnerClass,
-    OwnershipClass,
-    OwnershipTypeClass,
+    StatusClass,
 )
 
 logger: logging.Logger = logging.getLogger(__name__)
@@ -51,22 +61,12 @@ DEFAULT_ENV = "PROD"
 
 
 @dataclass
-class CDH_HiveDBSourceReport(SourceReport):
-    tables_scanned: int = 0
-    views_scanned: int = 0
-    filtered: List[str] = field(default_factory=list)
+class CDH_HiveDBSourceReport(KuduDBSourceReport):
+    """
+    recycle from kudu
+    """
 
-    def report_entity_scanned(self, name: str, ent_type: str = "table") -> None:
-        """
-        Entity could be a view or a table
-        """
-        if ent_type == "table":
-            self.tables_scanned += 1
-        else:
-            raise KeyError(f"Unknown entity {ent_type}.")
-
-    def report_dropped(self, ent_name: str) -> None:
-        self.filtered.append(ent_name)
+    pass
 
 
 mapping: Dict[str, Type] = {
@@ -156,6 +156,7 @@ class CDHHiveConfig(ConfigModel):
     table_pattern: AllowDenyPattern = AllowDenyPattern.allow_all()
     profile_pattern: AllowDenyPattern = AllowDenyPattern.allow_all()
     profiling: PPProfilingConfig = PPProfilingConfig()
+    platform_instance: Optional[str] = None
 
     def get_url(self):
         if self.kerberos:
@@ -183,6 +184,62 @@ class CDH_HiveSource(Source):
         config = CDHHiveConfig.parse_obj(config_dict)
         return cls(config, ctx)
 
+    def get_dataplatform_instance_aspect(
+        self, dataset_urn: str
+    ) -> Optional[SqlWorkUnit]:
+        # If we are a platform instance based source, emit the instance aspect
+        if self.config.platform_instance:
+            mcp = MetadataChangeProposalWrapper(
+                entityType="dataset",
+                changeType=ChangeTypeClass.UPSERT,
+                entityUrn=dataset_urn,
+                aspectName="dataPlatformInstance",
+                aspect=DataPlatformInstanceClass(
+                    platform=make_data_platform_urn(self.platform),
+                    instance=make_dataplatform_instance_urn(
+                        self.platform, self.config.platform_instance
+                    ),
+                ),
+            )
+            wu = SqlWorkUnit(id=f"{dataset_urn}-dataPlatformInstance", mcp=mcp)
+            self.report.report_workunit(wu)
+            return wu
+        else:
+            return None
+
+    def gen_database_key(self, database: str) -> DatabaseKey:
+        return DatabaseKey(
+            database=database,
+            platform=self.platform,
+            instance=self.config.platform_instance
+            if self.config.platform_instance is not None
+            else self.config.env,
+        )
+
+    def add_table_to_schema_container(
+        self, dataset_urn: str, schema: str
+    ) -> Iterable[MetadataWorkUnit]:
+        schema_container_key = self.gen_database_key(schema)
+        container_workunits = add_dataset_to_container(
+            container_key=schema_container_key,
+            dataset_urn=dataset_urn,
+        )
+        for wu in container_workunits:
+            self.report.report_workunit(wu)
+            yield wu
+
+    def gen_database_containers(self, database: str) -> Iterable[MetadataWorkUnit]:
+
+        database_container_key = self.gen_database_key(database)
+        container_workunits = gen_containers(
+            container_key=database_container_key,
+            name=database,
+            sub_types=["DATABASE"],
+        )
+        for wu in container_workunits:
+            self.report.report_workunit(wu)
+            yield wu
+
     def get_workunits(self) -> Iterable[MetadataWorkUnit]:
         sql_config = self.config
 
@@ -207,6 +264,7 @@ class CDH_HiveSource(Source):
                     self.report.report_dropped(schema)
                     logger.error(f"dropped {schema}")
                     continue
+                yield from self.gen_database_containers(schema)
                 yield from self.loop_tables(db_cursor, schema, sql_config)
                 if sql_config.profiling.enabled:
                     yield from self.loop_profiler(db_cursor, schema, sql_config)
@@ -238,6 +296,7 @@ class CDH_HiveSource(Source):
                     if not sql_config.schema_pattern.allowed(schema):
                         self.report.report_dropped(schema)
                         continue
+                    yield from self.gen_database_containers(schema)
                     yield from self.loop_tables(db_cursor, schema, sql_config)
                     if sql_config.profiling.enabled:
                         yield from self.loop_profiler(db_cursor, schema, sql_config)
@@ -270,15 +329,15 @@ class CDH_HiveSource(Source):
             else:  # flake8: noqa
                 if sql_config.profiling.query_date and not sql_config.profiling.limit:
                     db_cursor.execute(
-                        f"""select * from {dataset_name} where 
+                        f"""select * from {dataset_name} where
                         {sql_config.profiling.query_date_field}>='{sql_config.profiling.query_date}'
-                        and {sql_config.profiling.query_date_field} < {upper_date_limit}"""  # noqa
+                        and {sql_config.profiling.query_date_field} < '{upper_date_limit}'"""  # noqa
                     )
                 else:
                     db_cursor.execute(
-                        f"""select * from {dataset_name} where 
+                        f"""select * from {dataset_name} where
                         {sql_config.profiling.query_date_field}>='{sql_config.profiling.query_date}'
-                        and {sql_config.profiling.query_date_field} < {upper_date_limit} 
+                        and {sql_config.profiling.query_date_field} < '{upper_date_limit}'
                         limit {sql_config.profiling.limit}"""  # noqa
                     )
             columns = [desc[0] for desc in db_cursor.description]
@@ -388,24 +447,20 @@ class CDH_HiveSource(Source):
                     properties["table_location"] = item[1].strip()
                 if item[0].strip() == "Table Type:":
                     properties["table_type"] = item[1].strip()
-                if item[0].strip() == "Owner:":
-                    table_owner = item[1].strip()
             for item in ["table_location", "table_type"]:
                 if item not in properties:
                     properties[item] = ""
 
-            dataset_snapshot = DatasetSnapshot(
-                urn=f"urn:li:dataset:(urn:li:dataPlatform:{self.platform},{dataset_name},{self.config.env})",
-                aspects=[],
+            dataset_urn = make_dataset_urn_with_platform_instance(
+                self.platform,
+                dataset_name,
+                self.config.platform_instance,
+                self.config.env,
             )
-            if table_owner:
-                data_owner = f"urn:li:corpuser:{table_owner}"
-                owner_properties = OwnershipClass(
-                    owners=[
-                        OwnerClass(owner=data_owner, type=OwnershipTypeClass.DATAOWNER)
-                    ]
-                )
-                dataset_snapshot.aspects.append(owner_properties)
+            dataset_snapshot = DatasetSnapshot(
+                urn=dataset_urn,
+                aspects=[StatusClass(removed=False)],
+            )
             # kudu has no table comments.
             dataset_properties = DatasetPropertiesClass(
                 description="",
@@ -420,7 +475,10 @@ class CDH_HiveSource(Source):
 
             mce = MetadataChangeEvent(proposedSnapshot=dataset_snapshot)
             wu = MetadataWorkUnit(id=dataset_name, mce=mce)
-
+            dpi_aspect = self.get_dataplatform_instance_aspect(dataset_urn=dataset_urn)
+            if dpi_aspect:
+                yield dpi_aspect
+            yield from self.add_table_to_schema_container(dataset_urn, schema)
             self.report.report_workunit(wu)
 
             yield wu

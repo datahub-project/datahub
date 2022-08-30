@@ -4,7 +4,7 @@ import logging
 import time
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta
-from typing import Any, Dict, Iterable, List, Optional, Type
+from typing import Any, Dict, Iterable, List, Optional, Type, Union
 
 import jaydebeapi
 import pandas as pd
@@ -12,9 +12,20 @@ from krbcontext.context import krbContext
 from pandas_profiling import ProfileReport
 
 from datahub.configuration.common import AllowDenyPattern, ConfigModel
+from datahub.emitter.mce_builder import (
+    make_data_platform_urn,
+    make_dataplatform_instance_urn,
+    make_dataset_urn_with_platform_instance,
+)
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
+from datahub.emitter.mcp_builder import (
+    DatabaseKey,
+    add_dataset_to_container,
+    gen_containers,
+)
 from datahub.ingestion.api.source import Source, SourceReport
 from datahub.ingestion.api.workunit import MetadataWorkUnit
+from datahub.ingestion.source.sql.sql_common import SqlWorkUnit
 from datahub.metadata.com.linkedin.pegasus2avro.common import AuditStamp
 from datahub.metadata.com.linkedin.pegasus2avro.metadata.snapshot import DatasetSnapshot
 from datahub.metadata.com.linkedin.pegasus2avro.mxe import MetadataChangeEvent
@@ -31,12 +42,11 @@ from datahub.metadata.com.linkedin.pegasus2avro.schema import (
 )
 from datahub.metadata.schema_classes import (
     ChangeTypeClass,
+    DataPlatformInstanceClass,
     DatasetFieldProfileClass,
     DatasetProfileClass,
     DatasetPropertiesClass,
-    OwnerClass,
-    OwnershipClass,
-    OwnershipTypeClass,
+    StatusClass,
 )
 
 logger: logging.Logger = logging.getLogger(__name__)
@@ -163,6 +173,7 @@ class KuduConfig(ConfigModel):
     table_pattern: AllowDenyPattern = AllowDenyPattern.allow_all()
     profile_pattern: AllowDenyPattern = AllowDenyPattern.allow_all()
     profiling: PPProfilingConfig = PPProfilingConfig()
+    platform_instance: Optional[str] = None
 
     def get_url(self):
         if self.kerberos:
@@ -193,7 +204,63 @@ class KuduSource(Source):
         config = KuduConfig.parse_obj(config_dict)
         return cls(config, ctx)
 
-    def get_workunits(self) -> Iterable[MetadataWorkUnit]:
+    def get_dataplatform_instance_aspect(
+        self, dataset_urn: str
+    ) -> Optional[SqlWorkUnit]:
+        # If we are a platform instance based source, emit the instance aspect
+        if self.config.platform_instance:
+            mcp = MetadataChangeProposalWrapper(
+                entityType="dataset",
+                changeType=ChangeTypeClass.UPSERT,
+                entityUrn=dataset_urn,
+                aspectName="dataPlatformInstance",
+                aspect=DataPlatformInstanceClass(
+                    platform=make_data_platform_urn(self.platform),
+                    instance=make_dataplatform_instance_urn(
+                        self.platform, self.config.platform_instance
+                    ),
+                ),
+            )
+            wu = SqlWorkUnit(id=f"{dataset_urn}-dataPlatformInstance", mcp=mcp)
+            self.report.report_workunit(wu)
+            return wu
+        else:
+            return None
+
+    def gen_database_key(self, database: str) -> DatabaseKey:
+        return DatabaseKey(
+            database=database,
+            platform=self.platform,
+            instance=self.config.platform_instance
+            if self.config.platform_instance is not None
+            else self.config.env,
+        )
+
+    def add_table_to_schema_container(
+        self, dataset_urn: str, schema: str
+    ) -> Iterable[MetadataWorkUnit]:
+        schema_container_key = self.gen_database_key(schema)
+        container_workunits = add_dataset_to_container(
+            container_key=schema_container_key,
+            dataset_urn=dataset_urn,
+        )
+        for wu in container_workunits:
+            self.report.report_workunit(wu)
+            yield wu
+
+    def gen_database_containers(self, database: str) -> Iterable[MetadataWorkUnit]:
+
+        database_container_key = self.gen_database_key(database)
+        container_workunits = gen_containers(
+            container_key=database_container_key,
+            name=database,
+            sub_types=["DATABASE"],
+        )
+        for wu in container_workunits:
+            self.report.report_workunit(wu)
+            yield wu
+
+    def get_workunits(self) -> Iterable[Union[SqlWorkUnit, MetadataWorkUnit]]:
         sql_config = self.config
 
         (url, jar_loc) = sql_config.get_url()
@@ -213,6 +280,7 @@ class KuduSource(Source):
                     self.report.report_dropped(schema)
                     logger.error(f"Schema {schema} is dropped from scan!")
                     continue
+                yield from self.gen_database_containers(schema)
                 yield from self.loop_tables(db_cursor, schema, sql_config)
                 if sql_config.profiling.enabled:
                     yield from self.loop_profiler(db_cursor, schema, sql_config)
@@ -236,6 +304,7 @@ class KuduSource(Source):
                     if not sql_config.schema_pattern.allowed(schema):
                         self.report.report_dropped(schema)
                         continue
+                    yield from self.gen_database_containers(schema)
                     yield from self.loop_tables(db_cursor, schema, sql_config)
                     if sql_config.profiling.enabled:
                         yield from self.loop_profiler(db_cursor, schema, sql_config)
@@ -268,15 +337,15 @@ class KuduSource(Source):
             else:
                 if sql_config.profiling.query_date and not sql_config.profiling.limit:
                     db_cursor.execute(
-                        f"""select * from {dataset_name} where 
+                        f"""select * from {dataset_name} where
                         {sql_config.profiling.query_date_field}>='{sql_config.profiling.query_date}'
-                        and {sql_config.profiling.query_date_field} < {upper_date_limit}"""  # noqa
+                        and {sql_config.profiling.query_date_field} < '{upper_date_limit}'"""  # noqa
                     )
                 else:
                     db_cursor.execute(
-                        f"""select * from {dataset_name} where 
+                        f"""select * from {dataset_name} where
                         {sql_config.profiling.query_date_field}>='{sql_config.profiling.query_date}'
-                        and {sql_config.profiling.query_date_field} < {upper_date_limit} 
+                        and {sql_config.profiling.query_date_field} < '{upper_date_limit}'
                         limit {sql_config.profiling.limit}"""  # noqa
                     )
             columns = [desc[0] for desc in db_cursor.description]
@@ -291,10 +360,19 @@ class KuduSource(Source):
                 interactions=None,
             )
             data_samples = self.getDFSamples(df)
+            if len(data_samples) == 0:
+                self.report.report_dropped(f"profile of {dataset_name}")
+                continue
             dataset_profile = self.populate_table_profile(profile, data_samples)
+            dataset_urn = make_dataset_urn_with_platform_instance(
+                self.platform,
+                dataset_name,
+                self.config.platform_instance,
+                self.config.env,
+            )
             mcp = MetadataChangeProposalWrapper(
                 entityType="dataset",
-                entityUrn=f"urn:li:dataset:(urn:li:dataPlatform:{self.platform},{dataset_name},{self.config.env})",
+                entityUrn=dataset_urn,
                 changeType=ChangeTypeClass.UPSERT,
                 aspectName="datasetProfile",
                 aspect=dataset_profile,
@@ -352,6 +430,7 @@ class KuduSource(Source):
         db_cursor.execute(f"show tables in {schema}")
         all_tables_raw = db_cursor.fetchall()
         all_tables = [item[0] for item in all_tables_raw]
+        # insert container here
         for table in all_tables:
             dataset_name = f"{schema}.{table}"
             if not sql_config.table_pattern.allowed(dataset_name):
@@ -386,33 +465,36 @@ class KuduSource(Source):
             table_info = table_info_raw[len(table_schema) + 3 :]
 
             properties = {}
-            table_owner = None
+            table_type = [
+                item[1].strip()
+                for item in table_info
+                if item[0].strip() == "Table Type:"
+            ]
+            if "VIRTUAL_VIEW" in table_type:
+                # this is a virtual view, drop
+                self.report.report_dropped(dataset_name)
+                continue
             for item in table_info:
                 if item[0].strip() == "Location:":
                     properties["table_location"] = item[1].strip()
                 if item[0].strip() == "Table Type:":
                     properties["table_type"] = item[1].strip()
-                if item[0].strip() == "Owner:":
-                    table_owner = item[1].strip()
                 if item[1]:
                     if item[1].strip() == "kudu.master_addresses":
                         properties["kudu_master"] = item[2].strip()
             for item in ["table_location", "table_type", "kudu_master"]:
                 if item not in properties:
                     properties[item] = ""
-
-            dataset_snapshot = DatasetSnapshot(
-                urn=f"urn:li:dataset:(urn:li:dataPlatform:{self.platform},{dataset_name},{self.config.env})",
-                aspects=[],
+            dataset_urn = make_dataset_urn_with_platform_instance(
+                self.platform,
+                dataset_name,
+                self.config.platform_instance,
+                self.config.env,
             )
-            if table_owner:
-                data_owner = f"urn:li:corpuser:{table_owner}"
-                owner_properties = OwnershipClass(
-                    owners=[
-                        OwnerClass(owner=data_owner, type=OwnershipTypeClass.DATAOWNER)
-                    ]
-                )
-                dataset_snapshot.aspects.append(owner_properties)
+            dataset_snapshot = DatasetSnapshot(
+                urn=dataset_urn,
+                aspects=[StatusClass(removed=False)],
+            )
             # kudu has no table comments.
             dataset_properties = DatasetPropertiesClass(
                 description="",
@@ -427,7 +509,10 @@ class KuduSource(Source):
 
             mce = MetadataChangeEvent(proposedSnapshot=dataset_snapshot)
             wu = MetadataWorkUnit(id=dataset_name, mce=mce)
-
+            dpi_aspect = self.get_dataplatform_instance_aspect(dataset_urn=dataset_urn)
+            if dpi_aspect:
+                yield dpi_aspect
+            yield from self.add_table_to_schema_container(dataset_urn, schema)
             self.report.report_workunit(wu)
 
             yield wu

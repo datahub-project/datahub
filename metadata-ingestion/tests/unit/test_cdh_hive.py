@@ -2,6 +2,7 @@ import logging
 import unittest
 from unittest.mock import Mock
 
+from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.cdh_hive import CDH_HiveSource, CDHHiveConfig
@@ -15,11 +16,11 @@ from datahub.metadata.com.linkedin.pegasus2avro.schema import (
 )
 from datahub.metadata.schema_classes import (
     AuditStampClass,
+    ContainerClass,
     DatasetPropertiesClass,
-    OwnerClass,
-    OwnershipClass,
     SchemaFieldDataTypeClass,
     SchemaMetadataClass,
+    StatusClass,
 )
 
 logger = logging.getLogger(__name__)
@@ -128,23 +129,32 @@ class CDHHiveSourceTest(unittest.TestCase):
         ctx = PipelineContext(run_id="test")
         src = CDH_HiveSource(CDHHiveConfig(), ctx)
         yield_dataset = src.loop_tables(mock_engine, "default", CDHHiveConfig())
-        generated_dataset = next(yield_dataset)  # type: ignore
+        generated_output = []
+        for item in yield_dataset:
+            generated_output.append(item)
         yield_profile = src.loop_profiler(mock_engine, "default", CDHHiveConfig())
         generated_profile = next(yield_profile)  # type: ignore
-        expected_dataset = MetadataWorkUnit(
+        expected_mcp = MetadataWorkUnit(
+            id="container-urn:li:container:80a9564e8e33aacbf9a023fa43b8ee03-to-urn:li:dataset:(urn:li:dataPlatform:hive,default.my_first_table,PROD)",
+            mcp=MetadataChangeProposalWrapper(
+                entityType="dataset",
+                changeType="UPSERT",
+                entityUrn="urn:li:dataset:(urn:li:dataPlatform:hive,default.my_first_table,PROD)",
+                entityKeyAspect=None,
+                auditHeader=None,
+                aspectName="container",
+                aspect=ContainerClass(
+                    container="urn:li:container:80a9564e8e33aacbf9a023fa43b8ee03"
+                ),
+            ),
+        )
+        expected_mce = MetadataWorkUnit(
             id="default.my_first_table",
             mce=MetadataChangeEvent(
                 proposedSnapshot=DatasetSnapshot(
                     urn="urn:li:dataset:(urn:li:dataPlatform:hive,default.my_first_table,PROD)",
                     aspects=[
-                        OwnershipClass(
-                            owners=[
-                                OwnerClass(
-                                    owner="urn:li:corpuser:root",
-                                    type="DATAOWNER",
-                                )
-                            ],
-                        ),
+                        StatusClass(removed=False),
                         DatasetPropertiesClass(
                             customProperties={
                                 "table_location": "hdfs://namenode:8020/user/hive/warehouse/my_first_table",
@@ -194,8 +204,8 @@ class CDHHiveSourceTest(unittest.TestCase):
             ),
         )
 
-        generated_profile.metadata.aspect.timestampMillis = 0
-        self.assertEqual(generated_dataset, expected_dataset)
+        self.assertEqual(generated_output[1], expected_mce)
+        self.assertEqual(generated_output[0], expected_mcp)
         gen_mcp = generated_profile.metadata
         gen_mcp_aspect = gen_mcp.aspect
         self.assertTrue(gen_mcp_aspect.validate())

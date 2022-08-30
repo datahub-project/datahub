@@ -514,5 +514,55 @@
       "type": "OTHERS",
       "logoUrl": "/assets/platforms/deltalakelogo.png"
     }
+  },
+  {
+    "urn": "urn:li:dataPlatform:file",
+    "aspect": {
+      "datasetNameDelimiter": "/",
+      "name": "file",
+      "displayName": "File-Based",
+      "type": "FILE_SYSTEM",
+      "logoUrl": "/assets/platforms/filelogo.png"
+    }
+  },
+  {
+    "urn": "urn:li:dataPlatform:kudu",
+    "aspect": {
+      "datasetNameDelimiter": ".",
+      "name": "kudu",
+      "displayName": "Kudu",
+      "type": "FILE_SYSTEM",
+      "logoUrl": "/assets/platforms/kudulogo.png"
+    }
+  },
+  {
+    "urn": "urn:li:dataPlatform:json",
+    "aspect": {
+      "datasetNameDelimiter": ".",
+      "name": "json",
+      "displayName": "JSON",
+      "type": "FILE_SYSTEM",
+      "logoUrl": "/assets/platforms/json_format.png"
+    }
+  },
+  {
+    "urn": "urn:li:dataPlatform:csv",
+    "aspect": {
+      "datasetNameDelimiter": ".",
+      "name": "csv",
+      "displayName": "CSV",
+      "type": "FILE_SYSTEM",
+      "logoUrl": "/assets/platforms/csv_format.png"
+    }
+  },
+  {
+    "urn": "urn:li:dataPlatform:solr",
+    "aspect": {
+      "datasetNameDelimiter": ".",
+      "name": "solr",
+      "displayName": "Solr",
+      "type": "FILE_SYSTEM",
+      "logoUrl": "/assets/platforms/solrlogo.png"
+    }
   }
 ]

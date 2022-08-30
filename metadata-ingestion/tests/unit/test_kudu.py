@@ -2,6 +2,7 @@ import logging
 import unittest
 from unittest.mock import Mock, patch
 
+from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.kudu import KuduConfig, KuduSource
@@ -15,11 +16,11 @@ from datahub.metadata.com.linkedin.pegasus2avro.schema import (
 )
 from datahub.metadata.schema_classes import (
     AuditStampClass,
+    ContainerClass,
     DatasetPropertiesClass,
-    OwnerClass,
-    OwnershipClass,
     SchemaFieldDataTypeClass,
     SchemaMetadataClass,
+    StatusClass,
 )
 
 logger = logging.getLogger(__name__)
@@ -155,24 +156,36 @@ class KuduSourceTest(unittest.TestCase):
         ctx = PipelineContext(run_id="test")
         src = KuduSource(KuduConfig(), ctx)
         yield_dataset = src.loop_tables(mock_engine, "default", KuduConfig())
-        generated_dataset = next(yield_dataset)  # type: ignore
+        generated_output = []
+        for item in yield_dataset:
+            generated_output.append(item)
+        logger.error("generated output is")
+        logger.error(generated_output[0])
+
         with patch.object(mock_engine, "description", [("id",), ("name",)]):
             yield_profile = src.loop_profiler(mock_engine, "default", KuduConfig())
             generated_profile = next(yield_profile)  # type: ignore
-        expected_dataset = MetadataWorkUnit(
+        expected_mcp = MetadataWorkUnit(
+            id="container-urn:li:container:49bf859a5c09dfbdb4cbbdeb96daf518-to-urn:li:dataset:(urn:li:dataPlatform:kudu,default.my_first_table,PROD)",
+            mcp=MetadataChangeProposalWrapper(
+                entityType="dataset",
+                changeType="UPSERT",
+                entityUrn="urn:li:dataset:(urn:li:dataPlatform:kudu,default.my_first_table,PROD)",
+                entityKeyAspect=None,
+                auditHeader=None,
+                aspectName="container",
+                aspect=ContainerClass(
+                    container="urn:li:container:49bf859a5c09dfbdb4cbbdeb96daf518"
+                ),
+            ),
+        )
+        expected_mce = MetadataWorkUnit(
             id="default.my_first_table",
             mce=MetadataChangeEvent(
                 proposedSnapshot=DatasetSnapshot(
                     urn="urn:li:dataset:(urn:li:dataPlatform:kudu,default.my_first_table,PROD)",
                     aspects=[
-                        OwnershipClass(
-                            owners=[
-                                OwnerClass(
-                                    owner="urn:li:corpuser:impala",
-                                    type="DATAOWNER",
-                                )
-                            ],
-                        ),
+                        StatusClass(removed=False),
                         DatasetPropertiesClass(
                             customProperties={
                                 "table_location": "file:/var/lib/impala/warehouse/my_first_table",
@@ -222,9 +235,7 @@ class KuduSourceTest(unittest.TestCase):
                 )
             ),
         )
-        generated_profile.metadata.aspect.timestampMillis = 0
-        self.assertEqual(generated_dataset, expected_dataset)
-        # self.assertEqual(generated_profile.metadata.aspect.rowCount, expected_profile.metadata.aspect.rowCount)
-        gen_mcp = generated_profile.metadata
-        gen_mcp_aspect = gen_mcp.aspect
-        self.assertTrue(gen_mcp_aspect.validate())
+        assert generated_output[0] == expected_mcp
+        assert generated_output[1] == expected_mce
+        gen_mcp = generated_profile.metadata.aspect
+        self.assertTrue(gen_mcp.validate())
