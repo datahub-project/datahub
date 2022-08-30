@@ -1,0 +1,12 @@
+namespace com.linkedin.identity
+
+/**
+ * Settings for a user around the appearance of their DataHub UI
+ */
+record CorpUserAppearanceSettings {
+  /**
+   * Flag whether the user should see a homepage with only datasets, charts & dashboards. Intended for users
+   * who have less operational use cases for the datahub tool.
+   */
+  showSimplifiedHomepage: optional boolean
+}

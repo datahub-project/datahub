@@ -12,7 +12,7 @@ import {
     LastExecutionColumn,
 } from './IngestionSourceTableColumns';
 import { IngestionSource } from '../../../types.generated';
-import { IngestionSourceExecutionList } from './IngestionSourceExecutionList';
+import { IngestionSourceExecutionList } from './executions/IngestionSourceExecutionList';
 
 const StyledSourceTable = styled(StyledTable)`
     .cliIngestion {

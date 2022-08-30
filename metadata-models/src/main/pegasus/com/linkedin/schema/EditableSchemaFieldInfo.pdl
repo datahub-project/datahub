@@ -47,7 +47,7 @@ record EditableSchemaFieldInfo {
       "/terms/*/urn": {
         "name": "EditableSchemaFieldWithGlossaryTerm",
         "entityTypes": [ "glossaryTerm" ]
-      }
+     }
    }
    @Searchable = {
     "/terms/*/urn": {

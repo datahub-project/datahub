@@ -35,7 +35,8 @@ framework_common = {
     "entrypoints",
     "docker",
     "expandvars>=0.6.5",
-    "avro-gen3==0.7.4",
+    "avro-gen3==0.7.5",
+    # "avro-gen3 @ git+https://github.com/acryldata/avro_gen@master#egg=avro-gen3",
     "avro>=1.10.2,<1.11",
     "python-dateutil>=2.8.0",
     "stackprinter>=0.2.6",
@@ -57,7 +58,6 @@ framework_common = {
     "aiohttp<4",
     "cached_property",
     "ijson",
-    "tdigest"
 }
 
 kafka_common = {
@@ -138,12 +138,11 @@ looker_common = {
 }
 
 bigquery_common = {
+    "google-api-python-client",
     # Google cloud logging library
     "google-cloud-logging<3.1.2",
     "google-cloud-bigquery",
     "more-itertools>=8.12.0",
-    # we do not use protobuf directly but newer version caused bigquery connector to fail
-    "protobuf<=3.20.1",
 }
 
 redshift_common = {
@@ -225,6 +224,7 @@ plugins: Dict[str, Set[str]] = {
     | bigquery_common
     | {"sqlalchemy-bigquery>=1.4.1", "sqllineage==1.3.5", "sqlparse"},
     "bigquery-usage": bigquery_common | usage_common | {"cachetools"},
+    "bigquery-beta": bigquery_common | {"sql_metadata"},
     "clickhouse": sql_common | {"clickhouse-sqlalchemy==0.1.8"},
     "clickhouse-usage": sql_common
     | usage_common
@@ -256,7 +256,8 @@ plugins: Dict[str, Set[str]] = {
         # - 0.6.11 adds support for table comments and column comments,
         #   and also releases HTTP and HTTPS transport schemes
         # - 0.6.12 adds support for Spark Thrift Server
-        "acryl-pyhive[hive]>=0.6.13"
+        "acryl-pyhive[hive]>=0.6.13",
+        "databricks-dbapi",
     },
     "iceberg": iceberg_common,
     "kafka": {*kafka_common, *kafka_protobuf},
@@ -349,7 +350,8 @@ base_dev_requirements = {
     "mypy>=0.950",
     # pydantic 1.8.2 is incompatible with mypy 0.910.
     # See https://github.com/samuelcolvin/pydantic/pull/3175#issuecomment-995382910.
-    "pydantic>=1.9.0",
+    # Restricting top version to <1.10 until we can fix our types.
+    "pydantic >=1.9.0, <1.10",
     "pytest>=6.2.2",
     "pytest-asyncio>=0.16.0",
     "pytest-cov>=2.8.1",
@@ -466,6 +468,7 @@ entry_points = {
         "athena = datahub.ingestion.source.sql.athena:AthenaSource",
         "azure-ad = datahub.ingestion.source.identity.azure_ad:AzureADSource",
         "bigquery = datahub.ingestion.source.sql.bigquery:BigQuerySource",
+        "bigquery-beta = datahub.ingestion.source.bigquery_v2.bigquery:BigqueryV2Source",
         "bigquery-usage = datahub.ingestion.source.usage.bigquery_usage:BigQueryUsageSource",
         "clickhouse = datahub.ingestion.source.sql.clickhouse:ClickHouseSource",
         "clickhouse-usage = datahub.ingestion.source.usage.clickhouse_usage:ClickHouseUsageSource",
@@ -483,8 +486,8 @@ entry_points = {
         "kafka = datahub.ingestion.source.kafka:KafkaSource",
         "kafka-connect = datahub.ingestion.source.kafka_connect:KafkaConnectSource",
         "ldap = datahub.ingestion.source.ldap:LDAPSource",
-        "looker = datahub.ingestion.source.looker:LookerDashboardSource",
-        "lookml = datahub.ingestion.source.lookml:LookMLSource",
+        "looker = datahub.ingestion.source.looker.looker_source:LookerDashboardSource",
+        "lookml = datahub.ingestion.source.looker.lookml_source:LookMLSource",
         "datahub-lineage-file = datahub.ingestion.source.metadata.lineage:LineageFileSource",
         "datahub-business-glossary = datahub.ingestion.source.metadata.business_glossary:BusinessGlossaryFileSource",
         "mode = datahub.ingestion.source.mode:ModeSource",

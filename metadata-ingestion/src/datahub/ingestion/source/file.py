@@ -2,7 +2,7 @@ import datetime
 import json
 import logging
 import os.path
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from enum import Enum
 from io import BufferedReader
 from pathlib import Path
@@ -48,10 +48,13 @@ class FileSourceConfig(ConfigModel):
         description="Path to folder or file to ingest. If pointed to a folder, all files with extension {file_extension} (default json) within that folder will be processed."
     )
     file_extension: str = Field(
-        "json",
+        ".json",
         description="When providing a folder to use to read files, set this field to control file extensions that you want the source to process. * is a special value that means process every file regardless of extension",
     )
     read_mode: FileReadMode = FileReadMode.AUTO
+    aspect: Optional[str] = Field(
+        description="Set to an aspect to only read this aspect for ingestion."
+    )
 
     _minsize_for_streaming_mode_in_bytes: int = (
         100 * 1000 * 1000  # Must be at least 100MB before we use streaming mode
@@ -87,23 +90,32 @@ class FileSourceConfig(ConfigModel):
 
 @dataclass
 class FileSourceReport(SourceReport):
-    total_bytes_on_disk: Optional[int] = None
-    total_bytes_read: int = 0
     total_num_files: int = 0
-    num_files_read: int = 0
-    percentage_completion: float = -1
+    num_files_completed: int = 0
+    files_completed: list = field(default_factory=list)
+    percentage_completion: str = "0%"
     estimated_time_to_completion_in_minutes: int = -1
-    total_parse_time_in_seconds: Optional[float] = None
+    total_bytes_on_disk: Optional[int] = None
+    total_bytes_read_completed_files: int = 0
+    current_file_name: Optional[str] = None
+    current_file_size: Optional[int] = None
+    current_file_num_elements: Optional[int] = None
+    current_file_bytes_read: Optional[int] = None
+    current_file_elements_read: Optional[int] = None
+    total_parse_time_in_seconds: float = 0
+    total_count_time_in_seconds: float = 0
     total_deserialize_time_in_seconds: float = 0
+    aspect_counts: Dict[str, int] = field(default_factory=dict)
+    entity_type_counts: Dict[str, int] = field(default_factory=dict)
 
     def add_deserialize_time(self, delta: datetime.timedelta) -> None:
-        self.total_deserialize_time_in_seconds += delta.total_seconds()
+        self.total_deserialize_time_in_seconds += round(delta.total_seconds(), 2)
 
     def add_parse_time(self, delta: datetime.timedelta) -> None:
-        if self.total_parse_time_in_seconds is not None:
-            self.total_parse_time_in_seconds += delta.total_seconds()
-        else:
-            self.total_parse_time_in_seconds = delta.total_seconds()
+        self.total_parse_time_in_seconds += round(delta.total_seconds(), 2)
+
+    def add_count_time(self, delta: datetime.timedelta) -> None:
+        self.total_count_time_in_seconds += round(delta.total_seconds(), 2)
 
     def append_total_bytes_on_disk(self, delta: int) -> None:
         if self.total_bytes_on_disk is not None:
@@ -111,22 +123,44 @@ class FileSourceReport(SourceReport):
         else:
             self.total_bytes_on_disk = delta
 
+    def reset_current_file_stats(self) -> None:
+        self.current_file_name = None
+        self.current_file_bytes_read = None
+        self.current_file_num_elements = None
+        self.current_file_elements_read = None
+
     def compute_stats(self) -> None:
         super().compute_stats()
-        self.percentage_completion = (
-            100.0 * (self.total_bytes_read / self.total_bytes_on_disk)
+        self.num_files_completed = len(self.files_completed)
+        total_bytes_read = self.total_bytes_read_completed_files
+        if self.current_file_bytes_read:
+            total_bytes_read += self.current_file_bytes_read
+        elif (
+            self.current_file_elements_read
+            and self.current_file_num_elements
+            and self.current_file_size
+        ):
+            current_files_bytes_read = int(
+                (self.current_file_elements_read / self.current_file_num_elements)
+                * self.current_file_size
+            )
+            total_bytes_read += current_files_bytes_read
+        percentage_completion = (
+            100.0 * (total_bytes_read / self.total_bytes_on_disk)
             if self.total_bytes_on_disk
             else -1
         )
-        if self.percentage_completion > 0:
+
+        if percentage_completion > 0:
             self.estimated_time_to_completion_in_minutes = int(
                 (
                     self.running_time_in_seconds
-                    * (100 - self.percentage_completion)
-                    / self.percentage_completion
+                    * (100 - percentage_completion)
+                    / percentage_completion
                 )
                 / 60
             )
+            self.percentage_completion = f"{percentage_completion:.2f}%"
 
 
 @platform_name("File")
@@ -173,13 +207,24 @@ class GenericFileSource(TestableSource):
                 if isinstance(obj, UsageAggregationClass):
                     wu = UsageStatsWorkUnit(f"file://{f}:{i}", obj)
                 elif isinstance(obj, MetadataChangeProposal):
+                    self.report.entity_type_counts[obj.entityType] = (
+                        self.report.entity_type_counts.get(obj.entityType, 0) + 1
+                    )
+                    if obj.aspectName is not None:
+                        cur_aspect_name = str(obj.aspectName)
+                        self.report.aspect_counts[cur_aspect_name] = (
+                            self.report.aspect_counts.get(cur_aspect_name, 0) + 1
+                        )
+                        if (
+                            self.config.aspect is not None
+                            and cur_aspect_name != self.config.aspect
+                        ):
+                            continue
                     wu = MetadataWorkUnit(f"file://{f}:{i}", mcp_raw=obj)
                 else:
                     wu = MetadataWorkUnit(f"file://{f}:{i}", mce=obj)
                 self.report.report_workunit(wu)
                 yield wu
-            self.report.num_files_read += 1
-            self.report.total_bytes_read += os.path.getsize(f)
 
     def get_report(self):
         return self.report
@@ -189,11 +234,13 @@ class GenericFileSource(TestableSource):
             self.fp.close()
 
     def _iterate_file(self, path: str) -> Iterable[Tuple[int, Any]]:
-        size = os.path.getsize(path)
+        self.report.current_file_name = path
+        self.report.current_file_size = os.path.getsize(path)
         if self.config.read_mode == FileReadMode.AUTO:
             file_read_mode = (
                 FileReadMode.BATCH
-                if size < self.config._minsize_for_streaming_mode_in_bytes
+                if self.report.current_file_size
+                < self.config._minsize_for_streaming_mode_in_bytes
                 else FileReadMode.STREAM
             )
             logger.info(f"Reading file {path} in {file_read_mode} mode")
@@ -208,9 +255,25 @@ class GenericFileSource(TestableSource):
                 self.report.add_parse_time(parse_end_time - parse_start_time)
             if not isinstance(obj_list, list):
                 obj_list = [obj_list]
-            yield from enumerate(obj_list)
+            count_start_time = datetime.datetime.now()
+            self.report.current_file_num_elements = len(obj_list)
+            self.report.add_count_time(datetime.datetime.now() - count_start_time)
+            self.report.current_file_elements_read = 0
+            for i, obj in enumerate(obj_list):
+                yield i, obj
+                self.report.current_file_elements_read += 1
         else:
             self.fp = open(path, "rb")
+            count_start_time = datetime.datetime.now()
+            parse_stream = ijson.parse(self.fp, use_float=True)
+            total_elements = 0
+            for row in ijson.items(parse_stream, "item", use_float=True):
+                total_elements += 1
+            count_end_time = datetime.datetime.now()
+            self.report.add_count_time(count_end_time - count_start_time)
+            self.report.current_file_num_elements = total_elements
+            self.report.current_file_elements_read = 0
+            self.fp.seek(0)
             parse_start_time = datetime.datetime.now()
             parse_stream = ijson.parse(self.fp, use_float=True)
             rows_yielded = 0
@@ -218,8 +281,14 @@ class GenericFileSource(TestableSource):
                 parse_end_time = datetime.datetime.now()
                 self.report.add_parse_time(parse_end_time - parse_start_time)
                 rows_yielded += 1
+                self.report.current_file_elements_read += 1
                 yield rows_yielded, row
                 parse_start_time = datetime.datetime.now()
+
+        self.report.files_completed.append(path)
+        self.report.num_files_completed += 1
+        self.report.total_bytes_read_completed_files += self.report.current_file_size
+        self.report.reset_current_file_stats()
 
     def iterate_mce_file(self, path: str) -> Iterator[MetadataChangeEvent]:
         for i, obj in self._iterate_file(path):
