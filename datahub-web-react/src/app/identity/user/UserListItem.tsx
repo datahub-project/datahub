@@ -14,7 +14,7 @@ import SelectRole from './SelectRole';
 type Props = {
     user: CorpUser;
     canManageUserCredentials: boolean;
-    roles: Array<DataHubRole>;
+    selectRoleOptions: Array<DataHubRole>;
     onDelete?: () => void;
     refetch?: () => void;
 };
@@ -48,13 +48,14 @@ const MenuIcon = styled(MoreOutlined)<{ fontSize?: number }>`
     margin-left: 5px;
 `;
 
-export default function UserListItem({ user, canManageUserCredentials, roles, onDelete, refetch }: Props) {
+export default function UserListItem({ user, canManageUserCredentials, selectRoleOptions, onDelete, refetch }: Props) {
     const entityRegistry = useEntityRegistry();
     const [isViewingResetToken, setIsViewingResetToken] = useState(false);
     const displayName = entityRegistry.getDisplayName(EntityType.CorpUser, user);
     const isNativeUser: boolean = user.isNativeUser as boolean;
     const shouldShowPasswordReset: boolean = canManageUserCredentials && isNativeUser;
-    const userRelationships = user.relationships?.relationships;
+    const castedCorpUser = user as any;
+    const userRelationships = castedCorpUser?.roles?.relationships;
     const userRole = userRelationships && userRelationships.length > 0 && (userRelationships[0]?.entity as DataHubRole);
     const userRoleUrn = userRole && userRole.urn;
 
@@ -109,7 +110,12 @@ export default function UserListItem({ user, canManageUserCredentials, roles, on
                 </Link>
             </UserItemContainer>
             <ButtonGroup>
-                <SelectRole user={user} userRoleUrn={userRoleUrn || ''} roles={roles} refetch={refetch} />
+                <SelectRole
+                    user={user}
+                    userRoleUrn={userRoleUrn || ''}
+                    selectRoleOptions={selectRoleOptions}
+                    refetch={refetch}
+                />
                 <Dropdown
                     trigger={['click']}
                     overlay={

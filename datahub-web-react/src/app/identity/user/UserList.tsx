@@ -101,7 +101,7 @@ export const UserList = () => {
 
     const loading = usersLoading || rolesLoading;
     const error = usersError || rolesError;
-    const roles = rolesData?.listRoles?.roles?.map((role) => role as DataHubRole) || [];
+    const selectRoleOptions = rolesData?.listRoles?.roles?.map((role) => role as DataHubRole) || [];
 
     return (
         <>
@@ -147,7 +147,7 @@ export const UserList = () => {
                             onDelete={() => handleDelete(item.urn as string)}
                             user={item as CorpUser}
                             canManageUserCredentials={canManageUserCredentials}
-                            roles={roles}
+                            selectRoleOptions={selectRoleOptions}
                             refetch={usersRefetch}
                         />
                     )}

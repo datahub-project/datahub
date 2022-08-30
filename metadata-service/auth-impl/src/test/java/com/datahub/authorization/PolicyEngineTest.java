@@ -69,8 +69,8 @@ public class PolicyEngineTest {
     authorizedEntityResponse.setUrn(authorizedUserUrn);
     Map<Urn, EntityResponse> authorizedEntityResponseMap =
         Collections.singletonMap(authorizedUserUrn, authorizedEntityResponse);
-    when(
-        _entityClient.batchGetV2(eq(CORP_USER_ENTITY_NAME), eq(Collections.singleton(authorizedUserUrn)), any(), any())).thenReturn(authorizedEntityResponseMap);
+    when(_entityClient.batchGetV2(eq(CORP_USER_ENTITY_NAME), eq(Collections.singleton(authorizedUserUrn)), any(),
+        any())).thenReturn(authorizedEntityResponseMap);
 
     EntityResponse unauthorizedEntityResponse = createUnauthorizedEntityResponse();
     unauthorizedUserUrn = Urn.createFromString(UNAUTHORIZED_PRINCIPAL);
@@ -251,6 +251,7 @@ public class PolicyEngineTest {
     // Verify we are not making any network calls for these predicates.
     verify(_entityClient, times(0)).batchGetV2(any(), any(), any(), any());
   }
+
   @Test
   public void testEvaluatePolicyActorFilterGroupMatch() throws Exception {
 
@@ -397,7 +398,6 @@ public class PolicyEngineTest {
             Optional.of(resourceSpec));
 
     assertFalse(unauthorizedResult.isGranted());
-
 
     // Verify we are only calling for roles during these requests.
     verify(_entityClient, times(1)).batchGetV2(eq(CORP_USER_ENTITY_NAME),
@@ -704,8 +704,8 @@ public class PolicyEngineTest {
 
     final DataHubResourceFilter resourceFilter = new DataHubResourceFilter();
     resourceFilter.setFilter(FilterUtils.newFilter(
-        ImmutableMap.of(ResourceFieldType.RESOURCE_TYPE, Collections.singletonList("dataset"), ResourceFieldType.RESOURCE_URN,
-            Collections.singletonList(RESOURCE_URN))));
+        ImmutableMap.of(ResourceFieldType.RESOURCE_TYPE, Collections.singletonList("dataset"),
+            ResourceFieldType.RESOURCE_URN, Collections.singletonList(RESOURCE_URN))));
     dataHubPolicyInfo.setResources(resourceFilter);
 
     ResolvedResourceSpec resourceSpec = buildResourceResolvers("dataset", RESOURCE_URN);
@@ -736,8 +736,8 @@ public class PolicyEngineTest {
 
     final DataHubResourceFilter resourceFilter = new DataHubResourceFilter();
     resourceFilter.setFilter(FilterUtils.newFilter(
-        ImmutableMap.of(ResourceFieldType.RESOURCE_TYPE, Collections.singletonList("dataset"), ResourceFieldType.RESOURCE_URN,
-            Collections.singletonList(RESOURCE_URN))));
+        ImmutableMap.of(ResourceFieldType.RESOURCE_TYPE, Collections.singletonList("dataset"),
+            ResourceFieldType.RESOURCE_URN, Collections.singletonList(RESOURCE_URN))));
     dataHubPolicyInfo.setResources(resourceFilter);
 
     ResolvedResourceSpec resourceSpec =
@@ -857,8 +857,8 @@ public class PolicyEngineTest {
 
     final DataHubResourceFilter resourceFilter2 = new DataHubResourceFilter();
     resourceFilter2.setFilter(FilterUtils.newFilter(
-        ImmutableMap.of(ResourceFieldType.RESOURCE_TYPE, Collections.singletonList("dataset"), ResourceFieldType.RESOURCE_URN,
-            Collections.singletonList(RESOURCE_URN))));
+        ImmutableMap.of(ResourceFieldType.RESOURCE_TYPE, Collections.singletonList("dataset"),
+            ResourceFieldType.RESOURCE_URN, Collections.singletonList(RESOURCE_URN))));
     dataHubPolicyInfo2.setResources(resourceFilter2);
 
     // Policy 3, match dataset type and owner (legacy resource filter)
@@ -1099,9 +1099,10 @@ public class PolicyEngineTest {
   public static ResolvedResourceSpec buildResourceResolvers(String entityType, String entityUrn, Set<String> owners,
       Set<String> domains) {
     return new ResolvedResourceSpec(new ResourceSpec(entityType, entityUrn),
-        ImmutableMap.of(ResourceFieldType.RESOURCE_TYPE, FieldResolver.getResolverFromValues(Collections.singleton(entityType)),
-            ResourceFieldType.RESOURCE_URN, FieldResolver.getResolverFromValues(Collections.singleton(entityUrn)),
-            ResourceFieldType.OWNER, FieldResolver.getResolverFromValues(owners), ResourceFieldType.DOMAIN,
+        ImmutableMap.of(ResourceFieldType.RESOURCE_TYPE,
+            FieldResolver.getResolverFromValues(Collections.singleton(entityType)), ResourceFieldType.RESOURCE_URN,
+            FieldResolver.getResolverFromValues(Collections.singleton(entityUrn)), ResourceFieldType.OWNER,
+            FieldResolver.getResolverFromValues(owners), ResourceFieldType.DOMAIN,
             FieldResolver.getResolverFromValues(domains)));
   }
 }

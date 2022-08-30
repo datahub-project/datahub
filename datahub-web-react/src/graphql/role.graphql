@@ -8,7 +8,7 @@ query listRoles($input: ListRolesInput!) {
             type
             name
             description
-            relationships(input: { types: ["IsMemberOfRole", "IsAssociatedWithRole"], direction: INCOMING, start: 0 }) {
+            users: relationships(input: { types: ["IsMemberOfRole"], direction: INCOMING, start: 0, count: 10 }) {
                 start
                 count
                 total
@@ -32,6 +32,17 @@ query listRoles($input: ListRolesInput!) {
                                 pictureLink
                             }
                         }
+                    }
+                }
+            }
+            policies: relationships(
+                input: { types: ["IsAssociatedWithRole"], direction: INCOMING, start: 0, count: 10 }
+            ) {
+                start
+                count
+                total
+                relationships {
+                    entity {
                         ... on DataHubPolicy {
                             urn
                             type

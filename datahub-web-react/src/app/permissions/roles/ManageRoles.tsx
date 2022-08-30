@@ -185,12 +185,8 @@ export const ManageRoles = () => {
         type: role?.type,
         description: role?.description,
         name: role?.name,
-        users: role?.relationships?.relationships
-            .filter((relationship) => relationship?.entity?.__typename === 'CorpUser')
-            .map((relationship) => relationship.entity as CorpUser),
-        policies: role?.relationships?.relationships
-            .filter((relationship) => relationship?.entity?.__typename === 'DataHubPolicy')
-            .map((relationship) => relationship.entity as DataHubPolicy),
+        users: role?.users?.relationships.map((relationship) => relationship.entity as CorpUser),
+        policies: role?.policies?.relationships.map((relationship) => relationship.entity as DataHubPolicy),
     }));
 
     return (

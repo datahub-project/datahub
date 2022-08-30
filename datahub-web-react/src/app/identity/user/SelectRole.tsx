@@ -9,12 +9,12 @@ import { mapRoleIcon } from './UserUtils';
 type Props = {
     user: CorpUser;
     userRoleUrn: string;
-    roles: Array<DataHubRole>;
+    selectRoleOptions: Array<DataHubRole>;
     refetch?: () => void;
 };
 
 const RoleSelect = styled(Select)`
-    min-width: 100px;
+    min-width: 105px;
 `;
 
 const RoleIcon = styled.span`
@@ -22,17 +22,17 @@ const RoleIcon = styled.span`
     font-size: 12px;
 `;
 
-export default function SelectRole({ user, userRoleUrn, roles, refetch }: Props) {
+export default function SelectRole({ user, userRoleUrn, selectRoleOptions, refetch }: Props) {
     const [isViewingAssignRole, setIsViewingAssignRole] = useState(false);
     const [roleToAssign, setRoleToAssign] = useState<DataHubRole>();
 
     const rolesMap: Map<string, DataHubRole> = new Map();
-    roles.forEach((role) => {
+    selectRoleOptions.forEach((role) => {
         rolesMap.set(role.urn, role);
     });
 
     const selectOptions = () =>
-        roles.map((role) => {
+        selectRoleOptions.map((role) => {
             return (
                 <Select.Option value={role.urn}>
                     <RoleIcon>{mapRoleIcon(role.name)}</RoleIcon>
@@ -47,14 +47,16 @@ export default function SelectRole({ user, userRoleUrn, roles, refetch }: Props)
         setIsViewingAssignRole(true);
     };
 
+    const noRoleText = 'No Role';
+
     return (
         <>
             <RoleSelect
                 placeholder={
-                    <RoleIcon>
-                        <UserOutlined />
-                        No Role
-                    </RoleIcon>
+                    <>
+                        <UserOutlined style={{ marginRight: 6, fontSize: 12 }} />
+                        {noRoleText}
+                    </>
                 }
                 value={userRoleUrn || undefined}
                 onChange={(e) => onSelectRole(e as string)}
