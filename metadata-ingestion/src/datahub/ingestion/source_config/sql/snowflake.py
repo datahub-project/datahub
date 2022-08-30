@@ -332,7 +332,7 @@ class SnowflakeConfig(BaseSnowflakeConfig, SQLAlchemyConfig):
             self.oauth_config.authority_url,
             self.oauth_config.provider,
         )
-        if self.oauth_config.use_certificate is True:
+        if self.oauth_config.use_certificate:
             response = generator.get_token_with_certificate(
                 private_key_content=str(self.oauth_config.encoded_oauth_public_key),
                 public_key_content=str(self.oauth_config.encoded_oauth_private_key),
