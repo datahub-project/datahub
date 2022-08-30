@@ -15,6 +15,7 @@ import com.linkedin.datahub.graphql.analytics.resolver.GetHighlightsResolver;
 import com.linkedin.datahub.graphql.analytics.resolver.GetMetadataAnalyticsResolver;
 import com.linkedin.datahub.graphql.analytics.resolver.IsAnalyticsEnabledResolver;
 import com.linkedin.datahub.graphql.analytics.service.AnalyticsService;
+import com.linkedin.datahub.graphql.featureflags.FeatureFlags;
 import com.linkedin.datahub.graphql.generated.AccessToken;
 import com.linkedin.datahub.graphql.generated.AccessTokenMetadata;
 import com.linkedin.datahub.graphql.generated.ActorFilter;
@@ -164,6 +165,7 @@ import com.linkedin.datahub.graphql.resolvers.mutate.RemoveTermResolver;
 import com.linkedin.datahub.graphql.resolvers.mutate.UpdateDescriptionResolver;
 import com.linkedin.datahub.graphql.resolvers.mutate.UpdateNameResolver;
 import com.linkedin.datahub.graphql.resolvers.mutate.UpdateParentNodeResolver;
+import com.linkedin.datahub.graphql.resolvers.mutate.UpdateUserSettingResolver;
 import com.linkedin.datahub.graphql.resolvers.operation.ReportOperationResolver;
 import com.linkedin.datahub.graphql.resolvers.policy.DeletePolicyResolver;
 import com.linkedin.datahub.graphql.resolvers.policy.GetGrantedPrivilegesResolver;
@@ -298,6 +300,8 @@ public class GmsGraphQLEngine {
     private final NativeUserService nativeUserService;
     private final GroupService groupService;
 
+    private final FeatureFlags featureFlags;
+
     private final IngestionConfiguration ingestionConfiguration;
     private final AuthenticationConfiguration authenticationConfiguration;
     private final AuthorizationConfiguration authorizationConfiguration;
@@ -374,7 +378,8 @@ public class GmsGraphQLEngine {
         final TimelineService timelineService, final boolean supportsImpactAnalysis,
         final VisualConfiguration visualConfiguration, final TelemetryConfiguration telemetryConfiguration,
         final TestsConfiguration testsConfiguration, final DatahubConfiguration datahubConfiguration,
-        final SiblingGraphService siblingGraphService, final GroupService groupService) {
+        final SiblingGraphService siblingGraphService, final GroupService groupService,
+        final FeatureFlags featureFlags) {
 
         this.entityClient = entityClient;
         this.graphClient = graphClient;
@@ -401,9 +406,10 @@ public class GmsGraphQLEngine {
         this.telemetryConfiguration = telemetryConfiguration;
         this.testsConfiguration = testsConfiguration;
         this.datahubConfiguration = datahubConfiguration;
+        this.featureFlags = featureFlags;
 
         this.datasetType = new DatasetType(entityClient);
-        this.corpUserType = new CorpUserType(entityClient);
+        this.corpUserType = new CorpUserType(entityClient, featureFlags);
         this.corpGroupType = new CorpGroupType(entityClient);
         this.chartType = new ChartType(entityClient);
         this.dashboardType = new DashboardType(entityClient);
@@ -600,7 +606,7 @@ public class GmsGraphQLEngine {
                     this.testsConfiguration,
                     this.datahubConfiguration
             ))
-            .dataFetcher("me", new MeResolver(this.entityClient))
+            .dataFetcher("me", new MeResolver(this.entityClient, featureFlags))
             .dataFetcher("search", new SearchResolver(this.entityClient))
             .dataFetcher("searchAcrossEntities", new SearchAcrossEntitiesResolver(this.entityClient))
             .dataFetcher("searchAcrossLineage", new SearchAcrossLineageResolver(this.entityClient))
@@ -757,6 +763,7 @@ public class GmsGraphQLEngine {
             .dataFetcher("createNativeUserInviteToken", new CreateNativeUserInviteTokenResolver(this.nativeUserService))
             .dataFetcher("createNativeUserResetToken", new CreateNativeUserResetTokenResolver(this.nativeUserService))
             .dataFetcher("batchUpdateSoftDeleted", new BatchUpdateSoftDeletedResolver(this.entityService))
+            .dataFetcher("updateUserSetting", new UpdateUserSettingResolver(this.entityService))
             .dataFetcher("rollbackIngestion", new RollbackIngestionResolver(this.entityClient))
         );
     }

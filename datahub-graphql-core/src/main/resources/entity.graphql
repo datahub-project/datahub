@@ -493,6 +493,11 @@ type Mutation {
     Updates the soft deleted status for a batch of assets
     """
     batchUpdateSoftDeleted(input: BatchUpdateSoftDeletedInput!): Boolean
+
+    """
+    Update a user setting
+    """
+    updateUserSetting(input: UpdateUserSettingInput!): Boolean
 }
 
 """
@@ -2871,6 +2876,32 @@ type CorpUser implements Entity {
     The structured tags associated with the user
     """
     globalTags: GlobalTags @deprecated
+
+    """
+    Settings that a user can customize through the datahub ui
+    """
+    settings: CorpUserSettings
+}
+
+"""
+Settings that a user can customize through the datahub ui
+"""
+type CorpUserSettings {
+    """
+    Settings that control look and feel of the DataHub UI for the user
+    """
+    appearance: CorpUserAppearanceSettings
+}
+
+"""
+Settings that control look and feel of the DataHub UI for the user
+"""
+type CorpUserAppearanceSettings {
+    """
+    Flag whether the user should see a homepage with only datasets, charts & dashboards. Intended for users
+    who have less operational use cases for the datahub tool.
+    """
+    showSimplifiedHomepage: Boolean
 }
 
 """
@@ -9063,4 +9094,27 @@ input BatchUpdateSoftDeletedInput {
     Whether to mark the asset as soft-deleted (hidden)
     """
     deleted: Boolean!
+}
+
+enum UserSetting {
+    """
+    Show simplified homepage
+    """
+    SHOW_SIMPLIFIED_HOMEPAGE
+}
+
+
+"""
+Input for updating a user setting
+"""
+input UpdateUserSettingInput {
+    """
+    The name of the setting
+    """
+    name: UserSetting!
+
+    """
+    The new value of the setting
+    """
+    value: Boolean!
 }
