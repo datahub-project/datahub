@@ -13,13 +13,19 @@ from looker_sdk.sdk.api31.models import (
     LookmlModelExploreField,
     LookmlModelExploreFieldset,
     LookmlModelExploreJoins,
+    LookWithQuery,
     Query,
     User,
     WriteQuery,
 )
 
 from datahub.ingestion.run.pipeline import Pipeline
-from datahub.ingestion.source.looker import usage_queries
+from datahub.ingestion.source.looker import looker_usage
+from datahub.ingestion.source.looker.looker_query_model import (
+    HistoryViewField,
+    LookViewField,
+    UserViewField,
+)
 from tests.test_helpers import mce_helpers
 
 FROZEN_TIME = "2020-04-14 07:00:00"
@@ -313,62 +319,101 @@ def setup_mock_user(mocked_client):
 def side_effect_query_inline(
     result_format: str, body: WriteQuery, transport_options: Optional[TransportOptions]
 ) -> str:
-    query_type = None
+    query_type: looker_usage.QueryId
     if result_format == "sql":
         return ""  # Placeholder for sql text
-    for query_name, query_template in usage_queries.items():
-        if body.fields == query_template["fields"]:
-            query_type = query_name
 
-    if query_type == "counts_per_day_per_dashboard":
-        return json.dumps(
+    for query_id, query_template in looker_usage.query_collection.items():
+        if body.fields == query_template.to_write_query().fields:
+            query_type = query_id
+            break
+
+    query_id_vs_response = {
+        looker_usage.QueryId.DASHBOARD_PER_DAY_USAGE_STAT: json.dumps(
             [
                 {
-                    "history.dashboard_id": "11",
-                    "history.created_date": "2022-07-05",
-                    "history.dashboard_user": 1,
-                    "history.dashboard_run_count": 14,
+                    HistoryViewField.HISTORY_DASHBOARD_ID: "1",
+                    HistoryViewField.HISTORY_CREATED_DATE: "2022-07-05",
+                    HistoryViewField.HISTORY_DASHBOARD_USER: 1,
+                    HistoryViewField.HISTORY_DASHBOARD_RUN_COUNT: 14,
                 },
                 {
-                    "history.dashboard_id": "12",
-                    "history.created_date": "2022-07-05",
-                    "history.dashboard_user": 1,
-                    "history.dashboard_run_count": 14,
+                    HistoryViewField.HISTORY_DASHBOARD_ID: "1",
+                    HistoryViewField.HISTORY_CREATED_DATE: "2022-07-05",
+                    HistoryViewField.HISTORY_DASHBOARD_USER: 1,
+                    HistoryViewField.HISTORY_DASHBOARD_RUN_COUNT: 14,
                 },
                 {
-                    "history.dashboard_id": "37",
-                    "history.created_date": "2022-07-05",
-                    "history.dashboard_user": 1,
-                    "history.dashboard_run_count": 5,
+                    HistoryViewField.HISTORY_DASHBOARD_ID: "1",
+                    HistoryViewField.HISTORY_CREATED_DATE: "2022-07-05",
+                    HistoryViewField.HISTORY_DASHBOARD_USER: 1,
+                    HistoryViewField.HISTORY_DASHBOARD_RUN_COUNT: 5,
                 },
             ]
-        )
-
-    if query_type == "counts_per_day_per_user_per_dashboard":
-        return json.dumps(
+        ),
+        looker_usage.QueryId.DASHBOARD_PER_USER_PER_DAY_USAGE_STAT: json.dumps(
             [
                 {
-                    "history.created_date": "2022-07-05",
-                    "history.dashboard_id": "11",
-                    "user.id": 1,
-                    "history.dashboard_run_count": 14,
+                    HistoryViewField.HISTORY_CREATED_DATE: "2022-07-05",
+                    HistoryViewField.HISTORY_DASHBOARD_ID: "1",
+                    UserViewField.USER_ID: 1,
+                    HistoryViewField.HISTORY_DASHBOARD_RUN_COUNT: 14,
                 },
                 {
-                    "history.created_date": "2022-07-05",
-                    "history.dashboard_id": "12",
-                    "user.id": 1,
-                    "history.dashboard_run_count": 14,
+                    HistoryViewField.HISTORY_CREATED_DATE: "2022-07-05",
+                    HistoryViewField.HISTORY_DASHBOARD_ID: "1",
+                    UserViewField.USER_ID: 1,
+                    HistoryViewField.HISTORY_DASHBOARD_RUN_COUNT: 14,
                 },
                 {
-                    "history.created_date": "2022-07-05",
-                    "history.dashboard_id": "37",
-                    "user.id": 1,
-                    "history.dashboard_run_count": 5,
+                    HistoryViewField.HISTORY_CREATED_DATE: "2022-07-05",
+                    HistoryViewField.HISTORY_DASHBOARD_ID: "1",
+                    UserViewField.USER_ID: 1,
+                    HistoryViewField.HISTORY_DASHBOARD_RUN_COUNT: 5,
                 },
             ]
-        )
+        ),
+        looker_usage.QueryId.LOOK_PER_DAY_USAGE_STAT: json.dumps(
+            [
+                {
+                    HistoryViewField.HISTORY_CREATED_DATE: "2022-07-05",
+                    HistoryViewField.HISTORY_COUNT: 10,
+                    LookViewField.LOOK_ID: 3,
+                },
+                {
+                    HistoryViewField.HISTORY_CREATED_DATE: "2022-07-06",
+                    HistoryViewField.HISTORY_COUNT: 20,
+                    LookViewField.LOOK_ID: 3,
+                },
+                {
+                    HistoryViewField.HISTORY_CREATED_DATE: "2022-07-07",
+                    HistoryViewField.HISTORY_COUNT: 35,
+                    LookViewField.LOOK_ID: 3,
+                },
+            ]
+        ),
+        looker_usage.QueryId.LOOK_PER_USER_PER_DAY_USAGE_STAT: json.dumps(
+            [
+                {
+                    HistoryViewField.HISTORY_CREATED_DATE: "2022-07-05",
+                    HistoryViewField.HISTORY_COUNT: 10,
+                    LookViewField.LOOK_ID: 3,
+                    UserViewField.USER_ID: 1,
+                },
+                {
+                    HistoryViewField.HISTORY_CREATED_DATE: "2022-07-06",
+                    HistoryViewField.HISTORY_COUNT: 20,
+                    LookViewField.LOOK_ID: 3,
+                    UserViewField.USER_ID: 1,
+                },
+            ]
+        ),
+    }
 
-    raise Exception("Unknown Query")
+    if query_id_vs_response.get(query_type) is None:
+        raise Exception("Unknown Query")
+
+    return query_id_vs_response[query_type]
 
 
 @freeze_time(FROZEN_TIME)
@@ -433,6 +478,7 @@ def test_looker_ingest_allow_pattern(pytestconfig, tmp_path, mock_time):
             }
         )
         pipeline.run()
+        pipeline.pretty_print_summary()
         pipeline.raise_from_status()
         mce_out_file = "golden_test_allow_ingest.json"
 
@@ -468,7 +514,10 @@ def test_looker_ingest_usage_history(pytestconfig, tmp_path, mock_time):
                         view="my_view",
                         dynamic_fields='[{"table_calculation":"calc","label":"foobar","expression":"offset(${my_table.value},1)","value_format":null,"value_format_name":"eur","_kind_hint":"measure","_type_hint":"number"}]',
                     ),
-                )
+                ),
+                DashboardElement(
+                    id="3", type="", look=LookWithQuery(id=3, view_count=30)
+                ),
             ],
         )
         mocked_client.run_inline_query.side_effect = side_effect_query_inline
@@ -498,6 +547,7 @@ def test_looker_ingest_usage_history(pytestconfig, tmp_path, mock_time):
             }
         )
         pipeline.run()
+        pipeline.pretty_print_summary()
         pipeline.raise_from_status()
         mce_out_file = "looker_mces_usage_history.json"
 
