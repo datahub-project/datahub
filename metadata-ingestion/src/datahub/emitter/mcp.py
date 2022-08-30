@@ -2,7 +2,7 @@ import dataclasses
 import json
 from typing import Union
 
-from datahub.emitter.serialization_helper import pre_json_transform, remove_empties
+from datahub.emitter.serialization_helper import pre_json_transform
 from datahub.metadata.schema_classes import (
     ChangeTypeClass,
     DictWrapper,
@@ -15,7 +15,7 @@ from datahub.metadata.schema_classes import (
 
 
 def _make_generic_aspect(codegen_obj: DictWrapper) -> GenericAspectClass:
-    serialized = json.dumps(remove_empties(pre_json_transform(codegen_obj.to_obj())))
+    serialized = json.dumps(pre_json_transform(codegen_obj.to_obj()))
     return GenericAspectClass(
         value=serialized.encode(),
         contentType="application/json",

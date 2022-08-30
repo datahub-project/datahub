@@ -197,3 +197,24 @@ def test_type_error() -> None:
 
     with pytest.raises(avrojson.AvroTypeException):
         dataflow.to_obj()
+
+
+def test_null_hiding() -> None:
+    schemaField = models.SchemaFieldClass(
+        fieldPath="foo",
+        type=models.SchemaFieldDataTypeClass(type=models.StringTypeClass()),
+        nativeDataType="VARCHAR(50)",
+    )
+    assert schemaField.validate()
+
+    ser = schemaField.to_obj()
+    ser_without_ordered_fields = json.loads(json.dumps(ser))
+
+    assert ser_without_ordered_fields == {
+        "fieldPath": "foo",
+        "isPartOfKey": False,
+        "nativeDataType": "VARCHAR(50)",
+        "nullable": False,
+        "recursive": False,
+        "type": {"type": {"com.linkedin.pegasus2avro.schema.StringType": {}}},
+    }

@@ -1,7 +1,8 @@
-import json
+import datetime
 import logging
 import re
 from dataclasses import dataclass
+from dataclasses import field as dataclasses_field
 from enum import Enum
 from typing import Dict, Iterable, List, Optional, Tuple, Union
 
@@ -19,7 +20,8 @@ from datahub.configuration.common import ConfigurationError
 from datahub.configuration.github import GitHubInfo
 from datahub.configuration.source_common import DatasetSourceConfigBase
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
-from datahub.ingestion.api.source import SourceReport
+from datahub.ingestion.api.report import LossySet, Report
+from datahub.ingestion.api.source import LossyList, SourceReport
 from datahub.ingestion.source.sql.sql_types import (
     POSTGRES_TYPES_MAP,
     SNOWFLAKE_TYPES_MAP,
@@ -485,30 +487,6 @@ class LookerUtil:
             query_timezone="UTC",
         )
 
-    @staticmethod
-    def run_inline_query(
-        client: Looker31SDK, q: dict, transport_options: Optional[TransportOptions]
-    ) -> List:
-
-        response_sql = client.run_inline_query(
-            result_format="sql",
-            body=LookerUtil.create_query_request(q),
-            transport_options=transport_options,
-        )
-        logger.debug("=================Query=================")
-        logger.debug(response_sql)
-
-        response_json = client.run_inline_query(
-            result_format="json",
-            body=LookerUtil.create_query_request(q),
-            transport_options=transport_options,
-        )
-
-        logger.debug("=================Response=================")
-        data = json.loads(response_json)
-        logger.debug(f"length {len(data)}")
-        return data
-
 
 @dataclass
 class LookerExplore:
@@ -680,12 +658,14 @@ class LookerExplore:
                 source_file=explore.source_file,
             )
         except SDKError as e:
-            logger.warning(
-                f"Failed to extract explore {explore_name} from model {model}."
-            )
-            logger.debug(
-                f"Failed to extract explore {explore_name} from model {model} with {e}"
-            )
+            if "<title>Looker Not Found (404)</title>" in str(e):
+                logger.info(
+                    f"Explore {explore_name} in model {model} is referred to, but missing. Continuing..."
+                )
+            else:
+                logger.warning(
+                    f"Failed to extract explore {explore_name} from model {model}.", e
+                )
 
         except AssertionError:
             reporter.report_warning(
@@ -802,3 +782,75 @@ class LookerExplore:
         )
 
         return [mce, mcp]
+
+
+class StageLatency(Report):
+    name: str
+    start_time: Optional[datetime.datetime]
+    end_time: Optional[datetime.datetime] = None
+
+    def __init__(self, name: str, start_time: datetime.datetime):
+        self.name = name
+        self.start_time = start_time
+
+    def compute_stats(self) -> None:
+        if self.end_time and self.start_time:
+            self.latency_seconds = round(
+                (self.end_time - self.start_time).total_seconds(), 2
+            )
+            # clear out start and end times to keep logs clean
+            self.start_time = None
+            self.end_time = None
+
+
+@dataclass
+class LookerDashboardSourceReport(SourceReport):
+    dashboards_scanned: int = 0
+    looks_scanned: int = 0
+    filtered_dashboards: LossyList[str] = dataclasses_field(default_factory=LossyList)
+    filtered_looks: LossyList[str] = dataclasses_field(default_factory=LossyList)
+    dashboards_scanned_for_usage: int = 0
+    charts_scanned_for_usage: int = 0
+    charts_with_activity: LossySet[str] = dataclasses_field(default_factory=LossySet)
+    dashboards_with_activity: LossySet[str] = dataclasses_field(
+        default_factory=LossySet
+    )
+    query_latency: Dict[str, float] = dataclasses_field(default_factory=dict)
+    stage_latency: List[StageLatency] = dataclasses_field(default_factory=list)
+
+    def report_dashboards_scanned(self) -> None:
+        self.dashboards_scanned += 1
+
+    def report_charts_scanned(self) -> None:
+        self.looks_scanned += 1
+
+    def report_dashboards_dropped(self, model: str) -> None:
+        self.filtered_dashboards.append(model)
+
+    def report_charts_dropped(self, view: str) -> None:
+        self.filtered_looks.append(view)
+
+    def report_dashboards_scanned_for_usage(self, num_dashboards: int) -> None:
+        self.dashboards_scanned_for_usage += num_dashboards
+
+    def report_charts_scanned_for_usage(self, num_charts: int) -> None:
+        self.charts_scanned_for_usage += num_charts
+
+    def report_upstream_latency(
+        self, start_time: datetime.datetime, end_time: datetime.datetime
+    ) -> None:
+        # recording total combined latency is not very useful, keeping this method as a placeholder
+        # for future implementation of min / max / percentiles etc.
+        pass
+
+    def report_query_latency(self, query_type: str, latency_seconds: float) -> None:
+        self.query_latency[query_type] = round(latency_seconds, 2)
+
+    def report_stage_start(self, stage_name: str) -> None:
+        self.stage_latency.append(
+            StageLatency(name=stage_name, start_time=datetime.datetime.now())
+        )
+
+    def report_stage_end(self, stage_name: str) -> None:
+        if self.stage_latency[-1].name == stage_name:
+            self.stage_latency[-1].end_time = datetime.datetime.now()
