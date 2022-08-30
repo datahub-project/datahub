@@ -172,7 +172,7 @@ import com.linkedin.datahub.graphql.resolvers.policy.GetGrantedPrivilegesResolve
 import com.linkedin.datahub.graphql.resolvers.policy.ListPoliciesResolver;
 import com.linkedin.datahub.graphql.resolvers.policy.UpsertPolicyResolver;
 import com.linkedin.datahub.graphql.resolvers.recommendation.ListRecommendationsResolver;
-import com.linkedin.datahub.graphql.resolvers.role.BatchAssignRoleToActorsResolver;
+import com.linkedin.datahub.graphql.resolvers.role.BatchAssignRoleResolver;
 import com.linkedin.datahub.graphql.resolvers.role.ListRolesResolver;
 import com.linkedin.datahub.graphql.resolvers.search.AutoCompleteForMultipleResolver;
 import com.linkedin.datahub.graphql.resolvers.search.AutoCompleteResolver;
@@ -442,12 +442,34 @@ public class GmsGraphQLEngine {
         this.dataHubPolicyType = new DataHubPolicyType(entityClient);
         this.dataHubRoleType = new DataHubRoleType(entityClient);
         // Init Lists
-        this.entityTypes =
-            ImmutableList.of(datasetType, corpUserType, corpGroupType, dataPlatformType, chartType, dashboardType,
-                tagType, mlModelType, mlModelGroupType, mlFeatureType, mlFeatureTableType, mlPrimaryKeyType,
-                dataFlowType, dataJobType, glossaryTermType, glossaryNodeType, containerType, notebookType, domainType,
-                assertionType, versionedDatasetType, dataPlatformInstanceType, accessTokenMetadataType, testType,
-                dataHubPolicyType, dataHubRoleType);
+        this.entityTypes = ImmutableList.of(
+            datasetType,
+            corpUserType,
+            corpGroupType,
+            dataPlatformType,
+            chartType,
+            dashboardType,
+            tagType,
+            mlModelType,
+            mlModelGroupType,
+            mlFeatureType,
+            mlFeatureTableType,
+            mlPrimaryKeyType,
+            dataFlowType,
+            dataJobType,
+            glossaryTermType,
+            glossaryNodeType,
+            containerType,
+            notebookType,
+            domainType,
+            assertionType,
+            versionedDatasetType,
+            dataPlatformInstanceType,
+            accessTokenMetadataType,
+            testType,
+            dataHubPolicyType,
+            dataHubRoleType
+        );
         this.loadableTypes = new ArrayList<>(entityTypes);
         this.ownerTypes = ImmutableList.of(corpUserType, corpGroupType);
         this.searchableTypes = loadableTypes.stream()
@@ -755,7 +777,7 @@ public class GmsGraphQLEngine {
             .dataFetcher("batchUpdateSoftDeleted", new BatchUpdateSoftDeletedResolver(this.entityService))
             .dataFetcher("updateUserSetting", new UpdateUserSettingResolver(this.entityService))
             .dataFetcher("rollbackIngestion", new RollbackIngestionResolver(this.entityClient))
-            .dataFetcher("batchAssignRoleToActors", new BatchAssignRoleToActors(this.entityService, this.entityClient))
+            .dataFetcher("batchAssignRole", new BatchAssignRoleResolver(this.entityClient))
 
         );
     }

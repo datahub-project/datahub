@@ -1,24 +1,15 @@
 import React, { useState } from 'react';
 import styled from 'styled-components';
-import { Dropdown, List, Menu, Select, Tag, Tooltip, Typography } from 'antd';
+import { Dropdown, List, Menu, Tag, Tooltip, Typography } from 'antd';
 import { Link } from 'react-router-dom';
-import {
-    DeleteOutlined,
-    EditOutlined,
-    MoreOutlined,
-    ReadOutlined,
-    SettingOutlined,
-    UnlockOutlined,
-    UserOutlined,
-} from '@ant-design/icons';
+import { DeleteOutlined, MoreOutlined, UnlockOutlined } from '@ant-design/icons';
 import { CorpUser, CorpUserStatus, EntityType, DataHubRole } from '../../../types.generated';
 import CustomAvatar from '../../shared/avatar/CustomAvatar';
 import { useEntityRegistry } from '../../useEntityRegistry';
 import { ANTD_GRAY, REDESIGN_COLORS } from '../../entity/shared/constants';
 import ViewResetTokenModal from './ViewResetTokenModal';
 import useDeleteEntity from '../../entity/shared/EntityDropdown/useDeleteEntity';
-import ViewAssignRoleModal from './ViewAssignRoleModal';
-// import UserProfile from '../../entity/user/UserProfile';
+import SelectRole from './SelectRole';
 
 type Props = {
     user: CorpUser;
@@ -48,15 +39,6 @@ const ButtonGroup = styled.div`
     align-items: center;
 `;
 
-const RoleSelect = styled(Select)`
-    min-width: 100px;
-`;
-
-const RoleIcon = styled.span`
-    margin-right: 6px;
-    font-size: 12px;
-`;
-
 const MenuIcon = styled(MoreOutlined)<{ fontSize?: number }>`
     display: flex;
     justify-content: center;
@@ -69,8 +51,6 @@ const MenuIcon = styled(MoreOutlined)<{ fontSize?: number }>`
 export default function UserListItem({ user, canManageUserCredentials, roles, onDelete, refetch }: Props) {
     const entityRegistry = useEntityRegistry();
     const [isViewingResetToken, setIsViewingResetToken] = useState(false);
-    const [isViewingAssignRole, setIsViewingAssignRole] = useState(false);
-    const [roleToAssign, setRoleToAssign] = useState<DataHubRole>();
     const displayName = entityRegistry.getDisplayName(EntityType.CorpUser, user);
     const isNativeUser: boolean = user.isNativeUser as boolean;
     const shouldShowPasswordReset: boolean = canManageUserCredentials && isNativeUser;
@@ -101,34 +81,6 @@ export default function UserListItem({ user, canManageUserCredentials, roles, on
     const userStatus = user.status; // Support case where the user status is undefined.
     const userStatusToolTip = userStatus && getUserStatusToolTip(userStatus);
     const userStatusColor = userStatus && getUserStatusColor(userStatus);
-    const rolesMap: Map<string, DataHubRole> = new Map();
-    roles.forEach((role) => {
-        rolesMap.set(role.urn, role);
-    });
-
-    const mapRoleIcon = (roleName) => {
-        let icon = <UserOutlined />;
-        if (roleName === 'Admin') {
-            icon = <SettingOutlined />;
-        }
-        if (roleName === 'Editor') {
-            icon = <EditOutlined />;
-        }
-        if (roleName === 'Reader') {
-            icon = <ReadOutlined />;
-        }
-        return <RoleIcon>{icon}</RoleIcon>;
-    };
-
-    const selectOptions = () =>
-        roles.map((role) => {
-            return (
-                <Select.Option value={role.urn}>
-                    {mapRoleIcon(role.name)}
-                    {role.name}
-                </Select.Option>
-            );
-        });
 
     return (
         <List.Item>
@@ -157,24 +109,7 @@ export default function UserListItem({ user, canManageUserCredentials, roles, on
                 </Link>
             </UserItemContainer>
             <ButtonGroup>
-                <RoleSelect
-                    placeholder={
-                        <RoleIcon>
-                            <UserOutlined />
-                            No Role
-                        </RoleIcon>
-                    }
-                    value={userRoleUrn || undefined}
-                    onChange={(e) => {
-                        const roleUrn: string = e as string;
-                        const roleFromMap: DataHubRole = rolesMap.get(roleUrn) as DataHubRole;
-                        setRoleToAssign(roleFromMap);
-                        setIsViewingAssignRole(true);
-                    }}
-                >
-                    {selectOptions()}
-                </RoleSelect>
-
+                <SelectRole user={user} userRoleUrn={userRoleUrn || ''} roles={roles} refetch={refetch} />
                 <Dropdown
                     trigger={['click']}
                     overlay={
@@ -191,19 +126,6 @@ export default function UserListItem({ user, canManageUserCredentials, roles, on
                     <MenuIcon fontSize={20} />
                 </Dropdown>
             </ButtonGroup>
-            <ViewAssignRoleModal
-                visible={isViewingAssignRole}
-                roleToAssign={roleToAssign}
-                userUrn={user.urn}
-                username={user.username}
-                onClose={() => setIsViewingAssignRole(false)}
-                onConfirm={() => {
-                    setIsViewingAssignRole(false);
-                    setTimeout(function () {
-                        refetch?.();
-                    }, 3000);
-                }}
-            />
             <ViewResetTokenModal
                 visible={isViewingResetToken}
                 userUrn={user.urn}

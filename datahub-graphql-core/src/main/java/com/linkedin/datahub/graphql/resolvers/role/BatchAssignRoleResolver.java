@@ -5,7 +5,7 @@ import com.linkedin.common.UrnArray;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.exception.AuthorizationException;
-import com.linkedin.datahub.graphql.generated.BatchAssignRoleToActorsInput;
+import com.linkedin.datahub.graphql.generated.BatchAssignRoleInput;
 import com.linkedin.entity.client.EntityClient;
 import com.linkedin.events.metadata.ChangeType;
 import com.linkedin.identity.RoleMembership;
@@ -27,7 +27,7 @@ import static com.linkedin.metadata.Constants.*;
 
 @Slf4j
 @RequiredArgsConstructor
-public class BatchAssignRoleToActorsResolver implements DataFetcher<CompletableFuture<Boolean>> {
+public class BatchAssignRoleResolver implements DataFetcher<CompletableFuture<Boolean>> {
   private final EntityClient _entityClient;
 
   @Override
@@ -38,8 +38,7 @@ public class BatchAssignRoleToActorsResolver implements DataFetcher<CompletableF
           "Unauthorized to assign roles. Please contact your DataHub administrator if this needs corrective action.");
     }
 
-    final BatchAssignRoleToActorsInput input =
-        bindArgument(environment.getArgument("input"), BatchAssignRoleToActorsInput.class);
+    final BatchAssignRoleInput input = bindArgument(environment.getArgument("input"), BatchAssignRoleInput.class);
     final String roleUrnStr = input.getRoleUrn();
     final List<String> actors = input.getActors();
     final Authentication authentication = context.getAuthentication();
@@ -55,12 +54,12 @@ public class BatchAssignRoleToActorsResolver implements DataFetcher<CompletableF
           try {
             assignRoleToActor(actor, roleUrn, authentication);
           } catch (Exception e) {
-            log.error(String.format("Failed to assign role to actor %s", actor), e);
+            log.warn(
+                String.format("Failed to assign role %s to actor %s. Skipping actor assignment", roleUrnStr, actor), e);
           }
         });
         return true;
       } catch (Exception e) {
-        log.error("Failed to perform update against input {}, {}", input, e.getMessage());
         throw new RuntimeException(String.format("Failed to perform update against input %s", input), e);
       }
     });
@@ -70,7 +69,8 @@ public class BatchAssignRoleToActorsResolver implements DataFetcher<CompletableF
       throws URISyntaxException, RemoteInvocationException {
     Urn actorUrn = Urn.createFromString(actor);
     if (!_entityClient.exists(actorUrn, authentication)) {
-      log.error(String.format("Actor %s does not exist", actor));
+      log.warn(String.format("Failed to assign role %s to actor %s, actor does not exist. Skipping actor assignment",
+          roleUrn.toString(), actor));
       return;
     }
 

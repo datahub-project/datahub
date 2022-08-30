@@ -507,7 +507,7 @@ type Mutation {
     """
     Batch assign roles to users
     """
-    batchAssignRoleToActors(input: BatchAssignRoleToActorsInput!): Boolean
+    batchAssignRole(input: BatchAssignRoleInput!): Boolean
 }
 
 """

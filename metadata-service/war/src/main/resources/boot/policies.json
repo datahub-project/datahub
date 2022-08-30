@@ -174,7 +174,7 @@
       "description":"Admins have all platform privileges.",
       "state":"ACTIVE",
       "type":"PLATFORM",
-      "editable":true
+      "editable":false
     }
   },
   {
@@ -222,7 +222,7 @@
       "description":"Admins have all metadata privileges.",
       "state":"ACTIVE",
       "type":"METADATA",
-      "editable":true
+      "editable":false
     }
   },
   {
@@ -251,7 +251,7 @@
       "description":"Editors can manage ingestion and view analytics.",
       "state":"ACTIVE",
       "type":"PLATFORM",
-      "editable":true
+      "editable":false
     }
   },
   {
@@ -298,7 +298,7 @@
       "description":"Editors have all metadata privileges.",
       "state":"ACTIVE",
       "type":"METADATA",
-      "editable":true
+      "editable":false
     }
   },
   {

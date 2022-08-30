@@ -69,15 +69,15 @@ public class PolicyEngineTest {
     authorizedEntityResponse.setUrn(authorizedUserUrn);
     Map<Urn, EntityResponse> authorizedEntityResponseMap =
         Collections.singletonMap(authorizedUserUrn, authorizedEntityResponse);
-    when(_entityClient.batchGetV2(eq(CORP_USER_ENTITY_NAME), eq(Collections.singleton(authorizedUserUrn)), eq(null),
-        any())).thenReturn(authorizedEntityResponseMap);
+    when(
+        _entityClient.batchGetV2(eq(CORP_USER_ENTITY_NAME), eq(Collections.singleton(authorizedUserUrn)), any(), any())).thenReturn(authorizedEntityResponseMap);
 
     EntityResponse unauthorizedEntityResponse = createUnauthorizedEntityResponse();
     unauthorizedUserUrn = Urn.createFromString(UNAUTHORIZED_PRINCIPAL);
     unauthorizedEntityResponse.setUrn(unauthorizedUserUrn);
     Map<Urn, EntityResponse> unauthorizedEntityResponseMap =
         Collections.singletonMap(unauthorizedUserUrn, unauthorizedEntityResponse);
-    when(_entityClient.batchGetV2(eq(CORP_USER_ENTITY_NAME), eq(Collections.singleton(unauthorizedUserUrn)), eq(null),
+    when(_entityClient.batchGetV2(eq(CORP_USER_ENTITY_NAME), eq(Collections.singleton(unauthorizedUserUrn)), any(),
         any())).thenReturn(unauthorizedEntityResponseMap);
 
     EntityResponse entityResponse = new EntityResponse();
@@ -284,8 +284,8 @@ public class PolicyEngineTest {
     assertTrue(result1.isGranted());
 
     // Verify we are only calling for group during these requests.
-    verify(_entityClient, times(2)).batchGetV2(eq(CORP_USER_ENTITY_NAME), eq(Collections.singleton(authorizedUserUrn)),
-        eq(null), any());
+    verify(_entityClient, times(1)).batchGetV2(eq(CORP_USER_ENTITY_NAME), eq(Collections.singleton(authorizedUserUrn)),
+        any(), any());
   }
 
   @Test
@@ -321,8 +321,8 @@ public class PolicyEngineTest {
     assertFalse(result2.isGranted());
 
     // Verify we are only calling for group during these requests.
-    verify(_entityClient, times(2)).batchGetV2(eq(CORP_USER_ENTITY_NAME),
-        eq(Collections.singleton(unauthorizedUserUrn)), eq(null), any());
+    verify(_entityClient, times(1)).batchGetV2(eq(CORP_USER_ENTITY_NAME),
+        eq(Collections.singleton(unauthorizedUserUrn)), any(), any());
   }
 
   @Test
@@ -361,7 +361,7 @@ public class PolicyEngineTest {
 
     // Verify we are only calling for roles during these requests.
     verify(_entityClient, times(1)).batchGetV2(eq(CORP_USER_ENTITY_NAME), eq(Collections.singleton(authorizedUserUrn)),
-        eq(null), any());
+        any(), any());
   }
 
   @Test
@@ -401,7 +401,7 @@ public class PolicyEngineTest {
 
     // Verify we are only calling for roles during these requests.
     verify(_entityClient, times(1)).batchGetV2(eq(CORP_USER_ENTITY_NAME),
-        eq(Collections.singleton(unauthorizedUserUrn)), eq(null), any());
+        eq(Collections.singleton(unauthorizedUserUrn)), any(), any());
   }
 
   @Test
@@ -479,10 +479,10 @@ public class PolicyEngineTest {
     assertTrue(result2.isGranted());
 
     // Verify we are only calling for group during these requests.
-    verify(_entityClient, times(2)).batchGetV2(eq(CORP_USER_ENTITY_NAME), eq(Collections.singleton(authorizedUserUrn)),
-        eq(null), any());
-    verify(_entityClient, times(2)).batchGetV2(eq(CORP_USER_ENTITY_NAME),
-        eq(Collections.singleton(unauthorizedUserUrn)), eq(null), any());
+    verify(_entityClient, times(1)).batchGetV2(eq(CORP_USER_ENTITY_NAME), eq(Collections.singleton(authorizedUserUrn)),
+        any(), any());
+    verify(_entityClient, times(1)).batchGetV2(eq(CORP_USER_ENTITY_NAME),
+        eq(Collections.singleton(unauthorizedUserUrn)), any(), any());
   }
 
   @Test
@@ -550,10 +550,9 @@ public class PolicyEngineTest {
             Optional.of(resourceSpec));
     assertTrue(result1.isGranted());
 
-    // Ensure that caching of groups is working with 2 calls (for groups and native groups) to entity client for each
-    // principal.
-    verify(_entityClient, times(2)).batchGetV2(eq(CORP_USER_ENTITY_NAME), eq(Collections.singleton(authorizedUserUrn)),
-        eq(null), any());
+    // Ensure that caching of groups is working with 1 call to entity client for each principal.
+    verify(_entityClient, times(1)).batchGetV2(eq(CORP_USER_ENTITY_NAME), eq(Collections.singleton(authorizedUserUrn)),
+        any(), any());
   }
 
   @Test
@@ -584,10 +583,9 @@ public class PolicyEngineTest {
             Optional.of(resourceSpec));
     assertFalse(result2.isGranted());
 
-    // Ensure that caching of groups is working with 2 calls (for groups and native groups) to entity client for each
-    // principal.
-    verify(_entityClient, times(2)).batchGetV2(eq(CORP_USER_ENTITY_NAME),
-        eq(Collections.singleton(unauthorizedUserUrn)), eq(null), any());
+    // Ensure that caching of groups is working with 1 call to entity client for each principal.
+    verify(_entityClient, times(1)).batchGetV2(eq(CORP_USER_ENTITY_NAME),
+        eq(Collections.singleton(unauthorizedUserUrn)), any(), any());
   }
 
   @Test

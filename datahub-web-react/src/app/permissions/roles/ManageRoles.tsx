@@ -12,7 +12,7 @@ import { useEntityRegistry } from '../../useEntityRegistry';
 import { SearchBar } from '../../search/SearchBar';
 import { SearchSelectModal } from '../../entity/shared/components/styled/search/SearchSelectModal';
 import { EntityCapabilityType } from '../../entity/Entity';
-import { useBatchAssignRoleToActorsMutation } from '../../../graphql/mutations.generated';
+import { useBatchAssignRoleMutation } from '../../../graphql/mutations.generated';
 import { CorpUser, DataHubRole, DataHubPolicy } from '../../../types.generated';
 import RoleDetailsModal from './RoleDetailsModal';
 
@@ -79,13 +79,13 @@ export const ManageRoles = () => {
         setFocusRole(undefined);
     };
 
-    const [batchAssignRoleToActorsMutation] = useBatchAssignRoleToActorsMutation();
+    const [batchAssignRoleMutation] = useBatchAssignRoleMutation();
     // eslint-disable-next-line
-    const batchAssignRoleToActors = (actorUrns: Array<string>) => {
+    const batchAssignRole = (actorUrns: Array<string>) => {
         if (!focusRole || !focusRole.urn) {
             return;
         }
-        batchAssignRoleToActorsMutation({
+        batchAssignRoleMutation({
             variables: {
                 input: {
                     roleUrn: focusRole?.urn,
@@ -198,7 +198,7 @@ export const ManageRoles = () => {
             {rolesLoading && !rolesData && (
                 <Message type="loading" content="Loading roles..." style={{ marginTop: '10%' }} />
             )}
-            {rolesError && message.error('Failed to load roles :(')}
+            {rolesError && message.error('Failed to load roles! An unexpected error occurred.')}
             <SourceContainer>
                 <TabToolbar>
                     <SearchBar
@@ -221,7 +221,7 @@ export const ManageRoles = () => {
                         <SearchSelectModal
                             titleText={`Assign ${focusRole?.name} Role to Users`}
                             continueText="Add"
-                            onContinue={batchAssignRoleToActors}
+                            onContinue={batchAssignRole}
                             onCancel={resetRoleState}
                             fixedEntityTypes={Array.from(
                                 entityRegistry.getTypesWithSupportedCapabilities(EntityCapabilityType.ROLES),
@@ -234,7 +234,7 @@ export const ManageRoles = () => {
                     dataSource={tableData}
                     rowKey="urn"
                     locale={{
-                        emptyText: <Empty description="No Policies!" image={Empty.PRESENTED_IMAGE_SIMPLE} />,
+                        emptyText: <Empty description="No Roles!" image={Empty.PRESENTED_IMAGE_SIMPLE} />,
                     }}
                     pagination={false}
                 />

@@ -1,6 +1,6 @@
 import React from 'react';
-import { Button, message, Modal, Typography } from 'antd';
-import { useBatchAssignRoleToActorsMutation } from '../../../graphql/mutations.generated';
+import { message, Popconfirm } from 'antd';
+import { useBatchAssignRoleMutation } from '../../../graphql/mutations.generated';
 import { DataHubRole } from '../../../types.generated';
 
 type Props = {
@@ -12,12 +12,19 @@ type Props = {
     onConfirm: () => void;
 };
 
-export default function ViewAssignRoleModal({ visible, roleToAssign, userUrn, username, onClose, onConfirm }: Props) {
-    const [batchAssignRoleToActorsMutation] = useBatchAssignRoleToActorsMutation();
+export default function AssignRoleConfirmation({
+    visible,
+    roleToAssign,
+    userUrn,
+    username,
+    onClose,
+    onConfirm,
+}: Props) {
+    const [batchAssignRoleMutation] = useBatchAssignRoleMutation();
     // eslint-disable-next-line
-    const batchAssignRoleToActors = () => {
+    const batchAssignRole = () => {
         if (roleToAssign) {
-            batchAssignRoleToActorsMutation({
+            batchAssignRoleMutation({
                 variables: {
                     input: {
                         roleUrn: roleToAssign.urn,
@@ -45,30 +52,11 @@ export default function ViewAssignRoleModal({ visible, roleToAssign, userUrn, us
     };
 
     return (
-        <Modal
-            width={700}
-            title="Assign role"
+        <Popconfirm
+            title={`Would you like to assign the role ${roleToAssign?.name} to ${username}?`}
             visible={visible}
+            onConfirm={batchAssignRole}
             onCancel={onClose}
-            footer={
-                <>
-                    <Button onClick={onClose} type="text">
-                        No
-                    </Button>
-                    <Button
-                        onClick={() => {
-                            batchAssignRoleToActors();
-                        }}
-                    >
-                        Yes
-                    </Button>
-                </>
-            }
-        >
-            {' '}
-            <Typography.Text>
-                <b>{`Would you like to assign the role ${roleToAssign?.name} to ${username}?`}</b>
-            </Typography.Text>
-        </Modal>
+        />
     );
 }

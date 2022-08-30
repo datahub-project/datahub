@@ -23,7 +23,7 @@ export default function AvatarsGroup({ users, groups, policies, roles, entityReg
         <SpacedAvatarGroup maxCount={maxCount}>
             {users &&
                 users?.length > 0 &&
-                (users || [])?.map((user, key) => (
+                users?.map((user, key) => (
                     // eslint-disable-next-line react/no-array-index-key
                     <div data-testid={`avatar-tag-${user?.urn}`} key={`${user?.urn}-${key}`}>
                         <CustomAvatar
@@ -38,7 +38,7 @@ export default function AvatarsGroup({ users, groups, policies, roles, entityReg
                 ))}
             {groups &&
                 groups.length > 0 &&
-                (groups || [])?.map((group, key) => (
+                groups?.map((group, key) => (
                     // eslint-disable-next-line react/no-array-index-key
                     <div data-testid={`avatar-tag-${group.urn}`} key={`${group.urn}-${key}`}>
                         <CustomAvatar
@@ -51,7 +51,7 @@ export default function AvatarsGroup({ users, groups, policies, roles, entityReg
                 ))}
             {roles &&
                 roles.length > 0 &&
-                (roles || [])?.map((role, key) => (
+                roles?.map((role, key) => (
                     // eslint-disable-next-line react/no-array-index-key
                     <div data-testid={`avatar-tag-${role.urn}`} key={`${role.urn}-${key}`}>
                         <CustomAvatar size={size} name={role.name} isRole />
@@ -59,7 +59,7 @@ export default function AvatarsGroup({ users, groups, policies, roles, entityReg
                 ))}
             {policies &&
                 policies.length > 0 &&
-                (policies || [])?.map((policy, key) => (
+                policies?.map((policy, key) => (
                     // eslint-disable-next-line react/no-array-index-key
                     <div data-testid={`avatar-tag-${policy.urn}`} key={`${policy.urn}-${key}`}>
                         <CustomAvatar size={size} name={policy.name} isPolicy />

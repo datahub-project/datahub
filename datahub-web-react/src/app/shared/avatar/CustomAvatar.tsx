@@ -35,6 +35,7 @@ type Props = {
     isRole?: boolean;
 };
 
+// TODO: Refactor Policy and Role to NOT use CustomAvatar and use a clickable link instead
 export default function CustomAvatar({
     url,
     photoUrl,

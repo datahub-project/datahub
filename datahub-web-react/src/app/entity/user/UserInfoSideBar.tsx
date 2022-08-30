@@ -1,14 +1,6 @@
 import { Divider, message, Space, Button, Typography, Tag } from 'antd';
 import React, { useState } from 'react';
-import {
-    EditOutlined,
-    MailOutlined,
-    PhoneOutlined,
-    ReadOutlined,
-    SettingOutlined,
-    SlackOutlined,
-    UserOutlined,
-} from '@ant-design/icons';
+import { EditOutlined, MailOutlined, PhoneOutlined, SlackOutlined } from '@ant-design/icons';
 import { useUpdateCorpUserPropertiesMutation } from '../../../graphql/user.generated';
 import { EntityRelationship, DataHubRole } from '../../../types.generated';
 import UserEditProfileModal from './UserEditProfileModal';
@@ -28,6 +20,7 @@ import {
     Team,
 } from '../shared/SidebarStyledComponents';
 import EntityGroups from '../shared/EntityGroups';
+import { mapRoleIcon } from '../../identity/user/UserUtils';
 
 const { Paragraph } = Typography;
 
@@ -102,19 +95,6 @@ export default function UserInfoSideBar({ sideBarData, refetch }: Props) {
             });
     };
     const dataHubRoleName = dataHubRoles && dataHubRoles.length > 0 && (dataHubRoles[0]?.entity as DataHubRole).name;
-
-    const mapRoleIcon = (roleName) => {
-        if (roleName === 'Admin') {
-            return <SettingOutlined />;
-        }
-        if (roleName === 'Editor') {
-            return <EditOutlined />;
-        }
-        if (roleName === 'Reader') {
-            return <ReadOutlined />;
-        }
-        return <UserOutlined />;
-    };
 
     return (
         <>
