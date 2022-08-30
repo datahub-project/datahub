@@ -35,7 +35,6 @@ import com.linkedin.metadata.search.SearchResult;
 import com.linkedin.metadata.utils.GenericRecordUtils;
 import com.linkedin.mxe.MetadataChangeProposal;
 import graphql.execution.DataFetcherResult;
-import io.grpc.TlsServerCredentials;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashSet;
@@ -55,7 +54,7 @@ public class CorpUserType implements SearchableEntityType<CorpUser, String>, Mut
     private final EntityClient _entityClient;
     private final FeatureFlags _featureFlags;
 
-    public CorpUserType(final EntityClient entityClient, final FeatureFlags featureFlags ) {
+    public CorpUserType(final EntityClient entityClient, final FeatureFlags featureFlags) {
         _entityClient = entityClient;
         _featureFlags = featureFlags;
     }
