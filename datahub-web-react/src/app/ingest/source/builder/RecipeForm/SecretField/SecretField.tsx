@@ -10,10 +10,6 @@ const StyledDivider = styled(Divider)`
     margin: 0;
 `;
 
-export const SecretFieldLabel = styled.span`
-    color: ${ANTD_GRAY[7]};
-`;
-
 export const StyledFormItem = styled(Form.Item)<{
     alignLeft?: boolean;
     removeMargin: boolean;
@@ -61,8 +57,12 @@ interface SecretFieldProps {
 function SecretFieldTooltip({ tooltipLabel }: { tooltipLabel?: string | ReactNode }) {
     return (
         <div>
-            {tooltipLabel}
-            <hr />
+            {tooltipLabel && (
+                <>
+                    {tooltipLabel}
+                    <hr />
+                </>
+            )}
             <p>
                 This field requires you to use a DataHub Secret. For more information on Secrets in DataHub, please
                 review{' '}
