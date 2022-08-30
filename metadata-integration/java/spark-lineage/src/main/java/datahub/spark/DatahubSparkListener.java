@@ -101,6 +101,7 @@ public class DatahubSparkListener extends SparkListener {
 
       if (sqlStart == null) {
         log.error("sqlStart is null skipping run");
+        return
       }
 
       appSqlDetails.get(ctx.applicationId())
