@@ -263,7 +263,6 @@ public class SendMAEStep implements UpgradeStep {
       while (start < rowCount) {
         while (futures.size() < args.numThreads && start < rowCount) {
           futures.add(executor.submit(new KafkaJob(context, start, args)));
-          context.report().addLine(String.format("Added future. Current futures size is %d", futures.size()));
           start = start + args.batchSize;
         }
         List<KafkaJobResult> tmpResults = iterateFutures(futures);
@@ -304,11 +303,12 @@ public class SendMAEStep implements UpgradeStep {
     if (percentSent > 0) {
       estimatedTimeMinutesComplete = timeSoFarMinutes * (100 - percentSent) / percentSent;
     }
+    float totalTimeComplete = timeSoFarMinutes + estimatedTimeMinutesComplete;
     context.report().addLine(String.format(
             "Successfully sent MAEs for %s/%s rows (%.2f%% of total). %s rows ignored (%.2f%% of total)",
             totalRowsMigrated, rowCount, percentSent, ignored, percentIgnored));
-    context.report().addLine(String.format("%.2f minutes taken. %.2f estimate minutes to completion",
-            timeSoFarMinutes, estimatedTimeMinutesComplete));
+    context.report().addLine(String.format("%.2f mins taken. %.2f est. mins to completion. Total mins est. = %.2f.",
+            timeSoFarMinutes, estimatedTimeMinutesComplete, totalTimeComplete));
   }
 
   private PagedList<EbeanAspectV2> getPagedAspects(final int start, final JobArgs args) {
