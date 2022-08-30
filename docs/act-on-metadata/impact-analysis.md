@@ -68,8 +68,8 @@ Follow these simple steps to understand the full dependency chain of your data e
 
 ### GraphQL
 
-* [searchAcrossLineage](docs/graphql/queries/#searchacrosslineage)
-* [searchAcrossLineageInput](docs/graphql/inputObjects#searchacrosslineageinput)
+* [searchAcrossLineage](./docs/graphql/queries/#searchacrosslineage)
+* [searchAcrossLineageInput](./docs/graphql/inputObjects#searchacrosslineageinput)
 
 ### DataHub Blog
 
@@ -90,4 +90,4 @@ We currently limit the list of dependencies to 10,000 records; we suggest applyi
 
 ### Related Features
 
-* [DataHub Lineage](docs/lineage/intro)
+* [DataHub Lineage](./docs/lineage/intro.md)
