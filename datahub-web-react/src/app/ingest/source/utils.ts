@@ -11,12 +11,6 @@ import { EntityType, FacetMetadata } from '../../../types.generated';
 import { capitalizeFirstLetterOnly, pluralize } from '../../shared/textUtil';
 import EntityRegistry from '../../entity/EntityRegistry';
 import { SourceConfig } from './builder/types';
-import { SOURCE_URN_TO_LOGO, SOURCE_TO_SOURCE_URN } from './builder/constants';
-
-export const sourceTypeToIconUrl = (type: string) => {
-    const sourceUrn = SOURCE_TO_SOURCE_URN[type];
-    return SOURCE_URN_TO_LOGO[sourceUrn];
-};
 
 export const getSourceConfigs = (ingestionSources: SourceConfig[], sourceType: string) => {
     const sourceConfigs = ingestionSources.find((source) => source.name === sourceType);

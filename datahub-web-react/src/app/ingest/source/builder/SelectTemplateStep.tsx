@@ -6,7 +6,7 @@ import { LogoCountCard } from '../../../shared/LogoCountCard';
 import { SourceConfig, SourceBuilderState, StepProps } from './types';
 import { IngestionSourceBuilderStep } from './steps';
 import useGetSourceLogoUrl from './useGetSourceLogoUrl';
-import { CUSTOM_URN } from './constants';
+import { CUSTOM } from './constants';
 import { ANTD_GRAY } from '../../../entity/shared/constants';
 
 const Section = styled.div`
@@ -42,11 +42,11 @@ interface SourceOptionProps {
 }
 
 function SourceOption({ source, onClick }: SourceOptionProps) {
-    const { urn, displayName } = source;
+    const { name, displayName } = source;
 
-    const logoUrl = useGetSourceLogoUrl(urn);
+    const logoUrl = useGetSourceLogoUrl(name);
     let logoComponent;
-    if (urn === CUSTOM_URN) {
+    if (name === CUSTOM) {
         logoComponent = <FormOutlined style={{ color: ANTD_GRAY[8], fontSize: 28 }} />;
     }
 

@@ -12,7 +12,6 @@ import {
     getExecutionRequestStatusDisplayText,
     getExecutionRequestStatusIcon,
     RUNNING,
-    sourceTypeToIconUrl,
 } from './utils';
 
 const PreviewImage = styled(Image)`
@@ -64,8 +63,7 @@ const CliBadge = styled.span`
 `;
 
 export function TypeColumn(type: string, record: any) {
-    let iconUrl = useGetSourceLogoUrl(record.platformUrn || '');
-    if (!iconUrl) iconUrl = sourceTypeToIconUrl(type);
+    const iconUrl = useGetSourceLogoUrl(type);
     const typeDisplayName = capitalizeFirstLetter(type);
 
     return (

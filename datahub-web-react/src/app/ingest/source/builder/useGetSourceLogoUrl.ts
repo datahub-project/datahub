@@ -1,14 +1,18 @@
 import { useEffect } from 'react';
 import { useGetDataPlatformLazyQuery } from '../../../../graphql/dataPlatform.generated';
-import { CUSTOM_URN, SOURCE_URN_TO_LOGO } from './constants';
+import { CUSTOM, SOURCE_NAME_TO_LOGO } from './constants';
 
-export default function useGetSourceLogoUrl(urn: string) {
+function generatePlatformUrn(platformName: string) {
+    return `urn:li:dataPlatform:${platformName}`;
+}
+
+export default function useGetSourceLogoUrl(platformName: string) {
     const [getDataPlatform, { data, loading }] = useGetDataPlatformLazyQuery();
-    const logoInMemory = SOURCE_URN_TO_LOGO[urn];
+    const logoInMemory = SOURCE_NAME_TO_LOGO[platformName];
 
     useEffect(() => {
-        if (urn && urn !== CUSTOM_URN && !logoInMemory && !data && !loading) {
-            getDataPlatform({ variables: { urn } });
+        if (!logoInMemory && platformName !== CUSTOM && !data && !loading) {
+            getDataPlatform({ variables: { urn: generatePlatformUrn(platformName) } });
         }
     });
 

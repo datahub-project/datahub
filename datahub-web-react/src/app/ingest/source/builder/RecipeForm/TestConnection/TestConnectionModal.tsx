@@ -97,7 +97,7 @@ function TestConnectionModal({
     testConnectionResult,
     hideModal,
 }: Props) {
-    const logoUrl = useGetSourceLogoUrl(sourceConfig?.urn || '');
+    const logoUrl = useGetSourceLogoUrl(sourceConfig?.name || '');
 
     return (
         <Modal
