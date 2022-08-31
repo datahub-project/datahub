@@ -44,4 +44,6 @@ FROM ${APP_ENV}-install as final
 RUN addgroup -S datahub && adduser -S datahub -G datahub
 USER datahub
 
-ENTRYPOINT ["java", "-jar", "/datahub/datahub-upgrade/bin/datahub-upgrade.jar"]
+ENV JAVA_OPTS=""
+
+ENTRYPOINT java $JAVA_OPTS -jar /datahub/datahub-upgrade/bin/datahub-upgrade.jar
