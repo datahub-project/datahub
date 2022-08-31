@@ -105,7 +105,7 @@ export default function LineageVizInsideZoom({
 
     const [hoveredEntity, setHoveredEntity] = useState<EntitySelectParams | undefined>(undefined);
     const [isDraggingNode, setIsDraggingNode] = useState(false);
-    const [showExpandedTitles, setShowExpandedTitles] = useState(false);
+    const [showExpandedTitles, setShowExpandedTitles] = useState(true);
     const isHideSiblingMode = useIsSeparateSiblingsMode();
 
     const entityRegistry = useEntityRegistry();
