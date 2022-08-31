@@ -52,25 +52,6 @@
 },
 {
     "auditHeader": null,
-    "entityType": "dashboard",
-    "entityUrn": "urn:li:dashboard:(looker,dashboards.1)",
-    "entityKeyAspect": null,
-    "changeType": "UPSERT",
-    "aspectName": "dashboardUsageStatistics",
-    "aspect": {
-        "value": "{\"timestampMillis\": 1586847600000, \"partitionSpec\": {\"type\": \"FULL_TABLE\", \"partition\": \"FULL_TABLE_SNAPSHOT\"}, \"viewsCount\": 25, \"favoritesCount\": 5, \"lastViewedAt\": 1586847600000}",
-        "contentType": "application/json"
-    },
-    "systemMetadata": {
-        "lastObserved": 1586847600000,
-        "runId": "looker-test",
-        "registryName": null,
-        "registryVersion": null,
-        "properties": null
-    }
-},
-{
-    "auditHeader": null,
     "proposedSnapshot": {
         "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
             "urn": "urn:li:dataset:(urn:li:dataPlatform:looker,data.explore.my_view,PROD)",
@@ -339,12 +320,12 @@
 {
     "auditHeader": null,
     "entityType": "dashboard",
-    "entityUrn": "urn:li:dashboard:(looker,dashboards.11)",
+    "entityUrn": "urn:li:dashboard:(looker,dashboards.1)",
     "entityKeyAspect": null,
     "changeType": "UPSERT",
     "aspectName": "dashboardUsageStatistics",
     "aspect": {
-        "value": "{\"timestampMillis\": 1656979200000, \"eventGranularity\": {\"unit\": \"DAY\", \"multiple\": 1}, \"partitionSpec\": {\"type\": \"FULL_TABLE\", \"partition\": \"FULL_TABLE_SNAPSHOT\"}, \"executionsCount\": 14, \"uniqueUserCount\": 1, \"userCounts\": [{\"user\": \"urn:li:corpuser:test@looker.com\", \"executionsCount\": 14, \"usageCount\": 14, \"userEmail\": \"test@looker.com\"}]}",
+        "value": "{\"timestampMillis\": 1586847600000, \"partitionSpec\": {\"type\": \"FULL_TABLE\", \"partition\": \"FULL_TABLE_SNAPSHOT\"}, \"viewsCount\": 25, \"userCounts\": [], \"favoritesCount\": 5, \"lastViewedAt\": 1586847600000}",
         "contentType": "application/json"
     },
     "systemMetadata": {
@@ -358,12 +339,12 @@
 {
     "auditHeader": null,
     "entityType": "dashboard",
-    "entityUrn": "urn:li:dashboard:(looker,dashboards.12)",
+    "entityUrn": "urn:li:dashboard:(looker,dashboards.1)",
     "entityKeyAspect": null,
     "changeType": "UPSERT",
     "aspectName": "dashboardUsageStatistics",
     "aspect": {
-        "value": "{\"timestampMillis\": 1656979200000, \"eventGranularity\": {\"unit\": \"DAY\", \"multiple\": 1}, \"partitionSpec\": {\"type\": \"FULL_TABLE\", \"partition\": \"FULL_TABLE_SNAPSHOT\"}, \"executionsCount\": 14, \"uniqueUserCount\": 1, \"userCounts\": [{\"user\": \"urn:li:corpuser:test@looker.com\", \"executionsCount\": 14, \"usageCount\": 14, \"userEmail\": \"test@looker.com\"}]}",
+        "value": "{\"timestampMillis\": 1656979200000, \"eventGranularity\": {\"unit\": \"DAY\", \"multiple\": 1}, \"partitionSpec\": {\"type\": \"FULL_TABLE\", \"partition\": \"FULL_TABLE_SNAPSHOT\"}, \"executionsCount\": 5, \"uniqueUserCount\": 1, \"userCounts\": [{\"user\": \"urn:li:corpuser:test@looker.com\", \"executionsCount\": 14, \"usageCount\": 14, \"userEmail\": \"test@looker.com\"}, {\"user\": \"urn:li:corpuser:test@looker.com\", \"executionsCount\": 14, \"usageCount\": 14, \"userEmail\": \"test@looker.com\"}, {\"user\": \"urn:li:corpuser:test@looker.com\", \"executionsCount\": 5, \"usageCount\": 5, \"userEmail\": \"test@looker.com\"}]}",
         "contentType": "application/json"
     },
     "systemMetadata": {
@@ -377,12 +358,88 @@
 {
     "auditHeader": null,
     "entityType": "dashboard",
-    "entityUrn": "urn:li:dashboard:(looker,dashboards.37)",
+    "entityUrn": "urn:li:dashboard:(looker,dashboards.1)",
     "entityKeyAspect": null,
     "changeType": "UPSERT",
     "aspectName": "dashboardUsageStatistics",
     "aspect": {
-        "value": "{\"timestampMillis\": 1656979200000, \"eventGranularity\": {\"unit\": \"DAY\", \"multiple\": 1}, \"partitionSpec\": {\"type\": \"FULL_TABLE\", \"partition\": \"FULL_TABLE_SNAPSHOT\"}, \"executionsCount\": 5, \"uniqueUserCount\": 1, \"userCounts\": [{\"user\": \"urn:li:corpuser:test@looker.com\", \"executionsCount\": 5, \"usageCount\": 5, \"userEmail\": \"test@looker.com\"}]}",
+        "value": "{\"timestampMillis\": 1656979200000, \"eventGranularity\": {\"unit\": \"DAY\", \"multiple\": 1}, \"partitionSpec\": {\"type\": \"FULL_TABLE\", \"partition\": \"FULL_TABLE_SNAPSHOT\"}, \"executionsCount\": 5, \"uniqueUserCount\": 1, \"userCounts\": [{\"user\": \"urn:li:corpuser:test@looker.com\", \"executionsCount\": 14, \"usageCount\": 14, \"userEmail\": \"test@looker.com\"}, {\"user\": \"urn:li:corpuser:test@looker.com\", \"executionsCount\": 14, \"usageCount\": 14, \"userEmail\": \"test@looker.com\"}, {\"user\": \"urn:li:corpuser:test@looker.com\", \"executionsCount\": 5, \"usageCount\": 5, \"userEmail\": \"test@looker.com\"}]}",
+        "contentType": "application/json"
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "looker-test",
+        "registryName": null,
+        "registryVersion": null,
+        "properties": null
+    }
+},
+{
+    "auditHeader": null,
+    "entityType": "dashboard",
+    "entityUrn": "urn:li:dashboard:(looker,dashboards.1)",
+    "entityKeyAspect": null,
+    "changeType": "UPSERT",
+    "aspectName": "dashboardUsageStatistics",
+    "aspect": {
+        "value": "{\"timestampMillis\": 1656979200000, \"eventGranularity\": {\"unit\": \"DAY\", \"multiple\": 1}, \"partitionSpec\": {\"type\": \"FULL_TABLE\", \"partition\": \"FULL_TABLE_SNAPSHOT\"}, \"executionsCount\": 5, \"uniqueUserCount\": 1, \"userCounts\": [{\"user\": \"urn:li:corpuser:test@looker.com\", \"executionsCount\": 14, \"usageCount\": 14, \"userEmail\": \"test@looker.com\"}, {\"user\": \"urn:li:corpuser:test@looker.com\", \"executionsCount\": 14, \"usageCount\": 14, \"userEmail\": \"test@looker.com\"}, {\"user\": \"urn:li:corpuser:test@looker.com\", \"executionsCount\": 5, \"usageCount\": 5, \"userEmail\": \"test@looker.com\"}]}",
+        "contentType": "application/json"
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "looker-test",
+        "registryName": null,
+        "registryVersion": null,
+        "properties": null
+    }
+},
+{
+    "auditHeader": null,
+    "entityType": "chart",
+    "entityUrn": "urn:li:chart:(looker,dashboard_elements.3)",
+    "entityKeyAspect": null,
+    "changeType": "UPSERT",
+    "aspectName": "chartUsageStatistics",
+    "aspect": {
+        "value": "{\"timestampMillis\": 1586847600000, \"partitionSpec\": {\"type\": \"FULL_TABLE\", \"partition\": \"FULL_TABLE_SNAPSHOT\"}, \"viewsCount\": 30, \"userCounts\": []}",
+        "contentType": "application/json"
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "looker-test",
+        "registryName": null,
+        "registryVersion": null,
+        "properties": null
+    }
+},
+{
+    "auditHeader": null,
+    "entityType": "chart",
+    "entityUrn": "urn:li:chart:(looker,dashboard_elements.3)",
+    "entityKeyAspect": null,
+    "changeType": "UPSERT",
+    "aspectName": "chartUsageStatistics",
+    "aspect": {
+        "value": "{\"timestampMillis\": 1656979200000, \"eventGranularity\": {\"unit\": \"DAY\", \"multiple\": 1}, \"partitionSpec\": {\"type\": \"FULL_TABLE\", \"partition\": \"FULL_TABLE_SNAPSHOT\"}, \"viewsCount\": 10, \"userCounts\": [{\"user\": \"urn:li:corpuser:test@looker.com\", \"viewsCount\": 10}]}",
+        "contentType": "application/json"
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "looker-test",
+        "registryName": null,
+        "registryVersion": null,
+        "properties": null
+    }
+},
+{
+    "auditHeader": null,
+    "entityType": "chart",
+    "entityUrn": "urn:li:chart:(looker,dashboard_elements.3)",
+    "entityKeyAspect": null,
+    "changeType": "UPSERT",
+    "aspectName": "chartUsageStatistics",
+    "aspect": {
+        "value": "{\"timestampMillis\": 1657065600000, \"eventGranularity\": {\"unit\": \"DAY\", \"multiple\": 1}, \"partitionSpec\": {\"type\": \"FULL_TABLE\", \"partition\": \"FULL_TABLE_SNAPSHOT\"}, \"viewsCount\": 20, \"userCounts\": [{\"user\": \"urn:li:corpuser:test@looker.com\", \"viewsCount\": 20}]}",
         "contentType": "application/json"
     },
     "systemMetadata": {
