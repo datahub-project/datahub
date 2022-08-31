@@ -47,40 +47,46 @@ public class SendMAEStep implements UpgradeStep {
   private final EntityRegistry _entityRegistry;
 
   public static class KafkaJobResult {
-    public int ignored;
-    public int rowsMigrated;
-    public KafkaJobResult(int ignored, int rowsMigrated) {
-      this.ignored = ignored;
-      this.rowsMigrated = rowsMigrated;
-    }
+    public int ignored = 0;
+    public int rowsMigrated = 0;
+    public long timeSqlQueryMs = 0;
+    public long timeUrnMs = 0;
+    public long timeEntityRegistryCheckMs = 0;
+    public long aspectCheckMs = 0;
+    public long createRecordMs = 0;
+    public long sendMessageMs = 0;
+  }
+
+  public static void reportStat(UpgradeContext context, String id, long timeMs) {
+    context.report().addLine(String.format(
+            "Mins taken for %s so far is %.2f", id, (float) timeMs / 1000 / 60));
   }
 
   public class KafkaJob implements Callable<KafkaJobResult> {
       UpgradeContext context;
       int start;
-      int batchSize;
-      long batchDelayMs;
-      Optional<String> aspectName;
-      Optional<String> urn;
-      public KafkaJob(UpgradeContext context, int start, int batchSize, long batchDelayMs, Optional<String> aspectName,
-                      Optional<String> urn) {
+      JobArgs args;
+      public KafkaJob(UpgradeContext context, int start, JobArgs args) {
         this.context = context;
         this.start = start;
-        this.batchSize = batchSize;
-        this.batchDelayMs = batchDelayMs;
-        this.aspectName = aspectName;
-        this.urn = urn;
+        this.args = args;
       }
       @Override
       public KafkaJobResult call() {
+        KafkaJobResult result = new KafkaJobResult();
         int ignored = 0;
         int rowsMigrated = 0;
-        context.report()
-                .addLine(String.format("Reading rows %s through %s from the aspects table.", start, start + batchSize));
-        PagedList<EbeanAspectV2> rows = getPagedAspects(start, batchSize, aspectName, urn);
+        context.report().addLine(String.format(
+                "Reading rows %s through %s from the aspects table started.", start, start + args.batchSize));
+        long startTime = System.currentTimeMillis();
+        PagedList<EbeanAspectV2> rows = getPagedAspects(start, args);
+        result.timeSqlQueryMs = System.currentTimeMillis() - startTime;
+        context.report().addLine(String.format(
+                "Reading rows %s through %s from the aspects table completed.", start, start + args.batchSize));
 
         for (EbeanAspectV2 aspect : rows.getList()) {
           // 1. Extract an Entity type from the entity Urn
+          startTime = System.currentTimeMillis();
           Urn urn;
           try {
             urn = Urn.createFromString(aspect.getKey().getUrn());
@@ -91,6 +97,8 @@ public class SendMAEStep implements UpgradeStep {
             ignored = ignored + 1;
             continue;
           }
+          result.timeUrnMs += System.currentTimeMillis() - startTime;
+          startTime = System.currentTimeMillis();
 
           // 2. Verify that the entity associated with the aspect is found in the registry.
           final String entityName = urn.getEntityType();
@@ -104,6 +112,8 @@ public class SendMAEStep implements UpgradeStep {
             ignored = ignored + 1;
             continue;
           }
+          result.timeEntityRegistryCheckMs += System.currentTimeMillis() - startTime;
+          startTime = System.currentTimeMillis();
           final String aspectName = aspect.getKey().getAspect();
 
           // 3. Verify that the aspect is a valid aspect associated with the entity
@@ -115,6 +125,8 @@ public class SendMAEStep implements UpgradeStep {
             ignored = ignored + 1;
             continue;
           }
+          result.aspectCheckMs += System.currentTimeMillis() - startTime;
+          startTime = System.currentTimeMillis();
 
           // 4. Create record from json aspect
           final RecordTemplate aspectRecord;
@@ -127,6 +139,8 @@ public class SendMAEStep implements UpgradeStep {
             ignored = ignored + 1;
             continue;
           }
+          result.createRecordMs += System.currentTimeMillis() - startTime;
+          startTime = System.currentTimeMillis();
 
           SystemMetadata latestSystemMetadata = EntityUtils.parseSystemMetadata(aspect.getSystemMetadata());
 
@@ -135,16 +149,19 @@ public class SendMAEStep implements UpgradeStep {
                   latestSystemMetadata,
                   new AuditStamp().setActor(UrnUtils.getUrn(SYSTEM_ACTOR)).setTime(System.currentTimeMillis()),
                   ChangeType.RESTATE);
+          result.sendMessageMs += System.currentTimeMillis() - startTime;
 
           rowsMigrated++;
         }
 
         try {
-          TimeUnit.MILLISECONDS.sleep(batchDelayMs);
+          TimeUnit.MILLISECONDS.sleep(args.batchDelayMs);
         } catch (InterruptedException e) {
           throw new RuntimeException("Thread interrupted while sleeping after successful batch migration.");
         }
-        return new KafkaJobResult(ignored, rowsMigrated);
+        result.ignored = ignored;
+        result.rowsMigrated = rowsMigrated;
+        return result;
       }
   }
 
@@ -164,10 +181,11 @@ public class SendMAEStep implements UpgradeStep {
     return 0;
   }
 
-  private KafkaJobResult iterateFutures(List<Future<KafkaJobResult>> futures) {
+  private List<KafkaJobResult> iterateFutures(List<Future<KafkaJobResult>> futures) {
     int beforeSize = futures.size();
     int afterSize = futures.size();
-    while (beforeSize == afterSize) {
+    List<KafkaJobResult> result = new ArrayList<>();
+    while (afterSize > 0 && beforeSize == afterSize) {
       try {
         TimeUnit.SECONDS.sleep(1);
       } catch (InterruptedException e) {
@@ -176,9 +194,8 @@ public class SendMAEStep implements UpgradeStep {
       for (Future<KafkaJobResult> future: new ArrayList<>(futures)) {
         if (future.isDone()) {
           try {
-            KafkaJobResult result = future.get();
+            result.add(future.get());
             futures.remove(future);
-            return result;
           } catch (InterruptedException | ExecutionException e) {
             e.printStackTrace();
           }
@@ -186,126 +203,166 @@ public class SendMAEStep implements UpgradeStep {
       }
       afterSize = futures.size();
     }
-    return null;
+    return result;
+  }
+
+  private static class JobArgs {
+    int batchSize;
+    int numThreads;
+    long batchDelayMs;
+    String aspectName;
+    String urn;
+    String urnLike;
+  }
+
+  private JobArgs getArgs(UpgradeContext context) {
+    JobArgs result = new JobArgs();
+    result.batchSize = getBatchSize(context.parsedArgs());
+    context.report().addLine(String.format("batchSize is %d", result.batchSize));
+    result.numThreads = getThreadCount(context.parsedArgs());
+    context.report().addLine(String.format("numThreads is %d", result.numThreads));
+    result.batchDelayMs = getBatchDelayMs(context.parsedArgs());
+    context.report().addLine(String.format("batchDelayMs is %d", result.batchDelayMs));
+    if (containsKey(context.parsedArgs(), RestoreIndices.ASPECT_NAME_ARG_NAME)) {
+      result.aspectName = context.parsedArgs().get(RestoreIndices.ASPECT_NAME_ARG_NAME).get();
+      context.report().addLine(String.format("aspect is %s", result.aspectName));
+      context.report().addLine(String.format("Found aspectName arg as %s", result.aspectName));
+    } else {
+      context.report().addLine("No aspectName arg present");
+    }
+    if (containsKey(context.parsedArgs(), RestoreIndices.URN_ARG_NAME)) {
+      result.urn = context.parsedArgs().get(RestoreIndices.URN_ARG_NAME).get();
+      context.report().addLine(String.format("urn is %s", result.urn));
+      context.report().addLine(String.format("Found urn arg as %s", result.urn));
+    } else {
+      context.report().addLine("No urn arg present");
+    }
+    if (containsKey(context.parsedArgs(), RestoreIndices.URN_LIKE_ARG_NAME)) {
+      result.urnLike = context.parsedArgs().get(RestoreIndices.URN_LIKE_ARG_NAME).get();
+      context.report().addLine(String.format("urnLike is %s", result.urnLike));
+      context.report().addLine(String.format("Found urn like arg as %s", result.urnLike));
+    } else {
+      context.report().addLine("No urnLike arg present");
+    }
+    return result;
+  }
+
+  private int getRowCount(JobArgs args) {
+    ExpressionList<EbeanAspectV2> countExp =
+            _server.find(EbeanAspectV2.class)
+                    .where()
+                    .eq(EbeanAspectV2.VERSION_COLUMN, ASPECT_LATEST_VERSION);
+    if (args.aspectName != null) {
+      countExp = countExp.eq(EbeanAspectV2.ASPECT_COLUMN, args.aspectName);
+    }
+    if (args.urn != null) {
+      countExp = countExp.eq(EbeanAspectV2.URN_COLUMN, args.urn);
+    }
+    if (args.urnLike != null) {
+      countExp = countExp.like(EbeanAspectV2.URN_COLUMN, args.urnLike);
+    }
+    return countExp.findCount();
   }
 
   @Override
   public Function<UpgradeContext, UpgradeStepResult> executable() {
     return (context) -> {
+      KafkaJobResult finalJobResult = new KafkaJobResult();
+      JobArgs args = getArgs(context);
+      ThreadPoolExecutor executor = (ThreadPoolExecutor) Executors.newFixedThreadPool(args.numThreads);
 
+      context.report().addLine("Sending MAE from local DB");
       long startTime = System.currentTimeMillis();
-
-      int batchSize = getBatchSize(context.parsedArgs());
-      int numThreads = getThreadCount(context.parsedArgs());
-      long batchDelayMs = getBatchDelayMs(context.parsedArgs());
-      Optional<String> aspectName;
-      if (containsKey(context.parsedArgs(), RestoreIndices.ASPECT_NAME_ARG_NAME)) {
-        aspectName = context.parsedArgs().get(RestoreIndices.ASPECT_NAME_ARG_NAME);
-        context.report().addLine(String.format("Found aspectName arg as %s", aspectName));
-      } else {
-        aspectName = Optional.empty();
-        context.report().addLine("No aspectName arg present");
-      }
-      Optional<String> urn;
-      if (containsKey(context.parsedArgs(), RestoreIndices.URN_ARG_NAME)) {
-        urn = context.parsedArgs().get(RestoreIndices.URN_ARG_NAME);
-        context.report().addLine(String.format("Found urn arg as %s", urn));
-      } else {
-        urn = Optional.empty();
-        context.report().addLine("No urn arg present");
-      }
-
-      ThreadPoolExecutor executor = (ThreadPoolExecutor) Executors.newFixedThreadPool(numThreads);
-
-      context.report().addLine(
-              String.format("Sending MAE from local DB with %s batch size, %s threads, %s batchDelayMs",
-                      batchSize, numThreads, batchDelayMs));
-      ExpressionList<EbeanAspectV2> countExp =
-          _server.find(EbeanAspectV2.class)
-            .where()
-            .eq(EbeanAspectV2.VERSION_COLUMN, ASPECT_LATEST_VERSION);
-      if (aspectName.isPresent()) {
-        countExp = countExp.eq(EbeanAspectV2.ASPECT_COLUMN, aspectName.get());
-      }
-      if (urn.isPresent()) {
-        countExp = countExp.eq(EbeanAspectV2.URN_COLUMN, urn.get());
-      }
-      final int rowCount = countExp.findCount();
-      context.report().addLine(String.format("Found %s latest aspects in aspects table", rowCount));
-
-      int totalRowsMigrated = 0;
+      final int rowCount = getRowCount(args);
+      context.report().addLine(String.format("Found %s latest aspects in aspects table in %.2f minutes.",
+              rowCount, (float) (System.currentTimeMillis() - startTime) / 1000 / 60));
       int start = 0;
-      int ignored = 0;
 
       List<Future<KafkaJobResult>> futures = new ArrayList<>();
+      startTime = System.currentTimeMillis();
       while (start < rowCount) {
-        while (futures.size() < numThreads) {
-          futures.add(executor.submit(new KafkaJob(context, start, batchSize, batchDelayMs, aspectName, urn)));
-          start = start + batchSize;
+        while (futures.size() < args.numThreads && start < rowCount) {
+          futures.add(executor.submit(new KafkaJob(context, start, args)));
+          start = start + args.batchSize;
         }
-        KafkaJobResult tmpResult = iterateFutures(futures);
-        if (tmpResult != null) {
-          totalRowsMigrated += tmpResult.rowsMigrated;
-          ignored += tmpResult.ignored;
-          reportStats(context, totalRowsMigrated, ignored, rowCount, startTime);
+        List<KafkaJobResult> tmpResults = iterateFutures(futures);
+        for (KafkaJobResult tmpResult: tmpResults) {
+          reportStats(context, finalJobResult, tmpResult, rowCount, startTime);
         }
       }
       while (futures.size() > 0) {
-        KafkaJobResult tmpResult = iterateFutures(futures);
-        if (tmpResult != null) {
-          totalRowsMigrated += tmpResult.rowsMigrated;
-          ignored += tmpResult.ignored;
-          reportStats(context, totalRowsMigrated, ignored, rowCount, startTime);
+        List<KafkaJobResult> tmpResults = iterateFutures(futures);
+        for (KafkaJobResult tmpResult: tmpResults) {
+          reportStats(context, finalJobResult, tmpResult, rowCount, startTime);
         }
       }
       executor.shutdown();
-      if (totalRowsMigrated != rowCount) {
+      if (finalJobResult.rowsMigrated != rowCount) {
         float percentFailed = 0.0f;
         if (rowCount > 0) {
-          percentFailed = (float) (rowCount - totalRowsMigrated) * 100 / rowCount;
+          percentFailed = (float) (rowCount - finalJobResult.rowsMigrated) * 100 / rowCount;
         }
         context.report().addLine(String.format(
-                "Failed to send MAEs for %d rows (%.2f%% of total).", rowCount - totalRowsMigrated, percentFailed));
+                "Failed to send MAEs for %d rows (%.2f%% of total).",
+                rowCount - finalJobResult.rowsMigrated, percentFailed));
       }
       return new DefaultUpgradeStepResult(id(), UpgradeStepResult.Result.SUCCEEDED);
     };
   }
 
-  private static void reportStats(UpgradeContext context, int totalRowsMigrated, int ignored, int rowCount,
-                                  long startTime) {
+  private static void reportStats(UpgradeContext context, KafkaJobResult finalResult, KafkaJobResult tmpResult,
+                                  int rowCount, long startTime) {
+    finalResult.ignored += tmpResult.ignored;
+    finalResult.rowsMigrated += tmpResult.rowsMigrated;
+    finalResult.timeSqlQueryMs += tmpResult.timeSqlQueryMs;
+    reportStat(context, "sql query", finalResult.timeSqlQueryMs);
+    finalResult.timeUrnMs += tmpResult.timeUrnMs;
+    reportStat(context, "timeUrnMs", finalResult.timeUrnMs);
+    finalResult.timeEntityRegistryCheckMs += tmpResult.timeEntityRegistryCheckMs;
+    reportStat(context, "timeEntityRegistryCheckMs", finalResult.timeEntityRegistryCheckMs);
+    finalResult.aspectCheckMs += tmpResult.aspectCheckMs;
+    reportStat(context, "aspectCheckMs", finalResult.aspectCheckMs);
+    finalResult.createRecordMs += tmpResult.createRecordMs;
+    reportStat(context, "createRecordMs", finalResult.createRecordMs);
+    finalResult.sendMessageMs += tmpResult.sendMessageMs;
+    reportStat(context, "sendMessageMs", finalResult.sendMessageMs);
+
     long currentTime = System.currentTimeMillis();
     float timeSoFarMinutes = (float) (currentTime - startTime) / 1000 / 60;
-    float percentSent = (float) totalRowsMigrated * 100 / rowCount;
-    float percentIgnored = (float) ignored * 100 / rowCount;
+    float percentSent = (float) finalResult.rowsMigrated * 100 / rowCount;
+    float percentIgnored = (float) finalResult.ignored * 100 / rowCount;
     float estimatedTimeMinutesComplete = -1;
     if (percentSent > 0) {
       estimatedTimeMinutesComplete = timeSoFarMinutes * (100 - percentSent) / percentSent;
     }
+    float totalTimeComplete = timeSoFarMinutes + estimatedTimeMinutesComplete;
     context.report().addLine(String.format(
             "Successfully sent MAEs for %s/%s rows (%.2f%% of total). %s rows ignored (%.2f%% of total)",
-            totalRowsMigrated, rowCount, percentSent, ignored, percentIgnored));
-    context.report().addLine(String.format("%.2f minutes taken. %.2f estimate minutes to completion",
-            timeSoFarMinutes, estimatedTimeMinutesComplete));
+            finalResult.rowsMigrated, rowCount, percentSent, finalResult.ignored, percentIgnored));
+    context.report().addLine(String.format("%.2f mins taken. %.2f est. mins to completion. Total mins est. = %.2f.",
+            timeSoFarMinutes, estimatedTimeMinutesComplete, totalTimeComplete));
   }
 
-  private PagedList<EbeanAspectV2> getPagedAspects(final int start, final int pageSize, Optional<String> aspectName,
-                                                   Optional<String> urn) {
+  private PagedList<EbeanAspectV2> getPagedAspects(final int start, final JobArgs args) {
     ExpressionList<EbeanAspectV2> exp = _server.find(EbeanAspectV2.class)
             .select(EbeanAspectV2.ALL_COLUMNS)
             .where()
             .eq(EbeanAspectV2.VERSION_COLUMN, ASPECT_LATEST_VERSION);
-    if (aspectName.isPresent()) {
-      exp = exp.eq(EbeanAspectV2.ASPECT_COLUMN, aspectName.get());
+    if (args.aspectName != null) {
+      exp = exp.eq(EbeanAspectV2.ASPECT_COLUMN, args.aspectName);
     }
-    if (urn.isPresent()) {
-      exp = exp.eq(EbeanAspectV2.URN_COLUMN, urn.get());
+    if (args.urn != null) {
+      exp = exp.eq(EbeanAspectV2.URN_COLUMN, args.urn);
+    }
+    if (args.urnLike != null) {
+      exp = exp.like(EbeanAspectV2.URN_COLUMN, args.urnLike);
     }
     return  exp.orderBy()
         .asc(EbeanAspectV2.URN_COLUMN)
         .orderBy()
         .asc(EbeanAspectV2.ASPECT_COLUMN)
         .setFirstRow(start)
-        .setMaxRows(pageSize)
+        .setMaxRows(args.batchSize)
         .findPagedList();
   }
 

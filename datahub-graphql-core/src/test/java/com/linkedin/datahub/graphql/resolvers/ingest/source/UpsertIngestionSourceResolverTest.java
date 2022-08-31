@@ -58,6 +58,7 @@ public class UpsertIngestionSourceResolverTest {
         .setRecipe(TEST_INPUT.getConfig().getRecipe())
         .setVersion(TEST_INPUT.getConfig().getVersion())
         .setExecutorId(TEST_INPUT.getConfig().getExecutorId())
+        .setDebugMode(TEST_INPUT.getConfig().getDebugMode())
     );
 
     Mockito.verify(mockClient, Mockito.times(1)).ingestProposal(
