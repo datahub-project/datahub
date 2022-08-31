@@ -20,8 +20,10 @@ public class InputFieldsMapper {
         final com.linkedin.datahub.graphql.generated.InputFields result = new com.linkedin.datahub.graphql.generated.InputFields();
         result.setFields(input.getFields().stream().map(field -> {
             InputField fieldResult = new InputField();
-            fieldResult.setSchemaFieldUrn(field.getSchemaFieldUrn().toString());
-            fieldResult.setSchemaField(SchemaFieldMapper.map(field.getSchemaField(), entityUrn));
+
+            if (field.hasSchemaField()) {
+                fieldResult.setSchemaField(SchemaFieldMapper.map(field.getSchemaField(), entityUrn));
+            }
             return fieldResult;
         }).collect(Collectors.toList()));
 
