@@ -3,7 +3,7 @@ import React from 'react';
 import styled from 'styled-components';
 import useUserParams from '../../shared/entitySearch/routingUtils/useUserParams';
 import { useGetUserQuery } from '../../../graphql/user.generated';
-import { EntityRelationshipsResult, EntityType } from '../../../types.generated';
+import { EntityRelationship, EntityType } from '../../../types.generated';
 import UserGroups from './UserGroups';
 import { RoutedTabs } from '../../shared/RoutedTabs';
 import { UserAssets } from './UserAssets';
@@ -61,7 +61,12 @@ export default function UserProfile() {
 
     const { error, data, refetch } = useGetUserQuery({ variables: { urn, groupsCount: GROUP_PAGE_SIZE } });
 
-    const groupMemberRelationships = data?.corpUser?.relationships as EntityRelationshipsResult;
+    const castedCorpUser = data?.corpUser as any;
+
+    const userGroups: Array<EntityRelationship> =
+        castedCorpUser?.groups?.relationships.map((relationship) => relationship as EntityRelationship) || [];
+    const userRoles: Array<EntityRelationship> =
+        castedCorpUser?.roles?.relationships.map((relationship) => relationship as EntityRelationship) || [];
 
     // Routed Tabs Constants
     const getTabs = () => {
@@ -77,11 +82,9 @@ export default function UserProfile() {
             {
                 name: TabType.Groups,
                 path: TabType.Groups.toLocaleLowerCase(),
-                content: (
-                    <UserGroups urn={urn} initialRelationships={groupMemberRelationships} pageSize={GROUP_PAGE_SIZE} />
-                ),
+                content: <UserGroups urn={urn} initialRelationships={userGroups} pageSize={GROUP_PAGE_SIZE} />,
                 display: {
-                    enabled: () => groupMemberRelationships?.relationships.length > 0,
+                    enabled: () => userGroups?.length > 0,
                 },
             },
         ].filter((tab) => ENABLED_TAB_TYPES.includes(tab.name));
@@ -107,7 +110,8 @@ export default function UserProfile() {
         slack: data?.corpUser?.editableProperties?.slack || undefined,
         phone: data?.corpUser?.editableProperties?.phone || undefined,
         aboutText: data?.corpUser?.editableProperties?.aboutMe || undefined,
-        groupsDetails: data?.corpUser?.relationships as EntityRelationshipsResult,
+        groupsDetails: userGroups,
+        dataHubRoles: userRoles,
         urn,
     };
     return (

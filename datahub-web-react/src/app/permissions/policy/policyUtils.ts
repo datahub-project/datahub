@@ -9,7 +9,7 @@ import {
     Privilege,
     ResourceFilter,
     ResourcePrivileges,
-} from '../../types.generated';
+} from '../../../types.generated';
 
 export const EMPTY_POLICY = {
     type: PolicyType.Metadata,

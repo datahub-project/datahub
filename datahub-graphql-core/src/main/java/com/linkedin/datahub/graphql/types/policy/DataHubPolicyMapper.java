@@ -1,8 +1,10 @@
-package com.linkedin.datahub.graphql.resolvers.policy.mappers;
+package com.linkedin.datahub.graphql.types.policy;
 
 import com.linkedin.common.urn.Urn;
+import com.linkedin.data.DataMap;
 import com.linkedin.datahub.graphql.generated.ActorFilter;
-import com.linkedin.datahub.graphql.generated.Policy;
+import com.linkedin.datahub.graphql.generated.DataHubPolicy;
+import com.linkedin.datahub.graphql.generated.EntityType;
 import com.linkedin.datahub.graphql.generated.PolicyMatchCondition;
 import com.linkedin.datahub.graphql.generated.PolicyMatchCriterion;
 import com.linkedin.datahub.graphql.generated.PolicyMatchCriterionValue;
@@ -11,7 +13,10 @@ import com.linkedin.datahub.graphql.generated.PolicyState;
 import com.linkedin.datahub.graphql.generated.PolicyType;
 import com.linkedin.datahub.graphql.generated.ResourceFilter;
 import com.linkedin.datahub.graphql.types.common.mappers.UrnToEntityMapper;
+import com.linkedin.datahub.graphql.types.common.mappers.util.MappingHelper;
 import com.linkedin.datahub.graphql.types.mappers.ModelMapper;
+import com.linkedin.entity.EntityResponse;
+import com.linkedin.entity.EnvelopedAspectMap;
 import com.linkedin.policy.DataHubActorFilter;
 import com.linkedin.policy.DataHubPolicyInfo;
 import com.linkedin.policy.DataHubResourceFilter;
@@ -19,33 +24,42 @@ import java.net.URISyntaxException;
 import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
 
+import static com.linkedin.metadata.Constants.*;
 
-/**
- * Maps {@link com.linkedin.policy.DataHubPolicyInfo} to GraphQL {@link com.linkedin.datahub.graphql.generated.Policy}.
- */
-public class PolicyInfoPolicyMapper implements ModelMapper<DataHubPolicyInfo, Policy> {
 
-  public static final PolicyInfoPolicyMapper INSTANCE = new PolicyInfoPolicyMapper();
+public class DataHubPolicyMapper implements ModelMapper<EntityResponse, DataHubPolicy> {
 
-  public static Policy map(@Nonnull final DataHubPolicyInfo policyInfo) {
-    return INSTANCE.apply(policyInfo);
+  public static final DataHubPolicyMapper INSTANCE = new DataHubPolicyMapper();
+
+  public static DataHubPolicy map(@Nonnull final EntityResponse entityResponse) {
+    return INSTANCE.apply(entityResponse);
   }
 
   @Override
-  public Policy apply(DataHubPolicyInfo info) {
-    final Policy result = new Policy();
-    result.setDescription(info.getDescription());
+  public DataHubPolicy apply(@Nonnull final EntityResponse entityResponse) {
+    final DataHubPolicy result = new DataHubPolicy();
+
+    result.setUrn(entityResponse.getUrn().toString());
+    result.setType(EntityType.DATAHUB_POLICY);
+    EnvelopedAspectMap aspectMap = entityResponse.getAspects();
+    MappingHelper<DataHubPolicy> mappingHelper = new MappingHelper<>(aspectMap, result);
+    mappingHelper.mapToResult(DATAHUB_POLICY_INFO_ASPECT_NAME, this::mapDataHubPolicyInfo);
+    return mappingHelper.getResult();
+  }
+
+  private void mapDataHubPolicyInfo(@Nonnull DataHubPolicy policy, @Nonnull DataMap dataMap) {
+    DataHubPolicyInfo policyInfo = new DataHubPolicyInfo(dataMap);
+    policy.setDescription(policyInfo.getDescription());
     // Careful - we assume no other Policy types or states have been ingested using a backdoor.
-    result.setType(PolicyType.valueOf(info.getType()));
-    result.setState(PolicyState.valueOf(info.getState()));
-    result.setName(info.getDisplayName()); // Rebrand to 'name'
-    result.setPrivileges(info.getPrivileges());
-    result.setActors(mapActors(info.getActors()));
-    result.setEditable(info.isEditable());
-    if (info.hasResources()) {
-      result.setResources(mapResources(info.getResources()));
+    policy.setPolicyType(PolicyType.valueOf(policyInfo.getType()));
+    policy.setState(PolicyState.valueOf(policyInfo.getState()));
+    policy.setName(policyInfo.getDisplayName()); // Rebrand to 'name'
+    policy.setPrivileges(policyInfo.getPrivileges());
+    policy.setActors(mapActors(policyInfo.getActors()));
+    policy.setEditable(policyInfo.isEditable());
+    if (policyInfo.hasResources()) {
+      policy.setResources(mapResources(policyInfo.getResources()));
     }
-    return result;
   }
 
   private ActorFilter mapActors(final DataHubActorFilter actorFilter) {

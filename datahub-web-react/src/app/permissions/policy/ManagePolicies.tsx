@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { Button, Empty, message, Modal, Pagination, Tag, Typography } from 'antd';
+import { Button, Empty, message, Modal, Pagination, Tag } from 'antd';
 import styled from 'styled-components';
 import * as QueryString from 'query-string';
 import { DeleteOutlined, PlusOutlined } from '@ant-design/icons';
@@ -15,40 +15,24 @@ import {
     PolicyMatchFilter,
     PolicyMatchFilterInput,
     PolicyMatchCriterionInput,
-} from '../../types.generated';
-import { useAppConfig } from '../useAppConfig';
+} from '../../../types.generated';
+import { useAppConfig } from '../../useAppConfig';
 import PolicyDetailsModal from './PolicyDetailsModal';
 import {
     useCreatePolicyMutation,
     useDeletePolicyMutation,
     useListPoliciesQuery,
     useUpdatePolicyMutation,
-} from '../../graphql/policy.generated';
-import { Message } from '../shared/Message';
+} from '../../../graphql/policy.generated';
+import { Message } from '../../shared/Message';
 import { EMPTY_POLICY } from './policyUtils';
-import TabToolbar from '../entity/shared/components/styled/TabToolbar';
-import { StyledTable } from '../entity/shared/components/styled/StyledTable';
-import AvatarsGroup from './AvatarsGroup';
-import { useEntityRegistry } from '../useEntityRegistry';
-import { ANTD_GRAY } from '../entity/shared/constants';
-import { SearchBar } from '../search/SearchBar';
-import { scrollToTop } from '../shared/searchUtils';
-
-const PoliciesContainer = styled.div`
-    padding-top: 20px;
-`;
-
-const PoliciesHeaderContainer = styled.div`
-    && {
-        padding-left: 24px;
-    }
-`;
-
-const PoliciesTitle = styled(Typography.Title)`
-    && {
-        margin-bottom: 8px;
-    }
-`;
+import TabToolbar from '../../entity/shared/components/styled/TabToolbar';
+import { StyledTable } from '../../entity/shared/components/styled/StyledTable';
+import AvatarsGroup from '../AvatarsGroup';
+import { useEntityRegistry } from '../../useEntityRegistry';
+import { ANTD_GRAY } from '../../entity/shared/constants';
+import { SearchBar } from '../../search/SearchBar';
+import { scrollToTop } from '../../shared/searchUtils';
 
 const SourceContainer = styled.div``;
 
@@ -437,14 +421,6 @@ export const ManagePolicies = () => {
             )}
             {policiesError && <Message type="error" content="Failed to load policies! An unexpected error occurred." />}
             {updateError && message.error('Failed to update policies. An unexpected error occurred.')}
-            <PoliciesContainer>
-                <PoliciesHeaderContainer>
-                    <PoliciesTitle level={2}>Manage Access Policies</PoliciesTitle>
-                    <Typography.Paragraph type="secondary">
-                        Manage access for DataHub Users & Groups using Access Policies.
-                    </Typography.Paragraph>
-                </PoliciesHeaderContainer>
-            </PoliciesContainer>
             <SourceContainer>
                 <TabToolbar>
                     <div>

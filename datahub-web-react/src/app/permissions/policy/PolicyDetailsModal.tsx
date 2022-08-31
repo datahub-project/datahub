@@ -2,11 +2,11 @@ import React from 'react';
 import { Link } from 'react-router-dom';
 import { Button, Divider, Modal, Tag, Typography } from 'antd';
 import styled from 'styled-components';
-import { useEntityRegistry } from '../useEntityRegistry';
-import { Maybe, Policy, PolicyState, PolicyType } from '../../types.generated';
-import { useAppConfig } from '../useAppConfig';
+import { useEntityRegistry } from '../../useEntityRegistry';
+import { Maybe, Policy, PolicyState, PolicyType } from '../../../types.generated';
+import { useAppConfig } from '../../useAppConfig';
 import { convertLegacyResourceFilter, getFieldValues, mapResourceTypeToDisplayName } from './policyUtils';
-import AvatarsGroup from './AvatarsGroup';
+import AvatarsGroup from '../AvatarsGroup';
 
 type PrivilegeOptionType = {
     type?: string;
@@ -202,6 +202,16 @@ export default function PolicyDetailsModal({ policy, visible, onClose, privilege
                         size={28}
                     />
                     {policy?.actors?.allGroups ? <Tag>All Groups</Tag> : null}
+                </div>
+                <div>
+                    <Typography.Title level={5}>Applies to Roles</Typography.Title>
+                    <ThinDivider />
+                    <AvatarsGroup
+                        roles={policy?.actors?.resolvedRoles}
+                        entityRegistry={entityRegistry}
+                        maxCount={50}
+                        size={28}
+                    />
                 </div>
             </PolicyContainer>
         </Modal>
