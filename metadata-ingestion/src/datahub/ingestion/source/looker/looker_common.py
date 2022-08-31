@@ -165,7 +165,7 @@ class LookerCommonConfig(
     )
     github_info: Optional[GitHubInfo] = Field(
         None,
-        description="Reference to your github location. If present, supplies handy links to your lookml on the dataset properties tab.",
+        description="Reference to your github location. If present, supplies handy links to your lookml on the dataset entity page.",
     )
 
 
