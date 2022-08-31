@@ -704,7 +704,7 @@ public class GmsGraphQLEngine {
         builder.type("Mutation", typeWiring -> typeWiring
             .dataFetcher("updateDataset", new MutableTypeResolver<>(datasetType))
             .dataFetcher("updateDatasets", new MutableTypeBatchResolver<>(datasetType))
-            .dataFetcher("createTag", new CreateTagResolver(this.entityClient))
+            .dataFetcher("createTag", new CreateTagResolver(this.entityClient, this.entityService))
             .dataFetcher("updateTag", new MutableTypeResolver<>(tagType))
             .dataFetcher("setTagColor", new SetTagColorResolver(entityClient, entityService))
             .dataFetcher("deleteTag", new DeleteTagResolver(entityClient))
