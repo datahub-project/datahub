@@ -11,7 +11,7 @@ import datahub as datahub_package
 from datahub.cli.check_cli import check
 from datahub.cli.cli_utils import DATAHUB_CONFIG_PATH, write_datahub_config
 from datahub.cli.delete_cli import delete
-from datahub.cli.docker import docker
+from datahub.cli.docker_cli import docker
 from datahub.cli.get_cli import get
 from datahub.cli.ingest_cli import ingest
 from datahub.cli.migrate import migrate
