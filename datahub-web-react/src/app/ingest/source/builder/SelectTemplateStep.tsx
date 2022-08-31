@@ -1,6 +1,6 @@
-import { Button } from 'antd';
-import { FormOutlined } from '@ant-design/icons';
-import React from 'react';
+import { Button, Input } from 'antd';
+import { FormOutlined, SearchOutlined } from '@ant-design/icons';
+import React, { useState } from 'react';
 import styled from 'styled-components';
 import { LogoCountCard } from '../../../shared/LogoCountCard';
 import { SourceConfig, SourceBuilderState, StepProps } from './types';
@@ -28,6 +28,14 @@ const CancelButton = styled(Button)`
     }
 `;
 
+const StyledSearchBar = styled(Input)`
+    background-color: white;
+    border-radius: 70px;
+    box-shadow: 0px 0px 30px 0px rgb(239 239 239);
+    width: 45%;
+    margin: 0 0 15px 12px;
+`;
+
 interface SourceOptionProps {
     source: SourceConfig;
     onClick: () => void;
@@ -49,7 +57,7 @@ function SourceOption({ source, onClick }: SourceOptionProps) {
  * Component responsible for selecting the mechanism for constructing a new Ingestion Source
  */
 export const SelectTemplateStep = ({ state, updateState, goTo, cancel, ingestionSources }: StepProps) => {
-    // Reoslve the supported platform types to their logos and names.
+    const [searchFilter, setSearchFilter] = useState('');
 
     const onSelectTemplate = (type: string) => {
         const newState: SourceBuilderState = {
@@ -61,11 +69,22 @@ export const SelectTemplateStep = ({ state, updateState, goTo, cancel, ingestion
         goTo(IngestionSourceBuilderStep.DEFINE_RECIPE);
     };
 
+    const filteredSources = ingestionSources.filter(
+        (source) => source.displayName.includes(searchFilter) || source.name.includes(searchFilter),
+    );
+
     return (
         <>
             <Section>
+                <StyledSearchBar
+                    placeholder="Search ingestion sources..."
+                    value={searchFilter}
+                    onChange={(e) => setSearchFilter(e.target.value)}
+                    allowClear
+                    prefix={<SearchOutlined />}
+                />
                 <PlatformListContainer>
-                    {ingestionSources.map((source) => (
+                    {filteredSources.map((source) => (
                         <SourceOption key={source.urn} source={source} onClick={() => onSelectTemplate(source.name)} />
                     ))}
                 </PlatformListContainer>
