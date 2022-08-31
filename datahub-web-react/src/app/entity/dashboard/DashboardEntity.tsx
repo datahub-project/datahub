@@ -84,6 +84,10 @@ export class DashboardEntity implements Entity<Dashboard> {
             }}
             tabs={[
                 {
+                    name: 'Documentation',
+                    component: DocumentationTab,
+                },
+                {
                     name: 'Fields',
                     component: InputFieldsTab,
                     display: {
@@ -92,10 +96,6 @@ export class DashboardEntity implements Entity<Dashboard> {
                         enabled: (_, dashboard: GetDashboardQuery) =>
                             (dashboard?.dashboard?.inputFields?.fields?.length || 0) > 0,
                     },
-                },
-                {
-                    name: 'Documentation',
-                    component: DocumentationTab,
                 },
                 {
                     name: 'Properties',

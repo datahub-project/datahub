@@ -80,16 +80,16 @@ export class ChartEntity implements Entity<Chart> {
             }}
             tabs={[
                 {
+                    name: 'Documentation',
+                    component: DocumentationTab,
+                },
+                {
                     name: 'Fields',
                     component: InputFieldsTab,
                     display: {
                         visible: (_, chart: GetChartQuery) => (chart?.chart?.inputFields?.fields?.length || 0) > 0,
                         enabled: (_, chart: GetChartQuery) => (chart?.chart?.inputFields?.fields?.length || 0) > 0,
                     },
-                },
-                {
-                    name: 'Documentation',
-                    component: DocumentationTab,
                 },
                 {
                     name: 'Properties',
