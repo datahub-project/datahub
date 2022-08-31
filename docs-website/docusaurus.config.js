@@ -17,7 +17,7 @@ module.exports = {
     isSaas: isSaas,
   },
   themeConfig: {
-    colorMode: {
+    /*colorMode: {
       switchConfig: {
         darkIcon: " ",
         darkIconStyle: {
@@ -34,7 +34,7 @@ module.exports = {
           margin: "-4px 0 0 -4px",
         },
       },
-    },
+    },*/
     ...(!isSaas && {
       announcementBar: {
         id: "announcement",

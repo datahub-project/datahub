@@ -3,7 +3,7 @@ import clsx from "clsx";
 import Link from "@docusaurus/Link";
 import useBaseUrl from "@docusaurus/useBaseUrl";
 import Image from "@theme/IdealImage";
-import useThemeContext from "@theme/hooks/useThemeContext";
+import { useColorMode } from "@docusaurus/theme-common";
 import { QuestionCircleOutlined } from "@ant-design/icons";
 import styles from "./hero.module.scss";
 
@@ -19,7 +19,7 @@ const HeroAnnouncement = ({ message, linkUrl, linkText }) => (
 );
 
 const Hero = ({}) => {
-  const { isDarkTheme } = useThemeContext();
+  const { isDarkTheme } = useColorMode();
   return (
     <header className={clsx("hero", styles.hero)}>
       <div className="container">

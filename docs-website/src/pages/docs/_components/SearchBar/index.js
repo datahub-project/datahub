@@ -15,10 +15,10 @@ import clsx from "clsx";
 
 import Link from "@docusaurus/Link";
 import ExecutionEnvironment from "@docusaurus/ExecutionEnvironment";
-import { usePluralForm, useDynamicCallback } from "@docusaurus/theme-common";
+import { usePluralForm, useEvent } from "@docusaurus/theme-common";
 import useDocusaurusContext from "@docusaurus/useDocusaurusContext";
-import { useAllDocsData } from "@theme/hooks/useDocs";
-import useSearchQuery from "@theme/hooks/useSearchQuery";
+import { useAllDocsData } from "@docusaurus/plugin-content-docs/client";
+import { useSearchPage } from "@docusaurus/theme-common/internal";
 import Translate, { translate } from "@docusaurus/Translate";
 import styles from "./search.module.scss";
 
@@ -103,7 +103,7 @@ function SearchBar() {
   const documentsFoundPlural = useDocumentsFoundPlural();
 
   const docsSearchVersionsHelpers = useDocsSearchVersionsHelpers();
-  const { searchQuery, setSearchQuery } = useSearchQuery();
+  const { searchQuery, setSearchQuery } = useSearchPage()
   const initialSearchResultState = {
     items: [],
     query: null,
@@ -229,7 +229,7 @@ function SearchBar() {
           description: "The search page title for empty query",
         });
 
-  const makeSearch = useDynamicCallback((page = 0) => {
+  const makeSearch = useEvent((page = 0) => {
     algoliaHelper.addDisjunctiveFacetRefinement("docusaurus_tag", "default");
     algoliaHelper.addDisjunctiveFacetRefinement("language", currentLocale);
 
