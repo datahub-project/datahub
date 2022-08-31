@@ -143,5 +143,254 @@
       "type":"METADATA",
       "editable":true
     }
+  },
+  {
+    "urn": "urn:li:dataHubPolicy:admin-platform-policy",
+    "info": {
+      "actors":{
+        "resourceOwners":false,
+        "allUsers":false,
+        "allGroups":false,
+        "users":[],
+        "groups":[],
+        "roles":[
+          "urn:li:dataHubRole:Admin"
+        ]
+      },
+      "privileges":[
+        "MANAGE_POLICIES",
+        "MANAGE_INGESTION",
+        "MANAGE_SECRETS",
+        "MANAGE_USERS_AND_GROUPS",
+        "VIEW_ANALYTICS",
+        "GENERATE_PERSONAL_ACCESS_TOKENS",
+        "MANAGE_ACCESS_TOKENS",
+        "MANAGE_DOMAINS",
+        "MANAGE_GLOSSARIES",
+        "MANAGE_USER_CREDENTIALS",
+        "MANAGE_TAGS"
+      ],
+      "displayName":"Admins - Platform Policy",
+      "description":"Admins have all platform privileges.",
+      "state":"ACTIVE",
+      "type":"PLATFORM",
+      "editable":false
+    }
+  },
+  {
+    "urn": "urn:li:dataHubPolicy:admin-metadata-policy",
+    "info": {
+      "actors":{
+        "resourceOwners":false,
+        "allUsers":false,
+        "allGroups":false,
+        "users":[],
+        "groups":[],
+        "roles":[
+          "urn:li:dataHubRole:Admin"
+        ]
+      },
+      "privileges":[
+        "VIEW_ENTITY_PAGE",
+        "EDIT_ENTITY_TAGS",
+        "EDIT_ENTITY_GLOSSARY_TERMS",
+        "EDIT_ENTITY_OWNERS",
+        "EDIT_ENTITY_DOCS",
+        "EDIT_ENTITY_DOC_LINKS",
+        "EDIT_ENTITY_STATUS",
+        "EDIT_DOMAINS_PRIVILEGE",
+        "EDIT_DEPRECATION_PRIVILEGE",
+        "EDIT_ENTITY_ASSERTIONS",
+        "EDIT_ENTITY",
+        "EDIT_DATASET_COL_TAGS",
+        "EDIT_DATASET_COL_GLOSSARY_TERMS",
+        "EDIT_DATASET_COL_DESCRIPTION",
+        "VIEW_DATASET_USAGE",
+        "VIEW_DATASET_PROFILE",
+        "EDIT_TAG_COLOR",
+        "EDIT_GROUP_MEMBERS",
+        "EDIT_USER_PROFILE",
+        "EDIT_CONTACT_INFO",
+        "MANAGE_ENTITY_TAGS_PRIVILEGE",
+        "MANAGE_ENTITY_GLOSSARY_TERMS_PRIVILEGE",
+        "MANAGE_DATASET_COL_GLOSSARY_TERMS_PRIVILEGE",
+        "MANAGE_DATASET_COL_TAGS_PRIVILEGE",
+        "EDIT_ENTITY_ASSERTIONS_PRIVILEGE"
+
+      ],
+      "displayName":"Admins - Metadata Policy",
+      "description":"Admins have all metadata privileges.",
+      "state":"ACTIVE",
+      "type":"METADATA",
+      "editable":false
+    }
+  },
+  {
+    "urn": "urn:li:dataHubPolicy:editor-platform-policy",
+    "info": {
+      "actors":{
+        "resourceOwners":false,
+        "allUsers":false,
+        "allGroups":false,
+        "users":[],
+        "groups":[],
+        "roles":[
+          "urn:li:dataHubRole:Editor"
+        ]
+      },
+      "privileges":[
+        "MANAGE_INGESTION",
+        "MANAGE_SECRETS",
+        "VIEW_ANALYTICS",
+        "GENERATE_PERSONAL_ACCESS_TOKENS",
+        "MANAGE_DOMAINS",
+        "MANAGE_GLOSSARIES",
+        "MANAGE_TAGS"
+      ],
+      "displayName":"Editors - Platform Policy",
+      "description":"Editors can manage ingestion and view analytics.",
+      "state":"ACTIVE",
+      "type":"PLATFORM",
+      "editable":false
+    }
+  },
+  {
+    "urn": "urn:li:dataHubPolicy:editor-metadata-policy",
+    "info": {
+      "actors":{
+        "resourceOwners":false,
+        "allUsers":false,
+        "allGroups":false,
+        "users":[],
+        "groups":[],
+        "roles":[
+          "urn:li:dataHubRole:Editor"
+        ]
+      },
+      "privileges":[
+        "VIEW_ENTITY_PAGE",
+        "EDIT_ENTITY_TAGS",
+        "EDIT_ENTITY_GLOSSARY_TERMS",
+        "EDIT_ENTITY_OWNERS",
+        "EDIT_ENTITY_DOCS",
+        "EDIT_ENTITY_DOC_LINKS",
+        "EDIT_ENTITY_STATUS",
+        "EDIT_DOMAINS_PRIVILEGE",
+        "EDIT_DEPRECATION_PRIVILEGE",
+        "EDIT_ENTITY_ASSERTIONS",
+        "EDIT_ENTITY",
+        "EDIT_DATASET_COL_TAGS",
+        "EDIT_DATASET_COL_GLOSSARY_TERMS",
+        "EDIT_DATASET_COL_DESCRIPTION",
+        "VIEW_DATASET_USAGE",
+        "VIEW_DATASET_PROFILE",
+        "EDIT_TAG_COLOR",
+        "EDIT_GROUP_MEMBERS",
+        "EDIT_USER_PROFILE",
+        "EDIT_CONTACT_INFO",
+        "MANAGE_ENTITY_TAGS_PRIVILEGE",
+        "MANAGE_ENTITY_GLOSSARY_TERMS_PRIVILEGE",
+        "MANAGE_DATASET_COL_GLOSSARY_TERMS_PRIVILEGE",
+        "MANAGE_DATASET_COL_TAGS_PRIVILEGE",
+        "EDIT_ENTITY_ASSERTIONS_PRIVILEGE"
+      ],
+      "displayName":"Editors - Metadata Policy",
+      "description":"Editors have all metadata privileges.",
+      "state":"ACTIVE",
+      "type":"METADATA",
+      "editable":false
+    }
+  },
+  {
+    "urn": "urn:li:dataHubPolicy:reader-platform-policy",
+    "info": {
+      "actors":{
+        "resourceOwners":false,
+        "allUsers":false,
+        "allGroups":false,
+        "users":[],
+        "groups":[],
+        "roles":[
+          "urn:li:dataHubRole:Reader"
+        ]
+      },
+      "privileges":[
+        "VIEW_ANALYTICS"
+      ],
+      "displayName":"Readers - Platform Policy",
+      "description":"Readers can view analytics.",
+      "state":"ACTIVE",
+      "type":"PLATFORM",
+      "editable":false
+    }
+  },
+  {
+    "urn": "urn:li:dataHubPolicy:reader-metadata-policy",
+    "info": {
+      "actors":{
+        "resourceOwners":false,
+        "allUsers":false,
+        "allGroups":false,
+        "users":[],
+        "groups":[],
+        "roles":[
+          "urn:li:dataHubRole:Reader"
+        ]
+      },
+      "privileges":[
+        "VIEW_ENTITY_PAGE",
+        "VIEW_DATASET_USAGE",
+        "VIEW_DATASET_PROFILE"
+      ],
+      "displayName":"Readers - Metadata Policy",
+      "description":"Readers can view all assets.",
+      "state":"ACTIVE",
+      "type":"METADATA",
+      "editable":false
+    }
+  },
+  {
+    "urn": "urn:li:dataHubPolicy:asset-owners-metadata-policy",
+    "info": {
+      "actors":{
+        "resourceOwners":true,
+        "allUsers":false,
+        "allGroups":false,
+        "users":[],
+        "groups":[]
+      },
+      "privileges":[
+        "VIEW_ENTITY_PAGE",
+        "EDIT_ENTITY_TAGS",
+        "EDIT_ENTITY_GLOSSARY_TERMS",
+        "EDIT_ENTITY_OWNERS",
+        "EDIT_ENTITY_DOCS",
+        "EDIT_ENTITY_DOC_LINKS",
+        "EDIT_ENTITY_STATUS",
+        "EDIT_DOMAINS_PRIVILEGE",
+        "EDIT_DEPRECATION_PRIVILEGE",
+        "EDIT_ENTITY_ASSERTIONS",
+        "EDIT_ENTITY",
+        "EDIT_DATASET_COL_TAGS",
+        "EDIT_DATASET_COL_GLOSSARY_TERMS",
+        "EDIT_DATASET_COL_DESCRIPTION",
+        "VIEW_DATASET_USAGE",
+        "VIEW_DATASET_PROFILE",
+        "EDIT_TAG_COLOR",
+        "EDIT_GROUP_MEMBERS",
+        "EDIT_USER_PROFILE",
+        "EDIT_CONTACT_INFO",
+        "MANAGE_ENTITY_TAGS_PRIVILEGE",
+        "MANAGE_ENTITY_GLOSSARY_TERMS_PRIVILEGE",
+        "MANAGE_DATASET_COL_GLOSSARY_TERMS_PRIVILEGE",
+        "MANAGE_DATASET_COL_TAGS_PRIVILEGE",
+        "EDIT_ENTITY_ASSERTIONS_PRIVILEGE"
+      ],
+      "displayName":"Asset Owners - Metadata Policy",
+      "description":"Asset Owners have all metadata privileges ONLY for assets they own.",
+      "state":"ACTIVE",
+      "type":"METADATA",
+      "editable":true
+    }
   }
 ]

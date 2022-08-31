@@ -3,10 +3,13 @@ import { Link } from 'react-router-dom';
 import { Form, Select, Tag, Tooltip, Typography } from 'antd';
 import styled from 'styled-components';
 
-import { useEntityRegistry } from '../useEntityRegistry';
-import { useAppConfig } from '../useAppConfig';
-import { useGetSearchResultsForMultipleLazyQuery, useGetSearchResultsLazyQuery } from '../../graphql/search.generated';
-import { ResourceFilter, PolicyType, EntityType } from '../../types.generated';
+import { useEntityRegistry } from '../../useEntityRegistry';
+import { useAppConfig } from '../../useAppConfig';
+import {
+    useGetSearchResultsForMultipleLazyQuery,
+    useGetSearchResultsLazyQuery,
+} from '../../../graphql/search.generated';
+import { ResourceFilter, PolicyType, EntityType } from '../../../types.generated';
 import {
     convertLegacyResourceFilter,
     createCriterionValue,

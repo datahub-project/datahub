@@ -4834,6 +4834,14 @@
                         "type" : "boolean",
                         "doc" : "Whether the filter should apply to all groups.",
                         "default" : false
+                      }, {
+                        "name" : "roles",
+                        "type" : {
+                          "type" : "array",
+                          "items" : "com.linkedin.common.Urn"
+                        },
+                        "doc" : "A specific set of roles to apply the policy to (disjunctive).",
+                        "optional" : true
                       } ]
                     },
                     "doc" : "The actors that the policy applies to."
