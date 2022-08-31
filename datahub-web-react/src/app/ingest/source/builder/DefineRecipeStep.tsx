@@ -57,7 +57,7 @@ export const DefineRecipeStep = ({ state, updateState, goTo, prev, ingestionSour
     const isEditing: boolean = prev === undefined;
     const displayRecipe = stagedRecipeYml || placeholderRecipe;
     const sourceDisplayName = sourceConfigs?.displayName;
-    const sourceDocumentationUrl = sourceConfigs?.docsUrl; // Maybe undefined (in case of "custom")
+    const sourceDocumentationUrl = sourceConfigs?.docsUrl;
 
     // TODO: Delete LookML banner specific code
     const isSourceLooker: boolean = sourceConfigs?.name === 'looker';

@@ -152,7 +152,6 @@ export const IngestionSourceBuilderModal = ({ initialState, visible, onSubmit, o
                 submit={submit}
                 cancel={cancel}
                 ingestionSources={ingestionSources}
-                // ingestion sources response obj.
             />
         </Modal>
     );
