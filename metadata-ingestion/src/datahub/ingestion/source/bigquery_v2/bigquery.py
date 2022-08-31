@@ -381,18 +381,18 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
                 BaseSQLAlchemyCheckpointState, cur_checkpoint.state
             )
 
-            for table_urn in last_checkpoint_state.get_table_urns_not_in(
-                cur_checkpoint_state
+            for table_urn in last_checkpoint_state.get_urns_not_in(
+                type="table", other_checkpoint_state=cur_checkpoint_state
             ):
                 yield from soft_delete_item(table_urn, "table")
 
-            for view_urn in last_checkpoint_state.get_view_urns_not_in(
-                cur_checkpoint_state
+            for view_urn in last_checkpoint_state.get_urns_not_in(
+                type="view", other_checkpoint_state=cur_checkpoint_state
             ):
                 yield from soft_delete_item(view_urn, "view")
 
-            for container_urn in last_checkpoint_state.get_container_urns_not_in(
-                cur_checkpoint_state
+            for container_urn in last_checkpoint_state.get_urns_not_in(
+                type="container", other_checkpoint_state=cur_checkpoint_state
             ):
                 yield from soft_delete_item(container_urn, "container")
 
@@ -446,10 +446,11 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
                 checkpoint_state = cast(
                     BaseSQLAlchemyCheckpointState, cur_checkpoint.state
                 )
-                checkpoint_state.add_container_guid(
-                    make_container_urn(
+                checkpoint_state.add_checkpoint_urn(
+                    type="container",
+                    urn=make_container_urn(
                         guid=database_container_key.guid(),
-                    )
+                    ),
                 )
 
         for wu in container_workunits:
@@ -478,10 +479,11 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
                 checkpoint_state = cast(
                     BaseSQLAlchemyCheckpointState, cur_checkpoint.state
                 )
-                checkpoint_state.add_container_guid(
-                    make_container_urn(
+                checkpoint_state.add_checkpoint_urn(
+                    type="container",
+                    urn=make_container_urn(
                         guid=schema_container_key.guid(),
-                    )
+                    ),
                 )
 
         for wu in container_workunits:
@@ -801,9 +803,9 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
                     BaseSQLAlchemyCheckpointState, cur_checkpoint.state
                 )
                 if isinstance(table, BigqueryTable):
-                    checkpoint_state.add_table_urn(dataset_urn)
+                    checkpoint_state.add_checkpoint_urn(type="table", urn=dataset_urn)
                 else:
-                    checkpoint_state.add_view_urn(dataset_urn)
+                    checkpoint_state.add_checkpoint_urn(type="view", urn=dataset_urn)
 
     def get_schema_metadata(
         self,
