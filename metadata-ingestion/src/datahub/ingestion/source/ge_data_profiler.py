@@ -874,7 +874,7 @@ class DatahubGEProfiler:
             if profiler_args is not None:
                 temp_table_db = profiler_args.get("temp_table_db", schema)
                 if platform is not None and platform == "bigquery":
-                    ge_config["schema"] = temp_table_db
+                    ge_config["schema"] = None
 
             if self.config.bigquery_temp_table_schema:
                 num_parts = self.config.bigquery_temp_table_schema.split(".")

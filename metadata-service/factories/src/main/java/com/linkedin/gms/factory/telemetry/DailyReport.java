@@ -40,7 +40,7 @@ public class DailyReport {
       String clientId = getClientId(entityService);
 
       // initialize MixPanel instance and message builder
-      mixpanel = new MixpanelAPI();
+      mixpanel = new MixpanelAPI("https://track.datahubproject.io/mp/track", "https://track.datahubproject.io/mp/engage");
       mixpanelBuilder = new MessageBuilder(MIXPANEL_TOKEN);
 
       // set user-level properties

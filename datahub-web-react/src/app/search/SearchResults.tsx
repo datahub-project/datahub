@@ -22,6 +22,7 @@ import { SearchResultList } from './SearchResultList';
 import { isListSubset } from '../entity/shared/utils';
 import TabToolbar from '../entity/shared/components/styled/TabToolbar';
 import { EntityAndType } from '../entity/shared/types';
+import { ErrorSection } from '../shared/error/ErrorSection';
 
 const SearchBody = styled.div`
     display: flex;
@@ -105,6 +106,7 @@ interface Props {
     filters?: Array<FacetMetadata> | null;
     selectedFilters: Array<FacetFilterInput>;
     loading: boolean;
+    error: any;
     onChangeFilters: (filters: Array<FacetFilterInput>) => void;
     onChangePage: (page: number) => void;
     callSearchOnVariables: (variables: {
@@ -129,6 +131,7 @@ export const SearchResults = ({
     filters,
     selectedFilters,
     loading,
+    error,
     onChangeFilters,
     onChangePage,
     callSearchOnVariables,
@@ -204,39 +207,40 @@ export const SearchResults = ({
                                 />
                             </StyledTabToolbar>
                         )}
-                        {!loading && (
-                            <>
-                                <SearchResultList
-                                    query={query}
-                                    searchResults={combinedSiblingSearchResults}
-                                    totalResultCount={totalResults}
-                                    isSelectMode={isSelectMode}
-                                    selectedEntities={selectedEntities}
-                                    setSelectedEntities={setSelectedEntities}
-                                />
-                                <PaginationControlContainer>
-                                    <Pagination
-                                        current={page}
-                                        pageSize={numResultsPerPage}
-                                        total={totalResults}
-                                        showLessItems
-                                        onChange={onChangePage}
-                                        showSizeChanger={totalResults > SearchCfg.RESULTS_PER_PAGE}
-                                        onShowSizeChange={(_currNum, newNum) => setNumResultsPerPage(newNum)}
-                                        pageSizeOptions={['10', '20', '50', '100']}
+                        {(error && <ErrorSection />) ||
+                            (!loading && (
+                                <>
+                                    <SearchResultList
+                                        query={query}
+                                        searchResults={combinedSiblingSearchResults}
+                                        totalResultCount={totalResults}
+                                        isSelectMode={isSelectMode}
+                                        selectedEntities={selectedEntities}
+                                        setSelectedEntities={setSelectedEntities}
                                     />
-                                </PaginationControlContainer>
-                                {authenticatedUserUrn && (
-                                    <SearchResultsRecommendationsContainer>
-                                        <SearchResultsRecommendations
-                                            userUrn={authenticatedUserUrn}
-                                            query={query}
-                                            filters={selectedFilters}
+                                    <PaginationControlContainer>
+                                        <Pagination
+                                            current={page}
+                                            pageSize={numResultsPerPage}
+                                            total={totalResults}
+                                            showLessItems
+                                            onChange={onChangePage}
+                                            showSizeChanger={totalResults > SearchCfg.RESULTS_PER_PAGE}
+                                            onShowSizeChange={(_currNum, newNum) => setNumResultsPerPage(newNum)}
+                                            pageSizeOptions={['10', '20', '50', '100']}
                                         />
-                                    </SearchResultsRecommendationsContainer>
-                                )}
-                            </>
-                        )}
+                                    </PaginationControlContainer>
+                                    {authenticatedUserUrn && (
+                                        <SearchResultsRecommendationsContainer>
+                                            <SearchResultsRecommendations
+                                                userUrn={authenticatedUserUrn}
+                                                query={query}
+                                                filters={selectedFilters}
+                                            />
+                                        </SearchResultsRecommendationsContainer>
+                                    )}
+                                </>
+                            ))}
                     </ResultContainer>
                 </SearchBody>
             </div>

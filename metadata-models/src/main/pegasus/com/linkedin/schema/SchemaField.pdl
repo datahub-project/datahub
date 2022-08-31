@@ -41,6 +41,18 @@ record SchemaField {
   description: optional string
 
   /**
+   * Label of the field. Provides a more human-readable name for the field than field path. Some sources will
+   * provide this metadata but not all sources have the concept of a label. If just one string is associated with
+   * a field in a source, that is most likely a description.
+   */
+  @Searchable = {
+    "fieldName": "fieldLabels",
+    "fieldType": "TEXT",
+    "boostScore": 0.2
+  }
+  label: optional string
+
+  /**
    * An AuditStamp corresponding to the creation of this schema field.
    */
   created: optional AuditStamp

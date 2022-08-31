@@ -57,6 +57,8 @@ entities:
       - domains
       - container
       - deprecation
+      - inputFields
+      - chartUsageStatistics
   - name: dashboard
     keyAspect: dashboardKey
     aspects:
@@ -64,6 +66,7 @@ entities:
       - container
       - deprecation
       - dashboardUsageStatistics
+      - inputFields
   - name: notebook
     doc: Notebook represents a combination of query, text, chart and etc. This is in BETA version
     keyAspect: notebookKey
@@ -92,7 +95,9 @@ entities:
       - status
       - corpUserCredentials
       - nativeGroupMembership
+      - corpUserSettings
       - origin
+      - roleMembership
   - name: corpGroup
     doc: CorpGroup represents an identity of a group of users in the enterprise.
     keyAspect: corpGroupKey
@@ -244,4 +249,13 @@ entities:
     keyAspect: inviteTokenKey
     aspects:
       - inviteToken
+  - name: schemaField
+    category: core
+    keyAspect: schemaFieldKey
+    aspects: []
+  - name: dataHubRole
+    category: core
+    keyAspect: dataHubRoleKey
+    aspects:
+      - dataHubRoleInfo
 events:
