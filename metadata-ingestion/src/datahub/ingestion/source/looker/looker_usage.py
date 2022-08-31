@@ -245,9 +245,9 @@ class BaseStatGenerator(ABC):
                 continue
 
             # Confirm for the user row (entity + time) the entity stat is present for the same time
-            entity_stat_aspect: Aspect = entity_usage_stat[
+            entity_stat_aspect: Optional[Aspect] = entity_usage_stat.get(
                 self.get_entity_stat_key(row)
-            ]
+            )
             if entity_stat_aspect is None:
                 logger.warning(
                     "entity stat is not found for the user stat key = {}".format(
@@ -258,7 +258,7 @@ class BaseStatGenerator(ABC):
             self.append_user_stat(entity_stat_aspect, user, row)
 
         for (id, _), aspect in entity_usage_stat.items():
-            yield self.id_vs_model.get(id), aspect
+            yield self.id_vs_model[id], aspect
 
     def _execute_query(self, query: LookerQuery, query_name: str) -> List[Dict]:
         start_time = datetime.datetime.now()
