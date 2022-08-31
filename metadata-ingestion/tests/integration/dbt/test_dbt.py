@@ -415,7 +415,9 @@ def test_dbt_stateful(pytestconfig, tmp_path, mock_time, mock_datahub_graph):
         # part of the second state
         state1 = cast(DbtCheckpointState, checkpoint1.state)
         state2 = cast(DbtCheckpointState, checkpoint2.state)
-        difference_urns = list(state1.get_node_urns_not_in(state2))
+        difference_urns = list(
+            state1.get_urns_not_in(type="dataset", other_checkpoint_state=state2)
+        )
 
         assert len(difference_urns) == 2
 
@@ -508,8 +510,8 @@ def test_dbt_state_backward_compatibility(
             urn2 = (
                 "urn:li:dataset:(urn:li:dataPlatform:postgres,pagila.public.actor,PROD)"
             )
-            sql_state.add_table_urn(urn1)
-            sql_state.add_table_urn(urn2)
+            sql_state.add_checkpoint_urn(type="table", urn=urn1)
+            sql_state.add_checkpoint_urn(type="table", urn=urn2)
 
             assert dbt_source.ctx.pipeline_name is not None
 
@@ -524,7 +526,7 @@ def test_dbt_state_backward_compatibility(
 
         # Set fake method to return BaseSQLAlchemyCheckpointState
         dbt_source.get_last_checkpoint = get_fake_base_sql_alchemy_checkpoint_state  # type: ignore[assignment]
-        last_checkpoint = dbt_source.get_last_dbt_checkpoint(
+        last_checkpoint = dbt_source.get_last_checkpoint(
             dbt_source.get_default_ingestion_job_id(), DbtCheckpointState
         )
         # Our fake method is returning BaseSQLAlchemyCheckpointState,however it should get converted to DbtCheckpointState

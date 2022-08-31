@@ -173,7 +173,9 @@ def test_kafka_ingest_with_stateful(
             #    part of the second state
             state1 = cast(KafkaCheckpointState, checkpoint1.state)
             state2 = cast(KafkaCheckpointState, checkpoint2.state)
-            difference_urns = list(state1.get_topic_urns_not_in(state2))
+            difference_urns = list(
+                state1.get_urns_not_in(type="topic", other_checkpoint_state=state2)
+            )
 
             assert len(difference_urns) == 1
             assert (

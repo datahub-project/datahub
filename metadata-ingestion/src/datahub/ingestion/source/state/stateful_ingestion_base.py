@@ -1,7 +1,7 @@
 import logging
 from abc import abstractmethod
 from dataclasses import dataclass
-from typing import Any, Dict, Generic, Optional, TypeVar, cast
+from typing import Any, Dict, Generic, Optional, Type, TypeVar, cast
 
 import pydantic
 from pydantic.fields import Field
@@ -198,6 +198,7 @@ class StatefulIngestionSourceBase(Source, Generic[StateType]):
     def get_platform_instance_id(self) -> str:
         raise NotImplementedError("Sub-classes must implement this method.")
 
+    @abstractmethod
     def is_checkpointing_enabled(self, job_id: JobId) -> bool:
         """
         Sub-classes should override this method to tell if checkpointing is enabled for this run.
@@ -207,7 +208,7 @@ class StatefulIngestionSourceBase(Source, Generic[StateType]):
         raise NotImplementedError("Sub-classes must implement this method.")
 
     def _get_last_checkpoint(
-        self, job_id: JobId, checkpoint_state_class: StateType
+        self, job_id: JobId, checkpoint_state_class: Type[StateType]
     ) -> Optional[Checkpoint]:
         """
         This is a template method implementation for querying the last checkpoint state.
@@ -231,7 +232,7 @@ class StatefulIngestionSourceBase(Source, Generic[StateType]):
 
     # Base-class implementations for common state management tasks.
     def get_last_checkpoint(
-        self, job_id: JobId, checkpoint_state_class: StateType
+        self, job_id: JobId, checkpoint_state_class: Type[StateType]
     ) -> Optional[Checkpoint]:
         if not self.is_stateful_ingestion_configured() or (
             self.stateful_ingestion_config

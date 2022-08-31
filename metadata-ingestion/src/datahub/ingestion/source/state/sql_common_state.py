@@ -2,7 +2,12 @@ from typing import Iterable, List
 
 import pydantic
 
-from datahub.emitter.mce_builder import container_urn_to_key, make_container_urn
+from datahub.emitter.mce_builder import (
+    assertion_urn_to_key,
+    container_urn_to_key,
+    make_assertion_urn,
+    make_container_urn,
+)
 from datahub.ingestion.source.state.stale_entity_removal_handler import (
     StaleEntityCheckpointStateBase,
 )
@@ -65,8 +70,23 @@ class BaseSQLAlchemyCheckpointState(
             self.encoded_view_urns, checkpoint.encoded_view_urns
         )
 
+    def _get_assertion_urns_not_in(
+        self, checkpoint: "BaseSQLAlchemyCheckpointState"
+    ) -> Iterable[str]:
+        """Tables are mapped to DataHub dataset concept."""
+        diff = CheckpointStateUtil.get_encoded_urns_not_in(
+            self.encoded_assertion_urns, checkpoint.encoded_assertion_urns
+        )
+        for assertion_id in diff:
+            yield make_assertion_urn(assertion_id)
+
     def _add_table_urn(self, table_urn: str) -> None:
         self.encoded_table_urns.append(self._get_lightweight_repr(table_urn))
+
+    def _add_assertion_urn(self, assertion_urn: str) -> None:
+        key = assertion_urn_to_key(assertion_urn)
+        assert key is not None
+        self.encoded_assertion_urns.append(key.assertionId)
 
     def _add_view_urn(self, view_urn: str) -> None:
         self.encoded_view_urns.append(self._get_lightweight_repr(view_urn))
@@ -79,7 +99,7 @@ class BaseSQLAlchemyCheckpointState(
     def add_checkpoint_urn(self, type: str, urn: str) -> None:
         assert type in self.get_supported_types()
         if type == "assertion":
-            self.encoded_assertion_urns.append(self._get_lightweight_repr(urn))
+            self._add_assertion_urn(urn)
         elif type == "container":
             self._add_container_guid(urn)
         elif type == "table":
@@ -91,7 +111,8 @@ class BaseSQLAlchemyCheckpointState(
         self, type: str, other_checkpoint_state: "BaseSQLAlchemyCheckpointState"
     ) -> Iterable[str]:
         assert type in self.get_supported_types()
-        assert type != "assertion", "Not yet implemented!"
+        if type == "assertion":
+            yield from self._get_assertion_urns_not_in(other_checkpoint_state)
         if type == "container":
             yield from self._get_container_urns_not_in(
                 self.encoded_container_urns,

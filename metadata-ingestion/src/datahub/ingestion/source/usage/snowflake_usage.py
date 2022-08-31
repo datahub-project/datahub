@@ -138,7 +138,7 @@ class SnowflakeUsageSource(StatefulIngestionSourceBase):
         self.report: SnowflakeUsageReport = SnowflakeUsageReport()
         self.redundant_run_skip_handler = RedundantRunSkipHandler(
             source=self,
-            config=self.config.stateful_ingestion,
+            config=self.config,
             job_id=self.get_default_ingestion_job_id(),
             pipeline_name=self.ctx.pipeline_name,
             run_id=self.ctx.run_id,
@@ -162,13 +162,17 @@ class SnowflakeUsageSource(StatefulIngestionSourceBase):
         """
         Create the custom checkpoint with empty state for the job.
         """
-        assert self.ctx.pipeline_name
         if job_id == self.get_default_ingestion_job_id():
             return self.redundant_run_skip_handler.create_checkpoint(
                 start_time_millis=datetime_to_ts_millis(self.config.start_time),
                 end_time_millis=datetime_to_ts_millis(self.config.end_time),
             )
         return None
+
+    def is_checkpointing_enabled(self, job_id: JobId) -> bool:
+        if job_id == self.get_default_ingestion_job_id():
+            return self.redundant_run_skip_handler.is_checkpointing_enabled()
+        return False
 
     def check_email_domain_missing(self) -> Any:
         if self.config.email_domain is not None and self.config.email_domain != "":

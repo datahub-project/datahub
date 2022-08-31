@@ -71,11 +71,11 @@ class CheckpointStateBase(ConfigModel):
         pass
 
 
-StateClass = TypeVar("StateClass", bound=CheckpointStateBase)
+StateType = TypeVar("StateType", bound=CheckpointStateBase)
 
 
 @dataclass
-class Checkpoint(Generic[StateClass]):
+class Checkpoint(Generic[StateType]):
     """
     Ingestion Run Checkpoint class. This is a more convenient abstraction for use in the python ingestion code,
     providing a strongly typed state object vs the opaque blob in the PDL, and the config persisted as the first-class
@@ -87,7 +87,7 @@ class Checkpoint(Generic[StateClass]):
     platform_instance_id: str
     run_id: str
     config: ConfigModel
-    state: StateClass
+    state: StateType
 
     @classmethod
     def create_from_checkpoint_aspect(
@@ -95,7 +95,7 @@ class Checkpoint(Generic[StateClass]):
         job_name: str,
         checkpoint_aspect: Optional[DatahubIngestionCheckpointClass],
         config_class: Type[ConfigModel],
-        state_class: StateClass,
+        state_class: Type[StateType],
     ) -> Optional["Checkpoint"]:
         if checkpoint_aspect is None:
             return None

@@ -284,7 +284,7 @@ class GlueSource(StatefulIngestionSourceBase):
 
         self.stale_entity_removal_handler = StaleEntityRemovalHandler(
             source=self,
-            config=self.source_config.stateful_ingestion,
+            config=self.source_config,
             state_type_class=BaseSQLAlchemyCheckpointState,
             job_id=self.get_default_ingestion_job_id(),
             pipeline_name=self.ctx.pipeline_name,
@@ -1255,6 +1255,11 @@ class GlueSource(StatefulIngestionSourceBase):
         if job_id == self.get_default_ingestion_job_id():
             return self.stale_entity_removal_handler.create_checkpoint()
         return None
+
+    def is_checkpointing_enabled(self, job_id: JobId) -> bool:
+        if job_id == self.get_default_ingestion_job_id():
+            return self.stale_entity_removal_handler.is_checkpointing_enabled()
+        return False
 
     def get_platform_instance_id(self) -> str:
         return self.source_config.platform_instance or self.platform

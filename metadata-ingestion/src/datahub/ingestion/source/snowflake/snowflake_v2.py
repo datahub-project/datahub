@@ -69,7 +69,6 @@ from datahub.ingestion.source.sql.sql_common import SqlContainerSubTypes
 from datahub.ingestion.source.state.checkpoint import Checkpoint
 from datahub.ingestion.source.state.redundant_run_skip_handler import (
     RedundantRunSkipHandler,
-    StatefulRedundantRunSkipConfig,
 )
 from datahub.ingestion.source.state.sql_common_state import (
     BaseSQLAlchemyCheckpointState,
@@ -183,7 +182,7 @@ class SnowflakeV2Source(
         self.logger = logger
         self.stale_entity_removal_handler = StaleEntityRemovalHandler(
             source=self,
-            config=self.config.stateful_ingestion,
+            config=self.config,
             state_type_class=BaseSQLAlchemyCheckpointState,
             job_id=self.get_default_ingestion_job_id(),
             pipeline_name=self.ctx.pipeline_name,
@@ -192,7 +191,7 @@ class SnowflakeV2Source(
 
         self.redundant_run_skip_handler = RedundantRunSkipHandler(
             source=self,
-            config=cast(StatefulRedundantRunSkipConfig, self.config.stateful_ingestion),
+            config=self.config,
             job_id=self.get_usage_ingestion_job_id(),
             pipeline_name=self.ctx.pipeline_name,
             run_id=self.ctx.run_id,
@@ -979,15 +978,21 @@ class SnowflakeV2Source(
 
     # Stateful Ingestion Overrides.
     def create_checkpoint(self, job_id: JobId) -> Optional[Checkpoint]:
-        assert self.ctx.pipeline_name is not None
         if job_id == self.get_default_ingestion_job_id():
             return self.stale_entity_removal_handler.create_checkpoint()
-        elif job_id == self.get_usage_ingestion_job_id():
+        if job_id == self.get_usage_ingestion_job_id():
             return self.redundant_run_skip_handler.create_checkpoint(
                 start_time_millis=datetime_to_ts_millis(self.config.start_time),
                 end_time_millis=datetime_to_ts_millis(self.config.end_time),
             )
         return None
+
+    def is_checkpointing_enabled(self, job_id: JobId) -> bool:
+        if job_id == self.get_default_ingestion_job_id():
+            return self.stale_entity_removal_handler.is_checkpointing_enabled()
+        if job_id == self.get_usage_ingestion_job_id():
+            return self.redundant_run_skip_handler.is_checkpointing_enabled()
+        return False
 
     def close(self):
         self.prepare_for_commit()

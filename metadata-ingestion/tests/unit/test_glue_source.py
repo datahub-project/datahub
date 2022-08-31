@@ -323,7 +323,9 @@ def test_glue_stateful(pytestconfig, tmp_path, mock_time, mock_datahub_graph):
             # part of the second state
             state1 = cast(BaseSQLAlchemyCheckpointState, checkpoint1.state)
             state2 = cast(BaseSQLAlchemyCheckpointState, checkpoint2.state)
-            difference_urns = list(state1.get_table_urns_not_in(state2))
+            difference_urns = list(
+                state1.get_urns_not_in(type="table", other_checkpoint_state=state2)
+            )
 
             assert len(difference_urns) == 1
 

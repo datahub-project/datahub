@@ -102,7 +102,7 @@ class PulsarSource(StatefulIngestionSourceBase):
         self.report: PulsarSourceReport = PulsarSourceReport()
         self.stale_entity_removal_handler = StaleEntityRemovalHandler(
             source=self,
-            config=self.config.stateful_ingestion,
+            config=self.config,
             state_type_class=KafkaCheckpointState,
             job_id=self.get_default_ingestion_job_id(),
             pipeline_name=self.ctx.pipeline_name,
@@ -234,6 +234,11 @@ class PulsarSource(StatefulIngestionSourceBase):
         if job_id == self.get_default_ingestion_job_id():
             self.stale_entity_removal_handler.create_checkpoint()
         return None
+
+    def is_checkpointing_enabled(self, job_id: JobId) -> bool:
+        if job_id == self.get_default_ingestion_job_id():
+            return self.stale_entity_removal_handler.is_checkpointing_enabled()
+        return False
 
     def get_platform_instance_id(self) -> str:
         assert self.config.platform_instance is not None

@@ -3,10 +3,12 @@ from typing import Optional, cast
 
 import pydantic
 
+from datahub.configuration.common import ConfigModel
 from datahub.ingestion.api.ingestion_job_state_provider import JobId
 from datahub.ingestion.source.state.checkpoint import Checkpoint
 from datahub.ingestion.source.state.stateful_ingestion_base import (
     StatefulIngestionConfig,
+    StatefulIngestionConfigBase,
     StatefulIngestionSourceBase,
 )
 from datahub.ingestion.source.state.usage_common_state import BaseUsageCheckpointState
@@ -33,42 +35,48 @@ class RedundantRunSkipHandler:
     def __init__(
         self,
         source: StatefulIngestionSourceBase,
-        config: Optional[StatefulRedundantRunSkipConfig],
+        config: Optional[StatefulIngestionConfigBase],
         job_id: JobId,
         pipeline_name: Optional[str],
         run_id: str,
     ):
         self.source = source
         self.config = config
+        self.stateful_ingestion_config = (
+            cast(StatefulRedundantRunSkipConfig, self.config.stateful_ingestion)
+            if self.config
+            else None
+        )
         self.job_id = job_id
         self.pipeline_name = pipeline_name
         self.run_id = run_id
-        self.is_checkpointing_enabled = source.is_stateful_ingestion_configured()
+        self.checkpointing_enabled: bool = source.is_stateful_ingestion_configured()
 
     def _ignore_old_state(self) -> bool:
         if (
-            self.is_checkpointing_enabled
-            and self.config is not None
-            and self.config.ignore_old_state
+            self.stateful_ingestion_config is not None
+            and self.stateful_ingestion_config.ignore_old_state
         ):
             return True
         return False
 
     def _ignore_new_state(self) -> bool:
         if (
-            self.is_checkpointing_enabled
-            and self.config is not None
-            and self.config.ignore_new_state
+            self.stateful_ingestion_config is not None
+            and self.stateful_ingestion_config.ignore_new_state
         ):
             return True
         return False
+
+    def is_checkpointing_enabled(self) -> bool:
+        return self.checkpointing_enabled
 
     def create_checkpoint(
         self,
         start_time_millis: pydantic.PositiveInt,
         end_time_millis: pydantic.PositiveInt,
     ) -> Optional[Checkpoint]:
-        if self._ignore_new_state():
+        if not self.is_checkpointing_enabled() or self._ignore_new_state():
             return None
 
         assert self.config is not None
@@ -78,7 +86,7 @@ class RedundantRunSkipHandler:
             pipeline_name=self.pipeline_name,
             platform_instance_id=self.source.get_platform_instance_id(),
             run_id=self.run_id,
-            config=self.config,
+            config=cast(ConfigModel, self.config),
             state=BaseUsageCheckpointState(
                 begin_timestamp_millis=start_time_millis,
                 end_timestamp_millis=end_time_millis,
@@ -91,7 +99,7 @@ class RedundantRunSkipHandler:
             self.source.get_current_checkpoint(self.job_id)
 
     def should_skip_this_run(self, cur_start_time_millis: int) -> bool:
-        if self._ignore_old_state():
+        if not self.is_checkpointing_enabled() or self._ignore_old_state():
             return False
         # Determine from the last check point state
         last_successful_pipeline_run_end_time_millis: Optional[int] = None

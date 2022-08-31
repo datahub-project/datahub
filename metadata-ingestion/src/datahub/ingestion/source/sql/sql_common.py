@@ -481,7 +481,7 @@ class SQLAlchemySource(StatefulIngestionSourceBase):
         self.report: SQLSourceReport = SQLSourceReport()
         self.stale_entity_removal_handler = StaleEntityRemovalHandler(
             source=self,
-            config=self.config.stateful_ingestion,
+            config=self.config,
             state_type_class=BaseSQLAlchemyCheckpointState,
             job_id=self.get_default_ingestion_job_id(),
             pipeline_name=self.ctx.pipeline_name,
@@ -559,6 +559,11 @@ class SQLAlchemySource(StatefulIngestionSourceBase):
         if job_id == self.get_default_ingestion_job_id():
             return self.stale_entity_removal_handler.create_checkpoint()
         return None
+
+    def is_checkpointing_enabled(self, job_id: JobId) -> bool:
+        if job_id == self.get_default_ingestion_job_id():
+            return self.stale_entity_removal_handler.is_checkpointing_enabled()
+        return False
 
     def get_schema_names(self, inspector):
         return inspector.get_schema_names()

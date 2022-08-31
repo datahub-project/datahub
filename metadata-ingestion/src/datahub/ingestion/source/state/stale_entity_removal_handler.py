@@ -5,12 +5,14 @@ from typing import Generic, Iterable, List, Optional, Type, TypeVar, cast
 
 import pydantic
 
+from datahub.configuration.common import ConfigModel
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.ingestion_job_state_provider import JobId
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.state.checkpoint import Checkpoint, CheckpointStateBase
 from datahub.ingestion.source.state.stateful_ingestion_base import (
     StatefulIngestionConfig,
+    StatefulIngestionConfigBase,
     StatefulIngestionReport,
     StatefulIngestionSourceBase,
 )
@@ -66,12 +68,14 @@ class StaleEntityCheckpointStateBase(CheckpointStateBase, ABC, Generic[Derived])
         pass
 
     @abstractmethod
-    def get_urns_not_in(self, type: str, other_checkpoint: "Derived") -> Iterable[str]:
+    def get_urns_not_in(
+        self, type: str, other_checkpoint_state: "Derived"
+    ) -> Iterable[str]:
         """
         Gets the urns present in this checkpoint but not the other_checkpoint for the given type.
         :param type: The type of the urn such as a 'table', 'view',
          'node', 'topic', 'assertion' that the concrete sub-class understands.
-        :param other_checkpoint: the checkpoint to compute the urn set difference against.
+        :param other_checkpoint_state: the checkpoint state to compute the urn set difference against.
         :return: an iterable to the set of urns present in this checkpoing state but not in the other_checkpoint.
         """
         pass
@@ -88,7 +92,7 @@ class StaleEntityRemovalHandler:
     def __init__(
         self,
         source: StatefulIngestionSourceBase,
-        config: Optional[StatefulStaleMetadataRemovalConfig],
+        config: Optional[StatefulIngestionConfigBase],
         state_type_class: Type[StaleEntityCheckpointStateBase],
         job_id: JobId,
         pipeline_name: Optional[str],
@@ -100,49 +104,62 @@ class StaleEntityRemovalHandler:
         self.job_id = job_id
         self.pipeline_name = pipeline_name
         self.run_id = run_id
-        self.is_checkpointing_enabled = (
-            source.is_stateful_ingestion_configured()
-            and config
-            and config.remove_stale_metadata
+        self.stateful_ingestion_config = (
+            cast(StatefulStaleMetadataRemovalConfig, self.config.stateful_ingestion)
+            if self.config
+            else None
+        )
+        self.checkpointing_enabled: bool = (
+            True
+            if (
+                source.is_stateful_ingestion_configured()
+                and self.stateful_ingestion_config
+                and self.stateful_ingestion_config.remove_stale_metadata
+            )
+            else False
         )
 
     def _ignore_old_state(self) -> bool:
         if (
-            self.is_checkpointing_enabled
-            and self.config is not None
-            and self.config.ignore_old_state
+            self.stateful_ingestion_config is not None
+            and self.stateful_ingestion_config.ignore_old_state
         ):
             return True
         return False
 
     def _ignore_new_state(self) -> bool:
         if (
-            self.is_checkpointing_enabled
-            and self.config is not None
-            and self.config.ignore_new_state
+            self.stateful_ingestion_config is not None
+            and self.stateful_ingestion_config.ignore_new_state
         ):
             return True
         return False
 
+    def is_checkpointing_enabled(self) -> bool:
+        return self.checkpointing_enabled
+
     def create_checkpoint(self) -> Optional[Checkpoint]:
-        if self._ignore_new_state():
-            return None
-        assert self.config is not None
-        assert self.pipeline_name is not None
-        return Checkpoint(
-            job_name=self.job_id,
-            pipeline_name=self.pipeline_name,
-            platform_instance_id=self.source.get_platform_instance_id(),
-            run_id=self.run_id,
-            config=self.config,
-            state=self.state_type_class(),
-        )
+        if self.is_checkpointing_enabled() and not self._ignore_new_state():
+            assert self.stateful_ingestion_config is not None
+            assert self.pipeline_name is not None
+            return Checkpoint(
+                job_name=self.job_id,
+                pipeline_name=self.pipeline_name,
+                platform_instance_id=self.source.get_platform_instance_id(),
+                run_id=self.run_id,
+                config=cast(ConfigModel, self.config),
+                state=self.state_type_class(),
+            )
+        return None
 
     def _create_soft_delete_workunit(self, urn: str, type: str) -> MetadataWorkUnit:
+        entity_type = type
+        if entity_type in ["view", "table"]:
+            entity_type = "dataset"
 
         logger.info(f"Soft-deleting stale entity of type {type} - {urn}.")
         mcp = MetadataChangeProposalWrapper(
-            entityType=type,
+            entityType=entity_type,
             entityUrn=urn,
             changeType=ChangeTypeClass.UPSERT,
             aspectName="status",
@@ -156,7 +173,7 @@ class StaleEntityRemovalHandler:
         return wu
 
     def gen_removed_entity_workunits(self) -> Iterable[MetadataWorkUnit]:
-        if self._ignore_old_state():
+        if not self.is_checkpointing_enabled() or self._ignore_old_state():
             return
         logger.debug("Checking for stale entity removal.")
         last_checkpoint: Optional[Checkpoint] = self.source.get_last_checkpoint(
@@ -175,12 +192,12 @@ class StaleEntityRemovalHandler:
         )
         for type in self.state_type_class.get_supported_types():
             for urn in last_checkpoint_state.get_urns_not_in(
-                type=type, other_checkpoint=cur_checkpoint_state
+                type=type, other_checkpoint_state=cur_checkpoint_state
             ):
                 yield self._create_soft_delete_workunit(urn, type)
 
     def add_entity_to_state(self, type: str, urn: str) -> None:
-        if self._ignore_new_state():
+        if not self.is_checkpointing_enabled() or self._ignore_new_state():
             return
         cur_checkpoint = self.source.get_current_checkpoint(self.job_id)
         assert cur_checkpoint is not None

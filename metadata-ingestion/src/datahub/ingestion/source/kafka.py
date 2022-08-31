@@ -156,7 +156,7 @@ class KafkaSource(StatefulIngestionSourceBase):
             )
         self.stale_entity_removal_handler = StaleEntityRemovalHandler(
             source=self,
-            config=self.source_config.stateful_ingestion,
+            config=self.source_config,
             state_type_class=KafkaCheckpointState,
             job_id=self.get_default_ingestion_job_id(),
             pipeline_name=self.ctx.pipeline_name,
@@ -173,7 +173,6 @@ class KafkaSource(StatefulIngestionSourceBase):
         """
         Create a custom checkpoint with empty state for the job.
         """
-        assert self.ctx.pipeline_name is not None
         if job_id == self.get_default_ingestion_job_id():
             return self.stale_entity_removal_handler.create_checkpoint()
         return None
@@ -181,6 +180,11 @@ class KafkaSource(StatefulIngestionSourceBase):
     def get_platform_instance_id(self) -> str:
         assert self.source_config.platform_instance is not None
         return self.source_config.platform_instance
+
+    def is_checkpointing_enabled(self, job_id: JobId) -> bool:
+        if job_id == self.get_default_ingestion_job_id():
+            return self.stale_entity_removal_handler.is_checkpointing_enabled()
+        return False
 
     @classmethod
     def create(cls, config_dict: Dict, ctx: PipelineContext) -> "KafkaSource":
