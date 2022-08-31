@@ -53,7 +53,8 @@ class FileSourceConfig(ConfigModel):
     )
     read_mode: FileReadMode = FileReadMode.AUTO
     aspect: Optional[str] = Field(
-        description="Set to an aspect to only read this aspect for ingestion."
+        default=None,
+        description="Set to an aspect to only read this aspect for ingestion.",
     )
 
     _minsize_for_streaming_mode_in_bytes: int = (
