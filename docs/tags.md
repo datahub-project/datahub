@@ -72,10 +72,10 @@ You can search for a tag in the search bar, and even filter entities by the pres
 
 ### GraphQL
 
-* [Tag](./docs/graphql/queries.md#tag)
-* [AddTagsInput](./docs/graphql/inputObjects.md#addtagsinput)
-* [BatchAddTagsInput](./docs/graphql/inputObjects.md#batchaddtagsinput)
-* [BatchRemoveTagsInput](./docs/graphql/inputObjects.md#batchremovetagsinput)
+* [Tag](../graphql/queries.md#tag)
+* [AddTagsInput](../graphql/inputObjects.md#addtagsinput)
+* [BatchAddTagsInput](../graphql/inputObjects.md#batchaddtagsinput)
+* [BatchRemoveTagsInput](../graphql/inputObjects.md#batchremovetagsinput)
 
 ### DataHub Blog
 
