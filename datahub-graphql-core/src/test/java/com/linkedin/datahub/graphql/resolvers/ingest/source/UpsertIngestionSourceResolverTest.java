@@ -28,7 +28,7 @@ public class UpsertIngestionSourceResolverTest {
       "Test source",
       "mysql", "Test source description",
       new UpdateIngestionSourceScheduleInput("* * * * *", "UTC"),
-      new UpdateIngestionSourceConfigInput("my test recipe", "0.8.18", "executor id")
+      new UpdateIngestionSourceConfigInput("my test recipe", "0.8.18", "executor id", false)
   );
 
   @Test
@@ -58,6 +58,7 @@ public class UpsertIngestionSourceResolverTest {
         .setRecipe(TEST_INPUT.getConfig().getRecipe())
         .setVersion(TEST_INPUT.getConfig().getVersion())
         .setExecutorId(TEST_INPUT.getConfig().getExecutorId())
+        .setDebugMode(TEST_INPUT.getConfig().getDebugMode())
     );
 
     Mockito.verify(mockClient, Mockito.times(1)).ingestProposal(

@@ -45,7 +45,7 @@ export const TABLEAU_PASSWORD: RecipeField = {
     name: 'tableau.password',
     label: 'Password',
     tooltip: 'Tableau password, must be set if authenticating using username/password.',
-    type: FieldType.TEXT,
+    type: FieldType.SECRET,
     fieldPath: 'source.config.password',
     rules: null,
 };

@@ -1,0 +1,14 @@
+namespace com.linkedin.metadata.key
+
+/**
+ * Key for a DataHub Role
+ */
+@Aspect = {
+  "name": "dataHubRoleKey"
+}
+record DataHubRoleKey {
+  /**
+   * A unique id for the DataHub role record. Generated on the server side at role creation time.
+   */
+  id: string
+}

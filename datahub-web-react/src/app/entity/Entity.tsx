@@ -72,6 +72,10 @@ export enum EntityCapabilityType {
      * Soft deleting an entity
      */
     SOFT_DELETE,
+    /**
+     * Assigning a role to an entity. Currently only supported for users.
+     */
+    ROLES,
 }
 
 /**
