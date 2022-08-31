@@ -256,7 +256,9 @@ class BaseStatGenerator(ABC):
                 )
                 continue
             self.append_user_stat(entity_stat_aspect, user, row)
-            yield looker_object, entity_stat_aspect
+
+        for (id, _), aspect in entity_usage_stat.items():
+            yield self.id_vs_model.get(id), aspect
 
     def _execute_query(self, query: LookerQuery, query_name: str) -> List[Dict]:
         start_time = datetime.datetime.now()
@@ -390,7 +392,6 @@ class DashboardStatGenerator(BaseStatGenerator):
                 lastViewedAt=round(looker_dashboard.last_viewed_at.timestamp() * 1000)
                 if looker_dashboard.last_viewed_at
                 else None,
-                userCounts=[],
             ),
         )
 
@@ -413,7 +414,6 @@ class DashboardStatGenerator(BaseStatGenerator):
                 eventGranularity=TimeWindowSizeClass(unit=CalendarIntervalClass.DAY),
                 uniqueUserCount=row[HistoryViewField.HISTORY_DASHBOARD_USER],
                 executionsCount=row[HistoryViewField.HISTORY_DASHBOARD_RUN_COUNT],
-                userCounts=[],
             ),
         )
 
@@ -508,7 +508,6 @@ class LookStatGenerator(BaseStatGenerator):
             ChartUsageStatisticsClass(
                 timestampMillis=round(datetime.datetime.now().timestamp() * 1000),
                 viewsCount=looker_look.view_count,
-                userCounts=[],
             ),
         )
 
@@ -529,7 +528,6 @@ class LookStatGenerator(BaseStatGenerator):
                 ),
                 eventGranularity=TimeWindowSizeClass(unit=CalendarIntervalClass.DAY),
                 viewsCount=row[HistoryViewField.HISTORY_COUNT],
-                userCounts=[],
             ),
         )
 
