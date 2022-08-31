@@ -309,7 +309,7 @@ plugins: Dict[str, Set[str]] = {
     "nifi": {"requests", "packaging"},
     "powerbi": microsoft_common,
     "vertica": sql_common | {"sqlalchemy-vertica[vertica-python]==0.0.5"},
-    "powerbi-report-server": {"orderedset"} | powerbi_report_server,
+    "powerbi-report-server": powerbi_report_server,
 
 }
 

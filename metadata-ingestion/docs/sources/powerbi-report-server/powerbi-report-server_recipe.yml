@@ -19,7 +19,10 @@ source:
     report_virtual_directory_name: Reports
     #  Your Power BI Report Server base virtual directory name for report server
     report_server_virtual_directory_name: ReportServer
-
+    # Enable/Disable extracting ownership information of Dashboard
+    extract_ownership: True
+    # Set ownership type
+    ownership_type: TECHNICAL_OWNER
 
 
 sink:

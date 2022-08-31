@@ -3,6 +3,9 @@ from typing import Any, Dict, List, Optional
 
 from pydantic import BaseModel, Field, validator
 
+from datahub.metadata.schema_classes import OwnerClass
+from datahub.ingestion.source.powerbi_report_server.constants import RelationshipDirection
+
 
 class CatalogItem(BaseModel):
     id: str = Field(alias="Id")
@@ -257,4 +260,107 @@ class System(BaseModel):
     time_zone: str = Field(alias="TimeZone")
 
 
+class Owner(BaseModel):
+    owner: str
+    type: str
+
+    def __members(self):
+        return self.owner, self.type
+
+    def __eq__(self, instance):
+        return isinstance(instance, Owner) and self.__members() == instance.__members()
+
+    def __hash__(self):
+        return hash(self.__members())
+
+
+class CorpUserEditableInfo(BaseModel):
+    display_name: str = Field(alias="displayName")
+    title: str
+    about_me: Optional[str] = Field(alias="aboutMe")
+    teams: Optional[List[str]]
+    skills: Optional[List[str]]
+    picture_link: Optional[str] = Field(alias="pictureLink")
+
+
+class CorpUserEditableProperties(CorpUserEditableInfo):
+    slack: Optional[str]
+    phone: Optional[str]
+    email: str
+
+
+class CorpUserStatus(BaseModel):
+    active: bool
+
+
+class GlobalTags(BaseModel):
+    tags: List[str]
+
+
+class EntityRelationship(BaseModel):
+    type: str
+    direction: RelationshipDirection
+    entity: str
+    created: datetime
+
+
+class EntityRelationshipsResult(BaseModel):
+    start: int
+    count: int
+    total: int
+    relationships: Optional[EntityRelationship]
+
+
+class CorpUserProperties(BaseModel):
+    active: bool
+    display_name: str = Field(alias="displayName")
+    email: str
+    title: Optional[str]
+    manager: Optional["CorpUser"]
+    department_id: Optional[int] = Field(alias="departmentId")
+    department_name: Optional[str] = Field(alias="departmentName")
+    first_name: Optional[str] = Field(alias="firstName")
+    last_name: Optional[str] = Field(alias="lastName")
+    full_name: Optional[str] = Field(alias="fullName")
+    country_code: Optional[str] = Field(alias="countryCode")
+
+
+class CorpUser(BaseModel):
+    urn: str
+    type: str
+    username: str
+    properties: CorpUserProperties
+    editable_properties: Optional[CorpUserEditableProperties] = Field(
+        alias="editableProperties"
+    )
+    status: Optional[CorpUserStatus]
+    tags: Optional[GlobalTags]
+    relationships: Optional[EntityRelationshipsResult]
+    editableInfo: Optional[CorpUserEditableInfo] = Field(alias="editableInfo")
+    global_tags: Optional[GlobalTags] = Field(alias="globalTags")
+
+    def get_urn_part(self):
+        return "{}".format(self.username)
+
+    def __members(self):
+        return (self.username,)
+
+    def __eq__(self, instance):
+        return (
+            isinstance(instance, CorpUser) and self.__members() == instance.__members()
+        )
+
+    def __hash__(self):
+        return hash(self.__members())
+
+
+class OwnershipData(BaseModel):
+    existing_owners: Optional[List[OwnerClass]] = []
+    owner_to_add: Optional[CorpUser]
+
+    class Config:
+        arbitrary_types_allowed = True
+
+
 CatalogItem.update_forward_refs()
+CorpUserProperties.update_forward_refs()

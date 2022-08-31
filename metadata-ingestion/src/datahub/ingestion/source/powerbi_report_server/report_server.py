@@ -10,7 +10,7 @@ from typing import Any, Dict, Iterable, List, Optional, Set
 
 import pydantic
 import requests
-from orderedset import OrderedSet
+from datahub.utilities.dedup_list import deduplicate_list
 from requests.exceptions import ConnectionError
 from requests_ntlm import HttpNtlmAuth
 
@@ -44,8 +44,15 @@ from datahub.metadata.schema_classes import (
 )
 
 from datahub.ingestion.source.powerbi_report_server.constants import API_ENDPOINTS, Constant
-from datahub.ingestion.source.powerbi_report_server.graphql_domain import CorpUser
-from datahub.ingestion.source.powerbi_report_server.report_server_domain import LinkedReport, MobileReport, PowerBiReport, Report
+from datahub.ingestion.source.powerbi_report_server.report_server_domain import (
+    LinkedReport,
+    MobileReport,
+    PowerBiReport,
+    Report,
+    CorpUser,
+    Owner,
+    OwnershipData
+)
 
 LOGGER = logging.getLogger(__name__)
 
@@ -67,9 +74,12 @@ class PowerBiReportServerAPIConfig(EnvBasedSourceConfigBase):
     report_server_virtual_directory_name: str = pydantic.Field(
         description="Report Server Virtual Directory URL name"
     )
-    scan_timeout: int = pydantic.Field(
-        default=60,
-        description="time in seconds to wait for Power BI metadata scan result.",
+    extract_ownership: bool = pydantic.Field(
+        default=True, description="Whether ownership should be ingested"
+    )
+    ownership_type: str = pydantic.Field(
+        default=OwnershipTypeClass.NONE,
+        description="Ownership type of owner",
     )
 
     @property
@@ -174,75 +184,6 @@ class PowerBiReportServerAPI:
         return reports
 
 
-class UserDao:
-    def __init__(self, config: PowerBiReportServerDashboardSourceConfig):
-        self.__config = config
-
-    def _run_query(self, query) -> Dict[str, Any]:
-        request = requests.post(url=self.__config.graphql_url, json={"query": query})
-        if request.status_code == 200:
-            return request.json()
-        else:
-            raise Exception(
-                "Query failed to run by returning code of {}. {}".format(
-                    request.status_code, query
-                )
-            )
-
-    def _get_owner_by_name(self, user_name: str) -> Dict[str, Any]:
-        get_owner = f"""{{
-        search(input: {{ type: CORP_USER, query: "{user_name}"}}){{
-            searchResults{{
-                entity{{
-                     urn
-                     type
-                     ...on CorpUser {{
-                        username
-                        urn
-                        type
-                        properties {{
-                            active
-                            displayName
-                            email
-                            title
-                        }}
-                    }}
-                }}
-              matchedFields {{
-                name
-                value
-                }}
-            }}
-        }}
-    }}
-    """
-
-        result = self._run_query(get_owner)
-        return result
-
-    @staticmethod
-    def _filter_values(response: Dict[str, Any], mask: str) -> Optional[Dict[str, Any]]:
-        users = response["data"]["search"]["searchResults"]
-        for user in users:
-            if user["matchedFields"][0]["value"] == mask:
-                return user["entity"]
-        return None
-
-    def get_owner_by_name(self, user_name: str) -> Optional[CorpUser]:
-        response = self._get_owner_by_name(user_name=user_name)
-        filtered_response = self._filter_values(response=response, mask=user_name)
-        if filtered_response:
-            return CorpUser.parse_obj(filtered_response)
-
-        user_data = dict(
-            urn=f"urn:li:corpuser:{user_name}",
-            type=Constant.CORP_USER,
-            username=user_name,
-            properties=dict(active=True, displayName=user_name, email=""),
-        )
-        return CorpUser.parse_obj(user_data)
-
-
 class Mapper:
     """
     Transfrom PowerBI Report Server concept Report to DataHub concept Dashboard
@@ -296,15 +237,28 @@ class Mapper:
 
     @staticmethod
     def to_urn_set(mcps: List[MetadataChangeProposalWrapper]) -> List[str]:
-        return list(
-            OrderedSet(
+        return deduplicate_list(
                 [
                     mcp.entityUrn
                     for mcp in mcps
                     if mcp is not None and mcp.entityUrn is not None
                 ]
-            )
         )
+
+    def to_ownership_set(
+        self,
+        mcps: List[MetadataChangeProposalWrapper],
+        existing_owners: List[OwnerClass],
+    ) -> List[Owner]:
+        ownership = [
+            Owner(owner=owner.owner, type=owner.type) for owner in existing_owners
+        ]
+        for mcp in mcps:
+            if mcp is not None and mcp.entityUrn is not None:
+                ownership.append(
+                    Owner(owner=mcp.entityUrn, type=self.__config.ownership_type)
+                )
+        return deduplicate_list(ownership)
 
     def __to_datahub_dashboard(
         self,
@@ -320,7 +274,9 @@ class Mapper:
         )
 
         chart_urn_list: List[str] = self.to_urn_set(chart_mcps)
-        user_urn_list: List[str] = self.to_urn_set(user_mcps)
+        user_urn_list: List[Owner] = self.to_ownership_set(
+            mcps=user_mcps, existing_owners=report.user_info.existing_owners
+        )
 
         def custom_properties(
             _report: Report,
@@ -328,6 +284,10 @@ class Mapper:
             return {
                 "workspaceName": "PowerBI Report Server",
                 "workspaceId": self.__config.host_port,
+                "createdBy": report.created_by,
+                "createdDate": str(report.created_date),
+                "modifiedBy": report.modified_by or "",
+                "modifiedDate": str(report.modified_date) or str(report.created_date),
                 "dataSource": str(
                     [report.connection_string for report in _report.data_sources]
                 )
@@ -376,9 +336,7 @@ class Mapper:
 
         # Dashboard Ownership
         owners = [
-            OwnerClass(owner=user_urn, type=OwnershipTypeClass.BUSINESS_OWNER)
-            for user_urn in user_urn_list
-            if user_urn is not None
+            OwnerClass(owner=user.owner, type=user.type) for user in user_urn_list
         ]
         ownership = OwnershipClass(owners=owners)
         # Dashboard owner MCP
@@ -419,50 +377,55 @@ class Mapper:
         """
         Map PowerBI Report Server user to datahub user
         """
-        LOGGER.info("Converting user {} to datahub's user".format(user.username))
+        user_mcps = []
+        if user:
+            LOGGER.info("Converting user {} to datahub's user".format(user.username))
 
-        # Create an URN for User
-        user_urn = builder.make_user_urn(user.get_urn_part())
+            # Create an URN for User
+            user_urn = builder.make_user_urn(user.get_urn_part())
 
-        user_info_instance = CorpUserInfoClass(
-            displayName=user.properties.display_name,
-            email=user.properties.email,
-            title=user.properties.title,
-            active=True,
-        )
+            user_info_instance = CorpUserInfoClass(
+                displayName=user.properties.display_name,
+                email=user.properties.email,
+                title=user.properties.title,
+                active=True,
+            )
 
-        info_mcp = self.new_mcp(
-            entity_type=Constant.CORP_USER,
-            entity_urn=user_urn,
-            aspect_name=Constant.CORP_USER_INFO,
-            aspect=user_info_instance,
-        )
+            info_mcp = self.new_mcp(
+                entity_type=Constant.CORP_USER,
+                entity_urn=user_urn,
+                aspect_name=Constant.CORP_USER_INFO,
+                aspect=user_info_instance,
+            )
+            user_mcps.append(info_mcp)
 
-        # removed status mcp
-        status_mcp = self.new_mcp(
-            entity_type=Constant.CORP_USER,
-            entity_urn=user_urn,
-            aspect_name=Constant.STATUS,
-            aspect=StatusClass(removed=False),
-        )
+            # removed status mcp
+            status_mcp = self.new_mcp(
+                entity_type=Constant.CORP_USER,
+                entity_urn=user_urn,
+                aspect_name=Constant.STATUS,
+                aspect=StatusClass(removed=False),
+            )
+            user_mcps.append(status_mcp)
+            user_key = CorpUserKeyClass(username=user.username)
 
-        user_key = CorpUserKeyClass(username=user.username)
+            user_key_mcp = self.new_mcp(
+                entity_type=Constant.CORP_USER,
+                entity_urn=user_urn,
+                aspect_name=Constant.CORP_USER_KEY,
+                aspect=user_key,
+            )
+            user_mcps.append(user_key_mcp)
 
-        user_key_mcp = self.new_mcp(
-            entity_type=Constant.CORP_USER,
-            entity_urn=user_urn,
-            aspect_name=Constant.CORP_USER_KEY,
-            aspect=user_key,
-        )
+        return user_mcps
 
-        return [info_mcp, status_mcp, user_key_mcp]
-
-    def to_datahub_work_units(self, report: Report) -> Set[EquableMetadataWorkUnit]:
+    def to_datahub_work_units(self, report: Report) -> List[EquableMetadataWorkUnit]:
         mcps = []
-
+        user_mcps = []
         LOGGER.info("Converting Dashboard={} to DataHub Dashboard".format(report.name))
         # Convert user to CorpUser
-        user_mcps = self.to_datahub_user(report.user_info)
+        if user_info := report.user_info.owner_to_add:
+            user_mcps = self.to_datahub_user(user_info)
         # Convert tiles to charts
         ds_mcps: List[Any]
         chart_mcps: List[Any]
@@ -480,7 +443,7 @@ class Mapper:
         # Convert MCP to work_units
         work_units = map(self.__to_work_unit, mcps)
         # Return set of work_unit
-        return OrderedSet([wu for wu in work_units if wu is not None])
+        return deduplicate_list([wu for wu in work_units if wu is not None])
 
 
 @dataclass
@@ -535,7 +498,6 @@ class PowerBiReportServerDashboardSource(Source):
         self.auth = PowerBiReportServerAPI(self.source_config).get_auth_credentials
         self.powerbi_client = PowerBiReportServerAPI(self.source_config)
         self.mapper = Mapper(config)
-        self.user_dao = UserDao(config)
 
     @classmethod
     def create(cls, config_dict, ctx):
@@ -553,9 +515,7 @@ class PowerBiReportServerDashboardSource(Source):
 
         for report in reports:
             try:
-                report.user_info = self.user_dao.get_owner_by_name(
-                    user_name=report.display_name
-                )
+                report.user_info = self.get_user_info(report)
             except pydantic.ValidationError as e:
                 message = "Error ({}) occurred while loading User {}(id={})".format(
                     e, report.name, report.id
@@ -573,6 +533,33 @@ class PowerBiReportServerDashboardSource(Source):
                 self.report.report_workunit(workunit)
                 # Return workunit to Datahub Ingestion framework
                 yield workunit
+
+    def get_user_info(self, report: Any) -> OwnershipData:
+        existing_ownership: List[OwnerClass] = []
+        dashboard_urn = builder.make_dashboard_urn(
+            self.source_config.platform_name, report.get_urn_part()
+        )
+        user_urn = builder.make_user_urn(report.display_name)
+
+        if ownership := self.ctx.graph.get_ownership(entity_urn=dashboard_urn):
+            existing_ownership = ownership.owners
+        if owner_to_check := self.ctx.graph.get_aspect_v2(
+                entity_urn=user_urn, aspect="corpUserInfo", aspect_type=CorpUserInfoClass
+        ):
+            existing_ownership.append(
+                OwnerClass(owner=user_urn, type=self.source_config.ownership_type)
+            )
+            return OwnershipData(existing_owners=existing_ownership)
+        user_data = dict(
+            urn=user_urn,
+            type=Constant.CORP_USER,
+            username=report.display_name,
+            properties=dict(active=True, displayName=report.display_name, email=""),
+        )
+        owner_to_add = CorpUser(**user_data)
+        return OwnershipData(
+            existing_owners=existing_ownership, owner_to_add=owner_to_add
+        )
 
     def get_report(self) -> SourceReport:
         return self.report
