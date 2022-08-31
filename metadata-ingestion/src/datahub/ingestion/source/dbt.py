@@ -1123,16 +1123,17 @@ class DBTSource(StatefulIngestionSourceBase[DbtCheckpointState]):
     def get_last_checkpoint(
         self, job_id: JobId, checkpoint_state_class: Type[DbtCheckpointState]
     ) -> Optional[Checkpoint]:
-
         last_checkpoint: Optional[Checkpoint]
         is_conversion_required: bool = False
         try:
             # Best-case that last checkpoint state is DbtCheckpointState
-            last_checkpoint = self.get_last_checkpoint(job_id, checkpoint_state_class)
+            last_checkpoint = super(DBTSource, self).get_last_checkpoint(
+                job_id, checkpoint_state_class
+            )
         except Exception as e:
             # Backward compatibility for old dbt ingestion source which was saving dbt-nodes in
             # BaseSQLAlchemyCheckpointState
-            last_checkpoint = self.get_last_checkpoint(
+            last_checkpoint = super(DBTSource, self).get_last_checkpoint(
                 job_id, BaseSQLAlchemyCheckpointState  # type: ignore
             )
             logger.debug(
