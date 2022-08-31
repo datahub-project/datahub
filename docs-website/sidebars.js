@@ -445,7 +445,6 @@ module.exports = {
       //   className: "saasOnly",
       // },
       // "docs/wip/ui-ingestion-guide", -- not needed
-      // "docs/wip/tags-guide", -- not needed
       // "docs/wip/personal-access-tokens-guide", -- not needed
 
       {
