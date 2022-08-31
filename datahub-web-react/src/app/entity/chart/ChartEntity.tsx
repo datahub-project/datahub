@@ -1,6 +1,5 @@
 import { LineChartOutlined } from '@ant-design/icons';
 import * as React from 'react';
-import { Typography } from 'antd';
 
 import { Chart, EntityType, SearchResult } from '../../../types.generated';
 import { Entity, EntityCapabilityType, IconStyleType, PreviewType } from '../Entity';
@@ -20,9 +19,8 @@ import { SidebarDomainSection } from '../shared/containers/profile/sidebar/Domai
 import { EntityMenuItems } from '../shared/EntityDropdown/EntityDropdown';
 import { LineageTab } from '../shared/tabs/Lineage/LineageTab';
 import { ChartStatsSummarySubHeader } from './profile/stats/ChartStatsSummarySubHeader';
-import { getMatchPrioritizingPrimary } from '../shared/utils';
-import { FIELDS_TO_HIGHLIGHT } from '../dataset/search/highlights';
 import { InputFieldsTab } from '../shared/tabs/Entity/InputFieldsTab';
+import { ChartSnippet } from './ChartSnippet';
 
 /**
  * Definition of the DataHub Chart entity.
@@ -178,8 +176,6 @@ export class ChartEntity implements Entity<Chart> {
 
     renderSearch = (result: SearchResult) => {
         const data = result.entity as Chart;
-        const matchedField = getMatchPrioritizingPrimary(result.matchedFields, 'fieldLabels');
-
         return (
             <ChartPreview
                 urn={data.urn}
@@ -199,13 +195,7 @@ export class ChartEntity implements Entity<Chart> {
                 lastUpdatedMs={data.properties?.lastModified?.time}
                 createdMs={data.properties?.created?.time}
                 externalUrl={data.properties?.externalUrl}
-                snippet={
-                    matchedField && (
-                        <Typography.Text>
-                            Matches {FIELDS_TO_HIGHLIGHT.get(matchedField.name)} <b>{matchedField.value}</b>
-                        </Typography.Text>
-                    )
-                }
+                snippet={<ChartSnippet matchedFields={result.matchedFields} inputFields={data.inputFields} />}
             />
         );
     };

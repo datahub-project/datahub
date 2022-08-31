@@ -1,8 +1,9 @@
 import { Empty } from 'antd';
-import React from 'react';
+import React, { useMemo } from 'react';
 import styled from 'styled-components';
 import { SchemaField } from '../../../../../types.generated';
 import SchemaEditableContext from '../../../../shared/SchemaEditableContext';
+import { groupByFieldPath } from '../../../dataset/profile/schema/utils/utils';
 import { ANTD_GRAY } from '../../constants';
 import { useEntityData } from '../../EntityContext';
 import SchemaTable from '../Dataset/Schema/SchemaTable';
@@ -19,7 +20,12 @@ const SchemaTableContainer = styled.div`
 export const InputFieldsTab = () => {
     const { entityData } = useEntityData();
     const inputFields = entityData?.inputFields || undefined;
-    const rows = inputFields?.fields?.map((field) => field?.schemaField) as SchemaField[];
+    const ungroupedRows = inputFields?.fields?.map((field) => field?.schemaField) as SchemaField[];
+
+    const rows = useMemo(() => {
+        return groupByFieldPath(ungroupedRows, { showKeySchema: false });
+    }, [ungroupedRows]);
+
     return (
         <>
             <SchemaTableContainer>

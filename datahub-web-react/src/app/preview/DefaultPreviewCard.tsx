@@ -15,6 +15,7 @@ import {
     CorpUser,
     Deprecation,
     Domain,
+    ParentNodesResult,
 } from '../../types.generated';
 import TagTermGroup from '../shared/tags/TagTermGroup';
 import { ANTD_GRAY } from '../entity/shared/constants';
@@ -185,6 +186,7 @@ interface Props {
     // how the listed node is connected to the source node
     degree?: number;
     parentContainers?: ParentContainersResult | null;
+    parentNodes?: ParentNodesResult | null;
 }
 
 export default function DefaultPreviewCard({
@@ -217,6 +219,7 @@ export default function DefaultPreviewCard({
     onClick,
     degree,
     parentContainers,
+    parentNodes,
     platforms,
     logoUrls,
 }: Props) {
@@ -258,6 +261,7 @@ export default function DefaultPreviewCard({
                         typeIcon={typeIcon}
                         entityType={type}
                         parentContainers={parentContainers?.containers}
+                        parentNodes={parentNodes?.nodes}
                         parentContainersRef={parentContainersRef}
                         areContainersTruncated={areContainersTruncated}
                     />

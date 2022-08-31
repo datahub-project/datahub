@@ -1,4 +1,4 @@
-import { Modal, Tag, Typography, Button, message } from 'antd';
+import { Modal, Tag, Typography, Button, message, Tooltip } from 'antd';
 import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
 import styled from 'styled-components';
@@ -20,6 +20,7 @@ import { useRemoveTagMutation, useRemoveTermMutation } from '../../../graphql/mu
 import { DomainLink } from './DomainLink';
 import { TagProfileDrawer } from './TagProfileDrawer';
 import EditTagTermsModal from './AddTagsTermsModal';
+import { PreviewType } from '../../entity/Entity';
 
 type Props = {
     uneditableTags?: GlobalTags | null;
@@ -195,15 +196,31 @@ export default function TagTermGroup({
                 if (maxShow && renderedTags > maxShow) return null;
 
                 return (
-                    <TermLink
-                        to={entityRegistry.getEntityUrl(EntityType.GlossaryTerm, term.term.urn)}
-                        key={term.term.urn}
+                    <Tooltip
+                        color="white"
+                        placement="topRight"
+                        overlayStyle={{ minWidth: 500 }}
+                        overlayInnerStyle={{ padding: 12 }}
+                        title={
+                            <a href={entityRegistry.getEntityUrl(EntityType.GlossaryTerm, term.term.urn)}>
+                                {entityRegistry.renderPreview(
+                                    EntityType.GlossaryTerm,
+                                    PreviewType.HOVER_CARD,
+                                    term.term,
+                                )}
+                            </a>
+                        }
                     >
-                        <Tag closable={false} style={{ cursor: 'pointer' }}>
-                            <BookOutlined style={{ marginRight: '3%' }} />
-                            {entityRegistry.getDisplayName(EntityType.GlossaryTerm, term.term)}
-                        </Tag>
-                    </TermLink>
+                        <TermLink
+                            to={entityRegistry.getEntityUrl(EntityType.GlossaryTerm, term.term.urn)}
+                            key={term.term.urn}
+                        >
+                            <Tag closable={false} style={{ cursor: 'pointer' }}>
+                                <BookOutlined style={{ marginRight: '3%' }} />
+                                {entityRegistry.getDisplayName(EntityType.GlossaryTerm, term.term)}
+                            </Tag>
+                        </TermLink>
+                    </Tooltip>
                 );
             })}
             {editableGlossaryTerms?.terms?.map((term) => (

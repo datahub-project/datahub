@@ -134,6 +134,7 @@ export class GlossaryTermEntity implements Entity<GlossaryTerm> {
         return (
             <Preview
                 urn={data?.urn}
+                parentNodes={data.parentNodes}
                 name={this.displayName(data)}
                 description={data?.properties?.description || ''}
                 owners={data?.ownership?.owners}

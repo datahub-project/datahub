@@ -2295,6 +2295,11 @@ type SchemaField {
     jsonPath: String
 
     """
+    Human readable label for the field. Not supplied by all data sources
+    """
+    label: String
+
+    """
     Indicates if this field is optional or nullable
     """
     nullable: Boolean!
