@@ -23,6 +23,8 @@ import elasticsearchLogo from '../../../../images/elasticsearchlogo.png';
 import feastLogo from '../../../../images/feastlogo.png';
 import mariadbLogo from '../../../../images/mariadblogo.png';
 import metabaseLogo from '../../../../images/metabaselogo.png';
+import powerbiLogo from '../../../../images/powerbilogo.png';
+import modeLogo from '../../../../images/modelogo.png';
 
 export const SNOWFLAKE_URN = 'urn:li:dataPlatform:snowflake';
 export const SNOWFLAKE = 'snowflake';
@@ -76,6 +78,10 @@ export const METABASE_URN = 'urn:li:dataPlatform:metabase';
 export const METABASE = 'metabase';
 export const CUSTOM_URN = 'urn:li:dataPlatform:custom';
 export const CUSTOM = 'custom';
+export const POWER_BI_URN = 'urn:li:dataPlatform:powerbi';
+export const POWER_BI = 'powerbi';
+export const MODE_URN = 'urn:li:dataPlatform:mode';
+export const MODE = 'mode';
 
 export const SOURCE_URN_TO_LOGO = {
     [SNOWFLAKE_URN]: snowflakeLogo,
@@ -103,6 +109,8 @@ export const SOURCE_URN_TO_LOGO = {
     [FEAST_URN]: feastLogo,
     [MARIA_DB_URN]: mariadbLogo,
     [METABASE_URN]: metabaseLogo,
+    [POWER_BI_URN]: powerbiLogo,
+    [MODE_URN]: modeLogo,
 };
 
 export const SOURCE_TO_SOURCE_URN = {
@@ -132,4 +140,6 @@ export const SOURCE_TO_SOURCE_URN = {
     [MARIA_DB]: MARIA_DB_URN,
     [METABASE]: METABASE_URN,
     [CUSTOM]: CUSTOM_URN,
+    [POWER_BI]: POWER_BI_URN,
+    [MODE]: MODE_URN,
 };
