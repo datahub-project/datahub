@@ -34,10 +34,10 @@ class SnowflakeQuery:
     def schemas_for_database(db_name: Optional[str]) -> str:
         db_clause = f'"{db_name}".' if db_name is not None else ""
         return f"""
-        SELECT schema_name AS "schema_name",
-        created AS "created",
-        last_altered AS "last_altered",
-        comment AS "comment"
+        SELECT schema_name AS "SCHEMA_NAME",
+        created AS "CREATED",
+        last_altered AS "LAST_ALTERED",
+        comment AS "COMMENT"
         from {db_clause}information_schema.schemata
         WHERE schema_name != 'INFORMATION_SCHEMA'
         order by schema_name"""
@@ -46,17 +46,17 @@ class SnowflakeQuery:
     def tables_for_database(db_name: Optional[str]) -> str:
         db_clause = f'"{db_name}".' if db_name is not None else ""
         return f"""
-        SELECT table_catalog AS "table_catalog",
-        table_schema AS "table_schema",
-        table_name AS "table_name",
-        table_type AS "table_type",
-        created AS "created",
-        last_altered AS "last_altered" ,
-        comment AS "comment",
-        row_count AS "row_count",
-        bytes AS "bytes",
-        clustering_key AS "clustering_key",
-        auto_clustering_on AS "auto_clustering_on"
+        SELECT table_catalog AS "TABLE_CATALOG",
+        table_schema AS "TABLE_SCHEMA",
+        table_name AS "TABLE_NAME",
+        table_type AS "TABLE_TYPE",
+        created AS "CREATED",
+        last_altered AS "LAST_ALTERED" ,
+        comment AS "COMMENT",
+        row_count AS "ROW_COUNT",
+        bytes AS "BYTES",
+        clustering_key AS "CLUSTERING_KEY",
+        auto_clustering_on AS "AUTO_CLUSTERING_ON"
         FROM {db_clause}information_schema.tables t
         WHERE table_schema != 'INFORMATION_SCHEMA'
         and table_type in ( 'BASE TABLE', 'EXTERNAL TABLE')
@@ -66,19 +66,19 @@ class SnowflakeQuery:
     def tables_for_schema(schema_name: str, db_name: Optional[str]) -> str:
         db_clause = f'"{db_name}".' if db_name is not None else ""
         return f"""
-        SELECT table_catalog AS "table_catalog",
-        table_schema AS "table_schema",
-        table_name AS "table_name",
-        table_type AS "table_type",
-        created AS "created",
-        last_altered AS "last_altered" ,
-        comment AS "comment",
-        row_count AS "row_count",
-        bytes AS "bytes",
-        clustering_key AS "clustering_key",
-        auto_clustering_on AS "auto_clustering_on"
+        SELECT table_catalog AS "TABLE_CATALOG",
+        table_schema AS "TABLE_SCHEMA",
+        table_name AS "TABLE_NAME",
+        table_type AS "TABLE_TYPE",
+        created AS "CREATED",
+        last_altered AS "LAST_ALTERED" ,
+        comment AS "COMMENT",
+        row_count AS "ROW_COUNT",
+        bytes AS "BYTES",
+        clustering_key AS "CLUSTERING_KEY",
+        auto_clustering_on AS "AUTO_CLUSTERING_ON"
         FROM {db_clause}information_schema.tables t
-        where schema_name='{schema_name}'
+        where table_schema='{schema_name}'
         and table_type in ('BASE TABLE', 'EXTERNAL TABLE')
         order by table_schema, table_name"""
 
@@ -88,13 +88,13 @@ class SnowflakeQuery:
     def views_for_database(db_name: Optional[str]) -> str:
         db_clause = f'"{db_name}".' if db_name is not None else ""
         return f"""
-        SELECT table_catalog AS "table_catalog",
-        table_schema AS "table_schema",
-        table_name AS "table_name",
-        created AS "created",
-        last_altered AS "last_altered",
-        comment AS "comment",
-        view_definition AS "view_definition"
+        SELECT table_catalog AS "TABLE_CATALOG",
+        table_schema AS "TABLE_SCHEMA",
+        table_name AS "TABLE_NAME",
+        created AS "CREATED",
+        last_altered AS "LAST_ALTERED",
+        comment AS "COMMENT",
+        view_definition AS "VIEW_DEFINITION"
         FROM {db_clause}information_schema.views t
         WHERE table_schema != 'INFORMATION_SCHEMA'
         order by table_schema, table_name"""
@@ -105,15 +105,15 @@ class SnowflakeQuery:
     def views_for_schema(schema_name: str, db_name: Optional[str]) -> str:
         db_clause = f'"{db_name}".' if db_name is not None else ""
         return f"""
-        SELECT table_catalog AS "table_catalog",
-        table_schema AS "table_schema",
-        table_name AS "table_name",
-        created AS "created",
-        last_altered AS "last_altered",
-        comment AS "comment",
-        view_definition AS "view_definition"
+        SELECT table_catalog AS "TABLE_CATALOG",
+        table_schema AS "TABLE_SCHEMA",
+        table_name AS "TABLE_NAME",
+        created AS "CREATED",
+        last_altered AS "LAST_ALTERED",
+        comment AS "COMMENT",
+        view_definition AS "VIEW_DEFINITION"
         FROM {db_clause}information_schema.views t
-        where schema_name='{schema_name}'
+        where table_schema='{schema_name}'
         order by table_schema, table_name"""
 
     @staticmethod
@@ -130,19 +130,19 @@ class SnowflakeQuery:
         db_clause = f'"{db_name}".' if db_name is not None else ""
         return f"""
         select
-        table_catalog AS "table_catalog",
-        table_schema AS "table_schema",
-        table_name AS "table_name",
-        column_name AS "column_name",
-        ordinal_position AS "ordinal_position",
-        is_nullable AS "is_nullable",
-        data_type AS "data_type",
-        comment AS "comment",
-        character_maximum_length AS "character_maximum_length",
-        numeric_precision AS "numeric_precision",
-        numeric_scale AS "numeric_scale",
-        column_default AS "column_default",
-        is_identity AS "is_identity"
+        table_catalog AS "TABLE_CATALOG",
+        table_schema AS "TABLE_SCHEMA",
+        table_name AS "TABLE_NAME",
+        column_name AS "COLUMN_NAME",
+        ordinal_position AS "ORDINAL_POSITION",
+        is_nullable AS "IS_NULLABLE",
+        data_type AS "DATA_TYPE",
+        comment AS "COMMENT",
+        character_maximum_length AS "CHARACTER_MAXIMUM_LENGTH",
+        numeric_precision AS "NUMERIC_PRECISION",
+        numeric_scale AS "NUMERIC_SCALE",
+        column_default AS "COLUMN_DEFAULT",
+        is_identity AS "IS_IDENTITY"
         from {db_clause}information_schema.columns
         WHERE table_schema='{schema_name}'
         ORDER BY ordinal_position"""
@@ -154,19 +154,19 @@ class SnowflakeQuery:
         db_clause = f'"{db_name}".' if db_name is not None else ""
         return f"""
         select
-        table_catalog AS "table_catalog",
-        table_schema AS "table_schema",
-        table_name AS "table_name",
-        column_name AS "column_name",
-        ordinal_position AS "ordinal_position",
-        is_nullable AS "is_nullable",
-        data_type AS "data_type",
-        comment AS "comment",
-        character_maximum_length AS "character_maximum_length",
-        numeric_precision AS "numeric_precision",
-        numeric_scale AS "numeric_scale",
-        column_default AS "column_default",
-        is_identity AS "is_identity"
+        table_catalog AS "TABLE_CATALOG",
+        table_schema AS "TABLE_SCHEMA",
+        table_name AS "TABLE_NAME",
+        column_name AS "COLUMN_NAME",
+        ordinal_position AS "ORDINAL_POSITION",
+        is_nullable AS "IS_NULLABLE",
+        data_type AS "DATA_TYPE",
+        comment AS "COMMENT",
+        character_maximum_length AS "CHARACTER_MAXIMUM_LENGTH",
+        numeric_precision AS "NUMERIC_PRECISION",
+        numeric_scale AS "NUMERIC_SCALE",
+        column_default AS "COLUMN_DEFAULT",
+        is_identity AS "IS_IDENTITY"
         from {db_clause}information_schema.columns
         WHERE table_schema='{schema_name}' and table_name='{table_name}'
         ORDER BY ordinal_position"""
@@ -188,23 +188,23 @@ class SnowflakeQuery:
         return f"""
         SELECT
             -- access_history.query_id, -- only for debugging purposes
-            access_history.query_start_time AS "query_start_time",
-            query_history.query_text AS "query_text",
-            query_history.query_type AS "query_type",
-            query_history.rows_inserted AS "rows_inserted",
-            query_history.rows_updated AS "rows_updated",
-            query_history.rows_deleted AS "rows_deleted",
-            access_history.base_objects_accessed AS "base_objects_accessed",
-            access_history.direct_objects_accessed AS "direct_objects_accessed", -- when dealing with views, direct objects will show the view while base will show the underlying table
-            access_history.objects_modified AS "objects_modified",
+            access_history.query_start_time AS "QUERY_START_TIME",
+            query_history.query_text AS "QUERY_TEXT",
+            query_history.query_type AS "QUERY_TYPE",
+            query_history.rows_inserted AS "ROWS_INSERTED",
+            query_history.rows_updated AS "ROWS_UPDATED",
+            query_history.rows_deleted AS "ROWS_DELETED",
+            access_history.base_objects_accessed AS "BASE_OBJECTS_ACCESSED",
+            access_history.direct_objects_accessed AS "DIRECT_OBJECTS_ACCESSED", -- when dealing with views, direct objects will show the view while base will show the underlying table
+            access_history.objects_modified AS "OBJECTS_MODIFIED",
             -- query_history.execution_status, -- not really necessary, but should equal "SUCCESS"
             -- query_history.warehouse_name,
-            access_history.user_name AS "user_name",
-            users.first_name AS "first_name",
-            users.last_name AS "last_name",
-            users.display_name AS "display_name",
-            users.email AS "email",
-            query_history.role_name AS "role_name"
+            access_history.user_name AS "USER_NAME",
+            users.first_name AS "FIRST_NAME",
+            users.last_name AS "LAST_NAME",
+            users.display_name AS "DISPLAY_NAME",
+            users.email AS "EMAIL",
+            query_history.role_name AS "ROLE_NAME"
         FROM
             snowflake.account_usage.access_history access_history
         LEFT JOIN
@@ -244,10 +244,10 @@ class SnowflakeQuery:
             AND t.query_start_time >= to_timestamp_ltz({start_time_millis}, 3)
             AND t.query_start_time < to_timestamp_ltz({end_time_millis}, 3))
         SELECT
-        upstream_table_name AS "upstream_table_name",
-        downstream_table_name AS "downstream_table_name",
-        upstream_table_columns AS "upstream_table_columns",
-        downstream_table_columns AS "downstream_table_columns"
+        upstream_table_name AS "UPSTREAM_TABLE_NAME",
+        downstream_table_name AS "DOWNSTREAM_TABLE_NAME",
+        upstream_table_columns AS "UPSTREAM_TABLE_COLUMNS",
+        downstream_table_columns AS "DOWNSTREAM_TABLE_COLUMNS"
         FROM table_lineage_history
         WHERE upstream_table_domain in ('Table', 'External table') and downstream_table_domain = 'Table'
         QUALIFY ROW_NUMBER() OVER (PARTITION BY downstream_table_name, upstream_table_name ORDER BY query_start_time DESC) = 1"""
@@ -259,12 +259,12 @@ class SnowflakeQuery:
           concat(
             referenced_database, '.', referenced_schema,
             '.', referenced_object_name
-          ) AS "view_upstream",
+          ) AS "VIEW_UPSTREAM",
           concat(
             referencing_database, '.', referencing_schema,
             '.', referencing_object_name
-          ) AS "downstream_view",
-          referencing_object_domain AS "referencing_object_domain"
+          ) AS "DOWNSTREAM_VIEW",
+          referencing_object_domain AS "REFERENCING_OBJECT_DOMAIN"
         FROM
           snowflake.account_usage.object_dependencies
         WHERE
@@ -301,11 +301,11 @@ class SnowflakeQuery:
             AND t.query_start_time < to_timestamp_ltz({end_time_millis}, 3)
         )
         SELECT
-          view_name AS "view_name",
-          view_domain AS "view_domain",
-          view_columns AS "view_columns",
-          downstream_table_name AS "downstream_table_name",
-          downstream_table_columns AS "downstream_table_columns"
+          view_name AS "VIEW_NAME",
+          view_domain AS "VIEW_DOMAIN",
+          view_columns AS "VIEW_COLUMNS",
+          downstream_table_name AS "DOWNSTREAM_TABLE_NAME",
+          downstream_table_columns AS "DOWNSTREAM_TABLE_COLUMNS"
         FROM
           view_lineage_history
         WHERE
@@ -343,12 +343,21 @@ class SnowflakeQuery:
             AND t.query_start_time >= to_timestamp_ltz({start_time_millis}, 3)
             AND t.query_start_time < to_timestamp_ltz({end_time_millis}, 3))
         SELECT
-        upstream_locations AS "upstream_locations",
-        downstream_table_name AS "downstream_table_name",
-        downstream_table_columns AS "downstream_table_columns"
+        upstream_locations AS "UPSTREAM_LOCATIONS",
+        downstream_table_name AS "DOWNSTREAM_TABLE_NAME",
+        downstream_table_columns AS "DOWNSTREAM_TABLE_COLUMNS"
         FROM external_table_lineage_history
         WHERE downstream_table_domain = 'Table'
         QUALIFY ROW_NUMBER() OVER (PARTITION BY downstream_table_name ORDER BY query_start_time DESC) = 1"""
+
+    @staticmethod
+    def get_access_history_date_range() -> str:
+        return """
+            select
+                min(query_start_time) as "MIN_TIME",
+                max(query_start_time) as "MAX_TIME"
+            from snowflake.account_usage.access_history
+        """
 
     @staticmethod
     def usage_per_object_per_time_bucket_for_time_window(
@@ -359,8 +368,8 @@ class SnowflakeQuery:
         top_n_queries: int,
         include_top_n_queries: bool,
     ) -> str:
-        # TODO: Do not query for top n queries if include_top_n_queries = False
-        # How can we make this pretty
+        if not include_top_n_queries:
+            top_n_queries = 0
         assert time_bucket_size == "DAY" or time_bucket_size == "HOUR"
         objects_column = (
             "BASE_OBJECTS_ACCESSED" if use_base_objects else "DIRECT_OBJECTS_ACCESSED"
@@ -466,19 +475,20 @@ class SnowflakeQuery:
             GROUP BY
                 bucket_start_time,
                 object_name,
-                query_text QUALIFY row_number() over ( partition by bucket_start_time, object_name, query_text
+                query_text
+            QUALIFY row_number() over ( partition by bucket_start_time, object_name
             order by
                 total_queries desc ) <= {top_n_queries}
         )
         select
-            basic_usage_counts.object_name AS "object_name",
-            basic_usage_counts.bucket_start_time AS "bucket_start_time",
-            ANY_VALUE(basic_usage_counts.object_domain) AS "object_domain",
-            ANY_VALUE(basic_usage_counts.total_queries) AS "total_queries",
-            ANY_VALUE(basic_usage_counts.total_users) AS "total_users",
-            ARRAY_AGG( distinct top_queries.query_text) AS "top_sql_queries",
-            ARRAY_AGG( distinct OBJECT_CONSTRUCT( 'column_name', field_usage_counts.column_name, 'total_queries', field_usage_counts.total_queries ) ) AS "field_counts",
-            ARRAY_AGG( distinct OBJECT_CONSTRUCT( 'user_name', user_usage_counts.user_name, 'user_email', user_usage_counts.user_email, 'total_queries', user_usage_counts.total_queries ) ) AS "user_counts"
+            basic_usage_counts.object_name AS "OBJECT_NAME",
+            basic_usage_counts.bucket_start_time AS "BUCKET_START_TIME",
+            ANY_VALUE(basic_usage_counts.object_domain) AS "OBJECT_DOMAIN",
+            ANY_VALUE(basic_usage_counts.total_queries) AS "TOTAL_QUERIES",
+            ANY_VALUE(basic_usage_counts.total_users) AS "TOTAL_USERS",
+            ARRAY_AGG( distinct top_queries.query_text) AS "TOP_SQL_QUERIES",
+            ARRAY_AGG( distinct OBJECT_CONSTRUCT( 'col', field_usage_counts.column_name, 'total', field_usage_counts.total_queries ) ) AS "FIELD_COUNTS",
+            ARRAY_AGG( distinct OBJECT_CONSTRUCT( 'user_name', user_usage_counts.user_name, 'email', user_usage_counts.user_email, 'total', user_usage_counts.total_queries ) ) AS "USER_COUNTS"
         from
             basic_usage_counts basic_usage_counts
             left join

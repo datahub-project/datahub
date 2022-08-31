@@ -44,15 +44,20 @@ public final class GetChartsResolver implements DataFetcher<List<AnalyticsChartG
   @Override
   public final List<AnalyticsChartGroup> get(DataFetchingEnvironment environment) throws Exception {
     Authentication authentication = ResolverUtils.getAuthentication(environment);
-    return ImmutableList.of(AnalyticsChartGroup.builder()
-        .setGroupId("DataHubUsageAnalytics")
-        .setTitle("DataHub Usage Analytics")
-        .setCharts(getProductAnalyticsCharts(authentication))
-        .build(), AnalyticsChartGroup.builder()
-        .setGroupId("GlobalMetadataAnalytics")
-        .setTitle("Data Landscape Summary")
-        .setCharts(getGlobalMetadataAnalyticsCharts(authentication))
-        .build());
+    try {
+      return ImmutableList.of(AnalyticsChartGroup.builder()
+          .setGroupId("DataHubUsageAnalytics")
+          .setTitle("DataHub Usage Analytics")
+          .setCharts(getProductAnalyticsCharts(authentication))
+          .build(), AnalyticsChartGroup.builder()
+          .setGroupId("GlobalMetadataAnalytics")
+          .setTitle("Data Landscape Summary")
+          .setCharts(getGlobalMetadataAnalyticsCharts(authentication))
+          .build());
+    } catch (Exception e) {
+      log.error("Failed to retrieve analytics charts!", e);
+      return Collections.emptyList(); // Simply return nothing.
+    }
   }
 
   /**
