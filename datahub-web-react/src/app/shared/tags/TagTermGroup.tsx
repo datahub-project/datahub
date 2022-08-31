@@ -283,7 +283,7 @@ export default function TagTermGroup({
                     {EMPTY_MESSAGES.terms.title}. {EMPTY_MESSAGES.terms.description}
                 </Typography.Paragraph>
             )}
-            {canAddTag && (uneditableTags?.tags?.length || 0) + (editableTags?.tags?.length || 0) && (
+            {canAddTag && (
                 <NoElementButton
                     type={showEmptyMessage && tagsEmpty ? 'default' : 'text'}
                     onClick={() => {
@@ -296,7 +296,7 @@ export default function TagTermGroup({
                     <span>Add Tags</span>
                 </NoElementButton>
             )}
-            {canAddTerm && (uneditableGlossaryTerms?.terms?.length || 0) + (editableGlossaryTerms?.terms?.length || 0) && (
+            {canAddTerm && (
                 <NoElementButton
                     type={showEmptyMessage && tagsEmpty ? 'default' : 'text'}
                     onClick={() => {
