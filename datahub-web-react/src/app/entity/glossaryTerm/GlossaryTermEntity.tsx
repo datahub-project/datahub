@@ -130,9 +130,10 @@ export class GlossaryTermEntity implements Entity<GlossaryTerm> {
         return this.renderPreview(PreviewType.SEARCH, result.entity as GlossaryTerm);
     };
 
-    renderPreview = (_: PreviewType, data: GlossaryTerm) => {
+    renderPreview = (previewType: PreviewType, data: GlossaryTerm) => {
         return (
             <Preview
+                previewType={previewType}
                 urn={data?.urn}
                 parentNodes={data.parentNodes}
                 name={this.displayName(data)}

@@ -1,4 +1,4 @@
-import { Modal, Tag, Typography, Button, message, Tooltip } from 'antd';
+import { Modal, Tag, Typography, Button, message } from 'antd';
 import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
 import styled from 'styled-components';
@@ -20,7 +20,7 @@ import { useRemoveTagMutation, useRemoveTermMutation } from '../../../graphql/mu
 import { DomainLink } from './DomainLink';
 import { TagProfileDrawer } from './TagProfileDrawer';
 import EditTagTermsModal from './AddTagsTermsModal';
-import { PreviewType } from '../../entity/Entity';
+import { HoverEntityTooltip } from '../../recommendations/renderer/component/HoverEntityTooltip';
 
 type Props = {
     uneditableTags?: GlobalTags | null;
@@ -181,7 +181,7 @@ export default function TagTermGroup({
     return (
         <>
             {domain && (
-                <DomainLink urn={domain.urn} name={entityRegistry.getDisplayName(EntityType.Domain, domain) || ''} />
+                <DomainLink domain={domain} name={entityRegistry.getDisplayName(EntityType.Domain, domain) || ''} />
             )}
             {uneditableGlossaryTerms?.terms?.map((term) => {
                 renderedTags += 1;
@@ -196,21 +196,7 @@ export default function TagTermGroup({
                 if (maxShow && renderedTags > maxShow) return null;
 
                 return (
-                    <Tooltip
-                        color="white"
-                        placement="topRight"
-                        overlayStyle={{ minWidth: 500 }}
-                        overlayInnerStyle={{ padding: 12 }}
-                        title={
-                            <a href={entityRegistry.getEntityUrl(EntityType.GlossaryTerm, term.term.urn)}>
-                                {entityRegistry.renderPreview(
-                                    EntityType.GlossaryTerm,
-                                    PreviewType.HOVER_CARD,
-                                    term.term,
-                                )}
-                            </a>
-                        }
-                    >
+                    <HoverEntityTooltip entity={term.term}>
                         <TermLink
                             to={entityRegistry.getEntityUrl(EntityType.GlossaryTerm, term.term.urn)}
                             key={term.term.urn}
@@ -220,23 +206,28 @@ export default function TagTermGroup({
                                 {entityRegistry.getDisplayName(EntityType.GlossaryTerm, term.term)}
                             </Tag>
                         </TermLink>
-                    </Tooltip>
+                    </HoverEntityTooltip>
                 );
             })}
             {editableGlossaryTerms?.terms?.map((term) => (
-                <TermLink to={entityRegistry.getEntityUrl(EntityType.GlossaryTerm, term.term.urn)} key={term.term.urn}>
-                    <Tag
-                        style={{ cursor: 'pointer' }}
-                        closable={canRemove}
-                        onClose={(e) => {
-                            e.preventDefault();
-                            removeTerm(term);
-                        }}
+                <HoverEntityTooltip entity={term.term}>
+                    <TermLink
+                        to={entityRegistry.getEntityUrl(EntityType.GlossaryTerm, term.term.urn)}
+                        key={term.term.urn}
                     >
-                        <BookOutlined style={{ marginRight: '3%' }} />
-                        {entityRegistry.getDisplayName(EntityType.GlossaryTerm, term.term)}
-                    </Tag>
-                </TermLink>
+                        <Tag
+                            style={{ cursor: 'pointer' }}
+                            closable={canRemove}
+                            onClose={(e) => {
+                                e.preventDefault();
+                                removeTerm(term);
+                            }}
+                        >
+                            <BookOutlined style={{ marginRight: '3%' }} />
+                            {entityRegistry.getDisplayName(EntityType.GlossaryTerm, term.term)}
+                        </Tag>
+                    </TermLink>
+                </HoverEntityTooltip>
             ))}
             {/* uneditable tags are provided by ingestion pipelines exclusively */}
             {uneditableTags?.tags?.map((tag) => {
@@ -248,17 +239,19 @@ export default function TagTermGroup({
                 if (maxShow && renderedTags > maxShow) return null;
 
                 return (
-                    <TagLink key={tag?.tag?.urn}>
-                        <StyledTag
-                            style={{ cursor: 'pointer' }}
-                            onClick={() => showTagProfileDrawer(tag?.tag?.urn)}
-                            $colorHash={tag?.tag?.urn}
-                            $color={tag?.tag?.properties?.colorHex}
-                            closable={false}
-                        >
-                            {entityRegistry.getDisplayName(EntityType.Tag, tag.tag)}
-                        </StyledTag>
-                    </TagLink>
+                    <HoverEntityTooltip entity={tag?.tag}>
+                        <TagLink key={tag?.tag?.urn}>
+                            <StyledTag
+                                style={{ cursor: 'pointer' }}
+                                onClick={() => showTagProfileDrawer(tag?.tag?.urn)}
+                                $colorHash={tag?.tag?.urn}
+                                $color={tag?.tag?.properties?.colorHex}
+                                closable={false}
+                            >
+                                {entityRegistry.getDisplayName(EntityType.Tag, tag.tag)}
+                            </StyledTag>
+                        </TagLink>
+                    </HoverEntityTooltip>
                 );
             })}
             {/* editable tags may be provided by ingestion pipelines or the UI */}
@@ -266,21 +259,23 @@ export default function TagTermGroup({
                 renderedTags += 1;
                 if (maxShow && renderedTags > maxShow) return null;
                 return (
-                    <TagLink>
-                        <StyledTag
-                            style={{ cursor: 'pointer' }}
-                            onClick={() => showTagProfileDrawer(tag?.tag?.urn)}
-                            $colorHash={tag?.tag?.urn}
-                            $color={tag?.tag?.properties?.colorHex}
-                            closable={canRemove}
-                            onClose={(e) => {
-                                e.preventDefault();
-                                removeTag(tag);
-                            }}
-                        >
-                            {tag?.tag?.name}
-                        </StyledTag>
-                    </TagLink>
+                    <HoverEntityTooltip entity={tag?.tag}>
+                        <TagLink>
+                            <StyledTag
+                                style={{ cursor: 'pointer' }}
+                                onClick={() => showTagProfileDrawer(tag?.tag?.urn)}
+                                $colorHash={tag?.tag?.urn}
+                                $color={tag?.tag?.properties?.colorHex}
+                                closable={canRemove}
+                                onClose={(e) => {
+                                    e.preventDefault();
+                                    removeTag(tag);
+                                }}
+                            >
+                                {tag?.tag?.name}
+                            </StyledTag>
+                        </TagLink>
+                    </HoverEntityTooltip>
                 );
             })}
             {tagProfileDrawerVisible && (

@@ -12,6 +12,7 @@ type Props = {
 };
 
 const LABEL_INDEX_NAME = 'fieldLabels';
+const TYPE_PROPERTY_KEY_NAME = 'type';
 
 export const ChartSnippet = ({ matchedFields, inputFields }: Props) => {
     const matchedField = getMatchPrioritizingPrimary(matchedFields, 'fieldLabels');
@@ -25,9 +26,17 @@ export const ChartSnippet = ({ matchedFields, inputFields }: Props) => {
         );
 
         if (matchedGlossaryTerm) {
+            let termType = 'term';
+            const typeProperty = matchedGlossaryTerm.term.properties?.customProperties?.find(
+                (property) => property.key === TYPE_PROPERTY_KEY_NAME,
+            );
+            if (typeProperty) {
+                termType = typeProperty.value || termType;
+            }
+
             return (
                 <Typography.Text>
-                    Matches metric <TagTermGroup uneditableGlossaryTerms={{ terms: [matchedGlossaryTerm] }} />
+                    Matches {termType} <TagTermGroup uneditableGlossaryTerms={{ terms: [matchedGlossaryTerm] }} />
                 </Typography.Text>
             );
         }

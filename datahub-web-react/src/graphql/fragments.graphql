@@ -2,6 +2,7 @@ fragment globalTagsFields on GlobalTags {
     tags {
         tag {
             urn
+            type
             name
             description
             properties {
@@ -33,6 +34,10 @@ fragment glossaryTerm on GlossaryTerm {
         description
         definition
         termSource
+        customProperties {
+            key
+            value
+        }
     }
     ownership {
         ...ownershipFields
@@ -854,8 +859,10 @@ fragment entityContainer on Container {
 fragment entityDomain on DomainAssociation {
     domain {
         urn
+        type
         properties {
             name
+            description
         }
     }
     associatedUrn
