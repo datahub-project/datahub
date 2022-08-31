@@ -29,6 +29,7 @@ source:
     #     platform_instance: bq_warehouse # optional
     #     platform_env: DEV  # optional
 
+    # Optional additional github information. Used to add github links on the dataset's entity page.
     github_info:
        repo: org/repo-name
 
