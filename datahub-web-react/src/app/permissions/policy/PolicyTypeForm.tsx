@@ -1,7 +1,7 @@
 import React from 'react';
 import { Form, Input, Select, Typography } from 'antd';
 import styled from 'styled-components';
-import { PolicyType } from '../../types.generated';
+import { PolicyType } from '../../../types.generated';
 
 type Props = {
     policyType: string;
