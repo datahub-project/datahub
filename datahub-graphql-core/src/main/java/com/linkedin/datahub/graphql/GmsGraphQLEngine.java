@@ -147,16 +147,16 @@ import com.linkedin.datahub.graphql.resolvers.mutate.AddTagResolver;
 import com.linkedin.datahub.graphql.resolvers.mutate.AddTagsResolver;
 import com.linkedin.datahub.graphql.resolvers.mutate.AddTermResolver;
 import com.linkedin.datahub.graphql.resolvers.mutate.AddTermsResolver;
-import com.linkedin.datahub.graphql.resolvers.mutate.MutableTypeBatchResolver;
 import com.linkedin.datahub.graphql.resolvers.mutate.BatchAddOwnersResolver;
 import com.linkedin.datahub.graphql.resolvers.mutate.BatchAddTagsResolver;
 import com.linkedin.datahub.graphql.resolvers.mutate.BatchAddTermsResolver;
 import com.linkedin.datahub.graphql.resolvers.mutate.BatchRemoveOwnersResolver;
 import com.linkedin.datahub.graphql.resolvers.mutate.BatchRemoveTagsResolver;
 import com.linkedin.datahub.graphql.resolvers.mutate.BatchRemoveTermsResolver;
-import com.linkedin.datahub.graphql.resolvers.mutate.BatchUpdateDeprecationResolver;
 import com.linkedin.datahub.graphql.resolvers.mutate.BatchSetDomainResolver;
+import com.linkedin.datahub.graphql.resolvers.mutate.BatchUpdateDeprecationResolver;
 import com.linkedin.datahub.graphql.resolvers.mutate.BatchUpdateSoftDeletedResolver;
+import com.linkedin.datahub.graphql.resolvers.mutate.MutableTypeBatchResolver;
 import com.linkedin.datahub.graphql.resolvers.mutate.MutableTypeResolver;
 import com.linkedin.datahub.graphql.resolvers.mutate.RemoveLinkResolver;
 import com.linkedin.datahub.graphql.resolvers.mutate.RemoveOwnerResolver;
@@ -172,6 +172,8 @@ import com.linkedin.datahub.graphql.resolvers.policy.GetGrantedPrivilegesResolve
 import com.linkedin.datahub.graphql.resolvers.policy.ListPoliciesResolver;
 import com.linkedin.datahub.graphql.resolvers.policy.UpsertPolicyResolver;
 import com.linkedin.datahub.graphql.resolvers.recommendation.ListRecommendationsResolver;
+import com.linkedin.datahub.graphql.resolvers.role.BatchAssignRoleResolver;
+import com.linkedin.datahub.graphql.resolvers.role.ListRolesResolver;
 import com.linkedin.datahub.graphql.resolvers.search.AutoCompleteForMultipleResolver;
 import com.linkedin.datahub.graphql.resolvers.search.AutoCompleteResolver;
 import com.linkedin.datahub.graphql.resolvers.search.SearchAcrossEntitiesResolver;
@@ -230,6 +232,8 @@ import com.linkedin.datahub.graphql.types.mlmodel.MLModelGroupType;
 import com.linkedin.datahub.graphql.types.mlmodel.MLModelType;
 import com.linkedin.datahub.graphql.types.mlmodel.MLPrimaryKeyType;
 import com.linkedin.datahub.graphql.types.notebook.NotebookType;
+import com.linkedin.datahub.graphql.types.policy.DataHubPolicyType;
+import com.linkedin.datahub.graphql.types.role.DataHubRoleType;
 import com.linkedin.datahub.graphql.types.tag.TagType;
 import com.linkedin.datahub.graphql.types.test.TestType;
 import com.linkedin.entity.client.EntityClient;
@@ -335,6 +339,8 @@ public class GmsGraphQLEngine {
     private final DataPlatformInstanceType dataPlatformInstanceType;
     private final AccessTokenMetadataType accessTokenMetadataType;
     private final TestType testType;
+    private final DataHubPolicyType dataHubPolicyType;
+    private final DataHubRoleType dataHubRoleType;
 
     /**
      * Configures the graph objects that can be fetched primary key.
@@ -433,6 +439,8 @@ public class GmsGraphQLEngine {
         this.dataPlatformInstanceType = new DataPlatformInstanceType(entityClient);
         this.accessTokenMetadataType = new AccessTokenMetadataType(entityClient);
         this.testType = new TestType(entityClient);
+        this.dataHubPolicyType = new DataHubPolicyType(entityClient);
+        this.dataHubRoleType = new DataHubRoleType(entityClient);
         // Init Lists
         this.entityTypes = ImmutableList.of(
             datasetType,
@@ -458,7 +466,9 @@ public class GmsGraphQLEngine {
             versionedDatasetType,
             dataPlatformInstanceType,
             accessTokenMetadataType,
-            testType
+            testType,
+            dataHubPolicyType,
+            dataHubRoleType
         );
         this.loadableTypes = new ArrayList<>(entityTypes);
         this.ownerTypes = ImmutableList.of(corpUserType, corpGroupType);
@@ -516,6 +526,7 @@ public class GmsGraphQLEngine {
         configureVersionedDatasetResolvers(builder);
         configureAccessAccessTokenMetadataResolvers(builder);
         configureTestResultResolvers(builder);
+        configureRoleResolvers(builder);
     }
 
     public GraphQLEngine.Builder builder() {
@@ -660,6 +671,7 @@ public class GmsGraphQLEngine {
             .dataFetcher("entityExists", new EntityExistsResolver(this.entityService))
             .dataFetcher("getNativeUserInviteToken", new GetNativeUserInviteTokenResolver(this.nativeUserService))
             .dataFetcher("entity", getEntityResolver())
+            .dataFetcher("listRoles", new ListRolesResolver(this.entityClient))
         );
     }
 
@@ -765,6 +777,8 @@ public class GmsGraphQLEngine {
             .dataFetcher("batchUpdateSoftDeleted", new BatchUpdateSoftDeletedResolver(this.entityService))
             .dataFetcher("updateUserSetting", new UpdateUserSettingResolver(this.entityService))
             .dataFetcher("rollbackIngestion", new RollbackIngestionResolver(this.entityClient))
+            .dataFetcher("batchAssignRole", new BatchAssignRoleResolver(this.entityClient))
+
         );
     }
 
@@ -1393,35 +1407,30 @@ public class GmsGraphQLEngine {
 
     private void configurePolicyResolvers(final RuntimeWiring.Builder builder) {
         // Register resolvers for "resolvedUsers" and "resolvedGroups" field of the Policy type.
-        builder.type("ActorFilter", typeWiring -> typeWiring
-            .dataFetcher("resolvedUsers", new LoadableTypeBatchResolver<>(corpUserType,
-                (env) -> {
-                    final ActorFilter filter = env.getSource();
-                    return filter.getUsers();
-                }
-            ))
-            .dataFetcher("resolvedGroups", new LoadableTypeBatchResolver<>(corpGroupType,
-                    (env) -> {
-                        final ActorFilter filter = env.getSource();
-                        return filter.getGroups();
-                    }
-            ))
-        );
+        builder.type("ActorFilter", typeWiring -> typeWiring.dataFetcher("resolvedUsers",
+            new LoadableTypeBatchResolver<>(corpUserType, (env) -> {
+                final ActorFilter filter = env.getSource();
+                return filter.getUsers();
+            })).dataFetcher("resolvedGroups", new LoadableTypeBatchResolver<>(corpGroupType, (env) -> {
+            final ActorFilter filter = env.getSource();
+            return filter.getGroups();
+        })).dataFetcher("resolvedRoles", new LoadableTypeBatchResolver<>(dataHubRoleType, (env) -> {
+            final ActorFilter filter = env.getSource();
+            return filter.getRoles();
+        })));
+    }
+
+    private void configureRoleResolvers(final RuntimeWiring.Builder builder) {
+        builder.type("DataHubRole",
+            typeWiring -> typeWiring.dataFetcher("relationships", new EntityRelationshipsResultResolver(graphClient)));
     }
 
     private void configureDataProcessInstanceResolvers(final RuntimeWiring.Builder builder) {
-        builder.type("DataProcessInstance", typeWiring -> typeWiring
-            .dataFetcher("relationships", new EntityRelationshipsResultResolver(graphClient))
-            .dataFetcher("lineage", new EntityLineageResultResolver(siblingGraphService))
-            .dataFetcher("state",
-                new TimeSeriesAspectResolver(
-                    this.entityClient,
-                    "dataProcessInstance",
-                    DATA_PROCESS_INSTANCE_RUN_EVENT_ASPECT_NAME,
-                    DataProcessInstanceRunEventMapper::map
-                )
-            )
-        );
+        builder.type("DataProcessInstance",
+            typeWiring -> typeWiring.dataFetcher("relationships", new EntityRelationshipsResultResolver(graphClient))
+                .dataFetcher("lineage", new EntityLineageResultResolver(siblingGraphService))
+                .dataFetcher("state", new TimeSeriesAspectResolver(this.entityClient, "dataProcessInstance",
+                    DATA_PROCESS_INSTANCE_RUN_EVENT_ASPECT_NAME, DataProcessInstanceRunEventMapper::map)));
     }
 
     private void configureTestResultResolvers(final RuntimeWiring.Builder builder) {

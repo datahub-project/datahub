@@ -2,10 +2,10 @@ import React from 'react';
 import { Form, Select, Switch, Tag, Typography } from 'antd';
 import styled from 'styled-components';
 
-import { useEntityRegistry } from '../useEntityRegistry';
-import { ActorFilter, CorpUser, EntityType, PolicyType, SearchResult } from '../../types.generated';
-import { useGetSearchResultsLazyQuery } from '../../graphql/search.generated';
-import { CustomAvatar } from '../shared/avatar';
+import { useEntityRegistry } from '../../useEntityRegistry';
+import { ActorFilter, CorpUser, EntityType, PolicyType, SearchResult } from '../../../types.generated';
+import { useGetSearchResultsLazyQuery } from '../../../graphql/search.generated';
+import { CustomAvatar } from '../../shared/avatar';
 
 type Props = {
     policyType: PolicyType;

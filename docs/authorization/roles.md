@@ -27,7 +27,7 @@ To manage roles, including viewing roles, or editing a user's role, you must eit
 You can view the list of Roles under **Settings > Permissions > Roles**. You can click into a Role to see details about
 it, like which users have that Role, and which Policies correspond to that Role.
 
-![](./imgs/view-roles-lists.png)
+![](../imgs/view-roles-list.png)
 
 ### How do I assign a Role to a User?
 
@@ -38,18 +38,18 @@ Roles can be assigned in two different ways.
 If you go to **Settings > Users & Groups > Users**, you will be able to view your full list of DataHub users, as well as which Role they are currently
 assigned to, including if they don't have a Role.
 
-![](./imgs/user-list-roles.png)
+![](../imgs/user-list-roles.png)
 
 You can simply assign a new Role to a user by clicking on the drop-down that appears on their row and selecting the desired Role.
 
-![](./imgs/user-list-select-role.png)
+![](../imgs/user-list-select-role.png)
 
 #### Batch Assigning a Role
 
 When viewing the full list of roles at **Settings > Permissions > Roles**, you will notice that each role has an `Add Users` button next to it. Clicking this button will
 lead you to a search box where you can search through your users, and select which users you would like to assign this role to.
 
-![](./imgs/batch-assign-role.png)
+![](../imgs/batch-assign-role.png)
 
 ### How do Roles interact with Policies?
 

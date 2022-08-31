@@ -48,6 +48,7 @@ public class Constants {
   public static final String ACCESS_TOKEN_ENTITY_NAME = "dataHubAccessToken";
   public static final String DATA_HUB_UPGRADE_ENTITY_NAME = "dataHubUpgrade";
   public static final String INVITE_TOKEN_ENTITY_NAME = "inviteToken";
+  public static final String DATAHUB_ROLE_ENTITY_NAME = "dataHubRole";
 
 
   /**
@@ -76,6 +77,7 @@ public class Constants {
   public static final String CORP_USER_INFO_ASPECT_NAME = "corpUserInfo";
   public static final String CORP_USER_STATUS_ASPECT_NAME = "corpUserStatus";
   public static final String CORP_USER_CREDENTIALS_ASPECT_NAME = "corpUserCredentials";
+  public static final String ROLE_MEMBERSHIP_ASPECT_NAME = "roleMembership";
 
   public static final String CORP_USER_SETTINGS_ASPECT_NAME = "corpUserSettings";
 
@@ -170,6 +172,8 @@ public class Constants {
 
   // Policy
   public static final String DATAHUB_POLICY_INFO_ASPECT_NAME = "dataHubPolicyInfo";
+  // Role
+  public static final String DATAHUB_ROLE_INFO_ASPECT_NAME = "dataHubRoleInfo";
 
   // Tag
   public static final String TAG_KEY_ASPECT_NAME = "tagKey";
