@@ -29,7 +29,7 @@ source:
     #     platform_instance: bq_warehouse # optional
     #     platform_env: DEV  # optional
 
-    # Optional additional github information. Used to supply github urls to the properties of lookml views.
+    # Optional additional github information. Used to supply github urls to the properties tab of lookml views.
     github_info:
        repo: org/repo-name
 
