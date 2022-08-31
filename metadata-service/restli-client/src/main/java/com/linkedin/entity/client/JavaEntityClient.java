@@ -440,7 +440,7 @@ public class JavaEntityClient implements EntityClient {
     public String ingestProposal(@Nonnull MetadataChangeProposal metadataChangeProposal,
         @Nonnull final Authentication authentication) throws RemoteInvocationException {
         final AuditStamp auditStamp =
-            new AuditStamp().setTime(_clock.millis()).setActor(Urn.createFromString(Constants.UNKNOWN_ACTOR));
+            new AuditStamp().setTime(_clock.millis()).setActor(Urn.createFromString(authentication.getActor().toUrnStr()));
         final List<MetadataChangeProposal> additionalChanges =
             AspectUtils.getAdditionalChanges(metadataChangeProposal, _entityService);
 
