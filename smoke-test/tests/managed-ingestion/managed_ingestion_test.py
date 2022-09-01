@@ -507,7 +507,7 @@ def test_create_list_get_ingestion_execution_request(frontend_session):
 
     # Verify input
     assert execution_request["input"]["task"] == "RUN_INGEST"
-    assert len(execution_request["input"]["arguments"]) == 2
+    assert len(execution_request["input"]["arguments"]) == 3
     assert execution_request["input"]["arguments"][0]["key"] == "recipe"
     assert (
         json.loads(execution_request["input"]["arguments"][0]["value"])["source"]
