@@ -320,3 +320,32 @@ year(order_date)"""
     table_list = SqlLineageSQLParser(sql_query).get_tables()
     table_list.sort()
     assert table_list == ["order_items", "orders", "staffs"]
+
+
+def test_sqllineage_sql_parser_tables_with_special_names():
+
+    # The hyphen appears after the special token in tables names, and before the special token in the column names.
+    sql_query = """
+SELECT `column-date`, `column-hour`, `column-timestamp`, `column-data`, `column-admin`
+FROM `date-table` d
+JOIN `hour-table` h on d.`column-date`= h.`column-hour`
+JOIN `timestamp-table` t on d.`column-date` = t.`column-timestamp`
+JOIN `data-table` da on d.`column-date` = da.`column-data`
+JOIN `admin-table` a on d.`column-date` = a.`column-admin`
+"""
+    expected_tables = [
+        "admin-table",
+        "data-table",
+        "date-table",
+        "hour-table",
+        "timestamp-table",
+    ]
+    expected_columns = [
+        "column-admin",
+        "column-data",
+        "column-date",
+        "column-hour",
+        "column-timestamp",
+    ]
+    assert sorted(SqlLineageSQLParser(sql_query).get_tables()) == expected_tables
+    assert sorted(SqlLineageSQLParser(sql_query).get_columns()) == expected_columns

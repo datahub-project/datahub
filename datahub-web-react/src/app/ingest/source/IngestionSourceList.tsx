@@ -14,14 +14,17 @@ import {
 import { Message } from '../../shared/Message';
 import TabToolbar from '../../entity/shared/components/styled/TabToolbar';
 import { IngestionSourceBuilderModal } from './builder/IngestionSourceBuilderModal';
-import { CLI_EXECUTOR_ID, RUNNING } from './utils';
+import { CLI_EXECUTOR_ID } from './utils';
 import { DEFAULT_EXECUTOR_ID, SourceBuilderState } from './builder/types';
 import { IngestionSource, UpdateIngestionSourceInput } from '../../../types.generated';
 import { SearchBar } from '../../search/SearchBar';
 import { useEntityRegistry } from '../../useEntityRegistry';
-import { ExecutionDetailsModal } from './ExecutionRequestDetailsModal';
+import { ExecutionDetailsModal } from './executions/ExecutionRequestDetailsModal';
 import RecipeViewerModal from './RecipeViewerModal';
 import IngestionSourceTable from './IngestionSourceTable';
+import { scrollToTop } from '../../shared/searchUtils';
+import useRefreshIngestionData from './executions/useRefreshIngestionData';
+import { isExecutionRequestActive } from './executions/IngestionSourceExecutionList';
 
 const SourceContainer = styled.div``;
 
@@ -89,7 +92,6 @@ export const IngestionSourceList = () => {
     const [lastRefresh, setLastRefresh] = useState(0);
     // Set of removed urns used to account for eventual consistency
     const [removedUrns, setRemovedUrns] = useState<string[]>([]);
-    const [refreshInterval, setRefreshInterval] = useState<NodeJS.Timeout | null>(null);
     const [sourceFilter, setSourceFilter] = useState(IngestionSourceType.ALL);
 
     // Ingestion Source Queries
@@ -120,23 +122,15 @@ export const IngestionSourceList = () => {
     const onRefresh = useCallback(() => {
         refetch();
         // Used to force a re-render of the child execution request list.
-        setLastRefresh(new Date().getMilliseconds());
+        setLastRefresh(new Date().getTime());
     }, [refetch]);
 
-    useEffect(() => {
-        const runningSource = filteredSources.find((source) =>
-            source.executions?.executionRequests.find((request) => request.result?.status === RUNNING),
+    function hasActiveExecution() {
+        return !!filteredSources.find((source) =>
+            source.executions?.executionRequests.find((request) => isExecutionRequestActive(request)),
         );
-        if (runningSource) {
-            if (!refreshInterval) {
-                const interval = setInterval(onRefresh, 3000);
-                setRefreshInterval(interval);
-            }
-        } else if (refreshInterval) {
-            clearInterval(refreshInterval);
-            setRefreshInterval(null);
-        }
-    }, [filteredSources, refreshInterval, onRefresh]);
+    }
+    useRefreshIngestionData(onRefresh, hasActiveExecution);
 
     const executeIngestionSource = (urn: string) => {
         createExecutionRequestMutation({
@@ -223,6 +217,7 @@ export const IngestionSourceList = () => {
     };
 
     const onChangePage = (newPage: number) => {
+        scrollToTop();
         setPage(newPage);
     };
 
@@ -261,6 +256,7 @@ export const IngestionSourceList = () => {
                         (recipeBuilderState.config?.executorId?.length &&
                             (recipeBuilderState.config?.executorId as string)) ||
                         DEFAULT_EXECUTOR_ID,
+                    debugMode: recipeBuilderState.config?.debugMode || false,
                 },
                 schedule: recipeBuilderState.schedule && {
                     interval: recipeBuilderState.schedule?.interval as string,
@@ -319,8 +315,9 @@ export const IngestionSourceList = () => {
     return (
         <>
             {!data && loading && <Message type="loading" content="Loading ingestion sources..." />}
-            {error &&
-                message.error({ content: `Failed to load ingestion sources! \n ${error.message || ''}`, duration: 3 })}
+            {error && (
+                <Message type="error" content="Failed to load ingestion sources! An unexpected error occurred." />
+            )}
             <SourceContainer>
                 <TabToolbar>
                     <div>

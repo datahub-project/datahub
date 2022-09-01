@@ -10,6 +10,7 @@ from datetime import datetime
 from typing import Optional
 
 import click
+import click_spinner
 from click_default_group import DefaultGroup
 from tabulate import tabulate
 
@@ -30,8 +31,6 @@ from datahub.upgrade import upgrade
 from datahub.utilities import memory_leak_detector
 
 logger = logging.getLogger(__name__)
-
-ELASTIC_MAX_PAGE_SIZE = 10000
 
 RUNS_TABLE_COLUMNS = ["runId", "rows", "created at"]
 RUN_TABLE_COLUMNS = ["urn", "aspect name", "created at"]
@@ -125,27 +124,30 @@ def run(
         pipeline: Pipeline, structured_report: Optional[str] = None
     ) -> int:
         logger.info("Starting metadata ingestion")
-        try:
-            pipeline.run()
-        except Exception as e:
-            logger.info(
-                f"Source ({pipeline.config.source.type}) report:\n{pipeline.source.get_report().as_string()}"
-            )
-            logger.info(
-                f"Sink ({pipeline.config.sink.type}) report:\n{pipeline.sink.get_report().as_string()}"
-            )
-            # We dont want to log sensitive information in variables if the pipeline fails due to
-            # an unexpected error. Disable printing sensitive info to logs if ingestion is running
-            # with `--suppress-error-logs` flag.
-            if suppress_error_logs:
-                raise SensitiveError() from e
+        with click_spinner.spinner(
+            beep=False, disable=False, force=False, stream=sys.stdout
+        ):
+            try:
+                pipeline.run()
+            except Exception as e:
+                logger.info(
+                    f"Source ({pipeline.config.source.type}) report:\n{pipeline.source.get_report().as_string()}"
+                )
+                logger.info(
+                    f"Sink ({pipeline.config.sink.type}) report:\n{pipeline.sink.get_report().as_string()}"
+                )
+                # We dont want to log sensitive information in variables if the pipeline fails due to
+                # an unexpected error. Disable printing sensitive info to logs if ingestion is running
+                # with `--suppress-error-logs` flag.
+                if suppress_error_logs:
+                    raise SensitiveError() from e
+                else:
+                    raise e
             else:
-                raise e
-        else:
-            logger.info("Finished metadata ingestion")
-            pipeline.log_ingestion_stats()
-            ret = pipeline.pretty_print_summary(warnings_as_failure=strict_warnings)
-            return ret
+                logger.info("Finished metadata ingestion")
+                pipeline.log_ingestion_stats()
+                ret = pipeline.pretty_print_summary(warnings_as_failure=strict_warnings)
+                return ret
 
     async def run_pipeline_async(pipeline: Pipeline) -> int:
         loop = asyncio._get_running_loop()
@@ -209,7 +211,7 @@ def _test_source_connection(report_to: Optional[str], pipeline_config: dict) -> 
     try:
         connection_report = ConnectionManager().test_source_connection(pipeline_config)
         logger.info(connection_report.as_json())
-        if report_to:
+        if report_to and report_to != "datahub":
             with open(report_to, "w") as out_fp:
                 out_fp.write(connection_report.as_json())
             logger.info(f"Wrote report successfully to {report_to}")
@@ -219,10 +221,6 @@ def _test_source_connection(report_to: Optional[str], pipeline_config: dict) -> 
         if connection_report:
             logger.error(connection_report.as_json())
         sys.exit(1)
-
-
-def get_runs_url(gms_host: str) -> str:
-    return f"{gms_host}/runs?action=rollback"
 
 
 def parse_restli_response(response):

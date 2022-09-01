@@ -66,10 +66,6 @@ class FileSink(Sink):
         json.dump(obj, self.file, indent=4)
         self.wrote_something = True
 
-        # record_string = str(record_envelope.record)
-        # metadata = record_envelope.metadata
-        # metadata["workunit-id"] = self.id
-        # out_line=f'{{"record": {record_string}, "metadata": {metadata}}}\n'
         self.report.report_record_written(record_envelope)
         write_callback.on_success(record_envelope, {})
 

@@ -164,7 +164,7 @@ msrest==0.7.1
 multidict==6.0.2
 mypy-extensions==0.4.3
 nbclient==0.6.3
-nbconvert==6.5.0
+nbconvert==6.5.1
 nbformat==5.4.0
 nest-asyncio==1.5.5
 networkx==2.8.4
