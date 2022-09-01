@@ -165,11 +165,12 @@ public class AuthServiceController {
     String titleString = title.asText();
     String passwordString = password.asText();
     String inviteTokenString = inviteToken.asText();
+    Authentication auth = AuthenticationContext.getAuthentication();
     log.debug(String.format("Attempting to create credentials for native user %s", userUrnString));
     return CompletableFuture.supplyAsync(() -> {
       try {
         _nativeUserService.createNativeUser(userUrnString, fullNameString, emailString, titleString, passwordString,
-            inviteTokenString, AuthenticationContext.getAuthentication());
+            inviteTokenString, auth);
         String response = buildSignUpResponse();
         return new ResponseEntity<>(response, HttpStatus.OK);
       } catch (Exception e) {
@@ -225,11 +226,12 @@ public class AuthServiceController {
     String userUrnString = userUrn.asText();
     String passwordString = password.asText();
     String resetTokenString = resetToken.asText();
+    Authentication auth = AuthenticationContext.getAuthentication();
     log.debug(String.format("Attempting to reset credentials for native user %s", userUrnString));
     return CompletableFuture.supplyAsync(() -> {
       try {
         _nativeUserService.resetCorpUserCredentials(userUrnString, passwordString, resetTokenString,
-            AuthenticationContext.getAuthentication());
+            auth);
         String response = buildResetNativeUserCredentialsResponse();
         return new ResponseEntity<>(response, HttpStatus.OK);
       } catch (Exception e) {
