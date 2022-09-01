@@ -51,11 +51,13 @@ import java.util.Set;
 import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
+
 import lombok.RequiredArgsConstructor;
 import lombok.SneakyThrows;
 import lombok.extern.slf4j.Slf4j;
 
-import static com.linkedin.metadata.search.utils.QueryUtils.newFilter;
+import static com.linkedin.metadata.resources.entity.ResourceUtils.*;
+import static com.linkedin.metadata.search.utils.QueryUtils.*;
 
 
 @Slf4j
@@ -72,6 +74,7 @@ public class JavaEntityClient implements EntityClient {
     private final LineageSearchService _lineageSearchService;
     private final TimeseriesAspectService _timeseriesAspectService;
     private final EventProducer _eventProducer;
+    private final RestliEntityClient _restliEntityClient;
 
     @Nullable
     public EntityResponse getV2(
@@ -178,7 +181,8 @@ public class JavaEntityClient implements EntityClient {
         int start,
         int limit,
         @Nonnull final Authentication authentication) throws RemoteInvocationException {
-        return _entitySearchService.browse(entityType, path, newFilter(requestFilters), start, limit);
+        return validateBrowseResult(
+            _entitySearchService.browse(entityType, path, newFilter(requestFilters), start, limit), _entityService);
     }
 
     @SneakyThrows
@@ -241,7 +245,8 @@ public class JavaEntityClient implements EntityClient {
         int count,
         @Nonnull final Authentication authentication)
         throws RemoteInvocationException {
-        return _entitySearchService.search(entity, input, newFilter(requestFilters), null, start, count);
+        return validateSearchResult(
+            _entitySearchService.search(entity, input, newFilter(requestFilters), null, start, count), _entityService);
     }
 
     /**
@@ -264,8 +269,8 @@ public class JavaEntityClient implements EntityClient {
         int count,
         @Nonnull final Authentication authentication)
         throws RemoteInvocationException {
-        return EntityResource.toListResult(
-            _entitySearchService.filter(entity, newFilter(requestFilters), null, start, count));
+        return validateListResult(EntityResource.toListResult(
+            _entitySearchService.filter(entity, newFilter(requestFilters), null, start, count)), _entityService);
     }
 
     /**
@@ -289,7 +294,8 @@ public class JavaEntityClient implements EntityClient {
         int count,
         @Nonnull final Authentication authentication)
         throws RemoteInvocationException {
-        return _entitySearchService.search(entity, input, filter, sortCriterion, start, count);
+        return validateSearchResult(_entitySearchService.search(entity, input, filter, sortCriterion, start, count),
+            _entityService);
     }
 
     /**
@@ -311,7 +317,8 @@ public class JavaEntityClient implements EntityClient {
         int start,
         int count,
         @Nonnull final Authentication authentication) throws RemoteInvocationException {
-        return _searchService.searchAcrossEntities(entities, input, filter, null, start, count, null);
+        return validateSearchResult(
+            _searchService.searchAcrossEntities(entities, input, filter, null, start, count, null), _entityService);
     }
 
     @Nonnull
@@ -320,8 +327,9 @@ public class JavaEntityClient implements EntityClient {
         @Nonnull List<String> entities, @Nullable String input, @Nullable Integer maxHops, @Nullable Filter filter,
         @Nullable SortCriterion sortCriterion, int start, int count, @Nonnull final Authentication authentication)
         throws RemoteInvocationException {
-        return _lineageSearchService.searchAcrossLineage(sourceUrn, direction, entities, input, maxHops, filter,
-            sortCriterion, start, count);
+        return validateLineageSearchResult(
+            _lineageSearchService.searchAcrossLineage(sourceUrn, direction, entities, input, maxHops, filter,
+                sortCriterion, start, count), _entityService);
     }
 
     /**
@@ -372,12 +380,13 @@ public class JavaEntityClient implements EntityClient {
     @Override
     public SearchResult filter(@Nonnull String entity, @Nonnull Filter filter, @Nullable SortCriterion sortCriterion,
         int start, int count, @Nonnull final Authentication authentication) throws RemoteInvocationException {
-        return _entitySearchService.filter(entity, filter, sortCriterion, start, count);
+        return validateSearchResult(_entitySearchService.filter(entity, filter, sortCriterion, start, count),
+            _entityService);
     }
 
-    @Nonnull
     @Override
-    public boolean exists(@Nonnull Urn urn, @Nonnull final Authentication authentication) throws RemoteInvocationException {
+    public boolean exists(@Nonnull Urn urn, @Nonnull final Authentication authentication)
+        throws RemoteInvocationException {
         return _entityService.exists(urn);
     }
 
@@ -428,10 +437,13 @@ public class JavaEntityClient implements EntityClient {
     // TODO: Factor out ingest logic into a util that can be accessed by the java client and the resource
     @SneakyThrows
     @Override
-    public String ingestProposal(@Nonnull MetadataChangeProposal metadataChangeProposal,
+    public String ingestProposal(
+        @Nonnull final MetadataChangeProposal metadataChangeProposal,
         @Nonnull final Authentication authentication) throws RemoteInvocationException {
+
+        String actorUrnStr = authentication.getActor() != null ? authentication.getActor().toUrnStr() : Constants.UNKNOWN_ACTOR;
         final AuditStamp auditStamp =
-            new AuditStamp().setTime(_clock.millis()).setActor(Urn.createFromString(Constants.UNKNOWN_ACTOR));
+            new AuditStamp().setTime(_clock.millis()).setActor(Urn.createFromString(actorUrnStr));
         final List<MetadataChangeProposal> additionalChanges =
             AspectUtils.getAdditionalChanges(metadataChangeProposal, _entityService);
 
@@ -473,12 +485,14 @@ public class JavaEntityClient implements EntityClient {
     }
 
     @Override
-    public void producePlatformEvent(
-        @Nonnull String name,
-        @Nullable String key,
-        @Nonnull PlatformEvent event,
+    public void producePlatformEvent(@Nonnull String name, @Nullable String key, @Nonnull PlatformEvent event,
         @Nonnull Authentication authentication) throws Exception {
         _eventProducer.producePlatformEvent(name, key, event);
+    }
+
+    @Override
+    public void rollbackIngestion(@Nonnull String runId, @Nonnull Authentication authentication) throws Exception {
+        _restliEntityClient.rollbackIngestion(runId, authentication);
     }
 
     private void tryIndexRunId(Urn entityUrn, @Nullable SystemMetadata systemMetadata) {

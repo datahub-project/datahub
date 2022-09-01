@@ -53,18 +53,6 @@ class DatasetSourceConfigBase(PlatformSourceConfigBase, EnvBasedSourceConfigBase
     """
 
 
-class EnvPlatformInstance(PlatformSourceConfigBase):
-    """
-    A class that combines a platform_instance and an env (optional)
-    """
-
-    env: Optional[str] = None
-
-    @validator("env")
-    def env_must_be_one_of(cls, v: str) -> str:
-        return EnvBasedSourceConfigBase.env_must_be_one_of(cls, v)
-
-
 class DatasetLineageProviderConfigBase(EnvBasedSourceConfigBase):
     """
     Any non-Dataset source that produces lineage to Datasets should inherit this class.
