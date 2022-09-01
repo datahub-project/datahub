@@ -94,7 +94,7 @@ flower_1             | DB_PORT=6379
 flower_1             |
 ```
 
-Finally, Airflow should be healthy and up on port 58080. Navigate to http://localhost:58080 to confirm and find your Airflow webserver.
+Finally, Airflow should be healthy and up on port 58080. Navigate to [http://localhost:58080](http://localhost:58080) to confirm and find your Airflow webserver.
 The default username and password is:
 ```
 airflow:airflow
