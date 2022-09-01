@@ -1,9 +1,9 @@
 from typing import Iterable, Union
 
+from datahub.configuration.common import ConfigModel
 from datahub.emitter.mce_builder import get_sys_time
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api import RecordEnvelope
-from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.source import Extractor, WorkUnit
 from datahub.ingestion.api.workunit import MetadataWorkUnit, UsageStatsWorkUnit
 from datahub.metadata.com.linkedin.pegasus2avro.mxe import (
@@ -19,13 +19,14 @@ except ImportError:
     black = None  # type: ignore
 
 
-class WorkUnitRecordExtractor(Extractor):
+class WorkUnitRecordExtractorConfig(ConfigModel):
+    set_system_metadata = True
+
+
+class WorkUnitRecordExtractor(
+    Extractor[MetadataWorkUnit, WorkUnitRecordExtractorConfig]
+):
     """An extractor that simply returns the data inside workunits back as records."""
-
-    ctx: PipelineContext
-
-    def configure(self, config_dict: dict, ctx: PipelineContext) -> None:
-        self.ctx = ctx
 
     def get_records(
         self, workunit: WorkUnit
@@ -48,9 +49,10 @@ class WorkUnitRecordExtractor(Extractor):
                     MetadataChangeProposalWrapper,
                 ),
             ):
-                workunit.metadata.systemMetadata = SystemMetadata(
-                    lastObserved=get_sys_time(), runId=self.ctx.run_id
-                )
+                if self.config.set_system_metadata:
+                    workunit.metadata.systemMetadata = SystemMetadata(
+                        lastObserved=get_sys_time(), runId=self.ctx.run_id
+                    )
                 if (
                     isinstance(workunit.metadata, MetadataChangeEvent)
                     and len(workunit.metadata.proposedSnapshot.aspects) == 0

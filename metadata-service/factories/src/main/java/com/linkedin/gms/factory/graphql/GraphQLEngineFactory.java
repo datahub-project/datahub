@@ -116,6 +116,7 @@ public class GraphQLEngineFactory {
   @Value("${platformAnalytics.enabled}") // TODO: Migrate to DATAHUB_ANALYTICS_ENABLED
   private Boolean isAnalyticsEnabled;
 
+
   @Bean(name = "graphQLEngine")
   @Nonnull
   protected GraphQLEngine getInstance() {
@@ -143,7 +144,8 @@ public class GraphQLEngineFactory {
           _configProvider.getMetadataTests(),
           _configProvider.getDatahub(),
           _siblingGraphService,
-          _groupService
+          _groupService,
+          _configProvider.getFeatureFlags()
           ).builder().build();
     }
     return new GmsGraphQLEngine(
@@ -169,7 +171,8 @@ public class GraphQLEngineFactory {
         _configProvider.getMetadataTests(),
         _configProvider.getDatahub(),
         _siblingGraphService,
-        _groupService
+        _groupService,
+        _configProvider.getFeatureFlags()
     ).builder().build();
   }
 }
