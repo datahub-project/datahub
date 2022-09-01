@@ -21,7 +21,6 @@ import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
 import java.util.concurrent.ThreadPoolExecutor;
-import java.util.concurrent.TimeUnit;
 import java.util.function.Function;
 
 import static com.linkedin.metadata.Constants.ASPECT_LATEST_VERSION;
@@ -35,11 +34,6 @@ public class SendMAEStep implements UpgradeStep {
 
   private final EbeanServer _server;
   private final EntityService _entityService;
-
-  public static void reportStat(UpgradeContext context, String id, long timeMs) {
-    context.report().addLine(String.format(
-            "Mins taken for %s so far is %.2f", id, (float) timeMs / 1000 / 60));
-  }
 
   public class KafkaJob implements Callable<RestoreIndicesResult> {
       UpgradeContext context;
@@ -70,26 +64,16 @@ public class SendMAEStep implements UpgradeStep {
   }
 
   private List<RestoreIndicesResult> iterateFutures(List<Future<RestoreIndicesResult>> futures) {
-    int beforeSize = futures.size();
-    int afterSize = futures.size();
     List<RestoreIndicesResult> result = new ArrayList<>();
-    while (afterSize > 0 && beforeSize == afterSize) {
-      try {
-        TimeUnit.SECONDS.sleep(1);
-      } catch (InterruptedException e) {
-        // suppress
-      }
-      for (Future<RestoreIndicesResult> future: new ArrayList<>(futures)) {
-        if (future.isDone()) {
-          try {
-            result.add(future.get());
-            futures.remove(future);
-          } catch (InterruptedException | ExecutionException e) {
-            e.printStackTrace();
-          }
+    for (Future<RestoreIndicesResult> future: new ArrayList<>(futures)) {
+      if (future.isDone()) {
+        try {
+          result.add(future.get());
+          futures.remove(future);
+        } catch (InterruptedException | ExecutionException e) {
+          e.printStackTrace();
         }
       }
-      afterSize = futures.size();
     }
     return result;
   }
@@ -97,31 +81,16 @@ public class SendMAEStep implements UpgradeStep {
   private RestoreIndicesArgs getArgs(UpgradeContext context) {
     RestoreIndicesArgs result = new RestoreIndicesArgs();
     result.batchSize = getBatchSize(context.parsedArgs());
-    context.report().addLine(String.format("batchSize is %d", result.batchSize));
     result.numThreads = getThreadCount(context.parsedArgs());
-    context.report().addLine(String.format("numThreads is %d", result.numThreads));
     result.batchDelayMs = getBatchDelayMs(context.parsedArgs());
-    context.report().addLine(String.format("batchDelayMs is %d", result.batchDelayMs));
     if (containsKey(context.parsedArgs(), RestoreIndices.ASPECT_NAME_ARG_NAME)) {
       result.aspectName = context.parsedArgs().get(RestoreIndices.ASPECT_NAME_ARG_NAME).get();
-      context.report().addLine(String.format("aspect is %s", result.aspectName));
-      context.report().addLine(String.format("Found aspectName arg as %s", result.aspectName));
-    } else {
-      context.report().addLine("No aspectName arg present");
     }
     if (containsKey(context.parsedArgs(), RestoreIndices.URN_ARG_NAME)) {
       result.urn = context.parsedArgs().get(RestoreIndices.URN_ARG_NAME).get();
-      context.report().addLine(String.format("urn is %s", result.urn));
-      context.report().addLine(String.format("Found urn arg as %s", result.urn));
-    } else {
-      context.report().addLine("No urn arg present");
     }
     if (containsKey(context.parsedArgs(), RestoreIndices.URN_LIKE_ARG_NAME)) {
       result.urnLike = context.parsedArgs().get(RestoreIndices.URN_LIKE_ARG_NAME).get();
-      context.report().addLine(String.format("urnLike is %s", result.urnLike));
-      context.report().addLine(String.format("Found urn like arg as %s", result.urnLike));
-    } else {
-      context.report().addLine("No urnLike arg present");
     }
     return result;
   }
@@ -160,16 +129,10 @@ public class SendMAEStep implements UpgradeStep {
       List<Future<RestoreIndicesResult>> futures = new ArrayList<>();
       startTime = System.currentTimeMillis();
       while (start < rowCount) {
-        while (futures.size() < args.numThreads && start < rowCount) {
-          args = args.clone();
-          args.start = start;
-          futures.add(executor.submit(new KafkaJob(context, args)));
-          start = start + args.batchSize;
-        }
-        List<RestoreIndicesResult> tmpResults = iterateFutures(futures);
-        for (RestoreIndicesResult tmpResult: tmpResults) {
-          reportStats(context, finalJobResult, tmpResult, rowCount, startTime);
-        }
+        args = args.clone();
+        args.start = start;
+        futures.add(executor.submit(new KafkaJob(context, args)));
+        start = start + args.batchSize;
       }
       while (futures.size() > 0) {
         List<RestoreIndicesResult> tmpResults = iterateFutures(futures);
@@ -196,17 +159,12 @@ public class SendMAEStep implements UpgradeStep {
     finalResult.ignored += tmpResult.ignored;
     finalResult.rowsMigrated += tmpResult.rowsMigrated;
     finalResult.timeSqlQueryMs += tmpResult.timeSqlQueryMs;
-    reportStat(context, "sql query", finalResult.timeSqlQueryMs);
     finalResult.timeUrnMs += tmpResult.timeUrnMs;
-    reportStat(context, "timeUrnMs", finalResult.timeUrnMs);
     finalResult.timeEntityRegistryCheckMs += tmpResult.timeEntityRegistryCheckMs;
-    reportStat(context, "timeEntityRegistryCheckMs", finalResult.timeEntityRegistryCheckMs);
     finalResult.aspectCheckMs += tmpResult.aspectCheckMs;
-    reportStat(context, "aspectCheckMs", finalResult.aspectCheckMs);
     finalResult.createRecordMs += tmpResult.createRecordMs;
-    reportStat(context, "createRecordMs", finalResult.createRecordMs);
     finalResult.sendMessageMs += tmpResult.sendMessageMs;
-    reportStat(context, "sendMessageMs", finalResult.sendMessageMs);
+    context.report().addLine(String.format("metrics so far %s", finalResult));
 
     long currentTime = System.currentTimeMillis();
     float timeSoFarMinutes = (float) (currentTime - startTime) / 1000 / 60;
