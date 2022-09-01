@@ -42,6 +42,12 @@ class Report:
             return some_val.as_obj()
         if hasattr(some_val, "dict"):
             return some_val.dict()
+        elif (
+            isinstance(some_val, LossyList)
+            or isinstance(some_val, LossySet)
+            or isinstance(some_val, LossyDict)
+        ):
+            return Report.to_str(some_val)
         elif isinstance(some_val, list):
             return [Report.to_dict(v) for v in some_val if v is not None]
         elif isinstance(some_val, dict):
