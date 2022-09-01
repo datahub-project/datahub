@@ -6,6 +6,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.context.ApplicationListener;
 import org.springframework.context.event.ContextRefreshedEvent;
+import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Component;
 import org.springframework.web.context.WebApplicationContext;
 
@@ -14,6 +15,7 @@ import org.springframework.web.context.WebApplicationContext;
  * Responsible for coordinating starting steps that happen before the application starts up.
  */
 @Slf4j
+@Async
 @Component
 public class OnBootApplicationListener implements ApplicationListener<ContextRefreshedEvent> {
 

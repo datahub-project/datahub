@@ -15,6 +15,7 @@ import com.linkedin.mxe.GenericAspect;
 import com.linkedin.mxe.MetadataChangeProposal;
 import com.linkedin.policy.DataHubRoleInfo;
 import java.net.URISyntaxException;
+import javax.annotation.Nonnull;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.core.io.ClassPathResource;
@@ -25,6 +26,7 @@ import static com.linkedin.metadata.Constants.*;
 @Slf4j
 @RequiredArgsConstructor
 public class IngestRolesStep implements BootstrapStep {
+  private static final int SLEEP_SECONDS = 60;
   private final EntityService _entityService;
 
   @Override
@@ -32,9 +34,18 @@ public class IngestRolesStep implements BootstrapStep {
     return this.getClass().getSimpleName();
   }
 
+  @Nonnull
+  @Override
+  public ExecutionMode getExecutionMode() {
+    return ExecutionMode.ASYNC;
+  }
+
   @Override
   public void execute() throws Exception {
     final ObjectMapper mapper = new ObjectMapper();
+
+    // Sleep to ensure deployment process finishes.
+    Thread.sleep(SLEEP_SECONDS * 1000);
 
     // 0. Execute preflight check to see whether we need to ingest Roles
     log.info("Ingesting default Roles...");
