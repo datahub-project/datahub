@@ -14,16 +14,16 @@ public class RestoreIndicesResult {
 
     @Override
     public String toString() {
-        return "RestoreIndicesResult{" +
-                "ignored=" + ignored +
-                ", rowsMigrated=" + rowsMigrated +
-                ", timeSqlQueryMs=" + timeSqlQueryMs +
-                ", timeGetRowMs=" + timeGetRowMs +
-                ", timeUrnMs=" + timeUrnMs +
-                ", timeEntityRegistryCheckMs=" + timeEntityRegistryCheckMs +
-                ", aspectCheckMs=" + aspectCheckMs +
-                ", createRecordMs=" + createRecordMs +
-                ", sendMessageMs=" + sendMessageMs +
-                '}';
+        return "RestoreIndicesResult{"
+                + "ignored=" + ignored
+                + ", rowsMigrated=" + rowsMigrated
+                + ", timeSqlQueryMs=" + timeSqlQueryMs
+                + ", timeGetRowMs=" + timeGetRowMs
+                + ", timeUrnMs=" + timeUrnMs
+                + ", timeEntityRegistryCheckMs=" + timeEntityRegistryCheckMs
+                + ", aspectCheckMs=" + aspectCheckMs
+                + ", createRecordMs=" + createRecordMs
+                + ", sendMessageMs=" + sendMessageMs
+                + '}';
     }
 }

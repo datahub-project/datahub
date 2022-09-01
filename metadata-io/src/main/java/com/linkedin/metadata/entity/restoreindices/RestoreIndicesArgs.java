@@ -51,14 +51,14 @@ public class RestoreIndicesArgs implements Cloneable {
 
     @Override
     public String toString() {
-        return "RestoreIndicesArgs{" +
-                "start=" + start +
-                ", batchSize=" + batchSize +
-                ", numThreads=" + numThreads +
-                ", batchDelayMs=" + batchDelayMs +
-                ", aspectName='" + aspectName + '\'' +
-                ", urn='" + urn + '\'' +
-                ", urnLike='" + urnLike + '\'' +
-                '}';
+        return "RestoreIndicesArgs{"
+                + "start=" + start
+                + ", batchSize=" + batchSize
+                + ", numThreads=" + numThreads
+                + ", batchDelayMs=" + batchDelayMs
+                + ", aspectName='" + aspectName + '\''
+                + ", urn='" + urn + '\''
+                + ", urnLike='" + urnLike + '\''
+                + '}';
     }
 }
