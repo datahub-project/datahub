@@ -144,7 +144,7 @@ def _set_environment_variables(
     elastic_port: Optional[pydantic.PositiveInt],
 ) -> None:
     if version is not None:
-        if not version.startswith("v"):
+        if not version.startswith("v") and "." in version:
             logger.warning(
                 f"Version passed in '{version}' doesn't start with v, substituting with 'v{version}'"
             )
