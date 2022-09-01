@@ -30,6 +30,10 @@ public class AuthorizationUtils {
     return isAuthorized(context, Optional.empty(), PoliciesConfig.MANAGE_USERS_AND_GROUPS_PRIVILEGE);
   }
 
+  public static boolean canManagePolicies(@Nonnull QueryContext context) {
+    return isAuthorized(context, Optional.empty(), PoliciesConfig.MANAGE_POLICIES_PRIVILEGE);
+  }
+
   public static boolean canGeneratePersonalAccessToken(@Nonnull QueryContext context) {
     return isAuthorized(context, Optional.empty(), PoliciesConfig.GENERATE_PERSONAL_ACCESS_TOKENS_PRIVILEGE);
   }

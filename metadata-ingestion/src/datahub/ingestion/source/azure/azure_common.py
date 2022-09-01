@@ -27,18 +27,23 @@ class AdlsSourceConfig(ConfigModel):
     )
     account_key: Optional[str] = Field(
         description="Azure storage account access key that can be used as a credential. **An account key, a SAS token or a client secret is required for authentication.**",
+        default=None,
     )
     sas_token: Optional[str] = Field(
         description="Azure storage account Shared Access Signature (SAS) token that can be used as a credential. **An account key, a SAS token or a client secret is required for authentication.**",
+        default=None,
     )
     client_secret: Optional[str] = Field(
         description="Azure client secret that can be used as a credential. **An account key, a SAS token or a client secret is required for authentication.**",
+        default=None,
     )
     client_id: Optional[str] = Field(
         description="Azure client (Application) ID required when a `client_secret` is used as a credential.",
+        default=None,
     )
     tenant_id: Optional[str] = Field(
         description="Azure tenant (Directory) ID required when a `client_secret` is used as a credential.",
+        default=None,
     )
 
     def get_abfss_url(self, folder_path: str = "") -> str:
