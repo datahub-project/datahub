@@ -11,7 +11,6 @@ import com.linkedin.metadata.entity.restoreindices.RestoreIndicesResult;
 import com.linkedin.metadata.models.registry.EntityRegistry;
 import io.ebean.EbeanServer;
 import io.ebean.ExpressionList;
-import io.ebean.PagedList;
 
 import java.util.ArrayList;
 import java.util.List;
