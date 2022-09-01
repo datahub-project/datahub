@@ -117,7 +117,6 @@ function EntityActions(props: Props) {
                     fixedEntityTypes={Array.from(
                         entityRegistry.getTypesWithSupportedCapabilities(EntityCapabilityType.GLOSSARY_TERMS),
                     )}
-                    isBatchAddGlossaryTermModalVisible={isBatchAddGlossaryTermModalVisible}
                 />
             )}
             {isBatchSetDomainModalVisible && (
