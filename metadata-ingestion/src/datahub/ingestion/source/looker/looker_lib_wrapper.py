@@ -5,7 +5,7 @@ import logging
 import os
 import re
 from dataclasses import dataclass
-from typing import Dict, List, MutableMapping, Optional, cast
+from typing import Dict, List, MutableMapping, Optional, Set, cast
 
 import looker_sdk
 from looker_sdk.error import SDKError
@@ -65,7 +65,7 @@ class LookerAPI:
         # try authenticating current user to check connectivity
         # (since it's possible to initialize an invalid client without any complaints)
         try:
-            self.client.me(
+            self.me = self.client.me(
                 transport_options=self.transport_options
                 if config.transport_options is not None
                 else None
@@ -77,6 +77,19 @@ class LookerAPI:
 
     def get_client(self) -> Looker31SDK:
         return self.client
+
+    def get_available_permissions(self) -> Set[str]:
+        user_id = self.me.id
+        assert user_id
+
+        roles = self.client.user_roles(user_id)
+
+        permissions: Set[str] = set()
+        for role in roles:
+            if role.permission_set and role.permission_set.permissions:
+                permissions.update(role.permission_set.permissions)
+
+        return permissions
 
     def get_user(self, id_: int, user_fields: str) -> Optional[User]:
         try:

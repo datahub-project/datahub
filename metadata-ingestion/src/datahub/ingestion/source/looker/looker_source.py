@@ -39,7 +39,13 @@ from datahub.ingestion.api.decorators import (
     platform_name,
     support_status,
 )
-from datahub.ingestion.api.source import Source, SourceReport
+from datahub.ingestion.api.source import (
+    CapabilityReport,
+    SourceCapability,
+    SourceReport,
+    TestableSource,
+    TestConnectionReport,
+)
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.looker import looker_usage
 from datahub.ingestion.source.looker.looker_common import (
@@ -145,7 +151,7 @@ class LookerDashboardSourceConfig(LookerAPIConfig, LookerCommonConfig):
 @platform_name("Looker")
 @support_status(SupportStatus.CERTIFIED)
 @config_class(LookerDashboardSourceConfig)
-class LookerDashboardSource(Source):
+class LookerDashboardSource(TestableSource):
     """
     This plugin extracts the following:
     - Looker dashboards, dashboard elements (charts) and explores
@@ -173,13 +179,15 @@ class LookerDashboardSource(Source):
         super().__init__(ctx)
         self.source_config = config
         self.reporter = LookerDashboardSourceReport()
-        looker_api: LookerAPI = LookerAPI(self.source_config)
-        self.client = looker_api.get_client()
-        self.user_registry = LookerUserRegistry(looker_api)
+
+        self.looker_api: LookerAPI = LookerAPI(self.source_config)
+        self.client = self.looker_api.get_client()
+        self.user_registry = LookerUserRegistry(self.looker_api)
+
         # Keep stat generators to generate entity stat aspect later
         stat_generator_config: looker_usage.StatGeneratorConfig = (
             looker_usage.StatGeneratorConfig(
-                looker_api_wrapper=looker_api,
+                looker_api_wrapper=self.looker_api,
                 looker_user_registry=self.user_registry,
                 interval=self.source_config.extract_usage_history_for_interval,
                 strip_user_ids_from_email=self.source_config.strip_user_ids_from_email,
@@ -196,6 +204,40 @@ class LookerDashboardSource(Source):
             looker_usage.SupportedStatEntity.CHART,
             config=stat_generator_config,
         )
+
+    @staticmethod
+    def test_connection(config_dict: dict) -> TestConnectionReport:
+        test_report = TestConnectionReport()
+        try:
+            self = cast(
+                LookerDashboardSource,
+                LookerDashboardSource.create(
+                    config_dict, PipelineContext("looker-test-connection")
+                ),
+            )
+            test_report.basic_connectivity = CapabilityReport(capable=True)
+            test_report.capability_report = {}
+
+            permissions = self.looker_api.get_available_permissions()
+
+            if {
+                "access_data",
+            }.issubset(permissions):
+                # TODO add full list of capabilities required here.
+                test_report.capability_report[
+                    SourceCapability.DELETION_DETECTION
+                ] = CapabilityReport(capable=True)
+        except Exception as e:
+            logger.exception(f"Failed to test connection due to {e}")
+            test_report.internal_failure = True
+            test_report.internal_failure_reason = f"{e}"
+
+            if test_report.basic_connectivity is None:
+                test_report.basic_connectivity = CapabilityReport(
+                    capable=False, failure_reason=f"{e}"
+                )
+
+        return test_report
 
     @staticmethod
     def _extract_view_from_field(field: str) -> str:
