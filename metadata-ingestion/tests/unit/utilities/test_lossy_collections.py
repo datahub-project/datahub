@@ -3,7 +3,7 @@ import time
 
 import pytest
 
-from datahub.ingestion.api.report import LossyDict, LossyList, LossySet
+from datahub.utilities.lossy_collections import LossyDict, LossyList, LossySet
 
 
 @pytest.mark.parametrize("length, sampling", [(10, False), (100, True)])
@@ -66,7 +66,7 @@ def test_lossydict_sampling(length, sampling, sub_length):
     assert len(l) == min(l.max_elements, length)
     #    assert l.sampled is sampling
     if sampling:
-        assert f"{l.max_elements} sampled of at most {elements_added} elements." in str(
+        assert f"{l.max_elements} sampled of at most {elements_added} entries." in str(
             l
         )
 

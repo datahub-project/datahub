@@ -13,7 +13,7 @@ from datahub.configuration.common import PipelineExecutionError
 from datahub.ingestion.api.committable import CommitPolicy
 from datahub.ingestion.api.common import EndOfStream, PipelineContext, RecordEnvelope
 from datahub.ingestion.api.pipeline_run_listener import PipelineRunListener
-from datahub.ingestion.api.report import LossyDict, LossyList, Report
+from datahub.ingestion.api.report import Report
 from datahub.ingestion.api.sink import Sink, WriteCallback
 from datahub.ingestion.api.source import Extractor, Source
 from datahub.ingestion.api.transform import Transformer
@@ -28,6 +28,7 @@ from datahub.ingestion.source.source_registry import source_registry
 from datahub.ingestion.transformer.transform_registry import transform_registry
 from datahub.metadata.schema_classes import MetadataChangeProposalClass
 from datahub.telemetry import stats, telemetry
+from datahub.utilities.lossy_collections import LossyDict, LossyList
 
 logger = logging.getLogger(__name__)
 

@@ -9,7 +9,8 @@ from pydantic import BaseModel
 from datahub.configuration.common import ConfigModel
 from datahub.ingestion.api.closeable import Closeable
 from datahub.ingestion.api.common import PipelineContext, RecordEnvelope, WorkUnit
-from datahub.ingestion.api.report import LossyDict, LossyList, Report
+from datahub.ingestion.api.report import Report
+from datahub.utilities.lossy_collections import LossyDict, LossyList
 from datahub.utilities.type_annotations import get_class_from_annotation
 
 

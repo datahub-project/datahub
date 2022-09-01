@@ -5,7 +5,8 @@ from typing import Any, Optional
 
 from datahub.ingestion.api.closeable import Closeable
 from datahub.ingestion.api.common import PipelineContext, RecordEnvelope, WorkUnit
-from datahub.ingestion.api.report import LossyList, Report
+from datahub.ingestion.api.report import Report
+from datahub.utilities.lossy_collections import LossyList
 
 
 @dataclass
