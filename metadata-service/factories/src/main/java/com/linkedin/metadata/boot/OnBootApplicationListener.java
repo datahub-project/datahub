@@ -15,7 +15,6 @@ import org.springframework.web.context.WebApplicationContext;
  * Responsible for coordinating starting steps that happen before the application starts up.
  */
 @Slf4j
-@Async
 @Component
 public class OnBootApplicationListener implements ApplicationListener<ContextRefreshedEvent> {
 
