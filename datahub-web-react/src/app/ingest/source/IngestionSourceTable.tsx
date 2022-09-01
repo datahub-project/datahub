@@ -119,10 +119,14 @@ function IngestionSourceTable({
         cliIngestion: source.config.executorId === CLI_EXECUTOR_ID,
     }));
 
+    const sortedTabledData = tableData.sort(
+        (entryA, entryB) => (entryB.lastExecTime || 0) - (entryA.lastExecTime || 0),
+    );
+
     return (
         <StyledSourceTable
             columns={tableColumns}
-            dataSource={tableData}
+            dataSource={sortedTabledData}
             rowKey="urn"
             rowClassName={(record, _) => (record.cliIngestion ? 'cliIngestion' : '')}
             locale={{
