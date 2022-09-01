@@ -32,6 +32,12 @@ def side_effect_query_metadata(query):
     if "workbooksConnection (first:3" in query:
         return _read_response("workbooksConnection_all.json")
 
+    if "embeddedDatasourcesConnection (first:0" in query:
+        return _read_response("embeddedDatasourcesConnection_0.json")
+
+    if "embeddedDatasourcesConnection (first:8" in query:
+        return _read_response("embeddedDatasourcesConnection_all.json")
+
     if "publishedDatasourcesConnection (first:0" in query:
         return _read_response("publishedDatasourcesConnection_0.json")
 

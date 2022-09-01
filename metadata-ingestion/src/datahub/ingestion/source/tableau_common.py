@@ -124,76 +124,7 @@ workbook_graphql_query = """
         }
       }
       embeddedDatasources {
-        __typename
         id
-        name
-        hasExtracts
-        extractLastRefreshTime
-        extractLastIncrementalUpdateTime
-        extractLastUpdateTime
-        downstreamSheets {
-          name
-          id
-        }
-        upstreamTables {
-          id
-          name
-          isEmbedded
-          database {
-            name
-          }
-          schema
-          fullName
-          connectionType
-          description
-          columns {
-            name
-            remoteType
-          }
-        }
-        fields {
-          __typename
-          id
-          name
-          description
-          isHidden
-          folderName
-          ... on ColumnField {
-            dataCategory
-            role
-            dataType
-            defaultFormat
-            aggregation
-            columns {
-              table {
-                __typename
-                ... on CustomSQLTable {
-                  id
-                  name
-                }
-              }
-            }
-          }
-          ... on CalculatedField {
-            role
-            dataType
-            defaultFormat
-            aggregation
-            formula
-          }
-          ... on GroupField {
-            role
-            dataType
-          }
-        }
-        upstreamDatasources {
-          id
-          name
-        }
-        workbook {
-          name
-          projectName
-        }
       }
       upstreamDatasources {
         name
@@ -204,6 +135,85 @@ workbook_graphql_query = """
         }
       }
     }
+"""
+
+embedded_datasource_graphql_query = """
+{
+    __typename
+    id
+    name
+    hasExtracts
+    extractLastRefreshTime
+    extractLastIncrementalUpdateTime
+    extractLastUpdateTime
+    downstreamSheets {
+        name
+        id
+    }
+    upstreamTables {
+        id
+        name
+        isEmbedded
+        database {
+            name
+        }
+        schema
+        fullName
+        connectionType
+        description
+        columns {
+            name
+            remoteType
+        }
+    }
+    fields {
+        __typename
+        id
+        name
+        description
+        isHidden
+        folderName
+        ... on ColumnField {
+            dataCategory
+            role
+            dataType
+            defaultFormat
+            aggregation
+            columns {
+                table {
+                    __typename
+                    ... on CustomSQLTable {
+                        id
+                        name
+                    }
+                }
+            }
+        }
+        ... on CalculatedField {
+            role
+            dataType
+            defaultFormat
+            aggregation
+            formula
+        }
+        ... on GroupField {
+            role
+            dataType
+        }
+    }
+    upstreamDatasources {
+        id
+        name
+    }
+    workbook {
+        id
+        name
+        projectName
+        owner {
+          username
+        }
+    }
+}
 """
 
 custom_sql_graphql_query = """
@@ -319,7 +329,9 @@ published_datasource_graphql_query = """
             dataType
             }
     }
-    owner {username}
+    owner {
+      username
+    }
     description
     uri
     projectName

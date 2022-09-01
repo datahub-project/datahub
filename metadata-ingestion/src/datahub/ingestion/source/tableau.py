@@ -40,6 +40,7 @@ from datahub.ingestion.source.tableau_common import (
     TableauLineageOverrides,
     clean_query,
     custom_sql_graphql_query,
+    embedded_datasource_graphql_query,
     get_field_value_in_sheet,
     get_tags_from_params,
     get_unique_custom_sql,
@@ -217,6 +218,10 @@ class TableauSource(Source):
         self.config = config
         self.report = SourceReport()
         self.server = None
+
+        # This list keeps track of embedded datasources in workbooks so that we retrieve those
+        # when emitting embedded data sources.
+        self.embedded_datasource_ids_being_used: List[str] = []
         # This list keeps track of datasource being actively used by workbooks so that we only retrieve those
         # when emitting published data sources.
         self.datasource_ids_being_used: List[str] = []
@@ -336,7 +341,8 @@ class TableauSource(Source):
                 yield from self.emit_workbook_as_container(workbook)
                 yield from self.emit_sheets_as_charts(workbook)
                 yield from self.emit_dashboards(workbook)
-                yield from self.emit_embedded_datasource(workbook)
+                for ds in workbook.get("embeddedDatasources", []):
+                    self.embedded_datasource_ids_being_used.append(ds["id"])
 
     def _track_custom_sql_ids(self, field: dict) -> None:
         # Tableau shows custom sql datasource as a table in ColumnField.
@@ -518,11 +524,14 @@ class TableauSource(Source):
                             and datasource.get("workbook").get("name")
                             else None
                         )
-                        yield from add_entity_to_container(
+                        workunits = add_entity_to_container(
                             self.gen_workbook_key(datasource["workbook"]),
                             "dataset",
                             dataset_snapshot.urn,
                         )
+                        for wu in workunits:
+                            self.report.report_workunit(wu)
+                            yield wu
                     project = self._get_project(datasource)
 
                 # lineage from custom sql -> datasets/tables #
@@ -827,9 +836,12 @@ class TableauSource(Source):
         )
 
         if is_embedded_ds:
-            yield from add_entity_to_container(
+            workunits = add_entity_to_container(
                 self.gen_workbook_key(workbook), "dataset", dataset_snapshot.urn
             )
+            for wu in workunits:
+                self.report.report_workunit(wu)
+                yield wu
 
     def emit_published_datasources(self) -> Iterable[MetadataWorkUnit]:
         count_on_query = self.config.page_size
@@ -1016,9 +1028,12 @@ class TableauSource(Source):
 
             yield self.get_metadata_change_event(chart_snapshot)
 
-            yield from add_entity_to_container(
+            workunits = add_entity_to_container(
                 self.gen_workbook_key(workbook), "chart", chart_snapshot.urn
             )
+            for wu in workunits:
+                self.report.report_workunit(wu)
+                yield wu
 
     def emit_workbook_as_container(self, workbook: Dict) -> Iterable[MetadataWorkUnit]:
 
@@ -1124,13 +1139,51 @@ class TableauSource(Source):
 
             yield self.get_metadata_change_event(dashboard_snapshot)
 
-            yield from add_entity_to_container(
+            workunits = add_entity_to_container(
                 self.gen_workbook_key(workbook), "dashboard", dashboard_snapshot.urn
             )
+            for wu in workunits:
+                self.report.report_workunit(wu)
+                yield wu
 
-    def emit_embedded_datasource(self, workbook: Dict) -> Iterable[MetadataWorkUnit]:
-        for datasource in workbook.get("embeddedDatasources", []):
-            yield from self.emit_datasource(datasource, workbook, is_embedded_ds=True)
+    def emit_embedded_datasources(self) -> Iterable[MetadataWorkUnit]:
+        count_on_query = self.config.page_size
+        datasource_filter = (
+            f"idWithin: {json.dumps(self.embedded_datasource_ids_being_used)}"
+        )
+        (
+            embedded_datasource_conn,
+            total_count,
+            has_next_page,
+        ) = self.get_connection_object(
+            embedded_datasource_graphql_query,
+            "embeddedDatasourcesConnection",
+            datasource_filter,
+        )
+        current_count = 0
+        while has_next_page:
+            count = (
+                count_on_query
+                if current_count + count_on_query < total_count
+                else total_count - current_count
+            )
+            (
+                embedded_datasource_conn,
+                total_count,
+                has_next_page,
+            ) = self.get_connection_object(
+                embedded_datasource_graphql_query,
+                "embeddedDatasourcesConnection",
+                datasource_filter,
+                count,
+                current_count,
+            )
+
+            current_count += count
+            for datasource in embedded_datasource_conn.get("nodes", []):
+                yield from self.emit_datasource(
+                    datasource, datasource.get("workbook"), is_embedded_ds=True
+                )
 
     @lru_cache(maxsize=None)
     def _get_schema(self, schema_provided: str, database: str, fullName: str) -> str:
@@ -1203,6 +1256,8 @@ class TableauSource(Source):
             return
         try:
             yield from self.emit_workbooks()
+            if self.embedded_datasource_ids_being_used:
+                yield from self.emit_embedded_datasources()
             if self.datasource_ids_being_used:
                 yield from self.emit_published_datasources()
             if self.custom_sql_ids_being_used:
