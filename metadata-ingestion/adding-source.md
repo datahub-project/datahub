@@ -248,4 +248,4 @@ Add your source logo to the React [images folder](https://github.com/datahub-pro
 
 #### 10.3 Update constants.ts
 
-Create new constants in [constants.ts](https://github.com/datahub-project/datahub/blob/master/datahub-web-react/src/app/ingest/source/builder/constants.ts) for the source urn and source name. Update SOURCE_URN_TO_LOGO to map your source urn to the newly added logo in the images folder. Finally, update SOURCE_TO_SOURCE_URN to map your source name to your source urn for use throughout the frontend.
+Create new constants in [constants.ts](https://github.com/datahub-project/datahub/blob/master/datahub-web-react/src/app/ingest/source/builder/constants.ts) for the source urn and source name. Update PLATFORM_URN_TO_LOGO to map your source urn to the newly added logo in the images folder.
