@@ -4,17 +4,17 @@ import FeatureAvailability from '@site/src/components/FeatureAvailability';
 
 <FeatureAvailability/>
 
-Impact Analysis is a powerful workflow for understanding the full set of upstream and downstream dependencies of a Dataset, Dashboard, Chart, and many other DataHub Entites.
+Impact Analysis is a powerful workflow for understanding the complete set of upstream and downstream dependencies of a Dataset, Dashboard, Chart, and many other DataHub Entities.
 
-This allows Data Practioners to proactively identify the impact of breaking schema changes or failed data pipelines on downstream dependencies, rapidly discover which upstream dependencies may have caused unexpected data quality issues, and more.
+This allows Data Practitioners to proactively identify the impact of breaking schema changes or failed data pipelines on downstream dependencies, rapidly discover which upstream dependencies may have caused unexpected data quality issues, and more.
 
-Impact Analysis is available via both the DataHub UI and GraphQL endpoints, supporting both manual and automated workflows.
+Impact Analysis is available via the DataHub UI and GraphQL endpoints, supporting manual and automated workflows.
 
 ## Impact Analysis Setup, Prerequisites, and Permissions
 
-Impact Analyis is enabled for any Entity that has associated Lineage relationships with other Entities and does not require any additional configuration.
+Impact Analysis is enabled for any Entity that has associated Lineage relationships with other Entities and does not require any additional configuration.
 
-Any DataHub user with “View Entity Page” permissions is able to view the full set of upstream or downstream Entities, and export results to CSV from the DataHub UI.
+Any DataHub user with “View Entity Page” permissions is able to view the full set of upstream or downstream Entities and export results to CSV from the DataHub UI.
 
 ## Using Impact Analysis
 
@@ -58,7 +58,7 @@ Follow these simple steps to understand the full dependency chain of your data e
 
 ## Additional Resources
 
-### YouTube
+### Videos
 
 **DataHub 201: Impact Analysis**
 

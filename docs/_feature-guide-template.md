@@ -42,9 +42,9 @@ Provide a step-by-step guide to use feature, including relevant screenshots and/
 
 <!-- Comment out any irrelevant or empty sections -->
 
-### YouTube
+### Videos
 
-<!-- Use the following format:
+<!-- Use the following format to embed YouTube videos:
 
 **Title of YouTube video in bold text**
 
