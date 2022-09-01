@@ -45,6 +45,7 @@ type Props = {
     placeholderText?: string | null;
     selectedEntities: EntityAndType[];
     setSelectedEntities: (Entities: EntityAndType[]) => void;
+    isBatchAddGlossaryTermModalVisible?: boolean;
 };
 
 /**
@@ -54,7 +55,13 @@ type Props = {
  * This component provides easy ways to filter for a specific set of entity types, and provides a set of entity urns
  * when the selection is complete.
  */
-export const SearchSelect = ({ fixedEntityTypes, placeholderText, selectedEntities, setSelectedEntities }: Props) => {
+export const SearchSelect = ({
+    fixedEntityTypes,
+    placeholderText,
+    selectedEntities,
+    setSelectedEntities,
+    isBatchAddGlossaryTermModalVisible,
+}: Props) => {
     const entityRegistry = useEntityRegistry();
 
     // Component state
@@ -176,6 +183,7 @@ export const SearchSelect = ({ fixedEntityTypes, placeholderText, selectedEntiti
                 isSelectMode
                 selectedEntities={selectedEntities}
                 setSelectedEntities={setSelectedEntities}
+                isBatchAddGlossaryTermModalVisible={isBatchAddGlossaryTermModalVisible}
             />
         </Container>
     );

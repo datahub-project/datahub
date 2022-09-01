@@ -21,6 +21,7 @@ type Props = {
     continueText?: string | null;
     onContinue: (entityUrns: string[]) => void;
     onCancel?: () => void;
+    isBatchAddGlossaryTermModalVisible?: boolean;
 };
 
 /**
@@ -36,6 +37,7 @@ export const SearchSelectModal = ({
     continueText,
     onContinue,
     onCancel,
+    isBatchAddGlossaryTermModalVisible,
 }: Props) => {
     const [selectedEntities, setSelectedEntities] = useState<EntityAndType[]>([]);
 
@@ -86,6 +88,7 @@ export const SearchSelectModal = ({
                     placeholderText={placeholderText}
                     selectedEntities={selectedEntities}
                     setSelectedEntities={setSelectedEntities}
+                    isBatchAddGlossaryTermModalVisible={isBatchAddGlossaryTermModalVisible}
                 />
             </StyledModal>
         </ClickOutside>

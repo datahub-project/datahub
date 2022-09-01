@@ -10,7 +10,6 @@ import { EntityAndType } from '../../../types';
 
 const SearchBody = styled.div`
     height: 100%;
-    overflow-y: scroll;
     display: flex;
 `;
 
@@ -30,7 +29,6 @@ const FiltersContainer = styled.div`
 
 const ResultContainer = styled.div`
     height: auto;
-    overflow: auto;
     flex: 1;
 `;
 
@@ -93,6 +91,7 @@ interface Props {
     setSelectedEntities: (entities: EntityAndType[]) => any;
     numResultsPerPage: number;
     setNumResultsPerPage: (numResults: number) => void;
+    isBatchAddGlossaryTermModalVisible?: boolean;
 }
 
 export const EmbeddedListSearchResults = ({
@@ -109,6 +108,7 @@ export const EmbeddedListSearchResults = ({
     setSelectedEntities,
     numResultsPerPage,
     setNumResultsPerPage,
+    isBatchAddGlossaryTermModalVisible,
 }: Props) => {
     const pageStart = searchResponse?.start || 0;
     const pageSize = searchResponse?.count || 0;
@@ -117,7 +117,7 @@ export const EmbeddedListSearchResults = ({
 
     return (
         <>
-            <SearchBody>
+            <SearchBody style={{ overflowY: isBatchAddGlossaryTermModalVisible ? 'scroll' : 'hidden' }}>
                 {!!showFilters && (
                     <FiltersContainer>
                         <FiltersHeader>Filter</FiltersHeader>
