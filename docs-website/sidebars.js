@@ -217,7 +217,7 @@ module.exports = {
       //    className: "saasOnly",
       //  },
       //  "docs/wip/metadata-analytics",
-      //  "docs/wip/impact-analysis",
+      "docs/act-on-metadata/impact-analysis",
       // {
       //    type: "doc",
       //    id: "docs/wip/events-bridge",
@@ -513,6 +513,7 @@ module.exports = {
     // - "perf-test/README",
     // "metadata-jobs/README",
     // "docs/how/add-user-data",
+    // "docs/_feature-guide-template"
     // ],
   },
 };

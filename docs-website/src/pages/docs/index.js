@@ -98,7 +98,7 @@ const featureGuideContent = [
   { title: "UI-Based Ingestion", icon: <ApiTwoTone />, to: "docs/ui-ingestion" },
   { title: "Search", icon: <SearchOutlined />, to: "docs/how/search" },
   // { title: "Browse", icon: <CompassTwoTone />, to: "/docs/quickstart" },
-  { title: "Impact Analysis", icon: <NodeExpandOutlined />, to: "docs/wip/impact-analysis" },
+  { title: "Lineage Impact Analysis", icon: <NodeExpandOutlined />, to: "docs/act-on-metadata/impact-analysis" },
   { title: "Metadata Tests", icon: <CheckCircleTwoTone />, to: "docs/wip/metadata-tests" },
   { title: "Approval Flows", icon: <SafetyCertificateTwoTone />, to: "docs/wip/approval-workflows" },
   { title: "Personal Access Tokens", icon: <LockTwoTone />, to: "docs/authentication/personal-access-tokens" },
