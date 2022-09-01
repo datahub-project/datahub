@@ -13,7 +13,7 @@ from datahub.configuration.common import PipelineExecutionError
 from datahub.ingestion.api.committable import CommitPolicy
 from datahub.ingestion.api.common import EndOfStream, PipelineContext, RecordEnvelope
 from datahub.ingestion.api.pipeline_run_listener import PipelineRunListener
-from datahub.ingestion.api.report import Report
+from datahub.ingestion.api.report import LossyDict, LossyList, Report
 from datahub.ingestion.api.sink import Sink, WriteCallback
 from datahub.ingestion.api.source import Extractor, Source
 from datahub.ingestion.api.transform import Transformer
@@ -465,10 +465,10 @@ class Pipeline:
             self.ctx.graph,
         )
 
-    def _count_all_vals(self, d: Dict[str, List]) -> int:
-        result = 0
-        for val in d.values():
-            result += len(val)
+    def _approx_all_vals(self, d: LossyDict[str, LossyList]) -> int:
+        result = d.overflow
+        for k in d:
+            result += len(d[k])
         return result
 
     def _get_text_color(self, running: bool, failures: bool, warnings: bool) -> str:
@@ -499,12 +499,12 @@ class Pipeline:
         )
 
         if self.source.get_report().failures or self.sink.get_report().failures:
-            num_failures_source = self._count_all_vals(
+            num_failures_source = self._approx_all_vals(
                 self.source.get_report().failures
             )
             num_failures_sink = len(self.sink.get_report().failures)
             click.secho(
-                f"{'⏳' if currently_running else ''} Pipeline {'running' if currently_running else 'finished'} with {num_failures_source+num_failures_sink} failures {'so far' if currently_running else ''}; produced {workunits_produced} events {duration_message}",
+                f"{'⏳' if currently_running else ''} Pipeline {'running' if currently_running else 'finished'} with at least {num_failures_source+num_failures_sink} failures {'so far' if currently_running else ''}; produced {workunits_produced} events {duration_message}",
                 fg=self._get_text_color(
                     running=currently_running,
                     failures=True,
@@ -514,10 +514,10 @@ class Pipeline:
             )
             return 1
         elif self.source.get_report().warnings or self.sink.get_report().warnings:
-            num_warn_source = self._count_all_vals(self.source.get_report().warnings)
+            num_warn_source = self._approx_all_vals(self.source.get_report().warnings)
             num_warn_sink = len(self.sink.get_report().warnings)
             click.secho(
-                f"{'⏳' if currently_running else ''} Pipeline {'running' if currently_running else 'finished'} with {num_warn_source+num_warn_sink} warnings {'so far' if currently_running else ''}; produced {workunits_produced} events {duration_message}",
+                f"{'⏳' if currently_running else ''} Pipeline {'running' if currently_running else 'finished'} with at least {num_warn_source+num_warn_sink} warnings {'so far' if currently_running else ''}; produced {workunits_produced} events {duration_message}",
                 fg=self._get_text_color(
                     running=currently_running, failures=False, warnings=True
                 ),

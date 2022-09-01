@@ -1,29 +1,16 @@
-import collections
 import json
 import pprint
+import random
 import sys
 from dataclasses import dataclass
 from enum import Enum
-from typing import (
-    Any,
-    Deque,
-    Dict,
-    Iterator,
-    List,
-    MutableMapping,
-    Optional,
-    Set,
-    TypeVar,
-)
+from typing import Any, Dict, Iterator, List, Set, TypeVar
 
 # The sort_dicts option was added in Python 3.8.
 if sys.version_info >= (3, 8):
     PPRINT_OPTIONS = {"sort_dicts": False}
 else:
     PPRINT_OPTIONS: Dict = {}
-
-
-import random
 
 
 @dataclass
@@ -38,16 +25,16 @@ class Report:
     @staticmethod
     def to_dict(some_val: Any) -> Any:
         """A cheap way to generate a dictionary."""
+        if (
+            isinstance(some_val, LossyList)
+            or isinstance(some_val, LossySet)
+            or isinstance(some_val, LossyDict)
+        ):  # we don't want these to be processed as regular objects
+            return Report.to_str(some_val)
         if hasattr(some_val, "as_obj"):
             return some_val.as_obj()
         if hasattr(some_val, "dict"):
             return some_val.dict()
-        elif (
-            isinstance(some_val, LossyList)
-            or isinstance(some_val, LossySet)
-            or isinstance(some_val, LossyDict)
-        ):
-            return Report.to_str(some_val)
         elif isinstance(some_val, list):
             return [Report.to_dict(v) for v in some_val if v is not None]
         elif isinstance(some_val, dict):

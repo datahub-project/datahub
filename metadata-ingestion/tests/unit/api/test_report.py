@@ -1,6 +1,5 @@
 import random
 import time
-from secrets import choice
 
 import pytest
 
