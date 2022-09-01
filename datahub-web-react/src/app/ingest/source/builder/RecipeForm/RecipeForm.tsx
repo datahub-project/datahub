@@ -5,10 +5,9 @@ import YAML from 'yamljs';
 import { ApiOutlined, FilterOutlined, QuestionCircleOutlined, SettingOutlined } from '@ant-design/icons';
 import styled from 'styled-components/macro';
 import { jsonToYaml } from '../../utils';
-import { RECIPE_FIELDS } from './constants';
+import { CONNECTORS_WITH_TEST_CONNECTION, RECIPE_FIELDS } from './constants';
 import FormField from './FormField';
 import TestConnectionButton from './TestConnection/TestConnectionButton';
-import { SNOWFLAKE } from '../../conf/snowflake/snowflake';
 import { useListSecretsQuery } from '../../../../../graphql/ingestion.generated';
 import { RecipeField, setFieldValueOnRecipe } from './common';
 
@@ -145,7 +144,7 @@ function RecipeForm(props: Props) {
                             removeMargin={i === fields.length - 1}
                         />
                     ))}
-                    {type === SNOWFLAKE && (
+                    {CONNECTORS_WITH_TEST_CONNECTION.has(type) && (
                         <TestConnectionWrapper>
                             <TestConnectionButton type={type} recipe={displayRecipe} />
                         </TestConnectionWrapper>
