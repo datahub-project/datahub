@@ -22,7 +22,7 @@ from datahub.metadata.schema_classes import (
     OwnershipClass,
     TelemetryClientIdClass,
 )
-from datahub.utilities.urns.urn import Urn
+from datahub.utilities.urns.urn import Urn, guess_entity_type
 
 logger = logging.getLogger(__name__)
 
@@ -107,11 +107,6 @@ class DataHubGraph(DatahubRestEmitter):
                 raise OperationalError(
                     "Unable to get metadata from DataHub", {"message": str(e)}
                 ) from e
-
-    @staticmethod
-    def _guess_entity_type(urn: str) -> str:
-        assert urn.startswith("urn:li:"), "urns must start with urn:li:"
-        return urn.split(":")[2]
 
     @deprecated(
         reason="Use get_aspect_v2 instead which makes aspect_type_name truly optional"
@@ -286,7 +281,7 @@ class DataHubGraph(DatahubRestEmitter):
         ]
         query_body = {
             "urn": entity_urn,
-            "entity": self._guess_entity_type(entity_urn),
+            "entity": guess_entity_type(entity_urn),
             "aspect": aspect_name,
             "latestValue": True,
             "filter": {"or": [{"and": filter_criteria}]},

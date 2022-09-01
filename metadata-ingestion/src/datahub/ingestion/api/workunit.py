@@ -1,14 +1,13 @@
 from dataclasses import dataclass
 from typing import Iterable, Union, overload
 
-from datahub.cli.cli_utils import guess_entity_type
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.source import WorkUnit
 from datahub.metadata.com.linkedin.pegasus2avro.mxe import (
     MetadataChangeEvent,
     MetadataChangeProposal,
 )
-from datahub.metadata.schema_classes import ChangeTypeClass, UsageAggregationClass
+from datahub.metadata.schema_classes import UsageAggregationClass
 
 
 @dataclass
@@ -66,21 +65,18 @@ class MetadataWorkUnit(WorkUnit):
         return {"metadata": self.metadata}
 
     def decompose_mce_into_mcps(self) -> Iterable["MetadataWorkUnit"]:
+        from datahub.emitter.mcp_builder import mcps_from_mce
+
         assert isinstance(self.metadata, MetadataChangeEvent)
 
-        for aspect in self.metadata.proposedSnapshot.aspects:
-            yield MetadataWorkUnit(
+        yield from [
+            MetadataWorkUnit(
                 id=self.id,
-                mcp=MetadataChangeProposalWrapper(
-                    entityType=guess_entity_type(self.metadata.proposedSnapshot.urn),
-                    changeType=ChangeTypeClass.UPDATE,
-                    entityUrn=self.metadata.proposedSnapshot.urn,
-                    auditHeader=self.metadata.auditHeader,
-                    aspect=aspect,
-                    systemMetadata=self.metadata.systemMetadata,
-                ),
+                mcp=mcpw,
                 treat_errors_as_warnings=self.treat_errors_as_warnings,
             )
+            for mcpw in mcps_from_mce(self.metadata)
+        ]
 
 
 @dataclass
