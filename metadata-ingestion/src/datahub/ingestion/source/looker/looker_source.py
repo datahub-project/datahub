@@ -887,6 +887,7 @@ class LookerDashboardSource(Source):
                         schemaField=LookerUtil.view_field_to_schema_field(
                             view_field_for_reference,
                             self.reporter,
+                            True,
                             self.source_config.tag_measures_and_dimensions,
                         ),
                     )

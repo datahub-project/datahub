@@ -104,7 +104,6 @@
                                 "fieldPath": "dim1",
                                 "nullable": false,
                                 "description": "dimension one description",
-                                "label": "Dimensions One Label",
                                 "type": {
                                     "type": {
                                         "com.linkedin.pegasus2avro.schema.StringType": {}

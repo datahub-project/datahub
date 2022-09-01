@@ -433,13 +433,15 @@ class LookerUtil:
     def view_field_to_schema_field(
         field: ViewField,
         reporter: SourceReport,
+        # we dont want to include the label for datasets to support older server versions
+        include_label: bool,
         tag_measures_and_dimensions: bool = True,
     ) -> SchemaField:
         return SchemaField(
             fieldPath=field.name,
             type=LookerUtil._get_field_type(field.type, reporter),
             nativeDataType=field.type,
-            label=field.label,
+            label=field.label if include_label else None,
             description=field.description
             if tag_measures_and_dimensions is True
             else f"{field.field_type.value}. {field.description}",
@@ -459,7 +461,7 @@ class LookerUtil:
         fields = []
         for field in view_fields:
             schema_field = LookerUtil.view_field_to_schema_field(
-                field, reporter, tag_measures_and_dimensions
+                field, reporter, False, tag_measures_and_dimensions
             )
             fields.append(schema_field)
             if field.is_primary_key:
