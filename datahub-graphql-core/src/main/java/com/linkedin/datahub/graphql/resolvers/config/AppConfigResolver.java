@@ -115,6 +115,7 @@ public class AppConfigResolver implements DataFetcher<CompletableFuture<AppConfi
     final VisualConfig visualConfig = new VisualConfig();
     if (_visualConfiguration != null && _visualConfiguration.getAssets() != null) {
       visualConfig.setLogoUrl(_visualConfiguration.getAssets().getLogoUrl());
+      visualConfig.setFaviconUrl(_visualConfiguration.getAssets().getFaviconUrl());
     }
     appConfig.setVisualConfig(visualConfig);
 
