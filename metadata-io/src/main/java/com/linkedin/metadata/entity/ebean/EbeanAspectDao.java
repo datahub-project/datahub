@@ -38,7 +38,7 @@ import javax.persistence.RollbackException;
 import javax.persistence.Table;
 import lombok.extern.slf4j.Slf4j;
 
-import static com.linkedin.metadata.Constants.*;
+import static com.linkedin.metadata.Constants.ASPECT_LATEST_VERSION;
 
 @Slf4j
 public class EbeanAspectDao implements AspectDao, AspectMigrationsDao {
