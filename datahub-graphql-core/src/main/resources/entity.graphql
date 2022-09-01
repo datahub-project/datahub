@@ -2320,6 +2320,11 @@ type SchemaField {
     jsonPath: String
 
     """
+    Human readable label for the field. Not supplied by all data sources
+    """
+    label: String
+
+    """
     Indicates if this field is optional or nullable
     """
     nullable: Boolean!
@@ -4332,6 +4337,11 @@ type Dashboard implements EntityWithRelationships & Entity & BrowsableEntity {
     Standardized platform urn where the dashboard is defined
     """
     platform: DataPlatform!
+
+    """
+    Input fields that power all the charts in the dashboard
+    """
+    inputFields: InputFields
 }
 
 """
@@ -4612,6 +4622,11 @@ type Chart implements EntityWithRelationships & Entity & BrowsableEntity {
     Standardized platform urn where the chart is defined
     """
     platform: DataPlatform!
+
+    """
+    Input fields to power the chart
+    """
+    inputFields: InputFields
 }
 
 """
@@ -9186,6 +9201,21 @@ input BatchUpdateSoftDeletedInput {
     Whether to mark the asset as soft-deleted (hidden)
     """
     deleted: Boolean!
+}
+
+"""
+Input fields of the chart
+"""
+type InputFields {
+    fields: [InputField]
+}
+
+"""
+Input field of the chart
+"""
+type InputField {
+    schemaFieldUrn: String
+    schemaField: SchemaField
 }
 
 enum UserSetting {
