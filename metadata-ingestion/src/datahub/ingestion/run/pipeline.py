@@ -467,7 +467,7 @@ class Pipeline:
         )
 
     def _approx_all_vals(self, d: LossyDict[str, LossyList]) -> int:
-        result = d.overflow
+        result = d.get_keys_upper_bound()
         for k in d:
             result += len(d[k])
         return result

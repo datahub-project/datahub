@@ -36,11 +36,7 @@ class LossyList(List[T]):
         yield from [elem[1] for elem in sorted(super().__iter__())]  # type: ignore
 
     def __repr__(self) -> str:
-        return list(self.__iter__()).__repr__() + (
-            f"... sampled of {self.total_elements} total elements"
-            if self.sampled
-            else ""
-        )
+        return repr(self.as_obj())
 
     def __str__(self) -> str:
         return repr(self)
@@ -59,8 +55,8 @@ class LossySet(Set[T]):
         super().__init__()
         self.max_elements = max_elements
         self.sampled = False
-        self.items_removed = 0
-        self.items_ignored = 0
+        self._items_removed = 0
+        self._items_ignored = 0
 
     def add(self, __element: T) -> None:
         if (
@@ -71,10 +67,10 @@ class LossySet(Set[T]):
             i = random.choice(range(0, super().__len__()))
             if i < self.max_elements:
                 super().remove(list(super().__iter__())[i])
-                self.items_removed += 1
+                self._items_removed += 1
                 return super().add(__element)
             else:
-                self.items_ignored += 1
+                self._items_ignored += 1
                 return None
         return super().add(__element)
 
@@ -88,7 +84,7 @@ class LossySet(Set[T]):
         base_list: List[Union[T, str]] = list(self.__iter__())
         if self.sampled:
             base_list.append(
-                f"... sampled with at most {self.items_removed} elements missing."
+                f"... sampled with at most {self._items_removed} elements missing."
             )
         return base_list
 
@@ -99,9 +95,10 @@ class LossyDict(Dict[_KT, _VT]):
     def __init__(self, max_elements: int = 10) -> None:
         super().__init__()
         self.max_elements = max_elements
-        self.overflow = 0
-        self.items_removed = 0
-        self.items_ignored = 0
+        self.sampled = False
+        self._overflow = 0
+        self._items_removed = 0
+        self.__items_ignored = 0
 
     def __getitem__(self, __k: _KT) -> _VT:
         return super().__getitem__(__k)
@@ -109,14 +106,14 @@ class LossyDict(Dict[_KT, _VT]):
     def __setitem__(self, __k: _KT, __v: _VT) -> None:
         if not super().__contains__(__k) and super().__len__() >= self.max_elements:
             self.sampled = True
-            self.overflow += 1
-            i = random.choice(range(0, super().__len__() + self.overflow))
+            self._overflow += 1
+            i = random.choice(range(0, super().__len__() + self._overflow))
             if i < self.max_elements:
                 super().pop(list(super().__iter__())[i])
-                self.items_removed += 1
+                self._items_removed += 1
                 return super().__setitem__(__k, __v)
             else:
-                self.items_ignored += 1
+                self.__items_ignored += 1
                 return None
         else:
             return super().__setitem__(__k, __v)
@@ -132,5 +129,9 @@ class LossyDict(Dict[_KT, _VT]):
         if self.sampled:
             base_dict[
                 "sampled"
-            ] = f"{len(self.keys())} sampled of at most {self.max_elements + self.overflow} entries."
+            ] = f"{len(self.keys())} sampled of at most {self.max_elements + self._overflow} entries."
         return base_dict
+
+    def get_keys_upper_bound(self) -> int:
+        """Returns the upper bound of the number of keys that have been pushed into this dictionary"""
+        return len(self) + self._overflow

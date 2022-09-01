@@ -1,4 +1,5 @@
 import random
+import re
 import time
 
 import pytest
@@ -16,6 +17,8 @@ def test_lossylist_sampling(length, sampling):
     assert l.sampled is sampling
     if sampling:
         assert f"... sampled of {length} total elements" in str(l)
+    else:
+        assert "sampled" not in str(l)
 
     list_version = [int(i.split(" ")[0]) for i in l]
     print(list_version)
@@ -32,6 +35,8 @@ def test_lossyset_sampling(length, sampling):
     assert l.sampled is sampling
     if sampling:
         assert f"... sampled with at most {length-10} elements missing" in str(l)
+    else:
+        assert "sampled" not in str(l)
 
     list_version = [int(i.split(" ")[0]) for i in l]
     set_version = set(list_version)
@@ -64,11 +69,15 @@ def test_lossydict_sampling(length, sampling, sub_length):
             element_length_map[i] += 1
 
     assert len(l) == min(l.max_elements, length)
-    #    assert l.sampled is sampling
+    assert l.sampled is sampling
     if sampling:
+        assert re.search("sampled of at most .* entries.", str(l))
         assert f"{l.max_elements} sampled of at most {elements_added} entries." in str(
             l
         )
+    else:
+        # cheap way to determine that the dict isn't reporting sampled keys
+        assert not re.search("sampled of at most .* entries.", str(l))
 
     for k, v in l.items():
         assert len(v) == element_length_map[k]
