@@ -1,7 +1,11 @@
+import shutil
+import tempfile
+
 import click
 
 from datahub import __package_name__
 from datahub.cli.json_file import check_mce_file
+from datahub.ingestion.run.pipeline import Pipeline
 from datahub.ingestion.sink.sink_registry import sink_registry
 from datahub.ingestion.source.source_registry import source_registry
 from datahub.ingestion.transformer.transform_registry import transform_registry
@@ -15,11 +19,40 @@ def check() -> None:
 
 @check.command()
 @click.argument("json-file", type=click.Path(exists=True, dir_okay=False))
-def mce_file(json_file: str) -> None:
-    """Check the schema of a MCE JSON file."""
+@click.option(
+    "--rewrite",
+    default=False,
+    is_flag=True,
+    help="Rewrite the JSON file to it's canonical form.",
+)
+def metadata_file(json_file: str, rewrite: bool) -> None:
+    """Check the schema of a metadata (MCE or MCP) JSON file."""
 
-    report = check_mce_file(json_file)
-    click.echo(report)
+    if not rewrite:
+        report = check_mce_file(json_file)
+        click.echo(report)
+
+    else:
+        with tempfile.NamedTemporaryFile() as out_file:
+            pipeline = Pipeline.create(
+                {
+                    "source": {
+                        "type": "file",
+                        "config": {"filename": json_file},
+                        "extractor": "generic",
+                        "extractor_config": {"set_system_metadata": False},
+                    },
+                    "sink": {
+                        "type": "file",
+                        "config": {"filename": out_file.name},
+                    },
+                }
+            )
+
+            pipeline.run()
+            pipeline.raise_from_status()
+
+            shutil.copy(out_file.name, json_file)
 
 
 @check.command()
