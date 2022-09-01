@@ -62,7 +62,7 @@ You can search for a tag in the search bar, and even filter entities by the pres
 
 ## Additional Resources
 
-### YouTube
+### Videos
 
 **Add Ownership, Tags, Terms, and more to DataHub via CSV!**
 
