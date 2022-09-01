@@ -467,7 +467,7 @@ input UpdateIngestionSourceConfigInput {
   """
   Whether or not to run ingestion in debug mode
   """
-  debugMode: Boolean!
+  debugMode: Boolean
 }
 
 """

@@ -22,7 +22,7 @@ export const BIGQUERY_PRIVATE_KEY_ID: RecipeField = {
     name: 'credential.private_key_id',
     label: 'Private Key Id',
     tooltip: 'Private key id.',
-    type: FieldType.TEXT,
+    type: FieldType.SECRET,
     fieldPath: 'source.config.credential.private_key_id',
     rules: null,
 };
@@ -31,7 +31,7 @@ export const BIGQUERY_PRIVATE_KEY: RecipeField = {
     name: 'credential.private_key',
     label: 'Private Key',
     tooltip: 'Private key in a form of "-----BEGIN PRIVATE KEY-----\nprivate-key\n-----END PRIVATE KEY-----\n".',
-    type: FieldType.TEXT,
+    type: FieldType.SECRET,
     fieldPath: 'source.config.credential.private_key',
     rules: null,
 };
