@@ -90,7 +90,7 @@ title: [value to display in the sidebar]
 **NOTE:** Assigning a value for `label:` in `sidebar.js` is not reliable, e.g.
 
 ```
-  {
+  { // Don't do this
     label: "Usage Guide",
     type: "doc",
     id: "path/to/document",
