@@ -2,6 +2,7 @@ import click
 
 from datahub import __package_name__
 from datahub.cli.json_file import check_mce_file
+from datahub.graph_consistency import check_data_platform
 from datahub.ingestion.sink.sink_registry import sink_registry
 from datahub.ingestion.source.source_registry import source_registry
 from datahub.ingestion.transformer.transform_registry import transform_registry
@@ -48,3 +49,12 @@ def plugins(verbose: bool) -> None:
     click.echo(
         f"If a plugin is disabled, try running: pip install '{__package_name__}[<plugin>]'"
     )
+
+
+@check.command
+def graph_consistency() -> None:
+    # gms_endpoint, gms_token = get_url_and_token()
+    gms_endpoint = "http://localhost:8080"
+    # gms_token = "eyJhbGciOiJIUzI1NiJ9.eyJhY3RvclR5cGUiOiJVU0VSIiwiYWN0b3JJZCI6ImFkbWluIiwidHlwZSI6IlBFUlNPTkFMIiwidmVyc2lvbiI6IjIiLCJqdGkiOiIyM2RiODE4Yi02MTMxLTQ3YmYtODc0OS1lNjllMTI1MzQyYTciLCJzdWIiOiJhZG1pbiIsImV4cCI6MTY2NDYxNTIyNCwiaXNzIjoiZGF0YWh1Yi1tZXRhZGF0YS1zZXJ2aWNlIn0.mByDeiMlqycrQdKm_L24JHwPO9xTnqPVc7V7qYfBBCs"
+    gms_token = None
+    check_data_platform.check(gms_endpoint, gms_token)

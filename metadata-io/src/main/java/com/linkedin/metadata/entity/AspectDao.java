@@ -1,6 +1,10 @@
 package com.linkedin.metadata.entity;
 
 import com.linkedin.common.urn.Urn;
+import com.linkedin.metadata.entity.ebean.EbeanAspectV2;
+import com.linkedin.metadata.entity.restoreindices.RestoreIndicesArgs;
+import com.linkedin.metadata.entity.restoreindices.RestoreIndicesResult;
+import io.ebean.PagedList;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -8,6 +12,7 @@ import java.sql.Timestamp;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.function.Consumer;
 import java.util.function.Supplier;
 
 /**
@@ -77,6 +82,14 @@ public interface AspectDao {
         @Nonnull final String aspectName,
         final int start,
         final int pageSize);
+
+    @Nonnull
+    Integer countAspect(
+            @Nonnull final String aspectName,
+            @Nullable String urnLike);
+
+    @Nonnull
+    PagedList<EbeanAspectV2> getPagedAspects(final RestoreIndicesArgs args);
 
     int deleteUrn(@Nonnull final String urn);
 

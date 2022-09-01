@@ -4,15 +4,19 @@ import com.datahub.util.exception.ModelConversionException;
 import com.datahub.util.exception.RetryLimitReached;
 import com.linkedin.common.AuditStamp;
 import com.linkedin.common.urn.Urn;
-import com.linkedin.metadata.entity.AspectDao;
-import com.linkedin.metadata.entity.AspectMigrationsDao;
-import com.linkedin.metadata.entity.EntityAspect;
-import com.linkedin.metadata.entity.EntityAspectIdentifier;
-import com.linkedin.metadata.entity.ListResult;
+import com.linkedin.common.urn.UrnUtils;
+import com.linkedin.data.template.RecordTemplate;
+import com.linkedin.events.metadata.ChangeType;
+import com.linkedin.metadata.entity.*;
+import com.linkedin.metadata.entity.restoreindices.RestoreIndicesArgs;
+import com.linkedin.metadata.entity.restoreindices.RestoreIndicesResult;
+import com.linkedin.metadata.models.AspectSpec;
+import com.linkedin.metadata.models.EntitySpec;
 import com.linkedin.metadata.query.ExtraInfo;
 import com.linkedin.metadata.query.ExtraInfoArray;
 import com.linkedin.metadata.query.ListResultMetadata;
 import com.linkedin.metadata.search.utils.QueryUtils;
+import com.linkedin.mxe.SystemMetadata;
 import io.ebean.DuplicateKeyException;
 import io.ebean.EbeanServer;
 import io.ebean.ExpressionList;
@@ -33,6 +37,8 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.TimeUnit;
+import java.util.function.Consumer;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
@@ -389,6 +395,46 @@ public class EbeanAspectDao implements AspectDao, AspectMigrationsDao {
         .collect(Collectors.toList());
 
     return toListResult(urns, null, pagedList, start);
+  }
+
+  @Nonnull
+  @Override
+  public Integer countAspect(@Nonnull String aspectName, @Nullable String urnLike) {
+    ExpressionList<EbeanAspectV2> exp = _server.find(EbeanAspectV2.class)
+            .select(EbeanAspectV2.KEY_ID)
+            .where()
+            .eq(EbeanAspectV2.VERSION_COLUMN, ASPECT_LATEST_VERSION)
+            .eq(EbeanAspectV2.ASPECT_COLUMN, aspectName);
+
+    if (urnLike != null) {
+      exp = exp.like(EbeanAspectV2.URN_COLUMN, urnLike);
+    }
+    return exp.findCount();
+  }
+
+  @Nonnull
+  @Override
+  public PagedList<EbeanAspectV2> getPagedAspects(final RestoreIndicesArgs args) {
+    ExpressionList<EbeanAspectV2> exp = _server.find(EbeanAspectV2.class)
+            .select(EbeanAspectV2.ALL_COLUMNS)
+            .where()
+            .eq(EbeanAspectV2.VERSION_COLUMN, ASPECT_LATEST_VERSION);
+    if (args.aspectName != null) {
+      exp = exp.eq(EbeanAspectV2.ASPECT_COLUMN, args.aspectName);
+    }
+    if (args.urn != null) {
+      exp = exp.eq(EbeanAspectV2.URN_COLUMN, args.urn);
+    }
+    if (args.urnLike != null) {
+      exp = exp.like(EbeanAspectV2.URN_COLUMN, args.urnLike);
+    }
+    return  exp.orderBy()
+            .asc(EbeanAspectV2.URN_COLUMN)
+            .orderBy()
+            .asc(EbeanAspectV2.ASPECT_COLUMN)
+            .setFirstRow(args.start)
+            .setMaxRows(args.batchSize)
+            .findPagedList();
   }
 
   @Override

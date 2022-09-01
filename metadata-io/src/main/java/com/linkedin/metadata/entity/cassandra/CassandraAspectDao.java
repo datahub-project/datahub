@@ -24,6 +24,9 @@ import com.linkedin.metadata.entity.AspectMigrationsDao;
 import com.linkedin.metadata.entity.EntityAspect;
 import com.linkedin.metadata.entity.EntityAspectIdentifier;
 import com.linkedin.metadata.entity.ListResult;
+import com.linkedin.metadata.entity.ebean.EbeanAspectV2;
+import com.linkedin.metadata.entity.restoreindices.RestoreIndicesArgs;
+import com.linkedin.metadata.entity.restoreindices.RestoreIndicesResult;
 import com.linkedin.metadata.query.ExtraInfo;
 import com.linkedin.metadata.query.ExtraInfoArray;
 import com.linkedin.metadata.query.ListResultMetadata;
@@ -34,10 +37,13 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
+import java.util.function.Consumer;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
+
+import io.ebean.PagedList;
 import lombok.extern.slf4j.Slf4j;
 
 import static com.datastax.oss.driver.api.querybuilder.QueryBuilder.*;
@@ -442,6 +448,20 @@ public class CassandraAspectDao implements AspectDao, AspectMigrationsDao {
 
     return toListResult(urns, null, start, pageNumber, pageSize, totalCount);
   }
+
+  @Nonnull
+  @Override
+  public Integer countAspect(@Nonnull String aspectName, @Nullable String urnLike) {
+    // Not implemented
+    return -1;
+  }
+
+  @Nonnull
+  public PagedList<EbeanAspectV2> getPagedAspects(final RestoreIndicesArgs args) {
+    // Not implemented
+    return null;
+  }
+
 
   @Override
   @Nonnull
