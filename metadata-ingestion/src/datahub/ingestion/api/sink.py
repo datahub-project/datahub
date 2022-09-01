@@ -10,15 +10,16 @@ from datahub.ingestion.api.report import Report
 
 @dataclass
 class SinkReport(Report):
-    records_written: int = 0
+    total_records_written: int = 0
+    records_written_per_second: int = 0
     warnings: List[Any] = field(default_factory=list)
     failures: List[Any] = field(default_factory=list)
-    downstream_start_time: Optional[datetime.datetime] = None
-    downstream_end_time: Optional[datetime.datetime] = None
-    downstream_total_latency_in_seconds: Optional[float] = None
+    start_time: datetime.datetime = datetime.datetime.now()
+    current_time: Optional[datetime.datetime] = None
+    total_duration_in_seconds: Optional[float] = None
 
     def report_record_written(self, record_envelope: RecordEnvelope) -> None:
-        self.records_written += 1
+        self.total_records_written += 1
 
     def report_warning(self, info: Any) -> None:
         self.warnings.append(info)
@@ -26,19 +27,17 @@ class SinkReport(Report):
     def report_failure(self, info: Any) -> None:
         self.failures.append(info)
 
-    def report_downstream_latency(
-        self, start_time: datetime.datetime, end_time: datetime.datetime
-    ) -> None:
-        if (
-            self.downstream_start_time is None
-            or self.downstream_start_time > start_time
-        ):
-            self.downstream_start_time = start_time
-        if self.downstream_end_time is None or self.downstream_end_time < end_time:
-            self.downstream_end_time = end_time
-        self.downstream_total_latency_in_seconds = (
-            self.downstream_end_time - self.downstream_start_time
-        ).total_seconds()
+    def compute_stats(self) -> None:
+        super().compute_stats()
+        self.current_time = datetime.datetime.now()
+        if self.start_time:
+            self.total_duration_in_seconds = round(
+                (self.current_time - self.start_time).total_seconds(), 2
+            )
+            if self.total_duration_in_seconds > 0:
+                self.records_written_per_second = int(
+                    self.total_records_written / self.total_duration_in_seconds
+                )
 
 
 class WriteCallback(metaclass=ABCMeta):

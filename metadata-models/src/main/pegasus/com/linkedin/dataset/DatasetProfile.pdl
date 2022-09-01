@@ -15,4 +15,9 @@ record DatasetProfile includes TimeseriesAspectBase {
 	columnCount: optional long
 
 	fieldProfiles: optional array[DatasetFieldProfile]
+
+	/**
+	* Storage size in bytes
+	*/
+	sizeInBytes: optional long
 }

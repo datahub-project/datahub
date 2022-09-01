@@ -42,6 +42,7 @@ class InstanceRunResult(str, Enum):
     SUCCESS = RunResultType.SUCCESS
     SKIPPED = RunResultType.SKIPPED
     FAILURE = RunResultType.FAILURE
+    UP_FOR_RETRY = RunResultType.UP_FOR_RETRY
 
 
 @dataclass

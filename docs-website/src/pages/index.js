@@ -4,12 +4,12 @@ import Link from "@docusaurus/Link";
 import useDocusaurusContext from "@docusaurus/useDocusaurusContext";
 import CodeBlock from "@theme/CodeBlock";
 
-import Hero from "../components/Hero";
-import Features from "../components/Features";
-import Section from "../components/Section";
-import { PlatformLogos, CompanyLogos } from "../components/Logos";
-import RoundedImage from "../components/RoundedImage";
-import AnnouncementSection from "../components/AnnouncementSection";
+import Hero from "./_components/Hero";
+import Features from "./_components/Features";
+import Quotes from "./_components/Quotes";
+import { Section, PromoSection } from "./_components/Section";
+import { PlatformLogos, CompanyLogos } from "./_components/Logos";
+import RoundedImage from "./_components/RoundedImage";
 
 const example_recipe = `
 source:
@@ -28,7 +28,11 @@ function Home() {
   const context = useDocusaurusContext();
   const { siteConfig = {} } = context;
 
-  return (
+  if (siteConfig.customFields.isSaas) {
+    window.location.replace("/docs");
+  }
+
+  return !siteConfig.customFields.isSaas ? (
     <Layout
       title={siteConfig.tagline}
       description="DataHub is a data discovery application built on an extensible metadata platform that helps you tame the complexity of diverse data ecosystems."
@@ -36,7 +40,7 @@ function Home() {
       <Hero />
       <Features />
       <PlatformLogos />
-      <Section title="How it Works" withBackground>
+      <Section title="A Modern Approach to Metadata Management" withBackground>
         <div className="container">
           <div className="row row--padded row--centered">
             <div className="col col--5">
@@ -115,10 +119,10 @@ function Home() {
       </Section>
       <Section title="Trusted Across the Industry">
         <CompanyLogos />
+        <Quotes />
       </Section>
-      <AnnouncementSection />
     </Layout>
-  );
+  ) : null;
 }
 
 export default Home;

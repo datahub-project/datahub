@@ -1,0 +1,23 @@
+.listItem {
+  display: flex;
+  padding: 0.3rem 0;
+  color: var(--ifm-text-color);
+  margin: 0.5rem;
+  border-bottom: 1px solid var(--ifm-hr-border-color);
+  text-decoration: none !important;
+  svg,
+  img {
+    width: 1.5rem;
+    height: 1.5rem;
+    margin-right: 0.75rem;
+  }
+  strong,
+  span {
+    display: block;
+    margin-bottom: 0.25rem;
+  }
+  span {
+    font-size: 0.875rem;
+    line-height: 1.25em;
+  }
+}
