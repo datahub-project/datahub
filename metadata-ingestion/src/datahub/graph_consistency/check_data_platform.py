@@ -26,13 +26,17 @@ def check(gms_endpoint, gms_token):
                 ASPECT_NAME, f"urn:li:dataset%{platform_name}%"
             )
             if facet_count != expected_facet_count:
-                missing_percent = round((expected_facet_count - facet_count) * 100 / expected_facet_count, 2)
+                missing_percent = round(
+                    (expected_facet_count - facet_count) * 100 / expected_facet_count, 2
+                )
                 print(
                     f"[WARN {ASPECT_NAME}] Expected to have {expected_facet_count} but found {facet_count} for {platform_name}. Missing % = {missing_percent}"
                 )
 
     if expected_total != actual_total:
-        missing_percent = round((expected_total - actual_total) * 100 / expected_total, 2)
+        missing_percent = round(
+            (expected_total - actual_total) * 100 / expected_total, 2
+        )
         print(
             f"[WARN {ASPECT_NAME}] Expected to have {expected_total} but found {actual_total}. Missing % = {missing_percent}"
         )
