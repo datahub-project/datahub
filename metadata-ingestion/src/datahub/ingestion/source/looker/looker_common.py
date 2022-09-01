@@ -20,8 +20,8 @@ from datahub.configuration.common import ConfigurationError
 from datahub.configuration.github import GitHubInfo
 from datahub.configuration.source_common import DatasetSourceConfigBase
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
-from datahub.ingestion.api.report import LossySet, Report
-from datahub.ingestion.api.source import LossyList, SourceReport
+from datahub.ingestion.api.report import Report
+from datahub.ingestion.api.source import SourceReport
 from datahub.ingestion.source.sql.sql_types import (
     POSTGRES_TYPES_MAP,
     SNOWFLAKE_TYPES_MAP,
@@ -64,6 +64,7 @@ from datahub.metadata.schema_classes import (
     TagPropertiesClass,
     TagSnapshotClass,
 )
+from datahub.utilities.lossy_collections import LossyList, LossySet
 
 logger = logging.getLogger(__name__)
 
