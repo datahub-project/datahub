@@ -68,9 +68,7 @@ import java.util.function.Function;
 import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
-import com.linkedin.events.metadata.ChangeType;
 
-import io.ebean.ExpressionList;
 import io.ebean.PagedList;
 import lombok.Value;
 import lombok.extern.slf4j.Slf4j;
