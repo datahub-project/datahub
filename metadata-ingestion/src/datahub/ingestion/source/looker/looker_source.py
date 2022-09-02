@@ -799,12 +799,7 @@ class LookerDashboardSource(Source):
 
     def process_metrics_dimensions_and_fields_for_dashboard(
         self, dashboard: LookerDashboard
-    ) -> Tuple[List[MetadataWorkUnit], str, datetime.datetime, datetime.datetime]:
-        start_time = datetime.datetime.now()
-
-        # dashboard = self.resolved_dashboards_map.get(dashboard_id)
-        # if dashboard is None:
-        #    return [], dashboard_id, start_time, datetime.datetime.now()
+    ) -> List[MetadataWorkUnit]:
 
         chart_mcps = [
             self._make_metrics_dimensions_chart_mcp(element, dashboard)
@@ -824,7 +819,7 @@ class LookerDashboardSource(Source):
             for mcp in mcps
         ]
 
-        return workunits, dashboard.id, start_time, datetime.datetime.now()
+        return workunits
 
     def _input_fields_from_dashboard_element(
         self, dashboard_element: LookerDashboardElement
@@ -849,6 +844,10 @@ class LookerDashboardSource(Source):
                     input_field.model, input_field.explore
                 )
                 if explore is not None:
+                    # add this to the list of explores to finally generate metadata for
+                    self.add_explore_to_fetch(
+                        input_field.model, input_field.explore, entity_urn
+                    )
                     entity_urn = explore.get_explore_urn(self.source_config)
                     explore_fields = (
                         explore.fields if explore.fields is not None else []
@@ -964,15 +963,7 @@ class LookerDashboardSource(Source):
                 return [], None, dashboard_id, start_time, datetime.datetime.now()
 
         looker_dashboard = self._get_looker_dashboard(dashboard_object, self.client)
-        # self.resolved_dashboards_map[looker_dashboard.id] = looker_dashboard
         mces = self._make_dashboard_and_chart_mces(looker_dashboard)
-        (
-            metric_dim_workunits,
-            _,
-            _,
-            _,
-        ) = self.process_metrics_dimensions_and_fields_for_dashboard(looker_dashboard)
-        # for mce in mces:
         workunits = [
             MetadataWorkUnit(id=f"looker-{mce.proposedSnapshot.urn}", mce=mce)
             if isinstance(mce, MetadataChangeEvent)
@@ -981,7 +972,13 @@ class LookerDashboardSource(Source):
             )
             for mce in mces
         ]
+
+        # add on metrics, dimensions, fields events
+        metric_dim_workunits = self.process_metrics_dimensions_and_fields_for_dashboard(
+            looker_dashboard
+        )
         workunits.extend(metric_dim_workunits)
+
         return (
             workunits,
             dashboard_object,
