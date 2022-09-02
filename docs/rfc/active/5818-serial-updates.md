@@ -138,8 +138,23 @@ TODO: Different design options to be enumerated.
 
 > There are tradeoffs to choosing any path, please attempt to identify them here.
 
-This will come with some performance drawbacks, as many of these designs will involve an extra hop between the 
+TODO: This will come with some performance drawbacks, as many of these designs will involve an extra hop between the 
 client and DataHub.
+
+### Performance under contention
+
+This approach would suffer a lot under high contention. Let's say:
+* the time sending a request from client to gms and receiving response is `x`
+* the time taken to manipulate read to create a new write request at the client is `y` (assume constant for simplicity)
+* a constant transaction/LWT overhead of `z` (LWT if using Cassandra)
+
+Under a contention of n clients sending 1 request targeting the same aspect, we would see:
+* 1 client would take `2x + y + z` time
+* 1 client would take `4x + 2y + 2z` time
+* ...
+* nth concurrent client would take 2nx + ny + nz time
+
+This is assuming a client is just making one update to the aspect. If an aspect is being used in some complex communication chain this could take a very long time.
 
 ## Alternatives
 
