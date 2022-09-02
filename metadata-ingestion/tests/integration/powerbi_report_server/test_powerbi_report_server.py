@@ -9,15 +9,6 @@ from tests.test_helpers import mce_helpers
 
 FROZEN_TIME = "2022-02-03 07:00:00"
 
-def mock_user(*args, **kwargs):
-    user_data = dict(
-        urn="urn:li:corpuser:User1",
-        type=Constant.CORP_USER,
-        username="User1",
-        properties=dict(active=True, displayName="User1", email="User1@foo.com"),
-    )
-    return CorpUser.parse_obj(user_data)
-
 
 def register_mock_api(request_mock):
     api_vs_response = {
