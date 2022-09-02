@@ -261,21 +261,26 @@ class BaseStatGenerator(ABC):
             yield self.id_vs_model[id], aspect
 
     def _execute_query(self, query: LookerQuery, query_name: str) -> List[Dict]:
-        start_time = datetime.datetime.now()
-        rows = self.config.looker_api_wrapper.execute_query(
-            write_query=query.to_write_query()
-        )
-        end_time = datetime.datetime.now()
+        rows = []
+        try:
+            start_time = datetime.datetime.now()
+            rows = self.config.looker_api_wrapper.execute_query(
+                write_query=query.to_write_query()
+            )
+            end_time = datetime.datetime.now()
 
-        logger.debug(
-            f"{self.ctx}: Retrieved {len(rows)} rows in {(end_time - start_time).total_seconds()} seconds"
-        )
-        self.report.report_query_latency(
-            f"{self.ctx}:{query_name}", (end_time - start_time).total_seconds()
-        )
-        if self.post_filter:
-            rows = [r for r in rows if self.get_id_from_row(r) in self.id_vs_model]
-            logger.debug(f"Filtered down to {len(rows)} rows")
+            logger.debug(
+                f"{self.ctx}: Retrieved {len(rows)} rows in {(end_time - start_time).total_seconds()} seconds"
+            )
+            self.report.report_query_latency(
+                f"{self.ctx}:{query_name}", (end_time - start_time).total_seconds()
+            )
+            if self.post_filter:
+                rows = [r for r in rows if self.get_id_from_row(r) in self.id_vs_model]
+                logger.debug(f"Filtered down to {len(rows)} rows")
+        except Exception as e:
+            logger.warning(f"Failed to execute {query_name} query", e)
+
         return rows
 
     def _append_filters(self, query: LookerQuery) -> LookerQuery:

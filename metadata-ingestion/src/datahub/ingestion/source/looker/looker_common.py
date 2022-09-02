@@ -20,8 +20,8 @@ from datahub.configuration.common import ConfigurationError
 from datahub.configuration.github import GitHubInfo
 from datahub.configuration.source_common import DatasetSourceConfigBase
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
-from datahub.ingestion.api.report import LossySet, Report
-from datahub.ingestion.api.source import LossyList, SourceReport
+from datahub.ingestion.api.report import Report
+from datahub.ingestion.api.source import SourceReport
 from datahub.ingestion.source.sql.sql_types import (
     POSTGRES_TYPES_MAP,
     SNOWFLAKE_TYPES_MAP,
@@ -64,6 +64,7 @@ from datahub.metadata.schema_classes import (
     TagPropertiesClass,
     TagSnapshotClass,
 )
+from datahub.utilities.lossy_collections import LossyList, LossySet
 
 logger = logging.getLogger(__name__)
 
@@ -782,6 +783,38 @@ class LookerExplore:
         )
 
         return [mce, mcp]
+
+
+class LookerExploreRegistry:
+    """A caching registry of Looker Explores"""
+
+    def __init__(
+        self,
+        client: Looker31SDK,
+        report: SourceReport,
+        transport_options: Optional[TransportOptions],
+    ):
+        self.client = client
+        self.report = report
+        self.transport_options = transport_options
+        self.explore_cache: Dict[Tuple[str, str], Optional[LookerExplore]] = {}
+
+    def get_explore(self, model: str, explore: str) -> Optional[LookerExplore]:
+        if (model, explore) not in self.explore_cache:
+            looker_explore = LookerExplore.from_api(
+                model,
+                explore,
+                self.client,
+                self.report,
+                transport_options=self.transport_options,
+            )
+            self.explore_cache[(model, explore)] = looker_explore
+        return self.explore_cache[(model, explore)]
+
+    def get_all_explores(self) -> Iterable[LookerExplore]:
+        for key, value in self.explore_cache.items():
+            if value is not None:
+                yield value
 
 
 class StageLatency(Report):
