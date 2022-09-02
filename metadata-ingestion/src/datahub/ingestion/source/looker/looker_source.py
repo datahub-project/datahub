@@ -19,7 +19,6 @@ from typing import (
 
 from looker_sdk.error import SDKError
 from looker_sdk.rtl import model
-from looker_sdk.rtl.transport import TransportOptions
 from looker_sdk.sdk.api31.methods import Looker31SDK
 from looker_sdk.sdk.api31.models import (
     Dashboard,
@@ -47,6 +46,7 @@ from datahub.ingestion.source.looker.looker_common import (
     LookerCommonConfig,
     LookerDashboardSourceReport,
     LookerExplore,
+    LookerExploreRegistry,
     LookerUtil,
     ViewField,
     ViewFieldType,
@@ -143,36 +143,6 @@ class LookerDashboardSourceConfig(LookerAPIConfig, LookerCommonConfig):
         raise ConfigurationError("Looker Source doesn't support platform instances")
 
 
-class LookerExploreRetriever:
-    def __init__(
-        self,
-        client: Looker31SDK,
-        report: LookerDashboardSourceReport,
-        transport_options: Optional[TransportOptions],
-    ):
-        self.client = client
-        self.report = report
-        self.transport_options = transport_options
-        self.explore_cache: Dict[Tuple[str, str], Optional[LookerExplore]] = {}
-
-    def get_explore(self, model: str, explore: str) -> Optional[LookerExplore]:
-        if (model, explore) not in self.explore_cache:
-            looker_explore = LookerExplore.from_api(
-                model,
-                explore,
-                self.client,
-                self.report,
-                transport_options=self.transport_options,
-            )
-            self.explore_cache[(model, explore)] = looker_explore
-        return self.explore_cache[(model, explore)]
-
-    def get_all_explores(self) -> Iterable[LookerExplore]:
-        for key, value in self.explore_cache.items():
-            if value is not None:
-                yield value
-
-
 @platform_name("Looker")
 @support_status(SupportStatus.CERTIFIED)
 @config_class(LookerDashboardSourceConfig)
@@ -205,7 +175,7 @@ class LookerDashboardSource(Source):
         looker_api: LookerAPI = LookerAPI(self.source_config)
         self.client = looker_api.get_client()
         self.user_registry = LookerUserRegistry(looker_api)
-        self.explore_registry = LookerExploreRetriever(
+        self.explore_registry = LookerExploreRegistry(
             self.client,
             self.reporter,
             self.source_config.transport_options.get_transport_options()
