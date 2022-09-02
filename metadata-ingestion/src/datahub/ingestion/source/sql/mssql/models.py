@@ -49,9 +49,6 @@ logger: logging.Logger = logging.getLogger(__name__)
 class SQLServerConfig(BasicSQLAlchemyConfig):
     # defaults
     host_port: str = Field(default="localhost:1433", description="MSSQL host URL.")
-    server_alias: str = Field(
-        default="", description="Alias to apply to server when ingesting."
-    )
     scheme: str = Field(default="mssql+pytds", description="", exclude=True)
     include_code: bool = Field(
         default=False, description="Include information about object code"
@@ -107,7 +104,7 @@ class SQLServerConfig(BasicSQLAlchemyConfig):
 
     @property
     def host(self):
-        return self.server_alias or self.host_port.split(":")[0]
+        return self.platform_instance or self.host_port.split(":")[0]
 
     @property
     def db(self):
@@ -351,7 +348,7 @@ class SQLServerSource(SQLAlchemySource):
                     name=job_name,
                     env=sql_config.env,
                     db=db_name,
-                    host_port=sql_config.host,
+                    platform_instance=sql_config.host,
                 )
                 data_flow = MSSQLDataFlow(entity=job)
                 yield from self.construct_flow_workunits(data_flow=data_flow)
@@ -384,7 +381,7 @@ class SQLServerSource(SQLAlchemySource):
             name=procedure_flow_name,
             env=sql_config.env,
             db=db_name,
-            host_port=sql_config.host,
+            platform_instance=sql_config.host,
         )
         data_flow = MSSQLDataFlow(entity=mssql_default_job)
         with inspector.engine.connect() as conn:
@@ -450,7 +447,7 @@ class SQLServerSource(SQLAlchemySource):
                     name=row["name"],
                     type=row["type"],
                     env=procedure.flow.env,
-                    server=procedure.flow.host_port,
+                    server=procedure.flow.platform_instance,
                 )
             )
         return ProcedureLineageStream(dependencies=downstream_dependencies)
@@ -483,7 +480,7 @@ class SQLServerSource(SQLAlchemySource):
                     name=row["name"],
                     type=row["type"],
                     env=procedure.flow.env,
-                    server=procedure.flow.host_port,
+                    server=procedure.flow.platform_instance,
                 )
             )
         return ProcedureLineageStream(dependencies=upstream_dependencies)

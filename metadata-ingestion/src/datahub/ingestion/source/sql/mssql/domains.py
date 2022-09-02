@@ -80,7 +80,7 @@ class ProcedureLineageStream:
 @dataclass
 class MSSQLJob:
     db: str
-    host_port: str
+    platform_instance: str
     name: str
     env: str
     source: str = "mssql"
@@ -99,14 +99,18 @@ class MSSQLJob:
         return self.source
 
     @property
+    def formatted_platform_instance(self) -> str:
+        return self.platform_instance.replace('.', '/')
+
+    @property
     def cluster(self):
-        return f"{self.env}/{self.host_port}"
+        return f"{self.env}/{self.formatted_platform_instance}"
 
 
 @dataclass
 class MSSQLProceduresContainer:
     db: str
-    host_port: str
+    platform_instance: str
     name: str
     env: str
     source: str = "mssql"
@@ -121,8 +125,12 @@ class MSSQLProceduresContainer:
         return self.source
 
     @property
+    def formatted_platform_instance(self) -> str:
+        return self.platform_instance.replace('.', '/')
+
+    @property
     def cluster(self) -> str:
-        return f"{self.env}/{self.host_port}/{self.db}"
+        return f"{self.env}/{self.formatted_platform_instance}/{self.db}"
 
     @property
     def full_type(self) -> str:
