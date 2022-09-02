@@ -1,52 +1,105 @@
-# Tags Guide
+import FeatureAvailability from '@site/src/components/FeatureAvailability';
 
-## What is a Tag? 
+# About DataHub Tags
 
+<FeatureAvailability/>
 
-Tags are metadata that can be added datasets, dataset schemas, or containers. They provide an easy way to label or categorize entities. 
+Tags are informal, loosely controlled labels that help in search & discovery. They can be added to datasets, dataset schemas, or containers, for an easy way to label or categorize entities – without having to associate them to a broader business glossary or vocabulary.
 
-### Tags vs. Glossary Terms vs. Domains
+Tags can help help you in:
 
-DataHub supports Tags, Glossary Terms, & Domains as distinct types of Metadata that are suited for specific purposes:
+* Querying: Tagging a dataset with a phrase that a co-worker can use to query the same dataset
+* Mapping assets to a category or group of your choice
 
-- **Tags**: Informal, loosely controlled labels that serve as a tool for search & discovery. Assets may have multiple tags. No formal, central management.
-- **Glossary Terms**: A controlled vocabulary, with optional hierarchy. Terms are typically used to standardize types of leaf-level attributes (i.e. schema fields) for governance. E.g. (EMAIL_PLAINTEXT)
-- **Domains**: A set of top-level categories. Usually aligned to business units / disciplines to which the assets are most relevant. Central or distributed management. Single Domain assignment per data asset.
+## Tags Setup, Prerequisites, and Permissions
 
+What you need to add tags:
 
-## Adding a Tag
+* **Edit Tags** metadata privilege to add tags at the entity level
+* **Edit Dataset Column Tags** to edit tags at the column level 
 
-Users must have the Metadata Privilege called `Edit Tags` to add tags at the entity level, and the Privilege called `Edit Dataset Column Tags` to edit tags at the column level. These Privileges
-can be granted by creating a new Metadata [Policy](authorization/policies.md).
+You can create these privileges by creating a new [Metadata Policy](./docs/authorization/policies.md).
 
-To add a tag at the dataset or container level, simply navigate to the page for that entity and click on the "Add Tag" button. 
+## Using DataHub Tags
 
-![](./imgs/add-tag.png)
+### Adding a Tag
 
-You can then type in the name of the tag you would like to add. You can either add a tag that already exists, or add a new tag entirely. The autocomplete will pull up the tag if it already exists.
+To add a tag at the dataset or container level, simply navigate to the page for that entity and click on the **Add Tag** button.
 
-![](./imgs/add-tag-search.png)
+<p align="center">
+  <img width="70%"  src="https://raw.githubusercontent.com/datahub-project/datahub/master/docs/imgs/add-tag.png"/>
+</p>
+
+Type in the name of the tag you want to add. You can add a new tag, or add a tag that already exists (the autocomplete will pull up the tag if it already exists).
+
+<p align="center">
+  <img width="70%"  src="https://raw.githubusercontent.com/datahub-project/datahub/master/docs/imgs/add-tag-search.png"/>
+</p>
 
 Click on the "Add" button and you'll see the tag has been added!
 
-![](./imgs/added-tag.png)
+<p align="center">
+  <img width="70%"  src="https://raw.githubusercontent.com/datahub-project/datahub/master/docs/imgs/added-tag.png"/>
+</p>
 
 If you would like to add a tag at the schema level, hover over the "Tags" column for a schema until the "Add Tag" button shows up, and then follow the same flow as above.
 
-![](./imgs/added-tag.png)
+<p align="center">
+  <img width="70%"  src="https://raw.githubusercontent.com/datahub-project/datahub/master/docs/imgs/add-schema-tag.png"/>
+</p>
 
-## Removing a Tag
+### Removing a Tag
 
 To remove a tag, simply click on the "X" button in the tag. Then click "Yes" when prompted to confirm tag removal.
 
+### Searching by a Tag
 
-## Searching by Tag
+You can search for a tag in the search bar, and even filter entities by the presence of a specific tag.
 
-You can search for a tag in the search bar, and if you wish, even filter entities by the presence of a specific tag.
+<p align="center">
+  <img width="70%"  src="https://raw.githubusercontent.com/datahub-project/datahub/master/docs/imgs/search-tag.png"/>
+</p>
 
-![](./imgs/search-tag.png)
+## Additional Resources
 
+### Videos
 
-## Feedback / Questions / Concerns
+**Add Ownership, Tags, Terms, and more to DataHub via CSV!**
 
-We want to hear from you! For any inquiries, including Feedback, Questions, or Concerns, reach out on Slack!
+<p align="center">
+<iframe width="560" height="315" src="https://www.youtube.com/embed/BGt59KpH1Ds" title="YouTube video player" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe>
+</p>
+
+### GraphQL
+
+* [Tag](../graphql/queries.md#tag)
+* [AddTagsInput](../graphql/inputObjects.md#addtagsinput)
+* [BatchAddTagsInput](../graphql/inputObjects.md#batchaddtagsinput)
+* [BatchRemoveTagsInput](../graphql/inputObjects.md#batchremovetagsinput)
+
+### DataHub Blog
+
+* [Tags and Terms: Two Powerful DataHub Features, Used in Two Different Scenarios
+Managing PII in DataHub: A Practitioner’s Guide](https://blog.datahubproject.io/tags-and-terms-two-powerful-datahub-features-used-in-two-different-scenarios-b5b4791e892e)
+
+## FAQ and Troubleshooting
+
+**What is the difference between DataHub Tags and Glossary Terms?**
+
+DataHub Tags are informal, loosely controlled labels while Terms are part of a controlled vocabulary, with optional hierarchy. Tags have no element of formal, central management.
+
+Usage and applications:
+
+* An asset may have multiple tags.
+* Tags serve as a tool for search & discovery while Terms are typically used to standardize types of leaf-level attributes (i.e. schema fields) for governance. E.g. (EMAIL_PLAINTEXT)
+
+**How are DataHub Tags different from Domains?**
+
+Domains are a set of top-level categories usually aligned to business units/disciplines to which the assets are most relevant. They rely on central or distributed management. A single domain is assigned per data asset.
+
+*Need more help? Join the conversation in [Slack](http://slack.datahubproject.io)!*
+
+### Related Features
+
+* [Glossary Terms](./docs/how/business-glossary-guide.md)
+* [Domains](./docs/domains.md)
