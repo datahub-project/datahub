@@ -1,21 +1,8 @@
-import collections
 import datetime
 from abc import ABCMeta, abstractmethod
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import (
-    Deque,
-    Dict,
-    Generic,
-    Iterable,
-    Iterator,
-    List,
-    Optional,
-    Type,
-    TypeVar,
-    Union,
-    cast,
-)
+from typing import Dict, Generic, Iterable, List, Optional, Type, TypeVar, Union, cast
 
 from pydantic import BaseModel
 
@@ -23,6 +10,7 @@ from datahub.configuration.common import ConfigModel
 from datahub.ingestion.api.closeable import Closeable
 from datahub.ingestion.api.common import PipelineContext, RecordEnvelope, WorkUnit
 from datahub.ingestion.api.report import Report
+from datahub.utilities.lossy_collections import LossyDict, LossyList
 from datahub.utilities.type_annotations import get_class_from_annotation
 
 
@@ -42,70 +30,28 @@ class SourceCapability(Enum):
     CONTAINERS = "Asset Containers"
 
 
-T = TypeVar("T")
-
-
-class LossyList(List[T]):
-    """A list that only preserves the head and tail of lists longer than a certain number"""
-
-    def __init__(
-        self, max_elements: int = 10, section_breaker: Optional[str] = "..."
-    ) -> None:
-        super().__init__()
-        self.max_elements = max_elements
-        self.list_head: List[T] = []
-        self.list_tail: Deque[T] = collections.deque([], maxlen=int(max_elements / 2))
-        self.head_full = False
-        self.total_elements = 0
-        self.section_breaker = section_breaker
-
-    def __iter__(self) -> Iterator[T]:
-        yield from self.list_head
-        if self.section_breaker and len(self.list_tail):
-            yield f"{self.section_breaker} {self.total_elements - len(self.list_head) - len(self.list_tail)} more elements"  # type: ignore
-        yield from self.list_tail
-
-    def append(self, __object: T) -> None:
-        if self.head_full:
-            self.list_tail.append(__object)
-        else:
-            self.list_head.append(__object)
-            if len(self.list_head) > int(self.max_elements / 2):
-                self.head_full = True
-        self.total_elements += 1
-
-    def __len__(self) -> int:
-        return self.total_elements
-
-    def __repr__(self) -> str:
-        return repr(list(self.__iter__()))
-
-    def __str__(self) -> str:
-        return str(list(self.__iter__()))
-
-
 @dataclass
 class SourceReport(Report):
     events_produced: int = 0
     events_produced_per_sec: int = 0
     event_ids: List[str] = field(default_factory=LossyList)
 
-    warnings: Dict[str, List[str]] = field(default_factory=dict)
-    failures: Dict[str, List[str]] = field(default_factory=dict)
+    warnings: LossyDict[str, LossyList[str]] = field(default_factory=LossyDict)
+    failures: LossyDict[str, LossyList[str]] = field(default_factory=LossyDict)
 
     def report_workunit(self, wu: WorkUnit) -> None:
         self.events_produced += 1
         self.event_ids.append(wu.id)
 
     def report_warning(self, key: str, reason: str) -> None:
-        if key not in self.warnings:
-            self.warnings[key] = []
-        self.warnings[key].append(reason)
+        warnings = self.warnings.get(key, LossyList())
+        warnings.append(reason)
+        self.warnings[key] = warnings
 
     def report_failure(self, key: str, reason: str) -> None:
-        if key not in self.failures:
-            self.failures[key] = []
-        self.failures[key].append(reason)
+        failures = self.failures.get(key, LossyList())
+        failures.append(reason)
+        self.failures[key] = failures
 
     def __post_init__(self) -> None:
         self.start_time = datetime.datetime.now()

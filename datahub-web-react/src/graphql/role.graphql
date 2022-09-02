@@ -1,0 +1,61 @@
+query listRoles($input: ListRolesInput!) {
+    listRoles(input: $input) {
+        start
+        count
+        total
+        roles {
+            urn
+            type
+            name
+            description
+            users: relationships(input: { types: ["IsMemberOfRole"], direction: INCOMING, start: 0, count: 10 }) {
+                start
+                count
+                total
+                relationships {
+                    entity {
+                        ... on CorpUser {
+                            urn
+                            type
+                            username
+                            info {
+                                active
+                                displayName
+                                title
+                                firstName
+                                lastName
+                                fullName
+                            }
+                            editableProperties {
+                                displayName
+                                title
+                                pictureLink
+                            }
+                        }
+                    }
+                }
+            }
+            policies: relationships(
+                input: { types: ["IsAssociatedWithRole"], direction: INCOMING, start: 0, count: 10 }
+            ) {
+                start
+                count
+                total
+                relationships {
+                    entity {
+                        ... on DataHubPolicy {
+                            urn
+                            type
+                            name
+                            relationships(input: { types: ["IsAssociatedWithRole"], direction: OUTGOING }) {
+                                start
+                                count
+                                total
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
