@@ -163,7 +163,6 @@ def default_source_config():
 
 
 @freeze_time(FROZEN_TIME)
-@mock.patch(POWERBI_REPORT_SERVER_USER_DAO_GET_OWNER, side_effect=mock_user)
 @mock.patch("requests_ntlm.HttpNtlmAuth")
 def test_powerbi_ingest(
     mock_msal, user_mock, pytestconfig, tmp_path, mock_time, requests_mock
