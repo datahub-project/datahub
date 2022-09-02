@@ -225,7 +225,6 @@ plugins: Dict[str, Set[str]] = {
     | bigquery_common
     | {"sqlalchemy-bigquery>=1.4.1", "sqllineage==1.3.5", "sqlparse"},
     "bigquery-usage": bigquery_common | usage_common | {"cachetools"},
-    #
     "bigquery-beta": sql_common
     | bigquery_common
     | {"sqllineage==1.3.5", "sql_metadata"},
