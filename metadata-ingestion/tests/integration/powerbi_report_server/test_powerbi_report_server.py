@@ -8,8 +8,6 @@ from datahub.ingestion.source.powerbi_report_server import Constant, CorpUser
 from tests.test_helpers import mce_helpers
 
 FROZEN_TIME = "2022-02-03 07:00:00"
-POWERBI_REPORT_SERVER_USER_DAO_GET_OWNER = "datahub.ingestion.source.powerbi_report_server.report_server.UserDao.get_owner_by_name"
-
 
 def mock_user(*args, **kwargs):
     user_data = dict(
