@@ -188,6 +188,7 @@ def test_powerbi_ingest(
             },
         }
     )
+    pipeline.ctx.graph = mock.MagicMock()
     pipeline.ctx.graph.get_ownership = mock.MagicMock()
     pipeline.ctx.graph.get_ownership.side_effect = mock_existing_users
     pipeline.ctx.graph.get_aspect_v2 = mock.MagicMock()
