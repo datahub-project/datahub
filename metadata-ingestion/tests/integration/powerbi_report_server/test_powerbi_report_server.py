@@ -1,6 +1,7 @@
 from datetime import datetime
 from unittest import mock
 
+from datahub.metadata.schema_classes import OwnerClass
 from freezegun import freeze_time
 
 from datahub.ingestion.run.pipeline import Pipeline
@@ -8,6 +9,14 @@ from datahub.ingestion.source.powerbi_report_server import Constant, CorpUser
 from tests.test_helpers import mce_helpers
 
 FROZEN_TIME = "2022-02-03 07:00:00"
+
+
+def mock_existing_users(*args, **kwargs):
+    return [OwnerClass(owner="urn:li:corpuser:TEST_USER", type="TECHNICAL_OWNER"), ]
+
+
+def mock_user_to_add(*args, **kwargs):
+    return None
 
 
 def register_mock_api(request_mock):
@@ -154,9 +163,11 @@ def default_source_config():
 
 
 @freeze_time(FROZEN_TIME)
+@mock.patch("PipelineContext.graph.get_ownership", side_effect=mock_existing_users)
+@mock.patch("PipelineContext.graph.get_aspect_v2", side_effect=mock_user_to_add)
 @mock.patch("requests_ntlm.HttpNtlmAuth")
 def test_powerbi_ingest(
-    mock_msal, pytestconfig, tmp_path, mock_time, requests_mock
+    mock_msal, mock_existing_users, mock_user_to_add, pytestconfig, tmp_path, mock_time, requests_mock
 ):
     test_resources_dir = pytestconfig.rootpath / "tests/integration/powerbi"
 

@@ -543,7 +543,7 @@ class PowerBiReportServerDashboardSource(Source):
 
         if ownership := self.ctx.graph.get_ownership(entity_urn=dashboard_urn):
             existing_ownership = ownership.owners
-        if owner_to_check := self.ctx.graph.get_aspect_v2(
+        if self.ctx.graph.get_aspect_v2(
                 entity_urn=user_urn, aspect="corpUserInfo", aspect_type=CorpUserInfoClass
         ):
             existing_ownership.append(
