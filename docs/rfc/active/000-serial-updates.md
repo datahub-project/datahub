@@ -63,6 +63,11 @@ assumptions, i.e. only update the state IFF the starting state is still the same
 > alternative solutions. In other words, enumerate the constraints you are trying to solve without coupling them too
 > closely to the solution you have in mind.
 
+We wish to avoid losing data silently when two clients make updates to the same space. This may seem uncommon, but 
+in an event-driven world driving downstream operations on Datasets, it's more likely that two clients may end up 
+updating the same aspect. If we can allow a long "compare-and-swap" operation for atomic updates, we can 
+successfully avoid this situation and have one client be told to retry if the state changes underneath it.
+
 ## Requirements
 
 > What specific requirements does your design need to meet? This should ideally be a bulleted list of items you wish
@@ -72,10 +77,18 @@ assumptions, i.e. only update the state IFF the starting state is still the same
 > Once everyone has agreed upon the set of requirements for your design, we can use this list to review the detailed
 > design.
 
+* A client needs to be able to identify the unique state or version of a given aspect when querying for it.
+* The client needs to be able to pass the same state back to a GMS "update" endpoint if it wants to ensure the 
+  aspect has not changed between fetching it and mutating it.
+
 ### Extensibility
 
 > Please also call out extensibility requirements. Is this proposal meant to be extended in the future? Are you adding
 > a new API or set of models that others can build on in later? Please list these concerns here as well.
+
+The proposal could be extended to include a list of aspect versions which must hold true in order for a single 
+aspect update to occur. There is also the possibility of including the state version in a batch update, though this 
+may be complicated if handling multiple updates to the same aspect in a single batch.
 
 ## Non-Requirements
 
@@ -85,6 +98,12 @@ assumptions, i.e. only update the state IFF the starting state is still the same
 >
 > This list can be high level and not detailed. It is to help focus the conversation on what you want to focus on.
 
+It's not important for us to discuss complex prerequisites here. The only thing we need to enforce is the state of 
+an aspect has not changed when making an update to it.
+
+There are some potential spin-offs of this design which could involve writing some kind of PATCH update where a client 
+supplies a diff instead of a complete new state, but this is out of scope of this particular RFC.
+
 ## Detailed design
 
 > This is the bulk of the RFC.
@@ -92,6 +111,12 @@ assumptions, i.e. only update the state IFF the starting state is still the same
 > Explain the design in enough detail for somebody familiar with the framework to understand, and for somebody familiar
 > with the implementation to implement. This should get into specifics and corner-cases, and include examples of how the
 > feature is used. Any new terminology should be defined here.
+
+There are many ways to achieve this, but most of them involve DataHub aspects having some kind of consistent 
+versioning as currently the LATEST version of an aspect is version zero and is a mutable placeholder for a "real" 
+fixed version.
+
+TODO: Different design options to be enumerated.
 
 ## How we teach this
 
@@ -113,16 +138,26 @@ assumptions, i.e. only update the state IFF the starting state is still the same
 
 > There are tradeoffs to choosing any path, please attempt to identify them here.
 
+This will come with some performance drawbacks, as many of these designs will involve an extra hop between the 
+client and DataHub.
+
 ## Alternatives
 
 > What other designs have been considered? What is the impact of not doing this?
 
 > This section could also include prior art, that is, how other frameworks in the same domain have solved this problem.
 
+Alternatives involve cleverly modelling aspects so they are only ever upserted without a previous state in mind, but 
+I haven't worked out how to achieve this for our requirements given the standard entity and aspect model available.
+
+TODO: Embellish
+
 ## Rollout / Adoption Strategy
 
 > If we implemented this proposal, how will existing users / developers adopt it? Is it a breaking change? Can we write
 > automatic refactoring / migration tools? Can we provide a runtime adapter library for the original API it replaces? 
+
+TODO: We'd likely need a new GraphQL API endpoint, but I need to look into this further.
 
 ## Future Work
 
@@ -130,6 +165,10 @@ assumptions, i.e. only update the state IFF the starting state is still the same
 > exhaustive, nor does it need to be anything you work on. It just helps reviewers see how this can be used in the
 > future, so they can help ensure your design is flexible enough.
 
+TODO: This has some very useful features which I'll iterate later.
+
 ## Unresolved questions
 
 > Optional, but suggested for first drafts. What parts of the design are still TBD?
+
+TODO: Still need to do a deep technical proposal.
