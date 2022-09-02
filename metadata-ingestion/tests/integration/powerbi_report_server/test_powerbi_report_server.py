@@ -15,7 +15,7 @@ def mock_existing_users(*args, **kwargs):
     return OwnershipClass(
         owners=[
             OwnerClass(
-                {
+                **{
                     "owner": "urn:li:corpuser:TEST_USER",
                     "type": "TECHNICAL_OWNER",
                     "source": None,
@@ -23,7 +23,7 @@ def mock_existing_users(*args, **kwargs):
             )
         ],
         lastModified=AuditStampClass(
-            {"time": 0, "actor": "urn:li:corpuser:unknown", "impersonator": None}
+            **{"time": 0, "actor": "urn:li:corpuser:unknown", "impersonator": None}
         ),
     )
 
