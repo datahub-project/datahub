@@ -163,11 +163,9 @@ def default_source_config():
 
 
 @freeze_time(FROZEN_TIME)
-@mock.patch("PipelineContext.graph.get_ownership", side_effect=mock_existing_users)
-@mock.patch("PipelineContext.graph.get_aspect_v2", side_effect=mock_user_to_add)
 @mock.patch("requests_ntlm.HttpNtlmAuth")
 def test_powerbi_ingest(
-    mock_msal, mock_existing_users, mock_user_to_add, pytestconfig, tmp_path, mock_time, requests_mock
+    mock_msal, pytestconfig, tmp_path, mock_time, requests_mock
 ):
     test_resources_dir = pytestconfig.rootpath / "tests/integration/powerbi"
 
@@ -190,6 +188,11 @@ def test_powerbi_ingest(
             },
         }
     )
+    pipeline.ctx.graph.get_ownership = mock.MagicMock()
+    pipeline.ctx.graph.get_ownership.side_effect = mock_existing_users
+    pipeline.ctx.graph.get_aspect_v2 = mock.MagicMock()
+    pipeline.ctx.graph.get_aspect_v2.side_effect = mock_user_to_add
+
 
     pipeline.run()
     pipeline.raise_from_status()
