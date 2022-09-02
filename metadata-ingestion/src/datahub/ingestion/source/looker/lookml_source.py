@@ -4,9 +4,7 @@ import logging
 import pathlib
 import re
 import sys
-from dataclasses import dataclass
-from dataclasses import field as dataclass_field
-from dataclasses import replace
+from dataclasses import dataclass, field as dataclass_field, replace
 from typing import Any, Dict, Iterable, List, Optional, Set, Tuple, Type
 
 import pydantic

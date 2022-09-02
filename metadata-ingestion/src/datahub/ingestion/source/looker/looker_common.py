@@ -1,8 +1,7 @@
 import datetime
 import logging
 import re
-from dataclasses import dataclass
-from dataclasses import field as dataclasses_field
+from dataclasses import dataclass, field as dataclasses_field
 from enum import Enum
 from typing import Dict, Iterable, List, Optional, Tuple, Union
 

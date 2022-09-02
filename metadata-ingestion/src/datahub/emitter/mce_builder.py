@@ -12,7 +12,6 @@ import typing_inspect
 
 from datahub.configuration.source_common import DEFAULT_ENV as DEFAULT_ENV_CONFIGURATION
 from datahub.emitter.serialization_helper import pre_json_transform
-from datahub.metadata.com.linkedin.pegasus2avro.common import GlossaryTerms
 from datahub.metadata.schema_classes import (
     AuditStampClass,
     ContainerKeyClass,
@@ -21,6 +20,7 @@ from datahub.metadata.schema_classes import (
     DatasetSnapshotClass,
     GlobalTagsClass,
     GlossaryTermAssociationClass,
+    GlossaryTermsClass as GlossaryTerms,
     MetadataChangeEventClass,
     OwnerClass,
     OwnershipClass,
@@ -31,8 +31,8 @@ from datahub.metadata.schema_classes import (
     TagAssociationClass,
     UpstreamClass,
     UpstreamLineageClass,
+    _Aspect as AspectAbstract,
 )
-from datahub.metadata.schema_classes import _Aspect as AspectAbstract
 from datahub.utilities.urns.dataset_urn import DatasetUrn
 
 logger = logging.getLogger(__name__)
