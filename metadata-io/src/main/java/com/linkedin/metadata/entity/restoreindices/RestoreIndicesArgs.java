@@ -1,5 +1,8 @@
 package com.linkedin.metadata.entity.restoreindices;
 
+import lombok.Data;
+
+@Data
 public class RestoreIndicesArgs implements Cloneable {
     public int start = 0;
     public int batchSize = 10;
@@ -47,18 +50,5 @@ public class RestoreIndicesArgs implements Cloneable {
             this.batchSize = batchSize;
         }
         return this;
-    }
-
-    @Override
-    public String toString() {
-        return "RestoreIndicesArgs{"
-                + "start=" + start
-                + ", batchSize=" + batchSize
-                + ", numThreads=" + numThreads
-                + ", batchDelayMs=" + batchDelayMs
-                + ", aspectName='" + aspectName + '\''
-                + ", urn='" + urn + '\''
-                + ", urnLike='" + urnLike + '\''
-                + '}';
     }
 }

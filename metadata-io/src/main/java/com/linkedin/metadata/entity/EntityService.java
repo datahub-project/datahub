@@ -922,12 +922,6 @@ private Map<Urn, List<EnvelopedAspect>> getCorrespondingAspects(Set<EntityAspect
 
       rowsMigrated++;
     }
-
-    try {
-      TimeUnit.MILLISECONDS.sleep(args.batchDelayMs);
-    } catch (InterruptedException e) {
-      throw new RuntimeException("Thread interrupted while sleeping after successful batch migration.");
-    }
     result.ignored = ignored;
     result.rowsMigrated = rowsMigrated;
     return result;
