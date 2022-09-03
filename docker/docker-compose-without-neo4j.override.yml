@@ -34,5 +34,6 @@ services:
     volumes:
       - ${HOME}/.datahub/plugins:/etc/datahub/plugins
 
+
 volumes:
   mysqldata:

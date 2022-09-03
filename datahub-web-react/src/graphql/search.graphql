@@ -312,7 +312,9 @@ fragment searchResultFields on Entity {
             displayName
             description
         }
-        memberCount: relationships(input: { types: ["IsMemberOfGroup"], direction: INCOMING, start: 0, count: 1 }) {
+        memberCount: relationships(
+            input: { types: ["IsMemberOfGroup", "IsMemberOfNativeGroup"], direction: INCOMING, start: 0, count: 1 }
+        ) {
             total
         }
     }
@@ -373,6 +375,9 @@ fragment searchResultFields on Entity {
                 }
             }
         }
+        inputFields {
+            ...inputFieldsFields
+        }
     }
     ... on Chart {
         chartId
@@ -383,6 +388,9 @@ fragment searchResultFields on Entity {
             type
             access
             lastModified {
+                time
+            }
+            created {
                 time
             }
         }
@@ -412,6 +420,28 @@ fragment searchResultFields on Entity {
         }
         parentContainers {
             ...parentContainersFields
+        }
+        statsSummary {
+            viewCount
+            uniqueUserCountLast30Days
+            topUsersLast30Days {
+                urn
+                type
+                username
+                properties {
+                    displayName
+                    firstName
+                    lastName
+                    fullName
+                }
+                editableProperties {
+                    displayName
+                    pictureLink
+                }
+            }
+        }
+        inputFields {
+            ...inputFieldsFields
         }
     }
     ... on DataFlow {
@@ -511,6 +541,9 @@ fragment searchResultFields on Entity {
         }
         deprecation {
             ...deprecationFields
+        }
+        parentNodes {
+            ...parentNodesFields
         }
     }
     ... on GlossaryNode {

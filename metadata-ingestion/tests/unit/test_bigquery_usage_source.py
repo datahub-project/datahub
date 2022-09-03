@@ -106,7 +106,7 @@ protoPayload.serviceData.jobCompletedEvent.job.jobStatistics.referencedTables.ta
 AND
 timestamp >= "2021-07-18T23:45:00Z"
 AND
-timestamp < "2021-07-21T00:15:00Z\""""  # noqa: W293
+timestamp < "2021-07-20T00:15:00Z\""""  # noqa: W293
 
     source = BigQueryUsageSource.create(config, PipelineContext(run_id="bq-usage-test"))
 
@@ -164,7 +164,7 @@ protoPayload.serviceData.jobCompletedEvent.job.jobStatistics.referencedTables.ta
 AND
 timestamp >= "2021-07-18T23:45:00Z"
 AND
-timestamp < "2021-07-21T00:15:00Z\""""  # noqa: W293
+timestamp < "2021-07-20T00:15:00Z\""""  # noqa: W293
     source = BigQueryUsageSource.create(config, PipelineContext(run_id="bq-usage-test"))
     filter: str = source._generate_filter(BQ_AUDIT_V1)
     assert filter == expected_filter
@@ -190,6 +190,12 @@ def test_bigquery_ref_extra_removal():
     assert new_table_ref.dataset == table_ref.dataset
 
     table_ref = BigQueryTableRef("project-1234", "dataset-4567", "foo")
+    new_table_ref = table_ref.remove_extras(_BIGQUERY_DEFAULT_SHARDED_TABLE_REGEX)
+    assert new_table_ref.table == "foo"
+    assert new_table_ref.project == table_ref.project
+    assert new_table_ref.dataset == table_ref.dataset
+
+    table_ref = BigQueryTableRef("project-1234", "dataset-4567", "foo_2016*")
     new_table_ref = table_ref.remove_extras(_BIGQUERY_DEFAULT_SHARDED_TABLE_REGEX)
     assert new_table_ref.table == "foo"
     assert new_table_ref.project == table_ref.project

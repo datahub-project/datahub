@@ -1,6 +1,6 @@
 import React from 'react';
 import { useEntityData } from '../shared/EntityContext';
-import { EmbeddedListSearch } from '../shared/components/styled/search/EmbeddedListSearch';
+import { EmbeddedListSearchSection } from '../shared/components/styled/search/EmbeddedListSearchSection';
 
 export const ContainerEntitiesTab = () => {
     const { urn } = useEntityData();
@@ -11,7 +11,7 @@ export const ContainerEntitiesTab = () => {
     };
 
     return (
-        <EmbeddedListSearch
+        <EmbeddedListSearchSection
             fixedFilter={fixedFilter}
             emptySearchQuery="*"
             placeholderText="Filter container entities..."

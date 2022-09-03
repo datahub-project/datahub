@@ -1,16 +1,21 @@
+require("dotenv").config();
+const isSaas = process.env.DOCUSAURUS_IS_SAAS === "true";
+
 module.exports = {
-  title: "DataHub",
+  title: process.env.DOCUSAURUS_CONFIG_TITLE || "DataHub",
   tagline: "A Metadata Platform for the Modern Data Stack",
-  url: "https://datahubproject.io",
-  baseUrl: "/",
+  url: process.env.DOCUSAURUS_CONFIG_URL || "https://datahubproject.io",
+  baseUrl: process.env.DOCUSAURUS_CONFIG_BASE_URL || "/",
   onBrokenLinks: "throw",
   onBrokenMarkdownLinks: "throw",
   favicon: "img/favicon.ico",
-  organizationName: "linkedin", // Usually your GitHub org/user name.
+  organizationName: "datahub-project", // Usually your GitHub org/user name.
   projectName: "datahub", // Usually your repo name.
-  stylesheets: [
-    "https://fonts.googleapis.com/css2?family=Manrope:wght@400;600&display=swap",
-  ],
+  stylesheets: ["https://fonts.googleapis.com/css2?family=Manrope:wght@400;600&display=swap"],
+  noIndex: isSaas,
+  customFields: {
+    isSaas: isSaas,
+  },
   themeConfig: {
     colorMode: {
       switchConfig: {
@@ -30,20 +35,22 @@ module.exports = {
         },
       },
     },
-    announcementBar: {
-      id: "announcement",
-      content:
-        '<div><img src="/img/acryl-logo-white-mark.svg" /><p><strong>Managed DataHub</strong><span> &nbsp;Acryl Data delivers an easy to consume DataHub platform for the enterprise</span></p></div> <a href="https://www.acryldata.io/datahub-beta" target="_blank" class="button button--primary">Sign up for Managed DataHub →</a>',
-      backgroundColor: "#090a11",
-      textColor: "#ffffff",
-      isCloseable: false,
-    },
+    ...(!isSaas && {
+      announcementBar: {
+        id: "announcement",
+        content:
+          '<div><img src="/img/acryl-logo-white-mark.svg" /><p><strong>Managed DataHub</strong><span> &nbsp;Acryl Data delivers an easy to consume DataHub platform for the enterprise</span></p></div> <a href="https://www.acryldata.io/datahub-beta" target="_blank" class="button button--primary">Sign up for Managed DataHub →</a>',
+        backgroundColor: "#070707",
+        textColor: "#ffffff",
+        isCloseable: false,
+      },
+    }),
     navbar: {
       title: null,
       logo: {
         alt: "DataHub Logo",
-        src: "img/datahub-logo-color-light-horizontal.svg",
-        srcDark: "img/datahub-logo-color-dark-horizontal.svg",
+        src: `img/${isSaas ? "acryl" : "datahub"}-logo-color-light-horizontal.svg`,
+        srcDark: `img/${isSaas ? "acryl" : "datahub"}-logo-color-dark-horizontal.svg`,
       },
       items: [
         {
@@ -172,7 +179,8 @@ module.exports = {
       additionalLanguages: ["ini"],
     },
     algolia: {
-      apiKey: "26a4b687e96e7476b5a6f11365a83336",
+      appId: "RK0UG797F3",
+      apiKey: "39d7eb90d8b31d464e309375a52d674f",
       indexName: "datahubproject",
       // contextualSearch: true,
       // searchParameters: {},
@@ -186,7 +194,9 @@ module.exports = {
         docs: {
           path: "genDocs",
           sidebarPath: require.resolve("./sidebars.js"),
-          editUrl: "https://github.com/datahub-project/datahub/blob/master/",
+          ...(!isSaas && {
+            editUrl: "https://github.com/datahub-project/datahub/blob/master/",
+          }),
           numberPrefixParser: false,
           // TODO: make these work correctly with the doc generation
           showLastUpdateAuthor: true,
@@ -194,16 +204,16 @@ module.exports = {
         },
         blog: false,
         theme: {
-          customCss: require.resolve("./src/styles/global.scss"),
+          customCss: [
+            isSaas ? require.resolve("./src/styles/acryl.scss") : require.resolve("./src/styles/datahub.scss"),
+            require.resolve("./src/styles/global.scss"),
+          ],
         },
       },
     ],
   ],
   plugins: [
-    [
-      "@docusaurus/plugin-ideal-image",
-      { quality: 100, sizes: [320, 640, 1280, 1440, 1600] },
-    ],
+    ["@docusaurus/plugin-ideal-image", { quality: 100, sizes: [320, 640, 1280, 1440, 1600] }],
     "docusaurus-plugin-sass",
     [
       "docusaurus-graphql-plugin",

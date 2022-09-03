@@ -1,6 +1,8 @@
 import datetime
+import functools
 import json
 import logging
+import os
 from json.decoder import JSONDecodeError
 from typing import Any, Dict, List, Optional, Tuple, Union
 
@@ -34,7 +36,9 @@ class DataHubRestEmitter:
         504,
     ]
     DEFAULT_RETRY_METHODS = ["HEAD", "GET", "POST", "PUT", "DELETE", "OPTIONS", "TRACE"]
-    DEFAULT_RETRY_MAX_TIMES = 3
+    DEFAULT_RETRY_MAX_TIMES = int(
+        os.getenv("DATAHUB_REST_EMITTER_DEFAULT_RETRY_MAX_TIMES", "3")
+    )
 
     _gms_server: str
     _token: Optional[str]
@@ -129,6 +133,13 @@ class DataHubRestEmitter:
         )
         self._session.mount("http://", adapter)
         self._session.mount("https://", adapter)
+
+        # Shim session.request to apply default timeout values.
+        # Via https://stackoverflow.com/a/59317604.
+        self._session.request = functools.partial(  # type: ignore
+            self._session.request,
+            timeout=(self._connect_timeout_sec, self._read_timeout_sec),
+        )
 
     def test_connection(self) -> dict:
         response = self._session.get(f"{self._gms_server}/config")
@@ -226,12 +237,7 @@ class DataHubRestEmitter:
             curl_command,
         )
         try:
-            response = self._session.post(
-                url,
-                data=payload,
-                timeout=(self._connect_timeout_sec, self._read_timeout_sec),
-            )
-
+            response = self._session.post(url, data=payload)
             response.raise_for_status()
         except HTTPError as e:
             try:

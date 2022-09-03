@@ -24,10 +24,10 @@ function truncate(input, length) {
     return input;
 }
 
-function getLastTokenOfTitle(title?: string): string {
+function getLastTokenOfTitle(title?: string, delimiter?: string): string {
     if (!title) return '';
 
-    const lastToken = title?.split('.').slice(-1)[0];
+    const lastToken = title?.split(delimiter || '.').slice(-1)[0];
 
     // if the last token does not contain any content, the string should not be tokenized on `.`
     if (lastToken.replace(/\s/g, '').length === 0) {
@@ -118,7 +118,9 @@ export default function LineageEntityNode({
         [],
     );
 
-    let platformDisplayText = capitalizeFirstLetter(node.data.platform);
+    let platformDisplayText = capitalizeFirstLetter(
+        node.data.platform?.properties?.displayName || node.data.platform?.name,
+    );
     if (node.data.siblingPlatforms && !isHideSiblingMode) {
         platformDisplayText = node.data.siblingPlatforms
             .map((platform) => platform.properties?.displayName || platform.name)
@@ -324,7 +326,13 @@ export default function LineageEntityNode({
                             textAnchor="start"
                             fill={isCenterNode ? '#1890FF' : 'black'}
                         >
-                            {truncate(getLastTokenOfTitle(node.data.name), 16)}
+                            {truncate(
+                                getLastTokenOfTitle(
+                                    node.data.name,
+                                    node.data.platform?.properties?.datasetNameDelimiter,
+                                ),
+                                16,
+                            )}
                         </UnselectableText>
                     )}
                 </Group>

@@ -15,6 +15,7 @@ from datahub.emitter.rest_emitter import DatahubRestEmitter
 from datahub.emitter.serialization_helper import post_json_transform
 from datahub.metadata.schema_classes import (
     DatasetUsageStatisticsClass,
+    DomainPropertiesClass,
     DomainsClass,
     GlobalTagsClass,
     GlossaryTermsClass,
@@ -42,6 +43,7 @@ class DatahubClientConfig(ConfigModel):
     extra_headers: Optional[Dict[str, str]]
     ca_certificate_path: Optional[str]
     max_threads: int = 1
+    disable_ssl_verification: bool = False
 
 
 class DataHubGraph(DatahubRestEmitter):
@@ -181,6 +183,13 @@ class DataHubGraph(DatahubRestEmitter):
             entity_urn=entity_urn,
             aspect="ownership",
             aspect_type=OwnershipClass,
+        )
+
+    def get_domain_properties(self, entity_urn: str) -> Optional[DomainPropertiesClass]:
+        return self.get_aspect_v2(
+            entity_urn=entity_urn,
+            aspect="domainProperties",
+            aspect_type=DomainPropertiesClass,
         )
 
     def get_tags(self, entity_urn: str) -> Optional[GlobalTagsClass]:
@@ -352,6 +361,9 @@ class DataHubGraph(DatahubRestEmitter):
     def _get_search_endpoint(self):
         return f"{self.config.server}/entities?action=search"
 
+    def _get_aspect_count_endpoint(self):
+        return f"{self.config.server}/aspects?action=getCount"
+
     def get_domain_urn_by_name(self, domain_name: str) -> Optional[str]:
         """Retrieve a domain urn based on its name. Returns None if there is no match found"""
 
@@ -429,3 +441,17 @@ class DataHubGraph(DatahubRestEmitter):
             entities_yielded += 1
             logger.debug(f"yielding {x['entity']}")
             yield x["entity"]
+
+    def get_search_results(
+        self, start: int = 0, count: int = 1, entity: str = "dataset"
+    ) -> Dict:
+        search_body = {"input": "*", "entity": entity, "start": start, "count": count}
+        results: Dict = self._post_generic(self._get_search_endpoint(), search_body)
+        return results
+
+    def get_aspect_counts(self, aspect: str, urn_like: Optional[str] = None) -> int:
+        args = {"aspect": aspect}
+        if urn_like is not None:
+            args["urnLike"] = urn_like
+        results = self._post_generic(self._get_aspect_count_endpoint(), args)
+        return results["value"]

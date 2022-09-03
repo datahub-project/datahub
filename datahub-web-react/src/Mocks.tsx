@@ -71,6 +71,7 @@ const user1 = {
             },
         ],
     },
+    settings: { appearance: { showSimplifiedHomepage: false } },
 };
 
 const user2 = {
@@ -114,6 +115,7 @@ const user2 = {
             },
         ],
     },
+    settings: { appearance: { showSimplifiedHomepage: false } },
 };
 
 const dataPlatform = {
@@ -142,6 +144,7 @@ export const dataset1 = {
             logoUrl: '',
         },
     },
+    lastIngested: null,
     dataPlatformInstance: null,
     platformNativeType: 'TABLE',
     name: 'The Great Test Dataset',
@@ -225,6 +228,7 @@ export const dataset1 = {
     assertions: null,
     deprecation: null,
     testResults: null,
+    statsSummary: null,
 };
 
 export const dataset2 = {
@@ -241,6 +245,7 @@ export const dataset2 = {
         },
         type: EntityType.DataPlatform,
     },
+    lastIngested: null,
     dataPlatformInstance: null,
     platformNativeType: 'TABLE',
     name: 'Some Other Dataset',
@@ -309,6 +314,7 @@ export const dataset2 = {
     status: null,
     deprecation: null,
     testResults: null,
+    statsSummary: null,
 };
 
 export const dataset3 = {
@@ -326,6 +332,7 @@ export const dataset3 = {
         },
         type: EntityType.DataPlatform,
     },
+    lastIngested: null,
     dataPlatformInstance: null,
     platformNativeType: 'STREAM',
     name: 'Yet Another Dataset',
@@ -402,7 +409,10 @@ export const dataset3 = {
                         description: 'sample definition',
                         definition: 'sample definition',
                         termSource: 'sample term source',
+                        customProperties: null,
                     },
+                    ownership: null,
+                    parentNodes: null,
                 },
                 associatedUrn: 'urn:li:dataset:3',
             },
@@ -432,6 +442,7 @@ export const dataset3 = {
         createdAt: 0,
         fields: [
             {
+                __typename: 'SchemaField',
                 nullable: false,
                 recursive: false,
                 fieldPath: 'user_id',
@@ -442,8 +453,10 @@ export const dataset3 = {
                 jsonPath: null,
                 globalTags: null,
                 glossaryTerms: null,
+                label: 'hi',
             },
             {
+                __typename: 'SchemaField',
                 nullable: false,
                 recursive: false,
                 fieldPath: 'user_name',
@@ -454,6 +467,7 @@ export const dataset3 = {
                 jsonPath: null,
                 globalTags: null,
                 glossaryTerms: null,
+                label: 'hi',
             },
         ],
         hash: '',
@@ -524,6 +538,7 @@ export const dataset3 = {
     writeRuns: null,
     testResults: null,
     siblings: null,
+    statsSummary: null,
 } as Dataset;
 
 export const dataset4 = {
@@ -792,6 +807,7 @@ export const container1 = {
     urn: 'urn:li:container:DATABASE',
     type: EntityType.Container,
     platform: dataPlatform,
+    lastIngested: null,
     properties: {
         name: 'database1',
         __typename: 'ContainerProperties',
@@ -803,6 +819,7 @@ export const container2 = {
     urn: 'urn:li:container:SCHEMA',
     type: EntityType.Container,
     platform: dataPlatform,
+    lastIngested: null,
     properties: {
         name: 'schema1',
         __typename: 'ContainerProperties',
@@ -852,6 +869,7 @@ const glossaryTerm1 = {
         sourceRef: 'sourceRef',
         sourceURI: 'sourceURI',
     },
+    parentNodes: null,
     deprecation: null,
 } as GlossaryTerm;
 
@@ -924,6 +942,7 @@ const glossaryTerm2 = {
         ],
         __typename: 'EntityRelationshipsResult',
     },
+    parentNodes: null,
     __typename: 'GlossaryTerm',
 };
 
@@ -1095,6 +1114,7 @@ export const dataFlow1 = {
     orchestrator: 'Airflow',
     flowId: 'flowId1',
     cluster: 'cluster1',
+    lastIngested: null,
     properties: {
         name: 'DataFlowInfoName',
         description: 'DataFlowInfo1 Description',
@@ -1163,6 +1183,7 @@ export const dataJob1 = {
     type: EntityType.DataJob,
     dataFlow: dataFlow1,
     jobId: 'jobId1',
+    lastIngested: null,
     ownership: {
         __typename: 'Ownership',
         owners: [
@@ -1308,6 +1329,7 @@ export const dataJob3 = {
     type: EntityType.DataJob,
     dataFlow: dataFlow1,
     jobId: 'jobId3',
+    lastIngested: null,
     ownership: {
         __typename: 'Ownership',
         owners: [
@@ -1375,6 +1397,7 @@ export const mlModel = {
     name: 'trust model',
     description: 'a ml trust model',
     origin: 'PROD',
+    lastIngested: null,
     platform: {
         urn: 'urn:li:dataPlatform:kafka',
         name: 'Kafka',

@@ -59,13 +59,3 @@ def test_correct_url_when_gms_host_port_url_protocol_set():
 )
 def test_correct_url_when_url_set():
     assert cli_utils.get_details_from_env() == ("https://example.com", None)
-
-
-@mock.patch.dict(
-    os.environ,
-    {
-        "GMS_HOST": "https://example.com",
-    },
-)
-def test_correct_url_when_deprecated_host_env_set():
-    assert cli_utils.get_details_from_env() == ("https://example.com", None)

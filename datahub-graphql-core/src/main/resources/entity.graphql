@@ -173,6 +173,11 @@ type Query {
     Gets an entity based on its urn
     """
     entity(urn: String!): Entity
+
+    """
+    List all DataHub Roles
+    """
+    listRoles(input: ListRolesInput!): ListRolesResult
 }
 
 """
@@ -184,6 +189,11 @@ type Mutation {
     Update the metadata about a particular Dataset
     """
     updateDataset(urn: String!, input: DatasetUpdateInput!): Dataset
+
+    """
+    Update the metadata about a batch of Datasets
+    """
+    updateDatasets(input: [BatchDatasetUpdateInput!]!): [Dataset]
 
     """
     Update the metadata about a particular Chart
@@ -261,14 +271,29 @@ type Mutation {
     addTags(input: AddTagsInput!): Boolean
 
     """
+    Add tags to multiple Entities or subresources
+    """
+    batchAddTags(input: BatchAddTagsInput!): Boolean
+
+    """
 		Remove a tag from a particular Entity or subresource
     """
     removeTag(input: TagAssociationInput!): Boolean
 
     """
+		Remove tags from multiple Entities or subresource
+    """
+    batchRemoveTags(input: BatchRemoveTagsInput!): Boolean
+
+    """
 		Add a glossary term to a particular Entity or subresource
     """
     addTerm(input: TermAssociationInput!): Boolean
+
+    """
+		Add glossary terms to multiple Entities or subresource
+    """
+    batchAddTerms(input: BatchAddTermsInput!): Boolean
 
     """
 		Add multiple glossary terms to a particular Entity or subresource
@@ -281,9 +306,19 @@ type Mutation {
     removeTerm(input: TermAssociationInput!): Boolean
 
     """
+		Remove glossary terms from multiple Entities or subresource
+    """
+    batchRemoveTerms(input: BatchRemoveTermsInput!): Boolean
+
+    """
     Add an owner to a particular Entity
     """
     addOwner(input: AddOwnerInput!): Boolean
+
+    """
+    Add owners to multiple Entities
+    """
+    batchAddOwners(input: BatchAddOwnersInput!): Boolean
 
     """
     Add multiple owners to a particular Entity
@@ -294,6 +329,11 @@ type Mutation {
     Remove an owner from a particular Entity
     """
     removeOwner(input: RemoveOwnerInput!): Boolean
+
+    """
+    Remove owners from multiple Entities
+    """
+    batchRemoveOwners(input: BatchRemoveOwnersInput!): Boolean
 
     """
     Add a link, or institutional memory, from a particular Entity
@@ -360,6 +400,11 @@ type Mutation {
     setDomain(entityUrn: String!, domainUrn: String!): Boolean
 
     """
+    Set domain for multiple Entities
+    """
+    batchSetDomain(input: BatchSetDomainInput!): Boolean
+
+    """
     Sets the Domain for a Dataset, Chart, Dashboard, Data Flow (Pipeline), or Data Job (Task). Returns true if the Domain was successfully removed, or was already removed. Requires the Edit Domains privilege for an asset.
     """
     unsetDomain(entityUrn: String!): Boolean
@@ -370,6 +415,11 @@ type Mutation {
     updateDeprecation(
       "Input required to set deprecation for an Entity."
       input: UpdateDeprecationInput!): Boolean
+
+    """
+    Updates the deprecation status for a batch of assets.
+    """
+    batchUpdateDeprecation(input: BatchUpdateDeprecationInput!): Boolean
 
     """
     Update a particular Corp User's editable properties
@@ -443,6 +493,21 @@ type Mutation {
     Generates a token that can be shared with existing native users to reset their credentials.
     """
     createNativeUserResetToken(input: CreateNativeUserResetTokenInput!): ResetToken
+
+    """
+    Updates the soft deleted status for a batch of assets
+    """
+    batchUpdateSoftDeleted(input: BatchUpdateSoftDeletedInput!): Boolean
+
+    """
+    Update a user setting
+    """
+    updateUserSetting(input: UpdateUserSettingInput!): Boolean
+
+    """
+    Batch assign roles to users
+    """
+    batchAssignRole(input: BatchAssignRoleInput!): Boolean
 }
 
 """
@@ -463,6 +528,16 @@ interface Entity {
     List of relationships between the source Entity and some destination entities with a given types
     """
     relationships(input: RelationshipsInput!): EntityRelationshipsResult
+}
+
+"""
+A Metadata Entity which is browsable, or has browse paths.
+"""
+interface BrowsableEntity {
+  """
+  The browse paths corresponding to an entity. If no Browse Paths have been generated before, this will be null.
+  """
+  browsePaths: [BrowsePath!]
 }
 
 """
@@ -598,6 +673,16 @@ enum EntityType {
     A DataHub Test
     """
     TEST
+
+    """
+    A DataHub Policy
+    """
+    DATAHUB_POLICY
+
+    """
+    A DataHub Role
+    """
+    DATAHUB_ROLE
 }
 
 """
@@ -831,7 +916,7 @@ interface EntityWithRelationships implements Entity {
 """
 A Dataset entity, which encompasses Relational Tables, Document store collections, streaming topics, and other sets of data having an independent lifecycle
 """
-type Dataset implements EntityWithRelationships & Entity {
+type Dataset implements EntityWithRelationships & Entity & BrowsableEntity {
     """
     The primary key of the Dataset
     """
@@ -841,6 +926,11 @@ type Dataset implements EntityWithRelationships & Entity {
     The standard Entity Type
     """
     type: EntityType!
+
+    """
+    The timestamp for the last time this entity was ingested
+    """
+    lastIngested: Long
 
     """
     Standardized platform urn where the dataset is defined
@@ -959,6 +1049,11 @@ type Dataset implements EntityWithRelationships & Entity {
     Edges extending from this entity grouped by direction in the lineage graph
     """
     lineage(input: LineageInput!): EntityLineageResult
+
+    """
+    The browse paths corresponding to the dataset. If no Browse Paths have been generated before, this will be null.
+    """
+    browsePaths: [BrowsePath!]
 
     """
     Experimental! The resolved health statuses of the Dataset
@@ -1536,6 +1631,11 @@ type DataPlatform implements Entity {
     type: EntityType!
 
     """
+    The timestamp for the last time this entity was ingested
+    """
+    lastIngested: Long
+
+    """
     Name of the data platform
     """
     name: String!
@@ -1764,6 +1864,11 @@ type Container implements Entity {
     A standard Entity Type
     """
     type: EntityType!
+
+    """
+    The timestamp for the last time this entity was ingested
+    """
+    lastIngested: Long
 
     """
     Standardized platform.
@@ -2213,6 +2318,11 @@ type SchemaField {
     Flattened name of a field in JSON Path notation
     """
     jsonPath: String
+
+    """
+    Human readable label for the field. Not supplied by all data sources
+    """
+    label: String
 
     """
     Indicates if this field is optional or nullable
@@ -2791,6 +2901,32 @@ type CorpUser implements Entity {
     The structured tags associated with the user
     """
     globalTags: GlobalTags @deprecated
+
+    """
+    Settings that a user can customize through the datahub ui
+    """
+    settings: CorpUserSettings
+}
+
+"""
+Settings that a user can customize through the datahub ui
+"""
+type CorpUserSettings {
+    """
+    Settings that control look and feel of the DataHub UI for the user
+    """
+    appearance: CorpUserAppearanceSettings
+}
+
+"""
+Settings that control look and feel of the DataHub UI for the user
+"""
+type CorpUserAppearanceSettings {
+    """
+    Flag whether the user should see a homepage with only datasets, charts & dashboards. Intended for users
+    who have less operational use cases for the datahub tool.
+    """
+    showSimplifiedHomepage: Boolean
 }
 
 """
@@ -3055,6 +3191,7 @@ A DataHub Group entity, which represents a Person on the Metadata Entity Graph
 """
 type CorpGroup implements Entity {
     """
+
     The primary key of the group
     """
     urn: String!
@@ -3088,6 +3225,11 @@ type CorpGroup implements Entity {
     Granular API for querying edges extending from this entity
     """
     relationships(input: RelationshipsInput!): EntityRelationshipsResult
+
+    """
+    Origin info about this group.
+    """
+    origin: Origin
 
     """
     Deprecated, use properties field instead
@@ -3153,6 +3295,11 @@ type CorpGroupProperties {
     email of this group
     """
     email: String
+
+    """
+    Slack handle for the group
+    """
+    slack: String
 }
 
 """
@@ -3551,6 +3698,23 @@ input DatasetUpdateInput {
 }
 
 """
+Arguments provided to batch update Dataset entities
+"""
+input BatchDatasetUpdateInput {
+
+    """
+    Primary key of the Dataset to which the update will be applied
+    """
+    urn: String!
+
+    """
+    Arguments provided to update the Dataset
+    """
+    update: DatasetUpdateInput!
+}
+
+
+"""
 Update to editable schema metadata of the dataset
 """
 input EditableSchemaMetadataUpdate {
@@ -3793,7 +3957,7 @@ input InstitutionalMemoryMetadataUpdate {
 """
 A Notebook Metadata Entity
 """
-type Notebook implements Entity {
+type Notebook implements Entity & BrowsableEntity {
     """
     The primary key of the Notebook
     """
@@ -3878,6 +4042,11 @@ type Notebook implements Entity {
     Standardized platform.
     """
     platform: DataPlatform!
+
+    """
+    The browse paths corresponding to the Notebook. If no Browse Paths have been generated before, this will be null.
+    """
+    browsePaths: [BrowsePath!]
 }
 
 """
@@ -4034,7 +4203,7 @@ type ChangeAuditStamps {
 """
 A Dashboard Metadata Entity
 """
-type Dashboard implements EntityWithRelationships & Entity {
+type Dashboard implements EntityWithRelationships & Entity & BrowsableEntity {
     """
     The primary key of the Dashboard
     """
@@ -4044,6 +4213,11 @@ type Dashboard implements EntityWithRelationships & Entity {
     A standard Entity Type
     """
     type: EntityType!
+
+    """
+    The timestamp for the last time this entity was ingested
+    """
+    lastIngested: Long
 
     """
     The parent container in which the entity resides
@@ -4127,12 +4301,17 @@ type Dashboard implements EntityWithRelationships & Entity {
     lineage(input: LineageInput!): EntityLineageResult
 
     """
+    The browse paths corresponding to the dashboard. If no Browse Paths have been generated before, this will be null.
+    """
+    browsePaths: [BrowsePath!]
+
+    """
     Experimental (Subject to breaking change) -- Statistics about how this Dashboard is used
     """
     usageStats(startTimeMillis: Long, endTimeMillis: Long, limit: Int): DashboardUsageQueryResult
 
     """
-    Experimental - Summary operational & usage statistics about a Dataset
+    Experimental - Summary operational & usage statistics about a Dashboard
     """
     statsSummary: DashboardStatsSummary
 
@@ -4158,6 +4337,11 @@ type Dashboard implements EntityWithRelationships & Entity {
     Standardized platform urn where the dashboard is defined
     """
     platform: DataPlatform!
+
+    """
+    Input fields that power all the charts in the dashboard
+    """
+    inputFields: InputFields
 }
 
 """
@@ -4302,7 +4486,7 @@ type DashboardProperties {
 """
 A Chart Metadata Entity
 """
-type Chart implements EntityWithRelationships & Entity {
+type Chart implements EntityWithRelationships & Entity & BrowsableEntity {
     """
     The primary key of the Chart
     """
@@ -4312,6 +4496,11 @@ type Chart implements EntityWithRelationships & Entity {
     A standard Entity Type
     """
     type: EntityType!
+
+    """
+    The timestamp for the last time this entity was ingested
+    """
+    lastIngested: Long
 
     """
     The parent container in which the entity resides
@@ -4390,6 +4579,13 @@ type Chart implements EntityWithRelationships & Entity {
     dataPlatformInstance: DataPlatformInstance
 
     """
+    Not yet implemented.
+
+    Experimental - Summary operational & usage statistics about a Chart
+    """
+    statsSummary: ChartStatsSummary
+
+    """
     Granular API for querying edges extending from this entity
     """
     relationships(input: RelationshipsInput!): EntityRelationshipsResult
@@ -4398,6 +4594,11 @@ type Chart implements EntityWithRelationships & Entity {
     Edges extending from this entity grouped by direction in the lineage graph
     """
     lineage(input: LineageInput!): EntityLineageResult
+
+    """
+    The browse paths corresponding to the chart. If no Browse Paths have been generated before, this will be null.
+    """
+    browsePaths: [BrowsePath!]
 
     """
     Deprecated, use properties field instead
@@ -4421,6 +4622,11 @@ type Chart implements EntityWithRelationships & Entity {
     Standardized platform urn where the chart is defined
     """
     platform: DataPlatform!
+
+    """
+    Input fields to power the chart
+    """
+    inputFields: InputFields
 }
 
 """
@@ -4650,7 +4856,7 @@ enum ChartQueryType {
 A Data Flow Metadata Entity, representing an set of pipelined Data Job or Tasks required
 to produce an output Dataset Also known as a Data Pipeline
 """
-type DataFlow implements EntityWithRelationships & Entity {
+type DataFlow implements EntityWithRelationships & Entity & BrowsableEntity {
     """
     The primary key of a Data Flow
     """
@@ -4660,6 +4866,11 @@ type DataFlow implements EntityWithRelationships & Entity {
     A standard Entity Type
     """
     type: EntityType!
+
+    """
+    The timestamp for the last time this entity was ingested
+    """
+    lastIngested: Long
 
     """
     Workflow orchestrator ei Azkaban, Airflow
@@ -4735,6 +4946,11 @@ type DataFlow implements EntityWithRelationships & Entity {
     Edges extending from this entity grouped by direction in the lineage graph
     """
     lineage(input: LineageInput!): EntityLineageResult
+
+    """
+    The browse paths corresponding to the data flow. If no Browse Paths have been generated before, this will be null.
+    """
+    browsePaths: [BrowsePath!]
 
     """
     Deprecated, use properties field instead
@@ -4825,7 +5041,7 @@ type DataFlowProperties {
 A Data Job Metadata Entity, representing an individual unit of computation or Task
 to produce an output Dataset Always part of a parent Data Flow aka Pipeline
 """
-type DataJob implements EntityWithRelationships & Entity {
+type DataJob implements EntityWithRelationships & Entity & BrowsableEntity {
     """
     The primary key of the Data Job
     """
@@ -4835,6 +5051,11 @@ type DataJob implements EntityWithRelationships & Entity {
     A standard Entity Type
     """
     type: EntityType!
+
+    """
+    The timestamp for the last time this entity was ingested
+    """
+    lastIngested: Long
 
     """
     Deprecated, use relationship IsPartOf instead
@@ -4906,6 +5127,11 @@ type DataJob implements EntityWithRelationships & Entity {
     Edges extending from this entity grouped by direction in the lineage graph
     """
     lineage(input: LineageInput!): EntityLineageResult
+
+    """
+    The browse paths corresponding to the data job. If no Browse Paths have been generated before, this will be null.
+    """
+    browsePaths: [BrowsePath!]
 
     """
     Deprecated, use properties field instead
@@ -5052,6 +5278,11 @@ enum DataProcessInstanceRunResultType {
     The run was skipped
     """
     SKIPPED
+
+    """
+    The run failed and is up for retry
+    """
+    UP_FOR_RETRY
 }
 
 
@@ -5279,7 +5510,7 @@ type DatasetStatsSummary {
     """
     The top users in the past 30 days
     """
-    topUsersLast30Days: [CorpUser!]!
+    topUsersLast30Days: [CorpUser!]
 }
 
 """
@@ -5456,7 +5687,33 @@ type DashboardStatsSummary {
     """
     The top users in the past 30 days
     """
-    topUsersLast30Days: [CorpUser!]!
+    topUsersLast30Days: [CorpUser!]
+}
+
+
+"""
+Experimental - subject to change. A summary of usage metrics about a Chart.
+"""
+type ChartStatsSummary {
+    """
+    The total view count for the chart
+    """
+    viewCount: Int
+
+    """
+    The view count in the last 30 days
+    """
+    viewCountLast30Days: Int
+
+    """
+    The unique user count in the past 30 days
+    """
+    uniqueUserCountLast30Days: Int
+
+    """
+    The top users in the past 30 days
+    """
+    topUsersLast30Days: [CorpUser!]
 }
 
 
@@ -6053,9 +6310,19 @@ enum AssertionStdOperator {
     START_WITH
 
     """
+    Value being asserted matches the regex value.
+    """
+    REGEX_MATCH
+
+    """
     Value being asserted is one of the array values
     """
     IN
+
+    """
+    Value being asserted is not in one of the array values.
+    """
+    NOT_IN
 
     """
     Other
@@ -6475,6 +6742,36 @@ enum TermRelationshipType {
 }
 
 """
+Input provided when adding glossary terms to a batch of assets
+"""
+input BatchAddTermsInput {
+    """
+    The primary key of the Glossary Terms
+    """
+    termUrns: [String!]!
+
+    """
+    The target assets to attach the glossary terms to
+    """
+    resources: [ResourceRefInput]!
+}
+
+"""
+Input provided when removing glossary terms from a batch of assets
+"""
+input BatchRemoveTermsInput {
+    """
+    The primary key of the Glossary Terms
+    """
+    termUrns: [String!]!
+
+    """
+    The target assets to remove the glossary terms from
+    """
+    resources: [ResourceRefInput]!
+}
+
+"""
 Input provided when updating the association between a Metadata Entity and a Tag
 """
 input TagAssociationInput {
@@ -6510,6 +6807,56 @@ input AddTagsInput {
 
     """
     The target Metadata Entity to add or remove the Tag to
+    """
+    resourceUrn: String!
+
+    """
+    An optional type of a sub resource to attach the Tag to
+    """
+    subResourceType: SubResourceType
+
+    """
+    An optional sub resource identifier to attach the Tag to
+    """
+    subResource: String
+}
+
+"""
+Input provided when adding tags to a batch of assets
+"""
+input BatchAddTagsInput {
+    """
+    The primary key of the Tags
+    """
+    tagUrns: [String!]!
+
+    """
+    The target assets to attach the tags to
+    """
+    resources: [ResourceRefInput!]!
+}
+
+"""
+Input provided when removing tags from a batch of assets
+"""
+input BatchRemoveTagsInput {
+    """
+    The primary key of the Tags
+    """
+    tagUrns: [String!]!
+
+    """
+    The target assets to remove the tags from
+    """
+    resources: [ResourceRefInput]!
+}
+
+"""
+Reference to a resource to apply an action to
+"""
+input ResourceRefInput {
+    """
+    The urn of the resource being referenced
     """
     resourceUrn: String!
 
@@ -6597,6 +6944,36 @@ input AddOwnersInput {
     The urn of the resource or entity to attach or remove the owner from, for example a dataset urn
     """
     resourceUrn: String!
+}
+
+"""
+Input provided when adding owners to a batch of assets
+"""
+input BatchAddOwnersInput {
+    """
+    The primary key of the owners
+    """
+    owners: [OwnerInput!]!
+
+    """
+    The target assets to attach the owners to
+    """
+    resources: [ResourceRefInput]!
+}
+
+"""
+Input provided when removing owners from a batch of assets
+"""
+input BatchRemoveOwnersInput {
+    """
+    The primary key of the owners
+    """
+    ownerUrns: [String!]!
+
+    """
+    The target assets to remove the owners from
+    """
+    resources: [ResourceRefInput]!
 }
 
 """
@@ -6729,6 +7106,47 @@ input UpdateDeprecationInput {
     note: String
 }
 
+
+"""
+Input provided when updating the deprecation status for a batch of assets.
+"""
+input BatchUpdateDeprecationInput {
+    """
+    Whether the Entity is marked as deprecated.
+    """
+    deprecated: Boolean!
+
+    """
+    Optional - The time user plan to decommission this entity
+    """
+    decommissionTime: Long
+
+    """
+    Optional - Additional information about the entity deprecation plan
+    """
+    note: String
+
+    """
+    The target assets to attach the tags to
+    """
+    resources: [ResourceRefInput]!
+}
+
+"""
+Input provided when adding tags to a batch of assets
+"""
+input BatchSetDomainInput {
+    """
+    The primary key of the Domain, or null if the domain will be unset
+    """
+    domainUrn: String
+
+    """
+    The target assets to attach the Domain
+    """
+    resources: [ResourceRefInput!]!
+}
+
 """
 Input provided when creating or updating an Access Policy
 """
@@ -6770,9 +7188,9 @@ input PolicyUpdateInput {
 }
 
 """
-Input required to add members to a DataHub group
+Input required to add members to a native DataHub group
 """
-input AddGroupMembersInput {
+input AddNativeGroupMembersInput {
   """
   The group to add members to
   """
@@ -6785,18 +7203,48 @@ input AddGroupMembersInput {
 }
 
 """
-Input required to remove members from a DataHub group
+Input required to add members to an external DataHub group
+"""
+input AddGroupMembersInput {
+    """
+    The group to add members to
+    """
+    groupUrn: String!
+
+    """
+    The members to add to the group
+    """
+    userUrns: [String!]!
+}
+
+"""
+Input required to remove members from a native DataHub group
+"""
+input RemoveNativeGroupMembersInput {
+    """
+    The group to remove members from
+    """
+    groupUrn: String!
+
+    """
+    The members to remove from the group
+    """
+    userUrns: [String!]!
+}
+
+"""
+Input required to remove members from an external DataHub group
 """
 input RemoveGroupMembersInput {
-  """
-  The group to remove members from
-  """
-  groupUrn: String!
+    """
+    The group to remove members from
+    """
+    groupUrn: String!
 
-  """
-  The members to remove from the group
-  """
-  userUrns: [String!]!
+    """
+    The members to remove from the group
+    """
+    userUrns: [String!]!
 }
 
 """
@@ -6836,18 +7284,80 @@ enum PolicyState {
 }
 
 """
+DEPRECATED
+TODO: Eventually get rid of this in favor of DataHub Policy
 An DataHub Platform Access Policy Access Policies determine who can perform what actions against which resources on the platform
 """
 type Policy {
+    """
+    The primary key of the Policy
+    """
+    urn: String!
+
+    """
+    The type of the Policy
+    """
+    type: PolicyType!
+
+    """
+    The name of the Policy
+    """
+    name: String!
+
+    """
+    The present state of the Policy
+    """
+    state: PolicyState!
+
+    """
+    The description of the Policy
+    """
+    description: String
+
+    """
+    The resources that the Policy privileges apply to
+    """
+    resources: ResourceFilter
+
+    """
+    The privileges that the Policy grants
+    """
+    privileges: [String!]!
+
+    """
+    The actors that the Policy grants privileges to
+    """
+    actors: ActorFilter!
+
+    """
+    Whether the Policy is editable, ie system policies, or not
+    """
+    editable: Boolean!
+}
+
+"""
+An DataHub Platform Access Policy -  Policies determine who can perform what actions against which resources on the platform
+"""
+type DataHubPolicy implements Entity {
   """
   The primary key of the Policy
   """
   urn: String!
 
   """
+  The standard Entity Type
+  """
+  type: EntityType!
+
+  """
+  Granular API for querying edges extending from the Role
+  """
+  relationships(input: RelationshipsInput!): EntityRelationshipsResult
+
+  """
   The type of the Policy
   """
-  type: PolicyType!
+  policyType: PolicyType!
 
   """
   The name of the Policy
@@ -6925,6 +7435,11 @@ type ActorFilter {
   groups: [String!]
 
   """
+  A disjunctive set of roles to apply the policy to
+  """
+  roles: [String!]
+
+  """
   Whether the filter should return TRUE for owners of a particular resource
   Only applies to policies of type METADATA, which have a resource associated with them
   """
@@ -6949,6 +7464,11 @@ type ActorFilter {
   The list of groups on the Policy, resolved.
   """
   resolvedGroups: [CorpGroup!]
+
+  """
+  The list of roles on the Policy, resolved.
+  """
+  resolvedRoles: [DataHubRole!]
 }
 
 """
@@ -7317,7 +7837,7 @@ input CreateGroupInput {
 """
 An ML Model Metadata Entity Note that this entity is incubating
 """
-type MLModel implements EntityWithRelationships & Entity {
+type MLModel implements EntityWithRelationships & Entity & BrowsableEntity {
     """
     The primary key of the ML model
     """
@@ -7327,6 +7847,11 @@ type MLModel implements EntityWithRelationships & Entity {
     A standard Entity Type
     """
     type: EntityType!
+
+    """
+    The timestamp for the last time this entity was ingested
+    """
+    lastIngested: Long
 
     """
     ML model display name
@@ -7450,6 +7975,11 @@ type MLModel implements EntityWithRelationships & Entity {
     lineage(input: LineageInput!): EntityLineageResult
 
     """
+    The browse paths corresponding to the ML Model. If no Browse Paths have been generated before, this will be null.
+    """
+    browsePaths: [BrowsePath!]
+
+    """
     The structured glossary terms associated with the entity
     """
     glossaryTerms: GlossaryTerms
@@ -7469,7 +7999,7 @@ type MLModel implements EntityWithRelationships & Entity {
 An ML Model Group Metadata Entity
 Note that this entity is incubating
 """
-type MLModelGroup implements EntityWithRelationships & Entity {
+type MLModelGroup implements EntityWithRelationships & Entity & BrowsableEntity {
     """
     The primary key of the ML Model Group
     """
@@ -7479,6 +8009,11 @@ type MLModelGroup implements EntityWithRelationships & Entity {
     A standard Entity Type
     """
     type: EntityType!
+
+    """
+    The timestamp for the last time this entity was ingested
+    """
+    lastIngested: Long
 
     """
     The display name for the Entity
@@ -7536,6 +8071,11 @@ type MLModelGroup implements EntityWithRelationships & Entity {
     lineage(input: LineageInput!): EntityLineageResult
 
     """
+    The browse paths corresponding to the ML Model Group. If no Browse Paths have been generated before, this will be null.
+    """
+    browsePaths: [BrowsePath!]
+
+    """
     Tags applied to entity
     """
     tags: GlobalTags
@@ -7578,6 +8118,11 @@ type MLFeature implements EntityWithRelationships & Entity {
     A standard Entity Type
     """
     type: EntityType!
+
+    """
+    The timestamp for the last time this entity was ingested
+    """
+    lastIngested: Long
 
     """
     The display name for the ML Feature
@@ -7736,6 +8281,11 @@ type MLPrimaryKey implements EntityWithRelationships & Entity {
     type: EntityType!
 
     """
+    The timestamp for the last time this entity was ingested
+    """
+    lastIngested: Long
+
+    """
     The display name
     """
     name: String!
@@ -7836,7 +8386,7 @@ description: String
 """
 An ML Feature Table Entity Note that this entity is incubating
 """
-type MLFeatureTable implements EntityWithRelationships & Entity {
+type MLFeatureTable implements EntityWithRelationships & Entity & BrowsableEntity {
     """
     The primary key of the ML Feature Table
     """
@@ -7846,6 +8396,11 @@ type MLFeatureTable implements EntityWithRelationships & Entity {
     A standard Entity Type
     """
     type: EntityType!
+
+    """
+    The timestamp for the last time this entity was ingested
+    """
+    lastIngested: Long
 
     """
     The display name
@@ -7907,6 +8462,11 @@ type MLFeatureTable implements EntityWithRelationships & Entity {
     Edges extending from this entity grouped by direction in the lineage graph
     """
     lineage(input: LineageInput!): EntityLineageResult
+
+    """
+    The browse paths corresponding to the ML Feature Table. If no Browse Paths have been generated before, this will be null.
+    """
+    browsePaths: [BrowsePath!]
 
     """
     Tags applied to entity
@@ -8593,4 +9153,180 @@ type ResetToken {
     The reset token
     """
     resetToken: String!
+}
+
+"""
+Carries information about where an entity originated from.
+"""
+type Origin {
+    """
+    Where an entity originated from. Either NATIVE or EXTERNAL
+    """
+    type: OriginType!
+
+    """
+    Only populated if type is EXTERNAL. The externalType of the entity, such as the name of the identity provider.
+    """
+    externalType: String
+}
+
+"""
+Enum to define where an entity originated from.
+"""
+enum OriginType {
+    """
+    The entity is native to DataHub.
+    """
+    NATIVE
+    """
+    The entity is external to DataHub.
+    """
+    EXTERNAL
+    """
+    The entity is of unknown origin.
+    """
+    UNKNOWN
+}
+
+"""
+Input provided when updating the soft-deleted status for a batch of assets
+"""
+input BatchUpdateSoftDeletedInput {
+    """
+    The urns of the assets to soft delete
+    """
+    urns: [String!]!
+
+    """
+    Whether to mark the asset as soft-deleted (hidden)
+    """
+    deleted: Boolean!
+}
+
+"""
+Input fields of the chart
+"""
+type InputFields {
+    fields: [InputField]
+}
+
+"""
+Input field of the chart
+"""
+type InputField {
+    schemaFieldUrn: String
+    schemaField: SchemaField
+}
+
+enum UserSetting {
+    """
+    Show simplified homepage
+    """
+    SHOW_SIMPLIFIED_HOMEPAGE
+}
+
+
+"""
+Input for updating a user setting
+"""
+input UpdateUserSettingInput {
+    """
+    The name of the setting
+    """
+    name: UserSetting!
+
+    """
+    The new value of the setting
+    """
+    value: Boolean!
+}
+
+"""
+Input provided when batch assigning a role to a list of users
+"""
+input BatchAssignRoleInput {
+    """
+    The urn of the role to assign to the actors
+    """
+    roleUrn: String!
+
+    """
+    The urns of the actors to assign the role to
+    """
+    actors: [String!]!
+}
+
+"""
+Input provided when listing existing roles
+"""
+input ListRolesInput {
+    """
+    The starting offset of the result set returned
+    """
+    start: Int
+
+    """
+    The maximum number of Roles to be returned in the result set
+    """
+    count: Int
+
+    """
+    Optional search query
+    """
+    query: String
+}
+
+"""
+The result obtained when listing DataHub Roles
+"""
+type ListRolesResult {
+    """
+    The starting offset of the result set returned
+    """
+    start: Int!
+
+    """
+    The number of Roles in the returned result set
+    """
+    count: Int!
+
+    """
+    The total number of Roles in the result set
+    """
+    total: Int!
+
+    """
+    The Roles themselves
+    """
+    roles: [DataHubRole!]!
+}
+
+"""
+A DataHub Role is a high-level abstraction on top of Policies that dictates what actions users can take.
+"""
+type DataHubRole implements Entity {
+    """
+    The primary key of the role
+    """
+    urn: String!
+
+    """
+    The standard Entity Type
+    """
+    type: EntityType!
+
+    """
+    Granular API for querying edges extending from the Role
+    """
+    relationships(input: RelationshipsInput!): EntityRelationshipsResult
+
+    """
+    The name of the Role.
+    """
+    name: String!
+
+    """
+    The description of the Role
+    """
+    description: String!
 }

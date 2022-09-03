@@ -12,6 +12,11 @@ on:
   # Allows you to run this workflow manually from the Actions tab
   workflow_dispatch:
 
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
 jobs:
 
   check-secret:
@@ -40,7 +45,7 @@ jobs:
           java-version: 1.8
       - uses: actions/setup-python@v2
         with:
-          python-version: "3.6"
+          python-version: "3.7"
       - name: checkout upstream repo
         run: |
           git remote add upstream https://github.com/datahub-project/datahub.git
@@ -70,4 +75,7 @@ jobs:
           echo signingKey=$SIGNING_KEY >> gradle.properties
           ./gradlew :metadata-integration:java:spark-lineage:printVersion
           ./gradlew :metadata-integration:java:spark-lineage:publishToMavenLocal
+          # Publish apache ranger plugin to maven
+          ./gradlew :datahub-ranger-plugin:printVersion
+          ./gradlew :datahub-ranger-plugin:publishMavenJavaPublicationToMavenLocal
           #./gradlew :metadata-integration:java:datahub-client:closeAndReleaseRepository --info

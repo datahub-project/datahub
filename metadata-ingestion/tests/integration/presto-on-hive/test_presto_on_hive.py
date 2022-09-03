@@ -1,6 +1,5 @@
 import re
 import subprocess
-import sys
 from typing import Dict
 
 import pytest
@@ -16,9 +15,6 @@ FROZEN_TIME = "2021-09-23 12:00:00"
 data_platform = "presto-on-hive"
 
 
-@pytest.mark.skipif(
-    sys.version_info < (3, 7), reason="presto-on-hive requires Python 3.7+"
-)
 @pytest.fixture(scope="module")
 def presto_on_hive_runner(docker_compose_runner, pytestconfig):
     test_resources_dir = pytestconfig.rootpath / "tests/integration/presto-on-hive"
@@ -70,13 +66,15 @@ def test_presto_on_hive_ingest(
                 "type": data_platform,
                 "config": {
                     "host_port": "localhost:5432",
-                    "database": "metastore",
+                    "database": "db1",
+                    "metastore_db_name": "metastore",
                     "database_alias": "hive",
                     "username": "postgres",
                     "scheme": "postgresql+psycopg2",
                     "include_views": True,
                     "include_tables": True,
                     "schema_pattern": {"allow": ["^public"]},
+                    "mode": "hive",
                 },
             },
             "sink": {

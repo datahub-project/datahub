@@ -1,5 +1,6 @@
 package com.linkedin.gms.factory.graphql;
 
+import com.datahub.authentication.group.GroupService;
 import com.datahub.authentication.token.StatefulTokenService;
 import com.datahub.authentication.user.NativeUserService;
 import com.linkedin.datahub.graphql.GmsGraphQLEngine;
@@ -108,8 +109,13 @@ public class GraphQLEngineFactory {
   @Qualifier("nativeUserService")
   private NativeUserService _nativeUserService;
 
+  @Autowired
+  @Qualifier("groupService")
+  private GroupService _groupService;
+
   @Value("${platformAnalytics.enabled}") // TODO: Migrate to DATAHUB_ANALYTICS_ENABLED
   private Boolean isAnalyticsEnabled;
+
 
   @Bean(name = "graphQLEngine")
   @Nonnull
@@ -137,7 +143,9 @@ public class GraphQLEngineFactory {
           _configProvider.getTelemetry(),
           _configProvider.getMetadataTests(),
           _configProvider.getDatahub(),
-          _siblingGraphService
+          _siblingGraphService,
+          _groupService,
+          _configProvider.getFeatureFlags()
           ).builder().build();
     }
     return new GmsGraphQLEngine(
@@ -162,7 +170,9 @@ public class GraphQLEngineFactory {
         _configProvider.getTelemetry(),
         _configProvider.getMetadataTests(),
         _configProvider.getDatahub(),
-        _siblingGraphService
+        _siblingGraphService,
+        _groupService,
+        _configProvider.getFeatureFlags()
     ).builder().build();
   }
 }

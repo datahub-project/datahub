@@ -112,9 +112,9 @@ def get_enum_description(
     missed_symbols = [symbol for symbol in enum_symbols if symbol not in description]
     if missed_symbols:
         description = (
-            description + "."
-            if description
-            else "" + " Allowed symbols are " + ",".join(enum_symbols)
+            (description + "." if description else "")
+            + " Allowed symbols are "
+            + ", ".join(enum_symbols)
         )
 
     return description
@@ -136,9 +136,6 @@ def gen_md_table(
                 default=str(field_dict.get("default", "None")),
             )
         )
-        # md_str.append(
-        #    f"| {get_prefixed_name(field_prefix, None)} | Enum | {field_dict['type']} | one of {','.join(field_dict['enum'])} |\n"
-        # )
 
     elif "properties" in field_dict:
         for field_name, value in field_dict["properties"].items():
@@ -207,7 +204,6 @@ def gen_md_table(
                         "additionalProperties" in value
                         and "$ref" in value["additionalProperties"]
                     ):
-                        # breakpoint()
                         value_ref = value["additionalProperties"]["$ref"]
                         def_dict = get_definition_dict_from_definition(
                             definitions_dict, value_ref
@@ -399,7 +395,7 @@ def get_additional_deps_for_extra(extra_name: str) -> List[str]:
     base_deps = set([x.split(";")[0] for x in all_requirements if "extra ==" not in x])
     # filter for dependencies for this extra
     extra_deps = set(
-        [x.split(";")[0] for x in all_requirements if f'extra == "{extra_name}"' in x]
+        [x.split(";")[0] for x in all_requirements if f"extra == '{extra_name}'" in x]
     )
     # calculate additional deps that this extra adds
     delta_deps = extra_deps - base_deps
@@ -462,7 +458,6 @@ def generate(
 
     if extra_docs:
         for path in glob.glob(f"{extra_docs}/**/*[.md|.yaml|.yml]", recursive=True):
-            # breakpoint()
 
             m = re.search("/docs/sources/(.*)/(.*).md", path)
             if m:
@@ -555,7 +550,6 @@ def generate(
                 source_documentation[platform_id] = (
                     source_documentation.get(platform_id) or {}
                 )
-                # breakpoint()
 
                 create_or_update(
                     source_documentation,

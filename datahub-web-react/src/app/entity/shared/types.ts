@@ -30,6 +30,7 @@ import {
     SiblingProperties,
     CustomPropertiesEntry,
     DomainAssociation,
+    InputFields,
 } from '../../../types.generated';
 import { FetchedEntity } from '../../lineage/types';
 
@@ -49,6 +50,10 @@ export type EntitySidebarSection = {
         visible: (GenericEntityProperties, T) => boolean; // Whether the sidebar is visible on the UI. Defaults to true.
     };
     properties?: any;
+};
+
+export type EntitySubHeaderSection = {
+    component: React.FunctionComponent<{ properties?: any }>;
 };
 
 export type GenericEntityProperties = {
@@ -90,6 +95,8 @@ export type GenericEntityProperties = {
     isAChildren?: Maybe<EntityRelationshipsResult>;
     siblings?: Maybe<SiblingProperties>;
     siblingPlatforms?: Maybe<DataPlatform[]>;
+    lastIngested?: Maybe<number>;
+    inputFields?: Maybe<InputFields>;
 };
 
 export type GenericEntityUpdate = {
@@ -127,4 +134,9 @@ export type EntityContextType = {
 
 export type RequiredAndNotNull<T> = {
     [P in keyof T]-?: Exclude<T[P], null | undefined>;
+};
+
+export type EntityAndType = {
+    urn: string;
+    type: EntityType;
 };

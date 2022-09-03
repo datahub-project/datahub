@@ -1,12 +1,13 @@
 import { DashboardFilled, DashboardOutlined } from '@ant-design/icons';
 import * as React from 'react';
+
 import {
     GetDashboardQuery,
     useGetDashboardQuery,
     useUpdateDashboardMutation,
 } from '../../../graphql/dashboard.generated';
 import { Dashboard, EntityType, OwnershipType, SearchResult } from '../../../types.generated';
-import { Entity, IconStyleType, PreviewType } from '../Entity';
+import { Entity, EntityCapabilityType, IconStyleType, PreviewType } from '../Entity';
 import { EntityProfile } from '../shared/containers/profile/EntityProfile';
 import { SidebarOwnerSection } from '../shared/containers/profile/sidebar/Ownership/SidebarOwnerSection';
 import { SidebarAboutSection } from '../shared/containers/profile/sidebar/SidebarAboutSection';
@@ -21,6 +22,9 @@ import { getDataForEntityType } from '../shared/containers/profile/utils';
 import { SidebarDomainSection } from '../shared/containers/profile/sidebar/Domain/SidebarDomainSection';
 import { EntityMenuItems } from '../shared/EntityDropdown/EntityDropdown';
 import { LineageTab } from '../shared/tabs/Lineage/LineageTab';
+import { DashboardStatsSummarySubHeader } from './profile/DashboardStatsSummarySubHeader';
+import { InputFieldsTab } from '../shared/tabs/Entity/InputFieldsTab';
+import { ChartSnippet } from '../chart/ChartSnippet';
 
 /**
  * Definition of the DataHub Dashboard entity.
@@ -75,10 +79,23 @@ export class DashboardEntity implements Entity<Dashboard> {
             useUpdateQuery={useUpdateDashboardMutation}
             getOverrideProperties={this.getOverridePropertiesFromEntity}
             headerDropdownItems={new Set([EntityMenuItems.COPY_URL, EntityMenuItems.UPDATE_DEPRECATION])}
+            subHeader={{
+                component: DashboardStatsSummarySubHeader,
+            }}
             tabs={[
                 {
                     name: 'Documentation',
                     component: DocumentationTab,
+                },
+                {
+                    name: 'Fields',
+                    component: InputFieldsTab,
+                    display: {
+                        visible: (_, dashboard: GetDashboardQuery) =>
+                            (dashboard?.dashboard?.inputFields?.fields?.length || 0) > 0,
+                        enabled: (_, dashboard: GetDashboardQuery) =>
+                            (dashboard?.dashboard?.inputFields?.fields?.length || 0) > 0,
+                    },
                 },
                 {
                     name: 'Properties',
@@ -164,12 +181,19 @@ export class DashboardEntity implements Entity<Dashboard> {
                 logoUrl={data?.platform?.properties?.logoUrl}
                 domain={data.domain?.domain}
                 container={data.container}
+                parentContainers={data.parentContainers}
+                deprecation={data.deprecation}
+                externalUrl={data.properties?.externalUrl}
+                statsSummary={data.statsSummary}
+                lastUpdatedMs={data.properties?.lastModified?.time}
+                createdMs={data.properties?.created?.time}
             />
         );
     };
 
     renderSearch = (result: SearchResult) => {
         const data = result.entity as Dashboard;
+
         return (
             <DashboardPreview
                 urn={data.urn}
@@ -190,6 +214,8 @@ export class DashboardEntity implements Entity<Dashboard> {
                 externalUrl={data.properties?.externalUrl}
                 statsSummary={data.statsSummary}
                 lastUpdatedMs={data.properties?.lastModified?.time}
+                createdMs={data.properties?.created?.time}
+                snippet={<ChartSnippet matchedFields={result.matchedFields} inputFields={data.inputFields} />}
             />
         );
     };
@@ -200,7 +226,7 @@ export class DashboardEntity implements Entity<Dashboard> {
             name: entity.properties?.name || '',
             type: EntityType.Dashboard,
             icon: entity?.platform?.properties?.logoUrl || '',
-            platform: entity?.platform.properties?.displayName || entity?.platform.name,
+            platform: entity?.platform,
         };
     };
 
@@ -214,5 +240,16 @@ export class DashboardEntity implements Entity<Dashboard> {
             entityType: this.type,
             getOverrideProperties: this.getOverridePropertiesFromEntity,
         });
+    };
+
+    supportedCapabilities = () => {
+        return new Set([
+            EntityCapabilityType.OWNERS,
+            EntityCapabilityType.GLOSSARY_TERMS,
+            EntityCapabilityType.TAGS,
+            EntityCapabilityType.DOMAINS,
+            EntityCapabilityType.DEPRECATION,
+            EntityCapabilityType.SOFT_DELETE,
+        ]);
     };
 }

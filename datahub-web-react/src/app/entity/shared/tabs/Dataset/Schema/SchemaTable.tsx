@@ -44,7 +44,7 @@ export type Props = {
     editMode?: boolean;
     usageStats?: UsageQueryResult | null;
     schemaFieldBlameList?: Array<SchemaFieldBlame> | null;
-    showSchemaBlame: boolean;
+    showSchemaAuditView: boolean;
 };
 export default function SchemaTable({
     rows,
@@ -53,7 +53,7 @@ export default function SchemaTable({
     usageStats,
     editMode = true,
     schemaFieldBlameList,
-    showSchemaBlame,
+    showSchemaAuditView,
 }: Props): JSX.Element {
     const hasUsageStats = useMemo(() => (usageStats?.aggregations?.fields?.length || 0) > 0, [usageStats]);
 
@@ -149,7 +149,7 @@ export default function SchemaTable({
         allColumns = [...allColumns, usageColumn];
     }
 
-    if (showSchemaBlame) {
+    if (showSchemaAuditView) {
         allColumns = [...allColumns, blameColumn];
     }
 

@@ -1,6 +1,4 @@
 import React from 'react';
-import styled from 'styled-components';
-import { ClockCircleOutlined, EyeOutlined, TeamOutlined } from '@ant-design/icons';
 import {
     AccessLevel,
     Domain,
@@ -18,13 +16,7 @@ import DefaultPreviewCard from '../../../preview/DefaultPreviewCard';
 import { useEntityRegistry } from '../../../useEntityRegistry';
 import { capitalizeFirstLetter } from '../../../shared/textUtil';
 import { IconStyleType } from '../../Entity';
-import { ANTD_GRAY } from '../../shared/constants';
-import { formatNumberWithoutAbbreviation } from '../../../shared/formatNumber';
-import { toRelativeTimeString } from '../../../shared/time/timeUtils';
-
-const StatText = styled.span`
-    color: ${ANTD_GRAY[8]};
-`;
+import { DashboardStatsSummary as DashboardStatsSummaryView } from '../shared/DashboardStatsSummary';
 
 export const DashboardPreview = ({
     urn,
@@ -43,9 +35,11 @@ export const DashboardPreview = ({
     chartCount,
     statsSummary,
     lastUpdatedMs,
+    createdMs,
     externalUrl,
     parentContainers,
     deprecation,
+    snippet,
 }: {
     urn: string;
     platform: string;
@@ -64,8 +58,10 @@ export const DashboardPreview = ({
     chartCount?: number | null;
     statsSummary?: DashboardStatsSummary | null;
     lastUpdatedMs?: number | null;
+    createdMs?: number | null;
     externalUrl?: string | null;
     parentContainers?: ParentContainersResult | null;
+    snippet?: React.ReactNode | null;
 }): JSX.Element => {
     const entityRegistry = useEntityRegistry();
     const capitalizedPlatform = capitalizeFirstLetter(platform);
@@ -91,35 +87,16 @@ export const DashboardPreview = ({
             parentContainers={parentContainers}
             externalUrl={externalUrl}
             topUsers={statsSummary?.topUsersLast30Days}
-            stats={[
-                (chartCount && (
-                    <StatText>
-                        <b>{chartCount}</b> charts
-                    </StatText>
-                )) ||
-                    undefined,
-                (statsSummary?.viewCount && (
-                    <StatText>
-                        <EyeOutlined style={{ marginRight: 8, color: ANTD_GRAY[7] }} />
-                        <b>{formatNumberWithoutAbbreviation(statsSummary.viewCount)}</b> views
-                    </StatText>
-                )) ||
-                    undefined,
-                (statsSummary?.uniqueUserCountLast30Days && (
-                    <StatText>
-                        <TeamOutlined style={{ marginRight: 8, color: ANTD_GRAY[7] }} />
-                        <b>{formatNumberWithoutAbbreviation(statsSummary?.uniqueUserCountLast30Days)}</b> unique users
-                    </StatText>
-                )) ||
-                    undefined,
-                (lastUpdatedMs && (
-                    <StatText>
-                        <ClockCircleOutlined style={{ marginRight: 8, color: ANTD_GRAY[7] }} />
-                        Changed {toRelativeTimeString(lastUpdatedMs)}
-                    </StatText>
-                )) ||
-                    undefined,
-            ].filter((stat) => stat !== undefined)}
+            snippet={snippet}
+            subHeader={
+                <DashboardStatsSummaryView
+                    chartCount={chartCount}
+                    viewCount={statsSummary?.viewCount}
+                    uniqueUserCountLast30Days={statsSummary?.uniqueUserCountLast30Days}
+                    lastUpdatedMs={lastUpdatedMs}
+                    createdMs={createdMs}
+                />
+            }
         />
     );
 };

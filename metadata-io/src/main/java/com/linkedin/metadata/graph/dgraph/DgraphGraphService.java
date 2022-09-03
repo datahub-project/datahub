@@ -26,6 +26,7 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -242,12 +243,13 @@ public class DgraphGraphService implements GraphService {
             }
         }
 
-        return relationships;
+        // we need to remove duplicates in order to not cause invalid queries in dgraph
+        return new ArrayList<>(new LinkedHashSet(relationships));
     }
 
-    protected static String getQueryForRelatedEntities(@Nullable String sourceType,
+    protected static String getQueryForRelatedEntities(@Nullable List<String> sourceTypes,
                                                        @Nonnull Filter sourceEntityFilter,
-                                                       @Nullable String destinationType,
+                                                       @Nullable List<String> destinationTypes,
                                                        @Nonnull Filter destinationEntityFilter,
                                                        @Nonnull List<String> relationshipTypes,
                                                        @Nonnull RelationshipFilter relationshipFilter,
@@ -291,16 +293,20 @@ public class DgraphGraphService implements GraphService {
         List<String> destinationFilterNames = new ArrayList<>();
         List<String> relationshipTypeFilterNames = new ArrayList<>();
 
-        if (sourceType != null) {
+        if (sourceTypes != null && sourceTypes.size() > 0) {
             sourceTypeFilterName = "sourceType";
             // TODO: escape string value
-            filters.add(String.format("%s as var(func: eq(<type>, \"%s\"))", sourceTypeFilterName, sourceType));
+            final StringJoiner joiner = new StringJoiner("\",\"", "[\"", "\"]");
+            sourceTypes.forEach(type -> joiner.add(type));
+            filters.add(String.format("%s as var(func: eq(<type>, %s))", sourceTypeFilterName,  joiner.toString()));
         }
 
-        if (destinationType != null) {
+        if (destinationTypes != null && destinationTypes.size() > 0) {
             destinationTypeFilterName = "destinationType";
+            final StringJoiner joiner = new StringJoiner("\",\"", "[\"", "\"]");
+            destinationTypes.forEach(type -> joiner.add(type));
             // TODO: escape string value
-            filters.add(String.format("%s as var(func: eq(<type>, \"%s\"))", destinationTypeFilterName, destinationType));
+            filters.add(String.format("%s as var(func: eq(<type>, %s))", destinationTypeFilterName,  joiner.toString()));
         }
 
         //noinspection ConstantConditions
@@ -381,21 +387,25 @@ public class DgraphGraphService implements GraphService {
 
     @Nonnull
     @Override
-    public RelatedEntitiesResult findRelatedEntities(@Nullable String sourceType,
+    public RelatedEntitiesResult findRelatedEntities(@Nullable List<String> sourceTypes,
                                                      @Nonnull Filter sourceEntityFilter,
-                                                     @Nullable String destinationType,
+                                                     @Nullable List<String> destinationTypes,
                                                      @Nonnull Filter destinationEntityFilter,
                                                      @Nonnull List<String> relationshipTypes,
                                                      @Nonnull RelationshipFilter relationshipFilter,
                                                      int offset,
                                                      int count) {
+
+        if (sourceTypes != null && sourceTypes.isEmpty() || destinationTypes != null && destinationTypes.isEmpty()) {
+            return new RelatedEntitiesResult(offset, 0, 0, Collections.emptyList());
+        }
         if (relationshipTypes.isEmpty() || relationshipTypes.stream().noneMatch(relationship -> get_schema().hasField(relationship))) {
             return new RelatedEntitiesResult(offset, 0, 0, Collections.emptyList());
         }
 
         String query = getQueryForRelatedEntities(
-                sourceType, sourceEntityFilter,
-                destinationType, destinationEntityFilter,
+                sourceTypes, sourceEntityFilter,
+                destinationTypes, destinationEntityFilter,
                 relationshipTypes.stream().filter(get_schema()::hasField).collect(Collectors.toList()),
                 relationshipFilter,
                 offset, count

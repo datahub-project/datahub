@@ -16,6 +16,8 @@ import EntityName from './EntityName';
 import CopyUrn from '../../../../../shared/CopyUrn';
 import { DeprecationPill } from '../../../components/styled/DeprecationPill';
 import CompactContext from '../../../../../shared/CompactContext';
+import { EntitySubHeaderSection } from '../../../types';
+import EntityActions, { EntityActionItem } from '../../../entity/EntityActions';
 
 const TitleWrapper = styled.div`
     display: flex;
@@ -82,10 +84,18 @@ export function getCanEditName(entityType: EntityType, privileges?: PlatformPriv
 type Props = {
     refreshBrowser?: () => void;
     headerDropdownItems?: Set<EntityMenuItems>;
+    headerActionItems?: Set<EntityActionItem>;
     isNameEditable?: boolean;
+    subHeader?: EntitySubHeaderSection;
 };
 
-export const EntityHeader = ({ refreshBrowser, headerDropdownItems, isNameEditable }: Props) => {
+export const EntityHeader = ({
+    refreshBrowser,
+    headerDropdownItems,
+    headerActionItems,
+    isNameEditable,
+    subHeader,
+}: Props) => {
     const { urn, entityType, entityData } = useEntityData();
     const refetch = useRefetch();
     const me = useGetAuthenticatedUser();
@@ -108,47 +118,58 @@ export const EntityHeader = ({ refreshBrowser, headerDropdownItems, isNameEditab
     const canEditName = isNameEditable && getCanEditName(entityType, me?.platformPrivileges as PlatformPrivileges);
 
     return (
-        <HeaderContainer data-testid="entity-header-test-id">
-            <MainHeaderContent>
-                <PlatformContent />
-                <TitleWrapper>
-                    <EntityName isNameEditable={canEditName} />
-                    {entityData?.deprecation && (
-                        <DeprecationPill deprecation={entityData?.deprecation} preview={isCompact} />
-                    )}
-                    {entityData?.health?.map((health) => (
-                        <EntityHealthStatus
-                            type={health.type}
-                            status={health.status}
-                            message={health.message || undefined}
-                        />
-                    ))}
-                </TitleWrapper>
-                <EntityCount entityCount={entityCount} />
-            </MainHeaderContent>
-            <SideHeaderContent>
-                <TopButtonsWrapper>
-                    {externalUrl && (
-                        <ExternalUrlContainer>
-                            <ExternalUrlButton type="link" href={externalUrl} target="_blank" onClick={sendAnalytics}>
-                                View in {platformName} <ArrowRightOutlined style={{ fontSize: 12 }} />
-                            </ExternalUrlButton>
-                        </ExternalUrlContainer>
-                    )}
-                    <CopyUrn urn={urn} isActive={copiedUrn} onClick={() => setCopiedUrn(true)} />
-                    {headerDropdownItems && (
-                        <EntityDropdown
-                            urn={urn}
-                            entityType={entityType}
-                            entityData={entityData}
-                            menuItems={headerDropdownItems}
-                            refetchForEntity={refetch}
-                            refreshBrowser={refreshBrowser}
-                            platformPrivileges={me?.platformPrivileges as PlatformPrivileges}
-                        />
-                    )}
-                </TopButtonsWrapper>
-            </SideHeaderContent>
-        </HeaderContainer>
+        <>
+            <HeaderContainer data-testid="entity-header-test-id">
+                <MainHeaderContent>
+                    <PlatformContent />
+                    <TitleWrapper>
+                        <EntityName isNameEditable={canEditName} />
+                        {entityData?.deprecation?.deprecated && (
+                            <DeprecationPill deprecation={entityData?.deprecation} preview={isCompact} />
+                        )}
+                        {entityData?.health?.map((health) => (
+                            <EntityHealthStatus
+                                type={health.type}
+                                status={health.status}
+                                message={health.message || undefined}
+                            />
+                        ))}
+                    </TitleWrapper>
+                    <EntityCount entityCount={entityCount} />
+                </MainHeaderContent>
+                <SideHeaderContent>
+                    <TopButtonsWrapper>
+                        {externalUrl && (
+                            <ExternalUrlContainer>
+                                <ExternalUrlButton
+                                    type="link"
+                                    href={externalUrl}
+                                    target="_blank"
+                                    onClick={sendAnalytics}
+                                >
+                                    View in {platformName} <ArrowRightOutlined style={{ fontSize: 12 }} />
+                                </ExternalUrlButton>
+                            </ExternalUrlContainer>
+                        )}
+                        {headerActionItems && (
+                            <EntityActions urn={urn} actionItems={headerActionItems} refetchForEntity={refetch} />
+                        )}
+                        <CopyUrn urn={urn} isActive={copiedUrn} onClick={() => setCopiedUrn(true)} />
+                        {headerDropdownItems && (
+                            <EntityDropdown
+                                urn={urn}
+                                entityType={entityType}
+                                entityData={entityData}
+                                menuItems={headerDropdownItems}
+                                refetchForEntity={refetch}
+                                refreshBrowser={refreshBrowser}
+                                platformPrivileges={me?.platformPrivileges as PlatformPrivileges}
+                            />
+                        )}
+                    </TopButtonsWrapper>
+                </SideHeaderContent>
+            </HeaderContainer>
+            {subHeader && <subHeader.component />}
+        </>
     );
 };

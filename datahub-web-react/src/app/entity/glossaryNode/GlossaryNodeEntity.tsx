@@ -3,7 +3,7 @@ import React from 'react';
 import { useGetGlossaryNodeQuery } from '../../../graphql/glossaryNode.generated';
 import { EntityType, GlossaryNode, SearchResult } from '../../../types.generated';
 import GlossaryEntitiesPath from '../../glossary/GlossaryEntitiesPath';
-import { Entity, IconStyleType, PreviewType } from '../Entity';
+import { Entity, EntityCapabilityType, IconStyleType, PreviewType } from '../Entity';
 import { EntityProfile } from '../shared/containers/profile/EntityProfile';
 import { SidebarOwnerSection } from '../shared/containers/profile/sidebar/Ownership/SidebarOwnerSection';
 import { SidebarAboutSection } from '../shared/containers/profile/sidebar/SidebarAboutSection';
@@ -114,9 +114,11 @@ class GlossaryNodeEntity implements Entity<GlossaryNode> {
     };
 
     renderPreview = (_: PreviewType, data: GlossaryNode) => {
+        console.log(data);
         return (
             <Preview
                 urn={data?.urn}
+                parentNodes={data.parentNodes}
                 name={this.displayName(data)}
                 description={data?.properties?.description || ''}
                 owners={data?.ownership?.owners}
@@ -134,6 +136,14 @@ class GlossaryNodeEntity implements Entity<GlossaryNode> {
             entityType: this.type,
             getOverrideProperties: (data) => data,
         });
+    };
+
+    supportedCapabilities = () => {
+        return new Set([
+            EntityCapabilityType.OWNERS,
+            EntityCapabilityType.DEPRECATION,
+            EntityCapabilityType.SOFT_DELETE,
+        ]);
     };
 }
 

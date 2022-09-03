@@ -1,4 +1,4 @@
-import React, { ReactNode } from 'react';
+import React, { ReactNode, useState } from 'react';
 import { Button, Divider, Tooltip, Typography } from 'antd';
 import { Link } from 'react-router-dom';
 import styled from 'styled-components';
@@ -10,11 +10,12 @@ import {
     GlossaryTerms,
     SearchInsight,
     Container,
-    Domain,
     ParentContainersResult,
     Maybe,
     CorpUser,
     Deprecation,
+    Domain,
+    ParentNodesResult,
 } from '../../types.generated';
 import TagTermGroup from '../shared/tags/TagTermGroup';
 import { ANTD_GRAY } from '../entity/shared/constants';
@@ -26,6 +27,7 @@ import { useParentContainersTruncation } from '../entity/shared/containers/profi
 import EntityCount from '../entity/shared/containers/profile/header/EntityCount';
 import { ExpandedActorGroup } from '../entity/shared/components/styled/ExpandedActorGroup';
 import { DeprecationPill } from '../entity/shared/components/styled/DeprecationPill';
+import { PreviewType } from '../entity/Entity';
 
 const PreviewContainer = styled.div`
     display: flex;
@@ -105,10 +107,6 @@ const TagSeparator = styled.div`
     border-right: 1px solid #cccccc;
 `;
 
-const StatsContainer = styled.div`
-    margin-top: 8px;
-`;
-
 const InsightContainer = styled.div`
     margin-top: 12px;
 `;
@@ -148,7 +146,7 @@ const UserListContainer = styled.div`
 
 const UserListDivider = styled(Divider)`
     padding: 4px;
-    height: 60px;
+    height: auto;
 `;
 
 const UserListTitle = styled(Typography.Text)`
@@ -175,12 +173,12 @@ interface Props {
     deprecation?: Deprecation | null;
     topUsers?: Array<CorpUser> | null;
     externalUrl?: string | null;
-    stats?: Array<React.ReactNode> | null;
+    subHeader?: React.ReactNode;
     snippet?: React.ReactNode;
     insights?: Array<SearchInsight> | null;
     glossaryTerms?: GlossaryTerms;
     container?: Container;
-    domain?: Domain | null;
+    domain?: Domain | undefined | null;
     entityCount?: number;
     dataTestID?: string;
     titleSizePx?: number;
@@ -189,6 +187,8 @@ interface Props {
     // how the listed node is connected to the source node
     degree?: number;
     parentContainers?: ParentContainersResult | null;
+    parentNodes?: ParentNodesResult | null;
+    previewType?: Maybe<PreviewType>;
 }
 
 export default function DefaultPreviewCard({
@@ -207,7 +207,7 @@ export default function DefaultPreviewCard({
     tags,
     owners,
     topUsers,
-    stats,
+    subHeader,
     snippet,
     insights,
     glossaryTerms,
@@ -221,8 +221,10 @@ export default function DefaultPreviewCard({
     onClick,
     degree,
     parentContainers,
+    parentNodes,
     platforms,
     logoUrls,
+    previewType,
 }: Props) {
     // sometimes these lists will be rendered inside an entity container (for example, in the case of impact analysis)
     // in those cases, we may want to enrich the preview w/ context about the container entity
@@ -240,11 +242,17 @@ export default function DefaultPreviewCard({
     if (snippet) {
         insightViews.push(snippet);
     }
+    const [descriptionExpanded, setDescriptionExpanded] = useState(false);
 
     const { parentContainersRef, areContainersTruncated } = useParentContainersTruncation(container);
 
+    const onPreventMouseDown = (event) => {
+        event.preventDefault();
+        event.stopPropagation();
+    };
+
     return (
-        <PreviewContainer data-testid={dataTestID}>
+        <PreviewContainer data-testid={dataTestID} onMouseDown={onPreventMouseDown}>
             <LeftColumn>
                 <TitleContainer>
                     <PlatformContentView
@@ -257,6 +265,7 @@ export default function DefaultPreviewCard({
                         typeIcon={typeIcon}
                         entityType={type}
                         parentContainers={parentContainers?.containers}
+                        parentNodes={parentNodes?.nodes}
                         parentContainersRef={parentContainersRef}
                         areContainersTruncated={areContainersTruncated}
                     />
@@ -266,7 +275,7 @@ export default function DefaultPreviewCard({
                                 {name || ' '}
                             </EntityTitle>
                         </Link>
-                        {deprecation && <DeprecationPill deprecation={deprecation} preview />}
+                        {deprecation?.deprecated && <DeprecationPill deprecation={deprecation} preview />}
                         {externalUrl && (
                             <ExternalUrlContainer>
                                 <ExternalUrlButton type="link" href={externalUrl} target="_blank">
@@ -290,7 +299,24 @@ export default function DefaultPreviewCard({
                 </TitleContainer>
                 {description && description.length > 0 && (
                     <DescriptionContainer>
-                        <NoMarkdownViewer limit={250}>{description}</NoMarkdownViewer>
+                        <NoMarkdownViewer
+                            limit={descriptionExpanded ? undefined : 250}
+                            shouldWrap={previewType === PreviewType.HOVER_CARD}
+                            readMore={
+                                previewType === PreviewType.HOVER_CARD ? (
+                                    <Typography.Link
+                                        onClickCapture={(e) => {
+                                            onPreventMouseDown(e);
+                                            setDescriptionExpanded(!descriptionExpanded);
+                                        }}
+                                    >
+                                        {descriptionExpanded ? 'Show Less' : 'Show More'}
+                                    </Typography.Link>
+                                ) : undefined
+                            }
+                        >
+                            {description}
+                        </NoMarkdownViewer>
                     </DescriptionContainer>
                 )}
                 {(domain || hasGlossaryTerms || hasTags) && (
@@ -302,16 +328,7 @@ export default function DefaultPreviewCard({
                         {hasTags && <TagTermGroup uneditableTags={tags} maxShow={3} />}
                     </TagContainer>
                 )}
-                {stats && stats.length > 0 && (
-                    <StatsContainer>
-                        {stats.map((statView, index) => (
-                            <span>
-                                {statView}
-                                {index < stats.length - 1 && <PlatformDivider />}
-                            </span>
-                        ))}
-                    </StatsContainer>
-                )}
+                {subHeader}
                 {insightViews.length > 0 && (
                     <InsightContainer>
                         {insightViews.map((insightView, index) => (
@@ -324,22 +341,22 @@ export default function DefaultPreviewCard({
                 )}
             </LeftColumn>
             <RightColumn>
-                {topUsers && topUsers.length > 0 && (
+                {topUsers && topUsers?.length > 0 && (
                     <>
                         <UserListContainer>
                             <UserListTitle strong>Top Users</UserListTitle>
                             <div>
-                                <ExpandedActorGroup actors={topUsers} />
+                                <ExpandedActorGroup actors={topUsers} max={2} />
                             </div>
                         </UserListContainer>
-                        <UserListDivider type="vertical" />
                     </>
                 )}
-                {owners && owners.length > 0 && (
+                {(topUsers?.length || 0) > 0 && (owners?.length || 0) > 0 && <UserListDivider type="vertical" />}
+                {owners && owners?.length > 0 && (
                     <UserListContainer>
                         <UserListTitle strong>Owners</UserListTitle>
                         <div>
-                            <ExpandedActorGroup actors={owners.map((owner) => owner.owner)} />
+                            <ExpandedActorGroup actors={owners.map((owner) => owner.owner)} max={2} />
                         </div>
                     </UserListContainer>
                 )}

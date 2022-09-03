@@ -1,15 +1,16 @@
 import React from 'react';
-import { Alert, Col, Row } from 'antd';
+import { Col, Row } from 'antd';
 import styled from 'styled-components';
 import { useGetGroupQuery } from '../../../graphql/group.generated';
 import useUserParams from '../../shared/entitySearch/routingUtils/useUserParams';
-import { EntityRelationshipsResult, Ownership } from '../../../types.generated';
+import { OriginType, EntityRelationshipsResult, Ownership } from '../../../types.generated';
 import { Message } from '../../shared/Message';
 import GroupMembers from './GroupMembers';
 import { decodeUrn } from '../shared/utils';
 import { RoutedTabs } from '../../shared/RoutedTabs';
 import GroupInfoSidebar from './GroupInfoSideBar';
 import { GroupAssets } from './GroupAssets';
+import { ErrorSection } from '../../shared/error/ErrorSection';
 
 const messageStyle = { marginTop: '10%' };
 
@@ -48,11 +49,9 @@ export default function GroupProfile() {
     const urn = encodedUrn && decodeUrn(encodedUrn);
     const { loading, error, data, refetch } = useGetGroupQuery({ variables: { urn, membersCount: MEMBER_PAGE_SIZE } });
 
-    if (error || (!loading && !error && !data)) {
-        return <Alert type="error" message={error?.message || 'Group failed to load :('} />;
-    }
-
     const groupMemberRelationships = data?.corpGroup?.relationships as EntityRelationshipsResult;
+    const isExternalGroup: boolean = data?.corpGroup?.origin?.type === OriginType.External;
+    const externalGroupType: string = data?.corpGroup?.origin?.externalType || 'outside DataHub';
 
     const getTabs = () => {
         return [
@@ -71,6 +70,7 @@ export default function GroupProfile() {
                     <GroupMembers
                         urn={urn}
                         pageSize={MEMBER_PAGE_SIZE}
+                        isExternalGroup={isExternalGroup}
                         onChangeMembers={() => {
                             setTimeout(() => refetch(), 2000);
                         }}
@@ -100,16 +100,19 @@ export default function GroupProfile() {
             data?.corpGroup?.info?.displayName ||
             undefined,
         email: data?.corpGroup?.editableProperties?.email || data?.corpGroup?.properties?.email || undefined,
-        slack: data?.corpGroup?.editableProperties?.slack || undefined,
+        slack: data?.corpGroup?.editableProperties?.slack || data?.corpGroup?.properties?.slack || undefined,
         aboutText:
             data?.corpGroup?.editableProperties?.description || data?.corpGroup?.properties?.description || undefined,
         groupMemberRelationships: groupMemberRelationships as EntityRelationshipsResult,
         groupOwnerShip: data?.corpGroup?.ownership as Ownership,
+        isExternalGroup,
+        externalGroupType,
         urn,
     };
 
     return (
         <>
+            {error && <ErrorSection />}
             {loading && <Message type="loading" content="Loading..." style={messageStyle} />}
             {data && data?.corpGroup && (
                 <GroupProfileWrapper>

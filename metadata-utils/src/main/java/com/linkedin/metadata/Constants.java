@@ -48,6 +48,7 @@ public class Constants {
   public static final String ACCESS_TOKEN_ENTITY_NAME = "dataHubAccessToken";
   public static final String DATA_HUB_UPGRADE_ENTITY_NAME = "dataHubUpgrade";
   public static final String INVITE_TOKEN_ENTITY_NAME = "inviteToken";
+  public static final String DATAHUB_ROLE_ENTITY_NAME = "dataHubRole";
 
 
   /**
@@ -65,15 +66,21 @@ public class Constants {
   public static final String DEPRECATION_ASPECT_NAME = "deprecation";
   public static final String OPERATION_ASPECT_NAME = "operation";
   public static final String SIBLINGS_ASPECT_NAME = "siblings";
+  public static final String ORIGIN_ASPECT_NAME = "origin";
+  public static final String INPUT_FIELDS_ASPECT_NAME = "inputFields";
 
   // User
   public static final String CORP_USER_KEY_ASPECT_NAME = "corpUserKey";
   public static final String CORP_USER_EDITABLE_INFO_NAME = "corpUserEditableInfo";
   public static final String GROUP_MEMBERSHIP_ASPECT_NAME = "groupMembership";
+  public static final String NATIVE_GROUP_MEMBERSHIP_ASPECT_NAME = "nativeGroupMembership";
   public static final String CORP_USER_EDITABLE_INFO_ASPECT_NAME = "corpUserEditableInfo";
   public static final String CORP_USER_INFO_ASPECT_NAME = "corpUserInfo";
   public static final String CORP_USER_STATUS_ASPECT_NAME = "corpUserStatus";
   public static final String CORP_USER_CREDENTIALS_ASPECT_NAME = "corpUserCredentials";
+  public static final String ROLE_MEMBERSHIP_ASPECT_NAME = "roleMembership";
+
+  public static final String CORP_USER_SETTINGS_ASPECT_NAME = "corpUserSettings";
 
   // Group
   public static final String CORP_GROUP_KEY_ASPECT_NAME = "corpGroupKey";
@@ -97,6 +104,7 @@ public class Constants {
   public static final String CHART_INFO_ASPECT_NAME = "chartInfo";
   public static final String EDITABLE_CHART_PROPERTIES_ASPECT_NAME = "editableChartProperties";
   public static final String CHART_QUERY_ASPECT_NAME = "chartQuery";
+  public static final String CHART_USAGE_STATISTICS_ASPECT_NAME = "chartUsageStatistics";
 
   // Dashboard
   public static final String DASHBOARD_KEY_ASPECT_NAME = "dashboardKey";
@@ -165,6 +173,8 @@ public class Constants {
 
   // Policy
   public static final String DATAHUB_POLICY_INFO_ASPECT_NAME = "dataHubPolicyInfo";
+  // Role
+  public static final String DATAHUB_ROLE_INFO_ASPECT_NAME = "dataHubRoleInfo";
 
   // Tag
   public static final String TAG_KEY_ASPECT_NAME = "tagKey";
@@ -226,6 +236,10 @@ public class Constants {
 
   // Invite Token
   public static final String INVITE_TOKEN_ASPECT_NAME = "inviteToken";
+
+  // Relationships
+  public static final String IS_MEMBER_OF_GROUP_RELATIONSHIP_NAME = "IsMemberOfGroup";
+  public static final String IS_MEMBER_OF_NATIVE_GROUP_RELATIONSHIP_NAME = "IsMemberOfNativeGroup";
 
   // acryl-main only
   public static final String CHANGE_EVENT_PLATFORM_EVENT_NAME = "entityChangeEvent";
