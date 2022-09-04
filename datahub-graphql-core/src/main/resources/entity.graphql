@@ -173,6 +173,11 @@ type Query {
     Gets an entity based on its urn
     """
     entity(urn: String!): Entity
+
+    """
+    List all DataHub Roles
+    """
+    listRoles(input: ListRolesInput!): ListRolesResult
 }
 
 """
@@ -493,6 +498,16 @@ type Mutation {
     Updates the soft deleted status for a batch of assets
     """
     batchUpdateSoftDeleted(input: BatchUpdateSoftDeletedInput!): Boolean
+
+    """
+    Update a user setting
+    """
+    updateUserSetting(input: UpdateUserSettingInput!): Boolean
+
+    """
+    Batch assign roles to users
+    """
+    batchAssignRole(input: BatchAssignRoleInput!): Boolean
 }
 
 """
@@ -658,6 +673,16 @@ enum EntityType {
     A DataHub Test
     """
     TEST
+
+    """
+    A DataHub Policy
+    """
+    DATAHUB_POLICY
+
+    """
+    A DataHub Role
+    """
+    DATAHUB_ROLE
 }
 
 """
@@ -2295,6 +2320,11 @@ type SchemaField {
     jsonPath: String
 
     """
+    Human readable label for the field. Not supplied by all data sources
+    """
+    label: String
+
+    """
     Indicates if this field is optional or nullable
     """
     nullable: Boolean!
@@ -2871,6 +2901,32 @@ type CorpUser implements Entity {
     The structured tags associated with the user
     """
     globalTags: GlobalTags @deprecated
+
+    """
+    Settings that a user can customize through the datahub ui
+    """
+    settings: CorpUserSettings
+}
+
+"""
+Settings that a user can customize through the datahub ui
+"""
+type CorpUserSettings {
+    """
+    Settings that control look and feel of the DataHub UI for the user
+    """
+    appearance: CorpUserAppearanceSettings
+}
+
+"""
+Settings that control look and feel of the DataHub UI for the user
+"""
+type CorpUserAppearanceSettings {
+    """
+    Flag whether the user should see a homepage with only datasets, charts & dashboards. Intended for users
+    who have less operational use cases for the datahub tool.
+    """
+    showSimplifiedHomepage: Boolean
 }
 
 """
@@ -4281,6 +4337,11 @@ type Dashboard implements EntityWithRelationships & Entity & BrowsableEntity {
     Standardized platform urn where the dashboard is defined
     """
     platform: DataPlatform!
+
+    """
+    Input fields that power all the charts in the dashboard
+    """
+    inputFields: InputFields
 }
 
 """
@@ -4561,6 +4622,11 @@ type Chart implements EntityWithRelationships & Entity & BrowsableEntity {
     Standardized platform urn where the chart is defined
     """
     platform: DataPlatform!
+
+    """
+    Input fields to power the chart
+    """
+    inputFields: InputFields
 }
 
 """
@@ -7218,18 +7284,80 @@ enum PolicyState {
 }
 
 """
+DEPRECATED
+TODO: Eventually get rid of this in favor of DataHub Policy
 An DataHub Platform Access Policy Access Policies determine who can perform what actions against which resources on the platform
 """
 type Policy {
+    """
+    The primary key of the Policy
+    """
+    urn: String!
+
+    """
+    The type of the Policy
+    """
+    type: PolicyType!
+
+    """
+    The name of the Policy
+    """
+    name: String!
+
+    """
+    The present state of the Policy
+    """
+    state: PolicyState!
+
+    """
+    The description of the Policy
+    """
+    description: String
+
+    """
+    The resources that the Policy privileges apply to
+    """
+    resources: ResourceFilter
+
+    """
+    The privileges that the Policy grants
+    """
+    privileges: [String!]!
+
+    """
+    The actors that the Policy grants privileges to
+    """
+    actors: ActorFilter!
+
+    """
+    Whether the Policy is editable, ie system policies, or not
+    """
+    editable: Boolean!
+}
+
+"""
+An DataHub Platform Access Policy -  Policies determine who can perform what actions against which resources on the platform
+"""
+type DataHubPolicy implements Entity {
   """
   The primary key of the Policy
   """
   urn: String!
 
   """
+  The standard Entity Type
+  """
+  type: EntityType!
+
+  """
+  Granular API for querying edges extending from the Role
+  """
+  relationships(input: RelationshipsInput!): EntityRelationshipsResult
+
+  """
   The type of the Policy
   """
-  type: PolicyType!
+  policyType: PolicyType!
 
   """
   The name of the Policy
@@ -7307,6 +7435,11 @@ type ActorFilter {
   groups: [String!]
 
   """
+  A disjunctive set of roles to apply the policy to
+  """
+  roles: [String!]
+
+  """
   Whether the filter should return TRUE for owners of a particular resource
   Only applies to policies of type METADATA, which have a resource associated with them
   """
@@ -7331,6 +7464,11 @@ type ActorFilter {
   The list of groups on the Policy, resolved.
   """
   resolvedGroups: [CorpGroup!]
+
+  """
+  The list of roles on the Policy, resolved.
+  """
+  resolvedRoles: [DataHubRole!]
 }
 
 """
@@ -9063,4 +9201,132 @@ input BatchUpdateSoftDeletedInput {
     Whether to mark the asset as soft-deleted (hidden)
     """
     deleted: Boolean!
+}
+
+"""
+Input fields of the chart
+"""
+type InputFields {
+    fields: [InputField]
+}
+
+"""
+Input field of the chart
+"""
+type InputField {
+    schemaFieldUrn: String
+    schemaField: SchemaField
+}
+
+enum UserSetting {
+    """
+    Show simplified homepage
+    """
+    SHOW_SIMPLIFIED_HOMEPAGE
+}
+
+
+"""
+Input for updating a user setting
+"""
+input UpdateUserSettingInput {
+    """
+    The name of the setting
+    """
+    name: UserSetting!
+
+    """
+    The new value of the setting
+    """
+    value: Boolean!
+}
+
+"""
+Input provided when batch assigning a role to a list of users
+"""
+input BatchAssignRoleInput {
+    """
+    The urn of the role to assign to the actors
+    """
+    roleUrn: String!
+
+    """
+    The urns of the actors to assign the role to
+    """
+    actors: [String!]!
+}
+
+"""
+Input provided when listing existing roles
+"""
+input ListRolesInput {
+    """
+    The starting offset of the result set returned
+    """
+    start: Int
+
+    """
+    The maximum number of Roles to be returned in the result set
+    """
+    count: Int
+
+    """
+    Optional search query
+    """
+    query: String
+}
+
+"""
+The result obtained when listing DataHub Roles
+"""
+type ListRolesResult {
+    """
+    The starting offset of the result set returned
+    """
+    start: Int!
+
+    """
+    The number of Roles in the returned result set
+    """
+    count: Int!
+
+    """
+    The total number of Roles in the result set
+    """
+    total: Int!
+
+    """
+    The Roles themselves
+    """
+    roles: [DataHubRole!]!
+}
+
+"""
+A DataHub Role is a high-level abstraction on top of Policies that dictates what actions users can take.
+"""
+type DataHubRole implements Entity {
+    """
+    The primary key of the role
+    """
+    urn: String!
+
+    """
+    The standard Entity Type
+    """
+    type: EntityType!
+
+    """
+    Granular API for querying edges extending from the Role
+    """
+    relationships(input: RelationshipsInput!): EntityRelationshipsResult
+
+    """
+    The name of the Role.
+    """
+    name: String!
+
+    """
+    The description of the Role
+    """
+    description: String!
 }

@@ -61,7 +61,7 @@ public class NativeUserService {
   }
 
   public void createNativeUser(@Nonnull String userUrnString, @Nonnull String fullName, @Nonnull String email,
-      @Nonnull String title, @Nonnull String password, @Nonnull String inviteToken, Authentication authentication)
+      @Nonnull String title, @Nonnull String password, @Nonnull String inviteToken, @Nonnull Authentication authentication)
       throws Exception {
     Objects.requireNonNull(userUrnString, "userUrnSting must not be null!");
     Objects.requireNonNull(fullName, "fullName must not be null!");
@@ -69,6 +69,7 @@ public class NativeUserService {
     Objects.requireNonNull(title, "title must not be null!");
     Objects.requireNonNull(password, "password must not be null!");
     Objects.requireNonNull(inviteToken, "inviteToken must not be null!");
+    Objects.requireNonNull(inviteToken, "authentication must not be null!");
 
     InviteToken inviteTokenAspect =
         (InviteToken) _entityService.getLatestAspect(Urn.createFromString(GLOBAL_INVITE_TOKEN),
@@ -125,7 +126,7 @@ public class NativeUserService {
   }
 
   void updateCorpUserCredentials(@Nonnull Urn userUrn, @Nonnull String password,
-      Authentication authentication) throws Exception {
+      @Nonnull Authentication authentication) throws Exception {
     // Construct corpUserCredentials
     CorpUserCredentials corpUserCredentials = new CorpUserCredentials();
     final byte[] salt = getRandomBytes(SALT_TOKEN_LENGTH);

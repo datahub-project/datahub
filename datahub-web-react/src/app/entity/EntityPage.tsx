@@ -1,5 +1,4 @@
 import React, { useEffect } from 'react';
-import { Alert } from 'antd';
 import { useParams } from 'react-router-dom';
 import { EntityType } from '../../types.generated';
 import { BrowsableEntityPage } from '../browse/BrowsableEntityPage';
@@ -12,6 +11,7 @@ import { useGetAuthenticatedUserUrn } from '../useGetAuthenticatedUser';
 import { useGetGrantedPrivilegesQuery } from '../../graphql/policy.generated';
 import { Message } from '../shared/Message';
 import { UnauthorizedPage } from '../authorization/UnauthorizedPage';
+import { ErrorSection } from '../shared/error/ErrorSection';
 
 interface RouteParams {
     urn: string;
@@ -69,7 +69,7 @@ export const EntityPage = ({ entityType }: Props) => {
     return (
         <>
             {loading && <Message type="loading" content="Loading..." style={{ marginTop: '10%' }} />}
-            {error && <Alert type="error" message={error?.message || `Failed to fetch privileges for user`} />}
+            {error && <ErrorSection />}
             {data && !canViewEntityPage && <UnauthorizedPage />}
             {canViewEntityPage &&
                 ((showNewPage && <>{entityRegistry.renderProfile(entityType, urn)}</>) || (

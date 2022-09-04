@@ -307,4 +307,6 @@ public interface EntityClient {
 
   public void producePlatformEvent(@Nonnull String name, @Nullable String key, @Nonnull PlatformEvent event,
       @Nonnull Authentication authentication) throws Exception;
+
+  public void rollbackIngestion(@Nonnull String runId, @Nonnull Authentication authentication) throws Exception;
 }
