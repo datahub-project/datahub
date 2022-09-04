@@ -411,9 +411,7 @@ class S3Source(Source):
                     max_rows=self.source_config.max_rows
                 ).infer_schema(file)
             elif extension == ".json":
-                fields = json.JsonInferrer(
-                    is_newline_json=self.source_config.is_newline_json    
-                ).infer_schema(file)
+                fields = json.JsonInferrer().infer_schema(file)
             elif extension == ".avro":
                 fields = avro.AvroInferrer().infer_schema(file)
             else:
