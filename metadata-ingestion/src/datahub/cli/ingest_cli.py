@@ -103,6 +103,9 @@ def ingest() -> None:
     default=False,
     help="Turn off default reporting of ingestion results to DataHub",
 )
+@click.option(
+    "--no-spinner", type=bool, is_flag=True, default=False, help="Turn off spinner"
+)
 @click.pass_context
 @telemetry.with_telemetry
 @memory_leak_detector.with_leak_detection
@@ -117,6 +120,7 @@ def run(
     test_source_connection: bool,
     report_to: str,
     no_default_report: bool,
+    no_spinner: bool,
 ) -> None:
     """Ingest metadata into DataHub."""
 
@@ -125,7 +129,7 @@ def run(
     ) -> int:
         logger.info("Starting metadata ingestion")
         with click_spinner.spinner(
-            beep=False, disable=False, force=False, stream=sys.stdout
+            beep=False, disable=no_spinner, force=False, stream=sys.stdout
         ):
             try:
                 pipeline.run()

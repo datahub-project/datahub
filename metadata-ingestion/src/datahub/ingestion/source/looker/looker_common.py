@@ -1,16 +1,17 @@
+from __future__ import print_function
+
 import datetime
 import logging
 import re
 from dataclasses import dataclass
 from dataclasses import field as dataclasses_field
 from enum import Enum
+from functools import lru_cache
 from typing import Dict, Iterable, List, Optional, Tuple, Union
 
 import pydantic
 from looker_sdk.error import SDKError
-from looker_sdk.rtl.transport import TransportOptions
-from looker_sdk.sdk.api31.methods import Looker31SDK
-from looker_sdk.sdk.api31.models import WriteQuery
+from looker_sdk.sdk.api31.models import User, WriteQuery
 from pydantic import BaseModel, Field
 from pydantic.class_validators import validator
 
@@ -22,6 +23,7 @@ from datahub.configuration.source_common import DatasetSourceConfigBase
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.report import Report
 from datahub.ingestion.api.source import SourceReport
+from datahub.ingestion.source.looker.looker_lib_wrapper import LookerAPI
 from datahub.ingestion.source.sql.sql_types import (
     POSTGRES_TYPES_MAP,
     SNOWFLAKE_TYPES_MAP,
@@ -546,14 +548,11 @@ class LookerExplore:
         cls,
         model: str,
         explore_name: str,
-        client: Looker31SDK,
+        client: LookerAPI,
         reporter: SourceReport,
-        transport_options: Optional[TransportOptions],
     ) -> Optional["LookerExplore"]:  # noqa: C901
         try:
-            explore = client.lookml_model_explore(
-                model, explore_name, transport_options=transport_options
-            )
+            explore = client.lookml_model_explore(model, explore_name)
             views = set()
 
             if explore.view_name is not None and explore.view_name != explore.name:
@@ -786,35 +785,30 @@ class LookerExplore:
 
 
 class LookerExploreRegistry:
-    """A caching registry of Looker Explores"""
+    """A LRU caching registry of Looker Explores"""
 
     def __init__(
         self,
-        client: Looker31SDK,
+        looker_api: LookerAPI,
         report: SourceReport,
-        transport_options: Optional[TransportOptions],
     ):
-        self.client = client
+        self.client = looker_api
         self.report = report
-        self.transport_options = transport_options
-        self.explore_cache: Dict[Tuple[str, str], Optional[LookerExplore]] = {}
 
+    @lru_cache()
     def get_explore(self, model: str, explore: str) -> Optional[LookerExplore]:
-        if (model, explore) not in self.explore_cache:
-            looker_explore = LookerExplore.from_api(
-                model,
-                explore,
-                self.client,
-                self.report,
-                transport_options=self.transport_options,
-            )
-            self.explore_cache[(model, explore)] = looker_explore
-        return self.explore_cache[(model, explore)]
+        looker_explore = LookerExplore.from_api(
+            model,
+            explore,
+            self.client,
+            self.report,
+        )
+        return looker_explore
 
-    def get_all_explores(self) -> Iterable[LookerExplore]:
-        for key, value in self.explore_cache.items():
-            if value is not None:
-                yield value
+    def compute_stats(self) -> Dict:
+        return {
+            "cache_info": self.get_explore.cache_info(),
+        }
 
 
 class StageLatency(Report):
@@ -828,9 +822,7 @@ class StageLatency(Report):
 
     def compute_stats(self) -> None:
         if self.end_time and self.start_time:
-            self.latency_seconds = round(
-                (self.end_time - self.start_time).total_seconds(), 2
-            )
+            self.latency = self.end_time - self.start_time
             # clear out start and end times to keep logs clean
             self.start_time = None
             self.end_time = None
@@ -838,6 +830,7 @@ class StageLatency(Report):
 
 @dataclass
 class LookerDashboardSourceReport(SourceReport):
+    total_dashboards: int = 0
     dashboards_scanned: int = 0
     looks_scanned: int = 0
     filtered_dashboards: LossyList[str] = dataclasses_field(default_factory=LossyList)
@@ -848,8 +841,20 @@ class LookerDashboardSourceReport(SourceReport):
     dashboards_with_activity: LossySet[str] = dataclasses_field(
         default_factory=LossySet
     )
-    query_latency: Dict[str, float] = dataclasses_field(default_factory=dict)
     stage_latency: List[StageLatency] = dataclasses_field(default_factory=list)
+    _looker_explore_registry: Optional[LookerExploreRegistry] = None
+    total_explores: int = 0
+    explores_scanned: int = 0
+    _looker_api: Optional[LookerAPI] = None
+    query_latency: Dict[str, datetime.timedelta] = dataclasses_field(
+        default_factory=dict
+    )
+    user_resolution_latency: Dict[str, datetime.timedelta] = dataclasses_field(
+        default_factory=dict
+    )
+
+    def report_total_dashboards(self, total_dashboards: int) -> None:
+        self.total_dashboards = total_dashboards
 
     def report_dashboards_scanned(self) -> None:
         self.dashboards_scanned += 1
@@ -876,8 +881,15 @@ class LookerDashboardSourceReport(SourceReport):
         # for future implementation of min / max / percentiles etc.
         pass
 
-    def report_query_latency(self, query_type: str, latency_seconds: float) -> None:
-        self.query_latency[query_type] = round(latency_seconds, 2)
+    def report_query_latency(
+        self, query_type: str, latency: datetime.timedelta
+    ) -> None:
+        self.query_latency[query_type] = latency
+
+    def report_user_resolution_latency(
+        self, generator_type: str, latency: datetime.timedelta
+    ) -> None:
+        self.user_resolution_latency[generator_type] = latency
 
     def report_stage_start(self, stage_name: str) -> None:
         self.stage_latency.append(
@@ -887,3 +899,146 @@ class LookerDashboardSourceReport(SourceReport):
     def report_stage_end(self, stage_name: str) -> None:
         if self.stage_latency[-1].name == stage_name:
             self.stage_latency[-1].end_time = datetime.datetime.now()
+
+    def compute_stats(self) -> None:
+        if self.total_dashboards:
+            self.dashboard_process_percentage_completion = round(
+                100 * self.dashboards_scanned / self.total_dashboards, 2
+            )
+        if self._looker_explore_registry:
+            self.explore_registry_stats = self._looker_explore_registry.compute_stats()
+
+        if self.total_explores:
+            self.explores_process_percentage_completion = round(
+                100 * self.explores_scanned / self.total_explores, 2
+            )
+
+        if self._looker_api:
+            self.looker_api_stats = self._looker_api.compute_stats()
+        return super().compute_stats()
+
+
+@dataclass
+class LookerUser:
+    id: int
+    email: Optional[str]
+    display_name: Optional[str]
+    first_name: Optional[str]
+    last_name: Optional[str]
+
+    @classmethod
+    def create_looker_user(cls, raw_user: User) -> "LookerUser":
+        assert raw_user.id is not None
+        return LookerUser(
+            raw_user.id,
+            raw_user.email,
+            raw_user.display_name,
+            raw_user.first_name,
+            raw_user.last_name,
+        )
+
+    def get_urn(self, strip_user_ids_from_email: bool) -> Optional[str]:
+        if self.email is None:
+            return None
+        if strip_user_ids_from_email:
+            return builder.make_user_urn(self.email.split("@")[0])
+        else:
+            return builder.make_user_urn(self.email)
+
+
+@dataclass
+class InputFieldElement:
+    name: str
+    view_field: Optional[ViewField]
+    model: str = ""
+    explore: str = ""
+
+
+@dataclass
+class LookerDashboardElement:
+    id: str
+    title: str
+    query_slug: str
+    upstream_explores: List[LookerExplore]
+    look_id: Optional[str]
+    type: Optional[str] = None
+    description: Optional[str] = None
+    input_fields: Optional[List[InputFieldElement]] = None
+
+    def url(self, base_url: str) -> str:
+        # A dashboard element can use a look or just a raw query against an explore
+        # If the base_url contains a port number (like https://company.looker.com:19999) remove the port number
+        m = re.match("^(.*):([0-9]+)$", base_url)
+        if m is not None:
+            base_url = m[1]
+        if self.look_id is not None:
+            return f"{base_url}/looks/{self.look_id}"
+        else:
+            return f"{base_url}/x/{self.query_slug}"
+
+    def get_urn_element_id(self):
+        # A dashboard element can use a look or just a raw query against an explore
+        return f"dashboard_elements.{self.id}"
+
+    def get_view_urns(self, config: LookerCommonConfig) -> List[str]:
+        return [v.get_explore_urn(config) for v in self.upstream_explores]
+
+
+# These function will avoid to create LookerDashboard object to get the Looker Dashboard urn id part
+def get_urn_looker_dashboard_id(id_: str) -> str:
+    return f"dashboards.{id_}"
+
+
+def get_urn_looker_element_id(id_: str) -> str:
+    return f"dashboard_elements.{id_}"
+
+
+@dataclass
+class LookerDashboard:
+    id: str
+    title: str
+    dashboard_elements: List[LookerDashboardElement]
+    created_at: Optional[datetime.datetime]
+    description: Optional[str] = None
+    folder_path: Optional[str] = None
+    is_deleted: bool = False
+    is_hidden: bool = False
+    owner: Optional[LookerUser] = None
+    strip_user_ids_from_email: Optional[bool] = True
+    last_updated_at: Optional[datetime.datetime] = None
+    last_updated_by: Optional[LookerUser] = None
+    deleted_at: Optional[datetime.datetime] = None
+    deleted_by: Optional[LookerUser] = None
+    favorite_count: Optional[int] = None
+    view_count: Optional[int] = None
+    last_viewed_at: Optional[datetime.datetime] = None
+
+    def url(self, base_url):
+        # If the base_url contains a port number (like https://company.looker.com:19999) remove the port number
+        m = re.match("^(.*):([0-9]+)$", base_url)
+        if m is not None:
+            base_url = m[1]
+        return f"{base_url}/dashboards/{self.id}"
+
+    def get_urn_dashboard_id(self):
+        return get_urn_looker_dashboard_id(self.id)
+
+
+class LookerUserRegistry:
+    looker_api_wrapper: LookerAPI
+    fields: str = ",".join(["id", "email", "display_name", "first_name", "last_name"])
+
+    def __init__(self, looker_api: LookerAPI):
+        self.looker_api_wrapper = looker_api
+
+    def get_by_id(self, id_: int) -> Optional[LookerUser]:
+        logger.debug(f"Will get user {id_}")
+
+        raw_user: Optional[User] = self.looker_api_wrapper.get_user(
+            id_, user_fields=self.fields
+        )
+        if raw_user is None:
+            return None
+
+        looker_user = LookerUser.create_looker_user(raw_user)
+        return looker_user
