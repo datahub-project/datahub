@@ -114,9 +114,11 @@ class GlossaryNodeEntity implements Entity<GlossaryNode> {
     };
 
     renderPreview = (_: PreviewType, data: GlossaryNode) => {
+        console.log(data);
         return (
             <Preview
                 urn={data?.urn}
+                parentNodes={data.parentNodes}
                 name={this.displayName(data)}
                 description={data?.properties?.description || ''}
                 owners={data?.ownership?.owners}

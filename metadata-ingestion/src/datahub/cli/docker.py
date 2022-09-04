@@ -144,6 +144,11 @@ def _set_environment_variables(
     elastic_port: Optional[pydantic.PositiveInt],
 ) -> None:
     if version is not None:
+        if not version.startswith("v") and "." in version:
+            logger.warning(
+                f"Version passed in '{version}' doesn't start with v, substituting with 'v{version}'"
+            )
+            version = f"v{version}"
         os.environ["DATAHUB_VERSION"] = version
     if mysql_port is not None:
         os.environ["DATAHUB_MAPPED_MYSQL_PORT"] = str(mysql_port)

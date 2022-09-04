@@ -285,7 +285,7 @@ class RedshiftUsageSource(Source):
             logger.debug(f"Filtering out {full_table_name} due to schema_pattern.")
             self.report.report_dropped(full_table_name)
             return False
-        if not self.config.table_pattern.allowed(row["table"]):
+        if not self.config.table_pattern.allowed(full_table_name):
             logger.debug(f"Filtering out {full_table_name} due to table_pattern.")
             self.report.report_dropped(full_table_name)
             return False

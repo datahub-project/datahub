@@ -39,6 +39,8 @@ import com.linkedin.entity.EntitiesVersionedV2RequestBuilders;
 import com.linkedin.entity.Entity;
 import com.linkedin.entity.EntityArray;
 import com.linkedin.entity.EntityResponse;
+import com.linkedin.entity.RunsDoRollbackRequestBuilder;
+import com.linkedin.entity.RunsRequestBuilders;
 import com.linkedin.metadata.aspect.EnvelopedAspect;
 import com.linkedin.metadata.aspect.VersionedAspect;
 import com.linkedin.metadata.browse.BrowseResult;
@@ -86,6 +88,7 @@ public class RestliEntityClient extends BaseClient implements EntityClient {
       new EntitiesVersionedV2RequestBuilders();
   private static final AspectsRequestBuilders ASPECTS_REQUEST_BUILDERS = new AspectsRequestBuilders();
   private static final PlatformRequestBuilders PLATFORM_REQUEST_BUILDERS = new PlatformRequestBuilders();
+  private static final RunsRequestBuilders RUNS_REQUEST_BUILDERS = new RunsRequestBuilders();
 
   public RestliEntityClient(@Nonnull final Client restliClient) {
     super(restliClient);
@@ -109,9 +112,9 @@ public class RestliEntityClient extends BaseClient implements EntityClient {
 
   /**
    * Legacy! Use {#batchGetV2} instead, as this method leverages Snapshot models, and will not work
-   * for fetching entities + aspects added by Entity Registry configuration. 
+   * for fetching entities + aspects added by Entity Registry configuration.
    *
-   * Batch get a set of {@link Entity} objects by urn.  
+   * Batch get a set of {@link Entity} objects by urn.
    *
    * @param urns the urns of the entities to batch get
    * @param authentication the authentication to include in the request to the Metadata Service
@@ -149,9 +152,9 @@ public class RestliEntityClient extends BaseClient implements EntityClient {
   }
 
   /**
-   * Batch get a set of aspects for a single entity. 
+   * Batch get a set of aspects for a single entity.
    *
-   * @param entityName the entity type to fetch 
+   * @param entityName the entity type to fetch
    * @param urns the urns of the entities to batch get
    * @param aspectNames the aspect names to batch get
    * @param authentication the authentication to include in the request to the Metadata Service
@@ -211,9 +214,9 @@ public class RestliEntityClient extends BaseClient implements EntityClient {
   }
 
   /**
-   * Autocomplete a search query for a particular field of an entity. 
+   * Autocomplete a search query for a particular field of an entity.
    *
-   * @param entityType the entity type to autocomplete against, e.g. 'dataset' 
+   * @param entityType the entity type to autocomplete against, e.g. 'dataset'
    * @param query search query
    * @param field field of the dataset
    * @param requestFilters autocomplete filters
@@ -235,9 +238,9 @@ public class RestliEntityClient extends BaseClient implements EntityClient {
   }
 
   /**
-   * Autocomplete a search query for a particular entity type. 
+   * Autocomplete a search query for a particular entity type.
    *
-   * @param entityType the entity type to autocomplete against, e.g. 'dataset' 
+   * @param entityType the entity type to autocomplete against, e.g. 'dataset'
    * @param query search query
    * @param requestFilters autocomplete filters
    * @param limit max number of autocomplete results
@@ -669,6 +672,13 @@ public class RestliEntityClient extends BaseClient implements EntityClient {
     if (key != null) {
       requestBuilder.keyParam(key);
     }
+    sendClientRequest(requestBuilder, authentication);
+  }
+
+  @Override
+  public void rollbackIngestion(@Nonnull String runId, @Nonnull final Authentication authentication)
+      throws Exception {
+    final RunsDoRollbackRequestBuilder requestBuilder = RUNS_REQUEST_BUILDERS.actionRollback().runIdParam(runId).dryRunParam(false);
     sendClientRequest(requestBuilder, authentication);
   }
 }
