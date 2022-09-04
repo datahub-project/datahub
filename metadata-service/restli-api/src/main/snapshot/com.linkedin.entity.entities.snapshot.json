@@ -2813,7 +2813,7 @@
                           "optional" : true,
                           "Searchable" : {
                             "boostScore" : 0.2,
-                            "fieldName" : "fieldLabel",
+                            "fieldName" : "fieldLabels",
                             "fieldType" : "TEXT"
                           }
                         }, {
@@ -4847,7 +4847,13 @@
                           "items" : "com.linkedin.common.Urn"
                         },
                         "doc" : "A specific set of roles to apply the policy to (disjunctive).",
-                        "optional" : true
+                        "optional" : true,
+                        "Relationship" : {
+                          "/*" : {
+                            "entityTypes" : [ "dataHubRole" ],
+                            "name" : "IsAssociatedWithRole"
+                          }
+                        }
                       } ]
                     },
                     "doc" : "The actors that the policy applies to."

@@ -200,3 +200,5 @@ export const RECIPE_FIELDS: RecipeFields = {
 };
 
 export const CONNECTORS_WITH_FORM = new Set(Object.keys(RECIPE_FIELDS));
+
+export const CONNECTORS_WITH_TEST_CONNECTION = new Set([SNOWFLAKE, LOOKER]);

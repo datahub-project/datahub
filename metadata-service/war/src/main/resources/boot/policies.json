@@ -239,9 +239,6 @@
         ]
       },
       "privileges":[
-        "MANAGE_INGESTION",
-        "MANAGE_SECRETS",
-        "VIEW_ANALYTICS",
         "GENERATE_PERSONAL_ACCESS_TOKENS",
         "MANAGE_DOMAINS",
         "MANAGE_GLOSSARIES",
@@ -314,9 +311,7 @@
           "urn:li:dataHubRole:Reader"
         ]
       },
-      "privileges":[
-        "VIEW_ANALYTICS"
-      ],
+      "privileges":[],
       "displayName":"Readers - Platform Policy",
       "description":"Readers can view analytics.",
       "state":"ACTIVE",

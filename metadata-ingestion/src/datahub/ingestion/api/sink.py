@@ -1,19 +1,20 @@
 import datetime
 from abc import ABCMeta, abstractmethod
 from dataclasses import dataclass, field
-from typing import Any, List, Optional
+from typing import Any, Optional
 
 from datahub.ingestion.api.closeable import Closeable
 from datahub.ingestion.api.common import PipelineContext, RecordEnvelope, WorkUnit
 from datahub.ingestion.api.report import Report
+from datahub.utilities.lossy_collections import LossyList
 
 
 @dataclass
 class SinkReport(Report):
     total_records_written: int = 0
     records_written_per_second: int = 0
-    warnings: List[Any] = field(default_factory=list)
-    failures: List[Any] = field(default_factory=list)
+    warnings: LossyList[Any] = field(default_factory=LossyList)
+    failures: LossyList[Any] = field(default_factory=LossyList)
     start_time: datetime.datetime = datetime.datetime.now()
     current_time: Optional[datetime.datetime] = None
     total_duration_in_seconds: Optional[float] = None

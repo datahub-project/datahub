@@ -437,10 +437,13 @@ public class JavaEntityClient implements EntityClient {
     // TODO: Factor out ingest logic into a util that can be accessed by the java client and the resource
     @SneakyThrows
     @Override
-    public String ingestProposal(@Nonnull MetadataChangeProposal metadataChangeProposal,
+    public String ingestProposal(
+        @Nonnull final MetadataChangeProposal metadataChangeProposal,
         @Nonnull final Authentication authentication) throws RemoteInvocationException {
+
+        String actorUrnStr = authentication.getActor() != null ? authentication.getActor().toUrnStr() : Constants.UNKNOWN_ACTOR;
         final AuditStamp auditStamp =
-            new AuditStamp().setTime(_clock.millis()).setActor(Urn.createFromString(Constants.UNKNOWN_ACTOR));
+            new AuditStamp().setTime(_clock.millis()).setActor(Urn.createFromString(actorUrnStr));
         final List<MetadataChangeProposal> additionalChanges =
             AspectUtils.getAdditionalChanges(metadataChangeProposal, _entityService);
 
