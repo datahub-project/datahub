@@ -10,6 +10,7 @@ from datetime import datetime
 from typing import Optional
 
 import click
+import click_spinner
 from click_default_group import DefaultGroup
 from tabulate import tabulate
 
@@ -123,27 +124,30 @@ def run(
         pipeline: Pipeline, structured_report: Optional[str] = None
     ) -> int:
         logger.info("Starting metadata ingestion")
-        try:
-            pipeline.run()
-        except Exception as e:
-            logger.info(
-                f"Source ({pipeline.config.source.type}) report:\n{pipeline.source.get_report().as_string()}"
-            )
-            logger.info(
-                f"Sink ({pipeline.config.sink.type}) report:\n{pipeline.sink.get_report().as_string()}"
-            )
-            # We dont want to log sensitive information in variables if the pipeline fails due to
-            # an unexpected error. Disable printing sensitive info to logs if ingestion is running
-            # with `--suppress-error-logs` flag.
-            if suppress_error_logs:
-                raise SensitiveError() from e
+        with click_spinner.spinner(
+            beep=False, disable=False, force=False, stream=sys.stdout
+        ):
+            try:
+                pipeline.run()
+            except Exception as e:
+                logger.info(
+                    f"Source ({pipeline.config.source.type}) report:\n{pipeline.source.get_report().as_string()}"
+                )
+                logger.info(
+                    f"Sink ({pipeline.config.sink.type}) report:\n{pipeline.sink.get_report().as_string()}"
+                )
+                # We dont want to log sensitive information in variables if the pipeline fails due to
+                # an unexpected error. Disable printing sensitive info to logs if ingestion is running
+                # with `--suppress-error-logs` flag.
+                if suppress_error_logs:
+                    raise SensitiveError() from e
+                else:
+                    raise e
             else:
-                raise e
-        else:
-            logger.info("Finished metadata ingestion")
-            pipeline.log_ingestion_stats()
-            ret = pipeline.pretty_print_summary(warnings_as_failure=strict_warnings)
-            return ret
+                logger.info("Finished metadata ingestion")
+                pipeline.log_ingestion_stats()
+                ret = pipeline.pretty_print_summary(warnings_as_failure=strict_warnings)
+                return ret
 
     async def run_pipeline_async(pipeline: Pipeline) -> int:
         loop = asyncio._get_running_loop()

@@ -2813,7 +2813,7 @@
                           "optional" : true,
                           "Searchable" : {
                             "boostScore" : 0.2,
-                            "fieldName" : "fieldLabel",
+                            "fieldName" : "fieldLabels",
                             "fieldType" : "TEXT"
                           }
                         }, {
@@ -4840,6 +4840,20 @@
                         "type" : "boolean",
                         "doc" : "Whether the filter should apply to all groups.",
                         "default" : false
+                      }, {
+                        "name" : "roles",
+                        "type" : {
+                          "type" : "array",
+                          "items" : "com.linkedin.common.Urn"
+                        },
+                        "doc" : "A specific set of roles to apply the policy to (disjunctive).",
+                        "optional" : true,
+                        "Relationship" : {
+                          "/*" : {
+                            "entityTypes" : [ "dataHubRole" ],
+                            "name" : "IsAssociatedWithRole"
+                          }
+                        }
                       } ]
                     },
                     "doc" : "The actors that the policy applies to."
