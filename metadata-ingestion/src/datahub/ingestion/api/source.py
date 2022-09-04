@@ -55,14 +55,16 @@ class SourceReport(Report):
 
     def __post_init__(self) -> None:
         self.start_time = datetime.datetime.now()
-        self.running_time_in_seconds = 0
+        self.running_time: datetime.timedelta = datetime.timedelta(seconds=0)
 
     def compute_stats(self) -> None:
-        duration = int((datetime.datetime.now() - self.start_time).total_seconds())
+        duration = datetime.datetime.now() - self.start_time
         workunits_produced = self.events_produced
-        if duration > 0:
-            self.events_produced_per_sec: int = int(workunits_produced / duration)
-            self.running_time_in_seconds = duration
+        if duration.total_seconds() > 0:
+            self.events_produced_per_sec: int = int(
+                workunits_produced / duration.total_seconds()
+            )
+            self.running_time = duration
         else:
             self.read_rate = 0
 
