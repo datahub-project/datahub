@@ -12,7 +12,7 @@ Feel free to take a look around, deploy, and contribute.
 For details about the motivation please see [this RFC](../docs/rfc/active/2055-react-app/README.md). 
 
 ## Functional Goals
-The initial milestone for the app was to achieve functional parity with the existing Ember app. This meant supporting
+The initial milestone for the app was to achieve functional parity with the previous Ember app. This meant supporting
 
 - Dataset Profiles, Search, Browse Experience
 - User Profiles, Search
@@ -21,7 +21,7 @@ The initial milestone for the app was to achieve functional parity with the exis
 This has since been achieved. The new set of functional goals are reflected in the latest version of the [DataHub Roadmap](../docs/roadmap.md). 
 
 ## Design Goals
-In building out the client experience, we intend to leverage learnings from previous the Ember-based app and incorporate feedback gathered
+In building out the client experience, we intend to leverage learnings from the previous Ember-based app and incorporate feedback gathered
 from organizations operating DataHub. Two themes have emerged to serve as guideposts:
 
 1. **Configurability**: The client experience should be configurable, such that deploying organizations can tailor certain 
