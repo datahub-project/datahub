@@ -190,7 +190,7 @@ def _attempt_stop(quickstart_compose_file: List[pathlib.Path]) -> None:
     if compose_files_for_stopping:
         # docker-compose stop
         base_command: List[str] = [
-            "docker-compose",
+            "docker", "compose",
             *itertools.chain.from_iterable(
                 ("-f", f"{path}") for path in compose_files_for_stopping
             ),
@@ -613,7 +613,7 @@ def quickstart(
     )
 
     base_command: List[str] = [
-        "docker-compose",
+        "docker", "compose",
         *itertools.chain.from_iterable(
             ("-f", f"{path}") for path in quickstart_compose_file
         ),
@@ -629,7 +629,7 @@ def quickstart(
         )
     except subprocess.CalledProcessError:
         click.secho(
-            "Error while pulling images. Going to attempt to move on to docker-compose up assuming the images have "
+            "Error while pulling images. Going to attempt to move on to docker compose up assuming the images have "
             "been built locally",
             fg="red",
         )
@@ -655,7 +655,7 @@ def quickstart(
     up_interval = datetime.timedelta(seconds=30)
     up_attempts = 0
     while (datetime.datetime.now() - start_time) < max_wait_time:
-        # Attempt to run docker-compose up every minute.
+        # Attempt to run docker compose up every minute.
         if (datetime.datetime.now() - start_time) > up_attempts * up_interval:
             click.echo()
             subprocess.run(base_command + ["up", "-d", "--remove-orphans"])
@@ -683,7 +683,7 @@ def quickstart(
 
         if dump_logs_on_failure:
             with open(log_file.name, "r") as logs:
-                click.echo("Dumping docker-compose logs:")
+                click.echo("Dumping docker compose logs:")
                 click.echo(logs.read())
                 click.echo()
 
