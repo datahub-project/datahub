@@ -11,7 +11,6 @@ from typing import Any, Dict, Iterable, List, Optional, Set, Tuple, Type
 
 import pydantic
 from looker_sdk.error import SDKError
-from looker_sdk.sdk.api31.methods import Looker31SDK
 from looker_sdk.sdk.api31.models import DBConnection
 from pydantic import root_validator, validator
 from pydantic.fields import Field
@@ -235,6 +234,7 @@ class LookMLSourceReport(SourceReport):
     models_dropped: List[str] = dataclass_field(default_factory=list)
     views_discovered: int = 0
     views_dropped: List[str] = dataclass_field(default_factory=list)
+    _looker_api: Optional[LookerAPI] = None
 
     def report_models_scanned(self) -> None:
         self.models_discovered += 1
@@ -247,6 +247,11 @@ class LookMLSourceReport(SourceReport):
 
     def report_views_dropped(self, view: str) -> None:
         self.views_dropped.append(view)
+
+    def compute_stats(self) -> None:
+        if self._looker_api:
+            self.api_stats = self._looker_api.compute_stats()
+        return super().compute_stats()
 
 
 @dataclass
@@ -813,15 +818,15 @@ class LookMLSource(Source):
 
     source_config: LookMLSourceConfig
     reporter: LookMLSourceReport
-    looker_client: Optional[Looker31SDK] = None
+    looker_client: Optional[LookerAPI] = None
 
     def __init__(self, config: LookMLSourceConfig, ctx: PipelineContext):
         super().__init__(ctx)
         self.source_config = config
         self.reporter = LookMLSourceReport()
         if self.source_config.api:
-            looker_api = LookerAPI(self.source_config.api)
-            self.looker_client = looker_api.get_client()
+            self.looker_client = LookerAPI(self.source_config.api)
+            self.reporter._looker_api = self.looker_client
             try:
                 self.looker_client.all_connections()
             except SDKError:
@@ -1050,13 +1055,7 @@ class LookMLSource(Source):
             self.looker_client is not None
         ), "Failed to find a configured Looker API client"
         try:
-            model = self.looker_client.lookml_model(
-                model_name,
-                "project_name",
-                transport_options=self.source_config.transport_options.get_transport_options()
-                if self.source_config.transport_options is not None
-                else None,
-            )
+            model = self.looker_client.lookml_model(model_name, fields="project_name")
             assert (
                 model.project_name is not None
             ), f"Failed to find a project name for model {model_name}"
