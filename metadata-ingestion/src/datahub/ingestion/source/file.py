@@ -1,4 +1,5 @@
 import datetime
+import gzip
 import json
 import logging
 import os.path
@@ -27,6 +28,7 @@ from datahub.ingestion.api.source import (
     TestConnectionReport,
 )
 from datahub.ingestion.api.workunit import MetadataWorkUnit, UsageStatsWorkUnit
+from datahub.ingestion.sink.file import CompressionTypes
 from datahub.metadata.com.linkedin.pegasus2avro.mxe import (
     MetadataChangeEvent,
     MetadataChangeProposal,
@@ -59,9 +61,10 @@ class FileSourceConfig(ConfigModel):
     _minsize_for_streaming_mode_in_bytes: int = (
         100 * 1000 * 1000  # Must be at least 100MB before we use streaming mode
     )
+    compression: CompressionTypes = CompressionTypes.NONE
 
-    @validator("read_mode", pre=True)
-    def read_mode_str_to_enum(cls, v):
+    @validator("read_mode", "compression", pre=True)
+    def str_to_enum(cls, v):
         if v and isinstance(v, str):
             return v.upper()
 
@@ -249,8 +252,13 @@ class GenericFileSource(TestableSource):
         else:
             file_read_mode = self.config.read_mode
 
+        if self.config.compression == CompressionTypes.GZIP:
+            open_func = gzip.open
+        else:
+            open_func = open  # type: ignore
+
         if file_read_mode == FileReadMode.BATCH:
-            with open(path, "r") as f:
+            with open_func(path, "r") as f:
                 parse_start_time = datetime.datetime.now()
                 obj_list = json.load(f)
                 parse_end_time = datetime.datetime.now()
@@ -265,7 +273,7 @@ class GenericFileSource(TestableSource):
                 yield i, obj
                 self.report.current_file_elements_read += 1
         else:
-            self.fp = open(path, "rb")
+            self.fp = open_func(path, "rb")
             count_start_time = datetime.datetime.now()
             parse_stream = ijson.parse(self.fp, use_float=True)
             total_elements = 0
