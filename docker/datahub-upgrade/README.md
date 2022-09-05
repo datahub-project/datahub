@@ -43,6 +43,8 @@ EBEAN_DATASOURCE_HOST=<your-ebean-host>:3306
 EBEAN_DATASOURCE_URL=jdbc:mysql://<your-ebean-host>:3306/datahub?verifyServerCertificate=false&useSSL=true&useUnicode=yes&characterEncoding=UTF-8
 EBEAN_DATASOURCE_DRIVER=com.mysql.jdbc.Driver
 
+JAVA_OPTS=-Xms100M -Xmx300m
+
 KAFKA_BOOTSTRAP_SERVER=<your-kafka-host>:29092
 KAFKA_SCHEMAREGISTRY_URL=http://<your-kafka-host>:8081
 
