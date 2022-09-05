@@ -907,7 +907,6 @@ class LookerDashboardSource(Source):
     ]:
         start_time = datetime.datetime.now()
         assert dashboard_id is not None
-        self.reporter.report_dashboards_scanned()
         if not self.source_config.dashboard_pattern.allowed(dashboard_id):
             self.reporter.report_dashboards_dropped(dashboard_id)
             return [], None, dashboard_id, start_time, datetime.datetime.now()
@@ -951,7 +950,7 @@ class LookerDashboardSource(Source):
             looker_dashboard
         )
         workunits.extend(metric_dim_workunits)
-
+        self.reporter.report_dashboards_scanned()
         return (
             workunits,
             dashboard_object,
