@@ -8,6 +8,7 @@ from dataclasses import dataclass
 from typing import Any, Dict, Iterable, List, Optional, cast
 
 import click
+import humanfriendly
 import psutil
 
 import datahub
@@ -98,9 +99,6 @@ class DeadLetterQueueCallback(WriteCallback):
 
 class PipelineInitError(Exception):
     pass
-
-
-import humanfriendly
 
 
 @dataclass
