@@ -1,7 +1,13 @@
+import gzip
 import json
 import logging
+import os
 import pathlib
-from typing import Union
+from enum import Enum
+from io import BufferedWriter
+from typing import Iterable, Iterator, Optional, TextIO, Union
+
+from pydantic import validator
 
 from datahub.configuration.common import ConfigModel
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
@@ -16,23 +22,96 @@ from datahub.metadata.com.linkedin.pegasus2avro.usage import UsageAggregation
 logger = logging.getLogger(__name__)
 
 
+class CompressionTypes(Enum):
+    NONE = "NONE"
+    GZIP = "GZIP"
+
+
 class FileSinkConfig(ConfigModel):
-    filename: str
+    filename: str = "datahub_events.json"
+    path: Optional[str] = None
+    compression: CompressionTypes = CompressionTypes.NONE
+    rotation_raw_bytes: int = 100 * 1024 * 1024  # Rotate files every 100 MB of raw data
+
+    @validator("compression", pre=True)
+    def upper_case_compression(cls, v):
+        if v is not None and isinstance(v, str):
+            return v.upper()
+        return v
+
+
+class FileSinkReport(SinkReport):
+    compression: CompressionTypes
+    filename: Optional[str]
+    directory: Optional[str]
+    current_file_path: Optional[str] = None
+    current_file_raw_bytes_written: int = 0
+    current_file_num_records_written: int = 0
+
+
+class DirectoryFileProvider(Iterator[pathlib.Path]):
+    def __init__(self, directory: str, file_name_base: str, file_name_extension: str):
+        super().__init__()
+        self.root_directory = directory
+        self.file_name_base = file_name_base
+        self.file_name_extension = file_name_extension
+        self.next_file_name = (
+            f"{self.root_directory}/{self.file_name_base}{self.file_name_extension}"
+        )
+
+        self.current_index = -1
+
+    def __next__(self) -> pathlib.Path:
+        next_file_name = self.next_file_name
+        self.current_index += 1
+        self.next_file_name = f"{self.root_directory}/{self.file_name_base}.{self.current_index}{self.file_name_extension}"
+        return pathlib.Path(next_file_name)
 
 
 class FileSink(Sink):
-    config: FileSinkConfig
-    report: SinkReport
+    @staticmethod
+    def _get_file_extension(config: FileSinkConfig) -> str:
+        ext_base = "" if config.filename.endswith(".json") else ".json"
+        if config.compression == CompressionTypes.GZIP:
+            return ext_base + ".gz"
+        else:
+            return ext_base
 
     def __init__(self, ctx: PipelineContext, config: FileSinkConfig):
         super().__init__(ctx)
         self.config = config
-        self.report = SinkReport()
+        self.report = FileSinkReport()
 
-        fpath = pathlib.Path(self.config.filename)
-        self.file = fpath.open("w")
-        self.file.write("[\n")
-        self.wrote_something = False
+        self.report.compression = self.config.compression
+
+        assert self.config.path or self.config.filename
+        self.directory_mode = self.config.path is not None
+        if self.directory_mode:
+            assert self.config.path
+            os.makedirs(self.config.path, exist_ok=True)
+            self.file_name_iterator = DirectoryFileProvider(
+                self.config.path,
+                self.config.filename,
+                self._get_file_extension(self.config),
+            )
+            self.current_file: Optional[Union[gzip.GzipFile, BufferedWriter]] = None
+        else:
+            file_name = pathlib.Path(
+                self.config.filename + self._get_file_extension(self.config)
+            )
+            fpath = file_name
+            self._init_file(fpath)
+
+    def _init_file(self, file_path: pathlib.Path) -> None:
+        if self.config.compression == CompressionTypes.GZIP:
+            self.current_file = gzip.open(file_path, "wb")
+        elif self.config.compression == CompressionTypes.NONE:
+            self.current_file = file_path.open("wb")
+        assert self.current_file
+        self.current_file.write(b"[\n")
+        self.report.current_file_path = str(file_path)
+        self.report.current_file_num_records_written = 0
+        self.report.current_file_raw_bytes_written = 0
 
     @classmethod
     def create(cls, config_dict: dict, ctx: PipelineContext) -> "FileSink":
@@ -57,21 +136,44 @@ class FileSink(Sink):
         ],
         write_callback: WriteCallback,
     ) -> None:
+        self._open_file_if_needed()
+        assert self.current_file
         record = record_envelope.record
         obj = record.to_obj()
+        json_str = json.dumps(obj, indent=4)
+        if self.report.current_file_num_records_written > 0:
+            json_str = ",\n" + json_str
 
-        if self.wrote_something:
-            self.file.write(",\n")
-
-        json.dump(obj, self.file, indent=4)
-        self.wrote_something = True
-
+        json_bytes = json_str.encode("utf-8")
+        self.current_file.write(json_bytes)
+        # json.dump(obj, self.file, indent=4)
+        self.report.current_file_num_records_written += 1
+        self.report.current_file_raw_bytes_written += len(json_bytes)
         self.report.report_record_written(record_envelope)
         write_callback.on_success(record_envelope, {})
+        self._rotate_file_if_needed()
+
+    def _open_file_if_needed(self):
+        if self.current_file is None:
+            next_file = next(self.file_name_iterator)
+            self._init_file(next_file)
+
+    def _rotate_file_if_needed(self):
+        if self.directory_mode:
+            if (
+                self.report.current_file_raw_bytes_written
+                > self.config.rotation_raw_bytes
+            ):
+                self._close_file()
+
+    def _close_file(self):
+        if self.current_file is not None:
+            self.current_file.write(b"\n]")
+            self.current_file.close()
+        self.current_file = None
 
     def get_report(self):
         return self.report
 
     def close(self):
-        self.file.write("\n]")
-        self.file.close()
+        self._close_file()

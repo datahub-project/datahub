@@ -130,7 +130,6 @@ class FileSourceReport(SourceReport):
         self.current_file_elements_read = None
 
     def compute_stats(self) -> None:
-        super().compute_stats()
         self.num_files_completed = len(self.files_completed)
         total_bytes_read = self.total_bytes_read_completed_files
         if self.current_file_bytes_read:
@@ -162,6 +161,8 @@ class FileSourceReport(SourceReport):
             )
             self.percentage_completion = f"{percentage_completion:.2f}%"
 
+        return super().compute_stats()
+
 
 @platform_name("File")
 @config_class(FileSourceConfig)
@@ -187,6 +188,7 @@ class GenericFileSource(TestableSource):
         is_dir = os.path.isdir(self.config.path)
         if is_file:
             self.report.total_num_files = 1
+            self.report.total_bytes_on_disk = os.path.getsize(Path(self.config.path))
             return [self.config.path]
         if is_dir:
             p = Path(self.config.path)
