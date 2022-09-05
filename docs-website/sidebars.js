@@ -141,7 +141,7 @@ module.exports = {
         Transformers: [
           "metadata-ingestion/docs/transformer/intro",
           "metadata-ingestion/docs/transformer/dataset_transformer",
-        ]
+        ],
       },
       {
         "Advanced Guides": [

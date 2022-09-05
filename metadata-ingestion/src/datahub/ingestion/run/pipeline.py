@@ -315,13 +315,12 @@ class Pipeline:
 
     def _time_to_print(self) -> bool:
         self.num_intermediate_workunits += 1
-        if self.num_intermediate_workunits > 1000:
-            current_time = int(time.time())
-            if current_time - self.last_time_printed > 10:
-                # we print
-                self.num_intermediate_workunits = 0
-                self.last_time_printed = current_time
-                return True
+        current_time = int(time.time())
+        if current_time - self.last_time_printed > 10:
+            # we print
+            self.num_intermediate_workunits = 0
+            self.last_time_printed = current_time
+            return True
         return False
 
     def run(self) -> None:
@@ -340,8 +339,11 @@ class Pipeline:
                 self.source.get_workunits(),
                 self.preview_workunits if self.preview_mode else None,
             ):
-                if self._time_to_print():
-                    self.pretty_print_summary(currently_running=True)
+                try:
+                    if self._time_to_print():
+                        self.pretty_print_summary(currently_running=True)
+                except Exception as e:
+                    logger.warning("Failed to print summary", e)
 
                 if not self.dry_run:
                     self.sink.handle_work_unit_start(wu)
@@ -495,9 +497,7 @@ class Pipeline:
         click.echo(self.sink.get_report().as_string())
         click.echo()
         workunits_produced = self.source.get_report().events_produced
-        duration_message = (
-            f"in {self.source.get_report().running_time_in_seconds} seconds."
-        )
+        duration_message = f"in {Report.to_str(self.source.get_report().running_time)}."
 
         if self.source.get_report().failures or self.sink.get_report().failures:
             num_failures_source = self._approx_all_vals(
