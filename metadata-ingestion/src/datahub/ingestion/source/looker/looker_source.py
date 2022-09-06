@@ -12,6 +12,7 @@ from typing import (
     MutableMapping,
     Optional,
     Sequence,
+    Set,
     Tuple,
     Union,
     cast,
@@ -27,11 +28,18 @@ from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.decorators import (
     SupportStatus,
+    capability,
     config_class,
     platform_name,
     support_status,
 )
-from datahub.ingestion.api.source import Source, SourceReport
+from datahub.ingestion.api.source import (
+    CapabilityReport,
+    SourceCapability,
+    SourceReport,
+    TestableSource,
+    TestConnectionReport,
+)
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.looker import looker_usage
 from datahub.ingestion.source.looker.looker_common import (
@@ -138,7 +146,15 @@ class LookerDashboardSourceConfig(LookerAPIConfig, LookerCommonConfig):
 @platform_name("Looker")
 @support_status(SupportStatus.CERTIFIED)
 @config_class(LookerDashboardSourceConfig)
-class LookerDashboardSource(Source):
+@capability(SourceCapability.DESCRIPTIONS, "Enabled by default")
+@capability(SourceCapability.PLATFORM_INSTANCE, "Enabled by default")
+@capability(
+    SourceCapability.OWNERSHIP, "Enabled by default, configured using `extract_owners`"
+)
+@capability(
+    SourceCapability.USAGE_STATS, "Can be enabled using `extract_usage_history`"
+)
+class LookerDashboardSource(TestableSource):
     """
     This plugin extracts the following:
     - Looker dashboards, dashboard elements (charts) and explores
@@ -189,6 +205,90 @@ class LookerDashboardSource(Source):
             looker_usage.SupportedStatEntity.CHART,
             config=stat_generator_config,
         )
+
+    @staticmethod
+    def test_connection(config_dict: dict) -> TestConnectionReport:
+        test_report = TestConnectionReport()
+        try:
+            self = cast(
+                LookerDashboardSource,
+                LookerDashboardSource.create(
+                    config_dict, PipelineContext("looker-test-connection")
+                ),
+            )
+            test_report.basic_connectivity = CapabilityReport(capable=True)
+            test_report.capability_report = {}
+
+            permissions = self.looker_api.get_available_permissions()
+
+            BASIC_INGEST_REQUIRED_PERMISSIONS = {
+                # TODO: Make this a bit more granular.
+                "access_data",
+                "explore",
+                "manage_models",
+                "see_datagroups",
+                "see_lookml",
+                "see_lookml_dashboards",
+                "see_looks",
+                "see_pdts",
+                "see_queries",
+                "see_schedules",
+                "see_sql",
+                "see_user_dashboards",
+                "see_users",
+            }
+
+            USAGE_INGEST_REQUIRED_PERMISSIONS = {
+                "see_system_activity",
+            }
+
+            LookerDashboardSource._set_test_connection_capability(
+                test_report,
+                permissions,
+                SourceCapability.DESCRIPTIONS,
+                BASIC_INGEST_REQUIRED_PERMISSIONS,
+            )
+            LookerDashboardSource._set_test_connection_capability(
+                test_report,
+                permissions,
+                SourceCapability.OWNERSHIP,
+                BASIC_INGEST_REQUIRED_PERMISSIONS,
+            )
+            LookerDashboardSource._set_test_connection_capability(
+                test_report,
+                permissions,
+                SourceCapability.USAGE_STATS,
+                USAGE_INGEST_REQUIRED_PERMISSIONS,
+            )
+        except Exception as e:
+            logger.exception(f"Failed to test connection due to {e}")
+            test_report.internal_failure = True
+            test_report.internal_failure_reason = f"{e}"
+
+            if test_report.basic_connectivity is None:
+                test_report.basic_connectivity = CapabilityReport(
+                    capable=False, failure_reason=f"{e}"
+                )
+
+        return test_report
+
+    @staticmethod
+    def _set_test_connection_capability(
+        test_report: TestConnectionReport,
+        permissions: Set[str],
+        perm: SourceCapability,
+        required: Set[str],
+    ) -> None:
+        assert test_report.capability_report is not None
+
+        if required.issubset(permissions):
+            test_report.capability_report[perm] = CapabilityReport(capable=True)
+        else:
+            missing = required - permissions
+            test_report.capability_report[perm] = CapabilityReport(
+                capable=False,
+                error_message=f"Missing required permissions: {', '.join(missing)}",
+            )
 
     @staticmethod
     def _extract_view_from_field(field: str) -> str:
