@@ -5,7 +5,6 @@ import com.linkedin.metadata.models.EntitySpec;
 import com.linkedin.metadata.models.EventSpec;
 import java.nio.file.Paths;
 import java.util.Map;
-import org.apache.maven.artifact.versioning.ComparableVersion;
 import org.testng.annotations.Test;
 
 import static org.testng.Assert.*;
@@ -13,10 +12,14 @@ import static org.testng.Assert.*;
 
 public class PatchEntityRegistryTest {
 
-  //@Test
+  @Test
   public void testEntityRegistryLoad() throws Exception, EntityRegistryException {
     PatchEntityRegistry patchEntityRegistry = new PatchEntityRegistry(
-        TestConstants.BASE_DIRECTORY + "/" + TestConstants.TEST_REGISTRY + "/" + TestConstants.TEST_VERSION.toString(),
+        TestConstants.BASE_DIRECTORY 
+        + "/" 
+        + TestConstants.TEST_REGISTRY 
+        + "/" 
+        + TestConstants.TEST_VERSION.toString(),
         TestConstants.TEST_REGISTRY, TestConstants.TEST_VERSION);
 
     Map<String, EntitySpec> entitySpecs = patchEntityRegistry.getEntitySpecs();
@@ -43,8 +46,11 @@ public class PatchEntityRegistryTest {
   @Test
   public void testEntityRegistryWithKeyLoad() throws Exception, EntityRegistryException {
     DataSchemaFactory dataSchemaFactory = DataSchemaFactory.withCustomClasspath(
-      Paths.get(TestConstants.BASE_DIRECTORY + "/" + TestConstants.TEST_REGISTRY + "/" + 
-      TestConstants.TEST_VERSION.toString()));
+      Paths.get(TestConstants.BASE_DIRECTORY 
+        + "/" 
+        + TestConstants.TEST_REGISTRY 
+        + "/" 
+        + TestConstants.TEST_VERSION.toString()));
 
     PatchEntityRegistry patchEntityRegistry = new PatchEntityRegistry(
       dataSchemaFactory, Paths.get("src/test_plugins/mycompany-full-model/0.0.1/entity-registry.yaml"),
