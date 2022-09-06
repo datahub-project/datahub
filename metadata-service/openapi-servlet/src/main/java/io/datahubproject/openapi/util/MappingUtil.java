@@ -34,7 +34,6 @@ import io.datahubproject.openapi.generated.MetadataChangeProposal;
 import io.datahubproject.openapi.generated.OneOfEnvelopedAspectValue;
 import io.datahubproject.openapi.generated.OneOfGenericAspectValue;
 import io.datahubproject.openapi.generated.Status;
-import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
@@ -46,11 +45,7 @@ import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
 import lombok.extern.slf4j.Slf4j;
 import org.reflections.Reflections;
-import org.reflections.scanners.ResourcesScanner;
 import org.reflections.scanners.SubTypesScanner;
-import org.reflections.util.ClasspathHelper;
-import org.reflections.util.ConfigurationBuilder;
-import org.reflections.util.FilterBuilder;
 import org.springframework.beans.factory.config.BeanDefinition;
 import org.springframework.context.annotation.ClassPathScanningCandidateComponentProvider;
 import org.springframework.core.type.filter.AssignableTypeFilter;
@@ -98,17 +93,10 @@ public class MappingUtil {
     components = provider.findCandidateComponents("io/datahubproject/openapi/generated");
     components.forEach(MappingUtil::putGenericAspectEntry);
 
-    List<ClassLoader> classLoadersList = new ArrayList<>();
-    classLoadersList.add(ClasspathHelper.contextClassLoader());
-    classLoadersList.add(ClasspathHelper.staticClassLoader());
-
     // Build a map from fully qualified Pegasus generated class name to class
-    Reflections reflections = new Reflections(new ConfigurationBuilder()
-        .setScanners(new SubTypesScanner(false), new ResourcesScanner())
-        .setUrls(ClasspathHelper.forClassLoader(classLoadersList.toArray(new ClassLoader[0])))
-        .filterInputsBy(new FilterBuilder().include(FilterBuilder.prefix(PEGASUS_PACKAGE))));
-    Set<Class<? extends RecordTemplate>> pegasusComponents = reflections.getSubTypesOf(RecordTemplate.class);
-    pegasusComponents.forEach(aClass -> PEGASUS_TYPE_MAP.put(aClass.getSimpleName(), aClass));
+    new Reflections(PEGASUS_PACKAGE, new SubTypesScanner(false))
+            .getSubTypesOf(RecordTemplate.class)
+            .forEach(aClass -> PEGASUS_TYPE_MAP.put(aClass.getSimpleName(), aClass));
   }
 
   public static Map<String, EntityResponse> mapServiceResponse(Map<Urn, com.linkedin.entity.EntityResponse> serviceResponse,
