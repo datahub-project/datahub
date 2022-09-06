@@ -57,16 +57,11 @@ assumptions, i.e. only update the state IFF the starting state is still the same
 
 ## Motivation
 
-> Why are we doing this? What use cases does it support? What is the expected outcome?
->
-> Please focus on explaining the motivation so that if this RFC is not accepted, the motivation could be used to develop
-> alternative solutions. In other words, enumerate the constraints you are trying to solve without coupling them too
-> closely to the solution you have in mind.
-
-We wish to avoid losing data silently when two clients make updates to the same space. This may seem uncommon, but 
-in an event-driven world driving downstream operations on Datasets, it's more likely that two clients may end up 
-updating the same aspect. If we can allow a long "compare-and-swap" operation for atomic updates, we can 
-successfully avoid this situation and have one client be told to retry if the state changes underneath it.
+We wish to avoid losing data silently when two clients make updates to the same aspect. This can be quite likely in 
+an event-driven world driving downstream operations on Datasets. We should offer clients the chance to conditionally 
+update an aspect on the basis that what they recently observed is still the case and signal to the client if the 
+state changed before the update was possible. Essentially we need a long "compare-and-swap" operation 
+for atomic updates.
 
 ## Requirements
 
@@ -78,25 +73,22 @@ successfully avoid this situation and have one client be told to retry if the st
 > design.
 
 * A client needs to be able to identify the unique state or version of a given aspect when querying for it.
-* The client needs to be able to pass the same state back to a GMS "update" endpoint if it wants to ensure the 
+* The client needs to be able to reference the same state to a GMS "update" endpoint if it wants to ensure the 
   aspect has not changed between fetching it and mutating it.
+* A client could include multiple aspects in its precondition state, in case one update relies on the state of many 
+  other aspects.
 
 ### Extensibility
 
 > Please also call out extensibility requirements. Is this proposal meant to be extended in the future? Are you adding
 > a new API or set of models that others can build on in later? Please list these concerns here as well.
 
-The proposal could be extended to include a list of aspect versions which must hold true in order for a single 
-aspect update to occur. There is also the possibility of including the state version in a batch update, though this 
-may be complicated if handling multiple updates to the same aspect in a single batch.
+1. The proposal could be extended to include a list of aspect versions which must hold true in order for a single 
+   aspect update to occur.
+2. We could extend to include the state version in a batch update, though this may be complicated if handling 
+   multiple updates to the same aspect in a single batch.
 
 ## Non-Requirements
-
-> Call out things you don't want to discuss in detail during this review here, to help focus the conversation. This can
-> include things you may build in the future based off this design, but don't wish to discuss in detail, in which case
-> it may also be wise to explicitly list that extensibility in your design is a requirement.
->
-> This list can be high level and not detailed. It is to help focus the conversation on what you want to focus on.
 
 It's not important for us to discuss complex prerequisites here. The only thing we need to enforce is the state of 
 an aspect has not changed when making an update to it.
@@ -131,6 +123,21 @@ TODO: Different design options to be enumerated.
 
 > How should this feature be introduced and taught to existing audiences?
 
+We would have two potential additions to terminology:
+1. Previous state: The version(s) of aspects required in order for a GM update to succeed.
+2. Preconditions: A wider set of assertions which must be true in order for a GM update to succeed.
+
+We don't really cover "Preconditions" in this RFC, and in fact I argue we should never do, as this leaks business 
+knowledge into the GMS code. I would therefore use "Previous State" to describe the aspect versions required for 
+updates.
+
+### Documentation
+
+This should be added as an extra section of the following:
+* REST API examples
+* Java/Python REST Emitter
+* GraphQL mutations?
+
 ## Drawbacks
 
 > Why should we *not* do this? Please consider the impact on teaching DataHub, on the integration of this feature with
@@ -138,10 +145,20 @@ TODO: Different design options to be enumerated.
 
 > There are tradeoffs to choosing any path, please attempt to identify them here.
 
-TODO: This will come with some performance drawbacks, as many of these designs will involve an extra hop between the 
-client and DataHub.
+There are two major reasons this will be difficult to achieve: Aspect Versioning and Performance.
 
-### Performance under contention
+### Aspect Versioning
+
+Currently, [aspect versioning](/docs/advanced/aspect-versioning.md) uses 0 as the latest aspect version. We would 
+have to find a way to get around this or provide a different, deterministic identifier for a specific aspect version 
+if we aren't able to reference a single fixed integer for the aspect versions.
+
+### Performance
+
+There are some significant performance drawbacks for most of these designs, as they will involve an extra hop between 
+the client and DataHub. Things will get even worse if the aspect updates are under heavy contention.
+
+#### Performance under contention
 
 This approach would suffer a lot under high contention. Let's say:
 * the time sending a request from client to gms and receiving response is `x`
@@ -154,7 +171,8 @@ Under a contention of n clients sending 1 request targeting the same aspect, we 
 * ...
 * nth concurrent client would take 2nx + ny + nz time
 
-This is assuming a client is just making one update to the aspect. If an aspect is being used in some complex communication chain this could take a very long time.
+This is assuming a client is just making one update to the aspect. If an aspect is being used in some complex 
+communication chain this could take a very long time.
 
 ## Alternatives
 
@@ -162,17 +180,33 @@ This is assuming a client is just making one update to the aspect. If an aspect 
 
 > This section could also include prior art, that is, how other frameworks in the same domain have solved this problem.
 
+### Modelling
+
 Alternatives involve cleverly modelling aspects so they are only ever upserted without a previous state in mind, but 
 I haven't worked out how to achieve this for our requirements given the standard entity and aspect model available.
 
-TODO: Embellish
+### Locking
+
+If it were possible to lock an aspect for updating, then we could try this, although this would also lead to 
+slowness and contention of a different kind and we'd have to handle time-outs for locks which are never released, 
+for example.
+
+### Patch Language
+
+If the patch language were available, it might be possible to update collections in such a way that it's not 
+necessary for clients to know about the previous state of an aspect.
+
+MongoDB offers an update mode which allows clients to [add items to a set](https://mongodb.github.io/mongo-java-driver/4.7/apidocs/mongodb-driver-core/com/mongodb/client/model/Updates.html#addToSet(java.lang.String,TItem)),
+for example. This would avoid the need to go back to the client to ask them to construct the final state of a 
+collection.
 
 ## Rollout / Adoption Strategy
 
 > If we implemented this proposal, how will existing users / developers adopt it? Is it a breaking change? Can we write
 > automatic refactoring / migration tools? Can we provide a runtime adapter library for the original API it replaces? 
 
-TODO: We'd likely need a new GraphQL API endpoint, but I need to look into this further.
+This rollout would be done as either a new API endpoint or an optional additional parameter to an existing API, so 
+existing APIs will not be broken. Once available, clients may opt in to use the new features.
 
 ## Future Work
 
@@ -180,10 +214,14 @@ TODO: We'd likely need a new GraphQL API endpoint, but I need to look into this 
 > exhaustive, nor does it need to be anything you work on. It just helps reviewers see how this can be used in the
 > future, so they can help ensure your design is flexible enough.
 
-TODO: This has some very useful features which I'll iterate later.
+The capabilities built here would allow us to implement more parts of GMS than just UPSERT change types, as we could 
+guarantee the current state before making any changes.
 
 ## Unresolved questions
 
 > Optional, but suggested for first drafts. What parts of the design are still TBD?
+
+I'm not as familiar with the GMS code as I could be, so it's unclear to me exactly where we'd end up making code 
+changes. I know the solution needs to be agnostic to whichever backing store is being used.
 
 TODO: Still need to do a deep technical proposal.
