@@ -56,9 +56,9 @@ export default function DomainListItem({ domain, onDelete }: Props) {
     const displayName = entityRegistry.getDisplayName(EntityType.Domain, domain);
     const logoIcon = entityRegistry.getIcon(EntityType.Domain, 12, IconStyleType.ACCENT);
     const owners = domain.ownership?.owners;
-    const totalEntitiesText = `${domain.entities?.total || 0}`;
+    let totalEntitiesText = `${domain.entities?.total || 0}`;
     if (totalEntitiesText === `${ELASTIC_MAX_COUNT}`) {
-        totalEntitiesText === `${ELASTIC_MAX_COUNT}+`;
+        totalEntitiesText = `${ELASTIC_MAX_COUNT}+`;
     }
 
     return (
