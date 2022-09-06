@@ -340,6 +340,20 @@ public class PoliciesConfig {
           EDIT_ENTITY_PRIVILEGE)
   );
 
+  // Glossary Node Privileges
+  public static final ResourcePrivileges GLOSSARY_NODE_PRIVILEGES = ResourcePrivileges.of(
+      "glossaryNode",
+      "Glossary Term Groups",
+      "Glossary Term Groups created on DataHub",
+      ImmutableList.of(
+          VIEW_ENTITY_PAGE_PRIVILEGE,
+          EDIT_ENTITY_OWNERS_PRIVILEGE,
+          EDIT_ENTITY_DOCS_PRIVILEGE,
+          EDIT_ENTITY_DOC_LINKS_PRIVILEGE,
+          EDIT_ENTITY_DEPRECATION_PRIVILEGE,
+          EDIT_ENTITY_PRIVILEGE)
+  );
+
   // Group Privileges
   public static final ResourcePrivileges CORP_GROUP_PRIVILEGES = ResourcePrivileges.of(
       "corpGroup",
@@ -376,6 +390,7 @@ public class PoliciesConfig {
       CONTAINER_PRIVILEGES,
       DOMAIN_PRIVILEGES,
       GLOSSARY_TERM_PRIVILEGES,
+      GLOSSARY_NODE_PRIVILEGES,
       CORP_GROUP_PRIVILEGES,
       CORP_USER_PRIVILEGES,
       NOTEBOOK_PRIVILEGES
