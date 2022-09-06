@@ -1,5 +1,6 @@
 import itertools
 import logging
+import os
 import platform
 import sys
 import time
@@ -7,6 +8,8 @@ from dataclasses import dataclass
 from typing import Any, Dict, Iterable, List, Optional, cast
 
 import click
+import humanfriendly
+import psutil
 
 import datahub
 from datahub.configuration.common import PipelineExecutionError
@@ -105,6 +108,13 @@ class CliReport(Report):
     py_version: str = sys.version
     py_exec_path: str = sys.executable
     os_details: str = platform.platform()
+
+    def compute_stats(self) -> None:
+
+        self.mem_info = humanfriendly.format_size(
+            psutil.Process(os.getpid()).memory_info().rss
+        )
+        return super().compute_stats()
 
 
 class Pipeline:
