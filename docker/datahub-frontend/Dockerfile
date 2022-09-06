@@ -18,7 +18,23 @@ RUN apk --no-cache --update-cache --available upgrade \
 ARG USE_SYSTEM_NODE="true"
 ENV CI=true
 ENV GRADLE_OPTS="-Xms256m -Xmx512m"
-COPY . datahub-src
+
+# copy only what's realy needed for the build
+# to get the benefits of caching as much as possible
+COPY ./datahub-frontend ./datahub-src/datahub-frontend
+COPY ./entity-registry ./datahub-src/entity-registry
+COPY ./buildSrc ./datahub-src/buildSrc
+COPY ./datahub-web-react ./datahub-src/datahub-web-react
+COPY ./li-utils ./datahub-src/li-utils
+COPY ./metadata-models ./datahub-src/metadata-models
+COPY ./metadata-models-validator ./datahub-src/metadata-models-validator
+COPY ./metadata-utils ./datahub-src/metadata-utils
+COPY ./metadata-service ./datahub-src/metadata-service
+COPY ./metadata-io ./datahub-src/metadata-io
+COPY ./datahub-graphql-core ./datahub-src/datahub-graphql-core
+COPY ./gradle ./datahub-src/gradle
+COPY repositories.gradle gradle.properties gradlew settings.gradle build.gradle ./datahub-src/
+
 RUN cd datahub-src \
     && ./gradlew :datahub-web-react:build -x test -x yarnTest -x yarnLint \
     && ./gradlew :datahub-frontend:dist -PuseSystemNode=${USE_SYSTEM_NODE} -x test -x yarnTest -x yarnLint \
