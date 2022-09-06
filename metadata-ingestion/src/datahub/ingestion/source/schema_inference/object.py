@@ -1,7 +1,5 @@
 from collections import Counter
-from typing import Any
-from typing import Counter as CounterType
-from typing import Dict, Sequence, Tuple, Union
+from typing import Any, Counter as CounterType, Dict, Sequence, Tuple, Union
 
 from mypy_extensions import TypedDict
 

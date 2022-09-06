@@ -24,6 +24,11 @@ TAG_VERSION=$(cd $DIR && git name-rev --name-only --tags HEAD)
 DEFAULT_VERSION=$(echo $TAG_VERSION | sed 's/undefined/head/')
 export DATAHUB_VERSION=${DATAHUB_VERSION:-${DEFAULT_VERSION}}
 
+M1_COMPOSE=""
+if [[ $(uname -m) == 'arm64' && $(uname) == 'Darwin' ]]; then
+  M1_COMPOSE="-f docker-compose.m1.yml"
+fi
+
 echo "Quickstarting DataHub: version ${DATAHUB_VERSION}"
 if docker volume ls | grep -c -q datahub_neo4jdata
 then
@@ -32,10 +37,7 @@ then
 else
   echo "No Datahub Neo4j volume found, starting with elasticsearch as graph service"
   cd $DIR && \
-  docker-compose \
-    -f quickstart/docker-compose-without-neo4j.quickstart.yml \
-    $MONITORING_COMPOSE $CONSUMERS_COMPOSE pull && \
   docker-compose -p datahub \
     -f quickstart/docker-compose-without-neo4j.quickstart.yml \
-    $MONITORING_COMPOSE $CONSUMERS_COMPOSE up $@
+    $MONITORING_COMPOSE $CONSUMERS_COMPOSE $M1_COMPOSE up $@
 fi
