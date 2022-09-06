@@ -586,27 +586,27 @@ def quickstart(
             tmp_file.write(quickstart_download_response.content)
             logger.debug(f"Copied to {path}")
 
-    if standalone_consumers:
-      consumer_github_file = (
-        f"{GITHUB_BASE_URL}/{CONSUMERS_QUICKSTART_COMPOSE_FILE}"
-        if should_use_neo4j
-        else f"{GITHUB_BASE_URL}/{ELASTIC_CONSUMERS_QUICKSTART_COMPOSE_FILE}"
-      )
+        if standalone_consumers:
+            consumer_github_file = (
+                f"{GITHUB_BASE_URL}/{CONSUMERS_QUICKSTART_COMPOSE_FILE}"
+                if should_use_neo4j
+                else f"{GITHUB_BASE_URL}/{ELASTIC_CONSUMERS_QUICKSTART_COMPOSE_FILE}"
+            )
 
-      default_consumer_compose_file = Path(DATAHUB_ROOT_FOLDER) / "quickstart/docker-compose.consumers.yml"
-      with open(
-          default_consumer_compose_file, "wb"
-      ) if default_consumer_compose_file else tempfile.NamedTemporaryFile(
-          suffix=".yml", delete=False
-      ) as tmp_file:
-          path = pathlib.Path(tmp_file.name)
-          quickstart_compose_file.append(path)
-          click.echo(f"Fetching consumer docker-compose file {consumer_github_file} from GitHub")
-          # Download the quickstart docker-compose file from GitHub.
-          quickstart_download_response = requests.get(consumer_github_file)
-          quickstart_download_response.raise_for_status()
-          tmp_file.write(quickstart_download_response.content)
-          logger.debug(f"Copied to {path}")
+            default_consumer_compose_file = Path(DATAHUB_ROOT_FOLDER) / "quickstart/docker-compose.consumers.yml"
+            with open(
+                default_consumer_compose_file, "wb"
+            ) if default_consumer_compose_file else tempfile.NamedTemporaryFile(
+                suffix=".yml", delete=False
+            ) as tmp_file:
+                path = pathlib.Path(tmp_file.name)
+                quickstart_compose_file.append(path)
+                click.echo(f"Fetching consumer docker-compose file {consumer_github_file} from GitHub")
+                # Download the quickstart docker-compose file from GitHub.
+                quickstart_download_response = requests.get(consumer_github_file)
+                quickstart_download_response.raise_for_status()
+                tmp_file.write(quickstart_download_response.content)
+                logger.debug(f"Copied to {path}")
 
     # set version
     _set_environment_variables(
