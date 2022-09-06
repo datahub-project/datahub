@@ -1,27 +1,26 @@
 # Looker SDK is imported here and higher level wrapper functions/classes are provided to interact with Looker Server
-import datetime
 import json
 import logging
 import os
-import re
-from dataclasses import dataclass
-from typing import Dict, List, MutableMapping, Optional, cast
+from functools import lru_cache
+from typing import Dict, List, MutableMapping, Optional, Sequence, Union, cast
 
 import looker_sdk
 from looker_sdk.error import SDKError
 from looker_sdk.rtl.transport import TransportOptions
-from looker_sdk.sdk.api31.methods import Looker31SDK
-from looker_sdk.sdk.api31.models import User, WriteQuery
-from pydantic import Field
+from looker_sdk.sdk.api31.models import (
+    Dashboard,
+    DashboardBase,
+    DBConnection,
+    Folder,
+    LookmlModel,
+    User,
+    WriteQuery,
+)
+from pydantic import BaseModel, Field
 
-import datahub.emitter.mce_builder as builder
 from datahub.configuration import ConfigModel
 from datahub.configuration.common import ConfigurationError
-from datahub.ingestion.source.looker.looker_common import (
-    LookerCommonConfig,
-    LookerExplore,
-    ViewField,
-)
 
 logger = logging.getLogger(__name__)
 
@@ -44,6 +43,19 @@ class LookerAPIConfig(ConfigModel):
         None,
         description="Populates the [TransportOptions](https://github.com/looker-open-source/sdk-codegen/blob/94d6047a0d52912ac082eb91616c1e7c379ab262/python/looker_sdk/rtl/transport.py#L70) struct for looker client",
     )
+
+
+class LookerAPIStats(BaseModel):
+    dashboard_calls: int = 0
+    user_calls: int = 0
+    explore_calls: int = 0
+    query_calls: int = 0
+    folder_calls: int = 0
+    all_connections_calls: int = 0
+    connection_calls: int = 0
+    lookml_model_calls: int = 0
+    all_dashboards_calls: int = 0
+    search_dashboards_calls: int = 0
 
 
 class LookerAPI:
@@ -75,10 +87,16 @@ class LookerAPI:
                 "Failed to initialize Looker client. Please check your configuration."
             ) from e
 
-    def get_client(self) -> Looker31SDK:
-        return self.client
+        self.client_stats = LookerAPIStats()
 
+    @staticmethod
+    def __fields_mapper(fields: Union[str, List[str]]) -> str:
+        """Helper method to turn single string or list of fields into Looker API compatible fields param"""
+        return fields if isinstance(fields, str) else ",".join(fields)
+
+    @lru_cache(maxsize=2000)
     def get_user(self, id_: int, user_fields: str) -> Optional[User]:
+        self.client_stats.user_calls += 1
         try:
             return self.client.user(
                 id_,
@@ -92,13 +110,8 @@ class LookerAPI:
         return None
 
     def execute_query(self, write_query: WriteQuery) -> List[Dict]:
-        response_sql = self.client.run_inline_query(
-            result_format="sql",
-            body=write_query,
-            transport_options=self.transport_options,
-        )
-        logger.debug("=================Query=================")
-        logger.debug(response_sql)
+        logger.debug(f"Executing query {write_query}")
+        self.client_stats.query_calls += 1
 
         response_json = self.client.run_inline_query(
             result_format="json",
@@ -108,136 +121,74 @@ class LookerAPI:
 
         logger.debug("=================Response=================")
         data = json.loads(response_json)
-        logger.debug(f"length {len(data)}")
+        logger.debug("Length of response: %d", len(data))
         return data
 
-
-# These function will avoid to create LookerDashboard object to get the Looker Dashboard urn id part
-def get_urn_looker_dashboard_id(id_: str) -> str:
-    return f"dashboards.{id_}"
-
-
-def get_urn_looker_element_id(id_: str) -> str:
-    return f"dashboard_elements.{id_}"
-
-
-@dataclass
-class LookerUser:
-    id: int
-    email: Optional[str]
-    display_name: Optional[str]
-    first_name: Optional[str]
-    last_name: Optional[str]
-
-    @classmethod
-    def create_looker_user(cls, raw_user: User) -> "LookerUser":
-        assert raw_user.id is not None
-        return LookerUser(
-            raw_user.id,
-            raw_user.email,
-            raw_user.display_name,
-            raw_user.first_name,
-            raw_user.last_name,
+    def dashboard(self, dashboard_id: str, fields: Union[str, List[str]]) -> Dashboard:
+        self.client_stats.dashboard_calls += 1
+        return self.client.dashboard(
+            dashboard_id=dashboard_id,
+            fields=self.__fields_mapper(fields),
+            transport_options=self.transport_options,
         )
 
-    def get_urn(self, strip_user_ids_from_email: bool) -> Optional[str]:
-        if self.email is None:
-            return None
-        if strip_user_ids_from_email:
-            return builder.make_user_urn(self.email.split("@")[0])
-        else:
-            return builder.make_user_urn(self.email)
-
-
-@dataclass
-class InputFieldElement:
-    name: str
-    view_field: Optional[ViewField]
-    model: str = ""
-    explore: str = ""
-
-
-@dataclass
-class LookerDashboardElement:
-    id: str
-    title: str
-    query_slug: str
-    upstream_explores: List[LookerExplore]
-    look_id: Optional[str]
-    type: Optional[str] = None
-    description: Optional[str] = None
-    input_fields: Optional[List[InputFieldElement]] = None
-
-    def url(self, base_url: str) -> str:
-        # A dashboard element can use a look or just a raw query against an explore
-        # If the base_url contains a port number (like https://company.looker.com:19999) remove the port number
-        m = re.match("^(.*):([0-9]+)$", base_url)
-        if m is not None:
-            base_url = m[1]
-        if self.look_id is not None:
-            return f"{base_url}/looks/{self.look_id}"
-        else:
-            return f"{base_url}/x/{self.query_slug}"
-
-    def get_urn_element_id(self):
-        # A dashboard element can use a look or just a raw query against an explore
-        return f"dashboard_elements.{self.id}"
-
-    def get_view_urns(self, config: LookerCommonConfig) -> List[str]:
-        return [v.get_explore_urn(config) for v in self.upstream_explores]
-
-
-@dataclass
-class LookerDashboard:
-    id: str
-    title: str
-    dashboard_elements: List[LookerDashboardElement]
-    created_at: Optional[datetime.datetime]
-    description: Optional[str] = None
-    folder_path: Optional[str] = None
-    is_deleted: bool = False
-    is_hidden: bool = False
-    owner: Optional[LookerUser] = None
-    strip_user_ids_from_email: Optional[bool] = True
-    last_updated_at: Optional[datetime.datetime] = None
-    last_updated_by: Optional[LookerUser] = None
-    deleted_at: Optional[datetime.datetime] = None
-    deleted_by: Optional[LookerUser] = None
-    favorite_count: Optional[int] = None
-    view_count: Optional[int] = None
-    last_viewed_at: Optional[datetime.datetime] = None
-
-    def url(self, base_url):
-        # If the base_url contains a port number (like https://company.looker.com:19999) remove the port number
-        m = re.match("^(.*):([0-9]+)$", base_url)
-        if m is not None:
-            base_url = m[1]
-        return f"{base_url}/dashboards/{self.id}"
-
-    def get_urn_dashboard_id(self):
-        return get_urn_looker_dashboard_id(self.id)
-
-
-class LookerUserRegistry:
-    user_map: Dict[int, LookerUser]
-    looker_api_wrapper: LookerAPI
-    fields: str = ",".join(["id", "email", "display_name", "first_name", "last_name"])
-
-    def __init__(self, looker_api: LookerAPI):
-        self.looker_api_wrapper = looker_api
-        self.user_map = {}
-
-    def get_by_id(self, id_: int) -> Optional[LookerUser]:
-        logger.debug(f"Will get user {id_}")
-        if id_ in self.user_map:
-            return self.user_map[id_]
-
-        raw_user: Optional[User] = self.looker_api_wrapper.get_user(
-            id_, user_fields=self.fields
+    def lookml_model_explore(self, model, explore_name):
+        self.client_stats.explore_calls += 1
+        return self.client.lookml_model_explore(
+            model, explore_name, transport_options=self.transport_options
         )
-        if raw_user is None:
-            return None
 
-        looker_user = LookerUser.create_looker_user(raw_user)
-        self.user_map[id_] = looker_user
-        return looker_user
+    @lru_cache(maxsize=1000)
+    def folder_ancestors(
+        self, folder_id: str, fields: Union[str, List[str]] = "name"
+    ) -> Sequence[Folder]:
+        self.client_stats.folder_calls += 1
+        return self.client.folder_ancestors(
+            folder_id,
+            self.__fields_mapper(fields),
+            transport_options=self.transport_options,
+        )
+
+    def all_connections(self):
+        self.client_stats.all_connections_calls += 1
+        return self.client.all_connections(transport_options=self.transport_options)
+
+    def connection(self, connection_name: str) -> DBConnection:
+        self.client_stats.connection_calls += 1
+        return self.client.connection(
+            connection_name, transport_options=self.transport_options
+        )
+
+    def lookml_model(
+        self, model_name: str, fields: Union[str, List[str]]
+    ) -> LookmlModel:
+        self.client_stats.lookml_model_calls += 1
+        return self.client.lookml_model(
+            model_name,
+            self.__fields_mapper(fields),
+            transport_options=self.transport_options,
+        )
+
+    def compute_stats(self) -> Dict:
+        return {
+            "client_stats": self.client_stats,
+            "folder_cache": self.folder_ancestors.cache_info(),
+            "user_cache": self.get_user.cache_info(),
+        }
+
+    def all_dashboards(self, fields: Union[str, List[str]]) -> Sequence[DashboardBase]:
+        self.client_stats.all_dashboards_calls += 1
+        return self.client.all_dashboards(
+            fields=self.__fields_mapper(fields),
+            transport_options=self.transport_options,
+        )
+
+    def search_dashboards(
+        self, fields: Union[str, List[str]], deleted: str
+    ) -> Sequence[Dashboard]:
+        self.client_stats.search_dashboards_calls += 1
+        return self.client.search_dashboards(
+            fields=self.__fields_mapper(fields),
+            deleted=deleted,
+            transport_options=self.transport_options,
+        )
