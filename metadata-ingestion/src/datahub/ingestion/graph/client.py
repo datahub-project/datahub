@@ -14,12 +14,15 @@ from datahub.emitter.mce_builder import Aspect
 from datahub.emitter.rest_emitter import DatahubRestEmitter
 from datahub.emitter.serialization_helper import post_json_transform
 from datahub.metadata.schema_classes import (
+    BrowsePathsClass,
+    DatasetPropertiesClass,
     DatasetUsageStatisticsClass,
     DomainPropertiesClass,
     DomainsClass,
     GlobalTagsClass,
     GlossaryTermsClass,
     OwnershipClass,
+    SchemaMetadataClass,
     TelemetryClientIdClass,
 )
 from datahub.utilities.urns.urn import Urn
@@ -185,11 +188,27 @@ class DataHubGraph(DatahubRestEmitter):
             aspect_type=OwnershipClass,
         )
 
+    def get_schema_metadata(self, entity_urn: str) -> Optional[SchemaMetadataClass]:
+        return self.get_aspect_v2(
+            entity_urn=entity_urn,
+            aspect="schemaMetadata",
+            aspect_type=SchemaMetadataClass,
+        )
+
     def get_domain_properties(self, entity_urn: str) -> Optional[DomainPropertiesClass]:
         return self.get_aspect_v2(
             entity_urn=entity_urn,
             aspect="domainProperties",
             aspect_type=DomainPropertiesClass,
+        )
+
+    def get_dataset_properties(
+        self, entity_urn: str
+    ) -> Optional[DatasetPropertiesClass]:
+        return self.get_aspect_v2(
+            entity_urn=entity_urn,
+            aspect="datasetProperties",
+            aspect_type=DatasetPropertiesClass,
         )
 
     def get_tags(self, entity_urn: str) -> Optional[GlobalTagsClass]:
@@ -211,6 +230,13 @@ class DataHubGraph(DatahubRestEmitter):
             entity_urn=entity_urn,
             aspect="domains",
             aspect_type=DomainsClass,
+        )
+
+    def get_browse_path(self, entity_urn: str) -> Optional[BrowsePathsClass]:
+        return self.get_aspect_v2(
+            entity_urn=entity_urn,
+            aspect="browsePaths",
+            aspect_type=BrowsePathsClass,
         )
 
     def get_usage_aspects_from_urn(
