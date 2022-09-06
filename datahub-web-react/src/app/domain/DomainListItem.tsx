@@ -8,7 +8,7 @@ import { useEntityRegistry } from '../useEntityRegistry';
 import AvatarsGroup from '../shared/avatar/AvatarsGroup';
 import EntityDropdown from '../entity/shared/EntityDropdown';
 import { EntityMenuItems } from '../entity/shared/EntityDropdown/EntityDropdown';
-import { ELASTIC_MAX_COUNT, getElasticCappedTotalValueText } from '../entity/shared/constants';
+import { getElasticCappedTotalValueText } from '../entity/shared/constants';
 
 const DomainItemContainer = styled(Row)`
     display: flex;
@@ -55,7 +55,7 @@ export default function DomainListItem({ domain, onDelete }: Props) {
     const displayName = entityRegistry.getDisplayName(EntityType.Domain, domain);
     const logoIcon = entityRegistry.getIcon(EntityType.Domain, 12, IconStyleType.ACCENT);
     const owners = domain.ownership?.owners;
-    let totalEntitiesText = getElasticCappedTotalValueText(domain.entities?.total || 0);
+    const totalEntitiesText = getElasticCappedTotalValueText(domain.entities?.total || 0);
 
     return (
         <List.Item>
