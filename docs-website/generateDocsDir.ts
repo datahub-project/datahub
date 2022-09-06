@@ -246,6 +246,9 @@ function markdown_guess_title(
   if (sidebar_label.startsWith("DataHub ")) {
     sidebar_label = sidebar_label.slice(8).trim();
   }
+  if (sidebar_label.startsWith("About DataHub ")) {
+    sidebar_label = sidebar_label.slice(14).trim();
+  }
   if (sidebar_label != title) {
     contents.data.sidebar_label = sidebar_label;
   }
