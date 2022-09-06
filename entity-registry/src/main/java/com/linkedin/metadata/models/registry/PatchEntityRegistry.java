@@ -143,9 +143,11 @@ public class PatchEntityRegistry implements EntityRegistry {
         aspectSpecs.add(keyAspectSpec);;
       }
       entity.getAspects().forEach(aspect -> {
-        AspectSpec aspectSpec = buildAspectSpec(aspect, entitySpecBuilder);
-        log.info("Adding aspect {} with spec {}", aspect, aspectSpec);
-        aspectSpecs.add(aspectSpec);
+        if (!aspect.equals(entity.getKeyAspect())) {
+          AspectSpec aspectSpec = buildAspectSpec(aspect, entitySpecBuilder);
+          log.info("Adding aspect {} with spec {}", aspect, aspectSpec);
+          aspectSpecs.add(aspectSpec);
+        }
       });
 
       EntitySpec entitySpec =
