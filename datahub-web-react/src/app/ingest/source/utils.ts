@@ -117,6 +117,7 @@ const ENTITIES_WITH_SUBTYPES = new Set([
     EntityType.Dataset.toLowerCase(),
     EntityType.Container.toLowerCase(),
     EntityType.Notebook.toLowerCase(),
+    EntityType.Dashboard.toLowerCase(),
 ]);
 
 type EntityTypeCount = {
