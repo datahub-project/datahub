@@ -53,13 +53,13 @@ to do it now before more workarounds are created.
 
 ## What this means for you
 
-Once you upgrade to DataHub `v0.8.44` you will immediately notice that traversing your Browse Path hierarchy will require
+Once you upgrade to DataHub `v0.8.45` you will immediately notice that traversing your Browse Path hierarchy will require
 one extra click to find the entity. This is because we are correctly displaying the FULL browse path, including the simple name mentioned above.
 
 There will be 2 ways to upgrade to the new browse path format. Depending on your ingestion sources, you may want to use one or both:
 
 1. Migrate default browse paths to the new format by restarting DataHub
-2. Upgrade your version of the `datahub` CLI to push new browse path format (version `v0.8.44`)
+2. Upgrade your version of the `datahub` CLI to push new browse path format (version `v0.8.45`)
 
 Each step will be discussed in detail below. 
 
@@ -103,7 +103,7 @@ If you are actively ingesting metadata from one or more of following sources
 8. Tableau
 9. Business Glossary
 
-You will need to upgrade the DataHub CLI to >= `v0.8.44` and re-run metadata ingestion. This will generate the new browse path format
+You will need to upgrade the DataHub CLI to >= `v0.8.45` and re-run metadata ingestion. This will generate the new browse path format
 and overwrite the existing paths for entities that were extracted from these sources. 
 
 ### If you are producing custom Browse Paths
