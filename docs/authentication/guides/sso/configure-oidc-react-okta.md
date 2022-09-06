@@ -79,7 +79,7 @@ AUTH_OIDC_CLIENT_ID=your-client-id
 AUTH_OIDC_CLIENT_SECRET=your-client-secret
 AUTH_OIDC_DISCOVERY_URI=https://your-okta-domain.com/.well-known/openid-configuration
 AUTH_OIDC_BASE_URL=your-datahub-url
-AUTH_OIDC_SCOPE="openid profile email groups"
+AUTH_OIDC_SCOPE="openid email profile groups"
 ```
 
 Replacing the placeholders above with the client id & client secret received from Okta in Step 2.
