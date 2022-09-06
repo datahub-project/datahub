@@ -1,0 +1,34 @@
+import io.datahubproject.GenerateJsonSchemaTask
+
+
+apply plugin: 'pegasus'
+
+tasks.withType(JavaCompile).configureEach {
+  javaCompiler = javaToolchains.compilerFor {
+    languageVersion = JavaLanguageVersion.of(8)
+  }
+}
+tasks.withType(Test).configureEach {
+  javaLauncher = javaToolchains.launcherFor {
+    languageVersion = JavaLanguageVersion.of(8)
+  }
+}
+
+dependencies {
+  compile spec.product.pegasus.data
+  compile project(':li-utils-java8')
+  dataModel project(':li-utils-java8')
+
+  testCompile externalDependency.guava
+}
+
+mainAvroSchemaJar.dependsOn generateAvroSchema
+
+pegasus.main.generationModes = [PegasusGenerationMode.PEGASUS, PegasusGenerationMode.AVRO]
+
+
+tasks.register('generateJsonSchema', GenerateJsonSchemaTask) {
+  it.setInputDirectory("$projectDir/src/mainGeneratedAvroSchema")
+  it.setOutputDirectory("$projectDir/src/generatedJsonSchema")
+  dependsOn generateAvroSchema
+}

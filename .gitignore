@@ -16,6 +16,7 @@
 **/src/generatedJsonSchema
 **/metadata-io/generated
 **/metadata-integration/java/datahub-client/generated
+**/metadata-integration/java/datahub-client-java8/generated
 **/src/testGenerated*
 metadata-events/mxe-registration/src/main/resources/**/*.avsc
 
@@ -37,17 +38,17 @@ MANIFEST
 **/build
 /config
 */i18n
-/out
+out/
 
 # Mac OS
 **/.DS_Store
 
 #spark-lineage
-**/spark-lineage/metastore_db/
-**/spark-lineage/**/derby.log
-**/spark-lineage/**/hive/
-**/spark-lineage/**/out*.csv/
-**/spark-lineage/coalesce-test/
+**/spark-lineage-java8/metastore_db/
+**/spark-lineage-java8/**/derby.log
+**/spark-lineage-java8/**/hive/
+**/spark-lineage-java8/**/out*.csv/
+**/spark-lineage-java8/coalesce-test/
 
 #VS Code
 .vscode

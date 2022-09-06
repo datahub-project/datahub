@@ -1,15 +1,15 @@
 # Defining environment
 ARG APP_ENV=prod
 
-FROM adoptopenjdk/openjdk8:alpine-jre as base
+FROM adoptopenjdk/openjdk11:alpine-jre as base
 ENV DOCKERIZE_VERSION v0.6.1
-RUN apk --no-cache add curl tar wget openjdk8-jre bash \
+RUN apk --no-cache add curl tar wget openjdk11-jre bash \
     && wget https://github.com/open-telemetry/opentelemetry-java-instrumentation/releases/download/v1.4.1/opentelemetry-javaagent-all.jar \
     && wget https://repo1.maven.org/maven2/io/prometheus/jmx/jmx_prometheus_javaagent/0.16.1/jmx_prometheus_javaagent-0.16.1.jar -O jmx_prometheus_javaagent.jar \
-    && cp /usr/lib/jvm/java-1.8-openjdk/jre/lib/security/cacerts /tmp/kafka.client.truststore.jks \
+    && cp /usr/lib/jvm/java-11-openjdk/jre/lib/security/cacerts /tmp/kafka.client.truststore.jks \
     && curl -L https://github.com/jwilder/dockerize/releases/download/$DOCKERIZE_VERSION/dockerize-linux-amd64-$DOCKERIZE_VERSION.tar.gz | tar -C /usr/local/bin -xzv
 
-FROM openjdk:8 as prod-build
+FROM openjdk:11 as prod-build
 COPY . datahub-src
 RUN cd datahub-src && ./gradlew :metadata-jobs:mce-consumer-job:build
 RUN cd datahub-src && cp metadata-jobs/mce-consumer-job/build/libs/mce-consumer-job.jar ../mce-consumer-job.jar

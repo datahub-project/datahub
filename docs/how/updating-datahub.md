@@ -5,6 +5,7 @@ This file documents any backwards-incompatible changes in DataHub and assists pe
 ## Next
 
 ### Breaking Changes
+- Java version 11 or greater is required.
 
 ### Potential Downtime
 

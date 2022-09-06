@@ -124,7 +124,7 @@ module.exports = {
           {
             Airflow: ["docs/lineage/airflow", "docker/airflow/local_airflow"],
           },
-          "metadata-integration/java/spark-lineage/README",
+          "metadata-integration/java/spark-lineage-java8/README",
           "metadata-ingestion/integration_docs/great-expectations",
           "metadata-integration/java/datahub-protobuf/README",
           //"metadata-ingestion/source-docs-template",

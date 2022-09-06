@@ -1,0 +1,36 @@
+apply plugin: 'java'
+apply plugin: 'pegasus'
+
+tasks.withType(JavaCompile).configureEach {
+    javaCompiler = javaToolchains.compilerFor {
+        languageVersion = JavaLanguageVersion.of(8)
+    }
+}
+tasks.withType(Test).configureEach {
+    javaLauncher = javaToolchains.launcherFor {
+        languageVersion = JavaLanguageVersion.of(8)
+    }
+}
+
+dependencies {
+    compile spec.product.pegasus.data
+    compile externalDependency.commonsLang
+    compile(externalDependency.reflections) {
+        exclude group: 'com.google.guava', module: 'guava'
+    }
+    compile externalDependency.guava
+
+    compileOnly externalDependency.lombok
+    annotationProcessor externalDependency.lombok
+
+    testCompile externalDependency.assertJ
+    testCompile project(':test-models-java8')
+}
+
+idea {
+    module {
+        sourceDirs += file('src/main/javaPegasus')
+    }
+}
+
+sourceSets.mainGeneratedDataTemplate.java.srcDirs('src/main/javaPegasus/')
