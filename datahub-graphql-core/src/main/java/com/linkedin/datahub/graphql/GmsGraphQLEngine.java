@@ -2,9 +2,11 @@ package com.linkedin.datahub.graphql;
 
 import com.datahub.authentication.AuthenticationConfiguration;
 import com.datahub.authentication.group.GroupService;
+import com.datahub.authentication.invite.InviteTokenService;
 import com.datahub.authentication.token.StatefulTokenService;
 import com.datahub.authentication.user.NativeUserService;
 import com.datahub.authorization.AuthorizationConfiguration;
+import com.datahub.authorization.role.RoleService;
 import com.google.common.collect.ImmutableList;
 import com.linkedin.common.VersionedUrn;
 import com.linkedin.common.urn.Urn;
@@ -174,7 +176,10 @@ import com.linkedin.datahub.graphql.resolvers.policy.GetGrantedPrivilegesResolve
 import com.linkedin.datahub.graphql.resolvers.policy.ListPoliciesResolver;
 import com.linkedin.datahub.graphql.resolvers.policy.UpsertPolicyResolver;
 import com.linkedin.datahub.graphql.resolvers.recommendation.ListRecommendationsResolver;
+import com.linkedin.datahub.graphql.resolvers.role.AcceptRoleResolver;
 import com.linkedin.datahub.graphql.resolvers.role.BatchAssignRoleResolver;
+import com.linkedin.datahub.graphql.resolvers.role.CreateInviteTokenResolver;
+import com.linkedin.datahub.graphql.resolvers.role.GetInviteTokenResolver;
 import com.linkedin.datahub.graphql.resolvers.role.ListRolesResolver;
 import com.linkedin.datahub.graphql.resolvers.search.AutoCompleteForMultipleResolver;
 import com.linkedin.datahub.graphql.resolvers.search.AutoCompleteResolver;
@@ -305,6 +310,8 @@ public class GmsGraphQLEngine {
     private final TimelineService timelineService;
     private final NativeUserService nativeUserService;
     private final GroupService groupService;
+    private final RoleService roleService;
+    private final InviteTokenService inviteTokenService;
 
     private final FeatureFlags featureFlags;
 
@@ -369,25 +376,19 @@ public class GmsGraphQLEngine {
      */
     public final List<BrowsableEntityType<?, ?>> browsableTypes;
 
-    public GmsGraphQLEngine(
-        final EntityClient entityClient,
-        final GraphClient graphClient,
-        final UsageClient usageClient,
-        final AnalyticsService analyticsService,
-        final EntityService entityService,
-        final RecommendationsService recommendationsService,
-        final StatefulTokenService statefulTokenService,
-        final TimeseriesAspectService timeseriesAspectService,
-        final EntityRegistry entityRegistry,
-        final SecretService secretService,
-        final NativeUserService nativeUserService, final IngestionConfiguration ingestionConfiguration,
+    public GmsGraphQLEngine(final EntityClient entityClient, final GraphClient graphClient,
+        final UsageClient usageClient, final AnalyticsService analyticsService, final EntityService entityService,
+        final RecommendationsService recommendationsService, final StatefulTokenService statefulTokenService,
+        final TimeseriesAspectService timeseriesAspectService, final EntityRegistry entityRegistry,
+        final SecretService secretService, final NativeUserService nativeUserService,
+        final IngestionConfiguration ingestionConfiguration,
         final AuthenticationConfiguration authenticationConfiguration,
         final AuthorizationConfiguration authorizationConfiguration, final GitVersion gitVersion,
         final TimelineService timelineService, final boolean supportsImpactAnalysis,
         final VisualConfiguration visualConfiguration, final TelemetryConfiguration telemetryConfiguration,
         final TestsConfiguration testsConfiguration, final DatahubConfiguration datahubConfiguration,
-        final SiblingGraphService siblingGraphService, final GroupService groupService,
-        final FeatureFlags featureFlags) {
+        final SiblingGraphService siblingGraphService, final GroupService groupService, final RoleService roleService,
+        final InviteTokenService inviteTokenService, final FeatureFlags featureFlags) {
 
         this.entityClient = entityClient;
         this.graphClient = graphClient;
@@ -406,6 +407,8 @@ public class GmsGraphQLEngine {
         this.timelineService = timelineService;
         this.nativeUserService = nativeUserService;
         this.groupService = groupService;
+        this.roleService = roleService;
+        this.inviteTokenService = inviteTokenService;
 
         this.ingestionConfiguration = Objects.requireNonNull(ingestionConfiguration);
         this.authenticationConfiguration = Objects.requireNonNull(authenticationConfiguration);
@@ -675,6 +678,7 @@ public class GmsGraphQLEngine {
             .dataFetcher("entity", getEntityResolver())
             .dataFetcher("entities", getEntitiesResolver())
             .dataFetcher("listRoles", new ListRolesResolver(this.entityClient))
+            .dataFetcher("getInviteToken", new GetInviteTokenResolver(this.inviteTokenService))
         );
     }
 
@@ -795,7 +799,9 @@ public class GmsGraphQLEngine {
             .dataFetcher("batchUpdateSoftDeleted", new BatchUpdateSoftDeletedResolver(this.entityService))
             .dataFetcher("updateUserSetting", new UpdateUserSettingResolver(this.entityService))
             .dataFetcher("rollbackIngestion", new RollbackIngestionResolver(this.entityClient))
-            .dataFetcher("batchAssignRole", new BatchAssignRoleResolver(this.entityClient))
+            .dataFetcher("batchAssignRole", new BatchAssignRoleResolver(this.roleService))
+            .dataFetcher("createInviteToken", new CreateInviteTokenResolver(this.inviteTokenService))
+            .dataFetcher("acceptRole", new AcceptRoleResolver(this.roleService, this.inviteTokenService))
 
         );
     }

@@ -15,6 +15,7 @@ import { EntityCapabilityType } from '../../entity/Entity';
 import { useBatchAssignRoleMutation } from '../../../graphql/mutations.generated';
 import { CorpUser, DataHubRole, DataHubPolicy } from '../../../types.generated';
 import RoleDetailsModal from './RoleDetailsModal';
+import ViewRoleInviteTokenModal from './ViewRoleInviteTokenModal';
 
 const SourceContainer = styled.div``;
 
@@ -32,6 +33,10 @@ const PageContainer = styled.span`
     width: 100%;
 `;
 
+const AddUsersButton = styled(Button)`
+    margin-right: 16px;
+`;
+
 const DEFAULT_PAGE_SIZE = 10;
 
 // TODO: Cleanup the styling.
@@ -42,6 +47,7 @@ export const ManageRoles = () => {
     const paramsQuery = (params?.query as string) || undefined;
     const [query, setQuery] = useState<undefined | string>(undefined);
     const [isBatchAddRolesModalVisible, setIsBatchAddRolesModalVisible] = useState(false);
+    const [isInviteToRoleModalVisible, setIsInviteToRoleModalVisible] = useState(false);
     const [focusRole, setFocusRole] = useState<DataHubRole>();
     const [showViewRoleModal, setShowViewRoleModal] = useState(false);
     useEffect(() => setQuery(paramsQuery), [paramsQuery]);
@@ -160,20 +166,32 @@ export const ManageRoles = () => {
             },
         },
         {
-            dataIndex: 'add_users',
-            key: 'add_users',
+            dataIndex: 'actions',
+            key: 'actions',
             render: (_: any, record: any) => {
                 return (
-                    <Tooltip title={`Assign ${record.name} role to users`}>
-                        <Button
-                            onClick={() => {
-                                setIsBatchAddRolesModalVisible(true);
-                                setFocusRole(record.role);
-                            }}
-                        >
-                            ADD USERS
-                        </Button>
-                    </Tooltip>
+                    <>
+                        <Tooltip title={`Assign the ${record.name} role to users`}>
+                            <AddUsersButton
+                                onClick={() => {
+                                    setIsBatchAddRolesModalVisible(true);
+                                    setFocusRole(record.role);
+                                }}
+                            >
+                                ADD USERS
+                            </AddUsersButton>
+                        </Tooltip>
+                        <Tooltip title={`Invite users to assume the ${record.name} role`}>
+                            <Button
+                                onClick={() => {
+                                    setIsInviteToRoleModalVisible(true);
+                                    setFocusRole(record.role);
+                                }}
+                            >
+                                INVITE USERS
+                            </Button>
+                        </Tooltip>
+                    </>
                 );
             },
         },
@@ -247,13 +265,12 @@ export const ManageRoles = () => {
                     showSizeChanger={false}
                 />
             </PaginationContainer>
-            {showViewRoleModal && (
-                <RoleDetailsModal
-                    role={focusRole as DataHubRole}
-                    visible={showViewRoleModal}
-                    onClose={resetRoleState}
-                />
-            )}
+            <RoleDetailsModal role={focusRole as DataHubRole} visible={showViewRoleModal} onClose={resetRoleState} />
+            <ViewRoleInviteTokenModal
+                role={focusRole as DataHubRole}
+                visible={isInviteToRoleModalVisible}
+                onClose={() => setIsInviteToRoleModalVisible(false)}
+            />
         </PageContainer>
     );
 };

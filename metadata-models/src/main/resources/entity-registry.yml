@@ -259,4 +259,5 @@ entities:
     keyAspect: dataHubRoleKey
     aspects:
       - dataHubRoleInfo
+      - inviteToken
 events:

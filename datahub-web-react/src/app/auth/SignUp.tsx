@@ -1,4 +1,4 @@
-import React, { useCallback, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import { Input, Button, Form, message, Image, Select } from 'antd';
 import { UserOutlined, LockOutlined } from '@ant-design/icons';
 import { useReactiveVar } from '@apollo/client';
@@ -11,6 +11,7 @@ import analytics, { EventType } from '../analytics';
 import { useAppConfig } from '../useAppConfig';
 import { PageRoutes } from '../../conf/Global';
 import useGetInviteTokenFromUrlParams from './useGetInviteTokenFromUrlParams';
+import { useAcceptRoleMutation } from '../../graphql/mutations.generated';
 
 type FormValues = {
     fullName: string;
@@ -97,6 +98,38 @@ export const SignUp: React.VFC<SignUpProps> = () => {
         },
         [refreshContext, inviteToken],
     );
+
+    const [acceptRoleMutation] = useAcceptRoleMutation();
+    const acceptRole = () => {
+        acceptRoleMutation({
+            variables: {
+                input: {
+                    inviteToken,
+                },
+            },
+        })
+            .then(({ errors }) => {
+                if (!errors) {
+                    message.success({
+                        content: `Accepted invite!`,
+                        duration: 2,
+                    });
+                }
+            })
+            .catch((e) => {
+                message.destroy();
+                message.error({
+                    content: `Failed to accept invite: \n ${e.message || ''}`,
+                    duration: 3,
+                });
+            });
+    };
+
+    useEffect(() => {
+        if (isLoggedIn) {
+            acceptRole();
+        }
+    });
 
     if (isLoggedIn && !loading) {
         return <Redirect to={`${PageRoutes.ROOT}`} />;

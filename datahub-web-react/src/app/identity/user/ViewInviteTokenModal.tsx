@@ -1,12 +1,14 @@
-import { RedoOutlined } from '@ant-design/icons';
-import { Button, Modal, Typography } from 'antd';
-import React from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
+import * as QueryString from 'query-string';
+import { useLocation } from 'react-router';
+import { RedoOutlined, UserOutlined } from '@ant-design/icons';
+import { Button, message, Modal, Select, Typography } from 'antd';
 import styled from 'styled-components';
 import { PageRoutes } from '../../../conf/Global';
-import {
-    useCreateNativeUserInviteTokenMutation,
-    useGetNativeUserInviteTokenQuery,
-} from '../../../graphql/user.generated';
+import { useGetInviteTokenQuery, useListRolesQuery } from '../../../graphql/role.generated';
+import { DataHubRole } from '../../../types.generated';
+import { mapRoleIcon } from './UserUtils';
+import { useCreateInviteTokenMutation } from '../../../graphql/mutations.generated';
 
 const ModalSection = styled.div`
     display: flex;
@@ -35,6 +37,15 @@ const CreateInviteTokenButton = styled(Button)`
     margin-left: -6px;
 `;
 
+const RoleSelect = styled(Select)`
+    min-width: 105px;
+`;
+
+const RoleIcon = styled.span`
+    margin-right: 6px;
+    font-size: 12px;
+`;
+
 type Props = {
     visible: boolean;
     onClose: () => void;
@@ -42,16 +53,89 @@ type Props = {
 
 export default function ViewInviteTokenModal({ visible, onClose }: Props) {
     const baseUrl = window.location.origin;
-    const { data: getNativeUserInviteTokenData } = useGetNativeUserInviteTokenQuery({ skip: !visible });
+    const location = useLocation();
+    const params = QueryString.parse(location.search, { arrayFormat: 'comma' });
+    const paramsQuery = (params?.query as string) || undefined;
+    const [query, setQuery] = useState<undefined | string>(undefined);
+    useEffect(() => setQuery(paramsQuery), [paramsQuery]);
+    const [selectedRole, setSelectedRole] = useState<DataHubRole>();
 
-    const [createNativeUserInviteToken, { data: createNativeUserInviteTokenData }] =
-        useCreateNativeUserInviteTokenMutation({});
+    const { data: rolesData } = useListRolesQuery({
+        fetchPolicy: 'no-cache',
+        variables: {
+            input: {
+                start: 0,
+                count: 10,
+                query,
+            },
+        },
+    });
+    const selectRoleOptions = rolesData?.listRoles?.roles?.map((role) => role as DataHubRole) || [];
 
-    const inviteToken = createNativeUserInviteTokenData?.createNativeUserInviteToken?.inviteToken
-        ? createNativeUserInviteTokenData?.createNativeUserInviteToken.inviteToken
-        : getNativeUserInviteTokenData?.getNativeUserInviteToken?.inviteToken || '';
+    const rolesMap: Map<string, DataHubRole> = new Map();
+    selectRoleOptions.forEach((role) => {
+        rolesMap.set(role.urn, role);
+    });
 
-    const inviteLink = `${baseUrl}${PageRoutes.SIGN_UP}?invite_token=${inviteToken}`;
+    const roleSelectOptions = () =>
+        selectRoleOptions.map((role) => {
+            return (
+                <Select.Option value={role.urn}>
+                    <RoleIcon>{mapRoleIcon(role.name)}</RoleIcon>
+                    {role.name}
+                </Select.Option>
+            );
+        });
+
+    const onSelectRole = (roleUrn: string) => {
+        const roleFromMap: DataHubRole = rolesMap.get(roleUrn) as DataHubRole;
+        setSelectedRole(roleFromMap);
+    };
+
+    const noRoleText = 'No Role';
+
+    const { data: getInviteTokenData } = useGetInviteTokenQuery({
+        skip: !visible,
+        variables: { input: { roleUrn: selectedRole?.urn } },
+    });
+
+    const [isInviteTokenCreated, setIsInviteTokenCreated] = useState(false);
+    const [createInviteTokenMutation, { data: createInviteTokenData }] = useCreateInviteTokenMutation();
+
+    const createInviteToken = (roleUrn?: string) => {
+        createInviteTokenMutation({
+            variables: {
+                input: {
+                    roleUrn,
+                },
+            },
+        })
+            .then(({ errors }) => {
+                if (!errors) {
+                    setIsInviteTokenCreated(true);
+                }
+            })
+            .catch((e) => {
+                message.destroy();
+                message.error({
+                    content: `Failed to create Invite Token for role ${selectedRole?.name} : \n ${e.message || ''}`,
+                    duration: 3,
+                });
+            });
+    };
+
+    const inviteToken = useMemo(() => {
+        if (isInviteTokenCreated) {
+            return createInviteTokenData?.createInviteToken?.inviteToken;
+        }
+        return getInviteTokenData?.getInviteToken?.inviteToken || '';
+    }, [getInviteTokenData, createInviteTokenData, isInviteTokenCreated]);
+
+    const roleParam = `&role=${selectedRole?.urn}`;
+
+    const inviteLink = `${baseUrl}${PageRoutes.SIGN_UP}?invite_token=${inviteToken}${
+        selectedRole?.urn ? roleParam : ''
+    }`;
 
     return (
         <Modal
@@ -66,9 +150,26 @@ export default function ViewInviteTokenModal({ visible, onClose }: Props) {
             onCancel={onClose}
         >
             <ModalSection>
-                <ModalSectionHeader strong>Share invite link</ModalSectionHeader>
+                <ModalSectionHeader strong>
+                    Select which Role you would like to set for new users joining with this invite link.
+                </ModalSectionHeader>
                 <ModalSectionParagraph>
-                    Share this invite link with other users in your workspace!
+                    <RoleSelect
+                        placeholder={
+                            <>
+                                <UserOutlined style={{ marginRight: 6, fontSize: 12 }} />
+                                {noRoleText}
+                            </>
+                        }
+                        value={selectedRole?.urn || undefined}
+                        onChange={(e) => onSelectRole(e as string)}
+                    >
+                        <Select.Option value="">
+                            <RoleIcon>{mapRoleIcon(noRoleText)}</RoleIcon>
+                            {noRoleText}
+                        </Select.Option>
+                        {roleSelectOptions()}
+                    </RoleSelect>
                 </ModalSectionParagraph>
                 <Typography.Paragraph copyable={{ text: inviteLink }}>
                     <pre>{inviteLink}</pre>
@@ -79,7 +180,7 @@ export default function ViewInviteTokenModal({ visible, onClose }: Props) {
                 <ModalSectionParagraph>
                     Generate a new invite link! Note, any old links will <b>cease to be active</b>.
                 </ModalSectionParagraph>
-                <CreateInviteTokenButton onClick={() => createNativeUserInviteToken({})} size="small" type="text">
+                <CreateInviteTokenButton onClick={() => createInviteToken(selectedRole?.urn)} size="small" type="text">
                     <RedoOutlined style={{}} />
                 </CreateInviteTokenButton>
             </ModalSection>

@@ -33,9 +33,6 @@ import static com.linkedin.metadata.Constants.*;
  */
 @Slf4j
 public class NativeUserService {
-  private static final int LOWERCASE_ASCII_START = 97;
-  private static final int LOWERCASE_ASCII_END = 122;
-  private static final int INVITE_TOKEN_LENGTH = 32;
   private static final int SALT_TOKEN_LENGTH = 16;
   private static final int PASSWORD_RESET_TOKEN_LENGTH = 32;
   private static final String HASHING_ALGORITHM = "SHA-256";
@@ -49,35 +46,22 @@ public class NativeUserService {
 
   public NativeUserService(@Nonnull EntityService entityService, @Nonnull EntityClient entityClient, @Nonnull SecretService secretService)
       throws Exception {
-    Objects.requireNonNull(entityService, "entityService must not be null!");
-    Objects.requireNonNull(entityClient, "entityClient must not be null!");
-    Objects.requireNonNull(secretService, "secretService must not be null!");
-
-    _entityService = entityService;
-    _entityClient = entityClient;
-    _secretService = secretService;
+    _entityService = Objects.requireNonNull(entityService, "entityService must not be null!");
+    _entityClient = Objects.requireNonNull(entityClient, "entityClient must not be null!");
+    _secretService = Objects.requireNonNull(secretService, "secretService must not be null!");
     _secureRandom = new SecureRandom();
     _messageDigest = MessageDigest.getInstance(HASHING_ALGORITHM);
   }
 
   public void createNativeUser(@Nonnull String userUrnString, @Nonnull String fullName, @Nonnull String email,
-      @Nonnull String title, @Nonnull String password, @Nonnull String inviteToken, @Nonnull Authentication authentication)
+      @Nonnull String title, @Nonnull String password, @Nonnull Authentication authentication)
       throws Exception {
     Objects.requireNonNull(userUrnString, "userUrnSting must not be null!");
     Objects.requireNonNull(fullName, "fullName must not be null!");
     Objects.requireNonNull(email, "email must not be null!");
     Objects.requireNonNull(title, "title must not be null!");
     Objects.requireNonNull(password, "password must not be null!");
-    Objects.requireNonNull(inviteToken, "inviteToken must not be null!");
-    Objects.requireNonNull(inviteToken, "authentication must not be null!");
-
-    InviteToken inviteTokenAspect =
-        (InviteToken) _entityService.getLatestAspect(Urn.createFromString(GLOBAL_INVITE_TOKEN),
-            INVITE_TOKEN_ASPECT_NAME);
-    if (inviteTokenAspect == null || !inviteTokenAspect.hasToken() || !_secretService.decrypt(
-        inviteTokenAspect.getToken()).equals(inviteToken)) {
-      throw new RuntimeException("Invalid sign-up token. Please ask your administrator to send you an updated link!");
-    }
+    Objects.requireNonNull(authentication, "authentication must not be null!");
 
     Urn userUrn = Urn.createFromString(userUrnString);
     if (_entityService.exists(userUrn)) {
@@ -151,7 +135,7 @@ public class NativeUserService {
     String token = generateRandomLowercaseToken(INVITE_TOKEN_LENGTH);
     inviteToken.setToken(_secretService.encrypt(token));
 
-    // Ingest corpUserCredentials MCP
+    // Ingest InviteToken MCP
     final MetadataChangeProposal inviteTokenProposal = new MetadataChangeProposal();
     inviteTokenProposal.setEntityType(INVITE_TOKEN_ENTITY_NAME);
     inviteTokenProposal.setEntityUrn(Urn.createFromString(GLOBAL_INVITE_TOKEN));

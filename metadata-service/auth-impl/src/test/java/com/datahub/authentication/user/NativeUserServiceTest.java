@@ -64,59 +64,32 @@ public class NativeUserServiceTest {
 
   @Test
   public void testCreateNativeUserNullArguments() {
-    assertThrows(() -> _nativeUserService.createNativeUser(null, FULL_NAME, EMAIL, TITLE, PASSWORD, INVITE_TOKEN,
-        SYSTEM_AUTHENTICATION));
-    assertThrows(() -> _nativeUserService.createNativeUser(USER_URN_STRING, null, EMAIL, TITLE, PASSWORD, INVITE_TOKEN,
-        SYSTEM_AUTHENTICATION));
     assertThrows(
-        () -> _nativeUserService.createNativeUser(USER_URN_STRING, FULL_NAME, null, TITLE, PASSWORD, INVITE_TOKEN,
-            SYSTEM_AUTHENTICATION));
-    assertThrows(
-        () -> _nativeUserService.createNativeUser(USER_URN_STRING, FULL_NAME, EMAIL, null, PASSWORD, INVITE_TOKEN,
-            SYSTEM_AUTHENTICATION));
-    assertThrows(() -> _nativeUserService.createNativeUser(USER_URN_STRING, FULL_NAME, EMAIL, TITLE, null, INVITE_TOKEN,
+        () -> _nativeUserService.createNativeUser(null, FULL_NAME, EMAIL, TITLE, PASSWORD, SYSTEM_AUTHENTICATION));
+    assertThrows(() -> _nativeUserService.createNativeUser(USER_URN_STRING, null, EMAIL, TITLE, PASSWORD,
         SYSTEM_AUTHENTICATION));
-    assertThrows(() -> _nativeUserService.createNativeUser(USER_URN_STRING, FULL_NAME, EMAIL, TITLE, PASSWORD, null,
+    assertThrows(() -> _nativeUserService.createNativeUser(USER_URN_STRING, FULL_NAME, null, TITLE, PASSWORD,
         SYSTEM_AUTHENTICATION));
-  }
-
-  @Test(expectedExceptions = RuntimeException.class,
-      expectedExceptionsMessageRegExp = "Invalid sign-up token. Please ask your administrator to send you an updated link!")
-  public void testCreateNativeUserInviteTokenDoesNotExist() throws Exception {
-    // Nonexistent invite token
-    when(_entityService.getLatestAspect(any(), eq(INVITE_TOKEN_ASPECT_NAME))).thenReturn(null);
-
-    _nativeUserService.createNativeUser(USER_URN_STRING, FULL_NAME, EMAIL, TITLE, PASSWORD, INVITE_TOKEN,
-        SYSTEM_AUTHENTICATION);
+    assertThrows(() -> _nativeUserService.createNativeUser(USER_URN_STRING, FULL_NAME, EMAIL, null, PASSWORD,
+        SYSTEM_AUTHENTICATION));
+    assertThrows(() -> _nativeUserService.createNativeUser(USER_URN_STRING, FULL_NAME, EMAIL, TITLE, null,
+        SYSTEM_AUTHENTICATION));
   }
 
   @Test(expectedExceptions = RuntimeException.class, expectedExceptionsMessageRegExp = "This user already exists! Cannot create a new user.")
   public void testCreateNativeUserUserAlreadyExists() throws Exception {
-    InviteToken mockInviteTokenAspect = mock(InviteToken.class);
-    when(_entityService.getLatestAspect(any(), eq(INVITE_TOKEN_ASPECT_NAME))).thenReturn(mockInviteTokenAspect);
-    when(mockInviteTokenAspect.hasToken()).thenReturn(true);
-    when(mockInviteTokenAspect.getToken()).thenReturn(ENCRYPTED_INVITE_TOKEN);
-    when(_secretService.decrypt(eq(ENCRYPTED_INVITE_TOKEN))).thenReturn(INVITE_TOKEN);
-
     // The user already exists
     when(_entityService.exists(any())).thenReturn(true);
 
-    _nativeUserService.createNativeUser(USER_URN_STRING, FULL_NAME, EMAIL, TITLE, PASSWORD, INVITE_TOKEN,
-        SYSTEM_AUTHENTICATION);
+    _nativeUserService.createNativeUser(USER_URN_STRING, FULL_NAME, EMAIL, TITLE, PASSWORD, SYSTEM_AUTHENTICATION);
   }
 
   @Test
   public void testCreateNativeUserPasses() throws Exception {
-    InviteToken mockInviteTokenAspect = mock(InviteToken.class);
-    when(_entityService.getLatestAspect(any(), eq(INVITE_TOKEN_ASPECT_NAME))).thenReturn(mockInviteTokenAspect);
-    when(mockInviteTokenAspect.hasToken()).thenReturn(true);
-    when(mockInviteTokenAspect.getToken()).thenReturn(ENCRYPTED_INVITE_TOKEN);
     when(_entityService.exists(any())).thenReturn(false);
-    when(_secretService.decrypt(eq(ENCRYPTED_INVITE_TOKEN))).thenReturn(INVITE_TOKEN);
     when(_secretService.encrypt(any())).thenReturn(ENCRYPTED_SALT);
 
-    _nativeUserService.createNativeUser(USER_URN_STRING, FULL_NAME, EMAIL, TITLE, PASSWORD, INVITE_TOKEN,
-        SYSTEM_AUTHENTICATION);
+    _nativeUserService.createNativeUser(USER_URN_STRING, FULL_NAME, EMAIL, TITLE, PASSWORD, SYSTEM_AUTHENTICATION);
   }
 
   @Test
