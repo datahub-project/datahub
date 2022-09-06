@@ -2,6 +2,7 @@ fragment globalTagsFields on GlobalTags {
     tags {
         tag {
             urn
+            type
             name
             description
             properties {
@@ -30,8 +31,19 @@ fragment glossaryTerm on GlossaryTerm {
     hierarchicalName
     properties {
         name
+        description
         definition
         termSource
+        customProperties {
+            key
+            value
+        }
+    }
+    ownership {
+        ...ownershipFields
+    }
+    parentNodes {
+        ...parentNodesFields
     }
 }
 
@@ -411,6 +423,9 @@ fragment dashboardFields on Dashboard {
             }
         }
     }
+    inputFields {
+        ...inputFieldsFields
+    }
 }
 
 fragment nonRecursiveMLFeature on MLFeature {
@@ -600,6 +615,24 @@ fragment nonRecursiveMLFeatureTable on MLFeatureTable {
     }
 }
 
+fragment schemaFieldFields on SchemaField {
+    fieldPath
+    label
+    jsonPath
+    nullable
+    description
+    type
+    nativeDataType
+    recursive
+    isPartOfKey
+    globalTags {
+        ...globalTagsFields
+    }
+    glossaryTerms {
+        ...glossaryTerms
+    }
+}
+
 fragment schemaMetadataFields on SchemaMetadata {
     aspectVersion
     createdAt
@@ -619,20 +652,7 @@ fragment schemaMetadataFields on SchemaMetadata {
         }
     }
     fields {
-        fieldPath
-        jsonPath
-        nullable
-        description
-        type
-        nativeDataType
-        recursive
-        isPartOfKey
-        globalTags {
-            ...globalTagsFields
-        }
-        glossaryTerms {
-            ...glossaryTerms
-        }
+        ...schemaFieldFields
     }
     primaryKeys
     foreignKeys {
@@ -839,9 +859,20 @@ fragment entityContainer on Container {
 fragment entityDomain on DomainAssociation {
     domain {
         urn
+        type
         properties {
             name
+            description
         }
     }
     associatedUrn
+}
+
+fragment inputFieldsFields on InputFields {
+    fields {
+        schemaFieldUrn
+        schemaField {
+            ...schemaFieldFields
+        }
+    }
 }

@@ -59,6 +59,9 @@ public class PolicyInfoPolicyMapper implements ModelMapper<DataHubPolicyInfo, Po
     if (actorFilter.hasUsers()) {
       result.setUsers(actorFilter.getUsers().stream().map(Urn::toString).collect(Collectors.toList()));
     }
+    if (actorFilter.hasRoles()) {
+      result.setRoles(actorFilter.getRoles().stream().map(Urn::toString).collect(Collectors.toList()));
+    }
     return result;
   }
 

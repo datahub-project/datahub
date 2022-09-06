@@ -31,7 +31,7 @@ export const REDSHIFT_PASSWORD: RecipeField = {
     name: 'redshift.password',
     label: 'Redshift password',
     tooltip: 'Password',
-    type: FieldType.TEXT,
+    type: FieldType.SECRET,
     fieldPath: 'source.config.password',
     rules: null,
 };

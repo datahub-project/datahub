@@ -95,7 +95,9 @@ entities:
       - status
       - corpUserCredentials
       - nativeGroupMembership
+      - corpUserSettings
       - origin
+      - roleMembership
   - name: corpGroup
     doc: CorpGroup represents an identity of a group of users in the enterprise.
     keyAspect: corpGroupKey
@@ -251,4 +253,9 @@ entities:
     category: core
     keyAspect: schemaFieldKey
     aspects: []
+  - name: dataHubRole
+    category: core
+    keyAspect: dataHubRoleKey
+    aspects:
+      - dataHubRoleInfo
 events:

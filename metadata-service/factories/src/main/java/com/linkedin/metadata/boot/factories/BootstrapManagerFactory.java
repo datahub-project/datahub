@@ -10,6 +10,7 @@ import com.linkedin.metadata.boot.steps.IngestDataPlatformInstancesStep;
 import com.linkedin.metadata.boot.steps.IngestDataPlatformsStep;
 import com.linkedin.metadata.boot.steps.IngestPoliciesStep;
 import com.linkedin.metadata.boot.steps.IngestRetentionPoliciesStep;
+import com.linkedin.metadata.boot.steps.IngestRolesStep;
 import com.linkedin.metadata.boot.steps.IngestRootUserStep;
 import com.linkedin.metadata.boot.steps.RemoveClientIdAspectStep;
 import com.linkedin.metadata.boot.steps.RestoreDbtSiblingsIndices;
@@ -64,6 +65,7 @@ public class BootstrapManagerFactory {
     final IngestRootUserStep ingestRootUserStep = new IngestRootUserStep(_entityService);
     final IngestPoliciesStep ingestPoliciesStep =
         new IngestPoliciesStep(_entityRegistry, _entityService, _entitySearchService, _searchDocumentTransformer);
+    final IngestRolesStep ingestRolesStep = new IngestRolesStep(_entityService);
     final IngestDataPlatformsStep ingestDataPlatformsStep = new IngestDataPlatformsStep(_entityService);
     final IngestDataPlatformInstancesStep ingestDataPlatformInstancesStep =
         new IngestDataPlatformInstancesStep(_entityService, _migrationsDao);
@@ -73,7 +75,7 @@ public class BootstrapManagerFactory {
         new RestoreDbtSiblingsIndices(_entityService, _entityRegistry);
     final RemoveClientIdAspectStep removeClientIdAspectStep = new RemoveClientIdAspectStep(_entityService);
     return new BootstrapManager(
-        ImmutableList.of(ingestRootUserStep, ingestPoliciesStep, ingestDataPlatformsStep,
+        ImmutableList.of(ingestRootUserStep, ingestPoliciesStep, ingestRolesStep, ingestDataPlatformsStep,
             ingestDataPlatformInstancesStep, _ingestRetentionPoliciesStep, restoreGlossaryIndicesStep,
             removeClientIdAspectStep, restoreDbtSiblingsIndices));
   }

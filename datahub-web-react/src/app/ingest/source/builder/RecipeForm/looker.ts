@@ -23,7 +23,7 @@ export const LOOKER_CLIENT_SECRET: RecipeField = {
     name: 'client_secret',
     label: 'Client Secret',
     tooltip: 'Looker API client secret.',
-    type: FieldType.TEXT,
+    type: FieldType.SECRET,
     fieldPath: 'source.config.client_secret',
     rules: null,
 };

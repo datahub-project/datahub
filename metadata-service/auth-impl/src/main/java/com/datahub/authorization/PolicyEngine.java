@@ -1,6 +1,7 @@
 package com.datahub.authorization;
 
 import com.datahub.authentication.Authentication;
+import com.google.common.collect.ImmutableSet;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.data.template.StringArray;
@@ -9,6 +10,7 @@ import com.linkedin.entity.EnvelopedAspectMap;
 import com.linkedin.entity.client.EntityClient;
 import com.linkedin.identity.GroupMembership;
 import com.linkedin.identity.NativeGroupMembership;
+import com.linkedin.identity.RoleMembership;
 import com.linkedin.metadata.authorization.PoliciesConfig;
 import com.linkedin.policy.DataHubActorFilter;
 import com.linkedin.policy.DataHubPolicyInfo;
@@ -17,7 +19,6 @@ import com.linkedin.policy.PolicyMatchCondition;
 import com.linkedin.policy.PolicyMatchCriterion;
 import com.linkedin.policy.PolicyMatchCriterionArray;
 import com.linkedin.policy.PolicyMatchFilter;
-import com.linkedin.r2.RemoteInvocationException;
 import java.net.URISyntaxException;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -121,6 +122,7 @@ public class PolicyEngine {
       final Optional<ResolvedResourceSpec> resource,
       final PolicyEvaluationContext context
   ) {
+
     // If policy is inactive, simply return DENY.
     if (PoliciesConfig.INACTIVE_POLICY_STATE.equals(policy.getState())) {
       return false;
@@ -264,8 +266,13 @@ public class PolicyEngine {
       return true;
     }
 
-    // 3. If the actor is the owner, either directly or indirectly via a group, return true
-    return isOwnerMatch(actor, actorFilter, resourceSpec, context);
+    // 3. If the actor is the owner, either directly or indirectly via a group, return true immediately.
+    if (isOwnerMatch(actor, actorFilter, resourceSpec, context)) {
+      return true;
+    }
+
+    // 4. If the actor is in a matching "Role" in the actor filter, return true immediately.
+    return isRoleMatch(actor, actorFilter, context);
   }
 
   private boolean isUserMatch(final Urn actor, final DataHubActorFilter actorFilter) {
@@ -319,50 +326,95 @@ public class PolicyEngine {
     return groups.stream().anyMatch(group -> owners.contains(group.toString()));
   }
 
-  private Set<Urn> resolveGroups(Urn actor, PolicyEvaluationContext context) {
+  private boolean isRoleMatch(final Urn actor, final DataHubActorFilter actorFilter,
+      final PolicyEvaluationContext context) {
+    // Can immediately return false if the actor filter does not have any roles
+    if (!actorFilter.hasRoles()) {
+      return false;
+    }
+    // If the actor has a matching "Role" in the actor filter, return true immediately.
+    Set<Urn> actorRoles = resolveRoles(actor, context);
+    return Objects.requireNonNull(actorFilter.getRoles())
+        .stream()
+        .anyMatch(actorRoles::contains);
+  }
 
+  private Set<Urn> resolveRoles(Urn actor, PolicyEvaluationContext context) {
+    if (context.roles != null) {
+      return context.roles;
+    }
+
+    Set<Urn> roles = new HashSet<>();
+    final EnvelopedAspectMap aspectMap;
+
+    try {
+      final EntityResponse corpUser = _entityClient.batchGetV2(CORP_USER_ENTITY_NAME, Collections.singleton(actor),
+          Collections.singleton(ROLE_MEMBERSHIP_ASPECT_NAME), _systemAuthentication).get(actor);
+      if (corpUser == null || !corpUser.hasAspects()) {
+        return roles;
+      }
+      aspectMap = corpUser.getAspects();
+    } catch (Exception e) {
+      log.error(String.format("Failed to fetch %s for urn %s", ROLE_MEMBERSHIP_ASPECT_NAME, actor), e);
+      return roles;
+    }
+
+    if (!aspectMap.containsKey(ROLE_MEMBERSHIP_ASPECT_NAME)) {
+      return roles;
+    }
+
+    RoleMembership roleMembership = new RoleMembership(aspectMap.get(ROLE_MEMBERSHIP_ASPECT_NAME).getValue().data());
+    if (roleMembership.hasRoles()) {
+      roles.addAll(roleMembership.getRoles());
+      context.setRoles(roles);
+    }
+    return roles;
+  }
+
+  private Set<Urn> resolveGroups(Urn actor, PolicyEvaluationContext context) {
     if (context.groups != null) {
       return context.groups;
     }
 
     Set<Urn> groups = new HashSet<>();
-    Optional<GroupMembership> maybeGroupMembership = resolveGroupMembership(actor);
+    final EnvelopedAspectMap aspectMap;
+
+    try {
+      final EntityResponse corpUser = _entityClient.batchGetV2(CORP_USER_ENTITY_NAME, Collections.singleton(actor),
+              ImmutableSet.of(GROUP_MEMBERSHIP_ASPECT_NAME, NATIVE_GROUP_MEMBERSHIP_ASPECT_NAME), _systemAuthentication)
+          .get(actor);
+      if (corpUser == null || !corpUser.hasAspects()) {
+        return groups;
+      }
+      aspectMap = corpUser.getAspects();
+    } catch (Exception e) {
+      throw new RuntimeException(String.format("Failed to fetch %s and %s for urn %s", GROUP_MEMBERSHIP_ASPECT_NAME,
+          NATIVE_GROUP_MEMBERSHIP_ASPECT_NAME, actor), e);
+    }
+
+    Optional<GroupMembership> maybeGroupMembership = resolveGroupMembership(aspectMap);
     maybeGroupMembership.ifPresent(groupMembership -> groups.addAll(groupMembership.getGroups()));
 
-    Optional<NativeGroupMembership> maybeNativeGroupMembership = resolveNativeGroupMembership(actor);
+    Optional<NativeGroupMembership> maybeNativeGroupMembership = resolveNativeGroupMembership(aspectMap);
     maybeNativeGroupMembership.ifPresent(
         nativeGroupMembership -> groups.addAll(nativeGroupMembership.getNativeGroups()));
+
     context.setGroups(groups); // Cache the groups.
     return groups;
   }
 
   // TODO: Optimization - Cache the group membership. Refresh periodically.
-  private Optional<GroupMembership> resolveGroupMembership(final Urn actor) {
-    try {
-      final EntityResponse corpUser = _entityClient.batchGetV2(CORP_USER_ENTITY_NAME, Collections.singleton(actor),
-          null, _systemAuthentication).get(actor);
-      final EnvelopedAspectMap aspectMap = corpUser.getAspects();
-      if (aspectMap.containsKey(GROUP_MEMBERSHIP_ASPECT_NAME)) {
-        return Optional.of(new GroupMembership(aspectMap.get(GROUP_MEMBERSHIP_ASPECT_NAME).getValue().data()));
-      }
-    } catch (RemoteInvocationException | URISyntaxException e) {
-      throw new RuntimeException(String.format("Failed to fetch corpUser for urn %s", actor), e);
+  private Optional<GroupMembership> resolveGroupMembership(final EnvelopedAspectMap aspectMap) {
+    if (aspectMap.containsKey(GROUP_MEMBERSHIP_ASPECT_NAME)) {
+      return Optional.of(new GroupMembership(aspectMap.get(GROUP_MEMBERSHIP_ASPECT_NAME).getValue().data()));
     }
     return Optional.empty();
   }
 
-  private Optional<NativeGroupMembership> resolveNativeGroupMembership(final Urn actor) {
-    try {
-      final EntityResponse corpUser =
-          _entityClient.batchGetV2(CORP_USER_ENTITY_NAME, Collections.singleton(actor), null, _systemAuthentication)
-              .get(actor);
-      final EnvelopedAspectMap aspectMap = corpUser.getAspects();
-      if (aspectMap.containsKey(NATIVE_GROUP_MEMBERSHIP_ASPECT_NAME)) {
-        return Optional.of(
-            new NativeGroupMembership(aspectMap.get(NATIVE_GROUP_MEMBERSHIP_ASPECT_NAME).getValue().data()));
-      }
-    } catch (RemoteInvocationException | URISyntaxException e) {
-      throw new RuntimeException(String.format("Failed to fetch corpUser for urn %s", actor), e);
+  private Optional<NativeGroupMembership> resolveNativeGroupMembership(final EnvelopedAspectMap aspectMap) {
+    if (aspectMap.containsKey(NATIVE_GROUP_MEMBERSHIP_ASPECT_NAME)) {
+      return Optional.of(
+          new NativeGroupMembership(aspectMap.get(NATIVE_GROUP_MEMBERSHIP_ASPECT_NAME).getValue().data()));
     }
     return Optional.empty();
   }
@@ -372,9 +424,14 @@ public class PolicyEngine {
    */
   static class PolicyEvaluationContext {
     private Set<Urn> groups;
+    private Set<Urn> roles;
 
     public void setGroups(Set<Urn> groups) {
       this.groups = groups;
+    }
+
+    public void setRoles(Set<Urn> roles) {
+      this.roles = roles;
     }
   }
 
