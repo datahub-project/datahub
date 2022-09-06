@@ -34,14 +34,21 @@ public class PatchEntityRegistryTest {
   }
 
   /**
-   * Validate that patch entity registries cannot have key aspects
+   * Validate that patch entity registries can have key aspects
    * @throws Exception
    * @throws EntityRegistryException
    */
   @Test
-  public void testEntityRegistryWithKeyLoad() {
-    assertThrows(EntityRegistryException.class,
-        () -> new PatchEntityRegistry("src/test_plugins/mycompany-full-model/0.0.1", "mycompany-full-model",
-            new ComparableVersion("0.0.1")));
+  public void testEntityRegistryWithKeyLoad() throws Exception, EntityRegistryException {
+    PatchEntityRegistry patchEntityRegistry = new PatchEntityRegistry(
+      "src/test_plugins/mycompany-full-model/0.0.1", "mycompany-full-model",
+      new ComparableVersion("0.0.1"));
+
+    Map<String, EntitySpec> entitySpecs = patchEntityRegistry.getEntitySpecs();
+    assertEquals(entitySpecs.values().size(), 1);
+    EntitySpec newThingSpec = patchEntityRegistry.getEntitySpec("newThing");
+    assertNotNull(newThingSpec);
+    assertNotNull(newThingSpec.getKeyAspectSpec());
+    assertNotNull(newThingSpec.getAspectSpec(TestConstants.TEST_ASPECT_NAME));
   }
 }
