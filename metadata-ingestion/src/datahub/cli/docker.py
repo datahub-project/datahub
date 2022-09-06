@@ -36,6 +36,12 @@ ELASTIC_QUICKSTART_COMPOSE_FILE = (
 M1_QUICKSTART_COMPOSE_FILE = (
     "docker/quickstart/docker-compose-without-neo4j-m1.quickstart.yml"
 )
+CONSUMERS_QUICKSTART_COMPOSE_FILE = (
+    "docker/quickstart/docker-compose.consumers.quickstart.yml"
+)
+ELASTIC_CONSUMERS_QUICKSTART_COMPOSE_FILE = (
+    "docker/quickstart/docker-compose.consumers-without-neo4j.quickstart.yml"
+)
 
 BOOTSTRAP_MCES_FILE = "metadata-ingestion/examples/mce_files/bootstrap_mce.json"
 
@@ -582,9 +588,9 @@ def quickstart(
 
     if standalone_consumers:
       consumer_github_file = (
-        f"{GITHUB_BASE_URL}/docker/quickstart/docker-compose.consumers.quickstart.yml"
+        f"{GITHUB_BASE_URL}/{CONSUMERS_QUICKSTART_COMPOSE_FILE}"
         if should_use_neo4j
-        else f"{GITHUB_BASE_URL}/docker/quickstart/docker-compose.consumers-without-neo4j.quickstart.yml"
+        else f"{GITHUB_BASE_URL}/{ELASTIC_CONSUMERS_QUICKSTART_COMPOSE_FILE}"
       )
 
       default_consumer_compose_file = Path(DATAHUB_ROOT_FOLDER) / "quickstart/docker-compose.consumers.yml"
