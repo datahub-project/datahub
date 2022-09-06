@@ -148,7 +148,7 @@
     "changeType": "UPSERT",
     "aspectName": "testInfo",
     "aspect": {
-      "value": "{\"name\": \"Sample Test 1\", \"category\": \"Examples\", \"description\": \"An example of Metadata Test\", \"definition\": { \"type\": \"JSON\", \"json\": \"{}\"} }",
+      "value": "{\"name\": \"Sample Test 1\", \"category\": \"Examples\", \"description\": \"An example of Metadata Test\", \"definition\": { \"type\": \"JSON\", \"json\": \"{\\\"on\\\":{\\\"dataset\\\":[{\\\"query\\\":\\\"dataPlatformInstance.platform\\\",\\\"condition\\\":\\\"EQUALS\\\",\\\"values\\\":[\\\"urn:li:dataPlatform:bigQuery\\\"]}]},\\\"rules\\\":{\\\"or\\\":[{\\\"query\\\":\\\"glossaryTerms.terms.glossaryTermInfo.parentNode\\\",\\\"condition\\\":\\\"EQUALS\\\",\\\"values\\\":[\\\"urn:li:glossaryNode:Category\\\"]},{\\\"query\\\":\\\"container.container.glossaryTerms.terms.glossaryTermInfo.parentNode\\\",\\\"condition\\\":\\\"EQUALS\\\",\\\"values\\\":[\\\"urn:li:glossaryNode:Category\\\"]}]}}\"} }",
       "contentType": "application/json"
     },
     "systemMetadata": null
@@ -161,7 +161,7 @@
     "changeType": "UPSERT",
     "aspectName": "testInfo",
     "aspect": {
-      "value": "{\"name\": \"Sample Test 2\", \"category\": \"Examples\", \"description\": \"An example of another Metadata Test\", \"definition\": { \"type\": \"JSON\", \"json\": \"{}\"} }",
+      "value": "{\"name\": \"Sample Test 2\", \"category\": \"Examples\", \"description\": \"An example of another Metadata Test\", \"definition\": { \"type\": \"JSON\", \"json\": \"{\\\"on\\\":{\\\"dataset\\\":[{\\\"query\\\":\\\"dataPlatformInstance.platform\\\",\\\"condition\\\":\\\"EQUALS\\\",\\\"values\\\":[\\\"urn:li:dataPlatform:bigQuery\\\"]}]},\\\"rules\\\":{\\\"or\\\":[{\\\"query\\\":\\\"glossaryTerms.terms.glossaryTermInfo.parentNode\\\",\\\"condition\\\":\\\"EQUALS\\\",\\\"values\\\":[\\\"urn:li:glossaryNode:Category\\\"]},{\\\"query\\\":\\\"container.container.glossaryTerms.terms.glossaryTermInfo.parentNode\\\",\\\"condition\\\":\\\"EQUALS\\\",\\\"values\\\":[\\\"urn:li:glossaryNode:Category\\\"]}]}}\"} }",
       "contentType": "application/json"
     },
     "systemMetadata": null

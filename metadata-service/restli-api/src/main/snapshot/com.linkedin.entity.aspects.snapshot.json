@@ -2439,6 +2439,16 @@
                 "fieldType" : "TEXT"
               }
             }, {
+              "name" : "label",
+              "type" : "string",
+              "doc" : "Label of the field. Provides a more human-readable name for the field than field path. Some sources will\nprovide this metadata but not all sources have the concept of a label. If just one string is associated with\na field in a source, that is most likely a description.",
+              "optional" : true,
+              "Searchable" : {
+                "boostScore" : 0.2,
+                "fieldName" : "fieldLabels",
+                "fieldType" : "TEXT"
+              }
+            }, {
               "name" : "created",
               "type" : "com.linkedin.common.AuditStamp",
               "doc" : "An AuditStamp corresponding to the creation of this schema field.",
@@ -3589,6 +3599,17 @@
         } ]
       } ],
       "actions" : [ {
+        "name" : "getCount",
+        "parameters" : [ {
+          "name" : "aspect",
+          "type" : "string"
+        }, {
+          "name" : "urnLike",
+          "type" : "string",
+          "optional" : true
+        } ],
+        "returns" : "int"
+      }, {
         "name" : "getTimeseriesAspectValues",
         "parameters" : [ {
           "name" : "urn",
@@ -3626,6 +3647,30 @@
         "parameters" : [ {
           "name" : "proposal",
           "type" : "com.linkedin.mxe.MetadataChangeProposal"
+        } ],
+        "returns" : "string"
+      }, {
+        "name" : "restoreIndices",
+        "parameters" : [ {
+          "name" : "aspect",
+          "type" : "string",
+          "optional" : true
+        }, {
+          "name" : "urn",
+          "type" : "string",
+          "optional" : true
+        }, {
+          "name" : "urnLike",
+          "type" : "string",
+          "optional" : true
+        }, {
+          "name" : "start",
+          "type" : "int",
+          "optional" : true
+        }, {
+          "name" : "batchSize",
+          "type" : "int",
+          "optional" : true
         } ],
         "returns" : "string"
       } ],

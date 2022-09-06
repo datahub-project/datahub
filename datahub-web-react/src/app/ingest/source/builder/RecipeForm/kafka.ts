@@ -15,7 +15,7 @@ export const KAFKA_SASL_PASSWORD: RecipeField = {
     name: 'connection.consumer_config.sasl.password',
     label: 'Password',
     tooltip: 'SASL password. You can get (in the Confluent UI) from your cluster -> Data Integration -> API Keys.',
-    type: FieldType.TEXT,
+    type: FieldType.SECRET,
     fieldPath: saslPasswordFieldPath,
     rules: null,
 };

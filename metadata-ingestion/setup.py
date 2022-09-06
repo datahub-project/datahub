@@ -35,10 +35,11 @@ framework_common = {
     "entrypoints",
     "docker",
     "expandvars>=0.6.5",
-    "avro-gen3==0.7.4",
+    "avro-gen3==0.7.5",
+    # "avro-gen3 @ git+https://github.com/acryldata/avro_gen@master#egg=avro-gen3",
     "avro>=1.10.2,<1.11",
     "python-dateutil>=2.8.0",
-    "stackprinter",
+    "stackprinter>=0.2.6",
     "tabulate",
     "progressbar2",
     "termcolor>=1.0.0",
@@ -55,6 +56,9 @@ framework_common = {
     "humanfriendly",
     "packaging",
     "aiohttp<4",
+    "cached_property",
+    "ijson",
+    "click-spinner",
 }
 
 kafka_common = {
@@ -135,12 +139,11 @@ looker_common = {
 }
 
 bigquery_common = {
+    "google-api-python-client",
     # Google cloud logging library
     "google-cloud-logging<3.1.2",
     "google-cloud-bigquery",
     "more-itertools>=8.12.0",
-    # we do not use protobuf directly but newer version caused bigquery connector to fail
-    "protobuf<=3.20.1",
 }
 
 redshift_common = {
@@ -222,6 +225,9 @@ plugins: Dict[str, Set[str]] = {
     | bigquery_common
     | {"sqlalchemy-bigquery>=1.4.1", "sqllineage==1.3.5", "sqlparse"},
     "bigquery-usage": bigquery_common | usage_common | {"cachetools"},
+    "bigquery-beta": sql_common
+    | bigquery_common
+    | {"sqllineage==1.3.5", "sql_metadata"},
     "clickhouse": sql_common | {"clickhouse-sqlalchemy==0.1.8"},
     "clickhouse-usage": sql_common
     | usage_common
@@ -231,7 +237,7 @@ plugins: Dict[str, Set[str]] = {
     "datahub-lineage-file": set(),
     "datahub-business-glossary": set(),
     "delta-lake": {*data_lake_profiling, *delta_lake},
-    "dbt": {"requests", "cached_property"} | aws_common,
+    "dbt": {"requests"} | aws_common,
     "druid": sql_common | {"pydruid>=0.6.2"},
     # Starting with 7.14.0 python client is checking if it is connected to elasticsearch client. If its not it throws
     # UnsupportedProductError
@@ -253,7 +259,8 @@ plugins: Dict[str, Set[str]] = {
         # - 0.6.11 adds support for table comments and column comments,
         #   and also releases HTTP and HTTPS transport schemes
         # - 0.6.12 adds support for Spark Thrift Server
-        "acryl-pyhive[hive]>=0.6.13"
+        "acryl-pyhive[hive]>=0.6.13",
+        "databricks-dbapi",
     },
     "iceberg": iceberg_common,
     "kafka": {*kafka_common, *kafka_protobuf},
@@ -265,7 +272,7 @@ plugins: Dict[str, Set[str]] = {
     | {"lkml>=1.1.2", "sql-metadata==2.2.2", "sqllineage==1.3.5"},
     "metabase": {"requests", "sqllineage==1.3.5"},
     "mode": {"requests", "sqllineage==1.3.5", "tenacity>=8.0.1"},
-    "mongodb": {"pymongo>=3.11", "packaging"},
+    "mongodb": {"pymongo[srv]>=3.11", "packaging"},
     "mssql": sql_common | {"sqlalchemy-pytds>=0.3"},
     "mssql-odbc": sql_common | {"pyodbc"},
     "mysql": sql_common | {"pymysql>=1.0.2"},
@@ -331,6 +338,7 @@ mypy_stubs = {
     # avrogen package requires this
     "types-pytz",
     "types-pyOpenSSL",
+    "types-click-spinner",
 }
 
 base_dev_requirements = {
@@ -346,7 +354,8 @@ base_dev_requirements = {
     "mypy>=0.950",
     # pydantic 1.8.2 is incompatible with mypy 0.910.
     # See https://github.com/samuelcolvin/pydantic/pull/3175#issuecomment-995382910.
-    "pydantic>=1.9.0",
+    # Restricting top version to <1.10 until we can fix our types.
+    "pydantic >=1.9.0, <1.10",
     "pytest>=6.2.2",
     "pytest-asyncio>=0.16.0",
     "pytest-cov>=2.8.1",
@@ -463,6 +472,7 @@ entry_points = {
         "athena = datahub.ingestion.source.sql.athena:AthenaSource",
         "azure-ad = datahub.ingestion.source.identity.azure_ad:AzureADSource",
         "bigquery = datahub.ingestion.source.sql.bigquery:BigQuerySource",
+        "bigquery-beta = datahub.ingestion.source.bigquery_v2.bigquery:BigqueryV2Source",
         "bigquery-usage = datahub.ingestion.source.usage.bigquery_usage:BigQueryUsageSource",
         "clickhouse = datahub.ingestion.source.sql.clickhouse:ClickHouseSource",
         "clickhouse-usage = datahub.ingestion.source.usage.clickhouse_usage:ClickHouseUsageSource",
@@ -480,8 +490,8 @@ entry_points = {
         "kafka = datahub.ingestion.source.kafka:KafkaSource",
         "kafka-connect = datahub.ingestion.source.kafka_connect:KafkaConnectSource",
         "ldap = datahub.ingestion.source.ldap:LDAPSource",
-        "looker = datahub.ingestion.source.looker:LookerDashboardSource",
-        "lookml = datahub.ingestion.source.lookml:LookMLSource",
+        "looker = datahub.ingestion.source.looker.looker_source:LookerDashboardSource",
+        "lookml = datahub.ingestion.source.looker.lookml_source:LookMLSource",
         "datahub-lineage-file = datahub.ingestion.source.metadata.lineage:LineageFileSource",
         "datahub-business-glossary = datahub.ingestion.source.metadata.business_glossary:BusinessGlossaryFileSource",
         "mode = datahub.ingestion.source.mode:ModeSource",
@@ -522,7 +532,8 @@ entry_points = {
         "datahub = datahub.ingestion.source.state_provider.datahub_ingestion_checkpointing_provider:DatahubIngestionCheckpointingProvider",
     ],
     "datahub.ingestion.reporting_provider.plugins": [
-        "datahub = datahub.ingestion.reporting.datahub_ingestion_reporting_provider:DatahubIngestionReportingProvider",
+        "datahub = datahub.ingestion.reporting.datahub_ingestion_run_summary_provider:DatahubIngestionRunSummaryProvider",
+        "file = datahub.ingestion.reporting.file_reporter:FileReporter",
     ],
     "apache_airflow_provider": ["provider_info=datahub_provider:get_provider_info"],
 }

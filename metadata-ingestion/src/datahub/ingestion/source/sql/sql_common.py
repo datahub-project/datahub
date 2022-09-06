@@ -712,6 +712,16 @@ class SQLAlchemySource(StatefulIngestionSourceBase):
             self.report.report_workunit(wu)
             yield wu
 
+    def get_allowed_schemas(self, inspector: Inspector, db_name: str) -> Iterable[str]:
+        # this function returns the schema names which are filtered by schema_pattern.
+        for schema in self.get_schema_names(inspector):
+            if not self.config.schema_pattern.allowed(schema):
+                self.report.report_dropped(f"{schema}.*")
+                continue
+            else:
+                self.add_information_for_schema(inspector, schema)
+                yield schema
+
     def get_workunits(self) -> Iterable[Union[MetadataWorkUnit, SqlWorkUnit]]:
         sql_config = self.config
         if logger.isEnabledFor(logging.DEBUG):
@@ -734,10 +744,7 @@ class SQLAlchemySource(StatefulIngestionSourceBase):
             db_name = self.get_db_name(inspector)
             yield from self.gen_database_containers(db_name)
 
-            for schema in self.get_schema_names(inspector):
-                if not sql_config.schema_pattern.allowed(schema):
-                    self.report.report_dropped(f"{schema}.*")
-                    continue
+            for schema in self.get_allowed_schemas(inspector, db_name):
                 self.add_information_for_schema(inspector, schema)
 
                 yield from self.gen_schema_containers(schema, db_name)
@@ -1300,12 +1307,15 @@ class SQLAlchemySource(StatefulIngestionSourceBase):
             sql_config=sql_config,
         )
 
+    def get_parent_container_key(self, db_name: str, schema: str) -> PlatformKey:
+        return self.gen_schema_key(db_name, schema)
+
     def add_table_to_schema_container(
         self, dataset_urn: str, db_name: str, schema: str
     ) -> Iterable[Union[MetadataWorkUnit, SqlWorkUnit]]:
-        schema_container_key = self.gen_schema_key(db_name, schema)
+        parent_container_key = self.get_parent_container_key(db_name, schema)
         container_workunits = add_dataset_to_container(
-            container_key=schema_container_key,
+            container_key=parent_container_key,
             dataset_urn=dataset_urn,
         )
         for wu in container_workunits:

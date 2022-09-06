@@ -42,8 +42,13 @@ class SqlLineageSQLParserImpl:
             self._ADMIN_SWAP_TOKEN: "admin",
         }
         for replacement, original in self.token_to_original.items():
+            # Replace original tokens with replacement. Since table and column name can contain a hyphen('-'),
+            # also prevent original tokens appearing as part of these names with a hyphen from getting substituted.
             sql_query = re.sub(
-                rf"(\b{original}\b)", rf"{replacement}", sql_query, flags=re.IGNORECASE
+                rf"((?<!-)\b{original}\b)(?!-)",
+                rf"{replacement}",
+                sql_query,
+                flags=re.IGNORECASE,
             )
 
         # SqlLineageParser lowercarese tablenames and we need to replace Looker specific token which should be uppercased

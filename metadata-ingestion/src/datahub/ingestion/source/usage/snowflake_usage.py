@@ -236,7 +236,7 @@ class SnowflakeUsageSource(StatefulIngestionSourceBase):
             )
             summary.numWarnings = len(self.report.warnings)
             summary.numErrors = len(self.report.failures)
-            summary.numEntities = self.report.workunits_produced
+            summary.numEntities = self.report.events_produced
             summary.config = self.config.json()
             summary.custom_summary = self.report.as_string()
 
@@ -251,8 +251,8 @@ class SnowflakeUsageSource(StatefulIngestionSourceBase):
         )
 
     def add_config_to_report(self):
-        self.report.start_time = self.config.start_time
-        self.report.end_time = self.config.end_time
+        self.report.window_start_time = self.config.start_time
+        self.report.window_end_time = self.config.end_time
 
     def get_workunits(self) -> Iterable[MetadataWorkUnit]:
         self.add_config_to_report()

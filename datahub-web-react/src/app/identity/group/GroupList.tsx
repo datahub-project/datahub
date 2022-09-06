@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Button, Empty, List, message, Pagination } from 'antd';
+import { Button, Empty, List, Pagination } from 'antd';
 import styled from 'styled-components';
 import { useLocation } from 'react-router';
 import * as QueryString from 'query-string';
@@ -12,6 +12,7 @@ import TabToolbar from '../../entity/shared/components/styled/TabToolbar';
 import CreateGroupModal from './CreateGroupModal';
 import { SearchBar } from '../../search/SearchBar';
 import { useEntityRegistry } from '../../useEntityRegistry';
+import { scrollToTop } from '../../shared/searchUtils';
 
 const GroupContainer = styled.div``;
 
@@ -61,6 +62,7 @@ export const GroupList = () => {
     const filteredGroups = groups.filter((group) => !removedUrns.includes(group.urn));
 
     const onChangePage = (newPage: number) => {
+        scrollToTop();
         setPage(newPage);
     };
 
@@ -76,7 +78,7 @@ export const GroupList = () => {
     return (
         <>
             {!data && loading && <Message type="loading" content="Loading groups..." />}
-            {error && message.error('Failed to load groups :(')}
+            {error && <Message type="error" content="Failed to load groups! An unexpected error occurred." />}
             <GroupContainer>
                 <TabToolbar>
                     <div>
@@ -99,6 +101,7 @@ export const GroupList = () => {
                         onSearch={() => null}
                         onQueryChange={(q) => setQuery(q)}
                         entityRegistry={entityRegistry}
+                        hideRecommendations
                     />
                 </TabToolbar>
                 <GroupStyledList

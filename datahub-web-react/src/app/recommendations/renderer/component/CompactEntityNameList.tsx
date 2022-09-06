@@ -1,10 +1,10 @@
-import { Tooltip } from 'antd';
 import React from 'react';
 import { useHistory } from 'react-router';
-import { Entity, SearchResult } from '../../../../types.generated';
+import { Entity } from '../../../../types.generated';
 import { IconStyleType } from '../../../entity/Entity';
 import { useEntityRegistry } from '../../../useEntityRegistry';
 import { EntityPreviewTag } from './EntityPreviewTag';
+import { HoverEntityTooltip } from './HoverEntityTooltip';
 
 type Props = {
     entities: Array<Entity>;
@@ -34,21 +34,7 @@ export const CompactEntityNameList = ({ entities, onClick, linkUrlParams, showTo
                             history.push(url);
                         }}
                     >
-                        <Tooltip
-                            visible={showTooltips ? undefined : false}
-                            color="white"
-                            placement="topRight"
-                            overlayStyle={{ minWidth: 400 }}
-                            overlayInnerStyle={{ padding: 12 }}
-                            title={
-                                <a href={url}>
-                                    {entityRegistry.renderSearchResult(entity.type, {
-                                        entity,
-                                        matchedFields: [],
-                                    } as SearchResult)}
-                                </a>
-                            }
-                        >
+                        <HoverEntityTooltip entity={entity} canOpen={showTooltips}>
                             <span data-testid={`compact-entity-link-${entity.urn}`}>
                                 <EntityPreviewTag
                                     displayName={displayName}
@@ -61,7 +47,7 @@ export const CompactEntityNameList = ({ entities, onClick, linkUrlParams, showTo
                                     onClick={() => onClick?.(index)}
                                 />
                             </span>
-                        </Tooltip>
+                        </HoverEntityTooltip>
                     </span>
                 );
             })}
