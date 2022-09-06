@@ -3,6 +3,7 @@ import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
 import styled from 'styled-components';
 import { BookOutlined, PlusOutlined } from '@ant-design/icons';
+import Highlight from 'react-highlighter';
 
 import { useEntityRegistry } from '../../useEntityRegistry';
 import {
@@ -38,6 +39,7 @@ type Props = {
     entityUrn?: string;
     entityType?: EntityType;
     entitySubresource?: string;
+    highlightText?: string;
     refetch?: () => Promise<any>;
 };
 
@@ -62,6 +64,8 @@ const TagText = styled.span`
     margin: 0 7px 0 0;
 `;
 
+const highlightMatchStyle = { background: '#ffe58f', padding: '0' };
+
 export default function TagTermGroup({
     uneditableTags,
     editableTags,
@@ -78,6 +82,7 @@ export default function TagTermGroup({
     entityUrn,
     entityType,
     entitySubresource,
+    highlightText,
     refetch,
 }: Props) {
     const entityRegistry = useEntityRegistry();
@@ -188,9 +193,11 @@ export default function TagTermGroup({
                 if (maxShow && renderedTags === maxShow + 1)
                     return (
                         <TagText>
-                            {uneditableGlossaryTerms?.terms
-                                ? `+${uneditableGlossaryTerms?.terms?.length - maxShow}`
-                                : null}
+                            <Highlight matchStyle={highlightMatchStyle} search={highlightText}>
+                                {uneditableGlossaryTerms?.terms
+                                    ? `+${uneditableGlossaryTerms?.terms?.length - maxShow}`
+                                    : null}
+                            </Highlight>
                         </TagText>
                     );
                 if (maxShow && renderedTags > maxShow) return null;
@@ -224,7 +231,9 @@ export default function TagTermGroup({
                             }}
                         >
                             <BookOutlined style={{ marginRight: '3%' }} />
-                            {entityRegistry.getDisplayName(EntityType.GlossaryTerm, term.term)}
+                            <Highlight matchStyle={highlightMatchStyle} search={highlightText}>
+                                {entityRegistry.getDisplayName(EntityType.GlossaryTerm, term.term)}
+                            </Highlight>
                         </Tag>
                     </TermLink>
                 </HoverEntityTooltip>
@@ -248,7 +257,9 @@ export default function TagTermGroup({
                                 $color={tag?.tag?.properties?.colorHex}
                                 closable={false}
                             >
-                                {entityRegistry.getDisplayName(EntityType.Tag, tag.tag)}
+                                <Highlight matchStyle={highlightMatchStyle} search={highlightText}>
+                                    {entityRegistry.getDisplayName(EntityType.Tag, tag.tag)}
+                                </Highlight>
                             </StyledTag>
                         </TagLink>
                     </HoverEntityTooltip>
@@ -272,7 +283,9 @@ export default function TagTermGroup({
                                     removeTag(tag);
                                 }}
                             >
-                                {tag?.tag?.name}
+                                <Highlight matchStyle={highlightMatchStyle} search={highlightText}>
+                                    {tag?.tag?.name}
+                                </Highlight>
                             </StyledTag>
                         </TagLink>
                     </HoverEntityTooltip>

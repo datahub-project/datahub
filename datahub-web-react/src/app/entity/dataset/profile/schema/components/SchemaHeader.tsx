@@ -1,6 +1,7 @@
 import React from 'react';
 import { useHistory, useLocation } from 'react-router-dom';
 import { Button, Input, Popover, Select, Tooltip, Typography } from 'antd';
+import { debounce } from 'lodash';
 import {
     AuditOutlined,
     CaretDownOutlined,
@@ -17,6 +18,7 @@ import { toRelativeTimeString } from '../../../../../shared/time/timeUtils';
 import { ANTD_GRAY, REDESIGN_COLORS } from '../../../../shared/constants';
 import { navigateToVersionedDatasetUrl } from '../../../../shared/tabs/Dataset/Schema/utils/navigateToVersionedDatasetUrl';
 import SchemaTimeStamps from './SchemaTimeStamps';
+import getSchemaFilterFromQueryString from '../../../../shared/tabs/Dataset/Schema/utils/getSchemaFilterFromQueryString';
 
 const SchemaHeaderContainer = styled.div`
     display: flex;
@@ -65,6 +67,7 @@ const KeyValueButtonGroup = styled.div`
 
 // Below styles are for buttons on the right side of the Schema Header
 const RightButtonsGroup = styled.div`
+    padding-left: 5px;
     &&& {
         display: flex;
         justify-content: right;
@@ -113,6 +116,7 @@ const StyledCaretDownOutlined = styled(CaretDownOutlined)`
 
 const StyledInput = styled(Input)`
     border-radius: 70px;
+    max-width: 300px;
 `;
 
 type Props = {
@@ -132,8 +136,8 @@ type Props = {
     versionList: Array<SemanticVersionStruct>;
     showSchemaAuditView: boolean;
     setShowSchemaAuditView: any;
-    filterText: string;
     setFilterText: (text: string) => void;
+    numRows: number;
 };
 
 export default function SchemaHeader({
@@ -153,8 +157,8 @@ export default function SchemaHeader({
     versionList,
     showSchemaAuditView,
     setShowSchemaAuditView,
-    filterText,
     setFilterText,
+    numRows,
 }: Props) {
     const history = useHistory();
     const location = useLocation();
@@ -190,6 +194,12 @@ export default function SchemaHeader({
     };
     const schemaAuditToggleText = showSchemaAuditView ? 'Close column history' : 'View column history';
 
+    const debouncedSetFilterText = debounce(
+        (e: React.ChangeEvent<HTMLInputElement>) => setFilterText(e.target.value),
+        numRows > 50 ? 500 : 0,
+    );
+    const schemaFilter = getSchemaFilterFromQueryString(location);
+
     const docLink = 'https://datahubproject.io/docs/dev-guides/timeline/';
     return (
         <TabToolbar>
@@ -222,13 +232,15 @@ export default function SchemaHeader({
                         </KeyValueButtonGroup>
                     )}
                     <ShowVersionButton onClick={() => setEditMode?.(false)}>Version Blame</ShowVersionButton>
-                    <StyledInput
-                        value={filterText}
-                        placeholder="Search in schema"
-                        onChange={(e) => setFilterText(e.target.value.toLocaleLowerCase())}
-                        allowClear
-                        prefix={<SearchOutlined />}
-                    />
+                    {!showRaw && (
+                        <StyledInput
+                            defaultValue={schemaFilter}
+                            placeholder="Search in schema..."
+                            onChange={debouncedSetFilterText}
+                            allowClear
+                            prefix={<SearchOutlined />}
+                        />
+                    )}
                 </LeftButtonsGroup>
                 <RightButtonsGroup>
                     <SchemaTimeStamps lastObserved={lastObserved} lastUpdated={lastUpdated} />
