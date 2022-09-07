@@ -35,4 +35,4 @@ class BigQueryBaseConfig(ConfigModel):
             raise ConfigurationError(
                 f"sharded_table_pattern configuration pattern is invalid. The exception was: {e}"
             )
-        return
+        return v
