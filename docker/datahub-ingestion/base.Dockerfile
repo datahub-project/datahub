@@ -37,6 +37,24 @@ RUN apt-get update && apt-get install -y \
     &&  ./configure --prefix /usr && make && make install && make clean && ./configure --clean \
     && apt-get remove -y make
 
+RUN if [ $(arch) = "x86_64" ]; then \
+    mkdir /opt/oracle && \
+    cd /opt/oracle && \
+    wget --no-verbose -c https://download.oracle.com/otn_software/linux/instantclient/216000/instantclient-basic-linux.x64-21.6.0.0.0dbru.zip && \
+    unzip instantclient-basic-linux.x64-21.6.0.0.0dbru.zip && \
+    rm instantclient-basic-linux.x64-21.6.0.0.0dbru.zip && \
+    sh -c "echo /opt/oracle/instantclient_21_6 > /etc/ld.so.conf.d/oracle-instantclient.conf" && \
+    ldconfig; \
+    else \
+    mkdir /opt/oracle && \
+    cd /opt/oracle && \
+    wget --no-verbose -c https://download.oracle.com/otn_software/linux/instantclient/191000/instantclient-basic-linux.arm64-19.10.0.0.0dbru.zip && \
+    unzip instantclient-basic-linux.arm64-19.10.0.0.0dbru.zip && \
+    rm instantclient-basic-linux.arm64-19.10.0.0.0dbru.zip && \
+    sh -c "echo /opt/oracle/instantclient_19_10 > /etc/ld.so.conf.d/oracle-instantclient.conf" && \
+    ldconfig; \
+    fi;
+
 COPY ./base-requirements.txt requirements.txt
 
 RUN pip install -r requirements.txt && \
