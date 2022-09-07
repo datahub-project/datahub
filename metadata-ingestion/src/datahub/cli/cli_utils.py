@@ -17,7 +17,7 @@ from requests.sessions import Session
 from datahub.emitter.request_helper import _make_curl_command
 from datahub.emitter.serialization_helper import post_json_transform
 from datahub.metadata.schema_classes import _ASPECT_CLASSES, _Aspect
-from datahub.utilities.urns.urn import Urn
+from datahub.utilities.urns.urn import Urn, guess_entity_type
 
 log = logging.getLogger(__name__)
 
@@ -123,11 +123,6 @@ def get_details_from_env() -> Tuple[Optional[str], Optional[str]]:
 
 def first_non_null(ls: List[Optional[str]]) -> Optional[str]:
     return next((el for el in ls if el is not None and el.strip() != ""), None)
-
-
-def guess_entity_type(urn: str) -> str:
-    assert urn.startswith("urn:li:"), "urns must start with urn:li:"
-    return urn.split(":")[2]
 
 
 def get_system_auth() -> Optional[str]:
