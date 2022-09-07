@@ -1,4 +1,15 @@
-# Schema History Guide
+import FeatureAvailability from '@site/src/components/FeatureAvailability';
+
+# About DataHub Schema History
+
+<FeatureAvailability/>
+
+Schema History is a valuable tool for understanding how a Dataset changes over time and gives insight into the following cases.
+- A new field is added
+- An existing field is removed
+- An existing field changes type
+
+
 
 ## Introduction
 
