@@ -119,6 +119,9 @@ const StyledInput = styled(Input)`
     max-width: 300px;
 `;
 
+const MAX_ROWS_BEFORE_DEBOUNCE = 50;
+const HALF_SECOND_IN_MS = 500;
+
 type Props = {
     maxVersion?: number;
     fetchVersions?: (version1: number, version2: number) => void;
@@ -196,7 +199,7 @@ export default function SchemaHeader({
 
     const debouncedSetFilterText = debounce(
         (e: React.ChangeEvent<HTMLInputElement>) => setFilterText(e.target.value),
-        numRows > 50 ? 500 : 0,
+        numRows > MAX_ROWS_BEFORE_DEBOUNCE ? HALF_SECOND_IN_MS : 0,
     );
     const schemaFilter = getSchemaFilterFromQueryString(location);
 
@@ -231,7 +234,12 @@ export default function SchemaHeader({
                             </ValueButton>
                         </KeyValueButtonGroup>
                     )}
-                    <ShowVersionButton onClick={() => setEditMode?.(false)}>Version Blame</ShowVersionButton>
+                    {maxVersion > 0 &&
+                        (editMode ? (
+                            <ShowVersionButton onClick={() => setEditMode?.(false)}>Version Blame</ShowVersionButton>
+                        ) : (
+                            <ShowVersionButton onClick={() => setEditMode?.(true)}>Back</ShowVersionButton>
+                        ))}
                     {!showRaw && (
                         <StyledInput
                             defaultValue={schemaFilter}
