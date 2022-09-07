@@ -1,6 +1,5 @@
 [
 {
-    "auditHeader": null,
     "proposedSnapshot": {
         "com.linkedin.pegasus2avro.metadata.snapshot.DashboardSnapshot": {
             "urn": "urn:li:dashboard:(looker,dashboards.1)",
@@ -8,7 +7,6 @@
                 {
                     "com.linkedin.pegasus2avro.dashboard.DashboardInfo": {
                         "customProperties": {},
-                        "externalUrl": null,
                         "title": "foo",
                         "description": "lorem ipsum",
                         "charts": [],
@@ -16,21 +14,14 @@
                         "lastModified": {
                             "created": {
                                 "time": 1586847600000,
-                                "actor": "urn:li:corpuser:unknown",
-                                "impersonator": null,
-                                "message": null
+                                "actor": "urn:li:corpuser:unknown"
                             },
                             "lastModified": {
                                 "time": 1586847600000,
-                                "actor": "urn:li:corpuser:unknown",
-                                "impersonator": null,
-                                "message": null
-                            },
-                            "deleted": null
+                                "actor": "urn:li:corpuser:unknown"
+                            }
                         },
-                        "dashboardUrl": "https://looker.company.com/dashboards/1",
-                        "access": null,
-                        "lastRefreshed": null
+                        "dashboardUrl": "https://looker.company.com/dashboards/1"
                     }
                 },
                 {
@@ -41,17 +32,12 @@
             ]
         }
     },
-    "proposedDelta": null,
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "looker-test",
-        "registryName": null,
-        "registryVersion": null,
-        "properties": null
+        "runId": "looker-test"
     }
 },
 {
-    "auditHeader": null,
     "proposedSnapshot": {
         "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
             "urn": "urn:li:dataset:(urn:li:dataPlatform:looker,data.explore.my_view,PROD)",
@@ -76,9 +62,7 @@
                         },
                         "externalUrl": "https://looker.company.com/explore/data/my_view",
                         "name": "My Explore View",
-                        "qualifiedName": null,
                         "description": "lorem ipsum",
-                        "uri": null,
                         "tags": []
                     }
                 },
@@ -88,15 +72,12 @@
                             {
                                 "auditStamp": {
                                     "time": 0,
-                                    "actor": "urn:li:corpuser:unknown",
-                                    "impersonator": null,
-                                    "message": null
+                                    "actor": "urn:li:corpuser:unknown"
                                 },
                                 "dataset": "urn:li:dataset:(urn:li:dataPlatform:looker,lkml_samples.view.underlying_view,PROD)",
                                 "type": "VIEW"
                             }
-                        ],
-                        "fineGrainedLineages": null
+                        ]
                     }
                 },
                 {
@@ -106,19 +87,12 @@
                         "version": 0,
                         "created": {
                             "time": 0,
-                            "actor": "urn:li:corpuser:unknown",
-                            "impersonator": null,
-                            "message": null
+                            "actor": "urn:li:corpuser:unknown"
                         },
                         "lastModified": {
                             "time": 0,
-                            "actor": "urn:li:corpuser:unknown",
-                            "impersonator": null,
-                            "message": null
+                            "actor": "urn:li:corpuser:unknown"
                         },
-                        "deleted": null,
-                        "dataset": null,
-                        "cluster": null,
                         "hash": "",
                         "platformSchema": {
                             "com.linkedin.pegasus2avro.schema.OtherSchema": {
@@ -128,12 +102,9 @@
                         "fields": [
                             {
                                 "fieldPath": "dim1",
-                                "jsonPath": null,
                                 "nullable": false,
                                 "description": "dimension one description",
                                 "label": "Dimensions One Label",
-                                "created": null,
-                                "lastModified": null,
                                 "type": {
                                     "type": {
                                         "com.linkedin.pegasus2avro.schema.StringType": {}
@@ -144,39 +115,27 @@
                                 "globalTags": {
                                     "tags": [
                                         {
-                                            "tag": "urn:li:tag:Dimension",
-                                            "context": null
+                                            "tag": "urn:li:tag:Dimension"
                                         }
                                     ]
                                 },
-                                "glossaryTerms": null,
-                                "isPartOfKey": false,
-                                "isPartitioningKey": null,
-                                "jsonProps": null
+                                "isPartOfKey": false
                             }
                         ],
-                        "primaryKeys": [],
-                        "foreignKeysSpecs": null,
-                        "foreignKeys": null
+                        "primaryKeys": []
                     }
                 }
             ]
         }
     },
-    "proposedDelta": null,
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "looker-test",
-        "registryName": null,
-        "registryVersion": null,
-        "properties": null
+        "runId": "looker-test"
     }
 },
 {
-    "auditHeader": null,
     "entityType": "dataset",
     "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:looker,data.explore.my_view,PROD)",
-    "entityKeyAspect": null,
     "changeType": "UPSERT",
     "aspectName": "subTypes",
     "aspect": {
@@ -185,14 +144,10 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "looker-test",
-        "registryName": null,
-        "registryVersion": null,
-        "properties": null
+        "runId": "looker-test"
     }
 },
 {
-    "auditHeader": null,
     "proposedSnapshot": {
         "com.linkedin.pegasus2avro.metadata.snapshot.TagSnapshot": {
             "urn": "urn:li:tag:Dimension",
@@ -202,39 +157,30 @@
                         "owners": [
                             {
                                 "owner": "urn:li:corpuser:datahub",
-                                "type": "DATAOWNER",
-                                "source": null
+                                "type": "DATAOWNER"
                             }
                         ],
                         "lastModified": {
                             "time": 0,
-                            "actor": "urn:li:corpuser:unknown",
-                            "impersonator": null,
-                            "message": null
+                            "actor": "urn:li:corpuser:unknown"
                         }
                     }
                 },
                 {
                     "com.linkedin.pegasus2avro.tag.TagProperties": {
                         "name": "Dimension",
-                        "description": "A tag that is applied to all dimension fields.",
-                        "colorHex": null
+                        "description": "A tag that is applied to all dimension fields."
                     }
                 }
             ]
         }
     },
-    "proposedDelta": null,
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "looker-test",
-        "registryName": null,
-        "registryVersion": null,
-        "properties": null
+        "runId": "looker-test"
     }
 },
 {
-    "auditHeader": null,
     "proposedSnapshot": {
         "com.linkedin.pegasus2avro.metadata.snapshot.TagSnapshot": {
             "urn": "urn:li:tag:Temporal",
@@ -244,39 +190,30 @@
                         "owners": [
                             {
                                 "owner": "urn:li:corpuser:datahub",
-                                "type": "DATAOWNER",
-                                "source": null
+                                "type": "DATAOWNER"
                             }
                         ],
                         "lastModified": {
                             "time": 0,
-                            "actor": "urn:li:corpuser:unknown",
-                            "impersonator": null,
-                            "message": null
+                            "actor": "urn:li:corpuser:unknown"
                         }
                     }
                 },
                 {
                     "com.linkedin.pegasus2avro.tag.TagProperties": {
                         "name": "Temporal",
-                        "description": "A tag that is applied to all time-based (temporal) fields such as timestamps or durations.",
-                        "colorHex": null
+                        "description": "A tag that is applied to all time-based (temporal) fields such as timestamps or durations."
                     }
                 }
             ]
         }
     },
-    "proposedDelta": null,
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "looker-test",
-        "registryName": null,
-        "registryVersion": null,
-        "properties": null
+        "runId": "looker-test"
     }
 },
 {
-    "auditHeader": null,
     "proposedSnapshot": {
         "com.linkedin.pegasus2avro.metadata.snapshot.TagSnapshot": {
             "urn": "urn:li:tag:Measure",
@@ -286,175 +223,144 @@
                         "owners": [
                             {
                                 "owner": "urn:li:corpuser:datahub",
-                                "type": "DATAOWNER",
-                                "source": null
+                                "type": "DATAOWNER"
                             }
                         ],
                         "lastModified": {
                             "time": 0,
-                            "actor": "urn:li:corpuser:unknown",
-                            "impersonator": null,
-                            "message": null
+                            "actor": "urn:li:corpuser:unknown"
                         }
                     }
                 },
                 {
                     "com.linkedin.pegasus2avro.tag.TagProperties": {
                         "name": "Measure",
-                        "description": "A tag that is applied to all measures (metrics). Measures are typically the columns that you aggregate on",
-                        "colorHex": null
+                        "description": "A tag that is applied to all measures (metrics). Measures are typically the columns that you aggregate on"
                     }
                 }
             ]
         }
     },
-    "proposedDelta": null,
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "looker-test",
-        "registryName": null,
-        "registryVersion": null,
-        "properties": null
+        "runId": "looker-test"
     }
 },
 {
-    "auditHeader": null,
     "entityType": "dashboard",
     "entityUrn": "urn:li:dashboard:(looker,dashboards.1)",
-    "entityKeyAspect": null,
     "changeType": "UPSERT",
     "aspectName": "dashboardUsageStatistics",
     "aspect": {
-        "value": "{\"timestampMillis\": 1586847600000, \"partitionSpec\": {\"type\": \"FULL_TABLE\", \"partition\": \"FULL_TABLE_SNAPSHOT\"}, \"viewsCount\": 25, \"userCounts\": [], \"favoritesCount\": 5, \"lastViewedAt\": 1586847600000}",
+        "value": "{\"timestampMillis\": 1586847600000, \"partitionSpec\": {\"type\": \"FULL_TABLE\", \"partition\": \"FULL_TABLE_SNAPSHOT\"}, \"viewsCount\": 25, \"favoritesCount\": 5, \"lastViewedAt\": 1586847600000}",
         "contentType": "application/json"
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "looker-test",
-        "registryName": null,
-        "registryVersion": null,
-        "properties": null
+        "runId": "looker-test"
     }
 },
 {
-    "auditHeader": null,
     "entityType": "dashboard",
     "entityUrn": "urn:li:dashboard:(looker,dashboards.1)",
-    "entityKeyAspect": null,
     "changeType": "UPSERT",
     "aspectName": "dashboardUsageStatistics",
     "aspect": {
-        "value": "{\"timestampMillis\": 1656979200000, \"eventGranularity\": {\"unit\": \"DAY\", \"multiple\": 1}, \"partitionSpec\": {\"type\": \"FULL_TABLE\", \"partition\": \"FULL_TABLE_SNAPSHOT\"}, \"executionsCount\": 5, \"uniqueUserCount\": 1, \"userCounts\": [{\"user\": \"urn:li:corpuser:test@looker.com\", \"executionsCount\": 14, \"usageCount\": 14, \"userEmail\": \"test@looker.com\"}, {\"user\": \"urn:li:corpuser:test@looker.com\", \"executionsCount\": 14, \"usageCount\": 14, \"userEmail\": \"test@looker.com\"}, {\"user\": \"urn:li:corpuser:test@looker.com\", \"executionsCount\": 5, \"usageCount\": 5, \"userEmail\": \"test@looker.com\"}]}",
+        "value": "{\"timestampMillis\": 1656979200000, \"eventGranularity\": {\"unit\": \"DAY\", \"multiple\": 1}, \"partitionSpec\": {\"type\": \"FULL_TABLE\", \"partition\": \"FULL_TABLE_SNAPSHOT\"}, \"executionsCount\": 14, \"uniqueUserCount\": 1, \"userCounts\": [{\"user\": \"urn:li:corpuser:test-1@looker.com\", \"executionsCount\": 16, \"usageCount\": 16, \"userEmail\": \"test-1@looker.com\"}, {\"user\": \"urn:li:corpuser:test-2@looker.com\", \"executionsCount\": 14, \"usageCount\": 14, \"userEmail\": \"test-2@looker.com\"}]}",
         "contentType": "application/json"
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "looker-test",
-        "registryName": null,
-        "registryVersion": null,
-        "properties": null
+        "runId": "looker-test"
     }
 },
 {
-    "auditHeader": null,
     "entityType": "dashboard",
     "entityUrn": "urn:li:dashboard:(looker,dashboards.1)",
-    "entityKeyAspect": null,
     "changeType": "UPSERT",
     "aspectName": "dashboardUsageStatistics",
     "aspect": {
-        "value": "{\"timestampMillis\": 1656979200000, \"eventGranularity\": {\"unit\": \"DAY\", \"multiple\": 1}, \"partitionSpec\": {\"type\": \"FULL_TABLE\", \"partition\": \"FULL_TABLE_SNAPSHOT\"}, \"executionsCount\": 5, \"uniqueUserCount\": 1, \"userCounts\": [{\"user\": \"urn:li:corpuser:test@looker.com\", \"executionsCount\": 14, \"usageCount\": 14, \"userEmail\": \"test@looker.com\"}, {\"user\": \"urn:li:corpuser:test@looker.com\", \"executionsCount\": 14, \"usageCount\": 14, \"userEmail\": \"test@looker.com\"}, {\"user\": \"urn:li:corpuser:test@looker.com\", \"executionsCount\": 5, \"usageCount\": 5, \"userEmail\": \"test@looker.com\"}]}",
+        "value": "{\"timestampMillis\": 1657065600000, \"eventGranularity\": {\"unit\": \"DAY\", \"multiple\": 1}, \"partitionSpec\": {\"type\": \"FULL_TABLE\", \"partition\": \"FULL_TABLE_SNAPSHOT\"}, \"executionsCount\": 14, \"uniqueUserCount\": 1}",
         "contentType": "application/json"
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "looker-test",
-        "registryName": null,
-        "registryVersion": null,
-        "properties": null
+        "runId": "looker-test"
     }
 },
 {
-    "auditHeader": null,
     "entityType": "dashboard",
     "entityUrn": "urn:li:dashboard:(looker,dashboards.1)",
-    "entityKeyAspect": null,
     "changeType": "UPSERT",
     "aspectName": "dashboardUsageStatistics",
     "aspect": {
-        "value": "{\"timestampMillis\": 1656979200000, \"eventGranularity\": {\"unit\": \"DAY\", \"multiple\": 1}, \"partitionSpec\": {\"type\": \"FULL_TABLE\", \"partition\": \"FULL_TABLE_SNAPSHOT\"}, \"executionsCount\": 5, \"uniqueUserCount\": 1, \"userCounts\": [{\"user\": \"urn:li:corpuser:test@looker.com\", \"executionsCount\": 14, \"usageCount\": 14, \"userEmail\": \"test@looker.com\"}, {\"user\": \"urn:li:corpuser:test@looker.com\", \"executionsCount\": 14, \"usageCount\": 14, \"userEmail\": \"test@looker.com\"}, {\"user\": \"urn:li:corpuser:test@looker.com\", \"executionsCount\": 5, \"usageCount\": 5, \"userEmail\": \"test@looker.com\"}]}",
+        "value": "{\"timestampMillis\": 1657152000000, \"eventGranularity\": {\"unit\": \"DAY\", \"multiple\": 1}, \"partitionSpec\": {\"type\": \"FULL_TABLE\", \"partition\": \"FULL_TABLE_SNAPSHOT\"}, \"executionsCount\": 5, \"uniqueUserCount\": 1, \"userCounts\": [{\"user\": \"urn:li:corpuser:test-1@looker.com\", \"executionsCount\": 5, \"usageCount\": 5, \"userEmail\": \"test-1@looker.com\"}]}",
         "contentType": "application/json"
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "looker-test",
-        "registryName": null,
-        "registryVersion": null,
-        "properties": null
+        "runId": "looker-test"
     }
 },
 {
-    "auditHeader": null,
     "entityType": "chart",
     "entityUrn": "urn:li:chart:(looker,dashboard_elements.3)",
-    "entityKeyAspect": null,
     "changeType": "UPSERT",
     "aspectName": "chartUsageStatistics",
     "aspect": {
-        "value": "{\"timestampMillis\": 1586847600000, \"partitionSpec\": {\"type\": \"FULL_TABLE\", \"partition\": \"FULL_TABLE_SNAPSHOT\"}, \"viewsCount\": 30, \"userCounts\": []}",
+        "value": "{\"timestampMillis\": 1586847600000, \"partitionSpec\": {\"type\": \"FULL_TABLE\", \"partition\": \"FULL_TABLE_SNAPSHOT\"}, \"viewsCount\": 30}",
         "contentType": "application/json"
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "looker-test",
-        "registryName": null,
-        "registryVersion": null,
-        "properties": null
+        "runId": "looker-test"
     }
 },
 {
-    "auditHeader": null,
     "entityType": "chart",
     "entityUrn": "urn:li:chart:(looker,dashboard_elements.3)",
-    "entityKeyAspect": null,
     "changeType": "UPSERT",
     "aspectName": "chartUsageStatistics",
     "aspect": {
-        "value": "{\"timestampMillis\": 1656979200000, \"eventGranularity\": {\"unit\": \"DAY\", \"multiple\": 1}, \"partitionSpec\": {\"type\": \"FULL_TABLE\", \"partition\": \"FULL_TABLE_SNAPSHOT\"}, \"viewsCount\": 10, \"userCounts\": [{\"user\": \"urn:li:corpuser:test@looker.com\", \"viewsCount\": 10}]}",
+        "value": "{\"timestampMillis\": 1656979200000, \"eventGranularity\": {\"unit\": \"DAY\", \"multiple\": 1}, \"partitionSpec\": {\"type\": \"FULL_TABLE\", \"partition\": \"FULL_TABLE_SNAPSHOT\"}, \"viewsCount\": 10, \"userCounts\": [{\"user\": \"urn:li:corpuser:test-1@looker.com\", \"viewsCount\": 10}, {\"user\": \"urn:li:corpuser:test-2@looker.com\", \"viewsCount\": 20}]}",
         "contentType": "application/json"
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "looker-test",
-        "registryName": null,
-        "registryVersion": null,
-        "properties": null
+        "runId": "looker-test"
     }
 },
 {
-    "auditHeader": null,
     "entityType": "chart",
     "entityUrn": "urn:li:chart:(looker,dashboard_elements.3)",
-    "entityKeyAspect": null,
     "changeType": "UPSERT",
     "aspectName": "chartUsageStatistics",
     "aspect": {
-        "value": "{\"timestampMillis\": 1657065600000, \"eventGranularity\": {\"unit\": \"DAY\", \"multiple\": 1}, \"partitionSpec\": {\"type\": \"FULL_TABLE\", \"partition\": \"FULL_TABLE_SNAPSHOT\"}, \"viewsCount\": 20, \"userCounts\": [{\"user\": \"urn:li:corpuser:test@looker.com\", \"viewsCount\": 20}]}",
+        "value": "{\"timestampMillis\": 1657065600000, \"eventGranularity\": {\"unit\": \"DAY\", \"multiple\": 1}, \"partitionSpec\": {\"type\": \"FULL_TABLE\", \"partition\": \"FULL_TABLE_SNAPSHOT\"}, \"viewsCount\": 20}",
         "contentType": "application/json"
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "looker-test",
-        "registryName": null,
-        "registryVersion": null,
-        "properties": null
+        "runId": "looker-test"
     }
 },
 {
-    "auditHeader": null,
+    "entityType": "chart",
+    "entityUrn": "urn:li:chart:(looker,dashboard_elements.3)",
+    "changeType": "UPSERT",
+    "aspectName": "chartUsageStatistics",
+    "aspect": {
+        "value": "{\"timestampMillis\": 1657152000000, \"eventGranularity\": {\"unit\": \"DAY\", \"multiple\": 1}, \"partitionSpec\": {\"type\": \"FULL_TABLE\", \"partition\": \"FULL_TABLE_SNAPSHOT\"}, \"viewsCount\": 35}",
+        "contentType": "application/json"
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "looker-test"
+    }
+},
+{
     "entityType": "chart",
     "entityUrn": "urn:li:chart:(looker,dashboard_elements.2)",
-    "entityKeyAspect": null,
     "changeType": "UPSERT",
     "aspectName": "inputFields",
     "aspect": {
@@ -463,17 +369,12 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "looker-test",
-        "registryName": null,
-        "registryVersion": null,
-        "properties": null
+        "runId": "looker-test"
     }
 },
 {
-    "auditHeader": null,
     "entityType": "dashboard",
     "entityUrn": "urn:li:dashboard:(looker,dashboards.1)",
-    "entityKeyAspect": null,
     "changeType": "UPSERT",
     "aspectName": "inputFields",
     "aspect": {
@@ -482,10 +383,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "looker-test",
-        "registryName": null,
-        "registryVersion": null,
-        "properties": null
+        "runId": "looker-test"
     }
 }
 ]

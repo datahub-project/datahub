@@ -1,8 +1,11 @@
 import html
 from functools import lru_cache
-from typing import List
+from typing import Dict, List, Optional
+
+from pydantic.fields import Field
 
 import datahub.emitter.mce_builder as builder
+from datahub.configuration.common import ConfigModel
 from datahub.metadata.com.linkedin.pegasus2avro.schema import (
     ArrayTypeClass,
     BooleanTypeClass,
@@ -17,6 +20,13 @@ from datahub.metadata.schema_classes import (
     GlobalTagsClass,
     TagAssociationClass,
 )
+
+
+class TableauLineageOverrides(ConfigModel):
+    platform_override_map: Optional[Dict[str, str]] = Field(
+        default=None,
+        description="A holder for platform -> platform mappings to generate correct dataset urns",
+    )
 
 
 class MetadataQueryException(Exception):
@@ -114,76 +124,7 @@ workbook_graphql_query = """
         }
       }
       embeddedDatasources {
-        __typename
         id
-        name
-        hasExtracts
-        extractLastRefreshTime
-        extractLastIncrementalUpdateTime
-        extractLastUpdateTime
-        downstreamSheets {
-          name
-          id
-        }
-        upstreamTables {
-          id
-          name
-          isEmbedded
-          database {
-            name
-          }
-          schema
-          fullName
-          connectionType
-          description
-          columns {
-            name
-            remoteType
-          }
-        }
-        fields {
-          __typename
-          id
-          name
-          description
-          isHidden
-          folderName
-          ... on ColumnField {
-            dataCategory
-            role
-            dataType
-            defaultFormat
-            aggregation
-            columns {
-              table {
-                __typename
-                ... on CustomSQLTable {
-                  id
-                  name
-                }
-              }
-            }
-          }
-          ... on CalculatedField {
-            role
-            dataType
-            defaultFormat
-            aggregation
-            formula
-          }
-          ... on GroupField {
-            role
-            dataType
-          }
-        }
-        upstreamDatasources {
-          id
-          name
-        }
-        workbook {
-          name
-          projectName
-        }
       }
       upstreamDatasources {
         name
@@ -194,6 +135,85 @@ workbook_graphql_query = """
         }
       }
     }
+"""
+
+embedded_datasource_graphql_query = """
+{
+    __typename
+    id
+    name
+    hasExtracts
+    extractLastRefreshTime
+    extractLastIncrementalUpdateTime
+    extractLastUpdateTime
+    downstreamSheets {
+        name
+        id
+    }
+    upstreamTables {
+        id
+        name
+        isEmbedded
+        database {
+            name
+        }
+        schema
+        fullName
+        connectionType
+        description
+        columns {
+            name
+            remoteType
+        }
+    }
+    fields {
+        __typename
+        id
+        name
+        description
+        isHidden
+        folderName
+        ... on ColumnField {
+            dataCategory
+            role
+            dataType
+            defaultFormat
+            aggregation
+            columns {
+                table {
+                    __typename
+                    ... on CustomSQLTable {
+                        id
+                        name
+                    }
+                }
+            }
+        }
+        ... on CalculatedField {
+            role
+            dataType
+            defaultFormat
+            aggregation
+            formula
+        }
+        ... on GroupField {
+            role
+            dataType
+        }
+    }
+    upstreamDatasources {
+        id
+        name
+    }
+    workbook {
+        id
+        name
+        projectName
+        owner {
+          username
+        }
+    }
+}
 """
 
 custom_sql_graphql_query = """
@@ -309,7 +329,9 @@ published_datasource_graphql_query = """
             dataType
             }
     }
-    owner {username}
+    owner {
+      username
+    }
     description
     uri
     projectName
@@ -384,16 +406,13 @@ def get_tags_from_params(params: List[str] = []) -> GlobalTagsClass:
     return GlobalTagsClass(tags=tags)
 
 
-@lru_cache(maxsize=None)
-def make_table_urn(
-    env: str, upstream_db: str, connection_type: str, schema: str, full_name: str
-) -> str:
+@lru_cache(128)
+def get_platform(connection_type: str) -> str:
     # connection_type taken from
     # https://help.tableau.com/current/api/rest_api/en-us/REST/rest_api_concepts_connectiontype.htm
     #  datahub platform mapping is found here
     # https://github.com/datahub-project/datahub/blob/master/metadata-service/war/src/main/resources/boot/data_platforms.json
 
-    final_name = full_name.replace("[", "").replace("]", "")
     if connection_type in ("textscan", "textclean", "excel-direct", "excel", "csv"):
         platform = "external"
     elif connection_type in (
@@ -414,11 +433,23 @@ def make_table_urn(
         platform = "mssql"
     elif connection_type in ("athena"):
         platform = "athena"
-        upstream_db = ""
     else:
         platform = connection_type
+    return platform
 
+
+@lru_cache(128)
+def get_fully_qualified_table_name(
+    platform: str,
+    upstream_db: str,
+    schema: str,
+    full_name: str,
+) -> str:
+    if platform == "athena":
+        upstream_db = ""
     database_name = f"{upstream_db}." if upstream_db else ""
+    final_name = full_name.replace("[", "").replace("]", "")
+
     schema_name = f"{schema}." if schema else ""
 
     fully_qualified_table_name = f"{database_name}{schema_name}{final_name}"
@@ -430,10 +461,54 @@ def make_table_urn(
     fully_qualified_table_name = (
         fully_qualified_table_name.replace('\\"', "").replace('"', "").replace("\\", "")
     )
-    # if there are more than 3 tokens, just take the final 3
-    fully_qualified_table_name = ".".join(fully_qualified_table_name.split(".")[-3:])
 
-    return builder.make_dataset_urn(platform, fully_qualified_table_name, env)
+    if platform in ("athena", "hive", "mysql"):
+        # it two tier database system (athena, hive, mysql), just take final 2
+        fully_qualified_table_name = ".".join(
+            fully_qualified_table_name.split(".")[-2:]
+        )
+    else:
+        # if there are more than 3 tokens, just take the final 3
+        fully_qualified_table_name = ".".join(
+            fully_qualified_table_name.split(".")[-3:]
+        )
+
+    return fully_qualified_table_name
+
+
+def get_platform_instance(
+    platform: str, platform_instance_map: Optional[Dict[str, str]]
+) -> Optional[str]:
+    if platform_instance_map is not None and platform in platform_instance_map.keys():
+        return platform_instance_map[platform]
+
+    return None
+
+
+def make_table_urn(
+    env: str,
+    upstream_db: Optional[str],
+    connection_type: str,
+    schema: str,
+    full_name: str,
+    platform_instance_map: Optional[Dict[str, str]],
+    lineage_overrides: Optional[TableauLineageOverrides] = None,
+) -> str:
+    original_platform = platform = get_platform(connection_type)
+    if (
+        lineage_overrides is not None
+        and lineage_overrides.platform_override_map is not None
+        and original_platform in lineage_overrides.platform_override_map.keys()
+    ):
+        platform = lineage_overrides.platform_override_map[original_platform]
+
+    table_name = get_fully_qualified_table_name(
+        original_platform, upstream_db, schema, full_name
+    )
+    platform_instance = get_platform_instance(original_platform, platform_instance_map)
+    return builder.make_dataset_urn_with_platform_instance(
+        platform, table_name, platform_instance, env
+    )
 
 
 def make_description_from_params(description, formula):
