@@ -28,6 +28,8 @@ import { OperationsTab } from './profile/OperationsTab';
 import { EntityMenuItems } from '../shared/EntityDropdown/EntityDropdown';
 import { SidebarSiblingsSection } from '../shared/containers/profile/sidebar/SidebarSiblingsSection';
 import { DatasetStatsSummarySubHeader } from './profile/stats/stats/DatasetStatsSummarySubHeader';
+import { TagSummary } from './shared/TagSummary';
+import { TermSummary } from './shared/TermSummary';
 
 const SUBTYPES = {
     VIEW: 'view',
@@ -253,6 +255,11 @@ export class DatasetEntity implements Entity<Dataset> {
     renderSearch = (result: SearchResult) => {
         const data = result.entity as Dataset;
         const genericProperties = this.getGenericEntityProperties(data);
+        const snippet = result.matchedFields[0].value.includes('urn:li:tag') ? (
+            <TagSummary urn={result.matchedFields[0].value} />
+        ) : (
+            <TermSummary urn={result.matchedFields[0].value} />
+        );
         return (
             <Preview
                 urn={data.urn}
@@ -279,8 +286,7 @@ export class DatasetEntity implements Entity<Dataset> {
                     result.matchedFields.length > 0 &&
                     result.matchedFields.every((field) => FIELDS_TO_HIGHLIGHT.has(field.name)) && (
                         <Typography.Text>
-                            Matches {FIELDS_TO_HIGHLIGHT.get(result.matchedFields[0].name)}{' '}
-                            <b>{result.matchedFields[0].value}</b>
+                            Matches {FIELDS_TO_HIGHLIGHT.get(result.matchedFields[0].name)} {snippet}
                         </Typography.Text>
                     )
                 }
