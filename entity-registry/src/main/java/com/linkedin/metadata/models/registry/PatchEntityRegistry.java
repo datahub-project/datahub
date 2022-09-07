@@ -138,14 +138,16 @@ public class PatchEntityRegistry implements EntityRegistry {
           entity.getAspects().stream().collect(Collectors.joining()));
       List<AspectSpec> aspectSpecs = new ArrayList<>();
       if (entity.getKeyAspect() != null) {
-        throw new EntityRegistryException(
-            "Patch Entities cannot define entities yet. They can only enhance an existing entity with additional (non-key) aspects");
-        // aspectSpecs.add(getAspectSpec(entity.getKeyAspect(), entitySpecBuilder));
+        AspectSpec keyAspectSpec = buildAspectSpec(entity.getKeyAspect(), entitySpecBuilder);
+        log.info("Adding key aspect {} with spec {}", entity.getKeyAspect(), keyAspectSpec);
+        aspectSpecs.add(keyAspectSpec);
       }
       entity.getAspects().forEach(aspect -> {
-        AspectSpec aspectSpec = buildAspectSpec(aspect, entitySpecBuilder);
-        log.info("Adding aspect {} with spec {}", aspect, aspectSpec);
-        aspectSpecs.add(aspectSpec);
+        if (!aspect.equals(entity.getKeyAspect())) {
+          AspectSpec aspectSpec = buildAspectSpec(aspect, entitySpecBuilder);
+          log.info("Adding aspect {} with spec {}", aspect, aspectSpec);
+          aspectSpecs.add(aspectSpec);
+        }
       });
 
       EntitySpec entitySpec =

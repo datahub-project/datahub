@@ -137,7 +137,12 @@ module.exports = {
       {
         Sinks: list_ids_in_directory("metadata-ingestion/sink_docs"),
       },
-      "metadata-ingestion/transformers",
+      {
+        Transformers: [
+          "metadata-ingestion/docs/transformer/intro",
+          "metadata-ingestion/docs/transformer/dataset_transformer",
+        ],
+      },
       {
         "Advanced Guides": [
           {
@@ -217,7 +222,7 @@ module.exports = {
       //    className: "saasOnly",
       //  },
       //  "docs/wip/metadata-analytics",
-      //  "docs/wip/impact-analysis",
+      "docs/act-on-metadata/impact-analysis",
       // {
       //    type: "doc",
       //    id: "docs/wip/events-bridge",
@@ -265,6 +270,7 @@ module.exports = {
       {
         Authorization: [
           "docs/authorization/README",
+          "docs/authorization/roles",
           "docs/authorization/policies",
           "docs/authorization/groups",
         ],
@@ -444,7 +450,6 @@ module.exports = {
       //   className: "saasOnly",
       // },
       // "docs/wip/ui-ingestion-guide", -- not needed
-      // "docs/wip/tags-guide", -- not needed
       // "docs/wip/personal-access-tokens-guide", -- not needed
 
       {
@@ -513,6 +518,7 @@ module.exports = {
     // - "perf-test/README",
     // "metadata-jobs/README",
     // "docs/how/add-user-data",
+    // "docs/_feature-guide-template"
     // ],
   },
 };

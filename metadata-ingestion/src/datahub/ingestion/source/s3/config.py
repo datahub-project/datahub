@@ -9,7 +9,7 @@ from datahub.configuration.source_common import (
     EnvBasedSourceConfigBase,
     PlatformSourceConfigBase,
 )
-from datahub.ingestion.source.aws.aws_common import AwsSourceConfig
+from datahub.ingestion.source.aws.aws_common import AwsConnectionConfig
 from datahub.ingestion.source.aws.path_spec import PathSpec
 from datahub.ingestion.source.aws.s3_util import get_bucket_name
 from datahub.ingestion.source.s3.profiling import DataLakeProfilerConfig
@@ -33,7 +33,7 @@ class DataLakeSourceConfig(PlatformSourceConfigBase, EnvBasedSourceConfigBase):
         default=None,
         description="The instance of the platform that all assets produced by this recipe belong to",
     )
-    aws_config: Optional[AwsSourceConfig] = Field(
+    aws_config: Optional[AwsConnectionConfig] = Field(
         default=None, description="AWS configuration"
     )
 

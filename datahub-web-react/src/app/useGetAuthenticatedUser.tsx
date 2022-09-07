@@ -10,7 +10,7 @@ export function useGetAuthenticatedUser(skip?: boolean) {
     if (!userUrn) {
         throw new Error('Could not find logged in user.');
     }
-    const { data, error } = useGetMeQuery({ skip, fetchPolicy: 'cache-first' });
+    const { data, error } = useGetMeQuery({ skip, fetchPolicy: 'cache-and-network' });
     if (error) {
         console.error(`Could not fetch logged in user from cache. + ${error.message}`);
     }
