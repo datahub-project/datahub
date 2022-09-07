@@ -13,7 +13,7 @@ FROM --platform=$BUILDPLATFORM node:16.13.0-alpine3.14 AS prod-build
 
 # Upgrade Alpine and base packages
 RUN apk --no-cache --update-cache --available upgrade \
-    && apk --no-cache add perl openjdk11
+    && apk --no-cache add perl openjdk8
 
 ARG USE_SYSTEM_NODE="true"
 ENV CI=true
