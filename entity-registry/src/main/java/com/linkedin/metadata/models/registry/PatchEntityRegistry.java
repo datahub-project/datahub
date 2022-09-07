@@ -140,7 +140,7 @@ public class PatchEntityRegistry implements EntityRegistry {
       if (entity.getKeyAspect() != null) {
         AspectSpec keyAspectSpec = buildAspectSpec(entity.getKeyAspect(), entitySpecBuilder);
         log.info("Adding key aspect {} with spec {}", entity.getKeyAspect(), keyAspectSpec);
-        aspectSpecs.add(keyAspectSpec);;
+        aspectSpecs.add(keyAspectSpec);
       }
       entity.getAspects().forEach(aspect -> {
         if (!aspect.equals(entity.getKeyAspect())) {
