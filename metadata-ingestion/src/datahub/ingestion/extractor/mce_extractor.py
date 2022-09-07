@@ -21,6 +21,7 @@ except ImportError:
 
 class WorkUnitRecordExtractorConfig(ConfigModel):
     set_system_metadata = True
+    unpack_mces_into_mcps = False
 
 
 class WorkUnitRecordExtractor(
@@ -41,6 +42,13 @@ class WorkUnitRecordExtractor(
         ]
     ]:
         if isinstance(workunit, MetadataWorkUnit):
+            if self.config.unpack_mces_into_mcps and isinstance(
+                workunit.metadata, MetadataChangeEvent
+            ):
+                for inner_workunit in workunit.decompose_mce_into_mcps():
+                    yield from self.get_records(inner_workunit)
+                return
+
             if isinstance(
                 workunit.metadata,
                 (
