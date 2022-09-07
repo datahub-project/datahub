@@ -175,18 +175,18 @@ class DatahubRestSink(Sink):
                             :200
                         ]
 
+                # Include information about the entity that failed.
+                record = record_envelope.record
+                if isinstance(record, MetadataChangeProposalWrapper):
+                    entity_id = record.entityUrn
+                    e.info["id"] = entity_id
+                elif isinstance(record, MetadataChangeEvent):
+                    entity_id = record.proposedSnapshot.urn
+                    e.info["id"] = entity_id
+
                 if not self.treat_errors_as_warnings:
                     self.report.report_failure({"error": e.message, "info": e.info})
                 else:
-                    record = record_envelope.record
-                    if isinstance(record, MetadataChangeProposalWrapper):
-                        # include information about the entity that failed
-                        entity_id = cast(
-                            MetadataChangeProposalWrapper, record
-                        ).entityUrn
-                        e.info["id"] = entity_id
-                    else:
-                        entity_id = None
                     self.report.report_warning({"warning": e.message, "info": e.info})
                 write_callback.on_failure(record_envelope, e, e.info)
             else:
