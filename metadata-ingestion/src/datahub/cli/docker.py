@@ -36,10 +36,17 @@ ELASTIC_QUICKSTART_COMPOSE_FILE = (
 M1_QUICKSTART_COMPOSE_FILE = (
     "docker/quickstart/docker-compose-without-neo4j-m1.quickstart.yml"
 )
+CONSUMERS_QUICKSTART_COMPOSE_FILE = (
+    "docker/quickstart/docker-compose.consumers.quickstart.yml"
+)
+ELASTIC_CONSUMERS_QUICKSTART_COMPOSE_FILE = (
+    "docker/quickstart/docker-compose.consumers-without-neo4j.quickstart.yml"
+)
 
 BOOTSTRAP_MCES_FILE = "metadata-ingestion/examples/mce_files/bootstrap_mce.json"
 
 GITHUB_BASE_URL = "https://raw.githubusercontent.com/datahub-project/datahub/master"
+
 GITHUB_NEO4J_AND_ELASTIC_QUICKSTART_COMPOSE_URL = (
     f"{GITHUB_BASE_URL}/{NEO4J_AND_ELASTIC_QUICKSTART_COMPOSE_FILE}"
 )
@@ -188,7 +195,8 @@ def _attempt_stop(quickstart_compose_file: List[pathlib.Path]) -> None:
     if compose_files_for_stopping:
         # docker-compose stop
         base_command: List[str] = [
-            "docker-compose",
+            "docker",
+            "compose",
             *itertools.chain.from_iterable(
                 ("-f", f"{path}") for path in compose_files_for_stopping
             ),
@@ -473,6 +481,13 @@ DATAHUB_MAE_CONSUMER_PORT=9091
     default=False,
     help="Disables the restoration of indices of a running quickstart instance when used in conjunction with --restore.",
 )
+@click.option(
+    "--standalone_consumers",
+    required=False,
+    is_flag=True,
+    default=False,
+    help="Launches MAE & MCE consumers as stand alone docker containers",
+)
 @upgrade.check_upgrade
 @telemetry.with_telemetry
 def quickstart(
@@ -493,6 +508,7 @@ def quickstart(
     restore_file: str,
     restore_indices: bool,
     no_restore_indices: bool,
+    standalone_consumers: bool,
 ) -> None:
     """Start an instance of DataHub locally using docker-compose.
 
@@ -570,6 +586,32 @@ def quickstart(
             tmp_file.write(quickstart_download_response.content)
             logger.debug(f"Copied to {path}")
 
+        if standalone_consumers:
+            consumer_github_file = (
+                f"{GITHUB_BASE_URL}/{CONSUMERS_QUICKSTART_COMPOSE_FILE}"
+                if should_use_neo4j
+                else f"{GITHUB_BASE_URL}/{ELASTIC_CONSUMERS_QUICKSTART_COMPOSE_FILE}"
+            )
+
+            default_consumer_compose_file = (
+                Path(DATAHUB_ROOT_FOLDER) / "quickstart/docker-compose.consumers.yml"
+            )
+            with open(
+                default_consumer_compose_file, "wb"
+            ) if default_consumer_compose_file else tempfile.NamedTemporaryFile(
+                suffix=".yml", delete=False
+            ) as tmp_file:
+                path = pathlib.Path(tmp_file.name)
+                quickstart_compose_file.append(path)
+                click.echo(
+                    f"Fetching consumer docker-compose file {consumer_github_file} from GitHub"
+                )
+                # Download the quickstart docker-compose file from GitHub.
+                quickstart_download_response = requests.get(consumer_github_file)
+                quickstart_download_response.raise_for_status()
+                tmp_file.write(quickstart_download_response.content)
+                logger.debug(f"Copied to {path}")
+
     # set version
     _set_environment_variables(
         version=version,
@@ -581,7 +623,8 @@ def quickstart(
     )
 
     base_command: List[str] = [
-        "docker-compose",
+        "docker",
+        "compose",
         *itertools.chain.from_iterable(
             ("-f", f"{path}") for path in quickstart_compose_file
         ),
@@ -597,7 +640,7 @@ def quickstart(
         )
     except subprocess.CalledProcessError:
         click.secho(
-            "Error while pulling images. Going to attempt to move on to docker-compose up assuming the images have "
+            "Error while pulling images. Going to attempt to move on to docker compose up assuming the images have "
             "been built locally",
             fg="red",
         )
@@ -623,7 +666,7 @@ def quickstart(
     up_interval = datetime.timedelta(seconds=30)
     up_attempts = 0
     while (datetime.datetime.now() - start_time) < max_wait_time:
-        # Attempt to run docker-compose up every minute.
+        # Attempt to run docker compose up every minute.
         if (datetime.datetime.now() - start_time) > up_attempts * up_interval:
             click.echo()
             subprocess.run(base_command + ["up", "-d", "--remove-orphans"])
@@ -651,7 +694,7 @@ def quickstart(
 
         if dump_logs_on_failure:
             with open(log_file.name, "r") as logs:
-                click.echo("Dumping docker-compose logs:")
+                click.echo("Dumping docker compose logs:")
                 click.echo(logs.read())
                 click.echo()
 
