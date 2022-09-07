@@ -35,7 +35,7 @@ from datahub.emitter.mcp_builder import (
     DatabaseKey,
     add_dataset_to_container,
     add_domain_to_entity_wu,
-    gen_containers,
+    gen_containers, wrap_aspect_as_workunit,
 )
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.decorators import (
@@ -62,7 +62,7 @@ from datahub.ingestion.source.state.stateful_ingestion_base import (
     StatefulIngestionReport,
     StatefulIngestionSourceBase,
 )
-from datahub.metadata.com.linkedin.pegasus2avro.common import Status
+from datahub.metadata.com.linkedin.pegasus2avro.common import Status, SubTypes
 from datahub.metadata.com.linkedin.pegasus2avro.metadata.snapshot import DatasetSnapshot
 from datahub.metadata.com.linkedin.pegasus2avro.mxe import MetadataChangeEvent
 from datahub.metadata.com.linkedin.pegasus2avro.schema import (
@@ -1007,17 +1007,25 @@ class GlueSource(StatefulIngestionSourceBase):
                 database_seen.add(database_name)
                 yield from self.gen_database_containers(database_name)
 
-            mce = self._extract_record(table, full_table_name)
-            workunit = MetadataWorkUnit(full_table_name, mce=mce)
-            self.report.report_workunit(workunit)
-            yield workunit
-
-            dataset_urn: str = make_dataset_urn_with_platform_instance(
+            dataset_urn = make_dataset_urn_with_platform_instance(
                 platform=self.platform,
                 name=full_table_name,
                 env=self.env,
                 platform_instance=self.source_config.platform_instance,
             )
+
+            mce = self._extract_record(dataset_urn, table, full_table_name)
+            workunit = MetadataWorkUnit(full_table_name, mce=mce)
+            self.report.report_workunit(workunit)
+            yield workunit
+
+            # we also want to assign "Table" subType to the dataset representing glue table - unfortunately it is not
+            # possible via Dataset snapshot embedded in a mce, so we have to generate a mcp...
+            yield wrap_aspect_as_workunit(aspectName="subTypes",
+                                          aspect=SubTypes(typeNames=["Table"]),
+                                          entityName="Dataset",
+                                          entityUrn=dataset_urn)
+
             yield from self._get_domain_wu(
                 dataset_name=full_table_name,
                 entity_urn=dataset_urn,
@@ -1117,7 +1125,7 @@ class GlueSource(StatefulIngestionSourceBase):
                 yield dataset_wu
 
     # flake8: noqa: C901
-    def _extract_record(self, table: Dict, table_name: str) -> MetadataChangeEvent:
+    def _extract_record(self, dataset_urn: str, table: Dict, table_name: str) -> MetadataChangeEvent:
         def get_owner() -> Optional[OwnershipClass]:
             owner = table.get("Owner")
             if owner:
@@ -1215,7 +1223,7 @@ class GlueSource(StatefulIngestionSourceBase):
             )
             return new_tags
 
-        def get_schema_metadata(glue_source: GlueSource) -> SchemaMetadata:
+        def get_schema_metadata() -> SchemaMetadata:
             schema = table["StorageDescriptor"]["Columns"]
             fields: List[SchemaField] = []
             for field in schema:
@@ -1257,27 +1265,21 @@ class GlueSource(StatefulIngestionSourceBase):
                 else None,
             )
 
-        dataset_urn = make_dataset_urn_with_platform_instance(
-            platform=self.platform,
-            name=table_name,
-            env=self.env,
-            platform_instance=self.source_config.platform_instance,
-        )
         dataset_snapshot = DatasetSnapshot(
             urn=dataset_urn,
-            aspects=[],
+            aspects=[
+                Status(removed=False),
+                get_dataset_properties(),
+                get_schema_metadata(),
+                get_data_platform_instance()
+            ],
         )
-
-        dataset_snapshot.aspects.append(Status(removed=False))
 
         if self.extract_owners:
             optional_owner_aspect = get_owner()
             if optional_owner_aspect is not None:
                 dataset_snapshot.aspects.append(optional_owner_aspect)
 
-        dataset_snapshot.aspects.append(get_dataset_properties())
-        dataset_snapshot.aspects.append(get_schema_metadata(self))
-        dataset_snapshot.aspects.append(get_data_platform_instance())
         if (
             self.source_config.use_s3_bucket_tags
             or self.source_config.use_s3_object_tags
