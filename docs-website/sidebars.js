@@ -445,6 +445,7 @@ module.exports = {
       "docs/domains",
       "docs/how/business-glossary-guide",
       "docs/tags",
+      "docs/sync-status",
       {
         type: "doc",
         id: "docs/managed-datahub/saas-slack-setup",
