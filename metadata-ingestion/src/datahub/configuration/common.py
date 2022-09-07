@@ -26,6 +26,7 @@ class TransformerSemantics(Enum):
 
 class TransformerSemanticsConfigModel(ConfigModel):
     semantics: TransformerSemantics = TransformerSemantics.OVERWRITE
+    replace_existing: bool = False
 
     @validator("semantics", pre=True)
     def ensure_semantics_is_upper_case(cls, v: str) -> str:

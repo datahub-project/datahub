@@ -137,7 +137,12 @@ module.exports = {
       {
         Sinks: list_ids_in_directory("metadata-ingestion/sink_docs"),
       },
-      "metadata-ingestion/transformers",
+      {
+        Transformers: [
+          "metadata-ingestion/docs/transformer/intro",
+          "metadata-ingestion/docs/transformer/dataset_transformer",
+        ],
+      },
       {
         "Advanced Guides": [
           {
