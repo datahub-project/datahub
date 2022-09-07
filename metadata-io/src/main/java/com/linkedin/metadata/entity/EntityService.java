@@ -29,6 +29,9 @@ import com.linkedin.events.metadata.ChangeType;
 import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.aspect.Aspect;
 import com.linkedin.metadata.aspect.VersionedAspect;
+import com.linkedin.metadata.entity.ebean.EbeanAspectV2;
+import com.linkedin.metadata.entity.restoreindices.RestoreIndicesArgs;
+import com.linkedin.metadata.entity.restoreindices.RestoreIndicesResult;
 import com.linkedin.metadata.event.EventProducer;
 import com.linkedin.metadata.models.AspectSpec;
 import com.linkedin.metadata.models.EntitySpec;
@@ -59,10 +62,13 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
+
+import io.ebean.PagedList;
 import lombok.Value;
 import lombok.extern.slf4j.Slf4j;
 
@@ -828,6 +834,96 @@ private Map<Urn, List<EnvelopedAspect>> getCorrespondingAspects(Set<EntityAspect
     }
 
     return new IngestProposalResult(entityUrn, oldAspect != newAspect);
+  }
+
+  public Integer getCountAspect(@Nonnull String aspectName, @Nullable String urnLike) {
+    return _aspectDao.countAspect(aspectName, urnLike);
+  }
+
+  @Nonnull
+  public RestoreIndicesResult restoreIndices(@Nonnull RestoreIndicesArgs args, @Nonnull Consumer<String> logger) {
+    RestoreIndicesResult result = new RestoreIndicesResult();
+    int ignored = 0;
+    int rowsMigrated = 0;
+    logger.accept(String.format("Args are %s", args));
+    logger.accept(String.format(
+            "Reading rows %s through %s from the aspects table started.", args.start, args.start + args.batchSize));
+    long startTime = System.currentTimeMillis();
+    PagedList<EbeanAspectV2> rows = _aspectDao.getPagedAspects(args);
+    result.timeSqlQueryMs = System.currentTimeMillis() - startTime;
+    startTime = System.currentTimeMillis();
+    logger.accept(String.format(
+            "Reading rows %s through %s from the aspects table completed.", args.start, args.start + args.batchSize));
+
+    for (EbeanAspectV2 aspect : rows.getList()) {
+      // 1. Extract an Entity type from the entity Urn
+      result.timeGetRowMs = System.currentTimeMillis() - startTime;
+      startTime = System.currentTimeMillis();
+      Urn urn;
+      try {
+        urn = Urn.createFromString(aspect.getKey().getUrn());
+      } catch (Exception e) {
+        logger.accept(String.format("Failed to bind Urn with value %s into Urn object: %s. Ignoring row.",
+                aspect.getKey().getUrn(), e));
+        ignored = ignored + 1;
+        continue;
+      }
+      result.timeUrnMs += System.currentTimeMillis() - startTime;
+      startTime = System.currentTimeMillis();
+
+      // 2. Verify that the entity associated with the aspect is found in the registry.
+      final String entityName = urn.getEntityType();
+      final EntitySpec entitySpec;
+      try {
+        entitySpec = _entityRegistry.getEntitySpec(entityName);
+      } catch (Exception e) {
+        logger.accept(String.format("Failed to find entity with name %s in Entity Registry: %s. Ignoring row.",
+                entityName, e));
+        ignored = ignored + 1;
+        continue;
+      }
+      result.timeEntityRegistryCheckMs += System.currentTimeMillis() - startTime;
+      startTime = System.currentTimeMillis();
+      final String aspectName = aspect.getKey().getAspect();
+
+      // 3. Verify that the aspect is a valid aspect associated with the entity
+      AspectSpec aspectSpec = entitySpec.getAspectSpec(aspectName);
+      if (aspectSpec == null) {
+        logger.accept(String.format("Failed to find aspect with name %s associated with entity named %s", aspectName,
+                entityName));
+        ignored = ignored + 1;
+        continue;
+      }
+      result.aspectCheckMs += System.currentTimeMillis() - startTime;
+      startTime = System.currentTimeMillis();
+
+      // 4. Create record from json aspect
+      final RecordTemplate aspectRecord;
+      try {
+        aspectRecord = EntityUtils.toAspectRecord(entityName, aspectName, aspect.getMetadata(), _entityRegistry);
+      } catch (Exception e) {
+        logger.accept(String.format("Failed to deserialize row %s for entity %s, aspect %s: %s. Ignoring row.",
+                aspect.getMetadata(), entityName, aspectName, e));
+        ignored = ignored + 1;
+        continue;
+      }
+      result.createRecordMs += System.currentTimeMillis() - startTime;
+      startTime = System.currentTimeMillis();
+
+      SystemMetadata latestSystemMetadata = EntityUtils.parseSystemMetadata(aspect.getSystemMetadata());
+
+      // 5. Produce MAE events for the aspect record
+      produceMetadataChangeLog(urn, entityName, aspectName, aspectSpec, null, aspectRecord, null,
+              latestSystemMetadata,
+              new AuditStamp().setActor(UrnUtils.getUrn(SYSTEM_ACTOR)).setTime(System.currentTimeMillis()),
+              ChangeType.RESTATE);
+      result.sendMessageMs += System.currentTimeMillis() - startTime;
+
+      rowsMigrated++;
+    }
+    result.ignored = ignored;
+    result.rowsMigrated = rowsMigrated;
+    return result;
   }
 
   /**

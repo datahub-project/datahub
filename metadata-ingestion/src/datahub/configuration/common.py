@@ -27,6 +27,7 @@ class TransformerSemantics(ConfigEnum):
 
 class TransformerSemanticsConfigModel(ConfigModel):
     semantics: TransformerSemantics = TransformerSemantics.OVERWRITE
+    replace_existing: bool = False
 
 
 class DynamicTypedConfig(ConfigModel):

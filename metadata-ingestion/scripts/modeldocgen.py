@@ -19,7 +19,6 @@ from datahub.ingestion.api.common import PipelineContext, RecordEnvelope
 from datahub.ingestion.api.sink import NoopWriteCallback
 from datahub.ingestion.extractor.schema_util import avro_schema_to_mce_fields
 from datahub.ingestion.sink.file import FileSink, FileSinkConfig
-from datahub.metadata.com.linkedin.pegasus2avro.schema import SchemaField
 from datahub.metadata.schema_classes import (
     BrowsePathsClass,
     ChangeTypeClass,
@@ -29,6 +28,7 @@ from datahub.metadata.schema_classes import (
     GlobalTagsClass,
     MetadataChangeEventClass,
     OtherSchemaClass,
+    SchemaFieldClass as SchemaField,
     SchemaFieldDataTypeClass,
     SchemaMetadataClass,
     StringTypeClass,

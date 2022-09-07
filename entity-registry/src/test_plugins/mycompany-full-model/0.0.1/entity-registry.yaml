@@ -3,6 +3,6 @@
 id: mycompany-full-model
 entities:
   - name: newThing
-    keyAspect: ownership
+    keyAspect: testDataQualityRules
     aspects:
-      - ownership
+      - testDataQualityRules
