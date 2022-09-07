@@ -8,6 +8,7 @@ import { CreateScheduleStep } from './CreateScheduleStep';
 import { DefineRecipeStep } from './DefineRecipeStep';
 import { NameSourceStep } from './NameSourceStep';
 import { SelectTemplateStep } from './SelectTemplateStep';
+import AddTransformersStep from './AddTransformersStep/AddTransformersStep';
 
 const ExpandButton = styled(Button)`
     && {
@@ -32,6 +33,7 @@ const StepsContainer = styled.div`
 export enum IngestionSourceBuilderStepTitles {
     SELECT_TEMPLATE = 'Choose Type',
     DEFINE_RECIPE = 'Configure Recipe',
+    ADD_TRANSFORMERS = 'Add Transformers',
     CREATE_SCHEDULE = 'Schedule Execution',
     NAME_SOURCE = 'Finish up',
 }
@@ -42,6 +44,7 @@ export enum IngestionSourceBuilderStepTitles {
 export const IngestionSourceBuilderStepComponent = {
     SELECT_TEMPLATE: SelectTemplateStep,
     DEFINE_RECIPE: DefineRecipeStep,
+    ADD_TRANSFORMERS: AddTransformersStep,
     CREATE_SCHEDULE: CreateScheduleStep,
     NAME_SOURCE: NameSourceStep,
 };
@@ -52,6 +55,7 @@ export const IngestionSourceBuilderStepComponent = {
 export enum IngestionSourceBuilderStep {
     SELECT_TEMPLATE = 'SELECT_TEMPLATE',
     DEFINE_RECIPE = 'DEFINE_RECIPE',
+    ADD_TRANSFORMERS = 'ADD_TRANSFORMERS',
     CREATE_SCHEDULE = 'CREATE_SCHEDULE',
     NAME_SOURCE = 'NAME_SOURCE',
 }
@@ -135,7 +139,7 @@ export const IngestionSourceBuilderModal = ({ initialState, visible, onSubmit, o
             onCancel={onCancel}
         >
             <StepsContainer>
-                <Steps current={currentStepIndex}>
+                <Steps labelPlacement="vertical" size="small" current={currentStepIndex}>
                     {Object.keys(IngestionSourceBuilderStep).map((item) => (
                         <Steps.Step key={item} title={IngestionSourceBuilderStepTitles[item]} />
                     ))}

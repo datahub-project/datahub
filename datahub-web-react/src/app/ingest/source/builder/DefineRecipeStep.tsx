@@ -81,7 +81,7 @@ export const DefineRecipeStep = ({ state, updateState, goTo, prev }: StepProps) 
         };
         updateState(newState);
 
-        goTo(IngestionSourceBuilderStep.CREATE_SCHEDULE);
+        goTo(IngestionSourceBuilderStep.ADD_TRANSFORMERS);
     };
 
     if (type && CONNECTORS_WITH_FORM.has(type)) {
