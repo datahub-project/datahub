@@ -18,8 +18,7 @@ from datahub.ingestion.api.decorators import (
     SourceCapability,
     SupportStatus,
 )
-from datahub.ingestion.api.registry import PluginRegistry
-from datahub.ingestion.api.source import Source
+from datahub.ingestion.source.source_registry import source_registry
 
 logger = logging.getLogger(__name__)
 
@@ -500,11 +499,7 @@ def generate(
                             file_contents,
                         )
 
-    source_registry = PluginRegistry[Source]()
-    source_registry.register_from_entrypoint("datahub.ingestion.source.plugins")
-
-    # This source is always enabled
-    for plugin_name in sorted(source_registry._mapping.keys()):
+    for plugin_name in sorted(source_registry.mapping.keys()):
         if source and source != plugin_name:
             continue
 
@@ -526,8 +521,9 @@ def generate(
                 get_additional_deps_for_extra(extra_plugin) if extra_plugin else []
             )
         except Exception as e:
-            print(f"Failed to process {plugin_name} due to exception")
-            print(repr(e))
+            logger.warning(
+                f"Failed to process {plugin_name} due to exception {e}", exc_info=e
+            )
             metrics["plugins"]["failed"] = metrics["plugins"].get("failed", 0) + 1
 
         if source_type and hasattr(source_type, "get_config_class"):
