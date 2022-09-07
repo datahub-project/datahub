@@ -159,7 +159,7 @@ def get_base() -> Any:
                 "type": "array",
                 "items": {
                     "type": "object",
-                    "description": "Transformer configs see at https://datahubproject.io/docs/metadata-ingestion/transformers",
+                    "description": "Transformer configs see at https://datahubproject.io/docs/metadata-ingestion/docs/transformer",
                     "properties": {
                         "type": {"type": "string", "description": "Transformer type"},
                         "config": {
