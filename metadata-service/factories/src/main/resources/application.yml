@@ -199,3 +199,6 @@ siblings:
 
 featureFlags:
   showSimplifiedHomepageByDefault: ${SHOW_SIMPLIFIED_HOMEPAGE_BY_DEFAULT:false} # shows a simplified homepage with just datasets, charts and dashboards by default to users. this can be configured in user settings
+
+entityChangeEvents:
+  enabled: ${ENABLE_ENTITY_CHANGE_EVENTS_HOOK:true}

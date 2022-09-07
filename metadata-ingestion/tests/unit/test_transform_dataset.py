@@ -1,5 +1,15 @@
 import re
-from typing import Any, Dict, List, MutableSequence, Optional, Union
+from typing import (
+    Any,
+    Callable,
+    Dict,
+    List,
+    MutableSequence,
+    Optional,
+    Type,
+    Union,
+    cast,
+)
 from unittest import mock
 from uuid import uuid4
 
@@ -8,9 +18,11 @@ import pytest
 import datahub.emitter.mce_builder as builder
 import datahub.metadata.schema_classes as models
 import tests.test_helpers.mce_helpers
+from datahub.configuration.common import TransformerSemantics
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api import workunit
 from datahub.ingestion.api.common import EndOfStream, PipelineContext, RecordEnvelope
+from datahub.ingestion.graph.client import DatahubClientConfig, DataHubGraph
 from datahub.ingestion.run.pipeline import Pipeline
 from datahub.ingestion.transformer.add_dataset_browse_path import (
     AddDatasetBrowsePathTransformer,
@@ -44,6 +56,7 @@ from datahub.ingestion.transformer.base_transformer import (
     BaseTransformer,
     SingleAspectTransformer,
 )
+from datahub.ingestion.transformer.dataset_domain import SimpleAddDatasetDomain
 from datahub.ingestion.transformer.dataset_transformer import DatasetTransformer
 from datahub.ingestion.transformer.mark_dataset_status import MarkDatasetStatus
 from datahub.ingestion.transformer.remove_dataset_ownership import (
@@ -53,7 +66,6 @@ from datahub.metadata.schema_classes import (
     BrowsePathsClass,
     ChangeTypeClass,
     DatasetPropertiesClass,
-    DatasetSnapshotClass,
     GlobalTagsClass,
     MetadataChangeEventClass,
     OwnershipClass,
@@ -833,7 +845,7 @@ def test_ownership_patching_intersect(mock_time):
     mce_ownership = gen_owners(["baz", "foo"])
     mock_graph.get_ownership.return_value = server_ownership
 
-    test_ownership = AddDatasetOwnership.get_ownership_to_set(
+    test_ownership = AddDatasetOwnership.get_patch_ownership_aspect(
         mock_graph, "test_urn", mce_ownership
     )
     assert test_ownership and test_ownership.owners
@@ -846,7 +858,7 @@ def test_ownership_patching_with_nones(mock_time):
     mock_graph = mock.MagicMock()
     mce_ownership = gen_owners(["baz", "foo"])
     mock_graph.get_ownership.return_value = None
-    test_ownership = AddDatasetOwnership.get_ownership_to_set(
+    test_ownership = AddDatasetOwnership.get_patch_ownership_aspect(
         mock_graph, "test_urn", mce_ownership
     )
     assert test_ownership and test_ownership.owners
@@ -855,7 +867,7 @@ def test_ownership_patching_with_nones(mock_time):
 
     server_ownership = gen_owners(["baz", "foo"])
     mock_graph.get_ownership.return_value = server_ownership
-    test_ownership = AddDatasetOwnership.get_ownership_to_set(
+    test_ownership = AddDatasetOwnership.get_patch_ownership_aspect(
         mock_graph, "test_urn", None
     )
     assert not test_ownership
@@ -865,7 +877,7 @@ def test_ownership_patching_with_empty_mce_none_server(mock_time):
     mock_graph = mock.MagicMock()
     mce_ownership = gen_owners([])
     mock_graph.get_ownership.return_value = None
-    test_ownership = AddDatasetOwnership.get_ownership_to_set(
+    test_ownership = AddDatasetOwnership.get_patch_ownership_aspect(
         mock_graph, "test_urn", mce_ownership
     )
     # nothing to add, so we omit writing
@@ -877,7 +889,7 @@ def test_ownership_patching_with_empty_mce_nonempty_server(mock_time):
     server_ownership = gen_owners(["baz", "foo"])
     mce_ownership = gen_owners([])
     mock_graph.get_ownership.return_value = server_ownership
-    test_ownership = AddDatasetOwnership.get_ownership_to_set(
+    test_ownership = AddDatasetOwnership.get_patch_ownership_aspect(
         mock_graph, "test_urn", mce_ownership
     )
     # nothing to add, so we omit writing
@@ -889,7 +901,7 @@ def test_ownership_patching_with_different_types_1(mock_time):
     server_ownership = gen_owners(["baz", "foo"], models.OwnershipTypeClass.PRODUCER)
     mce_ownership = gen_owners(["foo"], models.OwnershipTypeClass.DATAOWNER)
     mock_graph.get_ownership.return_value = server_ownership
-    test_ownership = AddDatasetOwnership.get_ownership_to_set(
+    test_ownership = AddDatasetOwnership.get_patch_ownership_aspect(
         mock_graph, "test_urn", mce_ownership
     )
     assert test_ownership and test_ownership.owners
@@ -907,7 +919,7 @@ def test_ownership_patching_with_different_types_2(mock_time):
     server_ownership = gen_owners(["baz", "foo"], models.OwnershipTypeClass.PRODUCER)
     mce_ownership = gen_owners(["foo", "baz"], models.OwnershipTypeClass.DATAOWNER)
     mock_graph.get_ownership.return_value = server_ownership
-    test_ownership = AddDatasetOwnership.get_ownership_to_set(
+    test_ownership = AddDatasetOwnership.get_patch_ownership_aspect(
         mock_graph, "test_urn", mce_ownership
     )
     assert test_ownership and test_ownership.owners
@@ -925,7 +937,7 @@ PROPERTIES_TO_ADD = {"my_new_property": "property value"}
 
 
 class DummyPropertiesResolverClass(AddDatasetPropertiesResolverBase):
-    def get_properties_to_add(self, current: DatasetSnapshotClass) -> Dict[str, str]:
+    def get_properties_to_add(self, entity_urn: str) -> Dict[str, str]:
         return PROPERTIES_TO_ADD
 
 
@@ -957,32 +969,129 @@ def test_add_dataset_properties(mock_time):
     }
 
 
-def test_simple_add_dataset_properties(mock_time):
-    dataset_mce = make_dataset_with_properties()
+def run_simple_add_dataset_properties_transformer_semantics(
+    semantics: TransformerSemantics,
+    new_properties: dict,
+    server_properties: dict,
+    mock_datahub_graph: Callable[[DatahubClientConfig], DataHubGraph],
+) -> List[RecordEnvelope]:
+    pipeline_context = PipelineContext(run_id="test_pattern_dataset_schema_terms")
+    pipeline_context.graph = mock_datahub_graph(DatahubClientConfig())
 
-    new_properties = {"new-simple-property": "new-value"}
-    transformer = SimpleAddDatasetProperties.create(
-        {
+    # fake the server response
+    def fake_dataset_properties(entity_urn: str) -> models.DatasetPropertiesClass:
+        return DatasetPropertiesClass(customProperties=server_properties)
+
+    pipeline_context.graph.get_dataset_properties = fake_dataset_properties  # type: ignore
+
+    output = run_dataset_transformer_pipeline(
+        transformer_type=SimpleAddDatasetProperties,
+        pipeline_context=pipeline_context,
+        aspect=models.DatasetPropertiesClass(
+            customProperties=EXISTING_PROPERTIES.copy()
+        ),
+        config={
+            "semantics": semantics,
             "properties": new_properties,
         },
-        PipelineContext(run_id="test-simple-properties"),
     )
 
-    outputs = list(
-        transformer.transform(
-            [RecordEnvelope(input, metadata={}) for input in [dataset_mce]]
-        )
-    )
-    assert len(outputs) == 1
+    return output
 
-    custom_properties = builder.get_aspect_if_available(
-        outputs[0].record, models.DatasetPropertiesClass
+
+def test_simple_add_dataset_properties_overwrite(mock_datahub_graph):
+    new_properties = {"new-simple-property": "new-value"}
+    server_properties = {"p1": "value1"}
+
+    output = run_simple_add_dataset_properties_transformer_semantics(
+        semantics=TransformerSemantics.OVERWRITE,
+        new_properties=new_properties,
+        server_properties=server_properties,
+        mock_datahub_graph=mock_datahub_graph,
     )
 
-    print(str(custom_properties))
-    assert custom_properties is not None
-    assert custom_properties.customProperties == {
+    assert len(output) == 2
+    assert output[0].record
+    assert output[0].record.aspect
+    custom_properties_aspect: models.DatasetPropertiesClass = cast(
+        models.DatasetPropertiesClass, output[0].record.aspect
+    )
+
+    assert custom_properties_aspect.customProperties == {
         **EXISTING_PROPERTIES,
+        **new_properties,
+    }
+
+
+def test_simple_add_dataset_properties_patch(mock_datahub_graph):
+    new_properties = {"new-simple-property": "new-value"}
+    server_properties = {"p1": "value1"}
+
+    output = run_simple_add_dataset_properties_transformer_semantics(
+        semantics=TransformerSemantics.PATCH,
+        new_properties=new_properties,
+        server_properties=server_properties,
+        mock_datahub_graph=mock_datahub_graph,
+    )
+
+    assert len(output) == 2
+    assert output[0].record
+    assert output[0].record.aspect
+    custom_properties_aspect: models.DatasetPropertiesClass = cast(
+        models.DatasetPropertiesClass, output[0].record.aspect
+    )
+    assert custom_properties_aspect.customProperties == {
+        **EXISTING_PROPERTIES,
+        **new_properties,
+        **server_properties,
+    }
+
+
+def test_simple_add_dataset_properties(mock_time):
+    new_properties = {"new-simple-property": "new-value"}
+    outputs = run_dataset_transformer_pipeline(
+        transformer_type=SimpleAddDatasetProperties,
+        aspect=models.DatasetPropertiesClass(
+            customProperties=EXISTING_PROPERTIES.copy()
+        ),
+        config={
+            "properties": new_properties,
+        },
+    )
+
+    assert len(outputs) == 2
+    assert outputs[0].record
+    assert outputs[0].record.aspect
+    custom_properties_aspect: models.DatasetPropertiesClass = cast(
+        models.DatasetPropertiesClass, outputs[0].record.aspect
+    )
+    assert custom_properties_aspect.customProperties == {
+        **EXISTING_PROPERTIES,
+        **new_properties,
+    }
+
+
+def test_simple_add_dataset_properties_replace_existing(mock_time):
+    new_properties = {"new-simple-property": "new-value"}
+    outputs = run_dataset_transformer_pipeline(
+        transformer_type=SimpleAddDatasetProperties,
+        aspect=models.DatasetPropertiesClass(
+            customProperties=EXISTING_PROPERTIES.copy()
+        ),
+        config={
+            "replace_existing": True,
+            "properties": new_properties,
+        },
+    )
+
+    assert len(outputs) == 2
+    assert outputs[0].record
+    assert outputs[0].record.aspect
+    custom_properties_aspect: models.DatasetPropertiesClass = cast(
+        models.DatasetPropertiesClass, outputs[0].record.aspect
+    )
+
+    assert custom_properties_aspect.customProperties == {
         **new_properties,
     }
 
@@ -1337,84 +1446,6 @@ def test_supression_works():
     assert len(outputs) == 2  # MCP will be dropped
 
 
-class OldMCETransformer(DatasetTransformer):
-    """A simulated legacy MCE transformer"""
-
-    @classmethod
-    def create(cls, config_dict: dict, ctx: PipelineContext) -> "OldMCETransformer":
-        return OldMCETransformer()
-
-    def transform_one(self, mce: MetadataChangeEventClass) -> MetadataChangeEventClass:
-        # legacy transformers should not receive metadata change proposal events
-        assert not isinstance(mce, MetadataChangeProposalWrapper)
-        if isinstance(mce, MetadataChangeEventClass):
-            assert isinstance(mce.proposedSnapshot, DatasetSnapshotClass)
-            mce.proposedSnapshot.aspects.append(
-                DatasetPropertiesClass(description="Old Transformer was here")
-            )
-
-        return mce
-
-
-def test_old_transformers_working_as_before(mock_time):
-
-    dataset_mce = make_generic_dataset()
-    dataset_mcp = make_generic_dataset_mcp()
-    transformer = OldMCETransformer.create(
-        {},
-        PipelineContext(run_id="test-old-transformer"),
-    )
-
-    outputs = list(
-        transformer.transform(
-            [
-                RecordEnvelope(input, metadata={})
-                for input in [dataset_mce, dataset_mcp, EndOfStream()]
-            ]
-        )
-    )
-
-    assert len(outputs) == 3  # MCP will come back untouched
-
-    assert outputs[0].record == dataset_mce
-    # Check that glossary terms were added.
-    props_aspect = builder.get_aspect_if_available(
-        outputs[0].record, DatasetPropertiesClass
-    )
-    assert props_aspect
-    assert props_aspect.description == "Old Transformer was here"
-
-    assert outputs[1].record == dataset_mcp
-
-    assert isinstance(outputs[-1].record, EndOfStream)
-
-    # MCP only stream
-    dataset_mcps = [
-        make_generic_dataset_mcp(),
-        make_generic_dataset_mcp(
-            aspect_name="datasetProperties",
-            aspect=DatasetPropertiesClass(description="Another test MCP"),
-        ),
-        EndOfStream(),
-    ]
-    transformer = OldMCETransformer.create(
-        {},
-        PipelineContext(run_id="test-old-transformer"),
-    )
-
-    outputs = list(
-        transformer.transform(
-            [RecordEnvelope(input, metadata={}) for input in dataset_mcps]
-        )
-    )
-
-    assert len(outputs) == 3  # MCP-s will come back untouched
-
-    assert outputs[0].record == dataset_mcps[0]
-    assert outputs[1].record == dataset_mcps[1]
-    assert isinstance(outputs[-1].record, EndOfStream)
-
-
 def test_pattern_dataset_schema_terms_transformation(mock_time):
     dataset_mce = make_generic_dataset(
         aspects=[
@@ -1601,3 +1632,572 @@ def test_pattern_dataset_schema_tags_transformation(mock_time):
     assert schema_aspect.fields[2].globalTags.tags[1].tag == builder.make_tag_urn(
         "LastName"
     )
+
+
+def run_dataset_transformer_pipeline(
+    transformer_type: Type[DatasetTransformer],
+    aspect: builder.Aspect,
+    config: dict,
+    pipeline_context: PipelineContext = PipelineContext(run_id="transformer_pipe_line"),
+) -> List[RecordEnvelope]:
+
+    transformer: DatasetTransformer = cast(
+        DatasetTransformer, transformer_type.create(config, pipeline_context)
+    )
+
+    dataset_mcp = make_generic_dataset_mcp(
+        aspect=aspect, aspect_name=transformer.aspect_name()
+    )
+
+    outputs = list(
+        transformer.transform(
+            [
+                RecordEnvelope(input, metadata={})
+                for input in [dataset_mcp, EndOfStream()]
+            ]
+        )
+    )
+    return outputs
+
+
+def test_simple_add_dataset_domain(mock_datahub_graph):
+    acryl_domain = builder.make_domain_urn("acryl.io")
+    gslab_domain = builder.make_domain_urn("gslab.io")
+
+    pipeline_context: PipelineContext = PipelineContext(
+        run_id="test_simple_add_dataset_domain"
+    )
+    pipeline_context.graph = mock_datahub_graph(DatahubClientConfig)
+
+    output = run_dataset_transformer_pipeline(
+        transformer_type=SimpleAddDatasetDomain,
+        aspect=models.DomainsClass(domains=[gslab_domain]),
+        config={"domains": [acryl_domain]},
+        pipeline_context=pipeline_context,
+    )
+
+    assert len(output) == 2
+    assert output[0] is not None
+    assert output[0].record is not None
+    assert isinstance(output[0].record, MetadataChangeProposalWrapper)
+    assert output[0].record.aspect is not None
+    assert isinstance(output[0].record.aspect, models.DomainsClass)
+    transformed_aspect = cast(models.DomainsClass, output[0].record.aspect)
+    assert len(transformed_aspect.domains) == 2
+    assert gslab_domain in transformed_aspect.domains
+    assert acryl_domain in transformed_aspect.domains
+
+
+def test_simple_add_dataset_domain_replace_existing(mock_datahub_graph):
+    acryl_domain = builder.make_domain_urn("acryl.io")
+    gslab_domain = builder.make_domain_urn("gslab.io")
+
+    pipeline_context: PipelineContext = PipelineContext(
+        run_id="test_simple_add_dataset_domain"
+    )
+    pipeline_context.graph = mock_datahub_graph(DatahubClientConfig)
+
+    output = run_dataset_transformer_pipeline(
+        transformer_type=SimpleAddDatasetDomain,
+        aspect=models.DomainsClass(domains=[gslab_domain]),
+        config={"replace_existing": True, "domains": [acryl_domain]},
+        pipeline_context=pipeline_context,
+    )
+
+    assert len(output) == 2
+    assert output[0] is not None
+    assert output[0].record is not None
+    assert isinstance(output[0].record, MetadataChangeProposalWrapper)
+    assert output[0].record.aspect is not None
+    assert isinstance(output[0].record.aspect, models.DomainsClass)
+    transformed_aspect = cast(models.DomainsClass, output[0].record.aspect)
+    assert len(transformed_aspect.domains) == 1
+    assert gslab_domain not in transformed_aspect.domains
+    assert acryl_domain in transformed_aspect.domains
+
+
+def test_simple_add_dataset_domain_semantics_overwrite(mock_datahub_graph):
+    acryl_domain = builder.make_domain_urn("acryl.io")
+    gslab_domain = builder.make_domain_urn("gslab.io")
+    server_domain = builder.make_domain_urn("test.io")
+
+    pipeline_context = PipelineContext(run_id="transformer_pipe_line")
+    pipeline_context.graph = mock_datahub_graph(DatahubClientConfig())
+
+    # Return fake aspect to simulate server behaviour
+    def fake_get_domain(entity_urn: str) -> models.DomainsClass:
+        return models.DomainsClass(domains=[server_domain])
+
+    pipeline_context.graph.get_domain = fake_get_domain  # type: ignore
+
+    output = run_dataset_transformer_pipeline(
+        transformer_type=SimpleAddDatasetDomain,
+        aspect=models.DomainsClass(domains=[gslab_domain]),
+        config={
+            "semantics": TransformerSemantics.OVERWRITE,
+            "domains": [acryl_domain],
+        },
+        pipeline_context=pipeline_context,
+    )
+
+    assert len(output) == 2
+    assert output[0] is not None
+    assert output[0].record is not None
+    assert isinstance(output[0].record, MetadataChangeProposalWrapper)
+    assert output[0].record.aspect is not None
+    assert isinstance(output[0].record.aspect, models.DomainsClass)
+    transformed_aspect = cast(models.DomainsClass, output[0].record.aspect)
+    assert len(transformed_aspect.domains) == 2
+    assert gslab_domain in transformed_aspect.domains
+    assert acryl_domain in transformed_aspect.domains
+    assert server_domain not in transformed_aspect.domains
+
+
+def test_simple_add_dataset_domain_semantics_patch(
+    pytestconfig, tmp_path, mock_time, mock_datahub_graph
+):
+    acryl_domain = builder.make_domain_urn("acryl.io")
+    gslab_domain = builder.make_domain_urn("gslab.io")
+    server_domain = builder.make_domain_urn("test.io")
+
+    pipeline_context = PipelineContext(run_id="transformer_pipe_line")
+    pipeline_context.graph = mock_datahub_graph(DatahubClientConfig())
+
+    # Return fake aspect to simulate server behaviour
+    def fake_get_domain(entity_urn: str) -> models.DomainsClass:
+        return models.DomainsClass(domains=[server_domain])
+
+    pipeline_context.graph.get_domain = fake_get_domain  # type: ignore
+
+    output = run_dataset_transformer_pipeline(
+        transformer_type=SimpleAddDatasetDomain,
+        aspect=models.DomainsClass(domains=[gslab_domain]),
+        config={
+            "replace_existing": False,
+            "semantics": TransformerSemantics.PATCH,
+            "domains": [acryl_domain],
+        },
+        pipeline_context=pipeline_context,
+    )
+
+    assert len(output) == 2
+    assert output[0] is not None
+    assert output[0].record is not None
+    assert isinstance(output[0].record, MetadataChangeProposalWrapper)
+    assert output[0].record.aspect is not None
+    assert isinstance(output[0].record.aspect, models.DomainsClass)
+    transformed_aspect = cast(models.DomainsClass, output[0].record.aspect)
+    assert len(transformed_aspect.domains) == 3
+    assert gslab_domain in transformed_aspect.domains
+    assert acryl_domain in transformed_aspect.domains
+    assert server_domain in transformed_aspect.domains
+
+
+def test_simple_dataset_ownership_transformer_semantics_patch(mock_datahub_graph):
+
+    pipeline_context = PipelineContext(run_id="transformer_pipe_line")
+    pipeline_context.graph = mock_datahub_graph(DatahubClientConfig())
+
+    server_owner: str = builder.make_owner_urn(
+        "mohd@acryl.io", owner_type=builder.OwnerType.USER
+    )
+    owner1: str = builder.make_owner_urn(
+        "john@acryl.io", owner_type=builder.OwnerType.USER
+    )
+    owner2: str = builder.make_owner_urn(
+        "pedro@acryl.io", owner_type=builder.OwnerType.USER
+    )
+
+    # Return fake aspect to simulate server behaviour
+    def fake_ownership_class(entity_urn: str) -> models.OwnershipClass:
+        return models.OwnershipClass(
+            owners=[
+                models.OwnerClass(
+                    owner=server_owner, type=models.OwnershipTypeClass.DATAOWNER
+                )
+            ]
+        )
+
+    pipeline_context.graph.get_ownership = fake_ownership_class  # type: ignore
+
+    output = run_dataset_transformer_pipeline(
+        transformer_type=SimpleAddDatasetOwnership,
+        aspect=models.OwnershipClass(
+            owners=[
+                models.OwnerClass(owner=owner1, type=models.OwnershipTypeClass.PRODUCER)
+            ]
+        ),
+        config={
+            "replace_existing": False,
+            "semantics": TransformerSemantics.PATCH,
+            "owner_urns": [owner2],
+        },
+        pipeline_context=pipeline_context,
+    )
+
+    assert len(output) == 2
+    assert output[0] is not None
+    assert output[0].record is not None
+    assert isinstance(output[0].record, MetadataChangeProposalWrapper)
+    assert output[0].record.aspect is not None
+    assert isinstance(output[0].record.aspect, models.OwnershipClass)
+    transformed_aspect: models.OwnershipClass = cast(
+        models.OwnershipClass, output[0].record.aspect
+    )
+    assert len(transformed_aspect.owners) == 3
+    owner_urns: List[str] = [
+        owner_class.owner for owner_class in transformed_aspect.owners
+    ]
+    assert owner1 in owner_urns
+    assert owner2 in owner_urns
+    assert server_owner in owner_urns
+
+
+def run_pattern_dataset_schema_terms_transformation_semantics(
+    semantics: TransformerSemantics,
+    mock_datahub_graph: Callable[[DatahubClientConfig], DataHubGraph],
+) -> List[RecordEnvelope]:
+    pipeline_context = PipelineContext(run_id="test_pattern_dataset_schema_terms")
+    pipeline_context.graph = mock_datahub_graph(DatahubClientConfig())
+
+    # fake the server response
+    def fake_schema_metadata(entity_urn: str) -> models.SchemaMetadataClass:
+        return models.SchemaMetadataClass(
+            schemaName="customer",  # not used
+            platform=builder.make_data_platform_urn(
+                "hive"
+            ),  # important <- platform must be an urn
+            version=0,
+            # when the source system has a notion of versioning of schemas, insert this in, otherwise leave as 0
+            hash="",
+            # when the source system has a notion of unique schemas identified via hash, include a hash, else leave it as empty string
+            platformSchema=models.OtherSchemaClass(
+                rawSchema="__insert raw schema here__"
+            ),
+            fields=[
+                models.SchemaFieldClass(
+                    fieldPath="first_name",
+                    glossaryTerms=models.GlossaryTermsClass(
+                        terms=[
+                            models.GlossaryTermAssociationClass(
+                                urn=builder.make_term_urn("pii")
+                            )
+                        ],
+                        auditStamp=models.AuditStampClass.construct_with_defaults(),
+                    ),
+                    type=models.SchemaFieldDataTypeClass(type=models.StringTypeClass()),
+                    nativeDataType="VARCHAR(100)",
+                    # use this to provide the type of the field in the source system's vernacular
+                ),
+                models.SchemaFieldClass(
+                    fieldPath="mobile_number",
+                    glossaryTerms=models.GlossaryTermsClass(
+                        terms=[
+                            models.GlossaryTermAssociationClass(
+                                urn=builder.make_term_urn("pii")
+                            )
+                        ],
+                        auditStamp=models.AuditStampClass.construct_with_defaults(),
+                    ),
+                    type=models.SchemaFieldDataTypeClass(type=models.StringTypeClass()),
+                    nativeDataType="VARCHAR(100)",
+                    # use this to provide the type of the field in the source system's vernacular
+                ),
+            ],
+        )
+
+    pipeline_context.graph.get_schema_metadata = fake_schema_metadata  # type: ignore
+
+    output = run_dataset_transformer_pipeline(
+        transformer_type=PatternAddDatasetSchemaTerms,
+        pipeline_context=pipeline_context,
+        config={
+            "semantics": semantics,
+            "term_pattern": {
+                "rules": {
+                    ".*first_name.*": [
+                        builder.make_term_urn("Name"),
+                        builder.make_term_urn("FirstName"),
+                    ],
+                    ".*last_name.*": [
+                        builder.make_term_urn("Name"),
+                        builder.make_term_urn("LastName"),
+                    ],
+                }
+            },
+        },
+        aspect=models.SchemaMetadataClass(
+            schemaName="customer",  # not used
+            platform=builder.make_data_platform_urn(
+                "hive"
+            ),  # important <- platform must be an urn
+            version=0,
+            # when the source system has a notion of versioning of schemas, insert this in, otherwise leave as 0
+            hash="",
+            # when the source system has a notion of unique schemas identified via hash, include a hash, else leave it as empty string
+            platformSchema=models.OtherSchemaClass(
+                rawSchema="__insert raw schema here__"
+            ),
+            fields=[
+                models.SchemaFieldClass(
+                    fieldPath="address",
+                    type=models.SchemaFieldDataTypeClass(type=models.StringTypeClass()),
+                    nativeDataType="VARCHAR(100)",
+                    # use this to provide the type of the field in the source system's vernacular
+                ),
+                models.SchemaFieldClass(
+                    fieldPath="first_name",
+                    type=models.SchemaFieldDataTypeClass(type=models.StringTypeClass()),
+                    nativeDataType="VARCHAR(100)",
+                    # use this to provide the type of the field in the source system's vernacular
+                ),
+                models.SchemaFieldClass(
+                    fieldPath="last_name",
+                    type=models.SchemaFieldDataTypeClass(type=models.StringTypeClass()),
+                    nativeDataType="VARCHAR(100)",
+                    # use this to provide the type of the field in the source system's vernacular
+                ),
+            ],
+        ),
+    )
+
+    return output
+
+
+def test_pattern_dataset_schema_terms_transformation_patch(
+    mock_time, mock_datahub_graph
+):
+    output = run_pattern_dataset_schema_terms_transformation_semantics(
+        TransformerSemantics.PATCH, mock_datahub_graph
+    )
+    assert len(output) == 2
+    # Check that glossary terms were added.
+    assert len(output) == 2
+    assert output[0] is not None
+    assert output[0].record is not None
+    assert isinstance(output[0].record, MetadataChangeProposalWrapper)
+    assert output[0].record.aspect is not None
+    assert isinstance(output[0].record.aspect, models.SchemaMetadataClass)
+    transform_aspect = cast(models.SchemaMetadataClass, output[0].record.aspect)
+    field_path_vs_field: Dict[str, models.SchemaFieldClass] = {
+        field.fieldPath: field for field in transform_aspect.fields
+    }
+
+    assert (
+        field_path_vs_field.get("mobile_number") is not None
+    )  # server field should be preserved during patch
+
+    assert field_path_vs_field["first_name"].glossaryTerms is not None
+    assert len(field_path_vs_field["first_name"].glossaryTerms.terms) == 3
+    glossary_terms_urn = [
+        term.urn for term in field_path_vs_field["first_name"].glossaryTerms.terms
+    ]
+    assert builder.make_term_urn("pii") in glossary_terms_urn
+    assert builder.make_term_urn("FirstName") in glossary_terms_urn
+    assert builder.make_term_urn("Name") in glossary_terms_urn
+
+
+def test_pattern_dataset_schema_terms_transformation_overwrite(
+    mock_time, mock_datahub_graph
+):
+    output = run_pattern_dataset_schema_terms_transformation_semantics(
+        TransformerSemantics.OVERWRITE, mock_datahub_graph
+    )
+
+    assert len(output) == 2
+    # Check that glossary terms were added.
+    assert len(output) == 2
+    assert output[0] is not None
+    assert output[0].record is not None
+    assert isinstance(output[0].record, MetadataChangeProposalWrapper)
+    assert output[0].record.aspect is not None
+    assert isinstance(output[0].record.aspect, models.SchemaMetadataClass)
+    transform_aspect = cast(models.SchemaMetadataClass, output[0].record.aspect)
+    field_path_vs_field: Dict[str, models.SchemaFieldClass] = {
+        field.fieldPath: field for field in transform_aspect.fields
+    }
+
+    assert (
+        field_path_vs_field.get("mobile_number") is None
+    )  # server field should not be preserved during overwrite
+
+    assert field_path_vs_field["first_name"].glossaryTerms is not None
+    assert len(field_path_vs_field["first_name"].glossaryTerms.terms) == 2
+    glossary_terms_urn = [
+        term.urn for term in field_path_vs_field["first_name"].glossaryTerms.terms
+    ]
+    assert builder.make_term_urn("pii") not in glossary_terms_urn
+    assert builder.make_term_urn("FirstName") in glossary_terms_urn
+    assert builder.make_term_urn("Name") in glossary_terms_urn
+
+
+def run_pattern_dataset_schema_tags_transformation_semantics(
+    semantics: TransformerSemantics,
+    mock_datahub_graph: Callable[[DatahubClientConfig], DataHubGraph],
+) -> List[RecordEnvelope]:
+    pipeline_context = PipelineContext(run_id="test_pattern_dataset_schema_terms")
+    pipeline_context.graph = mock_datahub_graph(DatahubClientConfig())
+
+    # fake the server response
+    def fake_schema_metadata(entity_urn: str) -> models.SchemaMetadataClass:
+        return models.SchemaMetadataClass(
+            schemaName="customer",  # not used
+            platform=builder.make_data_platform_urn(
+                "hive"
+            ),  # important <- platform must be an urn
+            version=0,
+            # when the source system has a notion of versioning of schemas, insert this in, otherwise leave as 0
+            hash="",
+            # when the source system has a notion of unique schemas identified via hash, include a hash, else leave it as empty string
+            platformSchema=models.OtherSchemaClass(
+                rawSchema="__insert raw schema here__"
+            ),
+            fields=[
+                models.SchemaFieldClass(
+                    fieldPath="first_name",
+                    globalTags=models.GlobalTagsClass(
+                        tags=[
+                            models.TagAssociationClass(tag=builder.make_tag_urn("pii"))
+                        ],
+                    ),
+                    type=models.SchemaFieldDataTypeClass(type=models.StringTypeClass()),
+                    nativeDataType="VARCHAR(100)",
+                    # use this to provide the type of the field in the source system's vernacular
+                ),
+                models.SchemaFieldClass(
+                    fieldPath="mobile_number",
+                    globalTags=models.GlobalTagsClass(
+                        tags=[
+                            models.TagAssociationClass(tag=builder.make_tag_urn("pii"))
+                        ],
+                    ),
+                    type=models.SchemaFieldDataTypeClass(type=models.StringTypeClass()),
+                    nativeDataType="VARCHAR(100)",
+                    # use this to provide the type of the field in the source system's vernacular
+                ),
+            ],
+        )
+
+    pipeline_context.graph.get_schema_metadata = fake_schema_metadata  # type: ignore
+
+    output = run_dataset_transformer_pipeline(
+        transformer_type=PatternAddDatasetSchemaTags,
+        pipeline_context=pipeline_context,
+        config={
+            "semantics": semantics,
+            "tag_pattern": {
+                "rules": {
+                    ".*first_name.*": [
+                        builder.make_tag_urn("Name"),
+                        builder.make_tag_urn("FirstName"),
+                    ],
+                    ".*last_name.*": [
+                        builder.make_tag_urn("Name"),
+                        builder.make_tag_urn("LastName"),
+                    ],
+                }
+            },
+        },
+        aspect=models.SchemaMetadataClass(
+            schemaName="customer",  # not used
+            platform=builder.make_data_platform_urn(
+                "hive"
+            ),  # important <- platform must be an urn
+            version=0,
+            # when the source system has a notion of versioning of schemas, insert this in, otherwise leave as 0
+            hash="",
+            # when the source system has a notion of unique schemas identified via hash, include a hash, else leave it as empty string
+            platformSchema=models.OtherSchemaClass(
+                rawSchema="__insert raw schema here__"
+            ),
+            fields=[
+                models.SchemaFieldClass(
+                    fieldPath="address",
+                    type=models.SchemaFieldDataTypeClass(type=models.StringTypeClass()),
+                    nativeDataType="VARCHAR(100)",
+                    # use this to provide the type of the field in the source system's vernacular
+                ),
+                models.SchemaFieldClass(
+                    fieldPath="first_name",
+                    type=models.SchemaFieldDataTypeClass(type=models.StringTypeClass()),
+                    nativeDataType="VARCHAR(100)",
+                    # use this to provide the type of the field in the source system's vernacular
+                ),
+                models.SchemaFieldClass(
+                    fieldPath="last_name",
+                    type=models.SchemaFieldDataTypeClass(type=models.StringTypeClass()),
+                    nativeDataType="VARCHAR(100)",
+                    # use this to provide the type of the field in the source system's vernacular
+                ),
+            ],
+        ),
+    )
+    return output
+
+
+def test_pattern_dataset_schema_tags_transformation_overwrite(
+    mock_time, mock_datahub_graph
+):
+    output = run_pattern_dataset_schema_tags_transformation_semantics(
+        TransformerSemantics.OVERWRITE, mock_datahub_graph
+    )
+
+    assert len(output) == 2
+    # Check that glossary terms were added.
+    assert len(output) == 2
+    assert output[0] is not None
+    assert output[0].record is not None
+    assert isinstance(output[0].record, MetadataChangeProposalWrapper)
+    assert output[0].record.aspect is not None
+    assert isinstance(output[0].record.aspect, models.SchemaMetadataClass)
+    transform_aspect = cast(models.SchemaMetadataClass, output[0].record.aspect)
+    field_path_vs_field: Dict[str, models.SchemaFieldClass] = {
+        field.fieldPath: field for field in transform_aspect.fields
+    }
+
+    assert (
+        field_path_vs_field.get("mobile_number") is None
+    )  # server field should not be preserved during overwrite
+
+    assert field_path_vs_field["first_name"].globalTags is not None
+    assert len(field_path_vs_field["first_name"].globalTags.tags) == 2
+    global_tags_urn = [
+        tag.tag for tag in field_path_vs_field["first_name"].globalTags.tags
+    ]
+    assert builder.make_tag_urn("pii") not in global_tags_urn
+    assert builder.make_tag_urn("FirstName") in global_tags_urn
+    assert builder.make_tag_urn("Name") in global_tags_urn
+
+
+def test_pattern_dataset_schema_tags_transformation_patch(
+    mock_time, mock_datahub_graph
+):
+    output = run_pattern_dataset_schema_tags_transformation_semantics(
+        TransformerSemantics.PATCH, mock_datahub_graph
+    )
+
+    assert len(output) == 2
+    # Check that global tags were added.
+    assert len(output) == 2
+    assert output[0] is not None
+    assert output[0].record is not None
+    assert isinstance(output[0].record, MetadataChangeProposalWrapper)
+    assert output[0].record.aspect is not None
+    assert isinstance(output[0].record.aspect, models.SchemaMetadataClass)
+    transform_aspect = cast(models.SchemaMetadataClass, output[0].record.aspect)
+    field_path_vs_field: Dict[str, models.SchemaFieldClass] = {
+        field.fieldPath: field for field in transform_aspect.fields
+    }
+
+    assert (
+        field_path_vs_field.get("mobile_number") is not None
+    )  # server field should be preserved during patch
+
+    assert field_path_vs_field["first_name"].globalTags is not None
+    assert len(field_path_vs_field["first_name"].globalTags.tags) == 3
+    global_tags_urn = [
+        tag.tag for tag in field_path_vs_field["first_name"].globalTags.tags
+    ]
+    assert builder.make_tag_urn("pii") in global_tags_urn
+    assert builder.make_tag_urn("FirstName") in global_tags_urn
+    assert builder.make_tag_urn("Name") in global_tags_urn
