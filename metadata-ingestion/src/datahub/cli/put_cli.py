@@ -4,9 +4,10 @@ from typing import Any
 
 import click
 
-from datahub.cli.cli_utils import guess_entity_type, post_entity
+from datahub.cli.cli_utils import post_entity
 from datahub.telemetry import telemetry
 from datahub.upgrade import upgrade
+from datahub.utilities.urns.urn import guess_entity_type
 
 logger = logging.getLogger(__name__)
 

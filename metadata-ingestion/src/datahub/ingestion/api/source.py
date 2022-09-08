@@ -9,7 +9,8 @@ from pydantic import BaseModel
 from datahub.configuration.common import ConfigModel
 from datahub.ingestion.api.closeable import Closeable
 from datahub.ingestion.api.common import PipelineContext, RecordEnvelope, WorkUnit
-from datahub.ingestion.api.report import LossyList, Report
+from datahub.ingestion.api.report import Report
+from datahub.utilities.lossy_collections import LossyDict, LossyList
 from datahub.utilities.type_annotations import get_class_from_annotation
 
 
@@ -35,33 +36,35 @@ class SourceReport(Report):
     events_produced_per_sec: int = 0
     event_ids: List[str] = field(default_factory=LossyList)
 
-    warnings: Dict[str, List[str]] = field(default_factory=dict)
-    failures: Dict[str, List[str]] = field(default_factory=dict)
+    warnings: LossyDict[str, LossyList[str]] = field(default_factory=LossyDict)
+    failures: LossyDict[str, LossyList[str]] = field(default_factory=LossyDict)
 
     def report_workunit(self, wu: WorkUnit) -> None:
         self.events_produced += 1
         self.event_ids.append(wu.id)
 
     def report_warning(self, key: str, reason: str) -> None:
-        if key not in self.warnings:
-            self.warnings[key] = []
-        self.warnings[key].append(reason)
+        warnings = self.warnings.get(key, LossyList())
+        warnings.append(reason)
+        self.warnings[key] = warnings
 
     def report_failure(self, key: str, reason: str) -> None:
-        if key not in self.failures:
-            self.failures[key] = []
-        self.failures[key].append(reason)
+        failures = self.failures.get(key, LossyList())
+        failures.append(reason)
+        self.failures[key] = failures
 
     def __post_init__(self) -> None:
         self.start_time = datetime.datetime.now()
-        self.running_time_in_seconds = 0
+        self.running_time: datetime.timedelta = datetime.timedelta(seconds=0)
 
     def compute_stats(self) -> None:
-        duration = int((datetime.datetime.now() - self.start_time).total_seconds())
+        duration = datetime.datetime.now() - self.start_time
         workunits_produced = self.events_produced
-        if duration > 0:
-            self.events_produced_per_sec: int = int(workunits_produced / duration)
-            self.running_time_in_seconds = duration
+        if duration.total_seconds() > 0:
+            self.events_produced_per_sec: int = int(
+                workunits_produced / duration.total_seconds()
+            )
+            self.running_time = duration
         else:
             self.read_rate = 0
 
