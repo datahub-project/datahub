@@ -88,10 +88,11 @@ export default function AddTransformersStep({ goTo, prev, state, updateState }: 
                 <SelectTemplateHeader level={5}>Add Metadata Transformers</SelectTemplateHeader>
                 <Typography.Text>Optionally enrich your metadata while you are ingesting it.</Typography.Text>
             </Section>
-            {/* {transformers.length > 0 && <Divider style={{ margin: 0 }} />} */}
             {transformers.map((transformer, index) => {
+                const key = `${transformer.type}-${index}`;
                 return (
                     <TransformerInput
+                        key={key}
                         transformer={transformer}
                         existingTransformerTypes={existingTransformerTypes}
                         index={index}
