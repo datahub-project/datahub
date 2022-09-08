@@ -84,7 +84,7 @@ export default function TransformerInput(props: Props) {
     function updateType(value: string) {
         setTransformers((prevTransformers) => {
             return prevTransformers.map((t, i) => {
-                if (i === index) return { ...t, type: value };
+                if (i === index) return { type: value, urns: [] };
                 return t;
             });
         });
