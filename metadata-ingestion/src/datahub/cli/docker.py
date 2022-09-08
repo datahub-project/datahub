@@ -634,10 +634,12 @@ def quickstart(
 
     # Pull and possibly build the latest containers.
     try:
+        click.echo("Pulling docker images...")
         subprocess.run(
-            [*base_command, "pull"],
+            [*base_command, "pull", "-q"],
             check=True,
         )
+        click.secho("Finished pulling docker images!")
     except subprocess.CalledProcessError:
         click.secho(
             "Error while pulling images. Going to attempt to move on to docker compose up assuming the images have "
@@ -646,11 +648,13 @@ def quickstart(
         )
 
     if build_locally:
+        click.echo("Building docker images locally...")
         subprocess.run(
             [
                 *base_command,
                 "build",
                 "--pull",
+                "-q",
             ],
             check=True,
             env={
@@ -658,6 +662,7 @@ def quickstart(
                 "DOCKER_BUILDKIT": "1",
             },
         )
+        click.secho("Finished building docker images!")
 
     # Start it up! (with retries)
     max_wait_time = datetime.timedelta(minutes=6)
