@@ -9,6 +9,7 @@ from datahub.cli.cli_utils import get_url_and_token
 from datahub.configuration import config_loader
 from datahub.configuration.common import ConfigModel, DynamicTypedConfig
 from datahub.ingestion.graph.client import DatahubClientConfig
+from datahub.ingestion.sink.datahub_rest import DatahubRestSinkConfig
 from datahub.ingestion.sink.file import FileSinkConfig
 
 logger = logging.getLogger(__name__)
@@ -47,7 +48,7 @@ class PipelineConfig(ConfigModel):
     transformers: Optional[List[DynamicTypedConfig]]
     reporting: List[ReporterConfig] = []
     run_id: str = DEFAULT_RUN_ID
-    datahub_api: Optional[DatahubClientConfig] = None
+    datahub_api: Optional[DatahubRestSinkConfig] = None
     pipeline_name: Optional[str] = None
     failure_log: FailureLoggingConfig = FailureLoggingConfig()
 
@@ -91,13 +92,13 @@ class PipelineConfig(ConfigModel):
 
     @validator("datahub_api", always=True)
     def datahub_api_should_use_rest_sink_as_default(
-        cls, v: Optional[DatahubClientConfig], values: Dict[str, Any], **kwargs: Any
-    ) -> Optional[DatahubClientConfig]:
+        cls, v: Optional[DatahubRestSinkConfig], values: Dict[str, Any], **kwargs: Any
+    ) -> Optional[DatahubRestSinkConfig]:
         if v is None and "sink" in values and hasattr(values["sink"], "type"):
             sink_type = values["sink"].type
             if sink_type == "datahub-rest":
                 sink_config = values["sink"].config
-                v = DatahubClientConfig.parse_obj(sink_config)
+                v = DatahubRestSinkConfig.parse_obj(sink_config)
         return v
 
     @classmethod
