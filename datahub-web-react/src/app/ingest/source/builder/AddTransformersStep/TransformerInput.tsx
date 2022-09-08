@@ -109,7 +109,11 @@ export default function TransformerInput(props: Props) {
     return (
         <TransformerWrapper>
             <InputWrapper>
-                <StyledSelect value={transformer.type || ''} onChange={(e) => updateType(e as string)}>
+                <StyledSelect
+                    value={transformer.type || undefined}
+                    onChange={(e) => updateType(e as string)}
+                    placeholder="Select type"
+                >
                     {typeOptions.map((option) => (
                         <Select.Option
                             key={option.value}
