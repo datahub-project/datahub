@@ -490,7 +490,7 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
 
     def add_table_to_dataset_container(
         self, dataset_urn: str, db_name: str, schema: str
-    ) -> Iterable[Union[MetadataWorkUnit]]:
+    ) -> Iterable[MetadataWorkUnit]:
         schema_container_key = self.gen_dataset_key(db_name, schema)
         container_workunits = add_dataset_to_container(
             container_key=schema_container_key,
@@ -755,7 +755,7 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
             self.report.report_workunit(wu)
 
         if isinstance(table, BigqueryTable) and self.config.profiling.enabled:
-            if self.config.profiling.allow_deny_patterns.allowed(
+            if self.config.profiling._allow_deny_patterns.allowed(
                 datahub_dataset_name.raw_table_name()
             ):
                 # Emit the profile work unit
