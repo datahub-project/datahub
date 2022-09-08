@@ -3,17 +3,17 @@ from collections import defaultdict
 from dataclasses import dataclass, field as dataclass_field
 from typing import (
     Any,
+    DefaultDict,
     Dict,
     Iterable,
     Iterator,
     List,
+    Mapping,
     Optional,
     Set,
     Tuple,
     Union,
     cast,
-    Mapping,
-    DefaultDict,
 )
 from urllib.parse import urlparse
 

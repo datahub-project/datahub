@@ -30,6 +30,8 @@ from tests.test_helpers.state_helpers import (
 )
 from tests.test_helpers.type_helpers import PytestConfig
 from tests.unit.test_glue_source_stubs import (
+    databases_1,
+    databases_2,
     get_bucket_tagging,
     get_databases_response,
     get_dataflow_graph_response_1,
@@ -44,8 +46,6 @@ from tests.unit.test_glue_source_stubs import (
     get_tables_response_2,
     tables_1,
     tables_2,
-    databases_1,
-    databases_2,
 )
 
 FROZEN_TIME = "2020-04-14 07:00:00"
