@@ -1,6 +1,6 @@
-from typing import List, Optional, Set
+from typing import List, Optional
 
-from datahub.metadata.schema_classes import FabricTypeClass
+from datahub.configuration.source_common import ALL_ENV_TYPES
 from datahub.utilities.urns.data_platform_urn import DataPlatformUrn
 from datahub.utilities.urns.error import InvalidUrnError
 from datahub.utilities.urns.urn import Urn
@@ -13,13 +13,6 @@ class DatasetUrn(Urn):
     """
 
     ENTITY_TYPE: str = "dataset"
-    VALID_FABRIC_SET: Set[str] = set(
-        [
-            str(getattr(FabricTypeClass, attr)).upper()
-            for attr in dir(FabricTypeClass)
-            if not callable(getattr(FabricTypeClass, attr)) and not attr.startswith("_")
-        ]
-    )
 
     def __init__(self, entity_type: str, entity_id: List[str], domain: str = "li"):
         super().__init__(entity_type, entity_id, domain)
@@ -95,10 +88,8 @@ class DatasetUrn(Urn):
 
         DataPlatformUrn.validate(platform_urn_str)
         env = entity_id[2].upper()
-        if env not in DatasetUrn.VALID_FABRIC_SET:
-            raise InvalidUrnError(
-                f"Invalid env:{env}. Allowed evn are {DatasetUrn.VALID_FABRIC_SET}"
-            )
+        if env not in ALL_ENV_TYPES:
+            raise InvalidUrnError(f"Invalid env:{env}. Allowed evn are {ALL_ENV_TYPES}")
 
     """A helper function to extract simple . path notation from the v2 field path"""
 
