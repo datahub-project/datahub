@@ -1,4 +1,5 @@
-import { Select } from 'antd';
+import { DeleteOutlined } from '@ant-design/icons';
+import { Button, Select } from 'antd';
 import React from 'react';
 import styled from 'styled-components/macro';
 import { EntityType } from '../../../../../types.generated';
@@ -7,9 +8,20 @@ import { EntitySearchInput } from '../../../../entity/shared/EntitySearchInput/E
 import { Transformer, TransformerTypes } from '../types';
 
 const TransformerWrapper = styled.div`
-    // border-bottom: 1px dashed ${ANTD_GRAY[5]};
-    // padding: 15px 0;
-    padding: 12px 0;
+    // border-bottom: 1px solid ${ANTD_GRAY[4]};
+    // border-top: 1px solid ${ANTD_GRAY[4]};
+    align-items: flex-end;
+    display: flex;
+    padding: 12px 24px;
+    margin: 0 -24px;
+
+    &:hover {
+        background-color: ${ANTD_GRAY[2]};
+    }
+`;
+
+const InputWrapper = styled.div`
+    flex: 1;
 `;
 
 const StyledSelect = styled(Select)`
@@ -22,6 +34,10 @@ const EntitySearchWrapper = styled.div`
     .ant-select {
         width: 100%;
     }
+`;
+
+const DeleteButton = styled(Button)`
+    margin-left: 10px;
 `;
 
 function getPlaceholderText(type: string | null) {
@@ -68,29 +84,41 @@ export default function TransformerInput(props: Props) {
         });
     }
 
+    function deleteTransformer() {
+        setTransformers((prevTransformers) => {
+            const filteredTransformers = prevTransformers.filter((_t, i) => i !== index);
+            return filteredTransformers;
+        });
+    }
+
     return (
         <TransformerWrapper>
-            <StyledSelect value={transformer.type || ''} onChange={(e) => updateType(e as string)}>
-                {typeOptions.map((option) => (
-                    <Select.Option
-                        key={option.value}
-                        disabled={existingTransformerTypes.includes(option.value)}
-                        value={option.value}
-                    >
-                        {option.label}
-                    </Select.Option>
-                ))}
-            </StyledSelect>
-            {transformer.type && (
-                <EntitySearchWrapper>
-                    <EntitySearchInput
-                        selectedUrns={transformer.urns}
-                        placeholder={getPlaceholderText(transformer.type)}
-                        entityTypes={[EntityType.Tag]}
-                        onChangeSelectedUrns={updateUrns}
-                    />
-                </EntitySearchWrapper>
-            )}
+            <InputWrapper>
+                <StyledSelect value={transformer.type || ''} onChange={(e) => updateType(e as string)}>
+                    {typeOptions.map((option) => (
+                        <Select.Option
+                            key={option.value}
+                            disabled={existingTransformerTypes.includes(option.value)}
+                            value={option.value}
+                        >
+                            {option.label}
+                        </Select.Option>
+                    ))}
+                </StyledSelect>
+                {transformer.type && (
+                    <EntitySearchWrapper>
+                        <EntitySearchInput
+                            selectedUrns={transformer.urns}
+                            placeholder={getPlaceholderText(transformer.type)}
+                            entityTypes={[EntityType.Tag]}
+                            onChangeSelectedUrns={updateUrns}
+                        />
+                    </EntitySearchWrapper>
+                )}
+            </InputWrapper>
+            <DeleteButton onClick={deleteTransformer} type="text" shape="circle" danger>
+                <DeleteOutlined />
+            </DeleteButton>
         </TransformerWrapper>
     );
 }
