@@ -8,7 +8,6 @@ import StepButtons from '../StepButtons';
 import { IngestionSourceBuilderStep } from '../steps';
 import { SourceBuilderState, StepProps, Transformer } from '../types';
 import TransformerInput from './TransformerInput';
-// import { jsonToYaml } from '../../utils';
 
 const Section = styled.div`
     display: flex;
@@ -43,7 +42,8 @@ function updateRecipeInState(
                 },
             };
         });
-    set(jsonRecipe, 'transformers', jsonTransformers);
+    const transformersValue = jsonTransformers.length > 0 ? jsonTransformers : undefined;
+    set(jsonRecipe, 'transformers', transformersValue);
     const jsonRecipeString = JSON.stringify(jsonRecipe);
     const newState = {
         ...state,

@@ -49,6 +49,21 @@ function getPlaceholderText(type: string | null) {
     return `Search for ${entityName}...`;
 }
 
+function getEntityTypes(type: string | null) {
+    switch (type) {
+        case TransformerTypes.ADD_OWNERS:
+            return [EntityType.CorpUser, EntityType.CorpGroup];
+        case TransformerTypes.ADD_TAGS:
+            return [EntityType.Tag];
+        case TransformerTypes.ADD_TERMS:
+            return [EntityType.GlossaryTerm];
+        case TransformerTypes.ADD_DOMAIN:
+            return [EntityType.Domain];
+        default:
+            return [];
+    }
+}
+
 const typeOptions = [
     { value: TransformerTypes.ADD_OWNERS, label: 'Add Owners' },
     { value: TransformerTypes.ADD_TAGS, label: 'Add Tags' },
@@ -110,7 +125,7 @@ export default function TransformerInput(props: Props) {
                         <EntitySearchInput
                             selectedUrns={transformer.urns}
                             placeholder={getPlaceholderText(transformer.type)}
-                            entityTypes={[EntityType.Tag]}
+                            entityTypes={getEntityTypes(transformer.type)}
                             onChangeSelectedUrns={updateUrns}
                         />
                     </EntitySearchWrapper>
