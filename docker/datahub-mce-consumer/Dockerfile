@@ -1,15 +1,31 @@
 # Defining environment
 ARG APP_ENV=prod
 
-FROM adoptopenjdk/openjdk8:alpine-jre as base
+FROM alpine:3.14 AS base
+
 ENV DOCKERIZE_VERSION v0.6.1
-RUN apk --no-cache add curl tar wget openjdk8-jre bash \
+
+# Upgrade Alpine and base packages
+RUN apk --no-cache --update-cache --available upgrade \
+    && if [ $(arch) = "aarch64" ]; then \
+       DOCKERIZE_ARCH='aarch64';\
+    elif [ $(arch) = "x86_64" ]; then \
+      DOCKERIZE_ARCH='amd64'; \
+    else \
+      echo >&2 "Unsupported architecture $(arch)" ; exit 1; \
+    fi \
+    && apk --no-cache add tar curl bash openjdk8-jre \
     && wget --no-verbose https://github.com/open-telemetry/opentelemetry-java-instrumentation/releases/download/v1.4.1/opentelemetry-javaagent-all.jar \
     && wget --no-verbose https://repo1.maven.org/maven2/io/prometheus/jmx/jmx_prometheus_javaagent/0.16.1/jmx_prometheus_javaagent-0.16.1.jar -O jmx_prometheus_javaagent.jar \
     && cp /usr/lib/jvm/java-1.8-openjdk/jre/lib/security/cacerts /tmp/kafka.client.truststore.jks \
-    && curl -sSL https://github.com/jwilder/dockerize/releases/download/$DOCKERIZE_VERSION/dockerize-linux-amd64-$DOCKERIZE_VERSION.tar.gz | tar -C /usr/local/bin -xzv
+    && curl -sSL https://github.com/treff7es/dockerize/releases/download/$DOCKERIZE_VERSION/dockerize-linux-${DOCKERIZE_ARCH}-$DOCKERIZE_VERSION.tar.gz | tar -C /usr/local/bin -xzv
 
-FROM openjdk:8 as prod-build
+FROM --platform=$BUILDPLATFORM alpine:3.14.2 AS prod-build
+
+# Upgrade Alpine and base packages
+RUN apk --no-cache --update-cache --available upgrade \
+    && apk --no-cache add openjdk8 perl
+
 COPY . datahub-src
 RUN cd datahub-src && ./gradlew :metadata-jobs:mce-consumer-job:build
 RUN cd datahub-src && cp metadata-jobs/mce-consumer-job/build/libs/mce-consumer-job.jar ../mce-consumer-job.jar

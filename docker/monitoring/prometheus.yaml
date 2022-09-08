@@ -7,3 +7,4 @@ scrape_configs:
         - 'datahub-gms:4318'
         - 'datahub-mae-consumer:4318'
         - 'datahub-mce-consumer:4318'
+        - 'datahub-frontend-react:4318'

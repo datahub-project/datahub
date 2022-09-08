@@ -137,7 +137,12 @@ module.exports = {
       {
         Sinks: list_ids_in_directory("metadata-ingestion/sink_docs"),
       },
-      "metadata-ingestion/transformers",
+      {
+        Transformers: [
+          "metadata-ingestion/docs/transformer/intro",
+          "metadata-ingestion/docs/transformer/dataset_transformer",
+        ],
+      },
       {
         "Advanced Guides": [
           {
@@ -428,6 +433,7 @@ module.exports = {
           "metadata-ingestion/adding-source",
           "docs/how/add-custom-ingestion-source",
           "docs/how/add-custom-data-platform",
+          "docs/advanced/browse-paths-upgrade",
         ],
       },
     ],

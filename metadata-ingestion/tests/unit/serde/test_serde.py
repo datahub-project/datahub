@@ -161,7 +161,9 @@ def test_check_metadata_rewrite(
 
     output_file_path = tmp_path / "output.json"
     shutil.copyfile(json_input, output_file_path)
-    run_datahub_cmd(["check", "metadata-file", f"{output_file_path}", "--rewrite"])
+    run_datahub_cmd(
+        ["check", "metadata-file", f"{output_file_path}", "--rewrite", "--unpack-mces"]
+    )
 
     mce_helpers.check_golden_file(
         pytestconfig, output_path=output_file_path, golden_path=json_output_reference

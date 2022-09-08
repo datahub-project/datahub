@@ -24,7 +24,7 @@ brew_install() {
 }
 
 arm64_darwin_preflight() {
-  printf "✨ Creating/activating Virtual Environment"
+  printf "✨ Creating/activating Virtual Environment\n"
   python3 -m venv venv
   source venv/bin/activate
 
@@ -48,7 +48,19 @@ arm64_darwin_preflight() {
   printf "✨ Setting up librdkafka prerequisities\n"
   brew_install "librdkafka" "1.9.1"
   brew_install "openssl@1.1"
-  brew install "postgresql"
+  brew install "postgresql@14"
+
+  # postgresql installs libs in a strange way
+  # we first symlink /opt/postgresql@14 to /opt/postgresql
+  if [ ! -z $(brew --prefix)/opt/postgresql ]; then
+    printf "✨ Symlinking postgresql@14 to postgresql\n"
+    ln -sf $(brew --prefix postgresql@14) $(brew --prefix)/opt/postgres
+  fi
+  # we then symlink all libs under /opt/postgresql@14/lib/postgresql@14 to /opt/postgresql@14/lib
+  if [ ! -z $(brew --prefix postgresql@14)/lib/postgresql@14 ]; then
+    printf "✨ Patching up libs in $(brew --prefix postgresql@14)/lib/postgresql@14)\n"
+    ln -sf $(brew --prefix postgresql@14)/lib/postgresql@14/* $(brew --prefix postgresql@14)/lib/
+  fi
 
   printf "\e[38;2;0;255;0m✅ Done\e[38;2;255;255;255m\n"
 
@@ -72,7 +84,7 @@ cat << EOF
   export GRPC_PYTHON_BUILD_SYSTEM_OPENSSL=1
   export GRPC_PYTHON_BUILD_SYSTEM_ZLIB=1
   export CPPFLAGS="-I$(brew --prefix openssl@1.1)/include -I$(brew --prefix librdkafka)/include"
-  export LDFLAGS="-L$(brew --prefix openssl@1.1)/lib -L$(brew --prefix librdkafka)/lib"
+  export LDFLAGS="-L$(brew --prefix openssl@1.1)/lib -L$(brew --prefix librdkafka)/lib -L$(brew --prefix postgresql@14)/lib/postgresql@14"
   export CPATH="$(brew --prefix librdkafka)/include"
   export C_INCLUDE_PATH="$(brew --prefix librdkafka)/include"
   export LIBRARY_PATH="$(brew --prefix librdkafka)/lib"
