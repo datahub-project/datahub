@@ -1,5 +1,6 @@
 #!/bin/bash
 
+set -e
 
 # Script assumptions:
 #   - The gradle build has already been run.
