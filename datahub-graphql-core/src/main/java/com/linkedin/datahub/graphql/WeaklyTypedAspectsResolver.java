@@ -74,12 +74,13 @@ public class WeaklyTypedAspectsResolver implements DataFetcher<CompletableFuture
 
                     DataMap renderSpec = aspectSpec.getRenderSpec();
 
-                    AspectRenderSpec resultRenderSpec = new AspectRenderSpec();
-
-                    resultRenderSpec.setDisplayType(renderSpec.getString("displayType"));
-                    resultRenderSpec.setDisplayName(renderSpec.getString("displayName"));
-                    resultRenderSpec.setKey(renderSpec.getString("key"));
-                    result.setRenderSpec(resultRenderSpec);
+                    if (renderSpec != null) {
+                        AspectRenderSpec resultRenderSpec = new AspectRenderSpec();
+                        resultRenderSpec.setDisplayType(renderSpec.getString("displayType"));
+                        resultRenderSpec.setDisplayName(renderSpec.getString("displayName"));
+                        resultRenderSpec.setKey(renderSpec.getString("key"));
+                        result.setRenderSpec(resultRenderSpec);
+                    }
 
                     results.add(result);
                 } catch (IOException | RemoteInvocationException | URISyntaxException e) {
