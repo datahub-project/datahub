@@ -12,7 +12,8 @@ RUN apk --no-cache --update-cache --available upgrade \
     else \
       echo >&2 "Unsupported architecture $(arch)" ; exit 1; \
     fi \
-    && apk --no-cache add tar curl openjdk11-jre bash coreutils gcompat \
+    && apk --no-cache add tar curl bash coreutils gcompat \
+    && apk --no-cache add openjdk11-jre --repository=http://dl-cdn.alpinelinux.org/alpine/edge/community \
     && curl -sS https://repo1.maven.org/maven2/org/eclipse/jetty/jetty-runner/9.4.46.v20220331/jetty-runner-9.4.46.v20220331.jar --output jetty-runner.jar \
     && curl -sS https://repo1.maven.org/maven2/org/eclipse/jetty/jetty-jmx/9.4.46.v20220331/jetty-jmx-9.4.46.v20220331.jar --output jetty-jmx.jar \
     && curl -sS https://repo1.maven.org/maven2/org/eclipse/jetty/jetty-util/9.4.46.v20220331/jetty-util-9.4.46.v20220331.jar --output jetty-util.jar \
