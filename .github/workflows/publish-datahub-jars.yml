@@ -75,7 +75,31 @@ jobs:
           echo signingKey=$SIGNING_KEY >> gradle.properties
           ./gradlew :metadata-integration:java:spark-lineage:printVersion
           ./gradlew :metadata-integration:java:spark-lineage:publishToMavenLocal
-          # Publish apache ranger plugin to maven
+      - name: build and publish datahub-protobuf
+        env:
+          RELEASE_USERNAME: ${{ secrets.RELEASE_USERNAME }}
+          RELEASE_PASSWORD: ${{ secrets.RELEASE_PASSWORD }}
+          SIGNING_PASSWORD: ${{ secrets.SIGNING_PASSWORD }}
+          SIGNING_KEY: ${{ secrets.SIGNING_KEY }}
+          NEXUS_USERNAME: ${{ secrets.NEXUS_USERNAME }}
+          NEXUS_PASSWORD: ${{ secrets.NEXUS_PASSWORD }}
+        run: |
+          echo signingKey=$SIGNING_KEY >> gradle.properties
+           # Publish datahub-protobuf to maven
+          ./gradlew :metadata-integration:java:datahub-protobuf:printVersion
+          ./gradlew :metadata-integration:java:datahub-protobuf:publishToMavenLocal
+          #./gradlew :metadata-integration:java:datahub-client:closeAndReleaseRepository --info
+      - name: build and publish datahub-ranger-plugin
+        env:
+          RELEASE_USERNAME: ${{ secrets.RELEASE_USERNAME }}
+          RELEASE_PASSWORD: ${{ secrets.RELEASE_PASSWORD }}
+          SIGNING_PASSWORD: ${{ secrets.SIGNING_PASSWORD }}
+          SIGNING_KEY: ${{ secrets.SIGNING_KEY }}
+          NEXUS_USERNAME: ${{ secrets.NEXUS_USERNAME }}
+          NEXUS_PASSWORD: ${{ secrets.NEXUS_PASSWORD }}
+        run: |
+          echo signingKey=$SIGNING_KEY >> gradle.properties
+           # Publish apache ranger plugin to maven
           ./gradlew :datahub-ranger-plugin:printVersion
           ./gradlew :datahub-ranger-plugin:publishMavenJavaPublicationToMavenLocal
           #./gradlew :metadata-integration:java:datahub-client:closeAndReleaseRepository --info
