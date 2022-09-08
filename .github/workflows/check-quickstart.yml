@@ -20,7 +20,7 @@ jobs:
     steps:
     - uses: actions/setup-python@v2
       with:
-        python-version: "3.9.9"
+        python-version: "3.10"
     - name: Install acryl-datahub
       run: |
         pip install --upgrade acryl-datahub
