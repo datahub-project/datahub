@@ -76,7 +76,10 @@ export const EntitySearchInput = ({
             onDeselect={onDeselect}
             onSearch={onSearch}
             tagRender={(tagProps) => {
-                const displayName = tagProps.value as string; // TODO: Support display name resolution.
+                const entity = searchResults.find((result) => result.entity.urn === tagProps.value);
+                const displayName = entity
+                    ? entityRegistry.getDisplayName(entity.entity.type, entity.entity)
+                    : tagProps.value;
                 return (
                     <Tag closable={tagProps.closable} onClose={tagProps.onClose}>
                         <Tooltip title={displayName}>{displayName}</Tooltip>
