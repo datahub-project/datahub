@@ -7,13 +7,13 @@ from datahub.metadata.com.linkedin.pegasus2avro.schema import (
     BytesType,
     DateType,
     EnumType,
+    MapType,
     NullType,
     NumberType,
     RecordType,
     StringType,
     TimeType,
     UnionType,
-    MapType,
 )
 
 # these can be obtained by running `select format_type(oid, null),* from pg_type;`
