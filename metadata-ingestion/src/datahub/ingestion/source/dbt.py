@@ -1525,11 +1525,7 @@ class DBTSource(StatefulIngestionSourceBase):
         This function creates mce based out of dbt nodes. Since dbt ingestion creates "dbt" nodes
         and nodes for underlying platform the function gets called twice based on the mce_platform
         parameter. Further, this function takes specific actions based on the mce_platform passed in.
-        If  disable_dbt_node_creation = True,
-            Create empty entities of the underlying platform with only lineage/key aspect.
-            Create dbt entities with all metadata information.
-        If  disable_dbt_node_creation = False
-            Create platform entities with all metadata information.
+        It creates platform entities with all metadata information.
         """
         action_processor = OperationProcessor(
             self.config.meta_mapping,
