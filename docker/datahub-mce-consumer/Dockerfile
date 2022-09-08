@@ -14,10 +14,10 @@ RUN apk --no-cache --update-cache --available upgrade \
     else \
       echo >&2 "Unsupported architecture $(arch)" ; exit 1; \
     fi \
-    && apk --no-cache add tar curl bash openjdk8-jre \
+    && apk --no-cache add tar curl bash openjdk11-jre \
     && wget --no-verbose https://github.com/open-telemetry/opentelemetry-java-instrumentation/releases/download/v1.4.1/opentelemetry-javaagent-all.jar \
     && wget --no-verbose https://repo1.maven.org/maven2/io/prometheus/jmx/jmx_prometheus_javaagent/0.16.1/jmx_prometheus_javaagent-0.16.1.jar -O jmx_prometheus_javaagent.jar \
-    && cp /usr/lib/jvm/java-1.8-openjdk/jre/lib/security/cacerts /tmp/kafka.client.truststore.jks \
+    && cp /usr/lib/jvm/java-11-openjdk/jre/lib/security/cacerts /tmp/kafka.client.truststore.jks \
     && curl -sSL https://github.com/treff7es/dockerize/releases/download/$DOCKERIZE_VERSION/dockerize-linux-${DOCKERIZE_ARCH}-$DOCKERIZE_VERSION.tar.gz | tar -C /usr/local/bin -xzv
 
 FROM --platform=$BUILDPLATFORM alpine:3.14.2 AS prod-build

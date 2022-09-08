@@ -56,3 +56,13 @@ export const EMPTY_MESSAGES = {
         description: 'Terms can inherit from other terms to represent an "Is A" style relationship.',
     },
 };
+
+export const ELASTIC_MAX_COUNT = 10000;
+
+export const getElasticCappedTotalValueText = (count: number) => {
+    if (count === ELASTIC_MAX_COUNT) {
+        return `${ELASTIC_MAX_COUNT}+`;
+    }
+
+    return `${count}`;
+};
