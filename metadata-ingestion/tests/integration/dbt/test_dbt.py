@@ -265,7 +265,6 @@ def test_dbt_stateful(pytestconfig, tmp_path, mock_time, mock_datahub_graph):
         "catalog_path": catalog_path,
         "sources_path": sources_path,
         "target_platform": "postgres",
-        "load_schemas": True,
         # This will bypass check in get_workunits function of dbt.py
         "write_semantics": "OVERRIDE",
         "owner_extraction_pattern": r"^@(?P<owner>(.*))",
@@ -278,7 +277,6 @@ def test_dbt_stateful(pytestconfig, tmp_path, mock_time, mock_datahub_graph):
         "catalog_path": catalog_path_deleted_actor,
         "sources_path": sources_path_deleted_actor,
         "target_platform": "postgres",
-        "load_schemas": True,
         "write_semantics": "OVERRIDE",
         "owner_extraction_pattern": r"^@(?P<owner>(.*))",
         # enable stateful ingestion
@@ -380,7 +378,6 @@ def test_dbt_state_backward_compatibility(
         "catalog_path": catalog_path,
         "sources_path": sources_path,
         "target_platform": "postgres",
-        "load_schemas": True,
         # This will bypass check in get_workunits function of dbt.py
         "write_semantics": "OVERRIDE",
         "owner_extraction_pattern": r"^@(?P<owner>(.*))",
@@ -520,7 +517,6 @@ def test_dbt_stateful_tests(pytestconfig, tmp_path, mock_time, mock_datahub_grap
         "catalog_path": catalog_path,
         "test_results_path": test_results_path,
         "target_platform": "postgres",
-        "load_schemas": True,
         # This will bypass check in get_workunits function of dbt.py
         "write_semantics": "OVERRIDE",
         "owner_extraction_pattern": r"^@(?P<owner>(.*))",
