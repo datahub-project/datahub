@@ -257,12 +257,15 @@ export class DatasetEntity implements Entity<Dataset> {
         const genericProperties = this.getGenericEntityProperties(data);
 
         let snippet: React.ReactNode;
-        if (result.matchedFields[0].value.includes('urn:li:tag')) {
-            snippet = <TagSummary urn={result.matchedFields[0].value} />;
-        } else if (result.matchedFields[0].value.includes('urn:li:term')) {
-            snippet = <TermSummary urn={result.matchedFields[0].value} />;
-        } else {
-            snippet = <b>{result.matchedFields[0].value}</b>;
+
+        if (result.matchedFields.length > 0) {
+            if (result.matchedFields[0].value.includes('urn:li:tag')) {
+                snippet = <TagSummary urn={result.matchedFields[0].value} />;
+            } else if (result.matchedFields[0].value.includes('urn:li:term')) {
+                snippet = <TermSummary urn={result.matchedFields[0].value} />;
+            } else {
+                snippet = <b>{result.matchedFields[0].value}</b>;
+            }
         }
 
         return (
