@@ -102,7 +102,7 @@ const featureGuideContent = [
   { title: "Metadata Tests", icon: <CheckCircleTwoTone />, to: "docs/wip/metadata-tests" },
   { title: "Approval Flows", icon: <SafetyCertificateTwoTone />, to: "docs/wip/approval-workflows" },
   { title: "Personal Access Tokens", icon: <LockTwoTone />, to: "docs/authentication/personal-access-tokens" },
-  { title: "Slack Notifications", icon: <SlackOutlined />, to: "docs/wip/slack-notifications" },
+  { title: "Slack Notifications", icon: <SlackOutlined />, to: "docs/managed-datahub/saas-slack-setup" },
   { title: "Schema History", icon: <HistoryOutlined />, to: "docs/schema-history" },
 ];
 
