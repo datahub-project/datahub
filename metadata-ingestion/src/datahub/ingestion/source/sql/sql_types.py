@@ -13,6 +13,7 @@ from datahub.metadata.com.linkedin.pegasus2avro.schema import (
     StringType,
     TimeType,
     UnionType,
+    MapType,
 )
 
 # these can be obtained by running `select format_type(oid, null),* from pg_type;`
@@ -339,4 +340,6 @@ TRINO_SQL_TYPES_MAP = {
     "time": TimeType,
     "timestamp": TimeType,
     "row": RecordType,
+    "map": MapType,
+    "array": ArrayType,
 }
