@@ -12,7 +12,8 @@ from typing import (
     Tuple,
     Union,
     cast,
-    Mapping, DefaultDict
+    Mapping,
+    DefaultDict,
 )
 from urllib.parse import urlparse
 
@@ -35,7 +36,8 @@ from datahub.emitter.mcp_builder import (
     DatabaseKey,
     add_dataset_to_container,
     add_domain_to_entity_wu,
-    gen_containers, wrap_aspect_as_workunit,
+    gen_containers,
+    wrap_aspect_as_workunit,
 )
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.decorators import (
@@ -646,7 +648,9 @@ class GlueSource(StatefulIngestionSourceBase):
 
         return MetadataWorkUnit(id=f'{job_name}-{node["Id"]}', mce=mce)
 
-    def get_all_tables_and_databases(self) -> (Mapping[str, Mapping[str, Any]], List[Mapping]):
+    def get_all_tables_and_databases(
+        self,
+    ) -> (Mapping[str, Mapping[str, Any]], List[Mapping]):
         def get_tables_from_database(database_name: str) -> List[dict]:
             new_tables = []
 
@@ -690,10 +694,18 @@ class GlueSource(StatefulIngestionSourceBase):
         if self.source_config.database_pattern.is_fully_specified_allow_list():
             database_names = self.source_config.database_pattern.get_allowed_list()
         else:
-            database_names = [database['Name'] for database in all_databases]
+            database_names = [database["Name"] for database in all_databases]
 
-        databases = {database['Name']: database for database in all_databases if database['Name'] in database_names}
-        all_tables: List[dict] = [table for database in database_names for table in get_tables_from_database(database)]
+        databases = {
+            database["Name"]: database
+            for database in all_databases
+            if database["Name"] in database_names
+        }
+        all_tables: List[dict] = [
+            table
+            for database in database_names
+            for table in get_tables_from_database(database)
+        ]
 
         return databases, all_tables
 
@@ -897,15 +909,17 @@ class GlueSource(StatefulIngestionSourceBase):
             else self.source_config.env,
         )
 
-    def gen_database_containers(self, database: Mapping[str, Any]) -> Iterable[MetadataWorkUnit]:
-        domain_urn = self._gen_domain_urn(database['Name'])
-        database_container_key = self.gen_database_key(database['Name'])
+    def gen_database_containers(
+        self, database: Mapping[str, Any]
+    ) -> Iterable[MetadataWorkUnit]:
+        domain_urn = self._gen_domain_urn(database["Name"])
+        database_container_key = self.gen_database_key(database["Name"])
         container_workunits = gen_containers(
             container_key=database_container_key,
-            name=database['Name'],
+            name=database["Name"],
             sub_types=["Database"],
             domain_urn=domain_urn,
-            description=database.get("Description")
+            description=database.get("Description"),
         )
 
         for wu in container_workunits:
@@ -1024,10 +1038,12 @@ class GlueSource(StatefulIngestionSourceBase):
 
             # we also want to assign "Table" subType to the dataset representing glue table - unfortunately it is not
             # possible via Dataset snapshot embedded in a mce, so we have to generate a mcp...
-            yield wrap_aspect_as_workunit(aspectName="subTypes",
-                                          aspect=SubTypes(typeNames=["Table"]),
-                                          entityName="Dataset",
-                                          entityUrn=dataset_urn)
+            yield wrap_aspect_as_workunit(
+                aspectName="subTypes",
+                aspect=SubTypes(typeNames=["Table"]),
+                entityName="Dataset",
+                entityUrn=dataset_urn,
+            )
 
             yield from self._get_domain_wu(
                 dataset_name=full_table_name,
@@ -1098,9 +1114,7 @@ class GlueSource(StatefulIngestionSourceBase):
         # in Glue, it's possible for two buckets to have files of different extensions
         # if this happens, we append the extension in the URN so the sources can be distinguished
         # see process_dataflow_node() for details
-        s3_formats: DefaultDict[str, Set[Optional[str]]] = defaultdict(
-            lambda: set()
-        )
+        s3_formats: DefaultDict[str, Set[Optional[str]]] = defaultdict(lambda: set())
         for dag in dags.values():
             if dag is not None:
                 for s3_name, extension in self.get_dataflow_s3_names(dag):
@@ -1128,7 +1142,9 @@ class GlueSource(StatefulIngestionSourceBase):
                 yield dataset_wu
 
     # flake8: noqa: C901
-    def _extract_record(self, dataset_urn: str, table: Dict, table_name: str) -> MetadataChangeEvent:
+    def _extract_record(
+        self, dataset_urn: str, table: Dict, table_name: str
+    ) -> MetadataChangeEvent:
         def get_owner() -> Optional[OwnershipClass]:
             owner = table.get("Owner")
             if owner:
@@ -1274,7 +1290,7 @@ class GlueSource(StatefulIngestionSourceBase):
                 Status(removed=False),
                 get_dataset_properties(),
                 get_schema_metadata(),
-                get_data_platform_instance()
+                get_data_platform_instance(),
             ],
         )
 
