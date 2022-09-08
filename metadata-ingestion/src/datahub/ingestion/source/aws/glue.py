@@ -650,7 +650,7 @@ class GlueSource(StatefulIngestionSourceBase):
 
     def get_all_tables_and_databases(
         self,
-    ) -> Tuple(Mapping[str, Mapping[str, Any]], List[Mapping]):
+    ) -> Tuple[Mapping[str, Mapping[str, Any]], List[Mapping]]:
         def get_tables_from_database(database_name: str) -> List[dict]:
             new_tables = []
 
