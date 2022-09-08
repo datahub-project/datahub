@@ -1,27 +1,6 @@
-<!--HOSTED_DOCS_ONLY
-import useBaseUrl from '@docusaurus/useBaseUrl';
-
-export const Logo = (props) => {
-  return (
-    <div style={{ display: "flex", justifyContent: "center", padding: "20px" }}>
-      <img
-        height="150"
-        alt="DataHub Logo"
-        src={useBaseUrl("/img/datahub-logo-color-mark.svg")}
-        {...props}
-      />
-    </div>
-  );
-};
-
-<Logo />
-
-<!--
-HOSTED_DOCS_ONLY-->
 <p align="center">
 <img alt="DataHub" src="docs/imgs/datahub-logo-color-mark.svg" height="150" />
 </p>
-<!-- -->
 
 # DataHub: The Metadata Platform for the Modern Data Stack
 ## Built with ❤️ by <img src="https://datahubproject.io/img/acryl-logo-light-mark.png" width="25"/> [Acryl Data](https://acryldata.io) and <img src="https://datahubproject.io/img/LI-In-Bug.png" width="25"/> [LinkedIn](https://engineering.linkedin.com)
