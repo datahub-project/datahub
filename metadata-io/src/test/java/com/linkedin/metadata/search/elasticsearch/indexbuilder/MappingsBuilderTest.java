@@ -88,6 +88,7 @@ public class MappingsBuilderTest {
     // OBJECT
     Map<String, Object> esObjectField = (Map<String, Object>) properties.get("esObjectField");
     assertEquals(esObjectField.get("type"), "object");
+    assertEquals(customPropertiesField.get("normalizer"), "keyword_normalizer");
 
     // Scores
     Map<String, Object> feature1 = (Map<String, Object>) properties.get("feature1");

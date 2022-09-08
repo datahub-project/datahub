@@ -80,7 +80,7 @@ record TestEntityInfo includes CustomProperties {
     "/*": {
       "name": "esObjectField",
       "fieldType": "OBJECT",
-      "addToFilters": true
+      "queryByDefault": true
     }
   }
   esObjectField: optional map[string, string]
