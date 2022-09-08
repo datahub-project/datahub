@@ -1,5 +1,4 @@
 import logging
-import typing
 from collections import defaultdict
 from dataclasses import dataclass, field as dataclass_field
 from typing import (
@@ -13,6 +12,7 @@ from typing import (
     Tuple,
     Union,
     cast,
+    Mapping, DefaultDict
 )
 from urllib.parse import urlparse
 
@@ -406,7 +406,7 @@ class GlueSource(StatefulIngestionSourceBase):
         flow_urn: str,
         new_dataset_ids: List[str],
         new_dataset_mces: List[MetadataChangeEvent],
-        s3_formats: typing.DefaultDict[str, Set[Union[str, None]]],
+        s3_formats: DefaultDict[str, Set[Union[str, None]]],
     ) -> Optional[Dict[str, Any]]:
 
         node_type = node["NodeType"]
@@ -501,7 +501,7 @@ class GlueSource(StatefulIngestionSourceBase):
         self,
         dataflow_graph: Dict[str, Any],
         flow_urn: str,
-        s3_formats: typing.DefaultDict[str, Set[Union[str, None]]],
+        s3_formats: DefaultDict[str, Set[Union[str, None]]],
     ) -> Tuple[Dict[str, Dict[str, Any]], List[str], List[MetadataChangeEvent]]:
         """
         Prepare a job's DAG for ingestion.
@@ -646,7 +646,7 @@ class GlueSource(StatefulIngestionSourceBase):
 
         return MetadataWorkUnit(id=f'{job_name}-{node["Id"]}', mce=mce)
 
-    def get_all_tables(self) -> List[dict]:
+    def get_all_tables_and_databases(self) -> (Mapping[str, Mapping[str, Any]], List[Mapping]):
         def get_tables_from_database(database_name: str) -> List[dict]:
             new_tables = []
 
@@ -665,8 +665,8 @@ class GlueSource(StatefulIngestionSourceBase):
 
             return new_tables
 
-        def get_database_names() -> List[str]:
-            database_names = []
+        def get_databases() -> List[Mapping[str, Any]]:
+            databases = []
 
             # see https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/glue.html#Glue.Client.get_databases
             paginator = self.glue_client.get_paginator("get_databases")
@@ -681,19 +681,21 @@ class GlueSource(StatefulIngestionSourceBase):
             for page in paginator_response:
                 for db in page["DatabaseList"]:
                     if self.source_config.database_pattern.allowed(db["Name"]):
-                        database_names.append(db["Name"])
+                        databases.append(db)
 
-            return database_names
+            return databases
+
+        all_databases = get_databases()
 
         if self.source_config.database_pattern.is_fully_specified_allow_list():
             database_names = self.source_config.database_pattern.get_allowed_list()
         else:
-            database_names = get_database_names()
+            database_names = [database['Name'] for database in all_databases]
 
-        all_tables: List[dict] = []
-        for database in database_names:
-            all_tables += get_tables_from_database(database)
-        return all_tables
+        databases = {database['Name']: database for database in all_databases if database['Name'] in database_names}
+        all_tables: List[dict] = [table for database in database_names for table in get_tables_from_database(database)]
+
+        return databases, all_tables
 
     def get_lineage_if_enabled(
         self, mce: MetadataChangeEventClass
@@ -895,14 +897,15 @@ class GlueSource(StatefulIngestionSourceBase):
             else self.source_config.env,
         )
 
-    def gen_database_containers(self, database: str) -> Iterable[MetadataWorkUnit]:
-        domain_urn = self._gen_domain_urn(database)
-        database_container_key = self.gen_database_key(database)
+    def gen_database_containers(self, database: Mapping[str, Any]) -> Iterable[MetadataWorkUnit]:
+        domain_urn = self._gen_domain_urn(database['Name'])
+        database_container_key = self.gen_database_key(database['Name'])
         container_workunits = gen_containers(
             container_key=database_container_key,
-            name=database,
+            name=database['Name'],
             sub_types=["Database"],
             domain_urn=domain_urn,
+            description=database.get("Description")
         )
 
         for wu in container_workunits:
@@ -991,7 +994,7 @@ class GlueSource(StatefulIngestionSourceBase):
 
     def get_workunits(self) -> Iterable[MetadataWorkUnit]:
         database_seen = set()
-        tables = self.get_all_tables()
+        databases, tables = self.get_all_tables_and_databases()
 
         for table in tables:
             database_name = table["DatabaseName"]
@@ -1005,7 +1008,7 @@ class GlueSource(StatefulIngestionSourceBase):
                 continue
             if database_name not in database_seen:
                 database_seen.add(database_name)
-                yield from self.gen_database_containers(database_name)
+                yield from self.gen_database_containers(databases[database_name])
 
             dataset_urn = make_dataset_urn_with_platform_instance(
                 platform=self.platform,
@@ -1095,7 +1098,7 @@ class GlueSource(StatefulIngestionSourceBase):
         # in Glue, it's possible for two buckets to have files of different extensions
         # if this happens, we append the extension in the URN so the sources can be distinguished
         # see process_dataflow_node() for details
-        s3_formats: typing.DefaultDict[str, Set[Optional[str]]] = defaultdict(
+        s3_formats: DefaultDict[str, Set[Optional[str]]] = defaultdict(
             lambda: set()
         )
         for dag in dags.values():
