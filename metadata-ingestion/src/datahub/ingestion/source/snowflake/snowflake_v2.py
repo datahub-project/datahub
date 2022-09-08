@@ -148,7 +148,7 @@ SNOWFLAKE_FIELD_TYPE_MAPPINGS = {
 }
 
 
-@platform_name("Snowflake")
+@platform_name("Snowflake", doc_order=1)
 @config_class(SnowflakeV2Config)
 @support_status(SupportStatus.INCUBATING)
 @capability(SourceCapability.PLATFORM_INSTANCE, "Enabled by default")

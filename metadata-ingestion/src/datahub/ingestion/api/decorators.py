@@ -28,7 +28,7 @@ def config_class(config_cls: Type) -> Callable[[Type], Type]:
 
 
 def platform_name(
-    platform_name: str, id: Optional[str] = None
+    platform_name: str, id: Optional[str] = None, doc_order: Optional[int] = None
 ) -> Callable[[Type], Type]:
     """Adds a get_platform_name method to the decorated class"""
 
@@ -39,6 +39,7 @@ def platform_name(
             "get_platform_id",
             lambda: id or platform_name.lower().replace(" ", "-"),
         )
+        setattr(cls, "get_platform_doc_order", lambda: doc_order or None)
 
         return cls
 
