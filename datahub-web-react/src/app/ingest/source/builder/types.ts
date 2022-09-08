@@ -26,6 +26,24 @@ export type StepProps = {
 };
 
 /**
+ * The shape of a transformer in state
+ */
+export interface Transformer {
+    type: string | null;
+    urns: string[];
+}
+
+/**
+ * Different types of transformers available
+ */
+export enum TransformerTypes {
+    ADD_OWNERS = 'simple_add_dataset_ownership',
+    ADD_TAGS = 'simple_add_dataset_tags',
+    ADD_TERMS = 'simple_add_dataset_terms',
+    ADD_DOMAIN = 'simple_add_dataset_domain',
+}
+
+/**
  * The object represents the state of the Ingestion Source Builder form.
  */
 export interface SourceBuilderState {
