@@ -146,62 +146,6 @@ def test_dbt_ingest(pytestconfig, tmp_path, mock_time, **kwargs):
 
     config_variants = [
         DbtTestConfig(
-            "dbt-test-with-schemas",
-            test_resources_dir,
-            test_resources_dir,
-            tmp_path,
-            "dbt_with_schemas_mces.json",
-            "dbt_with_schemas_mces_golden.json",
-            source_config_modifiers={
-                "load_schemas": True,
-                "disable_dbt_node_creation": True,
-                "enable_meta_mapping": True,
-                "owner_extraction_pattern": r"^@(?P<owner>(.*))",
-            },
-        ),
-        DbtTestConfig(
-            "dbt-test-with-external-metadata-files",
-            "http://some-external-repo",
-            test_resources_dir,
-            tmp_path,
-            "dbt_with_external_metadata_files_mces.json",
-            "dbt_with_external_metadata_files_mces_golden.json",
-            source_config_modifiers={
-                "load_schemas": True,
-                "disable_dbt_node_creation": True,
-                "owner_extraction_pattern": r"^@(?P<owner>(.*))",
-            },
-        ),
-        DbtTestConfig(
-            "dbt-test-without-schemas",
-            test_resources_dir,
-            test_resources_dir,
-            tmp_path,
-            "dbt_without_schemas_mces.json",
-            "dbt_without_schemas_mces_golden.json",
-            source_config_modifiers={
-                "load_schemas": False,
-                "disable_dbt_node_creation": True,
-                "owner_extraction_pattern": r"^@(?P<owner>(.*))",
-            },
-        ),
-        DbtTestConfig(
-            "dbt-test-without-schemas-with-filter",
-            test_resources_dir,
-            test_resources_dir,
-            tmp_path,
-            "dbt_without_schemas_with_filter_mces.json",
-            "dbt_without_schemas_with_filter_mces_golden.json",
-            source_config_modifiers={
-                "load_schemas": False,
-                "node_name_pattern": {
-                    "deny": ["source.sample_dbt.pagila.payment_p2020_06"]
-                },
-                "disable_dbt_node_creation": True,
-                "owner_extraction_pattern": r"^@(?P<owner>(.*))",
-            },
-        ),
-        DbtTestConfig(
             "dbt-test-with-schemas-dbt-enabled",
             test_resources_dir,
             test_resources_dir,
@@ -209,35 +153,7 @@ def test_dbt_ingest(pytestconfig, tmp_path, mock_time, **kwargs):
             "dbt_enabled_with_schemas_mces.json",
             "dbt_enabled_with_schemas_mces_golden.json",
             source_config_modifiers={
-                "load_schemas": True,
                 "enable_meta_mapping": True,
-                "owner_extraction_pattern": r"^@(?P<owner>(.*))",
-            },
-        ),
-        DbtTestConfig(
-            "dbt-test-without-schemas-dbt-enabled",
-            test_resources_dir,
-            test_resources_dir,
-            tmp_path,
-            "dbt_enabled_without_schemas_mces.json",
-            "dbt_enabled_without_schemas_mces_golden.json",
-            source_config_modifiers={
-                "load_schemas": False,
-                "owner_extraction_pattern": r"^@(?P<owner>(.*))",
-            },
-        ),
-        DbtTestConfig(
-            "dbt-test-without-schemas-with-filter-dbt-enabled",
-            test_resources_dir,
-            test_resources_dir,
-            tmp_path,
-            "dbt_enabled_without_schemas_with_filter_mces.json",
-            "dbt_enabled_without_schemas_with_filter_mces_golden.json",
-            source_config_modifiers={
-                "load_schemas": False,
-                "node_name_pattern": {
-                    "deny": ["source.sample_dbt.pagila.payment_p2020_06"]
-                },
                 "owner_extraction_pattern": r"^@(?P<owner>(.*))",
             },
         ),
@@ -250,7 +166,6 @@ def test_dbt_ingest(pytestconfig, tmp_path, mock_time, **kwargs):
             "dbt_test_with_complex_owner_patterns_mces_golden.json",
             manifest_file="dbt_manifest_complex_owner_patterns.json",
             source_config_modifiers={
-                "load_schemas": False,
                 "node_name_pattern": {
                     "deny": ["source.sample_dbt.pagila.payment_p2020_06"]
                 },
@@ -266,8 +181,6 @@ def test_dbt_ingest(pytestconfig, tmp_path, mock_time, **kwargs):
             "dbt_test_with_data_platform_instance_mces.json",
             "dbt_test_with_data_platform_instance_mces_golden.json",
             source_config_modifiers={
-                "load_schemas": True,
-                "disable_dbt_node_creation": False,
                 "platform_instance": "dbt-instance-1",
             },
         ),
@@ -279,7 +192,6 @@ def test_dbt_ingest(pytestconfig, tmp_path, mock_time, **kwargs):
             "dbt_test_with_target_platform_instance_mces.json",
             "dbt_test_with_target_platform_instance_mces_golden.json",
             source_config_modifiers={
-                "load_schemas": True,
                 "target_platform_instance": "ps-instance-1",
             },
         ),
@@ -352,7 +264,6 @@ def test_dbt_stateful(pytestconfig, tmp_path, mock_time, mock_datahub_graph):
         "catalog_path": catalog_path,
         "sources_path": sources_path,
         "target_platform": "postgres",
-        "load_schemas": True,
         # This will bypass check in get_workunits function of dbt.py
         "write_semantics": "OVERRIDE",
         "owner_extraction_pattern": r"^@(?P<owner>(.*))",
@@ -365,7 +276,6 @@ def test_dbt_stateful(pytestconfig, tmp_path, mock_time, mock_datahub_graph):
         "catalog_path": catalog_path_deleted_actor,
         "sources_path": sources_path_deleted_actor,
         "target_platform": "postgres",
-        "load_schemas": True,
         "write_semantics": "OVERRIDE",
         "owner_extraction_pattern": r"^@(?P<owner>(.*))",
         # enable stateful ingestion
@@ -467,7 +377,6 @@ def test_dbt_state_backward_compatibility(
         "catalog_path": catalog_path,
         "sources_path": sources_path,
         "target_platform": "postgres",
-        "load_schemas": True,
         # This will bypass check in get_workunits function of dbt.py
         "write_semantics": "OVERRIDE",
         "owner_extraction_pattern": r"^@(?P<owner>(.*))",
@@ -607,7 +516,6 @@ def test_dbt_stateful_tests(pytestconfig, tmp_path, mock_time, mock_datahub_grap
         "catalog_path": catalog_path,
         "test_results_path": test_results_path,
         "target_platform": "postgres",
-        "load_schemas": True,
         # This will bypass check in get_workunits function of dbt.py
         "write_semantics": "OVERRIDE",
         "owner_extraction_pattern": r"^@(?P<owner>(.*))",
