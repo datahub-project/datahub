@@ -75,6 +75,7 @@ public class LineageSearchService {
     if (lineageResult == null) {
       maxHops = maxHops != null ? maxHops : 1000;
       lineageResult = _graphService.getLineage(sourceUrn, direction, 0, MAX_RELATIONSHIPS, maxHops);
+      cache.put(Pair.of(sourceUrn, direction), lineageResult);
     }
 
     // Filter hopped result based on the set of entities to return and inputFilters before sending to search
