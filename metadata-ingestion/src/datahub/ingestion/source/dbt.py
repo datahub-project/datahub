@@ -246,10 +246,6 @@ class DBTConfig(StatefulIngestionConfigBase):
         default=None,
         description="The platform instance for the platform that dbt is operating on. Use this if you have multiple instances of the same platform (e.g. redshift) and need to distinguish between them.",
     )
-    load_schemas: bool = Field(
-        default=True,
-        description="This flag is only consulted when disable_dbt_node_creation is set to True. Load schemas for target_platform entities from dbt catalog file, not necessary when you are already ingesting this metadata from the data platform directly. If set to False, table schema details (e.g. columns) will not be ingested.",
-    )
     use_identifiers: bool = Field(
         default=False,
         description="Use model identifier instead of model name if defined (if not, default to model name).",
@@ -268,10 +264,6 @@ class DBTConfig(StatefulIngestionConfigBase):
     node_name_pattern: AllowDenyPattern = Field(
         default=AllowDenyPattern.allow_all(),
         description="regex patterns for dbt model names to filter in ingestion.",
-    )
-    disable_dbt_node_creation = Field(
-        default=False,
-        description="Whether to suppress dbt dataset metadata creation. When set to True, this flag applies the dbt metadata to the target_platform entities (e.g. populating schema and column descriptions from dbt into the postgres / bigquery table metadata in DataHub) and generates lineage between the platform entities.",
     )
     meta_mapping: Dict = Field(
         default={},
@@ -474,7 +466,6 @@ def extract_dbt_entities(
     all_catalog_entities: Dict[str, Dict[str, Any]],
     sources_results: List[Dict[str, Any]],
     manifest_adapter: str,
-    load_schemas: bool,
     use_identifiers: bool,
     tag_prefix: str,
     node_type_pattern: AllowDenyPattern,
@@ -650,7 +641,6 @@ def get_upstreams(
     target_platform: str,
     target_platform_instance: Optional[str],
     environment: str,
-    disable_dbt_node_creation: bool,
     platform_instance: Optional[str],
     legacy_skip_source_lineage: Optional[bool],
 ) -> List[str]:
@@ -672,28 +662,18 @@ def get_upstreams(
 
         upstream_manifest_node = all_nodes[upstream]
 
-        # This function is called to create lineages among platform nodes or dbt nodes. When we are creating lineages
-        # for platform nodes, implies that dbt node creation is turned off (because otherwise platform nodes only
-        # have one lineage edge to their corresponding dbt node). So, when disable_dbt_node_creation is true we only
-        # create lineages for platform nodes otherwise, for dbt node, we connect it to another dbt node or a platform
-        # node.
+        # This logic creates lineages among dbt nodes.
         platform_value = DBT_PLATFORM
         platform_instance_value = platform_instance
 
-        if disable_dbt_node_creation:
-            # we generate all urns in the target platform universe
+        materialized = upstream_manifest_node.get("config", {}).get("materialized")
+        resource_type = upstream_manifest_node["resource_type"]
+        if materialized in {"view", "table", "incremental"} or (
+            resource_type == "source" and legacy_skip_source_lineage
+        ):
+            # upstream urns point to the target platform
             platform_value = target_platform
             platform_instance_value = target_platform_instance
-        else:
-            materialized = upstream_manifest_node.get("config", {}).get("materialized")
-            resource_type = upstream_manifest_node["resource_type"]
-
-            if materialized in {"view", "table", "incremental"} or (
-                resource_type == "source" and legacy_skip_source_lineage
-            ):
-                # upstream urns point to the target platform
-                platform_value = target_platform
-                platform_instance_value = target_platform_instance
 
         upstream_urns.append(
             get_urn_from_dbtNode(
@@ -989,7 +969,6 @@ class DBTTest:
                         config.target_platform,
                         config.target_platform_instance,
                         config.env,
-                        config.disable_dbt_node_creation,
                         config.platform_instance,
                         config.backcompat_skip_source_on_lineage_edge,
                     )
@@ -1074,8 +1053,7 @@ class DBTSource(StatefulIngestionSourceBase):
 
     Note:
     1. It also generates lineage between the `dbt` nodes (e.g. ephemeral nodes that depend on other dbt sources) as well as lineage between the `dbt` nodes and the underlying (target) platform nodes (e.g. BigQuery Table -> dbt Source, dbt View -> BigQuery View).
-    2. The previous version of this source (`acryl_datahub<=0.8.16.2`) did not generate `dbt` entities and lineage between `dbt` entities and platform entities. For backwards compatibility with the previous version of this source, there is a config flag `disable_dbt_node_creation` that falls back to the old behavior.
-    3. We also support automated actions (like add a tag, term or owner) based on properties defined in dbt meta.
+    2. We also support automated actions (like add a tag, term or owner) based on properties defined in dbt meta.
 
     The artifacts used by this source are:
     - [dbt manifest file](https://docs.getdbt.com/reference/artifacts/manifest-json)
@@ -1214,7 +1192,6 @@ class DBTSource(StatefulIngestionSourceBase):
         manifest_path: str,
         catalog_path: str,
         sources_path: Optional[str],
-        load_schemas: bool,
         use_identifiers: bool,
         tag_prefix: str,
         node_type_pattern: AllowDenyPattern,
@@ -1263,7 +1240,6 @@ class DBTSource(StatefulIngestionSourceBase):
             all_catalog_entities,
             sources_results,
             manifest_adapter,
-            load_schemas,
             use_identifiers,
             tag_prefix,
             node_type_pattern,
@@ -1328,7 +1304,6 @@ class DBTSource(StatefulIngestionSourceBase):
                 target_platform=self.config.target_platform,
                 target_platform_instance=self.config.target_platform_instance,
                 environment=self.config.env,
-                disable_dbt_node_creation=self.config.disable_dbt_node_creation,
                 platform_instance=None,
                 legacy_skip_source_lineage=self.config.backcompat_skip_source_on_lineage_edge,
             )
@@ -1456,7 +1431,6 @@ class DBTSource(StatefulIngestionSourceBase):
             self.config.manifest_path,
             self.config.catalog_path,
             self.config.sources_path,
-            self.config.load_schemas,
             self.config.use_identifiers,
             self.config.tag_prefix,
             self.config.node_type_pattern,
@@ -1483,14 +1457,13 @@ class DBTSource(StatefulIngestionSourceBase):
         ]
         test_nodes = [test_node for test_node in nodes if test_node.node_type == "test"]
 
-        if not self.config.disable_dbt_node_creation:
-            yield from self.create_platform_mces(
-                non_test_nodes,
-                additional_custom_props_filtered,
-                manifest_nodes_raw,
-                DBT_PLATFORM,
-                self.config.platform_instance,
-            )
+        yield from self.create_platform_mces(
+            non_test_nodes,
+            additional_custom_props_filtered,
+            manifest_nodes_raw,
+            DBT_PLATFORM,
+            self.config.platform_instance,
+        )
 
         yield from self.create_platform_mces(
             non_test_nodes,
@@ -1552,11 +1525,7 @@ class DBTSource(StatefulIngestionSourceBase):
         This function creates mce based out of dbt nodes. Since dbt ingestion creates "dbt" nodes
         and nodes for underlying platform the function gets called twice based on the mce_platform
         parameter. Further, this function takes specific actions based on the mce_platform passed in.
-        If  disable_dbt_node_creation = True,
-            Create empty entities of the underlying platform with only lineage/key aspect.
-            Create dbt entities with all metadata information.
-        If  disable_dbt_node_creation = False
-            Create platform entities with all metadata information.
+        It creates platform entities with all metadata information.
         """
         action_processor = OperationProcessor(
             self.config.meta_mapping,
@@ -1619,38 +1588,25 @@ class DBTSource(StatefulIngestionSourceBase):
                     self.report.report_workunit(sub_type_wu)
 
             else:
-                if not self.config.disable_dbt_node_creation:
-                    # if dbt node creation is enabled we are creating empty node for platform and only add
-                    # lineage/keyaspect.
-                    aspects = []
-                    if node.materialization == "ephemeral" or node.node_type == "test":
-                        continue
+                # We are creating empty node for platform and only add lineage/keyaspect.
+                aspects = []
+                if node.materialization == "ephemeral" or node.node_type == "test":
+                    continue
 
-                    # This code block is run when we are generating entities of platform type.
-                    # We will not link the platform not to the dbt node for type "source" because
-                    # in this case the platform table existed first.
-                    if node.node_type != "source":
-                        upstream_dbt_urn = get_urn_from_dbtNode(
-                            node.database,
-                            node.schema,
-                            node.name,
-                            DBT_PLATFORM,
-                            self.config.env,
-                            self.config.platform_instance,
-                        )
-                        upstreams_lineage_class = get_upstream_lineage(
-                            [upstream_dbt_urn]
-                        )
-                        aspects.append(upstreams_lineage_class)
-                else:
-                    # add upstream lineage
-                    platform_upstream_aspect = (
-                        self._create_lineage_aspect_for_platform_node(
-                            node, manifest_nodes_raw
-                        )
+                # This code block is run when we are generating entities of platform type.
+                # We will not link the platform not to the dbt node for type "source" because
+                # in this case the platform table existed first.
+                if node.node_type != "source":
+                    upstream_dbt_urn = get_urn_from_dbtNode(
+                        node.database,
+                        node.schema,
+                        node.name,
+                        DBT_PLATFORM,
+                        self.config.env,
+                        self.config.platform_instance,
                     )
-                    if platform_upstream_aspect:
-                        aspects.append(platform_upstream_aspect)
+                    upstreams_lineage_class = get_upstream_lineage([upstream_dbt_urn])
+                    aspects.append(upstreams_lineage_class)
 
             if len(aspects) == 0:
                 continue
@@ -1733,16 +1689,7 @@ class DBTSource(StatefulIngestionSourceBase):
     def _create_dataset_properties_aspect(
         self, node: DBTNode, additional_custom_props_filtered: Dict[str, str]
     ) -> DatasetPropertiesClass:
-        description = None
-        if self.config.disable_dbt_node_creation:
-            if node.comment and node.description and node.comment != node.description:
-                description = f"{self.config.target_platform} comment: {node.comment}\n\ndbt model description: {node.description}"
-            elif node.comment:
-                description = node.comment
-            elif node.description:
-                description = node.description
-        else:
-            description = node.description
+        description = node.description
 
         custom_props = {
             **get_custom_properties(node),
@@ -1823,14 +1770,7 @@ class DBTSource(StatefulIngestionSourceBase):
 
         # add schema metadata aspect
         schema_metadata = get_schema_metadata(self.report, node, mce_platform)
-        # When generating these aspects for a dbt node, we will always include schema information. When generating
-        # these aspects for a platform node (which only happens when disable_dbt_node_creation is set to true) we
-        # honor the flag.
-        if mce_platform == DBT_PLATFORM:
-            aspects.append(schema_metadata)
-        else:
-            if self.config.load_schemas:
-                aspects.append(schema_metadata)
+        aspects.append(schema_metadata)
         return aspects
 
     def _aggregate_owners(
@@ -1915,7 +1855,6 @@ class DBTSource(StatefulIngestionSourceBase):
             self.config.target_platform,
             self.config.target_platform_instance,
             self.config.env,
-            self.config.disable_dbt_node_creation,
             self.config.platform_instance,
             self.config.backcompat_skip_source_on_lineage_edge,
         )
@@ -1951,7 +1890,6 @@ class DBTSource(StatefulIngestionSourceBase):
             self.config.target_platform,
             self.config.target_platform_instance,
             self.config.env,
-            self.config.disable_dbt_node_creation,
             self.config.platform_instance,
             self.config.backcompat_skip_source_on_lineage_edge,
         )
