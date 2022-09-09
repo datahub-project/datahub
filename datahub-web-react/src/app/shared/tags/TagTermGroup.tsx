@@ -247,9 +247,10 @@ export default function TagTermGroup({
                     );
                 if (maxShow && renderedTags > maxShow) return null;
 
+                const displayName = entityRegistry.getDisplayName(EntityType.Tag, tag.tag);
                 return (
                     <HoverEntityTooltip entity={tag?.tag}>
-                        <TagLink key={tag?.tag?.urn}>
+                        <TagLink key={tag?.tag?.urn} data-testid={`tag-${displayName}`}>
                             <StyledTag
                                 style={{ cursor: 'pointer' }}
                                 onClick={() => showTagProfileDrawer(tag?.tag?.urn)}
@@ -258,7 +259,7 @@ export default function TagTermGroup({
                                 closable={false}
                             >
                                 <Highlight matchStyle={highlightMatchStyle} search={highlightText}>
-                                    {entityRegistry.getDisplayName(EntityType.Tag, tag.tag)}
+                                    {displayName}
                                 </Highlight>
                             </StyledTag>
                         </TagLink>
@@ -269,9 +270,11 @@ export default function TagTermGroup({
             {editableTags?.tags?.map((tag) => {
                 renderedTags += 1;
                 if (maxShow && renderedTags > maxShow) return null;
+
+                const displayName = entityRegistry.getDisplayName(EntityType.Tag, tag.tag);
                 return (
                     <HoverEntityTooltip entity={tag?.tag}>
-                        <TagLink>
+                        <TagLink data-testid={`tag-${displayName}`}>
                             <StyledTag
                                 style={{ cursor: 'pointer' }}
                                 onClick={() => showTagProfileDrawer(tag?.tag?.urn)}
@@ -284,7 +287,7 @@ export default function TagTermGroup({
                                 }}
                             >
                                 <Highlight matchStyle={highlightMatchStyle} search={highlightText}>
-                                    {tag?.tag?.name}
+                                    {displayName}
                                 </Highlight>
                             </StyledTag>
                         </TagLink>

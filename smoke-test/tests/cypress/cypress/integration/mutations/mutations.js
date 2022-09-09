@@ -2,7 +2,7 @@ describe("mutations", () => {
   before(() => {
     // warm up elastic by issuing a `*` search
     cy.login();
-    cy.visit("http://localhost:9002/search?query=%2A");
+    cy.visit("http://localhost:3000/search?query=%2A");
     cy.wait(5000);
   });
 
@@ -50,7 +50,7 @@ describe("mutations", () => {
     // verify dataset shows up in search now
     cy.contains("of 1 result").click({ force: true });
     cy.contains("cypress_logging_events").click({ force: true });
-    cy.contains("CypressTestAddTag").within(() =>
+    cy.get('[data-testid="tag-CypressTestAddTag"]').within(() =>
       cy.get("span[aria-label=close]").click()
     );
     cy.contains("Yes").click();
@@ -138,7 +138,7 @@ describe("mutations", () => {
     // verify dataset shows up in search now
     cy.contains("of 1 result").click();
     cy.contains("cypress_logging_events").click();
-    cy.contains("CypressTestAddTag2").within(() =>
+    cy.get('[data-testid="tag-CypressTestAddTag2"]').within(() =>
       cy
         .get("span[aria-label=close]")
         .trigger("mouseover", { force: true })
