@@ -1,4 +1,4 @@
-from asyncio.log import logger
+import logging
 from typing import IO, Dict, List, Type, Union
 
 import ujson
@@ -29,6 +29,7 @@ _field_type_mapping: Dict[Union[Type, str], Type] = {
     "mixed": UnionTypeClass,
 }
 
+logger = logging.getLogger(__name__)
 
 class JsonInferrer(SchemaInferenceBase):
     def infer_schema(self, file: IO[bytes]) -> List[SchemaField]:
