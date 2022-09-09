@@ -26,19 +26,25 @@ logger = logging.getLogger(__name__)
 @dataclass
 class FieldRow:
     path: str
+    parent: Optional[str]
     type_name: str
     required: bool
     default: str
     description: str
     inner_fields: List["FieldRow"] = Field(default_factory=list)
 
-    @staticmethod
-    def get_checkbox(enabled: bool) -> str:
-        return "✅" if enabled else ""
+    def get_checkbox(self) -> str:
+        if self.required:
+            if not self.parent:  # None and empty string both count
+                return "✅"
+            else:
+                return f"❓ (required if {self.parent} is set)"
+        else:
+            return ""
 
     def to_md_line(self) -> str:
         return (
-            f"| {self.path} | {self.get_checkbox(self.required)} | {self.type_name} | {self.description} | {self.default} |\n"
+            f"| {self.path} | {self.get_checkbox()} | {self.type_name} | {self.description} | {self.default} |\n"
             + "".join([inner_field.to_md_line() for inner_field in self.inner_fields])
         )
 
@@ -129,6 +135,7 @@ def gen_md_table(
         md_str.append(
             FieldRow(
                 path=get_prefixed_name(field_prefix, None),
+                parent=field_prefix,
                 type_name="Enum",
                 required=field_dict.get("required") or False,
                 description=f"one of {','.join(field_dict['enum'])}",
@@ -150,6 +157,7 @@ def gen_md_table(
                     if "enum" in def_dict:
                         row = FieldRow(
                             path=get_prefixed_name(field_prefix, field_name),
+                            parent=field_prefix,
                             type_name=f"enum({reference.split('/')[-1]})",
                             description=get_enum_description(
                                 value.get("description"), def_dict["enum"]
@@ -162,6 +170,7 @@ def gen_md_table(
                         # object reference
                         row = FieldRow(
                             path=get_prefixed_name(field_prefix, field_name),
+                            parent=field_prefix,
                             type_name=f"{reference.split('/')[-1]} (see below for fields)",
                             description=value.get("description") or "",
                             default=str(value.get("default", "")),
@@ -188,6 +197,7 @@ def gen_md_table(
                 md_str.append(
                     FieldRow(
                         path=get_prefixed_name(field_prefix, field_name),
+                        parent=field_prefix,
                         type_name="Enum",
                         description=f"one of {','.join(def_dict['enum'])}",
                         required=required_field,
@@ -210,6 +220,7 @@ def gen_md_table(
 
                         row = FieldRow(
                             path=get_prefixed_name(field_prefix, field_name),
+                            parent=field_prefix,
                             type_name=f"Dict[str, {value_ref.split('/')[-1]}]",
                             description=value.get("description") or "",
                             default=str(value.get("default", "")),
@@ -229,6 +240,7 @@ def gen_md_table(
                         md_str.append(
                             FieldRow(
                                 path=get_prefixed_name(field_prefix, field_name),
+                                parent=field_prefix,
                                 type_name=f"Dict[str,{value_type}]"
                                 if value_type
                                 else "Dict",
@@ -241,6 +253,7 @@ def gen_md_table(
                     object_definition = value["$ref"]
                     row = FieldRow(
                         path=get_prefixed_name(field_prefix, field_name),
+                        parent=field_prefix,
                         type_name=f"{object_definition.split('/')[-1]} (see below for fields)",
                         description=value.get("description") or "",
                         default=str(value.get("default", "")),
@@ -266,6 +279,7 @@ def gen_md_table(
                 md_str.append(
                     FieldRow(
                         path=get_prefixed_name(field_prefix, field_name),
+                        parent=field_prefix,
                         type_name=f"Array of {items_type}",
                         description=value.get("description") or "",
                         default=str(value.get("default", "None")),
@@ -278,6 +292,7 @@ def gen_md_table(
                 md_str.append(
                     FieldRow(
                         path=get_prefixed_name(field_prefix, field_name),
+                        parent=field_prefix,
                         type_name=value["type"],
                         description=value.get("description") or "",
                         default=str(value.get("default", "None")),
@@ -292,6 +307,7 @@ def gen_md_table(
                 )
                 row = FieldRow(
                     path=get_prefixed_name(field_prefix, field_name),
+                    parent=field_prefix,
                     type_name=f"{object_definition.split('/')[-1]} (see below for fields)",
                     description=value.get("description") or "",
                     default=str(value.get("default", "")),
@@ -313,6 +329,7 @@ def gen_md_table(
                 md_str.append(
                     FieldRow(
                         path=get_prefixed_name(field_prefix, field_name),
+                        parent=field_prefix,
                         type_name="Generic dict",
                         description=value.get("description", ""),
                         default=str(value.get("default", "None")),
@@ -481,11 +498,37 @@ def generate(
                             final_markdown,
                         )
                     else:
-                        create_or_update(
-                            source_documentation,
-                            [platform_name, "plugins", file_name, "custom_docs"],
-                            final_markdown,
-                        )
+                        if "_" in file_name:
+                            plugin_doc_parts = file_name.split("_")
+                            if len(plugin_doc_parts) != 2 or plugin_doc_parts[
+                                1
+                            ] not in ["pre", "post"]:
+                                raise Exception(
+                                    f"{file_name} needs to be of the form <plugin>_pre.md or <plugin>_post.md"
+                                )
+
+                            docs_key_name = f"custom_docs_{plugin_doc_parts[1]}"
+                            create_or_update(
+                                source_documentation,
+                                [
+                                    platform_name,
+                                    "plugins",
+                                    plugin_doc_parts[0],
+                                    docs_key_name,
+                                ],
+                                final_markdown,
+                            )
+                        else:
+                            create_or_update(
+                                source_documentation,
+                                [
+                                    platform_name,
+                                    "plugins",
+                                    file_name,
+                                    "custom_docs_post",
+                                ],
+                                final_markdown,
+                            )
             else:
                 yml_match = re.search("/docs/sources/(.*)/(.*)_recipe.yml", path)
                 if yml_match:
@@ -542,6 +585,14 @@ def generate(
 
                 if hasattr(source_type, "get_platform_id"):
                     platform_id = source_type.get_platform_id()
+
+                if hasattr(source_type, "get_platform_doc_order"):
+                    platform_doc_order = source_type.get_platform_doc_order()
+                    create_or_update(
+                        source_documentation,
+                        [platform_id, "plugins", plugin_name, "doc_order"],
+                        platform_doc_order,
+                    )
 
                 source_documentation[platform_id] = (
                     source_documentation.get(platform_id) or {}
@@ -637,6 +688,7 @@ def generate(
             warning_msg = f"Failed to find source classes for platform {platform_id}. Did you remember to annotate your source class with @platform_name({platform_id})?"
             logger.error(warning_msg)
             metrics["source_platforms"]["warnings"].append(warning_msg)
+            continue
 
         with open(platform_doc_file, "w") as f:
             if "name" in platform_docs:
@@ -658,7 +710,12 @@ def generate(
 
                 #                f.write("| Source Module | Documentation |\n")
                 #                f.write("| ------ | ---- |\n")
-                for plugin in sorted(platform_docs["plugins"]):
+                for plugin, plugin_docs in sorted(
+                    platform_docs["plugins"].items(),
+                    key=lambda x: str(x[1].get("doc_order"))
+                    if x[1].get("doc_order")
+                    else x[0],
+                ):
                     f.write("<tr>\n")
                     f.write(f"<td>\n\n`{plugin}`\n\n</td>\n")
                     f.write(
@@ -671,8 +728,14 @@ def generate(
                 f.write("</table>\n\n")
             # insert platform level custom docs before plugin section
             f.write(platform_docs.get("custom_docs") or "")
-            for plugin in sorted(platform_docs["plugins"]):
-                plugin_docs = platform_docs["plugins"][plugin]
+            # all_plugins = platform_docs["plugins"].keys()
+
+            for plugin, plugin_docs in sorted(
+                platform_docs["plugins"].items(),
+                key=lambda x: str(x[1].get("doc_order"))
+                if x[1].get("doc_order")
+                else x[0],
+            ):
                 f.write(f"\n\n## Module `{plugin}`\n")
                 if "support_status" in plugin_docs:
                     f.write(
@@ -692,8 +755,11 @@ def generate(
                     f.write("\n")
 
                 f.write(f"{plugin_docs.get('source_doc') or ''}\n")
+                # Insert custom pre section
+                f.write(plugin_docs.get("custom_docs_pre", ""))
+                f.write("\n### CLI based Ingestion\n")
                 if "extra_deps" in plugin_docs:
-                    f.write("### Install the Plugin\n")
+                    f.write("\n#### Install the Plugin\n")
                     if plugin_docs["extra_deps"] != []:
                         f.write("```shell\n")
                         f.write(f"pip install 'acryl-datahub[{plugin}]'\n")
@@ -703,7 +769,7 @@ def generate(
                             f"The `{plugin}` source works out of the box with `acryl-datahub`.\n"
                         )
                 if "recipe" in plugin_docs:
-                    f.write("\n### Quickstart Recipe\n")
+                    f.write("\n### Starter Recipe\n")
                     f.write(
                         "Check out the following recipe to get started with ingestion! See [below](#config-details) for full configuration options.\n\n\n"
                     )
@@ -740,7 +806,7 @@ The [JSONSchema](https://json-schema.org/) for this configuration is inlined bel
 </Tabs>\n\n"""
                     )
                 # insert custom plugin docs after config details
-                f.write(plugin_docs.get("custom_docs", ""))
+                f.write(plugin_docs.get("custom_docs_post", ""))
                 if "classname" in plugin_docs:
                     f.write("\n### Code Coordinates\n")
                     f.write(f"- Class Name: `{plugin_docs['classname']}`\n")
