@@ -457,7 +457,8 @@ public class EntityResource extends CollectionResourceTaskTemplate<String, Entit
       List<String> timeseriesAspectNames =
           EntitySpecUtils.getEntityTimeseriesAspectNames(_entityService.getEntityRegistry(), urn.getEntityType());
       if (aspectName != null && !timeseriesAspectNames.contains(aspectName)) {
-        throw new IllegalArgumentException(String.format("Failed to find timeseries aspect {}", aspectName));
+        throw new UnsupportedOperationException(
+            String.format("Not supported for non-timeseries aspect '{}'.", aspectName));
       }
       List<String> timeseriesAspectsToDelete =
           (aspectName == null) ? timeseriesAspectNames : ImmutableList.of(aspectName);
@@ -478,26 +479,30 @@ public class EntityResource extends CollectionResourceTaskTemplate<String, Entit
     }, MetricRegistry.name(this.getClass(), "delete"));
   }
 
+  /**
+   * Deletes the set of timeseries aspect values for the specified aspects that are associated with the given
+   * entity urn between startTimeMillis and endTimeMillis.
+   * @param urn The entity urn whose timeseries aspect values need to be deleted.
+   * @param startTimeMillis The start time in milliseconds from when the aspect values need to be deleted.
+   *                        If this is null, the deletion starts from the oldest value.
+   * @param endTimeMillis The end time in milliseconds up to when the aspect values need to be deleted.
+   *                      If this is null, the deletion will go till the most recent value.
+   * @param aspectsToDelete - The list of aspect names whose values need to be deleted.
+   * @return The total number of documents deleted.
+   */
   private Long deleteTimeseriesAspects(@Nonnull Urn urn, @Nullable Long startTimeMillis, @Nullable Long endTimeMillis,
       @Nonnull List<String> aspectsToDelete) {
     long totalNumberOfDocsDeleted = 0;
     // Construct the filter.
     List<Criterion> criteria = new ArrayList<>();
-    final Criterion hasUrnCriterion =
-        new Criterion().setField("urn").setCondition(Condition.EQUAL).setValue(urn.toString());
-    criteria.add(hasUrnCriterion);
-
+    criteria.add(QueryUtils.newCriterion("urn", urn.toString()));
     if (startTimeMillis != null) {
-      final Criterion startTimeCriterion = new Criterion().setField(ES_FILED_TIMESTAMP)
-          .setCondition(Condition.GREATER_THAN_OR_EQUAL_TO)
-          .setValue(startTimeMillis.toString());
-      criteria.add(startTimeCriterion);
+      criteria.add(
+          QueryUtils.newCriterion(ES_FILED_TIMESTAMP, startTimeMillis.toString(), Condition.GREATER_THAN_OR_EQUAL_TO));
     }
     if (endTimeMillis != null) {
-      final Criterion endTimeCriterion = new Criterion().setField(ES_FILED_TIMESTAMP)
-          .setCondition(Condition.LESS_THAN_OR_EQUAL_TO)
-          .setValue(endTimeMillis.toString());
-      criteria.add(endTimeCriterion);
+      criteria.add(
+          QueryUtils.newCriterion(ES_FILED_TIMESTAMP, endTimeMillis.toString(), Condition.LESS_THAN_OR_EQUAL_TO));
     }
     final Filter filter = QueryUtils.getFilterFromCriteria(criteria);
 
@@ -507,7 +512,7 @@ public class EntityResource extends CollectionResourceTaskTemplate<String, Entit
       DeleteAspectValuesResult result = _timeseriesAspectService.deleteAspectValues(entityType, aspect, filter);
       totalNumberOfDocsDeleted += result.getNumDocsDeleted();
 
-      log.info("Number of timeseries docs deleted for entity:{}, aspect:{}, urn:{}, startTime:{}, endTime:{}={}",
+      log.debug("Number of timeseries docs deleted for entity:{}, aspect:{}, urn:{}, startTime:{}, endTime:{}={}",
           entityType, aspect, urn, startTimeMillis, endTimeMillis, result.getNumDocsDeleted());
     }
     return totalNumberOfDocsDeleted;

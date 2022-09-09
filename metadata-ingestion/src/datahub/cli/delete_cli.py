@@ -370,8 +370,8 @@ def _delete_one_urn(
     dry_run: bool = False,
     entity_type: str = "dataset",
     aspect_name: Optional[str] = None,
-    startTimeMillis: Optional[datetime] = None,
-    endTimeMillis: Optional[datetime] = None,
+    start_time: Optional[datetime] = None,
+    end_time: Optional[datetime] = None,
     cached_session_host: Optional[Tuple[sessions.Session, str]] = None,
     cached_emitter: Optional[rest_emitter.DatahubRestEmitter] = None,
     run_id: str = "delete-run-id",
@@ -414,12 +414,10 @@ def _delete_one_urn(
         payload_obj: Dict[str, Any] = {"urn": urn}
         if aspect_name:
             payload_obj["aspectName"] = aspect_name
-        if startTimeMillis:
-            payload_obj["startTimeMillis"] = int(
-                round(startTimeMillis.timestamp() * 1000)
-            )
-        if endTimeMillis:
-            payload_obj["endTimeMillis"] = int(round(endTimeMillis.timestamp() * 1000))
+        if start_time:
+            payload_obj["startTimeMillis"] = int(round(start_time.timestamp() * 1000))
+        if end_time:
+            payload_obj["endTimeMillis"] = int(round(end_time.timestamp() * 1000))
         rows_affected: int
         ts_rows_affected: int
         urn, rows_affected, ts_rows_affected = cli_utils.post_delete_endpoint(

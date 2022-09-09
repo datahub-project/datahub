@@ -42,6 +42,11 @@ public interface TimeseriesAspectService {
   DeleteAspectValuesResult deleteAspectValues(@Nonnull String entityName, @Nonnull String aspectName,
       @Nonnull Filter filter);
 
+  /**
+   * Rollback the timeseries aspects associated with a runId.
+   * @param runId The runId that needs to be rolledback.
+   * @return
+   */
   @Nonnull
   DeleteAspectValuesResult rollbackTimeseriesAspects(@Nonnull String runId);
 }

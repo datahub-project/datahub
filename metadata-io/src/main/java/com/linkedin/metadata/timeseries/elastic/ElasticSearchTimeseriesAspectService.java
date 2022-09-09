@@ -6,7 +6,6 @@ import com.datahub.util.exception.ESQueryException;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.google.common.collect.ImmutableList;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.data.ByteString;
 import com.linkedin.metadata.aspect.EnvelopedAspect;
@@ -171,7 +170,7 @@ public class ElasticSearchTimeseriesAspectService implements TimeseriesAspectSer
       final SearchResponse searchResponse = _searchClient.search(searchRequest, RequestOptions.DEFAULT);
       hits = searchResponse.getHits();
     } catch (Exception e) {
-      log.error("Search query failed:" + e.getMessage());
+      log.error("Search query failed:", e);
       throw new ESQueryException("Search query failed:", e);
     }
     return Arrays.stream(hits.getHits())
@@ -202,7 +201,7 @@ public class ElasticSearchTimeseriesAspectService implements TimeseriesAspectSer
   public DeleteAspectValuesResult deleteAspectValues(@Nonnull String entityName, @Nonnull String aspectName,
       @Nonnull Filter filter) {
     final String indexName = _indexConvention.getTimeseriesAspectIndexName(entityName, aspectName);
-    final BoolQueryBuilder filterQueryBuilder = QueryBuilders.boolQuery().must(ESUtils.buildFilterQuery(filter));
+    final BoolQueryBuilder filterQueryBuilder = ESUtils.buildFilterQuery(filter);
     final DeleteByQueryRequest deleteByQueryRequest = new DeleteByQueryRequest(indexName).setQuery(filterQueryBuilder)
         .setBatchSize(DEFAULT_LIMIT)
         .setRefresh(true)
@@ -211,7 +210,7 @@ public class ElasticSearchTimeseriesAspectService implements TimeseriesAspectSer
       final BulkByScrollResponse response = _searchClient.deleteByQuery(deleteByQueryRequest, RequestOptions.DEFAULT);
       return new DeleteAspectValuesResult().setNumDocsDeleted(response.getDeleted());
     } catch (IOException e) {
-      log.error("Delete query failed:" + e.getMessage());
+      log.error("Delete query failed:", e);
       throw new ESQueryException("Delete query failed:", e);
     }
   }
@@ -221,8 +220,7 @@ public class ElasticSearchTimeseriesAspectService implements TimeseriesAspectSer
   public DeleteAspectValuesResult rollbackTimeseriesAspects(@Nonnull String runId) {
     DeleteAspectValuesResult rollbackResult = new DeleteAspectValuesResult();
     // Construct the runId filter for deletion.
-    Criterion hasRunIdCriterion = new Criterion().setField("runId").setCondition(Condition.EQUAL).setValue(runId);
-    Filter filter = QueryUtils.getFilterFromCriteria(ImmutableList.of(hasRunIdCriterion));
+    Filter filter = QueryUtils.newFilter("runId", runId);
 
     // Delete the timeseries aspects across all entities with the runId.
     for (Map.Entry<String, EntitySpec> entry : _entityRegistry.getEntitySpecs().entrySet()) {
