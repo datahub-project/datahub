@@ -441,7 +441,7 @@ class MetabaseSource(Source):
             card_details.get("database_id", "")
         )
         query_type = card_details.get("dataset_query", {}).get("type", {})
-        source_paths = set()
+        source_tables = set()
 
         if query_type == "query":
             source_table_id = (
@@ -452,8 +452,8 @@ class MetabaseSource(Source):
             if source_table_id is not None:
                 schema_name, table_name = self.get_source_table_from_id(source_table_id)
                 if table_name:
-                    source_paths.add(
-                        f"{f'{schema_name}.' if schema_name else ''}{table_name}"
+                    source_tables.add(
+                        f"{database_name + '.' if database_name else ''}{schema_name + '.' if schema_name else ''}{table_name}"
                     )
         else:
             try:
@@ -466,11 +466,15 @@ class MetabaseSource(Source):
 
                 for table in parser.source_tables:
                     sources = str(table).split(".")
+
+                    source_db = sources[-3] if len(sources) > 2 else database_name
                     source_schema, source_table = sources[-2], sources[-1]
                     if source_schema == "<default>":
                         source_schema = str(self.config.default_schema)
 
-                    source_paths.add(f"{source_schema}.{source_table}")
+                    source_tables.add(
+                        f"{source_db + '.' if source_db else ''}{source_schema}.{source_table}"
+                    )
             except Exception as e:
                 self.report.report_failure(
                     key="metabase-query",
@@ -481,9 +485,6 @@ class MetabaseSource(Source):
                 return None
 
         # Create dataset URNs
-        dataset_urn = []
-        dbname = f"{f'{database_name}.' if database_name else ''}"
-        source_tables = list(map(lambda tbl: f"{dbname}{tbl}", source_paths))
         dataset_urn = [
             builder.make_dataset_urn_with_platform_instance(
                 platform=platform,
