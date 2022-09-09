@@ -134,7 +134,7 @@ Bad
 * Slow, especially under high contention
 * Client will need to handle retries
 
-[![](https://mermaid.ink/img/pako:eNqVkcFqwzAMhl9F-LruBXzoKFvpYZSOhN5yEbayGhzbc-TDKH33qnUyUrbLfBLS9-uX5LMy0ZLSaqSvQsHQm8PPjEMXQB4ajhlevaPANeNjTLBhpiExlMDOA6YkgAUhKeeYK1hFz-v1027fatgRb8ZEhh-qUq6Rhg9kcwL8zcwdjskiU20CrodRvD2YkrNQy95Ci2hPjCLAVjagf6gfdLcB7-bTji_TWTzPmZqYbRf7HN5rifxIy7v8gW6b5tBMdLA_gVqpgfKAzsr3nG_pTvGJBuqUltBSj8Vzp7pwEbTcF9xaJ3Mr3aPYrhQWju13MEpzLjRD0xdP1OUKFJqpSA)](https://mermaid.live/edit#pako:eNqVkcFqwzAMhl9F-LruBXzoKFvpYZSOhN5yEbayGhzbc-TDKH33qnUyUrbLfBLS9-uX5LMy0ZLSaqSvQsHQm8PPjEMXQB4ajhlevaPANeNjTLBhpiExlMDOA6YkgAUhKeeYK1hFz-v1027fatgRb8ZEhh-qUq6Rhg9kcwL8zcwdjskiU20CrodRvD2YkrNQy95Ci2hPjCLAVjagf6gfdLcB7-bTji_TWTzPmZqYbRf7HN5rifxIy7v8gW6b5tBMdLA_gVqpgfKAzsr3nG_pTvGJBuqUltBSj8Vzp7pwEbTcF9xaJ3Mr3aPYrhQWju13MEpzLjRD0xdP1OUKFJqpSA)
+[![](https://mermaid.ink/img/pako:eNqVkb9qwzAQxl9FaG3yAhpcQhsylJBi083LIZ0bgSwp8mkoIe_ecyQXl2appuO733f_dJU6GJRKTnjJ6DW-WvhMMPZe8ANNIYkXZ9FTUVwIUeyIcIwksifrBMTIgBFMYkohFbCYtk3zdDh2ShyQdlNEXcuwtuVcgZTQOSUO1kT1r6B3IH0W8JdZenxEA4SliLCDmHg696j23L1pjkjABuh4R_yH-5dvHvDevF7huR7O0aIU4cHSp7eSQjfh-nIP0H3bntpKe_MTyI0cMY1gDX_gdZZ7SWccsZeKQ4MDZEe97P2NUcgUui-vpaKUcSPzfeH631INwHMs6t5Y3q6Kt29ZMrRr)](https://mermaid.live/edit#pako:eNqVkb9qwzAQxl9FaG3yAhpcQhsylJBi083LIZ0bgSwp8mkoIe_ecyQXl2appuO733f_dJU6GJRKTnjJ6DW-WvhMMPZe8ANNIYkXZ9FTUVwIUeyIcIwksifrBMTIgBFMYkohFbCYtk3zdDh2ShyQdlNEXcuwtuVcgZTQOSUO1kT1r6B3IH0W8JdZenxEA4SliLCDmHg696j23L1pjkjABuh4R_yH-5dvHvDevF7huR7O0aIU4cHSp7eSQjfh-nIP0H3bntpKe_MTyI0cMY1gDX_gdZZ7SWccsZeKQ4MDZEe97P2NUcgUui-vpaKUcSPzfeH631INwHMs6t5Y3q6Kt29ZMrRr)
 
 ### Idempotent Client Update
 
@@ -152,7 +152,16 @@ Bad
 
 ### Serialised Updates Exclusively via Kafka
 
-TODO
+Here, the client never updates the aspect HTTP but instead passes it via the MetadataChangeProposal topic in Kafka. 
+I don't think this is a viable solution due to the possibility of issuing out-of-date updates.
+
+Good
+* Local ordering
+* Fast performance
+
+Bad
+* No way of knowing what the current state is unless the client constructs it from the Kafka topics
+* Danger of proposing out-of-date updates if the topic is lagging
 
 ### URN-Aspect Locking
 
@@ -167,7 +176,7 @@ Bad
 * Need to handle lock release if a client fails to release the lock
 * Potentially blocking MCE Kafka queue
 
-TODO Diagram
+[![](https://mermaid.ink/img/pako:eNqNksFOwzAMhl8lygm07QV6GEIw7QDTUKuJSy9W4tGINimpc0DT3h136dZQjYkequj3p9-_nRykchplJjv8CmgVPhv48NCUVvAHipwXT7VBS1GJ58VyOVtvikyskR67FhW9G6penfqMFNd6JJZ6ORP9f-dtlFJqgwQaCApuhYljZH5VF4yf2qrgPceYmnE55psQs_qSbMifkG9AqhKQWE1m3LUcAKPTXe90fyN-Ct-aANqWu-iHYc81nZUoXJlo-xJLWHco0Hvn_0RXeb7NB9rqq0PlWCN0ON5QOlN6bwN4ubqRdS0JMg26QGOSEWKfxf-MOKOcywZ9A0bzUzz0cimpwgZLmfFR4x5CTaUs7ZFRCOSKb6tkRj7gXIbT0oeXK7M98IrO6kobXvwgHn8AOC71Xg)](https://mermaid.live/edit#pako:eNqNksFOwzAMhl8lygm07QV6GEIw7QDTUKuJSy9W4tGINimpc0DT3h136dZQjYkequj3p9-_nRykchplJjv8CmgVPhv48NCUVvAHipwXT7VBS1GJ58VyOVtvikyskR67FhW9G6penfqMFNd6JJZ6ORP9f-dtlFJqgwQaCApuhYljZH5VF4yf2qrgPceYmnE55psQs_qSbMifkG9AqhKQWE1m3LUcAKPTXe90fyN-Ct-aANqWu-iHYc81nZUoXJlo-xJLWHco0Hvn_0RXeb7NB9rqq0PlWCN0ON5QOlN6bwN4ubqRdS0JMg26QGOSEWKfxf-MOKOcywZ9A0bzUzz0cimpwgZLmfFR4x5CTaUs7ZFRCOSKb6tkRj7gXIbT0oeXK7M98IrO6kobXvwgHn8AOC71Xg)
 
 ## How we teach this
 
