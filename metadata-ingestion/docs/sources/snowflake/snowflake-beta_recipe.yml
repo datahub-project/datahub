@@ -1,12 +1,11 @@
 source:
   type: snowflake-beta
   config:
-
     # This option is recommended to be used for the first time to ingest all lineage
     ignore_start_time_lineage: true
     # This is an alternative option to specify the start_time for lineage
     # if you don't want to look back since beginning
-    start_time: '2022-03-01T00:00:00Z'
+    start_time: "2022-03-01T00:00:00Z"
 
     # Coordinates
     account_id: "abc48144"
@@ -35,9 +34,7 @@ source:
       profile_table_level_only: true
     profile_pattern:
       allow:
-        - 'ACCOUNTING_DB.*.*'
-        - 'MARKETING_DB.*.*'
-
-
-sink:
-# sink configs
+        - "ACCOUNTING_DB.*.*"
+        - "MARKETING_DB.*.*"
+# Default sink is datahub-rest and doesn't need to be configured
+# See https://datahubproject.io/docs/metadata-ingestion/sink_docs/datahub for customization options
