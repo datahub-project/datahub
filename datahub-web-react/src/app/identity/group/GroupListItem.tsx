@@ -8,6 +8,7 @@ import CustomAvatar from '../../shared/avatar/CustomAvatar';
 import { useEntityRegistry } from '../../useEntityRegistry';
 import EntityDropdown from '../../entity/shared/EntityDropdown';
 import { EntityMenuItems } from '../../entity/shared/EntityDropdown/EntityDropdown';
+import { getElasticCappedTotalValueText } from '../../entity/shared/constants';
 
 type Props = {
     group: CorpGroup;
@@ -54,7 +55,7 @@ export default function GroupListItem({ group, onDelete }: Props) {
                                 <Typography.Text type="secondary">{group.properties?.description}</Typography.Text>
                             </div>
                         </div>
-                        <Tag>{(group as any).memberCount?.total || 0} members</Tag>
+                        <Tag>{getElasticCappedTotalValueText((group as any).memberCount?.total || 0)} members</Tag>
                     </GroupHeaderContainer>
                 </Link>
                 <GroupItemButtonGroup>
