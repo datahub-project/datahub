@@ -1,7 +1,8 @@
 import pytest
+import tenacity
+from tests.utils import delete_urns_from_file, get_frontend_url, ingest_file_via_rest, wait_for_healthcheck_util, get_sleep_info
 
-from tests.utils import delete_urns_from_file, get_frontend_url, ingest_file_via_rest
-
+sleep_sec, sleep_times = get_sleep_info()
 
 @pytest.fixture(scope="module", autouse=True)
 def ingest_cleanup_data(request):
@@ -11,6 +12,11 @@ def ingest_cleanup_data(request):
     print("removing test data")
     delete_urns_from_file("tests/tests/data.json")
 
+
+@pytest.fixture(scope="session")
+def wait_for_healthchecks():
+    wait_for_healthcheck_util()
+    yield
 
 @pytest.mark.dependency()
 def test_healthchecks(wait_for_healthchecks):
@@ -196,8 +202,10 @@ def test_update_test(frontend_session, wait_for_healthchecks):
     delete_test(frontend_session, test_urn)
 
 
-@pytest.mark.dependency(depends=["test_healthchecks", "test_update_test"])
-def test_list_tests(frontend_session, wait_for_healthchecks):
+@tenacity.retry(
+    stop=tenacity.stop_after_attempt(sleep_times), wait=tenacity.wait_fixed(sleep_sec)
+)
+def test_list_tests_retries(frontend_session):
     list_tests_json = {
         "query": """query listTests($input: ListTestsInput!) {\n
           listTests(input: $input) {\n
@@ -223,6 +231,11 @@ def test_list_tests(frontend_session, wait_for_healthchecks):
     assert res_data["data"]["listTests"]["total"] >= 2
     assert len(res_data["data"]["listTests"]["tests"]) >= 2
     assert "errors" not in res_data
+
+
+@pytest.mark.dependency(depends=["test_healthchecks", "test_update_test"])
+def test_list_tests(frontend_session, wait_for_healthchecks):
+    test_list_tests_retries(frontend_session)
 
 
 @pytest.mark.dependency(depends=["test_healthchecks"])

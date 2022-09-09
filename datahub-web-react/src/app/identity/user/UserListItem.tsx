@@ -3,17 +3,20 @@ import styled from 'styled-components';
 import { Dropdown, List, Menu, Tag, Tooltip, Typography } from 'antd';
 import { Link } from 'react-router-dom';
 import { DeleteOutlined, MoreOutlined, UnlockOutlined } from '@ant-design/icons';
-import { CorpUser, CorpUserStatus, EntityType } from '../../../types.generated';
+import { CorpUser, CorpUserStatus, EntityType, DataHubRole } from '../../../types.generated';
 import CustomAvatar from '../../shared/avatar/CustomAvatar';
 import { useEntityRegistry } from '../../useEntityRegistry';
 import { ANTD_GRAY, REDESIGN_COLORS } from '../../entity/shared/constants';
 import ViewResetTokenModal from './ViewResetTokenModal';
 import useDeleteEntity from '../../entity/shared/EntityDropdown/useDeleteEntity';
+import SelectRole from './SelectRole';
 
 type Props = {
     user: CorpUser;
     canManageUserCredentials: boolean;
+    selectRoleOptions: Array<DataHubRole>;
     onDelete?: () => void;
+    refetch?: () => void;
 };
 
 const UserItemContainer = styled.div`
@@ -45,12 +48,16 @@ const MenuIcon = styled(MoreOutlined)<{ fontSize?: number }>`
     margin-left: 5px;
 `;
 
-export default function UserListItem({ user, canManageUserCredentials, onDelete }: Props) {
+export default function UserListItem({ user, canManageUserCredentials, selectRoleOptions, onDelete, refetch }: Props) {
     const entityRegistry = useEntityRegistry();
     const [isViewingResetToken, setIsViewingResetToken] = useState(false);
     const displayName = entityRegistry.getDisplayName(EntityType.CorpUser, user);
     const isNativeUser: boolean = user.isNativeUser as boolean;
     const shouldShowPasswordReset: boolean = canManageUserCredentials && isNativeUser;
+    const castedCorpUser = user as any;
+    const userRelationships = castedCorpUser?.roles?.relationships;
+    const userRole = userRelationships && userRelationships.length > 0 && (userRelationships[0]?.entity as DataHubRole);
+    const userRoleUrn = userRole && userRole.urn;
 
     const { onDeleteEntity } = useDeleteEntity(user.urn, EntityType.CorpUser, user, onDelete);
 
@@ -103,6 +110,12 @@ export default function UserListItem({ user, canManageUserCredentials, onDelete 
                 </Link>
             </UserItemContainer>
             <ButtonGroup>
+                <SelectRole
+                    user={user}
+                    userRoleUrn={userRoleUrn || ''}
+                    selectRoleOptions={selectRoleOptions}
+                    refetch={refetch}
+                />
                 <Dropdown
                     trigger={['click']}
                     overlay={

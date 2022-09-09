@@ -213,12 +213,12 @@ class BaseSnowflakeConfig(BaseTimeWindowConfig):
                     f"but should be set when using {v} authentication"
                 )
             if values.get("oauth_config").use_certificate is True:
-                if values.get("oauth_config").base64_encoded_oauth_private_key is None:
+                if values.get("oauth_config").encoded_oauth_private_key is None:
                     raise ValueError(
                         "'base64_encoded_oauth_private_key' was none "
                         "but should be set when using certificate for oauth_config"
                     )
-                if values.get("oauth").base64_encoded_oauth_public_key is None:
+                if values.get("oauth").encoded_oauth_public_key is None:
                     raise ValueError(
                         "'base64_encoded_oauth_public_key' was none"
                         "but should be set when using use_certificate true for oauth_config"
@@ -332,7 +332,7 @@ class SnowflakeConfig(BaseSnowflakeConfig, SQLAlchemyConfig):
             self.oauth_config.authority_url,
             self.oauth_config.provider,
         )
-        if self.oauth_config.use_certificate is True:
+        if self.oauth_config.use_certificate:
             response = generator.get_token_with_certificate(
                 private_key_content=str(self.oauth_config.encoded_oauth_public_key),
                 public_key_content=str(self.oauth_config.encoded_oauth_private_key),

@@ -19,6 +19,11 @@ query getMe {
                 teams
                 skills
             }
+            settings {
+                appearance {
+                    showSimplifiedHomepage
+                }
+            }
         }
         platformPrivileges {
             viewAnalytics
@@ -36,4 +41,8 @@ query getMe {
             createTags
         }
     }
+}
+
+mutation updateUserSetting($input: UpdateUserSettingInput!) {
+    updateUserSetting(input: $input)
 }
