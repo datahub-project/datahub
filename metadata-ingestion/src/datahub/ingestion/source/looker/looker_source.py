@@ -129,7 +129,7 @@ class LookerDashboardSourceConfig(LookerAPIConfig, LookerCommonConfig):
     # TODO - stateful ingestion to autodetect usage history interval
     extract_usage_history_for_interval: str = Field(
         "30 days",
-        description="Used only if extract_usage_history is set to True. Interval to extract looker dashboard usage history for . https://docs.looker.com/reference/filter-expressions#date_and_time",
+        description="Used only if extract_usage_history is set to True. Interval to extract looker dashboard usage history for. See https://docs.looker.com/reference/filter-expressions#date_and_time.",
     )
 
     @validator("external_base_url", pre=True, always=True)
