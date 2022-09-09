@@ -1,6 +1,6 @@
 - Start Date: 2022-09-02
 - RFC PR: https://github.com/datahub-project/datahub/pull/5818
-- Discussion Issue: N/A
+- Discussion Issue: https://github.com/datahub-project/datahub/issues/5635
 - Implementation PR(s): (leave this empty)
 
 # Serialisation of Updates via GMS
