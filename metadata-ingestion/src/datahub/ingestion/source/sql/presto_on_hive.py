@@ -468,7 +468,10 @@ class PrestoOnHiveSource(SQLAlchemySource):
     def _get_db_filter_where_clause(self) -> str:
         if self.config.metastore_db_name is None:
             return ""  # read metastore_db_name field discription why
-        return f"AND d.\"NAME\" = '{self.config.database}'"
+        if "postgresql" in self.config.scheme:
+            return f"AND d.\"NAME\" = '{self.config.database}'"
+        else:
+            return f"AND d.NAME = '{self.config.database}'"
 
     def _get_table_key(self, row: Dict[str, Any]) -> TableKey:
         return TableKey(schema=row["schema_name"], table=row["table_name"])
