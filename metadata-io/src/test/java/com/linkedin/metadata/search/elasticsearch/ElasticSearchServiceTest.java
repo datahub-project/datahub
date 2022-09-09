@@ -24,6 +24,7 @@ import org.elasticsearch.action.bulk.BulkProcessor;
 import org.elasticsearch.client.RequestOptions;
 import org.elasticsearch.client.RestHighLevelClient;
 import org.elasticsearch.common.unit.TimeValue;
+import org.testcontainers.containers.wait.strategy.Wait;
 import org.testcontainers.elasticsearch.ElasticsearchContainer;
 import org.testcontainers.shaded.com.google.common.collect.ImmutableMap;
 import org.testng.annotations.AfterClass;
@@ -58,6 +59,7 @@ public class ElasticSearchServiceTest {
     _settingsBuilder = new SettingsBuilder(Collections.emptyList(), null);
     checkContainerEngine(_elasticsearchContainer.getDockerClient());
     _elasticsearchContainer.start();
+    _elasticsearchContainer.waitingFor(Wait.forHealthcheck());
     _searchClient = ElasticTestUtils.buildRestClient(_elasticsearchContainer);
     _elasticSearchService = buildService();
     _elasticSearchService.configure();
