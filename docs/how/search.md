@@ -12,7 +12,7 @@ Add in `saasOnly` for Managed DataHub-only features
 
 <FeatureAvailability/>
 
-The **search bar** is one of the means of finding metadata in Datahub. It's available on Datahub's landing page and it provides and easy to use graphical interface for data users on all technical levels.
+The **search bar** is an important mechnaism for discovering data assets in DataHub. From the search bar, you can find Datasets, Dashboards, Charts, Data Pipelines, and more. Simply type in a term and press 'enter'. 
 
 ![](https://github.com/datahub-project/static-assets/blob/main/imgs/search-landingpage.png?raw=true)
 
