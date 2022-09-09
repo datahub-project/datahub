@@ -6,7 +6,7 @@ import FeatureAvailability from '@site/src/components/FeatureAvailability';
 
 ## Overview
 
-Keeping all your metadata properly classified can be hard work when you only have a limited number of trusted data stewards. With approval flows, you can source proposals of tags and terms from a variety of less trusted sources. These sources may be users with limited context or programatic processes using hueristics. Then, data stewards and data owners can go through them and only approve proposals they consider correct. This reduces the burden of your stewards and owners while increasing coverage.
+Keeping all your metadata properly classified can be hard work when you only have a limited number of trusted data stewards. With approval flows, you can source proposals of tags, glossary terms, and description updates from a variety of less trusted sources. These sources may be users with limited context or programatic processes using hueristics. Then, data stewards and data owners can go through them and only approve proposals they consider correct. This reduces the burden of your stewards and owners while increasing coverage.
 
 Approval workflows also cover the business glossary itself. This allows you to source glossary terms from across your organization while limiting who has final control over what gets in.
 
@@ -33,6 +33,26 @@ Approval workflows also cover the business glossary itself. This allows you to s
 </p>
 
 4. From there, they can choose to either accept or reject the proposal. A full log of all accepted or rejected proposals is kept for each user.
+
+<p align="center">
+  <img width="70%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/<TODO>.png"/>
+</p>
+
+### Proposing Column Description Updates
+
+1. When updating the description of a column, click propse after making your change.
+
+<p align="center">
+  <img width="70%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/<TODO>.png"/>
+</p>
+
+2. This proposal will be sent to the inbox of Admins with proposal permissions and data owners.
+
+<p align="center">
+  <img width="70%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/<TODO>.png"/>
+</p>
+
+3. From there, they can choose to either accept or reject the proposal.
 
 <p align="center">
   <img width="70%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/<TODO>.png"/>
@@ -102,26 +122,51 @@ These full identifiers can be copied from the entity pages of the Tag or Glossar
 
 Once we've constructed an Entity URN, any relevant sub-resource identifiers, and a Tag or Term URN, we're ready to propose! To do so, we'll use the DataHub GraphQL API.
 
-In particular, we'll be using the proposeTag and proposeGlossaryTerm Mutations, which have the following interface:
+In particular, we'll be using the proposeTag, proposeGlossaryTerm and proposeUpdateDescription Mutations, which have the following interface:
 
 ```
 type Mutation {
-proposeTag(input: TagProposalInput!): String! # Returns Proposal URN.
+proposeTerm(input: TermAssociationInput!): String! # Returns Proposal URN.
 }
 
-input TagProposalInput {
-resourceUrn: String! # Required. e.g. "urn:li:dataset:(...)"
-subResource: String # Optional. e.g. "fieldName"
-subResourceType: String # Optional. "DATASET_FIELD" for dataset fields
-tagUrn: String! # Required. e.g. "urn:li:tag:Marketing"
+input TermAssociationInput {
+	resourceUrn: String! # Required. e.g. "urn:li:dataset:(...)"
+	subResource: String # Optional. e.g. "fieldName"
+	subResourceType: String # Optional. "DATASET_FIELD" for dataset fields
+	term: String! # Required. e.g. "urn:li:tag:Marketing"
 }
 ```
 
-As illustrated above, the proposeTag Mutation accepts a single 'input' argument, which in turn contains 3 fields:
-resourceUrn: The URN associated with the target Entity.
-subResource: An optional sub-resource identifier.
-subResourceType: An optional enum indicating what type of subresource is being referenced.
-tagUrn: The URN associated with the Tag to propose.
+```
+type Mutation {
+proposeTag(input: TagAssociationInput!): String! # Returns Proposal URN.
+}
+
+input TagAssociationInput {
+	resourceUrn: String! # Required. e.g. "urn:li:dataset:(...)" subResource: String # Optional. e.g. "fieldName"
+	subResourceType: String # Optional. "DATASET_FIELD" for dataset fields
+	tagUrn: String! # Required. e.g. "urn:li:tag:Marketing"
+}
+```
+
+```
+mutation proposeUpdateDescription($input: DescriptionUpdateInput!) {
+    proposeUpdateDescription(input: $input)
+}
+
+"""
+Currently supports DatasetField descriptions only
+"""
+input DescriptionUpdateInput {
+    description: String! # the new description
+
+    resourceUrn: String!
+
+    subResourceType: SubResourceType
+
+    subResource: String
+}
+```
 
 ## Additional Resources
 
