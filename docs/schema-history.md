@@ -41,6 +41,11 @@ You can active this by clicking on the Audit icon you see above the top right of
 You can see here that some of these fields were added at the oldest dataset version, while some were added only at this latest
 version. Some fields were even modified and had a type change at the latest version!
 
+### GraphQL
+
+* [getSchemaBlame](../graphql/queries.md#getSchemaBlame)
+* [getSchemaVersionList](../graphql/queries.md#getSchemaVersionList)
+
 ## FAQ and Troubleshooting
 
 **What updates are planned for the Schema History feature?**
