@@ -5,6 +5,7 @@ FROM acryldata/datahub-ingestion-base as base
 
 FROM openjdk:8 as prod-build
 COPY . /datahub-src
+ENV GRADLE_OPTS=-Djavax.net.debug=ssl,handshake
 RUN cd /datahub-src && ./gradlew :metadata-events:mxe-schemas:build
 
 FROM base as prod-codegen
