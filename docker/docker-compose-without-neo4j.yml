@@ -14,7 +14,7 @@ services:
     ports:
       - ${DATAHUB_MAPPED_ZK_PORT:-2181}:2181
     volumes:
-      - zkdata:/var/opt/zookeeper
+      - zkdata:/var/lib/zookeeper
 
   broker:
     image: confluentinc/cp-kafka:5.4.0

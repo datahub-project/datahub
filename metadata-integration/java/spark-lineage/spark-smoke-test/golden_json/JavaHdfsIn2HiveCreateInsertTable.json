@@ -28,7 +28,7 @@
           {
             "com.linkedin.common.BrowsePaths": {
               "paths": [
-                "/spark/spark_spark-master_7077/javahdfsin2hivecreateinserttable"
+                "/spark/spark_spark-master_7077"
               ]
             }
           }
@@ -61,7 +61,7 @@
           {
             "com.linkedin.common.BrowsePaths": {
               "paths": [
-                "/spark/javahdfsin2hivecreateinserttable/queryexecid_5"
+                "/spark/spark_spark-master_7077"
               ]
             }
           },
@@ -107,7 +107,7 @@
           {
             "com.linkedin.common.BrowsePaths": {
               "paths": [
-                "/spark/javahdfsin2hivecreateinserttable/queryexecid_6"
+                "/spark/spark_spark-master_7077"
               ]
             }
           },
@@ -167,7 +167,7 @@
           {
             "com.linkedin.common.BrowsePaths": {
               "paths": [
-                "/spark/javahdfsin2hivecreateinserttable/queryexecid_7"
+                "/spark/spark_spark-master_7077"
               ]
             }
           },
