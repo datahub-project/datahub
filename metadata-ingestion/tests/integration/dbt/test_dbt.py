@@ -557,7 +557,6 @@ def test_dbt_tests(pytestconfig, tmp_path, mock_time, **kwargs):
                         (test_resources_dir / "jaffle_shop_catalog.json").resolve()
                     ),
                     target_platform="postgres",
-                    delete_tests_as_datasets=True,
                     test_results_path=str(
                         (test_resources_dir / "jaffle_shop_test_results.json").resolve()
                     ),
@@ -698,7 +697,6 @@ def test_dbt_tests_only_assertions(pytestconfig, tmp_path, mock_time, **kwargs):
                         (test_resources_dir / "jaffle_shop_catalog.json").resolve()
                     ),
                     target_platform="postgres",
-                    delete_tests_as_datasets=True,
                     test_results_path=str(
                         (test_resources_dir / "jaffle_shop_test_results.json").resolve()
                     ),
