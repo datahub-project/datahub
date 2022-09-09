@@ -108,7 +108,66 @@ There are many ways to achieve this, but most of them involve DataHub aspects ha
 versioning as currently the LATEST version of an aspect is version zero and is a mutable placeholder for a "real" 
 fixed version.
 
-TODO: Different design options to be enumerated.
+### Change Processor
+
+Check the allowed set of transitions between current and proposed aspect state. This would be achieved with business-specific logic injected into the DataHub codebase via plugins.
+
+Good
+* Fast as all code is executed in GMS
+
+Bad
+* No guarantee of state between the read and write
+* No guarantee that the plugin code will run
+* Specific business logic getting tied up with GMS code
+
+https://mermaid.live/edit#pako:eNqFks9qAjEQxl9lyFV9gT1Yii3SgyB43cuQfLqB3USTWUXEd-_sH7vYCs0lYeY333yT5GZsdDCFyTi1CBYfng-JmzKQLrYSE61qjyBDZDgvlsvZerMr6CsckOU9H2FHQMOa3UDYsfBO61HQGk_MU3aheK_Ff1Rmq4q1wTZFi5xj0n55i9R4Ebi30WItdHzEhlDv87nyp8kVeYJCFFDyh0oo7umX58EwNXylis8g2ys6qpAwSbwcN3cbBVzojJR9DBP_evSE3Nbj6KgzyPnMdR0v_4y06KtDHCuDm26vyw6P9ZA3c9PoRbF3-ty3jiyNVGhQmkKPDnvuTJgy3BVtj2oTn86rUVPsWV3NDbcSd9dgTSGpxQMav8xI3b8BFXTCxw
+
+### Read and Conditional Update
+
+Read the current aspect and pass it back to the client. The client can propose an update on the basis that what they just read is still valid.
+
+Good
+* Guarantee of state between the read and write
+* No need for business-specific logic in GMS code
+
+Bad
+* Slow, especially under high contention
+* Client will need to handle retries
+
+TODO Diagram
+
+### Idempotent Client Update
+
+The client proposes a partial change to an aspect that is idempotent. The change can apply whatever state the aspect is in at the time.
+
+Good
+* No need for business-specific logic in GMS code
+* Fast, as retry loop will be confined to GMS
+
+Bad
+* GMS will need to understand partial (PATCH) updates
+* Retries will need to be handled in GMS
+
+TODO Diagram
+
+### Serialised Updates Exclusively via Kafka
+
+TODO
+
+### URN-Aspect Locking
+
+Lock the target URN aspect(s) when reading. The client is guaranteed that the state it has read will not change until it releases the lock.
+
+Good
+* Guarantee of state between the read and write
+* No need for business-specific logic in GMS code
+
+Bad
+* Slow, especially under high contention
+* Need to handle lock release if a client fails to release the lock
+* Potentially blocking MCE Kafka queue
+
+TODO Diagram
 
 ## How we teach this
 
