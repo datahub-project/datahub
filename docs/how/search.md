@@ -1,6 +1,6 @@
 import FeatureAvailability from '@site/src/components/FeatureAvailability';
 
-# About DataHub [Feature Name]
+# About DataHub Search
 
 <!-- All Feature Guides should begin with `About DataHub ` to improve SEO -->
 
