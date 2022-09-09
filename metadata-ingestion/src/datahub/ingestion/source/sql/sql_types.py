@@ -322,7 +322,7 @@ SPARK_SQL_TYPES_MAP: Dict[str, Any] = {
 
 # https://trino.io/docs/current/language/types.html
 # https://github.com/trinodb/trino-python-client/blob/master/trino/sqlalchemy/datatype.py#L75
-TRINO_SQL_TYPES_MAP = {
+TRINO_SQL_TYPES_MAP: Dict[str, Any] = {
     "boolean": BooleanType,
     "tinyint": NumberType,
     "smallint": NumberType,
