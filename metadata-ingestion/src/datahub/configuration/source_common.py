@@ -1,4 +1,4 @@
-from typing import Dict, Optional
+from typing import Dict, Optional, Set
 
 from pydantic import validator
 from pydantic.fields import Field
@@ -7,6 +7,11 @@ from datahub.configuration.common import ConfigModel, ConfigurationError
 from datahub.metadata.schema_classes import FabricTypeClass
 
 DEFAULT_ENV = FabricTypeClass.PROD
+
+# Get all the constants from the FabricTypeClass. It's not an enum, so this is a bit hacky but works.
+ALL_ENV_TYPES: Set[str] = set(
+    [value for name, value in vars(FabricTypeClass).items() if not name.startswith("_")]
+)
 
 
 class PlatformSourceConfigBase(ConfigModel):
@@ -30,20 +35,14 @@ class EnvBasedSourceConfigBase(ConfigModel):
     """
 
     env: str = Field(
-        default=FabricTypeClass.PROD,
+        default=DEFAULT_ENV,
         description="The environment that all assets produced by this connector belong to",
     )
 
     @validator("env")
     def env_must_be_one_of(cls, v: str) -> str:
-        # Get all the constants from the FabricTypeClass. It's not an enum, so this is a bit hacky but works
-        allowed_envs = [
-            value
-            for name, value in vars(FabricTypeClass).items()
-            if not name.startswith("_")
-        ]
-        if (v.upper()) not in allowed_envs:
-            raise ConfigurationError(f"env must be one of {allowed_envs}, found {v}")
+        if v.upper() not in ALL_ENV_TYPES:
+            raise ConfigurationError(f"env must be one of {ALL_ENV_TYPES}, found {v}")
         return v.upper()
 
 
