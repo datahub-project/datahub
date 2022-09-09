@@ -2,7 +2,7 @@ describe("mutations", () => {
   before(() => {
     // warm up elastic by issuing a `*` search
     cy.login();
-    cy.visit("http://localhost:3000/search?query=%2A");
+    cy.visit("http://localhost:9002/search?query=%2A");
     cy.wait(5000);
   });
 
