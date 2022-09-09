@@ -104,8 +104,8 @@ function Home() {
               </h2>
               <p>
                 DataHub is the one-stop shop for documentation, schemas,
-                ownership, lineage, pipelines and usage information. Data
-                quality and data preview information coming soon.
+                ownership, lineage, pipelines, data quality, usage information,
+                and more.
               </p>
             </div>
             <div className="col col--6 col--offset-1">

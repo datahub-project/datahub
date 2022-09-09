@@ -1,8 +1,7 @@
 import logging
 import typing
 from collections import defaultdict
-from dataclasses import dataclass
-from dataclasses import field as dataclass_field
+from dataclasses import dataclass, field as dataclass_field
 from typing import (
     Any,
     Dict,
