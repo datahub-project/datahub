@@ -31,6 +31,7 @@ source:
 
     # Optional additional github information. Used to add github links on the dataset's entity page.
     github_info:
-       repo: org/repo-name
+      repo: org/repo-name
+# Default sink is datahub-rest and doesn't need to be configured
+# See https://datahubproject.io/docs/metadata-ingestion/sink_docs/datahub for customization options
 
-# sink configs

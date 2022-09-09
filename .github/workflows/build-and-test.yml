@@ -38,7 +38,7 @@ jobs:
         # datahub-frontend:unzipAssets depends on datahub-web-react:yarnBuild but gradle does not know about it
         run: |
           ./gradlew build -x :metadata-ingestion:build -x :metadata-ingestion:check -x docs-website:build -x datahub-web-react:yarnBuild -x datahub-frontend:unzipAssets -x :metadata-io:test -x :metadata-integration:java:datahub-protobuf:build
-          ./gradlew build -x :metadata-ingestion:build -x :metadata-ingestion:check -x docs-website:build -x :metadata-integration:java:spark-lineage:test -x :metadata-io:test -x :metadata-integration:java:datahub-protobuf:build
+          ./gradlew build -x :metadata-ingestion:build -x :metadata-ingestion:check -x docs-website:build -x :metadata-integration:java:spark-lineage:test -x :metadata-io:test
       - uses: actions/upload-artifact@v2
         if: always()
         with:
