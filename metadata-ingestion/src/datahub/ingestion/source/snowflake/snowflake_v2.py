@@ -413,6 +413,8 @@ class SnowflakeV2Source(
                 conn
             )
             for snowflake_db in databases:
+                self.report.report_entity_scanned(snowflake_db.name, "database")
+
                 if not self.config.database_pattern.allowed(snowflake_db.name):
                     self.report.report_dropped(f"{snowflake_db.name}.*")
                     continue
@@ -462,6 +464,8 @@ class SnowflakeV2Source(
             return
 
         for snowflake_schema in snowflake_db.schemas:
+
+            self.report.report_entity_scanned(snowflake_schema.name, "schema")
 
             if not self.config.schema_pattern.allowed(snowflake_schema.name):
                 self.report.report_dropped(f"{db_name}.{snowflake_schema.name}.*")

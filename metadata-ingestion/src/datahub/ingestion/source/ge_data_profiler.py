@@ -277,10 +277,10 @@ class _SingleDatasetProfiler(BasicDatasetProfilerBase):
                 columns_to_profile = columns_to_profile[
                     : self.config.max_number_of_fields_to_profile
                 ]
-
-                self.report.report_dropped(
-                    f"The max_number_of_fields_to_profile={self.config.max_number_of_fields_to_profile} reached. Profile of columns {self.dataset_name}({', '.join(sorted(columns_being_dropped))})"
-                )
+                if self.config.report_dropped_profiles:
+                    self.report.report_dropped(
+                        f"The max_number_of_fields_to_profile={self.config.max_number_of_fields_to_profile} reached. Profile of columns {self.dataset_name}({', '.join(sorted(columns_being_dropped))})"
+                    )
         return columns_to_profile
 
     @_run_with_query_combiner
