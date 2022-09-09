@@ -6,6 +6,7 @@ import { ExtendedSchemaFields } from './types';
 import TypeLabel from '../../../../shared/tabs/Dataset/Schema/components/TypeLabel';
 import { ForeignKeyConstraint, SchemaMetadata } from '../../../../../../types.generated';
 import PrimaryKeyLabel from '../../../../shared/tabs/Dataset/Schema/components/PrimaryKeyLabel';
+import NullableLabel from '../../../../shared/tabs/Dataset/Schema/components/NullableLabel';
 import ForeignKeyLabel from '../../../../shared/tabs/Dataset/Schema/components/ForeignKeyLabel';
 
 const MAX_FIELD_PATH_LENGTH = 200;
@@ -57,6 +58,7 @@ export default function useSchemaTitleRenderer(
                     <FieldPathText>{pathToDisplay}</FieldPathText>
                     <TypeLabel type={record.type} nativeDataType={record.nativeDataType} />
                     {(schemaMetadata?.primaryKeys?.includes(fieldPath) || record.isPartOfKey) && <PrimaryKeyLabel />}
+                    {record.nullable && <NullableLabel />}
                     {schemaMetadata?.foreignKeys
                         ?.filter(
                             (constraint) =>
