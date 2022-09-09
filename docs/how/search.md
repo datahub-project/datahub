@@ -1,17 +1,77 @@
-# Search Guide
+import FeatureAvailability from '@site/src/components/FeatureAvailability';
 
-## Introduction 
+# About DataHub [Feature Name]
 
-The search bar is one of the means of finding data in Datahub. In this document, we discuss more effective ways of finding information beyond doing a standard keyword search. This is because keyword searches can return results from almost any part of an entity.
+<!-- All Feature Guides should begin with `About DataHub ` to improve SEO -->
 
-### Search in Specific Fields
+<!-- 
+Update feature availability; by default, feature availabilty is Self-Hosted and Managed DataHub
 
-The following examples are in the format of  
-X: *typical question* :  
+Add in `saasOnly` for Managed DataHub-only features
+ -->
+
+<FeatureAvailability/>
+
+The **search bar** is one of the means of finding metadata in Datahub. It's available on Datahub's landing page and it provides and easy to use graphical interface for data users on all technical levels.
+
+![](https://github.com/datahub-project/static-assets/blob/main/imgs/search-landingpage.png?raw=true)
+
+**Advanced queries** and the **filter sidebar** helps fine tuning queries. For programmatic users Datahub provides a **GraphQL API** as well. 
+
+<!-- This section should provide a plain-language overview of feature. Consider the following:
+
+* What does this feature do? Why is it useful?
+* What are the typical use cases?
+* Who are the typical users?
+* In which DataHub Version did this become available? -->
+
+## Search Setup, Prerequisites, and Permissions
+
+<!-- This section should provide plain-language instructions on how to configure the feature:
+
+* What special configuration is required, if any?
+* How can you confirm you configured it correctly? What is the expected behavior?
+* What access levels/permissions are required within DataHub? -->
+Search is available for all users. Although Search works out of the box, the more relevant data you ingest, the better the results are.
+
+## Using Search
+The main search bar can be found on your Datahub instance's landingpage. 
+Or you can try it out on the demo instance: [here](https://demo.datahubproject.io/)
+
+![](https://github.com/datahub-project/static-assets/blob/main/imgs/search-landingpage.png?raw=true)
+
+<!-- Plain-language instructions of how to use the feature
+
+Provide a step-by-step guide to use feature, including relevant screenshots and/or GIFs
+
+* Where/how do you access it?
+* What best practices exist?
+* What are common code snippets?
+ -->
+
+ Search terms are part of the URL, so it can be linked to others.
+ 
+### Filter sidebar
+
+The filter sidebar lets users to filter by different aspects of the metadata on the UI (e.g tags, owners, type,...).
+
+![](https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/filters_highlighted.png)
+
+### Results
+
+Search queries are run on the ingested data and sorted by relevance. 
+Terms will be found in column names, descriptions, glossary, anywhere in the ingested metadata. For better results, ingest more relevant metadata. See more: [Metadata-ingestion](../architecture/metadata-ingestion.md)
+
+### Advanced queries
+
+The search bar supports advanced queries with pattern matching, logical expressions and filtering by aspects.
+
+The following examples are in the format of
+X: *typical question* :
 ```what to key in search bar```.  [sample url](https://example.com)  
 Wildcard characters can be added to the search terms as well. These examples are non exhaustive and using Datasets as a reference.    
   
-I want to:  
+If you want to:  
 1. *Find a dataset with the word **mask** in the name* :  
 ```name: *mask*``` [Sample results](https://demo.datahubproject.io/search?page=1&query=name%3A%20%2Amask%2A)   
 This will return entities with **mask** in the name.  
@@ -37,7 +97,64 @@ Similar to field descriptions, dataset descriptions can be found in 2 aspects, h
 ```browsePaths: *hive*``` [Sample results](https://demo.datahubproject.io/search?page=1&query=browsePaths%3A%20%2Ahive%2A)  
 BrowsePath is stored as a complete string, for instance ```/datasets/prod/hive/SampleKafkaDataset```, hence the need for wildcards on both ends of the term to return a result. 
 
-## Where to find more information?  
+<!--
+## Additional Resources
+
+ Comment out any irrelevant or empty sections -->
+
+### Videos
+
+**What can you do with DataHub?**
+
+<p align="center">
+<iframe width="560" height="315" src="https://www.youtube.com/watch?v=dubrKIcv37c" title="YouTube video player" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe>
+</p> 
+
+<!-- 
+NOTE: Find the iframe details in YouTube by going to Share > Embed 
+ -->
+
+### GraphQL
+
+* Full API documentation: [here](../graphql/queries.md#searchacrossentities).
+* You can try out the API on the demo instance's public GraphQL interface: [here](https://demo.datahubproject.io/api/graphiql).  
+
+The same GraphQL API that powers the Search UI can be used
+for integrations and programmatic use-cases. 
+
+```
+# Example query
+{
+  searchAcrossEntities(
+    input: {types: [], query: "*", start: 0, count: 10, filters: [{field: "fieldTags", value: "urn:li:tag:Dimension"}]}
+  ) {
+    start
+    count
+    total
+    searchResults {
+      entity {
+        type
+        ... on Dataset {
+          urn
+          type
+          platform {
+            name
+          }
+          name
+        }
+      }
+    }
+  }
+}
+```
+<!-- Bulleted list of relevant GraphQL docs; comment out section if none -->
+
+### DataHub Blog
+* [Using DataHub for Search & Discovery](https://blog.datahubproject.io/using-datahub-for-search-discovery-fa309089be22)
+<!-- Bulleted list of relevant DataHub Blog posts; comment out section if none -->
+
+## FAQ and Troubleshooting
+** Where to find more information? **
 The sample queries here are non exhaustive. [The link here](https://demo.datahubproject.io/tag/urn:li:tag:Searchable) shows the current list of indexed fields for each entity inside Datahub. Click on the fields inside each entity and see which field has the tag ```Searchable```.  
 However, it does not tell you the specific attribute name to use for specialized searches. One way to do so is to inspect the ElasticSearch indices, for example:  
 ```curl http://localhost:9200/_cat/indices``` returns all the ES indices in the ElasticSearch container.  
@@ -121,5 +238,16 @@ example information of a dataset:
       },
 ```
 
+<!-- Use the following format:
 
+**Question in bold text**
 
+Response in plain text
+
+-->
+
+*Need more help? Join the conversation in [Slack](http://slack.datahubproject.io)!*
+
+### Related Features
+
+* [Metadata-ingestion](../architecture/metadata-ingestion.md)
