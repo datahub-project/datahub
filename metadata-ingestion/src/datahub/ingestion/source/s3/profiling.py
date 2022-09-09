@@ -19,8 +19,8 @@ from pydeequ.analyzers import (
 )
 from pyspark.sql import SparkSession
 from pyspark.sql.functions import col, count, isnan, when
-from pyspark.sql.types import DataType as SparkDataType
 from pyspark.sql.types import (
+    DataType as SparkDataType,
     DateType,
     DecimalType,
     DoubleType,
