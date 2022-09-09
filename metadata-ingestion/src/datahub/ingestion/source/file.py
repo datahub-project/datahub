@@ -154,7 +154,7 @@ class FileSourceReport(SourceReport):
         if percentage_completion > 0:
             self.estimated_time_to_completion_in_minutes = int(
                 (
-                    self.running_time_in_seconds
+                    self.running_time.total_seconds()
                     * (100 - percentage_completion)
                     / percentage_completion
                 )

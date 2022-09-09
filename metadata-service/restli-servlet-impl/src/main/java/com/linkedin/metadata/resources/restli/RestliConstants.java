@@ -32,6 +32,7 @@ public final class RestliConstants {
   public static final String PARAM_LIMIT = "limit";
   public static final String PARAM_SNAPSHOT = "snapshot";
   public static final String PARAM_URN = "urn";
+  public static final String PARAM_URN_LIKE = "urnLike";
   public static final String PARAM_URNS = "urns";
   public static final String PARAM_MODE = "mode";
   public static final String PARAM_DIRECTION = "direction";

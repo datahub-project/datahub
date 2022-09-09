@@ -375,6 +375,9 @@ fragment searchResultFields on Entity {
                 }
             }
         }
+        inputFields {
+            ...inputFieldsFields
+        }
     }
     ... on Chart {
         chartId
@@ -436,6 +439,9 @@ fragment searchResultFields on Entity {
                     pictureLink
                 }
             }
+        }
+        inputFields {
+            ...inputFieldsFields
         }
     }
     ... on DataFlow {
@@ -535,6 +541,9 @@ fragment searchResultFields on Entity {
         }
         deprecation {
             ...deprecationFields
+        }
+        parentNodes {
+            ...parentNodesFields
         }
     }
     ... on GlossaryNode {

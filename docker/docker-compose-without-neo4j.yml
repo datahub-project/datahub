@@ -12,7 +12,7 @@ services:
     hostname: zookeeper
     container_name: zookeeper
     ports:
-      - "2181:2181"
+      - ${DATAHUB_MAPPED_ZK_PORT:-2181}:2181
     volumes:
       - zkdata:/var/opt/zookeeper
 
@@ -24,8 +24,7 @@ services:
     depends_on:
       - zookeeper
     ports:
-      - "29092:29092"
-      - "9092:9092"
+      - ${DATAHUB_MAPPED_KAFKA_BROKER_PORT:-9092}:9092
 
   # This "container" is a workaround to pre-create topics
   kafka-setup:
@@ -48,7 +47,7 @@ services:
       - zookeeper
       - broker
     ports:
-      - "8081:8081"
+      - ${DATAHUB_MAPPED_SCHEMA_REGISTRY_PORT:-8081}:8081
 
   elasticsearch:
     image: elasticsearch:7.9.3
@@ -56,7 +55,7 @@ services:
     container_name: elasticsearch
     hostname: elasticsearch
     ports:
-      - "9200:9200"
+      - ${DATAHUB_MAPPED_ELASTIC_PORT:-9200}:9200
     environment:
       - discovery.type=single-node
       - xpack.security.enabled=false
@@ -88,7 +87,7 @@ services:
     hostname: datahub-gms
     container_name: datahub-gms
     ports:
-      - "8080:8080"
+      - ${DATAHUB_MAPPED_GMS_PORT:-8080}:8080
     depends_on:
       - elasticsearch-setup
       - kafka-setup
@@ -103,7 +102,7 @@ services:
     hostname: datahub-frontend-react
     container_name: datahub-frontend-react
     ports:
-      - "9002:9002"
+      - ${DATAHUB_MAPPED_FRONTEND_PORT:-9002}:9002
     depends_on:
       - datahub-gms
     volumes:

@@ -171,6 +171,9 @@ class DatahubRestSink(Sink):
                         e.info["stackTrace"] = "\n".join(
                             e.info["stackTrace"].split("\n")[:3]
                         )
+                        e.info["message"] = e.info.get("message", "").split("\n")[0][
+                            :200
+                        ]
 
                 if not self.treat_errors_as_warnings:
                     self.report.report_failure({"error": e.message, "info": e.info})

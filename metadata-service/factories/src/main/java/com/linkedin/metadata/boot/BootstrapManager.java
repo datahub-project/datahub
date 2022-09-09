@@ -2,6 +2,8 @@ package com.linkedin.metadata.boot;
 
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 
@@ -13,6 +15,7 @@ import org.springframework.stereotype.Component;
 @Component
 public class BootstrapManager {
 
+  private final ExecutorService _asyncExecutor = Executors.newFixedThreadPool(5);
   private final List<BootstrapStep> _bootSteps;
 
   public BootstrapManager(final List<BootstrapStep> bootSteps) {
@@ -42,7 +45,7 @@ public class BootstrapManager {
           } catch (Exception e) {
             log.error(String.format("Caught exception while executing bootstrap step %s. Continuing...", step.name()), e);
           }
-        });
+        }, _asyncExecutor);
       }
     }
   }
