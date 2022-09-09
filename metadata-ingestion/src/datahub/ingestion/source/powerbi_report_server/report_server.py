@@ -10,7 +10,6 @@ from typing import Any, Dict, Iterable, List, Optional, Set
 
 import pydantic
 import requests
-from datahub.utilities.dedup_list import deduplicate_list
 from requests.exceptions import ConnectionError
 from requests_ntlm import HttpNtlmAuth
 
@@ -29,6 +28,19 @@ from datahub.ingestion.api.decorators import (
 )
 from datahub.ingestion.api.source import Source, SourceReport
 from datahub.ingestion.api.workunit import MetadataWorkUnit
+from datahub.ingestion.source.powerbi_report_server.constants import (
+    API_ENDPOINTS,
+    Constant,
+)
+from datahub.ingestion.source.powerbi_report_server.report_server_domain import (
+    CorpUser,
+    LinkedReport,
+    MobileReport,
+    Owner,
+    OwnershipData,
+    PowerBiReport,
+    Report,
+)
 from datahub.metadata.com.linkedin.pegasus2avro.common import ChangeAuditStamps
 from datahub.metadata.schema_classes import (
     BrowsePathsClass,
@@ -42,17 +54,7 @@ from datahub.metadata.schema_classes import (
     OwnershipTypeClass,
     StatusClass,
 )
-
-from datahub.ingestion.source.powerbi_report_server.constants import API_ENDPOINTS, Constant
-from datahub.ingestion.source.powerbi_report_server.report_server_domain import (
-    LinkedReport,
-    MobileReport,
-    PowerBiReport,
-    Report,
-    CorpUser,
-    Owner,
-    OwnershipData
-)
+from datahub.utilities.dedup_list import deduplicate_list
 
 LOGGER = logging.getLogger(__name__)
 
@@ -238,11 +240,11 @@ class Mapper:
     @staticmethod
     def to_urn_set(mcps: List[MetadataChangeProposalWrapper]) -> List[str]:
         return deduplicate_list(
-                [
-                    mcp.entityUrn
-                    for mcp in mcps
-                    if mcp is not None and mcp.entityUrn is not None
-                ]
+            [
+                mcp.entityUrn
+                for mcp in mcps
+                if mcp is not None and mcp.entityUrn is not None
+            ]
         )
 
     def to_ownership_set(
@@ -536,6 +538,8 @@ class PowerBiReportServerDashboardSource(Source):
 
     def get_user_info(self, report: Any) -> OwnershipData:
         existing_ownership: List[OwnerClass] = []
+        if not self.source_config.extract_ownership:
+            return OwnershipData(existing_owners=[], owner_to_add=None)
         dashboard_urn = builder.make_dashboard_urn(
             self.source_config.platform_name, report.get_urn_part()
         )
@@ -544,7 +548,7 @@ class PowerBiReportServerDashboardSource(Source):
         if ownership := self.ctx.graph.get_ownership(entity_urn=dashboard_urn):
             existing_ownership = ownership.owners
         if self.ctx.graph.get_aspect_v2(
-                entity_urn=user_urn, aspect="corpUserInfo", aspect_type=CorpUserInfoClass
+            entity_urn=user_urn, aspect="corpUserInfo", aspect_type=CorpUserInfoClass
         ):
             existing_ownership.append(
                 OwnerClass(owner=user_urn, type=self.source_config.ownership_type)
