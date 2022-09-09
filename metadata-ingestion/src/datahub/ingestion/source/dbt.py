@@ -309,10 +309,6 @@ class DBTConfig(StatefulIngestionConfigBase):
         default=None,
         description="When fetching manifest files from s3, configuration for aws connection details",
     )
-    delete_tests_as_datasets: bool = Field(
-        False,
-        description="Prior to version 0.8.38, dbt tests were represented as datasets. If you ingested dbt tests before, set this flag to True (just needed once) to soft-delete tests that were generated as datasets by previous ingestion.",
-    )
     backcompat_skip_source_on_lineage_edge: bool = Field(
         False,
         description="Prior to version 0.8.41, lineage edges to sources were directed to the target platform node rather than the dbt source node. This contradicted the established pattern for other lineage edges to point to upstream dbt nodes. To revert lineage logic to this legacy approach, set this flag to true.",
@@ -1439,35 +1435,6 @@ class DBTSource(StatefulIngestionSourceBase):
                 )
                 self.report.report_workunit(wu)
                 yield wu
-
-            if self.config.delete_tests_as_datasets:
-                mce_platform = (
-                    self.config.target_platform
-                    if self.config.disable_dbt_node_creation
-                    else DBT_PLATFORM
-                )
-                node_datahub_urn = get_urn_from_dbtNode(
-                    node.database,
-                    node.schema,
-                    node.alias or node.name,  # previous code used the alias
-                    mce_platform,
-                    self.config.env,
-                    self.config.platform_instance
-                    if mce_platform == DBT_PLATFORM
-                    else None,
-                )
-                soft_delete_mcp = MetadataChangeProposalWrapper(
-                    entityType="dataset",
-                    changeType=ChangeTypeClass.UPSERT,
-                    entityUrn=node_datahub_urn,
-                    aspectName="status",
-                    aspect=StatusClass(removed=True),
-                )
-                soft_delete_wu = MetadataWorkUnit(
-                    id=f"{node_datahub_urn}-status", mcp=soft_delete_mcp
-                )
-                self.report.report_workunit(soft_delete_wu)
-                yield soft_delete_wu
 
     # create workunits from dbt nodes
     def get_workunits(self) -> Iterable[MetadataWorkUnit]:
