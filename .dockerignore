@@ -1,6 +1,7 @@
 **/node_modules/
 datahub-frontend/build/
 metadata-ingestion/venv/
+metadata-ingestion/.mypy_cache/
 out
 **/*.class
 # Have to copy gradle/wrapper/gradle-wrapper.jar, can't exclude ALL jars
