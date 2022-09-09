@@ -445,11 +445,11 @@ module.exports = {
       "docs/domains",
       "docs/how/business-glossary-guide",
       "docs/tags",
-      // {
-      //   type: "doc",
-      //   id: "docs/wip/slack-notifications",
-      //   className: "saasOnly",
-      // },
+      {
+        type: "doc",
+        id: "docs/managed-datahub/saas-slack-setup",
+        className: "saasOnly",
+      },
       // "docs/wip/ui-ingestion-guide", -- not needed
       // "docs/wip/personal-access-tokens-guide", -- not needed
 
