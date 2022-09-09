@@ -12,7 +12,7 @@ Add in `saasOnly` for Managed DataHub-only features
 
 <FeatureAvailability/>
 
-The **search bar** is an important mechnaism for discovering data assets in DataHub. From the search bar, you can find Datasets, Dashboards, Charts, Data Pipelines, and more. Simply type in a term and press 'enter'. 
+The **search bar** is an important mechnaism for discovering data assets in DataHub. From the search bar, you can find Datasets, Columns, Dashboards, Charts, Data Pipelines, and more. Simply type in a term and press 'enter'. 
 
 ![](https://github.com/datahub-project/static-assets/blob/main/imgs/search-landingpage.png?raw=true)
 
@@ -35,10 +35,10 @@ The **search bar** is an important mechnaism for discovering data assets in Data
 Search is available for all users. Although Search works out of the box, the more relevant data you ingest, the better the results are.
 
 ## Using Search
-The main search bar can be found on your Datahub instance's landingpage. 
-Or you can try it out on the demo instance: [here](https://demo.datahubproject.io/)
 
-![](https://github.com/datahub-project/static-assets/blob/main/imgs/search-landingpage.png?raw=true)
+Searching is as easy as typing in relevant business terms and pressing 'enter' to view matching data assets. 
+
+By default, search terms will match against different aspects of a data assets. This includes asset names, descriptions, tags, terms, owners, and even specific attributes like the names of columns in a table. 
 
 <!-- Plain-language instructions of how to use the feature
 
@@ -48,12 +48,10 @@ Provide a step-by-step guide to use feature, including relevant screenshots and/
 * What best practices exist?
 * What are common code snippets?
  -->
-
- Search terms are part of the URL, so it can be linked to others.
  
-### Filter sidebar
+### Filters
 
-The filter sidebar lets users to filter by different aspects of the metadata on the UI (e.g tags, owners, type,...).
+The filters sidebar sits on the left hand side of search results, and lets users find assets by drilling down. You can quickly filter by Data Platform (e.g. Snowflake), Tags, Glossary Terms, Domain, Owners, and more with a single click. 
 
 ![](https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/filters_highlighted.png)
 
