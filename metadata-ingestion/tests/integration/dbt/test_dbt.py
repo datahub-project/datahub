@@ -668,6 +668,8 @@ def test_dbt_stateful_tests(pytestconfig, tmp_path, mock_time, mock_datahub_grap
         ("timestamp", "timestamp"),
         ("timestamp(3)", "timestamp"),
         ("row(x bigint, y double)", "row"),
+        ("array(row(x bigint, y double))", "array"),
+        ("map(varchar, varchar)", "map"),
     ],
 )
 def test_resolve_trino_modified_type(data_type, expected_data_type):
