@@ -57,12 +57,13 @@ The filters sidebar sits on the left hand side of search results, and lets users
 
 ### Results
 
-Search queries are run on the ingested data and sorted by relevance. 
-Terms will be found in column names, descriptions, glossary, anywhere in the ingested metadata. For better results, ingest more relevant metadata. See more: [Metadata-ingestion](../architecture/metadata-ingestion.md)
+Search results appear ranked by their relevance. In self-hosted DataHub ranking is based on how closely the query matched textual fields of an asset and its metadata. In Managed DataHub, ranking is based on a combination of textual relevance, usage (queries / views), and change frequency. 
+
+With better metadata comes better results. Learn more about ingestion technical metadata here in the [Metadata-ingestion](../architecture/metadata-ingestion.md) guide.
 
 ### Advanced queries
 
-The search bar supports advanced queries with pattern matching, logical expressions and filtering by aspects.
+The search bar supports advanced queries with pattern matching, logical expressions and filtering by specific field matches.
 
 The following examples are in the format of
 X: *typical question* :
