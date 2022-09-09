@@ -1,4 +1,4 @@
-name: Publish Datahub Client
+name: Publish Datahub Java Jars (Client, Spark Lineage, Protobuf)
 
 on:
   workflow_run:
@@ -12,13 +12,11 @@ on:
   # Allows you to run this workflow manually from the Actions tab
   workflow_dispatch:
 
-
 concurrency:
   group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
   cancel-in-progress: true
 
 jobs:
-
   check-secret:
     runs-on: ubuntu-latest
     if: ${{ github.event.workflow_run.conclusion == 'success' }}
@@ -62,7 +60,6 @@ jobs:
           echo signingKey=$SIGNING_KEY >> gradle.properties
           ./gradlew :metadata-integration:java:datahub-client:printVersion
           ./gradlew :metadata-integration:java:datahub-client:publishToMavenLocal
-          #./gradlew :metadata-integration:java:datahub-client:closeAndReleaseRepository --info
       - name: publish datahub-spark jar
         env:
           RELEASE_USERNAME: ${{ secrets.RELEASE_USERNAME }}
@@ -88,7 +85,6 @@ jobs:
            # Publish datahub-protobuf to maven
           ./gradlew :metadata-integration:java:datahub-protobuf:printVersion
           ./gradlew :metadata-integration:java:datahub-protobuf:publishToMavenLocal
-          #./gradlew :metadata-integration:java:datahub-client:closeAndReleaseRepository --info
       - name: build and publish datahub-ranger-plugin
         env:
           RELEASE_USERNAME: ${{ secrets.RELEASE_USERNAME }}
@@ -102,4 +98,3 @@ jobs:
            # Publish apache ranger plugin to maven
           ./gradlew :datahub-ranger-plugin:printVersion
           ./gradlew :datahub-ranger-plugin:publishMavenJavaPublicationToMavenLocal
-          #./gradlew :metadata-integration:java:datahub-client:closeAndReleaseRepository --info
