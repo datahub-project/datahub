@@ -22,8 +22,9 @@ from typing import (
 from urllib.parse import quote_plus
 
 import pydantic
+import sqlalchemy.dialects.postgresql.base
 from pydantic.fields import Field
-from sqlalchemy import create_engine, dialects, inspect
+from sqlalchemy import create_engine, inspect
 from sqlalchemy.engine.reflection import Inspector
 from sqlalchemy.exc import ProgrammingError
 from sqlalchemy.sql import sqltypes as types
@@ -350,20 +351,23 @@ _field_type_mapping: Dict[Type[types.TypeEngine], Type] = {
     types.DATETIME: TimeTypeClass,
     types.TIMESTAMP: TimeTypeClass,
     types.JSON: RecordTypeClass,
-    dialects.postgresql.base.BYTEA: BytesTypeClass,
-    dialects.postgresql.base.DOUBLE_PRECISION: NumberTypeClass,
-    dialects.postgresql.base.INET: StringTypeClass,
-    dialects.postgresql.base.MACADDR: StringTypeClass,
-    dialects.postgresql.base.MONEY: NumberTypeClass,
-    dialects.postgresql.base.OID: StringTypeClass,
-    dialects.postgresql.base.REGCLASS: BytesTypeClass,
-    dialects.postgresql.base.TIMESTAMP: TimeTypeClass,
-    dialects.postgresql.base.TIME: TimeTypeClass,
-    dialects.postgresql.base.INTERVAL: TimeTypeClass,
-    dialects.postgresql.base.BIT: BytesTypeClass,
-    dialects.postgresql.base.UUID: StringTypeClass,
-    dialects.postgresql.base.TSVECTOR: BytesTypeClass,
-    dialects.postgresql.base.ENUM: EnumTypeClass,
+    # Because the postgresql dialect is used internally by many other dialects,
+    # we add some postgres types here. This is ok to do because the postgresql
+    # dialect is built-in to sqlalchemy.
+    sqlalchemy.dialects.postgresql.base.BYTEA: BytesTypeClass,
+    sqlalchemy.dialects.postgresql.base.DOUBLE_PRECISION: NumberTypeClass,
+    sqlalchemy.dialects.postgresql.base.INET: StringTypeClass,
+    sqlalchemy.dialects.postgresql.base.MACADDR: StringTypeClass,
+    sqlalchemy.dialects.postgresql.base.MONEY: NumberTypeClass,
+    sqlalchemy.dialects.postgresql.base.OID: StringTypeClass,
+    sqlalchemy.dialects.postgresql.base.REGCLASS: BytesTypeClass,
+    sqlalchemy.dialects.postgresql.base.TIMESTAMP: TimeTypeClass,
+    sqlalchemy.dialects.postgresql.base.TIME: TimeTypeClass,
+    sqlalchemy.dialects.postgresql.base.INTERVAL: TimeTypeClass,
+    sqlalchemy.dialects.postgresql.base.BIT: BytesTypeClass,
+    sqlalchemy.dialects.postgresql.base.UUID: StringTypeClass,
+    sqlalchemy.dialects.postgresql.base.TSVECTOR: BytesTypeClass,
+    sqlalchemy.dialects.postgresql.base.ENUM: EnumTypeClass,
     # When SQLAlchemy is unable to map a type into its internal hierarchy, it
     # assigns the NullType by default. We want to carry this warning through.
     types.NullType: NullTypeClass,

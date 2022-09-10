@@ -23,7 +23,6 @@ import { SidebarDomainSection } from '../shared/containers/profile/sidebar/Domai
 import { EntityMenuItems } from '../shared/EntityDropdown/EntityDropdown';
 import { LineageTab } from '../shared/tabs/Lineage/LineageTab';
 import { DashboardStatsSummarySubHeader } from './profile/DashboardStatsSummarySubHeader';
-import { InputFieldsTab } from '../shared/tabs/Entity/InputFieldsTab';
 import { ChartSnippet } from '../chart/ChartSnippet';
 
 /**
@@ -86,16 +85,6 @@ export class DashboardEntity implements Entity<Dashboard> {
                 {
                     name: 'Documentation',
                     component: DocumentationTab,
-                },
-                {
-                    name: 'Fields',
-                    component: InputFieldsTab,
-                    display: {
-                        visible: (_, dashboard: GetDashboardQuery) =>
-                            (dashboard?.dashboard?.inputFields?.fields?.length || 0) > 0,
-                        enabled: (_, dashboard: GetDashboardQuery) =>
-                            (dashboard?.dashboard?.inputFields?.fields?.length || 0) > 0,
-                    },
                 },
                 {
                     name: 'Properties',
@@ -215,7 +204,13 @@ export class DashboardEntity implements Entity<Dashboard> {
                 statsSummary={data.statsSummary}
                 lastUpdatedMs={data.properties?.lastModified?.time}
                 createdMs={data.properties?.created?.time}
-                snippet={<ChartSnippet matchedFields={result.matchedFields} inputFields={data.inputFields} />}
+                snippet={
+                    <ChartSnippet
+                        isMatchingDashboard
+                        matchedFields={result.matchedFields}
+                        inputFields={data.inputFields}
+                    />
+                }
             />
         );
     };
