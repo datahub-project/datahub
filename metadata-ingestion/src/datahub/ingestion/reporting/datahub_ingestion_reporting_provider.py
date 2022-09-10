@@ -13,7 +13,7 @@ from datahub.ingestion.api.ingestion_job_reporting_provider_base import (
     JobStateKey,
     ReportingJobStatesMap,
 )
-from datahub.ingestion.graph.client import DatahubClientConfig, DataHubGraph
+from datahub.ingestion.graph.client import DataHubGraph, DataHubGraphConfig
 from datahub.metadata.schema_classes import (
     ChangeTypeClass,
     DatahubIngestionRunSummaryClass,
@@ -23,7 +23,7 @@ logger = logging.getLogger(__name__)
 
 
 class DatahubIngestionReportingProviderConfig(IngestionReportingProviderConfig):
-    datahub_api: Optional[DatahubClientConfig] = DatahubClientConfig()
+    datahub_api: Optional[DataHubGraphConfig] = DataHubGraphConfig()
 
 
 class DatahubIngestionReportingProvider(IngestionReportingProviderBase):

@@ -1,6 +1,7 @@
 import { Empty } from 'antd';
 import React, { useEffect, useMemo, useState } from 'react';
 import styled from 'styled-components';
+import { useLocation } from 'react-router';
 import { GetDatasetQuery } from '../../../../../../graphql/dataset.generated';
 import { useGetSchemaBlameQuery, useGetSchemaVersionListQuery } from '../../../../../../graphql/schemaBlame.generated';
 import SchemaEditableContext from '../../../../../shared/SchemaEditableContext';
@@ -14,6 +15,10 @@ import { SchemaFieldBlame, SemanticVersionStruct } from '../../../../../../types
 import SchemaTable from './SchemaTable';
 import useGetSemanticVersionFromUrlParams from './utils/useGetSemanticVersionFromUrlParams';
 import { useGetVersionedDatasetQuery } from '../../../../../../graphql/versionedDataset.generated';
+import { useEntityRegistry } from '../../../../../useEntityRegistry';
+import { filterSchemaRows } from './utils/filterSchemaRows';
+import getSchemaFilterFromQueryString from './utils/getSchemaFilterFromQueryString';
+import useUpdateSchemaFilterQueryString from './utils/updateSchemaFilterQueryString';
 
 const NoSchema = styled(Empty)`
     color: ${ANTD_GRAY[6]};
@@ -26,6 +31,7 @@ const SchemaTableContainer = styled.div`
 `;
 export const SchemaTab = ({ properties }: { properties?: any }) => {
     const { entityData } = useEntityData();
+    const entityRegistry = useEntityRegistry();
     const baseEntity = useBaseEntity<GetDatasetQuery>();
     const maybeEntityData = entityData || {};
     let schemaMetadata: any = maybeEntityData?.schemaMetadata || undefined;
@@ -33,6 +39,11 @@ export const SchemaTab = ({ properties }: { properties?: any }) => {
     const datasetUrn: string = baseEntity?.dataset?.urn || '';
     const usageStats = baseEntity?.dataset?.usageStats;
     const [showRaw, setShowRaw] = useState(false);
+    const location = useLocation();
+    const schemaFilter = getSchemaFilterFromQueryString(location);
+    const [filterText, setFilterText] = useState(schemaFilter);
+    useUpdateSchemaFilterQueryString(filterText);
+
     const hasRawSchema = useMemo(
         () =>
             schemaMetadata?.platformSchema?.__typename === 'TableSchema' &&
@@ -113,9 +124,17 @@ export const SchemaTab = ({ properties }: { properties?: any }) => {
             setShowKeySchema(true);
         }
     }, [hasValueSchema, hasKeySchema, setShowKeySchema]);
+
+    const { filteredRows, expandedRowsFromFilter } = filterSchemaRows(
+        schemaMetadata?.fields,
+        editableSchemaMetadata,
+        filterText,
+        entityRegistry,
+    );
+
     const rows = useMemo(() => {
-        return groupByFieldPath(schemaMetadata?.fields, { showKeySchema });
-    }, [schemaMetadata, showKeySchema]);
+        return groupByFieldPath(filteredRows, { showKeySchema });
+    }, [showKeySchema, filteredRows]);
 
     const lastUpdated = getSchemaBlameData?.getSchemaBlame?.version?.semanticVersionTimestamp;
     const lastObserved = versionedDatasetData.data?.versionedDataset?.schema?.lastObserved;
@@ -139,6 +158,8 @@ export const SchemaTab = ({ properties }: { properties?: any }) => {
                 versionList={versionList}
                 showSchemaAuditView={showSchemaAuditView}
                 setShowSchemaAuditView={setShowSchemaAuditView}
+                setFilterText={setFilterText}
+                numRows={rows.length}
             />
             <SchemaTableContainer>
                 {/* eslint-disable-next-line no-nested-ternary */}
@@ -159,6 +180,8 @@ export const SchemaTab = ({ properties }: { properties?: any }) => {
                                 usageStats={usageStats}
                                 schemaFieldBlameList={schemaFieldBlameList}
                                 showSchemaAuditView={showSchemaAuditView}
+                                expandedRowsFromFilter={expandedRowsFromFilter as any}
+                                filterText={filterText as any}
                             />
                         </SchemaEditableContext.Provider>
                     </>
