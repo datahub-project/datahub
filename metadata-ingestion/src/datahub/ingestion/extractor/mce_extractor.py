@@ -6,12 +6,12 @@ from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api import RecordEnvelope
 from datahub.ingestion.api.source import Extractor, WorkUnit
 from datahub.ingestion.api.workunit import MetadataWorkUnit, UsageStatsWorkUnit
-from datahub.metadata.com.linkedin.pegasus2avro.mxe import (
-    MetadataChangeEvent,
-    MetadataChangeProposal,
-    SystemMetadata,
+from datahub.metadata.schema_classes import (
+    MetadataChangeEventClass as MetadataChangeEvent,
+    MetadataChangeProposalClass as MetadataChangeProposal,
+    SystemMetadataClass as SystemMetadata,
+    UsageAggregationClass,
 )
-from datahub.metadata.schema_classes import UsageAggregationClass
 
 try:
     import black
