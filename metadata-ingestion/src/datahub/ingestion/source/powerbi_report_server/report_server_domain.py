@@ -3,8 +3,10 @@ from typing import Any, Dict, List, Optional
 
 from pydantic import BaseModel, Field, validator
 
+from datahub.ingestion.source.powerbi_report_server.constants import (
+    RelationshipDirection,
+)
 from datahub.metadata.schema_classes import OwnerClass
-from datahub.ingestion.source.powerbi_report_server.constants import RelationshipDirection
 
 
 class CatalogItem(BaseModel):
