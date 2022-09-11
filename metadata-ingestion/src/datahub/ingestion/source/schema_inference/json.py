@@ -1,8 +1,8 @@
 import logging
 from typing import IO, Dict, List, Type, Union
 
-import ujson
 import jsonlines as jsl
+import ujson
 
 from datahub.ingestion.source.schema_inference.base import SchemaInferenceBase
 from datahub.ingestion.source.schema_inference.object import construct_schema
@@ -31,6 +31,7 @@ _field_type_mapping: Dict[Union[Type, str], Type] = {
 
 logger = logging.getLogger(__name__)
 
+
 class JsonInferrer(SchemaInferenceBase):
     def infer_schema(self, file: IO[bytes]) -> List[SchemaField]:
         try:
@@ -39,8 +40,8 @@ class JsonInferrer(SchemaInferenceBase):
             logger.info(f"Got ValueError: {e}. Retry with jsonlines")
             file.seek(0)
             reader = jsl.Reader(file)
-            datastore = [obj for obj in reader.iter(type=dict, skip_invalid=True)]            
-       
+            datastore = [obj for obj in reader.iter(type=dict, skip_invalid=True)]
+
         if not isinstance(datastore, list):
             datastore = [datastore]
 
