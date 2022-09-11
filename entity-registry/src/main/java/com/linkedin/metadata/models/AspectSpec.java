@@ -9,11 +9,12 @@ import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
+import lombok.EqualsAndHashCode;
 import lombok.Getter;
 import lombok.Setter;
 import org.apache.maven.artifact.versioning.ComparableVersion;
 
-
+@EqualsAndHashCode
 public class AspectSpec {
 
   private final AspectAnnotation _aspectAnnotation;

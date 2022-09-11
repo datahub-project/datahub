@@ -1,12 +1,14 @@
 package com.linkedin.metadata.entity;
 
+import com.linkedin.metadata.models.AspectSpec;
 import com.linkedin.metadata.models.EntitySpec;
 import com.linkedin.metadata.models.EntitySpecBuilder;
 import com.linkedin.metadata.models.EventSpec;
 import com.linkedin.metadata.models.registry.EntityRegistry;
+import com.linkedin.metadata.models.registry.template.AspectTemplateEngine;
 import com.linkedin.metadata.snapshot.Snapshot;
-
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.Map;
 import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
@@ -49,7 +51,19 @@ public class TestEntityRegistry implements EntityRegistry {
 
   @Nonnull
   @Override
+  public Map<String, AspectSpec> getAspectSpecs() {
+    return new HashMap<>();
+  }
+
+  @Nonnull
+  @Override
   public Map<String, EventSpec> getEventSpecs() {
     return Collections.emptyMap();
+  }
+
+  @Nonnull
+  @Override
+  public AspectTemplateEngine getAspectTemplateEngine() {
+    return new AspectTemplateEngine();
   }
 }

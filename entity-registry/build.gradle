@@ -9,6 +9,7 @@ dependencies {
   compile externalDependency.jacksonDataBind
   compile externalDependency.jacksonDataFormatYaml
   compile externalDependency.reflections
+  compile externalDependency.jsonPatch
   dataModel project(':li-utils')
   annotationProcessor externalDependency.lombok
 

@@ -12,6 +12,7 @@ import com.linkedin.metadata.models.EventSpecBuilder;
 import com.linkedin.metadata.models.registry.config.Entities;
 import com.linkedin.metadata.models.registry.config.Entity;
 import com.linkedin.metadata.models.registry.config.Event;
+import com.linkedin.metadata.models.registry.template.AspectTemplateEngine;
 import com.linkedin.util.Pair;
 import java.io.FileInputStream;
 import java.io.FileNotFoundException;
@@ -30,6 +31,8 @@ import javax.annotation.Nonnull;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.maven.artifact.versioning.ComparableVersion;
 
+import static com.linkedin.metadata.models.registry.EntityRegistryUtils.*;
+
 
 /**
  * Implementation of {@link EntityRegistry} that is similar to {@link ConfigEntityRegistry} but different in one important way.
@@ -41,6 +44,7 @@ public class PatchEntityRegistry implements EntityRegistry {
   private final DataSchemaFactory dataSchemaFactory;
   private final Map<String, EntitySpec> entityNameToSpec;
   private final Map<String, EventSpec> eventNameToSpec;
+  private final Map<String, AspectSpec> _aspectNameToSpec;
 
   private final String registryName;
   private final ComparableVersion registryVersion;
@@ -164,6 +168,7 @@ public class PatchEntityRegistry implements EntityRegistry {
         eventNameToSpec.put(event.getName().toLowerCase(), eventSpec);
       }
     }
+    _aspectNameToSpec = populateAspectMap(new ArrayList<>(entityNameToSpec.values()));
   }
 
   @Override
@@ -201,8 +206,22 @@ public class PatchEntityRegistry implements EntityRegistry {
 
   @Nonnull
   @Override
+  public Map<String, AspectSpec> getAspectSpecs() {
+    return _aspectNameToSpec;
+  }
+
+  @Nonnull
+  @Override
   public Map<String, EventSpec> getEventSpecs() {
     return eventNameToSpec;
+  }
+
+  @Nonnull
+  @Override
+  public AspectTemplateEngine getAspectTemplateEngine() {
+    //TODO: support patch based templates
+
+    return new AspectTemplateEngine();
   }
 
   private AspectSpec buildAspectSpec(String aspectName, EntitySpecBuilder entitySpecBuilder) {

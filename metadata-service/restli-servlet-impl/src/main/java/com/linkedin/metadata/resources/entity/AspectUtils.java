@@ -45,6 +45,8 @@ public class AspectUtils {
     try {
       MetadataChangeProposal proposal = original.copy();
       GenericAspect genericAspect = GenericRecordUtils.serializeAspect(aspect);
+      // Set UPSERT changetype here as additional changes being added should always be done in UPSERT mode even for patches
+      proposal.setChangeType(ChangeType.UPSERT);
       proposal.setAspect(genericAspect);
       proposal.setAspectName(aspectName);
       return proposal;

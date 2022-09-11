@@ -6,8 +6,10 @@ import com.linkedin.common.OwnershipType;
 import com.linkedin.common.Status;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.data.DataMap;
-import org.testng.annotations.Test;
+import com.linkedin.metadata.entity.validation.ValidationException;
+import com.linkedin.metadata.entity.validation.ValidationUtils;
 import org.testng.Assert;
+import org.testng.annotations.Test;
 
 public class ValidationUtilsTest {
   @Test

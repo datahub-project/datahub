@@ -7,6 +7,7 @@ import com.linkedin.metadata.models.AspectSpec;
 import com.linkedin.metadata.models.DefaultEntitySpec;
 import com.linkedin.metadata.models.EntitySpec;
 import com.linkedin.metadata.models.EventSpec;
+import com.linkedin.metadata.models.registry.template.AspectTemplateEngine;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -26,10 +27,15 @@ public class MergedEntityRegistry implements EntityRegistry {
 
   private final Map<String, EntitySpec> entityNameToSpec;
   private final Map<String, EventSpec> eventNameToSpec;
+  private final AspectTemplateEngine _aspectTemplateEngine;
+  private final Map<String, AspectSpec> _aspectNameToSpec;
 
   public MergedEntityRegistry(EntityRegistry baseEntityRegistry) {
     entityNameToSpec = baseEntityRegistry.getEntitySpecs() != null ? baseEntityRegistry.getEntitySpecs() : new HashMap<>();
     eventNameToSpec = baseEntityRegistry.getEventSpecs() != null ? baseEntityRegistry.getEventSpecs() : new HashMap<>();
+    baseEntityRegistry.getAspectTemplateEngine();
+    _aspectTemplateEngine = baseEntityRegistry.getAspectTemplateEngine();
+    _aspectNameToSpec = baseEntityRegistry.getAspectSpecs();
   }
 
   private void validateEntitySpec(EntitySpec entitySpec, final ValidationResult validationResult) {
@@ -134,8 +140,20 @@ public class MergedEntityRegistry implements EntityRegistry {
 
   @Nonnull
   @Override
+  public Map<String, AspectSpec> getAspectSpecs() {
+    return _aspectNameToSpec;
+  }
+
+  @Nonnull
+  @Override
   public Map<String, EventSpec> getEventSpecs() {
     return eventNameToSpec;
+  }
+
+  @Nonnull
+  @Override
+  public AspectTemplateEngine getAspectTemplateEngine() {
+    return _aspectTemplateEngine;
   }
 
   @Setter

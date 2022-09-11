@@ -68,7 +68,7 @@ metadata-ingestion/generated/**
 # docs
 docs/generated/
 tmp*
-temp*
+temp/**
 
 # frontend assets
 datahub-frontend/public/**

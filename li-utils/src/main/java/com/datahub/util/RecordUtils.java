@@ -229,7 +229,7 @@ public class RecordUtils {
    * @param fieldName the name of the field to update
    * @param value the value to set
    */
-  public static <T extends RecordTemplate, V extends DataTemplate> void setRecordTemplateComplexField(
+  public static <T extends RecordTemplate, V> void setRecordTemplateComplexField(
       @Nonnull T recordTemplate, @Nonnull String fieldName, @Nonnull V value) {
 
     final RecordDataSchema.Field field = getRecordDataSchemaField(recordTemplate, fieldName);

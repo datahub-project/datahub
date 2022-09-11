@@ -1,4 +1,4 @@
-package com.linkedin.metadata.entity;
+package com.linkedin.metadata.entity.validation;
 
 import com.linkedin.data.template.RecordTemplate;
 import lombok.extern.slf4j.Slf4j;
