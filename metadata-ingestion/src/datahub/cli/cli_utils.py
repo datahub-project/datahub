@@ -14,9 +14,10 @@ from pydantic import BaseModel, ValidationError
 from requests.models import Response
 from requests.sessions import Session
 
+from datahub.emitter.aspect import ASPECT_MAP, TIMESERIES_ASPECT_MAP
 from datahub.emitter.request_helper import _make_curl_command
 from datahub.emitter.serialization_helper import post_json_transform
-from datahub.metadata.schema_classes import _ASPECT_CLASSES, _Aspect
+from datahub.metadata.schema_classes import _Aspect
 from datahub.utilities.urns.urn import Urn, guess_entity_type
 
 log = logging.getLogger(__name__)
@@ -37,6 +38,10 @@ ENV_DATAHUB_SYSTEM_CLIENT_ID = "DATAHUB_SYSTEM_CLIENT_ID"
 ENV_DATAHUB_SYSTEM_CLIENT_SECRET = "DATAHUB_SYSTEM_CLIENT_SECRET"
 
 config_override: Dict = {}
+
+# TODO: Many of the methods in this file duplicate logic that already lives
+# in the DataHubGraph client. We should refactor this to use the client instead.
+# For the methods that aren't duplicates, that logic should be moved to the client.
 
 
 class GmsConfig(BaseModel):
@@ -577,29 +582,8 @@ def post_entity(
     return response.status_code
 
 
-type_class_to_name_map = {
-    AspectClass: AspectClass.get_aspect_name()
-    for AspectClass in _ASPECT_CLASSES
-    if AspectClass.get_aspect_type() == "default"
-}
-
-timeseries_class_to_aspect_name_map = {
-    AspectClass: AspectClass.get_aspect_name()
-    for AspectClass in _ASPECT_CLASSES
-    if AspectClass.get_aspect_type() == "timeseries"
-}
-
-
 def _get_pydantic_class_from_aspect_name(aspect_name: str) -> Optional[Type[_Aspect]]:
-    candidates = [k for (k, v) in type_class_to_name_map.items() if v == aspect_name]
-    candidates.extend(
-        [
-            k
-            for (k, v) in timeseries_class_to_aspect_name_map.items()
-            if v == aspect_name
-        ]
-    )
-    return candidates[0] if candidates else None
+    return ASPECT_MAP.get(aspect_name)
 
 
 def get_latest_timeseries_aspect_values(
@@ -631,18 +615,14 @@ def get_aspects_for_entity(
     cached_session_host: Optional[Tuple[Session, str]] = None,
 ) -> Dict[str, Union[dict, _Aspect]]:
     # Process non-timeseries aspects
-    non_timeseries_aspects: List[str] = [
-        a for a in aspects if a not in timeseries_class_to_aspect_name_map.values()
-    ]
+    non_timeseries_aspects = [a for a in aspects if a not in TIMESERIES_ASPECT_MAP]
     entity_response = get_entity(
         entity_urn, non_timeseries_aspects, cached_session_host
     )
     aspect_list: Dict[str, dict] = entity_response["aspects"]
 
     # Process timeseries aspects & append to aspect_list
-    timeseries_aspects: List[str] = [
-        a for a in aspects if a in timeseries_class_to_aspect_name_map.values()
-    ]
+    timeseries_aspects: List[str] = [a for a in aspects if a in TIMESERIES_ASPECT_MAP]
     for timeseries_aspect in timeseries_aspects:
         timeseries_response = get_latest_timeseries_aspect_values(
             entity_urn, timeseries_aspect, cached_session_host

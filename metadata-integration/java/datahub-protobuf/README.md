@@ -523,13 +523,36 @@ message Message {
 }
 ```
 
-## Gradle Integration
+## Installation
+
+Follow the specific instructions for your build system to declare a dependency on the appropriate version of the package.
+
+**_Note_**: Check the [Maven repository](https://mvnrepository.com/artifact/io.acryl/datahub-protobuf) for the latest version of the package before following the instructions below.
+
+### Gradle
+Add the following to your build.gradle.
+```gradle
+implementation 'io.acryl:datahub-protobuf:__version__'
+```
+### Maven
+Add the following to your `pom.xml`.
+```xml
+<!-- https://mvnrepository.com/artifact/io.acryl/datahub-protobuf -->
+<dependency>
+    <groupId>io.acryl</groupId>
+    <artifactId>datahub-protobuf</artifactId>
+    <!-- replace __version__ with the latest version number -->
+    <version>__version__</version>
+</dependency>
+```
+
+## Example Application
 
 An example application is included which works with the `protobuf-gradle-plugin`, see the standalone [example project](../datahub-protobuf-example).
 
 ### Usage
 
-Using the 
+Using the example application:
 
 ```shell
 export DATAHUB_API=...

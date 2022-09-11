@@ -1291,16 +1291,10 @@ class SQLAlchemySource(StatefulIngestionSourceBase):
             view_properties_aspect = ViewPropertiesClass(
                 materialized=False, viewLanguage="SQL", viewLogic=view_definition_string
             )
-            view_properties_wu = MetadataWorkUnit(
-                id=f"{view}-viewProperties",
-                mcp=MetadataChangeProposalWrapper(
-                    entityType="dataset",
-                    changeType=ChangeTypeClass.UPSERT,
-                    entityUrn=dataset_urn,
-                    aspectName="viewProperties",
-                    aspect=view_properties_aspect,
-                ),
-            )
+            view_properties_wu = MetadataChangeProposalWrapper(
+                entityUrn=dataset_urn,
+                aspect=view_properties_aspect,
+            ).as_workunit()
             self.report.report_workunit(view_properties_wu)
             yield view_properties_wu
 
