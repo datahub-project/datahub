@@ -161,7 +161,9 @@ def test_check_metadata_rewrite(
 
     output_file_path = tmp_path / "output.json"
     shutil.copyfile(json_input, output_file_path)
-    run_datahub_cmd(["check", "metadata-file", f"{output_file_path}", "--rewrite"])
+    run_datahub_cmd(
+        ["check", "metadata-file", f"{output_file_path}", "--rewrite", "--unpack-mces"]
+    )
 
     mce_helpers.check_golden_file(
         pytestconfig, output_path=output_file_path, golden_path=json_output_reference
@@ -238,3 +240,53 @@ def test_null_hiding() -> None:
         "recursive": False,
         "type": {"type": {"com.linkedin.pegasus2avro.schema.StringType": {}}},
     }
+
+
+def test_missing_optional_simple() -> None:
+    original = models.DataHubResourceFilterClass.from_obj(
+        {
+            "allResources": False,
+            "filter": {
+                "criteria": [
+                    {
+                        "condition": "EQUALS",
+                        "field": "RESOURCE_TYPE",
+                        "values": ["notebook", "dataset", "dashboard"],
+                    }
+                ]
+            },
+        }
+    )
+
+    # This one is missing the optional filters.allResources field.
+    revised_obj = {
+        "filter": {
+            "criteria": [
+                {
+                    "condition": "EQUALS",
+                    "field": "RESOURCE_TYPE",
+                    "values": ["notebook", "dataset", "dashboard"],
+                }
+            ]
+        },
+    }
+    revised = models.DataHubResourceFilterClass.from_obj(revised_obj)
+    assert revised.validate()
+
+    assert original == revised
+
+
+def test_missing_optional_in_union() -> None:
+    # This one doesn't contain any optional fields and should work fine.
+    revised_json = json.loads(
+        '{"lastUpdatedTimestamp":1662356745807,"actors":{"groups":[],"resourceOwners":false,"allUsers":true,"allGroups":false,"users":[]},"privileges":["EDIT_ENTITY_ASSERTIONS","EDIT_DATASET_COL_GLOSSARY_TERMS","EDIT_DATASET_COL_TAGS","EDIT_DATASET_COL_DESCRIPTION"],"displayName":"customtest","resources":{"filter":{"criteria":[{"field":"RESOURCE_TYPE","condition":"EQUALS","values":["notebook","dataset","dashboard"]}]},"allResources":false},"description":"","state":"ACTIVE","type":"METADATA"}'
+    )
+    revised = models.DataHubPolicyInfoClass.from_obj(revised_json)
+
+    # This one is missing the optional filters.allResources field.
+    original_json = json.loads(
+        '{"privileges":["EDIT_ENTITY_ASSERTIONS","EDIT_DATASET_COL_GLOSSARY_TERMS","EDIT_DATASET_COL_TAGS","EDIT_DATASET_COL_DESCRIPTION"],"actors":{"resourceOwners":false,"groups":[],"allGroups":false,"allUsers":true,"users":[]},"lastUpdatedTimestamp":1662356745807,"displayName":"customtest","description":"","resources":{"filter":{"criteria":[{"field":"RESOURCE_TYPE","condition":"EQUALS","values":["notebook","dataset","dashboard"]}]}},"state":"ACTIVE","type":"METADATA"}'
+    )
+    original = models.DataHubPolicyInfoClass.from_obj(original_json)
+
+    assert revised == original
