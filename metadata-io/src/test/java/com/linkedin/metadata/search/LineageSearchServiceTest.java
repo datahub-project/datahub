@@ -34,7 +34,6 @@ import com.linkedin.metadata.utils.elasticsearch.IndexConventionImpl;
 import org.elasticsearch.client.RestHighLevelClient;
 import org.springframework.cache.CacheManager;
 import org.springframework.cache.concurrent.ConcurrentMapCacheManager;
-import org.testcontainers.containers.wait.strategy.Wait;
 import org.testcontainers.elasticsearch.ElasticsearchContainer;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeClass;
@@ -83,7 +82,6 @@ public class LineageSearchServiceTest {
     _settingsBuilder = new SettingsBuilder(Collections.emptyList(), null);
     checkContainerEngine(_elasticsearchContainer.getDockerClient());
     _elasticsearchContainer.start();
-    _elasticsearchContainer.waitingFor(Wait.forHealthcheck());
     _searchClient = ElasticTestUtils.buildRestClient(_elasticsearchContainer);
     _elasticSearchService = buildEntitySearchService();
     _elasticSearchService.configure();

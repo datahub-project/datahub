@@ -74,4 +74,6 @@ def test_ingestion_via_rest(json_file):
         data = response.json()
         diff = json_compare.check(value, data)
         print(urn)
+        if diff != NO_DIFF:
+            print("Expected: {} Actual: {}".format(value, data))
         assert diff == NO_DIFF

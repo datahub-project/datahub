@@ -19,7 +19,6 @@ import com.linkedin.metadata.search.elasticsearch.ElasticSearchServiceTest;
 import com.linkedin.metadata.utils.elasticsearch.IndexConvention;
 import com.linkedin.metadata.utils.elasticsearch.IndexConventionImpl;
 import org.elasticsearch.client.RestHighLevelClient;
-import org.testcontainers.containers.wait.strategy.Wait;
 import org.testcontainers.elasticsearch.ElasticsearchContainer;
 import org.testng.SkipException;
 import org.testng.annotations.AfterClass;
@@ -54,7 +53,6 @@ public class ElasticSearchGraphServiceTest extends GraphServiceTestBase {
     _elasticsearchContainer = ElasticTestUtils.getNewElasticsearchContainer();
     checkContainerEngine(_elasticsearchContainer.getDockerClient());
     _elasticsearchContainer.start();
-    _elasticsearchContainer.waitingFor(Wait.forHealthcheck());
     _searchClient = ElasticTestUtils.buildRestClient(_elasticsearchContainer);
     _client = buildService();
     _client.configure();
