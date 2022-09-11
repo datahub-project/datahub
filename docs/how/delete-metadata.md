@@ -33,10 +33,10 @@ This physically deletes all rows for all aspects of the entity. This action cann
 datahub delete --urn "<my urn>" --hard
 ```
 
-As of datahub v.0.8.35 doing a hard delete by urn will also provide you with a way to remove references to the urn being deleted across the metadata graph. This is important to use if you don't want to have ghost references in your metadata model and want to save space in the graph database.
+As of datahub v0.8.35 doing a hard delete by urn will also provide you with a way to remove references to the urn being deleted across the metadata graph. This is important to use if you don't want to have ghost references in your metadata model and want to save space in the graph database.
 For now, this behaviour must be opted into by a prompt that will appear for you to manually accept or deny.
 
-Starting v.0.8.36, this also supports deletion of a specific `timeseries` aspect associated with the entity, optionally for a specific time range.
+Starting v0.8.44.2, this also supports deletion of a specific `timeseries` aspect associated with the entity, optionally for a specific time range.
 
 _Note: Deletion by a specific aspect and time range is currently supported only for timeseries aspects._
 
