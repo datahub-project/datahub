@@ -141,6 +141,13 @@ class DataHubRestEmitter:
             timeout=(self._connect_timeout_sec, self._read_timeout_sec),
         )
 
+    def __enter__(self):
+        return self
+
+    def __exit__(self, type, value, tb):
+        self._session.close()
+
+
     def test_connection(self) -> dict:
         response = self._session.get(f"{self._gms_server}/config")
         if response.status_code == 200:
