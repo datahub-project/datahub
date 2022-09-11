@@ -5,6 +5,7 @@ import com.linkedin.common.urn.Urn;
 import com.linkedin.metadata.aspect.EnvelopedAspect;
 import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.timeseries.AggregationSpec;
+import com.linkedin.timeseries.DeleteAspectValuesResult;
 import com.linkedin.timeseries.GenericTable;
 import com.linkedin.timeseries.GroupingBucket;
 import java.util.List;
@@ -29,4 +30,23 @@ public interface TimeseriesAspectService {
   @Nonnull
   GenericTable getAggregatedStats(@Nonnull String entityName, @Nonnull String aspectName,
       @Nonnull AggregationSpec[] aggregationSpecs, @Nullable Filter filter, @Nullable GroupingBucket[] groupingBuckets);
+
+  /**
+   * Generic filter based deletion for timseries aspects.
+   * @param entityName - The name of the entity.
+   * @param aspectName  - The name of the aspect.
+   * @param filter - The filter to be used for deletion of the documents on the index.
+   * @return - number of documents deleted.
+   */
+  @Nonnull
+  DeleteAspectValuesResult deleteAspectValues(@Nonnull String entityName, @Nonnull String aspectName,
+      @Nonnull Filter filter);
+
+  /**
+   * Rollback the timeseries aspects associated with a runId.
+   * @param runId The runId that needs to be rolledback.
+   * @return
+   */
+  @Nonnull
+  DeleteAspectValuesResult rollbackTimeseriesAspects(@Nonnull String runId);
 }
