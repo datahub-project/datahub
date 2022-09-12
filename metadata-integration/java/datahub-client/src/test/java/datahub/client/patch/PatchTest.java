@@ -1,7 +1,13 @@
 package datahub.client.patch;
 
+import com.linkedin.common.FabricType;
 import com.linkedin.common.GlossaryTermAssociation;
+import com.linkedin.common.Owner;
+import com.linkedin.common.Ownership;
+import com.linkedin.common.OwnershipType;
 import com.linkedin.common.TagAssociation;
+import com.linkedin.common.urn.CorpuserUrn;
+import com.linkedin.common.urn.DataPlatformUrn;
 import com.linkedin.common.urn.DatasetUrn;
 import com.linkedin.common.urn.GlossaryTermUrn;
 import com.linkedin.common.urn.TagUrn;
@@ -9,6 +15,9 @@ import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.dataset.DatasetLineageType;
 import com.linkedin.mxe.MetadataChangeProposal;
 import datahub.client.MetadataWriteResponse;
+import datahub.client.file.FileEmitter;
+import datahub.client.file.FileEmitterConfig;
+import datahub.client.patch.common.OwnershipPatchBuilder;
 import datahub.client.patch.dataset.EditableSchemaMetadataPatchBuilder;
 import datahub.client.patch.dataset.UpstreamLineagePatchBuilder;
 import datahub.client.rest.RestEmitter;
@@ -86,6 +95,33 @@ public class PatchTest {
       Future<MetadataWriteResponse> response = restEmitter.emit(fieldTermPatch);
 
       System.out.println(response.get().getResponseContent());
+
+    } catch (IOException | ExecutionException | InterruptedException e) {
+      System.out.println(Arrays.asList(e.getStackTrace()));
+    }
+  }
+
+  @Test
+  @Ignore
+  public void testLocalOwnership() {
+    FileEmitter fileEmitter = new FileEmitter(FileEmitterConfig.builder()
+        .fileName("test_mcp.json").build());
+    RestEmitter restEmitter = new RestEmitter(RestEmitterConfig.builder().build());
+    try {
+
+      DatasetUrn datasetUrn = new DatasetUrn(new DataPlatformUrn("hive"), "SampleHiveDataset", FabricType.PROD);
+      MetadataChangeProposal ownershipPatch = new OwnershipPatchBuilder()
+          .urn(datasetUrn)
+          .op(PatchOperationType.ADD)
+          .owner(new CorpuserUrn("gdoe"))
+          .ownershipType(OwnershipType.DATAOWNER)
+          .build();
+      System.out.println(ownershipPatch.toString());
+      Future<MetadataWriteResponse> response = fileEmitter.emit(ownershipPatch);
+      response.get();
+      response = restEmitter.emit(ownershipPatch);
+      System.out.println(response.get().getResponseContent());
+      fileEmitter.close();
 
     } catch (IOException | ExecutionException | InterruptedException e) {
       System.out.println(Arrays.asList(e.getStackTrace()));
