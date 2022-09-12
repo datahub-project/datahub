@@ -52,8 +52,8 @@ services:
   datahub-frontend-react:
     image: linkedin/datahub-frontend-react:debug
     build:
-      context: datahub-frontend
-      dockerfile: Dockerfile
+      context: ../
+      dockerfile: docker/datahub-frontend/Dockerfile
       args:
         APP_ENV: dev
     volumes:
