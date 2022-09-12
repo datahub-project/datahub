@@ -2,7 +2,7 @@ import { DeleteOutlined } from '@ant-design/icons';
 import { Button, Select } from 'antd';
 import React from 'react';
 import styled from 'styled-components/macro';
-import { EntityType } from '../../../../../types.generated';
+import { Entity, EntityType } from '../../../../../types.generated';
 import { ANTD_GRAY } from '../../../../entity/shared/constants';
 import { EntitySearchInput } from '../../../../entity/shared/EntitySearchInput/EntitySearchInput';
 import { Transformer, TransformerTypes } from '../types';
@@ -71,13 +71,14 @@ const typeOptions = [
 
 interface Props {
     transformer: Transformer;
+    entities?: Entity[];
     existingTransformerTypes: (string | null)[];
     index: number;
     setTransformers: React.Dispatch<React.SetStateAction<Transformer[]>>;
 }
 
 export default function TransformerInput(props: Props) {
-    const { transformer, existingTransformerTypes, index, setTransformers } = props;
+    const { transformer, entities, existingTransformerTypes, index, setTransformers } = props;
 
     function updateType(value: string) {
         setTransformers((prevTransformers) => {
@@ -128,6 +129,7 @@ export default function TransformerInput(props: Props) {
                             selectedUrns={transformer.urns}
                             placeholder={getPlaceholderText(transformer.type)}
                             entityTypes={getEntityTypes(transformer.type)}
+                            entities={entities}
                             onChangeSelectedUrns={updateUrns}
                         />
                     </EntitySearchWrapper>

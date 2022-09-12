@@ -1,7 +1,7 @@
 import { Select, Tag, Tooltip } from 'antd';
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { useGetSearchResultsForMultipleLazyQuery } from '../../../../graphql/search.generated';
-import { EntityType } from '../../../../types.generated';
+import { Entity, EntityType } from '../../../../types.generated';
 import { useEntityRegistry } from '../../../useEntityRegistry';
 import { EntitySearchInputResult } from './EntitySearchInputResult';
 
@@ -11,6 +11,7 @@ type Props = {
     placeholder?: string;
     mode?: 'multiple' | 'single';
     style?: any;
+    entities?: Entity[];
     onChangeSelectedUrns: (newUrns: string[]) => void;
 };
 
@@ -20,9 +21,11 @@ export const EntitySearchInput = ({
     placeholder,
     style,
     mode,
+    entities,
     onChangeSelectedUrns,
 }: Props) => {
     const entityRegistry = useEntityRegistry();
+    const [entitiesData, setEntitiesData] = useState(entities);
     const [searchResources, { data: resourcesSearchData }] = useGetSearchResultsForMultipleLazyQuery();
     const searchResults = resourcesSearchData?.searchAcrossEntities?.searchResults || [];
 
@@ -34,6 +37,12 @@ export const EntitySearchInput = ({
             displayName: entityRegistry.getDisplayName(result.entity.type, result.entity),
         };
     });
+
+    useEffect(() => {
+        if (entities) {
+            setEntitiesData(entities);
+        }
+    }, [entities]);
 
     const onSelect = (newUrn) => {
         if (mode === 'single') {
@@ -76,10 +85,11 @@ export const EntitySearchInput = ({
             onDeselect={onDeselect}
             onSearch={onSearch}
             tagRender={(tagProps) => {
-                const entity = searchResults.find((result) => result.entity.urn === tagProps.value);
-                const displayName = entity
-                    ? entityRegistry.getDisplayName(entity.entity.type, entity.entity)
-                    : tagProps.value;
+                let entity = searchResults.find((result) => result.entity.urn === tagProps.value)?.entity;
+                if (!entity) {
+                    entity = entitiesData?.find((e) => e.urn === tagProps.value);
+                }
+                const displayName = entity ? entityRegistry.getDisplayName(entity.type, entity) : tagProps.value;
                 return (
                     <Tag closable={tagProps.closable} onClose={tagProps.onClose}>
                         <Tooltip title={displayName}>{displayName}</Tooltip>

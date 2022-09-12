@@ -7,9 +7,12 @@ import styled from 'styled-components/macro';
 import { Transformer } from '../types';
 import TransformerInput from './TransformerInput';
 import { jsonToYaml } from '../../utils';
+import { useGetEntitiesLazyQuery } from '../../../../../graphql/entity.generated';
+import { Entity } from '../../../../../types.generated';
+import usePrevious from '../../../../shared/usePrevious';
 
 const AddTransformerButton = styled(Button)`
-    margin: 10px 0 16px 0;
+    margin: 10px 0;
 `;
 
 function updateRecipe(displayRecipe: string, transformers: Transformer[], setStagedRecipe: (recipe: string) => void) {
@@ -44,6 +47,7 @@ interface Props {
 }
 
 export default function AddTransformers({ displayRecipe, setStagedRecipe }: Props) {
+    const [getEntities, { data, loading }] = useGetEntitiesLazyQuery();
     const [transformers, setTransformers] = useState<Transformer[]>(getInitialState(displayRecipe));
 
     useEffect(() => {
@@ -53,6 +57,14 @@ export default function AddTransformers({ displayRecipe, setStagedRecipe }: Prop
     function addNewTransformer() {
         setTransformers((prevTransformers) => [...prevTransformers, { type: null, urns: [] }]);
     }
+
+    const urns = transformers.map((t) => t.urns).flat();
+    const previousUrnsLength = usePrevious(urns.length) || 0;
+    useEffect(() => {
+        if (urns.length && !loading && (!data || urns.length > previousUrnsLength)) {
+            getEntities({ variables: { urns } });
+        }
+    }, [urns, getEntities, data, loading, previousUrnsLength]);
 
     const existingTransformerTypes = transformers.map((transformer) => transformer.type);
 
@@ -66,6 +78,7 @@ export default function AddTransformers({ displayRecipe, setStagedRecipe }: Prop
                         transformer={transformer}
                         existingTransformerTypes={existingTransformerTypes}
                         index={index}
+                        entities={data?.entities as Entity[]}
                         setTransformers={setTransformers}
                     />
                 );
