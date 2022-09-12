@@ -6,9 +6,9 @@ import FeatureAvailability from '@site/src/components/FeatureAvailability';
 
 ## Overview
 
-Keeping all your metadata properly classified can be hard work when you only have a limited number of trusted data stewards. With approval flows, you can source proposals of tags, glossary terms, and description updates from a variety of less trusted sources. These sources may be users with limited context or programatic processes using hueristics. Then, data stewards and data owners can go through them and only approve proposals they consider correct. This reduces the burden of your stewards and owners while increasing coverage.
+Keeping all your metadata properly classified can be hard work when you only have a limited number of trusted data stewards. With Acryl, you can source proposals of tags and glossary terms associated to datasets or dataset schema fields. These proposals may come from users with limited context or programatic processes using hueristics. Then, data stewards and data owners can go through them and only approve proposals they consider correct. This reduces the burden of your stewards and owners while increasing coverage.
 
-Approval workflows also cover the business glossary itself. This allows you to source glossary terms from across your organization while limiting who has final control over what gets in.
+Approval workflows also cover the business glossary itself. This allows you to source glossary terms and glossary term description changes from across your organization while limiting who has final control over what gets in.
 
 ## Using Approval Workflows
 
