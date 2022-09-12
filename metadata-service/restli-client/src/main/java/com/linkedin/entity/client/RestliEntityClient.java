@@ -2,6 +2,7 @@ package com.linkedin.entity.client;
 
 import com.datahub.authentication.Authentication;
 import com.datahub.util.RecordUtils;
+import com.google.common.collect.ImmutableList;
 import com.linkedin.common.VersionedUrn;
 import com.linkedin.common.client.BaseClient;
 import com.linkedin.common.urn.Urn;
@@ -48,6 +49,11 @@ import com.linkedin.metadata.graph.LineageDirection;
 import com.linkedin.metadata.query.AutoCompleteResult;
 import com.linkedin.metadata.query.ListResult;
 import com.linkedin.metadata.query.ListUrnsResult;
+import com.linkedin.metadata.query.filter.Condition;
+import com.linkedin.metadata.query.filter.ConjunctiveCriterion;
+import com.linkedin.metadata.query.filter.ConjunctiveCriterionArray;
+import com.linkedin.metadata.query.filter.Criterion;
+import com.linkedin.metadata.query.filter.CriterionArray;
 import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.metadata.query.filter.SortCriterion;
 import com.linkedin.metadata.search.LineageSearchResult;
@@ -66,6 +72,7 @@ import java.util.Collection;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -75,8 +82,6 @@ import javax.annotation.Nullable;
 import javax.mail.MethodNotSupportedException;
 import lombok.SneakyThrows;
 import lombok.extern.slf4j.Slf4j;
-
-import static com.linkedin.metadata.search.utils.QueryUtils.newFilter;
 
 
 @Slf4j
@@ -680,5 +685,26 @@ public class RestliEntityClient extends BaseClient implements EntityClient {
       throws Exception {
     final RunsDoRollbackRequestBuilder requestBuilder = RUNS_REQUEST_BUILDERS.actionRollback().runIdParam(runId).dryRunParam(false);
     sendClientRequest(requestBuilder, authentication);
+  }
+
+  // TODO: Refactor QueryUtils inside of metadata-io to extract these methods into a single shared library location.
+  // Creates new Filter from a map of Criteria by removing null-valued Criteria and using EQUAL condition (default).
+  @Nonnull
+  public static Filter newFilter(@Nullable Map<String, String> params) {
+    if (params == null) {
+      return new Filter().setOr(new ConjunctiveCriterionArray());
+    }
+    CriterionArray criteria = params.entrySet()
+        .stream()
+        .filter(e -> Objects.nonNull(e.getValue()))
+        .map(e -> newCriterion(e.getKey(), e.getValue(), Condition.EQUAL))
+        .collect(Collectors.toCollection(CriterionArray::new));
+    return new Filter().setOr(
+        new ConjunctiveCriterionArray(ImmutableList.of(new ConjunctiveCriterion().setAnd(criteria))));
+  }
+
+  @Nonnull
+  public static Criterion newCriterion(@Nonnull String field, @Nonnull String value, @Nonnull Condition condition) {
+    return new Criterion().setField(field).setValue(value).setCondition(condition);
   }
 }
