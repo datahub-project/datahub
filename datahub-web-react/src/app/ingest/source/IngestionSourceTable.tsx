@@ -49,12 +49,14 @@ function IngestionSourceTable({
             dataIndex: 'type',
             key: 'type',
             render: TypeColumn,
+            sorter: (sourceA, sourceB) => sourceA.type.localeCompare(sourceB.type),
         },
         {
             title: 'Name',
             dataIndex: 'name',
             key: 'name',
             render: (name: string) => name || '',
+            sorter: (sourceA, sourceB) => sourceA.name.localeCompare(sourceB.name),
         },
         {
             title: 'Schedule',
@@ -67,12 +69,14 @@ function IngestionSourceTable({
             dataIndex: 'execCount',
             key: 'execCount',
             render: (execCount: any) => <Typography.Text>{execCount || '0'}</Typography.Text>,
+            sorter: (sourceA, sourceB) => sourceA.execCount - sourceB.execCount,
         },
         {
             title: 'Last Execution',
             dataIndex: 'lastExecTime',
             key: 'lastExecTime',
             render: LastExecutionColumn,
+            sorter: (sourceA, sourceB) => sourceA.lastExecTime - sourceB.lastExecTime,
         },
         {
             title: 'Last Status',
@@ -81,6 +85,7 @@ function IngestionSourceTable({
             render: (status: any, record) => (
                 <LastStatusColumn status={status} record={record} setFocusExecutionUrn={setFocusExecutionUrn} />
             ),
+            sorter: (sourceA, sourceB) => (sourceA.lastExecStatus || '').localeCompare(sourceB.lastExecStatus || ''),
         },
         {
             title: '',

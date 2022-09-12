@@ -6,10 +6,10 @@ node {
   // If true, it will download node using above parameters.
   // If false, it will try to use globally installed node.
 
-  if (project.hasProperty('useSystemNode') && project.getProperty('useSystemNode').toBoolean()) {
-    download = false
+  if (project.hasProperty('useSystemNode')) {
+    download = ! project.getProperty('useSystemNode').toBoolean()
   } else {
-    download = true
+    download = false
   }
 
   // Version of node to use.

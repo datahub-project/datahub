@@ -26,6 +26,7 @@ class TransformerSemantics(Enum):
 
 class TransformerSemanticsConfigModel(ConfigModel):
     semantics: TransformerSemantics = TransformerSemantics.OVERWRITE
+    replace_existing: bool = False
 
     @validator("semantics", pre=True)
     def ensure_semantics_is_upper_case(cls, v: str) -> str:
@@ -105,7 +106,7 @@ class OauthConfiguration(ConfigModel):
     scopes: Optional[List[str]] = Field(
         description="scopes required to connect to snowflake"
     )
-    use_certificate: Optional[bool] = Field(
+    use_certificate: bool = Field(
         description="Do you want to use certificate and private key to authenticate using oauth",
         default=False,
     )
