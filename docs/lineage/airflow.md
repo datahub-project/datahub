@@ -10,7 +10,7 @@ There are a few ways to enable these integrations from Airflow into DataHub.
 
 ## Using Datahub's Airflow lineage plugin (new)
 
-::: note
+:::note
 
 We recommend you use the lineage plugin if you are on Airflow version >= 2.0.2 or on MWAA with an Airflow version >= 2.0.2
 
@@ -33,7 +33,7 @@ We recommend you use the lineage plugin if you are on Airflow version >= 2.0.2 o
 
    ```shell
    # For REST-based:
-   airflow connections add  --conn-type 'datahub_rest' 'datahub_rest_default' --conn-host 'http://localhost:8080'
+   airflow connections add  --conn-type 'datahub_rest' 'datahub_rest_default' --conn-host 'http://datahub-gms:8080'
    # For Kafka-based (standard Kafka sink config can be passed via extras):
    airflow connections add  --conn-type 'datahub_kafka' 'datahub_kafka_default' --conn-host 'broker:9092' --conn-extra '{}'
    ```
