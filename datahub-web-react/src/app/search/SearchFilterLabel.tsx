@@ -170,7 +170,8 @@ export const SearchFilterLabel = ({ aggregation, field, hideCount }: Props) => {
         const truncatedDomainName = displayName.length > 25 ? `${displayName.slice(0, 25)}...` : displayName;
         return (
             <Tooltip title={displayName}>
-                <DomainLink domain={domain} name={truncatedDomainName} />{countText}
+                <DomainLink domain={domain} name={truncatedDomainName} />
+                {countText}
             </Tooltip>
         );
     }

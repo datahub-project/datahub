@@ -16,6 +16,7 @@ import com.linkedin.metadata.query.filter.ConjunctiveCriterion;
 import com.linkedin.metadata.query.filter.ConjunctiveCriterionArray;
 import com.linkedin.metadata.search.utils.ESUtils;
 import graphql.schema.DataFetchingEnvironment;
+import java.util.ArrayList;
 import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -89,14 +90,37 @@ public class ResolverUtils {
         return facetFilters;
     }
 
+    public static ConjunctiveCriterionArray buildConjunctiveCriterionArrayWithOr(
+        final List<Criterion> andCriterions,
+        @Nonnull List<FacetFilterInput> orFilters
+    ) {
+        return new ConjunctiveCriterionArray(orFilters.stream().map(orFilter -> {
+                CriterionArray andCriterionsForOr = new CriterionArray(andCriterions);
+                andCriterionsForOr.add(criterionFromFilter(orFilter));
+
+                return new ConjunctiveCriterion().setAnd(
+                    andCriterionsForOr
+                );
+            }
+        ).collect(Collectors.toList()));
+    }
+
     @Nullable
-    public static Filter buildFilter(@Nullable List<FacetFilterInput> facetFilterInputs) {
-        if (facetFilterInputs == null || facetFilterInputs.isEmpty()) {
+    public static Filter buildFilter(@Nullable List<FacetFilterInput> andFilters, @Nullable List<FacetFilterInput> orFilters) {
+        if ((andFilters == null || andFilters.isEmpty()) && (orFilters == null || orFilters.isEmpty())) {
             return null;
         }
-        return new Filter().setOr(new ConjunctiveCriterionArray(new ConjunctiveCriterion().setAnd(new CriterionArray(facetFilterInputs.stream()
-            .map(filter -> criterionFromFilter(filter))
-            .collect(Collectors.toList())))));
+
+        final List<Criterion> andCriterions = andFilters != null && !andFilters.isEmpty() ?
+            andFilters.stream()
+                .map(filter -> criterionFromFilter(filter))
+                .collect(Collectors.toList()) : Collections.emptyList();
+
+        if (orFilters != null && !orFilters.isEmpty()) {
+            return new Filter().setOr(buildConjunctiveCriterionArrayWithOr(andCriterions, orFilters));
+        }
+
+        return new Filter().setOr(new ConjunctiveCriterionArray(new ConjunctiveCriterion().setAnd(new CriterionArray(andCriterions))));
     }
 
     public static Criterion criterionFromFilter(final FacetFilterInput filter) {

@@ -52,7 +52,7 @@ public class SearchAcrossEntitiesResolver implements DataFetcher<CompletableFutu
             "Executing search for multiple entities: entity types {}, query {}, filters: {}, start: {}, count: {}",
             input.getTypes(), input.getQuery(), input.getFilters(), start, count);
         return UrnSearchResultsMapper.map(_entityClient.searchAcrossEntities(entityNames, sanitizedQuery,
-            ResolverUtils.buildFilter(input.getFilters()), start, count, ResolverUtils.getAuthentication(environment)));
+            ResolverUtils.buildFilter(input.getFilters(), input.getOrFilters()), start, count, ResolverUtils.getAuthentication(environment)));
       } catch (Exception e) {
         log.error(
             "Failed to execute search for multiple entities: entity types {}, query {}, filters: {}, start: {}, count: {}",

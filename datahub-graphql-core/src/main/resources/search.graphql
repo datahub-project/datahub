@@ -64,6 +64,11 @@ input SearchInput {
 	Facet filters to apply to search results
 	"""
 	filters: [FacetFilterInput!]
+
+    """
+    Filters are by default 'AND'-ed together. This lets you provide a set of OR filters
+    """
+    orFilters: [FacetFilterInput!]
 }
 
 """
@@ -94,6 +99,11 @@ input SearchAcrossEntitiesInput {
 	Faceted filters applied to search results
 	"""
 	filters: [FacetFilterInput!]
+
+    """
+    Filters are by default 'AND'-ed together. This lets you provide a set of OR filters
+    """
+    orFilters: [FacetFilterInput!]
 }
 
 """
@@ -134,6 +144,11 @@ input SearchAcrossLineageInput {
     Faceted filters applied to search results
     """
     filters: [FacetFilterInput!]
+
+    """
+    Filters are by default 'AND'-ed together. This lets you provide a set of OR filters
+    """
+    orFilters: [FacetFilterInput!]
 }
 
 """
@@ -499,9 +514,14 @@ input BrowseInput {
 	count: Int
 
   """
-  Faceted filters applied to browse results
+  Faceted filters applied to browse results. These are joined together using `AND`.
   """
 	filters: [FacetFilterInput!]
+
+    """
+    Filters are by default 'AND'-ed together. This lets you provide a set of OR filters
+    """
+    orFilters: [FacetFilterInput!]
 }
 
 """

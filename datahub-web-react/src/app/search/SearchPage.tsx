@@ -54,7 +54,7 @@ export const SearchPage = () => {
                 query,
                 start: (page - 1) * numResultsPerPage,
                 count: numResultsPerPage,
-                filters: filtersWithoutEntities,
+                orFilters: filtersWithoutEntities,
             },
         },
     });

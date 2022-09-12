@@ -72,7 +72,7 @@ public class SearchAcrossLineageResolver
             urn, resolvedDirection, input.getTypes(), input.getQuery(), filters, start, count);
         return UrnSearchAcrossLineageResultsMapper.map(
             _entityClient.searchAcrossLineage(urn, resolvedDirection, entityNames, sanitizedQuery,
-                maxHops, ResolverUtils.buildFilter(filters), null, start, count,
+                maxHops, ResolverUtils.buildFilter(filters, input.getOrFilters()), null, start, count,
                 ResolverUtils.getAuthentication(environment)));
       } catch (RemoteInvocationException e) {
         log.error(

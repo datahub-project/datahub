@@ -41,17 +41,17 @@ public class SearchResolver implements DataFetcher<CompletableFuture<SearchResul
 
     return CompletableFuture.supplyAsync(() -> {
       try {
-        log.debug("Executing search. entity type {}, query {}, filters: {}, start: {}, count: {}", input.getType(),
-            input.getQuery(), input.getFilters(), start, count);
+        log.debug("Executing search. entity type {}, query {}, filters: {}, orFilters: {}, start: {}, count: {}", input.getType(),
+            input.getQuery(), input.getFilters(), input.getOrFilters(), start, count);
         return UrnSearchResultsMapper.map(
-            _entityClient.search(entityName, sanitizedQuery, ResolverUtils.buildFilter(input.getFilters()), null, start,
+            _entityClient.search(entityName, sanitizedQuery, ResolverUtils.buildFilter(input.getFilters(), input.getOrFilters()), null, start,
                 count, ResolverUtils.getAuthentication(environment)));
       } catch (Exception e) {
-        log.error("Failed to execute search: entity type {}, query {}, filters: {}, start: {}, count: {}",
-            input.getType(), input.getQuery(), input.getFilters(), start, count);
+        log.error("Failed to execute search: entity type {}, query {}, filters: {}, orFilters: {}, start: {}, count: {}",
+            input.getType(), input.getQuery(), input.getFilters(), input.getOrFilters(), start, count);
         throw new RuntimeException(
-            "Failed to execute search: " + String.format("entity type %s, query %s, filters: %s, start: %s, count: %s",
-                input.getType(), input.getQuery(), input.getFilters(), start, count), e);
+            "Failed to execute search: " + String.format("entity type %s, query %s, filters: %s, orFilters: %s, start: %s, count: %s",
+                input.getType(), input.getQuery(), input.getFilters(), input.getOrFilters(), start, count), e);
       }
     });
   }
