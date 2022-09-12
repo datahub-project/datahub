@@ -121,6 +121,7 @@ class StaleEntityRemovalHandler:
     def _get_job_id(self) -> JobId:
         # Handle backward-compatibility for existing sources.
         backward_comp_platform_to_job_name: Dict[str, str] = {
+            "bigquery": "ingest_from_bigquery_source",
             "dbt": "dbt_stateful_ingestion",
             "glue": "glue_stateful_ingestion",
             "kafka": "ingest_from_kafka_source",
