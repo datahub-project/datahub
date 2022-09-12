@@ -15,6 +15,7 @@ dependencies {
   compile project(path: ':metadata-models')
   compile project(':metadata-service:restli-client')
 
+
   compile spec.product.pegasus.data
   compile spec.product.pegasus.generator
 
