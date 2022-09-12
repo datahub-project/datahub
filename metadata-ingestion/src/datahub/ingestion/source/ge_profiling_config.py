@@ -22,7 +22,7 @@ class GEProfilingConfig(ConfigModel):
     )
     report_dropped_profiles: bool = Field(
         default=False,
-        description="If datasets which were not profiled are reported in source report or not. Set to `True` for debugging purposes.",
+        description="Whether to report datasets or dataset columns which were not profiled. Set to `True` for debugging purposes.",
     )
 
     # These settings will override the ones below.
