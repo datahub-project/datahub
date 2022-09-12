@@ -2,8 +2,6 @@ package datahub.client.patch;
 
 import com.linkedin.common.FabricType;
 import com.linkedin.common.GlossaryTermAssociation;
-import com.linkedin.common.Owner;
-import com.linkedin.common.Ownership;
 import com.linkedin.common.OwnershipType;
 import com.linkedin.common.TagAssociation;
 import com.linkedin.common.urn.CorpuserUrn;

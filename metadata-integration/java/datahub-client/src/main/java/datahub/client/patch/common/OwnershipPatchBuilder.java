@@ -35,12 +35,12 @@ public class OwnershipPatchBuilder extends AbstractPatchBuilder<OwnershipPatchBu
 
   @Override
   protected Stream<Object> getRequiredProperties() {
-    return Stream.of(this.owner, this.op, this.targetEntityUrn);
+    return Stream.of(this.owner, this.type, this.op, this.targetEntityUrn);
   }
 
   @Override
   protected String getPath() {
-    return BASE_PATH + owner.toString();
+    return BASE_PATH + owner.toString() + "/" + type.toString();
   }
 
   @Override
