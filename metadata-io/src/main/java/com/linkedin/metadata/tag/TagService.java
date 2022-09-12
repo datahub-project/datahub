@@ -27,8 +27,6 @@ import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import lombok.extern.slf4j.Slf4j;
 
-import static com.linkedin.metadata.search.utils.AspectUtils.*;
-
 
 @Slf4j
 public class TagService {
