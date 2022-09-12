@@ -14,10 +14,12 @@ import com.linkedin.entity.EnvelopedAspectMap;
 import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.entity.ListResult;
+import com.linkedin.metadata.models.AspectSpec;
 import com.linkedin.metadata.models.EntitySpec;
 import com.linkedin.metadata.models.EntitySpecBuilder;
 import com.linkedin.metadata.models.EventSpec;
 import com.linkedin.metadata.models.registry.EntityRegistry;
+import com.linkedin.metadata.models.registry.template.AspectTemplateEngine;
 import com.linkedin.metadata.query.ExtraInfo;
 import com.linkedin.metadata.query.ExtraInfoArray;
 import com.linkedin.metadata.query.ListResultMetadata;
@@ -31,6 +33,7 @@ import java.util.Map;
 import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
+import org.jetbrains.annotations.NotNull;
 import org.mockito.Mockito;
 import org.testng.annotations.Test;
 
@@ -307,10 +310,22 @@ public class UpgradeDefaultBrowsePathsStepTest {
       return entityNameToSpec;
     }
 
+    @NotNull
+    @Override
+    public Map<String, AspectSpec> getAspectSpecs() {
+      return new HashMap<>();
+    }
+
     @Nonnull
     @Override
     public Map<String, EventSpec> getEventSpecs() {
       return Collections.emptyMap();
+    }
+
+    @NotNull
+    @Override
+    public AspectTemplateEngine getAspectTemplateEngine() {
+      return new AspectTemplateEngine();
     }
   }
 }
