@@ -8,12 +8,10 @@ import { EntitySearchInput } from '../../../../entity/shared/EntitySearchInput/E
 import { Transformer, TransformerTypes } from '../types';
 
 const TransformerWrapper = styled.div`
-    // border-bottom: 1px solid ${ANTD_GRAY[4]};
-    // border-top: 1px solid ${ANTD_GRAY[4]};
     align-items: flex-end;
     display: flex;
-    padding: 12px 24px;
-    margin: 0 -24px;
+    padding: 12px 16px;
+    margin: 0 -16px;
 
     &:hover {
         background-color: ${ANTD_GRAY[2]};

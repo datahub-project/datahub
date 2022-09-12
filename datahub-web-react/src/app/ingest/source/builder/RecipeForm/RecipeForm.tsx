@@ -10,7 +10,7 @@ import FormField from './FormField';
 import TestConnectionButton from './TestConnection/TestConnectionButton';
 import { useListSecretsQuery } from '../../../../../graphql/ingestion.generated';
 import { RecipeField, setFieldValueOnRecipe } from './common';
-import AddTransformersStep from '../AddTransformersStep/AddTransformersStep';
+import AddTransformers from '../AddTransformers/AddTransformers';
 import { ANTD_GRAY } from '../../../../entity/shared/constants';
 
 export const ControlsContainer = styled.div`
@@ -76,7 +76,15 @@ function getInitialValues(displayRecipe: string, allFields: any[]) {
     return initialValues;
 }
 
-function SectionHeader({ icon, text, sectionTooltip }: { icon: any; text: React.ReactNode; sectionTooltip?: string }) {
+function SectionHeader({
+    icon,
+    text,
+    sectionTooltip,
+}: {
+    icon: any;
+    text: React.ReactNode;
+    sectionTooltip?: React.ReactNode;
+}) {
     return (
         <span>
             {icon}
@@ -218,11 +226,24 @@ function RecipeForm(props: Props) {
                                     Add Transformers <OptionalText>(optional)</OptionalText>
                                 </span>
                             }
+                            sectionTooltip={
+                                <span>
+                                    Optionally enrich your metadata while you&apos;re ingesting it using{' '}
+                                    <a
+                                        href="https://datahubproject.io/docs/metadata-ingestion/docs/transformer/intro"
+                                        target="_blank"
+                                        rel="noreferrer noopener"
+                                    >
+                                        DataHub Transformers
+                                    </a>
+                                    .
+                                </span>
+                            }
                         />
                     }
                     key="3"
                 >
-                    <AddTransformersStep displayRecipe={displayRecipe} setStagedRecipe={setStagedRecipe} />
+                    <AddTransformers displayRecipe={displayRecipe} setStagedRecipe={setStagedRecipe} />
                 </Collapse.Panel>
             </StyledCollapse>
             <ControlsContainer>

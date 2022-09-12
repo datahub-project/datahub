@@ -43,7 +43,7 @@ interface Props {
     setStagedRecipe: (recipe: string) => void;
 }
 
-export default function AddTransformersStep({ displayRecipe, setStagedRecipe }: Props) {
+export default function AddTransformers({ displayRecipe, setStagedRecipe }: Props) {
     const [transformers, setTransformers] = useState<Transformer[]>(getInitialState(displayRecipe));
 
     useEffect(() => {
