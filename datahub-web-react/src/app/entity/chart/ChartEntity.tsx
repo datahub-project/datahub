@@ -1,8 +1,7 @@
 import { LineChartOutlined } from '@ant-design/icons';
 import * as React from 'react';
-import { Typography } from 'antd';
 
-import { Chart, EntityType, SearchResult } from '../../../types.generated';
+import { Chart, EntityType, LineageDirection, SearchResult } from '../../../types.generated';
 import { Entity, EntityCapabilityType, IconStyleType, PreviewType } from '../Entity';
 import { ChartPreview } from './preview/ChartPreview';
 import { GetChartQuery, useGetChartQuery, useUpdateChartMutation } from '../../../graphql/chart.generated';
@@ -13,15 +12,14 @@ import { SidebarOwnerSection } from '../shared/containers/profile/sidebar/Owners
 import { GenericEntityProperties } from '../shared/types';
 import { EntityProfile } from '../shared/containers/profile/EntityProfile';
 import { PropertiesTab } from '../shared/tabs/Properties/PropertiesTab';
-import { ChartInputsTab } from '../shared/tabs/Entity/ChartInputsTab';
 import { ChartDashboardsTab } from '../shared/tabs/Entity/ChartDashboardsTab';
 import { getDataForEntityType } from '../shared/containers/profile/utils';
 import { SidebarDomainSection } from '../shared/containers/profile/sidebar/Domain/SidebarDomainSection';
 import { EntityMenuItems } from '../shared/EntityDropdown/EntityDropdown';
 import { LineageTab } from '../shared/tabs/Lineage/LineageTab';
 import { ChartStatsSummarySubHeader } from './profile/stats/ChartStatsSummarySubHeader';
-import { getMatchPrioritizingPrimary } from '../shared/utils';
-import { FIELDS_TO_HIGHLIGHT } from '../dataset/search/highlights';
+import { InputFieldsTab } from '../shared/tabs/Entity/InputFieldsTab';
+import { ChartSnippet } from './ChartSnippet';
 
 /**
  * Definition of the DataHub Chart entity.
@@ -85,12 +83,23 @@ export class ChartEntity implements Entity<Chart> {
                     component: DocumentationTab,
                 },
                 {
+                    name: 'Fields',
+                    component: InputFieldsTab,
+                    display: {
+                        visible: (_, chart: GetChartQuery) => (chart?.chart?.inputFields?.fields?.length || 0) > 0,
+                        enabled: (_, chart: GetChartQuery) => (chart?.chart?.inputFields?.fields?.length || 0) > 0,
+                    },
+                },
+                {
                     name: 'Properties',
                     component: PropertiesTab,
                 },
                 {
                     name: 'Lineage',
                     component: LineageTab,
+                    properties: {
+                        defaultDirection: LineageDirection.Upstream,
+                    },
                     display: {
                         visible: (_, _1) => true,
                         enabled: (_, chart: GetChartQuery) => {
@@ -98,15 +107,6 @@ export class ChartEntity implements Entity<Chart> {
                                 (chart?.chart?.upstream?.total || 0) > 0 || (chart?.chart?.downstream?.total || 0) > 0
                             );
                         },
-                    },
-                },
-
-                {
-                    name: 'Inputs',
-                    component: ChartInputsTab,
-                    display: {
-                        visible: (_, _1) => true,
-                        enabled: (_, chart: GetChartQuery) => (chart?.chart?.inputs?.total || 0) > 0,
                     },
                 },
                 {
@@ -169,8 +169,6 @@ export class ChartEntity implements Entity<Chart> {
 
     renderSearch = (result: SearchResult) => {
         const data = result.entity as Chart;
-        const matchedField = getMatchPrioritizingPrimary(result.matchedFields, 'fieldLabels');
-
         return (
             <ChartPreview
                 urn={data.urn}
@@ -190,13 +188,7 @@ export class ChartEntity implements Entity<Chart> {
                 lastUpdatedMs={data.properties?.lastModified?.time}
                 createdMs={data.properties?.created?.time}
                 externalUrl={data.properties?.externalUrl}
-                snippet={
-                    matchedField && (
-                        <Typography.Text>
-                            Matches {FIELDS_TO_HIGHLIGHT.get(matchedField.name)} <b>{matchedField.value}</b>
-                        </Typography.Text>
-                    )
-                }
+                snippet={<ChartSnippet matchedFields={result.matchedFields} inputFields={data.inputFields} />}
             />
         );
     };

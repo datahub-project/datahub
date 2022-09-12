@@ -4,12 +4,12 @@ import functools
 import json
 import logging
 import os
-import pathlib
 import sys
 from datetime import datetime
 from typing import Optional
 
 import click
+import click_spinner
 from click_default_group import DefaultGroup
 from tabulate import tabulate
 
@@ -31,8 +31,6 @@ from datahub.utilities import memory_leak_detector
 
 logger = logging.getLogger(__name__)
 
-ELASTIC_MAX_PAGE_SIZE = 10000
-
 RUNS_TABLE_COLUMNS = ["runId", "rows", "created at"]
 RUN_TABLE_COLUMNS = ["urn", "aspect name", "created at"]
 
@@ -47,7 +45,7 @@ def ingest() -> None:
 @click.option(
     "-c",
     "--config",
-    type=click.Path(exists=True, dir_okay=False),
+    type=click.Path(dir_okay=False),
     help="Config file in .toml or .yaml format.",
     required=True,
 )
@@ -104,6 +102,9 @@ def ingest() -> None:
     default=False,
     help="Turn off default reporting of ingestion results to DataHub",
 )
+@click.option(
+    "--no-spinner", type=bool, is_flag=True, default=False, help="Turn off spinner"
+)
 @click.pass_context
 @telemetry.with_telemetry
 @memory_leak_detector.with_leak_detection
@@ -118,6 +119,7 @@ def run(
     test_source_connection: bool,
     report_to: str,
     no_default_report: bool,
+    no_spinner: bool,
 ) -> None:
     """Ingest metadata into DataHub."""
 
@@ -125,27 +127,30 @@ def run(
         pipeline: Pipeline, structured_report: Optional[str] = None
     ) -> int:
         logger.info("Starting metadata ingestion")
-        try:
-            pipeline.run()
-        except Exception as e:
-            logger.info(
-                f"Source ({pipeline.config.source.type}) report:\n{pipeline.source.get_report().as_string()}"
-            )
-            logger.info(
-                f"Sink ({pipeline.config.sink.type}) report:\n{pipeline.sink.get_report().as_string()}"
-            )
-            # We dont want to log sensitive information in variables if the pipeline fails due to
-            # an unexpected error. Disable printing sensitive info to logs if ingestion is running
-            # with `--suppress-error-logs` flag.
-            if suppress_error_logs:
-                raise SensitiveError() from e
+        with click_spinner.spinner(
+            beep=False, disable=no_spinner, force=False, stream=sys.stdout
+        ):
+            try:
+                pipeline.run()
+            except Exception as e:
+                logger.info(
+                    f"Source ({pipeline.config.source.type}) report:\n{pipeline.source.get_report().as_string()}"
+                )
+                logger.info(
+                    f"Sink ({pipeline.config.sink.type}) report:\n{pipeline.sink.get_report().as_string()}"
+                )
+                # We dont want to log sensitive information in variables if the pipeline fails due to
+                # an unexpected error. Disable printing sensitive info to logs if ingestion is running
+                # with `--suppress-error-logs` flag.
+                if suppress_error_logs:
+                    raise SensitiveError() from e
+                else:
+                    raise e
             else:
-                raise e
-        else:
-            logger.info("Finished metadata ingestion")
-            pipeline.log_ingestion_stats()
-            ret = pipeline.pretty_print_summary(warnings_as_failure=strict_warnings)
-            return ret
+                logger.info("Finished metadata ingestion")
+                pipeline.log_ingestion_stats()
+                ret = pipeline.pretty_print_summary(warnings_as_failure=strict_warnings)
+                return ret
 
     async def run_pipeline_async(pipeline: Pipeline) -> int:
         loop = asyncio._get_running_loop()
@@ -176,12 +181,14 @@ def run(
     # main function begins
     logger.info("DataHub CLI version: %s", datahub_package.nice_version_name())
 
-    config_file = pathlib.Path(config)
     pipeline_config = load_config_file(
-        config_file, squirrel_original_config=True, squirrel_field="__raw_config"
+        config,
+        squirrel_original_config=True,
+        squirrel_field="__raw_config",
+        allow_stdin=True,
     )
-    raw_pipeline_config = pipeline_config["__raw_config"]
-    pipeline_config = {k: v for k, v in pipeline_config.items() if k != "__raw_config"}
+    raw_pipeline_config = pipeline_config.pop("__raw_config")
+
     if test_source_connection:
         _test_source_connection(report_to, pipeline_config)
 
@@ -219,10 +226,6 @@ def _test_source_connection(report_to: Optional[str], pipeline_config: dict) -> 
         if connection_report:
             logger.error(connection_report.as_json())
         sys.exit(1)
-
-
-def get_runs_url(gms_host: str) -> str:
-    return f"{gms_host}/runs?action=rollback"
 
 
 def parse_restli_response(response):

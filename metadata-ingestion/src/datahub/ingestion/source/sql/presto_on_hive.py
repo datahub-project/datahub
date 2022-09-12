@@ -79,15 +79,11 @@ class PrestoOnHiveConfig(BasicSQLAlchemyConfig):
     scheme: str = Field(default="mysql+pymysql", description="", exclude=True)
     metastore_db_name: Optional[str] = Field(
         default=None,
-        description="""Name of the Hive metastore's database (usually: metastore).
-        For backwardcompatibility, if this field is not provided, the 'database' field will be used.
-        If both the 'database' and 'metastore_db_name' fields are set then the 'database'
-        field will be used to filter the hive/presto/trino database""",
+        description="Name of the Hive metastore's database (usually: metastore). For backward compatibility, if this field is not provided, the database field will be used. If both the 'database' and 'metastore_db_name' fields are set then the 'database' field will be used to filter the hive/presto/trino database",
     )
     mode: PrestoOnHiveConfigMode = Field(
         default=PrestoOnHiveConfigMode.presto_on_hive,
-        description=f"""The ingested data will be stored under this platform.
-        Valid options: {[e.value for e in PrestoOnHiveConfigMode]}""",
+        description=f"The ingested data will be stored under this platform. Valid options: {[e.value for e in PrestoOnHiveConfigMode]}",
     )
 
     def get_sql_alchemy_url(self, uri_opts: Optional[Dict[str, Any]] = None) -> str:
@@ -472,7 +468,10 @@ class PrestoOnHiveSource(SQLAlchemySource):
     def _get_db_filter_where_clause(self) -> str:
         if self.config.metastore_db_name is None:
             return ""  # read metastore_db_name field discription why
-        return f"AND d.\"NAME\" = '{self.config.database}'"
+        if "postgresql" in self.config.scheme:
+            return f"AND d.\"NAME\" = '{self.config.database}'"
+        else:
+            return f"AND d.NAME = '{self.config.database}'"
 
     def _get_table_key(self, row: Dict[str, Any]) -> TableKey:
         return TableKey(schema=row["schema_name"], table=row["table_name"])

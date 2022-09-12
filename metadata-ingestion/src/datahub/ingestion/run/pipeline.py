@@ -1,5 +1,6 @@
 import itertools
 import logging
+import os
 import platform
 import sys
 import time
@@ -7,6 +8,8 @@ from dataclasses import dataclass
 from typing import Any, Dict, Iterable, List, Optional, cast
 
 import click
+import humanfriendly
+import psutil
 
 import datahub
 from datahub.configuration.common import PipelineExecutionError
@@ -28,6 +31,7 @@ from datahub.ingestion.source.source_registry import source_registry
 from datahub.ingestion.transformer.transform_registry import transform_registry
 from datahub.metadata.schema_classes import MetadataChangeProposalClass
 from datahub.telemetry import stats, telemetry
+from datahub.utilities.lossy_collections import LossyDict, LossyList
 
 logger = logging.getLogger(__name__)
 
@@ -105,11 +109,19 @@ class CliReport(Report):
     py_exec_path: str = sys.executable
     os_details: str = platform.platform()
 
+    def compute_stats(self) -> None:
+
+        self.mem_info = humanfriendly.format_size(
+            psutil.Process(os.getpid()).memory_info().rss
+        )
+        return super().compute_stats()
+
 
 class Pipeline:
     config: PipelineConfig
     ctx: PipelineContext
     source: Source
+    extractor: Extractor
     sink: Sink
     transformers: List[Transformer]
 
@@ -185,6 +197,7 @@ class Pipeline:
                 self.config.source.dict().get("config", {}), self.ctx
             )
             logger.debug(f"Source type:{source_type},{source_class} configured")
+            logger.info("Source configured successfully.")
         except Exception as e:
             self._record_initialization_failure(
                 e, f"Failed to configure source ({source_type})"
@@ -192,7 +205,10 @@ class Pipeline:
             return
 
         try:
-            self.extractor_class = extractor_registry.get(self.config.source.extractor)
+            extractor_class = extractor_registry.get(self.config.source.extractor)
+            self.extractor = extractor_class(
+                self.config.source.extractor_config, self.ctx
+            )
         except Exception as e:
             self._record_initialization_failure(
                 e, f"Failed to configure extractor ({self.config.source.extractor})"
@@ -309,13 +325,12 @@ class Pipeline:
 
     def _time_to_print(self) -> bool:
         self.num_intermediate_workunits += 1
-        if self.num_intermediate_workunits > 1000:
-            current_time = int(time.time())
-            if current_time - self.last_time_printed > 10:
-                # we print
-                self.num_intermediate_workunits = 0
-                self.last_time_printed = current_time
-                return True
+        current_time = int(time.time())
+        if current_time - self.last_time_printed > 10:
+            # we print
+            self.num_intermediate_workunits = 0
+            self.last_time_printed = current_time
+            return True
         return False
 
     def run(self) -> None:
@@ -330,20 +345,20 @@ class Pipeline:
                     self.ctx, self.config.failure_log.log_config
                 )
             )
-            extractor: Extractor = self.extractor_class()
             for wu in itertools.islice(
                 self.source.get_workunits(),
                 self.preview_workunits if self.preview_mode else None,
             ):
-                if self._time_to_print():
-                    self.pretty_print_summary(currently_running=True)
-                # TODO: change extractor interface
-                extractor.configure({}, self.ctx)
+                try:
+                    if self._time_to_print():
+                        self.pretty_print_summary(currently_running=True)
+                except Exception as e:
+                    logger.warning("Failed to print summary", e)
 
                 if not self.dry_run:
                     self.sink.handle_work_unit_start(wu)
                 try:
-                    record_envelopes = extractor.get_records(wu)
+                    record_envelopes = self.extractor.get_records(wu)
                     for record_envelope in self.transform(record_envelopes):
                         if not self.dry_run:
                             self.sink.write_record_async(record_envelope, callback)
@@ -355,7 +370,7 @@ class Pipeline:
                 except Exception as e:
                     logger.error("Failed to process some records. Continuing.", e)
 
-                extractor.close()
+                self.extractor.close()
                 if not self.dry_run:
                     self.sink.handle_work_unit_end(wu)
             self.source.close()
@@ -463,11 +478,22 @@ class Pipeline:
             self.ctx.graph,
         )
 
-    def _count_all_vals(self, d: Dict[str, List]) -> int:
-        result = 0
-        for val in d.values():
-            result += len(val)
+    def _approx_all_vals(self, d: LossyDict[str, LossyList]) -> int:
+        result = d.get_keys_upper_bound()
+        for k in d:
+            result += len(d[k])
         return result
+
+    def _get_text_color(self, running: bool, failures: bool, warnings: bool) -> str:
+        if running:
+            return "cyan"
+        else:
+            if failures:
+                return "bright_red"
+            elif warnings:
+                return "bright_yellow"
+            else:
+                return "bright_green"
 
     def pretty_print_summary(
         self, warnings_as_failure: bool = False, currently_running: bool = False
@@ -481,30 +507,40 @@ class Pipeline:
         click.echo(self.sink.get_report().as_string())
         click.echo()
         workunits_produced = self.source.get_report().events_produced
+        duration_message = f"in {Report.to_str(self.source.get_report().running_time)}."
+
         if self.source.get_report().failures or self.sink.get_report().failures:
-            num_failures_source = self._count_all_vals(
+            num_failures_source = self._approx_all_vals(
                 self.source.get_report().failures
             )
             num_failures_sink = len(self.sink.get_report().failures)
             click.secho(
-                f"{'⏳' if currently_running else ''} Pipeline {'running' if currently_running else 'finished'} with {num_failures_source+num_failures_sink} failures {'so far' if currently_running else ''}; produced {workunits_produced} events",
-                fg="bright_red",
+                f"{'⏳' if currently_running else ''} Pipeline {'running' if currently_running else 'finished'} with at least {num_failures_source+num_failures_sink} failures {'so far' if currently_running else ''}; produced {workunits_produced} events {duration_message}",
+                fg=self._get_text_color(
+                    running=currently_running,
+                    failures=True,
+                    warnings=False,
+                ),
                 bold=True,
             )
             return 1
         elif self.source.get_report().warnings or self.sink.get_report().warnings:
-            num_warn_source = self._count_all_vals(self.source.get_report().warnings)
+            num_warn_source = self._approx_all_vals(self.source.get_report().warnings)
             num_warn_sink = len(self.sink.get_report().warnings)
             click.secho(
-                f"{'⏳' if currently_running else ''} Pipeline {'running' if currently_running else 'finished'} with {num_warn_source+num_warn_sink} warnings {'so far' if currently_running else ''}; produced {workunits_produced} events",
-                fg="yellow",
+                f"{'⏳' if currently_running else ''} Pipeline {'running' if currently_running else 'finished'} with at least {num_warn_source+num_warn_sink} warnings {'so far' if currently_running else ''}; produced {workunits_produced} events {duration_message}",
+                fg=self._get_text_color(
+                    running=currently_running, failures=False, warnings=True
+                ),
                 bold=True,
             )
             return 1 if warnings_as_failure else 0
         else:
             click.secho(
-                f"{'⏳' if currently_running else ''} Pipeline {'running' if currently_running else 'finished'} successfully {'so far' if currently_running else ''}; produced {workunits_produced} events",
-                fg="green",
+                f"{'⏳' if currently_running else ''} Pipeline {'running' if currently_running else 'finished'} successfully {'so far' if currently_running else ''}; produced {workunits_produced} events {duration_message}",
+                fg=self._get_text_color(
+                    running=currently_running, failures=False, warnings=False
+                ),
                 bold=True,
             )
             return 0

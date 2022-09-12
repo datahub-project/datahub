@@ -1,7 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import * as QueryString from 'query-string';
 import { useHistory, useLocation, useParams } from 'react-router';
-import { Alert } from 'antd';
 import { useEntityRegistry } from '../useEntityRegistry';
 import { FacetFilterInput, EntityType } from '../../types.generated';
 import useFilters from './utils/useFilters';
@@ -139,15 +138,13 @@ export const SearchPage = () => {
 
     return (
         <>
-            {!loading && error && (
-                <Alert type="error" message={error?.message || `Search failed to load for query ${query}`} />
-            )}
             <SearchResults
                 entityFilters={entityFilters}
                 filtersWithoutEntities={filtersWithoutEntities}
                 callSearchOnVariables={callSearchOnVariables}
                 page={page}
                 query={query}
+                error={error}
                 searchResponse={data?.searchAcrossEntities}
                 filters={data?.searchAcrossEntities?.facets}
                 selectedFilters={filters}

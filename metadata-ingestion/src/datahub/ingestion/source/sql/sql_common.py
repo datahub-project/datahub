@@ -22,8 +22,9 @@ from typing import (
 from urllib.parse import quote_plus
 
 import pydantic
+import sqlalchemy.dialects.postgresql.base
 from pydantic.fields import Field
-from sqlalchemy import create_engine, dialects, inspect
+from sqlalchemy import create_engine, inspect
 from sqlalchemy.engine.reflection import Inspector
 from sqlalchemy.exc import ProgrammingError
 from sqlalchemy.sql import sqltypes as types
@@ -350,20 +351,23 @@ _field_type_mapping: Dict[Type[types.TypeEngine], Type] = {
     types.DATETIME: TimeTypeClass,
     types.TIMESTAMP: TimeTypeClass,
     types.JSON: RecordTypeClass,
-    dialects.postgresql.base.BYTEA: BytesTypeClass,
-    dialects.postgresql.base.DOUBLE_PRECISION: NumberTypeClass,
-    dialects.postgresql.base.INET: StringTypeClass,
-    dialects.postgresql.base.MACADDR: StringTypeClass,
-    dialects.postgresql.base.MONEY: NumberTypeClass,
-    dialects.postgresql.base.OID: StringTypeClass,
-    dialects.postgresql.base.REGCLASS: BytesTypeClass,
-    dialects.postgresql.base.TIMESTAMP: TimeTypeClass,
-    dialects.postgresql.base.TIME: TimeTypeClass,
-    dialects.postgresql.base.INTERVAL: TimeTypeClass,
-    dialects.postgresql.base.BIT: BytesTypeClass,
-    dialects.postgresql.base.UUID: StringTypeClass,
-    dialects.postgresql.base.TSVECTOR: BytesTypeClass,
-    dialects.postgresql.base.ENUM: EnumTypeClass,
+    # Because the postgresql dialect is used internally by many other dialects,
+    # we add some postgres types here. This is ok to do because the postgresql
+    # dialect is built-in to sqlalchemy.
+    sqlalchemy.dialects.postgresql.base.BYTEA: BytesTypeClass,
+    sqlalchemy.dialects.postgresql.base.DOUBLE_PRECISION: NumberTypeClass,
+    sqlalchemy.dialects.postgresql.base.INET: StringTypeClass,
+    sqlalchemy.dialects.postgresql.base.MACADDR: StringTypeClass,
+    sqlalchemy.dialects.postgresql.base.MONEY: NumberTypeClass,
+    sqlalchemy.dialects.postgresql.base.OID: StringTypeClass,
+    sqlalchemy.dialects.postgresql.base.REGCLASS: BytesTypeClass,
+    sqlalchemy.dialects.postgresql.base.TIMESTAMP: TimeTypeClass,
+    sqlalchemy.dialects.postgresql.base.TIME: TimeTypeClass,
+    sqlalchemy.dialects.postgresql.base.INTERVAL: TimeTypeClass,
+    sqlalchemy.dialects.postgresql.base.BIT: BytesTypeClass,
+    sqlalchemy.dialects.postgresql.base.UUID: StringTypeClass,
+    sqlalchemy.dialects.postgresql.base.TSVECTOR: BytesTypeClass,
+    sqlalchemy.dialects.postgresql.base.ENUM: EnumTypeClass,
     # When SQLAlchemy is unable to map a type into its internal hierarchy, it
     # assigns the NullType by default. We want to carry this warning through.
     types.NullType: NullTypeClass,
@@ -712,6 +716,16 @@ class SQLAlchemySource(StatefulIngestionSourceBase):
             self.report.report_workunit(wu)
             yield wu
 
+    def get_allowed_schemas(self, inspector: Inspector, db_name: str) -> Iterable[str]:
+        # this function returns the schema names which are filtered by schema_pattern.
+        for schema in self.get_schema_names(inspector):
+            if not self.config.schema_pattern.allowed(schema):
+                self.report.report_dropped(f"{schema}.*")
+                continue
+            else:
+                self.add_information_for_schema(inspector, schema)
+                yield schema
+
     def get_workunits(self) -> Iterable[Union[MetadataWorkUnit, SqlWorkUnit]]:
         sql_config = self.config
         if logger.isEnabledFor(logging.DEBUG):
@@ -734,10 +748,7 @@ class SQLAlchemySource(StatefulIngestionSourceBase):
             db_name = self.get_db_name(inspector)
             yield from self.gen_database_containers(db_name)
 
-            for schema in self.get_schema_names(inspector):
-                if not sql_config.schema_pattern.allowed(schema):
-                    self.report.report_dropped(f"{schema}.*")
-                    continue
+            for schema in self.get_allowed_schemas(inspector, db_name):
                 self.add_information_for_schema(inspector, schema)
 
                 yield from self.gen_schema_containers(schema, db_name)
@@ -1280,16 +1291,10 @@ class SQLAlchemySource(StatefulIngestionSourceBase):
             view_properties_aspect = ViewPropertiesClass(
                 materialized=False, viewLanguage="SQL", viewLogic=view_definition_string
             )
-            view_properties_wu = MetadataWorkUnit(
-                id=f"{view}-viewProperties",
-                mcp=MetadataChangeProposalWrapper(
-                    entityType="dataset",
-                    changeType=ChangeTypeClass.UPSERT,
-                    entityUrn=dataset_urn,
-                    aspectName="viewProperties",
-                    aspect=view_properties_aspect,
-                ),
-            )
+            view_properties_wu = MetadataChangeProposalWrapper(
+                entityUrn=dataset_urn,
+                aspect=view_properties_aspect,
+            ).as_workunit()
             self.report.report_workunit(view_properties_wu)
             yield view_properties_wu
 
@@ -1300,12 +1305,15 @@ class SQLAlchemySource(StatefulIngestionSourceBase):
             sql_config=sql_config,
         )
 
+    def get_parent_container_key(self, db_name: str, schema: str) -> PlatformKey:
+        return self.gen_schema_key(db_name, schema)
+
     def add_table_to_schema_container(
         self, dataset_urn: str, db_name: str, schema: str
     ) -> Iterable[Union[MetadataWorkUnit, SqlWorkUnit]]:
-        schema_container_key = self.gen_schema_key(db_name, schema)
+        parent_container_key = self.get_parent_container_key(db_name, schema)
         container_workunits = add_dataset_to_container(
-            container_key=schema_container_key,
+            container_key=parent_container_key,
             dataset_urn=dataset_urn,
         )
         for wu in container_workunits:

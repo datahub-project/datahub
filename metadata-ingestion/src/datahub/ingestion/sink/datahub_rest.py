@@ -2,7 +2,6 @@ import concurrent.futures
 import contextlib
 import functools
 import logging
-import threading
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass
 from datetime import timedelta
@@ -11,13 +10,12 @@ from threading import BoundedSemaphore
 from typing import Union, cast
 
 from pydantic import validator
-from tdigest import TDigest
 
 from datahub.cli.cli_utils import set_env_variables_override_config
 from datahub.configuration.common import ConfigurationError, OperationalError
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.emitter.rest_emitter import DatahubRestEmitter
-from datahub.ingestion.api.common import PipelineContext, RecordEnvelope, WorkUnit
+from datahub.ingestion.api.common import RecordEnvelope, WorkUnit
 from datahub.ingestion.api.sink import Sink, SinkReport, WriteCallback
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.graph.client import DatahubClientConfig
@@ -50,28 +48,12 @@ class DatahubRestSinkConfig(DatahubClientConfig):
 class DataHubRestSinkReport(SinkReport):
     gms_version: str = ""
     pending_requests: int = 0
-    _digest = TDigest()
-    _lock = threading.Lock()
 
     def compute_stats(self) -> None:
         super().compute_stats()
-        self._lock.acquire()
-        try:
-            self.ninety_fifth_percentile_write_latency_in_millis = int(
-                self._digest.percentile(95)
-            )
-            self.fiftieth_percentile_write_latency_in_millis = int(
-                self._digest.percentile(50)
-            )
-        finally:
-            self._lock.release()
 
     def report_write_latency(self, delta: timedelta) -> None:
-        self._lock.acquire()
-        try:
-            self._digest.update(round(delta.total_seconds() * 1000.0))
-        finally:
-            self._lock.release()
+        pass
 
 
 class BoundedExecutor:
@@ -105,17 +87,11 @@ class BoundedExecutor:
         self.executor.shutdown(wait)
 
 
-@dataclass
-class DatahubRestSink(Sink):
-    config: DatahubRestSinkConfig
+class DatahubRestSink(Sink[DatahubRestSinkConfig, DataHubRestSinkReport]):
     emitter: DatahubRestEmitter
-    report: DataHubRestSinkReport
     treat_errors_as_warnings: bool = False
 
-    def __init__(self, ctx: PipelineContext, config: DatahubRestSinkConfig):
-        super().__init__(ctx)
-        self.config = config
-        self.report = DataHubRestSinkReport()
+    def __post_init__(self) -> None:
         self.emitter = DatahubRestEmitter(
             self.config.server,
             self.config.token,
@@ -148,11 +124,6 @@ class DatahubRestSink(Sink):
             max_workers=self.config.max_threads,
             bound=self.config.max_pending_requests,
         )
-
-    @classmethod
-    def create(cls, config_dict: dict, ctx: PipelineContext) -> "DatahubRestSink":
-        config = DatahubRestSinkConfig.parse_obj(config_dict)
-        return cls(ctx, config)
 
     def handle_work_unit_start(self, workunit: WorkUnit) -> None:
         if isinstance(workunit, MetadataWorkUnit):
@@ -189,19 +160,22 @@ class DatahubRestSink(Sink):
                         e.info["stackTrace"] = "\n".join(
                             e.info["stackTrace"].split("\n")[:3]
                         )
+                        e.info["message"] = e.info.get("message", "").split("\n")[0][
+                            :200
+                        ]
+
+                # Include information about the entity that failed.
+                record = record_envelope.record
+                if isinstance(record, MetadataChangeProposalWrapper):
+                    entity_id = record.entityUrn
+                    e.info["id"] = entity_id
+                elif isinstance(record, MetadataChangeEvent):
+                    entity_id = record.proposedSnapshot.urn
+                    e.info["id"] = entity_id
 
                 if not self.treat_errors_as_warnings:
                     self.report.report_failure({"error": e.message, "info": e.info})
                 else:
-                    record = record_envelope.record
-                    if isinstance(record, MetadataChangeProposalWrapper):
-                        # include information about the entity that failed
-                        entity_id = cast(
-                            MetadataChangeProposalWrapper, record
-                        ).entityUrn
-                        e.info["id"] = entity_id
-                    else:
-                        entity_id = None
                     self.report.report_warning({"warning": e.message, "info": e.info})
                 write_callback.on_failure(record_envelope, e, e.info)
             else:
@@ -237,9 +211,6 @@ class DatahubRestSink(Sink):
             except Exception as e:
                 write_callback.on_failure(record_envelope, e, failure_metadata={})
 
-    def get_report(self) -> SinkReport:
-        return self.report
-
     def close(self):
         self.executor.shutdown(wait=True)
 
@@ -247,4 +218,4 @@ class DatahubRestSink(Sink):
         return self.emitter.__repr__()
 
     def configured(self) -> str:
-        return self.__repr__()
+        return repr(self)

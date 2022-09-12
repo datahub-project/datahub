@@ -2,8 +2,9 @@ import json
 import logging
 import os
 from json.decoder import JSONDecodeError
-from typing import Any, Dict, Iterable, List, Optional, Type
+from typing import Any, Dict, Iterable, List, Optional, Type, Union
 
+import pydantic
 from avro.schema import RecordSchema
 from deprecated import deprecated
 from requests.adapters import Response
@@ -14,15 +15,18 @@ from datahub.emitter.mce_builder import Aspect
 from datahub.emitter.rest_emitter import DatahubRestEmitter
 from datahub.emitter.serialization_helper import post_json_transform
 from datahub.metadata.schema_classes import (
+    BrowsePathsClass,
+    DatasetPropertiesClass,
     DatasetUsageStatisticsClass,
     DomainPropertiesClass,
     DomainsClass,
     GlobalTagsClass,
     GlossaryTermsClass,
     OwnershipClass,
+    SchemaMetadataClass,
     TelemetryClientIdClass,
 )
-from datahub.utilities.urns.urn import Urn
+from datahub.utilities.urns.urn import Urn, guess_entity_type
 
 logger = logging.getLogger(__name__)
 
@@ -46,8 +50,15 @@ class DatahubClientConfig(ConfigModel):
     disable_ssl_verification: bool = False
 
 
+class DataHubGraphConfig(DatahubClientConfig):
+    class Config:
+        extra = (
+            pydantic.Extra.allow
+        )  # lossy to allow interop with DataHubRestSinkConfig
+
+
 class DataHubGraph(DatahubRestEmitter):
-    def __init__(self, config: DatahubClientConfig) -> None:
+    def __init__(self, config: Union[DatahubClientConfig, DataHubGraphConfig]) -> None:
         self.config = config
         super().__init__(
             gms_server=self.config.server,
@@ -107,11 +118,6 @@ class DataHubGraph(DatahubRestEmitter):
                 raise OperationalError(
                     "Unable to get metadata from DataHub", {"message": str(e)}
                 ) from e
-
-    @staticmethod
-    def _guess_entity_type(urn: str) -> str:
-        assert urn.startswith("urn:li:"), "urns must start with urn:li:"
-        return urn.split(":")[2]
 
     @deprecated(
         reason="Use get_aspect_v2 instead which makes aspect_type_name truly optional"
@@ -185,11 +191,27 @@ class DataHubGraph(DatahubRestEmitter):
             aspect_type=OwnershipClass,
         )
 
+    def get_schema_metadata(self, entity_urn: str) -> Optional[SchemaMetadataClass]:
+        return self.get_aspect_v2(
+            entity_urn=entity_urn,
+            aspect="schemaMetadata",
+            aspect_type=SchemaMetadataClass,
+        )
+
     def get_domain_properties(self, entity_urn: str) -> Optional[DomainPropertiesClass]:
         return self.get_aspect_v2(
             entity_urn=entity_urn,
             aspect="domainProperties",
             aspect_type=DomainPropertiesClass,
+        )
+
+    def get_dataset_properties(
+        self, entity_urn: str
+    ) -> Optional[DatasetPropertiesClass]:
+        return self.get_aspect_v2(
+            entity_urn=entity_urn,
+            aspect="datasetProperties",
+            aspect_type=DatasetPropertiesClass,
         )
 
     def get_tags(self, entity_urn: str) -> Optional[GlobalTagsClass]:
@@ -211,6 +233,13 @@ class DataHubGraph(DatahubRestEmitter):
             entity_urn=entity_urn,
             aspect="domains",
             aspect_type=DomainsClass,
+        )
+
+    def get_browse_path(self, entity_urn: str) -> Optional[BrowsePathsClass]:
+        return self.get_aspect_v2(
+            entity_urn=entity_urn,
+            aspect="browsePaths",
+            aspect_type=BrowsePathsClass,
         )
 
     def get_usage_aspects_from_urn(
@@ -286,7 +315,7 @@ class DataHubGraph(DatahubRestEmitter):
         ]
         query_body = {
             "urn": entity_urn,
-            "entity": self._guess_entity_type(entity_urn),
+            "entity": guess_entity_type(entity_urn),
             "aspect": aspect_name,
             "latestValue": True,
             "filter": {"or": [{"and": filter_criteria}]},
@@ -360,6 +389,9 @@ class DataHubGraph(DatahubRestEmitter):
 
     def _get_search_endpoint(self):
         return f"{self.config.server}/entities?action=search"
+
+    def _get_aspect_count_endpoint(self):
+        return f"{self.config.server}/aspects?action=getCount"
 
     def get_domain_urn_by_name(self, domain_name: str) -> Optional[str]:
         """Retrieve a domain urn based on its name. Returns None if there is no match found"""
@@ -438,3 +470,17 @@ class DataHubGraph(DatahubRestEmitter):
             entities_yielded += 1
             logger.debug(f"yielding {x['entity']}")
             yield x["entity"]
+
+    def get_search_results(
+        self, start: int = 0, count: int = 1, entity: str = "dataset"
+    ) -> Dict:
+        search_body = {"input": "*", "entity": entity, "start": start, "count": count}
+        results: Dict = self._post_generic(self._get_search_endpoint(), search_body)
+        return results
+
+    def get_aspect_counts(self, aspect: str, urn_like: Optional[str] = None) -> int:
+        args = {"aspect": aspect}
+        if urn_like is not None:
+            args["urnLike"] = urn_like
+        results = self._post_generic(self._get_aspect_count_endpoint(), args)
+        return results["value"]
