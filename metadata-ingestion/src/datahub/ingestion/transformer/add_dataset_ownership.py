@@ -103,7 +103,7 @@ class AddDatasetOwnership(DatasetOwnershipTransformer):
             owners=[],
             lastModified=in_ownership_aspect.lastModified
             if in_ownership_aspect is not None
-            else AuditStampClass.construct_with_defaults(),
+            else None,
         )
 
         # Check if user want to keep existing ownerships

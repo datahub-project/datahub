@@ -1,6 +1,7 @@
 import logging
 from typing import Callable, List, Optional, Union, cast
 
+import datahub.emitter.mce_builder as builder
 from datahub.configuration.common import (
     KeyValuePattern,
     TransformerSemantics,
@@ -91,7 +92,9 @@ class AddDatasetTerms(DatasetTermsTransformer):
             terms=[],
             auditStamp=in_glossary_terms.auditStamp
             if in_glossary_terms is not None
-            else AuditStampClass.construct_with_defaults(),
+            else AuditStampClass(
+                time=builder.get_sys_time(), actor="urn:li:corpUser:restEmitter"
+            ),
         )
         # Check if user want to keep existing terms
         if in_glossary_terms is not None and self.config.replace_existing is False:
