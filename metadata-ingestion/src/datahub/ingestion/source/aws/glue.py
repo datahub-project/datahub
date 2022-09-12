@@ -285,7 +285,6 @@ class GlueSource(StatefulIngestionSourceBase):
             source=self,
             config=self.source_config,
             state_type_class=BaseSQLAlchemyCheckpointState,
-            job_id=self.get_default_ingestion_job_id(),
             pipeline_name=self.ctx.pipeline_name,
             run_id=self.ctx.run_id,
         )
@@ -1251,23 +1250,17 @@ class GlueSource(StatefulIngestionSourceBase):
         """
         Create the custom checkpoint with empty state for the job.
         """
-        if job_id == self.get_default_ingestion_job_id():
+        if job_id == self.stale_entity_removal_handler.job_id:
             return self.stale_entity_removal_handler.create_checkpoint()
         return None
 
     def is_checkpointing_enabled(self, job_id: JobId) -> bool:
-        if job_id == self.get_default_ingestion_job_id():
+        if job_id == self.stale_entity_removal_handler.job_id:
             return self.stale_entity_removal_handler.is_checkpointing_enabled()
         return False
 
     def get_platform_instance_id(self) -> str:
         return self.source_config.platform_instance or self.platform
-
-    def get_default_ingestion_job_id(self) -> JobId:
-        """
-        Glue ingestion job name.
-        """
-        return JobId(f"{self.platform}_stateful_ingestion")
 
     def close(self):
         self.prepare_for_commit()

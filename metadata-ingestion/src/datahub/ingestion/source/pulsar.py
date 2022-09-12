@@ -104,7 +104,6 @@ class PulsarSource(StatefulIngestionSourceBase):
             source=self,
             config=self.config,
             state_type_class=KafkaCheckpointState,
-            job_id=self.get_default_ingestion_job_id(),
             pipeline_name=self.ctx.pipeline_name,
             run_id=self.ctx.run_id,
         )
@@ -221,22 +220,16 @@ class PulsarSource(StatefulIngestionSourceBase):
                 f"An ambiguous exception occurred while handling the request: {e}"
             )
 
-    def get_default_ingestion_job_id(self) -> JobId:
-        """
-        Default ingestion job name that kafka provides.
-        """
-        return JobId("ingest_from_pulsar_source")
-
     def create_checkpoint(self, job_id: JobId) -> Optional[Checkpoint]:
         """
         Create a custom checkpoint with empty state for the job.
         """
-        if job_id == self.get_default_ingestion_job_id():
+        if job_id == self.stale_entity_removal_handler.job_id:
             self.stale_entity_removal_handler.create_checkpoint()
         return None
 
     def is_checkpointing_enabled(self, job_id: JobId) -> bool:
-        if job_id == self.get_default_ingestion_job_id():
+        if job_id == self.stale_entity_removal_handler.job_id:
             return self.stale_entity_removal_handler.is_checkpointing_enabled()
         return False
 

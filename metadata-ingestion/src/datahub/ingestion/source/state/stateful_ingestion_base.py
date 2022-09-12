@@ -19,7 +19,7 @@ from datahub.ingestion.api.ingestion_job_checkpointing_provider_base import (
     JobId,
 )
 from datahub.ingestion.api.source import Source, SourceReport
-from datahub.ingestion.source.state.checkpoint import Checkpoint, CheckpointStateBase
+from datahub.ingestion.source.state.checkpoint import Checkpoint, StateType
 from datahub.ingestion.source.state_provider.state_provider_registry import (
     ingestion_checkpoint_provider_registry,
 )
@@ -100,10 +100,7 @@ class StatefulIngestionReport(SourceReport):
     pass
 
 
-StateType = TypeVar("StateType", bound=CheckpointStateBase)
-
-
-class StatefulIngestionSourceBase(Source, Generic[StateType]):
+class StatefulIngestionSourceBase(Source):
     """
     Defines the base class for all stateful sources.
     """
@@ -117,8 +114,8 @@ class StatefulIngestionSourceBase(Source, Generic[StateType]):
         self.last_checkpoints: Dict[JobId, Optional[Checkpoint]] = {}
         self.cur_checkpoints: Dict[JobId, Optional[Checkpoint]] = {}
         self.run_summaries_to_report: Dict[JobId, DatahubIngestionRunSummaryClass] = {}
-        self._initialize_checkpointing_state_provider()
         self.report: StatefulIngestionReport = StatefulIngestionReport()
+        self._initialize_checkpointing_state_provider()
 
     def warn(self, log: logging.Logger, key: str, reason: str) -> None:
         self.report.report_warning(key, reason)

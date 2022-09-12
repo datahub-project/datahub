@@ -139,7 +139,6 @@ class SnowflakeUsageSource(StatefulIngestionSourceBase):
         self.redundant_run_skip_handler = RedundantRunSkipHandler(
             source=self,
             config=self.config,
-            job_id=self.get_default_ingestion_job_id(),
             pipeline_name=self.ctx.pipeline_name,
             run_id=self.ctx.run_id,
         )
@@ -149,12 +148,6 @@ class SnowflakeUsageSource(StatefulIngestionSourceBase):
         config = SnowflakeUsageConfig.parse_obj(config_dict)
         return cls(config, ctx)
 
-    def get_default_ingestion_job_id(self) -> JobId:
-        """
-        Default ingestion job name for snowflake_usage.
-        """
-        return JobId("snowflake_usage_ingestion")
-
     def get_platform_instance_id(self) -> str:
         return self.config.get_account()
 
@@ -162,7 +155,7 @@ class SnowflakeUsageSource(StatefulIngestionSourceBase):
         """
         Create the custom checkpoint with empty state for the job.
         """
-        if job_id == self.get_default_ingestion_job_id():
+        if job_id == self.redundant_run_skip_handler.job_id:
             return self.redundant_run_skip_handler.create_checkpoint(
                 start_time_millis=datetime_to_ts_millis(self.config.start_time),
                 end_time_millis=datetime_to_ts_millis(self.config.end_time),
@@ -170,7 +163,7 @@ class SnowflakeUsageSource(StatefulIngestionSourceBase):
         return None
 
     def is_checkpointing_enabled(self, job_id: JobId) -> bool:
-        if job_id == self.get_default_ingestion_job_id():
+        if job_id == self.redundant_run_skip_handler.job_id:
             return self.redundant_run_skip_handler.is_checkpointing_enabled()
         return False
 

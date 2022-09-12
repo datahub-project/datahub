@@ -1,7 +1,7 @@
 import logging
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
-from typing import Generic, Iterable, List, Optional, Type, TypeVar, cast
+from typing import Dict, Generic, Iterable, List, Optional, Type, TypeVar, cast
 
 import pydantic
 
@@ -41,7 +41,7 @@ class StaleEntityRemovalSourceReport(StatefulIngestionReport):
         self.soft_deleted_stale_entities.append(urn)
 
 
-Derived = TypeVar("Derived")
+Derived = TypeVar("Derived", bound=CheckpointStateBase)
 
 
 class StaleEntityCheckpointStateBase(CheckpointStateBase, ABC, Generic[Derived]):
@@ -69,7 +69,7 @@ class StaleEntityCheckpointStateBase(CheckpointStateBase, ABC, Generic[Derived])
 
     @abstractmethod
     def get_urns_not_in(
-        self, type: str, other_checkpoint_state: "Derived"
+        self, type: str, other_checkpoint_state: Derived
     ) -> Iterable[str]:
         """
         Gets the urns present in this checkpoint but not the other_checkpoint for the given type.
@@ -94,14 +94,12 @@ class StaleEntityRemovalHandler:
         source: StatefulIngestionSourceBase,
         config: Optional[StatefulIngestionConfigBase],
         state_type_class: Type[StaleEntityCheckpointStateBase],
-        job_id: JobId,
         pipeline_name: Optional[str],
         run_id: str,
     ):
         self.config = config
         self.source = source
         self.state_type_class = state_type_class
-        self.job_id = job_id
         self.pipeline_name = pipeline_name
         self.run_id = run_id
         self.stateful_ingestion_config = (
@@ -118,6 +116,24 @@ class StaleEntityRemovalHandler:
             )
             else False
         )
+        self.job_id = self._get_job_id()
+
+    def _get_job_id(self) -> JobId:
+        # Handle backward-compatibility for existing sources.
+        backward_comp_platform_to_job_name: Dict[str, str] = {
+            "dbt": "dbt_stateful_ingestion",
+            "glue": "glue_stateful_ingestion",
+            "kafka": "ingest_from_kafka_source",
+            "pulsar": "ingest_from_pulsar_source",
+            "snowflake": "common_ingest_from_sql_source",
+        }
+        platform: Optional[str] = getattr(self.source, "platform")
+        if platform in backward_comp_platform_to_job_name:
+            return JobId(backward_comp_platform_to_job_name[platform])
+
+        # Default name for everything else
+        job_name_suffix = "stale_entity_removal"
+        return JobId(f"{platform}_{job_name_suffix}" if platform else job_name_suffix)
 
     def _ignore_old_state(self) -> bool:
         if (

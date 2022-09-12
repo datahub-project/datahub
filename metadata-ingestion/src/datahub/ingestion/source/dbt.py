@@ -63,6 +63,7 @@ from datahub.ingestion.source.state.stale_entity_removal_handler import (
 from datahub.ingestion.source.state.stateful_ingestion_base import (
     StatefulIngestionConfigBase,
     StatefulIngestionSourceBase,
+    StateType,
 )
 from datahub.metadata.com.linkedin.pegasus2avro.common import (
     AuditStamp,
@@ -1041,7 +1042,7 @@ class DBTTest:
 @capability(SourceCapability.DELETION_DETECTION, "Enabled via stateful ingestion")
 @capability(SourceCapability.LINEAGE_COARSE, "Enabled by default")
 @capability(SourceCapability.USAGE_STATS, "", supported=False)
-class DBTSource(StatefulIngestionSourceBase[DbtCheckpointState]):
+class DBTSource(StatefulIngestionSourceBase):
     """
     This plugin pulls metadata from dbt's artifact files and generates:
     - dbt Tables: for nodes in the dbt manifest file that are models materialized as tables
@@ -1089,13 +1090,12 @@ class DBTSource(StatefulIngestionSourceBase[DbtCheckpointState]):
             source=self,
             config=self.config,
             state_type_class=DbtCheckpointState,
-            job_id=self.get_default_ingestion_job_id(),
             pipeline_name=self.ctx.pipeline_name,
             run_id=self.ctx.run_id,
         )
 
     def get_last_checkpoint(
-        self, job_id: JobId, checkpoint_state_class: Type[DbtCheckpointState]
+        self, job_id: JobId, checkpoint_state_class: Type[StateType]
     ) -> Optional[Checkpoint]:
         last_checkpoint: Optional[Checkpoint]
         is_conversion_required: bool = False
@@ -1886,12 +1886,12 @@ class DBTSource(StatefulIngestionSourceBase[DbtCheckpointState]):
         """
         Create the custom checkpoint with empty state for the job.
         """
-        if job_id == self.get_default_ingestion_job_id():
+        if job_id == self.stale_entity_removal_handler.job_id:
             return self.stale_entity_removal_handler.create_checkpoint()
         return None
 
     def is_checkpointing_enabled(self, job_id: JobId) -> bool:
-        if job_id == self.get_default_ingestion_job_id():
+        if job_id == self.stale_entity_removal_handler.job_id:
             return self.stale_entity_removal_handler.is_checkpointing_enabled()
         return False
 
@@ -1909,12 +1909,6 @@ class DBTSource(StatefulIngestionSourceBase[DbtCheckpointState]):
             raise ValueError("DBT project identifier is not found in manifest")
 
         return f"{self.platform}_{project_id}"
-
-    def get_default_ingestion_job_id(self) -> JobId:
-        """
-        DBT ingestion job name.
-        """
-        return JobId(f"{self.platform}_stateful_ingestion")
 
     def close(self):
         self.prepare_for_commit()

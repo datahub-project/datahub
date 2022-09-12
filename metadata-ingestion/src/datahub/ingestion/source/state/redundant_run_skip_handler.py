@@ -36,7 +36,6 @@ class RedundantRunSkipHandler:
         self,
         source: StatefulIngestionSourceBase,
         config: Optional[StatefulIngestionConfigBase],
-        job_id: JobId,
         pipeline_name: Optional[str],
         run_id: str,
     ):
@@ -47,10 +46,10 @@ class RedundantRunSkipHandler:
             if self.config
             else None
         )
-        self.job_id = job_id
         self.pipeline_name = pipeline_name
         self.run_id = run_id
         self.checkpointing_enabled: bool = source.is_stateful_ingestion_configured()
+        self.job_id = self._get_job_id()
 
     def _ignore_old_state(self) -> bool:
         if (
@@ -67,6 +66,16 @@ class RedundantRunSkipHandler:
         ):
             return True
         return False
+
+    def _get_job_id(self) -> JobId:
+        platform: Optional[str] = getattr(self.source, "platform")
+        # Handle backward-compatibility for existing sources.
+        if platform == "snowflake":
+            return JobId("snowflake_usage_ingestion")
+
+        # Default name for everything else
+        job_name_suffix = "skip_redundant_run"
+        return JobId(f"{platform}_{job_name_suffix}" if platform else job_name_suffix)
 
     def is_checkpointing_enabled(self) -> bool:
         return self.checkpointing_enabled

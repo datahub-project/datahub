@@ -186,7 +186,6 @@ class SnowflakeV2Source(
             source=self,
             config=self.config,
             state_type_class=BaseSQLAlchemyCheckpointState,
-            job_id=self.get_default_ingestion_job_id(),
             pipeline_name=self.ctx.pipeline_name,
             run_id=self.ctx.run_id,
         )
@@ -194,7 +193,6 @@ class SnowflakeV2Source(
         self.redundant_run_skip_handler = RedundantRunSkipHandler(
             source=self,
             config=self.config,
-            job_id=self.get_usage_ingestion_job_id(),
             pipeline_name=self.ctx.pipeline_name,
             run_id=self.ctx.run_id,
         )
@@ -972,26 +970,15 @@ class SnowflakeV2Source(
         except Exception as e:
             self.report.report_failure("current_warehouse", f"Error: {e}")
 
-    def get_default_ingestion_job_id(self) -> JobId:
-
-        # For backward compatibility, keeping job id same as sql common
-        return JobId("common_ingest_from_sql_source")
-
-    def get_usage_ingestion_job_id(self) -> JobId:
-        """
-        Default ingestion job name for snowflake_usage.
-        """
-        return JobId("snowflake_usage_ingestion")
-
     # Stateful Ingestion Overrides.
     def get_platform_instance_id(self) -> str:
         return self.config.get_account()
 
     # Stateful Ingestion Overrides.
     def create_checkpoint(self, job_id: JobId) -> Optional[Checkpoint]:
-        if job_id == self.get_default_ingestion_job_id():
+        if job_id == self.stale_entity_removal_handler.job_id:
             return self.stale_entity_removal_handler.create_checkpoint()
-        if job_id == self.get_usage_ingestion_job_id():
+        if job_id == self.redundant_run_skip_handler.job_id:
             return self.redundant_run_skip_handler.create_checkpoint(
                 start_time_millis=datetime_to_ts_millis(self.config.start_time),
                 end_time_millis=datetime_to_ts_millis(self.config.end_time),
@@ -999,9 +986,9 @@ class SnowflakeV2Source(
         return None
 
     def is_checkpointing_enabled(self, job_id: JobId) -> bool:
-        if job_id == self.get_default_ingestion_job_id():
+        if job_id == self.stale_entity_removal_handler.job_id:
             return self.stale_entity_removal_handler.is_checkpointing_enabled()
-        if job_id == self.get_usage_ingestion_job_id():
+        if job_id == self.redundant_run_skip_handler.job_id:
             return self.redundant_run_skip_handler.is_checkpointing_enabled()
         return False
 

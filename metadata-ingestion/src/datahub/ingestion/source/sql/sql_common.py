@@ -487,7 +487,6 @@ class SQLAlchemySource(StatefulIngestionSourceBase):
             source=self,
             config=self.config,
             state_type_class=BaseSQLAlchemyCheckpointState,
-            job_id=self.get_default_ingestion_job_id(),
             pipeline_name=self.ctx.pipeline_name,
             run_id=self.ctx.run_id,
         )
@@ -549,23 +548,16 @@ class SQLAlchemySource(StatefulIngestionSourceBase):
         else:
             raise Exception("Unable to get database name from Sqlalchemy inspector")
 
-    def get_default_ingestion_job_id(self) -> JobId:
-        """
-        Default ingestion job name that sql_common provides.
-        Subclasses can override as needed.
-        """
-        return JobId("common_ingest_from_sql_source")
-
     def create_checkpoint(self, job_id: JobId) -> Optional[Checkpoint]:
         """
         Create the custom checkpoint with empty state for the job.
         """
-        if job_id == self.get_default_ingestion_job_id():
+        if job_id == self.stale_entity_removal_handler.job_id:
             return self.stale_entity_removal_handler.create_checkpoint()
         return None
 
     def is_checkpointing_enabled(self, job_id: JobId) -> bool:
-        if job_id == self.get_default_ingestion_job_id():
+        if job_id == self.stale_entity_removal_handler.job_id:
             return self.stale_entity_removal_handler.is_checkpointing_enabled()
         return False
 
