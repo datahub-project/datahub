@@ -79,7 +79,6 @@ def test_stateful_ingestion(wait_for_healthchecks):
         "reporting": [
             {
                 "type": "datahub",
-                "config": {"datahub_api": {"server": get_gms_url()}},
             }
         ],
     }
