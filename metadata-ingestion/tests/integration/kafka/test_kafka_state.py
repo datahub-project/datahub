@@ -86,7 +86,7 @@ def get_current_checkpoint_from_pipeline(
 ) -> Optional[Checkpoint]:
     kafka_source = cast(KafkaSource, pipeline.source)
     return kafka_source.get_current_checkpoint(
-        kafka_source.get_default_ingestion_job_id()
+        kafka_source.stale_entity_removal_handler.job_id
     )
 
 

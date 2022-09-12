@@ -230,7 +230,7 @@ def get_current_checkpoint_from_pipeline(
 ) -> Optional[Checkpoint]:
     glue_source = cast(GlueSource, pipeline.source)
     return glue_source.get_current_checkpoint(
-        glue_source.get_default_ingestion_job_id()
+        glue_source.stale_entity_removal_handler.job_id
     )
 
 

@@ -48,7 +48,7 @@ def test_stateful_ingestion(wait_for_healthchecks):
     ) -> Optional[Checkpoint]:
         mysql_source = cast(MySQLSource, pipeline.source)
         return mysql_source.get_current_checkpoint(
-            mysql_source.get_default_ingestion_job_id()
+            mysql_source.stale_entity_removal_handler.job_id
         )
 
     source_config_dict: Dict[str, Any] = {

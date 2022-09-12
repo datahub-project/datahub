@@ -216,7 +216,9 @@ def get_current_checkpoint_from_pipeline(
     pipeline: Pipeline,
 ) -> Optional[Checkpoint]:
     dbt_source = cast(DBTSource, pipeline.source)
-    return dbt_source.get_current_checkpoint(dbt_source.get_default_ingestion_job_id())
+    return dbt_source.get_current_checkpoint(
+        dbt_source.stale_entity_removal_handler.job_id
+    )
 
 
 @pytest.mark.integration
@@ -409,7 +411,7 @@ def test_dbt_state_backward_compatibility(
         assert dbt_source.ctx.pipeline_name is not None
 
         return Checkpoint(
-            job_name=dbt_source.get_default_ingestion_job_id(),
+            job_name=dbt_source.stale_entity_removal_handler.job_id,
             pipeline_name=dbt_source.ctx.pipeline_name,
             platform_instance_id=dbt_source.get_platform_instance_id(),
             run_id=dbt_source.ctx.run_id,
@@ -430,7 +432,7 @@ def test_dbt_state_backward_compatibility(
         dbt_source = cast(DBTSource, pipeline.source)
 
         last_checkpoint = dbt_source.get_last_checkpoint(
-            dbt_source.get_default_ingestion_job_id(), DbtCheckpointState
+            dbt_source.stale_entity_removal_handler.job_id, DbtCheckpointState
         )
         mock_source_base_get_last_checkpoint.assert_called()
         # Our fake method is returning BaseSQLAlchemyCheckpointState,however it should get converted to DbtCheckpointState
