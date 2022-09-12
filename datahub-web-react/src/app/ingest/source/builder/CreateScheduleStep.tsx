@@ -1,4 +1,4 @@
-import { Form, Typography } from 'antd';
+import { Button, Form, Typography } from 'antd';
 import React, { useMemo } from 'react';
 import { Cron } from 'react-js-cron';
 import 'react-js-cron/dist/styles.css';
@@ -10,7 +10,6 @@ import { TimezoneSelect } from './TimezoneSelect';
 import { ANTD_GRAY, REDESIGN_COLORS } from '../../../entity/shared/constants';
 import { lowerFirstLetter } from '../../../shared/textUtil';
 import { IngestionSourceBuilderStep } from './steps';
-import StepButtons from './StepButtons';
 
 const Section = styled.div`
     display: flex;
@@ -35,6 +34,12 @@ const CronText = styled(Typography.Paragraph)`
 const CronSuccessCheck = styled(CheckCircleOutlined)`
     color: ${REDESIGN_COLORS.BLUE};
     margin-right: 4px;
+`;
+
+const ControlsContainer = styled.div`
+    display: flex;
+    justify-content: space-between;
+    margin-top: 8px;
 `;
 
 const StyledFormItem = styled(Form.Item)`
@@ -145,12 +150,17 @@ export const CreateScheduleStep = ({ state, updateState, goTo, prev }: StepProps
                     <TimezoneSelect value={timezone} onChange={setTimezone} />
                 </Form.Item>
             </Form>
-            <StepButtons
-                onClickPrevious={prev}
-                onClickSkip={onClickSkip}
-                onClickNext={onClickNext}
-                isNextDisabled={!interval || interval.length === 0 || cronAsText.error}
-            />
+            <ControlsContainer>
+                <Button onClick={prev}>Previous</Button>
+                <div>
+                    <Button style={{ marginRight: 8 }} onClick={onClickSkip}>
+                        Skip
+                    </Button>
+                    <Button disabled={!interval || interval.length === 0 || cronAsText.error} onClick={onClickNext}>
+                        Next
+                    </Button>
+                </div>
+            </ControlsContainer>
         </>
     );
 };

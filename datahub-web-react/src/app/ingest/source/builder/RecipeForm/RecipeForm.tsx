@@ -2,7 +2,7 @@ import { Button, Collapse, Form, message, Tooltip, Typography } from 'antd';
 import React from 'react';
 import { get } from 'lodash';
 import YAML from 'yamljs';
-import { ApiOutlined, FilterOutlined, QuestionCircleOutlined, SettingOutlined } from '@ant-design/icons';
+import { ApiOutlined, FilterOutlined, QuestionCircleOutlined, SettingOutlined, ToolOutlined } from '@ant-design/icons';
 import styled from 'styled-components/macro';
 import { jsonToYaml } from '../../utils';
 import { CONNECTORS_WITH_TEST_CONNECTION, RECIPE_FIELDS } from './constants';
@@ -10,6 +10,8 @@ import FormField from './FormField';
 import TestConnectionButton from './TestConnection/TestConnectionButton';
 import { useListSecretsQuery } from '../../../../../graphql/ingestion.generated';
 import { RecipeField, setFieldValueOnRecipe } from './common';
+import AddTransformersStep from '../AddTransformersStep/AddTransformersStep';
+import { ANTD_GRAY } from '../../../../entity/shared/constants';
 
 export const ControlsContainer = styled.div`
     display: flex;
@@ -48,6 +50,13 @@ const HeaderTooltipWrapper = styled(QuestionCircleOutlined)`
     cursor: help;
 `;
 
+const OptionalText = styled.span`
+    font-size: 12px;
+    font-weight: normal;
+    color: ${ANTD_GRAY[8]};
+    margin-left: 4px;
+`;
+
 function getInitialValues(displayRecipe: string, allFields: any[]) {
     const initialValues = {};
     let recipeObj;
@@ -67,7 +76,7 @@ function getInitialValues(displayRecipe: string, allFields: any[]) {
     return initialValues;
 }
 
-function SectionHeader({ icon, text, sectionTooltip }: { icon: any; text: string; sectionTooltip?: string }) {
+function SectionHeader({ icon, text, sectionTooltip }: { icon: any; text: React.ReactNode; sectionTooltip?: string }) {
     return (
         <span>
             {icon}
@@ -196,6 +205,24 @@ function RecipeForm(props: Props) {
                             removeMargin={i === advancedFields.length - 1}
                         />
                     ))}
+                </Collapse.Panel>
+            </StyledCollapse>
+            <StyledCollapse>
+                <Collapse.Panel
+                    forceRender
+                    header={
+                        <SectionHeader
+                            icon={<ToolOutlined />}
+                            text={
+                                <span>
+                                    Add Transformers <OptionalText>(optional)</OptionalText>
+                                </span>
+                            }
+                        />
+                    }
+                    key="3"
+                >
+                    <AddTransformersStep displayRecipe={displayRecipe} setStagedRecipe={setStagedRecipe} />
                 </Collapse.Panel>
             </StyledCollapse>
             <ControlsContainer>
