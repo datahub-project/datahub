@@ -76,7 +76,11 @@ def test_stateful_ingestion(wait_for_healthchecks):
             "config": {"server": get_gms_url()},
         },
         "pipeline_name": "mysql_stateful_ingestion_smoke_test_pipeline",
-        "reporting": [{"type": "datahub"}],
+        "reporting": [
+            {
+                "type": "datahub",
+            }
+        ],
     }
 
     # 1. Setup the SQL engine
