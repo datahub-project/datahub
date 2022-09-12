@@ -15,7 +15,6 @@ from datahub.ingestion.transformer.dataset_transformer import (
     DatasetOwnershipTransformer,
 )
 from datahub.metadata.schema_classes import (
-    AuditStampClass,
     OwnerClass,
     OwnershipClass,
     OwnershipTypeClass,
