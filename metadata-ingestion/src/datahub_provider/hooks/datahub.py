@@ -197,9 +197,8 @@ class DatahubGenericHook(BaseHook):
     def get_underlying_hook(self) -> Union[DatahubRestHook, DatahubKafkaHook]:
         conn = self.get_connection(self.datahub_conn_id)
 
-        # Attempt to guess the correct underlying hook type.
-        # First we'll check the conn_type. If that fails, we'll fall back
-        # to checking the connection ID.
+        # We need to figure out the underlying hook type. First check the
+        # conn_type. If that fails, attempt to guess using the conn id name.
         if conn.conn_type == DatahubRestHook.conn_type:
             return DatahubRestHook(self.datahub_conn_id)
         elif conn.conn_type == DatahubKafkaHook.conn_type:
