@@ -413,7 +413,7 @@ class DBTNode:
     dbt_file_path: str
 
     node_type: str  # source, model
-    max_loaded_at: Optional[str]
+    max_loaded_at: Optional[datetime]
     materialization: Optional[str]  # table, view, ephemeral, incremental
     # see https://docs.getdbt.com/reference/artifacts/manifest-json
     catalog_type: Optional[str]
@@ -430,6 +430,27 @@ class DBTNode:
 
     tags: List[str] = field(default_factory=list)
     compiled_sql: Optional[str] = None
+
+    def get_db_fqn(self) -> str:
+        if self.database is not None:
+            fqn = f"{self.database}.{self.schema}.{self.name}"
+        else:
+            fqn = f"{self.schema}.{self.name}"
+        return fqn.replace('"', "")
+
+    def get_urn(
+        self,
+        target_platform: str,
+        env: str,
+        data_platform_instance: Optional[str],
+    ) -> str:
+        db_fqn = self.get_db_fqn()
+        return mce_builder.make_dataset_urn_with_platform_instance(
+            platform=target_platform,
+            name=db_fqn,
+            platform_instance=data_platform_instance,
+            env=env,
+        )
 
 
 def get_columns(
@@ -527,6 +548,12 @@ def extract_dbt_entities(
         meta_props = manifest_node.get("meta", {})
         if not meta:
             meta_props = manifest_node.get("config", {}).get("meta", {})
+
+        max_loaded_at_str = sources_by_id.get(key, {}).get("max_loaded_at")
+        max_loaded_at = None
+        if max_loaded_at_str:
+            max_loaded_at = dateutil.parser.parse(max_loaded_at_str)
+
         dbtNode = DBTNode(
             dbt_name=key,
             dbt_adapter=manifest_adapter,
@@ -536,7 +563,7 @@ def extract_dbt_entities(
             alias=manifest_node.get("alias"),
             dbt_file_path=manifest_node["original_file_path"],
             node_type=manifest_node["resource_type"],
-            max_loaded_at=sources_by_id.get(key, {}).get("max_loaded_at"),
+            max_loaded_at=max_loaded_at,
             comment=comment,
             description=manifest_node.get("description", ""),
             raw_sql=manifest_node.get("raw_sql"),
@@ -567,31 +594,6 @@ def extract_dbt_entities(
         dbt_entities.append(dbtNode)
 
     return dbt_entities
-
-
-def get_db_fqn(database: Optional[str], schema: str, name: str) -> str:
-    if database is not None:
-        fqn = f"{database}.{schema}.{name}"
-    else:
-        fqn = f"{schema}.{name}"
-    return fqn.replace('"', "")
-
-
-def get_urn_from_dbtNode(
-    database: Optional[str],
-    schema: str,
-    name: str,
-    target_platform: str,
-    env: str,
-    data_platform_instance: Optional[str],
-) -> str:
-    db_fqn = get_db_fqn(database, schema, name)
-    return mce_builder.make_dataset_urn_with_platform_instance(
-        platform=target_platform,
-        name=db_fqn,
-        platform_instance=data_platform_instance,
-        env=env,
-    )
 
 
 def get_custom_properties(node: DBTNode) -> Dict[str, str]:
@@ -633,7 +635,6 @@ def get_upstreams(
             continue
 
         upstream_manifest_node = all_nodes[upstream]
-        name = upstream_manifest_node.alias or upstream_manifest_node.name
 
         # This logic creates lineages among dbt nodes.
         platform_value = DBT_PLATFORM
@@ -650,10 +651,7 @@ def get_upstreams(
             platform_instance_value = target_platform_instance
 
         upstream_urns.append(
-            get_urn_from_dbtNode(
-                upstream_manifest_node.database,
-                upstream_manifest_node.schema,
-                name,
+            upstream_manifest_node.get_urn(
                 platform_value,
                 environment,
                 platform_instance_value,
@@ -765,7 +763,7 @@ def get_schema_metadata(
     if node.max_loaded_at is not None:
         actor = mce_builder.make_user_urn("dbt_executor")
         last_modified = AuditStamp(
-            time=int(dateutil.parser.parse(node.max_loaded_at).timestamp() * 1000),
+            time=int(node.max_loaded_at.timestamp() * 1000),
             actor=actor,
         )
 
@@ -1521,10 +1519,7 @@ class DBTSource(StatefulIngestionSourceBase):
         )
         for node in dbt_nodes:
 
-            node_datahub_urn = get_urn_from_dbtNode(
-                node.database,
-                node.schema,
-                node.name,
+            node_datahub_urn = node.get_urn(
                 mce_platform,
                 self.config.env,
                 mce_platform_instance,
@@ -1576,10 +1571,7 @@ class DBTSource(StatefulIngestionSourceBase):
                 # We will not link the platform not to the dbt node for type "source" because
                 # in this case the platform table existed first.
                 if node.node_type != "source":
-                    upstream_dbt_urn = get_urn_from_dbtNode(
-                        node.database,
-                        node.schema,
-                        node.name,
+                    upstream_dbt_urn = node.get_urn(
                         DBT_PLATFORM,
                         self.config.env,
                         self.config.platform_instance,
@@ -1844,10 +1836,7 @@ class DBTSource(StatefulIngestionSourceBase):
         # from the platform. This code block is executed when we are generating entities of type "dbt".
         if node.node_type == "source":
             upstream_urns.append(
-                get_urn_from_dbtNode(
-                    node.database,
-                    node.schema,
-                    node.name,
+                node.get_urn(
                     self.config.target_platform,
                     self.config.env,
                     self.config.target_platform_instance,
