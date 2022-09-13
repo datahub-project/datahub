@@ -76,7 +76,11 @@ public class ESUtils {
     conjunctiveCriterion.getAnd().forEach(criterion -> {
       if (!criterion.getValue().trim().isEmpty() || criterion.hasValues()
               || criterion.getCondition() == Condition.IS_NULL) {
-        andQueryBuilder.must(getQueryBuilderFromCriterion(criterion));
+        if (!criterion.isNegated()) {
+          andQueryBuilder.must(getQueryBuilderFromCriterion(criterion));
+        } else {
+          andQueryBuilder.mustNot(getQueryBuilderFromCriterion(criterion));
+        }
       }
     });
     return andQueryBuilder;

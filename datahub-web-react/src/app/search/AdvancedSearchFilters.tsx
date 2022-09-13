@@ -33,7 +33,7 @@ interface Props {
 const { Option } = Select;
 
 export const AdvancedSearchFilters = ({ facets, selectedFilters, onFilterSelect }: Props) => {
-    console.log(onFilterSelect);
+    console.log(selectedFilters);
     const [filterField, setFilterField] = useState<null | string>(null);
 
     const onFilterFieldSelect = (value) => {

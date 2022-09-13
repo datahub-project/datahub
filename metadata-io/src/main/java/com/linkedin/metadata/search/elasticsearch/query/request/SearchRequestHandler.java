@@ -407,7 +407,7 @@ public class SearchRequestHandler {
    * Injects the missing conjunctive filters into the aggregations list.
    */
   private List<AggregationMetadata> addFiltersToAggregationMetadata(@Nonnull final List<AggregationMetadata> originalMetadata, @Nullable final Filter filter) {
-    if (filter == null) {
+     if (filter == null) {
       return originalMetadata;
     }
     if (filter.hasOr()) {
@@ -454,7 +454,11 @@ public class SearchRequestHandler {
        * Elasticsearch.
        */
       AggregationMetadata originalAggMetadata = aggregationMetadataMap.get(finalFacetField);
-      addMissingAggregationValueToAggregationMetadata(criterion.getValue(), originalAggMetadata);
+      if (criterion.hasValues()) {
+        criterion.getValues().stream().forEach(value -> addMissingAggregationValueToAggregationMetadata(value, originalAggMetadata));
+      } else {
+        addMissingAggregationValueToAggregationMetadata(criterion.getValue(), originalAggMetadata);
+      }
     } else {
       /*
        * If we do not have ANY aggregation for the facet field, then inject a new aggregation metadata object for the
@@ -476,7 +480,7 @@ public class SearchRequestHandler {
     if (originalMetadata.getAggregations().entrySet().stream().noneMatch(entry -> value.equals(entry.getKey()))) {
       // No aggregation found for filtered value -- inject one!
       originalMetadata.getAggregations().put(value, 0L);
-      originalMetadata.getFilterValues().add(createFilterValue(value, 0L));
+      originalMetadata.getFilterValues().add(0, createFilterValue(value, 0L));
     }
   }
 

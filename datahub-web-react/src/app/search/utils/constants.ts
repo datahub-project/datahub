@@ -31,4 +31,5 @@ export const FIELD_TO_LABEL = {
     fieldGlossaryTerms: 'Column Terms',
     fieldPaths: 'Columns',
     description: 'Description',
+    removed: 'Soft Deleted',
 };

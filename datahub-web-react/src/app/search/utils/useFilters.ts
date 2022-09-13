@@ -17,17 +17,20 @@ export default function useFilters(params: QueryString.ParsedQuery<string>): Arr
                     const fieldIndex = key.replace(FILTER_URL_PREFIX, '');
                     const fieldParts = fieldIndex.split('___');
                     const field = fieldParts[0];
+                    const negated = fieldParts[1] === 'true';
                     if (!value) return null;
+
+                    console.log({ negated, field });
 
                     if (Array.isArray(value)) {
                         return {
                             field,
-                            condition: SearchCondition.Contain,
-                            negated: false,
+                            condition: SearchCondition.Equal,
+                            negated,
                             values: value.map((distinctValue) => decodeComma(distinctValue)),
                         };
                     }
-                    return { field, condition: SearchCondition.Equal, values: [decodeComma(value)] };
+                    return { field, condition: SearchCondition.Equal, values: [decodeComma(value)], negated };
                 })
                 .filter((val) => !!val) as Array<FacetFilterInput>
         );

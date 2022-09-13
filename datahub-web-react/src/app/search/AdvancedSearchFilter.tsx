@@ -1,8 +1,9 @@
 import React, { useState } from 'react';
 import styled from 'styled-components';
 
-import { FacetFilterInput, FacetMetadata, SearchCondition } from '../../types.generated';
+import { FacetFilterInput, FacetMetadata } from '../../types.generated';
 import { ANTD_GRAY } from '../entity/shared/constants';
+import { AdvancedSearchFilterConditionSelect } from './AdvancedSearchFilterConditionSelect';
 import { SearchFilterLabel } from './SearchFilterLabel';
 import { SelectFilterValueModal } from './SelectFilterValueModal';
 import { FIELD_TO_LABEL } from './utils/constants';
@@ -47,12 +48,6 @@ const FilterFieldLabel = styled.span`
     font-weight: 600;
 `;
 
-const conditionToReadable = {
-    [SearchCondition.Contain]: 'include',
-    [SearchCondition.Equal]: 'include',
-    [SearchCondition.In]: 'include',
-};
-
 const TEXT_FILTERS = ['fieldPaths'];
 
 export const AdvancedSearchFilter = ({ facet, filter, onClose, onUpdate }: Props) => {
@@ -62,7 +57,7 @@ export const AdvancedSearchFilter = ({ facet, filter, onClose, onUpdate }: Props
             <FieldFilterSection>
                 <span>
                     <FilterFieldLabel>{FIELD_TO_LABEL[filter.field]} </FilterFieldLabel>
-                    {conditionToReadable[filter.condition || SearchCondition.Contain]}
+                    <AdvancedSearchFilterConditionSelect filter={filter} onUpdate={onUpdate} />
                 </span>
                 <CloseSpan role="button" onClick={onClose} tabIndex={0} onKeyPress={onClose}>
                     x
@@ -79,8 +74,8 @@ export const AdvancedSearchFilter = ({ facet, filter, onClose, onUpdate }: Props
                             <SearchFilterLabel
                                 hideCount
                                 aggregation={
-                                    facet.aggregations.find((aggregation) => aggregation.value === value) ||
-                                    facet.aggregations[0]
+                                    facet?.aggregations?.find((aggregation) => aggregation.value === value) ||
+                                    facet?.aggregations?.[0]
                                 }
                                 field={value}
                             />
