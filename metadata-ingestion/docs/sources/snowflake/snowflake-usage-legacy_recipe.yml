@@ -1,5 +1,5 @@
 source:
-  type: snowflake-usage
+  type: snowflake-usage-legacy
   config:
     # Coordinates
     account_id: account_name
