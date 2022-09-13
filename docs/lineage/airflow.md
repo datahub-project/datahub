@@ -44,7 +44,7 @@ We recommend you use the lineage plugin if you are on Airflow version >= 2.0.2 o
 
     |Name   | Default value   | Description   |
     |---|---|---|
-    | datahub.datahub_conn_id | datahub_rest_default  | The name of the datahub connection you set in step 1.  |
+    | datahub.conn_id | datahub_rest_default  | The name of the datahub connection you set in step 1.  |
     | datahub.cluster |  prod | name of the airflow cluster  |
     | datahub.capture_ownership_info | true  |  If true, the owners field of the DAG will be capture as a DataHub corpuser.   |
     | datahub.capture_tags_info  | true   | If true, the tags field of the DAG will be captured as DataHub tags.  |
