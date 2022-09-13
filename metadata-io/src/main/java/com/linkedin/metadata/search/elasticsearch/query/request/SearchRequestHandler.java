@@ -406,7 +406,7 @@ public class SearchRequestHandler {
   /**
    * Injects the missing conjunctive filters into the aggregations list.
    */
-  private List<AggregationMetadata> addFiltersToAggregationMetadata(@Nonnull final List<AggregationMetadata> originalMetadata, @Nullable final Filter filter) {
+  public List<AggregationMetadata> addFiltersToAggregationMetadata(@Nonnull final List<AggregationMetadata> originalMetadata, @Nullable final Filter filter) {
      if (filter == null) {
       return originalMetadata;
     }
@@ -418,7 +418,7 @@ public class SearchRequestHandler {
     return originalMetadata;
   }
 
-  private void addOrFiltersToAggregationMetadata(@Nonnull final ConjunctiveCriterionArray or, @Nonnull final List<AggregationMetadata> originalMetadata) {
+  void addOrFiltersToAggregationMetadata(@Nonnull final ConjunctiveCriterionArray or, @Nonnull final List<AggregationMetadata> originalMetadata) {
     for (ConjunctiveCriterion conjunction : or) {
       // For each item in the conjunction, inject an empty aggregation if necessary
       addCriteriaFiltersToAggregationMetadata(conjunction.getAnd(), originalMetadata);
@@ -477,7 +477,10 @@ public class SearchRequestHandler {
   }
 
   private void addMissingAggregationValueToAggregationMetadata(@Nonnull final String value, @Nonnull final AggregationMetadata originalMetadata) {
-    if (originalMetadata.getAggregations().entrySet().stream().noneMatch(entry -> value.equals(entry.getKey()))) {
+    if (
+        originalMetadata.getAggregations().entrySet().stream().noneMatch(entry -> value.equals(entry.getKey())) ||
+            originalMetadata.getFilterValues().stream().noneMatch(entry -> entry.getValue().equals(value))
+    ) {
       // No aggregation found for filtered value -- inject one!
       originalMetadata.getAggregations().put(value, 0L);
       originalMetadata.getFilterValues().add(0, createFilterValue(value, 0L));

@@ -3,6 +3,7 @@ package com.linkedin.metadata.search.aggregator;
 import com.codahale.metrics.Timer;
 import com.linkedin.data.template.GetMode;
 import com.linkedin.data.template.LongMap;
+import com.linkedin.metadata.models.EntitySpec;
 import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.query.SearchFlags;
 import com.linkedin.metadata.query.filter.Filter;
@@ -17,6 +18,7 @@ import com.linkedin.metadata.search.SearchResult;
 import com.linkedin.metadata.search.SearchResultMetadata;
 import com.linkedin.metadata.search.client.CachingEntitySearchService;
 import com.linkedin.metadata.search.cache.EntityDocCountCache;
+import com.linkedin.metadata.search.elasticsearch.query.request.SearchRequestHandler;
 import com.linkedin.metadata.search.ranker.SearchRanker;
 import com.linkedin.metadata.search.utils.SearchUtils;
 import com.linkedin.metadata.utils.ConcurrencyUtils;
@@ -48,6 +50,8 @@ public class AllEntitiesSearchAggregator {
   private final CachingEntitySearchService _cachingEntitySearchService;
   private final int _maxAggregationValueCount;
 
+  private final EntityRegistry _entityRegistry;
+
   public AllEntitiesSearchAggregator(
       EntityRegistry entityRegistry,
       EntitySearchService entitySearchService,
@@ -57,6 +61,7 @@ public class AllEntitiesSearchAggregator {
     _searchRanker = Objects.requireNonNull(searchRanker);
     _cachingEntitySearchService = Objects.requireNonNull(cachingEntitySearchService);
     _entityDocCountCache = new EntityDocCountCache(entityRegistry, entitySearchService);
+    _entityRegistry = entityRegistry;
     _maxAggregationValueCount = DEFAULT_MAX_AGGREGATION_VALUES; // TODO: Make this externally configurable
   }
 
@@ -121,6 +126,12 @@ public class AllEntitiesSearchAggregator {
     // Trim the aggregations / filters after merging.
     Map<String, AggregationMetadata> finalAggregations = trimMergedAggregations(aggregations);
 
+    EntitySpec entitySpec = _entityRegistry.getEntitySpec("dataset");
+    SearchRequestHandler.getBuilder(null).addFiltersToAggregationMetadata(
+        new ArrayList(finalAggregations.values()),
+        postFilters
+    );
+
     // Finally, Add a custom Entity aggregation (appears as the first filter) -- this should never be truncated
     finalAggregations.put("entity", new AggregationMetadata().setName("entity")
         .setDisplayName("Type")
@@ -171,7 +182,8 @@ public class AllEntitiesSearchAggregator {
         entry -> Pair.of(entry.getKey(), new AggregationMetadata()
             .setName(entry.getValue().getName())
             .setDisplayName(entry.getValue().getDisplayName(GetMode.NULL))
-            .setAggregations(entry.getValue().getAggregations())
+            .setAggregations(
+                entry.getValue().getAggregations())
             .setFilterValues(
                 trimFilterValues(entry.getValue().getFilterValues()))
         )
