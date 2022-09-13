@@ -1,5 +1,6 @@
-package com.linkedin.metadata.term;
+package com.linkedin.metadata.service;
 
+import com.google.common.annotations.VisibleForTesting;
 import com.linkedin.common.AuditStamp;
 import com.linkedin.common.GlossaryTerms;
 import com.linkedin.common.GlossaryTermAssociation;
@@ -7,12 +8,9 @@ import com.linkedin.common.GlossaryTermAssociationArray;
 import com.linkedin.common.urn.GlossaryTermUrn;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
-import com.linkedin.data.template.RecordTemplate;
 import com.linkedin.entity.Aspect;
-import com.linkedin.events.metadata.ChangeType;
 import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.resource.ResourceReference;
-import com.linkedin.metadata.utils.GenericRecordUtils;
 import com.linkedin.mxe.MetadataChangeProposal;
 import com.linkedin.schema.EditableSchemaFieldInfo;
 import com.linkedin.schema.EditableSchemaFieldInfoArray;
@@ -43,12 +41,27 @@ public class GlossaryTermService {
     this.systemAuthentication = Objects.requireNonNull(systemAuthentication);
   }
 
+  /**
+   * Batch adds multiple glossary terms for a set of resources.
+   *
+   * @param glossaryTermUrns the urns of the terms to add
+   * @param resources references to the resources to change
+   *
+   */
   public void batchAddGlossaryTerms(
       @Nonnull List<Urn> glossaryTermUrns,
       @Nonnull List<ResourceReference> resources) {
     batchAddGlossaryTerms(glossaryTermUrns, resources, this.systemAuthentication);
   }
 
+  /**
+   * Batch adds multiple glossary terms for a set of resources.
+   *
+   * @param glossaryTermUrns the urns of the terms to add
+   * @param resources references to the resources to change
+   * @param authentication authentication to use when making the change
+   *
+   */
   public void batchAddGlossaryTerms(
       @Nonnull List<Urn> glossaryTermUrns,
       @Nonnull List<ResourceReference> resources,
@@ -64,12 +77,27 @@ public class GlossaryTermService {
     }
   }
 
+  /**
+   * Batch removes multiple glossary terms for a set of resources.
+   *
+   * @param glossaryTermUrns the urns of the terms to remove
+   * @param resources references to the resources to change
+   *
+   */
   public void batchRemoveGlossaryTerms(
       @Nonnull List<Urn> glossaryTermUrns,
       @Nonnull List<ResourceReference> resources) {
     batchRemoveGlossaryTerms(glossaryTermUrns, resources, this.systemAuthentication);
   }
 
+  /**
+   * Batch removes multiple glossary terms for a set of resources.
+   *
+   * @param glossaryTermUrns the urns of the terms to remove
+   * @param resources references to the resources to change
+   * @param authentication authentication to use when making the change
+   *
+   */
   public void batchRemoveGlossaryTerms(
       @Nonnull List<Urn> glossaryTermUrns,
       @Nonnull List<ResourceReference> resources,
@@ -115,8 +143,9 @@ public class GlossaryTermService {
     ingestChangeProposals(changes, authentication);
   }
 
+  @VisibleForTesting
   @Nullable
-  private MetadataChangeProposal buildAddGlossaryTermsProposal(
+  MetadataChangeProposal buildAddGlossaryTermsProposal(
       List<com.linkedin.common.urn.Urn> glossaryTermUrns,
       ResourceReference resource,
       Authentication authentication
@@ -130,8 +159,9 @@ public class GlossaryTermService {
     }
   }
 
+  @VisibleForTesting
   @Nullable
-  private MetadataChangeProposal buildRemoveGlossaryTermsProposal(
+  MetadataChangeProposal buildRemoveGlossaryTermsProposal(
       List<Urn> glossaryTermUrns,
       ResourceReference resource,
       Authentication authentication
@@ -145,8 +175,9 @@ public class GlossaryTermService {
     }
   }
 
+  @VisibleForTesting
   @Nullable
-  private MetadataChangeProposal buildAddGlossaryTermsToEntityProposal(
+  MetadataChangeProposal buildAddGlossaryTermsToEntityProposal(
       List<com.linkedin.common.urn.Urn> glossaryTermUrns,
       ResourceReference resource,
       Authentication authentication
@@ -171,8 +202,9 @@ public class GlossaryTermService {
     return buildMetadataChangeProposal(resource.getUrn(), Constants.GLOSSARY_TERMS_ASPECT_NAME, glossaryTerms);
   }
 
+  @VisibleForTesting
   @Nullable
-  private MetadataChangeProposal buildRemoveGlossaryTermsToEntityProposal(
+  MetadataChangeProposal buildRemoveGlossaryTermsToEntityProposal(
       List<Urn> glossaryTermUrns,
       ResourceReference resource,
       Authentication authentication
@@ -199,8 +231,9 @@ public class GlossaryTermService {
     );
   }
 
+  @VisibleForTesting
   @Nullable
-  private MetadataChangeProposal buildRemoveGlossaryTermsToSubResourceProposal(
+  MetadataChangeProposal buildRemoveGlossaryTermsToSubResourceProposal(
       List<Urn> glossaryTermUrns,
       ResourceReference resource,
       Authentication authentication
@@ -224,8 +257,9 @@ public class GlossaryTermService {
     return buildMetadataChangeProposal(resource.getUrn(), Constants.EDITABLE_SCHEMA_METADATA_ASPECT_NAME, editableSchemaMetadata);
   }
 
+  @VisibleForTesting
   @Nullable
-  private MetadataChangeProposal buildAddGlossaryTermsToSubResourceProposal(
+  MetadataChangeProposal buildAddGlossaryTermsToSubResourceProposal(
       final List<Urn> glossaryTermUrns,
       final ResourceReference resource,
       final Authentication authentication
@@ -369,20 +403,6 @@ public class GlossaryTermService {
       editableSchemaMetadataArray.add(newFieldInfo);
       return newFieldInfo;
     }
-  }
-
-  @Nonnull
-  public static MetadataChangeProposal buildMetadataChangeProposal(
-      @Nonnull Urn urn,
-      @Nonnull String aspectName,
-      @Nonnull RecordTemplate aspect) {
-    final MetadataChangeProposal proposal = new MetadataChangeProposal();
-    proposal.setEntityUrn(urn);
-    proposal.setEntityType(urn.getEntityType());
-    proposal.setAspectName(aspectName);
-    proposal.setAspect(GenericRecordUtils.serializeAspect(aspect));
-    proposal.setChangeType(ChangeType.UPSERT);
-    return proposal;
   }
 
   private void ingestChangeProposals(@Nonnull List<MetadataChangeProposal> changes, @Nonnull Authentication authentication) throws Exception {

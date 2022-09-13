@@ -1,5 +1,6 @@
-package com.linkedin.metadata.owner;
+package com.linkedin.metadata.service;
 
+import com.google.common.annotations.VisibleForTesting;
 import com.linkedin.common.AuditStamp;
 import com.linkedin.common.Owner;
 import com.linkedin.common.Ownership;
@@ -7,12 +8,9 @@ import com.linkedin.common.OwnerArray;
 import com.linkedin.common.OwnershipType;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
-import com.linkedin.data.template.RecordTemplate;
 import com.linkedin.entity.Aspect;
-import com.linkedin.events.metadata.ChangeType;
 import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.resource.ResourceReference;
-import com.linkedin.metadata.utils.GenericRecordUtils;
 import com.linkedin.mxe.MetadataChangeProposal;
 import java.net.URISyntaxException;
 import java.util.ArrayList;
@@ -39,10 +37,25 @@ public class OwnerService {
     this.systemAuthentication = Objects.requireNonNull(systemAuthentication);
   }
 
+  /**
+   * Batch adds a specific set of owners to a set of resources.
+   *
+   * @param ownerUrns the urns of the owners to add
+   * @param resources references to the resources to change
+   * @param ownershipType the ownership type to add
+   */
   public void batchAddOwners(@Nonnull List<Urn> ownerUrns, @Nonnull List<ResourceReference> resources, @Nonnull OwnershipType ownershipType) {
     batchAddOwners(ownerUrns, resources, ownershipType, this.systemAuthentication);
   }
 
+  /**
+   * Batch adds a specific set of owners to a set of resources.
+   *
+   * @param ownerUrns the urns of the owners to add
+   * @param resources references to the resources to change
+   * @param ownershipType the ownership type to add
+   * @param authentication authentication to use when making the change
+   */
   public void batchAddOwners(
       @Nonnull List<Urn> ownerUrns,
       @Nonnull List<ResourceReference> resources,
@@ -59,11 +72,27 @@ public class OwnerService {
     }
   }
 
+  /**
+   * Batch removes a specific set of owners from a set of resources.
+   *
+   * @param ownerUrns the urns of the owners to remove
+   * @param resources references to the resources to change
+   */
   public void batchRemoveOwners(@Nonnull List<Urn> ownerUrns, @Nonnull List<ResourceReference> resources) {
     batchRemoveOwners(ownerUrns, resources, this.systemAuthentication);
   }
 
-  public void batchRemoveOwners(@Nonnull List<Urn> ownerUrns, @Nonnull List<ResourceReference> resources, @Nonnull Authentication authentication) {
+  /**
+   * Batch removes a specific set of owners from a set of entities.
+   *
+   * @param ownerUrns the urns of the owners to remove
+   * @param resources references to the resources to change
+   * @param authentication authentication to use when making the change
+   */
+  public void batchRemoveOwners(
+      @Nonnull List<Urn> ownerUrns,
+      @Nonnull List<ResourceReference> resources,
+      @Nonnull Authentication authentication) {
     log.debug("Batch adding Owners to entities. owners: {}, resources: {}", resources, ownerUrns);
     try {
       removeOwnersFromResources(ownerUrns, resources, authentication);
@@ -75,7 +104,7 @@ public class OwnerService {
     }
   }
 
-  public void addOwnersToResources(
+  private void addOwnersToResources(
       List<com.linkedin.common.urn.Urn> ownerUrns,
       List<ResourceReference> resources,
       OwnershipType ownershipType,
@@ -91,7 +120,7 @@ public class OwnerService {
     ingestChangeProposals(changes, authentication);
   }
 
-  public void removeOwnersFromResources(
+  private void removeOwnersFromResources(
       List<Urn> owners,
       List<ResourceReference> resources,
       Authentication authentication
@@ -106,8 +135,9 @@ public class OwnerService {
     ingestChangeProposals(changes, authentication);
   }
 
+  @VisibleForTesting
   @Nullable
-  private MetadataChangeProposal buildAddOwnersProposal(
+  MetadataChangeProposal buildAddOwnersProposal(
       List<com.linkedin.common.urn.Urn> ownerUrns,
       ResourceReference resource,
       OwnershipType ownershipType,
@@ -133,8 +163,9 @@ public class OwnerService {
     return buildMetadataChangeProposal(resource.getUrn(), Constants.OWNERSHIP_ASPECT_NAME, owners);
   }
 
+  @VisibleForTesting
   @Nullable
-  private MetadataChangeProposal buildRemoveOwnersProposal(
+  MetadataChangeProposal buildRemoveOwnersProposal(
       List<Urn> ownerUrns,
       ResourceReference resource,
       Authentication authentication
@@ -219,17 +250,6 @@ public class OwnerService {
           e);
       return null;
     }
-  }
-
-  @Nonnull
-  public static MetadataChangeProposal buildMetadataChangeProposal(@Nonnull Urn urn, @Nonnull String aspectName, @Nonnull RecordTemplate aspect) {
-    final MetadataChangeProposal proposal = new MetadataChangeProposal();
-    proposal.setEntityUrn(urn);
-    proposal.setEntityType(urn.getEntityType());
-    proposal.setAspectName(aspectName);
-    proposal.setAspect(GenericRecordUtils.serializeAspect(aspect));
-    proposal.setChangeType(ChangeType.UPSERT);
-    return proposal;
   }
 
   private void ingestChangeProposals(@Nonnull List<MetadataChangeProposal> changes, Authentication authentication) throws Exception {

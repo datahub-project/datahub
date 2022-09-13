@@ -1,16 +1,14 @@
-package com.linkedin.metadata.tag;
+package com.linkedin.metadata.service;
 
+import com.google.common.annotations.VisibleForTesting;
 import com.linkedin.common.GlobalTags;
 import com.linkedin.common.TagAssociation;
 import com.linkedin.common.TagAssociationArray;
 import com.linkedin.common.urn.TagUrn;
 import com.linkedin.common.urn.Urn;
-import com.linkedin.data.template.RecordTemplate;
 import com.linkedin.entity.Aspect;
-import com.linkedin.events.metadata.ChangeType;
 import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.resource.ResourceReference;
-import com.linkedin.metadata.utils.GenericRecordUtils;
 import com.linkedin.mxe.MetadataChangeProposal;
 import com.linkedin.schema.EditableSchemaFieldInfo;
 import com.linkedin.schema.EditableSchemaFieldInfoArray;
@@ -41,10 +39,25 @@ public class TagService {
     this.systemAuthentication = Objects.requireNonNull(systemAuthentication);
   }
 
+  /**
+   * Batch adds multiple tags for a set of resources.
+   *
+   * @param tagUrns the urns of the tags to add
+   * @param resources references to the resources to change
+   */
   public void batchAddTags(@Nonnull List<Urn> tagUrns, @Nonnull List<ResourceReference> resources) {
     batchAddTags(tagUrns, resources, this.systemAuthentication);
   }
 
+
+  /**
+   * Batch adds multiple tags for a set of resources.
+   *
+   * @param tagUrns the urns of the tags to add
+   * @param resources references to the resources to change
+   * @param authentication authentication to use when making the change
+   *
+   */
   public void batchAddTags(@Nonnull List<Urn> tagUrns, @Nonnull List<ResourceReference> resources, @Nonnull Authentication authentication) {
     log.debug("Batch adding Tags to entities. tags: {}, resources: {}", resources, tagUrns);
     try {
@@ -57,14 +70,29 @@ public class TagService {
     }
   }
 
+  /**
+   * Batch removes multiple tags for a set of resources.
+   *
+   * @param tagUrns the urns of the tags to remove
+   * @param resources references to the resources to change
+   *
+   */
   public void batchRemoveTags(@Nonnull List<Urn> tagUrns, @Nonnull List<ResourceReference> resources) {
     batchRemoveTags(tagUrns, resources, this.systemAuthentication);
   }
 
+  /**
+   * Batch removes multiple tags for a set of resources.
+   *
+   * @param tagUrns the urns of the tags to remove
+   * @param resources references to the resources to change
+   * @param authentication authentication to use when making the change
+   *
+   */
   public void batchRemoveTags(@Nonnull List<Urn> tagUrns, @Nonnull List<ResourceReference> resources, @Nonnull Authentication authentication) {
     log.debug("Batch adding Tags to entities. tags: {}, resources: {}", resources, tagUrns);
     try {
-      removeTagsFromResources(tagUrns, resources);
+      removeTagsFromResources(tagUrns, resources, authentication);
     } catch (Exception e) {
       throw new RuntimeException(String.format("Failed to batch add Tags %s to resources with urns %s!",
           tagUrns,
@@ -73,15 +101,7 @@ public class TagService {
     }
   }
 
-  public void addTagsToResources(
-      List<com.linkedin.common.urn.Urn> tagUrns,
-      List<ResourceReference> resources
-  ) throws Exception {
-    addTagsToResources(tagUrns, resources, this.systemAuthentication);
-  }
-
-
-  public void addTagsToResources(
+  private void addTagsToResources(
       List<com.linkedin.common.urn.Urn> tagUrns,
       List<ResourceReference> resources,
       @Nonnull Authentication authentication
@@ -96,14 +116,7 @@ public class TagService {
     ingestChangeProposals(changes, authentication);
   }
 
-  public void removeTagsFromResources(
-      List<Urn> tags,
-      List<ResourceReference> resources
-  ) throws Exception {
-    removeTagsFromResources(tags, resources, this.systemAuthentication);
-  }
-
-  public void removeTagsFromResources(
+  private void removeTagsFromResources(
       List<Urn> tags,
       List<ResourceReference> resources,
       @Nonnull Authentication authentication
@@ -118,8 +131,9 @@ public class TagService {
     ingestChangeProposals(changes, authentication);
   }
 
+  @VisibleForTesting
   @Nullable
-  private MetadataChangeProposal buildAddTagsProposal(
+  MetadataChangeProposal buildAddTagsProposal(
       List<com.linkedin.common.urn.Urn> tagUrns,
       ResourceReference resource,
       Authentication authentication
@@ -133,8 +147,9 @@ public class TagService {
     }
   }
 
+  @VisibleForTesting
   @Nullable
-  private MetadataChangeProposal buildRemoveTagsProposal(
+  MetadataChangeProposal buildRemoveTagsProposal(
       List<Urn> tagUrns,
       ResourceReference resource,
       Authentication authentication
@@ -148,8 +163,9 @@ public class TagService {
     }
   }
 
+  @VisibleForTesting
   @Nullable
-  private MetadataChangeProposal buildAddTagsToEntityProposal(
+  MetadataChangeProposal buildAddTagsToEntityProposal(
       List<com.linkedin.common.urn.Urn> tagUrns,
       ResourceReference resource,
       Authentication authentication
@@ -171,8 +187,9 @@ public class TagService {
     return buildMetadataChangeProposal(resource.getUrn(), Constants.GLOBAL_TAGS_ASPECT_NAME, tags);
   }
 
+  @VisibleForTesting
   @Nullable
-  private MetadataChangeProposal buildRemoveTagsToEntityProposal(
+  MetadataChangeProposal buildRemoveTagsToEntityProposal(
       List<Urn> tagUrns,
       ResourceReference resource,
       Authentication authentication
@@ -197,8 +214,9 @@ public class TagService {
     );
   }
 
+  @VisibleForTesting
   @Nullable
-  private MetadataChangeProposal buildRemoveTagsToSubResourceProposal(
+  MetadataChangeProposal buildRemoveTagsToSubResourceProposal(
       List<Urn> tagUrns,
       ResourceReference resource,
       @Nonnull Authentication authentication
@@ -222,8 +240,9 @@ public class TagService {
     return buildMetadataChangeProposal(resource.getUrn(), Constants.EDITABLE_SCHEMA_METADATA_ASPECT_NAME, editableSchemaMetadata);
   }
 
+  @VisibleForTesting
   @Nullable
-  private MetadataChangeProposal buildAddTagsToSubResourceProposal(
+  MetadataChangeProposal buildAddTagsToSubResourceProposal(
       final List<Urn> tagUrns,
       final ResourceReference resource,
       final Authentication authentication
@@ -367,20 +386,6 @@ public class TagService {
       editableSchemaMetadataArray.add(newFieldInfo);
       return newFieldInfo;
     }
-  }
-
-  @Nonnull
-  public static MetadataChangeProposal buildMetadataChangeProposal(
-      @Nonnull Urn urn,
-      @Nonnull String aspectName,
-      @Nonnull RecordTemplate aspect) {
-    final MetadataChangeProposal proposal = new MetadataChangeProposal();
-    proposal.setEntityUrn(urn);
-    proposal.setEntityType(urn.getEntityType());
-    proposal.setAspectName(aspectName);
-    proposal.setAspect(GenericRecordUtils.serializeAspect(aspect));
-    proposal.setChangeType(ChangeType.UPSERT);
-    return proposal;
   }
 
   private void ingestChangeProposals(@Nonnull List<MetadataChangeProposal> changes, @Nonnull Authentication authentication) throws Exception {
