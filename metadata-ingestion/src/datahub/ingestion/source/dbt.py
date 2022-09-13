@@ -1858,28 +1858,6 @@ class DBTSource(StatefulIngestionSourceBase):
             return upstreams_lineage_class
         return None
 
-    def _create_lineage_aspect_for_platform_node(
-        self,
-        node: DBTNode,
-        all_nodes_map: Dict[str, DBTNode],
-    ) -> Optional[UpstreamLineage]:
-        """
-        This methods created lineage amongst platform nodes. Called only when dbt creation is turned off.
-        """
-        upstream_urns = get_upstreams(
-            node.upstream_nodes,
-            all_nodes_map,
-            self.config.use_identifiers,
-            self.config.target_platform,
-            self.config.target_platform_instance,
-            self.config.env,
-            self.config.platform_instance,
-            self.config.backcompat_skip_source_on_lineage_edge,
-        )
-        if upstream_urns:
-            return get_upstream_lineage(upstream_urns)
-        return None
-
     # This method attempts to read-modify and return the owners of a dataset.
     # From the existing owners it will remove the owners that are of the source_type_filter and
     # then add all the new owners to that list.
@@ -1998,7 +1976,3 @@ class DBTSource(StatefulIngestionSourceBase):
     def close(self):
         self.remove_duplicate_urns_from_checkpoint_state()
         self.prepare_for_commit()
-
-    @property
-    def __bases__(self) -> Tuple[Type]:
-        return (DBTSource,)
