@@ -27,7 +27,7 @@ import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import lombok.extern.slf4j.Slf4j;
 
-import static com.linkedin.metadata.search.utils.AspectUtils.*;
+import static com.linkedin.metadata.entity.AspectUtils.*;
 
 
 @Slf4j
@@ -42,9 +42,13 @@ public class TagService {
   }
 
   public void batchAddTags(@Nonnull List<Urn> tagUrns, @Nonnull List<ResourceReference> resources) {
+    batchAddTags(tagUrns, resources, this.systemAuthentication);
+  }
+
+  public void batchAddTags(@Nonnull List<Urn> tagUrns, @Nonnull List<ResourceReference> resources, @Nonnull Authentication authentication) {
     log.debug("Batch adding Tags to entities. tags: {}, resources: {}", resources, tagUrns);
     try {
-      addTagsToResources(tagUrns, resources);
+      addTagsToResources(tagUrns, resources, authentication);
     } catch (Exception e) {
       throw new RuntimeException(String.format("Failed to batch add Tags %s to resources with urns %s!",
           tagUrns,
@@ -54,6 +58,10 @@ public class TagService {
   }
 
   public void batchRemoveTags(@Nonnull List<Urn> tagUrns, @Nonnull List<ResourceReference> resources) {
+    batchRemoveTags(tagUrns, resources, this.systemAuthentication);
+  }
+
+  public void batchRemoveTags(@Nonnull List<Urn> tagUrns, @Nonnull List<ResourceReference> resources, @Nonnull Authentication authentication) {
     log.debug("Batch adding Tags to entities. tags: {}, resources: {}", resources, tagUrns);
     try {
       removeTagsFromResources(tagUrns, resources);
@@ -69,67 +77,88 @@ public class TagService {
       List<com.linkedin.common.urn.Urn> tagUrns,
       List<ResourceReference> resources
   ) throws Exception {
+    addTagsToResources(tagUrns, resources, this.systemAuthentication);
+  }
+
+
+  public void addTagsToResources(
+      List<com.linkedin.common.urn.Urn> tagUrns,
+      List<ResourceReference> resources,
+      @Nonnull Authentication authentication
+  ) throws Exception {
     final List<MetadataChangeProposal> changes = new ArrayList<>();
     for (ResourceReference entity : resources) {
-      MetadataChangeProposal proposal = buildAddTagsProposal(tagUrns, entity);
+      MetadataChangeProposal proposal = buildAddTagsProposal(tagUrns, entity, authentication);
       if (proposal != null) {
         changes.add(proposal);
       }
     }
-    ingestChangeProposals(changes);
+    ingestChangeProposals(changes, authentication);
   }
 
   public void removeTagsFromResources(
       List<Urn> tags,
       List<ResourceReference> resources
   ) throws Exception {
+    removeTagsFromResources(tags, resources, this.systemAuthentication);
+  }
+
+  public void removeTagsFromResources(
+      List<Urn> tags,
+      List<ResourceReference> resources,
+      @Nonnull Authentication authentication
+  ) throws Exception {
     final List<MetadataChangeProposal> changes = new ArrayList<>();
     for (ResourceReference resource : resources) {
-      MetadataChangeProposal proposal = buildRemoveTagsProposal(tags, resource);
+      MetadataChangeProposal proposal = buildRemoveTagsProposal(tags, resource, authentication);
       if (proposal != null) {
         changes.add(proposal);
       }
     }
-    ingestChangeProposals(changes);
+    ingestChangeProposals(changes, authentication);
   }
 
   @Nullable
   private MetadataChangeProposal buildAddTagsProposal(
       List<com.linkedin.common.urn.Urn> tagUrns,
-      ResourceReference resource
+      ResourceReference resource,
+      Authentication authentication
   ) throws URISyntaxException {
     if (resource.getSubResource() == null || resource.getSubResource().equals("")) {
       // Case 1: Adding tags to a top-level entity
-      return buildAddTagsToEntityProposal(tagUrns, resource);
+      return buildAddTagsToEntityProposal(tagUrns, resource, authentication);
     } else {
       // Case 2: Adding tags to subresource (e.g. schema fields)
-      return buildAddTagsToSubResourceProposal(tagUrns, resource);
+      return buildAddTagsToSubResourceProposal(tagUrns, resource, authentication);
     }
   }
 
   @Nullable
   private MetadataChangeProposal buildRemoveTagsProposal(
       List<Urn> tagUrns,
-      ResourceReference resource
+      ResourceReference resource,
+      Authentication authentication
   ) throws URISyntaxException {
     if (resource.getSubResource() == null || resource.getSubResource().equals("")) {
       // Case 1: Adding tags to a top-level entity
-      return buildRemoveTagsToEntityProposal(tagUrns, resource);
+      return buildRemoveTagsToEntityProposal(tagUrns, resource, authentication);
     } else {
       // Case 2: Adding tags to subresource (e.g. schema fields)
-      return buildRemoveTagsToSubResourceProposal(tagUrns, resource);
+      return buildRemoveTagsToSubResourceProposal(tagUrns, resource, authentication);
     }
   }
 
   @Nullable
   private MetadataChangeProposal buildAddTagsToEntityProposal(
       List<com.linkedin.common.urn.Urn> tagUrns,
-      ResourceReference resource
+      ResourceReference resource,
+      Authentication authentication
   ) throws URISyntaxException {
     com.linkedin.common.GlobalTags tags =
         getGlobalTagsAspect(
-            resource.getUrn(),
-            new GlobalTags());
+          resource.getUrn(),
+          new GlobalTags(),
+          authentication);
 
     if (tags == null) {
       return null;
@@ -145,11 +174,13 @@ public class TagService {
   @Nullable
   private MetadataChangeProposal buildRemoveTagsToEntityProposal(
       List<Urn> tagUrns,
-      ResourceReference resource
+      ResourceReference resource,
+      Authentication authentication
   ) {
     com.linkedin.common.GlobalTags tags = getGlobalTagsAspect(
-        resource.getUrn(),
-        new GlobalTags());
+      resource.getUrn(),
+      new GlobalTags(),
+      authentication);
 
     if (tags == null) {
       return null;
@@ -161,19 +192,22 @@ public class TagService {
     removeTagsIfExists(tags, tagUrns);
     return buildMetadataChangeProposal(
         resource.getUrn(),
-        Constants.GLOBAL_TAGS_ASPECT_NAME, tags
+        Constants.GLOBAL_TAGS_ASPECT_NAME,
+        tags
     );
   }
 
   @Nullable
   private MetadataChangeProposal buildRemoveTagsToSubResourceProposal(
       List<Urn> tagUrns,
-      ResourceReference resource
+      ResourceReference resource,
+      @Nonnull Authentication authentication
   ) {
     com.linkedin.schema.EditableSchemaMetadata editableSchemaMetadata =
         getEditableSchemaMetadataAspect(
             resource.getUrn(),
-            new EditableSchemaMetadata());
+            new EditableSchemaMetadata(),
+            authentication);
 
     if (editableSchemaMetadata == null) {
       return null;
@@ -191,12 +225,14 @@ public class TagService {
   @Nullable
   private MetadataChangeProposal buildAddTagsToSubResourceProposal(
       final List<Urn> tagUrns,
-      final ResourceReference resource
+      final ResourceReference resource,
+      final Authentication authentication
   ) throws URISyntaxException {
     com.linkedin.schema.EditableSchemaMetadata editableSchemaMetadata =
         getEditableSchemaMetadataAspect(
             resource.getUrn(),
-            new EditableSchemaMetadata());
+            new EditableSchemaMetadata(),
+            authentication);
 
     if (editableSchemaMetadata == null) {
       return null;
@@ -254,13 +290,16 @@ public class TagService {
   }
 
   @Nullable
-  private GlobalTags getGlobalTagsAspect(@Nonnull Urn entityUrn, @Nonnull GlobalTags defaultValue) {
+  private GlobalTags getGlobalTagsAspect(
+      @Nonnull Urn entityUrn,
+      @Nonnull GlobalTags defaultValue,
+      @Nonnull Authentication authentication) {
     try {
       Aspect aspect = getLatestAspect(
           entityUrn,
           Constants.GLOBAL_TAGS_ASPECT_NAME,
           this.entityClient,
-          this.systemAuthentication
+          authentication
       );
 
       if (aspect == null) {
@@ -278,13 +317,16 @@ public class TagService {
   }
 
   @Nullable
-  private EditableSchemaMetadata getEditableSchemaMetadataAspect(@Nonnull Urn entityUrn, @Nonnull EditableSchemaMetadata defaultValue) {
+  private EditableSchemaMetadata getEditableSchemaMetadataAspect(
+      @Nonnull Urn entityUrn,
+      @Nonnull EditableSchemaMetadata defaultValue,
+      @Nonnull Authentication authentication) {
     try {
       Aspect aspect = getLatestAspect(
           entityUrn,
           Constants.EDITABLE_SCHEMA_METADATA_ASPECT_NAME,
           this.entityClient,
-          this.systemAuthentication
+          authentication
       );
 
       if (aspect == null) {
@@ -341,10 +383,10 @@ public class TagService {
     return proposal;
   }
 
-  private void ingestChangeProposals(@Nonnull List<MetadataChangeProposal> changes) throws Exception {
+  private void ingestChangeProposals(@Nonnull List<MetadataChangeProposal> changes, @Nonnull Authentication authentication) throws Exception {
     // TODO: Replace this with a batch ingest proposals endpoint.
     for (MetadataChangeProposal change : changes) {
-      this.entityClient.ingestProposal(change, this.systemAuthentication);
+      this.entityClient.ingestProposal(change, authentication);
     }
   }
 }

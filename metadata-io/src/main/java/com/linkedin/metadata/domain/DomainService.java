@@ -23,7 +23,7 @@ import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import lombok.extern.slf4j.Slf4j;
 
-import static com.linkedin.metadata.search.utils.AspectUtils.*;
+import static com.linkedin.metadata.entity.AspectUtils.*;
 
 
 @Slf4j
@@ -38,9 +38,13 @@ public class DomainService {
   }
 
   public void batchSetDomain(@Nonnull Urn domainUrn, @Nonnull List<ResourceReference> resources) {
+    batchSetDomain(domainUrn, resources, this.systemAuthentication);
+  }
+
+  public void batchSetDomain(@Nonnull Urn domainUrn, @Nonnull List<ResourceReference> resources, @Nonnull Authentication authentication) {
     log.debug("Batch setting Domain to entities. domain: {}, resources: {}", resources, domainUrn);
     try {
-      setDomainForResources(domainUrn, resources);
+      setDomainForResources(domainUrn, resources, authentication);
     } catch (Exception e) {
       throw new RuntimeException(String.format("Failed to batch set Domain %s to resources with urns %s!",
           domainUrn,
@@ -50,9 +54,13 @@ public class DomainService {
   }
 
   public void batchAddDomains(@Nonnull List<Urn> domainUrns, @Nonnull List<ResourceReference> resources) {
+    batchAddDomains(domainUrns, resources, this.systemAuthentication);
+  }
+
+  public void batchAddDomains(@Nonnull List<Urn> domainUrns, @Nonnull List<ResourceReference> resources, @Nonnull Authentication authentication) {
     log.debug("Batch adding Domains to entities. domains: {}, resources: {}", resources, domainUrns);
     try {
-      addDomainsToResources(domainUrns, resources);
+      addDomainsToResources(domainUrns, resources, authentication);
     } catch (Exception e) {
       throw new RuntimeException(String.format("Failed to batch add Domains %s to resources with urns %s!",
           domainUrns,
@@ -62,9 +70,13 @@ public class DomainService {
   }
 
   public void batchUnsetDomain(@Nonnull List<ResourceReference> resources) {
+    batchUnsetDomain(resources, this.systemAuthentication);
+  }
+
+  public void batchUnsetDomain(@Nonnull List<ResourceReference> resources, @Nullable Authentication authentication) {
     log.debug("Batch unsetting Domains to entities. resources: {}", resources);
     try {
-      unsetDomainForResources(resources);
+      unsetDomainForResources(resources, authentication);
     } catch (Exception e) {
       throw new RuntimeException(String.format("Failed to unset add Domain for resources with urns %s!",
           resources.stream().map(ResourceReference::getUrn).collect(Collectors.toList())),
@@ -73,9 +85,13 @@ public class DomainService {
   }
 
   public void batchRemoveDomains(@Nonnull List<Urn> domainUrns, @Nonnull List<ResourceReference> resources) {
+    batchRemoveDomains(domainUrns, resources, this.systemAuthentication);
+  }
+
+  public void batchRemoveDomains(@Nonnull List<Urn> domainUrns, @Nonnull List<ResourceReference> resources, @Nullable Authentication authentication) {
     log.debug("Batch adding Domains to entities. domains: {}, resources: {}", resources, domainUrns);
     try {
-      removeDomainsFromResources(domainUrns, resources);
+      removeDomainsFromResources(domainUrns, resources, authentication);
     } catch (Exception e) {
       throw new RuntimeException(String.format("Failed to batch add Domains %s to resources with urns %s!",
           domainUrns,
@@ -86,7 +102,8 @@ public class DomainService {
 
   public void setDomainForResources(
       com.linkedin.common.urn.Urn domainUrn,
-      List<ResourceReference> resources
+      List<ResourceReference> resources,
+      @Nullable Authentication authentication
   ) throws Exception {
     final List<MetadataChangeProposal> changes = new ArrayList<>();
     for (ResourceReference entity : resources) {
@@ -95,25 +112,27 @@ public class DomainService {
         changes.add(proposal);
       }
     }
-    ingestChangeProposals(changes);
+    ingestChangeProposals(changes, authentication);
   }
 
   public void addDomainsToResources(
       List<com.linkedin.common.urn.Urn> domainUrns,
-      List<ResourceReference> resources
+      List<ResourceReference> resources,
+      @Nonnull Authentication authentication
   ) throws Exception {
     final List<MetadataChangeProposal> changes = new ArrayList<>();
     for (ResourceReference entity : resources) {
-      MetadataChangeProposal proposal = buildAddDomainsProposal(domainUrns, entity);
+      MetadataChangeProposal proposal = buildAddDomainsProposal(domainUrns, entity, authentication);
       if (proposal != null) {
         changes.add(proposal);
       }
     }
-    ingestChangeProposals(changes);
+    ingestChangeProposals(changes, authentication);
   }
 
   public void unsetDomainForResources(
-      List<ResourceReference> resources
+      List<ResourceReference> resources,
+      @Nonnull Authentication authentication
   ) throws Exception {
     final List<MetadataChangeProposal> changes = new ArrayList<>();
     for (ResourceReference resource : resources) {
@@ -122,21 +141,22 @@ public class DomainService {
         changes.add(proposal);
       }
     }
-    ingestChangeProposals(changes);
+    ingestChangeProposals(changes, authentication);
   }
 
   public void removeDomainsFromResources(
       List<Urn> domains,
-      List<ResourceReference> resources
+      List<ResourceReference> resources,
+      @Nonnull Authentication authentication
   ) throws Exception {
     final List<MetadataChangeProposal> changes = new ArrayList<>();
     for (ResourceReference resource : resources) {
-      MetadataChangeProposal proposal = buildRemoveDomainsProposal(domains, resource);
+      MetadataChangeProposal proposal = buildRemoveDomainsProposal(domains, resource, authentication);
       if (proposal != null) {
         changes.add(proposal);
       }
     }
-    ingestChangeProposals(changes);
+    ingestChangeProposals(changes, authentication);
   }
 
   @Nullable
@@ -152,11 +172,13 @@ public class DomainService {
   @Nullable
   private MetadataChangeProposal buildAddDomainsProposal(
       List<com.linkedin.common.urn.Urn> domainUrns,
-      ResourceReference resource
+      ResourceReference resource,
+      @Nonnull Authentication authentication
   ) throws URISyntaxException {
     Domains domains = getDomainsAspect(
         resource.getUrn(),
-        new Domains());
+        new Domains(),
+        authentication);
 
     if (domains == null) {
       return null;
@@ -181,11 +203,13 @@ public class DomainService {
   @Nullable
   private MetadataChangeProposal buildRemoveDomainsProposal(
       List<Urn> domainUrns,
-      ResourceReference resource
+      ResourceReference resource,
+      @Nonnull Authentication authentication
   ) throws URISyntaxException {
     Domains domains = getDomainsAspect(
         resource.getUrn(),
-        new Domains());
+        new Domains(),
+        authentication);
 
     if (domains == null) {
       return null;
@@ -237,13 +261,13 @@ public class DomainService {
   }
 
   @Nullable
-  private Domains getDomainsAspect(@Nonnull Urn entityUrn, @Nonnull Domains defaultValue) {
+  private Domains getDomainsAspect(@Nonnull Urn entityUrn, @Nonnull Domains defaultValue, @Nonnull Authentication authentication) {
     try {
       Aspect aspect = getLatestAspect(
           entityUrn,
           Constants.DOMAINS_ASPECT_NAME,
           this.entityClient,
-          this.systemAuthentication
+          authentication
       );
 
       if (aspect == null) {
@@ -274,10 +298,10 @@ public class DomainService {
     return proposal;
   }
 
-  private void ingestChangeProposals(@Nonnull List<MetadataChangeProposal> changes) throws Exception {
+  private void ingestChangeProposals(@Nonnull List<MetadataChangeProposal> changes, @Nonnull Authentication authentication) throws Exception {
     // TODO: Replace this with a batch ingest proposals endpoint.
     for (MetadataChangeProposal change : changes) {
-      this.entityClient.ingestProposal(change, this.systemAuthentication);
+      this.entityClient.ingestProposal(change, authentication);
     }
   }
 }

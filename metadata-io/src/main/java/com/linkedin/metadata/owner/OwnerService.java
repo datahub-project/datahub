@@ -25,8 +25,7 @@ import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import lombok.extern.slf4j.Slf4j;
 
-import static com.linkedin.metadata.Constants.*;
-import static com.linkedin.metadata.search.utils.AspectUtils.*;
+import static com.linkedin.metadata.entity.AspectUtils.*;
 
 
 @Slf4j
@@ -41,9 +40,17 @@ public class OwnerService {
   }
 
   public void batchAddOwners(@Nonnull List<Urn> ownerUrns, @Nonnull List<ResourceReference> resources, @Nonnull OwnershipType ownershipType) {
+    batchAddOwners(ownerUrns, resources, ownershipType, this.systemAuthentication);
+  }
+
+  public void batchAddOwners(
+      @Nonnull List<Urn> ownerUrns,
+      @Nonnull List<ResourceReference> resources,
+      @Nonnull OwnershipType ownershipType,
+      @Nonnull Authentication authentication) {
     log.debug("Batch adding Owners to entities. owners: {}, resources: {}", resources, ownerUrns);
     try {
-      addOwnersToResources(ownerUrns, resources, ownershipType);
+      addOwnersToResources(ownerUrns, resources, ownershipType, authentication);
     } catch (Exception e) {
       throw new RuntimeException(String.format("Failed to batch add Owners %s to resources with urns %s!",
           ownerUrns,
@@ -53,9 +60,13 @@ public class OwnerService {
   }
 
   public void batchRemoveOwners(@Nonnull List<Urn> ownerUrns, @Nonnull List<ResourceReference> resources) {
+    batchRemoveOwners(ownerUrns, resources, this.systemAuthentication);
+  }
+
+  public void batchRemoveOwners(@Nonnull List<Urn> ownerUrns, @Nonnull List<ResourceReference> resources, @Nonnull Authentication authentication) {
     log.debug("Batch adding Owners to entities. owners: {}, resources: {}", resources, ownerUrns);
     try {
-      removeOwnersFromResources(ownerUrns, resources);
+      removeOwnersFromResources(ownerUrns, resources, authentication);
     } catch (Exception e) {
       throw new RuntimeException(String.format("Failed to batch add Owners %s to resources with urns %s!",
           ownerUrns,
@@ -67,41 +78,45 @@ public class OwnerService {
   public void addOwnersToResources(
       List<com.linkedin.common.urn.Urn> ownerUrns,
       List<ResourceReference> resources,
-      OwnershipType ownershipType
+      OwnershipType ownershipType,
+      Authentication authentication
   ) throws Exception {
     final List<MetadataChangeProposal> changes = new ArrayList<>();
     for (ResourceReference entity : resources) {
-      MetadataChangeProposal proposal = buildAddOwnersProposal(ownerUrns, entity, ownershipType);
+      MetadataChangeProposal proposal = buildAddOwnersProposal(ownerUrns, entity, ownershipType, authentication);
       if (proposal != null) {
         changes.add(proposal);
       }
     }
-    ingestChangeProposals(changes);
+    ingestChangeProposals(changes, authentication);
   }
 
   public void removeOwnersFromResources(
       List<Urn> owners,
-      List<ResourceReference> resources
+      List<ResourceReference> resources,
+      Authentication authentication
   ) throws Exception {
     final List<MetadataChangeProposal> changes = new ArrayList<>();
     for (ResourceReference resource : resources) {
-      MetadataChangeProposal proposal = buildRemoveOwnersProposal(owners, resource);
+      MetadataChangeProposal proposal = buildRemoveOwnersProposal(owners, resource, authentication);
       if (proposal != null) {
         changes.add(proposal);
       }
     }
-    ingestChangeProposals(changes);
+    ingestChangeProposals(changes, authentication);
   }
 
   @Nullable
   private MetadataChangeProposal buildAddOwnersProposal(
       List<com.linkedin.common.urn.Urn> ownerUrns,
       ResourceReference resource,
-      OwnershipType ownershipType
+      OwnershipType ownershipType,
+      Authentication authentication
   ) throws URISyntaxException {
     com.linkedin.common.Ownership owners = getOwnershipAspect(
         resource.getUrn(),
-        new Ownership());
+        new Ownership(),
+        authentication);
 
     if (owners == null) {
       return null;
@@ -111,7 +126,7 @@ public class OwnerService {
       owners.setOwners(new OwnerArray());
       owners.setLastModified(new AuditStamp()
         .setTime(System.currentTimeMillis())
-        .setActor(UrnUtils.getUrn(SYSTEM_ACTOR))
+        .setActor(UrnUtils.getUrn(authentication.getActor().toUrnStr()))
       );
     }
     addOwnersIfNotExists(owners, ownerUrns, ownershipType);
@@ -121,11 +136,13 @@ public class OwnerService {
   @Nullable
   private MetadataChangeProposal buildRemoveOwnersProposal(
       List<Urn> ownerUrns,
-      ResourceReference resource
+      ResourceReference resource,
+      Authentication authentication
   ) throws URISyntaxException {
     com.linkedin.common.Ownership owners = getOwnershipAspect(
         resource.getUrn(),
-        new Ownership());
+        new Ownership(),
+        authentication);
 
     if (owners == null) {
       return null;
@@ -181,13 +198,13 @@ public class OwnerService {
   }
 
   @Nullable
-  private Ownership getOwnershipAspect(@Nonnull Urn entityUrn, @Nonnull Ownership defaultValue) {
+  private Ownership getOwnershipAspect(@Nonnull Urn entityUrn, @Nonnull Ownership defaultValue, @Nonnull Authentication authentication) {
     try {
       Aspect aspect = getLatestAspect(
           entityUrn,
           Constants.OWNERSHIP_ASPECT_NAME,
           this.entityClient,
-          this.systemAuthentication
+          authentication
       );
 
       if (aspect == null) {
@@ -215,10 +232,10 @@ public class OwnerService {
     return proposal;
   }
 
-  private void ingestChangeProposals(@Nonnull List<MetadataChangeProposal> changes) throws Exception {
+  private void ingestChangeProposals(@Nonnull List<MetadataChangeProposal> changes, Authentication authentication) throws Exception {
     // TODO: Replace this with a batch ingest proposals endpoint.
     for (MetadataChangeProposal change : changes) {
-      this.entityClient.ingestProposal(change, this.systemAuthentication);
+      this.entityClient.ingestProposal(change, authentication);
     }
   }
 }

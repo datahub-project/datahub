@@ -29,8 +29,7 @@ import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import lombok.extern.slf4j.Slf4j;
 
-import static com.linkedin.metadata.Constants.*;
-import static com.linkedin.metadata.search.utils.AspectUtils.*;
+import static com.linkedin.metadata.entity.AspectUtils.*;
 
 
 @Slf4j
@@ -44,10 +43,19 @@ public class GlossaryTermService {
     this.systemAuthentication = Objects.requireNonNull(systemAuthentication);
   }
 
-  public void batchAddGlossaryTerms(@Nonnull List<Urn> glossaryTermUrns, @Nonnull List<ResourceReference> resources) {
+  public void batchAddGlossaryTerms(
+      @Nonnull List<Urn> glossaryTermUrns,
+      @Nonnull List<ResourceReference> resources) {
+    batchAddGlossaryTerms(glossaryTermUrns, resources, this.systemAuthentication);
+  }
+
+  public void batchAddGlossaryTerms(
+      @Nonnull List<Urn> glossaryTermUrns,
+      @Nonnull List<ResourceReference> resources,
+      @Nonnull Authentication authentication) {
     log.debug("Batch adding GlossaryTerms to entities. glossaryTerms: {}, resources: {}", resources, glossaryTermUrns);
     try {
-      addGlossaryTermsToResources(glossaryTermUrns, resources);
+      addGlossaryTermsToResources(glossaryTermUrns, resources, authentication);
     } catch (Exception e) {
       throw new RuntimeException(String.format("Failed to batch add GlossaryTerms %s to resources with urns %s!",
           glossaryTermUrns,
@@ -56,10 +64,19 @@ public class GlossaryTermService {
     }
   }
 
-  public void batchRemoveGlossaryTerms(@Nonnull List<Urn> glossaryTermUrns, @Nonnull List<ResourceReference> resources) {
+  public void batchRemoveGlossaryTerms(
+      @Nonnull List<Urn> glossaryTermUrns,
+      @Nonnull List<ResourceReference> resources) {
+    batchRemoveGlossaryTerms(glossaryTermUrns, resources, this.systemAuthentication);
+  }
+
+  public void batchRemoveGlossaryTerms(
+      @Nonnull List<Urn> glossaryTermUrns,
+      @Nonnull List<ResourceReference> resources,
+      @Nonnull Authentication authentication) {
     log.debug("Batch adding GlossaryTerms to entities. glossaryTerms: {}, resources: {}", resources, glossaryTermUrns);
     try {
-      removeGlossaryTermsFromResources(glossaryTermUrns, resources);
+      removeGlossaryTermsFromResources(glossaryTermUrns, resources, authentication);
     } catch (Exception e) {
       throw new RuntimeException(String.format("Failed to batch add GlossaryTerms %s to resources with urns %s!",
           glossaryTermUrns,
@@ -68,71 +85,77 @@ public class GlossaryTermService {
     }
   }
 
-  public void addGlossaryTermsToResources(
+  private void addGlossaryTermsToResources(
       List<com.linkedin.common.urn.Urn> glossaryTermUrns,
-      List<ResourceReference> resources
+      List<ResourceReference> resources,
+      Authentication authentication
   ) throws Exception {
     final List<MetadataChangeProposal> changes = new ArrayList<>();
     for (ResourceReference entity : resources) {
-      MetadataChangeProposal proposal = buildAddGlossaryTermsProposal(glossaryTermUrns, entity);
+      MetadataChangeProposal proposal = buildAddGlossaryTermsProposal(glossaryTermUrns, entity, authentication);
       if (proposal != null) {
         changes.add(proposal);
       }
     }
-    ingestChangeProposals(changes);
+    ingestChangeProposals(changes, authentication);
   }
 
-  public void removeGlossaryTermsFromResources(
+  private void removeGlossaryTermsFromResources(
       List<Urn> glossaryTerms,
-      List<ResourceReference> resources
+      List<ResourceReference> resources,
+      Authentication authentication
   ) throws Exception {
     final List<MetadataChangeProposal> changes = new ArrayList<>();
     for (ResourceReference resource : resources) {
-      MetadataChangeProposal proposal = buildRemoveGlossaryTermsProposal(glossaryTerms, resource);
+      MetadataChangeProposal proposal = buildRemoveGlossaryTermsProposal(glossaryTerms, resource, authentication);
       if (proposal != null) {
         changes.add(proposal);
       }
     }
-    ingestChangeProposals(changes);
+    ingestChangeProposals(changes, authentication);
   }
 
   @Nullable
   private MetadataChangeProposal buildAddGlossaryTermsProposal(
       List<com.linkedin.common.urn.Urn> glossaryTermUrns,
-      ResourceReference resource
+      ResourceReference resource,
+      Authentication authentication
   ) throws URISyntaxException {
     if (resource.getSubResource() == null || resource.getSubResource().equals("")) {
       // Case 1: Adding glossaryTerms to a top-level entity
-      return buildAddGlossaryTermsToEntityProposal(glossaryTermUrns, resource);
+      return buildAddGlossaryTermsToEntityProposal(glossaryTermUrns, resource, authentication);
     } else {
       // Case 2: Adding glossaryTerms to subresource (e.g. schema fields)
-      return buildAddGlossaryTermsToSubResourceProposal(glossaryTermUrns, resource);
+      return buildAddGlossaryTermsToSubResourceProposal(glossaryTermUrns, resource, authentication);
     }
   }
 
   @Nullable
   private MetadataChangeProposal buildRemoveGlossaryTermsProposal(
       List<Urn> glossaryTermUrns,
-      ResourceReference resource
+      ResourceReference resource,
+      Authentication authentication
   ) throws URISyntaxException {
     if (resource.getSubResource() == null || resource.getSubResource().equals("")) {
       // Case 1: Adding glossaryTerms to a top-level entity
-      return buildRemoveGlossaryTermsToEntityProposal(glossaryTermUrns, resource);
+      return buildRemoveGlossaryTermsToEntityProposal(glossaryTermUrns, resource, authentication);
     } else {
       // Case 2: Adding glossaryTerms to subresource (e.g. schema fields)
-      return buildRemoveGlossaryTermsToSubResourceProposal(glossaryTermUrns, resource);
+      return buildRemoveGlossaryTermsToSubResourceProposal(glossaryTermUrns, resource, authentication);
     }
   }
 
   @Nullable
   private MetadataChangeProposal buildAddGlossaryTermsToEntityProposal(
       List<com.linkedin.common.urn.Urn> glossaryTermUrns,
-      ResourceReference resource
+      ResourceReference resource,
+      Authentication authentication
   ) throws URISyntaxException {
     com.linkedin.common.GlossaryTerms glossaryTerms =
         getGlossaryTermsAspect(
             resource.getUrn(),
-            new GlossaryTerms());
+            new GlossaryTerms(),
+            authentication);
 
     if (glossaryTerms == null) {
       return null;
@@ -142,7 +165,7 @@ public class GlossaryTermService {
       glossaryTerms.setTerms(new GlossaryTermAssociationArray());
       glossaryTerms.setAuditStamp(new AuditStamp()
           .setTime(System.currentTimeMillis())
-          .setActor(UrnUtils.getUrn(SYSTEM_ACTOR)));
+          .setActor(UrnUtils.getUrn(authentication.getActor().toUrnStr())));
     }
     addGlossaryTermsIfNotExists(glossaryTerms, glossaryTermUrns);
     return buildMetadataChangeProposal(resource.getUrn(), Constants.GLOSSARY_TERMS_ASPECT_NAME, glossaryTerms);
@@ -151,11 +174,13 @@ public class GlossaryTermService {
   @Nullable
   private MetadataChangeProposal buildRemoveGlossaryTermsToEntityProposal(
       List<Urn> glossaryTermUrns,
-      ResourceReference resource
+      ResourceReference resource,
+      Authentication authentication
   ) {
     com.linkedin.common.GlossaryTerms glossaryTerms = getGlossaryTermsAspect(
         resource.getUrn(),
-        new GlossaryTerms());
+        new GlossaryTerms(),
+        authentication);
 
     if (glossaryTerms == null) {
       return null;
@@ -165,7 +190,7 @@ public class GlossaryTermService {
       glossaryTerms.setTerms(new GlossaryTermAssociationArray());
       glossaryTerms.setAuditStamp(new AuditStamp()
           .setTime(System.currentTimeMillis())
-          .setActor(UrnUtils.getUrn(SYSTEM_ACTOR)));
+          .setActor(UrnUtils.getUrn(authentication.getActor().toUrnStr())));
     }
     removeGlossaryTermsIfExists(glossaryTerms, glossaryTermUrns);
     return buildMetadataChangeProposal(
@@ -177,12 +202,14 @@ public class GlossaryTermService {
   @Nullable
   private MetadataChangeProposal buildRemoveGlossaryTermsToSubResourceProposal(
       List<Urn> glossaryTermUrns,
-      ResourceReference resource
+      ResourceReference resource,
+      Authentication authentication
   ) {
     com.linkedin.schema.EditableSchemaMetadata editableSchemaMetadata =
         getEditableSchemaMetadataAspect(
             resource.getUrn(),
-            new EditableSchemaMetadata());
+            new EditableSchemaMetadata(),
+            authentication);
 
     if (editableSchemaMetadata == null) {
       return null;
@@ -200,12 +227,14 @@ public class GlossaryTermService {
   @Nullable
   private MetadataChangeProposal buildAddGlossaryTermsToSubResourceProposal(
       final List<Urn> glossaryTermUrns,
-      final ResourceReference resource
+      final ResourceReference resource,
+      final Authentication authentication
   ) throws URISyntaxException {
     com.linkedin.schema.EditableSchemaMetadata editableSchemaMetadata =
         getEditableSchemaMetadataAspect(
             resource.getUrn(),
-            new EditableSchemaMetadata());
+            new EditableSchemaMetadata(),
+            authentication);
 
     if (editableSchemaMetadata == null) {
       return null;
@@ -247,7 +276,6 @@ public class GlossaryTermService {
     for (Urn glossaryTermUrn : glossaryTermsToAdd) {
       GlossaryTermAssociation newAssociation = new GlossaryTermAssociation();
       newAssociation.setUrn(GlossaryTermUrn.createFromUrn(glossaryTermUrn));
-      newAssociation.setActor(UrnUtils.getUrn(SYSTEM_ACTOR));
       glossaryTermAssociationArray.add(newAssociation);
     }
   }
@@ -264,13 +292,16 @@ public class GlossaryTermService {
   }
 
   @Nullable
-  private GlossaryTerms getGlossaryTermsAspect(@Nonnull Urn entityUrn, @Nonnull GlossaryTerms defaultValue) {
+  private GlossaryTerms getGlossaryTermsAspect(
+      @Nonnull Urn entityUrn,
+      @Nonnull GlossaryTerms defaultValue,
+      @Nonnull Authentication authentication) {
     try {
       Aspect aspect = getLatestAspect(
           entityUrn,
           Constants.GLOSSARY_TERMS_ASPECT_NAME,
           this.entityClient,
-          this.systemAuthentication
+          authentication
       );
 
       if (aspect == null) {
@@ -288,13 +319,16 @@ public class GlossaryTermService {
   }
 
   @Nullable
-  private EditableSchemaMetadata getEditableSchemaMetadataAspect(@Nonnull Urn entityUrn, @Nonnull EditableSchemaMetadata defaultValue) {
+  private EditableSchemaMetadata getEditableSchemaMetadataAspect(
+      @Nonnull Urn entityUrn,
+      @Nonnull EditableSchemaMetadata defaultValue,
+      @Nonnull Authentication authentication) {
     try {
       Aspect aspect = getLatestAspect(
           entityUrn,
           Constants.EDITABLE_SCHEMA_METADATA_ASPECT_NAME,
           this.entityClient,
-          this.systemAuthentication
+          authentication
       );
 
       if (aspect == null) {
@@ -351,10 +385,10 @@ public class GlossaryTermService {
     return proposal;
   }
 
-  private void ingestChangeProposals(@Nonnull List<MetadataChangeProposal> changes) throws Exception {
+  private void ingestChangeProposals(@Nonnull List<MetadataChangeProposal> changes, @Nonnull Authentication authentication) throws Exception {
     // TODO: Replace this with a batch ingest proposals endpoint.
     for (MetadataChangeProposal change : changes) {
-      this.entityClient.ingestProposal(change, this.systemAuthentication);
+      this.entityClient.ingestProposal(change, authentication);
     }
   }
 }
