@@ -1,0 +1,8 @@
+source:
+  type: feast-legacy
+  config:
+    # Coordinates
+    core_url: "localhost:6565"
+
+sink:
+  # sink configs
