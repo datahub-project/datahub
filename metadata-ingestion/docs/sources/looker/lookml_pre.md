@@ -1,5 +1,19 @@
 ### Pre-requisites
 
+#### [Optional] Create a GitHub Deploy Key
+
+To use LookML ingestion through the UI, or automate github checkout through the cli, you must set up a GitHub deploy key for your Looker GitHub repository. Read [this](https://docs.github.com/en/developers/overview/managing-deploy-keys#deploy-keys) document for how to set up deploy keys for your Looker git repo. 
+
+In a nutshell, there are three steps: 
+1. Generate a private-public ssh key pair. This will typically generate two files, e.g. looker_datahub_deploy_key (this is the private key) and looker_datahub_deploy_key.pub (this is the public key)
+![Image](https://github.com/datahub-project/static-assets/blob/main/imgs/gitssh/ssh-key-generation.png)
+
+2. Add the public key to your Looker git repo as a deploy key with read access (no need to provision write access). Follow the guide [here](https://docs.github.com/en/developers/overview/managing-deploy-keys#deploy-keys) for that.
+![Image](https://github.com/datahub-project/static-assets/blob/main/imgs/gitssh/git-deploy-key.png)
+
+3. Provision the private key (paste the contents of the file) as a secret on the DataHub Ingestion UI. Give it a handy name like **LOOKER_DATAHUB_DEPLOY_KEY**
+![Image](https://github.com/datahub-project/static-assets/blob/main/imgs/gitssh/datahub-secret.png)
+
 #### [Optional] Create an API key
 
 See the [Looker authentication docs](https://docs.looker.com/reference/api-and-integration/api-auth#authentication_with_an_sdk) for the steps to create a client ID and secret.
@@ -7,25 +21,38 @@ You need to ensure that the API key is attached to a user that has Admin privile
 
 If that is not possible, read the configuration section and provide an offline specification of the `connection_to_platform_map` and the `project_name`.
 
-### Ingestion through UI
+### Ingestion Options
 
-Ingestion using lookml connector is not supported through the UI.
-However, you can set up ingestion using a GitHub Action to push metadata whenever your main lookml repo changes.
+You have 3 options for controlling where your ingestion of LookML is run. 
+- The DataHub UI (recommended for the easiest out-of-the-box experience)
+- As a GitHub Action (recommended to ensure that you have the freshest metadata pushed on change)
+- Using the CLI (scheduled via an orchestrator like Airflow)
+
+Read on to learn more about these options. 
+
+#### Ingestion through UI
+
+To ingest LookML metadata through the UI, you must set up a GitHub deploy key using the instructions in the section [above](#optional-create-a-github-deploy-key). Once that is complete, you can follow the on-screen instructions to set up a LookML source using the Ingestion page.
+
+### Ingestion using GitHub Action
+
+You can set up ingestion using a GitHub Action to push metadata whenever your main lookml repo changes.
+The following sample github action file can be modified to emit LookML metadata whenever there is a change to your repository. This ensures that metadata is already fresh and up to date.
 
 #### Sample GitHub Action
 
 Drop this file into your `.github/workflows` directory inside your Looker github repo.
+You need to set up the following secrets in your GitHub repository to get this workflow to work:
+- DATAHUB_GMS_HOST: The endpoint where your DataHub host is running
+- DATAHUB_TOKEN: An authentication token provisioned for DataHub ingestion
+- LOOKER_BASE_URL: The base url where your Looker assets are hosted (e.g. https://acryl.cloud.looker.com)
+- LOOKER_CLIENT_ID: A provisioned Looker Client ID
+- LOOKER_CLIENT_SECRET: A provisioned Looker Client Secret
 
 ```
 name: lookml metadata upload
 on:
   push:
-    branches:
-      - main
-    paths-ignore:
-      - "docs/**"
-      - "**.md"
-  pull_request:
     branches:
       - main
     paths-ignore:
@@ -59,9 +86,9 @@ jobs:
                 branch: ${{ github.ref }}
               # Options
               #connection_to_platform_map:
-              #  acryl-snow: snowflake
-                  #platform: snowflake
-                  #default_db: DEMO_PIPELINE
+              #  connection-name:
+                  #platform: platform-name (e.g. snowflake)
+                  #default_db: default-db-name (e.g. DEMO_PIPELINE)
               api:
                 client_id: ${LOOKER_CLIENT_ID}
                 client_secret: ${LOOKER_CLIENT_SECRET}
@@ -76,7 +103,7 @@ jobs:
         env:
           DATAHUB_GMS_HOST: ${{ secrets.DATAHUB_GMS_HOST }}
           DATAHUB_TOKEN: ${{ secrets.DATAHUB_TOKEN }}
-          LOOKER_BASE_URL: https://acryl.cloud.looker.com  # <--- replace with your Looker base URL
+          LOOKER_BASE_URL: ${{ secrets.LOOKER_BASE_URL }}
           LOOKER_CLIENT_ID: ${{ secrets.LOOKER_CLIENT_ID }}
           LOOKER_CLIENT_SECRET: ${{ secrets.LOOKER_CLIENT_SECRET }}
 ```
