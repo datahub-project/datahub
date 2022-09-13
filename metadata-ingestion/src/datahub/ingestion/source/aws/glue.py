@@ -20,6 +20,7 @@ from datahub.emitter.mce_builder import (
     make_dataset_urn_with_platform_instance,
     make_domain_urn,
     make_tag_urn,
+    make_dataset_urn,
 )
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.emitter.mcp_builder import (
@@ -73,6 +74,8 @@ from datahub.metadata.schema_classes import (
     TagAssociationClass,
     UpstreamClass,
     UpstreamLineageClass,
+    SchemaMetadataClass,
+    KafkaSchemaClass,
 )
 from datahub.utilities.hive_schema_to_avro import get_schema_fields_for_hive_column
 
@@ -1108,16 +1111,42 @@ class GlueSource(Source):
             )
             return new_tags
 
+        def get_current_field_description_and_glossary_terms_map():
+            if self.platform != "athena":
+                return None, None
+            current_dataset_urn = make_dataset_urn(platform="athena", name=table_name, env="DEV")
+            current_schema_metadata = self.ctx.graph.get_aspect_v2(
+                entity_urn=current_dataset_urn,
+                aspect="schemaMetadata",
+                aspect_type=SchemaMetadataClass,
+            )
+            field_description_map = dict()
+            field_glossary_terms_map = dict()
+            fields = current_schema_metadata.fields
+            for field in fields:
+                field_name = field.fieldPath.split('.')[-1]
+                field_description_map[field_name] = field.description
+                field_glossary_terms_map[field_name] = field.glossaryTerms
+            return field_description_map, field_glossary_terms_map
+
         def get_schema_metadata(glue_source: GlueSource) -> SchemaMetadata:
             schema = table["StorageDescriptor"]["Columns"]
             fields: List[SchemaField] = []
+            field_description_map, field_glossary_terms_map = get_current_field_description_and_glossary_terms_map()
             for field in schema:
+                description = field.get("Comment")
+                glossary_terms = None
+                if field_description_map and field["Name"] in field_description_map:
+                    description = field_description_map[field["Name"]]
+                if field_glossary_terms_map and field["Name"] in field_glossary_terms_map:
+                    glossary_terms = field_glossary_terms_map[field["Name"]]
                 schema_fields = get_schema_fields_for_hive_column(
                     hive_column_name=field["Name"],
                     hive_column_type=field["Type"],
-                    description=field.get("Comment"),
+                    description=description,
                     default_nullable=True,
                 )
+                schema_fields[0].glossaryTerms = glossary_terms
                 assert schema_fields
                 fields.extend(schema_fields)
 
