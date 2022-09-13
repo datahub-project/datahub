@@ -49,12 +49,9 @@ class GitHubInfo(ConfigModel):
         cls, v: Optional[FilePath]
     ) -> Optional[FilePath]:
         if v is not None:
-            # pydantic does existence checks, we just need to check for permissions
-            mask = oct(os.stat(v).st_mode)[-3:]
-            if mask != "600":
-                raise ValueError(
-                    f"Deploy key has permissions that are too open. Should be 0x600, but found {mask}"
-                )
+            # pydantic does existence checks, we just need to check if we can read it
+            if not os.access(v, os.R_OK):
+                raise ValueError(f"Unable to read deploy key file {v}")
         return v
 
     @validator("deploy_key", pre=True, always=True)
