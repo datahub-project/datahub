@@ -2,10 +2,11 @@ import { DeleteOutlined } from '@ant-design/icons';
 import { Button, Select } from 'antd';
 import React from 'react';
 import styled from 'styled-components/macro';
-import { Entity, EntityType } from '../../../../../types.generated';
+import { Entity } from '../../../../../types.generated';
 import { ANTD_GRAY } from '../../../../entity/shared/constants';
 import { EntitySearchInput } from '../../../../entity/shared/EntitySearchInput/EntitySearchInput';
 import { Transformer, TransformerTypes } from '../types';
+import { getEntityTypes, getPlaceholderText } from './utils';
 
 const TransformerWrapper = styled.div`
     align-items: flex-end;
@@ -37,30 +38,6 @@ const EntitySearchWrapper = styled.div`
 const DeleteButton = styled(Button)`
     margin-left: 10px;
 `;
-
-function getPlaceholderText(type: string | null) {
-    let entityName = 'entities';
-    if (type === TransformerTypes.ADD_OWNERS) entityName = 'owners';
-    if (type === TransformerTypes.ADD_TAGS) entityName = 'tags';
-    if (type === TransformerTypes.ADD_TERMS) entityName = 'glossary terms';
-    if (type === TransformerTypes.ADD_DOMAIN) entityName = 'domains';
-    return `Search for ${entityName}...`;
-}
-
-function getEntityTypes(type: string | null) {
-    switch (type) {
-        case TransformerTypes.ADD_OWNERS:
-            return [EntityType.CorpUser, EntityType.CorpGroup];
-        case TransformerTypes.ADD_TAGS:
-            return [EntityType.Tag];
-        case TransformerTypes.ADD_TERMS:
-            return [EntityType.GlossaryTerm];
-        case TransformerTypes.ADD_DOMAIN:
-            return [EntityType.Domain];
-        default:
-            return [];
-    }
-}
 
 const typeOptions = [
     { value: TransformerTypes.ADD_OWNERS, label: 'Add Owners' },
