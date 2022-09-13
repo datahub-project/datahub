@@ -6,6 +6,7 @@ import styled from 'styled-components/macro';
 import { ANTD_GRAY } from '../../../entity/shared/constants';
 import { YamlEditor } from './YamlEditor';
 import RecipeForm from './RecipeForm/RecipeForm';
+import { SourceConfig } from './types';
 
 export const ControlsContainer = styled.div`
     display: flex;
@@ -41,13 +42,14 @@ interface Props {
     type: string;
     isEditing: boolean;
     displayRecipe: string;
+    sourceConfigs?: SourceConfig;
     setStagedRecipe: (recipe: string) => void;
     onClickNext: () => void;
     goToPrevious?: () => void;
 }
 
 function RecipeBuilder(props: Props) {
-    const { type, isEditing, displayRecipe, setStagedRecipe, onClickNext, goToPrevious } = props;
+    const { type, isEditing, displayRecipe, sourceConfigs, setStagedRecipe, onClickNext, goToPrevious } = props;
 
     const [isViewingForm, setIsViewingForm] = useState(true);
 
@@ -78,6 +80,7 @@ function RecipeBuilder(props: Props) {
                     type={type}
                     isEditing={isEditing}
                     displayRecipe={displayRecipe}
+                    sourceConfigs={sourceConfigs}
                     setStagedRecipe={setStagedRecipe}
                     onClickNext={onClickNext}
                     goToPrevious={goToPrevious}

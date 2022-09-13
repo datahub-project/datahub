@@ -1,0 +1,177 @@
+[
+    {
+        "urn": "urn:li:dataPlatform:bigquery",
+        "name": "bigquery",
+        "displayName": "BigQuery",
+        "docsUrl": "https://datahubproject.io/docs/generated/ingestion/sources/bigquery/",
+        "recipe": "source:\n    type: bigquery\n    config:\n        # Coordinates\n        project_id: # Your BigQuery project id, e.g. sample_project_id\n        # Credentials\n        credential:\n            project_id: # Your BQ project id, e.g. sample_project_id\n            private_key_id: \"${BQ_PRIVATE_KEY_ID}\"\n            private_key: \"${BQ_PRIVATE_KEY}\"\n            client_email: # Your BQ client email, e.g. \"test@suppproject-id-1234567.iam.gserviceaccount.com\"\n            client_id: # Your BQ client id, e.g.\"123456678890\"\n            \n        include_table_lineage: true\n        include_view_lineage: true\n        profiling:\n            enabled: true\n        stateful_ingestion:\n            enabled: true"
+    },
+    {
+        "urn": "urn:li:dataPlatform:redshift",
+        "name": "redshift",
+        "displayName": "Redshift",
+        "docsUrl": "https://datahubproject.io/docs/generated/ingestion/sources/redshift/",
+        "recipe": "source: \n    type: redshift\n    config:\n        # Coordinates\n        host_port: # Your Redshift host and post, e.g. example.something.us-west-2.redshift.amazonaws.com:5439\n        database: # Your Redshift database, e.g. SampleDatabase\n\n        # Credentials\n        # Add secret in Secrets Tab with relevant names for each variable\n        username: \"${REDSHIFT_USERNAME}\" # Your Redshift username, e.g. admin\n        password: \"${REDSHIFT_PASSWORD}\" # Your Redshift password, e.g. password_01\n\n        table_lineage_mode: stl_scan_based\n        include_table_lineage: true\n        include_view_lineage: true\n        profiling:\n            enabled: true\n        stateful_ingestion:\n            enabled: true"
+    },
+    {
+        "urn": "urn:li:dataPlatform:snowflake",
+        "name": "snowflake",
+        "displayName": "Snowflake",
+        "docsUrl": "https://datahubproject.io/docs/generated/ingestion/sources/snowflake/",
+        "recipe": "source: \n    type: snowflake\n    config:\n        account_id: \"example_id\"\n        warehouse: \"example_warehouse\"\n        role: \"datahub_role\"\n        include_table_lineage: true\n        include_view_lineage: true\n        profiling:\n            enabled: true\n        stateful_ingestion:\n            enabled: true"
+    },
+    {
+        "urn": "urn:li:dataPlatform:kafka",
+        "name": "kafka",
+        "displayName": "Kafka",
+        "docsUrl": "https://datahubproject.io/docs/generated/ingestion/sources/kafka/",
+        "recipe": "source:\n    type: kafka\n    config:\n        connection:\n            consumer_config:\n                security.protocol: \"SASL_SSL\"\n                sasl.mechanism: \"PLAIN\"\n        stateful_ingestion:\n            enabled: true'"
+    },
+    {
+        "urn": "urn:li:dataPlatform:looker",
+        "name": "looker",
+        "displayName": "Looker",
+        "docsUrl": "https://datahubproject.io/docs/generated/ingestion/sources/looker/",
+        "recipe": "source:\n    type: looker\n    config:\n        # Coordinates\n        base_url: # Your Looker instance URL, e.g. https://company.looker.com:19999\n\n        # Credentials\n        # Add secret in Secrets Tab with relevant names for each variable\n        client_id: \"${LOOKER_CLIENT_ID}\" # Your Looker client id, e.g. admin\n        client_secret: \"${LOOKER_CLIENT_SECRET}\" # Your Looker password, e.g. password_01"
+    },
+    {
+        "urn": "urn:li:dataPlatform:tableau",
+        "name": "tableau",
+        "displayName": "Tableau",
+        "docsUrl": "https://datahubproject.io/docs/generated/ingestion/sources/tableau/",
+        "recipe": "source:\n  type: tableau\n  config:\n    # Coordinates\n    connect_uri: https://prod-ca-a.online.tableau.com\n    site: acryl\n    projects: [\"default\", \"Project 2\"]\n\n    # Credentials\n    username: \"${TABLEAU_USER}\"\n    password: \"${TABLEAU_PASSWORD}\"\n\n    # Options\n    ingest_tags: True\n    ingest_owner: True\n    default_schema_map:\n      mydatabase: public\n      anotherdatabase: anotherschema"
+    },
+    {
+        "urn": "urn:li:dataPlatform:mysql",
+        "name": "mysql",
+        "displayName": "MySQL",
+        "docsUrl": "https://datahubproject.io/docs/generated/ingestion/sources/mysql/",
+        "recipe": "source: \n    type: mysql\n    config: \n        # Coordinates\n        host_port: # Your MySQL host and post, e.g. mysql:3306\n        database: # Your MySQL database name, e.g. datahub\n    \n        # Credentials\n        # Add secret in Secrets Tab with relevant names for each variable\n        username: \"${MYSQL_USERNAME}\" # Your MySQL username, e.g. admin\n        password: \"${MYSQL_PASSWORD}\" # Your MySQL password, e.g. password_01\n\n        # Options\n        include_tables: True\n        include_views: True\n\n        # Profiling\n        profiling:\n            enabled: false"
+    },
+    {
+        "urn": "urn:li:dataPlatform:postgres",
+        "name": "postgres",
+        "displayName": "Postgres",
+        "docsUrl": "https://datahubproject.io/docs/generated/ingestion/sources/postgres/",
+        "recipe": "source: \n    type: postgres\n    config:\n        # Coordinates\n        host_port: # Your Postgres host and port, e.g. postgres:5432\n        database: # Your Postgres Database, e.g. sample_db\n\n        # Credentials\n        # Add secret in Secrets Tab with relevant names for each variable\n        username: \"${POSTGRES_USERNAME}\" # Your Postgres username, e.g. admin\n        password: \"${POSTGRES_PASSWORD}\" # Your Postgres password, e.g. password_01\n\n        # Options\n        include_tables: True\n        include_views: True\n\n        # Profiling\n        profiling:\n            enabled: false\n        stateful_ingestion:\n            enabled: true"
+    },
+    {
+        "urn": "urn:li:dataPlatform:mongodb",
+        "name": "mongodb",
+        "displayName": "Postgres",
+        "docsUrl": "https://datahubproject.io/docs/generated/ingestion/sources/mongodb/",
+        "recipe": "source:\n    type: mongodb\n    config:\n        # Coordinates\n        connect_uri: # Your MongoDB connect URI, e.g. \"mongodb://localhost\"\n\n        # Credentials\n        # Add secret in Secrets Tab with relevant names for each variable\n        username: \"${MONGO_USERNAME}\" # Your MongoDB username, e.g. admin\n        password: \"${MONGO_PASSWORD}\" # Your MongoDB password, e.g. password_01\n\n        # Options (recommended)\n        enableSchemaInference: True\n        useRandomSampling: True\n        maxSchemaSize: 300"
+    },
+    {
+        "urn": "urn:li:dataPlatform:azure-ad",
+        "name": "azure-ad",
+        "displayName": "Azure AD",
+        "docsUrl": "https://datahubproject.io/docs/generated/ingestion/sources/azure-ad/",
+        "recipe": "source:\n    type: azure-ad\n    config:\n        client_id: # Your Azure Client ID, e.g. \"00000000-0000-0000-0000-000000000000\"\n        tenant_id: # Your Azure Tenant ID, e.g. \"00000000-0000-0000-0000-000000000000\"\n        # Add secret in Secrets Tab with this name\n        client_secret: \"${AZURE_AD_CLIENT_SECRET}\"\n        redirect: # Your Redirect URL, e.g. \"https://login.microsoftonline.com/common/oauth2/nativeclient\"\n        authority: # Your Authority URL, e.g. \"https://login.microsoftonline.com/00000000-0000-0000-0000-000000000000\"\n        token_url: # Your Token URL, e.g. \"https://login.microsoftonline.com/00000000-0000-0000-0000-000000000000/oauth2/token\"\n        graph_url: # The Graph URL, e.g. \"https://graph.microsoft.com/v1.0\"\n        \n        # Optional flags to ingest users, groups, or both\n        ingest_users: True\n        ingest_groups: True\n        \n        # Optional Allow / Deny extraction of particular Groups\n        # groups_pattern:\n        #    allow:\n        #        - \".*\"\n\n        # Optional Allow / Deny extraction of particular Users.\n        # users_pattern:\n        #    allow:\n        #        - \".*\""
+    },
+    {
+        "urn": "urn:li:dataPlatform:okta",
+        "name": "okta",
+        "displayName": "Okta",
+        "docsUrl": "https://datahubproject.io/docs/generated/ingestion/sources/okta/",
+        "recipe": "source:\n    type: okta\n    config:\n        # Coordinates\n        okta_domain: # Your Okta Domain, e.g. \"dev-35531955.okta.com\"\n\n        # Credentials\n        # Add secret in Secrets Tab with relevant names for each variable\n        okta_api_token: \"${OKTA_API_TOKEN}\" # Your Okta API Token, e.g. \"11be4R_M2MzDqXawbTHfKGpKee0kuEOfX1RCQSRx99\"\n\n        # Optional flags to ingest users, groups, or both\n        ingest_users: True\n        ingest_groups: True\n\n        # Optional: Customize the mapping to DataHub Username from an attribute appearing in the Okta User\n        # profile. Reference: https://developer.okta.com/docs/reference/api/users/\n        # okta_profile_to_username_attr: str = \"login\"\n        # okta_profile_to_username_regex: str = \"([^@]+)\"\n    \n        # Optional: Customize the mapping to DataHub Group from an attribute appearing in the Okta Group\n        # profile. Reference: https://developer.okta.com/docs/reference/api/groups/\n        # okta_profile_to_group_name_attr: str = \"name\"\n        # okta_profile_to_group_name_regex: str = \"(.*)\"\n        \n        # Optional: Include deprovisioned or suspended Okta users in the ingestion.\n        # include_deprovisioned_users = False\n        # include_suspended_users = False"
+    },
+    {
+        "urn": "urn:li:dataPlatform:glue",
+        "name": "glue",
+        "displayName": "Glue",
+        "docsUrl": "https://datahubproject.io/docs/generated/ingestion/sources/glue/",
+        "recipe": "source:\n    type: glue\n    config:\n        # AWS credentials. \n        aws_region: # The region for your AWS Glue instance. \n        # Add secret in Secrets Tab with relevant names for each variable\n        # The access key for your AWS account.\n        aws_access_key_id: \"${AWS_ACCESS_KEY_ID}\"\n        # The secret key for your AWS account.\n        aws_secret_access_key: \"${AWS_SECRET_KEY}\"\n        aws_session_token: # The session key for your AWS account. This is only needed when you are using temporary credentials.\n        # aws_role: # (Optional) The role to assume (Role chaining supported by using a sorted list).\n\n        # Allow / Deny specific databases & tables\n        # database_pattern:\n        #    allow:\n        #        - \"flights-database\"\n        # table_pattern:\n        #    allow:\n        #        - \"avro\""
+    },
+    {
+        "urn": "urn:li:dataPlatform:oracle",
+        "name": "oracle",
+        "displayName": "Oracle",
+        "docsUrl": "https://datahubproject.io/docs/generated/ingestion/sources/oracle/",
+        "recipe": "source: \n    type: oracle\n    config:\n        # Coordinates\n        host_port: # Your Oracle host and port, e.g. oracle:5432\n        database: # Your Oracle database name, e.g. sample_db\n\n        # Credentials\n        # Add secret in Secrets Tab with relevant names for each variable\n        username: \"${ORACLE_USERNAME}\" # Your Oracle username, e.g. admin\n        password: \"${ORACLE_PASSWORD}\" # Your Oracle password, e.g. password_01\n\n        # Optional service name\n        # service_name: # Your service name, e.g. svc # omit database if using this option"
+    },
+    {
+        "urn": "urn:li:dataPlatform:hive",
+        "name": "hive",
+        "displayName": "Hive",
+        "docsUrl": "https://datahubproject.io/docs/generated/ingestion/sources/hive/",
+        "recipe": "source: \n    type: hive\n    config:\n        # Coordinates\n        host_port: # Your Hive host and port, e.g. hive:10000\n        database: # Your Hive database name, e.g. SampleDatabase (Optional, if not specified, ingests from all databases)\n\n        # Credentials\n        # Add secret in Secrets Tab with relevant names for each variable\n        username: \"${HIVE_USERNAME}\" # Your Hive username, e.g. admin\n        password: \"${HIVE_PASSWORD}\"# Your Hive password, e.g. password_01\n        stateful_ingestion:\n            enabled: true"
+    },
+    {
+        "urn": "urn:li:dataPlatform:superset",
+        "name": "superset",
+        "displayName": "Superset",
+        "docsUrl": "https://datahubproject.io/docs/generated/ingestion/sources/superset/",
+        "recipe": "source:\n  type: superset\n  config:\n    # Coordinates\n    connect_uri: http://localhost:8088\n\n    # Credentials\n    username: user\n    password: pass\n    provider: ldap"
+    },
+    {
+        "urn": "urn:li:dataPlatform:athena",
+        "name": "athena",
+        "displayName": "Athena",
+        "docsUrl": "https://datahubproject.io/docs/generated/ingestion/sources/athena/",
+        "recipe": "source:\n  type: athena\n  config:\n    # Coordinates\n    aws_region: my_aws_region\n    work_group: primary\n\n    # Options\n    s3_staging_dir: \"s3://my_staging_athena_results_bucket/results/\""
+    },
+    {
+        "urn": "urn:li:dataPlatform:mssql",
+        "name": "mssql",
+        "displayName": "SQL Server",
+        "docsUrl": "https://datahubproject.io/docs/generated/ingestion/sources/mssql/",
+        "recipe": "source:\n  type: mssql\n  config:\n    # Coordinates\n    host_port: localhost:1433\n    database: DemoDatabase\n\n    # Credentials\n    username: user\n    password: pass"
+    },
+    {
+        "urn": "urn:li:dataPlatform:clickhouse",
+        "name": "clickhouse",
+        "displayName": "ClickHouse",
+        "docsUrl": "https://datahubproject.io/docs/generated/ingestion/sources/clickhouse/",
+        "recipe": "source:\n  type: clickhouse\n  config:\n    # Coordinates\n    host_port: localhost:9000\n\n    # Credentials\n    username: user\n    password: pass\n\n    # Options\n    platform_instance: DatabaseNameToBeIngested\n\n    include_views: True # whether to include views, defaults to True\n    include_tables: True # whether to include views, defaults to True\n\nsink:\n  # sink configs\n\n#---------------------------------------------------------------------------\n# For the HTTP interface:\n#---------------------------------------------------------------------------\nsource:\n  type: clickhouse\n  config:\n    host_port: localhost:8443\n    protocol: https\n\n#---------------------------------------------------------------------------\n# For the Native interface:\n#---------------------------------------------------------------------------\n\nsource:\n  type: clickhouse\n  config:\n    host_port: localhost:9440\n    scheme: clickhouse+native\n    secure: True"
+    },
+    {
+        "urn": "urn:li:dataPlatform:trino",
+        "name": "trino",
+        "displayName": "Trino",
+        "docsUrl": "https://datahubproject.io/docs/generated/ingestion/sources/trino/",
+        "recipe": "source:\n    type: starburst-trino-usage\n    config:\n        # Coordinates\n        host_port: yourtrinohost:port\n        # The name of the catalog from getting the usage\n        database: hive\n        # Credentials\n        username: trino_username\n        password: trino_password\n        email_domain: test.com\n        audit_catalog: audit\n        audit_schema: audit_schema"
+    },
+    {
+        "urn": "urn:li:dataPlatform:druid",
+        "name": "druid",
+        "displayName": "Druid",
+        "docsUrl": "https://datahubproject.io/docs/generated/ingestion/sources/druid/",
+        "recipe": "source:\n  type: druid\n  config:\n    # Coordinates\n    host_port: \"localhost:8082\"\n\n    # Credentials\n    username: admin\n    password: password"
+    },
+    {
+        "urn": "urn:li:dataPlatform:metabase",
+        "name": "metabase",
+        "displayName": "Metabase",
+        "docsUrl": "https://datahubproject.io/docs/generated/ingestion/sources/metabase/",
+        "recipe": "source:\n  type: metabase\n  config:\n    # Coordinates\n    connect_uri:\n\n    # Credentials\n    username: root\n    password: example"
+    },
+    {
+        "urn": "urn:li:dataPlatform:mariadb",
+        "name": "mariadb",
+        "displayName": "MariaDB",
+        "docsUrl": "https://datahubproject.io/docs/generated/ingestion/sources/mariadb/",
+        "recipe": "source:\n  type: mariadb\n  config:\n    # Coordinates\n    host_port: localhost:3306\n    database: dbname\n\n    # Credentials\n    username: root\n    password: example"
+    },
+    {
+        "urn": "urn:li:dataPlatform:powerbi",
+        "name": "powerbi",
+        "displayName": "Power BI",
+        "docsUrl": "https://datahubproject.io/docs/generated/ingestion/sources/powerbi/",
+        "recipe": "source:\n  type: \"powerbi\"\n  config:\n    # Your Power BI tenant identifier\n    tenant_id: a949d688-67c0-4bf1-a344-e939411c6c0a\n    # Ingest elements of below PowerBi Workspace into Datahub\n    workspace_id: 4bd10256-e999-45dd-8e56-571c77153a5f\n    # Workspaces dataset environments (PROD, DEV, QA, STAGE)\n    env: DEV\n    # Azure AD Application identifier\n    client_id: foo\n    # Azure AD App client secret\n    client_secret: bar\n    # Enable / Disable ingestion of user information for dashboards\n    extract_ownership: true\n    # dataset_type_mapping is fixed mapping of Power BI datasources type to equivalent Datahub \"data platform\" dataset\n    dataset_type_mapping:\n        PostgreSql: postgres\n        Oracle: oracle"
+    },
+    {
+        "urn": "urn:li:dataPlatform:mode",
+        "name": "mode",
+        "displayName": "Mode",
+        "docsUrl": "https://datahubproject.io/docs/generated/ingestion/sources/mode/",
+        "recipe": "source:\n  type: mode\n  config:\n    # Coordinates\n    connect_uri: http://app.mode.com\n\n    # Credentials\n    token: token\n    password: pass\n\n    # Options\n    workspace: \"datahub\"\n    default_schema: \"public\"\n    owner_username_instead_of_email: False\n    api_options:\n      retry_backoff_multiplier: 2\n      max_retry_interval: 10\n      max_attempts: 5"
+    },
+    {
+        "urn": "urn:li:dataPlatform:custom",
+        "name": "custom",
+        "displayName": "Custom",
+        "docsUrl": "https://datahubproject.io/docs/metadata-ingestion/",
+        "recipe": "source:\n  type: <source-type>\n  config:\n    # Source-type specifics config\n    <source-configs>"
+    }
+]
