@@ -12,6 +12,7 @@ jobs:
     steps:
       - uses: actions/stale@v5
         with:
+          ascending: true
           days-before-issue-stale: 30
           days-before-issue-close: 30
           stale-issue-label: "stale"
