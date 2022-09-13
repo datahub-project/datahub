@@ -272,7 +272,7 @@ public class DomainService {
     return proposals;
   }
 
-  private void addDomainsIfNotExists(Domains domains, List<Urn> domainUrns) throws URISyntaxException {
+  private void addDomainsIfNotExists(Domains domains, List<Urn> domainUrns) {
     if (!domains.hasDomains()) {
       domains.setDomains(new UrnArray());
     }

@@ -8,18 +8,24 @@ import com.linkedin.common.GlossaryTermAssociationArray;
 import com.linkedin.common.urn.GlossaryTermUrn;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
+import com.linkedin.domain.Domains;
 import com.linkedin.entity.Aspect;
 import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.resource.ResourceReference;
+import com.linkedin.metadata.resource.SubResourceType;
 import com.linkedin.mxe.MetadataChangeProposal;
 import com.linkedin.schema.EditableSchemaFieldInfo;
 import com.linkedin.schema.EditableSchemaFieldInfoArray;
 import com.linkedin.schema.EditableSchemaMetadata;
 import java.net.URISyntaxException;
 import java.util.ArrayList;
+import java.util.Collections;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.Set;
 import java.util.stream.Collectors;
 import  com.linkedin.entity.client.EntityClient;
 import com.datahub.authentication.Authentication;
@@ -114,17 +120,11 @@ public class GlossaryTermService {
   }
 
   private void addGlossaryTermsToResources(
-      List<com.linkedin.common.urn.Urn> glossaryTermUrns,
+      List<Urn> glossaryTerms,
       List<ResourceReference> resources,
       Authentication authentication
   ) throws Exception {
-    final List<MetadataChangeProposal> changes = new ArrayList<>();
-    for (ResourceReference entity : resources) {
-      MetadataChangeProposal proposal = buildAddGlossaryTermsProposal(glossaryTermUrns, entity, authentication);
-      if (proposal != null) {
-        changes.add(proposal);
-      }
-    }
+    List<MetadataChangeProposal> changes = buildAddGlossaryTermsProposals(glossaryTerms, resources, authentication);
     ingestChangeProposals(changes, authentication);
   }
 
@@ -133,158 +133,194 @@ public class GlossaryTermService {
       List<ResourceReference> resources,
       Authentication authentication
   ) throws Exception {
-    final List<MetadataChangeProposal> changes = new ArrayList<>();
-    for (ResourceReference resource : resources) {
-      MetadataChangeProposal proposal = buildRemoveGlossaryTermsProposal(glossaryTerms, resource, authentication);
-      if (proposal != null) {
-        changes.add(proposal);
-      }
-    }
+    List<MetadataChangeProposal> changes = buildRemoveGlossaryTermsProposals(glossaryTerms, resources, authentication);
     ingestChangeProposals(changes, authentication);
   }
 
   @VisibleForTesting
-  @Nullable
-  MetadataChangeProposal buildAddGlossaryTermsProposal(
-      List<com.linkedin.common.urn.Urn> glossaryTermUrns,
-      ResourceReference resource,
-      Authentication authentication
-  ) throws URISyntaxException {
-    if (resource.getSubResource() == null || resource.getSubResource().equals("")) {
-      // Case 1: Adding glossaryTerms to a top-level entity
-      return buildAddGlossaryTermsToEntityProposal(glossaryTermUrns, resource, authentication);
-    } else {
-      // Case 2: Adding glossaryTerms to subresource (e.g. schema fields)
-      return buildAddGlossaryTermsToSubResourceProposal(glossaryTermUrns, resource, authentication);
-    }
-  }
-
-  @VisibleForTesting
-  @Nullable
-  MetadataChangeProposal buildRemoveGlossaryTermsProposal(
+  List<MetadataChangeProposal> buildAddGlossaryTermsProposals(
       List<Urn> glossaryTermUrns,
-      ResourceReference resource,
+      List<ResourceReference> resources,
       Authentication authentication
   ) throws URISyntaxException {
-    if (resource.getSubResource() == null || resource.getSubResource().equals("")) {
-      // Case 1: Adding glossaryTerms to a top-level entity
-      return buildRemoveGlossaryTermsToEntityProposal(glossaryTermUrns, resource, authentication);
-    } else {
-      // Case 2: Adding glossaryTerms to subresource (e.g. schema fields)
-      return buildRemoveGlossaryTermsToSubResourceProposal(glossaryTermUrns, resource, authentication);
-    }
+
+    final List<MetadataChangeProposal> changes = new ArrayList<>();
+
+    final List<ResourceReference> entityRefs = resources.stream()
+        .filter(resource -> resource.getSubResource() == null || resource.getSubResource().equals(""))
+        .collect(Collectors.toList());
+    final List<MetadataChangeProposal> entityProposals = buildAddGlossaryTermsToEntityProposals(glossaryTermUrns, entityRefs, authentication);
+
+    final List<ResourceReference> schemaFieldRefs = resources.stream()
+        .filter(resource -> resource.getSubResource() != null && resource.getSubResource().equals(SubResourceType.DATASET_FIELD.toString()))
+        .collect(Collectors.toList());
+    final List<MetadataChangeProposal> schemaFieldProposals = buildAddGlossaryTermsToSubResourceProposals(glossaryTermUrns, schemaFieldRefs, authentication);
+
+    changes.addAll(entityProposals);
+    changes.addAll(schemaFieldProposals);
+
+    return changes;
   }
 
   @VisibleForTesting
-  @Nullable
-  MetadataChangeProposal buildAddGlossaryTermsToEntityProposal(
-      List<com.linkedin.common.urn.Urn> glossaryTermUrns,
-      ResourceReference resource,
-      Authentication authentication
-  ) throws URISyntaxException {
-    com.linkedin.common.GlossaryTerms glossaryTerms =
-        getGlossaryTermsAspect(
-            resource.getUrn(),
-            new GlossaryTerms(),
-            authentication);
-
-    if (glossaryTerms == null) {
-      return null;
-    }
-
-    if (!glossaryTerms.hasTerms()) {
-      glossaryTerms.setTerms(new GlossaryTermAssociationArray());
-      glossaryTerms.setAuditStamp(new AuditStamp()
-          .setTime(System.currentTimeMillis())
-          .setActor(UrnUtils.getUrn(authentication.getActor().toUrnStr())));
-    }
-    addGlossaryTermsIfNotExists(glossaryTerms, glossaryTermUrns);
-    return buildMetadataChangeProposal(resource.getUrn(), Constants.GLOSSARY_TERMS_ASPECT_NAME, glossaryTerms);
-  }
-
-  @VisibleForTesting
-  @Nullable
-  MetadataChangeProposal buildRemoveGlossaryTermsToEntityProposal(
+  List<MetadataChangeProposal> buildRemoveGlossaryTermsProposals(
       List<Urn> glossaryTermUrns,
-      ResourceReference resource,
+      List<ResourceReference> resources,
       Authentication authentication
   ) {
-    com.linkedin.common.GlossaryTerms glossaryTerms = getGlossaryTermsAspect(
-        resource.getUrn(),
+
+    final List<MetadataChangeProposal> changes = new ArrayList<>();
+
+    final List<ResourceReference> entityRefs = resources.stream()
+        .filter(resource -> resource.getSubResource() == null || resource.getSubResource().equals(""))
+        .collect(Collectors.toList());
+    final List<MetadataChangeProposal> entityProposals = buildRemoveGlossaryTermsToEntityProposals(glossaryTermUrns, entityRefs, authentication);
+
+    final List<ResourceReference> schemaFieldRefs = resources.stream()
+        .filter(resource -> resource.getSubResource() != null && resource.getSubResource().equals(SubResourceType.DATASET_FIELD.toString()))
+        .collect(Collectors.toList());
+    final List<MetadataChangeProposal> schemaFieldProposals = buildRemoveGlossaryTermsToSubResourceProposals(glossaryTermUrns, schemaFieldRefs, authentication);
+
+    changes.addAll(entityProposals);
+    changes.addAll(schemaFieldProposals);
+
+    return changes;
+  }
+
+  @VisibleForTesting
+  List<MetadataChangeProposal> buildAddGlossaryTermsToEntityProposals(
+      List<com.linkedin.common.urn.Urn> glossaryTermUrns,
+      List<ResourceReference> resources,
+      Authentication authentication
+  ) throws URISyntaxException {
+
+
+    final Map<Urn, GlossaryTerms> glossaryTermAspects = getGlossaryTermsAspects(
+        resources.stream().map(ResourceReference::getUrn).collect(Collectors.toSet()),
         new GlossaryTerms(),
-        authentication);
-
-    if (glossaryTerms == null) {
-      return null;
-    }
-
-    if (!glossaryTerms.hasTerms()) {
-      glossaryTerms.setTerms(new GlossaryTermAssociationArray());
-      glossaryTerms.setAuditStamp(new AuditStamp()
-          .setTime(System.currentTimeMillis())
-          .setActor(UrnUtils.getUrn(authentication.getActor().toUrnStr())));
-    }
-    removeGlossaryTermsIfExists(glossaryTerms, glossaryTermUrns);
-    return buildMetadataChangeProposal(
-        resource.getUrn(),
-        Constants.GLOSSARY_TERMS_ASPECT_NAME, glossaryTerms
+        authentication
     );
+
+    final List<MetadataChangeProposal> changes = new ArrayList<>();
+    for (ResourceReference resource : resources) {
+
+      com.linkedin.common.GlossaryTerms glossaryTerms = glossaryTermAspects.get(resource.getUrn());
+      if (glossaryTerms == null) {
+        continue; // Something went wrong.
+      }
+
+      if (!glossaryTerms.hasTerms()) {
+        glossaryTerms.setTerms(new GlossaryTermAssociationArray());
+        glossaryTerms.setAuditStamp(new AuditStamp().setTime(System.currentTimeMillis()).setActor(UrnUtils.getUrn(authentication.getActor().toUrnStr())));
+      }
+      addGlossaryTermsIfNotExists(glossaryTerms, glossaryTermUrns);
+      changes.add(buildMetadataChangeProposal(resource.getUrn(), Constants.GLOSSARY_TERMS_ASPECT_NAME, glossaryTerms));
+    }
+    return changes;
   }
 
   @VisibleForTesting
-  @Nullable
-  MetadataChangeProposal buildRemoveGlossaryTermsToSubResourceProposal(
-      List<Urn> glossaryTermUrns,
-      ResourceReference resource,
-      Authentication authentication
-  ) {
-    com.linkedin.schema.EditableSchemaMetadata editableSchemaMetadata =
-        getEditableSchemaMetadataAspect(
-            resource.getUrn(),
-            new EditableSchemaMetadata(),
-            authentication);
-
-    if (editableSchemaMetadata == null) {
-      return null;
-    }
-
-    EditableSchemaFieldInfo editableFieldInfo = getFieldInfoFromSchema(editableSchemaMetadata, resource.getSubResource());
-
-    if (!editableFieldInfo.hasGlossaryTerms()) {
-      editableFieldInfo.setGlossaryTerms(new GlossaryTerms());
-    }
-    removeGlossaryTermsIfExists(editableFieldInfo.getGlossaryTerms(), glossaryTermUrns);
-    return buildMetadataChangeProposal(resource.getUrn(), Constants.EDITABLE_SCHEMA_METADATA_ASPECT_NAME, editableSchemaMetadata);
-  }
-
-  @VisibleForTesting
-  @Nullable
-  MetadataChangeProposal buildAddGlossaryTermsToSubResourceProposal(
+  List<MetadataChangeProposal> buildAddGlossaryTermsToSubResourceProposals(
       final List<Urn> glossaryTermUrns,
-      final ResourceReference resource,
+      final List<ResourceReference> resources,
       final Authentication authentication
   ) throws URISyntaxException {
-    com.linkedin.schema.EditableSchemaMetadata editableSchemaMetadata =
-        getEditableSchemaMetadataAspect(
-            resource.getUrn(),
-            new EditableSchemaMetadata(),
-            authentication);
+    final Map<Urn, EditableSchemaMetadata> editableSchemaMetadataAspects = getEditableSchemaMetadataAspects(
+        resources.stream().map(ResourceReference::getUrn).collect(Collectors.toSet()),
+        new EditableSchemaMetadata(),
+        authentication
+    );
 
-    if (editableSchemaMetadata == null) {
-      return null;
+    final List<MetadataChangeProposal> changes = new ArrayList<>();
+    for (ResourceReference resource : resources) {
+
+      EditableSchemaMetadata editableSchemaMetadata = editableSchemaMetadataAspects.get(resource.getUrn());
+      if (editableSchemaMetadata == null) {
+        continue; // Something went wrong.
+      }
+
+      EditableSchemaFieldInfo editableFieldInfo = getFieldInfoFromSchema(editableSchemaMetadata, resource.getSubResource());
+
+      if (!editableFieldInfo.hasGlossaryTerms()) {
+        editableFieldInfo.setGlossaryTerms(new GlossaryTerms());
+      }
+
+      addGlossaryTermsIfNotExists(editableFieldInfo.getGlossaryTerms(), glossaryTermUrns);
+      changes.add(buildMetadataChangeProposal(resource.getUrn(), Constants.EDITABLE_SCHEMA_METADATA_ASPECT_NAME,
+          editableSchemaMetadata));
     }
 
-    EditableSchemaFieldInfo editableFieldInfo = getFieldInfoFromSchema(editableSchemaMetadata, resource.getSubResource());
+    return changes;
+  }
 
-    if (!editableFieldInfo.hasGlossaryTerms()) {
-      editableFieldInfo.setGlossaryTerms(new GlossaryTerms());
+  @VisibleForTesting
+  List<MetadataChangeProposal> buildRemoveGlossaryTermsToEntityProposals(
+      List<Urn> glossaryTermUrns,
+      List<ResourceReference> resources,
+      Authentication authentication
+  ) {
+
+    final Map<Urn, GlossaryTerms> glossaryTermAspects = getGlossaryTermsAspects(
+        resources.stream().map(ResourceReference::getUrn).collect(Collectors.toSet()),
+        new GlossaryTerms(),
+        authentication
+    );
+
+    final List<MetadataChangeProposal> changes = new ArrayList<>();
+    for (ResourceReference resource : resources) {
+      com.linkedin.common.GlossaryTerms glossaryTerms = glossaryTermAspects.get(resource.getUrn());
+      if (glossaryTerms == null) {
+        continue; // Something went wrong.
+      }
+      if (!glossaryTerms.hasTerms()) {
+        glossaryTerms.setTerms(new GlossaryTermAssociationArray());
+        glossaryTerms.setAuditStamp(new AuditStamp()
+            .setTime(System.currentTimeMillis())
+            .setActor(UrnUtils.getUrn(authentication.getActor().toUrnStr())));
+      }
+      removeGlossaryTermsIfExists(glossaryTerms, glossaryTermUrns);
+      MetadataChangeProposal proposal = buildMetadataChangeProposal(
+          resource.getUrn(),
+          Constants.GLOSSARY_TERMS_ASPECT_NAME, glossaryTerms
+      );
+
+      changes.add(proposal);
+    }
+    return changes;
+  }
+
+  @VisibleForTesting
+  List<MetadataChangeProposal> buildRemoveGlossaryTermsToSubResourceProposals(
+      List<Urn> glossaryTermUrns,
+      List<ResourceReference> resources,
+      Authentication authentication
+  ) {
+
+    final Map<Urn, EditableSchemaMetadata> editableSchemaMetadataAspects = getEditableSchemaMetadataAspects(
+        resources.stream().map(ResourceReference::getUrn).collect(Collectors.toSet()),
+        new EditableSchemaMetadata(),
+        authentication
+    );
+
+    final List<MetadataChangeProposal> changes = new ArrayList<>();
+    for (ResourceReference resource : resources) {
+
+      EditableSchemaMetadata editableSchemaMetadata = editableSchemaMetadataAspects.get(resource.getUrn());
+      if (editableSchemaMetadata == null) {
+        continue; // Something went wrong.
+      }
+
+      EditableSchemaFieldInfo editableFieldInfo = getFieldInfoFromSchema(editableSchemaMetadata, resource.getSubResource());
+
+      if (!editableFieldInfo.hasGlossaryTerms()) {
+        editableFieldInfo.setGlossaryTerms(new GlossaryTerms());
+      }
+      removeGlossaryTermsIfExists(editableFieldInfo.getGlossaryTerms(), glossaryTermUrns);
+       changes.add(buildMetadataChangeProposal(resource.getUrn(), Constants.EDITABLE_SCHEMA_METADATA_ASPECT_NAME,
+          editableSchemaMetadata));
     }
 
-    addGlossaryTermsIfNotExists(editableFieldInfo.getGlossaryTerms(), glossaryTermUrns);
-    return buildMetadataChangeProposal(
-        resource.getUrn(),
-        Constants.EDITABLE_SCHEMA_METADATA_ASPECT_NAME,
-        editableSchemaMetadata);
+    return changes;
   }
 
   private void addGlossaryTermsIfNotExists(GlossaryTerms glossaryTerms, List<Urn> glossaryTermUrns) throws URISyntaxException {
@@ -325,59 +361,81 @@ public class GlossaryTermService {
     return glossaryTermAssociationArray;
   }
 
-  @Nullable
-  private GlossaryTerms getGlossaryTermsAspect(
-      @Nonnull Urn entityUrn,
+  @Nonnull
+  private Map<Urn, GlossaryTerms> getGlossaryTermsAspects(
+      @Nonnull Set<Urn> entityUrns,
       @Nonnull GlossaryTerms defaultValue,
       @Nonnull Authentication authentication) {
+
+    if (entityUrns.size() <= 0) {
+      return Collections.emptyMap();
+    }
+
     try {
-      Aspect aspect = getLatestAspect(
-          entityUrn,
+      Map<Urn, Aspect> aspects = batchGetLatestAspect(
+          entityUrns.stream().findFirst().get().getEntityType(), // TODO Improve this.
+          entityUrns,
           Constants.GLOSSARY_TERMS_ASPECT_NAME,
           this.entityClient,
           authentication
       );
 
-      if (aspect == null) {
-        return defaultValue;
+      final Map<Urn, GlossaryTerms> finalResult = new HashMap<>();
+      for (Urn entity : entityUrns) {
+        Aspect aspect = aspects.get(entity);
+        if (aspect == null) {
+          finalResult.put(entity, defaultValue);
+        } else {
+          finalResult.put(entity, new GlossaryTerms(aspect.data()));
+        }
       }
-      return new GlossaryTerms(aspect.data());
+      return finalResult;
     } catch (Exception e) {
       log.error(
-          "Error retrieving glossaryTerms for entity. Entity: {} aspect: {}",
-          entityUrn,
+          "Error retrieving glossary terms for entities. Entities: {} aspect: {}",
+          entityUrns,
           Constants.GLOSSARY_TERMS_ASPECT_NAME,
           e);
-      return null;
+      return Collections.emptyMap();
     }
   }
 
-  @Nullable
-  private EditableSchemaMetadata getEditableSchemaMetadataAspect(
-      @Nonnull Urn entityUrn,
+  @Nonnull
+  private Map<Urn, EditableSchemaMetadata> getEditableSchemaMetadataAspects(
+      @Nonnull Set<Urn> entityUrns,
       @Nonnull EditableSchemaMetadata defaultValue,
       @Nonnull Authentication authentication) {
+
+    if (entityUrns.size() <= 0) {
+      return Collections.emptyMap();
+    }
+
     try {
-      Aspect aspect = getLatestAspect(
-          entityUrn,
+      Map<Urn, Aspect> aspects = batchGetLatestAspect(
+          entityUrns.stream().findFirst().get().getEntityType(), // TODO Improve this.
+          entityUrns,
           Constants.EDITABLE_SCHEMA_METADATA_ASPECT_NAME,
           this.entityClient,
           authentication
       );
 
-      if (aspect == null) {
-        return defaultValue;
+      final Map<Urn, EditableSchemaMetadata> finalResult = new HashMap<>();
+      for (Urn entity : entityUrns) {
+        Aspect aspect = aspects.get(entity);
+        if (aspect == null) {
+          finalResult.put(entity, defaultValue);
+        } else {
+          finalResult.put(entity, new EditableSchemaMetadata(aspect.data()));
+        }
       }
-
-      return new EditableSchemaMetadata(aspect.data());
+      return finalResult;
     } catch (Exception e) {
       log.error(
-          "Error retrieving editable schema metadata for entity. Entity: {} aspect: {}.",
-          entityUrn,
+          "Error retrieving editable schema metadata for entities. Entities: {} aspect: {}",
+          entityUrns,
           Constants.EDITABLE_SCHEMA_METADATA_ASPECT_NAME,
-          e
-      );
-      return null;
+          e);
+      return Collections.emptyMap();
     }
   }
 
