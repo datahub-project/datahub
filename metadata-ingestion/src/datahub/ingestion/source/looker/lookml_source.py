@@ -4,7 +4,9 @@ import logging
 import pathlib
 import re
 import sys
+import tempfile
 from dataclasses import dataclass, field as dataclass_field, replace
+from datetime import datetime, timedelta
 from typing import Any, Dict, Iterable, List, Optional, Set, Tuple, Type
 
 import pydantic
@@ -16,6 +18,7 @@ from pydantic.fields import Field
 import datahub.emitter.mce_builder as builder
 from datahub.configuration import ConfigModel
 from datahub.configuration.common import AllowDenyPattern, ConfigurationError
+from datahub.configuration.github import GitHubInfo
 from datahub.configuration.source_common import EnvBasedSourceConfigBase
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.common import PipelineContext
@@ -28,6 +31,7 @@ from datahub.ingestion.api.decorators import (
 from datahub.ingestion.api.registry import import_path
 from datahub.ingestion.api.source import Source, SourceReport
 from datahub.ingestion.api.workunit import MetadataWorkUnit
+from datahub.ingestion.source.git.git_import import GitClone
 from datahub.ingestion.source.looker.looker_common import (
     LookerCommonConfig,
     LookerExplore,
@@ -139,8 +143,9 @@ class LookerConnectionDefinition(ConfigModel):
 
 
 class LookMLSourceConfig(LookerCommonConfig):
-    base_folder: pydantic.DirectoryPath = Field(
-        description="Local filepath where the root of the LookML repo lives. This is typically the root folder where the `*.model.lkml` and `*.view.lkml` files are stored. e.g. If you have checked out your LookML repo under `/Users/jdoe/workspace/my-lookml-repo`, then set `base_folder` to `/Users/jdoe/workspace/my-lookml-repo`."
+    base_folder: Optional[pydantic.DirectoryPath] = Field(
+        None,
+        description="Required if not providing github configuration and deploy keys. A pointer to a local directory (accessible to the ingestion system) where the root of the LookML repo has been checked out (typically via a git clone). This is typically the root folder where the `*.model.lkml` and `*.view.lkml` files are stored. e.g. If you have checked out your LookML repo under `/Users/jdoe/workspace/my-lookml-repo`, then set `base_folder` to `/Users/jdoe/workspace/my-lookml-repo`.",
     )
     connection_to_platform_map: Optional[Dict[str, LookerConnectionDefinition]] = Field(
         None,
@@ -225,9 +230,25 @@ class LookMLSourceConfig(LookerCommonConfig):
             )
         return values
 
+    @validator("base_folder", always=True)
+    def check_base_folder_if_not_provided(
+        cls, v: Optional[pydantic.DirectoryPath], values: Dict[str, Any]
+    ) -> Optional[pydantic.DirectoryPath]:
+        if v is None:
+            github_info: Optional[GitHubInfo] = values.get("github_info", None)
+            if github_info and github_info.deploy_key:
+                # We have github_info populated correctly, base folder is not needed
+                pass
+            else:
+                raise ValueError(
+                    "base_folder is not provided. Neither has a github deploy_key or deploy_key_file been provided"
+                )
+        return v
+
 
 @dataclass
 class LookMLSourceReport(SourceReport):
+    git_clone_latency: Optional[timedelta] = None
     models_discovered: int = 0
     models_dropped: List[str] = dataclass_field(default_factory=list)
     views_discovered: int = 0
@@ -970,6 +991,7 @@ class LookMLSource(Source):
             return None
 
     def _get_custom_properties(self, looker_view: LookerView) -> DatasetPropertiesClass:
+        assert self.source_config.base_folder  # this is always filled out
         file_path = str(
             pathlib.Path(looker_view.absolute_file_path).relative_to(
                 self.source_config.base_folder.resolve()
@@ -1063,7 +1085,29 @@ class LookMLSource(Source):
                 f"Could not locate a project name for model {model_name}. Consider configuring a static project name in your config file"
             )
 
-    def get_workunits(self) -> Iterable[MetadataWorkUnit]:  # noqa: C901
+    def get_workunits(self) -> Iterable[MetadataWorkUnit]:
+        if not self.source_config.base_folder:
+            assert self.source_config.github_info
+            # we don't have a base_folder, so we need to clone the repo and process it locally
+            start_time = datetime.now()
+            with tempfile.TemporaryDirectory("lookml_tmp") as tmp_dir:
+                git_clone = GitClone(tmp_dir)
+                # github info deploy key is always populated
+                assert self.source_config.github_info.deploy_key
+                assert self.source_config.github_info.repo_ssh_locator
+                checkout_dir = git_clone.clone(
+                    ssh_key=self.source_config.github_info.deploy_key,
+                    repo_url=self.source_config.github_info.repo_ssh_locator,
+                )
+                self.reporter.git_clone_latency = datetime.now() - start_time
+                self.source_config.base_folder = checkout_dir.resolve()
+                yield from self.get_internal_workunits()
+        else:
+            yield from self.get_internal_workunits()
+
+    def get_internal_workunits(self) -> Iterable[MetadataWorkUnit]:  # noqa: C901
+        assert self.source_config.base_folder
+
         viewfile_loader = LookerViewFileLoader(
             str(self.source_config.base_folder), self.reporter
         )

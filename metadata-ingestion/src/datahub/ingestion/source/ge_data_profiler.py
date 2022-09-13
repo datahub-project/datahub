@@ -258,7 +258,7 @@ class _SingleDatasetProfiler(BasicDatasetProfilerBase):
         ignored_columns: List[str] = []
         for col in self.dataset.get_table_columns():
             # We expect the allow/deny patterns to specify '<table_pattern>.<column_pattern>'
-            if not self.config.allow_deny_patterns.allowed(
+            if not self.config._allow_deny_patterns.allowed(
                 f"{self.dataset_name}.{col}"
             ):
                 ignored_columns.append(col)
