@@ -175,6 +175,11 @@ type Query {
     entity(urn: String!): Entity
 
     """
+    Gets entities based on their urns
+    """
+    entities(urns: [String!]!): [Entity]
+
+    """
     List all DataHub Roles
     """
     listRoles(input: ListRolesInput!): ListRolesResult

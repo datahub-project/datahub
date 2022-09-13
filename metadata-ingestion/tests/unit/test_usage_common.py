@@ -1,4 +1,5 @@
 from datetime import datetime
+from unittest import mock
 
 import pytest
 from pydantic import ValidationError
@@ -238,8 +239,11 @@ def test_query_trimming():
 
 def test_top_n_queries_validator_fails():
     with pytest.raises(ValidationError) as excinfo:
-        GenericAggregatedDataset.total_budget_for_query_list = 20
-        BaseUsageConfig(top_n_queries=2)
+        with mock.patch(
+            "datahub.ingestion.source.usage.usage_common.GenericAggregatedDataset.total_budget_for_query_list",
+            20,
+        ):
+            BaseUsageConfig(top_n_queries=2)
     assert "top_n_queries is set to 2 but it can be maximum 1" in str(excinfo.value)
 
 

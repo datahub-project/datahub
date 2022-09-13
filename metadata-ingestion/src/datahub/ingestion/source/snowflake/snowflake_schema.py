@@ -33,7 +33,7 @@ class SnowflakeColumn:
     ordinal_position: int
     is_nullable: bool
     data_type: str
-    comment: str
+    comment: Optional[str]
 
 
 @dataclass
@@ -43,7 +43,7 @@ class SnowflakeTable:
     last_altered: datetime
     size_in_bytes: int
     rows_count: int
-    comment: str
+    comment: Optional[str]
     clustering_key: str
     pk: Optional[SnowflakePK] = None
     columns: List[SnowflakeColumn] = field(default_factory=list)
@@ -65,7 +65,7 @@ class SnowflakeSchema:
     name: str
     created: datetime
     last_altered: datetime
-    comment: str
+    comment: Optional[str]
     tables: List[SnowflakeTable] = field(default_factory=list)
     views: List[SnowflakeView] = field(default_factory=list)
 
@@ -74,7 +74,7 @@ class SnowflakeSchema:
 class SnowflakeDatabase:
     name: str
     created: datetime
-    comment: str
+    comment: Optional[str]
     schemas: List[SnowflakeSchema] = field(default_factory=list)
 
 

@@ -1,10 +1,9 @@
-package com.linkedin.metadata.resources.entity;
+package com.linkedin.metadata.entity;
 
 import com.google.common.collect.ImmutableSet;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.data.template.RecordTemplate;
 import com.linkedin.events.metadata.ChangeType;
-import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.utils.EntityKeyUtils;
 import com.linkedin.metadata.utils.GenericRecordUtils;
 import com.linkedin.mxe.GenericAspect;
