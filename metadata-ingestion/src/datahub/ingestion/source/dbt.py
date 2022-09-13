@@ -1086,6 +1086,7 @@ class DBTSource(StatefulIngestionSourceBase):
             self.compiled_owner_extraction_pattern = re.compile(
                 self.config.owner_extraction_pattern
             )
+        # Create and register the stateful ingestion use-case handler.
         self.stale_entity_removal_handler = StaleEntityRemovalHandler(
             source=self,
             config=self.config,
@@ -1881,19 +1882,6 @@ class DBTSource(StatefulIngestionSourceBase):
 
     def get_report(self):
         return self.report
-
-    def create_checkpoint(self, job_id: JobId) -> Optional[Checkpoint]:
-        """
-        Create the custom checkpoint with empty state for the job.
-        """
-        if job_id == self.stale_entity_removal_handler.job_id:
-            return self.stale_entity_removal_handler.create_checkpoint()
-        return None
-
-    def is_checkpointing_enabled(self, job_id: JobId) -> bool:
-        if job_id == self.stale_entity_removal_handler.job_id:
-            return self.stale_entity_removal_handler.is_checkpointing_enabled()
-        return False
 
     def get_platform_instance_id(self) -> str:
         """

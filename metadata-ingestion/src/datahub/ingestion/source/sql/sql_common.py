@@ -47,7 +47,6 @@ from datahub.emitter.mcp_builder import (
 )
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.workunit import MetadataWorkUnit
-from datahub.ingestion.source.state.checkpoint import Checkpoint
 from datahub.ingestion.source.state.sql_common_state import (
     BaseSQLAlchemyCheckpointState,
 )
@@ -57,7 +56,6 @@ from datahub.ingestion.source.state.stale_entity_removal_handler import (
     StatefulStaleMetadataRemovalConfig,
 )
 from datahub.ingestion.source.state.stateful_ingestion_base import (
-    JobId,
     StatefulIngestionConfigBase,
     StatefulIngestionSourceBase,
 )
@@ -483,6 +481,8 @@ class SQLAlchemySource(StatefulIngestionSourceBase):
         self.config = config
         self.platform = platform
         self.report: SQLSourceReport = SQLSourceReport()
+
+        # Create and register the stateful ingestion use-case handlers.
         self.stale_entity_removal_handler = StaleEntityRemovalHandler(
             source=self,
             config=self.config,
@@ -547,19 +547,6 @@ class SQLAlchemySource(StatefulIngestionSourceBase):
             return str(engine.url.database).strip('"').lower()
         else:
             raise Exception("Unable to get database name from Sqlalchemy inspector")
-
-    def create_checkpoint(self, job_id: JobId) -> Optional[Checkpoint]:
-        """
-        Create the custom checkpoint with empty state for the job.
-        """
-        if job_id == self.stale_entity_removal_handler.job_id:
-            return self.stale_entity_removal_handler.create_checkpoint()
-        return None
-
-    def is_checkpointing_enabled(self, job_id: JobId) -> bool:
-        if job_id == self.stale_entity_removal_handler.job_id:
-            return self.stale_entity_removal_handler.is_checkpointing_enabled()
-        return False
 
     def get_schema_names(self, inspector):
         return inspector.get_schema_names()

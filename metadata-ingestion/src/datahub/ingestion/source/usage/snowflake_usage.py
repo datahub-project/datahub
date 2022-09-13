@@ -22,12 +22,10 @@ from datahub.ingestion.api.decorators import (
     support_status,
 )
 from datahub.ingestion.api.workunit import MetadataWorkUnit
-from datahub.ingestion.source.state.checkpoint import Checkpoint
 from datahub.ingestion.source.state.redundant_run_skip_handler import (
     RedundantRunSkipHandler,
 )
 from datahub.ingestion.source.state.stateful_ingestion_base import (
-    JobId,
     StatefulIngestionSourceBase,
 )
 from datahub.ingestion.source.usage.usage_common import GenericAggregatedDataset
@@ -136,6 +134,7 @@ class SnowflakeUsageSource(StatefulIngestionSourceBase):
         super(SnowflakeUsageSource, self).__init__(config, ctx)
         self.config: SnowflakeUsageConfig = config
         self.report: SnowflakeUsageReport = SnowflakeUsageReport()
+        # Create and register the stateful ingestion use-case handlers.
         self.redundant_run_skip_handler = RedundantRunSkipHandler(
             source=self,
             config=self.config,
@@ -150,22 +149,6 @@ class SnowflakeUsageSource(StatefulIngestionSourceBase):
 
     def get_platform_instance_id(self) -> str:
         return self.config.get_account()
-
-    def create_checkpoint(self, job_id: JobId) -> Optional[Checkpoint]:
-        """
-        Create the custom checkpoint with empty state for the job.
-        """
-        if job_id == self.redundant_run_skip_handler.job_id:
-            return self.redundant_run_skip_handler.create_checkpoint(
-                start_time_millis=datetime_to_ts_millis(self.config.start_time),
-                end_time_millis=datetime_to_ts_millis(self.config.end_time),
-            )
-        return None
-
-    def is_checkpointing_enabled(self, job_id: JobId) -> bool:
-        if job_id == self.redundant_run_skip_handler.job_id:
-            return self.redundant_run_skip_handler.is_checkpointing_enabled()
-        return False
 
     def check_email_domain_missing(self) -> Any:
         if self.config.email_domain is not None and self.config.email_domain != "":
@@ -187,8 +170,6 @@ class SnowflakeUsageSource(StatefulIngestionSourceBase):
         if not self.redundant_run_skip_handler.should_skip_this_run(
             cur_start_time_millis=datetime_to_ts_millis(self.config.start_time)
         ):
-            # Initialize the current checkpoints
-            self.redundant_run_skip_handler.init_checkpoints()
             # Generate the workunits.
             access_events = self._get_snowflake_history()
             aggregated_info_items_raw, operation_aspect_work_units_raw = partition(
@@ -208,6 +189,11 @@ class SnowflakeUsageSource(StatefulIngestionSourceBase):
                     wu = self._make_usage_stat(aggregate)
                     self.report.report_workunit(wu)
                     yield wu
+            # Update checkpoint state for this run.
+            self.redundant_run_skip_handler.update_state(
+                start_time_millis=datetime_to_ts_millis(self.config.start_time),
+                end_time_millis=datetime_to_ts_millis(self.config.end_time),
+            )
 
     def _make_usage_query(self) -> str:
         start_time = datetime_to_ts_millis(self.config.start_time)

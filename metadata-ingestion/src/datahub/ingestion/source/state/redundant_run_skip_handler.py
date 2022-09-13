@@ -12,6 +12,9 @@ from datahub.ingestion.source.state.stateful_ingestion_base import (
     StatefulIngestionSourceBase,
 )
 from datahub.ingestion.source.state.usage_common_state import BaseUsageCheckpointState
+from datahub.ingestion.source.state.use_case_handler import (
+    StatefulIngestionUsecaseHandlerBase,
+)
 from datahub.utilities.time import get_datetime_from_ts_millis_in_utc
 
 logger: logging.Logger = logging.getLogger(__name__)
@@ -26,11 +29,15 @@ class StatefulRedundantRunSkipConfig(StatefulIngestionConfig):
     ignore_old_state = pydantic.Field(False, alias="force_rerun")
 
 
-class RedundantRunSkipHandler:
+class RedundantRunSkipHandler(
+    StatefulIngestionUsecaseHandlerBase[BaseUsageCheckpointState]
+):
     """
     The stateful ingestion helper class that handles skipping redundant runs.
     This contains the generic logic for all sources that need to support skipping redundant runs.
     """
+
+    INVALID_TIMESTAMP_VALUE: pydantic.PositiveInt = 1
 
     def __init__(
         self,
@@ -49,7 +56,8 @@ class RedundantRunSkipHandler:
         self.pipeline_name = pipeline_name
         self.run_id = run_id
         self.checkpointing_enabled: bool = source.is_stateful_ingestion_configured()
-        self.job_id = self._get_job_id()
+        self._job_id = self._init_job_id()
+        self.source.register_stateful_ingestion_usecase_handler(self)
 
     def _ignore_old_state(self) -> bool:
         if (
@@ -67,7 +75,7 @@ class RedundantRunSkipHandler:
             return True
         return False
 
-    def _get_job_id(self) -> JobId:
+    def _init_job_id(self) -> JobId:
         platform: Optional[str] = getattr(self.source, "platform")
         # Handle backward-compatibility for existing sources.
         if platform == "snowflake":
@@ -77,14 +85,14 @@ class RedundantRunSkipHandler:
         job_name_suffix = "skip_redundant_run"
         return JobId(f"{platform}_{job_name_suffix}" if platform else job_name_suffix)
 
+    @property
+    def job_id(self) -> JobId:
+        return self._job_id
+
     def is_checkpointing_enabled(self) -> bool:
         return self.checkpointing_enabled
 
-    def create_checkpoint(
-        self,
-        start_time_millis: pydantic.PositiveInt,
-        end_time_millis: pydantic.PositiveInt,
-    ) -> Optional[Checkpoint]:
+    def create_checkpoint(self) -> Optional[Checkpoint[BaseUsageCheckpointState]]:
         if not self.is_checkpointing_enabled() or self._ignore_new_state():
             return None
 
@@ -97,15 +105,23 @@ class RedundantRunSkipHandler:
             run_id=self.run_id,
             config=cast(ConfigModel, self.config),
             state=BaseUsageCheckpointState(
-                begin_timestamp_millis=start_time_millis,
-                end_timestamp_millis=end_time_millis,
+                begin_timestamp_millis=self.INVALID_TIMESTAMP_VALUE,
+                end_timestamp_millis=self.INVALID_TIMESTAMP_VALUE,
             ),
         )
 
-    def init_checkpoints(self) -> None:
-        # Triggers checkpoint creation.
-        if not self._ignore_new_state():
-            self.source.get_current_checkpoint(self.job_id)
+    def update_state(
+        self,
+        start_time_millis: pydantic.PositiveInt,
+        end_time_millis: pydantic.PositiveInt,
+    ) -> None:
+        if not self.is_checkpointing_enabled() or self._ignore_new_state():
+            return
+        cur_checkpoint = self.source.get_current_checkpoint(self.job_id)
+        assert cur_checkpoint is not None
+        cur_state = cast(BaseUsageCheckpointState, cur_checkpoint.state)
+        cur_state.begin_timestamp_millis = start_time_millis
+        cur_state.end_timestamp_millis = end_time_millis
 
     def should_skip_this_run(self, cur_start_time_millis: int) -> bool:
         if not self.is_checkpointing_enabled() or self._ignore_old_state():

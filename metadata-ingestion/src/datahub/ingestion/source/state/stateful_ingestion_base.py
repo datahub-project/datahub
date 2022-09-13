@@ -20,6 +20,9 @@ from datahub.ingestion.api.ingestion_job_checkpointing_provider_base import (
 )
 from datahub.ingestion.api.source import Source, SourceReport
 from datahub.ingestion.source.state.checkpoint import Checkpoint, StateType
+from datahub.ingestion.source.state.use_case_handler import (
+    StatefulIngestionUsecaseHandlerBase,
+)
 from datahub.ingestion.source.state_provider.state_provider_registry import (
     ingestion_checkpoint_provider_registry,
 )
@@ -116,6 +119,7 @@ class StatefulIngestionSourceBase(Source):
         self.run_summaries_to_report: Dict[JobId, DatahubIngestionRunSummaryClass] = {}
         self.report: StatefulIngestionReport = StatefulIngestionReport()
         self._initialize_checkpointing_state_provider()
+        self._usecase_handlers: Dict[JobId, StatefulIngestionUsecaseHandlerBase] = {}
 
     def warn(self, log: logging.Logger, key: str, reason: str) -> None:
         self.report.report_warning(key, reason)
@@ -177,6 +181,18 @@ class StatefulIngestionSourceBase(Source):
                 f"Successfully created {self.stateful_ingestion_config.state_provider.type} state provider."
             )
 
+    def register_stateful_ingestion_usecase_handler(
+        self, usecase_handler: StatefulIngestionUsecaseHandlerBase
+    ) -> None:
+        """
+        Registers a use-case handler with the common-base class.
+
+        NOTE: The use-case handlers must invoke this method from their constructor(__init__) on the source.
+        Also, the subclasses should not override this method.
+        """
+        assert usecase_handler.job_id not in self._usecase_handlers
+        self._usecase_handlers[usecase_handler.job_id] = usecase_handler
+
     def is_stateful_ingestion_configured(self) -> bool:
         if (
             self.stateful_ingestion_config is not None
@@ -186,22 +202,27 @@ class StatefulIngestionSourceBase(Source):
             return True
         return False
 
-    # Basic methods that sub-classes must implement
-    @abstractmethod
     def create_checkpoint(self, job_id: JobId) -> Optional[Checkpoint]:
-        raise NotImplementedError("Sub-classes must implement this method.")
+        """
+        Template base-class method that delegates the initial checkpoint state creation to
+        the appropriate use-case handler registered for the job_id.
+        """
+        if job_id not in self._usecase_handlers:
+            raise ValueError(f"No use-case handler for job_id{job_id}")
+        return self._usecase_handlers[job_id].create_checkpoint()
 
-    @abstractmethod
-    def get_platform_instance_id(self) -> str:
-        raise NotImplementedError("Sub-classes must implement this method.")
-
-    @abstractmethod
     def is_checkpointing_enabled(self, job_id: JobId) -> bool:
         """
-        Sub-classes should override this method to tell if checkpointing is enabled for this run.
-        For instance, currently all of the SQL based sources use checkpointing for stale entity removal.
-        They would turn it on only if remove_stale_metadata=True. Otherwise, the feature won't work correctly.
+        Template base-class method that delegates the check if checkpointing is enabled for the job
+        to the appropriate use-case handler registered for the job_id.
         """
+        if job_id not in self._usecase_handlers:
+            raise ValueError(f"No use-case handler for job_id{job_id}")
+        return self._usecase_handlers[job_id].is_checkpointing_enabled()
+
+    # Methods that sub-classes must implement
+    @abstractmethod
+    def get_platform_instance_id(self) -> str:
         raise NotImplementedError("Sub-classes must implement this method.")
 
     def _get_last_checkpoint(

@@ -16,6 +16,9 @@ from datahub.ingestion.source.state.stateful_ingestion_base import (
     StatefulIngestionReport,
     StatefulIngestionSourceBase,
 )
+from datahub.ingestion.source.state.use_case_handler import (
+    StatefulIngestionUsecaseHandlerBase,
+)
 from datahub.metadata.schema_classes import ChangeTypeClass, StatusClass
 
 logger: logging.Logger = logging.getLogger(__name__)
@@ -81,7 +84,9 @@ class StaleEntityCheckpointStateBase(CheckpointStateBase, ABC, Generic[Derived])
         pass
 
 
-class StaleEntityRemovalHandler:
+class StaleEntityRemovalHandler(
+    StatefulIngestionUsecaseHandlerBase[StaleEntityCheckpointStateBase]
+):
     """
     The stateful ingestion helper class that handles stale entity removal.
     This contains the generic logic for all sources that need to support stale entity removal for all the states
@@ -116,9 +121,10 @@ class StaleEntityRemovalHandler:
             )
             else False
         )
-        self.job_id = self._get_job_id()
+        self._job_id = self._init_job_id()
+        self.source.register_stateful_ingestion_usecase_handler(self)
 
-    def _get_job_id(self) -> JobId:
+    def _init_job_id(self) -> JobId:
         # Handle backward-compatibility for existing sources.
         backward_comp_platform_to_job_name: Dict[str, str] = {
             "bigquery": "ingest_from_bigquery_source",
@@ -152,6 +158,10 @@ class StaleEntityRemovalHandler:
             return True
         return False
 
+    @property
+    def job_id(self) -> JobId:
+        return self._job_id
+
     def is_checkpointing_enabled(self) -> bool:
         return self.checkpointing_enabled
 
@@ -171,7 +181,7 @@ class StaleEntityRemovalHandler:
 
     def _create_soft_delete_workunit(self, urn: str, type: str) -> MetadataWorkUnit:
         entity_type = type
-        if entity_type in ["view", "table"]:
+        if entity_type in ["view", "table", "topic"]:
             entity_type = "dataset"
 
         logger.info(f"Soft-deleting stale entity of type {type} - {urn}.")

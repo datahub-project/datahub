@@ -33,7 +33,6 @@ from datahub.ingestion.api.decorators import (
     platform_name,
     support_status,
 )
-from datahub.ingestion.api.ingestion_job_checkpointing_provider_base import JobId
 from datahub.ingestion.api.source import (
     CapabilityReport,
     SourceCapability,
@@ -54,7 +53,6 @@ from datahub.ingestion.source.bigquery_v2.bigquery_schema import (
 )
 from datahub.ingestion.source.bigquery_v2.lineage import BigqueryLineageExtractor
 from datahub.ingestion.source.bigquery_v2.usage import BigQueryUsageExtractor
-from datahub.ingestion.source.state.checkpoint import Checkpoint
 from datahub.ingestion.source.state.sql_common_state import (
     BaseSQLAlchemyCheckpointState,
 )
@@ -173,6 +171,7 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
             Tuple[str, str], Optional[Dict[str, List[BigqueryColumn]]]
         ] = {}
 
+        # Create and register the stateful ingestion use-case handler.
         self.stale_entity_removal_handler = StaleEntityRemovalHandler(
             source=self,
             config=self.config,
@@ -290,20 +289,6 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
                 capable=False, failure_reason=f"{e}"
             )
             return test_report
-
-    def is_checkpointing_enabled(self, job_id: JobId) -> bool:
-        if job_id == self.stale_entity_removal_handler.job_id:
-            return self.stale_entity_removal_handler.is_checkpointing_enabled()
-
-        return False
-
-    def create_checkpoint(self, job_id: JobId) -> Optional[Checkpoint]:
-        """
-        Create the custom checkpoint with empty state for the job.
-        """
-        if job_id == self.stale_entity_removal_handler.job_id:
-            return self.stale_entity_removal_handler.create_checkpoint()
-        return None
 
     def get_dataplatform_instance_aspect(
         self, dataset_urn: str

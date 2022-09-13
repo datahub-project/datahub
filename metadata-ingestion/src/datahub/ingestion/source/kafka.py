@@ -27,7 +27,6 @@ from datahub.ingestion.api.decorators import (
 from datahub.ingestion.api.registry import import_path
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.kafka_schema_registry_base import KafkaSchemaRegistryBase
-from datahub.ingestion.source.state.checkpoint import Checkpoint
 from datahub.ingestion.source.state.kafka_state import KafkaCheckpointState
 from datahub.ingestion.source.state.stale_entity_removal_handler import (
     StaleEntityRemovalHandler,
@@ -35,7 +34,6 @@ from datahub.ingestion.source.state.stale_entity_removal_handler import (
     StatefulStaleMetadataRemovalConfig,
 )
 from datahub.ingestion.source.state.stateful_ingestion_base import (
-    JobId,
     StatefulIngestionConfigBase,
     StatefulIngestionSourceBase,
 )
@@ -154,6 +152,7 @@ class KafkaSource(StatefulIngestionSourceBase):
                 cached_domains=[k for k in self.source_config.domain],
                 graph=self.ctx.graph,
             )
+        # Create and register the stateful ingestion use-case handlers.
         self.stale_entity_removal_handler = StaleEntityRemovalHandler(
             source=self,
             config=self.source_config,
@@ -162,22 +161,9 @@ class KafkaSource(StatefulIngestionSourceBase):
             run_id=self.ctx.run_id,
         )
 
-    def create_checkpoint(self, job_id: JobId) -> Optional[Checkpoint]:
-        """
-        Create a custom checkpoint with empty state for the job.
-        """
-        if job_id == self.stale_entity_removal_handler.job_id:
-            return self.stale_entity_removal_handler.create_checkpoint()
-        return None
-
     def get_platform_instance_id(self) -> str:
         assert self.source_config.platform_instance is not None
         return self.source_config.platform_instance
-
-    def is_checkpointing_enabled(self, job_id: JobId) -> bool:
-        if job_id == self.stale_entity_removal_handler.job_id:
-            return self.stale_entity_removal_handler.is_checkpointing_enabled()
-        return False
 
     @classmethod
     def create(cls, config_dict: Dict, ctx: PipelineContext) -> "KafkaSource":

@@ -281,6 +281,7 @@ class GlueSource(StatefulIngestionSourceBase):
         self.extract_transforms = config.extract_transforms
         self.env = config.env
 
+        # Create and register the stateful ingestion use-case handlers.
         self.stale_entity_removal_handler = StaleEntityRemovalHandler(
             source=self,
             config=self.source_config,
@@ -1245,19 +1246,6 @@ class GlueSource(StatefulIngestionSourceBase):
 
     def get_report(self):
         return self.report
-
-    def create_checkpoint(self, job_id: JobId) -> Optional[Checkpoint]:
-        """
-        Create the custom checkpoint with empty state for the job.
-        """
-        if job_id == self.stale_entity_removal_handler.job_id:
-            return self.stale_entity_removal_handler.create_checkpoint()
-        return None
-
-    def is_checkpointing_enabled(self, job_id: JobId) -> bool:
-        if job_id == self.stale_entity_removal_handler.job_id:
-            return self.stale_entity_removal_handler.is_checkpointing_enabled()
-        return False
 
     def get_platform_instance_id(self) -> str:
         return self.source_config.platform_instance or self.platform

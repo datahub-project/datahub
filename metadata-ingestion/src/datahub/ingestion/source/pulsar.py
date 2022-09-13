@@ -27,13 +27,11 @@ from datahub.ingestion.api.decorators import (
 )
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.extractor import schema_util
-from datahub.ingestion.source.state.checkpoint import Checkpoint
 from datahub.ingestion.source.state.kafka_state import KafkaCheckpointState
 from datahub.ingestion.source.state.stale_entity_removal_handler import (
     StaleEntityRemovalHandler,
 )
 from datahub.ingestion.source.state.stateful_ingestion_base import (
-    JobId,
     StatefulIngestionSourceBase,
 )
 from datahub.ingestion.source_config.pulsar import PulsarSourceConfig
@@ -100,6 +98,7 @@ class PulsarSource(StatefulIngestionSourceBase):
         self.platform: str = "pulsar"
         self.config: PulsarSourceConfig = config
         self.report: PulsarSourceReport = PulsarSourceReport()
+        # Create and register the stateful ingestion use-case handlers.
         self.stale_entity_removal_handler = StaleEntityRemovalHandler(
             source=self,
             config=self.config,
@@ -107,6 +106,7 @@ class PulsarSource(StatefulIngestionSourceBase):
             pipeline_name=self.ctx.pipeline_name,
             run_id=self.ctx.run_id,
         )
+
         self.base_url: str = f"{self.config.web_service_url}/admin/v2"
         self.tenants: List[str] = config.tenants
 
@@ -219,19 +219,6 @@ class PulsarSource(StatefulIngestionSourceBase):
             raise Exception(
                 f"An ambiguous exception occurred while handling the request: {e}"
             )
-
-    def create_checkpoint(self, job_id: JobId) -> Optional[Checkpoint]:
-        """
-        Create a custom checkpoint with empty state for the job.
-        """
-        if job_id == self.stale_entity_removal_handler.job_id:
-            self.stale_entity_removal_handler.create_checkpoint()
-        return None
-
-    def is_checkpointing_enabled(self, job_id: JobId) -> bool:
-        if job_id == self.stale_entity_removal_handler.job_id:
-            return self.stale_entity_removal_handler.is_checkpointing_enabled()
-        return False
 
     def get_platform_instance_id(self) -> str:
         assert self.config.platform_instance is not None
