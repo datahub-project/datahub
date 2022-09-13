@@ -972,7 +972,7 @@ class LookMLSource(Source):
     def _get_custom_properties(self, looker_view: LookerView) -> DatasetPropertiesClass:
         file_path = str(
             pathlib.Path(looker_view.absolute_file_path).relative_to(
-                self.source_config.base_folder.absolute()
+                self.source_config.base_folder.resolve()
             )
         )
 
