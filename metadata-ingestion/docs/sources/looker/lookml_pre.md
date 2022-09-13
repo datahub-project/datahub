@@ -8,7 +8,7 @@ In a nutshell, there are three steps:
 1. Generate a private-public ssh key pair. This will typically generate two files, e.g. looker_datahub_deploy_key (this is the private key) and looker_datahub_deploy_key.pub (this is the public key)
 ![Image](https://github.com/datahub-project/static-assets/blob/main/imgs/gitssh/ssh-key-generation.png)
 
-2. Add the public key to your Looker git repo as a deploy key with read access (no need to provision write access). Follow the guide [here]((https://docs.github.com/en/developers/overview/managing-deploy-keys#deploy-keys) for that.
+2. Add the public key to your Looker git repo as a deploy key with read access (no need to provision write access). Follow the guide [here](https://docs.github.com/en/developers/overview/managing-deploy-keys#deploy-keys) for that.
 ![Image](https://github.com/datahub-project/static-assets/blob/main/imgs/gitssh/git-deploy-key.png)
 
 3. Provision the private key (paste the contents of the file) as a secret on the DataHub Ingestion UI. Give it a handy name like **LOOKER_DATAHUB_DEPLOY_KEY**
