@@ -20,18 +20,14 @@ logger: logging.Logger = logging.getLogger(__name__)
 
 
 class DataLakeSourceConfig(PlatformSourceConfigBase, EnvBasedSourceConfigBase):
-    path_specs: Optional[List[PathSpec]] = Field(
+    path_specs: List[PathSpec] = Field(
         description="List of PathSpec. See below the details about PathSpec"
     )
-    path_spec: Optional[PathSpec] = Field(
-        description="Path spec will be deprecated in favour of path_specs option."
-    )
     platform: str = Field(
-        default="", description="The platform that this source connects to"
-    )
-    platform_instance: Optional[str] = Field(
-        default=None,
-        description="The instance of the platform that all assets produced by this recipe belong to",
+        # The platform field already exists, but we want to override the type/default/docs.
+        default="",
+        description="The platform that this source connects to (either 's3' or 'file'). "
+        "If not specified, the platform will be inferred from the path_specs.",
     )
     aws_config: Optional[AwsConnectionConfig] = Field(
         default=None, description="AWS configuration"
@@ -64,27 +60,29 @@ class DataLakeSourceConfig(PlatformSourceConfigBase, EnvBasedSourceConfigBase):
         description="Maximum number of rows to use when inferring schemas for TSV and CSV files.",
     )
 
-    @pydantic.root_validator(pre=False)
-    def validate_platform(cls, values: Dict) -> Dict:
+    @pydantic.validator("path_specs", pre=True, always=True)
+    def rename_path_spec_to_path_specs(
+        cls, v: Any, values: Dict[str, Any]
+    ) -> List[PathSpec]:
+        """
+        Support the old path_spec field.
+        """
+        if "path_spec" in values:
+            assert (
+                "path_specs" not in values
+            ), 'cannot have both "path_spec" and "path_specs"'
+            logger.warning("path_spec is deprecated. Please use path_specs instead.")
+            return [values.pop("path_spec")]
+        return v
+
+    @pydantic.root_validator()
+    def infer_platform(cls, values: Dict) -> Dict:
         value = values.get("platform")
-        if value is not None and value != "":
+        if value:
             return values
 
-        if not values.get("path_specs") and not values.get("path_spec"):
-            raise ValueError("Either path_specs or path_spec needs to be specified")
-
-        if values.get("path_specs") and values.get("path_spec"):
-            raise ValueError(
-                "Either path_specs or path_spec needs to be specified but not both"
-            )
-
-        if values.get("path_spec"):
-            logger.warning(
-                "path_spec config property is deprecated, please use path_specs instead of it."
-            )
-            values["path_specs"] = [values.get("path_spec")]
-
         bucket_name: str = ""
+        path_spec: PathSpec
         for path_spec in values.get("path_specs", []):
             if path_spec.is_s3:
                 platform = "s3"
