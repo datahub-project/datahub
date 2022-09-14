@@ -11,8 +11,9 @@ logger = logging.getLogger(__name__)
 
 
 class GitClone:
-    def __init__(self, tmp_dir):
+    def __init__(self, tmp_dir: str, skip_known_host_verification: bool = True):
         self.tmp_dir = tmp_dir
+        self.skip_known_host_verification = skip_known_host_verification
 
     def clone(self, ssh_key: SecretStr, repo_url: str) -> Path:
         unique_dir = str(uuid4())
@@ -30,6 +31,12 @@ class GitClone:
             fp.write(ssh_key.get_secret_value())
 
         git_ssh_cmd = f"ssh -i {git_ssh_identity_file}"
+        if self.skip_known_host_verification:
+            # Without this, the ssh command will prompt for confirmation of the host key.
+            # See https://stackoverflow.com/a/28527476/5004662.
+            git_ssh_cmd += (
+                " -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no"
+            )
         logger.debug("ssh_command=%s", git_ssh_cmd)
         logger.info(f"⏳ Cloning repo '{repo_url}', this can take some time...")
         git.Repo.clone_from(
