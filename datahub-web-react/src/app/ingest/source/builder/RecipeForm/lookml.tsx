@@ -20,6 +20,7 @@ export const LOOKML_GITHUB_INFO_REPO: RecipeField = {
     ),
     type: FieldType.TEXT,
     fieldPath: 'source.config.github_info.repo',
+    placeholder: 'datahub-project/datahub',
     rules: [{ required: true, message: 'Github Repo is required' }],
 };
 
@@ -29,6 +30,7 @@ export const DEPLOY_KEY: RecipeField = {
     tooltip: 'The SSH private key that has been provisioned for read access on the GitHub repository.',
     type: FieldType.SECRET,
     fieldPath: 'source.config.github_info.deploy_key',
+    placeholder: 'DEPLOY_KEY',
     rules: [{ required: true, message: 'Github Deploy Key is required' }],
 };
 
@@ -56,7 +58,8 @@ export const LOOKML_BASE_URL: RecipeField = {
     tooltip:
         'Url to your Looker instance: https://company.looker.com:19999 or https://looker.company.com, or similar. Used for making API calls to Looker and constructing clickable dashboard and chart urls.',
     type: FieldType.TEXT,
-    fieldPath: 'source.config.base_url',
+    fieldPath: 'source.config.api.base_url',
+    placeholder: 'https://looker.company.com',
     rules: [({ getFieldValue }) => validateApiSection(getFieldValue, 'Base URL')],
 };
 
@@ -64,8 +67,9 @@ export const LOOKML_CLIENT_ID: RecipeField = {
     name: 'client_id',
     label: 'Client ID',
     tooltip: 'Looker API client id.',
-    type: FieldType.TEXT,
-    fieldPath: 'source.config.client_id',
+    type: FieldType.SECRET,
+    placeholder: 'LOOKER_CLIENT_ID',
+    fieldPath: 'source.config.api.client_id',
     rules: [({ getFieldValue }) => validateApiSection(getFieldValue, 'Client ID')],
 };
 
@@ -74,7 +78,8 @@ export const LOOKML_CLIENT_SECRET: RecipeField = {
     label: 'Client Secret',
     tooltip: 'Looker API client secret.',
     type: FieldType.SECRET,
-    fieldPath: 'source.config.client_secret',
+    fieldPath: 'source.config.api.client_secret',
+    placeholder: 'LOOKER_CLIENT_SECRET',
     rules: [({ getFieldValue }) => validateApiSection(getFieldValue, 'Client Secret')],
 };
 
@@ -98,6 +103,7 @@ export const PROJECT_NAME: RecipeField = {
     ),
     type: FieldType.TEXT,
     fieldPath: 'source.config.project_name',
+    placeholder: 'Looker Project Name',
     rules: [
         ({ getFieldValue }) => ({
             validator(_, value) {
@@ -127,9 +133,23 @@ export const PARSE_TABLE_NAMES_FROM_SQL: RecipeField = {
 export const CONNECTION_TO_PLATFORM_MAP_NAME: RecipeField = {
     name: 'name',
     label: 'Name',
-    tooltip: 'Looker connection name',
+    tooltip: (
+        <div>
+            Look connection name. See{' '}
+            <a
+                href="https://cloud.google.com/looker/docs/reference/param-model-connection"
+                target="_blank"
+                rel="noreferrer"
+            >
+                documentation
+            </a>{' '}
+            for more details.
+        </div>
+    ),
+
     type: FieldType.TEXT,
     fieldPath: 'name',
+    placeholder: 'mysql_db',
     rules: null,
 };
 
@@ -139,6 +159,7 @@ export const PLATFORM: RecipeField = {
     tooltip: 'Associated platform in DataHub',
     type: FieldType.TEXT,
     fieldPath: 'platform',
+    placeholder: 'looker',
     rules: null,
 };
 
@@ -148,6 +169,7 @@ export const DEFAULT_DB: RecipeField = {
     tooltip: 'Associated database in DataHub',
     type: FieldType.TEXT,
     fieldPath: 'default_db',
+    placeholder: 'default_db',
     rules: null,
 };
 

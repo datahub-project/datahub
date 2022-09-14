@@ -91,6 +91,7 @@ function SecretField({ field, secrets, removeMargin, refetchSecrets }: SecretFie
         >
             <Select
                 showSearch
+                placeholder={field.placeholder}
                 filterOption={(input, option) => !!option?.children.toLowerCase().includes(input.toLowerCase())}
                 dropdownRender={(menu) => (
                     <>
