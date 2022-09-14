@@ -36,7 +36,7 @@ public class DataJobHydrator extends BaseHydrator {
   private void mapKey(ObjectNode jsonNodes, DataMap dataMap) {
     DataJobKey dataJobKey = new DataJobKey(dataMap);
     DataFlowKey dataFlowKey = (DataFlowKey) EntityKeyUtils
-        .convertUrnToEntityKey(dataJobKey.getFlow(), new DataFlowKey().schema());
+        .convertUrnToEntityKeyInternal(dataJobKey.getFlow(), new DataFlowKey().schema());
     jsonNodes.put(ORCHESTRATOR, dataFlowKey.getOrchestrator());
   }
 }

@@ -2,7 +2,6 @@ package com.linkedin.metadata.search.utils;
 
 import com.linkedin.common.BrowsePaths;
 import com.linkedin.common.urn.Urn;
-import com.linkedin.data.schema.RecordDataSchema;
 import com.linkedin.data.template.StringArray;
 import com.linkedin.metadata.key.ChartKey;
 import com.linkedin.metadata.key.DashboardKey;
@@ -37,43 +36,42 @@ public class BrowsePathUtils {
   public static String getDefaultBrowsePath(Urn urn, EntityRegistry entityRegistry) throws URISyntaxException {
     switch (urn.getEntityType()) {
       case "dataset":
-        DatasetKey dsKey = (DatasetKey) EntityKeyUtils.convertUrnToEntityKey(urn, getKeySchema(urn.getEntityType(), entityRegistry));
+        DatasetKey dsKey = (DatasetKey) EntityKeyUtils.convertUrnToEntityKey(urn, getAspectSpec(urn.getEntityType(), entityRegistry));
         DataPlatformKey dpKey = (DataPlatformKey) EntityKeyUtils.convertUrnToEntityKey(
             dsKey.getPlatform(),
-            getKeySchema(dsKey.getPlatform().getEntityType(),
+            getAspectSpec(dsKey.getPlatform().getEntityType(),
                 entityRegistry));
         return ("/" + dsKey.getOrigin() + "/" + dpKey.getPlatformName() + "/"
             + dsKey.getName()).replace('.', '/').toLowerCase();
       case "chart":
-        ChartKey chartKey = (ChartKey) EntityKeyUtils.convertUrnToEntityKey(urn, getKeySchema(urn.getEntityType(), entityRegistry));
+        ChartKey chartKey = (ChartKey) EntityKeyUtils.convertUrnToEntityKey(urn, getAspectSpec(urn.getEntityType(), entityRegistry));
         return ("/" + chartKey.getDashboardTool() + "/"  + chartKey.getChartId()).toLowerCase();
       case "dashboard":
-        DashboardKey dashboardKey = (DashboardKey) EntityKeyUtils.convertUrnToEntityKey(urn, getKeySchema(urn.getEntityType(), entityRegistry));
+        DashboardKey dashboardKey = (DashboardKey) EntityKeyUtils.convertUrnToEntityKey(urn, getAspectSpec(urn.getEntityType(), entityRegistry));
         return ("/" + dashboardKey.getDashboardTool() + "/"  + dashboardKey.getDashboardId()).toLowerCase();
       case "dataFlow":
-        DataFlowKey dataFlowKey = (DataFlowKey) EntityKeyUtils.convertUrnToEntityKey(urn, getKeySchema(urn.getEntityType(), entityRegistry));
+        DataFlowKey dataFlowKey = (DataFlowKey) EntityKeyUtils.convertUrnToEntityKey(urn, getAspectSpec(urn.getEntityType(), entityRegistry));
         return ("/" + dataFlowKey.getOrchestrator() + "/" + dataFlowKey.getCluster() + "/" + dataFlowKey.getFlowId())
             .toLowerCase();
       case "dataJob":
-        DataJobKey dataJobKey = (DataJobKey) EntityKeyUtils.convertUrnToEntityKey(urn, getKeySchema(urn.getEntityType(), entityRegistry));
+        DataJobKey dataJobKey = (DataJobKey) EntityKeyUtils.convertUrnToEntityKey(urn, getAspectSpec(urn.getEntityType(), entityRegistry));
         DataFlowKey parentFlowKey = (DataFlowKey) EntityKeyUtils.convertUrnToEntityKey(dataJobKey.getFlow(),
-            getKeySchema(dataJobKey.getFlow().getEntityType(), entityRegistry));
+            getAspectSpec(dataJobKey.getFlow().getEntityType(), entityRegistry));
         return ("/" + parentFlowKey.getOrchestrator() + "/" + parentFlowKey.getFlowId() + "/"
             + dataJobKey.getJobId()).toLowerCase();
       case "glossaryTerm":
         // TODO: Is this the best way to represent glossary term key?
-        GlossaryTermKey glossaryTermKey = (GlossaryTermKey) EntityKeyUtils.convertUrnToEntityKey(urn, getKeySchema(urn.getEntityType(), entityRegistry));
+        GlossaryTermKey glossaryTermKey = (GlossaryTermKey) EntityKeyUtils.convertUrnToEntityKey(urn, getAspectSpec(urn.getEntityType(), entityRegistry));
         return "/" + glossaryTermKey.getName().replace('.', '/').toLowerCase();
       default:
         return "";
     }
   }
 
-  protected static RecordDataSchema getKeySchema(
+  protected static AspectSpec getAspectSpec(
       final String entityName,
       final EntityRegistry registry) {
     final EntitySpec spec = registry.getEntitySpec(entityName);
-    final AspectSpec keySpec = spec.getKeyAspectSpec();
-    return keySpec.getPegasusSchema();
+    return spec.getKeyAspectSpec();
   }
 }
