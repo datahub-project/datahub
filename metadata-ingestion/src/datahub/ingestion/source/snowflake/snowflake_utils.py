@@ -1,8 +1,9 @@
 import logging
-from typing import Any, Optional, Protocol
+from typing import Any, Optional
 
 from snowflake.connector import SnowflakeConnection
 from snowflake.connector.cursor import DictCursor
+from typing_extensions import Protocol
 
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.workunit import MetadataWorkUnit
@@ -124,7 +125,7 @@ class SnowflakeCommonMixin:
     def get_user_identifier(
         self: SnowflakeCommonProtocol, user_name: str, user_email: Optional[str]
     ) -> str:
-        if user_email is not None:
+        if user_email:
             return user_email.split("@")[0]
         return self.snowflake_identifier(user_name)
 

@@ -6,8 +6,9 @@ import styled from 'styled-components/macro';
 import { ReactComponent as LoadingSvg } from '../../../../../../images/datahub-logo-color-loading_pendulum.svg';
 import { ANTD_GRAY } from '../../../../../entity/shared/constants';
 import ConnectionCapabilityView from './ConnectionCapabilityView';
-import { SourceConfig } from '../../../conf/types';
 import { CapabilityReport, SourceCapability, TestConnectionResult } from './types';
+import { SourceConfig } from '../../types';
+import useGetSourceLogoUrl from '../../useGetSourceLogoUrl';
 
 const LoadingWrapper = styled.div`
     display: flex;
@@ -84,7 +85,7 @@ const StyledClose = styled(CloseOutlined)`
 interface Props {
     isLoading: boolean;
     testConnectionFailed: boolean;
-    sourceConfig: SourceConfig;
+    sourceConfig?: SourceConfig;
     testConnectionResult: TestConnectionResult | null;
     hideModal: () => void;
 }
@@ -96,6 +97,8 @@ function TestConnectionModal({
     testConnectionResult,
     hideModal,
 }: Props) {
+    const logoUrl = useGetSourceLogoUrl(sourceConfig?.name || '');
+
     return (
         <Modal
             visible
@@ -103,8 +106,8 @@ function TestConnectionModal({
             footer={<Button onClick={hideModal}>Done</Button>}
             title={
                 <ModalHeader style={{ margin: 0 }}>
-                    <SourceIcon alt="source logo" src={sourceConfig.logoUrl} />
-                    {sourceConfig.displayName} Connection Test
+                    <SourceIcon alt="source logo" src={logoUrl} />
+                    {sourceConfig?.displayName} Connection Test
                 </ModalHeader>
             }
             width={750}
@@ -133,8 +136,8 @@ function TestConnectionModal({
                     </ResultsHeader>
                     <ResultsSubHeader>
                         {testConnectionFailed
-                            ? `A connection was not able to be established with ${sourceConfig.displayName}.`
-                            : `A connection was successfully established with ${sourceConfig.displayName}.`}
+                            ? `A connection was not able to be established with ${sourceConfig?.displayName}.`
+                            : `A connection was successfully established with ${sourceConfig?.displayName}.`}
                     </ResultsSubHeader>
                     <Divider />
                     {testConnectionResult?.internal_failure ? (
