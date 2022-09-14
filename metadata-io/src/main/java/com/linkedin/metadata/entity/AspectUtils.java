@@ -1,15 +1,11 @@
 package com.linkedin.metadata.entity;
 
 import com.google.common.collect.ImmutableSet;
-import com.linkedin.common.UrnArray;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.data.template.RecordTemplate;
 import com.linkedin.entity.Aspect;
 import com.linkedin.entity.EntityResponse;
 import com.linkedin.events.metadata.ChangeType;
-import com.linkedin.metadata.query.ListResult;
-import com.linkedin.metadata.search.SearchEntity;
-import com.linkedin.metadata.search.SearchResult;
 import com.linkedin.metadata.utils.EntityKeyUtils;
 import com.linkedin.metadata.utils.GenericRecordUtils;
 import com.linkedin.mxe.GenericAspect;
@@ -97,18 +93,5 @@ public class AspectUtils {
     proposal.setAspect(GenericRecordUtils.serializeAspect(aspect));
     proposal.setChangeType(ChangeType.UPSERT);
     return proposal;
-  }
-
-  public static ListResult toListResult(final SearchResult searchResult) {
-    if (searchResult == null) {
-      return null;
-    }
-    final ListResult listResult = new ListResult();
-    listResult.setStart(searchResult.getFrom());
-    listResult.setCount(searchResult.getPageSize());
-    listResult.setTotal(searchResult.getNumEntities());
-    listResult.setEntities(
-        new UrnArray(searchResult.getEntities().stream().map(SearchEntity::getEntity).collect(Collectors.toList())));
-    return listResult;
   }
 }
