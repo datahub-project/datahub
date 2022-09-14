@@ -59,7 +59,6 @@ framework_common = {
     "cached_property",
     "ijson",
     "click-spinner",
-    "GitPython>2",
 }
 
 kafka_common = {
@@ -270,7 +269,7 @@ plugins: Dict[str, Set[str]] = {
     "looker": looker_common,
     # lkml>=1.1.2 is required to support the sql_preamble expression in LookML
     "lookml": looker_common
-    | {"lkml>=1.1.2", "sql-metadata==2.2.2", "sqllineage==1.3.5"},
+    | {"lkml>=1.1.2", "sql-metadata==2.2.2", "sqllineage==1.3.5", "GitPython>2"},
     "metabase": {"requests", "sqllineage==1.3.5"},
     "mode": {"requests", "sqllineage==1.3.5", "tenacity>=8.0.1"},
     "mongodb": {"pymongo[srv]>=3.11", "packaging"},

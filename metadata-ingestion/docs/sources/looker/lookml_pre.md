@@ -1,20 +1,20 @@
 ### Pre-requisites
 
-#### [Optional] Create a GitHub Deploy Key
+#### [Recommended] Create a GitHub Deploy Key
 
 To use LookML ingestion through the UI, or automate github checkout through the cli, you must set up a GitHub deploy key for your Looker GitHub repository. Read [this](https://docs.github.com/en/developers/overview/managing-deploy-keys#deploy-keys) document for how to set up deploy keys for your Looker git repo. 
 
 In a nutshell, there are three steps: 
 1. Generate a private-public ssh key pair. This will typically generate two files, e.g. looker_datahub_deploy_key (this is the private key) and looker_datahub_deploy_key.pub (this is the public key)
-![Image](https://github.com/datahub-project/static-assets/blob/main/imgs/gitssh/ssh-key-generation.png)
+![Image](https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/gitssh/ssh-key-generation.png)
 
 2. Add the public key to your Looker git repo as a deploy key with read access (no need to provision write access). Follow the guide [here](https://docs.github.com/en/developers/overview/managing-deploy-keys#deploy-keys) for that.
-![Image](https://github.com/datahub-project/static-assets/blob/main/imgs/gitssh/git-deploy-key.png)
+![Image](https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/gitssh/git-deploy-key.png)
 
 3. Provision the private key (paste the contents of the file) as a secret on the DataHub Ingestion UI. Give it a handy name like **LOOKER_DATAHUB_DEPLOY_KEY**
-![Image](https://github.com/datahub-project/static-assets/blob/main/imgs/gitssh/datahub-secret.png)
+![Image](https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/gitssh/datahub-secret.png)
 
-#### [Optional] Create an API key
+#### [Optional] Create an API key with admin privileges
 
 See the [Looker authentication docs](https://docs.looker.com/reference/api-and-integration/api-auth#authentication_with_an_sdk) for the steps to create a client ID and secret.
 You need to ensure that the API key is attached to a user that has Admin privileges. 
@@ -30,14 +30,14 @@ You have 3 options for controlling where your ingestion of LookML is run.
 
 Read on to learn more about these options. 
 
-#### Ingestion through UI
+### UI-based Ingestion [Recommended for ease of use]
 
 To ingest LookML metadata through the UI, you must set up a GitHub deploy key using the instructions in the section [above](#optional-create-a-github-deploy-key). Once that is complete, you can follow the on-screen instructions to set up a LookML source using the Ingestion page.
 
-### Ingestion using GitHub Action
+### GitHub Action based Ingestion [Recommended for push-based integration]
 
 You can set up ingestion using a GitHub Action to push metadata whenever your main lookml repo changes.
-The following sample github action file can be modified to emit LookML metadata whenever there is a change to your repository. This ensures that metadata is already fresh and up to date.
+The following sample GitHub action file can be modified to emit LookML metadata whenever there is a change to your repository. This ensures that metadata is already fresh and up to date.
 
 #### Sample GitHub Action
 
