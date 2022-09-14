@@ -24,14 +24,19 @@ export const LOOKML_GITHUB_INFO_REPO: RecipeField = {
     rules: [{ required: true, message: 'Github Repo is required' }],
 };
 
+const deployKeyFieldPath = 'source.config.github_info.deploy_key';
 export const DEPLOY_KEY: RecipeField = {
     name: 'github_info.deploy_key',
     label: 'GitHub Deploy Key',
     tooltip: 'The SSH private key that has been provisioned for read access on the GitHub repository.',
-    type: FieldType.SECRET,
+    type: FieldType.TEXTAREA,
     fieldPath: 'source.config.github_info.deploy_key',
-    placeholder: 'DEPLOY_KEY',
+    placeholder: '-----BEGIN OPENSSH PRIVATE KEY-----\n...',
     rules: [{ required: true, message: 'Github Deploy Key is required' }],
+    setValueOnRecipeOverride: (recipe: any, value: string) => {
+        const valueWithNewLine = `${value}\n`;
+        return setFieldValueOnRecipe(recipe, valueWithNewLine, deployKeyFieldPath);
+    },
 };
 
 function validateApiSection(getFieldValue, fieldName) {
