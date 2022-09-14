@@ -17,6 +17,9 @@ query listIngestionSources($input: ListIngestionSourcesInput!) {
                 interval
                 timezone
             }
+            platform {
+                urn
+            }
             executions(start: 0, count: 1) {
                 start
                 count
@@ -52,6 +55,9 @@ query getIngestionSource($urn: String!, $runStart: Int, $runCount: Int) {
         schedule {
             interval
             timezone
+        }
+        platform {
+            urn
         }
         executions(start: $runStart, count: $runCount) {
             start
