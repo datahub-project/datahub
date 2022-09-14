@@ -37,7 +37,6 @@ from datahub.emitter.mcp_builder import (
     add_dataset_to_container,
     add_domain_to_entity_wu,
     gen_containers,
-    wrap_aspect_as_workunit,
 )
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.decorators import (
@@ -691,20 +690,16 @@ class GlueSource(StatefulIngestionSourceBase):
 
         all_databases = get_databases()
 
-        if self.source_config.database_pattern.is_fully_specified_allow_list():
-            database_names = self.source_config.database_pattern.get_allowed_list()
-        else:
-            database_names = [database["Name"] for database in all_databases]
-
         databases = {
             database["Name"]: database
             for database in all_databases
-            if database["Name"] in database_names
+            if self.source_config.database_pattern.allowed(database["Name"])
         }
+
         all_tables: List[dict] = [
             table
-            for database in database_names
-            for table in get_tables_from_database(database)
+            for database in databases
+            for table in get_tables_from_database(database["Name"])
         ]
 
         return databases, all_tables
@@ -1036,14 +1031,14 @@ class GlueSource(StatefulIngestionSourceBase):
             self.report.report_workunit(workunit)
             yield workunit
 
-            # we also want to assign "Table" subType to the dataset representing glue table - unfortunately it is not
-            # possible via Dataset snapshot embedded in a mce, so we have to generate a mcp...
-            yield wrap_aspect_as_workunit(
-                aspectName="subTypes",
-                aspect=SubTypes(typeNames=["Table"]),
-                entityName="Dataset",
+            # We also want to assign "Table" subType to the dataset representing glue table - unfortunately it is not
+            # possible via Dataset snapshot embedded in a mce, so we have to generate a mcp.
+            workunit = MetadataChangeProposalWrapper(
                 entityUrn=dataset_urn,
-            )
+                aspect=SubTypes(typeNames=["Table"]),
+            ).as_workunit()
+            self.report.report_workunit(workunit)
+            yield workunit
 
             yield from self._get_domain_wu(
                 dataset_name=full_table_name,
