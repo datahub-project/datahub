@@ -135,7 +135,7 @@ export const CONNECTION_TO_PLATFORM_MAP_NAME: RecipeField = {
     label: 'Name',
     tooltip: (
         <div>
-            Look connection name. See{' '}
+            Looker connection name. See{' '}
             <a
                 href="https://cloud.google.com/looker/docs/reference/param-model-connection"
                 target="_blank"
