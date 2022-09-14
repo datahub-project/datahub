@@ -3,7 +3,7 @@ import logging
 import re
 from dataclasses import dataclass, field
 from datetime import datetime
-from enum import Enum
+from enum import auto
 from typing import (
     Any,
     Callable,
@@ -19,12 +19,17 @@ from typing import (
 from urllib.parse import urlparse
 
 import dateutil.parser
+import pydantic
 import requests
 from cached_property import cached_property
 from pydantic import BaseModel, root_validator, validator
 from pydantic.fields import Field
 
-from datahub.configuration.common import AllowDenyPattern, ConfigurationError
+from datahub.configuration.common import (
+    AllowDenyPattern,
+    ConfigEnum,
+    ConfigurationError,
+)
 from datahub.configuration.github import GitHubInfo
 from datahub.emitter import mce_builder
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
@@ -54,11 +59,15 @@ from datahub.ingestion.source.state.dbt_state import DbtCheckpointState
 from datahub.ingestion.source.state.sql_common_state import (
     BaseSQLAlchemyCheckpointState,
 )
+from datahub.ingestion.source.state.stale_entity_removal_handler import (
+    StaleEntityRemovalHandler,
+    StaleEntityRemovalSourceReport,
+    StatefulStaleMetadataRemovalConfig,
+)
 from datahub.ingestion.source.state.stateful_ingestion_base import (
-    StatefulIngestionConfig,
     StatefulIngestionConfigBase,
-    StatefulIngestionReport,
     StatefulIngestionSourceBase,
+    StateType,
 )
 from datahub.metadata.com.linkedin.pegasus2avro.common import (
     AuditStamp,
@@ -119,30 +128,27 @@ logger = logging.getLogger(__name__)
 DBT_PLATFORM = "dbt"
 
 
-class DBTStatefulIngestionConfig(StatefulIngestionConfig):
+class DBTStatefulIngestionConfig(StatefulStaleMetadataRemovalConfig):
     """
-    Specialization of basic StatefulIngestionConfig to adding custom config.
+    Specialization of basic StatefulStaleMetadataRemovalConfig to adding custom config.
     This will be used to override the stateful_ingestion config param of StatefulIngestionConfigBase
     in the SQLAlchemyConfig.
     """
 
-    remove_stale_metadata: bool = True
+    _entity_types: List[str] = pydantic.Field(default=["assertion", "dataset"])
 
 
 @dataclass
-class DBTSourceReport(StatefulIngestionReport):
-    soft_deleted_stale_entities: List[str] = field(default_factory=list)
-
-    def report_stale_entity_soft_deleted(self, urn: str) -> None:
-        self.soft_deleted_stale_entities.append(urn)
+class DBTSourceReport(StaleEntityRemovalSourceReport):
+    pass
 
 
-class EmitDirective(Enum):
+class EmitDirective(ConfigEnum):
     """A holder for directives for emission for specific types of entities"""
 
-    YES = "YES"  # Okay to emit for this type
-    NO = "NO"  # Do not emit for this type
-    ONLY = "ONLY"  # Only emit metadata for this type and no others
+    YES = auto()  # Okay to emit for this type
+    NO = auto()  # Do not emit for this type
+    ONLY = auto()  # Only emit metadata for this type and no others
 
 
 class DBTEntitiesEnabled(BaseModel):
@@ -170,10 +176,6 @@ class DBTEntitiesEnabled(BaseModel):
     test_results: EmitDirective = Field(
         "Yes", description="Emit metadata for test results when set to Yes or Only"
     )
-
-    @validator("*", pre=True, always=True)
-    def to_upper(cls, v):
-        return v.upper() if isinstance(v, str) else v
 
     @root_validator
     def only_one_can_be_set_to_only(cls, values):
@@ -246,10 +248,6 @@ class DBTConfig(StatefulIngestionConfigBase):
         default=None,
         description="The platform instance for the platform that dbt is operating on. Use this if you have multiple instances of the same platform (e.g. redshift) and need to distinguish between them.",
     )
-    load_schemas: bool = Field(
-        default=True,
-        description="This flag is only consulted when disable_dbt_node_creation is set to True. Load schemas for target_platform entities from dbt catalog file, not necessary when you are already ingesting this metadata from the data platform directly. If set to False, table schema details (e.g. columns) will not be ingested.",
-    )
     use_identifiers: bool = Field(
         default=False,
         description="Use model identifier instead of model name if defined (if not, default to model name).",
@@ -268,10 +266,6 @@ class DBTConfig(StatefulIngestionConfigBase):
     node_name_pattern: AllowDenyPattern = Field(
         default=AllowDenyPattern.allow_all(),
         description="regex patterns for dbt model names to filter in ingestion.",
-    )
-    disable_dbt_node_creation = Field(
-        default=False,
-        description="Whether to suppress dbt dataset metadata creation. When set to True, this flag applies the dbt metadata to the target_platform entities (e.g. populating schema and column descriptions from dbt into the postgres / bigquery table metadata in DataHub) and generates lineage between the platform entities.",
     )
     meta_mapping: Dict = Field(
         default={},
@@ -318,15 +312,14 @@ class DBTConfig(StatefulIngestionConfigBase):
         description="Reference to your github location to enable easy navigation from DataHub to your dbt files.",
     )
 
+    stateful_ingestion: Optional[DBTStatefulIngestionConfig] = pydantic.Field(
+        default=None, description="DBT Stateful Ingestion Config."
+    )
+
     @property
     def s3_client(self):
         assert self.aws_connection
         return self.aws_connection.get_s3_client()
-
-    # Custom Stateful Ingestion settings
-    stateful_ingestion: Optional[DBTStatefulIngestionConfig] = Field(
-        default=None, description=""
-    )
 
     @validator("target_platform")
     def validate_target_platform_value(cls, target_platform: str) -> str:
@@ -474,7 +467,6 @@ def extract_dbt_entities(
     all_catalog_entities: Dict[str, Dict[str, Any]],
     sources_results: List[Dict[str, Any]],
     manifest_adapter: str,
-    load_schemas: bool,
     use_identifiers: bool,
     tag_prefix: str,
     node_type_pattern: AllowDenyPattern,
@@ -650,7 +642,6 @@ def get_upstreams(
     target_platform: str,
     target_platform_instance: Optional[str],
     environment: str,
-    disable_dbt_node_creation: bool,
     platform_instance: Optional[str],
     legacy_skip_source_lineage: Optional[bool],
 ) -> List[str]:
@@ -672,28 +663,18 @@ def get_upstreams(
 
         upstream_manifest_node = all_nodes[upstream]
 
-        # This function is called to create lineages among platform nodes or dbt nodes. When we are creating lineages
-        # for platform nodes, implies that dbt node creation is turned off (because otherwise platform nodes only
-        # have one lineage edge to their corresponding dbt node). So, when disable_dbt_node_creation is true we only
-        # create lineages for platform nodes otherwise, for dbt node, we connect it to another dbt node or a platform
-        # node.
+        # This logic creates lineages among dbt nodes.
         platform_value = DBT_PLATFORM
         platform_instance_value = platform_instance
 
-        if disable_dbt_node_creation:
-            # we generate all urns in the target platform universe
+        materialized = upstream_manifest_node.get("config", {}).get("materialized")
+        resource_type = upstream_manifest_node["resource_type"]
+        if materialized in {"view", "table", "incremental"} or (
+            resource_type == "source" and legacy_skip_source_lineage
+        ):
+            # upstream urns point to the target platform
             platform_value = target_platform
             platform_instance_value = target_platform_instance
-        else:
-            materialized = upstream_manifest_node.get("config", {}).get("materialized")
-            resource_type = upstream_manifest_node["resource_type"]
-
-            if materialized in {"view", "table", "incremental"} or (
-                resource_type == "source" and legacy_skip_source_lineage
-            ):
-                # upstream urns point to the target platform
-                platform_value = target_platform
-                platform_instance_value = target_platform_instance
 
         upstream_urns.append(
             get_urn_from_dbtNode(
@@ -753,7 +734,8 @@ def get_column_type(
         # resolve modified type
         if dbt_adapter == "trino":
             TypeClass = resolve_trino_modified_type(column_type)
-        elif dbt_adapter == "postgres":
+        elif dbt_adapter == "postgres" or dbt_adapter == "redshift":
+            # Redshift uses a variant of Postgres, so we can use the same logic.
             TypeClass = resolve_postgres_modified_type(column_type)
 
     # if still not found, report the warning
@@ -989,7 +971,6 @@ class DBTTest:
                         config.target_platform,
                         config.target_platform_instance,
                         config.env,
-                        config.disable_dbt_node_creation,
                         config.platform_instance,
                         config.backcompat_skip_source_on_lineage_edge,
                     )
@@ -1074,8 +1055,7 @@ class DBTSource(StatefulIngestionSourceBase):
 
     Note:
     1. It also generates lineage between the `dbt` nodes (e.g. ephemeral nodes that depend on other dbt sources) as well as lineage between the `dbt` nodes and the underlying (target) platform nodes (e.g. BigQuery Table -> dbt Source, dbt View -> BigQuery View).
-    2. The previous version of this source (`acryl_datahub<=0.8.16.2`) did not generate `dbt` entities and lineage between `dbt` entities and platform entities. For backwards compatibility with the previous version of this source, there is a config flag `disable_dbt_node_creation` that falls back to the old behavior.
-    3. We also support automated actions (like add a tag, term or owner) based on properties defined in dbt meta.
+    2. We also support automated actions (like add a tag, term or owner) based on properties defined in dbt meta.
 
     The artifacts used by this source are:
     - [dbt manifest file](https://docs.getdbt.com/reference/artifacts/manifest-json)
@@ -1107,21 +1087,30 @@ class DBTSource(StatefulIngestionSourceBase):
             self.compiled_owner_extraction_pattern = re.compile(
                 self.config.owner_extraction_pattern
             )
+        # Create and register the stateful ingestion use-case handler.
+        self.stale_entity_removal_handler = StaleEntityRemovalHandler(
+            source=self,
+            config=self.config,
+            state_type_class=DbtCheckpointState,
+            pipeline_name=self.ctx.pipeline_name,
+            run_id=self.ctx.run_id,
+        )
 
-    def get_last_dbt_checkpoint(
-        self, job_id: JobId, checkpoint_state_class: Type[DbtCheckpointState]
+    def get_last_checkpoint(
+        self, job_id: JobId, checkpoint_state_class: Type[StateType]
     ) -> Optional[Checkpoint]:
-
         last_checkpoint: Optional[Checkpoint]
         is_conversion_required: bool = False
         try:
             # Best-case that last checkpoint state is DbtCheckpointState
-            last_checkpoint = self.get_last_checkpoint(job_id, checkpoint_state_class)
+            last_checkpoint = super(DBTSource, self).get_last_checkpoint(
+                job_id, checkpoint_state_class
+            )
         except Exception as e:
             # Backward compatibility for old dbt ingestion source which was saving dbt-nodes in
             # BaseSQLAlchemyCheckpointState
-            last_checkpoint = self.get_last_checkpoint(
-                job_id, BaseSQLAlchemyCheckpointState
+            last_checkpoint = super(DBTSource, self).get_last_checkpoint(
+                job_id, BaseSQLAlchemyCheckpointState  # type: ignore
             )
             logger.debug(
                 f"Found BaseSQLAlchemyCheckpointState as checkpoint state (got {e})."
@@ -1139,62 +1128,6 @@ class DBTSource(StatefulIngestionSourceBase):
             last_checkpoint.state = dbt_checkpoint_state
 
         return last_checkpoint
-
-    # TODO: Consider refactoring this logic out for use across sources as it is leading to a significant amount of
-    #  code duplication.
-    def gen_removed_entity_workunits(self) -> Iterable[MetadataWorkUnit]:
-        last_checkpoint: Optional[Checkpoint] = self.get_last_dbt_checkpoint(
-            self.get_default_ingestion_job_id(), DbtCheckpointState
-        )
-        cur_checkpoint = self.get_current_checkpoint(
-            self.get_default_ingestion_job_id()
-        )
-
-        if (
-            self.config.stateful_ingestion
-            and self.config.stateful_ingestion.remove_stale_metadata
-            and last_checkpoint is not None
-            and last_checkpoint.state is not None
-            and cur_checkpoint is not None
-            and cur_checkpoint.state is not None
-        ):
-            logger.debug("Checking for stale entity removal.")
-
-            def get_soft_delete_item_workunit(urn: str, type: str) -> MetadataWorkUnit:
-
-                logger.info(f"Soft-deleting stale entity of type {type} - {urn}.")
-                mcp = MetadataChangeProposalWrapper(
-                    entityType=type,
-                    entityUrn=urn,
-                    changeType=ChangeTypeClass.UPSERT,
-                    aspectName="status",
-                    aspect=StatusClass(removed=True),
-                )
-                wu = MetadataWorkUnit(id=f"soft-delete-{type}-{urn}", mcp=mcp)
-                self.report.report_workunit(wu)
-                self.report.report_stale_entity_soft_deleted(urn)
-                return wu
-
-            last_checkpoint_state = cast(DbtCheckpointState, last_checkpoint.state)
-            cur_checkpoint_state = cast(DbtCheckpointState, cur_checkpoint.state)
-
-            urns_to_soft_delete_by_type: Dict = {
-                "dataset": [
-                    node_urn
-                    for node_urn in last_checkpoint_state.get_node_urns_not_in(
-                        cur_checkpoint_state
-                    )
-                ],
-                "assertion": [
-                    assertion_urn
-                    for assertion_urn in last_checkpoint_state.get_assertion_urns_not_in(
-                        cur_checkpoint_state
-                    )
-                ],
-            }
-            for entity_type in urns_to_soft_delete_by_type:
-                for urn in urns_to_soft_delete_by_type[entity_type]:
-                    yield get_soft_delete_item_workunit(urn, entity_type)
 
     def load_file_as_json(self, uri: str) -> Any:
         if re.match("^https?://", uri):
@@ -1214,7 +1147,6 @@ class DBTSource(StatefulIngestionSourceBase):
         manifest_path: str,
         catalog_path: str,
         sources_path: Optional[str],
-        load_schemas: bool,
         use_identifiers: bool,
         tag_prefix: str,
         node_type_pattern: AllowDenyPattern,
@@ -1263,7 +1195,6 @@ class DBTSource(StatefulIngestionSourceBase):
             all_catalog_entities,
             sources_results,
             manifest_adapter,
-            load_schemas,
             use_identifiers,
             tag_prefix,
             node_type_pattern,
@@ -1304,7 +1235,10 @@ class DBTSource(StatefulIngestionSourceBase):
                     }
                 )
             )
-            self.save_checkpoint(node_datahub_urn, "assertion")
+            self.stale_entity_removal_handler.add_entity_to_state(
+                type="assertion",
+                urn=node_datahub_urn,
+            )
 
             dpi_mcp = MetadataChangeProposalWrapper(
                 entityType="assertion",
@@ -1328,7 +1262,6 @@ class DBTSource(StatefulIngestionSourceBase):
                 target_platform=self.config.target_platform,
                 target_platform_instance=self.config.target_platform_instance,
                 environment=self.config.env,
-                disable_dbt_node_creation=self.config.disable_dbt_node_creation,
                 platform_instance=None,
                 legacy_skip_source_lineage=self.config.backcompat_skip_source_on_lineage_edge,
             )
@@ -1456,7 +1389,6 @@ class DBTSource(StatefulIngestionSourceBase):
             self.config.manifest_path,
             self.config.catalog_path,
             self.config.sources_path,
-            self.config.load_schemas,
             self.config.use_identifiers,
             self.config.tag_prefix,
             self.config.node_type_pattern,
@@ -1483,14 +1415,13 @@ class DBTSource(StatefulIngestionSourceBase):
         ]
         test_nodes = [test_node for test_node in nodes if test_node.node_type == "test"]
 
-        if not self.config.disable_dbt_node_creation:
-            yield from self.create_platform_mces(
-                non_test_nodes,
-                additional_custom_props_filtered,
-                manifest_nodes_raw,
-                DBT_PLATFORM,
-                self.config.platform_instance,
-            )
+        yield from self.create_platform_mces(
+            non_test_nodes,
+            additional_custom_props_filtered,
+            manifest_nodes_raw,
+            DBT_PLATFORM,
+            self.config.platform_instance,
+        )
 
         yield from self.create_platform_mces(
             non_test_nodes,
@@ -1514,31 +1445,7 @@ class DBTSource(StatefulIngestionSourceBase):
                 manifest_nodes_raw,
             )
 
-        if self.is_stateful_ingestion_configured():
-            # Clean up stale entities.
-            yield from self.gen_removed_entity_workunits()
-
-    def remove_duplicate_urns_from_checkpoint_state(self) -> None:
-        """
-        During MCEs creation process some nodes getting processed more than once and hence
-        duplicates URN are getting added in checkpoint_state.
-        This function will remove duplicates
-        """
-        if not self.is_stateful_ingestion_configured():
-            return
-
-        cur_checkpoint = self.get_current_checkpoint(
-            self.get_default_ingestion_job_id()
-        )
-
-        if cur_checkpoint is not None:
-            checkpoint_state = cast(DbtCheckpointState, cur_checkpoint.state)
-            checkpoint_state.encoded_node_urns = list(
-                set(checkpoint_state.encoded_node_urns)
-            )
-            checkpoint_state.encoded_assertion_urns = list(
-                set(checkpoint_state.encoded_assertion_urns)
-            )
+        yield from self.stale_entity_removal_handler.gen_removed_entity_workunits()
 
     def create_platform_mces(
         self,
@@ -1552,11 +1459,7 @@ class DBTSource(StatefulIngestionSourceBase):
         This function creates mce based out of dbt nodes. Since dbt ingestion creates "dbt" nodes
         and nodes for underlying platform the function gets called twice based on the mce_platform
         parameter. Further, this function takes specific actions based on the mce_platform passed in.
-        If  disable_dbt_node_creation = True,
-            Create empty entities of the underlying platform with only lineage/key aspect.
-            Create dbt entities with all metadata information.
-        If  disable_dbt_node_creation = False
-            Create platform entities with all metadata information.
+        It creates platform entities with all metadata information.
         """
         action_processor = OperationProcessor(
             self.config.meta_mapping,
@@ -1586,7 +1489,9 @@ class DBTSource(StatefulIngestionSourceBase):
                     f"Skipping emission of node {node_datahub_urn} because node_type {node.node_type} is disabled"
                 )
                 continue
-            self.save_checkpoint(node_datahub_urn, "dataset")
+            self.stale_entity_removal_handler.add_entity_to_state(
+                "dataset", node_datahub_urn
+            )
 
             meta_aspects: Dict[str, Any] = {}
             if self.config.enable_meta_mapping and node.meta:
@@ -1619,38 +1524,25 @@ class DBTSource(StatefulIngestionSourceBase):
                     self.report.report_workunit(sub_type_wu)
 
             else:
-                if not self.config.disable_dbt_node_creation:
-                    # if dbt node creation is enabled we are creating empty node for platform and only add
-                    # lineage/keyaspect.
-                    aspects = []
-                    if node.materialization == "ephemeral" or node.node_type == "test":
-                        continue
+                # We are creating empty node for platform and only add lineage/keyaspect.
+                aspects = []
+                if node.materialization == "ephemeral" or node.node_type == "test":
+                    continue
 
-                    # This code block is run when we are generating entities of platform type.
-                    # We will not link the platform not to the dbt node for type "source" because
-                    # in this case the platform table existed first.
-                    if node.node_type != "source":
-                        upstream_dbt_urn = get_urn_from_dbtNode(
-                            node.database,
-                            node.schema,
-                            node.name,
-                            DBT_PLATFORM,
-                            self.config.env,
-                            self.config.platform_instance,
-                        )
-                        upstreams_lineage_class = get_upstream_lineage(
-                            [upstream_dbt_urn]
-                        )
-                        aspects.append(upstreams_lineage_class)
-                else:
-                    # add upstream lineage
-                    platform_upstream_aspect = (
-                        self._create_lineage_aspect_for_platform_node(
-                            node, manifest_nodes_raw
-                        )
+                # This code block is run when we are generating entities of platform type.
+                # We will not link the platform not to the dbt node for type "source" because
+                # in this case the platform table existed first.
+                if node.node_type != "source":
+                    upstream_dbt_urn = get_urn_from_dbtNode(
+                        node.database,
+                        node.schema,
+                        node.name,
+                        DBT_PLATFORM,
+                        self.config.env,
+                        self.config.platform_instance,
                     )
-                    if platform_upstream_aspect:
-                        aspects.append(platform_upstream_aspect)
+                    upstreams_lineage_class = get_upstream_lineage([upstream_dbt_urn])
+                    aspects.append(upstreams_lineage_class)
 
             if len(aspects) == 0:
                 continue
@@ -1661,22 +1553,6 @@ class DBTSource(StatefulIngestionSourceBase):
             wu = MetadataWorkUnit(id=dataset_snapshot.urn, mce=mce)
             self.report.report_workunit(wu)
             yield wu
-
-    def save_checkpoint(self, urn: str, entity_type: str) -> None:
-        # if stateful ingestion is not configured then return
-        if not self.is_stateful_ingestion_configured():
-            return
-
-        cur_checkpoint = self.get_current_checkpoint(
-            self.get_default_ingestion_job_id()
-        )
-        # if no checkpoint found then return
-        if cur_checkpoint is None:
-            return
-
-        # Cast and set the state
-        checkpoint_state = cast(DbtCheckpointState, cur_checkpoint.state)
-        checkpoint_state.set_checkpoint_urn(urn, entity_type)
 
     def extract_query_tag_aspects(
         self,
@@ -1733,16 +1609,7 @@ class DBTSource(StatefulIngestionSourceBase):
     def _create_dataset_properties_aspect(
         self, node: DBTNode, additional_custom_props_filtered: Dict[str, str]
     ) -> DatasetPropertiesClass:
-        description = None
-        if self.config.disable_dbt_node_creation:
-            if node.comment and node.description and node.comment != node.description:
-                description = f"{self.config.target_platform} comment: {node.comment}\n\ndbt model description: {node.description}"
-            elif node.comment:
-                description = node.comment
-            elif node.description:
-                description = node.description
-        else:
-            description = node.description
+        description = node.description
 
         custom_props = {
             **get_custom_properties(node),
@@ -1823,14 +1690,7 @@ class DBTSource(StatefulIngestionSourceBase):
 
         # add schema metadata aspect
         schema_metadata = get_schema_metadata(self.report, node, mce_platform)
-        # When generating these aspects for a dbt node, we will always include schema information. When generating
-        # these aspects for a platform node (which only happens when disable_dbt_node_creation is set to true) we
-        # honor the flag.
-        if mce_platform == DBT_PLATFORM:
-            aspects.append(schema_metadata)
-        else:
-            if self.config.load_schemas:
-                aspects.append(schema_metadata)
+        aspects.append(schema_metadata)
         return aspects
 
     def _aggregate_owners(
@@ -1915,7 +1775,6 @@ class DBTSource(StatefulIngestionSourceBase):
             self.config.target_platform,
             self.config.target_platform_instance,
             self.config.env,
-            self.config.disable_dbt_node_creation,
             self.config.platform_instance,
             self.config.backcompat_skip_source_on_lineage_edge,
         )
@@ -1951,7 +1810,6 @@ class DBTSource(StatefulIngestionSourceBase):
             self.config.target_platform,
             self.config.target_platform_instance,
             self.config.env,
-            self.config.disable_dbt_node_creation,
             self.config.platform_instance,
             self.config.backcompat_skip_source_on_lineage_edge,
         )
@@ -2026,22 +1884,6 @@ class DBTSource(StatefulIngestionSourceBase):
     def get_report(self):
         return self.report
 
-    def create_checkpoint(self, job_id: JobId) -> Optional[Checkpoint]:
-        """
-        Create the custom checkpoint with empty state for the job.
-        """
-        assert self.ctx.pipeline_name is not None
-        if job_id == self.get_default_ingestion_job_id():
-            return Checkpoint(
-                job_name=job_id,
-                pipeline_name=self.ctx.pipeline_name,
-                platform_instance_id=self.get_platform_instance_id(),
-                run_id=self.ctx.run_id,
-                config=self.config,
-                state=DbtCheckpointState(),
-            )
-        return None
-
     def get_platform_instance_id(self) -> str:
         """
         DBT project identifier is used as platform instance.
@@ -2057,25 +1899,7 @@ class DBTSource(StatefulIngestionSourceBase):
 
         return f"{self.platform}_{project_id}"
 
-    def is_checkpointing_enabled(self, job_id: JobId) -> bool:
-        if (
-            job_id == self.get_default_ingestion_job_id()
-            and self.is_stateful_ingestion_configured()
-            and self.config.stateful_ingestion
-            and self.config.stateful_ingestion.remove_stale_metadata
-        ):
-            return True
-
-        return False
-
-    def get_default_ingestion_job_id(self) -> JobId:
-        """
-        DBT ingestion job name.
-        """
-        return JobId(f"{self.platform}_stateful_ingestion")
-
     def close(self):
-        self.remove_duplicate_urns_from_checkpoint_state()
         self.prepare_for_commit()
 
     @property

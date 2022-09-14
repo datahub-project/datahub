@@ -8,7 +8,7 @@ import com.datahub.authorization.Authorizer;
 import com.datahub.authorization.AuthorizerChain;
 import com.datahub.authorization.DefaultResourceSpecResolver;
 import com.datahub.authorization.ResourceSpecResolver;
-import com.linkedin.entity.client.JavaEntityClient;
+import com.linkedin.metadata.client.JavaEntityClient;
 import com.linkedin.gms.factory.config.ConfigurationProvider;
 import com.linkedin.gms.factory.spring.YamlPropertySourceFactory;
 import java.util.ArrayList;

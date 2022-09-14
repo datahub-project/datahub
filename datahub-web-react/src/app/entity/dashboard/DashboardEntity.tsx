@@ -6,7 +6,7 @@ import {
     useGetDashboardQuery,
     useUpdateDashboardMutation,
 } from '../../../graphql/dashboard.generated';
-import { Dashboard, EntityType, OwnershipType, SearchResult } from '../../../types.generated';
+import { Dashboard, EntityType, LineageDirection, OwnershipType, SearchResult } from '../../../types.generated';
 import { Entity, EntityCapabilityType, IconStyleType, PreviewType } from '../Entity';
 import { EntityProfile } from '../shared/containers/profile/EntityProfile';
 import { SidebarOwnerSection } from '../shared/containers/profile/sidebar/Ownership/SidebarOwnerSection';
@@ -83,6 +83,16 @@ export class DashboardEntity implements Entity<Dashboard> {
             }}
             tabs={[
                 {
+                    name: 'Charts',
+                    component: DashboardChartsTab,
+                    display: {
+                        visible: (_, dashboard: GetDashboardQuery) =>
+                            (dashboard?.dashboard?.charts?.total || 0) > 0 ||
+                            (dashboard?.dashboard?.datasets?.total || 0) === 0,
+                        enabled: (_, dashboard: GetDashboardQuery) => (dashboard?.dashboard?.charts?.total || 0) > 0,
+                    },
+                },
+                {
                     name: 'Documentation',
                     component: DocumentationTab,
                 },
@@ -93,6 +103,9 @@ export class DashboardEntity implements Entity<Dashboard> {
                 {
                     name: 'Lineage',
                     component: LineageTab,
+                    properties: {
+                        defaultDirection: LineageDirection.Upstream,
+                    },
                     display: {
                         visible: (_, _1) => true,
                         enabled: (_, dashboard: GetDashboardQuery) => {
@@ -101,16 +114,6 @@ export class DashboardEntity implements Entity<Dashboard> {
                                 (dashboard?.dashboard?.downstream?.total || 0) > 0
                             );
                         },
-                    },
-                },
-                {
-                    name: 'Charts',
-                    component: DashboardChartsTab,
-                    display: {
-                        visible: (_, dashboard: GetDashboardQuery) =>
-                            (dashboard?.dashboard?.charts?.total || 0) > 0 ||
-                            (dashboard?.dashboard?.datasets?.total || 0) === 0,
-                        enabled: (_, dashboard: GetDashboardQuery) => (dashboard?.dashboard?.charts?.total || 0) > 0,
                     },
                 },
                 {

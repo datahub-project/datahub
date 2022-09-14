@@ -1,10 +1,12 @@
 from datetime import datetime
+from unittest import mock
 
 import pytest
 from pydantic import ValidationError
 
 from datahub.configuration.common import AllowDenyPattern
 from datahub.configuration.time_window_config import BucketDuration, get_time_bucket
+from datahub.emitter.mce_builder import make_dataset_urn_with_platform_instance
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.usage.usage_common import (
@@ -16,6 +18,15 @@ from datahub.metadata.schema_classes import DatasetUsageStatisticsClass
 _TestTableRef = str
 
 _TestAggregatedDataset = GenericAggregatedDataset[_TestTableRef]
+
+
+def _simple_urn_builder(resource):
+    return make_dataset_urn_with_platform_instance(
+        "snowflake",
+        resource.lower(),
+        "snowflake-dev",
+        "DEV",
+    )
 
 
 def test_add_one_query_without_columns():
@@ -149,7 +160,7 @@ def test_make_usage_workunit():
     )
     wu: MetadataWorkUnit = ta.make_usage_workunit(
         bucket_duration=BucketDuration.DAY,
-        urn_builder=lambda x: x,
+        urn_builder=_simple_urn_builder,
         top_n_queries=10,
         format_sql_queries=False,
         include_top_n_queries=True,
@@ -181,7 +192,7 @@ def test_query_formatting():
     )
     wu: MetadataWorkUnit = ta.make_usage_workunit(
         bucket_duration=BucketDuration.DAY,
-        urn_builder=lambda x: x,
+        urn_builder=_simple_urn_builder,
         top_n_queries=10,
         format_sql_queries=True,
         include_top_n_queries=True,
@@ -212,7 +223,7 @@ def test_query_trimming():
     )
     wu: MetadataWorkUnit = ta.make_usage_workunit(
         bucket_duration=BucketDuration.DAY,
-        urn_builder=lambda x: x,
+        urn_builder=_simple_urn_builder,
         top_n_queries=top_n_queries,
         format_sql_queries=False,
         include_top_n_queries=True,
@@ -228,8 +239,11 @@ def test_query_trimming():
 
 def test_top_n_queries_validator_fails():
     with pytest.raises(ValidationError) as excinfo:
-        GenericAggregatedDataset.total_budget_for_query_list = 20
-        BaseUsageConfig(top_n_queries=2)
+        with mock.patch(
+            "datahub.ingestion.source.usage.usage_common.GenericAggregatedDataset.total_budget_for_query_list",
+            20,
+        ):
+            BaseUsageConfig(top_n_queries=2)
     assert "top_n_queries is set to 2 but it can be maximum 1" in str(excinfo.value)
 
 
@@ -248,7 +262,7 @@ def test_make_usage_workunit_include_top_n_queries():
     )
     wu: MetadataWorkUnit = ta.make_usage_workunit(
         bucket_duration=BucketDuration.DAY,
-        urn_builder=lambda x: x,
+        urn_builder=_simple_urn_builder,
         top_n_queries=10,
         format_sql_queries=False,
         include_top_n_queries=False,

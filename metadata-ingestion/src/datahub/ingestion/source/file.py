@@ -3,7 +3,7 @@ import json
 import logging
 import os.path
 from dataclasses import dataclass, field
-from enum import Enum
+from enum import auto
 from io import BufferedReader
 from pathlib import Path
 from typing import Any, Dict, Iterable, Iterator, Optional, Tuple, Union
@@ -12,7 +12,7 @@ import ijson
 from pydantic import root_validator, validator
 from pydantic.fields import Field
 
-from datahub.configuration.common import ConfigModel
+from datahub.configuration.common import ConfigEnum, ConfigModel
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.decorators import (
     SupportStatus,
@@ -36,10 +36,10 @@ from datahub.metadata.schema_classes import UsageAggregationClass
 logger = logging.getLogger(__name__)
 
 
-class FileReadMode(Enum):
-    STREAM = "STREAM"
-    BATCH = "BATCH"
-    AUTO = "AUTO"
+class FileReadMode(ConfigEnum):
+    STREAM = auto()
+    BATCH = auto()
+    AUTO = auto()
 
 
 class FileSourceConfig(ConfigModel):
@@ -59,11 +59,6 @@ class FileSourceConfig(ConfigModel):
     _minsize_for_streaming_mode_in_bytes: int = (
         100 * 1000 * 1000  # Must be at least 100MB before we use streaming mode
     )
-
-    @validator("read_mode", pre=True)
-    def read_mode_str_to_enum(cls, v):
-        if v and isinstance(v, str):
-            return v.upper()
 
     @root_validator(pre=True)
     def filename_populates_path_if_present(

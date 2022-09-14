@@ -1,6 +1,6 @@
 import importlib
 import inspect
-from typing import Any, Dict, Generic, Type, TypeVar, Union
+from typing import Any, Callable, Dict, Generic, Optional, Type, TypeVar, Union
 
 import entrypoints
 import typing_inspect
@@ -38,8 +38,11 @@ def import_path(path: str) -> Any:
 class PluginRegistry(Generic[T]):
     _mapping: Dict[str, Union[str, Type[T], Exception]]
 
-    def __init__(self) -> None:
+    def __init__(
+        self, extra_cls_check: Optional[Callable[[Type[T]], None]] = None
+    ) -> None:
         self._mapping = {}
+        self._extra_cls_check = extra_cls_check
 
     def _get_registered_type(self) -> Type[T]:
         cls = typing_inspect.get_generic_type(self)
@@ -55,6 +58,8 @@ class PluginRegistry(Generic[T]):
         super_cls = self._get_registered_type()
         if not issubclass(cls, super_cls):
             raise ValueError(f"must be derived from {super_cls}; got {cls}")
+        if self._extra_cls_check is not None:
+            self._extra_cls_check(cls)
 
     def _register(
         self, key: str, tp: Union[str, Type[T], Exception], override: bool = False

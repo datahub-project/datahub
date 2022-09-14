@@ -22,7 +22,7 @@ class GEProfilingConfig(ConfigModel):
     )
     report_dropped_profiles: bool = Field(
         default=False,
-        description="If datasets which were not profiled are reported in source report or not. Set to `True` for debugging purposes.",
+        description="Whether to report datasets or dataset columns which were not profiled. Set to `True` for debugging purposes.",
     )
 
     # These settings will override the ones below.
@@ -75,9 +75,8 @@ class GEProfilingConfig(ConfigModel):
         description="Whether to profile for the sample values for all columns.",
     )
 
-    allow_deny_patterns: AllowDenyPattern = Field(
+    _allow_deny_patterns: AllowDenyPattern = pydantic.PrivateAttr(
         default=AllowDenyPattern.allow_all(),
-        description="regex patterns for filtering of tables or table columns to profile.",
     )
     max_number_of_fields_to_profile: Optional[pydantic.PositiveInt] = Field(
         default=None,
