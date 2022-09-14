@@ -477,7 +477,6 @@ module.exports = {
     "Release History": ["releases"],
 
     // "Candidates for Deprecation": [
-    // "README",
     // "docs/roadmap",
     // "docs/advanced/backfilling",
     //"docs/advanced/derived-aspects",
