@@ -12,15 +12,17 @@ import com.linkedin.entity.Aspect;
 import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.resource.ResourceReference;
 import com.linkedin.mxe.MetadataChangeProposal;
-import java.net.URISyntaxException;
 import java.util.ArrayList;
+import java.util.Collections;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
+import java.util.Set;
 import java.util.stream.Collectors;
 import  com.linkedin.entity.client.EntityClient;
 import com.datahub.authentication.Authentication;
 import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
 import lombok.extern.slf4j.Slf4j;
 
 import static com.linkedin.metadata.entity.AspectUtils.*;
@@ -110,13 +112,7 @@ public class OwnerService {
       OwnershipType ownershipType,
       Authentication authentication
   ) throws Exception {
-    final List<MetadataChangeProposal> changes = new ArrayList<>();
-    for (ResourceReference entity : resources) {
-      MetadataChangeProposal proposal = buildAddOwnersProposal(ownerUrns, entity, ownershipType, authentication);
-      if (proposal != null) {
-        changes.add(proposal);
-      }
-    }
+    final List<MetadataChangeProposal> changes = buildAddOwnersProposals(ownerUrns, resources, ownershipType, authentication);
     ingestChangeProposals(changes, authentication);
   }
 
@@ -125,71 +121,77 @@ public class OwnerService {
       List<ResourceReference> resources,
       Authentication authentication
   ) throws Exception {
-    final List<MetadataChangeProposal> changes = new ArrayList<>();
-    for (ResourceReference resource : resources) {
-      MetadataChangeProposal proposal = buildRemoveOwnersProposal(owners, resource, authentication);
-      if (proposal != null) {
-        changes.add(proposal);
-      }
-    }
+    final List<MetadataChangeProposal> changes = buildRemoveOwnersProposals(owners, resources, authentication);
     ingestChangeProposals(changes, authentication);
   }
 
   @VisibleForTesting
-  @Nullable
-  MetadataChangeProposal buildAddOwnersProposal(
+  List<MetadataChangeProposal> buildAddOwnersProposals(
       List<com.linkedin.common.urn.Urn> ownerUrns,
-      ResourceReference resource,
+      List<ResourceReference> resources,
       OwnershipType ownershipType,
       Authentication authentication
-  ) throws URISyntaxException {
-    com.linkedin.common.Ownership owners = getOwnershipAspect(
-        resource.getUrn(),
+  ) {
+
+    final Map<Urn, Ownership> ownershipAspects = getOwnershipAspects(
+        resources.stream().map(ResourceReference::getUrn).collect(Collectors.toSet()),
         new Ownership(),
-        authentication);
+        authentication
+    );
 
-    if (owners == null) {
-      return null;
-    }
+    final List<MetadataChangeProposal> proposals = new ArrayList<>();
+    for (ResourceReference resource : resources) {
+      com.linkedin.common.Ownership owners = ownershipAspects.get(resource.getUrn());
 
-    if (!owners.hasOwners()) {
-      owners.setOwners(new OwnerArray());
-      owners.setLastModified(new AuditStamp()
-        .setTime(System.currentTimeMillis())
-        .setActor(UrnUtils.getUrn(authentication.getActor().toUrnStr()))
-      );
+      if (owners == null) {
+        return null;
+      }
+
+      if (!owners.hasOwners()) {
+        owners.setOwners(new OwnerArray());
+        owners.setLastModified(new AuditStamp()
+            .setTime(System.currentTimeMillis())
+            .setActor(UrnUtils.getUrn(authentication.getActor().toUrnStr()))
+        );
+      }
+      addOwnersIfNotExists(owners, ownerUrns, ownershipType);
+      proposals.add(buildMetadataChangeProposal(resource.getUrn(), Constants.OWNERSHIP_ASPECT_NAME, owners));
     }
-    addOwnersIfNotExists(owners, ownerUrns, ownershipType);
-    return buildMetadataChangeProposal(resource.getUrn(), Constants.OWNERSHIP_ASPECT_NAME, owners);
+    return proposals;
   }
 
   @VisibleForTesting
-  @Nullable
-  MetadataChangeProposal buildRemoveOwnersProposal(
+  List<MetadataChangeProposal> buildRemoveOwnersProposals(
       List<Urn> ownerUrns,
-      ResourceReference resource,
+      List<ResourceReference> resources,
       Authentication authentication
-  ) throws URISyntaxException {
-    com.linkedin.common.Ownership owners = getOwnershipAspect(
-        resource.getUrn(),
+  ) {
+    final Map<Urn, Ownership> ownershipAspects = getOwnershipAspects(
+        resources.stream().map(ResourceReference::getUrn).collect(Collectors.toSet()),
         new Ownership(),
-        authentication);
-
-    if (owners == null) {
-      return null;
-    }
-
-    if (!owners.hasOwners()) {
-      owners.setOwners(new OwnerArray());
-    }
-    removeOwnersIfExists(owners, ownerUrns);
-    return buildMetadataChangeProposal(
-        resource.getUrn(),
-        Constants.OWNERSHIP_ASPECT_NAME, owners
+        authentication
     );
+
+    final List<MetadataChangeProposal> proposals = new ArrayList<>();
+    for (ResourceReference resource : resources) {
+      final Ownership owners = ownershipAspects.get(resource.getUrn());
+      if (owners == null) {
+        return null;
+      }
+      if (!owners.hasOwners()) {
+        owners.setOwners(new OwnerArray());
+      }
+      removeOwnersIfExists(owners, ownerUrns);
+      proposals.add(buildMetadataChangeProposal(
+          resource.getUrn(),
+          Constants.OWNERSHIP_ASPECT_NAME, owners
+      ));
+    }
+
+    return proposals;
   }
 
-  private void addOwnersIfNotExists(Ownership owners, List<Urn> ownerUrns, OwnershipType ownershipType) throws URISyntaxException {
+  private void addOwnersIfNotExists(Ownership owners, List<Urn> ownerUrns, OwnershipType ownershipType) {
     if (!owners.hasOwners()) {
       owners.setOwners(new OwnerArray());
     }
@@ -228,27 +230,42 @@ public class OwnerService {
     return ownerAssociationArray;
   }
 
-  @Nullable
-  private Ownership getOwnershipAspect(@Nonnull Urn entityUrn, @Nonnull Ownership defaultValue, @Nonnull Authentication authentication) {
+  @Nonnull
+  private Map<Urn, Ownership> getOwnershipAspects(
+      @Nonnull Set<Urn> entityUrns,
+      @Nonnull Ownership defaultValue,
+      @Nonnull Authentication authentication) {
+
+    if (entityUrns.size() <= 0) {
+      return Collections.emptyMap();
+    }
+
     try {
-      Aspect aspect = getLatestAspect(
-          entityUrn,
+      Map<Urn, Aspect> aspects = batchGetLatestAspect(
+          entityUrns.stream().findFirst().get().getEntityType(), // TODO Improve this.
+          entityUrns,
           Constants.OWNERSHIP_ASPECT_NAME,
           this.entityClient,
           authentication
       );
 
-      if (aspect == null) {
-        return defaultValue;
+      final Map<Urn, Ownership> finalResult = new HashMap<>();
+      for (Urn entity : entityUrns) {
+        Aspect aspect = aspects.get(entity);
+        if (aspect == null) {
+          finalResult.put(entity, defaultValue);
+        } else {
+          finalResult.put(entity, new Ownership(aspect.data()));
+        }
       }
-      return new Ownership(aspect.data());
+      return finalResult;
     } catch (Exception e) {
       log.error(
-          "Error retrieving owners for entity. Entity: {} aspect: {}",
-          entityUrn,
+          "Error retrieving ownership for entities. Entities: {} aspect: {}",
+          entityUrns,
           Constants.OWNERSHIP_ASPECT_NAME,
           e);
-      return null;
+      return Collections.emptyMap();
     }
   }
 

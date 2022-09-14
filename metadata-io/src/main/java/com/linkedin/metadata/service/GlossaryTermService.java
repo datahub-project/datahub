@@ -8,7 +8,6 @@ import com.linkedin.common.GlossaryTermAssociationArray;
 import com.linkedin.common.urn.GlossaryTermUrn;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
-import com.linkedin.domain.Domains;
 import com.linkedin.entity.Aspect;
 import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.resource.ResourceReference;
@@ -30,7 +29,6 @@ import java.util.stream.Collectors;
 import  com.linkedin.entity.client.EntityClient;
 import com.datahub.authentication.Authentication;
 import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
 import lombok.extern.slf4j.Slf4j;
 
 import static com.linkedin.metadata.entity.AspectUtils.*;
@@ -152,7 +150,7 @@ public class GlossaryTermService {
     final List<MetadataChangeProposal> entityProposals = buildAddGlossaryTermsToEntityProposals(glossaryTermUrns, entityRefs, authentication);
 
     final List<ResourceReference> schemaFieldRefs = resources.stream()
-        .filter(resource -> resource.getSubResource() != null && resource.getSubResource().equals(SubResourceType.DATASET_FIELD.toString()))
+        .filter(resource -> resource.getSubResourceType() != null && resource.getSubResourceType().equals(SubResourceType.DATASET_FIELD))
         .collect(Collectors.toList());
     final List<MetadataChangeProposal> schemaFieldProposals = buildAddGlossaryTermsToSubResourceProposals(glossaryTermUrns, schemaFieldRefs, authentication);
 
@@ -177,7 +175,7 @@ public class GlossaryTermService {
     final List<MetadataChangeProposal> entityProposals = buildRemoveGlossaryTermsToEntityProposals(glossaryTermUrns, entityRefs, authentication);
 
     final List<ResourceReference> schemaFieldRefs = resources.stream()
-        .filter(resource -> resource.getSubResource() != null && resource.getSubResource().equals(SubResourceType.DATASET_FIELD.toString()))
+        .filter(resource -> resource.getSubResourceType() != null && resource.getSubResourceType().equals(SubResourceType.DATASET_FIELD))
         .collect(Collectors.toList());
     final List<MetadataChangeProposal> schemaFieldProposals = buildRemoveGlossaryTermsToSubResourceProposals(glossaryTermUrns, schemaFieldRefs, authentication);
 
@@ -193,7 +191,6 @@ public class GlossaryTermService {
       List<ResourceReference> resources,
       Authentication authentication
   ) throws URISyntaxException {
-
 
     final Map<Urn, GlossaryTerms> glossaryTermAspects = getGlossaryTermsAspects(
         resources.stream().map(ResourceReference::getUrn).collect(Collectors.toSet()),

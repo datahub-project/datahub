@@ -2,6 +2,7 @@ package com.linkedin.metadata.service;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.linkedin.common.GlobalTags;
+import com.linkedin.common.GlossaryTerms;
 import com.linkedin.common.TagAssociation;
 import com.linkedin.common.TagAssociationArray;
 import com.linkedin.common.urn.TagUrn;
@@ -9,20 +10,24 @@ import com.linkedin.common.urn.Urn;
 import com.linkedin.entity.Aspect;
 import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.resource.ResourceReference;
+import com.linkedin.metadata.resource.SubResourceType;
 import com.linkedin.mxe.MetadataChangeProposal;
 import com.linkedin.schema.EditableSchemaFieldInfo;
 import com.linkedin.schema.EditableSchemaFieldInfoArray;
 import com.linkedin.schema.EditableSchemaMetadata;
 import java.net.URISyntaxException;
 import java.util.ArrayList;
+import java.util.Collections;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.Set;
 import java.util.stream.Collectors;
 import  com.linkedin.entity.client.EntityClient;
 import com.datahub.authentication.Authentication;
 import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
 import lombok.extern.slf4j.Slf4j;
 
 import static com.linkedin.metadata.entity.AspectUtils.*;
@@ -106,13 +111,7 @@ public class TagService {
       List<ResourceReference> resources,
       @Nonnull Authentication authentication
   ) throws Exception {
-    final List<MetadataChangeProposal> changes = new ArrayList<>();
-    for (ResourceReference entity : resources) {
-      MetadataChangeProposal proposal = buildAddTagsProposal(tagUrns, entity, authentication);
-      if (proposal != null) {
-        changes.add(proposal);
-      }
-    }
+    final List<MetadataChangeProposal> changes = buildAddTagsProposals(tagUrns, resources, authentication);
     ingestChangeProposals(changes, authentication);
   }
 
@@ -121,153 +120,190 @@ public class TagService {
       List<ResourceReference> resources,
       @Nonnull Authentication authentication
   ) throws Exception {
-    final List<MetadataChangeProposal> changes = new ArrayList<>();
-    for (ResourceReference resource : resources) {
-      MetadataChangeProposal proposal = buildRemoveTagsProposal(tags, resource, authentication);
-      if (proposal != null) {
-        changes.add(proposal);
-      }
-    }
+    final List<MetadataChangeProposal> changes = buildRemoveTagsProposals(tags, resources, authentication);
     ingestChangeProposals(changes, authentication);
   }
 
   @VisibleForTesting
-  @Nullable
-  MetadataChangeProposal buildAddTagsProposal(
-      List<com.linkedin.common.urn.Urn> tagUrns,
-      ResourceReference resource,
-      Authentication authentication
-  ) throws URISyntaxException {
-    if (resource.getSubResource() == null || resource.getSubResource().equals("")) {
-      // Case 1: Adding tags to a top-level entity
-      return buildAddTagsToEntityProposal(tagUrns, resource, authentication);
-    } else {
-      // Case 2: Adding tags to subresource (e.g. schema fields)
-      return buildAddTagsToSubResourceProposal(tagUrns, resource, authentication);
-    }
-  }
-
-  @VisibleForTesting
-  @Nullable
-  MetadataChangeProposal buildRemoveTagsProposal(
+  List<MetadataChangeProposal> buildAddTagsProposals(
       List<Urn> tagUrns,
-      ResourceReference resource,
+      List<ResourceReference> resources,
       Authentication authentication
   ) throws URISyntaxException {
-    if (resource.getSubResource() == null || resource.getSubResource().equals("")) {
-      // Case 1: Adding tags to a top-level entity
-      return buildRemoveTagsToEntityProposal(tagUrns, resource, authentication);
-    } else {
-      // Case 2: Adding tags to subresource (e.g. schema fields)
-      return buildRemoveTagsToSubResourceProposal(tagUrns, resource, authentication);
-    }
+
+    final List<MetadataChangeProposal> changes = new ArrayList<>();
+
+    final List<ResourceReference> entityRefs = resources.stream()
+        .filter(resource -> resource.getSubResource() == null || resource.getSubResource().equals(""))
+        .collect(Collectors.toList());
+    final List<MetadataChangeProposal> entityProposals = buildAddTagsToEntityProposals(tagUrns, entityRefs, authentication);
+
+    final List<ResourceReference> schemaFieldRefs = resources.stream()
+        .filter(resource -> resource.getSubResourceType() != null && resource.getSubResourceType().equals(SubResourceType.DATASET_FIELD))
+        .collect(Collectors.toList());
+    final List<MetadataChangeProposal> schemaFieldProposals = buildAddTagsToSubResourceProposals(tagUrns, schemaFieldRefs, authentication);
+
+    changes.addAll(entityProposals);
+    changes.addAll(schemaFieldProposals);
+
+    return changes;
   }
 
   @VisibleForTesting
-  @Nullable
-  MetadataChangeProposal buildAddTagsToEntityProposal(
-      List<com.linkedin.common.urn.Urn> tagUrns,
-      ResourceReference resource,
-      Authentication authentication
-  ) throws URISyntaxException {
-    com.linkedin.common.GlobalTags tags =
-        getGlobalTagsAspect(
-          resource.getUrn(),
-          new GlobalTags(),
-          authentication);
-
-    if (tags == null) {
-      return null;
-    }
-
-    if (!tags.hasTags()) {
-      tags.setTags(new TagAssociationArray());
-    }
-    addTagsIfNotExists(tags, tagUrns);
-    return buildMetadataChangeProposal(resource.getUrn(), Constants.GLOBAL_TAGS_ASPECT_NAME, tags);
-  }
-
-  @VisibleForTesting
-  @Nullable
-  MetadataChangeProposal buildRemoveTagsToEntityProposal(
+  List<MetadataChangeProposal> buildRemoveTagsProposals(
       List<Urn> tagUrns,
-      ResourceReference resource,
+      List<ResourceReference> resources,
       Authentication authentication
   ) {
-    com.linkedin.common.GlobalTags tags = getGlobalTagsAspect(
-      resource.getUrn(),
-      new GlobalTags(),
-      authentication);
+    final List<MetadataChangeProposal> changes = new ArrayList<>();
 
-    if (tags == null) {
-      return null;
-    }
+    final List<ResourceReference> entityRefs = resources.stream()
+        .filter(resource -> resource.getSubResource() == null || resource.getSubResource().equals(""))
+        .collect(Collectors.toList());
+    final List<MetadataChangeProposal> entityProposals = buildRemoveTagsToEntityProposals(tagUrns, entityRefs, authentication);
 
-    if (!tags.hasTags()) {
-      tags.setTags(new TagAssociationArray());
-    }
-    removeTagsIfExists(tags, tagUrns);
-    return buildMetadataChangeProposal(
-        resource.getUrn(),
-        Constants.GLOBAL_TAGS_ASPECT_NAME,
-        tags
+    final List<ResourceReference> schemaFieldRefs = resources.stream()
+        .filter(resource -> resource.getSubResourceType() != null && resource.getSubResourceType().equals(SubResourceType.DATASET_FIELD))
+        .collect(Collectors.toList());
+    final List<MetadataChangeProposal> schemaFieldProposals = buildRemoveTagsToSubResourceProposals(tagUrns, schemaFieldRefs, authentication);
+
+    changes.addAll(entityProposals);
+    changes.addAll(schemaFieldProposals);
+
+    return changes;
+  }
+
+  @VisibleForTesting
+  List<MetadataChangeProposal> buildAddTagsToEntityProposals(
+      List<Urn> tagUrns,
+      List<ResourceReference> resources,
+      Authentication authentication
+  ) throws URISyntaxException {
+    final Map<Urn, GlobalTags> tagsAspects = getTagsAspects(
+        resources.stream().map(ResourceReference::getUrn).collect(Collectors.toSet()),
+        new GlobalTags(),
+        authentication
     );
+
+    final List<MetadataChangeProposal> changes = new ArrayList<>();
+    for (ResourceReference resource : resources) {
+      GlobalTags globalTags = tagsAspects.get(resource.getUrn());
+      if (globalTags == null) {
+        continue; // Something went wrong.
+      }
+      if (!globalTags.hasTags()) {
+        globalTags.setTags(new TagAssociationArray());
+      }
+      addTagsIfNotExists(globalTags, tagUrns);
+      MetadataChangeProposal proposal = buildMetadataChangeProposal(
+          resource.getUrn(),
+          Constants.GLOBAL_TAGS_ASPECT_NAME,
+          globalTags
+      );
+      changes.add(proposal);
+    }
+    return changes;
   }
 
   @VisibleForTesting
-  @Nullable
-  MetadataChangeProposal buildRemoveTagsToSubResourceProposal(
-      List<Urn> tagUrns,
-      ResourceReference resource,
-      @Nonnull Authentication authentication
-  ) {
-    com.linkedin.schema.EditableSchemaMetadata editableSchemaMetadata =
-        getEditableSchemaMetadataAspect(
-            resource.getUrn(),
-            new EditableSchemaMetadata(),
-            authentication);
-
-    if (editableSchemaMetadata == null) {
-      return null;
-    }
-
-    EditableSchemaFieldInfo editableFieldInfo = getFieldInfoFromSchema(editableSchemaMetadata, resource.getSubResource());
-
-    if (!editableFieldInfo.hasGlobalTags()) {
-      editableFieldInfo.setGlobalTags(new GlobalTags());
-    }
-    removeTagsIfExists(editableFieldInfo.getGlobalTags(), tagUrns);
-    return buildMetadataChangeProposal(resource.getUrn(), Constants.EDITABLE_SCHEMA_METADATA_ASPECT_NAME, editableSchemaMetadata);
-  }
-
-  @VisibleForTesting
-  @Nullable
-  MetadataChangeProposal buildAddTagsToSubResourceProposal(
+  List<MetadataChangeProposal> buildAddTagsToSubResourceProposals(
       final List<Urn> tagUrns,
-      final ResourceReference resource,
+      final List<ResourceReference> resources,
       final Authentication authentication
   ) throws URISyntaxException {
-    com.linkedin.schema.EditableSchemaMetadata editableSchemaMetadata =
-        getEditableSchemaMetadataAspect(
-            resource.getUrn(),
-            new EditableSchemaMetadata(),
-            authentication);
 
-    if (editableSchemaMetadata == null) {
-      return null;
+    final Map<Urn, EditableSchemaMetadata> editableSchemaMetadataAspects = getEditableSchemaMetadataAspects(
+        resources.stream().map(ResourceReference::getUrn).collect(Collectors.toSet()),
+        new EditableSchemaMetadata(),
+        authentication
+    );
+
+    final List<MetadataChangeProposal> changes = new ArrayList<>();
+    for (ResourceReference resource : resources) {
+
+      EditableSchemaMetadata editableSchemaMetadata = editableSchemaMetadataAspects.get(resource.getUrn());
+      if (editableSchemaMetadata == null) {
+        continue; // Something went wrong.
+      }
+
+      EditableSchemaFieldInfo editableFieldInfo = getFieldInfoFromSchema(editableSchemaMetadata, resource.getSubResource());
+
+      if (!editableFieldInfo.hasGlossaryTerms()) {
+        editableFieldInfo.setGlossaryTerms(new GlossaryTerms());
+      }
+
+      addTagsIfNotExists(editableFieldInfo.getGlobalTags(), tagUrns);
+      changes.add(buildMetadataChangeProposal(resource.getUrn(), Constants.EDITABLE_SCHEMA_METADATA_ASPECT_NAME,
+          editableSchemaMetadata));
     }
 
-    EditableSchemaFieldInfo editableFieldInfo = getFieldInfoFromSchema(editableSchemaMetadata, resource.getSubResource());
+    return changes;
+  }
 
-    if (!editableFieldInfo.hasGlobalTags()) {
-      editableFieldInfo.setGlobalTags(new GlobalTags());
+  @VisibleForTesting
+  List<MetadataChangeProposal> buildRemoveTagsToEntityProposals(
+      List<Urn> tagUrns,
+      List<ResourceReference> resources,
+      Authentication authentication
+  ) {
+    final Map<Urn, GlobalTags> tagsAspects = getTagsAspects(
+        resources.stream().map(ResourceReference::getUrn).collect(Collectors.toSet()),
+        new GlobalTags(),
+        authentication
+    );
+
+    final List<MetadataChangeProposal> changes = new ArrayList<>();
+    for (ResourceReference resource : resources) {
+      GlobalTags globalTags = tagsAspects.get(resource.getUrn());
+      if (globalTags == null) {
+        continue; // Something went wrong.
+      }
+      if (!globalTags.hasTags()) {
+        globalTags.setTags(new TagAssociationArray());
+      }
+      removeTagsIfExists(globalTags, tagUrns);
+      MetadataChangeProposal proposal = buildMetadataChangeProposal(
+          resource.getUrn(),
+          Constants.GLOBAL_TAGS_ASPECT_NAME,
+          globalTags
+      );
+
+      changes.add(proposal);
+    }
+    return changes;
+  }
+
+  @VisibleForTesting
+  List<MetadataChangeProposal> buildRemoveTagsToSubResourceProposals(
+      List<Urn> tagUrns,
+      List<ResourceReference> resources,
+      @Nonnull Authentication authentication
+  ) {
+    final Map<Urn, EditableSchemaMetadata> editableSchemaMetadataAspects = getEditableSchemaMetadataAspects(
+        resources.stream().map(ResourceReference::getUrn).collect(Collectors.toSet()),
+        new EditableSchemaMetadata(),
+        authentication
+    );
+
+    final List<MetadataChangeProposal> changes = new ArrayList<>();
+    for (ResourceReference resource : resources) {
+
+      EditableSchemaMetadata editableSchemaMetadata = editableSchemaMetadataAspects.get(resource.getUrn());
+      if (editableSchemaMetadata == null) {
+        continue; // Something went wrong.
+      }
+
+      EditableSchemaFieldInfo editableFieldInfo = getFieldInfoFromSchema(editableSchemaMetadata, resource.getSubResource());
+
+      if (!editableFieldInfo.hasGlossaryTerms()) {
+        editableFieldInfo.setGlossaryTerms(new GlossaryTerms());
+      }
+      removeTagsIfExists(editableFieldInfo.getGlobalTags(), tagUrns);
+      changes.add(buildMetadataChangeProposal(resource.getUrn(), Constants.EDITABLE_SCHEMA_METADATA_ASPECT_NAME,
+          editableSchemaMetadata));
     }
 
-    addTagsIfNotExists(editableFieldInfo.getGlobalTags(), tagUrns);
-    return buildMetadataChangeProposal(
-        resource.getUrn(),
-        Constants.EDITABLE_SCHEMA_METADATA_ASPECT_NAME,
-        editableSchemaMetadata);
+    return changes;
   }
 
   private void addTagsIfNotExists(GlobalTags tags, List<Urn> tagUrns) throws URISyntaxException {
@@ -308,59 +344,81 @@ public class TagService {
     return tagAssociationArray;
   }
 
-  @Nullable
-  private GlobalTags getGlobalTagsAspect(
-      @Nonnull Urn entityUrn,
+  @Nonnull
+  private Map<Urn, GlobalTags> getTagsAspects(
+      @Nonnull Set<Urn> entityUrns,
       @Nonnull GlobalTags defaultValue,
       @Nonnull Authentication authentication) {
+
+    if (entityUrns.size() <= 0) {
+      return Collections.emptyMap();
+    }
+
     try {
-      Aspect aspect = getLatestAspect(
-          entityUrn,
+      Map<Urn, Aspect> aspects = batchGetLatestAspect(
+          entityUrns.stream().findFirst().get().getEntityType(), // TODO Improve this.
+          entityUrns,
           Constants.GLOBAL_TAGS_ASPECT_NAME,
           this.entityClient,
           authentication
       );
 
-      if (aspect == null) {
-        return defaultValue;
+      final Map<Urn, GlobalTags> finalResult = new HashMap<>();
+      for (Urn entity : entityUrns) {
+        Aspect aspect = aspects.get(entity);
+        if (aspect == null) {
+          finalResult.put(entity, defaultValue);
+        } else {
+          finalResult.put(entity, new GlobalTags(aspect.data()));
+        }
       }
-      return new GlobalTags(aspect.data());
+      return finalResult;
     } catch (Exception e) {
       log.error(
-          "Error retrieving global tags for entity. Entity: {} aspect: {}",
-          entityUrn,
-          Constants.GLOBAL_TAGS_ASPECT_NAME,
+          "Error retrieving global tags for entities. Entities: {} aspect: {}",
+          entityUrns,
+          Constants.GLOSSARY_TERMS_ASPECT_NAME,
           e);
-      return null;
+      return Collections.emptyMap();
     }
   }
 
-  @Nullable
-  private EditableSchemaMetadata getEditableSchemaMetadataAspect(
-      @Nonnull Urn entityUrn,
+  @Nonnull
+  private Map<Urn, EditableSchemaMetadata> getEditableSchemaMetadataAspects(
+      @Nonnull Set<Urn> entityUrns,
       @Nonnull EditableSchemaMetadata defaultValue,
       @Nonnull Authentication authentication) {
+
+    if (entityUrns.size() <= 0) {
+      return Collections.emptyMap();
+    }
+
     try {
-      Aspect aspect = getLatestAspect(
-          entityUrn,
+      Map<Urn, Aspect> aspects = batchGetLatestAspect(
+          entityUrns.stream().findFirst().get().getEntityType(), // TODO Improve this.
+          entityUrns,
           Constants.EDITABLE_SCHEMA_METADATA_ASPECT_NAME,
           this.entityClient,
           authentication
       );
 
-      if (aspect == null) {
-        return defaultValue;
+      final Map<Urn, EditableSchemaMetadata> finalResult = new HashMap<>();
+      for (Urn entity : entityUrns) {
+        Aspect aspect = aspects.get(entity);
+        if (aspect == null) {
+          finalResult.put(entity, defaultValue);
+        } else {
+          finalResult.put(entity, new EditableSchemaMetadata(aspect.data()));
+        }
       }
-
-      return new EditableSchemaMetadata(aspect.data());
+      return finalResult;
     } catch (Exception e) {
       log.error(
-          "Error retrieving editable schema metadata for entity. Entity: {} aspect: {}.",
-          entityUrn,
+          "Error retrieving editable schema metadata for entities. Entities: {} aspect: {}",
+          entityUrns,
           Constants.EDITABLE_SCHEMA_METADATA_ASPECT_NAME,
-          e
-      );
-      return null;
+          e);
+      return Collections.emptyMap();
     }
   }
 
