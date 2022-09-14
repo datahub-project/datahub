@@ -6,7 +6,7 @@ import {
     useGetDashboardQuery,
     useUpdateDashboardMutation,
 } from '../../../graphql/dashboard.generated';
-import { Dashboard, EntityType, OwnershipType, SearchResult } from '../../../types.generated';
+import { Dashboard, EntityType, LineageDirection, OwnershipType, SearchResult } from '../../../types.generated';
 import { Entity, EntityCapabilityType, IconStyleType, PreviewType } from '../Entity';
 import { EntityProfile } from '../shared/containers/profile/EntityProfile';
 import { SidebarOwnerSection } from '../shared/containers/profile/sidebar/Ownership/SidebarOwnerSection';
@@ -23,7 +23,6 @@ import { SidebarDomainSection } from '../shared/containers/profile/sidebar/Domai
 import { EntityMenuItems } from '../shared/EntityDropdown/EntityDropdown';
 import { LineageTab } from '../shared/tabs/Lineage/LineageTab';
 import { DashboardStatsSummarySubHeader } from './profile/DashboardStatsSummarySubHeader';
-import { InputFieldsTab } from '../shared/tabs/Entity/InputFieldsTab';
 import { ChartSnippet } from '../chart/ChartSnippet';
 
 /**
@@ -84,18 +83,18 @@ export class DashboardEntity implements Entity<Dashboard> {
             }}
             tabs={[
                 {
-                    name: 'Documentation',
-                    component: DocumentationTab,
-                },
-                {
-                    name: 'Fields',
-                    component: InputFieldsTab,
+                    name: 'Charts',
+                    component: DashboardChartsTab,
                     display: {
                         visible: (_, dashboard: GetDashboardQuery) =>
-                            (dashboard?.dashboard?.inputFields?.fields?.length || 0) > 0,
-                        enabled: (_, dashboard: GetDashboardQuery) =>
-                            (dashboard?.dashboard?.inputFields?.fields?.length || 0) > 0,
+                            (dashboard?.dashboard?.charts?.total || 0) > 0 ||
+                            (dashboard?.dashboard?.datasets?.total || 0) === 0,
+                        enabled: (_, dashboard: GetDashboardQuery) => (dashboard?.dashboard?.charts?.total || 0) > 0,
                     },
+                },
+                {
+                    name: 'Documentation',
+                    component: DocumentationTab,
                 },
                 {
                     name: 'Properties',
@@ -104,6 +103,9 @@ export class DashboardEntity implements Entity<Dashboard> {
                 {
                     name: 'Lineage',
                     component: LineageTab,
+                    properties: {
+                        defaultDirection: LineageDirection.Upstream,
+                    },
                     display: {
                         visible: (_, _1) => true,
                         enabled: (_, dashboard: GetDashboardQuery) => {
@@ -112,16 +114,6 @@ export class DashboardEntity implements Entity<Dashboard> {
                                 (dashboard?.dashboard?.downstream?.total || 0) > 0
                             );
                         },
-                    },
-                },
-                {
-                    name: 'Charts',
-                    component: DashboardChartsTab,
-                    display: {
-                        visible: (_, dashboard: GetDashboardQuery) =>
-                            (dashboard?.dashboard?.charts?.total || 0) > 0 ||
-                            (dashboard?.dashboard?.datasets?.total || 0) === 0,
-                        enabled: (_, dashboard: GetDashboardQuery) => (dashboard?.dashboard?.charts?.total || 0) > 0,
                     },
                 },
                 {
@@ -215,7 +207,13 @@ export class DashboardEntity implements Entity<Dashboard> {
                 statsSummary={data.statsSummary}
                 lastUpdatedMs={data.properties?.lastModified?.time}
                 createdMs={data.properties?.created?.time}
-                snippet={<ChartSnippet matchedFields={result.matchedFields} inputFields={data.inputFields} />}
+                snippet={
+                    <ChartSnippet
+                        isMatchingDashboard
+                        matchedFields={result.matchedFields}
+                        inputFields={data.inputFields}
+                    />
+                }
             />
         );
     };

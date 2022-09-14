@@ -19,7 +19,9 @@ import com.linkedin.data.schema.RecordDataSchema;
 import com.linkedin.data.schema.TyperefDataSchema;
 import com.linkedin.data.template.DataTemplateUtil;
 import com.linkedin.data.template.RecordTemplate;
+import com.linkedin.data.template.StringArray;
 import com.linkedin.data.template.UnionTemplate;
+import com.linkedin.dataplatform.DataPlatformInfo;
 import com.linkedin.entity.AspectType;
 import com.linkedin.entity.Entity;
 import com.linkedin.entity.EntityResponse;
@@ -38,7 +40,6 @@ import com.linkedin.metadata.models.EntitySpec;
 import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.query.ListUrnsResult;
 import com.linkedin.metadata.run.AspectRowSummary;
-import com.linkedin.metadata.search.utils.BrowsePathUtils;
 import com.linkedin.metadata.snapshot.Snapshot;
 import com.linkedin.metadata.utils.DataPlatformInstanceUtils;
 import com.linkedin.metadata.utils.EntityKeyUtils;
@@ -73,6 +74,7 @@ import lombok.Value;
 import lombok.extern.slf4j.Slf4j;
 
 import static com.linkedin.metadata.Constants.*;
+import static com.linkedin.metadata.search.utils.BrowsePathUtils.*;
 import static com.linkedin.metadata.utils.PegasusUtils.*;
 
 
@@ -142,7 +144,6 @@ public class EntityService {
   public static final String BROWSE_PATHS = "browsePaths";
   public static final String DATA_PLATFORM_INSTANCE = "dataPlatformInstance";
   protected static final int MAX_KEYS_PER_QUERY = 500;
-  public static final String STATUS = "status";
 
   public EntityService(
       @Nonnull final AspectDao aspectDao,
@@ -1180,10 +1181,8 @@ private Map<Urn, List<EnvelopedAspect>> getCorrespondingAspects(Set<EntityAspect
 
     if (shouldCheckBrowsePath && latestAspects.get(BROWSE_PATHS) == null) {
       try {
-        BrowsePaths generatedBrowsePath = BrowsePathUtils.buildBrowsePath(urn, getEntityRegistry());
-        if (generatedBrowsePath != null) {
-          aspects.add(Pair.of(BROWSE_PATHS, generatedBrowsePath));
-        }
+        BrowsePaths generatedBrowsePath = buildDefaultBrowsePath(urn);
+        aspects.add(Pair.of(BROWSE_PATHS, generatedBrowsePath));
       } catch (URISyntaxException e) {
         log.error("Failed to parse urn: {}", urn);
       }
@@ -1761,5 +1760,55 @@ private Map<Urn, List<EnvelopedAspect>> getCorrespondingAspects(Set<EntityAspect
     }
 
     return newValue;
+  }
+
+  /**
+   * Builds the default browse path aspects for a subset of well-supported entities.
+   *
+   * This method currently supports datasets, charts, dashboards, data flows, data jobs, and glossary terms.
+   */
+  @Nonnull
+  public BrowsePaths buildDefaultBrowsePath(final @Nonnull Urn urn) throws URISyntaxException {
+    Character dataPlatformDelimiter = getDataPlatformDelimiter(urn);
+    String defaultBrowsePath = getDefaultBrowsePath(urn, this.getEntityRegistry(), dataPlatformDelimiter);
+    StringArray browsePaths = new StringArray();
+    browsePaths.add(defaultBrowsePath);
+    BrowsePaths browsePathAspect = new BrowsePaths();
+    browsePathAspect.setPaths(browsePaths);
+    return browsePathAspect;
+  }
+
+  /**
+   * Returns a delimiter on which the name of an asset may be split.
+   */
+  private Character getDataPlatformDelimiter(Urn urn) {
+    // Attempt to construct the appropriate Data Platform URN
+    Urn dataPlatformUrn = buildDataPlatformUrn(urn, this.getEntityRegistry());
+    if (dataPlatformUrn != null) {
+      // Attempt to resolve the delimiter from Data Platform Info
+      DataPlatformInfo dataPlatformInfo = getDataPlatformInfo(dataPlatformUrn);
+      if (dataPlatformInfo != null && dataPlatformInfo.hasDatasetNameDelimiter()) {
+        return dataPlatformInfo.getDatasetNameDelimiter().charAt(0);
+      }
+    }
+    // Else, fallback to a default delimiter (period) if one cannot be resolved.
+    return '.';
+  }
+
+  @Nullable
+  private DataPlatformInfo getDataPlatformInfo(Urn urn) {
+    try {
+      final EntityResponse entityResponse = getEntityV2(
+          Constants.DATA_PLATFORM_ENTITY_NAME,
+          urn,
+          ImmutableSet.of(Constants.DATA_PLATFORM_INFO_ASPECT_NAME)
+      );
+      if (entityResponse != null && entityResponse.hasAspects() && entityResponse.getAspects().containsKey(Constants.DATA_PLATFORM_INFO_ASPECT_NAME)) {
+        return new DataPlatformInfo(entityResponse.getAspects().get(Constants.DATA_PLATFORM_INFO_ASPECT_NAME).getValue().data());
+      }
+    } catch (Exception e) {
+      log.warn(String.format("Failed to find Data Platform Info for urn %s", urn));
+    }
+    return null;
   }
 }

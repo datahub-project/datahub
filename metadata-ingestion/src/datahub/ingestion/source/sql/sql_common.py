@@ -22,8 +22,9 @@ from typing import (
 from urllib.parse import quote_plus
 
 import pydantic
+import sqlalchemy.dialects.postgresql.base
 from pydantic.fields import Field
-from sqlalchemy import create_engine, dialects, inspect
+from sqlalchemy import create_engine, inspect
 from sqlalchemy.engine.reflection import Inspector
 from sqlalchemy.exc import ProgrammingError
 from sqlalchemy.sql import sqltypes as types
@@ -47,6 +48,7 @@ from datahub.emitter.mcp_builder import (
 )
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.workunit import MetadataWorkUnit
+from datahub.ingestion.source.ge_profiling_config import GEProfilingConfig
 from datahub.ingestion.source.state.checkpoint import Checkpoint
 from datahub.ingestion.source.state.sql_common_state import (
     BaseSQLAlchemyCheckpointState,
@@ -268,8 +270,6 @@ class SQLAlchemyConfig(StatefulIngestionConfigBase):
         default=True, description="Whether tables should be ingested."
     )
 
-    from datahub.ingestion.source.ge_data_profiler import GEProfilingConfig
-
     profiling: GEProfilingConfig = GEProfilingConfig()
     # Custom Stateful Ingestion settings
     stateful_ingestion: Optional[SQLAlchemyStatefulIngestionConfig] = None
@@ -289,9 +289,9 @@ class SQLAlchemyConfig(StatefulIngestionConfigBase):
     def ensure_profiling_pattern_is_passed_to_profiling(
         cls, values: Dict[str, Any]
     ) -> Dict[str, Any]:
-        profiling = values.get("profiling")
+        profiling: Optional[GEProfilingConfig] = values.get("profiling")
         if profiling is not None and profiling.enabled:
-            profiling.allow_deny_patterns = values["profile_pattern"]
+            profiling._allow_deny_patterns = values["profile_pattern"]
         return values
 
     @abstractmethod
@@ -350,20 +350,23 @@ _field_type_mapping: Dict[Type[types.TypeEngine], Type] = {
     types.DATETIME: TimeTypeClass,
     types.TIMESTAMP: TimeTypeClass,
     types.JSON: RecordTypeClass,
-    dialects.postgresql.base.BYTEA: BytesTypeClass,
-    dialects.postgresql.base.DOUBLE_PRECISION: NumberTypeClass,
-    dialects.postgresql.base.INET: StringTypeClass,
-    dialects.postgresql.base.MACADDR: StringTypeClass,
-    dialects.postgresql.base.MONEY: NumberTypeClass,
-    dialects.postgresql.base.OID: StringTypeClass,
-    dialects.postgresql.base.REGCLASS: BytesTypeClass,
-    dialects.postgresql.base.TIMESTAMP: TimeTypeClass,
-    dialects.postgresql.base.TIME: TimeTypeClass,
-    dialects.postgresql.base.INTERVAL: TimeTypeClass,
-    dialects.postgresql.base.BIT: BytesTypeClass,
-    dialects.postgresql.base.UUID: StringTypeClass,
-    dialects.postgresql.base.TSVECTOR: BytesTypeClass,
-    dialects.postgresql.base.ENUM: EnumTypeClass,
+    # Because the postgresql dialect is used internally by many other dialects,
+    # we add some postgres types here. This is ok to do because the postgresql
+    # dialect is built-in to sqlalchemy.
+    sqlalchemy.dialects.postgresql.base.BYTEA: BytesTypeClass,
+    sqlalchemy.dialects.postgresql.base.DOUBLE_PRECISION: NumberTypeClass,
+    sqlalchemy.dialects.postgresql.base.INET: StringTypeClass,
+    sqlalchemy.dialects.postgresql.base.MACADDR: StringTypeClass,
+    sqlalchemy.dialects.postgresql.base.MONEY: NumberTypeClass,
+    sqlalchemy.dialects.postgresql.base.OID: StringTypeClass,
+    sqlalchemy.dialects.postgresql.base.REGCLASS: BytesTypeClass,
+    sqlalchemy.dialects.postgresql.base.TIMESTAMP: TimeTypeClass,
+    sqlalchemy.dialects.postgresql.base.TIME: TimeTypeClass,
+    sqlalchemy.dialects.postgresql.base.INTERVAL: TimeTypeClass,
+    sqlalchemy.dialects.postgresql.base.BIT: BytesTypeClass,
+    sqlalchemy.dialects.postgresql.base.UUID: StringTypeClass,
+    sqlalchemy.dialects.postgresql.base.TSVECTOR: BytesTypeClass,
+    sqlalchemy.dialects.postgresql.base.ENUM: EnumTypeClass,
     # When SQLAlchemy is unable to map a type into its internal hierarchy, it
     # assigns the NullType by default. We want to carry this warning through.
     types.NullType: NullTypeClass,
@@ -1287,16 +1290,10 @@ class SQLAlchemySource(StatefulIngestionSourceBase):
             view_properties_aspect = ViewPropertiesClass(
                 materialized=False, viewLanguage="SQL", viewLogic=view_definition_string
             )
-            view_properties_wu = MetadataWorkUnit(
-                id=f"{view}-viewProperties",
-                mcp=MetadataChangeProposalWrapper(
-                    entityType="dataset",
-                    changeType=ChangeTypeClass.UPSERT,
-                    entityUrn=dataset_urn,
-                    aspectName="viewProperties",
-                    aspect=view_properties_aspect,
-                ),
-            )
+            view_properties_wu = MetadataChangeProposalWrapper(
+                entityUrn=dataset_urn,
+                aspect=view_properties_aspect,
+            ).as_workunit()
             self.report.report_workunit(view_properties_wu)
             yield view_properties_wu
 

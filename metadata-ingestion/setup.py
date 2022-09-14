@@ -35,7 +35,7 @@ framework_common = {
     "entrypoints",
     "docker",
     "expandvars>=0.6.5",
-    "avro-gen3==0.7.5",
+    "avro-gen3==0.7.6",
     # "avro-gen3 @ git+https://github.com/acryldata/avro_gen@master#egg=avro-gen3",
     "avro>=1.10.2,<1.11",
     "python-dateutil>=2.8.0",
@@ -59,6 +59,7 @@ framework_common = {
     "cached_property",
     "ijson",
     "click-spinner",
+    "GitPython>2",
 }
 
 kafka_common = {
@@ -135,7 +136,7 @@ path_spec_common = {
 
 looker_common = {
     # Looker Python SDK
-    "looker-sdk==22.2.1"
+    "looker-sdk==22.2.1",
 }
 
 bigquery_common = {

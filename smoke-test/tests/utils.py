@@ -1,11 +1,13 @@
 import json
 import os
-from typing import Any, Tuple
+from datetime import datetime, timedelta
+from typing import Tuple
 
 import requests
+
 from datahub.cli import cli_utils
-from datahub.ingestion.run.pipeline import Pipeline
 from datahub.cli.docker import check_local_docker_containers
+from datahub.ingestion.run.pipeline import Pipeline
 
 
 def get_frontend_session():
@@ -23,7 +25,10 @@ def get_frontend_session():
 
 
 def get_admin_credentials():
-    return (os.getenv("ADMIN_USERNAME", "datahub"), os.getenv("ADMIN_PASSWORD", "datahub"))
+    return (
+        os.getenv("ADMIN_USERNAME", "datahub"),
+        os.getenv("ADMIN_PASSWORD", "datahub"),
+    )
 
 
 def get_gms_url():
@@ -86,7 +91,7 @@ def check_endpoint(url):
         raise SystemExit(f"{url}: is Not reachable \nErr: {e}")
 
 
-def ingest_file_via_rest(filename: str) -> Any:
+def ingest_file_via_rest(filename: str) -> Pipeline:
     pipeline = Pipeline.create(
         {
             "source": {
@@ -133,3 +138,30 @@ def delete_urns_from_file(filename: str) -> None:
                 get_gms_url() + "/entities?action=delete",
                 payload_obj,
             )
+
+
+# Fixed now value
+NOW: datetime = datetime.now()
+
+
+def get_timestampmillis_at_start_of_day(relative_day_num: int) -> int:
+    """
+    Returns the time in milliseconds from epoch at the start of the day
+    corresponding to `now + relative_day_num`
+
+    """
+    time: datetime = NOW + timedelta(days=float(relative_day_num))
+    time = datetime(
+        year=time.year,
+        month=time.month,
+        day=time.day,
+        hour=0,
+        minute=0,
+        second=0,
+        microsecond=0,
+    )
+    return int(time.timestamp() * 1000)
+
+
+def get_strftime_from_timestamp_millis(ts_millis: int) -> str:
+    return datetime.fromtimestamp(ts_millis / 1000).strftime("%Y-%m-%d %H:%M:%S")
