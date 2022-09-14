@@ -4,15 +4,14 @@ import logging
 import re
 import unittest.mock
 from dataclasses import Field, dataclass, field
-from enum import Enum, auto
+from enum import auto
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple, Union
 
 import avro.schema
 import click
-from pydantic import validator
 
-from datahub.configuration.common import ConfigModel
+from datahub.configuration.common import ConfigEnum, ConfigModel
 from datahub.emitter.mce_builder import make_data_platform_urn, make_dataset_urn
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.emitter.rest_emitter import DatahubRestEmitter
@@ -47,7 +46,7 @@ def capitalize_first(something: str) -> str:
     return something[0:1].upper() + something[1:]
 
 
-class EntityCategory(Enum):
+class EntityCategory(ConfigEnum):
     CORE = auto()
     INTERNAL = auto()
 
@@ -70,12 +69,6 @@ class EntityDefinition:
     # @validator("name")
     # def lower_everything(cls, v: str) -> str:
     #    return v.lower()
-
-    @validator("category", pre=True)
-    def find_match(cls, v: str) -> EntityCategory:
-        if isinstance(v, str) and v.upper() == "INTERNAL":
-            return EntityCategory.INTERNAL
-        return EntityCategory.CORE
 
     @property
     def display_name(self):

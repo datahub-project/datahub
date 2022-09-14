@@ -3,7 +3,7 @@ import logging
 import re
 from dataclasses import dataclass, field
 from datetime import datetime
-from enum import Enum
+from enum import auto
 from typing import (
     Any,
     Callable,
@@ -25,7 +25,11 @@ from cached_property import cached_property
 from pydantic import BaseModel, root_validator, validator
 from pydantic.fields import Field
 
-from datahub.configuration.common import AllowDenyPattern, ConfigurationError
+from datahub.configuration.common import (
+    AllowDenyPattern,
+    ConfigEnum,
+    ConfigurationError,
+)
 from datahub.configuration.github import GitHubInfo
 from datahub.emitter import mce_builder
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
@@ -139,12 +143,12 @@ class DBTSourceReport(StaleEntityRemovalSourceReport):
     pass
 
 
-class EmitDirective(Enum):
+class EmitDirective(ConfigEnum):
     """A holder for directives for emission for specific types of entities"""
 
-    YES = "YES"  # Okay to emit for this type
-    NO = "NO"  # Do not emit for this type
-    ONLY = "ONLY"  # Only emit metadata for this type and no others
+    YES = auto()  # Okay to emit for this type
+    NO = auto()  # Do not emit for this type
+    ONLY = auto()  # Only emit metadata for this type and no others
 
 
 class DBTEntitiesEnabled(BaseModel):
@@ -172,10 +176,6 @@ class DBTEntitiesEnabled(BaseModel):
     test_results: EmitDirective = Field(
         "Yes", description="Emit metadata for test results when set to Yes or Only"
     )
-
-    @validator("*", pre=True, always=True)
-    def to_upper(cls, v):
-        return v.upper() if isinstance(v, str) else v
 
     @root_validator
     def only_one_can_be_set_to_only(cls, values):
