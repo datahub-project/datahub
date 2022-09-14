@@ -5,6 +5,7 @@ import logging
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass
 from datetime import timedelta
+from enum import auto
 from threading import BoundedSemaphore
 from typing import Union, cast
 
@@ -31,8 +32,8 @@ logger = logging.getLogger(__name__)
 
 
 class SyncOrAsync(ConfigEnum):
-    SYNC = "SYNC"
-    ASYNC = "ASYNC"
+    SYNC = auto()
+    ASYNC = auto()
 
 
 class DatahubRestSinkConfig(DatahubClientConfig):

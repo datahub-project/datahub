@@ -3,6 +3,7 @@ import logging
 import re
 from dataclasses import dataclass, field
 from datetime import datetime
+from enum import auto
 from typing import (
     Any,
     Callable,
@@ -143,9 +144,9 @@ class DBTSourceReport(StatefulIngestionReport):
 class EmitDirective(ConfigEnum):
     """A holder for directives for emission for specific types of entities"""
 
-    YES = "YES"  # Okay to emit for this type
-    NO = "NO"  # Do not emit for this type
-    ONLY = "ONLY"  # Only emit metadata for this type and no others
+    YES = auto()  # Okay to emit for this type
+    NO = auto()  # Do not emit for this type
+    ONLY = auto()  # Only emit metadata for this type and no others
 
 
 class DBTEntitiesEnabled(BaseModel):

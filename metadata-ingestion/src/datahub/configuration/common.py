@@ -1,5 +1,6 @@
 import re
 from abc import ABC, abstractmethod
+from enum import auto
 from typing import IO, Any, ClassVar, Dict, List, Optional, Pattern, cast
 
 from cached_property import cached_property
@@ -21,8 +22,8 @@ class ConfigModel(BaseModel):
 class TransformerSemantics(ConfigEnum):
     """Describes semantics for aspect changes"""
 
-    OVERWRITE = "OVERWRITE"  # Apply changes blindly
-    PATCH = "PATCH"  # Only apply differences from what exists already on the server
+    OVERWRITE = auto()  # Apply changes blindly
+    PATCH = auto()  # Only apply differences from what exists already on the server
 
 
 class TransformerSemanticsConfigModel(ConfigModel):

@@ -9,8 +9,8 @@ from datahub.configuration.common import ConfigEnum, ConfigModel
 def test_config_enum():
     class Fruit(ConfigEnum):
         APPLE = enum.auto()
-        PEAR = enum.auto()
         ORANGE = "ORANGE"
+        PEAR = enum.auto()
 
     class FruitConfig(ConfigModel):
         fruit: Fruit = Fruit.APPLE

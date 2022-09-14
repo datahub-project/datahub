@@ -3,6 +3,7 @@ import json
 import logging
 import os.path
 from dataclasses import dataclass, field
+from enum import auto
 from io import BufferedReader
 from pathlib import Path
 from typing import Any, Dict, Iterable, Iterator, Optional, Tuple, Union
@@ -36,9 +37,9 @@ logger = logging.getLogger(__name__)
 
 
 class FileReadMode(ConfigEnum):
-    STREAM = "STREAM"
-    BATCH = "BATCH"
-    AUTO = "AUTO"
+    STREAM = auto()
+    BATCH = auto()
+    AUTO = auto()
 
 
 class FileSourceConfig(ConfigModel):
