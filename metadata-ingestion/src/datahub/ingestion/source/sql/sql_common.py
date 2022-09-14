@@ -48,6 +48,7 @@ from datahub.emitter.mcp_builder import (
 )
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.workunit import MetadataWorkUnit
+from datahub.ingestion.source.ge_profiling_config import GEProfilingConfig
 from datahub.ingestion.source.state.checkpoint import Checkpoint
 from datahub.ingestion.source.state.sql_common_state import (
     BaseSQLAlchemyCheckpointState,
@@ -269,8 +270,6 @@ class SQLAlchemyConfig(StatefulIngestionConfigBase):
         default=True, description="Whether tables should be ingested."
     )
 
-    from datahub.ingestion.source.ge_data_profiler import GEProfilingConfig
-
     profiling: GEProfilingConfig = GEProfilingConfig()
     # Custom Stateful Ingestion settings
     stateful_ingestion: Optional[SQLAlchemyStatefulIngestionConfig] = None
@@ -290,9 +289,9 @@ class SQLAlchemyConfig(StatefulIngestionConfigBase):
     def ensure_profiling_pattern_is_passed_to_profiling(
         cls, values: Dict[str, Any]
     ) -> Dict[str, Any]:
-        profiling = values.get("profiling")
+        profiling: Optional[GEProfilingConfig] = values.get("profiling")
         if profiling is not None and profiling.enabled:
-            profiling.allow_deny_patterns = values["profile_pattern"]
+            profiling._allow_deny_patterns = values["profile_pattern"]
         return values
 
     @abstractmethod

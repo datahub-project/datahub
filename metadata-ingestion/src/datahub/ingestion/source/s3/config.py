@@ -118,7 +118,7 @@ class DataLakeSourceConfig(PlatformSourceConfigBase, EnvBasedSourceConfigBase):
     def ensure_profiling_pattern_is_passed_to_profiling(
         cls, values: Dict[str, Any]
     ) -> Dict[str, Any]:
-        profiling = values.get("profiling")
+        profiling: Optional[DataLakeProfilerConfig] = values.get("profiling")
         if profiling is not None and profiling.enabled:
-            profiling.allow_deny_patterns = values["profile_patterns"]
+            profiling._allow_deny_patterns = values["profile_patterns"]
         return values

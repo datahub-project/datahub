@@ -303,7 +303,7 @@ def post_delete_endpoint(
     payload_obj: dict,
     path: str,
     cached_session_host: Optional[Tuple[Session, str]] = None,
-) -> typing.Tuple[str, int]:
+) -> typing.Tuple[str, int, int]:
     session, gms_host = cached_session_host or get_session_and_host()
     url = gms_host + path
 
@@ -314,16 +314,17 @@ def post_delete_endpoint_with_session_and_url(
     session: Session,
     url: str,
     payload_obj: dict,
-) -> typing.Tuple[str, int]:
+) -> typing.Tuple[str, int, int]:
     payload = json.dumps(payload_obj)
 
     response = session.post(url, payload)
 
     summary = parse_run_restli_response(response)
-    urn = summary.get("urn", "")
-    rows_affected = summary.get("rows", 0)
+    urn: str = summary.get("urn", "")
+    rows_affected: int = summary.get("rows", 0)
+    timeseries_rows_affected: int = summary.get("timeseriesRows", 0)
 
-    return urn, rows_affected
+    return urn, rows_affected, timeseries_rows_affected
 
 
 def get_urns_by_filter(
@@ -624,7 +625,7 @@ def get_aspects_for_entity(
     # Process timeseries aspects & append to aspect_list
     timeseries_aspects: List[str] = [a for a in aspects if a in TIMESERIES_ASPECT_MAP]
     for timeseries_aspect in timeseries_aspects:
-        timeseries_response = get_latest_timeseries_aspect_values(
+        timeseries_response: Dict = get_latest_timeseries_aspect_values(
             entity_urn, timeseries_aspect, cached_session_host
         )
         values: List[Dict] = timeseries_response.get("value", {}).get("values", [])
@@ -633,18 +634,13 @@ def get_aspects_for_entity(
                 timeseries_aspect
             )
             if aspect_cls is not None:
-                aspect_value = values[0]
+                ts_aspect = values[0]["aspect"]
                 # Decode the json-encoded generic aspect value.
-                aspect_value["aspect"]["value"] = json.loads(
-                    aspect_value["aspect"]["value"]
-                )
-                aspect_list[
-                    aspect_cls.RECORD_SCHEMA.fullname.replace("pegasus2avro.", "")
-                ] = aspect_value
+                ts_aspect["value"] = json.loads(ts_aspect["value"])
+                aspect_list[timeseries_aspect] = ts_aspect
 
     aspect_map: Dict[str, Union[dict, _Aspect]] = {}
-    for a in aspect_list.values():
-        aspect_name = a["name"]
+    for aspect_name, a in aspect_list.items():
         aspect_py_class: Optional[Type[Any]] = _get_pydantic_class_from_aspect_name(
             aspect_name
         )
