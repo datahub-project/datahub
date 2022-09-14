@@ -49,5 +49,5 @@ source:
       deny:
         - '.*information_schema.*'
 
-sink:
-# sink configs
+# Default sink is datahub-rest and doesn't need to be configured
+# See https://datahubproject.io/docs/metadata-ingestion/sink_docs/datahub for customization options
