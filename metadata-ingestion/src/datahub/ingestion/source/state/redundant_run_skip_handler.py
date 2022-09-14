@@ -76,9 +76,13 @@ class RedundantRunSkipHandler(
         return False
 
     def _init_job_id(self) -> JobId:
-        platform: Optional[str] = getattr(self.source, "platform")
+        platform: Optional[str] = None
+        source_class = type(self.source)
+        if hasattr(source_class, "get_platform_name"):
+            platform = source_class.get_platform_name()  # type: ignore
+
         # Handle backward-compatibility for existing sources.
-        if platform == "snowflake":
+        if platform == "Snowflake":
             return JobId("snowflake_usage_ingestion")
 
         # Default name for everything else
