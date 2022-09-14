@@ -161,20 +161,24 @@ class DBTEntitiesEnabled(BaseModel):
         )  # needed to allow cached_property to work. See https://github.com/samuelcolvin/pydantic/issues/1241 for more info.
 
     models: EmitDirective = Field(
-        "Yes", description="Emit metadata for dbt models when set to Yes or Only"
+        EmitDirective.YES,
+        description="Emit metadata for dbt models when set to Yes or Only",
     )
     sources: EmitDirective = Field(
-        "Yes", description="Emit metadata for dbt sources when set to Yes or Only"
+        EmitDirective.YES,
+        description="Emit metadata for dbt sources when set to Yes or Only",
     )
     seeds: EmitDirective = Field(
-        "Yes", description="Emit metadata for dbt seeds when set to Yes or Only"
+        EmitDirective.YES,
+        description="Emit metadata for dbt seeds when set to Yes or Only",
     )
     test_definitions: EmitDirective = Field(
-        "Yes",
+        EmitDirective.YES,
         description="Emit metadata for test definitions when enabled when set to Yes or Only",
     )
     test_results: EmitDirective = Field(
-        "Yes", description="Emit metadata for test results when set to Yes or Only"
+        EmitDirective.YES,
+        description="Emit metadata for test results when set to Yes or Only",
     )
 
     @root_validator

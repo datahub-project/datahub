@@ -158,7 +158,7 @@ class GlueSourceConfig(
         default=False,
         description="If an S3 Objects Tags should be created for the Tables ingested by Glue.",
     )
-    profiling: GlueProfilingConfig = Field(
+    profiling: Optional[GlueProfilingConfig] = Field(
         default=None,
         description="Configs to ingest data profiles from glue table",
     )
@@ -759,6 +759,8 @@ class GlueSource(StatefulIngestionSourceBase):
         column_stats: dict,
         partition_spec: Optional[str] = None,
     ) -> MetadataChangeProposalWrapper:
+        assert self.source_config.profiling
+
         # instantiate profile class
         dataset_profile = DatasetProfileClass(timestampMillis=get_sys_time())
 
