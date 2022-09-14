@@ -32,6 +32,8 @@ class GitClone:
 
         git_ssh_cmd = f"ssh -i {git_ssh_identity_file}"
         if self.skip_known_host_verification:
+            # Without this, the ssh command will prompt for confirmation of the host key.
+            # See https://stackoverflow.com/a/28527476/5004662.
             git_ssh_cmd += (
                 " -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no"
             )
