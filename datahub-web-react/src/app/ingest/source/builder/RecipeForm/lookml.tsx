@@ -150,7 +150,7 @@ export const CONNECTION_TO_PLATFORM_MAP_NAME: RecipeField = {
     type: FieldType.TEXT,
     fieldPath: 'name',
     placeholder: 'mysql_db',
-    rules: null,
+    rules: [{ required: true, message: 'Name is required' }],
 };
 
 export const PLATFORM: RecipeField = {
@@ -160,7 +160,7 @@ export const PLATFORM: RecipeField = {
     type: FieldType.TEXT,
     fieldPath: 'platform',
     placeholder: 'looker',
-    rules: null,
+    rules: [{ required: true, message: 'Platform is required' }],
 };
 
 export const DEFAULT_DB: RecipeField = {
@@ -170,7 +170,7 @@ export const DEFAULT_DB: RecipeField = {
     type: FieldType.TEXT,
     fieldPath: 'default_db',
     placeholder: 'default_db',
-    rules: null,
+    rules: [{ required: true, message: 'Default Database is required' }],
 };
 
 const dictFields = [PLATFORM, DEFAULT_DB];
