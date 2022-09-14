@@ -16,7 +16,9 @@ To use PATs, two things are required:
 
 Once configured, users should be able to navigate to **'Settings'** > **'Access Tokens'** > **'Generate Personal Access Token'** to generate a token:
 
-![](../imgs/pats/generate-personal-access-token.png)
+<p align="center">
+  <img width="70%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/master/imgs/pats/generate-personal-access-token.png"/>
+</p>
 
 If you have configured permissions correctly the `Generate new token` should be clickable.
 
@@ -32,15 +34,19 @@ Once in the Manage Access Tokens Settings Tab:
 
 1. Click `Generate new token` where a form should appear.
 
-![](../imgs/pats/token-creation-form.png)
+<p align="center">
+  <img width="70%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/master/imgs/pats/token-creation-form.png"/>
+</p>
 
 2. Fill out the information as needed and click `Create`.
-
-![](../imgs/pats/filled-out-form.png)
+<p align="center">
+  <img width="70%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/master/imgs/pats/filled-out-form.png"/>
+</p>
 
 3. Save the token text somewhere secure! This is what will be used later on!
-
-![](../imgs/pats/token-info.png)
+<p align="center">
+  <img width="70%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/master/imgs/pats/token-info.png"/>
+</p>
 
 ## Using Personal Access Tokens
 
@@ -84,14 +90,6 @@ is enabled.
  - Have a look at [Token Management in GraphQL](../api/graphql/token-management.md) to learn how to manage tokens programatically!
  
 ## FAQ and Troubleshooting
-
- <!-- Use the following format:
-
- **Question in bold text**
-
- Response in plain text
-
- -->
 
 **The button to create tokens is greyed out - why can’t I click on it?**
 
