@@ -1,8 +1,10 @@
 import collections
 import logging
+import sys
 import textwrap
 from typing import Dict, Iterable, List, Optional, Set, Tuple, Union
 
+import humanfriendly
 from google.cloud.bigquery import Client as BigQueryClient
 from google.cloud.logging_v2.client import Client as GCPLoggingClient
 from ratelimiter import RateLimiter
@@ -28,6 +30,7 @@ from datahub.metadata.schema_classes import (
     UpstreamLineageClass,
 )
 from datahub.utilities.bigquery_sql_parser import BigQuerySQLParser
+from datahub.utilities.perf_timer import PerfTimer
 
 logger: logging.Logger = logging.getLogger(__name__)
 
@@ -429,6 +432,9 @@ timestamp < "{end_time}"
         if lineage_metadata is None:
             lineage_metadata = {}
 
+        self.report.lineage_mem_size = humanfriendly.format_size(
+            sys.getsizeof(lineage_metadata)
+        )
         self.report.lineage_metadata_entries = len(lineage_metadata)
         logger.info(f"Built lineage map containing {len(lineage_metadata)} entries.")
         logger.debug(f"lineage metadata is {lineage_metadata}")
@@ -463,9 +469,11 @@ timestamp < "{end_time}"
         self, table_identifier: BigqueryTableIdentifier, platform: str
     ) -> Optional[Tuple[UpstreamLineageClass, Dict[str, str]]]:
         if self.lineage_metadata is None:
-            self.lineage_metadata = self._compute_bigquery_lineage(
-                table_identifier.project_id
-            )
+            with PerfTimer() as timer:
+                self.lineage_metadata = self._compute_bigquery_lineage(
+                    table_identifier.project_id
+                )
+                self.report.lineage_extraction_sec = round(timer.elapsed_seconds(), 2)
 
         bq_table = BigQueryTableRef.from_bigquery_table(table_identifier)
         if str(bq_table) in self.lineage_metadata:

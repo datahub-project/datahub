@@ -4,7 +4,7 @@ from typing import Dict, List, Optional
 
 from pydantic import Field, PositiveInt, root_validator
 
-from datahub.configuration.common import AllowDenyPattern, ConfigurationError
+from datahub.configuration.common import AllowDenyPattern
 from datahub.ingestion.source.usage.usage_common import BaseUsageConfig
 from datahub.ingestion.source_config.sql.bigquery import BigQueryConfig
 
@@ -37,6 +37,11 @@ class BigQueryV2Config(BigQueryConfig):
         description="Generate usage statistic",
     )
 
+    capture_table_label_as_tag: bool = Field(
+        default=False,
+        description="Capture BigQuery table labels as tag",
+    )
+
     dataset_pattern: AllowDenyPattern = Field(
         default=AllowDenyPattern.allow_all(),
         description="Regex patterns for dataset to filter in ingestion. Specify regex to only match the schema name. e.g. to match all tables in schema analytics, use the regex 'analytics'",
@@ -46,15 +51,6 @@ class BigQueryV2Config(BigQueryConfig):
         default=False,
         description="Include full payload into events. It is only for debugging and internal use.",
     )
-
-    @root_validator(pre=False)
-    def validate_unsupported_configs(cls, values: Dict) -> Dict:
-        value = values.get("profiling")
-        if value is not None and value.enabled and not value.profile_table_level_only:
-            raise ConfigurationError(
-                "Only table level profiling is supported. Set `profiling.profile_table_level_only` to True.",
-            )
-        return values
 
     @root_validator(pre=False)
     def backward_compatibility_configs_set(cls, values: Dict) -> Dict:
