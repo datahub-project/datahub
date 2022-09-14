@@ -733,7 +733,8 @@ def get_column_type(
         # resolve modified type
         if dbt_adapter == "trino":
             TypeClass = resolve_trino_modified_type(column_type)
-        elif dbt_adapter == "postgres":
+        elif dbt_adapter == "postgres" or dbt_adapter == "redshift":
+            # Redshift uses a variant of Postgres, so we can use the same logic.
             TypeClass = resolve_postgres_modified_type(column_type)
 
     # if still not found, report the warning
