@@ -35,6 +35,13 @@
         "recipe": "source:\n    type: looker\n    config:\n        # Coordinates\n        base_url: # Your Looker instance URL, e.g. https://company.looker.com:19999\n\n        # Credentials\n        # Add secret in Secrets Tab with relevant names for each variable\n        client_id: \"${LOOKER_CLIENT_ID}\" # Your Looker client id, e.g. admin\n        client_secret: \"${LOOKER_CLIENT_SECRET}\" # Your Looker password, e.g. password_01"
     },
     {
+        "urn": "urn:li:dataPlatform:lookml",
+        "name": "lookml",
+        "displayName": "LookML",
+        "docsUrl": "https://datahubproject.io/docs/generated/ingestion/sources/looker/#module-lookml",
+        "recipe": "source:\n    type: lookml\n    config:\n        parse_table_names_from_sql: true"
+    },
+    {
         "urn": "urn:li:dataPlatform:tableau",
         "name": "tableau",
         "displayName": "Tableau",
