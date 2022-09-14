@@ -19,6 +19,7 @@ from typing import (
 from urllib.parse import urlparse
 
 import dateutil.parser
+import pydantic
 import requests
 from cached_property import cached_property
 from pydantic import BaseModel, root_validator, validator
@@ -54,11 +55,15 @@ from datahub.ingestion.source.state.dbt_state import DbtCheckpointState
 from datahub.ingestion.source.state.sql_common_state import (
     BaseSQLAlchemyCheckpointState,
 )
+from datahub.ingestion.source.state.stale_entity_removal_handler import (
+    StaleEntityRemovalHandler,
+    StaleEntityRemovalSourceReport,
+    StatefulStaleMetadataRemovalConfig,
+)
 from datahub.ingestion.source.state.stateful_ingestion_base import (
-    StatefulIngestionConfig,
     StatefulIngestionConfigBase,
-    StatefulIngestionReport,
     StatefulIngestionSourceBase,
+    StateType,
 )
 from datahub.metadata.com.linkedin.pegasus2avro.common import (
     AuditStamp,
@@ -119,22 +124,19 @@ logger = logging.getLogger(__name__)
 DBT_PLATFORM = "dbt"
 
 
-class DBTStatefulIngestionConfig(StatefulIngestionConfig):
+class DBTStatefulIngestionConfig(StatefulStaleMetadataRemovalConfig):
     """
-    Specialization of basic StatefulIngestionConfig to adding custom config.
+    Specialization of basic StatefulStaleMetadataRemovalConfig to adding custom config.
     This will be used to override the stateful_ingestion config param of StatefulIngestionConfigBase
     in the SQLAlchemyConfig.
     """
 
-    remove_stale_metadata: bool = True
+    _entity_types: List[str] = pydantic.Field(default=["assertion", "dataset"])
 
 
 @dataclass
-class DBTSourceReport(StatefulIngestionReport):
-    soft_deleted_stale_entities: List[str] = field(default_factory=list)
-
-    def report_stale_entity_soft_deleted(self, urn: str) -> None:
-        self.soft_deleted_stale_entities.append(urn)
+class DBTSourceReport(StaleEntityRemovalSourceReport):
+    pass
 
 
 class EmitDirective(Enum):
@@ -310,15 +312,14 @@ class DBTConfig(StatefulIngestionConfigBase):
         description="Reference to your github location to enable easy navigation from DataHub to your dbt files.",
     )
 
+    stateful_ingestion: Optional[DBTStatefulIngestionConfig] = pydantic.Field(
+        default=None, description="DBT Stateful Ingestion Config."
+    )
+
     @property
     def s3_client(self):
         assert self.aws_connection
         return self.aws_connection.get_s3_client()
-
-    # Custom Stateful Ingestion settings
-    stateful_ingestion: Optional[DBTStatefulIngestionConfig] = Field(
-        default=None, description=""
-    )
 
     @validator("target_platform")
     def validate_target_platform_value(cls, target_platform: str) -> str:
@@ -1086,21 +1087,30 @@ class DBTSource(StatefulIngestionSourceBase):
             self.compiled_owner_extraction_pattern = re.compile(
                 self.config.owner_extraction_pattern
             )
+        # Create and register the stateful ingestion use-case handler.
+        self.stale_entity_removal_handler = StaleEntityRemovalHandler(
+            source=self,
+            config=self.config,
+            state_type_class=DbtCheckpointState,
+            pipeline_name=self.ctx.pipeline_name,
+            run_id=self.ctx.run_id,
+        )
 
-    def get_last_dbt_checkpoint(
-        self, job_id: JobId, checkpoint_state_class: Type[DbtCheckpointState]
+    def get_last_checkpoint(
+        self, job_id: JobId, checkpoint_state_class: Type[StateType]
     ) -> Optional[Checkpoint]:
-
         last_checkpoint: Optional[Checkpoint]
         is_conversion_required: bool = False
         try:
             # Best-case that last checkpoint state is DbtCheckpointState
-            last_checkpoint = self.get_last_checkpoint(job_id, checkpoint_state_class)
+            last_checkpoint = super(DBTSource, self).get_last_checkpoint(
+                job_id, checkpoint_state_class
+            )
         except Exception as e:
             # Backward compatibility for old dbt ingestion source which was saving dbt-nodes in
             # BaseSQLAlchemyCheckpointState
-            last_checkpoint = self.get_last_checkpoint(
-                job_id, BaseSQLAlchemyCheckpointState
+            last_checkpoint = super(DBTSource, self).get_last_checkpoint(
+                job_id, BaseSQLAlchemyCheckpointState  # type: ignore
             )
             logger.debug(
                 f"Found BaseSQLAlchemyCheckpointState as checkpoint state (got {e})."
@@ -1118,62 +1128,6 @@ class DBTSource(StatefulIngestionSourceBase):
             last_checkpoint.state = dbt_checkpoint_state
 
         return last_checkpoint
-
-    # TODO: Consider refactoring this logic out for use across sources as it is leading to a significant amount of
-    #  code duplication.
-    def gen_removed_entity_workunits(self) -> Iterable[MetadataWorkUnit]:
-        last_checkpoint: Optional[Checkpoint] = self.get_last_dbt_checkpoint(
-            self.get_default_ingestion_job_id(), DbtCheckpointState
-        )
-        cur_checkpoint = self.get_current_checkpoint(
-            self.get_default_ingestion_job_id()
-        )
-
-        if (
-            self.config.stateful_ingestion
-            and self.config.stateful_ingestion.remove_stale_metadata
-            and last_checkpoint is not None
-            and last_checkpoint.state is not None
-            and cur_checkpoint is not None
-            and cur_checkpoint.state is not None
-        ):
-            logger.debug("Checking for stale entity removal.")
-
-            def get_soft_delete_item_workunit(urn: str, type: str) -> MetadataWorkUnit:
-
-                logger.info(f"Soft-deleting stale entity of type {type} - {urn}.")
-                mcp = MetadataChangeProposalWrapper(
-                    entityType=type,
-                    entityUrn=urn,
-                    changeType=ChangeTypeClass.UPSERT,
-                    aspectName="status",
-                    aspect=StatusClass(removed=True),
-                )
-                wu = MetadataWorkUnit(id=f"soft-delete-{type}-{urn}", mcp=mcp)
-                self.report.report_workunit(wu)
-                self.report.report_stale_entity_soft_deleted(urn)
-                return wu
-
-            last_checkpoint_state = cast(DbtCheckpointState, last_checkpoint.state)
-            cur_checkpoint_state = cast(DbtCheckpointState, cur_checkpoint.state)
-
-            urns_to_soft_delete_by_type: Dict = {
-                "dataset": [
-                    node_urn
-                    for node_urn in last_checkpoint_state.get_node_urns_not_in(
-                        cur_checkpoint_state
-                    )
-                ],
-                "assertion": [
-                    assertion_urn
-                    for assertion_urn in last_checkpoint_state.get_assertion_urns_not_in(
-                        cur_checkpoint_state
-                    )
-                ],
-            }
-            for entity_type in urns_to_soft_delete_by_type:
-                for urn in urns_to_soft_delete_by_type[entity_type]:
-                    yield get_soft_delete_item_workunit(urn, entity_type)
 
     def load_file_as_json(self, uri: str) -> Any:
         if re.match("^https?://", uri):
@@ -1281,7 +1235,10 @@ class DBTSource(StatefulIngestionSourceBase):
                     }
                 )
             )
-            self.save_checkpoint(node_datahub_urn, "assertion")
+            self.stale_entity_removal_handler.add_entity_to_state(
+                type="assertion",
+                urn=node_datahub_urn,
+            )
 
             dpi_mcp = MetadataChangeProposalWrapper(
                 entityType="assertion",
@@ -1488,31 +1445,7 @@ class DBTSource(StatefulIngestionSourceBase):
                 manifest_nodes_raw,
             )
 
-        if self.is_stateful_ingestion_configured():
-            # Clean up stale entities.
-            yield from self.gen_removed_entity_workunits()
-
-    def remove_duplicate_urns_from_checkpoint_state(self) -> None:
-        """
-        During MCEs creation process some nodes getting processed more than once and hence
-        duplicates URN are getting added in checkpoint_state.
-        This function will remove duplicates
-        """
-        if not self.is_stateful_ingestion_configured():
-            return
-
-        cur_checkpoint = self.get_current_checkpoint(
-            self.get_default_ingestion_job_id()
-        )
-
-        if cur_checkpoint is not None:
-            checkpoint_state = cast(DbtCheckpointState, cur_checkpoint.state)
-            checkpoint_state.encoded_node_urns = list(
-                set(checkpoint_state.encoded_node_urns)
-            )
-            checkpoint_state.encoded_assertion_urns = list(
-                set(checkpoint_state.encoded_assertion_urns)
-            )
+        yield from self.stale_entity_removal_handler.gen_removed_entity_workunits()
 
     def create_platform_mces(
         self,
@@ -1556,7 +1489,9 @@ class DBTSource(StatefulIngestionSourceBase):
                     f"Skipping emission of node {node_datahub_urn} because node_type {node.node_type} is disabled"
                 )
                 continue
-            self.save_checkpoint(node_datahub_urn, "dataset")
+            self.stale_entity_removal_handler.add_entity_to_state(
+                "dataset", node_datahub_urn
+            )
 
             meta_aspects: Dict[str, Any] = {}
             if self.config.enable_meta_mapping and node.meta:
@@ -1618,22 +1553,6 @@ class DBTSource(StatefulIngestionSourceBase):
             wu = MetadataWorkUnit(id=dataset_snapshot.urn, mce=mce)
             self.report.report_workunit(wu)
             yield wu
-
-    def save_checkpoint(self, urn: str, entity_type: str) -> None:
-        # if stateful ingestion is not configured then return
-        if not self.is_stateful_ingestion_configured():
-            return
-
-        cur_checkpoint = self.get_current_checkpoint(
-            self.get_default_ingestion_job_id()
-        )
-        # if no checkpoint found then return
-        if cur_checkpoint is None:
-            return
-
-        # Cast and set the state
-        checkpoint_state = cast(DbtCheckpointState, cur_checkpoint.state)
-        checkpoint_state.set_checkpoint_urn(urn, entity_type)
 
     def extract_query_tag_aspects(
         self,
@@ -1965,22 +1884,6 @@ class DBTSource(StatefulIngestionSourceBase):
     def get_report(self):
         return self.report
 
-    def create_checkpoint(self, job_id: JobId) -> Optional[Checkpoint]:
-        """
-        Create the custom checkpoint with empty state for the job.
-        """
-        assert self.ctx.pipeline_name is not None
-        if job_id == self.get_default_ingestion_job_id():
-            return Checkpoint(
-                job_name=job_id,
-                pipeline_name=self.ctx.pipeline_name,
-                platform_instance_id=self.get_platform_instance_id(),
-                run_id=self.ctx.run_id,
-                config=self.config,
-                state=DbtCheckpointState(),
-            )
-        return None
-
     def get_platform_instance_id(self) -> str:
         """
         DBT project identifier is used as platform instance.
@@ -1996,25 +1899,7 @@ class DBTSource(StatefulIngestionSourceBase):
 
         return f"{self.platform}_{project_id}"
 
-    def is_checkpointing_enabled(self, job_id: JobId) -> bool:
-        if (
-            job_id == self.get_default_ingestion_job_id()
-            and self.is_stateful_ingestion_configured()
-            and self.config.stateful_ingestion
-            and self.config.stateful_ingestion.remove_stale_metadata
-        ):
-            return True
-
-        return False
-
-    def get_default_ingestion_job_id(self) -> JobId:
-        """
-        DBT ingestion job name.
-        """
-        return JobId(f"{self.platform}_stateful_ingestion")
-
     def close(self):
-        self.remove_duplicate_urns_from_checkpoint_state()
         self.prepare_for_commit()
 
     @property
