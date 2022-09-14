@@ -698,8 +698,8 @@ class GlueSource(StatefulIngestionSourceBase):
 
         all_tables: List[dict] = [
             table
-            for database in databases
-            for table in get_tables_from_database(database["Name"])
+            for databaseName in databases.keys()
+            for table in get_tables_from_database(databaseName)
         ]
 
         return databases, all_tables
