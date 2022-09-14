@@ -2,7 +2,7 @@ import dataclasses
 from dataclasses import dataclass
 from os import PathLike
 from typing import Any, Dict, Optional, Type, Union, cast
-from unittest.mock import patch
+from unittest.mock import MagicMock, patch
 
 import pytest
 import requests_mock
@@ -17,6 +17,7 @@ from datahub.ingestion.source.dbt import (
     DBTEntitiesEnabled,
     DBTSource,
     EmitDirective,
+    StatefulIngestionSourceBase,
 )
 from datahub.ingestion.source.sql.sql_types import (
     TRINO_SQL_TYPES_MAP,
@@ -215,7 +216,9 @@ def get_current_checkpoint_from_pipeline(
     pipeline: Pipeline,
 ) -> Optional[Checkpoint]:
     dbt_source = cast(DBTSource, pipeline.source)
-    return dbt_source.get_current_checkpoint(dbt_source.get_default_ingestion_job_id())
+    return dbt_source.get_current_checkpoint(
+        dbt_source.stale_entity_removal_handler.job_id
+    )
 
 
 @pytest.mark.integration
@@ -318,7 +321,9 @@ def test_dbt_stateful(pytestconfig, tmp_path, mock_time, mock_datahub_graph):
         # part of the second state
         state1 = cast(DbtCheckpointState, checkpoint1.state)
         state2 = cast(DbtCheckpointState, checkpoint2.state)
-        difference_urns = list(state1.get_node_urns_not_in(state2))
+        difference_urns = list(
+            state1.get_urns_not_in(type="dataset", other_checkpoint_state=state2)
+        )
 
         assert len(difference_urns) == 2
 
@@ -389,46 +394,47 @@ def test_dbt_state_backward_compatibility(
         "pipeline_name": "statefulpipeline",
     }
 
+    def get_fake_base_sql_alchemy_checkpoint_state(
+        job_id: JobId, checkpoint_state_class: Type[CheckpointStateBase]
+    ) -> Optional[Checkpoint]:
+        if checkpoint_state_class is DbtCheckpointState:
+            raise Exception(
+                "DBT source will call this function again with BaseSQLAlchemyCheckpointState"
+            )
+
+        sql_state = BaseSQLAlchemyCheckpointState()
+        urn1 = "urn:li:dataset:(urn:li:dataPlatform:dbt,pagila.public.actor,PROD)"
+        urn2 = "urn:li:dataset:(urn:li:dataPlatform:postgres,pagila.public.actor,PROD)"
+        sql_state.add_checkpoint_urn(type="table", urn=urn1)
+        sql_state.add_checkpoint_urn(type="table", urn=urn2)
+
+        assert dbt_source.ctx.pipeline_name is not None
+
+        return Checkpoint(
+            job_name=dbt_source.stale_entity_removal_handler.job_id,
+            pipeline_name=dbt_source.ctx.pipeline_name,
+            platform_instance_id=dbt_source.get_platform_instance_id(),
+            run_id=dbt_source.ctx.run_id,
+            config=dbt_source.config,
+            state=sql_state,
+        )
+
     with patch(
         "datahub.ingestion.source.state_provider.datahub_ingestion_checkpointing_provider.DataHubGraph",
         mock_datahub_graph,
-    ) as mock_checkpoint:
+    ) as mock_checkpoint, patch.object(
+        StatefulIngestionSourceBase,
+        "get_last_checkpoint",
+        MagicMock(side_effect=get_fake_base_sql_alchemy_checkpoint_state),
+    ) as mock_source_base_get_last_checkpoint:
         mock_checkpoint.return_value = mock_datahub_graph
         pipeline = Pipeline.create(pipeline_config_dict)
         dbt_source = cast(DBTSource, pipeline.source)
 
-        def get_fake_base_sql_alchemy_checkpoint_state(
-            job_id: JobId, checkpoint_state_class: Type[CheckpointStateBase]
-        ) -> Optional[Checkpoint]:
-            if checkpoint_state_class is DbtCheckpointState:
-                raise Exception(
-                    "DBT source will call this function again with BaseSQLAlchemyCheckpointState"
-                )
-
-            sql_state = BaseSQLAlchemyCheckpointState()
-            urn1 = "urn:li:dataset:(urn:li:dataPlatform:dbt,pagila.public.actor,PROD)"
-            urn2 = (
-                "urn:li:dataset:(urn:li:dataPlatform:postgres,pagila.public.actor,PROD)"
-            )
-            sql_state.add_table_urn(urn1)
-            sql_state.add_table_urn(urn2)
-
-            assert dbt_source.ctx.pipeline_name is not None
-
-            return Checkpoint(
-                job_name=dbt_source.get_default_ingestion_job_id(),
-                pipeline_name=dbt_source.ctx.pipeline_name,
-                platform_instance_id=dbt_source.get_platform_instance_id(),
-                run_id=dbt_source.ctx.run_id,
-                config=dbt_source.config,
-                state=sql_state,
-            )
-
-        # Set fake method to return BaseSQLAlchemyCheckpointState
-        dbt_source.get_last_checkpoint = get_fake_base_sql_alchemy_checkpoint_state  # type: ignore[assignment]
-        last_checkpoint = dbt_source.get_last_dbt_checkpoint(
-            dbt_source.get_default_ingestion_job_id(), DbtCheckpointState
+        last_checkpoint = dbt_source.get_last_checkpoint(
+            dbt_source.stale_entity_removal_handler.job_id, DbtCheckpointState
         )
+        mock_source_base_get_last_checkpoint.assert_called()
         # Our fake method is returning BaseSQLAlchemyCheckpointState,however it should get converted to DbtCheckpointState
         assert last_checkpoint is not None and isinstance(
             last_checkpoint.state, DbtCheckpointState
