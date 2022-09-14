@@ -2,7 +2,6 @@ package com.linkedin.metadata.search.utils;
 
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
-import com.linkedin.data.schema.RecordDataSchema;
 import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.key.ChartKey;
 import com.linkedin.metadata.key.DashboardKey;
