@@ -34,6 +34,8 @@ get_databases_response = {
         },
     ]
 }
+databases_1 = {"flights-database": {"Name": "flights-database"}}
+databases_2 = {"test-database": {"Name": "test-database"}}
 tables_1 = [
     {
         "Name": "avro",

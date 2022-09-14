@@ -30,6 +30,8 @@ from tests.test_helpers.state_helpers import (
 )
 from tests.test_helpers.type_helpers import PytestConfig
 from tests.unit.test_glue_source_stubs import (
+    databases_1,
+    databases_2,
     get_bucket_tagging,
     get_databases_response,
     get_dataflow_graph_response_1,
@@ -277,13 +279,13 @@ def test_glue_stateful(pytestconfig, tmp_path, mock_time, mock_datahub_graph):
     ) as mock_checkpoint:
         mock_checkpoint.return_value = mock_datahub_graph
         with patch(
-            "datahub.ingestion.source.aws.glue.GlueSource.get_all_tables",
-        ) as mock_get_all_tables:
+            "datahub.ingestion.source.aws.glue.GlueSource.get_all_tables_and_databases",
+        ) as mock_get_all_tables_and_databases:
             tables_on_first_call = tables_1
             tables_on_second_call = tables_2
-            mock_get_all_tables.side_effect = [
-                tables_on_first_call,
-                tables_on_second_call,
+            mock_get_all_tables_and_databases.side_effect = [
+                (databases_1, tables_on_first_call),
+                (databases_2, tables_on_second_call),
             ]
 
             pipeline_run1 = run_and_get_pipeline(pipeline_config_dict)
