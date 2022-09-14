@@ -24,7 +24,6 @@ import java.util.stream.Collectors;
 import com.linkedin.entity.client.EntityClient;
 import com.datahub.authentication.Authentication;
 import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
 import lombok.extern.slf4j.Slf4j;
 
 @Slf4j
@@ -49,24 +48,6 @@ public class AspectUtils {
         .map(entry -> getProposalFromAspect(entry.getKey(), entry.getValue(), metadataChangeProposal))
         .filter(Objects::nonNull)
         .collect(Collectors.toList());
-  }
-
-  @Nullable
-  public static Aspect getLatestAspect(
-      Urn urn,
-      String aspectName,
-      EntityClient entityClient,
-      Authentication authentication
-  ) throws Exception {
-    EntityResponse response = entityClient.getV2(
-        urn.getEntityType(),
-        urn,
-        ImmutableSet.of(aspectName),
-        authentication);
-    if (response != null && response.getAspects().containsKey(aspectName)) {
-      return response.getAspects().get(aspectName).getValue();
-    }
-    return null;
   }
 
   public static Map<Urn, Aspect> batchGetLatestAspect(
