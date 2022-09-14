@@ -1031,11 +1031,11 @@ class GlueSource(StatefulIngestionSourceBase):
             self.report.report_workunit(workunit)
             yield workunit
 
-            # We also want to assign "Table" subType to the dataset representing glue table - unfortunately it is not
+            # We also want to assign "table" subType to the dataset representing glue table - unfortunately it is not
             # possible via Dataset snapshot embedded in a mce, so we have to generate a mcp.
             workunit = MetadataChangeProposalWrapper(
                 entityUrn=dataset_urn,
-                aspect=SubTypes(typeNames=["Table"]),
+                aspect=SubTypes(typeNames=["table"]),
             ).as_workunit()
             self.report.report_workunit(workunit)
             yield workunit
