@@ -7,7 +7,6 @@ import com.linkedin.common.TagAssociation;
 import com.linkedin.common.TagAssociationArray;
 import com.linkedin.common.urn.TagUrn;
 import com.linkedin.common.urn.Urn;
-import com.linkedin.entity.Aspect;
 import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.resource.ResourceReference;
 import com.linkedin.metadata.resource.SubResourceType;
@@ -17,13 +16,9 @@ import com.linkedin.schema.EditableSchemaFieldInfoArray;
 import com.linkedin.schema.EditableSchemaMetadata;
 import java.net.URISyntaxException;
 import java.util.ArrayList;
-import java.util.Collections;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Objects;
 import java.util.Optional;
-import java.util.Set;
 import java.util.stream.Collectors;
 import  com.linkedin.entity.client.EntityClient;
 import com.datahub.authentication.Authentication;
@@ -34,14 +29,10 @@ import static com.linkedin.metadata.entity.AspectUtils.*;
 
 
 @Slf4j
-public class TagService {
-
-  private final EntityClient entityClient;
-  private final Authentication systemAuthentication;
+public class TagService extends BaseService {
 
   public TagService(@Nonnull EntityClient entityClient, @Nonnull Authentication systemAuthentication) {
-    this.entityClient = Objects.requireNonNull(entityClient);
-    this.systemAuthentication = Objects.requireNonNull(systemAuthentication);
+    super(entityClient, systemAuthentication);
   }
 
   /**
@@ -344,84 +335,6 @@ public class TagService {
     return tagAssociationArray;
   }
 
-  @Nonnull
-  private Map<Urn, GlobalTags> getTagsAspects(
-      @Nonnull Set<Urn> entityUrns,
-      @Nonnull GlobalTags defaultValue,
-      @Nonnull Authentication authentication) {
-
-    if (entityUrns.size() <= 0) {
-      return Collections.emptyMap();
-    }
-
-    try {
-      Map<Urn, Aspect> aspects = batchGetLatestAspect(
-          entityUrns.stream().findFirst().get().getEntityType(), // TODO Improve this.
-          entityUrns,
-          Constants.GLOBAL_TAGS_ASPECT_NAME,
-          this.entityClient,
-          authentication
-      );
-
-      final Map<Urn, GlobalTags> finalResult = new HashMap<>();
-      for (Urn entity : entityUrns) {
-        Aspect aspect = aspects.get(entity);
-        if (aspect == null) {
-          finalResult.put(entity, defaultValue);
-        } else {
-          finalResult.put(entity, new GlobalTags(aspect.data()));
-        }
-      }
-      return finalResult;
-    } catch (Exception e) {
-      log.error(
-          "Error retrieving global tags for entities. Entities: {} aspect: {}",
-          entityUrns,
-          Constants.GLOSSARY_TERMS_ASPECT_NAME,
-          e);
-      return Collections.emptyMap();
-    }
-  }
-
-  @Nonnull
-  private Map<Urn, EditableSchemaMetadata> getEditableSchemaMetadataAspects(
-      @Nonnull Set<Urn> entityUrns,
-      @Nonnull EditableSchemaMetadata defaultValue,
-      @Nonnull Authentication authentication) {
-
-    if (entityUrns.size() <= 0) {
-      return Collections.emptyMap();
-    }
-
-    try {
-      Map<Urn, Aspect> aspects = batchGetLatestAspect(
-          entityUrns.stream().findFirst().get().getEntityType(), // TODO Improve this.
-          entityUrns,
-          Constants.EDITABLE_SCHEMA_METADATA_ASPECT_NAME,
-          this.entityClient,
-          authentication
-      );
-
-      final Map<Urn, EditableSchemaMetadata> finalResult = new HashMap<>();
-      for (Urn entity : entityUrns) {
-        Aspect aspect = aspects.get(entity);
-        if (aspect == null) {
-          finalResult.put(entity, defaultValue);
-        } else {
-          finalResult.put(entity, new EditableSchemaMetadata(aspect.data()));
-        }
-      }
-      return finalResult;
-    } catch (Exception e) {
-      log.error(
-          "Error retrieving editable schema metadata for entities. Entities: {} aspect: {}",
-          entityUrns,
-          Constants.EDITABLE_SCHEMA_METADATA_ASPECT_NAME,
-          e);
-      return Collections.emptyMap();
-    }
-  }
-
   private static EditableSchemaFieldInfo getFieldInfoFromSchema(
       EditableSchemaMetadata editableSchemaMetadata,
       String fieldPath
@@ -443,13 +356,6 @@ public class TagService {
       newFieldInfo.setFieldPath(fieldPath);
       editableSchemaMetadataArray.add(newFieldInfo);
       return newFieldInfo;
-    }
-  }
-
-  private void ingestChangeProposals(@Nonnull List<MetadataChangeProposal> changes, @Nonnull Authentication authentication) throws Exception {
-    // TODO: Replace this with a batch ingest proposals endpoint.
-    for (MetadataChangeProposal change : changes) {
-      this.entityClient.ingestProposal(change, authentication);
     }
   }
 }
