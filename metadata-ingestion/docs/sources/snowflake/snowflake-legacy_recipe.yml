@@ -25,7 +25,7 @@ source:
     password: "${SNOWFLAKE_PASS}"
     role: "datahub_role"
 
-    # Change these as per your database names. Remove to all all databases
+    # Change these as per your database names. Remove to get all databases
     database_pattern:
       allow:
         - "^ACCOUNTING_DB$"
