@@ -77,7 +77,7 @@ timestamp < "{end_time}"
         self.config = config
         self.report = report
         self.lineage_metadata: Dict[str, Set[str]] = defaultdict()
-        self.loaded_project_ids:List[str] = []
+        self.loaded_project_ids: List[str] = []
 
     def error(self, log: logging.Logger, key: str, reason: str) -> None:
         self.report.report_failure(key, reason)
@@ -426,9 +426,9 @@ timestamp < "{end_time}"
             # Exported bigquery_audit_metadata should contain every projects' audit metada
             if len(self.loaded_project_ids) > 0:
                 return {}
-            lineage_metadata = ( (
+            lineage_metadata = (
                 lineage_extractor.compute_bigquery_lineage_via_exported_bigquery_audit_metadata()
-            ))
+            )
         else:
             lineage_metadata = (
                 lineage_extractor.compute_bigquery_lineage_via_gcp_logging(project_id)
@@ -474,10 +474,12 @@ timestamp < "{end_time}"
     ) -> Optional[Tuple[UpstreamLineageClass, Dict[str, str]]]:
         if table_identifier.project_id not in self.loaded_project_ids:
             with PerfTimer() as timer:
-                self.lineage_metadata.update(self._compute_bigquery_lineage(
-                    table_identifier.project_id
-                ))
-                self.report.lineage_extraction_sec[table_identifier.project_id] = round(timer.elapsed_seconds(), 2)
+                self.lineage_metadata.update(
+                    self._compute_bigquery_lineage(table_identifier.project_id)
+                )
+                self.report.lineage_extraction_sec[table_identifier.project_id] = round(
+                    timer.elapsed_seconds(), 2
+                )
                 self.loaded_project_ids.append(table_identifier.project_id)
 
         bq_table = BigQueryTableRef.from_bigquery_table(table_identifier)

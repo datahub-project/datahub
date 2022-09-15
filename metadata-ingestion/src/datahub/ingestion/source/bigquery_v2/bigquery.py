@@ -162,7 +162,9 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
         self.config: BigQueryV2Config = config
         self.report: BigQueryV2Report = BigQueryV2Report()
         self.platform: str = "bigquery"
-        BigqueryTableIdentifier._BIGQUERY_DEFAULT_SHARDED_TABLE_REGEX = self.config.sharded_table_pattern
+        BigqueryTableIdentifier._BIGQUERY_DEFAULT_SHARDED_TABLE_REGEX = (
+            self.config.sharded_table_pattern
+        )
 
         # For database, schema, tables, views, etc
         self.lineage_extractor = BigqueryLineageExtractor(config, self.report)
@@ -829,9 +831,13 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
                         ):
                             table_items.pop(last_table_identifier.table)
                             table_items[table.table_id] = table
-                            logger.debug(f"Skipping table {last_table_identifier.raw_table_name()} as it is not the latest shard.")
+                            logger.debug(
+                                f"Skipping table {last_table_identifier.raw_table_name()} as it is not the latest shard."
+                            )
                         else:
-                            logger.debug(f"Skipping table {table} as it was already seen.")
+                            logger.debug(
+                                f"Skipping table {table} as it was already seen."
+                            )
                             continue
                     else:
                         table_count = table_count + 1
@@ -840,9 +846,11 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
                     last_table_identifier = table_identifier
 
                     if str(table_identifier).startswith(
-                            self.config.temp_table_dataset_prefix
+                        self.config.temp_table_dataset_prefix
                     ):
-                        logger.debug(f"Dropping temporary table {table_identifier.table}")
+                        logger.debug(
+                            f"Dropping temporary table {table_identifier.table}"
+                        )
                         self.report.report_dropped(table_identifier.raw_table_name())
                         continue
 
