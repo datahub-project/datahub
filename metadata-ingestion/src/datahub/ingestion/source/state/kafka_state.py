@@ -3,16 +3,22 @@ from typing import Iterable, List
 import pydantic
 
 from datahub.emitter.mce_builder import dataset_urn_to_key, make_dataset_urn
-from datahub.ingestion.source.state.checkpoint import CheckpointStateBase
+from datahub.ingestion.source.state.stale_entity_removal_handler import (
+    StaleEntityCheckpointStateBase,
+)
 
 
-class KafkaCheckpointState(CheckpointStateBase):
+class KafkaCheckpointState(StaleEntityCheckpointStateBase["KafkaCheckpointState"]):
     """
     This Class represents the checkpoint state for Kafka based sources.
     Stores all the topics being ingested and it is used to remove any stale entities.
     """
 
     encoded_topic_urns: List[str] = pydantic.Field(default_factory=list)
+
+    @classmethod
+    def get_supported_types(cls) -> List[str]:
+        return ["topic"]
 
     @staticmethod
     def _get_separator() -> str:
@@ -38,12 +44,16 @@ class KafkaCheckpointState(CheckpointStateBase):
             )
             yield make_dataset_urn(platform, name, env)
 
-    def get_topic_urns_not_in(
-        self, checkpoint: "KafkaCheckpointState"
-    ) -> Iterable[str]:
-        yield from self._get_urns_not_in(
-            self.encoded_topic_urns, checkpoint.encoded_topic_urns
-        )
+    def add_checkpoint_urn(self, type: str, urn: str) -> None:
+        assert type in self.get_supported_types()
+        if type == "topic":
+            self.encoded_topic_urns.append(self._get_lightweight_repr(urn))
 
-    def add_topic_urn(self, topic_urn: str) -> None:
-        self.encoded_topic_urns.append(self._get_lightweight_repr(topic_urn))
+    def get_urns_not_in(
+        self, type: str, other_checkpoint_state: "KafkaCheckpointState"
+    ) -> Iterable[str]:
+        assert type in self.get_supported_types()
+        if type == "topic":
+            yield from self._get_urns_not_in(
+                self.encoded_topic_urns, other_checkpoint_state.encoded_topic_urns
+            )

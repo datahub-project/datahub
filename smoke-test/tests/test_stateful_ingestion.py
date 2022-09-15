@@ -1,14 +1,14 @@
 from typing import Any, Dict, Optional, cast
 
+from sqlalchemy import create_engine
+from sqlalchemy.sql import text
+
 from datahub.ingestion.api.committable import StatefulCommittable
 from datahub.ingestion.run.pipeline import Pipeline
 from datahub.ingestion.source.sql.mysql import MySQLConfig, MySQLSource
 from datahub.ingestion.source.sql.sql_common import \
     BaseSQLAlchemyCheckpointState
 from datahub.ingestion.source.state.checkpoint import Checkpoint
-from sqlalchemy import create_engine
-from sqlalchemy.sql import text
-
 from tests.utils import (get_gms_url, get_mysql_password, get_mysql_url,
                          get_mysql_username)
 
@@ -48,7 +48,7 @@ def test_stateful_ingestion(wait_for_healthchecks):
     ) -> Optional[Checkpoint]:
         mysql_source = cast(MySQLSource, pipeline.source)
         return mysql_source.get_current_checkpoint(
-            mysql_source.get_default_ingestion_job_id()
+            mysql_source.stale_entity_removal_handler.job_id
         )
 
     source_config_dict: Dict[str, Any] = {
@@ -112,7 +112,9 @@ def test_stateful_ingestion(wait_for_healthchecks):
     # 5. Perform all assertions on the states
     state1 = cast(BaseSQLAlchemyCheckpointState, checkpoint1.state)
     state2 = cast(BaseSQLAlchemyCheckpointState, checkpoint2.state)
-    difference_urns = list(state1.get_table_urns_not_in(state2))
+    difference_urns = list(
+        state1.get_urns_not_in(type="table", other_checkpoint_state=state2)
+    )
     assert len(difference_urns) == 1
     assert (
         difference_urns[0]
