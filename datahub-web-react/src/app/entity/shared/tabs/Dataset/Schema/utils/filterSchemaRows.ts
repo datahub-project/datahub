@@ -1,7 +1,7 @@
 import { EntityType, SchemaField } from '../../../../../../../types.generated';
 import EntityRegistry from '../../../../../EntityRegistry';
 
-function tagsOrTermsMatchFilter(field: SchemaField, filterText: string, entityRegistry: EntityRegistry) {
+function matchesTagsOrTerms(field: SchemaField, filterText: string, entityRegistry: EntityRegistry) {
     return (
         field.globalTags?.tags?.find((tagAssociation) =>
             entityRegistry.getDisplayName(EntityType.Tag, tagAssociation.tag).toLocaleLowerCase().includes(filterText),
@@ -19,7 +19,7 @@ function tagsOrTermsMatchFilter(field: SchemaField, filterText: string, entityRe
 function getFilteredFieldPathsByMetadata(editableSchemaMetadata: any, entityRegistry, filterText) {
     return (
         editableSchemaMetadata?.editableSchemaFieldInfo
-            .filter((fieldInfo) => tagsOrTermsMatchFilter(fieldInfo, filterText, entityRegistry))
+            .filter((fieldInfo) => matchesTagsOrTerms(fieldInfo, filterText, entityRegistry))
             .map((fieldInfo) => fieldInfo.fieldPath) || []
     );
 }
@@ -54,7 +54,7 @@ export function filterSchemaRows(
         if (
             matchesFieldName(row.fieldPath, formattedFilterText) ||
             matchesEditableTagsOrTerms(row, filteredFieldPathsByEditableMetadata) ||
-            tagsOrTermsMatchFilter(row, formattedFilterText, entityRegistry) // non-editable tags and terms
+            matchesTagsOrTerms(row, formattedFilterText, entityRegistry) // non-editable tags and terms
         ) {
             finalFieldPaths.add(row.fieldPath);
         }
@@ -63,7 +63,7 @@ export function filterSchemaRows(
         if (
             matchesFieldName(fieldName, formattedFilterText) ||
             matchesEditableTagsOrTerms(row, filteredFieldPathsByEditableMetadata) ||
-            tagsOrTermsMatchFilter(row, formattedFilterText, entityRegistry)
+            matchesTagsOrTerms(row, formattedFilterText, entityRegistry)
         ) {
             // if we match specifically on this field (not just its parent), add and expand all parents
             splitFieldPath.reduce((previous, current) => {
