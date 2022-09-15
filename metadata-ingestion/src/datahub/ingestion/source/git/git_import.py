@@ -22,6 +22,8 @@ class GitClone:
         dirs_to_create = [keys_dir, checkout_dir]
         for d in dirs_to_create:
             os.makedirs(d, exist_ok=True)
+
+        # Write the SSH key to a file.
         git_ssh_identity_file = os.path.join(keys_dir, "ssh_key")
         with open(
             git_ssh_identity_file,
@@ -29,7 +31,11 @@ class GitClone:
             opener=lambda path, flags: os.open(path, flags, 0o600),
         ) as fp:
             fp.write(ssh_key.get_secret_value())
+            # SSH keys must have a trailing newline. Multiple newlines are fine,
+            # so we can just add one unconditionally.
+            fp.write("\n")
 
+        # Clone the repo using the ssh key.
         git_ssh_cmd = f"ssh -i {git_ssh_identity_file}"
         if self.skip_known_host_verification:
             # Without this, the ssh command will prompt for confirmation of the host key.
