@@ -66,10 +66,6 @@ class DataLakeSourceConfig(PlatformSourceConfigBase, EnvBasedSourceConfigBase):
 
     @pydantic.root_validator(pre=False)
     def validate_platform(cls, values: Dict) -> Dict:
-        value = values.get("platform")
-        if value is not None and value != "":
-            return values
-
         if not values.get("path_specs") and not values.get("path_spec"):
             raise ValueError("Either path_specs or path_spec needs to be specified")
 
