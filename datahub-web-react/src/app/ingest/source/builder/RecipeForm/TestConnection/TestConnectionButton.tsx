@@ -29,10 +29,11 @@ export function getRecipeJson(recipeYaml: string) {
 interface Props {
     recipe: string;
     sourceConfigs?: SourceConfig;
+    version?: string | null;
 }
 
 function TestConnectionButton(props: Props) {
-    const { recipe, sourceConfigs } = props;
+    const { recipe, sourceConfigs, version } = props;
     const [isLoading, setIsLoading] = useState(false);
     const [isModalVisible, setIsModalVisible] = useState(false);
     const [pollingInterval, setPollingInterval] = useState<null | NodeJS.Timeout>(null);
@@ -84,7 +85,7 @@ function TestConnectionButton(props: Props) {
     function testConnection() {
         const recipeJson = getRecipeJson(recipe);
         if (recipeJson) {
-            createTestConnectionRequest({ variables: { input: { recipe: recipeJson } } })
+            createTestConnectionRequest({ variables: { input: { recipe: recipeJson, version } } })
                 .then((res) =>
                     getIngestionExecutionRequest({
                         variables: { urn: res.data?.createTestConnectionRequest as string },

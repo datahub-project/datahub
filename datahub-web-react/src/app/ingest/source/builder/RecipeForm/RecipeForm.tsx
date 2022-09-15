@@ -10,7 +10,7 @@ import FormField from './FormField';
 import TestConnectionButton from './TestConnection/TestConnectionButton';
 import { useListSecretsQuery } from '../../../../../graphql/ingestion.generated';
 import { RecipeField, setFieldValueOnRecipe } from './common';
-import { SourceConfig } from '../types';
+import { SourceBuilderState, SourceConfig } from '../types';
 
 export const ControlsContainer = styled.div`
     display: flex;
@@ -89,7 +89,7 @@ function shouldRenderFilterSectionHeader(field: RecipeField, index: number, filt
 }
 
 interface Props {
-    type: string;
+    state: SourceBuilderState;
     isEditing: boolean;
     displayRecipe: string;
     sourceConfigs?: SourceConfig;
@@ -99,9 +99,11 @@ interface Props {
 }
 
 function RecipeForm(props: Props) {
-    const { type, isEditing, displayRecipe, sourceConfigs, setStagedRecipe, onClickNext, goToPrevious } = props;
+    const { state, isEditing, displayRecipe, sourceConfigs, setStagedRecipe, onClickNext, goToPrevious } = props;
+    const { type } = state;
+    const version = state.config?.version;
     const { fields, advancedFields, filterFields, filterSectionTooltip, advancedSectionTooltip, defaultOpenSections } =
-        RECIPE_FIELDS[type];
+        RECIPE_FIELDS[type as string];
     const allFields = [...fields, ...advancedFields, ...filterFields];
     const { data, refetch: refetchSecrets } = useListSecretsQuery({
         variables: {
@@ -147,9 +149,13 @@ function RecipeForm(props: Props) {
                             removeMargin={i === fields.length - 1}
                         />
                     ))}
-                    {CONNECTORS_WITH_TEST_CONNECTION.has(type) && (
+                    {CONNECTORS_WITH_TEST_CONNECTION.has(type as string) && (
                         <TestConnectionWrapper>
-                            <TestConnectionButton recipe={displayRecipe} sourceConfigs={sourceConfigs} />
+                            <TestConnectionButton
+                                recipe={displayRecipe}
+                                sourceConfigs={sourceConfigs}
+                                version={version}
+                            />
                         </TestConnectionWrapper>
                     )}
                 </Collapse.Panel>
