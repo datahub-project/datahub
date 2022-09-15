@@ -5,7 +5,7 @@
     "changeType": "UPSERT",
     "aspectName": "containerProperties",
     "aspect": {
-        "value": "{\"customProperties\": {\"platform\": \"glue\", \"instance\": \"PROD\", \"database\": \"test-database\"}, \"name\": \"test-database\"}",
+        "value": "{\"customProperties\": {\"platform\": \"glue\", \"instance\": \"PROD\", \"database\": \"test-database\"}, \"name\": \"test-database\", \"qualifiedName\": \"arn:aws:glue:eu-east-1:123412341234:database/test-database\"}",
         "contentType": "application/json"
     },
     "systemMetadata": {
@@ -74,6 +74,7 @@
                             "SortColumns": "[]",
                             "StoredAsSubDirectories": "False"
                         },
+                        "qualifiedName": "arn:aws:glue:eu-east-1:795586375822:table/test-database/test_jsons_markers",
                         "tags": []
                     }
                 },
@@ -252,6 +253,7 @@
                             "SortColumns": "[]",
                             "StoredAsSubDirectories": "False"
                         },
+                        "qualifiedName": "arn:aws:glue:eu-east-1:795586375822:table/test-database/test_parquet",
                         "tags": []
                     }
                 },

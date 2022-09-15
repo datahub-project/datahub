@@ -1974,6 +1974,11 @@ type ContainerProperties {
   Native platform URL of the Container
   """
   externalUrl: String
+
+  """
+  Fully-qualified name of the Container
+  """
+  qualifiedName: String
 }
 
 """
