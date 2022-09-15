@@ -7,6 +7,8 @@ export enum FieldType {
     LIST,
     SELECT,
     SECRET,
+    DICT,
+    TEXTAREA,
 }
 
 interface Option {
@@ -24,6 +26,8 @@ export interface RecipeField {
     section?: string;
     options?: Option[];
     buttonLabel?: string;
+    keyField?: RecipeField;
+    fields?: RecipeField[];
     getValueFromRecipeOverride?: (recipe: any) => any;
     setValueOnRecipeOverride?: (recipe: any, value: any) => any;
     placeholder?: string;
