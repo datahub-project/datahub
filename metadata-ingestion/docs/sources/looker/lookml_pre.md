@@ -11,8 +11,7 @@ In a nutshell, there are three steps:
 2. Add the public key to your Looker git repo as a deploy key with read access (no need to provision write access). Follow the guide [here](https://docs.github.com/en/developers/overview/managing-deploy-keys#deploy-keys) for that.
 ![Image](https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/gitssh/git-deploy-key.png)
 
-3. Provision the private key (paste the contents of the file) as a secret on the DataHub Ingestion UI. Give it a handy name like **LOOKER_DATAHUB_DEPLOY_KEY**
-![Image](https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/gitssh/datahub-secret.png)
+3. Make note of the private key file, you will need to paste the contents of the file into the **GitHub Deploy Key** field later while setting up [ingestion using the UI](#ui-based-ingestion-recommended-for-ease-of-use).
 
 #### [Optional] Create an API key with admin privileges
 
@@ -32,16 +31,34 @@ Read on to learn more about these options.
 
 ### UI-based Ingestion [Recommended for ease of use]
 
-To ingest LookML metadata through the UI, you must set up a GitHub deploy key using the instructions in the section [above](#optional-create-a-github-deploy-key). Once that is complete, you can follow the on-screen instructions to set up a LookML source using the Ingestion page.
+To ingest LookML metadata through the UI, you must set up a GitHub deploy key using the instructions in the section [above](#recommended-create-a-github-deploy-key). Once that is complete, you can follow the on-screen instructions to set up a LookML source using the Ingestion page.
+The following video shows you how to ingest LookML metadata through the UI and find the relevant information from your Looker account.
+
+<div style={{ position: "relative", paddingBottom: "56.25%", height: 0 }}>
+  <iframe
+    src="https://www.loom.com/share/c66dd625de7f48b39005e0eb9c345f5a"
+    frameBorder={0}
+    webkitallowfullscreen=""
+    mozallowfullscreen=""
+    allowFullScreen=""
+    style={{
+      position: "absolute",
+      top: 0,
+      left: 0,
+      width: "100%",
+      height: "100%"
+    }}
+  />
+</div>
 
 ### GitHub Action based Ingestion [Recommended for push-based integration]
 
-You can set up ingestion using a GitHub Action to push metadata whenever your main lookml repo changes.
+You can set up ingestion using a GitHub Action to push metadata whenever your main Looker GitHub repo changes.
 The following sample GitHub action file can be modified to emit LookML metadata whenever there is a change to your repository. This ensures that metadata is already fresh and up to date.
 
 #### Sample GitHub Action
 
-Drop this file into your `.github/workflows` directory inside your Looker github repo.
+Drop this file into your `.github/workflows` directory inside your Looker GitHub repo.
 You need to set up the following secrets in your GitHub repository to get this workflow to work:
 - DATAHUB_GMS_HOST: The endpoint where your DataHub host is running
 - DATAHUB_TOKEN: An authentication token provisioned for DataHub ingestion

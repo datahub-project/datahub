@@ -100,7 +100,9 @@ function FormField(props: Props) {
     if (field.type === FieldType.DICT) return <DictField field={field} />;
 
     const isBoolean = field.type === FieldType.BOOLEAN;
-    const input = isBoolean ? <Checkbox /> : <Input placeholder={field.placeholder} />;
+    let input = <Input placeholder={field.placeholder} />;
+    if (isBoolean) input = <Checkbox />;
+    if (field.type === FieldType.TEXTAREA) input = <Input.TextArea placeholder={field.placeholder} />;
     const valuePropName = isBoolean ? 'checked' : 'value';
     const getValueFromEvent = isBoolean ? undefined : (e) => (e.target.value === '' ? null : e.target.value);
 
