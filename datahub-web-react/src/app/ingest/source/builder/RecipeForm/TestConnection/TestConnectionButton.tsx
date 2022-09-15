@@ -6,9 +6,10 @@ import {
     useCreateTestConnectionRequestMutation,
     useGetIngestionExecutionRequestLazyQuery,
 } from '../../../../../../graphql/ingestion.generated';
-import { FAILURE, getSourceConfigs, RUNNING, yamlToJson } from '../../../utils';
+import { FAILURE, RUNNING, yamlToJson } from '../../../utils';
 import { TestConnectionResult } from './types';
 import TestConnectionModal from './TestConnectionModal';
+import { SourceConfig } from '../../types';
 
 export function getRecipeJson(recipeYaml: string) {
     // Convert the recipe into it's json representation, and catch + report exceptions while we do it.
@@ -26,20 +27,18 @@ export function getRecipeJson(recipeYaml: string) {
 }
 
 interface Props {
-    type: string;
     recipe: string;
+    sourceConfigs?: SourceConfig;
 }
 
 function TestConnectionButton(props: Props) {
-    const { type, recipe } = props;
+    const { recipe, sourceConfigs } = props;
     const [isLoading, setIsLoading] = useState(false);
     const [isModalVisible, setIsModalVisible] = useState(false);
     const [pollingInterval, setPollingInterval] = useState<null | NodeJS.Timeout>(null);
     const [testConnectionResult, setTestConnectionResult] = useState<null | TestConnectionResult>(null);
     const [createTestConnectionRequest, { data: requestData }] = useCreateTestConnectionRequestMutation();
     const [getIngestionExecutionRequest, { data: resultData, loading }] = useGetIngestionExecutionRequestLazyQuery();
-
-    const sourceConfigs = getSourceConfigs(type);
 
     useEffect(() => {
         if (requestData && requestData.createTestConnectionRequest) {

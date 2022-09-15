@@ -1,13 +1,14 @@
 import logging
-import typing
 from collections import defaultdict
 from dataclasses import dataclass, field as dataclass_field
 from typing import (
     Any,
+    DefaultDict,
     Dict,
     Iterable,
     Iterator,
     List,
+    Mapping,
     Optional,
     Set,
     Tuple,
@@ -56,13 +57,16 @@ from datahub.ingestion.source.state.checkpoint import Checkpoint
 from datahub.ingestion.source.state.sql_common_state import (
     BaseSQLAlchemyCheckpointState,
 )
+from datahub.ingestion.source.state.stale_entity_removal_handler import (
+    StaleEntityRemovalHandler,
+    StaleEntityRemovalSourceReport,
+    StatefulStaleMetadataRemovalConfig,
+)
 from datahub.ingestion.source.state.stateful_ingestion_base import (
-    StatefulIngestionConfig,
     StatefulIngestionConfigBase,
-    StatefulIngestionReport,
     StatefulIngestionSourceBase,
 )
-from datahub.metadata.com.linkedin.pegasus2avro.common import Status
+from datahub.metadata.com.linkedin.pegasus2avro.common import Status, SubTypes
 from datahub.metadata.com.linkedin.pegasus2avro.metadata.snapshot import DatasetSnapshot
 from datahub.metadata.com.linkedin.pegasus2avro.mxe import MetadataChangeEvent
 from datahub.metadata.com.linkedin.pegasus2avro.schema import (
@@ -104,14 +108,14 @@ DEFAULT_PLATFORM = "glue"
 VALID_PLATFORMS = [DEFAULT_PLATFORM, "athena"]
 
 
-class GlueStatefulIngestionConfig(StatefulIngestionConfig):
+class GlueStatefulIngestionConfig(StatefulStaleMetadataRemovalConfig):
     """
-    Specialization of basic StatefulIngestionConfig to adding custom config.
+    Specialization of StatefulStaleMetadataRemovalConfig to adding custom config.
     This will be used to override the stateful_ingestion config param of StatefulIngestionConfigBase
     in the GlueSourceConfig.
     """
 
-    remove_stale_metadata: bool = True
+    _entity_types: List[str] = Field(default=["table"])
 
 
 class GlueSourceConfig(
@@ -155,7 +159,7 @@ class GlueSourceConfig(
         default=False,
         description="If an S3 Objects Tags should be created for the Tables ingested by Glue.",
     )
-    profiling: GlueProfilingConfig = Field(
+    profiling: Optional[GlueProfilingConfig] = Field(
         default=None,
         description="Configs to ingest data profiles from glue table",
     )
@@ -200,19 +204,15 @@ class GlueSourceConfig(
 
 
 @dataclass
-class GlueSourceReport(StatefulIngestionReport):
+class GlueSourceReport(StaleEntityRemovalSourceReport):
     tables_scanned = 0
     filtered: List[str] = dataclass_field(default_factory=list)
-    soft_deleted_stale_entities: List[str] = dataclass_field(default_factory=list)
 
     def report_table_scanned(self) -> None:
         self.tables_scanned += 1
 
     def report_table_dropped(self, table: str) -> None:
         self.filtered.append(table)
-
-    def report_stale_entity_soft_deleted(self, urn: str) -> None:
-        self.soft_deleted_stale_entities.append(urn)
 
 
 @platform_name("Glue")
@@ -281,6 +281,15 @@ class GlueSource(StatefulIngestionSourceBase):
         self.s3_client = config.s3_client
         self.extract_transforms = config.extract_transforms
         self.env = config.env
+
+        # Create and register the stateful ingestion use-case handlers.
+        self.stale_entity_removal_handler = StaleEntityRemovalHandler(
+            source=self,
+            config=self.source_config,
+            state_type_class=BaseSQLAlchemyCheckpointState,
+            pipeline_name=self.ctx.pipeline_name,
+            run_id=self.ctx.run_id,
+        )
 
     @classmethod
     def create(cls, config_dict, ctx):
@@ -406,7 +415,7 @@ class GlueSource(StatefulIngestionSourceBase):
         flow_urn: str,
         new_dataset_ids: List[str],
         new_dataset_mces: List[MetadataChangeEvent],
-        s3_formats: typing.DefaultDict[str, Set[Union[str, None]]],
+        s3_formats: DefaultDict[str, Set[Union[str, None]]],
     ) -> Optional[Dict[str, Any]]:
 
         node_type = node["NodeType"]
@@ -501,7 +510,7 @@ class GlueSource(StatefulIngestionSourceBase):
         self,
         dataflow_graph: Dict[str, Any],
         flow_urn: str,
-        s3_formats: typing.DefaultDict[str, Set[Union[str, None]]],
+        s3_formats: DefaultDict[str, Set[Union[str, None]]],
     ) -> Tuple[Dict[str, Dict[str, Any]], List[str], List[MetadataChangeEvent]]:
         """
         Prepare a job's DAG for ingestion.
@@ -646,7 +655,9 @@ class GlueSource(StatefulIngestionSourceBase):
 
         return MetadataWorkUnit(id=f'{job_name}-{node["Id"]}', mce=mce)
 
-    def get_all_tables(self) -> List[dict]:
+    def get_all_tables_and_databases(
+        self,
+    ) -> Tuple[Dict, List[Dict]]:
         def get_tables_from_database(database_name: str) -> List[dict]:
             new_tables = []
 
@@ -665,8 +676,8 @@ class GlueSource(StatefulIngestionSourceBase):
 
             return new_tables
 
-        def get_database_names() -> List[str]:
-            database_names = []
+        def get_databases() -> List[Mapping[str, Any]]:
+            databases = []
 
             # see https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/glue.html#Glue.Client.get_databases
             paginator = self.glue_client.get_paginator("get_databases")
@@ -681,19 +692,25 @@ class GlueSource(StatefulIngestionSourceBase):
             for page in paginator_response:
                 for db in page["DatabaseList"]:
                     if self.source_config.database_pattern.allowed(db["Name"]):
-                        database_names.append(db["Name"])
+                        databases.append(db)
 
-            return database_names
+            return databases
 
-        if self.source_config.database_pattern.is_fully_specified_allow_list():
-            database_names = self.source_config.database_pattern.get_allowed_list()
-        else:
-            database_names = get_database_names()
+        all_databases = get_databases()
 
-        all_tables: List[dict] = []
-        for database in database_names:
-            all_tables += get_tables_from_database(database)
-        return all_tables
+        databases = {
+            database["Name"]: database
+            for database in all_databases
+            if self.source_config.database_pattern.allowed(database["Name"])
+        }
+
+        all_tables: List[dict] = [
+            table
+            for databaseName in databases.keys()
+            for table in get_tables_from_database(databaseName)
+        ]
+
+        return databases, all_tables
 
     def get_lineage_if_enabled(
         self, mce: MetadataChangeEventClass
@@ -751,6 +768,8 @@ class GlueSource(StatefulIngestionSourceBase):
         column_stats: dict,
         partition_spec: Optional[str] = None,
     ) -> MetadataChangeProposalWrapper:
+        assert self.source_config.profiling
+
         # instantiate profile class
         dataset_profile = DatasetProfileClass(timestampMillis=get_sys_time())
 
@@ -895,14 +914,17 @@ class GlueSource(StatefulIngestionSourceBase):
             else self.source_config.env,
         )
 
-    def gen_database_containers(self, database: str) -> Iterable[MetadataWorkUnit]:
-        domain_urn = self._gen_domain_urn(database)
-        database_container_key = self.gen_database_key(database)
+    def gen_database_containers(
+        self, database: Mapping[str, Any]
+    ) -> Iterable[MetadataWorkUnit]:
+        domain_urn = self._gen_domain_urn(database["Name"])
+        database_container_key = self.gen_database_key(database["Name"])
         container_workunits = gen_containers(
             container_key=database_container_key,
-            name=database,
+            name=database["Name"],
             sub_types=["Database"],
             domain_urn=domain_urn,
+            description=database.get("Description"),
         )
 
         for wu in container_workunits:
@@ -943,55 +965,9 @@ class GlueSource(StatefulIngestionSourceBase):
                 self.report.report_workunit(wu)
                 yield wu
 
-    # TODO: Consider refactoring this logic out for use across sources as it is leading to a significant amount of
-    #  code duplication.
-    def gen_removed_entity_workunits(self) -> Iterable[MetadataWorkUnit]:
-        last_checkpoint = self.get_last_checkpoint(
-            self.get_default_ingestion_job_id(), BaseSQLAlchemyCheckpointState
-        )
-        cur_checkpoint = self.get_current_checkpoint(
-            self.get_default_ingestion_job_id()
-        )
-        if (
-            self.source_config.stateful_ingestion
-            and self.source_config.stateful_ingestion.remove_stale_metadata
-            and last_checkpoint is not None
-            and last_checkpoint.state is not None
-            and cur_checkpoint is not None
-            and cur_checkpoint.state is not None
-        ):
-            logger.debug("Checking for stale entity removal.")
-
-            def soft_delete_item(urn: str, type: str) -> Iterable[MetadataWorkUnit]:
-
-                logger.info(f"Soft-deleting stale entity of type {type} - {urn}.")
-                mcp = MetadataChangeProposalWrapper(
-                    entityType=type,
-                    entityUrn=urn,
-                    changeType=ChangeTypeClass.UPSERT,
-                    aspectName="status",
-                    aspect=StatusClass(removed=True),
-                )
-                wu = MetadataWorkUnit(id=f"soft-delete-{type}-{urn}", mcp=mcp)
-                self.report.report_workunit(wu)
-                self.report.report_stale_entity_soft_deleted(urn)
-                yield wu
-
-            last_checkpoint_state = cast(
-                BaseSQLAlchemyCheckpointState, last_checkpoint.state
-            )
-            cur_checkpoint_state = cast(
-                BaseSQLAlchemyCheckpointState, cur_checkpoint.state
-            )
-
-            for table_urn in last_checkpoint_state.get_table_urns_not_in(
-                cur_checkpoint_state
-            ):
-                yield from soft_delete_item(table_urn, "dataset")
-
     def get_workunits(self) -> Iterable[MetadataWorkUnit]:
         database_seen = set()
-        tables = self.get_all_tables()
+        databases, tables = self.get_all_tables_and_databases()
 
         for table in tables:
             database_name = table["DatabaseName"]
@@ -1005,19 +981,29 @@ class GlueSource(StatefulIngestionSourceBase):
                 continue
             if database_name not in database_seen:
                 database_seen.add(database_name)
-                yield from self.gen_database_containers(database_name)
+                yield from self.gen_database_containers(databases[database_name])
 
-            mce = self._extract_record(table, full_table_name)
-            workunit = MetadataWorkUnit(full_table_name, mce=mce)
-            self.report.report_workunit(workunit)
-            yield workunit
-
-            dataset_urn: str = make_dataset_urn_with_platform_instance(
+            dataset_urn = make_dataset_urn_with_platform_instance(
                 platform=self.platform,
                 name=full_table_name,
                 env=self.env,
                 platform_instance=self.source_config.platform_instance,
             )
+
+            mce = self._extract_record(dataset_urn, table, full_table_name)
+            workunit = MetadataWorkUnit(full_table_name, mce=mce)
+            self.report.report_workunit(workunit)
+            yield workunit
+
+            # We also want to assign "table" subType to the dataset representing glue table - unfortunately it is not
+            # possible via Dataset snapshot embedded in a mce, so we have to generate a mcp.
+            workunit = MetadataChangeProposalWrapper(
+                entityUrn=dataset_urn,
+                aspect=SubTypes(typeNames=["table"]),
+            ).as_workunit()
+            self.report.report_workunit(workunit)
+            yield workunit
+
             yield from self._get_domain_wu(
                 dataset_name=full_table_name,
                 entity_urn=dataset_urn,
@@ -1026,16 +1012,10 @@ class GlueSource(StatefulIngestionSourceBase):
             yield from self.add_table_to_database_container(
                 dataset_urn=dataset_urn, db_name=database_name
             )
-            if self.is_stateful_ingestion_configured():
-                cur_checkpoint = self.get_current_checkpoint(
-                    self.get_default_ingestion_job_id()
-                )
-                if cur_checkpoint is not None:
-                    # Utilizing BaseSQLAlchemyCheckpointState class to save state
-                    checkpoint_state = cast(
-                        BaseSQLAlchemyCheckpointState, cur_checkpoint.state
-                    )
-                    checkpoint_state.add_table_urn(dataset_urn)
+
+            # Add table to the checkpoint state.
+            self.stale_entity_removal_handler.add_entity_to_state("table", dataset_urn)
+
             mcp = self.get_lineage_if_enabled(mce)
             if mcp:
                 mcp_wu = MetadataWorkUnit(
@@ -1057,9 +1037,8 @@ class GlueSource(StatefulIngestionSourceBase):
         if self.extract_transforms:
             yield from self._transform_extraction()
 
-        if self.is_stateful_ingestion_configured():
-            # Clean up stale entities.
-            yield from self.gen_removed_entity_workunits()
+        # Clean up stale entities.
+        yield from self.stale_entity_removal_handler.gen_removed_entity_workunits()
 
     def _transform_extraction(self) -> Iterable[MetadataWorkUnit]:
         dags: Dict[str, Optional[Dict[str, Any]]] = {}
@@ -1087,9 +1066,7 @@ class GlueSource(StatefulIngestionSourceBase):
         # in Glue, it's possible for two buckets to have files of different extensions
         # if this happens, we append the extension in the URN so the sources can be distinguished
         # see process_dataflow_node() for details
-        s3_formats: typing.DefaultDict[str, Set[Optional[str]]] = defaultdict(
-            lambda: set()
-        )
+        s3_formats: DefaultDict[str, Set[Optional[str]]] = defaultdict(lambda: set())
         for dag in dags.values():
             if dag is not None:
                 for s3_name, extension in self.get_dataflow_s3_names(dag):
@@ -1117,7 +1094,9 @@ class GlueSource(StatefulIngestionSourceBase):
                 yield dataset_wu
 
     # flake8: noqa: C901
-    def _extract_record(self, table: Dict, table_name: str) -> MetadataChangeEvent:
+    def _extract_record(
+        self, dataset_urn: str, table: Dict, table_name: str
+    ) -> MetadataChangeEvent:
         def get_owner() -> Optional[OwnershipClass]:
             owner = table.get("Owner")
             if owner:
@@ -1215,7 +1194,7 @@ class GlueSource(StatefulIngestionSourceBase):
             )
             return new_tags
 
-        def get_schema_metadata(glue_source: GlueSource) -> SchemaMetadata:
+        def get_schema_metadata() -> SchemaMetadata:
             schema = table["StorageDescriptor"]["Columns"]
             fields: List[SchemaField] = []
             for field in schema:
@@ -1257,27 +1236,21 @@ class GlueSource(StatefulIngestionSourceBase):
                 else None,
             )
 
-        dataset_urn = make_dataset_urn_with_platform_instance(
-            platform=self.platform,
-            name=table_name,
-            env=self.env,
-            platform_instance=self.source_config.platform_instance,
-        )
         dataset_snapshot = DatasetSnapshot(
             urn=dataset_urn,
-            aspects=[],
+            aspects=[
+                Status(removed=False),
+                get_dataset_properties(),
+                get_schema_metadata(),
+                get_data_platform_instance(),
+            ],
         )
-
-        dataset_snapshot.aspects.append(Status(removed=False))
 
         if self.extract_owners:
             optional_owner_aspect = get_owner()
             if optional_owner_aspect is not None:
                 dataset_snapshot.aspects.append(optional_owner_aspect)
 
-        dataset_snapshot.aspects.append(get_dataset_properties())
-        dataset_snapshot.aspects.append(get_schema_metadata(self))
-        dataset_snapshot.aspects.append(get_data_platform_instance())
         if (
             self.source_config.use_s3_bucket_tags
             or self.source_config.use_s3_object_tags
@@ -1292,55 +1265,8 @@ class GlueSource(StatefulIngestionSourceBase):
     def get_report(self):
         return self.report
 
-    def create_checkpoint(self, job_id: JobId) -> Optional[Checkpoint]:
-        """
-        Create the custom checkpoint with empty state for the job.
-        """
-        assert self.ctx.pipeline_name is not None
-        if job_id == self.get_default_ingestion_job_id():
-            return Checkpoint(
-                job_name=job_id,
-                pipeline_name=self.ctx.pipeline_name,
-                platform_instance_id=self.get_platform_instance_id(),
-                run_id=self.ctx.run_id,
-                config=self.source_config,
-                # Reusing BaseSQLAlchemyCheckpointState as it has needed functionality to support statefulness of GLue
-                state=BaseSQLAlchemyCheckpointState(),
-            )
-        return None
-
     def get_platform_instance_id(self) -> str:
         return self.source_config.platform_instance or self.platform
 
-    def is_checkpointing_enabled(self, job_id: JobId) -> bool:
-        if (
-            job_id == self.get_default_ingestion_job_id()
-            and self.is_stateful_ingestion_configured()
-            and self.source_config.stateful_ingestion
-            and self.source_config.stateful_ingestion.remove_stale_metadata
-        ):
-            return True
-
-        return False
-
-    def get_default_ingestion_job_id(self) -> JobId:
-        """
-        Glue ingestion job name.
-        """
-        return JobId(f"{self.platform}_stateful_ingestion")
-
-    def update_default_job_run_summary(self) -> None:
-        summary = self.get_job_run_summary(self.get_default_ingestion_job_id())
-        if summary is not None:
-            # For now just add the config and the report.
-            summary.config = self.source_config.json()
-            summary.custom_summary = self.report.as_string()
-            summary.runStatus = (
-                JobStatusClass.FAILED
-                if self.get_report().failures
-                else JobStatusClass.COMPLETED
-            )
-
     def close(self):
-        self.update_default_job_run_summary()
         self.prepare_for_commit()

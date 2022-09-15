@@ -5,11 +5,12 @@ import YAML from 'yamljs';
 import { ApiOutlined, FilterOutlined, QuestionCircleOutlined, SettingOutlined } from '@ant-design/icons';
 import styled from 'styled-components/macro';
 import { jsonToYaml } from '../../utils';
-import { CONNECTORS_WITH_TEST_CONNECTION, RECIPE_FIELDS } from './constants';
+import { CONNECTORS_WITH_TEST_CONNECTION, RecipeSections, RECIPE_FIELDS } from './constants';
 import FormField from './FormField';
 import TestConnectionButton from './TestConnection/TestConnectionButton';
 import { useListSecretsQuery } from '../../../../../graphql/ingestion.generated';
 import { RecipeField, setFieldValueOnRecipe } from './common';
+import { SourceConfig } from '../types';
 
 export const ControlsContainer = styled.div`
     display: flex;
@@ -91,14 +92,16 @@ interface Props {
     type: string;
     isEditing: boolean;
     displayRecipe: string;
+    sourceConfigs?: SourceConfig;
     setStagedRecipe: (recipe: string) => void;
     onClickNext: () => void;
     goToPrevious?: () => void;
 }
 
 function RecipeForm(props: Props) {
-    const { type, isEditing, displayRecipe, setStagedRecipe, onClickNext, goToPrevious } = props;
-    const { fields, advancedFields, filterFields, filterSectionTooltip } = RECIPE_FIELDS[type];
+    const { type, isEditing, displayRecipe, sourceConfigs, setStagedRecipe, onClickNext, goToPrevious } = props;
+    const { fields, advancedFields, filterFields, filterSectionTooltip, advancedSectionTooltip, defaultOpenSections } =
+        RECIPE_FIELDS[type];
     const allFields = [...fields, ...advancedFields, ...filterFields];
     const { data, refetch: refetchSecrets } = useListSecretsQuery({
         variables: {
@@ -146,13 +149,13 @@ function RecipeForm(props: Props) {
                     ))}
                     {CONNECTORS_WITH_TEST_CONNECTION.has(type) && (
                         <TestConnectionWrapper>
-                            <TestConnectionButton type={type} recipe={displayRecipe} />
+                            <TestConnectionButton recipe={displayRecipe} sourceConfigs={sourceConfigs} />
                         </TestConnectionWrapper>
                     )}
                 </Collapse.Panel>
             </StyledCollapse>
             {filterFields.length > 0 && (
-                <StyledCollapse>
+                <StyledCollapse defaultActiveKey={defaultOpenSections?.includes(RecipeSections.Filter) ? '1' : ''}>
                     <Collapse.Panel
                         forceRender
                         header={
@@ -182,10 +185,16 @@ function RecipeForm(props: Props) {
                     </Collapse.Panel>
                 </StyledCollapse>
             )}
-            <StyledCollapse>
+            <StyledCollapse defaultActiveKey={defaultOpenSections?.includes(RecipeSections.Advanced) ? '2' : ''}>
                 <Collapse.Panel
                     forceRender
-                    header={<SectionHeader icon={<SettingOutlined />} text="Advanced" />}
+                    header={
+                        <SectionHeader
+                            icon={<SettingOutlined />}
+                            text="Advanced"
+                            sectionTooltip={advancedSectionTooltip}
+                        />
+                    }
                     key="2"
                 >
                     {advancedFields.map((field, i) => (

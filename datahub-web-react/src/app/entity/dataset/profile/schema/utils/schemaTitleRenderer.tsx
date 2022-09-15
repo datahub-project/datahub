@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Typography } from 'antd';
 import styled from 'styled-components';
+import Highlight from 'react-highlighter';
 import translateFieldPath from './translateFieldPath';
 import { ExtendedSchemaFields } from './types';
 import TypeLabel from '../../../../shared/tabs/Dataset/Schema/components/TypeLabel';
@@ -32,6 +33,7 @@ const FieldPathText = styled(Typography.Text)`
 export default function useSchemaTitleRenderer(
     schemaMetadata: SchemaMetadata | undefined | null,
     setSelectedFkFieldPath: (params: { fieldPath: string; constraint?: ForeignKeyConstraint | null } | null) => void,
+    filterText: string,
 ) {
     const [highlightedConstraint, setHighlightedConstraint] = useState<string | null>(null);
 
@@ -54,7 +56,9 @@ export default function useSchemaTitleRenderer(
         return (
             <>
                 <FieldPathContainer>
-                    <FieldPathText>{pathToDisplay}</FieldPathText>
+                    <FieldPathText>
+                        <Highlight search={filterText}>{pathToDisplay}</Highlight>
+                    </FieldPathText>
                     <TypeLabel type={record.type} nativeDataType={record.nativeDataType} />
                     {(schemaMetadata?.primaryKeys?.includes(fieldPath) || record.isPartOfKey) && <PrimaryKeyLabel />}
                     {schemaMetadata?.foreignKeys

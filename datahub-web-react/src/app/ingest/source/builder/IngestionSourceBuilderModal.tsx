@@ -8,6 +8,7 @@ import { CreateScheduleStep } from './CreateScheduleStep';
 import { DefineRecipeStep } from './DefineRecipeStep';
 import { NameSourceStep } from './NameSourceStep';
 import { SelectTemplateStep } from './SelectTemplateStep';
+import sourcesJson from './sources.json';
 
 const ExpandButton = styled(Button)`
     && {
@@ -73,6 +74,8 @@ export const IngestionSourceBuilderModal = ({ initialState, visible, onSubmit, o
     const [stepStack, setStepStack] = useState([initialStep]);
     const [modalExpanded, setModalExpanded] = useState(false);
     const [ingestionBuilderState, setIngestionBuilderState] = useState<SourceBuilderState>({});
+
+    const ingestionSources = JSON.parse(JSON.stringify(sourcesJson)); // TODO: replace with call to server once we have access to dynamic list of sources
 
     // Reset the ingestion builder modal state when the modal is re-opened.
     const prevInitialState = useRef(initialState);
@@ -148,6 +151,7 @@ export const IngestionSourceBuilderModal = ({ initialState, visible, onSubmit, o
                 prev={stepStack.length > 1 ? prev : undefined}
                 submit={submit}
                 cancel={cancel}
+                ingestionSources={ingestionSources}
             />
         </Modal>
     );

@@ -17,7 +17,6 @@ from datahub.emitter.mce_builder import (
     make_domain_urn,
     make_tag_urn,
 )
-from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.emitter.mcp_builder import (
     BigQueryDatasetKey,
     PlatformKey,
@@ -35,7 +34,6 @@ from datahub.ingestion.api.decorators import (
     platform_name,
     support_status,
 )
-from datahub.ingestion.api.ingestion_job_checkpointing_provider_base import JobId
 from datahub.ingestion.api.source import (
     CapabilityReport,
     SourceCapability,
@@ -57,9 +55,11 @@ from datahub.ingestion.source.bigquery_v2.bigquery_schema import (
 from datahub.ingestion.source.bigquery_v2.lineage import BigqueryLineageExtractor
 from datahub.ingestion.source.bigquery_v2.profiler import BigqueryProfiler
 from datahub.ingestion.source.bigquery_v2.usage import BigQueryUsageExtractor
-from datahub.ingestion.source.state.checkpoint import Checkpoint
 from datahub.ingestion.source.state.sql_common_state import (
     BaseSQLAlchemyCheckpointState,
+)
+from datahub.ingestion.source.state.stale_entity_removal_handler import (
+    StaleEntityRemovalHandler,
 )
 from datahub.ingestion.source.state.stateful_ingestion_base import (
     StatefulIngestionSourceBase,
@@ -83,10 +83,8 @@ from datahub.metadata.com.linkedin.pegasus2avro.schema import (
     TimeType,
 )
 from datahub.metadata.schema_classes import (
-    ChangeTypeClass,
     DataPlatformInstanceClass,
     GlobalTagsClass,
-    StatusClass,
     TagAssociationClass,
 )
 from datahub.utilities.mapping import Constants
@@ -126,7 +124,7 @@ def cleanup(config: BigQueryV2Config) -> None:
 @capability(SourceCapability.LINEAGE_COARSE, "Optionally enabled via configuration")
 @capability(
     SourceCapability.DELETION_DETECTION,
-    "Enabled via stateful ingestion",
+    "Optionally enabled via `stateful_ingestion.remove_stale_metadata`",
     supported=True,
 )
 class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
@@ -179,6 +177,15 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
         self.schema_columns: Dict[
             Tuple[str, str], Optional[Dict[str, List[BigqueryColumn]]]
         ] = {}
+
+        # Create and register the stateful ingestion use-case handler.
+        self.stale_entity_removal_handler = StaleEntityRemovalHandler(
+            source=self,
+            config=self.config,
+            state_type_class=BaseSQLAlchemyCheckpointState,
+            pipeline_name=self.ctx.pipeline_name,
+            run_id=self.ctx.run_id,
+        )
 
         if self.config.domain:
             self.domain_registry = DomainRegistry(
@@ -290,39 +297,6 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
             )
             return test_report
 
-    def is_checkpointing_enabled(self, job_id: JobId) -> bool:
-        if (
-            job_id == self.get_default_ingestion_job_id()
-            and self.is_stateful_ingestion_configured()
-            and self.config.stateful_ingestion
-            and self.config.stateful_ingestion.remove_stale_metadata
-        ):
-            return True
-
-        return False
-
-    def get_default_ingestion_job_id(self) -> JobId:
-        """
-        Keeping the same job_id as for the old source
-        """
-        return JobId("ingest_from_bigquery_source")
-
-    def create_checkpoint(self, job_id: JobId) -> Optional[Checkpoint]:
-        """
-        Create the custom checkpoint with empty state for the job.
-        """
-        assert self.ctx.pipeline_name is not None
-        if job_id == self.get_default_ingestion_job_id():
-            return Checkpoint(
-                job_name=job_id,
-                pipeline_name=self.ctx.pipeline_name,
-                platform_instance_id=self.get_platform_instance_id(),
-                run_id=self.ctx.run_id,
-                config=self.config,
-                state=BaseSQLAlchemyCheckpointState(),
-            )
-        return None
-
     def get_dataplatform_instance_aspect(
         self, dataset_urn: str
     ) -> Optional[MetadataWorkUnit]:
@@ -347,61 +321,6 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
         Individual subclasses need to override this method appropriately.
         """
         return f"{self.platform}"
-
-    def gen_removed_entity_workunits(self) -> Iterable[MetadataWorkUnit]:
-        last_checkpoint = self.get_last_checkpoint(
-            self.get_default_ingestion_job_id(), BaseSQLAlchemyCheckpointState
-        )
-        cur_checkpoint = self.get_current_checkpoint(
-            self.get_default_ingestion_job_id()
-        )
-        if (
-            self.config.stateful_ingestion
-            and self.config.stateful_ingestion.remove_stale_metadata
-            and last_checkpoint is not None
-            and last_checkpoint.state is not None
-            and cur_checkpoint is not None
-            and cur_checkpoint.state is not None
-        ):
-            logger.debug("Checking for stale entity removal.")
-
-            def soft_delete_item(urn: str, type: str) -> Iterable[MetadataWorkUnit]:
-                entity_type: str = type if type == "container" else "dataset"
-
-                logger.info(f"Soft-deleting stale entity of type {type} - {urn}.")
-                mcp = MetadataChangeProposalWrapper(
-                    entityType=entity_type,
-                    entityUrn=urn,
-                    changeType=ChangeTypeClass.UPSERT,
-                    aspectName="status",
-                    aspect=StatusClass(removed=True),
-                )
-                wu = MetadataWorkUnit(id=f"soft-delete-{type}-{urn}", mcp=mcp)
-                self.report.report_workunit(wu)
-                self.report.report_stale_entity_soft_deleted(urn)
-                yield wu
-
-            last_checkpoint_state = cast(
-                BaseSQLAlchemyCheckpointState, last_checkpoint.state
-            )
-            cur_checkpoint_state = cast(
-                BaseSQLAlchemyCheckpointState, cur_checkpoint.state
-            )
-
-            for table_urn in last_checkpoint_state.get_table_urns_not_in(
-                cur_checkpoint_state
-            ):
-                yield from soft_delete_item(table_urn, "table")
-
-            for view_urn in last_checkpoint_state.get_view_urns_not_in(
-                cur_checkpoint_state
-            ):
-                yield from soft_delete_item(view_urn, "view")
-
-            for container_urn in last_checkpoint_state.get_container_urns_not_in(
-                cur_checkpoint_state
-            ):
-                yield from soft_delete_item(container_urn, "container")
 
     def gen_dataset_key(self, db_name: str, schema: str) -> PlatformKey:
         return BigQueryDatasetKey(
@@ -445,19 +364,12 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
             domain_urn=domain_urn,
         )
 
-        if self.is_stateful_ingestion_configured():
-            cur_checkpoint = self.get_current_checkpoint(
-                self.get_default_ingestion_job_id()
-            )
-            if cur_checkpoint is not None:
-                checkpoint_state = cast(
-                    BaseSQLAlchemyCheckpointState, cur_checkpoint.state
-                )
-                checkpoint_state.add_container_guid(
-                    make_container_urn(
-                        guid=database_container_key.guid(),
-                    )
-                )
+        self.stale_entity_removal_handler.add_entity_to_state(
+            type="container",
+            urn=make_container_urn(
+                guid=database_container_key.guid(),
+            ),
+        )
 
         for wu in container_workunits:
             self.report.report_workunit(wu)
@@ -477,19 +389,12 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
             database_container_key,
         )
 
-        if self.is_stateful_ingestion_configured():
-            cur_checkpoint = self.get_current_checkpoint(
-                self.get_default_ingestion_job_id()
-            )
-            if cur_checkpoint is not None:
-                checkpoint_state = cast(
-                    BaseSQLAlchemyCheckpointState, cur_checkpoint.state
-                )
-                checkpoint_state.add_container_guid(
-                    make_container_urn(
-                        guid=schema_container_key.guid(),
-                    )
-                )
+        self.stale_entity_removal_handler.add_entity_to_state(
+            type="container",
+            urn=make_container_urn(
+                guid=schema_container_key.guid(),
+            ),
+        )
 
         for wu in container_workunits:
             self.report.report_workunit(wu)
@@ -497,7 +402,7 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
 
     def add_table_to_dataset_container(
         self, dataset_urn: str, db_name: str, schema: str
-    ) -> Iterable[Union[MetadataWorkUnit]]:
+    ) -> Iterable[MetadataWorkUnit]:
         schema_container_key = self.gen_dataset_key(db_name, schema)
         container_workunits = add_dataset_to_container(
             container_key=schema_container_key,
@@ -527,7 +432,7 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
             yield from self.profiler.get_workunits(self.db_tables)
         if self.is_stateful_ingestion_configured():
             # Clean up stale entities.
-            yield from self.gen_removed_entity_workunits()
+            yield from self.stale_entity_removal_handler.gen_removed_entity_workunits()
 
     def _process_project(
         self, conn: bigquery.Client, bigquery_project: BigqueryProject
@@ -824,18 +729,10 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
             yield wu
             self.report.report_workunit(wu)
 
-        if self.is_stateful_ingestion_configured():
-            cur_checkpoint = self.get_current_checkpoint(
-                self.get_default_ingestion_job_id()
-            )
-            if cur_checkpoint is not None:
-                checkpoint_state = cast(
-                    BaseSQLAlchemyCheckpointState, cur_checkpoint.state
-                )
-                if isinstance(table, BigqueryTable):
-                    checkpoint_state.add_table_urn(dataset_urn)
-                else:
-                    checkpoint_state.add_view_urn(dataset_urn)
+        self.stale_entity_removal_handler.add_entity_to_state(
+            type="table" if isinstance(table, BigqueryTable) else "view",
+            urn=dataset_urn,
+        )
 
     def get_schema_metadata(
         self,

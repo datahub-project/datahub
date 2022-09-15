@@ -1,6 +1,6 @@
 import dataclasses
 import json
-from typing import Union
+from typing import TYPE_CHECKING, Union
 
 from datahub.emitter.serialization_helper import pre_json_transform
 from datahub.metadata.schema_classes import (
@@ -12,6 +12,12 @@ from datahub.metadata.schema_classes import (
     SystemMetadataClass,
     _Aspect,
 )
+from datahub.utilities.urns.urn import guess_entity_type
+
+if TYPE_CHECKING:
+    from datahub.ingestion.api.workunit import MetadataWorkUnit
+
+_ENTITY_TYPE_UNSET = "ENTITY_TYPE_UNSET"
 
 
 def _make_generic_aspect(codegen_obj: DictWrapper) -> GenericAspectClass:
@@ -24,13 +30,12 @@ def _make_generic_aspect(codegen_obj: DictWrapper) -> GenericAspectClass:
 
 @dataclasses.dataclass
 class MetadataChangeProposalWrapper:
-    # TODO: remove manually aspectName from the codebase
+    # TODO: remove manually set aspectName from the codebase
     # TODO: (after) remove aspectName field from this class
-    # TODO: infer entityType from entityUrn
-    # TODO: set changeType's default to UPSERT
+    # TODO: remove manually set entityType from the codebase
 
-    entityType: str
-    changeType: Union[str, ChangeTypeClass]
+    entityType: str = _ENTITY_TYPE_UNSET
+    changeType: Union[str, ChangeTypeClass] = ChangeTypeClass.UPSERT
     entityUrn: Union[None, str] = None
     entityKeyAspect: Union[None, _Aspect] = None
     auditHeader: Union[None, KafkaAuditHeaderClass] = None
@@ -39,6 +44,22 @@ class MetadataChangeProposalWrapper:
     systemMetadata: Union[None, SystemMetadataClass] = None
 
     def __post_init__(self) -> None:
+        if self.entityUrn and self.entityType == _ENTITY_TYPE_UNSET:
+            self.entityType = guess_entity_type(self.entityUrn)
+        elif self.entityUrn and self.entityType:
+            guessed_entity_type = guess_entity_type(self.entityUrn).lower()
+            # Entity type checking is actually case insensitive.
+            # Note that urns are case sensitive, but entity types are not.
+            if self.entityType.lower() != guessed_entity_type:
+                raise ValueError(
+                    f"entityType {self.entityType} does not match the entity type {guessed_entity_type} from entityUrn {self.entityUrn}",
+                )
+        elif self.entityType == _ENTITY_TYPE_UNSET:
+            raise ValueError("entityType must be set if entityUrn is not set")
+
+        if not self.entityUrn and not self.entityKeyAspect:
+            raise ValueError("entityUrn or entityKeyAspect must be set")
+
         if not self.aspectName and self.aspect:
             self.aspectName = self.aspect.get_aspect_name()
         elif (
@@ -88,3 +109,11 @@ class MetadataChangeProposalWrapper:
 
     # TODO: add a from_obj method. Implementing this would require us to
     # inspect the aspectName field to determine which class to deserialize into.
+
+    def as_workunit(self) -> "MetadataWorkUnit":
+        from datahub.ingestion.api.workunit import MetadataWorkUnit
+
+        # TODO: If the aspect is a timeseries aspect, we should do some
+        # customization of the ID here.
+
+        return MetadataWorkUnit(id=f"{self.entityUrn}-{self.aspectName}", mcp=self)
