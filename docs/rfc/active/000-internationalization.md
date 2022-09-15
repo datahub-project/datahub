@@ -108,13 +108,18 @@ export function MyComponent() {
 
 ### Corner-case
 
+#### Front end test
+> There are tests in the frontend looking for the presence of text. I have deactivated them.
+> I am not sure how react-i18next will render in a test environment.
+> 
+
 #### Back end text
 > Some text come from the back end.
-> - The back-end exceptions : we can handle then by adding a translate key to exceptions, and the front will 
-> have to apply i18next on the the translate key to display it.
-> - The whole Analytics page : It is one of the majors problem... All text of the Analytics page is built, 
-> almost word by word, by the gms... I am not sure what is the best way here... Maybe moving theses constructs 
-> from the back to the front...
+> - The back-end exceptions : we can handle then by adding a translate key to exceptions, and the front will
+    > have to apply i18next on the the translate key to display it.
+> - The whole Analytics page : It is one of the majors problem... All text of the Analytics page is built,
+    > almost word by word, by the gms... I am not sure what is the best way here... Maybe moving theses constructs
+    > from the back to the front...
 
 #### Text size
 > Depending on the language, some text length may vary. This could be a problem on buttons or narrow panel for exemple
