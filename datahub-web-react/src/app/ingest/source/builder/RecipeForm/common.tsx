@@ -8,6 +8,7 @@ export enum FieldType {
     SELECT,
     SECRET,
     DICT,
+    TEXTAREA,
 }
 
 interface Option {
