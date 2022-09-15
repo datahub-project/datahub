@@ -292,7 +292,8 @@ class GlueSource(StatefulIngestionSourceBase):
         )
 
     def get_glue_arn(
-            self, account_id: str, database: str, table: Optional[str] = None) -> str:
+        self, account_id: str, database: str, table: Optional[str] = None
+    ) -> str:
         prefix = f"arn:aws:glue:{self.source_config.aws_region}:{account_id}"
         if table:
             return f"{prefix}:table/{database}/{table}"
@@ -1135,9 +1136,9 @@ class GlueSource(StatefulIngestionSourceBase):
                 uri=table.get("Location"),
                 tags=[],
                 qualifiedName=self.get_glue_arn(
-                    account_id = table["CatalogId"],
-                    database = table["DatabaseName"],
-                    table = table["Name"],
+                    account_id=table["CatalogId"],
+                    database=table["DatabaseName"],
+                    table=table["Name"],
                 ),
             )
 
