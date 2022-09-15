@@ -92,8 +92,8 @@ class DataLakeSourceConfig(PlatformSourceConfigBase, EnvBasedSourceConfigBase):
 
                 platform = "file"
 
-            if values.get("platform", "") != "":
-                if values["platform"] != platform:
+            if values.get("platform", ""):
+                if platform == "s3" and values["platform"] != platform:
                     raise ValueError("all path_spec should belong to the same platform")
             else:
                 values["platform"] = platform
