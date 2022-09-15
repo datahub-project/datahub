@@ -20,8 +20,6 @@ export default function useFilters(params: QueryString.ParsedQuery<string>): Arr
                     const negated = fieldParts[1] === 'true';
                     if (!value) return null;
 
-                    console.log({ negated, field });
-
                     if (Array.isArray(value)) {
                         return {
                             field,

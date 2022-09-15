@@ -1,5 +1,5 @@
-import React from 'react';
-import { Pagination, Typography, Tabs } from 'antd';
+import React, { useState } from 'react';
+import { Pagination, Typography, Button } from 'antd';
 import styled from 'styled-components';
 import { Message } from '../shared/Message';
 import {
@@ -24,6 +24,7 @@ import TabToolbar from '../entity/shared/components/styled/TabToolbar';
 import { EntityAndType } from '../entity/shared/types';
 import { AdvancedSearchFilters } from './AdvancedSearchFilters';
 import { ErrorSection } from '../shared/error/ErrorSection';
+import { UnionType } from './utils/constants';
 
 const SearchBody = styled.div`
     display: flex;
@@ -38,6 +39,7 @@ const FiltersContainer = styled.div`
     overflow-wrap: break-word;
     border-right: 1px solid;
     border-color: ${(props) => props.theme.styles['border-color-base']};
+    max-height: 100%;
 `;
 
 const ResultContainer = styled.div`
@@ -76,6 +78,9 @@ const FiltersHeader = styled.div`
     line-height: 47px;
     border-bottom: 1px solid;
     border-color: ${(props) => props.theme.styles['border-color-base']};
+
+    justify-content: space-between;
+    display: flex;
 `;
 
 const SearchFilterContainer = styled.div`
@@ -94,6 +99,7 @@ const StyledTabToolbar = styled(TabToolbar)`
 const SearchMenuContainer = styled.div``;
 
 interface Props {
+    unionType?: UnionType;
     query: string;
     page: number;
     searchResponse?: {
@@ -110,6 +116,7 @@ interface Props {
     loading: boolean;
     error: any;
     onChangeFilters: (filters: Array<FacetFilterInput>) => void;
+    onChangeUnionType: (unionType: UnionType) => void;
     onChangePage: (page: number) => void;
     callSearchOnVariables: (variables: {
         input: SearchAcrossEntitiesInput;
@@ -126,12 +133,8 @@ interface Props {
     refetch: () => void;
 }
 
-const AdvancedFilterTabToggle = styled(Tabs)`
-    margin-left: 8px;
-    margin-right: 8px;
-`;
-
 export const SearchResults = ({
+    unionType = UnionType.AND,
     query,
     page,
     searchResponse,
@@ -139,6 +142,7 @@ export const SearchResults = ({
     selectedFilters,
     loading,
     error,
+    onChangeUnionType,
     onChangeFilters,
     onChangePage,
     callSearchOnVariables,
@@ -159,6 +163,7 @@ export const SearchResults = ({
     const lastResultIndex = pageStart + pageSize > totalResults ? totalResults : pageStart + pageSize;
     const authenticatedUserUrn = useGetAuthenticatedUser()?.corpUser?.urn;
     const combinedSiblingSearchResults = combineSiblingsInSearchResults(searchResponse?.searchResults);
+    const [seeAdvancedFilters, setSeeAdvancedFilters] = useState(false);
 
     const searchResultUrns = combinedSiblingSearchResults.map((result) => result.entity.urn) || [];
     const selectedEntityUrns = selectedEntities.map((entity) => entity.urn);
@@ -169,26 +174,32 @@ export const SearchResults = ({
             <div>
                 <SearchBody>
                     <FiltersContainer>
-                        <FiltersHeader>Filter</FiltersHeader>
-                        <AdvancedFilterTabToggle>
-                            <Tabs.TabPane tab="Simple" key="1">
-                                <SearchFilterContainer>
-                                    <SearchFilters
-                                        loading={loading}
-                                        facets={filters || []}
-                                        selectedFilters={selectedFilters}
-                                        onFilterSelect={(newFilters) => onChangeFilters(newFilters)}
-                                    />
-                                </SearchFilterContainer>
-                            </Tabs.TabPane>
-                            <Tabs.TabPane tab="Advanced" key="2">
-                                <AdvancedSearchFilters
+                        <FiltersHeader>
+                            <span>Filter</span>
+                            <span>
+                                <Button type="link" onClick={() => setSeeAdvancedFilters(!seeAdvancedFilters)}>
+                                    {seeAdvancedFilters ? 'Filter' : 'Advanced'}
+                                </Button>
+                            </span>
+                        </FiltersHeader>
+                        {seeAdvancedFilters ? (
+                            <AdvancedSearchFilters
+                                unionType={unionType}
+                                selectedFilters={selectedFilters}
+                                onFilterSelect={(newFilters) => onChangeFilters(newFilters)}
+                                onChangeUnionType={onChangeUnionType}
+                                facets={filters || []}
+                            />
+                        ) : (
+                            <SearchFilterContainer>
+                                <SearchFilters
+                                    loading={loading}
+                                    facets={filters || []}
                                     selectedFilters={selectedFilters}
                                     onFilterSelect={(newFilters) => onChangeFilters(newFilters)}
-                                    facets={filters || []}
                                 />
-                            </Tabs.TabPane>
-                        </AdvancedFilterTabToggle>
+                            </SearchFilterContainer>
+                        )}
                     </FiltersContainer>
                     <ResultContainer>
                         <PaginationInfoContainer>

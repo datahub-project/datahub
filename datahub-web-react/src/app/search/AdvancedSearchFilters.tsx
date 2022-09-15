@@ -1,12 +1,13 @@
-import { PlusOutlined } from '@ant-design/icons';
-import { Button, Select } from 'antd';
+// import { PlusOutlined } from '@ant-design/icons';
+import { Select } from 'antd';
 import * as React from 'react';
 import { useState } from 'react';
 import styled from 'styled-components';
 import { FacetFilterInput, FacetMetadata, SearchCondition } from '../../types.generated';
 import { AdvancedSearchFilter } from './AdvancedSearchFilter';
+import { AdvancedSearchFilterOverallUnionTypeSelect } from './AdvancedSearchFilterOverallUnionTypeSelect';
 import { SelectFilterValueModal } from './SelectFilterValueModal';
-import { FIELD_TO_LABEL } from './utils/constants';
+import { FIELD_TO_LABEL, UnionType } from './utils/constants';
 
 export const SearchFilterWrapper = styled.div`
     min-height: 100%;
@@ -24,36 +25,45 @@ export const SearchFilterWrapper = styled.div`
     }
 `;
 
+const AnyAllSection = styled.div`
+    padding: 6px;
+`;
+
 interface Props {
     selectedFilters: Array<FacetFilterInput>;
     facets: Array<FacetMetadata>;
     onFilterSelect: (newFilters: Array<FacetFilterInput>) => void;
+    onChangeUnionType: (unionType: UnionType) => void;
+    unionType?: UnionType;
 }
 
 const { Option } = Select;
 
-export const AdvancedSearchFilters = ({ facets, selectedFilters, onFilterSelect }: Props) => {
-    console.log(selectedFilters);
+export const AdvancedSearchFilters = ({
+    unionType = UnionType.AND,
+    facets,
+    selectedFilters,
+    onFilterSelect,
+    onChangeUnionType,
+}: Props) => {
     const [filterField, setFilterField] = useState<null | string>(null);
 
     const onFilterFieldSelect = (value) => {
         setFilterField(value);
     };
 
+    console.log({ facets });
+
     return (
         <SearchFilterWrapper>
             <Select
-                value={filterField || 'null'}
-                style={{ width: 120 }}
-                bordered={false}
+                // size="small"
+                value={filterField || '+'}
+                style={{ width: 67, padding: 6, fontSize: 25, fontWeight: 500 }}
                 onChange={onFilterFieldSelect}
+                dropdownMatchSelectWidth={false}
+                filterOption={(_, option) => option?.value === 'null'}
             >
-                <Option value="null">
-                    <Button type="text" style={{ padding: 0 }}>
-                        <PlusOutlined />
-                        <span>Add Filter</span>
-                    </Button>
-                </Option>
                 {Object.keys(FIELD_TO_LABEL).map((key) => (
                     <Option value={key}>{FIELD_TO_LABEL[key]}</Option>
                 ))}
@@ -79,7 +89,7 @@ export const AdvancedSearchFilters = ({ facets, selectedFilters, onFilterSelect 
             ))}
             {filterField && (
                 <SelectFilterValueModal
-                    facet={facets.find((facet) => facet.field === filterField) || facets[0]}
+                    facet={facets.find((facet) => facet.field === filterField) || null}
                     onCloseModal={() => setFilterField(null)}
                     filterField={filterField}
                     onSelect={(values) => {
@@ -91,6 +101,15 @@ export const AdvancedSearchFilters = ({ facets, selectedFilters, onFilterSelect 
                         onFilterSelect([...selectedFilters, newFilter]);
                     }}
                 />
+            )}
+            {selectedFilters?.length > 0 && (
+                <AnyAllSection>
+                    Show results that match{' '}
+                    <AdvancedSearchFilterOverallUnionTypeSelect
+                        unionType={unionType}
+                        onUpdate={(newValue) => onChangeUnionType(newValue)}
+                    />
+                </AnyAllSection>
             )}
         </SearchFilterWrapper>
     );

@@ -92,7 +92,7 @@ export const EditOwnersModal = ({
         return <OwnerLabel name={displayName} avatarUrl={avatarUrl} type={entity.type} />;
     };
 
-    const urnToSelectedOwners = (vals: { urn: string; entity?: Entity | null }[]): SelectedOwner[] => {
+    const defaultValuesToSelectedOwners = (vals: { urn: string; entity?: Entity | null }[]): SelectedOwner[] => {
         return vals.map((defaultValue) => ({
             label: defaultValue.entity ? renderDropdownResult(defaultValue.entity) : defaultValue.urn,
             value: {
@@ -106,7 +106,9 @@ export const EditOwnersModal = ({
     const [batchAddOwnersMutation] = useBatchAddOwnersMutation();
     const [batchRemoveOwnersMutation] = useBatchRemoveOwnersMutation();
     const ownershipTypes = OWNERSHIP_DISPLAY_TYPES;
-    const [selectedOwners, setSelectedOwners] = useState<SelectedOwner[]>(urnToSelectedOwners(defaultValues || []));
+    const [selectedOwners, setSelectedOwners] = useState<SelectedOwner[]>(
+        defaultValuesToSelectedOwners(defaultValues || []),
+    );
     console.log({ selectedOwners });
     const [selectedOwnerType, setSelectedOwnerType] = useState<OwnershipType>(defaultOwnerType || OwnershipType.None);
 

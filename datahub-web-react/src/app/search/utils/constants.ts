@@ -24,12 +24,18 @@ export const FILTERS_TO_TRUNCATE = [
 export const TRUNCATED_FILTER_LENGTH = 5;
 
 export const FIELD_TO_LABEL = {
-    owners: 'Owners',
-    tags: 'Tags',
-    fieldTags: 'Column Tags',
-    glossaryTerms: 'Terms',
-    fieldGlossaryTerms: 'Column Terms',
-    fieldPaths: 'Columns',
+    owners: 'Owner',
+    tags: 'Tag',
+    fieldTags: 'Column Tag',
+    glossaryTerms: 'Term',
+    fieldGlossaryTerms: 'Column Term',
+    fieldPaths: 'Column Name',
     description: 'Description',
     removed: 'Soft Deleted',
+    entity: 'Entity Type',
 };
+
+export enum UnionType {
+    AND,
+    OR,
+}

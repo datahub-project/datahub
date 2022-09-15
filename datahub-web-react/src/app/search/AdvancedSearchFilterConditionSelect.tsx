@@ -45,8 +45,6 @@ export const AdvancedSearchFilterConditionSelect = ({ filter, onUpdate }: Props)
 
     const selectedValue = filter.negated ? 'negated' : 'default';
 
-    console.log({ selectedValue });
-
     return (
         <>
             <Select
@@ -67,6 +65,7 @@ export const AdvancedSearchFilterConditionSelect = ({ filter, onUpdate }: Props)
                     }
                 }}
                 size="small"
+                disabled={filter.field === 'entity'}
             >
                 {Object.keys(labelsForField).map((labelKey) => (
                     <Option value={labelKey}>{labelsForField[labelKey]}</Option>

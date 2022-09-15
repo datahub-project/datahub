@@ -43,6 +43,8 @@ export const SearchFilterLabel = ({ aggregation, field, hideCount }: Props) => {
     const entityRegistry = useEntityRegistry();
     const countText = hideCount ? '' : ` (${aggregation.count === MAX_COUNT_VAL ? '10000+' : aggregation.count})`;
 
+    if (!aggregation) return <></>;
+
     if (field === ENTITY_FILTER_NAME) {
         const entityType = aggregation.value.toUpperCase() as EntityType;
         return (

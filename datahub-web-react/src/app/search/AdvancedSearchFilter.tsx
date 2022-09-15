@@ -93,6 +93,7 @@ export const AdvancedSearchFilter = ({ facet, filter, onClose, onUpdate }: Props
                             field: filter.field,
                             values: values as string[],
                             condition: filter.condition,
+                            negated: filter.negated || false,
                         };
                         onUpdate(newFilter);
                     }}
