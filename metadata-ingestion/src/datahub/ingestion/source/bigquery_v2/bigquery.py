@@ -164,6 +164,7 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
         self.config: BigQueryV2Config = config
         self.report: BigQueryV2Report = BigQueryV2Report()
         self.platform: str = "bigquery"
+        BigqueryTableIdentifier._BIGQUERY_DEFAULT_SHARDED_TABLE_REGEX = self.config.sharded_table_pattern
 
         # For database, schema, tables, views, etc
         self.lineage_extractor = BigqueryLineageExtractor(config, self.report)
@@ -586,30 +587,7 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
             bigquery_dataset.tables = self.get_tables_for_dataset(
                 conn, project_id, dataset_name
             )
-            last_table_identifier: Optional[BigqueryTableIdentifier] = None
             for table in bigquery_dataset.tables:
-                table_identifier = BigqueryTableIdentifier(
-                    project_id, dataset_name, table.name
-                )
-                if (
-                    last_table_identifier
-                    and last_table_identifier.get_table_name()
-                    == table_identifier.get_table_name()
-                ):
-                    logger.debug(
-                        f"Skipping table {table.name} with identifier {last_table_identifier} as we already processed this table"
-                    )
-                    continue
-                else:
-                    last_table_identifier = table_identifier
-
-                if str(table_identifier).startswith(
-                    self.config.temp_table_dataset_prefix
-                ):
-                    logger.debug(f"Dropping temporary table {table_identifier}")
-                    self.report.report_dropped(table_identifier.raw_table_name())
-                    continue
-
                 yield from self._process_table(conn, table, project_id, dataset_name)
 
         if self.config.include_views:
@@ -954,13 +932,22 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
                         ):
                             table_items.pop(last_table_identifier.table)
                             table_items[table.table_id] = table
+                            logger.debug(f"Skipping table {last_table_identifier.raw_table_name()} as it is not the latest shard.")
                         else:
+                            logger.debug(f"Skipping table {table} as it was already seen.")
                             continue
                     else:
                         table_count = table_count + 1
                         table_items[table.table_id] = table
 
                     last_table_identifier = table_identifier
+
+                    if str(table_identifier).startswith(
+                            self.config.temp_table_dataset_prefix
+                    ):
+                        logger.debug(f"Dropping temporary table {table_identifier.table}")
+                        self.report.report_dropped(table_identifier.raw_table_name())
+                        continue
 
                     if table_count % TABLE_PER_BATCH == 0:
                         bigquery_tables.extend(

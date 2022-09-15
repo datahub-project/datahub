@@ -23,7 +23,7 @@ class BigQueryV2Report(SQLSourceReport):
     bigquery_audit_metadata_datasets_missing: Optional[bool] = None
     lineage_metadata_entries: Optional[int] = None
     lineage_mem_size: Optional[str] = None
-    lineage_extraction_sec: Optional[float] = None
+    lineage_extraction_sec: Dict[str, float] = field(default_factory=dict)
     usage_extraction_sec: Dict[str, float] = field(default_factory=dict)
     metadata_extraction_sec: Dict[str, float] = field(default_factory=dict)
     include_table_lineage: Optional[bool] = None

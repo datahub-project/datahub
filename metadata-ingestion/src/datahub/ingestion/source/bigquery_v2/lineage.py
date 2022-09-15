@@ -2,6 +2,7 @@ import collections
 import logging
 import sys
 import textwrap
+from collections import defaultdict
 from typing import Dict, Iterable, List, Optional, Set, Tuple, Union
 
 import humanfriendly
@@ -75,7 +76,8 @@ timestamp < "{end_time}"
     def __init__(self, config: BigQueryV2Config, report: BigQueryV2Report):
         self.config = config
         self.report = report
-        self.lineage_metadata: Optional[Dict[str, Set[str]]] = None
+        self.lineage_metadata: Dict[str, Set[str]] = defaultdict()
+        self.loaded_project_ids:List[str] = []
 
     def error(self, log: logging.Logger, key: str, reason: str) -> None:
         self.report.report_failure(key, reason)
@@ -421,9 +423,12 @@ timestamp < "{end_time}"
         )
         lineage_metadata: Dict[str, Set[str]]
         if self.config.use_exported_bigquery_audit_metadata:
-            lineage_metadata = (
+            # Exported bigquery_audit_metadata should contain every projects' audit metada
+            if len(self.loaded_project_ids) > 0:
+                return {}
+            lineage_metadata = ( (
                 lineage_extractor.compute_bigquery_lineage_via_exported_bigquery_audit_metadata()
-            )
+            ))
         else:
             lineage_metadata = (
                 lineage_extractor.compute_bigquery_lineage_via_gcp_logging(project_id)
@@ -444,7 +449,6 @@ timestamp < "{end_time}"
         self, bq_table: str, tables_seen: List[str] = []
     ) -> Set[BigQueryTableRef]:
         upstreams: Set[BigQueryTableRef] = set()
-        assert self.lineage_metadata
         for ref_table in self.lineage_metadata[str(bq_table)]:
             upstream_table = BigQueryTableRef.from_string_name(ref_table)
             if upstream_table.is_temporary_table(
@@ -468,12 +472,13 @@ timestamp < "{end_time}"
     def get_upstream_lineage_info(
         self, table_identifier: BigqueryTableIdentifier, platform: str
     ) -> Optional[Tuple[UpstreamLineageClass, Dict[str, str]]]:
-        if self.lineage_metadata is None:
+        if table_identifier.project_id not in self.loaded_project_ids:
             with PerfTimer() as timer:
-                self.lineage_metadata = self._compute_bigquery_lineage(
+                self.lineage_metadata.update(self._compute_bigquery_lineage(
                     table_identifier.project_id
-                )
-                self.report.lineage_extraction_sec = round(timer.elapsed_seconds(), 2)
+                ))
+                self.report.lineage_extraction_sec[table_identifier.project_id] = round(timer.elapsed_seconds(), 2)
+                self.loaded_project_ids.append(table_identifier.project_id)
 
         bq_table = BigQueryTableRef.from_bigquery_table(table_identifier)
         if str(bq_table) in self.lineage_metadata:

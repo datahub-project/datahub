@@ -5,6 +5,7 @@ from typing import Dict, List, Optional
 from pydantic import Field, PositiveInt, root_validator
 
 from datahub.configuration.common import AllowDenyPattern
+from datahub.ingestion.source.bigquery_v2.bigquery_audit import BigqueryTableIdentifier
 from datahub.ingestion.source.usage.usage_common import BaseUsageConfig
 from datahub.ingestion.source_config.sql.bigquery import BigQueryConfig
 
@@ -72,7 +73,6 @@ class BigQueryV2Config(BigQueryConfig):
             logging.warning(
                 "schema_pattern will be ignored in favour of dataset_pattern. schema_pattern will be deprecated, please use dataset_pattern only."
             )
-
         return values
 
     def get_table_pattern(self, pattern: List[str]) -> str:

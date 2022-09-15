@@ -79,9 +79,6 @@ class BigqueryTableIdentifier:
 
     invalid_chars: ClassVar[Set[str]] = {"$", "@"}
     _BIGQUERY_DEFAULT_SHARDED_TABLE_REGEX: ClassVar[str] = "((.+)[_$])?(\\d{4,10})$"
-    PARTITION_SUMMARY_REGEXP: ClassVar[Pattern[str]] = re.compile(
-        r"^(.+)\$__PARTITIONS_SUMMARY__$"
-    )
 
     @staticmethod
     def get_table_and_shard(table_name: str) -> Tuple[str, Optional[str]]:
