@@ -119,5 +119,5 @@ clean {
   delete 'public/robots.txt'
   delete 'public/logo.png'
   delete 'public/index.html'
-  delete 'public/favicon.ico'
+  // delete 'public/favicon.ico'
 }

@@ -1,0 +1,40 @@
+# Copyright 2021 Acryl Data, Inc.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#    http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+source:
+  type: datahub-stream
+  # acryl_action_fwk.datahub_streaming.DataHubStreamSource
+  config:
+    auto_offset_reset: ${KAFKA_AUTO_OFFSET_POLICY:-latest} # earliest / latest are supported values
+    connection:
+        bootstrap: ${KAFKA_BOOTSTRAP_SERVER:-localhost:9092}
+        schema_registry_url: ${SCHEMA_REGISTRY_URL:-http://localhost:8081}
+        consumer_config:
+          security.protocol: ${KAFKA_PROPERTIES_SECURITY_PROTOCOL:-PLAINTEXT}
+    actions:
+      - type: "executor"
+        config:
+            local_executor_enabled: True
+
+    topic_routes:
+      mae: ${METADATA_AUDIT_EVENT_NAME:-MetadataAuditEvent_v4}
+      mcl: ${METADATA_CHANGE_LOG_VERSIONED_TOPIC_NAME:-MetadataChangeLog_Versioned_v1}
+
+sink:
+  type: console
+
+datahub_api:
+  server: "http://datahub-gms:8080"
+  extra_headers:
+    Authorization: "Basic ${DATAHUB_SYSTEM_CLIENT_ID:-__datahub_system}:${DATAHUB_SYSTEM_CLIENT_SECRET:-JohnSnowKnowsNothing}"
