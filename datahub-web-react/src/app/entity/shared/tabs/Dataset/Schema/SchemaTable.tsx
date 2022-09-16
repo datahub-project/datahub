@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { ColumnsType } from 'antd/es/table';
 import styled from 'styled-components';
 import {} from 'antd';
@@ -45,6 +45,8 @@ export type Props = {
     usageStats?: UsageQueryResult | null;
     schemaFieldBlameList?: Array<SchemaFieldBlame> | null;
     showSchemaAuditView: boolean;
+    expandedRowsFromFilter?: Set<string>;
+    filterText?: string;
 };
 export default function SchemaTable({
     rows,
@@ -54,6 +56,8 @@ export default function SchemaTable({
     editMode = true,
     schemaFieldBlameList,
     showSchemaAuditView,
+    expandedRowsFromFilter = new Set(),
+    filterText = '',
 }: Props): JSX.Element {
     const hasUsageStats = useMemo(() => (usageStats?.aggregations?.fields?.length || 0) > 0, [usageStats]);
 
@@ -63,15 +67,27 @@ export default function SchemaTable({
 
     const descriptionRender = useDescriptionRenderer(editableSchemaMetadata);
     const usageStatsRenderer = useUsageStatsRenderer(usageStats);
-    const tagRenderer = useTagsAndTermsRenderer(editableSchemaMetadata, tagHoveredIndex, setTagHoveredIndex, {
-        showTags: true,
-        showTerms: false,
-    });
-    const termRenderer = useTagsAndTermsRenderer(editableSchemaMetadata, tagHoveredIndex, setTagHoveredIndex, {
-        showTags: false,
-        showTerms: true,
-    });
-    const schemaTitleRenderer = useSchemaTitleRenderer(schemaMetadata, setSelectedFkFieldPath);
+    const tagRenderer = useTagsAndTermsRenderer(
+        editableSchemaMetadata,
+        tagHoveredIndex,
+        setTagHoveredIndex,
+        {
+            showTags: true,
+            showTerms: false,
+        },
+        filterText,
+    );
+    const termRenderer = useTagsAndTermsRenderer(
+        editableSchemaMetadata,
+        tagHoveredIndex,
+        setTagHoveredIndex,
+        {
+            showTags: false,
+            showTerms: true,
+        },
+        filterText,
+    );
+    const schemaTitleRenderer = useSchemaTitleRenderer(schemaMetadata, setSelectedFkFieldPath, filterText);
     const schemaBlameRenderer = useSchemaBlameRenderer(schemaFieldBlameList);
 
     const onTagTermCell = (record: SchemaField, rowIndex: number | undefined) => ({
@@ -153,6 +169,17 @@ export default function SchemaTable({
         allColumns = [...allColumns, blameColumn];
     }
 
+    const [expandedRows, setExpandedRows] = useState<Set<string>>(new Set());
+
+    useEffect(() => {
+        setExpandedRows((previousRows) => {
+            const finalRowsSet = new Set();
+            expandedRowsFromFilter.forEach((row) => finalRowsSet.add(row));
+            previousRows.forEach((row) => finalRowsSet.add(row));
+            return finalRowsSet as Set<string>;
+        });
+    }, [expandedRowsFromFilter]);
+
     return (
         <FkContext.Provider value={selectedFkFieldPath}>
             <TableContainer>
@@ -169,9 +196,20 @@ export default function SchemaTable({
                         },
                     }}
                     expandable={{
+                        expandedRowKeys: [...Array.from(expandedRows)],
                         defaultExpandAllRows: false,
                         expandRowByClick: false,
                         expandIcon: ExpandIcon,
+                        onExpand: (expanded, record) => {
+                            if (expanded) {
+                                setExpandedRows((previousRows) => new Set(previousRows.add(record.fieldPath)));
+                            } else {
+                                setExpandedRows((previousRows) => {
+                                    previousRows.delete(record.fieldPath);
+                                    return new Set(previousRows);
+                                });
+                            }
+                        },
                         indentSize: 0,
                     }}
                     pagination={false}

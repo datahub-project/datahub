@@ -3,6 +3,10 @@ from datahub.ingestion.source_report.usage.snowflake_usage import SnowflakeUsage
 
 
 class SnowflakeV2Report(SnowflakeReport, SnowflakeUsageReport):
+
+    schemas_scanned: int = 0
+    databases_scanned: int = 0
+
     include_usage_stats: bool = False
     include_operational_stats: bool = False
     include_technical_schema: bool = False
@@ -21,3 +25,18 @@ class SnowflakeV2Report(SnowflakeReport, SnowflakeUsageReport):
     num_get_columns_for_table_queries: int = 0
 
     rows_zero_objects_modified: int = 0
+
+    def report_entity_scanned(self, name: str, ent_type: str = "table") -> None:
+        """
+        Entity could be a view or a table or a schema or a database
+        """
+        if ent_type == "table":
+            self.tables_scanned += 1
+        elif ent_type == "view":
+            self.views_scanned += 1
+        elif ent_type == "schema":
+            self.schemas_scanned += 1
+        elif ent_type == "database":
+            self.databases_scanned += 1
+        else:
+            raise KeyError(f"Unknown entity {ent_type}.")

@@ -7,19 +7,15 @@ import {
     WarningOutlined,
 } from '@ant-design/icons';
 import { ANTD_GRAY, REDESIGN_COLORS } from '../../entity/shared/constants';
-import { SOURCE_TEMPLATE_CONFIGS } from './conf/sources';
 import { EntityType, FacetMetadata } from '../../../types.generated';
 import { capitalizeFirstLetterOnly, pluralize } from '../../shared/textUtil';
 import EntityRegistry from '../../entity/EntityRegistry';
+import { SourceConfig } from './builder/types';
 
-export const sourceTypeToIconUrl = (type: string) => {
-    return SOURCE_TEMPLATE_CONFIGS.find((config) => config.type === type)?.logoUrl;
-};
-
-export const getSourceConfigs = (sourceType: string) => {
-    const sourceConfigs = SOURCE_TEMPLATE_CONFIGS.find((configs) => configs.type === sourceType);
+export const getSourceConfigs = (ingestionSources: SourceConfig[], sourceType: string) => {
+    const sourceConfigs = ingestionSources.find((source) => source.name === sourceType);
     if (!sourceConfigs) {
-        throw new Error(`Failed to find source configs with source type ${sourceType}`);
+        console.error(`Failed to find source configs with source type ${sourceType}`);
     }
     return sourceConfigs;
 };
@@ -35,6 +31,11 @@ export const jsonToYaml = (json: string): string => {
     const yamlStr = YAML.stringify(obj, 6);
     return yamlStr;
 };
+
+export function getPlaceholderRecipe(ingestionSources: SourceConfig[], type?: string) {
+    const selectedSource = ingestionSources.find((source) => source.name === type);
+    return selectedSource?.recipe || '';
+}
 
 export const RUNNING = 'RUNNING';
 export const SUCCESS = 'SUCCESS';
