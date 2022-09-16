@@ -273,6 +273,10 @@ class DBTConfig(StatefulIngestionConfigBase):
         default={},
         description="mapping rules that will be executed against dbt meta properties. Refer to the section below on dbt meta automated mappings.",
     )
+    column_meta_mapping: Dict = Field(
+        default={},
+        description="mapping rules that will be executed against dbt column meta properties. Refer to the section below on dbt meta automated mappings.",
+    )
     enable_meta_mapping = Field(
         default=True,
         description="When enabled, applies the mappings that are defined through the meta_mapping directives.",
@@ -394,6 +398,8 @@ class DBTColumn:
     description: str
     index: int
     data_type: str
+
+    meta: Dict[str, Any] = field(default_factory=dict)
     tags: List[str] = field(default_factory=list)
 
 
@@ -463,22 +469,25 @@ def get_columns(
 ) -> List[DBTColumn]:
     columns = []
 
+    catalog_columns = catalog_node["columns"]
     manifest_columns = manifest_node.get("columns", {})
 
-    raw_columns = catalog_node["columns"]
+    for key in catalog_columns:
+        catalog_column = catalog_columns[key]
+        manifest_column = manifest_columns.get(key.lower(), {})
 
-    for key in raw_columns:
-        raw_column = raw_columns[key]
+        meta = manifest_column.get("meta", {})
 
-        tags = manifest_columns.get(key.lower(), {}).get("tags", [])
+        tags = manifest_column.get("tags", [])
         tags = [tag_prefix + tag for tag in tags]
 
         dbtCol = DBTColumn(
-            name=raw_column["name"].lower(),
-            comment=raw_column.get("comment", ""),
-            description=manifest_columns.get(key.lower(), {}).get("description", ""),
-            data_type=raw_column["type"],
-            index=raw_column["index"],
+            name=catalog_column["name"].lower(),
+            comment=catalog_column.get("comment", ""),
+            description=manifest_column.get("description", ""),
+            data_type=catalog_column["type"],
+            index=catalog_column["index"],
+            meta=meta,
             tags=tags,
         )
         columns.append(dbtCol)
@@ -722,66 +731,6 @@ def get_column_type(
         TypeClass = NullTypeClass
 
     return SchemaFieldDataType(type=TypeClass())
-
-
-def get_schema_metadata(
-    report: DBTSourceReport, node: DBTNode, platform: str
-) -> SchemaMetadata:
-    canonical_schema: List[SchemaField] = []
-    for column in node.columns:
-        description = None
-
-        if (
-            column.comment
-            and column.description
-            and column.comment != column.description
-        ):
-            description = f"{platform} comment: {column.comment}\n\ndbt model description: {column.description}"
-        elif column.comment:
-            description = column.comment
-        elif column.description:
-            description = column.description
-
-        globalTags = None
-        if column.tags:
-            globalTags = GlobalTagsClass(
-                tags=[
-                    TagAssociationClass(mce_builder.make_tag_urn(tag))
-                    for tag in column.tags
-                ]
-            )
-
-        field = SchemaField(
-            fieldPath=column.name,
-            nativeDataType=column.data_type,
-            type=get_column_type(
-                report, node.dbt_name, column.data_type, node.dbt_adapter
-            ),
-            description=description,
-            nullable=False,  # TODO: actually autodetect this
-            recursive=False,
-            globalTags=globalTags,
-        )
-
-        canonical_schema.append(field)
-
-    last_modified = None
-    if node.max_loaded_at is not None:
-        actor = mce_builder.make_user_urn("dbt_executor")
-        last_modified = AuditStamp(
-            time=int(node.max_loaded_at.timestamp() * 1000),
-            actor=actor,
-        )
-
-    return SchemaMetadata(
-        schemaName=node.dbt_name,
-        platform=mce_builder.make_data_platform_urn(platform),
-        version=0,
-        hash="",
-        platformSchema=MySqlDDL(tableSchema=""),
-        lastModified=last_modified,
-        fields=canonical_schema,
-    )
 
 
 @dataclass
@@ -1664,9 +1613,68 @@ class DBTSource(StatefulIngestionSourceBase):
             aspects.append(meta_aspects.get(Constants.ADD_TERM_OPERATION))
 
         # add schema metadata aspect
-        schema_metadata = get_schema_metadata(self.report, node, mce_platform)
+        schema_metadata = self.get_schema_metadata(self.report, node, mce_platform)
         aspects.append(schema_metadata)
         return aspects
+
+    def get_schema_metadata(
+        report: DBTSourceReport, node: DBTNode, platform: str
+    ) -> SchemaMetadata:
+        canonical_schema: List[SchemaField] = []
+        for column in node.columns:
+            description = None
+
+            if (
+                column.comment
+                and column.description
+                and column.comment != column.description
+            ):
+                description = f"{platform} comment: {column.comment}\n\ndbt model description: {column.description}"
+            elif column.comment:
+                description = column.comment
+            elif column.description:
+                description = column.description
+
+            globalTags = None
+            if column.tags:
+                globalTags = GlobalTagsClass(
+                    tags=[
+                        TagAssociationClass(mce_builder.make_tag_urn(tag))
+                        for tag in column.tags
+                    ]
+                )
+
+            field = SchemaField(
+                fieldPath=column.name,
+                nativeDataType=column.data_type,
+                type=get_column_type(
+                    report, node.dbt_name, column.data_type, node.dbt_adapter
+                ),
+                description=description,
+                nullable=False,  # TODO: actually autodetect this
+                recursive=False,
+                globalTags=globalTags,
+            )
+
+            canonical_schema.append(field)
+
+        last_modified = None
+        if node.max_loaded_at is not None:
+            actor = mce_builder.make_user_urn("dbt_executor")
+            last_modified = AuditStamp(
+                time=int(node.max_loaded_at.timestamp() * 1000),
+                actor=actor,
+            )
+
+        return SchemaMetadata(
+            schemaName=node.dbt_name,
+            platform=mce_builder.make_data_platform_urn(platform),
+            version=0,
+            hash="",
+            platformSchema=MySqlDDL(tableSchema=""),
+            lastModified=last_modified,
+            fields=canonical_schema,
+        )
 
     def _aggregate_owners(
         self, node: DBTNode, meta_owner_aspects: Any
