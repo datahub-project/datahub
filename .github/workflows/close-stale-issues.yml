@@ -14,6 +14,7 @@ jobs:
         with:
           ascending: true
           operations-per-run: 100
+          exempt-issue-labels: accepted,on-deck
           days-before-issue-stale: 30
           days-before-issue-close: 30
           stale-issue-label: "stale"
