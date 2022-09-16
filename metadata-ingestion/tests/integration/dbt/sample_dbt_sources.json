@@ -21,7 +21,7 @@
           "period": "day"
         }
       },
-      "execution_time": 0.04037022590637207,
+      "execution_time": 0.023441791534423828,
       "max_loaded_at": "2020-02-15T09:34:33+00:00",
       "max_loaded_at_time_ago_in_s": 42276862.910052,
       "snapshotted_at": "2021-06-18T17:08:55.925443+00:00",
@@ -29,14 +29,14 @@
       "thread_id": "Thread-1",
       "timing": [
         {
-          "completed_at": "2022-09-15T22:09:44.921686Z",
+          "completed_at": "2022-09-16T19:06:38.239639Z",
           "name": "compile",
-          "started_at": "2022-09-15T22:09:44.921679Z"
+          "started_at": "2022-09-16T19:06:38.239635Z"
         },
         {
-          "completed_at": "2022-09-15T22:09:44.960798Z",
+          "completed_at": "2022-09-16T19:06:38.239639Z",
           "name": "execute",
-          "started_at": "2022-09-15T22:09:44.922080Z"
+          "started_at": "2022-09-16T19:06:38.239635Z"
         }
       ],
       "unique_id": "source.sample_dbt.pagila.actor"
@@ -54,7 +54,7 @@
           "period": "day"
         }
       },
-      "execution_time": 0.031865835189819336,
+      "execution_time": 0.023441791534423828,
       "max_loaded_at": "2020-02-15T09:45:30+00:00",
       "max_loaded_at_time_ago_in_s": 42276862.910052,
       "snapshotted_at": "2021-06-18T17:08:55.925443+00:00",
@@ -62,14 +62,14 @@
       "thread_id": "Thread-1",
       "timing": [
         {
-          "completed_at": "2022-09-15T22:09:44.963639Z",
+          "completed_at": "2022-09-16T19:06:38.239639Z",
           "name": "compile",
-          "started_at": "2022-09-15T22:09:44.963633Z"
+          "started_at": "2022-09-16T19:06:38.239635Z"
         },
         {
-          "completed_at": "2022-09-15T22:09:44.994387Z",
+          "completed_at": "2022-09-16T19:06:38.239639Z",
           "name": "execute",
-          "started_at": "2022-09-15T22:09:44.964025Z"
+          "started_at": "2022-09-16T19:06:38.239635Z"
         }
       ],
       "unique_id": "source.sample_dbt.pagila.address"
@@ -87,7 +87,7 @@
           "period": "day"
         }
       },
-      "execution_time": 0.03497505187988281,
+      "execution_time": 0.023441791534423828,
       "max_loaded_at": "2020-02-15T09:46:27+00:00",
       "max_loaded_at_time_ago_in_s": 42276862.910052,
       "snapshotted_at": "2021-06-18T17:08:55.925443+00:00",
@@ -95,14 +95,14 @@
       "thread_id": "Thread-1",
       "timing": [
         {
-          "completed_at": "2022-09-15T22:09:44.998003Z",
+          "completed_at": "2022-09-16T19:06:38.239639Z",
           "name": "compile",
-          "started_at": "2022-09-15T22:09:44.997934Z"
+          "started_at": "2022-09-16T19:06:38.239635Z"
         },
         {
-          "completed_at": "2022-09-15T22:09:45.030544Z",
+          "completed_at": "2022-09-16T19:06:38.239639Z",
           "name": "execute",
-          "started_at": "2022-09-15T22:09:44.998804Z"
+          "started_at": "2022-09-16T19:06:38.239635Z"
         }
       ],
       "unique_id": "source.sample_dbt.pagila.category"
@@ -120,7 +120,7 @@
           "period": "day"
         }
       },
-      "execution_time": 0.04923701286315918,
+      "execution_time": 0.023441791534423828,
       "max_loaded_at": "2020-02-15T09:45:25+00:00",
       "max_loaded_at_time_ago_in_s": 42276862.910052,
       "snapshotted_at": "2021-06-18T17:08:55.925443+00:00",
@@ -128,14 +128,14 @@
       "thread_id": "Thread-1",
       "timing": [
         {
-          "completed_at": "2022-09-15T22:09:45.034591Z",
+          "completed_at": "2022-09-16T19:06:38.239639Z",
           "name": "compile",
-          "started_at": "2022-09-15T22:09:45.034583Z"
+          "started_at": "2022-09-16T19:06:38.239635Z"
         },
         {
-          "completed_at": "2022-09-15T22:09:45.082632Z",
+          "completed_at": "2022-09-16T19:06:38.239639Z",
           "name": "execute",
-          "started_at": "2022-09-15T22:09:45.034988Z"
+          "started_at": "2022-09-16T19:06:38.239635Z"
         }
       ],
       "unique_id": "source.sample_dbt.pagila.city"
@@ -153,7 +153,7 @@
           "period": "day"
         }
       },
-      "execution_time": 0.03635001182556152,
+      "execution_time": 0.023441791534423828,
       "max_loaded_at": "2020-02-15T09:44:00+00:00",
       "max_loaded_at_time_ago_in_s": 42276862.910052,
       "snapshotted_at": "2021-06-18T17:08:55.925443+00:00",
@@ -161,14 +161,14 @@
       "thread_id": "Thread-1",
       "timing": [
         {
-          "completed_at": "2022-09-15T22:09:45.085134Z",
+          "completed_at": "2022-09-16T19:06:38.239639Z",
           "name": "compile",
-          "started_at": "2022-09-15T22:09:45.085129Z"
+          "started_at": "2022-09-16T19:06:38.239635Z"
         },
         {
-          "completed_at": "2022-09-15T22:09:45.120416Z",
+          "completed_at": "2022-09-16T19:06:38.239639Z",
           "name": "execute",
-          "started_at": "2022-09-15T22:09:45.085511Z"
+          "started_at": "2022-09-16T19:06:38.239635Z"
         }
       ],
       "unique_id": "source.sample_dbt.pagila.country"
@@ -186,7 +186,7 @@
           "period": "day"
         }
       },
-      "execution_time": 0.0410311222076416,
+      "execution_time": 0.023441791534423828,
       "max_loaded_at": "2020-02-15T09:57:20+00:00",
       "max_loaded_at_time_ago_in_s": 42276862.910052,
       "snapshotted_at": "2021-06-18T17:08:55.925443+00:00",
@@ -194,14 +194,14 @@
       "thread_id": "Thread-1",
       "timing": [
         {
-          "completed_at": "2022-09-15T22:09:45.123128Z",
+          "completed_at": "2022-09-16T19:06:38.239639Z",
           "name": "compile",
-          "started_at": "2022-09-15T22:09:45.123120Z"
+          "started_at": "2022-09-16T19:06:38.239635Z"
         },
         {
-          "completed_at": "2022-09-15T22:09:45.162051Z",
+          "completed_at": "2022-09-16T19:06:38.239639Z",
           "name": "execute",
-          "started_at": "2022-09-15T22:09:45.123648Z"
+          "started_at": "2022-09-16T19:06:38.239635Z"
         }
       ],
       "unique_id": "source.sample_dbt.pagila.customer"
@@ -219,7 +219,7 @@
           "period": "day"
         }
       },
-      "execution_time": 0.036347150802612305,
+      "execution_time": 0.023441791534423828,
       "max_loaded_at": "2020-01-31T21:16:11.996577+00:00",
       "max_loaded_at_time_ago_in_s": 42276862.910052,
       "snapshotted_at": "2021-06-18T17:08:55.925443+00:00",
@@ -227,14 +227,14 @@
       "thread_id": "Thread-1",
       "timing": [
         {
-          "completed_at": "2022-09-15T22:09:45.165977Z",
+          "completed_at": "2022-09-16T19:06:38.239639Z",
           "name": "compile",
-          "started_at": "2022-09-15T22:09:45.165970Z"
+          "started_at": "2022-09-16T19:06:38.239635Z"
         },
         {
-          "completed_at": "2022-09-15T22:09:45.201050Z",
+          "completed_at": "2022-09-16T19:06:38.239639Z",
           "name": "execute",
-          "started_at": "2022-09-15T22:09:45.166410Z"
+          "started_at": "2022-09-16T19:06:38.239635Z"
         }
       ],
       "unique_id": "source.sample_dbt.pagila.payment_p2020_01"
@@ -252,7 +252,7 @@
           "period": "day"
         }
       },
-      "execution_time": 0.04000496864318848,
+      "execution_time": 0.023441791534423828,
       "max_loaded_at": "2020-02-21T21:17:25.996577+00:00",
       "max_loaded_at_time_ago_in_s": 42276862.910052,
       "snapshotted_at": "2021-06-18T17:08:55.925443+00:00",
@@ -260,14 +260,14 @@
       "thread_id": "Thread-1",
       "timing": [
         {
-          "completed_at": "2022-09-15T22:09:45.203784Z",
+          "completed_at": "2022-09-16T19:06:38.239639Z",
           "name": "compile",
-          "started_at": "2022-09-15T22:09:45.203776Z"
+          "started_at": "2022-09-16T19:06:38.239635Z"
         },
         {
-          "completed_at": "2022-09-15T22:09:45.242264Z",
+          "completed_at": "2022-09-16T19:06:38.239639Z",
           "name": "execute",
-          "started_at": "2022-09-15T22:09:45.204198Z"
+          "started_at": "2022-09-16T19:06:38.239635Z"
         }
       ],
       "unique_id": "source.sample_dbt.pagila.payment_p2020_02"
@@ -285,7 +285,7 @@
           "period": "day"
         }
       },
-      "execution_time": 0.03630375862121582,
+      "execution_time": 0.023441791534423828,
       "max_loaded_at": "2020-03-23T21:18:38.996577+00:00",
       "max_loaded_at_time_ago_in_s": 42276862.910052,
       "snapshotted_at": "2021-06-18T17:08:55.925443+00:00",
@@ -293,14 +293,14 @@
       "thread_id": "Thread-1",
       "timing": [
         {
-          "completed_at": "2022-09-15T22:09:45.247922Z",
+          "completed_at": "2022-09-16T19:06:38.239639Z",
           "name": "compile",
-          "started_at": "2022-09-15T22:09:45.247891Z"
+          "started_at": "2022-09-16T19:06:38.239635Z"
         },
         {
-          "completed_at": "2022-09-15T22:09:45.282288Z",
+          "completed_at": "2022-09-16T19:06:38.239639Z",
           "name": "execute",
-          "started_at": "2022-09-15T22:09:45.248408Z"
+          "started_at": "2022-09-16T19:06:38.239635Z"
         }
       ],
       "unique_id": "source.sample_dbt.pagila.payment_p2020_03"
@@ -318,7 +318,7 @@
           "period": "day"
         }
       },
-      "execution_time": 0.03691911697387695,
+      "execution_time": 0.023441791534423828,
       "max_loaded_at": "2020-04-30T22:53:48.996577+00:00",
       "max_loaded_at_time_ago_in_s": 42276862.910052,
       "snapshotted_at": "2021-06-18T17:08:55.925443+00:00",
@@ -326,14 +326,14 @@
       "thread_id": "Thread-1",
       "timing": [
         {
-          "completed_at": "2022-09-15T22:09:45.285229Z",
+          "completed_at": "2022-09-16T19:06:38.239639Z",
           "name": "compile",
-          "started_at": "2022-09-15T22:09:45.285223Z"
+          "started_at": "2022-09-16T19:06:38.239635Z"
         },
         {
-          "completed_at": "2022-09-15T22:09:45.320975Z",
+          "completed_at": "2022-09-16T19:06:38.239639Z",
           "name": "execute",
-          "started_at": "2022-09-15T22:09:45.285681Z"
+          "started_at": "2022-09-16T19:06:38.239635Z"
         }
       ],
       "unique_id": "source.sample_dbt.pagila.payment_p2020_04"
@@ -351,7 +351,7 @@
           "period": "day"
         }
       },
-      "execution_time": 0.040837764739990234,
+      "execution_time": 0.023441791534423828,
       "max_loaded_at": "2020-05-14T12:44:29.996577+00:00",
       "max_loaded_at_time_ago_in_s": 42276862.910052,
       "snapshotted_at": "2021-06-18T17:08:55.925443+00:00",
@@ -359,14 +359,14 @@
       "thread_id": "Thread-1",
       "timing": [
         {
-          "completed_at": "2022-09-15T22:09:45.325352Z",
+          "completed_at": "2022-09-16T19:06:38.239639Z",
           "name": "compile",
-          "started_at": "2022-09-15T22:09:45.325316Z"
+          "started_at": "2022-09-16T19:06:38.239635Z"
         },
         {
-          "completed_at": "2022-09-15T22:09:45.363569Z",
+          "completed_at": "2022-09-16T19:06:38.239639Z",
           "name": "execute",
-          "started_at": "2022-09-15T22:09:45.326413Z"
+          "started_at": "2022-09-16T19:06:38.239635Z"
         }
       ],
       "unique_id": "source.sample_dbt.pagila.payment_p2020_05"
@@ -384,7 +384,7 @@
           "period": "day"
         }
       },
-      "execution_time": 0.03648805618286133,
+      "execution_time": 0.023441791534423828,
       "max_loaded_at": "0001-01-01T00:00:00+00:00",
       "max_loaded_at_time_ago_in_s": 42276862.910052,
       "snapshotted_at": "2021-06-18T17:08:55.925443+00:00",
@@ -392,14 +392,14 @@
       "thread_id": "Thread-1",
       "timing": [
         {
-          "completed_at": "2022-09-15T22:09:45.366312Z",
+          "completed_at": "2022-09-16T19:06:38.239639Z",
           "name": "compile",
-          "started_at": "2022-09-15T22:09:45.366307Z"
+          "started_at": "2022-09-16T19:06:38.239635Z"
         },
         {
-          "completed_at": "2022-09-15T22:09:45.401730Z",
+          "completed_at": "2022-09-16T19:06:38.239639Z",
           "name": "execute",
-          "started_at": "2022-09-15T22:09:45.366698Z"
+          "started_at": "2022-09-16T19:06:38.239635Z"
         }
       ],
       "unique_id": "source.sample_dbt.pagila.payment_p2020_06"

@@ -559,9 +559,8 @@ def extract_dbt_entities(
 
         tags = manifest_node.get("tags", [])
         tags = [tag_prefix + tag for tag in tags]
-        meta_props = manifest_node.get("meta", {})
         if not meta:
-            meta_props = manifest_node.get("config", {}).get("meta", {})
+            meta = manifest_node.get("config", {}).get("meta", {})
 
         max_loaded_at_str = sources_by_id.get(key, {}).get("max_loaded_at")
         max_loaded_at = None
@@ -584,7 +583,7 @@ def extract_dbt_entities(
             upstream_nodes=upstream_nodes,
             materialization=materialization,
             catalog_type=catalog_type,
-            meta=meta_props,
+            meta=meta,
             query_tag=query_tag_props,
             tags=tags,
             owner=owner,
@@ -592,12 +591,12 @@ def extract_dbt_entities(
             manifest_raw=manifest_node,
         )
 
-        # overwrite columns from catalog
+        # Load columns from catalog, and override some properties from manifest.
         if dbtNode.materialization not in [
             "ephemeral",
             "test",
-        ]:  # we don't want columns if platform isn't 'dbt'
-            logger.debug("Loading schema info")
+        ]:
+            logger.debug(f"Loading schema info for {dbtNode.dbt_name}")
             if catalog_node is not None:
                 # We already have done the reporting for catalog_node being None above.
                 dbtNode.columns = get_columns(catalog_node, manifest_node, tag_prefix)
@@ -1618,8 +1617,15 @@ class DBTSource(StatefulIngestionSourceBase):
         return aspects
 
     def get_schema_metadata(
-        report: DBTSourceReport, node: DBTNode, platform: str
+        self, report: DBTSourceReport, node: DBTNode, platform: str
     ) -> SchemaMetadata:
+        action_processor = OperationProcessor(
+            self.config.column_meta_mapping,
+            self.config.tag_prefix,
+            "SOURCE_CONTROL",
+            self.config.strip_user_ids_from_email,
+        )
+
         canonical_schema: List[SchemaField] = []
         for column in node.columns:
             description = None
@@ -1635,14 +1641,30 @@ class DBTSource(StatefulIngestionSourceBase):
             elif column.description:
                 description = column.description
 
+            meta_aspects: Dict[str, Any] = {}
+            if self.config.enable_meta_mapping and column.meta:
+                meta_aspects = action_processor.process(column.meta)
+
+            if meta_aspects.get(Constants.ADD_OWNER_OPERATION):
+                logger.warning("The add_owner operation is not supported for columns.")
+
+            meta_tags: Optional[GlobalTagsClass] = meta_aspects.get(
+                Constants.ADD_TAG_OPERATION
+            )
             globalTags = None
-            if column.tags:
+            if meta_tags or column.tags:
+                # Merge tags from meta mapping and column tags.
                 globalTags = GlobalTagsClass(
-                    tags=[
+                    tags=(meta_tags.tags if meta_tags else [])
+                    + [
                         TagAssociationClass(mce_builder.make_tag_urn(tag))
                         for tag in column.tags
                     ]
                 )
+
+            glossaryTerms = None
+            if meta_aspects.get(Constants.ADD_TERM_OPERATION):
+                glossaryTerms = meta_aspects.get(Constants.ADD_TERM_OPERATION)
 
             field = SchemaField(
                 fieldPath=column.name,
@@ -1654,6 +1676,7 @@ class DBTSource(StatefulIngestionSourceBase):
                 nullable=False,  # TODO: actually autodetect this
                 recursive=False,
                 globalTags=globalTags,
+                glossaryTerms=glossaryTerms,
             )
 
             canonical_schema.append(field)
@@ -1740,7 +1763,7 @@ class DBTSource(StatefulIngestionSourceBase):
             aspect=SubTypesClass(typeNames=subtypes),
         )
         subtype_wu = MetadataWorkUnit(
-            id=f"{self.platform}-{subtype_mcp.entityUrn}-{subtype_mcp.aspectName}",
+            id=f"{subtype_mcp.entityUrn}-{subtype_mcp.aspectName}",
             mcp=subtype_mcp,
         )
         return subtype_wu

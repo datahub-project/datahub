@@ -6154,9 +6154,9 @@
       "depends_on": {
         "macros": [],
         "nodes": [
+          "source.sample_dbt.pagila.city",
           "source.sample_dbt.pagila.customer",
-          "source.sample_dbt.pagila.address",
-          "source.sample_dbt.pagila.city"
+          "source.sample_dbt.pagila.address"
         ]
       },
       "description": "",
@@ -6186,15 +6186,15 @@
       "sources": [
         [
           "pagila",
+          "city"
+        ],
+        [
+          "pagila",
           "customer"
         ],
         [
           "pagila",
           "address"
-        ],
-        [
-          "pagila",
-          "city"
         ]
       ],
       "tags": [],
@@ -6321,12 +6321,12 @@
       "depends_on": {
         "macros": [],
         "nodes": [
-          "source.sample_dbt.pagila.payment_p2020_01",
-          "source.sample_dbt.pagila.payment_p2020_05",
-          "source.sample_dbt.pagila.payment_p2020_03",
           "source.sample_dbt.pagila.payment_p2020_04",
+          "source.sample_dbt.pagila.payment_p2020_01",
+          "source.sample_dbt.pagila.payment_p2020_02",
+          "source.sample_dbt.pagila.payment_p2020_03",
           "source.sample_dbt.pagila.payment_p2020_06",
-          "source.sample_dbt.pagila.payment_p2020_02"
+          "source.sample_dbt.pagila.payment_p2020_05"
         ]
       },
       "description": "",
@@ -6356,11 +6356,15 @@
       "sources": [
         [
           "pagila",
+          "payment_p2020_04"
+        ],
+        [
+          "pagila",
           "payment_p2020_01"
         ],
         [
           "pagila",
-          "payment_p2020_05"
+          "payment_p2020_02"
         ],
         [
           "pagila",
@@ -6368,15 +6372,11 @@
         ],
         [
           "pagila",
-          "payment_p2020_04"
-        ],
-        [
-          "pagila",
           "payment_p2020_06"
         ],
         [
           "pagila",
-          "payment_p2020_02"
+          "payment_p2020_05"
         ]
       ],
       "tags": [],
@@ -6393,7 +6393,37 @@
         "checksum": "691757217fdc0ad849160f0b24bff8fa09385b51f9f5605dda388a6d47d1ab28",
         "name": "sha256"
       },
-      "columns": {},
+      "columns": {
+        "amount": {
+          "data_type": null,
+          "description": "",
+          "meta": {},
+          "name": "amount",
+          "quote": null,
+          "tags": []
+        },
+        "billing_month": {
+          "data_type": null,
+          "description": "",
+          "meta": {},
+          "name": "billing_month",
+          "quote": null,
+          "tags": []
+        },
+        "customer_id": {
+          "data_type": null,
+          "description": "description for customer_id from dbt",
+          "meta": {
+            "is_sensitive": true,
+            "terms": "pii, customer_id"
+          },
+          "name": "customer_id",
+          "quote": null,
+          "tags": [
+            "tag_from_dbt"
+          ]
+        }
+      },
       "compiled": true,
       "compiled_path": "target/compiled/sample_dbt/models/transform/payments_by_customer_by_month.sql",
       "compiled_sql": "\n\nSELECT\n    date_trunc('month', payment_date) as \"billing_month\",\n    customer_id,\n    sum(amount) as \"amount\"\nFROM\n    \"pagila\".\"dbt_postgres\".\"an-aliased-view-for-payments\"\nGROUP BY\n    billing_month,\n    customer_id",
@@ -6440,7 +6470,7 @@
       "name": "payments_by_customer_by_month",
       "original_file_path": "models/transform/payments_by_customer_by_month.sql",
       "package_name": "sample_dbt",
-      "patch_path": null,
+      "patch_path": "sample_dbt://models/base.yml",
       "path": "transform/payments_by_customer_by_month.sql",
       "raw_sql": "{{ config(\n    materialized = \"table\",\n) }}\n\nSELECT\n    date_trunc('month', payment_date) as \"billing_month\",\n    customer_id,\n    sum(amount) as \"amount\"\nFROM\n    {{ ref('payments_base')}}\nGROUP BY\n    billing_month,\n    customer_id",
       "refs": [
@@ -6501,26 +6531,18 @@
         "first_name": {
           "data_type": null,
           "description": "description for first_name from dbt",
-          "meta": {
-            "terms": "pii, first_name"
-          },
+          "meta": {},
           "name": "first_name",
           "quote": null,
-          "tags": [
-            "sensitive"
-          ]
+          "tags": []
         },
         "last_name": {
           "data_type": null,
           "description": "description for last_name from dbt",
-          "meta": {
-            "terms": "pii, last_name"
-          },
+          "meta": {},
           "name": "last_name",
           "quote": null,
-          "tags": [
-            "sensitive"
-          ]
+          "tags": []
         },
         "last_update": {
           "data_type": null,
@@ -6528,9 +6550,7 @@
           "meta": {},
           "name": "last_update",
           "quote": null,
-          "tags": [
-            "timestamp"
-          ]
+          "tags": []
         }
       },
       "config": {
