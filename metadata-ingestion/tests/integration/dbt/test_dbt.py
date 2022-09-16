@@ -177,8 +177,8 @@ class DbtTestConfig:
                 "column_meta_mapping": {
                     "terms": {
                         "match": ".*",
-                        "operation": "add_term",
-                        "config": {"term": "{{ $match }}"},
+                        "operation": "add_terms",
+                        "config": {"separator": ","},
                     },
                     "is_sensitive": {
                         "match": True,
