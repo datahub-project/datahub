@@ -46,15 +46,17 @@ public class OwnershipDiffer implements AspectDiffer<Ownership> {
       if (comparison == 0) {
         if (!baseOwner.getType().equals(targetOwner.getType())) {
           // Ownership type has changed.
-          changeEvents.add(ChangeEvent.builder()
+          changeEvents.add(OwnerChangeEvent.entityOwnerChangeEventBuilder()
               .modifier(targetOwner.getType().name())
-              .entityUrn(baseOwner.getOwner().toString())
+              .entityUrn(entityUrn)
               .category(ChangeCategory.OWNER)
               .operation(ChangeOperation.MODIFY)
               .semVerChange(SemanticChangeType.PATCH)
               .description(
                   String.format(OWNERSHIP_TYPE_CHANGE_FORMAT, baseOwner.getOwner().getId(), baseOwner.getType(),
                       targetOwner.getType(), entityUrn))
+              .ownerUrn(targetOwner.getOwner())
+              .ownerType(targetOwner.getType())
               .auditStamp(auditStamp)
               .build());
         }
@@ -70,6 +72,7 @@ public class OwnershipDiffer implements AspectDiffer<Ownership> {
             .semVerChange(SemanticChangeType.MINOR)
             .description(String.format(OWNER_REMOVED_FORMAT, baseOwner.getOwner().getId(), baseOwner.getType(), entityUrn))
             .ownerUrn(baseOwner.getOwner())
+            .ownerType(baseOwner.getType())
             .auditStamp(auditStamp)
             .build());
         ++baseOwnerIdx;
@@ -83,6 +86,7 @@ public class OwnershipDiffer implements AspectDiffer<Ownership> {
             .semVerChange(SemanticChangeType.MINOR)
             .description(String.format(OWNER_ADDED_FORMAT, targetOwner.getOwner().getId(), targetOwner.getType(), entityUrn))
             .ownerUrn(targetOwner.getOwner())
+            .ownerType(targetOwner.getType())
             .auditStamp(auditStamp)
             .build());
         ++targetOwnerIdx;
@@ -100,6 +104,7 @@ public class OwnershipDiffer implements AspectDiffer<Ownership> {
           .semVerChange(SemanticChangeType.MINOR)
           .description(String.format(OWNER_REMOVED_FORMAT, baseOwner.getOwner().getId(), baseOwner.getType(), entityUrn))
           .ownerUrn(baseOwner.getOwner())
+          .ownerType(baseOwner.getType())
           .auditStamp(auditStamp)
           .build());
       ++baseOwnerIdx;
@@ -115,6 +120,7 @@ public class OwnershipDiffer implements AspectDiffer<Ownership> {
           .semVerChange(SemanticChangeType.MINOR)
           .description(String.format(OWNER_ADDED_FORMAT, targetOwner.getOwner().getId(), targetOwner.getType(), entityUrn))
           .ownerUrn(targetOwner.getOwner())
+          .ownerType(targetOwner.getType())
           .auditStamp(auditStamp)
           .build());
       ++targetOwnerIdx;

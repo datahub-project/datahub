@@ -2,6 +2,7 @@ package com.linkedin.metadata.timeline.data.entity;
 
 import com.google.common.collect.ImmutableMap;
 import com.linkedin.common.AuditStamp;
+import com.linkedin.common.OwnershipType;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.metadata.timeline.data.ChangeCategory;
 import com.linkedin.metadata.timeline.data.ChangeEvent;
@@ -25,7 +26,8 @@ public class OwnerChangeEvent extends ChangeEvent {
       AuditStamp auditStamp,
       SemanticChangeType semVerChange,
       String description,
-      Urn ownerUrn
+      Urn ownerUrn,
+      OwnershipType ownerType
   ) {
     super(
         entityUrn,
@@ -33,7 +35,8 @@ public class OwnerChangeEvent extends ChangeEvent {
         operation,
         modifier,
         ImmutableMap.of(
-            "ownerUrn", ownerUrn.toString()
+            "ownerUrn", ownerUrn.toString(),
+            "ownerType", ownerType.toString()
         ),
         auditStamp,
         semVerChange,
