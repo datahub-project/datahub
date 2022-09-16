@@ -443,7 +443,7 @@ class DBTNode:
     compiled_sql: Optional[str] = None
 
     def get_db_fqn(self) -> str:
-        if self.database is not None:
+        if self.database:
             fqn = f"{self.database}.{self.schema}.{self.name}"
         else:
             fqn = f"{self.schema}.{self.name}"
@@ -472,8 +472,7 @@ def get_columns(
     catalog_columns = catalog_node["columns"]
     manifest_columns = manifest_node.get("columns", {})
 
-    for key in catalog_columns:
-        catalog_column = catalog_columns[key]
+    for key, catalog_column in catalog_columns.items():
         manifest_column = manifest_columns.get(key.lower(), {})
 
         meta = manifest_column.get("meta", {})

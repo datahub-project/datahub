@@ -115,7 +115,6 @@ class OperationProcessor:
                                 operation_type, set()
                             )
                             if isinstance(operation, list):
-                                breakpoint()
                                 operations_value_set.update(operation)  # type: ignore
                             else:
                                 operations_value_set.add(operation)  # type: ignore
