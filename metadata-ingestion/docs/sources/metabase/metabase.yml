@@ -14,8 +14,10 @@ source:
       h2: sample-dataset.db
     # Optional mapping of platform types to instance ids
     platform_instance_map: # optional
+      postgres: test_postgres
+    database_alias_map: # optional
       postgres:
-        "internal_dbname": "datahub_dbname" # optional
+        "internal_dbname": "datahub_dbname"
 
 sink:
   # sink configs
