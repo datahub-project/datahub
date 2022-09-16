@@ -36,7 +36,7 @@ The following video shows you how to ingest LookML metadata through the UI and f
 
 <div style={{ position: "relative", paddingBottom: "56.25%", height: 0 }}>
   <iframe
-    src="https://www.loom.com/share/c66dd625de7f48b39005e0eb9c345f5a"
+    src="https://www.loom.com/embed/c66dd625de7f48b39005e0eb9c345f5a"
     frameBorder={0}
     webkitallowfullscreen=""
     mozallowfullscreen=""
