@@ -34,38 +34,25 @@ class BigqueryProfiler:
     def __init__(self, config: BigQueryV2Config, report: BigQueryV2Report) -> None:
         self.config = config
         self.report = report
-        self.logger = logger
         self.platform = "bigquery"
 
     @staticmethod
     def get_partition_range_from_partition_id(
         partition_id: str, partition_datetime: Optional[datetime.datetime]
     ) -> Tuple[datetime.datetime, datetime.datetime]:
+        partition_range_map: Dict[int, Tuple[relativedelta, str]] = {
+            4: (relativedelta(years=1), "%Y"),
+            6: (relativedelta(months=1), "%Y%m"),
+            8: (relativedelta(days=1), "%Y%m%d"),
+            10: (relativedelta(hours=1), "%Y%m%d%H"),
+        }
+
         duration: relativedelta
-        # if yearly partitioned,
-        if len(partition_id) == 4:
-            duration = relativedelta(years=1)
+        if partition_range_map.get(len(partition_id)):
+            (delta, format) = partition_range_map[len(partition_id)]
+            duration = delta
             if not partition_datetime:
-                partition_datetime = datetime.datetime.strptime(partition_id, "%Y")
-            partition_datetime = partition_datetime.replace(month=1, day=1)
-        # elif monthly partitioned,
-        elif len(partition_id) == 6:
-            duration = relativedelta(months=1)
-            if not partition_datetime:
-                partition_datetime = datetime.datetime.strptime(partition_id, "%Y%m")
-            partition_datetime = partition_datetime.replace(day=1)
-        # elif daily partitioned,
-        elif len(partition_id) == 8:
-            duration = relativedelta(days=1)
-            if not partition_datetime:
-                partition_datetime = datetime.datetime.strptime(partition_id, "%Y%m%d")
-        # elif hourly partitioned,
-        elif len(partition_id) == 10:
-            duration = relativedelta(hours=1)
-            if not partition_datetime:
-                partition_datetime = datetime.datetime.strptime(
-                    partition_id, "%Y%m%d%H"
-                )
+                partition_datetime = datetime.datetime.strptime(partition_id, format)
         else:
             raise ValueError(
                 f"check your partition_id {partition_id}. It must be yearly/monthly/daily/hourly."
@@ -149,13 +136,6 @@ WHERE
         self, tables: Dict[str, Dict[str, List[BigqueryTable]]]
     ) -> Iterable[WorkUnit]:
 
-        # Extra default SQLAlchemy option for better connection pooling and threading.
-        # https://docs.sqlalchemy.org/en/14/core/pooling.html#sqlalchemy.pool.QueuePool.params.max_overflow
-        if self.config.profiling.enabled:
-            self.config.options.setdefault(
-                "max_overflow", self.config.profiling.max_workers
-            )
-
         # Otherwise, if column level profiling is enabled, use  GE profiler.
         for project in tables.keys():
             if not self.config.project_id_pattern.allowed(project):
@@ -178,7 +158,6 @@ WHERE
                 continue
 
             for request, profile in self.generate_profiles(
-                project,
                 profile_requests,
                 self.config.profiling.max_workers,
                 platform=self.platform,
@@ -187,7 +166,8 @@ WHERE
                 if request is None or profile is None:
                     continue
 
-                profile.sizeInBytes = request.table.size_in_bytes  # type:ignore
+                request = cast(BigqueryProfilerRequest, request)
+                profile.sizeInBytes = request.table.size_in_bytes
                 dataset_name = request.pretty_name
                 dataset_urn = make_dataset_urn_with_platform_instance(
                     self.platform,
@@ -336,7 +316,6 @@ WHERE
 
     def generate_profiles(
         self,
-        project: str,
         requests: List[BigqueryProfilerRequest],
         max_workers: int,
         platform: Optional[str] = None,
@@ -353,7 +332,7 @@ WHERE
         ]
         for request in table_level_profile_requests:
             profile = DatasetProfile(
-                timestampMillis=round(datetime.datetime.now().timestamp() * 1000),
+                timestampMillis=int(datetime.datetime.now().timestamp() * 1000),
                 columnCount=len(request.table.columns),
                 rowCount=request.table.rows_count,
                 sizeInBytes=request.table.size_in_bytes,

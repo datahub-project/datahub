@@ -53,6 +53,14 @@ class BigQueryV2Config(BigQueryConfig):
     )
 
     @root_validator(pre=False)
+    def profile_default_settings(cls, values: Dict) -> Dict:
+        # Extra default SQLAlchemy option for better connection pooling and threading.
+        # https://docs.sqlalchemy.org/en/14/core/pooling.html#sqlalchemy.pool.QueuePool.params.max_overflow
+        values["options"].setdefault("max_overflow", values["profiling"].max_workers)
+
+        return values
+
+    @root_validator(pre=False)
     def backward_compatibility_configs_set(cls, values: Dict) -> Dict:
 
         dataset_pattern = values.get("dataset_pattern")

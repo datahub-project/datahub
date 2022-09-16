@@ -2,6 +2,7 @@ import atexit
 import logging
 import os
 import re
+from collections import defaultdict
 from datetime import datetime, timedelta
 from typing import Dict, Iterable, List, Optional, Tuple, Type, Union, cast
 
@@ -109,7 +110,7 @@ def cleanup(config: BigQueryV2Config) -> None:
         os.unlink(config._credentials_path)
 
 
-@platform_name("BigQuery")
+@platform_name("BigQuery", doc_order=1)
 @config_class(BigQueryV2Config)
 @support_status(SupportStatus.INCUBATING)
 @capability(SourceCapability.PLATFORM_INSTANCE, "Enabled by default")
@@ -474,8 +475,8 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
                 )
                 continue
 
-            if self.config.include_usage_statistics:
-                yield from self.usage_extractor.generate_usage_for_project(project_id)
+        if self.config.include_usage_statistics:
+            yield from self.usage_extractor.generate_usage_for_project(project_id)
 
     def _process_schema(
         self, conn: bigquery.Client, project_id: str, bigquery_dataset: BigqueryDataset
@@ -529,7 +530,7 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
                 table_identifier, self.platform
             )
 
-        table_workunits = self.gen_dataset_workunits(
+        table_workunits = self.gen_table_dataset_workunits(
             table, project_id, schema_name, lineage_info
         )
         for wu in table_workunits:
@@ -560,7 +561,7 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
                 table_identifier, self.platform
             )
 
-        view_workunits = self.gen_dataset_workunits(
+        view_workunits = self.gen_view_dataset_workunits(
             view, project_id, dataset_name, lineage_info
         )
         for wu in view_workunits:
@@ -585,39 +586,125 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
                 self.report.report_workunit(wu)
                 yield wu
 
+    def gen_table_dataset_workunits(
+        self,
+        table: BigqueryTable,
+        project_id: str,
+        dataset_name: str,
+        lineage_info: Optional[Tuple[UpstreamLineage, Dict[str, str]]],
+    ) -> Iterable[MetadataWorkUnit]:
+        custom_properties: Dict[str, str] = {}
+        if table.expires:
+            custom_properties["expiration_date"] = str(str(table.expires))
+
+        if table.time_partitioning:
+            custom_properties["time_partitioning"] = str(str(table.time_partitioning))
+
+        if table.size_in_bytes:
+            custom_properties["size_in_bytes"] = str(table.size_in_bytes)
+
+        if table.active_billable_bytes:
+            custom_properties["billable_bytes_active"] = str(
+                table.active_billable_bytes
+            )
+
+        if table.long_term_billable_bytes:
+            custom_properties["billable_bytes_long_term"] = str(
+                table.long_term_billable_bytes
+            )
+
+        if table.max_partition_id:
+            custom_properties["number_of_partitions"] = str(table.num_partitions)
+            custom_properties["max_partition_id"] = str(table.max_partition_id)
+            custom_properties["is_partitioned"] = str(True)
+
+        if table.max_shard_id:
+            custom_properties["max_shard_id"] = str(table.max_shard_id)
+            custom_properties["is_sharded"] = str(True)
+
+        tags_to_add = None
+        if table.labels and self.config.capture_table_label_as_tag:
+            tags_to_add = []
+            tags_to_add.extend(
+                [make_tag_urn(f"""{k}:{v}""") for k, v in table.labels.items()]
+            )
+
+        yield from self.gen_dataset_workunits(
+            table=table,
+            project_id=project_id,
+            dataset_name=dataset_name,
+            sub_type="table",
+            lineage_info=lineage_info,
+            tags_to_add=tags_to_add,
+            custom_properties=custom_properties,
+        )
+
+    def gen_view_dataset_workunits(
+        self,
+        table: BigqueryView,
+        project_id: str,
+        dataset_name: str,
+        lineage_info: Optional[Tuple[UpstreamLineage, Dict[str, str]]],
+    ) -> Iterable[MetadataWorkUnit]:
+
+        yield from self.gen_dataset_workunits(
+            table=table,
+            project_id=project_id,
+            dataset_name=dataset_name,
+            sub_type="view",
+            lineage_info=lineage_info,
+        )
+
+        view = cast(BigqueryView, table)
+        view_definition_string = view.ddl
+        view_properties_aspect = ViewProperties(
+            materialized=False, viewLanguage="SQL", viewLogic=view_definition_string
+        )
+        wu = wrap_aspect_as_workunit(
+            "dataset",
+            self.gen_dataset_urn(dataset_name, project_id, table.name),
+            "viewProperties",
+            view_properties_aspect,
+        )
+        yield wu
+        self.report.report_workunit(wu)
+
     def gen_dataset_workunits(
         self,
         table: Union[BigqueryTable, BigqueryView],
         project_id: str,
         dataset_name: str,
-        lineage_info: Optional[Tuple[UpstreamLineage, Dict[str, str]]],
+        sub_type: str,
+        lineage_info: Optional[Tuple[UpstreamLineage, Dict[str, str]]] = None,
+        tags_to_add: Optional[List[str]] = None,
+        custom_properties: Optional[Dict[str, str]] = None,
     ) -> Iterable[MetadataWorkUnit]:
-        datahub_dataset_name = BigqueryTableIdentifier(
-            project_id, dataset_name, table.name
-        )
-        dataset_urn = make_dataset_urn_with_platform_instance(
-            self.platform,
-            str(datahub_dataset_name),
-            self.config.platform_instance,
-            self.config.env,
-        )
-        if lineage_info is not None:
-            upstream_lineage, upstream_column_props = lineage_info
-        else:
-            upstream_column_props = {}
-            upstream_lineage = None
+        dataset_urn = self.gen_dataset_urn(dataset_name, project_id, table.name)
 
         status = Status(removed=False)
         wu = wrap_aspect_as_workunit("dataset", dataset_urn, "status", status)
         yield wu
         self.report.report_workunit(wu)
 
-        schema_metadata = self.get_schema_metadata(table, str(datahub_dataset_name))
-        wu = wrap_aspect_as_workunit(
-            "dataset", dataset_urn, "schemaMetadata", schema_metadata
+        datahub_dataset_name = BigqueryTableIdentifier(
+            project_id, dataset_name, table.name
         )
-        yield wu
-        self.report.report_workunit(wu)
+
+        yield self.gen_schema_metadata(dataset_urn, table, str(datahub_dataset_name))
+
+        if lineage_info is not None:
+            upstream_lineage, upstream_column_props = lineage_info
+        else:
+            upstream_column_props = {}
+            upstream_lineage = None
+
+        if upstream_lineage is not None:
+            # Emit the lineage work unit
+            wu = wrap_aspect_as_workunit(
+                "dataset", dataset_urn, "upstreamLineage", upstream_lineage
+            )
+            yield wu
+            self.report.report_workunit(wu)
 
         dataset_properties = DatasetProperties(
             name=str(datahub_dataset_name),
@@ -625,65 +712,17 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
             qualifiedName=str(datahub_dataset_name),
             customProperties={**upstream_column_props},
         )
-        if isinstance(table, BigqueryTable):
-            if table.expires:
-                dataset_properties.customProperties["expiration_date"] = str(
-                    str(table.expires)
-                )
-
-            if table.time_partitioning:
-                dataset_properties.customProperties["time_partitioning"] = str(
-                    str(table.time_partitioning)
-                )
-
-            if table.size_in_bytes:
-                dataset_properties.customProperties["size_in_bytes"] = str(
-                    table.size_in_bytes
-                )
-
-            if table.active_billable_bytes:
-                dataset_properties.customProperties["billable_bytes_active"] = str(
-                    table.active_billable_bytes
-                )
-
-            if table.long_term_billable_bytes:
-                dataset_properties.customProperties["billable_bytes_long_term"] = str(
-                    table.long_term_billable_bytes
-                )
-
-            if table.max_partition_id:
-                dataset_properties.customProperties["number_of_partitions"] = str(
-                    table.num_partitions
-                )
-                dataset_properties.customProperties["max_partition_id"] = str(
-                    table.max_partition_id
-                )
-                dataset_properties.customProperties["is_partitioned"] = str(True)
-
-            if table.max_shard_id:
-                dataset_properties.customProperties["max_shard_id"] = str(
-                    table.max_shard_id
-                )
-                dataset_properties.customProperties["is_sharded"] = str(True)
-
-            if table.labels and self.config.capture_table_label_as_tag:
-                tags_to_add = []
-                tags_to_add.extend(
-                    [make_tag_urn(f"""{k}:{v}""") for k, v in table.labels.items()]
-                )
-                tags = GlobalTagsClass(
-                    tags=[TagAssociationClass(tag_to_add) for tag_to_add in tags_to_add]
-                )
-
-                wu = wrap_aspect_as_workunit("dataset", dataset_urn, "globalTags", tags)
-                self.report.report_workunit(wu)
-                yield wu
+        if custom_properties:
+            dataset_properties.customProperties.update(custom_properties)
 
         wu = wrap_aspect_as_workunit(
             "dataset", dataset_urn, "datasetProperties", dataset_properties
         )
         yield wu
         self.report.report_workunit(wu)
+
+        if tags_to_add:
+            yield self.gen_tags_aspect(dataset_urn, tags_to_add)
 
         yield from self.add_table_to_dataset_container(
             dataset_urn,
@@ -695,9 +734,7 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
             self.report.report_workunit(dpi_aspect)
             yield dpi_aspect
 
-        subTypes = SubTypes(
-            typeNames=["view"] if isinstance(table, BigqueryView) else ["table"]
-        )
+        subTypes = SubTypes(typeNames=[sub_type])
         wu = wrap_aspect_as_workunit("dataset", dataset_urn, "subTypes", subTypes)
         yield wu
         self.report.report_workunit(wu)
@@ -708,39 +745,37 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
             entity_type="dataset",
         )
 
-        if upstream_lineage is not None:
-            # Emit the lineage work unit
-            wu = wrap_aspect_as_workunit(
-                "dataset", dataset_urn, "upstreamLineage", upstream_lineage
-            )
-            yield wu
-            self.report.report_workunit(wu)
-
-        if isinstance(table, BigqueryView):
-            view = cast(BigqueryView, table)
-            view_definition_string = view.ddl
-            view_properties_aspect = ViewProperties(
-                materialized=False, viewLanguage="SQL", viewLogic=view_definition_string
-            )
-            wu = wrap_aspect_as_workunit(
-                "dataset",
-                dataset_urn,
-                "viewProperties",
-                view_properties_aspect,
-            )
-            yield wu
-            self.report.report_workunit(wu)
-
         self.stale_entity_removal_handler.add_entity_to_state(
-            type="table" if isinstance(table, BigqueryTable) else "view",
+            type=sub_type,
             urn=dataset_urn,
         )
 
-    def get_schema_metadata(
+    def gen_tags_aspect(
+        self, dataset_urn: str, tags_to_add: List[str]
+    ) -> MetadataWorkUnit:
+        tags = GlobalTagsClass(
+            tags=[TagAssociationClass(tag_to_add) for tag_to_add in tags_to_add]
+        )
+        wu = wrap_aspect_as_workunit("dataset", dataset_urn, "globalTags", tags)
+        self.report.report_workunit(wu)
+        return wu
+
+    def gen_dataset_urn(self, dataset_name: str, project_id: str, table: str) -> str:
+        datahub_dataset_name = BigqueryTableIdentifier(project_id, dataset_name, table)
+        dataset_urn = make_dataset_urn_with_platform_instance(
+            self.platform,
+            str(datahub_dataset_name),
+            self.config.platform_instance,
+            self.config.env,
+        )
+        return dataset_urn
+
+    def gen_schema_metadata(
         self,
+        dataset_urn: str,
         table: Union[BigqueryTable, BigqueryView],
         dataset_name: str,
-    ) -> SchemaMetadata:
+    ) -> MetadataWorkUnit:
         schema_metadata = SchemaMetadata(
             schemaName=dataset_name,
             platform=make_data_platform_urn(self.platform),
@@ -770,7 +805,11 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
                 for col in table.columns
             ],
         )
-        return schema_metadata
+        wu = wrap_aspect_as_workunit(
+            "dataset", dataset_urn, "schemaMetadata", schema_metadata
+        )
+        self.report.report_workunit(wu)
+        return wu
 
     def get_report(self) -> BigQueryV2Report:
         return self.report
@@ -794,56 +833,53 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
                 bigquery_tables = []
                 table_count: int = 0
                 table_items: Dict[str, TableListItem] = {}
+                # Dict to store sharded table and the last seen max shard id
+                sharded_tables: Dict[str, TableListItem] = defaultdict()
                 # Partitions view throw exception if we try to query partition info for too many tables
                 # so we have to limit the number of tables we query partition info.
                 # The conn.list_tables returns table infos that information_schema doesn't contain and this
                 # way we can merge that info with the queried one.
                 # https://cloud.google.com/bigquery/docs/information-schema-partitions
-                last_table_identifier: Optional[BigqueryTableIdentifier] = None
                 for table in conn.list_tables(f"{project_id}.{dataset_name}"):
                     table_identifier = BigqueryTableIdentifier(
                         project_id=project_id,
                         dataset=dataset_name,
                         table=table.table_id,
                     )
-                    if (
-                        last_table_identifier
-                        and last_table_identifier.get_table_name()
-                        == table_identifier.get_table_name()
-                    ):
-                        (
-                            prev_table,
-                            prev_shard,
-                        ) = BigqueryTableIdentifier.get_table_and_shard(
-                            last_table_identifier.raw_table_name()
-                        )
-                        (
-                            cur_table,
-                            cur_shard,
-                        ) = BigqueryTableIdentifier.get_table_and_shard(
-                            table_identifier.raw_table_name()
-                        )
-                        if (
-                            prev_table == cur_table
-                            and cur_shard
-                            and prev_shard
-                            and cur_shard > prev_shard
-                        ):
-                            table_items.pop(last_table_identifier.table)
-                            table_items[table.table_id] = table
-                            logger.debug(
-                                f"Skipping table {last_table_identifier.raw_table_name()} as it is not the latest shard."
-                            )
+
+                    _, shard = BigqueryTableIdentifier.get_table_and_shard(
+                        table_identifier.raw_table_name()
+                    )
+                    table_name = table_identifier.get_table_name().split(".")[-1]
+
+                    if shard:
+                        if not sharded_tables.get(table_identifier.get_table_name()):
+                            # When table is only a shard we use dataset_name as table_name
+                            sharded_tables[table_name] = table
+                            continue
                         else:
-                            logger.debug(
-                                f"Skipping table {table} as it was already seen."
+                            stored_table_identifier = BigqueryTableIdentifier(
+                                project_id=project_id,
+                                dataset=dataset_name,
+                                table=sharded_tables[table_name].table_id,
                             )
+                            (
+                                _,
+                                stored_shard,
+                            ) = BigqueryTableIdentifier.get_table_and_shard(
+                                stored_table_identifier.raw_table_name()
+                            )
+                            # When table is none, we use dataset_name as table_name
+                            table_name = table_identifier.get_table_name().split(".")[
+                                -1
+                            ]
+                            assert stored_shard
+                            if stored_shard < shard:
+                                sharded_tables[table_name] = table
                             continue
                     else:
                         table_count = table_count + 1
                         table_items[table.table_id] = table
-
-                    last_table_identifier = table_identifier
 
                     if str(table_identifier).startswith(
                         self.config.temp_table_dataset_prefix
@@ -862,7 +898,12 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
                         )
                         table_items.clear()
 
-                if len(table_items) > 0:
+                # Sharded tables don't have partition keys, so it is safe to add to the list
+                table_items.update(
+                    {value.table_id: value for value in sharded_tables.values()}
+                )
+
+                if table_items:
                     bigquery_tables.extend(
                         BigQueryDataDictionary.get_tables_for_dataset(
                             conn, project_id, dataset_name, table_items

@@ -76,7 +76,7 @@ timestamp < "{end_time}"
     def __init__(self, config: BigQueryV2Config, report: BigQueryV2Report):
         self.config = config
         self.report = report
-        self.lineage_metadata: Dict[str, Set[str]] = defaultdict()
+        self.lineage_metadata: Dict[str, Set[str]] = defaultdict(set)
         self.loaded_project_ids: List[str] = []
 
     def error(self, log: logging.Logger, key: str, reason: str) -> None:
@@ -424,7 +424,7 @@ timestamp < "{end_time}"
         lineage_metadata: Dict[str, Set[str]]
         if self.config.use_exported_bigquery_audit_metadata:
             # Exported bigquery_audit_metadata should contain every projects' audit metada
-            if len(self.loaded_project_ids) > 0:
+            if self.loaded_project_ids:
                 return {}
             lineage_metadata = (
                 lineage_extractor.compute_bigquery_lineage_via_exported_bigquery_audit_metadata()
