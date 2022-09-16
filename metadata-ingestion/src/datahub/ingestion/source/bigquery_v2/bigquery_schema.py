@@ -265,6 +265,8 @@ class BigQueryDataDictionary:
             ),
         )
 
+        # Some property we want to capture only available from the TableListItem we get from an earlier query of
+        # the list of tables.
         return [
             BigqueryTable(
                 name=table.table_name,

@@ -204,7 +204,7 @@ WHERE
             else:
                 skip_profiling = True
 
-        if len(table.columns) == 0:
+        if not table.columns:
             skip_profiling = True
 
         if skip_profiling:
@@ -339,7 +339,7 @@ WHERE
             )
             yield (request, profile)
 
-        if len(ge_profile_requests) == 0:
+        if not ge_profile_requests:
             return
 
         ge_profiler = self.get_profiler_instance()

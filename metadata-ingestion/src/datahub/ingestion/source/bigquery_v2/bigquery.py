@@ -92,8 +92,6 @@ from datahub.utilities.mapping import Constants
 from datahub.utilities.perf_timer import PerfTimer
 from datahub.utilities.registries.domain_registry import DomainRegistry
 
-TABLE_PER_BATCH = 50
-
 logger: logging.Logger = logging.getLogger(__name__)
 
 # Handle table snapshots
@@ -824,7 +822,7 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
         bigquery_tables: Optional[List[BigqueryTable]] = (
             self.db_tables[project_id].get(dataset_name)
             if project_id in self.db_tables
-            else None
+            else []
         )
 
         # In bigquery there is no way to query all tables in a Project id
@@ -852,6 +850,13 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
                     )
                     table_name = table_identifier.get_table_name().split(".")[-1]
 
+                    # For sharded tables we only process the latest shard
+                    # which has the highest date in the table name.
+                    # Sharded tables look like: table_20220120
+                    # We only has one special case where the table name is a date
+                    # in this case we merge all these tables under dataset name as table name.
+                    # For example some_dataset.20220110 will be turned to some_dataset.some_dataset
+                    # It seems like there are some bigquery user who uses this way the tables.
                     if shard:
                         if not sharded_tables.get(table_identifier.get_table_name()):
                             # When table is only a shard we use dataset_name as table_name
@@ -890,7 +895,10 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
                         self.report.report_dropped(table_identifier.raw_table_name())
                         continue
 
-                    if table_count % TABLE_PER_BATCH == 0:
+                    if (
+                        table_count % self.config.number_of_datasets_process_in_batch
+                        == 0
+                    ):
                         bigquery_tables.extend(
                             BigQueryDataDictionary.get_tables_for_dataset(
                                 conn, project_id, dataset_name, table_items
@@ -898,7 +906,12 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
                         )
                         table_items.clear()
 
-                # Sharded tables don't have partition keys, so it is safe to add to the list
+                # Sharded tables don't have partition keys, so it is safe to add to the list as
+                # it should not affect the number of tables will be touched in the partitions system view.
+                # Because we have the batched query of get_tables_for_dataset to makes sure
+                # we won't hit too many tables queried with partitions system view.
+                # The key in the map is the actual underlying table name and not the friendly name and
+                # that's why we need to get the actual table names and not the normalized ones.
                 table_items.update(
                     {value.table_id: value for value in sharded_tables.values()}
                 )

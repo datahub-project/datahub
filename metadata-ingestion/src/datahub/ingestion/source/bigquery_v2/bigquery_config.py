@@ -52,6 +52,11 @@ class BigQueryV2Config(BigQueryConfig):
         description="Include full payload into events. It is only for debugging and internal use.",
     )
 
+    number_of_datasets_process_in_batch: int = Field(
+        default=50,
+        description="Number of table queried in batch when getting metadata. This is a low leve config propert which should be touched with care. This restriction needed because we query partitions system view which throws error if we try to touch too many tables.",
+    )
+
     @root_validator(pre=False)
     def profile_default_settings(cls, values: Dict) -> Dict:
         # Extra default SQLAlchemy option for better connection pooling and threading.

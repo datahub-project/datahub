@@ -171,7 +171,8 @@ timestamp < "{end_time}"
     ) -> Dict[str, Set[str]]:
         logger.info("Populating lineage info via exported GCP audit logs")
         try:
-            _client: BigQueryClient = BigQueryClient(project=self.config.project_id)
+            # For exported logs we want to submit queries with the credentials project_id.
+            _client: BigQueryClient = BigQueryClient()
             exported_bigquery_audit_metadata: Iterable[
                 BigQueryAuditMetadata
             ] = self._get_exported_bigquery_audit_metadata(_client)
