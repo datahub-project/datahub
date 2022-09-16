@@ -772,7 +772,7 @@ class BigQueryUsageExtractor:
 
         return datasets
 
-    def report_usage_stat(self):
+    def get_workunits(self):
         self.report.num_usage_workunits_emitted = 0
         for time_bucket in self.aggregated_info.values():
             for aggregate in time_bucket.values():

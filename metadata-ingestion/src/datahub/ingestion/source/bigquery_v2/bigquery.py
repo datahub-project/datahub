@@ -427,7 +427,7 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
             yield from self._process_project(conn, project_id)
 
         if self.config.include_usage_statistics:
-            yield from self.usage_extractor.report_usage_stat()
+            yield from self.usage_extractor.get_workunits()
 
         if self.config.profiling.enabled:
             yield from self.profiler.get_workunits(self.db_tables)
@@ -720,7 +720,7 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
         self.report.report_workunit(wu)
 
         if tags_to_add:
-            yield self.gen_tags_aspect(dataset_urn, tags_to_add)
+            yield self.gen_tags_aspect_workunit(dataset_urn, tags_to_add)
 
         yield from self.add_table_to_dataset_container(
             dataset_urn,
@@ -748,7 +748,7 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
             urn=dataset_urn,
         )
 
-    def gen_tags_aspect(
+    def gen_tags_aspect_workunit(
         self, dataset_urn: str, tags_to_add: List[str]
     ) -> MetadataWorkUnit:
         tags = GlobalTagsClass(
