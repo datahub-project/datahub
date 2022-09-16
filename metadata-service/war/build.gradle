@@ -13,6 +13,7 @@ dependencies {
   runtime project(':metadata-jobs:mae-consumer')
   runtime project(':metadata-jobs:pe-consumer')
 
+  runtime externalDependency.awsSecretsManagerJdbc
   runtime externalDependency.h2
   runtime externalDependency.logbackClassic
   runtime externalDependency.mariadbConnector
