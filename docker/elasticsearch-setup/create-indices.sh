@@ -33,35 +33,35 @@ function create_datahub_usage_event_datastream() {
 
   POLICY_RESPONSE_CODE=$(curl -o /dev/null -s -w "%{http_code}" --header "$ELASTICSEARCH_AUTH_HEADER" "$ELASTICSEARCH_PROTOCOL://$ELASTICSEARCH_HOST:$ELASTICSEARCH_PORT/_ilm/policy/${PREFIX}datahub_usage_event_policy")
   echo -e "Policy GET response code is $POLICY_RESPONSE_CODE"
-  if [ $POLICY_RESPONSE_CODE -eq 403 ]
-  then
-    echo -e "Forbidden so exiting"
-    exit 1
-  fi
   POLICY_NAME="${PREFIX}datahub_usage_event_policy"
-  if [ $POLICY_RESPONSE_CODE -eq 404 ]
-  then
+  if [ $POLICY_RESPONSE_CODE -eq 404 ]; then
     echo -e "\ncreating $POLICY_NAME"
     sed -e "s/PREFIX/${PREFIX}/g" /index/usage-event/policy.json | tee -a /tmp/policy.json
     curl -XPUT --header "$ELASTICSEARCH_AUTH_HEADER" "$ELASTICSEARCH_PROTOCOL://$ELASTICSEARCH_HOST:$ELASTICSEARCH_PORT/_ilm/policy/${POLICY_NAME}" -H 'Content-Type: application/json' --data @/tmp/policy.json
-  else
+  elif [ $POLICY_RESPONSE_CODE -eq 200 ]; then
     echo -e "\n${POLICY_NAME} exists"
+  elif [ $POLICY_RESPONSE_CODE -eq 403 ]; then
+    echo -e "Forbidden so exiting"
+    exit 1
+  else
+    echo -e "Got response code $POLICY_RESPONSE_CODE while creating policy so exiting."
+    exit 1
   fi
   TEMPLATE_RESPONSE_CODE=$(curl -o /dev/null -s -w "%{http_code}" --header "$ELASTICSEARCH_AUTH_HEADER" "$ELASTICSEARCH_PROTOCOL://$ELASTICSEARCH_HOST:$ELASTICSEARCH_PORT/_index_template/${PREFIX}datahub_usage_event_index_template")
   echo -e "Template GET response code is $TEMPLATE_RESPONSE_CODE"
-  if [ $TEMPLATE_RESPONSE_CODE -eq 403 ]
-  then
-    echo -e "Forbidden so exiting"
-    exit 1
-  fi
   TEMPLATE_NAME="${PREFIX}datahub_usage_event_index_template"
-  if [ $TEMPLATE_RESPONSE_CODE -eq 404 ]
-  then
+  if [ $TEMPLATE_RESPONSE_CODE -eq 404 ]; then
     echo -e "\ncreating $TEMPLATE_NAME"
     sed -e "s/PREFIX/${PREFIX}/g" /index/usage-event/index_template.json | tee -a /tmp/index_template.json
     curl -XPUT --header "$ELASTICSEARCH_AUTH_HEADER" "$ELASTICSEARCH_PROTOCOL://$ELASTICSEARCH_HOST:$ELASTICSEARCH_PORT/_index_template/$TEMPLATE_NAME" -H 'Content-Type: application/json' --data @/tmp/index_template.json
-  else
+  elif [ $TEMPLATE_RESPONSE_CODE -eq 200 ]; then
     echo -e "\n$TEMPLATE_NAME exists"
+  elif [ $TEMPLATE_RESPONSE_CODE -eq 403 ]; then
+    echo -e "Forbidden so exiting"
+    exit 1
+  else
+    echo -e "Got response code $TEMPLATE_RESPONSE_CODE while creating template so exiting."
+    exit 1
   fi
 }
 
