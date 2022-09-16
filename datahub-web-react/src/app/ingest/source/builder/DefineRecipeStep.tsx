@@ -88,7 +88,7 @@ export const DefineRecipeStep = ({ state, updateState, goTo, prev, ingestionSour
     if (type && CONNECTORS_WITH_FORM.has(type)) {
         return (
             <RecipeBuilder
-                type={type}
+                state={state}
                 isEditing={isEditing}
                 displayRecipe={displayRecipe}
                 sourceConfigs={sourceConfigs}
