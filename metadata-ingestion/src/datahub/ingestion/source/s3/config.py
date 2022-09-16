@@ -75,12 +75,8 @@ class DataLakeSourceConfig(PlatformSourceConfigBase, EnvBasedSourceConfigBase):
             return [values.pop("path_spec")]
         return v
 
-    @pydantic.root_validator()
-    def infer_platform(cls, values: Dict) -> Dict:
-        value = values.get("platform")
-        if value:
-            return values
-
+    @pydantic.root_validator(pre=False)
+    def validate_platform(cls, values: Dict) -> Dict:
         bucket_name: str = ""
         path_spec: PathSpec
         for path_spec in values.get("path_specs", []):
@@ -94,8 +90,8 @@ class DataLakeSourceConfig(PlatformSourceConfigBase, EnvBasedSourceConfigBase):
 
                 platform = "file"
 
-            if values.get("platform", "") != "":
-                if values["platform"] != platform:
+            if values.get("platform", ""):
+                if platform == "s3" and values["platform"] != platform:
                     raise ValueError("all path_spec should belong to the same platform")
             else:
                 values["platform"] = platform

@@ -94,7 +94,6 @@ We use a plugin architecture so that you can install only the dependencies you a
 | [redshift](./generated/ingestion/sources/redshift.md)                           | `pip install 'acryl-datahub[redshift]'`                    | Redshift source                     |
 | [sagemaker](./generated/ingestion/sources/sagemaker.md)                         | `pip install 'acryl-datahub[sagemaker]'`                   | AWS SageMaker source                |
 | [snowflake](./generated/ingestion/sources/snowflake.md)                         | `pip install 'acryl-datahub[snowflake]'`                   | Snowflake source                    |
-| [snowflake-usage](./generated/ingestion/sources/snowflake.md#module-snowflake-usage)                   | `pip install 'acryl-datahub[snowflake-usage]'`             | Snowflake usage statistics source   |
 | [sqlalchemy](./generated/ingestion/sources/sqlalchemy.md)                       | `pip install 'acryl-datahub[sqlalchemy]'`                  | Generic SQLAlchemy source           |
 | [superset](./generated/ingestion/sources/superset.md)                           | `pip install 'acryl-datahub[superset]'`                    | Superset source                     |
 | [tableau](./generated/ingestion/sources/tableau.md)                             | `pip install 'acryl-datahub[tableau]'`                     | Tableau source                      |

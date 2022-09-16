@@ -159,6 +159,7 @@ def gen_containers(
     owner_urn: Optional[str] = None,
     external_url: Optional[str] = None,
     tags: Optional[List[str]] = None,
+    qualified_name: Optional[str] = None,
 ) -> Iterable[MetadataWorkUnit]:
     container_urn = make_container_urn(
         guid=container_key.guid(),
@@ -173,6 +174,7 @@ def gen_containers(
             description=description,
             customProperties=container_key.dict(exclude_none=True, by_alias=True),
             externalUrl=external_url,
+            qualifiedName=qualified_name,
         ),
     )
     wu = MetadataWorkUnit(id=f"container-info-{name}-{container_urn}", mcp=mcp)

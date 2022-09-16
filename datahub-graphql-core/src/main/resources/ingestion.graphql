@@ -207,6 +207,11 @@ input CreateTestConnectionRequestInput {
   A JSON-encoded recipe
   """
   recipe: String!
+
+  """
+  Advanced: The version of the ingestion framework to use
+  """
+  version: String
 }
 
 """
