@@ -123,6 +123,7 @@ from datahub.metadata.schema_classes import (
     ViewPropertiesClass,
 )
 from datahub.utilities.mapping import Constants, OperationProcessor
+from datahub.utilities.time import datetime_to_ts_millis
 
 logger = logging.getLogger(__name__)
 DBT_PLATFORM = "dbt"
@@ -1684,7 +1685,7 @@ class DBTSource(StatefulIngestionSourceBase):
         if node.max_loaded_at is not None:
             actor = mce_builder.make_user_urn("dbt_executor")
             last_modified = AuditStamp(
-                time=int(node.max_loaded_at.timestamp() * 1000),
+                time=datetime_to_ts_millis(node.max_loaded_at),
                 actor=actor,
             )
 
