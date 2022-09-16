@@ -76,7 +76,7 @@ class DataLakeSourceConfig(PlatformSourceConfigBase, EnvBasedSourceConfigBase):
         return v
 
     @pydantic.root_validator(pre=False)
-    def validate_platform(cls, values: Dict) -> Dict:
+    def check_path_specs_and_infer_platform(cls, values: Dict) -> Dict:
         bucket_name: str = ""
         path_spec: PathSpec
         for path_spec in values.get("path_specs", []):
