@@ -18,7 +18,7 @@ import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.entity.RollbackRunResult;
 import com.linkedin.metadata.entity.ValidationException;
 import com.linkedin.metadata.models.EntitySpec;
-import com.linkedin.metadata.resources.entity.AspectUtils;
+import com.linkedin.metadata.entity.AspectUtils;
 import com.linkedin.metadata.utils.metrics.MetricUtils;
 import com.linkedin.mxe.GenericAspect;
 import com.linkedin.mxe.SystemMetadata;

@@ -258,7 +258,7 @@ class _SingleDatasetProfiler(BasicDatasetProfilerBase):
         ignored_columns: List[str] = []
         for col in self.dataset.get_table_columns():
             # We expect the allow/deny patterns to specify '<table_pattern>.<column_pattern>'
-            if not self.config.allow_deny_patterns.allowed(
+            if not self.config._allow_deny_patterns.allowed(
                 f"{self.dataset_name}.{col}"
             ):
                 ignored_columns.append(col)
@@ -277,10 +277,10 @@ class _SingleDatasetProfiler(BasicDatasetProfilerBase):
                 columns_to_profile = columns_to_profile[
                     : self.config.max_number_of_fields_to_profile
                 ]
-
-                self.report.report_dropped(
-                    f"The max_number_of_fields_to_profile={self.config.max_number_of_fields_to_profile} reached. Profile of columns {self.dataset_name}({', '.join(sorted(columns_being_dropped))})"
-                )
+                if self.config.report_dropped_profiles:
+                    self.report.report_dropped(
+                        f"The max_number_of_fields_to_profile={self.config.max_number_of_fields_to_profile} reached. Profile of columns {self.dataset_name}({', '.join(sorted(columns_being_dropped))})"
+                    )
         return columns_to_profile
 
     @_run_with_query_combiner
