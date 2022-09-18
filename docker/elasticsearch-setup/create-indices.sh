@@ -105,14 +105,14 @@ if [[ $DATAHUB_ANALYTICS_ENABLED == true ]]; then
   fi
 else
   echo -e "\ndatahub_analytics_enabled: $DATAHUB_ANALYTICS_ENABLED"
-  DATAHUB_USAGE_EVENT_INDEX_RESPONSE_CODE=$(curl -o /dev/null -s -w "%{http_code}" --header "$ELASTICSEARCH_AUTH_HEADER" "$ELASTICSEARCH_PROTOCOL://$ELASTICSEARCH_HOST:$ELASTICSEARCH_PORT/cat/indices/datahub_usage_event")
+  DATAHUB_USAGE_EVENT_INDEX_RESPONSE_CODE=$(curl -o /dev/null -s -w "%{http_code}" --header "$ELASTICSEARCH_AUTH_HEADER" "$ELASTICSEARCH_PROTOCOL://$ELASTICSEARCH_HOST:$ELASTICSEARCH_PORT/cat/indices/${PREFIX}datahub_usage_event")
   if [ $DATAHUB_USAGE_EVENT_INDEX_RESPONSE_CODE -eq 404 ]
   then
-    echo -e "\ncreating datahub_usage_event"
-    curl -XPUT --header "$ELASTICSEARCH_AUTH_HEADER" "$ELASTICSEARCH_PROTOCOL://$ELASTICSEARCH_HOST:$ELASTICSEARCH_PORT/datahub_usage_event"
-  elif [ $TEMPLATE_RESPONSE_CODE -eq 200 ]; then
-    echo -e "\ndatahub_usage_event exists"
-  elif [ $POLICY_RESPONSE_CODE -eq 403 ]; then
+    echo -e "\ncreating ${PREFIX}datahub_usage_event"
+    curl -XPUT --header "$ELASTICSEARCH_AUTH_HEADER" "$ELASTICSEARCH_PROTOCOL://$ELASTICSEARCH_HOST:$ELASTICSEARCH_PORT/${PREFIX}datahub_usage_event"
+  elif [ $DATAHUB_USAGE_EVENT_INDEX_RESPONSE_CODE -eq 200 ]; then
+    echo -e "\n${PREFIX}datahub_usage_event exists"
+  elif [ $DATAHUB_USAGE_EVENT_INDEX_RESPONSE_CODE -eq 403 ]; then
     echo -e "Forbidden so exiting"
   fi
 fi
