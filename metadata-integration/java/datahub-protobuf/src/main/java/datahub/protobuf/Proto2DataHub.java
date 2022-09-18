@@ -314,7 +314,7 @@ public class Proto2DataHub {
                     ProtobufDataset dataset = ProtobufDataset.builder()
                         .setDataPlatformUrn(new DataPlatformUrn(config.dataPlatform))
                         .setProtocIn(new FileInputStream(config.protoc))
-                        .setFilename(config.inputFile)
+                        .setFilename(filePath.toString())
                         .setSchema(textSchema)
                         .setAuditStamp(auditStamp)
                         .setFabricType(config.fabricType)
