@@ -1,6 +1,6 @@
 import importlib
 import inspect
-from typing import Any, Callable, Dict, Generic, Optional, Type, TypeVar, Union
+from typing import Any, Callable, Dict, Generic, Optional, Tuple, Type, TypeVar, Union
 
 import entrypoints
 import typing_inspect
@@ -37,11 +37,13 @@ def import_path(path: str) -> Any:
 
 class PluginRegistry(Generic[T]):
     _mapping: Dict[str, Union[str, Type[T], Exception]]
+    _aliases: Dict[str, Tuple[str, Callable[[], None]]]
 
     def __init__(
         self, extra_cls_check: Optional[Callable[[Type[T]], None]] = None
     ) -> None:
         self._mapping = {}
+        self._aliases = {}
         self._extra_cls_check = extra_cls_check
 
     def _get_registered_type(self) -> Type[T]:
@@ -81,6 +83,11 @@ class PluginRegistry(Generic[T]):
         self, key: str, reason: Exception, override: bool = False
     ) -> None:
         self._register(key, reason, override=override)
+
+    def register_alias(
+        self, alias: str, real_key: str, fn: Callable[[], None] = lambda: None
+    ) -> None:
+        self._aliases[alias] = (real_key, fn)
 
     def _ensure_not_lazy(self, key: str) -> Union[Type[T], Exception]:
         path = self._mapping[key]
@@ -123,6 +130,11 @@ class PluginRegistry(Generic[T]):
             MyClass = import_path(key)
             self._check_cls(MyClass)
             return MyClass
+
+        if key in self._aliases:
+            real_key, fn = self._aliases[key]
+            fn()
+            return self.get(real_key)
 
         if key not in self._mapping:
             raise KeyError(f"Did not find a registered class for {key}")

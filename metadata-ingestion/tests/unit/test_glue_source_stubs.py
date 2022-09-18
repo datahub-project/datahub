@@ -34,8 +34,10 @@ get_databases_response = {
         },
     ]
 }
-databases_1 = {"flights-database": {"Name": "flights-database"}}
-databases_2 = {"test-database": {"Name": "test-database"}}
+databases_1 = {
+    "flights-database": {"Name": "flights-database", "CatalogId": "123412341234"}
+}
+databases_2 = {"test-database": {"Name": "test-database", "CatalogId": "123412341234"}}
 tables_1 = [
     {
         "Name": "avro",

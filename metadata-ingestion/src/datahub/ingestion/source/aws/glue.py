@@ -291,6 +291,14 @@ class GlueSource(StatefulIngestionSourceBase):
             run_id=self.ctx.run_id,
         )
 
+    def get_glue_arn(
+        self, account_id: str, database: str, table: Optional[str] = None
+    ) -> str:
+        prefix = f"arn:aws:glue:{self.source_config.aws_region}:{account_id}"
+        if table:
+            return f"{prefix}:table/{database}/{table}"
+        return f"{prefix}:database/{database}"
+
     @classmethod
     def create(cls, config_dict, ctx):
         config = GlueSourceConfig.parse_obj(config_dict)
@@ -925,6 +933,9 @@ class GlueSource(StatefulIngestionSourceBase):
             sub_types=["Database"],
             domain_urn=domain_urn,
             description=database.get("Description"),
+            qualified_name=self.get_glue_arn(
+                account_id=database["CatalogId"], database=database["Name"]
+            ),
         )
 
         for wu in container_workunits:
@@ -1124,6 +1135,11 @@ class GlueSource(StatefulIngestionSourceBase):
                 },
                 uri=table.get("Location"),
                 tags=[],
+                qualifiedName=self.get_glue_arn(
+                    account_id=table["CatalogId"],
+                    database=table["DatabaseName"],
+                    table=table["Name"],
+                ),
             )
 
         def get_s3_tags() -> Optional[GlobalTagsClass]:
