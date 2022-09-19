@@ -6,12 +6,6 @@ on:
     paths:
       - "metadata-ingestion/**"
       - "metadata-models/**"
-  pull_request:
-    branches:
-      - master
-    paths:
-      - "metadata-ingestion/**"
-      - "metadata-models/**"
   release:
     types: [published, edited]
 
