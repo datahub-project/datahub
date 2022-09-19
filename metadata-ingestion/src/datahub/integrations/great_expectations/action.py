@@ -188,7 +188,7 @@ class DataHubValidationAction(ValidationAction):
                         aspect=assertionResult,
                     )
 
-                    # Emit Result! (timseries aspect)
+                    # Emit Result! (timeseries aspect)
                     emitter.emit_mcp(dataset_assertionResult_mcp)
             logger.info("Metadata sent to datahub.")
             result = "DataHub notification succeeded"
@@ -196,7 +196,7 @@ class DataHubValidationAction(ValidationAction):
             result = "DataHub notification failed"
             if self.graceful_exceptions:
                 logger.error(e)
-                logger.info("Supressing error because graceful_exceptions is set")
+                logger.info("Suppressing error because graceful_exceptions is set")
             else:
                 raise
 
