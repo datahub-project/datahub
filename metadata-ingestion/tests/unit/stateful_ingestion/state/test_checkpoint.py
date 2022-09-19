@@ -28,11 +28,11 @@ test_source_config: BasicSQLAlchemyConfig = MySQLConfig()
 #   2.1 Create and add an instance of BaseSQLAlchemyCheckpointState.
 test_checkpoint_serde_params: Dict[str, CheckpointStateBase] = {}
 base_sql_alchemy_checkpoint_state_obj = BaseSQLAlchemyCheckpointState()
-base_sql_alchemy_checkpoint_state_obj.add_table_urn(
-    make_dataset_urn("mysql", "db1.t1", "prod")
+base_sql_alchemy_checkpoint_state_obj.add_checkpoint_urn(
+    type="table", urn=make_dataset_urn("mysql", "db1.t1", "prod")
 )
-base_sql_alchemy_checkpoint_state_obj.add_view_urn(
-    make_dataset_urn("mysql", "db1.v1", "prod")
+base_sql_alchemy_checkpoint_state_obj.add_checkpoint_urn(
+    type="view", urn=make_dataset_urn("mysql", "db1.v1", "prod")
 )
 test_checkpoint_serde_params[
     "BaseSQLAlchemyCheckpointState"
