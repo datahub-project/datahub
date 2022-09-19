@@ -1,4 +1,5 @@
 import datetime
+import functools
 import itertools
 import logging
 import os
@@ -9,7 +10,7 @@ import sys
 import tempfile
 import time
 from pathlib import Path
-from typing import List, NoReturn, Optional
+from typing import Dict, List, NoReturn, Optional
 
 import click
 import pydantic
@@ -55,6 +56,27 @@ GITHUB_ELASTIC_QUICKSTART_COMPOSE_URL = (
 )
 GITHUB_M1_QUICKSTART_COMPOSE_URL = f"{GITHUB_BASE_URL}/{M1_QUICKSTART_COMPOSE_FILE}"
 GITHUB_BOOTSTRAP_MCES_URL = f"{GITHUB_BASE_URL}/{BOOTSTRAP_MCES_FILE}"
+
+
+@functools.lru_cache()
+def _docker_subprocess_env() -> Dict[str, str]:
+    try:
+        DOCKER_COMPOSE_PLATFORM: Optional[str] = (
+            subprocess.run(["uname", "-m"], stdout=subprocess.PIPE)
+            .stdout.decode("utf-8")
+            .rstrip()
+        )
+    except FileNotFoundError:
+        # On Windows, uname is not available.
+        DOCKER_COMPOSE_PLATFORM = None
+
+    env = {
+        **os.environ,
+        "DOCKER_BUILDKIT": "1",
+    }
+    if DOCKER_COMPOSE_PLATFORM:
+        env["DOCKER_DEFAULT_PLATFORM"] = DOCKER_COMPOSE_PLATFORM
+    return env
 
 
 @click.group()
@@ -208,6 +230,7 @@ def _attempt_stop(quickstart_compose_file: List[pathlib.Path]) -> None:
             subprocess.run(
                 [*base_command, "stop"],
                 check=True,
+                env=_docker_subprocess_env(),
             )
             click.secho("Stopped datahub successfully.", fg="green")
         except subprocess.CalledProcessError:
@@ -638,6 +661,7 @@ def quickstart(
         subprocess.run(
             [*base_command, "pull", "-q"],
             check=True,
+            env=_docker_subprocess_env(),
         )
         click.secho("Finished pulling docker images!")
     except subprocess.CalledProcessError:
@@ -657,10 +681,7 @@ def quickstart(
                 "-q",
             ],
             check=True,
-            env={
-                **os.environ,
-                "DOCKER_BUILDKIT": "1",
-            },
+            env=_docker_subprocess_env(),
         )
         click.secho("Finished building docker images!")
 
@@ -674,7 +695,10 @@ def quickstart(
         # Attempt to run docker compose up every minute.
         if (datetime.datetime.now() - start_time) > up_attempts * up_interval:
             click.echo()
-            subprocess.run(base_command + ["up", "-d", "--remove-orphans"])
+            subprocess.run(
+                base_command + ["up", "-d", "--remove-orphans"],
+                env=_docker_subprocess_env(),
+            )
             up_attempts += 1
 
         # Check docker health every few seconds.
@@ -694,6 +718,7 @@ def quickstart(
                 stdout=subprocess.PIPE,
                 stderr=subprocess.STDOUT,
                 check=True,
+                env=_docker_subprocess_env(),
             )
             log_file.write(ret.stdout)
 

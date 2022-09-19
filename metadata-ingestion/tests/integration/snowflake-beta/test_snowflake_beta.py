@@ -241,8 +241,9 @@ def test_snowflake_basic(pytestconfig, tmp_path, mock_time, mock_datahub_graph):
 
         pipeline = Pipeline(
             config=PipelineConfig(
+                run_id="snowflake-beta-2022_06_07-17_00_00",
                 source=SourceConfig(
-                    type="snowflake-beta",
+                    type="snowflake",
                     config=SnowflakeV2Config(
                         account_id="ABC12345",
                         username="TST_USR",

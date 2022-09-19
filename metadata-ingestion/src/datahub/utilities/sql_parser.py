@@ -143,15 +143,4 @@ class SqlLineageSQLParser(SQLParser):
         return self.columns
 
 
-class DefaultSQLParser(SQLParser):
-    parser: SQLParser
-
-    def __init__(self, sql_query: str) -> None:
-        super().__init__(sql_query)
-        self.parser = SqlLineageSQLParser(sql_query)
-
-    def get_tables(self) -> List[str]:
-        return self.parser.get_tables()
-
-    def get_columns(self) -> List[str]:
-        return self.parser.get_columns()
+DefaultSQLParser = SqlLineageSQLParser
