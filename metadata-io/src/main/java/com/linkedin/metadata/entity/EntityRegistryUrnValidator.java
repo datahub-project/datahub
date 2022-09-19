@@ -47,7 +47,7 @@ public class EntityRegistryUrnValidator implements Validator {
         Urn urn = Urn.createFromString(urnStr);
         EntitySpec entitySpec = _entityRegistry.getEntitySpec(urn.getEntityType());
         RecordTemplate entityKey = EntityKeyUtils.convertUrnToEntityKey(urn,
-            entitySpec.getKeyAspectSpec().getPegasusSchema());
+            entitySpec.getKeyAspectSpec());
         NamedDataSchema namedDataSchema = ((NamedDataSchema) context.dataElement().getSchema());
         Class<? extends Urn> urnClass;
         try {
