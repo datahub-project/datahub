@@ -33,11 +33,7 @@ jobs:
         with:
           python-version: "3.7"
       - name: Gradle build (and test)
-        # there is some race condition in gradle build, which makes gradle never terminate in ~30% of the runs
-        # running build first without datahub-web-react:yarnBuild and then with it is 100% stable
-        # datahub-frontend:unzipAssets depends on datahub-web-react:yarnBuild but gradle does not know about it
         run: |
-          ./gradlew build -x :metadata-ingestion:build -x :metadata-ingestion:check -x docs-website:build -x datahub-web-react:yarnBuild -x datahub-frontend:unzipAssets -x :metadata-io:test -x :metadata-integration:java:datahub-protobuf:build
           ./gradlew build -x :metadata-ingestion:build -x :metadata-ingestion:check -x docs-website:build -x :metadata-integration:java:spark-lineage:test -x :metadata-io:test
       - uses: actions/upload-artifact@v2
         if: always()
