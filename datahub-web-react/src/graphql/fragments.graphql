@@ -426,6 +426,9 @@ fragment dashboardFields on Dashboard {
     inputFields {
         ...inputFieldsFields
     }
+    subTypes {
+        typeNames
+    }
 }
 
 fragment nonRecursiveMLFeature on MLFeature {

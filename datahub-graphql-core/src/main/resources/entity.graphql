@@ -4352,6 +4352,11 @@ type Dashboard implements EntityWithRelationships & Entity & BrowsableEntity {
     Input fields that power all the charts in the dashboard
     """
     inputFields: InputFields
+
+    """
+    Sub Types of the dashboard
+    """
+    subTypes: SubTypes
 }
 
 """
