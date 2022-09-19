@@ -638,16 +638,17 @@ def test_dbt_tests_only_assertions(pytestconfig, tmp_path, mock_time, **kwargs):
         )
         == number_of_valid_assertions_in_test_results
     )
+
     # no assertionInfo should be emitted
-    try:
+    with pytest.raises(
+        AssertionError, match="Failed to find aspect_name assertionInfo for urns"
+    ):
         mce_helpers.assert_for_each_entity(
             entity_type="assertion",
             aspect_name="assertionInfo",
             aspect_field_matcher={},
             file=output_file,
         )
-    except AssertionError:
-        pass
 
     # all assertions must have an assertionRunEvent emitted (except for one assertion)
     assert (
