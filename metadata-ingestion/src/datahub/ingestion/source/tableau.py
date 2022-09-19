@@ -344,6 +344,11 @@ class TableauSource(Source):
                 for ds in workbook.get("embeddedDatasources", []):
                     self.embedded_datasource_ids_being_used.append(ds["id"])
 
+            all_metric_items, pagination_item = server.metrics.get()
+            logger.info("Mohd Metric code")
+            for metric in all_metric_items:
+                logger.info(metric)
+
     def _track_custom_sql_ids(self, field: dict) -> None:
         # Tableau shows custom sql datasource as a table in ColumnField.
         if field.get("__typename") == "ColumnField":
