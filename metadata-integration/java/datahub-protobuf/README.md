@@ -546,13 +546,115 @@ Add the following to your `pom.xml`.
 </dependency>
 ```
 
-## Example Application
+## Example Application (embedded)
 
-An example application is included which works with the `protobuf-gradle-plugin`, see the standalone [example project](../datahub-protobuf-example).
+An example application **Proto2DataHub** is included as part of this project. 
+You can also set up a standalone project that works with the `protobuf-gradle-plugin`, see the standalone [example project](../datahub-protobuf-example) as an example of such a project.
 
 ### Usage
 
-Using the example application:
+#### Standalone Application: Proto2DataHub
+
+```
+shell
+java -jar build/libs/datahub-protobuf-0.8.45-SNAPSHOT.jar --help
+usage: Proto2DataHub
+    --datahub_api <arg>     [Optional] The API endpoint for DataHub GMS.
+                            (defaults to https://localhost:8080)
+    --datahub_token <arg>   [Optional] The authentication token for
+                            DataHub API access. (defaults to empty)
+    --datahub_user <arg>    [Optional] The datahub user to attribute this
+                            ingestion to. (defaults to ..)
+    --descriptor <arg>      [Required] The generated protobuf descriptor
+                            file. Typically a single .dsc file for the
+                            repo or a .protoc file (1:1 with each src
+                            file)
+    --directory <arg>       [Optional if using --file] The root directory
+                            containing protobuf source files.
+    --env <arg>             [Optional] The environment to attach all
+                            entities to. Typically, DEV, PROD etc.
+                            (defaults to DEV)
+    --exclude <arg>         [Optional] Exclude patterns to avoid
+                            processing all source files, separated by ,.
+                            Typically used with --directory option.
+                            Follows glob patterns: e.g. --exclude
+                            "build/**,generated/**" will exclude all files
+                            in the build and generated directories under
+                            the rootDirectory given by the --directory
+                            option
+    --file <arg>            [Optional if using --directory] The protobuf
+                            source file. Typically a .proto file.
+    --filename <arg>        [Required if using transport file] Filename to
+                            write output to.
+    --github_org <arg>      [Optional] The GitHub organization that this
+                            schema repository belongs to. We will
+                            translate comments in your protoc files like
+                            @datahub-project/data-team to GitHub team urls
+                            like:
+                            https://github.com/orgs/datahub-project/teams/
+                            data-team
+    --help                  Print this help message
+    --platform <arg>        [Optional] The data platform to produce
+                            schemas for. e.g. kafka, snowflake, etc.
+                            (defaults to kafka)
+    --slack_id <arg>        [Optional] The Slack team id if your protobuf
+                            files contain comments with references to
+                            channel names. We will translate comments like
+                            #data-eng in your protobuf file to slack urls
+                            like:
+                            https://slack.com/app_redirect?channel=data-en
+                            g&team=T1234 following the documentation at
+                            (https://api.slack.com/reference/deep-linking#
+                            deep-linking-into-your-slack-app__opening-a-ch
+                            annel-by-name-or-id) The easiest way to find
+                            your Slack team id is to open your workspace
+                            in your browser. It should look something
+                            like:
+                            https://app.slack.com/client/TUMKD5EGJ/...  In
+                            this case, the team-id is TUMKD5EGJ.
+    --subtype               [Optional] A custom subtype to attach to all
+                            entities produced. e.g. event, schema, topic
+                            etc.(Default is schema)
+    --transport <arg>       [Optional] What transport to use to
+                            communicate with DataHub. Options are: rest
+                            (default), kafka and file.
+```
+
+You can run it like a standard java jar application:
+```shell
+
+java -jar build/libs/datahub-protobuf-0.8.45-SNAPSHOT.jar --descriptor ../datahub-protobuf-example/build/descriptors/main.dsc --directory ../datahub-protobuf-example/schema/protobuf/v1/clickstream/ --transport rest
+```
+
+or using gradle
+```shell
+../../../gradlew run --args="--descriptor ../datahub-protobuf-example/build/descriptors/main.dsc --directory ../datahub-protobuf-example/schema/protobuf/v1/clickstream/ --transport rest"
+```
+
+Result:
+```
+java -jar build/libs/datahub-protobuf-0.8.45-SNAPSHOT.jar --descriptor ../datahub-protobuf-example/build/descriptors/main.dsc --directory ../datahub-protobuf-example/schema/protobuf/v1/clickstream/ --transport rest
+SLF4J: Failed to load class "org.slf4j.impl.StaticLoggerBinder".
+SLF4J: Defaulting to no-operation (NOP) logger implementation
+SLF4J: See http://www.slf4j.org/codes.html#StaticLoggerBinder for further details.
+✅ Successfully emitted 90 events for 5 files to DataHub REST
+```
+
+You can also route results to a file by using the `--transport file --filename events.json` options.
+
+##### Important Flags
+Here are a few important flags to use with this command
+- --env : Defaults to DEV, you should use PROD once you have ironed out all the issues with running this command.
+- --platform: Defaults to Kafka (as most people use protobuf schema repos with Kafka), but you can provide a custom platform name for this e.g. (`schema_repo` or `<company_name>_schemas`). If you use a custom platform, make sure to provision the custom platform on your DataHub instance with a logo etc, to get a native experience.
+- --subtype : This gives your entities a more descriptive category than Dataset in the UI. Defaults to schema, but you might find topic, event or message more descriptive.
+
+
+
+## Example Application (separate project)
+
+The standalone [example project](../datahub-protobuf-example) shows you how you can create an independent project that uses this as part of a build task.
+
+### Sample Usage:
 
 ```shell
 export DATAHUB_API=...
@@ -563,5 +665,6 @@ export DATAHUB_TOKEN=...
 # export DATAHUB_GITHUBORG=datahub-project
 # export DATAHUB_SLACKID=
 
+# publishSchema task will publish all the protobuf files into DataHub
 ./gradlew publishSchema
 ```
