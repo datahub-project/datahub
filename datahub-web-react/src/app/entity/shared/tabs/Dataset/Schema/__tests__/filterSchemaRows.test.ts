@@ -35,7 +35,7 @@ describe('filterSchemaRows', () => {
         expect(expandedRowsFromFilter).toMatchObject(new Set());
     });
 
-    it('should properly filter schema rows based on tags', () => {
+    it('should properly filter schema rows based on editable tags', () => {
         const editableSchemaMetadata = {
             editableSchemaFieldInfo: [
                 { fieldPath: 'customer', globalTags: { tags: [{ tag: sampleTag }] }, glossaryTerms: null },
@@ -53,7 +53,7 @@ describe('filterSchemaRows', () => {
         expect(expandedRowsFromFilter).toMatchObject(new Set());
     });
 
-    it('should properly filter schema rows based on glossary terms', () => {
+    it('should properly filter schema rows based on editable glossary terms', () => {
         const editableSchemaMetadata = {
             editableSchemaFieldInfo: [
                 { fieldPath: 'shipment', globalTags: null, glossaryTerms: { terms: [{ term: glossaryTerm1 }] } },
@@ -118,5 +118,43 @@ describe('filterSchemaRows', () => {
             { fieldPath: 'customer.child1.findMe' },
         ]);
         expect(expandedRowsFromFilter).toMatchObject(new Set(['customer', 'customer.child1']));
+    });
+
+    it('should properly filter schema rows based on non-editable tags', () => {
+        const rowsWithTags = [
+            { fieldPath: 'customer' },
+            { fieldPath: 'testing', globalTags: { tags: [{ tag: sampleTag }] } },
+            { fieldPath: 'shipment' },
+        ] as SchemaField[];
+        const editableSchemaMetadata = { editableSchemaFieldInfo: [] };
+        const filterText = sampleTag.properties.name;
+        const { filteredRows, expandedRowsFromFilter } = filterSchemaRows(
+            rowsWithTags,
+            editableSchemaMetadata,
+            filterText,
+            testEntityRegistry,
+        );
+
+        expect(filteredRows).toMatchObject([{ fieldPath: 'testing' }]);
+        expect(expandedRowsFromFilter).toMatchObject(new Set());
+    });
+
+    it('should properly filter schema rows based on non-editable glossary terms', () => {
+        const rowsWithTerms = [
+            { fieldPath: 'customer' },
+            { fieldPath: 'testing' },
+            { fieldPath: 'shipment', glossaryTerms: { terms: [{ term: glossaryTerm1 }] } },
+        ] as SchemaField[];
+        const editableSchemaMetadata = { editableSchemaFieldInfo: [] };
+        const filterText = glossaryTerm1.properties?.name as string;
+        const { filteredRows, expandedRowsFromFilter } = filterSchemaRows(
+            rowsWithTerms,
+            editableSchemaMetadata,
+            filterText,
+            testEntityRegistry,
+        );
+
+        expect(filteredRows).toMatchObject([{ fieldPath: 'shipment' }]);
+        expect(expandedRowsFromFilter).toMatchObject(new Set());
     });
 });

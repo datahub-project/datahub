@@ -4,9 +4,11 @@ import com.google.protobuf.DescriptorProtos.FileDescriptorSet;
 import com.linkedin.common.AuditStamp;
 import com.linkedin.common.FabricType;
 import com.linkedin.common.Status;
+import com.linkedin.common.SubTypes;
 import com.linkedin.common.urn.DataPlatformUrn;
 import com.linkedin.common.urn.DatasetUrn;
 import com.linkedin.data.template.RecordTemplate;
+import com.linkedin.data.template.StringArray;
 import com.linkedin.events.metadata.ChangeType;
 import com.linkedin.schema.KafkaSchema;
 import com.linkedin.schema.SchemaField;
@@ -58,6 +60,7 @@ public class ProtobufDataset {
         private String schema;
         private String githubOrganization;
         private String slackTeamId;
+        private String subType;
 
         public Builder setGithubOrganization(@Nullable String githubOrganization) {
             this.githubOrganization = githubOrganization;
@@ -112,6 +115,11 @@ public class ProtobufDataset {
             return this;
         }
 
+        public Builder setSubType(@Nullable String subType) {
+            this.subType = subType;
+            return this;
+        }
+
         public ProtobufDataset build() throws IOException {
             FileDescriptorSet fileSet = FileDescriptorSet.parseFrom(protocBytes);
 
@@ -160,7 +168,8 @@ public class ProtobufDataset {
                                     )
                             )
                             .build()
-                    );
+                    )
+                .setSubType(subType);
         }
     }
 
@@ -168,6 +177,7 @@ public class ProtobufDataset {
     private final Optional<String> schemaSource;
     private final ProtobufGraph graph;
     private final AuditStamp auditStamp;
+    private Optional<String> subType;
     private final VisitContext.VisitContextBuilder contextBuilder;
     private final ProtobufDataset.Builder builder;
 
@@ -186,6 +196,7 @@ public class ProtobufDataset {
         this.schemaSource = Optional.ofNullable(schema);
         this.auditStamp = auditStamp;
         this.graph = graph;
+        this.subType = Optional.empty();
 
         // Default - non-protobuf extension
         fieldVisitor = new SchemaFieldVisitor();
@@ -207,6 +218,11 @@ public class ProtobufDataset {
 
     public ProtobufDataset setFieldVisitor(ProtobufModelVisitor<Pair<SchemaField, Double>> visitor) {
         this.fieldVisitor = visitor;
+        return this;
+    }
+
+    public ProtobufDataset setSubType(String subType) {
+        this.subType = Optional.ofNullable(subType);
         return this;
     }
 
@@ -235,15 +251,22 @@ public class ProtobufDataset {
     }
 
     public List<MetadataChangeProposalWrapper<? extends RecordTemplate>> getDatasetMCPs() {
-        return Stream.concat(
-                this.graph.accept(contextBuilder, List.of(datasetVisitor)),
+        Stream<MetadataChangeProposalWrapper<? extends RecordTemplate>> mcpStream =
+            Stream.concat(this.graph.accept(contextBuilder, List.of(datasetVisitor)),
+            Stream.of(
+            new MetadataChangeProposalWrapper<>(DatasetUrn.ENTITY_TYPE, datasetUrn.toString(), ChangeType.UPSERT,
+                getSchemaMetadata(), "schemaMetadata"),
+            new MetadataChangeProposalWrapper<>(DatasetUrn.ENTITY_TYPE, datasetUrn.toString(), ChangeType.UPSERT,
+                new Status().setRemoved(false), "status")));
+
+        if (this.subType.isPresent()) {
+            SubTypes subTypes = new SubTypes().setTypeNames(new StringArray(this.subType.get()));
+            mcpStream = Stream.concat(mcpStream,
                 Stream.of(
-                        new MetadataChangeProposalWrapper<>(DatasetUrn.ENTITY_TYPE, datasetUrn.toString(), ChangeType.UPSERT,
-                                getSchemaMetadata(), "schemaMetadata"),
-                        new MetadataChangeProposalWrapper<>(DatasetUrn.ENTITY_TYPE, datasetUrn.toString(), ChangeType.UPSERT,
-                                new Status().setRemoved(false), "status")
-                )
-        ).collect(Collectors.toList());
+                    new MetadataChangeProposalWrapper<>(DatasetUrn.ENTITY_TYPE, datasetUrn.toString(), ChangeType.UPSERT,
+                        subTypes, "subTypes")));
+        }
+        return mcpStream.collect(Collectors.toList());
     }
 
     public SchemaMetadata getSchemaMetadata() {

@@ -146,7 +146,7 @@ SNOWFLAKE_FIELD_TYPE_MAPPINGS = {
 
 @platform_name("Snowflake", doc_order=1)
 @config_class(SnowflakeV2Config)
-@support_status(SupportStatus.INCUBATING)
+@support_status(SupportStatus.CERTIFIED)
 @capability(SourceCapability.PLATFORM_INSTANCE, "Enabled by default")
 @capability(SourceCapability.DOMAINS, "Supported via the `domain` config field")
 @capability(SourceCapability.CONTAINERS, "Enabled by default")

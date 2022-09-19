@@ -154,13 +154,7 @@ class SnowflakeUsageExtractor(SnowflakeQueryMixin, SnowflakeCommonMixin):
                 if self.config.include_top_n_queries
                 else None,
                 userCounts=self._map_user_counts(json.loads(row["USER_COUNTS"])),
-                fieldCounts=[
-                    DatasetFieldUsageCounts(
-                        fieldPath=self.snowflake_identifier(field_count["col"]),
-                        count=field_count["total"],
-                    )
-                    for field_count in json.loads(row["FIELD_COUNTS"])
-                ],
+                fieldCounts=self._map_field_counts(json.loads(row["FIELD_COUNTS"])),
             )
             dataset_urn = make_dataset_urn_with_platform_instance(
                 self.platform,
@@ -180,12 +174,14 @@ class SnowflakeUsageExtractor(SnowflakeQueryMixin, SnowflakeCommonMixin):
         budget_per_query: int = int(
             total_budget_for_query_list / self.config.top_n_queries
         )
-        return [
-            trim_query(format_sql_query(query), budget_per_query)
-            if self.config.format_sql_queries
-            else query
-            for query in top_sql_queries
-        ]
+        return sorted(
+            [
+                trim_query(format_sql_query(query), budget_per_query)
+                if self.config.format_sql_queries
+                else query
+                for query in top_sql_queries
+            ]
+        )
 
     def _map_user_counts(self, user_counts: Dict) -> List[DatasetUserUsageCounts]:
         filtered_user_counts = []
@@ -209,7 +205,19 @@ class SnowflakeUsageExtractor(SnowflakeQueryMixin, SnowflakeCommonMixin):
                     userEmail=user_email,
                 )
             )
-        return filtered_user_counts
+        return sorted(filtered_user_counts, key=lambda v: v.user)
+
+    def _map_field_counts(self, field_counts: Dict) -> List[DatasetFieldUsageCounts]:
+        return sorted(
+            [
+                DatasetFieldUsageCounts(
+                    fieldPath=self.snowflake_identifier(field_count["col"]),
+                    count=field_count["total"],
+                )
+                for field_count in field_counts
+            ],
+            key=lambda v: v.fieldPath,
+        )
 
     def _get_snowflake_history(
         self, conn: SnowflakeConnection

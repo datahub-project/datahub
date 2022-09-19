@@ -3,15 +3,22 @@ package com.linkedin.metadata.entity;
 import com.google.common.collect.ImmutableSet;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.data.template.RecordTemplate;
+import com.linkedin.entity.Aspect;
+import com.linkedin.entity.EntityResponse;
 import com.linkedin.events.metadata.ChangeType;
 import com.linkedin.metadata.utils.EntityKeyUtils;
 import com.linkedin.metadata.utils.GenericRecordUtils;
 import com.linkedin.mxe.GenericAspect;
 import com.linkedin.mxe.MetadataChangeProposal;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
+import java.util.Set;
 import java.util.stream.Collectors;
+import com.linkedin.entity.client.EntityClient;
+import com.datahub.authentication.Authentication;
 import javax.annotation.Nonnull;
 import lombok.extern.slf4j.Slf4j;
 
@@ -39,6 +46,28 @@ public class AspectUtils {
         .collect(Collectors.toList());
   }
 
+  public static Map<Urn, Aspect> batchGetLatestAspect(
+      String entity,
+      Set<Urn> urns,
+      String aspectName,
+      EntityClient entityClient,
+      Authentication authentication
+  ) throws Exception {
+    final Map<Urn, EntityResponse> gmsResponse = entityClient.batchGetV2(
+        entity,
+        urns,
+        ImmutableSet.of(aspectName),
+        authentication);
+    final Map<Urn, Aspect> finalResult = new HashMap<>();
+    for (Urn urn : urns) {
+      EntityResponse response = gmsResponse.get(urn);
+      if (response != null && response.getAspects().containsKey(aspectName)) {
+        finalResult.put(urn, response.getAspects().get(aspectName).getValue());
+      }
+    }
+    return finalResult;
+  }
+
   private static MetadataChangeProposal getProposalFromAspect(String aspectName, RecordTemplate aspect,
       MetadataChangeProposal original) {
     try {
@@ -51,5 +80,18 @@ public class AspectUtils {
       log.error("Issue while generating additional proposals corresponding to the input proposal", e);
     }
     return null;
+  }
+
+  public static MetadataChangeProposal buildMetadataChangeProposal(
+      @Nonnull Urn urn,
+      @Nonnull String aspectName,
+      @Nonnull RecordTemplate aspect) {
+    final MetadataChangeProposal proposal = new MetadataChangeProposal();
+    proposal.setEntityUrn(urn);
+    proposal.setEntityType(urn.getEntityType());
+    proposal.setAspectName(aspectName);
+    proposal.setAspect(GenericRecordUtils.serializeAspect(aspect));
+    proposal.setChangeType(ChangeType.UPSERT);
+    return proposal;
   }
 }

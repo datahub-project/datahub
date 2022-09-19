@@ -9,6 +9,7 @@ This file documents any backwards-incompatible changes in DataHub and assists pe
 - Browse Paths have been upgraded to a new format to align more closely with the intention of the feature. 
   Learn more about the changes, including steps on upgrading, here: https://datahubproject.io/docs/advanced/browse-paths-upgrade
 - The dbt ingestion source's `disable_dbt_node_creation` and `load_schema` options have been removed. They were no longer necessary due to the recently added sibling entities functionality.
+- The `snowflake` source now uses newer faster implementation (earlier `snowflake-beta`). Config properties `provision_role` and `check_role_grants` are not supported. Older `snowflake` and `snowflake-usage` are available as `snowflake-legacy` and `snowflake-usage-legacy` sources respectively.
 
 ### Potential Downtime
 

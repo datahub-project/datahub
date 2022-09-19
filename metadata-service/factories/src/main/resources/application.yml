@@ -150,6 +150,7 @@ elasticsearch:
     numReplicas: ${ELASTICSEARCH_NUM_REPLICAS_PER_INDEX:1}
     numRetries: ${ELASTICSEARCH_INDEX_BUILDER_NUM_RETRIES:3}
     maxArrayLength: ${SEARCH_DOCUMENT_MAX_ARRAY_LENGTH:1000}
+    maxObjectKeys: ${SEARCH_DOCUMENT_MAX_OBJECT_KEYS:1000}
     mainTokenizer: ${ELASTICSEARCH_MAIN_TOKENIZER:#{null}}
 
 # TODO: Kafka topic convention
