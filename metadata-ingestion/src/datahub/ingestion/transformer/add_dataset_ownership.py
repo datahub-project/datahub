@@ -15,7 +15,6 @@ from datahub.ingestion.transformer.dataset_transformer import (
     DatasetOwnershipTransformer,
 )
 from datahub.metadata.schema_classes import (
-    AuditStampClass,
     OwnerClass,
     OwnershipClass,
     OwnershipTypeClass,
@@ -103,7 +102,7 @@ class AddDatasetOwnership(DatasetOwnershipTransformer):
             owners=[],
             lastModified=in_ownership_aspect.lastModified
             if in_ownership_aspect is not None
-            else AuditStampClass.construct_with_defaults(),
+            else None,
         )
 
         # Check if user want to keep existing ownerships

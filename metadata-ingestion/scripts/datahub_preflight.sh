@@ -54,7 +54,7 @@ arm64_darwin_preflight() {
   # we first symlink /opt/postgresql@14 to /opt/postgresql
   if [ ! -z $(brew --prefix)/opt/postgresql ]; then
     printf "✨ Symlinking postgresql@14 to postgresql\n"
-    ln -sf $(brew --prefix postgresql@14) $(brew --prefix)/opt/postgres
+    ln -sf $(brew --prefix postgresql@14) $(brew --prefix)/opt/postgresql
   fi
   # we then symlink all libs under /opt/postgresql@14/lib/postgresql@14 to /opt/postgresql@14/lib
   if [ ! -z $(brew --prefix postgresql@14)/lib/postgresql@14 ]; then
