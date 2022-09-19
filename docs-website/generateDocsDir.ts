@@ -405,7 +405,7 @@ If you'd like to change the contents of this file, make modifications to ${filep
 
 `;
 
-  contents.content = text + contents.content
+  contents.content = text + contents.content;
 }
 
 function make_link_anchor(text: string): string {
