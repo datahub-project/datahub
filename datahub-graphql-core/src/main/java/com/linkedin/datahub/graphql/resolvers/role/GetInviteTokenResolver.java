@@ -2,14 +2,12 @@ package com.linkedin.datahub.graphql.resolvers.role;
 
 import com.datahub.authentication.Authentication;
 import com.datahub.authentication.invite.InviteTokenService;
-import com.linkedin.common.urn.Urn;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.exception.AuthorizationException;
 import com.linkedin.datahub.graphql.generated.GetInviteTokenInput;
 import com.linkedin.datahub.graphql.generated.InviteToken;
 import graphql.schema.DataFetcher;
 import graphql.schema.DataFetchingEnvironment;
-import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -37,11 +35,9 @@ public class GetInviteTokenResolver implements DataFetcher<CompletableFuture<Inv
 
     return CompletableFuture.supplyAsync(() -> {
       try {
-        Optional<Urn> optionalRoleUrn =
-            roleUrnStr == null ? Optional.empty() : Optional.of(Urn.createFromString(roleUrnStr));
-        return new InviteToken(_inviteTokenService.getInviteToken(optionalRoleUrn, false, authentication));
+        return new InviteToken(_inviteTokenService.getInviteToken(roleUrnStr, false, authentication));
       } catch (Exception e) {
-        throw new RuntimeException(String.format("Failed to perform update against input %s", input), e);
+        throw new RuntimeException(String.format("Failed to get invite token for role %s", roleUrnStr), e);
       }
     });
   }

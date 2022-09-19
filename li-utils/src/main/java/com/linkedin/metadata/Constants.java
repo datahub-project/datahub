@@ -236,9 +236,6 @@ public class Constants {
 
   // Invite Token
   public static final String INVITE_TOKEN_ASPECT_NAME = "inviteToken";
-  public static final int LOWERCASE_ASCII_START = 97;
-  public static final int LOWERCASE_ASCII_END = 122;
-  public static final int INVITE_TOKEN_LENGTH = 32;
 
   // Relationships
   public static final String IS_MEMBER_OF_GROUP_RELATIONSHIP_NAME = "IsMemberOfGroup";

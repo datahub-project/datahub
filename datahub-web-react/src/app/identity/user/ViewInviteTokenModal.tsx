@@ -2,7 +2,7 @@ import React, { useEffect, useMemo, useState } from 'react';
 import * as QueryString from 'query-string';
 import { useLocation } from 'react-router';
 import { RedoOutlined, UserOutlined } from '@ant-design/icons';
-import { Button, message, Modal, Select, Typography } from 'antd';
+import { Button, Col, message, Modal, Select, Typography } from 'antd';
 import styled from 'styled-components';
 import { PageRoutes } from '../../../conf/Global';
 import { useGetInviteTokenQuery, useListRolesQuery } from '../../../graphql/role.generated';
@@ -31,6 +31,12 @@ const ModalSectionParagraph = styled(Typography.Paragraph)`
     }
 `;
 
+const InviteLinkParagraph = styled(Typography.Paragraph)`
+    display: flex;
+    flex-direction: row;
+    justify-content: flex-start;
+`;
+
 const CreateInviteTokenButton = styled(Button)`
     display: inline-block;
     width: 20px;
@@ -38,6 +44,7 @@ const CreateInviteTokenButton = styled(Button)`
 `;
 
 const RoleSelect = styled(Select)`
+    margin-top: 11px;
     min-width: 105px;
 `;
 
@@ -59,6 +66,11 @@ export default function ViewInviteTokenModal({ visible, onClose }: Props) {
     const [query, setQuery] = useState<undefined | string>(undefined);
     useEffect(() => setQuery(paramsQuery), [paramsQuery]);
     const [selectedRole, setSelectedRole] = useState<DataHubRole>();
+    const [isInviteTokenCreated, setIsInviteTokenCreated] = useState(false);
+    const [createInviteTokenMutation, { data: createInviteTokenData }] = useCreateInviteTokenMutation();
+
+    // Code related to listing role options and selecting a role
+    const noRoleText = 'No Role';
 
     const { data: rolesData } = useListRolesQuery({
         fetchPolicy: 'no-cache',
@@ -92,15 +104,11 @@ export default function ViewInviteTokenModal({ visible, onClose }: Props) {
         setSelectedRole(roleFromMap);
     };
 
-    const noRoleText = 'No Role';
-
+    // Code related to creating an invite token
     const { data: getInviteTokenData } = useGetInviteTokenQuery({
         skip: !visible,
         variables: { input: { roleUrn: selectedRole?.urn } },
     });
-
-    const [isInviteTokenCreated, setIsInviteTokenCreated] = useState(false);
-    const [createInviteTokenMutation, { data: createInviteTokenData }] = useCreateInviteTokenMutation();
 
     const createInviteToken = (roleUrn?: string) => {
         createInviteTokenMutation({
@@ -131,49 +139,47 @@ export default function ViewInviteTokenModal({ visible, onClose }: Props) {
         return getInviteTokenData?.getInviteToken?.inviteToken || '';
     }, [getInviteTokenData, createInviteTokenData, isInviteTokenCreated]);
 
-    const roleParam = `&role=${selectedRole?.urn}`;
-
-    const inviteLink = `${baseUrl}${PageRoutes.SIGN_UP}?invite_token=${inviteToken}${
-        selectedRole?.urn ? roleParam : ''
-    }`;
+    const inviteLink = `${baseUrl}${PageRoutes.SIGN_UP}?invite_token=${inviteToken}`;
 
     return (
         <Modal
-            width={700}
+            width={1000}
             footer={null}
             title={
                 <Typography.Text>
-                    <b>Invite new DataHub users</b>
+                    <b>Invite Users</b>
                 </Typography.Text>
             }
             visible={visible}
             onCancel={onClose}
         >
             <ModalSection>
-                <ModalSectionHeader strong>
-                    Select which Role you would like to set for new users joining with this invite link.
-                </ModalSectionHeader>
-                <ModalSectionParagraph>
-                    <RoleSelect
-                        placeholder={
-                            <>
-                                <UserOutlined style={{ marginRight: 6, fontSize: 12 }} />
+                <ModalSectionHeader strong>Role for users joining with this invite link</ModalSectionHeader>
+                <InviteLinkParagraph>
+                    <Col span={3}>
+                        <RoleSelect
+                            placeholder={
+                                <>
+                                    <UserOutlined style={{ marginRight: 6, fontSize: 12 }} />
+                                    {noRoleText}
+                                </>
+                            }
+                            value={selectedRole?.urn || undefined}
+                            onChange={(e) => onSelectRole(e as string)}
+                        >
+                            <Select.Option value="">
+                                <RoleIcon>{mapRoleIcon(noRoleText)}</RoleIcon>
                                 {noRoleText}
-                            </>
-                        }
-                        value={selectedRole?.urn || undefined}
-                        onChange={(e) => onSelectRole(e as string)}
-                    >
-                        <Select.Option value="">
-                            <RoleIcon>{mapRoleIcon(noRoleText)}</RoleIcon>
-                            {noRoleText}
-                        </Select.Option>
-                        {roleSelectOptions()}
-                    </RoleSelect>
-                </ModalSectionParagraph>
-                <Typography.Paragraph copyable={{ text: inviteLink }}>
-                    <pre>{inviteLink}</pre>
-                </Typography.Paragraph>
+                            </Select.Option>
+                            {roleSelectOptions()}
+                        </RoleSelect>
+                    </Col>
+                    <Col span={16}>
+                        <Typography.Paragraph copyable={{ text: inviteLink }}>
+                            <pre>{inviteLink}</pre>
+                        </Typography.Paragraph>
+                    </Col>
+                </InviteLinkParagraph>
             </ModalSection>
             <ModalSection>
                 <ModalSectionHeader strong>Generate a new link</ModalSectionHeader>

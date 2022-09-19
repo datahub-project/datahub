@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useState } from 'react';
 import { Input, Button, Form, message, Image, Select } from 'antd';
 import { UserOutlined, LockOutlined } from '@ant-design/icons';
 import { useReactiveVar } from '@apollo/client';
@@ -65,6 +65,32 @@ export const SignUp: React.VFC<SignUpProps> = () => {
 
     const { refreshContext } = useAppConfig();
 
+    const [acceptRoleMutation] = useAcceptRoleMutation();
+    const acceptRole = useCallback(() => {
+        acceptRoleMutation({
+            variables: {
+                input: {
+                    inviteToken,
+                },
+            },
+        })
+            .then(({ errors }) => {
+                if (!errors) {
+                    message.success({
+                        content: `Accepted invite!`,
+                        duration: 2,
+                    });
+                }
+            })
+            .catch((e) => {
+                message.destroy();
+                message.error({
+                    content: `Failed to accept invite: \n ${e.message || ''}`,
+                    duration: 3,
+                });
+            });
+    }, [acceptRoleMutation, inviteToken]);
+
     const handleSignUp = useCallback(
         (values: FormValues) => {
             setLoading(true);
@@ -88,6 +114,7 @@ export const SignUp: React.VFC<SignUpProps> = () => {
                     }
                     isLoggedInVar(true);
                     refreshContext();
+                    acceptRole();
                     analytics.event({ type: EventType.SignUpEvent, title: values.title });
                     return Promise.resolve();
                 })
@@ -96,40 +123,8 @@ export const SignUp: React.VFC<SignUpProps> = () => {
                 })
                 .finally(() => setLoading(false));
         },
-        [refreshContext, inviteToken],
+        [refreshContext, inviteToken, acceptRole],
     );
-
-    const [acceptRoleMutation] = useAcceptRoleMutation();
-    const acceptRole = () => {
-        acceptRoleMutation({
-            variables: {
-                input: {
-                    inviteToken,
-                },
-            },
-        })
-            .then(({ errors }) => {
-                if (!errors) {
-                    message.success({
-                        content: `Accepted invite!`,
-                        duration: 2,
-                    });
-                }
-            })
-            .catch((e) => {
-                message.destroy();
-                message.error({
-                    content: `Failed to accept invite: \n ${e.message || ''}`,
-                    duration: 3,
-                });
-            });
-    };
-
-    useEffect(() => {
-        if (isLoggedIn) {
-            acceptRole();
-        }
-    });
 
     if (isLoggedIn && !loading) {
         return <Redirect to={`${PageRoutes.ROOT}`} />;

@@ -8,7 +8,6 @@ import com.linkedin.common.urn.Urn;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.generated.AcceptRoleInput;
 import graphql.schema.DataFetchingEnvironment;
-import java.util.Optional;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
@@ -71,8 +70,7 @@ public class AcceptRoleResolverTest {
     when(mockContext.getAuthentication()).thenReturn(_authentication);
     when(_inviteTokenService.getInviteTokenUrn(eq(INVITE_TOKEN_STRING))).thenReturn(inviteTokenUrn);
     when(_inviteTokenService.isInviteTokenValid(eq(inviteTokenUrn), eq(_authentication))).thenReturn(true);
-    when(_inviteTokenService.getRoleUrnFromInviteToken(eq(inviteTokenUrn), eq(_authentication))).thenReturn(
-        Optional.empty());
+    when(_inviteTokenService.getInviteTokenRole(eq(inviteTokenUrn), eq(_authentication))).thenReturn(null);
 
     AcceptRoleInput input = new AcceptRoleInput();
     input.setInviteToken(INVITE_TOKEN_STRING);
@@ -89,8 +87,7 @@ public class AcceptRoleResolverTest {
     when(mockContext.getAuthentication()).thenReturn(_authentication);
     when(_inviteTokenService.getInviteTokenUrn(eq(INVITE_TOKEN_STRING))).thenReturn(inviteTokenUrn);
     when(_inviteTokenService.isInviteTokenValid(eq(inviteTokenUrn), eq(_authentication))).thenReturn(true);
-    when(_inviteTokenService.getRoleUrnFromInviteToken(eq(inviteTokenUrn), eq(_authentication))).thenReturn(
-        Optional.of(roleUrn));
+    when(_inviteTokenService.getInviteTokenRole(eq(inviteTokenUrn), eq(_authentication))).thenReturn(roleUrn);
     Actor actor = mock(Actor.class);
     when(_authentication.getActor()).thenReturn(actor);
     when(actor.toUrnStr()).thenReturn(ACTOR_URN_STRING);

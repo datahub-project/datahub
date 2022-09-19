@@ -15,7 +15,6 @@ import { EntityCapabilityType } from '../../entity/Entity';
 import { useBatchAssignRoleMutation } from '../../../graphql/mutations.generated';
 import { CorpUser, DataHubRole, DataHubPolicy } from '../../../types.generated';
 import RoleDetailsModal from './RoleDetailsModal';
-import ViewRoleInviteTokenModal from './ViewRoleInviteTokenModal';
 
 const SourceContainer = styled.div``;
 
@@ -47,7 +46,6 @@ export const ManageRoles = () => {
     const paramsQuery = (params?.query as string) || undefined;
     const [query, setQuery] = useState<undefined | string>(undefined);
     const [isBatchAddRolesModalVisible, setIsBatchAddRolesModalVisible] = useState(false);
-    const [isInviteToRoleModalVisible, setIsInviteToRoleModalVisible] = useState(false);
     const [focusRole, setFocusRole] = useState<DataHubRole>();
     const [showViewRoleModal, setShowViewRoleModal] = useState(false);
     useEffect(() => setQuery(paramsQuery), [paramsQuery]);
@@ -181,16 +179,6 @@ export const ManageRoles = () => {
                                 ADD USERS
                             </AddUsersButton>
                         </Tooltip>
-                        <Tooltip title={`Invite users to assume the ${record.name} role`}>
-                            <Button
-                                onClick={() => {
-                                    setIsInviteToRoleModalVisible(true);
-                                    setFocusRole(record.role);
-                                }}
-                            >
-                                INVITE USERS
-                            </Button>
-                        </Tooltip>
                     </>
                 );
             },
@@ -266,11 +254,6 @@ export const ManageRoles = () => {
                 />
             </PaginationContainer>
             <RoleDetailsModal role={focusRole as DataHubRole} visible={showViewRoleModal} onClose={resetRoleState} />
-            <ViewRoleInviteTokenModal
-                role={focusRole as DataHubRole}
-                visible={isInviteToRoleModalVisible}
-                onClose={() => setIsInviteToRoleModalVisible(false)}
-            />
         </PageContainer>
     );
 };

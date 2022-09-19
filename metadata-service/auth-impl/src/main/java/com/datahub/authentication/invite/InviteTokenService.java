@@ -24,9 +24,9 @@ import java.security.MessageDigest;
 import java.util.Base64;
 import java.util.Collections;
 import java.util.Objects;
-import java.util.Optional;
 import java.util.UUID;
 import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 import lombok.extern.slf4j.Slf4j;
 
 import static com.linkedin.metadata.Constants.*;
@@ -50,8 +50,7 @@ public class InviteTokenService {
   }
 
   public Urn getInviteTokenUrn(@Nonnull final String inviteTokenStr) throws URISyntaxException {
-    byte[] hashedInviteTokenBytes = _messageDigest.digest(inviteTokenStr.getBytes());
-    String hashedInviteTokenStr = _encoder.encodeToString(hashedInviteTokenBytes);
+    String hashedInviteTokenStr = hashString(inviteTokenStr);
     String inviteTokenUrnStr = String.format("urn:li:inviteToken:%s", hashedInviteTokenStr);
     return Urn.createFromString(inviteTokenUrnStr);
   }
@@ -61,49 +60,48 @@ public class InviteTokenService {
     return _entityClient.exists(inviteTokenUrn, authentication);
   }
 
-  public Optional<Urn> getRoleUrnFromInviteToken(@Nonnull final Urn inviteTokenUrn,
-      @Nonnull final Authentication authentication) throws URISyntaxException, RemoteInvocationException {
-    final EntityResponse inviteTokenEntity =
-        _entityClient.getV2(INVITE_TOKEN_ENTITY_NAME, inviteTokenUrn, Collections.singleton(INVITE_TOKEN_ASPECT_NAME),
-            authentication);
-    if (inviteTokenEntity == null) {
-      return Optional.empty();
-    }
-
-    final EnvelopedAspectMap aspectMap = inviteTokenEntity.getAspects();
-    // If invite token aspect is not present, create a new one. Otherwise, return existing one.
-    if (!aspectMap.containsKey(INVITE_TOKEN_ASPECT_NAME)) {
-      return Optional.empty();
-    }
-
-    com.linkedin.identity.InviteToken inviteToken =
-        new com.linkedin.identity.InviteToken(aspectMap.get(INVITE_TOKEN_ASPECT_NAME).getValue().data());
-    return inviteToken.hasRole() ? Optional.of(inviteToken.getRole()) : Optional.empty();
+  @Nullable
+  public Urn getInviteTokenRole(@Nonnull final Urn inviteTokenUrn, @Nonnull final Authentication authentication)
+      throws URISyntaxException, RemoteInvocationException {
+    com.linkedin.identity.InviteToken inviteToken = getInviteTokenEntity(inviteTokenUrn, authentication);
+    return inviteToken.hasRole() ? inviteToken.getRole() : null;
   }
 
   @Nonnull
-  public String getInviteToken(@Nonnull final Optional<Urn> optionalRoleUrn, boolean regenerate,
+  public String getInviteToken(@Nullable final String roleUrnStr, boolean regenerate,
       @Nonnull final Authentication authentication) throws Exception {
-    final Filter inviteTokenFilter;
-    if (optionalRoleUrn.isPresent()) {
-      final Urn roleUrn = optionalRoleUrn.get();
-      if (!_entityClient.exists(roleUrn, authentication)) {
-        throw new RuntimeException(String.format("Role %s does not exist", roleUrn));
-      }
-      inviteTokenFilter = createInviteTokenFilter(roleUrn);
-    } else {
-      inviteTokenFilter = createInviteTokenFilter();
-    }
+    final Filter inviteTokenFilter =
+        roleUrnStr == null ? createInviteTokenFilter() : createInviteTokenFilter(roleUrnStr);
 
     final SearchResult searchResult =
         _entityClient.filter(INVITE_TOKEN_ENTITY_NAME, inviteTokenFilter, null, 0, 10, authentication);
-    // If there are no entities in the result, create a new invite token.
-    if (regenerate || searchResult.getEntities().isEmpty()) {
-      return createInviteToken(optionalRoleUrn, searchResult, authentication);
+
+    final int numEntities = searchResult.getEntities().size();
+    // If there is more than one invite token, wipe all of them and generate a fresh one
+    if (numEntities > 1) {
+      deleteExistingInviteTokens(searchResult, authentication);
+      return createInviteToken(roleUrnStr, authentication);
+    }
+
+    // If we want to regenerate, or there are no entities in the result, create a new invite token.
+    if (regenerate || numEntities == 0) {
+      return createInviteToken(roleUrnStr, authentication);
     }
 
     final SearchEntity searchEntity = searchResult.getEntities().get(0);
     final Urn inviteTokenUrn = searchEntity.getEntity();
+
+    com.linkedin.identity.InviteToken inviteToken = getInviteTokenEntity(inviteTokenUrn, authentication);
+    return _secretService.decrypt(inviteToken.getToken());
+  }
+
+  private String hashString(@Nonnull final String str) {
+    byte[] hashedBytes = _messageDigest.digest(str.getBytes());
+    return _encoder.encodeToString(hashedBytes);
+  }
+
+  private com.linkedin.identity.InviteToken getInviteTokenEntity(@Nonnull final Urn inviteTokenUrn,
+      @Nonnull final Authentication authentication) throws RemoteInvocationException, URISyntaxException {
     final EntityResponse inviteTokenEntity =
         _entityClient.getV2(INVITE_TOKEN_ENTITY_NAME, inviteTokenUrn, Collections.singleton(INVITE_TOKEN_ASPECT_NAME),
             authentication);
@@ -115,12 +113,10 @@ public class InviteTokenService {
     final EnvelopedAspectMap aspectMap = inviteTokenEntity.getAspects();
     // If invite token aspect is not present, create a new one. Otherwise, return existing one.
     if (!aspectMap.containsKey(INVITE_TOKEN_ASPECT_NAME)) {
-      return createInviteToken(optionalRoleUrn, searchResult, authentication);
+      throw new RuntimeException(
+          String.format("Invite token %s does not contain aspect %s", inviteTokenUrn, INVITE_TOKEN_ASPECT_NAME));
     }
-
-    com.linkedin.identity.InviteToken inviteToken =
-        new com.linkedin.identity.InviteToken(aspectMap.get(INVITE_TOKEN_ASPECT_NAME).getValue().data());
-    return _secretService.decrypt(inviteToken.getToken());
+    return new com.linkedin.identity.InviteToken(aspectMap.get(INVITE_TOKEN_ASPECT_NAME).getValue().data());
   }
 
   private Filter createInviteTokenFilter() {
@@ -142,7 +138,7 @@ public class InviteTokenService {
     return filter;
   }
 
-  private Filter createInviteTokenFilter(Urn roleUrn) {
+  private Filter createInviteTokenFilter(@Nonnull final String roleUrnStr) {
     final Filter filter = new Filter();
     final ConjunctiveCriterionArray disjunction = new ConjunctiveCriterionArray();
     final ConjunctiveCriterion conjunction = new ConjunctiveCriterion();
@@ -150,7 +146,7 @@ public class InviteTokenService {
 
     final Criterion roleCriterion = new Criterion();
     roleCriterion.setField(ROLE_FIELD_NAME);
-    roleCriterion.setValue(roleUrn.toString());
+    roleCriterion.setValue(roleUrnStr);
     roleCriterion.setCondition(Condition.EQUAL);
 
     andCriterion.add(roleCriterion);
@@ -162,18 +158,18 @@ public class InviteTokenService {
   }
 
   @Nonnull
-  private String createInviteToken(@Nonnull final Optional<Urn> roleUrn, @Nonnull final SearchResult searchResult,
-      @Nonnull final Authentication authentication) throws Exception {
-    deleteExistingInviteTokens(searchResult, authentication);
-
+  private String createInviteToken(@Nullable final String roleUrnStr, @Nonnull final Authentication authentication)
+      throws Exception {
     String inviteTokenStr = UUID.randomUUID().toString();
-    byte[] hashedInviteTokenBytes = _messageDigest.digest(inviteTokenStr.getBytes());
-    String hashedInviteTokenStr = _encoder.encodeToString(hashedInviteTokenBytes);
+    String hashedInviteTokenStr = hashString(inviteTokenStr);
     InviteTokenKey inviteTokenKey = new InviteTokenKey();
     inviteTokenKey.setId(hashedInviteTokenStr);
     com.linkedin.identity.InviteToken inviteTokenAspect =
         new com.linkedin.identity.InviteToken().setToken(_secretService.encrypt(inviteTokenStr));
-    roleUrn.ifPresent(inviteTokenAspect::setRole);
+    if (roleUrnStr != null) {
+      Urn roleUrn = Urn.createFromString(roleUrnStr);
+      inviteTokenAspect.setRole(roleUrn);
+    }
 
     // Ingest inviteToken MCP
     final MetadataChangeProposal inviteTokenProposal = new MetadataChangeProposal();

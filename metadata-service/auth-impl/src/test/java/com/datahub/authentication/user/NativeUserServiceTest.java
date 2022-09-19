@@ -7,7 +7,6 @@ import com.linkedin.common.urn.CorpuserUrn;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.entity.client.EntityClient;
 import com.linkedin.identity.CorpUserCredentials;
-import com.linkedin.identity.InviteToken;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.secret.SecretService;
 import java.time.Instant;
@@ -28,8 +27,7 @@ public class NativeUserServiceTest {
   private static final String EMAIL = "mock@email.com";
   private static final String TITLE = "Data Scientist";
   private static final String PASSWORD = "password";
-  private static final String INVITE_TOKEN = "inviteToken";
-  private static final String ENCRYPTED_INVITE_TOKEN = "encryptedInviteToken";
+  private static final String ENCRYPTED_INVITE_TOKEN = "encryptedInviteroToken";
   private static final String RESET_TOKEN = "inviteToken";
   private static final String ENCRYPTED_RESET_TOKEN = "encryptedInviteToken";
   private static final String ENCRYPTED_SALT = "encryptedSalt";
@@ -110,36 +108,6 @@ public class NativeUserServiceTest {
 
     _nativeUserService.updateCorpUserCredentials(USER_URN, PASSWORD, SYSTEM_AUTHENTICATION);
     verify(_entityClient).ingestProposal(any(), any());
-  }
-
-  @Test
-  public void testGenerateNativeUserInviteTokenPasses() throws Exception {
-    when(_secretService.encrypt(any())).thenReturn(ENCRYPTED_INVITE_TOKEN);
-
-    _nativeUserService.generateNativeUserInviteToken(SYSTEM_AUTHENTICATION);
-    verify(_entityClient).ingestProposal(any(), any());
-  }
-
-  @Test
-  public void testGetNativeUserInviteTokenInviteTokenDoesNotExistPasses() throws Exception {
-    // Nonexistent invite token
-    when(_entityService.getLatestAspect(any(), eq(INVITE_TOKEN_ASPECT_NAME))).thenReturn(null);
-    when(_secretService.encrypt(any())).thenReturn(ENCRYPTED_INVITE_TOKEN);
-
-    _nativeUserService.getNativeUserInviteToken(SYSTEM_AUTHENTICATION);
-    verify(_entityClient).ingestProposal(any(), any());
-  }
-
-  @Test
-  public void testGetNativeUserInviteTokenPasses() throws Exception {
-    InviteToken mockInviteTokenAspect = mock(InviteToken.class);
-    when(_entityService.getLatestAspect(any(), eq(INVITE_TOKEN_ASPECT_NAME))).thenReturn(mockInviteTokenAspect);
-    when(_entityService.exists(any())).thenReturn(false);
-    when(mockInviteTokenAspect.hasToken()).thenReturn(true);
-    when(mockInviteTokenAspect.getToken()).thenReturn(ENCRYPTED_INVITE_TOKEN);
-    when(_secretService.decrypt(eq(ENCRYPTED_INVITE_TOKEN))).thenReturn(INVITE_TOKEN);
-
-    assertEquals(_nativeUserService.getNativeUserInviteToken(SYSTEM_AUTHENTICATION), INVITE_TOKEN);
   }
 
   @Test

@@ -11,19 +11,16 @@ import com.linkedin.mxe.MetadataChangeProposal;
 import com.linkedin.r2.RemoteInvocationException;
 import java.net.URISyntaxException;
 import javax.annotation.Nonnull;
+import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
 import static com.linkedin.metadata.Constants.*;
 
 
 @Slf4j
+@RequiredArgsConstructor
 public class RoleService {
-  private static final String HASHING_ALGORITHM = "SHA-256";
   private final EntityClient _entityClient;
-
-  public RoleService(@Nonnull final EntityClient entityClient) {
-    _entityClient = entityClient;
-  }
 
   public boolean exists(@Nonnull final Urn urn, final Authentication authentication) throws RemoteInvocationException {
     return _entityClient.exists(urn, authentication);

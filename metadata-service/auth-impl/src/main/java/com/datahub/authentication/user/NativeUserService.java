@@ -8,7 +8,6 @@ import com.linkedin.events.metadata.ChangeType;
 import com.linkedin.identity.CorpUserCredentials;
 import com.linkedin.identity.CorpUserInfo;
 import com.linkedin.identity.CorpUserStatus;
-import com.linkedin.identity.InviteToken;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.secret.SecretService;
 import com.linkedin.metadata.utils.GenericRecordUtils;
@@ -33,6 +32,8 @@ import static com.linkedin.metadata.Constants.*;
  */
 @Slf4j
 public class NativeUserService {
+  public static final int LOWERCASE_ASCII_START = 97;
+  public static final int LOWERCASE_ASCII_END = 122;
   private static final int SALT_TOKEN_LENGTH = 16;
   private static final int PASSWORD_RESET_TOKEN_LENGTH = 32;
   private static final String HASHING_ALGORITHM = "SHA-256";
@@ -44,8 +45,8 @@ public class NativeUserService {
   private final SecureRandom _secureRandom;
   private final MessageDigest _messageDigest;
 
-  public NativeUserService(@Nonnull EntityService entityService, @Nonnull EntityClient entityClient, @Nonnull SecretService secretService)
-      throws Exception {
+  public NativeUserService(@Nonnull EntityService entityService, @Nonnull EntityClient entityClient,
+      @Nonnull SecretService secretService) throws Exception {
     _entityService = Objects.requireNonNull(entityService, "entityService must not be null!");
     _entityClient = Objects.requireNonNull(entityClient, "entityClient must not be null!");
     _secretService = Objects.requireNonNull(secretService, "secretService must not be null!");
@@ -54,8 +55,7 @@ public class NativeUserService {
   }
 
   public void createNativeUser(@Nonnull String userUrnString, @Nonnull String fullName, @Nonnull String email,
-      @Nonnull String title, @Nonnull String password, @Nonnull Authentication authentication)
-      throws Exception {
+      @Nonnull String title, @Nonnull String password, @Nonnull Authentication authentication) throws Exception {
     Objects.requireNonNull(userUrnString, "userUrnSting must not be null!");
     Objects.requireNonNull(fullName, "fullName must not be null!");
     Objects.requireNonNull(email, "email must not be null!");
@@ -109,8 +109,8 @@ public class NativeUserService {
     _entityClient.ingestProposal(corpUserStatusProposal, authentication);
   }
 
-  void updateCorpUserCredentials(@Nonnull Urn userUrn, @Nonnull String password,
-      @Nonnull Authentication authentication) throws Exception {
+  void updateCorpUserCredentials(@Nonnull Urn userUrn, @Nonnull String password, @Nonnull Authentication authentication)
+      throws Exception {
     // Construct corpUserCredentials
     CorpUserCredentials corpUserCredentials = new CorpUserCredentials();
     final byte[] salt = getRandomBytes(SALT_TOKEN_LENGTH);
@@ -129,35 +129,8 @@ public class NativeUserService {
     _entityClient.ingestProposal(corpUserCredentialsProposal, authentication);
   }
 
-  public String generateNativeUserInviteToken(Authentication authentication) throws Exception {
-    // Construct inviteToken
-    InviteToken inviteToken = new InviteToken();
-    String token = generateRandomLowercaseToken(INVITE_TOKEN_LENGTH);
-    inviteToken.setToken(_secretService.encrypt(token));
-
-    // Ingest InviteToken MCP
-    final MetadataChangeProposal inviteTokenProposal = new MetadataChangeProposal();
-    inviteTokenProposal.setEntityType(INVITE_TOKEN_ENTITY_NAME);
-    inviteTokenProposal.setEntityUrn(Urn.createFromString(GLOBAL_INVITE_TOKEN));
-    inviteTokenProposal.setAspectName(INVITE_TOKEN_ASPECT_NAME);
-    inviteTokenProposal.setAspect(GenericRecordUtils.serializeAspect(inviteToken));
-    inviteTokenProposal.setChangeType(ChangeType.UPSERT);
-    _entityClient.ingestProposal(inviteTokenProposal, authentication);
-
-    return token;
-  }
-
-  public String getNativeUserInviteToken(Authentication authentication) throws Exception {
-    InviteToken inviteToken = (InviteToken) _entityService.getLatestAspect(Urn.createFromString(GLOBAL_INVITE_TOKEN),
-        INVITE_TOKEN_ASPECT_NAME);
-    if (inviteToken == null || !inviteToken.hasToken()) {
-      return generateNativeUserInviteToken(authentication);
-    }
-    return _secretService.decrypt(inviteToken.getToken());
-  }
-
-  public String generateNativeUserPasswordResetToken(@Nonnull String userUrnString,
-      Authentication authentication) throws Exception {
+  public String generateNativeUserPasswordResetToken(@Nonnull String userUrnString, Authentication authentication)
+      throws Exception {
     Objects.requireNonNull(userUrnString, "userUrnString must not be null!");
 
     Urn userUrn = Urn.createFromString(userUrnString);
@@ -201,14 +174,12 @@ public class NativeUserService {
       throw new RuntimeException("User does not exist!");
     }
 
-    if (!corpUserCredentials.hasPasswordResetToken()
-        || !corpUserCredentials.hasPasswordResetTokenExpirationTimeMillis()
+    if (!corpUserCredentials.hasPasswordResetToken() || !corpUserCredentials.hasPasswordResetTokenExpirationTimeMillis()
         || corpUserCredentials.getPasswordResetTokenExpirationTimeMillis() == null) {
       throw new RuntimeException("User has not generated a password reset token!");
     }
 
-    if (!_secretService.decrypt(
-        corpUserCredentials.getPasswordResetToken()).equals(resetToken)) {
+    if (!_secretService.decrypt(corpUserCredentials.getPasswordResetToken()).equals(resetToken)) {
       throw new RuntimeException("Invalid reset token. Please ask your administrator to send you an updated link!");
     }
 
@@ -240,6 +211,7 @@ public class NativeUserService {
     return randomBytes;
   }
 
+  // TODO: Refactor to use UUID.randomUUID().toString();
   String generateRandomLowercaseToken(int length) {
     return _secureRandom.ints(length, LOWERCASE_ASCII_START, LOWERCASE_ASCII_END + 1)
         .mapToObj(i -> String.valueOf((char) i))
