@@ -43,7 +43,7 @@ DEFAULT_ENV = DEFAULT_ENV_CONFIGURATION
 DEFAULT_FLOW_CLUSTER = "prod"
 UNKNOWN_USER = "urn:li:corpuser:unknown"
 DATASET_URN_TO_LOWER: bool = (
-        os.getenv("DATAHUB_DATASET_URN_TO_LOWER", "false") == "true"
+    os.getenv("DATAHUB_DATASET_URN_TO_LOWER", "false") == "true"
 )
 
 
@@ -83,7 +83,7 @@ def make_dataplatform_instance_urn(platform: str, instance: str) -> str:
 
 
 def make_dataset_urn_with_platform_instance(
-        platform: str, name: str, platform_instance: Optional[str], env: str = DEFAULT_ENV
+    platform: str, name: str, platform_instance: Optional[str], env: str = DEFAULT_ENV
 ) -> str:
     if DATASET_URN_TO_LOWER:
         name = name.lower()
@@ -188,7 +188,7 @@ def make_term_urn(term: str) -> str:
 
 
 def make_data_flow_urn(
-        orchestrator: str, flow_id: str, cluster: str = DEFAULT_FLOW_CLUSTER
+    orchestrator: str, flow_id: str, cluster: str = DEFAULT_FLOW_CLUSTER
 ) -> str:
     return f"urn:li:dataFlow:({orchestrator},{flow_id},{cluster})"
 
@@ -202,7 +202,7 @@ def make_data_process_instance_urn(dataProcessInstanceId: str) -> str:
 
 
 def make_data_job_urn(
-        orchestrator: str, flow_id: str, job_id: str, cluster: str = DEFAULT_FLOW_CLUSTER
+    orchestrator: str, flow_id: str, job_id: str, cluster: str = DEFAULT_FLOW_CLUSTER
 ) -> str:
     return make_data_job_urn_with_flow(
         make_data_flow_urn(orchestrator, flow_id, cluster), job_id
@@ -214,22 +214,28 @@ def make_dashboard_urn(platform: str, name: str) -> str:
     return f"urn:li:dashboard:({platform},{name})"
 
 
-def make_dashboard_urn_with_platform_instance(platform: str, name: str, platform_instance: Optional[str]) -> str:
+def make_dashboard_urn_with_platform_instance(
+    platform: str, name: str, platform_instance: Optional[str]
+) -> str:
     if platform_instance:
         return f"urn:li:dashboard:({platform},{platform_instance}.{name})"
     else:
         return make_dashboard_urn(platform, name)
+
 
 def make_chart_urn(platform: str, name: str) -> str:
     # FIXME: charts don't currently include data platform urn prefixes.
     return f"urn:li:chart:({platform},{name})"
 
 
-def make_chart_urn_with_platform_instance(platform: str, name: str, platform_instance: Optional[str]) -> str:
+def make_chart_urn_with_platform_instance(
+    platform: str, name: str, platform_instance: Optional[str]
+) -> str:
     if platform_instance:
         return f"urn:li:chart:({platform},{platform_instance}.{name})"
     else:
         return make_chart_urn(platform, name)
+
 
 def make_domain_urn(domain: str) -> str:
     if domain.startswith("urn:li:domain:"):
@@ -242,8 +248,8 @@ def make_ml_primary_key_urn(feature_table_name: str, primary_key_name: str) -> s
 
 
 def make_ml_feature_urn(
-        feature_table_name: str,
-        feature_name: str,
+    feature_table_name: str,
+    feature_name: str,
 ) -> str:
     return f"urn:li:mlFeature:({feature_table_name},{feature_name})"
 
@@ -289,9 +295,9 @@ def validate_ownership_type(ownership_type: Optional[str]) -> str:
 
 
 def make_lineage_mce(
-        upstream_urns: List[str],
-        downstream_urn: str,
-        lineage_type: str = DatasetLineageTypeClass.TRANSFORMED,
+    upstream_urns: List[str],
+    downstream_urn: str,
+    lineage_type: str = DatasetLineageTypeClass.TRANSFORMED,
 ) -> MetadataChangeEventClass:
     mce = MetadataChangeEventClass(
         proposedSnapshot=DatasetSnapshotClass(
@@ -329,7 +335,7 @@ def can_add_aspect(mce: MetadataChangeEventClass, AspectType: Type[Aspect]) -> b
 
 
 def get_aspect_if_available(
-        mce: MetadataChangeEventClass, AspectType: Type[Aspect]
+    mce: MetadataChangeEventClass, AspectType: Type[Aspect]
 ) -> Optional[Aspect]:
     assert can_add_aspect(mce, AspectType)
 
@@ -348,7 +354,7 @@ def get_aspect_if_available(
 
 
 def remove_aspect_if_available(
-        mce: MetadataChangeEventClass, aspect_type: Type[Aspect]
+    mce: MetadataChangeEventClass, aspect_type: Type[Aspect]
 ) -> bool:
     assert can_add_aspect(mce, aspect_type)
     # loose type annotations since we checked before
@@ -377,9 +383,9 @@ def make_global_tag_aspect_with_tag_list(tags: List[str]) -> GlobalTagsClass:
 
 
 def make_ownership_aspect_from_urn_list(
-        owner_urns: List[str],
-        source_type: Optional[Union[str, OwnershipSourceTypeClass]],
-        owner_type: Union[str, OwnershipTypeClass] = OwnershipTypeClass.DATAOWNER,
+    owner_urns: List[str],
+    source_type: Optional[Union[str, OwnershipSourceTypeClass]],
+    owner_type: Union[str, OwnershipTypeClass] = OwnershipTypeClass.DATAOWNER,
 ) -> OwnershipClass:
     for owner_urn in owner_urns:
         assert owner_urn.startswith("urn:li:corpuser:") or owner_urn.startswith(
@@ -416,7 +422,7 @@ def make_glossary_terms_aspect_from_urn_list(term_urns: List[str]) -> GlossaryTe
 
 
 def set_aspect(
-        mce: MetadataChangeEventClass, aspect: Optional[Aspect], aspect_type: Type[Aspect]
+    mce: MetadataChangeEventClass, aspect: Optional[Aspect], aspect_type: Type[Aspect]
 ) -> None:
     """Sets the aspect to the provided aspect, overwriting any previous aspect value that might have existed before.
     If passed in aspect is None, then the existing aspect value will be removed"""
