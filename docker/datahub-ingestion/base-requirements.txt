@@ -170,7 +170,7 @@ nest-asyncio==1.5.5
 networkx==2.8.4
 notebook==6.4.12
 numpy==1.22.4
-oauthlib==3.2.0
+oauthlib==3.2.1
 okta==1.7.0
 openpyxl==3.0.10
 orderedset==2.0.3
