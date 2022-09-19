@@ -5,10 +5,12 @@ plugins {
 
 repositories {
     mavenCentral()
+    mavenLocal()
 }
 
 ext {
     protobuf_version = '3.19.3'
+    datahub_protobuf_version = '0.8.45-SNAPSHOT'
 }
 
 configurations {
@@ -18,15 +20,7 @@ configurations {
 dependencies {
     // compilation
     implementation "com.google.protobuf:protobuf-java:$protobuf_version"
-
-    datahub files('libs/datahub-protobuf.jar')
-
-    // transitive deps
-    datahub 'io.acryl:datahub-client:0.8.+'
-    datahub "com.google.protobuf:protobuf-java:$protobuf_version"
-    datahub 'org.jgrapht:jgrapht-core:1.5.1'
-    datahub 'com.google.guava:guava:27.0.1-jre'
-    datahub 'com.google.code.gson:gson:2.8.6'
+    datahub "io.acryl:datahub-protobuf:$datahub_protobuf_version"
 }
 
 sourceSets {

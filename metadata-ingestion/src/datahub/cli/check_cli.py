@@ -27,7 +27,10 @@ def check() -> None:
     is_flag=True,
     help="Rewrite the JSON file to it's canonical form.",
 )
-def metadata_file(json_file: str, rewrite: bool) -> None:
+@click.option(
+    "--unpack-mces", default=False, is_flag=True, help="Converts MCEs into MCPs"
+)
+def metadata_file(json_file: str, rewrite: bool, unpack_mces: bool) -> None:
     """Check the schema of a metadata (MCE or MCP) JSON file."""
 
     if not rewrite:
@@ -42,7 +45,10 @@ def metadata_file(json_file: str, rewrite: bool) -> None:
                         "type": "file",
                         "config": {"filename": json_file},
                         "extractor": "generic",
-                        "extractor_config": {"set_system_metadata": False},
+                        "extractor_config": {
+                            "set_system_metadata": False,
+                            "unpack_mces_into_mcps": unpack_mces,
+                        },
                     },
                     "sink": {
                         "type": "file",

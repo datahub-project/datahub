@@ -45,3 +45,7 @@ jobs:
         run: |
           ./gradlew :metadata-integration:java:spark-lineage:build
           ./gradlew :metadata-integration:java:spark-lineage:javadoc
+      - name: check datahub-protobuf jar
+        run: |
+          ./gradlew :metadata-integration:java:datahub-protobuf:build
+          ./gradlew :metadata-integration:java:datahub-protobuf:javadoc
