@@ -11,7 +11,9 @@ module.exports = {
   favicon: "img/favicon.ico",
   organizationName: "datahub-project", // Usually your GitHub org/user name.
   projectName: "datahub", // Usually your repo name.
-  stylesheets: ["https://fonts.googleapis.com/css2?family=Manrope:wght@400;600&display=swap"],
+  stylesheets: [
+    "https://fonts.googleapis.com/css2?family=Manrope:wght@400;600&display=swap",
+  ],
   noIndex: isSaas,
   customFields: {
     isSaas: isSaas,
@@ -49,8 +51,12 @@ module.exports = {
       title: null,
       logo: {
         alt: "DataHub Logo",
-        src: `img/${isSaas ? "acryl" : "datahub"}-logo-color-light-horizontal.svg`,
-        srcDark: `img/${isSaas ? "acryl" : "datahub"}-logo-color-dark-horizontal.svg`,
+        src: `img/${
+          isSaas ? "acryl" : "datahub"
+        }-logo-color-light-horizontal.svg`,
+        srcDark: `img/${
+          isSaas ? "acryl" : "datahub"
+        }-logo-color-dark-horizontal.svg`,
       },
       items: [
         {
@@ -205,7 +211,9 @@ module.exports = {
         blog: false,
         theme: {
           customCss: [
-            isSaas ? require.resolve("./src/styles/acryl.scss") : require.resolve("./src/styles/datahub.scss"),
+            isSaas
+              ? require.resolve("./src/styles/acryl.scss")
+              : require.resolve("./src/styles/datahub.scss"),
             require.resolve("./src/styles/global.scss"),
           ],
         },
@@ -213,7 +221,10 @@ module.exports = {
     ],
   ],
   plugins: [
-    ["@docusaurus/plugin-ideal-image", { quality: 100, sizes: [320, 640, 1280, 1440, 1600] }],
+    [
+      "@docusaurus/plugin-ideal-image",
+      { quality: 100, sizes: [320, 640, 1280, 1440, 1600] },
+    ],
     "docusaurus-plugin-sass",
     [
       "docusaurus-graphql-plugin",
