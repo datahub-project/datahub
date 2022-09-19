@@ -21,7 +21,7 @@ logger: logging.Logger = logging.getLogger(__name__)
 
 class DataLakeSourceConfig(PlatformSourceConfigBase, EnvBasedSourceConfigBase):
     path_specs: List[PathSpec] = Field(
-        description="List of PathSpec. See below the details about PathSpec"
+        description="List of PathSpec. See [below](#path-spec) the details about PathSpec"
     )
     platform: str = Field(
         # The platform field already exists, but we want to override the type/default/docs.
@@ -90,12 +90,11 @@ class DataLakeSourceConfig(PlatformSourceConfigBase, EnvBasedSourceConfigBase):
 
                 platform = "file"
 
-            if values.get("platform", ""):
-                if platform == "s3" and values["platform"] != platform:
-                    raise ValueError("all path_spec should belong to the same platform")
+            if values.get("platform") and values["platform"] != platform:
+                raise ValueError("all path_spec should belong to the same platform")
             else:
+                logger.debug(f'Setting config "platform": {platform}')
                 values["platform"] = platform
-                logger.debug(f'Setting config "platform": {values.get("platform")}')
 
             if platform == "s3":
                 if bucket_name == "":
