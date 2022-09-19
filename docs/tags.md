@@ -18,7 +18,7 @@ What you need to add tags:
 * **Edit Tags** metadata privilege to add tags at the entity level
 * **Edit Dataset Column Tags** to edit tags at the column level 
 
-You can create these privileges by creating a new [Metadata Policy](./docs/authorization/policies.md).
+You can create these privileges by creating a new [Metadata Policy](./authorization/policies.md).
 
 ## Using DataHub Tags
 
@@ -101,5 +101,5 @@ Domains are a set of top-level categories usually aligned to business units/disc
 
 ### Related Features
 
-* [Glossary Terms](./docs/how/business-glossary-guide.md)
-* [Domains](./docs/domains.md)
+* [Glossary Terms](./how/business-glossary-guide.md)
+* [Domains](./domains.md)

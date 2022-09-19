@@ -12,7 +12,7 @@ What you need to create and add domains:
 
 * **Manage Domains** platform privilege to add domains at the entity level
 
-You can create this privileges by creating a new [Metadata Policy](./docs/authorization/policies.md).
+You can create this privileges by creating a new [Metadata Policy](./authorization/policies.md).
 
 
 ## Using Domains
@@ -247,5 +247,5 @@ DataHub supports Tags, Glossary Terms, & Domains as distinct types of Metadata t
 
 ### Related Features
 
-* [Glossary Terms](./docs/how/business-glossary-guide.md)
-* [Tags](./docs/tags.md)
+* [Glossary Terms](./how/business-glossary-guide.md)
+* [Tags](./tags.md)

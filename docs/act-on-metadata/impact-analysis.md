@@ -90,4 +90,4 @@ We currently limit the list of dependencies to 10,000 records; we suggest applyi
 
 ### Related Features
 
-* [DataHub Lineage](./docs/lineage/intro.md)
+* [DataHub Lineage](../lineage/intro.md)
