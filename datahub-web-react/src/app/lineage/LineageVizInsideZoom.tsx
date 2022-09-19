@@ -103,7 +103,7 @@ export default function LineageVizInsideZoom({
     fineGrainedMap,
 }: Props) {
     const [draggedNodes, setDraggedNodes] = useState<Record<string, { x: number; y: number }>>({});
-    const [expandedNodes, setExpandedNodes] = useState<Record<string, boolean>>({});
+    const [collapsedColumnsNodes, setCollapsedColumnsNodes] = useState<Record<string, boolean>>({});
     const [hoveredField, setHoveredField] = useState<SchemaFieldRef | null>(null);
 
     const history = useHistory();
@@ -143,8 +143,8 @@ export default function LineageVizInsideZoom({
             value={{
                 expandTitles: showExpandedTitles,
                 showColumns,
-                expandedNodes,
-                setExpandedNodes,
+                collapsedColumnsNodes,
+                setCollapsedColumnsNodes,
                 hoveredField,
                 setHoveredField,
                 fineGrainedMap,

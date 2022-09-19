@@ -87,13 +87,19 @@ export default function LineageEntityNode({
     direction: Direction;
     nodesToRenderByUrn: Record<string, VizNode>;
 }) {
-    const { expandTitles, expandedNodes, setExpandedNodes, showColumns, hoveredField, setHoveredField } =
-        useContext(LineageExplorerContext);
+    const {
+        expandTitles,
+        collapsedColumnsNodes,
+        setCollapsedColumnsNodes,
+        showColumns,
+        hoveredField,
+        setHoveredField,
+    } = useContext(LineageExplorerContext);
     const [isExpanding, setIsExpanding] = useState(false);
     const [expandHover, setExpandHover] = useState(false);
     const [getAsyncEntityLineage, { data: asyncLineageData }] = useGetEntityLineageLazyQuery();
     const isHideSiblingMode = useIsSeparateSiblingsMode();
-    const areColumnsExpanded = !!expandedNodes[node?.data?.urn || 'noop'];
+    const areColumnsCollapsed = !!collapsedColumnsNodes[node?.data?.urn || 'noop'];
 
     useEffect(() => {
         if (asyncLineageData && asyncLineageData.entity) {
@@ -133,7 +139,7 @@ export default function LineageEntityNode({
         expandTitles ? node.data.expandedName || node.data.name : undefined,
         node.data.schemaMetadata,
         showColumns,
-        areColumnsExpanded,
+        areColumnsCollapsed,
     );
 
     return (
@@ -357,90 +363,68 @@ export default function LineageEntityNode({
                         {unexploredHiddenChildren > 1 ? 'dependencies' : 'dependency'}
                     </UnselectableText>
                 ) : null}
-                {showColumns && node.data.schemaMetadata && !areColumnsExpanded && (
-                    <Group>
-                        <Group>
-                            <rect
-                                x={iconX}
-                                y={centerY + 70}
-                                width="170"
-                                height="20"
-                                fill="white"
-                                stroke="black"
-                                strokeWidth="1"
-                                ry="10"
-                                rx="10"
-                            />
-                            <UnselectableText
-                                dy=".33em"
-                                x={iconX + 20}
-                                y={centerY + 70 + 10}
-                                fontSize={12}
-                                fontFamily="Arial"
-                                fill="black"
-                            >
-                                {node.data.schemaMetadata.fields[0].fieldPath}
-                            </UnselectableText>
-                        </Group>
-                        <Group
-                            onClick={(e) => {
-                                const newExpandedNodes = { ...expandedNodes, [node?.data?.urn || 'noop']: true };
-                                setExpandedNodes(newExpandedNodes);
-                                e.stopPropagation();
-                            }}
+                {showColumns && node.data.schemaMetadata && (
+                    <rect x={iconX - 21} y={centerY + 75} width={width - 2} height="0.25" stroke={ANTD_GRAY[6]} />
+                )}
+                {showColumns && node.data.schemaMetadata && areColumnsCollapsed && (
+                    <Group
+                        onClick={(e) => {
+                            const newCollapsedNodes = { ...collapsedColumnsNodes };
+                            delete newCollapsedNodes[node.data.urn || 'noop'];
+                            setCollapsedColumnsNodes(newCollapsedNodes);
+                            e.stopPropagation();
+                        }}
+                    >
+                        <UnselectableText
+                            dy=".33em"
+                            x={iconX}
+                            y={centerY + 90}
+                            fontSize={12}
+                            fontFamily="Arial"
+                            fill="#1890FF"
                         >
-                            <rect
-                                x={iconX}
-                                y={centerY + 100}
-                                width="170"
-                                height="20"
-                                fill="white"
-                                stroke="black"
-                                strokeWidth="1"
-                                ry="10"
-                                rx="10"
-                            />
-                            <UnselectableText
-                                dy=".33em"
-                                x={iconX + 20}
-                                y={centerY + 100 + 10}
-                                fontSize={12}
-                                fontFamily="Arial"
-                                fill="#1890FF"
-                            >
-                                More +
-                            </UnselectableText>
-                        </Group>
+                            Show +
+                        </UnselectableText>
                     </Group>
                 )}
-                {showColumns && node.data.schemaMetadata && areColumnsExpanded && (
+                {showColumns && node.data.schemaMetadata && !areColumnsCollapsed && (
                     <Group>
                         {node.data.schemaMetadata.fields.map((field, idx) => (
                             <Group
-                                onMouseOver={() => {
+                                onMouseOver={(e) => {
                                     setHoveredField({ urn: node?.data?.urn, path: field.fieldPath });
+                                    onHover(undefined);
+                                    e.stopPropagation();
                                 }}
                                 onMouseOut={() => {
                                     setHoveredField(null);
                                 }}
+                                onClick={(e) => {
+                                    console.log('clicked!');
+                                    e.stopPropagation();
+                                }}
                             >
                                 <rect
-                                    x={iconX}
-                                    y={centerY + 70 + idx * 30}
-                                    width="170"
-                                    height="20"
+                                    x={iconX - 21}
+                                    y={centerY + 80 + idx * 30}
+                                    width={width - 2}
+                                    height="28"
                                     fill="white"
-                                    stroke="black"
-                                    strokeWidth="1"
-                                    ry="10"
-                                    rx="10"
+                                    stroke="#1890FF"
+                                    strokeWidth={
+                                        hoveredField?.urn === node?.data?.urn && hoveredField?.path === field.fieldPath
+                                            ? '1px'
+                                            : '0'
+                                    }
+                                    ry="4"
+                                    rx="4"
                                 />
                                 <UnselectableText
                                     dy=".33em"
-                                    x={iconX + 20}
-                                    y={centerY + 70 + 10 + idx * 30}
+                                    x={iconX}
+                                    y={centerY + 80 + 14 + idx * 30}
                                     fontSize={12}
-                                    fontFamily="Arial"
+                                    fontFamily="'Roboto Mono',monospace"
                                     fill={
                                         hoveredField?.urn === node?.data?.urn && hoveredField?.path === field.fieldPath
                                             ? '#1890FF'
@@ -453,32 +437,23 @@ export default function LineageEntityNode({
                         ))}
                         <Group
                             onClick={(e) => {
-                                const newExpandedNodes = { ...expandedNodes };
-                                delete newExpandedNodes[node.data.urn || 'noop'];
-                                setExpandedNodes(newExpandedNodes);
+                                const newCollapsedNodes = {
+                                    ...collapsedColumnsNodes,
+                                    [node?.data?.urn || 'noop']: true,
+                                };
+                                setCollapsedColumnsNodes(newCollapsedNodes);
                                 e.stopPropagation();
                             }}
                         >
-                            <rect
-                                x={iconX}
-                                y={centerY + 70 + node.data.schemaMetadata.fields.length * 30}
-                                width="170"
-                                height="20"
-                                fill="white"
-                                stroke="black"
-                                strokeWidth="1"
-                                ry="10"
-                                rx="10"
-                            />
                             <UnselectableText
                                 dy=".33em"
-                                x={iconX + 20}
-                                y={centerY + 80 + node.data.schemaMetadata.fields.length * 30}
+                                x={iconX}
+                                y={centerY + 92 + node.data.schemaMetadata.fields.length * 30}
                                 fontSize={12}
                                 fontFamily="Arial"
                                 fill="#1890FF"
                             >
-                                Less -
+                                Hide -
                             </UnselectableText>
                         </Group>
                     </Group>

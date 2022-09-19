@@ -56,6 +56,7 @@ export default function LineageTreeNodeAndEdgeRenderer({
 }: Props) {
     const isLinkHighlighted = (link) =>
         link.source.data.urn === hoveredEntity?.urn || link.target.data.urn === hoveredEntity?.urn;
+    // could easily add check for hoveredField to and from to see if link is highlighted
     return (
         <Group transform={transformToString(zoom.transformMatrix)} top={margin?.top} left={margin?.left}>
             {[

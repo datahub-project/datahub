@@ -21,7 +21,7 @@ export default function layoutTree(
     canvasHeight: number,
     expandTitles: boolean,
     showColumns: boolean,
-    expandedNodes: any,
+    collapsedColumnsNodes: any,
     fineGrainedMap: any,
 ): {
     nodesToRender: VizNode[];
@@ -61,7 +61,7 @@ export default function layoutTree(
                     expandTitles ? node.expandedName || node.name : undefined,
                     node.schemaMetadata,
                     showColumns,
-                    !!expandedNodes[node?.urn || 'no-op'],
+                    !!collapsedColumnsNodes[node?.urn || 'no-op'],
                 ),
             )
             .reduce((acc, height) => acc + height, 0);
@@ -107,7 +107,7 @@ export default function layoutTree(
                         expandTitles ? node.expandedName || node.name : undefined,
                         node.schemaMetadata,
                         showColumns,
-                        !!expandedNodes[node?.urn || 'no-op'],
+                        !!collapsedColumnsNodes[node?.urn || 'no-op'],
                     ) + VERTICAL_SPACE_BETWEEN_NODES;
 
                 nodesByUrn[node.urn] = vizNodeForNode;
@@ -177,8 +177,13 @@ export default function layoutTree(
                     currentNode?.data.schemaMetadata?.fields.findIndex(
                         (candidate) => candidate.fieldPath === sourceField,
                     ) || 0;
-                const hoveredFieldX = (currentNode?.x || 0) + (fieldIndex + 1.1) * 30 + 1;
-                const hoveredFieldY = (currentNode?.y || 0) + 1;
+
+                let hoveredFieldX = (currentNode?.x || 0) + 50;
+                let hoveredFieldY = currentNode?.y || 0 + 50;
+                if (!collapsedColumnsNodes[currentNode?.data.urn || 'no-op']) {
+                    hoveredFieldX = (currentNode?.x || 0) + (fieldIndex + 1.8) * 30 + 1;
+                    hoveredFieldY = (currentNode?.y || 0) + 1;
+                }
 
                 Object.keys(fieldForwardEdges || {}).forEach((targetUrn) => {
                     const targetNode = nodesToRender.find((node) => node.data.urn === targetUrn);
@@ -187,8 +192,13 @@ export default function layoutTree(
                             targetNode?.data.schemaMetadata?.fields.findIndex(
                                 (candidate) => candidate.fieldPath === targetField,
                             ) || 0;
-                        const targetFieldX = (targetNode?.x || 0) + (targetFieldIndex + 1.3) * 30 + 1;
-                        const targetFieldY = targetNode?.y || 0 + 1;
+                        // could add some check here for title height
+                        let targetFieldX = (targetNode?.x || 0) + 50;
+                        let targetFieldY = targetNode?.y || 0 + 50;
+                        if (!collapsedColumnsNodes[targetNode?.data.urn || 'no-op']) {
+                            targetFieldX = (targetNode?.x || 0) + (targetFieldIndex + 1.8) * 30 + 1;
+                            targetFieldY = targetNode?.y || 0 + 1;
+                        }
                         if (
                             currentNode &&
                             targetNode &&

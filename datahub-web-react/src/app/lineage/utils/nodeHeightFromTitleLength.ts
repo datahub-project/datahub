@@ -89,14 +89,14 @@ export function nodeHeightFromTitleLength(
     title?: string,
     schemaMetadata?: SchemaMetadata,
     showColumns?: boolean,
-    expanded?: boolean,
+    collapsed?: boolean,
 ) {
     let showColumnBuffer = 0;
     if (showColumns && schemaMetadata) {
-        if (expanded) {
-            showColumnBuffer = (schemaMetadata?.fields?.length + 1) * 30;
+        if (collapsed) {
+            showColumnBuffer = 20;
         } else {
-            showColumnBuffer = 50;
+            showColumnBuffer = (schemaMetadata?.fields?.length + 1) * 30;
         }
     }
     return (
