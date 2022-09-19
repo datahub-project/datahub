@@ -112,50 +112,112 @@ def test_tableau_ingest(pytestconfig, tmp_path):
         )
 
 
+@freeze_time(FROZEN_TIME)
+@pytest.mark.slow_unit
+def test_tableau_ingest_with_platform_instance(pytestconfig, tmp_path):
+
+    global test_resources_dir
+    test_resources_dir = pathlib.Path(
+        pytestconfig.rootpath / "tests/integration/tableau"
+    )
+
+    with mock.patch("tableauserverclient.Server") as mock_sdk:
+        mock_client = mock.Mock()
+        mocked_metadata = mock.Mock()
+        mocked_metadata.query.side_effect = side_effect_query_metadata
+        mock_client.metadata = mocked_metadata
+        mock_client.auth = mock.Mock()
+        mock_client.auth.sign_in.return_value = None
+        mock_client.auth.sign_out.return_value = None
+        mock_sdk.return_value = mock_client
+        mock_sdk._auth_token = "ABC"
+
+        pipeline = Pipeline.create(
+            {
+                "run_id": "tableau-test",
+                "source": {
+                    "type": "tableau",
+                    "config": {
+                        "username": "username",
+                        "password": "pass`",
+                        "connect_uri": "https://do-not-connect",
+                        "site": "acryl",
+                        "platform_instance": "acryl_site1",
+                        "projects": ["default", "Project 2"],
+                        "page_size": 10,
+                        "ingest_tags": True,
+                        "ingest_owner": True,
+                        "ingest_tables_external": True,
+                        "default_schema_map": {
+                            "dvdrental": "public",
+                            "someotherdb": "schema",
+                        },
+                        "platform_instance_map": {"postgres": "demo_postgres_instance"},
+                    },
+                },
+                "sink": {
+                    "type": "file",
+                    "config": {
+                        "filename": f"{tmp_path}/tableau_mces.json",
+                    },
+                },
+            }
+        )
+        pipeline.run()
+        pipeline.raise_from_status()
+
+        mce_helpers.check_golden_file(
+            pytestconfig,
+            output_path=f"{tmp_path}/tableau_mces.json",
+            golden_path=test_resources_dir / "tableau_with_platform_instance_mces_golden.json",
+            ignore_paths=mce_helpers.IGNORE_PATH_TIMESTAMPS,
+        )
+
+
 def test_lineage_overrides():
 
     # Simple - specify platform instance to presto table
     assert (
-        make_table_urn(
-            DEFAULT_ENV,
-            "presto_catalog",
-            "presto",
-            "test-schema",
-            "presto_catalog.test-schema.test-table",
-            platform_instance_map={"presto": "my_presto_instance"},
-        )
-        == "urn:li:dataset:(urn:li:dataPlatform:presto,my_presto_instance.presto_catalog.test-schema.test-table,PROD)"
+            make_table_urn(
+                DEFAULT_ENV,
+                "presto_catalog",
+                "presto",
+                "test-schema",
+                "presto_catalog.test-schema.test-table",
+                platform_instance_map={"presto": "my_presto_instance"},
+            )
+            == "urn:li:dataset:(urn:li:dataPlatform:presto,my_presto_instance.presto_catalog.test-schema.test-table,PROD)"
     )
 
     # Transform presto urn to hive urn
     # resulting platform instance for hive = mapped platform instance + presto_catalog
     assert (
-        make_table_urn(
-            DEFAULT_ENV,
-            "presto_catalog",
-            "presto",
-            "test-schema",
-            "presto_catalog.test-schema.test-table",
-            platform_instance_map={"presto": "my_instance"},
-            lineage_overrides=TableauLineageOverrides(
-                platform_override_map={"presto": "hive"},
-            ),
-        )
-        == "urn:li:dataset:(urn:li:dataPlatform:hive,my_instance.presto_catalog.test-schema.test-table,PROD)"
+            make_table_urn(
+                DEFAULT_ENV,
+                "presto_catalog",
+                "presto",
+                "test-schema",
+                "presto_catalog.test-schema.test-table",
+                platform_instance_map={"presto": "my_instance"},
+                lineage_overrides=TableauLineageOverrides(
+                    platform_override_map={"presto": "hive"},
+                ),
+            )
+            == "urn:li:dataset:(urn:li:dataPlatform:hive,my_instance.presto_catalog.test-schema.test-table,PROD)"
     )
 
     # tranform hive urn to presto urn
     assert (
-        make_table_urn(
-            DEFAULT_ENV,
-            "",
-            "hive",
-            "test-schema",
-            "test-schema.test-table",
-            platform_instance_map={"hive": "my_presto_instance.presto_catalog"},
-            lineage_overrides=TableauLineageOverrides(
-                platform_override_map={"hive": "presto"},
-            ),
-        )
-        == "urn:li:dataset:(urn:li:dataPlatform:presto,my_presto_instance.presto_catalog.test-schema.test-table,PROD)"
+            make_table_urn(
+                DEFAULT_ENV,
+                "",
+                "hive",
+                "test-schema",
+                "test-schema.test-table",
+                platform_instance_map={"hive": "my_presto_instance.presto_catalog"},
+                lineage_overrides=TableauLineageOverrides(
+                    platform_override_map={"hive": "presto"},
+                ),
+            )
+            == "urn:li:dataset:(urn:li:dataPlatform:presto,my_presto_instance.presto_catalog.test-schema.test-table,PROD)"
     )

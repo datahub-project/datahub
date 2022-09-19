@@ -114,7 +114,11 @@ class TableauConfig(DatasetLineageProviderConfigBase):
     site: str = Field(
         default="",
         description="Tableau Site. Always required for Tableau Online. Use emptystring "
-        " to connect with Default site on Tableau Server.",
+                    " to connect with Default site on Tableau Server.",
+    )
+    platform_instance: Optional[str] = Field(
+        default=None,
+        description="Unique relationship between the Tableau Server and site",
     )
     projects: Optional[List[str]] = Field(
         default=["default"], description="List of projects"
@@ -161,7 +165,7 @@ class TableauConfig(DatasetLineageProviderConfigBase):
 
     @root_validator()
     def show_warning_for_deprecated_config_field(
-        cls, values: Dict[str, Any]
+            cls, values: Dict[str, Any]
     ) -> Dict[str, Any]:
         if values.get("workbooks_page_size") is not None:
             logger.warn(
@@ -178,11 +182,7 @@ class WorkbookKey(PlatformKey):
 @platform_name("Tableau")
 @config_class(TableauConfig)
 @support_status(SupportStatus.INCUBATING)
-@capability(
-    SourceCapability.PLATFORM_INSTANCE,
-    "Not applicable to source",
-    supported=False,
-)
+@capability(SourceCapability.PLATFORM_INSTANCE, "Enabled by default")
 @capability(SourceCapability.DOMAINS, "Requires transformer", supported=False)
 @capability(SourceCapability.DATA_PROFILING, "", supported=False)
 @capability(SourceCapability.DESCRIPTIONS, "Enabled by default")
@@ -209,9 +209,9 @@ class TableauSource(Source):
         return id(self)
 
     def __init__(
-        self,
-        config: TableauConfig,
-        ctx: PipelineContext,
+            self,
+            config: TableauConfig,
+            ctx: PipelineContext,
     ):
         super().__init__(ctx)
 
@@ -269,12 +269,12 @@ class TableauSource(Source):
             )
 
     def get_connection_object(
-        self,
-        query: str,
-        connection_type: str,
-        query_filter: str,
-        count: int = 0,
-        current_count: int = 0,
+            self,
+            query: str,
+            connection_type: str,
+            query_filter: str,
+            count: int = 0,
+            current_count: int = 0,
     ) -> Tuple[dict, int, int]:
         logger.debug(
             f"Query {connection_type} to get {count} objects with offset {current_count}"
@@ -353,17 +353,17 @@ class TableauSource(Source):
                 )
 
                 if (
-                    table_id is not None
-                    and table_id not in self.custom_sql_ids_being_used
+                        table_id is not None
+                        and table_id not in self.custom_sql_ids_being_used
                 ):
                     self.custom_sql_ids_being_used.append(table_id)
 
     def _create_upstream_table_lineage(
-        self,
-        datasource: dict,
-        project: str,
-        is_custom_sql: bool = False,
-        is_embedded_ds: bool = False,
+            self,
+            datasource: dict,
+            project: str,
+            is_custom_sql: bool = False,
+            is_embedded_ds: bool = False,
     ) -> List[UpstreamClass]:
         upstream_tables = []
 
@@ -371,8 +371,8 @@ class TableauSource(Source):
             if ds["id"] not in self.datasource_ids_being_used:
                 self.datasource_ids_being_used.append(ds["id"])
 
-            datasource_urn = builder.make_dataset_urn(
-                self.platform, ds["id"], self.config.env
+            datasource_urn = builder.make_dataset_urn_with_platform_instance(
+                platform=self.platform, name=ds["id"], platform_instance=self.config.platform_instance, env=self.config.env
             )
             upstream_table = UpstreamClass(
                 dataset=datasource_urn,
@@ -421,11 +421,11 @@ class TableauSource(Source):
             schema = self._get_schema(schema, upstream_db, full_name)
             # if the schema is included within the table name we omit it
             if (
-                schema
-                and table_name
-                and full_name
-                and table_name == full_name
-                and schema in table_name
+                    schema
+                    and table_name
+                    and full_name
+                    and table_name == full_name
+                    and schema in table_name
             ):
                 logger.debug(
                     f"Omitting schema for upstream table {table['id']}, schema included in table name"
@@ -493,8 +493,8 @@ class TableauSource(Source):
             )
             for csql in unique_custom_sql:
                 csql_id: str = csql["id"]
-                csql_urn = builder.make_dataset_urn(
-                    self.platform, csql_id, self.config.env
+                csql_urn = builder.make_dataset_urn_with_platform_instance(
+                    platform=self.platform, name=csql_id, platform_instance=self.config.platform_instance, env=self.config.env
                 )
                 dataset_snapshot = DatasetSnapshot(
                     urn=csql_urn,
@@ -516,12 +516,12 @@ class TableauSource(Source):
                     datasource = csql["datasources"][0]
                     datasource_name = datasource.get("name")
                     if datasource.get(
-                        "__typename"
+                            "__typename"
                     ) == "EmbeddedDatasource" and datasource.get("workbook"):
                         datasource_name = (
                             f"{datasource.get('workbook').get('name')}/{datasource_name}"
                             if datasource_name
-                            and datasource.get("workbook").get("name")
+                               and datasource.get("workbook").get("name")
                             else None
                         )
                         workunits = add_entity_to_container(
@@ -577,7 +577,7 @@ class TableauSource(Source):
                 )
 
     def get_schema_metadata_for_custom_sql(
-        self, columns: List[dict]
+            self, columns: List[dict]
     ) -> Optional[SchemaMetadata]:
         fields = []
         schema_metadata = None
@@ -610,11 +610,11 @@ class TableauSource(Source):
         return schema_metadata
 
     def _create_lineage_from_csql_datasource(
-        self, csql_urn: str, csql_datasource: List[dict]
+            self, csql_urn: str, csql_datasource: List[dict]
     ) -> Iterable[MetadataWorkUnit]:
         for datasource in csql_datasource:
-            datasource_urn = builder.make_dataset_urn(
-                self.platform, datasource.get("id", ""), self.config.env
+            datasource_urn = builder.make_dataset_urn_with_platform_instance(
+                self.platform, datasource.get("id", ""), self.config.platform_instance, self.config.env
             )
             upstream_csql = UpstreamClass(
                 dataset=csql_urn,
@@ -634,7 +634,7 @@ class TableauSource(Source):
         return None
 
     def _create_lineage_to_upstream_tables(
-        self, csql_urn: str, columns: List[dict]
+            self, csql_urn: str, columns: List[dict]
     ) -> Iterable[MetadataWorkUnit]:
         used_datasources = []
         # Get data sources from columns' reference fields.
@@ -661,7 +661,7 @@ class TableauSource(Source):
                     )
 
     def _get_schema_metadata_for_datasource(
-        self, datasource_fields: List[dict]
+            self, datasource_fields: List[dict]
     ) -> Optional[SchemaMetadata]:
         fields = []
         for field in datasource_fields:
@@ -709,7 +709,7 @@ class TableauSource(Source):
         )
 
     def get_metadata_change_event(
-        self, snap_shot: Union["DatasetSnapshot", "DashboardSnapshot", "ChartSnapshot"]
+            self, snap_shot: Union["DatasetSnapshot", "DashboardSnapshot", "ChartSnapshot"]
     ) -> MetadataWorkUnit:
         mce = MetadataChangeEvent(proposedSnapshot=snap_shot)
         work_unit = MetadataWorkUnit(id=snap_shot.urn, mce=mce)
@@ -717,10 +717,10 @@ class TableauSource(Source):
         return work_unit
 
     def get_metadata_change_proposal(
-        self,
-        urn: str,
-        aspect_name: str,
-        aspect: Union["UpstreamLineage", "SubTypesClass"],
+            self,
+            urn: str,
+            aspect_name: str,
+            aspect: Union["UpstreamLineage", "SubTypesClass"],
     ) -> MetadataWorkUnit:
         mcp = MetadataChangeProposalWrapper(
             entityType="dataset",
@@ -738,7 +738,7 @@ class TableauSource(Source):
         return mcp_workunit
 
     def emit_datasource(
-        self, datasource: dict, workbook: dict = None, is_embedded_ds: bool = False
+            self, datasource: dict, workbook: dict = None, is_embedded_ds: bool = False
     ) -> Iterable[MetadataWorkUnit]:
         datasource_info = workbook
         if not is_embedded_ds:
@@ -750,8 +750,8 @@ class TableauSource(Source):
             else ""
         )
         datasource_id = datasource["id"]
-        datasource_urn = builder.make_dataset_urn(
-            self.platform, datasource_id, self.config.env
+        datasource_urn = builder.make_dataset_urn_with_platform_instance(
+            self.platform, datasource_id, self.config.platform_instance, self.config.env
         )
         if datasource_id not in self.datasource_ids_being_used:
             self.datasource_ids_being_used.append(datasource_id)
@@ -788,13 +788,13 @@ class TableauSource(Source):
             customProperties={
                 "hasExtracts": str(datasource.get("hasExtracts", "")),
                 "extractLastRefreshTime": datasource.get("extractLastRefreshTime", "")
-                or "",
+                                          or "",
                 "extractLastIncrementalUpdateTime": datasource.get(
                     "extractLastIncrementalUpdateTime", ""
                 )
-                or "",
+                                                    or "",
                 "extractLastUpdateTime": datasource.get("extractLastUpdateTime", "")
-                or "",
+                                         or "",
                 "type": datasource.get("__typename", ""),
             },
         )
@@ -945,7 +945,7 @@ class TableauSource(Source):
     def emit_sheets_as_charts(self, workbook: Dict) -> Iterable[MetadataWorkUnit]:
         for sheet in workbook.get("sheets", []):
             chart_snapshot = ChartSnapshot(
-                urn=builder.make_chart_urn(self.platform, sheet.get("id")),
+                urn=builder.make_chart_urn_with_platform_instance(self.platform, sheet.get("id"), self.config.platform_instance),
                 aspects=[],
             )
 
@@ -982,7 +982,7 @@ class TableauSource(Source):
             data_sources = self.get_sheetwise_upstream_datasources(sheet)
 
             for ds_id in data_sources:
-                ds_urn = builder.make_dataset_urn(self.platform, ds_id, self.config.env)
+                ds_urn = builder.make_dataset_urn_with_platform_instance(self.platform, ds_id, self.config.platform_instance, self.config.env)
                 datasource_urn.append(ds_urn)
                 if ds_id not in self.datasource_ids_being_used:
                     self.datasource_ids_being_used.append(ds_id)
@@ -1088,7 +1088,7 @@ class TableauSource(Source):
     def emit_dashboards(self, workbook: Dict) -> Iterable[MetadataWorkUnit]:
         for dashboard in workbook.get("dashboards", []):
             dashboard_snapshot = DashboardSnapshot(
-                urn=builder.make_dashboard_urn(self.platform, dashboard["id"]),
+                urn=builder.make_dashboard_urn_with_platform_instance(self.platform, dashboard["id"], self.config.platform_instance),
                 aspects=[],
             )
 
@@ -1105,7 +1105,7 @@ class TableauSource(Source):
                 else ""
             )
             chart_urns = [
-                builder.make_chart_urn(self.platform, sheet.get("id"))
+                builder.make_chart_urn_with_platform_instance(self.platform, sheet.get("id"), self.config.platform_instance)
                 for sheet in dashboard.get("sheets", [])
             ]
             dashboard_info_class = DashboardInfoClass(
@@ -1217,7 +1217,7 @@ class TableauSource(Source):
 
     @lru_cache(maxsize=None)
     def get_last_modified(
-        self, creator: Optional[str], created_at: bytes, updated_at: bytes
+            self, creator: Optional[str], created_at: bytes, updated_at: bytes
     ) -> ChangeAuditStamps:
         last_modified = ChangeAuditStamps()
         if creator:
