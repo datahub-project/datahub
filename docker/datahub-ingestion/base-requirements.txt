@@ -145,7 +145,7 @@ linear-tsv==1.1.0
 lkml==1.2.0
 lockfile==0.12.2
 looker-sdk==22.2.1
-Mako==1.2.0
+Mako==1.2.2
 Markdown==3.3.7
 MarkupSafe==2.0.1
 marshmallow==3.16.0
