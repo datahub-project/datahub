@@ -110,7 +110,7 @@ class OperationProcessor:
                         operation_type = Constants.ADD_TERM_OPERATION
 
                     if operation:
-                        if isinstance(operation, str) or isinstance(operation, list):
+                        if isinstance(operation, (str, list)):
                             operations_value_set = operations_map.get(
                                 operation_type, set()
                             )
