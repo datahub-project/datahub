@@ -77,6 +77,8 @@ export type VizNode = {
 export type VizEdge = {
     source: VizNode;
     target: VizNode;
+    sourceField?: string;
+    targetField?: string;
     curve: { x: number; y: number }[];
 };
 

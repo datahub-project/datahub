@@ -42,8 +42,7 @@ export default function LineageTree({
     setDraggedNodes,
 }: LineageTreeProps) {
     const [xCanvasScale, setXCanvasScale] = useState(1);
-    const { expandTitles, showColumns, expandedNodes, hoveredField, fineGrainedMap } =
-        useContext(LineageExplorerContext);
+    const { expandTitles, showColumns, expandedNodes, fineGrainedMap } = useContext(LineageExplorerContext);
 
     useEffect(() => {
         setXCanvasScale(1);
@@ -61,20 +60,9 @@ export default function LineageTree({
                 expandTitles,
                 showColumns,
                 expandedNodes,
-                hoveredField,
                 fineGrainedMap,
             ),
-        [
-            data,
-            direction,
-            draggedNodes,
-            canvasHeight,
-            expandTitles,
-            showColumns,
-            expandedNodes,
-            hoveredField,
-            fineGrainedMap,
-        ],
+        [data, direction, draggedNodes, canvasHeight, expandTitles, showColumns, expandedNodes, fineGrainedMap],
     );
 
     const dragContinue = (event: MouseEvent) => {

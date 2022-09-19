@@ -1,4 +1,3 @@
-import { SchemaFieldRef } from '../../../types.generated';
 import { CURVE_PADDING, HORIZONTAL_SPACE_PER_LAYER, VERTICAL_SPACE_BETWEEN_NODES } from '../constants';
 import { width as nodeWidth } from '../LineageEntityNode';
 import { Direction, NodeData, VizEdge, VizNode } from '../types';
@@ -12,6 +11,8 @@ type ProcessArray = {
 const INSIDE_NODE_SHIFT = nodeWidth / 2 - 19;
 
 const HEADER_HEIGHT = 125;
+const UPSTREAM_X_MODIFIER = -1;
+const UPSTREAM_DIRECTION_SHIFT = -20;
 
 export default function layoutTree(
     data: NodeData,
@@ -21,7 +22,6 @@ export default function layoutTree(
     expandTitles: boolean,
     showColumns: boolean,
     expandedNodes: any,
-    hoveredField: SchemaFieldRef,
     fineGrainedMap: any,
 ): {
     nodesToRender: VizNode[];
@@ -35,8 +35,8 @@ export default function layoutTree(
     let maxHeight = 0;
 
     const nodesByUrn: Record<string, VizNode> = {};
-    const xModifier = direction === Direction.Downstream ? 1 : -1;
-    const directionShift = direction === Direction.Downstream ? 0 : -20;
+    const xModifier = direction === Direction.Downstream ? 1 : UPSTREAM_X_MODIFIER;
+    const directionShift = direction === Direction.Downstream ? 0 : UPSTREAM_DIRECTION_SHIFT;
 
     let currentLayer = 0;
     let nodesInCurrentLayer: ProcessArray = [{ parent: null, node: data }];
@@ -165,44 +165,74 @@ export default function layoutTree(
         currentLayer++;
     }
 
-    if (hoveredField) {
-        const forwardEdges = fineGrainedMap.forward;
-        const hoveredFieldForwardEdges = forwardEdges[hoveredField.urn]?.[hoveredField.path];
+    const forwardEdges = fineGrainedMap.forward;
+    if (showColumns) {
+        Object.keys(forwardEdges).forEach((entityUrn) => {
+            const fieldPathToEdges = forwardEdges[entityUrn];
+            Object.keys(fieldPathToEdges).forEach((fieldPath) => {
+                const fieldForwardEdges = fieldPathToEdges[fieldPath];
 
-        const hoveredNode = nodesToRender.find((node) => node.data.urn === hoveredField.urn);
-        const hoveredFieldIndex =
-            hoveredNode?.data.schemaMetadata?.fields.findIndex(
-                (candidate) => candidate.fieldPath === hoveredField.path,
-            ) || 0;
-        const hoveredFieldX = (hoveredNode?.x || 0) + (hoveredFieldIndex + 1) * 30 + 1;
-        const hoveredFieldY = hoveredNode?.y || 0 + 1;
+                const currentNode = nodesToRender.find((node) => node.data.urn === entityUrn);
+                const fieldIndex =
+                    currentNode?.data.schemaMetadata?.fields.findIndex(
+                        (candidate) => candidate.fieldPath === fieldPath,
+                    ) || 0;
+                const hoveredFieldX = (currentNode?.x || 0) + (fieldIndex + 1.1) * 30 + 1;
+                const hoveredFieldY = (currentNode?.y || 0) + 1;
 
-        Object.keys(hoveredFieldForwardEdges || {}).forEach((targetUrn) => {
-            const targetNode = nodesToRender.find((node) => node.data.urn === targetUrn);
-            Object.keys(hoveredFieldForwardEdges[targetUrn] || {}).forEach((targetField) => {
-                const targetFieldIndex =
-                    targetNode?.data.schemaMetadata?.fields.findIndex(
-                        (candidate) => candidate.fieldPath === targetField,
-                    ) || -1;
-                const targetFieldX = (targetNode?.x || 0) + (targetFieldIndex + 3.1) * 30 + 1;
-                const targetFieldY = targetNode?.y || 0 + 1;
-                // if the nodes are inverted, we want to draw the edge slightly differently
-                if (hoveredNode && targetNode && hoveredFieldX && hoveredFieldY && targetFieldX && targetFieldY) {
-                    const curve = [
-                        { x: hoveredFieldX, y: hoveredFieldY - INSIDE_NODE_SHIFT * xModifier + directionShift },
-                        { x: hoveredFieldX, y: hoveredFieldY - (INSIDE_NODE_SHIFT + CURVE_PADDING) * xModifier },
-                        { x: targetFieldX, y: targetFieldY + (nodeWidth / 2 + CURVE_PADDING) * xModifier },
-                        { x: targetFieldX, y: targetFieldY + (nodeWidth / 2 - 15) * xModifier + directionShift },
-                    ];
+                Object.keys(fieldForwardEdges || {}).forEach((targetUrn) => {
+                    const targetNode = nodesToRender.find((node) => node.data.urn === targetUrn);
+                    (fieldForwardEdges[targetUrn] || []).forEach((targetField) => {
+                        const targetFieldIndex =
+                            targetNode?.data.schemaMetadata?.fields.findIndex(
+                                (candidate) => candidate.fieldPath === targetField,
+                            ) || 0;
+                        const targetFieldX = (targetNode?.x || 0) + (targetFieldIndex + 1.3) * 30 + 1;
+                        const targetFieldY = targetNode?.y || 0 + 1;
+                        if (
+                            currentNode &&
+                            targetNode &&
+                            hoveredFieldX &&
+                            hoveredFieldY &&
+                            targetFieldX &&
+                            targetFieldY
+                        ) {
+                            const curve = [
+                                {
+                                    x: hoveredFieldX,
+                                    y:
+                                        hoveredFieldY -
+                                        INSIDE_NODE_SHIFT * UPSTREAM_X_MODIFIER +
+                                        UPSTREAM_DIRECTION_SHIFT,
+                                },
+                                {
+                                    x: hoveredFieldX,
+                                    y: hoveredFieldY - (INSIDE_NODE_SHIFT + CURVE_PADDING) * UPSTREAM_X_MODIFIER,
+                                },
+                                {
+                                    x: targetFieldX,
+                                    y: targetFieldY + (nodeWidth / 2 + CURVE_PADDING) * UPSTREAM_X_MODIFIER,
+                                },
+                                {
+                                    x: targetFieldX,
+                                    y:
+                                        targetFieldY +
+                                        (nodeWidth / 2 - 15) * UPSTREAM_X_MODIFIER +
+                                        UPSTREAM_DIRECTION_SHIFT,
+                                },
+                            ];
 
-                    const vizEdgeForPair = {
-                        source: hoveredNode,
-                        target: targetNode,
-                        curve,
-                    };
-                    console.log('adding edge', vizEdgeForPair);
-                    edgesToRender.push(vizEdgeForPair);
-                }
+                            const vizEdgeForPair = {
+                                source: currentNode,
+                                target: targetNode,
+                                sourceField: fieldPath,
+                                targetField,
+                                curve,
+                            };
+                            edgesToRender.push(vizEdgeForPair);
+                        }
+                    });
+                });
             });
         });
     }
