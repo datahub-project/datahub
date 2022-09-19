@@ -1,6 +1,5 @@
 query getTag($urn: String!) {
     tag(urn: $urn) {
-        type
         urn
         name
         description
