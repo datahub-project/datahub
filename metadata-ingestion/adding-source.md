@@ -130,8 +130,8 @@ class FileSource(Source):
 
 #### 7.2 Write custom documentation
 
-- Create a copy of [`source-docs-template.md`](./source-docs-template.md) and edit all relevant components. 
-- Name the document as `<plugin.md>` and move it to `metadata-ingestion/docs/sources/<platform>/<plugin>.md`. For example for the Kafka platform, under the `kafka` plugin, move the document to `metadata-ingestion/docs/sources/kafka/kafka.md`.
+- Use the docstring section of the source class to add documentation. This section supports markdown formatting.
+- Any docs placed in the file `metadata-ingestion/docs/sources/<platform>/<plugin>.md` will also be included in the generated docs site. For example for the Kafka platform, under the `kafka` plugin, move the document to `metadata-ingestion/docs/sources/kafka/kafka.md`.
 - Add a quickstart recipe corresponding to the plugin under `metadata-ingestion/docs/sources/<platform>/<plugin>_recipe.yml`. For example, for the Kafka platform, under the `kafka` plugin, there is a quickstart recipe located at `metadata-ingestion/docs/sources/kafka/kafka_recipe.yml`.
 - To write platform-specific documentation (that is cross-plugin), write the documentation under `metadata-ingestion/docs/sources/<platform>/README.md`. For example, cross-plugin documentation for the BigQuery platform is located under `metadata-ingestion/docs/sources/bigquery/README.md`.
 
