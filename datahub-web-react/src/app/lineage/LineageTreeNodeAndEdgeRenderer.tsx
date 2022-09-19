@@ -68,9 +68,9 @@ export default function LineageTreeNodeAndEdgeRenderer({
 
                 return (
                     <Group
-                        key={`edge-${link.sourceField || link.source.data.urn}-${
-                            link.targetField || link.target.data.urn
-                        }-${direction}`}
+                        key={`edge-${link.source.data.urn}${link.sourceField && `-${link.sourceField}`}-${
+                            link.target.data.urn
+                        }${link.targetField && `-${link.targetField}`}-${direction}`}
                     >
                         <LinePath
                             // we rotated the svg 90 degrees so we need to switch x & y for the last mile

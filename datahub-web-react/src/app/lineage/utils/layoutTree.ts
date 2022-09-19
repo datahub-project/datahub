@@ -169,13 +169,13 @@ export default function layoutTree(
     if (showColumns) {
         Object.keys(forwardEdges).forEach((entityUrn) => {
             const fieldPathToEdges = forwardEdges[entityUrn];
-            Object.keys(fieldPathToEdges).forEach((fieldPath) => {
-                const fieldForwardEdges = fieldPathToEdges[fieldPath];
+            Object.keys(fieldPathToEdges).forEach((sourceField) => {
+                const fieldForwardEdges = fieldPathToEdges[sourceField];
 
                 const currentNode = nodesToRender.find((node) => node.data.urn === entityUrn);
                 const fieldIndex =
                     currentNode?.data.schemaMetadata?.fields.findIndex(
-                        (candidate) => candidate.fieldPath === fieldPath,
+                        (candidate) => candidate.fieldPath === sourceField,
                     ) || 0;
                 const hoveredFieldX = (currentNode?.x || 0) + (fieldIndex + 1.1) * 30 + 1;
                 const hoveredFieldY = (currentNode?.y || 0) + 1;
@@ -225,11 +225,22 @@ export default function layoutTree(
                             const vizEdgeForPair = {
                                 source: currentNode,
                                 target: targetNode,
-                                sourceField: fieldPath,
+                                sourceField,
                                 targetField,
                                 curve,
                             };
-                            edgesToRender.push(vizEdgeForPair);
+
+                            if (
+                                !edgesToRender.find(
+                                    (edge) =>
+                                        edge.source.data.urn === entityUrn &&
+                                        edge.sourceField === sourceField &&
+                                        edge.target.data.urn === targetUrn &&
+                                        edge.targetField === targetField,
+                                )
+                            ) {
+                                edgesToRender.push(vizEdgeForPair);
+                            }
                         }
                     });
                 });
