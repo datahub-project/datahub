@@ -1,6 +1,6 @@
+import * as React from 'react';
 import { BookOutlined } from '@ant-design/icons';
 import { Tag, Tooltip } from 'antd';
-import * as React from 'react';
 import styled from 'styled-components';
 import {
     AggregationMetadata,
@@ -62,7 +62,7 @@ export const SearchFilterLabel = ({ aggregation, field }: Props) => {
                 <StyledTag $colorHash={tag?.urn} $color={tag?.properties?.colorHex}>
                     {truncatedDisplayName}
                 </StyledTag>
-                ({formatNumber(countText)}){' '}
+                ({formatNumber(countText)})
             </Tooltip>
         );
     }
