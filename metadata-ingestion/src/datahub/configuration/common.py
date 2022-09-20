@@ -1,11 +1,13 @@
 import re
 from abc import ABC, abstractmethod
-from enum import Enum
+from enum import auto
 from typing import IO, Any, ClassVar, Dict, List, Optional, Pattern, cast
 
 from cached_property import cached_property
-from pydantic import BaseModel, Extra, validator
+from pydantic import BaseModel, Extra
 from pydantic.fields import Field
+
+from datahub.configuration._config_enum import ConfigEnum
 
 
 class ConfigModel(BaseModel):
@@ -17,22 +19,16 @@ class ConfigModel(BaseModel):
         )  # needed to allow cached_property to work. See https://github.com/samuelcolvin/pydantic/issues/1241 for more info.
 
 
-class TransformerSemantics(Enum):
+class TransformerSemantics(ConfigEnum):
     """Describes semantics for aspect changes"""
 
-    OVERWRITE = "OVERWRITE"  # Apply changes blindly
-    PATCH = "PATCH"  # Only apply differences from what exists already on the server
+    OVERWRITE = auto()  # Apply changes blindly
+    PATCH = auto()  # Only apply differences from what exists already on the server
 
 
 class TransformerSemanticsConfigModel(ConfigModel):
     semantics: TransformerSemantics = TransformerSemantics.OVERWRITE
     replace_existing: bool = False
-
-    @validator("semantics", pre=True)
-    def ensure_semantics_is_upper_case(cls, v: str) -> str:
-        if isinstance(v, str):
-            return v.upper()
-        return v
 
 
 class DynamicTypedConfig(ConfigModel):

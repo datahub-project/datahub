@@ -105,7 +105,7 @@ Note that a `.` is used to denote nested fields in the YAML recipe.
 #### Sample Configuration
 ```yaml
 source:
-  type: "snowflake-usage"
+  type: "snowflake-usage-legacy"
   config:
     username: <user_name>
     password: <password>

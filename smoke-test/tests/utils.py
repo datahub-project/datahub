@@ -6,7 +6,7 @@ from typing import Tuple
 import requests
 
 from datahub.cli import cli_utils
-from datahub.cli.docker import check_local_docker_containers
+from datahub.cli.docker_cli import check_local_docker_containers
 from datahub.ingestion.run.pipeline import Pipeline
 
 

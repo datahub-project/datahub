@@ -207,6 +207,11 @@ input CreateTestConnectionRequestInput {
   A JSON-encoded recipe
   """
   recipe: String!
+
+  """
+  Advanced: The version of the ingestion framework to use
+  """
+  version: String
 }
 
 """
@@ -388,6 +393,11 @@ type IngestionSource {
   An optional schedule associated with the Ingestion Source
   """
   schedule: IngestionSchedule
+
+  """
+  The data platform associated with this ingestion source
+  """
+  platform: DataPlatform
 
   """
   An type-specific set of configurations for the ingestion source

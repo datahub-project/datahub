@@ -6,8 +6,6 @@ import com.linkedin.dataplatform.DataPlatformInfo;
 import com.linkedin.entity.EntityResponse;
 import com.linkedin.entity.EnvelopedAspectMap;
 import com.linkedin.events.metadata.ChangeType;
-import com.linkedin.glossary.GlossaryNodeInfo;
-import com.linkedin.glossary.GlossaryTermInfo;
 import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.boot.UpgradeStep;
 import com.linkedin.metadata.entity.EntityService;
@@ -49,7 +47,7 @@ public class IndexDataPlatformsStep extends UpgradeStep {
 
     getAndReIndexDataPlatforms(auditStamp, dataPlatformSpec);
 
-    log.info("Successfully index data platform aspects");
+    log.info("Successfully indexed data platform aspects");
   }
 
   @Nonnull
@@ -74,7 +72,7 @@ public class IndexDataPlatformsStep extends UpgradeStep {
         Collections.singleton(Constants.DATA_PLATFORM_INFO_ASPECT_NAME)
     );
 
-    //  Loop over Terms and produce changelog
+    //  Loop over Data platforms and produce changelog
     for (Urn dpUrn : dataPlatformUrns) {
       EntityResponse dataPlatformEntityResponse = dataPlatformInfoResponses.get(dpUrn);
       if (dataPlatformEntityResponse == null) {

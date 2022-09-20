@@ -109,7 +109,7 @@ class LookerExploreNamingConfig(ConfigModel):
     )
     explore_browse_pattern: NamingPattern = NamingPattern(
         allowed_vars=naming_pattern_variables,
-        pattern="/{env}/{platform}/{project}/explores/{model}.{name}",
+        pattern="/{env}/{platform}/{project}/explores",
     )
 
     @validator("explore_naming_pattern", "explore_browse_pattern", pre=True)
@@ -136,7 +136,7 @@ class LookerViewNamingConfig(ConfigModel):
     view_browse_pattern: NamingPattern = Field(
         NamingPattern(
             allowed_vars=naming_pattern_variables,
-            pattern="/{env}/{platform}/{project}/views/{name}",
+            pattern="/{env}/{platform}/{project}/views",
         ),
         description="Pattern for providing browse paths to views. Allowed variables are `{project}`, `{model}`, `{name}`, `{platform}` and `{env}`",
     )

@@ -150,6 +150,7 @@ module.exports = {
               "metadata-ingestion/schedule_docs/intro",
               "metadata-ingestion/schedule_docs/cron",
               "metadata-ingestion/schedule_docs/airflow",
+              "metadata-ingestion/schedule_docs/kubernetes",
             ],
           },
           // {
@@ -357,7 +358,7 @@ module.exports = {
               },
               {
                 type: "doc",
-                label: "Querying Metadata Entities",
+                label: "Working with Metadata Entities",
                 id: "docs/api/graphql/querying-entities",
               },
               {
@@ -445,11 +446,6 @@ module.exports = {
       "docs/domains",
       "docs/how/business-glossary-guide",
       "docs/tags",
-      {
-        type: "doc",
-        id: "docs/managed-datahub/saas-slack-setup",
-        className: "saasOnly",
-      },
       // "docs/wip/ui-ingestion-guide", -- not needed
       // "docs/wip/personal-access-tokens-guide", -- not needed
 

@@ -52,6 +52,7 @@ jobs:
     env:
       SPARK_VERSION: 3.0.3
       DATAHUB_TELEMETRY_ENABLED: false
+      DATAHUB_LOOKML_GIT_TEST_SSH_KEY: ${{ secrets.DATAHUB_LOOKML_GIT_TEST_SSH_KEY }}
     strategy:
       matrix:
         python-version: ["3.7", "3.10"]

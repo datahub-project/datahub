@@ -4,7 +4,7 @@ from typing import Dict, List, Optional
 
 from pydantic import Field, PositiveInt, root_validator
 
-from datahub.configuration.common import AllowDenyPattern, ConfigurationError
+from datahub.configuration.common import AllowDenyPattern
 from datahub.ingestion.source.usage.usage_common import BaseUsageConfig
 from datahub.ingestion.source_config.sql.bigquery import BigQueryConfig
 
@@ -37,6 +37,11 @@ class BigQueryV2Config(BigQueryConfig):
         description="Generate usage statistic",
     )
 
+    capture_table_label_as_tag: bool = Field(
+        default=False,
+        description="Capture BigQuery table labels as tag",
+    )
+
     dataset_pattern: AllowDenyPattern = Field(
         default=AllowDenyPattern.allow_all(),
         description="Regex patterns for dataset to filter in ingestion. Specify regex to only match the schema name. e.g. to match all tables in schema analytics, use the regex 'analytics'",
@@ -47,13 +52,17 @@ class BigQueryV2Config(BigQueryConfig):
         description="Include full payload into events. It is only for debugging and internal use.",
     )
 
+    number_of_datasets_process_in_batch: int = Field(
+        default=50,
+        description="Number of table queried in batch when getting metadata. This is a low leve config propert which should be touched with care. This restriction needed because we query partitions system view which throws error if we try to touch too many tables.",
+    )
+
     @root_validator(pre=False)
-    def validate_unsupported_configs(cls, values: Dict) -> Dict:
-        value = values.get("profiling")
-        if value is not None and value.enabled and not value.profile_table_level_only:
-            raise ConfigurationError(
-                "Only table level profiling is supported. Set `profiling.profile_table_level_only` to True.",
-            )
+    def profile_default_settings(cls, values: Dict) -> Dict:
+        # Extra default SQLAlchemy option for better connection pooling and threading.
+        # https://docs.sqlalchemy.org/en/14/core/pooling.html#sqlalchemy.pool.QueuePool.params.max_overflow
+        values["options"].setdefault("max_overflow", values["profiling"].max_workers)
+
         return values
 
     @root_validator(pre=False)
@@ -76,7 +85,6 @@ class BigQueryV2Config(BigQueryConfig):
             logging.warning(
                 "schema_pattern will be ignored in favour of dataset_pattern. schema_pattern will be deprecated, please use dataset_pattern only."
             )
-
         return values
 
     def get_table_pattern(self, pattern: List[str]) -> str:

@@ -1225,7 +1225,7 @@ private Map<Urn, List<EnvelopedAspect>> getCorrespondingAspects(Set<EntityAspect
     final EntitySpec spec = _entityRegistry.getEntitySpec(urnToEntityName(urn));
     final AspectSpec keySpec = spec.getKeyAspectSpec();
     final RecordDataSchema keySchema = keySpec.getPegasusSchema();
-    return EntityKeyUtils.convertUrnToEntityKey(urn, keySchema);
+    return EntityKeyUtils.convertUrnToEntityKey(urn, keySpec);
   }
 
   public AspectSpec getKeyAspectSpec(@Nonnull final Urn urn) {
@@ -1641,7 +1641,7 @@ private Map<Urn, List<EnvelopedAspect>> getCorrespondingAspects(Set<EntityAspect
     final AspectSpec keySpec = spec.getKeyAspectSpec();
     final RecordDataSchema keySchema = keySpec.getPegasusSchema();
     final com.linkedin.entity.Aspect aspect =
-        new com.linkedin.entity.Aspect(EntityKeyUtils.convertUrnToEntityKey(urn, keySchema).data());
+        new com.linkedin.entity.Aspect(EntityKeyUtils.convertUrnToEntityKey(urn, keySpec).data());
 
     final EnvelopedAspect envelopedAspect = new EnvelopedAspect();
     envelopedAspect.setName(keySpec.getName());

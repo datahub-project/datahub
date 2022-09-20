@@ -478,7 +478,7 @@ class SnowflakeQuery:
                 query_text
             QUALIFY row_number() over ( partition by bucket_start_time, object_name
             order by
-                total_queries desc ) <= {top_n_queries}
+                total_queries desc, query_text asc ) <= {top_n_queries}
         )
         select
             basic_usage_counts.object_name AS "OBJECT_NAME",
@@ -486,9 +486,9 @@ class SnowflakeQuery:
             ANY_VALUE(basic_usage_counts.object_domain) AS "OBJECT_DOMAIN",
             ANY_VALUE(basic_usage_counts.total_queries) AS "TOTAL_QUERIES",
             ANY_VALUE(basic_usage_counts.total_users) AS "TOTAL_USERS",
-            ARRAY_AGG( distinct top_queries.query_text) AS "TOP_SQL_QUERIES",
-            ARRAY_AGG( distinct OBJECT_CONSTRUCT( 'col', field_usage_counts.column_name, 'total', field_usage_counts.total_queries ) ) AS "FIELD_COUNTS",
-            ARRAY_AGG( distinct OBJECT_CONSTRUCT( 'user_name', user_usage_counts.user_name, 'email', user_usage_counts.user_email, 'total', user_usage_counts.total_queries ) ) AS "USER_COUNTS"
+            ARRAY_UNIQUE_AGG(top_queries.query_text) AS "TOP_SQL_QUERIES",
+            ARRAY_UNIQUE_AGG(OBJECT_CONSTRUCT( 'col', field_usage_counts.column_name, 'total', field_usage_counts.total_queries ) ) AS "FIELD_COUNTS",
+            ARRAY_UNIQUE_AGG(OBJECT_CONSTRUCT( 'user_name', user_usage_counts.user_name, 'email', user_usage_counts.user_email, 'total', user_usage_counts.total_queries ) ) AS "USER_COUNTS"
         from
             basic_usage_counts basic_usage_counts
             left join

@@ -381,6 +381,9 @@ fragment searchResultFields on Entity {
         inputFields {
             ...inputFieldsFields
         }
+        subTypes {
+            typeNames
+        }
     }
     ... on Chart {
         chartId

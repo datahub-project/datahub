@@ -1,4 +1,4 @@
-package com.linkedin.entity.client;
+package com.linkedin.metadata.client;
 
 import com.datahub.authentication.Authentication;
 import com.datahub.util.RecordUtils;
@@ -13,6 +13,8 @@ import com.linkedin.data.template.RecordTemplate;
 import com.linkedin.data.template.StringArray;
 import com.linkedin.entity.Entity;
 import com.linkedin.entity.EntityResponse;
+import com.linkedin.entity.client.EntityClient;
+import com.linkedin.entity.client.RestliEntityClient;
 import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.aspect.EnvelopedAspect;
 import com.linkedin.metadata.aspect.EnvelopedAspectArray;
@@ -27,14 +29,14 @@ import com.linkedin.metadata.query.ListResult;
 import com.linkedin.metadata.query.ListUrnsResult;
 import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.metadata.query.filter.SortCriterion;
-import com.linkedin.metadata.resources.entity.AspectUtils;
-import com.linkedin.metadata.resources.entity.EntityResource;
+import com.linkedin.metadata.entity.AspectUtils;
 import com.linkedin.metadata.search.EntitySearchService;
 import com.linkedin.metadata.search.LineageSearchResult;
 import com.linkedin.metadata.search.LineageSearchService;
 import com.linkedin.metadata.search.SearchResult;
 import com.linkedin.metadata.search.SearchService;
 import com.linkedin.metadata.search.client.CachingEntitySearchService;
+import com.linkedin.metadata.shared.ValidationUtils;
 import com.linkedin.metadata.timeseries.TimeseriesAspectService;
 import com.linkedin.mxe.MetadataChangeProposal;
 import com.linkedin.mxe.PlatformEvent;
@@ -56,8 +58,8 @@ import lombok.RequiredArgsConstructor;
 import lombok.SneakyThrows;
 import lombok.extern.slf4j.Slf4j;
 
-import static com.linkedin.metadata.resources.entity.ResourceUtils.*;
 import static com.linkedin.metadata.search.utils.QueryUtils.*;
+import static com.linkedin.metadata.search.utils.SearchUtils.*;
 
 
 @Slf4j
@@ -181,7 +183,7 @@ public class JavaEntityClient implements EntityClient {
         int start,
         int limit,
         @Nonnull final Authentication authentication) throws RemoteInvocationException {
-        return validateBrowseResult(
+        return ValidationUtils.validateBrowseResult(
             _entitySearchService.browse(entityType, path, newFilter(requestFilters), start, limit), _entityService);
     }
 
@@ -245,7 +247,7 @@ public class JavaEntityClient implements EntityClient {
         int count,
         @Nonnull final Authentication authentication)
         throws RemoteInvocationException {
-        return validateSearchResult(
+        return ValidationUtils.validateSearchResult(
             _entitySearchService.search(entity, input, newFilter(requestFilters), null, start, count), _entityService);
     }
 
@@ -269,7 +271,7 @@ public class JavaEntityClient implements EntityClient {
         int count,
         @Nonnull final Authentication authentication)
         throws RemoteInvocationException {
-        return validateListResult(EntityResource.toListResult(
+        return ValidationUtils.validateListResult(toListResult(
             _entitySearchService.filter(entity, newFilter(requestFilters), null, start, count)), _entityService);
     }
 
@@ -294,7 +296,7 @@ public class JavaEntityClient implements EntityClient {
         int count,
         @Nonnull final Authentication authentication)
         throws RemoteInvocationException {
-        return validateSearchResult(_entitySearchService.search(entity, input, filter, sortCriterion, start, count),
+        return ValidationUtils.validateSearchResult(_entitySearchService.search(entity, input, filter, sortCriterion, start, count),
             _entityService);
     }
 
@@ -317,7 +319,7 @@ public class JavaEntityClient implements EntityClient {
         int start,
         int count,
         @Nonnull final Authentication authentication) throws RemoteInvocationException {
-        return validateSearchResult(
+        return ValidationUtils.validateSearchResult(
             _searchService.searchAcrossEntities(entities, input, filter, null, start, count, null), _entityService);
     }
 
@@ -327,7 +329,7 @@ public class JavaEntityClient implements EntityClient {
         @Nonnull List<String> entities, @Nullable String input, @Nullable Integer maxHops, @Nullable Filter filter,
         @Nullable SortCriterion sortCriterion, int start, int count, @Nonnull final Authentication authentication)
         throws RemoteInvocationException {
-        return validateLineageSearchResult(
+        return ValidationUtils.validateLineageSearchResult(
             _lineageSearchService.searchAcrossLineage(sourceUrn, direction, entities, input, maxHops, filter,
                 sortCriterion, start, count), _entityService);
     }
@@ -380,7 +382,7 @@ public class JavaEntityClient implements EntityClient {
     @Override
     public SearchResult filter(@Nonnull String entity, @Nonnull Filter filter, @Nullable SortCriterion sortCriterion,
         int start, int count, @Nonnull final Authentication authentication) throws RemoteInvocationException {
-        return validateSearchResult(_entitySearchService.filter(entity, filter, sortCriterion, start, count),
+        return ValidationUtils.validateSearchResult(_entitySearchService.filter(entity, filter, sortCriterion, start, count),
             _entityService);
     }
 

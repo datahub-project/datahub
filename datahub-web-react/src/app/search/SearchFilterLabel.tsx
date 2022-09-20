@@ -1,6 +1,6 @@
+import * as React from 'react';
 import { BookOutlined } from '@ant-design/icons';
 import { Tag, Tooltip } from 'antd';
-import * as React from 'react';
 import styled from 'styled-components';
 import {
     AggregationMetadata,
@@ -21,6 +21,7 @@ import { useEntityRegistry } from '../useEntityRegistry';
 import { ENTITY_FILTER_NAME } from './utils/constants';
 import CustomAvatar from '../shared/avatar/CustomAvatar';
 import { IconStyleType } from '../entity/Entity';
+import { formatNumber } from '../shared/formatNumber';
 
 type Props = {
     aggregation: AggregationMetadata;
@@ -41,7 +42,9 @@ const MAX_COUNT_VAL = 10000;
 // SearchFilterLabel renders custom labels for entity, tag, term & data platform filters. All other filters use the default behavior.
 export const SearchFilterLabel = ({ aggregation, field, hideCount }: Props) => {
     const entityRegistry = useEntityRegistry();
-    const countText = hideCount ? '' : ` (${aggregation.count === MAX_COUNT_VAL ? '10000+' : aggregation.count})`;
+    const countText = hideCount
+        ? ''
+        : ` (${aggregation.count === MAX_COUNT_VAL ? '10k+' : formatNumber(aggregation.count)})`;
 
     if (!aggregation) return <></>;
 

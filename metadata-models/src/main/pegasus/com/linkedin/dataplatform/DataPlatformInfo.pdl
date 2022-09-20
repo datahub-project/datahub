@@ -15,7 +15,6 @@ record DataPlatformInfo {
    */
   @validate.strlen.max = 15
   @Searchable = {
-    "fieldName": "name"
     "fieldType": "TEXT_PARTIAL",
     "enableAutocomplete": false,
     "boostScore": 10.0
@@ -26,7 +25,6 @@ record DataPlatformInfo {
    * The name that will be used for displaying a platform type.
    */
   @Searchable = {
-    "fieldName": "displayName"
     "fieldType": "TEXT_PARTIAL",
     "enableAutocomplete": true,
     "boostScore": 10.0

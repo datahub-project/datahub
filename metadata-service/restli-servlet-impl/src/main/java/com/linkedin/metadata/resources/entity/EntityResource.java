@@ -5,7 +5,6 @@ import com.datahub.authentication.Authentication;
 import com.datahub.authentication.AuthenticationContext;
 import com.google.common.collect.ImmutableList;
 import com.linkedin.common.AuditStamp;
-import com.linkedin.common.UrnArray;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.data.template.LongMap;
 import com.linkedin.data.template.StringArray;
@@ -35,7 +34,6 @@ import com.linkedin.metadata.run.RollbackResponse;
 import com.linkedin.metadata.search.EntitySearchService;
 import com.linkedin.metadata.search.LineageSearchResult;
 import com.linkedin.metadata.search.LineageSearchService;
-import com.linkedin.metadata.search.SearchEntity;
 import com.linkedin.metadata.search.SearchResult;
 import com.linkedin.metadata.search.SearchService;
 import com.linkedin.metadata.search.utils.ESUtils;
@@ -77,6 +75,8 @@ import org.apache.maven.artifact.versioning.ComparableVersion;
 import static com.linkedin.metadata.entity.ValidationUtils.*;
 import static com.linkedin.metadata.resources.entity.ResourceUtils.*;
 import static com.linkedin.metadata.resources.restli.RestliConstants.*;
+import static com.linkedin.metadata.search.utils.SearchUtils.*;
+import static com.linkedin.metadata.shared.ValidationUtils.*;
 import static com.linkedin.metadata.utils.PegasusUtils.*;
 
 
@@ -143,19 +143,6 @@ public class EntityResource extends CollectionResourceTaskTemplate<String, Entit
   @Inject
   @Named("timeseriesAspectService")
   private TimeseriesAspectService _timeseriesAspectService;
-
-  public static ListResult toListResult(final SearchResult searchResult) {
-    if (searchResult == null) {
-      return null;
-    }
-    final ListResult listResult = new ListResult();
-    listResult.setStart(searchResult.getFrom());
-    listResult.setCount(searchResult.getPageSize());
-    listResult.setTotal(searchResult.getNumEntities());
-    listResult.setEntities(
-        new UrnArray(searchResult.getEntities().stream().map(SearchEntity::getEntity).collect(Collectors.toList())));
-    return listResult;
-  }
 
   /**
    * Retrieves the value for an entity that is made up of latest versions of specified aspects.
