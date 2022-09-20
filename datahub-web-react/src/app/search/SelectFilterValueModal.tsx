@@ -2,6 +2,7 @@ import React from 'react';
 import { FacetMetadata, EntityType } from '../../types.generated';
 import { SetDomainModal } from '../entity/shared/containers/profile/sidebar/Domain/SetDomainModal';
 import { EditOwnersModal } from '../entity/shared/containers/profile/sidebar/Ownership/EditOwnersModal';
+import { SelectPlatformModal } from '../entity/shared/containers/profile/sidebar/Platform/SelectPlatformModal';
 import EditTagTermsModal from '../shared/tags/AddTagsTermsModal';
 import { ChooseEntityTypeModal } from './ChooseEntityTypeModal';
 import { EditTextModal } from './EditTextModal';
@@ -47,6 +48,23 @@ export const SelectFilterValueModal = ({ filterField, onSelect, onCloseModal, in
                 onCloseModal={onCloseModal}
                 onOkOverride={(domainUrn) => {
                     onSelect([domainUrn]);
+                    onCloseModal();
+                }}
+            />
+        );
+    }
+
+    if (filterField === 'platform') {
+        return (
+            <SelectPlatformModal
+                defaultValues={initialValues?.map((urn) => ({
+                    urn,
+                    entity: facet?.aggregations.find((aggregation) => aggregation.value === urn)?.entity,
+                }))}
+                titleOverride="Select Platform"
+                onCloseModal={onCloseModal}
+                onOkOverride={(platformUrns) => {
+                    onSelect(platformUrns);
                     onCloseModal();
                 }}
             />

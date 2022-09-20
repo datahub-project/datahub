@@ -27,6 +27,7 @@ export const FIELD_TO_LABEL = {
     owners: 'Owner',
     tags: 'Tag',
     domains: 'Domain',
+    platform: 'Platform',
     fieldTags: 'Column Tag',
     glossaryTerms: 'Term',
     fieldGlossaryTerms: 'Column Term',
