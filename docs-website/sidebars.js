@@ -113,11 +113,11 @@ module.exports = {
         ],
       },
 
-      {
-        "Shift Left": [
-          // "docs/wip/importance-of-shift-left",
-        ],
-      },
+      // {
+      //   "Shift Left": [
+      //     // "docs/wip/importance-of-shift-left",
+      //   ],
+      // },
       {
         Sources: [
           // collapse these; add push-based at top
@@ -449,12 +449,12 @@ module.exports = {
       // "docs/wip/ui-ingestion-guide", -- not needed
       // "docs/wip/personal-access-tokens-guide", -- not needed
 
-      {
-        "Advanced Tutorials": [
-          // "docs/wip/advanced-guides",
-          // "docs/wip/search-ranking",
-        ],
-      },
+      // {
+      //   "Advanced Tutorials": [
+      //     // "docs/wip/advanced-guides",
+      //     // "docs/wip/search-ranking",
+      //   ],
+      // },
     ],
 
     "Join the Community": [
