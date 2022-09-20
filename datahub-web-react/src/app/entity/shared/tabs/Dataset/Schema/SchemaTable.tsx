@@ -107,13 +107,13 @@ export default function SchemaTable({
         title: 'Field',
         dataIndex: 'fieldPath',
         key: 'fieldPath',
-        width: 300,
+        width: '30%',
         render: schemaTitleRenderer,
         filtered: true,
     };
 
     const tagColumn = {
-        width: 125,
+        width: '20%',
         title: 'Tags',
         dataIndex: 'globalTags',
         key: 'tag',
@@ -122,7 +122,7 @@ export default function SchemaTable({
     };
 
     const termColumn = {
-        width: 125,
+        width: '20%',
         title: 'Terms',
         dataIndex: 'globalTags',
         key: 'tag',
@@ -130,25 +130,18 @@ export default function SchemaTable({
         onCell: onTagTermCell,
     };
 
-    const usageColumn = {
-        width: 50,
-        title: 'Usage',
-        dataIndex: 'fieldPath',
-        key: 'usage',
-        render: usageStatsRenderer,
-    };
     const descriptionColumn = {
         title: 'Description',
         dataIndex: 'description',
         key: 'description',
         render: descriptionRender,
-        width: 300,
+        width: '30%',
     };
 
     const blameColumn = {
         dataIndex: 'fieldPath',
         key: 'fieldPath',
-        width: 75,
+        width: '7%',
         render(record: SchemaField) {
             return {
                 props: {
@@ -157,6 +150,14 @@ export default function SchemaTable({
                 children: schemaBlameRenderer(record),
             };
         },
+    };
+
+    const usageColumn = {
+        width: '5%',
+        title: 'Usage',
+        dataIndex: 'fieldPath',
+        key: 'usage',
+        render: usageStatsRenderer,
     };
 
     let allColumns: ColumnsType<ExtendedSchemaFields> = [fieldColumn, descriptionColumn, tagColumn, termColumn];
