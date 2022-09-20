@@ -1,11 +1,11 @@
 import logging
 from collections import defaultdict
 from dataclasses import dataclass, field
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Dict, List, Optional
 
 from google.cloud import bigquery
-from google.cloud.bigquery.table import RowIterator
+from google.cloud.bigquery.table import RowIterator, TableListItem, TimePartitioning
 
 from datahub.ingestion.source.bigquery_v2.bigquery_audit import BigqueryTableIdentifier
 
@@ -26,11 +26,20 @@ class BigqueryColumn:
 class BigqueryTable:
     name: str
     created: datetime
-    last_altered: datetime
+    last_altered: Optional[datetime]
     size_in_bytes: int
     rows_count: int
+    expires: Optional[datetime]
+    clustering_fields: Optional[List[str]]
+    labels: Optional[Dict[str, str]]
+    num_partitions: Optional[int]
+    max_partition_id: Optional[str]
+    max_shard_id: Optional[str]
+    active_billable_bytes: Optional[int]
+    long_term_billable_bytes: Optional[int]
     comment: str
     ddl: str
+    time_partitioning: TimePartitioning
     columns: List[BigqueryColumn] = field(default_factory=list)
 
 
@@ -48,7 +57,7 @@ class BigqueryView:
 class BigqueryDataset:
     name: str
     created: datetime
-    last_altered: datetime
+    last_altered: Optional[datetime]
     location: str
     comment: str
     tables: List[BigqueryTable] = field(default_factory=list)
@@ -97,18 +106,40 @@ SELECT
   is_insertable_into,
   ddl,
   row_count,
-  size_bytes as bytes
+  size_bytes as bytes,
+  num_partitions,
+  max_partition_id,
+  active_billable_bytes,
+  long_term_billable_bytes,
+  REGEXP_EXTRACT(t.table_name, r".*_(\\d+)$") as table_suffix,
+  REGEXP_REPLACE(t.table_name, r"_(\\d+)$", "") as table_base
+
 FROM
   `{project_id}`.{dataset_name}.INFORMATION_SCHEMA.TABLES t
   join `{project_id}`.{dataset_name}.__TABLES__ as ts on ts.table_id = t.TABLE_NAME
   left join `{project_id}`.{dataset_name}.INFORMATION_SCHEMA.TABLE_OPTIONS as tos on t.table_schema = tos.table_schema
   and t.TABLE_NAME = tos.TABLE_NAME
   and tos.OPTION_NAME = "description"
+  left join (
+    select
+        table_name,
+        sum(case when partition_id not in ('__NULL__', '__UNPARTITIONED__', '__STREAMING_UNPARTITIONED__') then 1 else 0 END) as num_partitions,
+        max(case when partition_id not in ('__NULL__', '__UNPARTITIONED__', '__STREAMING_UNPARTITIONED__') then partition_id else NULL END) as max_partition_id,
+        sum(total_rows) as total_rows,
+        sum(case when storage_tier = 'LONG_TERM' then total_billable_bytes else 0 end) as long_term_billable_bytes,
+        sum(case when storage_tier = 'ACTIVE' then total_billable_bytes else 0 end) as active_billable_bytes,
+    from
+        `{project_id}`.{dataset_name}.INFORMATION_SCHEMA.PARTITIONS
+    group by
+        table_name) as p on
+    t.table_name = p.table_name
 WHERE
   table_type in ('BASE TABLE', 'EXTERNAL TABLE')
+{table_filter}
 order by
-  table_schema,
-  table_name
+  table_schema ASC,
+  table_base ASC,
+  table_suffix DESC
 """
 
     views_for_dataset: str = """
@@ -133,8 +164,8 @@ FROM
 WHERE
   table_type in ('VIEW MATERIALIZED', 'VIEW')
 order by
-  table_schema,
-  table_name
+  table_schema ASC,
+  table_name ASC
 """
 
     columns_for_dataset: str = """
@@ -215,25 +246,58 @@ class BigQueryDataDictionary:
 
     @staticmethod
     def get_tables_for_dataset(
-        conn: bigquery.Client, project_id: str, dataset_name: str
+        conn: bigquery.Client,
+        project_id: str,
+        dataset_name: str,
+        tables: Dict[str, TableListItem],
     ) -> List[BigqueryTable]:
 
+        filter: str = ", ".join(f"'{table}'" for table in tables.keys())
+
+        # Tables are ordered by name and table suffix to make sure we always process the latest sharded table
+        # and skip the others. Sharded tables are tables with suffix _20220102
         cur = BigQueryDataDictionary.get_query_result(
             conn,
             BigqueryQuery.tables_for_dataset.format(
-                project_id=project_id, dataset_name=dataset_name
+                project_id=project_id,
+                dataset_name=dataset_name,
+                table_filter=f" and t.table_name in ({filter})" if filter else "",
             ),
         )
 
+        # Some property we want to capture only available from the TableListItem we get from an earlier query of
+        # the list of tables.
         return [
             BigqueryTable(
                 name=table.table_name,
                 created=table.created,
-                last_altered=table.last_altered,
+                last_altered=datetime.fromtimestamp(
+                    table.last_altered / 1000, tz=timezone.utc
+                )
+                if table.last_altered
+                else None,
                 size_in_bytes=table.bytes,
                 rows_count=table.row_count,
                 comment=table.comment,
                 ddl=table.ddl,
+                expires=tables[table.table_name].expires if tables else None,
+                labels=tables[table.table_name].labels if tables else None,
+                time_partitioning=tables[table.table_name].time_partitioning
+                if tables
+                else None,
+                clustering_fields=tables[table.table_name].clustering_fields
+                if tables
+                else None,
+                max_partition_id=table.max_partition_id,
+                max_shard_id=BigqueryTableIdentifier.get_table_and_shard(
+                    table.table_name
+                )[1]
+                if len(BigqueryTableIdentifier.get_table_and_shard(table.table_name))
+                == 2
+                else None,
+                num_partitions=table.num_partitions,
+                active_billable_bytes=table.active_billable_bytes,
+                long_term_billable_bytes=table.long_term_billable_bytes,
             )
             for table in cur
         ]

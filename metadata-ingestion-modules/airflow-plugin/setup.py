@@ -28,6 +28,8 @@ base_requirements = {
     "pydantic>=1.5.1",
     "apache-airflow >= 1.10.2",
     "acryl-datahub[airflow] >= 0.8.36",
+    # Pinned dependencies to make dependency resolution faster.
+    "sqlalchemy==1.3.24",
 }
 
 
@@ -114,7 +116,6 @@ setuptools.setup(
         "Programming Language :: Python",
         "Programming Language :: Python :: 3",
         "Programming Language :: Python :: 3 :: Only",
-        "Programming Language :: Python :: 3.6",
         "Programming Language :: Python :: 3.7",
         "Programming Language :: Python :: 3.8",
         "Programming Language :: Python :: 3.9",
@@ -131,7 +132,7 @@ setuptools.setup(
     ],
     # Package info.
     zip_safe=False,
-    python_requires=">=3.6",
+    python_requires=">=3.7",
     package_dir={"": "src"},
     packages=setuptools.find_namespace_packages(where="./src"),
     entry_points=entry_points,
