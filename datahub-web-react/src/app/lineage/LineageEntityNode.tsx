@@ -8,7 +8,7 @@ import { IconStyleType } from '../entity/Entity';
 import { NodeData, Direction, VizNode, EntitySelectParams, EntityAndType, VizEdge, ColumnEdge } from './types';
 import { ANTD_GRAY } from '../entity/shared/constants';
 import { capitalizeFirstLetter } from '../shared/textUtil';
-import { nodeHeightFromTitleLength } from './utils/nodeHeightFromTitleLength';
+import { getTitleHeight, nodeHeightFromTitleLength } from './utils/nodeHeightFromTitleLength';
 import { LineageExplorerContext } from './utils/LineageExplorerContext';
 import { useGetEntityLineageLazyQuery } from '../../graphql/lineage.generated';
 import { useIsSeparateSiblingsMode } from '../entity/shared/siblingUtils';
@@ -148,6 +148,8 @@ export default function LineageEntityNode({
         showColumns,
         areColumnsCollapsed,
     );
+
+    const titleHeight = getTitleHeight(expandTitles ? node.data.expandedName || node.data.name : undefined);
 
     function highlightDownstreamColumnLineage(sourceField: string, sourceUrn: string, edges: ColumnEdge[]) {
         const forwardLineage = fineGrainedMap.forward[sourceUrn]?.[sourceField];
@@ -406,7 +408,13 @@ export default function LineageEntityNode({
                     </UnselectableText>
                 ) : null}
                 {showColumns && node.data.schemaMetadata && (
-                    <rect x={iconX - 21} y={centerY + 75} width={width - 2} height="0.25" stroke={ANTD_GRAY[6]} />
+                    <rect
+                        x={iconX - 21}
+                        y={centerY + 55 + titleHeight}
+                        width={width - 2}
+                        height="0.25"
+                        stroke={ANTD_GRAY[6]}
+                    />
                 )}
                 {showColumns && node.data.schemaMetadata && areColumnsCollapsed && (
                     <Group
@@ -428,7 +436,7 @@ export default function LineageEntityNode({
                     >
                         <rect
                             x={iconX - 21}
-                            y={centerY + 76}
+                            y={centerY + 57 + titleHeight}
                             width={width - 2}
                             height="28"
                             fill={isHoveringShow ? ANTD_GRAY[3] : 'white'}
@@ -438,7 +446,7 @@ export default function LineageEntityNode({
                         <UnselectableText
                             dy=".33em"
                             x={iconX}
-                            y={centerY + 90}
+                            y={centerY + 70 + titleHeight}
                             fontSize={12}
                             fontFamily="Arial"
                             fill="#1890FF"
@@ -496,7 +504,7 @@ export default function LineageEntityNode({
                                 >
                                     <rect
                                         x={iconX - 21}
-                                        y={centerY + 80 + idx * 30}
+                                        y={centerY + 60 + titleHeight + idx * 30}
                                         width={width - 2}
                                         height="29"
                                         fill={isFieldSelected ? '#e7f3ff' : 'white'}
@@ -508,11 +516,10 @@ export default function LineageEntityNode({
                                     <UnselectableText
                                         dy=".33em"
                                         x={iconX}
-                                        y={centerY + 80 + 14 + idx * 30}
+                                        y={centerY + 75 + titleHeight + idx * 30}
                                         fontSize={12}
                                         fontFamily="'Roboto Mono',monospace"
                                         fill={fieldEdge ? 'black' : ANTD_GRAY[7]}
-                                        // fill={isFieldHovered && fieldEdge ? '#1890FF' : textColor}
                                     >
                                         {field.fieldPath}
                                     </UnselectableText>
@@ -540,7 +547,7 @@ export default function LineageEntityNode({
                         >
                             <rect
                                 x={iconX - 21}
-                                y={centerY + 79 + node.data.schemaMetadata.fields.length * 30}
+                                y={centerY + 60 + titleHeight + node.data.schemaMetadata.fields.length * 30}
                                 width={width - 2}
                                 height="29"
                                 fill={isHoveringHide ? ANTD_GRAY[3] : 'transparent'}
@@ -550,7 +557,7 @@ export default function LineageEntityNode({
                             <UnselectableText
                                 dy=".33em"
                                 x={iconX}
-                                y={centerY + 94 + node.data.schemaMetadata.fields.length * 30}
+                                y={centerY + 75 + titleHeight + node.data.schemaMetadata.fields.length * 30}
                                 fontSize={12}
                                 fontFamily="Arial"
                                 fill="#1890FF"

@@ -85,6 +85,10 @@ const calcualteSize = (text: string, options: OptionalOptions = {}): Size => {
     return size;
 };
 
+export function getTitleHeight(title?: string) {
+    return Math.floor(calcualteSize(title || DEFAULT_TEXT_TO_GET_NON_ZERO_HEIGHT).height);
+}
+
 export function nodeHeightFromTitleLength(
     title?: string,
     schemaMetadata?: SchemaMetadata,
@@ -99,9 +103,5 @@ export function nodeHeightFromTitleLength(
             showColumnBuffer = (schemaMetadata?.fields?.length + 1) * 30;
         }
     }
-    return (
-        Math.floor(calcualteSize(title || DEFAULT_TEXT_TO_GET_NON_ZERO_HEIGHT).height) +
-        HEIGHT_WITHOUT_TEXT_HEIGHT +
-        showColumnBuffer
-    );
+    return getTitleHeight(title) + HEIGHT_WITHOUT_TEXT_HEIGHT + showColumnBuffer;
 }

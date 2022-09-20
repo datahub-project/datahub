@@ -1,7 +1,7 @@
 import { CURVE_PADDING, HORIZONTAL_SPACE_PER_LAYER, VERTICAL_SPACE_BETWEEN_NODES } from '../constants';
 import { width as nodeWidth } from '../LineageEntityNode';
 import { Direction, NodeData, VizEdge, VizNode } from '../types';
-import { nodeHeightFromTitleLength } from './nodeHeightFromTitleLength';
+import { getTitleHeight, nodeHeightFromTitleLength } from './nodeHeightFromTitleLength';
 
 type ProcessArray = {
     parent: VizNode | null;
@@ -178,46 +178,44 @@ export default function layoutTree(
                         (candidate) => candidate.fieldPath === sourceField,
                     ) || 0;
 
-                let hoveredFieldX = (currentNode?.x || 0) + 50;
-                let hoveredFieldY = currentNode?.y || 0 + 50;
+                const sourceTitleHeight = getTitleHeight(
+                    expandTitles ? currentNode?.data.expandedName || currentNode?.data.name : undefined,
+                );
+
+                const sourceFieldY = currentNode?.y || 0 + 1;
+                let sourceFieldX = (currentNode?.x || 0) + 30 + sourceTitleHeight;
                 if (!collapsedColumnsNodes[currentNode?.data.urn || 'no-op']) {
-                    hoveredFieldX = (currentNode?.x || 0) + (fieldIndex + 1.8) * 30 + 1;
-                    hoveredFieldY = (currentNode?.y || 0) + 1;
+                    sourceFieldX = (currentNode?.x || 0) + sourceTitleHeight + (fieldIndex + 1.2) * 30 + 1;
                 }
 
                 Object.keys(fieldForwardEdges || {}).forEach((targetUrn) => {
                     const targetNode = nodesToRender.find((node) => node.data.urn === targetUrn);
+                    const targetTitleHeight = getTitleHeight(
+                        expandTitles ? targetNode?.data.expandedName || targetNode?.data.name : undefined,
+                    );
+
                     (fieldForwardEdges[targetUrn] || []).forEach((targetField) => {
                         const targetFieldIndex =
                             targetNode?.data.schemaMetadata?.fields.findIndex(
                                 (candidate) => candidate.fieldPath === targetField,
                             ) || 0;
-                        // could add some check here for title height
-                        let targetFieldX = (targetNode?.x || 0) + 50;
-                        let targetFieldY = targetNode?.y || 0 + 50;
+                        const targetFieldY = targetNode?.y || 0 + 1;
+                        let targetFieldX = (targetNode?.x || 0) + 30 + targetTitleHeight;
                         if (!collapsedColumnsNodes[targetNode?.data.urn || 'no-op']) {
-                            targetFieldX = (targetNode?.x || 0) + (targetFieldIndex + 1.8) * 30 + 1;
-                            targetFieldY = targetNode?.y || 0 + 1;
+                            targetFieldX = (targetNode?.x || 0) + targetTitleHeight + (targetFieldIndex + 1.2) * 30 + 1;
                         }
-                        if (
-                            currentNode &&
-                            targetNode &&
-                            hoveredFieldX &&
-                            hoveredFieldY &&
-                            targetFieldX &&
-                            targetFieldY
-                        ) {
+                        if (currentNode && targetNode && sourceFieldX && sourceFieldY && targetFieldX && targetFieldY) {
                             const curve = [
                                 {
-                                    x: hoveredFieldX,
+                                    x: sourceFieldX,
                                     y:
-                                        hoveredFieldY -
+                                        sourceFieldY -
                                         INSIDE_NODE_SHIFT * UPSTREAM_X_MODIFIER +
                                         UPSTREAM_DIRECTION_SHIFT,
                                 },
                                 {
-                                    x: hoveredFieldX,
-                                    y: hoveredFieldY - (INSIDE_NODE_SHIFT + CURVE_PADDING) * UPSTREAM_X_MODIFIER,
+                                    x: sourceFieldX,
+                                    y: sourceFieldY - (INSIDE_NODE_SHIFT + CURVE_PADDING) * UPSTREAM_X_MODIFIER,
                                 },
                                 {
                                     x: targetFieldX,
