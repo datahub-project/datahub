@@ -51,5 +51,5 @@ in contributing, [join us on Slack](https://datahubspace.slack.com/join/shared_i
 
 ## Feedback, Feature Requests, & Support
 
-Visit our [Slack channel](https://datahubspace.slack.com/join/shared_invite/zt-nx7i0dj7-I3IJYC551vpnvvjIaNRRGw#/shared-invite/email) to ask questions, tell us what we can do better, & make requests for what you'd like to see in the future. Or just 
+Visit our [Slack channel](https://slack.datahubproject.io) to ask questions, tell us what we can do better, & make requests for what you'd like to see in the future. Or just
 stop by to say 'Hi'. 

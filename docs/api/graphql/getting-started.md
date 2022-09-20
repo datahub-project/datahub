@@ -54,11 +54,11 @@ check out [How to use GraphiQL](https://www.gatsbyjs.com/docs/how-to/querying-da
 
 ## Where to go from here
 
-Once you've gotten the API deployed and responding, proceed to [Querying Entities](./querying-entities.md) to learn how to read and write the Entities
+Once you've gotten the API deployed and responding, proceed to [Working with Metadata Entities](./querying-entities.md) to learn how to read and write the Entities
 on your Metadata Graph.
 If you're interested in administrative actions considering have a look at [Token Management](./token-management.md) to learn how to generate, list & revoke access tokens for programmatic use in DataHub.
 
 ## Feedback, Feature Requests, & Support
 
-Visit our [Slack channel](https://datahubspace.slack.com/join/shared_invite/zt-nx7i0dj7-I3IJYC551vpnvvjIaNRRGw#/shared-invite/email) to ask questions, tell us what we can do better, & make requests for what you'd like to see in the future. Or just
+Visit our [Slack channel](https://slack.datahubproject.io) to ask questions, tell us what we can do better, & make requests for what you'd like to see in the future. Or just
 stop by to say 'Hi'. 
