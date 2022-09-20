@@ -150,6 +150,7 @@ module.exports = {
               "metadata-ingestion/schedule_docs/intro",
               "metadata-ingestion/schedule_docs/cron",
               "metadata-ingestion/schedule_docs/airflow",
+              "metadata-ingestion/schedule_docs/kubernetes",
             ],
           },
           // {
