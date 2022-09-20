@@ -142,7 +142,7 @@ For example, if we only want to grant access for `Datasets` on DataHub, we'd sel
 Next, we can search for specific entities of the selected types that the policy should apply for.
 If left blank, all entities of the selected types are in scope. 
 
-For example, if we only want to grant access for a specific sample dataset, we'd can search and
+For example, if we only want to grant access for a specific sample dataset, we can search and
 select it directly. 
 
 <p align="center">
@@ -153,7 +153,7 @@ We can also limit the scope of the policy to assets that live in a specific Doma
 is only done when specific resources are not selected. If left blank,
 entities from any Domain will be in scope. 
 
-For example, if we only want to grant access for assets part of a "Marketing" Domain, we'd can search and
+For example, if we only want to grant access for assets part of a "Marketing" Domain, we can search and
 select it.
 
 <p align="center">
