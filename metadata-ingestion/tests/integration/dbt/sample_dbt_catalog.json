@@ -1,0 +1,830 @@
+{
+  "errors": null,
+  "metadata": {
+    "dbt_schema_version": "https://schemas.getdbt.com/dbt/catalog/v1.json",
+    "dbt_version": "1.2.1",
+    "env": {},
+    "generated_at": "2021-06-19T21:38:36.384613Z",
+    "invocation_id": "just-some-random-id-2"
+  },
+  "nodes": {
+    "model.sample_dbt.monthly_billing_with_cust": {
+      "columns": {
+        "amount": {
+          "comment": null,
+          "index": 3,
+          "name": "amount",
+          "type": "numeric"
+        },
+        "billing_month": {
+          "comment": null,
+          "index": 1,
+          "name": "billing_month",
+          "type": "timestamp with time zone"
+        },
+        "customer_id": {
+          "comment": null,
+          "index": 2,
+          "name": "customer_id",
+          "type": "integer"
+        },
+        "email": {
+          "comment": null,
+          "index": 4,
+          "name": "email",
+          "type": "text"
+        }
+      },
+      "metadata": {
+        "comment": null,
+        "database": "pagila",
+        "name": "an-aliased-view-for-monthly-billing",
+        "owner": "postgres",
+        "schema": "dbt_postgres",
+        "type": "BASE TABLE"
+      },
+      "stats": {
+        "has_stats": {
+          "description": "Indicates whether there are statistics for this table",
+          "id": "has_stats",
+          "include": false,
+          "label": "Has Stats?",
+          "value": false
+        }
+      },
+      "unique_id": "model.sample_dbt.monthly_billing_with_cust"
+    },
+    "model.sample_dbt.payments_base": {
+      "columns": {
+        "amount": {
+          "comment": null,
+          "index": 5,
+          "name": "amount",
+          "type": "numeric(5,2)"
+        },
+        "customer_id": {
+          "comment": null,
+          "index": 2,
+          "name": "customer_id",
+          "type": "integer"
+        },
+        "payment_date": {
+          "comment": null,
+          "index": 6,
+          "name": "payment_date",
+          "type": "timestamp with time zone"
+        },
+        "payment_id": {
+          "comment": null,
+          "index": 1,
+          "name": "payment_id",
+          "type": "integer"
+        },
+        "rental_id": {
+          "comment": null,
+          "index": 4,
+          "name": "rental_id",
+          "type": "integer"
+        },
+        "staff_id": {
+          "comment": null,
+          "index": 3,
+          "name": "staff_id",
+          "type": "integer"
+        }
+      },
+      "metadata": {
+        "comment": null,
+        "database": "pagila",
+        "name": "an-aliased-view-for-payments",
+        "owner": "postgres",
+        "schema": "dbt_postgres",
+        "type": "VIEW"
+      },
+      "stats": {
+        "has_stats": {
+          "description": "Indicates whether there are statistics for this table",
+          "id": "has_stats",
+          "include": false,
+          "label": "Has Stats?",
+          "value": false
+        }
+      },
+      "unique_id": "model.sample_dbt.payments_base"
+    },
+    "model.sample_dbt.payments_by_customer_by_month": {
+      "columns": {
+        "amount": {
+          "comment": null,
+          "index": 3,
+          "name": "amount",
+          "type": "numeric"
+        },
+        "billing_month": {
+          "comment": null,
+          "index": 1,
+          "name": "billing_month",
+          "type": "timestamp with time zone"
+        },
+        "customer_id": {
+          "comment": null,
+          "index": 2,
+          "name": "customer_id",
+          "type": "integer"
+        }
+      },
+      "metadata": {
+        "comment": null,
+        "database": "pagila",
+        "name": "payments_by_customer_by_month",
+        "owner": "postgres",
+        "schema": "dbt_postgres",
+        "type": "BASE TABLE"
+      },
+      "stats": {
+        "has_stats": {
+          "description": "Indicates whether there are statistics for this table",
+          "id": "has_stats",
+          "include": false,
+          "label": "Has Stats?",
+          "value": false
+        }
+      },
+      "unique_id": "model.sample_dbt.payments_by_customer_by_month"
+    }
+  },
+  "sources": {
+    "source.sample_dbt.pagila.actor": {
+      "columns": {
+        "actor_id": {
+          "comment": null,
+          "index": 1,
+          "name": "actor_id",
+          "type": "integer"
+        },
+        "first_name": {
+          "comment": "Actors column \u2013 from postgres",
+          "index": 2,
+          "name": "first_name",
+          "type": "text"
+        },
+        "last_name": {
+          "comment": null,
+          "index": 3,
+          "name": "last_name",
+          "type": "text"
+        },
+        "last_update": {
+          "comment": null,
+          "index": 4,
+          "name": "last_update",
+          "type": "timestamp with time zone"
+        }
+      },
+      "metadata": {
+        "comment": "Actors table \u2013 from postgres",
+        "database": "pagila",
+        "name": "actor",
+        "owner": "postgres",
+        "schema": "public",
+        "type": "BASE TABLE"
+      },
+      "stats": {
+        "has_stats": {
+          "description": "Indicates whether there are statistics for this table",
+          "id": "has_stats",
+          "include": false,
+          "label": "Has Stats?",
+          "value": false
+        }
+      },
+      "unique_id": "source.sample_dbt.pagila.actor"
+    },
+    "source.sample_dbt.pagila.address": {
+      "columns": {
+        "address": {
+          "comment": null,
+          "index": 2,
+          "name": "address",
+          "type": "text"
+        },
+        "address2": {
+          "comment": null,
+          "index": 3,
+          "name": "address2",
+          "type": "text"
+        },
+        "address_id": {
+          "comment": null,
+          "index": 1,
+          "name": "address_id",
+          "type": "integer"
+        },
+        "city_id": {
+          "comment": null,
+          "index": 5,
+          "name": "city_id",
+          "type": "integer"
+        },
+        "district": {
+          "comment": null,
+          "index": 4,
+          "name": "district",
+          "type": "text"
+        },
+        "last_update": {
+          "comment": null,
+          "index": 8,
+          "name": "last_update",
+          "type": "timestamp with time zone"
+        },
+        "phone": {
+          "comment": null,
+          "index": 7,
+          "name": "phone",
+          "type": "text"
+        },
+        "postal_code": {
+          "comment": null,
+          "index": 6,
+          "name": "postal_code",
+          "type": "text"
+        }
+      },
+      "metadata": {
+        "comment": null,
+        "database": "pagila",
+        "name": "address",
+        "owner": "postgres",
+        "schema": "public",
+        "type": "BASE TABLE"
+      },
+      "stats": {
+        "has_stats": {
+          "description": "Indicates whether there are statistics for this table",
+          "id": "has_stats",
+          "include": false,
+          "label": "Has Stats?",
+          "value": false
+        }
+      },
+      "unique_id": "source.sample_dbt.pagila.address"
+    },
+    "source.sample_dbt.pagila.category": {
+      "columns": {
+        "category_id": {
+          "comment": null,
+          "index": 1,
+          "name": "category_id",
+          "type": "integer"
+        },
+        "last_update": {
+          "comment": null,
+          "index": 3,
+          "name": "last_update",
+          "type": "timestamp with time zone"
+        },
+        "name": {
+          "comment": null,
+          "index": 2,
+          "name": "name",
+          "type": "text"
+        }
+      },
+      "metadata": {
+        "comment": null,
+        "database": "pagila",
+        "name": "category",
+        "owner": "postgres",
+        "schema": "public",
+        "type": "BASE TABLE"
+      },
+      "stats": {
+        "has_stats": {
+          "description": "Indicates whether there are statistics for this table",
+          "id": "has_stats",
+          "include": false,
+          "label": "Has Stats?",
+          "value": false
+        }
+      },
+      "unique_id": "source.sample_dbt.pagila.category"
+    },
+    "source.sample_dbt.pagila.city": {
+      "columns": {
+        "city": {
+          "comment": null,
+          "index": 2,
+          "name": "city",
+          "type": "text"
+        },
+        "city_id": {
+          "comment": null,
+          "index": 1,
+          "name": "city_id",
+          "type": "integer"
+        },
+        "country_id": {
+          "comment": null,
+          "index": 3,
+          "name": "country_id",
+          "type": "integer"
+        },
+        "last_update": {
+          "comment": null,
+          "index": 4,
+          "name": "last_update",
+          "type": "timestamp with time zone"
+        }
+      },
+      "metadata": {
+        "comment": null,
+        "database": "pagila",
+        "name": "city",
+        "owner": "postgres",
+        "schema": "public",
+        "type": "BASE TABLE"
+      },
+      "stats": {
+        "has_stats": {
+          "description": "Indicates whether there are statistics for this table",
+          "id": "has_stats",
+          "include": false,
+          "label": "Has Stats?",
+          "value": false
+        }
+      },
+      "unique_id": "source.sample_dbt.pagila.city"
+    },
+    "source.sample_dbt.pagila.country": {
+      "columns": {
+        "country": {
+          "comment": null,
+          "index": 2,
+          "name": "country",
+          "type": "text"
+        },
+        "country_id": {
+          "comment": null,
+          "index": 1,
+          "name": "country_id",
+          "type": "integer"
+        },
+        "last_update": {
+          "comment": null,
+          "index": 3,
+          "name": "last_update",
+          "type": "timestamp with time zone"
+        }
+      },
+      "metadata": {
+        "comment": null,
+        "database": "pagila",
+        "name": "country",
+        "owner": "postgres",
+        "schema": "public",
+        "type": "BASE TABLE"
+      },
+      "stats": {
+        "has_stats": {
+          "description": "Indicates whether there are statistics for this table",
+          "id": "has_stats",
+          "include": false,
+          "label": "Has Stats?",
+          "value": false
+        }
+      },
+      "unique_id": "source.sample_dbt.pagila.country"
+    },
+    "source.sample_dbt.pagila.customer": {
+      "columns": {
+        "active": {
+          "comment": null,
+          "index": 10,
+          "name": "active",
+          "type": "integer"
+        },
+        "activebool": {
+          "comment": null,
+          "index": 7,
+          "name": "activebool",
+          "type": "boolean"
+        },
+        "address_id": {
+          "comment": null,
+          "index": 6,
+          "name": "address_id",
+          "type": "integer"
+        },
+        "create_date": {
+          "comment": null,
+          "index": 8,
+          "name": "create_date",
+          "type": "date"
+        },
+        "customer_id": {
+          "comment": null,
+          "index": 1,
+          "name": "customer_id",
+          "type": "integer"
+        },
+        "email": {
+          "comment": null,
+          "index": 5,
+          "name": "email",
+          "type": "text"
+        },
+        "first_name": {
+          "comment": null,
+          "index": 3,
+          "name": "first_name",
+          "type": "text"
+        },
+        "last_name": {
+          "comment": null,
+          "index": 4,
+          "name": "last_name",
+          "type": "text"
+        },
+        "last_update": {
+          "comment": null,
+          "index": 9,
+          "name": "last_update",
+          "type": "timestamp with time zone"
+        },
+        "store_id": {
+          "comment": null,
+          "index": 2,
+          "name": "store_id",
+          "type": "integer"
+        }
+      },
+      "metadata": {
+        "comment": null,
+        "database": "pagila",
+        "name": "customer",
+        "owner": "postgres",
+        "schema": "public",
+        "type": "BASE TABLE"
+      },
+      "stats": {
+        "has_stats": {
+          "description": "Indicates whether there are statistics for this table",
+          "id": "has_stats",
+          "include": false,
+          "label": "Has Stats?",
+          "value": false
+        }
+      },
+      "unique_id": "source.sample_dbt.pagila.customer"
+    },
+    "source.sample_dbt.pagila.payment_p2020_01": {
+      "columns": {
+        "amount": {
+          "comment": null,
+          "index": 5,
+          "name": "amount",
+          "type": "numeric(5,2)"
+        },
+        "customer_id": {
+          "comment": null,
+          "index": 2,
+          "name": "customer_id",
+          "type": "integer"
+        },
+        "payment_date": {
+          "comment": null,
+          "index": 6,
+          "name": "payment_date",
+          "type": "timestamp with time zone"
+        },
+        "payment_id": {
+          "comment": null,
+          "index": 1,
+          "name": "payment_id",
+          "type": "integer"
+        },
+        "rental_id": {
+          "comment": null,
+          "index": 4,
+          "name": "rental_id",
+          "type": "integer"
+        },
+        "staff_id": {
+          "comment": null,
+          "index": 3,
+          "name": "staff_id",
+          "type": "integer"
+        }
+      },
+      "metadata": {
+        "comment": null,
+        "database": "pagila",
+        "name": "payment_p2020_01",
+        "owner": "postgres",
+        "schema": "public",
+        "type": "BASE TABLE"
+      },
+      "stats": {
+        "has_stats": {
+          "description": "Indicates whether there are statistics for this table",
+          "id": "has_stats",
+          "include": false,
+          "label": "Has Stats?",
+          "value": false
+        }
+      },
+      "unique_id": "source.sample_dbt.pagila.payment_p2020_01"
+    },
+    "source.sample_dbt.pagila.payment_p2020_02": {
+      "columns": {
+        "amount": {
+          "comment": null,
+          "index": 5,
+          "name": "amount",
+          "type": "numeric(5,2)"
+        },
+        "customer_id": {
+          "comment": null,
+          "index": 2,
+          "name": "customer_id",
+          "type": "integer"
+        },
+        "payment_date": {
+          "comment": null,
+          "index": 6,
+          "name": "payment_date",
+          "type": "timestamp with time zone"
+        },
+        "payment_id": {
+          "comment": null,
+          "index": 1,
+          "name": "payment_id",
+          "type": "integer"
+        },
+        "rental_id": {
+          "comment": null,
+          "index": 4,
+          "name": "rental_id",
+          "type": "integer"
+        },
+        "staff_id": {
+          "comment": null,
+          "index": 3,
+          "name": "staff_id",
+          "type": "integer"
+        }
+      },
+      "metadata": {
+        "comment": null,
+        "database": "pagila",
+        "name": "payment_p2020_02",
+        "owner": "postgres",
+        "schema": "public",
+        "type": "BASE TABLE"
+      },
+      "stats": {
+        "has_stats": {
+          "description": "Indicates whether there are statistics for this table",
+          "id": "has_stats",
+          "include": false,
+          "label": "Has Stats?",
+          "value": false
+        }
+      },
+      "unique_id": "source.sample_dbt.pagila.payment_p2020_02"
+    },
+    "source.sample_dbt.pagila.payment_p2020_03": {
+      "columns": {
+        "amount": {
+          "comment": null,
+          "index": 5,
+          "name": "amount",
+          "type": "numeric(5,2)"
+        },
+        "customer_id": {
+          "comment": null,
+          "index": 2,
+          "name": "customer_id",
+          "type": "integer"
+        },
+        "payment_date": {
+          "comment": null,
+          "index": 6,
+          "name": "payment_date",
+          "type": "timestamp with time zone"
+        },
+        "payment_id": {
+          "comment": null,
+          "index": 1,
+          "name": "payment_id",
+          "type": "integer"
+        },
+        "rental_id": {
+          "comment": null,
+          "index": 4,
+          "name": "rental_id",
+          "type": "integer"
+        },
+        "staff_id": {
+          "comment": null,
+          "index": 3,
+          "name": "staff_id",
+          "type": "integer"
+        }
+      },
+      "metadata": {
+        "comment": null,
+        "database": "pagila",
+        "name": "payment_p2020_03",
+        "owner": "postgres",
+        "schema": "public",
+        "type": "BASE TABLE"
+      },
+      "stats": {
+        "has_stats": {
+          "description": "Indicates whether there are statistics for this table",
+          "id": "has_stats",
+          "include": false,
+          "label": "Has Stats?",
+          "value": false
+        }
+      },
+      "unique_id": "source.sample_dbt.pagila.payment_p2020_03"
+    },
+    "source.sample_dbt.pagila.payment_p2020_04": {
+      "columns": {
+        "amount": {
+          "comment": null,
+          "index": 5,
+          "name": "amount",
+          "type": "numeric(5,2)"
+        },
+        "customer_id": {
+          "comment": null,
+          "index": 2,
+          "name": "customer_id",
+          "type": "integer"
+        },
+        "payment_date": {
+          "comment": null,
+          "index": 6,
+          "name": "payment_date",
+          "type": "timestamp with time zone"
+        },
+        "payment_id": {
+          "comment": null,
+          "index": 1,
+          "name": "payment_id",
+          "type": "integer"
+        },
+        "rental_id": {
+          "comment": null,
+          "index": 4,
+          "name": "rental_id",
+          "type": "integer"
+        },
+        "staff_id": {
+          "comment": null,
+          "index": 3,
+          "name": "staff_id",
+          "type": "integer"
+        }
+      },
+      "metadata": {
+        "comment": null,
+        "database": "pagila",
+        "name": "payment_p2020_04",
+        "owner": "postgres",
+        "schema": "public",
+        "type": "BASE TABLE"
+      },
+      "stats": {
+        "has_stats": {
+          "description": "Indicates whether there are statistics for this table",
+          "id": "has_stats",
+          "include": false,
+          "label": "Has Stats?",
+          "value": false
+        }
+      },
+      "unique_id": "source.sample_dbt.pagila.payment_p2020_04"
+    },
+    "source.sample_dbt.pagila.payment_p2020_05": {
+      "columns": {
+        "amount": {
+          "comment": null,
+          "index": 5,
+          "name": "amount",
+          "type": "numeric(5,2)"
+        },
+        "customer_id": {
+          "comment": null,
+          "index": 2,
+          "name": "customer_id",
+          "type": "integer"
+        },
+        "payment_date": {
+          "comment": null,
+          "index": 6,
+          "name": "payment_date",
+          "type": "timestamp with time zone"
+        },
+        "payment_id": {
+          "comment": null,
+          "index": 1,
+          "name": "payment_id",
+          "type": "integer"
+        },
+        "rental_id": {
+          "comment": null,
+          "index": 4,
+          "name": "rental_id",
+          "type": "integer"
+        },
+        "staff_id": {
+          "comment": null,
+          "index": 3,
+          "name": "staff_id",
+          "type": "integer"
+        }
+      },
+      "metadata": {
+        "comment": null,
+        "database": "pagila",
+        "name": "payment_p2020_05",
+        "owner": "postgres",
+        "schema": "public",
+        "type": "BASE TABLE"
+      },
+      "stats": {
+        "has_stats": {
+          "description": "Indicates whether there are statistics for this table",
+          "id": "has_stats",
+          "include": false,
+          "label": "Has Stats?",
+          "value": false
+        }
+      },
+      "unique_id": "source.sample_dbt.pagila.payment_p2020_05"
+    },
+    "source.sample_dbt.pagila.payment_p2020_06": {
+      "columns": {
+        "amount": {
+          "comment": null,
+          "index": 5,
+          "name": "amount",
+          "type": "numeric(5,2)"
+        },
+        "customer_id": {
+          "comment": null,
+          "index": 2,
+          "name": "customer_id",
+          "type": "integer"
+        },
+        "payment_date": {
+          "comment": null,
+          "index": 6,
+          "name": "payment_date",
+          "type": "timestamp with time zone"
+        },
+        "payment_id": {
+          "comment": null,
+          "index": 1,
+          "name": "payment_id",
+          "type": "integer"
+        },
+        "rental_id": {
+          "comment": null,
+          "index": 4,
+          "name": "rental_id",
+          "type": "integer"
+        },
+        "staff_id": {
+          "comment": null,
+          "index": 3,
+          "name": "staff_id",
+          "type": "integer"
+        }
+      },
+      "metadata": {
+        "comment": null,
+        "database": "pagila",
+        "name": "payment_p2020_06",
+        "owner": "postgres",
+        "schema": "public",
+        "type": "BASE TABLE"
+      },
+      "stats": {
+        "has_stats": {
+          "description": "Indicates whether there are statistics for this table",
+          "id": "has_stats",
+          "include": false,
+          "label": "Has Stats?",
+          "value": false
+        }
+      },
+      "unique_id": "source.sample_dbt.pagila.payment_p2020_06"
+    }
+  }
+}
