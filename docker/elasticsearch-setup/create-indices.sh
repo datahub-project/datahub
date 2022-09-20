@@ -11,7 +11,7 @@ if [[ $ELASTICSEARCH_USE_SSL == true ]]; then
 else
     ELASTICSEARCH_PROTOCOL=http
 fi
-echo -e "going to use $ELASTICSEARCH_PROTOCOL"
+echo -e "going to use protocol: $ELASTICSEARCH_PROTOCOL"
 
 # Elasticsearch URL to be suffixed with a resource address
 ELASTICSEARCH_URL="$ELASTICSEARCH_PROTOCOL://$ELASTICSEARCH_HOST:$ELASTICSEARCH_PORT"
@@ -30,12 +30,23 @@ if [[ -z $ELASTICSEARCH_AUTH_HEADER ]]; then
   fi
 fi
 
+# will be using this for all curl communication with Elasticsearch:
+CURL_ARGS=(
+  --silent
+  --header "$ELASTICSEARCH_AUTH_HEADER"
+)
+# ... also optionally use --insecure
+if [[ $ELASTICSEARCH_INSECURE ]]; then
+  CURL_ARGS+=(--insecure)
+fi
+
 # index prefix used throughout the script
-echo -e "going to use prefix $INDEX_PREFIX"
 if [[ -z "$INDEX_PREFIX" ]]; then
   PREFIX=''
+  echo -e "not using any prefix"
 else
   PREFIX="${INDEX_PREFIX}_"
+  echo -e "going to use prefix: '$PREFIX'"
 fi
 
 # path where index definitions are stored
@@ -49,7 +60,7 @@ function create_if_not_exists {
   RESOURCE_DEFINITION_NAME="$2"
 
   # query ES to see if the resource already exists
-  RESOURCE_STATUS=$(curl -o /dev/null -s -w "%{http_code}\n" --header "$ELASTICSEARCH_AUTH_HEADER" "$ELASTICSEARCH_URL/$RESOURCE_ADDRESS")
+  RESOURCE_STATUS=$(curl "${CURL_ARGS[@]}" -o /dev/null -w "%{http_code}\n" "$ELASTICSEARCH_URL/$RESOURCE_ADDRESS")
   echo -e "\n>>> GET $RESOURCE_ADDRESS response code is $RESOURCE_STATUS"
 
   if [ $RESOURCE_STATUS -eq 200 ]; then
@@ -59,12 +70,14 @@ function create_if_not_exists {
   elif [ $RESOURCE_STATUS -eq 404 ]; then
     # resource doesn't exist -> need to create it
     echo -e ">>> creating $RESOURCE_ADDRESS because it doesn't exist ..."
-    # use the given path as definition, but first replace all occurences of PREFIX within the file with the actual prefix
+    # use the file at given path as definition, but first replace all occurences of `PREFIX`
+    # placeholder within the file with the actual prefix value
     TMP_SOURCE_PATH="/tmp/$RESOURCE_DEFINITION_NAME"
     sed -e "s/PREFIX/$PREFIX/g" "$INDEX_DEFINITIONS_ROOT/$RESOURCE_DEFINITION_NAME" | tee -a "$TMP_SOURCE_PATH"
-    curl -s -XPUT --header "$ELASTICSEARCH_AUTH_HEADER" "$ELASTICSEARCH_URL/$RESOURCE_ADDRESS" -H 'Content-Type: application/json' --data "@$TMP_SOURCE_PATH"
+    curl "${CURL_ARGS[@]}" -XPUT "$ELASTICSEARCH_URL/$RESOURCE_ADDRESS" -H 'Content-Type: application/json' --data "@$TMP_SOURCE_PATH"
 
   elif [ $RESOURCE_STATUS -eq 403 ]; then
+    # probably authorization fail
     echo -e ">>> forbidden access to $RESOURCE_ADDRESS ! -> exiting"
     exit 1
 
@@ -109,14 +122,14 @@ function create_datahub_usage_event_aws_elasticsearch() {
   #     ... but first check whether `datahub_usage_event` wasn't already autocreated by GMS before `datahub_usage_event-000001`
   #     (as is common case when this script was initially run without properly setting `USE_AWS_ELASTICSEARCH` to `true`)
   #     -> https://github.com/datahub-project/datahub/issues/5376
-  USAGE_EVENT_STATUS=$(curl -o /dev/null -s -w "%{http_code}\n" --header "$ELASTICSEARCH_AUTH_HEADER" "$ELASTICSEARCH_URL/${PREFIX}datahub_usage_event")
+  USAGE_EVENT_STATUS=$(curl "${CURL_ARGS[@]}" -o /dev/null -w "%{http_code}\n" "$ELASTICSEARCH_URL/${PREFIX}datahub_usage_event")
   if [ $USAGE_EVENT_STATUS -eq 200 ]; then
-    USAGE_EVENT_DEFINITION=$(curl -s --header "$ELASTICSEARCH_AUTH_HEADER" "$ELASTICSEARCH_URL/${PREFIX}datahub_usage_event")
+    USAGE_EVENT_DEFINITION=$(curl "${CURL_ARGS[@]}" "$ELASTICSEARCH_URL/${PREFIX}datahub_usage_event")
     # the definition is expected to contain "datahub_usage_event-000001" string
     if [[ $USAGE_EVENT_DEFINITION != *"datahub_usage_event-$INDEX_SUFFIX"* ]]; then
       # ... if it doesn't, we need to drop it
       echo -e "\n>>> deleting invalid datahub_usage_event ..."
-      curl -s -XDELETE --header "$ELASTICSEARCH_AUTH_HEADER" "$ELASTICSEARCH_URL/${PREFIX}datahub_usage_event"
+      curl "${CURL_ARGS[@]}" -XDELETE "$ELASTICSEARCH_URL/${PREFIX}datahub_usage_event"
       # ... and then recreate it below
     fi
   fi
