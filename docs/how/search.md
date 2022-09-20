@@ -138,7 +138,7 @@ for integrations and programmatic use-cases.
 ## FAQ and Troubleshooting
 
 ** How are the results ordered? **
-The order of the search results is based on the weight Datahub gives them based on our search algorithm. The current algorithm in OSS DataHub is based on a text-match score from elastic.
+The order of the search results is based on the weight what Datahub gives them based on our search algorithm. The current algorithm in OSS DataHub is based on a text-match score from Elastic Search.
 
 ** Where to find more information? **
 The sample queries here are non exhaustive. [The link here](https://demo.datahubproject.io/tag/urn:li:tag:Searchable) shows the current list of indexed fields for each entity inside Datahub. Click on the fields inside each entity and see which field has the tag ```Searchable```.  
