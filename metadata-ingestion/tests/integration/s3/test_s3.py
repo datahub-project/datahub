@@ -78,7 +78,6 @@ def test_data_lake_s3_ingest(
 
     f = open(os.path.join(SOURCE_FILES_PATH, source_file))
     source = json.load(f)
-    source["config"]["platform"] = "s3"
 
     config_dict = {}
     config_dict["source"] = source

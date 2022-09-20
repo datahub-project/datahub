@@ -77,33 +77,48 @@ class DataLakeSourceConfig(PlatformSourceConfigBase, EnvBasedSourceConfigBase):
 
     @pydantic.root_validator(pre=False)
     def check_path_specs_and_infer_platform(cls, values: Dict) -> Dict:
+        guessed_platform = None
         bucket_name: str = ""
         path_spec: PathSpec
         for path_spec in values.get("path_specs", []):
+            prev_platform_guess = guessed_platform
+
             if path_spec.is_s3:
-                platform = "s3"
+                guessed_platform = "s3"
             else:
-                if values.get("use_s3_object_tags") or values.get("use_s3_bucket_tags"):
-                    raise ValueError(
-                        "cannot grab s3 tags for platform != s3. Remove the flag or use s3."
-                    )
+                guessed_platform = "file"
 
-                platform = "file"
+            if (
+                prev_platform_guess is not None
+                and guessed_platform != prev_platform_guess
+            ):
+                raise ValueError(
+                    f"All path_specs must be of the same platform. Found {prev_platform_guess} and {guessed_platform}."
+                )
 
-            if values.get("platform") and values["platform"] != platform:
-                raise ValueError("all path_spec should belong to the same platform")
-            else:
-                logger.debug(f'Setting config "platform": {platform}')
-                values["platform"] = platform
-
-            if platform == "s3":
+            if guessed_platform == "s3":
                 if bucket_name == "":
                     bucket_name = get_bucket_name(path_spec.include)
                 else:
                     if bucket_name != get_bucket_name(path_spec.include):
                         raise ValueError(
-                            "all path_spec should reference the same s3 bucket"
+                            "All path_spec should reference the same s3 bucket"
                         )
+
+        if values.get("platform") and values["platform"] != guessed_platform:
+            raise ValueError(
+                f"All path_specs belong to {guessed_platform} platform, but platform is set to {values['platform']}"
+            )
+        else:
+            logger.debug(f'Setting config "platform": {guessed_platform}')
+            values["platform"] = guessed_platform
+
+        if guessed_platform == "s3" and (
+            values.get("use_s3_object_tags") or values.get("use_s3_bucket_tags")
+        ):
+            raise ValueError(
+                "Cannot grab s3 object/bucket tags when platform is not s3. Remove the flag or use s3."
+            )
 
         return values
 
