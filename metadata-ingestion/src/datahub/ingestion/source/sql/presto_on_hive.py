@@ -630,7 +630,7 @@ class PrestoOnHiveSource(SQLAlchemySource):
         return get_schema_fields_for_hive_column(
             column["col_name"],
             column["col_type"],
-            description=column["col_description"],
+            description=column["col_description"] if "col_description" in column else "",
             default_nullable=True,
         )
 
