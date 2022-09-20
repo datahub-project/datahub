@@ -19,7 +19,7 @@ The first thing you'll need to use the GraphQL API is a deployed instance of Dat
 
 ## Querying the GraphQL API
 
-DataHub's GraphQL endpoint is served at the path `/api/v2/graphql`, e.g. `https://my-company.datahub.com/api/v2/graphql`.
+DataHub's GraphQL endpoint is served at the path `/api/graphql`, e.g. `https://my-company.datahub.com/api/graphql`.
 There are a few options when it comes to querying the GraphQL endpoint.
 
 For **Testing**, we recommend [Postman](https://learning.postman.com/docs/sending-requests/supported-api-frameworks/graphql/), GraphQL Explorer (described below), or CURL.
@@ -47,7 +47,7 @@ tokens when querying both the Frontend Proxy Server and the Metadata Service. If
 
 ## GraphQL Explorer 
 
-DataHub provides a browser-based GraphQL Explorer Tool ([GraphiQL](https://github.com/graphql/graphiql)) for live interaction with the GraphQL API. This tool is available at the path `/api/v2/graphiql` (e.g. `https://my-company.datahub.com/api/v2/graphql`)
+DataHub provides a browser-based GraphQL Explorer Tool ([GraphiQL](https://github.com/graphql/graphiql)) for live interaction with the GraphQL API. This tool is available at the path `/api/graphiql` (e.g. `https://my-company.datahub.com/api/graphiql`)
 This interface allows you to easily craft queries and mutations against real metadata stored in your live DataHub deployment. For a detailed usage guide,
 check out [How to use GraphiQL](https://www.gatsbyjs.com/docs/how-to/querying-data/running-queries-with-graphiql/). 
 
