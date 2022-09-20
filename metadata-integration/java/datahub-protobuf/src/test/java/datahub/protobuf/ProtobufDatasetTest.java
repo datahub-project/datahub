@@ -73,6 +73,8 @@ public class ProtobufDatasetTest {
         assertEquals(1, testMetadata.getVersion());
         assertEquals(9, testMetadata.getFields().size());
 
+        assertEquals("MessageA", extractAspect(test.getDatasetMCPs().get(0), "name"));
+        assertEquals("protobuf.MessageA", extractAspect(test.getDatasetMCPs().get(0), "qualifiedName"));
 
         assertEquals("platform.topic", extractCustomProperty(test.getDatasetMCPs().get(0), "kafka_topic"));
 

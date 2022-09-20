@@ -8,7 +8,7 @@
                 {
                     "com.linkedin.pegasus2avro.common.BrowsePaths": {
                         "paths": [
-                            "/prod/looker/lkml_samples/views/include_able_view"
+                            "/prod/looker/lkml_samples/views"
                         ]
                     }
                 },
@@ -106,7 +106,7 @@
                 {
                     "com.linkedin.pegasus2avro.common.BrowsePaths": {
                         "paths": [
-                            "/prod/looker/lkml_samples/views/looker_events"
+                            "/prod/looker/lkml_samples/views"
                         ]
                     }
                 },
@@ -204,7 +204,7 @@
                 {
                     "com.linkedin.pegasus2avro.common.BrowsePaths": {
                         "paths": [
-                            "/prod/looker/lkml_samples/views/extending_looker_events"
+                            "/prod/looker/lkml_samples/views"
                         ]
                     }
                 },
@@ -363,7 +363,7 @@
                 {
                     "com.linkedin.pegasus2avro.common.BrowsePaths": {
                         "paths": [
-                            "/prod/looker/lkml_samples/views/autodetect_sql_name_based_on_view_name"
+                            "/prod/looker/lkml_samples/views"
                         ]
                     }
                 },
@@ -461,7 +461,7 @@
                 {
                     "com.linkedin.pegasus2avro.common.BrowsePaths": {
                         "paths": [
-                            "/prod/looker/lkml_samples/views/test_include_external_view"
+                            "/prod/looker/lkml_samples/views"
                         ]
                     }
                 },

@@ -138,7 +138,7 @@ public class EntitySpecBuilderTest {
     assertEquals(new TestEntityInfo().schema().getFullName(), testEntityInfo.getPegasusSchema().getFullName());
 
     // Assert on Searchable Fields
-    assertEquals(8, testEntityInfo.getSearchableFieldSpecs().size());
+    assertEquals(9, testEntityInfo.getSearchableFieldSpecs().size());
     assertEquals("customProperties", testEntityInfo.getSearchableFieldSpecMap().get(
         new PathSpec("customProperties").toString()).getSearchableAnnotation().getFieldName());
     assertEquals(SearchableAnnotation.FieldType.KEYWORD, testEntityInfo.getSearchableFieldSpecMap().get(
@@ -170,6 +170,11 @@ public class EntitySpecBuilderTest {
         .getSearchableAnnotation().getFieldName());
     assertEquals(SearchableAnnotation.FieldType.TEXT, testEntityInfo.getSearchableFieldSpecMap().get(
         new PathSpec("nestedRecordArrayField", "*", "nestedArrayArrayField", "*").toString())
+        .getSearchableAnnotation().getFieldType());
+    assertEquals("esObjectField", testEntityInfo.getSearchableFieldSpecMap().get(
+        new PathSpec("esObjectField").toString()).getSearchableAnnotation().getFieldName());
+    assertEquals(SearchableAnnotation.FieldType.OBJECT, testEntityInfo.getSearchableFieldSpecMap().get(
+            new PathSpec("esObjectField").toString())
         .getSearchableAnnotation().getFieldType());
 
     // Assert on Relationship Fields

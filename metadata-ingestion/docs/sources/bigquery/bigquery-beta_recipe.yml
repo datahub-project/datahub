@@ -1,0 +1,22 @@
+source:
+  type: bigquery-beta
+  config:
+    # `schema_pattern` for BQ Datasets
+    schema_pattern:
+      allow:
+        - finance_bq_dataset
+    table_pattern:
+      deny:
+        # The exact name of the table is revenue_table_name
+        # The reason we have this `.*` at the beginning is because the current implmenetation of table_pattern is testing
+        # project_id.dataset_name.table_name
+        # We will improve this in the future
+        - .*revenue_table_name
+    include_table_lineage: true
+    include_usage_statistics: true
+    profiling:
+      enabled: true
+      profile_table_level_only: true
+
+sink:
+  # sink configs

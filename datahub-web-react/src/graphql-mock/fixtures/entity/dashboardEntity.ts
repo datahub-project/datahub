@@ -121,5 +121,6 @@ export const dashboardEntity = (tool): Dashboard => {
         },
         platform: dataPlatform,
         __typename: 'Dashboard',
+        subTypes: null,
     };
 };
