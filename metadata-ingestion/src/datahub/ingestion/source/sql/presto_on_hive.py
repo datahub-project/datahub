@@ -245,7 +245,7 @@ class PrestoOnHiveSource(SQLAlchemySource):
     JOIN "SDS" s ON t."SD_ID" = s."SD_ID"
     JOIN "COLUMNS_V2" c ON s."CD_ID" = c."CD_ID"
     LEFT JOIN "TABLE_PARAMS" tp ON (t."TBL_ID" = tp."TBL_ID" AND tp."PARAM_KEY"='comment')
-    WHERE t."TBL_TYPE" IN ('EXTERNAL_TABLE', 'MANAGED_TABLE')
+    WHERE t."TBL_TYPE" IN ('VIRTUAL_VIEW')
     {where_clause_suffix}
     ) source
     ORDER by tbl_id desc, col_sort_order asc;
@@ -382,8 +382,12 @@ class PrestoOnHiveSource(SQLAlchemySource):
         sql_config: SQLAlchemyConfig,
     ) -> Iterable[Union[SqlWorkUnit, MetadataWorkUnit]]:
 
-        # We should skip all the non-metastore databases from the metastore db
-        if self.config.metastore_db_name and self.config.metastore_db_name != schema:
+        # In mysql we get tables for all databases and we should filter out the non metastore one
+        if (
+            "mysql" in self.config.scheme
+            and self.config.metastore_db_name
+            and self.config.metastore_db_name != schema
+        ):
             return
 
         assert isinstance(sql_config, PrestoOnHiveConfig)
@@ -573,8 +577,12 @@ class PrestoOnHiveSource(SQLAlchemySource):
 
         assert isinstance(sql_config, PrestoOnHiveConfig)
 
-        # We should skip all the non-metastore databases from the metastore db
-        if self.config.metastore_db_name and self.config.metastore_db_name != schema:
+        # In mysql we get tables for all databases and we should filter out the non metastore one
+        if (
+            "mysql" in self.config.scheme
+            and self.config.metastore_db_name
+            and self.config.metastore_db_name != schema
+        ):
             return
 
         iter: Iterable[ViewDataset]
