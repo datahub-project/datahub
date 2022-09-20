@@ -3,7 +3,7 @@ import logging
 from dataclasses import dataclass
 from datetime import datetime
 from functools import lru_cache
-from typing import Any, Dict, Iterable, List, Optional, Tuple, Union, cast
+from typing import Any, Dict, Iterable, List, Optional, Tuple, Union
 
 import dateutil.parser as dp
 import tableauserverclient as TSC
@@ -300,7 +300,6 @@ class TableauSource(Source):
         query_data = query_metadata(
             self.server, query, connection_type, count, current_count, query_filter
         )
-        # logger.info("Mohd Query Data= {}".format(json.dumps(query_data)))
         if "errors" in query_data:
             self.report.report_warning(
                 key="tableau-metadata",
@@ -997,19 +996,10 @@ class TableauSource(Source):
             sheet.get("name"),
             sheet.get("id"),
         )
-        return cast(
-            Optional[MetadataWorkUnit],
-            MetadataWorkUnit(
-                id=f"wu-{sheet_urn}-{ChartUsageStatisticsClass.ASPECT_NAME}",
-                mcp=MetadataChangeProposalWrapper(
-                    aspectName=ChartUsageStatisticsClass.ASPECT_NAME,
-                    aspect=aspect,
-                    entityUrn=sheet_urn,
-                    entityType="chart",
-                    changeType=ChangeTypeClass.UPSERT,
-                ),
-            ),
-        )
+        return MetadataChangeProposalWrapper(
+            aspect=aspect,
+            entityUrn=sheet_urn,
+        ).as_workunit()
 
     def emit_sheets_as_charts(self, workbook: Dict) -> Iterable[MetadataWorkUnit]:
         for sheet in workbook.get("sheets", []):
@@ -1200,19 +1190,10 @@ class TableauSource(Source):
             dashboard.get("id"),
         )
 
-        return cast(
-            Optional[MetadataWorkUnit],
-            MetadataWorkUnit(
-                id=f"wu-{dashboard_urn}-{ChartUsageStatisticsClass.ASPECT_NAME}",
-                mcp=MetadataChangeProposalWrapper(
-                    aspectName=DashboardUsageStatisticsClass.ASPECT_NAME,
-                    aspect=aspect,
-                    entityUrn=dashboard_urn,
-                    entityType="dashboard",
-                    changeType=ChangeTypeClass.UPSERT,
-                ),
-            ),
-        )
+        return MetadataChangeProposalWrapper(
+            aspect=aspect,
+            entityUrn=dashboard_urn,
+        ).as_workunit()
 
     def emit_dashboards(self, workbook: Dict) -> Iterable[MetadataWorkUnit]:
         for dashboard in workbook.get("dashboards", []):
