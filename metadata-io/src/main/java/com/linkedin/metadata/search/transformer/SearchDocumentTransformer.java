@@ -31,6 +31,8 @@ public class SearchDocumentTransformer {
   // The cap improves search speed when having fields with a large number of elements
   private final int maxArrayLength;
 
+  private final int maxObjectKeys;
+
   public Optional<String> transformSnapshot(final RecordTemplate snapshot, final EntitySpec entitySpec,
       final Boolean forDelete) {
     final Map<SearchableFieldSpec, List<Object>> extractedSearchableFields =
@@ -112,11 +114,20 @@ public class SearchDocumentTransformer {
       return;
     }
 
-    if (isArray || valueType == DataSchema.Type.MAP) {
+    if (isArray || (valueType == DataSchema.Type.MAP && fieldType != FieldType.OBJECT)) {
       ArrayNode arrayNode = JsonNodeFactory.instance.arrayNode();
       fieldValues.subList(0, Math.min(fieldValues.size(), maxArrayLength))
           .forEach(value -> getNodeForValue(valueType, value, fieldType).ifPresent(arrayNode::add));
       searchDocument.set(fieldName, arrayNode);
+    } else if (valueType == DataSchema.Type.MAP) {
+      ObjectNode dictDoc = JsonNodeFactory.instance.objectNode();
+      fieldValues.subList(0, Math.min(fieldValues.size(), maxObjectKeys)).forEach(fieldValue -> {
+        String[] keyValues = fieldValue.toString().split("=");
+        String key = keyValues[0];
+        String value = keyValues[1];
+        dictDoc.put(key, value);
+      });
+      searchDocument.set(fieldName, dictDoc);
     } else if (!fieldValues.isEmpty()) {
       getNodeForValue(valueType, fieldValues.get(0), fieldType).ifPresent(node -> searchDocument.set(fieldName, node));
     }
