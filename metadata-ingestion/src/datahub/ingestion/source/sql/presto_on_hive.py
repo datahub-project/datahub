@@ -6,6 +6,7 @@ from enum import Enum
 from itertools import groupby
 from typing import Any, Dict, Iterable, List, Optional, Tuple, Union
 
+from pydantic.dataclasses import dataclass
 from pydantic.fields import Field
 
 # This import verifies that the dependencies are available.
@@ -57,6 +58,14 @@ class PrestoOnHiveConfigMode(str, Enum):
     presto: str = "presto"
     presto_on_hive: str = "presto-on-hive"
     trino: str = "trino"
+
+
+@dataclass
+class ViewDataset:
+    dataset_name: str
+    schema_name: str
+    columns: List[dict]
+    view_definition: Optional[str] = None
 
 
 class PrestoOnHiveConfig(BasicSQLAlchemyConfig):
@@ -116,23 +125,27 @@ class PrestoOnHiveSource(SQLAlchemySource):
 
     _TABLES_SQL_STATEMENT = """
     SELECT source.* FROM
-    (SELECT t.TBL_ID, d.NAME as schema_name, t.TBL_NAME as table_name, t.TBL_TYPE as table_type,
+    (SELECT t.TBL_ID, d.NAME as schema_name, t.TBL_NAME as table_name, t.TBL_TYPE as table_type, tp.PARAM_VALUE as description,
            FROM_UNIXTIME(t.CREATE_TIME, '%Y-%m-%d') as create_date, p.PKEY_NAME as col_name, p.INTEGER_IDX as col_sort_order,
-           p.PKEY_TYPE as col_type, 1 as is_partition_col, s.LOCATION as table_location
+           p.PKEY_COMMENT as col_description, p.PKEY_TYPE as col_type, 1 as is_partition_col, s.LOCATION as table_location,
+           IF(t.TBL_TYPE = 'VIRTUAL_VIEW', 1, 0) "is_view"
     FROM TBLS t
     JOIN DBS d ON t.DB_ID = d.DB_ID
     JOIN SDS s ON t.SD_ID = s.SD_ID
     JOIN PARTITION_KEYS p ON t.TBL_ID = p.TBL_ID
+    LEFT JOIN TABLE_PARAMS tp ON (t.TBL_ID = tp.TBL_ID AND tp.PARAM_KEY='comment')
     WHERE t.TBL_TYPE IN ('EXTERNAL_TABLE', 'MANAGED_TABLE')
     {where_clause_suffix}
     UNION
-    SELECT t.TBL_ID, d.NAME as schema_name, t.TBL_NAME as table_name, t.TBL_TYPE as table_type,
+    SELECT t.TBL_ID, d.NAME as schema_name, t.TBL_NAME as table_name, t.TBL_TYPE as table_type, tp.PARAM_VALUE as description,
            FROM_UNIXTIME(t.CREATE_TIME, '%Y-%m-%d') as create_date, c.COLUMN_NAME as col_name, c.INTEGER_IDX as col_sort_order,
-           c.TYPE_NAME as col_type, 0 as is_partition_col, s.LOCATION as table_location
+            c.COMMENT as col_description, c.TYPE_NAME as col_type, 0 as is_partition_col, s.LOCATION as table_location,
+           IF(t.TBL_TYPE = 'VIRTUAL_VIEW', 1, 0) "is_view"
     FROM TBLS t
     JOIN DBS d ON t.DB_ID = d.DB_ID
     JOIN SDS s ON t.SD_ID = s.SD_ID
     JOIN COLUMNS_V2 c ON s.CD_ID = c.CD_ID
+    LEFT JOIN TABLE_PARAMS tp ON (t.TBL_ID = tp.TBL_ID AND tp.PARAM_KEY='comment')
     WHERE t.TBL_TYPE IN ('EXTERNAL_TABLE', 'MANAGED_TABLE')
     {where_clause_suffix}
     ) source
@@ -141,27 +154,38 @@ class PrestoOnHiveSource(SQLAlchemySource):
 
     _TABLES_POSTGRES_SQL_STATEMENT = """
     SELECT source.* FROM
-    (SELECT t."TBL_ID" as tbl_id, d."NAME" as schema_name, t."TBL_NAME" as table_name, t."TBL_TYPE" as table_type,
-            to_char(to_timestamp(t."CREATE_TIME"), 'YYYY-MM-DD') as create_date, p."PKEY_NAME" as col_name,
-            p."INTEGER_IDX" as col_sort_order, p."PKEY_TYPE" as col_type, 1 as is_partition_col, s."LOCATION" as table_location
+    (SELECT t."TBL_ID" as tbl_id, d."NAME" as schema_name, t."TBL_NAME" as table_name, t."TBL_TYPE" as table_type, tp."PARAM_VALUE" as description,
+            to_char(to_timestamp(t."CREATE_TIME"), 'YYYY-MM-DD') as create_date, p."PKEY_NAME" as col_name, p."INTEGER_IDX" as col_sort_order,
+            p."PKEY_COMMENT" as col_description, p."PKEY_TYPE" as col_type, 1 as is_partition_col, s."LOCATION" as table_location
     FROM "TBLS" t
     JOIN "DBS" d ON t."DB_ID" = d."DB_ID"
     JOIN "SDS" s ON t."SD_ID" = s."SD_ID"
     JOIN "PARTITION_KEYS" p ON t."TBL_ID" = p."TBL_ID"
+    LEFT JOIN "TABLE_PARAMS" tp ON (t."TBL_ID" = tp."TBL_ID" AND tp."PARAM_KEY"='comment')
     WHERE t."TBL_TYPE" IN ('EXTERNAL_TABLE', 'MANAGED_TABLE')
     {where_clause_suffix}
     UNION
-    SELECT t."TBL_ID" as tbl_id, d."NAME" as schema_name, t."TBL_NAME" as table_name, t."TBL_TYPE" as table_type,
+    SELECT t."TBL_ID" as tbl_id, d."NAME" as schema_name, t."TBL_NAME" as table_name, t."TBL_TYPE" as table_type, tp."PARAM_VALUE" as description,
            to_char(to_timestamp(t."CREATE_TIME"), 'YYYY-MM-DD') as create_date, c."COLUMN_NAME" as col_name,
            c."INTEGER_IDX" as col_sort_order, c."TYPE_NAME" as col_type, 0 as is_partition_col, s."LOCATION" as table_location
     FROM "TBLS" t
     JOIN "DBS" d ON t."DB_ID" = d."DB_ID"
     JOIN "SDS" s ON t."SD_ID" = s."SD_ID"
     JOIN "COLUMNS_V2" c ON s."CD_ID" = c."CD_ID"
+    LEFT JOIN "TABLE_PARAMS" tp ON (t."TBL_ID" = tp."TBL_ID" AND tp."PARAM_KEY"='comment')
     WHERE t."TBL_TYPE" IN ('EXTERNAL_TABLE', 'MANAGED_TABLE')
     {where_clause_suffix}
     ) source
     ORDER by tbl_id desc, col_sort_order asc;
+    """
+
+    _VIEWS_POSTGRES_SQL_STATEMENT = """
+    SELECT t."TBL_ID", d."NAME" as "schema", t."TBL_NAME" "name", t."TBL_TYPE", t."VIEW_ORIGINAL_TEXT" as "view_original_text"
+    FROM "TBLS" t
+    JOIN "DBS" d ON t."DB_ID" = d."DB_ID"
+    WHERE t."VIEW_EXPANDED_TEXT" = '/* Presto View */'
+    {where_clause_suffix}
+    ORDER BY t."TBL_ID" desc;
     """
 
     _VIEWS_SQL_STATEMENT = """
@@ -173,13 +197,36 @@ class PrestoOnHiveSource(SQLAlchemySource):
     ORDER BY t.TBL_ID desc;
     """
 
-    _VIEWS_POSTGRES_SQL_STATEMENT = """
-    SELECT t."TBL_ID", d."NAME" as "schema", t."TBL_NAME" "name", t."TBL_TYPE", t."VIEW_ORIGINAL_TEXT" as "view_original_text"
+    _HIVE_VIEWS_SQL_STATEMENT = """
+    SELECT source.* FROM
+    (SELECT t.TBL_ID, d.NAME as schema_name, t.TBL_NAME as table_name, t.TBL_TYPE as table_type, t.VIEW_EXPANDED_TEXT as view_expanded_text, tp.PARAM_VALUE as description,
+           FROM_UNIXTIME(t.CREATE_TIME, '%Y-%m-%d') as create_date, c.COLUMN_NAME as col_name, c.INTEGER_IDX as col_sort_order,
+            c.COMMENT as col_description, c.TYPE_NAME as col_type
+    FROM TBLS t
+    JOIN DBS d ON t.DB_ID = d.DB_ID
+    JOIN SDS s ON t.SD_ID = s.SD_ID
+    JOIN COLUMNS_V2 c ON s.CD_ID = c.CD_ID
+    LEFT JOIN TABLE_PARAMS tp ON (t.TBL_ID = tp.TBL_ID AND tp.PARAM_KEY='comment')
+    WHERE t.TBL_TYPE IN ('VIRTUAL_VIEW')
+    {where_clause_suffix}
+    ) source
+    ORDER by tbl_id desc, col_sort_order asc;
+    """
+
+    _HIVE_VIEWS_POSTGRES_SQL_STATEMENT = """
+    SELECT source.* FROM
+    (SELECT t."TBL_ID" as tbl_id, d."NAME" as schema_name, t."TBL_NAME" as table_name, t."TBL_TYPE" as table_type, t."VIEW_EXPANDED_TEXT" as view_expanded_text, tp."PARAM_VALUE" as description,
+           to_char(to_timestamp(t."CREATE_TIME"), 'YYYY-MM-DD') as create_date, c."COLUMN_NAME" as col_name,
+           c."INTEGER_IDX" as col_sort_order, c."TYPE_NAME" as col_type
     FROM "TBLS" t
     JOIN "DBS" d ON t."DB_ID" = d."DB_ID"
-    WHERE t."VIEW_EXPANDED_TEXT" = '/* Presto View */'
+    JOIN "SDS" s ON t."SD_ID" = s."SD_ID"
+    JOIN "COLUMNS_V2" c ON s."CD_ID" = c."CD_ID"
+    LEFT JOIN "TABLE_PARAMS" tp ON (t."TBL_ID" = tp."TBL_ID" AND tp."PARAM_KEY"='comment')
+    WHERE t."TBL_TYPE" IN ('EXTERNAL_TABLE', 'MANAGED_TABLE')
     {where_clause_suffix}
-    ORDER BY t."TBL_ID" desc;
+    ) source
+    ORDER by tbl_id desc, col_sort_order asc;
     """
 
     _PRESTO_VIEW_PREFIX = "/* Presto View: "
@@ -196,7 +243,7 @@ class PrestoOnHiveSource(SQLAlchemySource):
     _SCHEMAS_POSTGRES_SQL_STATEMENT = """
     SELECT d."NAME" as "schema"
     FROM "DBS" d
-    WHERE 1=1
+    WHERE 1 = 1
     {where_clause_suffix}
     ORDER BY d."NAME" desc;
     """
@@ -224,7 +271,12 @@ class PrestoOnHiveSource(SQLAlchemySource):
     ) -> Iterable[MetadataWorkUnit]:
 
         assert isinstance(self.config, PrestoOnHiveConfig)
-        where_clause_suffix = f"{self.config.schemas_where_clause_suffix} {self._get_db_filter_where_clause()}"
+        where_clause_suffix: str = ""
+        if (
+            self.config.schemas_where_clause_suffix
+            or self._get_db_filter_where_clause()
+        ):
+            where_clause_suffix = f"{self.config.schemas_where_clause_suffix} {self._get_db_filter_where_clause()}"
 
         statement: str = (
             PrestoOnHiveSource._SCHEMAS_POSTGRES_SQL_STATEMENT.format(
@@ -259,6 +311,10 @@ class PrestoOnHiveSource(SQLAlchemySource):
         schema: str,
         sql_config: SQLAlchemyConfig,
     ) -> Iterable[Union[SqlWorkUnit, MetadataWorkUnit]]:
+
+        # We should skip all the non-metastore databases from the metastore db
+        if self.config.metastore_db_name != schema:
+            return
 
         assert isinstance(sql_config, PrestoOnHiveConfig)
         where_clause_suffix = f"{sql_config.tables_where_clause_suffix} {self._get_db_filter_where_clause()}"
@@ -329,7 +385,7 @@ class PrestoOnHiveSource(SQLAlchemySource):
                 properties["partitioned_columns"] = par_columns
 
             dataset_properties = DatasetPropertiesClass(
-                description=None,
+                description=columns[-1]["description"],
                 customProperties=properties,
             )
             dataset_snapshot.aspects.append(dataset_properties)
@@ -367,6 +423,73 @@ class PrestoOnHiveSource(SQLAlchemySource):
                 sql_config=sql_config,
             )
 
+    def get_hive_view_columns(self, inspector: Inspector) -> Iterable[ViewDataset]:
+        where_clause_suffix = ""
+        if self.config.views_where_clause_suffix or self._get_db_filter_where_clause():
+            where_clause_suffix = f"{self.config.views_where_clause_suffix} {self._get_db_filter_where_clause()}"
+
+        statement: str = (
+            PrestoOnHiveSource._HIVE_VIEWS_POSTGRES_SQL_STATEMENT.format(
+                where_clause_suffix=where_clause_suffix
+            )
+            if "postgresql" in self.config.scheme
+            else PrestoOnHiveSource._HIVE_VIEWS_SQL_STATEMENT.format(
+                where_clause_suffix=where_clause_suffix
+            )
+        )
+
+        iter_res = self._alchemy_client.execute_query(statement)
+        for key, group in groupby(iter_res, self._get_table_key):
+            dataset_name = self.get_identifier(
+                schema=key.schema, entity=key.table, inspector=inspector
+            )
+            columns = list(group)
+
+            if len(columns) == 0:
+                self.report.report_warning(dataset_name, "missing column information")
+
+            yield ViewDataset(
+                dataset_name=dataset_name,
+                schema_name=key.schema,
+                columns=columns,
+                view_definition=columns[-1]["view_expanded_text"],
+            )
+
+    def get_presto_view_columns(self, inspector: Inspector) -> Iterable[ViewDataset]:
+        where_clause_suffix = ""
+        if self.config.views_where_clause_suffix or self._get_db_filter_where_clause():
+            where_clause_suffix = f"{self.config.views_where_clause_suffix} {self._get_db_filter_where_clause()}"
+
+        statement: str = (
+            PrestoOnHiveSource._VIEWS_POSTGRES_SQL_STATEMENT.format(
+                where_clause_suffix=where_clause_suffix
+            )
+            if "postgresql" in self.config.scheme
+            else PrestoOnHiveSource._VIEWS_SQL_STATEMENT.format(
+                where_clause_suffix=where_clause_suffix
+            )
+        )
+
+        iter_res = self._alchemy_client.execute_query(statement)
+        for row in iter_res:
+            dataset_name = self.get_identifier(
+                schema=row["schema"], entity=row["name"], inspector=inspector
+            )
+
+            columns, view_definition = self._get_presto_view_column_metadata(
+                row["view_original_text"]
+            )
+
+            if len(columns) == 0:
+                self.report.report_warning(dataset_name, "missing column information")
+
+            yield ViewDataset(
+                dataset_name=dataset_name,
+                schema_name=row["schema"],
+                columns=columns,
+                view_definition=view_definition,
+            )
+
     def loop_views(
         self,
         inspector: Inspector,
@@ -375,37 +498,26 @@ class PrestoOnHiveSource(SQLAlchemySource):
     ) -> Iterable[Union[SqlWorkUnit, MetadataWorkUnit]]:
 
         assert isinstance(sql_config, PrestoOnHiveConfig)
-        where_clause_suffix = f"{sql_config.views_where_clause_suffix} {self._get_db_filter_where_clause()}"
-        statement: str = (
-            PrestoOnHiveSource._VIEWS_POSTGRES_SQL_STATEMENT.format(
-                where_clause_suffix=where_clause_suffix
-            )
-            if "postgresql" in sql_config.scheme
-            else PrestoOnHiveSource._VIEWS_SQL_STATEMENT.format(
-                where_clause_suffix=where_clause_suffix
-            )
-        )
-        iter_res = self._alchemy_client.execute_query(statement)
-        for row in iter_res:
-            dataset_name = self.get_identifier(
-                schema=row["schema"], entity=row["name"], inspector=inspector
-            )
-            self.report.report_entity_scanned(dataset_name, ent_type="view")
 
-            if not sql_config.view_pattern.allowed(dataset_name):
-                self.report.report_dropped(dataset_name)
+        # We should skip all the non-metastore databases from the metastore db
+        if self.config.metastore_db_name != schema:
+            return
+
+        iter: Iterable[ViewDataset]
+        if self.config.mode in [PrestoOnHiveConfigMode.hive]:
+            iter = self.get_hive_view_columns(inspector=inspector)
+        else:
+            iter = self.get_presto_view_columns(inspector=inspector)
+        for dataset in iter:
+            self.report.report_entity_scanned(dataset.dataset_name, ent_type="view")
+
+            if not sql_config.view_pattern.allowed(dataset.dataset_name):
+                self.report.report_dropped(dataset.dataset_name)
                 continue
-
-            columns, view_definition = self._get_column_metadata(
-                row["view_original_text"]
-            )
-
-            if len(columns) == 0:
-                self.report.report_warning(dataset_name, "missing column information")
 
             dataset_urn = make_dataset_urn_with_platform_instance(
                 self.platform,
-                dataset_name,
+                dataset.dataset_name,
                 self.config.platform_instance,
                 self.config.env,
             )
@@ -415,13 +527,15 @@ class PrestoOnHiveSource(SQLAlchemySource):
             )
 
             # add view schema fields
-            schema_fields = self.get_schema_fields(dataset_name, columns)
+            schema_fields = self.get_schema_fields(
+                dataset.dataset_name, dataset.columns
+            )
 
             schema_metadata = get_schema_metadata(
                 self.report,
-                dataset_name,
+                dataset.dataset_name,
                 self.platform,
-                columns,
+                dataset.columns,
                 canonical_schema=schema_fields,
             )
             dataset_snapshot.aspects.append(schema_metadata)
@@ -439,18 +553,19 @@ class PrestoOnHiveSource(SQLAlchemySource):
             # add view properties
             view_properties = ViewPropertiesClass(
                 materialized=False,
-                viewLogic=view_definition,
+                viewLogic=dataset.view_definition if dataset.view_definition else "",
                 viewLanguage="SQL",
             )
             dataset_snapshot.aspects.append(view_properties)
 
             db_name = self.get_db_name(inspector)
-            schema = row["schema"]
-            yield from self.add_table_to_schema_container(dataset_urn, db_name, schema)
+            yield from self.add_table_to_schema_container(
+                dataset_urn, db_name, dataset.schema_name
+            )
 
             # construct mce
             mce = MetadataChangeEvent(proposedSnapshot=dataset_snapshot)
-            wu = SqlWorkUnit(id=dataset_name, mce=mce)
+            wu = SqlWorkUnit(id=dataset.dataset_name, mce=mce)
             self.report.report_workunit(wu)
             yield wu
 
@@ -459,7 +574,7 @@ class PrestoOnHiveSource(SQLAlchemySource):
                 yield dpi_aspect
 
             yield from self._get_domain_wu(
-                dataset_name=dataset_name,
+                dataset_name=dataset.dataset_name,
                 entity_urn=dataset_urn,
                 entity_type="dataset",
                 sql_config=sql_config,
@@ -468,15 +583,20 @@ class PrestoOnHiveSource(SQLAlchemySource):
     def _get_db_filter_where_clause(self) -> str:
         if self.config.metastore_db_name is None:
             return ""  # read metastore_db_name field discription why
-        if "postgresql" in self.config.scheme:
-            return f"AND d.\"NAME\" = '{self.config.database}'"
-        else:
-            return f"AND d.NAME = '{self.config.database}'"
+        if self.config.database:
+            if "postgresql" in self.config.scheme:
+                return f"AND d.\"NAME\" = '{self.config.database}'"
+            else:
+                return f"AND d.NAME = '{self.config.database}'"
+
+        return ""
 
     def _get_table_key(self, row: Dict[str, Any]) -> TableKey:
         return TableKey(schema=row["schema_name"], table=row["table_name"])
 
-    def _get_column_metadata(self, view_original_text: str) -> Tuple[List[Dict], str]:
+    def _get_presto_view_column_metadata(
+        self, view_original_text: str
+    ) -> Tuple[List[Dict], str]:
         """
         Get Column Metadata from VIEW_ORIGINAL_TEXT from TBLS table for Presto Views.
         Columns are sorted the same way as they appear in Presto Create View SQL.
@@ -510,7 +630,10 @@ class PrestoOnHiveSource(SQLAlchemySource):
         tags: Optional[List[str]] = None,
     ) -> List[SchemaField]:
         return get_schema_fields_for_hive_column(
-            column["col_name"], column["col_type"], default_nullable=True
+            column["col_name"],
+            column["col_type"],
+            description=column["col_description"],
+            default_nullable=True,
         )
 
 
