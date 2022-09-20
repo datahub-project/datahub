@@ -2,16 +2,9 @@ import json
 import pathlib
 from unittest import mock
 
-import pytest
-from freezegun import freeze_time
 from tableauserverclient.models import ViewItem
 
-from datahub.configuration.source_common import DEFAULT_ENV
 from datahub.ingestion.run.pipeline import Pipeline
-from datahub.ingestion.source.tableau_common import (
-    TableauLineageOverrides,
-    make_table_urn,
-)
 from tests.test_helpers import mce_helpers
 
 FROZEN_TIME = "2021-12-07 07:00:00"
@@ -26,15 +19,14 @@ def _read_response(file_name):
         return data
 
 
-def define_side_effect_query_func(workbooks_conn_0: str = "workbooksConnection_0.json",
-                                  workbooks_conn_all: str = "workbooksConnection_all.json"):
-    # side_effect_query_metadata can be reused in different test-cases where workbooks files are different
+def define_query_metadata_func(workbook_0: str, workbook_all: str):  # type: ignore
     def side_effect_query_metadata(query):
+
         if "workbooksConnection (first:0" in query:
-            return _read_response(workbooks_conn_0)
+            return _read_response(workbook_0)
 
         if "workbooksConnection (first:3" in query:
-            return _read_response(workbooks_conn_all)
+            return _read_response(workbook_all)
 
         if "embeddedDatasourcesConnection (first:0" in query:
             return _read_response("embeddedDatasourcesConnection_0.json")
@@ -75,7 +67,13 @@ def side_effect_usage_stat(*arg, **kwargs):
     return [dashboard_stat, sheet_stat], mock_pagination
 
 
-def tableau_ingest_common(pytestconfig, tmp_path, side_effect_query_metadata_func, golden_file_name, output_file_name):
+def tableau_ingest_common(
+    pytestconfig,
+    tmp_path,
+    side_effect_query_metadata_func,
+    golden_file_name,
+    output_file_name,
+):
     global test_resources_dir
     test_resources_dir = pathlib.Path(
         pytestconfig.rootpath / "tests/integration/tableau"
@@ -133,67 +131,3 @@ def tableau_ingest_common(pytestconfig, tmp_path, side_effect_query_metadata_fun
             golden_path=test_resources_dir / golden_file_name,
             ignore_paths=mce_helpers.IGNORE_PATH_TIMESTAMPS,
         )
-
-
-@freeze_time(FROZEN_TIME)
-@pytest.mark.slow_unit
-def test_tableau_ingest(pytestconfig, tmp_path):
-    output_file_name: str = "tableau_mces.json"
-    golden_file_name: str = "tableau_mces_golden.json"
-    tableau_ingest_common(pytestconfig, tmp_path, define_side_effect_query_func(), golden_file_name, output_file_name)
-
-
-@freeze_time(FROZEN_TIME)
-@pytest.mark.slow_unit
-def test_tableau_ingest_stat(pytestconfig, tmp_path):
-    output_file_name: str = "tableau_stat_mces.json"
-    golden_file_name: str = "tableau_state_mces_golden.json"
-    tableau_ingest_common(pytestconfig, tmp_path, define_side_effect_query_func(workbooks_conn_all="workbooksConnection_state_all.json"), golden_file_name, output_file_name)
-
-
-def test_lineage_overrides():
-    # Simple - specify platform instance to presto table
-    assert (
-            make_table_urn(
-                DEFAULT_ENV,
-                "presto_catalog",
-                "presto",
-                "test-schema",
-                "presto_catalog.test-schema.test-table",
-                platform_instance_map={"presto": "my_presto_instance"},
-            )
-            == "urn:li:dataset:(urn:li:dataPlatform:presto,my_presto_instance.presto_catalog.test-schema.test-table,PROD)"
-    )
-
-    # Transform presto urn to hive urn
-    # resulting platform instance for hive = mapped platform instance + presto_catalog
-    assert (
-            make_table_urn(
-                DEFAULT_ENV,
-                "presto_catalog",
-                "presto",
-                "test-schema",
-                "presto_catalog.test-schema.test-table",
-                platform_instance_map={"presto": "my_instance"},
-                lineage_overrides=TableauLineageOverrides(
-                    platform_override_map={"presto": "hive"},
-                ),
-            )
-            == "urn:li:dataset:(urn:li:dataPlatform:hive,my_instance.presto_catalog.test-schema.test-table,PROD)"
-    )
-
-    # tranform hive urn to presto urn
-    assert (
-            make_table_urn(
-                DEFAULT_ENV,
-                "",
-                "hive",
-                "test-schema",
-                "test-schema.test-table",
-                platform_instance_map={"hive": "my_presto_instance.presto_catalog"},
-                lineage_overrides=TableauLineageOverrides(
-                    platform_override_map={"hive": "presto"},
-                ),
-            )
-            == "urn:li:dataset:(urn:li:dataPlatform:presto,my_presto_instance.presto_catalog.test-schema.test-table,PROD)"
-    )
