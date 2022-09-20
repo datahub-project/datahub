@@ -954,7 +954,7 @@ class TableauSource(Source):
     def emit_sheets_as_charts(self, workbook: Dict) -> Iterable[MetadataWorkUnit]:
         for sheet in workbook.get("sheets", []):
             chart_snapshot = ChartSnapshot(
-                urn=builder.make_chart_urn_with_platform_instance(
+                urn=builder.make_chart_urn(
                     self.platform, sheet.get("id"), self.config.platform_instance
                 ),
                 aspects=[],
@@ -1120,7 +1120,7 @@ class TableauSource(Source):
                 else ""
             )
             chart_urns = [
-                builder.make_chart_urn_with_platform_instance(
+                builder.make_chart_urn(
                     self.platform, sheet.get("id"), self.config.platform_instance
                 )
                 for sheet in dashboard.get("sheets", [])

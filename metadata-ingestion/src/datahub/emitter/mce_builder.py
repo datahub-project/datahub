@@ -223,18 +223,12 @@ def make_dashboard_urn_with_platform_instance(
         return make_dashboard_urn(platform, name)
 
 
-def make_chart_urn(platform: str, name: str) -> str:
+def make_chart_urn(platform: str, name: str, platform_instance: Optional[str] = None) -> str:
     # FIXME: charts don't currently include data platform urn prefixes.
-    return f"urn:li:chart:({platform},{name})"
-
-
-def make_chart_urn_with_platform_instance(
-    platform: str, name: str, platform_instance: Optional[str]
-) -> str:
     if platform_instance:
         return f"urn:li:chart:({platform},{platform_instance}.{name})"
     else:
-        return make_chart_urn(platform, name)
+        return f"urn:li:chart:({platform},{name})"
 
 
 def make_domain_urn(domain: str) -> str:
