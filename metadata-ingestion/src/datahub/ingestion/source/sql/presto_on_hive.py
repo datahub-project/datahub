@@ -4,7 +4,7 @@ import logging
 from collections import namedtuple
 from enum import Enum
 from itertools import groupby
-from typing import Any, Dict, Iterable, List, Optional, Tuple, Union
+from typing import Any, Dict, Iterable, List, Optional, Tuple, Union, cast
 
 from pydantic.dataclasses import dataclass
 from pydantic.fields import Field
@@ -14,7 +14,10 @@ from pyhive import hive  # noqa: F401
 from sqlalchemy import create_engine, text
 from sqlalchemy.engine.reflection import Inspector
 
-from datahub.emitter.mce_builder import make_dataset_urn_with_platform_instance
+from datahub.emitter.mce_builder import (
+    make_container_urn,
+    make_dataset_urn_with_platform_instance,
+)
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.emitter.mcp_builder import PlatformKey, gen_containers
 from datahub.ingestion.api.common import PipelineContext
@@ -36,6 +39,10 @@ from datahub.ingestion.source.sql.sql_common import (
     get_schema_metadata,
     make_sqlalchemy_uri,
 )
+from datahub.ingestion.source.state.sql_common_state import (
+    BaseSQLAlchemyCheckpointState,
+)
+from datahub.ingestion.source.state.stateful_ingestion_base import JobId
 from datahub.metadata.com.linkedin.pegasus2avro.common import StatusClass
 from datahub.metadata.com.linkedin.pegasus2avro.metadata.snapshot import DatasetSnapshot
 from datahub.metadata.com.linkedin.pegasus2avro.mxe import MetadataChangeEvent
@@ -51,6 +58,17 @@ from datahub.utilities.hive_schema_to_avro import get_schema_fields_for_hive_col
 logger: logging.Logger = logging.getLogger(__name__)
 
 TableKey = namedtuple("TableKey", ["schema", "table"])
+
+
+class PrestoOnHiveContainerSubTypes(str, Enum):
+    DATABASE = "Database"
+    CATALOG = "Catalog"
+    SCHEMA = "Schema"
+
+
+class PrestoOnHiveDatasetSubTypes(str, Enum):
+    VIEW = "View"
+    TABLE = "Table"
 
 
 class PrestoOnHiveConfigMode(str, Enum):
@@ -81,6 +99,7 @@ class PrestoOnHiveConfig(BasicSQLAlchemyConfig):
         default="",
         description="Where clause to specify what Hive schemas should be ingested.",
     )
+    ingestion_job_id: str = ""
     host_port: str = Field(
         default="localhost:3306",
         description="Host URL and port to connect to. Example: localhost:3306",
@@ -93,6 +112,14 @@ class PrestoOnHiveConfig(BasicSQLAlchemyConfig):
     mode: PrestoOnHiveConfigMode = Field(
         default=PrestoOnHiveConfigMode.presto_on_hive,
         description=f"The ingested data will be stored under this platform. Valid options: {[e.value for e in PrestoOnHiveConfigMode]}",
+    )
+    use_catalog_subtype: bool = Field(
+        default=False,
+        description="Container Subtype name to be 'Database' or 'Catalog' Valid options: ['True', 'False']",
+    )
+    use_dataset_pascalcase_subtype: bool = Field(
+        default=False,
+        description="Dataset Subtype name to be 'Table' or 'View' Valid options: ['True', 'False']",
     )
 
     def get_sql_alchemy_url(self, uri_opts: Optional[Dict[str, Any]] = None) -> str:
@@ -250,6 +277,21 @@ class PrestoOnHiveSource(SQLAlchemySource):
         super().__init__(config, ctx, config.mode.value)
         self.config: PrestoOnHiveConfig = config
         self._alchemy_client = SQLAlchemyClient(config)
+        self.database_container_subtype = (
+            PrestoOnHiveContainerSubTypes.CATALOG
+            if config.use_catalog_subtype
+            else PrestoOnHiveContainerSubTypes.DATABASE
+        )
+        self.view_subtype = (
+            PrestoOnHiveDatasetSubTypes.VIEW
+            if config.use_dataset_pascalcase_subtype
+            else PrestoOnHiveDatasetSubTypes.VIEW.lower()
+        )
+        self.table_subtype = (
+            PrestoOnHiveDatasetSubTypes.TABLE
+            if config.use_dataset_pascalcase_subtype
+            else PrestoOnHiveDatasetSubTypes.TABLE.lower()
+        )
 
     def get_db_name(self, inspector: Inspector) -> str:
         if self.config.database_alias:
@@ -263,6 +305,21 @@ class PrestoOnHiveSource(SQLAlchemySource):
     def create(cls, config_dict, ctx):
         config = PrestoOnHiveConfig.parse_obj(config_dict)
         return cls(config, ctx)
+
+    def gen_database_containers(self, database: str) -> Iterable[MetadataWorkUnit]:
+        domain_urn = self._gen_domain_urn(database)
+
+        database_container_key = self.gen_database_key(database)
+        container_workunits = gen_containers(
+            container_key=database_container_key,
+            name=database,
+            sub_types=[self.database_container_subtype],
+            domain_urn=domain_urn,
+        )
+
+        for wu in container_workunits:
+            self.report.report_workunit(wu)
+            yield wu
 
     def gen_schema_containers(
         self, schema: str, db_name: str
@@ -292,6 +349,21 @@ class PrestoOnHiveSource(SQLAlchemySource):
             schema_container_key: PlatformKey = self.gen_schema_key(db_name, schema)
             logger.debug("schema_container_key = {} ".format(schema_container_key))
             database_container_key = self.gen_database_key(database=db_name)
+
+            # enable schemas stateful ingestion
+            container_urn = make_container_urn(
+                guid=schema_container_key.guid(),
+            )
+            if self.is_stateful_ingestion_configured():
+                cur_checkpoint = self.get_current_checkpoint(
+                    self.get_default_ingestion_job_id()
+                )
+                if cur_checkpoint is not None:
+                    checkpoint_state = cast(
+                        BaseSQLAlchemyCheckpointState, cur_checkpoint.state
+                    )
+                    checkpoint_state.add_container_guid(container_urn)
+
             container_workunits: Iterable[MetadataWorkUnit] = gen_containers(
                 schema_container_key,
                 schema,
@@ -302,6 +374,13 @@ class PrestoOnHiveSource(SQLAlchemySource):
             for wu in container_workunits:
                 self.report.report_workunit(wu)
                 yield wu
+
+    def get_default_ingestion_job_id(self) -> JobId:
+        """
+        Default ingestion job name that sql_common provides.
+        Subclasses can override as needed.
+        """
+        return JobId(self.config.ingestion_job_id)
 
     def loop_tables(
         self,
@@ -352,6 +431,17 @@ class PrestoOnHiveSource(SQLAlchemySource):
                 urn=dataset_urn,
                 aspects=[StatusClass(removed=False)],
             )
+
+            # enable tables stateful ingestion
+            if self.is_stateful_ingestion_configured():
+                cur_checkpoint = self.get_current_checkpoint(
+                    self.get_default_ingestion_job_id()
+                )
+                if cur_checkpoint is not None:
+                    checkpoint_state = cast(
+                        BaseSQLAlchemyCheckpointState, cur_checkpoint.state
+                    )
+                    checkpoint_state.add_table_urn(dataset_urn)
 
             # add table schema fields
             schema_fields = self.get_schema_fields(dataset_name, columns)
@@ -408,7 +498,8 @@ class PrestoOnHiveSource(SQLAlchemySource):
                     entityType="dataset",
                     changeType=ChangeTypeClass.UPSERT,
                     entityUrn=dataset_urn,
-                    aspect=SubTypesClass(typeNames=["table"]),
+                    aspectName="subTypes",
+                    aspect=SubTypesClass(typeNames=[self.table_subtype]),
                 ),
             )
             self.report.report_workunit(subtypes_workunit)
@@ -561,6 +652,17 @@ class PrestoOnHiveSource(SQLAlchemySource):
                 dataset_urn, db_name, dataset.schema_name
             )
 
+            # enable views stateful ingestion
+            if self.is_stateful_ingestion_configured():
+                cur_checkpoint = self.get_current_checkpoint(
+                    self.get_default_ingestion_job_id()
+                )
+                if cur_checkpoint is not None:
+                    checkpoint_state = cast(
+                        BaseSQLAlchemyCheckpointState, cur_checkpoint.state
+                    )
+                    checkpoint_state.add_view_urn(dataset_urn)
+
             # construct mce
             mce = MetadataChangeEvent(proposedSnapshot=dataset_snapshot)
             wu = SqlWorkUnit(id=dataset.dataset_name, mce=mce)
@@ -570,6 +672,37 @@ class PrestoOnHiveSource(SQLAlchemySource):
             dpi_aspect = self.get_dataplatform_instance_aspect(dataset_urn=dataset_urn)
             if dpi_aspect:
                 yield dpi_aspect
+
+            # Add views subtype
+            subtypes_aspect = MetadataWorkUnit(
+                id=f"{dataset.dataset_name}-subtypes",
+                mcp=MetadataChangeProposalWrapper(
+                    entityType="dataset",
+                    changeType=ChangeTypeClass.UPSERT,
+                    entityUrn=dataset_urn,
+                    aspectName="subTypes",
+                    aspect=SubTypesClass(typeNames=[self.view_subtype]),
+                ),
+            )
+            self.report.report_workunit(subtypes_aspect)
+            yield subtypes_aspect
+
+            # Add views definition
+            view_properties_aspect = ViewPropertiesClass(
+                materialized=False, viewLanguage="SQL", viewLogic=view_definition
+            )
+            view_properties_wu = MetadataWorkUnit(
+                id=f"{dataset_name}-viewProperties",
+                mcp=MetadataChangeProposalWrapper(
+                    entityType="dataset",
+                    changeType=ChangeTypeClass.UPSERT,
+                    entityUrn=dataset_urn,
+                    aspectName="viewProperties",
+                    aspect=view_properties_aspect,
+                ),
+            )
+            self.report.report_workunit(view_properties_wu)
+            yield view_properties_wu
 
             yield from self._get_domain_wu(
                 dataset_name=dataset.dataset_name,
@@ -619,6 +752,8 @@ class PrestoOnHiveSource(SQLAlchemySource):
     def close(self) -> None:
         if self._alchemy_client.connection is not None:
             self._alchemy_client.connection.close()
+        self.update_default_job_run_summary()
+        self.prepare_for_commit()
 
     def get_schema_fields_for_column(
         self,
