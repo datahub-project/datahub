@@ -4,7 +4,7 @@ import logging
 from collections import namedtuple
 from enum import Enum
 from itertools import groupby
-from typing import Any, Dict, Iterable, List, Optional, Tuple, Union, cast
+from typing import Any, Dict, Iterable, List, Optional, Tuple, Union
 
 from pydantic.dataclasses import dataclass
 from pydantic.fields import Field
@@ -38,9 +38,6 @@ from datahub.ingestion.source.sql.sql_common import (
     SqlWorkUnit,
     get_schema_metadata,
     make_sqlalchemy_uri,
-)
-from datahub.ingestion.source.state.sql_common_state import (
-    BaseSQLAlchemyCheckpointState,
 )
 from datahub.ingestion.source.state.stateful_ingestion_base import JobId
 from datahub.metadata.com.linkedin.pegasus2avro.common import StatusClass
@@ -356,7 +353,9 @@ class PrestoOnHiveSource(SQLAlchemySource):
             )
 
             # Add table to the checkpoint state
-            self.stale_entity_removal_handler.add_entity_to_state("container", container_urn)
+            self.stale_entity_removal_handler.add_entity_to_state(
+                "container", container_urn
+            )
 
             container_workunits: Iterable[MetadataWorkUnit] = gen_containers(
                 schema_container_key,
@@ -666,7 +665,9 @@ class PrestoOnHiveSource(SQLAlchemySource):
 
             # Add views definition
             view_properties_aspect = ViewPropertiesClass(
-                materialized=False, viewLanguage="SQL", viewLogic=dataset.view_definition
+                materialized=False,
+                viewLanguage="SQL",
+                viewLogic=dataset.view_definition if dataset.view_definition else "",
             )
             view_properties_wu = MetadataWorkUnit(
                 id=f"{dataset.dataset_name}-viewProperties",
@@ -741,7 +742,9 @@ class PrestoOnHiveSource(SQLAlchemySource):
         return get_schema_fields_for_hive_column(
             column["col_name"],
             column["col_type"],
-            description=column["col_description"] if "col_description" in column else "",
+            description=column["col_description"]
+            if "col_description" in column
+            else "",
             default_nullable=True,
         )
 
