@@ -6,6 +6,7 @@ import styled from 'styled-components/macro';
 import { ANTD_GRAY } from '../../../entity/shared/constants';
 import { YamlEditor } from './YamlEditor';
 import RecipeForm from './RecipeForm/RecipeForm';
+import { SourceBuilderState, SourceConfig } from './types';
 
 export const ControlsContainer = styled.div`
     display: flex;
@@ -38,16 +39,17 @@ const ButtonsWrapper = styled.div`
 `;
 
 interface Props {
-    type: string;
+    state: SourceBuilderState;
     isEditing: boolean;
     displayRecipe: string;
+    sourceConfigs?: SourceConfig;
     setStagedRecipe: (recipe: string) => void;
     onClickNext: () => void;
     goToPrevious?: () => void;
 }
 
 function RecipeBuilder(props: Props) {
-    const { type, isEditing, displayRecipe, setStagedRecipe, onClickNext, goToPrevious } = props;
+    const { state, isEditing, displayRecipe, sourceConfigs, setStagedRecipe, onClickNext, goToPrevious } = props;
 
     const [isViewingForm, setIsViewingForm] = useState(true);
 
@@ -75,9 +77,10 @@ function RecipeBuilder(props: Props) {
             </ButtonsWrapper>
             {isViewingForm && (
                 <RecipeForm
-                    type={type}
+                    state={state}
                     isEditing={isEditing}
                     displayRecipe={displayRecipe}
+                    sourceConfigs={sourceConfigs}
                     setStagedRecipe={setStagedRecipe}
                     onClickNext={onClickNext}
                     goToPrevious={goToPrevious}

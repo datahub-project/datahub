@@ -4,7 +4,7 @@ FROM confluentinc/cp-base-new:6.1.4 as confluent_base
 # Based on https://github.com/blacktop's alpine kafka build
 FROM python:3-alpine
 
-ENV KAFKA_VERSION 2.8.1
+ENV KAFKA_VERSION 2.8.2
 ENV SCALA_VERSION 2.13
 
 # Set the classpath for JARs required by `cub`
@@ -18,7 +18,9 @@ ARG PYTHON_CONFLUENT_DOCKER_UTILS_INSTALL_SPEC="git+https://github.com/confluent
 
 LABEL name="kafka" version=${KAFKA_VERSION}
 
-RUN apk add --no-cache openjdk8-jre bash coreutils
+RUN apk add --no-cache bash coreutils
+RUN apk --no-cache add openjdk11-jre --repository=http://dl-cdn.alpinelinux.org/alpine/edge/community
+
 RUN apk add --no-cache -t .build-deps git curl ca-certificates jq gcc musl-dev libffi-dev zip
 RUN mkdir -p /opt \
   && mirror=$(curl --stderr /dev/null https://www.apache.org/dyn/closer.cgi\?as_json\=1 | jq -r '.preferred') \

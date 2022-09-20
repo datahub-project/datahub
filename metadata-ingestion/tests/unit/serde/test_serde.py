@@ -1,6 +1,7 @@
 import io
 import json
 import pathlib
+import shutil
 from unittest.mock import patch
 
 import fastavro
@@ -142,10 +143,31 @@ def test_serde_to_avro(
     ],
 )
 @freeze_time(FROZEN_TIME)
-def test_check_mce_schema(pytestconfig: PytestConfig, json_filename: str) -> None:
+def test_check_metadata_schema(pytestconfig: PytestConfig, json_filename: str) -> None:
     json_file_path = pytestconfig.rootpath / json_filename
 
-    run_datahub_cmd(["check", "mce-file", f"{json_file_path}"])
+    run_datahub_cmd(["check", "metadata-file", f"{json_file_path}"])
+
+
+def test_check_metadata_rewrite(
+    pytestconfig: PytestConfig, tmp_path: pathlib.Path
+) -> None:
+    json_input = (
+        pytestconfig.rootpath / "tests/unit/serde/test_canonicalization_input.json"
+    )
+    json_output_reference = (
+        pytestconfig.rootpath / "tests/unit/serde/test_canonicalization_output.json"
+    )
+
+    output_file_path = tmp_path / "output.json"
+    shutil.copyfile(json_input, output_file_path)
+    run_datahub_cmd(
+        ["check", "metadata-file", f"{output_file_path}", "--rewrite", "--unpack-mces"]
+    )
+
+    mce_helpers.check_golden_file(
+        pytestconfig, output_path=output_file_path, golden_path=json_output_reference
+    )
 
 
 @pytest.mark.parametrize(
@@ -197,3 +219,74 @@ def test_type_error() -> None:
 
     with pytest.raises(avrojson.AvroTypeException):
         dataflow.to_obj()
+
+
+def test_null_hiding() -> None:
+    schemaField = models.SchemaFieldClass(
+        fieldPath="foo",
+        type=models.SchemaFieldDataTypeClass(type=models.StringTypeClass()),
+        nativeDataType="VARCHAR(50)",
+    )
+    assert schemaField.validate()
+
+    ser = schemaField.to_obj()
+    ser_without_ordered_fields = json.loads(json.dumps(ser))
+
+    assert ser_without_ordered_fields == {
+        "fieldPath": "foo",
+        "isPartOfKey": False,
+        "nativeDataType": "VARCHAR(50)",
+        "nullable": False,
+        "recursive": False,
+        "type": {"type": {"com.linkedin.pegasus2avro.schema.StringType": {}}},
+    }
+
+
+def test_missing_optional_simple() -> None:
+    original = models.DataHubResourceFilterClass.from_obj(
+        {
+            "allResources": False,
+            "filter": {
+                "criteria": [
+                    {
+                        "condition": "EQUALS",
+                        "field": "RESOURCE_TYPE",
+                        "values": ["notebook", "dataset", "dashboard"],
+                    }
+                ]
+            },
+        }
+    )
+
+    # This one is missing the optional filters.allResources field.
+    revised_obj = {
+        "filter": {
+            "criteria": [
+                {
+                    "condition": "EQUALS",
+                    "field": "RESOURCE_TYPE",
+                    "values": ["notebook", "dataset", "dashboard"],
+                }
+            ]
+        },
+    }
+    revised = models.DataHubResourceFilterClass.from_obj(revised_obj)
+    assert revised.validate()
+
+    assert original == revised
+
+
+def test_missing_optional_in_union() -> None:
+    # This one doesn't contain any optional fields and should work fine.
+    revised_json = json.loads(
+        '{"lastUpdatedTimestamp":1662356745807,"actors":{"groups":[],"resourceOwners":false,"allUsers":true,"allGroups":false,"users":[]},"privileges":["EDIT_ENTITY_ASSERTIONS","EDIT_DATASET_COL_GLOSSARY_TERMS","EDIT_DATASET_COL_TAGS","EDIT_DATASET_COL_DESCRIPTION"],"displayName":"customtest","resources":{"filter":{"criteria":[{"field":"RESOURCE_TYPE","condition":"EQUALS","values":["notebook","dataset","dashboard"]}]},"allResources":false},"description":"","state":"ACTIVE","type":"METADATA"}'
+    )
+    revised = models.DataHubPolicyInfoClass.from_obj(revised_json)
+
+    # This one is missing the optional filters.allResources field.
+    original_json = json.loads(
+        '{"privileges":["EDIT_ENTITY_ASSERTIONS","EDIT_DATASET_COL_GLOSSARY_TERMS","EDIT_DATASET_COL_TAGS","EDIT_DATASET_COL_DESCRIPTION"],"actors":{"resourceOwners":false,"groups":[],"allGroups":false,"allUsers":true,"users":[]},"lastUpdatedTimestamp":1662356745807,"displayName":"customtest","description":"","resources":{"filter":{"criteria":[{"field":"RESOURCE_TYPE","condition":"EQUALS","values":["notebook","dataset","dashboard"]}]}},"state":"ACTIVE","type":"METADATA"}'
+    )
+    original = models.DataHubPolicyInfoClass.from_obj(original_json)
+
+    assert revised == original

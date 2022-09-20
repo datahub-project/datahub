@@ -4,9 +4,11 @@ import com.linkedin.common.DataPlatformInstance;
 import com.linkedin.common.Deprecation;
 import com.linkedin.common.GlobalTags;
 import com.linkedin.common.GlossaryTerms;
+import com.linkedin.common.InputFields;
 import com.linkedin.common.InstitutionalMemory;
 import com.linkedin.common.Ownership;
 import com.linkedin.common.Status;
+import com.linkedin.common.SubTypes;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.dashboard.EditableDashboardProperties;
 import com.linkedin.data.DataMap;
@@ -19,6 +21,7 @@ import com.linkedin.datahub.graphql.generated.DashboardInfo;
 import com.linkedin.datahub.graphql.generated.DashboardProperties;
 import com.linkedin.datahub.graphql.generated.DataPlatform;
 import com.linkedin.datahub.graphql.generated.EntityType;
+import com.linkedin.datahub.graphql.types.chart.mappers.InputFieldsMapper;
 import com.linkedin.datahub.graphql.types.common.mappers.AuditStampMapper;
 import com.linkedin.datahub.graphql.types.common.mappers.DataPlatformInstanceAspectMapper;
 import com.linkedin.datahub.graphql.types.common.mappers.DeprecationMapper;
@@ -82,6 +85,9 @@ public class DashboardMapper implements ModelMapper<EntityResponse, Dashboard> {
         mappingHelper.mapToResult(GLOBAL_TAGS_ASPECT_NAME, (dataset, dataMap) -> this.mapGlobalTags(dataset, dataMap, entityUrn));
         mappingHelper.mapToResult(DATA_PLATFORM_INSTANCE_ASPECT_NAME, (dataset, dataMap) ->
             dataset.setDataPlatformInstance(DataPlatformInstanceAspectMapper.map(new DataPlatformInstance(dataMap))));
+        mappingHelper.mapToResult(INPUT_FIELDS_ASPECT_NAME, (dashboard, dataMap) ->
+            dashboard.setInputFields(InputFieldsMapper.map(new InputFields(dataMap), entityUrn)));
+        mappingHelper.mapToResult(SUB_TYPES_ASPECT_NAME, this::mapSubTypes);
 
         return mappingHelper.getResult();
     }
@@ -190,5 +196,14 @@ public class DashboardMapper implements ModelMapper<EntityResponse, Dashboard> {
     private void mapDomains(@Nonnull Dashboard dashboard, @Nonnull DataMap dataMap) {
         final Domains domains = new Domains(dataMap);
         dashboard.setDomain(DomainAssociationMapper.map(domains, dashboard.getUrn()));
+    }
+    
+    private void mapSubTypes(@Nonnull Dashboard dashboard, DataMap dataMap) {
+        SubTypes pegasusSubTypes = new SubTypes(dataMap);
+        if (pegasusSubTypes.hasTypeNames()) {
+              com.linkedin.datahub.graphql.generated.SubTypes subTypes = new com.linkedin.datahub.graphql.generated.SubTypes();
+              subTypes.setTypeNames(pegasusSubTypes.getTypeNames().stream().collect(Collectors.toList()));
+              dashboard.setSubTypes(subTypes);
+        }
     }
 }

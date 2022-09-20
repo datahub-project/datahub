@@ -11,6 +11,7 @@ if [[ $ELASTICSEARCH_USE_SSL == true ]]; then
 else
     ELASTICSEARCH_PROTOCOL=http
 fi
+echo -e "Going to use protocol: $ELASTICSEARCH_PROTOCOL"
 
 # Elasticsearch URL to be suffixed with a resource address
 ELASTICSEARCH_URL="$ELASTICSEARCH_PROTOCOL://$ELASTICSEARCH_HOST:$ELASTICSEARCH_PORT"

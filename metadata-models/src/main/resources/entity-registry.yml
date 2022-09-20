@@ -67,6 +67,7 @@ entities:
       - deprecation
       - dashboardUsageStatistics
       - inputFields
+      - subTypes
   - name: notebook
     doc: Notebook represents a combination of query, text, chart and etc. This is in BETA version
     keyAspect: notebookKey
@@ -95,7 +96,9 @@ entities:
       - status
       - corpUserCredentials
       - nativeGroupMembership
+      - corpUserSettings
       - origin
+      - roleMembership
   - name: corpGroup
     doc: CorpGroup represents an identity of a group of users in the enterprise.
     keyAspect: corpGroupKey
@@ -251,4 +254,9 @@ entities:
     category: core
     keyAspect: schemaFieldKey
     aspects: []
+  - name: dataHubRole
+    category: core
+    keyAspect: dataHubRoleKey
+    aspects:
+      - dataHubRoleInfo
 events:

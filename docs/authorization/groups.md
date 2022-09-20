@@ -22,20 +22,6 @@ allows you to import the groups you have from OIDC for [Okta](../generated/inges
 If you routinely ingest groups from these providers, you will also be able to keep groups synced. New groups will
 be created in DataHub, stale groups will be deleted, and group membership will be updated!
 
-## Default Groups
-
-DataHub provides some pre-defined groups for you to get started, along with some pre-configured policies. You can find
-the full list of policies corresponding to each group at the bottom of this
-[file](https://github.com/datahub-project/datahub/blob/master/metadata-service/war/src/main/resources/boot/policies.json).
-
-| Group Name         | Description                                                                             |
-|--------------------|-----------------------------------------------------------------------------------------|
-| Organization Admin | Top level DataHub administrators. They have ALL privileges.                             |
-| Access Admin       | Administrators for managing users, groups, and security-related features.               |
-| Metadata Stewards  | Overseers of all metadata assets across DataHub.                                        |
-| Metadata Readers   | Users in this group have the ability to read metadata, but cannot change it by default. |
-
-
 ## Custom Groups
 
 DataHub admins can create custom groups by going to the **Settings > Users & Groups > Groups > Create Group**. 

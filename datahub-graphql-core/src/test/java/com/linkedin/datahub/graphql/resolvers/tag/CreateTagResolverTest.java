@@ -4,6 +4,7 @@ import com.datahub.authentication.Authentication;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.generated.CreateTagInput;
 import com.linkedin.entity.client.EntityClient;
+import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.tag.TagProperties;
 import com.linkedin.events.metadata.ChangeType;
 import com.linkedin.metadata.Constants;
@@ -12,6 +13,7 @@ import com.linkedin.metadata.utils.GenericRecordUtils;
 import com.linkedin.mxe.MetadataChangeProposal;
 import graphql.schema.DataFetchingEnvironment;
 import java.util.concurrent.CompletionException;
+
 import org.mockito.Mockito;
 import org.testng.annotations.Test;
 
@@ -30,10 +32,11 @@ public class CreateTagResolverTest {
   @Test
   public void testGetSuccess() throws Exception {
     // Create resolver
+    EntityService mockService = Mockito.mock(EntityService.class);
     EntityClient mockClient = Mockito.mock(EntityClient.class);
     Mockito.when(mockClient.ingestProposal(Mockito.any(MetadataChangeProposal.class), Mockito.any(Authentication.class)))
         .thenReturn(String.format("urn:li:tag:%s", TEST_INPUT.getId()));
-    CreateTagResolver resolver = new CreateTagResolver(mockClient);
+    CreateTagResolver resolver = new CreateTagResolver(mockClient, mockService);
 
     // Execute resolver
     QueryContext mockContext = getMockAllowContext();
@@ -65,8 +68,9 @@ public class CreateTagResolverTest {
   @Test
   public void testGetUnauthorized() throws Exception {
     // Create resolver
+    EntityService mockService = Mockito.mock(EntityService.class);
     EntityClient mockClient = Mockito.mock(EntityClient.class);
-    CreateTagResolver resolver = new CreateTagResolver(mockClient);
+    CreateTagResolver resolver = new CreateTagResolver(mockClient, mockService);
 
     // Execute resolver
     DataFetchingEnvironment mockEnv = Mockito.mock(DataFetchingEnvironment.class);
@@ -83,11 +87,12 @@ public class CreateTagResolverTest {
   @Test
   public void testGetEntityClientException() throws Exception {
     // Create resolver
+    EntityService mockService = Mockito.mock(EntityService.class);
     EntityClient mockClient = Mockito.mock(EntityClient.class);
     Mockito.doThrow(RuntimeException.class).when(mockClient).ingestProposal(
         Mockito.any(),
         Mockito.any(Authentication.class));
-    CreateTagResolver resolver = new CreateTagResolver(mockClient);
+    CreateTagResolver resolver = new CreateTagResolver(mockClient, mockService);
 
     // Execute resolver
     DataFetchingEnvironment mockEnv = Mockito.mock(DataFetchingEnvironment.class);

@@ -2196,7 +2196,7 @@
               "optional" : true,
               "Searchable" : {
                 "boostScore" : 0.2,
-                "fieldName" : "fieldLabel",
+                "fieldName" : "fieldLabels",
                 "fieldType" : "TEXT"
               }
             }, {

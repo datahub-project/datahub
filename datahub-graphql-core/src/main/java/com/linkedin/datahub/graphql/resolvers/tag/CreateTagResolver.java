@@ -1,13 +1,22 @@
 package com.linkedin.datahub.graphql.resolvers.tag;
 
+import com.google.common.collect.ImmutableList;
+import com.linkedin.common.urn.CorpuserUrn;
+import com.linkedin.common.urn.Urn;
 import com.linkedin.data.template.SetMode;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.authorization.AuthorizationUtils;
 import com.linkedin.datahub.graphql.exception.AuthorizationException;
 import com.linkedin.datahub.graphql.generated.CreateTagInput;
+import com.linkedin.datahub.graphql.generated.OwnerEntityType;
+import com.linkedin.datahub.graphql.generated.OwnerInput;
+import com.linkedin.datahub.graphql.generated.OwnershipType;
+import com.linkedin.datahub.graphql.generated.ResourceRefInput;
+import com.linkedin.datahub.graphql.resolvers.mutate.util.OwnerUtils;
 import com.linkedin.entity.client.EntityClient;
 import com.linkedin.events.metadata.ChangeType;
 import com.linkedin.metadata.Constants;
+import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.key.TagKey;
 import com.linkedin.metadata.utils.EntityKeyUtils;
 import com.linkedin.metadata.utils.GenericRecordUtils;
@@ -30,6 +39,7 @@ import static com.linkedin.datahub.graphql.resolvers.ResolverUtils.*;
 public class CreateTagResolver implements DataFetcher<CompletableFuture<String>> {
 
   private final EntityClient _entityClient;
+  private final EntityService _entityService;
 
   @Override
   public CompletableFuture<String> get(DataFetchingEnvironment environment) throws Exception {
@@ -62,10 +72,13 @@ public class CreateTagResolver implements DataFetcher<CompletableFuture<String>>
         proposal.setAspectName(Constants.TAG_PROPERTIES_ASPECT_NAME);
         proposal.setAspect(GenericRecordUtils.serializeAspect(mapTagProperties(input)));
         proposal.setChangeType(ChangeType.UPSERT);
-        return _entityClient.ingestProposal(proposal, context.getAuthentication());
+
+        String tagUrn = _entityClient.ingestProposal(proposal, context.getAuthentication());
+        addCreatorAsOwner(context, tagUrn);
+        return tagUrn;
       } catch (Exception e) {
-        log.error("Failed to create Domain with id: {}, name: {}: {}", input.getId(), input.getName(), e.getMessage());
-        throw new RuntimeException(String.format("Failed to create Domain with id: %s, name: %s", input.getId(), input.getName()), e);
+        log.error("Failed to create Tag with id: {}, name: {}: {}", input.getId(), input.getName(), e.getMessage());
+        throw new RuntimeException(String.format("Failed to create Tag with id: %s, name: %s", input.getId(), input.getName()), e);
       }
     });
   }
@@ -75,5 +88,19 @@ public class CreateTagResolver implements DataFetcher<CompletableFuture<String>>
     result.setName(input.getName());
     result.setDescription(input.getDescription(), SetMode.IGNORE_NULL);
     return result;
+  }
+
+  private void addCreatorAsOwner(QueryContext context, String tagUrn) {
+    try {
+      Urn actorUrn = CorpuserUrn.createFromString(context.getActorUrn());
+      OwnerUtils.addOwnersToResources(
+          ImmutableList.of(new OwnerInput(actorUrn.toString(), OwnerEntityType.CORP_USER, OwnershipType.TECHNICAL_OWNER)),
+          ImmutableList.of(new ResourceRefInput(tagUrn, null, null)),
+          actorUrn,
+          _entityService
+      );
+    } catch (Exception e) {
+      log.error(String.format("Failed to add creator as owner of tag %s", tagUrn), e);
+    }
   }
 }

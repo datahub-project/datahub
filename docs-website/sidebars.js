@@ -137,7 +137,12 @@ module.exports = {
       {
         Sinks: list_ids_in_directory("metadata-ingestion/sink_docs"),
       },
-      "metadata-ingestion/transformers",
+      {
+        Transformers: [
+          "metadata-ingestion/docs/transformer/intro",
+          "metadata-ingestion/docs/transformer/dataset_transformer",
+        ],
+      },
       {
         "Advanced Guides": [
           {
@@ -145,6 +150,7 @@ module.exports = {
               "metadata-ingestion/schedule_docs/intro",
               "metadata-ingestion/schedule_docs/cron",
               "metadata-ingestion/schedule_docs/airflow",
+              "metadata-ingestion/schedule_docs/kubernetes",
             ],
           },
           // {
@@ -217,7 +223,7 @@ module.exports = {
       //    className: "saasOnly",
       //  },
       //  "docs/wip/metadata-analytics",
-      //  "docs/wip/impact-analysis",
+      "docs/act-on-metadata/impact-analysis",
       // {
       //    type: "doc",
       //    id: "docs/wip/events-bridge",
@@ -265,6 +271,7 @@ module.exports = {
       {
         Authorization: [
           "docs/authorization/README",
+          "docs/authorization/roles",
           "docs/authorization/policies",
           "docs/authorization/groups",
         ],
@@ -427,6 +434,7 @@ module.exports = {
           "metadata-ingestion/adding-source",
           "docs/how/add-custom-ingestion-source",
           "docs/how/add-custom-data-platform",
+          "docs/advanced/browse-paths-upgrade",
         ],
       },
     ],
@@ -438,13 +446,12 @@ module.exports = {
       "docs/domains",
       "docs/how/business-glossary-guide",
       "docs/tags",
-      // {
-      //   type: "doc",
-      //   id: "docs/wip/slack-notifications",
-      //   className: "saasOnly",
-      // },
+      {
+        type: "doc",
+        id: "docs/managed-datahub/saas-slack-setup",
+        className: "saasOnly",
+      },
       // "docs/wip/ui-ingestion-guide", -- not needed
-      // "docs/wip/tags-guide", -- not needed
       // "docs/wip/personal-access-tokens-guide", -- not needed
 
       {
@@ -513,6 +520,7 @@ module.exports = {
     // - "perf-test/README",
     // "metadata-jobs/README",
     // "docs/how/add-user-data",
+    // "docs/_feature-guide-template"
     // ],
   },
 };
