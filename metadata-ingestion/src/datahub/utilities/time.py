@@ -11,6 +11,4 @@ def get_datetime_from_ts_millis_in_utc(ts_millis: int) -> datetime:
 
 
 def datetime_to_ts_millis(dt: datetime) -> int:
-    return int(
-        round(dt.timestamp() * 1000),
-    )
+    return int(round(dt.timestamp() * 1000))

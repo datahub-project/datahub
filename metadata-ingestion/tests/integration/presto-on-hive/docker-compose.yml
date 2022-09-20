@@ -13,6 +13,13 @@ services:
       - ./setup/etc:/etc/presto
     depends_on:
       - "hive-metastore"
+  presto-cli:
+    image: harisekhon/presto-cli-dev:latest
+    container_name: "presto-cli"
+    command: "-f /dev/null"
+    entrypoint: /usr/bin/tail
+    depends_on:
+      - "presto"
   namenode:
     image: bde2020/hadoop-namenode:2.0.0-hadoop2.7.4-java8
     volumes:
