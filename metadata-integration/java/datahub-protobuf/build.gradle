@@ -1,5 +1,6 @@
 plugins {
     id("com.palantir.git-version") apply false
+    id "application"
 }
 apply plugin: 'java'
 apply plugin: 'jacoco'
@@ -17,6 +18,13 @@ afterEvaluate {
         targetCompatibility = 11
     }
 }
+ext {
+   javaMainClass = "datahub.protobuf.Proto2DataHub"
+}
+
+application {
+    mainClassName = javaMainClass
+}
 
 dependencies {
     implementation project(':metadata-models')
@@ -25,6 +33,7 @@ dependencies {
     implementation externalDependency.protobuf
     implementation externalDependency.jgrapht
     implementation externalDependency.gson
+    implementation externalDependency.commonsCli
 
     compileOnly externalDependency.lombok
     annotationProcessor externalDependency.lombok
@@ -198,3 +207,5 @@ nexusStaging {
     username = System.getenv("NEXUS_USERNAME")
     password = System.getenv("NEXUS_PASSWORD")
 }
+
+

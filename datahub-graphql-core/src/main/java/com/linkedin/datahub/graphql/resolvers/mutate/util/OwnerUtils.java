@@ -31,6 +31,7 @@ import lombok.extern.slf4j.Slf4j;
 import static com.linkedin.datahub.graphql.resolvers.mutate.MutationUtils.*;
 
 
+// TODO: Move to consuming from OwnerService
 @Slf4j
 public class OwnerUtils {
   private static final ConjunctivePrivilegeGroup ALL_PRIVILEGES_GROUP = new ConjunctivePrivilegeGroup(ImmutableList.of(
