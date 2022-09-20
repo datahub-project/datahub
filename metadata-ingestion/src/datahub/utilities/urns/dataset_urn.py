@@ -1,6 +1,7 @@
 from typing import List, Optional
 
 from datahub.configuration.source_common import ALL_ENV_TYPES
+from datahub.utilities.urn_encoder import UrnEncoder
 from datahub.utilities.urns.data_platform_urn import DataPlatformUrn
 from datahub.utilities.urns.error import InvalidUrnError
 from datahub.utilities.urns.urn import Urn
@@ -15,7 +16,7 @@ class DatasetUrn(Urn):
     ENTITY_TYPE: str = "dataset"
 
     def __init__(self, entity_type: str, entity_id: List[str], domain: str = "li"):
-        super().__init__(entity_type, entity_id, domain)
+        super().__init__(entity_type, UrnEncoder.encode_string_array(entity_id), domain)
 
     @classmethod
     def create_from_string(cls, urn_str: str) -> "DatasetUrn":
