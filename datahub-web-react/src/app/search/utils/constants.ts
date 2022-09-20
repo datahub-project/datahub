@@ -26,14 +26,19 @@ export const TRUNCATED_FILTER_LENGTH = 5;
 export const FIELD_TO_LABEL = {
     owners: 'Owner',
     tags: 'Tag',
+    domains: 'Domain',
     fieldTags: 'Column Tag',
     glossaryTerms: 'Term',
     fieldGlossaryTerms: 'Column Term',
     fieldPaths: 'Column Name',
     description: 'Description',
+    fieldDescriptions: 'Column Description',
     removed: 'Soft Deleted',
     entity: 'Entity Type',
+    typeNames: 'Subtype',
 };
+
+export const FIELDS_WHO_USE_CONTAINS_OPERATOR = ['description', 'fieldDescriptions'];
 
 export enum UnionType {
     AND,

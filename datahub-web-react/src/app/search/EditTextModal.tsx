@@ -21,11 +21,7 @@ export const EditTextModal = ({ defaultValue, onCloseModal, onOkOverride, title 
                     <Button onClick={onCloseModal} type="text">
                         Cancel
                     </Button>
-                    <Button
-                        id="addOwnerButton"
-                        disabled={stagedValue.length === 0}
-                        onClick={() => onOkOverride?.(stagedValue)}
-                    >
+                    <Button disabled={stagedValue.length === 0} onClick={() => onOkOverride?.(stagedValue)}>
                         Done
                     </Button>
                 </>

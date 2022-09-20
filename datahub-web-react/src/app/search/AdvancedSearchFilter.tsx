@@ -1,3 +1,4 @@
+import { CloseOutlined } from '@ant-design/icons';
 import React, { useState } from 'react';
 import styled from 'styled-components';
 
@@ -16,10 +17,14 @@ type Props = {
 };
 
 const FilterContainer = styled.div`
-    border-radius: 12px;
+    border-radius: 5px;
     border: 1px solid ${ANTD_GRAY[5]};
     padding: 4px;
     margin: 4px;
+    :hover {
+        cursor: pointer;
+        background: ${ANTD_GRAY[2]};
+    }
 `;
 
 const FieldFilterSection = styled.span`
@@ -30,13 +35,14 @@ const FieldFilterSection = styled.span`
 `;
 
 const ValueFilterSection = styled.div`
-    padding: 4px;
-    border-top: 1px solid ${ANTD_GRAY[5]};
+    :hover {
+        cursor: pointer;
+    }
 `;
 
 const CloseSpan = styled.span`
     :hover {
-        cursor: pointer;
+        color: black;
     }
 `;
 
@@ -53,36 +59,47 @@ const TEXT_FILTERS = ['fieldPaths'];
 export const AdvancedSearchFilter = ({ facet, filter, onClose, onUpdate }: Props) => {
     const [isEditing, setIsEditing] = useState(false);
     return (
-        <FilterContainer>
-            <FieldFilterSection>
-                <span>
-                    <FilterFieldLabel>{FIELD_TO_LABEL[filter.field]} </FilterFieldLabel>
-                    <AdvancedSearchFilterConditionSelect filter={filter} onUpdate={onUpdate} />
-                </span>
-                <CloseSpan role="button" onClick={onClose} tabIndex={0} onKeyPress={onClose}>
-                    x
-                </CloseSpan>
-            </FieldFilterSection>
-            <ValueFilterSection
+        <>
+            <FilterContainer
                 onClick={() => {
                     setIsEditing(!isEditing);
                 }}
             >
-                {TEXT_FILTERS.indexOf(filter.field) === -1 &&
-                    filter.values.map((value) => (
-                        <StyledSearchFilterLabel>
-                            <SearchFilterLabel
-                                hideCount
-                                aggregation={
-                                    facet?.aggregations?.find((aggregation) => aggregation.value === value) ||
-                                    facet?.aggregations?.[0]
-                                }
-                                field={value}
-                            />
-                        </StyledSearchFilterLabel>
-                    ))}
-                {TEXT_FILTERS.indexOf(filter.field) !== -1 && filter.values.map((value) => <span>{value}</span>)}
-            </ValueFilterSection>
+                <FieldFilterSection>
+                    <span>
+                        <FilterFieldLabel>{FIELD_TO_LABEL[filter.field]} </FilterFieldLabel>
+                        <AdvancedSearchFilterConditionSelect filter={filter} onUpdate={onUpdate} />
+                    </span>
+                    <CloseSpan
+                        role="button"
+                        onClick={(e) => {
+                            e.preventDefault();
+                            e.stopPropagation();
+                            onClose();
+                        }}
+                        tabIndex={0}
+                        onKeyPress={onClose}
+                    >
+                        <CloseOutlined />
+                    </CloseSpan>
+                </FieldFilterSection>
+                <ValueFilterSection>
+                    {TEXT_FILTERS.indexOf(filter.field) === -1 &&
+                        filter.values.map((value) => {
+                            const matchedAggregation = facet?.aggregations?.find(
+                                (aggregation) => aggregation.value === value,
+                            );
+                            if (!matchedAggregation) return null;
+
+                            return (
+                                <StyledSearchFilterLabel>
+                                    <SearchFilterLabel hideCount aggregation={matchedAggregation} field={value} />
+                                </StyledSearchFilterLabel>
+                            );
+                        })}
+                    {TEXT_FILTERS.indexOf(filter.field) !== -1 && filter.values.map((value) => <span>{value}</span>)}
+                </ValueFilterSection>
+            </FilterContainer>
             {isEditing && (
                 <SelectFilterValueModal
                     facet={facet}
@@ -100,6 +117,6 @@ export const AdvancedSearchFilter = ({ facet, filter, onClose, onUpdate }: Props
                     initialValues={filter.values}
                 />
             )}
-        </FilterContainer>
+        </>
     );
 };

@@ -127,7 +127,7 @@ public class AllEntitiesSearchAggregator {
     Map<String, AggregationMetadata> finalAggregations = trimMergedAggregations(aggregations);
 
     EntitySpec entitySpec = _entityRegistry.getEntitySpec("dataset");
-    SearchRequestHandler.getBuilder(null).addFiltersToAggregationMetadata(
+    SearchRequestHandler.getBuilder(entitySpec).addFiltersToAggregationMetadata(
         new ArrayList(finalAggregations.values()),
         postFilters
     );

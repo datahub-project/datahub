@@ -63,6 +63,7 @@ import org.elasticsearch.search.builder.SearchSourceBuilder;
 import org.elasticsearch.search.fetch.subphase.highlight.HighlightBuilder;
 import org.elasticsearch.search.fetch.subphase.highlight.HighlightField;
 
+import static com.linkedin.metadata.search.utils.ESUtils.*;
 import static com.linkedin.metadata.utils.SearchUtil.*;
 
 
@@ -135,7 +136,7 @@ public class SearchRequestHandler {
     boolean removedInOrFilter = false;
     if (filter != null) {
       removedInOrFilter = filter.getOr().stream().anyMatch(
-              or -> or.getAnd().stream().anyMatch(criterion -> criterion.getField().equals(REMOVED))
+              or -> or.getAnd().stream().anyMatch(criterion -> criterion.getField().equals(REMOVED) || criterion.getField().equals(REMOVED + KEYWORD_SUFFIX))
       );
     }
     // Filter out entities that are marked "removed" if and only if filter does not contain a criterion referencing it.
@@ -499,12 +500,4 @@ public class SearchRequestHandler {
         .setFilterValues(filterValues);
   }
 
-  @Nullable
-  private String toFacetField(@Nonnull final String filterField) {
-    String trimmedField = filterField.replace(ESUtils.KEYWORD_SUFFIX, "");
-    if (_facetFields.contains(trimmedField)) {
-      return trimmedField;
-    }
-    return null;
-  }
 }

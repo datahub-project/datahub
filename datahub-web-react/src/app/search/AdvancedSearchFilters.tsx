@@ -4,14 +4,18 @@ import * as React from 'react';
 import { useState } from 'react';
 import styled from 'styled-components';
 import { FacetFilterInput, FacetMetadata, SearchCondition } from '../../types.generated';
+import { ANTD_GRAY } from '../entity/shared/constants';
 import { AdvancedSearchFilter } from './AdvancedSearchFilter';
 import { AdvancedSearchFilterOverallUnionTypeSelect } from './AdvancedSearchFilterOverallUnionTypeSelect';
 import { SelectFilterValueModal } from './SelectFilterValueModal';
-import { FIELD_TO_LABEL, UnionType } from './utils/constants';
+import { FIELDS_WHO_USE_CONTAINS_OPERATOR, FIELD_TO_LABEL, UnionType } from './utils/constants';
 
 export const SearchFilterWrapper = styled.div`
     min-height: 100%;
     overflow: auto;
+    margin-top: 6px;
+    margin-left: 12px;
+    margin-right: 12px;
 
     &::-webkit-scrollbar {
         height: 12px;
@@ -27,6 +31,13 @@ export const SearchFilterWrapper = styled.div`
 
 const AnyAllSection = styled.div`
     padding: 6px;
+`;
+
+const EmptyStateSection = styled.div`
+    border-radius: 5px;
+    background-color: ${ANTD_GRAY[2]};
+    padding: 22px;
+    margin-top: 10px;
 `;
 
 interface Props {
@@ -49,23 +60,26 @@ export const AdvancedSearchFilters = ({
     const [filterField, setFilterField] = useState<null | string>(null);
 
     const onFilterFieldSelect = (value) => {
+        console.log('SELECTING', value);
         setFilterField(value);
     };
-
-    console.log({ facets });
 
     return (
         <SearchFilterWrapper>
             <Select
-                // size="small"
-                value={filterField || '+'}
+                value="+"
                 style={{ width: 67, padding: 6, fontSize: 25, fontWeight: 500 }}
                 onChange={onFilterFieldSelect}
                 dropdownMatchSelectWidth={false}
                 filterOption={(_, option) => option?.value === 'null'}
             >
                 {Object.keys(FIELD_TO_LABEL).map((key) => (
-                    <Option value={key}>{FIELD_TO_LABEL[key]}</Option>
+                    <Option
+                        disabled={key === 'entity' && !!selectedFilters.find((filter) => filter.field === 'entity')}
+                        value={key}
+                    >
+                        {FIELD_TO_LABEL[key]}
+                    </Option>
                 ))}
             </Select>
             {selectedFilters.map((filter) => (
@@ -96,7 +110,10 @@ export const AdvancedSearchFilters = ({
                         const newFilter: FacetFilterInput = {
                             field: filterField,
                             values: values as string[],
-                            condition: SearchCondition.Contain,
+                            condition:
+                                FIELDS_WHO_USE_CONTAINS_OPERATOR.indexOf(filterField) > -1
+                                    ? SearchCondition.Contain
+                                    : SearchCondition.Equal,
                         };
                         onFilterSelect([...selectedFilters, newFilter]);
                     }}
@@ -111,6 +128,7 @@ export const AdvancedSearchFilters = ({
                     />
                 </AnyAllSection>
             )}
+            {selectedFilters?.length === 0 && <EmptyStateSection>No filters applied, add one above.</EmptyStateSection>}
         </SearchFilterWrapper>
     );
 };

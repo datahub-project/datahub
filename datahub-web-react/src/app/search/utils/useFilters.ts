@@ -18,17 +18,18 @@ export default function useFilters(params: QueryString.ParsedQuery<string>): Arr
                     const fieldParts = fieldIndex.split('___');
                     const field = fieldParts[0];
                     const negated = fieldParts[1] === 'true';
+                    const condition = fieldParts[2] || SearchCondition.Equal;
                     if (!value) return null;
 
                     if (Array.isArray(value)) {
                         return {
                             field,
-                            condition: SearchCondition.Equal,
+                            condition,
                             negated,
                             values: value.map((distinctValue) => decodeComma(distinctValue)),
                         };
                     }
-                    return { field, condition: SearchCondition.Equal, values: [decodeComma(value)], negated };
+                    return { field, condition, values: [decodeComma(value)], negated };
                 })
                 .filter((val) => !!val) as Array<FacetFilterInput>
         );

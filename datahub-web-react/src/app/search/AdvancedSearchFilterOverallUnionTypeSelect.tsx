@@ -1,5 +1,6 @@
 import { Select } from 'antd';
 import React from 'react';
+import styled from 'styled-components/macro';
 
 import { ANTD_GRAY } from '../entity/shared/constants';
 import { UnionType } from './utils/constants';
@@ -11,15 +12,18 @@ type Props = {
 
 const { Option } = Select;
 
+const StyledSelect = styled(Select)`
+    border-radius: 5px;
+    background: ${ANTD_GRAY[4]};
+    :hover {
+        background: ${ANTD_GRAY[4.5]};
+    }
+`;
+
 export const AdvancedSearchFilterOverallUnionTypeSelect = ({ unionType, onUpdate }: Props) => {
     return (
         <>
-            <Select
-                style={{
-                    background: ANTD_GRAY[4],
-                    borderRadius: 5,
-                    width: 75,
-                }}
+            <StyledSelect
                 showArrow={false}
                 bordered={false}
                 value={unionType === UnionType.AND ? 'all filters' : 'any filter'}
@@ -29,10 +33,11 @@ export const AdvancedSearchFilterOverallUnionTypeSelect = ({ unionType, onUpdate
                     }
                 }}
                 size="small"
+                dropdownMatchSelectWidth={false}
             >
                 <Option value={UnionType.AND}>all filters</Option>
                 <Option value={UnionType.OR}>any filter</Option>
-            </Select>
+            </StyledSelect>
         </>
     );
 };

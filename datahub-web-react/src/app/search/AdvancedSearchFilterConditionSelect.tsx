@@ -1,9 +1,11 @@
 import { Select } from 'antd';
 import React from 'react';
+import styled from 'styled-components/macro';
 // import styled from 'styled-components';
 
 import { FacetFilterInput } from '../../types.generated';
 import { ANTD_GRAY } from '../entity/shared/constants';
+import { FIELDS_WHO_USE_CONTAINS_OPERATOR } from './utils/constants';
 
 type Props = {
     filter: FacetFilterInput;
@@ -14,18 +16,15 @@ const { Option } = Select;
 
 // We track which fields are collection fields for the purpose of printing the conditions
 // in a more gramatically correct way. On the backend they are handled the same.
-const filtersOnNonCollectionFields = ['description'];
-
-// const LabelSelect = styled.span`
-//     border-radius: 5px;
-//     background: ${ANTD_GRAY[4]};
-//     padding: 2px 10px;
-//     font-size: 12px;
-//     font-weight: 600;
-//     line-height: 22px;
-// `;
+const filtersOnNonCollectionFields = ['description', 'fieldDescriptions', 'removed', 'typeNames', 'entity', 'domains'];
 
 function getLabelsForField(field: string) {
+    if (FIELDS_WHO_USE_CONTAINS_OPERATOR.indexOf(field) >= 0) {
+        return {
+            default: 'contains',
+            negated: 'does not contain',
+        };
+    }
     if (filtersOnNonCollectionFields.indexOf(field) >= 0) {
         return {
             default: 'equals',
@@ -40,6 +39,14 @@ function getLabelsForField(field: string) {
     };
 }
 
+const StyledSelect = styled(Select)`
+    border-radius: 5px;
+    background: ${ANTD_GRAY[4]};
+    :hover {
+        background: ${ANTD_GRAY[4.5]};
+    }
+`;
+
 export const AdvancedSearchFilterConditionSelect = ({ filter, onUpdate }: Props) => {
     const labelsForField = getLabelsForField(filter.field);
 
@@ -47,11 +54,12 @@ export const AdvancedSearchFilterConditionSelect = ({ filter, onUpdate }: Props)
 
     return (
         <>
-            <Select
-                style={{
-                    background: ANTD_GRAY[4],
-                    borderRadius: 5,
-                    width: 85,
+            <StyledSelect
+                style={{}}
+                // prevent the edit filter value modal from opening
+                onClick={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
                 }}
                 showArrow={false}
                 bordered={false}
@@ -66,11 +74,12 @@ export const AdvancedSearchFilterConditionSelect = ({ filter, onUpdate }: Props)
                 }}
                 size="small"
                 disabled={filter.field === 'entity'}
+                dropdownMatchSelectWidth={false}
             >
                 {Object.keys(labelsForField).map((labelKey) => (
                     <Option value={labelKey}>{labelsForField[labelKey]}</Option>
                 ))}
-            </Select>
+            </StyledSelect>
         </>
     );
 };

@@ -290,6 +290,7 @@ export const EditOwnersModal = ({
         if (selectedOwners.length === 0) {
             return;
         }
+
         if (onOkOverride) {
             onOkOverride(selectedOwners);
             return;
