@@ -43,10 +43,10 @@ class TwoTierSQLAlchemyConfig(BasicSQLAlchemyConfig):
         current_db: typing.Optional[str] = None,
     ) -> str:
         return self.sqlalchemy_uri or make_sqlalchemy_uri(
-            self.scheme,  # type: ignore
+            self.scheme,
             self.username,
             self.password.get_secret_value() if self.password else None,
-            self.host_port,  # type: ignore
+            self.host_port,
             current_db if current_db else self.database,
             uri_opts=uri_opts,
         )
