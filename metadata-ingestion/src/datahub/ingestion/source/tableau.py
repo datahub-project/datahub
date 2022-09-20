@@ -159,6 +159,11 @@ class TableauConfig(DatasetLineageProviderConfigBase):
         description="Mappings to change generated dataset urns. Use only if you really know what you are doing.",
     )
 
+    extract_usage_stats: bool = Field(
+        default=False,
+        description="[experimental] Extract usage statistics for dashboards and charts.",
+    )
+
     @validator("connect_uri")
     def remove_trailing_slash(cls, v):
         return config_clean.remove_trailing_slashes(v)
@@ -197,8 +202,7 @@ class UsageStat:
 @capability(SourceCapability.DESCRIPTIONS, "Enabled by default")
 @capability(
     SourceCapability.USAGE_STATS,
-    "Dashboard/Chart view counts",
-    supported=True,
+    "Dashboard/Chart view counts, enabled using extract_usage_stats config",
 )
 @capability(SourceCapability.DELETION_DETECTION, "", supported=False)
 @capability(SourceCapability.OWNERSHIP, "Requires recipe configuration")
@@ -1058,10 +1062,12 @@ class TableauSource(Source):
             )
             chart_snapshot.aspects.append(chart_info)
             # chart_snapshot doesn't support the stat aspect as list element and hence need to emit MCP
-            wu: Optional[MetadataWorkUnit] = self._get_chart_stat_wu(sheet, sheet_urn)
-            if wu is not None:
-                self.report.report_workunit(wu)
-                yield wu
+
+            if self.config.extract_usage_stats:
+                wu = self._get_chart_stat_wu(sheet, sheet_urn)
+                if wu is not None:
+                    self.report.report_workunit(wu)
+                    yield wu
 
             if workbook.get("projectName") and workbook.get("name"):
                 sheet_name = sheet.get("name") or sheet["id"]
@@ -1231,13 +1237,12 @@ class TableauSource(Source):
             )
             dashboard_snapshot.aspects.append(dashboard_info_class)
 
-            # dashboard_snapshot doesn't support the stat aspect as list element and hence need to emit MetadataWorkUnit
-            wu: Optional[MetadataWorkUnit] = self._get_dashboard_stat_wu(
-                dashboard, dashboard_urn
-            )
-            if wu is not None:
-                self.report.report_workunit(wu)
-                yield wu
+            if self.config.extract_usage_stats:
+                # dashboard_snapshot doesn't support the stat aspect as list element and hence need to emit MetadataWorkUnit
+                wu = self._get_dashboard_stat_wu(dashboard, dashboard_urn)
+                if wu is not None:
+                    self.report.report_workunit(wu)
+                    yield wu
 
             if workbook.get("projectName") and workbook.get("name"):
                 dashboard_name = title or dashboard["id"]
@@ -1377,7 +1382,8 @@ class TableauSource(Source):
             return
         try:
             # Initialise the dictionary to later look-up for chart and dashboard stat
-            self._populate_usage_stat_registry()
+            if self.config.extract_usage_stats:
+                self._populate_usage_stat_registry()
             yield from self.emit_workbooks()
             if self.embedded_datasource_ids_being_used:
                 yield from self.emit_embedded_datasources()

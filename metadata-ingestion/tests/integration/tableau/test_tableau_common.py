@@ -112,6 +112,7 @@ def tableau_ingest_common(
                             "someotherdb": "schema",
                         },
                         "platform_instance_map": {"postgres": "demo_postgres_instance"},
+                        "extract_usage_stats": True,
                     },
                 },
                 "sink": {
