@@ -1101,7 +1101,7 @@ class TableauSource(Source):
     def emit_dashboards(self, workbook: Dict) -> Iterable[MetadataWorkUnit]:
         for dashboard in workbook.get("dashboards", []):
             dashboard_snapshot = DashboardSnapshot(
-                urn=builder.make_dashboard_urn_with_platform_instance(
+                urn=builder.make_dashboard_urn(
                     self.platform, dashboard["id"], self.config.platform_instance
                 ),
                 aspects=[],
