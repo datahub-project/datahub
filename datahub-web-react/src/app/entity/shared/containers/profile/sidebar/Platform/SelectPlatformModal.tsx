@@ -144,7 +144,7 @@ export const SelectPlatformModal = ({ onCloseModal, defaultValues, onOkOverride,
                     <Button onClick={onModalClose} type="text">
                         Cancel
                     </Button>
-                    <Button id="setDomainButton" disabled={selectedPlatforms?.length === 0} onClick={onOk}>
+                    <Button id="setPlatformButton" disabled={selectedPlatforms?.length === 0} onClick={onOk}>
                         Add
                     </Button>
                 </>
@@ -159,7 +159,7 @@ export const SelectPlatformModal = ({ onCloseModal, defaultValues, onOkOverride,
                         mode="multiple"
                         defaultActiveFirstOption={false}
                         placeholder="Search for Platforms..."
-                        onSelect={(domainUrn: any) => onSelectPlatform(domainUrn)}
+                        onSelect={(platformUrn: any) => onSelectPlatform(platformUrn)}
                         onDeselect={onDeselectPlatform}
                         onSearch={(value: string) => {
                             // eslint-disable-next-line react/prop-types
@@ -172,7 +172,7 @@ export const SelectPlatformModal = ({ onCloseModal, defaultValues, onOkOverride,
                             label: platform.entity ? (
                                 renderSearchResult(platform.entity as DataPlatform)
                             ) : (
-                                <span>platform.urn</span>
+                                <span>{platform.urn}</span>
                             ),
                         }))}
                         tagRender={tagRender}
