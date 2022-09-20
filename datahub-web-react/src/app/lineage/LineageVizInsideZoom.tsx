@@ -7,7 +7,7 @@ import { useHistory, useLocation } from 'react-router-dom';
 
 import LineageTree from './LineageTree';
 import constructTree from './utils/constructTree';
-import { Direction, EntityAndType, EntitySelectParams, FetchedEntity } from './types';
+import { ColumnEdge, Direction, EntityAndType, EntitySelectParams, FetchedEntity } from './types';
 import { useEntityRegistry } from '../useEntityRegistry';
 import { ANTD_GRAY } from '../entity/shared/constants';
 import { LineageExplorerContext } from './utils/LineageExplorerContext';
@@ -104,7 +104,8 @@ export default function LineageVizInsideZoom({
 }: Props) {
     const [draggedNodes, setDraggedNodes] = useState<Record<string, { x: number; y: number }>>({});
     const [collapsedColumnsNodes, setCollapsedColumnsNodes] = useState<Record<string, boolean>>({});
-    const [hoveredField, setHoveredField] = useState<SchemaFieldRef | null>(null);
+    const [selectedField, setSelectedField] = useState<SchemaFieldRef | null>(null);
+    const [highlightedEdges, setHighlightedEdges] = useState<ColumnEdge[]>([]);
 
     const history = useHistory();
     const location = useLocation();
@@ -145,9 +146,11 @@ export default function LineageVizInsideZoom({
                 showColumns,
                 collapsedColumnsNodes,
                 setCollapsedColumnsNodes,
-                hoveredField,
-                setHoveredField,
                 fineGrainedMap,
+                selectedField,
+                setSelectedField,
+                highlightedEdges,
+                setHighlightedEdges,
             }}
         >
             <ZoomContainer>

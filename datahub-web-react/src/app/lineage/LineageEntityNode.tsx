@@ -5,7 +5,7 @@ import styled from 'styled-components';
 
 import { useEntityRegistry } from '../useEntityRegistry';
 import { IconStyleType } from '../entity/Entity';
-import { NodeData, Direction, VizNode, EntitySelectParams, EntityAndType } from './types';
+import { NodeData, Direction, VizNode, EntitySelectParams, EntityAndType, VizEdge, ColumnEdge } from './types';
 import { ANTD_GRAY } from '../entity/shared/constants';
 import { capitalizeFirstLetter } from '../shared/textUtil';
 import { nodeHeightFromTitleLength } from './utils/nodeHeightFromTitleLength';
@@ -73,6 +73,7 @@ export default function LineageEntityNode({
     onExpandClick,
     direction,
     isCenterNode,
+    edgesToRender,
     nodesToRenderByUrn,
 }: {
     node: { x: number; y: number; data: Omit<NodeData, 'children'> };
@@ -85,6 +86,7 @@ export default function LineageEntityNode({
     onDrag: (params: EntitySelectParams, event: React.MouseEvent) => void;
     onExpandClick: (data: EntityAndType) => void;
     direction: Direction;
+    edgesToRender: VizEdge[];
     nodesToRenderByUrn: Record<string, VizNode>;
 }) {
     const {
@@ -92,11 +94,16 @@ export default function LineageEntityNode({
         collapsedColumnsNodes,
         setCollapsedColumnsNodes,
         showColumns,
-        hoveredField,
-        setHoveredField,
+        highlightedEdges,
+        setHighlightedEdges,
+        fineGrainedMap,
+        selectedField,
+        setSelectedField,
     } = useContext(LineageExplorerContext);
     const [isExpanding, setIsExpanding] = useState(false);
     const [expandHover, setExpandHover] = useState(false);
+    const [isHoveringHide, setIsHoveringHide] = useState(false);
+    const [isHoveringShow, setIsHoveringShow] = useState(false);
     const [getAsyncEntityLineage, { data: asyncLineageData }] = useGetEntityLineageLazyQuery();
     const isHideSiblingMode = useIsSeparateSiblingsMode();
     const areColumnsCollapsed = !!collapsedColumnsNodes[node?.data?.urn || 'noop'];
@@ -141,6 +148,41 @@ export default function LineageEntityNode({
         showColumns,
         areColumnsCollapsed,
     );
+
+    function highlightDownstreamColumnLineage(sourceField: string, sourceUrn: string, edges: ColumnEdge[]) {
+        const forwardLineage = fineGrainedMap.forward[sourceUrn]?.[sourceField];
+        if (forwardLineage) {
+            Object.entries(forwardLineage).forEach((entry) => {
+                const [targetUrn, fieldPaths] = entry;
+                (fieldPaths as string[]).forEach((targetField) => {
+                    edges.push({ sourceUrn, sourceField, targetUrn, targetField });
+                    highlightDownstreamColumnLineage(targetField, targetUrn, edges);
+                });
+            });
+        }
+    }
+
+    function highlightUpstreamColumnLineage(targetField: string, targetUrn: string, edges: ColumnEdge[]) {
+        const reverseLineage = fineGrainedMap.reverse[targetUrn]?.[targetField];
+        if (reverseLineage) {
+            Object.entries(reverseLineage).forEach((entry) => {
+                const [sourceUrn, fieldPaths] = entry;
+                (fieldPaths as string[]).forEach((sourceField) => {
+                    edges.push({ targetUrn, targetField, sourceUrn, sourceField });
+                    highlightUpstreamColumnLineage(sourceField, sourceUrn, edges);
+                });
+            });
+        }
+    }
+
+    function highlightColumnLineage(fieldPath: string, urn?: string) {
+        const edgesToHighlight: ColumnEdge[] = [];
+        if (urn) {
+            highlightDownstreamColumnLineage(fieldPath, urn, edgesToHighlight);
+            highlightUpstreamColumnLineage(fieldPath, urn, edgesToHighlight);
+        }
+        setHighlightedEdges(edgesToHighlight);
+    }
 
     return (
         <PointerGroup data-testid={`node-${node.data.urn}-${direction}`} top={node.x} left={node.y}>
@@ -372,9 +414,27 @@ export default function LineageEntityNode({
                             const newCollapsedNodes = { ...collapsedColumnsNodes };
                             delete newCollapsedNodes[node.data.urn || 'noop'];
                             setCollapsedColumnsNodes(newCollapsedNodes);
+                            setIsHoveringShow(false);
                             e.stopPropagation();
                         }}
+                        onMouseOver={(e) => {
+                            setIsHoveringShow(true);
+                            onHover(undefined);
+                            e.stopPropagation();
+                        }}
+                        onMouseOut={() => {
+                            setIsHoveringShow(false);
+                        }}
                     >
+                        <rect
+                            x={iconX - 21}
+                            y={centerY + 76}
+                            width={width - 2}
+                            height="28"
+                            fill={isHoveringShow ? ANTD_GRAY[3] : 'white'}
+                            ry="4"
+                            rx="4"
+                        />
                         <UnselectableText
                             dy=".33em"
                             x={iconX}
@@ -389,52 +449,76 @@ export default function LineageEntityNode({
                 )}
                 {showColumns && node.data.schemaMetadata && !areColumnsCollapsed && (
                     <Group>
-                        {node.data.schemaMetadata.fields.map((field, idx) => (
-                            <Group
-                                onMouseOver={(e) => {
-                                    setHoveredField({ urn: node?.data?.urn, path: field.fieldPath });
-                                    onHover(undefined);
-                                    e.stopPropagation();
-                                }}
-                                onMouseOut={() => {
-                                    setHoveredField(null);
-                                }}
-                                onClick={(e) => {
-                                    console.log('clicked!');
-                                    e.stopPropagation();
-                                }}
-                            >
-                                <rect
-                                    x={iconX - 21}
-                                    y={centerY + 80 + idx * 30}
-                                    width={width - 2}
-                                    height="28"
-                                    fill="white"
-                                    stroke="#1890FF"
-                                    strokeWidth={
-                                        hoveredField?.urn === node?.data?.urn && hoveredField?.path === field.fieldPath
-                                            ? '1px'
-                                            : '0'
-                                    }
-                                    ry="4"
-                                    rx="4"
-                                />
-                                <UnselectableText
-                                    dy=".33em"
-                                    x={iconX}
-                                    y={centerY + 80 + 14 + idx * 30}
-                                    fontSize={12}
-                                    fontFamily="'Roboto Mono',monospace"
-                                    fill={
-                                        hoveredField?.urn === node?.data?.urn && hoveredField?.path === field.fieldPath
-                                            ? '#1890FF'
-                                            : 'black'
-                                    }
+                        {node.data.schemaMetadata.fields.map((field, idx) => {
+                            const isFieldSelected =
+                                selectedField?.urn === node?.data?.urn && selectedField?.path === field.fieldPath;
+                            const isFieldHighlighted = highlightedEdges.find(
+                                (edge) =>
+                                    (edge.sourceUrn === node.data.urn && edge.sourceField === field.fieldPath) ||
+                                    (edge.targetUrn === node.data.urn && edge.targetField === field.fieldPath),
+                            );
+
+                            const fieldEdge = edgesToRender.find(
+                                (edge) =>
+                                    (edge.source.data.urn === node.data.urn && edge.sourceField === field.fieldPath) ||
+                                    (edge.target.data.urn === node.data.urn && edge.targetField === field.fieldPath),
+                            );
+                            return (
+                                <Group
+                                    onMouseOver={(e) => {
+                                        if (fieldEdge && (!selectedField || isFieldSelected)) {
+                                            highlightColumnLineage(field.fieldPath, node.data.urn);
+                                            onHover(undefined);
+                                            e.stopPropagation();
+                                        }
+                                    }}
+                                    onMouseOut={() => {
+                                        if (!selectedField) {
+                                            setHighlightedEdges([]);
+                                        }
+                                    }}
+                                    onClick={(e) => {
+                                        if (fieldEdge) {
+                                            if (!isFieldSelected) {
+                                                setSelectedField({
+                                                    urn: node.data.urn as string,
+                                                    path: field.fieldPath,
+                                                });
+                                                highlightColumnLineage(field.fieldPath, node.data.urn);
+                                            } else {
+                                                setSelectedField(null);
+                                            }
+                                            e.stopPropagation();
+                                        } else {
+                                            setSelectedField(null);
+                                        }
+                                    }}
                                 >
-                                    {field.fieldPath}
-                                </UnselectableText>
-                            </Group>
-                        ))}
+                                    <rect
+                                        x={iconX - 21}
+                                        y={centerY + 80 + idx * 30}
+                                        width={width - 2}
+                                        height="29"
+                                        fill={isFieldSelected ? '#e7f3ff' : 'white'}
+                                        stroke={isFieldHighlighted && fieldEdge ? '#1890FF' : 'transparent'}
+                                        strokeWidth="1px"
+                                        ry="4"
+                                        rx="4"
+                                    />
+                                    <UnselectableText
+                                        dy=".33em"
+                                        x={iconX}
+                                        y={centerY + 80 + 14 + idx * 30}
+                                        fontSize={12}
+                                        fontFamily="'Roboto Mono',monospace"
+                                        fill={fieldEdge ? 'black' : ANTD_GRAY[7]}
+                                        // fill={isFieldHovered && fieldEdge ? '#1890FF' : textColor}
+                                    >
+                                        {field.fieldPath}
+                                    </UnselectableText>
+                                </Group>
+                            );
+                        })}
                         <Group
                             onClick={(e) => {
                                 const newCollapsedNodes = {
@@ -442,13 +526,31 @@ export default function LineageEntityNode({
                                     [node?.data?.urn || 'noop']: true,
                                 };
                                 setCollapsedColumnsNodes(newCollapsedNodes);
+                                setIsHoveringHide(false);
                                 e.stopPropagation();
                             }}
+                            onMouseOver={(e) => {
+                                setIsHoveringHide(true);
+                                onHover(undefined);
+                                e.stopPropagation();
+                            }}
+                            onMouseOut={() => {
+                                setIsHoveringHide(false);
+                            }}
                         >
+                            <rect
+                                x={iconX - 21}
+                                y={centerY + 79 + node.data.schemaMetadata.fields.length * 30}
+                                width={width - 2}
+                                height="29"
+                                fill={isHoveringHide ? ANTD_GRAY[3] : 'transparent'}
+                                ry="4"
+                                rx="4"
+                            />
                             <UnselectableText
                                 dy=".33em"
                                 x={iconX}
-                                y={centerY + 92 + node.data.schemaMetadata.fields.length * 30}
+                                y={centerY + 94 + node.data.schemaMetadata.fields.length * 30}
                                 fontSize={12}
                                 fontFamily="Arial"
                                 fill="#1890FF"

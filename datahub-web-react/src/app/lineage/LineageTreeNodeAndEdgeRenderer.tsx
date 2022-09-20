@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useContext } from 'react';
 import { Group } from '@vx/group';
 import { curveBasis } from '@vx/curve';
 import { LinePath } from '@vx/shape';
@@ -7,6 +7,7 @@ import { TransformMatrix } from '@vx/zoom/lib/types';
 import { NodeData, Direction, EntitySelectParams, TreeProps, VizNode, VizEdge, EntityAndType } from './types';
 import LineageEntityNode from './LineageEntityNode';
 import { ANTD_GRAY } from '../entity/shared/constants';
+import { LineageExplorerContext } from './utils/LineageExplorerContext';
 
 type Props = {
     data: NodeData;
@@ -54,9 +55,17 @@ export default function LineageTreeNodeAndEdgeRenderer({
     edgesToRender,
     nodesByUrn,
 }: Props) {
+    const { highlightedEdges } = useContext(LineageExplorerContext);
     const isLinkHighlighted = (link) =>
-        link.source.data.urn === hoveredEntity?.urn || link.target.data.urn === hoveredEntity?.urn;
-    // could easily add check for hoveredField to and from to see if link is highlighted
+        link.source.data.urn === hoveredEntity?.urn ||
+        link.target.data.urn === hoveredEntity?.urn ||
+        highlightedEdges.find(
+            (edge) =>
+                edge.sourceUrn === link.source.data.urn &&
+                edge.sourceField === link.sourceField &&
+                edge.targetUrn === link.target.data.urn &&
+                edge.targetField === link.targetField,
+        );
     return (
         <Group transform={transformToString(zoom.transformMatrix)} top={margin?.top} left={margin?.left}>
             {[
@@ -105,6 +114,7 @@ export default function LineageTreeNodeAndEdgeRenderer({
                         direction={direction}
                         isCenterNode={data.urn === node.data.urn}
                         nodesToRenderByUrn={nodesByUrn}
+                        edgesToRender={edgesToRender}
                         onDrag={onDrag}
                     />
                 );

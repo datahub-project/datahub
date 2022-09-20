@@ -82,6 +82,13 @@ export type VizEdge = {
     curve: { x: number; y: number }[];
 };
 
+export type ColumnEdge = {
+    sourceUrn: string;
+    sourceField: string;
+    targetUrn: string;
+    targetField: string;
+};
+
 export type FetchedEntities = { [x: string]: FetchedEntity };
 
 export enum Direction {
