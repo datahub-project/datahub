@@ -446,6 +446,7 @@ module.exports = {
       "docs/domains",
       "docs/how/business-glossary-guide",
       "docs/tags",
+      "docs/authorization/access-policies-guide",
       // "docs/wip/ui-ingestion-guide", -- not needed
       // "docs/wip/personal-access-tokens-guide", -- not needed
 
