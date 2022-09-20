@@ -11,7 +11,7 @@ if [[ $ELASTICSEARCH_USE_SSL == true ]]; then
 else
     ELASTICSEARCH_PROTOCOL=http
 fi
-echo -e "Going to use protocol: $ELASTICSEARCH_PROTOCOL"
+echo -e "going to use $ELASTICSEARCH_PROTOCOL"
 
 # Elasticsearch URL to be suffixed with a resource address
 ELASTICSEARCH_URL="$ELASTICSEARCH_PROTOCOL://$ELASTICSEARCH_HOST:$ELASTICSEARCH_PORT"
@@ -22,13 +22,16 @@ if [[ -z $ELASTICSEARCH_AUTH_HEADER ]]; then
     # no auth header given, but username is defined -> use it to create the auth header
     AUTH_TOKEN=$(echo -ne "$ELASTICSEARCH_USERNAME:$ELASTICSEARCH_PASSWORD" | base64 --wrap 0)
     ELASTICSEARCH_AUTH_HEADER="Authorization:Basic $AUTH_TOKEN"
+    echo -e "going to use elastic headers based on username and password"
   else
     # no auth header or username given -> use default auth header
     ELASTICSEARCH_AUTH_HEADER="Accept: */*"
+    echo -e "going to use default elastic headers"
   fi
 fi
 
 # index prefix used throughout the script
+echo -e "going to use prefix $INDEX_PREFIX"
 if [[ -z "$INDEX_PREFIX" ]]; then
   PREFIX=''
 else
