@@ -114,7 +114,7 @@ class PrestoOnHiveConfig(BasicSQLAlchemyConfig):
         description=f"The ingested data will be stored under this platform. Valid options: {[e.value for e in PrestoOnHiveConfigMode]}",
     )
     use_catalog_subtype: bool = Field(
-        default=False,
+        default=True,
         description="Container Subtype name to be 'Database' or 'Catalog' Valid options: ['True', 'False']",
     )
     use_dataset_pascalcase_subtype: bool = Field(
@@ -354,15 +354,9 @@ class PrestoOnHiveSource(SQLAlchemySource):
             container_urn = make_container_urn(
                 guid=schema_container_key.guid(),
             )
-            if self.is_stateful_ingestion_configured():
-                cur_checkpoint = self.get_current_checkpoint(
-                    self.get_default_ingestion_job_id()
-                )
-                if cur_checkpoint is not None:
-                    checkpoint_state = cast(
-                        BaseSQLAlchemyCheckpointState, cur_checkpoint.state
-                    )
-                    checkpoint_state.add_container_guid(container_urn)
+
+            # Add table to the checkpoint state
+            self.stale_entity_removal_handler.add_entity_to_state("container", container_urn)
 
             container_workunits: Iterable[MetadataWorkUnit] = gen_containers(
                 schema_container_key,
@@ -433,15 +427,7 @@ class PrestoOnHiveSource(SQLAlchemySource):
             )
 
             # enable tables stateful ingestion
-            if self.is_stateful_ingestion_configured():
-                cur_checkpoint = self.get_current_checkpoint(
-                    self.get_default_ingestion_job_id()
-                )
-                if cur_checkpoint is not None:
-                    checkpoint_state = cast(
-                        BaseSQLAlchemyCheckpointState, cur_checkpoint.state
-                    )
-                    checkpoint_state.add_table_urn(dataset_urn)
+            self.stale_entity_removal_handler.add_entity_to_state("table", dataset_urn)
 
             # add table schema fields
             schema_fields = self.get_schema_fields(dataset_name, columns)
@@ -652,16 +638,7 @@ class PrestoOnHiveSource(SQLAlchemySource):
                 dataset_urn, db_name, dataset.schema_name
             )
 
-            # enable views stateful ingestion
-            if self.is_stateful_ingestion_configured():
-                cur_checkpoint = self.get_current_checkpoint(
-                    self.get_default_ingestion_job_id()
-                )
-                if cur_checkpoint is not None:
-                    checkpoint_state = cast(
-                        BaseSQLAlchemyCheckpointState, cur_checkpoint.state
-                    )
-                    checkpoint_state.add_view_urn(dataset_urn)
+            self.stale_entity_removal_handler.add_entity_to_state("view", dataset_urn)
 
             # construct mce
             mce = MetadataChangeEvent(proposedSnapshot=dataset_snapshot)
@@ -689,10 +666,10 @@ class PrestoOnHiveSource(SQLAlchemySource):
 
             # Add views definition
             view_properties_aspect = ViewPropertiesClass(
-                materialized=False, viewLanguage="SQL", viewLogic=view_definition
+                materialized=False, viewLanguage="SQL", viewLogic=dataset.view_definition
             )
             view_properties_wu = MetadataWorkUnit(
-                id=f"{dataset_name}-viewProperties",
+                id=f"{dataset.dataset_name}-viewProperties",
                 mcp=MetadataChangeProposalWrapper(
                     entityType="dataset",
                     changeType=ChangeTypeClass.UPSERT,
@@ -752,7 +729,6 @@ class PrestoOnHiveSource(SQLAlchemySource):
     def close(self) -> None:
         if self._alchemy_client.connection is not None:
             self._alchemy_client.connection.close()
-        self.update_default_job_run_summary()
         self.prepare_for_commit()
 
     def get_schema_fields_for_column(
