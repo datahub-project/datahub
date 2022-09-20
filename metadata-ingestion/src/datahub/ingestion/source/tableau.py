@@ -76,6 +76,7 @@ from datahub.metadata.schema_classes import (
     BrowsePathsClass,
     ChangeTypeClass,
     ChartInfoClass,
+    DataPlatformInstanceClass,
     DashboardInfoClass,
     DatasetPropertiesClass,
     OwnerClass,
@@ -267,6 +268,16 @@ class TableauSource(Source):
             self.report.report_failure(
                 key="tableau-login", reason=f"Unable to Login" f"Reason: {str(e)}"
             )
+
+    def get_data_platform_instance(self) -> DataPlatformInstanceClass:
+        return DataPlatformInstanceClass(
+            platform=builder.make_data_platform_urn(self.platform),
+            instance=builder.make_dataplatform_instance_urn(
+                self.platform, self.config.platform_instance
+            )
+            if self.config.platform_instance
+            else None,
+        )
 
     def get_connection_object(
         self,
@@ -504,7 +515,7 @@ class TableauSource(Source):
                 )
                 dataset_snapshot = DatasetSnapshot(
                     urn=csql_urn,
-                    aspects=[],
+                    aspects=[self.get_data_platform_instance()],
                 )
 
                 datasource_name = None
@@ -767,7 +778,7 @@ class TableauSource(Source):
 
         dataset_snapshot = DatasetSnapshot(
             urn=datasource_urn,
-            aspects=[],
+            aspects=[self.get_data_platform_instance()],
         )
 
         datasource_name = datasource.get("name") or datasource_id
@@ -957,7 +968,7 @@ class TableauSource(Source):
                 urn=builder.make_chart_urn(
                     self.platform, sheet.get("id"), self.config.platform_instance
                 ),
-                aspects=[],
+                aspects=[self.get_data_platform_instance()],
             )
 
             creator: Optional[str] = workbook["owner"].get("username")
@@ -1104,7 +1115,7 @@ class TableauSource(Source):
                 urn=builder.make_dashboard_urn(
                     self.platform, dashboard["id"], self.config.platform_instance
                 ),
-                aspects=[],
+                aspects=[self.get_data_platform_instance()],
             )
 
             creator = workbook.get("owner", {}).get("username", "")
@@ -1234,7 +1245,7 @@ class TableauSource(Source):
 
     @lru_cache(maxsize=None)
     def get_last_modified(
-        self, creator: Optional[str], created_at: bytes, updated_at: bytes
+            self, creator: Optional[str], created_at: bytes, updated_at: bytes
     ) -> ChangeAuditStamps:
         last_modified = ChangeAuditStamps()
         if creator:
