@@ -261,7 +261,7 @@ export class DatasetEntity implements Entity<Dataset> {
         if (result.matchedFields.length > 0) {
             if (result.matchedFields[0].value.includes('urn:li:tag')) {
                 snippet = <TagSummary urn={result.matchedFields[0].value} />;
-            } else if (result.matchedFields[0].value.includes('urn:li:term')) {
+            } else if (result.matchedFields[0].value.includes('urn:li:glossaryTerm')) {
                 snippet = <TermSummary urn={result.matchedFields[0].value} />;
             } else {
                 snippet = <b>{result.matchedFields[0].value}</b>;

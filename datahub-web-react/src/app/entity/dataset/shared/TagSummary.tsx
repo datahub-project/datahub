@@ -1,8 +1,9 @@
 import React from 'react';
 import styled from 'styled-components';
 import { useGetTagQuery } from '../../../../graphql/tag.generated';
-import { Tag } from '../../../../types.generated';
+import { EntityType, Tag } from '../../../../types.generated';
 import { HoverEntityTooltip } from '../../../recommendations/renderer/component/HoverEntityTooltip';
+import { useEntityRegistry } from '../../../useEntityRegistry';
 import { StyledTag } from '../../shared/components/styled/StyledTag';
 
 const TagLink = styled.span`
@@ -14,6 +15,7 @@ type Props = {
 };
 
 export const TagSummary = ({ urn }: Props) => {
+    const entityRegistry = useEntityRegistry();
     const { data } = useGetTagQuery({ variables: { urn } });
     return (
         <>
@@ -26,7 +28,7 @@ export const TagSummary = ({ urn }: Props) => {
                             $color={data?.tag?.properties?.colorHex}
                             closable={false}
                         >
-                            {data?.tag?.properties?.name}
+                            {entityRegistry.getDisplayName(EntityType.Tag, data?.tag)}
                         </StyledTag>
                     </TagLink>
                 </HoverEntityTooltip>
