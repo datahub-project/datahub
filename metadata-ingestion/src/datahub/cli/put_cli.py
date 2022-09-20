@@ -105,5 +105,5 @@ def platform(
         )
     )
     click.echo(
-        f"✅ Successfully wrote data platform metadata for {platform_urn} to DataHub"
+        f"✅ Successfully wrote data platform metadata for {platform_urn} to DataHub ({datahub_graph})"
     )
