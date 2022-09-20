@@ -1,5 +1,4 @@
 import typing
-from typing import Any, Dict
 
 import pydantic
 from pydantic.fields import Field
@@ -23,30 +22,20 @@ class TwoTierSQLAlchemyConfig(BasicSQLAlchemyConfig):
         default=AllowDenyPattern.allow_all(),
         description="Regex patterns for databases to filter in ingestion.",
     )
-    schema_pattern: AllowDenyPattern = Field(
-        default=AllowDenyPattern.allow_all(),
-        description="Deprecated in favour of database_pattern. Regex patterns for schemas to filter in ingestion. "
-        "Specify regex to only match the schema name. e.g. to match all tables in schema analytics, "
-        "use the regex 'analytics'",
-    )
 
-    @pydantic.root_validator()
-    def ensure_profiling_pattern_is_passed_to_profiling(
-        cls, values: Dict[str, Any]
-    ) -> Dict[str, Any]:
-        allow_all_pattern = AllowDenyPattern.allow_all()
-        schema_pattern = values.get("schema_pattern")
-        database_pattern = values.get("database_pattern")
-        if (
-            database_pattern == allow_all_pattern
-            and schema_pattern != allow_all_pattern
-        ):
-            logger.warning(
-                "Updating 'database_pattern' to 'schema_pattern'. Please stop using deprecated "
-                "'schema_pattern'. Use 'database_pattern' instead. "
-            )
-            values["database_pattern"] = schema_pattern
-        return values
+    @pydantic.validator("database_pattern")
+    def copy_deprecated_schema_pattern_option(cls, v, values):
+        if "schema_pattern" in values:
+            if v != AllowDenyPattern.allow_all():
+                raise ValueError(
+                    "Cannot specify both schema_pattern and database_pattern"
+                )
+            else:
+                logger.warning(
+                    "schema_pattern is deprecated, please use database_pattern instead."
+                )
+                return values.pop("schema_pattern")
+        return v
 
     def get_sql_alchemy_url(
         self,
@@ -70,6 +59,8 @@ class TwoTierSQLAlchemySource(SQLAlchemySource):
         self.config: TwoTierSQLAlchemyConfig = config
 
     def get_parent_container_key(self, db_name: str, schema: str) -> PlatformKey:
+        # Because our overridden get_allowed_schemas method returns db_name as the schema name,
+        # the db_name and schema here will be the same. Hence, we just ignore the schema parameter.
         return self.gen_database_key(db_name)
 
     def get_allowed_schemas(
