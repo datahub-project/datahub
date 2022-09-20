@@ -35,6 +35,11 @@ meta_mapping:
     operation: "add_term"
     config:
       term: "Finance_test"
+  terms_list:
+    match: ".*"
+    operation: "add_terms"
+    config:
+      separator: ","
 ```
 </TabItem>
 <TabItem value="json" label="JSON">
@@ -66,6 +71,11 @@ meta_mapping:
                         "operation": "add_term",
                         "config": {"term": "Finance_test"},
                     },
+                    "terms_list": {
+                        "match": ".*",
+                        "operation": "add_terms",
+                        "config": {"separator": ","},
+                    },
                 }
 ```
 </TabItem>
@@ -74,10 +84,11 @@ meta_mapping:
 We support the following operations:
 1. add_tag - Requires ```tag``` property in config.
 2. add_term - Requires ```term``` property in config.
-3. add_owner - Requires ```owner_type``` property in config which can be either user or group. Optionally accepts the ```owner_category``` config property which you can set to one of ```['TECHNICAL_OWNER', 'BUSINESS_OWNER', 'DATA_STEWARD', 'DATAOWNER'``` (defaults to `DATAOWNER`).
+3. add_terms - Accepts an optional ```separator``` property in config.
+4. add_owner - Requires ```owner_type``` property in config which can be either user or group. Optionally accepts the ```owner_category``` config property which you can set to one of ```['TECHNICAL_OWNER', 'BUSINESS_OWNER', 'DATA_STEWARD', 'DATAOWNER'``` (defaults to `DATAOWNER`).
 
 Note:
-1. Currently, dbt meta mapping is only supported for meta elements defined at the model level (not supported for columns).
+1. The dbt `meta_mapping` config works at the model level, while the `column_meta_mapping` config works at the column level. The `add_owner` operation is not supported at the column level.
 2. For string meta properties we support regex matching.
 
 With regex matching, you can also use the matched value to customize how you populate the tag, term or owner fields. Here are a few advanced examples:
