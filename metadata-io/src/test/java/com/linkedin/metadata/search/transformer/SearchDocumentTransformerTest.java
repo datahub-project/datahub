@@ -22,7 +22,7 @@ public class SearchDocumentTransformerTest {
 
   @Test
   public void testTransform() throws IOException {
-    SearchDocumentTransformer searchDocumentTransformer = new SearchDocumentTransformer(1000);
+    SearchDocumentTransformer searchDocumentTransformer = new SearchDocumentTransformer(1000, 1000);
     TestEntitySnapshot snapshot = TestEntityUtil.getSnapshot();
     EntitySpec testEntitySpec = TestEntitySpecBuilder.getSpec();
     Optional<String> result = searchDocumentTransformer.transformSnapshot(snapshot, testEntitySpec, false);
@@ -54,7 +54,7 @@ public class SearchDocumentTransformerTest {
 
   @Test
   public void testTransformForDelete() throws IOException {
-    SearchDocumentTransformer searchDocumentTransformer = new SearchDocumentTransformer(1000);
+    SearchDocumentTransformer searchDocumentTransformer = new SearchDocumentTransformer(1000, 1000);
     TestEntitySnapshot snapshot = TestEntityUtil.getSnapshot();
     EntitySpec testEntitySpec = TestEntitySpecBuilder.getSpec();
     Optional<String> result = searchDocumentTransformer.transformSnapshot(snapshot, testEntitySpec, true);

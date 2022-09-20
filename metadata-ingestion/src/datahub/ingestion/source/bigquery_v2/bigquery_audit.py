@@ -79,12 +79,9 @@ class BigqueryTableIdentifier:
 
     invalid_chars: ClassVar[Set[str]] = {"$", "@"}
     _BIGQUERY_DEFAULT_SHARDED_TABLE_REGEX: ClassVar[str] = "((.+)[_$])?(\\d{4,10})$"
-    PARTITION_SUMMARY_REGEXP: ClassVar[Pattern[str]] = re.compile(
-        r"^(.+)\$__PARTITIONS_SUMMARY__$"
-    )
 
     @staticmethod
-    def _get_table_and_shard(table_name: str) -> Tuple[str, Optional[str]]:
+    def get_table_and_shard(table_name: str) -> Tuple[str, Optional[str]]:
         match = re.search(
             BigqueryTableIdentifier._BIGQUERY_DEFAULT_SHARDED_TABLE_REGEX,
             table_name,
@@ -116,7 +113,7 @@ class BigqueryTableIdentifier:
         # if table name ends in _* or * then we strip it as that represents a query on a sharded table
         shortened_table_name = self._remove_suffix(shortened_table_name, ["_*", "*"])
 
-        table_name, _ = self._get_table_and_shard(shortened_table_name)
+        table_name, _ = self.get_table_and_shard(shortened_table_name)
         if not table_name:
             table_name = self.dataset
 

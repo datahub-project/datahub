@@ -64,7 +64,14 @@ public class DatasetVisitor implements ProtobufModelVisitor<MetadataChangePropos
         final ProtobufGraph g = context.getGraph();
 
         return Stream.of(
-                new MetadataChangeProposalWrapper<>(DatasetUrn.ENTITY_TYPE, datasetUrn, ChangeType.UPSERT, new DatasetProperties()
+                new MetadataChangeProposalWrapper<>(DatasetUrn.ENTITY_TYPE, datasetUrn, ChangeType.UPSERT,
+                    new DatasetProperties()
+                        .setName(context.getDatasetUrn()
+                            .getDatasetNameEntity()
+                            .substring(context.getDatasetUrn()
+                                .getDatasetNameEntity()
+                                .lastIndexOf(".") + 1))
+                        .setQualifiedName(context.getDatasetUrn().getDatasetNameEntity())
                         .setDescription(g.accept(context, List.of(descriptionVisitor)).collect(Collectors.joining("\n")))
                         .setCustomProperties(new StringMap(
                                 Stream.concat(

@@ -175,7 +175,7 @@ class _Aspect(DictWrapper):
         f"""
 from typing import Type
 
-_ASPECT_CLASSES: List[Type[_Aspect]] = [
+ASPECT_CLASSES: List[Type[_Aspect]] = [
     {f',{newline}    '.join(f"{aspect['name']}Class" for aspect in aspects)}
 ]
 """

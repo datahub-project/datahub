@@ -1,4 +1,4 @@
-name: Publish Datahub Java Jars (Client, Spark Lineage, Protobuf)
+name: Publish Datahub Java Jars (Client, Spark Lineage, Protobuf, Ranger)
 
 on:
   push:
@@ -142,7 +142,8 @@ jobs:
           echo signingKey=$SIGNING_KEY >> gradle.properties
           ./gradlew -PreleaseVersion=${{ needs.setup.outputs.tag }} :metadata-integration:java:datahub-protobuf:publish
           ./gradlew :metadata-integration:java:datahub-protobuf:closeAndReleaseRepository --info
-      - name: build and publish datahub-ranger-plugin
+      - name: publish datahub-ranger-plugin snapshot jar
+        if: ${{ github.event_name != 'release' }}
         env:
           RELEASE_USERNAME: ${{ secrets.RELEASE_USERNAME }}
           RELEASE_PASSWORD: ${{ secrets.RELEASE_PASSWORD }}
@@ -152,6 +153,18 @@ jobs:
           NEXUS_PASSWORD: ${{ secrets.NEXUS_PASSWORD }}
         run: |
           echo signingKey=$SIGNING_KEY >> gradle.properties
-           # Publish apache ranger plugin to maven
           ./gradlew :datahub-ranger-plugin:printVersion
-          ./gradlew :datahub-ranger-plugin:publishMavenJavaPublicationToMavenLocal
+          ./gradlew :datahub-ranger-plugin:publish
+      - name: release datahub-ranger-plugin jar
+        if: ${{ github.event_name == 'release' }}
+        env:
+          RELEASE_USERNAME: ${{ secrets.RELEASE_USERNAME }}
+          RELEASE_PASSWORD: ${{ secrets.RELEASE_PASSWORD }}
+          SIGNING_PASSWORD: ${{ secrets.SIGNING_PASSWORD }}
+          SIGNING_KEY: ${{ secrets.SIGNING_KEY }}
+          NEXUS_USERNAME: ${{ secrets.NEXUS_USERNAME }}
+          NEXUS_PASSWORD: ${{ secrets.NEXUS_PASSWORD }}
+        run: |
+          echo signingKey=$SIGNING_KEY >> gradle.properties
+          ./gradlew -PreleaseVersion=${{ needs.setup.outputs.tag }} :datahub-ranger-plugin:publish
+          ./gradlew :datahub-ranger-plugin:closeAndReleaseRepository --info
