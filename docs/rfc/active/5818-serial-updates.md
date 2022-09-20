@@ -104,10 +104,7 @@ supplies a diff instead of a complete new state, but this is out of scope of thi
 > with the implementation to implement. This should get into specifics and corner-cases, and include examples of how the
 > feature is used. Any new terminology should be defined here.
 
-In short, my recommendations for implementing this change is proposal 2 or 3 in the list below. But first, a 
-consideration on versions...
-
-#### Aspect Versions
+#### A note on Aspect Versions
 
 There are many ways to achieve this, but most of them involve DataHub aspects having some kind of consistent 
 versioning as currently the LATEST version of an aspect is version zero and is a mutable placeholder for a "real" 
@@ -120,25 +117,12 @@ something will need to be added as the general aspect level to allow for this ne
 Whatever is done, the most important thing is that changes can be isolated at the metadata storage level, whether 
 through locking, transactions or Cassandra LWTs. More on this later.
 
-### 1: Change Processor
+### PROPOSED SOLUTION: Read and Conditional Update
 
-Check the allowed set of transitions between current and proposed aspect state. This would be achieved with 
-business-specific logic injected into the DataHub codebase via plugins. This feels like teh wrong approach.
-
-Good
-* Fast as all code is executed in GMS
-
-Bad
-* No guarantee of state between the read and write
-* No guarantee that the plugin code will run
-* Specific business logic getting tied up with GMS code
-
-[![](https://mermaid.ink/img/pako:eNqFks9qAjEQxl9lyFV9gT1Yii3SgyB43cuQfLqB3USTWUXEd-_sH7vYCs0lYeY333yT5GZsdDCFyTi1CBYfng-JmzKQLrYSE61qjyBDZDgvlsvZerMr6CsckOU9H2FHQMOa3UDYsfBO61HQGk_MU3aheK_Ff1Rmq4q1wTZFi5xj0n55i9R4Ebi30WItdHzEhlDv87nyp8kVeYJCFFDyh0oo7umX58EwNXylis8g2ys6qpAwSbwcN3cbBVzojJR9DBP_evSE3Nbj6KgzyPnMdR0v_4y06KtDHCuDm26vyw6P9ZA3c9PoRbF3-ty3jiyNVGhQmkKPDnvuTJgy3BVtj2oTn86rUVPsWV3NDbcSd9dgTSGpxQMav8xI3b8BFXTCxw)](https://mermaid.live/edit#pako:eNqFks9qAjEQxl9lyFV9gT1Yii3SgyB43cuQfLqB3USTWUXEd-_sH7vYCs0lYeY333yT5GZsdDCFyTi1CBYfng-JmzKQLrYSE61qjyBDZDgvlsvZerMr6CsckOU9H2FHQMOa3UDYsfBO61HQGk_MU3aheK_Ff1Rmq4q1wTZFi5xj0n55i9R4Ebi30WItdHzEhlDv87nyp8kVeYJCFFDyh0oo7umX58EwNXylis8g2ys6qpAwSbwcN3cbBVzojJR9DBP_evSE3Nbj6KgzyPnMdR0v_4y06KtDHCuDm26vyw6P9ZA3c9PoRbF3-ty3jiyNVGhQmkKPDnvuTJgy3BVtj2oTn86rUVPsWV3NDbcSd9dgTSGpxQMav8xI3b8BFXTCxw)
-
-### 2: Read and Conditional Update
-
-Read the current aspect and pass it back to the client. The client can propose an update on the basis that what they 
-just read is still valid.
+Read the current aspect(s) and pass that state back to the client. The client can propose an update on the basis that 
+what they just read is still valid. The client should return an HTTP error code that specifically mentions the state 
+has changed underneath it when attempting the update. In this case the client can choose to re-apply the update 
+(read-modify-write) or throw its own error.
 
 Good
 * Guarantee of state between the read and write
@@ -150,50 +134,7 @@ Bad
 
 [![](https://mermaid.ink/img/pako:eNqVkb9qwzAQxl9FaG3yAhpcQhsylJBi083LIZ0bgSwp8mkoIe_ecyQXl2appuO733f_dJU6GJRKTnjJ6DW-WvhMMPZe8ANNIYkXZ9FTUVwIUeyIcIwksifrBMTIgBFMYkohFbCYtk3zdDh2ShyQdlNEXcuwtuVcgZTQOSUO1kT1r6B3IH0W8JdZenxEA4SliLCDmHg696j23L1pjkjABuh4R_yH-5dvHvDevF7huR7O0aIU4cHSp7eSQjfh-nIP0H3bntpKe_MTyI0cMY1gDX_gdZZ7SWccsZeKQ4MDZEe97P2NUcgUui-vpaKUcSPzfeH631INwHMs6t5Y3q6Kt29ZMrRr)](https://mermaid.live/edit#pako:eNqVkb9qwzAQxl9FaG3yAhpcQhsylJBi083LIZ0bgSwp8mkoIe_ecyQXl2appuO733f_dJU6GJRKTnjJ6DW-WvhMMPZe8ANNIYkXZ9FTUVwIUeyIcIwksifrBMTIgBFMYkohFbCYtk3zdDh2ShyQdlNEXcuwtuVcgZTQOSUO1kT1r6B3IH0W8JdZenxEA4SliLCDmHg696j23L1pjkjABuh4R_yH-5dvHvDevF7huR7O0aIU4cHSp7eSQjfh-nIP0H3bntpKe_MTyI0cMY1gDX_gdZZ7SWccsZeKQ4MDZEe97P2NUcgUui-vpaKUcSPzfeH631INwHMs6t5Y3q6Kt29ZMrRr)
 
-### 3: Idempotent Client Update
-
-The client proposes a partial change to an aspect that is idempotent. The change can apply whatever state the aspect 
-is in at the time. This will need to be extended to check for multiple currentAspect states when requested.
-
-Good
-* No need for business-specific logic in GMS code
-* Fast, as retry loop will be confined to GMS
-
-Bad
-* GMS will need to understand partial (PATCH) updates
-* Retries will need to be handled in GMS
-
-[![](https://mermaid.ink/img/pako:eNptkcFuwyAMhl_F4rr2BTh0qraqh6nqlGi3XCxw10gEKDGHqeq7zy1kyrZwQvbn__8xV2WCJaXVSJdM3tBrj58Jh86DHDQcEry4njyXSrmvN5un_aHV8BEtMm3HSKYCLoQIW2YaIkP23DvAGGXKgkhRSiEVUOZF5kCMIoGtGJGGPfFc7Fd3LfjD1OSUJMQcvItN7Xdkcwb80_1nNY8O_QlGieqWtJdD1Ec9F4a8rRtzPLVKYZau7E7D8a0OuZHmG1lAd01zbH4s1EoNlAbsrXzY9V7uFJ9poE5puVo6YXbcqc7fBM2PB-5sL7mVPqG4rRRmDu2XN0pzyjRB9dMrdfsGAEKuNA)](https://mermaid.live/edit#pako:eNptkcFuwyAMhl_F4rr2BTh0qraqh6nqlGi3XCxw10gEKDGHqeq7zy1kyrZwQvbn__8xV2WCJaXVSJdM3tBrj58Jh86DHDQcEry4njyXSrmvN5un_aHV8BEtMm3HSKYCLoQIW2YaIkP23DvAGGXKgkhRSiEVUOZF5kCMIoGtGJGGPfFc7Fd3LfjD1OSUJMQcvItN7Xdkcwb80_1nNY8O_QlGieqWtJdD1Ec9F4a8rRtzPLVKYZau7E7D8a0OuZHmG1lAd01zbH4s1EoNlAbsrXzY9V7uFJ9poE5puVo6YXbcqc7fBM2PB-5sL7mVPqG4rRRmDu2XN0pzyjRB9dMrdfsGAEKuNA)
-
-### 4: Serialised Updates Exclusively via Kafka
-
-Here, the client never updates the aspect HTTP but instead passes it via the MetadataChangeProposal topic in Kafka. 
-I don't think this is a viable solution due to the possibility of issuing out-of-date updates.
-
-Good
-* Local ordering
-* Fast performance
-
-Bad
-* No way of knowing what the current state is unless the client constructs it from the Kafka topics
-* Danger of proposing out-of-date updates if the topic is lagging
-
-### 5: URN-Aspect Locking
-
-Lock the target URN aspect(s) when reading. The client is guaranteed that the state it has read will not change until it releases the lock.
-
-Good
-* Guarantee of state between the read and write
-* No need for business-specific logic in GMS code
-
-Bad
-* Slow, especially under high contention
-* Need to handle lock release if a client fails to release the lock
-* Potentially blocking MCE Kafka queue
-
-[![](https://mermaid.ink/img/pako:eNqNksFOwzAMhl8lygm07QV6GEIw7QDTUKuJSy9W4tGINimpc0DT3h136dZQjYkequj3p9-_nRykchplJjv8CmgVPhv48NCUVvAHipwXT7VBS1GJ58VyOVtvikyskR67FhW9G6penfqMFNd6JJZ6ORP9f-dtlFJqgwQaCApuhYljZH5VF4yf2qrgPceYmnE55psQs_qSbMifkG9AqhKQWE1m3LUcAKPTXe90fyN-Ct-aANqWu-iHYc81nZUoXJlo-xJLWHco0Hvn_0RXeb7NB9rqq0PlWCN0ON5QOlN6bwN4ubqRdS0JMg26QGOSEWKfxf-MOKOcywZ9A0bzUzz0cimpwgZLmfFR4x5CTaUs7ZFRCOSKb6tkRj7gXIbT0oeXK7M98IrO6kobXvwgHn8AOC71Xg)](https://mermaid.live/edit#pako:eNqNksFOwzAMhl8lygm07QV6GEIw7QDTUKuJSy9W4tGINimpc0DT3h136dZQjYkequj3p9-_nRykchplJjv8CmgVPhv48NCUVvAHipwXT7VBS1GJ58VyOVtvikyskR67FhW9G6penfqMFNd6JJZ6ORP9f-dtlFJqgwQaCApuhYljZH5VF4yf2qrgPceYmnE55psQs_qSbMifkG9AqhKQWE1m3LUcAKPTXe90fyN-Ct-aANqWu-iHYc81nZUoXJlo-xJLWHco0Hvn_0RXeb7NB9rqq0PlWCN0ON5QOlN6bwN4ubqRdS0JMg26QGOSEWKfxf-MOKOcywZ9A0bzUzz0cimpwgZLmfFR4x5CTaUs7ZFRCOSKb6tkRj7gXIbT0oeXK7M98IrO6kobXvwgHn8AOC71Xg)
-
-### 6: PATCH with JSON-Delta Format
+### PATCH with JSON-Delta Format
 
 Client sends its update request in JSON-delta or some other delta format. GMS will reject the update if the previous 
 side of the delta does not match.
@@ -237,16 +178,23 @@ There are two major reasons this will be difficult to achieve: Aspect Versioning
 
 ### Aspect Versioning
 
-Currently, [aspect versioning](/docs/advanced/aspect-versioning.md) uses 0 as the latest aspect version. We would 
-have to find a way to get around this or provide a different, deterministic identifier for a specific aspect version 
-if we aren't able to reference a single fixed integer for the aspect versions.
+Currently, [aspect versioning](/docs/advanced/aspect-versioning.md) uses 0 as a mutable placeholder for the latest 
+aspect version. We would have to find a way to get around this or provide a different, deterministic identifier for 
+a specific aspect version if we aren't able to reference a single fixed integer for the aspect versions.
+
+We don't necessarily have to overhaul the versioning approach here, as all we need is a way of uniquely identifying
+the aspect instance that is to be changed. We don't need to rely on numerical version ordering for this, but
+something will need to be added as the general aspect level to allow for this new functionality.
+
+Whatever is done, the most important thing is that changes can be isolated at the metadata storage level, whether
+through locking, transactions or Cassandra LWTs.
 
 ### Performance
 
 There are some significant performance drawbacks for most of these designs, as they will involve an extra hop between 
 the client and DataHub. Things will get even worse if the aspect updates are under heavy contention.
 
-#### Performance under contention
+#### Under contention
 
 This approach would suffer a lot under high contention. Let's say:
 * the time sending a request from client to gms and receiving response is `x`
@@ -273,12 +221,6 @@ communication chain this could take a very long time.
 Alternatives involve cleverly modelling aspects so they are only ever upserted without a previous state in mind, but 
 I haven't worked out how to achieve this for our requirements given the standard entity and aspect model available.
 
-### Locking
-
-If it were possible to lock an aspect for updating, then we could try this, although this would also lead to 
-slowness and contention of a different kind and we'd have to handle time-outs for locks which are never released, 
-for example.
-
 ### Patch Language
 
 If the patch language were available, it might be possible to update collections in such a way that it's not 
@@ -287,6 +229,65 @@ necessary for clients to know about the previous state of an aspect.
 MongoDB offers an update mode which allows clients to [add items to a set](https://mongodb.github.io/mongo-java-driver/4.7/apidocs/mongodb-driver-core/com/mongodb/client/model/Updates.html#addToSet(java.lang.String,TItem)),
 for example. This would avoid the need to go back to the client to ask them to construct the final state of a 
 collection.
+
+### Change Processor
+
+Check the allowed set of transitions between current and proposed aspect state. This would be achieved with
+business-specific logic injected into the DataHub codebase via plugins. This feels like the wrong approach.
+
+Good
+* Fast as all code is executed in GMS
+
+Bad
+* No guarantee of state between the read and write
+* No guarantee that the plugin code will run
+* Specific business logic getting tied up with GMS code
+
+[![](https://mermaid.ink/img/pako:eNqFks9qAjEQxl9lyFV9gT1Yii3SgyB43cuQfLqB3USTWUXEd-_sH7vYCs0lYeY333yT5GZsdDCFyTi1CBYfng-JmzKQLrYSE61qjyBDZDgvlsvZerMr6CsckOU9H2FHQMOa3UDYsfBO61HQGk_MU3aheK_Ff1Rmq4q1wTZFi5xj0n55i9R4Ebi30WItdHzEhlDv87nyp8kVeYJCFFDyh0oo7umX58EwNXylis8g2ys6qpAwSbwcN3cbBVzojJR9DBP_evSE3Nbj6KgzyPnMdR0v_4y06KtDHCuDm26vyw6P9ZA3c9PoRbF3-ty3jiyNVGhQmkKPDnvuTJgy3BVtj2oTn86rUVPsWV3NDbcSd9dgTSGpxQMav8xI3b8BFXTCxw)](https://mermaid.live/edit#pako:eNqFks9qAjEQxl9lyFV9gT1Yii3SgyB43cuQfLqB3USTWUXEd-_sH7vYCs0lYeY333yT5GZsdDCFyTi1CBYfng-JmzKQLrYSE61qjyBDZDgvlsvZerMr6CsckOU9H2FHQMOa3UDYsfBO61HQGk_MU3aheK_Ff1Rmq4q1wTZFi5xj0n55i9R4Ebi30WItdHzEhlDv87nyp8kVeYJCFFDyh0oo7umX58EwNXylis8g2ys6qpAwSbwcN3cbBVzojJR9DBP_evSE3Nbj6KgzyPnMdR0v_4y06KtDHCuDm26vyw6P9ZA3c9PoRbF3-ty3jiyNVGhQmkKPDnvuTJgy3BVtj2oTn86rUVPsWV3NDbcSd9dgTSGpxQMav8xI3b8BFXTCxw)
+
+### Idempotent Client Update
+
+The client proposes a partial change to an aspect that is idempotent. The change can apply whatever state the aspect
+is in at the time. This will need to be extended to check for multiple currentAspect states when requested.
+
+Good
+* No need for business-specific logic in GMS code
+* Fast, as retry loop will be confined to GMS
+
+Bad
+* GMS will need to understand partial (PATCH) updates
+* Retries will need to be handled in GMS
+
+[![](https://mermaid.ink/img/pako:eNptkcFuwyAMhl_F4rr2BTh0qraqh6nqlGi3XCxw10gEKDGHqeq7zy1kyrZwQvbn__8xV2WCJaXVSJdM3tBrj58Jh86DHDQcEry4njyXSrmvN5un_aHV8BEtMm3HSKYCLoQIW2YaIkP23DvAGGXKgkhRSiEVUOZF5kCMIoGtGJGGPfFc7Fd3LfjD1OSUJMQcvItN7Xdkcwb80_1nNY8O_QlGieqWtJdD1Ec9F4a8rRtzPLVKYZau7E7D8a0OuZHmG1lAd01zbH4s1EoNlAbsrXzY9V7uFJ9poE5puVo6YXbcqc7fBM2PB-5sL7mVPqG4rRRmDu2XN0pzyjRB9dMrdfsGAEKuNA)](https://mermaid.live/edit#pako:eNptkcFuwyAMhl_F4rr2BTh0qraqh6nqlGi3XCxw10gEKDGHqeq7zy1kyrZwQvbn__8xV2WCJaXVSJdM3tBrj58Jh86DHDQcEry4njyXSrmvN5un_aHV8BEtMm3HSKYCLoQIW2YaIkP23DvAGGXKgkhRSiEVUOZF5kCMIoGtGJGGPfFc7Fd3LfjD1OSUJMQcvItN7Xdkcwb80_1nNY8O_QlGieqWtJdD1Ec9F4a8rRtzPLVKYZau7E7D8a0OuZHmG1lAd01zbH4s1EoNlAbsrXzY9V7uFJ9poE5puVo6YXbcqc7fBM2PB-5sL7mVPqG4rRRmDu2XN0pzyjRB9dMrdfsGAEKuNA)
+
+### Serialised Updates Exclusively via Kafka
+
+Here, the client never updates the aspect via HTTP but instead passes it via the MetadataChangeProposal topic in Kafka.
+I don't think this is a viable solution due to the possibility of issuing out-of-date updates.
+
+Good
+* Local ordering
+* Fast performance
+
+Bad
+* No way of knowing what the current state is unless the client constructs it from the Kafka topics
+* Danger of proposing out-of-date updates if the topic is lagging
+
+### URN-Aspect Locking
+
+Lock the target URN aspect(s) when reading. The client is guaranteed that the state it has read will not change 
+until it releases the lock.
+
+Good
+* Guarantee of state between the read and write
+* No need for business-specific logic in GMS code
+
+Bad
+* Very slow, especially under high contention
+* Need to handle lock release if a client fails to release the lock
+* Potentially blocking MCE Kafka queue
+
+[![](https://mermaid.ink/img/pako:eNqNksFOwzAMhl8lygm07QV6GEIw7QDTUKuJSy9W4tGINimpc0DT3h136dZQjYkequj3p9-_nRykchplJjv8CmgVPhv48NCUVvAHipwXT7VBS1GJ58VyOVtvikyskR67FhW9G6penfqMFNd6JJZ6ORP9f-dtlFJqgwQaCApuhYljZH5VF4yf2qrgPceYmnE55psQs_qSbMifkG9AqhKQWE1m3LUcAKPTXe90fyN-Ct-aANqWu-iHYc81nZUoXJlo-xJLWHco0Hvn_0RXeb7NB9rqq0PlWCN0ON5QOlN6bwN4ubqRdS0JMg26QGOSEWKfxf-MOKOcywZ9A0bzUzz0cimpwgZLmfFR4x5CTaUs7ZFRCOSKb6tkRj7gXIbT0oeXK7M98IrO6kobXvwgHn8AOC71Xg)](https://mermaid.live/edit#pako:eNqNksFOwzAMhl8lygm07QV6GEIw7QDTUKuJSy9W4tGINimpc0DT3h136dZQjYkequj3p9-_nRykchplJjv8CmgVPhv48NCUVvAHipwXT7VBS1GJ58VyOVtvikyskR67FhW9G6penfqMFNd6JJZ6ORP9f-dtlFJqgwQaCApuhYljZH5VF4yf2qrgPceYmnE55psQs_qSbMifkG9AqhKQWE1m3LUcAKPTXe90fyN-Ct-aANqWu-iHYc81nZUoXJlo-xJLWHco0Hvn_0RXeb7NB9rqq0PlWCN0ON5QOlN6bwN4ubqRdS0JMg26QGOSEWKfxf-MOKOcywZ9A0bzUzz0cimpwgZLmfFR4x5CTaUs7ZFRCOSKb6tkRj7gXIbT0oeXK7M98IrO6kobXvwgHn8AOC71Xg)
 
 ## Rollout / Adoption Strategy
 
