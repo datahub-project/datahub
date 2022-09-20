@@ -14,24 +14,14 @@ Add in `saasOnly` for Managed DataHub-only features
 
 The **search bar** is an important mechnaism for discovering data assets in DataHub. From the search bar, you can find Datasets, Columns, Dashboards, Charts, Data Pipelines, and more. Simply type in a term and press 'enter'. 
 
-![](https://github.com/datahub-project/static-assets/blob/main/imgs/search-landingpage.png?raw=true)
+<p align="center">
+<img width="70%"  src="https://github.com/datahub-project/static-assets/blob/main/imgs/search-landingpage.png?raw=true" />
+</p>
 
 **Advanced queries** and the **filter sidebar** helps fine tuning queries. For programmatic users Datahub provides a **GraphQL API** as well. 
 
-<!-- This section should provide a plain-language overview of feature. Consider the following:
-
-* What does this feature do? Why is it useful?
-* What are the typical use cases?
-* Who are the typical users?
-* In which DataHub Version did this become available? -->
-
 ## Search Setup, Prerequisites, and Permissions
 
-<!-- This section should provide plain-language instructions on how to configure the feature:
-
-* What special configuration is required, if any?
-* How can you confirm you configured it correctly? What is the expected behavior?
-* What access levels/permissions are required within DataHub? -->
 Search is available for all users. Although Search works out of the box, the more relevant data you ingest, the better the results are.
 
 ## Using Search
@@ -40,20 +30,14 @@ Searching is as easy as typing in relevant business terms and pressing 'enter' t
 
 By default, search terms will match against different aspects of a data assets. This includes asset names, descriptions, tags, terms, owners, and even specific attributes like the names of columns in a table. 
 
-<!-- Plain-language instructions of how to use the feature
-
-Provide a step-by-step guide to use feature, including relevant screenshots and/or GIFs
-
-* Where/how do you access it?
-* What best practices exist?
-* What are common code snippets?
- -->
  
 ### Filters
 
 The filters sidebar sits on the left hand side of search results, and lets users find assets by drilling down. You can quickly filter by Data Platform (e.g. Snowflake), Tags, Glossary Terms, Domain, Owners, and more with a single click. 
 
-![](https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/filters_highlighted.png)
+<p align="center">
+ <img width="70%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/filters_highlighted.png" />
+</p>
 
 ### Results
 
@@ -146,13 +130,16 @@ for integrations and programmatic use-cases.
   }
 }
 ```
-<!-- Bulleted list of relevant GraphQL docs; comment out section if none -->
+
 
 ### DataHub Blog
 * [Using DataHub for Search & Discovery](https://blog.datahubproject.io/using-datahub-for-search-discovery-fa309089be22)
-<!-- Bulleted list of relevant DataHub Blog posts; comment out section if none -->
 
 ## FAQ and Troubleshooting
+
+** How are the results ordered? **
+The order of the search results is based on the weight Datahub gives them based on our search algorithm. The current algorithm in OSS DataHub is based on a text-match score from elastic.
+
 ** Where to find more information? **
 The sample queries here are non exhaustive. [The link here](https://demo.datahubproject.io/tag/urn:li:tag:Searchable) shows the current list of indexed fields for each entity inside Datahub. Click on the fields inside each entity and see which field has the tag ```Searchable```.  
 However, it does not tell you the specific attribute name to use for specialized searches. One way to do so is to inspect the ElasticSearch indices, for example:  
