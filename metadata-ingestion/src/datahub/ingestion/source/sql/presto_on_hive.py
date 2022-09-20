@@ -189,7 +189,7 @@ class PrestoOnHiveSource(SQLAlchemySource):
     UNION
     SELECT t."TBL_ID" as tbl_id, d."NAME" as schema_name, t."TBL_NAME" as table_name, t."TBL_TYPE" as table_type, tp."PARAM_VALUE" as description,
            to_char(to_timestamp(t."CREATE_TIME"), 'YYYY-MM-DD') as create_date, c."COLUMN_NAME" as col_name,
-           c."INTEGER_IDX" as col_sort_order, c."TYPE_NAME" as col_type, 0 as is_partition_col, s."LOCATION" as table_location
+           c."INTEGER_IDX" as col_sort_order, c."COMMENT" as col_description, c."TYPE_NAME" as col_type, 0 as is_partition_col, s."LOCATION" as table_location
     FROM "TBLS" t
     JOIN "DBS" d ON t."DB_ID" = d."DB_ID"
     JOIN "SDS" s ON t."SD_ID" = s."SD_ID"
@@ -383,7 +383,7 @@ class PrestoOnHiveSource(SQLAlchemySource):
     ) -> Iterable[Union[SqlWorkUnit, MetadataWorkUnit]]:
 
         # We should skip all the non-metastore databases from the metastore db
-        if self.config.metastore_db_name != schema:
+        if self.config.metastore_db_name and self.config.metastore_db_name != schema:
             return
 
         assert isinstance(sql_config, PrestoOnHiveConfig)
@@ -574,7 +574,7 @@ class PrestoOnHiveSource(SQLAlchemySource):
         assert isinstance(sql_config, PrestoOnHiveConfig)
 
         # We should skip all the non-metastore databases from the metastore db
-        if self.config.metastore_db_name != schema:
+        if self.config.metastore_db_name and self.config.metastore_db_name != schema:
             return
 
         iter: Iterable[ViewDataset]
