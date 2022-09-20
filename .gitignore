@@ -72,3 +72,5 @@ temp*
 
 # frontend assets
 datahub-frontend/public/**
+
+.remote*
