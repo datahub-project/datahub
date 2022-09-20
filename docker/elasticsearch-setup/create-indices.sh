@@ -50,22 +50,25 @@ function create_if_not_exists {
 
   # query ES to see if the resource already exists
   RESOURCE_STATUS=$(curl -o /dev/null -s -w "%{http_code}\n" --header "$ELASTICSEARCH_AUTH_HEADER" "$ELASTICSEARCH_URL/$RESOURCE_ADDRESS")
+  echo -e "\n>>> GET $RESOURCE_ADDRESS response code is $RESOURCE_STATUS"
 
   if [ $RESOURCE_STATUS -eq 200 ]; then
     # resource already exists -> nothing to do
-    echo -e "\n>>> $RESOURCE_ADDRESS already exists ✓"
+    echo -e ">>> $RESOURCE_ADDRESS already exists ✓"
 
   elif [ $RESOURCE_STATUS -eq 404 ]; then
     # resource doesn't exist -> need to create it
-    echo -e "\n>>> creating $RESOURCE_ADDRESS ..."
+    echo -e ">>> creating $RESOURCE_ADDRESS because it doesn't exist ..."
     # use the given path as definition, but first replace all occurences of PREFIX within the file with the actual prefix
     TMP_SOURCE_PATH="/tmp/$RESOURCE_DEFINITION_NAME"
     sed -e "s/PREFIX/$PREFIX/g" "$INDEX_DEFINITIONS_ROOT/$RESOURCE_DEFINITION_NAME" | tee -a "$TMP_SOURCE_PATH"
     curl -s -XPUT --header "$ELASTICSEARCH_AUTH_HEADER" "$ELASTICSEARCH_URL/$RESOURCE_ADDRESS" -H 'Content-Type: application/json' --data "@$TMP_SOURCE_PATH"
 
-  else
-    echo -e "\n>>> failed to GET $RESOURCE_ADDRESS ($RESOURCE_STATUS) !"
+  elif [ $RESOURCE_STATUS -eq 403 ]; then
+    echo -e ">>> forbidden access to $RESOURCE_ADDRESS ! -> exiting"
+    exit 1
 
+  else
     # when `USE_AWS_ELASTICSEARCH` was forgotten to be set to `true` when running against AWS ES OSS,
     # this script will use wrong paths (e.g. `_ilm/policy/` instead of AWS-compatible `_opendistro/_ism/policies/`)
     # and the ES endpoint will return `401 Unauthorized` or `405 Method Not Allowed`
@@ -76,6 +79,7 @@ function create_if_not_exists {
       fi
     fi
 
+    echo -e ">>> failed to GET $RESOURCE_ADDRESS ! -> exiting"
     exit 1
   fi
 }
