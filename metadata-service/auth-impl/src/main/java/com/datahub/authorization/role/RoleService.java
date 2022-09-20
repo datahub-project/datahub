@@ -4,9 +4,7 @@ import com.datahub.authentication.Authentication;
 import com.linkedin.common.UrnArray;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.entity.client.EntityClient;
-import com.linkedin.events.metadata.ChangeType;
 import com.linkedin.identity.RoleMembership;
-import com.linkedin.metadata.utils.GenericRecordUtils;
 import com.linkedin.mxe.MetadataChangeProposal;
 import com.linkedin.r2.RemoteInvocationException;
 import java.net.URISyntaxException;
@@ -15,6 +13,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
 import static com.linkedin.metadata.Constants.*;
+import static com.linkedin.metadata.entity.AspectUtils.*;
 
 
 @Slf4j
@@ -38,13 +37,9 @@ public class RoleService {
     RoleMembership roleMembership = new RoleMembership();
     roleMembership.setRoles(new UrnArray(roleUrn));
 
-    // Finally, create the MetadataChangeProposal.
-    final MetadataChangeProposal proposal = new MetadataChangeProposal();
-    proposal.setEntityUrn(actorUrn);
-    proposal.setEntityType(CORP_USER_ENTITY_NAME);
-    proposal.setAspectName(ROLE_MEMBERSHIP_ASPECT_NAME);
-    proposal.setAspect(GenericRecordUtils.serializeAspect(roleMembership));
-    proposal.setChangeType(ChangeType.UPSERT);
+    // Ingest new RoleMembership aspect
+    final MetadataChangeProposal proposal =
+        buildMetadataChangeProposal(actorUrn, ROLE_MEMBERSHIP_ASPECT_NAME, roleMembership);
     _entityClient.ingestProposal(proposal, authentication);
   }
 }

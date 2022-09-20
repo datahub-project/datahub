@@ -5,7 +5,6 @@ import com.linkedin.common.urn.Urn;
 import com.linkedin.entity.EntityResponse;
 import com.linkedin.entity.EnvelopedAspectMap;
 import com.linkedin.entity.client.EntityClient;
-import com.linkedin.events.metadata.ChangeType;
 import com.linkedin.metadata.key.InviteTokenKey;
 import com.linkedin.metadata.query.filter.Condition;
 import com.linkedin.metadata.query.filter.ConjunctiveCriterion;
@@ -16,7 +15,6 @@ import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.metadata.search.SearchEntity;
 import com.linkedin.metadata.search.SearchResult;
 import com.linkedin.metadata.secret.SecretService;
-import com.linkedin.metadata.utils.GenericRecordUtils;
 import com.linkedin.mxe.MetadataChangeProposal;
 import com.linkedin.r2.RemoteInvocationException;
 import java.net.URISyntaxException;
@@ -30,6 +28,7 @@ import javax.annotation.Nullable;
 import lombok.extern.slf4j.Slf4j;
 
 import static com.linkedin.metadata.Constants.*;
+import static com.linkedin.metadata.entity.AspectUtils.*;
 
 
 @Slf4j
@@ -171,14 +170,11 @@ public class InviteTokenService {
       inviteTokenAspect.setRole(roleUrn);
     }
 
-    // Ingest inviteToken MCP
-    final MetadataChangeProposal inviteTokenProposal = new MetadataChangeProposal();
-    inviteTokenProposal.setEntityType(INVITE_TOKEN_ENTITY_NAME);
-    inviteTokenProposal.setEntityKeyAspect(GenericRecordUtils.serializeAspect(inviteTokenKey));
-    inviteTokenProposal.setAspectName(INVITE_TOKEN_ASPECT_NAME);
-    inviteTokenProposal.setAspect(GenericRecordUtils.serializeAspect(inviteTokenAspect));
-    inviteTokenProposal.setChangeType(ChangeType.UPSERT);
-    _entityClient.ingestProposal(inviteTokenProposal, authentication);
+    // Ingest new InviteToken aspect
+    final MetadataChangeProposal proposal =
+        buildMetadataChangeProposal(INVITE_TOKEN_ENTITY_NAME, inviteTokenKey, INVITE_TOKEN_ASPECT_NAME,
+            inviteTokenAspect);
+    _entityClient.ingestProposal(proposal, authentication);
 
     return inviteTokenStr;
   }

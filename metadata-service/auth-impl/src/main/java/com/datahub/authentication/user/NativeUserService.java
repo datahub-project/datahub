@@ -19,8 +19,8 @@ import java.security.SecureRandom;
 import java.time.Instant;
 import java.util.Base64;
 import java.util.Objects;
+import java.util.UUID;
 import java.util.concurrent.TimeUnit;
-import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
 import lombok.extern.slf4j.Slf4j;
 
@@ -32,10 +32,7 @@ import static com.linkedin.metadata.Constants.*;
  */
 @Slf4j
 public class NativeUserService {
-  public static final int LOWERCASE_ASCII_START = 97;
-  public static final int LOWERCASE_ASCII_END = 122;
   private static final int SALT_TOKEN_LENGTH = 16;
-  private static final int PASSWORD_RESET_TOKEN_LENGTH = 32;
   private static final String HASHING_ALGORITHM = "SHA-256";
   private static final long ONE_DAY_MILLIS = TimeUnit.DAYS.toMillis(1);
 
@@ -141,7 +138,7 @@ public class NativeUserService {
       throw new RuntimeException("User does not exist or is a non-native user!");
     }
     // Add reset token to CorpUserCredentials
-    String passwordResetToken = generateRandomLowercaseToken(PASSWORD_RESET_TOKEN_LENGTH);
+    String passwordResetToken = generateRandomLowercaseToken();
     corpUserCredentials.setPasswordResetToken(_secretService.encrypt(passwordResetToken));
 
     long expirationTime = Instant.now().plusMillis(ONE_DAY_MILLIS).toEpochMilli();
@@ -211,11 +208,8 @@ public class NativeUserService {
     return randomBytes;
   }
 
-  // TODO: Refactor to use UUID.randomUUID().toString();
-  String generateRandomLowercaseToken(int length) {
-    return _secureRandom.ints(length, LOWERCASE_ASCII_START, LOWERCASE_ASCII_END + 1)
-        .mapToObj(i -> String.valueOf((char) i))
-        .collect(Collectors.joining());
+  String generateRandomLowercaseToken() {
+    return UUID.randomUUID().toString();
   }
 
   byte[] saltPassword(@Nonnull byte[] salt, @Nonnull String password) throws IOException {

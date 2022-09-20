@@ -1,14 +1,15 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import * as QueryString from 'query-string';
 import { useLocation } from 'react-router';
-import { RedoOutlined, UserOutlined } from '@ant-design/icons';
-import { Button, Col, message, Modal, Select, Typography } from 'antd';
-import styled from 'styled-components';
+import { UserOutlined } from '@ant-design/icons';
+import { Button, message, Modal, Select, Tooltip, Typography } from 'antd';
+import styled from 'styled-components/macro';
 import { PageRoutes } from '../../../conf/Global';
 import { useGetInviteTokenQuery, useListRolesQuery } from '../../../graphql/role.generated';
 import { DataHubRole } from '../../../types.generated';
 import { mapRoleIcon } from './UserUtils';
 import { useCreateInviteTokenMutation } from '../../../graphql/mutations.generated';
+import { ANTD_GRAY } from '../../entity/shared/constants';
 
 const ModalSection = styled.div`
     display: flex;
@@ -16,7 +17,7 @@ const ModalSection = styled.div`
     padding-bottom: 12px;
 `;
 
-const ModalSectionHeader = styled(Typography.Text)`
+const ModalSectionFooter = styled(Typography.Paragraph)`
     &&&& {
         padding: 0px;
         margin: 0px;
@@ -24,27 +25,36 @@ const ModalSectionHeader = styled(Typography.Text)`
     }
 `;
 
-const ModalSectionParagraph = styled(Typography.Paragraph)`
-    &&&& {
-        padding: 0px;
-        margin: 0px;
-    }
-`;
-
-const InviteLinkParagraph = styled(Typography.Paragraph)`
+const InviteLinkDiv = styled.div`
+    margin-top: -12px;
     display: flex;
     flex-direction: row;
     justify-content: flex-start;
+    gap: 10px;
+    align-items: center;
 `;
 
-const CreateInviteTokenButton = styled(Button)`
-    display: inline-block;
-    width: 20px;
-    margin-left: -6px;
+const CopyText = styled(Typography.Text)`
+    display: flex;
+    gap: 10px;
+    align-items: center;
+`;
+
+const CopyButton = styled(Button)`
+    background-color: #1890ff;
+    color: white;
+
+    &:focus:not(:hover) {
+        background-color: #1890ff;
+        color: white;
+    }
+`;
+
+const RefreshButton = styled(Button)`
+    color: ${ANTD_GRAY[7]};
 `;
 
 const RoleSelect = styled(Select)`
-    margin-top: 11px;
     min-width: 105px;
 `;
 
@@ -66,8 +76,6 @@ export default function ViewInviteTokenModal({ visible, onClose }: Props) {
     const [query, setQuery] = useState<undefined | string>(undefined);
     useEffect(() => setQuery(paramsQuery), [paramsQuery]);
     const [selectedRole, setSelectedRole] = useState<DataHubRole>();
-    const [isInviteTokenCreated, setIsInviteTokenCreated] = useState(false);
-    const [createInviteTokenMutation, { data: createInviteTokenData }] = useCreateInviteTokenMutation();
 
     // Code related to listing role options and selecting a role
     const noRoleText = 'No Role';
@@ -99,16 +107,26 @@ export default function ViewInviteTokenModal({ visible, onClose }: Props) {
             );
         });
 
-    const onSelectRole = (roleUrn: string) => {
-        const roleFromMap: DataHubRole = rolesMap.get(roleUrn) as DataHubRole;
-        setSelectedRole(roleFromMap);
-    };
-
-    // Code related to creating an invite token
+    // Code related to getting or creating an invite token
     const { data: getInviteTokenData } = useGetInviteTokenQuery({
         skip: !visible,
         variables: { input: { roleUrn: selectedRole?.urn } },
     });
+
+    const [inviteToken, setInviteToken] = useState<string>(getInviteTokenData?.getInviteToken?.inviteToken || '');
+
+    const [createInviteTokenMutation] = useCreateInviteTokenMutation();
+
+    useEffect(() => {
+        if (getInviteTokenData?.getInviteToken?.inviteToken) {
+            setInviteToken(getInviteTokenData.getInviteToken.inviteToken);
+        }
+    }, [getInviteTokenData]);
+
+    const onSelectRole = (roleUrn: string) => {
+        const roleFromMap: DataHubRole = rolesMap.get(roleUrn) as DataHubRole;
+        setSelectedRole(roleFromMap);
+    };
 
     const createInviteToken = (roleUrn?: string) => {
         createInviteTokenMutation({
@@ -118,9 +136,10 @@ export default function ViewInviteTokenModal({ visible, onClose }: Props) {
                 },
             },
         })
-            .then(({ errors }) => {
+            .then(({ data, errors }) => {
                 if (!errors) {
-                    setIsInviteTokenCreated(true);
+                    setInviteToken(data?.createInviteToken?.inviteToken || '');
+                    message.success('Generated new invite link');
                 }
             })
             .catch((e) => {
@@ -132,63 +151,65 @@ export default function ViewInviteTokenModal({ visible, onClose }: Props) {
             });
     };
 
-    const inviteToken = useMemo(() => {
-        if (isInviteTokenCreated) {
-            return createInviteTokenData?.createInviteToken?.inviteToken;
-        }
-        return getInviteTokenData?.getInviteToken?.inviteToken || '';
-    }, [getInviteTokenData, createInviteTokenData, isInviteTokenCreated]);
-
     const inviteLink = `${baseUrl}${PageRoutes.SIGN_UP}?invite_token=${inviteToken}`;
 
     return (
         <Modal
-            width={1000}
+            width={950}
             footer={null}
             title={
                 <Typography.Text>
-                    <b>Invite Users</b>
+                    <b>Share Invite Link</b>
                 </Typography.Text>
             }
             visible={visible}
             onCancel={onClose}
         >
             <ModalSection>
-                <ModalSectionHeader strong>Role for users joining with this invite link</ModalSectionHeader>
-                <InviteLinkParagraph>
-                    <Col span={3}>
-                        <RoleSelect
-                            placeholder={
-                                <>
-                                    <UserOutlined style={{ marginRight: 6, fontSize: 12 }} />
-                                    {noRoleText}
-                                </>
-                            }
-                            value={selectedRole?.urn || undefined}
-                            onChange={(e) => onSelectRole(e as string)}
-                        >
-                            <Select.Option value="">
-                                <RoleIcon>{mapRoleIcon(noRoleText)}</RoleIcon>
+                <InviteLinkDiv>
+                    <RoleSelect
+                        placeholder={
+                            <>
+                                <UserOutlined style={{ marginRight: 6, fontSize: 12 }} />
                                 {noRoleText}
-                            </Select.Option>
-                            {roleSelectOptions()}
-                        </RoleSelect>
-                    </Col>
-                    <Col span={16}>
-                        <Typography.Paragraph copyable={{ text: inviteLink }}>
-                            <pre>{inviteLink}</pre>
-                        </Typography.Paragraph>
-                    </Col>
-                </InviteLinkParagraph>
-            </ModalSection>
-            <ModalSection>
-                <ModalSectionHeader strong>Generate a new link</ModalSectionHeader>
-                <ModalSectionParagraph>
-                    Generate a new invite link! Note, any old links will <b>cease to be active</b>.
-                </ModalSectionParagraph>
-                <CreateInviteTokenButton onClick={() => createInviteToken(selectedRole?.urn)} size="small" type="text">
-                    <RedoOutlined style={{}} />
-                </CreateInviteTokenButton>
+                            </>
+                        }
+                        value={selectedRole?.urn || undefined}
+                        onChange={(e) => onSelectRole(e as string)}
+                    >
+                        <Select.Option value="">
+                            <RoleIcon>{mapRoleIcon(noRoleText)}</RoleIcon>
+                            {noRoleText}
+                        </Select.Option>
+                        {roleSelectOptions()}
+                    </RoleSelect>
+                    <CopyText>
+                        <pre>{inviteLink}</pre>
+                    </CopyText>
+                    <Tooltip title="Copy invite link.">
+                        <CopyButton
+                            onClick={() => {
+                                navigator.clipboard.writeText(inviteLink);
+                                message.success('Copied invite link to clipboard');
+                            }}
+                        >
+                            COPY
+                        </CopyButton>
+                    </Tooltip>
+                    <Tooltip title="Generate a new link. Any old links will no longer be valid.">
+                        <RefreshButton
+                            onClick={() => {
+                                createInviteToken(selectedRole?.urn);
+                            }}
+                        >
+                            REFRESH
+                        </RefreshButton>
+                    </Tooltip>
+                </InviteLinkDiv>
+                <ModalSectionFooter type="secondary">
+                    Copy an invite link to send to your users. When they join, users will be automatically assigned to
+                    the selected role.
+                </ModalSectionFooter>
             </ModalSection>
         </Modal>
     );

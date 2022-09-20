@@ -1,9 +1,10 @@
-import React, { useCallback, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import { Input, Button, Form, message, Image, Select } from 'antd';
 import { UserOutlined, LockOutlined } from '@ant-design/icons';
 import { useReactiveVar } from '@apollo/client';
 import styled, { useTheme } from 'styled-components/macro';
-import { Redirect } from 'react-router';
+// import { Redirect } from 'react-router';
+import { useHistory } from 'react-router-dom';
 import styles from './login.module.css';
 import { Message } from '../shared/Message';
 import { isLoggedInVar } from './checkAuthStatus';
@@ -57,6 +58,7 @@ const TitleSelector = styled(Select)`
 export type SignUpProps = Record<string, never>;
 
 export const SignUp: React.VFC<SignUpProps> = () => {
+    const history = useHistory();
     const isLoggedIn = useReactiveVar(isLoggedInVar);
     const inviteToken = useGetInviteTokenFromUrlParams();
 
@@ -66,7 +68,7 @@ export const SignUp: React.VFC<SignUpProps> = () => {
     const { refreshContext } = useAppConfig();
 
     const [acceptRoleMutation] = useAcceptRoleMutation();
-    const acceptRole = useCallback(() => {
+    const acceptRole = () => {
         acceptRoleMutation({
             variables: {
                 input: {
@@ -89,7 +91,7 @@ export const SignUp: React.VFC<SignUpProps> = () => {
                     duration: 3,
                 });
             });
-    }, [acceptRoleMutation, inviteToken]);
+    };
 
     const handleSignUp = useCallback(
         (values: FormValues) => {
@@ -114,7 +116,6 @@ export const SignUp: React.VFC<SignUpProps> = () => {
                     }
                     isLoggedInVar(true);
                     refreshContext();
-                    acceptRole();
                     analytics.event({ type: EventType.SignUpEvent, title: values.title });
                     return Promise.resolve();
                 })
@@ -123,12 +124,15 @@ export const SignUp: React.VFC<SignUpProps> = () => {
                 })
                 .finally(() => setLoading(false));
         },
-        [refreshContext, inviteToken, acceptRole],
+        [refreshContext, inviteToken],
     );
 
-    if (isLoggedIn && !loading) {
-        return <Redirect to={`${PageRoutes.ROOT}`} />;
-    }
+    useEffect(() => {
+        if (isLoggedIn && !loading) {
+            acceptRole();
+            history.push(PageRoutes.ROOT);
+        }
+    });
 
     return (
         <div className={styles.login_page}>
@@ -140,10 +144,10 @@ export const SignUp: React.VFC<SignUpProps> = () => {
                     {loading && <Message type="loading" content="Signing up..." />}
                     <Form onFinish={handleSignUp} layout="vertical">
                         <Form.Item
-                            rules={[{ required: true, message: 'Please fill in your email!' }]}
+                            rules={[{ required: true, message: 'Please fill in your username!' }]}
                             name="email"
                             // eslint-disable-next-line jsx-a11y/label-has-associated-control
-                            label={<label style={{ color: 'white' }}>Email</label>}
+                            label={<label style={{ color: 'white' }}>Username</label>}
                         >
                             <FormInput prefix={<UserOutlined />} data-testid="email" />
                         </Form.Item>

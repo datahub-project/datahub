@@ -165,11 +165,6 @@ type Query {
     entityExists(urn: String!): Boolean
 
     """
-    Gets the current invite token. If the optional regenerate param is set to true, generate a new invite token.
-    """
-    getNativeUserInviteToken: InviteToken @deprecated(reason: "Use getInviteToken instead")
-
-    """
     Gets an entity based on its urn
     """
     entity(urn: String!): Entity
@@ -493,11 +488,6 @@ type Mutation {
     Remove multiple related Terms for a Glossary Term
     """
     removeRelatedTerms(input: RelatedTermsInput!): Boolean
-
-    """
-    Generates an invite token that can be shared with prospective users to create their accounts.
-    """
-    createNativeUserInviteToken: InviteToken @deprecated(reason: "Use createInviteToken instead")
 
     """
     Generates a token that can be shared with existing native users to reset their credentials.
