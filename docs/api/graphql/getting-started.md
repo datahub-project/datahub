@@ -34,7 +34,7 @@ providing an `Authorization` header containing a `Bearer` token. The header shou
 Authorization: Bearer <access-token>
 ```
 
-Authorization for actions exposed by the GraphQL endpoint will be performed based  on the actor making the request.
+Authorization for actions exposed by the GraphQL endpoint will be performed based on the actor making the request.
 For Personal Access Tokens, the token will carry the user's privileges. 
 
 > Notice: The DataHub GraphQL endpoint only supports POST requests at this time.
