@@ -726,7 +726,7 @@ class LookerDashboardSource(TestableSource):
         dashboard_snapshot.aspects.append(dashboard_info)
         if looker_dashboard.folder_path is not None:
             browse_path = BrowsePathsClass(
-                paths=[f"/looker/{looker_dashboard.folder_path}/{looker_dashboard.id}"]
+                paths=[f"/looker/{looker_dashboard.folder_path}"]
             )
             dashboard_snapshot.aspects.append(browse_path)
 

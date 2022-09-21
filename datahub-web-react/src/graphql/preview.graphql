@@ -102,6 +102,9 @@ fragment entityPreview on Entity {
         deprecation {
             ...deprecationFields
         }
+        subTypes {
+            typeNames
+        }
     }
     ... on Chart {
         urn

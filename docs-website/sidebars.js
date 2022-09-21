@@ -113,11 +113,11 @@ module.exports = {
         ],
       },
 
-      {
-        "Shift Left": [
-          // "docs/wip/importance-of-shift-left",
-        ],
-      },
+      // {
+      //   "Shift Left": [
+      //     // "docs/wip/importance-of-shift-left",
+      //   ],
+      // },
       {
         Sources: [
           // collapse these; add push-based at top
@@ -150,6 +150,7 @@ module.exports = {
               "metadata-ingestion/schedule_docs/intro",
               "metadata-ingestion/schedule_docs/cron",
               "metadata-ingestion/schedule_docs/airflow",
+              "metadata-ingestion/schedule_docs/kubernetes",
             ],
           },
           // {
@@ -159,6 +160,7 @@ module.exports = {
           // },
           "docs/platform-instances",
           "metadata-ingestion/docs/dev_guides/stateful",
+          "metadata-ingestion/docs/dev_guides/add_stateful_ingestion_to_source",
           "metadata-ingestion/docs/dev_guides/sql_profiles",
         ],
       },
@@ -357,7 +359,7 @@ module.exports = {
               },
               {
                 type: "doc",
-                label: "Querying Metadata Entities",
+                label: "Working with Metadata Entities",
                 id: "docs/api/graphql/querying-entities",
               },
               {
@@ -445,20 +447,15 @@ module.exports = {
       "docs/domains",
       "docs/how/business-glossary-guide",
       "docs/tags",
-      {
-        type: "doc",
-        id: "docs/managed-datahub/saas-slack-setup",
-        className: "saasOnly",
-      },
       // "docs/wip/ui-ingestion-guide", -- not needed
       // "docs/wip/personal-access-tokens-guide", -- not needed
 
-      {
-        "Advanced Tutorials": [
-          // "docs/wip/advanced-guides",
-          // "docs/wip/search-ranking",
-        ],
-      },
+      // {
+      //   "Advanced Tutorials": [
+      //     // "docs/wip/advanced-guides",
+      //     // "docs/wip/search-ranking",
+      //   ],
+      // },
     ],
 
     "Join the Community": [
