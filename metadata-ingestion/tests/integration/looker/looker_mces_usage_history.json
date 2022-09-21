@@ -45,7 +45,7 @@
                 {
                     "com.linkedin.pegasus2avro.common.BrowsePaths": {
                         "paths": [
-                            "/prod/looker/lkml_samples/explores/data.my_view"
+                            "/prod/looker/lkml_samples/explores"
                         ]
                     }
                 },
