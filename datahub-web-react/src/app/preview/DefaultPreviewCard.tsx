@@ -75,7 +75,7 @@ const EntityTitle = styled(Typography.Text)<{ $titleSizePx?: number }>`
 
 const CardEntityTitle = styled(Typography.Text)<{ $titleSizePx?: number }>`
     display: block;
-    width: 350px;
+    max-width: 350px;
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
@@ -291,7 +291,7 @@ export default function DefaultPreviewCard({
                         <Link to={url}>
                             {previewType === PreviewType.HOVER_CARD ? (
                                 <CardEntityTitle onClick={onClick} $titleSizePx={titleSizePx}>
-                                    {name || ' '}
+                                    {'Test Demo test Demo Test Demo Test Demo Chareacter her' || name || ' '}
                                 </CardEntityTitle>
                             ) : (
                                 <EntityTitle onClick={onClick} $titleSizePx={titleSizePx}>
