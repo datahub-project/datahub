@@ -123,7 +123,7 @@ export default function SchemaTable({
 
     const termColumn = {
         width: 125,
-        title: 'Terms',
+        title: 'Glossary Terms',
         dataIndex: 'globalTags',
         key: 'tag',
         render: termRenderer,
