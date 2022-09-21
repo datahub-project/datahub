@@ -104,19 +104,6 @@ supplies a diff instead of a complete new state, but this is out of scope of thi
 > with the implementation to implement. This should get into specifics and corner-cases, and include examples of how the
 > feature is used. Any new terminology should be defined here.
 
-#### A note on Aspect Versions
-
-There are many ways to achieve this, but most of them involve DataHub aspects having some kind of consistent 
-versioning as currently the LATEST version of an aspect is version zero and is a mutable placeholder for a "real" 
-fixed version.
-
-We don't necessarily have to overhaul the versioning approach here, as all we need is a way of uniquely identifying 
-the aspect instance that is to be changed. We don't need to rely on numerical version ordering for this, but 
-something will need to be added as the general aspect level to allow for this new functionality.
-
-Whatever is done, the most important thing is that changes can be isolated at the metadata storage level, whether 
-through locking, transactions or Cassandra LWTs. More on this later.
-
 ### PROPOSED SOLUTION: Read and Conditional Update
 
 Read the current aspect(s) and pass that state back to the client. The client can propose an update on the basis that 
@@ -149,6 +136,15 @@ sequenceDiagram
     end
     end
 ```
+
+#### Implementation via Etag
+
+We could achieve this via HTTP [Conditional Requests](https://developer.mozilla.org/en-US/docs/Web/HTTP/Conditional_requests#avoiding_the_lost_update_problem_with_optimistic_locking).
+GMS would populate the `ETag` header in the GET request for aspects. This can be used in the `If-Match` or 
+`If-None-Match` header when a POST request is passed to GMS to update the aspects. The main concern is then how to 
+format the ASCII `Etag` value for multiple aspects such that client and server are able to compose them.
+
+A suggested format would be semicolon-separated aspect-value pairs, e.g. `myAspect1=hashValue1;myAspect2=hashValue2`.
 
 ## How we teach this
 
