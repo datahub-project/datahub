@@ -804,16 +804,32 @@ private Map<Urn, List<EnvelopedAspect>> getCorrespondingAspects(Set<EntityAspect
   }
 
   /**
-   * Ingest a new {@link MetadataChangeProposal}. Note that this method does NOT include any additional aspects or do any
-   * enrichment, instead it changes only those which are provided inside the metadata change proposal.
-   *
-   * Do not use this method directly for creating new entities, as it DOES NOT create an Entity Key aspect in the DB. Instead,
-   * use an Entity Client.
-   *
-   * @param mcp the proposal to ingest
-   * @param auditStamp an audit stamp representing the time and actor proposing the change
-   * @return an {@link IngestProposalResult} containing the results
+   * Validates that a change type is valid for the given aspect
+   * @param changeType
+   * @param aspectSpec
+   * @return
    */
+  private boolean isValidChangeType(ChangeType changeType, AspectSpec aspectSpec) {
+    if (aspectSpec.isTimeseries()) {
+      // Timeseries aspects only support UPSERT
+      return ChangeType.UPSERT.equals(changeType);
+    } else {
+      return (ChangeType.UPSERT.equals(changeType) || ChangeType.PATCH.equals(changeType));
+    }
+  }
+
+
+    /**
+     * Ingest a new {@link MetadataChangeProposal}. Note that this method does NOT include any additional aspects or do any
+     * enrichment, instead it changes only those which are provided inside the metadata change proposal.
+     *
+     * Do not use this method directly for creating new entities, as it DOES NOT create an Entity Key aspect in the DB. Instead,
+     * use an Entity Client.
+     *
+     * @param mcp the proposal to ingest
+     * @param auditStamp an audit stamp representing the time and actor proposing the change
+     * @return an {@link IngestProposalResult} containing the results
+     */
   public IngestProposalResult ingestProposal(@Nonnull MetadataChangeProposal mcp,
       AuditStamp auditStamp) {
 
@@ -824,22 +840,26 @@ private Map<Urn, List<EnvelopedAspect>> getCorrespondingAspects(Set<EntityAspect
     Urn entityUrn = EntityKeyUtils.getUrnFromProposal(mcp, entitySpec.getKeyAspectSpec());
 
 
-    if (!ChangeType.UPSERT.equals(mcp.getChangeType()) && !ChangeType.PATCH.equals(mcp.getChangeType())) {
-      throw new UnsupportedOperationException("ChangeType not supported: " + mcp.getChangeType());
-    }
-
     AspectSpec aspectSpec = validateAspect(mcp, entitySpec);
 
     log.debug("aspect spec = {}", aspectSpec);
+
+    if (!isValidChangeType(mcp.getChangeType(), aspectSpec)) {
+      throw new UnsupportedOperationException("ChangeType not supported: " + mcp.getChangeType() + " for aspect " + mcp.getAspectName());
+    }
 
 
     SystemMetadata systemMetadata = generateSystemMetadataIfEmpty(mcp.getSystemMetadata());
     systemMetadata.setRegistryName(aspectSpec.getRegistryName());
     systemMetadata.setRegistryVersion(aspectSpec.getRegistryVersion().toString());
 
-    UpdateAspectResult result = null;
+    RecordTemplate oldAspect = null;
+    SystemMetadata oldSystemMetadata = null;
+    RecordTemplate newAspect = null;
+    SystemMetadata newSystemMetadata = null;
 
     if (!aspectSpec.isTimeseries()) {
+      UpdateAspectResult result = null;
       switch (mcp.getChangeType()) {
         case UPSERT:
           result = performUpsert(mcp, aspectSpec, systemMetadata, entityUrn, auditStamp);
@@ -851,21 +871,17 @@ private Map<Urn, List<EnvelopedAspect>> getCorrespondingAspects(Set<EntityAspect
           // Should never reach since we throw error above
           throw new UnsupportedOperationException("ChangeType not supported: " + mcp.getChangeType());
       }
+      oldAspect = result != null ? result.getOldValue() : null;
+      oldSystemMetadata = result != null ? result.getOldSystemMetadata() : null;
+      newAspect = result != null ? result.getNewValue() : null;
+      newSystemMetadata = result != null ? result.getNewSystemMetadata() : null;
     } else {
-      RecordTemplate aspect = convertToRecordTemplate(mcp, aspectSpec);
-
-      result = new UpdateAspectResult(mcp.getEntityUrn(),
-          null,
-          aspect,
-          null,
-          mcp.getSystemMetadata(),
-          MetadataAuditOperation.UPDATE,
-          auditStamp,
-          0
-      );
+      // For timeseries aspects
+      newAspect = convertToRecordTemplate(mcp, aspectSpec);
+      newSystemMetadata = mcp.getSystemMetadata();
     }
 
-    boolean didUpdate = emitChangeLog(result, mcp, entityUrn, auditStamp, aspectSpec);
+    boolean didUpdate = emitChangeLog(oldAspect, oldSystemMetadata, newAspect, newSystemMetadata, mcp, entityUrn, auditStamp, aspectSpec);
 
     return new IngestProposalResult(entityUrn, didUpdate);
   }
@@ -970,12 +986,10 @@ private Map<Urn, List<EnvelopedAspect>> getCorrespondingAspects(Set<EntityAspect
     return result;
   }
 
-  private boolean emitChangeLog(@Nullable UpdateAspectResult result, MetadataChangeProposal mcp, Urn entityUrn,
+  private boolean emitChangeLog(@Nullable RecordTemplate oldAspect, @Nullable SystemMetadata oldSystemMetadata,
+      RecordTemplate newAspect, SystemMetadata newSystemMetadata,
+      MetadataChangeProposal mcp, Urn entityUrn,
       AuditStamp auditStamp, AspectSpec aspectSpec) {
-    RecordTemplate oldAspect = result != null ? result.getOldValue() : null;
-    SystemMetadata oldSystemMetadata = result != null ? result.getOldSystemMetadata() : null;
-    RecordTemplate newAspect = result != null ? result.getNewValue() : null;
-    SystemMetadata newSystemMetadata = result != null ? result.getNewSystemMetadata() : null;
 
     if (oldAspect != newAspect || _alwaysEmitAuditEvent) {
       log.debug("Producing MetadataChangeLog for ingested aspect {}, urn {}", mcp.getAspectName(), entityUrn);
