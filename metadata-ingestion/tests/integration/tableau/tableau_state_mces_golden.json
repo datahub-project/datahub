@@ -22236,7 +22236,7 @@
     "changeType": "UPSERT",
     "aspectName": "upstreamLineage",
     "aspect": {
-        "value": "{\"upstreams\": [{\"auditStamp\": {\"time\": 0, \"actor\": \"urn:li:corpuser:unknown\"}, \"dataset\": \"urn:li:dataset:(urn:li:dataPlatform:external,sample - superstore.xls.people,PROD)\", \"type\": \"TRANSFORMED\"}, {\"auditStamp\": {\"time\": 0, \"actor\": \"urn:li:corpuser:unknown\"}, \"dataset\": \"urn:li:dataset:(urn:li:dataPlatform:external,sample - superstore.xls.returns,PROD)\", \"type\": \"TRANSFORMED\"}, {\"auditStamp\": {\"time\": 0, \"actor\": \"urn:li:corpuser:unknown\"}, \"dataset\": \"urn:li:dataset:(urn:li:dataPlatform:external,sample - superstore.xls.orders,PROD)\", \"type\": \"TRANSFORMED\"}]}",
+        "value": "{\"upstreams\": [{\"auditStamp\": {\"time\": 0, \"actor\": \"urn:li:corpuser:unknown\"}, \"dataset\": \"urn:li:dataset:(urn:li:dataPlatform:external,sample - superstore%2C %28new%29.xls.people,PROD)\", \"type\": \"TRANSFORMED\"}, {\"auditStamp\": {\"time\": 0, \"actor\": \"urn:li:corpuser:unknown\"}, \"dataset\": \"urn:li:dataset:(urn:li:dataPlatform:external,sample - superstore%2C %28new%29.xls.returns,PROD)\", \"type\": \"TRANSFORMED\"}, {\"auditStamp\": {\"time\": 0, \"actor\": \"urn:li:corpuser:unknown\"}, \"dataset\": \"urn:li:dataset:(urn:li:dataPlatform:external,sample - superstore%2C %28new%29.xls.orders,PROD)\", \"type\": \"TRANSFORMED\"}]}",
         "contentType": "application/json"
     },
     "systemMetadata": {
@@ -31694,7 +31694,7 @@
 {
     "proposedSnapshot": {
         "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
-            "urn": "urn:li:dataset:(urn:li:dataPlatform:external,sample - superstore.xls.people,PROD)",
+            "urn": "urn:li:dataset:(urn:li:dataPlatform:external,sample - superstore%2C %28new%29.xls.people,PROD)",
             "aspects": [
                 {
                     "com.linkedin.pegasus2avro.common.BrowsePaths": {
@@ -31763,7 +31763,7 @@
 {
     "proposedSnapshot": {
         "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
-            "urn": "urn:li:dataset:(urn:li:dataPlatform:external,sample - superstore.xls.returns,PROD)",
+            "urn": "urn:li:dataset:(urn:li:dataPlatform:external,sample - superstore%2C %28new%29.xls.returns,PROD)",
             "aspects": [
                 {
                     "com.linkedin.pegasus2avro.common.BrowsePaths": {
@@ -31832,7 +31832,7 @@
 {
     "proposedSnapshot": {
         "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
-            "urn": "urn:li:dataset:(urn:li:dataPlatform:external,sample - superstore.xls.orders,PROD)",
+            "urn": "urn:li:dataset:(urn:li:dataPlatform:external,sample - superstore%2C %28new%29.xls.orders,PROD)",
             "aspects": [
                 {
                     "com.linkedin.pegasus2avro.common.BrowsePaths": {

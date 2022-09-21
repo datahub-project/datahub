@@ -21,6 +21,8 @@ def _read_response(file_name):
 
 def define_query_metadata_func(workbook_0: str, workbook_all: str):  # type: ignore
     def side_effect_query_metadata(query):
+        print(f"workbook0 {workbook_0}")
+        print(f"workbook0 {workbook_all}")
 
         if "workbooksConnection (first:0" in query:
             return _read_response(workbook_0)
@@ -83,6 +85,8 @@ def tableau_ingest_common(
         mock_client = mock.Mock()
         mocked_metadata = mock.Mock()
         mocked_metadata.query.side_effect = side_effect_query_metadata_func
+        mocked_metadata.query.__name__ = side_effect_query_metadata_func.__name__
+        print(f"func name {mocked_metadata.query.side_effect.__name__}")
         mock_client.metadata = mocked_metadata
         mock_client.auth = mock.Mock()
         mock_client.views = mock.Mock()
@@ -125,6 +129,9 @@ def tableau_ingest_common(
         )
         pipeline.run()
         pipeline.raise_from_status()
+
+        print(f"outputPath {tmp_path}/{output_file_name}")
+        print(f"golden {test_resources_dir} / {golden_file_name}")
 
         mce_helpers.check_golden_file(
             pytestconfig,
