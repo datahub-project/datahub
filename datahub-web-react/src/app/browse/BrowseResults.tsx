@@ -48,6 +48,7 @@ export const BrowseResults = ({
     const onGroupClick = (group: BrowseResultGroup) => {
         analytics.event({
             type: EventType.BrowseResultClickEvent,
+            originPath: window.location.pathname,
             browsePath: rootPath,
             entityType: type,
             resultType: 'Group',
@@ -58,6 +59,7 @@ export const BrowseResults = ({
     const onEntityClick = (entity: Entity) => {
         analytics.event({
             type: EventType.BrowseResultClickEvent,
+            originPath: window.location.pathname,
             browsePath: rootPath,
             entityType: type,
             resultType: 'Entity',

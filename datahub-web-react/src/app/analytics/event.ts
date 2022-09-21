@@ -41,6 +41,7 @@ interface BaseEvent {
  */
 export interface PageViewEvent extends BaseEvent {
     type: EventType.PageViewEvent;
+    originPath: string;
 }
 
 /**
@@ -112,6 +113,7 @@ export interface SearchResultClickEvent extends BaseEvent {
  */
 export interface BrowseResultClickEvent extends BaseEvent {
     type: EventType.BrowseResultClickEvent;
+    originPath: string;
     browsePath: string;
     entityType: EntityType;
     resultType: 'Entity' | 'Group';

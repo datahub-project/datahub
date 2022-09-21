@@ -5,13 +5,24 @@ import { PageRoutes } from '../../conf/Global';
 import { IconStyleType } from '../entity/Entity';
 import { EntityType } from '../../types.generated';
 import { LogoCountCard } from '../shared/LogoCountCard';
+import { EventType } from '../analytics/event';
+import analytics from '../analytics';
 
 export const BrowseEntityCard = ({ entityType, count }: { entityType: EntityType; count: number }) => {
     const entityRegistry = useEntityRegistry();
-    const url =
-        entityType === EntityType.GlossaryTerm
-            ? PageRoutes.GLOSSARY
-            : `${PageRoutes.BROWSE}/${entityRegistry.getPathName(entityType)}`;
+    const isGlossaryEntityCard = entityType === EntityType.GlossaryTerm;
+    const entityPathName = entityRegistry.getPathName(entityType);
+    const url = isGlossaryEntityCard ? PageRoutes.GLOSSARY : `${PageRoutes.BROWSE}/${entityPathName}`;
+    const onBrowseEntityCardClick = () => {
+        analytics.event({
+            type: EventType.BrowseResultClickEvent,
+            originPath: window.location.pathname,
+            browsePath: isGlossaryEntityCard ? PageRoutes.GLOSSARY : PageRoutes.BROWSE,
+            entityType,
+            resultType: 'Group',
+            groupName: entityPathName,
+        });
+    };
 
     return (
         <Link to={url} data-testid={`entity-type-browse-card-${entityType}`}>
@@ -19,6 +30,7 @@ export const BrowseEntityCard = ({ entityType, count }: { entityType: EntityType
                 logoComponent={entityRegistry.getIcon(entityType, 18, IconStyleType.HIGHLIGHT)}
                 name={entityRegistry.getCollectionName(entityType)}
                 count={count}
+                onClick={onBrowseEntityCardClick}
             />
         </Link>
     );
