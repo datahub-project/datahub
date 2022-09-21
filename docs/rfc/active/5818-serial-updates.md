@@ -134,11 +134,6 @@ Bad
 
 [![](https://mermaid.ink/img/pako:eNqVkb9qwzAQxl9FaG3yAhpcQhsylJBi083LIZ0bgSwp8mkoIe_ecyQXl2appuO733f_dJU6GJRKTnjJ6DW-WvhMMPZe8ANNIYkXZ9FTUVwIUeyIcIwksifrBMTIgBFMYkohFbCYtk3zdDh2ShyQdlNEXcuwtuVcgZTQOSUO1kT1r6B3IH0W8JdZenxEA4SliLCDmHg696j23L1pjkjABuh4R_yH-5dvHvDevF7huR7O0aIU4cHSp7eSQjfh-nIP0H3bntpKe_MTyI0cMY1gDX_gdZZ7SWccsZeKQ4MDZEe97P2NUcgUui-vpaKUcSPzfeH631INwHMs6t5Y3q6Kt29ZMrRr)](https://mermaid.live/edit#pako:eNqVkb9qwzAQxl9FaG3yAhpcQhsylJBi083LIZ0bgSwp8mkoIe_ecyQXl2appuO733f_dJU6GJRKTnjJ6DW-WvhMMPZe8ANNIYkXZ9FTUVwIUeyIcIwksifrBMTIgBFMYkohFbCYtk3zdDh2ShyQdlNEXcuwtuVcgZTQOSUO1kT1r6B3IH0W8JdZenxEA4SliLCDmHg696j23L1pjkjABuh4R_yH-5dvHvDevF7huR7O0aIU4cHSp7eSQjfh-nIP0H3bntpKe_MTyI0cMY1gDX_gdZZ7SWccsZeKQ4MDZEe97P2NUcgUui-vpaKUcSPzfeH631INwHMs6t5Y3q6Kt29ZMrRr)
 
-### PATCH with JSON-Delta Format
-
-Client sends its update request in JSON-delta or some other delta format. GMS will reject the update if the previous 
-side of the delta does not match.
-
 ## How we teach this
 
 > What names and terminology work best for these concepts and why? How is this idea best presented? As a continuation
@@ -229,6 +224,11 @@ necessary for clients to know about the previous state of an aspect.
 MongoDB offers an update mode which allows clients to [add items to a set](https://mongodb.github.io/mongo-java-driver/4.7/apidocs/mongodb-driver-core/com/mongodb/client/model/Updates.html#addToSet(java.lang.String,TItem)),
 for example. This would avoid the need to go back to the client to ask them to construct the final state of a 
 collection.
+
+#### Implementation of PATCH with json-patch format
+
+Client sends its update request in json-patch or some other delta format. GMS will reject the update if the "previous"
+side of the delta does not match. This closely matches the work in https://github.com/datahub-project/datahub/pull/5901.
 
 ### Change Processor
 
