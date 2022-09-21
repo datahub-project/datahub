@@ -39,7 +39,9 @@ import org.springframework.cache.Cache;
 public class LineageSearchService {
   private final SearchService _searchService;
   private final GraphService _graphService;
+  @Nullable
   private final Cache cache;
+  private final boolean cacheEnabled;
 
   private static final String DEGREE_FILTER = "degree";
   private static final String DEGREE_FILTER_INPUT = "degree.keyword";
@@ -71,11 +73,14 @@ public class LineageSearchService {
       @Nonnull List<String> entities, @Nullable String input, @Nullable Integer maxHops, @Nullable Filter inputFilters,
       @Nullable SortCriterion sortCriterion, int from, int size) {
     // Cache multihop result for faster performance
-    EntityLineageResult lineageResult = cache.get(Pair.of(sourceUrn, direction), EntityLineageResult.class);
+    EntityLineageResult lineageResult = cacheEnabled ? cache.get(Pair.of(sourceUrn, direction), EntityLineageResult.class)
+        : null;
     if (lineageResult == null) {
       maxHops = maxHops != null ? maxHops : 1000;
       lineageResult = _graphService.getLineage(sourceUrn, direction, 0, MAX_RELATIONSHIPS, maxHops);
-      cache.put(Pair.of(sourceUrn, direction), lineageResult);
+      if (cacheEnabled) {
+        cache.put(Pair.of(sourceUrn, direction), lineageResult);
+      }
     }
 
     // Filter hopped result based on the set of entities to return and inputFilters before sending to search
