@@ -132,7 +132,23 @@ Bad
 * Slow, especially under high contention
 * Client will need to handle retries
 
-[![](https://mermaid.ink/img/pako:eNqVkb9qwzAQxl9FaG3yAhpcQhsylJBi083LIZ0bgSwp8mkoIe_ecyQXl2appuO733f_dJU6GJRKTnjJ6DW-WvhMMPZe8ANNIYkXZ9FTUVwIUeyIcIwksifrBMTIgBFMYkohFbCYtk3zdDh2ShyQdlNEXcuwtuVcgZTQOSUO1kT1r6B3IH0W8JdZenxEA4SliLCDmHg696j23L1pjkjABuh4R_yH-5dvHvDevF7huR7O0aIU4cHSp7eSQjfh-nIP0H3bntpKe_MTyI0cMY1gDX_gdZZ7SWccsZeKQ4MDZEe97P2NUcgUui-vpaKUcSPzfeH631INwHMs6t5Y3q6Kt29ZMrRr)](https://mermaid.live/edit#pako:eNqVkb9qwzAQxl9FaG3yAhpcQhsylJBi083LIZ0bgSwp8mkoIe_ecyQXl2appuO733f_dJU6GJRKTnjJ6DW-WvhMMPZe8ANNIYkXZ9FTUVwIUeyIcIwksifrBMTIgBFMYkohFbCYtk3zdDh2ShyQdlNEXcuwtuVcgZTQOSUO1kT1r6B3IH0W8JdZenxEA4SliLCDmHg696j23L1pjkjABuh4R_yH-5dvHvDevF7huR7O0aIU4cHSp7eSQjfh-nIP0H3bntpKe_MTyI0cMY1gDX_gdZZ7SWccsZeKQ4MDZEe97P2NUcgUui-vpaKUcSPzfeH631INwHMs6t5Y3q6Kt29ZMrRr)
+```mermaid
+sequenceDiagram
+    actor Client
+    loop Attempt until applied or error
+    Client->>+GMS: GetAspect
+    GMS-->>Client: currentAspect
+    Client-->>Client: Patch aspect
+    Client->>+GMS: UpdateAspect if still currentAspect
+    GMS->>MetadataStore: UpdateAspect if still currentAspect
+    MetadataStore-->>GMS: applied?
+    alt applied
+        GMS-->>Client: OK
+    else error
+        GMS-->>Client: ERROR
+    end
+    end
+```
 
 ## How we teach this
 
@@ -243,7 +259,23 @@ Bad
 * No guarantee that the plugin code will run
 * Specific business logic getting tied up with GMS code
 
-[![](https://mermaid.ink/img/pako:eNqFks9qAjEQxl9lyFV9gT1Yii3SgyB43cuQfLqB3USTWUXEd-_sH7vYCs0lYeY333yT5GZsdDCFyTi1CBYfng-JmzKQLrYSE61qjyBDZDgvlsvZerMr6CsckOU9H2FHQMOa3UDYsfBO61HQGk_MU3aheK_Ff1Rmq4q1wTZFi5xj0n55i9R4Ebi30WItdHzEhlDv87nyp8kVeYJCFFDyh0oo7umX58EwNXylis8g2ys6qpAwSbwcN3cbBVzojJR9DBP_evSE3Nbj6KgzyPnMdR0v_4y06KtDHCuDm26vyw6P9ZA3c9PoRbF3-ty3jiyNVGhQmkKPDnvuTJgy3BVtj2oTn86rUVPsWV3NDbcSd9dgTSGpxQMav8xI3b8BFXTCxw)](https://mermaid.live/edit#pako:eNqFks9qAjEQxl9lyFV9gT1Yii3SgyB43cuQfLqB3USTWUXEd-_sH7vYCs0lYeY333yT5GZsdDCFyTi1CBYfng-JmzKQLrYSE61qjyBDZDgvlsvZerMr6CsckOU9H2FHQMOa3UDYsfBO61HQGk_MU3aheK_Ff1Rmq4q1wTZFi5xj0n55i9R4Ebi30WItdHzEhlDv87nyp8kVeYJCFFDyh0oo7umX58EwNXylis8g2ys6qpAwSbwcN3cbBVzojJR9DBP_evSE3Nbj6KgzyPnMdR0v_4y06KtDHCuDm26vyw6P9ZA3c9PoRbF3-ty3jiyNVGhQmkKPDnvuTJgy3BVtj2oTn86rUVPsWV3NDbcSd9dgTSGpxQMav8xI3b8BFXTCxw)
+```mermaid
+sequenceDiagram
+    actor Client
+    Client->>+GMS: IngestAspect
+    GMS->>MetadataStore: GetAspect
+    MetadataStore-->>GMS: aspect
+    GMS->>+ChangeProcessor: IsPermitted?
+    alt permitted
+        ChangeProcessor-->>GMS: yes
+        note right of MetadataStore: Aspect may have changed here
+        GMS->>MetadataStore: store new version
+        MetadataStore-->>GMS: result
+    else disallowed
+        ChangeProcessor-->>-GMS: no
+    end
+    GMS-->>-Client: result
+```
 
 ### Idempotent Client Update
 
@@ -258,7 +290,23 @@ Bad
 * GMS will need to understand partial (PATCH) updates
 * Retries will need to be handled in GMS
 
-[![](https://mermaid.ink/img/pako:eNptkcFuwyAMhl_F4rr2BTh0qraqh6nqlGi3XCxw10gEKDGHqeq7zy1kyrZwQvbn__8xV2WCJaXVSJdM3tBrj58Jh86DHDQcEry4njyXSrmvN5un_aHV8BEtMm3HSKYCLoQIW2YaIkP23DvAGGXKgkhRSiEVUOZF5kCMIoGtGJGGPfFc7Fd3LfjD1OSUJMQcvItN7Xdkcwb80_1nNY8O_QlGieqWtJdD1Ec9F4a8rRtzPLVKYZau7E7D8a0OuZHmG1lAd01zbH4s1EoNlAbsrXzY9V7uFJ9poE5puVo6YXbcqc7fBM2PB-5sL7mVPqG4rRRmDu2XN0pzyjRB9dMrdfsGAEKuNA)](https://mermaid.live/edit#pako:eNptkcFuwyAMhl_F4rr2BTh0qraqh6nqlGi3XCxw10gEKDGHqeq7zy1kyrZwQvbn__8xV2WCJaXVSJdM3tBrj58Jh86DHDQcEry4njyXSrmvN5un_aHV8BEtMm3HSKYCLoQIW2YaIkP23DvAGGXKgkhRSiEVUOZF5kCMIoGtGJGGPfFc7Fd3LfjD1OSUJMQcvItN7Xdkcwb80_1nNY8O_QlGieqWtJdD1Ec9F4a8rRtzPLVKYZau7E7D8a0OuZHmG1lAd01zbH4s1EoNlAbsrXzY9V7uFJ9poE5puVo6YXbcqc7fBM2PB-5sL7mVPqG4rRRmDu2XN0pzyjRB9dMrdfsGAEKuNA)
+```mermaid
+sequenceDiagram
+    actor Client
+    Client->>+GMS: UpdateAspect
+    loop Attempt until applied or error
+    GMS->>MetadataStore: GetAspect
+    MetadataStore-->>GMS: currentAspect
+    GMS-->>GMS: Patch aspect
+    GMS->>MetadataStore: UpdateAspect if still currentAspect
+    MetadataStore-->>GMS: applied?
+    end
+    alt applied
+        GMS-->>Client: OK
+    else error
+        GMS-->>Client: ERROR
+    end
+```
 
 ### Serialised Updates Exclusively via Kafka
 
@@ -287,7 +335,29 @@ Bad
 * Need to handle lock release if a client fails to release the lock
 * Potentially blocking MCE Kafka queue
 
-[![](https://mermaid.ink/img/pako:eNqNksFOwzAMhl8lygm07QV6GEIw7QDTUKuJSy9W4tGINimpc0DT3h136dZQjYkequj3p9-_nRykchplJjv8CmgVPhv48NCUVvAHipwXT7VBS1GJ58VyOVtvikyskR67FhW9G6penfqMFNd6JJZ6ORP9f-dtlFJqgwQaCApuhYljZH5VF4yf2qrgPceYmnE55psQs_qSbMifkG9AqhKQWE1m3LUcAKPTXe90fyN-Ct-aANqWu-iHYc81nZUoXJlo-xJLWHco0Hvn_0RXeb7NB9rqq0PlWCN0ON5QOlN6bwN4ubqRdS0JMg26QGOSEWKfxf-MOKOcywZ9A0bzUzz0cimpwgZLmfFR4x5CTaUs7ZFRCOSKb6tkRj7gXIbT0oeXK7M98IrO6kobXvwgHn8AOC71Xg)](https://mermaid.live/edit#pako:eNqNksFOwzAMhl8lygm07QV6GEIw7QDTUKuJSy9W4tGINimpc0DT3h136dZQjYkequj3p9-_nRykchplJjv8CmgVPhv48NCUVvAHipwXT7VBS1GJ58VyOVtvikyskR67FhW9G6penfqMFNd6JJZ6ORP9f-dtlFJqgwQaCApuhYljZH5VF4yf2qrgPceYmnE55psQs_qSbMifkG9AqhKQWE1m3LUcAKPTXe90fyN-Ct-aANqWu-iHYc81nZUoXJlo-xJLWHco0Hvn_0RXeb7NB9rqq0PlWCN0ON5QOlN6bwN4ubqRdS0JMg26QGOSEWKfxf-MOKOcywZ9A0bzUzz0cimpwgZLmfFR4x5CTaUs7ZFRCOSKb6tkRj7gXIbT0oeXK7M98IrO6kobXvwgHn8AOC71Xg)
+```mermaid
+sequenceDiagram
+    actor Client
+    Client->>+GMS: GetAspectWithLock
+    GMS->>+AspectLock: LockUrnAspect
+    GMS->>MetadataStore: GetAspect
+    MetadataStore-->>GMS: currentAspect
+    GMS-->>Client: currentAspect+lock
+    Client-->>Client: Patch aspect
+    Client->>+GMS: UpdateAspect(lock)
+    GMS->>MetadataStore: UpdateAspect
+    MetadataStore-->>GMS: applied?
+    alt applied
+        GMS-->>Client: OK
+    else error
+        GMS-->>Client: ERROR
+    end
+    Client->>+GMS: ReleaseAspectLock
+    GMS->>AspectLock: ReleaseUrnAspectLock
+    opt timeout
+        AspectLock->>-AspectLock: ReleaseUrnAspectLock
+    end
+```
 
 ## Rollout / Adoption Strategy
 
