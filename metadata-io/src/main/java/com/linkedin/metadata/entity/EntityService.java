@@ -851,6 +851,18 @@ private Map<Urn, List<EnvelopedAspect>> getCorrespondingAspects(Set<EntityAspect
           // Should never reach since we throw error above
           throw new UnsupportedOperationException("ChangeType not supported: " + mcp.getChangeType());
       }
+    } else {
+      RecordTemplate aspect = convertToRecordTemplate(mcp, aspectSpec);
+
+      result = new UpdateAspectResult(mcp.getEntityUrn(),
+          null,
+          aspect,
+          null,
+          mcp.getSystemMetadata(),
+          MetadataAuditOperation.UPDATE,
+          auditStamp,
+          0
+      );
     }
 
     boolean didUpdate = emitChangeLog(result, mcp, entityUrn, auditStamp, aspectSpec);
