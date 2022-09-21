@@ -6,12 +6,26 @@ This file documents any backwards-incompatible changes in DataHub and assists pe
 
 ### Breaking Changes
 
-- Browse Paths have been upgraded to a new format to align more closely with the intention of the feature. 
+### Potential Downtime
+
+### Deprecations
+
+### Other notable Changes
+
+## `v0.8.44`
+
+### Breaking Changes
+
+- Browse Paths have been upgraded to a new format to align more closely with the intention of the feature.
   Learn more about the changes, including steps on upgrading, here: https://datahubproject.io/docs/advanced/browse-paths-upgrade
 - The dbt ingestion source's `disable_dbt_node_creation` and `load_schema` options have been removed. They were no longer necessary due to the recently added sibling entities functionality.
 - The `snowflake` source now uses newer faster implementation (earlier `snowflake-beta`). Config properties `provision_role` and `check_role_grants` are not supported. Older `snowflake` and `snowflake-usage` are available as `snowflake-legacy` and `snowflake-usage-legacy` sources respectively.
 
 ### Potential Downtime
+
+- [Helm] If you're using Helm, please ensure that your version of the `datahub-actions` container is bumped to `v0.0.7` or `head`. 
+This version contains changes to support running ingestion in debug mode. Previous versions are not compatible with this release.
+Upgrading to helm chart version `0.2.103` will ensure that you have the compatible versions by default. 
 
 ### Deprecations
 

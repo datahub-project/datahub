@@ -1,14 +1,12 @@
 # Access Token Management
 
-DataHub provides the following GraphQL endpoints for managing access tokens. In this page you will see examples as well
+DataHub provides the following GraphQL endpoints for managing Access Tokens. In this page you will see examples as well
 as explanations as to how to administrate access tokens within the project whether for yourself or others, depending on the caller's privileges.
 
-Note: This API makes use of policies to safeguard against improper use. By default, a user will not be able to interact with it at all unless they have at least `Generate Personal Access Tokens` privileges.
-This will allow a user to generate/list & revoke their tokens, but no more.
-In order for a user to work with tokens for other users they must have `Manage All Access Tokens`.
-It is HIGHLY recommended that only admins of the DataHub system have manage level privileges.
+*Note*: This API makes use of DataHub Policies to safeguard against improper use. By default, a user will not be able to interact with it at all unless they have at least `Generate Personal Access Tokens` privileges.
 
-### Generate tokens
+### Generating Access Tokens
+
 To generate an access token, simply use the `createAccessToken(input: GetAccessTokenInput!)` GraphQL Query.
 This endpoint will return an `AccessToken` object, containing the access token string itself alongside with metadata
 which will allow you to identify said access token later on.
@@ -39,12 +37,10 @@ curl --location --request POST 'http://localhost:8080/api/graphql' \
 --data-raw '{ "query":"{ createAccessToken(input: { type: PERSONAL, actorUrn: \"urn:li:corpuser:datahub\", duration: ONE_HOUR, name: \"my personal token\" } ) { accessToken metadata { id name description} } }", "variables":{}}'
 ```
 
-### List Tokens
+### Listing Access Tokens
 
-Listing tokens is a powerful endpoint, as such there are rules to using.
-
-List your own personal token (assuming you are the datahub corp user). Notice that to list your own tokens you must
-specify a filter with: `{field: "actorUrn", value: "<your user urn>"}` configuration. Unless you specify this filter, the endpoint will fail with a not authorized exception.
+Listing tokens is a powerful endpoint that allows you to list the tokens owned by a particular user (ie. YOU). 
+To list all tokens that you own, you must specify a filter with: `{field: "actorUrn", value: "<your user urn>"}` configuration. 
 
 *As GraphQL*
 
@@ -72,7 +68,7 @@ curl --location --request POST 'http://localhost:8080/api/graphql' \
 --data-raw '{ "query":"{ listAccessTokens(input: {start: 0, count: 100, filters: [{field: \"ownerUrn\", value: \"urn:li:corpuser:datahub\"}]}) { start count total tokens {urn id actorUrn} } }", "variables":{}}'
 ```
 
-Listing all access tokens in the system (your user must have `Manage All Access Tokens` privileges for this to work)
+Admin users can also list tokens owned by other users of the platform. To list tokens belonging to other users, you must have the `Manage All Access Tokens` Platform privilege. 
 
 *As GraphQL*
 
@@ -102,8 +98,9 @@ curl --location --request POST 'http://localhost:8080/api/graphql' \
 
 Other filters besides `actorUrn=<some value>` are possible. You can filter by property in the `DataHubAccessTokenInfo` aspect which you can find in the Entities documentation.
 
-### Revoke Tokens
-Revoking a token is a mutation, as such bear in mind the need to specify `mutation` keyword when submitting the GraphQL command.
+### Revoking Access Tokens
+
+To revoke an existing access token, you can use the `revokeAccessToken` mutation. 
 
 *As GraphQL*
 
@@ -121,3 +118,8 @@ curl --location --request POST 'http://localhost:8080/api/graphql' \
 ```
 
 This endpoint will return a boolean detailing whether the operation was successful. In case of failure, an error message will appear explaining what went wrong.
+
+## Feedback, Feature Requests, & Support
+
+Visit our [Slack channel](https://slack.datahubproject.io) to ask questions, tell us what we can do better, & make requests for what you'd like to see in the future. Or just
+stop by to say 'Hi'. 

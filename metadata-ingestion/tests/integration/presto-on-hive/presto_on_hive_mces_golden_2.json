@@ -176,7 +176,7 @@
                 {
                     "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
                         "customProperties": {
-                            "create_date": "2022-09-09",
+                            "create_date": "2022-09-20",
                             "table_type": "MANAGED_TABLE",
                             "table_location": "hdfs://namenode:8020/user/hive/warehouse/db1.db/map_test"
                         },
@@ -341,7 +341,7 @@
                 {
                     "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
                         "customProperties": {
-                            "create_date": "2022-09-09",
+                            "create_date": "2022-09-20",
                             "table_type": "MANAGED_TABLE",
                             "table_location": "hdfs://namenode:8020/user/hive/warehouse/db1.db/union_test"
                         },
@@ -498,7 +498,7 @@
                 {
                     "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
                         "customProperties": {
-                            "create_date": "2022-09-09",
+                            "create_date": "2022-09-20",
                             "table_type": "MANAGED_TABLE",
                             "table_location": "hdfs://namenode:8020/user/hive/warehouse/db1.db/nested_struct_test"
                         },
@@ -574,6 +574,7 @@
                             {
                                 "fieldPath": "[version=2.0].[type=int].property_id",
                                 "nullable": true,
+                                "description": "id of property",
                                 "type": {
                                     "type": {
                                         "com.linkedin.pegasus2avro.schema.NumberType": {}
@@ -587,6 +588,7 @@
                             {
                                 "fieldPath": "[version=2.0].[type=struct].[type=array].[type=struct].service",
                                 "nullable": true,
+                                "description": "service types and providers",
                                 "type": {
                                     "type": {
                                         "com.linkedin.pegasus2avro.schema.ArrayType": {
@@ -637,10 +639,11 @@
                 {
                     "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
                         "customProperties": {
-                            "create_date": "2022-09-09",
+                            "create_date": "2022-09-20",
                             "table_type": "MANAGED_TABLE",
                             "table_location": "hdfs://namenode:8020/user/hive/warehouse/db1.db/array_struct_test"
                         },
+                        "description": "This table has array of structs",
                         "tags": []
                     }
                 }
@@ -772,7 +775,7 @@
                 {
                     "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
                         "customProperties": {
-                            "create_date": "2022-09-09",
+                            "create_date": "2022-09-20",
                             "table_type": "MANAGED_TABLE",
                             "table_location": "hdfs://namenode:8020/user/hive/warehouse/db1.db/struct_test"
                         },
@@ -877,7 +880,7 @@
                 {
                     "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
                         "customProperties": {
-                            "create_date": "2022-09-09",
+                            "create_date": "2022-09-20",
                             "table_type": "MANAGED_TABLE",
                             "table_location": "hdfs://namenode:8020/user/hive/warehouse/db1.db/_test_table_underscore"
                         },
@@ -995,7 +998,7 @@
                 {
                     "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
                         "customProperties": {
-                            "create_date": "2022-09-09",
+                            "create_date": "2022-09-20",
                             "table_type": "MANAGED_TABLE",
                             "table_location": "hdfs://namenode:8020/user/hive/warehouse/db1.db/pokes",
                             "partitioned_columns": "baz"
@@ -1104,6 +1107,13 @@
                             "is_view": "True"
                         },
                         "tags": []
+                    }
+                },
+                {
+                    "com.linkedin.pegasus2avro.dataset.ViewProperties": {
+                        "materialized": false,
+                        "viewLogic": "SELECT *\nFROM\n  db1.array_struct_test\n",
+                        "viewLanguage": "SQL"
                     }
                 }
             ]
