@@ -305,10 +305,10 @@ public class AuthenticationController extends Controller {
             try {
                 _logger.debug("Attempting jaas authentication");
                 AuthenticationManager.authenticateJaasUser(username, password);
+                _logger.debug("Jaas authentication successful. Login succeeded");
                 loginSucceeded = true;
-                _logger.debug("Jaas authentication successful");
             } catch (Exception e) {
-                _logger.debug("Jaas authentication error", e);
+                _logger.debug("Jaas authentication error. Login failed", e);
             }
         }
 

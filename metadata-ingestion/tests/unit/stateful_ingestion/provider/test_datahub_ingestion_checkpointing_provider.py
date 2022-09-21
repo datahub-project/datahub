@@ -14,7 +14,7 @@ from datahub.ingestion.api.ingestion_job_checkpointing_provider_base import (
     JobId,
     JobStateKey,
 )
-from datahub.ingestion.source.sql.mysql import MySQLConfig
+from datahub.ingestion.source.sql.postgres import PostgresConfig
 from datahub.ingestion.source.state.checkpoint import Checkpoint
 from datahub.ingestion.source.state.sql_common_state import (
     BaseSQLAlchemyCheckpointState,
@@ -124,7 +124,7 @@ class TestDatahubIngestionCheckpointProvider(unittest.TestCase):
             pipeline_name=self.pipeline_name,
             platform_instance_id=self.platform_instance_id,
             run_id=self.run_id,
-            config=MySQLConfig(),
+            config=PostgresConfig(host_port="localhost:5432"),
             state=job1_state_obj,
         )
         # Job2 - Checkpoint with a BaseUsageCheckpointState state
@@ -136,7 +136,7 @@ class TestDatahubIngestionCheckpointProvider(unittest.TestCase):
             pipeline_name=self.pipeline_name,
             platform_instance_id=self.platform_instance_id,
             run_id=self.run_id,
-            config=MySQLConfig(),
+            config=PostgresConfig(host_port="localhost:5432"),
             state=job2_state_obj,
         )
 
@@ -144,14 +144,10 @@ class TestDatahubIngestionCheckpointProvider(unittest.TestCase):
         self.provider.state_to_commit = {
             # NOTE: state_to_commit accepts only the aspect version of the checkpoint.
             self.job_names[0]: job1_checkpoint.to_checkpoint_aspect(
-                # fmt: off
                 max_allowed_state_size=2**20
-                # fmt: on
             ),
             self.job_names[1]: job2_checkpoint.to_checkpoint_aspect(
-                # fmt: off
                 max_allowed_state_size=2**20
-                # fmt: on
             ),
         }
 
