@@ -1,5 +1,5 @@
 import warnings
-from typing import Callable, TypeVar
+from typing import Callable, Type, TypeVar
 
 import pydantic
 
@@ -15,7 +15,7 @@ def pydantic_renamed_field(
     new_name: str,
     transform: Callable[[_T], _T] = _default_rename_transform,
 ) -> classmethod:
-    def _validate_field_rename(values: dict) -> dict:
+    def _validate_field_rename(cls: Type, values: dict) -> dict:
         if old_name in values:
             if new_name in values:
                 raise ValueError(
