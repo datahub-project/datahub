@@ -209,7 +209,9 @@ def make_data_job_urn(
     )
 
 
-def make_dashboard_urn(platform: str, name: str, platform_instance: Optional[str] = None) -> str:
+def make_dashboard_urn(
+    platform: str, name: str, platform_instance: Optional[str] = None
+) -> str:
     # FIXME: dashboards don't currently include data platform urn prefixes.
     if platform_instance:
         return f"urn:li:dashboard:({platform},{platform_instance}.{name})"
@@ -217,7 +219,9 @@ def make_dashboard_urn(platform: str, name: str, platform_instance: Optional[str
         return f"urn:li:dashboard:({platform},{name})"
 
 
-def make_chart_urn(platform: str, name: str, platform_instance: Optional[str] = None) -> str:
+def make_chart_urn(
+    platform: str, name: str, platform_instance: Optional[str] = None
+) -> str:
     # FIXME: charts don't currently include data platform urn prefixes.
     if platform_instance:
         return f"urn:li:chart:({platform},{platform_instance}.{name})"

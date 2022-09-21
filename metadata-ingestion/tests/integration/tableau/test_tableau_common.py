@@ -37,8 +37,7 @@ def _read_response(file_name):
         return data
 
 
-def define_query_metadata_func(workbook_0: str,
-                               workbook_all: str):  # type: ignore
+def define_query_metadata_func(workbook_0: str, workbook_all: str):  # type: ignore
     def side_effect_query_metadata(query):
 
         if "workbooksConnection (first:0" in query:
@@ -87,12 +86,12 @@ def side_effect_usage_stat(*arg, **kwargs):
 
 
 def tableau_ingest_common(
-        pytestconfig,
-        tmp_path,
-        side_effect_query_metadata_func,
-        golden_file_name,
-        output_file_name,
-        config_source = config_source_default
+    pytestconfig,
+    tmp_path,
+    side_effect_query_metadata_func,
+    golden_file_name,
+    output_file_name,
+    config_source=config_source_default,
 ):
     global test_resources_dir
     test_resources_dir = pathlib.Path(
@@ -117,15 +116,15 @@ def tableau_ingest_common(
                 "run_id": "tableau-test",
                 "source": {
                     "type": "tableau",
-                    "config":config_source,
-            },
-            "sink": {
-                        "type": "file",
-                        "config": {
-                            "filename": f"{tmp_path}/{output_file_name}",
-                        },
+                    "config": config_source,
+                },
+                "sink": {
+                    "type": "file",
+                    "config": {
+                        "filename": f"{tmp_path}/{output_file_name}",
                     },
-        }
+                },
+            }
         )
         pipeline.run()
         pipeline.raise_from_status()

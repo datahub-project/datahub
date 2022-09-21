@@ -79,9 +79,9 @@ from datahub.metadata.schema_classes import (
     ChangeTypeClass,
     ChartInfoClass,
     ChartUsageStatisticsClass,
-    DataPlatformInstanceClass,
     DashboardInfoClass,
     DashboardUsageStatisticsClass,
+    DataPlatformInstanceClass,
     DatasetPropertiesClass,
     OwnerClass,
     OwnershipClass,
@@ -1369,7 +1369,7 @@ class TableauSource(Source):
 
     @lru_cache(maxsize=None)
     def get_last_modified(
-            self, creator: Optional[str], created_at: bytes, updated_at: bytes
+        self, creator: Optional[str], created_at: bytes, updated_at: bytes
     ) -> ChangeAuditStamps:
         last_modified = ChangeAuditStamps()
         if creator:

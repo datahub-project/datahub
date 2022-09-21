@@ -29,6 +29,7 @@ def test_tableau_ingest(pytestconfig, tmp_path):
         output_file_name,
     )
 
+
 @freeze_time(FROZEN_TIME)
 @pytest.mark.slow_unit
 def test_tableau_ingest_with_platform_instance(pytestconfig, tmp_path):
@@ -62,7 +63,7 @@ def test_tableau_ingest_with_platform_instance(pytestconfig, tmp_path):
         side_effect_query_metadata,
         golden_file_name,
         output_file_name,
-        config_source
+        config_source,
     )
 
 
