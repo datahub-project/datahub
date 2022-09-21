@@ -166,9 +166,6 @@ module.exports = {
       //   darkTheme: require('prism-react-renderer/themes/dracula'),
       additionalLanguages: ["ini"],
     },
-    gtag: {
-      trackingID: "G-2G54RXWD4D",
-    },
     algolia: {
       appId: "RK0UG797F3",
       apiKey: "39d7eb90d8b31d464e309375a52d674f",
@@ -201,6 +198,9 @@ module.exports = {
               : require.resolve("./src/styles/datahub.scss"),
             require.resolve("./src/styles/global.scss"),
           ],
+        },
+        gtag: {
+          trackingID: "G-2G54RXWD4D",
         },
       },
     ],
