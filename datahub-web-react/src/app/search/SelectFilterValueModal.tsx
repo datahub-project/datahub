@@ -1,5 +1,6 @@
 import React from 'react';
 import { FacetMetadata, EntityType } from '../../types.generated';
+import { SelectContainerModal } from '../entity/shared/containers/profile/sidebar/Container/ContainerSelectModal';
 import { SetDomainModal } from '../entity/shared/containers/profile/sidebar/Domain/SetDomainModal';
 import { EditOwnersModal } from '../entity/shared/containers/profile/sidebar/Ownership/EditOwnersModal';
 import { SelectPlatformModal } from '../entity/shared/containers/profile/sidebar/Platform/SelectPlatformModal';
@@ -54,6 +55,23 @@ export const SelectFilterValueModal = ({ filterField, onSelect, onCloseModal, in
         );
     }
 
+    if (filterField === 'container') {
+        return (
+            <SelectContainerModal
+                titleOverride="Select Container"
+                defaultValues={initialValues?.map((urn) => ({
+                    urn,
+                    entity: facet?.aggregations.find((aggregation) => aggregation.value === urn)?.entity,
+                }))}
+                onCloseModal={onCloseModal}
+                onOkOverride={(containerUrns) => {
+                    onSelect(containerUrns);
+                    onCloseModal();
+                }}
+            />
+        );
+    }
+
     if (filterField === 'platform') {
         return (
             <SelectPlatformModal
@@ -99,10 +117,10 @@ export const SelectFilterValueModal = ({ filterField, onSelect, onCloseModal, in
         );
     }
 
-    if (filterField === 'name') {
+    if (filterField === 'origin') {
         return (
             <EditTextModal
-                title="Filter by Name"
+                title="Filter by Environment"
                 defaultValue={initialValues?.[0]}
                 onCloseModal={onCloseModal}
                 onOkOverride={(newValue) => {
@@ -127,25 +145,10 @@ export const SelectFilterValueModal = ({ filterField, onSelect, onCloseModal, in
         );
     }
 
-    console.log({ filterField });
     if (filterField === 'entity') {
         return (
             <ChooseEntityTypeModal
                 title="Filter by Entity Type"
-                defaultValue={initialValues?.[0]}
-                onCloseModal={onCloseModal}
-                onOkOverride={(newValue) => {
-                    onSelect([newValue]);
-                    onCloseModal();
-                }}
-            />
-        );
-    }
-
-    if (filterField === 'platform') {
-        return (
-            <EditTextModal
-                title="Filter by Platform"
                 defaultValue={initialValues?.[0]}
                 onCloseModal={onCloseModal}
                 onOkOverride={(newValue) => {
@@ -178,17 +181,6 @@ export const SelectFilterValueModal = ({ filterField, onSelect, onCloseModal, in
     if (filterField === 'removed') {
         onSelect(['true']);
         onCloseModal();
-        // return (
-        //     <ChooseBooleanModal
-        //         title="Is Soft Deleted"
-        //         defaultValue={initialValues?.[0]}
-        //         onCloseModal={onCloseModal}
-        //         onOkOverride={(newValue) => {
-        //             onSelect([newValue]);
-        //             onCloseModal();
-        //         }}
-        //     />
-        // );
     }
 
     if (filterField === 'glossaryTerms' || filterField === 'fieldGlossaryTerms') {

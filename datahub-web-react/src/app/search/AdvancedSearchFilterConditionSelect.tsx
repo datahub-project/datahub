@@ -16,7 +16,16 @@ const { Option } = Select;
 
 // We track which fields are collection fields for the purpose of printing the conditions
 // in a more gramatically correct way. On the backend they are handled the same.
-const filtersOnNonCollectionFields = ['description', 'fieldDescriptions', 'removed', 'typeNames', 'entity', 'domains'];
+const filtersOnNonCollectionFields = [
+    'description',
+    'fieldDescriptions',
+    'fieldPaths',
+    'removed',
+    'typeNames',
+    'entity',
+    'domains',
+    'origin',
+];
 
 function getLabelsForField(field: string) {
     if (FIELDS_WHO_USE_CONTAINS_OPERATOR.indexOf(field) >= 0) {

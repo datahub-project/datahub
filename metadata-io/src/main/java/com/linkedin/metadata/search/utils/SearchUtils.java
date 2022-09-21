@@ -137,6 +137,7 @@ public class SearchUtils {
         Stream.concat(one.getAggregations().entrySet().stream(), two.getAggregations().entrySet().stream())
             .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue, Long::sum));
     return one.clone()
+        .setDisplayName(two.getDisplayName() != two.getName() ? two.getDisplayName() : one.getDisplayName())
         .setAggregations(new LongMap(mergedMap))
         .setFilterValues(new FilterValueArray(SearchUtil.convertToFilters(mergedMap)));
   }

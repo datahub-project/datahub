@@ -25,6 +25,7 @@ import { EntityAndType } from '../entity/shared/types';
 import { AdvancedSearchFilters } from './AdvancedSearchFilters';
 import { ErrorSection } from '../shared/error/ErrorSection';
 import { UnionType } from './utils/constants';
+import { hasAdvancedFilters } from './utils/hasAdvancedFilters';
 
 const SearchBody = styled.div`
     display: flex;
@@ -163,7 +164,9 @@ export const SearchResults = ({
     const lastResultIndex = pageStart + pageSize > totalResults ? totalResults : pageStart + pageSize;
     const authenticatedUserUrn = useGetAuthenticatedUser()?.corpUser?.urn;
     const combinedSiblingSearchResults = combineSiblingsInSearchResults(searchResponse?.searchResults);
-    const [seeAdvancedFilters, setSeeAdvancedFilters] = useState(false);
+    const onlyShowAdvancedFilters = hasAdvancedFilters(selectedFilters, unionType);
+
+    const [seeAdvancedFilters, setSeeAdvancedFilters] = useState(onlyShowAdvancedFilters);
 
     const searchResultUrns = combinedSiblingSearchResults.map((result) => result.entity.urn) || [];
     const selectedEntityUrns = selectedEntities.map((entity) => entity.urn);
@@ -177,7 +180,11 @@ export const SearchResults = ({
                         <FiltersHeader>
                             <span>Filter</span>
                             <span>
-                                <Button type="link" onClick={() => setSeeAdvancedFilters(!seeAdvancedFilters)}>
+                                <Button
+                                    disabled={onlyShowAdvancedFilters}
+                                    type="link"
+                                    onClick={() => setSeeAdvancedFilters(!seeAdvancedFilters)}
+                                >
                                     {seeAdvancedFilters ? 'Filter' : 'Advanced'}
                                 </Button>
                             </span>

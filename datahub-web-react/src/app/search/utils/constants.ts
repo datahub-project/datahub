@@ -36,10 +36,20 @@ export const FIELD_TO_LABEL = {
     fieldDescriptions: 'Column Description',
     removed: 'Soft Deleted',
     entity: 'Entity Type',
+    container: 'Container',
     typeNames: 'Subtype',
+    origin: 'Environment',
 };
 
 export const FIELDS_WHO_USE_CONTAINS_OPERATOR = ['description', 'fieldDescriptions'];
+
+export const ADVANCED_SEARCH_ONLY_FILTERS = [
+    'fieldGlossaryTerms',
+    'fieldTags',
+    'fieldPaths',
+    'description',
+    'fieldDescriptions',
+];
 
 export enum UnionType {
     AND,

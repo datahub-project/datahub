@@ -60,7 +60,6 @@ export const AdvancedSearchFilters = ({
     const [filterField, setFilterField] = useState<null | string>(null);
 
     const onFilterFieldSelect = (value) => {
-        console.log('SELECTING', value);
         setFilterField(value);
     };
 
@@ -73,14 +72,16 @@ export const AdvancedSearchFilters = ({
                 dropdownMatchSelectWidth={false}
                 filterOption={(_, option) => option?.value === 'null'}
             >
-                {Object.keys(FIELD_TO_LABEL).map((key) => (
-                    <Option
-                        disabled={key === 'entity' && !!selectedFilters.find((filter) => filter.field === 'entity')}
-                        value={key}
-                    >
-                        {FIELD_TO_LABEL[key]}
-                    </Option>
-                ))}
+                {Object.keys(FIELD_TO_LABEL)
+                    .sort((a, b) => FIELD_TO_LABEL[a].localeCompare(FIELD_TO_LABEL[b]))
+                    .map((key) => (
+                        <Option
+                            disabled={key === 'entity' && !!selectedFilters.find((filter) => filter.field === 'entity')}
+                            value={key}
+                        >
+                            {FIELD_TO_LABEL[key]}
+                        </Option>
+                    ))}
             </Select>
             {selectedFilters.map((filter) => (
                 <AdvancedSearchFilter
