@@ -10,9 +10,9 @@ from pydantic import Field, root_validator
 from datahub.configuration.common import ConfigModel, ConfigurationError
 from datahub.configuration.kafka import KafkaProducerConnectionConfig
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
-from datahub.metadata.com.linkedin.pegasus2avro.mxe import (
-    MetadataChangeEvent,
-    MetadataChangeProposal,
+from datahub.metadata.schema_classes import (
+    MetadataChangeEventClass as MetadataChangeEvent,
+    MetadataChangeProposalClass as MetadataChangeProposal,
 )
 from datahub.metadata.schemas import (
     getMetadataChangeEventSchema,

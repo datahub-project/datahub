@@ -78,6 +78,23 @@ import { POSTGRES } from '../../conf/postgres/postgres';
 import { POSTGRES_HOST_PORT, POSTGRES_DATABASE, POSTGRES_USERNAME, POSTGRES_PASSWORD } from './postgres';
 import { HIVE } from '../../conf/hive/hive';
 import { HIVE_HOST_PORT, HIVE_DATABASE, HIVE_USERNAME, HIVE_PASSWORD } from './hive';
+import {
+    LOOKML,
+    CONNECTION_TO_PLATFORM_MAP,
+    DEPLOY_KEY,
+    LOOKML_BASE_URL,
+    LOOKML_CLIENT_ID,
+    LOOKML_CLIENT_SECRET,
+    LOOKML_GITHUB_INFO_REPO,
+    PARSE_TABLE_NAMES_FROM_SQL,
+    PROJECT_NAME,
+} from './lookml';
+
+export enum RecipeSections {
+    Connection = 0,
+    Filter = 1,
+    Advanced = 2,
+}
 
 interface RecipeFields {
     [key: string]: {
@@ -87,6 +104,7 @@ interface RecipeFields {
         connectionSectionTooltip?: string;
         filterSectionTooltip?: string;
         advancedSectionTooltip?: string;
+        defaultOpenSections?: RecipeSections[];
     };
 }
 
@@ -153,6 +171,21 @@ export const RECIPE_FIELDS: RecipeFields = {
         advancedFields: [GITHUB_INFO_REPO, EXTRACT_USAGE_HISTORY, EXTRACT_OWNERS, SKIP_PERSONAL_FOLDERS],
         filterSectionTooltip:
             'Filter out data assets based on allow/deny regex patterns we match against. Deny patterns take precedence over allow patterns.',
+    },
+    [LOOKML]: {
+        fields: [LOOKML_GITHUB_INFO_REPO, DEPLOY_KEY],
+        filterFields: [],
+        advancedFields: [
+            CONNECTION_TO_PLATFORM_MAP,
+            PROJECT_NAME,
+            LOOKML_BASE_URL,
+            LOOKML_CLIENT_ID,
+            LOOKML_CLIENT_SECRET,
+            PARSE_TABLE_NAMES_FROM_SQL,
+        ],
+        advancedSectionTooltip:
+            'In order to ingest LookML data properly, you must either fill out Looker API client information (Base URL, Client ID, Client Secret) or an offline specification of the connection to platform mapping and the project name (Connection To Platform Map, Project Name).',
+        defaultOpenSections: [RecipeSections.Connection, RecipeSections.Advanced],
     },
     [KAFKA]: {
         fields: [

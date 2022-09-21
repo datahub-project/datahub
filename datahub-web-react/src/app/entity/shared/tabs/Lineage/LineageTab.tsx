@@ -26,11 +26,15 @@ const StyledButton = styled(Button)<{ isSelected: boolean }>`
     `}
 `;
 
-export const LineageTab = () => {
+export const LineageTab = ({
+    properties = { defaultDirection: LineageDirection.Downstream },
+}: {
+    properties?: { defaultDirection: LineageDirection };
+}) => {
     const { urn, entityType } = useEntityData();
     const history = useHistory();
     const entityRegistry = useEntityRegistry();
-    const [lineageDirection, setLineageDirection] = useState<string>(LineageDirection.Downstream);
+    const [lineageDirection, setLineageDirection] = useState<string>(properties.defaultDirection);
 
     const routeToLineage = useCallback(() => {
         history.push(getEntityPath(entityType, urn, entityRegistry, true, false));

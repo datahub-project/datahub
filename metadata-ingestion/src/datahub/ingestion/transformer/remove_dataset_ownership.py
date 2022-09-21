@@ -1,22 +1,23 @@
-import datahub.emitter.mce_builder as builder
+from typing import Optional, cast
+
 from datahub.configuration.common import ConfigModel
+from datahub.emitter.mce_builder import Aspect
 from datahub.ingestion.api.common import PipelineContext
-from datahub.ingestion.transformer.dataset_transformer import DatasetTransformer
-from datahub.metadata.schema_classes import MetadataChangeEventClass, OwnershipClass
+from datahub.ingestion.transformer.dataset_transformer import (
+    DatasetOwnershipTransformer,
+)
+from datahub.metadata.schema_classes import OwnershipClass
 
 
 class ClearDatasetOwnershipConfig(ConfigModel):
     pass
 
 
-class SimpleRemoveDatasetOwnership(DatasetTransformer):
+class SimpleRemoveDatasetOwnership(DatasetOwnershipTransformer):
     """Transformer that clears all owners on each dataset."""
 
     def __init__(self, config: ClearDatasetOwnershipConfig, ctx: PipelineContext):
         super().__init__()
-
-    def aspect_name(self) -> str:
-        return "ownership"
 
     @classmethod
     def create(
@@ -25,12 +26,13 @@ class SimpleRemoveDatasetOwnership(DatasetTransformer):
         config = ClearDatasetOwnershipConfig.parse_obj(config_dict)
         return cls(config, ctx)
 
-    def transform_one(self, mce: MetadataChangeEventClass) -> MetadataChangeEventClass:
-        ownership = builder.get_or_add_aspect(
-            mce,
-            OwnershipClass(
-                owners=[],
-            ),
-        )
-        ownership.owners = []
-        return mce
+    def transform_aspect(
+        self, entity_urn: str, aspect_name: str, aspect: Optional[Aspect]
+    ) -> Optional[Aspect]:
+        in_ownership_aspect = cast(OwnershipClass, aspect)
+        if in_ownership_aspect is None:
+            return cast(Aspect, in_ownership_aspect)
+
+        in_ownership_aspect.owners = []
+
+        return cast(Aspect, in_ownership_aspect)

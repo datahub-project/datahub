@@ -7,7 +7,6 @@ source:
     catalog_path: "./tests/integration/dbt/dbt_catalog.json"
     sources_path: "./tests/integration/dbt/dbt_sources.json"
     target_platform: "dbt"
-    load_schemas: True # or False
 # see https://datahubproject.io/docs/metadata-ingestion/sink_docs/datahub for complete documentation
 sink:
   type: "datahub-rest"

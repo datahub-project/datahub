@@ -18,9 +18,9 @@
   },
   "dependencies": {
     "@ant-design/icons": "^4.7.0",
-    "@docusaurus/core": "^2.0.0-beta.7",
-    "@docusaurus/plugin-ideal-image": "2.0.0-beta.8",
-    "@docusaurus/preset-classic": "^2.0.0-beta.7",
+    "@docusaurus/core": "^2.1.0",
+    "@docusaurus/plugin-ideal-image": "^2.1.0",
+    "@docusaurus/preset-classic": "^2.1.0",
     "@octokit/plugin-retry": "^3.0.9",
     "@octokit/plugin-throttling": "^3.5.1",
     "@octokit/rest": "^18.6.2",

@@ -4,8 +4,10 @@ from typing import Dict, Optional
 import pydantic
 
 from datahub.configuration.common import AllowDenyPattern
+from datahub.ingestion.source.state.redundant_run_skip_handler import (
+    StatefulRedundantRunSkipConfig,
+)
 from datahub.ingestion.source.state.stateful_ingestion_base import (
-    StatefulIngestionConfig,
     StatefulIngestionConfigBase,
 )
 from datahub.ingestion.source.usage.usage_common import BaseUsageConfig
@@ -14,14 +16,14 @@ from datahub.ingestion.source_config.sql.snowflake import BaseSnowflakeConfig
 logger = logging.getLogger(__name__)
 
 
-class SnowflakeStatefulIngestionConfig(StatefulIngestionConfig):
+class SnowflakeStatefulIngestionConfig(StatefulRedundantRunSkipConfig):
     """
     Specialization of basic StatefulIngestionConfig to adding custom config.
     This will be used to override the stateful_ingestion config param of StatefulIngestionConfigBase
     in the SnowflakeUsageConfig.
     """
 
-    ignore_old_state = pydantic.Field(False, alias="force_rerun")
+    pass
 
 
 class SnowflakeUsageConfig(

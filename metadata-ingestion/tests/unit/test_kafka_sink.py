@@ -16,7 +16,7 @@ from datahub.metadata.com.linkedin.pegasus2avro.mxe import (
 
 
 class KafkaSinkTest(unittest.TestCase):
-    @patch("datahub.ingestion.sink.datahub_kafka.PipelineContext", autospec=True)
+    @patch("datahub.ingestion.api.sink.PipelineContext", autospec=True)
     @patch("datahub.emitter.kafka_emitter.SerializingProducer", autospec=True)
     def test_kafka_sink_config(self, mock_producer, mock_context):
         kafka_sink = DatahubKafkaSink.create(
@@ -59,7 +59,7 @@ class KafkaSinkTest(unittest.TestCase):
         kafka_sink.close()
         assert mock_producer.call_count == 2  # constructor should be called
 
-    @patch("datahub.ingestion.sink.datahub_kafka.PipelineContext", autospec=True)
+    @patch("datahub.ingestion.api.sink.PipelineContext", autospec=True)
     @patch("datahub.emitter.kafka_emitter.SerializingProducer", autospec=True)
     @patch("datahub.ingestion.sink.datahub_kafka._KafkaCallback", autospec=True)
     def test_kafka_sink_write(self, mock_k_callback, mock_producer, mock_context):
@@ -102,7 +102,7 @@ class KafkaSinkTest(unittest.TestCase):
 
     # TODO: Test that kafka producer is configured correctly
 
-    @patch("datahub.ingestion.sink.datahub_kafka.PipelineContext", autospec=True)
+    @patch("datahub.ingestion.api.sink.PipelineContext", autospec=True)
     @patch("datahub.emitter.kafka_emitter.SerializingProducer", autospec=True)
     def test_kafka_sink_close(self, mock_producer, mock_context):
         mock_producer_instance = mock_producer.return_value

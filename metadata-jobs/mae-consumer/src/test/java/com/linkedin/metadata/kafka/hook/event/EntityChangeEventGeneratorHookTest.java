@@ -79,7 +79,8 @@ public class EntityChangeEventGeneratorHookTest {
         differRegistry,
         _mockClient,
         mockAuthentication,
-        createMockEntityRegistry());
+        createMockEntityRegistry(),
+        true);
   }
 
   @Test

@@ -22,6 +22,10 @@ class BigQueryV2Report(SQLSourceReport):
     num_parsed_audit_entires: Optional[int] = None
     bigquery_audit_metadata_datasets_missing: Optional[bool] = None
     lineage_metadata_entries: Optional[int] = None
+    lineage_mem_size: Optional[str] = None
+    lineage_extraction_sec: Dict[str, float] = field(default_factory=dict)
+    usage_extraction_sec: Dict[str, float] = field(default_factory=dict)
+    metadata_extraction_sec: Dict[str, float] = field(default_factory=dict)
     include_table_lineage: Optional[bool] = None
     use_date_sharded_audit_log_tables: Optional[bool] = None
     log_page_size: Optional[pydantic.PositiveInt] = None

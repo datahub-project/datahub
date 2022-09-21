@@ -12,6 +12,7 @@ include = '\.pyi?$'
 target-version = ['py36', 'py37', 'py38']
 
 [tool.isort]
+combine_as_imports = true
 indent = '    '
 profile = 'black'
 sections = 'FUTURE,STDLIB,THIRDPARTY,FIRSTPARTY,LOCALFOLDER'

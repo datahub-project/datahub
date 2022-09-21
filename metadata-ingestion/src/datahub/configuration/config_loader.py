@@ -1,6 +1,7 @@
 import io
 import pathlib
 import re
+import sys
 from typing import Any, Dict, Union
 
 from expandvars import UnboundVariable, expandvars
@@ -54,26 +55,32 @@ def load_config_file(
     config_file: Union[pathlib.Path, str],
     squirrel_original_config: bool = False,
     squirrel_field: str = "__orig_config",
+    allow_stdin: bool = False,
 ) -> dict:
-    if isinstance(config_file, str):
-        config_file = pathlib.Path(config_file)
-    if not config_file.is_file():
-        raise ConfigurationError(f"Cannot open config file {config_file}")
-
     config_mech: ConfigurationMechanism
-    if config_file.suffix in [".yaml", ".yml"]:
+    if allow_stdin and config_file == "-":
+        # If we're reading from stdin, we assume that the input is a YAML file.
         config_mech = YamlConfigurationMechanism()
-    elif config_file.suffix == ".toml":
-        config_mech = TomlConfigurationMechanism()
+        raw_config_file = sys.stdin.read()
     else:
-        raise ConfigurationError(
-            "Only .toml and .yml are supported. Cannot process file type {}".format(
-                config_file.suffix
-            )
-        )
+        if isinstance(config_file, str):
+            config_file = pathlib.Path(config_file)
+        if not config_file.is_file():
+            raise ConfigurationError(f"Cannot open config file {config_file}")
 
-    with config_file.open() as raw_config_fp:
-        raw_config_file = raw_config_fp.read()
+        if config_file.suffix in {".yaml", ".yml"}:
+            config_mech = YamlConfigurationMechanism()
+        elif config_file.suffix == ".toml":
+            config_mech = TomlConfigurationMechanism()
+        else:
+            raise ConfigurationError(
+                "Only .toml and .yml are supported. Cannot process file type {}".format(
+                    config_file.suffix
+                )
+            )
+
+        raw_config_file = config_file.read_text()
+
     config_fp = io.StringIO(raw_config_file)
     raw_config = config_mech.load_config(config_fp)
     config = resolve_env_variables(raw_config)

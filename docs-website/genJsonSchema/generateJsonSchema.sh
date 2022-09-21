@@ -6,4 +6,4 @@ if [ -f "${SCHEMA_ROOT_DIR}/${SCHEMA_FILE_NAME}" ]; then
 fi
 
 echo "Generating Json schema..."
-python gen_json_schema.py ../../docs/generated/ingestion/config_schemas/ ${SCHEMA_ROOT_DIR}/${SCHEMA_FILE_NAME}
+python3 gen_json_schema.py ../../docs/generated/ingestion/config_schemas/ ${SCHEMA_ROOT_DIR}/${SCHEMA_FILE_NAME}
