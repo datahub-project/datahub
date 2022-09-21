@@ -1,11 +1,11 @@
 import typing
 
-import pydantic
 from pydantic.fields import Field
 from sqlalchemy import create_engine, inspect
 from sqlalchemy.engine.reflection import Inspector
 
 from datahub.configuration.common import AllowDenyPattern
+from datahub.configuration.validate_field_rename import pydantic_renamed_field
 from datahub.emitter.mcp_builder import PlatformKey
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.sql.sql_common import (
@@ -23,19 +23,9 @@ class TwoTierSQLAlchemyConfig(BasicSQLAlchemyConfig):
         description="Regex patterns for databases to filter in ingestion.",
     )
 
-    @pydantic.validator("database_pattern")
-    def copy_deprecated_schema_pattern_option(cls, v, values):
-        if "schema_pattern" in values:
-            if v != AllowDenyPattern.allow_all():
-                raise ValueError(
-                    "Cannot specify both schema_pattern and database_pattern"
-                )
-            else:
-                logger.warning(
-                    "schema_pattern is deprecated, please use database_pattern instead."
-                )
-                return values.pop("schema_pattern")
-        return v
+    _schema_pattern_deprecated = pydantic_renamed_field(
+        "schema_pattern", "database_pattern"
+    )
 
     def get_sql_alchemy_url(
         self,
