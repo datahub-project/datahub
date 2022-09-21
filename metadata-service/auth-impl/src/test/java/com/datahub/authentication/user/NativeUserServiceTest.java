@@ -27,9 +27,11 @@ public class NativeUserServiceTest {
   private static final String EMAIL = "mock@email.com";
   private static final String TITLE = "Data Scientist";
   private static final String PASSWORD = "password";
+  private static final String HASHED_PASSWORD = "hashedPassword";
   private static final String ENCRYPTED_INVITE_TOKEN = "encryptedInviteroToken";
   private static final String RESET_TOKEN = "inviteToken";
   private static final String ENCRYPTED_RESET_TOKEN = "encryptedInviteToken";
+  private static final byte[] SALT = "salt".getBytes();
   private static final String ENCRYPTED_SALT = "encryptedSalt";
   private static final Urn USER_URN = new CorpuserUrn(EMAIL);
   private static final long ONE_DAY_MILLIS = TimeUnit.DAYS.toMillis(1);
@@ -48,16 +50,6 @@ public class NativeUserServiceTest {
     _secretService = mock(SecretService.class);
 
     _nativeUserService = new NativeUserService(_entityService, _entityClient, _secretService);
-  }
-
-  @Test
-  public void testConstructor() throws Exception {
-    assertThrows(() -> new NativeUserService(null, _entityClient, _secretService));
-    assertThrows(() -> new NativeUserService(_entityService, null, _secretService));
-    assertThrows(() -> new NativeUserService(_entityService, _entityClient, null));
-
-    // Succeeds!
-    new NativeUserService(_entityService, _entityClient, _secretService);
   }
 
   @Test
@@ -85,7 +77,9 @@ public class NativeUserServiceTest {
   @Test
   public void testCreateNativeUserPasses() throws Exception {
     when(_entityService.exists(any())).thenReturn(false);
+    when(_secretService.generateSalt(anyInt())).thenReturn(SALT);
     when(_secretService.encrypt(any())).thenReturn(ENCRYPTED_SALT);
+    when(_secretService.getHashedPassword(any(), any())).thenReturn(HASHED_PASSWORD);
 
     _nativeUserService.createNativeUser(USER_URN_STRING, FULL_NAME, EMAIL, TITLE, PASSWORD, SYSTEM_AUTHENTICATION);
   }
@@ -104,7 +98,9 @@ public class NativeUserServiceTest {
 
   @Test
   public void testUpdateCorpUserCredentialsPasses() throws Exception {
+    when(_secretService.generateSalt(anyInt())).thenReturn(SALT);
     when(_secretService.encrypt(any())).thenReturn(ENCRYPTED_SALT);
+    when(_secretService.getHashedPassword(any(), any())).thenReturn(HASHED_PASSWORD);
 
     _nativeUserService.updateCorpUserCredentials(USER_URN, PASSWORD, SYSTEM_AUTHENTICATION);
     verify(_entityClient).ingestProposal(any(), any());
@@ -209,6 +205,7 @@ public class NativeUserServiceTest {
     when(mockCorpUserCredentialsAspect.getPasswordResetTokenExpirationTimeMillis()).thenReturn(
         Instant.now().plusMillis(ONE_DAY_MILLIS).toEpochMilli());
     when(_secretService.decrypt(eq(ENCRYPTED_RESET_TOKEN))).thenReturn(RESET_TOKEN);
+    when(_secretService.generateSalt(anyInt())).thenReturn(SALT);
     when(_secretService.encrypt(any())).thenReturn(ENCRYPTED_SALT);
 
     _nativeUserService.resetCorpUserCredentials(USER_URN_STRING, PASSWORD, RESET_TOKEN, SYSTEM_AUTHENTICATION);

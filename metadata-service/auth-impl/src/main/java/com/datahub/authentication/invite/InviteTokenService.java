@@ -18,13 +18,10 @@ import com.linkedin.metadata.secret.SecretService;
 import com.linkedin.mxe.MetadataChangeProposal;
 import com.linkedin.r2.RemoteInvocationException;
 import java.net.URISyntaxException;
-import java.security.MessageDigest;
-import java.util.Base64;
 import java.util.Collections;
-import java.util.Objects;
-import java.util.UUID;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
+import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
 import static com.linkedin.metadata.Constants.*;
@@ -32,24 +29,15 @@ import static com.linkedin.metadata.entity.AspectUtils.*;
 
 
 @Slf4j
+@RequiredArgsConstructor
 public class InviteTokenService {
-  private static final String HASHING_ALGORITHM = "SHA-256";
   private static final String ROLE_FIELD_NAME = "role";
   private static final String HAS_ROLE_FIELD_NAME = "hasRole";
   private final EntityClient _entityClient;
   private final SecretService _secretService;
-  private final MessageDigest _messageDigest;
-  private final Base64.Encoder _encoder;
-
-  public InviteTokenService(@Nonnull EntityClient entityClient, @Nonnull SecretService secretService) throws Exception {
-    _entityClient = Objects.requireNonNull(entityClient, "entityClient must not be null");
-    _secretService = Objects.requireNonNull(secretService, "secretService must not be null");
-    _messageDigest = MessageDigest.getInstance(HASHING_ALGORITHM);
-    _encoder = Base64.getEncoder();
-  }
 
   public Urn getInviteTokenUrn(@Nonnull final String inviteTokenStr) throws URISyntaxException {
-    String hashedInviteTokenStr = hashString(inviteTokenStr);
+    String hashedInviteTokenStr = _secretService.hashString(inviteTokenStr);
     String inviteTokenUrnStr = String.format("urn:li:inviteToken:%s", hashedInviteTokenStr);
     return Urn.createFromString(inviteTokenUrnStr);
   }
@@ -92,11 +80,6 @@ public class InviteTokenService {
 
     com.linkedin.identity.InviteToken inviteToken = getInviteTokenEntity(inviteTokenUrn, authentication);
     return _secretService.decrypt(inviteToken.getToken());
-  }
-
-  private String hashString(@Nonnull final String str) {
-    byte[] hashedBytes = _messageDigest.digest(str.getBytes());
-    return _encoder.encodeToString(hashedBytes);
   }
 
   private com.linkedin.identity.InviteToken getInviteTokenEntity(@Nonnull final Urn inviteTokenUrn,
@@ -159,8 +142,8 @@ public class InviteTokenService {
   @Nonnull
   private String createInviteToken(@Nullable final String roleUrnStr, @Nonnull final Authentication authentication)
       throws Exception {
-    String inviteTokenStr = UUID.randomUUID().toString();
-    String hashedInviteTokenStr = hashString(inviteTokenStr);
+    String inviteTokenStr = _secretService.generateUrlSafeToken(INVITE_TOKEN_LENGTH);
+    String hashedInviteTokenStr = _secretService.hashString(inviteTokenStr);
     InviteTokenKey inviteTokenKey = new InviteTokenKey();
     inviteTokenKey.setId(hashedInviteTokenStr);
     com.linkedin.identity.InviteToken inviteTokenAspect =

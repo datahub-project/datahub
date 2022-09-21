@@ -12,16 +12,12 @@ import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.secret.SecretService;
 import com.linkedin.metadata.utils.GenericRecordUtils;
 import com.linkedin.mxe.MetadataChangeProposal;
-import java.io.ByteArrayOutputStream;
-import java.io.IOException;
-import java.security.MessageDigest;
-import java.security.SecureRandom;
 import java.time.Instant;
 import java.util.Base64;
 import java.util.Objects;
-import java.util.UUID;
 import java.util.concurrent.TimeUnit;
 import javax.annotation.Nonnull;
+import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
 import static com.linkedin.metadata.Constants.*;
@@ -31,25 +27,13 @@ import static com.linkedin.metadata.Constants.*;
  * Service responsible for creating, updating and authenticating native DataHub users.
  */
 @Slf4j
+@RequiredArgsConstructor
 public class NativeUserService {
-  private static final int SALT_TOKEN_LENGTH = 16;
-  private static final String HASHING_ALGORITHM = "SHA-256";
   private static final long ONE_DAY_MILLIS = TimeUnit.DAYS.toMillis(1);
 
   private final EntityService _entityService;
   private final EntityClient _entityClient;
   private final SecretService _secretService;
-  private final SecureRandom _secureRandom;
-  private final MessageDigest _messageDigest;
-
-  public NativeUserService(@Nonnull EntityService entityService, @Nonnull EntityClient entityClient,
-      @Nonnull SecretService secretService) throws Exception {
-    _entityService = Objects.requireNonNull(entityService, "entityService must not be null!");
-    _entityClient = Objects.requireNonNull(entityClient, "entityClient must not be null!");
-    _secretService = Objects.requireNonNull(secretService, "secretService must not be null!");
-    _secureRandom = new SecureRandom();
-    _messageDigest = MessageDigest.getInstance(HASHING_ALGORITHM);
-  }
 
   public void createNativeUser(@Nonnull String userUrnString, @Nonnull String fullName, @Nonnull String email,
       @Nonnull String title, @Nonnull String password, @Nonnull Authentication authentication) throws Exception {
@@ -110,10 +94,10 @@ public class NativeUserService {
       throws Exception {
     // Construct corpUserCredentials
     CorpUserCredentials corpUserCredentials = new CorpUserCredentials();
-    final byte[] salt = getRandomBytes(SALT_TOKEN_LENGTH);
+    final byte[] salt = _secretService.generateSalt(SALT_TOKEN_LENGTH);
     String encryptedSalt = _secretService.encrypt(Base64.getEncoder().encodeToString(salt));
     corpUserCredentials.setSalt(encryptedSalt);
-    String hashedPassword = getHashedPassword(salt, password);
+    String hashedPassword = _secretService.getHashedPassword(salt, password);
     corpUserCredentials.setHashedPassword(hashedPassword);
 
     // Ingest corpUserCredentials MCP
@@ -138,7 +122,7 @@ public class NativeUserService {
       throw new RuntimeException("User does not exist or is a non-native user!");
     }
     // Add reset token to CorpUserCredentials
-    String passwordResetToken = generateRandomLowercaseToken();
+    String passwordResetToken = _secretService.generateUrlSafeToken(PASSWORD_RESET_TOKEN_LENGTH);
     corpUserCredentials.setPasswordResetToken(_secretService.encrypt(passwordResetToken));
 
     long expirationTime = Instant.now().plusMillis(ONE_DAY_MILLIS).toEpochMilli();
@@ -186,10 +170,10 @@ public class NativeUserService {
     }
 
     // Construct corpUserCredentials
-    final byte[] salt = getRandomBytes(SALT_TOKEN_LENGTH);
+    final byte[] salt = _secretService.generateSalt(SALT_TOKEN_LENGTH);
     String encryptedSalt = _secretService.encrypt(Base64.getEncoder().encodeToString(salt));
     corpUserCredentials.setSalt(encryptedSalt);
-    String hashedPassword = getHashedPassword(salt, password);
+    String hashedPassword = _secretService.getHashedPassword(salt, password);
     corpUserCredentials.setHashedPassword(hashedPassword);
 
     // Ingest corpUserCredentials MCP
@@ -200,30 +184,6 @@ public class NativeUserService {
     corpUserCredentialsProposal.setAspect(GenericRecordUtils.serializeAspect(corpUserCredentials));
     corpUserCredentialsProposal.setChangeType(ChangeType.UPSERT);
     _entityClient.ingestProposal(corpUserCredentialsProposal, authentication);
-  }
-
-  byte[] getRandomBytes(int length) {
-    byte[] randomBytes = new byte[length];
-    _secureRandom.nextBytes(randomBytes);
-    return randomBytes;
-  }
-
-  String generateRandomLowercaseToken() {
-    return UUID.randomUUID().toString();
-  }
-
-  byte[] saltPassword(@Nonnull byte[] salt, @Nonnull String password) throws IOException {
-    byte[] passwordBytes = password.getBytes();
-    ByteArrayOutputStream byteArrayOutputStream = new ByteArrayOutputStream();
-    byteArrayOutputStream.write(salt);
-    byteArrayOutputStream.write(passwordBytes);
-    return byteArrayOutputStream.toByteArray();
-  }
-
-  public String getHashedPassword(@Nonnull byte[] salt, @Nonnull String password) throws IOException {
-    byte[] saltedPassword = saltPassword(salt, password);
-    byte[] hashedPassword = _messageDigest.digest(saltedPassword);
-    return Base64.getEncoder().encodeToString(hashedPassword);
   }
 
   public boolean doesPasswordMatch(@Nonnull String userUrnString, @Nonnull String password) throws Exception {
@@ -240,7 +200,7 @@ public class NativeUserService {
     String decryptedSalt = _secretService.decrypt(corpUserCredentials.getSalt());
     byte[] salt = Base64.getDecoder().decode(decryptedSalt);
     String storedHashedPassword = corpUserCredentials.getHashedPassword();
-    String hashedPassword = getHashedPassword(salt, password);
+    String hashedPassword = _secretService.getHashedPassword(salt, password);
     return storedHashedPassword.equals(hashedPassword);
   }
 }

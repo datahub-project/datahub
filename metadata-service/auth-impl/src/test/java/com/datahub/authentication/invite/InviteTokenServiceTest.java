@@ -26,6 +26,7 @@ public class InviteTokenServiceTest {
   private static final String INVITE_TOKEN_URN_STRING = "urn:li:inviteToken:admin-invite-token";
   private static final String ROLE_URN_STRING = "urn:li:dataHubRole:Admin";
   private static final String INVITE_TOKEN_STRING = "inviteToken";
+  private static final String HASHED_INVITE_TOKEN_STRING = "hashedInviteToken";
   private static final String ENCRYPTED_INVITE_TOKEN_STRING = "encryptedInviteToken";
   private static final String DATAHUB_SYSTEM_CLIENT_ID = "__datahub_system";
   private static final Authentication SYSTEM_AUTHENTICATION =
@@ -127,6 +128,8 @@ public class InviteTokenServiceTest {
     searchResult.setEntities(new SearchEntityArray());
     when(_entityClient.filter(eq(INVITE_TOKEN_ENTITY_NAME), any(), any(), anyInt(), anyInt(),
         eq(SYSTEM_AUTHENTICATION))).thenReturn(searchResult);
+    when(_secretService.generateUrlSafeToken(anyInt())).thenReturn(INVITE_TOKEN_STRING);
+    when(_secretService.hashString(anyString())).thenReturn(HASHED_INVITE_TOKEN_STRING);
     when(_secretService.encrypt(anyString())).thenReturn(ENCRYPTED_INVITE_TOKEN_STRING);
 
     _inviteTokenService.getInviteToken(null, true, SYSTEM_AUTHENTICATION);
@@ -139,6 +142,8 @@ public class InviteTokenServiceTest {
     searchResult.setEntities(new SearchEntityArray());
     when(_entityClient.filter(eq(INVITE_TOKEN_ENTITY_NAME), any(), any(), anyInt(), anyInt(),
         eq(SYSTEM_AUTHENTICATION))).thenReturn(searchResult);
+    when(_secretService.generateUrlSafeToken(anyInt())).thenReturn(INVITE_TOKEN_STRING);
+    when(_secretService.hashString(anyString())).thenReturn(HASHED_INVITE_TOKEN_STRING);
     when(_secretService.encrypt(anyString())).thenReturn(ENCRYPTED_INVITE_TOKEN_STRING);
 
     _inviteTokenService.getInviteToken(null, false, SYSTEM_AUTHENTICATION);

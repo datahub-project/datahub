@@ -87,8 +87,8 @@ public class IngestRolesStep implements BootstrapStep {
     // 3. Write key & aspect
     final MetadataChangeProposal keyAspectProposal = new MetadataChangeProposal();
     final AspectSpec keyAspectSpec = _entityService.getKeyAspectSpec(roleUrn);
-    GenericAspect aspect = GenericRecordUtils.serializeAspect(
-        EntityKeyUtils.convertUrnToEntityKey(roleUrn, keyAspectSpec.getPegasusSchema()));
+    GenericAspect aspect =
+        GenericRecordUtils.serializeAspect(EntityKeyUtils.convertUrnToEntityKey(roleUrn, keyAspectSpec));
     keyAspectProposal.setAspect(aspect);
     keyAspectProposal.setAspectName(keyAspectSpec.getName());
     keyAspectProposal.setEntityType(DATAHUB_ROLE_ENTITY_NAME);
