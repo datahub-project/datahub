@@ -104,7 +104,7 @@ export default function SchemaTable({
     });
 
     const fieldColumn = {
-        width: '20%',
+        width: '22%',
         title: 'Field',
         dataIndex: 'fieldPath',
         key: 'fieldPath',
@@ -113,7 +113,7 @@ export default function SchemaTable({
     };
 
     const descriptionColumn = {
-        width: '20%',
+        width: '22%',
         title: 'Description',
         dataIndex: 'description',
         key: 'description',
@@ -121,7 +121,7 @@ export default function SchemaTable({
     };
 
     const tagColumn = {
-        width: '15%',
+        width: '13%',
         title: 'Tags',
         dataIndex: 'globalTags',
         key: 'tag',
@@ -130,7 +130,7 @@ export default function SchemaTable({
     };
 
     const termColumn = {
-        width: '15%',
+        width: '13%',
         title: 'Terms',
         dataIndex: 'globalTags',
         key: 'tag',
