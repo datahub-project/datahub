@@ -471,8 +471,7 @@ class TableauSource(Source):
 
             table_path = None
             if project and datasource.get("name"):
-                table_name = table.get("name") or table["id"]
-                table_path = f"{project.replace('/', REPLACE_SLASH_CHAR)}/{datasource['name']}/{table_name}"
+                table_path = f"{project.replace('/', REPLACE_SLASH_CHAR)}/{datasource['name']}"
 
             self.upstream_tables[table_urn] = (
                 table.get("columns", []),
@@ -565,12 +564,11 @@ class TableauSource(Source):
                     dataset_snapshot.aspects.append(schema_metadata)
 
                 # Browse path
-                csql_name = csql.get("name") or csql_id
 
                 if project and datasource_name:
                     browse_paths = BrowsePathsClass(
                         paths=[
-                            f"/{self.config.env.lower()}/{self.platform}/{project}/{datasource['name']}/{csql_name}"
+                            f"/{self.config.env.lower()}/{self.platform}/{project}/{datasource['name']}"
                         ]
                     )
                     dataset_snapshot.aspects.append(browse_paths)
@@ -788,7 +786,7 @@ class TableauSource(Source):
         # Browse path
         browse_paths = BrowsePathsClass(
             paths=[
-                f"/{self.config.env.lower()}/{self.platform}/{project}/{datasource_name}"
+                f"/{self.config.env.lower()}/{self.platform}/{project}"
             ]
         )
         dataset_snapshot.aspects.append(browse_paths)
@@ -1076,7 +1074,6 @@ class TableauSource(Source):
                     paths=[
                         f"/{self.platform}/{workbook['projectName'].replace('/', REPLACE_SLASH_CHAR)}"
                         f"/{workbook['name']}"
-                        f"/{sheet_name.replace('/', REPLACE_SLASH_CHAR)}"
                     ]
                 )
                 chart_snapshot.aspects.append(browse_path)
@@ -1251,7 +1248,6 @@ class TableauSource(Source):
                     paths=[
                         f"/{self.platform}/{workbook['projectName'].replace('/', REPLACE_SLASH_CHAR)}"
                         f"/{workbook['name'].replace('/', REPLACE_SLASH_CHAR)}"
-                        f"/{dashboard_name}"
                     ]
                 )
                 dashboard_snapshot.aspects.append(browse_paths)

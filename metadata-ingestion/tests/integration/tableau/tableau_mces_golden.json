@@ -93,7 +93,7 @@
                 {
                     "com.linkedin.pegasus2avro.common.BrowsePaths": {
                         "paths": [
-                            "/tableau/default/Email Performance by Campaign/Timeline - Sent"
+                            "/tableau/default"
                         ]
                     }
                 },
@@ -182,7 +182,7 @@
                 {
                     "com.linkedin.pegasus2avro.common.BrowsePaths": {
                         "paths": [
-                            "/tableau/default/Email Performance by Campaign/Campaign List"
+                            "/tableau/default/Email Performance by Campaign"
                         ]
                     }
                 },
@@ -273,7 +273,7 @@
                 {
                     "com.linkedin.pegasus2avro.common.BrowsePaths": {
                         "paths": [
-                            "/tableau/default/Email Performance by Campaign/Summary"
+                            "/tableau/default"
                         ]
                     }
                 },
@@ -360,7 +360,7 @@
                 {
                     "com.linkedin.pegasus2avro.common.BrowsePaths": {
                         "paths": [
-                            "/tableau/default/Email Performance by Campaign/Mobile - Sent by Campaign"
+                            "/tableau/default"
                         ]
                     }
                 },
@@ -433,7 +433,7 @@
                 {
                     "com.linkedin.pegasus2avro.common.BrowsePaths": {
                         "paths": [
-                            "/tableau/default/Email Performance by Campaign/Email Performance by Campaign"
+                            "/tableau/default"
                         ]
                     }
                 },
@@ -495,7 +495,7 @@
                 {
                     "com.linkedin.pegasus2avro.common.BrowsePaths": {
                         "paths": [
-                            "/prod/tableau/default/Email Performance by Campaign/Marketo"
+                            "/prod/tableau/default"
                         ]
                     }
                 },
@@ -2391,7 +2391,7 @@
                 {
                     "com.linkedin.pegasus2avro.common.BrowsePaths": {
                         "paths": [
-                            "/tableau/default/Dvdrental Workbook/Sheet 1"
+                            "/tableau/default"
                         ]
                     }
                 },
@@ -2470,7 +2470,7 @@
                 {
                     "com.linkedin.pegasus2avro.common.BrowsePaths": {
                         "paths": [
-                            "/tableau/default/Dvdrental Workbook/Sheet 2"
+                            "/tableau/default"
                         ]
                     }
                 },
@@ -2545,7 +2545,7 @@
                 {
                     "com.linkedin.pegasus2avro.common.BrowsePaths": {
                         "paths": [
-                            "/tableau/default/Dvdrental Workbook/Sheet 3"
+                            "/tableau/default"
                         ]
                     }
                 },
@@ -2624,7 +2624,7 @@
                 {
                     "com.linkedin.pegasus2avro.common.BrowsePaths": {
                         "paths": [
-                            "/tableau/default/Dvdrental Workbook/dvd Rental Dashboard"
+                            "/tableau/default/Dvdrental Workbook"
                         ]
                     }
                 },
@@ -2692,7 +2692,7 @@
                 {
                     "com.linkedin.pegasus2avro.common.BrowsePaths": {
                         "paths": [
-                            "/tableau/default/Dvdrental Workbook/Story 1"
+                            "/tableau/default/Dvdrental Workbook"
                         ]
                     }
                 },
@@ -2740,7 +2740,7 @@
                 {
                     "com.linkedin.pegasus2avro.common.BrowsePaths": {
                         "paths": [
-                            "/prod/tableau/default/Dvdrental Workbook/Customer Payment Query"
+                            "/prod/tableau/default/Dvdrental Workbook"
                         ]
                     }
                 },
@@ -3025,7 +3025,7 @@
                 {
                     "com.linkedin.pegasus2avro.common.BrowsePaths": {
                         "paths": [
-                            "/prod/tableau/default/Dvdrental Workbook/actor+ (dvdrental)"
+                            "/prod/tableau/default/Dvdrental Workbook"
                         ]
                     }
                 },
@@ -3482,7 +3482,7 @@
                 {
                     "com.linkedin.pegasus2avro.common.BrowsePaths": {
                         "paths": [
-                            "/prod/tableau/default/Dvdrental Workbook/Superstore Datasource"
+                            "/prod/tableau/default/Dvdrental Workbook"
                         ]
                     }
                 },
@@ -4354,7 +4354,7 @@
                 {
                     "com.linkedin.pegasus2avro.common.BrowsePaths": {
                         "paths": [
-                            "/tableau/default/Executive Dashboard/Opened Requests"
+                            "/tableau/default/Executive Dashboard"
                         ]
                     }
                 },
@@ -4439,7 +4439,7 @@
                 {
                     "com.linkedin.pegasus2avro.common.BrowsePaths": {
                         "paths": [
-                            "/tableau/default/Executive Dashboard/Top 10 Items by Requests and YoY Change"
+                            "/tableau/default/Executive Dashboard"
                         ]
                     }
                 },
@@ -4525,7 +4525,7 @@
                 {
                     "com.linkedin.pegasus2avro.common.BrowsePaths": {
                         "paths": [
-                            "/tableau/default/Executive Dashboard/Opened Problems"
+                            "/tableau/default/Executive Dashboard"
                         ]
                     }
                 },
@@ -4607,7 +4607,7 @@
                 {
                     "com.linkedin.pegasus2avro.common.BrowsePaths": {
                         "paths": [
-                            "/tableau/default/Executive Dashboard/Overdue"
+                            "/tableau/default/Executive Dashboard"
                         ]
                     }
                 },
@@ -4688,7 +4688,7 @@
                 {
                     "com.linkedin.pegasus2avro.common.BrowsePaths": {
                         "paths": [
-                            "/tableau/default/Executive Dashboard/High and Critical Priority Problems"
+                            "/tableau/default/Executive Dashboard"
                         ]
                     }
                 },
@@ -4770,7 +4770,7 @@
                 {
                     "com.linkedin.pegasus2avro.common.BrowsePaths": {
                         "paths": [
-                            "/tableau/default/Executive Dashboard/Total Incidents by Category and YoY Change"
+                            "/tableau/default/Executive Dashboard"
                         ]
                     }
                 },
@@ -4854,7 +4854,7 @@
                 {
                     "com.linkedin.pegasus2avro.common.BrowsePaths": {
                         "paths": [
-                            "/tableau/default/Executive Dashboard/Known Errors"
+                            "/tableau/default/Executive Dashboard"
                         ]
                     }
                 },
@@ -4937,7 +4937,7 @@
                 {
                     "com.linkedin.pegasus2avro.common.BrowsePaths": {
                         "paths": [
-                            "/tableau/default/Executive Dashboard/Overdue Requests"
+                            "/tableau/default/Executive Dashboard"
                         ]
                     }
                 },
@@ -5017,7 +5017,7 @@
                 {
                     "com.linkedin.pegasus2avro.common.BrowsePaths": {
                         "paths": [
-                            "/tableau/default/Executive Dashboard/AVG Time to Solve an Incident"
+                            "/tableau/default/Executive Dashboard"
                         ]
                     }
                 },
@@ -5098,7 +5098,7 @@
                 {
                     "com.linkedin.pegasus2avro.common.BrowsePaths": {
                         "paths": [
-                            "/tableau/default/Executive Dashboard/Made SLA?"
+                            "/tableau/default/Executive Dashboard"
                         ]
                     }
                 },
@@ -5175,7 +5175,7 @@
                 {
                     "com.linkedin.pegasus2avro.common.BrowsePaths": {
                         "paths": [
-                            "/tableau/default/Executive Dashboard/Tooltip - Incident Breakdown by Priority"
+                            "/tableau/default/Executive Dashboard"
                         ]
                     }
                 },
@@ -5259,7 +5259,7 @@
                 {
                     "com.linkedin.pegasus2avro.common.BrowsePaths": {
                         "paths": [
-                            "/tableau/default/Executive Dashboard/Overdue Problems"
+                            "/tableau/default/Executive Dashboard"
                         ]
                     }
                 },
@@ -5339,7 +5339,7 @@
                 {
                     "com.linkedin.pegasus2avro.common.BrowsePaths": {
                         "paths": [
-                            "/tableau/default/Executive Dashboard/Tooltip - Problem Breakdown by Priority"
+                            "/tableau/default/Executive Dashboard"
                         ]
                     }
                 },
@@ -5419,7 +5419,7 @@
                 {
                     "com.linkedin.pegasus2avro.common.BrowsePaths": {
                         "paths": [
-                            "/tableau/default/Executive Dashboard/Tooltip - Request Breakdown by Priority"
+                            "/tableau/default/Executive Dashboard"
                         ]
                     }
                 },
@@ -5501,7 +5501,7 @@
                 {
                     "com.linkedin.pegasus2avro.common.BrowsePaths": {
                         "paths": [
-                            "/tableau/default/Executive Dashboard/Age of Active Problems"
+                            "/tableau/default/Executive Dashboard"
                         ]
                     }
                 },
@@ -5585,7 +5585,7 @@
                 {
                     "com.linkedin.pegasus2avro.common.BrowsePaths": {
                         "paths": [
-                            "/tableau/default/Executive Dashboard/Opened Incidents"
+                            "/tableau/default/Executive Dashboard"
                         ]
                     }
                 },
@@ -5667,7 +5667,7 @@
                 {
                     "com.linkedin.pegasus2avro.common.BrowsePaths": {
                         "paths": [
-                            "/tableau/default/Executive Dashboard/Executive Dashboard"
+                            "/tableau/default/Executive Dashboard"
                         ]
                     }
                 },
@@ -5729,7 +5729,7 @@
                 {
                     "com.linkedin.pegasus2avro.common.BrowsePaths": {
                         "paths": [
-                            "/prod/tableau/default/Executive Dashboard/Requests"
+                            "/prod/tableau/default/Executive Dashboard"
                         ]
                     }
                 },
@@ -12385,7 +12385,7 @@
                 {
                     "com.linkedin.pegasus2avro.common.BrowsePaths": {
                         "paths": [
-                            "/prod/tableau/default/Executive Dashboard/Problems"
+                            "/prod/tableau/default/Executive Dashboard"
                         ]
                     }
                 },
@@ -16327,7 +16327,7 @@
                 {
                     "com.linkedin.pegasus2avro.common.BrowsePaths": {
                         "paths": [
-                            "/prod/tableau/default/Executive Dashboard/Incidents"
+                            "/prod/tableau/default/Executive Dashboard"
                         ]
                     }
                 },
@@ -21600,7 +21600,7 @@
                 {
                     "com.linkedin.pegasus2avro.common.BrowsePaths": {
                         "paths": [
-                            "/tableau/default/Workbook published ds/published sheet ds"
+                            "/tableau/default/Workbook published ds"
                         ]
                     }
                 },
@@ -21662,7 +21662,7 @@
                 {
                     "com.linkedin.pegasus2avro.common.BrowsePaths": {
                         "paths": [
-                            "/prod/tableau/default/Workbook published ds/test publish datasource"
+                            "/prod/tableau/default/Workbook published ds"
                         ]
                     }
                 },
@@ -21920,7 +21920,7 @@
                 {
                     "com.linkedin.pegasus2avro.common.BrowsePaths": {
                         "paths": [
-                            "/prod/tableau/default/Marketo/activity6"
+                            "/prod/tableau/default/Marketo"
                         ]
                     }
                 },
@@ -22093,7 +22093,7 @@
                 {
                     "com.linkedin.pegasus2avro.common.BrowsePaths": {
                         "paths": [
-                            "/prod/tableau/default/Marketo/activity11"
+                            "/prod/tableau/default/Marketo"
                         ]
                     }
                 },
@@ -22344,7 +22344,7 @@
                 {
                     "com.linkedin.pegasus2avro.common.BrowsePaths": {
                         "paths": [
-                            "/prod/tableau/default/Marketo/activity10"
+                            "/prod/tableau/default/Marketo"
                         ]
                     }
                 },
@@ -22569,7 +22569,7 @@
                 {
                     "com.linkedin.pegasus2avro.common.BrowsePaths": {
                         "paths": [
-                            "/prod/tableau/default/Marketo/activity7"
+                            "/prod/tableau/default/Marketo"
                         ]
                     }
                 },
@@ -22742,7 +22742,7 @@
                 {
                     "com.linkedin.pegasus2avro.common.BrowsePaths": {
                         "paths": [
-                            "/prod/tableau/default/Marketo/campaignsTable"
+                            "/prod/tableau/default/Marketo"
                         ]
                     }
                 },
@@ -22902,7 +22902,7 @@
                 {
                     "com.linkedin.pegasus2avro.common.BrowsePaths": {
                         "paths": [
-                            "/prod/tableau/Samples/Superstore Datasource/People"
+                            "/prod/tableau/Samples/Superstore Datasource"
                         ]
                     }
                 },
@@ -22971,7 +22971,7 @@
                 {
                     "com.linkedin.pegasus2avro.common.BrowsePaths": {
                         "paths": [
-                            "/prod/tableau/Samples/Superstore Datasource/Returns"
+                            "/prod/tableau/Samples/Superstore Datasource"
                         ]
                     }
                 },
@@ -23040,7 +23040,7 @@
                 {
                     "com.linkedin.pegasus2avro.common.BrowsePaths": {
                         "paths": [
-                            "/prod/tableau/Samples/Superstore Datasource/Orders"
+                            "/prod/tableau/Samples/Superstore Datasource"
                         ]
                     }
                 },
@@ -23356,7 +23356,7 @@
                 {
                     "com.linkedin.pegasus2avro.common.BrowsePaths": {
                         "paths": [
-                            "/prod/tableau/default/test publish datasource/customer"
+                            "/prod/tableau/default/test publish datasource"
                         ]
                     }
                 }
@@ -23376,7 +23376,7 @@
                 {
                     "com.linkedin.pegasus2avro.common.BrowsePaths": {
                         "paths": [
-                            "/prod/tableau/default/test publish datasource/payment"
+                            "/prod/tableau/default/test publish datasource"
                         ]
                     }
                 }
@@ -23396,7 +23396,7 @@
                 {
                     "com.linkedin.pegasus2avro.common.BrowsePaths": {
                         "paths": [
-                            "/prod/tableau/default/test publish datasource/staff"
+                            "/prod/tableau/default/test publish datasource"
                         ]
                     }
                 }
@@ -23416,7 +23416,7 @@
                 {
                     "com.linkedin.pegasus2avro.common.BrowsePaths": {
                         "paths": [
-                            "/prod/tableau/default/actor+ (dvdrental)/address"
+                            "/prod/tableau/default/actor+ (dvdrental)"
                         ]
                     }
                 },
@@ -23563,7 +23563,7 @@
                 {
                     "com.linkedin.pegasus2avro.common.BrowsePaths": {
                         "paths": [
-                            "/prod/tableau/default/actor+ (dvdrental)/actor"
+                            "/prod/tableau/default/actor+ (dvdrental)"
                         ]
                     }
                 },
@@ -23658,7 +23658,7 @@
                 {
                     "com.linkedin.pegasus2avro.common.BrowsePaths": {
                         "paths": [
-                            "/prod/tableau/default/Incidents/task"
+                            "/prod/tableau/default/Incidents"
                         ]
                     }
                 },
@@ -24507,7 +24507,7 @@
                 {
                     "com.linkedin.pegasus2avro.common.BrowsePaths": {
                         "paths": [
-                            "/prod/tableau/default/Requests/sc_request"
+                            "/prod/tableau/default/Requests"
                         ]
                     }
                 },
@@ -25460,7 +25460,7 @@
                 {
                     "com.linkedin.pegasus2avro.common.BrowsePaths": {
                         "paths": [
-                            "/prod/tableau/default/Requests/sc_req_item"
+                            "/prod/tableau/default/Requests"
                         ]
                     }
                 },
@@ -26491,7 +26491,7 @@
                 {
                     "com.linkedin.pegasus2avro.common.BrowsePaths": {
                         "paths": [
-                            "/prod/tableau/default/Requests/sc_cat_item"
+                            "/prod/tableau/default/Requests"
                         ]
                     }
                 },
@@ -27379,7 +27379,7 @@
                 {
                     "com.linkedin.pegasus2avro.common.BrowsePaths": {
                         "paths": [
-                            "/prod/tableau/default/Problems/sys_user_group"
+                            "/prod/tableau/default/Problems"
                         ]
                     }
                 },
@@ -27708,7 +27708,7 @@
                 {
                     "com.linkedin.pegasus2avro.common.BrowsePaths": {
                         "paths": [
-                            "/prod/tableau/default/Problems/problem"
+                            "/prod/tableau/default/Problems"
                         ]
                     }
                 },
@@ -28622,7 +28622,7 @@
                 {
                     "com.linkedin.pegasus2avro.common.BrowsePaths": {
                         "paths": [
-                            "/prod/tableau/default/Incidents/incident"
+                            "/prod/tableau/default/Incidents"
                         ]
                     }
                 },
@@ -29692,7 +29692,7 @@
                 {
                     "com.linkedin.pegasus2avro.common.BrowsePaths": {
                         "paths": [
-                            "/prod/tableau/default/Incidents/cmdb_ci"
+                            "/prod/tableau/default/Incidents"
                         ]
                     }
                 },
@@ -30619,7 +30619,7 @@
                 {
                     "com.linkedin.pegasus2avro.common.BrowsePaths": {
                         "paths": [
-                            "/prod/tableau/default/test publish datasource"
+                            "/prod/tableau/default"
                         ]
                     }
                 },
@@ -30923,7 +30923,7 @@
                 {
                     "com.linkedin.pegasus2avro.common.BrowsePaths": {
                         "paths": [
-                            "/prod/tableau/Samples/Superstore Datasource"
+                            "/prod/tableau/Samples"
                         ]
                     }
                 },
@@ -31954,7 +31954,7 @@
                 {
                     "com.linkedin.pegasus2avro.common.BrowsePaths": {
                         "paths": [
-                            "/prod/tableau/default/Customer Payment Query/Custom SQL Query"
+                            "/prod/tableau/default/Customer Payment Query"
                         ]
                     }
                 },
@@ -32137,7 +32137,7 @@
                 {
                     "com.linkedin.pegasus2avro.common.BrowsePaths": {
                         "paths": [
-                            "/prod/tableau/default/test publish datasource/Custom SQL Query"
+                            "/prod/tableau/default/test publish datasource"
                         ]
                     }
                 },
