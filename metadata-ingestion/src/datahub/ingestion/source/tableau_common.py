@@ -581,5 +581,4 @@ def query_metadata(server, main_query, connection_name, first, offset, qry_filte
         filter=qry_filter,
         main_query=main_query,
     )
-    print(f"Internal {server.metadata.query.__name__}")
     return server.metadata.query(query)
