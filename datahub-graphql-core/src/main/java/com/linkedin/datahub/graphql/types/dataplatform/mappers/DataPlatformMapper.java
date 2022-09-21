@@ -27,7 +27,7 @@ public class DataPlatformMapper implements ModelMapper<EntityResponse, DataPlatf
     @Override
     public DataPlatform apply(@Nonnull final EntityResponse entityResponse) {
         final DataPlatform result = new DataPlatform();
-        final DataPlatformKey dataPlatformKey = (DataPlatformKey) EntityKeyUtils.convertUrnToEntityKey(entityResponse.getUrn(),
+        final DataPlatformKey dataPlatformKey = (DataPlatformKey) EntityKeyUtils.convertUrnToEntityKeyInternal(entityResponse.getUrn(),
             new DataPlatformKey().schema());
         result.setType(EntityType.DATA_PLATFORM);
         Urn urn = entityResponse.getUrn();

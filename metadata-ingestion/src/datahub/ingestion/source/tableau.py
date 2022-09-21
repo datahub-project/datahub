@@ -1,10 +1,12 @@
 import json
 import logging
+from dataclasses import dataclass
 from datetime import datetime
 from functools import lru_cache
 from typing import Any, Dict, Iterable, List, Optional, Tuple, Union
 
 import dateutil.parser as dp
+import tableauserverclient as TSC
 from pydantic import root_validator, validator
 from pydantic.fields import Field
 from tableauserverclient import (
@@ -76,7 +78,9 @@ from datahub.metadata.schema_classes import (
     BrowsePathsClass,
     ChangeTypeClass,
     ChartInfoClass,
+    ChartUsageStatisticsClass,
     DashboardInfoClass,
+    DashboardUsageStatisticsClass,
     DatasetPropertiesClass,
     OwnerClass,
     OwnershipClass,
@@ -155,6 +159,11 @@ class TableauConfig(DatasetLineageProviderConfigBase):
         description="Mappings to change generated dataset urns. Use only if you really know what you are doing.",
     )
 
+    extract_usage_stats: bool = Field(
+        default=False,
+        description="[experimental] Extract usage statistics for dashboards and charts.",
+    )
+
     @validator("connect_uri")
     def remove_trailing_slash(cls, v):
         return config_clean.remove_trailing_slashes(v)
@@ -175,6 +184,11 @@ class WorkbookKey(PlatformKey):
     workbook_id: str
 
 
+@dataclass
+class UsageStat:
+    view_count: int
+
+
 @platform_name("Tableau")
 @config_class(TableauConfig)
 @support_status(SupportStatus.INCUBATING)
@@ -188,8 +202,7 @@ class WorkbookKey(PlatformKey):
 @capability(SourceCapability.DESCRIPTIONS, "Enabled by default")
 @capability(
     SourceCapability.USAGE_STATS,
-    "",
-    supported=False,
+    "Dashboard/Chart view counts, enabled using extract_usage_stats config",
 )
 @capability(SourceCapability.DELETION_DETECTION, "", supported=False)
 @capability(SourceCapability.OWNERSHIP, "Requires recipe configuration")
@@ -204,6 +217,7 @@ class TableauSource(Source):
     platform = "tableau"
     server: Optional[Server]
     upstream_tables: Dict[str, Tuple[Any, Optional[str], bool]] = {}
+    tableau_stat_registry: Dict[str, UsageStat] = {}
 
     def __hash__(self):
         return id(self)
@@ -234,6 +248,14 @@ class TableauSource(Source):
     def close(self) -> None:
         if self.server is not None:
             self.server.auth.sign_out()
+
+    def _populate_usage_stat_registry(self):
+        if self.server is None:
+            return
+
+        for view in TSC.Pager(self.server.views, usage=True):
+            self.tableau_stat_registry[view.id] = UsageStat(view_count=view.total_views)
+        logger.debug("Tableau stats %s", self.tableau_stat_registry)
 
     def _authenticate(self):
         # https://tableau.github.io/server-client-python/docs/api-ref#authentication
@@ -282,7 +304,6 @@ class TableauSource(Source):
         query_data = query_metadata(
             self.server, query, connection_type, count, current_count, query_filter
         )
-
         if "errors" in query_data:
             self.report.report_warning(
                 key="tableau-metadata",
@@ -942,10 +963,53 @@ class TableauSource(Source):
 
         return sheet_upstream_datasources
 
+    @staticmethod
+    def _create_datahub_chart_usage_stat(
+        usage_stat: UsageStat,
+    ) -> ChartUsageStatisticsClass:
+        return ChartUsageStatisticsClass(
+            timestampMillis=round(datetime.now().timestamp() * 1000),
+            viewsCount=usage_stat.view_count,
+        )
+
+    def _get_chart_stat_wu(
+        self, sheet: dict, sheet_urn: str
+    ) -> Optional[MetadataWorkUnit]:
+        luid: Optional[str] = sheet.get("luid")
+        if luid is None:
+            logger.debug(
+                "stat:luid is none for sheet %s(id:%s)",
+                sheet.get("name"),
+                sheet.get("id"),
+            )
+            return None
+        usage_stat: Optional[UsageStat] = self.tableau_stat_registry.get(luid)
+        if usage_stat is None:
+            logger.debug(
+                "stat:UsageStat is not available in tableau_stat_registry for sheet %s(id:%s)",
+                sheet.get("name"),
+                sheet.get("id"),
+            )
+            return None
+
+        aspect: ChartUsageStatisticsClass = self._create_datahub_chart_usage_stat(
+            usage_stat
+        )
+        logger.debug(
+            "stat: Chart usage stat work unit is created for %s(id:%s)",
+            sheet.get("name"),
+            sheet.get("id"),
+        )
+        return MetadataChangeProposalWrapper(
+            aspect=aspect,
+            entityUrn=sheet_urn,
+        ).as_workunit()
+
     def emit_sheets_as_charts(self, workbook: Dict) -> Iterable[MetadataWorkUnit]:
         for sheet in workbook.get("sheets", []):
+            sheet_urn: str = builder.make_chart_urn(self.platform, sheet.get("id"))
             chart_snapshot = ChartSnapshot(
-                urn=builder.make_chart_urn(self.platform, sheet.get("id")),
+                urn=sheet_urn,
                 aspects=[],
             )
 
@@ -997,6 +1061,13 @@ class TableauSource(Source):
                 customProperties=fields,
             )
             chart_snapshot.aspects.append(chart_info)
+            # chart_snapshot doesn't support the stat aspect as list element and hence need to emit MCP
+
+            if self.config.extract_usage_stats:
+                wu = self._get_chart_stat_wu(sheet, sheet_urn)
+                if wu is not None:
+                    self.report.report_workunit(wu)
+                    yield wu
 
             if workbook.get("projectName") and workbook.get("name"):
                 sheet_name = sheet.get("name") or sheet["id"]
@@ -1025,7 +1096,6 @@ class TableauSource(Source):
                 chart_snapshot.aspects.append(
                     builder.make_global_tag_aspect_with_tag_list(tag_list_str)
                 )
-
             yield self.get_metadata_change_event(chart_snapshot)
 
             workunits = add_entity_to_container(
@@ -1085,10 +1155,59 @@ class TableauSource(Source):
             platform=self.platform, instance=None, workbook_id=workbook["id"]
         )
 
+    @staticmethod
+    def _create_datahub_dashboard_usage_stat(
+        usage_stat: UsageStat,
+    ) -> DashboardUsageStatisticsClass:
+        return DashboardUsageStatisticsClass(
+            timestampMillis=round(datetime.now().timestamp() * 1000),
+            # favoritesCount=looker_dashboard.favorite_count,  It is available in REST API response,
+            # however not exposed by tableau python library
+            viewsCount=usage_stat.view_count,
+            # lastViewedAt=looker_dashboard.last_viewed_at, Not available
+        )
+
+    def _get_dashboard_stat_wu(
+        self, dashboard: dict, dashboard_urn: str
+    ) -> Optional[MetadataWorkUnit]:
+        luid: Optional[str] = dashboard.get("luid")
+        if luid is None:
+            logger.debug(
+                "stat:luid is none for dashboard %s(id:%s)",
+                dashboard.get("name"),
+                dashboard.get("id"),
+            )
+            return None
+        usage_stat: Optional[UsageStat] = self.tableau_stat_registry.get(luid)
+        if usage_stat is None:
+            logger.debug(
+                "stat:UsageStat is not available in tableau_stat_registry for dashboard %s(id:%s)",
+                dashboard.get("name"),
+                dashboard.get("id"),
+            )
+            return None
+
+        aspect: DashboardUsageStatisticsClass = (
+            self._create_datahub_dashboard_usage_stat(usage_stat)
+        )
+        logger.debug(
+            "stat: Dashboard usage stat is created for %s(id:%s)",
+            dashboard.get("name"),
+            dashboard.get("id"),
+        )
+
+        return MetadataChangeProposalWrapper(
+            aspect=aspect,
+            entityUrn=dashboard_urn,
+        ).as_workunit()
+
     def emit_dashboards(self, workbook: Dict) -> Iterable[MetadataWorkUnit]:
         for dashboard in workbook.get("dashboards", []):
+            dashboard_urn: str = builder.make_dashboard_urn(
+                self.platform, dashboard["id"]
+            )
             dashboard_snapshot = DashboardSnapshot(
-                urn=builder.make_dashboard_urn(self.platform, dashboard["id"]),
+                urn=dashboard_urn,
                 aspects=[],
             )
 
@@ -1117,6 +1236,13 @@ class TableauSource(Source):
                 customProperties={},
             )
             dashboard_snapshot.aspects.append(dashboard_info_class)
+
+            if self.config.extract_usage_stats:
+                # dashboard_snapshot doesn't support the stat aspect as list element and hence need to emit MetadataWorkUnit
+                wu = self._get_dashboard_stat_wu(dashboard, dashboard_urn)
+                if wu is not None:
+                    self.report.report_workunit(wu)
+                    yield wu
 
             if workbook.get("projectName") and workbook.get("name"):
                 dashboard_name = title or dashboard["id"]
@@ -1255,6 +1381,9 @@ class TableauSource(Source):
         if self.server is None or not self.server.is_signed_in():
             return
         try:
+            # Initialise the dictionary to later look-up for chart and dashboard stat
+            if self.config.extract_usage_stats:
+                self._populate_usage_stat_registry()
             yield from self.emit_workbooks()
             if self.embedded_datasource_ids_being_used:
                 yield from self.emit_embedded_datasources()

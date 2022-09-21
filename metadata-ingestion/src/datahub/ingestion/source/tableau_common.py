@@ -51,6 +51,7 @@ workbook_graphql_query = """
         id
         name
         path
+        luid
         createdAt
         updatedAt
         tags {
@@ -116,6 +117,7 @@ workbook_graphql_query = """
         id
         name
         path
+        luid
         createdAt
         updatedAt
         sheets {

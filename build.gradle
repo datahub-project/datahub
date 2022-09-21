@@ -51,6 +51,7 @@ project.ext.externalDependency = [
     'awsGlueSchemaRegistrySerde': 'software.amazon.glue:schema-registry-serde:1.1.10',
     'awsMskIamAuth': 'software.amazon.msk:aws-msk-iam-auth:1.1.1',
     'cacheApi' : 'javax.cache:cache-api:1.1.0',
+    'commonsCli': 'commons-cli:commons-cli:1.5.0',
     'commonsIo': 'commons-io:commons-io:2.4',
     'commonsLang': 'commons-lang:commons-lang:2.6',
     'commonsCollections': 'commons-collections:commons-collections:3.2.2',
@@ -230,6 +231,11 @@ subprojects {
       }
     }
   } else {
+    tasks.withType(JavaExec).configureEach {
+      javaLauncher = javaToolchains.launcherFor {
+        languageVersion = JavaLanguageVersion.of(11)
+      }
+    }
     tasks.withType(Javadoc).configureEach {
     javadocTool = javaToolchains.javadocToolFor {
         languageVersion = JavaLanguageVersion.of(11)
