@@ -123,10 +123,10 @@ Bad
 sequenceDiagram
     actor Client
     loop Attempt until applied or error
-    Client->>+GMS: GetAspect
+    Client->>GMS: GetAspect
     GMS-->>Client: currentAspect
-    Client-->>Client: Patch aspect
-    Client->>+GMS: UpdateAspect if still currentAspect
+    Client-->>Client: Locally modify aspect
+    Client->>GMS: UpdateAspect if still currentAspect
     GMS->>MetadataStore: UpdateAspect if still currentAspect
     MetadataStore-->>GMS: applied?
     alt applied
@@ -140,7 +140,7 @@ sequenceDiagram
 #### Implementation via Etag
 
 We could achieve this via HTTP [Conditional Requests](https://developer.mozilla.org/en-US/docs/Web/HTTP/Conditional_requests#avoiding_the_lost_update_problem_with_optimistic_locking).
-GMS would populate the `ETag` header in the GET request for aspects. This can be used in the `If-Match` or 
+GMS would populate the `ETag` header in the GET response for aspects. This can be used in the `If-Match` or 
 `If-None-Match` header when a POST request is passed to GMS to update the aspects. The main concern is then how to 
 format the ASCII `Etag` value for multiple aspects such that client and server are able to compose them.
 
@@ -228,20 +228,6 @@ communication chain this could take a very long time.
 Alternatives involve cleverly modelling aspects so they are only ever upserted without a previous state in mind, but 
 I haven't worked out how to achieve this for our requirements given the standard entity and aspect model available.
 
-### Patch Language
-
-If the patch language were available, it might be possible to update collections in such a way that it's not 
-necessary for clients to know about the previous state of an aspect.
-
-MongoDB offers an update mode which allows clients to [add items to a set](https://mongodb.github.io/mongo-java-driver/4.7/apidocs/mongodb-driver-core/com/mongodb/client/model/Updates.html#addToSet(java.lang.String,TItem)),
-for example. This would avoid the need to go back to the client to ask them to construct the final state of a 
-collection.
-
-#### Implementation of PATCH with json-patch format
-
-Client sends its update request in json-patch or some other delta format. GMS will reject the update if the "previous"
-side of the delta does not match. This closely matches the work in https://github.com/datahub-project/datahub/pull/5901.
-
 ### Change Processor
 
 Check the allowed set of transitions between current and proposed aspect state. This would be achieved with
@@ -273,7 +259,7 @@ sequenceDiagram
     GMS-->>-Client: result
 ```
 
-### Idempotent Client Update
+### Idempotent Partial Update (Patch)
 
 The client proposes a partial change to an aspect that is idempotent. The change can apply whatever state the aspect
 is in at the time. This will need to be extended to check for multiple currentAspect states when requested.
@@ -289,11 +275,11 @@ Bad
 ```mermaid
 sequenceDiagram
     actor Client
-    Client->>+GMS: UpdateAspect
+    Client->>GMS: UpdateAspect
     loop Attempt until applied or error
     GMS->>MetadataStore: GetAspect
     MetadataStore-->>GMS: currentAspect
-    GMS-->>GMS: Patch aspect
+    GMS-->>GMS: Locally modify aspect
     GMS->>MetadataStore: UpdateAspect if still currentAspect
     MetadataStore-->>GMS: applied?
     end
@@ -303,6 +289,20 @@ sequenceDiagram
         GMS-->>Client: ERROR
     end
 ```
+
+#### Patch Language
+
+If a patch language were available, it might be possible to update collections in such a way that it's not
+necessary for clients to know about the previous state of an aspect.
+
+MongoDB offers an update mode which allows clients to [add items to a set](https://mongodb.github.io/mongo-java-driver/4.7/apidocs/mongodb-driver-core/com/mongodb/client/model/Updates.html#addToSet(java.lang.String,TItem)),
+for example. This would avoid the need to go back to the client to ask them to construct the final state of a
+collection.
+
+##### Implementation of PATCH with json-patch format
+
+Client sends its update request in json-patch or some other delta format. GMS will reject the update if the "previous"
+side of the delta does not match. This closely matches the work in https://github.com/datahub-project/datahub/pull/5901.
 
 ### Serialised Updates Exclusively via Kafka
 
@@ -334,13 +334,13 @@ Bad
 ```mermaid
 sequenceDiagram
     actor Client
-    Client->>+GMS: GetAspectWithLock
+    Client->>GMS: GetAspectWithLock
     GMS->>+AspectLock: LockUrnAspect
     GMS->>MetadataStore: GetAspect
     MetadataStore-->>GMS: currentAspect
     GMS-->>Client: currentAspect+lock
-    Client-->>Client: Patch aspect
-    Client->>+GMS: UpdateAspect(lock)
+    Client-->>Client: Locally modify aspect
+    Client->>GMS: UpdateAspect(lock)
     GMS->>MetadataStore: UpdateAspect
     MetadataStore-->>GMS: applied?
     alt applied
@@ -348,7 +348,7 @@ sequenceDiagram
     else error
         GMS-->>Client: ERROR
     end
-    Client->>+GMS: ReleaseAspectLock
+    Client->>GMS: ReleaseAspectLock
     GMS->>AspectLock: ReleaseUrnAspectLock
     opt timeout
         AspectLock->>-AspectLock: ReleaseUrnAspectLock
@@ -360,7 +360,7 @@ sequenceDiagram
 > If we implemented this proposal, how will existing users / developers adopt it? Is it a breaking change? Can we write
 > automatic refactoring / migration tools? Can we provide a runtime adapter library for the original API it replaces? 
 
-This rollout would be done as either a new API endpoint or an optional additional parameter to an existing API, so 
+This rollout could be done as either a new API endpoint or an optional additional header to an existing API, so 
 existing APIs will not be broken. Once available, clients may opt in to use the new features.
 
 ## Future Work
