@@ -73,6 +73,24 @@ const EntityTitle = styled(Typography.Text)<{ $titleSizePx?: number }>`
     }
 `;
 
+const CardEntityTitle = styled(Typography.Text)<{ $titleSizePx?: number }>`
+    display: block;
+    width: 350px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    &&&:hover {
+        text-decoration: underline;
+    }
+
+    &&& {
+        margin-right 8px;
+        font-size: ${(props) => props.$titleSizePx || 16}px;
+        font-weight: 600;
+        vertical-align: middle;
+    }
+`;
+
 const PlatformText = styled(Typography.Text)`
     font-size: 12px;
     line-height: 20px;
@@ -271,9 +289,15 @@ export default function DefaultPreviewCard({
                     />
                     <EntityTitleContainer>
                         <Link to={url}>
-                            <EntityTitle onClick={onClick} $titleSizePx={titleSizePx}>
-                                {name || ' '}
-                            </EntityTitle>
+                            {previewType === PreviewType.HOVER_CARD ? (
+                                <CardEntityTitle onClick={onClick} $titleSizePx={titleSizePx}>
+                                    {name || ' '}
+                                </CardEntityTitle>
+                            ) : (
+                                <EntityTitle onClick={onClick} $titleSizePx={titleSizePx}>
+                                    {name || ' '}
+                                </EntityTitle>
+                            )}
                         </Link>
                         {deprecation?.deprecated && <DeprecationPill deprecation={deprecation} preview />}
                         {externalUrl && (

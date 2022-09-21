@@ -104,12 +104,20 @@ export default function SchemaTable({
     });
 
     const fieldColumn = {
+        width: '15%',
         title: 'Field',
         dataIndex: 'fieldPath',
         key: 'fieldPath',
-        width: '30%',
         render: schemaTitleRenderer,
         filtered: true,
+    };
+
+    const descriptionColumn = {
+        width: '15%',
+        title: 'Description',
+        dataIndex: 'description',
+        key: 'description',
+        render: descriptionRender,
     };
 
     const tagColumn = {
@@ -130,18 +138,10 @@ export default function SchemaTable({
         onCell: onTagTermCell,
     };
 
-    const descriptionColumn = {
-        title: 'Description',
-        dataIndex: 'description',
-        key: 'description',
-        render: descriptionRender,
-        width: '30%',
-    };
-
     const blameColumn = {
+        width: '10%',
         dataIndex: 'fieldPath',
         key: 'fieldPath',
-        width: '7%',
         render(record: SchemaField) {
             return {
                 props: {
@@ -153,7 +153,7 @@ export default function SchemaTable({
     };
 
     const usageColumn = {
-        width: '5%',
+        width: '10%',
         title: 'Usage',
         dataIndex: 'fieldPath',
         key: 'usage',
