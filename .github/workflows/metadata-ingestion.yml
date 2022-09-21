@@ -20,7 +20,6 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-
   metadata-ingestion-general:
     runs-on: ubuntu-latest
     env:
@@ -28,7 +27,7 @@ jobs:
       DATAHUB_TELEMETRY_ENABLED: false
     strategy:
       matrix:
-        python-version: ["3.7", "3.10"]
+        python-version: ["3.7", "3.10.6"]
     steps:
       - uses: actions/checkout@v2
       - uses: actions/setup-python@v2
@@ -56,7 +55,13 @@ jobs:
     strategy:
       matrix:
         python-version: ["3.7", "3.10"]
-        command: ["installAirflow1", "testIntegration", "testIntegrationBatch1", "testSlowIntegration"]
+        command:
+          [
+            "installAirflow1",
+            "testIntegration",
+            "testIntegrationBatch1",
+            "testSlowIntegration",
+          ]
       fail-fast: false
     steps:
       - uses: actions/checkout@v2
@@ -65,8 +70,8 @@ jobs:
           python-version: ${{ matrix.python-version }}
       - uses: vemonet/setup-spark@v1 # spark is required for pyspark+pydeequ data lake profiling
         with:
-          spark-version: '3.0.3'
-          hadoop-version: '3.2'
+          spark-version: "3.0.3"
+          hadoop-version: "3.2"
       - name: Install dependencies
         run: ./metadata-ingestion/scripts/install_deps.sh
       - name: Run metadata-ingestion tests

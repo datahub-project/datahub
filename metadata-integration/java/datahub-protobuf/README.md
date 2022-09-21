@@ -645,7 +645,7 @@ You can also route results to a file by using the `--transport file --filename e
 ##### Important Flags
 Here are a few important flags to use with this command
 - --env : Defaults to DEV, you should use PROD once you have ironed out all the issues with running this command.
-- --platform: Defaults to Kafka (as most people use protobuf schema repos with Kafka), but you can provide a custom platform name for this e.g. (`schema_repo` or `<company_name>_schemas`). If you use a custom platform, make sure to provision the custom platform on your DataHub instance with a logo etc, to get a native experience.
+- --platform: Defaults to Kafka (as most people use protobuf schema repos with Kafka), but you can provide a custom platform name for this e.g. (`schema_repo` or `<company_name>_schemas`). If you use a custom platform, make sure to provision the custom platform on your DataHub instance with a logo etc, to get a native experience. See how to use the [put platform command](../../../docs/cli.md#put-platform) to accomplish this.
 - --subtype : This gives your entities a more descriptive category than Dataset in the UI. Defaults to schema, but you might find topic, event or message more descriptive.
 
 
