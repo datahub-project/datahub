@@ -22,6 +22,12 @@ class TwoTierSQLAlchemyConfig(BasicSQLAlchemyConfig):
         default=AllowDenyPattern.allow_all(),
         description="Regex patterns for databases to filter in ingestion.",
     )
+    schema_pattern: AllowDenyPattern = Field(
+        # The superclass contains a `schema_pattern` field, so we need this here
+        # to override the documentation.
+        default=AllowDenyPattern.allow_all(),
+        description="Deprecated in favour of database_pattern.",
+    )
 
     _schema_pattern_deprecated = pydantic_renamed_field(
         "schema_pattern", "database_pattern"
