@@ -60,24 +60,24 @@ class DataLakeSourceConfig(PlatformSourceConfigBase, EnvBasedSourceConfigBase):
         description="Maximum number of rows to use when inferring schemas for TSV and CSV files.",
     )
 
-    @pydantic.validator("path_specs", pre=True, always=True)
-    def rename_path_spec_to_path_specs(
-        cls, v: Any, values: Dict[str, Any]
-    ) -> List[PathSpec]:
-        """
-        Support the old path_spec field.
-        """
+    @pydantic.root_validator(pre=True)
+    def rename_path_spec_to_path_specs(cls, values: Dict[str, Any]) -> Dict:
+        """Support the old path_spec field."""
+
         if "path_spec" in values:
             assert (
                 "path_specs" not in values
             ), 'cannot have both "path_spec" and "path_specs"'
             logger.warning("path_spec is deprecated. Please use path_specs instead.")
-            return [values.pop("path_spec")]
-        return v
+            values["path_specs"] = [values.pop("path_spec")]
+        return values
 
-    @pydantic.root_validator(pre=False)
-    def check_path_specs_and_infer_platform(cls, values: Dict) -> Dict:
-        path_specs: List[PathSpec] = values.get("path_specs", [])
+    @pydantic.validator("path_specs", always=True)
+    def check_path_specs_and_infer_platform(
+        cls, path_specs: List[PathSpec], values: Dict
+    ) -> List[PathSpec]:
+        if len(path_specs) == 0:
+            raise ValueError("path_specs must not be empty")
 
         # Check that all path specs have the same platform.
         guessed_platforms = set(
@@ -116,7 +116,7 @@ class DataLakeSourceConfig(PlatformSourceConfigBase, EnvBasedSourceConfigBase):
             logger.debug(f'Setting config "platform": {guessed_platform}')
             values["platform"] = guessed_platform
 
-        return values
+        return path_specs
 
     @pydantic.root_validator()
     def ensure_profiling_pattern_is_passed_to_profiling(
