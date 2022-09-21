@@ -1,5 +1,6 @@
 from __future__ import print_function
 
+import dataclasses
 import datetime
 import logging
 import re
@@ -9,7 +10,6 @@ from functools import lru_cache
 from typing import ClassVar, Dict, Iterable, List, Optional, Tuple, Union
 
 import pydantic
-from cached_property import cached_property
 from looker_sdk.error import SDKError
 from looker_sdk.sdk.api31.models import User, WriteQuery
 from pydantic import Field
@@ -100,35 +100,41 @@ class NamingPattern(ConfigModel):
     def allowed_docstring(cls) -> str:
         return f"Allowed variables are {cls.ALLOWED_VARS}"
 
-    @cached_property  # type: ignore
-    def variables(self) -> List[str]:
-        variables = re.findall("({[^}{]+})", self.pattern)
-        return [v[1:-1] for v in variables]
-
     def validate_pattern(self, at_least_one: bool) -> bool:
-        for v in self.variables:
+        variables = re.findall("({[^}{]+})", self.pattern)
+
+        variables = [v[1:-1] for v in variables]  # remove the {}
+
+        for v in variables:
             if v not in self.ALLOWED_VARS:
                 raise ConfigurationError(
                     f"Failed to find {v} in allowed_variables {self.ALLOWED_VARS}"
                 )
-        if at_least_one and len(self.variables) == 0:
+        if at_least_one and len(variables) == 0:
             raise ConfigurationError(
                 f"Failed to find any variable assigned to pattern {self.pattern}. Must have at least one. {self.allowed_docstring()}"
             )
         return True
 
+    def replace_variables(self, values: Union[Dict[str, Optional[str]], object]) -> str:
+        if not isinstance(values, dict):
+            assert dataclasses.is_dataclass(values)
+            values = dataclasses.asdict(values)
+        values = {k: v for k, v in values.items() if v is not None}
+        return self.pattern.format(**values)
 
-naming_pattern_variables: List[str] = [
-    "platform",
-    "env",
-    "project",
-    "model",
-    "name",
-]
+
+@dataclass
+class NamingPatternMapping:
+    platform: str
+    env: str
+    project: str
+    model: str
+    name: str
 
 
 class LookerNamingPattern(NamingPattern):
-    ALLOWED_VARS = naming_pattern_variables
+    ALLOWED_VARS = [field.name for field in dataclasses.fields(NamingPatternMapping)]
 
 
 class LookerExploreNamingConfig(ConfigModel):
@@ -176,19 +182,14 @@ class LookerViewId:
     model_name: str
     view_name: str
 
-    def get_mapping(self, variable: str, config: LookerCommonConfig) -> str:
-        assert variable in naming_pattern_variables
-        if variable == "project":
-            return self.project_name
-        if variable == "model":
-            return self.model_name
-        if variable == "name":
-            return self.view_name
-        if variable == "env":
-            return config.env.lower()
-        if variable == "platform":
-            return config.platform_name
-        assert False, "Unreachable code"
+    def get_mapping(self, config: LookerCommonConfig) -> NamingPatternMapping:
+        return NamingPatternMapping(
+            platform=config.platform_name,
+            env=config.env.lower(),
+            project=self.project_name,
+            model=self.model_name,
+            name=self.view_name,
+        )
 
     @validator("view_name")
     def remove_quotes(cls, v):
@@ -197,12 +198,9 @@ class LookerViewId:
         return v
 
     def get_urn(self, config: LookerCommonConfig) -> str:
-        dataset_name = config.view_naming_pattern.pattern
-        assert config.view_naming_pattern.variables is not None
-        for v in config.view_naming_pattern.variables:
-            dataset_name = dataset_name.replace(
-                "{" + v + "}", self.get_mapping(v, config)
-            )
+        dataset_name = config.view_naming_pattern.replace_variables(
+            self.get_mapping(config)
+        )
 
         return builder.make_dataset_urn_with_platform_instance(
             platform=config.platform_name,
@@ -212,12 +210,9 @@ class LookerViewId:
         )
 
     def get_browse_path(self, config: LookerCommonConfig) -> str:
-        browse_path = config.view_browse_pattern.pattern
-        assert config.view_browse_pattern.variables is not None
-        for v in config.view_browse_pattern.variables:
-            browse_path = browse_path.replace(
-                "{" + v + "}", self.get_mapping(v, config)
-            )
+        browse_path = config.view_browse_pattern.replace_variables(
+            self.get_mapping(config)
+        )
         return browse_path
 
 
@@ -672,28 +667,19 @@ class LookerExplore:
             )
         return None
 
-    def get_mapping(self, variable: str, config: LookerCommonConfig) -> str:
-        assert variable in naming_pattern_variables
-        if variable == "project":
-            assert self.project_name is not None
-            return self.project_name
-        if variable == "model":
-            return self.model_name
-        if variable == "name":
-            return self.name
-        if variable == "env":
-            return config.env.lower()
-        if variable == "platform":
-            return config.platform_name
-        assert False, "Unreachable code"
+    def get_mapping(self, config: LookerCommonConfig) -> NamingPatternMapping:
+        return NamingPatternMapping(
+            platform=config.platform_name,
+            project=self.project_name,  # type: ignore
+            model=self.model_name,
+            name=self.name,
+            env=config.env.lower(),
+        )
 
     def get_explore_urn(self, config: LookerCommonConfig) -> str:
-        dataset_name = config.explore_naming_pattern.pattern
-        assert config.explore_naming_pattern.variables is not None
-        for v in config.explore_naming_pattern.variables:
-            dataset_name = dataset_name.replace(
-                "{" + v + "}", self.get_mapping(v, config)
-            )
+        dataset_name = config.explore_naming_pattern.replace_variables(
+            self.get_mapping(config)
+        )
 
         return builder.make_dataset_urn_with_platform_instance(
             platform=config.platform_name,
@@ -703,12 +689,9 @@ class LookerExplore:
         )
 
     def get_explore_browse_path(self, config: LookerCommonConfig) -> str:
-        browse_path = config.explore_browse_pattern.pattern
-        assert config.explore_browse_pattern.variables is not None
-        for v in config.explore_browse_pattern.variables:
-            browse_path = browse_path.replace(
-                "{" + v + "}", self.get_mapping(v, config)
-            )
+        browse_path = config.explore_browse_pattern.replace_variables(
+            self.get_mapping(config)
+        )
         return browse_path
 
     def _get_url(self, base_url):
