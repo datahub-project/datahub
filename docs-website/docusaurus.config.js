@@ -22,8 +22,27 @@ module.exports = {
     ...(!isSaas && {
       announcementBar: {
         id: "announcement",
-        content:
-          '<div><img src="/img/acryl-logo-white-mark.svg" /><p><strong>Managed DataHub</strong><span> &nbsp;Acryl Data delivers an easy to consume DataHub platform for the enterprise</span></p></div> <a href="https://www.acryldata.io/datahub-beta" target="_blank" class="button button--primary">Sign up for Managed DataHub →</a>',
+        content: `
+          <div style="
+            display: flex;
+            gap: 2em;
+            justify-content: center;
+            align-items: center;
+        ">
+          <div style="
+            display: flex;
+            align-items: center;
+            gap: 1em;
+          ">
+          <img src="/img/acryl-logo-white-mark.svg" style="
+            max-height: 35px;
+          ">
+          <p style="
+            margin-bottom: 0;
+          "><strong>Managed DataHub</strong><span> &nbsp;Acryl Data delivers an easy to consume DataHub platform for the enterprise</span></p></div>
+          <a href="https://www.acryldata.io/datahub-beta" target="_blank" class="button button--primary">Sign up for Managed DataHub →</a>
+          </div>
+        `,
         backgroundColor: "#070707",
         textColor: "#ffffff",
         isCloseable: false,
