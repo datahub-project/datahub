@@ -287,7 +287,7 @@ class ModelProcessor:
                     },
                 ),
                 OwnershipClass(owners),
-                BrowsePathsClass(paths=[f"/sagemaker"]),
+                BrowsePathsClass(paths=["/sagemaker"]),
             ],
         )
 

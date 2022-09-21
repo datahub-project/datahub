@@ -92,7 +92,7 @@ class FeatureGroupProcessor:
         feature_group_snapshot = MLFeatureTableSnapshot(
             urn=builder.make_ml_feature_table_urn("sagemaker", feature_group_name),
             aspects=[
-                BrowsePathsClass(paths=[f"/sagemaker"]),
+                BrowsePathsClass(paths=["/sagemaker"]),
             ],
         )
 
