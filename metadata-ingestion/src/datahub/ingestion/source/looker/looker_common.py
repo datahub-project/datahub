@@ -6,12 +6,13 @@ import re
 from dataclasses import dataclass, field as dataclasses_field
 from enum import Enum
 from functools import lru_cache
-from typing import Dict, Iterable, List, Optional, Tuple, Union
+from typing import ClassVar, Dict, Iterable, List, Optional, Tuple, Union
 
 import pydantic
+from cached_property import cached_property
 from looker_sdk.error import SDKError
 from looker_sdk.sdk.api31.models import User, WriteQuery
-from pydantic import BaseModel, Field
+from pydantic import Field
 from pydantic.class_validators import validator
 
 import datahub.emitter.mce_builder as builder
@@ -70,23 +71,49 @@ from datahub.utilities.lossy_collections import LossyList, LossySet
 logger = logging.getLogger(__name__)
 
 
-# @dataclass
-class NamingPattern(BaseModel):
-    allowed_vars: List[str]
+class NamingPattern(ConfigModel):
+    ALLOWED_VARS: ClassVar[List[str]] = []
+    REQUIRE_AT_LEAST_ONE_VAR: ClassVar[bool] = True
+
     pattern: str
-    variables: Optional[List[str]] = None
+
+    @classmethod
+    def __get_validators__(cls):
+        yield cls.pydantic_accept_raw_pattern
+        yield cls.validate
+        yield cls.pydantic_validate_pattern
+
+    @classmethod
+    def pydantic_accept_raw_pattern(cls, v):
+        if isinstance(v, (NamingPattern, dict)):
+            return v
+        assert isinstance(v, str), "pattern must be a string"
+        return {"pattern": v}
+
+    @classmethod
+    def pydantic_validate_pattern(cls, v):
+        assert isinstance(v, NamingPattern)
+        assert v.validate_pattern(cls.REQUIRE_AT_LEAST_ONE_VAR)
+        return v
+
+    @classmethod
+    def allowed_docstring(cls) -> str:
+        return f"Allowed variables are {cls.ALLOWED_VARS}"
+
+    @cached_property  # type: ignore
+    def variables(self) -> List[str]:
+        variables = re.findall("({[^}{]+})", self.pattern)
+        return [v[1:-1] for v in variables]
 
     def validate_pattern(self, at_least_one: bool) -> bool:
-        variables = re.findall("({[^}{]+})", self.pattern)
-        self.variables = [v[1:-1] for v in variables]
-        for v in variables:
-            if v[1:-1] not in self.allowed_vars:
+        for v in self.variables:
+            if v not in self.ALLOWED_VARS:
                 raise ConfigurationError(
-                    f"Failed to find {v} in allowed_variables {self.allowed_vars}"
+                    f"Failed to find {v} in allowed_variables {self.ALLOWED_VARS}"
                 )
-        if at_least_one and len(variables) == 0:
+        if at_least_one and len(self.variables) == 0:
             raise ConfigurationError(
-                f"Failed to find any variable assigned to pattern {self.pattern}. Must have at least one. Allowed variables are {self.allowed_vars}"
+                f"Failed to find any variable assigned to pattern {self.pattern}. Must have at least one. {self.allowed_docstring()}"
             )
         return True
 
@@ -100,59 +127,31 @@ naming_pattern_variables: List[str] = [
 ]
 
 
+class LookerNamingPattern(NamingPattern):
+    ALLOWED_VARS = naming_pattern_variables
+
+
 class LookerExploreNamingConfig(ConfigModel):
-    explore_naming_pattern: NamingPattern = pydantic.Field(
-        description="Pattern for providing dataset names to explores. Allowed variables are {project}, {model}, {name}. Default is `{model}.explore.{name}`",
-        default=NamingPattern(
-            allowed_vars=naming_pattern_variables, pattern="{model}.explore.{name}"
-        ),
-    )
-    explore_browse_pattern: NamingPattern = NamingPattern(
-        allowed_vars=naming_pattern_variables,
-        pattern="/{env}/{platform}/{project}/explores",
+    explore_naming_pattern: LookerNamingPattern = pydantic.Field(
+        description=f"Pattern for providing dataset names to explores. {LookerNamingPattern.allowed_docstring()}",
+        default=LookerNamingPattern(pattern="{model}.explore.{name}"),
     )
 
-    @validator("explore_naming_pattern", "explore_browse_pattern", pre=True)
-    def init_naming_pattern(cls, v):
-        if isinstance(v, NamingPattern):
-            return v
-        assert isinstance(v, str), "pattern must be a string"
-        return NamingPattern(allowed_vars=naming_pattern_variables, pattern=v)
-
-    @validator("explore_naming_pattern", "explore_browse_pattern", always=True)
-    def validate_naming_pattern(cls, v):
-        assert isinstance(v, NamingPattern)
-        v.validate_pattern(at_least_one=True)
-        return v
+    explore_browse_pattern: LookerNamingPattern = pydantic.Field(
+        description=f"Pattern for providing browse paths to explores. {LookerNamingPattern.allowed_docstring()}",
+        default=LookerNamingPattern(pattern="/{env}/{platform}/{project}/explores"),
+    )
 
 
 class LookerViewNamingConfig(ConfigModel):
-    view_naming_pattern: NamingPattern = Field(
-        NamingPattern(
-            allowed_vars=naming_pattern_variables, pattern="{project}.view.{name}"
-        ),
-        description="Pattern for providing dataset names to views. Allowed variables are `{project}`, `{model}`, `{name}`",
+    view_naming_pattern: LookerNamingPattern = Field(
+        LookerNamingPattern(pattern="{project}.view.{name}"),
+        description=f"Pattern for providing dataset names to views. {LookerNamingPattern.allowed_docstring()}",
     )
-    view_browse_pattern: NamingPattern = Field(
-        NamingPattern(
-            allowed_vars=naming_pattern_variables,
-            pattern="/{env}/{platform}/{project}/views",
-        ),
-        description="Pattern for providing browse paths to views. Allowed variables are `{project}`, `{model}`, `{name}`, `{platform}` and `{env}`",
+    view_browse_pattern: LookerNamingPattern = Field(
+        LookerNamingPattern(pattern="/{env}/{platform}/{project}/views"),
+        description=f"Pattern for providing browse paths to views. {LookerNamingPattern.allowed_docstring()}",
     )
-
-    @validator("view_naming_pattern", "view_browse_pattern", pre=True)
-    def init_naming_pattern(cls, v):
-        if isinstance(v, NamingPattern):
-            return v
-        assert isinstance(v, str), "pattern must be a string"
-        return NamingPattern(allowed_vars=naming_pattern_variables, pattern=v)
-
-    @validator("view_naming_pattern", "view_browse_pattern", always=True)
-    def validate_naming_pattern(cls, v):
-        assert isinstance(v, NamingPattern)
-        v.validate_pattern(at_least_one=True)
-        return v
 
 
 class LookerCommonConfig(
