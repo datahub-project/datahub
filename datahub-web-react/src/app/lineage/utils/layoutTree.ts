@@ -1,7 +1,11 @@
-import { CURVE_PADDING, HORIZONTAL_SPACE_PER_LAYER, VERTICAL_SPACE_BETWEEN_NODES } from '../constants';
-import { width as nodeWidth } from '../LineageEntityNode';
+import {
+    CURVE_PADDING,
+    HORIZONTAL_SPACE_PER_LAYER,
+    VERTICAL_SPACE_BETWEEN_NODES,
+    width as nodeWidth,
+} from '../constants';
 import { Direction, NodeData, VizEdge, VizNode } from '../types';
-import { getTitleHeight, nodeHeightFromTitleLength } from './nodeHeightFromTitleLength';
+import { getTitleHeight, nodeHeightFromTitleLength } from './titleUtils';
 
 type ProcessArray = {
     parent: VizNode | null;
@@ -100,7 +104,7 @@ export default function layoutTree(
                         : {
                               data: node,
                               x: currentXPosition,
-                              y: HORIZONTAL_SPACE_PER_LAYER * currentLayer * xModifier,
+                              y: HORIZONTAL_SPACE_PER_LAYER * currentLayer * xModifier, // can make this diff depending on node width
                           };
                 currentXPosition +=
                     nodeHeightFromTitleLength(

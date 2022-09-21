@@ -5,47 +5,18 @@ import styled from 'styled-components';
 
 import { useEntityRegistry } from '../useEntityRegistry';
 import { IconStyleType } from '../entity/Entity';
-import { NodeData, Direction, VizNode, EntitySelectParams, EntityAndType, VizEdge, ColumnEdge } from './types';
+import { NodeData, Direction, VizNode, EntitySelectParams, EntityAndType, VizEdge } from './types';
 import { ANTD_GRAY } from '../entity/shared/constants';
 import { capitalizeFirstLetter } from '../shared/textUtil';
-import { getTitleHeight, nodeHeightFromTitleLength } from './utils/nodeHeightFromTitleLength';
+import { getShortenedTitle, getTitleHeight, nodeHeightFromTitleLength } from './utils/titleUtils';
 import { LineageExplorerContext } from './utils/LineageExplorerContext';
 import { useGetEntityLineageLazyQuery } from '../../graphql/lineage.generated';
 import { useIsSeparateSiblingsMode } from '../entity/shared/siblingUtils';
+import { centerX, centerY, iconHeight, iconWidth, iconX, iconY, textX, width } from './constants';
+import ColumnNode from './ColumnNode';
 
 const CLICK_DELAY_THRESHOLD = 1000;
 const DRAG_DISTANCE_THRESHOLD = 20;
-
-function truncate(input, length) {
-    if (!input) return '';
-    if (input.length > length) {
-        return `${input.substring(0, length)}...`;
-    }
-    return input;
-}
-
-function getLastTokenOfTitle(title?: string, delimiter?: string): string {
-    if (!title) return '';
-
-    const lastToken = title?.split(delimiter || '.').slice(-1)[0];
-
-    // if the last token does not contain any content, the string should not be tokenized on `.`
-    if (lastToken.replace(/\s/g, '').length === 0) {
-        return title;
-    }
-
-    return lastToken;
-}
-
-export const width = 212;
-export const height = 80;
-const iconWidth = 32;
-const iconHeight = 32;
-const iconX = -width / 2 + 22;
-const iconY = -iconHeight / 2;
-const centerX = -width / 2;
-const centerY = -height / 2;
-const textX = iconX + iconWidth + 8;
 
 const PointerGroup = styled(Group)`
     cursor: pointer;
@@ -89,17 +60,8 @@ export default function LineageEntityNode({
     edgesToRender: VizEdge[];
     nodesToRenderByUrn: Record<string, VizNode>;
 }) {
-    const {
-        expandTitles,
-        collapsedColumnsNodes,
-        setCollapsedColumnsNodes,
-        showColumns,
-        highlightedEdges,
-        setHighlightedEdges,
-        fineGrainedMap,
-        selectedField,
-        setSelectedField,
-    } = useContext(LineageExplorerContext);
+    const { expandTitles, collapsedColumnsNodes, setCollapsedColumnsNodes, showColumns } =
+        useContext(LineageExplorerContext);
     const [isExpanding, setIsExpanding] = useState(false);
     const [expandHover, setExpandHover] = useState(false);
     const [isHoveringHide, setIsHoveringHide] = useState(false);
@@ -150,41 +112,6 @@ export default function LineageEntityNode({
     );
 
     const titleHeight = getTitleHeight(expandTitles ? node.data.expandedName || node.data.name : undefined);
-
-    function highlightDownstreamColumnLineage(sourceField: string, sourceUrn: string, edges: ColumnEdge[]) {
-        const forwardLineage = fineGrainedMap.forward[sourceUrn]?.[sourceField];
-        if (forwardLineage) {
-            Object.entries(forwardLineage).forEach((entry) => {
-                const [targetUrn, fieldPaths] = entry;
-                (fieldPaths as string[]).forEach((targetField) => {
-                    edges.push({ sourceUrn, sourceField, targetUrn, targetField });
-                    highlightDownstreamColumnLineage(targetField, targetUrn, edges);
-                });
-            });
-        }
-    }
-
-    function highlightUpstreamColumnLineage(targetField: string, targetUrn: string, edges: ColumnEdge[]) {
-        const reverseLineage = fineGrainedMap.reverse[targetUrn]?.[targetField];
-        if (reverseLineage) {
-            Object.entries(reverseLineage).forEach((entry) => {
-                const [sourceUrn, fieldPaths] = entry;
-                (fieldPaths as string[]).forEach((sourceField) => {
-                    edges.push({ targetUrn, targetField, sourceUrn, sourceField });
-                    highlightUpstreamColumnLineage(sourceField, sourceUrn, edges);
-                });
-            });
-        }
-    }
-
-    function highlightColumnLineage(fieldPath: string, urn?: string) {
-        const edgesToHighlight: ColumnEdge[] = [];
-        if (urn) {
-            highlightDownstreamColumnLineage(fieldPath, urn, edgesToHighlight);
-            highlightUpstreamColumnLineage(fieldPath, urn, edgesToHighlight);
-        }
-        setHighlightedEdges(edgesToHighlight);
-    }
 
     return (
         <PointerGroup data-testid={`node-${node.data.urn}-${direction}`} top={node.x} left={node.y}>
@@ -359,7 +286,7 @@ export default function LineageEntityNode({
                         textAnchor="start"
                         fill="#8C8C8C"
                     >
-                        <tspan>{truncate(platformDisplayText, 16)}</tspan>
+                        <tspan>{getShortenedTitle(platformDisplayText || '', width)}</tspan>
                         <tspan dx=".25em" dy="2px" fill="#dadada" fontSize={12} fontWeight="normal">
                             {' '}
                             |{' '}
@@ -383,13 +310,7 @@ export default function LineageEntityNode({
                             textAnchor="start"
                             fill={isCenterNode ? '#1890FF' : 'black'}
                         >
-                            {truncate(
-                                getLastTokenOfTitle(
-                                    node.data.name,
-                                    node.data.platform?.properties?.datasetNameDelimiter,
-                                ),
-                                16,
-                            )}
+                            {getShortenedTitle(node.data.name, width)}
                         </UnselectableText>
                     )}
                 </Group>
@@ -457,75 +378,16 @@ export default function LineageEntityNode({
                 )}
                 {showColumns && node.data.schemaMetadata && !areColumnsCollapsed && (
                     <Group>
-                        {node.data.schemaMetadata.fields.map((field, idx) => {
-                            const isFieldSelected =
-                                selectedField?.urn === node?.data?.urn && selectedField?.path === field.fieldPath;
-                            const isFieldHighlighted = highlightedEdges.find(
-                                (edge) =>
-                                    (edge.sourceUrn === node.data.urn && edge.sourceField === field.fieldPath) ||
-                                    (edge.targetUrn === node.data.urn && edge.targetField === field.fieldPath),
-                            );
-
-                            const fieldEdge = edgesToRender.find(
-                                (edge) =>
-                                    (edge.source.data.urn === node.data.urn && edge.sourceField === field.fieldPath) ||
-                                    (edge.target.data.urn === node.data.urn && edge.targetField === field.fieldPath),
-                            );
-                            return (
-                                <Group
-                                    onMouseOver={(e) => {
-                                        if (fieldEdge && (!selectedField || isFieldSelected)) {
-                                            highlightColumnLineage(field.fieldPath, node.data.urn);
-                                            onHover(undefined);
-                                            e.stopPropagation();
-                                        }
-                                    }}
-                                    onMouseOut={() => {
-                                        if (!selectedField) {
-                                            setHighlightedEdges([]);
-                                        }
-                                    }}
-                                    onClick={(e) => {
-                                        if (fieldEdge) {
-                                            if (!isFieldSelected) {
-                                                setSelectedField({
-                                                    urn: node.data.urn as string,
-                                                    path: field.fieldPath,
-                                                });
-                                                highlightColumnLineage(field.fieldPath, node.data.urn);
-                                            } else {
-                                                setSelectedField(null);
-                                            }
-                                            e.stopPropagation();
-                                        } else {
-                                            setSelectedField(null);
-                                        }
-                                    }}
-                                >
-                                    <rect
-                                        x={iconX - 21}
-                                        y={centerY + 60 + titleHeight + idx * 30}
-                                        width={width - 2}
-                                        height="29"
-                                        fill={isFieldSelected ? '#e7f3ff' : 'white'}
-                                        stroke={isFieldHighlighted && fieldEdge ? '#1890FF' : 'transparent'}
-                                        strokeWidth="1px"
-                                        ry="4"
-                                        rx="4"
-                                    />
-                                    <UnselectableText
-                                        dy=".33em"
-                                        x={iconX}
-                                        y={centerY + 75 + titleHeight + idx * 30}
-                                        fontSize={12}
-                                        fontFamily="'Roboto Mono',monospace"
-                                        fill={fieldEdge ? 'black' : ANTD_GRAY[7]}
-                                    >
-                                        {field.fieldPath}
-                                    </UnselectableText>
-                                </Group>
-                            );
-                        })}
+                        {node.data.schemaMetadata.fields.map((field, idx) => (
+                            <ColumnNode
+                                field={field}
+                                index={idx}
+                                node={node}
+                                edgesToRender={edgesToRender}
+                                titleHeight={titleHeight}
+                                onHover={onHover}
+                            />
+                        ))}
                         <Group
                             onClick={(e) => {
                                 const newCollapsedNodes = {

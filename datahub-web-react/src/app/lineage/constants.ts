@@ -7,3 +7,13 @@ export const HORIZONTAL_SPACE_PER_LAYER = 400;
 export const VERTICAL_SPACE_BETWEEN_NODES = 40;
 
 export const CURVE_PADDING = 75;
+
+export const width = 250;
+export const height = 80;
+export const iconWidth = 32;
+export const iconHeight = 32;
+export const iconX = -width / 2 + 22;
+export const iconY = -iconHeight / 2;
+export const centerX = -width / 2;
+export const centerY = -height / 2;
+export const textX = iconX + iconWidth + 8;

@@ -25,6 +25,7 @@ interface Size {
 
 const HEIGHT_WITHOUT_TEXT_HEIGHT = 66;
 const DEFAULT_TEXT_TO_GET_NON_ZERO_HEIGHT = 'a';
+export const NODE_WIDTH_WITHOUT_TITLE = 61;
 
 function createDummyElement(text: string, options: Options): HTMLElement {
     const element = document.createElement('div');
@@ -104,4 +105,30 @@ export function nodeHeightFromTitleLength(
         }
     }
     return getTitleHeight(title) + HEIGHT_WITHOUT_TEXT_HEIGHT + showColumnBuffer;
+}
+
+function truncate(input, length) {
+    if (!input) return '';
+    if (input.length > length) {
+        return `${input.substring(0, length)}...`;
+    }
+    return input;
+}
+
+function getLastTokenOfTitle(title?: string): string {
+    if (!title) return '';
+
+    const lastToken = title?.split('.').slice(-1)[0];
+
+    // if the last token does not contain any content, the string should not be tokenized on `.`
+    if (lastToken.replace(/\s/g, '').length === 0) {
+        return title;
+    }
+
+    return lastToken;
+}
+
+export function getShortenedTitle(title: string, nodeWidth: number) {
+    const titleWidth = nodeWidth - NODE_WIDTH_WITHOUT_TITLE;
+    return truncate(getLastTokenOfTitle(title), Math.ceil(titleWidth / 10));
 }
