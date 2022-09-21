@@ -11,6 +11,24 @@ FROZEN_TIME = "2021-12-07 07:00:00"
 
 test_resources_dir = None
 
+config_source_default = {
+    "username": "username",
+    "password": "pass`",
+    "connect_uri": "https://do-not-connect",
+    "site": "acryl",
+    "projects": ["default", "Project 2"],
+    "page_size": 10,
+    "ingest_tags": True,
+    "ingest_owner": True,
+    "ingest_tables_external": True,
+    "default_schema_map": {
+        "dvdrental": "public",
+        "someotherdb": "schema",
+    },
+    "platform_instance_map": {"postgres": "demo_postgres_instance"},
+    "extract_usage_stats": True,
+}
+
 
 def _read_response(file_name):
     response_json_path = f"{test_resources_dir}/setup/{file_name}"
@@ -19,7 +37,8 @@ def _read_response(file_name):
         return data
 
 
-def define_query_metadata_func(workbook_0: str, workbook_all: str):  # type: ignore
+def define_query_metadata_func(workbook_0: str,
+                               workbook_all: str):  # type: ignore
     def side_effect_query_metadata(query):
 
         if "workbooksConnection (first:0" in query:
@@ -68,11 +87,12 @@ def side_effect_usage_stat(*arg, **kwargs):
 
 
 def tableau_ingest_common(
-    pytestconfig,
-    tmp_path,
-    side_effect_query_metadata_func,
-    golden_file_name,
-    output_file_name,
+        pytestconfig,
+        tmp_path,
+        side_effect_query_metadata_func,
+        golden_file_name,
+        output_file_name,
+        config_source = config_source_default
 ):
     global test_resources_dir
     test_resources_dir = pathlib.Path(
@@ -97,31 +117,15 @@ def tableau_ingest_common(
                 "run_id": "tableau-test",
                 "source": {
                     "type": "tableau",
-                    "config": {
-                        "username": "username",
-                        "password": "pass`",
-                        "connect_uri": "https://do-not-connect",
-                        "site": "acryl",
-                        "projects": ["default", "Project 2"],
-                        "page_size": 10,
-                        "ingest_tags": True,
-                        "ingest_owner": True,
-                        "ingest_tables_external": True,
-                        "default_schema_map": {
-                            "dvdrental": "public",
-                            "someotherdb": "schema",
+                    "config":config_source,
+            },
+            "sink": {
+                        "type": "file",
+                        "config": {
+                            "filename": f"{tmp_path}/{output_file_name}",
                         },
-                        "platform_instance_map": {"postgres": "demo_postgres_instance"},
-                        "extract_usage_stats": True,
                     },
-                },
-                "sink": {
-                    "type": "file",
-                    "config": {
-                        "filename": f"{tmp_path}/{output_file_name}",
-                    },
-                },
-            }
+        }
         )
         pipeline.run()
         pipeline.raise_from_status()

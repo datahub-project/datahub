@@ -29,6 +29,42 @@ def test_tableau_ingest(pytestconfig, tmp_path):
         output_file_name,
     )
 
+@freeze_time(FROZEN_TIME)
+@pytest.mark.slow_unit
+def test_tableau_ingest_with_platform_instance(pytestconfig, tmp_path):
+    config_source = {
+        "username": "username",
+        "password": "pass`",
+        "connect_uri": "https://do-not-connect",
+        "site": "acryl",
+        "platform_instance": "acryl_site1",
+        "projects": ["default", "Project 2"],
+        "page_size": 10,
+        "ingest_tags": True,
+        "ingest_owner": True,
+        "ingest_tables_external": True,
+        "default_schema_map": {
+            "dvdrental": "public",
+            "someotherdb": "schema",
+        },
+        "platform_instance_map": {"postgres": "demo_postgres_instance"},
+        "extract_usage_stats": True,
+    }
+
+    output_file_name: str = "tableau_with_platform_instance_mces.json"
+    golden_file_name: str = "tableau_with_platform_instance_mces_golden.json"
+    side_effect_query_metadata = test_tableau_common.define_query_metadata_func(
+        "workbooksConnection_0.json", "workbooksConnection_all.json"
+    )
+    test_tableau_common.tableau_ingest_common(
+        pytestconfig,
+        tmp_path,
+        side_effect_query_metadata,
+        golden_file_name,
+        output_file_name,
+        config_source
+    )
+
 
 def test_lineage_overrides():
     # Simple - specify platform instance to presto table
