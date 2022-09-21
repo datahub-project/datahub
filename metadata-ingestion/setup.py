@@ -111,7 +111,7 @@ sql_common = {
     # Required for all SQL sources.
     "sqlalchemy==1.3.24",
     # Required for SQL profiling.
-    "great-expectations>=0.15.12",
+    "great-expectations>=0.15.12, <0.15.23",
     # GE added handling for higher version of jinja2
     # https://github.com/great-expectations/great_expectations/pull/5382/files
     # datahub does not depend on traitlets directly but great expectations does.
