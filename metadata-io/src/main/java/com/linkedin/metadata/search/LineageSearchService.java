@@ -77,8 +77,8 @@ public class LineageSearchService {
       @Nonnull List<String> entities, @Nullable String input, @Nullable Integer maxHops, @Nullable Filter inputFilters,
       @Nullable SortCriterion sortCriterion, int from, int size) {
     // Cache multihop result for faster performance
-    CachedEntityLineageResult cachedLineageResult = cacheEnabled ?
-        cache.get(Pair.of(sourceUrn, direction), CachedEntityLineageResult.class) : null;
+    CachedEntityLineageResult cachedLineageResult = cacheEnabled
+        ? cache.get(Pair.of(sourceUrn, direction), CachedEntityLineageResult.class) : null;
     EntityLineageResult lineageResult;
     if (cachedLineageResult == null) {
       maxHops = maxHops != null ? maxHops : 1000;
