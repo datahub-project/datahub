@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import styled from 'styled-components';
 import { ApolloError } from '@apollo/client';
 import { EntityType, FacetFilterInput } from '../../../../../../types.generated';
-import { ENTITY_FILTER_NAME } from '../../../../../search/utils/constants';
+import { ENTITY_FILTER_NAME, UnionType } from '../../../../../search/utils/constants';
 import { SearchCfg } from '../../../../../../conf';
 import { EmbeddedListSearchResults } from './EmbeddedListSearchResults';
 import EmbeddedListSearchHeader from './EmbeddedListSearchHeader';
@@ -48,10 +48,12 @@ export const addFixedQuery = (baseQuery: string, fixedQuery: string, emptyQuery:
 type Props = {
     query: string;
     page: number;
+    unionType: UnionType;
     filters: FacetFilterInput[];
     onChangeQuery: (query) => void;
     onChangeFilters: (filters) => void;
     onChangePage: (page) => void;
+    onChangeUnionType: (unionType: UnionType) => void;
     emptySearchQuery?: string | null;
     fixedFilter?: FacetFilterInput | null;
     fixedQuery?: string | null;
@@ -72,9 +74,11 @@ export const EmbeddedListSearch = ({
     query,
     filters,
     page,
+    unionType,
     onChangeQuery,
     onChangeFilters,
     onChangePage,
+    onChangeUnionType,
     emptySearchQuery,
     fixedFilter,
     fixedQuery,
@@ -200,12 +204,14 @@ export const EmbeddedListSearch = ({
                 searchBarInputStyle={searchBarInputStyle}
             />
             <EmbeddedListSearchResults
+                unionType={unionType}
                 loading={loading}
                 searchResponse={data}
                 filters={filteredFilters}
                 selectedFilters={filters}
                 onChangeFilters={onChangeFilters}
                 onChangePage={onChangePage}
+                onChangeUnionType={onChangeUnionType}
                 page={page}
                 showFilters={showFilters}
                 numResultsPerPage={numResultsPerPage}

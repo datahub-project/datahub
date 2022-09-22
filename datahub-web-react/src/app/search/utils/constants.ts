@@ -49,7 +49,10 @@ export const ADVANCED_SEARCH_ONLY_FILTERS = [
     'fieldPaths',
     'description',
     'fieldDescriptions',
+    'removed',
 ];
+
+export const DEGREE_FILTER = 'degree';
 
 export enum UnionType {
     AND,

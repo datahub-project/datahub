@@ -2,7 +2,7 @@ import * as React from 'react';
 import styled from 'styled-components';
 import { useEffect, useState } from 'react';
 import { FacetFilterInput, FacetMetadata } from '../../types.generated';
-import { SearchFilter } from './SearchFilter';
+import { SimpleSearchFilter } from './SimpleSearchFilter';
 
 const TOP_FILTERS = ['degree', 'entity', 'tags', 'glossaryTerms', 'domains', 'owners'];
 
@@ -29,7 +29,7 @@ interface Props {
     loading: boolean;
 }
 
-export const SearchFilters = ({ facets, selectedFilters, onFilterSelect, loading }: Props) => {
+export const SimpleSearchFilters = ({ facets, selectedFilters, onFilterSelect, loading }: Props) => {
     const [cachedProps, setCachedProps] = useState<{
         facets: Array<FacetMetadata>;
         selectedFilters: Array<FacetFilterInput>;
@@ -48,7 +48,13 @@ export const SearchFilters = ({ facets, selectedFilters, onFilterSelect, loading
     const onFilterSelectAndSetCache = (selected: boolean, field: string, value: string) => {
         const newFilters = selected
             ? [...selectedFilters, { field, values: [value] }]
-            : selectedFilters.filter((filter) => filter.field !== field || !filter.values.includes(value));
+            : selectedFilters
+                  .map((filter) =>
+                      filter.field === field
+                          ? { ...filter, values: filter.values.filter((val) => val !== value) }
+                          : filter,
+                  )
+                  .filter((filter) => filter.field !== field || !(filter.values.length === 0));
         setCachedProps({ ...cachedProps, selectedFilters: newFilters });
         onFilterSelect(newFilters);
     };
@@ -62,7 +68,7 @@ export const SearchFilters = ({ facets, selectedFilters, onFilterSelect, loading
     return (
         <SearchFilterWrapper>
             {sortedFacets.map((facet) => (
-                <SearchFilter
+                <SimpleSearchFilter
                     key={`${facet.displayName}-${facet.field}`}
                     facet={facet}
                     selectedFilters={cachedProps.selectedFilters}

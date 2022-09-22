@@ -16,7 +16,13 @@ type Props = {
     initialValues?: string[];
 };
 
-export const SelectFilterValueModal = ({ filterField, onSelect, onCloseModal, initialValues, facet }: Props) => {
+export const AdvancedFilterSelectValueModal = ({
+    filterField,
+    onSelect,
+    onCloseModal,
+    initialValues,
+    facet,
+}: Props) => {
     if (filterField === 'owners') {
         return (
             <EditOwnersModal

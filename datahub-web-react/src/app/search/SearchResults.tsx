@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { Pagination, Typography, Button } from 'antd';
+import React from 'react';
+import { Pagination, Typography } from 'antd';
 import styled from 'styled-components';
 import { Message } from '../shared/Message';
 import {
@@ -10,7 +10,6 @@ import {
     MatchedField,
     SearchAcrossEntitiesInput,
 } from '../../types.generated';
-import { SearchFilters } from './SearchFilters';
 import { SearchCfg } from '../../conf';
 import { SearchResultsRecommendations } from './SearchResultsRecommendations';
 import { useGetAuthenticatedUser } from '../useGetAuthenticatedUser';
@@ -22,25 +21,14 @@ import { SearchResultList } from './SearchResultList';
 import { isListSubset } from '../entity/shared/utils';
 import TabToolbar from '../entity/shared/components/styled/TabToolbar';
 import { EntityAndType } from '../entity/shared/types';
-import { AdvancedSearchFilters } from './AdvancedSearchFilters';
 import { ErrorSection } from '../shared/error/ErrorSection';
 import { UnionType } from './utils/constants';
-import { hasAdvancedFilters } from './utils/hasAdvancedFilters';
+import { SearchFiltersSection } from './SearchFiltersSection';
 
 const SearchBody = styled.div`
     display: flex;
     flex-direction: row;
     min-height: calc(100vh - 60px);
-`;
-
-const FiltersContainer = styled.div`
-    display: block;
-    max-width: 260px;
-    min-width: 260px;
-    overflow-wrap: break-word;
-    border-right: 1px solid;
-    border-color: ${(props) => props.theme.styles['border-color-base']};
-    max-height: 100%;
 `;
 
 const ResultContainer = styled.div`
@@ -64,28 +52,6 @@ const PaginationInfoContainer = styled.div`
     display: flex;
     justify-content: space-between;
     align-items: center;
-`;
-
-const FiltersHeader = styled.div`
-    font-size: 14px;
-    font-weight: 600;
-
-    padding-left: 20px;
-    padding-right: 20px;
-    padding-bottom: 8px;
-
-    width: 100%;
-    height: 47px;
-    line-height: 47px;
-    border-bottom: 1px solid;
-    border-color: ${(props) => props.theme.styles['border-color-base']};
-
-    justify-content: space-between;
-    display: flex;
-`;
-
-const SearchFilterContainer = styled.div`
-    padding-top: 10px;
 `;
 
 const SearchResultsRecommendationsContainer = styled.div`
@@ -164,9 +130,6 @@ export const SearchResults = ({
     const lastResultIndex = pageStart + pageSize > totalResults ? totalResults : pageStart + pageSize;
     const authenticatedUserUrn = useGetAuthenticatedUser()?.corpUser?.urn;
     const combinedSiblingSearchResults = combineSiblingsInSearchResults(searchResponse?.searchResults);
-    const onlyShowAdvancedFilters = hasAdvancedFilters(selectedFilters, unionType);
-
-    const [seeAdvancedFilters, setSeeAdvancedFilters] = useState(onlyShowAdvancedFilters);
 
     const searchResultUrns = combinedSiblingSearchResults.map((result) => result.entity.urn) || [];
     const selectedEntityUrns = selectedEntities.map((entity) => entity.urn);
@@ -176,38 +139,14 @@ export const SearchResults = ({
             {loading && <Message type="loading" content="Loading..." style={{ marginTop: '10%' }} />}
             <div>
                 <SearchBody>
-                    <FiltersContainer>
-                        <FiltersHeader>
-                            <span>Filter</span>
-                            <span>
-                                <Button
-                                    disabled={onlyShowAdvancedFilters}
-                                    type="link"
-                                    onClick={() => setSeeAdvancedFilters(!seeAdvancedFilters)}
-                                >
-                                    {seeAdvancedFilters ? 'Filter' : 'Advanced'}
-                                </Button>
-                            </span>
-                        </FiltersHeader>
-                        {seeAdvancedFilters ? (
-                            <AdvancedSearchFilters
-                                unionType={unionType}
-                                selectedFilters={selectedFilters}
-                                onFilterSelect={(newFilters) => onChangeFilters(newFilters)}
-                                onChangeUnionType={onChangeUnionType}
-                                facets={filters || []}
-                            />
-                        ) : (
-                            <SearchFilterContainer>
-                                <SearchFilters
-                                    loading={loading}
-                                    facets={filters || []}
-                                    selectedFilters={selectedFilters}
-                                    onFilterSelect={(newFilters) => onChangeFilters(newFilters)}
-                                />
-                            </SearchFilterContainer>
-                        )}
-                    </FiltersContainer>
+                    <SearchFiltersSection
+                        filters={filters}
+                        selectedFilters={selectedFilters}
+                        unionType={unionType}
+                        loading={loading}
+                        onChangeFilters={onChangeFilters}
+                        onChangeUnionType={onChangeUnionType}
+                    />
                     <ResultContainer>
                         <PaginationInfoContainer>
                             <>

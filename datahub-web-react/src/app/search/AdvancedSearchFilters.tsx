@@ -3,11 +3,13 @@ import { Select } from 'antd';
 import * as React from 'react';
 import { useState } from 'react';
 import styled from 'styled-components';
+import { PlusOutlined } from '@ant-design/icons';
+
 import { FacetFilterInput, FacetMetadata, SearchCondition } from '../../types.generated';
 import { ANTD_GRAY } from '../entity/shared/constants';
 import { AdvancedSearchFilter } from './AdvancedSearchFilter';
 import { AdvancedSearchFilterOverallUnionTypeSelect } from './AdvancedSearchFilterOverallUnionTypeSelect';
-import { SelectFilterValueModal } from './SelectFilterValueModal';
+import { AdvancedFilterSelectValueModal } from './AdvancedFilterSelectValueModal';
 import { FIELDS_WHO_USE_CONTAINS_OPERATOR, FIELD_TO_LABEL, UnionType } from './utils/constants';
 
 export const SearchFilterWrapper = styled.div`
@@ -31,6 +33,7 @@ export const SearchFilterWrapper = styled.div`
 
 const AnyAllSection = styled.div`
     padding: 6px;
+    color: ${ANTD_GRAY[8]};
 `;
 
 const EmptyStateSection = styled.div`
@@ -38,6 +41,10 @@ const EmptyStateSection = styled.div`
     background-color: ${ANTD_GRAY[2]};
     padding: 22px;
     margin-top: 10px;
+`;
+
+const StyledPlus = styled(PlusOutlined)`
+    margin-right: 6px;
 `;
 
 interface Props {
@@ -60,14 +67,23 @@ export const AdvancedSearchFilters = ({
     const [filterField, setFilterField] = useState<null | string>(null);
 
     const onFilterFieldSelect = (value) => {
-        setFilterField(value);
+        setFilterField(value.value);
     };
 
     return (
         <SearchFilterWrapper>
             <Select
-                value="+"
-                style={{ width: 67, padding: 6, fontSize: 25, fontWeight: 500 }}
+                value={{
+                    value: 'value',
+                    label: (
+                        <div>
+                            <StyledPlus />
+                            Add Filter
+                        </div>
+                    ),
+                }}
+                labelInValue
+                style={{ padding: 6, fontWeight: 500 }}
                 onChange={onFilterFieldSelect}
                 dropdownMatchSelectWidth={false}
                 filterOption={(_, option) => option?.value === 'null'}
@@ -83,6 +99,15 @@ export const AdvancedSearchFilters = ({
                         </Option>
                     ))}
             </Select>
+            {selectedFilters?.length >= 2 && (
+                <AnyAllSection>
+                    Show results that match{' '}
+                    <AdvancedSearchFilterOverallUnionTypeSelect
+                        unionType={unionType}
+                        onUpdate={(newValue) => onChangeUnionType(newValue)}
+                    />
+                </AnyAllSection>
+            )}
             {selectedFilters.map((filter) => (
                 <AdvancedSearchFilter
                     facet={facets.find((facet) => facet.field === filter.field) || facets[0]}
@@ -103,7 +128,7 @@ export const AdvancedSearchFilters = ({
                 />
             ))}
             {filterField && (
-                <SelectFilterValueModal
+                <AdvancedFilterSelectValueModal
                     facet={facets.find((facet) => facet.field === filterField) || null}
                     onCloseModal={() => setFilterField(null)}
                     filterField={filterField}
@@ -119,15 +144,6 @@ export const AdvancedSearchFilters = ({
                         onFilterSelect([...selectedFilters, newFilter]);
                     }}
                 />
-            )}
-            {selectedFilters?.length > 0 && (
-                <AnyAllSection>
-                    Show results that match{' '}
-                    <AdvancedSearchFilterOverallUnionTypeSelect
-                        unionType={unionType}
-                        onUpdate={(newValue) => onChangeUnionType(newValue)}
-                    />
-                </AnyAllSection>
             )}
             {selectedFilters?.length === 0 && <EmptyStateSection>No filters applied, add one above.</EmptyStateSection>}
         </SearchFilterWrapper>

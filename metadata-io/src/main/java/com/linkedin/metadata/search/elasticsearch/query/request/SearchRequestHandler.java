@@ -72,6 +72,8 @@ public class SearchRequestHandler {
 
   private static final Map<EntitySpec, SearchRequestHandler> REQUEST_HANDLER_BY_ENTITY_NAME = new ConcurrentHashMap<>();
   private static final String REMOVED = "removed";
+
+  private static final String URN_FILTER = "urn";
   private static final int DEFAULT_MAX_TERM_BUCKET_SIZE = 20;
 
   private final EntitySpec _entitySpec;
@@ -445,6 +447,11 @@ public class SearchRequestHandler {
 
     if (finalFacetField == null) {
       log.warn(String.format("Found invalid filter field for entity search. Invalid or unrecognized facet %s", criterion.getField()));
+      return;
+    }
+
+    // we don't want to persist urn filters back--- they are automatically added by searchAcrossLineage
+    if (finalFacetField.equals(URN_FILTER)) {
       return;
     }
 

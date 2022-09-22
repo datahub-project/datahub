@@ -2,6 +2,7 @@ import { RouteComponentProps } from 'react-router';
 import * as QueryString from 'query-string';
 import { EntityType, FacetFilterInput } from '../../../../../../types.generated';
 import filtersToQueryStringParams from '../../../../../search/utils/filtersToQueryStringParams';
+import { UnionType } from '../../../../../search/utils/constants';
 
 export const navigateToEntitySearchUrl = ({
     baseUrl,
@@ -11,6 +12,7 @@ export const navigateToEntitySearchUrl = ({
     page: newPage = 1,
     filters: newFilters,
     history,
+    unionType,
 }: {
     baseUrl: string;
     baseParams: Record<string, string | boolean>;
@@ -19,6 +21,7 @@ export const navigateToEntitySearchUrl = ({
     page?: number;
     filters?: Array<FacetFilterInput>;
     history: RouteComponentProps['history'];
+    unionType: UnionType;
 }) => {
     const constructedFilters = newFilters || [];
     if (newType) {
@@ -30,6 +33,7 @@ export const navigateToEntitySearchUrl = ({
             ...filtersToQueryStringParams(constructedFilters),
             query: newQuery,
             page: newPage,
+            unionType,
             ...baseParams,
         },
         { arrayFormat: 'comma' },

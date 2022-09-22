@@ -6,7 +6,7 @@ import { FacetFilterInput, FacetMetadata } from '../../types.generated';
 import { ANTD_GRAY } from '../entity/shared/constants';
 import { AdvancedSearchFilterConditionSelect } from './AdvancedSearchFilterConditionSelect';
 import { SearchFilterLabel } from './SearchFilterLabel';
-import { SelectFilterValueModal } from './SelectFilterValueModal';
+import { AdvancedFilterSelectValueModal } from './AdvancedFilterSelectValueModal';
 import { FIELD_TO_LABEL } from './utils/constants';
 
 type Props = {
@@ -17,9 +17,10 @@ type Props = {
 };
 
 const FilterContainer = styled.div`
-    border-radius: 5px;
-    border: 1px solid ${ANTD_GRAY[5]};
-    padding: 4px;
+    box-shadow: 0px 0px 4px 0px #00000010;
+    border-radius: 10px;
+    border: 1px solid ${ANTD_GRAY[4]};
+    padding: 5px;
     margin: 4px;
     :hover {
         cursor: pointer;
@@ -38,6 +39,7 @@ const ValueFilterSection = styled.div`
     :hover {
         cursor: pointer;
     }
+    border-top: 1px solid ${ANTD_GRAY[3]};
 `;
 
 const CloseSpan = styled.span`
@@ -52,6 +54,7 @@ const StyledSearchFilterLabel = styled.div`
 
 const FilterFieldLabel = styled.span`
     font-weight: 600;
+    margin-right: 2px;
 `;
 
 const TEXT_FILTERS = ['fieldPaths'];
@@ -101,7 +104,7 @@ export const AdvancedSearchFilter = ({ facet, filter, onClose, onUpdate }: Props
                 </ValueFilterSection>
             </FilterContainer>
             {isEditing && (
-                <SelectFilterValueModal
+                <AdvancedFilterSelectValueModal
                     facet={facet}
                     onCloseModal={() => setIsEditing(false)}
                     filterField={filter.field}
