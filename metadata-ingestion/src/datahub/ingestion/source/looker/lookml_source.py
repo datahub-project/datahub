@@ -1152,13 +1152,21 @@ class LookMLSource(Source):
                 continue
 
             explore_reachable_views = set()
-            for explore_dict in model.explores:
-                explore: LookerExplore = LookerExplore.from_dict(
-                    model_name, explore_dict
-                )
-                if explore.upstream_views:
-                    for view_name in explore.upstream_views:
-                        explore_reachable_views.add(view_name)
+            if self.source_config.emit_reachable_views_only:
+                for explore_dict in model.explores:
+                    try:
+                        explore: LookerExplore = LookerExplore.from_dict(
+                            model_name, explore_dict
+                        )
+                        if explore.upstream_views:
+                            for view_name in explore.upstream_views:
+                                explore_reachable_views.add(view_name)
+                    except Exception as e:
+                        self.reporter.report_warning(
+                            f"{model}.explores",
+                            f"failed to process {explore_dict} due to {e}. Run with --debug for full stacktrace",
+                        )
+                        logger.debug("Failed to process explore", exc_info=e)
 
             processed_view_files = processed_view_map.get(model.connection)
             if processed_view_files is None:
