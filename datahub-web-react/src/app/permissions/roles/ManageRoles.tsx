@@ -200,6 +200,7 @@ export const ManageRoles = () => {
                     <SearchBar
                         initialQuery={query || ''}
                         placeholderText="Search roles..."
+                        hideRecommendations
                         suggestions={[]}
                         style={{
                             maxWidth: 220,
