@@ -1,7 +1,7 @@
 import logging
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
-from typing import Dict, Generic, Iterable, List, Optional, Type, TypeVar, cast
+from typing import Dict, Generic, Iterable, List, Optional, Tuple, Type, TypeVar, cast
 
 import pydantic
 
@@ -33,6 +33,12 @@ class StatefulStaleMetadataRemovalConfig(StatefulIngestionConfig):
     remove_stale_metadata: bool = pydantic.Field(
         default=True,
         description=f"Soft-deletes the entities of type {', '.join(_entity_types)} in the last successful run but missing in the current run with stateful_ingestion enabled.",
+    )
+    fail_safe_threshold: float = pydantic.Field(
+        default=95.0,
+        description="Prevents large amount of soft deletes & the state from committing from accidental changes to the source configuration if the relative change percent in entities compared to the previous state is above the 'fail_safe_threshold'.",
+        le=100.0,  # mypy does not work with pydantic.confloat. This is the recommended work-around.
+        ge=0.0,
     )
 
 
@@ -82,6 +88,43 @@ class StaleEntityCheckpointStateBase(CheckpointStateBase, ABC, Generic[Derived])
         :return: an iterable to the set of urns present in this checkpoing state but not in the other_checkpoint.
         """
         pass
+
+    @abstractmethod
+    def get_percent_entities_changed(self, old_checkpoint_state: Derived) -> float:
+        """
+        Returns the percentage of entities that have changed relative to `old_checkpoint_state`.
+        :param old_checkpoint_state: the old checkpoint state to compute the relative change percent against.
+        :return: (|intersection(self, old_checkpoint_state)| * 100.0 / |old_checkpoint_state|)
+        """
+        pass
+
+    @staticmethod
+    def compute_percent_entities_changed(
+        new_old_entity_list: List[Tuple[List[str], List[str]]]
+    ) -> float:
+        old_count_all = 0
+        overlap_count_all = 0
+        for new_entities, old_entities in new_old_entity_list:
+            (
+                overlap_count,
+                old_count,
+                _,
+            ) = StaleEntityCheckpointStateBase.get_entity_overlap_and_cardinalities(
+                new_entities=new_entities, old_entities=old_entities
+            )
+            overlap_count_all += overlap_count
+            old_count_all += old_count
+        if old_count_all:
+            return overlap_count * 100.0 / old_count_all
+        return 0.0
+
+    @staticmethod
+    def get_entity_overlap_and_cardinalities(
+        new_entities: List[str], old_entities: List[str]
+    ) -> Tuple[int, int, int]:
+        new_set = set(new_entities)
+        old_set = set(old_entities)
+        return len(new_set.intersection(old_set)), len(old_set), len(new_set)
 
 
 class StaleEntityRemovalHandler(
@@ -217,6 +260,26 @@ class StaleEntityRemovalHandler(
         cur_checkpoint_state = cast(
             StaleEntityCheckpointStateBase, cur_checkpoint.state
         )
+
+        # Check if the entity delta is below the fail-safe threshold.
+        entity_difference_percent = cur_checkpoint_state.get_percent_entities_changed(
+            last_checkpoint_state
+        )
+        assert self.stateful_ingestion_config
+        if (
+            entity_difference_percent
+            > self.stateful_ingestion_config.fail_safe_threshold
+        ):
+            # Log the failure. This would prevent the current state from getting committed.
+            self.source.get_report().report_failure(
+                "Stateful Ingestion",
+                f"Fail safe mode triggered, entity difference percent:{entity_difference_percent}"
+                " > fail_safe_threshold:{self.stateful_ingestion_config.fail_safe_threshold}",
+            )
+            # Bail so that we don't emit the stale entity removal workunits.
+            return
+
+        # Everything looks good, emit the soft-deletion workunits
         for type in self.state_type_class.get_supported_types():
             for urn in last_checkpoint_state.get_urns_not_in(
                 type=type, other_checkpoint_state=cur_checkpoint_state

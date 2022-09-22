@@ -13,7 +13,7 @@ def _default_rename_transform(value: _T) -> _T:
 def pydantic_renamed_field(
     old_name: str,
     new_name: str,
-    transform: Callable[[_T], _T] = _default_rename_transform,
+    transform: Callable = _default_rename_transform,
     print_warning: bool = True,
 ) -> classmethod:
     def _validate_field_rename(cls: Type, values: dict) -> dict:
