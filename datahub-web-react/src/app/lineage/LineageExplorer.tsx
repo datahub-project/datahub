@@ -138,8 +138,6 @@ export default function LineageExplorer({ urn, type }: Props) {
     const drawerDistanceFromTop =
         drawerRef && drawerRef.current ? drawerRef.current.offsetTop : DEFAULT_DISTANCE_FROM_TOP;
 
-    console.log(fineGrainedMap);
-
     return (
         <>
             {error && <ErrorSection />}

@@ -1,6 +1,6 @@
 import { SchemaFieldRef } from '../../../types.generated';
 import EntityRegistry from '../../entity/EntityRegistry';
-import { EntityAndType, FetchedEntities } from '../types';
+import { EntityAndType, FetchedEntities, FetchedEntity } from '../types';
 
 const breakFieldUrn = (ref: SchemaFieldRef) => {
     const before = ref.urn;
@@ -9,8 +9,13 @@ const breakFieldUrn = (ref: SchemaFieldRef) => {
     return [before, after];
 };
 
-const setEdge = (fineGrainedMap, upstreamEntityUrn, upstreamField, downstreamEntityUrn, downstreamField) => {
-    console.log(fineGrainedMap);
+function updateFineGrainedMap(
+    fineGrainedMap: any,
+    upstreamEntityUrn: string,
+    upstreamField: string,
+    downstreamEntityUrn: string,
+    downstreamField: string,
+) {
     const mapForUrn = fineGrainedMap.forward[upstreamEntityUrn] || {};
     const mapForField = mapForUrn[upstreamField] || {};
     const listForDownstream = mapForField[downstreamEntityUrn] || [];
@@ -30,7 +35,27 @@ const setEdge = (fineGrainedMap, upstreamEntityUrn, upstreamField, downstreamEnt
     fineGrainedMap.reverse[downstreamEntityUrn] = mapForUrnReverse;
     mapForUrnReverse[downstreamField] = mapForFieldReverse;
     mapForFieldReverse[upstreamEntityUrn] = listForDownstreamReverse;
-};
+}
+
+function extendColumnLineage(lineageVizConfig: FetchedEntity, fineGrainedMap: any) {
+    if (lineageVizConfig.fineGrainedLineages && lineageVizConfig.fineGrainedLineages.length > 0) {
+        lineageVizConfig.fineGrainedLineages.forEach((fineGrainedLineage) => {
+            fineGrainedLineage.upstreams?.forEach((upstream) => {
+                const [upstreamEntityUrn, upstreamField] = breakFieldUrn(upstream);
+                fineGrainedLineage.downstreams?.forEach((downstream) => {
+                    const [downstreamEntityUrn, downstreamField] = breakFieldUrn(downstream);
+                    updateFineGrainedMap(
+                        fineGrainedMap,
+                        upstreamEntityUrn,
+                        upstreamField,
+                        downstreamEntityUrn,
+                        downstreamField,
+                    );
+                });
+            });
+        });
+    }
+}
 
 export default function extendAsyncEntities(
     fineGrainedMap: any,
@@ -47,17 +72,7 @@ export default function extendAsyncEntities(
 
     if (!lineageVizConfig) return fetchedEntities;
 
-    if (lineageVizConfig.fineGrainedLineages && lineageVizConfig.fineGrainedLineages.length > 0) {
-        lineageVizConfig.fineGrainedLineages.forEach((fineGrainedLineage) => {
-            fineGrainedLineage.upstreams?.forEach((upstream) => {
-                const [upstreamEntityUrn, upstreamField] = breakFieldUrn(upstream);
-                fineGrainedLineage.downstreams?.forEach((downstream) => {
-                    const [downstreamEntityUrn, downstreamField] = breakFieldUrn(downstream);
-                    setEdge(fineGrainedMap, upstreamEntityUrn, upstreamField, downstreamEntityUrn, downstreamField);
-                });
-            });
-        });
-    }
+    extendColumnLineage(lineageVizConfig, fineGrainedMap);
 
     return {
         ...fetchedEntities,

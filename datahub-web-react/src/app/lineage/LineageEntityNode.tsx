@@ -8,12 +8,12 @@ import { IconStyleType } from '../entity/Entity';
 import { NodeData, Direction, VizNode, EntitySelectParams, EntityAndType, VizEdge } from './types';
 import { ANTD_GRAY } from '../entity/shared/constants';
 import { capitalizeFirstLetter } from '../shared/textUtil';
-import { getShortenedTitle, getTitleHeight, nodeHeightFromTitleLength } from './utils/titleUtils';
+import { getShortenedTitle, nodeHeightFromTitleLength } from './utils/titleUtils';
 import { LineageExplorerContext } from './utils/LineageExplorerContext';
 import { useGetEntityLineageLazyQuery } from '../../graphql/lineage.generated';
 import { useIsSeparateSiblingsMode } from '../entity/shared/siblingUtils';
 import { centerX, centerY, iconHeight, iconWidth, iconX, iconY, textX, width } from './constants';
-import ColumnNode from './ColumnNode';
+import LineageEntityColumns from './LineageEntityColumns';
 
 const CLICK_DELAY_THRESHOLD = 1000;
 const DRAG_DISTANCE_THRESHOLD = 20;
@@ -64,8 +64,6 @@ export default function LineageEntityNode({
         useContext(LineageExplorerContext);
     const [isExpanding, setIsExpanding] = useState(false);
     const [expandHover, setExpandHover] = useState(false);
-    const [isHoveringHide, setIsHoveringHide] = useState(false);
-    const [isHoveringShow, setIsHoveringShow] = useState(false);
     const [getAsyncEntityLineage, { data: asyncLineageData }] = useGetEntityLineageLazyQuery();
     const isHideSiblingMode = useIsSeparateSiblingsMode();
     const areColumnsCollapsed = !!collapsedColumnsNodes[node?.data?.urn || 'noop'];
@@ -110,8 +108,6 @@ export default function LineageEntityNode({
         showColumns,
         areColumnsCollapsed,
     );
-
-    const titleHeight = getTitleHeight(expandTitles ? node.data.expandedName || node.data.name : undefined);
 
     return (
         <PointerGroup data-testid={`node-${node.data.urn}-${direction}`} top={node.x} left={node.y}>
@@ -329,105 +325,7 @@ export default function LineageEntityNode({
                     </UnselectableText>
                 ) : null}
                 {showColumns && node.data.schemaMetadata && (
-                    <rect
-                        x={iconX - 21}
-                        y={centerY + 55 + titleHeight}
-                        width={width - 2}
-                        height="0.25"
-                        stroke={ANTD_GRAY[6]}
-                    />
-                )}
-                {showColumns && node.data.schemaMetadata && areColumnsCollapsed && (
-                    <Group
-                        onClick={(e) => {
-                            const newCollapsedNodes = { ...collapsedColumnsNodes };
-                            delete newCollapsedNodes[node.data.urn || 'noop'];
-                            setCollapsedColumnsNodes(newCollapsedNodes);
-                            setIsHoveringShow(false);
-                            e.stopPropagation();
-                        }}
-                        onMouseOver={(e) => {
-                            setIsHoveringShow(true);
-                            onHover(undefined);
-                            e.stopPropagation();
-                        }}
-                        onMouseOut={() => {
-                            setIsHoveringShow(false);
-                        }}
-                    >
-                        <rect
-                            x={iconX - 21}
-                            y={centerY + 57 + titleHeight}
-                            width={width - 2}
-                            height="28"
-                            fill={isHoveringShow ? ANTD_GRAY[3] : 'white'}
-                            ry="4"
-                            rx="4"
-                        />
-                        <UnselectableText
-                            dy=".33em"
-                            x={iconX}
-                            y={centerY + 70 + titleHeight}
-                            fontSize={12}
-                            fontFamily="Arial"
-                            fill="#1890FF"
-                        >
-                            Show +
-                        </UnselectableText>
-                    </Group>
-                )}
-                {showColumns && node.data.schemaMetadata && !areColumnsCollapsed && (
-                    <Group>
-                        {node.data.schemaMetadata.fields.map((field, idx) => (
-                            <ColumnNode
-                                field={field}
-                                index={idx}
-                                node={node}
-                                edgesToRender={edgesToRender}
-                                titleHeight={titleHeight}
-                                onHover={onHover}
-                            />
-                        ))}
-                        <Group
-                            onClick={(e) => {
-                                const newCollapsedNodes = {
-                                    ...collapsedColumnsNodes,
-                                    [node?.data?.urn || 'noop']: true,
-                                };
-                                setCollapsedColumnsNodes(newCollapsedNodes);
-                                setIsHoveringHide(false);
-                                e.stopPropagation();
-                            }}
-                            onMouseOver={(e) => {
-                                setIsHoveringHide(true);
-                                onHover(undefined);
-                                e.stopPropagation();
-                            }}
-                            onMouseOut={() => {
-                                setIsHoveringHide(false);
-                            }}
-                        >
-                            <rect
-                                x={iconX - 21}
-                                y={centerY + 60 + titleHeight + node.data.schemaMetadata.fields.length * 30}
-                                width={width - 2}
-                                height="29"
-                                fill={isHoveringHide ? ANTD_GRAY[3] : 'transparent'}
-                                ry="4"
-                                rx="4"
-                            />
-                            <UnselectableText
-                                dy=".33em"
-                                x={iconX}
-                                y={centerY + 75 + titleHeight + node.data.schemaMetadata.fields.length * 30}
-                                fontSize={12}
-                                fontFamily="Arial"
-                                fill="#1890FF"
-                            >
-                                Hide -
-                            </UnselectableText>
-                        </Group>
-                    </Group>
+                    <LineageEntityColumns node={node} edgesToRender={edgesToRender} onHover={onHover} />
                 )}
             </Group>
         </PointerGroup>
