@@ -13,6 +13,7 @@ import com.linkedin.metadata.query.filter.ConjunctiveCriterion;
 import com.linkedin.metadata.query.filter.Criterion;
 import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.metadata.query.filter.SortCriterion;
+import com.linkedin.metadata.search.cache.CachedEntityLineageResult;
 import com.linkedin.metadata.search.utils.FilterUtils;
 import com.linkedin.metadata.search.utils.QueryUtils;
 import com.linkedin.metadata.search.utils.SearchUtils;
@@ -30,12 +31,14 @@ import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import lombok.RequiredArgsConstructor;
 import lombok.SneakyThrows;
+import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.collections.CollectionUtils;
 import org.apache.commons.lang3.tuple.Pair;
 import org.springframework.cache.Cache;
 
 
 @RequiredArgsConstructor
+@Slf4j
 public class LineageSearchService {
   private final SearchService _searchService;
   private final GraphService _graphService;
@@ -52,6 +55,7 @@ public class LineageSearchService {
   private static final int MAX_RELATIONSHIPS = 1000000;
   private static final int MAX_TERMS = 50000;
   private static final SearchFlags SKIP_CACHE = new SearchFlags().setSkipCache(true);
+  private static final long DAY_IN_MS = 24 * 60 * 60 * 1000;
 
   /**
    * Gets a list of documents that match given search request that is related to the input entity
@@ -73,13 +77,19 @@ public class LineageSearchService {
       @Nonnull List<String> entities, @Nullable String input, @Nullable Integer maxHops, @Nullable Filter inputFilters,
       @Nullable SortCriterion sortCriterion, int from, int size) {
     // Cache multihop result for faster performance
-    EntityLineageResult lineageResult = cacheEnabled ? cache.get(Pair.of(sourceUrn, direction), EntityLineageResult.class)
-        : null;
-    if (lineageResult == null) {
+    CachedEntityLineageResult cachedLineageResult = cacheEnabled ?
+        cache.get(Pair.of(sourceUrn, direction), CachedEntityLineageResult.class) : null;
+    EntityLineageResult lineageResult;
+    if (cachedLineageResult == null) {
       maxHops = maxHops != null ? maxHops : 1000;
       lineageResult = _graphService.getLineage(sourceUrn, direction, 0, MAX_RELATIONSHIPS, maxHops);
       if (cacheEnabled) {
-        cache.put(Pair.of(sourceUrn, direction), lineageResult);
+        cache.put(Pair.of(sourceUrn, direction), new CachedEntityLineageResult(lineageResult, System.currentTimeMillis()));
+      }
+    } else {
+      lineageResult = cachedLineageResult.getEntityLineageResult();
+      if (System.currentTimeMillis() - cachedLineageResult.getTimestamp() > DAY_IN_MS) {
+        log.warn("Cached lineage entry for: {} is older than one day.", sourceUrn);
       }
     }
 
