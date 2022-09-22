@@ -2,7 +2,7 @@ import { Button, Form, Modal, Select, Tag, Tooltip } from 'antd';
 import React, { ReactNode, useRef, useState } from 'react';
 import styled from 'styled-components/macro';
 import { useGetSearchResultsLazyQuery } from '../../../../../../../graphql/search.generated';
-import { DataPlatform, Entity, EntityType } from '../../../../../../../types.generated';
+import { Container, Entity, EntityType } from '../../../../../../../types.generated';
 import { useEnterKeyListener } from '../../../../../../shared/useEnterKeyListener';
 
 type Props = {
@@ -12,7 +12,7 @@ type Props = {
     titleOverride?: string;
 };
 
-type SelectedPlatform = {
+type SelectedContainer = {
     entity?: Entity | null;
     urn: string;
 };
@@ -33,12 +33,12 @@ const PreviewImage = styled.img`
     margin-right: 4px;
 `;
 
-export const SelectPlatformModal = ({ onCloseModal, defaultValues, onOkOverride, titleOverride }: Props) => {
-    const [platformSearch, { data: platforSearchData }] = useGetSearchResultsLazyQuery();
-    const platformSearchResults =
+export const SelectContainerModal = ({ onCloseModal, defaultValues, onOkOverride, titleOverride }: Props) => {
+    const [containerSearch, { data: platforSearchData }] = useGetSearchResultsLazyQuery();
+    const containerSearchResults =
         platforSearchData?.search?.searchResults?.map((searchResult) => searchResult.entity) || [];
 
-    const [selectedPlatforms, setSelectedPlatforms] = useState<SelectedPlatform[] | undefined>(defaultValues);
+    const [selectedContainers, setSelectedContainers] = useState<SelectedContainer[] | undefined>(defaultValues);
 
     const inputEl = useRef(null);
 
@@ -47,10 +47,10 @@ export const SelectPlatformModal = ({ onCloseModal, defaultValues, onOkOverride,
     };
 
     const handleSearch = (text: string) => {
-        platformSearch({
+        containerSearch({
             variables: {
                 input: {
-                    type: EntityType.DataPlatform,
+                    type: EntityType.Container,
                     query: text,
                     start: 0,
                     count: 5,
@@ -60,64 +60,64 @@ export const SelectPlatformModal = ({ onCloseModal, defaultValues, onOkOverride,
     };
 
     // Renders a search result in the select dropdown.
-    const renderSearchResult = (entity: DataPlatform) => {
-        const displayName = entity.properties?.displayName || entity.name;
+    const renderSearchResult = (entity: Container) => {
+        const displayName = entity.properties?.name || entity.properties?.qualifiedName || entity.urn;
         const truncatedDisplayName = displayName.length > 25 ? `${displayName.slice(0, 25)}...` : displayName;
         return (
             <Tooltip title={displayName}>
-                {!!entity.properties?.logoUrl && <PreviewImage src={entity?.properties?.logoUrl} alt={entity?.name} />}
+                <PreviewImage src={entity.platform?.properties?.logoUrl || undefined} alt={entity.properties?.name} />
                 <span>{truncatedDisplayName}</span>
             </Tooltip>
         );
     };
 
-    const platformSearchOptions = platformSearchResults?.map((result) => {
+    const containerSearchOptions = containerSearchResults?.map((result) => {
         return (
             <Select.Option value={result.urn} key={result.urn}>
-                {renderSearchResult(result as DataPlatform)}
+                {renderSearchResult(result as Container)}
             </Select.Option>
         );
     });
 
-    const onSelectPlatform = (newValue: { value: string; label: ReactNode }) => {
+    const onSelectContainer = (newValue: { value: string; label: ReactNode }) => {
         const newUrn = newValue.value;
 
         if (inputEl && inputEl.current) {
             (inputEl.current as any).blur();
         }
 
-        const filteredPlatforms =
-            platformSearchResults?.filter((entity) => entity.urn === newUrn).map((entity) => entity) || [];
+        const filteredContainers =
+            containerSearchResults?.filter((entity) => entity.urn === newUrn).map((entity) => entity) || [];
 
-        if (filteredPlatforms.length) {
-            const platform = filteredPlatforms[0] as DataPlatform;
-            setSelectedPlatforms([
-                ...(selectedPlatforms || []),
+        if (filteredContainers.length) {
+            const container = filteredContainers[0] as Container;
+            setSelectedContainers([
+                ...(selectedContainers || []),
                 {
-                    entity: platform,
+                    entity: container,
                     urn: newUrn,
                 },
             ]);
         }
     };
 
-    const onDeselectPlatform = (val) => {
-        setSelectedPlatforms(selectedPlatforms?.filter((platform) => platform.urn !== val.value));
+    const onDeselectContainer = (val) => {
+        setSelectedContainers(selectedContainers?.filter((container) => container.urn !== val.value));
     };
 
     const onOk = async () => {
-        if (!selectedPlatforms) {
+        if (!selectedContainers) {
             return;
         }
 
         if (onOkOverride) {
-            onOkOverride(selectedPlatforms?.map((platform) => platform.urn));
+            onOkOverride(selectedContainers?.map((container) => container.urn));
         }
     };
 
     // Handle the Enter press
     useEnterKeyListener({
-        querySelectorToExecuteClick: '#setPlatformButton',
+        querySelectorToExecuteClick: '#setContainerButton',
     });
 
     const tagRender = (props) => {
@@ -136,7 +136,7 @@ export const SelectPlatformModal = ({ onCloseModal, defaultValues, onOkOverride,
 
     return (
         <Modal
-            title={titleOverride || 'Select Platform'}
+            title={titleOverride || 'Select Container'}
             visible
             onCancel={onModalClose}
             footer={
@@ -144,7 +144,7 @@ export const SelectPlatformModal = ({ onCloseModal, defaultValues, onOkOverride,
                     <Button onClick={onModalClose} type="text">
                         Cancel
                     </Button>
-                    <Button id="setPlatformButton" disabled={selectedPlatforms?.length === 0} onClick={onOk}>
+                    <Button id="setContainerButton" disabled={selectedContainers?.length === 0} onClick={onOk}>
                         Add
                     </Button>
                 </>
@@ -158,26 +158,26 @@ export const SelectPlatformModal = ({ onCloseModal, defaultValues, onOkOverride,
                         showSearch
                         mode="multiple"
                         defaultActiveFirstOption={false}
-                        placeholder="Search for Platforms..."
-                        onSelect={(platformUrn: any) => onSelectPlatform(platformUrn)}
-                        onDeselect={onDeselectPlatform}
+                        placeholder="Search for Containers..."
+                        onSelect={(containerUrn: any) => onSelectContainer(containerUrn)}
+                        onDeselect={onDeselectContainer}
                         onSearch={(value: string) => {
                             // eslint-disable-next-line react/prop-types
                             handleSearch(value.trim());
                         }}
                         ref={inputEl}
                         labelInValue
-                        value={selectedPlatforms?.map((platform) => ({
-                            value: platform.urn,
-                            label: platform.entity ? (
-                                renderSearchResult(platform.entity as DataPlatform)
+                        value={selectedContainers?.map((container) => ({
+                            value: container.urn,
+                            label: container.entity ? (
+                                renderSearchResult(container.entity as Container)
                             ) : (
-                                <span>{platform.urn}</span>
+                                <span>{container.urn}</span>
                             ),
                         }))}
                         tagRender={tagRender}
                     >
-                        {platformSearchOptions}
+                        {containerSearchOptions}
                     </Select>
                 </Form.Item>
             </Form>
