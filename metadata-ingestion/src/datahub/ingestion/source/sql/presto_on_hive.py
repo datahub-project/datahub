@@ -405,8 +405,9 @@ class PrestoOnHiveSource(SQLAlchemySource):
         iter_res = self._alchemy_client.execute_query(statement)
 
         for key, group in groupby(iter_res, self._get_table_key):
+            db_name = self.get_db_name(inspector)
             dataset_name = self.get_identifier(
-                schema=key.schema, entity=key.table, inspector=inspector
+                schema=f"{db_name}.{key.schema}", entity=key.table, inspector=inspector
             )
             self.report.report_entity_scanned(dataset_name, ent_type="table")
 
@@ -518,8 +519,9 @@ class PrestoOnHiveSource(SQLAlchemySource):
 
         iter_res = self._alchemy_client.execute_query(statement)
         for key, group in groupby(iter_res, self._get_table_key):
+            db_name = self.get_db_name(inspector)
             dataset_name = self.get_identifier(
-                schema=key.schema, entity=key.table, inspector=inspector
+                schema=f"{db_name}.{key.schema}", entity=key.table, inspector=inspector
             )
             columns = list(group)
 
@@ -550,8 +552,11 @@ class PrestoOnHiveSource(SQLAlchemySource):
 
         iter_res = self._alchemy_client.execute_query(statement)
         for row in iter_res:
+            db_name = self.get_db_name(inspector)
             dataset_name = self.get_identifier(
-                schema=row["schema"], entity=row["name"], inspector=inspector
+                schema=f"{db_name}.{row['schema']}",
+                entity=row["name"],
+                inspector=inspector,
             )
 
             columns, view_definition = self._get_presto_view_column_metadata(
