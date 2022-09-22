@@ -114,7 +114,6 @@ export default function LineageTreeNodeAndEdgeRenderer({
                         direction={direction}
                         isCenterNode={data.urn === node.data.urn}
                         nodesToRenderByUrn={nodesByUrn}
-                        edgesToRender={edgesToRender}
                         onDrag={onDrag}
                     />
                 );

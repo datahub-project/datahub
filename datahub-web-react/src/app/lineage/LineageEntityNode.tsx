@@ -5,7 +5,7 @@ import styled from 'styled-components';
 
 import { useEntityRegistry } from '../useEntityRegistry';
 import { IconStyleType } from '../entity/Entity';
-import { NodeData, Direction, VizNode, EntitySelectParams, EntityAndType, VizEdge } from './types';
+import { NodeData, Direction, VizNode, EntitySelectParams, EntityAndType } from './types';
 import { ANTD_GRAY } from '../entity/shared/constants';
 import { capitalizeFirstLetter } from '../shared/textUtil';
 import { getShortenedTitle, nodeHeightFromTitleLength } from './utils/titleUtils';
@@ -44,7 +44,6 @@ export default function LineageEntityNode({
     onExpandClick,
     direction,
     isCenterNode,
-    edgesToRender,
     nodesToRenderByUrn,
 }: {
     node: { x: number; y: number; data: Omit<NodeData, 'children'> };
@@ -57,7 +56,6 @@ export default function LineageEntityNode({
     onDrag: (params: EntitySelectParams, event: React.MouseEvent) => void;
     onExpandClick: (data: EntityAndType) => void;
     direction: Direction;
-    edgesToRender: VizEdge[];
     nodesToRenderByUrn: Record<string, VizNode>;
 }) {
     const { expandTitles, collapsedColumnsNodes, showColumns } = useContext(LineageExplorerContext);
@@ -323,9 +321,7 @@ export default function LineageEntityNode({
                         {unexploredHiddenChildren > 1 ? 'dependencies' : 'dependency'}
                     </UnselectableText>
                 ) : null}
-                {showColumns && node.data.schemaMetadata && (
-                    <LineageEntityColumns node={node} edgesToRender={edgesToRender} onHover={onHover} />
-                )}
+                {showColumns && node.data.schemaMetadata && <LineageEntityColumns node={node} onHover={onHover} />}
             </Group>
         </PointerGroup>
     );

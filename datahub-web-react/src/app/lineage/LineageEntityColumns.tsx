@@ -1,7 +1,7 @@
 import React, { useContext, useState } from 'react';
 import { Group } from '@vx/group';
 import styled from 'styled-components';
-import { NodeData, EntitySelectParams, VizEdge } from './types';
+import { NodeData, EntitySelectParams } from './types';
 import { ANTD_GRAY } from '../entity/shared/constants';
 import { getTitleHeight } from './utils/titleUtils';
 import { LineageExplorerContext } from './utils/LineageExplorerContext';
@@ -14,11 +14,10 @@ const UnselectableText = styled.text`
 
 interface Props {
     node: { x: number; y: number; data: Omit<NodeData, 'children'> };
-    edgesToRender: VizEdge[];
     onHover: (params?: EntitySelectParams) => void;
 }
 
-export default function LineageEntityColumns({ node, edgesToRender, onHover }: Props) {
+export default function LineageEntityColumns({ node, onHover }: Props) {
     const { expandTitles, collapsedColumnsNodes, setCollapsedColumnsNodes } = useContext(LineageExplorerContext);
     const [isHoveringHide, setIsHoveringHide] = useState(false);
     const [isHoveringShow, setIsHoveringShow] = useState(false);
@@ -71,14 +70,7 @@ export default function LineageEntityColumns({ node, edgesToRender, onHover }: P
             {!areColumnsCollapsed && (
                 <Group>
                     {node.data.schemaMetadata?.fields.map((field, idx) => (
-                        <ColumnNode
-                            field={field}
-                            index={idx}
-                            node={node}
-                            edgesToRender={edgesToRender}
-                            titleHeight={titleHeight}
-                            onHover={onHover}
-                        />
+                        <ColumnNode field={field} index={idx} node={node} titleHeight={titleHeight} onHover={onHover} />
                     ))}
                     <Group
                         onClick={(e) => {

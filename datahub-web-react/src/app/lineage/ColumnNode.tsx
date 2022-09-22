@@ -3,7 +3,7 @@ import styled from 'styled-components/macro';
 import { Group } from '@vx/group';
 import { SchemaField } from '../../types.generated';
 import { downgradeV2FieldPath } from '../entity/dataset/profile/schema/utils/utils';
-import { NodeData, VizEdge } from './types';
+import { NodeData } from './types';
 import { LineageExplorerContext } from './utils/LineageExplorerContext';
 import { ANTD_GRAY } from '../entity/shared/constants';
 import { centerY, iconX, width } from './constants';
@@ -21,36 +21,35 @@ interface Props {
     field: SchemaField;
     index: number;
     node: { x: number; y: number; data: Omit<NodeData, 'children'> };
-    edgesToRender: VizEdge[];
     titleHeight: number;
     onHover: (EntitySelectParams) => void;
 }
 
-export default function ColumnNode({ field, index, node, edgesToRender, titleHeight, onHover }: Props) {
+export default function ColumnNode({ field, index, node, titleHeight, onHover }: Props) {
     const { highlightedEdges, setHighlightedEdges, selectedField, setSelectedField, fineGrainedMap } =
         useContext(LineageExplorerContext);
     const [showHoverText, setShowHoverText] = useState(false);
 
-    const isFieldSelected = selectedField?.urn === node?.data?.urn && selectedField?.path === field.fieldPath;
+    const nodeUrn = node.data.urn;
+    const isFieldSelected = selectedField?.urn === nodeUrn && selectedField?.path === field.fieldPath;
     const isFieldHighlighted = highlightedEdges.find(
         (edge) =>
-            (edge.sourceUrn === node.data.urn && edge.sourceField === field.fieldPath) ||
-            (edge.targetUrn === node.data.urn && edge.targetField === field.fieldPath),
+            (edge.sourceUrn === nodeUrn && edge.sourceField === field.fieldPath) ||
+            (edge.targetUrn === nodeUrn && edge.targetField === field.fieldPath),
     );
 
-    const fieldEdge = edgesToRender.find(
-        (edge) =>
-            (edge.source.data.urn === node.data.urn && edge.sourceField === field.fieldPath) ||
-            (edge.target.data.urn === node.data.urn && edge.targetField === field.fieldPath),
-    );
+    const hasEdge =
+        nodeUrn &&
+        ((fineGrainedMap.forward[nodeUrn] && fineGrainedMap.forward[nodeUrn][field.fieldPath]) ||
+            (fineGrainedMap.reverse[nodeUrn] && fineGrainedMap.reverse[nodeUrn][field.fieldPath]));
     const fieldPath = downgradeV2FieldPath(field.fieldPath);
     const isTruncated = fieldPath && fieldPath.length > MAX_NUM_FIELD_CHARACTERS;
 
     return (
         <Group
             onMouseOver={(e) => {
-                if (fieldEdge && (!selectedField || isFieldSelected)) {
-                    highlightColumnLineage(field.fieldPath, fineGrainedMap, node.data.urn || '', setHighlightedEdges);
+                if (hasEdge && (!selectedField || isFieldSelected)) {
+                    highlightColumnLineage(field.fieldPath, fineGrainedMap, nodeUrn || '', setHighlightedEdges);
                     onHover(undefined);
                     e.stopPropagation();
                 }
@@ -61,18 +60,13 @@ export default function ColumnNode({ field, index, node, edgesToRender, titleHei
                 }
             }}
             onClick={(e) => {
-                if (fieldEdge) {
+                if (hasEdge) {
                     if (!isFieldSelected) {
                         setSelectedField({
-                            urn: node.data.urn as string,
+                            urn: nodeUrn as string,
                             path: field.fieldPath,
                         });
-                        highlightColumnLineage(
-                            field.fieldPath,
-                            fineGrainedMap,
-                            node.data.urn || '',
-                            setHighlightedEdges,
-                        );
+                        highlightColumnLineage(field.fieldPath, fineGrainedMap, nodeUrn || '', setHighlightedEdges);
                     } else {
                         setSelectedField(null);
                     }
@@ -88,7 +82,7 @@ export default function ColumnNode({ field, index, node, edgesToRender, titleHei
                 width={width - 2}
                 height="29"
                 fill={isFieldSelected ? '#e7f3ff' : 'white'}
-                stroke={isFieldHighlighted && fieldEdge ? '#1890FF' : 'transparent'}
+                stroke={isFieldHighlighted && hasEdge ? '#1890FF' : 'transparent'}
                 strokeWidth="1px"
                 ry="4"
                 rx="4"
@@ -113,7 +107,7 @@ export default function ColumnNode({ field, index, node, edgesToRender, titleHei
                         y={centerY + 45 + titleHeight + index * 30}
                         fontSize={12}
                         fontFamily="'Roboto Mono',monospace"
-                        fill={fieldEdge ? 'black' : ANTD_GRAY[7]}
+                        fill={hasEdge ? 'black' : ANTD_GRAY[7]}
                     >
                         {fieldPath}
                     </UnselectableText>
@@ -125,7 +119,7 @@ export default function ColumnNode({ field, index, node, edgesToRender, titleHei
                 y={centerY + 75 + titleHeight + index * 30}
                 fontSize={12}
                 fontFamily="'Roboto Mono',monospace"
-                fill={fieldEdge ? 'black' : ANTD_GRAY[7]}
+                fill={hasEdge ? 'black' : ANTD_GRAY[7]}
                 onMouseEnter={() => {
                     if (isTruncated) setShowHoverText(true);
                 }}
