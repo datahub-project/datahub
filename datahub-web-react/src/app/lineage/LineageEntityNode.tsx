@@ -60,8 +60,7 @@ export default function LineageEntityNode({
     edgesToRender: VizEdge[];
     nodesToRenderByUrn: Record<string, VizNode>;
 }) {
-    const { expandTitles, collapsedColumnsNodes, setCollapsedColumnsNodes, showColumns } =
-        useContext(LineageExplorerContext);
+    const { expandTitles, collapsedColumnsNodes, showColumns } = useContext(LineageExplorerContext);
     const [isExpanding, setIsExpanding] = useState(false);
     const [expandHover, setExpandHover] = useState(false);
     const [getAsyncEntityLineage, { data: asyncLineageData }] = useGetEntityLineageLazyQuery();

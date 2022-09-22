@@ -107,7 +107,7 @@ export default function LineageTreeNodeAndEdgeRenderer({
                         node={node}
                         isSelected={isSelected}
                         isHovered={isHovered}
-                        onHover={(select: EntitySelectParams) => setHoveredEntity(select)}
+                        onHover={(select?: EntitySelectParams) => setHoveredEntity(select)}
                         onEntityClick={onEntityClick}
                         onEntityCenter={onEntityCenter}
                         onExpandClick={onLineageExpand}

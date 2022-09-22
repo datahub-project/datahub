@@ -15,7 +15,7 @@ const UnselectableText = styled.text`
 interface Props {
     node: { x: number; y: number; data: Omit<NodeData, 'children'> };
     edgesToRender: VizEdge[];
-    onHover: (EntitySelectParams) => void;
+    onHover: (params?: EntitySelectParams) => void;
 }
 
 export default function LineageEntityColumns({ node, edgesToRender, onHover }: Props) {
