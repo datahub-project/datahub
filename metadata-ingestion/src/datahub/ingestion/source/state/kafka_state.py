@@ -57,3 +57,18 @@ class KafkaCheckpointState(StaleEntityCheckpointStateBase["KafkaCheckpointState"
             yield from self._get_urns_not_in(
                 self.encoded_topic_urns, other_checkpoint_state.encoded_topic_urns
             )
+
+    def get_percent_entities_changed(
+        self, old_checkpoint_state: "KafkaCheckpointState"
+    ) -> float:
+        (
+            overlap_count,
+            old_count,
+            _,
+        ) = StaleEntityCheckpointStateBase.get_entity_overlap_and_cardinalities(
+            new_entities=self.encoded_topic_urns,
+            old_entities=old_checkpoint_state.encoded_topic_urns,
+        )
+        if old_count:
+            return overlap_count * 100.0 / old_count
+        return 0.0

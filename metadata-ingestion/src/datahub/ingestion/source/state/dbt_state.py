@@ -84,6 +84,28 @@ class DbtCheckpointState(StaleEntityCheckpointStateBase["DbtCheckpointState"]):
         elif type == "assertion":
             yield from self._get_assertion_urns_not_in(other_checkpoint_state)
 
+    def get_percent_entities_changed(
+        self, old_checkpoint_state: "DbtCheckpointState"
+    ) -> float:
+        old_count_all = 0
+        overlap_count_all = 0
+        for new_entities, old_entities in [
+            (self.encoded_node_urns, old_checkpoint_state.encoded_node_urns),
+            (self.encoded_assertion_urns, old_checkpoint_state.encoded_assertion_urns),
+        ]:
+            (
+                overlap_count,
+                old_count,
+                _,
+            ) = StaleEntityCheckpointStateBase.get_entity_overlap_and_cardinalities(
+                new_entities=new_entities, old_entities=old_entities
+            )
+            overlap_count_all += overlap_count
+            old_count_all += old_count
+        if old_count_all:
+            return overlap_count * 100.0 / old_count_all
+        return 0.0
+
     def prepare_for_commit(self) -> None:
         self.encoded_node_urns = list(set(self.encoded_node_urns))
         self.encoded_assertion_urns = list(set(self.encoded_assertion_urns))
