@@ -173,12 +173,10 @@ class GenericFileSource(TestableSource):
         return cls(ctx, config)
 
     def get_filenames(self) -> Iterable[str]:
-        is_file = self.config.path.is_file()
-        is_dir = self.config.path.is_dir()
-        if is_file:
+        if self.config.path.is_file():
             self.report.total_num_files = 1
             return [str(self.config.path)]
-        if is_dir:
+        elif self.config.path.is_dir():
             files_and_stats = [
                 (str(x), os.path.getsize(x))
                 for x in list(self.config.path.glob(f"*{self.config.file_extension}"))
