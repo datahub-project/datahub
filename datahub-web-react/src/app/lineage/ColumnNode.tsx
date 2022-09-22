@@ -3,11 +3,12 @@ import styled from 'styled-components/macro';
 import { Group } from '@vx/group';
 import { SchemaField } from '../../types.generated';
 import { downgradeV2FieldPath } from '../entity/dataset/profile/schema/utils/utils';
-import { ColumnEdge, NodeData, VizEdge } from './types';
+import { NodeData, VizEdge } from './types';
 import { LineageExplorerContext } from './utils/LineageExplorerContext';
 import { ANTD_GRAY } from '../entity/shared/constants';
 import { centerY, iconX, width } from './constants';
 import { truncate } from '../entity/shared/utils';
+import { highlightColumnLineage } from './utils/highlightColumnLineage';
 
 const MAX_NUM_FIELD_CHARACTERS = 25;
 const HOVER_TEXT_SHIFT = 10;
@@ -30,41 +31,6 @@ export default function ColumnNode({ field, index, node, edgesToRender, titleHei
         useContext(LineageExplorerContext);
     const [showHoverText, setShowHoverText] = useState(false);
 
-    function highlightDownstreamColumnLineage(sourceField: string, sourceUrn: string, edges: ColumnEdge[]) {
-        const forwardLineage = fineGrainedMap.forward[sourceUrn]?.[sourceField];
-        if (forwardLineage) {
-            Object.entries(forwardLineage).forEach((entry) => {
-                const [targetUrn, fieldPaths] = entry;
-                (fieldPaths as string[]).forEach((targetField) => {
-                    edges.push({ sourceUrn, sourceField, targetUrn, targetField });
-                    highlightDownstreamColumnLineage(targetField, targetUrn, edges);
-                });
-            });
-        }
-    }
-
-    function highlightUpstreamColumnLineage(targetField: string, targetUrn: string, edges: ColumnEdge[]) {
-        const reverseLineage = fineGrainedMap.reverse[targetUrn]?.[targetField];
-        if (reverseLineage) {
-            Object.entries(reverseLineage).forEach((entry) => {
-                const [sourceUrn, fieldPaths] = entry;
-                (fieldPaths as string[]).forEach((sourceField) => {
-                    edges.push({ targetUrn, targetField, sourceUrn, sourceField });
-                    highlightUpstreamColumnLineage(sourceField, sourceUrn, edges);
-                });
-            });
-        }
-    }
-
-    function highlightColumnLineage(fieldPath: string, urn?: string) {
-        const edgesToHighlight: ColumnEdge[] = [];
-        if (urn) {
-            highlightDownstreamColumnLineage(fieldPath, urn, edgesToHighlight);
-            highlightUpstreamColumnLineage(fieldPath, urn, edgesToHighlight);
-        }
-        setHighlightedEdges(edgesToHighlight);
-    }
-
     const isFieldSelected = selectedField?.urn === node?.data?.urn && selectedField?.path === field.fieldPath;
     const isFieldHighlighted = highlightedEdges.find(
         (edge) =>
@@ -84,7 +50,7 @@ export default function ColumnNode({ field, index, node, edgesToRender, titleHei
         <Group
             onMouseOver={(e) => {
                 if (fieldEdge && (!selectedField || isFieldSelected)) {
-                    highlightColumnLineage(field.fieldPath, node.data.urn);
+                    highlightColumnLineage(field.fieldPath, fineGrainedMap, node.data.urn || '', setHighlightedEdges);
                     onHover(undefined);
                     e.stopPropagation();
                 }
@@ -101,7 +67,12 @@ export default function ColumnNode({ field, index, node, edgesToRender, titleHei
                             urn: node.data.urn as string,
                             path: field.fieldPath,
                         });
-                        highlightColumnLineage(field.fieldPath, node.data.urn);
+                        highlightColumnLineage(
+                            field.fieldPath,
+                            fineGrainedMap,
+                            node.data.urn || '',
+                            setHighlightedEdges,
+                        );
                     } else {
                         setSelectedField(null);
                     }
