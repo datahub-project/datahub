@@ -9,6 +9,7 @@ from confluent_kafka.serialization import SerializationContext, StringSerializer
 
 from datahub.configuration.common import ConfigModel
 from datahub.configuration.kafka import KafkaProducerConnectionConfig
+from datahub.configuration.validate_field_rename import pydantic_renamed_field
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.metadata.schema_classes import (
     MetadataChangeEventClass as MetadataChangeEvent,
@@ -36,6 +37,15 @@ class KafkaEmitterConfig(ConfigModel):
         MCE_KEY: DEFAULT_MCE_KAFKA_TOPIC,
         MCP_KEY: DEFAULT_MCP_KAFKA_TOPIC,
     }
+
+    _topic_field_compat = pydantic_renamed_field(
+        "topic",
+        "topic_routes",
+        transform=lambda x: {
+            MCE_KEY: x,
+            MCP_KEY: DEFAULT_MCP_KAFKA_TOPIC,
+        },
+    )
 
     @pydantic.validator("topic_routes")
     def validate_topic_routes(cls, v: Dict[str, str]) -> Dict[str, str]:

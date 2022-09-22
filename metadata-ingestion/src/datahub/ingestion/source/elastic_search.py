@@ -51,7 +51,7 @@ from datahub.metadata.schema_classes import (
     StringTypeClass,
     SubTypesClass,
 )
-from datahub.utilities.config_clean import remove_protocol, remove_trailing_slashes
+from datahub.utilities.config_clean import remove_protocol
 
 logger = logging.getLogger(__name__)
 
@@ -250,7 +250,9 @@ class ElasticsearchSourceConfig(DatasetSourceConfigBase):
     def host_colon_port_comma(cls, host_val: str) -> str:
         for entry in host_val.split(","):
             entry = remove_protocol(entry)
-            entry = remove_trailing_slashes(entry)
+            for suffix in ["/"]:
+                if entry.endswith(suffix):
+                    entry = entry[: -len(suffix)]
             validate_host_port(entry)
         return host_val
 
