@@ -293,23 +293,8 @@ export default function LineageVizInsideZoom({
                     </defs>
                     <rect width={width} height={height} fill="#fafafa" />
                     <LineageTree
-                        data={upstreamData}
-                        zoom={zoom}
-                        onEntityClick={onEntityClick}
-                        onEntityCenter={onEntityCenter}
-                        onLineageExpand={onLineageExpand}
-                        margin={margin}
-                        selectedEntity={selectedEntity}
-                        hoveredEntity={hoveredEntity}
-                        setHoveredEntity={setHoveredEntity}
-                        direction={Direction.Upstream}
-                        canvasHeight={height}
-                        setIsDraggingNode={setIsDraggingNode}
-                        draggedNodes={draggedNodes}
-                        setDraggedNodes={setDraggedNodes}
-                    />
-                    <LineageTree
-                        data={downstreamData}
+                        upstreamData={upstreamData}
+                        downstreamData={downstreamData}
                         zoom={zoom}
                         onEntityClick={onEntityClick}
                         onEntityCenter={onEntityCenter}

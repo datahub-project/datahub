@@ -5,7 +5,7 @@ import styled from 'styled-components';
 
 import { useEntityRegistry } from '../useEntityRegistry';
 import { IconStyleType } from '../entity/Entity';
-import { NodeData, Direction, VizNode, EntitySelectParams, EntityAndType } from './types';
+import { Direction, VizNode, EntitySelectParams, EntityAndType } from './types';
 import { ANTD_GRAY } from '../entity/shared/constants';
 import { capitalizeFirstLetter } from '../shared/textUtil';
 import { getShortenedTitle, nodeHeightFromTitleLength } from './utils/titleUtils';
@@ -42,11 +42,10 @@ export default function LineageEntityNode({
     onHover,
     onDrag,
     onExpandClick,
-    direction,
     isCenterNode,
     nodesToRenderByUrn,
 }: {
-    node: { x: number; y: number; data: Omit<NodeData, 'children'> };
+    node: VizNode;
     isSelected: boolean;
     isHovered: boolean;
     isCenterNode: boolean;
@@ -55,9 +54,9 @@ export default function LineageEntityNode({
     onHover: (EntitySelectParams) => void;
     onDrag: (params: EntitySelectParams, event: React.MouseEvent) => void;
     onExpandClick: (data: EntityAndType) => void;
-    direction: Direction;
     nodesToRenderByUrn: Record<string, VizNode>;
 }) {
+    const { direction } = node;
     const { expandTitles, collapsedColumnsNodes, showColumns } = useContext(LineageExplorerContext);
     const [isExpanding, setIsExpanding] = useState(false);
     const [expandHover, setExpandHover] = useState(false);

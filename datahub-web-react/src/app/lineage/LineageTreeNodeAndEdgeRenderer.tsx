@@ -111,7 +111,6 @@ export default function LineageTreeNodeAndEdgeRenderer({
                         onEntityClick={onEntityClick}
                         onEntityCenter={onEntityCenter}
                         onExpandClick={onLineageExpand}
-                        direction={direction}
                         isCenterNode={data.urn === node.data.urn}
                         nodesToRenderByUrn={nodesByUrn}
                         onDrag={onDrag}

@@ -18,7 +18,7 @@ const HEADER_HEIGHT = 125;
 const UPSTREAM_X_MODIFIER = -1;
 const UPSTREAM_DIRECTION_SHIFT = -20;
 
-export default function layoutTree(
+function layoutNodesForOneDirection(
     data: NodeData,
     direction: Direction,
     draggedNodes: Record<string, { x: number; y: number }>,
@@ -26,23 +26,14 @@ export default function layoutTree(
     expandTitles: boolean,
     showColumns: boolean,
     collapsedColumnsNodes: any,
-    fineGrainedMap: any,
-): {
-    nodesToRender: VizNode[];
-    edgesToRender: VizEdge[];
-    nodesByUrn: Record<string, VizNode>;
-    height: number;
-    layers: number;
-} {
-    const nodesToRender: VizNode[] = [];
-    const edgesToRender: VizEdge[] = [];
-    let maxHeight = 0;
-
+    nodesToRender: VizNode[],
+    edgesToRender: VizEdge[],
+) {
     const nodesByUrn: Record<string, VizNode> = {};
     const xModifier = direction === Direction.Downstream ? 1 : UPSTREAM_X_MODIFIER;
     const directionShift = direction === Direction.Downstream ? 0 : UPSTREAM_DIRECTION_SHIFT;
 
-    let currentLayer = 0;
+    let numInCurrentLayer = 0;
     let nodesInCurrentLayer: ProcessArray = [{ parent: null, node: data }];
     let nodesInNextLayer: ProcessArray = [];
 
@@ -58,19 +49,6 @@ export default function layoutTree(
             .filter(({ node }) => node.status?.removed !== true);
 
         const layerSize = filteredNodesInCurrentLayer.length;
-
-        const layerHeight = filteredNodesInCurrentLayer
-            .map(({ node }) =>
-                nodeHeightFromTitleLength(
-                    expandTitles ? node.expandedName || node.name : undefined,
-                    node.schemaMetadata,
-                    showColumns,
-                    !!collapsedColumnsNodes[node?.urn || 'no-op'],
-                ),
-            )
-            .reduce((acc, height) => acc + height, 0);
-
-        maxHeight = Math.max(maxHeight, layerHeight);
 
         // approximate the starting position assuming each node has a 1 line title (its ok to be a bit off here)
         let currentXPosition =
@@ -100,11 +78,13 @@ export default function layoutTree(
                               data: node,
                               x: draggedNodes[node.urn].x,
                               y: draggedNodes[node.urn].y,
+                              direction,
                           }
                         : {
                               data: node,
                               x: currentXPosition,
-                              y: HORIZONTAL_SPACE_PER_LAYER * currentLayer * xModifier, // can make this diff depending on node width
+                              y: HORIZONTAL_SPACE_PER_LAYER * numInCurrentLayer * xModifier, // can make this diff depending on node width
+                              direction,
                           };
                 currentXPosition +=
                     nodeHeightFromTitleLength(
@@ -166,9 +146,19 @@ export default function layoutTree(
 
         nodesInCurrentLayer = nodesInNextLayer;
         nodesInNextLayer = [];
-        currentLayer++;
+        numInCurrentLayer++;
     }
+    return { numInCurrentLayer, nodesByUrn };
+}
 
+function layoutColumnTree(
+    fineGrainedMap: any,
+    showColumns: boolean,
+    nodesToRender: VizNode[],
+    expandTitles: boolean,
+    collapsedColumnsNodes: any,
+    edgesToRender: VizEdge[],
+) {
     const forwardEdges = fineGrainedMap.forward;
     if (showColumns) {
         Object.keys(forwardEdges).forEach((entityUrn) => {
@@ -259,6 +249,53 @@ export default function layoutTree(
             });
         });
     }
+}
 
-    return { nodesToRender, edgesToRender, height: maxHeight, layers: currentLayer - 1, nodesByUrn };
+export default function layoutTree(
+    upstreamData: NodeData,
+    downstreamData: NodeData,
+    draggedNodes: Record<string, { x: number; y: number }>,
+    canvasHeight: number,
+    expandTitles: boolean,
+    showColumns: boolean,
+    collapsedColumnsNodes: any,
+    fineGrainedMap: any,
+): {
+    nodesToRender: VizNode[];
+    edgesToRender: VizEdge[];
+    nodesByUrn: Record<string, VizNode>;
+    layers: number;
+} {
+    const nodesToRender: VizNode[] = [];
+    const edgesToRender: VizEdge[] = [];
+
+    const { numInCurrentLayer: numUpstream, nodesByUrn: upstreamNodesByUrn } = layoutNodesForOneDirection(
+        upstreamData,
+        Direction.Upstream,
+        draggedNodes,
+        canvasHeight,
+        expandTitles,
+        showColumns,
+        collapsedColumnsNodes,
+        nodesToRender,
+        edgesToRender,
+    );
+
+    const { numInCurrentLayer: numDownstream, nodesByUrn: downstreamNodesByUrn } = layoutNodesForOneDirection(
+        downstreamData,
+        Direction.Downstream,
+        draggedNodes,
+        canvasHeight,
+        expandTitles,
+        showColumns,
+        collapsedColumnsNodes,
+        nodesToRender,
+        edgesToRender,
+    );
+
+    const nodesByUrn = { ...upstreamNodesByUrn, ...downstreamNodesByUrn };
+
+    layoutColumnTree(fineGrainedMap, showColumns, nodesToRender, expandTitles, collapsedColumnsNodes, edgesToRender);
+
+    return { nodesToRender, edgesToRender, layers: numUpstream + numDownstream - 1, nodesByUrn };
 }

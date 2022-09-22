@@ -72,6 +72,7 @@ export type VizNode = {
     x: number;
     y: number;
     data: NodeData;
+    direction: Direction;
 };
 
 export type VizEdge = {

@@ -7,7 +7,8 @@ import layoutTree from './utils/layoutTree';
 import { LineageExplorerContext } from './utils/LineageExplorerContext';
 
 type LineageTreeProps = {
-    data: NodeData;
+    upstreamData: NodeData;
+    downstreamData: NodeData;
     zoom: {
         transformMatrix: TransformMatrix;
     };
@@ -26,7 +27,8 @@ type LineageTreeProps = {
 };
 
 export default function LineageTree({
-    data,
+    upstreamData,
+    downstreamData,
     zoom,
     margin,
     onEntityClick,
@@ -46,15 +48,15 @@ export default function LineageTree({
 
     useEffect(() => {
         setXCanvasScale(1);
-    }, [data.urn]);
+    }, [upstreamData.urn]);
 
     let dragState: { urn: string; x: number; y: number } | undefined;
 
     const { nodesToRender, edgesToRender, nodesByUrn, layers } = useMemo(
         () =>
             layoutTree(
-                data,
-                direction,
+                upstreamData,
+                downstreamData,
                 draggedNodes,
                 canvasHeight,
                 expandTitles,
@@ -62,7 +64,16 @@ export default function LineageTree({
                 collapsedColumnsNodes,
                 fineGrainedMap,
             ),
-        [data, direction, draggedNodes, canvasHeight, expandTitles, showColumns, collapsedColumnsNodes, fineGrainedMap],
+        [
+            upstreamData,
+            downstreamData,
+            draggedNodes,
+            canvasHeight,
+            expandTitles,
+            showColumns,
+            collapsedColumnsNodes,
+            fineGrainedMap,
+        ],
     );
 
     const dragContinue = (event: MouseEvent) => {
@@ -104,7 +115,7 @@ export default function LineageTree({
 
     return (
         <LineageTreeNodeAndEdgeRenderer
-            data={data}
+            data={downstreamData}
             onDrag={onDrag}
             nodesToRender={nodesToRender}
             edgesToRender={edgesToRender}
