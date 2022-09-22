@@ -1,6 +1,5 @@
 import time
 import uuid
-from dataclasses import field
 from typing import Optional
 
 from datahub.emitter.mce_builder import (
@@ -29,7 +28,7 @@ from datahub.metadata.schema_classes import (
 from datahub.specific.dataset import DatasetPatchBuilder
 
 
-def test_dataset_ownership_patch():
+def test_dataset_ownership_patch(wait_for_healthchecks):
     dataset_urn = make_dataset_urn(
         platform="hive", name=f"SampleHiveDataset{uuid.uuid4()}", env="PROD"
     )
@@ -71,7 +70,7 @@ def test_dataset_ownership_patch():
         assert owner.owners[0].owner == make_user_urn("jdoe")
 
 
-def test_dataset_upstream_lineage_patch():
+def test_dataset_upstream_lineage_patch(wait_for_healthchecks):
     dataset_urn = make_dataset_urn(
         platform="hive", name=f"SampleHiveDataset-{uuid.uuid4()}", env="PROD"
     )
@@ -137,7 +136,7 @@ def test_dataset_upstream_lineage_patch():
         assert upstream_lineage_read.upstreams[0].dataset == other_dataset_urn
 
 
-def test_dataset_tags_patch():
+def test_dataset_tags_patch(wait_for_healthchecks):
     dataset_urn = make_dataset_urn(
         platform="hive", name=f"SampleHiveDataset-{uuid.uuid4()}", env="PROD"
     )
@@ -186,7 +185,7 @@ def test_dataset_tags_patch():
         assert tags_read.tags[0].tag == new_tag.tag
 
 
-def test_dataset_terms_patch():
+def test_dataset_terms_patch(wait_for_healthchecks):
     def get_terms(graph, dataset_urn):
         return graph.get_aspect_v2(
             entity_urn=dataset_urn,
@@ -238,24 +237,25 @@ def test_dataset_terms_patch():
         assert terms_read.terms[0].urn == new_term.urn
 
 
-def test_field_terms_patch():
-    def get_field_info(
-        graph, dataset_urn, field_path
-    ) -> Optional[EditableSchemaFieldInfoClass]:
-        schema_metadata: EditableSchemaMetadataClass = graph.get_aspect_v2(
-            entity_urn=dataset_urn,
-            aspect_type=EditableSchemaMetadataClass,
-            aspect="editableSchemaMetadata",
-        )
-        field_info = [
-            f
-            for f in schema_metadata.editableSchemaFieldInfo
-            if f.fieldPath == field_path
-        ]
-        if len(field_info):
-            return field_info[0]
-        else:
-            return None
+def get_field_info(
+    graph: DataHubGraph, dataset_urn: str, field_path: str
+) -> Optional[EditableSchemaFieldInfoClass]:
+    schema_metadata = graph.get_aspect_v2(
+        entity_urn=dataset_urn,
+        aspect_type=EditableSchemaMetadataClass,
+        aspect="editableSchemaMetadata",
+    )
+    assert schema_metadata
+    field_info = [
+        f for f in schema_metadata.editableSchemaFieldInfo if f.fieldPath == field_path
+    ]
+    if len(field_info):
+        return field_info[0]
+    else:
+        return None
+
+
+def test_field_terms_patch(wait_for_healthchecks):
 
     dataset_urn = make_dataset_urn(
         platform="hive", name=f"SampleHiveDataset-{uuid.uuid4()}", env="PROD"
@@ -311,3 +311,62 @@ def test_field_terms_patch():
         assert field_info
         assert field_info.description == "This is a test field"
         assert len(field_info.glossaryTerms.terms) == 0
+
+
+def test_field_tags_patch(wait_for_healthchecks):
+
+    dataset_urn = make_dataset_urn(
+        platform="hive", name=f"SampleHiveDataset-{uuid.uuid4()}", env="PROD"
+    )
+
+    field_path = "foo.bar"
+
+    editable_field = EditableSchemaMetadataClass(
+        [
+            EditableSchemaFieldInfoClass(
+                fieldPath=field_path, description="This is a test field"
+            )
+        ]
+    )
+    mcpw = MetadataChangeProposalWrapper(entityUrn=dataset_urn, aspect=editable_field)
+
+    with DataHubGraph(DataHubGraphConfig()) as graph:
+        graph.emit_mcp(mcpw)
+        field_info = get_field_info(graph, dataset_urn, field_path)
+        assert field_info
+        assert field_info.description == "This is a test field"
+
+        new_tag_urn = make_tag_urn(tag=f"testTag-{uuid.uuid4()}")
+
+        new_tag = TagAssociationClass(tag=new_tag_urn, context="test")
+
+        for patch_mcp in (
+            DatasetPatchBuilder(dataset_urn)
+            .field_patch(field_path)
+            .add_tag(new_tag)
+            .build()
+        ):
+            graph.emit_mcp(patch_mcp)
+            pass
+
+        field_info = get_field_info(graph, dataset_urn, field_path)
+
+        assert field_info
+        assert field_info.description == "This is a test field"
+        assert len(field_info.globalTags.tags) == 1
+        assert field_info.globalTags.tags[0].tag == new_tag.tag
+
+        for patch_mcp in (
+            DatasetPatchBuilder(dataset_urn)
+            .field_patch(field_path)
+            .remove_tag(new_tag.tag)
+            .build()
+        ):
+            graph.emit_mcp(patch_mcp)
+            pass
+
+        field_info = get_field_info(graph, dataset_urn, field_path)
+
+        assert field_info
+        assert field_info.description == "This is a test field"
+        assert len(field_info.globalTags.tags) == 0
