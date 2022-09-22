@@ -45,7 +45,25 @@ been generated, they won't be able to reset their credentials!
 
 # Method 2: Configuring static credentials
 
-## Create a user.props file
+## Changing the default 'datahub' user
+
+The 'datahub' admin user is created for you by default. To override that user please follow these steps. This is due to the way the authentication setup is working - we support a "default" user.props containing the root datahub user and a separate custom file, which does not overwrite the first. 
+
+However, it's still possible to change the password for the default `datahub user`. To change it, follow these steps:
+
+1. Update the `docker-compose.yaml` to mount your default user.props file to the following location inside the `datahub-frontend-react` container using a volume:
+`/datahub-frontend/conf/user.props`
+   
+2. Restart the datahub containers to pick up the new configs 
+   
+If you're deploying using the CLI quickstart, you can simply download a copy of the [docker-compose file used in quickstart](https://github.com/datahub-project/datahub/blob/master/docker/quickstart/docker-compose.quickstart.yml),
+and modify the `datahub-frontend-react` block to contain the extra volume mount. Then simply run
+
+```
+datahub docker quickstart —quickstart-compose-file <your-modified-compose>.yml
+```
+
+## Create a user.props file to add new users
 
 To define a set of username / password combinations that should be allowed to log in to DataHub, create a new file called `user.props` at the file path `${HOME}/.datahub/plugins/frontend/auth/user.props`. 
 This file should contain username:password combinations, with 1 user per line. For example, to create 2 new users,
@@ -148,26 +166,6 @@ to find the user via search.
 > You can also use our Python Emitter SDK to produce custom information about the new user via the CorpUser metadata entity.
 
 For a more comprehensive overview of how users & groups are managed within DataHub, check out [this video](https://www.youtube.com/watch?v=8Osw6p9vDYY).
-
-### Changing the default 'datahub' user
-
-The 'datahub' admin user is created for you by default. There is no way to override the default password for this account following
-the steps outlined above to add a custom user.props file. This is due to the way the authentication setup is working - we support a "default" user.props
-containing the root datahub user and a separate custom file, which does not overwrite the first. 
-
-However, it's still possible to change the password for the default `datahub user`. To change it, follow these steps:
-
-1. Update the `docker-compose.yaml` to mount your default user.props file to the following location inside the `datahub-frontend-react` container using a volume:
-`/datahub-frontend/conf/user.props`
-   
-2. Restart the datahub containers to pick up the new configs 
-   
-If you're deploying using the CLI quickstart, you can simply download a copy of the [docker-compose file used in quickstart](https://github.com/datahub-project/datahub/blob/master/docker/quickstart/docker-compose.quickstart.yml),
-and modify the `datahub-frontend-react` block to contain the extra volume mount. Then simply run
-
-```
-datahub docker quickstart —quickstart-compose-file <your-modified-compose>.yml
-```
 
 # Method 3: Configuring SSO via OpenID Connect
 
