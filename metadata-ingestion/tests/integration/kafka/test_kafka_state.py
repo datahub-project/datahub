@@ -116,6 +116,7 @@ def test_kafka_ingest_with_stateful(
             "stateful_ingestion": {
                 "enabled": True,
                 "remove_stale_metadata": True,
+                "fail_safe_threshold": 100.0,
                 "state_provider": {
                     "type": "datahub",
                     "config": {"datahub_api": {"server": GMS_SERVER}},
