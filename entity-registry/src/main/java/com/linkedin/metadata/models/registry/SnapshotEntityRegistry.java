@@ -10,6 +10,7 @@ import com.linkedin.metadata.models.EventSpec;
 import com.linkedin.metadata.models.registry.template.AspectTemplateEngine;
 import com.linkedin.metadata.models.registry.template.Template;
 import com.linkedin.metadata.models.registry.template.common.GlobalTagsTemplate;
+import com.linkedin.metadata.models.registry.template.common.GlossaryTermsTemplate;
 import com.linkedin.metadata.models.registry.template.common.OwnershipTemplate;
 import com.linkedin.metadata.models.registry.template.dataset.DatasetPropertiesTemplate;
 import com.linkedin.metadata.models.registry.template.dataset.EditableSchemaMetadataTemplate;
@@ -66,7 +67,7 @@ public class SnapshotEntityRegistry implements EntityRegistry {
     aspectSpecTemplateMap.put(UPSTREAM_LINEAGE_ASPECT_NAME, new UpstreamLineageTemplate());
     aspectSpecTemplateMap.put(GLOBAL_TAGS_ASPECT_NAME, new GlobalTagsTemplate());
     aspectSpecTemplateMap.put(EDITABLE_SCHEMA_METADATA_ASPECT_NAME, new EditableSchemaMetadataTemplate());
-
+    aspectSpecTemplateMap.put(GLOSSARY_TERMS_ASPECT_NAME, new GlossaryTermsTemplate());
     return new AspectTemplateEngine(aspectSpecTemplateMap);
   }
 
