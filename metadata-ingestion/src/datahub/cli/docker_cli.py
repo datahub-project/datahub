@@ -398,6 +398,13 @@ DATAHUB_MAE_CONSUMER_PORT=9091
     help="Attempt to build the containers locally before starting",
 )
 @click.option(
+    "--pull-images/--no-pull-images",
+    type=bool,
+    is_flag=True,
+    default=True,
+    help="Attempt to pull the containers from Docker Hub before starting",
+)
+@click.option(
     "-f",
     "--quickstart-compose-file",
     type=click.Path(exists=True, dir_okay=False, readable=True),
@@ -516,6 +523,7 @@ DATAHUB_MAE_CONSUMER_PORT=9091
 def quickstart(
     version: str,
     build_locally: bool,
+    pull_images: bool,
     quickstart_compose_file: List[pathlib.Path],
     dump_logs_on_failure: bool,
     graph_service_impl: Optional[str],
@@ -657,13 +665,14 @@ def quickstart(
 
     # Pull and possibly build the latest containers.
     try:
-        click.echo("Pulling docker images...")
-        subprocess.run(
-            [*base_command, "pull", "-q"],
-            check=True,
-            env=_docker_subprocess_env(),
-        )
-        click.secho("Finished pulling docker images!")
+        if pull_images:
+            click.echo("Pulling docker images...")
+            subprocess.run(
+                [*base_command, "pull", "-q"],
+                check=True,
+                env=_docker_subprocess_env(),
+            )
+            click.secho("Finished pulling docker images!")
     except subprocess.CalledProcessError:
         click.secho(
             "Error while pulling images. Going to attempt to move on to docker compose up assuming the images have "
