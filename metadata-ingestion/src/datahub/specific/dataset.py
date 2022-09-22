@@ -16,13 +16,14 @@ class FieldPatchBuilder(MetadataPatchProposal):
     def __init__(self, dataset_urn: str, field_path: str) -> None:
         super().__init__(dataset_urn, "dataset")
         self.field_path = field_path
+        self.aspect_name = "editableSchemaMetadata"
         self.aspect_field = "editableSchemaFieldInfo"
 
     def add_tag(self, tag: Tag) -> "FieldPatchBuilder":
         self._add_patch(
-            self.aspect_field,
+            self.aspect_name,
             "add",
-            path=f"/{self.field_path}/tags/{tag.tag}",
+            path=f"/{self.aspect_field}/{self.field_path}/globalTags/tags/{tag.tag}",
             value=tag,
         )
         return self
@@ -31,15 +32,18 @@ class FieldPatchBuilder(MetadataPatchProposal):
         if isinstance(tag, str) and not tag.startswith("urn:li:tag:"):
             tag = TagUrn.create_from_id(tag)
         self._add_patch(
-            "globalTags", "remove", path=f"/{self.field_path}/tags/{tag}", value={}
+            self.aspect_name,
+            "remove",
+            path=f"/{self.aspect_field}/{self.field_path}/globalTags/tags/{tag}",
+            value={},
         )
         return self
 
     def add_term(self, term: Term) -> "FieldPatchBuilder":
         self._add_patch(
-            self.aspect_field,
+            self.aspect_name,
             "add",
-            path=f"/{self.field_path}/terms/{term.urn}",
+            path=f"/{self.aspect_field}/{self.field_path}/glossaryTerms/terms/{term.urn}",
             value=term,
         )
         return self
@@ -47,7 +51,12 @@ class FieldPatchBuilder(MetadataPatchProposal):
     def remove_term(self, term: Union[str, Urn]) -> "FieldPatchBuilder":
         if isinstance(term, str) and not term.startswith("urn:li:glossaryTerm:"):
             term = "urn:li:glossaryTerm:" + term
-        self._add_patch("glossaryTerms", "remove", path=f"/terms/{term}", value={})
+        self._add_patch(
+            self.aspect_name,
+            "remove",
+            path=f"/{self.aspect_field}/{self.field_path}/glossaryTerms/terms/{term}",
+            value={},
+        )
         return self
 
 

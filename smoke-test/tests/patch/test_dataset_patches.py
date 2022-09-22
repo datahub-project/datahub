@@ -3,22 +3,29 @@ import uuid
 from dataclasses import field
 from typing import Optional
 
-from datahub.emitter.mce_builder import (make_dataset_urn, make_tag_urn,
-                                         make_term_urn, make_user_urn)
+from datahub.emitter.mce_builder import (
+    make_dataset_urn,
+    make_tag_urn,
+    make_term_urn,
+    make_user_urn,
+)
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.graph.client import DataHubGraph, DataHubGraphConfig
-from datahub.metadata.schema_classes import (AuditStampClass,
-                                             DatasetLineageTypeClass,
-                                             EditableSchemaFieldInfoClass,
-                                             EditableSchemaMetadataClass,
-                                             GlobalTagsClass,
-                                             GlossaryTermAssociationClass,
-                                             GlossaryTermsClass, OwnerClass,
-                                             OwnershipClass,
-                                             OwnershipTypeClass,
-                                             TagAssociationClass,
-                                             UpstreamClass,
-                                             UpstreamLineageClass)
+from datahub.metadata.schema_classes import (
+    AuditStampClass,
+    DatasetLineageTypeClass,
+    EditableSchemaFieldInfoClass,
+    EditableSchemaMetadataClass,
+    GlobalTagsClass,
+    GlossaryTermAssociationClass,
+    GlossaryTermsClass,
+    OwnerClass,
+    OwnershipClass,
+    OwnershipTypeClass,
+    TagAssociationClass,
+    UpstreamClass,
+    UpstreamLineageClass,
+)
 from datahub.specific.dataset import DatasetPatchBuilder
 
 
@@ -274,7 +281,12 @@ def test_field_terms_patch():
         new_term = GlossaryTermAssociationClass(
             urn=make_term_urn(f"test-{uuid.uuid4()}")
         )
-        for patch_mcp in DatasetPatchBuilder(dataset_urn).add_term_to_field(field_path, new_term)
+        for patch_mcp in (
+            DatasetPatchBuilder(dataset_urn)
+            .field_patch(field_path)
+            .add_term(new_term)
+            .build()
+        ):
             graph.emit_mcp(patch_mcp)
             pass
 
@@ -285,7 +297,12 @@ def test_field_terms_patch():
         assert len(field_info.glossaryTerms.terms) == 1
         assert field_info.glossaryTerms.terms[0].urn == new_term.urn
 
-        for patch_mcp in DatasetPatchBuilder(dataset_urn).remove_term_from_field(field_path, new_term).build():
+        for patch_mcp in (
+            DatasetPatchBuilder(dataset_urn)
+            .field_patch(field_path)
+            .remove_term(new_term.urn)
+            .build()
+        ):
             graph.emit_mcp(patch_mcp)
             pass
 
