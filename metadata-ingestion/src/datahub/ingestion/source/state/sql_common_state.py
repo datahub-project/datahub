@@ -126,23 +126,17 @@ class BaseSQLAlchemyCheckpointState(
     def get_percent_entities_changed(
         self, old_checkpoint_state: "BaseSQLAlchemyCheckpointState"
     ) -> float:
-        old_count_all = 0
-        overlap_count_all = 0
-        for new_entities, old_entities in [
-            (self.encoded_assertion_urns, old_checkpoint_state.encoded_assertion_urns),
-            (self.encoded_container_urns, old_checkpoint_state.encoded_container_urns),
-            (self.encoded_table_urns, old_checkpoint_state.encoded_table_urns),
-            (self.encoded_view_urns, old_checkpoint_state.encoded_view_urns),
-        ]:
-            (
-                overlap_count,
-                old_count,
-                _,
-            ) = StaleEntityCheckpointStateBase.get_entity_overlap_and_cardinalities(
-                new_entities=new_entities, old_entities=old_entities
-            )
-            overlap_count_all += overlap_count
-            old_count_all += old_count
-        if old_count_all:
-            return overlap_count * 100.0 / old_count_all
-        return 0.0
+        return StaleEntityCheckpointStateBase.compute_percent_entities_changed(
+            [
+                (
+                    self.encoded_assertion_urns,
+                    old_checkpoint_state.encoded_assertion_urns,
+                ),
+                (
+                    self.encoded_container_urns,
+                    old_checkpoint_state.encoded_container_urns,
+                ),
+                (self.encoded_table_urns, old_checkpoint_state.encoded_table_urns),
+                (self.encoded_view_urns, old_checkpoint_state.encoded_view_urns),
+            ]
+        )
