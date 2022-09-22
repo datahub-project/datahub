@@ -1,6 +1,8 @@
 package client;
 
+import com.datahub.authentication.Authentication;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.node.ObjectNode;
 import java.util.Objects;
 import javax.annotation.Nonnull;
 import lombok.extern.slf4j.Slf4j;
@@ -13,7 +15,6 @@ import org.apache.http.impl.client.CloseableHttpClient;
 import org.apache.http.impl.client.HttpClients;
 import org.apache.http.util.EntityUtils;
 import play.mvc.Http;
-import com.datahub.authentication.Authentication;
 
 
 /**
@@ -66,11 +67,15 @@ public class AuthServiceClient {
     try {
 
       final String protocol = this.metadataServiceUseSsl ? "https" : "http";
-      final HttpPost request = new HttpPost(String.format("%s://%s:%s/%s", protocol, this.metadataServiceHost,
-          this.metadataServicePort, GENERATE_SESSION_TOKEN_ENDPOINT));
+      final HttpPost request = new HttpPost(
+          String.format("%s://%s:%s/%s", protocol, this.metadataServiceHost, this.metadataServicePort,
+              GENERATE_SESSION_TOKEN_ENDPOINT));
 
       // Build JSON request to generate a token on behalf of a user.
-      String json = String.format("{ \"%s\":\"%s\" }", USER_ID_FIELD, userId);
+      final ObjectMapper objectMapper = new ObjectMapper();
+      final ObjectNode objectNode = objectMapper.createObjectNode();
+      objectNode.put(USER_ID_FIELD, userId);
+      final String json = objectMapper.writerWithDefaultPrettyPrinter().writeValueAsString(objectNode);
       request.setEntity(new StringEntity(json));
 
       // Add authorization header with DataHub frontend system id and secret.
@@ -101,7 +106,6 @@ public class AuthServiceClient {
   /**
    * Call the Auth Service to create a native Datahub user.
    */
-  @Nonnull
   public boolean signUp(@Nonnull final String userUrn, @Nonnull final String fullName, @Nonnull final String email,
       @Nonnull final String title, @Nonnull final String password, @Nonnull final String inviteToken) {
     Objects.requireNonNull(userUrn, "userUrn must not be null");
@@ -115,15 +119,20 @@ public class AuthServiceClient {
     try {
 
       final String protocol = this.metadataServiceUseSsl ? "https" : "http";
-      final HttpPost request =
-          new HttpPost(String.format("%s://%s:%s/%s", protocol, this.metadataServiceHost, this.metadataServicePort,
+      final HttpPost request = new HttpPost(
+          String.format("%s://%s:%s/%s", protocol, this.metadataServiceHost, this.metadataServicePort,
               SIGN_UP_ENDPOINT));
 
       // Build JSON request to verify credentials for a native user.
-      String json =
-          String.format("{ \"%s\":\"%s\", \"%s\":\"%s\", \"%s\":\"%s\", \"%s\":\"%s\", \"%s\":\"%s\", \"%s\":\"%s\" }",
-              USER_URN_FIELD, userUrn, FULL_NAME_FIELD, fullName, EMAIL_FIELD, email, TITLE_FIELD, title,
-              PASSWORD_FIELD, password, INVITE_TOKEN_FIELD, inviteToken);
+      final ObjectMapper objectMapper = new ObjectMapper();
+      final ObjectNode objectNode = objectMapper.createObjectNode();
+      objectNode.put(USER_URN_FIELD, userUrn);
+      objectNode.put(FULL_NAME_FIELD, fullName);
+      objectNode.put(EMAIL_FIELD, email);
+      objectNode.put(TITLE_FIELD, title);
+      objectNode.put(PASSWORD_FIELD, password);
+      objectNode.put(INVITE_TOKEN_FIELD, inviteToken);
+      final String json = objectMapper.writerWithDefaultPrettyPrinter().writeValueAsString(objectNode);
       request.setEntity(new StringEntity(json));
 
       // Add authorization header with DataHub frontend system id and secret.
@@ -154,7 +163,6 @@ public class AuthServiceClient {
   /**
    * Call the Auth Service to reset credentials for a native DataHub user.
    */
-  @Nonnull
   public boolean resetNativeUserCredentials(@Nonnull final String userUrn, @Nonnull final String password,
       @Nonnull final String resetToken) {
     Objects.requireNonNull(userUrn, "userUrn must not be null");
@@ -170,9 +178,12 @@ public class AuthServiceClient {
               RESET_NATIVE_USER_CREDENTIALS_ENDPOINT));
 
       // Build JSON request to verify credentials for a native user.
-      String json =
-          String.format("{ \"%s\":\"%s\", \"%s\":\"%s\", \"%s\":\"%s\" }", USER_URN_FIELD, userUrn,
-              PASSWORD_FIELD, password, RESET_TOKEN_FIELD, resetToken);
+      final ObjectMapper objectMapper = new ObjectMapper();
+      final ObjectNode objectNode = objectMapper.createObjectNode();
+      objectNode.put(USER_URN_FIELD, userUrn);
+      objectNode.put(PASSWORD_FIELD, password);
+      objectNode.put(RESET_TOKEN_FIELD, resetToken);
+      final String json = objectMapper.writerWithDefaultPrettyPrinter().writeValueAsString(objectNode);
       request.setEntity(new StringEntity(json));
 
       // Add authorization header with DataHub frontend system id and secret.
@@ -203,7 +214,6 @@ public class AuthServiceClient {
   /**
    * Call the Auth Service to verify the credentials for a native Datahub user.
    */
-  @Nonnull
   public boolean verifyNativeUserCredentials(@Nonnull final String userUrn, @Nonnull final String password) {
     Objects.requireNonNull(userUrn, "userUrn must not be null");
     Objects.requireNonNull(password, "password must not be null");
@@ -217,8 +227,11 @@ public class AuthServiceClient {
               VERIFY_NATIVE_USER_CREDENTIALS_ENDPOINT));
 
       // Build JSON request to verify credentials for a native user.
-      String json =
-          String.format("{ \"%s\":\"%s\", \"%s\":\"%s\" }", USER_URN_FIELD, userUrn, PASSWORD_FIELD, password);
+      final ObjectMapper objectMapper = new ObjectMapper();
+      final ObjectNode objectNode = objectMapper.createObjectNode();
+      objectNode.put(USER_URN_FIELD, userUrn);
+      objectNode.put(PASSWORD_FIELD, password);
+      final String json = objectMapper.writerWithDefaultPrettyPrinter().writeValueAsString(objectNode);
       request.setEntity(new StringEntity(json));
 
       // Add authorization header with DataHub frontend system id and secret.
