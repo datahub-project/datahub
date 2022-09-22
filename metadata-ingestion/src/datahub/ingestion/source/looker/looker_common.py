@@ -137,7 +137,7 @@ class LookerNamingPattern(NamingPattern):
     ALLOWED_VARS = [field.name for field in dataclasses.fields(NamingPatternMapping)]
 
 
-class LookerExploreNamingConfig(ConfigModel):
+class LookerCommonConfig(DatasetSourceConfigBase):
     explore_naming_pattern: LookerNamingPattern = pydantic.Field(
         description=f"Pattern for providing dataset names to explores. {LookerNamingPattern.allowed_docstring()}",
         default=LookerNamingPattern(pattern="{model}.explore.{name}"),
@@ -148,8 +148,6 @@ class LookerExploreNamingConfig(ConfigModel):
         default=LookerNamingPattern(pattern="/{env}/{platform}/{project}/explores"),
     )
 
-
-class LookerViewNamingConfig(ConfigModel):
     view_naming_pattern: LookerNamingPattern = Field(
         LookerNamingPattern(pattern="{project}.view.{name}"),
         description=f"Pattern for providing dataset names to views. {LookerNamingPattern.allowed_docstring()}",
@@ -159,10 +157,6 @@ class LookerViewNamingConfig(ConfigModel):
         description=f"Pattern for providing browse paths to views. {LookerNamingPattern.allowed_docstring()}",
     )
 
-
-class LookerCommonConfig(
-    LookerViewNamingConfig, LookerExploreNamingConfig, DatasetSourceConfigBase
-):
     tag_measures_and_dimensions: bool = Field(
         True,
         description="When enabled, attaches tags to measures, dimensions and dimension groups to make them more discoverable. When disabled, adds this information to the description of the column.",
