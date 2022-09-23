@@ -297,6 +297,9 @@ plugins: Dict[str, Set[str]] = {
         "more-itertools>=8.12.0",
     },
     "snowflake": snowflake_common | usage_common,
+    "snowflake-beta": (
+        snowflake_common | usage_common
+    ),  # deprecated, but keeping the extra for backwards compatibility
     "sqlalchemy": sql_common,
     "superset": {
         "requests",
