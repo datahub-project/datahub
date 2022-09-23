@@ -15,12 +15,8 @@ export const BrowseEntityCard = ({ entityType, count }: { entityType: EntityType
     const url = isGlossaryEntityCard ? PageRoutes.GLOSSARY : `${PageRoutes.BROWSE}/${entityPathName}`;
     const onBrowseEntityCardClick = () => {
         analytics.event({
-            type: EventType.BrowseResultClickEvent,
-            originPath: window.location.pathname,
-            browsePath: isGlossaryEntityCard ? PageRoutes.GLOSSARY : PageRoutes.BROWSE,
+            type: EventType.HomePageBrowseResultClickEvent,
             entityType,
-            resultType: 'Group',
-            groupName: entityPathName,
         });
     };
 
