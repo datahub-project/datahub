@@ -4,7 +4,7 @@ from typing import Dict
 import pytest
 
 from datahub.emitter.mce_builder import make_dataset_urn
-from datahub.ingestion.source.sql.mysql import MySQLConfig
+from datahub.ingestion.source.sql.postgres import PostgresConfig
 from datahub.ingestion.source.sql.sql_common import BasicSQLAlchemyConfig
 from datahub.ingestion.source.state.checkpoint import Checkpoint, CheckpointStateBase
 from datahub.ingestion.source.state.sql_common_state import (
@@ -21,7 +21,7 @@ test_pipeline_name: str = "test_pipeline"
 test_platform_instance_id: str = "test_platform_instance_1"
 test_job_name: str = "test_job_1"
 test_run_id: str = "test_run_1"
-test_source_config: BasicSQLAlchemyConfig = MySQLConfig()
+test_source_config: BasicSQLAlchemyConfig = PostgresConfig(host_port="test_host:1234")
 
 # 2. Create the params for parametrized tests.
 
@@ -79,7 +79,7 @@ def test_create_from_checkpoint_aspect(state_obj):
         job_name=test_job_name,
         checkpoint_aspect=checkpoint_aspect,
         state_class=type(state_obj),
-        config_class=MySQLConfig,
+        config_class=PostgresConfig,
     )
 
     expected_checkpoint_obj = Checkpoint(
@@ -125,6 +125,6 @@ def test_serde_idempotence(state_obj):
         job_name=test_job_name,
         checkpoint_aspect=checkpoint_aspect,
         state_class=type(state_obj),
-        config_class=MySQLConfig,
+        config_class=PostgresConfig,
     )
     assert orig_checkpoint_obj == serde_checkpoint_obj
