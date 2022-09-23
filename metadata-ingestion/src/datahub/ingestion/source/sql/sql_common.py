@@ -22,7 +22,6 @@ from urllib.parse import quote_plus
 
 import pydantic
 import sqlalchemy.dialects.postgresql.base
-from datahub.utilities.lossy_collections import LossyList
 from pydantic.fields import Field
 from sqlalchemy import create_engine, inspect
 from sqlalchemy.engine.reflection import Inspector
@@ -94,6 +93,7 @@ from datahub.metadata.schema_classes import (
     ViewPropertiesClass,
 )
 from datahub.telemetry import telemetry
+from datahub.utilities.lossy_collections import LossyList
 from datahub.utilities.registries.domain_registry import DomainRegistry
 from datahub.utilities.sqlalchemy_query_combiner import SQLAlchemyQueryCombinerReport
 
