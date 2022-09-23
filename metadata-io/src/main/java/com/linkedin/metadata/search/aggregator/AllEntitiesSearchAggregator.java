@@ -126,11 +126,11 @@ public class AllEntitiesSearchAggregator {
     // Trim the aggregations / filters after merging.
     Map<String, AggregationMetadata> finalAggregations = trimMergedAggregations(aggregations);
 
-    EntitySpec entitySpec = _entityRegistry.getEntitySpec("dataset");
-    SearchRequestHandler.getBuilder(entitySpec).addFiltersToAggregationMetadata(
-        new ArrayList(finalAggregations.values()),
-        postFilters
-    );
+//    EntitySpec entitySpec = _entityRegistry.getEntitySpec("dataset");
+//    SearchRequestHandler.getBuilder(entitySpec).addFiltersToAggregationMetadata(
+//        new ArrayList(finalAggregations.values()),
+//        postFilters
+//    );
 
     // Finally, Add a custom Entity aggregation (appears as the first filter) -- this should never be truncated
     finalAggregations.put("entity", new AggregationMetadata().setName("entity")
