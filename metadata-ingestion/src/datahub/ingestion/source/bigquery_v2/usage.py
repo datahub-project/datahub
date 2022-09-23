@@ -737,7 +737,7 @@ class BigQueryUsageExtractor:
                 else:
                     self.report.report_warning(
                         str(event.read_event.resource),
-                        f"Failed to match table read event {event.read_event.jobName} with job; try increasing `query_log_delay` or `max_query_duration`",
+                        f"Failed to match table read event {event.read_event.jobName} with reason {event.read_event.readReason} with job at {event.read_event.timestamp}; try increasing `query_log_delay` or `max_query_duration`",
                     )
             yield event
         logger.info(f"Number of read events joined with query events: {num_joined}")
