@@ -74,7 +74,7 @@ class BigqueryProject:
 class BigqueryQuery:
 
     show_datasets: str = (
-        "select schema_name from {project_id}.INFORMATION_SCHEMA.SCHEMATA"
+        "select schema_name from `{project_id}`.INFORMATION_SCHEMA.SCHEMATA"
     )
 
     datasets_for_project_id: str = """
@@ -86,8 +86,8 @@ select
   s.LAST_MODIFIED_TIME as last_altered,
   o.OPTION_VALUE as comment
 from
-  {project_id}.INFORMATION_SCHEMA.SCHEMATA as s
-  left join {project_id}.INFORMATION_SCHEMA.SCHEMATA_OPTIONS as o on o.schema_name = s.schema_name
+  `{project_id}`.INFORMATION_SCHEMA.SCHEMATA as s
+  left join `{project_id}`.INFORMATION_SCHEMA.SCHEMATA_OPTIONS as o on o.schema_name = s.schema_name
   and o.option_name = "description"
 order by
   s.schema_name
@@ -115,9 +115,9 @@ SELECT
   REGEXP_REPLACE(t.table_name, r"_(\\d+)$", "") as table_base
 
 FROM
-  `{project_id}`.{dataset_name}.INFORMATION_SCHEMA.TABLES t
-  join `{project_id}`.{dataset_name}.__TABLES__ as ts on ts.table_id = t.TABLE_NAME
-  left join `{project_id}`.{dataset_name}.INFORMATION_SCHEMA.TABLE_OPTIONS as tos on t.table_schema = tos.table_schema
+  `{project_id}`.`{dataset_name}`.INFORMATION_SCHEMA.TABLES t
+  join `{project_id}`.`{dataset_name}`.__TABLES__ as ts on ts.table_id = t.TABLE_NAME
+  left join `{project_id}`.`{dataset_name}`.INFORMATION_SCHEMA.TABLE_OPTIONS as tos on t.table_schema = tos.table_schema
   and t.TABLE_NAME = tos.TABLE_NAME
   and tos.OPTION_NAME = "description"
   left join (
@@ -129,7 +129,7 @@ FROM
         sum(case when storage_tier = 'LONG_TERM' then total_billable_bytes else 0 end) as long_term_billable_bytes,
         sum(case when storage_tier = 'ACTIVE' then total_billable_bytes else 0 end) as active_billable_bytes,
     from
-        `{project_id}`.{dataset_name}.INFORMATION_SCHEMA.PARTITIONS
+        `{project_id}`.`{dataset_name}`.INFORMATION_SCHEMA.PARTITIONS
     group by
         table_name) as p on
     t.table_name = p.table_name
@@ -156,9 +156,9 @@ SELECT
   row_count,
   size_bytes
 FROM
-  `{project_id}`.{dataset_name}.INFORMATION_SCHEMA.TABLES t
-  join `{project_id}`.{dataset_name}.__TABLES__ as ts on ts.table_id = t.TABLE_NAME
-  left join `{project_id}`.{dataset_name}.INFORMATION_SCHEMA.TABLE_OPTIONS as tos on t.table_schema = tos.table_schema
+  `{project_id}`.`{dataset_name}`.INFORMATION_SCHEMA.TABLES t
+  join `{project_id}`.`{dataset_name}`.__TABLES__ as ts on ts.table_id = t.TABLE_NAME
+  left join `{project_id}`.`{dataset_name}`.INFORMATION_SCHEMA.TABLE_OPTIONS as tos on t.table_schema = tos.table_schema
   and t.TABLE_NAME = tos.TABLE_NAME
   and tos.OPTION_NAME = "description"
 WHERE
@@ -200,8 +200,8 @@ select
   c.is_partitioning_column as is_partitioning_column,
   description as comment
 from
-  `{table_identifier.project_id}`.{table_identifier.dataset}.INFORMATION_SCHEMA.COLUMNS as c
-  join `{table_identifier.project_id}`.{table_identifier.dataset}.INFORMATION_SCHEMA.COLUMN_FIELD_PATHS as cfp on cfp.table_name = c.table_name
+  `{table_identifier.project_id}`.`{table_identifier.dataset}`.INFORMATION_SCHEMA.COLUMNS as c
+  join `{table_identifier.project_id}`.`{table_identifier.dataset}`.INFORMATION_SCHEMA.COLUMN_FIELD_PATHS as cfp on cfp.table_name = c.table_name
   and cfp.column_name = c.column_name
 where
   c.table_name = '{table_identifier.table}'
