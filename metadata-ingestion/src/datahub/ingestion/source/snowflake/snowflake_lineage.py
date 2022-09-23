@@ -254,7 +254,8 @@ class SnowflakeLineageExtractor(SnowflakeQueryMixin, SnowflakeCommonMixin):
                     upstreams=upstream_tables,
                     fineGrainedLineages=sorted(
                         finegrained_lineages, key=lambda x: (x.downstreams, x.upstreams)
-                    ),
+                    )
+                    or None,
                 ),
                 column_lineage,
             )
