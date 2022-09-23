@@ -299,7 +299,7 @@ def test_field_terms_patch(wait_for_healthchecks):
 
         for patch_mcp in (
             DatasetPatchBuilder(dataset_urn)
-            .field_patch(field_path)
+            .field_patch_builder(field_path)
             .remove_term(new_term.urn)
             .build()
         ):
