@@ -25,12 +25,12 @@ import lombok.extern.slf4j.Slf4j;
 @Slf4j
 public class AspectUtils {
 
-  private AspectUtils() { }
+  private AspectUtils() {
+  }
 
   public static List<MetadataChangeProposal> getAdditionalChanges(
       @Nonnull MetadataChangeProposal metadataChangeProposal,
-      @Nonnull EntityService entityService
-  ) {
+      @Nonnull EntityService entityService) {
     // No additional changes for delete operation
     if (metadataChangeProposal.getChangeType() == ChangeType.DELETE) {
       return Collections.emptyList();
@@ -51,8 +51,7 @@ public class AspectUtils {
       Set<Urn> urns,
       String aspectName,
       EntityClient entityClient,
-      Authentication authentication
-  ) throws Exception {
+      Authentication authentication) throws Exception {
     final Map<Urn, EntityResponse> gmsResponse = entityClient.batchGetV2(
         entity,
         urns,
@@ -73,6 +72,9 @@ public class AspectUtils {
     try {
       MetadataChangeProposal proposal = original.copy();
       GenericAspect genericAspect = GenericRecordUtils.serializeAspect(aspect);
+      // Set UPSERT changetype here as additional changes being added should always be
+      // done in UPSERT mode even for patches
+      // proposal.setChangeType(ChangeType.UPSERT);
       proposal.setAspect(genericAspect);
       proposal.setAspectName(aspectName);
       return proposal;

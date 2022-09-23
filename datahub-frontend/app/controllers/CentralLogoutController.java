@@ -41,7 +41,7 @@ public class CentralLogoutController extends LogoutController {
   public Result executeLogout() throws ExecutionException, InterruptedException {
     if (_isOidcEnabled) {
       try {
-        return logout().toCompletableFuture().get();
+        return logout().toCompletableFuture().get().withNewSession();
       } catch (Exception e) {
         log.error("Caught exception while attempting to perform SSO logout! It's likely that SSO integration is mis-configured.", e);
         return redirect(
@@ -50,6 +50,6 @@ public class CentralLogoutController extends LogoutController {
                     + "or refer to server logs for more information.")));
       }
     }
-    return redirect("/");
+    return redirect("/").withNewSession();
   }
 }
