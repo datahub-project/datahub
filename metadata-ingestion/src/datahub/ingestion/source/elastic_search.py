@@ -1,6 +1,5 @@
 import json
 import logging
-import re
 from collections import defaultdict
 from dataclasses import dataclass, field
 from hashlib import md5
@@ -10,8 +9,9 @@ from elasticsearch import Elasticsearch
 from pydantic import validator
 from pydantic.fields import Field
 
-from datahub.configuration.common import AllowDenyPattern, ConfigurationError
+from datahub.configuration.common import AllowDenyPattern
 from datahub.configuration.source_common import DatasetSourceConfigBase
+from datahub.configuration.validate_host_port import validate_host_port
 from datahub.emitter.mce_builder import (
     make_data_platform_urn,
     make_dataplatform_instance_urn,
@@ -51,6 +51,7 @@ from datahub.metadata.schema_classes import (
     StringTypeClass,
     SubTypesClass,
 )
+from datahub.utilities.config_clean import remove_protocol
 
 logger = logging.getLogger(__name__)
 
@@ -248,29 +249,11 @@ class ElasticsearchSourceConfig(DatasetSourceConfigBase):
     @validator("host")
     def host_colon_port_comma(cls, host_val: str) -> str:
         for entry in host_val.split(","):
-            # The port can be provided but is not required.
-            port = None
-            for prefix in ["http://", "https://"]:
-                if entry.startswith(prefix):
-                    entry = entry[len(prefix) :]
+            entry = remove_protocol(entry)
             for suffix in ["/"]:
                 if entry.endswith(suffix):
                     entry = entry[: -len(suffix)]
-
-            if ":" in entry:
-                (host, port) = entry.rsplit(":", 1)
-            else:
-                host = entry
-            if not re.match(
-                # This regex is quite loose. Many invalid hostnames or IPs will slip through,
-                # but it serves as a good first line of validation. We defer to Elastic for the
-                # remaining validation.
-                r"^[\w\-\.]+$",
-                host,
-            ):
-                raise ConfigurationError(f"host contains bad characters, found {host}")
-            if port is not None and not port.isdigit():
-                raise ConfigurationError(f"port must be all digits, found {port}")
+            validate_host_port(entry)
         return host_val
 
     @property

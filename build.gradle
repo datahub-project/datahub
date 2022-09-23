@@ -50,6 +50,7 @@ project.ext.externalDependency = [
     'avroCompiler_1_7': 'org.apache.avro:avro-compiler:1.7.7',
     'awsGlueSchemaRegistrySerde': 'software.amazon.glue:schema-registry-serde:1.1.10',
     'awsMskIamAuth': 'software.amazon.msk:aws-msk-iam-auth:1.1.1',
+    'awsSecretsManagerJdbc': 'com.amazonaws.secretsmanager:aws-secretsmanager-jdbc:1.0.8',
     'cacheApi' : 'javax.cache:cache-api:1.1.0',
     'commonsCli': 'commons-cli:commons-cli:1.5.0',
     'commonsIo': 'commons-io:commons-io:2.4',
