@@ -465,7 +465,6 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
             yield wu
 
         try:
-
             bigquery_project.datasets = (
                 BigQueryDataDictionary.get_datasets_for_project_id(conn, project_id)
             )
@@ -722,7 +721,7 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
             self.report.report_workunit(wu)
 
         dataset_properties = DatasetProperties(
-            name=str(datahub_dataset_name),
+            name=datahub_dataset_name.get_table_display_name(),
             description=table.comment,
             qualifiedName=str(datahub_dataset_name),
             customProperties={**upstream_column_props},
