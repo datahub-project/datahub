@@ -283,7 +283,7 @@ def test_field_terms_patch(wait_for_healthchecks):
         )
         for patch_mcp in (
             DatasetPatchBuilder(dataset_urn)
-            .field_patch(field_path)
+            .field_patch_builder(field_path)
             .add_term(new_term)
             .build()
         ):
@@ -342,7 +342,24 @@ def test_field_tags_patch(wait_for_healthchecks):
 
         for patch_mcp in (
             DatasetPatchBuilder(dataset_urn)
-            .field_patch(field_path)
+            .field_patch_builder(field_path)
+            .add_tag(new_tag)
+            .build()
+        ):
+            graph.emit_mcp(patch_mcp)
+            pass
+
+        field_info = get_field_info(graph, dataset_urn, field_path)
+
+        assert field_info
+        assert field_info.description == "This is a test field"
+        assert len(field_info.globalTags.tags) == 1
+        assert field_info.globalTags.tags[0].tag == new_tag.tag
+
+        # Add the same tag again and verify that it doesn't get added
+        for patch_mcp in (
+            DatasetPatchBuilder(dataset_urn)
+            .field_patch_builder(field_path)
             .add_tag(new_tag)
             .build()
         ):
@@ -358,7 +375,7 @@ def test_field_tags_patch(wait_for_healthchecks):
 
         for patch_mcp in (
             DatasetPatchBuilder(dataset_urn)
-            .field_patch(field_path)
+            .field_patch_builder(field_path)
             .remove_tag(new_tag.tag)
             .build()
         ):

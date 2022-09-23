@@ -1,13 +1,15 @@
 import json
 from collections import defaultdict
 from dataclasses import dataclass
-from typing import Any, Dict, Iterable, List
+from typing import Any, Dict, Iterable, List, Optional
 
 from datahub.emitter.serialization_helper import pre_json_transform
 from datahub.metadata.schema_classes import (
     ChangeTypeClass,
     GenericAspectClass,
+    KafkaAuditHeaderClass,
     MetadataChangeProposalClass,
+    SystemMetadataClass,
 )
 
 
@@ -36,36 +38,43 @@ class _Patch:
 
 class MetadataPatchProposal:
     urn: str
-    entityType: str
+    entity_type: str
 
     # mapping: aspectName -> list of patches
     patches: Dict[str, List[_Patch]]
 
-    def __init__(self, urn: str, entityType: str) -> None:
+    def __init__(
+        self,
+        urn: str,
+        entity_type: str,
+        system_metadata: Optional[SystemMetadataClass] = None,
+        audit_header: Optional[KafkaAuditHeaderClass] = None,
+    ) -> None:
         self.urn = urn
-        self.entityType = entityType
+        self.entity_type = entity_type
+        self.system_metadata = system_metadata
+        self.audit_header = audit_header
         self.patches = defaultdict(list)
 
-    def _add_patch(self, aspectName: str, op: str, path: str, value: Any) -> None:
+    def _add_patch(self, aspect_name: str, op: str, path: str, value: Any) -> None:
         # TODO: Validate that aspectName is a valid aspect for this entityType
-        self.patches[aspectName].append(_Patch(op, path, value))
+        self.patches[aspect_name].append(_Patch(op, path, value))
 
     def build(self) -> Iterable[MetadataChangeProposalClass]:
         return [
             MetadataChangeProposalClass(
                 entityUrn=self.urn,
-                entityType=self.entityType,
+                entityType=self.entity_type,
                 changeType=ChangeTypeClass.PATCH,
-                aspectName=aspectName,
+                aspectName=aspect_name,
                 aspect=GenericAspectClass(
                     value=json.dumps(
                         pre_json_transform(_recursive_to_obj(patches))
                     ).encode(),
-                    contentType="application/jsonpatch",
+                    contentType="application/json-patch+json",
                 ),
-                # TODO: entityKeyAspect=serializedEntityKeyAspect,
-                # TODO auditHeader
-                # TODO systemMetadata
+                auditHeader=self.audit_header,
+                systemMetadata=self.system_metadata,
             )
-            for aspectName, patches in self.patches.items()
+            for aspect_name, patches in self.patches.items()
         ]

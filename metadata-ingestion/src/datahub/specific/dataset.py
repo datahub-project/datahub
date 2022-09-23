@@ -3,8 +3,10 @@ from typing import List, Optional, Union
 from datahub.emitter.mcp_patch_builder import MetadataPatchProposal
 from datahub.metadata.schema_classes import (
     GlossaryTermAssociationClass as Term,
+    KafkaAuditHeaderClass,
     OwnerClass as Owner,
     OwnershipTypeClass,
+    SystemMetadataClass,
     TagAssociationClass as Tag,
     UpstreamClass as Upstream,
 )
@@ -13,11 +15,23 @@ from datahub.utilities.urns.urn import Urn
 
 
 class FieldPatchBuilder(MetadataPatchProposal):
-    def __init__(self, dataset_urn: str, field_path: str) -> None:
-        super().__init__(dataset_urn, "dataset")
+    def __init__(
+        self,
+        dataset_urn: str,
+        field_path: str,
+        system_metadata: Optional[SystemMetadataClass] = None,
+        audit_header: Optional[KafkaAuditHeaderClass] = None,
+        editable: bool = True,
+    ) -> None:
+        super().__init__(
+            dataset_urn,
+            "dataset",
+            system_metadata=system_metadata,
+            audit_header=audit_header,
+        )
         self.field_path = field_path
-        self.aspect_name = "editableSchemaMetadata"
-        self.aspect_field = "editableSchemaFieldInfo"
+        self.aspect_name = "editableSchemaMetadata" if editable else "schemaMetadata"
+        self.aspect_field = "editableSchemaFieldInfo" if editable else "schemaFieldInfo"
 
     def add_tag(self, tag: Tag) -> "FieldPatchBuilder":
         self._add_patch(
@@ -61,8 +75,15 @@ class FieldPatchBuilder(MetadataPatchProposal):
 
 
 class DatasetPatchBuilder(MetadataPatchProposal):
-    def __init__(self, urn: str) -> None:
-        super().__init__(urn, "dataset")
+    def __init__(
+        self,
+        urn: str,
+        system_metadata: Optional[SystemMetadataClass] = None,
+        audit_header: Optional[KafkaAuditHeaderClass] = None,
+    ) -> None:
+        super().__init__(
+            urn, "dataset", system_metadata=system_metadata, audit_header=audit_header
+        )
 
     def add_owner(self, owner: Owner) -> "DatasetPatchBuilder":
         self._add_patch(
@@ -134,5 +155,19 @@ class DatasetPatchBuilder(MetadataPatchProposal):
         self._add_patch("glossaryTerms", "remove", path=f"/terms/{term}", value={})
         return self
 
-    def field_patch(self, field_path: str) -> "FieldPatchBuilder":
-        return FieldPatchBuilder(self.urn, field_path)
+    def field_patch_builder(
+        self, field_path: str, editable: bool = True
+    ) -> "FieldPatchBuilder":
+        """
+        Get a builder that can perform patches against fields in the dataset
+
+        :param field_path: The field path in datahub format
+        :param editable: Whether patches should apply to the editable section of schema metadata or not
+        """
+        return FieldPatchBuilder(
+            self.urn,
+            field_path,
+            system_metadata=self.system_metadata,
+            audit_header=self.audit_header,
+            editable=editable,
+        )
