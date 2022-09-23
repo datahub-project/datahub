@@ -471,7 +471,9 @@ class TableauSource(Source):
 
             table_path = None
             if project and datasource.get("name"):
-                table_path = f"{project.replace('/', REPLACE_SLASH_CHAR)}/{datasource['name']}"
+                table_path = (
+                    f"{project.replace('/', REPLACE_SLASH_CHAR)}/{datasource['name']}"
+                )
 
             self.upstream_tables[table_urn] = (
                 table.get("columns", []),
@@ -785,9 +787,7 @@ class TableauSource(Source):
             datasource_name = f"{workbook['name']}/{datasource_name}"
         # Browse path
         browse_paths = BrowsePathsClass(
-            paths=[
-                f"/{self.config.env.lower()}/{self.platform}/{project}"
-            ]
+            paths=[f"/{self.config.env.lower()}/{self.platform}/{project}"]
         )
         dataset_snapshot.aspects.append(browse_paths)
 
@@ -1068,7 +1068,6 @@ class TableauSource(Source):
                     yield wu
 
             if workbook.get("projectName") and workbook.get("name"):
-                sheet_name = sheet.get("name") or sheet["id"]
                 # Browse path
                 browse_path = BrowsePathsClass(
                     paths=[
@@ -1242,7 +1241,6 @@ class TableauSource(Source):
                     yield wu
 
             if workbook.get("projectName") and workbook.get("name"):
-                dashboard_name = title or dashboard["id"]
                 # browse path
                 browse_paths = BrowsePathsClass(
                     paths=[
