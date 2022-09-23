@@ -536,6 +536,8 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
             return
 
         table.columns = self.get_columns_for_table(conn, table_identifier)
+        if not table.columns:
+            logger.warning(f"Unable to get columns for table: {table_identifier}")
 
         lineage_info: Optional[Tuple[UpstreamLineage, Dict[str, str]]] = None
 
@@ -996,6 +998,9 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
         # get all columns for schema failed,
         # falling back to get columns for table
         if not columns:
+            logger.warning(
+                f"Couldn't get columns on the dataset level for {table_identifier}. Trying to get on table level..."
+            )
             return BigQueryDataDictionary.get_columns_for_table(conn, table_identifier)
 
         # Access to table but none of its columns - is this possible ?
