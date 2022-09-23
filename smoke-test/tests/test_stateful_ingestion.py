@@ -59,6 +59,7 @@ def test_stateful_ingestion(wait_for_healthchecks):
         "stateful_ingestion": {
             "enabled": True,
             "remove_stale_metadata": True,
+            "fail_safe_threshold": 100.0,
             "state_provider": {
                 "type": "datahub",
                 "config": {"datahub_api": {"server": get_gms_url()}},

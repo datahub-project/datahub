@@ -111,7 +111,7 @@ sql_common = {
     # Required for all SQL sources.
     "sqlalchemy==1.3.24",
     # Required for SQL profiling.
-    "great-expectations>=0.15.12",
+    "great-expectations>=0.15.12, <0.15.23",
     # GE added handling for higher version of jinja2
     # https://github.com/great-expectations/great_expectations/pull/5382/files
     # datahub does not depend on traitlets directly but great expectations does.
@@ -297,6 +297,9 @@ plugins: Dict[str, Set[str]] = {
         "more-itertools>=8.12.0",
     },
     "snowflake": snowflake_common | usage_common,
+    "snowflake-beta": (
+        snowflake_common | usage_common
+    ),  # deprecated, but keeping the extra for backwards compatibility
     "sqlalchemy": sql_common,
     "superset": {
         "requests",
@@ -333,7 +336,7 @@ mypy_stubs = {
     "types-cachetools",
     # versions 0.1.13 and 0.1.14 seem to have issues
     "types-click==0.1.12",
-    "boto3-stubs[s3,glue,sagemaker]",
+    "boto3-stubs[s3,glue,sagemaker,sts]",
     "types-tabulate",
     # avrogen package requires this
     "types-pytz",

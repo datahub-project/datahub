@@ -71,8 +71,8 @@ task publishSchema(dependsOn: build) {
             javaexec {
                 executable = javaLauncher.get().getExecutablePath().getAsFile().getAbsolutePath()
                 classpath = configurations.datahub
-                main = "datahub.protobuf.App"
-                args = ["${projectDir}/build/descriptors/main.dsc", file(f).getAbsoluteFile()]
+                main = "datahub.protobuf.Proto2DataHub"
+                args = ["--descriptor", "${projectDir}/build/descriptors/main.dsc", "--file", file(f).getAbsoluteFile()]
             }
         }
     }
