@@ -72,11 +72,13 @@ from datahub.metadata.com.linkedin.pegasus2avro.dataset import (
     ViewProperties,
 )
 from datahub.metadata.com.linkedin.pegasus2avro.schema import (
+    ArrayType,
     BooleanType,
     BytesType,
     MySqlDDL,
     NullType,
     NumberType,
+    RecordType,
     SchemaField,
     SchemaFieldDataType,
     SchemaMetadata,
@@ -130,7 +132,7 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
     # https://cloud.google.com/bigquery/docs/reference/standard-sql/data-types
     BIGQUERY_FIELD_TYPE_MAPPINGS: Dict[
         str,
-        Type[Union[BytesType, BooleanType, NumberType, StringType, TimeType, NullType]],
+        Type[Union[ArrayType, BytesType, BooleanType, NumberType, RecordType, StringType, TimeType, NullType]],
     ] = {
         "BYTES": BytesType,
         "BOOL": BooleanType,
@@ -154,6 +156,8 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
         "GEOGRAPHY": NullType,
         "JSON": NullType,
         "INTERVAL": NullType,
+        "ARRAY": ArrayType,
+        "STRUCT": RecordType,
     }
 
     def __init__(self, ctx: PipelineContext, config: BigQueryV2Config):
@@ -423,7 +427,7 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
             if not self.config.project_id_pattern.allowed(project_id.id):
                 self.report.report_dropped(project_id.id)
                 continue
-
+            logger.info(f"Processing project: {project_id.id}")
             yield from self._process_project(conn, project_id)
 
         if self.config.include_usage_statistics:
@@ -474,6 +478,7 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
                 continue
 
         if self.config.include_usage_statistics:
+            logger.info(f"Generate usage for {project_id}")
             yield from self.usage_extractor.generate_usage_for_project(project_id)
 
     def _process_schema(
@@ -554,10 +559,9 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
         view.columns = self.get_columns_for_table(conn, table_identifier)
 
         lineage_info: Optional[Tuple[UpstreamLineage, Dict[str, str]]] = None
-        if self.config.include_table_lineage:
-            lineage_info = self.lineage_extractor.get_upstream_lineage_info(
-                table_identifier, self.platform
-            )
+        lineage_info = self.lineage_extractor.get_upstream_lineage_info(
+            table_identifier, self.platform
+        )
 
         view_workunits = self.gen_view_dataset_workunits(
             view, project_id, dataset_name, lineage_info
