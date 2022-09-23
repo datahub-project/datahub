@@ -123,7 +123,7 @@ public class AuthServiceClient {
           String.format("%s://%s:%s/%s", protocol, this.metadataServiceHost, this.metadataServicePort,
               SIGN_UP_ENDPOINT));
 
-      // Build JSON request to verify credentials for a native user.
+      // Build JSON request to sign up a native user.
       final ObjectMapper objectMapper = new ObjectMapper();
       final ObjectNode objectNode = objectMapper.createObjectNode();
       objectNode.put(USER_URN_FIELD, userUrn);
@@ -150,7 +150,7 @@ public class AuthServiceClient {
                 response.getEntity().toString()));
       }
     } catch (Exception e) {
-      throw new RuntimeException("Failed to create user", e);
+      throw new RuntimeException(String.format("Failed to create user %s", userUrn), e);
     } finally {
       try {
         httpClient.close();
