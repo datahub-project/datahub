@@ -34,7 +34,7 @@ Note that a `.` is used to denote nested fields in the YAML recipe.
 NOTE: If either `dry-run` or `preview` mode are set, stateful ingestion will be turned off regardless of the rest of the configuration.
 ## Use-cases powered by stateful ingestion.
 Following is the list of current use-cases powered by stateful ingestion in datahub.
-### Removal of stale tables and views.
+### Stale Entity Removal 
 Stateful ingestion can be used to automatically soft-delete the tables and views that are seen in a previous run
 but absent in the current run (they are either deleted or no longer desired).
 
@@ -88,7 +88,7 @@ sink:
     server: 'http://localhost:8080'
 ```
 
-### Prevent redundant reruns for usage source.
+### Redundant Run Elimination
 Typically, the usage runs are configured to fetch the usage data for the previous day(or hour) for each run. Once a usage
 run has finished, subsequent runs until the following day would be fetching the same usage data. With stateful ingestion,
 the redundant fetches can be avoided even if the ingestion job is scheduled to run more frequently than the granularity of
@@ -126,6 +126,10 @@ sink:
   config:
     server: 'http://localhost:8080'
 ```
+
+## Adding Stateful Ingestion Capability to New Sources (Developer Guide)
+See [this documentation](./add_stateful_ingestion_to_source.md) for more details on how to add stateful ingestion
+capability to new sources for the use-cases supported by datahub.
 
 ## The Checkpointing Ingestion State Provider (Developer Guide)
 The ingestion checkpointing state provider is responsible for saving and retrieving the ingestion checkpoint state associated with the ingestion runs

@@ -431,9 +431,9 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
 
         if self.config.profiling.enabled:
             yield from self.profiler.get_workunits(self.db_tables)
-        if self.is_stateful_ingestion_configured():
-            # Clean up stale entities.
-            yield from self.stale_entity_removal_handler.gen_removed_entity_workunits()
+
+        # Clean up stale entities if configured.
+        yield from self.stale_entity_removal_handler.gen_removed_entity_workunits()
 
     def _process_project(
         self, conn: bigquery.Client, bigquery_project: BigqueryProject
