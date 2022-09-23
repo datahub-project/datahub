@@ -56,10 +56,10 @@ class BigqueryView:
 @dataclass
 class BigqueryDataset:
     name: str
-    created: datetime
-    last_altered: Optional[datetime]
-    location: str
-    comment: str
+    created: Optional[datetime] = None
+    last_altered: Optional[datetime] = None
+    location: Optional[str] = None
+    comment: Optional[str] = None
     tables: List[BigqueryTable] = field(default_factory=list)
     views: List[BigqueryView] = field(default_factory=list)
 
@@ -226,6 +226,14 @@ class BigQueryDataDictionary:
 
     @staticmethod
     def get_datasets_for_project_id(
+        conn: bigquery.Client, project_id: str
+    ) -> List[BigqueryDataset]:
+        datasets = conn.list_datasets(project_id)
+
+        return [BigqueryDataset(name=d.dataset_id) for d in datasets]
+
+    @staticmethod
+    def get_datasets_for_project_id_with_information_schema(
         conn: bigquery.Client, project_id: str
     ) -> List[BigqueryDataset]:
 
