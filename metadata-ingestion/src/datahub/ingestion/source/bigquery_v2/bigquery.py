@@ -132,7 +132,18 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
     # https://cloud.google.com/bigquery/docs/reference/standard-sql/data-types
     BIGQUERY_FIELD_TYPE_MAPPINGS: Dict[
         str,
-        Type[Union[ArrayType, BytesType, BooleanType, NumberType, RecordType, StringType, TimeType, NullType]],
+        Type[
+            Union[
+                ArrayType,
+                BytesType,
+                BooleanType,
+                NumberType,
+                RecordType,
+                StringType,
+                TimeType,
+                NullType,
+            ]
+        ],
     ] = {
         "BYTES": BytesType,
         "BOOL": BooleanType,
