@@ -1,5 +1,9 @@
 package controllers;
 
+import auth.AuthUtils;
+import auth.JAASConfigs;
+import auth.NativeAuthenticationConfigs;
+import auth.sso.SsoManager;
 import client.AuthServiceClient;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
@@ -8,7 +12,13 @@ import com.linkedin.common.urn.Urn;
 import com.typesafe.config.Config;
 import java.io.UnsupportedEncodingException;
 import java.net.URLEncoder;
+import java.time.Duration;
+import java.time.temporal.ChronoUnit;
+import java.util.HashMap;
+import java.util.Map;
 import java.util.Optional;
+import javax.annotation.Nonnull;
+import javax.inject.Inject;
 import org.apache.commons.lang3.StringUtils;
 import org.pac4j.core.client.Client;
 import org.pac4j.core.context.session.SessionStore;
@@ -21,17 +31,7 @@ import play.libs.Json;
 import play.mvc.Controller;
 import play.mvc.Http;
 import play.mvc.Result;
-import auth.AuthUtils;
-import auth.JAASConfigs;
-import auth.NativeAuthenticationConfigs;
-import auth.sso.SsoManager;
 import security.AuthenticationManager;
-
-import javax.annotation.Nonnull;
-import javax.inject.Inject;
-
-import java.time.Duration;
-import java.time.temporal.ChronoUnit;
 
 import static auth.AuthUtils.*;
 import static org.pac4j.core.client.IndirectClient.*;
@@ -70,14 +70,14 @@ public class AuthenticationController extends Controller {
      * Route used to perform authentication, or redirect to log in if authentication fails.
      *
      * If indirect SSO (eg. oidc) is configured, this route will redirect to the identity provider (Indirect auth).
-     * If not, we will fallback to the default username / password login experience (Direct auth).
+     * If not, we will fall back to the default username / password login experience (Direct auth).
      */
     @Nonnull
-    public Result authenticate() {
+    public Result authenticate(Http.Request request) {
 
         // TODO: Call getAuthenticatedUser and then generate a session cookie for the UI if the user is authenticated.
 
-        final Optional<String> maybeRedirectPath = Optional.ofNullable(ctx().request().getQueryString(AUTH_REDIRECT_URI_PARAM));
+        final Optional<String> maybeRedirectPath = Optional.ofNullable(request.getQueryString(AUTH_REDIRECT_URI_PARAM));
         final String redirectPath = maybeRedirectPath.orElse("/");
 
         if (AuthUtils.hasValidSessionCookie(ctx())) {
@@ -98,10 +98,9 @@ public class AuthenticationController extends Controller {
         // 3. If no auth enabled, fallback to using default user account & redirect.
         // Generate GMS session token, TODO:
         final String accessToken = _authClient.generateSessionTokenForUser(DEFAULT_ACTOR_URN.getId());
-        session().put(ACCESS_TOKEN, accessToken);
-        session().put(ACTOR, DEFAULT_ACTOR_URN.toString());
-        return redirect(redirectPath).withCookies(createActorCookie(DEFAULT_ACTOR_URN.toString(), _configs.hasPath(SESSION_TTL_CONFIG_PATH)
-                ? _configs.getInt(SESSION_TTL_CONFIG_PATH)
+        request.session().adding(createSessionMap(DEFAULT_ACTOR_URN.toString(), accessToken));
+        return redirect(redirectPath).withCookies(createActorCookie(DEFAULT_ACTOR_URN.toString(),
+            _configs.hasPath(SESSION_TTL_CONFIG_PATH) ? _configs.getInt(SESSION_TTL_CONFIG_PATH)
                 : DEFAULT_SESSION_TTL_HOURS));
     }
 
@@ -111,7 +110,7 @@ public class AuthenticationController extends Controller {
      * TODO: Implement built-in support for LDAP auth. Currently dummy jaas authentication is the default.
      */
     @Nonnull
-    public Result logIn() {
+    public Result logIn(Http.Request request) {
         boolean jaasEnabled = _jaasConfigs.isJAASEnabled();
         _logger.debug(String.format("Jaas authentication enabled: %b", jaasEnabled));
         boolean nativeAuthenticationEnabled = _nativeAuthenticationConfigs.isNativeAuthenticationEnabled();
@@ -124,7 +123,7 @@ public class AuthenticationController extends Controller {
             return badRequest(error);
         }
 
-        final JsonNode json = request().body().asJson();
+        final JsonNode json = request.body().asJson();
         final String username = json.findPath(USER_NAME).textValue();
         final String password = json.findPath(PASSWORD).textValue();
 
@@ -132,8 +131,6 @@ public class AuthenticationController extends Controller {
             JsonNode invalidCredsJson = Json.newObject().put("message", "User name must not be empty.");
             return badRequest(invalidCredsJson);
         }
-
-        ctx().session().clear();
 
         JsonNode invalidCredsJson = Json.newObject().put("message", "Invalid Credentials");
         boolean loginSucceeded = tryLogin(username, password);
@@ -144,12 +141,12 @@ public class AuthenticationController extends Controller {
 
         final Urn actorUrn = new CorpuserUrn(username);
         final String accessToken = _authClient.generateSessionTokenForUser(actorUrn.getId());
-        ctx().session().put(ACTOR, actorUrn.toString());
-        ctx().session().put(ACCESS_TOKEN, accessToken);
-        return ok().withCookies(Http.Cookie.builder(ACTOR, actorUrn.toString())
-            .withHttpOnly(false)
-            .withMaxAge(Duration.of(30, ChronoUnit.DAYS))
-            .build());
+        Result result = ok().withSession(createSessionMap(actorUrn.toString(), accessToken))
+            .withCookies(Http.Cookie.builder(ACTOR, actorUrn.toString())
+                .withHttpOnly(false)
+                .withMaxAge(Duration.of(30, ChronoUnit.DAYS))
+                .build());
+        return result;
     }
 
     /**
@@ -158,7 +155,7 @@ public class AuthenticationController extends Controller {
      *
      */
     @Nonnull
-    public Result signUp() {
+    public Result signUp(Http.Request request) {
         boolean nativeAuthenticationEnabled = _nativeAuthenticationConfigs.isNativeAuthenticationEnabled();
         _logger.debug(String.format("Native authentication enabled: %b", nativeAuthenticationEnabled));
         if (!nativeAuthenticationEnabled) {
@@ -168,7 +165,7 @@ public class AuthenticationController extends Controller {
             return badRequest(error);
         }
 
-        final JsonNode json = request().body().asJson();
+        final JsonNode json = request.body().asJson();
         final String fullName = json.findPath(FULL_NAME).textValue();
         final String email = json.findPath(EMAIL).textValue();
         final String title = json.findPath(TITLE).textValue();
@@ -200,18 +197,15 @@ public class AuthenticationController extends Controller {
             return badRequest(invalidCredsJson);
         }
 
-        ctx().session().clear();
-
         final Urn userUrn = new CorpuserUrn(email);
         final String userUrnString = userUrn.toString();
         boolean isNativeUserCreated = _authClient.signUp(userUrnString, fullName, email, title, password, inviteToken);
         final String accessToken = _authClient.generateSessionTokenForUser(userUrn.getId());
-        ctx().session().put(ACTOR, userUrnString);
-        ctx().session().put(ACCESS_TOKEN, accessToken);
-        return ok().withCookies(Http.Cookie.builder(ACTOR, userUrnString)
-            .withHttpOnly(false)
-            .withMaxAge(Duration.of(30, ChronoUnit.DAYS))
-            .build());
+        return ok().withSession(createSessionMap(userUrnString, accessToken))
+            .withCookies(Http.Cookie.builder(ACTOR, userUrnString)
+                .withHttpOnly(false)
+                .withMaxAge(Duration.of(30, ChronoUnit.DAYS))
+                .build());
     }
 
     /**
@@ -219,7 +213,7 @@ public class AuthenticationController extends Controller {
      *
      */
     @Nonnull
-    public Result resetNativeUserCredentials() {
+    public Result resetNativeUserCredentials(Http.Request request) {
         boolean nativeAuthenticationEnabled = _nativeAuthenticationConfigs.isNativeAuthenticationEnabled();
         _logger.debug(String.format("Native authentication enabled: %b", nativeAuthenticationEnabled));
         if (!nativeAuthenticationEnabled) {
@@ -229,7 +223,7 @@ public class AuthenticationController extends Controller {
             return badRequest(error);
         }
 
-        final JsonNode json = request().body().asJson();
+        final JsonNode json = request.body().asJson();
         final String email = json.findPath(EMAIL).textValue();
         final String password = json.findPath(PASSWORD).textValue();
         final String resetToken = json.findPath(RESET_TOKEN).textValue();
@@ -249,20 +243,17 @@ public class AuthenticationController extends Controller {
             return badRequest(invalidCredsJson);
         }
 
-        ctx().session().clear();
-
         final Urn userUrn = new CorpuserUrn(email);
         final String userUrnString = userUrn.toString();
         boolean areNativeUserCredentialsReset =
             _authClient.resetNativeUserCredentials(userUrnString, password, resetToken);
         _logger.debug(String.format("Are native user credentials reset: %b", areNativeUserCredentialsReset));
         final String accessToken = _authClient.generateSessionTokenForUser(userUrn.getId());
-        ctx().session().put(ACTOR, userUrnString);
-        ctx().session().put(ACCESS_TOKEN, accessToken);
-        return ok().withCookies(Http.Cookie.builder(ACTOR, userUrnString)
-            .withHttpOnly(false)
-            .withMaxAge(Duration.of(30, ChronoUnit.DAYS))
-            .build());
+        return ok().withSession(createSessionMap(userUrnString, accessToken))
+            .withCookies(Http.Cookie.builder(ACTOR, userUrnString)
+                .withHttpOnly(false)
+                .withMaxAge(Duration.of(30, ChronoUnit.DAYS))
+                .build());
     }
 
     private Result redirectToIdentityProvider() {
@@ -320,5 +311,12 @@ public class AuthenticationController extends Controller {
         }
 
         return loginSucceeded;
+    }
+
+    private Map<String, String> createSessionMap(final String userUrnStr, final String accessToken) {
+        final Map<String, String> sessionAttributes = new HashMap<>();
+        sessionAttributes.put(ACTOR, userUrnStr);
+        sessionAttributes.put(ACCESS_TOKEN, accessToken);
+        return sessionAttributes;
     }
 }
