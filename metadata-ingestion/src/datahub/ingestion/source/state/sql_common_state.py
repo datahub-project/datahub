@@ -122,3 +122,21 @@ class BaseSQLAlchemyCheckpointState(
             yield from self._get_table_urns_not_in(other_checkpoint_state)
         elif type == "view":
             yield from self._get_view_urns_not_in(other_checkpoint_state)
+
+    def get_percent_entities_changed(
+        self, old_checkpoint_state: "BaseSQLAlchemyCheckpointState"
+    ) -> float:
+        return StaleEntityCheckpointStateBase.compute_percent_entities_changed(
+            [
+                (
+                    self.encoded_assertion_urns,
+                    old_checkpoint_state.encoded_assertion_urns,
+                ),
+                (
+                    self.encoded_container_urns,
+                    old_checkpoint_state.encoded_container_urns,
+                ),
+                (self.encoded_table_urns, old_checkpoint_state.encoded_table_urns),
+                (self.encoded_view_urns, old_checkpoint_state.encoded_view_urns),
+            ]
+        )
