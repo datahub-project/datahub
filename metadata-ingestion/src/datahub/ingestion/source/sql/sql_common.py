@@ -22,6 +22,7 @@ from urllib.parse import quote_plus
 
 import pydantic
 import sqlalchemy.dialects.postgresql.base
+from datahub.utilities.lossy_collections import LossyList
 from pydantic.fields import Field
 from sqlalchemy import create_engine, inspect
 from sqlalchemy.engine.reflection import Inspector
@@ -191,7 +192,7 @@ class SQLSourceReport(StaleEntityRemovalSourceReport):
     tables_scanned: int = 0
     views_scanned: int = 0
     entities_profiled: int = 0
-    filtered: List[str] = field(default_factory=list)
+    filtered: LossyList[str] = field(default_factory=LossyList)
 
     query_combiner: Optional[SQLAlchemyQueryCombinerReport] = None
 
