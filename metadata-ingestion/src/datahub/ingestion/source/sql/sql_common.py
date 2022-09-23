@@ -17,7 +17,6 @@ from typing import (
     Tuple,
     Type,
     Union,
-    cast,
 )
 from urllib.parse import quote_plus
 
@@ -48,15 +47,17 @@ from datahub.emitter.mcp_builder import (
 )
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.workunit import MetadataWorkUnit
-from datahub.ingestion.source.state.checkpoint import Checkpoint
+from datahub.ingestion.source.ge_profiling_config import GEProfilingConfig
 from datahub.ingestion.source.state.sql_common_state import (
     BaseSQLAlchemyCheckpointState,
 )
+from datahub.ingestion.source.state.stale_entity_removal_handler import (
+    StaleEntityRemovalHandler,
+    StaleEntityRemovalSourceReport,
+    StatefulStaleMetadataRemovalConfig,
+)
 from datahub.ingestion.source.state.stateful_ingestion_base import (
-    JobId,
-    StatefulIngestionConfig,
     StatefulIngestionConfigBase,
-    StatefulIngestionReport,
     StatefulIngestionSourceBase,
 )
 from datahub.metadata.com.linkedin.pegasus2avro.common import StatusClass
@@ -86,7 +87,6 @@ from datahub.metadata.schema_classes import (
     DatasetLineageTypeClass,
     DatasetPropertiesClass,
     GlobalTagsClass,
-    JobStatusClass,
     SubTypesClass,
     TagAssociationClass,
     UpstreamClass,
@@ -187,12 +187,11 @@ class SqlContainerSubTypes(str, Enum):
 
 
 @dataclass
-class SQLSourceReport(StatefulIngestionReport):
+class SQLSourceReport(StaleEntityRemovalSourceReport):
     tables_scanned: int = 0
     views_scanned: int = 0
     entities_profiled: int = 0
     filtered: List[str] = field(default_factory=list)
-    soft_deleted_stale_entities: List[str] = field(default_factory=list)
 
     query_combiner: Optional[SQLAlchemyQueryCombinerReport] = None
 
@@ -218,20 +217,16 @@ class SQLSourceReport(StatefulIngestionReport):
     ) -> None:
         self.query_combiner = query_combiner_report
 
-    def report_stale_entity_soft_deleted(self, urn: str) -> None:
-        self.soft_deleted_stale_entities.append(urn)
 
-
-class SQLAlchemyStatefulIngestionConfig(StatefulIngestionConfig):
+class SQLAlchemyStatefulIngestionConfig(StatefulStaleMetadataRemovalConfig):
     """
-    Specialization of basic StatefulIngestionConfig to adding custom config.
+    Specialization of StatefulStaleMetadataRemovalConfig to adding custom config.
     This will be used to override the stateful_ingestion config param of StatefulIngestionConfigBase
     in the SQLAlchemyConfig.
     """
 
-    remove_stale_metadata: bool = Field(
-        default=True,
-        description="Soft-deletes the tables and views that were found in the last successful run but missing in the current run with stateful_ingestion enabled.",
+    _entity_types: List[str] = pydantic.Field(
+        default=["assertion", "container", "table", "view"]
     )
 
 
@@ -269,8 +264,6 @@ class SQLAlchemyConfig(StatefulIngestionConfigBase):
         default=True, description="Whether tables should be ingested."
     )
 
-    from datahub.ingestion.source.ge_data_profiler import GEProfilingConfig
-
     profiling: GEProfilingConfig = GEProfilingConfig()
     # Custom Stateful Ingestion settings
     stateful_ingestion: Optional[SQLAlchemyStatefulIngestionConfig] = None
@@ -290,9 +283,9 @@ class SQLAlchemyConfig(StatefulIngestionConfigBase):
     def ensure_profiling_pattern_is_passed_to_profiling(
         cls, values: Dict[str, Any]
     ) -> Dict[str, Any]:
-        profiling = values.get("profiling")
+        profiling: Optional[GEProfilingConfig] = values.get("profiling")
         if profiling is not None and profiling.enabled:
-            profiling.allow_deny_patterns = values["profile_pattern"]
+            profiling._allow_deny_patterns = values["profile_pattern"]
         return values
 
     @abstractmethod
@@ -488,6 +481,15 @@ class SQLAlchemySource(StatefulIngestionSourceBase):
         self.platform = platform
         self.report: SQLSourceReport = SQLSourceReport()
 
+        # Create and register the stateful ingestion use-case handlers.
+        self.stale_entity_removal_handler = StaleEntityRemovalHandler(
+            source=self,
+            config=self.config,
+            state_type_class=BaseSQLAlchemyCheckpointState,
+            pipeline_name=self.ctx.pipeline_name,
+            run_id=self.ctx.run_id,
+        )
+
         config_report = {
             config_option: config.dict().get(config_option)
             for config_option in config_options_to_report
@@ -545,52 +547,6 @@ class SQLAlchemySource(StatefulIngestionSourceBase):
         else:
             raise Exception("Unable to get database name from Sqlalchemy inspector")
 
-    def is_checkpointing_enabled(self, job_id: JobId) -> bool:
-        if (
-            job_id == self.get_default_ingestion_job_id()
-            and self.is_stateful_ingestion_configured()
-            and self.config.stateful_ingestion
-            and self.config.stateful_ingestion.remove_stale_metadata
-        ):
-            return True
-
-        return False
-
-    def get_default_ingestion_job_id(self) -> JobId:
-        """
-        Default ingestion job name that sql_common provides.
-        Subclasses can override as needed.
-        """
-        return JobId("common_ingest_from_sql_source")
-
-    def create_checkpoint(self, job_id: JobId) -> Optional[Checkpoint]:
-        """
-        Create the custom checkpoint with empty state for the job.
-        """
-        assert self.ctx.pipeline_name is not None
-        if job_id == self.get_default_ingestion_job_id():
-            return Checkpoint(
-                job_name=job_id,
-                pipeline_name=self.ctx.pipeline_name,
-                platform_instance_id=self.get_platform_instance_id(),
-                run_id=self.ctx.run_id,
-                config=self.config,
-                state=BaseSQLAlchemyCheckpointState(),
-            )
-        return None
-
-    def update_default_job_run_summary(self) -> None:
-        summary = self.get_job_run_summary(self.get_default_ingestion_job_id())
-        if summary is not None:
-            # For now just add the config and the report.
-            summary.config = self.config.json()
-            summary.custom_summary = self.report.as_string()
-            summary.runStatus = (
-                JobStatusClass.FAILED
-                if self.get_report().failures
-                else JobStatusClass.COMPLETED
-            )
-
     def get_schema_names(self, inspector):
         return inspector.get_schema_names()
 
@@ -603,64 +559,6 @@ class SQLAlchemySource(StatefulIngestionSourceBase):
         host_port = config_dict.get("host_port", "no_host_port")
         database = config_dict.get("database", "no_database")
         return f"{self.platform}_{host_port}_{database}"
-
-    def gen_removed_entity_workunits(self) -> Iterable[MetadataWorkUnit]:
-        last_checkpoint = self.get_last_checkpoint(
-            self.get_default_ingestion_job_id(), BaseSQLAlchemyCheckpointState
-        )
-        cur_checkpoint = self.get_current_checkpoint(
-            self.get_default_ingestion_job_id()
-        )
-        if (
-            self.config.stateful_ingestion
-            and self.config.stateful_ingestion.remove_stale_metadata
-            and last_checkpoint is not None
-            and last_checkpoint.state is not None
-            and cur_checkpoint is not None
-            and cur_checkpoint.state is not None
-        ):
-            logger.debug("Checking for stale entity removal.")
-
-            def soft_delete_item(urn: str, type: str) -> Iterable[MetadataWorkUnit]:
-                entity_type: str = "dataset"
-
-                if type == "container":
-                    entity_type = "container"
-
-                logger.info(f"Soft-deleting stale entity of type {type} - {urn}.")
-                mcp = MetadataChangeProposalWrapper(
-                    entityType=entity_type,
-                    entityUrn=urn,
-                    changeType=ChangeTypeClass.UPSERT,
-                    aspectName="status",
-                    aspect=StatusClass(removed=True),
-                )
-                wu = MetadataWorkUnit(id=f"soft-delete-{type}-{urn}", mcp=mcp)
-                self.report.report_workunit(wu)
-                self.report.report_stale_entity_soft_deleted(urn)
-                yield wu
-
-            last_checkpoint_state = cast(
-                BaseSQLAlchemyCheckpointState, last_checkpoint.state
-            )
-            cur_checkpoint_state = cast(
-                BaseSQLAlchemyCheckpointState, cur_checkpoint.state
-            )
-
-            for table_urn in last_checkpoint_state.get_table_urns_not_in(
-                cur_checkpoint_state
-            ):
-                yield from soft_delete_item(table_urn, "table")
-
-            for view_urn in last_checkpoint_state.get_view_urns_not_in(
-                cur_checkpoint_state
-            ):
-                yield from soft_delete_item(view_urn, "view")
-
-            for container_urn in last_checkpoint_state.get_container_urns_not_in(
-                cur_checkpoint_state
-            ):
-                yield from soft_delete_item(container_urn, "container")
 
     def gen_schema_key(self, db_name: str, schema: str) -> PlatformKey:
         return SchemaKey(
@@ -769,9 +667,8 @@ class SQLAlchemySource(StatefulIngestionSourceBase):
                     profile_requests, profiler, platform=self.platform
                 )
 
-        if self.is_stateful_ingestion_configured():
-            # Clean up stale entities.
-            yield from self.gen_removed_entity_workunits()
+        # Clean up stale entities.
+        yield from self.stale_entity_removal_handler.gen_removed_entity_workunits()
 
     def standardize_schema_table_names(
         self, schema: str, entity: str
@@ -931,16 +828,8 @@ class SQLAlchemySource(StatefulIngestionSourceBase):
             urn=dataset_urn,
             aspects=[StatusClass(removed=False)],
         )
-        if self.is_stateful_ingestion_configured():
-            cur_checkpoint = self.get_current_checkpoint(
-                self.get_default_ingestion_job_id()
-            )
-            if cur_checkpoint is not None:
-                checkpoint_state = cast(
-                    BaseSQLAlchemyCheckpointState, cur_checkpoint.state
-                )
-                checkpoint_state.add_table_urn(dataset_urn)
-
+        # Add table to the checkpoint state
+        self.stale_entity_removal_handler.add_entity_to_state("table", dataset_urn)
         description, properties, location_urn = self.get_table_properties(
             inspector, schema, table
         )
@@ -1250,15 +1139,10 @@ class SQLAlchemySource(StatefulIngestionSourceBase):
         )
         db_name = self.get_db_name(inspector)
         yield from self.add_table_to_schema_container(dataset_urn, db_name, schema)
-        if self.is_stateful_ingestion_configured():
-            cur_checkpoint = self.get_current_checkpoint(
-                self.get_default_ingestion_job_id()
-            )
-            if cur_checkpoint is not None:
-                checkpoint_state = cast(
-                    BaseSQLAlchemyCheckpointState, cur_checkpoint.state
-                )
-                checkpoint_state.add_view_urn(dataset_urn)
+
+        # Add view to the checkpoint state
+        self.stale_entity_removal_handler.add_entity_to_state("view", dataset_urn)
+
         dataset_properties = DatasetPropertiesClass(
             name=view,
             description=description,
@@ -1291,16 +1175,10 @@ class SQLAlchemySource(StatefulIngestionSourceBase):
             view_properties_aspect = ViewPropertiesClass(
                 materialized=False, viewLanguage="SQL", viewLogic=view_definition_string
             )
-            view_properties_wu = MetadataWorkUnit(
-                id=f"{view}-viewProperties",
-                mcp=MetadataChangeProposalWrapper(
-                    entityType="dataset",
-                    changeType=ChangeTypeClass.UPSERT,
-                    entityUrn=dataset_urn,
-                    aspectName="viewProperties",
-                    aspect=view_properties_aspect,
-                ),
-            )
+            view_properties_wu = MetadataChangeProposalWrapper(
+                entityUrn=dataset_urn,
+                aspect=view_properties_aspect,
+            ).as_workunit()
             self.report.report_workunit(view_properties_wu)
             yield view_properties_wu
 
@@ -1520,5 +1398,4 @@ class SQLAlchemySource(StatefulIngestionSourceBase):
         return self.report
 
     def close(self):
-        self.update_default_job_run_summary()
         self.prepare_for_commit()

@@ -353,6 +353,7 @@ export const IngestionSourceList = () => {
                             onSearch={() => null}
                             onQueryChange={(q) => setQuery(q)}
                             entityRegistry={entityRegistry}
+                            hideRecommendations
                         />
                     </FilterWrapper>
                 </TabToolbar>

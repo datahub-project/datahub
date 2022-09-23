@@ -83,6 +83,12 @@ class DataHubGraph(DatahubRestEmitter):
             self.server_id = "missing"
             logger.debug(f"Failed to get server id due to {e}")
 
+    def __enter__(self):
+        return self
+
+    def __exit__(self, type, value, tb):
+        return super().__exit__(type, value, tb)
+
     def _get_generic(self, url: str) -> Dict:
         try:
             response = self._session.get(url)
@@ -142,6 +148,7 @@ class DataHubGraph(DatahubRestEmitter):
         aspect_type: Type[Aspect],
         aspect: str,
         aspect_type_name: Optional[str] = None,
+        version: int = 0,
     ) -> Optional[Aspect]:
         """
         Get an aspect for an entity.
@@ -150,11 +157,12 @@ class DataHubGraph(DatahubRestEmitter):
         :param Type[Aspect] aspect_type: The type class of the aspect being requested (e.g. datahub.metadata.schema_classes.DatasetProperties)
         :param str aspect: The name of the aspect being requested (e.g. schemaMetadata, datasetProperties, etc.)
         :param Optional[str] aspect_type_name: The fully qualified classname of the aspect being requested. Typically not needed and extracted automatically from the class directly. (e.g. com.linkedin.common.DatasetProperties)
+        :param version: The version of the aspect to retrieve. The default of 0 means latest. Versions > 0 go from oldest to newest, so 1 is the oldest.
         :return: the Aspect as a dictionary if present, None if no aspect was found (HTTP status 404)
         :rtype: Optional[Aspect]
         :raises HttpError: if the HTTP response is not a 200 or a 404
         """
-        url: str = f"{self._gms_server}/aspects/{Urn.url_encode(entity_urn)}?aspect={aspect}&version=0"
+        url: str = f"{self._gms_server}/aspects/{Urn.url_encode(entity_urn)}?aspect={aspect}&version={version}"
         response = self._session.get(url)
         if response.status_code == 404:
             # not found

@@ -210,7 +210,13 @@ export default function TagTermGroup({
                         >
                             <Tag closable={false} style={{ cursor: 'pointer' }}>
                                 <BookOutlined style={{ marginRight: '3%' }} />
-                                {entityRegistry.getDisplayName(EntityType.GlossaryTerm, term.term)}
+                                <Highlight
+                                    style={{ marginLeft: 0 }}
+                                    matchStyle={highlightMatchStyle}
+                                    search={highlightText}
+                                >
+                                    {entityRegistry.getDisplayName(EntityType.GlossaryTerm, term.term)}
+                                </Highlight>
                             </Tag>
                         </TermLink>
                     </HoverEntityTooltip>
@@ -231,7 +237,11 @@ export default function TagTermGroup({
                             }}
                         >
                             <BookOutlined style={{ marginRight: '3%' }} />
-                            <Highlight matchStyle={highlightMatchStyle} search={highlightText}>
+                            <Highlight
+                                style={{ marginLeft: 0 }}
+                                matchStyle={highlightMatchStyle}
+                                search={highlightText}
+                            >
                                 {entityRegistry.getDisplayName(EntityType.GlossaryTerm, term.term)}
                             </Highlight>
                         </Tag>
@@ -258,7 +268,11 @@ export default function TagTermGroup({
                                 $color={tag?.tag?.properties?.colorHex}
                                 closable={false}
                             >
-                                <Highlight matchStyle={highlightMatchStyle} search={highlightText}>
+                                <Highlight
+                                    style={{ marginLeft: 0 }}
+                                    matchStyle={highlightMatchStyle}
+                                    search={highlightText}
+                                >
                                     {displayName}
                                 </Highlight>
                             </StyledTag>
@@ -286,7 +300,11 @@ export default function TagTermGroup({
                                     removeTag(tag);
                                 }}
                             >
-                                <Highlight matchStyle={highlightMatchStyle} search={highlightText}>
+                                <Highlight
+                                    style={{ marginLeft: 0 }}
+                                    matchStyle={highlightMatchStyle}
+                                    search={highlightText}
+                                >
                                     {displayName}
                                 </Highlight>
                             </StyledTag>

@@ -371,7 +371,7 @@ def get_capability_text(src_capability: SourceCapability) -> str:
     Returns markdown format cell text for a capability, hyperlinked to capability feature page if known
     """
     capability_docs_mapping: Dict[SourceCapability, str] = {
-        SourceCapability.DELETION_DETECTION: "../../../../metadata-ingestion/docs/dev_guides/stateful.md#removal-of-stale-tables-and-views",
+        SourceCapability.DELETION_DETECTION: "../../../../metadata-ingestion/docs/dev_guides/stateful.md#stale-entity-removal",
         SourceCapability.DOMAINS: "../../../domains.md",
         SourceCapability.PLATFORM_INSTANCE: "../../../platform-instances.md",
         SourceCapability.DATA_PROFILING: "../../../../metadata-ingestion/docs/dev_guides/sql_profiles.md",
@@ -774,7 +774,7 @@ def generate(
                         "Check out the following recipe to get started with ingestion! See [below](#config-details) for full configuration options.\n\n\n"
                     )
                     f.write(
-                        "For general pointers on writing and running a recipe, see our [main recipe guide](../../../../metadata-ingestion/README.md#recipes)\n"
+                        "For general pointers on writing and running a recipe, see our [main recipe guide](../../../../metadata-ingestion/README.md#recipes).\n"
                     )
                     f.write("```yaml\n")
                     f.write(plugin_docs["recipe"])

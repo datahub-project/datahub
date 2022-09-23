@@ -12,7 +12,7 @@ const StyledDivider = styled(Divider)`
 
 export const StyledFormItem = styled(Form.Item)<{
     alignLeft?: boolean;
-    removeMargin: boolean;
+    removeMargin?: boolean;
     isSecretField?: boolean;
 }>`
     margin-bottom: ${(props) => (props.removeMargin ? '0' : '16px')};
@@ -84,12 +84,14 @@ function SecretField({ field, secrets, removeMargin, refetchSecrets }: SecretFie
         <StyledFormItem
             name={field.name}
             label={field.label}
+            rules={field.rules || undefined}
             tooltip={<SecretFieldTooltip tooltipLabel={field?.tooltip} />}
             removeMargin={!!removeMargin}
             isSecretField
         >
             <Select
                 showSearch
+                placeholder={field.placeholder}
                 filterOption={(input, option) => !!option?.children.toLowerCase().includes(input.toLowerCase())}
                 dropdownRender={(menu) => (
                     <>

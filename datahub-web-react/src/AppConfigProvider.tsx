@@ -6,13 +6,16 @@ import { AppConfigContext, DEFAULT_APP_CONFIG } from './appConfigContext';
 import { useAppConfigQuery } from './graphql/app.generated';
 
 function changeFavicon(src) {
-    let link = document.querySelector("link[rel~='icon']") as any;
-    if (!link) {
-        link = document.createElement('link');
+    const links = document.querySelectorAll("link[rel~='icon']") as any;
+    if (!links || links.length === 0) {
+        const link = document.createElement('link');
         link.rel = 'icon';
         document.getElementsByTagName('head')[0].appendChild(link);
     }
-    link.href = src;
+    links.forEach((link) => {
+        // eslint-disable-next-line no-param-reassign
+        link.href = src;
+    });
 }
 
 const AppConfigProvider = ({ children }: { children: React.ReactNode }) => {
