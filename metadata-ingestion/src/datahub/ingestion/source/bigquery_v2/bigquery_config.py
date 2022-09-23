@@ -74,7 +74,7 @@ class BigQueryV2Config(BigQueryConfig):
             logging.warning(
                 "project_id_pattern is not set but project_id is set, setting project_id as project_id_pattern. project_id will be deprecated, please use project_id_pattern instead."
             )
-            values["project_id_pattern"] = AllowDenyPattern.allowed(project_id)
+            values["project_id_pattern"] = AllowDenyPattern(allow=[f"^{project_id}$"])
         elif project_id_pattern != AllowDenyPattern.allow_all() and project_id:
             logging.warning(
                 "project_id will be ignored in favour of project_id_pattern. project_id will be deprecated, please use project_id only."
