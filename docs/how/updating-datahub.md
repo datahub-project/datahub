@@ -12,6 +12,24 @@ This file documents any backwards-incompatible changes in DataHub and assists pe
 
 ### Other notable Changes
 
+## `v0.8.45`
+
+### Breaking Changes
+- The `getNativeUserInviteToken` and `createNativeUserInviteToken` GraphQL endpoints have been renamed to 
+  `getInviteToken` and `createInviteToken` respectively.  Additionally, both now accept an optional `roleUrn` parameter. 
+  Both endpoints also now require the `MANAGE_POLICIES` privilege to execute, rather than `MANAGE_USER_CREDENTIALS`
+  privilege.
+- One of the default policies shipped with DataHub (`urn:li:dataHubPolicy:7`, or `All Users - All Platform Privileges`)
+  has been edited to no longer include `MANAGE_POLICIES`. Its name has consequently been changed to
+    `All Users - All Platform Privileges (EXCEPT MANAGE POLICIES)`. This change was made to prevent all users from
+  effectively acting as superusers by default.
+
+### Potential Downtime
+
+### Deprecations
+
+### Other notable Changes
+
 ## `v0.8.44`
 
 ### Breaking Changes

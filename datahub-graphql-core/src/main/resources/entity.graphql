@@ -165,11 +165,6 @@ type Query {
     entityExists(urn: String!): Boolean
 
     """
-    Gets the current invite token. If the optional regenerate param is set to true, generate a new invite token.
-    """
-    getNativeUserInviteToken: InviteToken
-
-    """
     Gets an entity based on its urn
     """
     entity(urn: String!): Entity
@@ -183,6 +178,11 @@ type Query {
     List all DataHub Roles
     """
     listRoles(input: ListRolesInput!): ListRolesResult
+
+    """
+    Get invite token
+    """
+    getInviteToken(input: GetInviteTokenInput!): InviteToken
 }
 
 """
@@ -490,11 +490,6 @@ type Mutation {
     removeRelatedTerms(input: RelatedTermsInput!): Boolean
 
     """
-    Generates an invite token that can be shared with prospective users to create their accounts.
-    """
-    createNativeUserInviteToken: InviteToken
-
-    """
     Generates a token that can be shared with existing native users to reset their credentials.
     """
     createNativeUserResetToken(input: CreateNativeUserResetTokenInput!): ResetToken
@@ -513,6 +508,16 @@ type Mutation {
     Batch assign roles to users
     """
     batchAssignRole(input: BatchAssignRoleInput!): Boolean
+
+    """
+    Accept role using invite token
+    """
+    acceptRole(input: AcceptRoleInput!): Boolean
+
+    """
+    Create invite token
+    """
+    createInviteToken(input: CreateInviteTokenInput!): InviteToken
 }
 
 """
@@ -9344,4 +9349,34 @@ type DataHubRole implements Entity {
     The description of the Role
     """
     description: String!
+}
+
+"""
+Input provided when getting an invite token
+"""
+input GetInviteTokenInput {
+    """
+    The urn of the role to get the invite token for
+    """
+    roleUrn: String
+}
+
+"""
+Input provided when creating an invite token
+"""
+input CreateInviteTokenInput {
+    """
+    The urn of the role to create the invite token for
+    """
+    roleUrn: String
+}
+
+"""
+Input provided when accepting a DataHub role using an invite token
+"""
+input AcceptRoleInput {
+    """
+    The token needed to accept the role
+    """
+    inviteToken: String!
 }

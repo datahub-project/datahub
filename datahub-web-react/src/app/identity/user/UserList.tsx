@@ -45,7 +45,7 @@ export const UserList = () => {
     const [removedUrns, setRemovedUrns] = useState<string[]>([]);
 
     const authenticatedUser = useGetAuthenticatedUser();
-    const canManageUserCredentials = authenticatedUser?.platformPrivileges.manageUserCredentials || false;
+    const canManagePolicies = authenticatedUser?.platformPrivileges.managePolicies || false;
 
     const pageSize = DEFAULT_PAGE_SIZE;
     const start = (page - 1) * pageSize;
@@ -110,11 +110,7 @@ export const UserList = () => {
             <UserContainer>
                 <TabToolbar>
                     <div>
-                        <Button
-                            disabled={!canManageUserCredentials}
-                            type="text"
-                            onClick={() => setIsViewingInviteToken(true)}
-                        >
+                        <Button disabled={!canManagePolicies} type="text" onClick={() => setIsViewingInviteToken(true)}>
                             <UsergroupAddOutlined /> Invite Users
                         </Button>
                     </div>
@@ -146,7 +142,7 @@ export const UserList = () => {
                         <UserListItem
                             onDelete={() => handleDelete(item.urn as string)}
                             user={item as CorpUser}
-                            canManageUserCredentials={canManageUserCredentials}
+                            canManageUserCredentials={canManagePolicies}
                             selectRoleOptions={selectRoleOptions}
                             refetch={usersRefetch}
                         />
@@ -163,7 +159,7 @@ export const UserList = () => {
                         showSizeChanger={false}
                     />
                 </UserPaginationContainer>
-                {canManageUserCredentials && (
+                {canManagePolicies && (
                     <ViewInviteTokenModal
                         visible={isViewingInviteToken}
                         onClose={() => setIsViewingInviteToken(false)}
