@@ -19,7 +19,7 @@
           {
             "com.linkedin.common.BrowsePaths": {
               "paths": [
-                "/spark/spark_spark-master_7077/javahdfsin2hdfsout2"
+                "/spark/spark_spark-master_7077"
               ]
             }
           },
@@ -55,7 +55,7 @@
           {
             "com.linkedin.common.BrowsePaths": {
               "paths": [
-                "/spark/javahdfsin2hdfsout2/queryexecid_4"
+                "/spark/spark_spark-master_7077"
               ]
             }
           },
@@ -132,7 +132,7 @@
           {
             "com.linkedin.common.BrowsePaths": {
               "paths": [
-                "/spark/javahdfsin2hdfsout2/queryexecid_5"
+                "/spark/spark_spark-master_7077"
               ]
             }
           }

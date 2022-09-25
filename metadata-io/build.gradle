@@ -101,7 +101,7 @@ tasks.register('generateOpenApiPojos', GenerateSwaggerCode) {
   it.setAdditionalProperties([
       "group-id" : "io.datahubproject",
       "dateLibrary" : "java8",
-      "java8" : "true",
+      "java11" : "true",
       "modelPropertyNaming" : "original",
       "modelPackage" : "io.datahubproject.openapi.generated"] as Map<String, String>)
 

@@ -11,9 +11,6 @@ buildscript {
     classpath 'com.github.node-gradle:gradle-node-plugin:2.2.4'
     classpath 'com.commercehub.gradle.plugin:gradle-avro-plugin:0.8.1'
     classpath 'org.springframework.boot:spring-boot-gradle-plugin:' + springBootVersion
-    classpath('com.github.jengelman.gradle.plugins:shadow:5.2.0') {
-      exclude group: 'org.apache.logging.log4j', module: 'log4j-core'
-    }
     classpath "io.codearte.gradle.nexus:gradle-nexus-staging-plugin:0.30.0"
     classpath "com.palantir.gradle.gitversion:gradle-git-version:0.12.3"
     classpath "org.gradle.playframework:gradle-playframework:0.12"
@@ -23,6 +20,7 @@ buildscript {
 
 plugins {
   id 'com.gorylenko.gradle-git-properties' version '2.4.0-rc2'
+  id 'com.github.johnrengelman.shadow' version '6.1.0'
 }
 
 project.ext.spec = [
@@ -171,7 +169,7 @@ allprojects {
   apply plugin: 'checkstyle'
 }
 
-configure(subprojects.findAll {it.name != 'spark-lineage'}) {
+configure(subprojects.findAll {! it.name.startsWith('spark-lineage') }) {
 
   configurations.all {
     exclude group: "io.netty", module: "netty"
@@ -221,37 +219,14 @@ subprojects {
     }
   }
 
-  if (project.name != 'datahub-protobuf') {
-    tasks.withType(JavaCompile).configureEach {
-      javaCompiler = javaToolchains.compilerFor {
-        languageVersion = JavaLanguageVersion.of(8)
-      }
+  tasks.withType(JavaCompile).configureEach {
+    javaCompiler = javaToolchains.compilerFor {
+      languageVersion = JavaLanguageVersion.of(11)
     }
-    tasks.withType(Test).configureEach {
-      javaLauncher = javaToolchains.launcherFor {
-        languageVersion = JavaLanguageVersion.of(8)
-      }
-    }
-  } else {
-    tasks.withType(JavaExec).configureEach {
-      javaLauncher = javaToolchains.launcherFor {
-        languageVersion = JavaLanguageVersion.of(11)
-      }
-    }
-    tasks.withType(Javadoc).configureEach {
-    javadocTool = javaToolchains.javadocToolFor {
-        languageVersion = JavaLanguageVersion.of(11)
-      }
-    }
-    tasks.withType(JavaCompile).configureEach {
-      javaCompiler = javaToolchains.compilerFor {
-        languageVersion = JavaLanguageVersion.of(11)
-      }
-    }
-    tasks.withType(Test).configureEach {
-      javaLauncher = javaToolchains.launcherFor {
-        languageVersion = JavaLanguageVersion.of(11)
-      }
+  }
+  tasks.withType(Test).configureEach {
+    javaLauncher = javaToolchains.launcherFor {
+      languageVersion = JavaLanguageVersion.of(11)
     }
   }
 
