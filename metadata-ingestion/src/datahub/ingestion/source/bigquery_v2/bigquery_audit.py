@@ -108,7 +108,7 @@ class BigqueryTableIdentifier:
                 return input_string[: -len(suffix)]
         return input_string
 
-    def get_table_name(self) -> str:
+    def get_table_display_name(self) -> str:
         shortened_table_name = self.table
         # if table name ends in _* or * then we strip it as that represents a query on a sharded table
         shortened_table_name = self._remove_suffix(shortened_table_name, ["_*", "*"])
@@ -130,8 +130,10 @@ class BigqueryTableIdentifier:
             raise ValueError(
                 f"Cannot handle {self} - poorly formatted table name, contains {invalid_chars_in_table_name}"
             )
+        return table_name
 
-        return f"{self.project_id}.{self.dataset}.{table_name}"
+    def get_table_name(self) -> str:
+        return f"{self.project_id}.{self.dataset}.{self.get_table_display_name()}"
 
     def __str__(self) -> str:
         return self.get_table_name()

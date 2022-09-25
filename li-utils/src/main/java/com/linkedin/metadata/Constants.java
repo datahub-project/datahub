@@ -15,8 +15,6 @@ public class Constants {
 
   public static final String DEFAULT_RUN_ID = "no-run-id-provided";
 
-  public static final String GLOBAL_INVITE_TOKEN = "urn:li:inviteToken:global";
-
   /**
    * Entities
    */
@@ -236,6 +234,10 @@ public class Constants {
 
   // Invite Token
   public static final String INVITE_TOKEN_ASPECT_NAME = "inviteToken";
+  public static final int INVITE_TOKEN_LENGTH = 32;
+  public static final int SALT_TOKEN_LENGTH = 16;
+  public static final int PASSWORD_RESET_TOKEN_LENGTH = 32;
+
 
   // Relationships
   public static final String IS_MEMBER_OF_GROUP_RELATIONSHIP_NAME = "IsMemberOfGroup";

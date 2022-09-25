@@ -43,6 +43,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import java.util.stream.Collectors;
+import java.util.stream.Stream;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import lombok.extern.slf4j.Slf4j;
@@ -64,6 +66,12 @@ public class UpdateIndicesHook implements MetadataChangeLogHook {
   private final SystemMetadataService _systemMetadataService;
   private final EntityRegistry _entityRegistry;
   private final SearchDocumentTransformer _searchDocumentTransformer;
+
+  private static final Set<ChangeType> VALID_CHANGE_TYPES =
+      Stream.of(
+          ChangeType.UPSERT,
+          ChangeType.RESTATE,
+          ChangeType.PATCH).collect(Collectors.toSet());
 
   @Autowired
   public UpdateIndicesHook(
@@ -96,7 +104,7 @@ public class UpdateIndicesHook implements MetadataChangeLogHook {
     }
     Urn urn = EntityKeyUtils.getUrnFromLog(event, entitySpec.getKeyAspectSpec());
 
-    if (event.getChangeType() == ChangeType.UPSERT || event.getChangeType() == ChangeType.RESTATE) {
+    if (VALID_CHANGE_TYPES.contains(event.getChangeType())) {
 
       if (!event.hasAspectName() || !event.hasAspect()) {
         log.error("Aspect or aspect name is missing");

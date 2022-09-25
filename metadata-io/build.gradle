@@ -6,7 +6,7 @@ configurations {
 }
 
 dependencies {
-  implementation 'com.github.java-json-tools:json-patch:1.13'
+  implementation externalDependency.jsonPatch
   compile project(':entity-registry')
   compile project(':metadata-utils')
   compile project(':metadata-events:mxe-avro-1.7')
