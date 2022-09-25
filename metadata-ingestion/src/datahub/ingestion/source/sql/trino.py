@@ -76,13 +76,34 @@ def get_table_comment(self, connection, table_name: str, schema: str = None, **k
                 properties[col_name] = col_value
 
         return {"text": properties.get("comment", None), "properties": properties}
-    except TrinoQueryError as e:
-        if e.error_name in (
-            error.TABLE_NOT_FOUND,
-            error.COLUMN_NOT_FOUND,
-            error.NOT_FOUND,
-        ):
-            return dict(text=None)
+    # Fallback to default trino-sqlalchemy behaviour if `$properties` table doesn't exist
+    except exc.ProgrammingError as e:
+        if isinstance(e.orig, TrinoQueryError):
+            catalog_name = self._get_default_catalog_name(connection)
+            query = dedent(
+                """
+                SELECT "comment"
+                FROM "system"."metadata"."table_comments"
+                WHERE "catalog_name" = :catalog_name
+                  AND "schema_name" = :schema_name
+                  AND "table_name" = :table_name
+            """
+            ).strip()
+            try:
+                res = connection.execute(
+                    sql.text(query),
+                    catalog_name=catalog_name, schema_name=schema, table_name=table_name
+                )
+                return dict(text=res.scalar())
+            except TrinoQueryError as e:
+                if e.error_name in (
+                    error.PERMISSION_DENIED,
+                    error.TABLE_NOT_FOUND,
+                    error.COLUMN_NOT_FOUND,
+                    error.NOT_FOUND,
+                ):
+                    return dict(text=None)
+                raise
         raise
 
 
