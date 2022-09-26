@@ -2,6 +2,7 @@ package com.linkedin.metadata.search;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Lists;
+import com.linkedin.common.UrnArrayArray;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.data.template.StringArray;
 import com.linkedin.metadata.Constants;
@@ -121,7 +122,9 @@ public class LineageSearchService {
       if (existingRelationship == null) {
         urnToRelationship.put(relationship.getEntity(), relationship);
       } else {
-        existingRelationship.setPath(existingRelationship.getPath()); // TODO: Update once path is changed to paths and is hydrated
+        UrnArrayArray paths = existingRelationship.getPaths();
+        paths.addAll(relationship.getPaths());
+        existingRelationship.setPaths(paths);
       }
     }
     return urnToRelationship;
@@ -268,7 +271,7 @@ public class LineageSearchService {
       @Nullable LineageRelationship lineageRelationship) {
     LineageSearchEntity entity = new LineageSearchEntity(searchEntity.data());
     if (lineageRelationship != null) {
-      entity.setPath(lineageRelationship.getPath());
+      entity.setPaths(lineageRelationship.getPaths());
       entity.setDegree(lineageRelationship.getDegree());
     }
     return entity;

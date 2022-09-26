@@ -1,5 +1,6 @@
 package com.linkedin.datahub.graphql.types.mappers;
 
+import com.linkedin.common.urn.Urn;
 import com.linkedin.data.template.DoubleMap;
 import com.linkedin.data.template.RecordTemplate;
 import com.linkedin.datahub.graphql.generated.AggregationMetadata;
@@ -46,7 +47,7 @@ public class UrnSearchAcrossLineageResultsMapper<T extends RecordTemplate, E ext
         .setEntity(UrnToEntityMapper.map(searchEntity.getEntity()))
         .setInsights(getInsightsFromFeatures(searchEntity.getFeatures()))
         .setMatchedFields(getMatchedFieldEntry(searchEntity.getMatchedFields()))
-        .setPath(searchEntity.getPath().stream().map(UrnToEntityMapper::map).collect(Collectors.toList()))
+        .setPaths(searchEntity.getPaths().stream().map(path -> path.stream().map(Urn::toString).collect(Collectors.toList())).collect(Collectors.toList()))
         .setDegree(searchEntity.getDegree())
         .build();
   }
