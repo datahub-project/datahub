@@ -42,7 +42,7 @@ const ENABLED_TAB_TYPES = [TabType.Roles, TabType.Policies];
 
 export const ManagePermissions = () => {
     /**
-     * Determines which view should be visible: users or groups list.
+     * Determines which view should be visible: roles or policies.
      */
 
     const getTabs = () => {

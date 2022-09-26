@@ -3,7 +3,7 @@
 // (powered by FernFlower decompiler)
 //
 
-package com.linkedin.metadata.entity;
+package com.linkedin.metadata.entity.validation;
 
 import com.linkedin.common.urn.Urn;
 import com.linkedin.data.message.Message;
@@ -39,6 +39,10 @@ public class EntityRegistryUrnValidator implements Validator {
     if (currentEntitySpec == null) {
       throw new IllegalStateException("Current entity spec must be set");
     }
+    validateUrnField(context);
+  }
+
+  protected void validateUrnField(ValidatorContext context) {
     if (Type.TYPEREF.equals(context.dataElement().getSchema().getType()) && ((NamedDataSchema) context.dataElement()
         .getSchema()).getName().endsWith("Urn")) {
       try {
@@ -63,7 +67,7 @@ public class EntityRegistryUrnValidator implements Validator {
         // Validate generic Urn is valid entity type for relationship destination
         PathSpec fieldPath = context.dataElement().getSchemaPathSpec();
         List<RelationshipFieldSpec> relationshipSpecs = currentEntitySpec.getRelationshipFieldSpecs().stream().filter(relationshipFieldSpec ->
-            relationshipFieldSpec.getPath().equals(fieldPath))
+                relationshipFieldSpec.getPath().equals(fieldPath))
             .collect(Collectors.toList());
         if (!relationshipSpecs.isEmpty()) {
           for (RelationshipFieldSpec relationshipFieldSpec : relationshipSpecs) {
@@ -81,6 +85,5 @@ public class EntityRegistryUrnValidator implements Validator {
         context.setHasFix(false);
       }
     }
-
   }
 }
