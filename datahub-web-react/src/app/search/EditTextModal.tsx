@@ -21,13 +21,22 @@ export const EditTextModal = ({ defaultValue, onCloseModal, onOkOverride, title 
                     <Button onClick={onCloseModal} type="text">
                         Cancel
                     </Button>
-                    <Button disabled={stagedValue.length === 0} onClick={() => onOkOverride?.(stagedValue)}>
+                    <Button
+                        data-testid="edit-text-done-btn"
+                        disabled={stagedValue.length === 0}
+                        onClick={() => onOkOverride?.(stagedValue)}
+                    >
                         Done
                     </Button>
                 </>
             }
         >
-            <Input onChange={(e) => setStagedValue(e.target.value)} value={stagedValue} />
+            <Input
+                data-testid="edit-text-input"
+                autoFocus
+                onChange={(e) => setStagedValue(e.target.value)}
+                value={stagedValue}
+            />
         </Modal>
     );
 };

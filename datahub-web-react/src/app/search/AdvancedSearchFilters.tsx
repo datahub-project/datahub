@@ -1,4 +1,3 @@
-// import { PlusOutlined } from '@ant-design/icons';
 import { Select } from 'antd';
 import * as React from 'react';
 import { useState } from 'react';
@@ -92,6 +91,7 @@ export const AdvancedSearchFilters = ({
                     .sort((a, b) => FIELD_TO_LABEL[a].localeCompare(FIELD_TO_LABEL[b]))
                     .map((key) => (
                         <Option
+                            data-testid={`adv-search-add-filter-${key}`}
                             disabled={key === 'entity' && !!selectedFilters.find((filter) => filter.field === 'entity')}
                             value={key}
                         >
