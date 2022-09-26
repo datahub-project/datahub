@@ -4,14 +4,14 @@ import { useEntityRegistry } from '../useEntityRegistry';
 
 type Props = {
     onCloseModal: () => void;
-    onOkOverride?: (result: string) => void;
+    onOk?: (result: string) => void;
     title?: string;
     defaultValue?: string;
 };
 
 const { Option } = Select;
 
-export const ChooseEntityTypeModal = ({ defaultValue, onCloseModal, onOkOverride, title }: Props) => {
+export const ChooseEntityTypeModal = ({ defaultValue, onCloseModal, onOk, title }: Props) => {
     const entityRegistry = useEntityRegistry();
     const entityTypes = entityRegistry.getSearchEntityTypes();
 
@@ -28,7 +28,7 @@ export const ChooseEntityTypeModal = ({ defaultValue, onCloseModal, onOkOverride
                     <Button onClick={onCloseModal} type="text">
                         Cancel
                     </Button>
-                    <Button disabled={stagedValue.length === 0} onClick={() => onOkOverride?.(stagedValue)}>
+                    <Button disabled={stagedValue.length === 0} onClick={() => onOk?.(stagedValue)}>
                         Done
                     </Button>
                 </>

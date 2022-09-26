@@ -8,7 +8,7 @@ import { useEnterKeyListener } from '../../../../../../shared/useEnterKeyListene
 type Props = {
     onCloseModal: () => void;
     defaultValues?: { urn: string; entity?: Entity | null }[];
-    onOkOverride?: (result: string[]) => void;
+    onOk?: (result: string[]) => void;
     titleOverride?: string;
 };
 
@@ -33,7 +33,7 @@ const PreviewImage = styled.img`
     margin-right: 4px;
 `;
 
-export const SelectPlatformModal = ({ onCloseModal, defaultValues, onOkOverride, titleOverride }: Props) => {
+export const SelectPlatformModal = ({ onCloseModal, defaultValues, onOk, titleOverride }: Props) => {
     const [platformSearch, { data: platforSearchData }] = useGetSearchResultsLazyQuery();
     const platformSearchResults =
         platforSearchData?.search?.searchResults?.map((searchResult) => searchResult.entity) || [];
@@ -105,13 +105,13 @@ export const SelectPlatformModal = ({ onCloseModal, defaultValues, onOkOverride,
         setSelectedPlatforms(selectedPlatforms?.filter((platform) => platform.urn !== val.value));
     };
 
-    const onOk = async () => {
+    const handleOk = async () => {
         if (!selectedPlatforms) {
             return;
         }
 
-        if (onOkOverride) {
-            onOkOverride(selectedPlatforms?.map((platform) => platform.urn));
+        if (onOk) {
+            onOk(selectedPlatforms?.map((platform) => platform.urn));
         }
     };
 
@@ -144,7 +144,7 @@ export const SelectPlatformModal = ({ onCloseModal, defaultValues, onOkOverride,
                     <Button onClick={onModalClose} type="text">
                         Cancel
                     </Button>
-                    <Button id="setPlatformButton" disabled={selectedPlatforms?.length === 0} onClick={onOk}>
+                    <Button id="setPlatformButton" disabled={selectedPlatforms?.length === 0} onClick={handleOk}>
                         Add
                     </Button>
                 </>

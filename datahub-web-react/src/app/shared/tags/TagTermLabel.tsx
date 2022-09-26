@@ -18,7 +18,7 @@ export const TagTermLabel = ({ entity, termName }: Props) => {
     if (entity?.type === EntityType.Tag) {
         return (
             <TagLabel
-                name={(entity as Tag).properties?.name || (entity as Tag).name}
+                name={entityRegistry.getDisplayName(entity.type, entity)}
                 colorHash={(entity as Tag).urn}
                 color={(entity as Tag).properties?.colorHex}
             />
