@@ -4,6 +4,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Lists;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.data.template.StringArray;
+import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.graph.EntityLineageResult;
 import com.linkedin.metadata.graph.GraphService;
 import com.linkedin.metadata.graph.LineageDirection;
@@ -19,6 +20,7 @@ import com.linkedin.metadata.search.utils.QueryUtils;
 import com.linkedin.metadata.search.utils.SearchUtils;
 import io.opentelemetry.extension.annotations.WithSpan;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
@@ -37,6 +39,7 @@ import org.apache.commons.lang3.tuple.Pair;
 import org.springframework.cache.Cache;
 
 
+@Slf4j
 @RequiredArgsConstructor
 @Slf4j
 public class LineageSearchService {
@@ -97,8 +100,31 @@ public class LineageSearchService {
     List<LineageRelationship> lineageRelationships =
         filterRelationships(lineageResult, new HashSet<>(entities), inputFilters);
 
-    return getSearchResultInBatches(lineageRelationships, input != null ? input : "*", inputFilters, sortCriterion,
+    List<LineageRelationship> updatedLineageRelationships = convertSchemaFieldRelationships(lineageRelationships);
+
+    return getSearchResultInBatches(updatedLineageRelationships, input != null ? input : "*", inputFilters, sortCriterion,
         from, size);
+  }
+
+  private List<LineageRelationship> convertSchemaFieldRelationships(List<LineageRelationship> lineageRelationships) {
+    return lineageRelationships.stream().map(relationship -> {
+      Urn entity = getSchemaFieldReferenceUrn(relationship.getEntity());
+      relationship.setEntity(entity);
+      return relationship;
+    }).collect(Collectors.toList());
+  }
+
+  private Map<Urn, LineageRelationship> generateUrnToRelationshipMap(List<LineageRelationship> lineageRelationships) {
+    Map<Urn, LineageRelationship> urnToRelationship = new HashMap<>();
+    for (LineageRelationship relationship : lineageRelationships) {
+      LineageRelationship existingRelationship = urnToRelationship.get(relationship.getEntity());
+      if (existingRelationship == null) {
+        urnToRelationship.put(relationship.getEntity(), relationship);
+      } else {
+        existingRelationship.setPath(existingRelationship.getPath()); // TODO: Update once path is changed to paths and is hydrated
+      }
+    }
+    return urnToRelationship;
   }
 
   // Search service can only take up to 50K term filter, so query search service in batches
@@ -118,8 +144,7 @@ public class LineageSearchService {
           .map(relationship -> relationship.getEntity().getEntityType())
           .distinct()
           .collect(Collectors.toList());
-      Map<Urn, LineageRelationship> urnToRelationship =
-          batch.stream().collect(Collectors.toMap(LineageRelationship::getEntity, Function.identity()));
+      Map<Urn, LineageRelationship> urnToRelationship = generateUrnToRelationshipMap(batch);
       Filter finalFilter = buildFilter(urnToRelationship.keySet(), inputFilters);
       LineageSearchResult resultForBatch = buildLineageSearchResult(
           _searchService.searchAcrossEntities(entitiesToQuery, input, finalFilter, sortCriterion, queryFrom, querySize,
@@ -169,12 +194,24 @@ public class LineageSearchService {
     }).reduce(x -> false, Predicate::or);
   }
 
+  private Urn getSchemaFieldReferenceUrn(Urn urn) {
+    if (urn.getEntityType().equals(Constants.SCHEMA_FIELD_ENTITY_NAME)) {
+      try {
+        // Get the dataset urn referenced inside the schemaField urn
+        return Urn.createFromString(urn.getId());
+      } catch (Exception e) {
+        log.error("Invalid destination urn: {}", urn.getId(), e);
+      }
+    }
+    return urn;
+  }
+
   private List<LineageRelationship> filterRelationships(@Nonnull EntityLineageResult lineageResult,
       @Nonnull Set<String> entities, @Nullable Filter inputFilters) {
     Stream<LineageRelationship> relationshipsFilteredByEntities = lineageResult.getRelationships().stream();
     if (!entities.isEmpty()) {
       relationshipsFilteredByEntities = relationshipsFilteredByEntities.filter(
-          relationship -> entities.contains(relationship.getEntity().getEntityType()));
+          relationship -> entities.contains(getSchemaFieldReferenceUrn(relationship.getEntity()).getEntityType()));
     }
     if (inputFilters != null && !CollectionUtils.isEmpty(inputFilters.getOr())) {
       ConjunctiveCriterion conjunctiveCriterion = inputFilters.getOr().get(0);

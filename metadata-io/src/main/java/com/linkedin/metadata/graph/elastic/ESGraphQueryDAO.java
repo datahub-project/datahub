@@ -223,12 +223,23 @@ public class ESGraphQueryDAO {
         getQueryForLineage(urns, edgesPerEntityType.getOrDefault(entityType, Collections.emptyList()), graphFilters)));
     SearchResponse response = executeSearchQuery(finalQuery, 0, MAX_ELASTIC_RESULT);
     Set<Urn> entityUrnSet = new HashSet<>(entityUrns);
+    populateSchemaFieldEdges(direction, edgesPerEntityType);
     // Get all valid edges given the set of urns to hop from
     Set<Pair<String, EdgeInfo>> validEdges = edgesPerEntityType.entrySet()
         .stream()
         .flatMap(entry -> entry.getValue().stream().map(edgeInfo -> Pair.of(entry.getKey(), edgeInfo)))
         .collect(Collectors.toSet());
     return extractRelationships(entityUrnSet, response, validEdges, visitedEntities, numHops);
+  }
+
+  private void populateSchemaFieldEdges(LineageDirection direction, Map<String, List<EdgeInfo>> edgesPerEntityType) {
+    List<EdgeInfo> schemaFieldEdgeInfos = new ArrayList<>();
+    if (direction == LineageDirection.UPSTREAM) {
+      schemaFieldEdgeInfos.add(new EdgeInfo("DownstreamOf", RelationshipDirection.OUTGOING, "schemafield"));
+    } else {
+      schemaFieldEdgeInfos.add(new EdgeInfo("DownstreamOf", RelationshipDirection.INCOMING, "schemafield"));
+    }
+    edgesPerEntityType.put("schemaField", schemaFieldEdgeInfos);
   }
 
   // Given set of edges and the search response, extract all valid edges that originate from the input entityUrns
@@ -251,6 +262,7 @@ public class ESGraphQueryDAO {
         if (!visitedEntities.contains(destinationUrn) && validEdges.contains(
             Pair.of(sourceUrn.getEntityType(), new EdgeInfo(type, RelationshipDirection.OUTGOING, destinationUrn.getEntityType().toLowerCase())))) {
           visitedEntities.add(destinationUrn);
+          // TODO: Set paths here once we start generating it
           result.add(new LineageRelationship().setType(type).setEntity(destinationUrn).setDegree(numHops));
         }
       }
