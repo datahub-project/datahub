@@ -88,12 +88,12 @@ public class TimelineServiceImpl implements TimelineService {
           aspects.add(GLOBAL_TAGS_ASPECT_NAME);
           _diffFactory.addDiffer(entityType, elementName, GLOBAL_TAGS_ASPECT_NAME, new GlobalTagsDiffer());
         }
-        break;
+          break;
         case OWNER: {
           aspects.add(OWNERSHIP_ASPECT_NAME);
           _diffFactory.addDiffer(entityType, elementName, OWNERSHIP_ASPECT_NAME, new OwnershipDiffer());
         }
-        break;
+          break;
         case DOCUMENTATION: {
           aspects.add(INSTITUTIONAL_MEMORY_ASPECT_NAME);
           _diffFactory.addDiffer(entityType, elementName, INSTITUTIONAL_MEMORY_ASPECT_NAME,
@@ -110,7 +110,7 @@ public class TimelineServiceImpl implements TimelineService {
           aspects.add(SCHEMA_METADATA_ASPECT_NAME);
           _diffFactory.addDiffer(entityType, elementName, SCHEMA_METADATA_ASPECT_NAME, new SchemaMetadataDiffer());
         }
-        break;
+          break;
         case GLOSSARY_TERM: {
           aspects.add(GLOSSARY_TERMS_ASPECT_NAME);
           _diffFactory.addDiffer(entityType, elementName, GLOSSARY_TERMS_ASPECT_NAME, new GlossaryTermsDiffer());
@@ -118,12 +118,12 @@ public class TimelineServiceImpl implements TimelineService {
           _diffFactory.addDiffer(entityType, elementName, EDITABLE_SCHEMA_METADATA_ASPECT_NAME,
               new EditableSchemaMetadataDiffer());
         }
-        break;
+          break;
         case TECHNICAL_SCHEMA: {
           aspects.add(SCHEMA_METADATA_ASPECT_NAME);
           _diffFactory.addDiffer(entityType, elementName, SCHEMA_METADATA_ASPECT_NAME, new SchemaMetadataDiffer());
         }
-        break;
+          break;
         default:
           break;
       }
@@ -163,21 +163,25 @@ public class TimelineServiceImpl implements TimelineService {
       startTimeMillis = endTimeMillis - DEFAULT_LOOKBACK_TIME_WINDOW_MILLIS;
     }
 
-    // Pull full list of aspects for entity and filter timeseries aspects for range query
+    // Pull full list of aspects for entity and filter timeseries aspects for range
+    // query
     EntitySpec entitySpec = _entityRegistry.getEntitySpec(urn.getEntityType());
     List<AspectSpec> aspectSpecs = entitySpec.getAspectSpecs();
     Set<String> fullAspectNames = aspectSpecs.stream()
         .filter(aspectSpec -> !aspectSpec.isTimeseries())
         .map(AspectSpec::getName)
         .collect(Collectors.toSet());
-    List<EntityAspect> aspectsInRange = this._aspectDao.getAspectsInRange(urn, fullAspectNames, startTimeMillis, endTimeMillis);
+    List<EntityAspect> aspectsInRange = this._aspectDao.getAspectsInRange(urn, fullAspectNames, startTimeMillis,
+        endTimeMillis);
 
-    // Prepopulate with all versioned aspectNames -> ignore timeseries using registry
+    // Prepopulate with all versioned aspectNames -> ignore timeseries using
+    // registry
     Map<String, TreeSet<EntityAspect>> aspectRowSetMap = constructAspectRowSetMap(urn, fullAspectNames, aspectsInRange);
 
     Map<Long, SortedMap<String, Long>> timestampVersionCache = constructTimestampVersionCache(aspectRowSetMap);
 
-    // TODO: There are some extra steps happening here, we need to clean up how transactions get combined across differs
+    // TODO: There are some extra steps happening here, we need to clean up how
+    // transactions get combined across differs
     SortedMap<Long, List<ChangeTransaction>> semanticDiffs = aspectRowSetMap.entrySet()
         .stream()
         .filter(entry -> aspectNames.contains(entry.getKey()))
@@ -186,8 +190,8 @@ public class TimelineServiceImpl implements TimelineService {
         .collect(TreeMap::new, this::combineComputedDiffsPerTransactionId, this::combineComputedDiffsPerTransactionId);
     // TODO:Move this down
     assignSemanticVersions(semanticDiffs);
-    List<ChangeTransaction> changeTransactions =
-        semanticDiffs.values().stream().collect(ArrayList::new, ArrayList::addAll, ArrayList::addAll);
+    List<ChangeTransaction> changeTransactions = semanticDiffs.values().stream().collect(ArrayList::new,
+        ArrayList::addAll, ArrayList::addAll);
     List<ChangeTransaction> combinedChangeTransactions = combineTransactionsByTimestamp(changeTransactions,
         timestampVersionCache);
     combinedChangeTransactions.sort(Comparator.comparing(ChangeTransaction::getTimestamp));
@@ -195,19 +199,22 @@ public class TimelineServiceImpl implements TimelineService {
   }
 
   /**
-   * Constructs a map from aspect name to a sorted set of DB aspects by created timestamp. Set includes all aspects
-   * relevant to an entity and does a lookback by 1 for all aspects, creating sentinel values for when the oldest aspect
+   * Constructs a map from aspect name to a sorted set of DB aspects by created
+   * timestamp. Set includes all aspects
+   * relevant to an entity and does a lookback by 1 for all aspects, creating
+   * sentinel values for when the oldest aspect
    * possible has been retrieved or no value exists in the DB for an aspect
-   * @param urn urn of the entity
+   * 
+   * @param urn             urn of the entity
    * @param fullAspectNames full list of aspects relevant to the entity
-   * @param aspectsInRange aspects returned by the range query by timestampm
+   * @param aspectsInRange  aspects returned by the range query by timestampm
    * @return map constructed as described
    */
   private Map<String, TreeSet<EntityAspect>> constructAspectRowSetMap(Urn urn, Set<String> fullAspectNames,
       List<EntityAspect> aspectsInRange) {
     Map<String, TreeSet<EntityAspect>> aspectRowSetMap = new HashMap<>();
-    fullAspectNames.forEach(aspectName ->
-        aspectRowSetMap.put(aspectName, new TreeSet<>(Comparator.comparing(EntityAspect::getCreatedOn))));
+    fullAspectNames.forEach(
+        aspectName -> aspectRowSetMap.put(aspectName, new TreeSet<>(Comparator.comparing(EntityAspect::getCreatedOn))));
     aspectsInRange.forEach(row -> {
       TreeSet<EntityAspect> rowList = aspectRowSetMap.get(row.getAspect());
       rowList.add(row);
@@ -224,7 +231,8 @@ public class TimelineServiceImpl implements TimelineService {
         oldestAspect = aspectMinVersion.getValue().first();
       }
       Long nextVersion = nextVersions.get(aspectMinVersion.getKey());
-      // Fill out sentinel value if the oldest value possible has been retrieved, else get previous version prior to time range
+      // Fill out sentinel value if the oldest value possible has been retrieved, else
+      // get previous version prior to time range
       if (oldestAspect != null && isOldestPossible(oldestAspect, nextVersion)) {
         aspectMinVersion.getValue().add(createSentinel(aspectMinVersion.getKey()));
       } else {
@@ -259,11 +267,15 @@ public class TimelineServiceImpl implements TimelineService {
   }
 
   /**
-   * Constructs a map from timestamp to a sorted map of aspect name -> version for use in constructing the version stamp
-   * @param aspectRowSetMap map constructed as described in {@link TimelineServiceImpl#constructAspectRowSetMap}
+   * Constructs a map from timestamp to a sorted map of aspect name -> version for
+   * use in constructing the version stamp
+   * 
+   * @param aspectRowSetMap map constructed as described in
+   *                        {@link TimelineServiceImpl#constructAspectRowSetMap}
    * @return map as described
    */
-  private Map<Long, SortedMap<String, Long>> constructTimestampVersionCache(Map<String, TreeSet<EntityAspect>> aspectRowSetMap) {
+  private Map<Long, SortedMap<String, Long>> constructTimestampVersionCache(
+      Map<String, TreeSet<EntityAspect>> aspectRowSetMap) {
     Set<EntityAspect> aspects = aspectRowSetMap.values().stream()
         .flatMap(TreeSet::stream)
         .filter(aspect -> aspect.getVersion() != -1L)
@@ -276,7 +288,7 @@ public class TimelineServiceImpl implements TimelineService {
       SortedMap<String, Long> versionStampMap = new TreeMap<>(Comparator.naturalOrder());
       for (TreeSet<EntityAspect> aspectSet : aspectRowSetMap.values()) {
         EntityAspect maybeMatch = null;
-        for  (EntityAspect aspect2 : aspectSet) {
+        for (EntityAspect aspect2 : aspectSet) {
           if (aspect2 instanceof MissingEntityAspect) {
             continue;
           }
@@ -379,8 +391,8 @@ public class TimelineServiceImpl implements TimelineService {
       assert (transactionId < entry.getKey());
       transactionId = entry.getKey();
       SemanticChangeType highestChangeInGroup = SemanticChangeType.NONE;
-      ChangeTransaction highestChangeTransaction =
-          entry.getValue().stream().max(Comparator.comparing(ChangeTransaction::getSemVerChange)).orElse(null);
+      ChangeTransaction highestChangeTransaction = entry.getValue().stream()
+          .max(Comparator.comparing(ChangeTransaction::getSemVerChange)).orElse(null);
       if (highestChangeTransaction != null) {
         highestChangeInGroup = highestChangeTransaction.getSemVerChange();
       }
@@ -402,11 +414,12 @@ public class TimelineServiceImpl implements TimelineService {
           .qualifier(BUILD_VALUE_COMPUTED)
           .build();
     }
-    // Evaluate the version for this group based on previous version and the hightest semantic change type in the group.
+    // Evaluate the version for this group based on previous version and the
+    // hightest semantic change type in the group.
     if (highestChangeInGroup == SemanticChangeType.MAJOR) {
       // Bump up major, reset all lower to 0s.
       return SemanticVersion.builder()
-          .majorVersion(previousVersion.getMajorVersion()+1)
+          .majorVersion(previousVersion.getMajorVersion() + 1)
           .minorVersion(0)
           .patchVersion(0)
           .qualifier(BUILD_VALUE_COMPUTED)
@@ -415,7 +428,7 @@ public class TimelineServiceImpl implements TimelineService {
       // Bump up minor, reset all lower to 0s.
       return SemanticVersion.builder()
           .majorVersion(previousVersion.getMajorVersion())
-          .minorVersion(previousVersion.getMinorVersion()+1)
+          .minorVersion(previousVersion.getMinorVersion() + 1)
           .patchVersion(0)
           .qualifier(BUILD_VALUE_COMPUTED)
           .build();
@@ -424,17 +437,17 @@ public class TimelineServiceImpl implements TimelineService {
       return SemanticVersion.builder()
           .majorVersion(previousVersion.getMajorVersion())
           .minorVersion(previousVersion.getMinorVersion())
-          .patchVersion(previousVersion.getPatchVersion()+1)
+          .patchVersion(previousVersion.getPatchVersion() + 1)
           .qualifier(BUILD_VALUE_COMPUTED)
           .build();
     }
     return previousVersion;
   }
 
-  private List<ChangeTransaction> combineTransactionsByTimestamp(List<ChangeTransaction> changeTransactions, Map<Long,
-      SortedMap<String, Long>> timestampVersionCache) {
-    Map<Long, List<ChangeTransaction>> transactionsByTimestamp =
-        changeTransactions.stream().collect(Collectors.groupingBy(ChangeTransaction::getTimestamp));
+  private List<ChangeTransaction> combineTransactionsByTimestamp(List<ChangeTransaction> changeTransactions,
+      Map<Long, SortedMap<String, Long>> timestampVersionCache) {
+    Map<Long, List<ChangeTransaction>> transactionsByTimestamp = changeTransactions.stream()
+        .collect(Collectors.groupingBy(ChangeTransaction::getTimestamp));
     List<ChangeTransaction> combinedChangeTransactions = new ArrayList<>();
     for (List<ChangeTransaction> transactionList : transactionsByTimestamp.values()) {
       if (!transactionList.isEmpty()) {
@@ -444,9 +457,9 @@ public class TimelineServiceImpl implements TimelineService {
         for (int i = 1; i < transactionList.size(); i++) {
           ChangeTransaction element = transactionList.get(i);
           result.getChangeEvents().addAll(element.getChangeEvents());
-          maxSemanticChangeType =
-              maxSemanticChangeType.compareTo(element.getSemVerChange()) >= 0 ? maxSemanticChangeType
-                  : element.getSemVerChange();
+          maxSemanticChangeType = maxSemanticChangeType.compareTo(element.getSemVerChange()) >= 0
+              ? maxSemanticChangeType
+              : element.getSemVerChange();
           maxSemVer = maxSemVer.compareTo(element.getSemVer()) >= 0 ? maxSemVer : element.getSemVer();
         }
         result.setSemVerChange(maxSemanticChangeType);
