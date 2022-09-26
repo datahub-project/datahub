@@ -150,7 +150,7 @@ redshift_common = {
     "sqlalchemy-redshift",
     "psycopg2-binary",
     "GeoAlchemy2",
-    "sqllineage==1.3.5",
+    "sqllineage==1.3.6",
     *path_spec_common,
 }
 
@@ -216,18 +216,18 @@ plugins: Dict[str, Set[str]] = {
         "gql>=3.3.0",
         "gql[requests]>=3.3.0",
     },
-    "great-expectations": sql_common | {"sqllineage==1.3.5"},
+    "great-expectations": sql_common | {"sqllineage==1.3.6"},
     # Source plugins
     # PyAthena is pinned with exact version because we use private method in PyAthena
     "athena": sql_common | {"PyAthena[SQLAlchemy]==2.4.1"},
     "azure-ad": set(),
     "bigquery": sql_common
     | bigquery_common
-    | {"sqlalchemy-bigquery>=1.4.1", "sqllineage==1.3.5", "sqlparse"},
+    | {"sqlalchemy-bigquery>=1.4.1", "sqllineage==1.3.6", "sqlparse"},
     "bigquery-usage": bigquery_common | usage_common | {"cachetools"},
     "bigquery-beta": sql_common
     | bigquery_common
-    | {"sqllineage==1.3.5", "sql_metadata"},
+    | {"sqllineage==1.3.6", "sql_metadata"},
     "clickhouse": sql_common | {"clickhouse-sqlalchemy==0.1.8"},
     "clickhouse-usage": sql_common
     | usage_common
@@ -269,9 +269,9 @@ plugins: Dict[str, Set[str]] = {
     "looker": looker_common,
     # lkml>=1.1.2 is required to support the sql_preamble expression in LookML
     "lookml": looker_common
-    | {"lkml>=1.1.2", "sql-metadata==2.2.2", "sqllineage==1.3.5", "GitPython>2"},
-    "metabase": {"requests", "sqllineage==1.3.5"},
-    "mode": {"requests", "sqllineage==1.3.5", "tenacity>=8.0.1"},
+    | {"lkml>=1.1.2", "sql-metadata==2.2.2", "sqllineage==1.3.6", "GitPython>2"},
+    "metabase": {"requests", "sqllineage==1.3.6"},
+    "mode": {"requests", "sqllineage==1.3.6", "tenacity>=8.0.1"},
     "mongodb": {"pymongo[srv]>=3.11", "packaging"},
     "mssql": sql_common | {"sqlalchemy-pytds>=0.3"},
     "mssql-odbc": sql_common | {"pyodbc"},
@@ -284,7 +284,7 @@ plugins: Dict[str, Set[str]] = {
     "presto-on-hive": sql_common
     | {"psycopg2-binary", "acryl-pyhive[hive]>=0.6.12", "pymysql>=1.0.2"},
     "pulsar": {"requests"},
-    "redash": {"redash-toolbelt", "sql-metadata", "sqllineage==1.3.5"},
+    "redash": {"redash-toolbelt", "sql-metadata", "sqllineage==1.3.6"},
     "redshift": sql_common | redshift_common,
     "redshift-usage": sql_common | usage_common | redshift_common,
     "s3": {*s3_base, *data_lake_profiling},
