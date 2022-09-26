@@ -11,9 +11,7 @@ module.exports = {
   favicon: "img/favicon.ico",
   organizationName: "datahub-project", // Usually your GitHub org/user name.
   projectName: "datahub", // Usually your repo name.
-  stylesheets: [
-    "https://fonts.googleapis.com/css2?family=Manrope:wght@400;600&display=swap",
-  ],
+  stylesheets: ["https://fonts.googleapis.com/css2?family=Manrope:wght@400;600&display=swap"],
   noIndex: isSaas,
   customFields: {
     isSaas: isSaas,
@@ -22,27 +20,8 @@ module.exports = {
     ...(!isSaas && {
       announcementBar: {
         id: "announcement",
-        content: `
-          <div style="
-            display: flex;
-            gap: 2em;
-            justify-content: center;
-            align-items: center;
-        ">
-          <div style="
-            display: flex;
-            align-items: center;
-            gap: 1em;
-          ">
-          <img src="/img/acryl-logo-white-mark.svg" style="
-            max-height: 35px;
-          ">
-          <p style="
-            margin-bottom: 0;
-          "><strong>Managed DataHub</strong><span> &nbsp;Acryl Data delivers an easy to consume DataHub platform for the enterprise</span></p></div>
-          <a href="https://www.acryldata.io/datahub-beta" target="_blank" class="button button--primary">Sign up for Managed DataHub →</a>
-          </div>
-        `,
+        content:
+          '<div><img src="/img/acryl-logo-white-mark.svg" /><p><strong>Managed DataHub</strong><span> &nbsp;Acryl Data delivers an easy to consume DataHub platform for the enterprise</span></p></div> <a href="https://www.acryldata.io/datahub-sign-up" target="_blank" class="button button--primary">Sign up for Managed DataHub&nbsp;→</a>',
         backgroundColor: "#070707",
         textColor: "#ffffff",
         isCloseable: false,
@@ -52,12 +31,8 @@ module.exports = {
       title: null,
       logo: {
         alt: "DataHub Logo",
-        src: `img/${
-          isSaas ? "acryl" : "datahub"
-        }-logo-color-light-horizontal.svg`,
-        srcDark: `img/${
-          isSaas ? "acryl" : "datahub"
-        }-logo-color-dark-horizontal.svg`,
+        src: `img/${isSaas ? "acryl" : "datahub"}-logo-color-light-horizontal.svg`,
+        srcDark: `img/${isSaas ? "acryl" : "datahub"}-logo-color-dark-horizontal.svg`,
       },
       items: [
         {
@@ -212,9 +187,7 @@ module.exports = {
         blog: false,
         theme: {
           customCss: [
-            isSaas
-              ? require.resolve("./src/styles/acryl.scss")
-              : require.resolve("./src/styles/datahub.scss"),
+            isSaas ? require.resolve("./src/styles/acryl.scss") : require.resolve("./src/styles/datahub.scss"),
             require.resolve("./src/styles/global.scss"),
           ],
         },
@@ -222,10 +195,7 @@ module.exports = {
     ],
   ],
   plugins: [
-    [
-      "@docusaurus/plugin-ideal-image",
-      { quality: 100, sizes: [320, 640, 1280, 1440, 1600] },
-    ],
+    ["@docusaurus/plugin-ideal-image", { quality: 100, sizes: [320, 640, 1280, 1440, 1600] }],
     "docusaurus-plugin-sass",
     [
       "docusaurus-graphql-plugin",

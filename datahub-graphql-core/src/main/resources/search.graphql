@@ -165,7 +165,7 @@ input FacetFilterInput {
   negated: Boolean
 
   """
-  Condition for the values. How to If unset, assumed to be equality
+  Condition for the values. If unset, assumed to be equality
   """
   condition: SearchCondition
 }

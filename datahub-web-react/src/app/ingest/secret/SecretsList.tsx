@@ -192,6 +192,7 @@ export const SecretsList = () => {
                         onSearch={() => null}
                         onQueryChange={(q) => setQuery(q)}
                         entityRegistry={entityRegistry}
+                        hideRecommendations
                     />
                 </TabToolbar>
                 <StyledTable

@@ -57,3 +57,10 @@ class KafkaCheckpointState(StaleEntityCheckpointStateBase["KafkaCheckpointState"
             yield from self._get_urns_not_in(
                 self.encoded_topic_urns, other_checkpoint_state.encoded_topic_urns
             )
+
+    def get_percent_entities_changed(
+        self, old_checkpoint_state: "KafkaCheckpointState"
+    ) -> float:
+        return StaleEntityCheckpointStateBase.compute_percent_entities_changed(
+            [(self.encoded_topic_urns, old_checkpoint_state.encoded_topic_urns)]
+        )

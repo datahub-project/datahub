@@ -3,12 +3,12 @@ import React, { useState } from 'react';
 
 type Props = {
     onCloseModal: () => void;
-    onOkOverride?: (result: string) => void;
+    onOk?: (result: string) => void;
     title?: string;
     defaultValue?: string;
 };
 
-export const EditTextModal = ({ defaultValue, onCloseModal, onOkOverride, title }: Props) => {
+export const EditTextModal = ({ defaultValue, onCloseModal, onOk, title }: Props) => {
     const [stagedValue, setStagedValue] = useState(defaultValue || '');
     return (
         <Modal
@@ -21,7 +21,7 @@ export const EditTextModal = ({ defaultValue, onCloseModal, onOkOverride, title 
                     <Button onClick={onCloseModal} type="text">
                         Cancel
                     </Button>
-                    <Button disabled={stagedValue.length === 0} onClick={() => onOkOverride?.(stagedValue)}>
+                    <Button disabled={stagedValue.trim().length === 0} onClick={() => onOk?.(stagedValue)}>
                         Done
                     </Button>
                 </>

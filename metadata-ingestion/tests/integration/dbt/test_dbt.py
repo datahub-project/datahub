@@ -273,6 +273,7 @@ def test_dbt_stateful(pytestconfig, tmp_path, mock_time, mock_datahub_graph):
         "stateful_ingestion": {
             "enabled": True,
             "remove_stale_metadata": True,
+            "fail_safe_threshold": 100.0,
             "state_provider": {
                 "type": "datahub",
                 "config": {"datahub_api": {"server": GMS_SERVER}},
@@ -388,6 +389,7 @@ def test_dbt_state_backward_compatibility(
         "stateful_ingestion": {
             "enabled": True,
             "remove_stale_metadata": True,
+            "fail_safe_threshold": 100.0,
             "state_provider": {
                 "type": "datahub",
                 "config": {"datahub_api": {"server": GMS_SERVER}},
@@ -528,6 +530,7 @@ def test_dbt_stateful_tests(pytestconfig, tmp_path, mock_time, mock_datahub_grap
         "stateful_ingestion": {
             "enabled": True,
             "remove_stale_metadata": True,
+            "fail_safe_threshold": 100.0,
             "state_provider": {
                 "type": "datahub",
                 "config": {"datahub_api": {"server": GMS_SERVER}},

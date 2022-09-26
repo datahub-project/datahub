@@ -1,4 +1,4 @@
-package com.linkedin.metadata.entity;
+package com.linkedin.metadata.entity.validation;
 
 /**
  * Exception thrown when a metadata record cannot be validated against its schema.

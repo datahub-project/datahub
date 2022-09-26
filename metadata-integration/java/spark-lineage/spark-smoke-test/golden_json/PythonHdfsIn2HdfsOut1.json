@@ -28,7 +28,7 @@
           {
             "com.linkedin.common.BrowsePaths": {
               "paths": [
-                "/spark/spark_spark-master_7077/pythonhdfsin2hdfsout1"
+                "/spark/spark_spark-master_7077"
               ]
             }
           }
@@ -61,7 +61,7 @@
           {
             "com.linkedin.common.BrowsePaths": {
               "paths": [
-                "/spark/pythonhdfsin2hdfsout1/queryexecid_4"
+                "/spark/spark_spark-master_7077"
               ]
             }
           },

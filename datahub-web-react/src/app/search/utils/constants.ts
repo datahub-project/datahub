@@ -41,7 +41,7 @@ export const FIELD_TO_LABEL = {
     origin: 'Environment',
 };
 
-export const FIELDS_WHO_USE_CONTAINS_OPERATOR = ['description', 'fieldDescriptions'];
+export const FIELDS_THAT_USE_CONTAINS_OPERATOR = ['description', 'fieldDescriptions'];
 
 export const ADVANCED_SEARCH_ONLY_FILTERS = [
     'fieldGlossaryTerms',

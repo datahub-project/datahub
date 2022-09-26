@@ -178,63 +178,72 @@ class BigQueryUsageExtractor:
             Union[ReadEvent, QueryEvent, MetadataWorkUnit]
         ]
         with PerfTimer() as timer:
-            bigquery_log_entries = self._get_parsed_bigquery_log_events(project_id)
-            if self.config.use_exported_bigquery_audit_metadata:
-                parsed_bigquery_log_events = (
-                    self._parse_exported_bigquery_audit_metadata(bigquery_log_entries)
-                )
-            else:
-                parsed_bigquery_log_events = self._parse_bigquery_log_entries(
-                    bigquery_log_entries
-                )
-
-            parsed_events_uncasted: Iterable[
-                Union[ReadEvent, QueryEvent, MetadataWorkUnit]
-            ]
-            last_updated_work_units_uncasted: Iterable[
-                Union[ReadEvent, QueryEvent, MetadataWorkUnit]
-            ]
-            parsed_events_uncasted, last_updated_work_units_uncasted = partition(
-                lambda x: isinstance(x, MetadataWorkUnit), parsed_bigquery_log_events
-            )
-            parsed_events: Iterable[Union[ReadEvent, QueryEvent]] = cast(
-                Iterable[Union[ReadEvent, QueryEvent]], parsed_events_uncasted
-            )
-
-            hydrated_read_events = self._join_events_by_job_id(parsed_events)
-            # storing it all in one big object.
-
-            # TODO: handle partitioned tables
-
-            # TODO: perhaps we need to continuously prune this, rather than
-            num_aggregated: int = 0
-            self.report.num_operational_stats_workunits_emitted = 0
-            for event in hydrated_read_events:
-                if self.config.usage.include_operational_stats:
-                    operational_wu = self._create_operation_aspect_work_unit(event)
-                    if operational_wu:
-                        self.report.report_workunit(operational_wu)
-                        yield operational_wu
-                        self.report.num_operational_stats_workunits_emitted += 1
-                if event.read_event:
-                    self.aggregated_info = self._aggregate_enriched_read_events(
-                        self.aggregated_info, event
+            try:
+                bigquery_log_entries = self._get_parsed_bigquery_log_events(project_id)
+                if self.config.use_exported_bigquery_audit_metadata:
+                    parsed_bigquery_log_events = (
+                        self._parse_exported_bigquery_audit_metadata(
+                            bigquery_log_entries
+                        )
                     )
-                    num_aggregated += 1
-            logger.info(f"Total number of events aggregated = {num_aggregated}.")
-            bucket_level_stats: str = "\n\t" + "\n\t".join(
-                [
-                    f'bucket:{db.strftime("%m-%d-%Y:%H:%M:%S")}, size={len(ads)}'
-                    for db, ads in self.aggregated_info.items()
-                ]
-            )
-            logger.debug(
-                f"Number of buckets created = {len(self.aggregated_info)}. Per-bucket details:{bucket_level_stats}"
-            )
+                else:
+                    parsed_bigquery_log_events = self._parse_bigquery_log_entries(
+                        bigquery_log_entries
+                    )
 
-            self.report.usage_extraction_sec[project_id] = round(
-                timer.elapsed_seconds(), 2
-            )
+                parsed_events_uncasted: Iterable[
+                    Union[ReadEvent, QueryEvent, MetadataWorkUnit]
+                ]
+                last_updated_work_units_uncasted: Iterable[
+                    Union[ReadEvent, QueryEvent, MetadataWorkUnit]
+                ]
+                parsed_events_uncasted, last_updated_work_units_uncasted = partition(
+                    lambda x: isinstance(x, MetadataWorkUnit),
+                    parsed_bigquery_log_events,
+                )
+                parsed_events: Iterable[Union[ReadEvent, QueryEvent]] = cast(
+                    Iterable[Union[ReadEvent, QueryEvent]], parsed_events_uncasted
+                )
+
+                hydrated_read_events = self._join_events_by_job_id(parsed_events)
+                # storing it all in one big object.
+
+                # TODO: handle partitioned tables
+
+                # TODO: perhaps we need to continuously prune this, rather than
+                num_aggregated: int = 0
+                self.report.num_operational_stats_workunits_emitted = 0
+                for event in hydrated_read_events:
+                    if self.config.usage.include_operational_stats:
+                        operational_wu = self._create_operation_aspect_work_unit(event)
+                        if operational_wu:
+                            self.report.report_workunit(operational_wu)
+                            yield operational_wu
+                            self.report.num_operational_stats_workunits_emitted += 1
+                    if event.read_event:
+                        self.aggregated_info = self._aggregate_enriched_read_events(
+                            self.aggregated_info, event
+                        )
+                        num_aggregated += 1
+                logger.info(f"Total number of events aggregated = {num_aggregated}.")
+                bucket_level_stats: str = "\n\t" + "\n\t".join(
+                    [
+                        f'bucket:{db.strftime("%m-%d-%Y:%H:%M:%S")}, size={len(ads)}'
+                        for db, ads in self.aggregated_info.items()
+                    ]
+                )
+                logger.debug(
+                    f"Number of buckets created = {len(self.aggregated_info)}. Per-bucket details:{bucket_level_stats}"
+                )
+
+                self.report.usage_extraction_sec[project_id] = round(
+                    timer.elapsed_seconds(), 2
+                )
+            except Exception as e:
+                self.report.usage_failed_extraction.append(project_id)
+                logger.error(
+                    f"Error getting usage for project {project_id} due to error {e}"
+                )
 
     def _get_bigquery_log_entries_via_exported_bigquery_audit_metadata(
         self, client: BigQueryClient
@@ -248,10 +257,14 @@ class BigQueryUsageExtractor:
             i: int = 0
             for i, entry in enumerate(list_entries):
                 if i == 0:
-                    logger.info("Starting log load from BigQuery")
+                    logger.info(
+                        f"Starting log load from BigQuery for project {client.project}"
+                    )
                 yield entry
 
-            logger.info(f"Finished loading {i} log entries from BigQuery")
+            logger.info(
+                f"Finished loading {i} log entries from BigQuery for project {client.project}"
+            )
 
         except Exception as e:
             logger.warning(
@@ -335,12 +348,14 @@ class BigQueryUsageExtractor:
 
             for i, entry in enumerate(list_entries):
                 if i == 0:
-                    logger.info("Starting log load from GCP Logging")
+                    logger.info(
+                        f"Starting log load from GCP Logging for {client.project}"
+                    )
                 self.report.total_query_log_entries += 1
                 yield entry
 
             logger.info(
-                f"Finished loading {self.report.total_query_log_entries} log entries from GCP Logging"
+                f"Finished loading {self.report.total_query_log_entries} log entries from GCP Logging for {client.project}"
             )
 
         except Exception as e:
@@ -722,7 +737,7 @@ class BigQueryUsageExtractor:
                 else:
                     self.report.report_warning(
                         str(event.read_event.resource),
-                        f"Failed to match table read event {event.read_event.jobName} with job; try increasing `query_log_delay` or `max_query_duration`",
+                        f"Failed to match table read event {event.read_event.jobName} with reason {event.read_event.readReason} with job at {event.read_event.timestamp}; try increasing `query_log_delay` or `max_query_duration`",
                     )
             yield event
         logger.info(f"Number of read events joined with query events: {num_joined}")
