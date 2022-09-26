@@ -4,7 +4,7 @@ import styled from 'styled-components/macro';
 
 import { FacetFilterInput } from '../../types.generated';
 import { ANTD_GRAY } from '../entity/shared/constants';
-import { FIELDS_WHO_USE_CONTAINS_OPERATOR } from './utils/constants';
+import { FIELDS_THAT_USE_CONTAINS_OPERATOR } from './utils/constants';
 
 type Props = {
     filter: FacetFilterInput;
@@ -27,13 +27,13 @@ const filtersOnNonCollectionFields = [
 ];
 
 function getLabelsForField(field: string) {
-    if (FIELDS_WHO_USE_CONTAINS_OPERATOR.indexOf(field) >= 0) {
+    if (FIELDS_THAT_USE_CONTAINS_OPERATOR.includes(field)) {
         return {
             default: 'contains',
             negated: 'does not contain',
         };
     }
-    if (filtersOnNonCollectionFields.indexOf(field) >= 0) {
+    if (filtersOnNonCollectionFields.includes(field)) {
         return {
             default: 'equals',
             negated: 'not equal',
