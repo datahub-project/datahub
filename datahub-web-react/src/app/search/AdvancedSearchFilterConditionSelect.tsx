@@ -1,7 +1,6 @@
 import { Select } from 'antd';
 import React from 'react';
 import styled from 'styled-components/macro';
-// import styled from 'styled-components';
 
 import { FacetFilterInput } from '../../types.generated';
 import { ANTD_GRAY } from '../entity/shared/constants';

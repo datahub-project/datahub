@@ -65,6 +65,7 @@ export const ContainerSelectModal = ({ onCloseModal, defaultValues, onOkOverride
     // Renders a search result in the select dropdown.
     const renderSearchResult = (entity: Container) => {
         const displayName = entityRegistry.getDisplayName(EntityType.Container, entity);
+
         const truncatedDisplayName = displayName.length > 25 ? `${displayName.slice(0, 25)}...` : displayName;
         return (
             <Tooltip title={displayName}>
