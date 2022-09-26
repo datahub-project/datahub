@@ -756,6 +756,9 @@ fragment nonRecursiveMLModel on MLModel {
     deprecation {
         ...deprecationFields
     }
+    institutionalMemory {
+        ...institutionalMemoryFields
+    }    
 }
 
 fragment nonRecursiveMLModelGroupFields on MLModelGroup {
