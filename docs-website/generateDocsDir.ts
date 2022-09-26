@@ -115,6 +115,8 @@ function list_markdown_files(): string[] {
     /^contrib\//,
     // Keep main docs for kubernetes, but skip the inner docs.
     /^datahub-kubernetes\//,
+    // Ignore github SECURITY.md
+    /^SECURITY\.md/,
     // Various other docs/directories to ignore.
     /^metadata-models\/docs\//, // these are used to generate docs, so we don't want to consider them here
     /^metadata-ingestion\/archived\//, // these are archived, so we don't want to consider them here
