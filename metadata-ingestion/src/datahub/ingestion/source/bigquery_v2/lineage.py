@@ -147,7 +147,7 @@ timestamp < "{end_time}"
     def compute_bigquery_lineage_via_gcp_logging(
         self, project_id: Optional[str]
     ) -> Dict[str, Set[str]]:
-        logger.info("Populating lineage info via GCP audit logs")
+        logger.info(f"Populating lineage info via GCP audit logs for {project_id}")
         try:
             clients: GCPLoggingClient = _make_gcp_logging_client(project_id)
 
@@ -162,9 +162,9 @@ timestamp < "{end_time}"
             self.error(
                 logger,
                 "lineage-gcp-logs",
-                f"Failed to get lineage gcp logging. The error message was {e}",
+                f"Failed to get lineage gcp logging for {project_id}. The error message was {e}",
             )
-            return {}
+            raise e
 
     def compute_bigquery_lineage_via_exported_bigquery_audit_metadata(
         self,
@@ -188,7 +188,7 @@ timestamp < "{end_time}"
                 "lineage-exported-gcp-audit-logs",
                 f"Error: {e}",
             )
-            return {}
+            raise e
 
     def _get_bigquery_log_entries(
         self, client: GCPLoggingClient, limit: Optional[int] = None
@@ -211,7 +211,7 @@ timestamp < "{end_time}"
         )
 
         logger.info(
-            f"Start loading log entries from BigQuery start_time={start_time} and end_time={end_time}"
+            f"Start loading log entries from BigQuery for {client.project} with start_time={start_time} and end_time={end_time}"
         )
 
         if self.config.rate_limit:
@@ -230,7 +230,7 @@ timestamp < "{end_time}"
             yield entry
 
         logger.info(
-            f"Finished loading {self.report.num_total_log_entries} log entries from BigQuery so far"
+            f"Finished loading {self.report.num_total_log_entries} log entries from BigQuery project {client.project} so far"
         )
 
     def _get_exported_bigquery_audit_metadata(
@@ -423,17 +423,27 @@ timestamp < "{end_time}"
             config=self.config, report=self.report
         )
         lineage_metadata: Dict[str, Set[str]]
-        if self.config.use_exported_bigquery_audit_metadata:
-            # Exported bigquery_audit_metadata should contain every projects' audit metada
-            if self.loaded_project_ids:
-                return {}
-            lineage_metadata = (
-                lineage_extractor.compute_bigquery_lineage_via_exported_bigquery_audit_metadata()
+        try:
+            if self.config.use_exported_bigquery_audit_metadata:
+                # Exported bigquery_audit_metadata should contain every projects' audit metada
+                if self.loaded_project_ids:
+                    return {}
+                lineage_metadata = (
+                    lineage_extractor.compute_bigquery_lineage_via_exported_bigquery_audit_metadata()
+                )
+            else:
+                lineage_metadata = (
+                    lineage_extractor.compute_bigquery_lineage_via_gcp_logging(
+                        project_id
+                    )
+                )
+        except Exception as e:
+            if project_id:
+                self.report.lineage_failed_extraction.append(project_id)
+            logger.error(
+                f"Unable to extract lineage for project {project_id} due to error {e}"
             )
-        else:
-            lineage_metadata = (
-                lineage_extractor.compute_bigquery_lineage_via_gcp_logging(project_id)
-            )
+            lineage_metadata = {}
 
         if lineage_metadata is None:
             lineage_metadata = {}

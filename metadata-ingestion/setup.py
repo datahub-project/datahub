@@ -297,6 +297,9 @@ plugins: Dict[str, Set[str]] = {
         "more-itertools>=8.12.0",
     },
     "snowflake": snowflake_common | usage_common,
+    "snowflake-beta": (
+        snowflake_common | usage_common
+    ),  # deprecated, but keeping the extra for backwards compatibility
     "sqlalchemy": sql_common,
     "superset": {
         "requests",
@@ -333,7 +336,7 @@ mypy_stubs = {
     "types-cachetools",
     # versions 0.1.13 and 0.1.14 seem to have issues
     "types-click==0.1.12",
-    "boto3-stubs[s3,glue,sagemaker]",
+    "boto3-stubs[s3,glue,sagemaker,sts]",
     "types-tabulate",
     # avrogen package requires this
     "types-pytz",

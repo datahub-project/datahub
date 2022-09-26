@@ -19,6 +19,16 @@ class ConfigModel(BaseModel):
         )  # needed to allow cached_property to work. See https://github.com/samuelcolvin/pydantic/issues/1241 for more info.
 
 
+class PermissiveConfigModel(ConfigModel):
+    # A permissive config model that allows extra fields.
+    # This is useful for cases where we want to strongly type certain fields,
+    # but still allow the user to pass in arbitrary fields that we don't care about.
+    # It is usually used for argument bags that are passed through to third-party libraries.
+
+    class Config:
+        extra = Extra.allow
+
+
 class TransformerSemantics(ConfigEnum):
     """Describes semantics for aspect changes"""
 

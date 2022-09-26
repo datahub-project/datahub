@@ -72,9 +72,7 @@ export const EditOwnersModal = ({
     // Renders a search result in the select dropdown.
     const renderSearchResult = (entity: Entity) => {
         const avatarUrl =
-            entity.type === EntityType.CorpUser
-                ? (entity as CorpUser).editableProperties?.pictureLink || undefined
-                : undefined;
+            (entity.type === EntityType.CorpUser && (entity as CorpUser).editableProperties?.pictureLink) || undefined;
         const displayName = entityRegistry.getDisplayName(entity.type, entity);
         return (
             <Select.Option value={entity.urn} key={entity.urn}>
@@ -97,7 +95,7 @@ export const EditOwnersModal = ({
             label: defaultValue.entity ? renderDropdownResult(defaultValue.entity) : defaultValue.urn,
             value: {
                 ownerUrn: defaultValue.urn,
-                ownerEntityType: EntityType.CorpUser,
+                ownerEntityType: defaultValue.entity?.type || EntityType.CorpUser,
             },
         }));
     };
@@ -109,7 +107,6 @@ export const EditOwnersModal = ({
     const [selectedOwners, setSelectedOwners] = useState<SelectedOwner[]>(
         defaultValuesToSelectedOwners(defaultValues || []),
     );
-    console.log({ selectedOwners });
     const [selectedOwnerType, setSelectedOwnerType] = useState<OwnershipType>(defaultOwnerType || OwnershipType.None);
 
     // User and group dropdown search results!

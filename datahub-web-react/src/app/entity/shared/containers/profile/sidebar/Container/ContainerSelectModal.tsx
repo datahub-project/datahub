@@ -4,6 +4,7 @@ import styled from 'styled-components/macro';
 import { useGetSearchResultsLazyQuery } from '../../../../../../../graphql/search.generated';
 import { Container, Entity, EntityType } from '../../../../../../../types.generated';
 import { useEnterKeyListener } from '../../../../../../shared/useEnterKeyListener';
+import { useEntityRegistry } from '../../../../../../useEntityRegistry';
 
 type Props = {
     onCloseModal: () => void;
@@ -33,12 +34,14 @@ const PreviewImage = styled.img`
     margin-right: 4px;
 `;
 
-export const SelectContainerModal = ({ onCloseModal, defaultValues, onOkOverride, titleOverride }: Props) => {
+export const ContainerSelectModal = ({ onCloseModal, defaultValues, onOkOverride, titleOverride }: Props) => {
     const [containerSearch, { data: platforSearchData }] = useGetSearchResultsLazyQuery();
+    const entityRegistry = useEntityRegistry();
+
     const containerSearchResults =
         platforSearchData?.search?.searchResults?.map((searchResult) => searchResult.entity) || [];
 
-    const [selectedContainers, setSelectedContainers] = useState<SelectedContainer[] | undefined>(defaultValues);
+    const [selectedContainers, setSelectedContainers] = useState<SelectedContainer[]>(defaultValues || []);
 
     const inputEl = useRef(null);
 
@@ -61,7 +64,7 @@ export const SelectContainerModal = ({ onCloseModal, defaultValues, onOkOverride
 
     // Renders a search result in the select dropdown.
     const renderSearchResult = (entity: Container) => {
-        const displayName = entity.properties?.name || entity.properties?.qualifiedName || entity.urn;
+        const displayName = entityRegistry.getDisplayName(EntityType.Container, entity);
         const truncatedDisplayName = displayName.length > 25 ? `${displayName.slice(0, 25)}...` : displayName;
         return (
             <Tooltip title={displayName}>
@@ -86,11 +89,10 @@ export const SelectContainerModal = ({ onCloseModal, defaultValues, onOkOverride
             (inputEl.current as any).blur();
         }
 
-        const filteredContainers =
-            containerSearchResults?.filter((entity) => entity.urn === newUrn).map((entity) => entity) || [];
+        const filteredContainer = containerSearchResults?.find((entity) => entity.urn === newUrn);
 
-        if (filteredContainers.length) {
-            const container = filteredContainers[0] as Container;
+        if (filteredContainer) {
+            const container = filteredContainer as Container;
             setSelectedContainers([
                 ...(selectedContainers || []),
                 {

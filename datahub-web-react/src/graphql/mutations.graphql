@@ -105,3 +105,13 @@ mutation batchUpdateSoftDeleted($input: BatchUpdateSoftDeletedInput!) {
 mutation batchAssignRole($input: BatchAssignRoleInput!) {
     batchAssignRole(input: $input)
 }
+
+mutation createInviteToken($input: CreateInviteTokenInput!) {
+    createInviteToken(input: $input) {
+        inviteToken
+    }
+}
+
+mutation acceptRole($input: AcceptRoleInput!) {
+    acceptRole(input: $input)
+}
