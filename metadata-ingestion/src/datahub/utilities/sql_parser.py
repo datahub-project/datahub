@@ -4,12 +4,11 @@ import multiprocessing
 import re
 import sys
 import traceback
-from abc import ABCMeta, abstractmethod
 from multiprocessing import Process, Queue
 from typing import List, Optional, Tuple, Type
 
 from datahub.utilities.sql_lineage_parser_impl import SqlLineageSQLParserImpl
-from datahub.utilities.sql_parser_base import SQLParser, SqlParserException
+from datahub.utilities.sql_parser_base import SQLParser
 
 with contextlib.suppress(ImportError):
     from sql_metadata import Parser as MetadataSQLParser
