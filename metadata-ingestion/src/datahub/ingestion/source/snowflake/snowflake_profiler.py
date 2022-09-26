@@ -72,9 +72,11 @@ class SnowflakeProfiler(SnowflakeCommonMixin):
                 platform=self.platform,
                 profiler_args=self.get_profile_args(),
             ):
-                profile.sizeInBytes = request.table.size_in_bytes  # type:ignore
                 if profile is None:
                     continue
+                profile.sizeInBytes = cast(
+                    SnowflakeProfilerRequest, request
+                ).table.size_in_bytes
                 dataset_name = request.pretty_name
                 dataset_urn = make_dataset_urn_with_platform_instance(
                     self.platform,
@@ -153,14 +155,18 @@ class SnowflakeProfiler(SnowflakeCommonMixin):
                     size_in_bytes is not None
                     and size_in_bytes / (2**30)
                     <= self.config.profiling.profile_table_size_limit
-                )  # Note: Profiling is not allowed is size_in_bytes is not available
+                )
+                # Note: Profiling is not allowed is size_in_bytes is not available
+                # and self.config.profiling.profile_table_size_limit is set
             )
             and (
                 self.config.profiling.profile_table_row_limit is None
                 or (
                     rows_count is not None
                     and rows_count <= self.config.profiling.profile_table_row_limit
-                )  # Note: Profiling is not allowed is rows_count is not available
+                )
+                # Note: Profiling is not allowed is rows_count is not available
+                # and self.config.profiling.profile_table_row_limit is set
             )
         )
 

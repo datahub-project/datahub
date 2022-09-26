@@ -1,16 +1,12 @@
 package com.linkedin.datahub.graphql.resolvers.load;
 
-import com.google.common.collect.Iterables;
 import com.linkedin.datahub.graphql.generated.Entity;
+import com.linkedin.datahub.graphql.resolvers.BatchLoadUtils;
 import graphql.schema.DataFetcher;
 import graphql.schema.DataFetchingEnvironment;
-import java.util.ArrayList;
-import java.util.Collections;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.Function;
-import java.util.stream.Collectors;
-import org.dataloader.DataLoader;
 
 
 /**
@@ -37,20 +33,6 @@ public class EntityTypeBatchResolver implements DataFetcher<CompletableFuture<Li
     @Override
     public CompletableFuture<List<Entity>> get(DataFetchingEnvironment environment) {
         final List<Entity> entities = _entitiesProvider.apply(environment);
-        if (entities.isEmpty()) {
-            return CompletableFuture.completedFuture(Collections.emptyList());
-        }
-        // Assume all entities are of the same type
-        final com.linkedin.datahub.graphql.types.EntityType filteredEntity =
-            Iterables.getOnlyElement(_entityTypes.stream()
-                .filter(entity -> entities.get(0).getClass().isAssignableFrom(entity.objectClass()))
-                .collect(Collectors.toList()));
-
-        final DataLoader loader = environment.getDataLoaderRegistry().getDataLoader(filteredEntity.name());
-        List keyList = new ArrayList();
-        for (Entity entity : entities) {
-            keyList.add(filteredEntity.getKeyProvider().apply(entity));
-        }
-        return loader.loadMany(keyList);
+        return BatchLoadUtils.batchLoadEntitiesOfSameType(entities, _entityTypes, environment.getDataLoaderRegistry());
     }
 }

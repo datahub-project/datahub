@@ -1,29 +1,14 @@
 ingestion:
-- any: [
-  'metadata-ingestion/*',
-  'metadata-ingestion/**/*'
-]
+- 'metadata-ingestion/**/*'
 
 devops:
-- any: [
-  'docker/*',
-  'docker/**/*',
-  '.github/*',
-  '.github/**/*'
-]
+- 'docker/**/*'
+- '.github/**/*'
 
 product:
-- any: [
-  'datahub-web-react/*',
-  'datahub-web-react/**/*',
-  'datahub-frontend/*',
-  'datahub-frontend/**/*',
-  'datahub-graphql-core/*',
-  'datahub-graphql-core/**/*'
-]
+- 'datahub-web-react/**/*'
+- 'datahub-frontend/**/*'
+- 'datahub-graphql-core/**/*'
 
 docs:
-- any: [
-  'docs/*',
-  'docs/**/*'
-]
+- 'docs/**/*'

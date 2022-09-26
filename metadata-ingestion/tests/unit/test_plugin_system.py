@@ -1,3 +1,5 @@
+import warnings
+
 import pytest
 
 from datahub.configuration.common import ConfigurationError
@@ -89,3 +91,15 @@ def test_registry():
     # This just verifies that it runs without error. The formatting should be manually checked.
     assert len(fake_registry.summary(verbose=False).splitlines()) >= 5
     assert len(fake_registry.summary(verbose=True).splitlines()) >= 5
+
+    # Test aliases.
+    fake_registry.register_alias(
+        "console-alias",
+        "console",
+        lambda: warnings.warn(
+            UserWarning("console-alias is deprecated, use console instead")
+        ),
+    )
+    with pytest.warns(UserWarning):
+        assert fake_registry.get("console-alias") == ConsoleSink
+    assert "console-alias" not in fake_registry.summary(verbose=False)

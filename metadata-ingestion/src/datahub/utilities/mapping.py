@@ -1,6 +1,6 @@
 import logging
 import re
-from typing import Any, Dict, Match, Optional, Union
+from typing import Any, Dict, List, Match, Optional, Union
 
 from datahub.emitter import mce_builder
 from datahub.emitter.mce_builder import OwnerType
@@ -15,6 +15,7 @@ from datahub.metadata.schema_classes import (
 class Constants:
     ADD_TAG_OPERATION = "add_tag"
     ADD_TERM_OPERATION = "add_term"
+    ADD_TERMS_OPERATION = "add_terms"
     ADD_OWNER_OPERATION = "add_owner"
     OPERATION = "operation"
     OPERATION_CONFIG = "config"
@@ -27,6 +28,7 @@ class Constants:
     GROUP_OWNER = "group"
     OPERAND_DATATYPE_SUPPORTED = [int, bool, str, float]
     TAG_PARTITION_KEY = "PARTITION_KEY"
+    SEPARATOR = "separator"
 
 
 class OperationProcessor:
@@ -102,12 +104,20 @@ class OperationProcessor:
                     operation = self.get_operation_value(
                         operation_key, operation_type, operation_config, maybe_match
                     )
+                    if operation_type == Constants.ADD_TERMS_OPERATION:
+                        # add_terms operation is a special case where the operation value is a list of terms.
+                        # We want to aggregate these values with the add_term operation.
+                        operation_type = Constants.ADD_TERM_OPERATION
+
                     if operation:
-                        if isinstance(operation, str):
+                        if isinstance(operation, (str, list)):
                             operations_value_set = operations_map.get(
                                 operation_type, set()
                             )
-                            operations_value_set.add(operation)  # type: ignore
+                            if isinstance(operation, list):
+                                operations_value_set.update(operation)  # type: ignore
+                            else:
+                                operations_value_set.add(operation)  # type: ignore
                             operations_map[operation_type] = operations_value_set
                         else:
                             operations_value_list = operations_map.get(
@@ -160,7 +170,7 @@ class OperationProcessor:
         operation_type: str,
         operation_config: Dict,
         match: Match,
-    ) -> Optional[Union[str, Dict]]:
+    ) -> Optional[Union[str, Dict, List[str]]]:
         def _get_best_match(the_match: Match, group_name: str) -> str:
             result = the_match.group(0)
             try:
@@ -220,6 +230,14 @@ class OperationProcessor:
             if isinstance(captured_term_id, str):
                 term = re.sub(match_regexp, captured_term_id, term, 0, re.MULTILINE)
             return mce_builder.make_term_urn(term)
+        elif operation_type == Constants.ADD_TERMS_OPERATION:
+            separator = operation_config.get(Constants.SEPARATOR, ",")
+            captured_terms = match.group(0)
+            return [
+                mce_builder.make_term_urn(term.strip())
+                for term in captured_terms.split(separator)
+                if term.strip()
+            ]
         return None
 
     def sanitize_owner_ids(self, owner_id: str) -> str:

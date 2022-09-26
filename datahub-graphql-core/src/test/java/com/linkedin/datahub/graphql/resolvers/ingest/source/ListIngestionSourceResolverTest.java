@@ -12,6 +12,7 @@ import com.linkedin.entity.EnvelopedAspectMap;
 import com.linkedin.entity.client.EntityClient;
 import com.linkedin.ingestion.DataHubIngestionSourceInfo;
 import com.linkedin.metadata.Constants;
+import com.linkedin.metadata.key.DataHubIngestionSourceKey;
 import com.linkedin.metadata.search.SearchEntity;
 import com.linkedin.metadata.search.SearchEntityArray;
 import com.linkedin.metadata.search.SearchResult;
@@ -36,6 +37,8 @@ public class ListIngestionSourceResolverTest {
     EntityClient mockClient = Mockito.mock(EntityClient.class);
 
     DataHubIngestionSourceInfo returnedInfo = getTestIngestionSourceInfo();
+    final DataHubIngestionSourceKey key = new DataHubIngestionSourceKey();
+    key.setId("test");
 
     Mockito.when(mockClient.search(
         Mockito.eq(Constants.INGESTION_SOURCE_ENTITY_NAME),
@@ -55,7 +58,7 @@ public class ListIngestionSourceResolverTest {
     Mockito.when(mockClient.batchGetV2(
         Mockito.eq(Constants.INGESTION_SOURCE_ENTITY_NAME),
         Mockito.eq(new HashSet<>(ImmutableSet.of(TEST_INGESTION_SOURCE_URN))),
-        Mockito.eq(ImmutableSet.of(Constants.INGESTION_INFO_ASPECT_NAME)),
+        Mockito.eq(ImmutableSet.of(Constants.INGESTION_INFO_ASPECT_NAME, Constants.INGESTION_SOURCE_KEY_ASPECT_NAME)),
         Mockito.any(Authentication.class)
     )).thenReturn(
         ImmutableMap.of(
@@ -65,7 +68,9 @@ public class ListIngestionSourceResolverTest {
                 .setUrn(TEST_INGESTION_SOURCE_URN)
                 .setAspects(new EnvelopedAspectMap(ImmutableMap.of(
                     Constants.INGESTION_INFO_ASPECT_NAME,
-                    new EnvelopedAspect().setValue(new Aspect(returnedInfo.data()))
+                    new EnvelopedAspect().setValue(new Aspect(returnedInfo.data())),
+                    Constants.INGESTION_SOURCE_KEY_ASPECT_NAME,
+                    new EnvelopedAspect().setValue(new Aspect(key.data()))
                 )))
         )
     );

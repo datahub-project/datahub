@@ -128,6 +128,10 @@ public class ContainerMapper {
     if (gmsProperties.hasCustomProperties()) {
       propertiesResult.setCustomProperties(CustomPropertiesMapper.map(gmsProperties.getCustomProperties(), entityUrn));
     }
+    if (gmsProperties.hasQualifiedName()) {
+      propertiesResult.setQualifiedName(gmsProperties.getQualifiedName().toString());
+    }
+
     return propertiesResult;
   }
 

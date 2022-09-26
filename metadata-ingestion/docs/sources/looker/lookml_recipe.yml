@@ -1,8 +1,13 @@
 source:
   type: "lookml"
   config:
+    # GitHub Coordinates: Used to check out the repo locally and add github links on the dataset's entity page.
+    github_info:
+      repo: org/repo-name
+      deploy_key_file: ${LOOKER_DEPLOY_KEY_FILE} # file containing the private ssh key for a deploy key for the looker git repo
+
     # Coordinates
-    base_folder: /path/to/model/files
+    # base_folder: /path/to/model/files ## Optional if you are not able to provide a GitHub deploy key
 
     # Options
     api:
@@ -28,10 +33,6 @@ source:
     #     default_schema: DEFAULT_SCHEMA # the default schema configured for this connection
     #     platform_instance: bq_warehouse # optional
     #     platform_env: DEV  # optional
-
-    # Optional additional github information. Used to add github links on the dataset's entity page.
-    github_info:
-      repo: org/repo-name
 # Default sink is datahub-rest and doesn't need to be configured
 # See https://datahubproject.io/docs/metadata-ingestion/sink_docs/datahub for customization options
 

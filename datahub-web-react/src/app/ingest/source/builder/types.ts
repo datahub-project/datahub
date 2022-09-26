@@ -13,6 +13,14 @@ export enum ModalSize {
  */
 export const DEFAULT_EXECUTOR_ID = 'default';
 
+export interface SourceConfig {
+    urn: string;
+    name: string;
+    displayName: string;
+    docsUrl: string;
+    recipe: string;
+}
+
 /**
  * Props provided to each step as input.
  */
@@ -23,6 +31,7 @@ export type StepProps = {
     prev?: () => void;
     submit: (shouldRun?: boolean) => void;
     cancel: () => void;
+    ingestionSources: SourceConfig[];
 };
 
 /**
