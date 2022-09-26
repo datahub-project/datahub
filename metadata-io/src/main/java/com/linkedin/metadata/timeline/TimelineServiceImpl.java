@@ -26,7 +26,6 @@ import com.linkedin.metadata.timeline.differ.InstitutionalMemoryDiffer;
 import com.linkedin.metadata.timeline.differ.OwnershipDiffer;
 import com.linkedin.metadata.timeline.differ.SchemaMetadataDiffer;
 import org.apache.commons.collections.CollectionUtils;
-import org.apache.parquet.SemanticVersion;
 
 import javax.annotation.Nonnull;
 import java.sql.Timestamp;
@@ -60,7 +59,7 @@ public class TimelineServiceImpl implements TimelineService {
   private static final long DEFAULT_LOOKBACK_TIME_WINDOW_MILLIS = 7 * 24 * 60 * 60 * 1000L; // 1 week lookback
   private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
   private static final long FIRST_TRANSACTION_ID = 0;
-  private static final String BUILD_VALUE_COMPUTED = "-computed";
+  private static final String BUILD_VALUE_COMPUTED = "computed";
 
   private final AspectDao _aspectDao;
   private final AspectDifferFactory _diffFactory;
@@ -396,19 +395,38 @@ public class TimelineServiceImpl implements TimelineService {
       SemanticVersion previousVersion) {
     if (previousVersion == null) {
       // Start with all 0s if there is no previous version.
-      return new SemanticVersion(0, 0, 0, null, null, BUILD_VALUE_COMPUTED);
+      return SemanticVersion.builder()
+          .majorVersion(0)
+          .minorVersion(0)
+          .patchVersion(0)
+          .qualifier(BUILD_VALUE_COMPUTED)
+          .build();
     }
     // Evaluate the version for this group based on previous version and the hightest semantic change type in the group.
     if (highestChangeInGroup == SemanticChangeType.MAJOR) {
       // Bump up major, reset all lower to 0s.
-      return new SemanticVersion(previousVersion.major + 1, 0, 0, null, null, BUILD_VALUE_COMPUTED);
+      return SemanticVersion.builder()
+          .majorVersion(previousVersion.getMajorVersion()+1)
+          .minorVersion(0)
+          .patchVersion(0)
+          .qualifier(BUILD_VALUE_COMPUTED)
+          .build();
     } else if (highestChangeInGroup == SemanticChangeType.MINOR) {
       // Bump up minor, reset all lower to 0s.
-      return new SemanticVersion(previousVersion.major, previousVersion.minor + 1, 0, null, null, BUILD_VALUE_COMPUTED);
+      return SemanticVersion.builder()
+          .majorVersion(previousVersion.getMajorVersion())
+          .minorVersion(previousVersion.getMinorVersion()+1)
+          .patchVersion(0)
+          .qualifier(BUILD_VALUE_COMPUTED)
+          .build();
     } else if (highestChangeInGroup == SemanticChangeType.PATCH) {
       // Bump up patch.
-      return new SemanticVersion(previousVersion.major, previousVersion.minor, previousVersion.patch + 1, null, null,
-          BUILD_VALUE_COMPUTED);
+      return SemanticVersion.builder()
+          .majorVersion(previousVersion.getMajorVersion())
+          .minorVersion(previousVersion.getMinorVersion())
+          .patchVersion(previousVersion.getPatchVersion()+1)
+          .qualifier(BUILD_VALUE_COMPUTED)
+          .build();
     }
     return previousVersion;
   }
