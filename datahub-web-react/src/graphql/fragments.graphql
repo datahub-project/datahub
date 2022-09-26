@@ -711,6 +711,7 @@ fragment nonRecursiveMLModel on MLModel {
     properties {
         description
         date
+        externalUrl
         version
         type
         trainingMetrics {
