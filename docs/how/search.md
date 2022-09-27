@@ -1,46 +1,83 @@
 # Search Guide
 
-## Introduction 
+## Introduction
 
 The search bar is one of the means of finding data in Datahub. In this document, we discuss more effective ways of finding information beyond doing a standard keyword search. This is because keyword searches can return results from almost any part of an entity.
+
+### Advanced Filters
+
+Using the Advanced Filter view, you can apply more complex filters. To get there, click 'Advanced' in the top right of the filter panel:
+
+<p align="center">
+  <img width="70%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/advanced_search/click_to_advanced_search_view.png"/>
+</p>
+
+#### Adding an Advanced Filter
+
+Currently, Advanced Filters support filtering by Column name, Container, Domain, Description (entity or column level), Tag & Glossary Term (entity or column level), Owner, Entity Type, Subtype, Environment and soft-deleted status.
+
+To add a new filter, click the add filter menu, choose a filter type, and then fill in the values you want to filter by.
+
+<p align="center">
+  <img width="70%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/advanced_search/click_add_advanced_filter.png"/>
+</p>
+
+#### Matching Any Advanced Filter
+
+By default, all filters must be matched in order for a result to appear. For example, if you add a tag filter and a platform filter, all results will have the tag and the platform. You can set the results to match any filter instead. Click on `all filters` and select `any filter` from the drop-down menu.
+
+<p align="center">
+  <img width="70%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/advanced_search/advanced_search_choose_matches_any.png"/>
+</p>
+
+#### Negating An Advanced Filter
+
+After creating a filter, you can choose whether results should or should not match it. Change this by clicking the operation in the top right of the filter and selecting the negated operation.
+
+<p align="center">
+  <img width="70%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/advanced_search/advanced_search_select_negated.png"/>
+</p>
 
 ### Search in Specific Fields
 
 The following examples are in the format of  
-X: *typical question* :  
-```what to key in search bar```.  [sample url](https://example.com)  
-Wildcard characters can be added to the search terms as well. These examples are non exhaustive and using Datasets as a reference.    
-  
-I want to:  
-1. *Find a dataset with the word **mask** in the name* :  
-```name: *mask*``` [Sample results](https://demo.datahubproject.io/search?page=1&query=name%3A%20%2Amask%2A)   
-This will return entities with **mask** in the name.  
-Names tends to be connected by other symbols, hence the wildcard symbols before and after the word.  
+X: _typical question_ :  
+`what to key in search bar`. [sample url](https://example.com)  
+Wildcard characters can be added to the search terms as well. These examples are non exhaustive and using Datasets as a reference.
 
-2. *Find a dataset with a property, **encoding***  
-```customProperties: encoding*``` [Sample results](https://demo.datahubproject.io/search?page=1&query=customProperties%3A%20encoding%2A)  
-Dataset Properties are indexed in ElasticSearch the manner of key=value. Hence if you know the precise key-value pair, you can search using ```key=value```. However, if you only know the key, you can use wildcards to replace the value and that is what is being done here.  
+I want to:
 
-3. *Find a dataset with a column name, **latitude***  
-```fieldPaths: latitude``` [Sample results](https://demo.datahubproject.io/search?page=1&query=fieldPaths%3A%20latitude)  
-fieldPaths is the name of the attribute that holds the column name in Datasets.
+1. _Find a dataset with the word **mask** in the name_ :  
+   `name: *mask*` [Sample results](https://demo.datahubproject.io/search?page=1&query=name%3A%20%2Amask%2A)  
+   This will return entities with **mask** in the name.  
+   Names tends to be connected by other symbols, hence the wildcard symbols before and after the word.
 
-4. *Find a dataset with the term **latitude** in the field description*  
-```editedFieldDescriptions: latitude OR fieldDescriptions: latitude```  [Sample results](https://demo.datahubproject.io/search?page=1&query=editedFieldDescriptions%3A%20latitude%20OR%20fieldDescriptions%3A%20latitude)  
-Datasets has 2 attributes that contains field description. fieldDescription comes from the SchemaMetadata aspect, while editedFieldDescriptions comes from the EditableSchemaMetadata aspect. EditableSchemaMetadata holds information that comes from UI edits, while SchemaMetadata holds data from ingestion of the dataset.  
+2. \*Find a dataset with a property, **encoding\***  
+   `customProperties: encoding*` [Sample results](https://demo.datahubproject.io/search?page=1&query=customProperties%3A%20encoding%2A)  
+   Dataset Properties are indexed in ElasticSearch the manner of key=value. Hence if you know the precise key-value pair, you can search using `key=value`. However, if you only know the key, you can use wildcards to replace the value and that is what is being done here.
 
-5. *Find a dataset with the term **logical** in the dataset description*  
-```editedDescription: *logical* OR description: *logical*``` [Sample results](https://demo.datahubproject.io/search?page=1&query=editedDescription%3A%20%2Alogical%2A%20OR%20description%3A%20%2Alogical%2A)  
-Similar to field descriptions, dataset descriptions can be found in 2 aspects, hence the need to search 2 attributes.  
+3. \*Find a dataset with a column name, **latitude\***  
+   `fieldPaths: latitude` [Sample results](https://demo.datahubproject.io/search?page=1&query=fieldPaths%3A%20latitude)  
+   fieldPaths is the name of the attribute that holds the column name in Datasets.
 
-6. *Find a dataset which reside in one of the browsing folders, for instance, the **hive** folder*  
-```browsePaths: *hive*``` [Sample results](https://demo.datahubproject.io/search?page=1&query=browsePaths%3A%20%2Ahive%2A)  
-BrowsePath is stored as a complete string, for instance ```/datasets/prod/hive/SampleKafkaDataset```, hence the need for wildcards on both ends of the term to return a result. 
+4. _Find a dataset with the term **latitude** in the field description_  
+   `editedFieldDescriptions: latitude OR fieldDescriptions: latitude` [Sample results](https://demo.datahubproject.io/search?page=1&query=editedFieldDescriptions%3A%20latitude%20OR%20fieldDescriptions%3A%20latitude)  
+   Datasets has 2 attributes that contains field description. fieldDescription comes from the SchemaMetadata aspect, while editedFieldDescriptions comes from the EditableSchemaMetadata aspect. EditableSchemaMetadata holds information that comes from UI edits, while SchemaMetadata holds data from ingestion of the dataset.
 
-## Where to find more information?  
-The sample queries here are non exhaustive. [The link here](https://demo.datahubproject.io/tag/urn:li:tag:Searchable) shows the current list of indexed fields for each entity inside Datahub. Click on the fields inside each entity and see which field has the tag ```Searchable```.  
+5. _Find a dataset with the term **logical** in the dataset description_  
+   `editedDescription: *logical* OR description: *logical*` [Sample results](https://demo.datahubproject.io/search?page=1&query=editedDescription%3A%20%2Alogical%2A%20OR%20description%3A%20%2Alogical%2A)  
+   Similar to field descriptions, dataset descriptions can be found in 2 aspects, hence the need to search 2 attributes.
+
+6. _Find a dataset which reside in one of the browsing folders, for instance, the **hive** folder_  
+   `browsePaths: *hive*` [Sample results](https://demo.datahubproject.io/search?page=1&query=browsePaths%3A%20%2Ahive%2A)  
+   BrowsePath is stored as a complete string, for instance `/datasets/prod/hive/SampleKafkaDataset`, hence the need for wildcards on both ends of the term to return a result.
+
+## Where to find more information?
+
+The sample queries here are non exhaustive. [The link here](https://demo.datahubproject.io/tag/urn:li:tag:Searchable) shows the current list of indexed fields for each entity inside Datahub. Click on the fields inside each entity and see which field has the tag `Searchable`.  
 However, it does not tell you the specific attribute name to use for specialized searches. One way to do so is to inspect the ElasticSearch indices, for example:  
-```curl http://localhost:9200/_cat/indices``` returns all the ES indices in the ElasticSearch container.  
+`curl http://localhost:9200/_cat/indices` returns all the ES indices in the ElasticSearch container.
+
 ```
 yellow open chartindex_v2_1643510690325                           bQO_RSiCSUiKJYsmJClsew 1 1   2 0   8.5kb   8.5kb
 yellow open mlmodelgroupindex_v2_1643510678529                    OjIy0wb7RyKqLz3uTENRHQ 1 1   0 0    208b    208b
@@ -74,11 +111,13 @@ yellow open system_metadata_service_v1                            36spEDbDTdKgVl
 yellow open schemafieldindex_v2_1643510684410                     tZ1gC3haTReRLmpCxirVxQ 1 1   0 0    208b    208b
 yellow open mlfeatureindex_v2_1643510680246                       aQO5HF0mT62Znn-oIWBC8A 1 1  20 0  17.4kb  17.4kb
 yellow open tagindex_v2_1643510684785                             PfnUdCUORY2fnF3I3W7HwA 1 1   3 1  18.6kb  18.6kb
-```  
-The index name will vary from instance to instance. Indexed information about Datasets can be found in:  
-```curl http://localhost:9200/datasetindex_v2_1643510688970/_search?=pretty```  
+```
 
-example information of a dataset:  
+The index name will vary from instance to instance. Indexed information about Datasets can be found in:  
+`curl http://localhost:9200/datasetindex_v2_1643510688970/_search?=pretty`
+
+example information of a dataset:
+
 ```
 {
         "_index" : "datasetindex_v2_1643510688970",
@@ -120,6 +159,3 @@ example information of a dataset:
         }
       },
 ```
-
-
-
