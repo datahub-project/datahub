@@ -49,7 +49,8 @@ class FileSink(Sink[FileSinkConfig, SinkReport]):
         self.wrote_something = True
 
         self.report.report_record_written(record_envelope)
-        write_callback.on_success(record_envelope, {})
+        if write_callback:
+            write_callback.on_success(record_envelope, {})
 
     def close(self):
         self.file.write("\n]")

@@ -67,6 +67,19 @@ class BigQueryV2Config(BigQueryConfig):
 
     @root_validator(pre=False)
     def backward_compatibility_configs_set(cls, values: Dict) -> Dict:
+        project_id = values.get("project_id")
+        project_id_pattern = values.get("project_id_pattern")
+
+        if project_id_pattern == AllowDenyPattern.allow_all() and project_id:
+            logging.warning(
+                "project_id_pattern is not set but project_id is set, setting project_id as project_id_pattern. project_id will be deprecated, please use project_id_pattern instead."
+            )
+            values["project_id_pattern"] = AllowDenyPattern(allow=[f"^{project_id}$"])
+        elif project_id_pattern != AllowDenyPattern.allow_all() and project_id:
+            logging.warning(
+                "project_id will be ignored in favour of project_id_pattern. project_id will be deprecated, please use project_id only."
+            )
+            values.pop("project_id")
 
         dataset_pattern = values.get("dataset_pattern")
         schema_pattern = values.get("schema_pattern")

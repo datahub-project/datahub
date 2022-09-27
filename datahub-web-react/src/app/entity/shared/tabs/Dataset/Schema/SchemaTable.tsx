@@ -104,16 +104,24 @@ export default function SchemaTable({
     });
 
     const fieldColumn = {
+        width: '22%',
         title: 'Field',
         dataIndex: 'fieldPath',
         key: 'fieldPath',
-        width: 300,
         render: schemaTitleRenderer,
         filtered: true,
     };
 
+    const descriptionColumn = {
+        width: '22%',
+        title: 'Description',
+        dataIndex: 'description',
+        key: 'description',
+        render: descriptionRender,
+    };
+
     const tagColumn = {
-        width: 125,
+        width: '13%',
         title: 'Tags',
         dataIndex: 'globalTags',
         key: 'tag',
@@ -122,7 +130,7 @@ export default function SchemaTable({
     };
 
     const termColumn = {
-        width: 125,
+        width: '13%',
         title: 'Glossary Terms',
         dataIndex: 'globalTags',
         key: 'tag',
@@ -130,25 +138,10 @@ export default function SchemaTable({
         onCell: onTagTermCell,
     };
 
-    const usageColumn = {
-        width: 50,
-        title: 'Usage',
-        dataIndex: 'fieldPath',
-        key: 'usage',
-        render: usageStatsRenderer,
-    };
-    const descriptionColumn = {
-        title: 'Description',
-        dataIndex: 'description',
-        key: 'description',
-        render: descriptionRender,
-        width: 300,
-    };
-
     const blameColumn = {
+        width: '10%',
         dataIndex: 'fieldPath',
         key: 'fieldPath',
-        width: 75,
         render(record: SchemaField) {
             return {
                 props: {
@@ -157,6 +150,14 @@ export default function SchemaTable({
                 children: schemaBlameRenderer(record),
             };
         },
+    };
+
+    const usageColumn = {
+        width: '10%',
+        title: 'Usage',
+        dataIndex: 'fieldPath',
+        key: 'usage',
+        render: usageStatsRenderer,
     };
 
     let allColumns: ColumnsType<ExtendedSchemaFields> = [fieldColumn, descriptionColumn, tagColumn, termColumn];
