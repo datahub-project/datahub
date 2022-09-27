@@ -138,12 +138,12 @@ public class UpdateNameResolver implements DataFetcher<CompletableFuture<Boolean
       try {
         CorpGroupInfo corpGroupInfo = (CorpGroupInfo) getAspectFromEntity(
                 targetUrn.toString(), Constants.CORP_GROUP_INFO_ASPECT_NAME, _entityService, null);
-        if (cropGroupInfo == null) {
+        if (corpGroupInfo == null) {
           throw new IllegalArgumentException("Group does not exist");
         }
-        cropGroupInfo.setName(input.getName());
+        corpGroupInfo.setDisplayName(input.getName());
         Urn actor = CorpuserUrn.createFromString(context.getActorUrn());
-        persistAspect(targetUrn, Constants.CORP_GROUP_INFO_ASPECT_NAME, cropGroupInfo, actor, _entityService);
+        persistAspect(targetUrn, Constants.CORP_GROUP_INFO_ASPECT_NAME, corpGroupInfo, actor, _entityService);
 
         return true;
       } catch (Exception e) {
