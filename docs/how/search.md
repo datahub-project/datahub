@@ -12,7 +12,7 @@ Add in `saasOnly` for Managed DataHub-only features
 
 <FeatureAvailability/>
 
-The **search bar** is an important mechnaism for discovering data assets in DataHub. From the search bar, you can find Datasets, Columns, Dashboards, Charts, Data Pipelines, and more. Simply type in a term and press 'enter'. 
+The **search bar** is an important mechanism for discovering data assets in DataHub. From the search bar, you can find Datasets, Columns, Dashboards, Charts, Data Pipelines, and more. Simply type in a term and press 'enter'. 
 
 <p align="center">
 <img width="70%"  src="https://github.com/datahub-project/static-assets/blob/main/imgs/search-landingpage.png?raw=true" />
@@ -93,14 +93,11 @@ BrowsePath is stored as a complete string, for instance ```/datasets/prod/hive/S
 <iframe width="560" height="315" src="https://www.youtube.com/watch?v=dubrKIcv37c" title="YouTube video player" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe>
 </p> 
 
-<!-- 
-NOTE: Find the iframe details in YouTube by going to Share > Embed 
- -->
 
 ### GraphQL
 
-* Full API documentation: [here](../../graphql/queries.md#searchAcrossEntities).
-* You can try out the API on the demo instance's public GraphQL interface: [here](https://demo.datahubproject.io/api/graphiql).  
+* [searchAcrossEntities](https://datahubproject.io/docs/graphql/queries/#searchacrossentities)
+* You can try out the API on the demo instance's public GraphQL interface: [here](https://demo.datahubproject.io/api/graphiql)
 
 The same GraphQL API that powers the Search UI can be used
 for integrations and programmatic use-cases. 
@@ -137,10 +134,12 @@ for integrations and programmatic use-cases.
 
 ## FAQ and Troubleshooting
 
-** How are the results ordered? **
+**How are the results ordered?**
+
 The order of the search results is based on the weight what Datahub gives them based on our search algorithm. The current algorithm in OSS DataHub is based on a text-match score from Elastic Search.
 
-** Where to find more information? **
+**Where to find more information?**
+
 The sample queries here are non exhaustive. [The link here](https://demo.datahubproject.io/tag/urn:li:tag:Searchable) shows the current list of indexed fields for each entity inside Datahub. Click on the fields inside each entity and see which field has the tag ```Searchable```.  
 However, it does not tell you the specific attribute name to use for specialized searches. One way to do so is to inspect the ElasticSearch indices, for example:  
 ```curl http://localhost:9200/_cat/indices``` returns all the ES indices in the ElasticSearch container.  
