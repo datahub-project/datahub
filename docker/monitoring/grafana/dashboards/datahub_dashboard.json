@@ -689,7 +689,7 @@
             "uid": "${datasource}"
           },
           "exemplar": true,
-          "expr": "metrics_com_linkedin_metadata_entity_ebean_EbeanEntityService_ingestAspectToLocalDB_Mean{}",
+          "expr": "metrics_com_linkedin_metadata_entity_EntityService_ingestAspectsToLocalDB_Mean{}",
           "hide": false,
           "interval": "",
           "legendFormat": "Ingest To DB",
@@ -701,7 +701,7 @@
             "uid": "${datasource}"
           },
           "exemplar": true,
-          "expr": "metrics_com_linkedin_metadata_entity_ebean_EbeanEntityService_produceMAE_Mean{}",
+          "expr": "metrics_com_linkedin_metadata_entity_EntityService_produceMAE_Mean{}",
           "hide": false,
           "interval": "",
           "legendFormat": "Produce MAE",
@@ -794,7 +794,7 @@
             "uid": "${datasource}"
           },
           "exemplar": true,
-          "expr": "metrics_com_linkedin_metadata_kafka_MetadataAuditEventsProcessor_maeProcess_Mean",
+          "expr": "metrics_com_linkedin_metadata_kafka_MetadataChangeLogProcessor_maeProcess_Mean",
           "interval": "",
           "legendFormat": "Avg",
           "refId": "A"
@@ -1403,7 +1403,7 @@
             "uid": "${datasource}"
           },
           "exemplar": true,
-          "expr": "metrics_com_linkedin_metadata_resources_entity_EntityResource_browse_Mean{}",
+          "expr": "metrics_com_datahub_graphql_GraphQLController_browse_Mean{}",
           "interval": "",
           "legendFormat": "Avg",
           "refId": "A"
@@ -1414,7 +1414,7 @@
             "uid": "${datasource}"
           },
           "exemplar": true,
-          "expr": "metrics_com_linkedin_metadata_resources_entity_EntityResource_browse_75thPercentile{}",
+          "expr": "metrics_com_datahub_graphql_GraphQLController_browse_75thPercentile{}",
           "hide": false,
           "interval": "",
           "legendFormat": "P75",
@@ -1426,7 +1426,7 @@
             "uid": "${datasource}"
           },
           "exemplar": true,
-          "expr": "metrics_com_linkedin_metadata_resources_entity_EntityResource_browse_95thPercentile{}",
+          "expr": "metrics_com_datahub_graphql_GraphQLController_browse_95thPercentile{}",
           "hide": false,
           "interval": "",
           "legendFormat": "P95",
@@ -1543,7 +1543,7 @@
             "uid": "${datasource}"
           },
           "exemplar": true,
-          "expr": "metrics_com_linkedin_metadata_resources_entity_EntityResource_browse_Mean{}",
+          "expr": "metrics_com_datahub_graphql_GraphQLController_browse_Mean{}",
           "hide": false,
           "interval": "",
           "legendFormat": "Total Browse",
@@ -2348,7 +2348,7 @@
             "uid": "${datasource}"
           },
           "exemplar": true,
-          "expr": "metrics_com_linkedin_metadata_kafka_MetadataAuditEventsProcessor_kafkaLag_Mean{}",
+          "expr": "metrics_com_linkedin_metadata_kafka_MetadataChangeLogProcessor_kafkaLag_Mean{}",
           "interval": "",
           "legendFormat": "Avg",
           "refId": "A"
@@ -2359,7 +2359,7 @@
             "uid": "${datasource}"
           },
           "exemplar": true,
-          "expr": "metrics_com_linkedin_metadata_kafka_MetadataAuditEventsProcessor_kafkaLag_75thPercentile{}",
+          "expr": "metrics_com_linkedin_metadata_kafka_MetadataChangeLogProcessor_kafkaLag_75thPercentile{}",
           "hide": false,
           "interval": "",
           "legendFormat": "P75",
@@ -2371,7 +2371,7 @@
             "uid": "${datasource}"
           },
           "exemplar": true,
-          "expr": "metrics_com_linkedin_metadata_kafka_MetadataAuditEventsProcessor_kafkaLag_95thPercentile{}",
+          "expr": "metrics_com_linkedin_metadata_kafka_MetadataChangeLogProcessor_kafkaLag_95thPercentile{}",
           "hide": false,
           "interval": "",
           "legendFormat": "P95",
