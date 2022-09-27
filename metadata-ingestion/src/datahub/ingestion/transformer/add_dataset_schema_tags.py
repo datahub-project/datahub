@@ -1,4 +1,4 @@
-from typing import Callable, List, Optional, Union, cast
+from typing import Callable, List, Optional, cast
 
 import datahub.emitter.mce_builder as builder
 from datahub.configuration.common import (
@@ -20,12 +20,7 @@ from datahub.metadata.schema_classes import (
 
 
 class AddDatasetSchemaTagsConfig(TransformerSemanticsConfigModel):
-    # Workaround for https://github.com/python/mypy/issues/708.
-    # Suggested by https://stackoverflow.com/a/64528725/5004662.
-    get_tags_to_add: Union[
-        Callable[[str], List[TagAssociationClass]],
-        Callable[[str], List[TagAssociationClass]],
-    ]
+    get_tags_to_add: Callable[[str], List[TagAssociationClass]]
 
     _resolve_tag_fn = pydantic_resolve_key("get_tags_to_add")
 

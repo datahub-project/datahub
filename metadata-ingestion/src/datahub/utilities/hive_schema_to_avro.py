@@ -22,7 +22,6 @@ class HiveColumnToAvroConverter:
         "float": "float",
         "tinyint": "int",
         "smallint": "int",
-        "int": "int",
         "bigint": "long",
         "varchar": "string",
         "char": "string",
@@ -33,6 +32,8 @@ class HiveColumnToAvroConverter:
     _FIXED_DECIMAL = re.compile(r"(decimal|numeric)(\(\s*(\d+)\s*,\s*(\d+)\s*\))?")
 
     _FIXED_STRING = re.compile(r"(var)?char\(\s*(\d+)\s*\)")
+
+    _STRUCT_TYPE_SEPARATOR = ":"
 
     @staticmethod
     def _parse_datatype_string(
@@ -103,7 +104,9 @@ class HiveColumnToAvroConverter:
         parts = HiveColumnToAvroConverter._ignore_brackets_split(s, ",")
         fields = []
         for part in parts:
-            name_and_type = HiveColumnToAvroConverter._ignore_brackets_split(part, ":")
+            name_and_type = HiveColumnToAvroConverter._ignore_brackets_split(
+                part.strip(), HiveColumnToAvroConverter._STRUCT_TYPE_SEPARATOR
+            )
             if len(name_and_type) != 2:
                 raise ValueError(
                     (

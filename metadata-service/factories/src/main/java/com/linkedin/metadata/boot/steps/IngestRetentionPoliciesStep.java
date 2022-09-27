@@ -26,6 +26,7 @@ public class IngestRetentionPoliciesStep implements BootstrapStep {
 
   private final RetentionService _retentionService;
   private final boolean _enableRetention;
+  private final boolean _applyOnBootstrap;
   private final String pluginPath;
 
   private static final ObjectMapper YAML_MAPPER = new ObjectMapper(new YAMLFactory());
@@ -69,7 +70,7 @@ public class IngestRetentionPoliciesStep implements BootstrapStep {
     }
 
     // 5. If there were updates on any of the retention policies, apply retention to all records
-    if (hasUpdate) {
+    if (hasUpdate && _applyOnBootstrap) {
       log.info("Applying policies to all records");
       _retentionService.batchApplyRetention(null, null);
     }
