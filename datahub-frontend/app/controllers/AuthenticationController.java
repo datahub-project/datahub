@@ -98,10 +98,10 @@ public class AuthenticationController extends Controller {
         // 3. If no auth enabled, fallback to using default user account & redirect.
         // Generate GMS session token, TODO:
         final String accessToken = _authClient.generateSessionTokenForUser(DEFAULT_ACTOR_URN.getId());
-        request.session().adding(createSessionMap(DEFAULT_ACTOR_URN.toString(), accessToken));
-        return redirect(redirectPath).withCookies(createActorCookie(DEFAULT_ACTOR_URN.toString(),
-            _configs.hasPath(SESSION_TTL_CONFIG_PATH) ? _configs.getInt(SESSION_TTL_CONFIG_PATH)
-                : DEFAULT_SESSION_TTL_HOURS));
+        return redirect(redirectPath).withSession(createSessionMap(DEFAULT_ACTOR_URN.toString(), accessToken))
+            .withCookies(createActorCookie(DEFAULT_ACTOR_URN.toString(),
+                _configs.hasPath(SESSION_TTL_CONFIG_PATH) ? _configs.getInt(SESSION_TTL_CONFIG_PATH)
+                    : DEFAULT_SESSION_TTL_HOURS));
     }
 
     /**
@@ -150,8 +150,7 @@ public class AuthenticationController extends Controller {
     }
 
     /**
-     * Sign up a native user based on a name, email, title, and password. The invite token must match the global invite
-     * token stored for the DataHub instance.
+     * Sign up a native user based on a name, email, title, and password. The invite token must match an existing invite token.
      *
      */
     @Nonnull
@@ -199,7 +198,7 @@ public class AuthenticationController extends Controller {
 
         final Urn userUrn = new CorpuserUrn(email);
         final String userUrnString = userUrn.toString();
-        boolean isNativeUserCreated = _authClient.signUp(userUrnString, fullName, email, title, password, inviteToken);
+        _authClient.signUp(userUrnString, fullName, email, title, password, inviteToken);
         final String accessToken = _authClient.generateSessionTokenForUser(userUrn.getId());
         return ok().withSession(createSessionMap(userUrnString, accessToken))
             .withCookies(Http.Cookie.builder(ACTOR, userUrnString)
@@ -209,7 +208,7 @@ public class AuthenticationController extends Controller {
     }
 
     /**
-     * Create a native user based on a name, email, and password.
+     * Reset a native user's credentials based on a username, old password, and new password.
      *
      */
     @Nonnull
@@ -245,9 +244,7 @@ public class AuthenticationController extends Controller {
 
         final Urn userUrn = new CorpuserUrn(email);
         final String userUrnString = userUrn.toString();
-        boolean areNativeUserCredentialsReset =
-            _authClient.resetNativeUserCredentials(userUrnString, password, resetToken);
-        _logger.debug(String.format("Are native user credentials reset: %b", areNativeUserCredentialsReset));
+        _authClient.resetNativeUserCredentials(userUrnString, password, resetToken);
         final String accessToken = _authClient.generateSessionTokenForUser(userUrn.getId());
         return ok().withSession(createSessionMap(userUrnString, accessToken))
             .withCookies(Http.Cookie.builder(ACTOR, userUrnString)
@@ -288,7 +285,6 @@ public class AuthenticationController extends Controller {
     }
 
     private boolean tryLogin(String username, String password) {
-        JsonNode invalidCredsJson = Json.newObject().put("message", "Invalid Credentials");
         boolean loginSucceeded = false;
 
         // First try jaas login, if enabled

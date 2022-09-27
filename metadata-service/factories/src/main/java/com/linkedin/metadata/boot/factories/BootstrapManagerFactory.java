@@ -74,7 +74,7 @@ public class BootstrapManagerFactory {
     final IngestRootUserStep ingestRootUserStep = new IngestRootUserStep(_entityService);
     final IngestPoliciesStep ingestPoliciesStep =
         new IngestPoliciesStep(_entityRegistry, _entityService, _entitySearchService, _searchDocumentTransformer);
-    final IngestRolesStep ingestRolesStep = new IngestRolesStep(_entityService);
+    final IngestRolesStep ingestRolesStep = new IngestRolesStep(_entityService, _entityRegistry);
     final IngestDataPlatformsStep ingestDataPlatformsStep = new IngestDataPlatformsStep(_entityService);
     final IngestDataPlatformInstancesStep ingestDataPlatformInstancesStep =
         new IngestDataPlatformInstancesStep(_entityService, _migrationsDao);

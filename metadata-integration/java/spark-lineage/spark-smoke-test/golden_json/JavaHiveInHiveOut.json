@@ -14,7 +14,7 @@
           {
             "com.linkedin.common.BrowsePaths": {
               "paths": [
-                "/spark/spark_spark-master_7077/javahiveinhiveout"
+                "/spark/spark_spark-master_7077"
               ]
             }
           },
@@ -55,7 +55,7 @@
           {
             "com.linkedin.common.BrowsePaths": {
               "paths": [
-                "/spark/javahiveinhiveout/queryexecid_8"
+                "/spark/spark_spark-master_7077"
               ]
             }
           },
@@ -131,7 +131,7 @@
           {
             "com.linkedin.common.BrowsePaths": {
               "paths": [
-                "/spark/javahiveinhiveout/queryexecid_9"
+                "/spark/spark_spark-master_7077"
               ]
             }
           }
@@ -163,7 +163,7 @@
           {
             "com.linkedin.common.BrowsePaths": {
               "paths": [
-                "/spark/javahiveinhiveout/queryexecid_10"
+                "/spark/spark_spark-master_7077"
               ]
             }
           },
@@ -233,7 +233,7 @@
           {
             "com.linkedin.common.BrowsePaths": {
               "paths": [
-                "/spark/javahiveinhiveout/queryexecid_11"
+                "/spark/spark_spark-master_7077"
               ]
             }
           }

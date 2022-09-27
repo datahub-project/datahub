@@ -26,7 +26,7 @@ FROM --platform=$BUILDPLATFORM alpine:3.14 AS prod-build
 
 # Upgrade Alpine and base packages
 RUN apk --no-cache --update-cache --available upgrade \
-    && apk --no-cache add openjdk8 perl
+    && apk --no-cache add openjdk8 openjdk11 perl
 
 COPY . datahub-src
 RUN cd datahub-src && ./gradlew :datahub-upgrade:build

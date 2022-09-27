@@ -4,28 +4,15 @@ import multiprocessing
 import re
 import sys
 import traceback
-from abc import ABCMeta, abstractmethod
 from multiprocessing import Process, Queue
 from typing import List, Optional, Tuple, Type
 
 from datahub.utilities.sql_lineage_parser_impl import SqlLineageSQLParserImpl
+from datahub.utilities.sql_parser_base import SQLParser
 
 with contextlib.suppress(ImportError):
     from sql_metadata import Parser as MetadataSQLParser
 logger = logging.getLogger(__name__)
-
-
-class SQLParser(metaclass=ABCMeta):
-    def __init__(self, sql_query: str) -> None:
-        self._sql_query = sql_query
-
-    @abstractmethod
-    def get_tables(self) -> List[str]:
-        pass
-
-    @abstractmethod
-    def get_columns(self) -> List[str]:
-        pass
 
 
 class MetadataSQLSQLParser(SQLParser):
@@ -104,7 +91,7 @@ def sql_lineage_parser_impl_func_wrapper(
         exc_info = sys.exc_info()
         exc_msg: str = str(exc_info[1]) + "".join(traceback.format_tb(exc_info[2]))
         exception_details = (exc_info[0], exc_msg)
-        logger.error(exc_msg)
+        logger.debug(exc_msg)
     finally:
         queue.put((tables, columns, exception_details))
 

@@ -51,7 +51,6 @@ import com.linkedin.platform.event.v1.Parameters;
 import java.util.Map;
 import org.mockito.Mockito;
 import org.testng.annotations.BeforeMethod;
-
 import org.testng.annotations.Test;
 
 import static com.linkedin.metadata.Constants.*;

@@ -32,6 +32,10 @@ const PageContainer = styled.span`
     width: 100%;
 `;
 
+const AddUsersButton = styled(Button)`
+    margin-right: 16px;
+`;
+
 const DEFAULT_PAGE_SIZE = 10;
 
 // TODO: Cleanup the styling.
@@ -160,20 +164,22 @@ export const ManageRoles = () => {
             },
         },
         {
-            dataIndex: 'add_users',
-            key: 'add_users',
+            dataIndex: 'actions',
+            key: 'actions',
             render: (_: any, record: any) => {
                 return (
-                    <Tooltip title={`Assign ${record.name} role to users`}>
-                        <Button
-                            onClick={() => {
-                                setIsBatchAddRolesModalVisible(true);
-                                setFocusRole(record.role);
-                            }}
-                        >
-                            ADD USERS
-                        </Button>
-                    </Tooltip>
+                    <>
+                        <Tooltip title={`Assign the ${record.name} role to users`}>
+                            <AddUsersButton
+                                onClick={() => {
+                                    setIsBatchAddRolesModalVisible(true);
+                                    setFocusRole(record.role);
+                                }}
+                            >
+                                ADD USERS
+                            </AddUsersButton>
+                        </Tooltip>
+                    </>
                 );
             },
         },
@@ -247,13 +253,7 @@ export const ManageRoles = () => {
                     showSizeChanger={false}
                 />
             </PaginationContainer>
-            {showViewRoleModal && (
-                <RoleDetailsModal
-                    role={focusRole as DataHubRole}
-                    visible={showViewRoleModal}
-                    onClose={resetRoleState}
-                />
-            )}
+            <RoleDetailsModal role={focusRole as DataHubRole} visible={showViewRoleModal} onClose={resetRoleState} />
         </PageContainer>
     );
 };
