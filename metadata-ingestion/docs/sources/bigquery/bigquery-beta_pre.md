@@ -13,17 +13,17 @@ If you have multiple projects in your BigQuery setup, the role should be granted
 
 ##### Basic Requirements (needs for metadata ingestion)
 
-| permission                       | Description                                   |
-| -------------------------------- | --------------------------------------------- |
-| `bigquery.datasets.get`          | This needs to list datasets                   |
-| `bigquery.datasets.getIamPolicy` | This needs to list datasets                   |
-| `bigquery.jobs.create`           | Needs to submit queries.                      |
-| `bigquery.jobs.list`             | Needs to check submitted queries status.      |
-| `bigquery.tables.get`            | Needs to get metadata about Bigquery Tables.  |
-| `bigquery.tables.list`           | Needs to list metadata about Bigquery Tables. |
-| `bigquery.readsessions.create`   | Needs to get resultset of queries.            |
-| `bigquery.readsessions.getData`  | Needs to get resultset of queries.            |
-| `resourcemanager.projects.get`   | Needs to get resultset of queries.            |
+| permission                       | Description                                           |
+| -------------------------------- | ----------------------------------------------------- |
+| `bigquery.datasets.get`          | Retrieve metadata about a dataset.                    |
+| `bigquery.datasets.getIamPolicy` | Read a dataset's IAM permissions.                     |
+| `bigquery.jobs.create`           | Run jobs (e.g. queries) within the project.           |
+| `bigquery.jobs.list`             | Manage the queries that the service account has sent. |
+| `bigquery.tables.list`           | List BigQuery tables.                                 |
+| `bigquery.tables.get`            | Retrieve metadata for a table.                        |
+| `bigquery.readsessions.create`   | Create a session for streaming large results.         |
+| `bigquery.readsessions.getData`  | Get data from the read session.                       |
+| `resourcemanager.projects.get`   | Retrieve project names and metadata.                  |
 
 ##### Lineage/usage generation requirements
 
@@ -31,21 +31,21 @@ Additional requirements needed on the top of the basic requirements.
 If you want to get lineage from multiple projects you have to grant this permission
 for each of them.
 
-| permission                       | Description                                                                         |
-| -------------------------------- | ----------------------------------------------------------------------------------- |
-| `bigquery.jobs.listAll`          | Needs for lineage generation and usage to see all the queries were run on a project |
-| `logging.logEntries.list`        | Needs for lineage generation via GCP logging                                        |
-| `logging.privateLogEntries.list` | Needs for lineage generation via GCP logging                                        |
+| permission                       | Description                                                                                                  |
+| -------------------------------- | ------------------------------------------------------------------------------------------------------------ |
+| `bigquery.jobs.listAll`          | List all jobs (queries) submitted by any user.                                                               |
+| `logging.logEntries.list`        | Fetch log entries for lineage/usage data. Not required if `use_exported_bigquery_audit_metadata` is enabled. |
+| `logging.privateLogEntries.list` | Fetch log entries for lineage/usage data. Not required if `use_exported_bigquery_audit_metadata` is enabled. |
 
 ##### Profiling requirements
 
 Additional requirements needed on the top of the basic requirements.
 
-| permission                | Description                                                                                       |
-| ------------------------- | ------------------------------------------------------------------------------------------------- |
-| `bigquery.tables.getData` | profiler needs to access data to do the profiling                                                 |
-| `bigquery.tables.create`  | It needs to create temporary tables to profile partitioned/sharded tables. See below for details. |
-| `bigquery.tables.delete`  | It needs to create temporary tables to profile partitioned/sharded tables. See below for details. |
+| permission                | Description                                                                               |
+| ------------------------- | ----------------------------------------------------------------------------------------- |
+| `bigquery.tables.getData` | Access table data to do the profiling.                                                    |
+| `bigquery.tables.create`  | Create temporary tables when profiling partitioned/sharded tables. See below for details. |
+| `bigquery.tables.delete`  | Delete temporary tables when profiling partitioned/sharded tables. See below for details. |
 
 Profiler creates temporary tables to profile partitioned/sharded tables and that is why it needs table create/delete privilege.
 Use `profiling.bigquery_temp_table_schema` to restrict to one specific dataset the create/delete permission
