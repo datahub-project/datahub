@@ -43,7 +43,7 @@ The filters sidebar sits on the left hand side of search results, and lets users
 
 Search results appear ranked by their relevance. In self-hosted DataHub ranking is based on how closely the query matched textual fields of an asset and its metadata. In Managed DataHub, ranking is based on a combination of textual relevance, usage (queries / views), and change frequency. 
 
-With better metadata comes better results. Learn more about ingestion technical metadata here in the [Metadata-ingestion](./docs/architecture/metadata-ingestion.md) guide.
+With better metadata comes better results. Learn more about ingestion technical metadata here in the [Metadata-ingestion](../architecture/metadata-ingestion.md) guide.
 
 ### Advanced queries
 
@@ -236,4 +236,4 @@ Response in plain text
 
 ### Related Features
 
-* [Metadata-ingestion](./docs/architecture/metadata-ingestion.md)
+* [Metadata-ingestion](../architecture/metadata-ingestion.md)
