@@ -12,7 +12,9 @@ extend type Query {
   """
   Search across the results of a graph query on a node
   """
-  searchAcrossLineage(input: SearchAcrossLineageInput!): SearchAcrossLineageResults
+  searchAcrossLineage(
+    input: SearchAcrossLineageInput!
+  ): SearchAcrossLineageResults
 
   """
   Autocomplete a search query against a specific DataHub Entity Type
@@ -22,7 +24,9 @@ extend type Query {
   """
   Autocomplete a search query against a specific set of DataHub Entity Types
   """
-  autoCompleteForMultiple(input: AutoCompleteMultipleInput!): AutoCompleteMultipleResults
+  autoCompleteForMultiple(
+    input: AutoCompleteMultipleInput!
+  ): AutoCompleteMultipleResults
 
   """
   Hierarchically browse a specific type of DataHub Entity by path
@@ -43,27 +47,27 @@ input SearchInput {
   """
   The Metadata Entity type to be searched against
   """
-	type: EntityType!
+  type: EntityType!
 
-	"""
-	The raw query string
-	"""
-	query: String!
+  """
+  The raw query string
+  """
+  query: String!
 
-	"""
-	The offset of the result set
-	"""
-	start: Int
+  """
+  The offset of the result set
+  """
+  start: Int
 
-	"""
-	The number of entities to include in result set
-	"""
-	count: Int
+  """
+  The number of entities to include in result set
+  """
+  count: Int
 
-	"""
-	Facet filters to apply to search results
-	"""
-	filters: [FacetFilterInput!]
+  """
+  Facet filters to apply to search results
+  """
+  filters: [FacetFilterInput!]
 }
 
 """
@@ -73,67 +77,67 @@ input SearchAcrossEntitiesInput {
   """
   Entity types to be searched. If this is not provided, all entities will be searched.
   """
-	types: [EntityType!]
+  types: [EntityType!]
 
-	"""
-	The query string
-	"""
-	query: String!
+  """
+  The query string
+  """
+  query: String!
 
-	"""
-	The starting point of paginated results
-	"""
-	start: Int
+  """
+  The starting point of paginated results
+  """
+  start: Int
 
-	"""
-	The number of elements included in the results
-	"""
-	count: Int
+  """
+  The number of elements included in the results
+  """
+  count: Int
 
-	"""
-	Faceted filters applied to search results
-	"""
-	filters: [FacetFilterInput!]
+  """
+  Faceted filters applied to search results
+  """
+  filters: [FacetFilterInput!]
 }
 
 """
 Input arguments for a search query over the results of a multi-hop graph query
 """
 input SearchAcrossLineageInput {
-    """
-    Urn of the source node
-    """
-    urn: String
+  """
+  Urn of the source node
+  """
+  urn: String
 
-    """
-    The direction of the relationship, either incoming or outgoing from the source entity
-    """
-    direction: LineageDirection!
+  """
+  The direction of the relationship, either incoming or outgoing from the source entity
+  """
+  direction: LineageDirection!
 
-    """
-    Entity types to be searched. If this is not provided, all entities will be searched.
-    """
-    types: [EntityType!]
+  """
+  Entity types to be searched. If this is not provided, all entities will be searched.
+  """
+  types: [EntityType!]
 
-    """
-    The query string
-    """
-    query: String
+  """
+  The query string
+  """
+  query: String
 
-    """
-    The starting point of paginated results
-    """
-    start: Int
+  """
+  The starting point of paginated results
+  """
+  start: Int
 
-    """
-    The number of elements included in the results
-    """
-    count: Int
+  """
+  The number of elements included in the results
+  """
+  count: Int
 
-    """
-    Faceted filters applied to search results
-    """
-    filters: [FacetFilterInput!]
+  """
+  Faceted filters applied to search results
+  """
+  filters: [FacetFilterInput!]
 }
 
 """
@@ -143,12 +147,44 @@ input FacetFilterInput {
   """
   Name of field to filter by
   """
-	field: String!
+  field: String!
 
-	"""
-	Value of the field to filter by
-	"""
-	value: String!
+  """
+  Value of the field to filter by (soon to be deprecated)
+  """
+  value: String!
+
+  """
+  Values of the field to filter by
+  """
+  values: [String!]
+
+  """
+  If the filter should or should not be matched
+  """
+  negated: Boolean
+
+  """
+  Condition for the values. If unset, assumed to be equality
+  """
+  condition: SearchCondition
+}
+
+enum SearchCondition {
+  """
+  Represent the relation: String field contains value, e.g. name contains Profile
+  """
+  CONTAIN
+
+  """
+  Represent the relation: field = value, e.g. platform = hdfs
+  """
+  EQUAL
+
+  """
+  * Represent the relation: String field is one of the array values to, e.g. name in ["Profile", "Event"]
+  """
+  IN
 }
 
 """
@@ -205,60 +241,60 @@ type SearchResult {
 Results returned by issueing a search across relationships query
 """
 type SearchAcrossLineageResults {
-    """
-    The offset of the result set
-    """
-    start: Int!
+  """
+  The offset of the result set
+  """
+  start: Int!
 
-    """
-    The number of entities included in the result set
-    """
-    count: Int!
+  """
+  The number of entities included in the result set
+  """
+  count: Int!
 
-    """
-    The total number of search results matching the query and filters
-    """
-    total: Int!
+  """
+  The total number of search results matching the query and filters
+  """
+  total: Int!
 
-    """
-    The search result entities
-    """
-    searchResults: [SearchAcrossLineageResult!]!
+  """
+  The search result entities
+  """
+  searchResults: [SearchAcrossLineageResult!]!
 
-    """
-    Candidate facet aggregations used for search filtering
-    """
-    facets: [FacetMetadata!]
+  """
+  Candidate facet aggregations used for search filtering
+  """
+  facets: [FacetMetadata!]
 }
 
 """
 Individual search result from a search across relationships query (has added metadata about the path)
 """
 type SearchAcrossLineageResult {
-    """
-    The resolved DataHub Metadata Entity matching the search query
-    """
-    entity: Entity!
+  """
+  The resolved DataHub Metadata Entity matching the search query
+  """
+  entity: Entity!
 
-    """
-    Insights about why the search result was matched
-    """
-    insights: [SearchInsight!]
+  """
+  Insights about why the search result was matched
+  """
+  insights: [SearchInsight!]
 
-    """
-    Matched field hint
-    """
-    matchedFields: [MatchedField!]!
+  """
+  Matched field hint
+  """
+  matchedFields: [MatchedField!]!
 
-    """
-    Optional list of entities between the source and destination node
-    """
-    path: [Entity!]
+  """
+  Optional list of entities between the source and destination node
+  """
+  path: [Entity!]
 
-    """
-    Degree of relationship (number of hops to get to entity)
-    """
-    degree: Int!
+  """
+  Degree of relationship (number of hops to get to entity)
+  """
+  degree: Int!
 }
 
 """
@@ -280,15 +316,15 @@ type MatchedField {
 Insights about why a search result was returned or ranked in the way that it was
 """
 type SearchInsight {
-   """
-   The insight to display
-   """
-   text: String!
+  """
+  The insight to display
+  """
+  text: String!
 
-   """
-   An optional emoji to display in front of the text
-   """
-   icon: String
+  """
+  An optional emoji to display in front of the text
+  """
+  icon: String
 }
 
 """
@@ -338,27 +374,27 @@ input AutoCompleteInput {
   """
   Entity type to be autocompleted against
   """
-	type: EntityType
+  type: EntityType
 
-	"""
-	The raw query string
-	"""
-	query: String!
+  """
+  The raw query string
+  """
+  query: String!
 
-	"""
-	An optional entity field name to autocomplete on
-	"""
-	field: String
+  """
+  An optional entity field name to autocomplete on
+  """
+  field: String
 
-	"""
-	The maximum number of autocomplete results to be returned
-	"""
-	limit: Int
+  """
+  The maximum number of autocomplete results to be returned
+  """
+  limit: Int
 
-	"""
-	Faceted filters applied to autocomplete results
-	"""
-	filters: [FacetFilterInput!]
+  """
+  Faceted filters applied to autocomplete results
+  """
+  filters: [FacetFilterInput!]
 }
 
 """
@@ -431,15 +467,15 @@ type AutoCompleteMultipleResults {
 The results returned on a single entity autocomplete query
 """
 type AutoCompleteResults {
-	"""
-	The query string
-	"""
-	query: String!
+  """
+  The query string
+  """
+  query: String!
 
-	"""
-	The autocompletion results
-	"""
-	suggestions: [String!]!
+  """
+  The autocompletion results
+  """
+  suggestions: [String!]!
 
   """
   A list of entities to render in autocomplete
@@ -454,27 +490,27 @@ input BrowseInput {
   """
   The browse entity type
   """
-	type: EntityType!
+  type: EntityType!
 
-	"""
-	The browse path
-	"""
-	path: [String!]
+  """
+  The browse path
+  """
+  path: [String!]
 
   """
   The starting point of paginated results
   """
-	start: Int
+  start: Int
 
   """
   The number of elements included in the results
   """
-	count: Int
+  count: Int
 
   """
   Faceted filters applied to browse results
   """
-	filters: [FacetFilterInput!]
+  filters: [FacetFilterInput!]
 }
 
 """
@@ -484,32 +520,32 @@ type BrowseResults {
   """
   The browse results
   """
-	entities: [Entity!]!
+  entities: [Entity!]!
 
-	"""
-	The groups present at the provided browse path
-	"""
-	groups: [BrowseResultGroup!]!
+  """
+  The groups present at the provided browse path
+  """
+  groups: [BrowseResultGroup!]!
 
   """
   The starting point of paginated results
   """
-	start: Int!
+  start: Int!
 
   """
   The number of elements included in the results
   """
-	count: Int!
+  count: Int!
 
   """
   The total number of browse results under the path with filters applied
   """
-	total: Int!
+  total: Int!
 
   """
   Metadata containing resulting browse groups
   """
-	metadata: BrowseResultMetadata!
+  metadata: BrowseResultMetadata!
 }
 
 """
@@ -519,12 +555,12 @@ type BrowseResultMetadata {
   """
   The provided path
   """
-	path: [String!]!
+  path: [String!]!
 
   """
   The total number of entities under the provided browse path
   """
-	totalNumEntities: Long!
+  totalNumEntities: Long!
 }
 
 """
@@ -549,22 +585,22 @@ input BrowsePathsInput {
   """
   The browse entity type
   """
-	type: EntityType!
+  type: EntityType!
 
   """
   The entity urn
   """
-	urn: String!
+  urn: String!
 }
 
 """
 A hierarchical entity path
 """
 type BrowsePath {
-    """
-    The components of the browse path
-    """
-    path: [String!]!
+  """
+  The components of the browse path
+  """
+  path: [String!]!
 }
 
 """

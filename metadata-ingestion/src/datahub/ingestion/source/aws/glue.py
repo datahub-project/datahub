@@ -13,10 +13,10 @@ from typing import (
     Set,
     Tuple,
     Union,
-    cast,
 )
 from urllib.parse import urlparse
 
+import botocore.exceptions
 import yaml
 from pydantic import validator
 from pydantic.fields import Field
@@ -362,7 +362,14 @@ class GlueSource(StatefulIngestionSourceBase):
 
         # download the script contents
         # see https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/s3.html#S3.Client.get_object
-        obj = self.s3_client.get_object(Bucket=bucket, Key=key)
+        try:
+            obj = self.s3_client.get_object(Bucket=bucket, Key=key)
+        except botocore.exceptions.ClientError as e:
+            self.report.report_failure(
+                script_path,
+                f"Unable to download DAG for Glue job from {script_path}, so job subtasks and lineage will be missing: {e}",
+            )
+            return None
         script = obj["Body"].read().decode("utf-8")
 
         try:
@@ -1129,7 +1136,7 @@ class GlueSource(StatefulIngestionSourceBase):
                     **table.get("Parameters", {}),
                     **{
                         k: str(v)
-                        for k, v in table["StorageDescriptor"].items()
+                        for k, v in table.get("StorageDescriptor", {}).items()
                         if k not in ["Columns", "Parameters"]
                     },
                 },
@@ -1210,7 +1217,10 @@ class GlueSource(StatefulIngestionSourceBase):
             )
             return new_tags
 
-        def get_schema_metadata() -> SchemaMetadata:
+        def get_schema_metadata() -> Optional[SchemaMetadata]:
+            if not table.get("StorageDescriptor"):
+                return None
+
             schema = table["StorageDescriptor"]["Columns"]
             fields: List[SchemaField] = []
             for field in schema:
@@ -1257,10 +1267,14 @@ class GlueSource(StatefulIngestionSourceBase):
             aspects=[
                 Status(removed=False),
                 get_dataset_properties(),
-                get_schema_metadata(),
-                get_data_platform_instance(),
             ],
         )
+
+        schema_metadata = get_schema_metadata()
+        if schema_metadata:
+            dataset_snapshot.aspects.append(schema_metadata)
+
+        dataset_snapshot.aspects.append(get_data_platform_instance())
 
         if self.extract_owners:
             optional_owner_aspect = get_owner()

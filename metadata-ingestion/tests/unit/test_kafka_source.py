@@ -183,7 +183,10 @@ class KafkaSourceTest(object):
                 kafka_source_patcher.is_local = True
                 KafkaSource.create(
                     {
-                        "stateful_ingestion": {"enabled": "true"},
+                        "stateful_ingestion": {
+                            "enabled": "true",
+                            "fail_safe_threshold": 100.0,
+                        },
                         "connection": {"bootstrap": "localhost:9092"},
                     },
                     ctx,
