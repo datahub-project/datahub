@@ -225,12 +225,12 @@ public class OwnerUtils {
     QueryContext context,
     String urn,
     OwnerEntityType ownerEntityType,
-    OwnershipType type,
+    com.linkedin.datahub.graphql.generated.OwnershipType ownershipType,
     EntityService entityService) {
     try {
       Urn actorUrn = CorpuserUrn.createFromString(context.getActorUrn());
       addOwnersToResources(
-          ImmutableList.of(new OwnerInput(actorUrn.toString(), ownerEntityType, type)),
+          ImmutableList.of(new OwnerInput(actorUrn.toString(), ownerEntityType, ownershipType)),
           ImmutableList.of(new ResourceRefInput(urn, null, null)),
           actorUrn,
           entityService
