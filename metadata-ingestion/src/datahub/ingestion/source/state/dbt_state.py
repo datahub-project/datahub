@@ -84,6 +84,19 @@ class DbtCheckpointState(StaleEntityCheckpointStateBase["DbtCheckpointState"]):
         elif type == "assertion":
             yield from self._get_assertion_urns_not_in(other_checkpoint_state)
 
+    def get_percent_entities_changed(
+        self, old_checkpoint_state: "DbtCheckpointState"
+    ) -> float:
+        return StaleEntityCheckpointStateBase.compute_percent_entities_changed(
+            [
+                (self.encoded_node_urns, old_checkpoint_state.encoded_node_urns),
+                (
+                    self.encoded_assertion_urns,
+                    old_checkpoint_state.encoded_assertion_urns,
+                ),
+            ]
+        )
+
     def prepare_for_commit(self) -> None:
         self.encoded_node_urns = list(set(self.encoded_node_urns))
         self.encoded_assertion_urns = list(set(self.encoded_assertion_urns))

@@ -12,10 +12,10 @@ GET           /config                                                         co
 # Routes used exclusively by the React application.
 
 # Authentication in React
-GET           /authenticate                                                   controllers.AuthenticationController.authenticate()
-POST          /logIn                                                          controllers.AuthenticationController.logIn()
-POST          /signUp                                                         controllers.AuthenticationController.signUp()
-POST          /resetNativeUserCredentials                                     controllers.AuthenticationController.resetNativeUserCredentials()
+GET           /authenticate                                                   controllers.AuthenticationController.authenticate(request: Request)
+POST          /logIn                                                          controllers.AuthenticationController.logIn(request: Request)
+POST          /signUp                                                         controllers.AuthenticationController.signUp(request: Request)
+POST          /resetNativeUserCredentials                                     controllers.AuthenticationController.resetNativeUserCredentials(request: Request)
 GET           /callback/:protocol                                             controllers.SsoCallbackController.handleCallback(protocol: String)
 POST          /callback/:protocol                                             controllers.SsoCallbackController.handleCallback(protocol: String)
 GET           /logOut                                                         controllers.CentralLogoutController.executeLogout()

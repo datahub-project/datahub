@@ -13,6 +13,17 @@ import org.apache.tools.ant.filters.ReplaceTokens
 
 jar.enabled = false // Since we only want to build shadow jars, disabling the regular jar creation
 
+tasks.withType(JavaCompile).configureEach {
+    javaCompiler = javaToolchains.compilerFor {
+        languageVersion = JavaLanguageVersion.of(8)
+    }
+}
+tasks.withType(Test).configureEach {
+    javaLauncher = javaToolchains.launcherFor {
+        languageVersion = JavaLanguageVersion.of(8)
+    }
+}
+
 dependencies {
 
     implementation project(':metadata-models')
@@ -22,7 +33,7 @@ dependencies {
         because 'Vulnerability Issue'
       }
     }
-    shadow externalDependency.httpAsyncClient // we want our clients to provide this
+    compileOnly externalDependency.httpAsyncClient
     implementation externalDependency.jacksonDataBind
     implementation externalDependency.javaxValidation
     implementation externalDependency.springContext
@@ -33,11 +44,11 @@ dependencies {
     
     compileOnly externalDependency.lombok
     annotationProcessor externalDependency.lombok
-    testCompile externalDependency.httpAsyncClient // needed as shadow excludes it
     testCompile externalDependency.mockito
     testCompile externalDependency.mockServer
     testCompile externalDependency.mockServerClient
     testCompile externalDependency.testContainers
+    testCompile externalDependency.httpAsyncClient
 
     swaggerCodegen 'io.swagger.codegen.v3:swagger-codegen-cli:3.0.33'
 }
@@ -72,12 +83,10 @@ task checkShadowJar(type: Exec) {
 shadowJar {
   zip64=true
   archiveClassifier = ''
-  dependencies {
-    exclude(dependency('org.apache.httpcomponents:httpasyncclient'))
-    exclude 'LICENSE'
-    exclude 'NOTICE'
-    exclude 'LICENSE.txt'
-  }
+  // preventing java multi-release JAR leakage
+  // https://github.com/johnrengelman/shadow/issues/729
+  exclude('module-info.class', 'META-INF/versions/**',
+          '**/LICENSE', '**/LICENSE.txt', '**/NOTICE', '**/NOTICE.txt')
   mergeServiceFiles()
   // we relocate namespaces manually, because we want to know exactly which libs we are exposing and why
   // we can move to automatic relocation using ConfigureShadowRelocation after we get to a good place on these first

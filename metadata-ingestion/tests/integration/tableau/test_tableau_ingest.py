@@ -67,6 +67,21 @@ def test_tableau_ingest_with_platform_instance(pytestconfig, tmp_path):
     )
 
 
+def test_tableau_usage_stat(pytestconfig, tmp_path):
+    output_file_name: str = "tableau_stat_mces.json"
+    golden_file_name: str = "tableau_state_mces_golden.json"
+    func = test_tableau_common.define_query_metadata_func(
+        "workbooksConnection_0.json", "workbooksConnection_state_all.json"
+    )
+    test_tableau_common.tableau_ingest_common(
+        pytestconfig,
+        tmp_path,
+        func,
+        golden_file_name,
+        output_file_name,
+    )
+
+
 def test_lineage_overrides():
     # Simple - specify platform instance to presto table
     assert (

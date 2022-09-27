@@ -9,7 +9,7 @@
         "contentType": "application/json"
     },
     "systemMetadata": {
-        "lastObserved": 1638860400000,
+        "lastObserved": 1664269974518,
         "runId": "tableau-test"
     }
 },
@@ -23,7 +23,7 @@
         "contentType": "application/json"
     },
     "systemMetadata": {
-        "lastObserved": 1638860400000,
+        "lastObserved": 1664269974519,
         "runId": "tableau-test"
     }
 },
@@ -37,7 +37,7 @@
         "contentType": "application/json"
     },
     "systemMetadata": {
-        "lastObserved": 1638860400000,
+        "lastObserved": 1664269974519,
         "runId": "tableau-test"
     }
 },
@@ -51,21 +51,7 @@
         "contentType": "application/json"
     },
     "systemMetadata": {
-        "lastObserved": 1638860400000,
-        "runId": "tableau-test"
-    }
-},
-{
-    "entityType": "chart",
-    "entityUrn": "urn:li:chart:(tableau,222d1406-de0e-cd8d-0b94-9b45a0007e59)",
-    "changeType": "UPSERT",
-    "aspectName": "chartUsageStatistics",
-    "aspect": {
-        "value": "{\"timestampMillis\": 1638860400000, \"partitionSpec\": {\"type\": \"FULL_TABLE\", \"partition\": \"FULL_TABLE_SNAPSHOT\"}, \"viewsCount\": 5}",
-        "contentType": "application/json"
-    },
-    "systemMetadata": {
-        "lastObserved": 1638860400000,
+        "lastObserved": 1664269974520,
         "runId": "tableau-test"
     }
 },
@@ -74,6 +60,11 @@
         "com.linkedin.pegasus2avro.metadata.snapshot.ChartSnapshot": {
             "urn": "urn:li:chart:(tableau,222d1406-de0e-cd8d-0b94-9b45a0007e59)",
             "aspects": [
+                {
+                    "com.linkedin.pegasus2avro.common.DataPlatformInstance": {
+                        "platform": "urn:li:dataPlatform:tableau"
+                    }
+                },
                 {
                     "com.linkedin.pegasus2avro.chart.ChartInfo": {
                         "customProperties": {
@@ -107,7 +98,7 @@
                 {
                     "com.linkedin.pegasus2avro.common.BrowsePaths": {
                         "paths": [
-                            "/tableau/default/Email Performance by Campaign/Timeline - Sent"
+                            "/tableau/default/Email Performance by Campaign"
                         ]
                     }
                 },
@@ -129,7 +120,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1638860400000,
+        "lastObserved": 1664269974521,
         "runId": "tableau-test"
     }
 },
@@ -143,7 +134,7 @@
         "contentType": "application/json"
     },
     "systemMetadata": {
-        "lastObserved": 1638860400000,
+        "lastObserved": 1664269974522,
         "runId": "tableau-test"
     }
 },
@@ -152,6 +143,11 @@
         "com.linkedin.pegasus2avro.metadata.snapshot.ChartSnapshot": {
             "urn": "urn:li:chart:(tableau,38130558-4194-2e2a-3046-c0d887829cb4)",
             "aspects": [
+                {
+                    "com.linkedin.pegasus2avro.common.DataPlatformInstance": {
+                        "platform": "urn:li:dataPlatform:tableau"
+                    }
+                },
                 {
                     "com.linkedin.pegasus2avro.chart.ChartInfo": {
                         "customProperties": {
@@ -196,7 +192,7 @@
                 {
                     "com.linkedin.pegasus2avro.common.BrowsePaths": {
                         "paths": [
-                            "/tableau/default/Email Performance by Campaign/Campaign List"
+                            "/tableau/default/Email Performance by Campaign"
                         ]
                     }
                 },
@@ -218,7 +214,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1638860400000,
+        "lastObserved": 1664269974523,
         "runId": "tableau-test"
     }
 },
@@ -232,7 +228,7 @@
         "contentType": "application/json"
     },
     "systemMetadata": {
-        "lastObserved": 1638860400000,
+        "lastObserved": 1664269974524,
         "runId": "tableau-test"
     }
 },
@@ -241,6 +237,11 @@
         "com.linkedin.pegasus2avro.metadata.snapshot.ChartSnapshot": {
             "urn": "urn:li:chart:(tableau,692a2da4-2a82-32c1-f713-63b8e4325d86)",
             "aspects": [
+                {
+                    "com.linkedin.pegasus2avro.common.DataPlatformInstance": {
+                        "platform": "urn:li:dataPlatform:tableau"
+                    }
+                },
                 {
                     "com.linkedin.pegasus2avro.chart.ChartInfo": {
                         "customProperties": {
@@ -287,7 +288,7 @@
                 {
                     "com.linkedin.pegasus2avro.common.BrowsePaths": {
                         "paths": [
-                            "/tableau/default/Email Performance by Campaign/Summary"
+                            "/tableau/default/Email Performance by Campaign"
                         ]
                     }
                 },
@@ -309,7 +310,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1638860400000,
+        "lastObserved": 1664269974525,
         "runId": "tableau-test"
     }
 },
@@ -323,7 +324,7 @@
         "contentType": "application/json"
     },
     "systemMetadata": {
-        "lastObserved": 1638860400000,
+        "lastObserved": 1664269974526,
         "runId": "tableau-test"
     }
 },
@@ -332,6 +333,11 @@
         "com.linkedin.pegasus2avro.metadata.snapshot.ChartSnapshot": {
             "urn": "urn:li:chart:(tableau,f4317efd-c3e6-6ace-8fe6-e71b590bbbcc)",
             "aspects": [
+                {
+                    "com.linkedin.pegasus2avro.common.DataPlatformInstance": {
+                        "platform": "urn:li:dataPlatform:tableau"
+                    }
+                },
                 {
                     "com.linkedin.pegasus2avro.chart.ChartInfo": {
                         "customProperties": {
@@ -374,7 +380,7 @@
                 {
                     "com.linkedin.pegasus2avro.common.BrowsePaths": {
                         "paths": [
-                            "/tableau/default/Email Performance by Campaign/Mobile - Sent by Campaign"
+                            "/tableau/default/Email Performance by Campaign"
                         ]
                     }
                 },
@@ -396,7 +402,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1638860400000,
+        "lastObserved": 1664269974526,
         "runId": "tableau-test"
     }
 },
@@ -410,21 +416,7 @@
         "contentType": "application/json"
     },
     "systemMetadata": {
-        "lastObserved": 1638860400000,
-        "runId": "tableau-test"
-    }
-},
-{
-    "entityType": "dashboard",
-    "entityUrn": "urn:li:dashboard:(tableau,8f7dd564-36b6-593f-3c6f-687ad06cd40b)",
-    "changeType": "UPSERT",
-    "aspectName": "dashboardUsageStatistics",
-    "aspect": {
-        "value": "{\"timestampMillis\": 1638860400000, \"partitionSpec\": {\"type\": \"FULL_TABLE\", \"partition\": \"FULL_TABLE_SNAPSHOT\"}, \"viewsCount\": 3}",
-        "contentType": "application/json"
-    },
-    "systemMetadata": {
-        "lastObserved": 1638860400000,
+        "lastObserved": 1664269974528,
         "runId": "tableau-test"
     }
 },
@@ -433,6 +425,11 @@
         "com.linkedin.pegasus2avro.metadata.snapshot.DashboardSnapshot": {
             "urn": "urn:li:dashboard:(tableau,8f7dd564-36b6-593f-3c6f-687ad06cd40b)",
             "aspects": [
+                {
+                    "com.linkedin.pegasus2avro.common.DataPlatformInstance": {
+                        "platform": "urn:li:dataPlatform:tableau"
+                    }
+                },
                 {
                     "com.linkedin.pegasus2avro.dashboard.DashboardInfo": {
                         "customProperties": {},
@@ -461,7 +458,7 @@
                 {
                     "com.linkedin.pegasus2avro.common.BrowsePaths": {
                         "paths": [
-                            "/tableau/default/Email Performance by Campaign/Email Performance by Campaign"
+                            "/tableau/default/Email Performance by Campaign"
                         ]
                     }
                 },
@@ -483,7 +480,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1638860400000,
+        "lastObserved": 1664269974528,
         "runId": "tableau-test"
     }
 },
@@ -497,7 +494,7 @@
         "contentType": "application/json"
     },
     "systemMetadata": {
-        "lastObserved": 1638860400000,
+        "lastObserved": 1664269974530,
         "runId": "tableau-test"
     }
 },
@@ -511,7 +508,7 @@
         "contentType": "application/json"
     },
     "systemMetadata": {
-        "lastObserved": 1638860400000,
+        "lastObserved": 1664269974530,
         "runId": "tableau-test"
     }
 },
@@ -525,7 +522,7 @@
         "contentType": "application/json"
     },
     "systemMetadata": {
-        "lastObserved": 1638860400000,
+        "lastObserved": 1664269974531,
         "runId": "tableau-test"
     }
 },
@@ -539,7 +536,7 @@
         "contentType": "application/json"
     },
     "systemMetadata": {
-        "lastObserved": 1638860400000,
+        "lastObserved": 1664269974532,
         "runId": "tableau-test"
     }
 },
@@ -553,7 +550,7 @@
         "contentType": "application/json"
     },
     "systemMetadata": {
-        "lastObserved": 1638860400000,
+        "lastObserved": 1664269974532,
         "runId": "tableau-test"
     }
 },
@@ -562,6 +559,11 @@
         "com.linkedin.pegasus2avro.metadata.snapshot.ChartSnapshot": {
             "urn": "urn:li:chart:(tableau,8a6a269a-d6de-fae4-5050-513255b40ffc)",
             "aspects": [
+                {
+                    "com.linkedin.pegasus2avro.common.DataPlatformInstance": {
+                        "platform": "urn:li:dataPlatform:tableau"
+                    }
+                },
                 {
                     "com.linkedin.pegasus2avro.chart.ChartInfo": {
                         "customProperties": {
@@ -590,7 +592,7 @@
                 {
                     "com.linkedin.pegasus2avro.common.BrowsePaths": {
                         "paths": [
-                            "/tableau/default/Dvdrental Workbook/Sheet 1"
+                            "/tableau/default/Dvdrental Workbook"
                         ]
                     }
                 },
@@ -612,7 +614,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1638860400000,
+        "lastObserved": 1664269974533,
         "runId": "tableau-test"
     }
 },
@@ -626,7 +628,7 @@
         "contentType": "application/json"
     },
     "systemMetadata": {
-        "lastObserved": 1638860400000,
+        "lastObserved": 1664269974534,
         "runId": "tableau-test"
     }
 },
@@ -635,6 +637,11 @@
         "com.linkedin.pegasus2avro.metadata.snapshot.ChartSnapshot": {
             "urn": "urn:li:chart:(tableau,c57a5574-db47-46df-677f-0b708dab14db)",
             "aspects": [
+                {
+                    "com.linkedin.pegasus2avro.common.DataPlatformInstance": {
+                        "platform": "urn:li:dataPlatform:tableau"
+                    }
+                },
                 {
                     "com.linkedin.pegasus2avro.chart.ChartInfo": {
                         "customProperties": {
@@ -669,7 +676,7 @@
                 {
                     "com.linkedin.pegasus2avro.common.BrowsePaths": {
                         "paths": [
-                            "/tableau/default/Dvdrental Workbook/Sheet 2"
+                            "/tableau/default/Dvdrental Workbook"
                         ]
                     }
                 },
@@ -691,7 +698,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1638860400000,
+        "lastObserved": 1664269974535,
         "runId": "tableau-test"
     }
 },
@@ -705,7 +712,7 @@
         "contentType": "application/json"
     },
     "systemMetadata": {
-        "lastObserved": 1638860400000,
+        "lastObserved": 1664269974536,
         "runId": "tableau-test"
     }
 },
@@ -714,6 +721,11 @@
         "com.linkedin.pegasus2avro.metadata.snapshot.ChartSnapshot": {
             "urn": "urn:li:chart:(tableau,e604255e-0573-3951-6db7-05bee48116c1)",
             "aspects": [
+                {
+                    "com.linkedin.pegasus2avro.common.DataPlatformInstance": {
+                        "platform": "urn:li:dataPlatform:tableau"
+                    }
+                },
                 {
                     "com.linkedin.pegasus2avro.chart.ChartInfo": {
                         "customProperties": {
@@ -744,7 +756,7 @@
                 {
                     "com.linkedin.pegasus2avro.common.BrowsePaths": {
                         "paths": [
-                            "/tableau/default/Dvdrental Workbook/Sheet 3"
+                            "/tableau/default/Dvdrental Workbook"
                         ]
                     }
                 },
@@ -775,7 +787,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1638860400000,
+        "lastObserved": 1664269974537,
         "runId": "tableau-test"
     }
 },
@@ -789,7 +801,7 @@
         "contentType": "application/json"
     },
     "systemMetadata": {
-        "lastObserved": 1638860400000,
+        "lastObserved": 1664269974539,
         "runId": "tableau-test"
     }
 },
@@ -798,6 +810,11 @@
         "com.linkedin.pegasus2avro.metadata.snapshot.DashboardSnapshot": {
             "urn": "urn:li:dashboard:(tableau,20e44c22-1ccd-301a-220c-7b6837d09a52)",
             "aspects": [
+                {
+                    "com.linkedin.pegasus2avro.common.DataPlatformInstance": {
+                        "platform": "urn:li:dataPlatform:tableau"
+                    }
+                },
                 {
                     "com.linkedin.pegasus2avro.dashboard.DashboardInfo": {
                         "customProperties": {},
@@ -823,7 +840,7 @@
                 {
                     "com.linkedin.pegasus2avro.common.BrowsePaths": {
                         "paths": [
-                            "/tableau/default/Dvdrental Workbook/dvd Rental Dashboard"
+                            "/tableau/default/Dvdrental Workbook"
                         ]
                     }
                 },
@@ -845,7 +862,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1638860400000,
+        "lastObserved": 1664269974539,
         "runId": "tableau-test"
     }
 },
@@ -859,7 +876,7 @@
         "contentType": "application/json"
     },
     "systemMetadata": {
-        "lastObserved": 1638860400000,
+        "lastObserved": 1664269974541,
         "runId": "tableau-test"
     }
 },
@@ -868,6 +885,11 @@
         "com.linkedin.pegasus2avro.metadata.snapshot.DashboardSnapshot": {
             "urn": "urn:li:dashboard:(tableau,39b7a1de-6276-cfc7-9b59-1d22f3bbb06b)",
             "aspects": [
+                {
+                    "com.linkedin.pegasus2avro.common.DataPlatformInstance": {
+                        "platform": "urn:li:dataPlatform:tableau"
+                    }
+                },
                 {
                     "com.linkedin.pegasus2avro.dashboard.DashboardInfo": {
                         "customProperties": {},
@@ -891,7 +913,7 @@
                 {
                     "com.linkedin.pegasus2avro.common.BrowsePaths": {
                         "paths": [
-                            "/tableau/default/Dvdrental Workbook/Story 1"
+                            "/tableau/default/Dvdrental Workbook"
                         ]
                     }
                 },
@@ -913,7 +935,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1638860400000,
+        "lastObserved": 1664269974542,
         "runId": "tableau-test"
     }
 },
@@ -927,7 +949,7 @@
         "contentType": "application/json"
     },
     "systemMetadata": {
-        "lastObserved": 1638860400000,
+        "lastObserved": 1664269974543,
         "runId": "tableau-test"
     }
 },
@@ -941,7 +963,7 @@
         "contentType": "application/json"
     },
     "systemMetadata": {
-        "lastObserved": 1638860400000,
+        "lastObserved": 1664269974544,
         "runId": "tableau-test"
     }
 },
@@ -955,7 +977,7 @@
         "contentType": "application/json"
     },
     "systemMetadata": {
-        "lastObserved": 1638860400000,
+        "lastObserved": 1664269974544,
         "runId": "tableau-test"
     }
 },
@@ -969,7 +991,7 @@
         "contentType": "application/json"
     },
     "systemMetadata": {
-        "lastObserved": 1638860400000,
+        "lastObserved": 1664269974545,
         "runId": "tableau-test"
     }
 },
@@ -983,7 +1005,7 @@
         "contentType": "application/json"
     },
     "systemMetadata": {
-        "lastObserved": 1638860400000,
+        "lastObserved": 1664269974545,
         "runId": "tableau-test"
     }
 },
@@ -992,6 +1014,11 @@
         "com.linkedin.pegasus2avro.metadata.snapshot.ChartSnapshot": {
             "urn": "urn:li:chart:(tableau,20fc5eb7-81eb-aa18-8c39-af501c62d085)",
             "aspects": [
+                {
+                    "com.linkedin.pegasus2avro.common.DataPlatformInstance": {
+                        "platform": "urn:li:dataPlatform:tableau"
+                    }
+                },
                 {
                     "com.linkedin.pegasus2avro.chart.ChartInfo": {
                         "customProperties": {
@@ -1033,7 +1060,7 @@
                 {
                     "com.linkedin.pegasus2avro.common.BrowsePaths": {
                         "paths": [
-                            "/tableau/default/Executive Dashboard/Opened Requests"
+                            "/tableau/default/Executive Dashboard"
                         ]
                     }
                 },
@@ -1055,7 +1082,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1638860400000,
+        "lastObserved": 1664269974546,
         "runId": "tableau-test"
     }
 },
@@ -1069,7 +1096,7 @@
         "contentType": "application/json"
     },
     "systemMetadata": {
-        "lastObserved": 1638860400000,
+        "lastObserved": 1664269974547,
         "runId": "tableau-test"
     }
 },
@@ -1078,6 +1105,11 @@
         "com.linkedin.pegasus2avro.metadata.snapshot.ChartSnapshot": {
             "urn": "urn:li:chart:(tableau,2b5351c1-535d-4a4a-1339-c51ddd6abf8a)",
             "aspects": [
+                {
+                    "com.linkedin.pegasus2avro.common.DataPlatformInstance": {
+                        "platform": "urn:li:dataPlatform:tableau"
+                    }
+                },
                 {
                     "com.linkedin.pegasus2avro.chart.ChartInfo": {
                         "customProperties": {
@@ -1118,7 +1150,7 @@
                 {
                     "com.linkedin.pegasus2avro.common.BrowsePaths": {
                         "paths": [
-                            "/tableau/default/Executive Dashboard/Top 10 Items by Requests and YoY Change"
+                            "/tableau/default/Executive Dashboard"
                         ]
                     }
                 },
@@ -1140,7 +1172,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1638860400000,
+        "lastObserved": 1664269974548,
         "runId": "tableau-test"
     }
 },
@@ -1154,7 +1186,7 @@
         "contentType": "application/json"
     },
     "systemMetadata": {
-        "lastObserved": 1638860400000,
+        "lastObserved": 1664269974549,
         "runId": "tableau-test"
     }
 },
@@ -1163,6 +1195,11 @@
         "com.linkedin.pegasus2avro.metadata.snapshot.ChartSnapshot": {
             "urn": "urn:li:chart:(tableau,2b73b9dd-4ec7-75ca-f2e9-fa1984ca8b72)",
             "aspects": [
+                {
+                    "com.linkedin.pegasus2avro.common.DataPlatformInstance": {
+                        "platform": "urn:li:dataPlatform:tableau"
+                    }
+                },
                 {
                     "com.linkedin.pegasus2avro.chart.ChartInfo": {
                         "customProperties": {
@@ -1204,7 +1241,7 @@
                 {
                     "com.linkedin.pegasus2avro.common.BrowsePaths": {
                         "paths": [
-                            "/tableau/default/Executive Dashboard/Opened Problems"
+                            "/tableau/default/Executive Dashboard"
                         ]
                     }
                 },
@@ -1226,7 +1263,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1638860400000,
+        "lastObserved": 1664269974550,
         "runId": "tableau-test"
     }
 },
@@ -1240,7 +1277,7 @@
         "contentType": "application/json"
     },
     "systemMetadata": {
-        "lastObserved": 1638860400000,
+        "lastObserved": 1664269974551,
         "runId": "tableau-test"
     }
 },
@@ -1249,6 +1286,11 @@
         "com.linkedin.pegasus2avro.metadata.snapshot.ChartSnapshot": {
             "urn": "urn:li:chart:(tableau,373c6466-bb0c-b319-8752-632456349261)",
             "aspects": [
+                {
+                    "com.linkedin.pegasus2avro.common.DataPlatformInstance": {
+                        "platform": "urn:li:dataPlatform:tableau"
+                    }
+                },
                 {
                     "com.linkedin.pegasus2avro.chart.ChartInfo": {
                         "customProperties": {
@@ -1286,7 +1328,7 @@
                 {
                     "com.linkedin.pegasus2avro.common.BrowsePaths": {
                         "paths": [
-                            "/tableau/default/Executive Dashboard/Overdue"
+                            "/tableau/default/Executive Dashboard"
                         ]
                     }
                 },
@@ -1308,7 +1350,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1638860400000,
+        "lastObserved": 1664269974552,
         "runId": "tableau-test"
     }
 },
@@ -1322,7 +1364,7 @@
         "contentType": "application/json"
     },
     "systemMetadata": {
-        "lastObserved": 1638860400000,
+        "lastObserved": 1664269974553,
         "runId": "tableau-test"
     }
 },
@@ -1331,6 +1373,11 @@
         "com.linkedin.pegasus2avro.metadata.snapshot.ChartSnapshot": {
             "urn": "urn:li:chart:(tableau,53b8dc2f-8ada-51f7-7422-fe82e9b803cc)",
             "aspects": [
+                {
+                    "com.linkedin.pegasus2avro.common.DataPlatformInstance": {
+                        "platform": "urn:li:dataPlatform:tableau"
+                    }
+                },
                 {
                     "com.linkedin.pegasus2avro.chart.ChartInfo": {
                         "customProperties": {
@@ -1367,7 +1414,7 @@
                 {
                     "com.linkedin.pegasus2avro.common.BrowsePaths": {
                         "paths": [
-                            "/tableau/default/Executive Dashboard/High and Critical Priority Problems"
+                            "/tableau/default/Executive Dashboard"
                         ]
                     }
                 },
@@ -1389,7 +1436,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1638860400000,
+        "lastObserved": 1664269974554,
         "runId": "tableau-test"
     }
 },
@@ -1403,7 +1450,7 @@
         "contentType": "application/json"
     },
     "systemMetadata": {
-        "lastObserved": 1638860400000,
+        "lastObserved": 1664269974555,
         "runId": "tableau-test"
     }
 },
@@ -1412,6 +1459,11 @@
         "com.linkedin.pegasus2avro.metadata.snapshot.ChartSnapshot": {
             "urn": "urn:li:chart:(tableau,58af9ecf-b839-da50-65e1-2e1fa20e3362)",
             "aspects": [
+                {
+                    "com.linkedin.pegasus2avro.common.DataPlatformInstance": {
+                        "platform": "urn:li:dataPlatform:tableau"
+                    }
+                },
                 {
                     "com.linkedin.pegasus2avro.chart.ChartInfo": {
                         "customProperties": {
@@ -1449,7 +1501,7 @@
                 {
                     "com.linkedin.pegasus2avro.common.BrowsePaths": {
                         "paths": [
-                            "/tableau/default/Executive Dashboard/Total Incidents by Category and YoY Change"
+                            "/tableau/default/Executive Dashboard"
                         ]
                     }
                 },
@@ -1471,7 +1523,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1638860400000,
+        "lastObserved": 1664269974556,
         "runId": "tableau-test"
     }
 },
@@ -1485,7 +1537,7 @@
         "contentType": "application/json"
     },
     "systemMetadata": {
-        "lastObserved": 1638860400000,
+        "lastObserved": 1664269974557,
         "runId": "tableau-test"
     }
 },
@@ -1494,6 +1546,11 @@
         "com.linkedin.pegasus2avro.metadata.snapshot.ChartSnapshot": {
             "urn": "urn:li:chart:(tableau,618b3e76-75c1-cb31-0c61-3f4890b72c31)",
             "aspects": [
+                {
+                    "com.linkedin.pegasus2avro.common.DataPlatformInstance": {
+                        "platform": "urn:li:dataPlatform:tableau"
+                    }
+                },
                 {
                     "com.linkedin.pegasus2avro.chart.ChartInfo": {
                         "customProperties": {
@@ -1533,7 +1590,7 @@
                 {
                     "com.linkedin.pegasus2avro.common.BrowsePaths": {
                         "paths": [
-                            "/tableau/default/Executive Dashboard/Known Errors"
+                            "/tableau/default/Executive Dashboard"
                         ]
                     }
                 },
@@ -1555,7 +1612,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1638860400000,
+        "lastObserved": 1664269974558,
         "runId": "tableau-test"
     }
 },
@@ -1569,7 +1626,7 @@
         "contentType": "application/json"
     },
     "systemMetadata": {
-        "lastObserved": 1638860400000,
+        "lastObserved": 1664269974559,
         "runId": "tableau-test"
     }
 },
@@ -1578,6 +1635,11 @@
         "com.linkedin.pegasus2avro.metadata.snapshot.ChartSnapshot": {
             "urn": "urn:li:chart:(tableau,721c3c41-7a2b-16a8-3281-6f948a44be96)",
             "aspects": [
+                {
+                    "com.linkedin.pegasus2avro.common.DataPlatformInstance": {
+                        "platform": "urn:li:dataPlatform:tableau"
+                    }
+                },
                 {
                     "com.linkedin.pegasus2avro.chart.ChartInfo": {
                         "customProperties": {
@@ -1616,7 +1678,7 @@
                 {
                     "com.linkedin.pegasus2avro.common.BrowsePaths": {
                         "paths": [
-                            "/tableau/default/Executive Dashboard/Overdue Requests"
+                            "/tableau/default/Executive Dashboard"
                         ]
                     }
                 },
@@ -1638,7 +1700,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1638860400000,
+        "lastObserved": 1664269974559,
         "runId": "tableau-test"
     }
 },
@@ -1652,7 +1714,7 @@
         "contentType": "application/json"
     },
     "systemMetadata": {
-        "lastObserved": 1638860400000,
+        "lastObserved": 1664269974560,
         "runId": "tableau-test"
     }
 },
@@ -1661,6 +1723,11 @@
         "com.linkedin.pegasus2avro.metadata.snapshot.ChartSnapshot": {
             "urn": "urn:li:chart:(tableau,7ef184c1-5a41-5ec8-723e-ae44c20aa335)",
             "aspects": [
+                {
+                    "com.linkedin.pegasus2avro.common.DataPlatformInstance": {
+                        "platform": "urn:li:dataPlatform:tableau"
+                    }
+                },
                 {
                     "com.linkedin.pegasus2avro.chart.ChartInfo": {
                         "customProperties": {
@@ -1696,7 +1763,7 @@
                 {
                     "com.linkedin.pegasus2avro.common.BrowsePaths": {
                         "paths": [
-                            "/tableau/default/Executive Dashboard/AVG Time to Solve an Incident"
+                            "/tableau/default/Executive Dashboard"
                         ]
                     }
                 },
@@ -1718,7 +1785,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1638860400000,
+        "lastObserved": 1664269974561,
         "runId": "tableau-test"
     }
 },
@@ -1732,7 +1799,7 @@
         "contentType": "application/json"
     },
     "systemMetadata": {
-        "lastObserved": 1638860400000,
+        "lastObserved": 1664269974562,
         "runId": "tableau-test"
     }
 },
@@ -1741,6 +1808,11 @@
         "com.linkedin.pegasus2avro.metadata.snapshot.ChartSnapshot": {
             "urn": "urn:li:chart:(tableau,7fbc77ba-0ab6-3727-0db3-d8402a804da5)",
             "aspects": [
+                {
+                    "com.linkedin.pegasus2avro.common.DataPlatformInstance": {
+                        "platform": "urn:li:dataPlatform:tableau"
+                    }
+                },
                 {
                     "com.linkedin.pegasus2avro.chart.ChartInfo": {
                         "customProperties": {
@@ -1777,7 +1849,7 @@
                 {
                     "com.linkedin.pegasus2avro.common.BrowsePaths": {
                         "paths": [
-                            "/tableau/default/Executive Dashboard/Made SLA?"
+                            "/tableau/default/Executive Dashboard"
                         ]
                     }
                 },
@@ -1799,7 +1871,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1638860400000,
+        "lastObserved": 1664269974563,
         "runId": "tableau-test"
     }
 },
@@ -1813,7 +1885,7 @@
         "contentType": "application/json"
     },
     "systemMetadata": {
-        "lastObserved": 1638860400000,
+        "lastObserved": 1664269974564,
         "runId": "tableau-test"
     }
 },
@@ -1822,6 +1894,11 @@
         "com.linkedin.pegasus2avro.metadata.snapshot.ChartSnapshot": {
             "urn": "urn:li:chart:(tableau,8385ea9a-0749-754f-7ad9-824433de2120)",
             "aspects": [
+                {
+                    "com.linkedin.pegasus2avro.common.DataPlatformInstance": {
+                        "platform": "urn:li:dataPlatform:tableau"
+                    }
+                },
                 {
                     "com.linkedin.pegasus2avro.chart.ChartInfo": {
                         "customProperties": {
@@ -1854,7 +1931,7 @@
                 {
                     "com.linkedin.pegasus2avro.common.BrowsePaths": {
                         "paths": [
-                            "/tableau/default/Executive Dashboard/Tooltip - Incident Breakdown by Priority"
+                            "/tableau/default/Executive Dashboard"
                         ]
                     }
                 },
@@ -1876,7 +1953,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1638860400000,
+        "lastObserved": 1664269974565,
         "runId": "tableau-test"
     }
 },
@@ -1890,7 +1967,7 @@
         "contentType": "application/json"
     },
     "systemMetadata": {
-        "lastObserved": 1638860400000,
+        "lastObserved": 1664269974566,
         "runId": "tableau-test"
     }
 },
@@ -1899,6 +1976,11 @@
         "com.linkedin.pegasus2avro.metadata.snapshot.ChartSnapshot": {
             "urn": "urn:li:chart:(tableau,b207c2f2-b675-32e3-2663-17bb836a018b)",
             "aspects": [
+                {
+                    "com.linkedin.pegasus2avro.common.DataPlatformInstance": {
+                        "platform": "urn:li:dataPlatform:tableau"
+                    }
+                },
                 {
                     "com.linkedin.pegasus2avro.chart.ChartInfo": {
                         "customProperties": {
@@ -1938,7 +2020,7 @@
                 {
                     "com.linkedin.pegasus2avro.common.BrowsePaths": {
                         "paths": [
-                            "/tableau/default/Executive Dashboard/Overdue Problems"
+                            "/tableau/default/Executive Dashboard"
                         ]
                     }
                 },
@@ -1960,7 +2042,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1638860400000,
+        "lastObserved": 1664269974566,
         "runId": "tableau-test"
     }
 },
@@ -1974,7 +2056,7 @@
         "contentType": "application/json"
     },
     "systemMetadata": {
-        "lastObserved": 1638860400000,
+        "lastObserved": 1664269974567,
         "runId": "tableau-test"
     }
 },
@@ -1983,6 +2065,11 @@
         "com.linkedin.pegasus2avro.metadata.snapshot.ChartSnapshot": {
             "urn": "urn:li:chart:(tableau,b679da5e-7d03-f01e-b2ea-01fb3c1926dc)",
             "aspects": [
+                {
+                    "com.linkedin.pegasus2avro.common.DataPlatformInstance": {
+                        "platform": "urn:li:dataPlatform:tableau"
+                    }
+                },
                 {
                     "com.linkedin.pegasus2avro.chart.ChartInfo": {
                         "customProperties": {
@@ -2018,7 +2105,7 @@
                 {
                     "com.linkedin.pegasus2avro.common.BrowsePaths": {
                         "paths": [
-                            "/tableau/default/Executive Dashboard/Tooltip - Problem Breakdown by Priority"
+                            "/tableau/default/Executive Dashboard"
                         ]
                     }
                 },
@@ -2040,7 +2127,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1638860400000,
+        "lastObserved": 1664269974568,
         "runId": "tableau-test"
     }
 },
@@ -2054,7 +2141,7 @@
         "contentType": "application/json"
     },
     "systemMetadata": {
-        "lastObserved": 1638860400000,
+        "lastObserved": 1664269974569,
         "runId": "tableau-test"
     }
 },
@@ -2063,6 +2150,11 @@
         "com.linkedin.pegasus2avro.metadata.snapshot.ChartSnapshot": {
             "urn": "urn:li:chart:(tableau,c14973c2-e1c3-563a-a9c1-8a408396d22a)",
             "aspects": [
+                {
+                    "com.linkedin.pegasus2avro.common.DataPlatformInstance": {
+                        "platform": "urn:li:dataPlatform:tableau"
+                    }
+                },
                 {
                     "com.linkedin.pegasus2avro.chart.ChartInfo": {
                         "customProperties": {
@@ -2098,7 +2190,7 @@
                 {
                     "com.linkedin.pegasus2avro.common.BrowsePaths": {
                         "paths": [
-                            "/tableau/default/Executive Dashboard/Tooltip - Request Breakdown by Priority"
+                            "/tableau/default/Executive Dashboard"
                         ]
                     }
                 },
@@ -2120,7 +2212,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1638860400000,
+        "lastObserved": 1664269974570,
         "runId": "tableau-test"
     }
 },
@@ -2134,7 +2226,7 @@
         "contentType": "application/json"
     },
     "systemMetadata": {
-        "lastObserved": 1638860400000,
+        "lastObserved": 1664269974571,
         "runId": "tableau-test"
     }
 },
@@ -2143,6 +2235,11 @@
         "com.linkedin.pegasus2avro.metadata.snapshot.ChartSnapshot": {
             "urn": "urn:li:chart:(tableau,e70a540d-55ed-b9cc-5a3c-01ebe81a1274)",
             "aspects": [
+                {
+                    "com.linkedin.pegasus2avro.common.DataPlatformInstance": {
+                        "platform": "urn:li:dataPlatform:tableau"
+                    }
+                },
                 {
                     "com.linkedin.pegasus2avro.chart.ChartInfo": {
                         "customProperties": {
@@ -2180,7 +2277,7 @@
                 {
                     "com.linkedin.pegasus2avro.common.BrowsePaths": {
                         "paths": [
-                            "/tableau/default/Executive Dashboard/Age of Active Problems"
+                            "/tableau/default/Executive Dashboard"
                         ]
                     }
                 },
@@ -2202,7 +2299,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1638860400000,
+        "lastObserved": 1664269974571,
         "runId": "tableau-test"
     }
 },
@@ -2216,7 +2313,7 @@
         "contentType": "application/json"
     },
     "systemMetadata": {
-        "lastObserved": 1638860400000,
+        "lastObserved": 1664269974572,
         "runId": "tableau-test"
     }
 },
@@ -2225,6 +2322,11 @@
         "com.linkedin.pegasus2avro.metadata.snapshot.ChartSnapshot": {
             "urn": "urn:li:chart:(tableau,f76d3570-23b8-f74b-d85c-cc5484c2079c)",
             "aspects": [
+                {
+                    "com.linkedin.pegasus2avro.common.DataPlatformInstance": {
+                        "platform": "urn:li:dataPlatform:tableau"
+                    }
+                },
                 {
                     "com.linkedin.pegasus2avro.chart.ChartInfo": {
                         "customProperties": {
@@ -2264,7 +2366,7 @@
                 {
                     "com.linkedin.pegasus2avro.common.BrowsePaths": {
                         "paths": [
-                            "/tableau/default/Executive Dashboard/Opened Incidents"
+                            "/tableau/default/Executive Dashboard"
                         ]
                     }
                 },
@@ -2286,7 +2388,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1638860400000,
+        "lastObserved": 1664269974573,
         "runId": "tableau-test"
     }
 },
@@ -2300,7 +2402,7 @@
         "contentType": "application/json"
     },
     "systemMetadata": {
-        "lastObserved": 1638860400000,
+        "lastObserved": 1664269974574,
         "runId": "tableau-test"
     }
 },
@@ -2309,6 +2411,11 @@
         "com.linkedin.pegasus2avro.metadata.snapshot.DashboardSnapshot": {
             "urn": "urn:li:dashboard:(tableau,5dcaaf46-e6fb-2548-e763-272a7ab2c9b1)",
             "aspects": [
+                {
+                    "com.linkedin.pegasus2avro.common.DataPlatformInstance": {
+                        "platform": "urn:li:dataPlatform:tableau"
+                    }
+                },
                 {
                     "com.linkedin.pegasus2avro.dashboard.DashboardInfo": {
                         "customProperties": {},
@@ -2346,7 +2453,7 @@
                 {
                     "com.linkedin.pegasus2avro.common.BrowsePaths": {
                         "paths": [
-                            "/tableau/default/Executive Dashboard/Executive Dashboard"
+                            "/tableau/default/Executive Dashboard"
                         ]
                     }
                 },
@@ -2368,7 +2475,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1638860400000,
+        "lastObserved": 1664269974575,
         "runId": "tableau-test"
     }
 },
@@ -2382,7 +2489,7 @@
         "contentType": "application/json"
     },
     "systemMetadata": {
-        "lastObserved": 1638860400000,
+        "lastObserved": 1664269974576,
         "runId": "tableau-test"
     }
 },
@@ -2396,7 +2503,7 @@
         "contentType": "application/json"
     },
     "systemMetadata": {
-        "lastObserved": 1638860400000,
+        "lastObserved": 1664269974576,
         "runId": "tableau-test"
     }
 },
@@ -2410,7 +2517,7 @@
         "contentType": "application/json"
     },
     "systemMetadata": {
-        "lastObserved": 1638860400000,
+        "lastObserved": 1664269974577,
         "runId": "tableau-test"
     }
 },
@@ -2424,7 +2531,7 @@
         "contentType": "application/json"
     },
     "systemMetadata": {
-        "lastObserved": 1638860400000,
+        "lastObserved": 1664269974578,
         "runId": "tableau-test"
     }
 },
@@ -2438,7 +2545,7 @@
         "contentType": "application/json"
     },
     "systemMetadata": {
-        "lastObserved": 1638860400000,
+        "lastObserved": 1664269974578,
         "runId": "tableau-test"
     }
 },
@@ -2447,6 +2554,11 @@
         "com.linkedin.pegasus2avro.metadata.snapshot.ChartSnapshot": {
             "urn": "urn:li:chart:(tableau,130496dc-29ca-8a89-e32b-d73c4d8b65ff)",
             "aspects": [
+                {
+                    "com.linkedin.pegasus2avro.common.DataPlatformInstance": {
+                        "platform": "urn:li:dataPlatform:tableau"
+                    }
+                },
                 {
                     "com.linkedin.pegasus2avro.chart.ChartInfo": {
                         "customProperties": {
@@ -2477,7 +2589,7 @@
                 {
                     "com.linkedin.pegasus2avro.common.BrowsePaths": {
                         "paths": [
-                            "/tableau/default/Workbook published ds/published sheet ds"
+                            "/tableau/default/Workbook published ds"
                         ]
                     }
                 },
@@ -2499,7 +2611,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1638860400000,
+        "lastObserved": 1664269974579,
         "runId": "tableau-test"
     }
 },
@@ -2513,7 +2625,7 @@
         "contentType": "application/json"
     },
     "systemMetadata": {
-        "lastObserved": 1638860400000,
+        "lastObserved": 1664269974580,
         "runId": "tableau-test"
     }
 },
@@ -2527,7 +2639,7 @@
         "contentType": "application/json"
     },
     "systemMetadata": {
-        "lastObserved": 1638860400000,
+        "lastObserved": 1664269974584,
         "runId": "tableau-test"
     }
 },
@@ -2537,9 +2649,14 @@
             "urn": "urn:li:dataset:(urn:li:dataPlatform:tableau,801c95e3-b07e-7bfe-3789-a561c7beccd3,PROD)",
             "aspects": [
                 {
+                    "com.linkedin.pegasus2avro.common.DataPlatformInstance": {
+                        "platform": "urn:li:dataPlatform:tableau"
+                    }
+                },
+                {
                     "com.linkedin.pegasus2avro.common.BrowsePaths": {
                         "paths": [
-                            "/prod/tableau/default/Email Performance by Campaign/Marketo"
+                            "/prod/tableau/default"
                         ]
                     }
                 },
@@ -4314,7 +4431,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1638860400000,
+        "lastObserved": 1664269974587,
         "runId": "tableau-test"
     }
 },
@@ -4328,7 +4445,7 @@
         "contentType": "application/json"
     },
     "systemMetadata": {
-        "lastObserved": 1638860400000,
+        "lastObserved": 1664269974609,
         "runId": "tableau-test"
     }
 },
@@ -4342,7 +4459,7 @@
         "contentType": "application/json"
     },
     "systemMetadata": {
-        "lastObserved": 1638860400000,
+        "lastObserved": 1664269974610,
         "runId": "tableau-test"
     }
 },
@@ -4352,9 +4469,14 @@
             "urn": "urn:li:dataset:(urn:li:dataPlatform:tableau,4644ccb1-2adc-cf26-c654-04ed1dcc7090,PROD)",
             "aspects": [
                 {
+                    "com.linkedin.pegasus2avro.common.DataPlatformInstance": {
+                        "platform": "urn:li:dataPlatform:tableau"
+                    }
+                },
+                {
                     "com.linkedin.pegasus2avro.common.BrowsePaths": {
                         "paths": [
-                            "/prod/tableau/default/Dvdrental Workbook/Customer Payment Query"
+                            "/prod/tableau/default"
                         ]
                     }
                 },
@@ -4585,7 +4707,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1638860400000,
+        "lastObserved": 1664269974611,
         "runId": "tableau-test"
     }
 },
@@ -4599,7 +4721,7 @@
         "contentType": "application/json"
     },
     "systemMetadata": {
-        "lastObserved": 1638860400000,
+        "lastObserved": 1664269974615,
         "runId": "tableau-test"
     }
 },
@@ -4613,7 +4735,7 @@
         "contentType": "application/json"
     },
     "systemMetadata": {
-        "lastObserved": 1638860400000,
+        "lastObserved": 1664269974616,
         "runId": "tableau-test"
     }
 },
@@ -4627,7 +4749,7 @@
         "contentType": "application/json"
     },
     "systemMetadata": {
-        "lastObserved": 1638860400000,
+        "lastObserved": 1664269974617,
         "runId": "tableau-test"
     }
 },
@@ -4637,9 +4759,14 @@
             "urn": "urn:li:dataset:(urn:li:dataPlatform:tableau,618c87db-5959-338b-bcc7-6f5f4cc0b6c6,PROD)",
             "aspects": [
                 {
+                    "com.linkedin.pegasus2avro.common.DataPlatformInstance": {
+                        "platform": "urn:li:dataPlatform:tableau"
+                    }
+                },
+                {
                     "com.linkedin.pegasus2avro.common.BrowsePaths": {
                         "paths": [
-                            "/prod/tableau/default/Dvdrental Workbook/actor+ (dvdrental)"
+                            "/prod/tableau/default"
                         ]
                     }
                 },
@@ -5042,7 +5169,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1638860400000,
+        "lastObserved": 1664269974618,
         "runId": "tableau-test"
     }
 },
@@ -5056,7 +5183,7 @@
         "contentType": "application/json"
     },
     "systemMetadata": {
-        "lastObserved": 1638860400000,
+        "lastObserved": 1664269974625,
         "runId": "tableau-test"
     }
 },
@@ -5070,7 +5197,7 @@
         "contentType": "application/json"
     },
     "systemMetadata": {
-        "lastObserved": 1638860400000,
+        "lastObserved": 1664269974625,
         "runId": "tableau-test"
     }
 },
@@ -5084,7 +5211,7 @@
         "contentType": "application/json"
     },
     "systemMetadata": {
-        "lastObserved": 1638860400000,
+        "lastObserved": 1664269974626,
         "runId": "tableau-test"
     }
 },
@@ -5094,9 +5221,14 @@
             "urn": "urn:li:dataset:(urn:li:dataPlatform:tableau,d00f4ba6-707e-4684-20af-69eb47587cc2,PROD)",
             "aspects": [
                 {
+                    "com.linkedin.pegasus2avro.common.DataPlatformInstance": {
+                        "platform": "urn:li:dataPlatform:tableau"
+                    }
+                },
+                {
                     "com.linkedin.pegasus2avro.common.BrowsePaths": {
                         "paths": [
-                            "/prod/tableau/default/Dvdrental Workbook/Superstore Datasource"
+                            "/prod/tableau/default"
                         ]
                     }
                 },
@@ -5834,7 +5966,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1638860400000,
+        "lastObserved": 1664269974627,
         "runId": "tableau-test"
     }
 },
@@ -5848,7 +5980,7 @@
         "contentType": "application/json"
     },
     "systemMetadata": {
-        "lastObserved": 1638860400000,
+        "lastObserved": 1664269974638,
         "runId": "tableau-test"
     }
 },
@@ -5862,7 +5994,7 @@
         "contentType": "application/json"
     },
     "systemMetadata": {
-        "lastObserved": 1638860400000,
+        "lastObserved": 1664269974639,
         "runId": "tableau-test"
     }
 },
@@ -5876,7 +6008,7 @@
         "contentType": "application/json"
     },
     "systemMetadata": {
-        "lastObserved": 1638860400000,
+        "lastObserved": 1664269974640,
         "runId": "tableau-test"
     }
 },
@@ -5886,9 +6018,14 @@
             "urn": "urn:li:dataset:(urn:li:dataPlatform:tableau,06c3e060-8133-4b58-9b53-a0fced25e056,PROD)",
             "aspects": [
                 {
+                    "com.linkedin.pegasus2avro.common.DataPlatformInstance": {
+                        "platform": "urn:li:dataPlatform:tableau"
+                    }
+                },
+                {
                     "com.linkedin.pegasus2avro.common.BrowsePaths": {
                         "paths": [
-                            "/prod/tableau/default/Executive Dashboard/Requests"
+                            "/prod/tableau/default"
                         ]
                     }
                 },
@@ -12490,7 +12627,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1638860400000,
+        "lastObserved": 1664269974647,
         "runId": "tableau-test"
     }
 },
@@ -12504,7 +12641,7 @@
         "contentType": "application/json"
     },
     "systemMetadata": {
-        "lastObserved": 1638860400000,
+        "lastObserved": 1664269974727,
         "runId": "tableau-test"
     }
 },
@@ -12518,7 +12655,7 @@
         "contentType": "application/json"
     },
     "systemMetadata": {
-        "lastObserved": 1638860400000,
+        "lastObserved": 1664269974727,
         "runId": "tableau-test"
     }
 },
@@ -12532,7 +12669,7 @@
         "contentType": "application/json"
     },
     "systemMetadata": {
-        "lastObserved": 1638860400000,
+        "lastObserved": 1664269974728,
         "runId": "tableau-test"
     }
 },
@@ -12542,9 +12679,14 @@
             "urn": "urn:li:dataset:(urn:li:dataPlatform:tableau,3ade7817-ae27-259e-8e48-1570e7f932f6,PROD)",
             "aspects": [
                 {
+                    "com.linkedin.pegasus2avro.common.DataPlatformInstance": {
+                        "platform": "urn:li:dataPlatform:tableau"
+                    }
+                },
+                {
                     "com.linkedin.pegasus2avro.common.BrowsePaths": {
                         "paths": [
-                            "/prod/tableau/default/Executive Dashboard/Problems"
+                            "/prod/tableau/default"
                         ]
                     }
                 },
@@ -16432,7 +16574,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1638860400000,
+        "lastObserved": 1664269974733,
         "runId": "tableau-test"
     }
 },
@@ -16446,7 +16588,7 @@
         "contentType": "application/json"
     },
     "systemMetadata": {
-        "lastObserved": 1638860400000,
+        "lastObserved": 1664269974781,
         "runId": "tableau-test"
     }
 },
@@ -16460,7 +16602,7 @@
         "contentType": "application/json"
     },
     "systemMetadata": {
-        "lastObserved": 1638860400000,
+        "lastObserved": 1664269974782,
         "runId": "tableau-test"
     }
 },
@@ -16474,7 +16616,7 @@
         "contentType": "application/json"
     },
     "systemMetadata": {
-        "lastObserved": 1638860400000,
+        "lastObserved": 1664269974783,
         "runId": "tableau-test"
     }
 },
@@ -16484,9 +16626,14 @@
             "urn": "urn:li:dataset:(urn:li:dataPlatform:tableau,dfe2c02a-54b7-f7a2-39fc-c651da2f6ad8,PROD)",
             "aspects": [
                 {
+                    "com.linkedin.pegasus2avro.common.DataPlatformInstance": {
+                        "platform": "urn:li:dataPlatform:tableau"
+                    }
+                },
+                {
                     "com.linkedin.pegasus2avro.common.BrowsePaths": {
                         "paths": [
-                            "/prod/tableau/default/Executive Dashboard/Incidents"
+                            "/prod/tableau/default"
                         ]
                     }
                 },
@@ -21636,7 +21783,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1638860400000,
+        "lastObserved": 1664269974788,
         "runId": "tableau-test"
     }
 },
@@ -21650,7 +21797,7 @@
         "contentType": "application/json"
     },
     "systemMetadata": {
-        "lastObserved": 1638860400000,
+        "lastObserved": 1664269974851,
         "runId": "tableau-test"
     }
 },
@@ -21664,7 +21811,7 @@
         "contentType": "application/json"
     },
     "systemMetadata": {
-        "lastObserved": 1638860400000,
+        "lastObserved": 1664269974852,
         "runId": "tableau-test"
     }
 },
@@ -21678,7 +21825,7 @@
         "contentType": "application/json"
     },
     "systemMetadata": {
-        "lastObserved": 1638860400000,
+        "lastObserved": 1664269974853,
         "runId": "tableau-test"
     }
 },
@@ -21688,9 +21835,14 @@
             "urn": "urn:li:dataset:(urn:li:dataPlatform:tableau,d8d4c0ea-3162-fa11-31e6-26675da44a38,PROD)",
             "aspects": [
                 {
+                    "com.linkedin.pegasus2avro.common.DataPlatformInstance": {
+                        "platform": "urn:li:dataPlatform:tableau"
+                    }
+                },
+                {
                     "com.linkedin.pegasus2avro.common.BrowsePaths": {
                         "paths": [
-                            "/prod/tableau/default/Workbook published ds/test publish datasource"
+                            "/prod/tableau/default"
                         ]
                     }
                 },
@@ -21908,7 +22060,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1638860400000,
+        "lastObserved": 1664269974854,
         "runId": "tableau-test"
     }
 },
@@ -21922,7 +22074,7 @@
         "contentType": "application/json"
     },
     "systemMetadata": {
-        "lastObserved": 1638860400000,
+        "lastObserved": 1664269974859,
         "runId": "tableau-test"
     }
 },
@@ -21936,7 +22088,7 @@
         "contentType": "application/json"
     },
     "systemMetadata": {
-        "lastObserved": 1638860400000,
+        "lastObserved": 1664269974859,
         "runId": "tableau-test"
     }
 },
@@ -21946,9 +22098,14 @@
             "urn": "urn:li:dataset:(urn:li:dataPlatform:tableau,00cce29f-b561-bb41-3557-8e19660bb5dd,PROD)",
             "aspects": [
                 {
+                    "com.linkedin.pegasus2avro.common.DataPlatformInstance": {
+                        "platform": "urn:li:dataPlatform:tableau"
+                    }
+                },
+                {
                     "com.linkedin.pegasus2avro.common.BrowsePaths": {
                         "paths": [
-                            "/prod/tableau/default/test publish datasource"
+                            "/prod/tableau/default"
                         ]
                     }
                 },
@@ -22212,7 +22369,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1638860400000,
+        "lastObserved": 1664269974861,
         "runId": "tableau-test"
     }
 },
@@ -22226,7 +22383,7 @@
         "contentType": "application/json"
     },
     "systemMetadata": {
-        "lastObserved": 1638860400000,
+        "lastObserved": 1664269974866,
         "runId": "tableau-test"
     }
 },
@@ -22236,11 +22393,11 @@
     "changeType": "UPSERT",
     "aspectName": "upstreamLineage",
     "aspect": {
-        "value": "{\"upstreams\": [{\"auditStamp\": {\"time\": 0, \"actor\": \"urn:li:corpuser:unknown\"}, \"dataset\": \"urn:li:dataset:(urn:li:dataPlatform:external,sample - superstore.xls.people,PROD)\", \"type\": \"TRANSFORMED\"}, {\"auditStamp\": {\"time\": 0, \"actor\": \"urn:li:corpuser:unknown\"}, \"dataset\": \"urn:li:dataset:(urn:li:dataPlatform:external,sample - superstore.xls.returns,PROD)\", \"type\": \"TRANSFORMED\"}, {\"auditStamp\": {\"time\": 0, \"actor\": \"urn:li:corpuser:unknown\"}, \"dataset\": \"urn:li:dataset:(urn:li:dataPlatform:external,sample - superstore.xls.orders,PROD)\", \"type\": \"TRANSFORMED\"}]}",
+        "value": "{\"upstreams\": [{\"auditStamp\": {\"time\": 0, \"actor\": \"urn:li:corpuser:unknown\"}, \"dataset\": \"urn:li:dataset:(urn:li:dataPlatform:external,sample - superstore%2C %28new%29.xls.people,PROD)\", \"type\": \"TRANSFORMED\"}, {\"auditStamp\": {\"time\": 0, \"actor\": \"urn:li:corpuser:unknown\"}, \"dataset\": \"urn:li:dataset:(urn:li:dataPlatform:external,sample - superstore%2C %28new%29.xls.returns,PROD)\", \"type\": \"TRANSFORMED\"}, {\"auditStamp\": {\"time\": 0, \"actor\": \"urn:li:corpuser:unknown\"}, \"dataset\": \"urn:li:dataset:(urn:li:dataPlatform:external,sample - superstore%2C %28new%29.xls.orders,PROD)\", \"type\": \"TRANSFORMED\"}]}",
         "contentType": "application/json"
     },
     "systemMetadata": {
-        "lastObserved": 1638860400000,
+        "lastObserved": 1664269974867,
         "runId": "tableau-test"
     }
 },
@@ -22250,9 +22407,14 @@
             "urn": "urn:li:dataset:(urn:li:dataPlatform:tableau,6cbbeeb2-9f3a-00f6-2342-17139d6e97ae,PROD)",
             "aspects": [
                 {
+                    "com.linkedin.pegasus2avro.common.DataPlatformInstance": {
+                        "platform": "urn:li:dataPlatform:tableau"
+                    }
+                },
+                {
                     "com.linkedin.pegasus2avro.common.BrowsePaths": {
                         "paths": [
-                            "/prod/tableau/Samples/Superstore Datasource"
+                            "/prod/tableau/Samples"
                         ]
                     }
                 },
@@ -23120,7 +23282,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1638860400000,
+        "lastObserved": 1664269974869,
         "runId": "tableau-test"
     }
 },
@@ -23134,7 +23296,7 @@
         "contentType": "application/json"
     },
     "systemMetadata": {
-        "lastObserved": 1638860400000,
+        "lastObserved": 1664269974881,
         "runId": "tableau-test"
     }
 },
@@ -23148,7 +23310,7 @@
         "contentType": "application/json"
     },
     "systemMetadata": {
-        "lastObserved": 1638860400000,
+        "lastObserved": 1664269974883,
         "runId": "tableau-test"
     }
 },
@@ -23162,7 +23324,7 @@
         "contentType": "application/json"
     },
     "systemMetadata": {
-        "lastObserved": 1638860400000,
+        "lastObserved": 1664269974883,
         "runId": "tableau-test"
     }
 },
@@ -23176,7 +23338,7 @@
         "contentType": "application/json"
     },
     "systemMetadata": {
-        "lastObserved": 1638860400000,
+        "lastObserved": 1664269974884,
         "runId": "tableau-test"
     }
 },
@@ -23185,6 +23347,11 @@
         "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
             "urn": "urn:li:dataset:(urn:li:dataPlatform:tableau,22b0b4c3-6b85-713d-a161-5a87fdd78f40,PROD)",
             "aspects": [
+                {
+                    "com.linkedin.pegasus2avro.common.DataPlatformInstance": {
+                        "platform": "urn:li:dataPlatform:tableau"
+                    }
+                },
                 {
                     "com.linkedin.pegasus2avro.schema.SchemaMetadata": {
                         "schemaName": "test",
@@ -23283,7 +23450,7 @@
                 {
                     "com.linkedin.pegasus2avro.common.BrowsePaths": {
                         "paths": [
-                            "/prod/tableau/default/Customer Payment Query/Custom SQL Query"
+                            "/prod/tableau/default/Customer Payment Query"
                         ]
                     }
                 },
@@ -23305,7 +23472,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1638860400000,
+        "lastObserved": 1664269974885,
         "runId": "tableau-test"
     }
 },
@@ -23319,7 +23486,7 @@
         "contentType": "application/json"
     },
     "systemMetadata": {
-        "lastObserved": 1638860400000,
+        "lastObserved": 1664269974889,
         "runId": "tableau-test"
     }
 },
@@ -23333,7 +23500,7 @@
         "contentType": "application/json"
     },
     "systemMetadata": {
-        "lastObserved": 1638860400000,
+        "lastObserved": 1664269974890,
         "runId": "tableau-test"
     }
 },
@@ -23347,7 +23514,7 @@
         "contentType": "application/json"
     },
     "systemMetadata": {
-        "lastObserved": 1638860400000,
+        "lastObserved": 1664269974891,
         "runId": "tableau-test"
     }
 },
@@ -23356,6 +23523,11 @@
         "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
             "urn": "urn:li:dataset:(urn:li:dataPlatform:tableau,4fb670d5-3e19-9656-e684-74aa9729cf18,PROD)",
             "aspects": [
+                {
+                    "com.linkedin.pegasus2avro.common.DataPlatformInstance": {
+                        "platform": "urn:li:dataPlatform:tableau"
+                    }
+                },
                 {
                     "com.linkedin.pegasus2avro.schema.SchemaMetadata": {
                         "schemaName": "test",
@@ -23466,7 +23638,7 @@
                 {
                     "com.linkedin.pegasus2avro.common.BrowsePaths": {
                         "paths": [
-                            "/prod/tableau/default/test publish datasource/Custom SQL Query"
+                            "/prod/tableau/default/test publish datasource"
                         ]
                     }
                 },
@@ -23488,7 +23660,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1638860400000,
+        "lastObserved": 1664269974892,
         "runId": "tableau-test"
     }
 },
@@ -23502,7 +23674,7 @@
         "contentType": "application/json"
     },
     "systemMetadata": {
-        "lastObserved": 1638860400000,
+        "lastObserved": 1664269974896,
         "runId": "tableau-test"
     }
 },
@@ -23514,7 +23686,7 @@
                 {
                     "com.linkedin.pegasus2avro.common.BrowsePaths": {
                         "paths": [
-                            "/prod/tableau/default/Marketo/activity6"
+                            "/prod/tableau/default/Marketo"
                         ]
                     }
                 },
@@ -23675,7 +23847,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1638860400000,
+        "lastObserved": 1664269974896,
         "runId": "tableau-test"
     }
 },
@@ -23687,7 +23859,7 @@
                 {
                     "com.linkedin.pegasus2avro.common.BrowsePaths": {
                         "paths": [
-                            "/prod/tableau/default/Marketo/activity11"
+                            "/prod/tableau/default/Marketo"
                         ]
                     }
                 },
@@ -23926,7 +24098,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1638860400000,
+        "lastObserved": 1664269974900,
         "runId": "tableau-test"
     }
 },
@@ -23938,7 +24110,7 @@
                 {
                     "com.linkedin.pegasus2avro.common.BrowsePaths": {
                         "paths": [
-                            "/prod/tableau/default/Marketo/activity10"
+                            "/prod/tableau/default/Marketo"
                         ]
                     }
                 },
@@ -24151,7 +24323,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1638860400000,
+        "lastObserved": 1664269974905,
         "runId": "tableau-test"
     }
 },
@@ -24163,7 +24335,7 @@
                 {
                     "com.linkedin.pegasus2avro.common.BrowsePaths": {
                         "paths": [
-                            "/prod/tableau/default/Marketo/activity7"
+                            "/prod/tableau/default/Marketo"
                         ]
                     }
                 },
@@ -24324,7 +24496,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1638860400000,
+        "lastObserved": 1664269974909,
         "runId": "tableau-test"
     }
 },
@@ -24336,7 +24508,7 @@
                 {
                     "com.linkedin.pegasus2avro.common.BrowsePaths": {
                         "paths": [
-                            "/prod/tableau/default/Marketo/campaignsTable"
+                            "/prod/tableau/default/Marketo"
                         ]
                     }
                 },
@@ -24484,7 +24656,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1638860400000,
+        "lastObserved": 1664269974912,
         "runId": "tableau-test"
     }
 },
@@ -24496,7 +24668,7 @@
                 {
                     "com.linkedin.pegasus2avro.common.BrowsePaths": {
                         "paths": [
-                            "/prod/tableau/default/actor+ (dvdrental)/address"
+                            "/prod/tableau/default/actor+ (dvdrental)"
                         ]
                     }
                 },
@@ -24631,7 +24803,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1638860400000,
+        "lastObserved": 1664269974916,
         "runId": "tableau-test"
     }
 },
@@ -24643,7 +24815,7 @@
                 {
                     "com.linkedin.pegasus2avro.common.BrowsePaths": {
                         "paths": [
-                            "/prod/tableau/default/actor+ (dvdrental)/actor"
+                            "/prod/tableau/default/actor+ (dvdrental)"
                         ]
                     }
                 },
@@ -24726,7 +24898,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1638860400000,
+        "lastObserved": 1664269974919,
         "runId": "tableau-test"
     }
 },
@@ -24738,7 +24910,7 @@
                 {
                     "com.linkedin.pegasus2avro.common.BrowsePaths": {
                         "paths": [
-                            "/prod/tableau/default/Incidents/task"
+                            "/prod/tableau/default/Incidents"
                         ]
                     }
                 },
@@ -25575,7 +25747,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1638860400000,
+        "lastObserved": 1664269974922,
         "runId": "tableau-test"
     }
 },
@@ -25587,7 +25759,7 @@
                 {
                     "com.linkedin.pegasus2avro.common.BrowsePaths": {
                         "paths": [
-                            "/prod/tableau/default/Requests/sc_request"
+                            "/prod/tableau/default/Requests"
                         ]
                     }
                 },
@@ -26528,7 +26700,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1638860400000,
+        "lastObserved": 1664269974936,
         "runId": "tableau-test"
     }
 },
@@ -26540,7 +26712,7 @@
                 {
                     "com.linkedin.pegasus2avro.common.BrowsePaths": {
                         "paths": [
-                            "/prod/tableau/default/Requests/sc_req_item"
+                            "/prod/tableau/default/Requests"
                         ]
                     }
                 },
@@ -27559,7 +27731,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1638860400000,
+        "lastObserved": 1664269974952,
         "runId": "tableau-test"
     }
 },
@@ -27571,7 +27743,7 @@
                 {
                     "com.linkedin.pegasus2avro.common.BrowsePaths": {
                         "paths": [
-                            "/prod/tableau/default/Requests/sc_cat_item"
+                            "/prod/tableau/default/Requests"
                         ]
                     }
                 },
@@ -28447,7 +28619,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1638860400000,
+        "lastObserved": 1664269974969,
         "runId": "tableau-test"
     }
 },
@@ -28459,7 +28631,7 @@
                 {
                     "com.linkedin.pegasus2avro.common.BrowsePaths": {
                         "paths": [
-                            "/prod/tableau/default/Problems/sys_user_group"
+                            "/prod/tableau/default/Problems"
                         ]
                     }
                 },
@@ -28776,7 +28948,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1638860400000,
+        "lastObserved": 1664269974982,
         "runId": "tableau-test"
     }
 },
@@ -28788,7 +28960,7 @@
                 {
                     "com.linkedin.pegasus2avro.common.BrowsePaths": {
                         "paths": [
-                            "/prod/tableau/default/Problems/problem"
+                            "/prod/tableau/default/Problems"
                         ]
                     }
                 },
@@ -29690,7 +29862,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1638860400000,
+        "lastObserved": 1664269974989,
         "runId": "tableau-test"
     }
 },
@@ -29702,7 +29874,7 @@
                 {
                     "com.linkedin.pegasus2avro.common.BrowsePaths": {
                         "paths": [
-                            "/prod/tableau/default/Incidents/incident"
+                            "/prod/tableau/default/Incidents"
                         ]
                     }
                 },
@@ -30760,7 +30932,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1638860400000,
+        "lastObserved": 1664269975004,
         "runId": "tableau-test"
     }
 },
@@ -30772,7 +30944,7 @@
                 {
                     "com.linkedin.pegasus2avro.common.BrowsePaths": {
                         "paths": [
-                            "/prod/tableau/default/Incidents/cmdb_ci"
+                            "/prod/tableau/default/Incidents"
                         ]
                     }
                 },
@@ -31687,19 +31859,19 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1638860400000,
+        "lastObserved": 1664269975022,
         "runId": "tableau-test"
     }
 },
 {
     "proposedSnapshot": {
         "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
-            "urn": "urn:li:dataset:(urn:li:dataPlatform:external,sample - superstore.xls.people,PROD)",
+            "urn": "urn:li:dataset:(urn:li:dataPlatform:external,sample - superstore%2C %28new%29.xls.people,PROD)",
             "aspects": [
                 {
                     "com.linkedin.pegasus2avro.common.BrowsePaths": {
                         "paths": [
-                            "/prod/tableau/Samples/Superstore Datasource/People"
+                            "/prod/tableau/Samples/Superstore Datasource"
                         ]
                     }
                 },
@@ -31756,19 +31928,19 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1638860400000,
+        "lastObserved": 1664269975037,
         "runId": "tableau-test"
     }
 },
 {
     "proposedSnapshot": {
         "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
-            "urn": "urn:li:dataset:(urn:li:dataPlatform:external,sample - superstore.xls.returns,PROD)",
+            "urn": "urn:li:dataset:(urn:li:dataPlatform:external,sample - superstore%2C %28new%29.xls.returns,PROD)",
             "aspects": [
                 {
                     "com.linkedin.pegasus2avro.common.BrowsePaths": {
                         "paths": [
-                            "/prod/tableau/Samples/Superstore Datasource/Returns"
+                            "/prod/tableau/Samples/Superstore Datasource"
                         ]
                     }
                 },
@@ -31825,19 +31997,19 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1638860400000,
+        "lastObserved": 1664269975039,
         "runId": "tableau-test"
     }
 },
 {
     "proposedSnapshot": {
         "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
-            "urn": "urn:li:dataset:(urn:li:dataPlatform:external,sample - superstore.xls.orders,PROD)",
+            "urn": "urn:li:dataset:(urn:li:dataPlatform:external,sample - superstore%2C %28new%29.xls.orders,PROD)",
             "aspects": [
                 {
                     "com.linkedin.pegasus2avro.common.BrowsePaths": {
                         "paths": [
-                            "/prod/tableau/Samples/Superstore Datasource/Orders"
+                            "/prod/tableau/Samples/Superstore Datasource"
                         ]
                     }
                 },
@@ -32141,7 +32313,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1638860400000,
+        "lastObserved": 1664269975041,
         "runId": "tableau-test"
     }
 },
@@ -32153,7 +32325,7 @@
                 {
                     "com.linkedin.pegasus2avro.common.BrowsePaths": {
                         "paths": [
-                            "/prod/tableau/default/test publish datasource/customer"
+                            "/prod/tableau/default/test publish datasource"
                         ]
                     }
                 }
@@ -32161,7 +32333,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1638860400000,
+        "lastObserved": 1664269975047,
         "runId": "tableau-test"
     }
 },
@@ -32173,7 +32345,7 @@
                 {
                     "com.linkedin.pegasus2avro.common.BrowsePaths": {
                         "paths": [
-                            "/prod/tableau/default/test publish datasource/payment"
+                            "/prod/tableau/default/test publish datasource"
                         ]
                     }
                 }
@@ -32181,7 +32353,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1638860400000,
+        "lastObserved": 1664269975047,
         "runId": "tableau-test"
     }
 },
@@ -32193,7 +32365,7 @@
                 {
                     "com.linkedin.pegasus2avro.common.BrowsePaths": {
                         "paths": [
-                            "/prod/tableau/default/test publish datasource/staff"
+                            "/prod/tableau/default/test publish datasource"
                         ]
                     }
                 }
@@ -32201,7 +32373,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1638860400000,
+        "lastObserved": 1664269975048,
         "runId": "tableau-test"
     }
 }

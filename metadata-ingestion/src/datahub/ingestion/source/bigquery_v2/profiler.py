@@ -13,7 +13,10 @@ from datahub.ingestion.api.common import WorkUnit
 from datahub.ingestion.source.bigquery_v2.bigquery_audit import BigqueryTableIdentifier
 from datahub.ingestion.source.bigquery_v2.bigquery_config import BigQueryV2Config
 from datahub.ingestion.source.bigquery_v2.bigquery_report import BigQueryV2Report
-from datahub.ingestion.source.bigquery_v2.bigquery_schema import BigqueryTable
+from datahub.ingestion.source.bigquery_v2.bigquery_schema import (
+    BigqueryColumn,
+    BigqueryTable,
+)
 from datahub.ingestion.source.ge_data_profiler import (
     DatahubGEProfiler,
     GEProfilerRequest,
@@ -78,39 +81,57 @@ class BigqueryProfiler:
         partition = table.max_partition_id
         if partition:
             partition_where_clause: str
-            logger.debug(f"{table} is partitioned and partition column is {partition}")
-            try:
-                (
-                    partition_datetime,
-                    upper_bound_partition_datetime,
-                ) = self.get_partition_range_from_partition_id(
-                    partition, partition_datetime
-                )
-            except ValueError as e:
-                logger.error(
-                    f"Unable to get partition range for partition id: {partition} it failed with exception {e}"
-                )
-                self.report.invalid_partition_ids[f"{schema}.{table}"] = partition
-                return None, None
 
-            if table.time_partitioning.type_ in ("DAY", "MONTH", "YEAR"):
-                partition_where_clause = "{column_name} BETWEEN DATE('{partition_id}') AND DATE('{upper_bound_partition_id}')".format(
-                    column_name=table.time_partitioning.field,
-                    partition_id=partition_datetime,
-                    upper_bound_partition_id=upper_bound_partition_datetime,
-                )
-            elif table.time_partitioning.type_ in ("HOUR"):
-                partition_where_clause = "{column_name} BETWEEN '{partition_id}' AND '{upper_bound_partition_id}'".format(
-                    column_name=table.time_partitioning.field,
-                    partition_id=partition_datetime,
-                    upper_bound_partition_id=upper_bound_partition_datetime,
-                )
+            if not table.time_partitioning:
+                partition_column: Optional[BigqueryColumn] = None
+                for column in table.columns:
+                    if column.is_partition_column:
+                        partition_column = column
+                        break
+                if partition_column:
+                    partition_where_clause = f"{partition_column.name} >= {partition}"
+                else:
+                    logger.warning(
+                        f"Partitioned table {table.name} without partiton column"
+                    )
+                    return None, None
             else:
-                logger.warning(
-                    f"Not supported partition type {table.time_partitioning.type_}"
+                logger.debug(
+                    f"{table.name} is partitioned and partition column is {partition}"
                 )
-                return None, None
+                try:
+                    (
+                        partition_datetime,
+                        upper_bound_partition_datetime,
+                    ) = self.get_partition_range_from_partition_id(
+                        partition, partition_datetime
+                    )
+                except ValueError as e:
+                    logger.error(
+                        f"Unable to get partition range for partition id: {partition} it failed with exception {e}"
+                    )
+                    self.report.invalid_partition_ids[
+                        f"{schema}.{table.name}"
+                    ] = partition
+                    return None, None
 
+                if table.time_partitioning.type_ in ("DAY", "MONTH", "YEAR"):
+                    partition_where_clause = "{column_name} BETWEEN DATE('{partition_id}') AND DATE('{upper_bound_partition_id}')".format(
+                        column_name=table.time_partitioning.field,
+                        partition_id=partition_datetime,
+                        upper_bound_partition_id=upper_bound_partition_datetime,
+                    )
+                elif table.time_partitioning.type_ in ("HOUR"):
+                    partition_where_clause = "{column_name} BETWEEN '{partition_id}' AND '{upper_bound_partition_id}'".format(
+                        column_name=table.time_partitioning.field,
+                        partition_id=partition_datetime,
+                        upper_bound_partition_id=upper_bound_partition_datetime,
+                    )
+                else:
+                    logger.warning(
+                        f"Not supported partition type {table.time_partitioning.type_}"
+                    )
+                    return None, None
             custom_sql = """
 SELECT
     *

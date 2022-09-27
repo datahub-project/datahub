@@ -4,7 +4,8 @@ import json
 import logging
 import os
 from json.decoder import JSONDecodeError
-from typing import Any, Dict, List, Optional, Tuple, Union
+from types import TracebackType
+from typing import Any, Dict, List, Optional, Tuple, Type, Union
 
 import requests
 from requests.adapters import HTTPAdapter, Retry
@@ -140,6 +141,17 @@ class DataHubRestEmitter:
             self._session.request,
             timeout=(self._connect_timeout_sec, self._read_timeout_sec),
         )
+
+    def __enter__(self) -> "DataHubRestEmitter":
+        return self
+
+    def __exit__(
+        self,
+        exc_type: Optional[Type[BaseException]],
+        exc_val: Optional[BaseException],
+        exc_tb: Optional[TracebackType],
+    ) -> None:
+        self._session.close()
 
     def test_connection(self) -> dict:
         response = self._session.get(f"{self._gms_server}/config")
