@@ -546,10 +546,25 @@ class LookerView:
     def _get_sql_info(cls, sql: str, sql_parser_path: str) -> SQLInfo:
         parser_cls = cls._import_sql_parser_cls(sql_parser_path)
 
-        parser_instance: SQLParser = parser_cls(sql)
+        try:
+            parser_instance: SQLParser = parser_cls(sql)
+        except Exception as e:
+            logger.warning(f"Sql parser failed on {sql} with {e}")
+            return SQLInfo(table_names=[], column_names=[])
 
-        sql_table_names: List[str] = parser_instance.get_tables()
-        column_names: List[str] = parser_instance.get_columns()
+        sql_table_names: List[str]
+        try:
+            sql_table_names = parser_instance.get_tables()
+        except Exception as e:
+            logger.warning(f"Sql parser failed on {sql} with {e}")
+            sql_table_names = []
+
+        try:
+            column_names: List[str] = parser_instance.get_columns()
+        except Exception as e:
+            logger.warning(f"Sql parser failed on {sql} with {e}")
+            column_names = []
+
         logger.debug(f"Column names parsed = {column_names}")
         # Drop table names with # in them
         sql_table_names = [t for t in sql_table_names if "#" not in t]
