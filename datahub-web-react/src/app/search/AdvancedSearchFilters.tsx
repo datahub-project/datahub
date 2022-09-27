@@ -9,7 +9,7 @@ import { ANTD_GRAY } from '../entity/shared/constants';
 import { AdvancedSearchFilter } from './AdvancedSearchFilter';
 import { AdvancedSearchFilterOverallUnionTypeSelect } from './AdvancedSearchFilterOverallUnionTypeSelect';
 import { AdvancedFilterSelectValueModal } from './AdvancedFilterSelectValueModal';
-import { FIELDS_WHO_USE_CONTAINS_OPERATOR, FIELD_TO_LABEL, UnionType } from './utils/constants';
+import { FIELDS_THAT_USE_CONTAINS_OPERATOR, FIELD_TO_LABEL, UnionType } from './utils/constants';
 
 export const SearchFilterWrapper = styled.div`
     min-height: 100%;
@@ -137,7 +137,7 @@ export const AdvancedSearchFilters = ({
                             field: filterField,
                             values: values as string[],
                             condition:
-                                FIELDS_WHO_USE_CONTAINS_OPERATOR.indexOf(filterField) > -1
+                                FIELDS_THAT_USE_CONTAINS_OPERATOR.indexOf(filterField) > -1
                                     ? SearchCondition.Contain
                                     : SearchCondition.Equal,
                         };
