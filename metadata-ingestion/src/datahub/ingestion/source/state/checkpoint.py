@@ -1,10 +1,12 @@
+import base64
 import bz2
 import functools
 import json
 import logging
+import pickle
 from dataclasses import dataclass
 from datetime import datetime
-from typing import Any, Callable, Dict, Generic, Optional, Type, TypeVar
+from typing import Callable, Generic, Optional, Type, TypeVar
 
 import pydantic
 
@@ -26,7 +28,7 @@ class CheckpointStateBase(ConfigModel):
     """
 
     version: str = pydantic.Field(default="1.0")
-    serde: str = pydantic.Field(default="utf-8")
+    serde: str = pydantic.Field(default="base85")
 
     def to_bytes(
         self,
@@ -45,8 +47,13 @@ class CheckpointStateBase(ConfigModel):
         binary state payload. Binary content-type needs to be supported for encoding the GenericAspect to do this.
         """
 
-        json_str_self = self.json(exclude={"version", "serde"})
-        encoded_bytes = json_str_self.encode("utf-8")
+        if self.serde == "utf-8":
+            encoded_bytes = CheckpointStateBase._to_bytes_utf8(self)
+        elif self.serde == "base85":
+            encoded_bytes = CheckpointStateBase._to_bytes_base85(self, compressor)
+        else:
+            raise ValueError(f"Unknown serde: {self.serde}")
+
         if len(encoded_bytes) > max_allowed_state_size:
             raise ValueError(
                 f"The state size has exceeded the max_allowed_state_size of {max_allowed_state_size}"
@@ -55,14 +62,14 @@ class CheckpointStateBase(ConfigModel):
         return encoded_bytes
 
     @staticmethod
-    def from_bytes_to_dict(
-        data_bytes: bytes, decompressor: Callable[[bytes], bytes] = bz2.decompress
-    ) -> Dict[str, Any]:
-        """Helper method for sub-classes to use."""
-        # uncompressed_data: bytes = decompressor(data_bytes)
-        # json_str = uncompressed_data.decode('utf-8')
-        json_str = data_bytes.decode("utf-8")
-        return json.loads(json_str)
+    def _to_bytes_utf8(model: ConfigModel) -> bytes:
+        return model.json(exclude={"version", "serde"}).encode("utf-8")
+
+    @staticmethod
+    def _to_bytes_base85(
+        model: ConfigModel, compressor: Callable[[bytes], bytes]
+    ) -> bytes:
+        return base64.b85encode(compressor(pickle.dumps(model)))
 
     def prepare_for_commit(self) -> None:
         """
@@ -110,17 +117,16 @@ class Checkpoint(Generic[StateType]):
             )
         else:
             try:
-                # Construct the state
-                state_as_dict = (
-                    CheckpointStateBase.from_bytes_to_dict(
-                        checkpoint_aspect.state.payload
+                if checkpoint_aspect.state.serde == "utf-8":
+                    state_obj = Checkpoint._from_utf8_bytes(
+                        checkpoint_aspect, state_class
                     )
-                    if checkpoint_aspect.state.payload is not None
-                    else {}
-                )
-                state_as_dict["version"] = checkpoint_aspect.state.formatVersion
-                state_as_dict["serde"] = checkpoint_aspect.state.serde
-                state_obj = state_class.parse_obj(state_as_dict)
+                elif checkpoint_aspect.state.serde == "base85":
+                    state_obj = Checkpoint._from_base85_bytes(
+                        checkpoint_aspect, functools.partial(bz2.decompress)
+                    )
+                else:
+                    raise ValueError(f"Unknown serde: {checkpoint_aspect.state.serde}")
             except Exception as e:
                 logger.error(
                     "Failed to construct checkpoint class from checkpoint aspect.", e
@@ -141,6 +147,29 @@ class Checkpoint(Generic[StateType]):
                 )
                 return checkpoint
         return None
+
+    @staticmethod
+    def _from_utf8_bytes(
+        checkpoint_aspect: DatahubIngestionCheckpointClass,
+        state_class: Type[StateType],
+    ) -> StateType:
+        state_as_dict = (
+            json.loads(checkpoint_aspect.state.payload.decode("utf-8"))
+            if checkpoint_aspect.state.payload is not None
+            else {}
+        )
+        state_as_dict["version"] = checkpoint_aspect.state.formatVersion
+        state_as_dict["serde"] = checkpoint_aspect.state.serde
+        return state_class.parse_obj(state_as_dict)
+
+    @staticmethod
+    def _from_base85_bytes(
+        checkpoint_aspect: DatahubIngestionCheckpointClass,
+        decompressor: Callable[[bytes], bytes],
+    ) -> StateType:
+        return pickle.loads(
+            decompressor(base64.b85decode(checkpoint_aspect.state.payload))  # type: ignore
+        )
 
     def to_checkpoint_aspect(
         self, max_allowed_state_size: int

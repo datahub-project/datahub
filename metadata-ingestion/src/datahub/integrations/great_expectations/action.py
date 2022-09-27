@@ -642,7 +642,12 @@ class DataHubValidationAction(ValidationAction):
                     query=query,
                     customProperties=batchSpecProperties,
                 )
-                tables = DefaultSQLParser(query).get_tables()
+                try:
+                    tables = DefaultSQLParser(query).get_tables()
+                except Exception as e:
+                    logger.warning(f"Sql parser failed on {query} with {e}")
+                    tables = []
+
                 if len(set(tables)) != 1:
                     warn(
                         "DataHubValidationAction does not support cross dataset assertions."

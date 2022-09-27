@@ -96,6 +96,11 @@ module.exports = {
             id: "docs/managed-datahub/saas-slack-setup",
             className: "saasOnly",
           },
+          {
+            type: "doc",
+            id: "docs/managed-datahub/approval-workflows",
+            className: "saasOnly",
+          },
           // "docs/wip/guide-ingest-your-first-metadata-source",
           // "docs/wip/guide-enrich-your-metadata",
         ],
@@ -113,11 +118,11 @@ module.exports = {
         ],
       },
 
-      {
-        "Shift Left": [
-          // "docs/wip/importance-of-shift-left",
-        ],
-      },
+      // {
+      //   "Shift Left": [
+      //     // "docs/wip/importance-of-shift-left",
+      //   ],
+      // },
       {
         Sources: [
           // collapse these; add push-based at top
@@ -160,6 +165,7 @@ module.exports = {
           // },
           "docs/platform-instances",
           "metadata-ingestion/docs/dev_guides/stateful",
+          "metadata-ingestion/docs/dev_guides/add_stateful_ingestion_to_source",
           "metadata-ingestion/docs/dev_guides/sql_profiles",
         ],
       },
@@ -449,12 +455,12 @@ module.exports = {
       // "docs/wip/ui-ingestion-guide", -- not needed
       // "docs/wip/personal-access-tokens-guide", -- not needed
 
-      {
-        "Advanced Tutorials": [
-          // "docs/wip/advanced-guides",
-          // "docs/wip/search-ranking",
-        ],
-      },
+      // {
+      //   "Advanced Tutorials": [
+      //     // "docs/wip/advanced-guides",
+      //     // "docs/wip/search-ranking",
+      //   ],
+      // },
     ],
 
     "Join the Community": [

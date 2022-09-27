@@ -546,10 +546,25 @@ class LookerView:
     def _get_sql_info(cls, sql: str, sql_parser_path: str) -> SQLInfo:
         parser_cls = cls._import_sql_parser_cls(sql_parser_path)
 
-        parser_instance: SQLParser = parser_cls(sql)
+        try:
+            parser_instance: SQLParser = parser_cls(sql)
+        except Exception as e:
+            logger.warning(f"Sql parser failed on {sql} with {e}")
+            return SQLInfo(table_names=[], column_names=[])
 
-        sql_table_names: List[str] = parser_instance.get_tables()
-        column_names: List[str] = parser_instance.get_columns()
+        sql_table_names: List[str]
+        try:
+            sql_table_names = parser_instance.get_tables()
+        except Exception as e:
+            logger.warning(f"Sql parser failed on {sql} with {e}")
+            sql_table_names = []
+
+        try:
+            column_names: List[str] = parser_instance.get_columns()
+        except Exception as e:
+            logger.warning(f"Sql parser failed on {sql} with {e}")
+            column_names = []
+
         logger.debug(f"Column names parsed = {column_names}")
         # Drop table names with # in them
         sql_table_names = [t for t in sql_table_names if "#" not in t]
@@ -1152,13 +1167,21 @@ class LookMLSource(Source):
                 continue
 
             explore_reachable_views = set()
-            for explore_dict in model.explores:
-                explore: LookerExplore = LookerExplore.from_dict(
-                    model_name, explore_dict
-                )
-                if explore.upstream_views:
-                    for view_name in explore.upstream_views:
-                        explore_reachable_views.add(view_name)
+            if self.source_config.emit_reachable_views_only:
+                for explore_dict in model.explores:
+                    try:
+                        explore: LookerExplore = LookerExplore.from_dict(
+                            model_name, explore_dict
+                        )
+                        if explore.upstream_views:
+                            for view_name in explore.upstream_views:
+                                explore_reachable_views.add(view_name)
+                    except Exception as e:
+                        self.reporter.report_warning(
+                            f"{model}.explores",
+                            f"failed to process {explore_dict} due to {e}. Run with --debug for full stacktrace",
+                        )
+                        logger.debug("Failed to process explore", exc_info=e)
 
             processed_view_files = processed_view_map.get(model.connection)
             if processed_view_files is None:

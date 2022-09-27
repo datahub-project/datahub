@@ -2,44 +2,44 @@
 #### Create a datahub profile in GCP
 1. Create a custom role for datahub as per [BigQuery docs](https://cloud.google.com/iam/docs/creating-custom-roles#creating_a_custom_role)
 2. Grant the following permissions to this role:
-```   
-   # basic requirements
 
-   # This needs to list datasets
-   bigquery.datasets.get
-   bigquery.datasets.getIamPolicy
-   # Needs to submit queries.
-   bigquery.jobs.create
-   # Needs to check submitet queries status
-   bigquery.jobs.list
-   # Needs for lineage generation and usage to see all the queries were run on a project
-   bigquery.jobs.listAll
-   # Needs to list/get metadata about Bigquery Routines
-   bigquery.routines.get
-   bigquery.routines.list
-   # Needs to list/get metadata about Bigquery Tables   
-   bigquery.tables.get
-   bigquery.tables.list
-   # Needs to get resutlset of queries
-   bigquery.readsessions.create
-   bigquery.readsessions.getData
-   # Needs to get project names/metadata
-   resourcemanager.projects.get
+##### Basic Requirements (needs for metadata ingestion)
+| permission | Description                                  |
+|------------|----------------------------------------------|
+| `bigquery.datasets.get`     | This needs to list datasets                  |
+| `bigquery.datasets.getIamPolicy`  | This needs to list datasets                  |
+| `bigquery.jobs.create`  | Needs to submit queries.                     |
+| `bigquery.jobs.list`  | Needs to check submitted queries status.     |
+| `bigquery.tables.get`  | Needs to get metadata about Bigquery Tables. |
+| `bigquery.tables.list`  | Needs to list metadata about Bigquery Tables. |
+| `bigquery.readsessions.create`  | Needs to get resultset of queries.           |
+| `bigquery.readsessions.getData`  | Needs to get resultset of queries.           |
+| `resourcemanager.projects.get`  | Needs to get resultset of queries.           |
 
-   # needed if profiling enabled
- 
-   # profiler needs to access data to do the profiling
-   bigquery.tables.getData
-   # It needs to create temporary tables to profile partitioned/sharded tables and that is why it needs 
-   # table create/delete privilege.
-   # Use profiling.bigquery_temp_table_schema to restrict to one specific dataset the create/delete permission
-   bigquery.tables.create
-   bigquery.tables.delete
 
-   # needed for lineage generation via GCP logging
-   logging.logEntries.list
-   logging.privateLogEntries.list
-```
+##### Lineage/usage generation requirements
+Additional requirements needed on the top of the basic requirements.
+If you want to get lineage from multiple projects you have to grant this permission
+for each of them.
+
+| permission | Description                                                                         |
+|------------|-------------------------------------------------------------------------------------|
+| `bigquery.jobs.listAll`     | Needs for lineage generation and usage to see all the queries were run on a project |
+| `logging.logEntries.list`     | Needs for lineage generation via GCP logging                                        |
+| `logging.privateLogEntries.list`     | Needs for lineage generation via GCP logging |
+
+##### Profiling requirements
+Additional requirements needed on the top of the basic requirements.
+
+| permission | Description                                                                                       |
+|------------|---------------------------------------------------------------------------------------------------|
+| `bigquery.tables.getData`     | profiler needs to access data to do the profiling                                                 |
+| `bigquery.tables.create`     | It needs to create temporary tables to profile partitioned/sharded tables. See below for details. |
+| `bigquery.tables.delete`     | It needs to create temporary tables to profile partitioned/sharded tables. See below for details.                                                      |
+
+Profiler creates temporary tables to profile partitioned/sharded tables and that is why it needs table create/delete privilege.
+Use `profiling.bigquery_temp_table_schema` to restrict to one specific dataset the create/delete permission
+
 #### Create a service account
 
 1. Setup a ServiceAccount as per [BigQuery docs](https://cloud.google.com/iam/docs/creating-managing-service-accounts#iam-service-accounts-create-console)

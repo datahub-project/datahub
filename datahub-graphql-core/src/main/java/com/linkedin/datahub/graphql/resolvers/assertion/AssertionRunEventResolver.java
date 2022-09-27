@@ -1,5 +1,6 @@
 package com.linkedin.datahub.graphql.resolvers.assertion;
 
+import com.google.common.collect.ImmutableList;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.generated.Assertion;
 import com.linkedin.datahub.graphql.generated.AssertionResultType;
@@ -8,6 +9,7 @@ import com.linkedin.datahub.graphql.generated.AssertionRunEventsResult;
 import com.linkedin.datahub.graphql.generated.AssertionRunStatus;
 import com.linkedin.datahub.graphql.generated.FacetFilterInput;
 import com.linkedin.datahub.graphql.generated.FilterInput;
+import com.linkedin.datahub.graphql.generated.SearchCondition;
 import com.linkedin.datahub.graphql.types.dataset.mappers.AssertionRunEventMapper;
 import com.linkedin.entity.client.EntityClient;
 import com.linkedin.metadata.Constants;

@@ -1,6 +1,6 @@
 import React from 'react';
 import { FacetMetadata, EntityType } from '../../types.generated';
-import { SelectContainerModal } from '../entity/shared/containers/profile/sidebar/Container/ContainerSelectModal';
+import { ContainerSelectModal } from '../entity/shared/containers/profile/sidebar/Container/ContainerSelectModal';
 import { SetDomainModal } from '../entity/shared/containers/profile/sidebar/Domain/SetDomainModal';
 import { EditOwnersModal } from '../entity/shared/containers/profile/sidebar/Ownership/EditOwnersModal';
 import { SelectPlatformModal } from '../entity/shared/containers/profile/sidebar/Platform/SelectPlatformModal';
@@ -63,7 +63,7 @@ export const AdvancedFilterSelectValueModal = ({
 
     if (filterField === 'container') {
         return (
-            <SelectContainerModal
+            <ContainerSelectModal
                 titleOverride="Select Container"
                 defaultValues={initialValues?.map((urn) => ({
                     urn,
@@ -87,7 +87,7 @@ export const AdvancedFilterSelectValueModal = ({
                 }))}
                 titleOverride="Select Platform"
                 onCloseModal={onCloseModal}
-                onOkOverride={(platformUrns) => {
+                onOk={(platformUrns) => {
                     onSelect(platformUrns);
                     onCloseModal();
                 }}
@@ -101,7 +101,7 @@ export const AdvancedFilterSelectValueModal = ({
                 title="Filter by Column"
                 defaultValue={initialValues?.[0]}
                 onCloseModal={onCloseModal}
-                onOkOverride={(newValue) => {
+                onOk={(newValue) => {
                     onSelect([newValue]);
                     onCloseModal();
                 }}
@@ -115,7 +115,7 @@ export const AdvancedFilterSelectValueModal = ({
                 title="Filter by Description"
                 defaultValue={initialValues?.[0]}
                 onCloseModal={onCloseModal}
-                onOkOverride={(newValue) => {
+                onOk={(newValue) => {
                     onSelect([newValue]);
                     onCloseModal();
                 }}
@@ -129,7 +129,7 @@ export const AdvancedFilterSelectValueModal = ({
                 title="Filter by Environment"
                 defaultValue={initialValues?.[0]}
                 onCloseModal={onCloseModal}
-                onOkOverride={(newValue) => {
+                onOk={(newValue) => {
                     onSelect([newValue]);
                     onCloseModal();
                 }}
@@ -143,7 +143,7 @@ export const AdvancedFilterSelectValueModal = ({
                 title="Filter by Subtype"
                 defaultValue={initialValues?.[0]}
                 onCloseModal={onCloseModal}
-                onOkOverride={(newValue) => {
+                onOk={(newValue) => {
                     onSelect([newValue]);
                     onCloseModal();
                 }}
@@ -157,7 +157,7 @@ export const AdvancedFilterSelectValueModal = ({
                 title="Filter by Entity Type"
                 defaultValue={initialValues?.[0]}
                 onCloseModal={onCloseModal}
-                onOkOverride={(newValue) => {
+                onOk={(newValue) => {
                     onSelect([newValue]);
                     onCloseModal();
                 }}

@@ -73,6 +73,15 @@ const isValidTagName = (tagName: string) => {
     return tagName && tagName.length > 0 && !FORBIDDEN_URN_CHARS_REGEX.test(tagName);
 };
 
+const defaultValuesToSelectedValue = (defaultValues?: { urn: string; entity?: Entity | null }[]): any[] => {
+    return (
+        defaultValues?.map((defaultValue) => ({
+            urn: defaultValue.urn,
+            component: <TagTermLabel entity={defaultValue.entity} />,
+        })) || []
+    );
+};
+
 export default function EditTagTermsModal({
     visible,
     onCloseModal,
@@ -89,21 +98,11 @@ export default function EditTagTermsModal({
     const [disableAction, setDisableAction] = useState(false);
     const [urns, setUrns] = useState<string[]>(defaultValues.map((defaultValue) => defaultValue.urn));
     const [selectedTerms, setSelectedTerms] = useState<any[]>(
-        type === EntityType.GlossaryTerm
-            ? defaultValues.map((defaultValue) => ({
-                  urn: defaultValue.urn,
-                  component: <TagTermLabel entity={defaultValue.entity} />,
-              }))
-            : [],
+        type === EntityType.GlossaryTerm ? defaultValuesToSelectedValue(defaultValues) : [],
     );
 
     const [selectedTags, setSelectedTags] = useState<any[]>(
-        type === EntityType.Tag
-            ? defaultValues.map((defaultValue) => ({
-                  urn: defaultValue.urn,
-                  component: <TagTermLabel entity={defaultValue.entity} />,
-              }))
-            : [],
+        type === EntityType.Tag ? defaultValuesToSelectedValue(defaultValues) : [],
     );
 
     const [isFocusedOnInput, setIsFocusedOnInput] = useState(false);
