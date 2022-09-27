@@ -43,7 +43,7 @@ The filters sidebar sits on the left hand side of search results, and lets users
 
 Search results appear ranked by their relevance. In self-hosted DataHub ranking is based on how closely the query matched textual fields of an asset and its metadata. In Managed DataHub, ranking is based on a combination of textual relevance, usage (queries / views), and change frequency. 
 
-With better metadata comes better results. Learn more about ingestion technical metadata here in the [Metadata-ingestion](../architecture/metadata-ingestion.md) guide.
+With better metadata comes better results. Learn more about ingestion technical metadata in the [metadata ingestion](../../metadata-ingestion/README.md) guide.
 
 ### Advanced queries
 
@@ -99,7 +99,7 @@ NOTE: Find the iframe details in YouTube by going to Share > Embed
 
 ### GraphQL
 
-* Full API documentation: [here](../../graphql/queries.md#searchacrossentities).
+* Full API documentation: [here](../../graphql/queries.md#searchAcrossEntities).
 * You can try out the API on the demo instance's public GraphQL interface: [here](https://demo.datahubproject.io/api/graphiql).  
 
 The same GraphQL API that powers the Search UI can be used
@@ -236,4 +236,4 @@ Response in plain text
 
 ### Related Features
 
-* [Metadata-ingestion](../architecture/metadata-ingestion.md)
+* [Metadata ingestion framework](../../metadata-ingestion/README.md)
