@@ -24,7 +24,7 @@
   "editable": true,
   "fiscalYearStartMonth": 0,
   "graphTooltip": 0,
-  "id": 2,
+  "id": 95,
   "links": [],
   "liveNow": false,
   "panels": [
@@ -828,6 +828,722 @@
       "type": "timeseries"
     },
     {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${datasource}"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "axisCenteredZero": false,
+            "axisColorMode": "text",
+            "axisLabel": "",
+            "axisPlacement": "auto",
+            "barAlignment": 0,
+            "drawStyle": "line",
+            "fillOpacity": 0,
+            "gradientMode": "none",
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "viz": false
+            },
+            "lineInterpolation": "linear",
+            "lineWidth": 1,
+            "pointSize": 5,
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "showPoints": "auto",
+            "spanNulls": false,
+            "stacking": {
+              "group": "A",
+              "mode": "none"
+            },
+            "thresholdsStyle": {
+              "mode": "off"
+            }
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 80
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 7,
+        "x": 7,
+        "y": 18
+      },
+      "id": 45,
+      "options": {
+        "legend": {
+          "calcs": [],
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "single",
+          "sort": "none"
+        }
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${datasource}"
+          },
+          "editorMode": "builder",
+          "exemplar": true,
+          "expr": "metrics_com_linkedin_metadata_kafka_MetadataChangeLogProcessor_EntityChangeEventGeneratorHook_latency_Mean",
+          "legendFormat": "Avg",
+          "range": true,
+          "refId": "A"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${datasource}"
+          },
+          "editorMode": "builder",
+          "exemplar": true,
+          "expr": "metrics_com_linkedin_metadata_kafka_MetadataChangeLogProcessor_EntityChangeEventGeneratorHook_latency_75thPercentile",
+          "hide": false,
+          "legendFormat": "P75",
+          "range": true,
+          "refId": "B"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${datasource}"
+          },
+          "editorMode": "builder",
+          "exemplar": true,
+          "expr": "metrics_com_linkedin_metadata_kafka_MetadataChangeLogProcessor_EntityChangeEventGeneratorHook_latency_95thPercentile",
+          "hide": false,
+          "interval": "",
+          "legendFormat": "P95",
+          "range": true,
+          "refId": "C"
+        }
+      ],
+      "title": "EventGenerator Latency",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${datasource}"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "axisCenteredZero": false,
+            "axisColorMode": "text",
+            "axisLabel": "",
+            "axisPlacement": "auto",
+            "barAlignment": 0,
+            "drawStyle": "line",
+            "fillOpacity": 0,
+            "gradientMode": "none",
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "viz": false
+            },
+            "lineInterpolation": "linear",
+            "lineWidth": 1,
+            "pointSize": 5,
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "showPoints": "auto",
+            "spanNulls": false,
+            "stacking": {
+              "group": "A",
+              "mode": "none"
+            },
+            "thresholdsStyle": {
+              "mode": "off"
+            }
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 80
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 7,
+        "x": 14,
+        "y": 18
+      },
+      "id": 47,
+      "options": {
+        "legend": {
+          "calcs": [],
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "single",
+          "sort": "none"
+        }
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${datasource}"
+          },
+          "editorMode": "builder",
+          "exemplar": true,
+          "expr": "metrics_com_linkedin_metadata_kafka_MetadataChangeLogProcessor_IngestionSchedulerHook_latency_Mean",
+          "legendFormat": "Average",
+          "range": true,
+          "refId": "A"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${datasource}"
+          },
+          "editorMode": "builder",
+          "exemplar": true,
+          "expr": "metrics_com_linkedin_metadata_kafka_MetadataChangeLogProcessor_IngestionSchedulerHook_latency_75thPercentile",
+          "hide": false,
+          "legendFormat": "P75",
+          "range": true,
+          "refId": "B"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${datasource}"
+          },
+          "editorMode": "builder",
+          "exemplar": true,
+          "expr": "metrics_com_linkedin_metadata_kafka_MetadataChangeLogProcessor_IngestionSchedulerHook_latency_95thPercentile",
+          "hide": false,
+          "legendFormat": "P95",
+          "range": true,
+          "refId": "C"
+        }
+      ],
+      "title": "Ingestion Scheduler latency",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${datasource}"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "axisCenteredZero": false,
+            "axisColorMode": "text",
+            "axisLabel": "",
+            "axisPlacement": "auto",
+            "barAlignment": 0,
+            "drawStyle": "line",
+            "fillOpacity": 0,
+            "gradientMode": "none",
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "viz": false
+            },
+            "lineInterpolation": "linear",
+            "lineWidth": 1,
+            "pointSize": 5,
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "showPoints": "auto",
+            "spanNulls": false,
+            "stacking": {
+              "group": "A",
+              "mode": "none"
+            },
+            "thresholdsStyle": {
+              "mode": "off"
+            }
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 80
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 7,
+        "x": 0,
+        "y": 26
+      },
+      "id": 49,
+      "options": {
+        "legend": {
+          "calcs": [],
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "single",
+          "sort": "none"
+        }
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${datasource}"
+          },
+          "editorMode": "builder",
+          "exemplar": true,
+          "expr": "metrics_com_linkedin_metadata_kafka_MetadataChangeLogProcessor_MetadataTestHook_latency_Mean",
+          "legendFormat": "Avg",
+          "range": true,
+          "refId": "A"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${datasource}"
+          },
+          "editorMode": "builder",
+          "exemplar": true,
+          "expr": "metrics_com_linkedin_metadata_kafka_MetadataChangeLogProcessor_MetadataTestHook_latency_75thPercentile",
+          "hide": false,
+          "legendFormat": "P75",
+          "range": true,
+          "refId": "B"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${datasource}"
+          },
+          "editorMode": "builder",
+          "exemplar": true,
+          "expr": "metrics_com_linkedin_metadata_kafka_MetadataChangeLogProcessor_MetadataTestHook_latency_95thPercentile",
+          "hide": false,
+          "legendFormat": "P95",
+          "range": true,
+          "refId": "C"
+        }
+      ],
+      "title": "Metadata Test Latency",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${datasource}"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "axisCenteredZero": false,
+            "axisColorMode": "text",
+            "axisLabel": "",
+            "axisPlacement": "auto",
+            "barAlignment": 0,
+            "drawStyle": "line",
+            "fillOpacity": 0,
+            "gradientMode": "none",
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "viz": false
+            },
+            "lineInterpolation": "linear",
+            "lineWidth": 1,
+            "pointSize": 5,
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "showPoints": "auto",
+            "spanNulls": false,
+            "stacking": {
+              "group": "A",
+              "mode": "none"
+            },
+            "thresholdsStyle": {
+              "mode": "off"
+            }
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 80
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 7,
+        "x": 7,
+        "y": 26
+      },
+      "id": 51,
+      "options": {
+        "legend": {
+          "calcs": [],
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "single",
+          "sort": "none"
+        }
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${datasource}"
+          },
+          "editorMode": "builder",
+          "exemplar": true,
+          "expr": "metrics_com_linkedin_metadata_kafka_MetadataChangeLogProcessor_NotificationGeneratorHook_latency_Mean",
+          "legendFormat": "Avg",
+          "range": true,
+          "refId": "A"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${datasource}"
+          },
+          "editorMode": "builder",
+          "exemplar": true,
+          "expr": "metrics_com_linkedin_metadata_kafka_MetadataChangeLogProcessor_NotificationGeneratorHook_latency_75thPercentile",
+          "hide": false,
+          "legendFormat": "P75",
+          "range": true,
+          "refId": "B"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${datasource}"
+          },
+          "editorMode": "builder",
+          "exemplar": true,
+          "expr": "metrics_com_linkedin_metadata_kafka_MetadataChangeLogProcessor_NotificationGeneratorHook_latency_95thPercentile",
+          "hide": false,
+          "legendFormat": "P95",
+          "range": true,
+          "refId": "C"
+        }
+      ],
+      "title": "Notification Generator latency",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${datasource}"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "axisCenteredZero": false,
+            "axisColorMode": "text",
+            "axisLabel": "",
+            "axisPlacement": "auto",
+            "barAlignment": 0,
+            "drawStyle": "line",
+            "fillOpacity": 0,
+            "gradientMode": "none",
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "viz": false
+            },
+            "lineInterpolation": "linear",
+            "lineWidth": 1,
+            "pointSize": 5,
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "showPoints": "auto",
+            "spanNulls": false,
+            "stacking": {
+              "group": "A",
+              "mode": "none"
+            },
+            "thresholdsStyle": {
+              "mode": "off"
+            }
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 80
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 7,
+        "x": 14,
+        "y": 26
+      },
+      "id": 53,
+      "options": {
+        "legend": {
+          "calcs": [],
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "single",
+          "sort": "none"
+        }
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${datasource}"
+          },
+          "editorMode": "builder",
+          "exemplar": true,
+          "expr": "metrics_com_linkedin_metadata_kafka_MetadataChangeLogProcessor_SiblingAssociationHook_latency_Mean",
+          "legendFormat": "Avg",
+          "range": true,
+          "refId": "A"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${datasource}"
+          },
+          "editorMode": "builder",
+          "exemplar": true,
+          "expr": "metrics_com_linkedin_metadata_kafka_MetadataChangeLogProcessor_SiblingAssociationHook_latency_75thPercentile",
+          "hide": false,
+          "legendFormat": "P75",
+          "range": true,
+          "refId": "B"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${datasource}"
+          },
+          "editorMode": "builder",
+          "exemplar": true,
+          "expr": "metrics_com_linkedin_metadata_kafka_MetadataChangeLogProcessor_SiblingAssociationHook_latency_95thPercentile",
+          "hide": false,
+          "legendFormat": "P95",
+          "range": true,
+          "refId": "C"
+        }
+      ],
+      "title": "Sibling Association latency",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${datasource}"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "axisCenteredZero": false,
+            "axisColorMode": "text",
+            "axisLabel": "",
+            "axisPlacement": "auto",
+            "barAlignment": 0,
+            "drawStyle": "line",
+            "fillOpacity": 0,
+            "gradientMode": "none",
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "viz": false
+            },
+            "lineInterpolation": "linear",
+            "lineWidth": 1,
+            "pointSize": 5,
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "showPoints": "auto",
+            "spanNulls": false,
+            "stacking": {
+              "group": "A",
+              "mode": "none"
+            },
+            "thresholdsStyle": {
+              "mode": "off"
+            }
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 80
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 7,
+        "x": 0,
+        "y": 34
+      },
+      "id": 55,
+      "options": {
+        "legend": {
+          "calcs": [],
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "single",
+          "sort": "none"
+        }
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${datasource}"
+          },
+          "editorMode": "builder",
+          "exemplar": true,
+          "expr": "metrics_com_linkedin_metadata_kafka_MetadataChangeLogProcessor_UpdateIndicesHook_latency_Mean",
+          "legendFormat": "Avg",
+          "range": true,
+          "refId": "A"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${datasource}"
+          },
+          "editorMode": "builder",
+          "exemplar": true,
+          "expr": "metrics_com_linkedin_metadata_kafka_MetadataChangeLogProcessor_UpdateIndicesHook_latency_75thPercentile",
+          "hide": false,
+          "instant": false,
+          "legendFormat": "P75",
+          "range": true,
+          "refId": "B"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${datasource}"
+          },
+          "editorMode": "builder",
+          "exemplar": true,
+          "expr": "metrics_com_linkedin_metadata_kafka_MetadataChangeLogProcessor_UpdateIndicesHook_latency_95thPercentile",
+          "hide": false,
+          "legendFormat": "P95",
+          "range": true,
+          "refId": "C"
+        }
+      ],
+      "title": "Update Indices latency",
+      "type": "timeseries"
+    },
+    {
       "collapsed": false,
       "datasource": {
         "type": "prometheus",
@@ -837,7 +1553,7 @@
         "h": 1,
         "w": 24,
         "x": 0,
-        "y": 26
+        "y": 42
       },
       "id": 12,
       "panels": [],
@@ -914,7 +1630,7 @@
         "h": 8,
         "w": 7,
         "x": 0,
-        "y": 27
+        "y": 43
       },
       "id": 23,
       "options": {
@@ -1018,7 +1734,7 @@
         "h": 8,
         "w": 7,
         "x": 7,
-        "y": 27
+        "y": 43
       },
       "id": 29,
       "options": {
@@ -1134,7 +1850,7 @@
         "h": 8,
         "w": 7,
         "x": 14,
-        "y": 27
+        "y": 43
       },
       "id": 25,
       "options": {
@@ -1200,7 +1916,7 @@
         "h": 1,
         "w": 24,
         "x": 0,
-        "y": 35
+        "y": 51
       },
       "id": 27,
       "panels": [],
@@ -1277,7 +1993,7 @@
         "h": 8,
         "w": 7,
         "x": 0,
-        "y": 36
+        "y": 52
       },
       "id": 28,
       "options": {
@@ -1381,7 +2097,7 @@
         "h": 8,
         "w": 7,
         "x": 7,
-        "y": 36
+        "y": 52
       },
       "id": 24,
       "options": {
@@ -1497,7 +2213,7 @@
         "h": 8,
         "w": 7,
         "x": 14,
-        "y": 36
+        "y": 52
       },
       "id": 35,
       "options": {
@@ -1563,7 +2279,7 @@
         "h": 1,
         "w": 24,
         "x": 0,
-        "y": 44
+        "y": 60
       },
       "id": 32,
       "panels": [],
@@ -1640,7 +2356,7 @@
         "h": 8,
         "w": 7,
         "x": 0,
-        "y": 45
+        "y": 61
       },
       "id": 33,
       "options": {
@@ -1673,7 +2389,7 @@
             "uid": "${datasource}"
           },
           "exemplar": true,
-          "expr": "increase(metrics_com_linkedin_metadata_resources_lineage_Lineage_get_Count{}[1m])/60",
+          "expr": "increase(metrics_com_linkedin_metadata_resources_lineage_Relationships_getLineage_Count{}[1m])/60",
           "hide": false,
           "interval": "",
           "legendFormat": "Lineage QPS",
@@ -1768,7 +2484,7 @@
         "h": 8,
         "w": 7,
         "x": 7,
-        "y": 45
+        "y": 61
       },
       "id": 34,
       "options": {
@@ -1833,7 +2549,7 @@
         "h": 1,
         "w": 24,
         "x": 0,
-        "y": 53
+        "y": 69
       },
       "id": 4,
       "panels": [],
@@ -1910,7 +2626,7 @@
         "h": 8,
         "w": 12,
         "x": 0,
-        "y": 54
+        "y": 70
       },
       "id": 18,
       "options": {
@@ -2002,7 +2718,7 @@
         "h": 8,
         "w": 12,
         "x": 12,
-        "y": 54
+        "y": 70
       },
       "id": 19,
       "options": {
@@ -2094,7 +2810,7 @@
         "h": 9,
         "w": 12,
         "x": 0,
-        "y": 62
+        "y": 78
       },
       "id": 15,
       "options": {
@@ -2210,7 +2926,7 @@
         "h": 9,
         "w": 12,
         "x": 12,
-        "y": 62
+        "y": 78
       },
       "id": 13,
       "options": {
@@ -2326,7 +3042,7 @@
         "h": 9,
         "w": 12,
         "x": 0,
-        "y": 71
+        "y": 87
       },
       "id": 2,
       "options": {
@@ -2442,7 +3158,7 @@
         "h": 9,
         "w": 12,
         "x": 12,
-        "y": 71
+        "y": 87
       },
       "id": 14,
       "options": {
@@ -2558,7 +3274,7 @@
         "h": 9,
         "w": 12,
         "x": 0,
-        "y": 80
+        "y": 96
       },
       "id": 16,
       "options": {
@@ -2649,6 +3365,6 @@
   "timezone": "",
   "title": "DataHub Dashboard",
   "uid": "x4fS54Vnk",
-  "version": 8,
+  "version": 2,
   "weekStart": ""
 }
