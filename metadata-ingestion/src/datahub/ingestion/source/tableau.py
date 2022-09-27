@@ -1172,7 +1172,9 @@ class TableauSource(Source):
 
     def gen_workbook_key(self, workbook):
         return WorkbookKey(
-            platform=self.platform, instance=self.config.platform_instance, workbook_id=workbook["id"]
+            platform=self.platform,
+            instance=self.config.platform_instance,
+            workbook_id=workbook["id"],
         )
 
     @staticmethod

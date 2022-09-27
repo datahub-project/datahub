@@ -67,6 +67,8 @@ def test_tableau_ingest_with_platform_instance(pytestconfig, tmp_path):
     )
 
 
+@freeze_time(FROZEN_TIME)
+@pytest.mark.slow_unit
 def test_tableau_usage_stat(pytestconfig, tmp_path):
     output_file_name: str = "tableau_stat_mces.json"
     golden_file_name: str = "tableau_state_mces_golden.json"
