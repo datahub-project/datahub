@@ -1,14 +1,14 @@
 import FeatureAvailability from '@site/src/components/FeatureAvailability';
 
-# Approval Workflows
+# About DataHub Approval Workflows
 
 <FeatureAvailability saasOnly />
 
 ## Overview
 
-Keeping all your metadata properly classified can be hard work when you only have a limited number of trusted data stewards. With Acryl, you can source proposals of tags and glossary terms associated to datasets or dataset schema fields. These proposals may come from users with limited context or programatic processes using hueristics. Then, data stewards and data owners can go through them and only approve proposals they consider correct. This reduces the burden of your stewards and owners while increasing coverage.
+Keeping all your metadata properly classified can be hard work when you only have a limited number of trusted data stewards. With Managed DataHub, you can source proposals of Tags and Glossary Terms associated to datasets or dataset columns. These proposals may come from users with limited context or programatic processes using hueristics. Then, data stewards and data owners can go through them and only approve proposals they consider correct. This reduces the burden of your stewards and owners while increasing coverage.
 
-Approval workflows also cover the business glossary itself. This allows you to source glossary terms and glossary term description changes from across your organization while limiting who has final control over what gets in.
+Approval workflows also cover the Business Glossary itself. This allows you to source Glossary Terms and Glossary Term description changes from across your organization while limiting who has final control over what gets in.
 
 ## Using Approval Workflows
 
@@ -75,20 +75,19 @@ DataHub exposes a GraphQL API for proposing Tags and Glossary Terms.
 At a high level, callers of this API will be required to provide the following details:
 
 1. A unique identifier for the target Metadata Entity (URN)
-2. An optional sub-resource identifier which designates a sub-resource to attach the Tag or GLossary Term to. for example reference to a particular "field" within a Dataset.
+2. An optional sub-resource identifier which designates a sub-resource to attach the Tag or Glossary Term to. for example reference to a particular "field" within a Dataset.
 3. A unique identifier for the Tag or Glossary Term they wish to propose (URN)
 
 In the following sections, we will describe how to construct each of these items and use the DataHub GraphQL API to submit Tag or Glossary Term proposals.
 
 #### Constructing an Entity Identifier
 
-Inside DataHub, each Metadata Entity is uniquely identifier by a universal resource name, or an URN. This identify can be copied from the entity page, extracted from the API, or read from a downloaded search result. You can also use the helper methods in the datahub python library given a set of components.
+Inside DataHub, each Metadata Entity is uniquely identified by a Universal Resource Name, or an URN. This identifier can be copied from the entity page, extracted from the API, or read from a downloaded search result. You can also use the helper methods in the datahub python library given a set of components.
 
 #### Constructing a Sub-Resource Identifier
 
-Specific Metadata Entity types have additional sub-resources to which tags may be applied.
-Today, this only applies for Dataset Metadata Entities, which have a "fields" sub-resource, with each field uniquely identified using a standard path format, reflecting its place within the Dataset's data schema.
-To construct a field path, see Constructing Dataset Field Paths.
+Specific Metadata Entity types have additional sub-resources to which Tags may be applied.
+Today, this only applies for Dataset Metadata Entities, which have a "fields" sub-resource. In this case, the `subResource` value would be the field path for the schema field.
 
 #### Finding a Tag or Glossary Term Identifier
 
@@ -98,15 +97,19 @@ Tag URNs have the following format:
 `urn:li:tag:<id>`
 
 Glossary Term URNs have the following format:
-urn:li:glossaryTerm:<id>
+`urn:li:glossaryTerm:<id>`
 
 These full identifiers can be copied from the entity pages of the Tag or Glossary Term.
+
+<p align="center">
+  <img width="70%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/copy_urn_from_entity.png"/>
+</p>
 
 #### Issuing a GraphQL Query
 
 Once we've constructed an Entity URN, any relevant sub-resource identifiers, and a Tag or Term URN, we're ready to propose! To do so, we'll use the DataHub GraphQL API.
 
-In particular, we'll be using the proposeTag, proposeGlossaryTerm and proposeUpdateDescription Mutations, which have the following interface:
+In particular, we'll be using the proposeTag, proposeGlossaryTerm, and proposeUpdateDescription Mutations, which have the following interface:
 
 ```
 type Mutation {
@@ -167,7 +170,7 @@ To create a new proposal one of these Metadata privileges are required. All role
 - Propose Glossary Terms - Allows to propose terms at the Entity level
 - Propose Dataset Column Glossary Terms - Allows to propose terms at the Dataset Field level
 
-To be able to see the proposals Tab you need the <strong>"View Metadata Proposals"</strong> PLATFORM privilege
+To be able to see the Proposals Tab you need the <strong>"View Metadata Proposals"</strong> PLATFORM privilege
 
 #### Privileges for Managing Proposals
 
@@ -177,8 +180,9 @@ To be able to approve or deny proposals you need one of the following Metadata p
 - Manage Glossary Term Proposals
 - Manage Dataset Column Tag Proposals
 - Manage Dataset Column Term Proposals
-  These map directly to the 4 privileges for doing the proposals
+
+These map directly to the 4 privileges for doing the proposals
 
 ### Videos
 
-[Tag And Term Proposals](https://www.loom.com/share/1e450bde6b544653bbbf7f9762d1b157)
+<div style="position: relative; padding-bottom: 62.5%; height: 0;"><iframe src="https://www.loom.com/embed/1e450bde6b544653bbbf7f9762d1b157" frameborder="0" webkitallowfullscreen mozallowfullscreen allowfullscreen style="position: absolute; top: 0; left: 0; width: 100%; height: 100%;"></iframe></div>
