@@ -83,12 +83,6 @@ class DataHubGraph(DatahubRestEmitter):
             self.server_id = "missing"
             logger.debug(f"Failed to get server id due to {e}")
 
-    def __enter__(self):
-        return self
-
-    def __exit__(self, type, value, tb):
-        return super().__exit__(type, value, tb)
-
     def _get_generic(self, url: str) -> Dict:
         try:
             response = self._session.get(url)
