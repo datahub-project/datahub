@@ -27,7 +27,7 @@ public class IngestRetentionPoliciesStepFactory {
   @Value("${entityService.retention.enabled}")
   private Boolean _enableRetention;
 
-  @Value("${entityService.retention.applyOnBootstrap:false}")
+  @Value("${entityService.retention.applyOnBootstrap}")
   private Boolean _applyOnBootstrap;
 
   @Value("${datahub.plugin.retention.path}")
