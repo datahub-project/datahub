@@ -571,9 +571,10 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
         view.columns = self.get_columns_for_table(conn, table_identifier)
 
         lineage_info: Optional[Tuple[UpstreamLineage, Dict[str, str]]] = None
-        lineage_info = self.lineage_extractor.get_upstream_lineage_info(
-            table_identifier, self.platform
-        )
+        if self.config.include_table_lineage:
+            lineage_info = self.lineage_extractor.get_upstream_lineage_info(
+                table_identifier, self.platform
+            )
 
         view_workunits = self.gen_view_dataset_workunits(
             view, project_id, dataset_name, lineage_info

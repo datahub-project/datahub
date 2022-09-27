@@ -41,12 +41,18 @@ type Props = {
     onCloseModal: () => void;
     refetch?: () => Promise<any>;
     entityType?: EntityType; // Only used for tracking events
+    onOkOverride?: (result: SelectedOwner[]) => void;
+    title?: string;
+    defaultValues?: { urn: string; entity?: Entity | null }[];
 };
 
 // value: {ownerUrn: string, ownerEntityType: EntityType}
 type SelectedOwner = {
-    label: string;
-    value;
+    label: string | React.ReactNode;
+    value: {
+        ownerUrn: string;
+        ownerEntityType: EntityType;
+    };
 };
 
 export const EditOwnersModal = ({
@@ -57,13 +63,50 @@ export const EditOwnersModal = ({
     onCloseModal,
     refetch,
     entityType,
+    onOkOverride,
+    title,
+    defaultValues,
 }: Props) => {
     const entityRegistry = useEntityRegistry();
+
+    // Renders a search result in the select dropdown.
+    const renderSearchResult = (entity: Entity) => {
+        const avatarUrl =
+            (entity.type === EntityType.CorpUser && (entity as CorpUser).editableProperties?.pictureLink) || undefined;
+        const displayName = entityRegistry.getDisplayName(entity.type, entity);
+        return (
+            <Select.Option value={entity.urn} key={entity.urn}>
+                <OwnerLabel name={displayName} avatarUrl={avatarUrl} type={entity.type} />
+            </Select.Option>
+        );
+    };
+
+    const renderDropdownResult = (entity: Entity) => {
+        const avatarUrl =
+            entity.type === EntityType.CorpUser
+                ? (entity as CorpUser).editableProperties?.pictureLink || undefined
+                : undefined;
+        const displayName = entityRegistry.getDisplayName(entity.type, entity);
+        return <OwnerLabel name={displayName} avatarUrl={avatarUrl} type={entity.type} />;
+    };
+
+    const defaultValuesToSelectedOwners = (vals: { urn: string; entity?: Entity | null }[]): SelectedOwner[] => {
+        return vals.map((defaultValue) => ({
+            label: defaultValue.entity ? renderDropdownResult(defaultValue.entity) : defaultValue.urn,
+            value: {
+                ownerUrn: defaultValue.urn,
+                ownerEntityType: defaultValue.entity?.type || EntityType.CorpUser,
+            },
+        }));
+    };
+
     const [inputValue, setInputValue] = useState('');
     const [batchAddOwnersMutation] = useBatchAddOwnersMutation();
     const [batchRemoveOwnersMutation] = useBatchRemoveOwnersMutation();
     const ownershipTypes = OWNERSHIP_DISPLAY_TYPES;
-    const [selectedOwners, setSelectedOwners] = useState<SelectedOwner[]>([]);
+    const [selectedOwners, setSelectedOwners] = useState<SelectedOwner[]>(
+        defaultValuesToSelectedOwners(defaultValues || []),
+    );
     const [selectedOwnerType, setSelectedOwnerType] = useState<OwnershipType>(defaultOwnerType || OwnershipType.None);
 
     // User and group dropdown search results!
@@ -101,20 +144,6 @@ export const EditOwnersModal = ({
         handleSearch(EntityType.CorpGroup, text, groupSearch);
     };
 
-    // Renders a search result in the select dropdown.
-    const renderSearchResult = (entity: Entity) => {
-        const avatarUrl =
-            entity.type === EntityType.CorpUser
-                ? (entity as CorpUser).editableProperties?.pictureLink || undefined
-                : undefined;
-        const displayName = entityRegistry.getDisplayName(entity.type, entity);
-        return (
-            <Select.Option value={entity.urn} key={entity.urn}>
-                <OwnerLabel name={displayName} avatarUrl={avatarUrl} type={entity.type} />
-            </Select.Option>
-        );
-    };
-
     const ownerResult = !inputValue || inputValue.length === 0 ? recommendedData : combinedSearchResults;
 
     const ownerSearchOptions = ownerResult?.map((result) => {
@@ -149,7 +178,7 @@ export const EditOwnersModal = ({
                     label: selectedValue.value,
                     value: {
                         ownerUrn: selectedValue.value,
-                        ownerEntityType,
+                        ownerEntityType: ownerEntityType as unknown as EntityType,
                     },
                 },
             ];
@@ -160,7 +189,9 @@ export const EditOwnersModal = ({
     // When a owner search result is deselected, remove the Owner
     const onDeselectOwner = (selectedValue: { key: string; label: React.ReactNode; value: string }) => {
         setInputValue('');
-        const newValues = selectedOwners.filter((owner) => owner.label !== selectedValue.value);
+        const newValues = selectedOwners.filter(
+            (owner) => owner.label !== selectedValue.value && owner.value.ownerUrn !== selectedValue.value,
+        );
         setSelectedOwners(newValues);
     };
 
@@ -251,6 +282,12 @@ export const EditOwnersModal = ({
         if (selectedOwners.length === 0) {
             return;
         }
+
+        if (onOkOverride) {
+            onOkOverride(selectedOwners);
+            return;
+        }
+
         const inputs = selectedOwners.map((selectedActor) => {
             const input = {
                 ownerUrn: selectedActor.value.ownerUrn,
@@ -273,7 +310,7 @@ export const EditOwnersModal = ({
 
     return (
         <Modal
-            title={`${operationType === OperationType.ADD ? 'Add' : 'Remove'} Owners`}
+            title={title || `${operationType === OperationType.ADD ? 'Add' : 'Remove'} Owners`}
             visible
             onCancel={onModalClose}
             keyboard
@@ -312,7 +349,12 @@ export const EditOwnersModal = ({
                             }}
                             tagRender={tagRender}
                             onBlur={handleBlur}
-                            value={selectedOwners}
+                            value={selectedOwners as any}
+                            defaultValue={selectedOwners.map((owner) => ({
+                                key: owner.value.ownerUrn,
+                                value: owner.value.ownerUrn,
+                                label: owner.label,
+                            }))}
                         >
                             {ownerSearchOptions}
                         </SelectInput>
