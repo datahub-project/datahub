@@ -163,6 +163,7 @@ public class UpdateIndicesHook implements MetadataChangeLogHook {
         if (!fineGrainedLineage.hasDownstreams() || !fineGrainedLineage.hasUpstreams()) {
           break;
         }
+        // for every downstream, create an edge with each of the upstreams
         for (Urn downstream : fineGrainedLineage.getDownstreams()) {
           for (Urn upstream : fineGrainedLineage.getUpstreams()) {
             edgesToAdd.add(new Edge(downstream, upstream, DOWNSTREAM_OF));
