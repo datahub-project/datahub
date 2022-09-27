@@ -185,4 +185,6 @@ These map directly to the 4 privileges for doing the proposals
 
 ### Videos
 
-<div style="position: relative; padding-bottom: 62.5%; height: 0;"><iframe src="https://www.loom.com/embed/1e450bde6b544653bbbf7f9762d1b157" frameborder="0" webkitallowfullscreen mozallowfullscreen allowfullscreen style="position: absolute; top: 0; left: 0; width: 100%; height: 100%;"></iframe></div>
+<p align="center">
+<iframe width="560" height="315" src="https://www.loom.com/embed/1e450bde6b544653bbbf7f9762d1b157" title="Approval Workflows" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe>
+</p>
