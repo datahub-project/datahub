@@ -63,12 +63,17 @@ class PlatformKey(DatahubKey):
     backcompat_instance_for_guid: Optional[str] = Field(default=None, exclude=True)
 
     def guid_dict(self) -> Dict[str, str]:
-        bag = super().guid_dict()
+        # FIXME: Notice that we can't use exclude_none=True here. This is because
+        # we need to maintain the insertion order in the dict (so that instance)
+        # comes before the keys from any subclasses. While the guid computation
+        # method uses sort_keys=True, we also use the guid_dict method when
+        # generating custom properties, which are not sorted.
+        bag = self.dict(by_alias=True, exclude_none=False)
 
-        assert "backcompat_instance_for_guid" not in bag
-        if self.backcompat_instance_for_guid:
-            bag.setdefault("instance", self.backcompat_instance_for_guid)
+        if self.instance is None:
+            bag["instance"] = self.backcompat_instance_for_guid
 
+        bag = {k: v for k, v in bag.items() if v is not None}
         return bag
 
 
