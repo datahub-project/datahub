@@ -4,6 +4,7 @@ set -e
 
 : ${DATAHUB_ANALYTICS_ENABLED:=true}
 : ${USE_AWS_ELASTICSEARCH:=false}
+: ${ELASTICSEARCH_INSECURE:=false}
 
 if [[ $ELASTICSEARCH_USE_SSL == true ]]; then
     ELASTICSEARCH_PROTOCOL=https
@@ -23,8 +24,11 @@ if [[ -z $ELASTICSEARCH_AUTH_HEADER ]]; then
   ELASTICSEARCH_AUTH_HEADER="Accept: */*"
 fi
 
-if [[ $ELASTICSEARCH_INSECURE ]]; then
+if [[ $ELASTICSEARCH_INSECURE == true ]]; then
+  echo -e "Going to use default elastic insecure mode"
   ELASTICSEARCH_INSECURE="-k "
+else 
+  unset ELASTICSEARCH_INSECURE
 fi
 
 function create_datahub_usage_event_datastream() {
