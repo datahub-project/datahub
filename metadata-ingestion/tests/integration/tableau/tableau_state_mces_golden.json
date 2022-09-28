@@ -56,6 +56,20 @@
     }
 },
 {
+    "entityType": "chart",
+    "entityUrn": "urn:li:chart:(tableau,222d1406-de0e-cd8d-0b94-9b45a0007e59)",
+    "changeType": "UPSERT",
+    "aspectName": "chartUsageStatistics",
+    "aspect": {
+        "value": "{\"timestampMillis\": 1638860400000, \"partitionSpec\": {\"type\": \"FULL_TABLE\", \"partition\": \"FULL_TABLE_SNAPSHOT\"}, \"viewsCount\": 5}",
+        "contentType": "application/json"
+    },
+    "systemMetadata": {
+        "lastObserved": 1638860400000,
+        "runId": "tableau-test"
+    }
+},
+{
     "proposedSnapshot": {
         "com.linkedin.pegasus2avro.metadata.snapshot.ChartSnapshot": {
             "urn": "urn:li:chart:(tableau,222d1406-de0e-cd8d-0b94-9b45a0007e59)",
@@ -413,6 +427,20 @@
     "aspectName": "container",
     "aspect": {
         "value": "{\"container\": \"urn:li:container:008e111aa1d250dd52e0fd5d4b307b1a\"}",
+        "contentType": "application/json"
+    },
+    "systemMetadata": {
+        "lastObserved": 1638860400000,
+        "runId": "tableau-test"
+    }
+},
+{
+    "entityType": "dashboard",
+    "entityUrn": "urn:li:dashboard:(tableau,8f7dd564-36b6-593f-3c6f-687ad06cd40b)",
+    "changeType": "UPSERT",
+    "aspectName": "dashboardUsageStatistics",
+    "aspect": {
+        "value": "{\"timestampMillis\": 1638860400000, \"partitionSpec\": {\"type\": \"FULL_TABLE\", \"partition\": \"FULL_TABLE_SNAPSHOT\"}, \"viewsCount\": 3}",
         "contentType": "application/json"
     },
     "systemMetadata": {
