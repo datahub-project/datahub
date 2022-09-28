@@ -5,6 +5,8 @@ import json
 import logging
 import os
 import time
+import urllib
+
 from datetime import datetime as dt
 from sys import stdout
 from typing import Container, Dict, List, Optional, TypeVar, Union
@@ -356,7 +358,8 @@ def generate_json_output_mce(mce: MetadataChangeEventClass, file_loc: str) -> No
     file_name = mce.proposedSnapshot.urn.replace(
         "urn:li:dataset:(urn:li:dataPlatform:", ""
     ).split(",")[1]
-    path = os.path.join(file_loc, f"{file_name}_{sys_time}.json")
+    safe_filename = urllib.parse.quote_plus(file_name)
+    path = os.path.join(file_loc, f"{safe_filename}_{sys_time}.json")
 
     with open(path, "w") as f:
         json.dump(mce_obj, f, indent=4)
@@ -371,7 +374,8 @@ def generate_json_output_mcp(mcp: MetadataChangeProposalWrapper, file_loc: str) 
     file_name = mcp.entityUrn.replace("urn:li:dataset:(urn:li:dataPlatform:", "").split(
         ","
     )[1]
-    path = os.path.join(file_loc, f"{file_name}_{sys_time}.json")
+    safe_filename = urllib.parse.quote_plus(file_name)
+    path = os.path.join(file_loc, f"{safe_filename}_{sys_time}.json")
 
     with open(path, "w") as f:
         json.dump(mcp_obj, f, indent=4)
