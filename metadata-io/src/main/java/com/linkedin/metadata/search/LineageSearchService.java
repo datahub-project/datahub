@@ -40,7 +40,6 @@ import org.apache.commons.lang3.tuple.Pair;
 import org.springframework.cache.Cache;
 
 
-@Slf4j
 @RequiredArgsConstructor
 @Slf4j
 public class LineageSearchService {
