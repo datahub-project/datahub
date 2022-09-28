@@ -566,18 +566,16 @@ class SQLAlchemySource(StatefulIngestionSourceBase):
             database=db_name,
             schema=schema,
             platform=self.platform,
-            instance=self.config.platform_instance
-            if self.config.platform_instance is not None
-            else self.config.env,
+            instance=self.config.platform_instance,
+            backcompat_instance_for_guid=self.config.env,
         )
 
     def gen_database_key(self, database: str) -> PlatformKey:
         return DatabaseKey(
             database=database,
             platform=self.platform,
-            instance=self.config.platform_instance
-            if self.config.platform_instance is not None
-            else self.config.env,
+            instance=self.config.platform_instance,
+            backcompat_instance_for_guid=self.config.env,
         )
 
     def gen_database_containers(self, database: str) -> Iterable[MetadataWorkUnit]:
@@ -605,6 +603,7 @@ class SQLAlchemySource(StatefulIngestionSourceBase):
             database_container_key = self.gen_database_key(database=db_name)
 
         container_workunits = gen_containers(
+            # TODO: this one is bad
             schema_container_key,
             schema,
             [SqlContainerSubTypes.SCHEMA],
