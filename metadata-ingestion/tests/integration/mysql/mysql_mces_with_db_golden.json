@@ -1,21 +1,28 @@
 [
 {
+    "auditHeader": null,
     "entityType": "container",
     "entityUrn": "urn:li:container:dc2ae101b66746b9c2b6df8ee89ca88f",
+    "entityKeyAspect": null,
     "changeType": "UPSERT",
     "aspectName": "containerProperties",
     "aspect": {
-        "value": "{\"customProperties\": {\"platform\": \"mysql\", \"database\": \"northwind\"}, \"name\": \"northwind\"}",
+        "value": "{\"customProperties\": {\"platform\": \"mysql\", \"instance\": \"PROD\", \"database\": \"northwind\"}, \"name\": \"northwind\"}",
         "contentType": "application/json"
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "mysql-test"
+        "runId": "mysql-test",
+        "registryName": null,
+        "registryVersion": null,
+        "properties": null
     }
 },
 {
+    "auditHeader": null,
     "entityType": "container",
     "entityUrn": "urn:li:container:dc2ae101b66746b9c2b6df8ee89ca88f",
+    "entityKeyAspect": null,
     "changeType": "UPSERT",
     "aspectName": "dataPlatformInstance",
     "aspect": {
@@ -24,12 +31,17 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "mysql-test"
+        "runId": "mysql-test",
+        "registryName": null,
+        "registryVersion": null,
+        "properties": null
     }
 },
 {
+    "auditHeader": null,
     "entityType": "container",
     "entityUrn": "urn:li:container:dc2ae101b66746b9c2b6df8ee89ca88f",
+    "entityKeyAspect": null,
     "changeType": "UPSERT",
     "aspectName": "subTypes",
     "aspect": {
@@ -38,12 +50,17 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "mysql-test"
+        "runId": "mysql-test",
+        "registryName": null,
+        "registryVersion": null,
+        "properties": null
     }
 },
 {
+    "auditHeader": null,
     "entityType": "container",
     "entityUrn": "urn:li:container:dc2ae101b66746b9c2b6df8ee89ca88f",
+    "entityKeyAspect": null,
     "changeType": "UPSERT",
     "aspectName": "domains",
     "aspect": {
@@ -52,12 +69,17 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "mysql-test"
+        "runId": "mysql-test",
+        "registryName": null,
+        "registryVersion": null,
+        "properties": null
     }
 },
 {
+    "auditHeader": null,
     "entityType": "dataset",
     "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:mysql,northwind.customers,PROD)",
+    "entityKeyAspect": null,
     "changeType": "UPSERT",
     "aspectName": "container",
     "aspect": {
@@ -66,10 +88,14 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "mysql-test"
+        "runId": "mysql-test",
+        "registryName": null,
+        "registryVersion": null,
+        "properties": null
     }
 },
 {
+    "auditHeader": null,
     "proposedSnapshot": {
         "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
             "urn": "urn:li:dataset:(urn:li:dataPlatform:mysql,northwind.customers,PROD)",
@@ -82,7 +108,11 @@
                 {
                     "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
                         "customProperties": {},
+                        "externalUrl": null,
                         "name": "customers",
+                        "qualifiedName": null,
+                        "description": null,
+                        "uri": null,
                         "tags": []
                     }
                 },
@@ -93,12 +123,19 @@
                         "version": 0,
                         "created": {
                             "time": 0,
-                            "actor": "urn:li:corpuser:unknown"
+                            "actor": "urn:li:corpuser:unknown",
+                            "impersonator": null,
+                            "message": null
                         },
                         "lastModified": {
                             "time": 0,
-                            "actor": "urn:li:corpuser:unknown"
+                            "actor": "urn:li:corpuser:unknown",
+                            "impersonator": null,
+                            "message": null
                         },
+                        "deleted": null,
+                        "dataset": null,
+                        "cluster": null,
                         "hash": "",
                         "platformSchema": {
                             "com.linkedin.pegasus2avro.schema.MySqlDDL": {
@@ -108,7 +145,11 @@
                         "fields": [
                             {
                                 "fieldPath": "id",
+                                "jsonPath": null,
                                 "nullable": false,
+                                "description": null,
+                                "created": null,
+                                "lastModified": null,
                                 "type": {
                                     "type": {
                                         "com.linkedin.pegasus2avro.schema.NumberType": {}
@@ -116,11 +157,19 @@
                                 },
                                 "nativeDataType": "INTEGER()",
                                 "recursive": false,
-                                "isPartOfKey": true
+                                "globalTags": null,
+                                "glossaryTerms": null,
+                                "isPartOfKey": true,
+                                "isPartitioningKey": null,
+                                "jsonProps": null
                             },
                             {
                                 "fieldPath": "company",
+                                "jsonPath": null,
                                 "nullable": true,
+                                "description": null,
+                                "created": null,
+                                "lastModified": null,
                                 "type": {
                                     "type": {
                                         "com.linkedin.pegasus2avro.schema.StringType": {}
@@ -128,11 +177,19 @@
                                 },
                                 "nativeDataType": "VARCHAR(length=50)",
                                 "recursive": false,
-                                "isPartOfKey": false
+                                "globalTags": null,
+                                "glossaryTerms": null,
+                                "isPartOfKey": false,
+                                "isPartitioningKey": null,
+                                "jsonProps": null
                             },
                             {
                                 "fieldPath": "last_name",
+                                "jsonPath": null,
                                 "nullable": true,
+                                "description": null,
+                                "created": null,
+                                "lastModified": null,
                                 "type": {
                                     "type": {
                                         "com.linkedin.pegasus2avro.schema.StringType": {}
@@ -140,11 +197,19 @@
                                 },
                                 "nativeDataType": "VARCHAR(length=50)",
                                 "recursive": false,
-                                "isPartOfKey": false
+                                "globalTags": null,
+                                "glossaryTerms": null,
+                                "isPartOfKey": false,
+                                "isPartitioningKey": null,
+                                "jsonProps": null
                             },
                             {
                                 "fieldPath": "first_name",
+                                "jsonPath": null,
                                 "nullable": true,
+                                "description": null,
+                                "created": null,
+                                "lastModified": null,
                                 "type": {
                                     "type": {
                                         "com.linkedin.pegasus2avro.schema.StringType": {}
@@ -152,11 +217,19 @@
                                 },
                                 "nativeDataType": "VARCHAR(length=50)",
                                 "recursive": false,
-                                "isPartOfKey": false
+                                "globalTags": null,
+                                "glossaryTerms": null,
+                                "isPartOfKey": false,
+                                "isPartitioningKey": null,
+                                "jsonProps": null
                             },
                             {
                                 "fieldPath": "email_address",
+                                "jsonPath": null,
                                 "nullable": true,
+                                "description": null,
+                                "created": null,
+                                "lastModified": null,
                                 "type": {
                                     "type": {
                                         "com.linkedin.pegasus2avro.schema.StringType": {}
@@ -164,11 +237,19 @@
                                 },
                                 "nativeDataType": "VARCHAR(length=50)",
                                 "recursive": false,
-                                "isPartOfKey": false
+                                "globalTags": null,
+                                "glossaryTerms": null,
+                                "isPartOfKey": false,
+                                "isPartitioningKey": null,
+                                "jsonProps": null
                             },
                             {
                                 "fieldPath": "priority",
+                                "jsonPath": null,
                                 "nullable": true,
+                                "description": null,
+                                "created": null,
+                                "lastModified": null,
                                 "type": {
                                     "type": {
                                         "com.linkedin.pegasus2avro.schema.NumberType": {}
@@ -176,22 +257,35 @@
                                 },
                                 "nativeDataType": "FLOAT()",
                                 "recursive": false,
-                                "isPartOfKey": false
+                                "globalTags": null,
+                                "glossaryTerms": null,
+                                "isPartOfKey": false,
+                                "isPartitioningKey": null,
+                                "jsonProps": null
                             }
-                        ]
+                        ],
+                        "primaryKeys": null,
+                        "foreignKeysSpecs": null,
+                        "foreignKeys": null
                     }
                 }
             ]
         }
     },
+    "proposedDelta": null,
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "mysql-test"
+        "runId": "mysql-test",
+        "registryName": null,
+        "registryVersion": null,
+        "properties": null
     }
 },
 {
+    "auditHeader": null,
     "entityType": "dataset",
     "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:mysql,northwind.customers,PROD)",
+    "entityKeyAspect": null,
     "changeType": "UPSERT",
     "aspectName": "subTypes",
     "aspect": {
@@ -200,12 +294,17 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "mysql-test"
+        "runId": "mysql-test",
+        "registryName": null,
+        "registryVersion": null,
+        "properties": null
     }
 },
 {
+    "auditHeader": null,
     "entityType": "dataset",
     "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:mysql,northwind.customers,PROD)",
+    "entityKeyAspect": null,
     "changeType": "UPSERT",
     "aspectName": "domains",
     "aspect": {
@@ -214,12 +313,17 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "mysql-test"
+        "runId": "mysql-test",
+        "registryName": null,
+        "registryVersion": null,
+        "properties": null
     }
 },
 {
+    "auditHeader": null,
     "entityType": "dataset",
     "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:mysql,northwind.orders,PROD)",
+    "entityKeyAspect": null,
     "changeType": "UPSERT",
     "aspectName": "container",
     "aspect": {
@@ -228,10 +332,14 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "mysql-test"
+        "runId": "mysql-test",
+        "registryName": null,
+        "registryVersion": null,
+        "properties": null
     }
 },
 {
+    "auditHeader": null,
     "proposedSnapshot": {
         "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
             "urn": "urn:li:dataset:(urn:li:dataPlatform:mysql,northwind.orders,PROD)",
@@ -244,7 +352,11 @@
                 {
                     "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
                         "customProperties": {},
+                        "externalUrl": null,
                         "name": "orders",
+                        "qualifiedName": null,
+                        "description": null,
+                        "uri": null,
                         "tags": []
                     }
                 },
@@ -255,12 +367,19 @@
                         "version": 0,
                         "created": {
                             "time": 0,
-                            "actor": "urn:li:corpuser:unknown"
+                            "actor": "urn:li:corpuser:unknown",
+                            "impersonator": null,
+                            "message": null
                         },
                         "lastModified": {
                             "time": 0,
-                            "actor": "urn:li:corpuser:unknown"
+                            "actor": "urn:li:corpuser:unknown",
+                            "impersonator": null,
+                            "message": null
                         },
+                        "deleted": null,
+                        "dataset": null,
+                        "cluster": null,
                         "hash": "",
                         "platformSchema": {
                             "com.linkedin.pegasus2avro.schema.MySqlDDL": {
@@ -270,7 +389,11 @@
                         "fields": [
                             {
                                 "fieldPath": "id",
+                                "jsonPath": null,
                                 "nullable": false,
+                                "description": null,
+                                "created": null,
+                                "lastModified": null,
                                 "type": {
                                     "type": {
                                         "com.linkedin.pegasus2avro.schema.NumberType": {}
@@ -278,11 +401,19 @@
                                 },
                                 "nativeDataType": "INTEGER()",
                                 "recursive": false,
-                                "isPartOfKey": true
+                                "globalTags": null,
+                                "glossaryTerms": null,
+                                "isPartOfKey": true,
+                                "isPartitioningKey": null,
+                                "jsonProps": null
                             },
                             {
                                 "fieldPath": "description",
+                                "jsonPath": null,
                                 "nullable": true,
+                                "description": null,
+                                "created": null,
+                                "lastModified": null,
                                 "type": {
                                     "type": {
                                         "com.linkedin.pegasus2avro.schema.StringType": {}
@@ -290,11 +421,19 @@
                                 },
                                 "nativeDataType": "VARCHAR(length=50)",
                                 "recursive": false,
-                                "isPartOfKey": false
+                                "globalTags": null,
+                                "glossaryTerms": null,
+                                "isPartOfKey": false,
+                                "isPartitioningKey": null,
+                                "jsonProps": null
                             },
                             {
                                 "fieldPath": "customer_id",
+                                "jsonPath": null,
                                 "nullable": false,
+                                "description": null,
+                                "created": null,
+                                "lastModified": null,
                                 "type": {
                                     "type": {
                                         "com.linkedin.pegasus2avro.schema.NumberType": {}
@@ -302,9 +441,15 @@
                                 },
                                 "nativeDataType": "INTEGER()",
                                 "recursive": false,
-                                "isPartOfKey": false
+                                "globalTags": null,
+                                "glossaryTerms": null,
+                                "isPartOfKey": false,
+                                "isPartitioningKey": null,
+                                "jsonProps": null
                             }
                         ],
+                        "primaryKeys": null,
+                        "foreignKeysSpecs": null,
                         "foreignKeys": [
                             {
                                 "name": "fk_order_customer",
@@ -322,14 +467,20 @@
             ]
         }
     },
+    "proposedDelta": null,
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "mysql-test"
+        "runId": "mysql-test",
+        "registryName": null,
+        "registryVersion": null,
+        "properties": null
     }
 },
 {
+    "auditHeader": null,
     "entityType": "dataset",
     "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:mysql,northwind.orders,PROD)",
+    "entityKeyAspect": null,
     "changeType": "UPSERT",
     "aspectName": "subTypes",
     "aspect": {
@@ -338,12 +489,17 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "mysql-test"
+        "runId": "mysql-test",
+        "registryName": null,
+        "registryVersion": null,
+        "properties": null
     }
 },
 {
+    "auditHeader": null,
     "entityType": "dataset",
     "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:mysql,northwind.orders,PROD)",
+    "entityKeyAspect": null,
     "changeType": "UPSERT",
     "aspectName": "domains",
     "aspect": {
@@ -352,12 +508,17 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "mysql-test"
+        "runId": "mysql-test",
+        "registryName": null,
+        "registryVersion": null,
+        "properties": null
     }
 },
 {
+    "auditHeader": null,
     "entityType": "dataset",
     "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:mysql,northwind.customers,PROD)",
+    "entityKeyAspect": null,
     "changeType": "UPSERT",
     "aspectName": "datasetProfile",
     "aspect": {
@@ -366,12 +527,17 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "mysql-test"
+        "runId": "mysql-test",
+        "registryName": null,
+        "registryVersion": null,
+        "properties": null
     }
 },
 {
+    "auditHeader": null,
     "entityType": "dataset",
     "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:mysql,northwind.orders,PROD)",
+    "entityKeyAspect": null,
     "changeType": "UPSERT",
     "aspectName": "datasetProfile",
     "aspect": {
@@ -380,7 +546,10 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "mysql-test"
+        "runId": "mysql-test",
+        "registryName": null,
+        "registryVersion": null,
+        "properties": null
     }
 }
 ]
