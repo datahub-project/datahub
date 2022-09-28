@@ -57,14 +57,14 @@ public class LineageRegistry {
     for (LineageEdge edge : lineageEdges) {
       if (edge.isUpstream()) {
         upstreamPerEntity.computeIfAbsent(edge.sourceEntity.toLowerCase(), (k) -> new HashSet<>())
-            .add(new EdgeInfo(edge.type, RelationshipDirection.OUTGOING, edge.destEntity));
+            .add(new EdgeInfo(edge.type, RelationshipDirection.OUTGOING, edge.destEntity.toLowerCase()));
         downstreamPerEntity.computeIfAbsent(edge.destEntity.toLowerCase(), (k) -> new HashSet<>())
-            .add(new EdgeInfo(edge.type, RelationshipDirection.INCOMING, edge.sourceEntity));
+            .add(new EdgeInfo(edge.type, RelationshipDirection.INCOMING, edge.sourceEntity.toLowerCase()));
       } else {
         downstreamPerEntity.computeIfAbsent(edge.sourceEntity.toLowerCase(), (k) -> new HashSet<>())
-            .add(new EdgeInfo(edge.type, RelationshipDirection.OUTGOING, edge.destEntity));
+            .add(new EdgeInfo(edge.type, RelationshipDirection.OUTGOING, edge.destEntity.toLowerCase()));
         upstreamPerEntity.computeIfAbsent(edge.destEntity.toLowerCase(), (k) -> new HashSet<>())
-            .add(new EdgeInfo(edge.type, RelationshipDirection.INCOMING, edge.sourceEntity));
+            .add(new EdgeInfo(edge.type, RelationshipDirection.INCOMING, edge.sourceEntity.toLowerCase()));
       }
     }
 
