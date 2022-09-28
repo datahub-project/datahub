@@ -199,7 +199,7 @@ def gen_containers(
         aspect=ContainerProperties(
             name=name,
             description=description,
-            customProperties=container_key.dict(exclude_none=True, by_alias=True),
+            customProperties=container_key.guid_dict(),
             externalUrl=external_url,
             qualifiedName=qualified_name,
         ),
