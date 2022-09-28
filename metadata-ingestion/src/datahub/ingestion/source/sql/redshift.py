@@ -141,7 +141,7 @@ class RedshiftConfig(
     scheme = Field(
         default="redshift+psycopg2",
         description="",
-        exclude=True,
+        hidden_from_schema=True,
     )
 
     default_schema: str = Field(
