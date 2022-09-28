@@ -83,6 +83,10 @@ export const isListSubset = (l1, l2): boolean => {
     return l1.every((result) => l2.indexOf(result) >= 0);
 };
 
+function sortMatchedFields(a: MatchedField, b: MatchedField) {
+    return 1;
+}
+
 export const getMatchPrioritizingPrimary = (
     matchedFields: MatchedField[],
     primaryField: string,
@@ -92,5 +96,5 @@ export const getMatchPrioritizingPrimary = (
         return primaryMatch;
     }
 
-    return matchedFields.find((field) => FIELDS_TO_HIGHLIGHT.has(field.name));
+    return matchedFields.filter((field) => FIELDS_TO_HIGHLIGHT.has(field.name)).sort(sortMatchedFields)[0];
 };
