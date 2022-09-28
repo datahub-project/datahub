@@ -3,10 +3,10 @@
         "workbooksConnection": {
             "nodes": [],
             "pageInfo": {
-                "hasNextPage": true,
+                "hasNextPage": false,
                 "endCursor": null
             },
-            "totalCount": 4
+            "totalCount": 0
         }
     }
 }
