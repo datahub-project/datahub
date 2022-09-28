@@ -57,6 +57,13 @@ class BigQueryV2Config(BigQueryConfig):
         description="Number of table queried in batch when getting metadata. This is a low leve config propert which should be touched with care. This restriction needed because we query partitions system view which throws error if we try to touch too many tables.",
     )
 
+    # The inheritance hierarchy is wonky here, but these options need modifications.
+    project_id: Optional[str] = Field(
+        default=None,
+        description="[deprecated] Use project_id_pattern instead.",
+    )
+    storage_project_id: None = Field(default=None, exclude=True)
+
     @root_validator(pre=False)
     def profile_default_settings(cls, values: Dict) -> Dict:
         # Extra default SQLAlchemy option for better connection pooling and threading.
