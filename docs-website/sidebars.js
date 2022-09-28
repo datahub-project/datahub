@@ -96,6 +96,11 @@ module.exports = {
             id: "docs/managed-datahub/saas-slack-setup",
             className: "saasOnly",
           },
+          {
+            type: "doc",
+            id: "docs/managed-datahub/approval-workflows",
+            className: "saasOnly",
+          },
           // "docs/wip/guide-ingest-your-first-metadata-source",
           // "docs/wip/guide-enrich-your-metadata",
         ],

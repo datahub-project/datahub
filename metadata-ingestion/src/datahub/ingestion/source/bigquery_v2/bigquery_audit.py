@@ -78,7 +78,7 @@ class BigqueryTableIdentifier:
     table: str
 
     invalid_chars: ClassVar[Set[str]] = {"$", "@"}
-    _BIGQUERY_DEFAULT_SHARDED_TABLE_REGEX: ClassVar[str] = "((.+)[_$])?(\\d{4,10})$"
+    _BIGQUERY_DEFAULT_SHARDED_TABLE_REGEX: ClassVar[str] = "((.+)[_$])?(\\d{8})$"
 
     @staticmethod
     def get_table_and_shard(table_name: str) -> Tuple[str, Optional[str]]:
@@ -101,17 +101,10 @@ class BigqueryTableIdentifier:
     def raw_table_name(self):
         return f"{self.project_id}.{self.dataset}.{self.table}"
 
-    @staticmethod
-    def _remove_suffix(input_string: str, suffixes: List[str]) -> str:
-        for suffix in suffixes:
-            if input_string.endswith(suffix):
-                return input_string[: -len(suffix)]
-        return input_string
-
     def get_table_display_name(self) -> str:
         shortened_table_name = self.table
         # if table name ends in _* or * then we strip it as that represents a query on a sharded table
-        shortened_table_name = self._remove_suffix(shortened_table_name, ["_*", "*"])
+        shortened_table_name = re.sub("(_(.+)?\\*)|\\*$", "", shortened_table_name)
 
         table_name, _ = self.get_table_and_shard(shortened_table_name)
         if not table_name:

@@ -90,6 +90,10 @@ from datahub.metadata.schema_classes import (
     GlobalTagsClass,
     TagAssociationClass,
 )
+from datahub.utilities.hive_schema_to_avro import (
+    HiveColumnToAvroConverter,
+    get_schema_fields_for_hive_column,
+)
 from datahub.utilities.mapping import Constants
 from datahub.utilities.perf_timer import PerfTimer
 from datahub.utilities.registries.domain_registry import DomainRegistry
@@ -785,20 +789,35 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
         )
         return dataset_urn
 
-    def gen_schema_metadata(
-        self,
-        dataset_urn: str,
-        table: Union[BigqueryTable, BigqueryView],
-        dataset_name: str,
-    ) -> MetadataWorkUnit:
-        schema_metadata = SchemaMetadata(
-            schemaName=dataset_name,
-            platform=make_data_platform_urn(self.platform),
-            version=0,
-            hash="",
-            platformSchema=MySqlDDL(tableSchema=""),
-            fields=[
-                SchemaField(
+    def gen_schema_fields(self, columns: List[BigqueryColumn]) -> List[SchemaField]:
+        schema_fields: List[SchemaField] = []
+
+        HiveColumnToAvroConverter._STRUCT_TYPE_SEPARATOR = " "
+        _COMPLEX_TYPE = re.compile("^(struct|array)")
+        last_id = -1
+        for col in columns:
+
+            if _COMPLEX_TYPE.match(col.data_type.lower()):
+                # If the we have seen the ordinal position that most probably means we already processed this complex type
+                if last_id != col.ordinal_position:
+                    schema_fields.extend(
+                        get_schema_fields_for_hive_column(
+                            col.name, col.data_type.lower(), description=col.comment
+                        )
+                    )
+
+                # We have to add complex type comments to the correct level
+                if col.comment:
+                    for idx, field in enumerate(schema_fields):
+                        # Remove all the [version=2.0].[type=struct]. tags to get the field path
+                        if (
+                            re.sub(r"\[.*?\]\.", "", field.fieldPath, 0, re.MULTILINE)
+                            == col.field_path
+                        ):
+                            field.description = col.comment
+                            schema_fields[idx] = field
+            else:
+                field = SchemaField(
                     fieldPath=col.name,
                     type=SchemaFieldDataType(
                         self.BIGQUERY_FIELD_TYPE_MAPPINGS.get(col.data_type, NullType)()
@@ -817,8 +836,24 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
                     if col.is_partition_column
                     else GlobalTagsClass(tags=[]),
                 )
-                for col in table.columns
-            ],
+                schema_fields.append(field)
+            last_id = col.ordinal_position
+        return schema_fields
+
+    def gen_schema_metadata(
+        self,
+        dataset_urn: str,
+        table: Union[BigqueryTable, BigqueryView],
+        dataset_name: str,
+    ) -> MetadataWorkUnit:
+
+        schema_metadata = SchemaMetadata(
+            schemaName=dataset_name,
+            platform=make_data_platform_urn(self.platform),
+            version=0,
+            hash="",
+            platformSchema=MySqlDDL(tableSchema=""),
+            fields=self.gen_schema_fields(table.columns),
         )
         wu = wrap_aspect_as_workunit(
             "dataset", dataset_urn, "schemaMetadata", schema_metadata
