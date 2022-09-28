@@ -26,11 +26,12 @@ from starlette_exporter import PrometheusMiddleware, handle_metrics
 from ingest_api.helper.mce_convenience import *
 from ingest_api.helper.models import *
 from ingest_api.helper.security import authenticate_action, verify_token
+from urllib3.exceptions import InsecureRequestWarning 
 
 CLI_MODE = False if environ.get("RUNNING_IN_DOCKER") else True
 
 frequency_enum = ["Adhoc","Periodic","Onetime","Unknown"]
-
+requests.packages.urllib3.disable_warnings(category=InsecureRequestWarning)
 
 # when running ingest-api from CLI, need to set some params.
 # cos dataset_profile_index name varies depending on ES. If there is an existing index (and datahub is instantiated on top, then it will append a UUID to it)
