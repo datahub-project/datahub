@@ -81,7 +81,7 @@ def get_table_comment(self, connection, table_name: str, schema: str = None, **k
         if e.error_name in (
             error.TABLE_NOT_FOUND,
             error.COLUMN_NOT_FOUND,
-            error.NOT_FOUND
+            error.NOT_FOUND,
         ):
             return self.get_table_comment_default(connection, table_name, schema)
     # Exception raised when using Starburst Delta Connector that falls back to a Hive Catalog
