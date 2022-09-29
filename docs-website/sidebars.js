@@ -165,6 +165,7 @@ module.exports = {
           // },
           "docs/platform-instances",
           "metadata-ingestion/docs/dev_guides/stateful",
+          "metadata-ingestion/docs/dev_guides/classification",
           "metadata-ingestion/docs/dev_guides/add_stateful_ingestion_to_source",
           "metadata-ingestion/docs/dev_guides/sql_profiles",
         ],

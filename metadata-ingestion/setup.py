@@ -160,6 +160,8 @@ snowflake_common = {
     *sql_common,
     # Required for all Snowflake sources
     "snowflake-sqlalchemy<=1.2.4",
+    "snowflake-connector-python[pandas]",
+    "acryl-datahub-classify",
     "cryptography",
     "msal",
 }
