@@ -561,9 +561,11 @@ public class EntityResource extends CollectionResourceTaskTemplate<String, Entit
   public Task<String> applyRetention(@ActionParam(PARAM_START) @Optional @Nullable Integer start,
                                      @ActionParam(PARAM_COUNT) @Optional @Nullable Integer count,
                                      @ActionParam("attemptWithVersion") @Optional @Nullable Integer attemptWithVersion,
-                                     @ActionParam(PARAM_ASPECT_NAME) @Optional @Nullable String aspectName
+                                     @ActionParam(PARAM_ASPECT_NAME) @Optional @Nullable String aspectName,
+                                     @ActionParam(PARAM_URN) @Optional @Nullable String urn
                                      ) {
-    return RestliUtil.toTask(() -> _entityService.batchApplyRetention(start, count, attemptWithVersion, aspectName), ACTION_APPLY_RETENTION);
+    return RestliUtil.toTask(() -> _entityService.batchApplyRetention(
+            start, count, attemptWithVersion, aspectName, urn), ACTION_APPLY_RETENTION);
   }
 
   @Action(name = ACTION_FILTER)

@@ -8,4 +8,5 @@ public class BulkApplyRetentionArgs {
     public Integer count;
     public Integer attemptWithVersion;
     public String aspectName;
+    public String urn;
 }

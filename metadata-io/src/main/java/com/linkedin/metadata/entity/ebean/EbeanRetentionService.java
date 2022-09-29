@@ -179,6 +179,7 @@ public class EbeanRetentionService extends RetentionService {
     result.argCount = args.count;
     result.argAttemptWithVersion = args.attemptWithVersion;
     result.argAspectName = args.aspectName;
+    result.argUrn = args.urn;
 
     Map<String, DataHubRetentionConfig> retentionPolicyMap = getAllRetentionPolicies();
     result.timeRetentionPolicyMapMs = System.currentTimeMillis() - startTime;
@@ -191,14 +192,22 @@ public class EbeanRetentionService extends RetentionService {
             .select(String.format(
                     "%s, %s, count(%s)", EbeanAspectV2.URN_COLUMN, EbeanAspectV2.ASPECT_COLUMN, EbeanAspectV2.VERSION_COLUMN)
             );
-    ExpressionList<EbeanAspectV2> exp;
-    if (args.aspectName != null) {
-      exp = query.where()
-              .eq(EbeanAspectV2.ASPECT_COLUMN, args.aspectName)
-              .having();
-    } else {
-      exp = query.having();
+    ExpressionList<EbeanAspectV2> exp = null;
+    if (args.urn != null || args.aspectName != null) {
+      exp = query.where();
+      if (args.aspectName != null) {
+        exp = exp.eq(EbeanAspectV2.ASPECT_COLUMN, args.aspectName);
+      }
+      if (args.urn != null) {
+        exp = exp.eq(EbeanAspectV2.URN_COLUMN, args.urn);
+      }
     }
+    if (exp == null) {
+      exp = query.having();
+    } else {
+      exp = exp.having();
+    }
+
     PagedList<EbeanAspectV2> rows = exp
               .gt(String.format("count(%s)", EbeanAspectV2.VERSION_COLUMN), args.attemptWithVersion)
             .setFirstRow(args.start)

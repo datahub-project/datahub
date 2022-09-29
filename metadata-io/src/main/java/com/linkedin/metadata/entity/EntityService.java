@@ -988,7 +988,8 @@ private Map<Urn, List<EnvelopedAspect>> getCorrespondingAspects(Set<EntityAspect
     return result;
   }
 
-  public String batchApplyRetention(Integer start, Integer count, Integer attemptWithVersion, String aspectName) {
+  public String batchApplyRetention(Integer start, Integer count, Integer attemptWithVersion, String aspectName,
+                                    String urn) {
     BulkApplyRetentionArgs args = new BulkApplyRetentionArgs();
     if (start == null) {
       start = 0;
@@ -1003,6 +1004,7 @@ private Map<Urn, List<EnvelopedAspect>> getCorrespondingAspects(Set<EntityAspect
     }
     args.attemptWithVersion = attemptWithVersion;
     args.aspectName = aspectName;
+    args.urn = urn;
     BulkApplyRetentionResult result = _retentionService.batchApplyRetentionEntities(args);
     return result.toString();
   }
