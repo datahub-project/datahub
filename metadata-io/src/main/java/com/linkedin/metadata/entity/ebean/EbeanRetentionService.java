@@ -224,7 +224,7 @@ public class EbeanRetentionService extends RetentionService {
         log.error("Failed to serialize urn {}", row.getUrn(), e);
         continue;
       }
-      PagedList<EbeanAspectV2> rowsToChange = queryCandidates(row.getUrn(),null, row.getAspect())
+      PagedList<EbeanAspectV2> rowsToChange = queryCandidates(row.getUrn(), null, row.getAspect())
               .setFirstRow(args.start)
               .setMaxRows(args.count)
               .findPagedList();
