@@ -1,6 +1,6 @@
 package com.linkedin.gms.factory.auth;
 
-import com.datahub.authentication.invite.InviteTokenService;
+import com.datahub.auth.authentication.invite.InviteTokenService;
 import com.linkedin.gms.factory.spring.YamlPropertySourceFactory;
 import com.linkedin.metadata.client.JavaEntityClient;
 import com.linkedin.metadata.secret.SecretService;

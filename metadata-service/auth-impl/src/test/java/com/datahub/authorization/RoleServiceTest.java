@@ -3,7 +3,7 @@ package com.datahub.authorization;
 import com.datahub.plugins.auth.authentication.Actor;
 import com.datahub.plugins.auth.authentication.ActorType;
 import com.datahub.plugins.auth.authentication.Authentication;
-import com.datahub.authorization.role.RoleService;
+import com.datahub.auth.authorization.role.RoleService;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.entity.client.EntityClient;
 import org.testng.annotations.BeforeMethod;

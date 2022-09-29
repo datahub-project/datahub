@@ -1,5 +1,11 @@
 package com.datahub.authentication.token;
 
+import com.datahub.auth.authentication.token.StatefulTokenService;
+import com.datahub.auth.authentication.token.TokenClaims;
+import com.datahub.auth.authentication.token.TokenException;
+import com.datahub.auth.authentication.token.TokenExpiredException;
+import com.datahub.auth.authentication.token.TokenType;
+import com.datahub.auth.authentication.token.TokenVersion;
 import com.datahub.plugins.auth.authentication.Actor;
 import com.datahub.plugins.auth.authentication.ActorType;
 import com.datahub.authentication.authenticator.DataHubTokenAuthenticatorTest;
@@ -16,7 +22,7 @@ import java.util.Map;
 import org.mockito.Mockito;
 import org.testng.annotations.Test;
 
-import static com.datahub.authentication.token.TokenClaims.*;
+import static com.datahub.auth.authentication.token.TokenClaims.*;
 import static org.testng.Assert.*;
 
 

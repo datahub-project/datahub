@@ -1,7 +1,7 @@
 package com.linkedin.datahub.graphql.resolvers.user;
 
 import com.datahub.plugins.auth.authentication.Authentication;
-import com.datahub.authentication.user.NativeUserService;
+import com.datahub.auth.authentication.user.NativeUserService;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.generated.CreateNativeUserResetTokenInput;
 import graphql.schema.DataFetchingEnvironment;

@@ -1,9 +1,9 @@
 package com.datahub.authentication;
 
-import com.datahub.authentication.invite.InviteTokenService;
-import com.datahub.authentication.token.StatelessTokenService;
-import com.datahub.authentication.token.TokenType;
-import com.datahub.authentication.user.NativeUserService;
+import com.datahub.auth.authentication.invite.InviteTokenService;
+import com.datahub.auth.authentication.token.StatelessTokenService;
+import com.datahub.auth.authentication.token.TokenType;
+import com.datahub.auth.authentication.user.NativeUserService;
 import com.datahub.plugins.auth.authentication.Actor;
 import com.datahub.plugins.auth.authentication.ActorType;
 import com.datahub.plugins.auth.authentication.Authentication;

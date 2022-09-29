@@ -1,5 +1,6 @@
 package com.datahub.authentication.authenticator;
 
+import com.datahub.auth.authentication.authenticator.AuthenticatorChain;
 import com.datahub.plugins.auth.authentication.Authentication;
 
 import com.datahub.plugins.auth.authentication.AuthenticationException;

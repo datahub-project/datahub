@@ -1,6 +1,6 @@
 package com.linkedin.datahub.graphql.resolvers.auth;
 
-import com.datahub.authentication.token.StatefulTokenService;
+import com.datahub.auth.authentication.token.StatefulTokenService;
 import com.google.common.collect.ImmutableSet;
 import com.linkedin.access.token.DataHubAccessTokenInfo;
 import com.linkedin.common.urn.Urn;
