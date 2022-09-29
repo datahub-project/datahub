@@ -145,7 +145,9 @@ public class EbeanRetentionService extends RetentionService {
                 .map(DataHubRetentionConfig::getRetention);
         retentionPolicy.ifPresent(retention -> applyRetention(urn, aspectNameFromRecord, retention,
                 Optional.of(new RetentionContext(Optional.of(row.getVersion())))));
-        applyRetentionResult.rowsHandled += 1;
+        if (applyRetentionResult != null) {
+          applyRetentionResult.rowsHandled += 1;
+        }
       }
       transaction.commit();
     }
