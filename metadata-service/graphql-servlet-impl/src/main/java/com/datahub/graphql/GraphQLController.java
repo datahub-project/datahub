@@ -9,6 +9,7 @@ import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.linkedin.datahub.graphql.GraphQLEngine;
+import com.linkedin.datahub.graphql.exception.DataHubGraphQLError;
 import com.linkedin.metadata.utils.metrics.MetricUtils;
 import graphql.ExecutionResult;
 import java.util.Collections;
@@ -128,8 +129,13 @@ public class GraphQLController {
 
   private void observeErrors(ExecutionResult executionResult) {
     executionResult.getErrors().forEach(graphQLError -> {
-      String errorType = graphQLError.getErrorType().toString();
-      MetricUtils.get().counter(MetricRegistry.name(this.getClass(), "errorType", errorType)).inc();
+      if (graphQLError instanceof DataHubGraphQLError) {
+        DataHubGraphQLError DHGraphQLError = (DataHubGraphQLError) graphQLError;
+        int errorCode = DHGraphQLError.getErrorCode();
+        MetricUtils.get().counter(MetricRegistry.name(this.getClass(), "errorCode", Integer.toString(errorCode))).inc();
+      } else {
+        MetricUtils.get().counter(MetricRegistry.name(this.getClass(), "errorType", graphQLError.getErrorType().toString())).inc();
+      }
     });
     if(executionResult.getErrors().size() != 0) {
       MetricUtils.get().counter(MetricRegistry.name(this.getClass(), "error")).inc();
