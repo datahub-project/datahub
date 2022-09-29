@@ -147,7 +147,7 @@ elasticsearch:
     retryInterval: ${ES_BULK_RETRY_INTERVAL:1}
   index:
     prefix: ${INDEX_PREFIX:}
-    numShards: ${ELASTICSEARCH_NUM_SHARDS_PER_INDEX:1}
+    numShards: ${ELASTICSEARCH_NUM_SHARDS_PER_INDEX:6}
     numReplicas: ${ELASTICSEARCH_NUM_REPLICAS_PER_INDEX:1}
     numRetries: ${ELASTICSEARCH_INDEX_BUILDER_NUM_RETRIES:3}
     maxArrayLength: ${SEARCH_DOCUMENT_MAX_ARRAY_LENGTH:1000}
