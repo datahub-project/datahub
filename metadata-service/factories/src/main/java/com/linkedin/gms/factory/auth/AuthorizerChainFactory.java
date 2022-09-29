@@ -1,20 +1,34 @@
 package com.linkedin.gms.factory.auth;
 
-import com.datahub.plugins.auth.authentication.Authentication;
-import com.datahub.plugins.auth.authorization.AuthorizerConfiguration;
-import com.datahub.plugins.auth.authorization.AuthorizerContext;
-import com.datahub.auth.authorization.DataHubAuthorizer;
-import com.datahub.plugins.auth.authorization.Authorizer;
 import com.datahub.auth.authorization.AuthorizerChain;
+import com.datahub.auth.authorization.DataHubAuthorizer;
 import com.datahub.auth.authorization.DefaultResourceSpecResolver;
+import com.datahub.plugins.PluginConstant;
+import com.datahub.plugins.auth.authentication.Authentication;
+import com.datahub.plugins.auth.authorization.Authorizer;
+import com.datahub.plugins.auth.authorization.AuthorizerContext;
 import com.datahub.plugins.auth.authorization.ResourceSpecResolver;
-import com.linkedin.metadata.client.JavaEntityClient;
+import com.datahub.plugins.auth.pojo.AuthorizerPluginConfig;
+import com.datahub.plugins.common.IsolatedClassLoader;
+import com.datahub.plugins.common.PluginPermissionManager;
+import com.datahub.plugins.common.PluginType;
+import com.datahub.plugins.common.SecurityMode;
+import com.datahub.plugins.configuration.Config;
+import com.datahub.plugins.configuration.ConfigProvider;
+import com.datahub.plugins.factory.PluginConfigFactory;
+import com.datahub.plugins.loader.IsolatedClassLoaderImpl;
+import com.datahub.plugins.loader.PluginPermissionManagerImpl;
+import com.google.common.collect.ImmutableMap;
 import com.linkedin.gms.factory.config.ConfigurationProvider;
 import com.linkedin.gms.factory.spring.YamlPropertySourceFactory;
+import com.linkedin.metadata.client.JavaEntityClient;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
-import java.util.Map;
+import java.util.Optional;
+import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -51,12 +65,13 @@ public class AuthorizerChainFactory {
   @Nonnull
   protected AuthorizerChain getInstance() {
     // Init authorizer context
-    final AuthorizerContext ctx = initAuthorizerContext();
+    final ResourceSpecResolver resolver = initResolver();
 
     // Extract + initialize customer authorizers from application configs.
-    final List<Authorizer> authorizers = new ArrayList<>(initCustomAuthorizers(ctx));
+    final List<Authorizer> authorizers = new ArrayList<>(initCustomAuthorizers(resolver));
 
     if (configurationProvider.getAuthorization().getDefaultAuthorizer().isEnabled()) {
+      AuthorizerContext ctx = new AuthorizerContext(Collections.emptyMap(), resolver);
       this.dataHubAuthorizer.init(Collections.emptyMap(), ctx);
       log.info("Default DataHubAuthorizer is enabled. Appending it to the authorization chain.");
       authorizers.add(this.dataHubAuthorizer);
@@ -65,53 +80,62 @@ public class AuthorizerChainFactory {
     return new AuthorizerChain(authorizers, dataHubAuthorizer);
   }
 
-  private AuthorizerContext initAuthorizerContext() {
-    final ResourceSpecResolver resolver = new DefaultResourceSpecResolver(systemAuthentication, entityClient);
-    return new AuthorizerContext(Collections.emptyMap(),resolver);
+  private ResourceSpecResolver initResolver() {
+    return new DefaultResourceSpecResolver(systemAuthentication, entityClient);
   }
 
-  private List<Authorizer> initCustomAuthorizers(AuthorizerContext ctx) {
+  private List<Authorizer> initCustomAuthorizers(ResourceSpecResolver resolver) {
     final List<Authorizer> customAuthorizers = new ArrayList<>();
 
-    if (this.configurationProvider.getAuthorization().getAuthorizers() != null) {
+    Path pluginBaseDirectory = Paths.get(configurationProvider.getDatahub().getPlugin().getAuth().getPath());
+    ConfigProvider configProvider =
+        new ConfigProvider(pluginBaseDirectory);
 
-      final List<AuthorizerConfiguration> authorizerConfigurations =
-          this.configurationProvider.getAuthorization().getAuthorizers();
+    Optional<Config> optionalConfig = configProvider.load();
+    // Register authorizer plugins if present
+    optionalConfig.ifPresent((config) -> {
+      registerAuthorizer(customAuthorizers, resolver, config);
+    });
 
-      for (AuthorizerConfiguration authorizer : authorizerConfigurations) {
-        final String type = authorizer.getType();
-        // continue if authorizer is not enabled
-        if (!authorizer.isEnabled()) {
-          log.info(String.format("Authorizer %s is not enabled", type));
-          continue;
-        }
-
-        final Map<String, Object> configs =
-            authorizer.getConfigs() != null ? authorizer.getConfigs() : Collections.emptyMap();
-
-        log.debug(String.format("Found configs for notification sink of type %s: %s ", type, configs));
-
-        // Instantiate the Authorizer
-        Class<? extends Authorizer> clazz = null;
-        try {
-          clazz = (Class<? extends Authorizer>) Class.forName(type);
-        } catch (ClassNotFoundException e) {
-          throw new RuntimeException(
-              String.format("Failed to find custom Authorizer class with name %s on the classpath.", type));
-        }
-
-        // Else construct an instance of the class, each class should have an empty constructor.
-        try {
-          final Authorizer authorizerInstance = clazz.newInstance();
-          authorizerInstance.init(configs, ctx);
-          customAuthorizers.add(authorizerInstance);
-          log.info(String.format("Authorizer %s is initialized", type));
-        } catch (Exception e) {
-          throw new RuntimeException(
-              String.format("Failed to instantiate custom Authorizer with class name %s", clazz.getCanonicalName()), e);
-        }
-      }
-    }
     return customAuthorizers;
+  }
+
+  private void registerAuthorizer(List<Authorizer> customAuthorizers, ResourceSpecResolver resolver, Config config) {
+    PluginConfigFactory<AuthorizerPluginConfig> authorizerPluginPluginConfigFactory = new PluginConfigFactory<>(config);
+    // Load only Authorizer configuration from plugin config factory
+    List<AuthorizerPluginConfig> authorizers =
+        authorizerPluginPluginConfigFactory.loadPluginConfigs(PluginType.AUTHORIZER);
+
+    // Select only enabled authorizer for instantiation
+    List<AuthorizerPluginConfig> enabledAuthorizers = authorizers.stream().filter(pluginConfig -> {
+      if (!pluginConfig.getEnabled()) {
+        log.info(String.format("Authorizer %s is not enabled", pluginConfig.getName()));
+      }
+      return pluginConfig.getEnabled();
+    }).collect(Collectors.toList());
+
+    // Get security mode set by user
+    SecurityMode securityMode =
+        SecurityMode.valueOf(this.configurationProvider.getDatahub().getPlugin().getPluginSecurityMode());
+    // Create permission manager with security mode
+    PluginPermissionManager permissionManager = new PluginPermissionManagerImpl(securityMode);
+
+    // Instantiate Authorizer plugins
+    enabledAuthorizers.forEach((pluginConfig) -> {
+      // Create context
+      AuthorizerContext context = new AuthorizerContext(
+          ImmutableMap.of(PluginConstant.PLUGIN_DIRECTORY, pluginConfig.getPluginDirectoryPath().toString()), resolver);
+      IsolatedClassLoader isolatedClassLoader = new IsolatedClassLoaderImpl(permissionManager, pluginConfig);
+      try {
+        Authorizer authorizer = (Authorizer) isolatedClassLoader.instantiatePlugin(Authorizer.class);
+        log.info("Initializing plugin {}", pluginConfig.getName());
+        authorizer.init(pluginConfig.getConfigs().orElse(Collections.emptyMap()), context);
+        customAuthorizers.add(authorizer);
+        log.info("Plugin {} is initialized", pluginConfig.getName());
+      } catch (ClassNotFoundException e) {
+        throw new RuntimeException(e);
+      }
+    });
+
   }
 }
