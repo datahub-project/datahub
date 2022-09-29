@@ -38,7 +38,9 @@ public class DataHubGraphQLError implements GraphQLError {
     return extensions;
   }
 
-  public int getErrorCode() { return errorCode.getCode(); }
+  public int getErrorCode() {
+    return errorCode.getCode();
+  }
 
   @Override
   public String getMessage() {
