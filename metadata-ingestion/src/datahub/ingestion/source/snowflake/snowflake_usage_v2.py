@@ -52,8 +52,11 @@ class PermissiveModel(pydantic.BaseModel):
 
 
 class SnowflakeColumnReference(PermissiveModel):
-    columnId: int
     columnName: str
+    columnId: Optional[int] = None
+    objectName: Optional[str] = None
+    objectDomain: Optional[str] = None
+    objectId: Optional[int] = None
 
 
 class SnowflakeObjectAccessEntry(PermissiveModel):
