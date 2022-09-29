@@ -67,7 +67,7 @@ public class AuthorizerChainFactory {
 
   private AuthorizerContext initAuthorizerContext() {
     final ResourceSpecResolver resolver = new DefaultResourceSpecResolver(systemAuthentication, entityClient);
-    return new AuthorizerContext(resolver);
+    return new AuthorizerContext(Collections.emptyMap(),resolver);
   }
 
   private List<Authorizer> initCustomAuthorizers(AuthorizerContext ctx) {
