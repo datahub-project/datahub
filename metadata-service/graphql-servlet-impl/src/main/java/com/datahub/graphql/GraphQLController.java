@@ -126,9 +126,20 @@ public class GraphQLController {
     throw new UnsupportedOperationException("GraphQL gets not supported.");
   }
 
+  private void observeErrors(ExecutionResult executionResult) {
+    executionResult.getErrors().forEach(graphQLError -> {
+      String errorType = graphQLError.getErrorType().toString();
+      MetricUtils.get().counter(MetricRegistry.name(this.getClass(), "errorType", errorType)).inc();
+    });
+    if(executionResult.getErrors().size() != 0) {
+      MetricUtils.get().counter(MetricRegistry.name(this.getClass(), "error")).inc();
+    }
+  }
+
   @SuppressWarnings("unchecked")
   private void submitMetrics(ExecutionResult executionResult) {
     try {
+      observeErrors(executionResult);
       Object tracingInstrumentation = executionResult.getExtensions().get("tracing");
       if (tracingInstrumentation instanceof Map) {
         Map<String, Object> tracingMap = (Map<String, Object>) tracingInstrumentation;
@@ -137,11 +148,12 @@ public class GraphQLController {
         // Extract top level resolver, parent is top level query. Assumes single query per call.
         List<Map<String, Object>> resolvers = (List<Map<String, Object>>) executionData.get("resolvers");
         Optional<Map<String, Object>>
-            parentResolver = resolvers.stream().filter(resolver -> resolver.get("parentType").equals("Query")).findFirst();
+                parentResolver = resolvers.stream().filter(resolver -> resolver.get("parentType").equals("Query")).findFirst();
         String fieldName = parentResolver.isPresent() ? (String) parentResolver.get().get("fieldName") : "UNKNOWN";
         MetricUtils.get().histogram(MetricRegistry.name(this.getClass(), fieldName)).update(totalDuration);
       }
     } catch (Exception e) {
+      MetricUtils.get().counter(MetricRegistry.name(this.getClass(),"submitMetrics", "exception")).inc();
       log.error("Unable to submit metrics for GraphQL call.", e);
     }
   }
