@@ -130,14 +130,14 @@ public class GraphQLController {
   private void observeErrors(ExecutionResult executionResult) {
     executionResult.getErrors().forEach(graphQLError -> {
       if (graphQLError instanceof DataHubGraphQLError) {
-        DataHubGraphQLError DHGraphQLError = (DataHubGraphQLError) graphQLError;
-        int errorCode = DHGraphQLError.getErrorCode();
+        DataHubGraphQLError dhGraphQLError = (DataHubGraphQLError) graphQLError;
+        int errorCode = dhGraphQLError.getErrorCode();
         MetricUtils.get().counter(MetricRegistry.name(this.getClass(), "errorCode", Integer.toString(errorCode))).inc();
       } else {
         MetricUtils.get().counter(MetricRegistry.name(this.getClass(), "errorType", graphQLError.getErrorType().toString())).inc();
       }
     });
-    if(executionResult.getErrors().size() != 0) {
+    if (executionResult.getErrors().size() != 0) {
       MetricUtils.get().counter(MetricRegistry.name(this.getClass(), "error")).inc();
     }
   }
@@ -159,7 +159,7 @@ public class GraphQLController {
         MetricUtils.get().histogram(MetricRegistry.name(this.getClass(), fieldName)).update(totalDuration);
       }
     } catch (Exception e) {
-      MetricUtils.get().counter(MetricRegistry.name(this.getClass(),"submitMetrics", "exception")).inc();
+      MetricUtils.get().counter(MetricRegistry.name(this.getClass(), "submitMetrics", "exception")).inc();
       log.error("Unable to submit metrics for GraphQL call.", e);
     }
   }
