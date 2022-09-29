@@ -4,6 +4,7 @@ set -e
 
 : ${DATAHUB_ANALYTICS_ENABLED:=true}
 : ${USE_AWS_ELASTICSEARCH:=false}
+: ${ELASTICSEARCH_INSECURE:=false}
 
 # protocol: http or https?
 if [[ $ELASTICSEARCH_USE_SSL == true ]]; then
@@ -36,7 +37,7 @@ CURL_ARGS=(
   --header "$ELASTICSEARCH_AUTH_HEADER"
 )
 # ... also optionally use --insecure
-if [[ $ELASTICSEARCH_INSECURE ]]; then
+if [[ $ELASTICSEARCH_INSECURE == true ]]; then
   CURL_ARGS+=(--insecure)
 fi
 
@@ -139,9 +140,22 @@ function create_datahub_usage_event_aws_elasticsearch() {
 }
 
 if [[ $DATAHUB_ANALYTICS_ENABLED == true ]]; then
+  echo -e "\n datahub_analytics_enabled: $DATAHUB_ANALYTICS_ENABLED"
   if [[ $USE_AWS_ELASTICSEARCH == false ]]; then
     create_datahub_usage_event_datastream || exit 1
   else
     create_datahub_usage_event_aws_elasticsearch || exit 1
+  fi
+else
+  echo -e "\ndatahub_analytics_enabled: $DATAHUB_ANALYTICS_ENABLED"
+  DATAHUB_USAGE_EVENT_INDEX_RESPONSE_CODE=$(curl -o /dev/null -s -w "%{http_code}" --header "$ELASTICSEARCH_AUTH_HEADER" "${ELASTICSEARCH_INSECURE}$ELASTICSEARCH_PROTOCOL://$ELASTICSEARCH_HOST:$ELASTICSEARCH_PORT/cat/indices/${PREFIX}datahub_usage_event")
+  if [ $DATAHUB_USAGE_EVENT_INDEX_RESPONSE_CODE -eq 404 ]
+  then
+    echo -e "\ncreating ${PREFIX}datahub_usage_event"
+    curl -XPUT --header "$ELASTICSEARCH_AUTH_HEADER" "${ELASTICSEARCH_INSECURE}$ELASTICSEARCH_PROTOCOL://$ELASTICSEARCH_HOST:$ELASTICSEARCH_PORT/${PREFIX}datahub_usage_event"
+  elif [ $DATAHUB_USAGE_EVENT_INDEX_RESPONSE_CODE -eq 200 ]; then
+    echo -e "\n${PREFIX}datahub_usage_event exists"
+  elif [ $DATAHUB_USAGE_EVENT_INDEX_RESPONSE_CODE -eq 403 ]; then
+    echo -e "Forbidden so exiting"
   fi
 fi
