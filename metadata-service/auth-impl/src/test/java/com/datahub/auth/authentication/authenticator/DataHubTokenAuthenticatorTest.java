@@ -1,6 +1,5 @@
-package com.datahub.authentication.authenticator;
+package com.datahub.auth.authentication.authenticator;
 
-import com.datahub.auth.authentication.authenticator.DataHubTokenAuthenticator;
 import com.datahub.plugins.auth.authentication.Actor;
 import com.datahub.plugins.auth.authentication.ActorType;
 import com.datahub.plugins.auth.authentication.Authentication;

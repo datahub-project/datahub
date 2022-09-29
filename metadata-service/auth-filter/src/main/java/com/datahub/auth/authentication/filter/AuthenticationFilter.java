@@ -1,4 +1,4 @@
-package com.datahub.authentication.filter;
+package com.datahub.auth.authentication.filter;
 
 import com.datahub.auth.authentication.authenticator.AuthenticatorChain;
 import com.datahub.auth.authentication.authenticator.DataHubSystemAuthenticator;
@@ -194,6 +194,7 @@ public class AuthenticationFilter implements Filter {
   }
 
   private void registerNativeAuthenticator(AuthenticatorChain authenticatorChain, AuthenticatorContext authenticatorContext) {
+    log.info("Registering native authenticators");
     // Register system authenticator
     DataHubSystemAuthenticator systemAuthenticator = new DataHubSystemAuthenticator();
     systemAuthenticator.init(

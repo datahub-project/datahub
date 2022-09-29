@@ -1,7 +1,5 @@
-package com.datahub.authorization;
+package com.datahub.auth.authorization;
 
-import com.datahub.auth.authorization.FilterUtils;
-import com.datahub.auth.authorization.PolicyEngine;
 import com.datahub.plugins.auth.authentication.Authentication;
 import com.datahub.plugins.auth.authorization.FieldResolver;
 import com.datahub.plugins.auth.authorization.ResolvedResourceSpec;

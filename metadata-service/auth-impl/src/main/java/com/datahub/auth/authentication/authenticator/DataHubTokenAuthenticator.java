@@ -33,9 +33,9 @@ import static com.datahub.plugins.auth.authentication.AuthenticationConstants.*;
 @Slf4j
 public class DataHubTokenAuthenticator implements Authenticator {
 
-  static final String SIGNING_KEY_CONFIG_NAME = "signingKey";
-  static final String SALT_CONFIG_NAME = "salt";
-  static final String SIGNING_ALG_CONFIG_NAME = "signingAlg";
+  public static final String SIGNING_KEY_CONFIG_NAME = "signingKey";
+  public static final String SALT_CONFIG_NAME = "salt";
+  public static final String SIGNING_ALG_CONFIG_NAME = "signingAlg";
   static final String DEFAULT_SIGNING_ALG = "HS256";
   static final String DEFAULT_ISSUER = "datahub-metadata-service";
 

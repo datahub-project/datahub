@@ -1,4 +1,4 @@
-package com.datahub.authentication;
+package com.datahub.auth.authentication;
 
 import com.datahub.auth.authentication.invite.InviteTokenService;
 import com.datahub.auth.authentication.token.StatelessTokenService;

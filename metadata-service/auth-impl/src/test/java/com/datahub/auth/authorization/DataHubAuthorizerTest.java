@@ -1,7 +1,4 @@
-package com.datahub.authorization;
-
-import com.datahub.auth.authorization.DataHubAuthorizer;
-import com.datahub.auth.authorization.DefaultResourceSpecResolver;
+package com.datahub.auth.authorization;
 import com.datahub.plugins.auth.authentication.Actor;
 import com.datahub.plugins.auth.authentication.ActorType;
 import com.datahub.plugins.auth.authentication.Authentication;
@@ -292,6 +289,6 @@ public class DataHubAuthorizerTest {
   }
 
   private AuthorizerContext createAuthorizerContext(final Authentication systemAuthentication, final EntityClient entityClient) {
-    return new AuthorizerContext(new DefaultResourceSpecResolver(systemAuthentication, entityClient));
+    return new AuthorizerContext(Collections.emptyMap(), new DefaultResourceSpecResolver(systemAuthentication, entityClient));
   }
 }

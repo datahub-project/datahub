@@ -1,6 +1,5 @@
 package com.linkedin.metadata.config;
 
-import javax.annotation.Nonnull;
 import lombok.Data;
 
 
