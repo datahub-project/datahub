@@ -32,7 +32,7 @@ public class AuthorizationResult {
   /**
    * The decision - whether to allow or deny the request.
    */
-  Type type;
+  public Type type;
 
   /**
    * Optional message associated with the decision. Useful for debugging.
