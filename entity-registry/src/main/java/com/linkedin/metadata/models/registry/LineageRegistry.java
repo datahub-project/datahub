@@ -57,14 +57,14 @@ public class LineageRegistry {
     for (LineageEdge edge : lineageEdges) {
       if (edge.isUpstream()) {
         upstreamPerEntity.computeIfAbsent(edge.sourceEntity.toLowerCase(), (k) -> new HashSet<>())
-            .add(new EdgeInfo(edge.type, RelationshipDirection.OUTGOING, edge.destEntity.toLowerCase()));
+            .add(new EdgeInfo(edge.type, RelationshipDirection.OUTGOING, edge.destEntity));
         downstreamPerEntity.computeIfAbsent(edge.destEntity.toLowerCase(), (k) -> new HashSet<>())
-            .add(new EdgeInfo(edge.type, RelationshipDirection.INCOMING, edge.sourceEntity.toLowerCase()));
+            .add(new EdgeInfo(edge.type, RelationshipDirection.INCOMING, edge.sourceEntity));
       } else {
         downstreamPerEntity.computeIfAbsent(edge.sourceEntity.toLowerCase(), (k) -> new HashSet<>())
-            .add(new EdgeInfo(edge.type, RelationshipDirection.OUTGOING, edge.destEntity.toLowerCase()));
+            .add(new EdgeInfo(edge.type, RelationshipDirection.OUTGOING, edge.destEntity));
         upstreamPerEntity.computeIfAbsent(edge.destEntity.toLowerCase(), (k) -> new HashSet<>())
-            .add(new EdgeInfo(edge.type, RelationshipDirection.INCOMING, edge.sourceEntity.toLowerCase()));
+            .add(new EdgeInfo(edge.type, RelationshipDirection.INCOMING, edge.sourceEntity));
       }
     }
 
@@ -132,5 +132,27 @@ public class LineageRegistry {
     String type;
     RelationshipDirection direction;
     String opposingEntityType;
+
+    @Override
+    public boolean equals(Object o) {
+      if (o == this) {
+        return true;
+      }
+
+      if (o instanceof EdgeInfo) {
+        return ((EdgeInfo) o).type.equalsIgnoreCase(this.type) &&
+            ((EdgeInfo) o).direction.equals(this.direction) &&
+            ((EdgeInfo) o).opposingEntityType.equalsIgnoreCase(this.opposingEntityType);
+      }
+      return false;
+    }
+
+    @Override
+    public int hashCode() {
+      return ((this.type == null ? 0 : this.type.toLowerCase().hashCode()) ^
+          (this.direction == null ? 0 : this.direction.hashCode()) ^
+          (this.opposingEntityType == null ? 0 : this.opposingEntityType.toLowerCase().hashCode()));
+    }
   }
+
 }
