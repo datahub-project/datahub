@@ -2,7 +2,8 @@ import io
 import pathlib
 import re
 import sys
-from typing import Any, Dict, Union
+import unittest.mock
+from typing import Any, Dict, Set, Union
 
 from expandvars import UnboundVariable, expandvars
 
@@ -51,6 +52,19 @@ def resolve_env_variables(config: dict) -> dict:
     return new_dict
 
 
+def list_referenced_env_variables(config: dict) -> Set[str]:
+    # This is a bit of a hack, but expandvars does a bunch of escaping
+    # and other logic that we don't want to duplicate here.
+
+    with unittest.mock.patch("expandvars.getenv") as mock_getenv:
+        mock_getenv.return_value = "mocked_value"
+
+        resolve_env_variables(config)
+
+    calls = mock_getenv.mock_calls
+    return set([call[1][0] for call in calls])
+
+
 def load_config_file(
     config_file: Union[pathlib.Path, str],
     squirrel_original_config: bool = False,
@@ -63,8 +77,7 @@ def load_config_file(
         config_mech = YamlConfigurationMechanism()
         raw_config_file = sys.stdin.read()
     else:
-        if isinstance(config_file, str):
-            config_file = pathlib.Path(config_file)
+        config_file = pathlib.Path(config_file)
         if not config_file.is_file():
             raise ConfigurationError(f"Cannot open config file {config_file}")
 
@@ -74,9 +87,7 @@ def load_config_file(
             config_mech = TomlConfigurationMechanism()
         else:
             raise ConfigurationError(
-                "Only .toml and .yml are supported. Cannot process file type {}".format(
-                    config_file.suffix
-                )
+                f"Only .toml and .yml are supported. Cannot process file type {config_file.suffix}"
             )
 
         raw_config_file = config_file.read_text()
