@@ -69,10 +69,9 @@ export const AdvancedSearchFilters = ({
             field: filterField,
             values: values as string[],
             value: '', // TODO(Gabe): remove once we refactor the model
-            condition:
-                FIELDS_THAT_USE_CONTAINS_OPERATOR.indexOf(filterField) > -1
-                    ? SearchCondition.Contain
-                    : SearchCondition.Equal,
+            condition: FIELDS_THAT_USE_CONTAINS_OPERATOR.includes(filterField)
+                ? SearchCondition.Contain
+                : SearchCondition.Equal,
         };
         onFilterSelect([...selectedFilters, newFilter]);
     };

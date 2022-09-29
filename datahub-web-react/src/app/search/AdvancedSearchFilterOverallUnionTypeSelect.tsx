@@ -26,6 +26,7 @@ export const AdvancedSearchFilterOverallUnionTypeSelect = ({ unionType, onUpdate
             <StyledSelect
                 showArrow={false}
                 bordered={false}
+                // these values are just for display purposes- the actual value is the unionType prop
                 value={unionType === UnionType.AND ? 'all filters' : 'any filter'}
                 onChange={(newValue) => {
                     if ((newValue as any) !== unionType) {
