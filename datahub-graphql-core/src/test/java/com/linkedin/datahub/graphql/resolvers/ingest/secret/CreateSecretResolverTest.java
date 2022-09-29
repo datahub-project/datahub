@@ -1,7 +1,7 @@
 package com.linkedin.datahub.graphql.resolvers.ingest.secret;
 
 
-import com.datahub.authentication.Authentication;
+import com.datahub.plugins.auth.authentication.Authentication;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.generated.CreateSecretInput;
 import com.linkedin.datahub.graphql.resolvers.ingest.source.UpsertIngestionSourceResolver;

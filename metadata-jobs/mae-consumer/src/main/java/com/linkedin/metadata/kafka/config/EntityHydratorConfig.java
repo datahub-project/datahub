@@ -1,6 +1,6 @@
 package com.linkedin.metadata.kafka.config;
 
-import com.datahub.authentication.Authentication;
+import com.datahub.plugins.auth.authentication.Authentication;
 import com.linkedin.entity.client.RestliEntityClient;
 import com.linkedin.gms.factory.auth.SystemAuthenticationFactory;
 import com.linkedin.gms.factory.entity.RestliEntityClientFactory;

@@ -1,4 +1,4 @@
-package com.datahub.authorization;
+package com.datahub.plugins.auth.authorization;
 
 /**
  * List of resource field types to fetch for a given resource

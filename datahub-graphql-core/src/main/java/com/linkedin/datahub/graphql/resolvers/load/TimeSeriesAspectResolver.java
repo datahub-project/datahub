@@ -1,6 +1,6 @@
 package com.linkedin.datahub.graphql.resolvers.load;
 
-import com.datahub.authorization.ResourceSpec;
+import com.datahub.plugins.auth.authorization.ResourceSpec;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.authorization.AuthorizationUtils;
 import com.linkedin.datahub.graphql.generated.Entity;

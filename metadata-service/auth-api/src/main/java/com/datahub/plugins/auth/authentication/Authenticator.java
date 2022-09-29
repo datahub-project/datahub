@@ -1,4 +1,4 @@
-package com.datahub.authentication;
+package com.datahub.plugins.auth.authentication;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;

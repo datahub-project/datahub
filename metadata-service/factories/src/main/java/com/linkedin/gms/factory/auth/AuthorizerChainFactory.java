@@ -1,13 +1,13 @@
 package com.linkedin.gms.factory.auth;
 
-import com.datahub.authentication.Authentication;
-import com.datahub.authorization.AuthorizerConfiguration;
-import com.datahub.authorization.AuthorizerContext;
+import com.datahub.plugins.auth.authentication.Authentication;
+import com.datahub.plugins.auth.authorization.AuthorizerConfiguration;
+import com.datahub.plugins.auth.authorization.AuthorizerContext;
 import com.datahub.authorization.DataHubAuthorizer;
-import com.datahub.authorization.Authorizer;
+import com.datahub.plugins.auth.authorization.Authorizer;
 import com.datahub.authorization.AuthorizerChain;
 import com.datahub.authorization.DefaultResourceSpecResolver;
-import com.datahub.authorization.ResourceSpecResolver;
+import com.datahub.plugins.auth.authorization.ResourceSpecResolver;
 import com.linkedin.metadata.client.JavaEntityClient;
 import com.linkedin.gms.factory.config.ConfigurationProvider;
 import com.linkedin.gms.factory.spring.YamlPropertySourceFactory;

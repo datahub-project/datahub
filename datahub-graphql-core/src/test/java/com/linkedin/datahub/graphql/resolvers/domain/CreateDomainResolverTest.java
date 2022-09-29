@@ -1,6 +1,6 @@
 package com.linkedin.datahub.graphql.resolvers.domain;
 
-import com.datahub.authentication.Authentication;
+import com.datahub.plugins.auth.authentication.Authentication;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.generated.CreateDomainInput;
 import com.linkedin.domain.DomainProperties;

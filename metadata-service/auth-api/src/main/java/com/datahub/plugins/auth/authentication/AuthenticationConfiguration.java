@@ -1,4 +1,4 @@
-package com.datahub.authentication;
+package com.datahub.plugins.auth.authentication;
 
 import java.util.List;
 import lombok.Data;

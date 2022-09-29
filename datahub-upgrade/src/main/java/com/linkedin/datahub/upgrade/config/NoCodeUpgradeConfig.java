@@ -1,6 +1,6 @@
 package com.linkedin.datahub.upgrade.config;
 
-import com.datahub.authentication.Authentication;
+import com.datahub.plugins.auth.authentication.Authentication;
 import com.linkedin.datahub.upgrade.nocode.NoCodeUpgrade;
 import com.linkedin.entity.client.RestliEntityClient;
 import com.linkedin.metadata.entity.EntityService;

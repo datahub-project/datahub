@@ -1,6 +1,6 @@
 package com.linkedin.gms.factory.ingestion;
 
-import com.datahub.authentication.Authentication;
+import com.datahub.plugins.auth.authentication.Authentication;
 import com.datahub.metadata.ingestion.IngestionScheduler;
 import com.linkedin.entity.client.RestliEntityClient;
 import com.linkedin.gms.factory.auth.SystemAuthenticationFactory;

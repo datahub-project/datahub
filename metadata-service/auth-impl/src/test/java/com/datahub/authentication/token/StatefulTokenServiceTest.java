@@ -1,7 +1,7 @@
 package com.datahub.authentication.token;
 
-import com.datahub.authentication.Actor;
-import com.datahub.authentication.ActorType;
+import com.datahub.plugins.auth.authentication.Actor;
+import com.datahub.plugins.auth.authentication.ActorType;
 import com.datahub.authentication.authenticator.DataHubTokenAuthenticatorTest;
 import com.google.common.collect.ImmutableList;
 import com.linkedin.common.urn.Urn;

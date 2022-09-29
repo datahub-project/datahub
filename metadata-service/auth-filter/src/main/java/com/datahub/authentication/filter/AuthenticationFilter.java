@@ -1,13 +1,13 @@
 package com.datahub.authentication.filter;
 
-import com.datahub.authentication.Authentication;
-import com.datahub.authentication.AuthenticationConfiguration;
-import com.datahub.authentication.AuthenticationContext;
-import com.datahub.authentication.AuthenticationException;
-import com.datahub.authentication.AuthenticationRequest;
-import com.datahub.authentication.Authenticator;
-import com.datahub.authentication.AuthenticatorConfiguration;
-import com.datahub.authentication.AuthenticatorContext;
+import com.datahub.plugins.auth.authentication.Authentication;
+import com.datahub.plugins.auth.authentication.AuthenticationConfiguration;
+import com.datahub.plugins.auth.authentication.AuthenticationContext;
+import com.datahub.plugins.auth.authentication.AuthenticationException;
+import com.datahub.plugins.auth.authentication.AuthenticationRequest;
+import com.datahub.plugins.auth.authentication.Authenticator;
+import com.datahub.plugins.auth.authentication.AuthenticatorConfiguration;
+import com.datahub.plugins.auth.authentication.AuthenticatorContext;
 import com.datahub.authentication.authenticator.AuthenticatorChain;
 import com.datahub.authentication.authenticator.DataHubSystemAuthenticator;
 import com.datahub.authentication.authenticator.NoOpAuthenticator;
@@ -33,7 +33,7 @@ import javax.servlet.http.HttpServletResponse;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.web.context.support.SpringBeanAutowiringSupport;
 
-import static com.datahub.authentication.AuthenticationConstants.*;
+import static com.datahub.plugins.auth.authentication.AuthenticationConstants.*;
 
 
 /**

@@ -1,12 +1,12 @@
 package com.datahub.authentication.authenticator;
 
-import com.datahub.authentication.Actor;
-import com.datahub.authentication.ActorType;
-import com.datahub.authentication.Authentication;
-import com.datahub.authentication.AuthenticationException;
-import com.datahub.authentication.Authenticator;
-import com.datahub.authentication.AuthenticationRequest;
-import com.datahub.authentication.AuthenticatorContext;
+import com.datahub.plugins.auth.authentication.Actor;
+import com.datahub.plugins.auth.authentication.ActorType;
+import com.datahub.plugins.auth.authentication.Authentication;
+import com.datahub.plugins.auth.authentication.AuthenticationException;
+import com.datahub.plugins.auth.authentication.Authenticator;
+import com.datahub.plugins.auth.authentication.AuthenticationRequest;
+import com.datahub.plugins.auth.authentication.AuthenticatorContext;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.metadata.Constants;
 import java.util.Collections;
@@ -16,7 +16,7 @@ import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import lombok.extern.slf4j.Slf4j;
 
-import static com.datahub.authentication.AuthenticationConstants.*;
+import static com.datahub.plugins.auth.authentication.AuthenticationConstants.*;
 
 
 /**

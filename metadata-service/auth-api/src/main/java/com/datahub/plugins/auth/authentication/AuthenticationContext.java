@@ -1,4 +1,4 @@
-package com.datahub.authentication;
+package com.datahub.plugins.auth.authentication;
 
 /**
  * A static wrapper around a {@link ThreadLocal} instance of {@link Authentication} containing

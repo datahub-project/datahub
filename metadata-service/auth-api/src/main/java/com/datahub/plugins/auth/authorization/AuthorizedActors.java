@@ -1,4 +1,4 @@
-package com.datahub.authorization;
+package com.datahub.plugins.auth.authorization;
 
 import com.linkedin.common.urn.Urn;
 import java.util.List;

@@ -1,6 +1,6 @@
 package com.linkedin.datahub.graphql.resolvers.group;
 
-import com.datahub.authentication.Authentication;
+import com.datahub.plugins.auth.authentication.Authentication;
 import com.datahub.authentication.group.GroupService;
 import com.linkedin.common.Origin;
 import com.linkedin.common.OriginType;

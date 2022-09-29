@@ -1,5 +1,11 @@
 package com.datahub.authorization;
 
+import com.datahub.plugins.auth.authorization.AuthorizationRequest;
+import com.datahub.plugins.auth.authorization.AuthorizationResult;
+import com.datahub.plugins.auth.authorization.AuthorizedActors;
+import com.datahub.plugins.auth.authorization.Authorizer;
+import com.datahub.plugins.auth.authorization.AuthorizerContext;
+import com.datahub.plugins.auth.authorization.ResourceSpec;
 import com.linkedin.common.urn.Urn;
 import java.util.ArrayList;
 import java.util.Collections;

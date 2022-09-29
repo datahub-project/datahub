@@ -1,6 +1,6 @@
 package com.datahub.authentication.token;
 
-import com.datahub.authentication.ActorType;
+import com.datahub.plugins.auth.authentication.ActorType;
 import com.google.common.collect.ImmutableMap;
 import java.util.Map;
 import java.util.Objects;

@@ -1,11 +1,16 @@
 package com.datahub.authorization;
 
-import com.datahub.authentication.Authentication;
+import com.datahub.plugins.auth.authentication.Authentication;
 import com.datahub.authorization.fieldresolverprovider.DomainFieldResolverProvider;
 import com.datahub.authorization.fieldresolverprovider.EntityTypeFieldResolverProvider;
 import com.datahub.authorization.fieldresolverprovider.EntityUrnFieldResolverProvider;
 import com.datahub.authorization.fieldresolverprovider.OwnerFieldResolverProvider;
 import com.datahub.authorization.fieldresolverprovider.ResourceFieldResolverProvider;
+import com.datahub.plugins.auth.authorization.FieldResolver;
+import com.datahub.plugins.auth.authorization.ResolvedResourceSpec;
+import com.datahub.plugins.auth.authorization.ResourceFieldType;
+import com.datahub.plugins.auth.authorization.ResourceSpec;
+import com.datahub.plugins.auth.authorization.ResourceSpecResolver;
 import com.google.common.collect.ImmutableList;
 import com.linkedin.entity.client.EntityClient;
 import java.util.List;

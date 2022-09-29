@@ -1,4 +1,4 @@
-package com.datahub.authentication;
+package com.datahub.plugins.auth.authentication;
 
 /**
  * An {@link Exception} thrown when an {@link Authenticator} is unable to be resolve an instance of

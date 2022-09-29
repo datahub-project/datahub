@@ -1,6 +1,6 @@
 package com.linkedin.metadata.kafka.hook.event;
 
-import com.datahub.authentication.Authentication;
+import com.datahub.plugins.auth.authentication.Authentication;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.linkedin.common.AuditStamp;

@@ -1,14 +1,14 @@
 package com.datahub.authentication.authenticator;
 
-import com.datahub.authentication.Actor;
+import com.datahub.plugins.auth.authentication.Actor;
 
-import com.datahub.authentication.Authentication;
-import com.datahub.authentication.AuthenticationConstants;
-import com.datahub.authentication.AuthenticationExpiredException;
-import com.datahub.authentication.AuthenticationRequest;
-import com.datahub.authentication.AuthenticationException;
-import com.datahub.authentication.Authenticator;
-import com.datahub.authentication.AuthenticatorContext;
+import com.datahub.plugins.auth.authentication.Authentication;
+import com.datahub.plugins.auth.authentication.AuthenticationConstants;
+import com.datahub.plugins.auth.authentication.AuthenticationExpiredException;
+import com.datahub.plugins.auth.authentication.AuthenticationRequest;
+import com.datahub.plugins.auth.authentication.AuthenticationException;
+import com.datahub.plugins.auth.authentication.Authenticator;
+import com.datahub.plugins.auth.authentication.AuthenticatorContext;
 import com.datahub.authentication.token.StatefulTokenService;
 import com.datahub.authentication.token.TokenClaims;
 import com.datahub.authentication.token.TokenExpiredException;
@@ -19,7 +19,7 @@ import java.util.Map;
 import java.util.Objects;
 import lombok.extern.slf4j.Slf4j;
 
-import static com.datahub.authentication.AuthenticationConstants.*;
+import static com.datahub.plugins.auth.authentication.AuthenticationConstants.*;
 
 
 /**

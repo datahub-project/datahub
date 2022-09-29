@@ -1,6 +1,6 @@
 package com.linkedin.datahub.graphql.resolvers.container;
 
-import com.datahub.authentication.Authentication;
+import com.datahub.plugins.auth.authentication.Authentication;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.container.Container;
 import com.linkedin.container.ContainerProperties;

@@ -1,6 +1,6 @@
 package com.linkedin.datahub.graphql.analytics.service;
 
-import com.datahub.authentication.Authentication;
+import com.datahub.plugins.auth.authentication.Authentication;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.datahub.graphql.generated.BarSegment;
 import com.linkedin.datahub.graphql.generated.Cell;

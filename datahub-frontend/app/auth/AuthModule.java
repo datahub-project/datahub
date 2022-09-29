@@ -1,8 +1,8 @@
 package auth;
 
 import client.AuthServiceClient;
-import com.datahub.authentication.Actor;
-import com.datahub.authentication.ActorType;
+import com.datahub.plugins.auth.authentication.Actor;
+import com.datahub.plugins.auth.authentication.ActorType;
 import com.google.inject.AbstractModule;
 import com.google.inject.Provides;
 import com.google.inject.Singleton;
@@ -10,7 +10,7 @@ import com.linkedin.entity.client.EntityClient;
 import com.linkedin.entity.client.RestliEntityClient;
 import com.linkedin.metadata.restli.DefaultRestliClientFactory;
 import com.linkedin.util.Configuration;
-import com.datahub.authentication.Authentication;
+import com.datahub.plugins.auth.authentication.Authentication;
 import java.nio.charset.StandardCharsets;
 import java.util.Collections;
 import org.apache.commons.codec.digest.DigestUtils;

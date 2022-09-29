@@ -1,6 +1,6 @@
 package com.linkedin.datahub.upgrade.restorebackup;
 
-import com.datahub.authentication.Authentication;
+import com.datahub.plugins.auth.authentication.Authentication;
 import com.google.common.collect.ImmutableList;
 import com.linkedin.datahub.upgrade.Upgrade;
 import com.linkedin.datahub.upgrade.UpgradeCleanupStep;
