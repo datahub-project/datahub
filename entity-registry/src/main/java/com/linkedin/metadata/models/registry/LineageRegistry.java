@@ -140,18 +140,18 @@ public class LineageRegistry {
       }
 
       if (o instanceof EdgeInfo) {
-        return ((EdgeInfo) o).type.equalsIgnoreCase(this.type) &&
-            ((EdgeInfo) o).direction.equals(this.direction) &&
-            ((EdgeInfo) o).opposingEntityType.equalsIgnoreCase(this.opposingEntityType);
+        return ((EdgeInfo) o).type.equalsIgnoreCase(this.type)
+            && ((EdgeInfo) o).direction.equals(this.direction)
+            && ((EdgeInfo) o).opposingEntityType.equalsIgnoreCase(this.opposingEntityType);
       }
       return false;
     }
 
     @Override
     public int hashCode() {
-      return ((this.type == null ? 0 : this.type.toLowerCase().hashCode()) ^
-          (this.direction == null ? 0 : this.direction.hashCode()) ^
-          (this.opposingEntityType == null ? 0 : this.opposingEntityType.toLowerCase().hashCode()));
+      return ((this.type == null ? 0 : this.type.toLowerCase().hashCode())
+          ^ (this.direction == null ? 0 : this.direction.hashCode())
+          ^ (this.opposingEntityType == null ? 0 : this.opposingEntityType.toLowerCase().hashCode()));
     }
   }
 
