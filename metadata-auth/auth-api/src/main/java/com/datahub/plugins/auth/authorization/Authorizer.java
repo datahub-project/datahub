@@ -1,5 +1,6 @@
 package com.datahub.plugins.auth.authorization;
 
+import com.datahub.plugins.Plugin;
 import java.util.Map;
 import java.util.Optional;
 import javax.annotation.Nonnull;
@@ -8,7 +9,7 @@ import javax.annotation.Nonnull;
 /**
  * An Authorizer is responsible for determining whether an actor should be granted a specific privilege.
  */
-public interface Authorizer {
+public interface Authorizer extends Plugin {
   /**
    * Initialize the Authorizer. Invoked once at boot time.
    *
@@ -26,7 +27,5 @@ public interface Authorizer {
    * Retrieves the current list of actors authorized to for a particular privilege against
    * an optional resource
    */
-  AuthorizedActors authorizedActors(
-      final String privilege,
-      final Optional<ResourceSpec> resourceSpec);
+  AuthorizedActors authorizedActors(final String privilege, final Optional<ResourceSpec> resourceSpec);
 }

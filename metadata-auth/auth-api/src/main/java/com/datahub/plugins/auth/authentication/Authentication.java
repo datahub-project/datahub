@@ -1,9 +1,9 @@
 package com.datahub.plugins.auth.authentication;
 
 import java.util.Collections;
-import javax.annotation.Nonnull;
 import java.util.Map;
 import java.util.Objects;
+import javax.annotation.Nonnull;
 
 
 /**
@@ -15,15 +15,11 @@ public class Authentication {
   private final String credentials;
   private final Map<String, Object> claims;
 
-  public Authentication(
-      @Nonnull final Actor authenticatedActor,
-      @Nonnull final String credentials) {
+  public Authentication(@Nonnull final Actor authenticatedActor, @Nonnull final String credentials) {
     this(authenticatedActor, credentials, Collections.emptyMap());
   }
 
-  public Authentication(
-      @Nonnull final Actor authenticatedActor,
-      @Nonnull final String credentials,
+  public Authentication(@Nonnull final Actor authenticatedActor, @Nonnull final String credentials,
       @Nonnull final Map<String, Object> claims) {
     this.authenticatedActor = Objects.requireNonNull(authenticatedActor);
     this.credentials = Objects.requireNonNull(credentials);
@@ -50,5 +46,4 @@ public class Authentication {
   public Map<String, Object> getClaims() {
     return this.claims;
   }
-
 }

@@ -1,8 +1,9 @@
 package com.datahub.plugins.auth.authentication;
 
+import com.datahub.plugins.Plugin;
+import java.util.Map;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
-import java.util.Map;
 
 
 /**
@@ -12,7 +13,7 @@ import java.util.Map;
  * In the case that {@link Authentication} cannot be resolved, for example because the request is missing the required
  * authentication information, an {@link AuthenticationException} may be thrown.
  */
-public interface Authenticator {
+public interface Authenticator extends Plugin {
 
   /**
    * Initialize the Authenticator. Invoked once at boot time.
@@ -30,5 +31,6 @@ public interface Authenticator {
    * If the request cannot be authenticated, returns "null" or throws an {@link AuthenticationException}.
    */
   @Nullable
-  Authentication authenticate(@Nonnull final AuthenticationRequest context) throws AuthenticationException;
+  Authentication authenticate(@Nonnull final AuthenticationRequest authenticationRequest)
+      throws AuthenticationException;
 }

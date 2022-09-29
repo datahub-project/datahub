@@ -2,11 +2,10 @@ package com.datahub.plugins.auth.authorization;
 
 import com.linkedin.common.urn.Urn;
 import java.util.List;
-
 import lombok.AccessLevel;
-import lombok.Value;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
+import lombok.Value;
 
 
 @Value

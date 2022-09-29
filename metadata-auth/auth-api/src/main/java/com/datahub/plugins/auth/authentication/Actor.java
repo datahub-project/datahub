@@ -1,5 +1,6 @@
 package com.datahub.plugins.auth.authentication;
 
+import java.util.Objects;
 import javax.annotation.Nonnull;
 import lombok.AllArgsConstructor;
 import lombok.Getter;
@@ -33,11 +34,9 @@ public class Actor {
    */
   @Nonnull
   public String toUrnStr() {
-    switch (getType()) {
-      case USER:
-        return String.format("urn:li:corpuser:%s", getId());
-      default:
-        throw new IllegalArgumentException(String.format("Unrecognized ActorType %s provided", getType()));
+    if (Objects.requireNonNull(getType()) == ActorType.USER) {
+      return String.format("urn:li:corpuser:%s", getId());
     }
+    throw new IllegalArgumentException(String.format("Unrecognized ActorType %s provided", getType()));
   }
 }

@@ -30,9 +30,11 @@ public class ResolvedResourceSpec {
    */
   public String getType() {
     if (!fieldResolvers.containsKey(ResourceFieldType.RESOURCE_TYPE)) {
-      throw new UnsupportedOperationException("Failed to resolve resource type! No field resolver for RESOURCE_TYPE provided.");
+      throw new UnsupportedOperationException(
+          "Failed to resolve resource type! No field resolver for RESOURCE_TYPE provided.");
     }
-    Set<String> resourceTypes = fieldResolvers.get(ResourceFieldType.RESOURCE_TYPE).getFieldValuesFuture().join().getValues();
+    Set<String> resourceTypes =
+        fieldResolvers.get(ResourceFieldType.RESOURCE_TYPE).getFieldValuesFuture().join().getValues();
     assert resourceTypes.size() == 1; // There should always be a single resource type.
     return resourceTypes.stream().findFirst().get();
   }

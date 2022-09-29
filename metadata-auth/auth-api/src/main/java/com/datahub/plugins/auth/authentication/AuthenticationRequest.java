@@ -1,9 +1,9 @@
 package com.datahub.plugins.auth.authentication;
 
-import javax.annotation.Nonnull;
 import java.util.Map;
 import java.util.Objects;
 import java.util.TreeMap;
+import javax.annotation.Nonnull;
 
 
 /**
