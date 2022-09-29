@@ -20,6 +20,7 @@ from datahub.configuration import ConfigModel
 from datahub.configuration.common import AllowDenyPattern, ConfigurationError
 from datahub.configuration.github import GitHubInfo
 from datahub.configuration.source_common import EnvBasedSourceConfigBase
+from datahub.emitter.mce_builder import make_schema_field_urn
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.decorators import (
@@ -48,6 +49,7 @@ from datahub.ingestion.source.looker.looker_lib_wrapper import (
 from datahub.metadata.com.linkedin.pegasus2avro.common import BrowsePaths, Status
 from datahub.metadata.com.linkedin.pegasus2avro.dataset import (
     DatasetLineageTypeClass,
+    FineGrainedLineageDownstreamType,
     UpstreamClass,
     UpstreamLineage,
     ViewProperties,
@@ -57,6 +59,8 @@ from datahub.metadata.com.linkedin.pegasus2avro.mxe import MetadataChangeEvent
 from datahub.metadata.schema_classes import (
     ChangeTypeClass,
     DatasetPropertiesClass,
+    FineGrainedLineageClass,
+    FineGrainedLineageUpstreamTypeClass,
     SubTypesClass,
 )
 from datahub.utilities.sql_parser import SQLParser
@@ -577,7 +581,10 @@ class LookerView:
 
     @classmethod
     def _get_fields(
-        cls, field_list: List[Dict], type_cls: ViewFieldType
+        cls,
+        field_list: List[Dict],
+        type_cls: ViewFieldType,
+        extract_column_level_lineage: bool,
     ) -> List[ViewField]:
         fields = []
         for field_dict in field_list:
@@ -586,6 +593,19 @@ class LookerView:
             native_type = field_dict.get("type", "string")
             description = field_dict.get("description", "")
             label = field_dict.get("label", "")
+            upstream_field = None
+            if type_cls == ViewFieldType.DIMENSION and extract_column_level_lineage:
+                if field_dict.get("sql") is not None:
+                    upstream_field_match = re.match(
+                        r"^.*\${TABLE}\.(.*)$", field_dict["sql"]
+                    )
+                    if upstream_field_match:
+                        matched_field = upstream_field_match.group(1)
+                        # Remove quotes from field names
+                        matched_field = (
+                            matched_field.replace('"', "").replace("`", "").lower()
+                        )
+                        upstream_field = matched_field
 
             field = ViewField(
                 name=name,
@@ -594,6 +614,7 @@ class LookerView:
                 description=description,
                 is_primary_key=is_primary_key,
                 field_type=type_cls,
+                upstream_field=upstream_field,
             )
             fields.append(field)
         return fields
@@ -611,6 +632,7 @@ class LookerView:
         max_file_snippet_length: int,
         parse_table_names_from_sql: bool = False,
         sql_parser_path: str = "datahub.utilities.sql_parser.DefaultSQLParser",
+        extract_col_level_lineage: bool = False,
     ) -> Optional["LookerView"]:
         view_name = looker_view["name"]
         logger.debug(f"Handling view {view_name} in model {model_name}")
@@ -635,13 +657,19 @@ class LookerView:
         derived_table = looker_view.get("derived_table")
 
         dimensions = cls._get_fields(
-            looker_view.get("dimensions", []), ViewFieldType.DIMENSION
+            looker_view.get("dimensions", []),
+            ViewFieldType.DIMENSION,
+            extract_col_level_lineage,
         )
         dimension_groups = cls._get_fields(
-            looker_view.get("dimension_groups", []), ViewFieldType.DIMENSION_GROUP
+            looker_view.get("dimension_groups", []),
+            ViewFieldType.DIMENSION_GROUP,
+            extract_col_level_lineage,
         )
         measures = cls._get_fields(
-            looker_view.get("measures", []), ViewFieldType.MEASURE
+            looker_view.get("measures", []),
+            ViewFieldType.MEASURE,
+            extract_col_level_lineage,
         )
         fields: List[ViewField] = dimensions + dimension_groups + measures
 
@@ -993,15 +1021,40 @@ class LookMLSource(Source):
         for sql_table_name in looker_view.sql_table_names:
 
             sql_table_name = sql_table_name.replace('"', "").replace("`", "")
+            upstream_dataset_urn: str = self._construct_datalineage_urn(
+                sql_table_name, looker_view
+            )
+            fine_grained_lineages: List[FineGrainedLineageClass] = []
+            if self.source_config.extract_column_level_lineage:
+                for field in looker_view.fields:
+                    if field.upstream_field is not None:
+                        fine_grained_lineage = FineGrainedLineageClass(
+                            upstreamType=FineGrainedLineageUpstreamTypeClass.FIELD_SET,
+                            upstreams=[
+                                make_schema_field_urn(
+                                    upstream_dataset_urn, field.upstream_field
+                                )
+                            ],
+                            downstreamType=FineGrainedLineageDownstreamType.FIELD,
+                            downstreams=[
+                                make_schema_field_urn(
+                                    looker_view.id.get_urn(self.source_config),
+                                    field.name,
+                                )
+                            ],
+                        )
+                        fine_grained_lineages.append(fine_grained_lineage)
 
             upstream = UpstreamClass(
-                dataset=self._construct_datalineage_urn(sql_table_name, looker_view),
+                dataset=upstream_dataset_urn,
                 type=DatasetLineageTypeClass.VIEW,
             )
             upstreams.append(upstream)
 
         if upstreams != []:
-            return UpstreamLineage(upstreams=upstreams)
+            return UpstreamLineage(
+                upstreams=upstreams, fineGrainedLineages=fine_grained_lineages or None
+            )
         else:
             return None
 
@@ -1224,6 +1277,7 @@ class LookMLSource(Source):
                                 self.source_config.max_file_snippet_length,
                                 self.source_config.parse_table_names_from_sql,
                                 self.source_config.sql_parser,
+                                self.source_config.extract_column_level_lineage,
                             )
                         except Exception as e:
                             self.reporter.report_warning(
