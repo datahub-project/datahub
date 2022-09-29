@@ -81,6 +81,8 @@ project.ext.externalDependency = [
     'jacksonCore': 'com.fasterxml.jackson.core:jackson-core:2.13.2',
     'jacksonDataBind': 'com.fasterxml.jackson.core:jackson-databind:2.13.2.2',
     'jacksonDataFormatYaml': 'com.fasterxml.jackson.dataformat:jackson-dataformat-yaml:2.13.2',
+    'jacksonJDK8': 'com.fasterxml.jackson.datatype:jackson-datatype-jdk8:2.13.2',
+    'jacksonDataPropertyFormat': 'com.fasterxml.jackson.dataformat:jackson-dataformat-properties:2.13.2',
     'javatuples': 'org.javatuples:javatuples:1.2',
     'javaxInject' : 'javax.inject:javax.inject:1',
     'javaxValidation' : 'javax.validation:validation-api:2.0.1.Final',
