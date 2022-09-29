@@ -161,6 +161,10 @@ SNOWFLAKE_FIELD_TYPE_MAPPINGS = {
     "Enabled by default, can be disabled via configuration `include_table_lineage` and `include_view_lineage`",
 )
 @capability(
+    SourceCapability.LINEAGE_FINE,
+    "Enabled by default, can be disabled via configuration `include_table_lineage` and `include_view_lineage`",
+)
+@capability(
     SourceCapability.USAGE_STATS,
     "Enabled by default, can be disabled via configuration `include_usage_stats",
 )
@@ -354,6 +358,11 @@ class SnowflakeV2Source(
                         _report[SourceCapability.LINEAGE_COARSE] = CapabilityReport(
                             capable=True
                         )
+
+                        _report[SourceCapability.LINEAGE_FINE] = CapabilityReport(
+                            capable=True
+                        )
+
                         _report[SourceCapability.USAGE_STATS] = CapabilityReport(
                             capable=True
                         )
@@ -378,6 +387,7 @@ class SnowflakeV2Source(
             SourceCapability.DATA_PROFILING: "Either no tables exist or current role does not have permissions to access them",
             SourceCapability.CONTAINERS: "Current role does not have permissions to use any database",
             SourceCapability.LINEAGE_COARSE: "Current role does not have permissions to snowflake account usage views",
+            SourceCapability.LINEAGE_FINE: "Current role does not have permissions to snowflake account usage views",
             SourceCapability.USAGE_STATS: "Current role does not have permissions to snowflake account usage views",
         }
 
@@ -389,6 +399,7 @@ class SnowflakeV2Source(
                 SourceCapability.DESCRIPTIONS,
                 SourceCapability.DATA_PROFILING,
                 SourceCapability.LINEAGE_COARSE,
+                SourceCapability.LINEAGE_FINE,
                 SourceCapability.USAGE_STATS,
             ):
                 failure_message = (
@@ -559,8 +570,8 @@ class SnowflakeV2Source(
 
         view.columns = self.get_columns_for_table(conn, view.name, schema_name, db_name)
         lineage_info = None
-        if self.config.include_table_lineage:
-            self.lineage_extractor._get_upstream_lineage_info(view_name)
+        if self.config.include_view_lineage:
+            lineage_info = self.lineage_extractor._get_upstream_lineage_info(view_name)
         yield from self.gen_dataset_workunits(view, schema_name, db_name, lineage_info)
 
     def gen_dataset_workunits(
