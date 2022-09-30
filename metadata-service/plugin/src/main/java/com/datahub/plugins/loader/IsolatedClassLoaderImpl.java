@@ -53,14 +53,10 @@ public class IsolatedClassLoaderImpl extends ClassLoader implements IsolatedClas
       ClassLoader... applicationClassLoaders) {
     this._pluginPermissionManager = pluginPermissionManager;
     this._pluginConfig = pluginToLoad;
-    this._classLoaders.add(Thread.currentThread().getContextClassLoader()); // First put context class-loader
     this._classLoaders.add(this.getClass().getClassLoader()); // then application class-loader
     this._classLoaders.addAll(Arrays.asList(applicationClassLoaders)); // if any extra class loaders
     this._executionDirectory =
         Paths.get(pluginToLoad.getPluginDirectoryPath().toString(), EXECUTION_DIR); // to store .so files i.e. libraries
-    // Some libraries use the class loader from current thread context so lets CustomClassLoader to the control.
-    // jersey is one of the such library
-    Thread.currentThread().setContextClassLoader(this);
     try {
       this.createJarEntryMap();
     } catch (IOException e) {

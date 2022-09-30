@@ -13,6 +13,8 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
 import lombok.extern.slf4j.Slf4j;
+import org.apache.commons.compress.harmony.unpack200.bytecode.forms.ThisFieldRefForm;
+
 
 /**
  * A configurable chain of {@link Authenticator}s executed in series to attempt to authenticate an inbound request.
@@ -43,12 +45,17 @@ public class AuthenticatorChain {
    */
   @Nullable
   public Authentication authenticate(@Nonnull final AuthenticationRequest context) throws AuthenticationException {
+    // TODO: Need to write wrapper around authenticate and authorize to make IsolatedClassLoader as contextClassLoader for plugins
     Objects.requireNonNull(context);
+    ClassLoader contextClassLoader = Thread.currentThread().getContextClassLoader();
     List<Pair<String, String>> authenticationFailures = new ArrayList<>();
     for (final Authenticator authenticator : this.authenticators) {
       try {
         log.debug(String.format("Executing Authenticator with class name %s", authenticator.getClass().getCanonicalName()));
+        Thread.currentThread().setContextClassLoader(authenticator.getClass().getClassLoader());
         Authentication result = authenticator.authenticate(context);
+        // reset
+        Thread.currentThread().setContextClassLoader(contextClassLoader);
         if (result != null) {
           // Authentication was successful - Short circuit
           return result;
@@ -63,6 +70,8 @@ public class AuthenticatorChain {
         log.debug(String.format(
             "Caught exception while attempting to authenticate request using Authenticator %s",
             authenticator.getClass().getCanonicalName()), e);
+      } finally {
+        Thread.currentThread().setContextClassLoader(contextClassLoader);
       }
     }
     // No authentication resolved. Return null.

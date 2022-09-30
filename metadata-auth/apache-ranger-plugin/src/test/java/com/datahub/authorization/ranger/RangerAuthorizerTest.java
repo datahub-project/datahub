@@ -7,6 +7,7 @@ import com.datahub.authorization.ranger.response.UserById;
 import com.datahub.authorization.ranger.response.UserByName;
 import com.linkedin.metadata.authorization.PoliciesConfig;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -96,7 +97,7 @@ public class RangerAuthorizerTest {
 
     when(_dataHubRangerClient.newRangerBasePlugin()).thenReturn(rangerBasePlugin);
 
-    rangerAuthorizer.init(authorizerConfigMap, new AuthorizerContext(null));
+    rangerAuthorizer.init(authorizerConfigMap, new AuthorizerContext(Collections.emptyMap(), null));
   }
 
   @Test

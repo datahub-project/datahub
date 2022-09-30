@@ -120,6 +120,9 @@ public class AuthorizerChainFactory {
     // Create permission manager with security mode
     PluginPermissionManager permissionManager = new PluginPermissionManagerImpl(securityMode);
 
+    // Save ContextClassLoader. As some plugins are directly using context classloader from current thread to load libraries
+    // This will break plugin as their dependencies are inside plugin directory only
+    ClassLoader contextClassLoader = Thread.currentThread().getContextClassLoader();
     // Instantiate Authorizer plugins
     enabledAuthorizers.forEach((pluginConfig) -> {
       // Create context
@@ -127,6 +130,7 @@ public class AuthorizerChainFactory {
           ImmutableMap.of(PluginConstant.PLUGIN_DIRECTORY, pluginConfig.getPluginDirectoryPath().toString()), resolver);
       IsolatedClassLoader isolatedClassLoader = new IsolatedClassLoaderImpl(permissionManager, pluginConfig);
       try {
+        Thread.currentThread().setContextClassLoader((ClassLoader) isolatedClassLoader);
         Authorizer authorizer = (Authorizer) isolatedClassLoader.instantiatePlugin(Authorizer.class);
         log.info("Initializing plugin {}", pluginConfig.getName());
         authorizer.init(pluginConfig.getConfigs().orElse(Collections.emptyMap()), context);
@@ -134,8 +138,9 @@ public class AuthorizerChainFactory {
         log.info("Plugin {} is initialized", pluginConfig.getName());
       } catch (ClassNotFoundException e) {
         throw new RuntimeException(e);
+      } finally {
+        Thread.currentThread().setContextClassLoader(contextClassLoader);
       }
     });
-
   }
 }

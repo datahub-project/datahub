@@ -151,6 +151,9 @@ public class AuthenticationFilter implements Filter {
   }
 
   private void registerPlugins(AuthenticatorChain authenticatorChain) {
+    // TODO: Introduce plugin factory to reduce duplicate code around authentication and authorization processing
+
+    ClassLoader contextClassLoader = Thread.currentThread().getContextClassLoader();
     Path pluginBaseDirectory = Paths.get(configurationProvider.getDatahub().getPlugin().getAuth().getPath());
     Optional<Config> optionalConfig = (new ConfigProvider(pluginBaseDirectory)).load();
     optionalConfig.ifPresent((config) -> {
@@ -181,6 +184,7 @@ public class AuthenticationFilter implements Filter {
             ImmutableMap.of(PluginConstant.PLUGIN_DIRECTORY, pluginConfig.getPluginDirectoryPath().toString()));
 
         try {
+          Thread.currentThread().setContextClassLoader((ClassLoader) isolatedClassLoader);
           Authenticator authenticator = (Authenticator) isolatedClassLoader.instantiatePlugin(Authenticator.class);
           log.info("Initializing plugin {}", pluginConfig.getName());
           authenticator.init(pluginConfig.getConfigs().orElse(Collections.emptyMap()), context);
@@ -188,6 +192,8 @@ public class AuthenticationFilter implements Filter {
           log.info("Plugin {} is initialized", pluginConfig.getName());
         } catch (ClassNotFoundException e) {
           throw new RuntimeException(e);
+        } finally {
+          Thread.currentThread().setContextClassLoader(contextClassLoader);
         }
       });
     });

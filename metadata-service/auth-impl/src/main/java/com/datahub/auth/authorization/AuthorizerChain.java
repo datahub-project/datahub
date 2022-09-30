@@ -51,10 +51,17 @@ public class AuthorizerChain implements Authorizer {
   @Nullable
   public AuthorizationResult authorize(@Nonnull final AuthorizationRequest request) {
     Objects.requireNonNull(request);
+    // Save contextClassLoader
+    ClassLoader contextClassLoader = Thread.currentThread().getContextClassLoader();
+
     for (final Authorizer authorizer : this.authorizers) {
       try {
         log.debug("Executing Authorizer with class name {}", authorizer.getClass().getCanonicalName());
+        Thread.currentThread().setContextClassLoader(authorizer.getClass().getClassLoader());
         AuthorizationResult result = authorizer.authorize(request);
+        // reset
+        Thread.currentThread().setContextClassLoader(contextClassLoader);
+
         if (AuthorizationResult.Type.ALLOW.equals(result.type)) {
           // Authorization was successful - Short circuit
           return result;
@@ -65,6 +72,8 @@ public class AuthorizerChain implements Authorizer {
       } catch (Exception e) {
         log.error("Caught exception while attempting to authorize request using Authorizer {}. Skipping authorizer.",
             authorizer.getClass().getCanonicalName(), e);
+      } finally {
+        Thread.currentThread().setContextClassLoader(contextClassLoader);
       }
     }
     // Return failed Authorization result.
