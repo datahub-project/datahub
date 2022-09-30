@@ -168,6 +168,6 @@ public class RestoreDbtSiblingsIndices implements BootstrapStep {
     upgradeProposal.setAspect(GenericRecordUtils.serializeAspect(aspect));
     upgradeProposal.setChangeType(ChangeType.UPSERT);
 
-    _entityService.ingestProposal(upgradeProposal, auditStamp);
+    _entityService.ingestProposal(upgradeProposal, auditStamp, false);
   }
 }

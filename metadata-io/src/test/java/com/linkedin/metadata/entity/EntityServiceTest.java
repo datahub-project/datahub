@@ -438,7 +438,31 @@ abstract public class EntityServiceTest<T_AD extends AspectDao, T_RS extends Ret
         genericAspect.setValue(ByteString.unsafeWrap(datasetProfileSerialized));
         genericAspect.setContentType("application/json");
         gmce.setAspect(genericAspect);
-        _entityService.ingestProposal(gmce, TEST_AUDIT_STAMP);
+        _entityService.ingestProposal(gmce, TEST_AUDIT_STAMP, false);
+    }
+
+    @Test
+    public void testAsyncProposal() throws Exception {
+        Urn entityUrn = UrnUtils.getUrn("urn:li:dataset:(urn:li:dataPlatform:foo,bar,PROD)");
+        DatasetProfile datasetProfile = new DatasetProfile();
+        datasetProfile.setRowCount(1000);
+        datasetProfile.setColumnCount(15);
+        datasetProfile.setTimestampMillis(0L);
+        MetadataChangeProposal gmce = new MetadataChangeProposal();
+        gmce.setEntityUrn(entityUrn);
+        gmce.setChangeType(ChangeType.UPSERT);
+        gmce.setEntityType("dataset");
+        gmce.setAspectName("datasetProfile");
+        JacksonDataTemplateCodec dataTemplateCodec = new JacksonDataTemplateCodec();
+        byte[] datasetProfileSerialized = dataTemplateCodec.dataTemplateToBytes(datasetProfile);
+        GenericAspect genericAspect = new GenericAspect();
+        genericAspect.setValue(ByteString.unsafeWrap(datasetProfileSerialized));
+        genericAspect.setContentType("application/json");
+        gmce.setAspect(genericAspect);
+        _entityService.ingestProposal(gmce, TEST_AUDIT_STAMP, true);
+        verify(_mockProducer, times(0)).produceMetadataChangeLog(Mockito.eq(entityUrn),
+            Mockito.any(), Mockito.any());
+        verify(_mockProducer, times(1)).produceMetadataChangeProposal(Mockito.eq(gmce));
     }
 
     @Test
