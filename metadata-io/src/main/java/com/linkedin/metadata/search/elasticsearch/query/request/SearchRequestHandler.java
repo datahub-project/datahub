@@ -492,7 +492,7 @@ public class SearchRequestHandler {
     ) {
       // No aggregation found for filtered value -- inject one!
       originalMetadata.getAggregations().put(value, 0L);
-      originalMetadata.getFilterValues().add(0, createFilterValue(value, 0L));
+      originalMetadata.getFilterValues().add(createFilterValue(value, 0L));
     }
   }
 

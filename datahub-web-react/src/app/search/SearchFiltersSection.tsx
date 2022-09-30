@@ -82,6 +82,7 @@ export const SearchFiltersSection = ({
                     onFilterSelect={(newFilters) => onChangeFilters(newFilters)}
                     onChangeUnionType={onChangeUnionType}
                     facets={filters || []}
+                    loading={loading}
                 />
             ) : (
                 <SearchFilterContainer>

@@ -47,6 +47,7 @@ interface Props {
     onFilterSelect: (newFilters: Array<FacetFilterInput>) => void;
     onChangeUnionType: (unionType: UnionType) => void;
     unionType?: UnionType;
+    loading: boolean;
 }
 
 export const AdvancedSearchFilters = ({
@@ -55,6 +56,7 @@ export const AdvancedSearchFilters = ({
     selectedFilters,
     onFilterSelect,
     onChangeUnionType,
+    loading,
 }: Props) => {
     const [filterField, setFilterField] = useState<null | string>(null);
 
@@ -93,6 +95,7 @@ export const AdvancedSearchFilters = ({
             {selectedFilters.map((filter) => (
                 <AdvancedSearchFilter
                     facet={facets.find((facet) => facet.field === filter.field) || facets[0]}
+                    loading={loading}
                     filter={filter}
                     onClose={() => {
                         onFilterSelect(selectedFilters.filter((f) => f !== filter));
