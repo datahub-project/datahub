@@ -24,6 +24,8 @@ import com.linkedin.metadata.utils.elasticsearch.IndexConvention;
 import com.linkedin.metadata.utils.metrics.MetricUtils;
 import io.opentelemetry.extension.annotations.WithSpan;
 import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collection;
 import java.util.Collections;
 import java.util.HashSet;
 import java.util.LinkedList;
@@ -245,20 +247,28 @@ public class ESGraphQueryDAO {
     edgesPerEntityType.put("schemaField", schemaFieldEdgeInfos);
   }
 
-  private UrnArrayArray getAndUpdatePaths(UrnArrayArray existingPaths, Urn parentUrn, Urn childUrn) {
+  private UrnArrayArray getAndUpdatePaths(UrnArrayArray existingPaths, Urn parentUrn, Urn childUrn, RelationshipDirection direction) {
     try {
-      UrnArrayArray currentPaths = existingPaths.stream().filter(path -> path.get(0).equals(parentUrn)).collect(Collectors.toCollection(UrnArrayArray::new));
+      UrnArrayArray currentPaths = existingPaths.stream().filter(path -> path.get(direction == RelationshipDirection.OUTGOING ? 0 : path.size() - 1).equals(parentUrn)).collect(Collectors.toCollection(UrnArrayArray::new));
       UrnArrayArray resultPaths = new UrnArrayArray();
       if (currentPaths.size() > 0) {
         for (UrnArray path : currentPaths) {
           UrnArray copyOfPath = path.clone();
-          copyOfPath.add(0, childUrn);
+          if (direction == RelationshipDirection.OUTGOING) {
+            copyOfPath.add(0, childUrn);
+          } else {
+            copyOfPath.add(childUrn);
+          }
           resultPaths.add(copyOfPath);
           existingPaths.add(copyOfPath);
         }
       } else {
         UrnArray path = new UrnArray();
-        path.add(childUrn);
+        if (direction == RelationshipDirection.OUTGOING) {
+          path.addAll(ImmutableList.of(childUrn, parentUrn));
+        } else {
+          path.addAll(ImmutableList.of(parentUrn, childUrn));
+        }
         resultPaths.add(path);
         existingPaths.add(path);
       }
@@ -289,7 +299,7 @@ public class ESGraphQueryDAO {
         if (!visitedEntities.contains(destinationUrn) && validEdges.contains(
             Pair.of(sourceUrn.getEntityType(), new EdgeInfo(type, RelationshipDirection.OUTGOING, destinationUrn.getEntityType().toLowerCase())))) {
           visitedEntities.add(destinationUrn);
-          final UrnArrayArray paths = getAndUpdatePaths(existingPaths, sourceUrn, destinationUrn);
+          final UrnArrayArray paths = getAndUpdatePaths(existingPaths, sourceUrn, destinationUrn, RelationshipDirection.OUTGOING);
           result.add(new LineageRelationship().setType(type).setEntity(destinationUrn).setDegree(numHops).setPaths(paths));
         }
       }
@@ -301,7 +311,7 @@ public class ESGraphQueryDAO {
         if (!visitedEntities.contains(sourceUrn) && validEdges.contains(
             Pair.of(destinationUrn.getEntityType(), new EdgeInfo(type, RelationshipDirection.INCOMING, sourceUrn.getEntityType().toLowerCase())))) {
           visitedEntities.add(sourceUrn);
-          final UrnArrayArray paths = getAndUpdatePaths(existingPaths, destinationUrn, sourceUrn);
+          final UrnArrayArray paths = getAndUpdatePaths(existingPaths, destinationUrn, sourceUrn, RelationshipDirection.INCOMING);
           result.add(new LineageRelationship().setType(type).setEntity(sourceUrn).setDegree(numHops).setPaths(paths));
         }
       }
