@@ -19,7 +19,7 @@ public interface Authenticator extends Plugin {
    * Initialize the Authenticator. Invoked once at boot time.
    *
    * @param authenticatorConfig config provided to the authenticator derived from the Metadata Service YAML config. This
-   *                            config comes from the "authentication.authenticators.config" configuration.
+   *                            config comes from the "plugins[].params.configs" configuration.
    * @param context             nullable configuration objects that are potentially required by an Authenticator instance.
    */
   void init(@Nonnull final Map<String, Object> authenticatorConfig, @Nullable final AuthenticatorContext context);

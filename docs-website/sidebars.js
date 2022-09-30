@@ -424,6 +424,7 @@ module.exports = {
         ],
       },
       "docs/debugging",
+      "docs/plugins",
 
       {
         Advanced: [
