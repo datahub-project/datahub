@@ -9,6 +9,7 @@ product:
 - 'datahub-web-react/**/*'
 - 'datahub-frontend/**/*'
 - 'datahub-graphql-core/**/*'
+- 'metadata-io/**/*'
 
 docs:
 - 'docs/**/*'
