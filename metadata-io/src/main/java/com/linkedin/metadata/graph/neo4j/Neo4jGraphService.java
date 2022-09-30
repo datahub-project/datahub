@@ -5,11 +5,8 @@ import com.datahub.util.Statement;
 import com.datahub.util.exception.RetryLimitReached;
 import com.google.common.collect.ImmutableMap;
 import com.linkedin.common.urn.Urn;
-import com.linkedin.metadata.graph.Edge;
-import com.linkedin.metadata.graph.GraphService;
+import com.linkedin.metadata.graph.*;
 import com.linkedin.metadata.models.registry.LineageRegistry;
-import com.linkedin.metadata.graph.RelatedEntitiesResult;
-import com.linkedin.metadata.graph.RelatedEntity;
 import com.linkedin.metadata.query.filter.Condition;
 import com.linkedin.metadata.query.filter.ConjunctiveCriterionArray;
 import com.linkedin.metadata.query.filter.CriterionArray;
@@ -17,6 +14,8 @@ import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.metadata.query.filter.RelationshipDirection;
 import com.linkedin.metadata.query.filter.RelationshipFilter;
 import com.linkedin.metadata.utils.metrics.MetricUtils;
+
+import java.net.URISyntaxException;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
@@ -32,10 +31,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang.time.StopWatch;
 import org.apache.commons.lang3.ClassUtils;
 import org.apache.commons.lang3.StringUtils;
-import org.neo4j.driver.Driver;
-import org.neo4j.driver.Result;
-import org.neo4j.driver.Session;
-import org.neo4j.driver.SessionConfig;
+import org.neo4j.driver.*;
 import org.neo4j.driver.exceptions.Neo4jException;
 
 @Slf4j
@@ -91,6 +87,48 @@ public class Neo4jGraphService implements GraphService {
     statements.add(buildStatement(statement, paramsMerge));
 
     executeStatements(statements);
+  }
+
+  @Nonnull
+  @Override
+  public EntityLineageResult getLineage(@Nonnull Urn entityUrn, @Nonnull LineageDirection direction,
+                                        GraphFilters graphFilters, int offset, int count, int maxHops) {
+    log.debug(String.format("Neo4j getLineage maxHops = %d", maxHops));
+
+    String multiHopTemplate = "MATCH (a {urn: '%s'})-[r:DownstreamOf*1..%d]-(b) RETURN a,r,b";
+    switch (direction) {
+      case UPSTREAM:
+        multiHopTemplate = "MATCH (a {urn: '%s'})-[r:DownstreamOf*1..%d]->(b) RETURN a,r,b";
+        break;
+      case DOWNSTREAM:
+        multiHopTemplate = "MATCH (a {urn: '%s'})<-[r:DownstreamOf*1..%d]-(b) RETURN a,r,b";
+        break;
+    }
+    final String statement = String.format(multiHopTemplate, entityUrn, maxHops);
+
+    List<Record> neo4jResult = runQuery(buildStatement(statement, new HashMap<>())).list();
+    LineageRelationshipArray relations = new LineageRelationshipArray();
+    neo4jResult.stream().skip(offset).limit(offset + count).forEach(item -> {
+      String urn = item.values().get(2).asNode().get("urn").asString();
+      String relationType = "DownstreamOf";
+      int numHops = item.get(1).size();
+      try {
+        relations.add(new LineageRelationship()
+                        .setEntity(Urn.createFromString(urn))
+                        .setType(relationType)
+                        .setDegree(numHops));
+      } catch (URISyntaxException ignored) {
+        log.warn(String.format("Can't convert urn = %s, Error = %s", urn, ignored.getMessage()));
+      }
+    });
+
+    EntityLineageResult result = new EntityLineageResult().setStart(offset)
+            .setCount(relations.size())
+            .setRelationships(relations)
+            .setTotal(neo4jResult.size());
+
+    log.debug(String.format("Neo4j getLineage results = %s", result));
+    return result;
   }
 
   @Nonnull
@@ -413,5 +451,10 @@ public class Neo4jGraphService implements GraphService {
     params.put("urn", urn.toString());
 
     return buildStatement(statement, params);
+  }
+
+  @Override
+  public boolean supportsMultiHop() {
+    return true;
   }
 }
