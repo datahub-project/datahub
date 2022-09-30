@@ -12,17 +12,17 @@ if [[ ${ENABLE_OTEL:-false} == true ]]; then
 fi
 
 TRUSTSTORE_FILE=""
-if [ ! -z $SSL_TRUSTSTORE_FILE ]; then
+if [[ ! -z ${SSL_TRUSTSTORE_FILE:-} ]]; then
   TRUSTSTORE_FILE="-Djavax.net.ssl.trustStore=$SSL_TRUSTSTORE_FILE"
 fi
 
 TRUSTSTORE_TYPE=""
-if [ ! -z $SSL_TRUSTSTORE_TYPE ]; then
+if [[ ! -z ${SSL_TRUSTSTORE_TYPE:-} ]]; then
   TRUSTSTORE_TYPE="-Djavax.net.ssl.trustStoreType=$SSL_TRUSTSTORE_TYPE"
 fi
 
 TRUSTSTORE_PASSWORD=""
-if [ ! -z $SSL_TRUSTSTORE_PASSWORD ]; then
+if [[ ! -z ${SSL_TRUSTSTORE_PASSWORD:-} ]]; then
   TRUSTSTORE_PASSWORD="-Djavax.net.ssl.trustStorePassword=$SSL_TRUSTSTORE_PASSWORD"
 fi
 
