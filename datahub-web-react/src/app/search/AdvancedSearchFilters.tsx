@@ -7,12 +7,8 @@ import { ANTD_GRAY } from '../entity/shared/constants';
 import { AdvancedSearchFilter } from './AdvancedSearchFilter';
 import { AdvancedSearchFilterOverallUnionTypeSelect } from './AdvancedSearchFilterOverallUnionTypeSelect';
 import { AdvancedFilterSelectValueModal } from './AdvancedFilterSelectValueModal';
-<<<<<<< HEAD
-import { FIELDS_THAT_USE_CONTAINS_OPERATOR, FIELD_TO_LABEL, UnionType } from './utils/constants';
-=======
 import { FIELDS_THAT_USE_CONTAINS_OPERATOR, UnionType } from './utils/constants';
 import { AdvancedSearchAddFilterSelect } from './AdvancedSearchAddFilterSelect';
->>>>>>> master
 
 export const SearchFilterWrapper = styled.div`
     min-height: 100%;
@@ -72,7 +68,6 @@ export const AdvancedSearchFilters = ({
         const newFilter: FacetFilterInput = {
             field: filterField,
             values: values as string[],
-            value: '', // TODO(Gabe): remove once we refactor the model
             condition: FIELDS_THAT_USE_CONTAINS_OPERATOR.includes(filterField)
                 ? SearchCondition.Contain
                 : SearchCondition.Equal,

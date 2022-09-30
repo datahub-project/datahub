@@ -4,6 +4,7 @@ import * as QueryString from 'query-string';
 import { FILTER_URL_PREFIX } from './constants';
 import { FacetFilterInput, SearchCondition } from '../../../types.generated';
 import { decodeComma } from '../../entity/shared/utils';
+import { URL_PARAM_SEPARATOR } from './filtersToQueryStringParams';
 
 export default function useFilters(params: QueryString.ParsedQuery<string>): Array<FacetFilterInput> {
     return useMemo(() => {
@@ -15,7 +16,7 @@ export default function useFilters(params: QueryString.ParsedQuery<string>): Arr
                 .map(([key, value]) => {
                     // remove the `filter_` prefix
                     const fieldIndex = key.replace(FILTER_URL_PREFIX, '');
-                    const fieldParts = fieldIndex.split('___');
+                    const fieldParts = fieldIndex.split(URL_PARAM_SEPARATOR);
                     const field = fieldParts[0];
                     const negated = fieldParts[1] === 'true';
                     const condition = fieldParts[2] || SearchCondition.Equal;

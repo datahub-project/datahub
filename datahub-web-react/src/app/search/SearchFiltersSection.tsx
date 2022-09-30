@@ -48,6 +48,8 @@ const SearchFilterContainer = styled.div`
     padding-top: 10px;
 `;
 
+// This component renders the entire filters section that allows toggling
+// between the simplified search experience and advanced search
 export const SearchFiltersSection = ({
     filters,
     selectedFilters,

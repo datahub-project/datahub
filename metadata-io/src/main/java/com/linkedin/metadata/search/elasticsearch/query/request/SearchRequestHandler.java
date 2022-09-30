@@ -450,7 +450,8 @@ public class SearchRequestHandler {
       return;
     }
 
-    // we don't want to persist urn filters back--- they are automatically added by searchAcrossLineage
+    // We don't want to add urn filters to the aggregations we return as a sidecar to search results.
+    // They are automatically added by searchAcrossLineage and we dont need them to show up in the filter panel.
     if (finalFacetField.equals(URN_FILTER)) {
       return;
     }

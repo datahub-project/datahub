@@ -90,6 +90,8 @@ public class ResolverUtils {
         return facetFilters;
     }
 
+    // In the case that user sends filters to be or-d together, we need to build a series of conjective criterion
+    // arrays, rather than just one for the AND case.
     public static ConjunctiveCriterionArray buildConjunctiveCriterionArrayWithOr(
         final List<Criterion> andCriterions,
         @Nonnull List<FacetFilterInput> orFilters
@@ -116,13 +118,16 @@ public class ResolverUtils {
                 .map(filter -> criterionFromFilter(filter))
                 .collect(Collectors.toList()) : Collections.emptyList();
 
+        // if we have OR filters, we need to build a series of CriterionArrays
         if (orFilters != null && !orFilters.isEmpty()) {
             return new Filter().setOr(buildConjunctiveCriterionArrayWithOr(andCriterions, orFilters));
         }
 
+        // if we do not have any OR filters, just set one ConjectiveCriterionArray
         return new Filter().setOr(new ConjunctiveCriterionArray(new ConjunctiveCriterion().setAnd(new CriterionArray(andCriterions))));
     }
 
+    // Translates a FacetFilterInput (graphql input class) into Criterion (our internal model)
     public static Criterion criterionFromFilter(final FacetFilterInput filter) {
         Criterion result = new Criterion();
         result.setField(getFilterField(filter.getField()));

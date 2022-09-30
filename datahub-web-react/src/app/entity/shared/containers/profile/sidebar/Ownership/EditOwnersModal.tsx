@@ -188,11 +188,6 @@ export const EditOwnersModal = ({
 
     // When a owner search result is deselected, remove the Owner
     const onDeselectOwner = (selectedValue: { key: string; label: React.ReactNode; value: string }) => {
-        console.log({
-            deselecting: 'deselecting',
-            selectedValue,
-            selectedOwners,
-        });
         setInputValue('');
         const newValues = selectedOwners.filter(
             (owner) => owner.label !== selectedValue.value && owner.value.ownerUrn !== selectedValue.value,
