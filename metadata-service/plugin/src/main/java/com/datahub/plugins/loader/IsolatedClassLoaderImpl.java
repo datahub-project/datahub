@@ -288,7 +288,8 @@ public class IsolatedClassLoaderImpl extends ClassLoader implements IsolatedClas
     log.debug("Find resources = {}", s);
     URL url = this.findResource(s);
     if (url == null) {
-      throw new IOException(String.format("The %s resource is not found ", s));
+      log.debug("Returning empty enumeration");
+      return Collections.emptyEnumeration();
     }
     List<URL> urls = new ArrayList<>(1);
     urls.add(url);
