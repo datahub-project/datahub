@@ -16,7 +16,6 @@ import com.linkedin.metadata.query.filter.ConjunctiveCriterion;
 import com.linkedin.metadata.query.filter.ConjunctiveCriterionArray;
 import com.linkedin.metadata.search.utils.ESUtils;
 import graphql.schema.DataFetchingEnvironment;
-import java.util.ArrayList;
 import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -113,8 +112,8 @@ public class ResolverUtils {
             return null;
         }
 
-        final List<Criterion> andCriterions = andFilters != null && !andFilters.isEmpty() ?
-            andFilters.stream()
+        final List<Criterion> andCriterions = andFilters != null && !andFilters.isEmpty()
+            ? andFilters.stream()
                 .map(filter -> criterionFromFilter(filter))
                 .collect(Collectors.toList()) : Collections.emptyList();
 
