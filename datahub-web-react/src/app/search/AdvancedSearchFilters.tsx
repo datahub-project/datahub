@@ -1,15 +1,18 @@
-import { Select } from 'antd';
 import * as React from 'react';
 import { useState } from 'react';
 import styled from 'styled-components';
-import { PlusOutlined } from '@ant-design/icons';
 
 import { FacetFilterInput, FacetMetadata, SearchCondition } from '../../types.generated';
 import { ANTD_GRAY } from '../entity/shared/constants';
 import { AdvancedSearchFilter } from './AdvancedSearchFilter';
 import { AdvancedSearchFilterOverallUnionTypeSelect } from './AdvancedSearchFilterOverallUnionTypeSelect';
 import { AdvancedFilterSelectValueModal } from './AdvancedFilterSelectValueModal';
+<<<<<<< HEAD
 import { FIELDS_THAT_USE_CONTAINS_OPERATOR, FIELD_TO_LABEL, UnionType } from './utils/constants';
+=======
+import { FIELDS_THAT_USE_CONTAINS_OPERATOR, UnionType } from './utils/constants';
+import { AdvancedSearchAddFilterSelect } from './AdvancedSearchAddFilterSelect';
+>>>>>>> master
 
 export const SearchFilterWrapper = styled.div`
     min-height: 100%;
@@ -42,10 +45,6 @@ const EmptyStateSection = styled.div`
     margin-top: 10px;
 `;
 
-const StyledPlus = styled(PlusOutlined)`
-    margin-right: 6px;
-`;
-
 interface Props {
     selectedFilters: Array<FacetFilterInput>;
     facets: Array<FacetMetadata>;
@@ -53,8 +52,6 @@ interface Props {
     onChangeUnionType: (unionType: UnionType) => void;
     unionType?: UnionType;
 }
-
-const { Option } = Select;
 
 export const AdvancedSearchFilters = ({
     unionType = UnionType.AND,
@@ -69,36 +66,26 @@ export const AdvancedSearchFilters = ({
         setFilterField(value.value);
     };
 
+    const onSelectValueFromModal = (values) => {
+        if (!filterField) return;
+
+        const newFilter: FacetFilterInput = {
+            field: filterField,
+            values: values as string[],
+            value: '', // TODO(Gabe): remove once we refactor the model
+            condition: FIELDS_THAT_USE_CONTAINS_OPERATOR.includes(filterField)
+                ? SearchCondition.Contain
+                : SearchCondition.Equal,
+        };
+        onFilterSelect([...selectedFilters, newFilter]);
+    };
+
     return (
         <SearchFilterWrapper>
-            <Select
-                value={{
-                    value: 'value',
-                    label: (
-                        <div>
-                            <StyledPlus />
-                            Add Filter
-                        </div>
-                    ),
-                }}
-                labelInValue
-                style={{ padding: 6, fontWeight: 500 }}
-                onChange={onFilterFieldSelect}
-                dropdownMatchSelectWidth={false}
-                filterOption={(_, option) => option?.value === 'null'}
-            >
-                {Object.keys(FIELD_TO_LABEL)
-                    .sort((a, b) => FIELD_TO_LABEL[a].localeCompare(FIELD_TO_LABEL[b]))
-                    .map((key) => (
-                        <Option
-                            data-testid={`adv-search-add-filter-${key}`}
-                            disabled={key === 'entity' && !!selectedFilters.find((filter) => filter.field === 'entity')}
-                            value={key}
-                        >
-                            {FIELD_TO_LABEL[key]}
-                        </Option>
-                    ))}
-            </Select>
+            <AdvancedSearchAddFilterSelect
+                selectedFilters={selectedFilters}
+                onFilterFieldSelect={onFilterFieldSelect}
+            />
             {selectedFilters?.length >= 2 && (
                 <AnyAllSection>
                     Show results that match{' '}
@@ -132,17 +119,7 @@ export const AdvancedSearchFilters = ({
                     facet={facets.find((facet) => facet.field === filterField) || null}
                     onCloseModal={() => setFilterField(null)}
                     filterField={filterField}
-                    onSelect={(values) => {
-                        const newFilter: FacetFilterInput = {
-                            field: filterField,
-                            values: values as string[],
-                            condition:
-                                FIELDS_THAT_USE_CONTAINS_OPERATOR.indexOf(filterField) > -1
-                                    ? SearchCondition.Contain
-                                    : SearchCondition.Equal,
-                        };
-                        onFilterSelect([...selectedFilters, newFilter]);
-                    }}
+                    onSelect={onSelectValueFromModal}
                 />
             )}
             {selectedFilters?.length === 0 && <EmptyStateSection>No filters applied, add one above.</EmptyStateSection>}
