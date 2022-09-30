@@ -39,6 +39,7 @@ export const FIELD_TO_LABEL = {
     container: 'Container',
     typeNames: 'Subtype',
     origin: 'Environment',
+    degree: 'Degree',
 };
 
 export const FIELDS_THAT_USE_CONTAINS_OPERATOR = ['description', 'fieldDescriptions'];

@@ -37,6 +37,7 @@ export const AdvancedSearchAddFilterSelect = ({ selectedFilters, onFilterFieldSe
         >
             {Object.keys(FIELD_TO_LABEL)
                 .sort((a, b) => FIELD_TO_LABEL[a].localeCompare(FIELD_TO_LABEL[b]))
+                .filter((key) => key !== 'degree')
                 .map((key) => (
                     <Option
                         // disable the `entity` option if they already have an entity filter selected
