@@ -182,9 +182,6 @@ fragment lineageNodeProperties on EntityWithRelationships {
                 path
             }
         }
-        schemaMetadata(version: 0) {
-            ...schemaMetadataFields
-        }
     }
     ... on MLModelGroup {
         urn
@@ -257,6 +254,11 @@ fragment fullLineageResults on EntityLineageResult {
         type
         entity {
             ...lineageFields
+            ... on Dataset {
+                schemaMetadata(version: 0) {
+                    ...schemaMetadataFields
+                }
+            }
         }
     }
 }
@@ -286,6 +288,9 @@ query getEntityLineage($urn: String!, $separateSiblings: Boolean) {
         type
         ...lineageNodeProperties
         ... on Dataset {
+            schemaMetadata(version: 0) {
+                ...schemaMetadataFields
+            }
             siblings {
                 isPrimary
                 siblings {

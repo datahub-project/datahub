@@ -693,6 +693,11 @@ enum EntityType {
     A DataHub Role
     """
     DATAHUB_ROLE
+
+    """
+    A Schema Field
+    """
+    SCHEMA_FIELD
 }
 
 """

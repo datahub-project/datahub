@@ -1,6 +1,7 @@
 package com.linkedin.datahub.graphql.types.common.mappers;
 
 import com.linkedin.common.urn.Urn;
+import com.linkedin.datahub.graphql.generated.EntityType;
 import com.linkedin.datahub.graphql.generated.SchemaFieldRef;
 import com.linkedin.dataset.FineGrainedLineage;
 import java.util.ArrayList;
@@ -30,9 +31,13 @@ public class UpstreamLineagesMapper {
 
     for (FineGrainedLineage fineGrainedLineage : upstreamLineage.getFineGrainedLineages()) {
       com.linkedin.datahub.graphql.generated.FineGrainedLineage resultEntry = new com.linkedin.datahub.graphql.generated.FineGrainedLineage();
-      resultEntry.setUpstreams(fineGrainedLineage.getUpstreams().stream().map(entry -> mapDatasetSchemaField(entry)).collect(
+      resultEntry.setUpstreams(fineGrainedLineage.getUpstreams().stream()
+          .filter(entry -> entry.getEntityType().equals("schemaField"))
+          .map(entry -> mapDatasetSchemaField(entry)).collect(
           Collectors.toList()));
-      resultEntry.setDownstreams(fineGrainedLineage.getDownstreams().stream().map(entry ->  mapDatasetSchemaField(entry)).collect(
+      resultEntry.setDownstreams(fineGrainedLineage.getDownstreams().stream()
+          .filter(entry -> entry.getEntityType().equals("schemaField"))
+          .map(entry ->  mapDatasetSchemaField(entry)).collect(
           Collectors.toList()));
       result.add(resultEntry);
     }

@@ -91,7 +91,7 @@ function layoutNodesForOneDirection(
                         expandTitles ? node.expandedName || node.name : undefined,
                         node.schemaMetadata,
                         showColumns,
-                        !!collapsedColumnsNodes[node?.urn || 'no-op'],
+                        !!collapsedColumnsNodes[node?.urn || 'no-op'], // avoid indexing on undefined if node is undefined
                     ) + VERTICAL_SPACE_BETWEEN_NODES;
 
                 nodesByUrn[node.urn] = vizNodeForNode;
@@ -151,6 +151,82 @@ function layoutNodesForOneDirection(
     return { numInCurrentLayer, nodesByUrn };
 }
 
+interface DrawColumnEdgeProps {
+    targetNode?: VizNode;
+    currentNode?: VizNode;
+    targetField: string;
+    targetTitleHeight: number;
+    collapsedColumnsNodes: any;
+    sourceFieldX: number;
+    sourceFieldY: number;
+    edgesToRender: VizEdge[];
+    sourceField: string;
+    entityUrn: string;
+    targetUrn: string;
+}
+
+function drawColumnEdge({
+    targetNode,
+    currentNode,
+    targetField,
+    targetTitleHeight,
+    collapsedColumnsNodes,
+    sourceFieldX,
+    sourceFieldY,
+    edgesToRender,
+    sourceField,
+    entityUrn,
+    targetUrn,
+}: DrawColumnEdgeProps) {
+    const targetFieldIndex =
+        targetNode?.data.schemaMetadata?.fields.findIndex((candidate) => candidate.fieldPath === targetField) || 0;
+    const targetFieldY = targetNode?.y || 0 + 1;
+    let targetFieldX = (targetNode?.x || 0) + 30 + targetTitleHeight;
+    if (!collapsedColumnsNodes[targetNode?.data.urn || 'no-op']) {
+        targetFieldX = (targetNode?.x || 0) + targetTitleHeight + (targetFieldIndex + 1.2) * 30 + 1;
+    }
+    if (currentNode && targetNode && sourceFieldX && sourceFieldY && targetFieldX && targetFieldY) {
+        const curve = [
+            {
+                x: sourceFieldX,
+                y: sourceFieldY - INSIDE_NODE_SHIFT * UPSTREAM_X_MODIFIER + UPSTREAM_DIRECTION_SHIFT,
+            },
+            {
+                x: sourceFieldX,
+                y: sourceFieldY - (INSIDE_NODE_SHIFT + CURVE_PADDING) * UPSTREAM_X_MODIFIER,
+            },
+            {
+                x: targetFieldX,
+                y: targetFieldY + (nodeWidth / 2 + CURVE_PADDING) * UPSTREAM_X_MODIFIER,
+            },
+            {
+                x: targetFieldX,
+                y: targetFieldY + (nodeWidth / 2 - 15) * UPSTREAM_X_MODIFIER + UPSTREAM_DIRECTION_SHIFT,
+            },
+        ];
+
+        const vizEdgeForPair = {
+            source: currentNode,
+            target: targetNode,
+            sourceField,
+            targetField,
+            curve,
+        };
+
+        if (
+            !edgesToRender.find(
+                (edge) =>
+                    edge.source.data.urn === entityUrn &&
+                    edge.sourceField === sourceField &&
+                    edge.target.data.urn === targetUrn &&
+                    edge.targetField === targetField,
+            )
+        ) {
+            edgesToRender.push(vizEdgeForPair);
+        }
+    }
+}
+
 function layoutColumnTree(
     fineGrainedMap: any,
     showColumns: boolean,
@@ -189,61 +265,19 @@ function layoutColumnTree(
                     );
 
                     (fieldForwardEdges[targetUrn] || []).forEach((targetField) => {
-                        const targetFieldIndex =
-                            targetNode?.data.schemaMetadata?.fields.findIndex(
-                                (candidate) => candidate.fieldPath === targetField,
-                            ) || 0;
-                        const targetFieldY = targetNode?.y || 0 + 1;
-                        let targetFieldX = (targetNode?.x || 0) + 30 + targetTitleHeight;
-                        if (!collapsedColumnsNodes[targetNode?.data.urn || 'no-op']) {
-                            targetFieldX = (targetNode?.x || 0) + targetTitleHeight + (targetFieldIndex + 1.2) * 30 + 1;
-                        }
-                        if (currentNode && targetNode && sourceFieldX && sourceFieldY && targetFieldX && targetFieldY) {
-                            const curve = [
-                                {
-                                    x: sourceFieldX,
-                                    y:
-                                        sourceFieldY -
-                                        INSIDE_NODE_SHIFT * UPSTREAM_X_MODIFIER +
-                                        UPSTREAM_DIRECTION_SHIFT,
-                                },
-                                {
-                                    x: sourceFieldX,
-                                    y: sourceFieldY - (INSIDE_NODE_SHIFT + CURVE_PADDING) * UPSTREAM_X_MODIFIER,
-                                },
-                                {
-                                    x: targetFieldX,
-                                    y: targetFieldY + (nodeWidth / 2 + CURVE_PADDING) * UPSTREAM_X_MODIFIER,
-                                },
-                                {
-                                    x: targetFieldX,
-                                    y:
-                                        targetFieldY +
-                                        (nodeWidth / 2 - 15) * UPSTREAM_X_MODIFIER +
-                                        UPSTREAM_DIRECTION_SHIFT,
-                                },
-                            ];
-
-                            const vizEdgeForPair = {
-                                source: currentNode,
-                                target: targetNode,
-                                sourceField,
-                                targetField,
-                                curve,
-                            };
-
-                            if (
-                                !edgesToRender.find(
-                                    (edge) =>
-                                        edge.source.data.urn === entityUrn &&
-                                        edge.sourceField === sourceField &&
-                                        edge.target.data.urn === targetUrn &&
-                                        edge.targetField === targetField,
-                                )
-                            ) {
-                                edgesToRender.push(vizEdgeForPair);
-                            }
-                        }
+                        drawColumnEdge({
+                            targetNode,
+                            currentNode,
+                            targetField,
+                            targetTitleHeight,
+                            collapsedColumnsNodes,
+                            sourceFieldX,
+                            sourceFieldY,
+                            edgesToRender,
+                            sourceField,
+                            entityUrn,
+                            targetUrn,
+                        });
                     });
                 });
             });
