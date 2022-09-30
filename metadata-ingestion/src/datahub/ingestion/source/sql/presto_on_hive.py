@@ -462,6 +462,7 @@ class PrestoOnHiveSource(SQLAlchemySource):
                 properties["partitioned_columns"] = par_columns
 
             dataset_properties = DatasetPropertiesClass(
+                name=key.table,
                 description=columns[-1]["description"],
                 customProperties=properties,
             )
@@ -627,6 +628,7 @@ class PrestoOnHiveSource(SQLAlchemySource):
                 "is_view": "True",
             }
             dataset_properties = DatasetPropertiesClass(
+                name=dataset.dataset_name.split(".")[-1],
                 description=None,
                 customProperties=properties,
             )
