@@ -799,7 +799,7 @@ class BigQueryUsageExtractor:
 
     def get_workunits(
         self, aggregated_info: Dict[datetime, Dict[BigQueryTableRef, AggregatedDataset]]
-    ):
+    ) -> Iterable[MetadataWorkUnit]:
         self.report.num_usage_workunits_emitted = 0
         for time_bucket in aggregated_info.values():
             for aggregate in time_bucket.values():
