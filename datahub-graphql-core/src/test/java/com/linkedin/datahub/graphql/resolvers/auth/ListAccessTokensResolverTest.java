@@ -10,6 +10,7 @@ import com.linkedin.datahub.graphql.generated.SearchCondition;
 import com.linkedin.entity.client.EntityClient;
 import com.linkedin.metadata.Constants;
 import graphql.schema.DataFetchingEnvironment;
+import java.util.Collections;
 import junit.framework.TestCase;
 import org.mockito.Mockito;
 
@@ -38,7 +39,7 @@ public class ListAccessTokensResolverTest extends TestCase {
     final EntityClient mockClient = Mockito.mock(EntityClient.class);
     Mockito.when(mockClient.filter(
         Mockito.eq(Constants.ACCESS_TOKEN_ENTITY_NAME),
-            Mockito.eq(buildFilter(filters)),
+            Mockito.eq(buildFilter(filters, Collections.emptyList())),
             Mockito.notNull(),
             Mockito.eq(input.getStart()),
             Mockito.eq(input.getCount()),
