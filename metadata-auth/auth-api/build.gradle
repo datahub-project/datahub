@@ -30,6 +30,9 @@ dependencies() {
   testCompile externalDependency.testng
 }
 
+javadoc {
+  include '../../metadata-utils'
+}
 // Maven publishing logic
 def detailedVersionString = "0.0.0-unknown-SNAPSHOT"
 def snapshotVersion = false

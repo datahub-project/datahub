@@ -26,7 +26,7 @@ public interface Authenticator extends Plugin {
 
   /**
    * Authenticates an inbound request given an instance of the {@link AuthenticationRequest}.
-   *
+   * @param authenticationRequest authentication request {@link AuthenticationRequest} that need to be authenticated
    * If the request is authenticated successfully, an instance of {@link Authentication} is returned.
    * If the request cannot be authenticated, returns "null" or throws an {@link AuthenticationException}.
    */

@@ -19,7 +19,7 @@ public interface Authorizer extends Plugin {
   void init(@Nonnull final Map<String, Object> authorizerConfig, @Nonnull final AuthorizerContext ctx);
 
   /**
-   * Authorizes an action based on the actor, the resource, & required privileges.
+   * Authorizes an action based on the actor, the resource, and required privileges.
    */
   AuthorizationResult authorize(@Nonnull final AuthorizationRequest request);
 

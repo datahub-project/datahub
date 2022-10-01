@@ -23,7 +23,7 @@ public class AuthenticationRequest {
   }
 
   /**
-   * Returns a case-insensitive map of the inbound request's headers.
+   * @return Returns a case-insensitive map of the inbound request's headers.
    */
   @Nonnull
   public Map<String, String> getRequestHeaders() {

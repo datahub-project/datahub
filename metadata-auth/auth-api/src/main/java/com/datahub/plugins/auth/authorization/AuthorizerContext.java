@@ -23,9 +23,8 @@ public class AuthorizerContext {
   private ResourceSpecResolver resourceSpecResolver;
   /**
    *
-   * @return contextMap
-   * The contextMap contains below key and value
-   *  PLUGIN_DIRECTORY: <Plugin directory where plugin jar is installed>
+   * @return contextMap   The contextMap contains below key and value
+   *                      PLUGIN_DIRECTORY: Directory path where plugin is installed i.e. PLUGIN_HOME
    */
   @Nonnull
   public Map<String, Object> data() {

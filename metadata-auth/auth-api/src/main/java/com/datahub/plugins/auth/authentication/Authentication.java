@@ -27,21 +27,21 @@ public class Authentication {
   }
 
   /**
-   * Returns the authenticated actor
+   * @return  Returns the authenticated actor
    */
   public Actor getActor() {
     return this.authenticatedActor;
   }
 
   /**
-   * Returns the credentials associated with the current request (e.g. the value of the "Authorization" header)
+   * @return Returns the credentials associated with the current request (e.g. the value of the "Authorization" header)
    */
   public String getCredentials() {
     return this.credentials;
   }
 
   /**
-   * Returns an arbitrary set of claims resolved by the Authenticator
+   * @return Returns an arbitrary set of claims resolved by the Authenticator
    */
   public Map<String, Object> getClaims() {
     return this.claims;

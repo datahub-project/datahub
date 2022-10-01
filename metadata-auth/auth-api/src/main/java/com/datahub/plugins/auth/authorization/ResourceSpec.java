@@ -6,7 +6,7 @@ import lombok.Value;
 
 /**
  * Details about a specific resource being acted upon. Resource types currently supported
- * can be found inside of {@link PoliciesConfig}.
+ * can be found inside of {@link com.linkedin.metadata.authorization.PoliciesConfig}
  */
 @Value
 public class ResourceSpec {

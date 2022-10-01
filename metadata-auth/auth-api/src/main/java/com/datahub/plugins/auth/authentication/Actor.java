@@ -12,7 +12,7 @@ import lombok.Getter;
  *  a) Actor Type: A specific type of actor, e.g. CORP_USER or SERVICE_USER.
  *  b) Actor Id: A unique id for the actor.
  *
- * These pieces of information are in turn used to construct an Entity Urn, which can be used as a primary key to fetch & update specific information
+ * These pieces of information are in turn used to construct an Entity Urn, which can be used as a primary key to fetch and update specific information
  * about the actor.
  */
 @Getter
@@ -30,7 +30,7 @@ public class Actor {
   private final String id;
 
   /**
-   * Returns the string-ified urn rendering of the authenticated actor.
+   * @return the string-ified urn rendering of the authenticated actor.
    */
   @Nonnull
   public String toUrnStr() {
