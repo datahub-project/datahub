@@ -9,12 +9,13 @@ import { getMatchPrioritizingPrimary } from '../shared/utils';
 type Props = {
     matchedFields: MatchedField[];
     inputFields: Maybe<InputFields> | undefined;
+    isMatchingDashboard?: boolean;
 };
 
 const LABEL_INDEX_NAME = 'fieldLabels';
 const TYPE_PROPERTY_KEY_NAME = 'type';
 
-export const ChartSnippet = ({ matchedFields, inputFields }: Props) => {
+export const ChartSnippet = ({ matchedFields, inputFields, isMatchingDashboard = false }: Props) => {
     const matchedField = getMatchPrioritizingPrimary(matchedFields, 'fieldLabels');
 
     if (matchedField?.name === LABEL_INDEX_NAME) {
@@ -36,7 +37,8 @@ export const ChartSnippet = ({ matchedFields, inputFields }: Props) => {
 
             return (
                 <Typography.Text>
-                    Matches {termType} <TagTermGroup uneditableGlossaryTerms={{ terms: [matchedGlossaryTerm] }} />
+                    Matches {termType} <TagTermGroup uneditableGlossaryTerms={{ terms: [matchedGlossaryTerm] }} />{' '}
+                    {isMatchingDashboard && 'on a contained Chart'}
                 </Typography.Text>
             );
         }
@@ -44,7 +46,8 @@ export const ChartSnippet = ({ matchedFields, inputFields }: Props) => {
 
     return matchedField ? (
         <Typography.Text>
-            Matches {FIELDS_TO_HIGHLIGHT.get(matchedField.name)} <b>{matchedField.value}</b>
+            Matches {FIELDS_TO_HIGHLIGHT.get(matchedField.name)} <b>{matchedField.value}</b>{' '}
+            {isMatchingDashboard && 'on a contained Chart'}
         </Typography.Text>
     ) : null;
 };

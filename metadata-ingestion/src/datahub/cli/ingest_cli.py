@@ -4,7 +4,6 @@ import functools
 import json
 import logging
 import os
-import pathlib
 import sys
 from datetime import datetime
 from typing import Optional
@@ -46,7 +45,7 @@ def ingest() -> None:
 @click.option(
     "-c",
     "--config",
-    type=click.Path(exists=True, dir_okay=False),
+    type=click.Path(dir_okay=False),
     help="Config file in .toml or .yaml format.",
     required=True,
 )
@@ -103,6 +102,9 @@ def ingest() -> None:
     default=False,
     help="Turn off default reporting of ingestion results to DataHub",
 )
+@click.option(
+    "--no-spinner", type=bool, is_flag=True, default=False, help="Turn off spinner"
+)
 @click.pass_context
 @telemetry.with_telemetry
 @memory_leak_detector.with_leak_detection
@@ -117,6 +119,7 @@ def run(
     test_source_connection: bool,
     report_to: str,
     no_default_report: bool,
+    no_spinner: bool,
 ) -> None:
     """Ingest metadata into DataHub."""
 
@@ -125,7 +128,7 @@ def run(
     ) -> int:
         logger.info("Starting metadata ingestion")
         with click_spinner.spinner(
-            beep=False, disable=False, force=False, stream=sys.stdout
+            beep=False, disable=no_spinner, force=False, stream=sys.stdout
         ):
             try:
                 pipeline.run()
@@ -178,12 +181,14 @@ def run(
     # main function begins
     logger.info("DataHub CLI version: %s", datahub_package.nice_version_name())
 
-    config_file = pathlib.Path(config)
     pipeline_config = load_config_file(
-        config_file, squirrel_original_config=True, squirrel_field="__raw_config"
+        config,
+        squirrel_original_config=True,
+        squirrel_field="__raw_config",
+        allow_stdin=True,
     )
-    raw_pipeline_config = pipeline_config["__raw_config"]
-    pipeline_config = {k: v for k, v in pipeline_config.items() if k != "__raw_config"}
+    raw_pipeline_config = pipeline_config.pop("__raw_config")
+
     if test_source_connection:
         _test_source_connection(report_to, pipeline_config)
 

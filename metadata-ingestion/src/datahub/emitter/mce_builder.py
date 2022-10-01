@@ -12,8 +12,8 @@ import typing_inspect
 
 from datahub.configuration.source_common import DEFAULT_ENV as DEFAULT_ENV_CONFIGURATION
 from datahub.emitter.serialization_helper import pre_json_transform
-from datahub.metadata.com.linkedin.pegasus2avro.common import GlossaryTerms
 from datahub.metadata.schema_classes import (
+    AssertionKeyClass,
     AuditStampClass,
     ContainerKeyClass,
     DatasetKeyClass,
@@ -21,6 +21,7 @@ from datahub.metadata.schema_classes import (
     DatasetSnapshotClass,
     GlobalTagsClass,
     GlossaryTermAssociationClass,
+    GlossaryTermsClass as GlossaryTerms,
     MetadataChangeEventClass,
     OwnerClass,
     OwnershipClass,
@@ -31,8 +32,8 @@ from datahub.metadata.schema_classes import (
     TagAssociationClass,
     UpstreamClass,
     UpstreamLineageClass,
+    _Aspect as AspectAbstract,
 )
-from datahub.metadata.schema_classes import _Aspect as AspectAbstract
 from datahub.utilities.urns.dataset_urn import DatasetUrn
 
 logger = logging.getLogger(__name__)
@@ -156,6 +157,14 @@ def datahub_guid(obj: dict) -> str:
 
 def make_assertion_urn(assertion_id: str) -> str:
     return f"urn:li:assertion:{assertion_id}"
+
+
+def assertion_urn_to_key(assertion_urn: str) -> Optional[AssertionKeyClass]:
+    pattern = r"urn:li:assertion:(.*)"
+    results = re.search(pattern, assertion_urn)
+    if results is not None:
+        return AssertionKeyClass(assertionId=results[1])
+    return None
 
 
 def make_user_urn(username: str) -> str:

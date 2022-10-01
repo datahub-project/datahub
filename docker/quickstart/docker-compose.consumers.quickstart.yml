@@ -1,0 +1,46 @@
+services:
+  datahub-gms:
+    environment:
+    - MAE_CONSUMER_ENABLED=false
+    - MCE_CONSUMER_ENABLED=false
+  datahub-mae-consumer:
+    container_name: datahub-mae-consumer
+    depends_on:
+    - kafka-setup
+    - elasticsearch-setup
+    - neo4j
+    environment:
+    - DATAHUB_GMS_HOST=datahub-gms
+    - DATAHUB_GMS_PORT=8080
+    - MAE_CONSUMER_ENABLED=true
+    - PE_CONSUMER_ENABLED=true
+    - KAFKA_BOOTSTRAP_SERVER=broker:29092
+    - KAFKA_SCHEMAREGISTRY_URL=http://schema-registry:8081
+    - ELASTICSEARCH_HOST=elasticsearch
+    - ELASTICSEARCH_PORT=9200
+    - NEO4J_HOST=http://neo4j:7474
+    - NEO4J_URI=bolt://neo4j
+    - NEO4J_USERNAME=neo4j
+    - NEO4J_PASSWORD=datahub
+    - GRAPH_SERVICE_IMPL=neo4j
+    - ENTITY_REGISTRY_CONFIG_PATH=/datahub/datahub-mae-consumer/resources/entity-registry.yml
+    hostname: datahub-mae-consumer
+    image: linkedin/datahub-mae-consumer:${DATAHUB_VERSION:-head}
+    ports:
+    - 9091:9091
+  datahub-mce-consumer:
+    container_name: datahub-mce-consumer
+    depends_on:
+    - kafka-setup
+    - datahub-gms
+    environment:
+    - MCE_CONSUMER_ENABLED=true
+    - KAFKA_BOOTSTRAP_SERVER=broker:29092
+    - KAFKA_SCHEMAREGISTRY_URL=http://schema-registry:8081
+    - DATAHUB_GMS_HOST=datahub-gms
+    - DATAHUB_GMS_PORT=8080
+    hostname: datahub-mce-consumer
+    image: linkedin/datahub-mce-consumer:${DATAHUB_VERSION:-head}
+    ports:
+    - 9090:9090
+version: '2.3'

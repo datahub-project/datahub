@@ -1,6 +1,6 @@
 import hashlib
 import json
-from typing import Any, Iterable, List, Optional, TypeVar, Union
+from typing import Any, Iterable, List, Optional, TypeVar
 
 from pydantic.fields import Field
 from pydantic.main import BaseModel
@@ -16,6 +16,7 @@ from datahub.metadata.schema_classes import (
     ContainerClass,
     DomainsClass,
     GlobalTagsClass,
+    MetadataChangeEventClass,
     OwnerClass,
     OwnershipClass,
     OwnershipTypeClass,
@@ -23,6 +24,7 @@ from datahub.metadata.schema_classes import (
     TagAssociationClass,
     _Aspect,
 )
+from datahub.utilities.urns.urn import guess_entity_type
 
 
 class DatahubKey(BaseModel):
@@ -157,6 +159,7 @@ def gen_containers(
     owner_urn: Optional[str] = None,
     external_url: Optional[str] = None,
     tags: Optional[List[str]] = None,
+    qualified_name: Optional[str] = None,
 ) -> Iterable[MetadataWorkUnit]:
     container_urn = make_container_urn(
         guid=container_key.guid(),
@@ -171,6 +174,7 @@ def gen_containers(
             description=description,
             customProperties=container_key.dict(exclude_none=True, by_alias=True),
             externalUrl=external_url,
+            qualifiedName=qualified_name,
         ),
     )
     wu = MetadataWorkUnit(id=f"container-info-{name}-{container_urn}", mcp=mcp)
@@ -250,7 +254,7 @@ def add_dataset_to_container(
     # FIXME: Union requires two or more type arguments
     container_key: KeyType,
     dataset_urn: str,
-) -> Iterable[Union[MetadataWorkUnit]]:
+) -> Iterable[MetadataWorkUnit]:
     container_urn = make_container_urn(
         guid=container_key.guid(),
     )
@@ -280,3 +284,17 @@ def add_entity_to_container(
     )
     wu = MetadataWorkUnit(id=f"container-{container_urn}-to-{entity_urn}", mcp=mcp)
     yield wu
+
+
+def mcps_from_mce(
+    mce: MetadataChangeEventClass,
+) -> Iterable[MetadataChangeProposalWrapper]:
+    for aspect in mce.proposedSnapshot.aspects:
+        yield MetadataChangeProposalWrapper(
+            entityType=guess_entity_type(mce.proposedSnapshot.urn),
+            changeType=ChangeTypeClass.UPSERT,
+            entityUrn=mce.proposedSnapshot.urn,
+            auditHeader=mce.auditHeader,
+            aspect=aspect,
+            systemMetadata=mce.systemMetadata,
+        )

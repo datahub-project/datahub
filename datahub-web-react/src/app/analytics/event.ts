@@ -5,19 +5,23 @@ import { EntityType, RecommendationRenderType, ScenarioType } from '../../types.
  */
 export enum EventType {
     PageViewEvent,
+    HomePageViewEvent,
     LogInEvent,
     LogOutEvent,
     SearchEvent,
+    HomePageSearchEvent,
     SearchResultsViewEvent,
     SearchResultClickEvent,
     EntitySearchResultClickEvent,
     BrowseResultClickEvent,
+    HomePageBrowseResultClickEvent,
     EntityViewEvent,
     EntitySectionViewEvent,
     EntityActionEvent,
     BatchEntityActionEvent,
     RecommendationImpressionEvent,
     RecommendationClickEvent,
+    HomePageRecommendationClickEvent,
     SearchAcrossLineageEvent,
     SearchAcrossLineageResultsViewEvent,
     DownloadAsCsvEvent,
@@ -41,6 +45,14 @@ interface BaseEvent {
  */
 export interface PageViewEvent extends BaseEvent {
     type: EventType.PageViewEvent;
+    originPath: string;
+}
+
+/**
+ * Viewed the Home Page on the UI.
+ */
+export interface HomePageViewEvent extends BaseEvent {
+    type: EventType.HomePageViewEvent;
 }
 
 /**
@@ -84,6 +96,16 @@ export interface SearchEvent extends BaseEvent {
 }
 
 /**
+ * Logged on user successful search query from the home page.
+ */
+export interface HomePageSearchEvent extends BaseEvent {
+    type: EventType.HomePageSearchEvent;
+    query: string;
+    entityTypeFilter?: EntityType;
+    pageNumber: number;
+}
+
+/**
  * Logged on user search result click.
  */
 export interface SearchResultsViewEvent extends BaseEvent {
@@ -117,6 +139,14 @@ export interface BrowseResultClickEvent extends BaseEvent {
     resultType: 'Entity' | 'Group';
     entityUrn?: string;
     groupName?: string;
+}
+
+/**
+ * Logged on user browse result click from the home page.
+ */
+export interface HomePageBrowseResultClickEvent extends BaseEvent {
+    type: EventType.HomePageBrowseResultClickEvent;
+    entityType: EntityType;
 }
 
 /**
@@ -185,6 +215,15 @@ export interface RecommendationClickEvent extends BaseEvent {
     index?: number;
 }
 
+export interface HomePageRecommendationClickEvent extends BaseEvent {
+    type: EventType.HomePageRecommendationClickEvent;
+    renderId: string; // TODO : Determine whether we need a render id to join with click event.
+    moduleId: string;
+    renderType: RecommendationRenderType;
+    scenarioType: ScenarioType;
+    index?: number;
+}
+
 export interface SearchAcrossLineageEvent extends BaseEvent {
     type: EventType.SearchAcrossLineageEvent;
     query: string;
@@ -213,14 +252,17 @@ export interface DownloadAsCsvEvent extends BaseEvent {
  */
 export type Event =
     | PageViewEvent
+    | HomePageViewEvent
     | SignUpEvent
     | LogInEvent
     | LogOutEvent
     | ResetCredentialsEvent
     | SearchEvent
+    | HomePageSearchEvent
     | SearchResultsViewEvent
     | SearchResultClickEvent
     | BrowseResultClickEvent
+    | HomePageBrowseResultClickEvent
     | EntityViewEvent
     | EntitySectionViewEvent
     | EntityActionEvent
@@ -229,4 +271,5 @@ export type Event =
     | SearchAcrossLineageResultsViewEvent
     | DownloadAsCsvEvent
     | RecommendationClickEvent
+    | HomePageRecommendationClickEvent
     | BatchEntityActionEvent;

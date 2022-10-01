@@ -15,6 +15,7 @@ import graphql.schema.DataFetcher;
 import graphql.schema.DataFetchingEnvironment;
 import java.util.Collection;
 import java.util.Collections;
+import java.util.Comparator;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
@@ -75,6 +76,9 @@ public class ListRolesResolver implements DataFetcher<CompletableFuture<ListRole
   }
 
   private List<DataHubRole> mapEntitiesToRoles(final Collection<EntityResponse> entities) {
-    return entities.stream().map(DataHubRoleMapper::map).collect(Collectors.toList());
+    return entities.stream()
+        .map(DataHubRoleMapper::map)
+        .sorted(Comparator.comparing(DataHubRole::getName))
+        .collect(Collectors.toList());
   }
 }

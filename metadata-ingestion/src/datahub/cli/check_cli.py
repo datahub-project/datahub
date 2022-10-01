@@ -4,7 +4,9 @@ import tempfile
 import click
 
 from datahub import __package_name__
+from datahub.cli.cli_utils import get_url_and_token
 from datahub.cli.json_file import check_mce_file
+from datahub.graph_consistency import check_data_platform
 from datahub.ingestion.run.pipeline import Pipeline
 from datahub.ingestion.sink.sink_registry import sink_registry
 from datahub.ingestion.source.source_registry import source_registry
@@ -25,7 +27,10 @@ def check() -> None:
     is_flag=True,
     help="Rewrite the JSON file to it's canonical form.",
 )
-def metadata_file(json_file: str, rewrite: bool) -> None:
+@click.option(
+    "--unpack-mces", default=False, is_flag=True, help="Converts MCEs into MCPs"
+)
+def metadata_file(json_file: str, rewrite: bool, unpack_mces: bool) -> None:
     """Check the schema of a metadata (MCE or MCP) JSON file."""
 
     if not rewrite:
@@ -40,7 +45,10 @@ def metadata_file(json_file: str, rewrite: bool) -> None:
                         "type": "file",
                         "config": {"filename": json_file},
                         "extractor": "generic",
-                        "extractor_config": {"set_system_metadata": False},
+                        "extractor_config": {
+                            "set_system_metadata": False,
+                            "unpack_mces_into_mcps": unpack_mces,
+                        },
                     },
                     "sink": {
                         "type": "file",
@@ -81,3 +89,9 @@ def plugins(verbose: bool) -> None:
     click.echo(
         f"If a plugin is disabled, try running: pip install '{__package_name__}[<plugin>]'"
     )
+
+
+@check.command
+def graph_consistency() -> None:
+    gms_endpoint, gms_token = get_url_and_token()
+    check_data_platform.check(gms_endpoint, gms_token)

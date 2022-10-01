@@ -152,6 +152,7 @@ def _ensure_ingestion_source_present(
     )
     response.raise_for_status()
     res_data = response.json()
+    print(res_data)
 
     assert res_data
     assert res_data["data"]

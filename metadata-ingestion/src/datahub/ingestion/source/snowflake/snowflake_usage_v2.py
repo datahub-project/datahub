@@ -52,8 +52,11 @@ class PermissiveModel(pydantic.BaseModel):
 
 
 class SnowflakeColumnReference(PermissiveModel):
-    columnId: int
     columnName: str
+    columnId: Optional[int] = None
+    objectName: Optional[str] = None
+    objectDomain: Optional[str] = None
+    objectId: Optional[int] = None
 
 
 class SnowflakeObjectAccessEntry(PermissiveModel):
@@ -154,13 +157,7 @@ class SnowflakeUsageExtractor(SnowflakeQueryMixin, SnowflakeCommonMixin):
                 if self.config.include_top_n_queries
                 else None,
                 userCounts=self._map_user_counts(json.loads(row["USER_COUNTS"])),
-                fieldCounts=[
-                    DatasetFieldUsageCounts(
-                        fieldPath=self.snowflake_identifier(field_count["col"]),
-                        count=field_count["total"],
-                    )
-                    for field_count in json.loads(row["FIELD_COUNTS"])
-                ],
+                fieldCounts=self._map_field_counts(json.loads(row["FIELD_COUNTS"])),
             )
             dataset_urn = make_dataset_urn_with_platform_instance(
                 self.platform,
@@ -180,27 +177,24 @@ class SnowflakeUsageExtractor(SnowflakeQueryMixin, SnowflakeCommonMixin):
         budget_per_query: int = int(
             total_budget_for_query_list / self.config.top_n_queries
         )
-        return [
-            trim_query(format_sql_query(query), budget_per_query)
-            if self.config.format_sql_queries
-            else query
-            for query in top_sql_queries
-        ]
+        return sorted(
+            [
+                trim_query(format_sql_query(query), budget_per_query)
+                if self.config.format_sql_queries
+                else query
+                for query in top_sql_queries
+            ]
+        )
 
     def _map_user_counts(self, user_counts: Dict) -> List[DatasetUserUsageCounts]:
         filtered_user_counts = []
         for user_count in user_counts:
-            user_email = user_count.get(
-                "email",
-                "{0}@{1}".format(
+            user_email = user_count.get("email")
+            if not user_email and self.config.email_domain and user_count["user_name"]:
+                user_email = "{0}@{1}".format(
                     user_count["user_name"], self.config.email_domain
                 ).lower()
-                if self.config.email_domain
-                else None,
-            )
-            if user_email is None or not self.config.user_email_pattern.allowed(
-                user_email
-            ):
+            if not user_email or not self.config.user_email_pattern.allowed(user_email):
                 continue
 
             filtered_user_counts.append(
@@ -214,7 +208,19 @@ class SnowflakeUsageExtractor(SnowflakeQueryMixin, SnowflakeCommonMixin):
                     userEmail=user_email,
                 )
             )
-        return filtered_user_counts
+        return sorted(filtered_user_counts, key=lambda v: v.user)
+
+    def _map_field_counts(self, field_counts: Dict) -> List[DatasetFieldUsageCounts]:
+        return sorted(
+            [
+                DatasetFieldUsageCounts(
+                    fieldPath=self.snowflake_identifier(field_count["col"]),
+                    count=field_count["total"],
+                )
+                for field_count in field_counts
+            ],
+            key=lambda v: v.fieldPath,
+        )
 
     def _get_snowflake_history(
         self, conn: SnowflakeConnection

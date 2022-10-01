@@ -70,6 +70,9 @@ query getBrowseResults($input: BrowseInput!) {
                 domain {
                     ...entityDomain
                 }
+                subTypes {
+                    typeNames
+                }
             }
             ... on GlossaryTerm {
                 ownership {

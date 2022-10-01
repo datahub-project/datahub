@@ -4,14 +4,13 @@ import logging
 import pathlib
 import re
 import sys
-from dataclasses import dataclass
-from dataclasses import field as dataclass_field
-from dataclasses import replace
+import tempfile
+from dataclasses import dataclass, field as dataclass_field, replace
+from datetime import datetime, timedelta
 from typing import Any, Dict, Iterable, List, Optional, Set, Tuple, Type
 
 import pydantic
 from looker_sdk.error import SDKError
-from looker_sdk.sdk.api31.methods import Looker31SDK
 from looker_sdk.sdk.api31.models import DBConnection
 from pydantic import root_validator, validator
 from pydantic.fields import Field
@@ -19,7 +18,9 @@ from pydantic.fields import Field
 import datahub.emitter.mce_builder as builder
 from datahub.configuration import ConfigModel
 from datahub.configuration.common import AllowDenyPattern, ConfigurationError
+from datahub.configuration.github import GitHubInfo
 from datahub.configuration.source_common import EnvBasedSourceConfigBase
+from datahub.emitter.mce_builder import make_schema_field_urn
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.decorators import (
@@ -31,6 +32,7 @@ from datahub.ingestion.api.decorators import (
 from datahub.ingestion.api.registry import import_path
 from datahub.ingestion.api.source import Source, SourceReport
 from datahub.ingestion.api.workunit import MetadataWorkUnit
+from datahub.ingestion.source.git.git_import import GitClone
 from datahub.ingestion.source.looker.looker_common import (
     LookerCommonConfig,
     LookerExplore,
@@ -47,6 +49,7 @@ from datahub.ingestion.source.looker.looker_lib_wrapper import (
 from datahub.metadata.com.linkedin.pegasus2avro.common import BrowsePaths, Status
 from datahub.metadata.com.linkedin.pegasus2avro.dataset import (
     DatasetLineageTypeClass,
+    FineGrainedLineageDownstreamType,
     UpstreamClass,
     UpstreamLineage,
     ViewProperties,
@@ -56,6 +59,8 @@ from datahub.metadata.com.linkedin.pegasus2avro.mxe import MetadataChangeEvent
 from datahub.metadata.schema_classes import (
     ChangeTypeClass,
     DatasetPropertiesClass,
+    FineGrainedLineageClass,
+    FineGrainedLineageUpstreamTypeClass,
     SubTypesClass,
 )
 from datahub.utilities.sql_parser import SQLParser
@@ -142,8 +147,9 @@ class LookerConnectionDefinition(ConfigModel):
 
 
 class LookMLSourceConfig(LookerCommonConfig):
-    base_folder: pydantic.DirectoryPath = Field(
-        description="Local filepath where the root of the LookML repo lives. This is typically the root folder where the `*.model.lkml` and `*.view.lkml` files are stored. e.g. If you have checked out your LookML repo under `/Users/jdoe/workspace/my-lookml-repo`, then set `base_folder` to `/Users/jdoe/workspace/my-lookml-repo`."
+    base_folder: Optional[pydantic.DirectoryPath] = Field(
+        None,
+        description="Required if not providing github configuration and deploy keys. A pointer to a local directory (accessible to the ingestion system) where the root of the LookML repo has been checked out (typically via a git clone). This is typically the root folder where the `*.model.lkml` and `*.view.lkml` files are stored. e.g. If you have checked out your LookML repo under `/Users/jdoe/workspace/my-lookml-repo`, then set `base_folder` to `/Users/jdoe/workspace/my-lookml-repo`.",
     )
     connection_to_platform_map: Optional[Dict[str, LookerConnectionDefinition]] = Field(
         None,
@@ -228,13 +234,30 @@ class LookMLSourceConfig(LookerCommonConfig):
             )
         return values
 
+    @validator("base_folder", always=True)
+    def check_base_folder_if_not_provided(
+        cls, v: Optional[pydantic.DirectoryPath], values: Dict[str, Any]
+    ) -> Optional[pydantic.DirectoryPath]:
+        if v is None:
+            github_info: Optional[GitHubInfo] = values.get("github_info", None)
+            if github_info and github_info.deploy_key:
+                # We have github_info populated correctly, base folder is not needed
+                pass
+            else:
+                raise ValueError(
+                    "base_folder is not provided. Neither has a github deploy_key or deploy_key_file been provided"
+                )
+        return v
+
 
 @dataclass
 class LookMLSourceReport(SourceReport):
+    git_clone_latency: Optional[timedelta] = None
     models_discovered: int = 0
     models_dropped: List[str] = dataclass_field(default_factory=list)
     views_discovered: int = 0
     views_dropped: List[str] = dataclass_field(default_factory=list)
+    _looker_api: Optional[LookerAPI] = None
 
     def report_models_scanned(self) -> None:
         self.models_discovered += 1
@@ -247,6 +270,11 @@ class LookMLSourceReport(SourceReport):
 
     def report_views_dropped(self, view: str) -> None:
         self.views_dropped.append(view)
+
+    def compute_stats(self) -> None:
+        if self._looker_api:
+            self.api_stats = self._looker_api.compute_stats()
+        return super().compute_stats()
 
 
 @dataclass
@@ -522,10 +550,25 @@ class LookerView:
     def _get_sql_info(cls, sql: str, sql_parser_path: str) -> SQLInfo:
         parser_cls = cls._import_sql_parser_cls(sql_parser_path)
 
-        parser_instance: SQLParser = parser_cls(sql)
+        try:
+            parser_instance: SQLParser = parser_cls(sql)
+        except Exception as e:
+            logger.warning(f"Sql parser failed on {sql} with {e}")
+            return SQLInfo(table_names=[], column_names=[])
 
-        sql_table_names: List[str] = parser_instance.get_tables()
-        column_names: List[str] = parser_instance.get_columns()
+        sql_table_names: List[str]
+        try:
+            sql_table_names = parser_instance.get_tables()
+        except Exception as e:
+            logger.warning(f"Sql parser failed on {sql} with {e}")
+            sql_table_names = []
+
+        try:
+            column_names: List[str] = parser_instance.get_columns()
+        except Exception as e:
+            logger.warning(f"Sql parser failed on {sql} with {e}")
+            column_names = []
+
         logger.debug(f"Column names parsed = {column_names}")
         # Drop table names with # in them
         sql_table_names = [t for t in sql_table_names if "#" not in t]
@@ -538,7 +581,10 @@ class LookerView:
 
     @classmethod
     def _get_fields(
-        cls, field_list: List[Dict], type_cls: ViewFieldType
+        cls,
+        field_list: List[Dict],
+        type_cls: ViewFieldType,
+        extract_column_level_lineage: bool,
     ) -> List[ViewField]:
         fields = []
         for field_dict in field_list:
@@ -547,6 +593,19 @@ class LookerView:
             native_type = field_dict.get("type", "string")
             description = field_dict.get("description", "")
             label = field_dict.get("label", "")
+            upstream_field = None
+            if type_cls == ViewFieldType.DIMENSION and extract_column_level_lineage:
+                if field_dict.get("sql") is not None:
+                    upstream_field_match = re.match(
+                        r"^.*\${TABLE}\.(\w+)", field_dict["sql"]
+                    )
+                    if upstream_field_match:
+                        matched_field = upstream_field_match.group(1)
+                        # Remove quotes from field names
+                        matched_field = (
+                            matched_field.replace('"', "").replace("`", "").lower()
+                        )
+                        upstream_field = matched_field
 
             field = ViewField(
                 name=name,
@@ -555,6 +614,7 @@ class LookerView:
                 description=description,
                 is_primary_key=is_primary_key,
                 field_type=type_cls,
+                upstream_field=upstream_field,
             )
             fields.append(field)
         return fields
@@ -572,6 +632,7 @@ class LookerView:
         max_file_snippet_length: int,
         parse_table_names_from_sql: bool = False,
         sql_parser_path: str = "datahub.utilities.sql_parser.DefaultSQLParser",
+        extract_col_level_lineage: bool = False,
     ) -> Optional["LookerView"]:
         view_name = looker_view["name"]
         logger.debug(f"Handling view {view_name} in model {model_name}")
@@ -596,13 +657,19 @@ class LookerView:
         derived_table = looker_view.get("derived_table")
 
         dimensions = cls._get_fields(
-            looker_view.get("dimensions", []), ViewFieldType.DIMENSION
+            looker_view.get("dimensions", []),
+            ViewFieldType.DIMENSION,
+            extract_col_level_lineage,
         )
         dimension_groups = cls._get_fields(
-            looker_view.get("dimension_groups", []), ViewFieldType.DIMENSION_GROUP
+            looker_view.get("dimension_groups", []),
+            ViewFieldType.DIMENSION_GROUP,
+            extract_col_level_lineage,
         )
         measures = cls._get_fields(
-            looker_view.get("measures", []), ViewFieldType.MEASURE
+            looker_view.get("measures", []),
+            ViewFieldType.MEASURE,
+            extract_col_level_lineage,
         )
         fields: List[ViewField] = dimensions + dimension_groups + measures
 
@@ -813,15 +880,15 @@ class LookMLSource(Source):
 
     source_config: LookMLSourceConfig
     reporter: LookMLSourceReport
-    looker_client: Optional[Looker31SDK] = None
+    looker_client: Optional[LookerAPI] = None
 
     def __init__(self, config: LookMLSourceConfig, ctx: PipelineContext):
         super().__init__(ctx)
         self.source_config = config
         self.reporter = LookMLSourceReport()
         if self.source_config.api:
-            looker_api = LookerAPI(self.source_config.api)
-            self.looker_client = looker_api.get_client()
+            self.looker_client = LookerAPI(self.source_config.api)
+            self.reporter._looker_api = self.looker_client
             try:
                 self.looker_client.all_connections()
             except SDKError:
@@ -954,22 +1021,48 @@ class LookMLSource(Source):
         for sql_table_name in looker_view.sql_table_names:
 
             sql_table_name = sql_table_name.replace('"', "").replace("`", "")
+            upstream_dataset_urn: str = self._construct_datalineage_urn(
+                sql_table_name, looker_view
+            )
+            fine_grained_lineages: List[FineGrainedLineageClass] = []
+            if self.source_config.extract_column_level_lineage:
+                for field in looker_view.fields:
+                    if field.upstream_field is not None:
+                        fine_grained_lineage = FineGrainedLineageClass(
+                            upstreamType=FineGrainedLineageUpstreamTypeClass.FIELD_SET,
+                            upstreams=[
+                                make_schema_field_urn(
+                                    upstream_dataset_urn, field.upstream_field
+                                )
+                            ],
+                            downstreamType=FineGrainedLineageDownstreamType.FIELD,
+                            downstreams=[
+                                make_schema_field_urn(
+                                    looker_view.id.get_urn(self.source_config),
+                                    field.name,
+                                )
+                            ],
+                        )
+                        fine_grained_lineages.append(fine_grained_lineage)
 
             upstream = UpstreamClass(
-                dataset=self._construct_datalineage_urn(sql_table_name, looker_view),
+                dataset=upstream_dataset_urn,
                 type=DatasetLineageTypeClass.VIEW,
             )
             upstreams.append(upstream)
 
         if upstreams != []:
-            return UpstreamLineage(upstreams=upstreams)
+            return UpstreamLineage(
+                upstreams=upstreams, fineGrainedLineages=fine_grained_lineages or None
+            )
         else:
             return None
 
     def _get_custom_properties(self, looker_view: LookerView) -> DatasetPropertiesClass:
+        assert self.source_config.base_folder  # this is always filled out
         file_path = str(
             pathlib.Path(looker_view.absolute_file_path).relative_to(
-                self.source_config.base_folder
+                self.source_config.base_folder.resolve()
             )
         )
 
@@ -1050,13 +1143,7 @@ class LookMLSource(Source):
             self.looker_client is not None
         ), "Failed to find a configured Looker API client"
         try:
-            model = self.looker_client.lookml_model(
-                model_name,
-                "project_name",
-                transport_options=self.source_config.transport_options.get_transport_options()
-                if self.source_config.transport_options is not None
-                else None,
-            )
+            model = self.looker_client.lookml_model(model_name, fields="project_name")
             assert (
                 model.project_name is not None
             ), f"Failed to find a project name for model {model_name}"
@@ -1066,7 +1153,29 @@ class LookMLSource(Source):
                 f"Could not locate a project name for model {model_name}. Consider configuring a static project name in your config file"
             )
 
-    def get_workunits(self) -> Iterable[MetadataWorkUnit]:  # noqa: C901
+    def get_workunits(self) -> Iterable[MetadataWorkUnit]:
+        if not self.source_config.base_folder:
+            assert self.source_config.github_info
+            # we don't have a base_folder, so we need to clone the repo and process it locally
+            start_time = datetime.now()
+            with tempfile.TemporaryDirectory("lookml_tmp") as tmp_dir:
+                git_clone = GitClone(tmp_dir)
+                # github info deploy key is always populated
+                assert self.source_config.github_info.deploy_key
+                assert self.source_config.github_info.repo_ssh_locator
+                checkout_dir = git_clone.clone(
+                    ssh_key=self.source_config.github_info.deploy_key,
+                    repo_url=self.source_config.github_info.repo_ssh_locator,
+                )
+                self.reporter.git_clone_latency = datetime.now() - start_time
+                self.source_config.base_folder = checkout_dir.resolve()
+                yield from self.get_internal_workunits()
+        else:
+            yield from self.get_internal_workunits()
+
+    def get_internal_workunits(self) -> Iterable[MetadataWorkUnit]:  # noqa: C901
+        assert self.source_config.base_folder
+
         viewfile_loader = LookerViewFileLoader(
             str(self.source_config.base_folder), self.reporter
         )
@@ -1111,13 +1220,21 @@ class LookMLSource(Source):
                 continue
 
             explore_reachable_views = set()
-            for explore_dict in model.explores:
-                explore: LookerExplore = LookerExplore.from_dict(
-                    model_name, explore_dict
-                )
-                if explore.upstream_views:
-                    for view_name in explore.upstream_views:
-                        explore_reachable_views.add(view_name)
+            if self.source_config.emit_reachable_views_only:
+                for explore_dict in model.explores:
+                    try:
+                        explore: LookerExplore = LookerExplore.from_dict(
+                            model_name, explore_dict
+                        )
+                        if explore.upstream_views:
+                            for view_name in explore.upstream_views:
+                                explore_reachable_views.add(view_name)
+                    except Exception as e:
+                        self.reporter.report_warning(
+                            f"{model}.explores",
+                            f"failed to process {explore_dict} due to {e}. Run with --debug for full stacktrace",
+                        )
+                        logger.debug("Failed to process explore", exc_info=e)
 
             processed_view_files = processed_view_map.get(model.connection)
             if processed_view_files is None:
@@ -1160,6 +1277,7 @@ class LookMLSource(Source):
                                 self.source_config.max_file_snippet_length,
                                 self.source_config.parse_table_names_from_sql,
                                 self.source_config.sql_parser,
+                                self.source_config.extract_column_level_lineage,
                             )
                         except Exception as e:
                             self.reporter.report_warning(

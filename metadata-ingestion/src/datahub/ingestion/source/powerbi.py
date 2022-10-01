@@ -5,8 +5,7 @@
 #########################################################
 
 import logging
-from dataclasses import dataclass
-from dataclasses import field as dataclass_field
+from dataclasses import dataclass, field as dataclass_field
 from enum import Enum
 from time import sleep
 from typing import Any, Dict, Iterable, List, Optional, Tuple

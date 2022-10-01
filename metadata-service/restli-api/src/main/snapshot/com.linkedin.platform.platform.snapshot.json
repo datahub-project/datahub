@@ -1620,6 +1620,11 @@
       "name" : "name",
       "type" : "string",
       "doc" : "Name of the data platform",
+      "Searchable" : {
+        "boostScore" : 10.0,
+        "enableAutocomplete" : false,
+        "fieldType" : "TEXT_PARTIAL"
+      },
       "validate" : {
         "strlen" : {
           "max" : 15
@@ -1629,7 +1634,12 @@
       "name" : "displayName",
       "type" : "string",
       "doc" : "The name that will be used for displaying a platform type.",
-      "optional" : true
+      "optional" : true,
+      "Searchable" : {
+        "boostScore" : 10.0,
+        "enableAutocomplete" : true,
+        "fieldType" : "TEXT_PARTIAL"
+      }
     }, {
       "name" : "type",
       "type" : {
@@ -2807,7 +2817,7 @@
                           "optional" : true,
                           "Searchable" : {
                             "boostScore" : 0.2,
-                            "fieldName" : "fieldLabel",
+                            "fieldName" : "fieldLabels",
                             "fieldType" : "TEXT"
                           }
                         }, {
@@ -4841,7 +4851,13 @@
                           "items" : "com.linkedin.common.Urn"
                         },
                         "doc" : "A specific set of roles to apply the policy to (disjunctive).",
-                        "optional" : true
+                        "optional" : true,
+                        "Relationship" : {
+                          "/*" : {
+                            "entityTypes" : [ "dataHubRole" ],
+                            "name" : "IsAssociatedWithRole"
+                          }
+                        }
                       } ]
                     },
                     "doc" : "The actors that the policy applies to."

@@ -32,6 +32,7 @@ import lombok.extern.slf4j.Slf4j;
 import static com.linkedin.datahub.graphql.resolvers.mutate.MutationUtils.*;
 
 
+// TODO: Move to consuming GlossaryTermService, TagService.
 @Slf4j
 public class LabelUtils {
   private static final ConjunctivePrivilegeGroup ALL_PRIVILEGES_GROUP = new ConjunctivePrivilegeGroup(ImmutableList.of(

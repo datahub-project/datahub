@@ -3,6 +3,7 @@ package com.datahub.authentication.token;
 import com.datahub.authentication.Actor;
 import com.datahub.authentication.ActorType;
 import io.jsonwebtoken.Claims;
+import io.jsonwebtoken.Jws;
 import io.jsonwebtoken.JwtBuilder;
 import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.SignatureAlgorithm;
@@ -128,11 +129,12 @@ public class StatelessTokenService {
     try {
       byte [] apiKeySecretBytes = this.signingKey.getBytes(StandardCharsets.UTF_8);
       final String base64Key = Base64.getEncoder().encodeToString(apiKeySecretBytes);
-      final Claims claims = (Claims) Jwts.parserBuilder()
+      final Jws<Claims> jws = Jwts.parserBuilder()
           .setSigningKey(base64Key)
           .build()
-          .parse(accessToken)
-          .getBody();
+          .parseClaimsJws(accessToken);
+      validateTokenAlgorithm(jws.getHeader().getAlgorithm());
+      final Claims claims = jws.getBody();
       final String tokenVersion = claims.get(TOKEN_VERSION_CLAIM_NAME, String.class);
       final String tokenType = claims.get(TOKEN_TYPE_CLAIM_NAME, String.class);
       final String actorId = claims.get(ACTOR_ID_CLAIM_NAME, String.class);
@@ -151,6 +153,14 @@ public class StatelessTokenService {
       throw new TokenException("Failed to validate DataHub token", e);
     }
     throw new TokenException("Failed to validate DataHub token: Found malformed or missing 'actor' claim.");
+  }
+
+  private void validateTokenAlgorithm(final String algorithm) throws TokenException {
+    try {
+      validateAlgorithm(algorithm);
+    } catch (UnsupportedOperationException e) {
+      throw new TokenException(String.format("Failed to validate signing algorithm for provided JWT! Found %s", algorithm));
+    }
   }
 
   private SignatureAlgorithm validateAlgorithm(final String algorithm) {

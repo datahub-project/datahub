@@ -1620,6 +1620,11 @@
       "name" : "name",
       "type" : "string",
       "doc" : "Name of the data platform",
+      "Searchable" : {
+        "boostScore" : 10.0,
+        "enableAutocomplete" : false,
+        "fieldType" : "TEXT_PARTIAL"
+      },
       "validate" : {
         "strlen" : {
           "max" : 15
@@ -1629,7 +1634,12 @@
       "name" : "displayName",
       "type" : "string",
       "doc" : "The name that will be used for displaying a platform type.",
-      "optional" : true
+      "optional" : true,
+      "Searchable" : {
+        "boostScore" : 10.0,
+        "enableAutocomplete" : true,
+        "fieldType" : "TEXT_PARTIAL"
+      }
     }, {
       "name" : "type",
       "type" : {
@@ -2813,7 +2823,7 @@
                           "optional" : true,
                           "Searchable" : {
                             "boostScore" : 0.2,
-                            "fieldName" : "fieldLabel",
+                            "fieldName" : "fieldLabels",
                             "fieldType" : "TEXT"
                           }
                         }, {
@@ -4847,7 +4857,13 @@
                           "items" : "com.linkedin.common.Urn"
                         },
                         "doc" : "A specific set of roles to apply the policy to (disjunctive).",
-                        "optional" : true
+                        "optional" : true,
+                        "Relationship" : {
+                          "/*" : {
+                            "entityTypes" : [ "dataHubRole" ],
+                            "name" : "IsAssociatedWithRole"
+                          }
+                        }
                       } ]
                     },
                     "doc" : "The actors that the policy applies to."
@@ -5322,6 +5338,10 @@
     }, {
       "name" : "rows",
       "type" : "long"
+    }, {
+      "name" : "timeseriesRows",
+      "type" : "long",
+      "optional" : true
     } ]
   }, {
     "type" : "record",
@@ -5636,6 +5656,30 @@
         } ]
       } ],
       "actions" : [ {
+        "name" : "applyRetention",
+        "parameters" : [ {
+          "name" : "start",
+          "type" : "int",
+          "optional" : true
+        }, {
+          "name" : "count",
+          "type" : "int",
+          "optional" : true
+        }, {
+          "name" : "attemptWithVersion",
+          "type" : "int",
+          "optional" : true
+        }, {
+          "name" : "aspectName",
+          "type" : "string",
+          "optional" : true
+        }, {
+          "name" : "urn",
+          "type" : "string",
+          "optional" : true
+        } ],
+        "returns" : "string"
+      }, {
         "name" : "autocomplete",
         "parameters" : [ {
           "name" : "entity",
@@ -5695,9 +5739,26 @@
         "returns" : "com.linkedin.metadata.browse.BrowseResult"
       }, {
         "name" : "delete",
+        "doc" : "Deletes all data related to an individual urn(entity).\nService Returns: - a DeleteEntityResponse object.",
         "parameters" : [ {
           "name" : "urn",
-          "type" : "string"
+          "type" : "string",
+          "doc" : "- the urn of the entity."
+        }, {
+          "name" : "aspectName",
+          "type" : "string",
+          "optional" : true,
+          "doc" : "- the optional aspect name if only want to delete the aspect (applicable only for timeseries aspects)."
+        }, {
+          "name" : "startTimeMillis",
+          "type" : "long",
+          "optional" : true,
+          "doc" : "- the optional start time (applicable only for timeseries aspects)."
+        }, {
+          "name" : "endTimeMillis",
+          "type" : "long",
+          "optional" : true,
+          "doc" : "- the optional end time (applicable only for the timeseries aspects)."
         } ],
         "returns" : "com.linkedin.metadata.run.DeleteEntityResponse"
       }, {

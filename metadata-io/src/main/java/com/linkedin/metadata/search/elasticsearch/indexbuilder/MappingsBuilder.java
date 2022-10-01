@@ -82,6 +82,8 @@ public class MappingsBuilder {
       mappingForField.put("type", "long");
     } else if (fieldType == FieldType.DATETIME) {
       mappingForField.put("type", "date");
+    } else if (fieldType == FieldType.OBJECT) {
+      mappingForField.put("type", "object");
     } else {
       log.info("FieldType {} has no mappings implemented", fieldType);
     }
