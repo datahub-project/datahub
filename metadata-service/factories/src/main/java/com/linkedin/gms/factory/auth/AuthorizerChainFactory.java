@@ -127,7 +127,7 @@ public class AuthorizerChainFactory {
     enabledAuthorizers.forEach((pluginConfig) -> {
       // Create context
       AuthorizerContext context = new AuthorizerContext(
-          ImmutableMap.of(PluginConstant.PLUGIN_DIRECTORY, pluginConfig.getPluginDirectoryPath().toString()), resolver);
+          ImmutableMap.of(PluginConstant.PLUGIN_HOME, pluginConfig.getPluginHomeDirectory().toString()), resolver);
       IsolatedClassLoader isolatedClassLoader = new IsolatedClassLoaderImpl(permissionManager, pluginConfig);
       try {
         Thread.currentThread().setContextClassLoader((ClassLoader) isolatedClassLoader);

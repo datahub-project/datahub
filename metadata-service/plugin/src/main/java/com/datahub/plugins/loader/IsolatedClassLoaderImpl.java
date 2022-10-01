@@ -56,7 +56,7 @@ public class IsolatedClassLoaderImpl extends ClassLoader implements IsolatedClas
     this._classLoaders.add(this.getClass().getClassLoader()); // then application class-loader
     this._classLoaders.addAll(Arrays.asList(applicationClassLoaders)); // if any extra class loaders
     this._executionDirectory =
-        Paths.get(pluginToLoad.getPluginDirectoryPath().toString(), EXECUTION_DIR); // to store .so files i.e. libraries
+        Paths.get(pluginToLoad.getPluginHomeDirectory().toString(), EXECUTION_DIR); // to store .so files i.e. libraries
     try {
       this.createJarEntryMap();
     } catch (IOException e) {
@@ -155,7 +155,7 @@ public class IsolatedClassLoaderImpl extends ClassLoader implements IsolatedClas
       throw new ClassNotFoundException();
     }
     ProtectionDomain protectionDomain =
-        this._pluginPermissionManager.createProtectionDomain(this._pluginConfig.getPluginDirectoryPath());
+        this._pluginPermissionManager.createProtectionDomain(this._pluginConfig.getPluginHomeDirectory());
     return defineClass(s, classBytes, 0, classBytes.length, protectionDomain);
   }
 
@@ -218,7 +218,7 @@ public class IsolatedClassLoaderImpl extends ClassLoader implements IsolatedClas
     }
     // Check if resource is present in plugin directory
     try {
-      try (Stream<Path> stream = Files.find(this._pluginConfig.getPluginDirectoryPath(), 1,
+      try (Stream<Path> stream = Files.find(this._pluginConfig.getPluginHomeDirectory(), 1,
           ((path, basicFileAttributes) -> path.toFile().getName().equals(trimResource)))) {
         List<Path> resources = stream.collect(Collectors.toList());
         if (resources.size() > 0) {

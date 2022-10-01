@@ -13,13 +13,13 @@ import lombok.NoArgsConstructor;
 @Data
 @NoArgsConstructor
 public class AuthPluginConfig extends PluginConfigImpl implements PluginConfigWithJar {
-  private Path pluginDirectoryPath;
+  private Path pluginHomeDirectory;
   private Path pluginJarPath;
 
   public AuthPluginConfig(PluginType type, String name, Boolean enabled, String className,
-      Path pluginDirectoryPath, Path pluginJarPath, Optional<Map<String, Object>> configs) {
+      Path pluginHomeDirectory, Path pluginJarPath, Optional<Map<String, Object>> configs) {
     super(type, name, enabled, className, configs);
-    this.pluginDirectoryPath = pluginDirectoryPath;
+    this.pluginHomeDirectory = pluginHomeDirectory;
     this.pluginJarPath = pluginJarPath;
   }
 }

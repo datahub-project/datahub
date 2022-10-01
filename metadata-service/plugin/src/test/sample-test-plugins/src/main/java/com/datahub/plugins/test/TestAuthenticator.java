@@ -1,5 +1,6 @@
 package com.datahub.plugins.test;
 
+import com.datahub.plugins.PluginConstant;
 import com.datahub.plugins.auth.authentication.Actor;
 import com.datahub.plugins.auth.authentication.ActorType;
 import com.datahub.plugins.auth.authentication.Authentication;
@@ -57,7 +58,7 @@ public class TestAuthenticator implements Authenticator {
   private void accessFile() {
     // Try to create a file on PLUGIN_DIRECTORY to test plugin should have permission to read/write on plugin directory
     Path pluginDirectory =
-        Paths.get((String) this._authenticatorContext.data().get("PLUGIN_DIRECTORY"), "tmp_file1.txt");
+        Paths.get((String) this._authenticatorContext.data().get(PluginConstant.PLUGIN_HOME), "tmp_file1.txt");
     try {
 
       try (BufferedWriter writer = new BufferedWriter(new FileWriter(pluginDirectory.toString()))) {

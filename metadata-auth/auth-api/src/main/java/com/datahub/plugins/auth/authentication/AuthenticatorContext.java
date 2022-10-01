@@ -22,7 +22,7 @@ public class AuthenticatorContext {
   /**
    *
    * @return contextMap   The contextMap contains below key and value
-   *                      PLUGIN_DIRECTORY: Directory path where plugin is installed i.e. PLUGIN_HOME
+   *                      {@link com.datahub.plugins.PluginConstant::PLUGIN_HOME}: Directory path where plugin is installed
    *
    */
   @Nonnull

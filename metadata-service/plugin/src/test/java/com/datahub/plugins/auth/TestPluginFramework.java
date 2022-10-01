@@ -74,7 +74,7 @@ public class TestPluginFramework {
       assert pluginJarPath.equals(plugin.getPluginJarPath().toString());
 
       String pluginDirectory = Paths.get(pluginBaseDirectory.toString(), plugin.getName()).toAbsolutePath().toString();
-      assert pluginDirectory.equals(plugin.getPluginDirectoryPath().toString());
+      assert pluginDirectory.equals(plugin.getPluginHomeDirectory().toString());
     };
 
     Consumer<AuthorizerPluginConfig> validateAuthorizationPlugin = (plugin) -> {
@@ -92,7 +92,7 @@ public class TestPluginFramework {
       assert Paths.get(pluginBaseDirectory.toString(), plugin.getName())
           .toAbsolutePath()
           .toString()
-          .equals(plugin.getPluginDirectoryPath().toString());
+          .equals(plugin.getPluginHomeDirectory().toString());
     };
 
     authenticators.forEach(validateAuthenticationPlugin);
@@ -154,7 +154,7 @@ public class TestPluginFramework {
     AuthorizerPluginConfig authorizerPluginConfig = new AuthorizerPluginConfig();
     authorizerPluginConfig.setClassName("com.datahub.plugins.test.TestAuthorizer");
     authorizerPluginConfig.setConfigs(getConfigs());
-    authorizerPluginConfig.setPluginDirectoryPath(getSamplePluginDirectory());
+    authorizerPluginConfig.setPluginHomeDirectory(getSamplePluginDirectory());
     authorizerPluginConfig.setPluginJarPath(getSamplePluginJar());
     // plugin name
     authorizerPluginConfig.setName("sample-plugin-authorizer");
@@ -166,7 +166,7 @@ public class TestPluginFramework {
     AuthenticatorPluginConfig authenticatorPluginConfig = new AuthenticatorPluginConfig();
     authenticatorPluginConfig.setClassName("com.datahub.plugins.test.TestAuthenticator");
     authenticatorPluginConfig.setConfigs(getConfigs());
-    authenticatorPluginConfig.setPluginDirectoryPath(getSamplePluginDirectory());
+    authenticatorPluginConfig.setPluginHomeDirectory(getSamplePluginDirectory());
     authenticatorPluginConfig.setPluginJarPath(getSamplePluginJar());
     // plugin name
     authenticatorPluginConfig.setName("sample-plugin-authenticator");
@@ -184,7 +184,7 @@ public class TestPluginFramework {
     // initiate and invoke the init and authenticate methods
     Authenticator authenticator = (Authenticator) isolatedClassLoader.instantiatePlugin(Authenticator.class);
     AuthenticatorContext authenticatorContext = new AuthenticatorContext(
-        ImmutableMap.of(PluginConstant.PLUGIN_DIRECTORY, authenticatorPluginConfig.getPluginDirectoryPath().toString()));
+        ImmutableMap.of(PluginConstant.PLUGIN_HOME, authenticatorPluginConfig.getPluginHomeDirectory().toString()));
     AuthenticationRequest request = new AuthenticationRequest(ImmutableMap.of("foo", "bar"));
     authenticator.init(authenticatorPluginConfig.getConfigs().orElse(new HashMap<>()), authenticatorContext);
 
@@ -203,7 +203,7 @@ public class TestPluginFramework {
     // initiate and invoke the init and authenticate methods
     Authorizer authorizer = (Authorizer) isolatedClassLoader.instantiatePlugin(Authorizer.class);
     AuthorizerContext authorizerContext = new AuthorizerContext(
-        ImmutableMap.of(PluginConstant.PLUGIN_DIRECTORY, authorizerPluginConfig.getPluginDirectoryPath().toString()), null);
+        ImmutableMap.of(PluginConstant.PLUGIN_HOME, authorizerPluginConfig.getPluginHomeDirectory().toString()), null);
     AuthorizationRequest authorizationRequest = new AuthorizationRequest("urn:li:user:fake", "test", Optional.empty());
     authorizer.init(authorizerPluginConfig.getConfigs().orElse(new HashMap<>()), authorizerContext);
     assert authorizer.authorize(authorizationRequest).getMessage().equals("fake message");

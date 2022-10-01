@@ -181,7 +181,7 @@ public class AuthenticationFilter implements Filter {
         IsolatedClassLoader isolatedClassLoader = new IsolatedClassLoaderImpl(permissionManager, pluginConfig);
         // Create context
         AuthenticatorContext context = new AuthenticatorContext(
-            ImmutableMap.of(PluginConstant.PLUGIN_DIRECTORY, pluginConfig.getPluginDirectoryPath().toString()));
+            ImmutableMap.of(PluginConstant.PLUGIN_HOME, pluginConfig.getPluginHomeDirectory().toString()));
 
         try {
           Thread.currentThread().setContextClassLoader((ClassLoader) isolatedClassLoader);
