@@ -21,6 +21,7 @@ import {
     GroupsSection,
 } from '../shared/SidebarStyledComponents';
 import GroupMembersSideBarSection from './GroupMembersSideBarSection';
+import { useGetAuthenticatedUser } from '../../useGetAuthenticatedUser';
 
 const { Paragraph } = Typography;
 
@@ -102,7 +103,8 @@ export default function GroupInfoSidebar({ sideBarData, refetch }: Props) {
 
     /* eslint-disable @typescript-eslint/no-unused-vars */
     const [editGroupModal, showEditGroupModal] = useState(false);
-    const canEditGroup = true; // TODO; Replace this will fine-grained understanding of user permissions.
+    const me = useGetAuthenticatedUser();
+    const canEditGroup = me?.platformPrivileges.manageIdentities;
     const [groupTitle, setGroupTitle] = useState(name);
     const [updateName] = useUpdateNameMutation();
 

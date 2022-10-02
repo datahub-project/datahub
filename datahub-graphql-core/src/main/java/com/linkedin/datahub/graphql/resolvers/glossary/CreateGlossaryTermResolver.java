@@ -61,9 +61,9 @@ public class CreateGlossaryTermResolver implements DataFetcher<CompletableFuture
           proposal.setAspect(GenericRecordUtils.serializeAspect(mapGlossaryTermInfo(input)));
           proposal.setChangeType(ChangeType.UPSERT);
 
-          String tagUrn = _entityClient.ingestProposal(proposal, context.getAuthentication());
-          OwnerUtils.addCreatorAsOwner(context, tagUrn, OwnerEntityType.CORP_USER, OwnershipType.TECHNICAL_OWNER, _entityService);
-          return tagUrn;
+          String glossaryTermUrn = _entityClient.ingestProposal(proposal, context.getAuthentication());
+          OwnerUtils.addCreatorAsOwner(context, glossaryTermUrn, OwnerEntityType.CORP_USER, OwnershipType.TECHNICAL_OWNER, _entityService);
+          return glossaryTermUrn;
         } catch (Exception e) {
           log.error("Failed to create GlossaryTerm with id: {}, name: {}: {}", input.getId(), input.getName(), e.getMessage());
           throw new RuntimeException(String.format("Failed to create GlossaryTerm with id: %s, name: %s", input.getId(), input.getName()), e);

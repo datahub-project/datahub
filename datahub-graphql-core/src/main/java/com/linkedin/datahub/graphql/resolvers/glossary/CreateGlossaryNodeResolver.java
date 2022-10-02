@@ -61,9 +61,9 @@ public class CreateGlossaryNodeResolver implements DataFetcher<CompletableFuture
           proposal.setAspect(GenericRecordUtils.serializeAspect(mapGlossaryNodeInfo(input)));
           proposal.setChangeType(ChangeType.UPSERT);
 
-          String tagUrn = _entityClient.ingestProposal(proposal, context.getAuthentication());
-          OwnerUtils.addCreatorAsOwner(context, tagUrn, OwnerEntityType.CORP_USER, OwnershipType.TECHNICAL_OWNER, _entityService);
-          return tagUrn;
+          String glossaryNodeUrn = _entityClient.ingestProposal(proposal, context.getAuthentication());
+          OwnerUtils.addCreatorAsOwner(context, glossaryNodeUrn, OwnerEntityType.CORP_USER, OwnershipType.TECHNICAL_OWNER, _entityService);
+          return glossaryNodeUrn;
         } catch (Exception e) {
           log.error("Failed to create GlossaryNode with id: {}, name: {}: {}", input.getId(), input.getName(), e.getMessage());
           throw new RuntimeException(String.format("Failed to create GlossaryNode with id: %s, name: %s", input.getId(), input.getName()), e);

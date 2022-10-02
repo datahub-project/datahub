@@ -68,9 +68,9 @@ public class CreateDomainResolver implements DataFetcher<CompletableFuture<Strin
         proposal.setAspect(GenericRecordUtils.serializeAspect(mapDomainProperties(input)));
         proposal.setChangeType(ChangeType.UPSERT);
 
-        String tagUrn = _entityClient.ingestProposal(proposal, context.getAuthentication());
-        OwnerUtils.addCreatorAsOwner(context, tagUrn, OwnerEntityType.CORP_USER, OwnershipType.TECHNICAL_OWNER, _entityService);
-        return tagUrn;
+        String domainUrn = _entityClient.ingestProposal(proposal, context.getAuthentication());
+        OwnerUtils.addCreatorAsOwner(context, domainUrn, OwnerEntityType.CORP_USER, OwnershipType.TECHNICAL_OWNER, _entityService);
+        return domainUrn;
       } catch (Exception e) {
         log.error("Failed to create Domain with id: {}, name: {}: {}", input.getId(), input.getName(), e.getMessage());
         throw new RuntimeException(String.format("Failed to create Domain with id: %s, name: %s", input.getId(), input.getName()), e);
