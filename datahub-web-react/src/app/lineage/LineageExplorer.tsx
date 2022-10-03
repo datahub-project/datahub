@@ -16,6 +16,7 @@ import { capitalizeFirstLetter } from '../shared/textUtil';
 import { ANTD_GRAY } from '../entity/shared/constants';
 import { GetEntityLineageQuery, useGetEntityLineageQuery } from '../../graphql/lineage.generated';
 import { useIsSeparateSiblingsMode } from '../entity/shared/siblingUtils';
+import { useIsShowColumnsMode } from './utils/useIsShowColumnsMode';
 import { ErrorSection } from '../shared/error/ErrorSection';
 
 const DEFAULT_DISTANCE_FROM_TOP = 106;
@@ -69,9 +70,10 @@ export default function LineageExplorer({ urn, type }: Props) {
 
     const entityRegistry = useEntityRegistry();
     const isHideSiblingMode = useIsSeparateSiblingsMode();
+    const showColumns = useIsShowColumnsMode();
 
     const { loading, error, data } = useGetEntityLineageQuery({
-        variables: { urn, separateSiblings: isHideSiblingMode },
+        variables: { urn, separateSiblings: isHideSiblingMode, showColumns },
     });
 
     const entityData: EntityAndType | null | undefined = useMemo(() => getEntityAndType(data), [data]);
@@ -84,6 +86,12 @@ export default function LineageExplorer({ urn, type }: Props) {
     useEffect(() => {
         setAsyncEntities({});
     }, [isHideSiblingMode]);
+
+    useEffect(() => {
+        if (showColumns) {
+            setAsyncEntities({});
+        }
+    }, [showColumns]);
 
     const drawerRef: React.MutableRefObject<HTMLDivElement | null> = useRef(null);
 

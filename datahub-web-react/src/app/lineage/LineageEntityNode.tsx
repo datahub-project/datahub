@@ -141,7 +141,7 @@ export default function LineageEntityNode({
                             if (node.data.urn && node.data.type) {
                                 // getAsyncEntity(node.data.urn, node.data.type);
                                 getAsyncEntityLineage({
-                                    variables: { urn: node.data.urn, separateSiblings: isHideSiblingMode },
+                                    variables: { urn: node.data.urn, separateSiblings: isHideSiblingMode, showColumns },
                                 });
                             }
                         }}

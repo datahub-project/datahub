@@ -14,6 +14,7 @@ import { LineageExplorerContext } from './utils/LineageExplorerContext';
 import { useIsSeparateSiblingsMode } from '../entity/shared/siblingUtils';
 import { navigateToLineageUrl } from './utils/navigateToLineageUrl';
 import { SchemaFieldRef } from '../../types.generated';
+import { useIsShowColumnsMode } from './utils/useIsShowColumnsMode';
 
 const ZoomContainer = styled.div`
     position: relative;
@@ -113,8 +114,8 @@ export default function LineageVizInsideZoom({
     const [hoveredEntity, setHoveredEntity] = useState<EntitySelectParams | undefined>(undefined);
     const [isDraggingNode, setIsDraggingNode] = useState(false);
     const [showExpandedTitles, setShowExpandedTitles] = useState(false);
-    const [showColumns, setShowColumns] = useState(false);
     const isHideSiblingMode = useIsSeparateSiblingsMode();
+    const showColumns = useIsShowColumnsMode();
 
     const entityRegistry = useEntityRegistry();
 
@@ -192,7 +193,19 @@ export default function LineageVizInsideZoom({
                         </ControlLabel>
                     </div>
                     <div>
-                        <ControlsSwitch data-testid="column-toggle" checked={showColumns} onChange={setShowColumns} />{' '}
+                        <ControlsSwitch
+                            data-testid="column-toggle"
+                            checked={showColumns}
+                            onChange={(checked) => {
+                                navigateToLineageUrl({
+                                    location,
+                                    history,
+                                    isLineageMode: true,
+                                    isHideSiblingMode,
+                                    showColumns: checked,
+                                });
+                            }}
+                        />{' '}
                         <ControlLabel>Show Columns </ControlLabel>
                     </div>
                 </DisplayControls>
