@@ -1,6 +1,17 @@
 apply plugin: 'pegasus'
 apply plugin: 'java'
 
+tasks.withType(JavaCompile).configureEach {
+  javaCompiler = javaToolchains.compilerFor {
+    languageVersion = JavaLanguageVersion.of(8)
+  }
+}
+tasks.withType(Test).configureEach {
+  javaLauncher = javaToolchains.launcherFor {
+    languageVersion = JavaLanguageVersion.of(8)
+  }
+}
+
 dependencies {
   compile spec.product.pegasus.data
   compile externalDependency.commonsIo

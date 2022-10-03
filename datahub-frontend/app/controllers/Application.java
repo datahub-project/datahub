@@ -120,7 +120,7 @@ public class Application extends Controller {
             .entrySet()
             .stream()
             // Remove X-DataHub-Actor to prevent malicious delegation.
-            .filter(entry -> !AuthenticationConstants.LEGACY_X_DATAHUB_ACTOR_HEADER.equals(entry.getKey()))
+            .filter(entry -> !AuthenticationConstants.LEGACY_X_DATAHUB_ACTOR_HEADER.equalsIgnoreCase(entry.getKey()))
             .filter(entry -> !Http.HeaderNames.CONTENT_LENGTH.equals(entry.getKey()))
             .filter(entry -> !Http.HeaderNames.CONTENT_TYPE.equals(entry.getKey()))
             .filter(entry -> !Http.HeaderNames.AUTHORIZATION.equals(entry.getKey()))
@@ -305,7 +305,11 @@ public class Application extends Controller {
     // Case 2: Map requests to /gms to / (Rest.li API)
     final String gmsApiPath = "/api/gms";
     if (path.startsWith(gmsApiPath)) {
-      return String.format("%s", path.substring(gmsApiPath.length()));
+      String newPath = path.substring(gmsApiPath.length());
+      if (!newPath.startsWith("/")) {
+        newPath = "/" + newPath;
+      }
+      return newPath;
     }
 
     // Otherwise, return original path

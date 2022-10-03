@@ -57,6 +57,13 @@ class BigQueryV2Config(BigQueryConfig):
         description="Number of table queried in batch when getting metadata. This is a low leve config propert which should be touched with care. This restriction needed because we query partitions system view which throws error if we try to touch too many tables.",
     )
 
+    # The inheritance hierarchy is wonky here, but these options need modifications.
+    project_id: Optional[str] = Field(
+        default=None,
+        description="[deprecated] Use project_id_pattern instead.",
+    )
+    storage_project_id: None = Field(default=None, exclude=True)
+
     @root_validator(pre=False)
     def profile_default_settings(cls, values: Dict) -> Dict:
         # Extra default SQLAlchemy option for better connection pooling and threading.
@@ -67,6 +74,19 @@ class BigQueryV2Config(BigQueryConfig):
 
     @root_validator(pre=False)
     def backward_compatibility_configs_set(cls, values: Dict) -> Dict:
+        project_id = values.get("project_id")
+        project_id_pattern = values.get("project_id_pattern")
+
+        if project_id_pattern == AllowDenyPattern.allow_all() and project_id:
+            logging.warning(
+                "project_id_pattern is not set but project_id is set, setting project_id as project_id_pattern. project_id will be deprecated, please use project_id_pattern instead."
+            )
+            values["project_id_pattern"] = AllowDenyPattern(allow=[f"^{project_id}$"])
+        elif project_id_pattern != AllowDenyPattern.allow_all() and project_id:
+            logging.warning(
+                "project_id will be ignored in favour of project_id_pattern. project_id will be deprecated, please use project_id only."
+            )
+            values.pop("project_id")
 
         dataset_pattern = values.get("dataset_pattern")
         schema_pattern = values.get("schema_pattern")
