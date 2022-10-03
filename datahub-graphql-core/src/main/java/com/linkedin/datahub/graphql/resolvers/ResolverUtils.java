@@ -130,9 +130,13 @@ public class ResolverUtils {
     public static Criterion criterionFromFilter(final FacetFilterInput filter) {
         Criterion result = new Criterion();
         result.setField(getFilterField(filter.getField()));
-        result.setValue(filter.getValues().get(0));
         if (filter.getValues() != null) {
             result.setValues(new StringArray(filter.getValues()));
+            if (!filter.getValues().isEmpty()) {
+                result.setValue(filter.getValues().get(0));
+            } else {
+                result.setValue("");
+            }
         }
 
         if (filter.getCondition() != null) {

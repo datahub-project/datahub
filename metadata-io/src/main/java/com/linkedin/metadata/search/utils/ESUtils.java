@@ -1,6 +1,5 @@
 package com.linkedin.metadata.search.utils;
 
-import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.linkedin.metadata.query.filter.Condition;
 import com.linkedin.metadata.query.filter.ConjunctiveCriterion;
@@ -8,10 +7,8 @@ import com.linkedin.metadata.query.filter.Criterion;
 import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.metadata.query.filter.SortCriterion;
 import java.util.Arrays;
-import java.util.List;
 import java.util.Optional;
 import java.util.Set;
-import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import lombok.extern.slf4j.Slf4j;
@@ -23,7 +20,6 @@ import org.elasticsearch.search.sort.FieldSortBuilder;
 import org.elasticsearch.search.sort.ScoreSortBuilder;
 import org.elasticsearch.search.sort.SortOrder;
 
-import static com.linkedin.metadata.search.elasticsearch.query.request.SearchRequestHandler.*;
 import static com.linkedin.metadata.search.utils.SearchUtils.isUrn;
 
 
@@ -139,7 +135,7 @@ public class ESUtils {
     if (pairMatch.isPresent()) {
       final BoolQueryBuilder orQueryBuilder = new BoolQueryBuilder();
       String[] pairMatchValue = pairMatch.get();
-      for(String field: pairMatchValue) {
+      for (String field: pairMatchValue) {
         Criterion criterionToQuery = new Criterion();
         criterionToQuery.setCondition(criterion.getCondition());
         criterionToQuery.setNegated(criterion.isNegated());

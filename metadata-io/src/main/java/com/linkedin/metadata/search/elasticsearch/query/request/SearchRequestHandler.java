@@ -1,6 +1,5 @@
 package com.linkedin.metadata.search.elasticsearch.query.request;
 
-import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.data.template.DoubleMap;
@@ -16,7 +15,6 @@ import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.metadata.query.filter.SortCriterion;
 import com.linkedin.metadata.search.AggregationMetadata;
 import com.linkedin.metadata.search.AggregationMetadataArray;
-import com.linkedin.metadata.search.FilterValue;
 import com.linkedin.metadata.search.FilterValueArray;
 import com.linkedin.metadata.search.MatchedField;
 import com.linkedin.metadata.search.MatchedFieldArray;
@@ -31,7 +29,6 @@ import io.opentelemetry.extension.annotations.WithSpan;
 import java.net.URISyntaxException;
 import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -487,8 +484,8 @@ public class SearchRequestHandler {
 
   private void addMissingAggregationValueToAggregationMetadata(@Nonnull final String value, @Nonnull final AggregationMetadata originalMetadata) {
     if (
-        originalMetadata.getAggregations().entrySet().stream().noneMatch(entry -> value.equals(entry.getKey())) ||
-            originalMetadata.getFilterValues().stream().noneMatch(entry -> entry.getValue().equals(value))
+        originalMetadata.getAggregations().entrySet().stream().noneMatch(entry -> value.equals(entry.getKey()))
+            || originalMetadata.getFilterValues().stream().noneMatch(entry -> entry.getValue().equals(value))
     ) {
       // No aggregation found for filtered value -- inject one!
       originalMetadata.getAggregations().put(value, 0L);

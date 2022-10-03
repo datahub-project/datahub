@@ -65,7 +65,7 @@ input SearchInput {
   count: Int
 
   """
-  Facet filters to apply to search results
+  Facet filters to apply to search results. These will be 'AND'-ed together.
   """
   filters: [FacetFilterInput!]
 
@@ -100,7 +100,7 @@ input SearchAcrossEntitiesInput {
   count: Int
 
   """
-  Faceted filters applied to search results
+  Facet filters to apply to search results. These will be 'AND'-ed together.
   """
   filters: [FacetFilterInput!]
 
@@ -145,7 +145,7 @@ input SearchAcrossLineageInput {
   count: Int
 
   """
-  Faceted filters applied to search results
+  Facet filters to apply to search results. These will be 'AND'-ed together.
   """
   filters: [FacetFilterInput!]
 
