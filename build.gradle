@@ -4,6 +4,7 @@ buildscript {
   ext.mavenVersion = '3.6.3'
   ext.springVersion = '5.3.20'
   ext.springBootVersion = '2.5.12'
+  ext.openTelemetryVersion = '1.18.0'
   apply from: './repositories.gradle'
   buildscript.repositories.addAll(project.repositories)
   dependencies {
@@ -111,8 +112,8 @@ project.ext.externalDependency = [
     'mysqlConnector': 'mysql:mysql-connector-java:8.0.20',
     'neo4jHarness': 'org.neo4j.test:neo4j-harness:3.4.11',
     'neo4jJavaDriver': 'org.neo4j.driver:neo4j-java-driver:4.0.1',
-    'opentelemetryApi': 'io.opentelemetry:opentelemetry-api:1.0.0',
-    'opentelemetryAnnotations': 'io.opentelemetry:opentelemetry-extension-annotations:1.0.0',
+    'opentelemetryApi': 'io.opentelemetry:opentelemetry-api:' + openTelemetryVersion,
+    'opentelemetryAnnotations': 'io.opentelemetry:opentelemetry-extension-annotations:' + openTelemetryVersion,
     'opentracingJdbc':'io.opentracing.contrib:opentracing-jdbc:0.2.15',
     'parquet': 'org.apache.parquet:parquet-avro:1.12.2',
     'picocli': 'info.picocli:picocli:4.5.0',
