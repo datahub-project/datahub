@@ -1,6 +1,5 @@
 package com.linkedin.datahub.graphql.resolvers.tag;
 
-import com.linkedin.common.urn.Urn;
 import com.linkedin.data.template.SetMode;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.authorization.AuthorizationUtils;
