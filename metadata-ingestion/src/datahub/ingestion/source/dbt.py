@@ -291,6 +291,7 @@ class DBTConfig(StatefulIngestionConfigBase):
         description="When enabled, applies the mappings that are defined through the `query_tag_mapping` directives.",
     )
     write_semantics: str = Field(
+        # TODO: Replace with the WriteSemantics enum.
         default="PATCH",
         description='Whether the new tags, terms and owners to be added will override the existing ones added only by this source or not. Value for this config can be "PATCH" or "OVERRIDE"',
     )

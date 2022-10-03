@@ -15,7 +15,7 @@ from typing import Any, Callable, Dict, Iterable, List, Optional, Tuple, cast
 from looker_sdk.sdk.api31.models import Dashboard, LookWithQuery
 
 import datahub.emitter.mce_builder as builder
-from datahub.emitter.mce_builder import Aspect
+from datahub.emitter.mce_builder import Aspect, AspectAbstract
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.source.looker import looker_common
 from datahub.ingestion.source.looker.looker_common import (
@@ -192,11 +192,13 @@ class BaseStatGenerator(ABC):
         pass
 
     @abstractmethod
-    def to_entity_absolute_stat_aspect(self, looker_object: ModelForUsage) -> Aspect:
+    def to_entity_absolute_stat_aspect(
+        self, looker_object: ModelForUsage
+    ) -> AspectAbstract:
         pass
 
     @abstractmethod
-    def to_entity_timeseries_stat_aspect(self, row: Dict) -> Aspect:
+    def to_entity_timeseries_stat_aspect(self, row: Dict) -> AspectAbstract:
         pass
 
     @abstractmethod
@@ -242,9 +244,9 @@ class BaseStatGenerator(ABC):
 
     def _process_entity_timeseries_rows(
         self, rows: List[Dict]
-    ) -> Dict[Tuple[str, str], Aspect]:
+    ) -> Dict[Tuple[str, str], AspectAbstract]:
         # Convert Looker entity stat i.e. rows to DataHub stat aspect
-        entity_stat_aspect: Dict[Tuple[str, str], Aspect] = {}
+        entity_stat_aspect: Dict[Tuple[str, str], AspectAbstract] = {}
 
         for row in rows:
             logger.debug(row)
@@ -254,8 +256,8 @@ class BaseStatGenerator(ABC):
 
         return entity_stat_aspect
 
-    def _process_absolute_aspect(self) -> List[Tuple[ModelForUsage, Aspect]]:
-        aspects: List[Tuple[ModelForUsage, Aspect]] = []
+    def _process_absolute_aspect(self) -> List[Tuple[ModelForUsage, AspectAbstract]]:
+        aspects: List[Tuple[ModelForUsage, AspectAbstract]] = []
         for looker_object in self.looker_models:
             aspects.append(
                 (looker_object, self.to_entity_absolute_stat_aspect(looker_object))
@@ -463,20 +465,19 @@ class DashboardStatGenerator(BaseStatGenerator):
             "aspectName": "dashboardUsageStatistics",
         }
 
-    def to_entity_absolute_stat_aspect(self, looker_object: ModelForUsage) -> Aspect:
+    def to_entity_absolute_stat_aspect(
+        self, looker_object: ModelForUsage
+    ) -> DashboardUsageStatisticsClass:
         looker_dashboard: LookerDashboardForUsage = cast(
             LookerDashboardForUsage, looker_object
         )
         if looker_dashboard.view_count:
             self.report.dashboards_with_activity.add(str(looker_dashboard.id))
-        return cast(
-            Aspect,
-            DashboardUsageStatisticsClass(
-                timestampMillis=round(datetime.datetime.now().timestamp() * 1000),
-                favoritesCount=looker_dashboard.favorite_count,
-                viewsCount=looker_dashboard.view_count,
-                lastViewedAt=looker_dashboard.last_viewed_at,
-            ),
+        return DashboardUsageStatisticsClass(
+            timestampMillis=round(datetime.datetime.now().timestamp() * 1000),
+            favoritesCount=looker_dashboard.favorite_count,
+            viewsCount=looker_dashboard.view_count,
+            lastViewedAt=looker_dashboard.last_viewed_at,
         )
 
     def get_entity_timeseries_query(self) -> LookerQuery:
@@ -485,20 +486,19 @@ class DashboardStatGenerator(BaseStatGenerator):
     def get_entity_user_timeseries_query(self) -> LookerQuery:
         return query_collection[QueryId.DASHBOARD_PER_USER_PER_DAY_USAGE_STAT]
 
-    def to_entity_timeseries_stat_aspect(self, row: dict) -> Aspect:
+    def to_entity_timeseries_stat_aspect(
+        self, row: dict
+    ) -> DashboardUsageStatisticsClass:
         self.report.dashboards_with_activity.add(
             row[HistoryViewField.HISTORY_DASHBOARD_ID]
         )
-        return cast(
-            Aspect,
-            DashboardUsageStatisticsClass(
-                timestampMillis=self._round_time(
-                    row[HistoryViewField.HISTORY_CREATED_DATE]
-                ),
-                eventGranularity=TimeWindowSizeClass(unit=CalendarIntervalClass.DAY),
-                uniqueUserCount=row[HistoryViewField.HISTORY_DASHBOARD_USER],
-                executionsCount=row[HistoryViewField.HISTORY_DASHBOARD_RUN_COUNT],
+        return DashboardUsageStatisticsClass(
+            timestampMillis=self._round_time(
+                row[HistoryViewField.HISTORY_CREATED_DATE]
             ),
+            eventGranularity=TimeWindowSizeClass(unit=CalendarIntervalClass.DAY),
+            uniqueUserCount=row[HistoryViewField.HISTORY_DASHBOARD_USER],
+            executionsCount=row[HistoryViewField.HISTORY_DASHBOARD_RUN_COUNT],
         )
 
     def append_user_stat(
@@ -584,18 +584,17 @@ class LookStatGenerator(BaseStatGenerator):
             "aspectName": "chartUsageStatistics",
         }
 
-    def to_entity_absolute_stat_aspect(self, looker_object: ModelForUsage) -> Aspect:
+    def to_entity_absolute_stat_aspect(
+        self, looker_object: ModelForUsage
+    ) -> ChartUsageStatisticsClass:
         looker_look: LookerChartForUsage = cast(LookerChartForUsage, looker_object)
         assert looker_look.id
         if looker_look.view_count:
             self.report.charts_with_activity.add(looker_look.id)
 
-        return cast(
-            Aspect,
-            ChartUsageStatisticsClass(
-                timestampMillis=round(datetime.datetime.now().timestamp() * 1000),
-                viewsCount=looker_look.view_count,
-            ),
+        return ChartUsageStatisticsClass(
+            timestampMillis=round(datetime.datetime.now().timestamp() * 1000),
+            viewsCount=looker_look.view_count,
         )
 
     def get_entity_timeseries_query(self) -> LookerQuery:
@@ -604,18 +603,15 @@ class LookStatGenerator(BaseStatGenerator):
     def get_entity_user_timeseries_query(self) -> LookerQuery:
         return query_collection[QueryId.LOOK_PER_USER_PER_DAY_USAGE_STAT]
 
-    def to_entity_timeseries_stat_aspect(self, row: dict) -> Aspect:
+    def to_entity_timeseries_stat_aspect(self, row: dict) -> ChartUsageStatisticsClass:
         self.report.charts_with_activity.add(str(row[LookViewField.LOOK_ID]))
 
-        return cast(
-            Aspect,
-            ChartUsageStatisticsClass(
-                timestampMillis=self._round_time(
-                    row[HistoryViewField.HISTORY_CREATED_DATE]
-                ),
-                eventGranularity=TimeWindowSizeClass(unit=CalendarIntervalClass.DAY),
-                viewsCount=row[HistoryViewField.HISTORY_COUNT],
+        return ChartUsageStatisticsClass(
+            timestampMillis=self._round_time(
+                row[HistoryViewField.HISTORY_CREATED_DATE]
             ),
+            eventGranularity=TimeWindowSizeClass(unit=CalendarIntervalClass.DAY),
+            viewsCount=row[HistoryViewField.HISTORY_COUNT],
         )
 
     def append_user_stat(

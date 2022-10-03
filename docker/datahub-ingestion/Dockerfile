@@ -3,7 +3,7 @@ ARG APP_ENV=prod
 
 FROM acryldata/datahub-ingestion-base as base
 
-FROM openjdk:8 as prod-build
+FROM openjdk:11 as prod-build
 COPY . /datahub-src
 RUN cd /datahub-src && ./gradlew :metadata-events:mxe-schemas:build
 

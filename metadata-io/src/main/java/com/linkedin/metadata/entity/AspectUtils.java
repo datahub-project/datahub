@@ -1,10 +1,12 @@
 package com.linkedin.metadata.entity;
 
+import com.datahub.authentication.Authentication;
 import com.google.common.collect.ImmutableSet;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.data.template.RecordTemplate;
 import com.linkedin.entity.Aspect;
 import com.linkedin.entity.EntityResponse;
+import com.linkedin.entity.client.EntityClient;
 import com.linkedin.events.metadata.ChangeType;
 import com.linkedin.metadata.utils.EntityKeyUtils;
 import com.linkedin.metadata.utils.GenericRecordUtils;
@@ -17,20 +19,19 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
 import java.util.stream.Collectors;
-import com.linkedin.entity.client.EntityClient;
-import com.datahub.authentication.Authentication;
 import javax.annotation.Nonnull;
 import lombok.extern.slf4j.Slf4j;
+
 
 @Slf4j
 public class AspectUtils {
 
-  private AspectUtils() { }
+  private AspectUtils() {
+  }
 
   public static List<MetadataChangeProposal> getAdditionalChanges(
       @Nonnull MetadataChangeProposal metadataChangeProposal,
-      @Nonnull EntityService entityService
-  ) {
+      @Nonnull EntityService entityService) {
     // No additional changes for delete operation
     if (metadataChangeProposal.getChangeType() == ChangeType.DELETE) {
       return Collections.emptyList();
@@ -51,8 +52,7 @@ public class AspectUtils {
       Set<Urn> urns,
       String aspectName,
       EntityClient entityClient,
-      Authentication authentication
-  ) throws Exception {
+      Authentication authentication) throws Exception {
     final Map<Urn, EntityResponse> gmsResponse = entityClient.batchGetV2(
         entity,
         urns,
@@ -73,6 +73,9 @@ public class AspectUtils {
     try {
       MetadataChangeProposal proposal = original.copy();
       GenericAspect genericAspect = GenericRecordUtils.serializeAspect(aspect);
+      // Set UPSERT changetype here as additional changes being added should always be
+      // done in UPSERT mode even for patches
+      // proposal.setChangeType(ChangeType.UPSERT);
       proposal.setAspect(genericAspect);
       proposal.setAspectName(aspectName);
       return proposal;
@@ -83,12 +86,21 @@ public class AspectUtils {
   }
 
   public static MetadataChangeProposal buildMetadataChangeProposal(
-      @Nonnull Urn urn,
-      @Nonnull String aspectName,
-      @Nonnull RecordTemplate aspect) {
+      @Nonnull Urn urn, @Nonnull String aspectName, @Nonnull RecordTemplate aspect) {
     final MetadataChangeProposal proposal = new MetadataChangeProposal();
     proposal.setEntityUrn(urn);
     proposal.setEntityType(urn.getEntityType());
+    proposal.setAspectName(aspectName);
+    proposal.setAspect(GenericRecordUtils.serializeAspect(aspect));
+    proposal.setChangeType(ChangeType.UPSERT);
+    return proposal;
+  }
+
+  public static MetadataChangeProposal buildMetadataChangeProposal(@Nonnull String entityType,
+      @Nonnull RecordTemplate keyAspect, @Nonnull String aspectName, @Nonnull RecordTemplate aspect) {
+    final MetadataChangeProposal proposal = new MetadataChangeProposal();
+    proposal.setEntityType(entityType);
+    proposal.setEntityKeyAspect(GenericRecordUtils.serializeAspect(keyAspect));
     proposal.setAspectName(aspectName);
     proposal.setAspect(GenericRecordUtils.serializeAspect(aspect));
     proposal.setChangeType(ChangeType.UPSERT);

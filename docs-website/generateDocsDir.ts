@@ -126,6 +126,7 @@ function list_markdown_files(): string[] {
     /^docs\/docker\/README\.md/, // This one is just a pointer to another file.
     /^docs\/README\.md/, // This one is just a pointer to the hosted docs site.
     /^README\.md$/, // We have a new docs landing page, so the GitHub readme should be ignored.
+    /^SECURITY\.md$/,
     /^\s*$/, //Empty string
   ];
 

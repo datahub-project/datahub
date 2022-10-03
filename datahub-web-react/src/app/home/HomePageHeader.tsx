@@ -133,10 +133,9 @@ export const HomePageHeader = () => {
             return;
         }
         analytics.event({
-            type: EventType.SearchEvent,
+            type: EventType.HomePageSearchEvent,
             query,
             pageNumber: 1,
-            originPath: window.location.pathname,
         });
         navigateToSearchUrl({
             type,
