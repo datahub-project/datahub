@@ -445,9 +445,6 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
             logger.info(f"Processing project: {project_id.id}")
             yield from self._process_project(conn, project_id)
 
-        if self.config.include_usage_statistics:
-            yield from self.usage_extractor.get_workunits()
-
         if self.config.profiling.enabled:
             yield from self.profiler.get_workunits(self.db_tables)
 
@@ -493,7 +490,26 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
 
         if self.config.include_usage_statistics:
             logger.info(f"Generate usage for {project_id}")
-            yield from self.usage_extractor.generate_usage_for_project(project_id)
+            tables: Dict[str, List[str]] = {}
+
+            for dataset in self.db_tables[project_id]:
+                tables[dataset] = [
+                    table.name for table in self.db_tables[project_id][dataset]
+                ]
+
+            for dataset in self.db_views[project_id]:
+                if not tables[dataset]:
+                    tables[dataset] = [
+                        table.name for table in self.db_views[project_id][dataset]
+                    ]
+                else:
+                    tables[dataset].extend(
+                        [table.name for table in self.db_views[project_id][dataset]]
+                    )
+
+            yield from self.usage_extractor.generate_usage_for_project(
+                project_id, tables
+            )
 
     def _process_schema(
         self, conn: bigquery.Client, project_id: str, bigquery_dataset: BigqueryDataset

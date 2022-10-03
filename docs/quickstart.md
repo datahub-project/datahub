@@ -96,6 +96,7 @@ By default the quickstart deploy will require the following ports to be free on 
 
   In case the default ports conflict with software you are already running on your machine, you can override these ports by passing additional flags to the `datahub docker quickstart` command.
   e.g. To override the MySQL port with 53306 (instead of the default 3306), you can say: `datahub docker quickstart --mysql-port 53306`. Use `datahub docker quickstart --help` to see all the supported options.
+  For the metadata service container (datahub-gms), you need to use an environment variable, `DATAHUB_MAPPED_GMS_PORT`. So for instance to use the port 58080, you would say `DATAHUB_MAPPED_GMS_PORT=58080 datahub docker quickstart`
 
 </details>
 

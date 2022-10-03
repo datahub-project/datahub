@@ -4,6 +4,8 @@ buildscript {
   ext.mavenVersion = '3.6.3'
   ext.springVersion = '5.3.20'
   ext.springBootVersion = '2.5.12'
+  ext.neo4jVersion = '4.4.9'
+  ext.graphQLJavaVersion = '19.0'
   apply from: './repositories.gradle'
   buildscript.repositories.addAll(project.repositories)
   dependencies {
@@ -66,7 +68,8 @@ project.ext.externalDependency = [
     'elasticSearchRest': 'org.elasticsearch.client:elasticsearch-rest-high-level-client:7.9.3',
     'elasticSearchTransport': 'org.elasticsearch.client:transport:7.9.3',
     'findbugsAnnotations': 'com.google.code.findbugs:annotations:3.0.1',
-    'graphqlJava': 'com.graphql-java:graphql-java:16.1',
+    'graphqlJava': 'com.graphql-java:graphql-java:' + graphQLJavaVersion,
+    'graphqlJavaScalars': 'com.graphql-java:graphql-java-extended-scalars:' + graphQLJavaVersion,
     'gson': 'com.google.code.gson:gson:2.8.9',
     'guice': 'com.google.inject:guice:4.2.2',
     'guava': 'com.google.guava:guava:27.0.1-jre',
@@ -109,8 +112,8 @@ project.ext.externalDependency = [
     'mockServer': 'org.mock-server:mockserver-netty:5.11.2',
     'mockServerClient': 'org.mock-server:mockserver-client-java:5.11.2',
     'mysqlConnector': 'mysql:mysql-connector-java:8.0.20',
-    'neo4jHarness': 'org.neo4j.test:neo4j-harness:3.4.11',
-    'neo4jJavaDriver': 'org.neo4j.driver:neo4j-java-driver:4.0.1',
+    'neo4jHarness': 'org.neo4j.test:neo4j-harness:' + neo4jVersion,
+    'neo4jJavaDriver': 'org.neo4j.driver:neo4j-java-driver:' + neo4jVersion,
     'opentelemetryApi': 'io.opentelemetry:opentelemetry-api:1.0.0',
     'opentelemetryAnnotations': 'io.opentelemetry:opentelemetry-extension-annotations:1.0.0',
     'opentracingJdbc':'io.opentracing.contrib:opentracing-jdbc:0.2.15',
