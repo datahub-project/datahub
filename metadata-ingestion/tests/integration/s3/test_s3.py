@@ -119,11 +119,8 @@ def test_data_lake_local_ingest(pytestconfig, source_file, tmp_path, mock_time):
 
     source["config"]["profiling"]["enabled"] = True
     source["config"].pop("aws_config")
-    # Only pop the key/value for configs that contain the key
-    if "use_s3_bucket_tags" in source["config"]:
-        source["config"].pop("use_s3_bucket_tags")
-    if "use_s3_object_tags" in source["config"]:
-        source["config"].pop("use_s3_object_tags")
+    source["config"].pop("use_s3_bucket_tags", None)
+    source["config"].pop("use_s3_object_tags", None)
     config_dict["source"] = source
     config_dict["sink"] = {
         "type": "file",

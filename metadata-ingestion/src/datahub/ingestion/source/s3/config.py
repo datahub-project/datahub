@@ -9,6 +9,7 @@ from datahub.configuration.source_common import (
     EnvBasedSourceConfigBase,
     PlatformSourceConfigBase,
 )
+from datahub.configuration.validate_field_rename import pydantic_renamed_field
 from datahub.ingestion.source.aws.aws_common import AwsConnectionConfig
 from datahub.ingestion.source.aws.path_spec import PathSpec
 from datahub.ingestion.source.aws.s3_util import get_bucket_name
@@ -60,17 +61,9 @@ class DataLakeSourceConfig(PlatformSourceConfigBase, EnvBasedSourceConfigBase):
         description="Maximum number of rows to use when inferring schemas for TSV and CSV files.",
     )
 
-    @pydantic.root_validator(pre=True)
-    def rename_path_spec_to_path_specs(cls, values: Dict[str, Any]) -> Dict:
-        """Support the old path_spec field."""
-
-        if "path_spec" in values:
-            assert (
-                "path_specs" not in values
-            ), 'cannot have both "path_spec" and "path_specs"'
-            logger.warning("path_spec is deprecated. Please use path_specs instead.")
-            values["path_specs"] = [values.pop("path_spec")]
-        return values
+    _rename_path_spec_to_plural = pydantic_renamed_field(
+        "path_spec", "path_specs", lambda path_spec: [path_spec]
+    )
 
     @pydantic.validator("path_specs", always=True)
     def check_path_specs_and_infer_platform(
