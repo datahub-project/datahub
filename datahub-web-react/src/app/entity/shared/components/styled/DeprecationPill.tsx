@@ -145,7 +145,7 @@ export const DeprecationPill = ({ deprecation, preview, urn, refetch, showUndepr
                                 onClick={() =>
                                     Modal.confirm({
                                         title: `Confirm Mark as un-deprecated`,
-                                        content: `Are you sure you want to mark these assets as un-deprecated?`,
+                                        content: `Are you sure you want to mark this asset as un-deprecated?`,
                                         onOk() {
                                             batchUndeprecate();
                                         },
