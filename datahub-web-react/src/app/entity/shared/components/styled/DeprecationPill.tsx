@@ -59,7 +59,6 @@ const StyledInfoCircleOutlined = styled(InfoCircleOutlined)`
 
 const UndeprecatedIcon = styled(InfoCircleOutlined)`
     font-size: 14px;
-    vertical-align: middle;
     padding-right: 6px;
 `;
 
