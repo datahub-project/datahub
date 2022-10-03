@@ -109,13 +109,16 @@ export const DeprecationPill = ({ deprecation, preview, urn, refetch, showUndepr
         })
             .then(({ errors }) => {
                 if (!errors) {
-                    message.success({ content: 'Marked assets as undeprecated!', duration: 2 });
+                    message.success({ content: 'Marked assets as un-deprecated!', duration: 2 });
                     refetch?.();
                 }
             })
             .catch((e) => {
                 message.destroy();
-                message.error({ content: `Failed to mark assets as undeprecated: \n ${e.message || ''}`, duration: 3 });
+                message.error({
+                    content: `Failed to mark assets as un-deprecated: \n ${e.message || ''}`,
+                    duration: 3,
+                });
             });
     };
 
@@ -141,8 +144,8 @@ export const DeprecationPill = ({ deprecation, preview, urn, refetch, showUndepr
                             <IconGroup
                                 onClick={() =>
                                     Modal.confirm({
-                                        title: `Confirm Mark as undeprecated`,
-                                        content: `Are you sure you want to mark these assets as undeprecated?`,
+                                        title: `Confirm Mark as un-deprecated`,
+                                        content: `Are you sure you want to mark these assets as un-deprecated?`,
                                         onOk() {
                                             batchUndeprecate();
                                         },
