@@ -1,4 +1,4 @@
-from typing import Callable, List, Optional, Union, cast
+from typing import Callable, List, Optional, cast
 
 import datahub.emitter.mce_builder as builder
 from datahub.configuration.common import (
@@ -15,7 +15,6 @@ from datahub.ingestion.transformer.dataset_transformer import (
     DatasetOwnershipTransformer,
 )
 from datahub.metadata.schema_classes import (
-    AuditStampClass,
     OwnerClass,
     OwnershipClass,
     OwnershipTypeClass,
@@ -23,12 +22,7 @@ from datahub.metadata.schema_classes import (
 
 
 class AddDatasetOwnershipConfig(TransformerSemanticsConfigModel):
-    # Workaround for https://github.com/python/mypy/issues/708.
-    # Suggested by https://stackoverflow.com/a/64528725/5004662.
-    get_owners_to_add: Union[
-        Callable[[str], List[OwnerClass]],
-        Callable[[str], List[OwnerClass]],
-    ]
+    get_owners_to_add: Callable[[str], List[OwnerClass]]
     default_actor: str = builder.make_user_urn("etl")
 
     _resolve_owner_fn = pydantic_resolve_key("get_owners_to_add")
@@ -103,7 +97,7 @@ class AddDatasetOwnership(DatasetOwnershipTransformer):
             owners=[],
             lastModified=in_ownership_aspect.lastModified
             if in_ownership_aspect is not None
-            else AuditStampClass.construct_with_defaults(),
+            else None,
         )
 
         # Check if user want to keep existing ownerships

@@ -1,6 +1,7 @@
 import logging
-from typing import Callable, List, Optional, Union, cast
+from typing import Callable, List, Optional, cast
 
+import datahub.emitter.mce_builder as builder
 from datahub.configuration.common import (
     KeyValuePattern,
     TransformerSemantics,
@@ -19,12 +20,7 @@ from datahub.metadata.schema_classes import (
 
 
 class AddDatasetTermsConfig(TransformerSemanticsConfigModel):
-    # Workaround for https://github.com/python/mypy/issues/708.
-    # Suggested by https://stackoverflow.com/a/64528725/5004662.
-    get_terms_to_add: Union[
-        Callable[[str], List[GlossaryTermAssociationClass]],
-        Callable[[str], List[GlossaryTermAssociationClass]],
-    ]
+    get_terms_to_add: Callable[[str], List[GlossaryTermAssociationClass]]
 
     _resolve_term_fn = pydantic_resolve_key("get_terms_to_add")
 
@@ -91,7 +87,9 @@ class AddDatasetTerms(DatasetTermsTransformer):
             terms=[],
             auditStamp=in_glossary_terms.auditStamp
             if in_glossary_terms is not None
-            else AuditStampClass.construct_with_defaults(),
+            else AuditStampClass(
+                time=builder.get_sys_time(), actor="urn:li:corpUser:restEmitter"
+            ),
         )
         # Check if user want to keep existing terms
         if in_glossary_terms is not None and self.config.replace_existing is False:

@@ -22,6 +22,7 @@ import { getDataForEntityType } from '../shared/containers/profile/utils';
 import { SidebarDomainSection } from '../shared/containers/profile/sidebar/Domain/SidebarDomainSection';
 import { EntityMenuItems } from '../shared/EntityDropdown/EntityDropdown';
 import { LineageTab } from '../shared/tabs/Lineage/LineageTab';
+import { capitalizeFirstLetterOnly } from '../../shared/textUtil';
 import { DashboardStatsSummarySubHeader } from './profile/DashboardStatsSummarySubHeader';
 import { ChartSnippet } from '../chart/ChartSnippet';
 
@@ -153,9 +154,11 @@ export class DashboardEntity implements Entity<Dashboard> {
         // TODO: Get rid of this once we have correctly formed platform coming back.
         const name = dashboard?.properties?.name;
         const externalUrl = dashboard?.properties?.externalUrl;
+        const subTypes = dashboard?.subTypes;
         return {
             name,
             externalUrl,
+            entityTypeOverride: subTypes ? capitalizeFirstLetterOnly(subTypes.typeNames?.[0]) : '',
         };
     };
 
@@ -179,6 +182,7 @@ export class DashboardEntity implements Entity<Dashboard> {
                 statsSummary={data.statsSummary}
                 lastUpdatedMs={data.properties?.lastModified?.time}
                 createdMs={data.properties?.created?.time}
+                subtype={data.subTypes?.typeNames?.[0]}
             />
         );
     };
@@ -214,6 +218,7 @@ export class DashboardEntity implements Entity<Dashboard> {
                         inputFields={data.inputFields}
                     />
                 }
+                subtype={data.subTypes?.typeNames?.[0]}
             />
         );
     };
@@ -223,6 +228,7 @@ export class DashboardEntity implements Entity<Dashboard> {
             urn: entity.urn,
             name: entity.properties?.name || '',
             type: EntityType.Dashboard,
+            subtype: entity?.subTypes?.typeNames?.[0] || undefined,
             icon: entity?.platform?.properties?.logoUrl || '',
             platform: entity?.platform,
         };

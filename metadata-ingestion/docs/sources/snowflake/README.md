@@ -1,8 +1,6 @@
-Ingesting metadata from Snowflake requires either using the **snowflake-beta** module with just one recipe (recommended) or the two separate modules **snowflake** and **snowflake-usage** (soon to be deprecated) with two separate recipes. 
+Ingesting metadata from Snowflake requires either using the **snowflake** module with just one recipe (recommended) or the two separate modules **snowflake-legacy** and **snowflake-usage-legacy** (soon to be deprecated) with two separate recipes. 
 
 All three modules are described on this page. 
-
-We encourage you to try out the new **snowflake-beta** plugin as alternative to running both **snowflake** and **snowflake-usage** plugins and share feedback. `snowflake-beta` is much faster than `snowflake` for extracting metadata.
 
 ## Snowflake Ingestion through the UI
 

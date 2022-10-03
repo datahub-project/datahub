@@ -6,6 +6,7 @@ import com.linkedin.common.GlobalTags;
 import com.linkedin.common.GlossaryTerms;
 import com.linkedin.common.InstitutionalMemory;
 import com.linkedin.common.Ownership;
+import com.linkedin.common.Status;
 import com.linkedin.common.SubTypes;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.container.ContainerProperties;
@@ -19,6 +20,7 @@ import com.linkedin.datahub.graphql.types.common.mappers.DeprecationMapper;
 import com.linkedin.datahub.graphql.types.common.mappers.InstitutionalMemoryMapper;
 import com.linkedin.datahub.graphql.types.common.mappers.OwnershipMapper;
 import com.linkedin.datahub.graphql.types.common.mappers.CustomPropertiesMapper;
+import com.linkedin.datahub.graphql.types.common.mappers.StatusMapper;
 import com.linkedin.datahub.graphql.types.common.mappers.util.SystemMetadataUtils;
 import com.linkedin.datahub.graphql.types.domain.DomainAssociationMapper;
 import com.linkedin.datahub.graphql.types.glossary.mappers.GlossaryTermsMapper;
@@ -88,6 +90,11 @@ public class ContainerMapper {
       result.setInstitutionalMemory(InstitutionalMemoryMapper.map(new InstitutionalMemory(envelopedInstitutionalMemory.getValue().data())));
     }
 
+    final EnvelopedAspect statusAspect = aspects.get(Constants.STATUS_ASPECT_NAME);
+    if (statusAspect != null) {
+      result.setStatus(StatusMapper.map(new Status(statusAspect.getValue().data())));
+    }
+
     final EnvelopedAspect envelopedSubTypes = aspects.get(Constants.SUB_TYPES_ASPECT_NAME);
     if (envelopedSubTypes != null) {
       result.setSubTypes(mapSubTypes(new SubTypes(envelopedSubTypes.getValue().data())));
@@ -128,6 +135,10 @@ public class ContainerMapper {
     if (gmsProperties.hasCustomProperties()) {
       propertiesResult.setCustomProperties(CustomPropertiesMapper.map(gmsProperties.getCustomProperties(), entityUrn));
     }
+    if (gmsProperties.hasQualifiedName()) {
+      propertiesResult.setQualifiedName(gmsProperties.getQualifiedName().toString());
+    }
+
     return propertiesResult;
   }
 

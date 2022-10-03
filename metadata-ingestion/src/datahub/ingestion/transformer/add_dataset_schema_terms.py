@@ -1,4 +1,4 @@
-from typing import Callable, Dict, List, Optional, Union, cast
+from typing import Callable, Dict, List, Optional, cast
 
 import datahub.emitter.mce_builder as builder
 from datahub.configuration.common import (
@@ -21,12 +21,7 @@ from datahub.metadata.schema_classes import (
 
 
 class AddDatasetSchemaTermsConfig(TransformerSemanticsConfigModel):
-    # Workaround for https://github.com/python/mypy/issues/708.
-    # Suggested by https://stackoverflow.com/a/64528725/5004662.
-    get_terms_to_add: Union[
-        Callable[[str], List[GlossaryTermAssociationClass]],
-        Callable[[str], List[GlossaryTermAssociationClass]],
-    ]
+    get_terms_to_add: Callable[[str], List[GlossaryTermAssociationClass]]
 
     _resolve_term_fn = pydantic_resolve_key("get_terms_to_add")
 
@@ -80,7 +75,9 @@ class AddDatasetSchemaTerms(DatasetSchemaMetadataTransformer):
             terms=[],
             auditStamp=schema_field.glossaryTerms.auditStamp
             if schema_field.glossaryTerms is not None
-            else AuditStampClass.construct_with_defaults(),
+            else AuditStampClass(
+                time=builder.get_sys_time(), actor="urn:li:corpUser:restEmitter"
+            ),
         )
         new_glossary_term.terms.extend(terms_to_add)
         new_glossary_term.terms.extend(server_terms)

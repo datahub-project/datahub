@@ -97,7 +97,9 @@ class LDAPSourceConfig(ConfigModel):
     # Extraction configuration.
     base_dn: str = Field(description="LDAP DN.")
     filter: str = Field(default="(objectClass=*)", description="LDAP extractor filter.")
-    attrs_list: List[str] = Field(default=None, description="Retrieved attributes list")
+    attrs_list: Optional[List[str]] = Field(
+        default=None, description="Retrieved attributes list"
+    )
 
     # If set to true, any users without first and last names will be dropped.
     drop_missing_first_last_name: bool = Field(
