@@ -1,4 +1,4 @@
-FROM acryldata/acryl-datahub-actions:head
+FROM acryldata/acryl-datahub-actions:b2c28a1
 USER root
 RUN chown -R datahub:datahub /usr/local/bin/
 
@@ -15,6 +15,7 @@ RUN mv /usr/local/bin/run_ingest.sh /usr/local/bin/run_ingest.sh.bak
 COPY ./docker/datahub-actions/files/run_ingest.sh /usr/local/bin/run_ingest.sh
 COPY ./docker/datahub-actions/files/requirement.txt $VENV_DIR/requirement.txt
 COPY ./docker/datahub-actions/files/start_datahub_actions.sh /start_datahub_actions.sh
+COPY ./docker/datahub-actions/files/executor-with-default-consumer-timeout.yaml /etc/datahub/actions/executor-with-default-consumer-timeout.yaml
 
 RUN mkdir -p $VENV_DIR/datahub
 RUN python3 -m venv $VENV_NAME

@@ -1,0 +1,57 @@
+# Copyright 2022 HM Revenue & Customs
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+#
+source:
+  type: datahub-stream
+  # acryl_action_fwk.datahub_streaming.DataHubStreamSource
+  config:
+    auto_offset_reset: ${KAFKA_AUTO_OFFSET_POLICY:-latest} # earliest / latest are supported values
+    connection:
+      bootstrap: ${KAFKA_BOOTSTRAP_SERVER:-localhost:9092}
+      schema_registry_url: ${SCHEMA_REGISTRY_URL:-http://localhost:8081}
+      consumer_config:
+        security.protocol: ${KAFKA_PROPERTIES_SECURITY_PROTOCOL:-PLAINTEXT}
+        #session.timeout.ms => 45 seconds https://docs.confluent.io/platform/current/installation/configuration/consumer-configs.html#consumerconfigs_session.timeout.ms
+        session.timeout.ms: ${KAFKA_PROPERTIES_SESSION_TIMEOUT_MS:-45000}
+        #max.poll.interval.ms => 5 mins default value in confluence docs https://docs.confluent.io/platform/current/installation/configuration/consumer-configs.html#consumerconfigs_max.poll.interval.ms
+        max.poll.interval.ms: ${KAFKA_PROPERTIES_MAX_POLL_INTERVAL_MS:-300000}
+        #ssl.keystore.location: ${KAFKA_PROPERTIES_SSL_KEYSTORE_LOCATION:-/mnt/certs/keystore}
+        #ssl.truststore.location: ${KAFKA_PROPERTIES_SSL_TRUSTSTORE_LOCATION:-/mnt/certs/truststore}
+        #ssl.keystore.password: ${KAFKA_PROPERTIES_SSL_KEYSTORE_PASSWORD:-keystore_password}
+        #ssl.key.password: ${KAFKA_PROPERTIES_SSL_KEY_PASSWORD:-keystore_password}
+        #ssl.truststore.password: ${KAFKA_PROPERTIES_SSL_TRUSTSTORE_PASSWORD:-truststore_password}
+    actions:
+      - type: "executor"
+        config:
+          local_executor_enabled: True
+          remote_executor_enabled: ${REMOTE_EXECUTOR_ENABLED:-False}
+          remote_executor_type: ${REMOTE_EXECUTOR_TYPE:-acryl.executor.sqs.producer.sqs_producer.SqsRemoteExecutor}
+          remote_executor_config:
+            id: ${REMOTE_EXECUTOR_ID:-remote}
+            aws_access_key_id: ${AWS_ACCESS_KEY_ID:-""}
+            aws_secret_access_key: ${AWS_SECRET_ACCESS_KEY:-""}
+            aws_session_token: ${AWS_SESSION_TOKEN:-""}
+            aws_command_queue_url: ${AWS_COMMAND_QUEUE_URL:-""}
+            aws_region: ${AWS_REGION:-""}
+
+    topic_routes:
+      mae: ${METADATA_AUDIT_EVENT_NAME:-MetadataAuditEvent_v4}
+      mcl: ${METADATA_CHANGE_LOG_VERSIONED_TOPIC_NAME:-MetadataChangeLog_Versioned_v1}
+
+sink:
+  type: console
+
+datahub_api:
+  server: "http://${DATAHUB_GMS_HOST:-localhost}:${DATAHUB_GMS_PORT:-8080}"
+  extra_headers:
