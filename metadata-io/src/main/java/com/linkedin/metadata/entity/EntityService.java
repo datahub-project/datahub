@@ -828,36 +828,38 @@ private Map<Urn, List<EnvelopedAspect>> getCorrespondingAspects(Set<EntityAspect
      *
      * @param mcp the proposal to ingest
      * @param auditStamp an audit stamp representing the time and actor proposing the change
+     * @param async a flag to control whether we commit to primary store or just write to proposal log before returning
      * @return an {@link IngestProposalResult} containing the results
      */
   public IngestProposalResult ingestProposal(@Nonnull MetadataChangeProposal mcp,
       AuditStamp auditStamp, final boolean async) {
 
-    if (!async) {
-      log.debug("entity type = {}", mcp.getEntityType());
-      EntitySpec entitySpec = getEntityRegistry().getEntitySpec(mcp.getEntityType());
-      log.debug("entity spec = {}", entitySpec);
+    log.debug("entity type = {}", mcp.getEntityType());
+    EntitySpec entitySpec = getEntityRegistry().getEntitySpec(mcp.getEntityType());
+    log.debug("entity spec = {}", entitySpec);
 
-      Urn entityUrn = EntityKeyUtils.getUrnFromProposal(mcp, entitySpec.getKeyAspectSpec());
+    Urn entityUrn = EntityKeyUtils.getUrnFromProposal(mcp, entitySpec.getKeyAspectSpec());
 
-      AspectSpec aspectSpec = validateAspect(mcp, entitySpec);
+    AspectSpec aspectSpec = validateAspect(mcp, entitySpec);
 
-      log.debug("aspect spec = {}", aspectSpec);
+    log.debug("aspect spec = {}", aspectSpec);
 
-      if (!isValidChangeType(mcp.getChangeType(), aspectSpec)) {
-        throw new UnsupportedOperationException("ChangeType not supported: " + mcp.getChangeType() + " for aspect " + mcp.getAspectName());
-      }
+    if (!isValidChangeType(mcp.getChangeType(), aspectSpec)) {
+      throw new UnsupportedOperationException("ChangeType not supported: " + mcp.getChangeType() + " for aspect " + mcp.getAspectName());
+    }
 
-      SystemMetadata systemMetadata = generateSystemMetadataIfEmpty(mcp.getSystemMetadata());
-      systemMetadata.setRegistryName(aspectSpec.getRegistryName());
-      systemMetadata.setRegistryVersion(aspectSpec.getRegistryVersion().toString());
+    SystemMetadata systemMetadata = generateSystemMetadataIfEmpty(mcp.getSystemMetadata());
+    systemMetadata.setRegistryName(aspectSpec.getRegistryName());
+    systemMetadata.setRegistryVersion(aspectSpec.getRegistryVersion().toString());
 
-      RecordTemplate oldAspect = null;
-      SystemMetadata oldSystemMetadata = null;
-      RecordTemplate newAspect = null;
-      SystemMetadata newSystemMetadata = null;
+    RecordTemplate oldAspect = null;
+    SystemMetadata oldSystemMetadata = null;
+    RecordTemplate newAspect = null;
+    SystemMetadata newSystemMetadata = null;
 
-      if (!aspectSpec.isTimeseries()) {
+    if (!aspectSpec.isTimeseries()) {
+      if (!async) {
+        // When async mode is turned off, we write to primary store for non timeseries aspects
         UpdateAspectResult result = null;
         switch (mcp.getChangeType()) {
           case UPSERT:
@@ -875,20 +877,21 @@ private Map<Urn, List<EnvelopedAspect>> getCorrespondingAspects(Set<EntityAspect
         newAspect = result != null ? result.getNewValue() : null;
         newSystemMetadata = result != null ? result.getNewSystemMetadata() : null;
       } else {
-        // For timeseries aspects
-        newAspect = convertToRecordTemplate(mcp, aspectSpec);
-        newSystemMetadata = mcp.getSystemMetadata();
+        // When async is turned on, we write to proposal log and return without waiting
+        _producer.produceMetadataChangeProposal(mcp);
+        return new IngestProposalResult(mcp.getEntityUrn(), false);
       }
-
-      boolean didUpdate =
-          emitChangeLog(oldAspect, oldSystemMetadata, newAspect, newSystemMetadata, mcp, entityUrn, auditStamp,
-              aspectSpec);
-
-      return new IngestProposalResult(entityUrn, didUpdate);
-    } else {
-      _producer.produceMetadataChangeProposal(mcp);
-      return new IngestProposalResult(mcp.getEntityUrn(), false);
+  } else {
+      // For timeseries aspects
+      newAspect = convertToRecordTemplate(mcp, aspectSpec);
+      newSystemMetadata = mcp.getSystemMetadata();
     }
+
+    boolean didUpdate =
+        emitChangeLog(oldAspect, oldSystemMetadata, newAspect, newSystemMetadata, mcp, entityUrn, auditStamp,
+            aspectSpec);
+
+    return new IngestProposalResult(entityUrn, didUpdate);
   }
 
   private AspectSpec validateAspect(MetadataChangeProposal mcp, EntitySpec entitySpec) {
