@@ -597,7 +597,7 @@ class LookerView:
             if type_cls == ViewFieldType.DIMENSION and extract_column_level_lineage:
                 if field_dict.get("sql") is not None:
                     upstream_field_match = re.match(
-                        r"^.*\${TABLE}\.(.*)$", field_dict["sql"]
+                        r"^.*\${TABLE}\.(\w+)", field_dict["sql"]
                     )
                     if upstream_field_match:
                         matched_field = upstream_field_match.group(1)
