@@ -126,8 +126,9 @@ export const EntityHeader = ({
                         <EntityName isNameEditable={canEditName} />
                         {entityData?.deprecation?.deprecated && (
                             <DeprecationPill
-                                urns={[urn]}
+                                urn={urn}
                                 deprecation={entityData?.deprecation}
+                                showUndeprecate
                                 preview={isCompact}
                                 refetch={refetch}
                             />

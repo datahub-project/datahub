@@ -288,7 +288,9 @@ export default function DefaultPreviewCard({
                                 </EntityTitle>
                             )}
                         </Link>
-                        {deprecation?.deprecated && <DeprecationPill deprecation={deprecation} urns={[]} preview />}
+                        {deprecation?.deprecated && (
+                            <DeprecationPill deprecation={deprecation} urn="" showUndeprecate={false} preview />
+                        )}
                         {externalUrl && (
                             <ExternalUrlContainer>
                                 <ExternalUrlButton type="link" href={externalUrl} target="_blank">

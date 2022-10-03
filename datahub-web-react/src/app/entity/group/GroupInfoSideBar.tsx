@@ -172,7 +172,7 @@ export default function GroupInfoSidebar({ sideBarData, refetch }: Props) {
                             />
                         </Col>
                         <Col>
-                            <GroupTitle level={3} editable={{ onChange: handleTitleUpdate }}>
+                            <GroupTitle level={3} editable={canEditGroup ? { onChange: handleTitleUpdate } : false}>
                                 {groupTitle}
                             </GroupTitle>
                         </Col>
