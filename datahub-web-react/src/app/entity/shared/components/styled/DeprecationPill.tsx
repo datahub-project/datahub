@@ -1,11 +1,12 @@
-import { InfoCircleOutlined } from '@ant-design/icons';
-import { Divider, Popover, Tooltip, Typography } from 'antd';
 import React from 'react';
+import { InfoCircleOutlined } from '@ant-design/icons';
+import { Button, Divider, message, Modal, Popover, Tooltip, Typography } from 'antd';
 import styled from 'styled-components';
 import moment from 'moment';
 import { Deprecation } from '../../../../../types.generated';
 import { getLocaleTimezone } from '../../../../shared/time/timeUtils';
 import { ANTD_GRAY } from '../../constants';
+import { useBatchUpdateDeprecationMutation } from '../../../../../graphql/mutations.generated';
 
 const DeprecatedContainer = styled.div`
     width: 104px;
@@ -56,11 +57,14 @@ const StyledInfoCircleOutlined = styled(InfoCircleOutlined)`
 `;
 
 type Props = {
+    urns: Array<string>;
     deprecation: Deprecation;
     preview?: boolean | null;
+    refetch?: () => void;
 };
 
-export const DeprecationPill = ({ deprecation, preview }: Props) => {
+export const DeprecationPill = ({ deprecation, preview, urns, refetch }: Props) => {
+    const [batchUpdateDeprecationMutation] = useBatchUpdateDeprecationMutation();
     /**
      * Deprecation Decommission Timestamp
      */
@@ -78,6 +82,27 @@ export const DeprecationPill = ({ deprecation, preview }: Props) => {
     const hasDetails = deprecation.note !== '' || deprecation.decommissionTime !== null;
     const isDividerNeeded = deprecation.note !== '' && deprecation.decommissionTime !== null;
 
+    const batchUndeprecate = () => {
+        batchUpdateDeprecationMutation({
+            variables: {
+                input: {
+                    resources: [...urns.map((urn) => ({ resourceUrn: urn }))],
+                    deprecated: false,
+                },
+            },
+        })
+            .then(({ errors }) => {
+                if (!errors) {
+                    message.success({ content: 'Marked assets as undeprecated!', duration: 2 });
+                    refetch?.();
+                }
+            })
+            .catch((e) => {
+                message.destroy();
+                message.error({ content: `Failed to mark assets as undeprecated: \n ${e.message || ''}`, duration: 3 });
+            });
+    };
+
     return (
         <Popover
             overlayStyle={{ maxWidth: 240 }}
@@ -89,12 +114,33 @@ export const DeprecationPill = ({ deprecation, preview }: Props) => {
                         {isDividerNeeded && <ThinDivider />}
                         {deprecation?.note !== '' && <DeprecatedSubTitle>{deprecation.note}</DeprecatedSubTitle>}
                         {deprecation?.decommissionTime !== null && (
-                            <Typography.Text type="secondary">
-                                <Tooltip placement="right" title={decommissionTimeGMT}>
-                                    <LastEvaluatedAtLabel>{decommissionTimeLocal}</LastEvaluatedAtLabel>
-                                </Tooltip>
-                            </Typography.Text>
+                            <>
+                                <Typography.Text type="secondary">
+                                    <Tooltip placement="right" title={decommissionTimeGMT}>
+                                        <LastEvaluatedAtLabel>{decommissionTimeLocal}</LastEvaluatedAtLabel>
+                                    </Tooltip>
+                                </Typography.Text>
+                            </>
                         )}
+                        {isDividerNeeded && <ThinDivider />}
+                        <Button
+                            type="default"
+                            onClick={() =>
+                                Modal.confirm({
+                                    title: `Confirm Mark as undeprecated`,
+                                    content: `Are you sure you want to mark these assets as undeprecated?`,
+                                    onOk() {
+                                        batchUndeprecate();
+                                    },
+                                    onCancel() {},
+                                    okText: 'Yes',
+                                    maskClosable: true,
+                                    closable: true,
+                                })
+                            }
+                        >
+                            Mark as un-deprecated
+                        </Button>
                     </>
                 ) : (
                     'No additional details'
