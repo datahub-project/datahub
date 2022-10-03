@@ -44,7 +44,7 @@ authorization:
 
 ingestion:
   enabled: ${UI_INGESTION_ENABLED:true}
-  defaultCliVersion: '${UI_INGESTION_DEFAULT_CLI_VERSION:0.8.42}'
+  defaultCliVersion: '${UI_INGESTION_DEFAULT_CLI_VERSION:@cliMajorVersion@}'
 
 telemetry:
   enabledCli: ${CLI_TELEMETRY_ENABLED:true}
@@ -74,6 +74,7 @@ entityService:
   impl: ${ENTITY_SERVICE_IMPL:ebean}
   retention:
     enabled: ${ENTITY_SERVICE_ENABLE_RETENTION:true}
+    applyOnBootstrap: ${ENTITY_SERVICE_APPLY_RETENTION_BOOTSTRAP:false}
 
 graphService:
   type: ${GRAPH_SERVICE_IMPL:elasticsearch}

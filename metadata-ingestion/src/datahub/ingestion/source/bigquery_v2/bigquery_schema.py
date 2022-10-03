@@ -12,10 +12,11 @@ from datahub.ingestion.source.bigquery_v2.bigquery_audit import BigqueryTableIde
 logger: logging.Logger = logging.getLogger(__name__)
 
 
-@dataclass
+@dataclass(frozen=True, eq=True)
 class BigqueryColumn:
     name: str
     ordinal_position: int
+    field_path: str
     is_nullable: bool
     is_partition_column: bool
     data_type: str
@@ -175,6 +176,7 @@ select
   c.table_name as table_name,
   c.column_name as column_name,
   c.ordinal_position as ordinal_position,
+  cfp.field_path as field_path,
   c.is_nullable as is_nullable,
   c.data_type as data_type,
   description as comment,
@@ -194,6 +196,7 @@ select
   c.table_name as table_name,
   c.column_name as column_name,
   c.ordinal_position as ordinal_position,
+  cfp.field_path as field_path,
   c.is_nullable as is_nullable,
   c.data_type as data_type,
   c.is_hidden as is_hidden,
@@ -355,6 +358,7 @@ class BigQueryDataDictionary:
                 BigqueryColumn(
                     name=column.column_name,
                     ordinal_position=column.ordinal_position,
+                    field_path=column.field_path,
                     is_nullable=column.is_nullable == "YES",
                     data_type=column.data_type,
                     comment=column.comment,
@@ -379,6 +383,7 @@ class BigQueryDataDictionary:
                 name=column.column_name,
                 ordinal_position=column.ordinal_position,
                 is_nullable=column.is_nullable == "YES",
+                field_path=column.field_path,
                 data_type=column.data_type,
                 comment=column.comment,
                 is_partition_column=column.is_partitioning_column == "YES",
