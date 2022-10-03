@@ -43,6 +43,7 @@ export const AdvancedSearchAddFilterSelect = ({ selectedFilters, onFilterFieldSe
                         // disable the `entity` option if they already have an entity filter selected
                         disabled={key === 'entity' && !!selectedFilters.find((filter) => filter.field === 'entity')}
                         value={key}
+                        data-testid={`adv-search-add-filter-${key}`}
                     >
                         {FIELD_TO_LABEL[key]}
                     </Option>
