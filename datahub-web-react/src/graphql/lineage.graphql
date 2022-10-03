@@ -255,7 +255,7 @@ fragment fullLineageResults on EntityLineageResult {
         entity {
             ...lineageFields
             ... on Dataset {
-                schemaMetadata(version: 0) {
+                schemaMetadata(version: 0)@include(if: $showColumns) {
                     ...schemaMetadataFields
                 }
             }
