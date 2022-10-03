@@ -78,7 +78,8 @@ export const SearchPage = () => {
                 query,
                 start: (page - 1) * SearchCfg.RESULTS_PER_PAGE,
                 count: SearchCfg.RESULTS_PER_PAGE,
-                filters: filtersWithoutEntities,
+                filters: unionType === UnionType.AND ? filtersWithoutEntities : [],
+                orFilters: unionType === UnionType.OR ? filtersWithoutEntities : [],
             },
         },
     });
