@@ -179,7 +179,7 @@ def test_bigquery_ref_extra_removal():
 
     table_ref = BigQueryTableRef("project-1234", "dataset-4567", "foo_2022")
     new_table_ref = table_ref.remove_extras(_BIGQUERY_DEFAULT_SHARDED_TABLE_REGEX)
-    assert new_table_ref.table == "foo"
+    assert new_table_ref.table == "foo_2022"
     assert new_table_ref.project == table_ref.project
     assert new_table_ref.dataset == table_ref.dataset
 

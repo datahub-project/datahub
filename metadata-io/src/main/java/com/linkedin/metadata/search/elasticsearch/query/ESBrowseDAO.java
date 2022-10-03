@@ -59,7 +59,6 @@ public class ESBrowseDAO {
   private static final String REMOVED = "removed";
 
   private static final String GROUP_AGG = "groups";
-  private static final String ALL_PATHS = "allPaths";
 
   // Set explicit max size for grouping
   private static final int AGGREGATION_MAX_SIZE = 2000;
@@ -137,16 +136,11 @@ public class ESBrowseDAO {
   private AggregationBuilder buildAggregations(@Nonnull String path) {
     final String currentLevel = ESUtils.escapeReservedCharacters(path) + "/.*";
     final String nextLevel = ESUtils.escapeReservedCharacters(path) + "/.*/.*";
-    final String nextNextLevel = ESUtils.escapeReservedCharacters(path) + "/.*/.*/.*";
 
     return AggregationBuilders.terms(GROUP_AGG)
         .field(BROWSE_PATH)
         .size(AGGREGATION_MAX_SIZE)
-        .includeExclude(new IncludeExclude(currentLevel, nextLevel))
-        .subAggregation(AggregationBuilders.terms(ALL_PATHS)
-            .field(BROWSE_PATH)
-            .size(AGGREGATION_MAX_SIZE)
-            .includeExclude(new IncludeExclude(nextLevel, nextNextLevel)));
+        .includeExclude(new IncludeExclude(currentLevel, nextLevel));
   }
 
   /**
