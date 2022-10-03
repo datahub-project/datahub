@@ -22,6 +22,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.StringJoiner;
+import java.util.function.Function;
 import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -33,6 +34,7 @@ import org.apache.commons.lang3.ClassUtils;
 import org.apache.commons.lang3.StringUtils;
 import org.neo4j.driver.*;
 import org.neo4j.driver.exceptions.Neo4jException;
+import org.neo4j.driver.internal.InternalRelationship;
 
 @Slf4j
 public class Neo4jGraphService implements GraphService {
@@ -95,22 +97,37 @@ public class Neo4jGraphService implements GraphService {
                                         GraphFilters graphFilters, int offset, int count, int maxHops) {
     log.debug(String.format("Neo4j getLineage maxHops = %d", maxHops));
 
-    String multiHopTemplate = "MATCH (a {urn: '%s'})-[r:DownstreamOf*1..%d]-(b) RETURN a,r,b";
-    switch (direction) {
-      case UPSTREAM:
-        multiHopTemplate = "MATCH (a {urn: '%s'})-[r:DownstreamOf*1..%d]->(b) RETURN a,r,b";
-        break;
-      case DOWNSTREAM:
-        multiHopTemplate = "MATCH (a {urn: '%s'})<-[r:DownstreamOf*1..%d]-(b) RETURN a,r,b";
-        break;
+    final String multiHopTemplate = "MATCH (a {urn: '%s'})-[r:%s*1..%d]->(b) WHERE b:%s RETURN a,r,b" +
+                                    " UNION " +
+                                    "MATCH (a {urn: '%s'})<-[r:%s*1..%d]-(b) WHERE b:%s RETURN a,r,b";
+
+    final String directRelationTypes = "DownstreamOf|HasOwner|KnowsUser|Consumes";
+    final String invertedRelationTypes = "Produces";
+    String upstreamRel = direction == LineageDirection.UPSTREAM ? directRelationTypes : invertedRelationTypes;
+    String dowStreamRel = direction == LineageDirection.UPSTREAM ? invertedRelationTypes : directRelationTypes;
+    if (direction == LineageDirection.$UNKNOWN) {
+      upstreamRel = directRelationTypes + "|" + invertedRelationTypes;
+      dowStreamRel = invertedRelationTypes + "|" + directRelationTypes;
     }
-    final String statement = String.format(multiHopTemplate, entityUrn, maxHops);
+    final String allowedEntityTypes = String.join(" OR b:", graphFilters.getAllowedEntityTypes());
+    final String statement = String.format(multiHopTemplate,
+            entityUrn, upstreamRel, maxHops, allowedEntityTypes,
+            entityUrn, dowStreamRel, maxHops, allowedEntityTypes);
 
     List<Record> neo4jResult = runQuery(buildStatement(statement, new HashMap<>())).list();
     LineageRelationshipArray relations = new LineageRelationshipArray();
-    neo4jResult.stream().skip(offset).limit(offset + count).forEach(item -> {
+    neo4jResult = neo4jResult.stream()
+            .collect(Collectors.toMap(item -> item.values().get(2).asNode().get("urn").asString(),
+                    Function.identity(),
+                    (item1, item2) -> item1.get(1).size() < item2.get(1).size() ? item1 : item2))
+            .values()
+            .stream()
+            .collect(Collectors.toList());
+      neo4jResult.stream()
+              .skip(offset).limit(offset + count)
+              .forEach(item -> {
       String urn = item.values().get(2).asNode().get("urn").asString();
-      String relationType = "DownstreamOf";
+      String relationType = ((InternalRelationship) item.get(1).asList().get(0)).type();
       int numHops = item.get(1).size();
       try {
         relations.add(new LineageRelationship()
