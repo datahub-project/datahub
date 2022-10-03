@@ -170,7 +170,7 @@ services:
     - NEO4J_dbms_default__database=graph.db
     - NEO4J_dbms_allow__upgrade=true
     hostname: neo4j
-    image: neo4j:4.0.6
+    image: neo4j:4.4.9-community
     ports:
     - ${DATAHUB_MAPPED_NEO4J_HTTP_PORT:-7474}:7474
     - ${DATAHUB_MAPPED_NEO4J_BOLT_PORT:-7687}:7687
