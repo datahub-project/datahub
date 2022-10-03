@@ -29,6 +29,8 @@ else
   debug_option=""
 fi;
 
+echo "Running ingestion with arguments $@"
+
 # Execute DataHub recipe, based on the recipe id.
 echo "datahub ${debug_option} ingest run -c ${recipe_file} ${report_option}"
 if (datahub ${debug_option} ingest run -c "${recipe_file}" ${report_option}); then
