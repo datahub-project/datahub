@@ -12,10 +12,11 @@ from datahub.ingestion.source.bigquery_v2.bigquery_audit import BigqueryTableIde
 logger: logging.Logger = logging.getLogger(__name__)
 
 
-@dataclass
+@dataclass(frozen=True, eq=True)
 class BigqueryColumn:
     name: str
     ordinal_position: int
+    field_path: str
     is_nullable: bool
     is_partition_column: bool
     data_type: str
@@ -56,10 +57,10 @@ class BigqueryView:
 @dataclass
 class BigqueryDataset:
     name: str
-    created: datetime
-    last_altered: Optional[datetime]
-    location: str
-    comment: str
+    created: Optional[datetime] = None
+    last_altered: Optional[datetime] = None
+    location: Optional[str] = None
+    comment: Optional[str] = None
     tables: List[BigqueryTable] = field(default_factory=list)
     views: List[BigqueryView] = field(default_factory=list)
 
@@ -175,6 +176,7 @@ select
   c.table_name as table_name,
   c.column_name as column_name,
   c.ordinal_position as ordinal_position,
+  cfp.field_path as field_path,
   c.is_nullable as is_nullable,
   c.data_type as data_type,
   description as comment,
@@ -194,6 +196,7 @@ select
   c.table_name as table_name,
   c.column_name as column_name,
   c.ordinal_position as ordinal_position,
+  cfp.field_path as field_path,
   c.is_nullable as is_nullable,
   c.data_type as data_type,
   c.is_hidden as is_hidden,
@@ -226,6 +229,14 @@ class BigQueryDataDictionary:
 
     @staticmethod
     def get_datasets_for_project_id(
+        conn: bigquery.Client, project_id: str
+    ) -> List[BigqueryDataset]:
+        datasets = conn.list_datasets(project_id)
+
+        return [BigqueryDataset(name=d.dataset_id) for d in datasets]
+
+    @staticmethod
+    def get_datasets_for_project_id_with_information_schema(
         conn: bigquery.Client, project_id: str
     ) -> List[BigqueryDataset]:
 
@@ -347,6 +358,7 @@ class BigQueryDataDictionary:
                 BigqueryColumn(
                     name=column.column_name,
                     ordinal_position=column.ordinal_position,
+                    field_path=column.field_path,
                     is_nullable=column.is_nullable == "YES",
                     data_type=column.data_type,
                     comment=column.comment,
@@ -371,6 +383,7 @@ class BigQueryDataDictionary:
                 name=column.column_name,
                 ordinal_position=column.ordinal_position,
                 is_nullable=column.is_nullable == "YES",
+                field_path=column.field_path,
                 data_type=column.data_type,
                 comment=column.comment,
                 is_partition_column=column.is_partitioning_column == "YES",

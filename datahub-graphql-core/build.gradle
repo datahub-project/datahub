@@ -9,7 +9,8 @@ dependencies {
     compile project(':metadata-io')
     compile project(':metadata-utils')
 
-    compile externalDependency.graphqlJava
+    implementation externalDependency.graphqlJava
+    implementation externalDependency.graphqlJavaScalars
     compile externalDependency.antlr4Runtime
     compile externalDependency.antlr4
     compile externalDependency.guava

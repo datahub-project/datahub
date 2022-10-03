@@ -30,6 +30,8 @@ from datahub.ingestion.source.sql.sql_types import (
 )
 from datahub.metadata.com.linkedin.pegasus2avro.dataset import (
     DatasetLineageTypeClass,
+    FineGrainedLineageDownstreamType,
+    FineGrainedLineageUpstreamType,
     UpstreamClass,
     UpstreamLineage,
 )
@@ -54,6 +56,7 @@ from datahub.metadata.schema_classes import (
     ChangeTypeClass,
     DatasetPropertiesClass,
     EnumTypeClass,
+    FineGrainedLineageClass,
     GlobalTagsClass,
     OwnerClass,
     OwnershipClass,
@@ -169,6 +172,10 @@ class LookerCommonConfig(
         None,
         description="Reference to your github location. If present, supplies handy links to your lookml on the dataset entity page.",
     )
+    extract_column_level_lineage: bool = Field(
+        True,
+        description="When enabled, extracts column-level lineage from Views and Explores",
+    )
 
 
 @dataclass
@@ -237,6 +244,7 @@ class ViewField:
     description: str
     field_type: ViewFieldType
     is_primary_key: bool = False
+    upstream_field: Optional[str] = None
 
 
 class LookerUtil:
@@ -622,6 +630,7 @@ class LookerExplore:
                                     is_primary_key=dim_field.primary_key
                                     if dim_field.primary_key
                                     else False,
+                                    upstream_field=dim_field.name,
                                 )
                             )
                 if explore.fields.measures is not None:
@@ -643,6 +652,7 @@ class LookerExplore:
                                     is_primary_key=measure_field.primary_key
                                     if measure_field.primary_key
                                     else False,
+                                    upstream_field=measure_field.name,
                                 )
                             )
 
@@ -746,20 +756,52 @@ class LookerExplore:
         dataset_props.externalUrl = self._get_url(base_url)
 
         dataset_snapshot.aspects.append(dataset_props)
+        view_name_to_urn_map = {}
         if self.upstream_views is not None:
             assert self.project_name is not None
-            upstreams = [
-                UpstreamClass(
-                    dataset=LookerViewId(
-                        project_name=self.project_name,
-                        model_name=self.model_name,
-                        view_name=view_name,
-                    ).get_urn(config),
-                    type=DatasetLineageTypeClass.VIEW,
+            upstreams = []
+            fine_grained_lineages = []
+            for view_name in sorted(self.upstream_views):
+                view_urn = LookerViewId(
+                    project_name=self.project_name,
+                    model_name=self.model_name,
+                    view_name=view_name,
+                ).get_urn(config)
+
+                upstreams.append(
+                    UpstreamClass(
+                        dataset=view_urn,
+                        type=DatasetLineageTypeClass.VIEW,
+                    )
                 )
-                for view_name in sorted(self.upstream_views)
-            ]
-            upstream_lineage = UpstreamLineage(upstreams=upstreams)
+                view_name_to_urn_map[view_name] = view_urn
+            if config.extract_column_level_lineage:
+                for field in self.fields or []:
+                    if (
+                        field.upstream_field
+                        and len(field.upstream_field.split(".")) >= 2
+                    ):
+                        (view_name, field_path) = field.upstream_field.split(".")[
+                            0
+                        ], ".".join(field.upstream_field.split(".")[1:])
+                        assert view_name
+                        view_urn = view_name_to_urn_map.get(view_name, "")
+                        if view_urn:
+                            fine_grained_lineages.append(
+                                FineGrainedLineageClass(
+                                    upstreamType=FineGrainedLineageUpstreamType.FIELD_SET,
+                                    downstreamType=FineGrainedLineageDownstreamType.FIELD,
+                                    upstreams=[
+                                        builder.make_schema_field_urn(
+                                            view_urn, field_path
+                                        )
+                                    ],
+                                )
+                            )
+
+            upstream_lineage = UpstreamLineage(
+                upstreams=upstreams, fineGrainedLineages=fine_grained_lineages or None
+            )
             dataset_snapshot.aspects.append(upstream_lineage)
         if self.fields is not None:
             schema_metadata = LookerUtil._get_schema(

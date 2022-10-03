@@ -17,3 +17,11 @@ source_registry.register_alias(
         UserWarning("source type snowflake-beta is deprecated, use snowflake instead")
     ),
 )
+
+# The MSSQL source has two possible sets of dependencies. We alias
+# the second to the first so that we maintain the 1:1 mapping between
+# source type and pip extra.
+source_registry.register_alias(
+    "mssql-odbc",
+    "mssql",
+)

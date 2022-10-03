@@ -7,6 +7,8 @@ import com.linkedin.common.urn.Urn;
 import com.linkedin.data.template.RecordTemplate;
 import com.linkedin.events.metadata.ChangeType;
 import com.linkedin.metadata.Constants;
+import com.linkedin.metadata.entity.retention.BulkApplyRetentionArgs;
+import com.linkedin.metadata.entity.retention.BulkApplyRetentionResult;
 import com.linkedin.metadata.key.DataHubRetentionKey;
 import com.linkedin.metadata.utils.EntityKeyUtils;
 import com.linkedin.metadata.utils.GenericRecordUtils;
@@ -183,6 +185,12 @@ public abstract class RetentionService {
    * @param aspectName Name of the aspect to apply retention to. If null, applies to all aspects
    */
   public abstract void batchApplyRetention(@Nullable String entityName, @Nullable String aspectName);
+
+  /**
+   * Batch apply retention to all records within the start, end count
+   */
+  public abstract BulkApplyRetentionResult batchApplyRetentionEntities(@Nonnull BulkApplyRetentionArgs args);
+
 
   @Value
   public static class RetentionContext {

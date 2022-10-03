@@ -24,7 +24,6 @@ dependencies {
   compile externalDependency.datastaxOssNativeProtocol
   compile externalDependency.datastaxOssCore
   compile externalDependency.datastaxOssQueryBuilder
-  compile externalDependency.parquet
   compile externalDependency.elasticSearchRest
   compile externalDependency.elasticSearchTransport
   compile externalDependency.javatuples
@@ -101,7 +100,7 @@ tasks.register('generateOpenApiPojos', GenerateSwaggerCode) {
   it.setAdditionalProperties([
       "group-id" : "io.datahubproject",
       "dateLibrary" : "java8",
-      "java8" : "true",
+      "java11" : "true",
       "modelPropertyNaming" : "original",
       "modelPackage" : "io.datahubproject.openapi.generated"] as Map<String, String>)
 

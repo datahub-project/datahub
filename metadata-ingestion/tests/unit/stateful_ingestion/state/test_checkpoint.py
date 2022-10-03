@@ -128,3 +128,20 @@ def test_serde_idempotence(state_obj):
         config_class=PostgresConfig,
     )
     assert orig_checkpoint_obj == serde_checkpoint_obj
+
+
+def test_supported_encodings():
+    """
+    Tests utf-8 and base85 encodings
+    """
+    test_state = BaseUsageCheckpointState(
+        version="1.0", begin_timestamp_millis=1, end_timestamp_millis=100
+    )
+
+    # 1. Test UTF-8 encoding
+    test_state.serde = "utf-8"
+    test_serde_idempotence(test_state)
+
+    # 2. Test Base85 encoding
+    test_state.serde = "base85"
+    test_serde_idempotence(test_state)

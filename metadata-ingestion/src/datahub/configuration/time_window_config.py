@@ -40,14 +40,11 @@ class BaseTimeWindowConfig(ConfigModel):
     # `start_time` and `end_time` will be populated by the pre-validators.
     # However, we must specify a "default" value here or pydantic will complain
     # if those fields are not set by the user.
-    end_time: datetime = Field(default=None, description="Latest date of usage to consider. Default: Current time in UTC")  # type: ignore
+    end_time: datetime = Field(
+        default_factory=lambda: datetime.now(tz=timezone.utc),
+        description="Latest date of usage to consider. Default: Current time in UTC",
+    )
     start_time: datetime = Field(default=None, description="Earliest date of usage to consider. Default: Last full day in UTC (or hour, depending on `bucket_duration`)")  # type: ignore
-
-    @pydantic.validator("end_time", pre=True, always=True)
-    def default_end_time(
-        cls, v: Any, *, values: Dict[str, Any], **kwargs: Any
-    ) -> datetime:
-        return v or datetime.now(tz=timezone.utc)
 
     @pydantic.validator("start_time", pre=True, always=True)
     def default_start_time(

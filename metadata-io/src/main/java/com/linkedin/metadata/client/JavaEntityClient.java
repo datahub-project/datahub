@@ -184,7 +184,7 @@ public class JavaEntityClient implements EntityClient {
         int limit,
         @Nonnull final Authentication authentication) throws RemoteInvocationException {
         return ValidationUtils.validateBrowseResult(
-            _entitySearchService.browse(entityType, path, newFilter(requestFilters), start, limit), _entityService);
+            _cachingEntitySearchService.browse(entityType, path, newFilter(requestFilters), start, limit, null), _entityService);
     }
 
     @SneakyThrows
