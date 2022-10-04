@@ -171,7 +171,8 @@ public class AllEntitiesSearchAggregator {
         entry -> Pair.of(entry.getKey(), new AggregationMetadata()
             .setName(entry.getValue().getName())
             .setDisplayName(entry.getValue().getDisplayName(GetMode.NULL))
-            .setAggregations(entry.getValue().getAggregations())
+            .setAggregations(
+                entry.getValue().getAggregations())
             .setFilterValues(
                 trimFilterValues(entry.getValue().getFilterValues()))
         )
