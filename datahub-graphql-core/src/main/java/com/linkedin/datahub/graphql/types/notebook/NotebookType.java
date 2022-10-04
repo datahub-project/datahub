@@ -175,7 +175,7 @@ public class NotebookType implements SearchableEntityType<Notebook, String>, Bro
     proposals.forEach(proposal -> proposal.setEntityUrn(UrnUtils.getUrn(urn)));
 
     try {
-      _entityClient.batchIngestProposals(proposals, context.getAuthentication());
+      _entityClient.batchIngestProposals(proposals, context.getAuthentication(), false);
     } catch (RemoteInvocationException e) {
       throw new RuntimeException(String.format("Failed to write entity with urn %s", urn), e);
     }

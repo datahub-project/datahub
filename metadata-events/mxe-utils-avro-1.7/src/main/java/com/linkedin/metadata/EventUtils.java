@@ -171,7 +171,7 @@ public class EventUtils {
   public static GenericRecord pegasusToAvroMAE(@Nonnull MetadataAuditEvent event) throws IOException {
     GenericRecord original =
         DataTranslator.dataMapToGenericRecord(event.data(), event.schema(), ORIGINAL_MAE_AVRO_SCHEMA);
-    return renameSchemaNamespace(original, ORIGINAL_MAE_AVRO_SCHEMA, RENAMED_MAE_AVRO_SCHEMA);
+    return renameSchemaNamespace(original, RENAMED_MAE_AVRO_SCHEMA);
   }
 
   /**
@@ -185,7 +185,21 @@ public class EventUtils {
   public static GenericRecord pegasusToAvroMCL(@Nonnull MetadataChangeLog event) throws IOException {
     GenericRecord original =
         DataTranslator.dataMapToGenericRecord(event.data(), event.schema(), ORIGINAL_MCL_AVRO_SCHEMA);
-    return renameSchemaNamespace(original, ORIGINAL_MCL_AVRO_SCHEMA, RENAMED_MCL_AVRO_SCHEMA);
+    return renameSchemaNamespace(original, RENAMED_MCL_AVRO_SCHEMA);
+  }
+
+  /**
+   * Converts a Pegasus MAE into the equivalent Avro model as a {@link GenericRecord}.
+   *
+   * @param event the Pegasus {@link MetadataChangeProposal} model
+   * @return the Avro model with com.linkedin.pegasus2avro.mxe namesapce
+   * @throws IOException if the conversion fails
+   */
+  @Nonnull
+  public static GenericRecord pegasusToAvroMCP(@Nonnull MetadataChangeProposal event) throws IOException {
+    GenericRecord original =
+        DataTranslator.dataMapToGenericRecord(event.data(), event.schema(), ORIGINAL_MCP_AVRO_SCHEMA);
+    return renameSchemaNamespace(original, RENAMED_MCP_AVRO_SCHEMA);
   }
 
   /**
@@ -199,7 +213,7 @@ public class EventUtils {
   public static GenericRecord pegasusToAvroMCE(@Nonnull MetadataChangeEvent event) throws IOException {
     GenericRecord original =
         DataTranslator.dataMapToGenericRecord(event.data(), event.schema(), ORIGINAL_MCE_AVRO_SCHEMA);
-    return renameSchemaNamespace(original, ORIGINAL_MCE_AVRO_SCHEMA, RENAMED_MCE_AVRO_SCHEMA);
+    return renameSchemaNamespace(original, RENAMED_MCE_AVRO_SCHEMA);
   }
 
   /**
@@ -232,7 +246,7 @@ public class EventUtils {
     GenericRecord original =
         DataTranslator.dataMapToGenericRecord(failedMetadataChangeEvent.data(), failedMetadataChangeEvent.schema(),
             ORIGINAL_FAILED_MCE_AVRO_SCHEMA);
-    return renameSchemaNamespace(original, ORIGINAL_FAILED_MCE_AVRO_SCHEMA, RENAMED_FAILED_MCE_AVRO_SCHEMA);
+    return renameSchemaNamespace(original, RENAMED_FAILED_MCE_AVRO_SCHEMA);
   }
 
   /**
@@ -248,7 +262,7 @@ public class EventUtils {
     GenericRecord original =
         DataTranslator.dataMapToGenericRecord(failedMetadataChangeProposal.data(), failedMetadataChangeProposal.schema(),
             ORIGINAL_FMCL_AVRO_SCHEMA);
-    return renameSchemaNamespace(original, ORIGINAL_FMCL_AVRO_SCHEMA, RENAMED_FMCP_AVRO_SCHEMA);
+    return renameSchemaNamespace(original, RENAMED_FMCP_AVRO_SCHEMA);
   }
 
   /**
@@ -262,13 +276,16 @@ public class EventUtils {
   public static GenericRecord pegasusToAvroPE(@Nonnull PlatformEvent event) throws IOException {
     GenericRecord original =
         DataTranslator.dataMapToGenericRecord(event.data(), event.schema(), ORIGINAL_PE_AVRO_SCHEMA);
-    return renameSchemaNamespace(original, ORIGINAL_PE_AVRO_SCHEMA, RENAMED_PE_AVRO_SCHEMA);
+    return renameSchemaNamespace(original, RENAMED_PE_AVRO_SCHEMA);
   }
 
   /**
    * Converts original MXE into a renamed namespace
+   * Does a double convert that should not be necessary since we're already converting prior to calling this method
+   * in most spots
    */
   @Nonnull
+  @Deprecated
   private static GenericRecord renameSchemaNamespace(@Nonnull GenericRecord original, @Nonnull Schema originalSchema,
       @Nonnull Schema newSchema) throws IOException {
 
@@ -277,6 +294,16 @@ public class EventUtils {
 
     // Step 2: Updates to the new renamed schema
     return changeSchema(record, newSchema, newSchema);
+  }
+
+  /**
+   * Converts original MXE into a renamed namespace
+   */
+  @Nonnull
+  private static GenericRecord renameSchemaNamespace(@Nonnull GenericRecord original, @Nonnull Schema newSchema)
+      throws IOException {
+
+    return changeSchema(original, newSchema, newSchema);
   }
 
   /**
