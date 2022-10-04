@@ -16,7 +16,7 @@ import { capitalizeFirstLetter } from '../shared/textUtil';
 import { ANTD_GRAY } from '../entity/shared/constants';
 import { GetEntityLineageQuery, useGetEntityLineageQuery } from '../../graphql/lineage.generated';
 import { useIsSeparateSiblingsMode } from '../entity/shared/siblingUtils';
-import { useIsShowColumnsMode } from './utils/useIsShowColumnsMode';
+import { SHOW_COLUMNS_URL_PARAMS, useIsShowColumnsMode } from './utils/useIsShowColumnsMode';
 import { ErrorSection } from '../shared/error/ErrorSection';
 
 const DEFAULT_DISTANCE_FROM_TOP = 106;
@@ -163,7 +163,10 @@ export default function LineageExplorer({ urn, type }: Props) {
                         }}
                         onEntityCenter={(params: EntitySelectParams) => {
                             history.push(
-                                `${entityRegistry.getEntityUrl(params.type, params.urn)}/?is_lineage_mode=true`,
+                                `${entityRegistry.getEntityUrl(
+                                    params.type,
+                                    params.urn,
+                                )}/?is_lineage_mode=true&${SHOW_COLUMNS_URL_PARAMS}=${showColumns}`,
                             );
                         }}
                         onLineageExpand={(asyncData: EntityAndType) => {
