@@ -426,6 +426,18 @@ fragment dashboardFields on Dashboard {
     inputFields {
         ...inputFieldsFields
     }
+    editableInputFieldMetadata {
+        editableSchemaFieldInfo {
+            fieldPath
+            description
+            globalTags {
+                ...globalTagsFields
+            }
+            glossaryTerms {
+                ...glossaryTerms
+            }
+        }
+    }
     subTypes {
         typeNames
     }

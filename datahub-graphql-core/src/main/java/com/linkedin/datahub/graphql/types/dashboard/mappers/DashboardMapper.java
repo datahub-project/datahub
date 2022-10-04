@@ -31,6 +31,7 @@ import com.linkedin.datahub.graphql.types.common.mappers.StatusMapper;
 import com.linkedin.datahub.graphql.types.common.mappers.CustomPropertiesMapper;
 import com.linkedin.datahub.graphql.types.common.mappers.util.MappingHelper;
 import com.linkedin.datahub.graphql.types.common.mappers.util.SystemMetadataUtils;
+import com.linkedin.datahub.graphql.types.dataset.mappers.EditableSchemaMetadataMapper;
 import com.linkedin.datahub.graphql.types.domain.DomainAssociationMapper;
 import com.linkedin.datahub.graphql.types.glossary.mappers.GlossaryTermsMapper;
 import com.linkedin.datahub.graphql.types.mappers.ModelMapper;
@@ -41,6 +42,7 @@ import com.linkedin.entity.EnvelopedAspectMap;
 import com.linkedin.metadata.key.DashboardKey;
 import com.linkedin.metadata.key.DataPlatformKey;
 import com.linkedin.metadata.utils.EntityKeyUtils;
+import com.linkedin.schema.EditableSchemaMetadata;
 import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
 
@@ -88,6 +90,8 @@ public class DashboardMapper implements ModelMapper<EntityResponse, Dashboard> {
         mappingHelper.mapToResult(INPUT_FIELDS_ASPECT_NAME, (dashboard, dataMap) ->
             dashboard.setInputFields(InputFieldsMapper.map(new InputFields(dataMap), entityUrn)));
         mappingHelper.mapToResult(SUB_TYPES_ASPECT_NAME, this::mapSubTypes);
+        mappingHelper.mapToResult(EDITABLE_SCHEMA_METADATA_ASPECT_NAME, (dashboard, dataMap) ->
+            dashboard.setEditableInputFieldMetadata(EditableSchemaMetadataMapper.map(new EditableSchemaMetadata(dataMap), entityUrn)));
 
         return mappingHelper.getResult();
     }

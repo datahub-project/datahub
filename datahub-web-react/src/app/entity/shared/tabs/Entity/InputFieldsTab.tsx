@@ -26,17 +26,19 @@ export const InputFieldsTab = () => {
         return groupByFieldPath(ungroupedRows, { showKeySchema: false });
     }, [ungroupedRows]);
 
+    const editableSchemaMetadata: any = entityData?.editableInputFieldMetadata || undefined;
+
     return (
         <>
             <SchemaTableContainer>
                 {rows && rows.length > 0 ? (
                     <>
-                        <SchemaEditableContext.Provider value={false}>
+                        <SchemaEditableContext.Provider value>
                             <SchemaTable
                                 schemaMetadata={null}
                                 rows={rows}
-                                editMode={false}
-                                editableSchemaMetadata={null}
+                                editMode
+                                editableSchemaMetadata={editableSchemaMetadata}
                                 usageStats={null}
                                 schemaFieldBlameList={null}
                                 showSchemaAuditView={false}

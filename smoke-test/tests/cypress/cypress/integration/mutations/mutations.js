@@ -2,7 +2,7 @@ describe("mutations", () => {
   before(() => {
     // warm up elastic by issuing a `*` search
     cy.login();
-    cy.visit("http://localhost:9002/search?query=%2A");
+    cy.visit("/search?query=%2A");
     cy.wait(5000);
   });
 
@@ -165,6 +165,40 @@ describe("mutations", () => {
     cy.get('[data-testid="schema-field-event_name-terms"]').within(() =>
       cy.contains("Add Term").click({ force: true })
     );
+
+    cy.focused().type("CypressTerm");
+
+    cy.get(".ant-select-item-option-content").within(() =>
+      cy.contains("CypressTerm").click({ force: true })
+    );
+
+    cy.get('[data-testid="add-tag-term-from-modal-btn"]').click({
+      force: true,
+    });
+    cy.get('[data-testid="add-tag-term-from-modal-btn"]').should("not.exist");
+
+    cy.contains("CypressTerm");
+
+    cy.get(
+      'a[href="/glossaryTerm/urn:li:glossaryTerm:CypressNode.CypressTerm"]'
+    ).within(() => cy.get("span[aria-label=close]").click({ force: true }));
+    cy.contains("Yes").click({ force: true });
+
+    cy.contains("CypressTerm").should("not.exist");
+  });
+
+  it("can add and remove terms from a chart input field", () => {
+    cy.login();
+    // make space for the glossary term column
+    cy.viewport(2000, 800);
+    cy.visit("/chart/urn:li:chart:(looker,cypress_baz1)/Fields");
+
+    cy.get(
+      '[data-testid="schema-field-lifetime_purchase_amount-terms"]'
+    ).trigger("mouseover", { force: true });
+    cy.get(
+      '[data-testid="schema-field-lifetime_purchase_amount-terms"]'
+    ).within(() => cy.contains("Add Term").click({ force: true }));
 
     cy.focused().type("CypressTerm");
 

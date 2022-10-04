@@ -94,6 +94,18 @@ query getChart($urn: String!) {
         inputFields {
             ...inputFieldsFields
         }
+        editableInputFieldMetadata {
+            editableSchemaFieldInfo {
+                fieldPath
+                description
+                globalTags {
+                    ...globalTagsFields
+                }
+                glossaryTerms {
+                    ...glossaryTerms
+                }
+            }
+        }
     }
 }
 

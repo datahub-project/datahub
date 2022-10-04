@@ -28,6 +28,10 @@ public class UpdateDescriptionResolver implements DataFetcher<CompletableFuture<
     switch (targetUrn.getEntityType()) {
       case Constants.DATASET_ENTITY_NAME:
         return updateDatasetDescription(targetUrn, input, environment.getContext());
+      case Constants.CHART_ENTITY_NAME:
+        return updateChartDescription(targetUrn, input, environment.getContext());
+      case Constants.DASHBOARD_ENTITY_NAME:
+        return updateDashboardDescription(targetUrn, input, environment.getContext());
       case Constants.CONTAINER_ENTITY_NAME:
         return updateContainerDescription(targetUrn, input, environment.getContext());
       case Constants.DOMAIN_ENTITY_NAME:
@@ -108,6 +112,62 @@ public class UpdateDescriptionResolver implements DataFetcher<CompletableFuture<
   }
 
   private CompletableFuture<Boolean> updateDatasetDescription(Urn targetUrn, DescriptionUpdateInput input, QueryContext context) {
+
+    return CompletableFuture.supplyAsync(() -> {
+
+      if (!DescriptionUtils.isAuthorizedToUpdateFieldDescription(context, targetUrn)) {
+        throw new AuthorizationException(
+            "Unauthorized to perform this action. Please contact your DataHub administrator.");
+      }
+
+      if (input.getSubResourceType() == null) {
+        throw new IllegalArgumentException("Update description without subresource is not currently supported");
+      }
+
+      DescriptionUtils.validateFieldDescriptionInput(targetUrn, input.getSubResource(), input.getSubResourceType(),
+          _entityService);
+
+      try {
+        Urn actor = CorpuserUrn.createFromString(context.getActorUrn());
+        DescriptionUtils.updateFieldDescription(input.getDescription(), targetUrn, input.getSubResource(), actor,
+            _entityService);
+        return true;
+      } catch (Exception e) {
+        log.error("Failed to perform update against input {}, {}", input.toString(), e.getMessage());
+        throw new RuntimeException(String.format("Failed to perform update against input %s", input.toString()), e);
+      }
+    });
+  }
+
+  private CompletableFuture<Boolean> updateChartDescription(Urn targetUrn, DescriptionUpdateInput input, QueryContext context) {
+
+    return CompletableFuture.supplyAsync(() -> {
+
+      if (!DescriptionUtils.isAuthorizedToUpdateFieldDescription(context, targetUrn)) {
+        throw new AuthorizationException(
+            "Unauthorized to perform this action. Please contact your DataHub administrator.");
+      }
+
+      if (input.getSubResourceType() == null) {
+        throw new IllegalArgumentException("Update description without subresource is not currently supported");
+      }
+
+      DescriptionUtils.validateFieldDescriptionInput(targetUrn, input.getSubResource(), input.getSubResourceType(),
+          _entityService);
+
+      try {
+        Urn actor = CorpuserUrn.createFromString(context.getActorUrn());
+        DescriptionUtils.updateFieldDescription(input.getDescription(), targetUrn, input.getSubResource(), actor,
+            _entityService);
+        return true;
+      } catch (Exception e) {
+        log.error("Failed to perform update against input {}, {}", input.toString(), e.getMessage());
+        throw new RuntimeException(String.format("Failed to perform update against input %s", input.toString()), e);
+      }
+    });
+  }
+
+  private CompletableFuture<Boolean> updateDashboardDescription(Urn targetUrn, DescriptionUpdateInput input, QueryContext context) {
 
     return CompletableFuture.supplyAsync(() -> {
 

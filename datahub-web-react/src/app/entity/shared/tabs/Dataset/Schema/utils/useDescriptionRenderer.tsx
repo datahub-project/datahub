@@ -31,7 +31,7 @@ export default function useDescriptionRenderer(editableSchemaMetadata: EditableS
                                 description: DOMPurify.sanitize(updatedDescription),
                                 resourceUrn: urn,
                                 subResource: record.fieldPath,
-                                subResourceType: SubResourceType.DatasetField,
+                                subResourceType: SubResourceType.Field,
                             },
                         },
                     }).then(refetch)

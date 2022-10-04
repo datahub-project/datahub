@@ -79,6 +79,7 @@ export type GenericEntityProperties = {
     entityTypeOverride?: Maybe<string>;
     /** Dataset specific- TODO, migrate these out */
     editableSchemaMetadata?: Maybe<EditableSchemaMetadata>;
+    editableInputFieldMetadata?: Maybe<EditableSchemaMetadata>;
     editableProperties?: Maybe<DatasetEditableProperties>;
     autoRenderAspects?: Maybe<Array<RawAspect>>;
     upstream?: Maybe<EntityLineageResult>;

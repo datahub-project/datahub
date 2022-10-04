@@ -1,10 +1,12 @@
 package com.linkedin.datahub.graphql.resolvers.mutate;
 
 import com.linkedin.common.AuditStamp;
+import com.linkedin.common.InputFields;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.data.template.RecordTemplate;
 import com.linkedin.datahub.graphql.generated.SubResourceType;
 import com.linkedin.events.metadata.ChangeType;
+import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.utils.GenericRecordUtils;
 import com.linkedin.mxe.MetadataChangeProposal;
@@ -99,37 +101,63 @@ public class MutationUtils {
     }
   }
 
+  public static Optional<SchemaField> getSchemaFieldFromSubResource(
+      Urn targetUrn,
+      String subResource,
+      SubResourceType subResourceType,
+      EntityService entityService
+  ) {
+    if (subResourceType.equals(SubResourceType.DATASET_FIELD) || subResourceType.equals(SubResourceType.FIELD)) {
+
+      if (targetUrn.getEntityType().equals(Constants.DATASET_ENTITY_NAME)) {
+        SchemaMetadata schemaMetadata = (SchemaMetadata) entityService.getAspect(targetUrn, SCHEMA_ASPECT_NAME, 0);
+
+        if (schemaMetadata == null) {
+          throw new IllegalArgumentException(String.format("Failed to update %s & field %s. %s has no schema.", targetUrn, subResource, targetUrn));
+        }
+
+        Optional<SchemaField> fieldMatch =
+            schemaMetadata.getFields().stream().filter(field -> field.getFieldPath().equals(subResource)).findFirst();
+        return fieldMatch;
+      }
+
+      if (targetUrn.getEntityType().equals(Constants.CHART_ENTITY_NAME) || targetUrn.getEntityType().equals(Constants.DASHBOARD_ENTITY_NAME)) {
+        InputFields inputFields = (InputFields) entityService.getAspect(targetUrn, Constants.INPUT_FIELDS_ASPECT_NAME, 0);
+
+        if (inputFields == null) {
+          throw new IllegalArgumentException(
+              String.format("Failed to update %s & field %s. %s has no schema.", targetUrn, subResource, targetUrn));
+        }
+
+        Optional<SchemaField> fieldMatch =
+            inputFields.getFields().stream().filter(field -> field.getSchemaField().getFieldPath().equals(subResource))
+                .map(field -> field.getSchemaField())
+                .findFirst();
+
+        return fieldMatch;
+      }
+    }
+
+    throw new IllegalArgumentException(String.format(
+        "Failed to get subresource from %s. SubResourceType (%s) is not valid. Types supported: %s.",
+        targetUrn, subResource, SubResourceType.values()
+    ));
+
+  }
+
   public static Boolean validateSubresourceExists(
       Urn targetUrn,
       String subResource,
       SubResourceType subResourceType,
       EntityService entityService
   ) {
-    if (subResourceType.equals(SubResourceType.DATASET_FIELD)) {
-      SchemaMetadata schemaMetadata = (SchemaMetadata) entityService.getAspect(targetUrn, SCHEMA_ASPECT_NAME, 0);
-
-      if (schemaMetadata == null) {
-        throw new IllegalArgumentException(
-            String.format("Failed to update %s & field %s. %s has no schema.", targetUrn, subResource, targetUrn)
-        );
-      }
-
-      Optional<SchemaField> fieldMatch =
-          schemaMetadata.getFields().stream().filter(field -> field.getFieldPath().equals(subResource)).findFirst();
-
-      if (!fieldMatch.isPresent()) {
-        throw new IllegalArgumentException(String.format(
-            "Failed to update %s & field %s. Field %s does not exist in the datasets schema.",
-            targetUrn, subResource, subResource));
-      }
-
-      return true;
+    Optional<SchemaField> fieldMatch = getSchemaFieldFromSubResource(targetUrn, subResource, subResourceType, entityService);
+    if (!fieldMatch.isPresent()) {
+      throw new IllegalArgumentException(String.format(
+          "Failed to update %s & field %s. Field %s does not exist in the datasets schema.",
+          targetUrn, subResource, subResource));
     }
-
-    throw new IllegalArgumentException(String.format(
-        "Failed to update %s. SubResourceType (%s) is not valid. Types supported: %s.",
-        targetUrn, subResource, SubResourceType.values()
-    ));
+    return true;
   }
 
 }

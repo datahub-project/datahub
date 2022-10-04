@@ -112,7 +112,7 @@ export default function TagTermGroup({
                                 tagUrn: tagToRemove.urn,
                                 resourceUrn: tagAssociationToRemove.associatedUrn || entityUrn || '',
                                 subResource: entitySubresource,
-                                subResourceType: entitySubresource ? SubResourceType.DatasetField : null,
+                                subResourceType: entitySubresource ? SubResourceType.Field : null,
                             },
                         },
                     })
@@ -149,7 +149,7 @@ export default function TagTermGroup({
                                 termUrn: termToRemove.term.urn,
                                 resourceUrn: termToRemove.associatedUrn || entityUrn || '',
                                 subResource: entitySubresource,
-                                subResourceType: entitySubresource ? SubResourceType.DatasetField : null,
+                                subResourceType: entitySubresource ? SubResourceType.Field : null,
                             },
                         },
                     })
@@ -368,7 +368,7 @@ export default function TagTermGroup({
                         {
                             resourceUrn: entityUrn,
                             subResource: entitySubresource,
-                            subResourceType: entitySubresource ? SubResourceType.DatasetField : null,
+                            subResourceType: entitySubresource ? SubResourceType.Field : null,
                         },
                     ]}
                 />
