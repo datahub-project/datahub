@@ -26,7 +26,7 @@ export const InputFieldsTab = () => {
         return groupByFieldPath(ungroupedRows, { showKeySchema: false });
     }, [ungroupedRows]);
 
-    const editableSchemaMetadata: any = entityData?.editableInputFieldMetadata || undefined;
+    const editableSchemaMetadata: any = entityData?.editableInputFieldMetadata;
 
     return (
         <>
