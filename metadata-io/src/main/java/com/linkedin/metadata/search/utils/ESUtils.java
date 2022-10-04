@@ -1,11 +1,14 @@
 package com.linkedin.metadata.search.utils;
 
+import com.google.common.collect.ImmutableSet;
 import com.linkedin.metadata.query.filter.Condition;
 import com.linkedin.metadata.query.filter.ConjunctiveCriterion;
 import com.linkedin.metadata.query.filter.Criterion;
 import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.metadata.query.filter.SortCriterion;
 import java.util.Arrays;
+import java.util.Optional;
+import java.util.Set;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import lombok.extern.slf4j.Slf4j;
@@ -27,6 +30,18 @@ public class ESUtils {
 
   public static final String KEYWORD_SUFFIX = ".keyword";
   public static final int MAX_RESULT_SIZE = 10000;
+
+  // we use this to make sure we filter for editable & non-editable fields
+  public static final String[][] EDITABLE_FIELD_TO_QUERY_PAIRS = {
+      {"fieldGlossaryTags", "editedFieldGlossaryTags"},
+      {"fieldGlossaryTerms", "editedFieldGlossaryTerms"},
+      {"fieldDescriptions", "editedFieldDescriptions"},
+      {"description", "editedDescription"},
+  };
+
+  public static final Set<String> BOOLEAN_FIELDS = ImmutableSet.of(
+      "removed"
+  );
 
   /*
    * Refer to https://www.elastic.co/guide/en/elasticsearch/reference/current/regexp-syntax.html for list of reserved
@@ -76,7 +91,11 @@ public class ESUtils {
     conjunctiveCriterion.getAnd().forEach(criterion -> {
       if (!criterion.getValue().trim().isEmpty() || criterion.hasValues()
               || criterion.getCondition() == Condition.IS_NULL) {
-        andQueryBuilder.must(getQueryBuilderFromCriterion(criterion));
+        if (!criterion.isNegated()) {
+          andQueryBuilder.must(getQueryBuilderFromCriterion(criterion));
+        } else {
+          andQueryBuilder.mustNot(getQueryBuilderFromCriterion(criterion));
+        }
       }
     });
     return andQueryBuilder;
@@ -107,12 +126,42 @@ public class ESUtils {
    */
   @Nonnull
   public static QueryBuilder getQueryBuilderFromCriterion(@Nonnull Criterion criterion) {
+    String fieldName = toFacetField(criterion.getField());
+
+    Optional<String[]> pairMatch = Arrays.stream(EDITABLE_FIELD_TO_QUERY_PAIRS)
+        .filter(pair -> Arrays.stream(pair).anyMatch(pairValue -> pairValue.equals(fieldName)))
+        .findFirst();
+
+    if (pairMatch.isPresent()) {
+      final BoolQueryBuilder orQueryBuilder = new BoolQueryBuilder();
+      String[] pairMatchValue = pairMatch.get();
+      for (String field: pairMatchValue) {
+        Criterion criterionToQuery = new Criterion();
+        criterionToQuery.setCondition(criterion.getCondition());
+        criterionToQuery.setNegated(criterion.isNegated());
+        criterionToQuery.setValue(criterion.getValue());
+        criterionToQuery.setField(field + KEYWORD_SUFFIX);
+        orQueryBuilder.should(getQueryBuilderFromCriterionForSingleField(criterionToQuery));
+      }
+      return orQueryBuilder;
+    }
+
+    return getQueryBuilderFromCriterionForSingleField(criterion);
+  }
+  @Nonnull
+  public static QueryBuilder getQueryBuilderFromCriterionForSingleField(@Nonnull Criterion criterion) {
     final Condition condition = criterion.getCondition();
+    String fieldName = toFacetField(criterion.getField());
+
     if (condition == Condition.EQUAL) {
       // If values is set, use terms query to match one of the values
       if (!criterion.getValues().isEmpty()) {
+        if (BOOLEAN_FIELDS.contains(fieldName) && criterion.getValues().size() == 1) {
+          return QueryBuilders.termQuery(fieldName, Boolean.parseBoolean(criterion.getValues().get(0)));
+        }
         return QueryBuilders.termsQuery(criterion.getField(), criterion.getValues());
       }
+
       // TODO(https://github.com/datahub-project/datahub-gma/issues/51): support multiple values a field can take without using
       // delimiters like comma. This is a hack to support equals with URN that has a comma in it.
       if (isUrn(criterion.getValue())) {
@@ -184,5 +233,10 @@ public class ESUtils {
       input = input.replace(String.valueOf(reservedChar), "\\" + reservedChar);
     }
     return input;
+  }
+
+  @Nullable
+  public static String toFacetField(@Nonnull final String filterField) {
+    return filterField.replace(ESUtils.KEYWORD_SUFFIX, "");
   }
 }
