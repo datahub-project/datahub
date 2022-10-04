@@ -27,7 +27,7 @@ import {
     RelationshipDirection,
     Container,
     PlatformPrivileges,
-    SearchCondition,
+    FilterOperator,
 } from './types.generated';
 import { GetTagDocument } from './graphql/tag.generated';
 import { GetMlModelDocument } from './graphql/mlModel.generated';
@@ -1951,15 +1951,19 @@ export const mocks = [
                     query: 'test',
                     start: 0,
                     count: 10,
-                    filters: [
+                    filters: [],
+                    orFilters: [
                         {
-                            field: 'platform',
-                            values: ['kafka'],
-                            negated: false,
-                            condition: SearchCondition.Equal,
+                            and: [
+                                {
+                                    field: 'platform',
+                                    values: ['kafka'],
+                                    negated: false,
+                                    condition: FilterOperator.Equal,
+                                },
+                            ],
                         },
                     ],
-                    orFilters: [],
                 },
             },
         },
@@ -2118,21 +2122,19 @@ export const mocks = [
                     query: 'test',
                     start: 0,
                     count: 10,
-                    filters: [
+                    filters: [],
+                    orFilters: [
                         {
-                            field: 'platform',
-                            values: ['kafka'],
-                            negated: false,
-                            condition: SearchCondition.Equal,
-                        },
-                        {
-                            field: 'platform',
-                            values: ['hdfs'],
-                            negated: false,
-                            condition: SearchCondition.Equal,
+                            and: [
+                                {
+                                    field: 'platform',
+                                    values: ['kafka', 'hdfs'],
+                                    negated: false,
+                                    condition: FilterOperator.Equal,
+                                },
+                            ],
                         },
                     ],
-                    orFilters: [],
                 },
             },
         },
@@ -2656,15 +2658,19 @@ export const mocks = [
                     query: 'test',
                     start: 0,
                     count: 10,
-                    filters: [
+                    filters: [],
+                    orFilters: [
                         {
-                            field: 'platform',
-                            values: ['kafka'],
-                            negated: false,
-                            condition: SearchCondition.Equal,
+                            and: [
+                                {
+                                    field: 'platform',
+                                    values: ['kafka'],
+                                    negated: false,
+                                    condition: FilterOperator.Equal,
+                                },
+                            ],
                         },
                     ],
-                    orFilters: [],
                 },
             },
         },
@@ -2760,15 +2766,19 @@ export const mocks = [
                     query: 'test',
                     start: 0,
                     count: 10,
-                    filters: [
+                    filters: [],
+                    orFilters: [
                         {
-                            field: 'platform',
-                            values: ['kafka'],
-                            negated: false,
-                            condition: SearchCondition.Equal,
+                            and: [
+                                {
+                                    field: 'platform',
+                                    values: ['kafka'],
+                                    negated: false,
+                                    condition: FilterOperator.Equal,
+                                },
+                            ],
                         },
                     ],
-                    orFilters: [],
                 },
             },
         },
@@ -3006,15 +3016,19 @@ export const mocks = [
                     query: 'test',
                     start: 0,
                     count: 10,
-                    filters: [
+                    filters: [],
+                    orFilters: [
                         {
-                            field: 'platform',
-                            values: ['kafka', 'hdfs'],
-                            negated: false,
-                            condition: SearchCondition.Equal,
+                            and: [
+                                {
+                                    field: 'platform',
+                                    values: ['kafka', 'hdfs'],
+                                    negated: false,
+                                    condition: FilterOperator.Equal,
+                                },
+                            ],
                         },
                     ],
-                    orFilters: [],
                 },
             },
         },
@@ -3079,21 +3093,19 @@ export const mocks = [
                     query: 'test',
                     start: 0,
                     count: 10,
-                    filters: [
+                    filters: [],
+                    orFilters: [
                         {
-                            field: 'platform',
-                            value: 'kafka',
-                            negated: false,
-                            condition: SearchCondition.Equal,
-                        },
-                        {
-                            field: 'platform',
-                            value: 'hdfs',
-                            negated: false,
-                            condition: SearchCondition.Equal,
+                            and: [
+                                {
+                                    field: 'platform',
+                                    values: ['kafka', 'hdfs'],
+                                    negated: false,
+                                    condition: FilterOperator.Equal,
+                                },
+                            ],
                         },
                     ],
-                    orFilters: [],
                 },
             },
         },

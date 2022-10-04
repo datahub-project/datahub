@@ -8,6 +8,7 @@ import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.exception.ValidationException;
 import com.linkedin.datahub.graphql.generated.FacetFilterInput;
 
+import com.linkedin.datahub.graphql.generated.OrFilter;
 import com.linkedin.metadata.query.filter.Condition;
 import com.linkedin.metadata.query.filter.Criterion;
 import com.linkedin.metadata.query.filter.CriterionArray;
@@ -83,46 +84,50 @@ public class ResolverUtils {
             if (!validFacetFields.contains(facetFilterInput.getField())) {
                 throw new ValidationException(String.format("Unrecognized facet with name %s provided", facetFilterInput.getField()));
             }
-            facetFilters.put(facetFilterInput.getField(), facetFilterInput.getValues().get(0));
+            if (!facetFilterInput.getValues().isEmpty()) {
+                facetFilters.put(facetFilterInput.getField(), facetFilterInput.getValues().get(0));
+            }
         });
 
         return facetFilters;
     }
 
-    // In the case that user sends filters to be or-d together, we need to build a series of conjective criterion
+    public static List<Criterion> criterionListFromAndFilter(List<FacetFilterInput> andFilters) {
+        return andFilters != null && !andFilters.isEmpty()
+            ? andFilters.stream()
+            .map(filter -> criterionFromFilter(filter))
+            .collect(Collectors.toList()) : Collections.emptyList();
+
+    }
+
+    // In the case that user sends filters to be or-d together, we need to build a series of conjunctive criterion
     // arrays, rather than just one for the AND case.
     public static ConjunctiveCriterionArray buildConjunctiveCriterionArrayWithOr(
-        final List<Criterion> andCriterions,
-        @Nonnull List<FacetFilterInput> orFilters
+        @Nonnull List<OrFilter> orFilters
     ) {
         return new ConjunctiveCriterionArray(orFilters.stream().map(orFilter -> {
-                CriterionArray andCriterionsForOr = new CriterionArray(andCriterions);
-                andCriterionsForOr.add(criterionFromFilter(orFilter));
-
+                CriterionArray andCriterionForOr = new CriterionArray(criterionListFromAndFilter(orFilter.getAnd()));
                 return new ConjunctiveCriterion().setAnd(
-                    andCriterionsForOr
+                    andCriterionForOr
                 );
             }
         ).collect(Collectors.toList()));
     }
 
     @Nullable
-    public static Filter buildFilter(@Nullable List<FacetFilterInput> andFilters, @Nullable List<FacetFilterInput> orFilters) {
+    public static Filter buildFilter(@Nullable List<FacetFilterInput> andFilters, @Nullable List<OrFilter> orFilters) {
         if ((andFilters == null || andFilters.isEmpty()) && (orFilters == null || orFilters.isEmpty())) {
             return null;
         }
 
-        final List<Criterion> andCriterions = andFilters != null && !andFilters.isEmpty()
-            ? andFilters.stream()
-                .map(filter -> criterionFromFilter(filter))
-                .collect(Collectors.toList()) : Collections.emptyList();
-
-        // if we have OR filters, we need to build a series of CriterionArrays
+        // Or filters are the new default. We will check them first.
+        // If we have OR filters, we need to build a series of CriterionArrays
         if (orFilters != null && !orFilters.isEmpty()) {
-            return new Filter().setOr(buildConjunctiveCriterionArrayWithOr(andCriterions, orFilters));
+            return new Filter().setOr(buildConjunctiveCriterionArrayWithOr(orFilters));
         }
 
-        // if we do not have any OR filters, just set one ConjectiveCriterionArray
+        // If or filters are not set, someone may be using the legacy and filters
+        final List<Criterion> andCriterions = criterionListFromAndFilter(andFilters);
         return new Filter().setOr(new ConjunctiveCriterionArray(new ConjunctiveCriterion().setAnd(new CriterionArray(andCriterions))));
     }
 

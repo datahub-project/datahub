@@ -49,7 +49,7 @@ Using the Advanced Filter view, you can apply more complex filters. To get there
 
 #### Adding an Advanced Filter
 
-Currently, Advanced Filters support filtering by Column name, Container, Domain, Description (entity or column level), Tag (entity or column level), Glossary Term (entity or column level), Owner, Entity Type, Subtype, Environment and soft-deleted status.
+Currently, Advanced Filters support filtering by Column Name, Container, Domain, Description (entity or column level), Tag (entity or column level), Glossary Term (entity or column level), Owner, Entity Type, Subtype, Environment and soft-deleted status.
 
 To add a new filter, click the add filter menu, choose a filter type, and then fill in the values you want to filter by.
 

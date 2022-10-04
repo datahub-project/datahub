@@ -2,7 +2,7 @@ import * as React from 'react';
 import { useState } from 'react';
 import styled from 'styled-components';
 
-import { FacetFilterInput, FacetMetadata, SearchCondition } from '../../types.generated';
+import { FacetFilterInput, FacetMetadata, FilterOperator } from '../../types.generated';
 import { ANTD_GRAY } from '../entity/shared/constants';
 import { AdvancedSearchFilter } from './AdvancedSearchFilter';
 import { AdvancedSearchFilterOverallUnionTypeSelect } from './AdvancedSearchFilterOverallUnionTypeSelect';
@@ -71,8 +71,8 @@ export const AdvancedSearchFilters = ({
             field: filterField,
             values: values as string[],
             condition: FIELDS_THAT_USE_CONTAINS_OPERATOR.includes(filterField)
-                ? SearchCondition.Contain
-                : SearchCondition.Equal,
+                ? FilterOperator.Contain
+                : FilterOperator.Equal,
         };
         onFilterSelect([...selectedFilters, newFilter]);
     };

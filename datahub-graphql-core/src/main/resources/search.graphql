@@ -65,14 +65,15 @@ input SearchInput {
   count: Int
 
   """
+  Deprecated in favor of the more expressive orFilters field
   Facet filters to apply to search results. These will be 'AND'-ed together.
   """
-  filters: [FacetFilterInput!]
+  filters: [FacetFilterInput!]  @deprecated(reason: "Use `orFilters`- they are more expressive")
 
   """
-  Filters are by default 'AND'-ed together. This lets you provide a set of OR filters
+  A list of disjunctive criterion for the filter. (or operation to combine filters)
   """
-  orFilters: [FacetFilterInput!]
+  orFilters: [OrFilter!]
 }
 
 """
@@ -100,14 +101,15 @@ input SearchAcrossEntitiesInput {
   count: Int
 
   """
+  Deprecated in favor of the more expressive orFilters field
   Facet filters to apply to search results. These will be 'AND'-ed together.
   """
-  filters: [FacetFilterInput!]
+  filters: [FacetFilterInput!]  @deprecated(reason: "Use `orFilters`- they are more expressive")
 
   """
-  Filters are by default 'AND'-ed together. This lets you provide a set of OR filters
+  A list of disjunctive criterion for the filter. (or operation to combine filters)
   """
-  orFilters: [FacetFilterInput!]
+  orFilters: [OrFilter!]
 }
 
 """
@@ -145,14 +147,25 @@ input SearchAcrossLineageInput {
   count: Int
 
   """
+  Deprecated in favor of the more expressive orFilters field
   Facet filters to apply to search results. These will be 'AND'-ed together.
   """
-  filters: [FacetFilterInput!]
+  filters: [FacetFilterInput!]  @deprecated(reason: "Use `orFilters`- they are more expressive")
 
   """
-  Filters are by default 'AND'-ed together. This lets you provide a set of OR filters
+  A list of disjunctive criterion for the filter. (or operation to combine filters)
   """
-  orFilters: [FacetFilterInput!]
+  orFilters: [OrFilter!]
+}
+
+"""
+A list of disjunctive criterion for the filter. (or operation to combine filters)
+"""
+input OrFilter {
+  """
+  A list of and criteria the filter applies to the query
+  """
+  and: [FacetFilterInput!]
 }
 
 """
@@ -177,10 +190,10 @@ input FacetFilterInput {
   """
   Condition for the values. How to If unset, assumed to be equality
   """
-  condition: SearchCondition
+  condition: FilterOperator
 }
 
-enum SearchCondition {
+enum FilterOperator {
   """
   Represent the relation: String field contains value, e.g. name contains Profile
   """
@@ -518,14 +531,15 @@ input BrowseInput {
   count: Int
 
   """
-  Faceted filters applied to browse results. These are joined together using `AND`.
+  Deprecated in favor of the more expressive orFilters field
+  Facet filters to apply to search results. These will be 'AND'-ed together.
   """
-  filters: [FacetFilterInput!]
+  filters: [FacetFilterInput!]  @deprecated(reason: "Use `orFilters`- they are more expressive")
 
   """
-  Filters are by default 'AND'-ed together. This lets you provide a set of OR filters
+  A list of disjunctive criterion for the filter. (or operation to combine filters)
   """
-  orFilters: [FacetFilterInput!]
+  orFilters: [OrFilter!]
 }
 
 """

@@ -11,6 +11,7 @@ import { GetSearchResultsParams, SearchResultsInterface } from './types';
 import { isListSubset } from '../../../utils';
 import { EntityAndType } from '../../../types';
 import { Message } from '../../../../../shared/Message';
+import { generateOrFilters } from '../../../../../search/utils/generateOrFilters';
 
 const Container = styled.div`
     display: flex;
@@ -113,7 +114,8 @@ export const EmbeddedListSearch = ({
                 query: finalQuery,
                 start: (page - 1) * SearchCfg.RESULTS_PER_PAGE,
                 count: SearchCfg.RESULTS_PER_PAGE,
-                filters: finalFilters,
+                filters: [],
+                orFilters: generateOrFilters(unionType, filtersWithoutEntities),
             },
         },
         skip: true,
@@ -130,7 +132,8 @@ export const EmbeddedListSearch = ({
                 query: finalQuery,
                 start: (page - 1) * numResultsPerPage,
                 count: numResultsPerPage,
-                filters: finalFilters,
+                filters: [],
+                orFilters: generateOrFilters(unionType, filtersWithoutEntities),
             },
         },
     });

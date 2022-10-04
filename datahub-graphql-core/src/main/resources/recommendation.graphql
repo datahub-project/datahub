@@ -252,7 +252,7 @@ type Filter {
   """
   Condition for the values. How to If unset, assumed to be equality
   """
-  condition: SearchCondition
+  condition: FilterOperator
 }
 
 """

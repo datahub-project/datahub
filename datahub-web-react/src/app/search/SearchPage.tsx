@@ -13,6 +13,7 @@ import { ENTITY_FILTER_NAME, UnionType } from './utils/constants';
 import { GetSearchResultsParams } from '../entity/shared/components/styled/search/types';
 import { EntityAndType } from '../entity/shared/types';
 import { scrollToTop } from '../shared/searchUtils';
+import { generateOrFilters } from './utils/generateOrFilters';
 
 type SearchPageParams = {
     type?: string;
@@ -56,8 +57,8 @@ export const SearchPage = () => {
                 query,
                 start: (page - 1) * numResultsPerPage,
                 count: numResultsPerPage,
-                filters: unionType === UnionType.AND ? filtersWithoutEntities : [],
-                orFilters: unionType === UnionType.OR ? filtersWithoutEntities : [],
+                filters: [],
+                orFilters: generateOrFilters(unionType, filtersWithoutEntities),
             },
         },
     });
@@ -78,8 +79,8 @@ export const SearchPage = () => {
                 query,
                 start: (page - 1) * SearchCfg.RESULTS_PER_PAGE,
                 count: SearchCfg.RESULTS_PER_PAGE,
-                filters: unionType === UnionType.AND ? filtersWithoutEntities : [],
-                orFilters: unionType === UnionType.OR ? filtersWithoutEntities : [],
+                filters: [],
+                orFilters: generateOrFilters(unionType, filtersWithoutEntities),
             },
         },
     });

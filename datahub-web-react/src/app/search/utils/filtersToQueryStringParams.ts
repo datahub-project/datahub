@@ -1,4 +1,4 @@
-import { FacetFilterInput, SearchCondition } from '../../../types.generated';
+import { FacetFilterInput, FilterOperator } from '../../../types.generated';
 import { encodeComma } from '../../entity/shared/utils';
 import { DEGREE_FILTER, FILTER_URL_PREFIX } from './constants';
 
@@ -22,7 +22,7 @@ function reduceFiltersToCombineDegreeFilters(acc: FacetFilterInput[], filter: Fa
 function reduceFiltersIntoQueryStringDict(acc, filter, idx) {
     acc[
         `${FILTER_URL_PREFIX}${filter.field}${URL_PARAM_SEPARATOR}${String(!!filter.negated)}${URL_PARAM_SEPARATOR}${
-            filter.condition || SearchCondition.Equal
+            filter.condition || FilterOperator.Equal
         }${URL_PARAM_SEPARATOR}${idx}`
     ] = [...filter.values.map((value) => encodeComma(value))];
     return acc;
