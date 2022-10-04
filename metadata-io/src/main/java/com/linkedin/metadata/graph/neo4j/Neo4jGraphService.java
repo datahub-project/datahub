@@ -5,7 +5,16 @@ import com.datahub.util.Statement;
 import com.datahub.util.exception.RetryLimitReached;
 import com.google.common.collect.ImmutableMap;
 import com.linkedin.common.urn.Urn;
-import com.linkedin.metadata.graph.*;
+
+import com.linkedin.metadata.graph.Edge;
+import com.linkedin.metadata.graph.EntityLineageResult;
+import com.linkedin.metadata.graph.GraphFilters;
+import com.linkedin.metadata.graph.GraphService;
+import com.linkedin.metadata.graph.LineageDirection;
+import com.linkedin.metadata.graph.LineageRelationship;
+import com.linkedin.metadata.graph.LineageRelationshipArray;
+import com.linkedin.metadata.graph.RelatedEntitiesResult;
+import com.linkedin.metadata.graph.RelatedEntity;
 import com.linkedin.metadata.models.registry.LineageRegistry;
 import com.linkedin.metadata.query.filter.Condition;
 import com.linkedin.metadata.query.filter.ConjunctiveCriterionArray;
@@ -32,7 +41,12 @@ import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang.time.StopWatch;
 import org.apache.commons.lang3.ClassUtils;
 import org.apache.commons.lang3.StringUtils;
-import org.neo4j.driver.*;
+
+import org.neo4j.driver.Driver;
+import org.neo4j.driver.Record;
+import org.neo4j.driver.Result;
+import org.neo4j.driver.Session;
+import org.neo4j.driver.SessionConfig;
 import org.neo4j.driver.exceptions.Neo4jException;
 import org.neo4j.driver.internal.InternalRelationship;
 
@@ -97,9 +111,9 @@ public class Neo4jGraphService implements GraphService {
                                         GraphFilters graphFilters, int offset, int count, int maxHops) {
     log.debug(String.format("Neo4j getLineage maxHops = %d", maxHops));
 
-    final String multiHopTemplate = "MATCH (a {urn: '%s'})-[r:%s*1..%d]->(b) WHERE b:%s RETURN a,r,b" +
-                                    " UNION " +
-                                    "MATCH (a {urn: '%s'})<-[r:%s*1..%d]-(b) WHERE b:%s RETURN a,r,b";
+    final String multiHopTemplate = "MATCH (a {urn: '%s'})-[r:%s*1..%d]->(b) WHERE b:%s RETURN a,r,b"
+            + " UNION "
+            + "MATCH (a {urn: '%s'})<-[r:%s*1..%d]-(b) WHERE b:%s RETURN a,r,b";
 
     final String directRelationTypes = "DownstreamOf|HasOwner|KnowsUser|Consumes";
     final String invertedRelationTypes = "Produces";
