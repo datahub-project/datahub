@@ -139,11 +139,6 @@ class TableauConfig(DatasetLineageProviderConfigBase):
         description="Ingest details for tables external to (not embedded in) tableau as entities.",
     )
 
-    workbooks_page_size: Optional[int] = Field(
-        default=None,
-        description="@deprecated(use page_size instead) Number of workbooks to query at a time using Tableau api.",
-    )
-
     page_size: int = Field(
         default=10,
         description="Number of metadata objects (e.g. CustomSQLTable, PublishedDatasource, etc) to query at a time using Tableau api.",
@@ -290,7 +285,7 @@ class TableauSource(Source):
                 key="tableau-login", reason=f"Unable to Login" f"Reason: {str(e)}"
             )
 
-    def get_connection_object(
+    def get_connection_object_page(
         self,
         query: str,
         connection_type: str,
@@ -320,23 +315,19 @@ class TableauSource(Source):
         has_next_page = connection_object.get("pageInfo", {}).get("hasNextPage", False)
         return connection_object, total_count, has_next_page
 
-    def emit_workbooks(self) -> Iterable[MetadataWorkUnit]:
-        count_on_query = (
-            self.config.page_size
-            if self.config.workbooks_page_size is None
-            else self.config.workbooks_page_size
-        )
+    def get_connection_objects(
+        self,
+        query: str,
+        connection_type: str,
+        query_filter: str,
+    ) -> Iterable[dict]:
+        # Calls the get_connection_object_page function to get the objects,
+        # and automatically handles pagination.
 
-        projects = (
-            f"projectNameWithin: {json.dumps(self.config.projects)}"
-            if self.config.projects
-            else ""
-        )
+        count_on_query = self.config.page_size
 
-        workbook_connection, total_count, has_next_page = self.get_connection_object(
-            workbook_graphql_query, "workbooksConnection", projects
-        )
-
+        total_count = count_on_query
+        has_next_page = 1
         current_count = 0
         while has_next_page:
             count = (
@@ -345,25 +336,37 @@ class TableauSource(Source):
                 else total_count - current_count
             )
             (
-                workbook_connection,
+                connection_objects,
                 total_count,
                 has_next_page,
-            ) = self.get_connection_object(
-                workbook_graphql_query,
-                "workbooksConnection",
-                projects,
+            ) = self.get_connection_object_page(
+                query,
+                connection_type,
+                query_filter,
                 count,
                 current_count,
             )
 
             current_count += count
 
-            for workbook in workbook_connection.get("nodes", []):
-                yield from self.emit_workbook_as_container(workbook)
-                yield from self.emit_sheets_as_charts(workbook)
-                yield from self.emit_dashboards(workbook)
-                for ds in workbook.get("embeddedDatasources", []):
-                    self.embedded_datasource_ids_being_used.append(ds["id"])
+            for obj in connection_objects.get("nodes", []):
+                yield obj
+
+    def emit_workbooks(self) -> Iterable[MetadataWorkUnit]:
+        projects = (
+            f"projectNameWithin: {json.dumps(self.config.projects)}"
+            if self.config.projects
+            else ""
+        )
+
+        for workbook in self.get_connection_objects(
+            workbook_graphql_query, "workbooksConnection", projects
+        ):
+            yield from self.emit_workbook_as_container(workbook)
+            yield from self.emit_sheets_as_charts(workbook)
+            yield from self.emit_dashboards(workbook)
+            for ds in workbook.get("embeddedDatasources", []):
+                self.embedded_datasource_ids_being_used.append(ds["id"])
 
     def _track_custom_sql_ids(self, field: dict) -> None:
         # Tableau shows custom sql datasource as a table in ColumnField.
@@ -484,118 +487,98 @@ class TableauSource(Source):
         return upstream_tables
 
     def emit_custom_sql_datasources(self) -> Iterable[MetadataWorkUnit]:
-        count_on_query = self.config.page_size
         custom_sql_filter = f"idWithin: {json.dumps(self.custom_sql_ids_being_used)}"
-        custom_sql_connection, total_count, has_next_page = self.get_connection_object(
-            custom_sql_graphql_query, "customSQLTablesConnection", custom_sql_filter
-        )
 
-        current_count = 0
-        while has_next_page:
-            count = (
-                count_on_query
-                if current_count + count_on_query < total_count
-                else total_count - current_count
-            )
-            (
-                custom_sql_connection,
-                total_count,
-                has_next_page,
-            ) = self.get_connection_object(
+        custom_sql_connection = list(
+            self.get_connection_objects(
                 custom_sql_graphql_query,
                 "customSQLTablesConnection",
                 custom_sql_filter,
-                count,
-                current_count,
             )
-            current_count += count
+        )
 
-            unique_custom_sql = get_unique_custom_sql(
-                custom_sql_connection.get("nodes", [])
+        unique_custom_sql = get_unique_custom_sql(custom_sql_connection)
+
+        for csql in unique_custom_sql:
+            csql_id: str = csql["id"]
+            csql_urn = builder.make_dataset_urn(self.platform, csql_id, self.config.env)
+            dataset_snapshot = DatasetSnapshot(
+                urn=csql_urn,
+                aspects=[],
             )
-            for csql in unique_custom_sql:
-                csql_id: str = csql["id"]
-                csql_urn = builder.make_dataset_urn(
-                    self.platform, csql_id, self.config.env
-                )
-                dataset_snapshot = DatasetSnapshot(
-                    urn=csql_urn,
-                    aspects=[],
+
+            datasource_name = None
+            project = None
+            if len(csql["datasources"]) > 0:
+                yield from self._create_lineage_from_csql_datasource(
+                    csql_urn, csql["datasources"]
                 )
 
-                datasource_name = None
-                project = None
-                if len(csql["datasources"]) > 0:
-                    yield from self._create_lineage_from_csql_datasource(
-                        csql_urn, csql["datasources"]
+                # CustomSQLTable id owned by exactly one tableau data source
+                logger.debug(
+                    f"Number of datasources referencing CustomSQLTable: {len(csql['datasources'])}"
+                )
+
+                datasource = csql["datasources"][0]
+                datasource_name = datasource.get("name")
+                if datasource.get(
+                    "__typename"
+                ) == "EmbeddedDatasource" and datasource.get("workbook"):
+                    datasource_name = (
+                        f"{datasource.get('workbook').get('name')}/{datasource_name}"
+                        if datasource_name and datasource.get("workbook").get("name")
+                        else None
                     )
-
-                    # CustomSQLTable id owned by exactly one tableau data source
-                    logger.debug(
-                        f"Number of datasources referencing CustomSQLTable: {len(csql['datasources'])}"
+                    workunits = add_entity_to_container(
+                        self.gen_workbook_key(datasource["workbook"]),
+                        "dataset",
+                        dataset_snapshot.urn,
                     )
+                    for wu in workunits:
+                        self.report.report_workunit(wu)
+                        yield wu
+                project = self._get_project(datasource)
 
-                    datasource = csql["datasources"][0]
-                    datasource_name = datasource.get("name")
-                    if datasource.get(
-                        "__typename"
-                    ) == "EmbeddedDatasource" and datasource.get("workbook"):
-                        datasource_name = (
-                            f"{datasource.get('workbook').get('name')}/{datasource_name}"
-                            if datasource_name
-                            and datasource.get("workbook").get("name")
-                            else None
-                        )
-                        workunits = add_entity_to_container(
-                            self.gen_workbook_key(datasource["workbook"]),
-                            "dataset",
-                            dataset_snapshot.urn,
-                        )
-                        for wu in workunits:
-                            self.report.report_workunit(wu)
-                            yield wu
-                    project = self._get_project(datasource)
+            # lineage from custom sql -> datasets/tables #
+            columns = csql.get("columns", [])
+            yield from self._create_lineage_to_upstream_tables(csql_urn, columns)
 
-                # lineage from custom sql -> datasets/tables #
-                columns = csql.get("columns", [])
-                yield from self._create_lineage_to_upstream_tables(csql_urn, columns)
+            #  Schema Metadata
+            schema_metadata = self.get_schema_metadata_for_custom_sql(columns)
+            if schema_metadata is not None:
+                dataset_snapshot.aspects.append(schema_metadata)
 
-                #  Schema Metadata
-                schema_metadata = self.get_schema_metadata_for_custom_sql(columns)
-                if schema_metadata is not None:
-                    dataset_snapshot.aspects.append(schema_metadata)
+            # Browse path
 
-                # Browse path
-
-                if project and datasource_name:
-                    browse_paths = BrowsePathsClass(
-                        paths=[
-                            f"/{self.config.env.lower()}/{self.platform}/{project}/{datasource['name']}"
-                        ]
-                    )
-                    dataset_snapshot.aspects.append(browse_paths)
-                else:
-                    logger.debug(f"Browse path not set for Custom SQL table {csql_id}")
-
-                dataset_properties = DatasetPropertiesClass(
-                    name=csql.get("name"), description=csql.get("description")
+            if project and datasource_name:
+                browse_paths = BrowsePathsClass(
+                    paths=[
+                        f"/{self.config.env.lower()}/{self.platform}/{project}/{datasource['name']}"
+                    ]
                 )
+                dataset_snapshot.aspects.append(browse_paths)
+            else:
+                logger.debug(f"Browse path not set for Custom SQL table {csql_id}")
 
-                dataset_snapshot.aspects.append(dataset_properties)
+            dataset_properties = DatasetPropertiesClass(
+                name=csql.get("name"), description=csql.get("description")
+            )
 
-                view_properties = ViewPropertiesClass(
-                    materialized=False,
-                    viewLanguage="SQL",
-                    viewLogic=clean_query(csql.get("query", "")),
-                )
-                dataset_snapshot.aspects.append(view_properties)
+            dataset_snapshot.aspects.append(dataset_properties)
 
-                yield self.get_metadata_change_event(dataset_snapshot)
-                yield self.get_metadata_change_proposal(
-                    dataset_snapshot.urn,
-                    aspect_name="subTypes",
-                    aspect=SubTypesClass(typeNames=["view", "Custom SQL"]),
-                )
+            view_properties = ViewPropertiesClass(
+                materialized=False,
+                viewLanguage="SQL",
+                viewLogic=clean_query(csql.get("query", "")),
+            )
+            dataset_snapshot.aspects.append(view_properties)
+
+            yield self.get_metadata_change_event(dataset_snapshot)
+            yield self.get_metadata_change_proposal(
+                dataset_snapshot.urn,
+                aspect_name="subTypes",
+                aspect=SubTypesClass(typeNames=["view", "Custom SQL"]),
+            )
 
     def get_schema_metadata_for_custom_sql(
         self, columns: List[dict]
@@ -863,40 +846,14 @@ class TableauSource(Source):
                 yield wu
 
     def emit_published_datasources(self) -> Iterable[MetadataWorkUnit]:
-        count_on_query = self.config.page_size
         datasource_filter = f"idWithin: {json.dumps(self.datasource_ids_being_used)}"
-        (
-            published_datasource_conn,
-            total_count,
-            has_next_page,
-        ) = self.get_connection_object(
+
+        for datasource in self.get_connection_objects(
             published_datasource_graphql_query,
             "publishedDatasourcesConnection",
             datasource_filter,
-        )
-
-        current_count = 0
-        while has_next_page:
-            count = (
-                count_on_query
-                if current_count + count_on_query < total_count
-                else total_count - current_count
-            )
-            (
-                published_datasource_conn,
-                total_count,
-                has_next_page,
-            ) = self.get_connection_object(
-                published_datasource_graphql_query,
-                "publishedDatasourcesConnection",
-                datasource_filter,
-                count,
-                current_count,
-            )
-
-            current_count += count
-            for datasource in published_datasource_conn.get("nodes", []):
-                yield from self.emit_datasource(datasource)
+        ):
+            yield from self.emit_datasource(datasource)
 
     def emit_upstream_tables(self) -> Iterable[MetadataWorkUnit]:
         for (table_urn, (columns, path, is_embedded)) in self.upstream_tables.items():
@@ -1267,43 +1224,18 @@ class TableauSource(Source):
                 yield wu
 
     def emit_embedded_datasources(self) -> Iterable[MetadataWorkUnit]:
-        count_on_query = self.config.page_size
         datasource_filter = (
             f"idWithin: {json.dumps(self.embedded_datasource_ids_being_used)}"
         )
-        (
-            embedded_datasource_conn,
-            total_count,
-            has_next_page,
-        ) = self.get_connection_object(
+
+        for datasource in self.get_connection_objects(
             embedded_datasource_graphql_query,
             "embeddedDatasourcesConnection",
             datasource_filter,
-        )
-        current_count = 0
-        while has_next_page:
-            count = (
-                count_on_query
-                if current_count + count_on_query < total_count
-                else total_count - current_count
+        ):
+            yield from self.emit_datasource(
+                datasource, datasource.get("workbook"), is_embedded_ds=True
             )
-            (
-                embedded_datasource_conn,
-                total_count,
-                has_next_page,
-            ) = self.get_connection_object(
-                embedded_datasource_graphql_query,
-                "embeddedDatasourcesConnection",
-                datasource_filter,
-                count,
-                current_count,
-            )
-
-            current_count += count
-            for datasource in embedded_datasource_conn.get("nodes", []):
-                yield from self.emit_datasource(
-                    datasource, datasource.get("workbook"), is_embedded_ds=True
-                )
 
     @lru_cache(maxsize=None)
     def _get_schema(self, schema_provided: str, database: str, fullName: str) -> str:
