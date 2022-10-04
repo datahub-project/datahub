@@ -362,7 +362,7 @@ timestamp < "{end_time}"
         self.report.num_skipped_lineage_entries_missing_data = 0
         self.report.num_skipped_lineage_entries_not_allowed = 0
         self.report.num_skipped_lineage_entries_other = 0
-        self.report.num_skipped_lineage_entries_sql_parser_failure = 0
+        self.report.num_lineage_entries_sql_parser_failure = 0
         for e in entries:
             self.report.num_total_lineage_entries += 1
             if e.destinationTable is None or not (
@@ -400,10 +400,10 @@ timestamp < "{end_time}"
                         map(lambda x: x.split(".")[-1], parser.get_tables())
                     )
                 except Exception as ex:
-                    logger.warning(
-                        f"Sql Parser failed on query: {e.query}. It will be skipped from lineage. The error was {ex}"
+                    logger.debug(
+                        f"Sql Parser failed on query: {e.query}. It won't cause any issue except table/view lineage can't be detected reliably. The error was {ex}."
                     )
-                    self.report.num_skipped_lineage_entries_sql_parser_failure += 1
+                    self.report.num_lineage_entries_sql_parser_failure += 1
                     continue
                 curr_lineage_str = lineage_map[destination_table_str]
                 new_lineage_str = set()

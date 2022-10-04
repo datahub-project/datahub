@@ -1954,6 +1954,11 @@ type Container implements Entity {
     Edges extending from this entity
     """
     relationships(input: RelationshipsInput!): EntityRelationshipsResult
+
+    """
+    Status metadata of the container
+    """
+    status: Status
 }
 
 """
@@ -8066,7 +8071,7 @@ type MLModelGroup implements EntityWithRelationships & Entity & BrowsableEntity 
     ownership: Ownership
 
     """
-    Status metadata of the MLFeature
+    Status metadata of the MLModelGroup
     """
     status: Status
 

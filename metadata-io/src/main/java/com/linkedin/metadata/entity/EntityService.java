@@ -41,6 +41,8 @@ import com.linkedin.metadata.aspect.VersionedAspect;
 import com.linkedin.metadata.entity.ebean.EbeanAspectV2;
 import com.linkedin.metadata.entity.restoreindices.RestoreIndicesArgs;
 import com.linkedin.metadata.entity.restoreindices.RestoreIndicesResult;
+import com.linkedin.metadata.entity.retention.BulkApplyRetentionArgs;
+import com.linkedin.metadata.entity.retention.BulkApplyRetentionResult;
 import com.linkedin.metadata.entity.validation.EntityRegistryUrnValidator;
 import com.linkedin.metadata.entity.validation.RecordTemplateValidator;
 import com.linkedin.metadata.entity.validation.ValidationUtils;
@@ -984,6 +986,27 @@ private Map<Urn, List<EnvelopedAspect>> getCorrespondingAspects(Set<EntityAspect
           Optional.of(new RetentionService.RetentionContext(Optional.of(result.maxVersion))));
     }
     return result;
+  }
+
+  public String batchApplyRetention(Integer start, Integer count, Integer attemptWithVersion, String aspectName,
+                                    String urn) {
+    BulkApplyRetentionArgs args = new BulkApplyRetentionArgs();
+    if (start == null) {
+      start = 0;
+    }
+    args.start = start;
+    if (count == null) {
+      count = 100;
+    }
+    args.count = count;
+    if (attemptWithVersion == null) {
+      attemptWithVersion = 21;
+    }
+    args.attemptWithVersion = attemptWithVersion;
+    args.aspectName = aspectName;
+    args.urn = urn;
+    BulkApplyRetentionResult result = _retentionService.batchApplyRetentionEntities(args);
+    return result.toString();
   }
 
   private boolean emitChangeLog(@Nullable RecordTemplate oldAspect, @Nullable SystemMetadata oldSystemMetadata,
