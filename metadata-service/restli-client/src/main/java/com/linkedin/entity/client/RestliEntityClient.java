@@ -624,8 +624,9 @@ public class RestliEntityClient extends BaseClient implements EntityClient {
    * Ingest a MetadataChangeProposal event.
    * @return
    */
+  @Override
   public String ingestProposal(@Nonnull final MetadataChangeProposal metadataChangeProposal,
-      @Nonnull final Authentication authentication) throws RemoteInvocationException {
+      @Nonnull final Authentication authentication, final boolean async) throws RemoteInvocationException {
     final AspectsDoIngestProposalRequestBuilder requestBuilder =
         ASPECTS_REQUEST_BUILDERS.actionIngestProposal().proposalParam(metadataChangeProposal);
     return sendClientRequest(requestBuilder, authentication).getEntity();

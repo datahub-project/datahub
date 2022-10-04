@@ -129,8 +129,8 @@ public class StatefulTokenService extends StatelessTokenService {
     // Need this to write key aspect
     final List<MetadataChangeProposal> additionalChanges = AspectUtils.getAdditionalChanges(proposal, _entityService);
 
-    _entityService.ingestProposal(proposal, auditStamp);
-    additionalChanges.forEach(mcp -> _entityService.ingestProposal(mcp, auditStamp));
+    _entityService.ingestProposal(proposal, auditStamp, false);
+    additionalChanges.forEach(mcp -> _entityService.ingestProposal(mcp, auditStamp, false));
 
     return accessToken;
   }

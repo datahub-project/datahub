@@ -93,6 +93,7 @@ public class EntityResource extends CollectionResourceTaskTemplate<String, Entit
   private static final String ACTION_SEARCH_ACROSS_LINEAGE = "searchAcrossLineage";
   private static final String ACTION_BATCH_INGEST = "batchIngest";
   private static final String ACTION_LIST_URNS = "listUrns";
+  private static final String ACTION_APPLY_RETENTION = "applyRetention";
   private static final String ACTION_FILTER = "filter";
   private static final String ACTION_DELETE = "delete";
   private static final String ACTION_EXISTS = "exists";
@@ -552,6 +553,19 @@ public class EntityResource extends CollectionResourceTaskTemplate<String, Entit
       @ActionParam(PARAM_START) int start, @ActionParam(PARAM_COUNT) int count) throws URISyntaxException {
     log.info("LIST URNS for {} with start {} and count {}", entityName, start, count);
     return RestliUtil.toTask(() -> _entityService.listUrns(entityName, start, count), "listUrns");
+  }
+
+  @Action(name = ACTION_APPLY_RETENTION)
+  @Nonnull
+  @WithSpan
+  public Task<String> applyRetention(@ActionParam(PARAM_START) @Optional @Nullable Integer start,
+                                     @ActionParam(PARAM_COUNT) @Optional @Nullable Integer count,
+                                     @ActionParam("attemptWithVersion") @Optional @Nullable Integer attemptWithVersion,
+                                     @ActionParam(PARAM_ASPECT_NAME) @Optional @Nullable String aspectName,
+                                     @ActionParam(PARAM_URN) @Optional @Nullable String urn
+                                     ) {
+    return RestliUtil.toTask(() -> _entityService.batchApplyRetention(
+            start, count, attemptWithVersion, aspectName, urn), ACTION_APPLY_RETENTION);
   }
 
   @Action(name = ACTION_FILTER)

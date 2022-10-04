@@ -150,14 +150,9 @@ class BigQueryUsageExtractor:
     * Aggregation of these statistics into buckets, by day or hour granularity
 
     :::note
-    1. This source only does usage statistics. To get the tables, views, and schemas in your BigQuery project, use the `bigquery` plugin.
-    2. Depending on the compliance policies setup for the bigquery instance, sometimes logging.read permission is not sufficient. In that case, use either admin or private log viewer permission.
+    1. Depending on the compliance policies setup for the bigquery instance, sometimes logging.read permission is not sufficient. In that case, use either admin or private log viewer permission.
     :::
     """
-
-    aggregated_info: Dict[
-        datetime, Dict[BigQueryTableRef, AggregatedDataset]
-    ] = collections.defaultdict(dict)
 
     def __init__(self, config: BigQueryV2Config, report: BigQueryV2Report):
         self.config: BigQueryV2Config = config
@@ -173,7 +168,13 @@ class BigQueryUsageExtractor:
             and self.config.table_pattern.allowed(table_ref.table_identifier.table)
         )
 
-    def generate_usage_for_project(self, project_id: str) -> Iterable[MetadataWorkUnit]:
+    def generate_usage_for_project(
+        self, project_id: str, tables: Dict[str, List[str]]
+    ) -> Iterable[MetadataWorkUnit]:
+        aggregated_info: Dict[
+            datetime, Dict[BigQueryTableRef, AggregatedDataset]
+        ] = collections.defaultdict(dict)
+
         parsed_bigquery_log_events: Iterable[
             Union[ReadEvent, QueryEvent, MetadataWorkUnit]
         ]
@@ -221,24 +222,26 @@ class BigQueryUsageExtractor:
                             yield operational_wu
                             self.report.num_operational_stats_workunits_emitted += 1
                     if event.read_event:
-                        self.aggregated_info = self._aggregate_enriched_read_events(
-                            self.aggregated_info, event
+                        aggregated_info = self._aggregate_enriched_read_events(
+                            aggregated_info, event, tables
                         )
                         num_aggregated += 1
                 logger.info(f"Total number of events aggregated = {num_aggregated}.")
                 bucket_level_stats: str = "\n\t" + "\n\t".join(
                     [
                         f'bucket:{db.strftime("%m-%d-%Y:%H:%M:%S")}, size={len(ads)}'
-                        for db, ads in self.aggregated_info.items()
+                        for db, ads in aggregated_info.items()
                     ]
                 )
                 logger.debug(
-                    f"Number of buckets created = {len(self.aggregated_info)}. Per-bucket details:{bucket_level_stats}"
+                    f"Number of buckets created = {len(aggregated_info)}. Per-bucket details:{bucket_level_stats}"
                 )
 
                 self.report.usage_extraction_sec[project_id] = round(
                     timer.elapsed_seconds(), 2
                 )
+
+                yield from self.get_workunits(aggregated_info)
             except Exception as e:
                 self.report.usage_failed_extraction.append(project_id)
                 logger.error(
@@ -746,6 +749,7 @@ class BigQueryUsageExtractor:
         self,
         datasets: Dict[datetime, Dict[BigQueryTableRef, AggregatedDataset]],
         event: AuditEvent,
+        tables: Dict[str, List[str]],
     ) -> Dict[datetime, Dict[BigQueryTableRef, AggregatedDataset]]:
         if not event.read_event:
             return datasets
@@ -756,6 +760,12 @@ class BigQueryUsageExtractor:
         resource: Optional[BigQueryTableRef] = None
         try:
             resource = event.read_event.resource.get_sanitized_table_ref()
+            if (
+                resource.table_identifier.get_table_display_name()
+                not in tables[resource.table_identifier.dataset]
+            ):
+                logger.debug(f"Skipping non existing {resource} from usage")
+                return datasets
         except Exception as e:
             self.report.report_warning(
                 str(event.read_event.resource), f"Failed to clean up resource, {e}"
@@ -787,9 +797,11 @@ class BigQueryUsageExtractor:
 
         return datasets
 
-    def get_workunits(self):
+    def get_workunits(
+        self, aggregated_info: Dict[datetime, Dict[BigQueryTableRef, AggregatedDataset]]
+    ) -> Iterable[MetadataWorkUnit]:
         self.report.num_usage_workunits_emitted = 0
-        for time_bucket in self.aggregated_info.values():
+        for time_bucket in aggregated_info.values():
             for aggregate in time_bucket.values():
                 wu = self._make_usage_stat(aggregate)
                 self.report.report_workunit(wu)

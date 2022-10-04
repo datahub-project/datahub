@@ -3647,6 +3647,10 @@
         "parameters" : [ {
           "name" : "proposal",
           "type" : "com.linkedin.mxe.MetadataChangeProposal"
+        }, {
+          "name" : "async",
+          "type" : "string",
+          "default" : "unset"
         } ],
         "returns" : "string"
       }, {

@@ -1,4 +1,5 @@
 apply plugin: 'java'
+apply from: "../../gradle/versioning/versioning.gradle"
 
 dependencies {
   compile project(':metadata-io')
@@ -32,4 +33,8 @@ dependencies {
   testCompile externalDependency.mockito
   testCompile externalDependency.testng
 
+}
+
+processResources.configure {
+  finalizedBy printVersionDetails // always print version details
 }

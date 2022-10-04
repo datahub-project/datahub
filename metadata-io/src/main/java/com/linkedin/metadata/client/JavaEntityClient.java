@@ -8,6 +8,7 @@ import com.linkedin.aspect.GetTimeseriesAspectValuesResponse;
 import com.linkedin.common.AuditStamp;
 import com.linkedin.common.VersionedUrn;
 import com.linkedin.common.urn.Urn;
+import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.data.DataMap;
 import com.linkedin.data.template.RecordTemplate;
 import com.linkedin.data.template.StringArray;
@@ -437,20 +438,17 @@ public class JavaEntityClient implements EntityClient {
     }
 
     // TODO: Factor out ingest logic into a util that can be accessed by the java client and the resource
-    @SneakyThrows
     @Override
-    public String ingestProposal(
-        @Nonnull final MetadataChangeProposal metadataChangeProposal,
-        @Nonnull final Authentication authentication) throws RemoteInvocationException {
-
+    public String ingestProposal(@Nonnull final MetadataChangeProposal metadataChangeProposal,
+        @Nonnull final Authentication authentication, final boolean async) throws RemoteInvocationException {
         String actorUrnStr = authentication.getActor() != null ? authentication.getActor().toUrnStr() : Constants.UNKNOWN_ACTOR;
         final AuditStamp auditStamp =
-            new AuditStamp().setTime(_clock.millis()).setActor(Urn.createFromString(actorUrnStr));
+            new AuditStamp().setTime(_clock.millis()).setActor(UrnUtils.getUrn(actorUrnStr));
         final List<MetadataChangeProposal> additionalChanges =
             AspectUtils.getAdditionalChanges(metadataChangeProposal, _entityService);
 
-        Urn urn = _entityService.ingestProposal(metadataChangeProposal, auditStamp).getUrn();
-        additionalChanges.forEach(proposal -> _entityService.ingestProposal(proposal, auditStamp));
+        Urn urn = _entityService.ingestProposal(metadataChangeProposal, auditStamp, async).getUrn();
+        additionalChanges.forEach(proposal -> _entityService.ingestProposal(proposal, auditStamp, async));
         tryIndexRunId(urn, metadataChangeProposal.getSystemMetadata());
         return urn.toString();
     }

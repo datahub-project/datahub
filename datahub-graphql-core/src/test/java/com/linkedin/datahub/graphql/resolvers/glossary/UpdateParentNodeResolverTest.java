@@ -20,7 +20,7 @@ import org.testng.annotations.Test;
 
 import java.net.URISyntaxException;
 
-import static com.linkedin.datahub.graphql.TestUtils.getMockAllowContext;
+import static com.linkedin.datahub.graphql.TestUtils.*;
 import static org.testng.Assert.assertThrows;
 import static org.testng.Assert.assertTrue;
 
@@ -72,10 +72,7 @@ public class UpdateParentNodeResolverTest {
     final MetadataChangeProposal proposal = setupTests(mockEnv, mockService);
 
     assertTrue(resolver.get(mockEnv).get());
-    Mockito.verify(mockService, Mockito.times(1)).ingestProposal(
-        Mockito.eq(proposal),
-        Mockito.any()
-    );
+    verifyIngestProposal(mockService, 1, proposal);
   }
 
   @Test
@@ -111,10 +108,7 @@ public class UpdateParentNodeResolverTest {
     UpdateParentNodeResolver resolver = new UpdateParentNodeResolver(mockService);
 
     assertTrue(resolver.get(mockEnv).get());
-    Mockito.verify(mockService, Mockito.times(1)).ingestProposal(
-        Mockito.eq(proposal),
-        Mockito.any()
-    );
+    verifyIngestProposal(mockService, 1, proposal);
   }
 
   @Test
@@ -129,9 +123,7 @@ public class UpdateParentNodeResolverTest {
     setupTests(mockEnv, mockService);
 
     assertThrows(IllegalArgumentException.class, () -> resolver.get(mockEnv).join());
-    Mockito.verify(mockService, Mockito.times(0)).ingestProposal(
-        Mockito.any(),
-        Mockito.any());
+    verifyNoIngestProposal(mockService);
   }
 
   @Test
@@ -146,9 +138,7 @@ public class UpdateParentNodeResolverTest {
     setupTests(mockEnv, mockService);
 
     assertThrows(IllegalArgumentException.class, () -> resolver.get(mockEnv).join());
-    Mockito.verify(mockService, Mockito.times(0)).ingestProposal(
-        Mockito.any(),
-        Mockito.any());
+    verifyNoIngestProposal(mockService);
   }
 
   @Test
@@ -163,8 +153,6 @@ public class UpdateParentNodeResolverTest {
     setupTests(mockEnv, mockService);
 
     assertThrows(URISyntaxException.class, () -> resolver.get(mockEnv).join());
-    Mockito.verify(mockService, Mockito.times(0)).ingestProposal(
-        Mockito.any(),
-        Mockito.any());
+    verifyNoIngestProposal(mockService);
   }
 }

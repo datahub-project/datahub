@@ -282,7 +282,7 @@ import org.dataloader.DataLoaderOptions;
 
 import static com.linkedin.datahub.graphql.Constants.*;
 import static com.linkedin.metadata.Constants.*;
-import static graphql.Scalars.*;
+import static graphql.scalars.ExtendedScalars.*;
 
 
 /**
