@@ -1,11 +1,9 @@
 from datahub.metadata.schema_classes import (
     NullTypeClass,
-    RecordTypeClass,
     NumberTypeClass,
+    RecordTypeClass,
 )
-from datahub.utilities.hive_schema_to_avro import (
-    get_schema_fields_for_hive_column,
-)
+from datahub.utilities.hive_schema_to_avro import get_schema_fields_for_hive_column
 
 
 def test_get_avro_schema_for_hive_column():
