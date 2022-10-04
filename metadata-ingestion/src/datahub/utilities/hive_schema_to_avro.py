@@ -17,6 +17,7 @@ class HiveColumnToAvroConverter:
 
     _PRIVIMITE_HIVE_TYPE_TO_AVRO_TYPE = {
         "string": "string",
+        "int": "int",
         "integer": "int",
         "double": "double",
         "double precision": "double",
