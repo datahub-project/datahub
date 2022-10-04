@@ -7,7 +7,8 @@ from boto3.session import Session
 from moto import mock_s3
 from pydantic import ValidationError
 
-from datahub.ingestion.run.pipeline import Pipeline, PipelineInitError
+from datahub.ingestion.run.pipeline import Pipeline, PipelineContext
+from datahub.ingestion.source.s3.source import S3Source
 from tests.test_helpers import mce_helpers
 
 FROZEN_TIME = "2020-04-14 07:00:00"
@@ -78,7 +79,6 @@ def test_data_lake_s3_ingest(
 
     f = open(os.path.join(SOURCE_FILES_PATH, source_file))
     source = json.load(f)
-    source["config"]["platform"] = "s3"
 
     config_dict = {}
     config_dict["source"] = source
@@ -119,11 +119,8 @@ def test_data_lake_local_ingest(pytestconfig, source_file, tmp_path, mock_time):
 
     source["config"]["profiling"]["enabled"] = True
     source["config"].pop("aws_config")
-    # Only pop the key/value for configs that contain the key
-    if "use_s3_bucket_tags" in source["config"]:
-        source["config"].pop("use_s3_bucket_tags")
-    if "use_s3_object_tags" in source["config"]:
-        source["config"].pop("use_s3_object_tags")
+    source["config"].pop("use_s3_bucket_tags", None)
+    source["config"].pop("use_s3_object_tags", None)
     config_dict["source"] = source
     config_dict["sink"] = {
         "type": "file",
@@ -147,78 +144,39 @@ def test_data_lake_local_ingest(pytestconfig, source_file, tmp_path, mock_time):
 
 
 def test_data_lake_incorrect_config_raises_error(tmp_path, mock_time):
-
-    config_dict = {}
-    config_dict["sink"] = {
-        "type": "file",
-        "config": {
-            "filename": f"{tmp_path}/mces.json",
-        },
-    }
+    ctx = PipelineContext(run_id="test-s3")
 
     # Case 1 : named variable in table name is not present in include
-    source = {
-        "type": "s3",
-        "config": {
-            "path_spec": {"include": "a/b/c/d/{table}.*", "table_name": "{table1}"}
-        },
+    source: dict = {
+        "path_spec": {"include": "a/b/c/d/{table}.*", "table_name": "{table1}"}
     }
-    config_dict["source"] = source
-    with pytest.raises(PipelineInitError) as e_info:
-        Pipeline.create(config_dict)
-
-    assert e_info._excinfo
-    assert isinstance(e_info._excinfo[1].__cause__, ValidationError)
-    logging.debug(e_info)
+    with pytest.raises(ValidationError, match="table_name"):
+        S3Source.create(source, ctx)
 
     # Case 2 : named variable in exclude is not allowed
     source = {
-        "type": "s3",
-        "config": {
-            "path_spec": {
-                "include": "a/b/c/d/{table}/*.*",
-                "exclude": ["a/b/c/d/a-{exclude}/**"],
-            }
+        "path_spec": {
+            "include": "a/b/c/d/{table}/*.*",
+            "exclude": ["a/b/c/d/a-{exclude}/**"],
         },
     }
-    config_dict["source"] = source
-    with pytest.raises(PipelineInitError) as e_info:
-        Pipeline.create(config_dict)
-
-    assert e_info._excinfo
-    assert isinstance(e_info._excinfo[1].__cause__, ValidationError)
-    logging.debug(e_info)
+    with pytest.raises(ValidationError, match=r"exclude.*named variable"):
+        S3Source.create(source, ctx)
 
     # Case 3 : unsupported file type not allowed
     source = {
-        "type": "s3",
-        "config": {
-            "path_spec": {
-                "include": "a/b/c/d/{table}/*.hd5",
-            }
-        },
+        "path_spec": {
+            "include": "a/b/c/d/{table}/*.hd5",
+        }
     }
-    config_dict["source"] = source
-    with pytest.raises(PipelineInitError) as e_info:
-        Pipeline.create(config_dict)
-
-    assert e_info._excinfo
-    assert isinstance(e_info._excinfo[1].__cause__, ValidationError)
-    logging.debug(e_info)
+    with pytest.raises(ValidationError, match="file type"):
+        S3Source.create(source, ctx)
 
     # Case 4 : ** in include not allowed
     source = {
-        "type": "s3",
-        "config": {
-            "path_spec": {
-                "include": "a/b/c/d/**/*.*",
-            }
+        "path_spec": {
+            "include": "a/b/c/d/**/*.*",
         },
     }
-    config_dict["source"] = source
-    with pytest.raises(PipelineInitError) as e_info:
-        Pipeline.create(config_dict)
-
-    assert e_info._excinfo
-    assert isinstance(e_info._excinfo[1].__cause__, ValidationError)
-    logging.debug(e_info)
+    with pytest.raises(ValidationError, match=r"\*\*"):
+        S3Source.create(source, ctx)
