@@ -120,8 +120,7 @@ export const getMatchPrioritizingPrimary = (
         return fromQueryGetBestMatch(primaryMatches, query);
     }
 
-    return fromQueryGetBestMatch(
-        matchedFields.filter((field) => FIELDS_TO_HIGHLIGHT.has(field.name)),
-        query,
-    );
+    const matchesThatShouldBeShownOnFE = matchedFields.filter((field) => FIELDS_TO_HIGHLIGHT.has(field.name));
+
+    return fromQueryGetBestMatch(matchesThatShouldBeShownOnFE, query);
 };
