@@ -183,6 +183,11 @@ type Query {
     Get invite token
     """
     getInviteToken(input: GetInviteTokenInput!): InviteToken
+
+    """
+    List all Posts
+    """
+    listPosts(input: ListPostsInput!): ListPostsResult
 }
 
 """
@@ -518,6 +523,11 @@ type Mutation {
     Create invite token
     """
     createInviteToken(input: CreateInviteTokenInput!): InviteToken
+
+    """
+    Create a post
+    """
+    createPost(input: CreatePostInput!): Boolean
 }
 
 """
@@ -693,6 +703,11 @@ enum EntityType {
     A DataHub Role
     """
     DATAHUB_ROLE
+
+    """
+    A DataHub Post
+    """
+    POST
 }
 
 """
@@ -9384,4 +9399,224 @@ input AcceptRoleInput {
     The token needed to accept the role
     """
     inviteToken: String!
+}
+
+"""
+The type of post
+"""
+enum PostType {
+    """
+    Posts on the home page
+    """
+    HOME_PAGE_ANNOUNCEMENT,
+}
+
+"""
+The type of post
+"""
+enum PostContentType {
+    """
+    Text content
+    """
+    TEXT,
+
+    """
+    Link content
+    """
+    LINK
+}
+
+"""
+The type of media
+"""
+enum MediaType {
+    """
+    An image
+    """
+    IMAGE
+}
+
+"""
+Input provided when creating a Post
+"""
+input CreatePostInput {
+    """
+    The type of post
+    """
+    postType: PostType!
+
+    """
+    The content of the post
+    """
+    content: UpdatePostContentInput!
+}
+
+"""
+Input provided for filling in a post content
+"""
+input UpdatePostContentInput {
+    """
+    The type of post content
+    """
+    contentType: PostContentType!
+
+    """
+    The title of the post
+    """
+    title: String!
+
+    """
+    Optional content of the post
+    """
+    description: String
+
+    """
+    Optional link that the post is associated with
+    """
+    link: String
+
+    """
+    Optional media contained in the post
+    """
+    media: UpdateMediaInput
+}
+
+"""
+Input provided for filling in a post content
+"""
+input UpdateMediaInput {
+    """
+    The type of media
+    """
+    type: MediaType!
+
+    """
+    The location of the media (a URL)
+    """
+    location: String!
+}
+
+"""
+Input provided when listing existing posts
+"""
+input ListPostsInput {
+    """
+    The starting offset of the result set returned
+    """
+    start: Int
+
+    """
+    The maximum number of Roles to be returned in the result set
+    """
+    count: Int
+
+    """
+    Optional search query
+    """
+    query: String
+}
+
+"""
+The result obtained when listing Posts
+"""
+type ListPostsResult {
+    """
+    The starting offset of the result set returned
+    """
+    start: Int!
+
+    """
+    The number of Roles in the returned result set
+    """
+    count: Int!
+
+    """
+    The total number of Roles in the result set
+    """
+    total: Int!
+
+    """
+    The Posts themselves
+    """
+    posts: [Post!]!
+}
+
+"""
+Input provided when creating a Post
+"""
+type Post implements Entity {
+    """
+    The primary key of the Post
+    """
+    urn: String!
+
+    """
+    The standard Entity Type
+    """
+    type: EntityType!
+
+    """
+    Granular API for querying edges extending from the Post
+    """
+    relationships(input: RelationshipsInput!): EntityRelationshipsResult
+
+    """
+    The type of post
+    """
+    postType: PostType!
+
+    """
+    The content of the post
+    """
+    content: PostContent!
+
+    """
+    When the post was last modified
+    """
+    lastModified: AuditStamp!
+}
+
+"""
+Post content
+"""
+type PostContent {
+    """
+    The type of post content
+    """
+    contentType: PostContentType!
+
+    """
+    The title of the post
+    """
+    title: String!
+
+    """
+    Optional content of the post
+    """
+    description: String
+
+    """
+    Optional link that the post is associated with
+    """
+    link: String
+
+    """
+    Optional media contained in the post
+    """
+    media: Media
+}
+
+"""
+Media content
+"""
+type Media {
+    """
+    The type of media
+    """
+    type: MediaType!
+
+    """
+    The location of the media (a URL)
+    """
+    location: String!
 }
