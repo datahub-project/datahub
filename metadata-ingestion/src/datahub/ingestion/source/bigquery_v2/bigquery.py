@@ -72,11 +72,13 @@ from datahub.metadata.com.linkedin.pegasus2avro.dataset import (
     ViewProperties,
 )
 from datahub.metadata.com.linkedin.pegasus2avro.schema import (
+    ArrayType,
     BooleanType,
     BytesType,
     MySqlDDL,
     NullType,
     NumberType,
+    RecordType,
     SchemaField,
     SchemaFieldDataType,
     SchemaMetadata,
@@ -87,6 +89,10 @@ from datahub.metadata.schema_classes import (
     DataPlatformInstanceClass,
     GlobalTagsClass,
     TagAssociationClass,
+)
+from datahub.utilities.hive_schema_to_avro import (
+    HiveColumnToAvroConverter,
+    get_schema_fields_for_hive_column,
 )
 from datahub.utilities.mapping import Constants
 from datahub.utilities.perf_timer import PerfTimer
@@ -130,7 +136,18 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
     # https://cloud.google.com/bigquery/docs/reference/standard-sql/data-types
     BIGQUERY_FIELD_TYPE_MAPPINGS: Dict[
         str,
-        Type[Union[BytesType, BooleanType, NumberType, StringType, TimeType, NullType]],
+        Type[
+            Union[
+                ArrayType,
+                BytesType,
+                BooleanType,
+                NumberType,
+                RecordType,
+                StringType,
+                TimeType,
+                NullType,
+            ]
+        ],
     ] = {
         "BYTES": BytesType,
         "BOOL": BooleanType,
@@ -154,6 +171,8 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
         "GEOGRAPHY": NullType,
         "JSON": NullType,
         "INTERVAL": NullType,
+        "ARRAY": ArrayType,
+        "STRUCT": RecordType,
     }
 
     def __init__(self, ctx: PipelineContext, config: BigQueryV2Config):
@@ -423,11 +442,8 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
             if not self.config.project_id_pattern.allowed(project_id.id):
                 self.report.report_dropped(project_id.id)
                 continue
-
+            logger.info(f"Processing project: {project_id.id}")
             yield from self._process_project(conn, project_id)
-
-        if self.config.include_usage_statistics:
-            yield from self.usage_extractor.get_workunits()
 
         if self.config.profiling.enabled:
             yield from self.profiler.get_workunits(self.db_tables)
@@ -450,7 +466,6 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
             yield wu
 
         try:
-
             bigquery_project.datasets = (
                 BigQueryDataDictionary.get_datasets_for_project_id(conn, project_id)
             )
@@ -474,7 +489,27 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
                 continue
 
         if self.config.include_usage_statistics:
-            yield from self.usage_extractor.generate_usage_for_project(project_id)
+            logger.info(f"Generate usage for {project_id}")
+            tables: Dict[str, List[str]] = {}
+
+            for dataset in self.db_tables[project_id]:
+                tables[dataset] = [
+                    table.name for table in self.db_tables[project_id][dataset]
+                ]
+
+            for dataset in self.db_views[project_id]:
+                if not tables[dataset]:
+                    tables[dataset] = [
+                        table.name for table in self.db_views[project_id][dataset]
+                    ]
+                else:
+                    tables[dataset].extend(
+                        [table.name for table in self.db_views[project_id][dataset]]
+                    )
+
+            yield from self.usage_extractor.generate_usage_for_project(
+                project_id, tables
+            )
 
     def _process_schema(
         self, conn: bigquery.Client, project_id: str, bigquery_dataset: BigqueryDataset
@@ -520,6 +555,8 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
             return
 
         table.columns = self.get_columns_for_table(conn, table_identifier)
+        if not table.columns:
+            logger.warning(f"Unable to get columns for table: {table_identifier}")
 
         lineage_info: Optional[Tuple[UpstreamLineage, Dict[str, str]]] = None
 
@@ -705,7 +742,7 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
             self.report.report_workunit(wu)
 
         dataset_properties = DatasetProperties(
-            name=str(datahub_dataset_name),
+            name=datahub_dataset_name.get_table_display_name(),
             description=table.comment,
             qualifiedName=str(datahub_dataset_name),
             customProperties={**upstream_column_props},
@@ -768,20 +805,35 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
         )
         return dataset_urn
 
-    def gen_schema_metadata(
-        self,
-        dataset_urn: str,
-        table: Union[BigqueryTable, BigqueryView],
-        dataset_name: str,
-    ) -> MetadataWorkUnit:
-        schema_metadata = SchemaMetadata(
-            schemaName=dataset_name,
-            platform=make_data_platform_urn(self.platform),
-            version=0,
-            hash="",
-            platformSchema=MySqlDDL(tableSchema=""),
-            fields=[
-                SchemaField(
+    def gen_schema_fields(self, columns: List[BigqueryColumn]) -> List[SchemaField]:
+        schema_fields: List[SchemaField] = []
+
+        HiveColumnToAvroConverter._STRUCT_TYPE_SEPARATOR = " "
+        _COMPLEX_TYPE = re.compile("^(struct|array)")
+        last_id = -1
+        for col in columns:
+
+            if _COMPLEX_TYPE.match(col.data_type.lower()):
+                # If the we have seen the ordinal position that most probably means we already processed this complex type
+                if last_id != col.ordinal_position:
+                    schema_fields.extend(
+                        get_schema_fields_for_hive_column(
+                            col.name, col.data_type.lower(), description=col.comment
+                        )
+                    )
+
+                # We have to add complex type comments to the correct level
+                if col.comment:
+                    for idx, field in enumerate(schema_fields):
+                        # Remove all the [version=2.0].[type=struct]. tags to get the field path
+                        if (
+                            re.sub(r"\[.*?\]\.", "", field.fieldPath, 0, re.MULTILINE)
+                            == col.field_path
+                        ):
+                            field.description = col.comment
+                            schema_fields[idx] = field
+            else:
+                field = SchemaField(
                     fieldPath=col.name,
                     type=SchemaFieldDataType(
                         self.BIGQUERY_FIELD_TYPE_MAPPINGS.get(col.data_type, NullType)()
@@ -800,8 +852,24 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
                     if col.is_partition_column
                     else GlobalTagsClass(tags=[]),
                 )
-                for col in table.columns
-            ],
+                schema_fields.append(field)
+            last_id = col.ordinal_position
+        return schema_fields
+
+    def gen_schema_metadata(
+        self,
+        dataset_urn: str,
+        table: Union[BigqueryTable, BigqueryView],
+        dataset_name: str,
+    ) -> MetadataWorkUnit:
+
+        schema_metadata = SchemaMetadata(
+            schemaName=dataset_name,
+            platform=make_data_platform_urn(self.platform),
+            version=0,
+            hash="",
+            platformSchema=MySqlDDL(tableSchema=""),
+            fields=self.gen_schema_fields(table.columns),
         )
         wu = wrap_aspect_as_workunit(
             "dataset", dataset_urn, "schemaMetadata", schema_metadata
@@ -981,6 +1049,9 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
         # get all columns for schema failed,
         # falling back to get columns for table
         if not columns:
+            logger.warning(
+                f"Couldn't get columns on the dataset level for {table_identifier}. Trying to get on table level..."
+            )
             return BigQueryDataDictionary.get_columns_for_table(conn, table_identifier)
 
         # Access to table but none of its columns - is this possible ?

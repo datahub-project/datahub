@@ -41,6 +41,8 @@ import com.linkedin.metadata.aspect.VersionedAspect;
 import com.linkedin.metadata.entity.ebean.EbeanAspectV2;
 import com.linkedin.metadata.entity.restoreindices.RestoreIndicesArgs;
 import com.linkedin.metadata.entity.restoreindices.RestoreIndicesResult;
+import com.linkedin.metadata.entity.retention.BulkApplyRetentionArgs;
+import com.linkedin.metadata.entity.retention.BulkApplyRetentionResult;
 import com.linkedin.metadata.entity.validation.EntityRegistryUrnValidator;
 import com.linkedin.metadata.entity.validation.RecordTemplateValidator;
 import com.linkedin.metadata.entity.validation.ValidationUtils;
@@ -828,17 +830,17 @@ private Map<Urn, List<EnvelopedAspect>> getCorrespondingAspects(Set<EntityAspect
      *
      * @param mcp the proposal to ingest
      * @param auditStamp an audit stamp representing the time and actor proposing the change
+     * @param async a flag to control whether we commit to primary store or just write to proposal log before returning
      * @return an {@link IngestProposalResult} containing the results
      */
   public IngestProposalResult ingestProposal(@Nonnull MetadataChangeProposal mcp,
-      AuditStamp auditStamp) {
+      AuditStamp auditStamp, final boolean async) {
 
     log.debug("entity type = {}", mcp.getEntityType());
     EntitySpec entitySpec = getEntityRegistry().getEntitySpec(mcp.getEntityType());
     log.debug("entity spec = {}", entitySpec);
 
     Urn entityUrn = EntityKeyUtils.getUrnFromProposal(mcp, entitySpec.getKeyAspectSpec());
-
 
     AspectSpec aspectSpec = validateAspect(mcp, entitySpec);
 
@@ -847,7 +849,6 @@ private Map<Urn, List<EnvelopedAspect>> getCorrespondingAspects(Set<EntityAspect
     if (!isValidChangeType(mcp.getChangeType(), aspectSpec)) {
       throw new UnsupportedOperationException("ChangeType not supported: " + mcp.getChangeType() + " for aspect " + mcp.getAspectName());
     }
-
 
     SystemMetadata systemMetadata = generateSystemMetadataIfEmpty(mcp.getSystemMetadata());
     systemMetadata.setRegistryName(aspectSpec.getRegistryName());
@@ -859,29 +860,38 @@ private Map<Urn, List<EnvelopedAspect>> getCorrespondingAspects(Set<EntityAspect
     SystemMetadata newSystemMetadata = null;
 
     if (!aspectSpec.isTimeseries()) {
-      UpdateAspectResult result = null;
-      switch (mcp.getChangeType()) {
-        case UPSERT:
-          result = performUpsert(mcp, aspectSpec, systemMetadata, entityUrn, auditStamp);
-          break;
-        case PATCH:
-          result = performPatch(mcp, aspectSpec, systemMetadata, entityUrn, auditStamp);
-          break;
-        default:
-          // Should never reach since we throw error above
-          throw new UnsupportedOperationException("ChangeType not supported: " + mcp.getChangeType());
+      if (!async) {
+        // When async mode is turned off, we write to primary store for non timeseries aspects
+        UpdateAspectResult result = null;
+        switch (mcp.getChangeType()) {
+          case UPSERT:
+            result = performUpsert(mcp, aspectSpec, systemMetadata, entityUrn, auditStamp);
+            break;
+          case PATCH:
+            result = performPatch(mcp, aspectSpec, systemMetadata, entityUrn, auditStamp);
+            break;
+          default:
+            // Should never reach since we throw error above
+            throw new UnsupportedOperationException("ChangeType not supported: " + mcp.getChangeType());
+        }
+        oldAspect = result != null ? result.getOldValue() : null;
+        oldSystemMetadata = result != null ? result.getOldSystemMetadata() : null;
+        newAspect = result != null ? result.getNewValue() : null;
+        newSystemMetadata = result != null ? result.getNewSystemMetadata() : null;
+      } else {
+        // When async is turned on, we write to proposal log and return without waiting
+        _producer.produceMetadataChangeProposal(mcp);
+        return new IngestProposalResult(mcp.getEntityUrn(), false);
       }
-      oldAspect = result != null ? result.getOldValue() : null;
-      oldSystemMetadata = result != null ? result.getOldSystemMetadata() : null;
-      newAspect = result != null ? result.getNewValue() : null;
-      newSystemMetadata = result != null ? result.getNewSystemMetadata() : null;
-    } else {
+  } else {
       // For timeseries aspects
       newAspect = convertToRecordTemplate(mcp, aspectSpec);
       newSystemMetadata = mcp.getSystemMetadata();
     }
 
-    boolean didUpdate = emitChangeLog(oldAspect, oldSystemMetadata, newAspect, newSystemMetadata, mcp, entityUrn, auditStamp, aspectSpec);
+    boolean didUpdate =
+        emitChangeLog(oldAspect, oldSystemMetadata, newAspect, newSystemMetadata, mcp, entityUrn, auditStamp,
+            aspectSpec);
 
     return new IngestProposalResult(entityUrn, didUpdate);
   }
@@ -984,6 +994,27 @@ private Map<Urn, List<EnvelopedAspect>> getCorrespondingAspects(Set<EntityAspect
           Optional.of(new RetentionService.RetentionContext(Optional.of(result.maxVersion))));
     }
     return result;
+  }
+
+  public String batchApplyRetention(Integer start, Integer count, Integer attemptWithVersion, String aspectName,
+                                    String urn) {
+    BulkApplyRetentionArgs args = new BulkApplyRetentionArgs();
+    if (start == null) {
+      start = 0;
+    }
+    args.start = start;
+    if (count == null) {
+      count = 100;
+    }
+    args.count = count;
+    if (attemptWithVersion == null) {
+      attemptWithVersion = 21;
+    }
+    args.attemptWithVersion = attemptWithVersion;
+    args.aspectName = aspectName;
+    args.urn = urn;
+    BulkApplyRetentionResult result = _retentionService.batchApplyRetentionEntities(args);
+    return result.toString();
   }
 
   private boolean emitChangeLog(@Nullable RecordTemplate oldAspect, @Nullable SystemMetadata oldSystemMetadata,
@@ -1686,7 +1717,7 @@ private Map<Urn, List<EnvelopedAspect>> getCorrespondingAspects(Set<EntityAspect
             gmce.setAspect(GenericRecordUtils.serializeAspect(statusAspect));
             final AuditStamp auditStamp = new AuditStamp().setActor(UrnUtils.getUrn(Constants.SYSTEM_ACTOR)).setTime(System.currentTimeMillis());
 
-            this.ingestProposal(gmce, auditStamp);
+            this.ingestProposal(gmce, auditStamp, false);
           }
         } else {
           // Else, only delete the specific aspect.

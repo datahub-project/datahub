@@ -12,10 +12,11 @@ from datahub.ingestion.source.bigquery_v2.bigquery_audit import BigqueryTableIde
 logger: logging.Logger = logging.getLogger(__name__)
 
 
-@dataclass
+@dataclass(frozen=True, eq=True)
 class BigqueryColumn:
     name: str
     ordinal_position: int
+    field_path: str
     is_nullable: bool
     is_partition_column: bool
     data_type: str
@@ -56,10 +57,10 @@ class BigqueryView:
 @dataclass
 class BigqueryDataset:
     name: str
-    created: datetime
-    last_altered: Optional[datetime]
-    location: str
-    comment: str
+    created: Optional[datetime] = None
+    last_altered: Optional[datetime] = None
+    location: Optional[str] = None
+    comment: Optional[str] = None
     tables: List[BigqueryTable] = field(default_factory=list)
     views: List[BigqueryView] = field(default_factory=list)
 
@@ -74,7 +75,7 @@ class BigqueryProject:
 class BigqueryQuery:
 
     show_datasets: str = (
-        "select schema_name from {project_id}.INFORMATION_SCHEMA.SCHEMATA"
+        "select schema_name from `{project_id}`.INFORMATION_SCHEMA.SCHEMATA"
     )
 
     datasets_for_project_id: str = """
@@ -86,8 +87,8 @@ select
   s.LAST_MODIFIED_TIME as last_altered,
   o.OPTION_VALUE as comment
 from
-  {project_id}.INFORMATION_SCHEMA.SCHEMATA as s
-  left join {project_id}.INFORMATION_SCHEMA.SCHEMATA_OPTIONS as o on o.schema_name = s.schema_name
+  `{project_id}`.INFORMATION_SCHEMA.SCHEMATA as s
+  left join `{project_id}`.INFORMATION_SCHEMA.SCHEMATA_OPTIONS as o on o.schema_name = s.schema_name
   and o.option_name = "description"
 order by
   s.schema_name
@@ -115,9 +116,9 @@ SELECT
   REGEXP_REPLACE(t.table_name, r"_(\\d+)$", "") as table_base
 
 FROM
-  `{project_id}`.{dataset_name}.INFORMATION_SCHEMA.TABLES t
-  join `{project_id}`.{dataset_name}.__TABLES__ as ts on ts.table_id = t.TABLE_NAME
-  left join `{project_id}`.{dataset_name}.INFORMATION_SCHEMA.TABLE_OPTIONS as tos on t.table_schema = tos.table_schema
+  `{project_id}`.`{dataset_name}`.INFORMATION_SCHEMA.TABLES t
+  join `{project_id}`.`{dataset_name}`.__TABLES__ as ts on ts.table_id = t.TABLE_NAME
+  left join `{project_id}`.`{dataset_name}`.INFORMATION_SCHEMA.TABLE_OPTIONS as tos on t.table_schema = tos.table_schema
   and t.TABLE_NAME = tos.TABLE_NAME
   and tos.OPTION_NAME = "description"
   left join (
@@ -129,7 +130,7 @@ FROM
         sum(case when storage_tier = 'LONG_TERM' then total_billable_bytes else 0 end) as long_term_billable_bytes,
         sum(case when storage_tier = 'ACTIVE' then total_billable_bytes else 0 end) as active_billable_bytes,
     from
-        `{project_id}`.{dataset_name}.INFORMATION_SCHEMA.PARTITIONS
+        `{project_id}`.`{dataset_name}`.INFORMATION_SCHEMA.PARTITIONS
     group by
         table_name) as p on
     t.table_name = p.table_name
@@ -156,9 +157,9 @@ SELECT
   row_count,
   size_bytes
 FROM
-  `{project_id}`.{dataset_name}.INFORMATION_SCHEMA.TABLES t
-  join `{project_id}`.{dataset_name}.__TABLES__ as ts on ts.table_id = t.TABLE_NAME
-  left join `{project_id}`.{dataset_name}.INFORMATION_SCHEMA.TABLE_OPTIONS as tos on t.table_schema = tos.table_schema
+  `{project_id}`.`{dataset_name}`.INFORMATION_SCHEMA.TABLES t
+  join `{project_id}`.`{dataset_name}`.__TABLES__ as ts on ts.table_id = t.TABLE_NAME
+  left join `{project_id}`.`{dataset_name}`.INFORMATION_SCHEMA.TABLE_OPTIONS as tos on t.table_schema = tos.table_schema
   and t.TABLE_NAME = tos.TABLE_NAME
   and tos.OPTION_NAME = "description"
 WHERE
@@ -175,6 +176,7 @@ select
   c.table_name as table_name,
   c.column_name as column_name,
   c.ordinal_position as ordinal_position,
+  cfp.field_path as field_path,
   c.is_nullable as is_nullable,
   c.data_type as data_type,
   description as comment,
@@ -194,14 +196,15 @@ select
   c.table_name as table_name,
   c.column_name as column_name,
   c.ordinal_position as ordinal_position,
+  cfp.field_path as field_path,
   c.is_nullable as is_nullable,
   c.data_type as data_type,
   c.is_hidden as is_hidden,
   c.is_partitioning_column as is_partitioning_column,
   description as comment
 from
-  `{table_identifier.project_id}`.{table_identifier.dataset}.INFORMATION_SCHEMA.COLUMNS as c
-  join `{table_identifier.project_id}`.{table_identifier.dataset}.INFORMATION_SCHEMA.COLUMN_FIELD_PATHS as cfp on cfp.table_name = c.table_name
+  `{table_identifier.project_id}`.`{table_identifier.dataset}`.INFORMATION_SCHEMA.COLUMNS as c
+  join `{table_identifier.project_id}`.`{table_identifier.dataset}`.INFORMATION_SCHEMA.COLUMN_FIELD_PATHS as cfp on cfp.table_name = c.table_name
   and cfp.column_name = c.column_name
 where
   c.table_name = '{table_identifier.table}'
@@ -226,6 +229,14 @@ class BigQueryDataDictionary:
 
     @staticmethod
     def get_datasets_for_project_id(
+        conn: bigquery.Client, project_id: str
+    ) -> List[BigqueryDataset]:
+        datasets = conn.list_datasets(project_id)
+
+        return [BigqueryDataset(name=d.dataset_id) for d in datasets]
+
+    @staticmethod
+    def get_datasets_for_project_id_with_information_schema(
         conn: bigquery.Client, project_id: str
     ) -> List[BigqueryDataset]:
 
@@ -347,6 +358,7 @@ class BigQueryDataDictionary:
                 BigqueryColumn(
                     name=column.column_name,
                     ordinal_position=column.ordinal_position,
+                    field_path=column.field_path,
                     is_nullable=column.is_nullable == "YES",
                     data_type=column.data_type,
                     comment=column.comment,
@@ -371,6 +383,7 @@ class BigQueryDataDictionary:
                 name=column.column_name,
                 ordinal_position=column.ordinal_position,
                 is_nullable=column.is_nullable == "YES",
+                field_path=column.field_path,
                 data_type=column.data_type,
                 comment=column.comment,
                 is_partition_column=column.is_partitioning_column == "YES",
