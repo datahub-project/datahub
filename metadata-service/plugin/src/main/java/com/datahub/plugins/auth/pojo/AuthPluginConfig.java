@@ -7,11 +7,13 @@ import java.nio.file.Path;
 import java.util.Map;
 import java.util.Optional;
 import lombok.Data;
+import lombok.EqualsAndHashCode;
 import lombok.NoArgsConstructor;
 
 
 @Data
 @NoArgsConstructor
+@EqualsAndHashCode(callSuper=false)
 public class AuthPluginConfig extends PluginConfigImpl implements PluginConfigWithJar {
   private Path pluginHomeDirectory;
   private Path pluginJarPath;

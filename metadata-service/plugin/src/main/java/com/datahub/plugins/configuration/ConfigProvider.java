@@ -9,7 +9,7 @@ import lombok.extern.slf4j.Slf4j;
 
 @Slf4j
 public class ConfigProvider {
-  public static final String CONFIG_FILE_NAME = "config.yaml";
+  public static final String CONFIG_FILE_NAME = "config.yml";
 
   /**
    * Yaml file path of plugin configuration file. Content of this file should match with {@link Config}
