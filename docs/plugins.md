@@ -1,5 +1,5 @@
 # Plugins Guide
-Plugins are a way to enhance the basic DataHub functionality in a custom manner.
+Plugins are way to enhance the basic DataHub functionality in a custom manner.
 
 The listed functionalities of DataHub can be customized.
 
@@ -50,8 +50,8 @@ Follow below steps to implement a custom authenticator
          exclude "com/datahub/plugins/", "META-INF/*.RSA", "META-INF/*.SF","META-INF/*.DSA"
      }
    ```
-4. Refer section (Plugin Installation)[#plugin_installation] for plugin installation in DataHub environment
-5. Refer section (Plugin Permissions)[#plugin_permissions] for permissions a plugin has while executing in DataHub environment
+4. Refer section [Plugin Installation](#plugin-installation) for plugin installation in DataHub environment
+5. Refer section [Plugin Permissions](#plugin-permissions) for permissions a plugin has while executing in DataHub environment
 
 
 ## Authorization
@@ -101,15 +101,19 @@ DataHub's GMS Service searches for the plugins in container's local directory at
 For docker, we set docker-compose to mount ${HOME}/.datahub directory to /etc/datahub directory within the GMS containers. For kubernetes you need to mount a volume at /etc/datahub.
 
 Follow below steps to install plugins:
+
 Lets consider you have created an uber jar for authorizer plugin and jar name is apache-ranger-authorizer.jar and class com.abc.RangerAuthorizer has implemented the [Authorizer](../metadata-auth/auth-api/src/main/java/com/datahub/plugins/auth/authorization/Authorizer.java) interface.
-1. Create a plugin configuration file: Create a `config.yml` file at `${HOME}/.datahub/plugins/auth/`. For more detail on this configuration refer [Config Detail](#config-detail) section
+
+1. Create a plugin configuration file: Create a `config.yml` file at `${HOME}/.datahub/plugins/auth/`. For more detail on configuration refer [Config Detail](#config-detail) section
 2. Create a plugin directory: Create plugin directory as `apache-ranger-authorizer`, this directory will be referred as `plugin-home` hereafter
+
    ```shell
-      mkdir -p ${HOME}/.datahub/plugins/auth/apache-ranger-authorizer
+    mkdir -p ${HOME}/.datahub/plugins/auth/apache-ranger-authorizer
    ```
 3. Copy plugin jar to `plugin-home`: Copy `apache-ranger-authorizer.jar` to `plugin-home`
+
    ```shell
-      copy apache-ranger-authorizer.jar ${HOME}/.datahub/plugins/auth/apache-ranger-authorizer
+    copy apache-ranger-authorizer.jar ${HOME}/.datahub/plugins/auth/apache-ranger-authorizer
    ```
 4. Update plugin configuration file: Add below entry in `config.yml` file, consider plugin takes username and password as configuration
    ```yaml
@@ -127,8 +131,8 @@ Lets consider you have created an uber jar for authorizer plugin and jar name is
 5. Restart datahub-gms container: On startup DataHub GMS service performs below steps 
    1. Load `config.yml`
    2. Prepare list of plugin where `enabled` is set to `true`
-   3. Look for directory equivalent to plugin `name` in `plugin-base-directory`. In this case it is `/etc/datahub/plugns/auth/apache-ranger-authorizer/`, this directory will become `plugin-home` 
-   4. Look for `params.jarFileName` attribute otherwise look for jar having name as &lt;plugin-name&gt;.jar. In this case  it is `/etc/datahub/plugns/auth/apache-ranger-authorizer/apache-ranger-authorizer.jar`
+   3. Look for directory equivalent to plugin `name` in `plugin-base-directory`. In this case it is `/etc/datahub/plugins/auth/apache-ranger-authorizer/`, this directory will become `plugin-home` 
+   4. Look for `params.jarFileName` attribute otherwise look for jar having name as &lt;plugin-name&gt;.jar. In this case  it is `/etc/datahub/plugins/auth/apache-ranger-authorizer/apache-ranger-authorizer.jar`
    5. Load class given in plugin `params.className` attribute from the jar, here load class `com.abc.RangerAuthorizer` from `apache-ranger-authorizer.jar`
    6. Call `init` method of plugin
 
@@ -144,7 +148,7 @@ A sample `config.yml` can be found at [config.yml](../metadata-service/plugin/sr
 |------------------------------|----------|---------------------------------|---------------------------------|-----------------------------------------------------------------------------------------|
 | plugins[].name               | ✅        | string                          |                                 | name of the plugin                                                                      |
 | plugins[].type               | ✅        | enum[authenticator, authorizer] |                                 | type of plugin, possible values are authenticator or authorizer                         |
-| plugins[].enabled            | ✅        | boolean                         |                                 | whether this plugin is enabled or disabled. DataHub GMS wouln't process disabled plugin |  
+| plugins[].enabled            | ✅        | boolean                         |                                 | whether this plugin is enabled or disabled. DataHub GMS wouldn't process disabled plugin |  
 | plugins[].params.className   | ✅        | string                          |                                 | Authenticator or Authorizer implementation class' fully qualified class name            |  
 | plugins[].params.jarFileName |          | string                          | default to `plugins[].name`.jar | jar file name in `plugin-home`                                                          |  
 | plugins[].params.configs     |          | map<string,object>              | default to empty map            | Runtime configuration required for plugin                                               |  
@@ -156,7 +160,7 @@ By default authentication is disabled in DataHub GMS.
 
 Follow below steps to enable GMS authentication
 1. Download docker-compose.quickstart.yml: Download docker compose file [docker-compose.quickstart.yml](../docker/quickstart/docker-compose.quickstart.yml)
-2. Set environment variable: Set `METADATA_SERVICE_AUTH_ENABLED`environment variable to `true` 
+2. Set environment variable: Set `METADATA_SERVICE_AUTH_ENABLED` environment variable to `true` 
 3. Redeploy DataHub GMS: Below is quickstart command to redeploy DataHub GMS 
    ```shell
    datahub docker quickstart -f docker-compose.quickstart.yml
@@ -164,8 +168,8 @@ Follow below steps to enable GMS authentication
 
 ## Plugin Permissions 
 Adhere to below plugin access control to keep your plugin forward compatible.
-* Plugin should read/write file to and from `plugin-home` directory only. Refer (Plugin Permissions)[#plugin_permissions] step2 for `plugin-home` definition
-* Plugin should connect to port 80 or 443 or port higher than 1024 only
+* Plugin should read/write file to and from `plugin-home` directory only. Refer [Plugin Installation](#plugin-installation) step2 for `plugin-home` definition
+* Plugin should access port 80 or 443 or port higher than 1024
 
 All other access are forbidden for the plugin.
 
