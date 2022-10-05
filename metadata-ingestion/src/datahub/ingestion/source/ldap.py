@@ -16,7 +16,6 @@ from datahub.ingestion.source.state.stale_entity_removal_handler import (
 import ldap
 from ldap.controls import SimplePagedResultsControl
 from pydantic.fields import Field
-import logging
 from datahub.configuration.common import ConfigurationError
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.decorators import (
@@ -25,7 +24,6 @@ from datahub.ingestion.api.decorators import (
     platform_name,
     support_status,
 )
-from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.metadata.com.linkedin.pegasus2avro.common import StatusClass
 from datahub.metadata.com.linkedin.pegasus2avro.mxe import MetadataChangeEvent
@@ -73,8 +71,6 @@ group_attrs_map["admins"] = "owner"
 group_attrs_map["members"] = "uniqueMember"
 group_attrs_map["displayName"] = "name"
 group_attrs_map["description"] = "info"
-
-logger: logging.Logger = logging.getLogger(__name__)
 
 def create_controls(pagesize: int) -> SimplePagedResultsControl:
     """
