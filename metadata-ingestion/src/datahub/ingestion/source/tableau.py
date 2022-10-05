@@ -7,7 +7,7 @@ from typing import Any, Dict, Iterable, List, Optional, Tuple, Union
 
 import dateutil.parser as dp
 import tableauserverclient as TSC
-from pydantic import root_validator, validator
+from pydantic import validator
 from pydantic.fields import Field
 from tableauserverclient import (
     PersonalAccessTokenAuth,
@@ -17,7 +17,7 @@ from tableauserverclient import (
 )
 
 import datahub.emitter.mce_builder as builder
-from datahub.configuration.common import ConfigurationError
+from datahub.configuration.common import ConfigModel, ConfigurationError
 from datahub.configuration.source_common import DatasetLineageProviderConfigBase
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.emitter.mcp_builder import (
@@ -96,7 +96,7 @@ logger: logging.Logger = logging.getLogger(__name__)
 REPLACE_SLASH_CHAR = "|"
 
 
-class TableauConfig(DatasetLineageProviderConfigBase):
+class TableauConnectionConfig(ConfigModel):
     connect_uri: str = Field(description="Tableau host URL.")
     username: Optional[str] = Field(
         default=None,
@@ -117,9 +117,44 @@ class TableauConfig(DatasetLineageProviderConfigBase):
 
     site: str = Field(
         default="",
-        description="Tableau Site. Always required for Tableau Online. Use emptystring "
-        " to connect with Default site on Tableau Server.",
+        description="Tableau Site. Always required for Tableau Online. Use emptystring to connect with Default site on Tableau Server.",
     )
+
+    @validator("connect_uri")
+    def remove_trailing_slash(cls, v):
+        return config_clean.remove_trailing_slashes(v)
+
+    def make_tableau_client(self) -> Server:
+        # https://tableau.github.io/server-client-python/docs/api-ref#authentication
+        authentication: Union[TableauAuth, PersonalAccessTokenAuth]
+        if self.username and self.password:
+            authentication = TableauAuth(
+                username=self.username,
+                password=self.password,
+                site_id=self.site,
+            )
+        elif self.token_name and self.token_value:
+            authentication = PersonalAccessTokenAuth(
+                self.token_name, self.token_value, self.site
+            )
+        else:
+            raise ConfigurationError(
+                "Tableau Source: Either username/password or token_name/token_value must be set"
+            )
+
+        try:
+            server = Server(self.connect_uri, use_server_version=True)
+            server.auth.sign_in(authentication)
+            return server
+        except ServerResponseError as e:
+            raise ValueError(
+                f"Unable to login with credentials provided: {str(e)}"
+            ) from e
+        except Exception as e:
+            raise ValueError(f"Unable to login: {str(e)}") from e
+
+
+class TableauConfig(DatasetLineageProviderConfigBase, TableauConnectionConfig):
     projects: Optional[List[str]] = Field(
         default=["default"], description="List of projects"
     )
@@ -158,21 +193,6 @@ class TableauConfig(DatasetLineageProviderConfigBase):
         default=False,
         description="[experimental] Extract usage statistics for dashboards and charts.",
     )
-
-    @validator("connect_uri")
-    def remove_trailing_slash(cls, v):
-        return config_clean.remove_trailing_slashes(v)
-
-    @root_validator()
-    def show_warning_for_deprecated_config_field(
-        cls, values: Dict[str, Any]
-    ) -> Dict[str, Any]:
-        if values.get("workbooks_page_size") is not None:
-            logger.warn(
-                "Config workbooks_page_size is deprecated. Please use config page_size instead."
-            )
-
-        return values
 
 
 class WorkbookKey(PlatformKey):
@@ -253,36 +273,13 @@ class TableauSource(Source):
         logger.debug("Tableau stats %s", self.tableau_stat_registry)
 
     def _authenticate(self):
-        # https://tableau.github.io/server-client-python/docs/api-ref#authentication
-        authentication: Optional[Union[TableauAuth, PersonalAccessTokenAuth]] = None
-        if self.config.username and self.config.password:
-            authentication = TableauAuth(
-                username=self.config.username,
-                password=self.config.password,
-                site_id=self.config.site,
-            )
-        elif self.config.token_name and self.config.token_value:
-            authentication = PersonalAccessTokenAuth(
-                self.config.token_name, self.config.token_value, self.config.site
-            )
-        else:
-            raise ConfigurationError(
-                "Tableau Source: Either username/password or token_name/token_value must be set"
-            )
-
         try:
-            self.server = Server(self.config.connect_uri, use_server_version=True)
-            self.server.auth.sign_in(authentication)
-        except ServerResponseError as e:
-            logger.error(e)
+            self.server = self.config.make_tableau_client()
+        # Note that we're not catching ConfigurationError, since we want that to throw.
+        except ValueError as e:
             self.report.report_failure(
                 key="tableau-login",
-                reason=f"Unable to Login with credentials provided" f"Reason: {str(e)}",
-            )
-        except Exception as e:
-            logger.error(e)
-            self.report.report_failure(
-                key="tableau-login", reason=f"Unable to Login" f"Reason: {str(e)}"
+                reason=str(e),
             )
 
     def get_connection_object_page(
