@@ -1,13 +1,23 @@
 """LDAP Source"""
 import dataclasses
 import re
-from typing import Any, Dict, Iterable, List, Optional
+from typing import Any, Dict, Iterable, List, Optional, cast
+import pydantic
+from datahub.ingestion.source.state.ldap_state import (
+    BaseLdapCheckpointState,
+)
+
+from datahub.ingestion.source.state.stale_entity_removal_handler import (
+    StaleEntityRemovalHandler,
+    StaleEntityRemovalSourceReport,
+    StatefulStaleMetadataRemovalConfig,
+)
 
 import ldap
 from ldap.controls import SimplePagedResultsControl
 from pydantic.fields import Field
-
-from datahub.configuration.common import ConfigModel, ConfigurationError
+import logging
+from datahub.configuration.common import ConfigurationError
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.decorators import (
     SupportStatus,
@@ -15,8 +25,9 @@ from datahub.ingestion.api.decorators import (
     platform_name,
     support_status,
 )
-from datahub.ingestion.api.source import Source, SourceReport
+from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.workunit import MetadataWorkUnit
+from datahub.metadata.com.linkedin.pegasus2avro.common import StatusClass
 from datahub.metadata.com.linkedin.pegasus2avro.mxe import MetadataChangeEvent
 from datahub.metadata.schema_classes import (
     CorpGroupInfoClass,
@@ -24,7 +35,16 @@ from datahub.metadata.schema_classes import (
     CorpUserInfoClass,
     CorpUserSnapshotClass,
     GroupMembershipClass,
+    ChangeTypeClass,
 )
+
+# stateful ingestion
+from datahub.ingestion.source.state.stateful_ingestion_base import (
+    StatefulIngestionConfigBase,
+    StatefulIngestionSourceBase,
+)
+
+from datahub.ingestion.source.state.stale_entity_removal_handler import StaleEntityRemovalSourceReport
 
 # default mapping for attrs
 user_attrs_map: Dict[str, Any] = {}
@@ -54,6 +74,7 @@ group_attrs_map["members"] = "uniqueMember"
 group_attrs_map["displayName"] = "name"
 group_attrs_map["description"] = "info"
 
+logger: logging.Logger = logging.getLogger(__name__)
 
 def create_controls(pagesize: int) -> SimplePagedResultsControl:
     """
@@ -85,14 +106,25 @@ def set_cookie(
     lc_object.cookie = cookie
     return bool(cookie)
 
+class LdapSourceStatefulIngestionConfig(StatefulStaleMetadataRemovalConfig):
+    """
+    Specialization of StatefulStaleMetadataRemovalConfig to adding custom config.
+    This will be used to override the stateful_ingestion config param of StatefulIngestionConfigBase
+    in the LdapSourceConfig.
+    """
+    _entity_types: List[str] = pydantic.Field(default=["corpuser"])
 
-class LDAPSourceConfig(ConfigModel):
+# added to implement a stateful_ingestion
+class LdapSourceConfig(StatefulIngestionConfigBase):
     """Config used by the LDAP Source."""
 
     # Server configuration.
     ldap_server: str = Field(description="LDAP server URL.")
     ldap_user: str = Field(description="LDAP user.")
     ldap_password: str = Field(description="LDAP password.")
+
+    # Custom Stateful Ingestion settings
+    stateful_ingestion: Optional[LdapSourceStatefulIngestionConfig] = None
 
     # Extraction configuration.
     base_dn: str = Field(description="LDAP DN.")
@@ -117,16 +149,14 @@ class LDAPSourceConfig(ConfigModel):
 
 
 @dataclasses.dataclass
-class LDAPSourceReport(SourceReport):
-
-    dropped_dns: List[str] = dataclasses.field(default_factory=list)
+class LdapSourceReport(StaleEntityRemovalSourceReport):
 
     def report_dropped(self, dn: str) -> None:
-        self.dropped_dns.append(dn)
+        self.report_stale_entity_soft_deleted(dn)
 
 
 def guess_person_ldap(
-    attrs: Dict[str, Any], config: LDAPSourceConfig, report: LDAPSourceReport
+    attrs: Dict[str, Any], config: LdapSourceConfig, report: LdapSourceReport
 ) -> Optional[str]:
     """Determine the user's LDAP based on the DN and attributes."""
     if config.user_attrs_map["urn"] in attrs:
@@ -148,10 +178,10 @@ def guess_person_ldap(
 
 
 @platform_name("LDAP")
-@config_class(LDAPSourceConfig)
+@config_class(LdapSourceConfig)
 @support_status(SupportStatus.CERTIFIED)
 @dataclasses.dataclass
-class LDAPSource(Source):
+class LdapSource(StatefulIngestionSourceBase):
     """
     This plugin extracts the following:
     - People
@@ -159,13 +189,23 @@ class LDAPSource(Source):
     - List of groups
     """
 
-    config: LDAPSourceConfig
-    report: LDAPSourceReport
+    config: LdapSourceConfig
+    report: LdapSourceReport
+    platform: str = "ldap"
 
-    def __init__(self, ctx: PipelineContext, config: LDAPSourceConfig):
+    def __init__(self, ctx: PipelineContext, config: LdapSourceConfig):
         """Constructor."""
-        super().__init__(ctx)
+        super(LdapSource, self).__init__(config, ctx)
         self.config = config
+
+        self.stale_entity_removal_handler = StaleEntityRemovalHandler(
+            source=self,
+            config=self.config,
+            state_type_class=BaseLdapCheckpointState,
+            pipeline_name=self.ctx.pipeline_name,
+            run_id=self.ctx.run_id,
+        )
+
         # ensure prior defaults are in place
         for k in user_attrs_map:
             if k not in self.config.user_attrs_map:
@@ -175,7 +215,7 @@ class LDAPSource(Source):
             if k not in self.config.group_attrs_map:
                 self.config.group_attrs_map[k] = group_attrs_map[k]
 
-        self.report = LDAPSourceReport()
+        self.report = LdapSourceReport()
 
         ldap.set_option(ldap.OPT_X_TLS_REQUIRE_CERT, ldap.OPT_X_TLS_ALLOW)
         ldap.set_option(ldap.OPT_REFERRALS, 0)
@@ -193,9 +233,9 @@ class LDAPSource(Source):
         self.lc = create_controls(self.config.page_size)
 
     @classmethod
-    def create(cls, config_dict: Dict[str, Any], ctx: PipelineContext) -> "LDAPSource":
+    def create(cls, config_dict: Dict[str, Any], ctx: PipelineContext) -> "LdapSource":
         """Factory method."""
-        config = LDAPSourceConfig.parse_obj(config_dict)
+        config = LdapSourceConfig.parse_obj(config_dict)
         return cls(ctx, config)
 
     def get_workunits(self) -> Iterable[MetadataWorkUnit]:
@@ -250,6 +290,15 @@ class LDAPSource(Source):
                 break
 
             cookie = set_cookie(self.lc, pctrls)
+            # Clean up stale entities at the end
+            yield from self.stale_entity_removal_handler.gen_removed_entity_workunits()
+
+    def get_platform_instance_id(self) -> str:
+        """
+        The source identifier such as the specific source host address required for stateful ingestion.
+        Individual subclasses need to override this method appropriately.
+        """
+        return self.config.ldap_server
 
     def handle_user(self, dn: str, attrs: Dict[str, Any]) -> Iterable[MetadataWorkUnit]:
         """
@@ -365,6 +414,11 @@ class LDAPSource(Source):
         if groups:
             user_snapshot.aspects.append(GroupMembershipClass(groups=groups))
 
+        self.stale_entity_removal_handler.add_entity_to_state(
+            type="corpuser",
+            urn=f"urn:li:corpuser:{ldap_user}"
+        )
+
         return MetadataChangeEvent(proposedSnapshot=user_snapshot)
 
     def build_corp_group_mce(self, attrs: dict) -> Optional[MetadataChangeEvent]:
@@ -406,13 +460,14 @@ class LDAPSource(Source):
             )
         return None
 
-    def get_report(self) -> LDAPSourceReport:
+    def get_report(self) -> LdapSourceReport:
         """Returns the source report."""
         return self.report
 
     def close(self) -> None:
         """Closes the Source."""
         self.ldap_client.unbind()
+        self.prepare_for_commit()
 
 
 def parse_from_attrs(attrs: Dict[str, Any], filter_key: str) -> List[str]:
