@@ -1,6 +1,10 @@
+import { SchemaField } from '../../../types.generated';
 import {
+    COLUMN_HEIGHT,
     CURVE_PADDING,
+    EXPAND_COLLAPSE_COLUMNS_TOGGLE_HEIGHT,
     HORIZONTAL_SPACE_PER_LAYER,
+    NUM_COLUMNS_PER_PAGE,
     VERTICAL_SPACE_BETWEEN_NODES,
     width as nodeWidth,
 } from '../constants';
@@ -155,6 +159,7 @@ interface DrawColumnEdgeProps {
     targetNode?: VizNode;
     currentNode?: VizNode;
     targetField: string;
+    targetFields: SchemaField[];
     targetTitleHeight: number;
     collapsedColumnsNodes: any;
     sourceFieldX: number;
@@ -163,12 +168,14 @@ interface DrawColumnEdgeProps {
     sourceField: string;
     entityUrn: string;
     targetUrn: string;
+    visibleColumnsByUrn: Record<string, Set<string>>;
 }
 
 function drawColumnEdge({
     targetNode,
     currentNode,
     targetField,
+    targetFields,
     targetTitleHeight,
     collapsedColumnsNodes,
     sourceFieldX,
@@ -177,14 +184,29 @@ function drawColumnEdge({
     sourceField,
     entityUrn,
     targetUrn,
+    visibleColumnsByUrn,
 }: DrawColumnEdgeProps) {
-    const targetFieldIndex =
-        targetNode?.data.schemaMetadata?.fields.findIndex((candidate) => candidate.fieldPath === targetField) || 0;
+    const targetFieldIndex = targetFields.findIndex((candidate) => candidate.fieldPath === targetField) || 0;
     const targetFieldY = targetNode?.y || 0 + 1;
-    let targetFieldX = (targetNode?.x || 0) + 30 + targetTitleHeight;
+    let targetFieldX = (targetNode?.x || 0) + 35 + targetTitleHeight;
     if (!collapsedColumnsNodes[targetNode?.data.urn || 'no-op']) {
-        targetFieldX = (targetNode?.x || 0) + targetTitleHeight + (targetFieldIndex + 1.2) * 30 + 1;
+        if (!visibleColumnsByUrn[targetUrn]?.has(targetField)) {
+            targetFieldX =
+                (targetNode?.x || 0) +
+                targetTitleHeight +
+                EXPAND_COLLAPSE_COLUMNS_TOGGLE_HEIGHT +
+                (NUM_COLUMNS_PER_PAGE + 1.2) * COLUMN_HEIGHT +
+                1;
+        } else {
+            targetFieldX =
+                (targetNode?.x || 0) +
+                targetTitleHeight +
+                EXPAND_COLLAPSE_COLUMNS_TOGGLE_HEIGHT +
+                ((targetFieldIndex % NUM_COLUMNS_PER_PAGE) + 1.2) * COLUMN_HEIGHT +
+                1;
+        }
     }
+
     if (currentNode && targetNode && sourceFieldX && sourceFieldY && targetFieldX && targetFieldY) {
         const curve = [
             {
@@ -234,6 +256,8 @@ function layoutColumnTree(
     expandTitles: boolean,
     collapsedColumnsNodes: any,
     edgesToRender: VizEdge[],
+    visibleColumnsByUrn: Record<string, Set<string>>,
+    columnsByUrn: Record<string, SchemaField[]>,
 ) {
     const forwardEdges = fineGrainedMap.forward;
     if (showColumns) {
@@ -243,10 +267,8 @@ function layoutColumnTree(
                 const fieldForwardEdges = fieldPathToEdges[sourceField];
 
                 const currentNode = nodesToRender.find((node) => node.data.urn === entityUrn);
-                const fieldIndex =
-                    currentNode?.data.schemaMetadata?.fields.findIndex(
-                        (candidate) => candidate.fieldPath === sourceField,
-                    ) || 0;
+                const fields = columnsByUrn[currentNode?.data.urn || ''] || [];
+                const fieldIndex = fields.findIndex((candidate) => candidate.fieldPath === sourceField) || 0;
 
                 const sourceTitleHeight = getTitleHeight(
                     expandTitles ? currentNode?.data.expandedName || currentNode?.data.name : undefined,
@@ -255,29 +277,53 @@ function layoutColumnTree(
                 const sourceFieldY = currentNode?.y || 0 + 1;
                 let sourceFieldX = (currentNode?.x || 0) + 30 + sourceTitleHeight;
                 if (!collapsedColumnsNodes[currentNode?.data.urn || 'no-op']) {
-                    sourceFieldX = (currentNode?.x || 0) + sourceTitleHeight + (fieldIndex + 1.2) * 30 + 1;
+                    if (!visibleColumnsByUrn[entityUrn]?.has(sourceField)) {
+                        sourceFieldX =
+                            (currentNode?.x || 0) +
+                            sourceTitleHeight +
+                            EXPAND_COLLAPSE_COLUMNS_TOGGLE_HEIGHT +
+                            (NUM_COLUMNS_PER_PAGE + 1.2) * COLUMN_HEIGHT +
+                            1;
+                    } else {
+                        sourceFieldX =
+                            (currentNode?.x || 0) +
+                            sourceTitleHeight +
+                            EXPAND_COLLAPSE_COLUMNS_TOGGLE_HEIGHT +
+                            ((fieldIndex % NUM_COLUMNS_PER_PAGE) + 1.2) * COLUMN_HEIGHT +
+                            1;
+                    }
                 }
 
                 Object.keys(fieldForwardEdges || {}).forEach((targetUrn) => {
                     const targetNode = nodesToRender.find((node) => node.data.urn === targetUrn);
+                    const targetFields = columnsByUrn[targetNode?.data.urn || ''] || [];
                     const targetTitleHeight = getTitleHeight(
                         expandTitles ? targetNode?.data.expandedName || targetNode?.data.name : undefined,
                     );
 
                     (fieldForwardEdges[targetUrn] || []).forEach((targetField) => {
-                        drawColumnEdge({
-                            targetNode,
-                            currentNode,
-                            targetField,
-                            targetTitleHeight,
-                            collapsedColumnsNodes,
-                            sourceFieldX,
-                            sourceFieldY,
-                            edgesToRender,
-                            sourceField,
-                            entityUrn,
-                            targetUrn,
-                        });
+                        if (
+                            (visibleColumnsByUrn[entityUrn]?.has(sourceField) ||
+                                visibleColumnsByUrn[targetUrn]?.has(targetField)) &&
+                            targetFields.find((field) => field.fieldPath === targetField) &&
+                            fields.find((field) => field.fieldPath === sourceField)
+                        ) {
+                            drawColumnEdge({
+                                targetNode,
+                                currentNode,
+                                targetField,
+                                targetFields,
+                                targetTitleHeight,
+                                collapsedColumnsNodes,
+                                sourceFieldX,
+                                sourceFieldY,
+                                edgesToRender,
+                                sourceField,
+                                entityUrn,
+                                targetUrn,
+                                visibleColumnsByUrn,
+                            });
+                        }
                     });
                 });
             });
@@ -294,6 +340,8 @@ export default function layoutTree(
     showColumns: boolean,
     collapsedColumnsNodes: any,
     fineGrainedMap: any,
+    visibleColumnsByUrn: Record<string, Set<string>>,
+    columnsByUrn: Record<string, SchemaField[]>,
 ): {
     nodesToRender: VizNode[];
     edgesToRender: VizEdge[];
@@ -329,7 +377,16 @@ export default function layoutTree(
 
     const nodesByUrn = { ...upstreamNodesByUrn, ...downstreamNodesByUrn };
 
-    layoutColumnTree(fineGrainedMap, showColumns, nodesToRender, expandTitles, collapsedColumnsNodes, edgesToRender);
+    layoutColumnTree(
+        fineGrainedMap,
+        showColumns,
+        nodesToRender,
+        expandTitles,
+        collapsedColumnsNodes,
+        edgesToRender,
+        visibleColumnsByUrn,
+        columnsByUrn,
+    );
 
     return { nodesToRender, edgesToRender, layers: numUpstream + numDownstream - 1, nodesByUrn };
 }

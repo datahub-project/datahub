@@ -1,5 +1,5 @@
 import React from 'react';
-import { SchemaFieldRef } from '../../../types.generated';
+import { SchemaField, SchemaFieldRef } from '../../../types.generated';
 import { ColumnEdge } from '../types';
 
 export const LineageExplorerContext = React.createContext<LineageExplorerContextType>({
@@ -12,6 +12,10 @@ export const LineageExplorerContext = React.createContext<LineageExplorerContext
     setSelectedField: () => {},
     highlightedEdges: [],
     setHighlightedEdges: () => {},
+    visibleColumnsByUrn: {},
+    setVisibleColumnsByUrn: () => {},
+    columnsByUrn: {},
+    setColumnsByUrn: () => {},
 });
 
 type LineageExplorerContextType = {
@@ -24,4 +28,8 @@ type LineageExplorerContextType = {
     setSelectedField: (field: SchemaFieldRef | null) => void;
     highlightedEdges: ColumnEdge[];
     setHighlightedEdges: React.Dispatch<React.SetStateAction<ColumnEdge[]>>;
+    visibleColumnsByUrn: any;
+    setVisibleColumnsByUrn: any;
+    columnsByUrn: Record<string, SchemaField[]>;
+    setColumnsByUrn: React.Dispatch<React.SetStateAction<Record<string, SchemaField[]>>>;
 };

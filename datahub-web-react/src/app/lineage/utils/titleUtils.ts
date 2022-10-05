@@ -1,4 +1,5 @@
 import { SchemaMetadata } from '../../../types.generated';
+import { COLUMN_HEIGHT, EXPAND_COLLAPSE_COLUMNS_TOGGLE_HEIGHT, NUM_COLUMNS_PER_PAGE } from '../constants';
 
 interface OptionalOptions {
     font?: string;
@@ -97,14 +98,20 @@ export function nodeHeightFromTitleLength(
     collapsed?: boolean,
 ) {
     let showColumnBuffer = 0;
+    let columnPaginationBuffer = 0;
     if (showColumns && schemaMetadata) {
-        if (collapsed) {
-            showColumnBuffer = 20;
+        if (!collapsed) {
+            showColumnBuffer =
+                Math.min(schemaMetadata.fields.length, NUM_COLUMNS_PER_PAGE) * COLUMN_HEIGHT +
+                EXPAND_COLLAPSE_COLUMNS_TOGGLE_HEIGHT;
+            if (schemaMetadata.fields.length > NUM_COLUMNS_PER_PAGE) {
+                columnPaginationBuffer = 40;
+            }
         } else {
-            showColumnBuffer = (schemaMetadata?.fields?.length + 1) * 30;
+            showColumnBuffer = EXPAND_COLLAPSE_COLUMNS_TOGGLE_HEIGHT;
         }
     }
-    return getTitleHeight(title) + HEIGHT_WITHOUT_TEXT_HEIGHT + showColumnBuffer;
+    return getTitleHeight(title) + HEIGHT_WITHOUT_TEXT_HEIGHT + showColumnBuffer + columnPaginationBuffer;
 }
 
 function truncate(input, length) {

@@ -18,6 +18,7 @@ import { GetEntityLineageQuery, useGetEntityLineageQuery } from '../../graphql/l
 import { useIsSeparateSiblingsMode } from '../entity/shared/siblingUtils';
 import { SHOW_COLUMNS_URL_PARAMS, useIsShowColumnsMode } from './utils/useIsShowColumnsMode';
 import { ErrorSection } from '../shared/error/ErrorSection';
+import usePrevious from '../shared/usePrevious';
 
 const DEFAULT_DISTANCE_FROM_TOP = 106;
 
@@ -39,14 +40,6 @@ const EntityDrawer = styled(Drawer)<{ distanceFromTop: number }>`
         box-shadow: none !important;
     }
 `;
-
-function usePrevious(value) {
-    const ref = useRef();
-    useEffect(() => {
-        ref.current = value;
-    });
-    return ref.current;
-}
 
 export function getEntityAndType(lineageData?: GetEntityLineageQuery) {
     if (lineageData && lineageData.entity) {

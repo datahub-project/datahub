@@ -13,7 +13,7 @@ import { ANTD_GRAY } from '../entity/shared/constants';
 import { LineageExplorerContext } from './utils/LineageExplorerContext';
 import { useIsSeparateSiblingsMode } from '../entity/shared/siblingUtils';
 import { navigateToLineageUrl } from './utils/navigateToLineageUrl';
-import { SchemaFieldRef } from '../../types.generated';
+import { SchemaField, SchemaFieldRef } from '../../types.generated';
 import { useIsShowColumnsMode } from './utils/useIsShowColumnsMode';
 
 const ZoomContainer = styled.div`
@@ -107,6 +107,8 @@ export default function LineageVizInsideZoom({
     const [collapsedColumnsNodes, setCollapsedColumnsNodes] = useState<Record<string, boolean>>({});
     const [selectedField, setSelectedField] = useState<SchemaFieldRef | null>(null);
     const [highlightedEdges, setHighlightedEdges] = useState<ColumnEdge[]>([]);
+    const [visibleColumnsByUrn, setVisibleColumnsByUrn] = useState<Record<string, Set<string>>>({});
+    const [columnsByUrn, setColumnsByUrn] = useState<Record<string, SchemaField[]>>({});
 
     const history = useHistory();
     const location = useLocation();
@@ -152,6 +154,10 @@ export default function LineageVizInsideZoom({
                 setSelectedField,
                 highlightedEdges,
                 setHighlightedEdges,
+                visibleColumnsByUrn,
+                setVisibleColumnsByUrn,
+                columnsByUrn,
+                setColumnsByUrn,
             }}
         >
             <ZoomContainer>

@@ -6,7 +6,7 @@ import { downgradeV2FieldPath } from '../entity/dataset/profile/schema/utils/uti
 import { NodeData } from './types';
 import { LineageExplorerContext } from './utils/LineageExplorerContext';
 import { ANTD_GRAY } from '../entity/shared/constants';
-import { centerY, iconX, width } from './constants';
+import { centerY, COLUMN_HEIGHT, EXPAND_COLLAPSE_COLUMNS_TOGGLE_HEIGHT, iconX, width } from './constants';
 import { truncate } from '../entity/shared/utils';
 import { highlightColumnLineage } from './utils/highlightColumnLineage';
 
@@ -44,6 +44,7 @@ export default function ColumnNode({ field, index, node, titleHeight, onHover }:
             (fineGrainedMap.reverse[nodeUrn] && fineGrainedMap.reverse[nodeUrn][field.fieldPath]));
     const fieldPath = downgradeV2FieldPath(field.fieldPath);
     const isTruncated = fieldPath && fieldPath.length > MAX_NUM_FIELD_CHARACTERS;
+    const titleAndToggleHeight = titleHeight + EXPAND_COLLAPSE_COLUMNS_TOGGLE_HEIGHT;
 
     return (
         <Group
@@ -78,7 +79,7 @@ export default function ColumnNode({ field, index, node, titleHeight, onHover }:
         >
             <rect
                 x={iconX - 21}
-                y={centerY + 60 + titleHeight + index * 30}
+                y={centerY + 60 + titleAndToggleHeight + index * COLUMN_HEIGHT}
                 width={width - 2}
                 height="29"
                 fill={isFieldSelected ? '#e7f3ff' : 'white'}
@@ -91,7 +92,7 @@ export default function ColumnNode({ field, index, node, titleHeight, onHover }:
                 <>
                     <rect
                         x={iconX - 21 + HOVER_TEXT_SHIFT}
-                        y={centerY + 30 + titleHeight + index * 30}
+                        y={centerY + 30 + titleHeight + index * COLUMN_HEIGHT}
                         width={width + (fieldPath?.substring(MAX_NUM_FIELD_CHARACTERS).length || 0) * 7}
                         height="29"
                         fill="white"
@@ -104,7 +105,7 @@ export default function ColumnNode({ field, index, node, titleHeight, onHover }:
                     <UnselectableText
                         dy=".33em"
                         x={iconX + HOVER_TEXT_SHIFT}
-                        y={centerY + 45 + titleHeight + index * 30}
+                        y={centerY + 45 + titleAndToggleHeight + index * COLUMN_HEIGHT}
                         fontSize={12}
                         fontFamily="'Roboto Mono',monospace"
                         fill={hasEdge ? 'black' : ANTD_GRAY[7]}
@@ -116,7 +117,7 @@ export default function ColumnNode({ field, index, node, titleHeight, onHover }:
             <UnselectableText
                 dy=".33em"
                 x={iconX}
-                y={centerY + 75 + titleHeight + index * 30}
+                y={centerY + 75 + titleAndToggleHeight + index * COLUMN_HEIGHT}
                 fontSize={12}
                 fontFamily="'Roboto Mono',monospace"
                 fill={hasEdge ? 'black' : ANTD_GRAY[7]}
