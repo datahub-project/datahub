@@ -59,7 +59,7 @@ export class MLModelEntity implements Entity<MlModel> {
 
     getOverridePropertiesFromEntity = (mlModel?: MlModel | null): GenericEntityProperties => {
         return {
-            externalUrl: mlModel?.properties?.externalUrl
+            externalUrl: mlModel?.properties?.externalUrl,
         };
     };
 
