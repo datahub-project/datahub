@@ -205,9 +205,8 @@ class SnowflakeV2Source(
                 cached_domains=[k for k in self.config.domain], graph=self.ctx.graph
             )
 
-        if self.config.include_technical_schema:
-            # For database, schema, tables, views, etc
-            self.data_dictionary = SnowflakeDataDictionary()
+        # For database, schema, tables, views, etc
+        self.data_dictionary = SnowflakeDataDictionary()
 
         if config.include_table_lineage:
             # For lineage
@@ -430,25 +429,24 @@ class SnowflakeV2Source(
         self.inspect_session_metadata(conn)
 
         self.report.include_technical_schema = self.config.include_technical_schema
-        if self.config.include_technical_schema:
-            databases: List[SnowflakeDatabase] = self.data_dictionary.get_databases(
-                conn
-            )
-            for snowflake_db in databases:
-                self.report.report_entity_scanned(snowflake_db.name, "database")
+        databases: List[SnowflakeDatabase] = []
 
-                if not self.config.database_pattern.allowed(snowflake_db.name):
-                    self.report.report_dropped(f"{snowflake_db.name}.*")
-                    continue
+        databases = self.data_dictionary.get_databases(conn)
+        for snowflake_db in databases:
+            self.report.report_entity_scanned(snowflake_db.name, "database")
 
-                yield from self._process_database(conn, snowflake_db)
+            if not self.config.database_pattern.allowed(snowflake_db.name):
+                self.report.report_dropped(f"{snowflake_db.name}.*")
+                continue
 
-            conn.close()
-            # Emit Stale entity workunits
-            yield from self.stale_entity_removal_handler.gen_removed_entity_workunits()
+            yield from self._process_database(conn, snowflake_db)
 
-            if self.config.profiling.enabled and len(databases) != 0:
-                yield from self.profiler.get_workunits(databases)
+        conn.close()
+        # Emit Stale entity workunits
+        yield from self.stale_entity_removal_handler.gen_removed_entity_workunits()
+
+        if self.config.profiling.enabled and len(databases) != 0:
+            yield from self.profiler.get_workunits(databases)
 
         if self.config.include_usage_stats or self.config.include_operational_stats:
             if self.redundant_run_skip_handler.should_skip_this_run(
@@ -462,14 +460,27 @@ class SnowflakeV2Source(
                 start_time_millis=datetime_to_ts_millis(self.config.start_time),
                 end_time_millis=datetime_to_ts_millis(self.config.end_time),
             )
-            yield from self.usage_extractor.get_workunits()
+
+            discovered_datasets: List[str] = [
+                self.get_dataset_identifier(table.name, schema.name, db.name)
+                for db in databases
+                for schema in db.schemas
+                for table in schema.tables
+            ] + [
+                self.get_dataset_identifier(table.name, schema.name, db.name)
+                for db in databases
+                for schema in db.schemas
+                for table in schema.views
+            ]
+            yield from self.usage_extractor.get_workunits(discovered_datasets)
 
     def _process_database(
         self, conn: SnowflakeConnection, snowflake_db: SnowflakeDatabase
     ) -> Iterable[MetadataWorkUnit]:
         db_name = snowflake_db.name
 
-        yield from self.gen_database_containers(snowflake_db)
+        if self.config.include_technical_schema:
+            yield from self.gen_database_containers(snowflake_db)
 
         # Use database and extract metadata from its information_schema
         # If this query fails, it means, user does not have usage access on database
@@ -501,23 +512,26 @@ class SnowflakeV2Source(
         self, conn: SnowflakeConnection, snowflake_schema: SnowflakeSchema, db_name: str
     ) -> Iterable[MetadataWorkUnit]:
         schema_name = snowflake_schema.name
-        yield from self.gen_schema_containers(snowflake_schema, db_name)
+        if self.config.include_technical_schema:
+            yield from self.gen_schema_containers(snowflake_schema, db_name)
 
         if self.config.include_tables:
             snowflake_schema.tables = self.get_tables_for_schema(
                 conn, schema_name, db_name
             )
 
-            for table in snowflake_schema.tables:
-                yield from self._process_table(conn, table, schema_name, db_name)
+            if self.config.include_technical_schema:
+                for table in snowflake_schema.tables:
+                    yield from self._process_table(conn, table, schema_name, db_name)
 
         if self.config.include_views:
             snowflake_schema.views = self.get_views_for_schema(
                 conn, schema_name, db_name
             )
 
-            for view in snowflake_schema.views:
-                yield from self._process_view(conn, view, schema_name, db_name)
+            if self.config.include_technical_schema:
+                for view in snowflake_schema.views:
+                    yield from self._process_view(conn, view, schema_name, db_name)
 
     def _process_table(
         self,

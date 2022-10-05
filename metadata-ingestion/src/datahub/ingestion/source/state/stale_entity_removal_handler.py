@@ -35,7 +35,7 @@ class StatefulStaleMetadataRemovalConfig(StatefulIngestionConfig):
         description=f"Soft-deletes the entities of type {', '.join(_entity_types)} in the last successful run but missing in the current run with stateful_ingestion enabled.",
     )
     fail_safe_threshold: float = pydantic.Field(
-        default=95.0,
+        default=20.0,
         description="Prevents large amount of soft deletes & the state from committing from accidental changes to the source configuration if the relative change percent in entities compared to the previous state is above the 'fail_safe_threshold'.",
         le=100.0,  # mypy does not work with pydantic.confloat. This is the recommended work-around.
         ge=0.0,
@@ -94,7 +94,7 @@ class StaleEntityCheckpointStateBase(CheckpointStateBase, ABC, Generic[Derived])
         """
         Returns the percentage of entities that have changed relative to `old_checkpoint_state`.
         :param old_checkpoint_state: the old checkpoint state to compute the relative change percent against.
-        :return: (|intersection(self, old_checkpoint_state)| * 100.0 / |old_checkpoint_state|)
+        :return: (1-|intersection(self, old_checkpoint_state)| / |old_checkpoint_state|) * 100.0
         """
         pass
 
@@ -115,7 +115,7 @@ class StaleEntityCheckpointStateBase(CheckpointStateBase, ABC, Generic[Derived])
             overlap_count_all += overlap_count
             old_count_all += old_count
         if old_count_all:
-            return overlap_count * 100.0 / old_count_all
+            return (1 - overlap_count / old_count_all) * 100.0
         return 0.0
 
     @staticmethod
