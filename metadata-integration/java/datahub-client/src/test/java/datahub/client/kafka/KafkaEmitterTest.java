@@ -19,7 +19,6 @@ import org.apache.kafka.common.errors.TimeoutException;
 import org.junit.BeforeClass;
 import org.junit.Test;
 import org.testcontainers.containers.Network;
-import org.testcontainers.lifecycle.Startables;
 import org.testng.Assert;
 
 import com.linkedin.dataset.DatasetProperties;
@@ -49,9 +48,13 @@ public class KafkaEmitterTest {
   public static void confluentSetup() throws Exception {
     network = Network.newNetwork();
     zookeeperContainer = new ZookeeperContainer().withNetwork(network);
-    kafkaContainer = new KafkaContainer(zookeeperContainer.getInternalUrl()).withNetwork(network);
-    schemaRegistryContainer = new SchemaRegistryContainer(zookeeperContainer.getInternalUrl()).withNetwork(network);
-    Startables.deepStart(Stream.of(zookeeperContainer, kafkaContainer, schemaRegistryContainer)).join();
+    kafkaContainer = new KafkaContainer(zookeeperContainer.getInternalUrl())
+            .withNetwork(network)
+            .dependsOn(zookeeperContainer);
+    schemaRegistryContainer = new SchemaRegistryContainer(zookeeperContainer.getInternalUrl())
+            .withNetwork(network)
+            .dependsOn(zookeeperContainer, kafkaContainer);
+    schemaRegistryContainer.start();
 
     String bootstrap = createTopics(kafkaContainer.getBootstrapServers());
     createKafkaEmitter(bootstrap);
