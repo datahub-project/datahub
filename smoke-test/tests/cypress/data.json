@@ -1850,8 +1850,9 @@
     "systemMetadata": {
       "lastObserved": 1664391311867,
       "runId": "looker-2022_09_28-11_55_08"
-    },
-    {
+    }
+   },
+   {
     "auditHeader": null,
     "proposedSnapshot": {
       "com.linkedin.pegasus2avro.metadata.snapshot.GlossaryTermSnapshot": {
