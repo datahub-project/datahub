@@ -92,7 +92,9 @@ class SnowflakeUsageExtractor(SnowflakeQueryMixin, SnowflakeCommonMixin):
         self.report: SnowflakeV2Report = report
         self.logger = logger
 
-    def get_workunits(self) -> Iterable[MetadataWorkUnit]:
+    def get_workunits(
+        self, discovered_datasets: List[str]
+    ) -> Iterable[MetadataWorkUnit]:
         conn = self.config.get_connection()
 
         logger.info("Checking usage date ranges")
@@ -107,18 +109,20 @@ class SnowflakeUsageExtractor(SnowflakeQueryMixin, SnowflakeCommonMixin):
         # Now, we report the usage as well as operation metadata even if user email is absent
 
         if self.config.include_usage_stats:
-            yield from self.get_usage_workunits(conn)
+            yield from self.get_usage_workunits(conn, discovered_datasets)
 
         if self.config.include_operational_stats:
             # Generate the operation workunits.
             access_events = self._get_snowflake_history(conn)
             for event in access_events:
-                yield from self._get_operation_aspect_work_unit(event)
+                yield from self._get_operation_aspect_work_unit(
+                    event, discovered_datasets
+                )
 
         conn.close()
 
     def get_usage_workunits(
-        self, conn: SnowflakeConnection
+        self, conn: SnowflakeConnection, discovered_datasets: List[str]
     ) -> Iterable[MetadataWorkUnit]:
 
         with PerfTimer() as timer:
@@ -144,6 +148,15 @@ class SnowflakeUsageExtractor(SnowflakeQueryMixin, SnowflakeCommonMixin):
             ):
                 continue
 
+            dataset_identifier = self.get_dataset_identifier_from_qualified_name(
+                row["OBJECT_NAME"]
+            )
+            if dataset_identifier not in discovered_datasets:
+                logger.debug(
+                    f"Skipping usage for table {dataset_identifier}, as table schema is not accessible"
+                )
+                continue
+
             stats = DatasetUsageStatistics(
                 timestampMillis=int(row["BUCKET_START_TIME"].timestamp() * 1000),
                 eventGranularity=TimeWindowSize(
@@ -161,7 +174,7 @@ class SnowflakeUsageExtractor(SnowflakeQueryMixin, SnowflakeCommonMixin):
             )
             dataset_urn = make_dataset_urn_with_platform_instance(
                 self.platform,
-                self.get_dataset_identifier_from_qualified_name(row["OBJECT_NAME"]),
+                dataset_identifier,
                 self.config.platform_instance,
                 self.config.env,
             )
@@ -276,7 +289,7 @@ class SnowflakeUsageExtractor(SnowflakeQueryMixin, SnowflakeCommonMixin):
                     )
 
     def _get_operation_aspect_work_unit(
-        self, event: SnowflakeJoinedAccessEvent
+        self, event: SnowflakeJoinedAccessEvent, discovered_datasets: List[str]
     ) -> Iterable[MetadataWorkUnit]:
         if event.query_start_time and event.query_type in OPERATION_STATEMENT_TYPES:
             start_time = event.query_start_time
@@ -292,9 +305,20 @@ class SnowflakeUsageExtractor(SnowflakeQueryMixin, SnowflakeCommonMixin):
             for obj in event.objects_modified:
 
                 resource = obj.objectName
+
+                dataset_identifier = self.get_dataset_identifier_from_qualified_name(
+                    resource
+                )
+
+                if dataset_identifier not in discovered_datasets:
+                    logger.debug(
+                        f"Skipping operations for table {dataset_identifier}, as table schema is not accessible"
+                    )
+                    continue
+
                 dataset_urn = make_dataset_urn_with_platform_instance(
                     self.platform,
-                    self.get_dataset_identifier_from_qualified_name(resource),
+                    dataset_identifier,
                     self.config.platform_instance,
                     self.config.env,
                 )
