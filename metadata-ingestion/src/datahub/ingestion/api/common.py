@@ -33,14 +33,9 @@ class EndOfStream(ControlRecord):
 
 
 @dataclass
-class _WorkUnitId(metaclass=ABCMeta):
+class WorkUnit(metaclass=ABCMeta):
     id: str
 
-
-# For information on why the WorkUnit class is structured this way
-# and is separating the dataclass portion from the abstract methods, see
-# https://github.com/python/mypy/issues/5374#issuecomment-568335302.
-class WorkUnit(_WorkUnitId, metaclass=ABCMeta):
     @abstractmethod
     def get_metadata(self) -> dict:
         pass
