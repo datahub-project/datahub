@@ -76,7 +76,7 @@ class SnowflakeV2Config(SnowflakeConfig, SnowflakeUsageConfig):
         )
         include_table_lineage = values.get("include_table_lineage")
 
-        # TODO: Allow lineage extraction irrespective of basic schema extraction,
+        # TODO: Allow lineage extraction and profiling irrespective of basic schema extraction,
         # as it seems possible with some refractor
         if not include_technical_schema and any(
             [include_profiles, delete_detection_enabled, include_table_lineage]
