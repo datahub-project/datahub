@@ -52,6 +52,8 @@ def define_query_metadata_func(workbook_0: str, workbook_all: str):  # type: ign
         if "customSQLTablesConnection (first:2" in query:
             return _read_response("customSQLTablesConnection_all.json")
 
+        breakpoint()
+
     return side_effect_query_metadata
 
 

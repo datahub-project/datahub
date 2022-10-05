@@ -323,8 +323,14 @@ class TableauSource(Source):
 
         count_on_query = self.config.page_size
 
-        total_count = count_on_query
-        has_next_page = 1
+        (_, total_count, has_next_page) = self.get_connection_object_page(
+            query,
+            connection_type,
+            query_filter,
+            0,
+            0,
+        )
+
         current_count = 0
         while has_next_page:
             count = (
@@ -1010,8 +1016,12 @@ class TableauSource(Source):
                 lastModified=last_modified,
                 externalUrl=sheet_external_url,
                 inputs=sorted(datasource_urn),
-                customProperties=fields,
+                customProperties={
+                    "luid": sheet.get("luid") or "",
+                    **{f"field: {k}": v for k, v in fields.items()},
+                },
             )
+            breakpoint()
             chart_snapshot.aspects.append(chart_info)
             # chart_snapshot doesn't support the stat aspect as list element and hence need to emit MCP
 

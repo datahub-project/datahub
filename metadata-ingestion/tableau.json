@@ -1,0 +1,3197 @@
+[
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:751e5d2632cc8a115d4b4d66e6ab73df",
+    "changeType": "UPSERT",
+    "aspectName": "containerProperties",
+    "aspect": {
+        "value": "{\"customProperties\": {\"platform\": \"tableau\", \"workbook_id\": \"a889280d-1dec-95a2-cef9-caefb7e50d1b\"}, \"externalUrl\": \"https://10az.online.tableau.com/#/site/acryldatatableaupartnershipportal/workbooks/1849147\", \"name\": \"Petrol Price\", \"description\": \"This is a description of the workbook\"}",
+        "contentType": "application/json"
+    },
+    "systemMetadata": {
+        "lastObserved": 1664912547675,
+        "runId": "tableau-2022_10_04-12_42_26"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:751e5d2632cc8a115d4b4d66e6ab73df",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "value": "{\"platform\": \"urn:li:dataPlatform:tableau\"}",
+        "contentType": "application/json"
+    },
+    "systemMetadata": {
+        "lastObserved": 1664912547676,
+        "runId": "tableau-2022_10_04-12_42_26"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:751e5d2632cc8a115d4b4d66e6ab73df",
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+        "value": "{\"typeNames\": [\"Workbook\"]}",
+        "contentType": "application/json"
+    },
+    "systemMetadata": {
+        "lastObserved": 1664912547677,
+        "runId": "tableau-2022_10_04-12_42_26"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:751e5d2632cc8a115d4b4d66e6ab73df",
+    "changeType": "UPSERT",
+    "aspectName": "ownership",
+    "aspect": {
+        "value": "{\"owners\": [{\"owner\": \"urn:li:corpuser:harshal@acryl.io\", \"type\": \"DATAOWNER\"}], \"lastModified\": {\"time\": 0, \"actor\": \"urn:li:corpuser:unknown\"}}",
+        "contentType": "application/json"
+    },
+    "systemMetadata": {
+        "lastObserved": 1664912547678,
+        "runId": "tableau-2022_10_04-12_42_26"
+    }
+},
+{
+    "proposedSnapshot": {
+        "com.linkedin.pegasus2avro.metadata.snapshot.ChartSnapshot": {
+            "urn": "urn:li:chart:(tableau,17f2f5f8-f1c1-86fc-b67e-10116f0c5c7d)",
+            "aspects": [
+                {
+                    "com.linkedin.pegasus2avro.chart.ChartInfo": {
+                        "customProperties": {
+                            "World Share": "",
+                            "Price Per Liter (USD)": "",
+                            "Country": ""
+                        },
+                        "externalUrl": "https://10az.online.tableau.com/#/site/acryldatatableaupartnershipportal/views/PetrolPrice/S1",
+                        "title": "S1",
+                        "description": "",
+                        "lastModified": {
+                            "created": {
+                                "time": 1659104847000,
+                                "actor": "urn:li:corpuser:harshal@acryl.io"
+                            },
+                            "lastModified": {
+                                "time": 1664494968000,
+                                "actor": "urn:li:corpuser:harshal@acryl.io"
+                            }
+                        },
+                        "inputs": [
+                            {
+                                "string": "urn:li:dataset:(urn:li:dataPlatform:tableau,c7c8d346-92fb-55f7-38af-52a85768027f,PROD)"
+                            }
+                        ]
+                    }
+                },
+                {
+                    "com.linkedin.pegasus2avro.common.BrowsePaths": {
+                        "paths": [
+                            "/tableau/default/Petrol Price"
+                        ]
+                    }
+                },
+                {
+                    "com.linkedin.pegasus2avro.common.Ownership": {
+                        "owners": [
+                            {
+                                "owner": "urn:li:corpuser:harshal@acryl.io",
+                                "type": "DATAOWNER"
+                            }
+                        ],
+                        "lastModified": {
+                            "time": 0,
+                            "actor": "urn:li:corpuser:unknown"
+                        }
+                    }
+                },
+                {
+                    "com.linkedin.pegasus2avro.common.GlobalTags": {
+                        "tags": [
+                            {
+                                "tag": "urn:li:tag:MY-TAG"
+                            },
+                            {
+                                "tag": "urn:li:tag:S1-TAG"
+                            },
+                            {
+                                "tag": "urn:li:tag:DELAYED"
+                            }
+                        ]
+                    }
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1664912547681,
+        "runId": "tableau-2022_10_04-12_42_26"
+    }
+},
+{
+    "entityType": "chart",
+    "entityUrn": "urn:li:chart:(tableau,17f2f5f8-f1c1-86fc-b67e-10116f0c5c7d)",
+    "changeType": "UPSERT",
+    "aspectName": "container",
+    "aspect": {
+        "value": "{\"container\": \"urn:li:container:751e5d2632cc8a115d4b4d66e6ab73df\"}",
+        "contentType": "application/json"
+    },
+    "systemMetadata": {
+        "lastObserved": 1664912547682,
+        "runId": "tableau-2022_10_04-12_42_26"
+    }
+},
+{
+    "proposedSnapshot": {
+        "com.linkedin.pegasus2avro.metadata.snapshot.ChartSnapshot": {
+            "urn": "urn:li:chart:(tableau,391571c7-7226-1bf7-5b3e-28be02a66550)",
+            "aspects": [
+                {
+                    "com.linkedin.pegasus2avro.chart.ChartInfo": {
+                        "customProperties": {
+                            "Gallons GDP Per Capita Can Buy": "",
+                            "Country": "",
+                            "GDP Per Capita ( USD )": ""
+                        },
+                        "externalUrl": "https://10az.online.tableau.com/#/site/acryldatatableaupartnershipportal/views/PetrolPrice/S2",
+                        "title": "S2",
+                        "description": "",
+                        "lastModified": {
+                            "created": {
+                                "time": 1659104847000,
+                                "actor": "urn:li:corpuser:harshal@acryl.io"
+                            },
+                            "lastModified": {
+                                "time": 1664494968000,
+                                "actor": "urn:li:corpuser:harshal@acryl.io"
+                            }
+                        },
+                        "inputs": [
+                            {
+                                "string": "urn:li:dataset:(urn:li:dataPlatform:tableau,c7c8d346-92fb-55f7-38af-52a85768027f,PROD)"
+                            }
+                        ]
+                    }
+                },
+                {
+                    "com.linkedin.pegasus2avro.common.BrowsePaths": {
+                        "paths": [
+                            "/tableau/default/Petrol Price"
+                        ]
+                    }
+                },
+                {
+                    "com.linkedin.pegasus2avro.common.Ownership": {
+                        "owners": [
+                            {
+                                "owner": "urn:li:corpuser:harshal@acryl.io",
+                                "type": "DATAOWNER"
+                            }
+                        ],
+                        "lastModified": {
+                            "time": 0,
+                            "actor": "urn:li:corpuser:unknown"
+                        }
+                    }
+                },
+                {
+                    "com.linkedin.pegasus2avro.common.GlobalTags": {
+                        "tags": [
+                            {
+                                "tag": "urn:li:tag:MY-TAG"
+                            },
+                            {
+                                "tag": "urn:li:tag:DELAYED"
+                            },
+                            {
+                                "tag": "urn:li:tag:BAR"
+                            }
+                        ]
+                    }
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1664912547683,
+        "runId": "tableau-2022_10_04-12_42_26"
+    }
+},
+{
+    "entityType": "chart",
+    "entityUrn": "urn:li:chart:(tableau,391571c7-7226-1bf7-5b3e-28be02a66550)",
+    "changeType": "UPSERT",
+    "aspectName": "container",
+    "aspect": {
+        "value": "{\"container\": \"urn:li:container:751e5d2632cc8a115d4b4d66e6ab73df\"}",
+        "contentType": "application/json"
+    },
+    "systemMetadata": {
+        "lastObserved": 1664912547685,
+        "runId": "tableau-2022_10_04-12_42_26"
+    }
+},
+{
+    "proposedSnapshot": {
+        "com.linkedin.pegasus2avro.metadata.snapshot.DashboardSnapshot": {
+            "urn": "urn:li:dashboard:(tableau,658f551c-39d5-05af-2be2-6cb1375ab39b)",
+            "aspects": [
+                {
+                    "com.linkedin.pegasus2avro.dashboard.DashboardInfo": {
+                        "customProperties": {},
+                        "title": "Dash1",
+                        "description": "",
+                        "charts": [
+                            "urn:li:chart:(tableau,17f2f5f8-f1c1-86fc-b67e-10116f0c5c7d)",
+                            "urn:li:chart:(tableau,391571c7-7226-1bf7-5b3e-28be02a66550)"
+                        ],
+                        "datasets": [],
+                        "lastModified": {
+                            "created": {
+                                "time": 1659104847000,
+                                "actor": "urn:li:corpuser:harshal@acryl.io"
+                            },
+                            "lastModified": {
+                                "time": 1664494968000,
+                                "actor": "urn:li:corpuser:harshal@acryl.io"
+                            }
+                        },
+                        "dashboardUrl": "https://10az.online.tableau.com/#/site/acryldatatableaupartnershipportal/views/PetrolPrice/Dash1"
+                    }
+                },
+                {
+                    "com.linkedin.pegasus2avro.common.BrowsePaths": {
+                        "paths": [
+                            "/tableau/default/Petrol Price"
+                        ]
+                    }
+                },
+                {
+                    "com.linkedin.pegasus2avro.common.Ownership": {
+                        "owners": [
+                            {
+                                "owner": "urn:li:corpuser:harshal@acryl.io",
+                                "type": "DATAOWNER"
+                            }
+                        ],
+                        "lastModified": {
+                            "time": 0,
+                            "actor": "urn:li:corpuser:unknown"
+                        }
+                    }
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1664912547685,
+        "runId": "tableau-2022_10_04-12_42_26"
+    }
+},
+{
+    "entityType": "dashboard",
+    "entityUrn": "urn:li:dashboard:(tableau,658f551c-39d5-05af-2be2-6cb1375ab39b)",
+    "changeType": "UPSERT",
+    "aspectName": "container",
+    "aspect": {
+        "value": "{\"container\": \"urn:li:container:751e5d2632cc8a115d4b4d66e6ab73df\"}",
+        "contentType": "application/json"
+    },
+    "systemMetadata": {
+        "lastObserved": 1664912547687,
+        "runId": "tableau-2022_10_04-12_42_26"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:d245e0e80c531d6f963481c1d0e10f5e",
+    "changeType": "UPSERT",
+    "aspectName": "containerProperties",
+    "aspect": {
+        "value": "{\"customProperties\": {\"platform\": \"tableau\", \"workbook_id\": \"d83da682-72e3-b7a0-1613-f05609c60905\"}, \"externalUrl\": \"https://10az.online.tableau.com/#/site/acryldatatableaupartnershipportal/workbooks/1792960\", \"name\": \"SuperstoreWB\", \"description\": \"\"}",
+        "contentType": "application/json"
+    },
+    "systemMetadata": {
+        "lastObserved": 1664912547688,
+        "runId": "tableau-2022_10_04-12_42_26"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:d245e0e80c531d6f963481c1d0e10f5e",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "value": "{\"platform\": \"urn:li:dataPlatform:tableau\"}",
+        "contentType": "application/json"
+    },
+    "systemMetadata": {
+        "lastObserved": 1664912547689,
+        "runId": "tableau-2022_10_04-12_42_26"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:d245e0e80c531d6f963481c1d0e10f5e",
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+        "value": "{\"typeNames\": [\"Workbook\"]}",
+        "contentType": "application/json"
+    },
+    "systemMetadata": {
+        "lastObserved": 1664912547689,
+        "runId": "tableau-2022_10_04-12_42_26"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:d245e0e80c531d6f963481c1d0e10f5e",
+    "changeType": "UPSERT",
+    "aspectName": "ownership",
+    "aspect": {
+        "value": "{\"owners\": [{\"owner\": \"urn:li:corpuser:mayuri.nehate@gslab.com\", \"type\": \"DATAOWNER\"}], \"lastModified\": {\"time\": 0, \"actor\": \"urn:li:corpuser:unknown\"}}",
+        "contentType": "application/json"
+    },
+    "systemMetadata": {
+        "lastObserved": 1664912547690,
+        "runId": "tableau-2022_10_04-12_42_26"
+    }
+},
+{
+    "proposedSnapshot": {
+        "com.linkedin.pegasus2avro.metadata.snapshot.ChartSnapshot": {
+            "urn": "urn:li:chart:(tableau,6b0a357c-6764-71de-023a-e10a835a8a78)",
+            "aspects": [
+                {
+                    "com.linkedin.pegasus2avro.chart.ChartInfo": {
+                        "customProperties": {
+                            "Order ID": "",
+                            "Segment": ""
+                        },
+                        "externalUrl": "https://10az.online.tableau.com/#/site/acryldatatableaupartnershipportal/views/SuperstoreWB/SegmentwiseorderscountOld",
+                        "title": "Segment wise orders count Old",
+                        "description": "",
+                        "lastModified": {
+                            "created": {
+                                "time": 1663585675000,
+                                "actor": "urn:li:corpuser:mayuri.nehate@gslab.com"
+                            },
+                            "lastModified": {
+                                "time": 1663585675000,
+                                "actor": "urn:li:corpuser:mayuri.nehate@gslab.com"
+                            }
+                        },
+                        "inputs": [
+                            {
+                                "string": "urn:li:dataset:(urn:li:dataPlatform:tableau,f5e06907-6eae-c73e-444d-3f8b96daaec1,PROD)"
+                            }
+                        ]
+                    }
+                },
+                {
+                    "com.linkedin.pegasus2avro.common.BrowsePaths": {
+                        "paths": [
+                            "/tableau/default/SuperstoreWB"
+                        ]
+                    }
+                },
+                {
+                    "com.linkedin.pegasus2avro.common.Ownership": {
+                        "owners": [
+                            {
+                                "owner": "urn:li:corpuser:mayuri.nehate@gslab.com",
+                                "type": "DATAOWNER"
+                            }
+                        ],
+                        "lastModified": {
+                            "time": 0,
+                            "actor": "urn:li:corpuser:unknown"
+                        }
+                    }
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1664912547692,
+        "runId": "tableau-2022_10_04-12_42_26"
+    }
+},
+{
+    "entityType": "chart",
+    "entityUrn": "urn:li:chart:(tableau,6b0a357c-6764-71de-023a-e10a835a8a78)",
+    "changeType": "UPSERT",
+    "aspectName": "container",
+    "aspect": {
+        "value": "{\"container\": \"urn:li:container:d245e0e80c531d6f963481c1d0e10f5e\"}",
+        "contentType": "application/json"
+    },
+    "systemMetadata": {
+        "lastObserved": 1664912547693,
+        "runId": "tableau-2022_10_04-12_42_26"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:tableau,c7c8d346-92fb-55f7-38af-52a85768027f,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "upstreamLineage",
+    "aspect": {
+        "value": "{\"upstreams\": [{\"auditStamp\": {\"time\": 0, \"actor\": \"urn:li:corpuser:unknown\"}, \"dataset\": \"urn:li:dataset:(urn:li:dataPlatform:external,csv.petrol dataset june 23 2022 -- version 2.csv,PROD)\", \"type\": \"TRANSFORMED\"}]}",
+        "contentType": "application/json"
+    },
+    "systemMetadata": {
+        "lastObserved": 1664912548109,
+        "runId": "tableau-2022_10_04-12_42_26"
+    }
+},
+{
+    "proposedSnapshot": {
+        "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
+            "urn": "urn:li:dataset:(urn:li:dataPlatform:tableau,c7c8d346-92fb-55f7-38af-52a85768027f,PROD)",
+            "aspects": [
+                {
+                    "com.linkedin.pegasus2avro.common.BrowsePaths": {
+                        "paths": [
+                            "/prod/tableau/default"
+                        ]
+                    }
+                },
+                {
+                    "com.linkedin.pegasus2avro.common.Ownership": {
+                        "owners": [
+                            {
+                                "owner": "urn:li:corpuser:harshal@acryl.io",
+                                "type": "DATAOWNER"
+                            }
+                        ],
+                        "lastModified": {
+                            "time": 0,
+                            "actor": "urn:li:corpuser:unknown"
+                        }
+                    }
+                },
+                {
+                    "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
+                        "customProperties": {
+                            "hasExtracts": "False",
+                            "extractLastRefreshTime": "",
+                            "extractLastIncrementalUpdateTime": "",
+                            "extractLastUpdateTime": "",
+                            "type": "EmbeddedDatasource"
+                        },
+                        "name": "Petrol Dataset June 23 2022 -- Version 2",
+                        "tags": []
+                    }
+                },
+                {
+                    "com.linkedin.pegasus2avro.schema.SchemaMetadata": {
+                        "schemaName": "test",
+                        "platform": "urn:li:dataPlatform:tableau",
+                        "version": 0,
+                        "created": {
+                            "time": 0,
+                            "actor": "urn:li:corpuser:unknown"
+                        },
+                        "lastModified": {
+                            "time": 0,
+                            "actor": "urn:li:corpuser:unknown"
+                        },
+                        "hash": "",
+                        "platformSchema": {
+                            "com.linkedin.pegasus2avro.schema.OtherSchema": {
+                                "rawSchema": ""
+                            }
+                        },
+                        "fields": [
+                            {
+                                "fieldPath": "Price Per Liter (PKR)",
+                                "nullable": false,
+                                "description": "",
+                                "type": {
+                                    "type": {
+                                        "com.linkedin.pegasus2avro.schema.NumberType": {}
+                                    }
+                                },
+                                "nativeDataType": "REAL",
+                                "recursive": false,
+                                "globalTags": {
+                                    "tags": [
+                                        {
+                                            "tag": "urn:li:tag:MEASURE"
+                                        },
+                                        {
+                                            "tag": "urn:li:tag:COLUMNFIELD"
+                                        },
+                                        {
+                                            "tag": "urn:li:tag:SUM"
+                                        }
+                                    ]
+                                },
+                                "isPartOfKey": false
+                            },
+                            {
+                                "fieldPath": "Yearly Gallons Per Capita",
+                                "nullable": false,
+                                "description": "",
+                                "type": {
+                                    "type": {
+                                        "com.linkedin.pegasus2avro.schema.NumberType": {}
+                                    }
+                                },
+                                "nativeDataType": "REAL",
+                                "recursive": false,
+                                "globalTags": {
+                                    "tags": [
+                                        {
+                                            "tag": "urn:li:tag:MEASURE"
+                                        },
+                                        {
+                                            "tag": "urn:li:tag:COLUMNFIELD"
+                                        },
+                                        {
+                                            "tag": "urn:li:tag:SUM"
+                                        }
+                                    ]
+                                },
+                                "isPartOfKey": false
+                            },
+                            {
+                                "fieldPath": "Petrol Dataset June 23 2022 -- Version 2.csv",
+                                "nullable": false,
+                                "description": "",
+                                "type": {
+                                    "type": {
+                                        "com.linkedin.pegasus2avro.schema.ArrayType": {}
+                                    }
+                                },
+                                "nativeDataType": "TABLE",
+                                "recursive": false,
+                                "globalTags": {
+                                    "tags": [
+                                        {
+                                            "tag": "urn:li:tag:MEASURE"
+                                        },
+                                        {
+                                            "tag": "urn:li:tag:COLUMNFIELD"
+                                        }
+                                    ]
+                                },
+                                "isPartOfKey": false
+                            },
+                            {
+                                "fieldPath": "Gallons GDP Per Capita Can Buy",
+                                "nullable": false,
+                                "description": "",
+                                "type": {
+                                    "type": {
+                                        "com.linkedin.pegasus2avro.schema.NumberType": {}
+                                    }
+                                },
+                                "nativeDataType": "INTEGER",
+                                "recursive": false,
+                                "globalTags": {
+                                    "tags": [
+                                        {
+                                            "tag": "urn:li:tag:MEASURE"
+                                        },
+                                        {
+                                            "tag": "urn:li:tag:COLUMNFIELD"
+                                        },
+                                        {
+                                            "tag": "urn:li:tag:SUM"
+                                        }
+                                    ]
+                                },
+                                "isPartOfKey": false
+                            },
+                            {
+                                "fieldPath": "World Share",
+                                "nullable": false,
+                                "description": "",
+                                "type": {
+                                    "type": {
+                                        "com.linkedin.pegasus2avro.schema.NumberType": {}
+                                    }
+                                },
+                                "nativeDataType": "REAL",
+                                "recursive": false,
+                                "globalTags": {
+                                    "tags": [
+                                        {
+                                            "tag": "urn:li:tag:MEASURE"
+                                        },
+                                        {
+                                            "tag": "urn:li:tag:COLUMNFIELD"
+                                        },
+                                        {
+                                            "tag": "urn:li:tag:SUM"
+                                        }
+                                    ]
+                                },
+                                "isPartOfKey": false
+                            },
+                            {
+                                "fieldPath": "Daily Oil Consumption (Barrels)",
+                                "nullable": false,
+                                "description": "",
+                                "type": {
+                                    "type": {
+                                        "com.linkedin.pegasus2avro.schema.NumberType": {}
+                                    }
+                                },
+                                "nativeDataType": "INTEGER",
+                                "recursive": false,
+                                "globalTags": {
+                                    "tags": [
+                                        {
+                                            "tag": "urn:li:tag:MEASURE"
+                                        },
+                                        {
+                                            "tag": "urn:li:tag:COLUMNFIELD"
+                                        },
+                                        {
+                                            "tag": "urn:li:tag:SUM"
+                                        }
+                                    ]
+                                },
+                                "isPartOfKey": false
+                            },
+                            {
+                                "fieldPath": "xTimes Yearly Gallons Per Capita Buy",
+                                "nullable": false,
+                                "description": "",
+                                "type": {
+                                    "type": {
+                                        "com.linkedin.pegasus2avro.schema.NumberType": {}
+                                    }
+                                },
+                                "nativeDataType": "INTEGER",
+                                "recursive": false,
+                                "globalTags": {
+                                    "tags": [
+                                        {
+                                            "tag": "urn:li:tag:MEASURE"
+                                        },
+                                        {
+                                            "tag": "urn:li:tag:COLUMNFIELD"
+                                        },
+                                        {
+                                            "tag": "urn:li:tag:SUM"
+                                        }
+                                    ]
+                                },
+                                "isPartOfKey": false
+                            },
+                            {
+                                "fieldPath": "S#",
+                                "nullable": false,
+                                "description": "",
+                                "type": {
+                                    "type": {
+                                        "com.linkedin.pegasus2avro.schema.NumberType": {}
+                                    }
+                                },
+                                "nativeDataType": "INTEGER",
+                                "recursive": false,
+                                "globalTags": {
+                                    "tags": [
+                                        {
+                                            "tag": "urn:li:tag:MEASURE"
+                                        },
+                                        {
+                                            "tag": "urn:li:tag:COLUMNFIELD"
+                                        },
+                                        {
+                                            "tag": "urn:li:tag:SUM"
+                                        }
+                                    ]
+                                },
+                                "isPartOfKey": false
+                            },
+                            {
+                                "fieldPath": "Price Per Liter (USD)",
+                                "nullable": false,
+                                "description": "",
+                                "type": {
+                                    "type": {
+                                        "com.linkedin.pegasus2avro.schema.NumberType": {}
+                                    }
+                                },
+                                "nativeDataType": "REAL",
+                                "recursive": false,
+                                "globalTags": {
+                                    "tags": [
+                                        {
+                                            "tag": "urn:li:tag:MEASURE"
+                                        },
+                                        {
+                                            "tag": "urn:li:tag:COLUMNFIELD"
+                                        },
+                                        {
+                                            "tag": "urn:li:tag:SUM"
+                                        }
+                                    ]
+                                },
+                                "isPartOfKey": false
+                            },
+                            {
+                                "fieldPath": "Price Per Gallon (USD)",
+                                "nullable": false,
+                                "description": "",
+                                "type": {
+                                    "type": {
+                                        "com.linkedin.pegasus2avro.schema.NumberType": {}
+                                    }
+                                },
+                                "nativeDataType": "REAL",
+                                "recursive": false,
+                                "globalTags": {
+                                    "tags": [
+                                        {
+                                            "tag": "urn:li:tag:MEASURE"
+                                        },
+                                        {
+                                            "tag": "urn:li:tag:COLUMNFIELD"
+                                        },
+                                        {
+                                            "tag": "urn:li:tag:SUM"
+                                        }
+                                    ]
+                                },
+                                "isPartOfKey": false
+                            },
+                            {
+                                "fieldPath": "Country",
+                                "nullable": false,
+                                "description": "",
+                                "type": {
+                                    "type": {
+                                        "com.linkedin.pegasus2avro.schema.StringType": {}
+                                    }
+                                },
+                                "nativeDataType": "STRING",
+                                "recursive": false,
+                                "globalTags": {
+                                    "tags": [
+                                        {
+                                            "tag": "urn:li:tag:DIMENSION"
+                                        },
+                                        {
+                                            "tag": "urn:li:tag:COLUMNFIELD"
+                                        }
+                                    ]
+                                },
+                                "isPartOfKey": false
+                            },
+                            {
+                                "fieldPath": "GDP Per Capita ( USD )",
+                                "nullable": false,
+                                "description": "",
+                                "type": {
+                                    "type": {
+                                        "com.linkedin.pegasus2avro.schema.NumberType": {}
+                                    }
+                                },
+                                "nativeDataType": "INTEGER",
+                                "recursive": false,
+                                "globalTags": {
+                                    "tags": [
+                                        {
+                                            "tag": "urn:li:tag:MEASURE"
+                                        },
+                                        {
+                                            "tag": "urn:li:tag:COLUMNFIELD"
+                                        },
+                                        {
+                                            "tag": "urn:li:tag:SUM"
+                                        }
+                                    ]
+                                },
+                                "isPartOfKey": false
+                            }
+                        ]
+                    }
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1664912548110,
+        "runId": "tableau-2022_10_04-12_42_26"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:tableau,c7c8d346-92fb-55f7-38af-52a85768027f,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+        "value": "{\"typeNames\": [\"Embedded Data Source\"]}",
+        "contentType": "application/json"
+    },
+    "systemMetadata": {
+        "lastObserved": 1664912548116,
+        "runId": "tableau-2022_10_04-12_42_26"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:tableau,c7c8d346-92fb-55f7-38af-52a85768027f,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "container",
+    "aspect": {
+        "value": "{\"container\": \"urn:li:container:751e5d2632cc8a115d4b4d66e6ab73df\"}",
+        "contentType": "application/json"
+    },
+    "systemMetadata": {
+        "lastObserved": 1664912548117,
+        "runId": "tableau-2022_10_04-12_42_26"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:tableau,f5e06907-6eae-c73e-444d-3f8b96daaec1,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "upstreamLineage",
+    "aspect": {
+        "value": "{\"upstreams\": [{\"auditStamp\": {\"time\": 0, \"actor\": \"urn:li:corpuser:unknown\"}, \"dataset\": \"urn:li:dataset:(urn:li:dataPlatform:tableau,fa29b0a4-3e8b-96e5-2930-46e0b1d9829d,PROD)\", \"type\": \"TRANSFORMED\"}]}",
+        "contentType": "application/json"
+    },
+    "systemMetadata": {
+        "lastObserved": 1664912548117,
+        "runId": "tableau-2022_10_04-12_42_26"
+    }
+},
+{
+    "proposedSnapshot": {
+        "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
+            "urn": "urn:li:dataset:(urn:li:dataPlatform:tableau,f5e06907-6eae-c73e-444d-3f8b96daaec1,PROD)",
+            "aspects": [
+                {
+                    "com.linkedin.pegasus2avro.common.BrowsePaths": {
+                        "paths": [
+                            "/prod/tableau/default"
+                        ]
+                    }
+                },
+                {
+                    "com.linkedin.pegasus2avro.common.Ownership": {
+                        "owners": [
+                            {
+                                "owner": "urn:li:corpuser:mayuri.nehate@gslab.com",
+                                "type": "DATAOWNER"
+                            }
+                        ],
+                        "lastModified": {
+                            "time": 0,
+                            "actor": "urn:li:corpuser:unknown"
+                        }
+                    }
+                },
+                {
+                    "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
+                        "customProperties": {
+                            "hasExtracts": "False",
+                            "extractLastRefreshTime": "",
+                            "extractLastIncrementalUpdateTime": "",
+                            "extractLastUpdateTime": "",
+                            "type": "EmbeddedDatasource"
+                        },
+                        "name": "Superstore Datasource",
+                        "tags": []
+                    }
+                },
+                {
+                    "com.linkedin.pegasus2avro.schema.SchemaMetadata": {
+                        "schemaName": "test",
+                        "platform": "urn:li:dataPlatform:tableau",
+                        "version": 0,
+                        "created": {
+                            "time": 0,
+                            "actor": "urn:li:corpuser:unknown"
+                        },
+                        "lastModified": {
+                            "time": 0,
+                            "actor": "urn:li:corpuser:unknown"
+                        },
+                        "hash": "",
+                        "platformSchema": {
+                            "com.linkedin.pegasus2avro.schema.OtherSchema": {
+                                "rawSchema": ""
+                            }
+                        },
+                        "fields": [
+                            {
+                                "fieldPath": "Sales",
+                                "nullable": false,
+                                "description": "",
+                                "type": {
+                                    "type": {
+                                        "com.linkedin.pegasus2avro.schema.NullType": {}
+                                    }
+                                },
+                                "nativeDataType": "UNKNOWN",
+                                "recursive": false,
+                                "globalTags": {
+                                    "tags": [
+                                        {
+                                            "tag": "urn:li:tag:DATASOURCEFIELD"
+                                        }
+                                    ]
+                                },
+                                "isPartOfKey": false
+                            },
+                            {
+                                "fieldPath": "Profit (bin)",
+                                "nullable": false,
+                                "description": "",
+                                "type": {
+                                    "type": {
+                                        "com.linkedin.pegasus2avro.schema.NullType": {}
+                                    }
+                                },
+                                "nativeDataType": "UNKNOWN",
+                                "recursive": false,
+                                "globalTags": {
+                                    "tags": [
+                                        {
+                                            "tag": "urn:li:tag:DATASOURCEFIELD"
+                                        }
+                                    ]
+                                },
+                                "isPartOfKey": false
+                            },
+                            {
+                                "fieldPath": "Ship Date",
+                                "nullable": false,
+                                "description": "",
+                                "type": {
+                                    "type": {
+                                        "com.linkedin.pegasus2avro.schema.NullType": {}
+                                    }
+                                },
+                                "nativeDataType": "UNKNOWN",
+                                "recursive": false,
+                                "globalTags": {
+                                    "tags": [
+                                        {
+                                            "tag": "urn:li:tag:DATASOURCEFIELD"
+                                        }
+                                    ]
+                                },
+                                "isPartOfKey": false
+                            },
+                            {
+                                "fieldPath": "Order ID",
+                                "nullable": false,
+                                "description": "",
+                                "type": {
+                                    "type": {
+                                        "com.linkedin.pegasus2avro.schema.NullType": {}
+                                    }
+                                },
+                                "nativeDataType": "UNKNOWN",
+                                "recursive": false,
+                                "globalTags": {
+                                    "tags": [
+                                        {
+                                            "tag": "urn:li:tag:DATASOURCEFIELD"
+                                        }
+                                    ]
+                                },
+                                "isPartOfKey": false
+                            },
+                            {
+                                "fieldPath": "People",
+                                "nullable": false,
+                                "description": "",
+                                "type": {
+                                    "type": {
+                                        "com.linkedin.pegasus2avro.schema.NullType": {}
+                                    }
+                                },
+                                "nativeDataType": "UNKNOWN",
+                                "recursive": false,
+                                "globalTags": {
+                                    "tags": [
+                                        {
+                                            "tag": "urn:li:tag:DATASOURCEFIELD"
+                                        }
+                                    ]
+                                },
+                                "isPartOfKey": false
+                            },
+                            {
+                                "fieldPath": "Customer ID",
+                                "nullable": false,
+                                "description": "",
+                                "type": {
+                                    "type": {
+                                        "com.linkedin.pegasus2avro.schema.NullType": {}
+                                    }
+                                },
+                                "nativeDataType": "UNKNOWN",
+                                "recursive": false,
+                                "globalTags": {
+                                    "tags": [
+                                        {
+                                            "tag": "urn:li:tag:DATASOURCEFIELD"
+                                        }
+                                    ]
+                                },
+                                "isPartOfKey": false
+                            },
+                            {
+                                "fieldPath": "Postal Code",
+                                "nullable": false,
+                                "description": "",
+                                "type": {
+                                    "type": {
+                                        "com.linkedin.pegasus2avro.schema.NullType": {}
+                                    }
+                                },
+                                "nativeDataType": "UNKNOWN",
+                                "recursive": false,
+                                "globalTags": {
+                                    "tags": [
+                                        {
+                                            "tag": "urn:li:tag:DATASOURCEFIELD"
+                                        }
+                                    ]
+                                },
+                                "isPartOfKey": false
+                            },
+                            {
+                                "fieldPath": "Profit",
+                                "nullable": false,
+                                "description": "",
+                                "type": {
+                                    "type": {
+                                        "com.linkedin.pegasus2avro.schema.NullType": {}
+                                    }
+                                },
+                                "nativeDataType": "UNKNOWN",
+                                "recursive": false,
+                                "globalTags": {
+                                    "tags": [
+                                        {
+                                            "tag": "urn:li:tag:DATASOURCEFIELD"
+                                        }
+                                    ]
+                                },
+                                "isPartOfKey": false
+                            },
+                            {
+                                "fieldPath": "Region (People)",
+                                "nullable": false,
+                                "description": "",
+                                "type": {
+                                    "type": {
+                                        "com.linkedin.pegasus2avro.schema.NullType": {}
+                                    }
+                                },
+                                "nativeDataType": "UNKNOWN",
+                                "recursive": false,
+                                "globalTags": {
+                                    "tags": [
+                                        {
+                                            "tag": "urn:li:tag:DATASOURCEFIELD"
+                                        }
+                                    ]
+                                },
+                                "isPartOfKey": false
+                            },
+                            {
+                                "fieldPath": "Category",
+                                "nullable": false,
+                                "description": "",
+                                "type": {
+                                    "type": {
+                                        "com.linkedin.pegasus2avro.schema.NullType": {}
+                                    }
+                                },
+                                "nativeDataType": "UNKNOWN",
+                                "recursive": false,
+                                "globalTags": {
+                                    "tags": [
+                                        {
+                                            "tag": "urn:li:tag:DATASOURCEFIELD"
+                                        }
+                                    ]
+                                },
+                                "isPartOfKey": false
+                            },
+                            {
+                                "fieldPath": "State",
+                                "nullable": false,
+                                "description": "",
+                                "type": {
+                                    "type": {
+                                        "com.linkedin.pegasus2avro.schema.NullType": {}
+                                    }
+                                },
+                                "nativeDataType": "UNKNOWN",
+                                "recursive": false,
+                                "globalTags": {
+                                    "tags": [
+                                        {
+                                            "tag": "urn:li:tag:DATASOURCEFIELD"
+                                        }
+                                    ]
+                                },
+                                "isPartOfKey": false
+                            },
+                            {
+                                "fieldPath": "Row ID",
+                                "nullable": false,
+                                "description": "",
+                                "type": {
+                                    "type": {
+                                        "com.linkedin.pegasus2avro.schema.NullType": {}
+                                    }
+                                },
+                                "nativeDataType": "UNKNOWN",
+                                "recursive": false,
+                                "globalTags": {
+                                    "tags": [
+                                        {
+                                            "tag": "urn:li:tag:DATASOURCEFIELD"
+                                        }
+                                    ]
+                                },
+                                "isPartOfKey": false
+                            },
+                            {
+                                "fieldPath": "Product Name",
+                                "nullable": false,
+                                "description": "",
+                                "type": {
+                                    "type": {
+                                        "com.linkedin.pegasus2avro.schema.NullType": {}
+                                    }
+                                },
+                                "nativeDataType": "UNKNOWN",
+                                "recursive": false,
+                                "globalTags": {
+                                    "tags": [
+                                        {
+                                            "tag": "urn:li:tag:DATASOURCEFIELD"
+                                        }
+                                    ]
+                                },
+                                "isPartOfKey": false
+                            },
+                            {
+                                "fieldPath": "Customer Name",
+                                "nullable": false,
+                                "description": "",
+                                "type": {
+                                    "type": {
+                                        "com.linkedin.pegasus2avro.schema.NullType": {}
+                                    }
+                                },
+                                "nativeDataType": "UNKNOWN",
+                                "recursive": false,
+                                "globalTags": {
+                                    "tags": [
+                                        {
+                                            "tag": "urn:li:tag:DATASOURCEFIELD"
+                                        }
+                                    ]
+                                },
+                                "isPartOfKey": false
+                            },
+                            {
+                                "fieldPath": "Segment",
+                                "nullable": false,
+                                "description": "",
+                                "type": {
+                                    "type": {
+                                        "com.linkedin.pegasus2avro.schema.NullType": {}
+                                    }
+                                },
+                                "nativeDataType": "UNKNOWN",
+                                "recursive": false,
+                                "globalTags": {
+                                    "tags": [
+                                        {
+                                            "tag": "urn:li:tag:DATASOURCEFIELD"
+                                        }
+                                    ]
+                                },
+                                "isPartOfKey": false
+                            },
+                            {
+                                "fieldPath": "Regional Manager",
+                                "nullable": false,
+                                "description": "",
+                                "type": {
+                                    "type": {
+                                        "com.linkedin.pegasus2avro.schema.NullType": {}
+                                    }
+                                },
+                                "nativeDataType": "UNKNOWN",
+                                "recursive": false,
+                                "globalTags": {
+                                    "tags": [
+                                        {
+                                            "tag": "urn:li:tag:DATASOURCEFIELD"
+                                        }
+                                    ]
+                                },
+                                "isPartOfKey": false
+                            },
+                            {
+                                "fieldPath": "Returns",
+                                "nullable": false,
+                                "description": "",
+                                "type": {
+                                    "type": {
+                                        "com.linkedin.pegasus2avro.schema.NullType": {}
+                                    }
+                                },
+                                "nativeDataType": "UNKNOWN",
+                                "recursive": false,
+                                "globalTags": {
+                                    "tags": [
+                                        {
+                                            "tag": "urn:li:tag:DATASOURCEFIELD"
+                                        }
+                                    ]
+                                },
+                                "isPartOfKey": false
+                            },
+                            {
+                                "fieldPath": "Returned",
+                                "nullable": false,
+                                "description": "",
+                                "type": {
+                                    "type": {
+                                        "com.linkedin.pegasus2avro.schema.NullType": {}
+                                    }
+                                },
+                                "nativeDataType": "UNKNOWN",
+                                "recursive": false,
+                                "globalTags": {
+                                    "tags": [
+                                        {
+                                            "tag": "urn:li:tag:DATASOURCEFIELD"
+                                        }
+                                    ]
+                                },
+                                "isPartOfKey": false
+                            },
+                            {
+                                "fieldPath": "Product ID",
+                                "nullable": false,
+                                "description": "",
+                                "type": {
+                                    "type": {
+                                        "com.linkedin.pegasus2avro.schema.NullType": {}
+                                    }
+                                },
+                                "nativeDataType": "UNKNOWN",
+                                "recursive": false,
+                                "globalTags": {
+                                    "tags": [
+                                        {
+                                            "tag": "urn:li:tag:DATASOURCEFIELD"
+                                        }
+                                    ]
+                                },
+                                "isPartOfKey": false
+                            },
+                            {
+                                "fieldPath": "Order Date",
+                                "nullable": false,
+                                "description": "",
+                                "type": {
+                                    "type": {
+                                        "com.linkedin.pegasus2avro.schema.NullType": {}
+                                    }
+                                },
+                                "nativeDataType": "UNKNOWN",
+                                "recursive": false,
+                                "globalTags": {
+                                    "tags": [
+                                        {
+                                            "tag": "urn:li:tag:DATASOURCEFIELD"
+                                        }
+                                    ]
+                                },
+                                "isPartOfKey": false
+                            },
+                            {
+                                "fieldPath": "Discount",
+                                "nullable": false,
+                                "description": "",
+                                "type": {
+                                    "type": {
+                                        "com.linkedin.pegasus2avro.schema.NullType": {}
+                                    }
+                                },
+                                "nativeDataType": "UNKNOWN",
+                                "recursive": false,
+                                "globalTags": {
+                                    "tags": [
+                                        {
+                                            "tag": "urn:li:tag:DATASOURCEFIELD"
+                                        }
+                                    ]
+                                },
+                                "isPartOfKey": false
+                            },
+                            {
+                                "fieldPath": "Orders",
+                                "nullable": false,
+                                "description": "",
+                                "type": {
+                                    "type": {
+                                        "com.linkedin.pegasus2avro.schema.NullType": {}
+                                    }
+                                },
+                                "nativeDataType": "UNKNOWN",
+                                "recursive": false,
+                                "globalTags": {
+                                    "tags": [
+                                        {
+                                            "tag": "urn:li:tag:DATASOURCEFIELD"
+                                        }
+                                    ]
+                                },
+                                "isPartOfKey": false
+                            },
+                            {
+                                "fieldPath": "Quantity",
+                                "nullable": false,
+                                "description": "",
+                                "type": {
+                                    "type": {
+                                        "com.linkedin.pegasus2avro.schema.NullType": {}
+                                    }
+                                },
+                                "nativeDataType": "UNKNOWN",
+                                "recursive": false,
+                                "globalTags": {
+                                    "tags": [
+                                        {
+                                            "tag": "urn:li:tag:DATASOURCEFIELD"
+                                        }
+                                    ]
+                                },
+                                "isPartOfKey": false
+                            },
+                            {
+                                "fieldPath": "Top Customers by Profit",
+                                "nullable": false,
+                                "description": "",
+                                "type": {
+                                    "type": {
+                                        "com.linkedin.pegasus2avro.schema.NullType": {}
+                                    }
+                                },
+                                "nativeDataType": "UNKNOWN",
+                                "recursive": false,
+                                "globalTags": {
+                                    "tags": [
+                                        {
+                                            "tag": "urn:li:tag:DATASOURCEFIELD"
+                                        }
+                                    ]
+                                },
+                                "isPartOfKey": false
+                            },
+                            {
+                                "fieldPath": "Region",
+                                "nullable": false,
+                                "description": "",
+                                "type": {
+                                    "type": {
+                                        "com.linkedin.pegasus2avro.schema.NullType": {}
+                                    }
+                                },
+                                "nativeDataType": "UNKNOWN",
+                                "recursive": false,
+                                "globalTags": {
+                                    "tags": [
+                                        {
+                                            "tag": "urn:li:tag:DATASOURCEFIELD"
+                                        }
+                                    ]
+                                },
+                                "isPartOfKey": false
+                            },
+                            {
+                                "fieldPath": "Country/Region",
+                                "nullable": false,
+                                "description": "",
+                                "type": {
+                                    "type": {
+                                        "com.linkedin.pegasus2avro.schema.NullType": {}
+                                    }
+                                },
+                                "nativeDataType": "UNKNOWN",
+                                "recursive": false,
+                                "globalTags": {
+                                    "tags": [
+                                        {
+                                            "tag": "urn:li:tag:DATASOURCEFIELD"
+                                        }
+                                    ]
+                                },
+                                "isPartOfKey": false
+                            },
+                            {
+                                "fieldPath": "Product",
+                                "nullable": false,
+                                "description": "",
+                                "type": {
+                                    "type": {
+                                        "com.linkedin.pegasus2avro.schema.NullType": {}
+                                    }
+                                },
+                                "nativeDataType": "UNKNOWN",
+                                "recursive": false,
+                                "globalTags": {
+                                    "tags": [
+                                        {
+                                            "tag": "urn:li:tag:DATASOURCEFIELD"
+                                        }
+                                    ]
+                                },
+                                "isPartOfKey": false
+                            },
+                            {
+                                "fieldPath": "Order ID (Returns)",
+                                "nullable": false,
+                                "description": "",
+                                "type": {
+                                    "type": {
+                                        "com.linkedin.pegasus2avro.schema.NullType": {}
+                                    }
+                                },
+                                "nativeDataType": "UNKNOWN",
+                                "recursive": false,
+                                "globalTags": {
+                                    "tags": [
+                                        {
+                                            "tag": "urn:li:tag:DATASOURCEFIELD"
+                                        }
+                                    ]
+                                },
+                                "isPartOfKey": false
+                            },
+                            {
+                                "fieldPath": "Ship Mode",
+                                "nullable": false,
+                                "description": "",
+                                "type": {
+                                    "type": {
+                                        "com.linkedin.pegasus2avro.schema.NullType": {}
+                                    }
+                                },
+                                "nativeDataType": "UNKNOWN",
+                                "recursive": false,
+                                "globalTags": {
+                                    "tags": [
+                                        {
+                                            "tag": "urn:li:tag:DATASOURCEFIELD"
+                                        }
+                                    ]
+                                },
+                                "isPartOfKey": false
+                            },
+                            {
+                                "fieldPath": "Profit Ratio",
+                                "nullable": false,
+                                "description": "",
+                                "type": {
+                                    "type": {
+                                        "com.linkedin.pegasus2avro.schema.NullType": {}
+                                    }
+                                },
+                                "nativeDataType": "UNKNOWN",
+                                "recursive": false,
+                                "globalTags": {
+                                    "tags": [
+                                        {
+                                            "tag": "urn:li:tag:DATASOURCEFIELD"
+                                        }
+                                    ]
+                                },
+                                "isPartOfKey": false
+                            },
+                            {
+                                "fieldPath": "City",
+                                "nullable": false,
+                                "description": "",
+                                "type": {
+                                    "type": {
+                                        "com.linkedin.pegasus2avro.schema.NullType": {}
+                                    }
+                                },
+                                "nativeDataType": "UNKNOWN",
+                                "recursive": false,
+                                "globalTags": {
+                                    "tags": [
+                                        {
+                                            "tag": "urn:li:tag:DATASOURCEFIELD"
+                                        }
+                                    ]
+                                },
+                                "isPartOfKey": false
+                            },
+                            {
+                                "fieldPath": "Sub-Category",
+                                "nullable": false,
+                                "description": "",
+                                "type": {
+                                    "type": {
+                                        "com.linkedin.pegasus2avro.schema.NullType": {}
+                                    }
+                                },
+                                "nativeDataType": "UNKNOWN",
+                                "recursive": false,
+                                "globalTags": {
+                                    "tags": [
+                                        {
+                                            "tag": "urn:li:tag:DATASOURCEFIELD"
+                                        }
+                                    ]
+                                },
+                                "isPartOfKey": false
+                            },
+                            {
+                                "fieldPath": "Manufacturer",
+                                "nullable": false,
+                                "description": "",
+                                "type": {
+                                    "type": {
+                                        "com.linkedin.pegasus2avro.schema.NullType": {}
+                                    }
+                                },
+                                "nativeDataType": "UNKNOWN",
+                                "recursive": false,
+                                "globalTags": {
+                                    "tags": [
+                                        {
+                                            "tag": "urn:li:tag:DATASOURCEFIELD"
+                                        }
+                                    ]
+                                },
+                                "isPartOfKey": false
+                            },
+                            {
+                                "fieldPath": "Location",
+                                "nullable": false,
+                                "description": "",
+                                "type": {
+                                    "type": {
+                                        "com.linkedin.pegasus2avro.schema.NullType": {}
+                                    }
+                                },
+                                "nativeDataType": "UNKNOWN",
+                                "recursive": false,
+                                "globalTags": {
+                                    "tags": [
+                                        {
+                                            "tag": "urn:li:tag:DATASOURCEFIELD"
+                                        }
+                                    ]
+                                },
+                                "isPartOfKey": false
+                            }
+                        ]
+                    }
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1664912548119,
+        "runId": "tableau-2022_10_04-12_42_26"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:tableau,f5e06907-6eae-c73e-444d-3f8b96daaec1,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+        "value": "{\"typeNames\": [\"Embedded Data Source\"]}",
+        "contentType": "application/json"
+    },
+    "systemMetadata": {
+        "lastObserved": 1664912548129,
+        "runId": "tableau-2022_10_04-12_42_26"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:tableau,f5e06907-6eae-c73e-444d-3f8b96daaec1,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "container",
+    "aspect": {
+        "value": "{\"container\": \"urn:li:container:d245e0e80c531d6f963481c1d0e10f5e\"}",
+        "contentType": "application/json"
+    },
+    "systemMetadata": {
+        "lastObserved": 1664912548129,
+        "runId": "tableau-2022_10_04-12_42_26"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:tableau,fa29b0a4-3e8b-96e5-2930-46e0b1d9829d,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "upstreamLineage",
+    "aspect": {
+        "value": "{\"upstreams\": [{\"auditStamp\": {\"time\": 0, \"actor\": \"urn:li:corpuser:unknown\"}, \"dataset\": \"urn:li:dataset:(urn:li:dataPlatform:external,sample - superstore.xls.returns,PROD)\", \"type\": \"TRANSFORMED\"}, {\"auditStamp\": {\"time\": 0, \"actor\": \"urn:li:corpuser:unknown\"}, \"dataset\": \"urn:li:dataset:(urn:li:dataPlatform:external,sample - superstore.xls.orders,PROD)\", \"type\": \"TRANSFORMED\"}, {\"auditStamp\": {\"time\": 0, \"actor\": \"urn:li:corpuser:unknown\"}, \"dataset\": \"urn:li:dataset:(urn:li:dataPlatform:external,sample - superstore.xls.people,PROD)\", \"type\": \"TRANSFORMED\"}]}",
+        "contentType": "application/json"
+    },
+    "systemMetadata": {
+        "lastObserved": 1664912548562,
+        "runId": "tableau-2022_10_04-12_42_26"
+    }
+},
+{
+    "proposedSnapshot": {
+        "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
+            "urn": "urn:li:dataset:(urn:li:dataPlatform:tableau,fa29b0a4-3e8b-96e5-2930-46e0b1d9829d,PROD)",
+            "aspects": [
+                {
+                    "com.linkedin.pegasus2avro.common.BrowsePaths": {
+                        "paths": [
+                            "/prod/tableau/Samples"
+                        ]
+                    }
+                },
+                {
+                    "com.linkedin.pegasus2avro.common.Ownership": {
+                        "owners": [
+                            {
+                                "owner": "urn:li:corpuser:mitchell@acryl.io",
+                                "type": "DATAOWNER"
+                            }
+                        ],
+                        "lastModified": {
+                            "time": 0,
+                            "actor": "urn:li:corpuser:unknown"
+                        }
+                    }
+                },
+                {
+                    "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
+                        "customProperties": {
+                            "hasExtracts": "False",
+                            "extractLastRefreshTime": "",
+                            "extractLastIncrementalUpdateTime": "",
+                            "extractLastUpdateTime": "",
+                            "type": "PublishedDatasource"
+                        },
+                        "name": "Superstore Datasource",
+                        "description": "",
+                        "tags": []
+                    }
+                },
+                {
+                    "com.linkedin.pegasus2avro.schema.SchemaMetadata": {
+                        "schemaName": "test",
+                        "platform": "urn:li:dataPlatform:tableau",
+                        "version": 0,
+                        "created": {
+                            "time": 0,
+                            "actor": "urn:li:corpuser:unknown"
+                        },
+                        "lastModified": {
+                            "time": 0,
+                            "actor": "urn:li:corpuser:unknown"
+                        },
+                        "hash": "",
+                        "platformSchema": {
+                            "com.linkedin.pegasus2avro.schema.OtherSchema": {
+                                "rawSchema": ""
+                            }
+                        },
+                        "fields": [
+                            {
+                                "fieldPath": "Sub-Category",
+                                "nullable": false,
+                                "description": "",
+                                "type": {
+                                    "type": {
+                                        "com.linkedin.pegasus2avro.schema.StringType": {}
+                                    }
+                                },
+                                "nativeDataType": "STRING",
+                                "recursive": false,
+                                "globalTags": {
+                                    "tags": [
+                                        {
+                                            "tag": "urn:li:tag:DIMENSION"
+                                        },
+                                        {
+                                            "tag": "urn:li:tag:COLUMNFIELD"
+                                        },
+                                        {
+                                            "tag": "urn:li:tag:COUNT"
+                                        }
+                                    ]
+                                },
+                                "isPartOfKey": false
+                            },
+                            {
+                                "fieldPath": "Orders",
+                                "nullable": false,
+                                "description": "",
+                                "type": {
+                                    "type": {
+                                        "com.linkedin.pegasus2avro.schema.ArrayType": {}
+                                    }
+                                },
+                                "nativeDataType": "TABLE",
+                                "recursive": false,
+                                "globalTags": {
+                                    "tags": [
+                                        {
+                                            "tag": "urn:li:tag:MEASURE"
+                                        },
+                                        {
+                                            "tag": "urn:li:tag:COLUMNFIELD"
+                                        }
+                                    ]
+                                },
+                                "isPartOfKey": false
+                            },
+                            {
+                                "fieldPath": "Order Date",
+                                "nullable": false,
+                                "description": "",
+                                "type": {
+                                    "type": {
+                                        "com.linkedin.pegasus2avro.schema.DateType": {}
+                                    }
+                                },
+                                "nativeDataType": "DATE",
+                                "recursive": false,
+                                "globalTags": {
+                                    "tags": [
+                                        {
+                                            "tag": "urn:li:tag:DIMENSION"
+                                        },
+                                        {
+                                            "tag": "urn:li:tag:COLUMNFIELD"
+                                        },
+                                        {
+                                            "tag": "urn:li:tag:YEAR"
+                                        }
+                                    ]
+                                },
+                                "isPartOfKey": false
+                            },
+                            {
+                                "fieldPath": "Discount",
+                                "nullable": false,
+                                "description": "",
+                                "type": {
+                                    "type": {
+                                        "com.linkedin.pegasus2avro.schema.NumberType": {}
+                                    }
+                                },
+                                "nativeDataType": "REAL",
+                                "recursive": false,
+                                "globalTags": {
+                                    "tags": [
+                                        {
+                                            "tag": "urn:li:tag:MEASURE"
+                                        },
+                                        {
+                                            "tag": "urn:li:tag:COLUMNFIELD"
+                                        },
+                                        {
+                                            "tag": "urn:li:tag:SUM"
+                                        }
+                                    ]
+                                },
+                                "isPartOfKey": false
+                            },
+                            {
+                                "fieldPath": "State",
+                                "nullable": false,
+                                "description": "",
+                                "type": {
+                                    "type": {
+                                        "com.linkedin.pegasus2avro.schema.StringType": {}
+                                    }
+                                },
+                                "nativeDataType": "STRING",
+                                "recursive": false,
+                                "globalTags": {
+                                    "tags": [
+                                        {
+                                            "tag": "urn:li:tag:DIMENSION"
+                                        },
+                                        {
+                                            "tag": "urn:li:tag:COLUMNFIELD"
+                                        }
+                                    ]
+                                },
+                                "isPartOfKey": false
+                            },
+                            {
+                                "fieldPath": "Manufacturer",
+                                "nullable": false,
+                                "description": "",
+                                "type": {
+                                    "type": {
+                                        "com.linkedin.pegasus2avro.schema.StringType": {}
+                                    }
+                                },
+                                "nativeDataType": "STRING",
+                                "recursive": false,
+                                "globalTags": {
+                                    "tags": [
+                                        {
+                                            "tag": "urn:li:tag:DIMENSION"
+                                        },
+                                        {
+                                            "tag": "urn:li:tag:GROUPFIELD"
+                                        }
+                                    ]
+                                },
+                                "isPartOfKey": false
+                            },
+                            {
+                                "fieldPath": "Profit",
+                                "nullable": false,
+                                "description": "",
+                                "type": {
+                                    "type": {
+                                        "com.linkedin.pegasus2avro.schema.NumberType": {}
+                                    }
+                                },
+                                "nativeDataType": "REAL",
+                                "recursive": false,
+                                "globalTags": {
+                                    "tags": [
+                                        {
+                                            "tag": "urn:li:tag:MEASURE"
+                                        },
+                                        {
+                                            "tag": "urn:li:tag:COLUMNFIELD"
+                                        }
+                                    ]
+                                },
+                                "isPartOfKey": false
+                            },
+                            {
+                                "fieldPath": "Returns",
+                                "nullable": false,
+                                "description": "",
+                                "type": {
+                                    "type": {
+                                        "com.linkedin.pegasus2avro.schema.ArrayType": {}
+                                    }
+                                },
+                                "nativeDataType": "TABLE",
+                                "recursive": false,
+                                "globalTags": {
+                                    "tags": [
+                                        {
+                                            "tag": "urn:li:tag:MEASURE"
+                                        },
+                                        {
+                                            "tag": "urn:li:tag:COLUMNFIELD"
+                                        }
+                                    ]
+                                },
+                                "isPartOfKey": false
+                            },
+                            {
+                                "fieldPath": "Person",
+                                "nullable": false,
+                                "description": "",
+                                "type": {
+                                    "type": {
+                                        "com.linkedin.pegasus2avro.schema.StringType": {}
+                                    }
+                                },
+                                "nativeDataType": "STRING",
+                                "recursive": false,
+                                "globalTags": {
+                                    "tags": [
+                                        {
+                                            "tag": "urn:li:tag:DIMENSION"
+                                        },
+                                        {
+                                            "tag": "urn:li:tag:COLUMNFIELD"
+                                        },
+                                        {
+                                            "tag": "urn:li:tag:COUNT"
+                                        }
+                                    ]
+                                },
+                                "isPartOfKey": false
+                            },
+                            {
+                                "fieldPath": "Profit (bin)",
+                                "nullable": false,
+                                "description": "",
+                                "type": {
+                                    "type": {
+                                        "com.linkedin.pegasus2avro.schema.NullType": {}
+                                    }
+                                },
+                                "nativeDataType": "UNKNOWN",
+                                "recursive": false,
+                                "globalTags": {
+                                    "tags": [
+                                        {
+                                            "tag": "urn:li:tag:BINFIELD"
+                                        }
+                                    ]
+                                },
+                                "isPartOfKey": false
+                            },
+                            {
+                                "fieldPath": "Order ID",
+                                "nullable": false,
+                                "description": "",
+                                "type": {
+                                    "type": {
+                                        "com.linkedin.pegasus2avro.schema.StringType": {}
+                                    }
+                                },
+                                "nativeDataType": "STRING",
+                                "recursive": false,
+                                "globalTags": {
+                                    "tags": [
+                                        {
+                                            "tag": "urn:li:tag:DIMENSION"
+                                        },
+                                        {
+                                            "tag": "urn:li:tag:COLUMNFIELD"
+                                        },
+                                        {
+                                            "tag": "urn:li:tag:COUNT"
+                                        }
+                                    ]
+                                },
+                                "isPartOfKey": false
+                            },
+                            {
+                                "fieldPath": "Region (People)",
+                                "nullable": false,
+                                "description": "",
+                                "type": {
+                                    "type": {
+                                        "com.linkedin.pegasus2avro.schema.StringType": {}
+                                    }
+                                },
+                                "nativeDataType": "STRING",
+                                "recursive": false,
+                                "globalTags": {
+                                    "tags": [
+                                        {
+                                            "tag": "urn:li:tag:DIMENSION"
+                                        },
+                                        {
+                                            "tag": "urn:li:tag:COLUMNFIELD"
+                                        }
+                                    ]
+                                },
+                                "isPartOfKey": false
+                            },
+                            {
+                                "fieldPath": "Quantity",
+                                "nullable": false,
+                                "description": "",
+                                "type": {
+                                    "type": {
+                                        "com.linkedin.pegasus2avro.schema.NumberType": {}
+                                    }
+                                },
+                                "nativeDataType": "INTEGER",
+                                "recursive": false,
+                                "globalTags": {
+                                    "tags": [
+                                        {
+                                            "tag": "urn:li:tag:MEASURE"
+                                        },
+                                        {
+                                            "tag": "urn:li:tag:COLUMNFIELD"
+                                        },
+                                        {
+                                            "tag": "urn:li:tag:SUM"
+                                        }
+                                    ]
+                                },
+                                "isPartOfKey": false
+                            },
+                            {
+                                "fieldPath": "Ship Mode",
+                                "nullable": false,
+                                "description": "",
+                                "type": {
+                                    "type": {
+                                        "com.linkedin.pegasus2avro.schema.StringType": {}
+                                    }
+                                },
+                                "nativeDataType": "STRING",
+                                "recursive": false,
+                                "globalTags": {
+                                    "tags": [
+                                        {
+                                            "tag": "urn:li:tag:DIMENSION"
+                                        },
+                                        {
+                                            "tag": "urn:li:tag:COLUMNFIELD"
+                                        },
+                                        {
+                                            "tag": "urn:li:tag:COUNT"
+                                        }
+                                    ]
+                                },
+                                "isPartOfKey": false
+                            },
+                            {
+                                "fieldPath": "People",
+                                "nullable": false,
+                                "description": "",
+                                "type": {
+                                    "type": {
+                                        "com.linkedin.pegasus2avro.schema.ArrayType": {}
+                                    }
+                                },
+                                "nativeDataType": "TABLE",
+                                "recursive": false,
+                                "globalTags": {
+                                    "tags": [
+                                        {
+                                            "tag": "urn:li:tag:MEASURE"
+                                        },
+                                        {
+                                            "tag": "urn:li:tag:COLUMNFIELD"
+                                        }
+                                    ]
+                                },
+                                "isPartOfKey": false
+                            },
+                            {
+                                "fieldPath": "Postal Code",
+                                "nullable": false,
+                                "description": "",
+                                "type": {
+                                    "type": {
+                                        "com.linkedin.pegasus2avro.schema.NumberType": {}
+                                    }
+                                },
+                                "nativeDataType": "INTEGER",
+                                "recursive": false,
+                                "globalTags": {
+                                    "tags": [
+                                        {
+                                            "tag": "urn:li:tag:DIMENSION"
+                                        },
+                                        {
+                                            "tag": "urn:li:tag:COLUMNFIELD"
+                                        },
+                                        {
+                                            "tag": "urn:li:tag:SUM"
+                                        }
+                                    ]
+                                },
+                                "isPartOfKey": false
+                            },
+                            {
+                                "fieldPath": "Row ID",
+                                "nullable": false,
+                                "description": "",
+                                "type": {
+                                    "type": {
+                                        "com.linkedin.pegasus2avro.schema.NumberType": {}
+                                    }
+                                },
+                                "nativeDataType": "INTEGER",
+                                "recursive": false,
+                                "globalTags": {
+                                    "tags": [
+                                        {
+                                            "tag": "urn:li:tag:DIMENSION"
+                                        },
+                                        {
+                                            "tag": "urn:li:tag:COLUMNFIELD"
+                                        }
+                                    ]
+                                },
+                                "isPartOfKey": false
+                            },
+                            {
+                                "fieldPath": "Customer Name",
+                                "nullable": false,
+                                "description": "",
+                                "type": {
+                                    "type": {
+                                        "com.linkedin.pegasus2avro.schema.StringType": {}
+                                    }
+                                },
+                                "nativeDataType": "STRING",
+                                "recursive": false,
+                                "globalTags": {
+                                    "tags": [
+                                        {
+                                            "tag": "urn:li:tag:DIMENSION"
+                                        },
+                                        {
+                                            "tag": "urn:li:tag:COLUMNFIELD"
+                                        }
+                                    ]
+                                },
+                                "isPartOfKey": false
+                            },
+                            {
+                                "fieldPath": "Product",
+                                "nullable": false,
+                                "description": "",
+                                "type": {
+                                    "type": {
+                                        "com.linkedin.pegasus2avro.schema.NullType": {}
+                                    }
+                                },
+                                "nativeDataType": "UNKNOWN",
+                                "recursive": false,
+                                "globalTags": {
+                                    "tags": [
+                                        {
+                                            "tag": "urn:li:tag:HIERARCHYFIELD"
+                                        }
+                                    ]
+                                },
+                                "isPartOfKey": false
+                            },
+                            {
+                                "fieldPath": "Location",
+                                "nullable": false,
+                                "description": "",
+                                "type": {
+                                    "type": {
+                                        "com.linkedin.pegasus2avro.schema.NullType": {}
+                                    }
+                                },
+                                "nativeDataType": "UNKNOWN",
+                                "recursive": false,
+                                "globalTags": {
+                                    "tags": [
+                                        {
+                                            "tag": "urn:li:tag:HIERARCHYFIELD"
+                                        }
+                                    ]
+                                },
+                                "isPartOfKey": false
+                            },
+                            {
+                                "fieldPath": "Returned",
+                                "nullable": false,
+                                "description": "",
+                                "type": {
+                                    "type": {
+                                        "com.linkedin.pegasus2avro.schema.StringType": {}
+                                    }
+                                },
+                                "nativeDataType": "STRING",
+                                "recursive": false,
+                                "globalTags": {
+                                    "tags": [
+                                        {
+                                            "tag": "urn:li:tag:DIMENSION"
+                                        },
+                                        {
+                                            "tag": "urn:li:tag:COLUMNFIELD"
+                                        },
+                                        {
+                                            "tag": "urn:li:tag:COUNT"
+                                        }
+                                    ]
+                                },
+                                "isPartOfKey": false
+                            },
+                            {
+                                "fieldPath": "Product ID",
+                                "nullable": false,
+                                "description": "",
+                                "type": {
+                                    "type": {
+                                        "com.linkedin.pegasus2avro.schema.StringType": {}
+                                    }
+                                },
+                                "nativeDataType": "STRING",
+                                "recursive": false,
+                                "globalTags": {
+                                    "tags": [
+                                        {
+                                            "tag": "urn:li:tag:DIMENSION"
+                                        },
+                                        {
+                                            "tag": "urn:li:tag:COLUMNFIELD"
+                                        }
+                                    ]
+                                },
+                                "isPartOfKey": false
+                            },
+                            {
+                                "fieldPath": "Profit Ratio",
+                                "nullable": false,
+                                "description": "formula: SUM([Profit])/SUM([Sales])",
+                                "type": {
+                                    "type": {
+                                        "com.linkedin.pegasus2avro.schema.NumberType": {}
+                                    }
+                                },
+                                "nativeDataType": "REAL",
+                                "recursive": false,
+                                "globalTags": {
+                                    "tags": [
+                                        {
+                                            "tag": "urn:li:tag:MEASURE"
+                                        },
+                                        {
+                                            "tag": "urn:li:tag:CALCULATEDFIELD"
+                                        }
+                                    ]
+                                },
+                                "isPartOfKey": false
+                            },
+                            {
+                                "fieldPath": "Customer ID",
+                                "nullable": false,
+                                "description": "",
+                                "type": {
+                                    "type": {
+                                        "com.linkedin.pegasus2avro.schema.StringType": {}
+                                    }
+                                },
+                                "nativeDataType": "STRING",
+                                "recursive": false,
+                                "globalTags": {
+                                    "tags": [
+                                        {
+                                            "tag": "urn:li:tag:DIMENSION"
+                                        },
+                                        {
+                                            "tag": "urn:li:tag:COLUMNFIELD"
+                                        }
+                                    ]
+                                },
+                                "isPartOfKey": false
+                            },
+                            {
+                                "fieldPath": "Product Name",
+                                "nullable": false,
+                                "description": "",
+                                "type": {
+                                    "type": {
+                                        "com.linkedin.pegasus2avro.schema.StringType": {}
+                                    }
+                                },
+                                "nativeDataType": "STRING",
+                                "recursive": false,
+                                "globalTags": {
+                                    "tags": [
+                                        {
+                                            "tag": "urn:li:tag:DIMENSION"
+                                        },
+                                        {
+                                            "tag": "urn:li:tag:COLUMNFIELD"
+                                        }
+                                    ]
+                                },
+                                "isPartOfKey": false
+                            },
+                            {
+                                "fieldPath": "Order ID (Returns)",
+                                "nullable": false,
+                                "description": "",
+                                "type": {
+                                    "type": {
+                                        "com.linkedin.pegasus2avro.schema.StringType": {}
+                                    }
+                                },
+                                "nativeDataType": "STRING",
+                                "recursive": false,
+                                "globalTags": {
+                                    "tags": [
+                                        {
+                                            "tag": "urn:li:tag:DIMENSION"
+                                        },
+                                        {
+                                            "tag": "urn:li:tag:COLUMNFIELD"
+                                        }
+                                    ]
+                                },
+                                "isPartOfKey": false
+                            },
+                            {
+                                "fieldPath": "Sales",
+                                "nullable": false,
+                                "description": "",
+                                "type": {
+                                    "type": {
+                                        "com.linkedin.pegasus2avro.schema.NumberType": {}
+                                    }
+                                },
+                                "nativeDataType": "REAL",
+                                "recursive": false,
+                                "globalTags": {
+                                    "tags": [
+                                        {
+                                            "tag": "urn:li:tag:MEASURE"
+                                        },
+                                        {
+                                            "tag": "urn:li:tag:COLUMNFIELD"
+                                        },
+                                        {
+                                            "tag": "urn:li:tag:SUM"
+                                        }
+                                    ]
+                                },
+                                "isPartOfKey": false
+                            },
+                            {
+                                "fieldPath": "Segment",
+                                "nullable": false,
+                                "description": "",
+                                "type": {
+                                    "type": {
+                                        "com.linkedin.pegasus2avro.schema.StringType": {}
+                                    }
+                                },
+                                "nativeDataType": "STRING",
+                                "recursive": false,
+                                "globalTags": {
+                                    "tags": [
+                                        {
+                                            "tag": "urn:li:tag:DIMENSION"
+                                        },
+                                        {
+                                            "tag": "urn:li:tag:COLUMNFIELD"
+                                        },
+                                        {
+                                            "tag": "urn:li:tag:COUNT"
+                                        }
+                                    ]
+                                },
+                                "isPartOfKey": false
+                            },
+                            {
+                                "fieldPath": "Region",
+                                "nullable": false,
+                                "description": "",
+                                "type": {
+                                    "type": {
+                                        "com.linkedin.pegasus2avro.schema.StringType": {}
+                                    }
+                                },
+                                "nativeDataType": "STRING",
+                                "recursive": false,
+                                "globalTags": {
+                                    "tags": [
+                                        {
+                                            "tag": "urn:li:tag:DIMENSION"
+                                        },
+                                        {
+                                            "tag": "urn:li:tag:COLUMNFIELD"
+                                        }
+                                    ]
+                                },
+                                "isPartOfKey": false
+                            },
+                            {
+                                "fieldPath": "Country/Region",
+                                "nullable": false,
+                                "description": "",
+                                "type": {
+                                    "type": {
+                                        "com.linkedin.pegasus2avro.schema.StringType": {}
+                                    }
+                                },
+                                "nativeDataType": "STRING",
+                                "recursive": false,
+                                "globalTags": {
+                                    "tags": [
+                                        {
+                                            "tag": "urn:li:tag:DIMENSION"
+                                        },
+                                        {
+                                            "tag": "urn:li:tag:COLUMNFIELD"
+                                        }
+                                    ]
+                                },
+                                "isPartOfKey": false
+                            },
+                            {
+                                "fieldPath": "Top Customers by Profit",
+                                "nullable": false,
+                                "description": "",
+                                "type": {
+                                    "type": {
+                                        "com.linkedin.pegasus2avro.schema.NullType": {}
+                                    }
+                                },
+                                "nativeDataType": "UNKNOWN",
+                                "recursive": false,
+                                "globalTags": {
+                                    "tags": [
+                                        {
+                                            "tag": "urn:li:tag:SETFIELD"
+                                        }
+                                    ]
+                                },
+                                "isPartOfKey": false
+                            },
+                            {
+                                "fieldPath": "Category",
+                                "nullable": false,
+                                "description": "",
+                                "type": {
+                                    "type": {
+                                        "com.linkedin.pegasus2avro.schema.StringType": {}
+                                    }
+                                },
+                                "nativeDataType": "STRING",
+                                "recursive": false,
+                                "globalTags": {
+                                    "tags": [
+                                        {
+                                            "tag": "urn:li:tag:DIMENSION"
+                                        },
+                                        {
+                                            "tag": "urn:li:tag:COLUMNFIELD"
+                                        },
+                                        {
+                                            "tag": "urn:li:tag:COUNT"
+                                        }
+                                    ]
+                                },
+                                "isPartOfKey": false
+                            },
+                            {
+                                "fieldPath": "Ship Date",
+                                "nullable": false,
+                                "description": "",
+                                "type": {
+                                    "type": {
+                                        "com.linkedin.pegasus2avro.schema.DateType": {}
+                                    }
+                                },
+                                "nativeDataType": "DATE",
+                                "recursive": false,
+                                "globalTags": {
+                                    "tags": [
+                                        {
+                                            "tag": "urn:li:tag:DIMENSION"
+                                        },
+                                        {
+                                            "tag": "urn:li:tag:COLUMNFIELD"
+                                        },
+                                        {
+                                            "tag": "urn:li:tag:YEAR"
+                                        }
+                                    ]
+                                },
+                                "isPartOfKey": false
+                            },
+                            {
+                                "fieldPath": "City",
+                                "nullable": false,
+                                "description": "",
+                                "type": {
+                                    "type": {
+                                        "com.linkedin.pegasus2avro.schema.StringType": {}
+                                    }
+                                },
+                                "nativeDataType": "STRING",
+                                "recursive": false,
+                                "globalTags": {
+                                    "tags": [
+                                        {
+                                            "tag": "urn:li:tag:DIMENSION"
+                                        },
+                                        {
+                                            "tag": "urn:li:tag:COLUMNFIELD"
+                                        }
+                                    ]
+                                },
+                                "isPartOfKey": false
+                            }
+                        ]
+                    }
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1664912548564,
+        "runId": "tableau-2022_10_04-12_42_26"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:tableau,fa29b0a4-3e8b-96e5-2930-46e0b1d9829d,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+        "value": "{\"typeNames\": [\"Published Data Source\"]}",
+        "contentType": "application/json"
+    },
+    "systemMetadata": {
+        "lastObserved": 1664912548581,
+        "runId": "tableau-2022_10_04-12_42_26"
+    }
+},
+{
+    "proposedSnapshot": {
+        "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
+            "urn": "urn:li:dataset:(urn:li:dataPlatform:external,csv.petrol dataset june 23 2022 -- version 2.csv,PROD)",
+            "aspects": [
+                {
+                    "com.linkedin.pegasus2avro.common.BrowsePaths": {
+                        "paths": [
+                            "/prod/tableau/default/Petrol Dataset June 23 2022 -- Version 2"
+                        ]
+                    }
+                },
+                {
+                    "com.linkedin.pegasus2avro.schema.SchemaMetadata": {
+                        "schemaName": "test",
+                        "platform": "urn:li:dataPlatform:tableau",
+                        "version": 0,
+                        "created": {
+                            "time": 0,
+                            "actor": "urn:li:corpuser:unknown"
+                        },
+                        "lastModified": {
+                            "time": 0,
+                            "actor": "urn:li:corpuser:unknown"
+                        },
+                        "hash": "",
+                        "platformSchema": {
+                            "com.linkedin.pegasus2avro.schema.OtherSchema": {
+                                "rawSchema": ""
+                            }
+                        },
+                        "fields": [
+                            {
+                                "fieldPath": "Price Per Liter (USD)",
+                                "nullable": false,
+                                "description": "",
+                                "type": {
+                                    "type": {
+                                        "com.linkedin.pegasus2avro.schema.NumberType": {}
+                                    }
+                                },
+                                "nativeDataType": "R8",
+                                "recursive": false,
+                                "isPartOfKey": false
+                            },
+                            {
+                                "fieldPath": "Daily Oil Consumption (Barrels)",
+                                "nullable": false,
+                                "description": "",
+                                "type": {
+                                    "type": {
+                                        "com.linkedin.pegasus2avro.schema.NumberType": {}
+                                    }
+                                },
+                                "nativeDataType": "I8",
+                                "recursive": false,
+                                "isPartOfKey": false
+                            },
+                            {
+                                "fieldPath": "World Share",
+                                "nullable": false,
+                                "description": "",
+                                "type": {
+                                    "type": {
+                                        "com.linkedin.pegasus2avro.schema.NumberType": {}
+                                    }
+                                },
+                                "nativeDataType": "R8",
+                                "recursive": false,
+                                "isPartOfKey": false
+                            },
+                            {
+                                "fieldPath": "Price Per Liter (PKR)",
+                                "nullable": false,
+                                "description": "",
+                                "type": {
+                                    "type": {
+                                        "com.linkedin.pegasus2avro.schema.NumberType": {}
+                                    }
+                                },
+                                "nativeDataType": "R8",
+                                "recursive": false,
+                                "isPartOfKey": false
+                            },
+                            {
+                                "fieldPath": "xTimes Yearly Gallons Per Capita Buy",
+                                "nullable": false,
+                                "description": "",
+                                "type": {
+                                    "type": {
+                                        "com.linkedin.pegasus2avro.schema.NumberType": {}
+                                    }
+                                },
+                                "nativeDataType": "I8",
+                                "recursive": false,
+                                "isPartOfKey": false
+                            },
+                            {
+                                "fieldPath": "Yearly Gallons Per Capita",
+                                "nullable": false,
+                                "description": "",
+                                "type": {
+                                    "type": {
+                                        "com.linkedin.pegasus2avro.schema.NumberType": {}
+                                    }
+                                },
+                                "nativeDataType": "R8",
+                                "recursive": false,
+                                "isPartOfKey": false
+                            },
+                            {
+                                "fieldPath": "S#",
+                                "nullable": false,
+                                "description": "",
+                                "type": {
+                                    "type": {
+                                        "com.linkedin.pegasus2avro.schema.NumberType": {}
+                                    }
+                                },
+                                "nativeDataType": "I8",
+                                "recursive": false,
+                                "isPartOfKey": false
+                            },
+                            {
+                                "fieldPath": "Price Per Gallon (USD)",
+                                "nullable": false,
+                                "description": "",
+                                "type": {
+                                    "type": {
+                                        "com.linkedin.pegasus2avro.schema.NumberType": {}
+                                    }
+                                },
+                                "nativeDataType": "R8",
+                                "recursive": false,
+                                "isPartOfKey": false
+                            },
+                            {
+                                "fieldPath": "GDP Per Capita ( USD )",
+                                "nullable": false,
+                                "description": "",
+                                "type": {
+                                    "type": {
+                                        "com.linkedin.pegasus2avro.schema.NumberType": {}
+                                    }
+                                },
+                                "nativeDataType": "I8",
+                                "recursive": false,
+                                "isPartOfKey": false
+                            },
+                            {
+                                "fieldPath": "Country",
+                                "nullable": false,
+                                "description": "",
+                                "type": {
+                                    "type": {
+                                        "com.linkedin.pegasus2avro.schema.StringType": {}
+                                    }
+                                },
+                                "nativeDataType": "STR",
+                                "recursive": false,
+                                "isPartOfKey": false
+                            },
+                            {
+                                "fieldPath": "Gallons GDP Per Capita Can Buy",
+                                "nullable": false,
+                                "description": "",
+                                "type": {
+                                    "type": {
+                                        "com.linkedin.pegasus2avro.schema.NumberType": {}
+                                    }
+                                },
+                                "nativeDataType": "I8",
+                                "recursive": false,
+                                "isPartOfKey": false
+                            }
+                        ]
+                    }
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1664912548582,
+        "runId": "tableau-2022_10_04-12_42_26"
+    }
+},
+{
+    "proposedSnapshot": {
+        "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
+            "urn": "urn:li:dataset:(urn:li:dataPlatform:external,sample - superstore.xls.returns,PROD)",
+            "aspects": [
+                {
+                    "com.linkedin.pegasus2avro.common.BrowsePaths": {
+                        "paths": [
+                            "/prod/tableau/Samples/Superstore Datasource"
+                        ]
+                    }
+                },
+                {
+                    "com.linkedin.pegasus2avro.schema.SchemaMetadata": {
+                        "schemaName": "test",
+                        "platform": "urn:li:dataPlatform:tableau",
+                        "version": 0,
+                        "created": {
+                            "time": 0,
+                            "actor": "urn:li:corpuser:unknown"
+                        },
+                        "lastModified": {
+                            "time": 0,
+                            "actor": "urn:li:corpuser:unknown"
+                        },
+                        "hash": "",
+                        "platformSchema": {
+                            "com.linkedin.pegasus2avro.schema.OtherSchema": {
+                                "rawSchema": ""
+                            }
+                        },
+                        "fields": [
+                            {
+                                "fieldPath": "Returned",
+                                "nullable": false,
+                                "description": "",
+                                "type": {
+                                    "type": {
+                                        "com.linkedin.pegasus2avro.schema.StringType": {}
+                                    }
+                                },
+                                "nativeDataType": "WSTR",
+                                "recursive": false,
+                                "isPartOfKey": false
+                            },
+                            {
+                                "fieldPath": "Order ID",
+                                "nullable": false,
+                                "description": "",
+                                "type": {
+                                    "type": {
+                                        "com.linkedin.pegasus2avro.schema.StringType": {}
+                                    }
+                                },
+                                "nativeDataType": "WSTR",
+                                "recursive": false,
+                                "isPartOfKey": false
+                            }
+                        ]
+                    }
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1664912548589,
+        "runId": "tableau-2022_10_04-12_42_26"
+    }
+},
+{
+    "proposedSnapshot": {
+        "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
+            "urn": "urn:li:dataset:(urn:li:dataPlatform:external,sample - superstore.xls.orders,PROD)",
+            "aspects": [
+                {
+                    "com.linkedin.pegasus2avro.common.BrowsePaths": {
+                        "paths": [
+                            "/prod/tableau/Samples/Superstore Datasource"
+                        ]
+                    }
+                },
+                {
+                    "com.linkedin.pegasus2avro.schema.SchemaMetadata": {
+                        "schemaName": "test",
+                        "platform": "urn:li:dataPlatform:tableau",
+                        "version": 0,
+                        "created": {
+                            "time": 0,
+                            "actor": "urn:li:corpuser:unknown"
+                        },
+                        "lastModified": {
+                            "time": 0,
+                            "actor": "urn:li:corpuser:unknown"
+                        },
+                        "hash": "",
+                        "platformSchema": {
+                            "com.linkedin.pegasus2avro.schema.OtherSchema": {
+                                "rawSchema": ""
+                            }
+                        },
+                        "fields": [
+                            {
+                                "fieldPath": "Ship Mode",
+                                "nullable": false,
+                                "description": "",
+                                "type": {
+                                    "type": {
+                                        "com.linkedin.pegasus2avro.schema.StringType": {}
+                                    }
+                                },
+                                "nativeDataType": "WSTR",
+                                "recursive": false,
+                                "isPartOfKey": false
+                            },
+                            {
+                                "fieldPath": "Customer ID",
+                                "nullable": false,
+                                "description": "",
+                                "type": {
+                                    "type": {
+                                        "com.linkedin.pegasus2avro.schema.StringType": {}
+                                    }
+                                },
+                                "nativeDataType": "WSTR",
+                                "recursive": false,
+                                "isPartOfKey": false
+                            },
+                            {
+                                "fieldPath": "Row ID",
+                                "nullable": false,
+                                "description": "",
+                                "type": {
+                                    "type": {
+                                        "com.linkedin.pegasus2avro.schema.NumberType": {}
+                                    }
+                                },
+                                "nativeDataType": "I8",
+                                "recursive": false,
+                                "isPartOfKey": false
+                            },
+                            {
+                                "fieldPath": "Sub-Category",
+                                "nullable": false,
+                                "description": "",
+                                "type": {
+                                    "type": {
+                                        "com.linkedin.pegasus2avro.schema.StringType": {}
+                                    }
+                                },
+                                "nativeDataType": "WSTR",
+                                "recursive": false,
+                                "isPartOfKey": false
+                            },
+                            {
+                                "fieldPath": "Product ID",
+                                "nullable": false,
+                                "description": "",
+                                "type": {
+                                    "type": {
+                                        "com.linkedin.pegasus2avro.schema.StringType": {}
+                                    }
+                                },
+                                "nativeDataType": "WSTR",
+                                "recursive": false,
+                                "isPartOfKey": false
+                            },
+                            {
+                                "fieldPath": "Segment",
+                                "nullable": false,
+                                "description": "",
+                                "type": {
+                                    "type": {
+                                        "com.linkedin.pegasus2avro.schema.StringType": {}
+                                    }
+                                },
+                                "nativeDataType": "WSTR",
+                                "recursive": false,
+                                "isPartOfKey": false
+                            },
+                            {
+                                "fieldPath": "Order ID",
+                                "nullable": false,
+                                "description": "",
+                                "type": {
+                                    "type": {
+                                        "com.linkedin.pegasus2avro.schema.StringType": {}
+                                    }
+                                },
+                                "nativeDataType": "WSTR",
+                                "recursive": false,
+                                "isPartOfKey": false
+                            },
+                            {
+                                "fieldPath": "Region",
+                                "nullable": false,
+                                "description": "",
+                                "type": {
+                                    "type": {
+                                        "com.linkedin.pegasus2avro.schema.StringType": {}
+                                    }
+                                },
+                                "nativeDataType": "WSTR",
+                                "recursive": false,
+                                "isPartOfKey": false
+                            },
+                            {
+                                "fieldPath": "Customer Name",
+                                "nullable": false,
+                                "description": "",
+                                "type": {
+                                    "type": {
+                                        "com.linkedin.pegasus2avro.schema.StringType": {}
+                                    }
+                                },
+                                "nativeDataType": "WSTR",
+                                "recursive": false,
+                                "isPartOfKey": false
+                            },
+                            {
+                                "fieldPath": "Category",
+                                "nullable": false,
+                                "description": "",
+                                "type": {
+                                    "type": {
+                                        "com.linkedin.pegasus2avro.schema.StringType": {}
+                                    }
+                                },
+                                "nativeDataType": "WSTR",
+                                "recursive": false,
+                                "isPartOfKey": false
+                            },
+                            {
+                                "fieldPath": "Product Name",
+                                "nullable": false,
+                                "description": "",
+                                "type": {
+                                    "type": {
+                                        "com.linkedin.pegasus2avro.schema.StringType": {}
+                                    }
+                                },
+                                "nativeDataType": "WSTR",
+                                "recursive": false,
+                                "isPartOfKey": false
+                            },
+                            {
+                                "fieldPath": "Ship Date",
+                                "nullable": false,
+                                "description": "",
+                                "type": {
+                                    "type": {
+                                        "com.linkedin.pegasus2avro.schema.DateType": {}
+                                    }
+                                },
+                                "nativeDataType": "DATE",
+                                "recursive": false,
+                                "isPartOfKey": false
+                            },
+                            {
+                                "fieldPath": "Profit",
+                                "nullable": false,
+                                "description": "",
+                                "type": {
+                                    "type": {
+                                        "com.linkedin.pegasus2avro.schema.NumberType": {}
+                                    }
+                                },
+                                "nativeDataType": "R8",
+                                "recursive": false,
+                                "isPartOfKey": false
+                            },
+                            {
+                                "fieldPath": "Discount",
+                                "nullable": false,
+                                "description": "",
+                                "type": {
+                                    "type": {
+                                        "com.linkedin.pegasus2avro.schema.NumberType": {}
+                                    }
+                                },
+                                "nativeDataType": "R8",
+                                "recursive": false,
+                                "isPartOfKey": false
+                            },
+                            {
+                                "fieldPath": "Country/Region",
+                                "nullable": false,
+                                "description": "",
+                                "type": {
+                                    "type": {
+                                        "com.linkedin.pegasus2avro.schema.StringType": {}
+                                    }
+                                },
+                                "nativeDataType": "WSTR",
+                                "recursive": false,
+                                "isPartOfKey": false
+                            },
+                            {
+                                "fieldPath": "City",
+                                "nullable": false,
+                                "description": "",
+                                "type": {
+                                    "type": {
+                                        "com.linkedin.pegasus2avro.schema.StringType": {}
+                                    }
+                                },
+                                "nativeDataType": "WSTR",
+                                "recursive": false,
+                                "isPartOfKey": false
+                            },
+                            {
+                                "fieldPath": "Order Date",
+                                "nullable": false,
+                                "description": "",
+                                "type": {
+                                    "type": {
+                                        "com.linkedin.pegasus2avro.schema.DateType": {}
+                                    }
+                                },
+                                "nativeDataType": "DATE",
+                                "recursive": false,
+                                "isPartOfKey": false
+                            },
+                            {
+                                "fieldPath": "State",
+                                "nullable": false,
+                                "description": "",
+                                "type": {
+                                    "type": {
+                                        "com.linkedin.pegasus2avro.schema.StringType": {}
+                                    }
+                                },
+                                "nativeDataType": "WSTR",
+                                "recursive": false,
+                                "isPartOfKey": false
+                            },
+                            {
+                                "fieldPath": "Sales",
+                                "nullable": false,
+                                "description": "",
+                                "type": {
+                                    "type": {
+                                        "com.linkedin.pegasus2avro.schema.NumberType": {}
+                                    }
+                                },
+                                "nativeDataType": "R8",
+                                "recursive": false,
+                                "isPartOfKey": false
+                            },
+                            {
+                                "fieldPath": "Postal Code",
+                                "nullable": false,
+                                "description": "",
+                                "type": {
+                                    "type": {
+                                        "com.linkedin.pegasus2avro.schema.NumberType": {}
+                                    }
+                                },
+                                "nativeDataType": "I8",
+                                "recursive": false,
+                                "isPartOfKey": false
+                            },
+                            {
+                                "fieldPath": "Quantity",
+                                "nullable": false,
+                                "description": "",
+                                "type": {
+                                    "type": {
+                                        "com.linkedin.pegasus2avro.schema.NumberType": {}
+                                    }
+                                },
+                                "nativeDataType": "I8",
+                                "recursive": false,
+                                "isPartOfKey": false
+                            }
+                        ]
+                    }
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1664912548592,
+        "runId": "tableau-2022_10_04-12_42_26"
+    }
+},
+{
+    "proposedSnapshot": {
+        "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
+            "urn": "urn:li:dataset:(urn:li:dataPlatform:external,sample - superstore.xls.people,PROD)",
+            "aspects": [
+                {
+                    "com.linkedin.pegasus2avro.common.BrowsePaths": {
+                        "paths": [
+                            "/prod/tableau/Samples/Superstore Datasource"
+                        ]
+                    }
+                },
+                {
+                    "com.linkedin.pegasus2avro.schema.SchemaMetadata": {
+                        "schemaName": "test",
+                        "platform": "urn:li:dataPlatform:tableau",
+                        "version": 0,
+                        "created": {
+                            "time": 0,
+                            "actor": "urn:li:corpuser:unknown"
+                        },
+                        "lastModified": {
+                            "time": 0,
+                            "actor": "urn:li:corpuser:unknown"
+                        },
+                        "hash": "",
+                        "platformSchema": {
+                            "com.linkedin.pegasus2avro.schema.OtherSchema": {
+                                "rawSchema": ""
+                            }
+                        },
+                        "fields": [
+                            {
+                                "fieldPath": "Region",
+                                "nullable": false,
+                                "description": "",
+                                "type": {
+                                    "type": {
+                                        "com.linkedin.pegasus2avro.schema.StringType": {}
+                                    }
+                                },
+                                "nativeDataType": "WSTR",
+                                "recursive": false,
+                                "isPartOfKey": false
+                            },
+                            {
+                                "fieldPath": "Person",
+                                "nullable": false,
+                                "description": "",
+                                "type": {
+                                    "type": {
+                                        "com.linkedin.pegasus2avro.schema.StringType": {}
+                                    }
+                                },
+                                "nativeDataType": "WSTR",
+                                "recursive": false,
+                                "isPartOfKey": false
+                            }
+                        ]
+                    }
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1664912548600,
+        "runId": "tableau-2022_10_04-12_42_26"
+    }
+}
+]
