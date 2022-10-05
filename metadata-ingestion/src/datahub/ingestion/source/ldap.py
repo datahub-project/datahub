@@ -25,7 +25,6 @@ from datahub.ingestion.api.decorators import (
     support_status,
 )
 from datahub.ingestion.api.workunit import MetadataWorkUnit
-from datahub.metadata.com.linkedin.pegasus2avro.common import StatusClass
 from datahub.metadata.com.linkedin.pegasus2avro.mxe import MetadataChangeEvent
 from datahub.metadata.schema_classes import (
     CorpGroupInfoClass,
@@ -102,16 +101,16 @@ def set_cookie(
     lc_object.cookie = cookie
     return bool(cookie)
 
-class LdapSourceStatefulIngestionConfig(StatefulStaleMetadataRemovalConfig):
+class LDAPSourceStatefulIngestionConfig(StatefulStaleMetadataRemovalConfig):
     """
     Specialization of StatefulStaleMetadataRemovalConfig to adding custom config.
     This will be used to override the stateful_ingestion config param of StatefulIngestionConfigBase
-    in the LdapSourceConfig.
+    in the LDAPSourceConfig.
     """
     _entity_types: List[str] = pydantic.Field(default=["corpuser"])
 
 # added to implement a stateful_ingestion
-class LdapSourceConfig(StatefulIngestionConfigBase):
+class LDAPSourceConfig(StatefulIngestionConfigBase):
     """Config used by the LDAP Source."""
 
     # Server configuration.
@@ -120,7 +119,7 @@ class LdapSourceConfig(StatefulIngestionConfigBase):
     ldap_password: str = Field(description="LDAP password.")
 
     # Custom Stateful Ingestion settings
-    stateful_ingestion: Optional[LdapSourceStatefulIngestionConfig] = None
+    stateful_ingestion: Optional[LDAPSourceStatefulIngestionConfig] = None
 
     # Extraction configuration.
     base_dn: str = Field(description="LDAP DN.")
@@ -145,14 +144,14 @@ class LdapSourceConfig(StatefulIngestionConfigBase):
 
 
 @dataclasses.dataclass
-class LdapSourceReport(StaleEntityRemovalSourceReport):
+class LDAPSourceReport(StaleEntityRemovalSourceReport):
 
     def report_dropped(self, dn: str) -> None:
         self.report_stale_entity_soft_deleted(dn)
 
 
 def guess_person_ldap(
-    attrs: Dict[str, Any], config: LdapSourceConfig, report: LdapSourceReport
+    attrs: Dict[str, Any], config: LDAPSourceConfig, report: LDAPSourceReport
 ) -> Optional[str]:
     """Determine the user's LDAP based on the DN and attributes."""
     if config.user_attrs_map["urn"] in attrs:
@@ -174,10 +173,10 @@ def guess_person_ldap(
 
 
 @platform_name("LDAP")
-@config_class(LdapSourceConfig)
+@config_class(LDAPSourceConfig)
 @support_status(SupportStatus.CERTIFIED)
 @dataclasses.dataclass
-class LdapSource(StatefulIngestionSourceBase):
+class LDAPSource(StatefulIngestionSourceBase):
     """
     This plugin extracts the following:
     - People
@@ -185,13 +184,13 @@ class LdapSource(StatefulIngestionSourceBase):
     - List of groups
     """
 
-    config: LdapSourceConfig
-    report: LdapSourceReport
+    config: LDAPSourceConfig
+    report: LDAPSourceReport
     platform: str = "ldap"
 
-    def __init__(self, ctx: PipelineContext, config: LdapSourceConfig):
+    def __init__(self, ctx: PipelineContext, config:LDAPSourceConfig):
         """Constructor."""
-        super(LdapSource, self).__init__(config, ctx)
+        super(LDAPSource, self).__init__(config, ctx)
         self.config = config
 
         self.stale_entity_removal_handler = StaleEntityRemovalHandler(
@@ -211,7 +210,7 @@ class LdapSource(StatefulIngestionSourceBase):
             if k not in self.config.group_attrs_map:
                 self.config.group_attrs_map[k] = group_attrs_map[k]
 
-        self.report = LdapSourceReport()
+        self.report = LDAPSourceReport()
 
         ldap.set_option(ldap.OPT_X_TLS_REQUIRE_CERT, ldap.OPT_X_TLS_ALLOW)
         ldap.set_option(ldap.OPT_REFERRALS, 0)
@@ -229,9 +228,9 @@ class LdapSource(StatefulIngestionSourceBase):
         self.lc = create_controls(self.config.page_size)
 
     @classmethod
-    def create(cls, config_dict: Dict[str, Any], ctx: PipelineContext) -> "LdapSource":
+    def create(cls, config_dict: Dict[str, Any], ctx: PipelineContext) -> "LDAPSource":
         """Factory method."""
-        config = LdapSourceConfig.parse_obj(config_dict)
+        config = LDAPSourceConfig.parse_obj(config_dict)
         return cls(ctx, config)
 
     def get_workunits(self) -> Iterable[MetadataWorkUnit]:
@@ -456,7 +455,7 @@ class LdapSource(StatefulIngestionSourceBase):
             )
         return None
 
-    def get_report(self) -> LdapSourceReport:
+    def get_report(self) -> LDAPSourceReport:
         """Returns the source report."""
         return self.report
 
