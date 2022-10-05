@@ -297,10 +297,11 @@ class TableauSource(Source):
             self.server, query, connection_type, count, current_count, query_filter
         )
         if "errors" in query_data:
-            self.report.report_warning(
-                key="tableau-metadata",
-                reason=f"Connection: {connection_type} Error: {query_data['errors']}",
-            )
+            errors = query_data["errors"]
+            if all(error["extensions"]["severity"] == "WARNING" for error in errors):
+                self.report.report_warning(key=connection_type, reason=f"{errors}")
+            else:
+                raise RuntimeError(f"Query {connection_type} error: {errors}")
 
         connection_object = (
             query_data.get("data").get(connection_type, {})
