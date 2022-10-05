@@ -14,7 +14,11 @@ Browsing is useful for finding data entities based on a hierarchical structure s
 * Container (Warehouse, Schema, Folder, etc.)
 * Entity Name
 
-For example, a user can easily browse for Datasets within the PROD Snowflake environment, the long_tail_companions warehouse, and the analytics schema.
+For example, a user can easily browse for Datasets within the PROD Snowflake environment, the long_tail_companions warehouse, and the analytics schema:
+
+<p align="center">
+  <img width="70%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/browseVid.gif"/>
+</p>
 
 ## Using Browse
 

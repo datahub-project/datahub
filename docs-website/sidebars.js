@@ -444,6 +444,7 @@ module.exports = {
       "docs/domains",
       "docs/how/business-glossary-guide",
       "docs/tags",
+      "docs/browse.md",
       // {
       //   type: "doc",
       //   id: "docs/wip/slack-notifications",
