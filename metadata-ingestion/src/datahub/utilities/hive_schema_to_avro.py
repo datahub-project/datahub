@@ -1,10 +1,14 @@
 import json
+import logging
 import re
 import uuid
 from typing import Any, Dict, List, Optional, Union
 
 from datahub.ingestion.extractor.schema_util import avro_schema_to_mce_fields
 from datahub.metadata.com.linkedin.pegasus2avro.schema import SchemaField
+from datahub.metadata.schema_classes import NullTypeClass, SchemaFieldDataTypeClass
+
+logger: logging.Logger = logging.getLogger(__name__)
 
 
 class HiveColumnToAvroConverter:
@@ -102,7 +106,7 @@ class HiveColumnToAvroConverter:
     @staticmethod
     def _parse_struct_fields_string(s: str, **kwargs: Any) -> Dict[str, object]:
         parts = HiveColumnToAvroConverter._ignore_brackets_split(s, ",")
-        fields = []
+        fields: List[Dict] = []
         for part in parts:
             name_and_type = HiveColumnToAvroConverter._ignore_brackets_split(
                 part.strip(), HiveColumnToAvroConverter._STRUCT_TYPE_SEPARATOR
@@ -123,7 +127,9 @@ class HiveColumnToAvroConverter:
             field_type = HiveColumnToAvroConverter._parse_datatype_string(
                 name_and_type[1]
             )
-            fields.append({"name": field_name, "type": field_type})
+
+            if not any(field["name"] == field_name for field in fields):
+                fields.append({"name": field_name, "type": field_type})
 
         if kwargs.get("ustruct_seqn") is not None:
             struct_name = f'__structn_{kwargs["ustruct_seqn"]}_{str(uuid.uuid4()).replace("-", "")}'
@@ -259,13 +265,28 @@ def get_schema_fields_for_hive_column(
     default_nullable: bool = False,
     is_part_of_key: bool = False,
 ) -> List[SchemaField]:
-    avro_schema_json = get_avro_schema_for_hive_column(
-        hive_column_name=hive_column_name, hive_column_type=hive_column_type
-    )
-    schema_fields = avro_schema_to_mce_fields(
-        avro_schema_string=json.dumps(avro_schema_json),
-        default_nullable=default_nullable,
-    )
+
+    try:
+        avro_schema_json = get_avro_schema_for_hive_column(
+            hive_column_name=hive_column_name, hive_column_type=hive_column_type
+        )
+        schema_fields = avro_schema_to_mce_fields(
+            avro_schema_string=json.dumps(avro_schema_json),
+            default_nullable=default_nullable,
+            swallow_exceptions=False,
+        )
+    except Exception as e:
+        logger.warning(
+            f"Unable to parse column {hive_column_name} and type {hive_column_type} the error was: {e}"
+        )
+        schema_fields = [
+            SchemaField(
+                fieldPath=hive_column_name,
+                type=SchemaFieldDataTypeClass(type=NullTypeClass()),
+                nativeDataType=hive_column_type,
+            )
+        ]
+
     assert schema_fields
     if HiveColumnToAvroConverter.is_primitive_hive_type(hive_column_type):
         # Primitive avro schema does not have any field names. Append it to fieldPath.

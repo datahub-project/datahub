@@ -1,0 +1,22 @@
+query listPosts($input: ListPostsInput!) {
+    listPosts(input: $input) {
+        start
+        count
+        total
+        posts {
+            urn
+            type
+            postType
+            content {
+                contentType
+                title
+                description
+                link
+                media {
+                    type
+                    location
+                }
+            }
+        }
+    }
+}

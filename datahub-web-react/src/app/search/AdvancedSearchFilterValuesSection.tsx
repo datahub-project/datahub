@@ -30,7 +30,7 @@ export const AdvancedSearchFilterValuesSection = ({ facet, filter }: Props) => {
 
                 return (
                     <StyledSearchFilterLabel>
-                        <SearchFilterLabel hideCount aggregation={matchedAggregation} field={value} />
+                        <SearchFilterLabel hideCount aggregation={matchedAggregation} field={filter.field} />
                     </StyledSearchFilterLabel>
                 );
             })}
