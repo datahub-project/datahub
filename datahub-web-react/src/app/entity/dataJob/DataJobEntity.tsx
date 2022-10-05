@@ -23,12 +23,12 @@ const getDataJobPlatformName = (data?: DataJob): string => {
 };
 
 const getExpandedNameForDataJob = (entity: DataJob): string => {
-    const name = entity?.properties?.name || '';
+    const name = entity?.properties?.name;
     const flowName = entity?.dataFlow?.properties?.name;
 
     // if we have no name, just return blank. this should not happen, so dont try & construct a name
-    if (name === '') {
-        return name;
+    if (!name) {
+        return '';
     }
 
     // if we have a flow name, return the full name of flow.task
