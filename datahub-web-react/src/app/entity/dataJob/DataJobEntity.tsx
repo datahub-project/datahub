@@ -22,6 +22,24 @@ const getDataJobPlatformName = (data?: DataJob): string => {
     return data?.dataFlow?.platform?.properties?.displayName || data?.dataFlow?.platform?.name || '';
 };
 
+const getExpandedNameForDataJob = (entity: DataJob): string => {
+    const name = entity?.properties?.name || '';
+    const flowName = entity?.dataFlow?.properties?.name;
+
+    // if we have no name, just return blank. this should not happen, so dont try & construct a name
+    if (name === '') {
+        return name;
+    }
+
+    // if we have a flow name, return the full name of flow.task
+    if (flowName) {
+        return `${flowName}.${name}`;
+    }
+
+    // otherwise, just return the task name (same as non-expanded)
+    return name;
+};
+
 /**
  * Definition of the DataHub DataJob entity.
  */
@@ -178,6 +196,7 @@ export class DataJobEntity implements Entity<DataJob> {
         return {
             urn: entity?.urn,
             name: entity?.properties?.name || '',
+            expandedName: getExpandedNameForDataJob(entity),
             type: EntityType.DataJob,
             icon: entity?.dataFlow?.platform?.properties?.logoUrl || '',
             platform: entity?.dataFlow?.platform,
