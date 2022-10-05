@@ -1011,7 +1011,10 @@ class TableauSource(Source):
                 lastModified=last_modified,
                 externalUrl=sheet_external_url,
                 inputs=sorted(datasource_urn),
-                customProperties=fields,
+                customProperties={
+                    "luid": sheet.get("luid") or "",
+                    **{f"field: {k}": v for k, v in fields.items()},
+                },
             )
             chart_snapshot.aspects.append(chart_info)
             # chart_snapshot doesn't support the stat aspect as list element and hence need to emit MCP
