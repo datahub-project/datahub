@@ -273,6 +273,7 @@ def get_schema_fields_for_hive_column(
         schema_fields = avro_schema_to_mce_fields(
             avro_schema_string=json.dumps(avro_schema_json),
             default_nullable=default_nullable,
+            swallow_exceptions=False,
         )
     except Exception as e:
         logger.warning(
