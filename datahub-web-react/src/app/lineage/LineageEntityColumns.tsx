@@ -22,7 +22,7 @@ interface Props {
 }
 
 export default function LineageEntityColumns({ node, onHover }: Props) {
-    const { expandTitles, collapsedColumnsNodes, setVisibleColumnsByUrn, columnsByUrn, setColumnsByUrn } =
+    const { expandTitles, collapsedColumnsNodes, setVisibleColumnsByUrn, columnsByUrn } =
         useContext(LineageExplorerContext);
     const [pageIndex, setPageIndex] = useState(0);
     const [haveFieldsBeenUpdated, setHaveFieldsBeenUpdated] = useState(false);
