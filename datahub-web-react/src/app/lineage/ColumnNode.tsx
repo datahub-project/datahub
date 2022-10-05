@@ -92,7 +92,7 @@ export default function ColumnNode({ field, index, node, titleHeight, onHover }:
                 <>
                     <rect
                         x={iconX - 21 + HOVER_TEXT_SHIFT}
-                        y={centerY + 30 + titleHeight + index * COLUMN_HEIGHT}
+                        y={centerY + 30 + titleAndToggleHeight + index * COLUMN_HEIGHT}
                         width={width + (fieldPath?.substring(MAX_NUM_FIELD_CHARACTERS).length || 0) * 7}
                         height="29"
                         fill="white"

@@ -1,9 +1,9 @@
-import React, { useContext, useState } from 'react';
+import React, { useContext } from 'react';
 import { Group } from '@vx/group';
 import styled from 'styled-components';
 import { DownOutlined, UpOutlined } from '@ant-design/icons';
 import { blue } from '@ant-design/colors';
-import { NodeData, EntitySelectParams } from './types';
+import { NodeData } from './types';
 import { getTitleHeight } from './utils/titleUtils';
 import { LineageExplorerContext } from './utils/LineageExplorerContext';
 import { centerY, EXPAND_COLLAPSE_COLUMNS_TOGGLE_HEIGHT, iconX, width } from './constants';
@@ -31,36 +31,31 @@ const ExpandCollapseText = styled.span`
 
 interface Props {
     node: { x: number; y: number; data: Omit<NodeData, 'children'> };
-    onHover: (params?: EntitySelectParams) => void;
 }
 
-export default function NodeColumnsHeader({ node, onHover }: Props) {
+export default function NodeColumnsHeader({ node }: Props) {
     const { expandTitles, collapsedColumnsNodes, setCollapsedColumnsNodes } = useContext(LineageExplorerContext);
     const areColumnsCollapsed = !!collapsedColumnsNodes[node?.data?.urn || 'noop'];
     const titleHeight = getTitleHeight(expandTitles ? node.data.expandedName || node.data.name : undefined);
 
-    function expandColumns() {
+    function expandColumns(e: React.MouseEvent<HTMLSpanElement, MouseEvent>) {
         const newCollapsedNodes = { ...collapsedColumnsNodes };
         delete newCollapsedNodes[node.data.urn || 'noop'];
         setCollapsedColumnsNodes(newCollapsedNodes);
+        e.stopPropagation();
     }
 
-    function collapseColumns() {
+    function collapseColumns(e: React.MouseEvent<HTMLSpanElement, MouseEvent>) {
         const newCollapsedNodes = {
             ...collapsedColumnsNodes,
             [node?.data?.urn || 'noop']: true,
         };
         setCollapsedColumnsNodes(newCollapsedNodes);
+        e.stopPropagation();
     }
 
     return (
-        <Group
-            onClick={(e) => e.stopPropagation()}
-            onMouseOver={(e) => {
-                onHover(undefined);
-                e.stopPropagation();
-            }}
-        >
+        <Group>
             <foreignObject
                 x={iconX}
                 y={centerY + 60 + titleHeight}

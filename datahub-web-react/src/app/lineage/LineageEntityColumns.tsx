@@ -60,7 +60,7 @@ export default function LineageEntityColumns({ node, onHover }: Props) {
     return (
         <>
             <rect x={iconX - 21} y={centerY + 55 + titleHeight} width={width - 2} height="0.25" stroke={ANTD_GRAY[6]} />
-            <NodeColumnsHeader node={node} onHover={onHover} />
+            <NodeColumnsHeader node={node} />
             {!areColumnsCollapsed && (
                 <Group>
                     {displayedFields?.map((field, idx) => (

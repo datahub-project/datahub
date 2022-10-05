@@ -21,6 +21,7 @@ const INSIDE_NODE_SHIFT = nodeWidth / 2 - 19;
 const HEADER_HEIGHT = 125;
 const UPSTREAM_X_MODIFIER = -1;
 const UPSTREAM_DIRECTION_SHIFT = -20;
+const COLUMN_HEIGHT_BUFFER = 1.2;
 
 function layoutNodesForOneDirection(
     data: NodeData,
@@ -195,14 +196,14 @@ function drawColumnEdge({
                 (targetNode?.x || 0) +
                 targetTitleHeight +
                 EXPAND_COLLAPSE_COLUMNS_TOGGLE_HEIGHT +
-                (NUM_COLUMNS_PER_PAGE + 1.2) * COLUMN_HEIGHT +
+                (NUM_COLUMNS_PER_PAGE + COLUMN_HEIGHT_BUFFER) * COLUMN_HEIGHT +
                 1;
         } else {
             targetFieldX =
                 (targetNode?.x || 0) +
                 targetTitleHeight +
                 EXPAND_COLLAPSE_COLUMNS_TOGGLE_HEIGHT +
-                ((targetFieldIndex % NUM_COLUMNS_PER_PAGE) + 1.2) * COLUMN_HEIGHT +
+                ((targetFieldIndex % NUM_COLUMNS_PER_PAGE) + COLUMN_HEIGHT_BUFFER) * COLUMN_HEIGHT +
                 1;
         }
     }
@@ -282,14 +283,14 @@ function layoutColumnTree(
                             (currentNode?.x || 0) +
                             sourceTitleHeight +
                             EXPAND_COLLAPSE_COLUMNS_TOGGLE_HEIGHT +
-                            (NUM_COLUMNS_PER_PAGE + 1.2) * COLUMN_HEIGHT +
+                            (NUM_COLUMNS_PER_PAGE + COLUMN_HEIGHT_BUFFER) * COLUMN_HEIGHT +
                             1;
                     } else {
                         sourceFieldX =
                             (currentNode?.x || 0) +
                             sourceTitleHeight +
                             EXPAND_COLLAPSE_COLUMNS_TOGGLE_HEIGHT +
-                            ((fieldIndex % NUM_COLUMNS_PER_PAGE) + 1.2) * COLUMN_HEIGHT +
+                            ((fieldIndex % NUM_COLUMNS_PER_PAGE) + COLUMN_HEIGHT_BUFFER) * COLUMN_HEIGHT +
                             1;
                     }
                 }
