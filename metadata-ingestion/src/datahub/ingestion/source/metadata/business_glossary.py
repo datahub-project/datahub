@@ -41,6 +41,8 @@ class GlossaryTermConfig(ConfigModel):
     owners: Optional[Owners]
     inherits: Optional[List[str]]
     contains: Optional[List[str]]
+    has_value: Optional[List[str]]
+    is_related_to: Optional[List[str]]
     custom_properties: Optional[Dict[str, str]]
 
 
@@ -218,20 +220,36 @@ def get_mces_from_term(
     )
     aspects.append(term_info)
 
-    isA_related = None
-    hasA_related = None
+    is_a = None
+    has_a = None
+    has_value = None
+    is_related_to_term = None
     if glossaryTerm.inherits is not None:
         assert glossaryTerm.inherits is not None
-        isA_related = [make_glossary_term_urn([term]) for term in glossaryTerm.inherits]
+        is_a = [make_glossary_term_urn([term]) for term in glossaryTerm.inherits]
     if glossaryTerm.contains is not None:
         assert glossaryTerm.contains is not None
-        hasA_related = [
-            make_glossary_term_urn([term]) for term in glossaryTerm.contains
+        has_a = [make_glossary_term_urn([term]) for term in glossaryTerm.contains]
+    if glossaryTerm.has_value is not None:
+        assert glossaryTerm.has_value is not None
+        has_value = [make_glossary_term_urn([term]) for term in glossaryTerm.has_value]
+    if glossaryTerm.is_related_to is not None:
+        assert glossaryTerm.is_related_to is not None
+        is_related_to_term = [
+            make_glossary_term_urn([term]) for term in glossaryTerm.is_related_to
         ]
 
-    if isA_related is not None or hasA_related is not None:
+    if (
+        is_a is not None
+        or has_a is not None
+        or has_value is not None
+        or is_related_to_term is not None
+    ):
         relatedTerms = models.GlossaryRelatedTermsClass(
-            isRelatedTerms=isA_related, hasRelatedTerms=hasA_related
+            isRelatedTerms=is_a,
+            hasRelatedTerms=has_a,
+            hasRelatedTermValues=has_value,
+            isRelatedToTerms=is_related_to_term,
         )
         aspects.append(relatedTerms)
 
