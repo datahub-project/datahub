@@ -2,11 +2,13 @@ import pydantic
 from typing import Iterable, List, Tuple
 
 from datahub.ingestion.source.state.stale_entity_removal_handler import (
-    StaleEntityCheckpointStateBase
+    StaleEntityCheckpointStateBase,
 )
 
 
-class BaseLdapCheckpointState(StaleEntityCheckpointStateBase["BaseLdapCheckpointState"]):
+class BaseLdapCheckpointState(
+    StaleEntityCheckpointStateBase["BaseLdapCheckpointState"]
+):
     """
     Base class for representing the checkpoint state for all LDAP based sources.
     Stores all ldap_users being ingested and is used to remove any stale entities.
