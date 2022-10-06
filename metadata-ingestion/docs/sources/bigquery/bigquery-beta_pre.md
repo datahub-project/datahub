@@ -25,6 +25,9 @@ If you have multiple projects in your BigQuery setup, the role should be granted
 | `bigquery.readsessions.getData`  | Get data from the read session.                       |
 | `resourcemanager.projects.get`   | Retrieve project names and metadata.                  |
 
+You can use the following predefined IAM role which has all the needed permissions as well:
+- [roles/bigquery.metadataViewer](https://cloud.google.com/bigquery/docs/access-control#bigquery.metadataViewer)
+
 ##### Lineage/usage generation requirements
 
 Additional requirements needed on the top of the basic requirements.

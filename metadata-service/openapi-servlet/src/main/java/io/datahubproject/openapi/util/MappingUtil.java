@@ -294,9 +294,9 @@ public class MappingUtil {
     log.info("Proposal: {}", serviceProposal);
     Throwable exceptionally = null;
     try {
-      EntityService.IngestProposalResult proposalResult = entityService.ingestProposal(serviceProposal, auditStamp);
+      EntityService.IngestProposalResult proposalResult = entityService.ingestProposal(serviceProposal, auditStamp, false);
       Urn urn = proposalResult.getUrn();
-      additionalChanges.forEach(proposal -> entityService.ingestProposal(proposal, auditStamp));
+      additionalChanges.forEach(proposal -> entityService.ingestProposal(proposal, auditStamp, false));
       return new Pair<>(urn.toString(), proposalResult.isDidUpdate());
     } catch (ValidationException ve) {
       exceptionally = ve;

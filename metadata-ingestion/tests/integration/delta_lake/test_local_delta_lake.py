@@ -48,7 +48,7 @@ def test_delta_lake(pytestconfig, source_file, tmp_path, mock_time):
     )
 
 
-def test_data_lake_incorrect_config_raises_error(tmp_path, mock_time):
+def test_delta_lake_incorrect_config_raises_error(tmp_path, mock_time):
     config_dict = {}
     config_dict["sink"] = {
         "type": "file",

@@ -6,9 +6,13 @@ import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.authorization.AuthorizationUtils;
 import com.linkedin.datahub.graphql.exception.AuthorizationException;
 import com.linkedin.datahub.graphql.generated.CreateGlossaryEntityInput;
+import com.linkedin.datahub.graphql.generated.OwnerEntityType;
+import com.linkedin.datahub.graphql.generated.OwnershipType;
+import com.linkedin.datahub.graphql.resolvers.mutate.util.OwnerUtils;
 import com.linkedin.entity.client.EntityClient;
 import com.linkedin.events.metadata.ChangeType;
 import com.linkedin.glossary.GlossaryNodeInfo;
+import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.key.GlossaryNodeKey;
 import com.linkedin.metadata.utils.EntityKeyUtils;
@@ -30,6 +34,7 @@ import static com.linkedin.datahub.graphql.resolvers.ResolverUtils.bindArgument;
 public class CreateGlossaryNodeResolver implements DataFetcher<CompletableFuture<String>> {
 
   private final EntityClient _entityClient;
+  private final EntityService _entityService;
 
   @Override
   public CompletableFuture<String> get(DataFetchingEnvironment environment) throws Exception {
@@ -56,7 +61,9 @@ public class CreateGlossaryNodeResolver implements DataFetcher<CompletableFuture
           proposal.setAspect(GenericRecordUtils.serializeAspect(mapGlossaryNodeInfo(input)));
           proposal.setChangeType(ChangeType.UPSERT);
 
-          return _entityClient.ingestProposal(proposal, context.getAuthentication());
+          String glossaryNodeUrn = _entityClient.ingestProposal(proposal, context.getAuthentication());
+          OwnerUtils.addCreatorAsOwner(context, glossaryNodeUrn, OwnerEntityType.CORP_USER, OwnershipType.TECHNICAL_OWNER, _entityService);
+          return glossaryNodeUrn;
         } catch (Exception e) {
           log.error("Failed to create GlossaryNode with id: {}, name: {}: {}", input.getId(), input.getName(), e.getMessage());
           throw new RuntimeException(String.format("Failed to create GlossaryNode with id: %s, name: %s", input.getId(), input.getName()), e);

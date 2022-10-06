@@ -375,7 +375,7 @@ describe('constructTree', () => {
             children: [
                 {
                     name: 'DataJobInfoName',
-                    expandedName: undefined,
+                    expandedName: 'DataFlowInfoName.DataJobInfoName',
                     type: EntityType.DataJob,
                     unexploredChildren: 0,
                     urn: dataJob1.urn,
