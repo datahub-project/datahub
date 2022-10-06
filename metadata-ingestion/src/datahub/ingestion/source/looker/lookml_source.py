@@ -1,15 +1,15 @@
 import glob
 import itertools
 import logging
-import os
 import pathlib
 import re
-import sys
 import tempfile
 from dataclasses import dataclass, field as dataclass_field, replace
 from datetime import datetime, timedelta
-from typing import Any, Dict, Iterable, List, Optional, Set, Tuple, Type
+from typing import Any, Dict, Iterable, List, Optional, Set, Tuple, Type, Union
 
+import lkml
+import lkml.simple
 import pydantic
 from looker_sdk.error import SDKError
 from looker_sdk.sdk.api31.models import DBConnection
@@ -66,12 +66,14 @@ from datahub.metadata.schema_classes import (
 )
 from datahub.utilities.sql_parser import SQLParser
 
-if sys.version_info >= (3, 7):
-    import lkml
-else:
-    raise ModuleNotFoundError("The lookml plugin requires Python 3.7 or newer.")
-
 logger = logging.getLogger(__name__)
+
+# Patch lkml to support the local_dependency and remote_dependency keywords.
+lkml.simple.PLURAL_KEYS = (
+    *lkml.simple.PLURAL_KEYS,
+    "local_dependency",
+    "remote_dependency",
+)
 
 
 def _get_bigquery_definition(
@@ -357,7 +359,6 @@ class LookerModel:
 
             # Massage the looker include into a valid glob wildcard expression
             if inc.startswith("//"):
-                breakpoint()
                 # remote include, let's see if we have the project checked out locally
                 (remote_project, project_local_path) = inc[2:].split("/", maxsplit=1)
                 if remote_project in base_projects_folder:
@@ -937,8 +938,11 @@ class LookerView:
 
 @dataclass
 class LookerManifest:
+    # This must be set if the manifest has local_dependency entries.
+    # See https://cloud.google.com/looker/docs/reference/param-manifest-project-name
+    project_name: Optional[str]
+
     projects: List[str]
-    pass
 
 
 @platform_name("Looker")
@@ -1241,16 +1245,17 @@ class LookMLSource(Source):
             )
 
     def get_manifest_if_present(self, folder: pathlib.Path) -> Optional[LookerManifest]:
-        if os.path.exists(folder / "manifest.lkml"):
-            with open(folder / "manifest.lkml") as fp:
-                lkml.simple.PLURAL_KEYS = (*lkml.simple.PLURAL_KEYS, "local_dependency")
-
+        manifest_file = folder / "manifest.lkml"
+        if manifest_file.exists():
+            with manifest_file.open() as fp:
                 manifest_dict = lkml.load(fp)
 
+            # TODO capture remote dependencies
             manifest = LookerManifest(
+                project_name=manifest_dict.get("project_name"),
                 projects=[
                     x["project"] for x in manifest_dict.get("local_dependencys", [])
-                ]
+                ],
             )
             return manifest
         else:
