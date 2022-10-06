@@ -115,3 +115,7 @@ mutation createInviteToken($input: CreateInviteTokenInput!) {
 mutation acceptRole($input: AcceptRoleInput!) {
     acceptRole(input: $input)
 }
+
+mutation createPost($input: CreatePostInput!) {
+    createPost(input: $input)
+}

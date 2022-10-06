@@ -3,6 +3,7 @@ package com.linkedin.datahub.graphql;
 import com.datahub.authentication.AuthenticationConfiguration;
 import com.datahub.authentication.group.GroupService;
 import com.datahub.authentication.invite.InviteTokenService;
+import com.datahub.authentication.post.PostService;
 import com.datahub.authentication.token.StatefulTokenService;
 import com.datahub.authentication.user.NativeUserService;
 import com.datahub.authorization.AuthorizationConfiguration;
@@ -175,6 +176,8 @@ import com.linkedin.datahub.graphql.resolvers.policy.DeletePolicyResolver;
 import com.linkedin.datahub.graphql.resolvers.policy.GetGrantedPrivilegesResolver;
 import com.linkedin.datahub.graphql.resolvers.policy.ListPoliciesResolver;
 import com.linkedin.datahub.graphql.resolvers.policy.UpsertPolicyResolver;
+import com.linkedin.datahub.graphql.resolvers.post.CreatePostResolver;
+import com.linkedin.datahub.graphql.resolvers.post.ListPostsResolver;
 import com.linkedin.datahub.graphql.resolvers.recommendation.ListRecommendationsResolver;
 import com.linkedin.datahub.graphql.resolvers.role.AcceptRoleResolver;
 import com.linkedin.datahub.graphql.resolvers.role.BatchAssignRoleResolver;
@@ -310,6 +313,7 @@ public class GmsGraphQLEngine {
     private final GroupService groupService;
     private final RoleService roleService;
     private final InviteTokenService inviteTokenService;
+    private final PostService postService;
 
     private final FeatureFlags featureFlags;
 
@@ -386,7 +390,7 @@ public class GmsGraphQLEngine {
         final VisualConfiguration visualConfiguration, final TelemetryConfiguration telemetryConfiguration,
         final TestsConfiguration testsConfiguration, final DatahubConfiguration datahubConfiguration,
         final SiblingGraphService siblingGraphService, final GroupService groupService, final RoleService roleService,
-        final InviteTokenService inviteTokenService, final FeatureFlags featureFlags) {
+        final InviteTokenService inviteTokenService, final PostService postService, final FeatureFlags featureFlags) {
 
         this.entityClient = entityClient;
         this.graphClient = graphClient;
@@ -407,6 +411,7 @@ public class GmsGraphQLEngine {
         this.groupService = groupService;
         this.roleService = roleService;
         this.inviteTokenService = inviteTokenService;
+        this.postService = postService;
 
         this.ingestionConfiguration = Objects.requireNonNull(ingestionConfiguration);
         this.authenticationConfiguration = Objects.requireNonNull(authenticationConfiguration);
@@ -676,6 +681,7 @@ public class GmsGraphQLEngine {
             .dataFetcher("entities", getEntitiesResolver())
             .dataFetcher("listRoles", new ListRolesResolver(this.entityClient))
             .dataFetcher("getInviteToken", new GetInviteTokenResolver(this.inviteTokenService))
+            .dataFetcher("listPosts", new ListPostsResolver(this.entityClient))
         );
     }
 
@@ -798,7 +804,7 @@ public class GmsGraphQLEngine {
             .dataFetcher("batchAssignRole", new BatchAssignRoleResolver(this.roleService))
             .dataFetcher("createInviteToken", new CreateInviteTokenResolver(this.inviteTokenService))
             .dataFetcher("acceptRole", new AcceptRoleResolver(this.roleService, this.inviteTokenService))
-
+            .dataFetcher("createPost", new CreatePostResolver(this.postService))
         );
     }
 
