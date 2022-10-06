@@ -4572,6 +4572,48 @@
                         "fieldType" : "URN"
                       }
                     }
+                  }, {
+                    "name" : "hasRelatedTermValues",
+                    "type" : {
+                      "type" : "array",
+                      "items" : "com.linkedin.common.GlossaryTermUrn"
+                    },
+                    "doc" : "The relationship Has Value with glossary term.\nThese are fixed value a term has. For example a ColorEnum where RED, GREEN and YELLOW are fixed values.",
+                    "optional" : true,
+                    "Relationship" : {
+                      "/*" : {
+                        "entityTypes" : [ "glossaryTerm" ],
+                        "name" : "HasValue"
+                      }
+                    },
+                    "Searchable" : {
+                      "/*" : {
+                        "boostScore" : 2.0,
+                        "fieldName" : "hasRelatedTermValues",
+                        "fieldType" : "URN"
+                      }
+                    }
+                  }, {
+                    "name" : "isRelatedToTerms",
+                    "type" : {
+                      "type" : "array",
+                      "items" : "com.linkedin.common.GlossaryTermUrn"
+                    },
+                    "doc" : "The relationship isRelatedTo with glossary term",
+                    "optional" : true,
+                    "Relationship" : {
+                      "/*" : {
+                        "entityTypes" : [ "glossaryTerm" ],
+                        "name" : "isRelatedTo"
+                      }
+                    },
+                    "Searchable" : {
+                      "/*" : {
+                        "boostScore" : 2.0,
+                        "fieldName" : "isRelatedToTerms",
+                        "fieldType" : "URN"
+                      }
+                    }
                   } ],
                   "Aspect" : {
                     "name" : "glossaryRelatedTerms"
