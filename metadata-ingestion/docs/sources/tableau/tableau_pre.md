@@ -6,6 +6,33 @@ In order to ingest metadata from tableau, you will need:
 - [Enable the Tableau Metadata API](https://help.tableau.com/current/api/metadata_api/en-us/docs/meta_api_start.html#enable-the-tableau-metadata-api-for-tableau-server) for Tableau Server, if its not already enabled.
 - Tableau Credentials (Username/Password or [Personal Access Token](https://help.tableau.com/current/pro/desktop/en-us/useracct.htm#create-and-revoke-personal-access-tokens))
 
+### Ingestion through UI
+
+The following video shows you how to get started with ingesting Tableau metadata through the UI.
+
+<div
+  style={{
+    position: "relative",
+    paddingBottom: "57.692307692307686%",
+    height: 0
+  }}
+>
+  <iframe
+    src="https://www.loom.com/embed/ef521c4e66564614a6ddde35dc3840f8"
+    frameBorder={0}
+    webkitallowfullscreen=""
+    mozallowfullscreen=""
+    allowFullScreen=""
+    style={{
+      position: "absolute",
+      top: 0,
+      left: 0,
+      width: "100%",
+      height: "100%"
+    }}
+  />
+</div>
+
 ## Integration Details
 
 This plugin extracts Sheets, Dashboards, Embedded and Published Data sources metadata within Workbooks in a given project
