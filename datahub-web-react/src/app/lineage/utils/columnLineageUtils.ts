@@ -58,7 +58,7 @@ export function populateColumnsByUrn(
 ) {
     let populatedColumnsByUrn = { ...columnsByUrn };
     Object.entries(fetchedEntities).forEach(([urn, fetchedEntity]) => {
-        if (fetchedEntity.schemaMetadata) {
+        if (fetchedEntity.schemaMetadata && !columnsByUrn[urn]) {
             populatedColumnsByUrn = { ...populatedColumnsByUrn, [urn]: fetchedEntity.schemaMetadata.fields };
         }
     });
