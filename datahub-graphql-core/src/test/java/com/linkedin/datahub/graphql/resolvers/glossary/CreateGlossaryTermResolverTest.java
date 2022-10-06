@@ -10,6 +10,7 @@ import com.linkedin.glossary.GlossaryTermInfo;
 import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.key.GlossaryTermKey;
 import com.linkedin.metadata.utils.GenericRecordUtils;
+import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.mxe.MetadataChangeProposal;
 import graphql.schema.DataFetchingEnvironment;
 import org.mockito.Mockito;
