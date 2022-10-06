@@ -7,12 +7,14 @@ import { useHistory, useLocation } from 'react-router-dom';
 
 import LineageTree from './LineageTree';
 import constructTree from './utils/constructTree';
-import { Direction, EntityAndType, EntitySelectParams, FetchedEntity } from './types';
+import { ColumnEdge, Direction, EntityAndType, EntitySelectParams, FetchedEntity } from './types';
 import { useEntityRegistry } from '../useEntityRegistry';
 import { ANTD_GRAY } from '../entity/shared/constants';
 import { LineageExplorerContext } from './utils/LineageExplorerContext';
 import { useIsSeparateSiblingsMode } from '../entity/shared/siblingUtils';
 import { navigateToLineageUrl } from './utils/navigateToLineageUrl';
+import { SchemaField, SchemaFieldRef } from '../../types.generated';
+import { useIsShowColumnsMode } from './utils/useIsShowColumnsMode';
 
 const ZoomContainer = styled.div`
     position: relative;
@@ -80,6 +82,7 @@ type Props = {
     };
     width: number;
     height: number;
+    fineGrainedMap?: any;
 };
 
 const HelpIcon = styled(QuestionCircleOutlined)`
@@ -98,8 +101,15 @@ export default function LineageVizInsideZoom({
     selectedEntity,
     width,
     height,
+    fineGrainedMap,
 }: Props) {
     const [draggedNodes, setDraggedNodes] = useState<Record<string, { x: number; y: number }>>({});
+    const [collapsedColumnsNodes, setCollapsedColumnsNodes] = useState<Record<string, boolean>>({});
+    const [selectedField, setSelectedField] = useState<SchemaFieldRef | null>(null);
+    const [highlightedEdges, setHighlightedEdges] = useState<ColumnEdge[]>([]);
+    const [visibleColumnsByUrn, setVisibleColumnsByUrn] = useState<Record<string, Set<string>>>({});
+    const [columnsByUrn, setColumnsByUrn] = useState<Record<string, SchemaField[]>>({});
+
     const history = useHistory();
     const location = useLocation();
 
@@ -107,6 +117,7 @@ export default function LineageVizInsideZoom({
     const [isDraggingNode, setIsDraggingNode] = useState(false);
     const [showExpandedTitles, setShowExpandedTitles] = useState(false);
     const isHideSiblingMode = useIsSeparateSiblingsMode();
+    const showColumns = useIsShowColumnsMode();
 
     const entityRegistry = useEntityRegistry();
 
@@ -132,7 +143,23 @@ export default function LineageVizInsideZoom({
     }, [entityAndType?.entity?.urn]);
 
     return (
-        <LineageExplorerContext.Provider value={{ expandTitles: showExpandedTitles }}>
+        <LineageExplorerContext.Provider
+            value={{
+                expandTitles: showExpandedTitles,
+                showColumns,
+                collapsedColumnsNodes,
+                setCollapsedColumnsNodes,
+                fineGrainedMap,
+                selectedField,
+                setSelectedField,
+                highlightedEdges,
+                setHighlightedEdges,
+                visibleColumnsByUrn,
+                setVisibleColumnsByUrn,
+                columnsByUrn,
+                setColumnsByUrn,
+            }}
+        >
             <ZoomContainer>
                 <ZoomControls>
                     <ZoomButton onClick={() => zoom.scale({ scaleX: 1.2, scaleY: 1.2 })}>
@@ -170,6 +197,22 @@ export default function LineageVizInsideZoom({
                                 <HelpIcon />
                             </Tooltip>
                         </ControlLabel>
+                    </div>
+                    <div>
+                        <ControlsSwitch
+                            data-testid="column-toggle"
+                            checked={showColumns}
+                            onChange={(checked) => {
+                                navigateToLineageUrl({
+                                    location,
+                                    history,
+                                    isLineageMode: true,
+                                    isHideSiblingMode,
+                                    showColumns: checked,
+                                });
+                            }}
+                        />{' '}
+                        <ControlLabel>Show Columns </ControlLabel>
                     </div>
                 </DisplayControls>
                 <RootSvg
@@ -269,23 +312,8 @@ export default function LineageVizInsideZoom({
                     </defs>
                     <rect width={width} height={height} fill="#fafafa" />
                     <LineageTree
-                        data={upstreamData}
-                        zoom={zoom}
-                        onEntityClick={onEntityClick}
-                        onEntityCenter={onEntityCenter}
-                        onLineageExpand={onLineageExpand}
-                        margin={margin}
-                        selectedEntity={selectedEntity}
-                        hoveredEntity={hoveredEntity}
-                        setHoveredEntity={setHoveredEntity}
-                        direction={Direction.Upstream}
-                        canvasHeight={height}
-                        setIsDraggingNode={setIsDraggingNode}
-                        draggedNodes={draggedNodes}
-                        setDraggedNodes={setDraggedNodes}
-                    />
-                    <LineageTree
-                        data={downstreamData}
+                        upstreamData={upstreamData}
+                        downstreamData={downstreamData}
                         zoom={zoom}
                         onEntityClick={onEntityClick}
                         onEntityCenter={onEntityCenter}
@@ -299,6 +327,7 @@ export default function LineageVizInsideZoom({
                         setIsDraggingNode={setIsDraggingNode}
                         draggedNodes={draggedNodes}
                         setDraggedNodes={setDraggedNodes}
+                        fetchedEntities={fetchedEntities}
                     />
                 </RootSvg>
             </ZoomContainer>

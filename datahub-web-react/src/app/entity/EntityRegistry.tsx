@@ -140,6 +140,8 @@ export default class EntityRegistry {
                 numUpstreamChildren: genericEntityProperties?.upstream?.total,
                 status: genericEntityProperties?.status,
                 siblingPlatforms: genericEntityProperties?.siblingPlatforms,
+                fineGrainedLineages: genericEntityProperties?.fineGrainedLineages,
+                schemaMetadata: genericEntityProperties?.schemaMetadata,
             } as FetchedEntity) || undefined
         );
     }

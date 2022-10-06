@@ -39,6 +39,7 @@ describe('constructTree', () => {
             children: [],
             icon: undefined,
             platform: kafkaPlatform,
+            schemaMetadata: dataset3.schemaMetadata,
         });
     });
 
@@ -50,6 +51,7 @@ describe('constructTree', () => {
         const mockFetchedEntities = fetchedEntities.reduce(
             (acc, entry) =>
                 extendAsyncEntities(
+                    {},
                     acc,
                     testEntityRegistry,
                     { entity: entry.entity, type: EntityType.Dataset },
@@ -65,7 +67,7 @@ describe('constructTree', () => {
                 Direction.Downstream,
                 testEntityRegistry,
             ),
-        ).toEqual({
+        ).toMatchObject({
             name: 'Display Name of Sixth',
             expandedName: 'Fully Qualified Name of Sixth Test Dataset',
             urn: 'urn:li:dataset:6',
@@ -73,6 +75,7 @@ describe('constructTree', () => {
             unexploredChildren: 0,
             icon: undefined,
             platform: kafkaPlatform,
+            schemaMetadata: dataset6WithLineage.schemaMetadata,
             children: [
                 {
                     name: 'Fourth Test Dataset',
@@ -98,6 +101,7 @@ describe('constructTree', () => {
         const mockFetchedEntities = fetchedEntities.reduce(
             (acc, entry) =>
                 extendAsyncEntities(
+                    {},
                     acc,
                     testEntityRegistry,
                     { entity: entry.entity, type: EntityType.Dataset },
@@ -113,7 +117,7 @@ describe('constructTree', () => {
                 Direction.Upstream,
                 testEntityRegistry,
             ),
-        ).toEqual({
+        ).toMatchObject({
             name: 'Display Name of Sixth',
             expandedName: 'Fully Qualified Name of Sixth Test Dataset',
             urn: 'urn:li:dataset:6',
@@ -121,6 +125,7 @@ describe('constructTree', () => {
             unexploredChildren: 0,
             icon: undefined,
             platform: kafkaPlatform,
+            schemaMetadata: dataset6WithLineage.schemaMetadata,
             children: [
                 {
                     countercurrentChildrenUrns: [],
@@ -147,6 +152,7 @@ describe('constructTree', () => {
         const mockFetchedEntities = fetchedEntities.reduce(
             (acc, entry) =>
                 extendAsyncEntities(
+                    {},
                     acc,
                     testEntityRegistry,
                     { entity: entry.entity, type: EntityType.Dataset },
@@ -162,7 +168,7 @@ describe('constructTree', () => {
                 Direction.Upstream,
                 testEntityRegistry,
             ),
-        ).toEqual({
+        ).toMatchObject({
             name: 'Yet Another Dataset',
             expandedName: 'Yet Another Dataset',
             urn: 'urn:li:dataset:3',
@@ -170,6 +176,7 @@ describe('constructTree', () => {
             unexploredChildren: 0,
             icon: undefined,
             platform: kafkaPlatform,
+            schemaMetadata: dataset3WithLineage.schemaMetadata,
             children: [
                 {
                     name: 'Fourth Test Dataset',
@@ -238,6 +245,7 @@ describe('constructTree', () => {
         const mockFetchedEntities = fetchedEntities.reduce(
             (acc, entry) =>
                 extendAsyncEntities(
+                    {},
                     acc,
                     testEntityRegistry,
                     { entity: entry.entity, type: EntityType.Dataset },
@@ -266,6 +274,7 @@ describe('constructTree', () => {
         const mockFetchedEntities = fetchedEntities.reduce(
             (acc, entry) =>
                 extendAsyncEntities(
+                    {},
                     acc,
                     testEntityRegistry,
                     { entity: entry.entity, type: EntityType.Dataset },
@@ -280,7 +289,7 @@ describe('constructTree', () => {
                 Direction.Upstream,
                 testEntityRegistry,
             ),
-        ).toEqual({
+        ).toMatchObject({
             name: 'Yet Another Dataset',
             expandedName: 'Yet Another Dataset',
             urn: 'urn:li:dataset:3',
@@ -288,6 +297,7 @@ describe('constructTree', () => {
             unexploredChildren: 0,
             icon: undefined,
             platform: kafkaPlatform,
+            schemaMetadata: dataset3WithLineage.schemaMetadata,
             children: [
                 {
                     name: 'Fourth Test Dataset',
@@ -349,6 +359,7 @@ describe('constructTree', () => {
         const mockFetchedEntities = fetchedEntities.reduce(
             (acc, entry) =>
                 extendAsyncEntities(
+                    {},
                     acc,
                     testEntityRegistry,
                     { entity: entry.entity, type: entry.entity.type },
@@ -372,6 +383,7 @@ describe('constructTree', () => {
             icon: undefined,
             platform: kafkaPlatform,
             subtype: undefined,
+            schemaMetadata: updatedDataset6WithLineage.schemaMetadata,
             children: [
                 {
                     name: 'DataJobInfoName',
