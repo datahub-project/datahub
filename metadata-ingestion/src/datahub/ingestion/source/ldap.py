@@ -41,8 +41,6 @@ from datahub.ingestion.source.state.stateful_ingestion_base import (
     StatefulIngestionSourceBase,
 )
 
-from datahub.ingestion.source.state.stale_entity_removal_handler import StaleEntityRemovalSourceReport
-
 # default mapping for attrs
 user_attrs_map: Dict[str, Any] = {}
 group_attrs_map: Dict[str, Any] = {}
@@ -70,6 +68,7 @@ group_attrs_map["admins"] = "owner"
 group_attrs_map["members"] = "uniqueMember"
 group_attrs_map["displayName"] = "name"
 group_attrs_map["description"] = "info"
+
 
 def create_controls(pagesize: int) -> SimplePagedResultsControl:
     """
@@ -101,14 +100,17 @@ def set_cookie(
     lc_object.cookie = cookie
     return bool(cookie)
 
+
 class LDAPSourceStatefulIngestionConfig(StatefulStaleMetadataRemovalConfig):
     """
     Specialization of StatefulStaleMetadataRemovalConfig to adding custom config.
     This will be used to override the stateful_ingestion config param of StatefulIngestionConfigBase
     in the LDAPSourceConfig.
     """
+    
     _entity_types: List[str] = pydantic.Field(default=["corpuser"])
 
+        
 # added to implement a stateful_ingestion
 class LDAPSourceConfig(StatefulIngestionConfigBase):
     """Config used by the LDAP Source."""
@@ -145,7 +147,6 @@ class LDAPSourceConfig(StatefulIngestionConfigBase):
 
 @dataclasses.dataclass
 class LDAPSourceReport(StaleEntityRemovalSourceReport):
-
     def report_dropped(self, dn: str) -> None:
         self.report_stale_entity_soft_deleted(dn)
 
@@ -188,7 +189,7 @@ class LDAPSource(StatefulIngestionSourceBase):
     report: LDAPSourceReport
     platform: str = "ldap"
 
-    def __init__(self, ctx: PipelineContext, config:LDAPSourceConfig):
+    def __init__(self, ctx: PipelineContext, config: LDAPSourceConfig):
         """Constructor."""
         super(LDAPSource, self).__init__(config, ctx)
         self.config = config
@@ -410,8 +411,7 @@ class LDAPSource(StatefulIngestionSourceBase):
             user_snapshot.aspects.append(GroupMembershipClass(groups=groups))
 
         self.stale_entity_removal_handler.add_entity_to_state(
-            type="corpuser",
-            urn=f"urn:li:corpuser:{ldap_user}"
+            type="corpuser", urn=f"urn:li:corpuser:{ldap_user}"
         )
 
         return MetadataChangeEvent(proposedSnapshot=user_snapshot)
