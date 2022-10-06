@@ -5,6 +5,7 @@ from datahub.ingestion.source.state.stale_entity_removal_handler import (
     StaleEntityCheckpointStateBase,
 )
 
+
 class BaseLdapCheckpointState(StaleEntityCheckpointStateBase["BaseLdapCheckpointState"]):
     """
     Base class for representing the checkpoint state for all LDAP based sources.
@@ -42,10 +43,5 @@ class BaseLdapCheckpointState(StaleEntityCheckpointStateBase["BaseLdapCheckpoint
         self, old_checkpoint_state: "BaseLdapCheckpointState"
     ) -> float:
         return StaleEntityCheckpointStateBase.compute_percent_entities_changed(
-            [
-                (
-                    self.encoded_ldap_users,
-                    old_checkpoint_state.encoded_ldap_users,
-                )
-            ]
+            [(self.encoded_ldap_users, old_checkpoint_state.encoded_ldap_users)]
         )
