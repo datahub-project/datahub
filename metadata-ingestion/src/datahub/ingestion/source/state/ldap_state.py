@@ -6,7 +6,9 @@ from datahub.ingestion.source.state.stale_entity_removal_handler import (
 )
 
 
-class BaseLdapCheckpointState(StaleEntityCheckpointStateBase["BaseLdapCheckpointState"]):
+class BaseLdapCheckpointState(
+    StaleEntityCheckpointStateBase["BaseLdapCheckpointState"]
+):    
     """
     Base class for representing the checkpoint state for all LDAP based sources.
     Stores all ldap_users being ingested and is used to remove any stale entities.
@@ -20,14 +22,14 @@ class BaseLdapCheckpointState(StaleEntityCheckpointStateBase["BaseLdapCheckpoint
 
     @staticmethod
     def _get_urns_not_in(
-            encoded_ldap_users_1: List[str], encoded_ldap_users_2: List[str]
+        encoded_ldap_users_1: List[str], encoded_ldap_users_2: List[str]
     ) -> Iterable[str]:
         difference = set(encoded_ldap_users_1) - set(encoded_ldap_users_2)
         for ldap_user in difference:
             yield ldap_user
 
     def get_urns_not_in(
-            self, type: str, other_checkpoint_state: "BaseLdapCheckpointState"
+        self, type: str, other_checkpoint_state: "BaseLdapCheckpointState"
     ) -> Iterable[str]:
         assert type in self.get_supported_types()
         if type == "corpuser":
