@@ -88,7 +88,7 @@ function layoutNodesForOneDirection(
                         : {
                               data: node,
                               x: currentXPosition,
-                              y: HORIZONTAL_SPACE_PER_LAYER * numInCurrentLayer * xModifier, // can make this diff depending on node width
+                              y: HORIZONTAL_SPACE_PER_LAYER * numInCurrentLayer * xModifier,
                               direction,
                           };
                 currentXPosition +=
