@@ -1,7 +1,8 @@
-import React, { useContext } from 'react';
+import React, { useContext, useState } from 'react';
+import { Button, Input } from 'antd';
 import { Group } from '@vx/group';
 import styled from 'styled-components';
-import { DownOutlined, UpOutlined } from '@ant-design/icons';
+import { DownOutlined, SearchOutlined, UpOutlined } from '@ant-design/icons';
 import { blue } from '@ant-design/colors';
 import { NodeData } from './types';
 import { getTitleHeight } from './utils/titleUtils';
@@ -29,11 +30,24 @@ const ExpandCollapseText = styled.span`
     }
 `;
 
+const StyledInput = styled(Input)`
+    border-radius: 30px;
+    height: 26px;
+    padding: 2px 8px;
+    width: 125px;
+    input {
+        font-size: 12px;
+    }
+`;
+
 interface Props {
     node: { x: number; y: number; data: Omit<NodeData, 'children'> };
+    filterText: string;
+    setFilterText: (text: string) => void;
 }
 
-export default function NodeColumnsHeader({ node }: Props) {
+export default function NodeColumnsHeader({ node, filterText, setFilterText }: Props) {
+    const [isSearchBarVisible, setIsSearchBarVisible] = useState(false);
     const { expandTitles, collapsedColumnsNodes, setCollapsedColumnsNodes } = useContext(LineageExplorerContext);
     const areColumnsCollapsed = !!collapsedColumnsNodes[node?.data?.urn || 'noop'];
     const titleHeight = getTitleHeight(expandTitles ? node.data.expandedName || node.data.name : undefined);
@@ -54,6 +68,12 @@ export default function NodeColumnsHeader({ node }: Props) {
         e.stopPropagation();
     }
 
+    function hideIfSearchIsEmpty() {
+        if (!filterText) {
+            setIsSearchBarVisible(false);
+        }
+    }
+
     return (
         <Group>
             <foreignObject
@@ -71,6 +91,25 @@ export default function NodeColumnsHeader({ node }: Props) {
                         <ExpandCollapseText onClick={collapseColumns}>
                             Hide&nbsp; <UpOutlined />
                         </ExpandCollapseText>
+                    )}
+                    {!areColumnsCollapsed && (
+                        <foreignObject onClick={(e) => e.stopPropagation()}>
+                            {isSearchBarVisible && (
+                                <StyledInput
+                                    defaultValue={filterText}
+                                    placeholder="Find column..."
+                                    onChange={(e) => setFilterText(e.target.value)}
+                                    onBlur={hideIfSearchIsEmpty}
+                                    allowClear
+                                    autoFocus
+                                />
+                            )}
+                            {!isSearchBarVisible && (
+                                <Button type="text" size="small" onClick={() => setIsSearchBarVisible(true)}>
+                                    <SearchOutlined />
+                                </Button>
+                            )}
+                        </foreignObject>
                     )}
                 </HeaderWrapper>
             </foreignObject>

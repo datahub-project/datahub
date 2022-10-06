@@ -10,7 +10,7 @@ import { centerY, EXPAND_COLLAPSE_COLUMNS_TOGGLE_HEIGHT, iconX, NUM_COLUMNS_PER_
 import ColumnNode from './ColumnNode';
 import NodeColumnsHeader from './NodeColumnsHeader';
 import usePrevious from '../shared/usePrevious';
-import { haveDisplayedFieldsChanged } from './utils/columnLineageUtils';
+import { filterColumns, haveDisplayedFieldsChanged } from './utils/columnLineageUtils';
 import { useResetPageIndexAfterSelect } from './utils/useResetPageIndexAfterSelect';
 
 const StyledPagination = styled(Pagination)`
@@ -24,9 +24,10 @@ interface Props {
 }
 
 export default function LineageEntityColumns({ node, onHover }: Props) {
-    const { expandTitles, collapsedColumnsNodes, setVisibleColumnsByUrn, columnsByUrn } =
+    const { expandTitles, collapsedColumnsNodes, setVisibleColumnsByUrn, columnsByUrn, setColumnsByUrn } =
         useContext(LineageExplorerContext);
     const [pageIndex, setPageIndex] = useState(0);
+    const [filterText, setFilterText] = useState('');
     const areColumnsCollapsed = !!collapsedColumnsNodes[node?.data?.urn || 'noop'];
 
     const titleHeight = getTitleHeight(expandTitles ? node.data.expandedName || node.data.name : undefined);
@@ -39,6 +40,14 @@ export default function LineageEntityColumns({ node, onHover }: Props) {
     );
 
     useResetPageIndexAfterSelect(node.data.urn || '', fields, setPageIndex);
+
+    const previousFilterText = usePrevious(filterText);
+    useEffect(() => {
+        if (filterText !== previousFilterText) {
+            filterColumns(filterText, node, setColumnsByUrn);
+            setPageIndex(0);
+        }
+    }, [filterText, previousFilterText, node, setColumnsByUrn]);
 
     const previousDisplayedFields = usePrevious(displayedFields);
     useEffect(() => {
@@ -56,7 +65,7 @@ export default function LineageEntityColumns({ node, onHover }: Props) {
     return (
         <>
             <rect x={iconX - 21} y={centerY + 55 + titleHeight} width={width - 2} height="0.25" stroke={ANTD_GRAY[6]} />
-            <NodeColumnsHeader node={node} />
+            <NodeColumnsHeader node={node} filterText={filterText} setFilterText={setFilterText} />
             {!areColumnsCollapsed && (
                 <Group>
                     {displayedFields?.map((field, idx) => (

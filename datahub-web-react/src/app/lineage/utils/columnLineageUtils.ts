@@ -1,4 +1,4 @@
-import { ColumnEdge, FetchedEntity } from '../types';
+import { ColumnEdge, FetchedEntity, NodeData } from '../types';
 import { SchemaField } from '../../../types.generated';
 
 export function getHighlightedColumnsForNode(highlightedEdges: ColumnEdge[], fields: SchemaField[], nodeUrn: string) {
@@ -66,6 +66,7 @@ export function populateColumnsByUrn(
 }
 
 export function haveDisplayedFieldsChanged(displayedFields: SchemaField[], previousDisplayedFields?: SchemaField[]) {
+    if (!previousDisplayedFields) return true;
     let hasChanged = false;
     displayedFields.forEach((field, index) => {
         if (
@@ -77,4 +78,15 @@ export function haveDisplayedFieldsChanged(displayedFields: SchemaField[], previ
         }
     });
     return hasChanged;
+}
+
+export function filterColumns(
+    filterText: string,
+    node: { x: number; y: number; data: Omit<NodeData, 'children'> },
+    setColumnsByUrn: (value: React.SetStateAction<Record<string, SchemaField[]>>) => void,
+) {
+    const filteredFields = node.data.schemaMetadata?.fields.filter((field) => field.fieldPath.includes(filterText));
+    if (filteredFields) {
+        setColumnsByUrn((colsByUrn) => ({ ...colsByUrn, [node.data.urn || 'noop']: filteredFields }));
+    }
 }
