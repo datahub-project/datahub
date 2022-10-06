@@ -324,7 +324,7 @@ public class AuthServiceController {
     try {
       bodyJson = mapper.readTree(jsonStr);
     } catch (JsonProcessingException e) {
-      log.error(String.format("Failed to parse json while attempting to create native user %s", jsonStr));
+      log.error(String.format("Failed to parse json while attempting to track analytics event %s", jsonStr));
       return CompletableFuture.completedFuture(new ResponseEntity<>(HttpStatus.BAD_REQUEST));
     }
     if (bodyJson == null) {
