@@ -1,7 +1,7 @@
 """LDAP Source"""
 import dataclasses
 import re
-from typing import Any, Dict, Iterable, List, Optional, cast
+from typing import Any, Dict, Iterable, List, Optional
 
 import ldap
 import pydantic
@@ -29,7 +29,6 @@ from datahub.ingestion.source.state.stateful_ingestion_base import (
 )
 from datahub.metadata.com.linkedin.pegasus2avro.mxe import MetadataChangeEvent
 from datahub.metadata.schema_classes import (
-    ChangeTypeClass,
     CorpGroupInfoClass,
     CorpGroupSnapshotClass,
     CorpUserInfoClass,
