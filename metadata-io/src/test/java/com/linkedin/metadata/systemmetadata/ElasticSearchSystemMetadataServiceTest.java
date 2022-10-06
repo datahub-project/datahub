@@ -9,8 +9,6 @@ import com.linkedin.metadata.utils.elasticsearch.IndexConvention;
 import com.linkedin.metadata.utils.elasticsearch.IndexConventionImpl;
 import com.linkedin.mxe.SystemMetadata;
 import org.elasticsearch.client.RestHighLevelClient;
-import org.testcontainers.elasticsearch.ElasticsearchContainer;
-import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
@@ -18,7 +16,6 @@ import org.testng.annotations.Test;
 import javax.annotation.Nonnull;
 import java.util.List;
 
-import static com.linkedin.metadata.DockerTestUtils.checkContainerEngine;
 import static com.linkedin.metadata.ElasticSearchTestUtils.syncAfterWrite;
 import static com.linkedin.metadata.systemmetadata.ElasticSearchSystemMetadataService.INDEX_NAME;
 import static org.testng.Assert.assertEquals;
@@ -26,7 +23,6 @@ import static org.testng.Assert.assertEquals;
 
 public class ElasticSearchSystemMetadataServiceTest {
 
-  private ElasticsearchContainer _elasticsearchContainer;
   private RestHighLevelClient _searchClient;
   private final IndexConvention _indexConvention = new IndexConventionImpl(null);
   private final String _indexName = _indexConvention.getIndexName(INDEX_NAME);
@@ -34,10 +30,7 @@ public class ElasticSearchSystemMetadataServiceTest {
 
   @BeforeClass
   public void setup() {
-    _elasticsearchContainer = ElasticTestUtils.getNewElasticsearchContainer();
-    checkContainerEngine(_elasticsearchContainer.getDockerClient());
-    _elasticsearchContainer.start();
-    _searchClient = ElasticTestUtils.buildRestClient(_elasticsearchContainer);
+    _searchClient = ElasticTestUtils.getElasticsearchClient();
     _client = buildService();
     _client.configure();
   }
@@ -54,11 +47,6 @@ public class ElasticSearchSystemMetadataServiceTest {
         ElasticSearchServiceTest.getBulkProcessor(_searchClient));
     return new ElasticSearchSystemMetadataService(_searchClient, _indexConvention, dao,
         ElasticSearchServiceTest.getIndexBuilder(_searchClient));
-  }
-
-  @AfterClass
-  public void tearDown() {
-    _elasticsearchContainer.stop();
   }
 
   @Test

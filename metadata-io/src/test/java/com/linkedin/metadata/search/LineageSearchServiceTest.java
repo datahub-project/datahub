@@ -34,8 +34,6 @@ import com.linkedin.metadata.utils.elasticsearch.IndexConventionImpl;
 import org.elasticsearch.client.RestHighLevelClient;
 import org.springframework.cache.CacheManager;
 import org.springframework.cache.concurrent.ConcurrentMapCacheManager;
-import org.testcontainers.elasticsearch.ElasticsearchContainer;
-import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
@@ -44,7 +42,6 @@ import javax.annotation.Nonnull;
 import java.util.Collections;
 import java.util.List;
 
-import static com.linkedin.metadata.DockerTestUtils.checkContainerEngine;
 import static com.linkedin.metadata.ElasticSearchTestUtils.syncAfterWrite;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.eq;
@@ -55,7 +52,6 @@ import static org.testng.Assert.assertEquals;
 
 public class LineageSearchServiceTest {
 
-  private ElasticsearchContainer _elasticsearchContainer;
   private RestHighLevelClient _searchClient;
   private EntityRegistry _entityRegistry;
   private IndexConvention _indexConvention;
@@ -78,11 +74,8 @@ public class LineageSearchServiceTest {
   public void setup() {
     _entityRegistry = new SnapshotEntityRegistry(new Snapshot());
     _indexConvention = new IndexConventionImpl(null);
-    _elasticsearchContainer = ElasticTestUtils.getNewElasticsearchContainer();
     _settingsBuilder = new SettingsBuilder(Collections.emptyList(), null);
-    checkContainerEngine(_elasticsearchContainer.getDockerClient());
-    _elasticsearchContainer.start();
-    _searchClient = ElasticTestUtils.buildRestClient(_elasticsearchContainer);
+    _searchClient = ElasticTestUtils.getElasticsearchClient();
     _elasticSearchService = buildEntitySearchService();
     _elasticSearchService.configure();
     _cacheManager = new ConcurrentMapCacheManager();
@@ -127,11 +120,6 @@ public class LineageSearchServiceTest {
   private void clearCache() {
     _cacheManager.getCacheNames().forEach(cache -> _cacheManager.getCache(cache).clear());
     resetService(true);
-  }
-
-  @AfterClass
-  public void tearDown() {
-    _elasticsearchContainer.stop();
   }
 
   private EntityLineageResult mockResult(List<LineageRelationship> lineageRelationships) {

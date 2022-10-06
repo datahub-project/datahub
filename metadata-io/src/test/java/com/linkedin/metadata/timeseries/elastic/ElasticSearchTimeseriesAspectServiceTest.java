@@ -42,8 +42,6 @@ import com.linkedin.timeseries.GroupingBucket;
 import com.linkedin.timeseries.GroupingBucketType;
 import com.linkedin.timeseries.TimeWindowSize;
 import org.elasticsearch.client.RestHighLevelClient;
-import org.testcontainers.elasticsearch.ElasticsearchContainer;
-import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
@@ -55,7 +53,6 @@ import java.util.function.Function;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
-import static com.linkedin.metadata.DockerTestUtils.checkContainerEngine;
 import static com.linkedin.metadata.ElasticSearchTestUtils.syncAfterWrite;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertNotNull;
@@ -75,7 +72,6 @@ public class ElasticSearchTimeseriesAspectServiceTest {
   private static final String ES_FILED_TIMESTAMP = "timestampMillis";
   private static final String ES_FILED_STAT = "stat";
 
-  private ElasticsearchContainer _elasticsearchContainer;
   private RestHighLevelClient _searchClient;
   private EntityRegistry _entityRegistry;
   private IndexConvention _indexConvention;
@@ -94,10 +90,7 @@ public class ElasticSearchTimeseriesAspectServiceTest {
     _entityRegistry = new ConfigEntityRegistry(new DataSchemaFactory("com.datahub.test"),
         TestEntityProfile.class.getClassLoader().getResourceAsStream("test-entity-registry.yml"));
     _indexConvention = new IndexConventionImpl(null);
-    _elasticsearchContainer = ElasticTestUtils.getNewElasticsearchContainer();
-    checkContainerEngine(_elasticsearchContainer.getDockerClient());
-    _elasticsearchContainer.start();
-    _searchClient = ElasticTestUtils.buildRestClient(_elasticsearchContainer);
+    _searchClient = ElasticTestUtils.getElasticsearchClient();
     _elasticSearchTimeseriesAspectService = buildService();
     _elasticSearchTimeseriesAspectService.configure();
     EntitySpec entitySpec = _entityRegistry.getEntitySpec(ENTITY_NAME);
@@ -109,11 +102,6 @@ public class ElasticSearchTimeseriesAspectServiceTest {
     return new ElasticSearchTimeseriesAspectService(_searchClient, _indexConvention,
         new TimeseriesAspectIndexBuilders(ElasticSearchServiceTest.getIndexBuilder(_searchClient), _entityRegistry,
             _indexConvention), _entityRegistry, ElasticSearchServiceTest.getBulkProcessor(_searchClient));
-  }
-
-  @AfterClass
-  public void tearDown() {
-    _elasticsearchContainer.stop();
   }
 
   /*

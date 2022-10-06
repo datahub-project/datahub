@@ -19,9 +19,7 @@ import com.linkedin.metadata.search.elasticsearch.ElasticSearchServiceTest;
 import com.linkedin.metadata.utils.elasticsearch.IndexConvention;
 import com.linkedin.metadata.utils.elasticsearch.IndexConventionImpl;
 import org.elasticsearch.client.RestHighLevelClient;
-import org.testcontainers.elasticsearch.ElasticsearchContainer;
 import org.testng.SkipException;
-import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
@@ -34,7 +32,6 @@ import java.util.Map;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
-import static com.linkedin.metadata.DockerTestUtils.checkContainerEngine;
 import static com.linkedin.metadata.graph.elastic.ElasticSearchGraphService.INDEX_NAME;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertTrue;
@@ -42,7 +39,6 @@ import static org.testng.Assert.assertTrue;
 
 public class ElasticSearchGraphServiceTest extends GraphServiceTestBase {
 
-  private ElasticsearchContainer _elasticsearchContainer;
   private RestHighLevelClient _searchClient;
   private final IndexConvention _indexConvention = new IndexConventionImpl(null);
   private final String _indexName = _indexConvention.getIndexName(INDEX_NAME);
@@ -50,10 +46,7 @@ public class ElasticSearchGraphServiceTest extends GraphServiceTestBase {
 
   @BeforeClass
   public void setup() {
-    _elasticsearchContainer = ElasticTestUtils.getNewElasticsearchContainer();
-    checkContainerEngine(_elasticsearchContainer.getDockerClient());
-    _elasticsearchContainer.start();
-    _searchClient = ElasticTestUtils.buildRestClient(_elasticsearchContainer);
+    _searchClient = ElasticTestUtils.getElasticsearchClient();
     _client = buildService();
     _client.configure();
   }
@@ -72,11 +65,6 @@ public class ElasticSearchGraphServiceTest extends GraphServiceTestBase {
         new ESGraphWriteDAO(_searchClient, _indexConvention, ElasticSearchServiceTest.getBulkProcessor(_searchClient));
     return new ElasticSearchGraphService(lineageRegistry, _searchClient, _indexConvention, writeDAO, readDAO,
         ElasticSearchServiceTest.getIndexBuilder(_searchClient));
-  }
-
-  @AfterClass
-  public void tearDown() {
-    _elasticsearchContainer.stop();
   }
 
   @Override

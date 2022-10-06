@@ -10,7 +10,11 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.concurrent.TimeUnit;
+import java.util.stream.Collectors;
+import java.util.stream.Stream;
 import javax.annotation.Nonnull;
+
+import lombok.Getter;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.elasticsearch.action.admin.cluster.node.tasks.list.ListTasksRequest;
@@ -32,6 +36,7 @@ import org.elasticsearch.client.tasks.TaskSubmissionResponse;
 import org.elasticsearch.common.settings.Settings;
 import org.elasticsearch.index.query.QueryBuilders;
 import org.elasticsearch.index.reindex.ReindexRequest;
+import org.elasticsearch.action.admin.indices.settings.put.UpdateSettingsRequest;
 
 
 @Slf4j
@@ -39,11 +44,27 @@ import org.elasticsearch.index.reindex.ReindexRequest;
 public class ESIndexBuilder {
 
   private final RestHighLevelClient searchClient;
+  @Getter
   private final int numShards;
+
+  @Getter
   private final int numReplicas;
+
+  @Getter
   private final int numRetries;
 
-  private static final List<String> SETTINGS_TO_COMPARE = ImmutableList.of("number_of_shards", "number_of_replicas");
+  @Getter
+  private final int refreshIntervalSeconds;
+
+  /*
+    Most index settings are default values and populated by Elastic. This list is an include list to determine which
+    settings we care about when a difference is present.
+  */
+  private static final List<String> SETTINGS_DYNAMIC = ImmutableList.of("number_of_replicas", "refresh_interval");
+  // These setting require reindex
+  private static final List<String> SETTINGS_STATIC = ImmutableList.of("number_of_shards");
+  private static final List<String> SETTINGS = Stream.concat(
+          SETTINGS_DYNAMIC.stream(), SETTINGS_STATIC.stream()).collect(Collectors.toList());
 
   public void buildIndex(String indexName, Map<String, Object> mappings, Map<String, Object> settings)
       throws IOException {
@@ -53,6 +74,7 @@ public class ESIndexBuilder {
     Map<String, Object> baseSettings = new HashMap<>(settings);
     baseSettings.put("number_of_shards", numShards);
     baseSettings.put("number_of_replicas", numReplicas);
+    baseSettings.put("refresh_interval", String.format("%ss", refreshIntervalSeconds));
     Map<String, Object> finalSettings = ImmutableMap.of("index", baseSettings);
 
     // If index doesn't exist, create index
@@ -70,25 +92,27 @@ public class ESIndexBuilder {
         .get()
         .getSourceAsMap();
 
-    MapDifference<String, Object> mappingsDiff = Maps.difference((Map<String, Object>) oldMappings.get("properties"),
-        (Map<String, Object>) mappings.get("properties"));
+    MapDifference<String, Object> mappingsDiff = Maps.difference(
+            (Map<String, Object>) oldMappings.getOrDefault("properties", Map.of()),
+            (Map<String, Object>) mappings.getOrDefault("properties", Map.of()));
 
     Settings oldSettings = searchClient.indices()
         .getSettings(new GetSettingsRequest().indices(indexName), RequestOptions.DEFAULT)
         .getIndexToSettings()
         .valuesIt()
         .next();
-    boolean isSettingsEqual = equals(finalSettings, oldSettings);
+    boolean isAnalysisEqual = isAnalysisEqual(finalSettings, oldSettings);
+    boolean isSettingsEqual = isSettingsEqual(finalSettings, oldSettings);
 
     // If there are no updates to mappings and settings, return
-    if (mappingsDiff.areEqual() && isSettingsEqual) {
+    if (mappingsDiff.areEqual() && isAnalysisEqual && isSettingsEqual) {
       log.info("No updates to index {}", indexName);
       return;
     }
 
     // If there are no updates to settings, and there are only pure additions to mappings (no updates to existing fields),
     // there is no need to reindex. Just update mappings
-    if (isSettingsEqual && isPureAddition(mappingsDiff)) {
+    if (isAnalysisEqual && isPureAddition(mappingsDiff) && isSettingsEqual) {
       log.info("New fields have been added to index {}. Updating index in place", indexName);
       PutMappingRequest request = new PutMappingRequest(indexName).source(mappings);
       searchClient.indices().putMapping(request, RequestOptions.DEFAULT);
@@ -98,10 +122,27 @@ public class ESIndexBuilder {
 
     if (!mappingsDiff.entriesDiffering().isEmpty()) {
       log.info("There's diff between new mappings (left) and old mappings (right): {}", mappingsDiff.toString());
+      reindex(indexName, mappings, finalSettings);
     } else {
       log.info("There's an update to settings");
+      if (requireReindex(finalSettings, oldSettings)) {
+        log.info("There's an update to settings that requires reindexing.");
+        reindex(indexName, mappings, finalSettings);
+      } else if(!isSettingsEqual) {
+        UpdateSettingsRequest request = new UpdateSettingsRequest(indexName);
+        Map<String, Object> indexSettings = ((Map<String, Object>) finalSettings.get("index"))
+                .entrySet().stream()
+                .filter(e -> SETTINGS_DYNAMIC.contains(e.getKey()))
+                .collect(Collectors.toMap(e -> "index." + e.getKey(), Map.Entry::getValue));
+        request.settings(indexSettings);
+        boolean ack = searchClient.indices().putSettings(request, RequestOptions.DEFAULT).isAcknowledged();
+        log.info("Updated index {} with new settings. Acknowledged: {}", indexName, ack);
+      }
     }
+  }
 
+  private void reindex(String indexName, Map<String, Object> mappings, Map<String, Object> finalSettings)
+          throws IOException {
     String tempIndexName = indexName + "_" + System.currentTimeMillis();
     createIndex(tempIndexName, mappings, finalSettings);
     try {
@@ -205,12 +246,12 @@ public class ESIndexBuilder {
     log.info("Created index {}", indexName);
   }
 
-  private boolean isPureAddition(MapDifference<String, Object> mapDifference) {
+  private static boolean isPureAddition(MapDifference<String, Object> mapDifference) {
     return !mapDifference.areEqual() && mapDifference.entriesDiffering().isEmpty()
         && !mapDifference.entriesOnlyOnRight().isEmpty();
   }
 
-  private boolean equals(Map<String, Object> newSettings, Settings oldSettings) {
+  private static boolean isAnalysisEqual(Map<String, Object> newSettings, Settings oldSettings) {
     if (!newSettings.containsKey("index")) {
       return true;
     }
@@ -221,15 +262,34 @@ public class ESIndexBuilder {
     // Compare analysis section
     Map<String, Object> newAnalysis = (Map<String, Object>) indexSettings.get("analysis");
     Settings oldAnalysis = oldSettings.getByPrefix("index.analysis.");
-    if (!equalsGroup(newAnalysis, oldAnalysis)) {
-      return false;
-    }
-    // Compare remaining settings
-    return SETTINGS_TO_COMPARE.stream()
-        .noneMatch(settingKey -> Objects.equals(indexSettings.get(settingKey), oldSettings.get("index." + settingKey)));
+    return equalsGroup(newAnalysis, oldAnalysis);
   }
 
-  private boolean equalsGroup(Map<String, Object> newSettings, Settings oldSettings) {
+  private static boolean isSettingsEqual(Map<String, Object> newSettings, Settings oldSettings) {
+    if (!newSettings.containsKey("index")) {
+      return true;
+    }
+    Map<String, Object> indexSettings = (Map<String, Object>) newSettings.get("index");
+    return SETTINGS.stream()
+            .allMatch(settingKey -> Objects.equals(indexSettings.get(settingKey).toString(), oldSettings.get("index." + settingKey)));
+  }
+
+  private static boolean requireReindex(Map<String, Object> newSettings, Settings oldSettings) {
+    if (!newSettings.containsKey("index")) {
+      return false;
+    }
+    Map<String, Object> indexSettings = (Map<String, Object>) newSettings.get("index");
+
+    if (SETTINGS_STATIC.stream().anyMatch(settingKey ->
+            !Objects.equals(indexSettings.get(settingKey).toString(), oldSettings.get("index." + settingKey)))) {
+      return true;
+    }
+
+    return indexSettings.containsKey("analysis") &&
+            !equalsGroup((Map<String, Object>) indexSettings.get("analysis"), oldSettings.getByPrefix("index.analysis."));
+  }
+
+  private static boolean equalsGroup(Map<String, Object> newSettings, Settings oldSettings) {
     if (!newSettings.keySet().equals(oldSettings.names())) {
       return false;
     }

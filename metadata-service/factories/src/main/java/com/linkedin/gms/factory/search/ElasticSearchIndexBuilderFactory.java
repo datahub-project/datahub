@@ -31,9 +31,12 @@ public class ElasticSearchIndexBuilderFactory {
   @Value("${elasticsearch.index.numRetries}")
   private Integer numRetries;
 
+  @Value("${elasticsearch.index.refreshIntervalSeconds}")
+  private Integer refreshIntervalSeconds;
+
   @Bean(name = "elasticSearchIndexBuilder")
   @Nonnull
   protected ESIndexBuilder getInstance() {
-    return new ESIndexBuilder(searchClient, numShards, numReplicas, numRetries);
+    return new ESIndexBuilder(searchClient, numShards, numReplicas, numRetries, refreshIntervalSeconds);
   }
 }

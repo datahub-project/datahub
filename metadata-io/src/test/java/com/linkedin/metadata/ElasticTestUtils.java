@@ -10,6 +10,8 @@ import org.testcontainers.utility.DockerImageName;
 
 import javax.annotation.Nonnull;
 
+import static com.linkedin.metadata.DockerTestUtils.checkContainerEngine;
+
 public class ElasticTestUtils {
     private ElasticTestUtils() {
     }
@@ -24,11 +26,19 @@ public class ElasticTestUtils {
 
     private static final int HTTP_PORT = 9200;
 
+    private static RestHighLevelClient _searchClient;
+
     // A helper method to create an ElasticseachContainer defaulting to the current image and version, with the ability
     // within firewalled environments to override with an environment variable to point to the offline repository.
     @Nonnull
-    public static final ElasticsearchContainer getNewElasticsearchContainer() {
-        return new ElasticsearchContainer(DOCKER_IMAGE_NAME);
+    public static RestHighLevelClient getElasticsearchClient() {
+        if (_searchClient == null) {
+            ElasticsearchContainer elasticsearchContainer = new ElasticsearchContainer(DOCKER_IMAGE_NAME);
+            checkContainerEngine(elasticsearchContainer.getDockerClient());
+            elasticsearchContainer.start();
+            _searchClient = ElasticTestUtils.buildRestClient(elasticsearchContainer);
+        }
+        return _searchClient;
     }
 
     // A helper method to construct a standard rest client for Elastic search.
