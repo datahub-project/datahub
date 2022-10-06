@@ -1,7 +1,6 @@
 package com.linkedin.datahub.graphql.types.common.mappers;
 
 import com.linkedin.common.urn.Urn;
-import com.linkedin.datahub.graphql.generated.EntityType;
 import com.linkedin.datahub.graphql.generated.SchemaFieldRef;
 import com.linkedin.dataset.FineGrainedLineage;
 import java.util.ArrayList;
