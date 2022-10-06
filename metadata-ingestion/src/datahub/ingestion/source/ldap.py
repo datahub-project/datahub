@@ -2,18 +2,12 @@
 import dataclasses
 import re
 from typing import Any, Dict, Iterable, List, Optional, cast
-import pydantic
-from datahub.ingestion.source.state.ldap_state import (
-    BaseLdapCheckpointState,
-)
-from datahub.ingestion.source.state.stale_entity_removal_handler import (
-    StaleEntityRemovalHandler,
-    StaleEntityRemovalSourceReport,
-    StatefulStaleMetadataRemovalConfig,
-)
+
 import ldap
+import pydantic
 from ldap.controls import SimplePagedResultsControl
 from pydantic.fields import Field
+
 from datahub.configuration.common import ConfigurationError
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.decorators import (
@@ -23,6 +17,16 @@ from datahub.ingestion.api.decorators import (
     support_status,
 )
 from datahub.ingestion.api.workunit import MetadataWorkUnit
+from datahub.ingestion.source.state.ldap_state import BaseLdapCheckpointState
+from datahub.ingestion.source.state.stale_entity_removal_handler import (
+    StaleEntityRemovalHandler,
+    StaleEntityRemovalSourceReport,
+    StatefulStaleMetadataRemovalConfig,
+)
+from datahub.ingestion.source.state.stateful_ingestion_base import (
+    StatefulIngestionConfigBase,
+    StatefulIngestionSourceBase,
+)
 from datahub.metadata.com.linkedin.pegasus2avro.mxe import MetadataChangeEvent
 from datahub.metadata.schema_classes import (
     CorpGroupInfoClass,
@@ -31,10 +35,6 @@ from datahub.metadata.schema_classes import (
     CorpUserSnapshotClass,
     GroupMembershipClass,
     ChangeTypeClass,
-)
-from datahub.ingestion.source.state.stateful_ingestion_base import (
-    StatefulIngestionConfigBase,
-    StatefulIngestionSourceBase,
 )
 
 # default mapping for attrs
