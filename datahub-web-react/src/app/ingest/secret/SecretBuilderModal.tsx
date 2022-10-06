@@ -110,7 +110,7 @@ export const SecretBuilderModal = ({ initialState, visible, onSubmit, onCancel }
                         ]}
                         hasFeedback
                     >
-                        <Input.Password
+                        <Input.TextArea
                             placeholder="The value of your secret"
                             value={secretBuilderState.value}
                             onChange={(event) => setValue(event.target.value)}
