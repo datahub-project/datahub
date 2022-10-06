@@ -6,7 +6,7 @@ export const INVERSE_RELATIONSHIPS = ['Produces', 'MemberOf'];
 export const HORIZONTAL_SPACE_PER_LAYER = 400;
 export const VERTICAL_SPACE_BETWEEN_NODES = 40;
 export const EXPAND_COLLAPSE_COLUMNS_TOGGLE_HEIGHT = 35;
-export const NUM_COLUMNS_PER_PAGE = 3;
+export const NUM_COLUMNS_PER_PAGE = 10;
 export const COLUMN_HEIGHT = 30;
 
 export const CURVE_PADDING = 75;
