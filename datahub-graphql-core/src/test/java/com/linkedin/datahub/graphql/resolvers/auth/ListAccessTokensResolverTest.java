@@ -6,10 +6,10 @@ import com.linkedin.datahub.graphql.TestUtils;
 import com.linkedin.datahub.graphql.generated.FacetFilterInput;
 import com.linkedin.datahub.graphql.generated.ListAccessTokenInput;
 import com.linkedin.datahub.graphql.generated.ListAccessTokenResult;
-import com.linkedin.datahub.graphql.generated.SearchCondition;
 import com.linkedin.entity.client.EntityClient;
 import com.linkedin.metadata.Constants;
 import graphql.schema.DataFetchingEnvironment;
+import java.util.Collections;
 import junit.framework.TestCase;
 import org.mockito.Mockito;
 
@@ -27,15 +27,18 @@ public class ListAccessTokensResolverTest extends TestCase {
     final ListAccessTokenInput input = new ListAccessTokenInput();
     input.setStart(0);
     input.setCount(100);
-    final ImmutableList<FacetFilterInput> filters = ImmutableList.of(new FacetFilterInput("actor",
-        "urn:li:corpuser:test", ImmutableList.of("urn:li:corpuser:test"), false, SearchCondition.EQUAL));
+    FacetFilterInput filter = new FacetFilterInput();
+    filter.setField("actor");
+    filter.setValues(ImmutableList.of("urn:li:corpuser:test"));
+    final ImmutableList<FacetFilterInput> filters = ImmutableList.of(filter);
+
     input.setFilters(filters);
     Mockito.when(mockEnv.getArgument(Mockito.eq("input"))).thenReturn(input);
 
     final EntityClient mockClient = Mockito.mock(EntityClient.class);
     Mockito.when(mockClient.filter(
         Mockito.eq(Constants.ACCESS_TOKEN_ENTITY_NAME),
-            Mockito.eq(buildFilter(filters)),
+            Mockito.eq(buildFilter(filters, Collections.emptyList())),
             Mockito.notNull(),
             Mockito.eq(input.getStart()),
             Mockito.eq(input.getCount()),

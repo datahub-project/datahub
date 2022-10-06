@@ -12,7 +12,6 @@ import com.linkedin.metadata.aspect.EnvelopedAspect;
 import com.linkedin.metadata.authorization.PoliciesConfig;
 import com.linkedin.metadata.query.filter.ConjunctiveCriterion;
 import com.linkedin.metadata.query.filter.ConjunctiveCriterionArray;
-import com.linkedin.metadata.query.filter.Criterion;
 import com.linkedin.metadata.query.filter.CriterionArray;
 import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.r2.RemoteInvocationException;
@@ -111,7 +110,7 @@ public class TimeSeriesAspectResolver implements DataFetcher<CompletableFuture<L
       return null;
     }
     return new Filter().setOr(new ConjunctiveCriterionArray(new ConjunctiveCriterion().setAnd(new CriterionArray(maybeFilters.getAnd().stream()
-        .map(filter -> new Criterion().setField(filter.getField()).setValue(filter.getValue()))
+        .map(filter -> criterionFromFilter(filter))
         .collect(Collectors.toList())))));
   }
 }

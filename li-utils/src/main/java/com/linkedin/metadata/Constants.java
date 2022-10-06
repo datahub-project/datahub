@@ -47,6 +47,7 @@ public class Constants {
   public static final String DATA_HUB_UPGRADE_ENTITY_NAME = "dataHubUpgrade";
   public static final String INVITE_TOKEN_ENTITY_NAME = "inviteToken";
   public static final String DATAHUB_ROLE_ENTITY_NAME = "dataHubRole";
+  public static final String POST_ENTITY_NAME = "post";
 
 
   /**
@@ -243,7 +244,6 @@ public class Constants {
   public static final String IS_MEMBER_OF_GROUP_RELATIONSHIP_NAME = "IsMemberOfGroup";
   public static final String IS_MEMBER_OF_NATIVE_GROUP_RELATIONSHIP_NAME = "IsMemberOfNativeGroup";
 
-  // acryl-main only
   public static final String CHANGE_EVENT_PLATFORM_EVENT_NAME = "entityChangeEvent";
 
   /**
@@ -257,6 +257,10 @@ public class Constants {
   public static final String DATA_PROCESS_INSTANCE_ENTITY_NAME = "dataProcessInstance";
   public static final String DATA_PROCESS_INSTANCE_PROPERTIES_ASPECT_NAME = "dataProcessInstanceProperties";
   public static final String DATA_PROCESS_INSTANCE_RUN_EVENT_ASPECT_NAME = "dataProcessInstanceRunEvent";
+
+  // Posts
+  public static final String POST_INFO_ASPECT_NAME = "postInfo";
+  public static final String LAST_MODIFIED_FIELD_NAME = "lastModified";
 
   private Constants() {
   }

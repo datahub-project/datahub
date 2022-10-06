@@ -182,7 +182,7 @@ public class LineageSearchService {
         List<String> degreeFilter = conjunctiveCriterion.getAnd()
             .stream()
             .filter(criterion -> criterion.getField().equals(DEGREE_FILTER_INPUT))
-            .map(Criterion::getValue)
+            .flatMap(c -> c.getValues().stream())
             .collect(Collectors.toList());
         if (!degreeFilter.isEmpty()) {
           Predicate<Integer> degreePredicate = convertFilterToPredicate(degreeFilter);

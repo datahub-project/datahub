@@ -2539,7 +2539,7 @@
                 {
                     "com.linkedin.pegasus2avro.common.BrowsePaths": {
                         "paths": [
-                            "/prod/tableau/default/Email Performance by Campaign"
+                            "/prod/tableau/default"
                         ]
                     }
                 },
@@ -4354,7 +4354,7 @@
                 {
                     "com.linkedin.pegasus2avro.common.BrowsePaths": {
                         "paths": [
-                            "/prod/tableau/default/Dvdrental Workbook"
+                            "/prod/tableau/default"
                         ]
                     }
                 },
@@ -4639,7 +4639,7 @@
                 {
                     "com.linkedin.pegasus2avro.common.BrowsePaths": {
                         "paths": [
-                            "/prod/tableau/default/Dvdrental Workbook"
+                            "/prod/tableau/default"
                         ]
                     }
                 },
@@ -5096,7 +5096,7 @@
                 {
                     "com.linkedin.pegasus2avro.common.BrowsePaths": {
                         "paths": [
-                            "/prod/tableau/default/Dvdrental Workbook"
+                            "/prod/tableau/default"
                         ]
                     }
                 },
@@ -5888,7 +5888,7 @@
                 {
                     "com.linkedin.pegasus2avro.common.BrowsePaths": {
                         "paths": [
-                            "/prod/tableau/default/Executive Dashboard"
+                            "/prod/tableau/default"
                         ]
                     }
                 },
@@ -12544,7 +12544,7 @@
                 {
                     "com.linkedin.pegasus2avro.common.BrowsePaths": {
                         "paths": [
-                            "/prod/tableau/default/Executive Dashboard"
+                            "/prod/tableau/default"
                         ]
                     }
                 },
@@ -16486,7 +16486,7 @@
                 {
                     "com.linkedin.pegasus2avro.common.BrowsePaths": {
                         "paths": [
-                            "/prod/tableau/default/Executive Dashboard"
+                            "/prod/tableau/default"
                         ]
                     }
                 },
@@ -21690,7 +21690,7 @@
                 {
                     "com.linkedin.pegasus2avro.common.BrowsePaths": {
                         "paths": [
-                            "/prod/tableau/default/Workbook published ds"
+                            "/prod/tableau/default"
                         ]
                     }
                 },

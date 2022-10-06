@@ -10,6 +10,7 @@ import com.linkedin.metadata.snapshot.Snapshot;
 import com.linkedin.mxe.MetadataAuditEvent;
 import com.linkedin.mxe.MetadataAuditOperation;
 import com.linkedin.mxe.MetadataChangeLog;
+import com.linkedin.mxe.MetadataChangeProposal;
 import com.linkedin.mxe.PlatformEvent;
 import com.linkedin.mxe.SystemMetadata;
 import com.linkedin.mxe.TopicConvention;
@@ -146,6 +147,43 @@ public class KafkaEventProducer implements EventProducer {
           log.error(String.format("Failed to emit MCL for entity with urn %s", urn), e);
         } else {
           log.debug(String.format("Successfully emitted MCL for entity with urn %s at offset %s, partition %s, topic %s",
+              urn,
+              metadata.offset(),
+              metadata.partition(),
+              metadata.topic()));
+        }
+      });
+    }
+  }
+
+  @Override
+  @WithSpan
+  public void produceMetadataChangeProposal(@Nonnull final MetadataChangeProposal metadataChangeProposal) {
+    GenericRecord record;
+
+    Urn urn = metadataChangeProposal.getEntityUrn();
+    if (urn == null) {
+      throw new IllegalArgumentException("Urn for proposal cannot be null.");
+    }
+    try {
+      log.debug(String.format("Converting Pegasus snapshot to Avro snapshot urn %s\nMetadataChangeProposal: %s",
+          urn,
+          metadataChangeProposal));
+      record = EventUtils.pegasusToAvroMCP(metadataChangeProposal);
+    } catch (IOException e) {
+      log.error(String.format("Failed to convert Pegasus MCP to Avro: %s", metadataChangeProposal), e);
+      throw new ModelConversionException("Failed to convert Pegasus MCP to Avro", e);
+    }
+
+    String topic = _topicConvention.getMetadataChangeProposalTopicName();
+    if (_callback.isPresent()) {
+      _producer.send(new ProducerRecord(topic, urn.toString(), record), _callback.get());
+    } else {
+      _producer.send(new ProducerRecord(topic, urn.toString(), record), (metadata, e) -> {
+        if (e != null) {
+          log.error(String.format("Failed to emit MCP for entity with urn %s", urn), e);
+        } else {
+          log.debug(String.format("Successfully emitted MCP for entity with urn %s at offset %s, partition %s, topic %s",
               urn,
               metadata.offset(),
               metadata.partition(),

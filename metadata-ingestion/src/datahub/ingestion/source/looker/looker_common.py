@@ -1,17 +1,18 @@
 from __future__ import print_function
 
+import dataclasses
 import datetime
 import logging
 import re
 from dataclasses import dataclass, field as dataclasses_field
 from enum import Enum
 from functools import lru_cache
-from typing import Dict, Iterable, List, Optional, Tuple, Union
+from typing import ClassVar, Dict, Iterable, List, Optional, Tuple, Union
 
 import pydantic
 from looker_sdk.error import SDKError
 from looker_sdk.sdk.api31.models import User, WriteQuery
-from pydantic import BaseModel, Field
+from pydantic import Field
 from pydantic.class_validators import validator
 
 import datahub.emitter.mce_builder as builder
@@ -30,6 +31,8 @@ from datahub.ingestion.source.sql.sql_types import (
 )
 from datahub.metadata.com.linkedin.pegasus2avro.dataset import (
     DatasetLineageTypeClass,
+    FineGrainedLineageDownstreamType,
+    FineGrainedLineageUpstreamType,
     UpstreamClass,
     UpstreamLineage,
 )
@@ -54,6 +57,7 @@ from datahub.metadata.schema_classes import (
     ChangeTypeClass,
     DatasetPropertiesClass,
     EnumTypeClass,
+    FineGrainedLineageClass,
     GlobalTagsClass,
     OwnerClass,
     OwnershipClass,
@@ -70,94 +74,92 @@ from datahub.utilities.lossy_collections import LossyList, LossySet
 logger = logging.getLogger(__name__)
 
 
-# @dataclass
-class NamingPattern(BaseModel):
-    allowed_vars: List[str]
+class NamingPattern(ConfigModel):
+    ALLOWED_VARS: ClassVar[List[str]] = []
+    REQUIRE_AT_LEAST_ONE_VAR: ClassVar[bool] = True
+
     pattern: str
-    variables: Optional[List[str]] = None
+
+    @classmethod
+    def __get_validators__(cls):
+        yield cls.pydantic_accept_raw_pattern
+        yield cls.validate
+        yield cls.pydantic_validate_pattern
+
+    @classmethod
+    def pydantic_accept_raw_pattern(cls, v):
+        if isinstance(v, (NamingPattern, dict)):
+            return v
+        assert isinstance(v, str), "pattern must be a string"
+        return {"pattern": v}
+
+    @classmethod
+    def pydantic_validate_pattern(cls, v):
+        assert isinstance(v, NamingPattern)
+        assert v.validate_pattern(cls.REQUIRE_AT_LEAST_ONE_VAR)
+        return v
+
+    @classmethod
+    def allowed_docstring(cls) -> str:
+        return f"Allowed variables are {cls.ALLOWED_VARS}"
 
     def validate_pattern(self, at_least_one: bool) -> bool:
         variables = re.findall("({[^}{]+})", self.pattern)
-        self.variables = [v[1:-1] for v in variables]
+
+        variables = [v[1:-1] for v in variables]  # remove the {}
+
         for v in variables:
-            if v[1:-1] not in self.allowed_vars:
+            if v not in self.ALLOWED_VARS:
                 raise ConfigurationError(
-                    f"Failed to find {v} in allowed_variables {self.allowed_vars}"
+                    f"Failed to find {v} in allowed_variables {self.ALLOWED_VARS}"
                 )
         if at_least_one and len(variables) == 0:
             raise ConfigurationError(
-                f"Failed to find any variable assigned to pattern {self.pattern}. Must have at least one. Allowed variables are {self.allowed_vars}"
+                f"Failed to find any variable assigned to pattern {self.pattern}. Must have at least one. {self.allowed_docstring()}"
             )
         return True
 
-
-naming_pattern_variables: List[str] = [
-    "platform",
-    "env",
-    "project",
-    "model",
-    "name",
-]
+    def replace_variables(self, values: Union[Dict[str, Optional[str]], object]) -> str:
+        if not isinstance(values, dict):
+            assert dataclasses.is_dataclass(values)
+            values = dataclasses.asdict(values)
+        values = {k: v for k, v in values.items() if v is not None}
+        return self.pattern.format(**values)
 
 
-class LookerExploreNamingConfig(ConfigModel):
-    explore_naming_pattern: NamingPattern = pydantic.Field(
-        description="Pattern for providing dataset names to explores. Allowed variables are {project}, {model}, {name}. Default is `{model}.explore.{name}`",
-        default=NamingPattern(
-            allowed_vars=naming_pattern_variables, pattern="{model}.explore.{name}"
-        ),
-    )
-    explore_browse_pattern: NamingPattern = NamingPattern(
-        allowed_vars=naming_pattern_variables,
-        pattern="/{env}/{platform}/{project}/explores",
-    )
-
-    @validator("explore_naming_pattern", "explore_browse_pattern", pre=True)
-    def init_naming_pattern(cls, v):
-        if isinstance(v, NamingPattern):
-            return v
-        assert isinstance(v, str), "pattern must be a string"
-        return NamingPattern(allowed_vars=naming_pattern_variables, pattern=v)
-
-    @validator("explore_naming_pattern", "explore_browse_pattern", always=True)
-    def validate_naming_pattern(cls, v):
-        assert isinstance(v, NamingPattern)
-        v.validate_pattern(at_least_one=True)
-        return v
+@dataclass
+class NamingPatternMapping:
+    platform: str
+    env: str
+    project: str
+    model: str
+    name: str
 
 
-class LookerViewNamingConfig(ConfigModel):
-    view_naming_pattern: NamingPattern = Field(
-        NamingPattern(
-            allowed_vars=naming_pattern_variables, pattern="{project}.view.{name}"
-        ),
-        description="Pattern for providing dataset names to views. Allowed variables are `{project}`, `{model}`, `{name}`",
-    )
-    view_browse_pattern: NamingPattern = Field(
-        NamingPattern(
-            allowed_vars=naming_pattern_variables,
-            pattern="/{env}/{platform}/{project}/views",
-        ),
-        description="Pattern for providing browse paths to views. Allowed variables are `{project}`, `{model}`, `{name}`, `{platform}` and `{env}`",
+class LookerNamingPattern(NamingPattern):
+    ALLOWED_VARS = [field.name for field in dataclasses.fields(NamingPatternMapping)]
+
+
+class LookerCommonConfig(DatasetSourceConfigBase):
+    explore_naming_pattern: LookerNamingPattern = pydantic.Field(
+        description=f"Pattern for providing dataset names to explores. {LookerNamingPattern.allowed_docstring()}",
+        default=LookerNamingPattern(pattern="{model}.explore.{name}"),
     )
 
-    @validator("view_naming_pattern", "view_browse_pattern", pre=True)
-    def init_naming_pattern(cls, v):
-        if isinstance(v, NamingPattern):
-            return v
-        assert isinstance(v, str), "pattern must be a string"
-        return NamingPattern(allowed_vars=naming_pattern_variables, pattern=v)
+    explore_browse_pattern: LookerNamingPattern = pydantic.Field(
+        description=f"Pattern for providing browse paths to explores. {LookerNamingPattern.allowed_docstring()}",
+        default=LookerNamingPattern(pattern="/{env}/{platform}/{project}/explores"),
+    )
 
-    @validator("view_naming_pattern", "view_browse_pattern", always=True)
-    def validate_naming_pattern(cls, v):
-        assert isinstance(v, NamingPattern)
-        v.validate_pattern(at_least_one=True)
-        return v
+    view_naming_pattern: LookerNamingPattern = Field(
+        LookerNamingPattern(pattern="{project}.view.{name}"),
+        description=f"Pattern for providing dataset names to views. {LookerNamingPattern.allowed_docstring()}",
+    )
+    view_browse_pattern: LookerNamingPattern = Field(
+        LookerNamingPattern(pattern="/{env}/{platform}/{project}/views"),
+        description=f"Pattern for providing browse paths to views. {LookerNamingPattern.allowed_docstring()}",
+    )
 
-
-class LookerCommonConfig(
-    LookerViewNamingConfig, LookerExploreNamingConfig, DatasetSourceConfigBase
-):
     tag_measures_and_dimensions: bool = Field(
         True,
         description="When enabled, attaches tags to measures, dimensions and dimension groups to make them more discoverable. When disabled, adds this information to the description of the column.",
@@ -169,6 +171,10 @@ class LookerCommonConfig(
         None,
         description="Reference to your github location. If present, supplies handy links to your lookml on the dataset entity page.",
     )
+    extract_column_level_lineage: bool = Field(
+        True,
+        description="When enabled, extracts column-level lineage from Views and Explores",
+    )
 
 
 @dataclass
@@ -177,19 +183,14 @@ class LookerViewId:
     model_name: str
     view_name: str
 
-    def get_mapping(self, variable: str, config: LookerCommonConfig) -> str:
-        assert variable in naming_pattern_variables
-        if variable == "project":
-            return self.project_name
-        if variable == "model":
-            return self.model_name
-        if variable == "name":
-            return self.view_name
-        if variable == "env":
-            return config.env.lower()
-        if variable == "platform":
-            return config.platform_name
-        assert False, "Unreachable code"
+    def get_mapping(self, config: LookerCommonConfig) -> NamingPatternMapping:
+        return NamingPatternMapping(
+            platform=config.platform_name,
+            env=config.env.lower(),
+            project=self.project_name,
+            model=self.model_name,
+            name=self.view_name,
+        )
 
     @validator("view_name")
     def remove_quotes(cls, v):
@@ -198,12 +199,9 @@ class LookerViewId:
         return v
 
     def get_urn(self, config: LookerCommonConfig) -> str:
-        dataset_name = config.view_naming_pattern.pattern
-        assert config.view_naming_pattern.variables is not None
-        for v in config.view_naming_pattern.variables:
-            dataset_name = dataset_name.replace(
-                "{" + v + "}", self.get_mapping(v, config)
-            )
+        dataset_name = config.view_naming_pattern.replace_variables(
+            self.get_mapping(config)
+        )
 
         return builder.make_dataset_urn_with_platform_instance(
             platform=config.platform_name,
@@ -213,12 +211,9 @@ class LookerViewId:
         )
 
     def get_browse_path(self, config: LookerCommonConfig) -> str:
-        browse_path = config.view_browse_pattern.pattern
-        assert config.view_browse_pattern.variables is not None
-        for v in config.view_browse_pattern.variables:
-            browse_path = browse_path.replace(
-                "{" + v + "}", self.get_mapping(v, config)
-            )
+        browse_path = config.view_browse_pattern.replace_variables(
+            self.get_mapping(config)
+        )
         return browse_path
 
 
@@ -237,6 +232,7 @@ class ViewField:
     description: str
     field_type: ViewFieldType
     is_primary_key: bool = False
+    upstream_field: Optional[str] = None
 
 
 class LookerUtil:
@@ -622,6 +618,7 @@ class LookerExplore:
                                     is_primary_key=dim_field.primary_key
                                     if dim_field.primary_key
                                     else False,
+                                    upstream_field=dim_field.name,
                                 )
                             )
                 if explore.fields.measures is not None:
@@ -643,6 +640,7 @@ class LookerExplore:
                                     is_primary_key=measure_field.primary_key
                                     if measure_field.primary_key
                                     else False,
+                                    upstream_field=measure_field.name,
                                 )
                             )
 
@@ -673,28 +671,19 @@ class LookerExplore:
             )
         return None
 
-    def get_mapping(self, variable: str, config: LookerCommonConfig) -> str:
-        assert variable in naming_pattern_variables
-        if variable == "project":
-            assert self.project_name is not None
-            return self.project_name
-        if variable == "model":
-            return self.model_name
-        if variable == "name":
-            return self.name
-        if variable == "env":
-            return config.env.lower()
-        if variable == "platform":
-            return config.platform_name
-        assert False, "Unreachable code"
+    def get_mapping(self, config: LookerCommonConfig) -> NamingPatternMapping:
+        return NamingPatternMapping(
+            platform=config.platform_name,
+            project=self.project_name,  # type: ignore
+            model=self.model_name,
+            name=self.name,
+            env=config.env.lower(),
+        )
 
     def get_explore_urn(self, config: LookerCommonConfig) -> str:
-        dataset_name = config.explore_naming_pattern.pattern
-        assert config.explore_naming_pattern.variables is not None
-        for v in config.explore_naming_pattern.variables:
-            dataset_name = dataset_name.replace(
-                "{" + v + "}", self.get_mapping(v, config)
-            )
+        dataset_name = config.explore_naming_pattern.replace_variables(
+            self.get_mapping(config)
+        )
 
         return builder.make_dataset_urn_with_platform_instance(
             platform=config.platform_name,
@@ -704,12 +693,9 @@ class LookerExplore:
         )
 
     def get_explore_browse_path(self, config: LookerCommonConfig) -> str:
-        browse_path = config.explore_browse_pattern.pattern
-        assert config.explore_browse_pattern.variables is not None
-        for v in config.explore_browse_pattern.variables:
-            browse_path = browse_path.replace(
-                "{" + v + "}", self.get_mapping(v, config)
-            )
+        browse_path = config.explore_browse_pattern.replace_variables(
+            self.get_mapping(config)
+        )
         return browse_path
 
     def _get_url(self, base_url):
@@ -746,20 +732,52 @@ class LookerExplore:
         dataset_props.externalUrl = self._get_url(base_url)
 
         dataset_snapshot.aspects.append(dataset_props)
+        view_name_to_urn_map = {}
         if self.upstream_views is not None:
             assert self.project_name is not None
-            upstreams = [
-                UpstreamClass(
-                    dataset=LookerViewId(
-                        project_name=self.project_name,
-                        model_name=self.model_name,
-                        view_name=view_name,
-                    ).get_urn(config),
-                    type=DatasetLineageTypeClass.VIEW,
+            upstreams = []
+            fine_grained_lineages = []
+            for view_name in sorted(self.upstream_views):
+                view_urn = LookerViewId(
+                    project_name=self.project_name,
+                    model_name=self.model_name,
+                    view_name=view_name,
+                ).get_urn(config)
+
+                upstreams.append(
+                    UpstreamClass(
+                        dataset=view_urn,
+                        type=DatasetLineageTypeClass.VIEW,
+                    )
                 )
-                for view_name in sorted(self.upstream_views)
-            ]
-            upstream_lineage = UpstreamLineage(upstreams=upstreams)
+                view_name_to_urn_map[view_name] = view_urn
+            if config.extract_column_level_lineage:
+                for field in self.fields or []:
+                    if (
+                        field.upstream_field
+                        and len(field.upstream_field.split(".")) >= 2
+                    ):
+                        (view_name, field_path) = field.upstream_field.split(".")[
+                            0
+                        ], ".".join(field.upstream_field.split(".")[1:])
+                        assert view_name
+                        view_urn = view_name_to_urn_map.get(view_name, "")
+                        if view_urn:
+                            fine_grained_lineages.append(
+                                FineGrainedLineageClass(
+                                    upstreamType=FineGrainedLineageUpstreamType.FIELD_SET,
+                                    downstreamType=FineGrainedLineageDownstreamType.FIELD,
+                                    upstreams=[
+                                        builder.make_schema_field_urn(
+                                            view_urn, field_path
+                                        )
+                                    ],
+                                )
+                            )
+
+            upstream_lineage = UpstreamLineage(
+                upstreams=upstreams, fineGrainedLineages=fine_grained_lineages or None
+            )
             dataset_snapshot.aspects.append(upstream_lineage)
         if self.fields is not None:
             schema_metadata = LookerUtil._get_schema(
