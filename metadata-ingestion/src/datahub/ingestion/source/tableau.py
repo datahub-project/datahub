@@ -213,7 +213,6 @@ class UsageStat:
     supported=False,
 )
 @capability(SourceCapability.DOMAINS, "Requires transformer", supported=False)
-@capability(SourceCapability.DATA_PROFILING, "", supported=False)
 @capability(SourceCapability.DESCRIPTIONS, "Enabled by default")
 @capability(
     SourceCapability.USAGE_STATS,
@@ -222,9 +221,6 @@ class UsageStat:
 @capability(SourceCapability.DELETION_DETECTION, "", supported=False)
 @capability(SourceCapability.OWNERSHIP, "Requires recipe configuration")
 @capability(SourceCapability.TAGS, "Requires recipe configuration")
-@capability(
-    SourceCapability.PARTITION_SUPPORT, "Not applicable to source", supported=False
-)
 @capability(SourceCapability.LINEAGE_COARSE, "Enabled by default")
 class TableauSource(Source):
     config: TableauConfig
@@ -1187,7 +1183,7 @@ class TableauSource(Source):
                 charts=chart_urns,
                 lastModified=last_modified,
                 dashboardUrl=dashboard_external_url,
-                customProperties={},
+                customProperties={"luid": dashboard.get("luid") or ""},
             )
             dashboard_snapshot.aspects.append(dashboard_info_class)
 
