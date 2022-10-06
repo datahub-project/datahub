@@ -107,10 +107,10 @@ class LDAPSourceStatefulIngestionConfig(StatefulStaleMetadataRemovalConfig):
     This will be used to override the stateful_ingestion config param of StatefulIngestionConfigBase
     in the LDAPSourceConfig.
     """
-    
+
     _entity_types: List[str] = pydantic.Field(default=["corpuser"])
 
-        
+
 class LDAPSourceConfig(StatefulIngestionConfigBase):
     """Config used by the LDAP Source."""
 
