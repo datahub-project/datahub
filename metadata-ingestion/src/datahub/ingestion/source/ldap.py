@@ -6,13 +6,11 @@ import pydantic
 from datahub.ingestion.source.state.ldap_state import (
     BaseLdapCheckpointState,
 )
-
 from datahub.ingestion.source.state.stale_entity_removal_handler import (
     StaleEntityRemovalHandler,
     StaleEntityRemovalSourceReport,
     StatefulStaleMetadataRemovalConfig,
 )
-
 import ldap
 from ldap.controls import SimplePagedResultsControl
 from pydantic.fields import Field
@@ -34,8 +32,6 @@ from datahub.metadata.schema_classes import (
     GroupMembershipClass,
     ChangeTypeClass,
 )
-
-# stateful ingestion
 from datahub.ingestion.source.state.stateful_ingestion_base import (
     StatefulIngestionConfigBase,
     StatefulIngestionSourceBase,
