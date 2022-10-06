@@ -46,14 +46,15 @@ public class GlossaryTermType implements SearchableEntityType<GlossaryTerm, Stri
     private static final Set<String> FACET_FIELDS = ImmutableSet.of("");
 
     private static final Set<String> ASPECTS_TO_RESOLVE = ImmutableSet.of(
-        GLOSSARY_TERM_KEY_ASPECT_NAME,
-        GLOSSARY_TERM_INFO_ASPECT_NAME,
-        GLOSSARY_RELATED_TERM_ASPECT_NAME,
-        INSTITUTIONAL_MEMORY_ASPECT_NAME,
-        OWNERSHIP_ASPECT_NAME,
-        STATUS_ASPECT_NAME,
-        BROWSE_PATHS_ASPECT_NAME,
-        DEPRECATION_ASPECT_NAME
+            GLOSSARY_TERM_KEY_ASPECT_NAME,
+            GLOSSARY_TERM_INFO_ASPECT_NAME,
+            GLOSSARY_RELATED_TERM_ASPECT_NAME,
+            INSTITUTIONAL_MEMORY_ASPECT_NAME,
+            OWNERSHIP_ASPECT_NAME,
+            STATUS_ASPECT_NAME,
+            BROWSE_PATHS_ASPECT_NAME,
+            DOMAINS_ASPECT_NAME,
+            DEPRECATION_ASPECT_NAME
     );
 
     private final EntityClient _entityClient;
