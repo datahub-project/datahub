@@ -1,6 +1,5 @@
 import pydantic
 from typing import Iterable, List, Tuple
-
 from datahub.ingestion.source.state.stale_entity_removal_handler import (
     StaleEntityCheckpointStateBase,
 )
