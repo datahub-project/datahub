@@ -43,6 +43,8 @@ public class ESIndexBuilder {
   private final int numReplicas;
   private final int numRetries;
 
+  private final int refreshIntervalSeconds;
+
   private static final List<String> SETTINGS_TO_COMPARE = ImmutableList.of("number_of_shards", "number_of_replicas");
 
   public void buildIndex(String indexName, Map<String, Object> mappings, Map<String, Object> settings)
@@ -53,6 +55,7 @@ public class ESIndexBuilder {
     Map<String, Object> baseSettings = new HashMap<>(settings);
     baseSettings.put("number_of_shards", numShards);
     baseSettings.put("number_of_replicas", numReplicas);
+    baseSettings.put("refresh_interval", String.format("%ss", refreshIntervalSeconds));
     Map<String, Object> finalSettings = ImmutableMap.of("index", baseSettings);
 
     // If index doesn't exist, create index

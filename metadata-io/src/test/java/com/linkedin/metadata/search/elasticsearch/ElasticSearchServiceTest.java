@@ -80,7 +80,7 @@ public class ElasticSearchServiceTest {
   }
 
   public static ESIndexBuilder getIndexBuilder(RestHighLevelClient searchClient) {
-    return new ESIndexBuilder(searchClient, 1, 1, 3);
+    return new ESIndexBuilder(searchClient, 1, 1, 3, 30);
   }
 
   @Nonnull
