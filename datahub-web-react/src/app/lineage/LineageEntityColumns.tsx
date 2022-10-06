@@ -9,7 +9,9 @@ import { LineageExplorerContext } from './utils/LineageExplorerContext';
 import { centerY, EXPAND_COLLAPSE_COLUMNS_TOGGLE_HEIGHT, iconX, NUM_COLUMNS_PER_PAGE, width } from './constants';
 import ColumnNode from './ColumnNode';
 import NodeColumnsHeader from './NodeColumnsHeader';
-import useSortColumnsBySelectedField from './utils/useSortColumnsBySelectedField';
+import usePrevious from '../shared/usePrevious';
+import { haveDisplayedFieldsChanged } from './utils/columnLineageUtils';
+import { useResetPageIndexAfterSelect } from './utils/useResetPageIndexAfterSelect';
 
 const StyledPagination = styled(Pagination)`
     display: flex;
@@ -25,7 +27,6 @@ export default function LineageEntityColumns({ node, onHover }: Props) {
     const { expandTitles, collapsedColumnsNodes, setVisibleColumnsByUrn, columnsByUrn } =
         useContext(LineageExplorerContext);
     const [pageIndex, setPageIndex] = useState(0);
-    const [haveFieldsBeenUpdated, setHaveFieldsBeenUpdated] = useState(false);
     const areColumnsCollapsed = !!collapsedColumnsNodes[node?.data?.urn || 'noop'];
 
     const titleHeight = getTitleHeight(expandTitles ? node.data.expandedName || node.data.name : undefined);
@@ -37,22 +38,17 @@ export default function LineageEntityColumns({ node, onHover }: Props) {
         pageIndex * NUM_COLUMNS_PER_PAGE + NUM_COLUMNS_PER_PAGE,
     );
 
-    useSortColumnsBySelectedField(node, setPageIndex, setHaveFieldsBeenUpdated);
+    useResetPageIndexAfterSelect(node.data.urn || '', fields, setPageIndex);
 
+    const previousDisplayedFields = usePrevious(displayedFields);
     useEffect(() => {
-        if (haveFieldsBeenUpdated) {
+        if (haveDisplayedFieldsChanged(displayedFields, previousDisplayedFields)) {
             setVisibleColumnsByUrn((visibleColumnsByUrn) => ({
                 ...visibleColumnsByUrn,
                 [node?.data?.urn || 'noop']: new Set(displayedFields?.map((field) => field.fieldPath)),
             }));
-            setHaveFieldsBeenUpdated(false);
         }
-    }, [pageIndex, displayedFields, node.data.urn, setVisibleColumnsByUrn, haveFieldsBeenUpdated]);
-
-    function updatePageIndex(index: number) {
-        setPageIndex(index);
-        setHaveFieldsBeenUpdated(true);
-    }
+    }, [displayedFields, node?.data?.urn, setVisibleColumnsByUrn, previousDisplayedFields]);
 
     const hasColumnPagination =
         node.data.schemaMetadata?.fields && node.data.schemaMetadata?.fields.length > NUM_COLUMNS_PER_PAGE;
@@ -82,7 +78,7 @@ export default function LineageEntityColumns({ node, onHover }: Props) {
                         >
                             <StyledPagination
                                 current={pageIndex + 1}
-                                onChange={(page) => updatePageIndex(page - 1)}
+                                onChange={(page) => setPageIndex(page - 1)}
                                 total={fields.length || 0}
                                 pageSize={NUM_COLUMNS_PER_PAGE}
                                 size="small"

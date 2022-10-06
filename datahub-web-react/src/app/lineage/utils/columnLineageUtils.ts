@@ -1,4 +1,4 @@
-import { ColumnEdge, NodeData } from '../types';
+import { ColumnEdge, FetchedEntity } from '../types';
 import { SchemaField } from '../../../types.generated';
 
 export function getHighlightedColumnsForNode(highlightedEdges: ColumnEdge[], fields: SchemaField[], nodeUrn: string) {
@@ -49,4 +49,32 @@ export function sortColumnsByDefault(
                 (nodeFields.findIndex((field) => field.fieldPath === fieldB.fieldPath) || 0),
         ),
     };
+}
+
+export function populateColumnsByUrn(
+    columnsByUrn: Record<string, SchemaField[]>,
+    fetchedEntities: { [x: string]: FetchedEntity },
+    setColumnsByUrn: (colsByUrn: Record<string, SchemaField[]>) => void,
+) {
+    let populatedColumnsByUrn = { ...columnsByUrn };
+    Object.entries(fetchedEntities).forEach(([urn, fetchedEntity]) => {
+        if (fetchedEntity.schemaMetadata) {
+            populatedColumnsByUrn = { ...populatedColumnsByUrn, [urn]: fetchedEntity.schemaMetadata.fields };
+        }
+    });
+    setColumnsByUrn(populatedColumnsByUrn);
+}
+
+export function haveDisplayedFieldsChanged(displayedFields: SchemaField[], previousDisplayedFields?: SchemaField[]) {
+    let hasChanged = false;
+    displayedFields.forEach((field, index) => {
+        if (
+            previousDisplayedFields &&
+            previousDisplayedFields[index] &&
+            (previousDisplayedFields[index] as any).fieldPath !== field.fieldPath
+        ) {
+            hasChanged = true;
+        }
+    });
+    return hasChanged;
 }

@@ -1,10 +1,12 @@
 import React, { useContext, useEffect, useMemo, useState } from 'react';
 import { TransformMatrix } from '@vx/zoom/lib/types';
 
-import { NodeData, Direction, EntitySelectParams, TreeProps, EntityAndType } from './types';
+import { NodeData, Direction, EntitySelectParams, TreeProps, EntityAndType, FetchedEntity } from './types';
 import LineageTreeNodeAndEdgeRenderer from './LineageTreeNodeAndEdgeRenderer';
 import layoutTree from './utils/layoutTree';
 import { LineageExplorerContext } from './utils/LineageExplorerContext';
+import useSortColumnsBySelectedField from './utils/useSortColumnsBySelectedField';
+import { populateColumnsByUrn } from './utils/columnLineageUtils';
 
 type LineageTreeProps = {
     upstreamData: NodeData;
@@ -24,6 +26,7 @@ type LineageTreeProps = {
     setIsDraggingNode: (isDraggingNode: boolean) => void;
     draggedNodes: Record<string, { x: number; y: number }>;
     setDraggedNodes: (draggedNodes: Record<string, { x: number; y: number }>) => void;
+    fetchedEntities: { [x: string]: FetchedEntity };
 };
 
 export default function LineageTree({
@@ -42,10 +45,25 @@ export default function LineageTree({
     setIsDraggingNode,
     draggedNodes,
     setDraggedNodes,
+    fetchedEntities,
 }: LineageTreeProps) {
     const [xCanvasScale, setXCanvasScale] = useState(1);
-    const { expandTitles, showColumns, collapsedColumnsNodes, fineGrainedMap, visibleColumnsByUrn, columnsByUrn } =
-        useContext(LineageExplorerContext);
+    const {
+        expandTitles,
+        showColumns,
+        collapsedColumnsNodes,
+        fineGrainedMap,
+        visibleColumnsByUrn,
+        columnsByUrn,
+        setColumnsByUrn,
+    } = useContext(LineageExplorerContext);
+
+    useEffect(() => {
+        populateColumnsByUrn(columnsByUrn, fetchedEntities, setColumnsByUrn);
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [fetchedEntities]);
+
+    useSortColumnsBySelectedField(fetchedEntities);
 
     useEffect(() => {
         setXCanvasScale(1);

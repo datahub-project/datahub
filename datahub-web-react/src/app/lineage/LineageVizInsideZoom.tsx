@@ -327,6 +327,7 @@ export default function LineageVizInsideZoom({
                         setIsDraggingNode={setIsDraggingNode}
                         draggedNodes={draggedNodes}
                         setDraggedNodes={setDraggedNodes}
+                        fetchedEntities={fetchedEntities}
                     />
                 </RootSvg>
             </ZoomContainer>

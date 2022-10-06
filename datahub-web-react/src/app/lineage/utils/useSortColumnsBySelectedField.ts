@@ -1,54 +1,46 @@
 import { useContext, useEffect } from 'react';
 import usePrevious from '../../shared/usePrevious';
 import { NUM_COLUMNS_PER_PAGE } from '../constants';
-import { NodeData } from '../types';
+import { FetchedEntity } from '../types';
 import { getHighlightedColumnsForNode, sortColumnsByDefault, sortRelatedLineageColumns } from './columnLineageUtils';
 import { LineageExplorerContext } from './LineageExplorerContext';
 
-export default function useSortColumnsBySelectedField(
-    node: { x: number; y: number; data: Omit<NodeData, 'children'> },
-    setPageIndex: (index: number) => void,
-    setHaveFieldsBeenUpdated: (haveBeenUpdated: boolean) => void,
-) {
+export default function useSortColumnsBySelectedField(fetchedEntities: { [x: string]: FetchedEntity }) {
     const { highlightedEdges, selectedField, columnsByUrn, setColumnsByUrn } = useContext(LineageExplorerContext);
-    const fields = columnsByUrn[node.data.urn || ''] || node.data.schemaMetadata?.fields;
     const previousSelectedField = usePrevious(selectedField);
 
     useEffect(() => {
-        if (
-            selectedField &&
-            previousSelectedField !== selectedField &&
-            selectedField.urn !== node.data.urn &&
-            fields.length >= NUM_COLUMNS_PER_PAGE
-        ) {
-            const highlightedColumnsForNode = getHighlightedColumnsForNode(
-                highlightedEdges,
-                fields,
-                node.data.urn || '',
-            );
+        let updatedColumnsByUrn = { ...columnsByUrn };
 
-            if (highlightedColumnsForNode.length > 0) {
-                setColumnsByUrn((colsByUrn) =>
-                    sortRelatedLineageColumns(highlightedColumnsForNode, fields, node.data.urn || '', colsByUrn),
-                );
-                setPageIndex(0);
-                setHaveFieldsBeenUpdated(true);
-            }
+        if (selectedField && previousSelectedField !== selectedField) {
+            Object.entries(columnsByUrn).forEach(([urn, columns]) => {
+                if (selectedField.urn !== urn && columns.length >= NUM_COLUMNS_PER_PAGE) {
+                    const highlightedColumnsForNode = getHighlightedColumnsForNode(highlightedEdges, columns, urn);
+
+                    if (highlightedColumnsForNode.length > 0) {
+                        updatedColumnsByUrn = sortRelatedLineageColumns(
+                            highlightedColumnsForNode,
+                            columns,
+                            urn,
+                            updatedColumnsByUrn,
+                        );
+                    }
+                }
+            });
+            setColumnsByUrn(updatedColumnsByUrn);
         } else if (!selectedField && previousSelectedField !== selectedField) {
-            setColumnsByUrn((colsByUrn) =>
-                sortColumnsByDefault(colsByUrn, fields, node.data.schemaMetadata?.fields || [], node.data.urn || ''),
-            );
-            setHaveFieldsBeenUpdated(true);
+            Object.entries(columnsByUrn).forEach(([urn, columns]) => {
+                const fetchedEntity = fetchedEntities[urn];
+                if (fetchedEntity && fetchedEntity.schemaMetadata) {
+                    updatedColumnsByUrn = sortColumnsByDefault(
+                        updatedColumnsByUrn,
+                        columns,
+                        fetchedEntity.schemaMetadata.fields,
+                        urn,
+                    );
+                }
+            });
+            setColumnsByUrn(updatedColumnsByUrn);
         }
-    }, [
-        selectedField,
-        previousSelectedField,
-        highlightedEdges,
-        node.data.urn,
-        fields,
-        setColumnsByUrn,
-        setPageIndex,
-        setHaveFieldsBeenUpdated,
-        node.data.schemaMetadata?.fields,
-    ]);
+    }, [selectedField, previousSelectedField, highlightedEdges, columnsByUrn, fetchedEntities, setColumnsByUrn]);
 }
