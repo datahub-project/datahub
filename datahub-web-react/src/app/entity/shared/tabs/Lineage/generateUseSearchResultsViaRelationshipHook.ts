@@ -12,7 +12,7 @@ export default function generateUseSearchResultsViaRelationshipHook({
     return function useGetSearchResultsViaSearchAcrossLineage(params: GetSearchResultsParams) {
         const {
             variables: {
-                input: { types, query, start, count, filters },
+                input: { types, query, start, count, filters, orFilters },
             },
         } = params;
 
@@ -26,6 +26,7 @@ export default function generateUseSearchResultsViaRelationshipHook({
                     start,
                     count,
                     filters,
+                    orFilters,
                 },
             },
         });
@@ -42,6 +43,7 @@ export default function generateUseSearchResultsViaRelationshipHook({
                         start: refetchStart,
                         count: refetchCount,
                         filters: refetchFilters,
+                        orFilters: refetchOrFilters,
                     },
                 } = refetchParams;
                 return refetch({
@@ -53,6 +55,7 @@ export default function generateUseSearchResultsViaRelationshipHook({
                         start: refetchStart,
                         count: refetchCount,
                         filters: refetchFilters,
+                        orFilters: refetchOrFilters,
                     },
                 }).then((res) => res.data.searchAcrossLineage);
             },
