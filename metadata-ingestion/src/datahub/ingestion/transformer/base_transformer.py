@@ -1,67 +1,23 @@
 import logging
 from abc import ABCMeta, abstractmethod
-from typing import Any, Dict, Iterable, List, Optional, Type, Union, cast
+from typing import Any, Dict, Iterable, List, Optional, Type, Union
 
 import datahub.emitter.mce_builder
+from datahub.emitter.aspect import ASPECT_MAP
 from datahub.emitter.mce_builder import Aspect
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.common import ControlRecord, EndOfStream, RecordEnvelope
 from datahub.ingestion.api.transform import Transformer
 from datahub.metadata.schema_classes import (
-    BrowsePathsClass,
-    ChangeTypeClass,
     DataFlowSnapshotClass,
     DataJobSnapshotClass,
-    DataPlatformInstanceClass,
-    DatasetDeprecationClass,
-    DatasetPropertiesClass,
     DatasetSnapshotClass,
-    DatasetUpstreamLineageClass,
-    DomainsClass,
-    EditableDatasetPropertiesClass,
-    EditableSchemaMetadataClass,
-    GlobalTagsClass,
-    GlossaryTermsClass,
-    InstitutionalMemoryClass,
     MetadataChangeEventClass,
     MetadataChangeProposalClass,
-    OwnershipClass,
-    SchemaMetadataClass,
-    StatusClass,
-    UpstreamLineageClass,
-    ViewPropertiesClass,
-    _Aspect,
 )
 from datahub.utilities.urns.urn import Urn
 
 log = logging.getLogger(__name__)
-
-
-class SnapshotAspectRegistry:
-    """A registry of aspect name to aspect type mappings, only for snapshot classes. Do not add non-snapshot aspect classes here."""
-
-    def __init__(self):
-        self.aspect_name_type_mapping = {
-            "ownership": OwnershipClass,
-            "domains": DomainsClass,
-            "globalTags": GlobalTagsClass,
-            "datasetProperties": DatasetPropertiesClass,
-            "editableDatasetProperties": EditableDatasetPropertiesClass,
-            "glossaryTerms": GlossaryTermsClass,
-            "status": StatusClass,
-            "browsePaths": BrowsePathsClass,
-            "schemaMetadata": SchemaMetadataClass,
-            "editableSchemaMetadata": EditableSchemaMetadataClass,
-            "datasetDeprecation": DatasetDeprecationClass,
-            "datasetUpstreamLineage": DatasetUpstreamLineageClass,
-            "upstreamLineage": UpstreamLineageClass,
-            "institutionalMemory": InstitutionalMemoryClass,
-            "dataPlatformInstance": DataPlatformInstanceClass,
-            "viewProperties": ViewPropertiesClass,
-        }
-
-    def get_aspect_type(self, aspect_name: str) -> Optional[Type[Aspect]]:
-        return self.aspect_name_type_mapping.get(aspect_name)
 
 
 class LegacyMCETransformer(Transformer, metaclass=ABCMeta):
@@ -104,7 +60,6 @@ class BaseTransformer(Transformer, metaclass=ABCMeta):
             "dataFlow": DataFlowSnapshotClass,
             "dataJob": DataJobSnapshotClass,
         }
-        self.snapshot_aspect_registry = SnapshotAspectRegistry()
         mixedin = False
         for mixin in [LegacyMCETransformer, SingleAspectTransformer]:
             mixedin = mixedin or isinstance(self, mixin)
@@ -169,9 +124,7 @@ class BaseTransformer(Transformer, metaclass=ABCMeta):
         if mce.proposedSnapshot:
             self._record_mce(mce)
         if isinstance(self, SingleAspectTransformer):
-            aspect_type = self.snapshot_aspect_registry.get_aspect_type(  # type: ignore
-                self.aspect_name()
-            )
+            aspect_type = ASPECT_MAP.get(self.aspect_name())
             if aspect_type:
                 # if we find a type corresponding to the aspect name we look for it in the mce
                 old_aspect = datahub.emitter.mce_builder.get_aspect_if_available(
@@ -213,12 +166,12 @@ class BaseTransformer(Transformer, metaclass=ABCMeta):
         # remember stuff
         assert envelope.record.entityUrn
         assert isinstance(self, SingleAspectTransformer)
-        if envelope.record.aspectName == self.aspect_name():
+        if envelope.record.aspectName == self.aspect_name() and envelope.record.aspect:
             # we have a match on the aspect name, call the specific transform function
             transformed_aspect = self.transform_aspect(
                 entity_urn=envelope.record.entityUrn,
                 aspect_name=envelope.record.aspectName,
-                aspect=cast(_Aspect, envelope.record.aspect),
+                aspect=envelope.record.aspect,
             )
             self._mark_processed(envelope.record.entityUrn)
             if transformed_aspect is None:
@@ -280,7 +233,6 @@ class BaseTransformer(Transformer, metaclass=ABCMeta):
                                 record=MetadataChangeProposalWrapper(
                                     entityUrn=urn,
                                     entityType=structured_urn.get_type(),
-                                    changeType=ChangeTypeClass.UPSERT,
                                     systemMetadata=last_seen_mcp.systemMetadata
                                     if last_seen_mcp
                                     else last_seen_mce_system_metadata,

@@ -76,13 +76,18 @@ def get_table_comment(self, connection, table_name: str, schema: str = None, **k
                 properties[col_name] = col_value
 
         return {"text": properties.get("comment", None), "properties": properties}
+    # Fallback to default trino-sqlalchemy behaviour if `$properties` table doesn't exist
     except TrinoQueryError as e:
         if e.error_name in (
             error.TABLE_NOT_FOUND,
             error.COLUMN_NOT_FOUND,
             error.NOT_FOUND,
         ):
-            return dict(text=None)
+            return self.get_table_comment_default(connection, table_name, schema)
+    # Exception raised when using Starburst Delta Connector that falls back to a Hive Catalog
+    except exc.ProgrammingError as e:
+        if isinstance(e.orig, TrinoQueryError):
+            return self.get_table_comment_default(connection, table_name, schema)
         raise
 
 
@@ -118,6 +123,7 @@ def _get_columns(self, connection, table_name, schema: str = None, **kw):  # typ
     return columns
 
 
+TrinoDialect.get_table_comment_default = TrinoDialect.get_table_comment
 TrinoDialect.get_table_names = get_table_names
 TrinoDialect.get_table_comment = get_table_comment
 TrinoDialect._get_columns = _get_columns

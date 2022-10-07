@@ -4,7 +4,7 @@ from typing import Dict
 import pytest
 
 from datahub.emitter.mce_builder import make_dataset_urn
-from datahub.ingestion.source.sql.mysql import MySQLConfig
+from datahub.ingestion.source.sql.postgres import PostgresConfig
 from datahub.ingestion.source.sql.sql_common import BasicSQLAlchemyConfig
 from datahub.ingestion.source.state.checkpoint import Checkpoint, CheckpointStateBase
 from datahub.ingestion.source.state.sql_common_state import (
@@ -21,18 +21,18 @@ test_pipeline_name: str = "test_pipeline"
 test_platform_instance_id: str = "test_platform_instance_1"
 test_job_name: str = "test_job_1"
 test_run_id: str = "test_run_1"
-test_source_config: BasicSQLAlchemyConfig = MySQLConfig()
+test_source_config: BasicSQLAlchemyConfig = PostgresConfig(host_port="test_host:1234")
 
 # 2. Create the params for parametrized tests.
 
 #   2.1 Create and add an instance of BaseSQLAlchemyCheckpointState.
 test_checkpoint_serde_params: Dict[str, CheckpointStateBase] = {}
 base_sql_alchemy_checkpoint_state_obj = BaseSQLAlchemyCheckpointState()
-base_sql_alchemy_checkpoint_state_obj.add_table_urn(
-    make_dataset_urn("mysql", "db1.t1", "prod")
+base_sql_alchemy_checkpoint_state_obj.add_checkpoint_urn(
+    type="table", urn=make_dataset_urn("mysql", "db1.t1", "prod")
 )
-base_sql_alchemy_checkpoint_state_obj.add_view_urn(
-    make_dataset_urn("mysql", "db1.v1", "prod")
+base_sql_alchemy_checkpoint_state_obj.add_checkpoint_urn(
+    type="view", urn=make_dataset_urn("mysql", "db1.v1", "prod")
 )
 test_checkpoint_serde_params[
     "BaseSQLAlchemyCheckpointState"
@@ -79,7 +79,7 @@ def test_create_from_checkpoint_aspect(state_obj):
         job_name=test_job_name,
         checkpoint_aspect=checkpoint_aspect,
         state_class=type(state_obj),
-        config_class=MySQLConfig,
+        config_class=PostgresConfig,
     )
 
     expected_checkpoint_obj = Checkpoint(
@@ -125,6 +125,23 @@ def test_serde_idempotence(state_obj):
         job_name=test_job_name,
         checkpoint_aspect=checkpoint_aspect,
         state_class=type(state_obj),
-        config_class=MySQLConfig,
+        config_class=PostgresConfig,
     )
     assert orig_checkpoint_obj == serde_checkpoint_obj
+
+
+def test_supported_encodings():
+    """
+    Tests utf-8 and base85 encodings
+    """
+    test_state = BaseUsageCheckpointState(
+        version="1.0", begin_timestamp_millis=1, end_timestamp_millis=100
+    )
+
+    # 1. Test UTF-8 encoding
+    test_state.serde = "utf-8"
+    test_serde_idempotence(test_state)
+
+    # 2. Test Base85 encoding
+    test_state.serde = "base85"
+    test_serde_idempotence(test_state)

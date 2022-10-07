@@ -72,6 +72,11 @@
                       },
                       "doc" : "The condition for the criterion, e.g. EQUAL, START_WITH",
                       "default" : "EQUAL"
+                    }, {
+                      "name" : "negated",
+                      "type" : "boolean",
+                      "doc" : "Whether the condition should be negated",
+                      "default" : false
                     } ]
                   }
                 },

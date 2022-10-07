@@ -72,7 +72,7 @@ play {
   platform {
     playVersion = '2.7.6'
     scalaVersion = '2.12'
-    javaVersion = JavaVersion.VERSION_1_8
+    javaVersion = JavaVersion.VERSION_11
   }
 
   injectedRoutesGenerator = true
@@ -81,7 +81,7 @@ play {
 model {
   components {
     play {
-      platform play: '2.7.6', scala: '2.12', java: '1.8'
+      platform play: '2.7.6', scala: '2.12', java: '11'
       injectedRoutesGenerator = true
 
       binaries.all {

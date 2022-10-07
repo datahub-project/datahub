@@ -183,7 +183,7 @@ transformers: # an array of transformers applied sequentially
 # default sink, no config needed
 ```
 
-Check out the [transformers guide](./transformers.md) to learn more about how you can create really flexible pipelines for processing metadata using Transformers!
+Check out the [transformers guide](./docs/transformer/intro.md) to learn more about how you can create really flexible pipelines for processing metadata using Transformers!
 
 ## Using as a library (SDK)
 
@@ -195,5 +195,5 @@ In some cases, you might want to configure and run a pipeline entirely from with
 
 ## Developing
 
-See the guides on [developing](./developing.md), [adding a source](./adding-source.md) and [using transformers](./transformers.md).
+See the guides on [developing](./developing.md), [adding a source](./adding-source.md) and [using transformers](./docs/transformer/intro.md).
 

@@ -1,0 +1,15 @@
+ingestion:
+- 'metadata-ingestion/**/*'
+
+devops:
+- 'docker/**/*'
+- '.github/**/*'
+
+product:
+- 'datahub-web-react/**/*'
+- 'datahub-frontend/**/*'
+- 'datahub-graphql-core/**/*'
+- 'metadata-io/**/*'
+
+docs:
+- 'docs/**/*'

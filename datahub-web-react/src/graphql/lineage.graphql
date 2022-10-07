@@ -123,6 +123,9 @@ fragment lineageNodeProperties on EntityWithRelationships {
         status {
             removed
         }
+        subTypes {
+            typeNames
+        }
     }
     ... on Chart {
         tool
@@ -168,6 +171,16 @@ fragment lineageNodeProperties on EntityWithRelationships {
         }
         status {
             removed
+        }
+        fineGrainedLineages {
+            upstreams {
+                urn
+                path
+            }
+            downstreams {
+                urn
+                path
+            }
         }
     }
     ... on MLModelGroup {
@@ -241,6 +254,11 @@ fragment fullLineageResults on EntityLineageResult {
         type
         entity {
             ...lineageFields
+            ... on Dataset {
+                schemaMetadata(version: 0)@include(if: $showColumns) {
+                    ...schemaMetadataFields
+                }
+            }
         }
     }
 }
@@ -264,12 +282,15 @@ fragment partialLineageResults on EntityLineageResult {
     total
 }
 
-query getEntityLineage($urn: String!, $separateSiblings: Boolean) {
+query getEntityLineage($urn: String!, $separateSiblings: Boolean, $showColumns: Boolean!) {
     entity(urn: $urn) {
         urn
         type
         ...lineageNodeProperties
         ... on Dataset {
+            schemaMetadata(version: 0)@include(if: $showColumns) {
+                ...schemaMetadataFields
+            }
             siblings {
                 isPrimary
                 siblings {

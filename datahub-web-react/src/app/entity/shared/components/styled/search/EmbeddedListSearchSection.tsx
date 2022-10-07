@@ -8,6 +8,7 @@ import { navigateToEntitySearchUrl } from './navigateToEntitySearchUrl';
 import { GetSearchResultsParams, SearchResultsInterface } from './types';
 import { useEntityQueryParams } from '../../../containers/profile/utils';
 import { EmbeddedListSearch } from './EmbeddedListSearch';
+import { UnionType } from '../../../../../search/utils/constants';
 
 type Props = {
     emptySearchQuery?: string | null;
@@ -44,6 +45,8 @@ export const EmbeddedListSearchSection = ({
     const params = QueryString.parse(location.search, { arrayFormat: 'comma' });
     const query: string = params?.query as string;
     const page: number = params.page && Number(params.page as string) > 0 ? Number(params.page as string) : 1;
+    const unionType: UnionType = Number(params.unionType as any as UnionType) || UnionType.AND;
+
     const filters: Array<FacetFilterInput> = useFilters(params);
 
     const onSearch = (q: string) => {
@@ -54,6 +57,7 @@ export const EmbeddedListSearchSection = ({
             page: 1,
             filters,
             history,
+            unionType,
         });
     };
 
@@ -65,6 +69,7 @@ export const EmbeddedListSearchSection = ({
             page: 1,
             filters: newFilters,
             history,
+            unionType,
         });
     };
 
@@ -76,6 +81,19 @@ export const EmbeddedListSearchSection = ({
             page: newPage,
             filters,
             history,
+            unionType,
+        });
+    };
+
+    const onChangeUnionType = (newUnionType: UnionType) => {
+        navigateToEntitySearchUrl({
+            baseUrl: location.pathname,
+            baseParams,
+            query,
+            page,
+            filters,
+            history,
+            unionType: newUnionType,
         });
     };
 
@@ -83,10 +101,12 @@ export const EmbeddedListSearchSection = ({
         <EmbeddedListSearch
             query={query || ''}
             page={page}
+            unionType={unionType}
             filters={filters}
             onChangeFilters={onChangeFilters}
             onChangeQuery={onSearch}
             onChangePage={onChangePage}
+            onChangeUnionType={onChangeUnionType}
             emptySearchQuery={emptySearchQuery}
             fixedFilter={fixedFilter}
             fixedQuery={fixedQuery}

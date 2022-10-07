@@ -96,6 +96,11 @@ module.exports = {
             id: "docs/managed-datahub/saas-slack-setup",
             className: "saasOnly",
           },
+          {
+            type: "doc",
+            id: "docs/managed-datahub/approval-workflows",
+            className: "saasOnly",
+          },
           // "docs/wip/guide-ingest-your-first-metadata-source",
           // "docs/wip/guide-enrich-your-metadata",
         ],
@@ -113,11 +118,11 @@ module.exports = {
         ],
       },
 
-      {
-        "Shift Left": [
-          // "docs/wip/importance-of-shift-left",
-        ],
-      },
+      // {
+      //   "Shift Left": [
+      //     // "docs/wip/importance-of-shift-left",
+      //   ],
+      // },
       {
         Sources: [
           // collapse these; add push-based at top
@@ -137,7 +142,12 @@ module.exports = {
       {
         Sinks: list_ids_in_directory("metadata-ingestion/sink_docs"),
       },
-      "metadata-ingestion/transformers",
+      {
+        Transformers: [
+          "metadata-ingestion/docs/transformer/intro",
+          "metadata-ingestion/docs/transformer/dataset_transformer",
+        ],
+      },
       {
         "Advanced Guides": [
           {
@@ -145,6 +155,7 @@ module.exports = {
               "metadata-ingestion/schedule_docs/intro",
               "metadata-ingestion/schedule_docs/cron",
               "metadata-ingestion/schedule_docs/airflow",
+              "metadata-ingestion/schedule_docs/kubernetes",
             ],
           },
           // {
@@ -154,6 +165,7 @@ module.exports = {
           // },
           "docs/platform-instances",
           "metadata-ingestion/docs/dev_guides/stateful",
+          "metadata-ingestion/docs/dev_guides/add_stateful_ingestion_to_source",
           "metadata-ingestion/docs/dev_guides/sql_profiles",
         ],
       },
@@ -352,7 +364,7 @@ module.exports = {
               },
               {
                 type: "doc",
-                label: "Querying Metadata Entities",
+                label: "Working with Metadata Entities",
                 id: "docs/api/graphql/querying-entities",
               },
               {
@@ -428,6 +440,7 @@ module.exports = {
           "metadata-ingestion/adding-source",
           "docs/how/add-custom-ingestion-source",
           "docs/how/add-custom-data-platform",
+          "docs/advanced/browse-paths-upgrade",
         ],
       },
     ],
@@ -439,20 +452,15 @@ module.exports = {
       "docs/domains",
       "docs/how/business-glossary-guide",
       "docs/tags",
-      // {
-      //   type: "doc",
-      //   id: "docs/wip/slack-notifications",
-      //   className: "saasOnly",
-      // },
       // "docs/wip/ui-ingestion-guide", -- not needed
       // "docs/wip/personal-access-tokens-guide", -- not needed
 
-      {
-        "Advanced Tutorials": [
-          // "docs/wip/advanced-guides",
-          // "docs/wip/search-ranking",
-        ],
-      },
+      // {
+      //   "Advanced Tutorials": [
+      //     // "docs/wip/advanced-guides",
+      //     // "docs/wip/search-ranking",
+      //   ],
+      // },
     ],
 
     "Join the Community": [

@@ -1,10 +1,10 @@
 package com.linkedin.datahub.graphql.resolvers.role;
 
 import com.datahub.authentication.Authentication;
+import com.datahub.authorization.role.RoleService;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.generated.BatchAssignRoleInput;
-import com.linkedin.entity.client.EntityClient;
 import graphql.schema.DataFetchingEnvironment;
 import java.util.ArrayList;
 import java.util.List;
@@ -20,19 +20,20 @@ public class BatchAssignRoleResolverTest {
   private static final String ROLE_URN_STRING = "urn:li:dataHubRole:Admin";
   private static final String FIRST_ACTOR_URN_STRING = "urn:li:corpuser:foo";
   private static final String SECOND_ACTOR_URN_STRING = "urn:li:corpuser:bar";
-
-  private EntityClient _entityClient;
+  private Urn roleUrn;
+  private RoleService _roleService;
   private BatchAssignRoleResolver _resolver;
   private DataFetchingEnvironment _dataFetchingEnvironment;
   private Authentication _authentication;
 
   @BeforeMethod
-  public void setupTest() {
-    _entityClient = mock(EntityClient.class);
+  public void setupTest() throws Exception {
+    roleUrn = Urn.createFromString(ROLE_URN_STRING);
+    _roleService = mock(RoleService.class);
     _dataFetchingEnvironment = mock(DataFetchingEnvironment.class);
     _authentication = mock(Authentication.class);
 
-    _resolver = new BatchAssignRoleResolver(_entityClient);
+    _resolver = new BatchAssignRoleResolver(_roleService);
   }
 
   @Test
@@ -55,7 +56,7 @@ public class BatchAssignRoleResolverTest {
     actors.add(FIRST_ACTOR_URN_STRING);
     input.setActors(actors);
     when(_dataFetchingEnvironment.getArgument("input")).thenReturn(input);
-    when(_entityClient.exists(eq(Urn.createFromString(ROLE_URN_STRING)), eq(_authentication))).thenReturn(false);
+    when(_roleService.exists(eq(roleUrn), eq(_authentication))).thenReturn(false);
 
     assertThrows(() -> _resolver.get(_dataFetchingEnvironment).join());
   }
@@ -73,14 +74,11 @@ public class BatchAssignRoleResolverTest {
     actors.add(SECOND_ACTOR_URN_STRING);
     input.setActors(actors);
     when(_dataFetchingEnvironment.getArgument(eq("input"))).thenReturn(input);
-    when(_entityClient.exists(eq(Urn.createFromString(ROLE_URN_STRING)), eq(_authentication))).thenReturn(true);
-    when(_entityClient.exists(eq(Urn.createFromString(FIRST_ACTOR_URN_STRING)), eq(_authentication))).thenReturn(true);
-    when(_entityClient.exists(eq(Urn.createFromString(SECOND_ACTOR_URN_STRING)), eq(_authentication))).thenReturn(
-        false);
+    doThrow(RuntimeException.class).when(_roleService)
+        .assignRoleToActor(eq(SECOND_ACTOR_URN_STRING), eq(roleUrn), eq(_authentication));
+    when(_roleService.exists(eq(Urn.createFromString(ROLE_URN_STRING)), eq(_authentication))).thenReturn(true);
 
     assertTrue(_resolver.get(_dataFetchingEnvironment).join());
-    // Only the first actor should be assigned to the role since the second actor does not exist
-    verify(_entityClient, times(1)).ingestProposal(any(), eq(_authentication));
   }
 
   @Test
@@ -96,12 +94,8 @@ public class BatchAssignRoleResolverTest {
     actors.add(SECOND_ACTOR_URN_STRING);
     input.setActors(actors);
     when(_dataFetchingEnvironment.getArgument(eq("input"))).thenReturn(input);
-    when(_entityClient.exists(eq(Urn.createFromString(ROLE_URN_STRING)), eq(_authentication))).thenReturn(true);
-    when(_entityClient.exists(eq(Urn.createFromString(FIRST_ACTOR_URN_STRING)), eq(_authentication))).thenReturn(true);
-    when(_entityClient.exists(eq(Urn.createFromString(SECOND_ACTOR_URN_STRING)), eq(_authentication))).thenReturn(true);
+    when(_roleService.exists(eq(Urn.createFromString(ROLE_URN_STRING)), eq(_authentication))).thenReturn(true);
 
     assertTrue(_resolver.get(_dataFetchingEnvironment).join());
-    // Both actors exist and should be assigned to the role
-    verify(_entityClient, times(2)).ingestProposal(any(), eq(_authentication));
   }
 }

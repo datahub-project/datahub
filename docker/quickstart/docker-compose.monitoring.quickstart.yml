@@ -1,4 +1,14 @@
 services:
+  datahub-frontend-react:
+    environment:
+    - ENABLE_PROMETHEUS=true
+    - ENABLE_OTEL=true
+    - OTEL_TRACES_EXPORTER=jaeger
+    - OTEL_EXPORTER_JAEGER_ENDPOINT=http://jaeger-all-in-one:14250
+    - OTEL_METRICS_EXPORTER=none
+    - OTEL_SERVICE_NAME=datahub-gms
+    ports:
+    - '4318'
   datahub-gms:
     environment:
     - ENABLE_PROMETHEUS=true

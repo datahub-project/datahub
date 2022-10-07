@@ -1,0 +1,86 @@
+/**
+ Applies a consistent versioning scheme to all projects using this script
+
+Uses git tags to mint versions by default. 
+git tags can be of a few forms:
+- short sha (typical for a PR or a commit) (e.g. 38960ae)
+- versioned tags (typical for a release) (e.g. v0.8.45, v0.8.45.1, v0.8.45rc1, v0.8.45.1rc4)
+
+Produces the following variables and supports token replacement
+- version: server version amenable for creating jars
+- fullVersion: full version string 
+- cliMajorVersion: cli version amenable for binding to server as a default
+  0.8.44 or 0.8.44-1 (for clean tags) or 0.8.45-SNAPSHOT (for unclean repositories)
+
+ All inference can be overridden by passing in the releaseVersion property
+ e.g. -PreleaseVersion=0.2.3.4 will set the jar version to 0.2.3-4
+
+ **/
+
+
+import org.apache.tools.ant.filters.ReplaceTokens
+
+def detailedVersionString = "0.0.0-unknown-SNAPSHOT"
+def cliMajorVersion = "0.8.42" // base default cli major version
+def snapshotVersion = false
+if (project.hasProperty("releaseVersion")) {
+  version = releaseVersion
+  detailedVersionString = releaseVersion
+} else {
+  try {
+      // apply this plugin in a try-catch block so that we can handle cases without .git directory
+      apply plugin: "com.palantir.git-version"
+      def details = versionDetails()
+      detailedVersionString = gitVersion()
+      version = details.lastTag
+      version = version.startsWith("v")? version.substring(1): version
+      def suffix = details.isCleanTag? "": "-SNAPSHOT"
+      snapshotVersion = ! details.isCleanTag
+    }
+    catch (Exception e) {
+          e.printStackTrace()
+          // last fall back
+          version = detailedVersionString
+    }
+}
+
+// trim version if it is of size 4 to size 3
+def versionParts = version.tokenize(".")
+if (versionParts.size() > 3) {
+  // at-least 4 part version
+  // we check if the 4th part is a .0 in which case we want to create a release
+  if ((versionParts.size() == 4) && (versionParts[3] == '0')) {
+    versionParts = versionParts[0..2]
+  }
+  version = versionParts[0..2].join('.')
+  if (versionParts.size() > 3) {
+      version = version + "-" + versionParts[3..versionParts.size()-1].join('-')
+  }
+  cliMajorVersion = version
+} else if (versionParts.size() == 3) {
+  cliMajorVersion = version
+}
+
+if (snapshotVersion) {
+    if (versionParts[versionParts.size()-1].isInteger()) {
+      def base_version = versionParts[0..versionParts.size()-2].join('.')
+      version = base_version + '.' + (versionParts[versionParts.size()-1].toInteger()+1).toString() + "-SNAPSHOT"
+      cliMajorVersion = base_version + "." + versionParts[versionParts.size()-1]
+    } else {
+      // we are unable to part the last token as an integer, so we just append SNAPSHOT to this version
+      version = versionParts[0..versionParts.size()-1].join('.') + '-SNAPSHOT'
+      cliMajorVersion = versionParts[0..versionParts.size()-1].join('.')
+  }
+}
+
+
+processResources {
+  filter(ReplaceTokens, tokens:[fullVersion: detailedVersionString])
+  filter(ReplaceTokens, tokens:[cliMajorVersion: cliMajorVersion])
+}
+
+task printVersionDetails() {
+  println("fullVersion=" + detailedVersionString)
+  println("cliMajorVersion=" + cliMajorVersion)
+  println("version=" +  version)
+}

@@ -128,7 +128,7 @@ jobs:
           publish: ${{ needs.setup.outputs.publish }}
           context: .
           file: ./docker/datahub-mae-consumer/Dockerfile
-          platforms: linux/amd64
+          platforms: linux/amd64,linux/arm64
   mae_consumer_scan:
     name: "[Monitoring] Scan MAE consumer images for vulnerabilities"
     runs-on: ubuntu-latest
@@ -171,7 +171,7 @@ jobs:
           publish: ${{ needs.setup.outputs.publish }}
           context: .
           file: ./docker/datahub-mce-consumer/Dockerfile
-          platforms: linux/amd64
+          platforms: linux/amd64,linux/arm64
   mce_consumer_scan:
     name: "[Monitoring] Scan MCE consumer images for vulnerabilities"
     runs-on: ubuntu-latest
@@ -359,10 +359,10 @@ jobs:
     steps:
       - name: Check out the repo
         uses: actions/checkout@v2
-      - name: Set up JDK 1.8
+      - name: Set up JDK 11
         uses: actions/setup-java@v1
         with:
-          java-version: 1.8
+          java-version: 11
       - uses: actions/setup-python@v2
         with:
           python-version: "3.7"
@@ -396,6 +396,16 @@ jobs:
         if: ${{ needs.setup.outputs.publish != 'true' }}
         with:
           image: ${{ env.DATAHUB_ELASTIC_SETUP_IMAGE }}:${{ needs.setup.outputs.unique_tag }}
+      - name: Download MCE Consumer image
+        uses: ishworkh/docker-image-artifact-download@v1
+        if: ${{ needs.setup.outputs.publish != 'true' }}
+        with:
+          image: ${{ env.DATAHUB_MCE_CONSUMER_IMAGE }}:${{ needs.setup.outputs.unique_tag }}
+      - name: Download MCE Consumer image
+        uses: ishworkh/docker-image-artifact-download@v1
+        if: ${{ needs.setup.outputs.publish != 'true' }}
+        with:
+          image: ${{ env.DATAHUB_MAE_CONSUMER_IMAGE }}:${{ needs.setup.outputs.unique_tag }}
       - name: Smoke test
         env:
           DATAHUB_VERSION: ${{ needs.setup.outputs.unique_tag }}

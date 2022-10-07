@@ -3,7 +3,7 @@ from typing import Iterable, Optional
 
 from datahub.emitter.mce_builder import make_tag_urn
 from datahub.ingestion.api.common import PipelineContext
-from datahub.ingestion.source.aws.aws_common import AwsSourceConfig
+from datahub.ingestion.source.aws.aws_common import AwsConnectionConfig
 from datahub.ingestion.source.aws.s3_util import (
     get_bucket_name,
     get_bucket_relative_path,
@@ -19,7 +19,7 @@ def get_s3_tags(
     bucket_name: str,
     key_name: Optional[str],
     dataset_urn: str,
-    aws_config: Optional[AwsSourceConfig],
+    aws_config: Optional[AwsConnectionConfig],
     ctx: PipelineContext,
     use_s3_bucket_tags: Optional[bool] = False,
     use_s3_object_tags: Optional[bool] = False,
@@ -75,7 +75,7 @@ def get_s3_tags(
 
 
 def list_folders_path(
-    s3_uri: str, aws_config: Optional[AwsSourceConfig]
+    s3_uri: str, aws_config: Optional[AwsConnectionConfig]
 ) -> Iterable[str]:
     if not is_s3_uri(s3_uri):
         raise ValueError("Not a s3 URI: " + s3_uri)
@@ -87,7 +87,7 @@ def list_folders_path(
 
 
 def list_folders(
-    bucket_name: str, prefix: str, aws_config: Optional[AwsSourceConfig]
+    bucket_name: str, prefix: str, aws_config: Optional[AwsConnectionConfig]
 ) -> Iterable[str]:
     if aws_config is None:
         raise ValueError("aws_config not set. Cannot browse s3")

@@ -8,6 +8,7 @@ import { useEntityRegistry } from '../useEntityRegistry';
 import AvatarsGroup from '../shared/avatar/AvatarsGroup';
 import EntityDropdown from '../entity/shared/EntityDropdown';
 import { EntityMenuItems } from '../entity/shared/EntityDropdown/EntityDropdown';
+import { getElasticCappedTotalValueText } from '../entity/shared/constants';
 
 const DomainItemContainer = styled(Row)`
     display: flex;
@@ -54,7 +55,7 @@ export default function DomainListItem({ domain, onDelete }: Props) {
     const displayName = entityRegistry.getDisplayName(EntityType.Domain, domain);
     const logoIcon = entityRegistry.getIcon(EntityType.Domain, 12, IconStyleType.ACCENT);
     const owners = domain.ownership?.owners;
-    const totalEntities = domain.entities?.total;
+    const totalEntitiesText = getElasticCappedTotalValueText(domain.entities?.total || 0);
 
     return (
         <List.Item>
@@ -66,8 +67,8 @@ export default function DomainListItem({ domain, onDelete }: Props) {
                             <DomainNameContainer>
                                 <Typography.Text>{displayName}</Typography.Text>
                             </DomainNameContainer>
-                            <Tooltip title={`There are ${totalEntities} entities in this domain.`}>
-                                <Tag>{totalEntities || 0} entities</Tag>
+                            <Tooltip title={`There are ${totalEntitiesText} entities in this domain.`}>
+                                <Tag>{totalEntitiesText} entities</Tag>
                             </Tooltip>
                         </DomainHeaderContainer>
                     </Link>

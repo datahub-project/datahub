@@ -90,6 +90,10 @@ class SalesforceConfig(DatasetSourceConfigBase):
     instance_url: Optional[str] = Field(
         description="Salesforce instance url. e.g. https://MyDomainName.my.salesforce.com"
     )
+    # Flag to indicate whether the instance is production or sandbox
+    is_sandbox: bool = Field(
+        default=False, description="Connect to Sandbox instance of your Salesforce"
+    )
     access_token: Optional[str] = Field(description="Access token for instance url")
 
     ingest_tags: Optional[bool] = Field(
@@ -206,6 +210,7 @@ class SalesforceSource(Source):
                     instance_url=self.config.instance_url,
                     session_id=self.config.access_token,
                     session=self.session,
+                    domain="test" if self.config.is_sandbox else None,
                 )
             elif self.config.auth is SalesforceAuthType.USERNAME_PASSWORD:
                 logger.debug("Username/Password Provided in Config")
@@ -224,6 +229,7 @@ class SalesforceSource(Source):
                     password=self.config.password,
                     security_token=self.config.security_token,
                     session=self.session,
+                    domain="test" if self.config.is_sandbox else None,
                 )
 
         except Exception as e:

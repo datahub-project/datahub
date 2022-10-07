@@ -10,9 +10,9 @@ import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.events.metadata.ChangeType;
 import com.linkedin.metadata.Constants;
+import com.linkedin.metadata.entity.AspectUtils;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.key.DataHubAccessTokenKey;
-import com.linkedin.metadata.resources.entity.AspectUtils;
 import com.linkedin.metadata.utils.AuditStampUtils;
 import com.linkedin.metadata.utils.GenericRecordUtils;
 import com.linkedin.mxe.MetadataChangeProposal;
@@ -129,8 +129,8 @@ public class StatefulTokenService extends StatelessTokenService {
     // Need this to write key aspect
     final List<MetadataChangeProposal> additionalChanges = AspectUtils.getAdditionalChanges(proposal, _entityService);
 
-    _entityService.ingestProposal(proposal, auditStamp);
-    additionalChanges.forEach(mcp -> _entityService.ingestProposal(mcp, auditStamp));
+    _entityService.ingestProposal(proposal, auditStamp, false);
+    additionalChanges.forEach(mcp -> _entityService.ingestProposal(mcp, auditStamp, false));
 
     return accessToken;
   }

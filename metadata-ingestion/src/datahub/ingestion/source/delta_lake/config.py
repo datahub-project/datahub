@@ -11,7 +11,7 @@ from datahub.configuration.source_common import (
     EnvBasedSourceConfigBase,
     PlatformSourceConfigBase,
 )
-from datahub.ingestion.source.aws.aws_common import AwsSourceConfig
+from datahub.ingestion.source.aws.aws_common import AwsConnectionConfig
 from datahub.ingestion.source.aws.s3_util import is_s3_uri
 
 # hide annoying debug errors from py4j
@@ -20,7 +20,9 @@ logger: logging.Logger = logging.getLogger(__name__)
 
 
 class S3(ConfigModel):
-    aws_config: AwsSourceConfig = Field(default=None, description="AWS configuration")
+    aws_config: AwsConnectionConfig = Field(
+        default=None, description="AWS configuration"
+    )
 
     # Whether or not to create in datahub from the s3 bucket
     use_s3_bucket_tags: Optional[bool] = Field(
