@@ -46,7 +46,6 @@ class SnowflakeProfiler(SnowflakeCommonMixin):
                 "max_overflow", self.config.profiling.max_workers
             )
 
-        # Otherwise, if column level profiling is enabled, use  GE profiler.
         for db in databases:
             if not self.config.database_pattern.allowed(db.name):
                 continue
@@ -236,6 +235,7 @@ class SnowflakeProfiler(SnowflakeCommonMixin):
         if len(ge_profile_requests) == 0:
             return
 
+        # Otherwise, if column level profiling is enabled, use  GE profiler.
         ge_profiler = self.get_profiler_instance(db_name)
         yield from ge_profiler.generate_profiles(
             ge_profile_requests, max_workers, platform, profiler_args

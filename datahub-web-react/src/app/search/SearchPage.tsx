@@ -9,10 +9,11 @@ import { SearchResults } from './SearchResults';
 import analytics, { EventType } from '../analytics';
 import { useGetSearchResultsForMultipleQuery } from '../../graphql/search.generated';
 import { SearchCfg } from '../../conf';
-import { ENTITY_FILTER_NAME } from './utils/constants';
+import { ENTITY_FILTER_NAME, UnionType } from './utils/constants';
 import { GetSearchResultsParams } from '../entity/shared/components/styled/search/types';
 import { EntityAndType } from '../entity/shared/types';
 import { scrollToTop } from '../shared/searchUtils';
+import { generateOrFilters } from './utils/generateOrFilters';
 
 type SearchPageParams = {
     type?: string;
@@ -30,13 +31,15 @@ export const SearchPage = () => {
     const query: string = decodeURIComponent(params.query ? (params.query as string) : '');
     const activeType = entityRegistry.getTypeOrDefaultFromPathName(useParams<SearchPageParams>().type || '', undefined);
     const page: number = params.page && Number(params.page as string) > 0 ? Number(params.page as string) : 1;
+    const unionType: UnionType = Number(params.unionType as any as UnionType) || UnionType.AND;
+
     const filters: Array<FacetFilterInput> = useFilters(params);
     const filtersWithoutEntities: Array<FacetFilterInput> = filters.filter(
         (filter) => filter.field !== ENTITY_FILTER_NAME,
     );
     const entityFilters: Array<EntityType> = filters
         .filter((filter) => filter.field === ENTITY_FILTER_NAME)
-        .map((filter) => filter.value.toUpperCase() as EntityType);
+        .flatMap((filter) => filter.values.map((value) => value?.toUpperCase() as EntityType));
 
     const [numResultsPerPage, setNumResultsPerPage] = useState(SearchCfg.RESULTS_PER_PAGE);
     const [isSelectMode, setIsSelectMode] = useState(false);
@@ -54,7 +57,8 @@ export const SearchPage = () => {
                 query,
                 start: (page - 1) * numResultsPerPage,
                 count: numResultsPerPage,
-                filters: filtersWithoutEntities,
+                filters: [],
+                orFilters: generateOrFilters(unionType, filtersWithoutEntities),
             },
         },
     });
@@ -75,7 +79,8 @@ export const SearchPage = () => {
                 query,
                 start: (page - 1) * SearchCfg.RESULTS_PER_PAGE,
                 count: SearchCfg.RESULTS_PER_PAGE,
-                filters: filtersWithoutEntities,
+                filters: [],
+                orFilters: generateOrFilters(unionType, filtersWithoutEntities),
             },
         },
     });
@@ -85,12 +90,16 @@ export const SearchPage = () => {
     };
 
     const onChangeFilters = (newFilters: Array<FacetFilterInput>) => {
-        navigateToSearchUrl({ type: activeType, query, page: 1, filters: newFilters, history });
+        navigateToSearchUrl({ type: activeType, query, page: 1, filters: newFilters, history, unionType });
+    };
+
+    const onChangeUnionType = (newUnionType: UnionType) => {
+        navigateToSearchUrl({ type: activeType, query, page: 1, filters, history, unionType: newUnionType });
     };
 
     const onChangePage = (newPage: number) => {
         scrollToTop();
-        navigateToSearchUrl({ type: activeType, query, page: newPage, filters, history });
+        navigateToSearchUrl({ type: activeType, query, page: newPage, filters, history, unionType });
     };
 
     /**
@@ -139,6 +148,7 @@ export const SearchPage = () => {
     return (
         <>
             <SearchResults
+                unionType={unionType}
                 entityFilters={entityFilters}
                 filtersWithoutEntities={filtersWithoutEntities}
                 callSearchOnVariables={callSearchOnVariables}
@@ -150,6 +160,7 @@ export const SearchPage = () => {
                 selectedFilters={filters}
                 loading={loading}
                 onChangeFilters={onChangeFilters}
+                onChangeUnionType={onChangeUnionType}
                 onChangePage={onChangePage}
                 numResultsPerPage={numResultsPerPage}
                 setNumResultsPerPage={setNumResultsPerPage}

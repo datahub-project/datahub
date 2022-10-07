@@ -4,12 +4,14 @@ import { RouteComponentProps } from 'react-router-dom';
 import filtersToQueryStringParams from './filtersToQueryStringParams';
 import { EntityType, FacetFilterInput } from '../../../types.generated';
 import { PageRoutes } from '../../../conf/Global';
+import { UnionType } from './constants';
 
 export const navigateToSearchUrl = ({
     type: newType,
     query: newQuery,
     page: newPage = 1,
     filters: newFilters,
+    unionType = UnionType.AND,
     history,
 }: {
     type?: EntityType;
@@ -17,10 +19,11 @@ export const navigateToSearchUrl = ({
     page?: number;
     filters?: Array<FacetFilterInput>;
     history: RouteComponentProps['history'];
+    unionType?: UnionType;
 }) => {
     const constructedFilters = newFilters || [];
     if (newType) {
-        constructedFilters.push({ field: 'entity', value: newType });
+        constructedFilters.push({ field: 'entity', values: [newType] });
     }
 
     const search = QueryString.stringify(
@@ -28,42 +31,13 @@ export const navigateToSearchUrl = ({
             ...filtersToQueryStringParams(constructedFilters),
             query: encodeURIComponent(newQuery || ''),
             page: newPage,
+            unionType,
         },
         { arrayFormat: 'comma' },
     );
 
     history.push({
         pathname: `${PageRoutes.SEARCH}`,
-        search,
-    });
-};
-
-export const navigateToSearchLineageUrl = ({
-    entityUrl,
-    query: newQuery,
-    page: newPage = 1,
-    filters: newFilters,
-    history,
-}: {
-    entityUrl: string;
-    query?: string;
-    page?: number;
-    filters?: Array<FacetFilterInput>;
-    history: RouteComponentProps['history'];
-}) => {
-    const constructedFilters = newFilters || [];
-
-    const search = QueryString.stringify(
-        {
-            ...filtersToQueryStringParams(constructedFilters),
-            query: encodeURIComponent(newQuery || ''),
-            page: newPage,
-        },
-        { arrayFormat: 'comma' },
-    );
-
-    history.push({
-        pathname: entityUrl,
         search,
     });
 };

@@ -14,6 +14,7 @@ type Props = {
     filter: FacetFilterInput;
     onClose: () => void;
     onUpdate: (newValue: FacetFilterInput) => void;
+    loading: boolean;
 };
 
 const FilterContainer = styled.div`
@@ -46,7 +47,7 @@ const FilterFieldLabel = styled.span`
     margin-right: 2px;
 `;
 
-export const AdvancedSearchFilter = ({ facet, filter, onClose, onUpdate }: Props) => {
+export const AdvancedSearchFilter = ({ facet, filter, onClose, onUpdate, loading }: Props) => {
     const [isEditing, setIsEditing] = useState(false);
     return (
         <>
@@ -73,7 +74,7 @@ export const AdvancedSearchFilter = ({ facet, filter, onClose, onUpdate }: Props
                         <CloseOutlined />
                     </CloseSpan>
                 </FieldFilterSection>
-                <AdvancedSearchFilterValuesSection filter={filter} facet={facet} />
+                {!loading && <AdvancedSearchFilterValuesSection filter={filter} facet={facet} />}
             </FilterContainer>
             {isEditing && (
                 <AdvancedFilterSelectValueModal
@@ -83,7 +84,6 @@ export const AdvancedSearchFilter = ({ facet, filter, onClose, onUpdate }: Props
                     onSelect={(values) => {
                         const newFilter: FacetFilterInput = {
                             field: filter.field,
-                            value: '',
                             values: values as string[],
                             condition: filter.condition,
                             negated: filter.negated,

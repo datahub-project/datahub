@@ -36,7 +36,7 @@ PUT           /openapi/*path                                                 con
 GET           /assets/*file                                                  controllers.Assets.at(path="/public", file)
 
 # Analytics route
-POST          /track                                                         controllers.TrackingController.track()
+POST          /track                                                         controllers.TrackingController.track(request: Request)
 
 # Wildcard route accepts any routes and delegates to serveAsset which in turn serves the React Bundle
 GET           /*path                                                         controllers.Application.index(path)
