@@ -39,6 +39,7 @@ from datahub.ingestion.source.looker.looker_common import (
     LookerExplore,
     LookerUtil,
     LookerViewId,
+    ProjectInclude,
     ViewField,
     ViewFieldType,
 )
@@ -286,12 +287,6 @@ class LookMLSourceReport(SourceReport):
         if self._looker_api:
             self.api_stats = self._looker_api.compute_stats()
         return super().compute_stats()
-
-
-@dataclass
-class ProjectInclude:
-    project: str
-    include: str
 
 
 @dataclass
@@ -570,7 +565,7 @@ class LookerViewFileLoader:
         self,
         path: str,
         project_name: str,
-        connection: LookerConnectionDefinition,
+        connection: Optional[LookerConnectionDefinition],
         reporter: LookMLSourceReport,
     ) -> Optional[LookerViewFile]:
         viewfile = self._load_viewfile(
@@ -584,6 +579,30 @@ class LookerViewFileLoader:
 
 VIEW_LANGUAGE_LOOKML: str = "lookml"
 VIEW_LANGUAGE_SQL: str = "sql"
+
+
+def _find_view_from_resolved_includes(
+    connection: Optional[LookerConnectionDefinition],
+    resolved_includes: List[ProjectInclude],
+    looker_viewfile_loader: LookerViewFileLoader,
+    target_view_name: str,
+    reporter: LookMLSourceReport,
+) -> Optional[Tuple[ProjectInclude, dict]]:
+    # It could live in one of the included files. We do not know which file the base view
+    # lives in, so we try them all!
+    for include in resolved_includes:
+        included_looker_viewfile = looker_viewfile_loader.load_viewfile(
+            include.include, include.project, connection, reporter
+        )
+        if not included_looker_viewfile:
+            continue
+        for raw_view in included_looker_viewfile.views:
+            raw_view_name = raw_view["name"]
+            # Make sure to skip loading view we are currently trying to resolve
+            if raw_view_name == target_view_name:
+                return include, raw_view
+
+    return None
 
 
 @dataclass
@@ -880,24 +899,21 @@ class LookerView:
             if raw_view_name == target_view_name:
                 return raw_view
 
-        # Or it could live in one of the included files. We do not know which file the base view
-        # lives in, so we try them all!
-        for include in looker_viewfile.resolved_includes:
-            included_looker_viewfile = looker_viewfile_loader.load_viewfile(
-                include.include, include.project, connection, reporter
+        # Or, it could live in one of the imports.
+        view = _find_view_from_resolved_includes(
+            connection,
+            looker_viewfile.resolved_includes,
+            looker_viewfile_loader,
+            target_view_name,
+            reporter,
+        )
+        if view:
+            return view[1]
+        else:
+            logger.warning(
+                f"failed to resolve view {target_view_name} included from {looker_viewfile.absolute_file_path}"
             )
-            if not included_looker_viewfile:
-                logger.warning(
-                    f"unable to load {include} (included from {looker_viewfile.absolute_file_path})"
-                )
-                continue
-            for raw_view in included_looker_viewfile.views:
-                raw_view_name = raw_view["name"]
-                # Make sure to skip loading view we are currently trying to resolve
-                if raw_view_name == target_view_name:
-                    return raw_view
-
-        return None
+            return None
 
     @classmethod
     def get_including_extends(
@@ -1439,12 +1455,16 @@ class LookMLSource(Source):
                 self.reporter.report_models_dropped(model_name)
                 continue
 
-            explore_reachable_views: Set[str] = set()
+            explore_reachable_views: Set[ProjectInclude] = set()
             if self.source_config.emit_reachable_views_only:
                 for explore_dict in model.explores:
                     try:
                         explore: LookerExplore = LookerExplore.from_dict(
-                            model_name, explore_dict
+                            model_name,
+                            explore_dict,
+                            model.resolved_includes,
+                            viewfile_loader,
+                            self.reporter,
                         )
                         if explore.upstream_views:
                             for view_name in explore.upstream_views:
@@ -1480,7 +1500,8 @@ class LookMLSource(Source):
                     for raw_view in looker_viewfile.views:
                         if (
                             self.source_config.emit_reachable_views_only
-                            and raw_view["name"] not in explore_reachable_views
+                            and ProjectInclude(_BASE_PROJECT_NAME, raw_view["name"])
+                            not in explore_reachable_views
                         ):
                             logger.debug(
                                 f"view {raw_view['name']} is not reachable from an explore, skipping.."
