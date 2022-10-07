@@ -234,7 +234,7 @@ def gen_containers(
         yield from add_tags_to_entity_wu(
             entity_type="container",
             entity_urn=container_urn,
-            tags=tags,
+            tags=sorted(tags),
         )
 
     if parent_container_key:
