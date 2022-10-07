@@ -32,13 +32,6 @@ export const LookerWarning = ({ type }: Props) => {
             banner
             message={
                 <>
-                    <big>
-                        <i>
-                            <b>You must acknowledge this message to proceed!</b>
-                        </i>
-                    </big>
-                    <br />
-                    <br />
                     To get complete Looker metadata integration (including Looker views and lineage to the underlying
                     warehouse tables), you must <b>also</b> use the {link}.
                 </>
