@@ -874,7 +874,7 @@ class LookerView:
                     fields = [
                         # set types to unknown for now as our sql parser doesn't give us column types yet
                         ViewField(c, "", "unknown", "", ViewFieldType.UNKNOWN)
-                        for c in column_names
+                        for c in sorted(column_names)
                     ]
             except Exception as e:
                 reporter.report_warning(

@@ -461,11 +461,7 @@ class LookerUtil:
     ) -> Tuple[List[SchemaField], List[str]]:
         primary_keys: List = []
         fields = []
-        for field in sorted(
-            # Sort alphabetically, with primary keys first.
-            view_fields,
-            key=lambda field: (not field.is_primary_key, field.name),
-        ):
+        for field in view_fields:
             schema_field = LookerUtil.view_field_to_schema_field(
                 field, reporter, tag_measures_and_dimensions
             )
