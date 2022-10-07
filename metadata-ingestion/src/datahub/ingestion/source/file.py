@@ -59,6 +59,10 @@ class FileSourceConfig(ConfigModel):
         default=None,
         description="Set to an aspect to only read this aspect for ingestion.",
     )
+    count_all_before_starting: bool = Field(
+        default=True,
+        description="When enabled, counts total number of records in the file before starting. Used for accurate estimation of completion time. Turn it off if startup time is too high.",
+    )
 
     _minsize_for_streaming_mode_in_bytes: int = (
         100 * 1000 * 1000  # Must be at least 100MB before we use streaming mode
@@ -251,14 +255,15 @@ class GenericFileSource(TestableSource):
                 self.report.current_file_elements_read += 1
         else:
             self.fp = open(path, "rb")
-            count_start_time = datetime.datetime.now()
-            parse_stream = ijson.parse(self.fp, use_float=True)
-            total_elements = 0
-            for row in ijson.items(parse_stream, "item", use_float=True):
-                total_elements += 1
-            count_end_time = datetime.datetime.now()
-            self.report.add_count_time(count_end_time - count_start_time)
-            self.report.current_file_num_elements = total_elements
+            if self.config.count_all_before_starting:
+                count_start_time = datetime.datetime.now()
+                parse_stream = ijson.parse(self.fp, use_float=True)
+                total_elements = 0
+                for row in ijson.items(parse_stream, "item", use_float=True):
+                    total_elements += 1
+                count_end_time = datetime.datetime.now()
+                self.report.add_count_time(count_end_time - count_start_time)
+                self.report.current_file_num_elements = total_elements
             self.report.current_file_elements_read = 0
             self.fp.seek(0)
             parse_start_time = datetime.datetime.now()

@@ -13,6 +13,8 @@ import {
     Maybe,
     Status,
     DataPlatform,
+    FineGrainedLineage,
+    SchemaMetadata,
 } from '../../types.generated';
 
 export type EntitySelectParams = {
@@ -43,6 +45,8 @@ export type FetchedEntity = {
     platform?: DataPlatform;
     status?: Maybe<Status>;
     siblingPlatforms?: Maybe<DataPlatform[]>;
+    fineGrainedLineages?: [FineGrainedLineage];
+    schemaMetadata?: SchemaMetadata;
 };
 
 export type NodeData = {
@@ -61,18 +65,29 @@ export type NodeData = {
     platform?: DataPlatform;
     status?: Maybe<Status>;
     siblingPlatforms?: Maybe<DataPlatform[]>;
+    schemaMetadata?: SchemaMetadata;
 };
 
 export type VizNode = {
     x: number;
     y: number;
     data: NodeData;
+    direction: Direction;
 };
 
 export type VizEdge = {
     source: VizNode;
     target: VizNode;
+    sourceField?: string;
+    targetField?: string;
     curve: { x: number; y: number }[];
+};
+
+export type ColumnEdge = {
+    sourceUrn: string;
+    sourceField: string;
+    targetUrn: string;
+    targetField: string;
 };
 
 export type FetchedEntities = { [x: string]: FetchedEntity };
@@ -96,6 +111,7 @@ export type TreeProps = {
     onLineageExpand: (data: EntityAndType) => void;
     selectedEntity?: EntitySelectParams;
     hoveredEntity?: EntitySelectParams;
+    fineGrainedMap?: any;
 };
 
 export type EntityAndType =

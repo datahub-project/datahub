@@ -433,11 +433,17 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
             yield wu
 
     def get_workunits(self) -> Iterable[WorkUnit]:
-
+        logger.info("Getting projects")
         conn: bigquery.Client = self.get_bigquery_client()
         self.add_config_to_report()
 
         projects: List[BigqueryProject] = BigQueryDataDictionary.get_projects(conn)
+        if len(projects) == 0:
+            logger.warning(
+                "Get projects didn't return any project. Maybe resourcemanager.projects.get permission is missing for the service account. You can assign predefined roles/bigquery.metadataViewer role to your service account."
+            )
+            return
+
         for project_id in projects:
             if not self.config.project_id_pattern.allowed(project_id.id):
                 self.report.report_dropped(project_id.id)
@@ -446,6 +452,7 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
             yield from self._process_project(conn, project_id)
 
         if self.config.profiling.enabled:
+            logger.info("Starting profiling...")
             yield from self.profiler.get_workunits(self.db_tables)
 
         # Clean up stale entities if configured.
@@ -474,6 +481,12 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
                 f"Unable to get datasets for project {project_id}, skipping. The error was: {e}"
             )
             return None
+
+        if len(bigquery_project.datasets) == 0:
+            logger.warning(
+                f"No dataset found in {project_id}. Either there are no datasets in this project or missing bigquery.datasets.get permission. You can assign predefined roles/bigquery.metadataViewer role to your service account."
+            )
+            return
 
         for bigquery_dataset in bigquery_project.datasets:
 

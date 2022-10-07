@@ -14,7 +14,7 @@ export const GroupAssets = ({ urn }: Props) => {
     return (
         <GroupAssetsWrapper>
             <EmbeddedListSearchSection
-                fixedFilter={{ field: 'owners', value: urn }}
+                fixedFilter={{ field: 'owners', values: [urn] }}
                 emptySearchQuery="*"
                 placeholderText="Filter entities..."
             />

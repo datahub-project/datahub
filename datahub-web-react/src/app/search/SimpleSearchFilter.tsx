@@ -5,7 +5,7 @@ import * as React from 'react';
 import { useState } from 'react';
 import styled from 'styled-components';
 
-import { FacetMetadata } from '../../types.generated';
+import { FacetFilterInput, FacetMetadata } from '../../types.generated';
 import { SearchFilterLabel } from './SearchFilterLabel';
 import { TRUNCATED_FILTER_LENGTH } from './utils/constants';
 
@@ -17,10 +17,7 @@ const isGraphDegreeFilter = (field: string) => {
 
 type Props = {
     facet: FacetMetadata;
-    selectedFilters: Array<{
-        field: string;
-        value: string;
-    }>;
+    selectedFilters: Array<FacetFilterInput>;
     onFilterSelect: (selected: boolean, field: string, value: string) => void;
     defaultDisplayFilters: boolean;
 };
@@ -57,12 +54,12 @@ const StyledDownOutlined = styled(DownOutlined)`
     font-size: 10px;
 `;
 
-export const SearchFilter = ({ facet, selectedFilters, onFilterSelect, defaultDisplayFilters }: Props) => {
+export const SimpleSearchFilter = ({ facet, selectedFilters, onFilterSelect, defaultDisplayFilters }: Props) => {
     const [areFiltersVisible, setAreFiltersVisible] = useState(defaultDisplayFilters);
     const [expanded, setExpanded] = useState(false);
 
     const isFacetSelected = (field, value) => {
-        return selectedFilters.find((f) => f.field === field && f.value === value) !== undefined;
+        return selectedFilters.find((f) => f.field === field && f.values.includes(value)) !== undefined;
     };
 
     // Aggregations filtered for count > 0 or selected = true
