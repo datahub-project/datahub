@@ -849,12 +849,12 @@ class LookerView:
                 logger.debug(
                     f"{view_name}: Skipping sql_query parsing since it contains liquid variables"
                 )
-                # hail-mary simple parse
-                for maybe_table_match in re.finditer(
-                    r"FROM\s*([a-zA-Z0-9_.]+)", sql_query
-                ):
-                    if maybe_table_match.group(1) not in sql_table_names:
-                        sql_table_names.append(maybe_table_match.group(1))
+                # A hail-mary simple parse. Commenting this out for now because it's not 100% validated.
+                # for maybe_table_match in re.finditer(
+                #     r"FROM\s*([a-zA-Z0-9_.]+)", sql_query
+                # ):
+                #     if maybe_table_match.group(1) not in sql_table_names:
+                #         sql_table_names.append(maybe_table_match.group(1))
                 return fields, sql_table_names
             # Looker supports sql fragments that omit the SELECT and FROM parts of the query
             # Add those in if we detect that it is missing
