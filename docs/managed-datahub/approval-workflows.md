@@ -181,7 +181,10 @@ To be able to approve or deny proposals you need one of the following Metadata p
 - Manage Dataset Column Tag Proposals
 - Manage Dataset Column Term Proposals
 
-These map directly to the 4 privileges for doing the proposals
+These map directly to the 4 privileges for doing the proposals.
+
+To be able to approve or deny proposals to the glossary itself, you just need one permission:
+- Manage Glossaries
 
 ### Videos
 
