@@ -7,7 +7,17 @@ import re
 from dataclasses import dataclass, field as dataclasses_field
 from enum import Enum
 from functools import lru_cache
-from typing import TYPE_CHECKING, ClassVar, Dict, Iterable, List, Optional, Tuple, Union
+from typing import (
+    TYPE_CHECKING,
+    ClassVar,
+    Dict,
+    Iterable,
+    List,
+    Optional,
+    Set,
+    Tuple,
+    Union,
+)
 
 import pydantic
 from looker_sdk.error import SDKError
@@ -568,15 +578,9 @@ class LookerExplore:
                     f'Could not resolve view {view_name} for explore {dict["name"]} in model {model_name}'
                 )
             else:
-                # if not info[0].project.startswith("_"):
-                #     breakpoint()
-
                 upstream_views.append(
                     ProjectInclude(project=info[0].project, include=view_name)
                 )
-
-        if model_name == "events_daily_sample":
-            breakpoint()
 
         return LookerExplore(
             model_name=model_name,
@@ -595,9 +599,11 @@ class LookerExplore:
         client: LookerAPI,
         reporter: SourceReport,
     ) -> Optional["LookerExplore"]:  # noqa: C901
+        from datahub.ingestion.source.looker.lookml_source import _BASE_PROJECT_NAME
+
         try:
             explore = client.lookml_model_explore(model, explore_name)
-            views = set()
+            views: Set[str] = set()
 
             if explore.view_name is not None and explore.view_name != explore.name:
                 # explore is not named after a view and is instead using a from field, which is modeled as view_name.
@@ -700,7 +706,13 @@ class LookerExplore:
                 label=explore.label,
                 description=explore.description,
                 fields=view_fields,
-                upstream_views=list(views),
+                upstream_views=list(
+                    ProjectInclude(
+                        project=_BASE_PROJECT_NAME,
+                        include=view_name,
+                    )
+                    for view_name in views
+                ),
                 source_file=explore.source_file,
             )
         except SDKError as e:
