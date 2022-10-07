@@ -1,6 +1,7 @@
 package com.linkedin.datahub.graphql.resolvers.mutate.util;
 
 import com.google.common.collect.ImmutableList;
+import com.linkedin.common.urn.CorpuserUrn;
 
 import com.linkedin.common.Owner;
 import com.linkedin.common.OwnerArray;
@@ -34,6 +35,7 @@ import static com.linkedin.datahub.graphql.resolvers.mutate.MutationUtils.*;
 // TODO: Move to consuming from OwnerService
 @Slf4j
 public class OwnerUtils {
+  
   private static final ConjunctivePrivilegeGroup ALL_PRIVILEGES_GROUP = new ConjunctivePrivilegeGroup(ImmutableList.of(
       PoliciesConfig.EDIT_ENTITY_PRIVILEGE.getType()
   ));
@@ -216,6 +218,25 @@ public class OwnerUtils {
     // TODO: Replace this with a batch ingest proposals endpoint.
     for (MetadataChangeProposal change : changes) {
       entityService.ingestProposal(change, getAuditStamp(actor), false);
+    }
+  }
+
+  public static void addCreatorAsOwner(
+    QueryContext context,
+    String urn,
+    OwnerEntityType ownerEntityType,
+    com.linkedin.datahub.graphql.generated.OwnershipType ownershipType,
+    EntityService entityService) {
+    try {
+      Urn actorUrn = CorpuserUrn.createFromString(context.getActorUrn());
+      addOwnersToResources(
+          ImmutableList.of(new OwnerInput(actorUrn.toString(), ownerEntityType, ownershipType)),
+          ImmutableList.of(new ResourceRefInput(urn, null, null)),
+          actorUrn,
+          entityService
+      );
+    } catch (Exception e) {
+      log.error(String.format("Failed to add creator as owner of tag %s", urn), e);
     }
   }
 }
