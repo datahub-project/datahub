@@ -5,18 +5,12 @@ Diagram about how the BigQuery metadata collection looks at in high-level:
 </p>
 
 - *Extractor Project* is where the service account runs jobs (including queries) within the project.
-- *Bigquery Projects* are the projects where table metadata, lineage, usage, and profiling data need to be collected. The extractor project can be a project where metadata needs to be collected as well. 
+- *Bigquery Projects* are the projects where table metadata, lineage, usage, and profiling data need to be collected. The extractor project can be a project where metadata needs to be collected as well.
 
 #### Create a datahub profile in GCP
 
 1. Create a custom role for datahub as per [BigQuery docs](https://cloud.google.com/iam/docs/creating-custom-roles#creating_a_custom_role).
 2. Grant the following permissions to this role:
-
-:::info
-
-If you have multiple projects in your BigQuery setup, the role should be granted these permissions in each of the projects.
-
-:::
 
 ##### Basic Requirements (needs for metadata ingestion)
 1. Identify your Extractor Project where the service account will run queries to extract metadata.
@@ -28,30 +22,14 @@ If you have multiple projects in your BigQuery setup, the role should be granted
 | `bigquery.readsessions.create`   | Create a session for streaming large results. *This only needs for the extractor project where the service account belongs*         |                                                                                                                |
 | `bigquery.readsessions.getData`  | Get data from the read session. *This only needs for the extractor project where the service account belongs*                       |                                                                                                                |
 
-<<<<<<< Updated upstream
-##### Lineage/usage generation requirements
-
-Additional requirements needed on the top of the basic requirements.
-If you want to get lineage from multiple projects you have to grant this permission
-for each of them.
-
-| permission                       | Description                                                                                                  |
-| -------------------------------- | ------------------------------------------------------------------------------------------------------------ |
-| `bigquery.jobs.listAll`          | List all jobs (queries) submitted by any user.                                                               |
-| `logging.logEntries.list`        | Fetch log entries for lineage/usage data. Not required if `use_exported_bigquery_audit_metadata` is enabled. |
-| `logging.privateLogEntries.list` | Fetch log entries for lineage/usage data. Not required if `use_exported_bigquery_audit_metadata` is enabled. |
-
-##### Profiling requirements
-
-Additional requirements needed on the top of the basic requirements.
-
-| permission                | Description                                                                               |
-| ------------------------- | ----------------------------------------------------------------------------------------- |
-| `bigquery.tables.getData` | Access table data to do the profiling.                                                    |
-| `bigquery.tables.create`  | Create temporary tables when profiling partitioned/sharded tables. See below for details. |
-| `bigquery.tables.delete`  | Delete temporary tables when profiling partitioned/sharded tables. See below for details. |
-=======
 2. Grant the following permissions to the Service Account on every project where you would like to extract metadata from
+
+:::info
+
+If you have multiple projects in your BigQuery setup, the role should be granted these permissions in each of the projects.
+
+:::
+
 
 | permission                       | Description                                                                                                  | Purpose of the role                 | Default GCP role which contains this permission                                                                 |
 |----------------------------------|--------------------------------------------------------------------------------------------------------------|-------------------------------------|-----------------------------------------------------------------------------------------------------------------|
@@ -66,7 +44,6 @@ Additional requirements needed on the top of the basic requirements.
 | `bigquery.tables.getData`        | Access table data to do the profiling. It needed for schema extraction as well if profiling enabled.         | Profiling                           |                                                                                                                 |
 | `bigquery.tables.create`         | Create temporary tables when profiling partitioned/sharded tables. See below for details.                    | Profiling                           |                                                                                                                 |
 | `bigquery.tables.delete`         | Delete temporary tables when profiling partitioned/sharded tables. See below for details.                    | Profiling                           |                                                                                                                 |
->>>>>>> Stashed changes
 
 Profiler creates temporary tables to profile partitioned/sharded tables and that is why it needs table create/delete privilege.
 Use `profiling.bigquery_temp_table_schema` to restrict to one specific dataset the create/delete permission
@@ -80,16 +57,16 @@ Use `profiling.bigquery_temp_table_schema` to restrict to one specific dataset t
 
 ```json
 {
-  "type": "service_account",
-  "project_id": "project-id-1234567",
-  "private_key_id": "d0121d0000882411234e11166c6aaa23ed5d74e0",
-  "private_key": "-----BEGIN PRIVATE KEY-----\nMIIyourkey\n-----END PRIVATE KEY-----",
-  "client_email": "test@suppproject-id-1234567.iam.gserviceaccount.com",
-  "client_id": "113545814931671546333",
-  "auth_uri": "https://accounts.google.com/o/oauth2/auth",
-  "token_uri": "https://oauth2.googleapis.com/token",
-  "auth_provider_x509_cert_url": "https://www.googleapis.com/oauth2/v1/certs",
-  "client_x509_cert_url": "https://www.googleapis.com/robot/v1/metadata/x509/test%suppproject-id-1234567.iam.gserviceaccount.com"
+   "type": "service_account",
+   "project_id": "project-id-1234567",
+   "private_key_id": "d0121d0000882411234e11166c6aaa23ed5d74e0",
+   "private_key": "-----BEGIN PRIVATE KEY-----\nMIIyourkey\n-----END PRIVATE KEY-----",
+   "client_email": "test@suppproject-id-1234567.iam.gserviceaccount.com",
+   "client_id": "113545814931671546333",
+   "auth_uri": "https://accounts.google.com/o/oauth2/auth",
+   "token_uri": "https://oauth2.googleapis.com/token",
+   "auth_provider_x509_cert_url": "https://www.googleapis.com/oauth2/v1/certs",
+   "client_x509_cert_url": "https://www.googleapis.com/robot/v1/metadata/x509/test%suppproject-id-1234567.iam.gserviceaccount.com"
 }
 ```
 
@@ -133,8 +110,8 @@ Temporary tables are removed after profiling.
 
 ```yaml
 profiling:
-  enabled: true
-  bigquery_temp_table_schema: my-project-id.my-schema-where-views-can-be-created
+   enabled: true
+   bigquery_temp_table_schema: my-project-id.my-schema-where-views-can-be-created
 ```
 
 :::note
