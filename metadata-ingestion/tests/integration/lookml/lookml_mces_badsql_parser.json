@@ -37,9 +37,30 @@
                         },
                         "fields": [
                             {
-                                "fieldPath": "country",
+                                "fieldPath": "average_measurement",
                                 "nullable": false,
-                                "description": "The country",
+                                "description": "My measurement",
+                                "label": "",
+                                "type": {
+                                    "type": {
+                                        "com.linkedin.pegasus2avro.schema.NumberType": {}
+                                    }
+                                },
+                                "nativeDataType": "average",
+                                "recursive": false,
+                                "globalTags": {
+                                    "tags": [
+                                        {
+                                            "tag": "urn:li:tag:Measure"
+                                        }
+                                    ]
+                                },
+                                "isPartOfKey": false
+                            },
+                            {
+                                "fieldPath": "city",
+                                "nullable": false,
+                                "description": "City",
                                 "label": "",
                                 "type": {
                                     "type": {
@@ -58,9 +79,9 @@
                                 "isPartOfKey": false
                             },
                             {
-                                "fieldPath": "city",
+                                "fieldPath": "country",
                                 "nullable": false,
-                                "description": "City",
+                                "description": "The country",
                                 "label": "",
                                 "type": {
                                     "type": {
@@ -118,27 +139,6 @@
                                         },
                                         {
                                             "tag": "urn:li:tag:Temporal"
-                                        }
-                                    ]
-                                },
-                                "isPartOfKey": false
-                            },
-                            {
-                                "fieldPath": "average_measurement",
-                                "nullable": false,
-                                "description": "My measurement",
-                                "label": "",
-                                "type": {
-                                    "type": {
-                                        "com.linkedin.pegasus2avro.schema.NumberType": {}
-                                    }
-                                },
-                                "nativeDataType": "average",
-                                "recursive": false,
-                                "globalTags": {
-                                    "tags": [
-                                        {
-                                            "tag": "urn:li:tag:Measure"
                                         }
                                     ]
                                 },
@@ -231,9 +231,30 @@
                         },
                         "fields": [
                             {
-                                "fieldPath": "country",
+                                "fieldPath": "average_measurement",
                                 "nullable": false,
-                                "description": "The country",
+                                "description": "My measurement",
+                                "label": "",
+                                "type": {
+                                    "type": {
+                                        "com.linkedin.pegasus2avro.schema.NumberType": {}
+                                    }
+                                },
+                                "nativeDataType": "average",
+                                "recursive": false,
+                                "globalTags": {
+                                    "tags": [
+                                        {
+                                            "tag": "urn:li:tag:Measure"
+                                        }
+                                    ]
+                                },
+                                "isPartOfKey": false
+                            },
+                            {
+                                "fieldPath": "city",
+                                "nullable": false,
+                                "description": "City",
                                 "label": "",
                                 "type": {
                                     "type": {
@@ -252,9 +273,9 @@
                                 "isPartOfKey": false
                             },
                             {
-                                "fieldPath": "city",
+                                "fieldPath": "country",
                                 "nullable": false,
-                                "description": "City",
+                                "description": "The country",
                                 "label": "",
                                 "type": {
                                     "type": {
@@ -291,27 +312,6 @@
                                         },
                                         {
                                             "tag": "urn:li:tag:Temporal"
-                                        }
-                                    ]
-                                },
-                                "isPartOfKey": false
-                            },
-                            {
-                                "fieldPath": "average_measurement",
-                                "nullable": false,
-                                "description": "My measurement",
-                                "label": "",
-                                "type": {
-                                    "type": {
-                                        "com.linkedin.pegasus2avro.schema.NumberType": {}
-                                    }
-                                },
-                                "nativeDataType": "average",
-                                "recursive": false,
-                                "globalTags": {
-                                    "tags": [
-                                        {
-                                            "tag": "urn:li:tag:Measure"
                                         }
                                     ]
                                 },
