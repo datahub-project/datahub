@@ -119,7 +119,7 @@ public class LineageSearchService {
           .distinct()
           .collect(Collectors.toList());
       Map<Urn, LineageRelationship> urnToRelationship =
-          lineageRelationships.stream().collect(Collectors.toMap(LineageRelationship::getEntity, Function.identity()));
+          batch.stream().collect(Collectors.toMap(LineageRelationship::getEntity, Function.identity()));
       Filter finalFilter = buildFilter(urnToRelationship.keySet(), inputFilters);
       LineageSearchResult resultForBatch = buildLineageSearchResult(
           _searchService.searchAcrossEntities(entitiesToQuery, input, finalFilter, sortCriterion, queryFrom, querySize,
