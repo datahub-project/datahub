@@ -268,7 +268,7 @@ WHERE
         self,
         dataset_name: str,
         last_altered: Optional[datetime.datetime],
-        size_in_bytes: int,
+        size_in_bytes: Optional[int],
         rows_count: Optional[int],
     ) -> bool:
         threshold_time: Optional[datetime.datetime] = None

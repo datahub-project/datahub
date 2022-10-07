@@ -234,6 +234,44 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
             return CapabilityReport(capable=True)
 
     @staticmethod
+    def metada_read_capability_test(
+        project_ids: List[str], profiling_enabled: bool
+    ) -> CapabilityReport:
+        for project_id in project_ids:
+            try:
+                logger.info((f"Metadata read capability test for project {project_id}"))
+                client: bigquery.Client = bigquery.Client(project_id)
+                assert client
+                result = BigQueryDataDictionary.get_datasets_for_project_id(
+                    client, project_id, 10
+                )
+                if len(result) == 0:
+                    return CapabilityReport(
+                        capable=False,
+                        failure_reason=f"Dataset query returned empty dataset. It is either empty or no dataset in project {project_id}",
+                    )
+                tables = BigQueryDataDictionary.get_tables_for_dataset(
+                    conn=client,
+                    project_id=project_id,
+                    dataset_name=result[0].name,
+                    tables={},
+                    with_data_read_permission=profiling_enabled,
+                )
+                if len(tables) == 0:
+                    return CapabilityReport(
+                        capable=False,
+                        failure_reason=f"Tables query did not return any table. It is either empty or no tables in project {project_id}.{result[0].name}",
+                    )
+
+            except Exception as e:
+                return CapabilityReport(
+                    capable=False,
+                    failure_reason=f"Dataset query failed with error: {e}",
+                )
+
+        return CapabilityReport(capable=True)
+
+    @staticmethod
     def lineage_capability_test(
         connection_conf: BigQueryV2Config,
         project_ids: List[str],
@@ -262,7 +300,13 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
         for project_id in project_ids:
             try:
                 logger.info((f"Usage capability test for project {project_id}"))
+                failures_before_test = len(report.failures)
                 usage_extractor.test_capability(project_id)
+                if failures_before_test != len(report.failures):
+                    return CapabilityReport(
+                        capable=False,
+                        failure_reason="Usage capability test failed. Check the logs for further info",
+                    )
             except Exception as e:
                 return CapabilityReport(
                     capable=False,
@@ -296,17 +340,25 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
                 if connection_conf.project_id_pattern.allowed(project.project_id):
                     project_ids.append(project.project_id)
 
-            lineage_capability = BigqueryV2Source.lineage_capability_test(
-                connection_conf, project_ids, report
+            metada_read_capability = BigqueryV2Source.metada_read_capability_test(
+                project_ids, connection_conf.profiling.enabled
             )
-            if SourceCapability.LINEAGE_COARSE not in _report:
-                _report[SourceCapability.LINEAGE_COARSE] = lineage_capability
+            if SourceCapability.SCHEMA_METADATA not in _report:
+                _report[SourceCapability.SCHEMA_METADATA] = metada_read_capability
 
-            usage_capability = BigqueryV2Source.usage_capability_test(
-                connection_conf, project_ids, report
-            )
-            if SourceCapability.USAGE_STATS not in _report:
-                _report[SourceCapability.USAGE_STATS] = usage_capability
+            if connection_conf.include_table_lineage:
+                lineage_capability = BigqueryV2Source.lineage_capability_test(
+                    connection_conf, project_ids, report
+                )
+                if SourceCapability.LINEAGE_COARSE not in _report:
+                    _report[SourceCapability.LINEAGE_COARSE] = lineage_capability
+
+            if connection_conf.include_usage_statistics:
+                usage_capability = BigqueryV2Source.usage_capability_test(
+                    connection_conf, project_ids, report
+                )
+                if SourceCapability.USAGE_STATS not in _report:
+                    _report[SourceCapability.USAGE_STATS] = usage_capability
 
             test_report.capability_report = _report
             return test_report
@@ -982,7 +1034,11 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
                     ):
                         bigquery_tables.extend(
                             BigQueryDataDictionary.get_tables_for_dataset(
-                                conn, project_id, dataset_name, table_items
+                                conn,
+                                project_id,
+                                dataset_name,
+                                table_items,
+                                with_data_read_permission=self.config.profiling.enabled,
                             )
                         )
                         table_items.clear()
@@ -1000,7 +1056,11 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
                 if table_items:
                     bigquery_tables.extend(
                         BigQueryDataDictionary.get_tables_for_dataset(
-                            conn, project_id, dataset_name, table_items
+                            conn,
+                            project_id,
+                            dataset_name,
+                            table_items,
+                            with_data_read_permission=self.config.profiling.enabled,
                         )
                     )
 
@@ -1032,7 +1092,7 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
         # falling back to get views for schema
         if not views:
             return BigQueryDataDictionary.get_views_for_dataset(
-                conn, project_id, dataset_name
+                conn, project_id, dataset_name, self.config.profiling.enabled
             )
 
         # Some schema may not have any table

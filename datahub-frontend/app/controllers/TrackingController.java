@@ -1,7 +1,16 @@
 package controllers;
 
+import auth.Authenticator;
+import client.AuthServiceClient;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.typesafe.config.Config;
+import java.util.Arrays;
+import java.util.Collections;
+import java.util.List;
+import java.util.Optional;
+import java.util.Properties;
+import javax.annotation.Nonnull;
+import javax.inject.Inject;
 import org.apache.kafka.clients.CommonClientConfigs;
 import org.apache.kafka.clients.producer.KafkaProducer;
 import org.apache.kafka.clients.producer.ProducerConfig;
@@ -11,19 +20,10 @@ import org.apache.kafka.common.config.SslConfigs;
 import org.apache.kafka.common.security.auth.SecurityProtocol;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import auth.Authenticator;
-import javax.annotation.Nonnull;
-import javax.inject.Inject;
-
 import play.mvc.Controller;
+import play.mvc.Http;
 import play.mvc.Result;
 import play.mvc.Security;
-
-import java.util.Arrays;
-import java.util.Collections;
-import java.util.List;
-import java.util.Optional;
-import java.util.Properties;
 import utils.ConfigUtil;
 
 import static auth.AuthUtils.*;
@@ -35,13 +35,16 @@ public class TrackingController extends Controller {
     private final Logger _logger = LoggerFactory.getLogger(TrackingController.class.getName());
 
     private static final List<String> KAFKA_SSL_PROTOCOLS = Collections.unmodifiableList(
-            Arrays.asList(SecurityProtocol.SSL.name(), SecurityProtocol.SASL_SSL.name(),
+        Arrays.asList(SecurityProtocol.SSL.name(), SecurityProtocol.SASL_SSL.name(),
             SecurityProtocol.SASL_PLAINTEXT.name()));
 
     private final Boolean _isEnabled;
     private final Config _config;
     private final KafkaProducer<String, String> _producer;
     private final String _topic;
+
+    @Inject
+    AuthServiceClient _authClient;
 
     @Inject
     public TrackingController(@Nonnull Config config) {
@@ -59,7 +62,7 @@ public class TrackingController extends Controller {
 
     @Security.Authenticated(Authenticator.class)
     @Nonnull
-    public Result track() throws Exception {
+    public Result track(Http.Request request) throws Exception {
         if (!_isEnabled) {
             // If tracking is disabled, simply return a 200.
             return status(200);
@@ -67,7 +70,7 @@ public class TrackingController extends Controller {
 
         JsonNode event;
         try {
-            event = request().body().asJson();
+            event = request.body().asJson();
         } catch (Exception e) {
             return badRequest();
         }
@@ -75,12 +78,13 @@ public class TrackingController extends Controller {
         try {
             _logger.debug(String.format("Emitting product analytics event. actor: %s, event: %s", actor, event));
             final ProducerRecord<String, String> record = new ProducerRecord<>(
-                    _topic,
-                    actor,
-                    event.toString());
-             _producer.send(record);
-             _producer.flush();
-             return ok();
+                _topic,
+                actor,
+                event.toString());
+            _producer.send(record);
+            _producer.flush();
+            _authClient.track(event.toString());
+            return ok();
         } catch (Exception e) {
             _logger.error(String.format("Failed to emit product analytics event. actor: %s, event: %s", actor, event));
             return internalServerError(e.getMessage());
