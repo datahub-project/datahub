@@ -1174,29 +1174,26 @@ class LookMLSource(Source):
 
     def _get_custom_properties(self, looker_view: LookerView) -> DatasetPropertiesClass:
         assert self.source_config.base_folder  # this is always filled out
-        dataset_props = DatasetPropertiesClass(name=looker_view.id.view_name)
 
-        file_path = None
-        try:
-            file_path = str(
-                pathlib.Path(looker_view.absolute_file_path).relative_to(
-                    self.source_config.base_folder.resolve()
-                )
+        file_path = str(
+            pathlib.Path(looker_view.absolute_file_path).relative_to(
+                self.source_config.base_folder.resolve()
             )
-        except Exception:
-            pass
+        )
 
-        if file_path:
-            custom_properties = {
-                "looker.file.path": file_path,
-            }
-            dataset_props.customProperties = custom_properties
+        custom_properties = {
+            "looker.file.path": file_path,
+        }
+        dataset_props = DatasetPropertiesClass(
+            name=looker_view.id.view_name, customProperties=custom_properties
+        )
 
-            if self.source_config.github_info is not None:
-                github_file_url = self.source_config.github_info.get_url_for_file_path(
-                    file_path
-                )
-                dataset_props.externalUrl = github_file_url
+        if self.source_config.github_info is not None:
+            # It should be that looker_view.id.project_name is the base project.
+            github_file_url = self.source_config.github_info.get_url_for_file_path(
+                file_path
+            )
+            dataset_props.externalUrl = github_file_url
 
         return dataset_props
 
