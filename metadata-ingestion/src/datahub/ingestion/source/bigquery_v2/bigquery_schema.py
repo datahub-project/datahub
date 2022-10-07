@@ -265,8 +265,7 @@ class BigQueryDataDictionary:
     @staticmethod
     def get_query_result(conn: bigquery.Client, query: str) -> RowIterator:
         logger.debug(f"Query : {query}")
-        job_config = bigquery.QueryJobConfig(use_query_cache=False)
-        resp = conn.query(query, job_config=job_config)
+        resp = conn.query(query)
         return resp.result()
 
     @staticmethod
