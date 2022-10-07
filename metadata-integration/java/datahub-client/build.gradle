@@ -36,6 +36,7 @@ dependencies {
     compileOnly externalDependency.httpAsyncClient
     implementation externalDependency.jacksonDataBind
     implementation externalDependency.javaxValidation
+    runtimeOnly externalDependency.jna
     implementation externalDependency.springContext
     implementation externalDependency.swaggerAnnotations
     implementation(externalDependency.kafkaAvroSerializer) {
@@ -108,6 +109,7 @@ shadowJar {
   relocate 'com.github.benmanes.caffeine', 'datahub.shaded.com.github.benmanes.caffeine'
   relocate 'org.checkerframework', 'datahub.shaded.org.checkerframework'
   relocate 'com.google.errorprone', 'datahub.shaded.com.google.errorprone'
+  relocate 'com.sun.jna', 'datahub.shaded.com.sun.jna'
   // Below jars added for kafka emitter only
   relocate 'org.apache.avro', 'datahub.shaded.org.apache.avro'
   relocate 'org.codehaus.jackson', 'datahub.shaded.org.codehaus.jackson'

@@ -530,6 +530,20 @@
     }
 },
 {
+    "entityType": "container",
+    "entityUrn": "urn:li:container:fad3de4b86519c3edeb685215fe0bab1",
+    "changeType": "UPSERT",
+    "aspectName": "globalTags",
+    "aspect": {
+        "value": "{\"tags\": [{\"tag\": \"urn:li:tag:TAGSHEET3\"}]}",
+        "contentType": "application/json"
+    },
+    "systemMetadata": {
+        "lastObserved": 1638860400000,
+        "runId": "tableau-test"
+    }
+},
+{
     "proposedSnapshot": {
         "com.linkedin.pegasus2avro.metadata.snapshot.ChartSnapshot": {
             "urn": "urn:li:chart:(tableau,8a6a269a-d6de-fae4-5050-513255b40ffc)",
