@@ -80,6 +80,6 @@ public class GlossaryTermMapper implements ModelMapper<EntityResponse, GlossaryT
 
     private void mapDomains(@Nonnull GlossaryTerm glossaryTerm, @Nonnull DataMap dataMap) {
       final Domains domains = new Domains(dataMap);
-      glossaryTerm.setDomain(DomainAssociationMapper.map(domains, dataset.getUrn()));
+      glossaryTerm.setDomain(DomainAssociationMapper.map(domains, glossaryTerm.getUrn()));
     }
 }
