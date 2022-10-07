@@ -154,9 +154,11 @@ class LookMLSourceConfig(LookerCommonConfig):
         None,
         description="Required if not providing github configuration and deploy keys. A pointer to a local directory (accessible to the ingestion system) where the root of the LookML repo has been checked out (typically via a git clone). This is typically the root folder where the `*.model.lkml` and `*.view.lkml` files are stored. e.g. If you have checked out your LookML repo under `/Users/jdoe/workspace/my-lookml-repo`, then set `base_folder` to `/Users/jdoe/workspace/my-lookml-repo`.",
     )
-    base_projects_folder: Dict[str, pydantic.DirectoryPath] = Field(
+    project_dependencies: Dict[str, Union[pydantic.DirectoryPath, GitHubInfo]] = Field(
         {},
-        description="A map of project_name to local directory (accessible to the ingestion system) where projects referred to by this main project have been checked out (typically via a git clone). When not provided, datahub will attempt to checkout these repos automatically using the deploy keys if they have been configured.",
+        description="A map of project_name to local directory (accessible to the ingestion system) or Git credentials. "
+        "Every local_dependencies or private remote_dependency listed in the main project's manifest.lkml file should have a corresponding entry here. "
+        "If a deploy key is not provided, the ingestion system will use the same deploy key as the main project. ",
     )
     connection_to_platform_map: Optional[Dict[str, LookerConnectionDefinition]] = Field(
         None,
@@ -964,6 +966,8 @@ class LookMLSource(Source):
     reporter: LookMLSourceReport
     looker_client: Optional[LookerAPI] = None
 
+    base_projects_folder: Dict[str, pathlib.Path] = {}
+
     def __init__(self, config: LookMLSourceConfig, ctx: PipelineContext):
         super().__init__(ctx)
         self.source_config = config
@@ -986,7 +990,7 @@ class LookMLSource(Source):
                 parsed,
                 self.source_config.project_name or "",
                 str(self.source_config.base_folder),
-                self.source_config.base_projects_folder,
+                self.base_projects_folder,
                 path,
                 self.reporter,
             )
@@ -1278,27 +1282,42 @@ class LookMLSource(Source):
                 self.reporter.git_clone_latency = datetime.now() - start_time
                 self.source_config.base_folder = checkout_dir.resolve()
                 manifest = self.get_manifest_if_present(self.source_config.base_folder)
-                if manifest and manifest.projects:
+                if manifest:
                     for project in manifest.projects:
-                        p_clone = GitClone(f"{tmp_dir}/_included_/{project}")
-                        try:
-                            p_checkout_dir = p_clone.clone(
-                                ssh_key=self.source_config.github_info.deploy_key,
-                                repo_url=self.source_config.github_info.repo_ssh_locator.replace(
-                                    self.source_config.github_info.repo.split("/")[1],
-                                    project,
-                                ),
-                            )
-                            self.source_config.base_projects_folder[
-                                project
-                            ] = p_checkout_dir
-                        except Exception as e:
-                            logger.warning(
-                                f"Failed to clone remote project {project}. This can lead to failures in parsing lookml files later on",
-                                e,
-                            )
+                        p_ref = self.source_config.project_dependencies.get(project)
 
-                breakpoint()
+                        if not p_ref:
+                            logger.warning(
+                                f"Could not find {project} in the project_dependencies config",
+                            )
+                            continue
+
+                        # If we were given GitHub info, we need to clone the project.
+                        if isinstance(p_ref, GitHubInfo):
+                            assert p_ref.repo_ssh_locator
+
+                            p_cloner = GitClone(f"{tmp_dir}/_included_/{project}")
+                            try:
+                                p_checkout_dir = p_cloner.clone(
+                                    ssh_key=(
+                                        # If a deploy key was provided, use it. Otherwise, fall back
+                                        # to the main project deploy key.
+                                        p_ref.deploy_key
+                                        or self.source_config.github_info.deploy_key
+                                    ),
+                                    repo_url=p_ref.repo_ssh_locator,
+                                )
+
+                                p_ref = p_checkout_dir.resolve()
+                            except Exception as e:
+                                logger.warning(
+                                    f"Failed to clone remote project {project}. This can lead to failures in parsing lookml files later on",
+                                    e,
+                                )
+                                continue
+
+                        self.base_projects_folder[project] = p_ref
+
                 yield from self.get_internal_workunits()
         else:
             yield from self.get_internal_workunits()
@@ -1309,7 +1328,7 @@ class LookMLSource(Source):
         viewfile_loader = LookerViewFileLoader(
             self.source_config.project_name or "",
             str(self.source_config.base_folder),
-            self.source_config.base_projects_folder,
+            self.base_projects_folder,
             self.reporter,
         )
 
