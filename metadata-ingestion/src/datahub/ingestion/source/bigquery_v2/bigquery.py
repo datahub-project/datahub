@@ -305,7 +305,7 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
                 if failures_before_test != len(report.failures):
                     return CapabilityReport(
                         capable=False,
-                        failure_reason=f"Usage capability test failed. Check the logs for further info",
+                        failure_reason="Usage capability test failed. Check the logs for further info",
                     )
             except Exception as e:
                 return CapabilityReport(
