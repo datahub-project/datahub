@@ -68,6 +68,8 @@ from datahub.utilities.sql_parser import SQLParser
 
 logger = logging.getLogger(__name__)
 
+_BASE_PROJECT_NAME = "__BASE"
+
 # Patch lkml to support the local_dependency and remote_dependency keywords.
 lkml.simple.PLURAL_KEYS = (
     *lkml.simple.PLURAL_KEYS,
@@ -511,13 +513,11 @@ class LookerViewFileLoader:
 
     def __init__(
         self,
-        base_project_name: str,
         base_folder: str,
         base_projects_folder: Dict[str, pathlib.Path],
         reporter: LookMLSourceReport,
     ) -> None:
         self.viewfile_cache: Dict[str, LookerViewFile] = {}
-        self._base_project_name = base_project_name
         self._base_folder = base_folder
         self._base_projects_folder = base_projects_folder
         self.reporter = reporter
@@ -541,8 +541,6 @@ class LookerViewFileLoader:
             return self.viewfile_cache[path]
 
         try:
-            if "event_type.view.lkml" in path:
-                breakpoint()
             with open(path, "r") as file:
                 raw_file_content = file.read()
         except Exception as e:
@@ -997,7 +995,7 @@ class LookMLSource(Source):
             parsed = lkml.load(file)
             looker_model = LookerModel.from_looker_dict(
                 parsed,
-                self.source_config.project_name or "",
+                _BASE_PROJECT_NAME,
                 str(self.source_config.base_folder),
                 self.base_projects_folder,
                 path,
@@ -1298,7 +1296,7 @@ class LookMLSource(Source):
                 self.source_config.base_folder = checkout_dir.resolve()
 
             self.base_projects_folder[
-                self.source_config.project_name or "__BASE"
+                _BASE_PROJECT_NAME
             ] = self.source_config.base_folder
             visited_projects: Set[str] = set()
 
@@ -1336,7 +1334,7 @@ class LookMLSource(Source):
                 self.base_projects_folder[project] = p_ref
 
             self._recursively_check_manifests(
-                tmp_dir, self.source_config.project_name or "__BASE", visited_projects
+                tmp_dir, _BASE_PROJECT_NAME, visited_projects
             )
 
             yield from self.get_internal_workunits()
@@ -1364,6 +1362,9 @@ class LookMLSource(Source):
 
                 p_cloner = GitClone(f"{tmp_dir}/_remote_/{project_name}")
                 try:
+                    # TODO: For 100% correctness, we should be consulting
+                    # the manifest lock file for the exact ref to use.
+
                     p_checkout_dir = p_cloner.clone(
                         ssh_key=(
                             self.source_config.github_info.deploy_key
@@ -1394,7 +1395,6 @@ class LookMLSource(Source):
         assert self.source_config.base_folder
 
         viewfile_loader = LookerViewFileLoader(
-            self.source_config.project_name or "",
             str(self.source_config.base_folder),
             self.base_projects_folder,
             self.reporter,
@@ -1439,7 +1439,7 @@ class LookMLSource(Source):
                 self.reporter.report_models_dropped(model_name)
                 continue
 
-            explore_reachable_views = set()
+            explore_reachable_views: Set[str] = set()
             if self.source_config.emit_reachable_views_only:
                 for explore_dict in model.explores:
                     try:
