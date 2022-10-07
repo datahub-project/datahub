@@ -762,6 +762,8 @@ class LookerExplore:
             upstreams = []
             fine_grained_lineages = []
             for view_name in sorted(self.upstream_views):
+                # BUG: The view does not necessarily come from the same project as the explore.
+                # We need to get info from the view loader / resolver.
                 view_urn = LookerViewId(
                     project_name=self.project_name,
                     model_name=self.model_name,
