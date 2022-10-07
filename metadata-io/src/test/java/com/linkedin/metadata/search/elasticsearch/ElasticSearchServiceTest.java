@@ -31,6 +31,7 @@ import org.testng.annotations.Test;
 
 import javax.annotation.Nonnull;
 import java.util.Collections;
+import java.util.Map;
 
 import static com.linkedin.metadata.ElasticSearchTestUtils.syncAfterWrite;
 import static org.testng.Assert.assertEquals;
@@ -73,7 +74,7 @@ public class ElasticSearchServiceTest {
   }
 
   public static ESIndexBuilder getIndexBuilder(RestHighLevelClient searchClient) {
-    return new ESIndexBuilder(searchClient, 1, 1, 3, 1);
+    return new ESIndexBuilder(searchClient, 1, 1, 3, 1, Map.of());
   }
 
   @Nonnull

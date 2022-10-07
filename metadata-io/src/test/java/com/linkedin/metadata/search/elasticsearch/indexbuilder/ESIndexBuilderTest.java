@@ -40,7 +40,7 @@ public class ESIndexBuilderTest {
     public static void setup() {
         _searchClient = ElasticTestUtils.getElasticsearchClient();
         _indexClient = _searchClient.indices();
-        testDefaultBuilder = new ESIndexBuilder(_searchClient, 1, 0, 0, 0);
+        testDefaultBuilder = new ESIndexBuilder(_searchClient, 1, 0, 0, 0, Map.of());
     }
 
     @BeforeMethod
@@ -69,7 +69,7 @@ public class ESIndexBuilderTest {
 
     @Test
     public void testESIndexBuilderCreation() throws Exception {
-        ESIndexBuilder customIndexBuilder = new ESIndexBuilder(_searchClient, 2, 0, 1, 0);
+        ESIndexBuilder customIndexBuilder = new ESIndexBuilder(_searchClient, 2, 0, 1, 0, Map.of());
         customIndexBuilder.buildIndex(TEST_INDEX_NAME, Map.of(), Map.of());
         GetIndexResponse resp = getTestIndex();
 
@@ -120,7 +120,8 @@ public class ESIndexBuilderTest {
                 Integer.parseInt(expectedShards),
                 testDefaultBuilder.getNumReplicas(),
                 testDefaultBuilder.getNumRetries(),
-                testDefaultBuilder.getRefreshIntervalSeconds());
+                testDefaultBuilder.getRefreshIntervalSeconds(),
+                Map.of());
 
         // add new shard setting
         changedShardBuilder.buildIndex(TEST_INDEX_NAME, Map.of(), Map.of());
@@ -144,12 +145,14 @@ public class ESIndexBuilderTest {
                         testDefaultBuilder.getNumShards(),
                         testDefaultBuilder.getNumReplicas() + 1,
                         testDefaultBuilder.getNumRetries(),
-                        testDefaultBuilder.getRefreshIntervalSeconds()),
+                        testDefaultBuilder.getRefreshIntervalSeconds(),
+                        Map.of()),
                 new ESIndexBuilder(_searchClient,
                         testDefaultBuilder.getNumShards(),
                         testDefaultBuilder.getNumReplicas(),
                         testDefaultBuilder.getNumRetries(),
-                        testDefaultBuilder.getRefreshIntervalSeconds() + 10)
+                        testDefaultBuilder.getRefreshIntervalSeconds() + 10,
+                        Map.of())
         );
 
         for (ESIndexBuilder builder : noReindexBuilders) {

@@ -5,10 +5,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.MapDifference;
 import com.google.common.collect.Maps;
 import java.io.IOException;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.Objects;
+import java.util.*;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
@@ -56,6 +53,9 @@ public class ESIndexBuilder {
   @Getter
   private final int refreshIntervalSeconds;
 
+  @Getter
+  private final Map<String, Map<String, String>> indexSettingOverrides;
+
   /*
     Most index settings are default values and populated by Elastic. This list is an include list to determine which
     settings we care about when a difference is present.
@@ -75,6 +75,7 @@ public class ESIndexBuilder {
     baseSettings.put("number_of_shards", numShards);
     baseSettings.put("number_of_replicas", numReplicas);
     baseSettings.put("refresh_interval", String.format("%ss", refreshIntervalSeconds));
+    baseSettings.putAll(Optional.ofNullable(indexSettingOverrides).orElse(Map.of()).getOrDefault(indexName, Map.of()));
     Map<String, Object> finalSettings = ImmutableMap.of("index", baseSettings);
 
     // If index doesn't exist, create index
