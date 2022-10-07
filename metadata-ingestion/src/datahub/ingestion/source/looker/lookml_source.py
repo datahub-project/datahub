@@ -939,12 +939,20 @@ class LookerView:
 
 
 @dataclass
+class LookerRemoteDependency:
+    name: str
+    url: str
+    ref: Optional[str]
+
+
+@dataclass
 class LookerManifest:
     # This must be set if the manifest has local_dependency entries.
     # See https://cloud.google.com/looker/docs/reference/param-manifest-project-name
     project_name: Optional[str]
 
-    projects: List[str]
+    local_dependencies: List[str]
+    remote_dependencies: List[LookerRemoteDependency]
 
 
 @platform_name("Looker")
@@ -966,6 +974,7 @@ class LookMLSource(Source):
     reporter: LookMLSourceReport
     looker_client: Optional[LookerAPI] = None
 
+    # This is populated during the git clone step.
     base_projects_folder: Dict[str, pathlib.Path] = {}
 
     def __init__(self, config: LookMLSourceConfig, ctx: PipelineContext):
@@ -1254,11 +1263,16 @@ class LookMLSource(Source):
             with manifest_file.open() as fp:
                 manifest_dict = lkml.load(fp)
 
-            # TODO capture remote dependencies
             manifest = LookerManifest(
                 project_name=manifest_dict.get("project_name"),
-                projects=[
+                local_dependencies=[
                     x["project"] for x in manifest_dict.get("local_dependencys", [])
+                ],
+                remote_dependencies=[
+                    LookerRemoteDependency(
+                        name=x["name"], url=x["url"], ref=x.get("ref")
+                    )
+                    for x in manifest_dict.get("remote_dependencys", [])
                 ],
             )
             return manifest
@@ -1266,11 +1280,12 @@ class LookMLSource(Source):
             return None
 
     def get_workunits(self) -> Iterable[MetadataWorkUnit]:
-        if not self.source_config.base_folder:
-            assert self.source_config.github_info
-            # we don't have a base_folder, so we need to clone the repo and process it locally
-            start_time = datetime.now()
-            with tempfile.TemporaryDirectory("lookml_tmp") as tmp_dir:
+        with tempfile.TemporaryDirectory("lookml_tmp") as tmp_dir:
+            # Clone the base_folder if necessary.
+            if not self.source_config.base_folder:
+                assert self.source_config.github_info
+                # we don't have a base_folder, so we need to clone the repo and process it locally
+                start_time = datetime.now()
                 git_clone = GitClone(tmp_dir)
                 # github info deploy key is always populated
                 assert self.source_config.github_info.deploy_key
@@ -1281,46 +1296,99 @@ class LookMLSource(Source):
                 )
                 self.reporter.git_clone_latency = datetime.now() - start_time
                 self.source_config.base_folder = checkout_dir.resolve()
-                manifest = self.get_manifest_if_present(self.source_config.base_folder)
-                if manifest:
-                    for project in manifest.projects:
-                        p_ref = self.source_config.project_dependencies.get(project)
 
-                        if not p_ref:
-                            logger.warning(
-                                f"Could not find {project} in the project_dependencies config",
-                            )
-                            continue
+            self.base_projects_folder[
+                self.source_config.project_name or "__BASE"
+            ] = self.source_config.base_folder
+            visited_projects: Set[str] = set()
 
-                        # If we were given GitHub info, we need to clone the project.
-                        if isinstance(p_ref, GitHubInfo):
-                            assert p_ref.repo_ssh_locator
+            # We clone everything that we're pointed at.
+            for project, p_ref in self.source_config.project_dependencies.items():
+                # If we were given GitHub info, we need to clone the project.
+                if isinstance(p_ref, GitHubInfo):
+                    assert p_ref.repo_ssh_locator
 
-                            p_cloner = GitClone(f"{tmp_dir}/_included_/{project}")
-                            try:
-                                p_checkout_dir = p_cloner.clone(
-                                    ssh_key=(
-                                        # If a deploy key was provided, use it. Otherwise, fall back
-                                        # to the main project deploy key.
-                                        p_ref.deploy_key
-                                        or self.source_config.github_info.deploy_key
-                                    ),
-                                    repo_url=p_ref.repo_ssh_locator,
+                    p_cloner = GitClone(f"{tmp_dir}/_included_/{project}")
+                    try:
+                        p_checkout_dir = p_cloner.clone(
+                            ssh_key=(
+                                # If a deploy key was provided, use it. Otherwise, fall back
+                                # to the main project deploy key.
+                                p_ref.deploy_key
+                                or (
+                                    self.source_config.github_info.deploy_key
+                                    if self.source_config.github_info
+                                    else None
                                 )
+                            ),
+                            repo_url=p_ref.repo_ssh_locator,
+                        )
 
-                                p_ref = p_checkout_dir.resolve()
-                            except Exception as e:
-                                logger.warning(
-                                    f"Failed to clone remote project {project}. This can lead to failures in parsing lookml files later on",
-                                    e,
-                                )
-                                continue
+                        p_ref = p_checkout_dir.resolve()
+                    except Exception as e:
+                        logger.warning(
+                            f"Failed to clone remote project {project}. This can lead to failures in parsing lookml files later on",
+                            e,
+                        )
+                        visited_projects.add(project)
+                        continue
 
-                        self.base_projects_folder[project] = p_ref
+                self.base_projects_folder[project] = p_ref
 
-                yield from self.get_internal_workunits()
-        else:
+            self._recursively_check_manifests(
+                tmp_dir, self.source_config.project_name or "__BASE", visited_projects
+            )
+
             yield from self.get_internal_workunits()
+
+    def _recursively_check_manifests(
+        self, tmp_dir: str, project_name: str, project_visited: Set[str]
+    ) -> None:
+        if project_name in project_visited:
+            return
+        project_visited.add(project_name)
+
+        project_path = self.base_projects_folder.get(project_name)
+        if not project_path:
+            logger.warning(
+                f"Could not find {project_name} in the project_dependencies config. This can lead to failures in parsing lookml files later on.",
+            )
+            return
+
+        manifest = self.get_manifest_if_present(project_path)
+        if manifest:
+            # Clone the remote project dependencies.
+            for remote_project in manifest.remote_dependencies:
+                if remote_project.name in project_visited:
+                    continue
+
+                p_cloner = GitClone(f"{tmp_dir}/_remote_/{project_name}")
+                try:
+                    p_checkout_dir = p_cloner.clone(
+                        ssh_key=(
+                            self.source_config.github_info.deploy_key
+                            if self.source_config.github_info
+                            else None
+                        ),
+                        repo_url=remote_project.url,
+                    )
+
+                    self.base_projects_folder[
+                        remote_project.name
+                    ] = p_checkout_dir.resolve()
+                except Exception as e:
+                    logger.warning(
+                        f"Failed to clone remote project {project_name}. This can lead to failures in parsing lookml files later on",
+                        e,
+                    )
+                    project_visited.add(project_name)
+                else:
+                    self._recursively_check_manifests(
+                        tmp_dir, remote_project.name, project_visited
+                    )
+
+            for project in manifest.local_dependencies:
+                self._recursively_check_manifests(tmp_dir, project, project_visited)
 
     def get_internal_workunits(self) -> Iterable[MetadataWorkUnit]:  # noqa: C901
         assert self.source_config.base_folder
