@@ -93,6 +93,11 @@ public class PoliciesConfig {
       "Create Domains",
       "Create new Domains.");
 
+  public static final Privilege CREATE_GLOBAL_ANNOUNCEMENTS_PRIVILEGE = Privilege.of(
+      "CREATE_GLOBAL_ANNOUNCEMENTS",
+      "Create Global Announcements",
+      "Create new Global Announcements.");
+
   public static final List<Privilege> PLATFORM_PRIVILEGES = ImmutableList.of(
       MANAGE_POLICIES_PRIVILEGE,
       MANAGE_USERS_AND_GROUPS_PRIVILEGE,
@@ -107,7 +112,7 @@ public class PoliciesConfig {
       MANAGE_USER_CREDENTIALS_PRIVILEGE,
       MANAGE_TAGS_PRIVILEGE,
       CREATE_TAGS_PRIVILEGE,
-      CREATE_DOMAINS_PRIVILEGE
+      CREATE_DOMAINS_PRIVILEGE, CREATE_GLOBAL_ANNOUNCEMENTS_PRIVILEGE
   );
 
   // Resource Privileges //

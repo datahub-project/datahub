@@ -1,0 +1,35 @@
+namespace com.linkedin.post
+
+/**
+ * Information about a DataHub Post.
+ */
+@Aspect = {
+  "name": "postInfo"
+}
+record PostInfo {
+  /**
+   * Type of the Post.
+   */
+  type: PostType
+
+  /**
+   * Content stored in the post.
+   */
+  content: PostContent
+
+  /**
+   * The time at which the post was initially created
+   */
+  @Searchable = {
+    "fieldType": "COUNT"
+  }
+  created: long
+
+  /**
+   * The time at which the post was last modified
+   */
+  @Searchable = {
+    "fieldType": "COUNT"
+  }
+  lastModified: long
+}

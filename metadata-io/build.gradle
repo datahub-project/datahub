@@ -28,6 +28,7 @@ dependencies {
   compile externalDependency.elasticSearchTransport
   compile externalDependency.javatuples
   compile externalDependency.javaxValidation
+  runtimeOnly externalDependency.jna
   compile externalDependency.kafkaClients
   compile externalDependency.ebean
   enhance externalDependency.ebeanAgent

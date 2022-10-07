@@ -2,7 +2,7 @@ import * as React from 'react';
 import { useState } from 'react';
 import styled from 'styled-components';
 
-import { FacetFilterInput, FacetMetadata, SearchCondition } from '../../types.generated';
+import { FacetFilterInput, FacetMetadata, FilterOperator } from '../../types.generated';
 import { ANTD_GRAY } from '../entity/shared/constants';
 import { AdvancedSearchFilter } from './AdvancedSearchFilter';
 import { AdvancedSearchFilterOverallUnionTypeSelect } from './AdvancedSearchFilterOverallUnionTypeSelect';
@@ -47,6 +47,7 @@ interface Props {
     onFilterSelect: (newFilters: Array<FacetFilterInput>) => void;
     onChangeUnionType: (unionType: UnionType) => void;
     unionType?: UnionType;
+    loading: boolean;
 }
 
 export const AdvancedSearchFilters = ({
@@ -55,6 +56,7 @@ export const AdvancedSearchFilters = ({
     selectedFilters,
     onFilterSelect,
     onChangeUnionType,
+    loading,
 }: Props) => {
     const [filterField, setFilterField] = useState<null | string>(null);
 
@@ -68,10 +70,9 @@ export const AdvancedSearchFilters = ({
         const newFilter: FacetFilterInput = {
             field: filterField,
             values: values as string[],
-            value: '', // TODO(Gabe): remove once we refactor the model
             condition: FIELDS_THAT_USE_CONTAINS_OPERATOR.includes(filterField)
-                ? SearchCondition.Contain
-                : SearchCondition.Equal,
+                ? FilterOperator.Contain
+                : FilterOperator.Equal,
         };
         onFilterSelect([...selectedFilters, newFilter]);
     };
@@ -94,6 +95,7 @@ export const AdvancedSearchFilters = ({
             {selectedFilters.map((filter) => (
                 <AdvancedSearchFilter
                     facet={facets.find((facet) => facet.field === filter.field) || facets[0]}
+                    loading={loading}
                     filter={filter}
                     onClose={() => {
                         onFilterSelect(selectedFilters.filter((f) => f !== filter));

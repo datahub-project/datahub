@@ -2,11 +2,12 @@ import React from 'react';
 import { Pagination, Typography } from 'antd';
 import styled from 'styled-components';
 import { FacetFilterInput, FacetMetadata, SearchResults as SearchResultType } from '../../../../../../types.generated';
-import { SearchFilters } from '../../../../../search/SearchFilters';
 import { SearchCfg } from '../../../../../../conf';
 import { EntityNameList } from '../../../../../recommendations/renderer/component/EntityNameList';
 import { ReactComponent as LoadingSvg } from '../../../../../../images/datahub-logo-color-loading_pendulum.svg';
 import { EntityAndType } from '../../../types';
+import { UnionType } from '../../../../../search/utils/constants';
+import { SearchFiltersSection } from '../../../../../search/SearchFiltersSection';
 
 const SearchBody = styled.div`
     height: 100%;
@@ -44,31 +45,9 @@ const PaginationInfoContainer = styled.span`
     align-items: center;
 `;
 
-const FiltersHeader = styled.div`
-    font-size: 14px;
-    font-weight: 600;
-    flex: 0 0 auto;
-
-    padding-left: 20px;
-    padding-right: 20px;
-    padding-bottom: 8px;
-
-    width: 100%;
-    height: 46px;
-    line-height: 46px;
-    border-bottom: 1px solid;
-    border-color: ${(props) => props.theme.styles['border-color-base']};
-`;
-
 const StyledPagination = styled(Pagination)`
     margin: 0px;
     padding: 0px;
-`;
-
-const SearchFilterContainer = styled.div`
-    padding-top: 10px;
-    flex: 1 1 auto;
-    overflow: hidden;
 `;
 
 const LoadingContainer = styled.div`
@@ -86,8 +65,10 @@ interface Props {
     selectedFilters: Array<FacetFilterInput>;
     loading: boolean;
     showFilters?: boolean;
+    unionType: UnionType;
     onChangeFilters: (filters: Array<FacetFilterInput>) => void;
     onChangePage: (page: number) => void;
+    onChangeUnionType: (unionType: UnionType) => void;
     isSelectMode: boolean;
     selectedEntities: EntityAndType[];
     setSelectedEntities: (entities: EntityAndType[]) => any;
@@ -102,6 +83,8 @@ export const EmbeddedListSearchResults = ({
     selectedFilters,
     loading,
     showFilters,
+    unionType,
+    onChangeUnionType,
     onChangeFilters,
     onChangePage,
     isSelectMode,
@@ -120,15 +103,14 @@ export const EmbeddedListSearchResults = ({
             <SearchBody>
                 {!!showFilters && (
                     <FiltersContainer>
-                        <FiltersHeader>Filter</FiltersHeader>
-                        <SearchFilterContainer>
-                            <SearchFilters
-                                loading={loading}
-                                facets={filters || []}
-                                selectedFilters={selectedFilters}
-                                onFilterSelect={(newFilters) => onChangeFilters(newFilters)}
-                            />
-                        </SearchFilterContainer>
+                        <SearchFiltersSection
+                            filters={filters}
+                            selectedFilters={selectedFilters}
+                            unionType={unionType}
+                            loading={loading}
+                            onChangeFilters={onChangeFilters}
+                            onChangeUnionType={onChangeUnionType}
+                        />
                     </FiltersContainer>
                 )}
                 <ResultContainer>
