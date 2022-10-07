@@ -30,14 +30,18 @@ public class UpstreamLineagesMapper {
 
     for (FineGrainedLineage fineGrainedLineage : upstreamLineage.getFineGrainedLineages()) {
       com.linkedin.datahub.graphql.generated.FineGrainedLineage resultEntry = new com.linkedin.datahub.graphql.generated.FineGrainedLineage();
-      resultEntry.setUpstreams(fineGrainedLineage.getUpstreams().stream()
-          .filter(entry -> entry.getEntityType().equals("schemaField"))
-          .map(entry -> mapDatasetSchemaField(entry)).collect(
-          Collectors.toList()));
-      resultEntry.setDownstreams(fineGrainedLineage.getDownstreams().stream()
-          .filter(entry -> entry.getEntityType().equals("schemaField"))
-          .map(entry ->  mapDatasetSchemaField(entry)).collect(
-          Collectors.toList()));
+      if (fineGrainedLineage.hasUpstreams()) {
+        resultEntry.setUpstreams(fineGrainedLineage.getUpstreams().stream()
+            .filter(entry -> entry.getEntityType().equals("schemaField"))
+            .map(entry -> mapDatasetSchemaField(entry)).collect(
+            Collectors.toList()));
+      }
+      if (fineGrainedLineage.hasDownstreams()) {
+        resultEntry.setDownstreams(fineGrainedLineage.getDownstreams().stream()
+            .filter(entry -> entry.getEntityType().equals("schemaField"))
+            .map(entry ->  mapDatasetSchemaField(entry)).collect(
+            Collectors.toList()));
+      }
       result.add(resultEntry);
     }
     return result;
