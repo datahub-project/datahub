@@ -495,7 +495,7 @@ public class CassandraAspectDao implements AspectDao, AspectMigrationsDao {
     }
     // Save oldValue as the largest version + 1
     long largestVersion = ASPECT_LATEST_VERSION;
-    BatchStatement batch = BatchStatement.newInstance(BatchType.LOGGED);
+    BatchStatement batch = BatchStatement.newInstance(BatchType.UNLOGGED);
     if (oldAspectMetadata != null && oldTime != null) {
       largestVersion = nextVersion;
       final EntityAspect aspect = new EntityAspect(
