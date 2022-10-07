@@ -33,14 +33,14 @@ public class ESIndexBuilderTest {
     private static RestHighLevelClient _searchClient;
     private static IndicesClient _indexClient;
     private static final String TEST_INDEX_NAME = "esindex_builder_test";
-    private static ESIndexBuilder TEST_DEFAULT_BUILDER;
+    private static ESIndexBuilder testDefaultBuilder;
 
 
     @BeforeClass
     public static void setup() {
         _searchClient = ElasticTestUtils.getElasticsearchClient();
         _indexClient = _searchClient.indices();
-        TEST_DEFAULT_BUILDER = new ESIndexBuilder(_searchClient, 1, 0, 0, 0);
+        testDefaultBuilder = new ESIndexBuilder(_searchClient, 1, 0, 0, 0);
     }
 
     @BeforeMethod
@@ -52,7 +52,8 @@ public class ESIndexBuilderTest {
                             _indexClient.delete(new DeleteIndexRequest(index), RequestOptions.DEFAULT);
                         } catch (IOException e) {
                             throw new RuntimeException(e);
-                        }});
+                        }
+                    });
 
             _indexClient.delete(new DeleteIndexRequest(TEST_INDEX_NAME), RequestOptions.DEFAULT);
         } catch (ElasticsearchException exception) {
@@ -80,11 +81,11 @@ public class ESIndexBuilderTest {
     @Test
     public void testMappingReindex() throws Exception {
         // No mappings
-        TEST_DEFAULT_BUILDER.buildIndex(TEST_INDEX_NAME, Map.of(), Map.of());
+        testDefaultBuilder.buildIndex(TEST_INDEX_NAME, Map.of(), Map.of());
         String beforeCreationDate = getTestIndex().getSetting(TEST_INDEX_NAME, "index.creation_date");
 
         // add new mappings
-        TEST_DEFAULT_BUILDER.buildIndex(TEST_INDEX_NAME, SystemMetadataMappingsBuilder.getMappings(), Map.of());
+        testDefaultBuilder.buildIndex(TEST_INDEX_NAME, SystemMetadataMappingsBuilder.getMappings(), Map.of());
 
         String afterAddedMappingCreationDate = getTestIndex().getSetting(TEST_INDEX_NAME, "index.creation_date");
         assertEquals(beforeCreationDate, afterAddedMappingCreationDate, "Expected no reindex on *adding* mappings");
@@ -92,10 +93,10 @@ public class ESIndexBuilderTest {
         // change mappings
         Map<String, Object> newProps = ((Map<String, Object>) SystemMetadataMappingsBuilder.getMappings().get("properties"))
                 .entrySet().stream()
-                .map(m -> !m.getKey().equals("urn") ? m :
-                        Map.entry("urn", ImmutableMap.<String, Object>builder().put("type", "wildcard").build()))
+                .map(m -> !m.getKey().equals("urn") ? m
+                        : Map.entry("urn", ImmutableMap.<String, Object>builder().put("type", "wildcard").build()))
                 .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
-        TEST_DEFAULT_BUILDER.buildIndex(TEST_INDEX_NAME, Map.of("properties", newProps), Map.of());
+        testDefaultBuilder.buildIndex(TEST_INDEX_NAME, Map.of("properties", newProps), Map.of());
 
         assertTrue(Arrays.stream(getTestIndex().getIndices()).noneMatch(name -> name.equals(TEST_INDEX_NAME)),
                 "Expected original index to be replaced with alias");
@@ -110,16 +111,16 @@ public class ESIndexBuilderTest {
     @Test
     public void testSettingsNumberOfShardsReindex() throws Exception {
         // Set test defaults
-        TEST_DEFAULT_BUILDER.buildIndex(TEST_INDEX_NAME, Map.of(), Map.of());
+        testDefaultBuilder.buildIndex(TEST_INDEX_NAME, Map.of(), Map.of());
         assertEquals("1", getTestIndex().getSetting(TEST_INDEX_NAME, "index.number_of_shards"));
         String beforeCreationDate = getTestIndex().getSetting(TEST_INDEX_NAME, "index.creation_date");
 
         String expectedShards = "5";
         ESIndexBuilder changedShardBuilder = new ESIndexBuilder(_searchClient,
                 Integer.parseInt(expectedShards),
-                TEST_DEFAULT_BUILDER.getNumReplicas(),
-                TEST_DEFAULT_BUILDER.getNumRetries(),
-                TEST_DEFAULT_BUILDER.getRefreshIntervalSeconds());
+                testDefaultBuilder.getNumReplicas(),
+                testDefaultBuilder.getNumRetries(),
+                testDefaultBuilder.getRefreshIntervalSeconds());
 
         // add new shard setting
         changedShardBuilder.buildIndex(TEST_INDEX_NAME, Map.of(), Map.of());
@@ -140,20 +141,20 @@ public class ESIndexBuilderTest {
     public void testSettingsNoReindex() throws Exception {
         List<ESIndexBuilder> noReindexBuilders = List.of(
                 new ESIndexBuilder(_searchClient,
-                        TEST_DEFAULT_BUILDER.getNumShards(),
-                        TEST_DEFAULT_BUILDER.getNumReplicas() + 1,
-                        TEST_DEFAULT_BUILDER.getNumRetries(),
-                        TEST_DEFAULT_BUILDER.getRefreshIntervalSeconds()),
+                        testDefaultBuilder.getNumShards(),
+                        testDefaultBuilder.getNumReplicas() + 1,
+                        testDefaultBuilder.getNumRetries(),
+                        testDefaultBuilder.getRefreshIntervalSeconds()),
                 new ESIndexBuilder(_searchClient,
-                        TEST_DEFAULT_BUILDER.getNumShards(),
-                        TEST_DEFAULT_BUILDER.getNumReplicas(),
-                        TEST_DEFAULT_BUILDER.getNumRetries(),
-                        TEST_DEFAULT_BUILDER.getRefreshIntervalSeconds() + 10)
+                        testDefaultBuilder.getNumShards(),
+                        testDefaultBuilder.getNumReplicas(),
+                        testDefaultBuilder.getNumRetries(),
+                        testDefaultBuilder.getRefreshIntervalSeconds() + 10)
         );
 
         for (ESIndexBuilder builder : noReindexBuilders) {
             // Set test defaults
-            TEST_DEFAULT_BUILDER.buildIndex(TEST_INDEX_NAME, Map.of(), Map.of());
+            testDefaultBuilder.buildIndex(TEST_INDEX_NAME, Map.of(), Map.of());
             assertEquals("0", getTestIndex().getSetting(TEST_INDEX_NAME, "index.number_of_replicas"));
             assertEquals("0s", getTestIndex().getSetting(TEST_INDEX_NAME, "index.refresh_interval"));
             String beforeCreationDate = getTestIndex().getSetting(TEST_INDEX_NAME, "index.creation_date");
