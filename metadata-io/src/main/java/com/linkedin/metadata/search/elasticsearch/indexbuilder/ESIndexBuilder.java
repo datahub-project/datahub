@@ -128,7 +128,7 @@ public class ESIndexBuilder {
       if (requireReindex(finalSettings, oldSettings)) {
         log.info("There's an update to settings that requires reindexing.");
         reindex(indexName, mappings, finalSettings);
-      } else if(!isSettingsEqual) {
+      } else if (!isSettingsEqual) {
         UpdateSettingsRequest request = new UpdateSettingsRequest(indexName);
         Map<String, Object> indexSettings = ((Map<String, Object>) finalSettings.get("index"))
                 .entrySet().stream()
@@ -285,8 +285,8 @@ public class ESIndexBuilder {
       return true;
     }
 
-    return indexSettings.containsKey("analysis") &&
-            !equalsGroup((Map<String, Object>) indexSettings.get("analysis"), oldSettings.getByPrefix("index.analysis."));
+    return indexSettings.containsKey("analysis")
+            && !equalsGroup((Map<String, Object>) indexSettings.get("analysis"), oldSettings.getByPrefix("index.analysis."));
   }
 
   private static boolean equalsGroup(Map<String, Object> newSettings, Settings oldSettings) {
