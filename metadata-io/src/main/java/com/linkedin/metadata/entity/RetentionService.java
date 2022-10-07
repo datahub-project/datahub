@@ -105,12 +105,12 @@ public abstract class RetentionService {
     keyProposal.setEntityUrn(retentionUrn);
     AuditStamp auditStamp =
         new AuditStamp().setActor(Urn.createFromString(Constants.SYSTEM_ACTOR)).setTime(System.currentTimeMillis());
-    getEntityService().ingestProposal(keyProposal, auditStamp);
+    getEntityService().ingestProposal(keyProposal, auditStamp, false);
     MetadataChangeProposal aspectProposal = keyProposal.clone();
     GenericAspect retentionAspect = GenericRecordUtils.serializeAspect(retentionConfig);
     aspectProposal.setAspect(retentionAspect);
     aspectProposal.setAspectName(DATAHUB_RETENTION_ASPECT);
-    return getEntityService().ingestProposal(aspectProposal, auditStamp).isDidUpdate();
+    return getEntityService().ingestProposal(aspectProposal, auditStamp, false).isDidUpdate();
   }
 
   /**
