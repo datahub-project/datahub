@@ -761,7 +761,8 @@ class BigQueryUsageExtractor:
         try:
             resource = event.read_event.resource.get_sanitized_table_ref()
             if (
-                resource.table_identifier.get_table_display_name()
+                resource.table_identifier.dataset not in tables
+                or resource.table_identifier.get_table_display_name()
                 not in tables[resource.table_identifier.dataset]
             ):
                 logger.debug(f"Skipping non existing {resource} from usage")

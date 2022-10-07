@@ -708,6 +708,11 @@ enum EntityType {
     A DataHub Post
     """
     POST
+
+    """
+    A Schema Field
+    """
+    SCHEMA_FIELD
 }
 
 """
@@ -1153,6 +1158,16 @@ type Dataset implements EntityWithRelationships & Entity & BrowsableEntity {
     Metadata about the datasets siblings
     """
     siblings: SiblingProperties
+
+    """
+    fine grained lineage
+    """
+    fineGrainedLineages: [FineGrainedLineage!]
+}
+
+type FineGrainedLineage {
+    upstreams: [SchemaFieldRef!]
+    downstreams: [SchemaFieldRef!]
 }
 
 """
