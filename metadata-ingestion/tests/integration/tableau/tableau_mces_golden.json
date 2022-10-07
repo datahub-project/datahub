@@ -439,7 +439,9 @@
             "aspects": [
                 {
                     "com.linkedin.pegasus2avro.dashboard.DashboardInfo": {
-                        "customProperties": {},
+                        "customProperties": {
+                            "luid": "fc9ea488-f810-4fa8-ac19-aa96018b5d66"
+                        },
                         "title": "Email Performance by Campaign",
                         "description": "",
                         "charts": [
@@ -807,7 +809,9 @@
             "aspects": [
                 {
                     "com.linkedin.pegasus2avro.dashboard.DashboardInfo": {
-                        "customProperties": {},
+                        "customProperties": {
+                            "luid": ""
+                        },
                         "title": "dvd Rental Dashboard",
                         "description": "",
                         "charts": [
@@ -877,7 +881,9 @@
             "aspects": [
                 {
                     "com.linkedin.pegasus2avro.dashboard.DashboardInfo": {
-                        "customProperties": {},
+                        "customProperties": {
+                            "luid": ""
+                        },
                         "title": "Story 1",
                         "description": "",
                         "charts": [],
@@ -2334,7 +2340,9 @@
             "aspects": [
                 {
                     "com.linkedin.pegasus2avro.dashboard.DashboardInfo": {
-                        "customProperties": {},
+                        "customProperties": {
+                            "luid": ""
+                        },
                         "title": "Executive Dashboard",
                         "description": "",
                         "charts": [
