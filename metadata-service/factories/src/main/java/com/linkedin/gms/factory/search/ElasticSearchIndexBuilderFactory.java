@@ -13,6 +13,8 @@ import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Import;
 import org.springframework.context.annotation.PropertySource;
 
+import java.util.Map;
+
 
 @Configuration
 @Import({RestHighLevelClientFactory.class})
@@ -34,9 +36,12 @@ public class ElasticSearchIndexBuilderFactory {
   @Value("${elasticsearch.index.refreshIntervalSeconds}")
   private Integer refreshIntervalSeconds;
 
+  @Value("#{${elasticsearch.index.settingsOverrides}}")
+  Map<String, Map<String, String>> indexSettingOverrides;
+
   @Bean(name = "elasticSearchIndexBuilder")
   @Nonnull
   protected ESIndexBuilder getInstance() {
-    return new ESIndexBuilder(searchClient, numShards, numReplicas, numRetries, refreshIntervalSeconds);
+    return new ESIndexBuilder(searchClient, numShards, numReplicas, numRetries, refreshIntervalSeconds, indexSettingOverrides);
   }
 }
