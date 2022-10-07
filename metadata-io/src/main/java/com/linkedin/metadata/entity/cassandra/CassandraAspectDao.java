@@ -495,7 +495,7 @@ public class CassandraAspectDao implements AspectDao, AspectMigrationsDao {
     }
     // Save oldValue as the largest version + 1
     long largestVersion = ASPECT_LATEST_VERSION;
-    BatchStatement batch = BatchStatement.newInstance(BatchType.UNLOGGED);
+    BatchStatement batch = BatchStatement.newInstance(BatchType.LOGGED);
     if (oldAspectMetadata != null && oldTime != null) {
       largestVersion = nextVersion;
       final EntityAspect aspect = new EntityAspect(
@@ -544,7 +544,8 @@ public class CassandraAspectDao implements AspectDao, AspectMigrationsDao {
               .value(CassandraAspect.CREATED_ON_COLUMN, literal(aspect.getCreatedOn().getTime()))
               .value(CassandraAspect.CREATED_FOR_COLUMN, literal(aspect.getCreatedFor()))
               .value(CassandraAspect.ENTITY_COLUMN, literal(entity))
-              .value(CassandraAspect.CREATED_BY_COLUMN, literal(aspect.getCreatedBy()));
+              .value(CassandraAspect.CREATED_BY_COLUMN, literal(aspect.getCreatedBy()))
+              .ifNotExists();
       return ri.build();
     } else {
 
