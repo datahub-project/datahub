@@ -11,7 +11,7 @@ export const DomainEntitiesTab = () => {
     if (entityType === EntityType.Domain) {
         fixedFilter = {
             field: 'domains',
-            value: urn,
+            values: [urn],
         };
     }
 

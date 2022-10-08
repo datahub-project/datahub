@@ -12,8 +12,6 @@ import com.linkedin.common.urn.Urn;
 import com.typesafe.config.Config;
 import java.io.UnsupportedEncodingException;
 import java.net.URLEncoder;
-import java.time.Duration;
-import java.time.temporal.ChronoUnit;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Optional;
@@ -141,12 +139,7 @@ public class AuthenticationController extends Controller {
 
         final Urn actorUrn = new CorpuserUrn(username);
         final String accessToken = _authClient.generateSessionTokenForUser(actorUrn.getId());
-        Result result = ok().withSession(createSessionMap(actorUrn.toString(), accessToken))
-            .withCookies(Http.Cookie.builder(ACTOR, actorUrn.toString())
-                .withHttpOnly(false)
-                .withMaxAge(Duration.of(30, ChronoUnit.DAYS))
-                .build());
-        return result;
+        return createSession(actorUrn.toString(), accessToken);
     }
 
     /**
@@ -200,11 +193,7 @@ public class AuthenticationController extends Controller {
         final String userUrnString = userUrn.toString();
         _authClient.signUp(userUrnString, fullName, email, title, password, inviteToken);
         final String accessToken = _authClient.generateSessionTokenForUser(userUrn.getId());
-        return ok().withSession(createSessionMap(userUrnString, accessToken))
-            .withCookies(Http.Cookie.builder(ACTOR, userUrnString)
-                .withHttpOnly(false)
-                .withMaxAge(Duration.of(30, ChronoUnit.DAYS))
-                .build());
+        return createSession(userUrnString, accessToken);
     }
 
     /**
@@ -246,11 +235,7 @@ public class AuthenticationController extends Controller {
         final String userUrnString = userUrn.toString();
         _authClient.resetNativeUserCredentials(userUrnString, password, resetToken);
         final String accessToken = _authClient.generateSessionTokenForUser(userUrn.getId());
-        return ok().withSession(createSessionMap(userUrnString, accessToken))
-            .withCookies(Http.Cookie.builder(ACTOR, userUrnString)
-                .withHttpOnly(false)
-                .withMaxAge(Duration.of(30, ChronoUnit.DAYS))
-                .build());
+        return createSession(userUrnString, accessToken);
     }
 
     private Result redirectToIdentityProvider() {
@@ -307,6 +292,13 @@ public class AuthenticationController extends Controller {
         }
 
         return loginSucceeded;
+    }
+
+    private Result createSession(String userUrnString, String accessToken) {
+        int ttlInHours = _configs.hasPath(SESSION_TTL_CONFIG_PATH) ? _configs.getInt(SESSION_TTL_CONFIG_PATH)
+            : DEFAULT_SESSION_TTL_HOURS;
+        return ok().withSession(createSessionMap(userUrnString, accessToken))
+            .withCookies(createActorCookie(userUrnString, ttlInHours));
     }
 
     private Map<String, String> createSessionMap(final String userUrnStr, final String accessToken) {
