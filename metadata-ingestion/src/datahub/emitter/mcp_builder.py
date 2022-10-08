@@ -20,6 +20,7 @@ from datahub.metadata.schema_classes import (
     OwnerClass,
     OwnershipClass,
     OwnershipTypeClass,
+    StatusClass,
     SubTypesClass,
     TagAssociationClass,
     _Aspect,
@@ -180,6 +181,14 @@ def gen_containers(
     wu = MetadataWorkUnit(id=f"container-info-{name}-{container_urn}", mcp=mcp)
     yield wu
 
+    # add status
+    yield wrap_aspect_as_workunit(
+        entityName="container",
+        entityUrn=f"{container_urn}",
+        aspect=StatusClass(removed=False),
+        aspectName=StatusClass.get_aspect_name(),
+    )
+
     mcp = MetadataChangeProposalWrapper(
         entityType="container",
         changeType=ChangeTypeClass.UPSERT,
@@ -225,7 +234,7 @@ def gen_containers(
         yield from add_tags_to_entity_wu(
             entity_type="container",
             entity_urn=container_urn,
-            tags=tags,
+            tags=sorted(tags),
         )
 
     if parent_container_key:
