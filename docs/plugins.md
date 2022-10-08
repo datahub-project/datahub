@@ -8,21 +8,25 @@ The listed functionalities of DataHub can be customized.
 
 Refer their individual section for enhancing basic functionality of DataHub.
 
-><span style="color:red">Note</span>: This is in <b>BETA</b> version
+>**Note:** This is in <b>BETA</b> version
 
 ## Authentication 
 The sample authenticator implementation can be found at [Authenticator Sample](../metadata-service/plugin/src/test/sample-test-plugins)
 
 Follow below steps to implement a custom authenticator 
-1. Add _datahub-auth-api_ as implementation dependency: Maven coordinates of _datahub-auth-api_ can be found at [Maven](https://mvnrepository.com/artifact/io.acryl/datahub-auth-api) 
-<br/>Example of gradle dependency is given below.
+1. Add _datahub-auth-api_ as implementation dependency: Maven coordinates of _datahub-auth-api_ can be found at [Maven](https://mvnrepository.com/artifact/io.acryl/datahub-auth-api)
+
+   Example of gradle dependency is given below.
+
    ```groovy
     dependencies {
         implementation 'io.acryl:datahub-auth-api:0.8.45'
     }
    ```
 2. Implements the Authenticator interface: Refer [Authenticator Sample](../metadata-service/plugin/src/test/sample-test-plugins)
-<br/> Example code of class which implements the Authenticator interface is given below 
+
+   Example code of class which implements the Authenticator interface is given below 
+
     ```java
     public class GoogleAuthenticator implements Authenticator {
    
@@ -41,8 +45,10 @@ Follow below steps to implement a custom authenticator
         }
     }
    ```
-3. Create an uber jar: Use `com.github.johnrengelman.shadow` gradle plugin to create an uber jar. Refer build.gradle file of [Apache Ranger Plugin](../metadata-auth/apache-ranger-plugin) for reference
-<br/> Important statements from build.gradle 
+3. Create an uber jar: Use `com.github.johnrengelman.shadow` gradle plugin to create an uber jar. Refer build.gradle file of [Apache Ranger Plugin](../metadata-auth/apache-ranger-plugin) for reference 
+
+   Important statements from build.gradle
+
    ```groovy
      apply plugin: 'com.github.johnrengelman.shadow';
      shadowJar {
@@ -61,7 +67,9 @@ Follow below steps to implement a custom authorizer
 
 1. Add _datahub-auth-api_ as implementation dependency: Maven coordinates of _datahub-auth-api_ can be found at [Maven](https://mvnrepository.com/artifact/io.acryl/datahub-auth-api)
 2. Implements the Authorizer interface: [Authorizer Sample](../metadata-auth/apache-ranger-plugin)
-   <br/> Example code of class which implements the Authenticator interface is given below
+
+   Example code of class which implements the Authenticator interface is given below
+
    ```java
     public class ApacheRangerAuthorizer implements Authorizer {
 
@@ -83,8 +91,10 @@ Follow below steps to implement a custom authorizer
         }
     }
    ```
-3. Create an uber jar: Use `com.github.johnrengelman.shadow` gradle plugin to create an uber jar. Refer build.gradle file of [Apache Ranger Plugin](../metadata-auth/apache-ranger-plugin) for reference
-   <br/> Important statements from build.gradle
+3. Create an uber jar: Use `com.github.johnrengelman.shadow` gradle plugin to create an uber jar. Refer build.gradle file of [Apache Ranger Plugin](../metadata-auth/apache-ranger-plugin) for reference 
+
+   Important statements from build.gradle
+
    ```groovy
      apply plugin: 'com.github.johnrengelman.shadow';
      shadowJar {
@@ -92,6 +102,7 @@ Follow below steps to implement a custom authorizer
          exclude "com/datahub/plugins/", "META-INF/*.RSA", "META-INF/*.SF","META-INF/*.DSA"
      }
    ```
+   
 4. Refer section (Plugin Installation)[#plugin_installation] for plugin installation in DataHub environment
 5. Refer section (Plugin Permissions)[#plugin_permissions] for permissions a plugin has while executing in DataHub environment
 
@@ -116,6 +127,7 @@ Lets consider you have created an uber jar for authorizer plugin and jar name is
     copy apache-ranger-authorizer.jar ${HOME}/.datahub/plugins/auth/apache-ranger-authorizer
    ```
 4. Update plugin configuration file: Add below entry in `config.yml` file, consider plugin takes username and password as configuration
+
    ```yaml
       plugins:
         - name: "apache-ranger-authorizer"
@@ -161,7 +173,8 @@ By default authentication is disabled in DataHub GMS.
 Follow below steps to enable GMS authentication
 1. Download docker-compose.quickstart.yml: Download docker compose file [docker-compose.quickstart.yml](../docker/quickstart/docker-compose.quickstart.yml)
 2. Set environment variable: Set `METADATA_SERVICE_AUTH_ENABLED` environment variable to `true` 
-3. Redeploy DataHub GMS: Below is quickstart command to redeploy DataHub GMS 
+3. Redeploy DataHub GMS: Below is quickstart command to redeploy DataHub GMS
+
    ```shell
    datahub docker quickstart -f docker-compose.quickstart.yml
    ```
