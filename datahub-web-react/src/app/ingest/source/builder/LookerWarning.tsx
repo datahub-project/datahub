@@ -13,14 +13,14 @@ export const LookerWarning = ({ type }: Props) => {
     let link: React.ReactNode;
     if (type === LOOKER) {
         link = (
-            <a href={LOOKER_DOC_LINK} target="_blank" rel="noopener noreferrer">
-                DataHub looker module
+            <a href={LOOKML_DOC_LINK} target="_blank" rel="noopener noreferrer">
+                DataHub lookml module
             </a>
         );
     } else if (type === LOOK_ML) {
         link = (
-            <a href={LOOKML_DOC_LINK} target="_blank" rel="noopener noreferrer">
-                DataHub lookml module
+            <a href={LOOKER_DOC_LINK} target="_blank" rel="noopener noreferrer">
+                DataHub looker module
             </a>
         );
     }

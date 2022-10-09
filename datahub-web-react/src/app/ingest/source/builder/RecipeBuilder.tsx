@@ -82,7 +82,9 @@ function RecipeBuilder(props: Props) {
         <div>
             {(type === LOOKER || type === LOOK_ML) && <LookerWarning type={type} />}
             <HeaderContainer>
-                <Title level={5}>{sourceConfigs?.displayName} Recipe</Title>
+                <Title style={{ marginBottom: 0 }} level={5}>
+                    {sourceConfigs?.displayName} Recipe
+                </Title>
                 <ButtonsWrapper>
                     <StyledButton type="text" isSelected={isViewingForm} onClick={() => switchViews(true)}>
                         <FormOutlined /> Form
