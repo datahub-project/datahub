@@ -79,6 +79,7 @@ export const DefineRecipeStep = ({ state, updateState, goTo, prev, ingestionSour
                 ...state.config,
                 recipe: recipeJson,
             },
+            type: JSON.parse(recipeJson).source.type,
         };
         updateState(newState);
 
