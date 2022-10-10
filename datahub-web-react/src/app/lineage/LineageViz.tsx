@@ -15,6 +15,7 @@ export default function LineageViz({
     onEntityCenter,
     onLineageExpand,
     selectedEntity,
+    fineGrainedMap,
 }: TreeProps) {
     const [windowWidth, windowHeight] = useWindowSize();
 
@@ -40,6 +41,7 @@ export default function LineageViz({
         >
             {(zoom) => (
                 <LineageVizInsideZoom
+                    fineGrainedMap={fineGrainedMap}
                     entityAndType={entityAndType}
                     width={width}
                     height={height}

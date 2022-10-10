@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useContext } from 'react';
 import { Group } from '@vx/group';
 import { curveBasis } from '@vx/curve';
 import { LinePath } from '@vx/shape';
@@ -7,6 +7,7 @@ import { TransformMatrix } from '@vx/zoom/lib/types';
 import { NodeData, Direction, EntitySelectParams, TreeProps, VizNode, VizEdge, EntityAndType } from './types';
 import LineageEntityNode from './LineageEntityNode';
 import { ANTD_GRAY } from '../entity/shared/constants';
+import { LineageExplorerContext } from './utils/LineageExplorerContext';
 
 type Props = {
     data: NodeData;
@@ -54,8 +55,17 @@ export default function LineageTreeNodeAndEdgeRenderer({
     edgesToRender,
     nodesByUrn,
 }: Props) {
+    const { highlightedEdges } = useContext(LineageExplorerContext);
     const isLinkHighlighted = (link) =>
-        link.source.data.urn === hoveredEntity?.urn || link.target.data.urn === hoveredEntity?.urn;
+        link.source.data.urn === hoveredEntity?.urn ||
+        link.target.data.urn === hoveredEntity?.urn ||
+        highlightedEdges.find(
+            (edge) =>
+                edge.sourceUrn === link.source.data.urn &&
+                edge.sourceField === link.sourceField &&
+                edge.targetUrn === link.target.data.urn &&
+                edge.targetField === link.targetField,
+        );
     return (
         <Group transform={transformToString(zoom.transformMatrix)} top={margin?.top} left={margin?.left}>
             {[
@@ -67,7 +77,11 @@ export default function LineageTreeNodeAndEdgeRenderer({
                 const isHighlighted = isLinkHighlighted(link);
 
                 return (
-                    <Group key={`edge-${link.source.data.urn}-${link.target.data.urn}-${direction}`}>
+                    <Group
+                        key={`edge-${link.source.data.urn}${link.sourceField && `-${link.sourceField}`}-${
+                            link.target.data.urn
+                        }${link.targetField && `-${link.targetField}`}-${direction}`}
+                    >
                         <LinePath
                             // we rotated the svg 90 degrees so we need to switch x & y for the last mile
                             x={(d) => d.y}
@@ -93,11 +107,10 @@ export default function LineageTreeNodeAndEdgeRenderer({
                         node={node}
                         isSelected={isSelected}
                         isHovered={isHovered}
-                        onHover={(select: EntitySelectParams) => setHoveredEntity(select)}
+                        onHover={(select?: EntitySelectParams) => setHoveredEntity(select)}
                         onEntityClick={onEntityClick}
                         onEntityCenter={onEntityCenter}
                         onExpandClick={onLineageExpand}
-                        direction={direction}
                         isCenterNode={data.urn === node.data.urn}
                         nodesToRenderByUrn={nodesByUrn}
                         onDrag={onDrag}

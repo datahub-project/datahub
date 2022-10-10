@@ -13,6 +13,16 @@
     "entityType": "container",
     "entityUrn": "urn:li:container:7d53111f2c71396ea6f6d26c84770665",
     "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+      "value": "{\"removed\": false}",
+      "contentType": "application/json"
+    }
+  },
+  {
+    "entityType": "container",
+    "entityUrn": "urn:li:container:7d53111f2c71396ea6f6d26c84770665",
+    "changeType": "UPSERT",
     "aspectName": "dataPlatformInstance",
     "aspect": {
       "value": "{\"platform\": \"urn:li:dataPlatform:glue\"}",
@@ -218,10 +228,10 @@
             "com.linkedin.pegasus2avro.common.GlobalTags": {
               "tags": [
                 {
-                  "tag": "urn:li:tag:foo:bar"
+                  "tag": "urn:li:tag:baz:bob"
                 },
                 {
-                  "tag": "urn:li:tag:baz:bob"
+                  "tag": "urn:li:tag:foo:bar"
                 }
               ]
             }
@@ -257,6 +267,16 @@
     "aspectName": "containerProperties",
     "aspect": {
       "value": "{\"customProperties\": {\"platform\": \"glue\", \"instance\": \"some_instance_name\", \"database\": \"test-database\"}, \"name\": \"test-database\", \"qualifiedName\": \"arn:aws:glue:us-west-2:123412341234:database/test-database\"}",
+      "contentType": "application/json"
+    }
+  },
+  {
+    "entityType": "container",
+    "entityUrn": "urn:li:container:9fb26491b2c92dde9e80791dbecca9ca",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+      "value": "{\"removed\": false}",
       "contentType": "application/json"
     }
   },
@@ -428,10 +448,10 @@
             "com.linkedin.pegasus2avro.common.GlobalTags": {
               "tags": [
                 {
-                  "tag": "urn:li:tag:foo:bar"
+                  "tag": "urn:li:tag:baz:bob"
                 },
                 {
-                  "tag": "urn:li:tag:baz:bob"
+                  "tag": "urn:li:tag:foo:bar"
                 }
               ]
             }
@@ -609,10 +629,10 @@
             "com.linkedin.pegasus2avro.common.GlobalTags": {
               "tags": [
                 {
-                  "tag": "urn:li:tag:foo:bar"
+                  "tag": "urn:li:tag:baz:bob"
                 },
                 {
-                  "tag": "urn:li:tag:baz:bob"
+                  "tag": "urn:li:tag:foo:bar"
                 }
               ]
             }
