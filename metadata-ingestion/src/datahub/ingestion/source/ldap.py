@@ -8,6 +8,7 @@ import pydantic
 from ldap.controls import SimplePagedResultsControl
 from pydantic.fields import Field
 
+import datahub.emitter.mce_builder as builder
 from datahub.configuration.common import ConfigurationError
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.decorators import (
@@ -17,7 +18,7 @@ from datahub.ingestion.api.decorators import (
     support_status,
 )
 from datahub.ingestion.api.workunit import MetadataWorkUnit
-from datahub.ingestion.source.state.ldap_state import BaseLdapCheckpointState
+from datahub.ingestion.source.state.ldap_state import LdapCheckpointState
 from datahub.ingestion.source.state.stale_entity_removal_handler import (
     StaleEntityRemovalHandler,
     StaleEntityRemovalSourceReport,
@@ -191,7 +192,7 @@ class LDAPSource(StatefulIngestionSourceBase):
         self.stale_entity_removal_handler = StaleEntityRemovalHandler(
             source=self,
             config=self.config,
-            state_type_class=BaseLdapCheckpointState,
+            state_type_class=LdapCheckpointState,
             pipeline_name=self.ctx.pipeline_name,
             run_id=self.ctx.run_id,
         )
@@ -405,7 +406,7 @@ class LDAPSource(StatefulIngestionSourceBase):
             user_snapshot.aspects.append(GroupMembershipClass(groups=groups))
 
         self.stale_entity_removal_handler.add_entity_to_state(
-            type="corpuser", urn=f"urn:li:corpuser:{ldap_user}"
+            type="corpuser", urn=builder.make_user_urn(ldap_user)
         )
 
         return MetadataChangeEvent(proposedSnapshot=user_snapshot)
