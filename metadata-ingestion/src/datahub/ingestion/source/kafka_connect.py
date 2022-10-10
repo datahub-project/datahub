@@ -36,7 +36,7 @@ class ProvidedConfig(ConfigModel):
     path_key: str
     value: str
 
-class CustomizedConnectorConfig(ConfigModel):
+class GenericConnectorConfig(ConfigModel):
     connector_name: str
     source_dataset: str
     source_platform: str
@@ -71,9 +71,9 @@ class KafkaConnectSourceConfig(DatasetLineageProviderConfigBase):
         default=None,
         description='Platform instance mapping to use when constructing URNs. e.g.`platform_instance_map: { "hive": "warehouse" }`',
     )
-    customized_connectors: Optional[List[CustomizedConnectorConfig]] = Field(
+    generic_connectors: Optional[List[GenericConnectorConfig]] = Field(
         default=None,
-        description='Specify lineage graph for sources connectors other than Confluent JDBC Source Connector or Debezium Source Connector'
+        description='Provide lineage graph for sources connectors other than Confluent JDBC Source Connector or Debezium Source Connector'
     )
 
 
@@ -940,26 +940,31 @@ class KafkaConnectSource(Source):
                     ).connector_manifest
                 else:
                     # empty list of customized connector
-                    if not self.config.customized_connectors:
+                    if not self.config.generic_connectors:
                         logger.warning(
                             f"Detected undefined connector {connector_manifest.name}, but user defined no customized connectors. Please refer to Kafka Connect ingestion recipe to define this customized connector."
                         )
                         continue
 
                     # imcomplete customized connector list
-                    connector_names = [i['connector_name'] for i in self.config.customized_connectors] 
+                    connector_names = [i['connector_name'] for i in self.config.generic_connectors] 
                     if not connector_manifest.name in connector_names:
                         logger.warning(
                             f"Detected undefined connector {connector_manifest.name}, which is not in the customized connector list. Please refer to Kafka Connect ingestion recipe to define this customized connector."
                         )
                         continue
                     
-                    # connector name is in the customized connector list
-                    connector = [i in self.config.customized_connectors if i['connector_name'] == connector_manifest.name else None]
+                    # find the target connector object in the list. 
+                    # already checked target_connector's existence in last step, so no null pointer problem.
+                    for connector in self.config.generic_connectors:
+                        if connector.connector_name == connector_manifest.name:
+                            target_connector = connector
+                            break
+
                     for topic in topics:
                         lineage = KafkaConnectLineage(
-                            source_dataset=self.config.source_dataset,
-                            source_platform=self.config.source_platform,
+                            source_dataset=target_connector.source_dataset,
+                            source_platform=target_connector.source_platform,
                             target_dataset=topic,
                             target_platform="kafka",
                         )
