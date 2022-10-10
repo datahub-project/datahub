@@ -540,6 +540,9 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
             )
             return
 
+        self.report.num_project_datasets_to_scan[project_id] = len(
+            bigquery_project.datasets
+        )
         for bigquery_dataset in bigquery_project.datasets:
 
             if not self.config.dataset_pattern.allowed(bigquery_dataset.name):

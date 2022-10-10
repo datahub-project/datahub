@@ -389,10 +389,10 @@ timestamp < "{end_time}"
                 destination_table = e.destinationTable.get_sanitized_table_ref()
             except Exception:
                 self.report.num_skipped_lineage_entries_missing_data[e.project_id] = (
-                        self.report.num_skipped_lineage_entries_missing_data.get(
-                            e.project_id, 0
-                        )
-                        + 1
+                    self.report.num_skipped_lineage_entries_missing_data.get(
+                        e.project_id, 0
+                    )
+                    + 1
                 )
                 continue
 
@@ -461,7 +461,7 @@ timestamp < "{end_time}"
                     self.report.num_skipped_lineage_entries_other.get(e.project_id, 0)
                     + 1
                 )
-            logger.info(
+            logger.debug(
                 f"{self.report.num_total_lineage_entries[e.project_id]} were added to {e.project_id} lineage map"
             )
 
