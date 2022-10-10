@@ -451,7 +451,7 @@ class BigQuerySource(SQLAlchemySource):
             f"size_bytes, "
             f"last_modified_time, "
             f"row_count, "
-            f"FROM {schema}.__TABLES__"
+            f"FROM `{schema}.__TABLES__`"
         )
         return base_query
 
