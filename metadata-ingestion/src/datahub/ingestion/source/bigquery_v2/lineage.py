@@ -461,9 +461,6 @@ timestamp < "{end_time}"
                     self.report.num_skipped_lineage_entries_other.get(e.project_id, 0)
                     + 1
                 )
-            logger.debug(
-                f"{self.report.num_total_lineage_entries[e.project_id]} were added to {e.project_id} lineage map"
-            )
 
         logger.info("Exiting create lineage map function")
         return lineage_map

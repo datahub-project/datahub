@@ -1,11 +1,7 @@
 from collections import deque
 from itertools import chain
-from sys import getsizeof, stderr
-
-try:
-    from reprlib import repr
-except ImportError:
-    pass
+from sys import getsizeof
+from typing import Dict, Any
 
 
 def total_size(o, handlers={}):
@@ -18,7 +14,10 @@ def total_size(o, handlers={}):
 
     Based on https://github.com/ActiveState/recipe-577504-compute-mem-footprint/blob/master/recipe.py
     """
-    dict_handler = lambda d: chain.from_iterable(d.items())
+
+    def dict_handler(d: Dict) -> chain[Any]:
+        return chain.from_iterable(d.items())
+
     all_handlers = {
         tuple: iter,
         list: iter,
