@@ -70,6 +70,20 @@
     }
 },
 {
+    "entityType": "chart",
+    "entityUrn": "urn:li:chart:(tableau,222d1406-de0e-cd8d-0b94-9b45a0007e59)",
+    "changeType": "UPSERT",
+    "aspectName": "chartUsageStatistics",
+    "aspect": {
+        "value": "{\"timestampMillis\": 1638860400000, \"partitionSpec\": {\"type\": \"FULL_TABLE\", \"partition\": \"FULL_TABLE_SNAPSHOT\"}, \"viewsCount\": 5}",
+        "contentType": "application/json"
+    },
+    "systemMetadata": {
+        "lastObserved": 1638860400000,
+        "runId": "tableau-test"
+    }
+},
+{
     "proposedSnapshot": {
         "com.linkedin.pegasus2avro.metadata.snapshot.ChartSnapshot": {
             "urn": "urn:li:chart:(tableau,222d1406-de0e-cd8d-0b94-9b45a0007e59)",
@@ -77,12 +91,13 @@
                 {
                     "com.linkedin.pegasus2avro.chart.ChartInfo": {
                         "customProperties": {
-                            "Name": "",
-                            "Activity Date": "",
-                            "ID": "",
-                            "Program Name": "",
-                            "Active": "",
-                            "Id": ""
+                            "luid": "f0779f9d-6765-47a9-a8f6-c740cfd27783",
+                            "field: Name": "",
+                            "field: Activity Date": "",
+                            "field: ID": "",
+                            "field: Program Name": "",
+                            "field: Active": "",
+                            "field: Id": ""
                         },
                         "externalUrl": "https://do-not-connect/t/acryl/authoring/EmailPerformancebyCampaign/EmailPerformancebyCampaign/Timeline - Sent",
                         "title": "Timeline - Sent",
@@ -155,23 +170,24 @@
                 {
                     "com.linkedin.pegasus2avro.chart.ChartInfo": {
                         "customProperties": {
-                            "Delivery Rate": "formula: ZN([Delivered Email]/[Sent Email])",
-                            "Name": "",
-                            "Id (Activity - Click Email)": "",
-                            "Activity Date": "",
-                            "Clickthrough Rate": "formula: [Clickthrough Emails]/[Delivered Email]",
-                            "Open Rate": "formula: ZN([Opened Email]/[Delivered Email])",
-                            "Sent Email": "formula: COUNTD([Id])",
-                            "Delivered Email": "formula: COUNTD([Id (Activity - Email Delivered)])",
-                            "ID": "",
-                            "Id (Activity - Open Email)": "",
-                            "Clickthrough Emails": "formula: COUNTD([Id (Activity - Click Email)])",
-                            "Click-to-Open": "formula: ZN([Clickthrough Emails]\r\n/ \r\n[Opened Email])",
-                            "Opened Email": "formula: COUNTD([Id (Activity - Open Email)])",
-                            "Id (Activity - Email Delivered)": "",
-                            "Program Name": "",
-                            "Active": "",
-                            "Id": ""
+                            "luid": "",
+                            "field: Delivery Rate": "formula: ZN([Delivered Email]/[Sent Email])",
+                            "field: Name": "",
+                            "field: Id (Activity - Click Email)": "",
+                            "field: Activity Date": "",
+                            "field: Clickthrough Rate": "formula: [Clickthrough Emails]/[Delivered Email]",
+                            "field: Open Rate": "formula: ZN([Opened Email]/[Delivered Email])",
+                            "field: Sent Email": "formula: COUNTD([Id])",
+                            "field: Delivered Email": "formula: COUNTD([Id (Activity - Email Delivered)])",
+                            "field: ID": "",
+                            "field: Id (Activity - Open Email)": "",
+                            "field: Clickthrough Emails": "formula: COUNTD([Id (Activity - Click Email)])",
+                            "field: Click-to-Open": "formula: ZN([Clickthrough Emails]\r\n/ \r\n[Opened Email])",
+                            "field: Opened Email": "formula: COUNTD([Id (Activity - Open Email)])",
+                            "field: Id (Activity - Email Delivered)": "",
+                            "field: Program Name": "",
+                            "field: Active": "",
+                            "field: Id": ""
                         },
                         "externalUrl": "https://do-not-connect/t/acryl/authoring/EmailPerformancebyCampaign/EmailPerformancebyCampaign/Campaign List",
                         "title": "Campaign List",
@@ -244,25 +260,26 @@
                 {
                     "com.linkedin.pegasus2avro.chart.ChartInfo": {
                         "customProperties": {
-                            "Delivery Rate": "formula: ZN([Delivered Email]/[Sent Email])",
-                            "Name": "",
-                            "Id (Activity - Click Email)": "",
-                            "Activity Date": "",
-                            "Clickthrough Rate": "formula: [Clickthrough Emails]/[Delivered Email]",
-                            "Open Rate": "formula: ZN([Opened Email]/[Delivered Email])",
-                            "Measure Names": "",
-                            "Sent Email": "formula: COUNTD([Id])",
-                            "Delivered Email": "formula: COUNTD([Id (Activity - Email Delivered)])",
-                            "ID": "",
-                            "Id (Activity - Open Email)": "",
-                            "Clickthrough Emails": "formula: COUNTD([Id (Activity - Click Email)])",
-                            "Click-to-Open": "formula: ZN([Clickthrough Emails]\r\n/ \r\n[Opened Email])",
-                            "Opened Email": "formula: COUNTD([Id (Activity - Open Email)])",
-                            "Id (Activity - Email Delivered)": "",
-                            "Program Name": "",
-                            "Measure Values": "",
-                            "Active": "",
-                            "Id": ""
+                            "luid": "",
+                            "field: Delivery Rate": "formula: ZN([Delivered Email]/[Sent Email])",
+                            "field: Name": "",
+                            "field: Id (Activity - Click Email)": "",
+                            "field: Activity Date": "",
+                            "field: Clickthrough Rate": "formula: [Clickthrough Emails]/[Delivered Email]",
+                            "field: Open Rate": "formula: ZN([Opened Email]/[Delivered Email])",
+                            "field: Measure Names": "",
+                            "field: Sent Email": "formula: COUNTD([Id])",
+                            "field: Delivered Email": "formula: COUNTD([Id (Activity - Email Delivered)])",
+                            "field: ID": "",
+                            "field: Id (Activity - Open Email)": "",
+                            "field: Clickthrough Emails": "formula: COUNTD([Id (Activity - Click Email)])",
+                            "field: Click-to-Open": "formula: ZN([Clickthrough Emails]\r\n/ \r\n[Opened Email])",
+                            "field: Opened Email": "formula: COUNTD([Id (Activity - Open Email)])",
+                            "field: Id (Activity - Email Delivered)": "",
+                            "field: Program Name": "",
+                            "field: Measure Values": "",
+                            "field: Active": "",
+                            "field: Id": ""
                         },
                         "externalUrl": "https://do-not-connect/t/acryl/authoring/EmailPerformancebyCampaign/EmailPerformancebyCampaign/Summary",
                         "title": "Summary",
@@ -335,21 +352,22 @@
                 {
                     "com.linkedin.pegasus2avro.chart.ChartInfo": {
                         "customProperties": {
-                            "Delivery Rate": "formula: ZN([Delivered Email]/[Sent Email])",
-                            "Name": "",
-                            "Id (Activity - Click Email)": "",
-                            "Activity Date": "",
-                            "Open Rate": "formula: ZN([Opened Email]/[Delivered Email])",
-                            "Sent Email": "formula: COUNTD([Id])",
-                            "Delivered Email": "formula: COUNTD([Id (Activity - Email Delivered)])",
-                            "ID": "",
-                            "Id (Activity - Open Email)": "",
-                            "Clickthrough Emails": "formula: COUNTD([Id (Activity - Click Email)])",
-                            "Click-to-Open": "formula: ZN([Clickthrough Emails]\r\n/ \r\n[Opened Email])",
-                            "Opened Email": "formula: COUNTD([Id (Activity - Open Email)])",
-                            "Id (Activity - Email Delivered)": "",
-                            "Program Name": "",
-                            "Id": ""
+                            "luid": "",
+                            "field: Delivery Rate": "formula: ZN([Delivered Email]/[Sent Email])",
+                            "field: Name": "",
+                            "field: Id (Activity - Click Email)": "",
+                            "field: Activity Date": "",
+                            "field: Open Rate": "formula: ZN([Opened Email]/[Delivered Email])",
+                            "field: Sent Email": "formula: COUNTD([Id])",
+                            "field: Delivered Email": "formula: COUNTD([Id (Activity - Email Delivered)])",
+                            "field: ID": "",
+                            "field: Id (Activity - Open Email)": "",
+                            "field: Clickthrough Emails": "formula: COUNTD([Id (Activity - Click Email)])",
+                            "field: Click-to-Open": "formula: ZN([Clickthrough Emails]\r\n/ \r\n[Opened Email])",
+                            "field: Opened Email": "formula: COUNTD([Id (Activity - Open Email)])",
+                            "field: Id (Activity - Email Delivered)": "",
+                            "field: Program Name": "",
+                            "field: Id": ""
                         },
                         "externalUrl": "https://do-not-connect/t/acryl/authoring/EmailPerformancebyCampaign/EmailPerformancebyCampaign/Mobile - Sent by Campaign",
                         "title": "Mobile - Sent by Campaign",
@@ -415,13 +433,29 @@
     }
 },
 {
+    "entityType": "dashboard",
+    "entityUrn": "urn:li:dashboard:(tableau,8f7dd564-36b6-593f-3c6f-687ad06cd40b)",
+    "changeType": "UPSERT",
+    "aspectName": "dashboardUsageStatistics",
+    "aspect": {
+        "value": "{\"timestampMillis\": 1638860400000, \"partitionSpec\": {\"type\": \"FULL_TABLE\", \"partition\": \"FULL_TABLE_SNAPSHOT\"}, \"viewsCount\": 3}",
+        "contentType": "application/json"
+    },
+    "systemMetadata": {
+        "lastObserved": 1638860400000,
+        "runId": "tableau-test"
+    }
+},
+{
     "proposedSnapshot": {
         "com.linkedin.pegasus2avro.metadata.snapshot.DashboardSnapshot": {
             "urn": "urn:li:dashboard:(tableau,8f7dd564-36b6-593f-3c6f-687ad06cd40b)",
             "aspects": [
                 {
                     "com.linkedin.pegasus2avro.dashboard.DashboardInfo": {
-                        "customProperties": {},
+                        "customProperties": {
+                            "luid": "fc9ea488-f810-4fa8-ac19-aa96018b5d66"
+                        },
                         "title": "Email Performance by Campaign",
                         "description": "",
                         "charts": [
@@ -579,7 +613,8 @@
                 {
                     "com.linkedin.pegasus2avro.chart.ChartInfo": {
                         "customProperties": {
-                            "Custom SQL Query": ""
+                            "luid": "",
+                            "field: Custom SQL Query": ""
                         },
                         "externalUrl": "https://do-not-connect/#/site/acryl/views/dvdrental/Sheet1",
                         "title": "Sheet 1",
@@ -652,13 +687,14 @@
                 {
                     "com.linkedin.pegasus2avro.chart.ChartInfo": {
                         "customProperties": {
-                            "payment_date": "",
-                            "amount": "",
-                            "Custom SQL Query": "",
-                            "First Name": "",
-                            "customer_id": "",
-                            "rental_id": "",
-                            "Last Name": ""
+                            "luid": "",
+                            "field: payment_date": "",
+                            "field: amount": "",
+                            "field: Custom SQL Query": "",
+                            "field: First Name": "",
+                            "field: customer_id": "",
+                            "field: rental_id": "",
+                            "field: Last Name": ""
                         },
                         "externalUrl": "https://do-not-connect/#/site/acryl/views/dvdrental/Sheet2",
                         "title": "Sheet 2",
@@ -731,9 +767,10 @@
                 {
                     "com.linkedin.pegasus2avro.chart.ChartInfo": {
                         "customProperties": {
-                            "Category": "",
-                            "Segment": "",
-                            "Customer Name": ""
+                            "luid": "",
+                            "field: Category": "",
+                            "field: Segment": "",
+                            "field: Customer Name": ""
                         },
                         "externalUrl": "https://do-not-connect/#/site/acryl/views/dvdrental/Sheet3",
                         "title": "Sheet 3",
@@ -814,7 +851,9 @@
             "aspects": [
                 {
                     "com.linkedin.pegasus2avro.dashboard.DashboardInfo": {
-                        "customProperties": {},
+                        "customProperties": {
+                            "luid": ""
+                        },
                         "title": "dvd Rental Dashboard",
                         "description": "",
                         "charts": [
@@ -884,7 +923,9 @@
             "aspects": [
                 {
                     "com.linkedin.pegasus2avro.dashboard.DashboardInfo": {
-                        "customProperties": {},
+                        "customProperties": {
+                            "luid": ""
+                        },
                         "title": "Story 1",
                         "description": "",
                         "charts": [],
@@ -1023,17 +1064,18 @@
                 {
                     "com.linkedin.pegasus2avro.chart.ChartInfo": {
                         "customProperties": {
-                            "Opened": "",
-                            "Total # Request": "formula: // This is a calculated field\r\n// It shows the total number of problems ignoring opened date\r\n\r\n{ EXCLUDE [Opened]: COUNTD([Number])}",
-                            "Due date": "",
-                            "Priority": "",
-                            "Overdue": "formula: // This is a calculated field\r\n// It shows if an accident is overdue\r\n\r\n//Check overdue cases among inactive incidents\r\nIF [Active]=FALSE \r\nAND\r\n[Closed]>[Due date]\r\n\r\nOR\r\n//Check overdue cases among active incidents\r\n[Active]=TRUE \r\nAND NOW()>[Due date]\r\n\r\nTHEN  \"Overdue\"\r\nELSE \"Non Overdue\"\r\nEND",
-                            "Active": "",
-                            "Current Year Total Cases": "formula: // This is a calculated field\r\n// It counts each distinct request made in the last year. The \"exclude\" is used to avoid filters interfering in the final result\r\n\r\n{EXCLUDE [Opened], [Overdue], [Max Year?]: \r\nCOUNTD(IF [Max Year?]=TRUE\r\nTHEN [Number]\r\nEND)\r\n}",
-                            "Max Year?": "formula: // This is a calculated field\r\n// It shows TRUE/FALSE if the year of opened is equal the maximum year in the dataset\r\n\r\nDATEPART(\"year\", [Opened]) = DATEPART(\"year\", {MAX([Opened])})",
-                            "Total Active Requests": "formula: // This is a calculated field\r\n// It counts each distinct active request. The \"exclude\" is used to avoid filters interfering with the final result \r\n\r\n{EXCLUDE [Opened], [Overdue], [Max Year?]: \r\nCOUNTD(IF [Active]=TRUE\r\nTHEN [Number]\r\nEND)\r\n}",
-                            "Number": "",
-                            "Closed": ""
+                            "luid": "",
+                            "field: Opened": "",
+                            "field: Total # Request": "formula: // This is a calculated field\r\n// It shows the total number of problems ignoring opened date\r\n\r\n{ EXCLUDE [Opened]: COUNTD([Number])}",
+                            "field: Due date": "",
+                            "field: Priority": "",
+                            "field: Overdue": "formula: // This is a calculated field\r\n// It shows if an accident is overdue\r\n\r\n//Check overdue cases among inactive incidents\r\nIF [Active]=FALSE \r\nAND\r\n[Closed]>[Due date]\r\n\r\nOR\r\n//Check overdue cases among active incidents\r\n[Active]=TRUE \r\nAND NOW()>[Due date]\r\n\r\nTHEN  \"Overdue\"\r\nELSE \"Non Overdue\"\r\nEND",
+                            "field: Active": "",
+                            "field: Current Year Total Cases": "formula: // This is a calculated field\r\n// It counts each distinct request made in the last year. The \"exclude\" is used to avoid filters interfering in the final result\r\n\r\n{EXCLUDE [Opened], [Overdue], [Max Year?]: \r\nCOUNTD(IF [Max Year?]=TRUE\r\nTHEN [Number]\r\nEND)\r\n}",
+                            "field: Max Year?": "formula: // This is a calculated field\r\n// It shows TRUE/FALSE if the year of opened is equal the maximum year in the dataset\r\n\r\nDATEPART(\"year\", [Opened]) = DATEPART(\"year\", {MAX([Opened])})",
+                            "field: Total Active Requests": "formula: // This is a calculated field\r\n// It counts each distinct active request. The \"exclude\" is used to avoid filters interfering with the final result \r\n\r\n{EXCLUDE [Opened], [Overdue], [Max Year?]: \r\nCOUNTD(IF [Active]=TRUE\r\nTHEN [Number]\r\nEND)\r\n}",
+                            "field: Number": "",
+                            "field: Closed": ""
                         },
                         "externalUrl": "https://do-not-connect/t/acryl/authoring/ExecutiveDashboard/ExecutiveDashboard/Opened Requests",
                         "title": "Opened Requests",
@@ -1109,16 +1151,17 @@
                 {
                     "com.linkedin.pegasus2avro.chart.ChartInfo": {
                         "customProperties": {
-                            "Opened": "",
-                            "Due date": "",
-                            "Priority": "",
-                            "Name": "",
-                            "Overdue": "formula: // This is a calculated field\r\n// It shows if an accident is overdue\r\n\r\n//Check overdue cases among inactive incidents\r\nIF [Active]=FALSE \r\nAND\r\n[Closed]>[Due date]\r\n\r\nOR\r\n//Check overdue cases among active incidents\r\n[Active]=TRUE \r\nAND NOW()>[Due date]\r\n\r\nTHEN  \"Overdue\"\r\nELSE \"Non Overdue\"\r\nEND",
-                            "Active": "",
-                            "Current Year Total Cases": "formula: // This is a calculated field\r\n// It counts each distinct request made in the last year. The \"exclude\" is used to avoid filters interfering in the final result\r\n\r\n{EXCLUDE [Opened], [Overdue], [Max Year?]: \r\nCOUNTD(IF [Max Year?]=TRUE\r\nTHEN [Number]\r\nEND)\r\n}",
-                            "Max Year?": "formula: // This is a calculated field\r\n// It shows TRUE/FALSE if the year of opened is equal the maximum year in the dataset\r\n\r\nDATEPART(\"year\", [Opened]) = DATEPART(\"year\", {MAX([Opened])})",
-                            "Number": "",
-                            "Closed": ""
+                            "luid": "",
+                            "field: Opened": "",
+                            "field: Due date": "",
+                            "field: Priority": "",
+                            "field: Name": "",
+                            "field: Overdue": "formula: // This is a calculated field\r\n// It shows if an accident is overdue\r\n\r\n//Check overdue cases among inactive incidents\r\nIF [Active]=FALSE \r\nAND\r\n[Closed]>[Due date]\r\n\r\nOR\r\n//Check overdue cases among active incidents\r\n[Active]=TRUE \r\nAND NOW()>[Due date]\r\n\r\nTHEN  \"Overdue\"\r\nELSE \"Non Overdue\"\r\nEND",
+                            "field: Active": "",
+                            "field: Current Year Total Cases": "formula: // This is a calculated field\r\n// It counts each distinct request made in the last year. The \"exclude\" is used to avoid filters interfering in the final result\r\n\r\n{EXCLUDE [Opened], [Overdue], [Max Year?]: \r\nCOUNTD(IF [Max Year?]=TRUE\r\nTHEN [Number]\r\nEND)\r\n}",
+                            "field: Max Year?": "formula: // This is a calculated field\r\n// It shows TRUE/FALSE if the year of opened is equal the maximum year in the dataset\r\n\r\nDATEPART(\"year\", [Opened]) = DATEPART(\"year\", {MAX([Opened])})",
+                            "field: Number": "",
+                            "field: Closed": ""
                         },
                         "externalUrl": "https://do-not-connect/t/acryl/authoring/ExecutiveDashboard/ExecutiveDashboard/Top 10 Items by Requests and YoY Change",
                         "title": "Top 10 Items by Requests and YoY Change",
@@ -1194,17 +1237,18 @@
                 {
                     "com.linkedin.pegasus2avro.chart.ChartInfo": {
                         "customProperties": {
-                            "Overdue": "formula: // This is a calculated field\r\n// It checks if an incident is overdue\r\n\r\n//Check overdue cases among inactive incidents\r\n{ FIXED [Number]:\r\n\r\nIF MAX([Active]=FALSE) \r\nAND\r\nmax([Closed])> max([Due date])\r\n\r\nOR\r\n//Check overdue cases among active incidents\r\nMAX([Active]=TRUE) \r\nAND NOW()> MAX([Due date]) \r\n\r\nTHEN  \"Overdue\"\r\nEND\r\n}",
-                            "Number": "",
-                            "Priority": "",
-                            "Due date": "",
-                            "Total # Problems": "formula: // This is a calculated field using a level of detail calculation (LOD)\r\n// It counts each distinct problems ignoring date\r\n\r\n{ EXCLUDE [Opened]: COUNTD([Number])}",
-                            "Opened": "",
-                            "Max Year?": "formula: // This is a calculated field\r\n// It shows TRUE/FALSE if the year of opened is equal the max year of the dataset \r\n\r\nDATEPART(\"year\", [Opened]) = DATEPART(\"year\", {MAX([Opened])})",
-                            "Closed": "",
-                            "Active": "",
-                            "Current Year Total Cases": "formula: // This is a calculated field\r\n// It counts each disctinct problem. The \"exclude\" is used to avoid filters interfering with the result\r\n\r\n{EXCLUDE [Opened], [Overdue], [Max Year?]: \r\nCOUNTD(IF [Max Year?]=TRUE\r\nTHEN [Number]\r\nEND)\r\n}",
-                            "Total Active Problems": "formula: // This is a calculated field using a level of detail calculation (LOD)\r\n// It counts each distinct active problem. The \"exclude\" is used to avoid filters interfering with the result \r\n\r\n{EXCLUDE [Opened], [Overdue], [Max Year?]: \r\nCOUNTD(IF [Active]=TRUE\r\nTHEN [Number]\r\nEND)\r\n}"
+                            "luid": "",
+                            "field: Overdue": "formula: // This is a calculated field\r\n// It checks if an incident is overdue\r\n\r\n//Check overdue cases among inactive incidents\r\n{ FIXED [Number]:\r\n\r\nIF MAX([Active]=FALSE) \r\nAND\r\nmax([Closed])> max([Due date])\r\n\r\nOR\r\n//Check overdue cases among active incidents\r\nMAX([Active]=TRUE) \r\nAND NOW()> MAX([Due date]) \r\n\r\nTHEN  \"Overdue\"\r\nEND\r\n}",
+                            "field: Number": "",
+                            "field: Priority": "",
+                            "field: Due date": "",
+                            "field: Total # Problems": "formula: // This is a calculated field using a level of detail calculation (LOD)\r\n// It counts each distinct problems ignoring date\r\n\r\n{ EXCLUDE [Opened]: COUNTD([Number])}",
+                            "field: Opened": "",
+                            "field: Max Year?": "formula: // This is a calculated field\r\n// It shows TRUE/FALSE if the year of opened is equal the max year of the dataset \r\n\r\nDATEPART(\"year\", [Opened]) = DATEPART(\"year\", {MAX([Opened])})",
+                            "field: Closed": "",
+                            "field: Active": "",
+                            "field: Current Year Total Cases": "formula: // This is a calculated field\r\n// It counts each disctinct problem. The \"exclude\" is used to avoid filters interfering with the result\r\n\r\n{EXCLUDE [Opened], [Overdue], [Max Year?]: \r\nCOUNTD(IF [Max Year?]=TRUE\r\nTHEN [Number]\r\nEND)\r\n}",
+                            "field: Total Active Problems": "formula: // This is a calculated field using a level of detail calculation (LOD)\r\n// It counts each distinct active problem. The \"exclude\" is used to avoid filters interfering with the result \r\n\r\n{EXCLUDE [Opened], [Overdue], [Max Year?]: \r\nCOUNTD(IF [Active]=TRUE\r\nTHEN [Number]\r\nEND)\r\n}"
                         },
                         "externalUrl": "https://do-not-connect/t/acryl/authoring/ExecutiveDashboard/ExecutiveDashboard/Opened Problems",
                         "title": "Opened Problems",
@@ -1280,16 +1324,17 @@
                 {
                     "com.linkedin.pegasus2avro.chart.ChartInfo": {
                         "customProperties": {
-                            "% of Overdue": "formula: // This is a calculated field\r\n// It show the percentage incidents which are overdue\r\n\r\n(IF ATTR([Overdue]=\"Overdue\")\r\nTHEN COUNTD([Number])\r\nEND)\r\n/\r\nATTR({ EXCLUDE [Overdue]:\r\nCOUNTD([Number])})",
-                            "Priority": "",
-                            "Category (Incident)": "",
-                            "Overdue": "formula: // This is a calculated field\r\n// It shows if an incident is overdue\r\n\r\n//Check overdue cases among inactive incidents\r\n{ FIXED [Number]:\r\n\r\nIF MAX([Active]=FALSE) \r\nAND\r\nmax([Closed])>max([Due date])\r\n\r\nOR\r\n//Check overdue cases among active incidents\r\nMAX([Active] = TRUE) \r\nAND NOW() > MAX([Due date]) \r\n\r\nTHEN  \"Overdue\"\r\nEND\r\n}",
-                            "Number": "",
-                            "Opened": "",
-                            "Max Year?": "formula: // This is a calculated field\r\n// It shows TRUE/FALSE if opened date equals maximum year in the dataset\r\n\r\nDATEPART(\"year\", [Opened]) = DATEPART(\"year\", {MAX([Opened])})",
-                            "Due date": "",
-                            "Active": "",
-                            "Closed": ""
+                            "luid": "",
+                            "field: % of Overdue": "formula: // This is a calculated field\r\n// It show the percentage incidents which are overdue\r\n\r\n(IF ATTR([Overdue]=\"Overdue\")\r\nTHEN COUNTD([Number])\r\nEND)\r\n/\r\nATTR({ EXCLUDE [Overdue]:\r\nCOUNTD([Number])})",
+                            "field: Priority": "",
+                            "field: Category (Incident)": "",
+                            "field: Overdue": "formula: // This is a calculated field\r\n// It shows if an incident is overdue\r\n\r\n//Check overdue cases among inactive incidents\r\n{ FIXED [Number]:\r\n\r\nIF MAX([Active]=FALSE) \r\nAND\r\nmax([Closed])>max([Due date])\r\n\r\nOR\r\n//Check overdue cases among active incidents\r\nMAX([Active] = TRUE) \r\nAND NOW() > MAX([Due date]) \r\n\r\nTHEN  \"Overdue\"\r\nEND\r\n}",
+                            "field: Number": "",
+                            "field: Opened": "",
+                            "field: Max Year?": "formula: // This is a calculated field\r\n// It shows TRUE/FALSE if opened date equals maximum year in the dataset\r\n\r\nDATEPART(\"year\", [Opened]) = DATEPART(\"year\", {MAX([Opened])})",
+                            "field: Due date": "",
+                            "field: Active": "",
+                            "field: Closed": ""
                         },
                         "externalUrl": "https://do-not-connect/t/acryl/authoring/ExecutiveDashboard/ExecutiveDashboard/Overdue",
                         "title": "Overdue",
@@ -1362,12 +1407,13 @@
                 {
                     "com.linkedin.pegasus2avro.chart.ChartInfo": {
                         "customProperties": {
-                            "Number": "",
-                            "Priority": "",
-                            "Opened": "",
-                            "Max Year?": "formula: // This is a calculated field\r\n// It shows TRUE/FALSE if the year of opened is equal the max year of the dataset \r\n\r\nDATEPART(\"year\", [Opened]) = DATEPART(\"year\", {MAX([Opened])})",
-                            "% of critical and high priority": "formula: // This is a calculated field\r\n// It shows the percentage of critical or high priority problems\r\n\r\nCOUNTD(IF [Priority]=1\r\nOR  [Priority]=2\r\nTHEN [Number]\r\nEND)\r\n/\r\nCOUNTD([Number])",
-                            "Active": ""
+                            "luid": "",
+                            "field: Number": "",
+                            "field: Priority": "",
+                            "field: Opened": "",
+                            "field: Max Year?": "formula: // This is a calculated field\r\n// It shows TRUE/FALSE if the year of opened is equal the max year of the dataset \r\n\r\nDATEPART(\"year\", [Opened]) = DATEPART(\"year\", {MAX([Opened])})",
+                            "field: % of critical and high priority": "formula: // This is a calculated field\r\n// It shows the percentage of critical or high priority problems\r\n\r\nCOUNTD(IF [Priority]=1\r\nOR  [Priority]=2\r\nTHEN [Number]\r\nEND)\r\n/\r\nCOUNTD([Number])",
+                            "field: Active": ""
                         },
                         "externalUrl": "https://do-not-connect/t/acryl/authoring/ExecutiveDashboard/ExecutiveDashboard/High and Critical Priority Problems",
                         "title": "High and Critical Priority Problems",
@@ -1443,16 +1489,17 @@
                 {
                     "com.linkedin.pegasus2avro.chart.ChartInfo": {
                         "customProperties": {
-                            "Priority": "",
-                            "Current Year Total Cases": "formula: // This is a calculated field using level of detail calculation\r\n// It counts each distinct incident. The exclude is used to guarantee that filters will not interfere in the result\r\n\r\n\r\n{EXCLUDE [Opened], [Overdue], [Max Year?]: \r\nCOUNTD(IF [Max Year?]=TRUE\r\nTHEN [Number]\r\nEND)\r\n}",
-                            "Category (Incident)": "",
-                            "Overdue": "formula: // This is a calculated field\r\n// It shows if an incident is overdue\r\n\r\n//Check overdue cases among inactive incidents\r\n{ FIXED [Number]:\r\n\r\nIF MAX([Active]=FALSE) \r\nAND\r\nmax([Closed])>max([Due date])\r\n\r\nOR\r\n//Check overdue cases among active incidents\r\nMAX([Active] = TRUE) \r\nAND NOW() > MAX([Due date]) \r\n\r\nTHEN  \"Overdue\"\r\nEND\r\n}",
-                            "Number": "",
-                            "Opened": "",
-                            "Max Year?": "formula: // This is a calculated field\r\n// It shows TRUE/FALSE if opened date equals maximum year in the dataset\r\n\r\nDATEPART(\"year\", [Opened]) = DATEPART(\"year\", {MAX([Opened])})",
-                            "Due date": "",
-                            "Active": "",
-                            "Closed": ""
+                            "luid": "",
+                            "field: Priority": "",
+                            "field: Current Year Total Cases": "formula: // This is a calculated field using level of detail calculation\r\n// It counts each distinct incident. The exclude is used to guarantee that filters will not interfere in the result\r\n\r\n\r\n{EXCLUDE [Opened], [Overdue], [Max Year?]: \r\nCOUNTD(IF [Max Year?]=TRUE\r\nTHEN [Number]\r\nEND)\r\n}",
+                            "field: Category (Incident)": "",
+                            "field: Overdue": "formula: // This is a calculated field\r\n// It shows if an incident is overdue\r\n\r\n//Check overdue cases among inactive incidents\r\n{ FIXED [Number]:\r\n\r\nIF MAX([Active]=FALSE) \r\nAND\r\nmax([Closed])>max([Due date])\r\n\r\nOR\r\n//Check overdue cases among active incidents\r\nMAX([Active] = TRUE) \r\nAND NOW() > MAX([Due date]) \r\n\r\nTHEN  \"Overdue\"\r\nEND\r\n}",
+                            "field: Number": "",
+                            "field: Opened": "",
+                            "field: Max Year?": "formula: // This is a calculated field\r\n// It shows TRUE/FALSE if opened date equals maximum year in the dataset\r\n\r\nDATEPART(\"year\", [Opened]) = DATEPART(\"year\", {MAX([Opened])})",
+                            "field: Due date": "",
+                            "field: Active": "",
+                            "field: Closed": ""
                         },
                         "externalUrl": "https://do-not-connect/t/acryl/authoring/ExecutiveDashboard/ExecutiveDashboard/Total Incidents by Category and YoY Change",
                         "title": "Total Incidents by Category and YoY Change",
@@ -1525,15 +1572,16 @@
                 {
                     "com.linkedin.pegasus2avro.chart.ChartInfo": {
                         "customProperties": {
-                            "Number": "",
-                            "Priority": "",
-                            "Problems with Related Incidents": "formula: // This is a calculated field\r\n// It counts each distinct problems which has a related incident\r\n\r\nCOUNT(IF ([Related Incidents]>0\r\nAND NOT ISNULL([Related Incidents]))=true\r\nTHEN [Number]\r\nEND)",
-                            "Related Incidents": "",
-                            "Opened": "",
-                            "% of known error": "formula: // This is a calculated field\r\n// It shows the percentage of problems that are known errors\r\n\r\nCOUNTD(IF [Known error]=TRUE\r\nTHEN [Number] END)\r\n/\r\nCOUNTD([Number])",
-                            "Max Year?": "formula: // This is a calculated field\r\n// It shows TRUE/FALSE if the year of opened is equal the max year of the dataset \r\n\r\nDATEPART(\"year\", [Opened]) = DATEPART(\"year\", {MAX([Opened])})",
-                            "Known error": "",
-                            "Active": ""
+                            "luid": "",
+                            "field: Number": "",
+                            "field: Priority": "",
+                            "field: Problems with Related Incidents": "formula: // This is a calculated field\r\n// It counts each distinct problems which has a related incident\r\n\r\nCOUNT(IF ([Related Incidents]>0\r\nAND NOT ISNULL([Related Incidents]))=true\r\nTHEN [Number]\r\nEND)",
+                            "field: Related Incidents": "",
+                            "field: Opened": "",
+                            "field: % of known error": "formula: // This is a calculated field\r\n// It shows the percentage of problems that are known errors\r\n\r\nCOUNTD(IF [Known error]=TRUE\r\nTHEN [Number] END)\r\n/\r\nCOUNTD([Number])",
+                            "field: Max Year?": "formula: // This is a calculated field\r\n// It shows TRUE/FALSE if the year of opened is equal the max year of the dataset \r\n\r\nDATEPART(\"year\", [Opened]) = DATEPART(\"year\", {MAX([Opened])})",
+                            "field: Known error": "",
+                            "field: Active": ""
                         },
                         "externalUrl": "https://do-not-connect/t/acryl/authoring/ExecutiveDashboard/ExecutiveDashboard/Known Errors",
                         "title": "Known Errors",
@@ -1609,14 +1657,15 @@
                 {
                     "com.linkedin.pegasus2avro.chart.ChartInfo": {
                         "customProperties": {
-                            "Opened": "",
-                            "Due date": "",
-                            "Priority": "",
-                            "Overdue": "formula: // This is a calculated field\r\n// It shows if an accident is overdue\r\n\r\n//Check overdue cases among inactive incidents\r\nIF [Active]=FALSE \r\nAND\r\n[Closed]>[Due date]\r\n\r\nOR\r\n//Check overdue cases among active incidents\r\n[Active]=TRUE \r\nAND NOW()>[Due date]\r\n\r\nTHEN  \"Overdue\"\r\nELSE \"Non Overdue\"\r\nEND",
-                            "Active": "",
-                            "% of Overdue": "formula: // This is a calculated field\r\n// It shows the percentage of incidents which are overdue\r\n\r\n(IF ATTR([Overdue]= \"Overdue\")\r\nTHEN COUNTD([Number])\r\nEND)\r\n/\r\nATTR({ EXCLUDE [Overdue]:\r\nCOUNTD([Number])})",
-                            "Number": "",
-                            "Closed": ""
+                            "luid": "",
+                            "field: Opened": "",
+                            "field: Due date": "",
+                            "field: Priority": "",
+                            "field: Overdue": "formula: // This is a calculated field\r\n// It shows if an accident is overdue\r\n\r\n//Check overdue cases among inactive incidents\r\nIF [Active]=FALSE \r\nAND\r\n[Closed]>[Due date]\r\n\r\nOR\r\n//Check overdue cases among active incidents\r\n[Active]=TRUE \r\nAND NOW()>[Due date]\r\n\r\nTHEN  \"Overdue\"\r\nELSE \"Non Overdue\"\r\nEND",
+                            "field: Active": "",
+                            "field: % of Overdue": "formula: // This is a calculated field\r\n// It shows the percentage of incidents which are overdue\r\n\r\n(IF ATTR([Overdue]= \"Overdue\")\r\nTHEN COUNTD([Number])\r\nEND)\r\n/\r\nATTR({ EXCLUDE [Overdue]:\r\nCOUNTD([Number])})",
+                            "field: Number": "",
+                            "field: Closed": ""
                         },
                         "externalUrl": "https://do-not-connect/t/acryl/authoring/ExecutiveDashboard/ExecutiveDashboard/Overdue Requests",
                         "title": "Overdue Requests",
@@ -1692,14 +1741,15 @@
                 {
                     "com.linkedin.pegasus2avro.chart.ChartInfo": {
                         "customProperties": {
-                            "Priority": "",
-                            "Category (Incident)": "",
-                            "Time to Close an Incident (seconds)": "formula: // This is a calculated field\r\n// It calculates the difference in seconds between opening and closing an incident\r\n\r\n// Check if closed date is valid\r\nIF [Closed]>[Opened]\r\nTHEN\r\n//Calculate difference\r\nDATEDIFF('second', [Opened], [Closed])\r\nEND",
-                            "Opened": "",
-                            "Max Year?": "formula: // This is a calculated field\r\n// It shows TRUE/FALSE if opened date equals maximum year in the dataset\r\n\r\nDATEPART(\"year\", [Opened]) = DATEPART(\"year\", {MAX([Opened])})",
-                            "Active": "",
-                            "Closed": "",
-                            "Time to Close an Incident": "formula: // This is a calculated field\r\n// It transforms time in seconds into DD:HH:MM:SS format\r\nSTR(INT(AVG([Time to Close an Incident (seconds)])/86400)) \r\n \r\n+ \" day(s) \" + \r\n \r\nIF (INT(AVG([Time to Close an Incident (seconds)])%86400/3600)) \r\n< 10 THEN \"0\" ELSE \"\" END + STR(INT(AVG([Time to Close an Incident (seconds)])%86400/3600))\r\n \r\n+ \":\" + \r\n \r\nIF INT(AVG([Time to Close an Incident (seconds)])%3600/60) \r\n< 10 THEN \"0\" ELSE \"\" END + STR(INT(AVG([Time to Close an Incident (seconds)])%3600/60)) \r\n \r\n \r\n+ \":\" + \r\n \r\nIF INT(AVG([Time to Close an Incident (seconds)]) %3600 %60) \r\n< 10 THEN \"0\" ELSE \"\" END + STR(INT(AVG([Time to Close an Incident (seconds)]) %3600 %60))"
+                            "luid": "",
+                            "field: Priority": "",
+                            "field: Category (Incident)": "",
+                            "field: Time to Close an Incident (seconds)": "formula: // This is a calculated field\r\n// It calculates the difference in seconds between opening and closing an incident\r\n\r\n// Check if closed date is valid\r\nIF [Closed]>[Opened]\r\nTHEN\r\n//Calculate difference\r\nDATEDIFF('second', [Opened], [Closed])\r\nEND",
+                            "field: Opened": "",
+                            "field: Max Year?": "formula: // This is a calculated field\r\n// It shows TRUE/FALSE if opened date equals maximum year in the dataset\r\n\r\nDATEPART(\"year\", [Opened]) = DATEPART(\"year\", {MAX([Opened])})",
+                            "field: Active": "",
+                            "field: Closed": "",
+                            "field: Time to Close an Incident": "formula: // This is a calculated field\r\n// It transforms time in seconds into DD:HH:MM:SS format\r\nSTR(INT(AVG([Time to Close an Incident (seconds)])/86400)) \r\n \r\n+ \" day(s) \" + \r\n \r\nIF (INT(AVG([Time to Close an Incident (seconds)])%86400/3600)) \r\n< 10 THEN \"0\" ELSE \"\" END + STR(INT(AVG([Time to Close an Incident (seconds)])%86400/3600))\r\n \r\n+ \":\" + \r\n \r\nIF INT(AVG([Time to Close an Incident (seconds)])%3600/60) \r\n< 10 THEN \"0\" ELSE \"\" END + STR(INT(AVG([Time to Close an Incident (seconds)])%3600/60)) \r\n \r\n \r\n+ \":\" + \r\n \r\nIF INT(AVG([Time to Close an Incident (seconds)]) %3600 %60) \r\n< 10 THEN \"0\" ELSE \"\" END + STR(INT(AVG([Time to Close an Incident (seconds)]) %3600 %60))"
                         },
                         "externalUrl": "https://do-not-connect/t/acryl/authoring/ExecutiveDashboard/ExecutiveDashboard/AVG Time to Solve an Incident",
                         "title": "AVG Time to Solve an Incident",
@@ -1772,12 +1822,13 @@
                 {
                     "com.linkedin.pegasus2avro.chart.ChartInfo": {
                         "customProperties": {
-                            "Opened": "",
-                            "% made SLA": "formula: // This is a calculated field\r\n// It shows the percentage of requests which made SLA\r\n\r\nCOUNTD(IF [Made SLA]= TRUE\r\nTHEN  [Number]\r\nEND)\r\n/\r\nCOUNTD([Number])",
-                            "Priority": "",
-                            "Active": "",
-                            "Made SLA": "",
-                            "Number": ""
+                            "luid": "",
+                            "field: Opened": "",
+                            "field: % made SLA": "formula: // This is a calculated field\r\n// It shows the percentage of requests which made SLA\r\n\r\nCOUNTD(IF [Made SLA]= TRUE\r\nTHEN  [Number]\r\nEND)\r\n/\r\nCOUNTD([Number])",
+                            "field: Priority": "",
+                            "field: Active": "",
+                            "field: Made SLA": "",
+                            "field: Number": ""
                         },
                         "externalUrl": "https://do-not-connect/t/acryl/authoring/ExecutiveDashboard/ExecutiveDashboard/Made SLA?",
                         "title": "Made SLA?",
@@ -1853,11 +1904,12 @@
                 {
                     "com.linkedin.pegasus2avro.chart.ChartInfo": {
                         "customProperties": {
-                            "Priority": "",
-                            "Number": "",
-                            "Opened": "",
-                            "Max Year?": "formula: // This is a calculated field\r\n// It shows TRUE/FALSE if opened date equals maximum year in the dataset\r\n\r\nDATEPART(\"year\", [Opened]) = DATEPART(\"year\", {MAX([Opened])})",
-                            "Active": ""
+                            "luid": "",
+                            "field: Priority": "",
+                            "field: Number": "",
+                            "field: Opened": "",
+                            "field: Max Year?": "formula: // This is a calculated field\r\n// It shows TRUE/FALSE if opened date equals maximum year in the dataset\r\n\r\nDATEPART(\"year\", [Opened]) = DATEPART(\"year\", {MAX([Opened])})",
+                            "field: Active": ""
                         },
                         "externalUrl": "https://do-not-connect/#/site/acryl/views/ExecutiveDashboard/Tooltip-IncidentBreakdownbyPriority",
                         "title": "Tooltip - Incident Breakdown by Priority",
@@ -1930,15 +1982,16 @@
                 {
                     "com.linkedin.pegasus2avro.chart.ChartInfo": {
                         "customProperties": {
-                            "Overdue": "formula: // This is a calculated field\r\n// It checks if an incident is overdue\r\n\r\n//Check overdue cases among inactive incidents\r\n{ FIXED [Number]:\r\n\r\nIF MAX([Active]=FALSE) \r\nAND\r\nmax([Closed])> max([Due date])\r\n\r\nOR\r\n//Check overdue cases among active incidents\r\nMAX([Active]=TRUE) \r\nAND NOW()> MAX([Due date]) \r\n\r\nTHEN  \"Overdue\"\r\nEND\r\n}",
-                            "Number": "",
-                            "Priority": "",
-                            "Due date": "",
-                            "% of Overdue": "formula: // This is a calculated field\r\n// It shows the percentage of incidents that are overdue\r\n\r\nIFNULL((IF ATTR([Overdue]= \"Overdue\")\r\nTHEN COUNTD([Number])\r\nEND),0)\r\n/\r\nATTR({ EXCLUDE [Overdue]:\r\nCOUNTD([Number])})",
-                            "Opened": "",
-                            "Max Year?": "formula: // This is a calculated field\r\n// It shows TRUE/FALSE if the year of opened is equal the max year of the dataset \r\n\r\nDATEPART(\"year\", [Opened]) = DATEPART(\"year\", {MAX([Opened])})",
-                            "Closed": "",
-                            "Active": ""
+                            "luid": "",
+                            "field: Overdue": "formula: // This is a calculated field\r\n// It checks if an incident is overdue\r\n\r\n//Check overdue cases among inactive incidents\r\n{ FIXED [Number]:\r\n\r\nIF MAX([Active]=FALSE) \r\nAND\r\nmax([Closed])> max([Due date])\r\n\r\nOR\r\n//Check overdue cases among active incidents\r\nMAX([Active]=TRUE) \r\nAND NOW()> MAX([Due date]) \r\n\r\nTHEN  \"Overdue\"\r\nEND\r\n}",
+                            "field: Number": "",
+                            "field: Priority": "",
+                            "field: Due date": "",
+                            "field: % of Overdue": "formula: // This is a calculated field\r\n// It shows the percentage of incidents that are overdue\r\n\r\nIFNULL((IF ATTR([Overdue]= \"Overdue\")\r\nTHEN COUNTD([Number])\r\nEND),0)\r\n/\r\nATTR({ EXCLUDE [Overdue]:\r\nCOUNTD([Number])})",
+                            "field: Opened": "",
+                            "field: Max Year?": "formula: // This is a calculated field\r\n// It shows TRUE/FALSE if the year of opened is equal the max year of the dataset \r\n\r\nDATEPART(\"year\", [Opened]) = DATEPART(\"year\", {MAX([Opened])})",
+                            "field: Closed": "",
+                            "field: Active": ""
                         },
                         "externalUrl": "https://do-not-connect/t/acryl/authoring/ExecutiveDashboard/ExecutiveDashboard/Overdue Problems",
                         "title": "Overdue Problems",
@@ -2014,11 +2067,12 @@
                 {
                     "com.linkedin.pegasus2avro.chart.ChartInfo": {
                         "customProperties": {
-                            "Number": "",
-                            "Priority": "",
-                            "Opened": "",
-                            "Max Year?": "formula: // This is a calculated field\r\n// It shows TRUE/FALSE if the year of opened is equal the max year of the dataset \r\n\r\nDATEPART(\"year\", [Opened]) = DATEPART(\"year\", {MAX([Opened])})",
-                            "Active": ""
+                            "luid": "",
+                            "field: Number": "",
+                            "field: Priority": "",
+                            "field: Opened": "",
+                            "field: Max Year?": "formula: // This is a calculated field\r\n// It shows TRUE/FALSE if the year of opened is equal the max year of the dataset \r\n\r\nDATEPART(\"year\", [Opened]) = DATEPART(\"year\", {MAX([Opened])})",
+                            "field: Active": ""
                         },
                         "externalUrl": "https://do-not-connect/#/site/acryl/views/ExecutiveDashboard/Tooltip-ProblemBreakdownbyPriority",
                         "title": "Tooltip - Problem Breakdown by Priority",
@@ -2094,11 +2148,12 @@
                 {
                     "com.linkedin.pegasus2avro.chart.ChartInfo": {
                         "customProperties": {
-                            "Opened": "",
-                            "Priority": "",
-                            "Active": "",
-                            "Max Year?": "formula: // This is a calculated field\r\n// It shows TRUE/FALSE if opened date equals maximum year in the dataset\r\n\r\nDATEPART(\"year\", [Opened]) = DATEPART(\"year\", {MAX([Opened])})",
-                            "Number": ""
+                            "luid": "",
+                            "field: Opened": "",
+                            "field: Priority": "",
+                            "field: Active": "",
+                            "field: Max Year?": "formula: // This is a calculated field\r\n// It shows TRUE/FALSE if opened date equals maximum year in the dataset\r\n\r\nDATEPART(\"year\", [Opened]) = DATEPART(\"year\", {MAX([Opened])})",
+                            "field: Number": ""
                         },
                         "externalUrl": "https://do-not-connect/#/site/acryl/views/ExecutiveDashboard/Tooltip-RequestBreakdownbyPriority",
                         "title": "Tooltip - Request Breakdown by Priority",
@@ -2174,13 +2229,14 @@
                 {
                     "com.linkedin.pegasus2avro.chart.ChartInfo": {
                         "customProperties": {
-                            "Number": "",
-                            "Priority": "",
-                            "Time Span Breakdown": "formula: // This is a calculated field\r\n// It groups problems accordingly with their ages\r\n\r\nIF [Age of Problems]< 2592000\r\nTHEN \"Under 30 d\"\r\nELSEIF  [Age of Problems] > 7776000\r\nTHEN \"+ than 90d\"\r\nELSE \" 30-90 d\"\r\nEND",
-                            "Opened": "",
-                            "Max Year?": "formula: // This is a calculated field\r\n// It shows TRUE/FALSE if the year of opened is equal the max year of the dataset \r\n\r\nDATEPART(\"year\", [Opened]) = DATEPART(\"year\", {MAX([Opened])})",
-                            "Age of Problems": "formula: //Calculates the age of active problems since opened until now\r\n\r\nDATEDIFF('second', [Opened], NOW())",
-                            "Active": ""
+                            "luid": "",
+                            "field: Number": "",
+                            "field: Priority": "",
+                            "field: Time Span Breakdown": "formula: // This is a calculated field\r\n// It groups problems accordingly with their ages\r\n\r\nIF [Age of Problems]< 2592000\r\nTHEN \"Under 30 d\"\r\nELSEIF  [Age of Problems] > 7776000\r\nTHEN \"+ than 90d\"\r\nELSE \" 30-90 d\"\r\nEND",
+                            "field: Opened": "",
+                            "field: Max Year?": "formula: // This is a calculated field\r\n// It shows TRUE/FALSE if the year of opened is equal the max year of the dataset \r\n\r\nDATEPART(\"year\", [Opened]) = DATEPART(\"year\", {MAX([Opened])})",
+                            "field: Age of Problems": "formula: //Calculates the age of active problems since opened until now\r\n\r\nDATEDIFF('second', [Opened], NOW())",
+                            "field: Active": ""
                         },
                         "externalUrl": "https://do-not-connect/t/acryl/authoring/ExecutiveDashboard/ExecutiveDashboard/Age of Active Problems",
                         "title": "Age of Active Problems",
@@ -2256,18 +2312,19 @@
                 {
                     "com.linkedin.pegasus2avro.chart.ChartInfo": {
                         "customProperties": {
-                            "Priority": "",
-                            "Current Year Total Cases": "formula: // This is a calculated field using level of detail calculation\r\n// It counts each distinct incident. The exclude is used to guarantee that filters will not interfere in the result\r\n\r\n\r\n{EXCLUDE [Opened], [Overdue], [Max Year?]: \r\nCOUNTD(IF [Max Year?]=TRUE\r\nTHEN [Number]\r\nEND)\r\n}",
-                            "Category (Incident)": "",
-                            "Overdue": "formula: // This is a calculated field\r\n// It shows if an incident is overdue\r\n\r\n//Check overdue cases among inactive incidents\r\n{ FIXED [Number]:\r\n\r\nIF MAX([Active]=FALSE) \r\nAND\r\nmax([Closed])>max([Due date])\r\n\r\nOR\r\n//Check overdue cases among active incidents\r\nMAX([Active] = TRUE) \r\nAND NOW() > MAX([Due date]) \r\n\r\nTHEN  \"Overdue\"\r\nEND\r\n}",
-                            "Total Active Incidents": "formula: // This is a calculated field\r\n// It counts each distinct incident. The \"exclude\" is used to avoid filters interfering in the final result\r\n\r\n{EXCLUDE [Opened], [Overdue], [Max Year?]: \r\nCOUNTD(IF [Active]=TRUE\r\nTHEN [Number]\r\nEND)\r\n}",
-                            "Number": "",
-                            "Opened": "",
-                            "Max Year?": "formula: // This is a calculated field\r\n// It shows TRUE/FALSE if opened date equals maximum year in the dataset\r\n\r\nDATEPART(\"year\", [Opened]) = DATEPART(\"year\", {MAX([Opened])})",
-                            "Opened Month Tooltip": "formula: // This is an IF statment using the opened field to allow for different formats\r\n// original used on columns for line charts are formatted in starting letter of month i.e. J for January\r\n// This version formats to full month name for the tooltip \r\n\r\n\r\n// The IF statement names the month based on the month number of the datefield\r\nIF DATEPART('month', [Opened]) = 1 THEN 'January'\r\nELSEIF DATEPART('month', [Opened]) = 2 THEN 'February'\r\nELSEIF DATEPART('month', [Opened]) = 3 THEN 'March'\r\nELSEIF DATEPART('month', [Opened]) = 4 THEN 'April'\r\nELSEIF DATEPART('month', [Opened]) = 5 THEN 'May'\r\nELSEIF DATEPART('month', [Opened]) = 6 THEN 'June'\r\nELSEIF DATEPART('month', [Opened]) = 7 THEN 'July'\r\nELSEIF DATEPART('month', [Opened]) = 8 THEN 'August'\r\nELSEIF DATEPART('month', [Opened]) = 9 THEN 'September'\r\nELSEIF DATEPART('month', [Opened]) = 10 THEN 'October'\r\nELSEIF DATEPART('month', [Opened]) = 11 THEN 'Novemeber'\r\nELSEIF DATEPART('month', [Opened]) = 12 THEN 'December'\r\nELSE NULL\r\nEND",
-                            "Due date": "",
-                            "Active": "",
-                            "Closed": ""
+                            "luid": "",
+                            "field: Priority": "",
+                            "field: Current Year Total Cases": "formula: // This is a calculated field using level of detail calculation\r\n// It counts each distinct incident. The exclude is used to guarantee that filters will not interfere in the result\r\n\r\n\r\n{EXCLUDE [Opened], [Overdue], [Max Year?]: \r\nCOUNTD(IF [Max Year?]=TRUE\r\nTHEN [Number]\r\nEND)\r\n}",
+                            "field: Category (Incident)": "",
+                            "field: Overdue": "formula: // This is a calculated field\r\n// It shows if an incident is overdue\r\n\r\n//Check overdue cases among inactive incidents\r\n{ FIXED [Number]:\r\n\r\nIF MAX([Active]=FALSE) \r\nAND\r\nmax([Closed])>max([Due date])\r\n\r\nOR\r\n//Check overdue cases among active incidents\r\nMAX([Active] = TRUE) \r\nAND NOW() > MAX([Due date]) \r\n\r\nTHEN  \"Overdue\"\r\nEND\r\n}",
+                            "field: Total Active Incidents": "formula: // This is a calculated field\r\n// It counts each distinct incident. The \"exclude\" is used to avoid filters interfering in the final result\r\n\r\n{EXCLUDE [Opened], [Overdue], [Max Year?]: \r\nCOUNTD(IF [Active]=TRUE\r\nTHEN [Number]\r\nEND)\r\n}",
+                            "field: Number": "",
+                            "field: Opened": "",
+                            "field: Max Year?": "formula: // This is a calculated field\r\n// It shows TRUE/FALSE if opened date equals maximum year in the dataset\r\n\r\nDATEPART(\"year\", [Opened]) = DATEPART(\"year\", {MAX([Opened])})",
+                            "field: Opened Month Tooltip": "formula: // This is an IF statment using the opened field to allow for different formats\r\n// original used on columns for line charts are formatted in starting letter of month i.e. J for January\r\n// This version formats to full month name for the tooltip \r\n\r\n\r\n// The IF statement names the month based on the month number of the datefield\r\nIF DATEPART('month', [Opened]) = 1 THEN 'January'\r\nELSEIF DATEPART('month', [Opened]) = 2 THEN 'February'\r\nELSEIF DATEPART('month', [Opened]) = 3 THEN 'March'\r\nELSEIF DATEPART('month', [Opened]) = 4 THEN 'April'\r\nELSEIF DATEPART('month', [Opened]) = 5 THEN 'May'\r\nELSEIF DATEPART('month', [Opened]) = 6 THEN 'June'\r\nELSEIF DATEPART('month', [Opened]) = 7 THEN 'July'\r\nELSEIF DATEPART('month', [Opened]) = 8 THEN 'August'\r\nELSEIF DATEPART('month', [Opened]) = 9 THEN 'September'\r\nELSEIF DATEPART('month', [Opened]) = 10 THEN 'October'\r\nELSEIF DATEPART('month', [Opened]) = 11 THEN 'Novemeber'\r\nELSEIF DATEPART('month', [Opened]) = 12 THEN 'December'\r\nELSE NULL\r\nEND",
+                            "field: Due date": "",
+                            "field: Active": "",
+                            "field: Closed": ""
                         },
                         "externalUrl": "https://do-not-connect/t/acryl/authoring/ExecutiveDashboard/ExecutiveDashboard/Opened Incidents",
                         "title": "Opened Incidents",
@@ -2339,7 +2396,9 @@
             "aspects": [
                 {
                     "com.linkedin.pegasus2avro.dashboard.DashboardInfo": {
-                        "customProperties": {},
+                        "customProperties": {
+                            "luid": ""
+                        },
                         "title": "Executive Dashboard",
                         "description": "",
                         "charts": [
@@ -2492,9 +2551,10 @@
                 {
                     "com.linkedin.pegasus2avro.chart.ChartInfo": {
                         "customProperties": {
-                            "staff_last_name": "",
-                            "amount": "",
-                            "customer_first_name": ""
+                            "luid": "",
+                            "field: staff_last_name": "",
+                            "field: amount": "",
+                            "field: customer_first_name": ""
                         },
                         "externalUrl": "https://do-not-connect/#/site/acryl/views/Workbookpublishedds/Sheet1",
                         "title": "published sheet ds",

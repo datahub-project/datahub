@@ -21,6 +21,7 @@
                             "path": "",
                             "createdAt": "2021-12-22T19:10:34Z",
                             "updatedAt": "2021-12-22T19:10:34Z",
+                            "luid": "f0779f9d-6765-47a9-a8f6-c740cfd27783",
                             "tags": [],
                             "containedInDashboards": [
                                 {
@@ -957,6 +958,7 @@
                             "path": "EmailPerformancebyCampaign/EmailPerformancebyCampaign",
                             "createdAt": "2021-12-22T19:10:34Z",
                             "updatedAt": "2021-12-22T19:10:34Z",
+                            "luid": "fc9ea488-f810-4fa8-ac19-aa96018b5d66",
                             "sheets": [
                                 {
                                     "id": "222d1406-de0e-cd8d-0b94-9b45a0007e59",
