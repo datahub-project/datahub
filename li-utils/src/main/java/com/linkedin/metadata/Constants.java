@@ -262,6 +262,10 @@ public class Constants {
   public static final String POST_INFO_ASPECT_NAME = "postInfo";
   public static final String LAST_MODIFIED_FIELD_NAME = "lastModified";
 
+  // Telemetry
+  public static final String CLIENT_ID_URN = "urn:li:telemetry:clientId";
+  public static final String CLIENT_ID_ASPECT = "telemetryClientId";
+
   private Constants() {
   }
 }

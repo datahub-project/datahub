@@ -208,6 +208,23 @@
     }
 },
 {
+    "entityType": "container",
+    "entityUrn": "urn:li:container:34fc0473e206bb1f4307aadf4177b2fd",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "value": "{\"removed\": false}",
+        "contentType": "application/json"
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "delta-lake-test",
+        "registryName": null,
+        "registryVersion": null,
+        "properties": null
+    }
+},
+{
     "auditHeader": null,
     "entityType": "container",
     "entityUrn": "urn:li:container:34fc0473e206bb1f4307aadf4177b2fd",
@@ -254,6 +271,23 @@
     "aspectName": "containerProperties",
     "aspect": {
         "value": "{\"customProperties\": {\"platform\": \"delta-lake\", \"instance\": \"DEV\", \"folder_abs_path\": \"my-test-bucket/delta_tables\"}, \"name\": \"delta_tables\"}",
+        "contentType": "application/json"
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "delta-lake-test",
+        "registryName": null,
+        "registryVersion": null,
+        "properties": null
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:acebf8bcf966274632d3d2b710ef4947",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "value": "{\"removed\": false}",
         "contentType": "application/json"
     },
     "systemMetadata": {
