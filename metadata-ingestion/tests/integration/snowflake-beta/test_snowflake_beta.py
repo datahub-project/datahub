@@ -79,11 +79,15 @@ def default_query_results(query):
                 "TABLE_SCHEMA": "TEST_SCHEMA",
                 "TABLE_NAME": "TABLE_{}".format(tbl_idx),
                 "COLUMN_NAME": "COL_{}".format(col_idx),
-                "ORDINAL_POSITION": 0,
+                "ORDINAL_POSITION": col_idx,
                 "IS_NULLABLE": "NO",
-                "DATA_TYPE": "VARCHAR",
+                "DATA_TYPE": "TEXT" if col_idx > 1 else "NUMBER",
                 "COMMENT": "Comment for column",
+                "CHARACTER_MAXIMUM_LENGTH": 255 if col_idx > 1 else None,
+                "NUMERIC_PRECISION": None if col_idx > 1 else 38,
+                "NUMERIC_SCALE": None if col_idx > 1 else 0,
             }
+            # first column number, all others text
             for col_idx in range(1, NUM_COLS + 1)
             for tbl_idx in range(1, NUM_TABLES + 1)
         ]
