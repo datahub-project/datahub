@@ -324,6 +324,7 @@ public class CassandraAspectDao implements AspectDao, AspectMigrationsDao {
         .whereColumn(CassandraAspect.URN_COLUMN).isEqualTo(literal(aspect.getUrn()))
         .whereColumn(CassandraAspect.ASPECT_COLUMN).isEqualTo(literal(aspect.getAspect()))
         .whereColumn(CassandraAspect.VERSION_COLUMN).isEqualTo(literal(aspect.getVersion()))
+        .ifExists()
         .build();
 
     _cqlSession.execute(ss);
@@ -558,7 +559,8 @@ public class CassandraAspectDao implements AspectDao, AspectMigrationsDao {
 
       Update u = uwa.whereColumn(CassandraAspect.URN_COLUMN).isEqualTo(literal(aspect.getUrn()))
               .whereColumn(CassandraAspect.ASPECT_COLUMN).isEqualTo(literal(aspect.getAspect()))
-              .whereColumn(CassandraAspect.VERSION_COLUMN).isEqualTo(literal(aspect.getVersion()));
+              .whereColumn(CassandraAspect.VERSION_COLUMN).isEqualTo(literal(aspect.getVersion()))
+              .ifExists();
 
       return u.build();
     }
