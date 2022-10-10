@@ -1,4 +1,4 @@
-import { Alert, Button, Space, Typography } from 'antd';
+import { Alert, Button, message, Space, Typography } from 'antd';
 import React, { useEffect, useState } from 'react';
 import styled from 'styled-components';
 import { StepProps } from './types';
@@ -72,6 +72,14 @@ export const DefineRecipeStep = ({ state, updateState, goTo, prev, ingestionSour
     const onClickNext = () => {
         const recipeJson = getRecipeJson(stagedRecipeYml);
         if (!recipeJson) return;
+
+        if (JSON.parse(recipeJson).source.type === null) {
+            message.warning({
+                content: `Please add valid ingestion type`,
+                duration: 3,
+            });
+            return;
+        }
 
         const newState = {
             ...state,
