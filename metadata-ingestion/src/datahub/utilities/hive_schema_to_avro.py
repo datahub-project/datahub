@@ -40,22 +40,45 @@ class HiveColumnToAvroConverter:
     _STRUCT_TYPE_SEPARATOR = ":"
 
     @staticmethod
+    def _parse_complex_inner_part(s: str, prefix: str) -> Optional[str]:
+        # Validate prefix (lowercased)
+        if not s.lower().startswith(prefix):
+            return None
+
+        # Validate that prefix continues with the "<"
+        after_prefix = s[len(prefix) :].strip()
+        if not after_prefix:
+            return None
+
+        if after_prefix[0] != "<":
+            return None
+
+        # Validate ending
+        if after_prefix[-1] != ">":
+            raise ValueError(
+                "'>' should be the last char in the complex type %r, but got: %s in %r"
+                % (prefix, after_prefix[-1], s)
+            )
+
+        return after_prefix[1:-1].strip()
+
+    @staticmethod
     def _parse_datatype_string(
         s: str, **kwargs: Any
     ) -> Union[object, Dict[str, object]]:
         s = s.strip()
-        if s.startswith("array<"):
-            if s[-1] != ">":
-                raise ValueError("'>' should be the last char, but got: %s" % s)
+        if HiveColumnToAvroConverter._parse_complex_inner_part(s, "array"):
             return {
                 "type": "array",
-                "items": HiveColumnToAvroConverter._parse_datatype_string(s[6:-1]),
+                "items": HiveColumnToAvroConverter._parse_datatype_string(
+                    HiveColumnToAvroConverter._parse_complex_inner_part(s, "array")
+                ),
                 "native_data_type": s,
             }
-        elif s.startswith("map<"):
-            if s[-1] != ">":
-                raise ValueError("'>' should be the last char, but got: %s" % s)
-            parts = HiveColumnToAvroConverter._ignore_brackets_split(s[4:-1], ",")
+        elif HiveColumnToAvroConverter._parse_complex_inner_part(s, "map"):
+            parts = HiveColumnToAvroConverter._ignore_brackets_split(
+                HiveColumnToAvroConverter._parse_complex_inner_part(s, "map"), ","
+            )
             if len(parts) != 2:
                 raise ValueError(
                     (
@@ -74,14 +97,14 @@ class HiveColumnToAvroConverter:
                 "key_type": kt,
                 "key_native_data_type": parts[0],
             }
-        elif s.startswith("uniontype<"):
-            if s[-1] != ">":
-                raise ValueError("'>' should be the last char, but got: %s" % s)
-            parts = HiveColumnToAvroConverter._ignore_brackets_split(s[10:-1], ",")
+        elif HiveColumnToAvroConverter._parse_complex_inner_part(s, "uniontype"):
+            parts = HiveColumnToAvroConverter._ignore_brackets_split(
+                HiveColumnToAvroConverter._parse_complex_inner_part(s, "uniontype"), ","
+            )
             t = []
             ustruct_seqn = 0
             for part in parts:
-                if part.startswith("struct<"):
+                if HiveColumnToAvroConverter._parse_complex_inner_part(part, "struct"):
                     # ustruct_seqn defines sequence number of struct in union
                     t.append(
                         HiveColumnToAvroConverter._parse_datatype_string(
@@ -92,11 +115,10 @@ class HiveColumnToAvroConverter:
                 else:
                     t.append(HiveColumnToAvroConverter._parse_datatype_string(part))
             return t
-        elif s.startswith("struct<"):
-            if s[-1] != ">":
-                raise ValueError("'>' should be the last char, but got: %s" % s)
+        elif HiveColumnToAvroConverter._parse_complex_inner_part(s, "struct"):
             return HiveColumnToAvroConverter._parse_struct_fields_string(
-                s[7:-1], **kwargs
+                HiveColumnToAvroConverter._parse_complex_inner_part(s, "struct"),
+                **kwargs,
             )
         elif ":" in s:
             return HiveColumnToAvroConverter._parse_struct_fields_string(s, **kwargs)

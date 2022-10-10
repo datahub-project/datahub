@@ -69,6 +69,8 @@ def glue_source(platform_instance: Optional[str] = None) -> GlueSource:
 column_type_test_cases: Dict[str, Tuple[str, Type]] = {
     "char": ("char", StringTypeClass),
     "array": ("array<int>", ArrayTypeClass),
+    "array-space": ("array <int>", ArrayTypeClass),
+    "array-struct-space": ("array < struct <  user_id: string>>", ArrayTypeClass),
     "map": ("map<string, int>", MapTypeClass),
     "struct": ("struct<a:int, b:string>", RecordTypeClass),
 }
