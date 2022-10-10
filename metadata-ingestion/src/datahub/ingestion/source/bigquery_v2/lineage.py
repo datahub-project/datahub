@@ -160,6 +160,7 @@ timestamp < "{end_time}"
             )
             return self._create_lineage_map(parsed_entries)
         except Exception as e:
+            logger.exception("Failure", e)
             self.error(
                 logger,
                 "lineage-gcp-logs",
@@ -366,6 +367,7 @@ timestamp < "{end_time}"
                 yield event
 
     def _create_lineage_map(self, entries: Iterable[QueryEvent]) -> Dict[str, Set[str]]:
+        logger.info("Entering create lineage map function")
         lineage_map: Dict[str, Set[str]] = collections.defaultdict(set)
         for e in entries:
             self.report.num_total_lineage_entries[e.project_id] = (
@@ -383,7 +385,17 @@ timestamp < "{end_time}"
                 )
                 continue
             # Skip if schema/table pattern don't allow the destination table
-            destination_table = e.destinationTable.get_sanitized_table_ref()
+            try:
+                destination_table = e.destinationTable.get_sanitized_table_ref()
+            except Exception:
+                self.report.num_skipped_lineage_entries_missing_data[e.project_id] = (
+                        self.report.num_skipped_lineage_entries_missing_data.get(
+                            e.project_id, 0
+                        )
+                        + 1
+                )
+                continue
+
             destination_table_str = destination_table.table_identifier.get_table_name()
             if not self.config.dataset_pattern.allowed(
                 destination_table.table_identifier.dataset
@@ -453,6 +465,7 @@ timestamp < "{end_time}"
                 f"{self.report.num_total_lineage_entries[e.project_id]} were added to {e.project_id} lineage map"
             )
 
+        logger.info("Exiting create lineage map function")
         return lineage_map
 
     def _compute_bigquery_lineage(self, project_id: str) -> Dict[str, Set[str]]:

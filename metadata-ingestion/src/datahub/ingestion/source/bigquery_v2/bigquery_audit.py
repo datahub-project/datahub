@@ -121,7 +121,7 @@ class BigqueryTableIdentifier:
         ]
         if invalid_chars_in_table_name:
             raise ValueError(
-                f"Cannot handle {self} - poorly formatted table name, contains {invalid_chars_in_table_name}"
+                f"Cannot handle {self.raw_table_name()} - poorly formatted table name, contains {invalid_chars_in_table_name}"
             )
         return table_name
 
