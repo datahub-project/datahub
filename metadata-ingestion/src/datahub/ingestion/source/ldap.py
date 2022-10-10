@@ -404,7 +404,7 @@ class LDAPSource(StatefulIngestionSourceBase):
 
         if groups:
             user_snapshot.aspects.append(GroupMembershipClass(groups=groups))
-            
+        
         if ldap_user:
             self.stale_entity_removal_handler.add_entity_to_state(
                 type="corpuser", urn=builder.make_user_urn(ldap_user)
