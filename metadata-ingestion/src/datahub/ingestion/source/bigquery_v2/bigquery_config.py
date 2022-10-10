@@ -57,7 +57,10 @@ class BigQueryV2Config(BigQueryConfig):
         default=50,
         description="Number of table queried in batch when getting metadata. This is a low leve config propert which should be touched with care. This restriction needed because we query partitions system view which throws error if we try to touch too many tables.",
     )
-
+    column_limit: int = Field(
+        default=1000,
+        description="Maximum number of columns to process in a table",
+    )
     # The inheritance hierarchy is wonky here, but these options need modifications.
     project_id: Optional[str] = Field(
         default=None,
