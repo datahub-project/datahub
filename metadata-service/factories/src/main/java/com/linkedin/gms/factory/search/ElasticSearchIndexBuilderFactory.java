@@ -36,7 +36,7 @@ public class ElasticSearchIndexBuilderFactory {
   @Value("${elasticsearch.index.refreshIntervalSeconds}")
   private Integer refreshIntervalSeconds;
 
-  @Value("#{${elasticsearch.index.settingsOverrides}}")
+  @Value("#{${elasticsearch.index.settingsOverrides:{T(java.util.Collections).emptyMap()}}}")
   Map<String, Map<String, String>> indexSettingOverrides;
 
   @Bean(name = "elasticSearchIndexBuilder")
