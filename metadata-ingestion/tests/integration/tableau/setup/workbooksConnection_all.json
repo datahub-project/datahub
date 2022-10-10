@@ -995,6 +995,11 @@
                     "uri": "sites/4989/workbooks/15619",
                     "createdAt": "2021-12-17T20:28:31Z",
                     "updatedAt": "2022-01-18T16:14:34Z",
+                    "tags": [
+                        {
+                            "name": "TagSheet3"
+                        }
+                    ],
                     "sheets": [
                         {
                             "id": "8a6a269a-d6de-fae4-5050-513255b40ffc",
