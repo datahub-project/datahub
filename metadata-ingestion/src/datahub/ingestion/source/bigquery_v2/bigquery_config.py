@@ -32,6 +32,7 @@ class BigQueryV2Config(BigQueryConfig):
     usage: BigQueryUsageConfig = Field(
         default=BigQueryUsageConfig(), description="Usage related configs"
     )
+
     include_usage_statistics: bool = Field(
         default=True,
         description="Generate usage statistic",
@@ -63,6 +64,11 @@ class BigQueryV2Config(BigQueryConfig):
         description="[deprecated] Use project_id_pattern instead.",
     )
     storage_project_id: None = Field(default=None, exclude=True)
+
+    lineage_use_sql_parser: bool = Field(
+        default=False,
+        description="Experimental. Use sql parser to resolve view/table lineage. If there is a view being referenced then bigquery sends both the view as well as underlying tablein the references. There is no distinction between direct/base objects accessed. So doing sql parsing to ensure we only use direct objects accessed for lineage.",
+    )
 
     @root_validator(pre=False)
     def profile_default_settings(cls, values: Dict) -> Dict:

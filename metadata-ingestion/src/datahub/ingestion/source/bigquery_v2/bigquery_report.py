@@ -12,19 +12,24 @@ from datahub.utilities.lossy_collections import LossyDict, LossyList
 
 @dataclass
 class BigQueryV2Report(SQLSourceReport):
-    num_total_lineage_entries: Optional[int] = None
-    num_skipped_lineage_entries_missing_data: Optional[int] = None
-    num_skipped_lineage_entries_not_allowed: Optional[int] = None
-    num_lineage_entries_sql_parser_failure: Optional[int] = None
-    num_skipped_lineage_entries_other: Optional[int] = None
-    num_total_log_entries: Optional[int] = None
-    num_parsed_log_entires: Optional[int] = None
-    num_total_audit_entries: Optional[int] = None
-    num_parsed_audit_entires: Optional[int] = None
+    num_total_lineage_entries: Dict[str, int] = field(default_factory=dict)
+    num_skipped_lineage_entries_missing_data: Dict[str, int] = field(
+        default_factory=dict
+    )
+    num_skipped_lineage_entries_not_allowed: Dict[str, int] = field(
+        default_factory=dict
+    )
+    num_lineage_entries_sql_parser_failure: Dict[str, int] = field(default_factory=dict)
+    num_lineage_entries_sql_parser_success: Dict[str, int] = field(default_factory=dict)
+    num_skipped_lineage_entries_other: Dict[str, int] = field(default_factory=dict)
+    num_total_log_entries: Dict[str, int] = field(default_factory=dict)
+    num_parsed_log_entries: Dict[str, int] = field(default_factory=dict)
+    num_total_audit_entries: Dict[str, int] = field(default_factory=dict)
+    num_parsed_audit_entries: Dict[str, int] = field(default_factory=dict)
     bigquery_audit_metadata_datasets_missing: Optional[bool] = None
     lineage_failed_extraction: LossyList[str] = field(default_factory=LossyList)
-    lineage_metadata_entries: Optional[int] = None
-    lineage_mem_size: Optional[str] = None
+    lineage_metadata_entries: Dict[str, int] = field(default_factory=dict)
+    lineage_mem_size: Dict[str, str] = field(default_factory=dict)
     lineage_extraction_sec: Dict[str, float] = field(default_factory=dict)
     usage_extraction_sec: Dict[str, float] = field(default_factory=dict)
     usage_failed_extraction: LossyList[str] = field(default_factory=LossyList)
