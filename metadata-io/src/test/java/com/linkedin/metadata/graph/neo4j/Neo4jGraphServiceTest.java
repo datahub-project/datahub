@@ -1,12 +1,7 @@
 package com.linkedin.metadata.graph.neo4j;
 
-import com.linkedin.common.urn.Urn;
-
-import com.linkedin.metadata.graph.EntityLineageResult;
 import com.linkedin.metadata.graph.GraphService;
 import com.linkedin.metadata.graph.GraphServiceTestBase;
-import com.linkedin.metadata.graph.LineageDirection;
-import com.linkedin.metadata.graph.LineageRelationship;
 import com.linkedin.metadata.graph.RelatedEntitiesResult;
 import com.linkedin.metadata.graph.RelatedEntity;
 import com.linkedin.metadata.models.registry.LineageRegistry;
@@ -23,12 +18,8 @@ import javax.annotation.Nonnull;
 import java.util.Comparator;
 import java.util.HashSet;
 import java.util.List;
-import java.util.Map;
-import java.util.function.Function;
-import java.util.stream.Collectors;
 
 import static org.testng.Assert.assertEquals;
-import static org.testng.Assert.assertTrue;
 
 
 public class Neo4jGraphServiceTest extends GraphServiceTestBase {
@@ -162,45 +153,4 @@ public class Neo4jGraphServiceTest extends GraphServiceTestBase {
     throw new SkipException("Neo4jGraphService produces duplicates");
   }
 
-  @Test
-  public void testPopulatedGraphServiceGetLineageMultihop() throws Exception {
-    GraphService service = getLineagePopulatedGraphService();
-
-    EntityLineageResult upstreamLineage = service.getLineage(datasetOneUrn, LineageDirection.UPSTREAM, 0, 1000, 2);
-    assertEquals(upstreamLineage.getTotal().intValue(), 0);
-    assertEquals(upstreamLineage.getRelationships().size(), 0);
-
-    EntityLineageResult downstreamLineage = service.getLineage(datasetOneUrn, LineageDirection.DOWNSTREAM, 0, 1000, 2);
-
-    assertEquals(downstreamLineage.getTotal().intValue(), 5);
-    assertEquals(downstreamLineage.getRelationships().size(), 5);
-    Map<Urn, LineageRelationship> relationships = downstreamLineage.getRelationships().stream().collect(Collectors.toMap(LineageRelationship::getEntity,
-            Function.identity()));
-    assertTrue(relationships.containsKey(datasetTwoUrn));
-    assertEquals(relationships.get(datasetTwoUrn).getDegree().intValue(), 1);
-    assertTrue(relationships.containsKey(datasetThreeUrn));
-    assertEquals(relationships.get(datasetThreeUrn).getDegree().intValue(), 2);
-    assertTrue(relationships.containsKey(datasetFourUrn));
-    assertEquals(relationships.get(datasetFourUrn).getDegree().intValue(), 2);
-    assertTrue(relationships.containsKey(dataJobOneUrn));
-    assertEquals(relationships.get(dataJobOneUrn).getDegree().intValue(), 1);
-    assertTrue(relationships.containsKey(dataJobTwoUrn));
-    assertEquals(relationships.get(dataJobTwoUrn).getDegree().intValue(), 1);
-
-    upstreamLineage = service.getLineage(datasetThreeUrn, LineageDirection.UPSTREAM, 0, 1000, 2);
-    assertEquals(upstreamLineage.getTotal().intValue(), 3);
-    assertEquals(upstreamLineage.getRelationships().size(), 3);
-    relationships = upstreamLineage.getRelationships().stream().collect(Collectors.toMap(LineageRelationship::getEntity,
-            Function.identity()));
-    assertTrue(relationships.containsKey(datasetOneUrn));
-    assertEquals(relationships.get(datasetOneUrn).getDegree().intValue(), 2);
-    assertTrue(relationships.containsKey(datasetTwoUrn));
-    assertEquals(relationships.get(datasetTwoUrn).getDegree().intValue(), 1);
-    assertTrue(relationships.containsKey(dataJobOneUrn));
-    assertEquals(relationships.get(dataJobOneUrn).getDegree().intValue(), 1);
-
-    downstreamLineage = service.getLineage(datasetThreeUrn, LineageDirection.DOWNSTREAM, 0, 1000, 2);
-    assertEquals(downstreamLineage.getTotal().intValue(), 0);
-    assertEquals(downstreamLineage.getRelationships().size(), 0);
-  }
 }

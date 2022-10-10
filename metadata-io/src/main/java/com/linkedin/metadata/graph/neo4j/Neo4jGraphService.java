@@ -111,25 +111,10 @@ public class Neo4jGraphService implements GraphService {
                                         GraphFilters graphFilters, int offset, int count, int maxHops) {
     log.debug(String.format("Neo4j getLineage maxHops = %d", maxHops));
 
-    final String multiHopTemplate = "MATCH (a {urn: '%s'})-[r:%s*1..%d]->(b) WHERE b:%s RETURN a,r,b"
-            + " UNION "
-            + "MATCH (a {urn: '%s'})<-[r:%s*1..%d]-(b) WHERE b:%s RETURN a,r,b";
+    final String statement = generateLineageStatement(entityUrn, direction, graphFilters, maxHops);
 
-    final String directRelationTypes = "DownstreamOf|HasOwner|KnowsUser|Consumes";
-    final String invertedRelationTypes = "Produces";
-    String upstreamRel = direction == LineageDirection.UPSTREAM ? directRelationTypes : invertedRelationTypes;
-    String dowStreamRel = direction == LineageDirection.UPSTREAM ? invertedRelationTypes : directRelationTypes;
-    if (direction == LineageDirection.$UNKNOWN) {
-      upstreamRel = directRelationTypes + "|" + invertedRelationTypes;
-      dowStreamRel = invertedRelationTypes + "|" + directRelationTypes;
-    }
-    final String allowedEntityTypes = String.join(" OR b:", graphFilters.getAllowedEntityTypes());
-    final String statement = String.format(multiHopTemplate,
-            entityUrn, upstreamRel, maxHops, allowedEntityTypes,
-            entityUrn, dowStreamRel, maxHops, allowedEntityTypes);
+    List<Record> neo4jResult = statement != null ? runQuery(buildStatement(statement, new HashMap<>())).list() : new ArrayList<>();
 
-    List<Record> neo4jResult = runQuery(buildStatement(statement, new HashMap<>())).list();
-    LineageRelationshipArray relations = new LineageRelationshipArray();
     neo4jResult = neo4jResult.stream()
             .collect(Collectors.toMap(item -> item.values().get(2).asNode().get("urn").asString(),
                     Function.identity(),
@@ -137,21 +122,23 @@ public class Neo4jGraphService implements GraphService {
             .values()
             .stream()
             .collect(Collectors.toList());
-      neo4jResult.stream()
-              .skip(offset).limit(offset + count)
-              .forEach(item -> {
-      String urn = item.values().get(2).asNode().get("urn").asString();
-      String relationType = ((InternalRelationship) item.get(1).asList().get(0)).type();
-      int numHops = item.get(1).size();
-      try {
-        relations.add(new LineageRelationship()
+
+    LineageRelationshipArray relations = new LineageRelationshipArray();
+    neo4jResult.stream()
+            .skip(offset).limit(offset + count)
+            .forEach(item -> {
+              String urn = item.values().get(2).asNode().get("urn").asString();
+              String relationType = ((InternalRelationship) item.get(1).asList().get(0)).type();
+              int numHops = item.get(1).size();
+              try {
+                relations.add(new LineageRelationship()
                         .setEntity(Urn.createFromString(urn))
                         .setType(relationType)
                         .setDegree(numHops));
-      } catch (URISyntaxException ignored) {
-        log.warn(String.format("Can't convert urn = %s, Error = %s", urn, ignored.getMessage()));
-      }
-    });
+              } catch (URISyntaxException ignored) {
+                log.warn(String.format("Can't convert urn = %s, Error = %s", urn, ignored.getMessage()));
+              }
+            });
 
     EntityLineageResult result = new EntityLineageResult().setStart(offset)
             .setCount(relations.size())
@@ -160,6 +147,41 @@ public class Neo4jGraphService implements GraphService {
 
     log.debug(String.format("Neo4j getLineage results = %s", result));
     return result;
+  }
+
+  private String generateLineageStatement(@Nonnull Urn entityUrn, @Nonnull LineageDirection direction, GraphFilters graphFilters, int maxHops) {
+    final String multiHopTemplateDirect = "MATCH (a {urn: '%s'})-[r:%s*1..%d]->(b) WHERE b:%s RETURN a,r,b";
+    final String multiHopTemplateIndirect = "MATCH (a {urn: '%s'})<-[r:%s*1..%d]-(b) WHERE b:%s RETURN a,r,b";
+
+    List<LineageRegistry.EdgeInfo> edgesToFetch =
+            getLineageRegistry().getLineageRelationships(entityUrn.getEntityType(), direction);
+
+    String upstreamRel = edgesToFetch.stream()
+            .filter(item -> item.getDirection() == RelationshipDirection.OUTGOING)
+            .map(item -> item.getType())
+            .collect(Collectors.joining("|"));
+    String dowStreamRel = edgesToFetch.stream()
+            .filter(item -> item.getDirection() == RelationshipDirection.INCOMING)
+            .map(item -> item.getType())
+            .collect(Collectors.joining("|"));
+
+    final String allowedEntityTypes = String.join(" OR b:", graphFilters.getAllowedEntityTypes());
+
+    final String statementDirect = String.format(multiHopTemplateDirect, entityUrn, upstreamRel, maxHops, allowedEntityTypes);
+    final String statementIndirect = String.format(multiHopTemplateIndirect, entityUrn, dowStreamRel, maxHops, allowedEntityTypes);
+
+    String statement = null;
+    if (upstreamRel.length() > 0 && dowStreamRel.length() > 0) {
+      statement = statementDirect + " UNION " + statementIndirect;
+    } else {
+      if (upstreamRel.length() > 0) {
+        statement = statementDirect;
+      }
+      if (dowStreamRel.length() > 0) {
+        statement = statementIndirect;
+      }
+    }
+    return statement;
   }
 
   @Nonnull
