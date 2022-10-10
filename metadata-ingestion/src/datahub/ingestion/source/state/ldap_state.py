@@ -7,8 +7,8 @@ from datahub.ingestion.source.state.stale_entity_removal_handler import (
 )
 
 
-class BaseLdapCheckpointState(
-    StaleEntityCheckpointStateBase["BaseLdapCheckpointState"]
+class LdapCheckpointState(
+    StaleEntityCheckpointStateBase["LdapCheckpointState"]
 ):
     """
     Base class for representing the checkpoint state for all LDAP based sources.
@@ -30,7 +30,7 @@ class BaseLdapCheckpointState(
             yield ldap_user
 
     def get_urns_not_in(
-        self, type: str, other_checkpoint_state: "BaseLdapCheckpointState"
+        self, type: str, other_checkpoint_state: "LdapCheckpointState"
     ) -> Iterable[str]:
         assert type in self.get_supported_types()
         if type == "corpuser":
@@ -43,7 +43,7 @@ class BaseLdapCheckpointState(
         self.encoded_ldap_users.append(urn)
 
     def get_percent_entities_changed(
-        self, old_checkpoint_state: "BaseLdapCheckpointState"
+        self, old_checkpoint_state: "LdapCheckpointState"
     ) -> float:
         return StaleEntityCheckpointStateBase.compute_percent_entities_changed(
             [(self.encoded_ldap_users, old_checkpoint_state.encoded_ldap_users)]
