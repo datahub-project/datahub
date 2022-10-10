@@ -7,7 +7,17 @@ import re
 from dataclasses import dataclass, field as dataclasses_field
 from enum import Enum
 from functools import lru_cache
-from typing import ClassVar, Dict, Iterable, List, Optional, Tuple, Union
+from typing import (
+    TYPE_CHECKING,
+    ClassVar,
+    Dict,
+    Iterable,
+    List,
+    Optional,
+    Set,
+    Tuple,
+    Union,
+)
 
 import pydantic
 from looker_sdk.error import SDKError
@@ -70,6 +80,12 @@ from datahub.metadata.schema_classes import (
     TagSnapshotClass,
 )
 from datahub.utilities.lossy_collections import LossyList, LossySet
+
+if TYPE_CHECKING:
+    from datahub.ingestion.source.looker.lookml_source import (
+        LookerViewFileLoader,
+        LookMLSourceReport,
+    )
 
 logger = logging.getLogger(__name__)
 
@@ -486,6 +502,12 @@ class LookerUtil:
         )
 
 
+@dataclass(frozen=True, order=True)
+class ProjectInclude:
+    project: str
+    include: str
+
+
 @dataclass
 class LookerExplore:
     name: str
@@ -494,7 +516,7 @@ class LookerExplore:
     label: Optional[str] = None
     description: Optional[str] = None
     upstream_views: Optional[
-        List[str]
+        List[ProjectInclude]
     ] = None  # captures the view name(s) this explore is derived from
     joins: Optional[List[str]] = None
     fields: Optional[List[ViewField]] = None  # the fields exposed in this explore
@@ -512,7 +534,14 @@ class LookerExplore:
         return field_match.findall(sql_fragment)
 
     @classmethod
-    def from_dict(cls, model_name: str, dict: Dict) -> "LookerExplore":
+    def from_dict(
+        cls,
+        model_name: str,
+        dict: Dict,
+        resolved_includes: List[ProjectInclude],
+        looker_viewfile_loader: "LookerViewFileLoader",
+        reporter: "LookMLSourceReport",
+    ) -> "LookerExplore":
         view_names = set()
         joins = None
         # always add the explore's name or the name from the from clause as the view on which this explore is built
@@ -529,12 +558,36 @@ class LookerExplore:
                     fields = cls._get_fields_from_sql_equality(sql_on)
                     joins = fields
 
+        # HACK: We shouldn't be doing imports here. We also have
+        # circular imports that don't belong.
+        from datahub.ingestion.source.looker.lookml_source import (
+            _find_view_from_resolved_includes,
+        )
+
+        upstream_views = []
+        for view_name in view_names:
+            info = _find_view_from_resolved_includes(
+                None,
+                resolved_includes,
+                looker_viewfile_loader,
+                view_name,
+                reporter,
+            )
+            if not info:
+                logger.warning(
+                    f'Could not resolve view {view_name} for explore {dict["name"]} in model {model_name}'
+                )
+            else:
+                upstream_views.append(
+                    ProjectInclude(project=info[0].project, include=view_name)
+                )
+
         return LookerExplore(
             model_name=model_name,
             name=dict["name"],
             label=dict.get("label"),
             description=dict.get("description"),
-            upstream_views=list(view_names),
+            upstream_views=upstream_views,
             joins=joins,
         )
 
@@ -546,9 +599,11 @@ class LookerExplore:
         client: LookerAPI,
         reporter: SourceReport,
     ) -> Optional["LookerExplore"]:  # noqa: C901
+        from datahub.ingestion.source.looker.lookml_source import _BASE_PROJECT_NAME
+
         try:
             explore = client.lookml_model_explore(model, explore_name)
-            views = set()
+            views: Set[str] = set()
 
             if explore.view_name is not None and explore.view_name != explore.name:
                 # explore is not named after a view and is instead using a from field, which is modeled as view_name.
@@ -651,7 +706,13 @@ class LookerExplore:
                 label=explore.label,
                 description=explore.description,
                 fields=view_fields,
-                upstream_views=list(views),
+                upstream_views=list(
+                    ProjectInclude(
+                        project=_BASE_PROJECT_NAME,
+                        include=view_name,
+                    )
+                    for view_name in views
+                ),
                 source_file=explore.source_file,
             )
         except SDKError as e:
@@ -710,6 +771,7 @@ class LookerExplore:
     ) -> Optional[List[Union[MetadataChangeEvent, MetadataChangeProposalWrapper]]]:
         # We only generate MCE-s for explores that contain from clauses and do NOT contain joins
         # All other explores (passthrough explores and joins) end in correct resolution of lineage, and don't need additional nodes in the graph.
+        from datahub.ingestion.source.looker.lookml_source import _BASE_PROJECT_NAME
 
         dataset_snapshot = DatasetSnapshot(
             urn=self.get_explore_urn(config),
@@ -732,16 +794,17 @@ class LookerExplore:
         dataset_props.externalUrl = self._get_url(base_url)
 
         dataset_snapshot.aspects.append(dataset_props)
-        view_name_to_urn_map = {}
+        view_name_to_urn_map: Dict[str, str] = {}
         if self.upstream_views is not None:
             assert self.project_name is not None
             upstreams = []
-            fine_grained_lineages = []
-            for view_name in sorted(self.upstream_views):
+            for view_ref in sorted(self.upstream_views):
                 view_urn = LookerViewId(
-                    project_name=self.project_name,
+                    project_name=view_ref.project
+                    if view_ref.project != _BASE_PROJECT_NAME
+                    else self.project_name,
                     model_name=self.model_name,
-                    view_name=view_name,
+                    view_name=view_ref.include,
                 ).get_urn(config)
 
                 upstreams.append(
@@ -750,7 +813,9 @@ class LookerExplore:
                         type=DatasetLineageTypeClass.VIEW,
                     )
                 )
-                view_name_to_urn_map[view_name] = view_urn
+                view_name_to_urn_map[view_ref.include] = view_urn
+
+            fine_grained_lineages = []
             if config.extract_column_level_lineage:
                 for field in self.fields or []:
                     if (
