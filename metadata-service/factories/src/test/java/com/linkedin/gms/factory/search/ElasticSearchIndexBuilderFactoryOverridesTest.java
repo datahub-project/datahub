@@ -11,7 +11,7 @@ import static org.testng.Assert.*;
 @SpringBootTest(
         properties = "elasticsearch.index.settingsOverrides={\"my_index\":{\"number_of_shards\":\"10\"}}",
         classes = {ElasticSearchIndexBuilderFactory.class})
-public class ElasticSearchIndexBuilderFactoryTest extends AbstractTestNGSpringContextTests {
+public class ElasticSearchIndexBuilderFactoryOverridesTest extends AbstractTestNGSpringContextTests {
     @Autowired
     ESIndexBuilder test;
 

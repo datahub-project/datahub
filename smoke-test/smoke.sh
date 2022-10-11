@@ -19,7 +19,7 @@ source venv/bin/activate
 pip install --upgrade pip wheel setuptools
 pip install -r requirements.txt
 
-echo "DATAHUB_VERSION = $DATAHUB_VERSION"
+echo "DATAHUB_VERSION = ${DATAHUB_VERSION:=acryl-datahub-0.0.0.dev0}"
 DATAHUB_TELEMETRY_ENABLED=false datahub docker quickstart --standalone_consumers --dump-logs-on-failure
 
 (cd ..; ./gradlew :smoke-test:yarnInstall)

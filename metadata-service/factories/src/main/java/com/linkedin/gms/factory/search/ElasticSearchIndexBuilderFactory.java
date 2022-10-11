@@ -20,6 +20,7 @@ import java.util.Map;
 @Import({RestHighLevelClientFactory.class})
 @PropertySource(value = "classpath:/application.yml", factory = YamlPropertySourceFactory.class)
 public class ElasticSearchIndexBuilderFactory {
+
   @Autowired
   @Qualifier("elasticSearchRestHighLevelClient")
   private RestHighLevelClient searchClient;
@@ -37,7 +38,7 @@ public class ElasticSearchIndexBuilderFactory {
   private Integer refreshIntervalSeconds;
 
   @Value("#{${elasticsearch.index.settingsOverrides:{T(java.util.Collections).emptyMap()}}}")
-  Map<String, Map<String, String>> indexSettingOverrides;
+  private Map<String, Map<String, String>> indexSettingOverrides;
 
   @Bean(name = "elasticSearchIndexBuilder")
   @Nonnull
