@@ -66,7 +66,7 @@ class BigQueryV2Config(BigQueryConfig):
         default=None,
         description="[deprecated] Use project_id_pattern instead.",
     )
-    storage_project_id: None = Field(default=None, exclude=True)
+    storage_project_id: None = Field(default=None, hidden_from_schema=True)
 
     lineage_use_sql_parser: bool = Field(
         default=False,
