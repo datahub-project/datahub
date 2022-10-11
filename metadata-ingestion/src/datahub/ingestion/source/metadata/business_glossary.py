@@ -79,6 +79,7 @@ class BusinessGlossaryConfig(DefaultConfig):
     def version_must_be_1(cls, v):
         if v != "1":
             raise ValueError("Only version 1 is supported")
+        return v
 
 
 def make_glossary_node_urn(path: List[str]) -> str:
