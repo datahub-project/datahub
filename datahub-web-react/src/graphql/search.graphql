@@ -204,6 +204,7 @@ fragment searchResultFields on Entity {
             ...dataPlatformInstanceFields
         }
         editableProperties {
+            name
             description
         }
         platformNativeType

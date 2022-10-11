@@ -99,6 +99,7 @@ public class DatasetUpdateInputMapper implements InputModelMapper<DatasetUpdateI
 
     if (datasetUpdateInput.getEditableProperties() != null) {
       final EditableDatasetProperties editableDatasetProperties = new EditableDatasetProperties();
+      editableDatasetProperties.setName(datasetUpdateInput.getEditableProperties().getName());
       editableDatasetProperties.setDescription(datasetUpdateInput.getEditableProperties().getDescription());
       editableDatasetProperties.setLastModified(auditStamp);
       editableDatasetProperties.setCreated(auditStamp);
@@ -116,6 +117,11 @@ public class DatasetUpdateInputMapper implements InputModelMapper<DatasetUpdateI
     if (schemaFieldInfo.getDescription() != null) {
       output.setDescription(schemaFieldInfo.getDescription());
     }
+
+    if (schemaFieldInfo.getLabel() != null) {
+      output.setLabel(schemaFieldInfo.getLabel());
+    }
+    
     output.setFieldPath(schemaFieldInfo.getFieldPath());
 
     if (schemaFieldInfo.getGlobalTags() != null) {

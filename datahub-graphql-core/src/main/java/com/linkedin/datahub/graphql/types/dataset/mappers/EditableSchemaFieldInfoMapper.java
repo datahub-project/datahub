@@ -27,6 +27,9 @@ public class EditableSchemaFieldInfoMapper {
         if (input.hasDescription()) {
             result.setDescription((input.getDescription()));
         }
+        if (input.hasLabel()) {
+            result.setLabel((input.getLabel()));
+        }
         if (input.hasFieldPath()) {
             result.setFieldPath((input.getFieldPath()));
         }

@@ -27,6 +27,8 @@ export const DescriptionEditor = ({ onComplete }: { onComplete?: () => void }) =
         ? editedDescriptions[mutationUrn]
         : entityData?.editableProperties?.description || entityData?.properties?.description || '';
 
+    const editableName = entityData?.editableProperties?.name || '';
+
     const [updatedDescription, setUpdatedDescription] = useState(description);
     const [isDescriptionUpdated, setIsDescriptionUpdated] = useState(editedDescriptions.hasOwnProperty(mutationUrn));
     const [cancelModalVisible, setCancelModalVisible] = useState(false);
@@ -34,7 +36,10 @@ export const DescriptionEditor = ({ onComplete }: { onComplete?: () => void }) =
     const updateDescriptionLegacy = () => {
         const sanitizedDescription = DOMPurify.sanitize(updatedDescription);
         return updateEntity?.({
-            variables: { urn: mutationUrn, input: { editableProperties: { description: sanitizedDescription || '' } } },
+            variables: {
+                urn: mutationUrn,
+                input: { editableProperties: { name: editableName, description: sanitizedDescription || '' } },
+            },
         });
     };
 

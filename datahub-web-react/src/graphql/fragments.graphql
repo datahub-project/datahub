@@ -207,6 +207,7 @@ fragment nonRecursiveDatasetFields on Dataset {
         externalUrl
     }
     editableProperties {
+        name
         description
     }
     ownership {
@@ -221,6 +222,7 @@ fragment nonRecursiveDatasetFields on Dataset {
     editableSchemaMetadata {
         editableSchemaFieldInfo {
             fieldPath
+            label
             description
             globalTags {
                 ...globalTagsFields

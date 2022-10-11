@@ -1883,6 +1883,15 @@
         "fieldName" : "editedDescription",
         "fieldType" : "TEXT"
       }
+    }, {
+      "name" : "name",
+      "type" : "string",
+      "doc" : "Display name of the Dataset",
+      "optional" : true,
+      "Searchable" : {
+        "fieldName" : "editedName",
+        "fieldType" : "TEXT_PARTIAL"
+      }
     } ],
     "Aspect" : {
       "name" : "editableDatasetProperties"
@@ -3134,6 +3143,16 @@
                           "Searchable" : {
                             "boostScore" : 0.1,
                             "fieldName" : "editedFieldDescriptions",
+                            "fieldType" : "TEXT"
+                          }
+                        }, {
+                          "name" : "label",
+                          "type" : "string",
+                          "doc" : "Label of the field. Provides a more human-readable name for the field than field path. Some sources will\nprovide this metadata but not all sources have the concept of a label.",
+                          "optional" : true,
+                          "Searchable" : {
+                            "boostScore" : 0.2,
+                            "fieldName" : "editedFieldLabels",
                             "fieldType" : "TEXT"
                           }
                         }, {

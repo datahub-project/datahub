@@ -17,6 +17,7 @@ query getBrowseResults($input: BrowseInput!) {
                     description
                 }
                 editableProperties {
+                    name
                     description
                 }
                 platform {

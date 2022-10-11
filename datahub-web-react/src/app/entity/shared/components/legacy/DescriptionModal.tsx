@@ -1,4 +1,4 @@
-import { Typography, Modal, Button, Form } from 'antd';
+import { Typography, Modal, Button, Form, Input } from 'antd';
 import React, { useState } from 'react';
 import styled from 'styled-components';
 import MDEditor from '@uiw/react-md-editor';
@@ -26,9 +26,18 @@ type Props = {
     onClose: () => void;
     onSubmit: (description: string) => void;
     isAddDesc?: boolean;
+    useTextEditor?: boolean | undefined;
 };
 
-export default function UpdateDescriptionModal({ title, description, original, onClose, onSubmit, isAddDesc }: Props) {
+export default function UpdateDescriptionModal({
+    title,
+    description,
+    original,
+    onClose,
+    onSubmit,
+    isAddDesc,
+    useTextEditor = false,
+}: Props) {
     const [updatedDesc, setDesc] = useState(description || original || '');
 
     return (
@@ -47,40 +56,60 @@ export default function UpdateDescriptionModal({ title, description, original, o
                 </>
             }
         >
-            <Form layout="vertical">
-                {isAddDesc ? (
-                    <Form.Item>
-                        <MarkDownHelpLink href="https://joplinapp.org/markdown" target="_blank" type="secondary">
-                            markdown supported
-                        </MarkDownHelpLink>
-                        <MDEditor
-                            style={{ fontWeight: 400 }}
-                            value={updatedDesc}
-                            onChange={(v) => setDesc(v || '')}
-                            preview="live"
-                            height={400}
-                        />
-                    </Form.Item>
-                ) : (
-                    <Form.Item>
-                        <MarkDownHelpLink href="https://joplinapp.org/markdown" target="_blank" type="secondary">
-                            markdown supported
-                        </MarkDownHelpLink>
-                        <MDEditor
-                            style={{ fontWeight: 400 }}
-                            value={updatedDesc}
-                            onChange={(v) => setDesc(v || '')}
-                            preview="live"
-                            height={400}
-                        />
-                    </Form.Item>
-                )}
-                {!isAddDesc && description && original && (
-                    <Form.Item label={<FormLabel>Original:</FormLabel>}>
-                        <DescriptionMarkdown source={original || ''} />
-                    </Form.Item>
-                )}
-            </Form>
+            {!useTextEditor && (
+                <Form layout="vertical">
+                    {isAddDesc ? (
+                        <Form.Item>
+                            <MarkDownHelpLink href="https://joplinapp.org/markdown" target="_blank" type="secondary">
+                                markdown supported
+                            </MarkDownHelpLink>
+                            <MDEditor
+                                style={{ fontWeight: 400 }}
+                                value={updatedDesc}
+                                onChange={(v) => setDesc(v || '')}
+                                preview="live"
+                                height={400}
+                            />
+                        </Form.Item>
+                    ) : (
+                        <Form.Item>
+                            <MarkDownHelpLink href="https://joplinapp.org/markdown" target="_blank" type="secondary">
+                                markdown supported
+                            </MarkDownHelpLink>
+                            <MDEditor
+                                style={{ fontWeight: 400 }}
+                                value={updatedDesc}
+                                onChange={(v) => setDesc(v || '')}
+                                preview="live"
+                                height={400}
+                            />
+                        </Form.Item>
+                    )}
+                    {!isAddDesc && description && original && (
+                        <Form.Item label={<FormLabel>Original:</FormLabel>}>
+                            <DescriptionMarkdown source={original || ''} />
+                        </Form.Item>
+                    )}
+                </Form>
+            )}
+            {useTextEditor && (
+                <Form layout="vertical">
+                    {!original && (
+                        <Form.Item name="textDesc" wrapperCol={{ span: 20 }} initialValue={updatedDesc || ''}>
+                            <Input
+                                style={{ width: '100%' }}
+                                placeholder="Enter business label for field"
+                                onChange={(v) => setDesc(v.target.value || '')}
+                                value={updatedDesc || ''}
+                            />
+                        </Form.Item>
+                    )}
+
+                    {!isAddDesc && description && original && (
+                        <Form.Item label={<FormLabel>Original:</FormLabel>}>{original}</Form.Item>
+                    )}
+                </Form>
+            )}
         </Modal>
     );
 }

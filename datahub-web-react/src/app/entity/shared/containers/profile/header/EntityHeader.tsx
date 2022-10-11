@@ -10,13 +10,13 @@ import EntityDropdown, { EntityMenuItems } from '../../../EntityDropdown/EntityD
 import PlatformContent from './PlatformContent';
 import { getPlatformName } from '../../../utils';
 import { useGetAuthenticatedUser } from '../../../../../useGetAuthenticatedUser';
-import { EntityType, PlatformPrivileges } from '../../../../../../types.generated';
+import { AuthenticatedUser, EntityType, PlatformPrivileges } from '../../../../../../types.generated';
 import EntityCount from './EntityCount';
 import EntityName from './EntityName';
 import CopyUrn from '../../../../../shared/CopyUrn';
 import { DeprecationPill } from '../../../components/styled/DeprecationPill';
 import CompactContext from '../../../../../shared/CompactContext';
-import { EntitySubHeaderSection } from '../../../types';
+import { EntitySubHeaderSection, GenericEntityProperties } from '../../../types';
 import EntityActions, { EntityActionItem } from '../../../entity/EntityActions';
 
 const TitleWrapper = styled.div`
@@ -69,8 +69,16 @@ const ExternalUrlButton = styled(Button)`
     padding-right: 12px;
 `;
 
-export function getCanEditName(entityType: EntityType, privileges?: PlatformPrivileges) {
+export function getCanEditName(entityType: EntityType, me: AuthenticatedUser, entityData?: GenericEntityProperties) {
+    const privileges = me?.platformPrivileges as PlatformPrivileges;
     switch (entityType) {
+        case EntityType.Dataset: {
+            const ownerExists = entityData?.ownership?.owners?.some(
+                (owner) => (owner?.owner?.urn as string) === (me?.corpUser?.urn as string),
+            );
+            const isAdmin = me?.platformPrivileges.manageIngestion;
+            return ownerExists || isAdmin;
+        }
         case EntityType.GlossaryTerm:
         case EntityType.GlossaryNode:
             return privileges?.manageGlossaries;
@@ -115,7 +123,8 @@ export const EntityHeader = ({
         });
     };
 
-    const canEditName = isNameEditable && getCanEditName(entityType, me?.platformPrivileges as PlatformPrivileges);
+    const canEditName =
+        isNameEditable && getCanEditName(entityType, me as AuthenticatedUser, entityData as GenericEntityProperties);
 
     return (
         <>

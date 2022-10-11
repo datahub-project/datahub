@@ -3,10 +3,12 @@ import React, { useState, useEffect } from 'react';
 import styled from 'styled-components/macro';
 import { useUpdateNameMutation } from '../../../../../../graphql/mutations.generated';
 import { useEntityRegistry } from '../../../../../useEntityRegistry';
-import { useEntityData, useRefetch } from '../../../EntityContext';
+import { useEntityData, useEntityUpdate, useRefetch } from '../../../EntityContext';
+import { GenericEntityUpdate } from '../../../types';
 
 const EntityTitle = styled(Typography.Title)`
     margin-right: 10px;
+    width: 70%;
 
     &&& {
         margin-bottom: 0;
@@ -37,10 +39,32 @@ function EntityName(props: Props) {
 
     const [updateName] = useUpdateNameMutation();
 
+    const updateEntity = useEntityUpdate<GenericEntityUpdate>();
+
+    const updateEditableName = (entityNameUpdate, mutationUrn) => {
+        const entityDescription = entityData
+            ? entityRegistry.getGenericEntityProperties(entityType, entityData)?.editableProperties?.description
+            : '';
+        return updateEntity?.({
+            variables: {
+                urn: mutationUrn,
+                input: { editableProperties: { name: entityNameUpdate, description: entityDescription || '' } },
+            },
+        });
+    };
+
+    const saveName = async (name) => {
+        if (entityType !== 'DATASET') {
+            updateName({ variables: { input: { name, urn } } });
+        } else {
+            updateEditableName(name, urn);
+        }
+    };
+
     const handleSaveName = async (name: string) => {
         setUpdatedName(name);
-        updateName({ variables: { input: { name, urn } } })
-            .then(() => {
+        saveName(name)
+            ?.then(() => {
                 message.success({ content: 'Name Updated', duration: 2 });
                 refetch();
             })

@@ -361,6 +361,11 @@ type Mutation {
     updateDescription(input: DescriptionUpdateInput!): Boolean
 
     """
+    Updates the label of a resource. Currently only supports Dataset Schema Fields
+    """
+    updateLabel(input: LabelUpdateInput!): Boolean
+
+    """
     Remove a user. Requires Manage Users & Groups Platform Privilege
     """
     removeUser(urn: String!): Boolean
@@ -2441,6 +2446,11 @@ type EditableSchemaFieldInfo {
     fieldPath: String!
 
     """
+    Human readable label for the field
+    """
+    label: String
+
+    """
     Edited description of the field
     """
     description: String
@@ -2558,6 +2568,11 @@ Dataset properties that are editable via the UI This represents logical metadata
 as opposed to technical metadata
 """
 type DatasetEditableProperties {
+    """
+    Display name of the Dataset
+    """
+    name: String
+
     """
     Description of the Dataset
     """
@@ -3789,6 +3804,11 @@ input EditableSchemaFieldInfoUpdate {
     description: String
 
     """
+    Edited label of the field
+    """
+    label: String
+
+    """
     Tags associated with the field
     """
     globalTags: GlobalTagsUpdate
@@ -3798,6 +3818,11 @@ input EditableSchemaFieldInfoUpdate {
 Update to writable Dataset fields
 """
 input DatasetEditablePropertiesUpdate {
+    """
+    Display name of the Dataset
+    """
+    name: String
+
     """
     Writable description aka documentation for a Dataset
     """
@@ -7092,6 +7117,31 @@ input DescriptionUpdateInput {
 
     """
     The primary key of the resource to attach the description to, eg dataset urn
+    """
+    resourceUrn: String!
+
+    """
+    An optional sub resource type
+    """
+    subResourceType: SubResourceType
+
+    """
+    A sub resource identifier, eg dataset field path
+    """
+    subResource: String
+}
+
+"""
+Updates the label of a resource. Currently supports DatasetField labels only
+"""
+input LabelUpdateInput {
+    """
+    The new label
+    """
+    label: String!
+
+    """
+    The primary key of the resource to attach the label to, eg dataset urn
     """
     resourceUrn: String!
 

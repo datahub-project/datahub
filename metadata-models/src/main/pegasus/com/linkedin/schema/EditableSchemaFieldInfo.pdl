@@ -23,6 +23,17 @@ record EditableSchemaFieldInfo {
   description: optional string
 
   /**
+   * Label of the field. Provides a more human-readable name for the field than field path. Some sources will
+   * provide this metadata but not all sources have the concept of a label.
+   */
+  @Searchable = {
+    "fieldName": "editedFieldLabels",
+    "fieldType": "TEXT",
+    "boostScore": 0.2
+  }
+  label: optional string
+
+  /**
    * Tags associated with the field
    */
   @Relationship = {

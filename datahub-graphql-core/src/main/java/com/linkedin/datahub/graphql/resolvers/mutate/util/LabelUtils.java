@@ -29,6 +29,7 @@ import java.util.List;
 import javax.annotation.Nonnull;
 import lombok.extern.slf4j.Slf4j;
 
+import static com.linkedin.datahub.graphql.resolvers.ResolverUtils.*;
 import static com.linkedin.datahub.graphql.resolvers.mutate.MutationUtils.*;
 
 
@@ -159,6 +160,22 @@ public class LabelUtils {
       addTermsIfNotExists(editableFieldInfo.getGlossaryTerms(), labelUrns);
       persistAspect(resourceUrn, EDITABLE_SCHEMA_METADATA, editableSchemaMetadata, actor, entityService);
     }
+  }
+
+  public static void updateFieldLabel(
+    String newLabel,
+    Urn resourceUrn,
+    String fieldPath,
+    Urn actor,
+    EntityService entityService
+  ) {
+    EditableSchemaMetadata editableSchemaMetadata =
+        (EditableSchemaMetadata) getAspectFromEntity(
+            resourceUrn.toString(), EDITABLE_SCHEMA_METADATA, entityService, new EditableSchemaMetadata());
+    EditableSchemaFieldInfo editableFieldInfo = getFieldInfoFromSchema(editableSchemaMetadata, fieldPath);
+
+    editableFieldInfo.setLabel(newLabel);
+    persistAspect(resourceUrn, EDITABLE_SCHEMA_METADATA, editableSchemaMetadata, actor, entityService);
   }
 
   private static TagAssociationArray removeTagsIfExists(GlobalTags tags, List<Urn> tagUrns) {
