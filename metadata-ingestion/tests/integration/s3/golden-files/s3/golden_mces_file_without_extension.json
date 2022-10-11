@@ -8,7 +8,8 @@
                     "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
                         "customProperties": {
                             "number_of_files": "1",
-                            "size_in_bytes": "172"
+                            "size_in_bytes": "172",
+                            "table_path": "s3://my-test-bucket/folder_a/folder_aa/folder_aaa/no_extension/small"
                         },
                         "name": "small",
                         "description": "",
