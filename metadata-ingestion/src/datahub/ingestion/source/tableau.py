@@ -120,6 +120,11 @@ class TableauConnectionConfig(ConfigModel):
         description="Tableau Site. Always required for Tableau Online. Use emptystring to connect with Default site on Tableau Server.",
     )
 
+    ssl_verify: bool = Field(
+        default=True,
+        description="Whether to verify SSL certificates. Set to False if using self-signed certificates.",
+    )
+
     @validator("connect_uri")
     def remove_trailing_slash(cls, v):
         return config_clean.remove_trailing_slashes(v)
@@ -145,6 +150,11 @@ class TableauConnectionConfig(ConfigModel):
         try:
             server = Server(self.connect_uri, use_server_version=True)
             server.auth.sign_in(authentication)
+
+            # From https://stackoverflow.com/a/50159273/5004662.
+            server._session.verify = self.ssl_verify
+            server._session.trust_env = False
+
             return server
         except ServerResponseError as e:
             raise ValueError(
