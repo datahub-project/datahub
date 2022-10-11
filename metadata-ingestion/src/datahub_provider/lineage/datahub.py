@@ -73,6 +73,8 @@ class DatahubLineageBackend(LineageBackend):
         context: Dict = None,
     ) -> None:
         config = get_lineage_config()
+        if not config.enabled:
+            return
 
         try:
             # This is necessary to avoid issues with circular imports.

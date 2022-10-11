@@ -107,7 +107,7 @@ def get_column_unique_count_patch(self, column):
     elif self.engine.dialect.name.lower() in {"bigquery", "snowflake"}:
         element_values = self.engine.execute(
             sa.select(
-                [sa.text(f'APPROX_COUNT_DISTINCT ("{column}")')]  # type:ignore
+                [sa.text(f"APPROX_COUNT_DISTINCT ({sa.column(column)})")]  # type:ignore
             ).select_from(self._table)
         )
         return convert_to_json_serializable(element_values.fetchone()[0])

@@ -83,11 +83,11 @@ Use `profiling.bigquery_temp_table_schema` to restrict to one specific dataset t
 
    ```yml
    credential:
-   project_id: project-id-1234567
-   private_key_id: "d0121d0000882411234e11166c6aaa23ed5d74e0"
-   private_key: "-----BEGIN PRIVATE KEY-----\nMIIyourkey\n-----END PRIVATE KEY-----\n"
-   client_email: "test@suppproject-id-1234567.iam.gserviceaccount.com"
-   client_id: "123456678890"
+     project_id: project-id-1234567
+     private_key_id: "d0121d0000882411234e11166c6aaa23ed5d74e0"
+     private_key: "-----BEGIN PRIVATE KEY-----\nMIIyourkey\n-----END PRIVATE KEY-----\n"
+     client_email: "test@suppproject-id-1234567.iam.gserviceaccount.com"
+     client_id: "123456678890"
    ```
 
 ### Lineage Computation Details

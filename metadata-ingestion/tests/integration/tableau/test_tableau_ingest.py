@@ -114,6 +114,7 @@ def tableau_ingest_common(
                             "stateful_ingestion": {
                                 "enabled": True,
                                 "remove_stale_metadata": True,
+                                "fail_safe_threshold": 100.0,
                                 "state_provider": {
                                     "type": "datahub",
                                     "config": {"datahub_api": {"server": GMS_SERVER}},
@@ -159,44 +160,15 @@ def test_tableau_ingest(pytestconfig, tmp_path, mock_datahub_graph):
         pytestconfig,
         tmp_path,
         [
-            read_response(pytestconfig, "workbooksConnection_0.json"),
             read_response(pytestconfig, "workbooksConnection_all.json"),
-            read_response(pytestconfig, "embeddedDatasourcesConnection_0.json"),
             read_response(pytestconfig, "embeddedDatasourcesConnection_all.json"),
-            read_response(pytestconfig, "publishedDatasourcesConnection_0.json"),
             read_response(pytestconfig, "publishedDatasourcesConnection_all.json"),
-            read_response(pytestconfig, "customSQLTablesConnection_0.json"),
             read_response(pytestconfig, "customSQLTablesConnection_all.json"),
         ],
         golden_file_name,
         output_file_name,
         mock_datahub_graph,
     )
-
-
-@freeze_time(FROZEN_TIME)
-@pytest.mark.slow_unit
-def test_tableau_usage_stat(pytestconfig, tmp_path, mock_datahub_graph):
-    output_file_name: str = "tableau_stat_mces.json"
-    golden_file_name: str = "tableau_state_mces_golden.json"
-    tableau_ingest_common(
-        pytestconfig,
-        tmp_path,
-        [
-            read_response(pytestconfig, "workbooksConnection_0.json"),
-            read_response(pytestconfig, "workbooksConnection_state_all.json"),
-            read_response(pytestconfig, "embeddedDatasourcesConnection_0.json"),
-            read_response(pytestconfig, "embeddedDatasourcesConnection_all.json"),
-            read_response(pytestconfig, "publishedDatasourcesConnection_0.json"),
-            read_response(pytestconfig, "publishedDatasourcesConnection_all.json"),
-            read_response(pytestconfig, "customSQLTablesConnection_0.json"),
-            read_response(pytestconfig, "customSQLTablesConnection_all.json"),
-        ],
-        golden_file_name,
-        output_file_name,
-        mock_datahub_graph,
-    )
-
 
 def test_lineage_overrides():
     # Simple - specify platform instance to presto table
@@ -257,13 +229,9 @@ def test_tableau_stateful(pytestconfig, tmp_path, mock_time, mock_datahub_graph)
         pytestconfig,
         tmp_path,
         [
-            read_response(pytestconfig, "workbooksConnection_0.json"),
             read_response(pytestconfig, "workbooksConnection_all.json"),
-            read_response(pytestconfig, "embeddedDatasourcesConnection_0.json"),
             read_response(pytestconfig, "embeddedDatasourcesConnection_all.json"),
-            read_response(pytestconfig, "publishedDatasourcesConnection_0.json"),
             read_response(pytestconfig, "publishedDatasourcesConnection_all.json"),
-            read_response(pytestconfig, "customSQLTablesConnection_0.json"),
             read_response(pytestconfig, "customSQLTablesConnection_all.json"),
         ],
         golden_file_name,
@@ -278,7 +246,7 @@ def test_tableau_stateful(pytestconfig, tmp_path, mock_time, mock_datahub_graph)
     pipeline_run2 = tableau_ingest_common(
         pytestconfig,
         tmp_path,
-        [read_response(pytestconfig, "workbooksConnection_0_stateful.json")],
+        [read_response(pytestconfig, "workbooksConnection_all_stateful.json")],
         golden_file_deleted_name,
         output_file_deleted_name,
         mock_datahub_graph,

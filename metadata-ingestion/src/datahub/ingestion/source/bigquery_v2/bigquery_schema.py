@@ -227,7 +227,7 @@ select
   c.ordinal_position as ordinal_position,
   cfp.field_path as field_path,
   c.is_nullable as is_nullable,
-  c.data_type as data_type,
+  CASE WHEN CONTAINS_SUBSTR(field_path, ".") THEN NULL ELSE c.data_type END as data_type,
   description as comment,
   c.is_hidden as is_hidden,
   c.is_partitioning_column as is_partitioning_column
@@ -236,7 +236,7 @@ from
   join `{project_id}`.`{dataset_name}`.INFORMATION_SCHEMA.COLUMN_FIELD_PATHS as cfp on cfp.table_name = c.table_name
   and cfp.column_name = c.column_name
 ORDER BY
-  ordinal_position"""
+  table_catalog, table_schema, table_name, ordinal_position ASC, data_type DESC"""
 
     columns_for_table: str = """
 select
@@ -247,7 +247,7 @@ select
   c.ordinal_position as ordinal_position,
   cfp.field_path as field_path,
   c.is_nullable as is_nullable,
-  c.data_type as data_type,
+  CASE WHEN CONTAINS_SUBSTR(field_path, ".") THEN NULL ELSE c.data_type END as data_type,
   c.is_hidden as is_hidden,
   c.is_partitioning_column as is_partitioning_column,
   description as comment
@@ -258,7 +258,7 @@ from
 where
   c.table_name = '{table_identifier.table}'
 ORDER BY
-  ordinal_position"""
+  table_catalog, table_schema, table_name, ordinal_position ASC, data_type DESC"""
 
 
 class BigQueryDataDictionary:
@@ -419,7 +419,10 @@ class BigQueryDataDictionary:
 
     @staticmethod
     def get_columns_for_dataset(
-        conn: bigquery.Client, project_id: str, dataset_name: str
+        conn: bigquery.Client,
+        project_id: str,
+        dataset_name: str,
+        column_limit: Optional[int] = None,
     ) -> Optional[Dict[str, List[BigqueryColumn]]]:
         columns: Dict[str, List[BigqueryColumn]] = defaultdict(list)
         try:
@@ -435,24 +438,38 @@ class BigQueryDataDictionary:
             # Please repeat query with more selective predicates.
             return None
 
+        last_seen_table: str = ""
         for column in cur:
-            columns[column.table_name].append(
-                BigqueryColumn(
-                    name=column.column_name,
-                    ordinal_position=column.ordinal_position,
-                    field_path=column.field_path,
-                    is_nullable=column.is_nullable == "YES",
-                    data_type=column.data_type,
-                    comment=column.comment,
-                    is_partition_column=column.is_partitioning_column == "YES",
+            if (
+                column_limit
+                and column.table_name in columns
+                and len(columns[column.table_name]) >= column_limit
+            ):
+                if last_seen_table != column.table_name:
+                    logger.warning(
+                        f"{project_id}.{dataset_name}.{column.table_name} contains more than {column_limit} columns, only processing {column_limit} columns"
+                    )
+                    last_seen_table = column.table_name
+            else:
+                columns[column.table_name].append(
+                    BigqueryColumn(
+                        name=column.column_name,
+                        ordinal_position=column.ordinal_position,
+                        field_path=column.field_path,
+                        is_nullable=column.is_nullable == "YES",
+                        data_type=column.data_type,
+                        comment=column.comment,
+                        is_partition_column=column.is_partitioning_column == "YES",
+                    )
                 )
-            )
 
         return columns
 
     @staticmethod
     def get_columns_for_table(
-        conn: bigquery.Client, table_identifier: BigqueryTableIdentifier
+        conn: bigquery.Client,
+        table_identifier: BigqueryTableIdentifier,
+        column_limit: Optional[int],
     ) -> List[BigqueryColumn]:
 
         cur = BigQueryDataDictionary.get_query_result(
@@ -460,15 +477,31 @@ class BigQueryDataDictionary:
             BigqueryQuery.columns_for_table.format(table_identifier=table_identifier),
         )
 
-        return [
-            BigqueryColumn(
-                name=column.column_name,
-                ordinal_position=column.ordinal_position,
-                is_nullable=column.is_nullable == "YES",
-                field_path=column.field_path,
-                data_type=column.data_type,
-                comment=column.comment,
-                is_partition_column=column.is_partitioning_column == "YES",
-            )
-            for column in cur
-        ]
+        columns: List[BigqueryColumn] = []
+        last_seen_table: str = ""
+        for column in cur:
+            if (
+                column_limit
+                and column.table_name in columns
+                and len(columns[column.table_name]) >= column_limit
+            ):
+                if last_seen_table != column.table_name:
+                    logger.warning(
+                        f"{table_identifier.project_id}.{table_identifier.dataset}.{column.table_name} contains more than {column_limit} columns, only processing {column_limit} columns"
+                    )
+                    last_seen_table = column.table_name
+            else:
+                columns.append(
+                    BigqueryColumn(
+                        name=column.column_name,
+                        ordinal_position=column.ordinal_position,
+                        is_nullable=column.is_nullable == "YES",
+                        field_path=column.field_path,
+                        data_type=column.data_type,
+                        comment=column.comment,
+                        is_partition_column=column.is_partitioning_column == "YES",
+                    )
+                )
+            last_seen_table = column.table_name
+
+        return columns
