@@ -174,7 +174,11 @@ class TableauConnectionConfig(ConfigModel):
             raise ValueError(f"Unable to login: {str(e)}") from e
 
 
-class TableauConfig(DatasetLineageProviderConfigBase, TableauConnectionConfig, TableauStatefulIngestionConfig):
+class TableauConfig(
+    DatasetLineageProviderConfigBase,
+    StatefulIngestionConfigBase,
+    TableauConnectionConfig,
+):
     projects: Optional[List[str]] = Field(
         default=["default"], description="List of projects"
     )

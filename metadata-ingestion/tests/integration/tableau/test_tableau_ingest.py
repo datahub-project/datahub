@@ -170,6 +170,7 @@ def test_tableau_ingest(pytestconfig, tmp_path, mock_datahub_graph):
         mock_datahub_graph,
     )
 
+
 def test_lineage_overrides():
     # Simple - specify platform instance to presto table
     assert (
