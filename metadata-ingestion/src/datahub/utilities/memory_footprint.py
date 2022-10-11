@@ -1,10 +1,10 @@
 from collections import deque
 from itertools import chain
 from sys import getsizeof
-from typing import Dict, Any
+from typing import Any, Dict
 
 
-def total_size(o, handlers={}):
+def total_size(o: Any, handlers: Any = {}) -> int:
     """Returns the approximate memory footprint an object and all of its contents.
     Automatically finds the contents of the following builtin containers and
     their subclasses:  tuple, list, deque, dict, set and frozenset.
@@ -30,7 +30,7 @@ def total_size(o, handlers={}):
     seen = set()  # track which object id's have already been seen
     default_size = getsizeof(0)  # estimate sizeof object without __sizeof__
 
-    def sizeof(o):
+    def sizeof(o: Any) -> int:
         if id(o) in seen:  # do not double count the same object
             return 0
         seen.add(id(o))
@@ -38,7 +38,7 @@ def total_size(o, handlers={}):
 
         for typ, handler in all_handlers.items():
             if isinstance(o, typ):
-                s += sum(map(sizeof, handler(o)))
+                s += sum(map(sizeof, handler(o)))  # type: ignore
                 break
         return s
 

@@ -160,7 +160,6 @@ timestamp < "{end_time}"
             )
             return self._create_lineage_map(parsed_entries)
         except Exception as e:
-            logger.exception("Failure", e)
             self.error(
                 logger,
                 "lineage-gcp-logs",
