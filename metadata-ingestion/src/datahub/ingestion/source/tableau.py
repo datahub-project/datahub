@@ -120,9 +120,9 @@ class TableauConnectionConfig(ConfigModel):
         description="Tableau Site. Always required for Tableau Online. Use emptystring to connect with Default site on Tableau Server.",
     )
 
-    ssl_verify: bool = Field(
+    ssl_verify: Union[bool, str] = Field(
         default=True,
-        description="Whether to verify SSL certificates. Set to False if using self-signed certificates.",
+        description="Whether to verify SSL certificates. If using self-signed certificates, set to false or provide the path to the .pem certificate bundle.",
     )
 
     @validator("connect_uri")
@@ -149,12 +149,12 @@ class TableauConnectionConfig(ConfigModel):
 
         try:
             server = Server(self.connect_uri, use_server_version=True)
-            server.auth.sign_in(authentication)
 
             # From https://stackoverflow.com/a/50159273/5004662.
             server._session.verify = self.ssl_verify
             server._session.trust_env = False
 
+            server.auth.sign_in(authentication)
             return server
         except ServerResponseError as e:
             raise ValueError(
