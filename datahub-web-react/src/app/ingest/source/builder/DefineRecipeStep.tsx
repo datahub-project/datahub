@@ -73,7 +73,7 @@ export const DefineRecipeStep = ({ state, updateState, goTo, prev, ingestionSour
         const recipeJson = getRecipeJson(stagedRecipeYml);
         if (!recipeJson) return;
 
-        if (JSON.parse(recipeJson).source.type === null) {
+        if (!JSON.parse(recipeJson).source?.type) {
             message.warning({
                 content: `Please add valid ingestion type`,
                 duration: 3,
