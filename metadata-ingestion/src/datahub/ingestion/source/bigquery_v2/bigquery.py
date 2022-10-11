@@ -540,6 +540,9 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
             )
             return
 
+        self.report.num_project_datasets_to_scan[project_id] = len(
+            bigquery_project.datasets
+        )
         for bigquery_dataset in bigquery_project.datasets:
 
             if not self.config.dataset_pattern.allowed(bigquery_dataset.name):
@@ -619,7 +622,9 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
             self.report.report_dropped(table_identifier.raw_table_name())
             return
 
-        table.columns = self.get_columns_for_table(conn, table_identifier)
+        table.columns = self.get_columns_for_table(
+            conn, table_identifier, self.config.column_limit
+        )
         if not table.columns:
             logger.warning(f"Unable to get columns for table: {table_identifier}")
 
@@ -653,7 +658,9 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
             self.report.report_dropped(table_identifier.raw_table_name())
             return
 
-        view.columns = self.get_columns_for_table(conn, table_identifier)
+        view.columns = self.get_columns_for_table(
+            conn, table_identifier, column_limit=self.config.column_limit
+        )
 
         lineage_info: Optional[Tuple[UpstreamLineage, Dict[str, str]]] = None
         if self.config.include_table_lineage:
@@ -877,8 +884,8 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
         _COMPLEX_TYPE = re.compile("^(struct|array)")
         last_id = -1
         for col in columns:
-
-            if _COMPLEX_TYPE.match(col.data_type.lower()):
+            # if col.data_type is empty that means this column is part of a complex type
+            if col.data_type is None or _COMPLEX_TYPE.match(col.data_type.lower()):
                 # If the we have seen the ordinal position that most probably means we already processed this complex type
                 if last_id != col.ordinal_position:
                     schema_fields.extend(
@@ -1099,7 +1106,10 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
         return views.get(dataset_name, [])
 
     def get_columns_for_table(
-        self, conn: bigquery.Client, table_identifier: BigqueryTableIdentifier
+        self,
+        conn: bigquery.Client,
+        table_identifier: BigqueryTableIdentifier,
+        column_limit: Optional[int] = None,
     ) -> List[BigqueryColumn]:
 
         if (
@@ -1110,6 +1120,7 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
                 conn,
                 project_id=table_identifier.project_id,
                 dataset_name=table_identifier.dataset,
+                column_limit=column_limit,
             )
             self.schema_columns[
                 (table_identifier.project_id, table_identifier.dataset)
@@ -1125,7 +1136,9 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
             logger.warning(
                 f"Couldn't get columns on the dataset level for {table_identifier}. Trying to get on table level..."
             )
-            return BigQueryDataDictionary.get_columns_for_table(conn, table_identifier)
+            return BigQueryDataDictionary.get_columns_for_table(
+                conn, table_identifier, self.config.column_limit
+            )
 
         # Access to table but none of its columns - is this possible ?
         return columns.get(table_identifier.table, [])

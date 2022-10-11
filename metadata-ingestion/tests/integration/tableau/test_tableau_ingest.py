@@ -26,31 +26,21 @@ def _read_response(file_name):
         return data
 
 
-def define_query_metadata_func(workbook_0: str, workbook_all: str):  # type: ignore
+def define_query_metadata_func(workbook_all: str):  # type: ignore
     def side_effect_query_metadata(query):
-        if "workbooksConnection (first:0" in query:
-            return _read_response(workbook_0)
-
-        if "workbooksConnection (first:3" in query:
+        if "workbooksConnection (first:10," in query:
             return _read_response(workbook_all)
 
-        if "embeddedDatasourcesConnection (first:0" in query:
-            return _read_response("embeddedDatasourcesConnection_0.json")
-
-        if "embeddedDatasourcesConnection (first:8" in query:
+        if "embeddedDatasourcesConnection (first:10," in query:
             return _read_response("embeddedDatasourcesConnection_all.json")
 
-        if "publishedDatasourcesConnection (first:0" in query:
-            return _read_response("publishedDatasourcesConnection_0.json")
-
-        if "publishedDatasourcesConnection (first:2" in query:
+        if "publishedDatasourcesConnection (first:10," in query:
             return _read_response("publishedDatasourcesConnection_all.json")
 
-        if "customSQLTablesConnection (first:0" in query:
-            return _read_response("customSQLTablesConnection_0.json")
-
-        if "customSQLTablesConnection (first:2" in query:
+        if "customSQLTablesConnection (first:10," in query:
             return _read_response("customSQLTablesConnection_all.json")
+
+        raise Exception(f"Missing mock for query: {query}")
 
     return side_effect_query_metadata
 
@@ -146,29 +136,12 @@ def test_tableau_ingest(pytestconfig, tmp_path):
     output_file_name: str = "tableau_mces.json"
     golden_file_name: str = "tableau_mces_golden.json"
     side_effect_query_metadata = define_query_metadata_func(
-        "workbooksConnection_0.json", "workbooksConnection_all.json"
+        "workbooksConnection_all.json"
     )
     tableau_ingest_common(
         pytestconfig,
         tmp_path,
         side_effect_query_metadata,
-        golden_file_name,
-        output_file_name,
-    )
-
-
-@freeze_time(FROZEN_TIME)
-@pytest.mark.slow_unit
-def test_tableau_usage_stat(pytestconfig, tmp_path):
-    output_file_name: str = "tableau_stat_mces.json"
-    golden_file_name: str = "tableau_state_mces_golden.json"
-    func = define_query_metadata_func(
-        "workbooksConnection_0.json", "workbooksConnection_state_all.json"
-    )
-    tableau_ingest_common(
-        pytestconfig,
-        tmp_path,
-        func,
         golden_file_name,
         output_file_name,
     )
