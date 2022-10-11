@@ -36,10 +36,12 @@ class ProvidedConfig(ConfigModel):
     path_key: str
     value: str
 
+
 class GenericConnectorConfig(ConfigModel):
     connector_name: str
     source_dataset: str
     source_platform: str
+
 
 class KafkaConnectSourceConfig(DatasetLineageProviderConfigBase):
     # See the Connect REST Interface for details
@@ -73,7 +75,7 @@ class KafkaConnectSourceConfig(DatasetLineageProviderConfigBase):
     )
     generic_connectors: Optional[List[GenericConnectorConfig]] = Field(
         default=None,
-        description='Provide lineage graph for sources connectors other than Confluent JDBC Source Connector or Debezium Source Connector'
+        description="Provide lineage graph for sources connectors other than Confluent JDBC Source Connector or Debezium Source Connector",
     )
 
 
@@ -947,14 +949,16 @@ class KafkaConnectSource(Source):
                         continue
 
                     # imcomplete customized connector list
-                    connector_names = [i['connector_name'] for i in self.config.generic_connectors] 
-                    if not connector_manifest.name in connector_names:
+                    connector_names = [
+                        i.connector_name for i in self.config.generic_connectors
+                    ]
+                    if connector_manifest.name not in connector_names:
                         logger.warning(
                             f"Detected undefined connector {connector_manifest.name}, which is not in the customized connector list. Please refer to Kafka Connect ingestion recipe to define this customized connector."
                         )
                         continue
-                    
-                    # find the target connector object in the list. 
+
+                    # find the target connector object in the list.
                     # already checked target_connector's existence in last step, so no null pointer problem.
                     for connector in self.config.generic_connectors:
                         if connector.connector_name == connector_manifest.name:
