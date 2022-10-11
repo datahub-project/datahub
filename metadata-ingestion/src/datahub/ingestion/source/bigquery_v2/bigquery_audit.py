@@ -121,7 +121,7 @@ class BigqueryTableIdentifier:
         ]
         if invalid_chars_in_table_name:
             raise ValueError(
-                f"Cannot handle {self} - poorly formatted table name, contains {invalid_chars_in_table_name}"
+                f"Cannot handle {self.raw_table_name()} - poorly formatted table name, contains {invalid_chars_in_table_name}"
             )
         return table_name
 
@@ -207,6 +207,7 @@ class QueryEvent:
     actor_email: str
     query: str
     statementType: str
+    project_id: str
 
     job_name: Optional[str] = None
     destinationTable: Optional[BigQueryTableRef] = None
@@ -238,6 +239,15 @@ class QueryEvent:
             return f"projects/{project}/jobs/{jobId}"
         return None
 
+    @staticmethod
+    def _get_project_id_from_job_name(job_name: str) -> str:
+        project_id_pattern = r"projects\/(.*)\/jobs\/.*"
+        matches = re.match(project_id_pattern, job_name, re.MULTILINE)
+        if matches:
+            return matches.group(1)
+        else:
+            raise ValueError(f"Unable to get project_id from jobname: {job_name}")
+
     @classmethod
     def from_entry(
         cls, entry: AuditLogEntry, debug_include_full_payloads: bool = False
@@ -253,6 +263,7 @@ class QueryEvent:
                 job.get("jobName", {}).get("projectId"),
                 job.get("jobName", {}).get("jobId"),
             ),
+            project_id=job.get("jobName", {}).get("projectId"),
             default_dataset=job_query_conf["defaultDataset"]
             if job_query_conf["defaultDataset"]
             else None,
@@ -331,6 +342,7 @@ class QueryEvent:
             actor_email=payload["authenticationInfo"]["principalEmail"],
             query=query_config["query"],
             job_name=job["jobName"],
+            project_id=QueryEvent._get_project_id_from_job_name(job["jobName"]),
             default_dataset=query_config["defaultDataset"]
             if query_config.get("defaultDataset")
             else None,
@@ -392,6 +404,7 @@ class QueryEvent:
         # basic query_event
         query_event = QueryEvent(
             job_name=job["jobName"],
+            project_id=QueryEvent._get_project_id_from_job_name(job["jobName"]),
             timestamp=row.timestamp,
             actor_email=payload["authenticationInfo"]["principalEmail"],
             query=query_config["query"],

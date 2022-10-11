@@ -32,6 +32,7 @@ class BigQueryV2Config(BigQueryConfig):
     usage: BigQueryUsageConfig = Field(
         default=BigQueryUsageConfig(), description="Usage related configs"
     )
+
     include_usage_statistics: bool = Field(
         default=True,
         description="Generate usage statistic",
@@ -56,13 +57,21 @@ class BigQueryV2Config(BigQueryConfig):
         default=50,
         description="Number of table queried in batch when getting metadata. This is a low leve config propert which should be touched with care. This restriction needed because we query partitions system view which throws error if we try to touch too many tables.",
     )
-
+    column_limit: int = Field(
+        default=1000,
+        description="Maximum number of columns to process in a table",
+    )
     # The inheritance hierarchy is wonky here, but these options need modifications.
     project_id: Optional[str] = Field(
         default=None,
         description="[deprecated] Use project_id_pattern instead.",
     )
     storage_project_id: None = Field(default=None, exclude=True)
+
+    lineage_use_sql_parser: bool = Field(
+        default=False,
+        description="Experimental. Use sql parser to resolve view/table lineage. If there is a view being referenced then bigquery sends both the view as well as underlying tablein the references. There is no distinction between direct/base objects accessed. So doing sql parsing to ensure we only use direct objects accessed for lineage.",
+    )
 
     @root_validator(pre=False)
     def profile_default_settings(cls, values: Dict) -> Dict:
