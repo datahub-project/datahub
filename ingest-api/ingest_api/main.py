@@ -273,6 +273,11 @@ async def delete_samples(item: delete_sample_params):
         "Content-Type": "application/json",
     }
     elastic_host = os.environ["ELASTIC_HOST"]
+    elastic_username = os.environ.get("ELASTIC_USERNAME")
+    elastic_password = os.environ.get("ELASTIC_PASSWORD")
+    if elastic_username:
+        scheme, host = elastic_host.split("//")
+        elastic_host = f"{scheme}//{elastic_username}:{elastic_password}@{host}"
     profile_index = os.environ["DATASET_PROFILE_INDEX"]
     if authenticate_action(token=token, user=user, dataset=datasetName):
         data = """{{"query":{{"bool":{{"must":[{{"match":{{"timestampMillis":{timestamp}}}}},
