@@ -1,5 +1,6 @@
 name: pypi-release acryl-datahub-airflow-plugin
 on:
+  workflow_dispatch: 
   release:
     types: [published]
 
