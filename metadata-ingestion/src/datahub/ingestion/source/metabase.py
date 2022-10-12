@@ -244,7 +244,9 @@ class MetabaseSource(Source):
         chart_urns = []
         cards_data = dashboard_details.get("ordered_cards", "{}")
         for card_info in cards_data:
-            chart_urn = builder.make_chart_urn(self.platform, card_info.get("id", ""))
+            chart_urn = builder.make_chart_urn(
+                self.platform, card_info.get("card_id", "")
+            )
             chart_urns.append(chart_urn)
 
         dashboard_info_class = DashboardInfoClass(
