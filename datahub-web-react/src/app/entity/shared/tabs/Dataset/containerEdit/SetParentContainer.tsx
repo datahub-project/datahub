@@ -15,7 +15,6 @@ export const SetParentContainer = (props: Props) => {
     // decided not to put name of parent container of selected container - the new feature in 0.8.36 would be better
     const aboutContainer = 'Select a collection that this dataset belongs to. Can be optional';
     const [selectedContainers, setSelectedContainers] = useState('');
-    console.log(`parentcontainer is ${selectedContainers}`);
     useEffect(() => {
         setSelectedContainers('');
     }, [props.platformType]);
@@ -39,14 +38,12 @@ export const SetParentContainer = (props: Props) => {
         return displayName;
     };
     const candidates = containerCandidates?.search?.searchResults || [];
-    // const aboutContainer =
     // 'Container represents a physical collection of dataset. To create a new container, refer to admin';
     return (
         <>
             {/* <Popover trigger="hover" content={aboutContainer}> */}
             <Tooltip title={aboutContainer}>
                 <Form.Item
-                    // {...formItemLayout}
                     name="parentContainer"
                     label="Specify a Container(Optional)"
                     rules={[
@@ -74,7 +71,6 @@ export const SetParentContainer = (props: Props) => {
                     </Select>
                 </Form.Item>
             </Tooltip>
-            {/* </Popover> */}
         </>
     );
 };

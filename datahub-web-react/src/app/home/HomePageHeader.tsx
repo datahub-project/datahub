@@ -3,6 +3,7 @@ import { useHistory } from 'react-router';
 import { Typography, Image, Row, Button, Tag, Menu } from 'antd';
 import styled, { useTheme } from 'styled-components';
 
+import { QuestionCircleOutlined } from '@ant-design/icons';
 import { ManageAccount } from '../shared/ManageAccount';
 import { useGetAuthenticatedUser } from '../useGetAuthenticatedUser';
 import { useEntityRegistry } from '../useEntityRegistry';
@@ -201,7 +202,7 @@ export const HomePageHeader = () => {
                     <HeaderLinks />
                     <AdhocLink />
                     <Menu mode="horizontal">
-                        <Menu.SubMenu key="SubMenu" title="Links">
+                        <Menu.SubMenu key="SubMenu" title="Links" icon={<QuestionCircleOutlined />}>
                             <Menu.Item key="contact">
                                 <a href={env.CONTACTUS} target="_blank" rel="noopener noreferrer">
                                     Contact Us
