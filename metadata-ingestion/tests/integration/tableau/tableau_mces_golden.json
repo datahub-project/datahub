@@ -597,7 +597,7 @@
     "changeType": "UPSERT",
     "aspectName": "globalTags",
     "aspect": {
-        "value": "{\"tags\": [{\"tag\": \"urn:li:tag:TAGSHEET3\"}]}",
+        "value": "{\"tags\": [{\"tag\": \"urn:li:tag:TagSheet3\"}]}",
         "contentType": "application/json"
     },
     "systemMetadata": {
@@ -817,7 +817,7 @@
                     "com.linkedin.pegasus2avro.common.GlobalTags": {
                         "tags": [
                             {
-                                "tag": "urn:li:tag:TAGSHEET3"
+                                "tag": "urn:li:tag:TagSheet3"
                             }
                         ]
                     }

@@ -127,6 +127,9 @@ workbook_graphql_query = """
           id
           name
         }
+        tags {
+            name
+        }
       }
       embeddedDatasources {
         id
