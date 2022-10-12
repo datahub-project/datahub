@@ -102,8 +102,9 @@ kafka_common = {
 kafka_protobuf = {
     "networkx>=2.6.2",
     # Required to generate protobuf python modules from the schema downloaded from the schema registry
-    "grpcio==1.44.0",
-    "grpcio-tools==1.44.0",
+    # NOTE: potential conflict with feast also depending on grpcio
+    "grpcio>=1.44.0,<2",
+    "grpcio-tools>=1.44.0,<2",
     "types-protobuf",
 }
 
@@ -246,7 +247,7 @@ plugins: Dict[str, Set[str]] = {
     # https://github.com/elastic/elasticsearch-py/issues/1639#issuecomment-883587433
     "elasticsearch": {"elasticsearch==7.13.4"},
     "feast-legacy": {"docker"},
-    "feast": {"feast==0.18.0", "flask-openid>=1.3.0"},
+    "feast": {"feast~=0.26.0", "flask-openid>=1.3.0"},
     "glue": aws_common,
     # hdbcli is supported officially by SAP, sqlalchemy-hana is built on top but not officially supported
     "hana": sql_common
