@@ -179,7 +179,11 @@ def test_base85_upgrade_pickle_to_json():
     assert len(checkpoint.state.to_bytes()) < len(base85_payload)
 
 
-def test_state_forward_compatibility():
+@pytest.mark.parametrize(
+    "serde",
+    ["utf-8", "base85-json"],
+)
+def test_state_forward_compatibility(serde: str) -> None:
     class PrevState(CheckpointStateBase):
         list_a: List[str]
         list_b: List[str]
@@ -187,15 +191,15 @@ def test_state_forward_compatibility():
     class NextState(CheckpointStateBase):
         list_stuff: List[str]
 
-        @pydantic.root_validator(pre=True)
+        @pydantic.root_validator(pre=True, allow_reuse=True)
         def _migrate(cls, values: dict) -> dict:
             values.setdefault("list_stuff", [])
             values["list_stuff"] += values.pop("list_a", [])
             values["list_stuff"] += values.pop("list_b", [])
             return values
 
-    prev_state = PrevState(list_a=["a", "b"], list_b=["c", "d"])
-    expected_next_state = NextState(list_stuff=["a", "b", "c", "d"])
+    prev_state = PrevState(list_a=["a", "b"], list_b=["c", "d"], serde=serde)
+    expected_next_state = NextState(list_stuff=["a", "b", "c", "d"], serde=serde)
 
     checkpoint_state = IngestionCheckpointStateClass(
         formatVersion=prev_state.version,
