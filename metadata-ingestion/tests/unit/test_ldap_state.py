@@ -1,5 +1,6 @@
-from datahub.ingestion.source.state.ldap_state import LdapCheckpointState
 import pytest
+
+from datahub.ingestion.source.state.ldap_state import LdapCheckpointState
 
 
 @pytest.fixture
