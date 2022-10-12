@@ -75,8 +75,8 @@ class DataHubGraph(DatahubRestEmitter):
             self.server_id = "missing"
             return
         try:
-            client_id: Optional[TelemetryClientIdClass] = self.get_aspect_v2(
-                "urn:li:telemetry:clientId", TelemetryClientIdClass, "telemetryClientId"
+            client_id: Optional[TelemetryClientIdClass] = self.get_aspect(
+                "urn:li:telemetry:clientId", TelemetryClientIdClass
             )
             self.server_id = client_id.clientId if client_id else "missing"
         except Exception as e:
@@ -125,29 +125,10 @@ class DataHubGraph(DatahubRestEmitter):
                     "Unable to get metadata from DataHub", {"message": str(e)}
                 ) from e
 
-    @deprecated(
-        reason="Use get_aspect_v2 instead which makes aspect_type_name truly optional"
-    )
     def get_aspect(
         self,
         entity_urn: str,
-        aspect: str,
-        aspect_type_name: Optional[str],
         aspect_type: Type[Aspect],
-    ) -> Optional[Aspect]:
-        return self.get_aspect_v2(
-            entity_urn=entity_urn,
-            aspect=aspect,
-            aspect_type=aspect_type,
-            aspect_type_name=aspect_type_name,
-        )
-
-    def get_aspect_v2(
-        self,
-        entity_urn: str,
-        aspect_type: Type[Aspect],
-        aspect: str,
-        aspect_type_name: Optional[str] = None,
         version: int = 0,
     ) -> Optional[Aspect]:
         """
@@ -155,13 +136,13 @@ class DataHubGraph(DatahubRestEmitter):
 
         :param str entity_urn: The urn of the entity
         :param Type[Aspect] aspect_type: The type class of the aspect being requested (e.g. datahub.metadata.schema_classes.DatasetProperties)
-        :param str aspect: The name of the aspect being requested (e.g. schemaMetadata, datasetProperties, etc.)
-        :param Optional[str] aspect_type_name: The fully qualified classname of the aspect being requested. Typically not needed and extracted automatically from the class directly. (e.g. com.linkedin.common.DatasetProperties)
         :param version: The version of the aspect to retrieve. The default of 0 means latest. Versions > 0 go from oldest to newest, so 1 is the oldest.
         :return: the Aspect as a dictionary if present, None if no aspect was found (HTTP status 404)
-        :rtype: Optional[Aspect]
+
         :raises HttpError: if the HTTP response is not a 200 or a 404
         """
+
+        aspect = aspect_type.ASPECT_NAME
         url: str = f"{self._gms_server}/aspects/{Urn.url_encode(entity_urn)}?aspect={aspect}&version={version}"
         response = self._session.get(url)
         if response.status_code == 404:
@@ -169,16 +150,14 @@ class DataHubGraph(DatahubRestEmitter):
             return None
         response.raise_for_status()
         response_json = response.json()
-        if not aspect_type_name:
-            record_schema: RecordSchema = aspect_type.__getattribute__(
-                aspect_type, "RECORD_SCHEMA"
-            )
-            if not record_schema:
-                logger.warning(
-                    f"Failed to infer type name of the aspect from the aspect type class {aspect_type}. Please provide an aspect_type_name. Continuing, but this will fail."
-                )
-            else:
-                aspect_type_name = record_schema.fullname.replace(".pegasus2avro", "")
+
+        # Figure out what field to look in.
+        record_schema: RecordSchema = aspect_type.__getattribute__(
+            aspect_type, "RECORD_SCHEMA"
+        )
+        aspect_type_name = record_schema.fullname.replace(".pegasus2avro", "")
+
+        # Deserialize the aspect json into the aspect type.
         aspect_json = response_json.get("aspect", {}).get(aspect_type_name)
         if aspect_json:
             # need to apply a transform to the response to match rest.li and avro serialization
@@ -189,64 +168,53 @@ class DataHubGraph(DatahubRestEmitter):
                 f"Failed to find {aspect_type_name} in response {response_json}"
             )
 
+    @deprecated(reason="Use get_aspect instead which makes aspect string name optional")
+    def get_aspect_v2(
+        self,
+        entity_urn: str,
+        aspect_type: Type[Aspect],
+        aspect: str,
+        aspect_type_name: Optional[str] = None,
+        version: int = 0,
+    ) -> Optional[Aspect]:
+        assert aspect_type.ASPECT_NAME == aspect
+        return self.get_aspect(
+            entity_urn=entity_urn,
+            aspect_type=aspect_type,
+            version=version,
+        )
+
     def get_config(self) -> Dict[str, Any]:
         return self._get_generic(f"{self.config.server}/config")
 
     def get_ownership(self, entity_urn: str) -> Optional[OwnershipClass]:
-        return self.get_aspect_v2(
-            entity_urn=entity_urn,
-            aspect="ownership",
-            aspect_type=OwnershipClass,
-        )
+        return self.get_aspect(entity_urn=entity_urn, aspect_type=OwnershipClass)
 
     def get_schema_metadata(self, entity_urn: str) -> Optional[SchemaMetadataClass]:
-        return self.get_aspect_v2(
-            entity_urn=entity_urn,
-            aspect="schemaMetadata",
-            aspect_type=SchemaMetadataClass,
-        )
+        return self.get_aspect(entity_urn=entity_urn, aspect_type=SchemaMetadataClass)
 
     def get_domain_properties(self, entity_urn: str) -> Optional[DomainPropertiesClass]:
-        return self.get_aspect_v2(
-            entity_urn=entity_urn,
-            aspect="domainProperties",
-            aspect_type=DomainPropertiesClass,
-        )
+        return self.get_aspect(entity_urn=entity_urn, aspect_type=DomainPropertiesClass)
 
     def get_dataset_properties(
         self, entity_urn: str
     ) -> Optional[DatasetPropertiesClass]:
-        return self.get_aspect_v2(
-            entity_urn=entity_urn,
-            aspect="datasetProperties",
-            aspect_type=DatasetPropertiesClass,
+        return self.get_aspect(
+            entity_urn=entity_urn, aspect_type=DatasetPropertiesClass
         )
 
     def get_tags(self, entity_urn: str) -> Optional[GlobalTagsClass]:
-        return self.get_aspect_v2(
-            entity_urn=entity_urn,
-            aspect="globalTags",
-            aspect_type=GlobalTagsClass,
-        )
+        return self.get_aspect(entity_urn=entity_urn, aspect_type=GlobalTagsClass)
 
     def get_glossary_terms(self, entity_urn: str) -> Optional[GlossaryTermsClass]:
-        return self.get_aspect_v2(
-            entity_urn=entity_urn,
-            aspect="glossaryTerms",
-            aspect_type=GlossaryTermsClass,
-        )
+        return self.get_aspect(entity_urn=entity_urn, aspect_type=GlossaryTermsClass)
 
     def get_domain(self, entity_urn: str) -> Optional[DomainsClass]:
-        return self.get_aspect_v2(
-            entity_urn=entity_urn,
-            aspect="domains",
-            aspect_type=DomainsClass,
-        )
+        return self.get_aspect(entity_urn=entity_urn, aspect_type=DomainsClass)
 
     def get_browse_path(self, entity_urn: str) -> Optional[BrowsePathsClass]:
-        return self.get_aspect_v2(
+        return self.get_aspect(
             entity_urn=entity_urn,
-            aspect="browsePaths",
             aspect_type=BrowsePathsClass,
         )
 

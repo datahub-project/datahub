@@ -57,9 +57,8 @@ def get_s3_tags(
         return None
     if ctx.graph is not None:
         logger.debug("Connected to DatahubApi, grabbing current tags to maintain.")
-        current_tags: Optional[GlobalTagsClass] = ctx.graph.get_aspect_v2(
+        current_tags: Optional[GlobalTagsClass] = ctx.graph.get_aspect(
             entity_urn=dataset_urn,
-            aspect="globalTags",
             aspect_type=GlobalTagsClass,
         )
         if current_tags:
