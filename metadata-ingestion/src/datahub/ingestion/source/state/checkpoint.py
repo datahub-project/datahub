@@ -30,7 +30,7 @@ class CheckpointStateBase(ConfigModel):
     """
 
     version: str = pydantic.Field(default="1.0")
-    serde: str = pydantic.Field(default="base85-json")
+    serde: str = pydantic.Field(default="base85-bz2-json")
 
     def to_bytes(
         self,
@@ -52,9 +52,9 @@ class CheckpointStateBase(ConfigModel):
             # The original base85 implementation used pickle, which would cause
             # issues with deserialization if we ever changed the state class definition.
             raise ValueError(
-                "Cannot write base85 encoded bytes. Use base85-json instead."
+                "Cannot write base85 encoded bytes. Use base85-bz2-json instead."
             )
-        elif self.serde == "base85-json":
+        elif self.serde == "base85-bz2-json":
             encoded_bytes = CheckpointStateBase._to_bytes_base85_json(self, compressor)
         else:
             raise ValueError(f"Unknown serde: {self.serde}")
@@ -130,7 +130,7 @@ class Checkpoint(Generic[StateType]):
                     state_obj = Checkpoint._from_base85_bytes(
                         checkpoint_aspect, functools.partial(bz2.decompress)
                     )
-                elif checkpoint_aspect.state.serde == "base85-json":
+                elif checkpoint_aspect.state.serde == "base85-bz2-json":
                     state_obj = Checkpoint._from_base85_json_bytes(
                         checkpoint_aspect,
                         functools.partial(bz2.decompress),
@@ -182,9 +182,9 @@ class Checkpoint(Generic[StateType]):
             decompressor(base64.b85decode(checkpoint_aspect.state.payload))  # type: ignore
         )
 
-        # Because the base85 method is deprecated in favor of base85-json,
+        # Because the base85 method is deprecated in favor of base85-bz2-json,
         # we will automatically switch the serde.
-        state.serde = "base85-json"
+        state.serde = "base85-bz2-json"
 
         return state
 
