@@ -101,7 +101,9 @@ class PrestoOnHiveConfig(BasicSQLAlchemyConfig):
         default="localhost:3306",
         description="Host URL and port to connect to. Example: localhost:3306",
     )
-    scheme: str = Field(default="mysql+pymysql", description="", exclude=True)
+    scheme: str = Field(
+        default="mysql+pymysql", description="", hidden_from_schema=True
+    )
     metastore_db_name: Optional[str] = Field(
         default=None,
         description="Name of the Hive metastore's database (usually: metastore). For backward compatibility, if this field is not provided, the database field will be used. If both the 'database' and 'metastore_db_name' fields are set then the 'database' field will be used to filter the hive/presto/trino database",
@@ -462,6 +464,7 @@ class PrestoOnHiveSource(SQLAlchemySource):
                 properties["partitioned_columns"] = par_columns
 
             dataset_properties = DatasetPropertiesClass(
+                name=key.table,
                 description=columns[-1]["description"],
                 customProperties=properties,
             )
@@ -627,6 +630,7 @@ class PrestoOnHiveSource(SQLAlchemySource):
                 "is_view": "True",
             }
             dataset_properties = DatasetPropertiesClass(
+                name=dataset.dataset_name.split(".")[-1],
                 description=None,
                 customProperties=properties,
             )

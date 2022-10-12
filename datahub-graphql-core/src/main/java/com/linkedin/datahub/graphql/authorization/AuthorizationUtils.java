@@ -107,6 +107,10 @@ public class AuthorizationUtils {
         groupUrnStr, orPrivilegeGroups);
   }
 
+  public static boolean canCreateGlobalAnnouncements(@Nonnull QueryContext context) {
+    return isAuthorized(context, Optional.empty(), PoliciesConfig.CREATE_GLOBAL_ANNOUNCEMENTS_PRIVILEGE);
+  }
+
   public static boolean isAuthorized(
       @Nonnull QueryContext context,
       @Nonnull Optional<ResourceSpec> resourceSpec,

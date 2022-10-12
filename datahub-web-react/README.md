@@ -74,7 +74,10 @@ The best workaround is to revert to the Active LTS version of Node, 16.13.0 with
 #### Customizing your App without rebuilding assets
 
 To see the results of any change to a theme, you will need to rebuild your datahub-frontend-react container. While this may work for some users, if you don't want to rebuild your container
-you can still customize the homepage's logo without rebuilding. You can do this by setting the REACT_APP_LOGO_URL env variable when deploying GMS.
+you can change two things without rebuilding.
+
+1. You customize the logo on the homepage & the search bar header by setting the `REACT_APP_LOGO_URL` env variable when deploying GMS.
+2. You can customize the favicon (the icon on your browser tab) by setting the `REACT_APP_FAVICON_URL` env var when deploying GMS.
 
 #### Selecting a theme
 

@@ -507,22 +507,28 @@ class AvroToMceSchemaConverter:
 
 
 def avro_schema_to_mce_fields(
-    avro_schema_string: str, is_key_schema: bool = False, default_nullable: bool = False
+    avro_schema_string: str,
+    is_key_schema: bool = False,
+    default_nullable: bool = False,
+    swallow_exceptions: bool = True,
 ) -> List[SchemaField]:
     """
     Converts an avro schema into schema fields compatible with MCE.
     :param avro_schema_string: String representation of the AVRO schema.
     :param is_key_schema: True if it is a key-schema. Default is False (value-schema).
+    :param swallow_exceptions: True if the caller wants exceptions to be suppressed
     :return: The list of MCE compatible SchemaFields.
     """
-    schema_fields: List[SchemaField] = []
+
     try:
-        schema_fields = list(
+        return list(
             AvroToMceSchemaConverter.to_mce_fields(
                 avro_schema_string, is_key_schema, default_nullable
             )
         )
     except Exception:
-        logger.exception(f"Failed to parse {avro_schema_string} to mce_fields.")
-
-    return schema_fields
+        if swallow_exceptions:
+            logger.exception(f"Failed to parse {avro_schema_string} into mce fields.")
+            return []
+        else:
+            raise

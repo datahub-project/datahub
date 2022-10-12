@@ -223,7 +223,8 @@
               "editableSchemaFieldInfo": [
                 {
                   "fieldPath": "shipment_info",
-                  "globalTags": { "tags": [{ "tag": "urn:li:tag:Legacy" }] }
+                  "globalTags": { "tags": [{ "tag": "urn:li:tag:Legacy" }] },
+                  "glossaryTerms": { "terms": [{ "urn": "urn:li:glossaryTerm:CypressNode.CypressColumnInfoType" }], "auditStamp": { "time": 0, "actor": "urn:li:corpuser:jdoe", "impersonator": null }}
                 }
               ]
             }
@@ -621,7 +622,8 @@
                     }
                   },
                   "nativeDataType": "boolean",
-                  "recursive": false
+                  "recursive": false,
+                  "glossaryTerms": { "terms": [{ "urn": "urn:li:glossaryTerm:CypressNode.CypressColumnInfoType" }], "auditStamp": { "time": 0, "actor": "urn:li:corpuser:jdoe", "impersonator": null }}
                 },
                 {
                   "fieldPath": "timestamp",
@@ -673,7 +675,7 @@
         "aspects": [
           {
             "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
-              "description": "table containing all the users created on a single day",
+              "description": "table containing all the users created on a single day. Creted from log events.",
               "uri": null,
               "tags": [],
               "customProperties": {
@@ -1820,5 +1822,40 @@
     },
     "proposedDelta": null,
     "systemMetadata": null
+  },
+  {
+    "auditHeader": null,
+    "proposedSnapshot": {
+      "com.linkedin.pegasus2avro.metadata.snapshot.GlossaryTermSnapshot": {
+        "urn": "urn:li:glossaryTerm:CypressNode.CypressColumnInfoType",
+        "aspects": [
+          {
+            "com.linkedin.pegasus2avro.glossary.GlossaryTermInfo": {
+              "definition": "a definition",
+              "parentNode": "urn:li:glossaryNode:CypressNode",
+              "sourceRef": "FIBO",
+              "termSource": "EXTERNAL",
+              "sourceUrl": "https://spec.edmcouncil.org/fibo/ontology/FBC/FunctionalEntities/FinancialServicesEntities/BankingProduct",
+              "customProperties": {
+                "FQDN": "SavingAccount"
+              }
+            }
+          },
+          {
+            "com.linkedin.pegasus2avro.common.Ownership": {
+              "owners": [{
+                "owner": "urn:li:corpuser:jdoe",
+                "type": "DATAOWNER"
+              }],
+              "lastModified": {
+                "time": 1581407189000,
+                "actor": "urn:li:corpuser:jdoe"
+              }
+            }
+          }
+        ]
+      }
+    },
+    "proposedDelta": null
   }
 ]

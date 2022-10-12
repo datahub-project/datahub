@@ -17,6 +17,20 @@
     "entityType": "container",
     "entityUrn": "urn:li:container:008e111aa1d250dd52e0fd5d4b307b1a",
     "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "value": "{\"removed\": false}",
+        "contentType": "application/json"
+    },
+    "systemMetadata": {
+        "lastObserved": 1638860400000,
+        "runId": "tableau-test"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:008e111aa1d250dd52e0fd5d4b307b1a",
+    "changeType": "UPSERT",
     "aspectName": "dataPlatformInstance",
     "aspect": {
         "value": "{\"platform\": \"urn:li:dataPlatform:tableau\"}",
@@ -519,6 +533,20 @@
     "entityType": "container",
     "entityUrn": "urn:li:container:fad3de4b86519c3edeb685215fe0bab1",
     "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "value": "{\"removed\": false}",
+        "contentType": "application/json"
+    },
+    "systemMetadata": {
+        "lastObserved": 1638860400000,
+        "runId": "tableau-test"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:fad3de4b86519c3edeb685215fe0bab1",
+    "changeType": "UPSERT",
     "aspectName": "dataPlatformInstance",
     "aspect": {
         "value": "{\"platform\": \"urn:li:dataPlatform:tableau\"}",
@@ -938,6 +966,20 @@
     "aspectName": "containerProperties",
     "aspect": {
         "value": "{\"customProperties\": {\"platform\": \"tableau\", \"workbook_id\": \"6ffa5a7f-d852-78f1-6c6d-20ac23610ebf\"}, \"externalUrl\": \"https://do-not-connect/#/site/acryl/workbooks/15605\", \"name\": \"Executive Dashboard\", \"description\": \"\"}",
+        "contentType": "application/json"
+    },
+    "systemMetadata": {
+        "lastObserved": 1638860400000,
+        "runId": "tableau-test"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:047691e9c16bec8fb08e1df0f5d71c4d",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "value": "{\"removed\": false}",
         "contentType": "application/json"
     },
     "systemMetadata": {
@@ -2404,6 +2446,20 @@
     "entityType": "container",
     "entityUrn": "urn:li:container:94e6e84b66f9ee8c70c22f06cfbad6a9",
     "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "value": "{\"removed\": false}",
+        "contentType": "application/json"
+    },
+    "systemMetadata": {
+        "lastObserved": 1638860400000,
+        "runId": "tableau-test"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:94e6e84b66f9ee8c70c22f06cfbad6a9",
+    "changeType": "UPSERT",
     "aspectName": "dataPlatformInstance",
     "aspect": {
         "value": "{\"platform\": \"urn:li:dataPlatform:tableau\"}",
@@ -2539,7 +2595,7 @@
                 {
                     "com.linkedin.pegasus2avro.common.BrowsePaths": {
                         "paths": [
-                            "/prod/tableau/default/Email Performance by Campaign"
+                            "/prod/tableau/default"
                         ]
                     }
                 },
@@ -4354,7 +4410,7 @@
                 {
                     "com.linkedin.pegasus2avro.common.BrowsePaths": {
                         "paths": [
-                            "/prod/tableau/default/Dvdrental Workbook"
+                            "/prod/tableau/default"
                         ]
                     }
                 },
@@ -4639,7 +4695,7 @@
                 {
                     "com.linkedin.pegasus2avro.common.BrowsePaths": {
                         "paths": [
-                            "/prod/tableau/default/Dvdrental Workbook"
+                            "/prod/tableau/default"
                         ]
                     }
                 },
@@ -5096,7 +5152,7 @@
                 {
                     "com.linkedin.pegasus2avro.common.BrowsePaths": {
                         "paths": [
-                            "/prod/tableau/default/Dvdrental Workbook"
+                            "/prod/tableau/default"
                         ]
                     }
                 },
@@ -5888,7 +5944,7 @@
                 {
                     "com.linkedin.pegasus2avro.common.BrowsePaths": {
                         "paths": [
-                            "/prod/tableau/default/Executive Dashboard"
+                            "/prod/tableau/default"
                         ]
                     }
                 },
@@ -12544,7 +12600,7 @@
                 {
                     "com.linkedin.pegasus2avro.common.BrowsePaths": {
                         "paths": [
-                            "/prod/tableau/default/Executive Dashboard"
+                            "/prod/tableau/default"
                         ]
                     }
                 },
@@ -16486,7 +16542,7 @@
                 {
                     "com.linkedin.pegasus2avro.common.BrowsePaths": {
                         "paths": [
-                            "/prod/tableau/default/Executive Dashboard"
+                            "/prod/tableau/default"
                         ]
                     }
                 },
@@ -21690,7 +21746,7 @@
                 {
                     "com.linkedin.pegasus2avro.common.BrowsePaths": {
                         "paths": [
-                            "/prod/tableau/default/Workbook published ds"
+                            "/prod/tableau/default"
                         ]
                     }
                 },

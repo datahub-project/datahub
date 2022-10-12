@@ -188,7 +188,7 @@ def test_bigquery_table_sanitasitation():
     new_table_ref = BigqueryTableIdentifier.from_string_name(
         table_ref.table_identifier.get_table_name()
     )
-    assert new_table_ref.table == "foo"
+    assert new_table_ref.table == "foo_2022"
     assert new_table_ref.project_id == "project-1234"
     assert new_table_ref.dataset == "dataset-4567"
 
