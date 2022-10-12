@@ -482,11 +482,11 @@ timestamp < "{end_time}"
                 tables = parser.get_tables()
             except Exception as ex:
                 logger.debug(
-                    f"View {view.name} definination sql parsing failed on query: {e.query}. Edge from physical table to view won't be added. The error was {ex}."
+                    f"View {view.name} definination sql parsing failed on query: {view.ddl}. Edge from physical table to view won't be added. The error was {ex}."
                 )
                 return []
 
-            for table in parser.get_tables():
+            for table in tables:
                 parts = table.split(".")
                 if len(parts) == 1:
                     parsed_tables.add(
