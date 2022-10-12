@@ -10,7 +10,6 @@ from datahub.ingestion.graph.client import DatahubClientConfig, DataHubGraph
 # Imports for metadata model classes
 from datahub.metadata.schema_classes import (
     AuditStampClass,
-    ChangeTypeClass,
     EditableDatasetPropertiesClass,
     InstitutionalMemoryClass,
     InstitutionalMemoryMetadataClass,
@@ -40,10 +39,8 @@ institutional_memory_element = InstitutionalMemoryMetadataClass(
 gms_endpoint = "http://localhost:8080"
 graph = DataHubGraph(config=DatahubClientConfig(server=gms_endpoint))
 
-current_editable_properties = graph.get_aspect_v2(
-    entity_urn=dataset_urn,
-    aspect="editableDatasetProperties",
-    aspect_type=EditableDatasetPropertiesClass,
+current_editable_properties = graph.get_aspect(
+    entity_urn=dataset_urn, aspect_type=EditableDatasetPropertiesClass
 )
 
 need_write = False
@@ -60,10 +57,7 @@ else:
 
 if need_write:
     event: MetadataChangeProposalWrapper = MetadataChangeProposalWrapper(
-        entityType="dataset",
-        changeType=ChangeTypeClass.UPSERT,
         entityUrn=dataset_urn,
-        aspectName="editableDatasetProperties",
         aspect=current_editable_properties,
     )
     graph.emit(event)
@@ -73,10 +67,8 @@ else:
     log.info("Documentation already exists and is identical, omitting write")
 
 
-current_institutional_memory = graph.get_aspect_v2(
-    entity_urn=dataset_urn,
-    aspect="institutionalMemory",
-    aspect_type=InstitutionalMemoryClass,
+current_institutional_memory = graph.get_aspect(
+    entity_urn=dataset_urn, aspect_type=InstitutionalMemoryClass
 )
 
 need_write = False
@@ -94,10 +86,7 @@ else:
 
 if need_write:
     event = MetadataChangeProposalWrapper(
-        entityType="dataset",
-        changeType=ChangeTypeClass.UPSERT,
         entityUrn=dataset_urn,
-        aspectName="institutionalMemory",
         aspect=current_institutional_memory,
     )
     graph.emit(event)
