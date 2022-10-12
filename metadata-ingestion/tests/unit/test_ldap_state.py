@@ -32,7 +32,7 @@ def test_get_urns_not_in(other_checkpoint_state):
     oldstate.add_checkpoint_urn("corpuser", "urn:li:corpuser:user4")
     iterable = oldstate.get_urns_not_in("corpuser", other_checkpoint_state)
     # urn:li:corpuser:user4 has been identified as a user to be deleted
-    assert iterable.__next__() == 'urn:li:corpuser:user4'
+    assert iterable.__next__() == "urn:li:corpuser:user4"
 
 
 def test_get_percent_entities_changed(other_checkpoint_state):
