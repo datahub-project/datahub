@@ -7,6 +7,7 @@ import pydantic
 from snowflake.connector import SnowflakeConnection
 
 from datahub.emitter.mce_builder import (
+    make_container_urn,
     make_data_platform_urn,
     make_dataplatform_instance_urn,
     make_dataset_urn,
@@ -789,6 +790,14 @@ class SnowflakeV2Source(
             container_key=schema_container_key,
             dataset_urn=dataset_urn,
         )
+
+        self.stale_entity_removal_handler.add_entity_to_state(
+            type="container",
+            urn=make_container_urn(
+                guid=schema_container_key.guid(),
+            ),
+        )
+
         for wu in container_workunits:
             self.report.report_workunit(wu)
             yield wu
@@ -836,6 +845,13 @@ class SnowflakeV2Source(
             description=database.comment,
             sub_types=[SqlContainerSubTypes.DATABASE],
             domain_urn=domain_urn,
+        )
+
+        self.stale_entity_removal_handler.add_entity_to_state(
+            type="container",
+            urn=make_container_urn(
+                guid=database_container_key.guid(),
+            ),
         )
 
         for wu in container_workunits:
