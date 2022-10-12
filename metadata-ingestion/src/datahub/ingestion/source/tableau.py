@@ -1099,9 +1099,7 @@ class TableauSource(StatefulIngestionSourceBase):
             #  Tags
             tag_list = sheet.get("tags", [])
             if tag_list and self.config.ingest_tags:
-                tag_list_str = [
-                    t.get("name", "") for t in tag_list if t is not None
-                ]
+                tag_list_str = [t.get("name", "") for t in tag_list if t is not None]
                 chart_snapshot.aspects.append(
                     builder.make_global_tag_aspect_with_tag_list(tag_list_str)
                 )
@@ -1248,9 +1246,7 @@ class TableauSource(StatefulIngestionSourceBase):
 
             tag_list = dashboard.get("tags", [])
             if tag_list and self.config.ingest_tags:
-                tag_list_str = [
-                    t.get("name", "") for t in tag_list if t is not None
-                ]
+                tag_list_str = [t.get("name", "") for t in tag_list if t is not None]
                 dashboard_snapshot.aspects.append(
                     builder.make_global_tag_aspect_with_tag_list(tag_list_str)
                 )
