@@ -8,7 +8,7 @@ from datahub.ingestion.source.bigquery_v2.lineage import BigqueryLineageExtracto
 
 def test_parse_view_lineage():
     config = BigQueryV2Config()
-    report = BigQueryV2Report
+    report = BigQueryV2Report()
     extractor = BigqueryLineageExtractor(config, report)
 
     # ddl = "select * from some_dataset.sometable as a"
@@ -33,7 +33,7 @@ FROM
 
 def test_parse_view_lineage_with_two_part_table_name():
     config = BigQueryV2Config()
-    report = BigQueryV2Report
+    report = BigQueryV2Report()
     extractor = BigqueryLineageExtractor(config, report)
 
     ddl = "CREATE VIEW my_view as select * from some_dataset.sometable as a"
@@ -51,7 +51,7 @@ def test_parse_view_lineage_with_two_part_table_name():
 
 def test_one_part_table():
     config = BigQueryV2Config()
-    report = BigQueryV2Report
+    report = BigQueryV2Report()
     extractor = BigqueryLineageExtractor(config, report)
 
     ddl = "CREATE VIEW my_view as select * from sometable as a"
@@ -69,7 +69,7 @@ def test_one_part_table():
 
 def test_create_statement_with_multiple_table():
     config = BigQueryV2Config()
-    report = BigQueryV2Report
+    report = BigQueryV2Report()
     extractor = BigqueryLineageExtractor(config, report)
 
     ddl = "CREATE VIEW my_view as select * from my_project_2.my_dataset_2.sometable union select * from my_project_2.my_dataset_2.sometable2 as a"
