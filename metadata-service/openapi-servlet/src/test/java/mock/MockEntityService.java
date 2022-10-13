@@ -153,7 +153,7 @@ public class MockEntityService extends EntityService {
   @Override
   protected UpdateAspectResult ingestAspectToLocalDB(@Nonnull Urn urn, @Nonnull String aspectName,
       @Nonnull Function<Optional<RecordTemplate>, RecordTemplate> updateLambda, @Nonnull AuditStamp auditStamp,
-      @Nonnull SystemMetadata systemMetadata) {
+      @Nonnull SystemMetadata systemMetadata, Long createdOn) {
     return new UpdateAspectResult(UrnUtils.getUrn(DATASET_URN), null,
         null, null, null, null, null, 0L);
   }
@@ -162,7 +162,7 @@ public class MockEntityService extends EntityService {
   @Override
   protected List<Pair<String, UpdateAspectResult>> ingestAspectsToLocalDB(@Nonnull Urn urn,
       @Nonnull List<Pair<String, RecordTemplate>> aspectRecordsToIngest, @Nonnull AuditStamp auditStamp,
-      @Nonnull SystemMetadata providedSystemMetadata) {
+      @Nonnull SystemMetadata providedSystemMetadata, Map<String, Long> createdOnMap) {
     return Collections.emptyList();
   }
 

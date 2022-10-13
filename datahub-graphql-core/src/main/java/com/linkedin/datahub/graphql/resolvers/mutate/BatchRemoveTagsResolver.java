@@ -27,6 +27,8 @@ public class BatchRemoveTagsResolver implements DataFetcher<CompletableFuture<Bo
 
   @Override
   public CompletableFuture<Boolean> get(DataFetchingEnvironment environment) throws Exception {
+    // ETAG Comment: Client should send the eTag as part of the Variables. Here we received it for GraphQL implementation.
+    final String eTag = environment.getVariables().containsKey("eTag") ? environment.getVariables().get("eTag").toString() : null;
     final QueryContext context = environment.getContext();
     final BatchRemoveTagsInput input = bindArgument(environment.getArgument("input"), BatchRemoveTagsInput.class);
     final List<Urn> tagUrns = input.getTagUrns().stream()
@@ -41,7 +43,7 @@ public class BatchRemoveTagsResolver implements DataFetcher<CompletableFuture<Bo
 
       try {
         // Then execute the bulk add
-        batchRemoveTags(tagUrns, resources, context);
+        batchRemoveTags(tagUrns, resources, context, eTag); // ETAG Comment: eTag is sent to one of the Utils class. (Still not implemented for the other Utils classes)
         return true;
       } catch (Exception e) {
         log.error("Failed to perform update against input {}, {}", input.toString(), e.getMessage());
@@ -64,10 +66,11 @@ public class BatchRemoveTagsResolver implements DataFetcher<CompletableFuture<Bo
     LabelUtils.validateResource(resourceUrn, resource.getSubResource(), resource.getSubResourceType(), _entityService);
   }
 
-  private void batchRemoveTags(List<Urn> tagUrns, List<ResourceRefInput> resources, QueryContext context) {
+  private void batchRemoveTags(List<Urn> tagUrns, List<ResourceRefInput> resources, QueryContext context, String eTag) {
     log.debug("Batch removing Tags. tags: {}, resources: {}", resources, tagUrns);
     try {
-      LabelUtils.removeTagsFromResources(tagUrns, resources, UrnUtils.getUrn(context.getActorUrn()), _entityService);
+      // ETAG Comment: Transfer the parameter deeper.
+      LabelUtils.removeTagsFromResources(tagUrns, resources, UrnUtils.getUrn(context.getActorUrn()), _entityService, eTag);
     } catch (Exception e) {
       throw new RuntimeException(String.format("Failed to remove Tags %s to resources with urns %s!",
           tagUrns,

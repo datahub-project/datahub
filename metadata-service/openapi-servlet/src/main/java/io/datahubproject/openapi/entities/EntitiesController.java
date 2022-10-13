@@ -7,6 +7,7 @@ import com.datahub.authentication.AuthenticationContext;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
+import com.linkedin.datahub.graphql.util.ETagUtil;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.utils.metrics.MetricUtils;
 import com.linkedin.util.Pair;
@@ -22,6 +23,7 @@ import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
@@ -38,6 +40,7 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.InitBinder;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
@@ -103,15 +106,19 @@ public class EntitiesController {
 
   @PostMapping(value = "/", produces = MediaType.APPLICATION_JSON_VALUE)
   public ResponseEntity<List<String>> postEntities(
-      @RequestBody @Nonnull List<UpsertAspectRequest> aspectRequests) {
+      @RequestBody @Nonnull List<UpsertAspectRequest> aspectRequests,
+      @RequestHeader(name = "eTag") String eTag) {
+    // ETAG Comment: For Rest implementation we expect to receive eTag vai Http header.
     log.info("INGEST PROPOSAL proposal: {}", aspectRequests);
 
     Authentication authentication = AuthenticationContext.getAuthentication();
     String actorUrnStr = authentication.getActor().toUrnStr();
 
+    // ETAG Comment: eTag String is converted to Map and send to next level.
+    Map<String, Long> createdOnMap = ETagUtil.extractETag(eTag);
     List<Pair<String, Boolean>> responses = aspectRequests.stream()
         .map(MappingUtil::mapToProposal)
-        .map(proposal -> MappingUtil.ingestProposal(proposal, actorUrnStr,  _entityService, _objectMapper))
+        .map(proposal -> MappingUtil.ingestProposal(proposal, actorUrnStr,  _entityService, _objectMapper, createdOnMap.get(actorUrnStr)))
         .collect(Collectors.toList());
     if (responses.stream().anyMatch(Pair::getSecond)) {
       return ResponseEntity.status(HttpStatus.CREATED)
@@ -126,7 +133,9 @@ public class EntitiesController {
       @Parameter(name = "urns", required = true, description = "A list of raw urn strings, only supports a single entity type per request.")
       @RequestParam("urns") @Nonnull String[] urns,
       @Parameter(name = "soft", description = "Determines whether the delete will be soft or hard, defaults to true for soft delete")
-      @RequestParam(value = "soft", defaultValue = "true") boolean soft) {
+      @RequestParam(value = "soft", defaultValue = "true") boolean soft,
+      @RequestHeader(name = "eTag") String eTag) {
+    // ETAG Comment: For Rest implementation we expect to receive eTag via Http header.
     Timer.Context context = MetricUtils.timer("deleteEntities").time();
     final Set<Urn> entityUrns =
         Arrays.stream(urns)
@@ -149,10 +158,13 @@ public class EntitiesController {
         Authentication authentication = AuthenticationContext.getAuthentication();
         String actorUrnStr = authentication.getActor().toUrnStr();
 
+
+        // ETAG Comment: eTag String is converted to Map and send to next level.
+        Map<String, Long> createdOnMap = ETagUtil.extractETag(eTag);
         return ResponseEntity.ok(Collections.singletonList(RollbackRunResultDto.builder()
             .rowsRolledBack(deleteRequests.stream()
                 .map(MappingUtil::mapToProposal)
-                .map(proposal -> MappingUtil.ingestProposal(proposal, actorUrnStr, _entityService, _objectMapper))
+                .map(proposal -> MappingUtil.ingestProposal(proposal, actorUrnStr, _entityService, _objectMapper, createdOnMap.get(actorUrnStr)))
                 .filter(Pair::getSecond)
                 .map(Pair::getFirst)
                 .map(urnString -> new AspectRowSummary().urn(urnString))

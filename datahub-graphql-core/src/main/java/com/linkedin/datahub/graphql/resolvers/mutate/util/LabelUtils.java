@@ -18,6 +18,7 @@ import com.linkedin.datahub.graphql.authorization.DisjunctivePrivilegeGroup;
 import com.linkedin.datahub.graphql.generated.ResourceRefInput;
 import com.linkedin.datahub.graphql.generated.SubResourceType;
 import com.linkedin.datahub.graphql.resolvers.mutate.MutationUtils;
+import com.linkedin.datahub.graphql.util.ETagUtil;
 import com.linkedin.metadata.authorization.PoliciesConfig;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.mxe.MetadataChangeProposal;
@@ -26,6 +27,7 @@ import com.linkedin.schema.EditableSchemaMetadata;
 import java.net.URISyntaxException;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import javax.annotation.Nonnull;
 import lombok.extern.slf4j.Slf4j;
 
@@ -78,52 +80,56 @@ public class LabelUtils {
       List<Urn> tags,
       List<ResourceRefInput> resources,
       Urn actor,
-      EntityService entityService
+      EntityService entityService,
+      String eTag
   ) throws Exception {
     final List<MetadataChangeProposal> changes = new ArrayList<>();
     for (ResourceRefInput resource : resources) {
       changes.add(buildRemoveTagsProposal(tags, resource, actor, entityService));
     }
-    ingestChangeProposals(changes, entityService, actor);
+    ingestChangeProposals(changes, entityService, actor, eTag);
   }
 
   public static void addTagsToResources(
       List<Urn> tagUrns,
       List<ResourceRefInput> resources,
       Urn actor,
-      EntityService entityService
+      EntityService entityService,
+      String eTag
   ) throws Exception {
     final List<MetadataChangeProposal> changes = new ArrayList<>();
     for (ResourceRefInput resource : resources) {
       changes.add(buildAddTagsProposal(tagUrns, resource, actor, entityService));
     }
-    ingestChangeProposals(changes, entityService, actor);
+    ingestChangeProposals(changes, entityService, actor, eTag);
   }
 
   public static void removeTermsFromResources(
       List<Urn> termUrns,
       List<ResourceRefInput> resources,
       Urn actor,
-      EntityService entityService
-  ) throws Exception {
+      EntityService entityService,
+      String eTag
+    ) throws Exception {
     final List<MetadataChangeProposal> changes = new ArrayList<>();
     for (ResourceRefInput resource : resources) {
       changes.add(buildRemoveTermsProposal(termUrns, resource, actor, entityService));
     }
-    ingestChangeProposals(changes, entityService, actor);
+    ingestChangeProposals(changes, entityService, actor, eTag);
   }
 
   public static void addTermsToResources(
       List<Urn> termUrns,
       List<ResourceRefInput> resources,
       Urn actor,
-      EntityService entityService
+      EntityService entityService,
+      String eTag
   ) throws Exception {
     final List<MetadataChangeProposal> changes = new ArrayList<>();
     for (ResourceRefInput resource : resources) {
       changes.add(buildAddTermsProposal(termUrns, resource, actor, entityService));
     }
-    ingestChangeProposals(changes, entityService, actor);
+    ingestChangeProposals(changes, entityService, actor, eTag);
   }
 
   public static void addTermsToResource(
@@ -553,10 +559,20 @@ public class LabelUtils {
     return termAssociationArray;
   }
 
-  private static void ingestChangeProposals(List<MetadataChangeProposal> changes, EntityService entityService, Urn actor) {
+  private static void ingestChangeProposals(List<MetadataChangeProposal> changes, EntityService entityService, Urn actor, String eTag) {
     // TODO: Replace this with a batch ingest proposals endpoint.
+    Map<String, Long> createdOnMap = ETagUtil.extractETag(eTag);
     for (MetadataChangeProposal change : changes) {
-      entityService.ingestProposal(change, getAuditStamp(actor));
+      if (createdOnMap.containsKey(change.getEntityUrn())) {
+        entityService.ingestProposal(change, getAuditStamp(actor), createdOnMap.get(change.getEntityUrn()));
+      } else {
+        entityService.ingestProposal(change, getAuditStamp(actor));
+      }
+
+      // ETAG Comment: If - Esle branch from about should be deleted and only if branch kept.
+      // It is leave like this because tests are stil not updated.
+      // Only LabelUtils is updated for now. Once we decide to go this way we need to do similar changes to all Utils classes (there are 5)
+
     }
   }
 }

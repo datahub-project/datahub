@@ -31,6 +31,8 @@ public class AddTagsResolver implements DataFetcher<CompletableFuture<Boolean>> 
 
   @Override
   public CompletableFuture<Boolean> get(DataFetchingEnvironment environment) throws Exception {
+    // ETAG Comment: Client should send the eTag as part of the Variables. Here we received it for GraphQL implementation.
+    final String eTag = environment.getVariables().containsKey("eTag") ? environment.getVariables().get("eTag").toString() : null;
     final AddTagsInput input = bindArgument(environment.getArgument("input"), AddTagsInput.class);
     List<Urn> tagUrns = input.getTagUrns().stream()
         .map(UrnUtils::getUrn)
@@ -59,7 +61,8 @@ public class AddTagsResolver implements DataFetcher<CompletableFuture<Boolean>> 
             tagUrns,
             ImmutableList.of(new ResourceRefInput(input.getResourceUrn(), input.getSubResourceType(), input.getSubResource())),
             actor,
-            _entityService
+            _entityService,
+            eTag // ETAG Comment: eTag is sent to one of the Utils class. (Still not implemented for the other Utils classes)
         );
         return true;
       } catch (Exception e) {

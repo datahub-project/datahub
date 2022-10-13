@@ -28,6 +28,8 @@ public class BatchAddTagsResolver implements DataFetcher<CompletableFuture<Boole
 
   @Override
   public CompletableFuture<Boolean> get(DataFetchingEnvironment environment) throws Exception {
+    // ETAG Comment: Client should send the eTag as part of the Variables. Here we received it for GraphQL implementation.
+    final String eTag = environment.getVariables().containsKey("eTag") ? environment.getVariables().get("eTag").toString() : null;
     final QueryContext context = environment.getContext();
     final BatchAddTagsInput input = bindArgument(environment.getArgument("input"), BatchAddTagsInput.class);
     final List<Urn> tagUrns = input.getTagUrns().stream()
@@ -43,7 +45,7 @@ public class BatchAddTagsResolver implements DataFetcher<CompletableFuture<Boole
 
       try {
         // Then execute the bulk add
-        batchAddTags(tagUrns, resources, context);
+        batchAddTags(tagUrns, resources, context, eTag); // ETAG Comment: eTag is sent to one of the Utils class. (Still not implemented for the other Utils classes)
         return true;
       } catch (Exception e) {
         log.error("Failed to perform update against input {}, {}", input.toString(), e.getMessage());
@@ -72,10 +74,11 @@ public class BatchAddTagsResolver implements DataFetcher<CompletableFuture<Boole
     LabelUtils.validateResource(resourceUrn, resource.getSubResource(), resource.getSubResourceType(), _entityService);
   }
 
-  private void batchAddTags(List<Urn> tagUrns, List<ResourceRefInput> resources, QueryContext context) {
+  private void batchAddTags(List<Urn> tagUrns, List<ResourceRefInput> resources, QueryContext context, String eTag) {
       log.debug("Batch adding Tags. tags: {}, resources: {}", resources, tagUrns);
       try {
-        LabelUtils.addTagsToResources(tagUrns, resources, UrnUtils.getUrn(context.getActorUrn()), _entityService);
+        // ETAG Comment: Transfer the parameter deeper.
+        LabelUtils.addTagsToResources(tagUrns, resources, UrnUtils.getUrn(context.getActorUrn()), _entityService, eTag);
       } catch (Exception e) {
         throw new RuntimeException(String.format("Failed to batch add Tags %s to resources with urns %s!",
             tagUrns,
