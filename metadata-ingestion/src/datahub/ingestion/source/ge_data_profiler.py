@@ -1,3 +1,5 @@
+from datahub.utilities._markupsafe_compat import MARKUPSAFE_PATCHED
+
 import collections
 import concurrent.futures
 import contextlib
@@ -51,6 +53,7 @@ from datahub.utilities.sqlalchemy_query_combiner import (
     get_query_columns,
 )
 
+assert MARKUPSAFE_PATCHED
 logger: logging.Logger = logging.getLogger(__name__)
 
 P = ParamSpec("P")

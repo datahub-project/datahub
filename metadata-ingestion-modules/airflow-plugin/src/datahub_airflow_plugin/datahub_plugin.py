@@ -1,6 +1,6 @@
 import contextlib
 import traceback
-from typing import Any, Iterable
+from typing import Any, Dict, Iterable
 
 import attr
 from airflow.configuration import conf
@@ -10,6 +10,7 @@ from airflow.plugins_manager import AirflowPlugin
 from airflow.utils.module_loading import import_string
 from cattr import structure
 from datahub.api.entities.dataprocess.dataprocess_instance import InstanceRunResult
+from datahub_provider._lineage_core import preprocess_task_iolets
 from datahub_provider.client.airflow_generator import AirflowGenerator
 from datahub_provider.hooks.datahub import DatahubGenericHook
 from datahub_provider.lineage.datahub import DatahubLineageConfig
@@ -39,6 +40,8 @@ def get_lineage_config() -> DatahubLineageConfig:
 
 
 def get_inlets_from_task(task: BaseOperator, context: Any) -> Iterable[Any]:
+    # TODO fix for https://github.com/apache/airflow/commit/1b1f3fabc5909a447a6277cafef3a0d4ef1f01ae
+
     inlets = []
     if isinstance(task._inlets, (str, BaseOperator)) or attr.has(task._inlets):  # type: ignore
         inlets = [

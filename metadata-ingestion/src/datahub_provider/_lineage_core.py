@@ -1,5 +1,7 @@
+from datahub_provider._airflow_compat import Operator
+
 from datetime import datetime
-from typing import TYPE_CHECKING, Dict, List
+from typing import TYPE_CHECKING, Dict, List, Optional
 
 import datahub.emitter.mce_builder as builder
 from datahub.api.entities.dataprocess.dataprocess_instance import InstanceRunResult
@@ -10,7 +12,6 @@ from datahub_provider.entities import _Entity
 
 if TYPE_CHECKING:
     from airflow import DAG
-    from airflow.models.baseoperator import BaseOperator
     from airflow.models.dagrun import DagRun
     from airflow.models.taskinstance import TaskInstance
 
@@ -45,9 +46,21 @@ class DatahubBasicLineageConfig(ConfigModel):
         return DatahubGenericHook(self.datahub_conn_id)
 
 
+def _task_underscore_inlets(operator: "Operator") -> Optional[List]:
+    if hasattr(operator, "_inlets"):
+        return operator._inlets  # type: ignore[attr-defined,union-attr]
+    return None
+
+
+def _task_underscore_outlets(operator: "Operator") -> Optional[List]:
+    if hasattr(operator, "_outlets"):
+        return operator._outlets  # type: ignore[attr-defined,union-attr]
+    return None
+
+
 def send_lineage_to_datahub(
     config: DatahubBasicLineageConfig,
-    operator: "BaseOperator",
+    operator: "Operator",
     inlets: List[_Entity],
     outlets: List[_Entity],
     context: Dict,
@@ -56,7 +69,7 @@ def send_lineage_to_datahub(
         return
 
     dag: "DAG" = context["dag"]
-    task: "BaseOperator" = context["task"]
+    task: "Operator" = context["task"]
     ti: "TaskInstance" = context["task_instance"]
 
     hook = config.make_emitter_hook()
@@ -110,3 +123,50 @@ def send_lineage_to_datahub(
             end_timestamp_millis=int(datetime.utcnow().timestamp() * 1000),
         )
         operator.log.info(f"Emitted from Lineage: {dpi}")
+
+
+def preprocess_task_iolets(task: "Operator", context: Dict) -> None:
+    # This is necessary to avoid issues with circular imports.
+    from airflow.lineage import prepare_lineage
+
+    from datahub_provider.hooks.datahub import AIRFLOW_1
+
+    # Detect Airflow 1.10.x inlet/outlet configurations in Airflow 2.x, and
+    # convert to the newer version. This code path will only be triggered
+    # when 2.x receives a 1.10.x inlet/outlet config.
+    needs_repeat_preparation = False
+
+    # Translate inlets.
+    previous_inlets = _task_underscore_inlets(task)
+    if (
+        not AIRFLOW_1
+        and previous_inlets is not None
+        and isinstance(previous_inlets, list)
+        and len(previous_inlets) == 1
+        and isinstance(previous_inlets[0], dict)
+    ):
+        from airflow.lineage import AUTO
+
+        task._inlets = [  # type: ignore[attr-defined,union-attr]
+            # See https://airflow.apache.org/docs/apache-airflow/1.10.15/lineage.html.
+            *previous_inlets[0].get("datasets", []),  # assumes these are attr-annotated
+            *previous_inlets[0].get("task_ids", []),
+            *([AUTO] if previous_inlets[0].get("auto", False) else []),
+        ]
+        needs_repeat_preparation = True
+
+    # Translate outlets.
+    previous_outlets = _task_underscore_outlets(task)
+    if (
+        not AIRFLOW_1
+        and previous_inlets is not None
+        and isinstance(previous_outlets, list)
+        and len(previous_outlets) == 1
+        and isinstance(previous_outlets[0], dict)
+    ):
+        task._outlets = [*previous_outlets[0].get("datasets", [])]  # type: ignore[attr-defined,union-attr]
+        needs_repeat_preparation = True
+
+    # Rerun the lineage preparation routine, now that the old format has been translated to the new one.
+    if needs_repeat_preparation:
+        prepare_lineage(lambda self, ctx: None)(task, context)

@@ -6,6 +6,7 @@ from airflow.lineage.backend import LineageBackend
 
 from datahub_provider._lineage_core import (
     DatahubBasicLineageConfig,
+    preprocess_task_iolets,
     send_lineage_to_datahub,
 )
 
@@ -78,6 +79,7 @@ class DatahubLineageBackend(LineageBackend):
 
         try:
             context = context or {}  # ensure not None to satisfy mypy
+            preprocess_task_iolets(operator, context)
             send_lineage_to_datahub(
                 config, operator, operator.inlets, operator.outlets, context
             )

@@ -1,8 +1,10 @@
 import os
 import pathlib
-from typing import Dict, Set
 
 import setuptools
+
+USE_DEV_VERSION = os.environ.get("USE_DEV_VERSION", "0") == "1"
+
 
 package_metadata: dict = {}
 with open("./src/datahub_airflow_plugin/__init__.py") as fp:
@@ -23,9 +25,9 @@ base_requirements = {
     "typing-inspect",
     "pydantic>=1.5.1",
     "apache-airflow >= 2.0.2",
-    "acryl-datahub[airflow] >= 0.8.36",
-    # Pinned dependencies to make dependency resolution faster.
-    "sqlalchemy==1.3.24",
+    "acryl-datahub[airflow] >= 0.8.36"
+    if not USE_DEV_VERSION
+    else "acryl-datahub[airflow] == 0.0.0.dev0",
 }
 
 
