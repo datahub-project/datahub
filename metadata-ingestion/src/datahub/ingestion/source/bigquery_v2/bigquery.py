@@ -632,7 +632,10 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
 
         if self.config.include_table_lineage:
             lineage_info = self.lineage_extractor.get_upstream_lineage_info(
-                table_identifier, self.platform
+                project_id=project_id,
+                dataset_name=schema_name,
+                table=table,
+                platform=self.platform,
             )
 
         table_workunits = self.gen_table_dataset_workunits(
@@ -665,7 +668,10 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
         lineage_info: Optional[Tuple[UpstreamLineage, Dict[str, str]]] = None
         if self.config.include_table_lineage:
             lineage_info = self.lineage_extractor.get_upstream_lineage_info(
-                table_identifier, self.platform
+                project_id=project_id,
+                dataset_name=dataset_name,
+                table=view,
+                platform=self.platform,
             )
 
         view_workunits = self.gen_view_dataset_workunits(

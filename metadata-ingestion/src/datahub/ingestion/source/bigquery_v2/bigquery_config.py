@@ -54,12 +54,12 @@ class BigQueryV2Config(BigQueryConfig):
     )
 
     number_of_datasets_process_in_batch: int = Field(
-        default=50,
-        description="Number of table queried in batch when getting metadata. This is a low leve config propert which should be touched with care. This restriction needed because we query partitions system view which throws error if we try to touch too many tables.",
+        default=80,
+        description="Number of table queried in batch when getting metadata. This is a low level config property which should be touched with care. This restriction is needed because we query partitions system view which throws error if we try to touch too many tables.",
     )
     column_limit: int = Field(
-        default=1000,
-        description="Maximum number of columns to process in a table",
+        default=300,
+        description="Maximum number of columns to process in a table. This is a low level config property which should be touched with care. This restriction is needed because excessively wide tables can result in failure to ingest the schema.",
     )
     # The inheritance hierarchy is wonky here, but these options need modifications.
     project_id: Optional[str] = Field(
@@ -71,6 +71,10 @@ class BigQueryV2Config(BigQueryConfig):
     lineage_use_sql_parser: bool = Field(
         default=False,
         description="Experimental. Use sql parser to resolve view/table lineage. If there is a view being referenced then bigquery sends both the view as well as underlying tablein the references. There is no distinction between direct/base objects accessed. So doing sql parsing to ensure we only use direct objects accessed for lineage.",
+    )
+    lineage_parse_view_ddl: bool = Field(
+        default=True,
+        description="Sql parse view ddl to get lineage.",
     )
 
     @root_validator(pre=False)

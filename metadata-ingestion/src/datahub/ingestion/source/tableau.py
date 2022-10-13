@@ -1099,9 +1099,7 @@ class TableauSource(StatefulIngestionSourceBase):
             #  Tags
             tag_list = sheet.get("tags", [])
             if tag_list and self.config.ingest_tags:
-                tag_list_str = [
-                    t.get("name", "").upper() for t in tag_list if t is not None
-                ]
+                tag_list_str = [t.get("name", "") for t in tag_list if t is not None]
                 chart_snapshot.aspects.append(
                     builder.make_global_tag_aspect_with_tag_list(tag_list_str)
                 )
@@ -1140,7 +1138,7 @@ class TableauSource(StatefulIngestionSourceBase):
 
         tag_list = workbook.get("tags", [])
         tag_list_str = (
-            [t.get("name", "").upper() for t in tag_list if t is not None]
+            [t.get("name", "") for t in tag_list if t is not None]
             if (tag_list and self.config.ingest_tags)
             else None
         )
@@ -1245,6 +1243,13 @@ class TableauSource(StatefulIngestionSourceBase):
                 customProperties={"luid": dashboard.get("luid") or ""},
             )
             dashboard_snapshot.aspects.append(dashboard_info_class)
+
+            tag_list = dashboard.get("tags", [])
+            if tag_list and self.config.ingest_tags:
+                tag_list_str = [t.get("name", "") for t in tag_list if t is not None]
+                dashboard_snapshot.aspects.append(
+                    builder.make_global_tag_aspect_with_tag_list(tag_list_str)
+                )
 
             if self.config.extract_usage_stats:
                 # dashboard_snapshot doesn't support the stat aspect as list element and hence need to emit MetadataWorkUnit
