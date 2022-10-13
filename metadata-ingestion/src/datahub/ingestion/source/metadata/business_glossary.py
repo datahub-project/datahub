@@ -69,7 +69,6 @@ class DefaultConfig(ConfigModel):
     owners: Owners
     url: Optional[str] = None
     source_type: Optional[str] = "INTERNAL"
-    datahub_guid: bool = False
 
 
 class BusinessGlossarySourceConfig(ConfigModel):
