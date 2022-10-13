@@ -21,13 +21,17 @@ export const EditTextModal = ({ defaultValue, onCloseModal, onOk, title }: Props
                     <Button onClick={onCloseModal} type="text">
                         Cancel
                     </Button>
-                    <Button disabled={stagedValue.trim().length === 0} onClick={() => onOk?.(stagedValue)}>
+                    <Button
+                        data-testid="edit-text-done-btn"
+                        disabled={stagedValue.trim().length === 0}
+                        onClick={() => onOk?.(stagedValue)}
+                    >
                         Done
                     </Button>
                 </>
             }
         >
-            <Input onChange={(e) => setStagedValue(e.target.value)} value={stagedValue} />
+            <Input data-testid="edit-text-input" onChange={(e) => setStagedValue(e.target.value)} value={stagedValue} />
         </Modal>
     );
 };

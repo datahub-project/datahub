@@ -8,7 +8,8 @@
                     "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
                         "customProperties": {
                             "number_of_files": "1",
-                            "size_in_bytes": "172"
+                            "size_in_bytes": "172",
+                            "table_path": "s3://my-test-bucket/folder_a/folder_aa/folder_aaa/no_extension/small"
                         },
                         "name": "small",
                         "description": "",
@@ -124,9 +125,23 @@
     "entityType": "container",
     "entityUrn": "urn:li:container:647eefb4dfda8695baf1aa0775d78689",
     "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "value": "{\"removed\": false}",
+        "contentType": "application/json"
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "file_without_extension.json"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:647eefb4dfda8695baf1aa0775d78689",
+    "changeType": "UPSERT",
     "aspectName": "dataPlatformInstance",
     "aspect": {
-        "value": "{\"platform\": \"urn:li:dataPlatform:s3\", \"instance\": \"urn:li:dataPlatformInstance:(urn:li:dataPlatform:s3,test-platform-instance)\"}",
+        "value": "{\"platform\": \"urn:li:dataPlatform:s3\"}",
         "contentType": "application/json"
     },
     "systemMetadata": {
@@ -166,9 +181,23 @@
     "entityType": "container",
     "entityUrn": "urn:li:container:c8d940d2010edd365619411b385b11e4",
     "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "value": "{\"removed\": false}",
+        "contentType": "application/json"
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "file_without_extension.json"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:c8d940d2010edd365619411b385b11e4",
+    "changeType": "UPSERT",
     "aspectName": "dataPlatformInstance",
     "aspect": {
-        "value": "{\"platform\": \"urn:li:dataPlatform:s3\", \"instance\": \"urn:li:dataPlatformInstance:(urn:li:dataPlatform:s3,test-platform-instance)\"}",
+        "value": "{\"platform\": \"urn:li:dataPlatform:s3\"}",
         "contentType": "application/json"
     },
     "systemMetadata": {
@@ -222,9 +251,23 @@
     "entityType": "container",
     "entityUrn": "urn:li:container:b0037296cdd497e3137aa0628b8687bc",
     "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "value": "{\"removed\": false}",
+        "contentType": "application/json"
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "file_without_extension.json"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:b0037296cdd497e3137aa0628b8687bc",
+    "changeType": "UPSERT",
     "aspectName": "dataPlatformInstance",
     "aspect": {
-        "value": "{\"platform\": \"urn:li:dataPlatform:s3\", \"instance\": \"urn:li:dataPlatformInstance:(urn:li:dataPlatform:s3,test-platform-instance)\"}",
+        "value": "{\"platform\": \"urn:li:dataPlatform:s3\"}",
         "contentType": "application/json"
     },
     "systemMetadata": {
@@ -278,9 +321,23 @@
     "entityType": "container",
     "entityUrn": "urn:li:container:de5780654849d6a18b66df2f9cb8e8d9",
     "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "value": "{\"removed\": false}",
+        "contentType": "application/json"
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "file_without_extension.json"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:de5780654849d6a18b66df2f9cb8e8d9",
+    "changeType": "UPSERT",
     "aspectName": "dataPlatformInstance",
     "aspect": {
-        "value": "{\"platform\": \"urn:li:dataPlatform:s3\", \"instance\": \"urn:li:dataPlatformInstance:(urn:li:dataPlatform:s3,test-platform-instance)\"}",
+        "value": "{\"platform\": \"urn:li:dataPlatform:s3\"}",
         "contentType": "application/json"
     },
     "systemMetadata": {
@@ -334,9 +391,23 @@
     "entityType": "container",
     "entityUrn": "urn:li:container:9b4624d58669059c9e62afb3d7341944",
     "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "value": "{\"removed\": false}",
+        "contentType": "application/json"
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "file_without_extension.json"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:9b4624d58669059c9e62afb3d7341944",
+    "changeType": "UPSERT",
     "aspectName": "dataPlatformInstance",
     "aspect": {
-        "value": "{\"platform\": \"urn:li:dataPlatform:s3\", \"instance\": \"urn:li:dataPlatformInstance:(urn:li:dataPlatform:s3,test-platform-instance)\"}",
+        "value": "{\"platform\": \"urn:li:dataPlatform:s3\"}",
         "contentType": "application/json"
     },
     "systemMetadata": {

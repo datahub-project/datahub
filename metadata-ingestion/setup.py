@@ -164,8 +164,9 @@ snowflake_common = {
 }
 
 trino = {
-    "trino>=0.308",
-    "trino[sqlalchemy]>=0.308",
+    # The upper bound was added because of a breaking change in the Trino dialect.
+    # See https://github.com/trinodb/trino-python-client/issues/250.
+    "trino[sqlalchemy]>=0.308, <0.317",
 }
 
 microsoft_common = {"msal==1.16.0"}
@@ -267,9 +268,16 @@ plugins: Dict[str, Set[str]] = {
     "kafka-connect": sql_common | {"requests", "JPype1"},
     "ldap": {"python-ldap>=2.4"},
     "looker": looker_common,
-    # lkml>=1.1.2 is required to support the sql_preamble expression in LookML
     "lookml": looker_common
-    | {"lkml>=1.1.2", "sql-metadata==2.2.2", "sqllineage==1.3.6", "GitPython>2"},
+    | {
+        # This version of lkml contains a fix for parsing lists in
+        # LookML files with spaces between an item and the following comma.
+        # See https://github.com/joshtemple/lkml/issues/73.
+        "lkml>=1.3.0b5",
+        "sql-metadata==2.2.2",
+        "sqllineage==1.3.6",
+        "GitPython>2",
+    },
     "metabase": {"requests", "sqllineage==1.3.6"},
     "mode": {"requests", "sqllineage==1.3.6", "tenacity>=8.0.1"},
     "mongodb": {"pymongo[srv]>=3.11", "packaging"},

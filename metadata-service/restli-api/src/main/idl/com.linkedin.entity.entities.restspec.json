@@ -27,6 +27,30 @@
       } ]
     } ],
     "actions" : [ {
+      "name" : "applyRetention",
+      "parameters" : [ {
+        "name" : "start",
+        "type" : "int",
+        "optional" : true
+      }, {
+        "name" : "count",
+        "type" : "int",
+        "optional" : true
+      }, {
+        "name" : "attemptWithVersion",
+        "type" : "int",
+        "optional" : true
+      }, {
+        "name" : "aspectName",
+        "type" : "string",
+        "optional" : true
+      }, {
+        "name" : "urn",
+        "type" : "string",
+        "optional" : true
+      } ],
+      "returns" : "string"
+    }, {
       "name" : "autocomplete",
       "parameters" : [ {
         "name" : "entity",

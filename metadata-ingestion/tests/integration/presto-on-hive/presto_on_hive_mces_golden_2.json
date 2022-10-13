@@ -17,6 +17,20 @@
     "entityType": "container",
     "entityUrn": "urn:li:container:e998a77f6edaa92d1326dec9d37c96ab",
     "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "value": "{\"removed\": false}",
+        "contentType": "application/json"
+    },
+    "systemMetadata": {
+        "lastObserved": 1632398400000,
+        "runId": "presto-on-hive-test"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:e998a77f6edaa92d1326dec9d37c96ab",
+    "changeType": "UPSERT",
     "aspectName": "dataPlatformInstance",
     "aspect": {
         "value": "{\"platform\": \"urn:li:dataPlatform:presto-on-hive\"}",
@@ -48,6 +62,20 @@
     "aspectName": "containerProperties",
     "aspect": {
         "value": "{\"customProperties\": {\"platform\": \"presto-on-hive\", \"instance\": \"PROD\", \"database\": \"hive\", \"schema\": \"db1\"}, \"name\": \"db1\"}",
+        "contentType": "application/json"
+    },
+    "systemMetadata": {
+        "lastObserved": 1632398400000,
+        "runId": "presto-on-hive-test"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:bb66ab4651750f727700446f9b3aa2df",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "value": "{\"removed\": false}",
         "contentType": "application/json"
     },
     "systemMetadata": {
@@ -176,10 +204,11 @@
                 {
                     "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
                         "customProperties": {
-                            "create_date": "2022-09-20",
+                            "create_date": "2022-10-08",
                             "table_type": "MANAGED_TABLE",
                             "table_location": "hdfs://namenode:8020/user/hive/warehouse/db1.db/map_test"
                         },
+                        "name": "map_test",
                         "tags": []
                     }
                 }
@@ -341,10 +370,11 @@
                 {
                     "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
                         "customProperties": {
-                            "create_date": "2022-09-20",
+                            "create_date": "2022-10-08",
                             "table_type": "MANAGED_TABLE",
                             "table_location": "hdfs://namenode:8020/user/hive/warehouse/db1.db/union_test"
                         },
+                        "name": "union_test",
                         "tags": []
                     }
                 }
@@ -498,10 +528,11 @@
                 {
                     "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
                         "customProperties": {
-                            "create_date": "2022-09-20",
+                            "create_date": "2022-10-08",
                             "table_type": "MANAGED_TABLE",
                             "table_location": "hdfs://namenode:8020/user/hive/warehouse/db1.db/nested_struct_test"
                         },
+                        "name": "nested_struct_test",
                         "tags": []
                     }
                 }
@@ -639,10 +670,11 @@
                 {
                     "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
                         "customProperties": {
-                            "create_date": "2022-09-20",
+                            "create_date": "2022-10-08",
                             "table_type": "MANAGED_TABLE",
                             "table_location": "hdfs://namenode:8020/user/hive/warehouse/db1.db/array_struct_test"
                         },
+                        "name": "array_struct_test",
                         "description": "This table has array of structs",
                         "tags": []
                     }
@@ -775,10 +807,11 @@
                 {
                     "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
                         "customProperties": {
-                            "create_date": "2022-09-20",
+                            "create_date": "2022-10-08",
                             "table_type": "MANAGED_TABLE",
                             "table_location": "hdfs://namenode:8020/user/hive/warehouse/db1.db/struct_test"
                         },
+                        "name": "struct_test",
                         "tags": []
                     }
                 }
@@ -880,10 +913,11 @@
                 {
                     "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
                         "customProperties": {
-                            "create_date": "2022-09-20",
+                            "create_date": "2022-10-08",
                             "table_type": "MANAGED_TABLE",
                             "table_location": "hdfs://namenode:8020/user/hive/warehouse/db1.db/_test_table_underscore"
                         },
+                        "name": "_test_table_underscore",
                         "tags": []
                     }
                 }
@@ -998,11 +1032,12 @@
                 {
                     "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
                         "customProperties": {
-                            "create_date": "2022-09-20",
+                            "create_date": "2022-10-08",
                             "table_type": "MANAGED_TABLE",
                             "table_location": "hdfs://namenode:8020/user/hive/warehouse/db1.db/pokes",
                             "partitioned_columns": "baz"
                         },
+                        "name": "pokes",
                         "tags": []
                     }
                 }
@@ -1106,6 +1141,7 @@
                         "customProperties": {
                             "is_view": "True"
                         },
+                        "name": "array_struct_test_presto_view",
                         "tags": []
                     }
                 },

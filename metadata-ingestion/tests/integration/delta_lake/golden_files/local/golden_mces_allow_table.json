@@ -110,9 +110,23 @@
     "entityType": "container",
     "entityUrn": "urn:li:container:189046201d696e7810132cfa64dad337",
     "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "value": "{\"removed\": false}",
+        "contentType": "application/json"
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "allow_table.json"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:189046201d696e7810132cfa64dad337",
+    "changeType": "UPSERT",
     "aspectName": "dataPlatformInstance",
     "aspect": {
-        "value": "{\"platform\": \"urn:li:dataPlatform:delta-lake\", \"instance\": \"urn:li:dataPlatformInstance:(urn:li:dataPlatform:delta-lake,my-platform)\"}",
+        "value": "{\"platform\": \"urn:li:dataPlatform:delta-lake\"}",
         "contentType": "application/json"
     },
     "systemMetadata": {
@@ -152,9 +166,23 @@
     "entityType": "container",
     "entityUrn": "urn:li:container:acf0f3806f475a7397ee745329ef2967",
     "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "value": "{\"removed\": false}",
+        "contentType": "application/json"
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "allow_table.json"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:acf0f3806f475a7397ee745329ef2967",
+    "changeType": "UPSERT",
     "aspectName": "dataPlatformInstance",
     "aspect": {
-        "value": "{\"platform\": \"urn:li:dataPlatform:delta-lake\", \"instance\": \"urn:li:dataPlatformInstance:(urn:li:dataPlatform:delta-lake,my-platform)\"}",
+        "value": "{\"platform\": \"urn:li:dataPlatform:delta-lake\"}",
         "contentType": "application/json"
     },
     "systemMetadata": {
@@ -208,9 +236,23 @@
     "entityType": "container",
     "entityUrn": "urn:li:container:1876d057d0ee364677b85427342e2c82",
     "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "value": "{\"removed\": false}",
+        "contentType": "application/json"
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "allow_table.json"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:1876d057d0ee364677b85427342e2c82",
+    "changeType": "UPSERT",
     "aspectName": "dataPlatformInstance",
     "aspect": {
-        "value": "{\"platform\": \"urn:li:dataPlatform:delta-lake\", \"instance\": \"urn:li:dataPlatformInstance:(urn:li:dataPlatform:delta-lake,my-platform)\"}",
+        "value": "{\"platform\": \"urn:li:dataPlatform:delta-lake\"}",
         "contentType": "application/json"
     },
     "systemMetadata": {
@@ -264,9 +306,23 @@
     "entityType": "container",
     "entityUrn": "urn:li:container:7888b6dab77b7e77709699c9a1b81aa4",
     "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "value": "{\"removed\": false}",
+        "contentType": "application/json"
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "allow_table.json"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:7888b6dab77b7e77709699c9a1b81aa4",
+    "changeType": "UPSERT",
     "aspectName": "dataPlatformInstance",
     "aspect": {
-        "value": "{\"platform\": \"urn:li:dataPlatform:delta-lake\", \"instance\": \"urn:li:dataPlatformInstance:(urn:li:dataPlatform:delta-lake,my-platform)\"}",
+        "value": "{\"platform\": \"urn:li:dataPlatform:delta-lake\"}",
         "contentType": "application/json"
     },
     "systemMetadata": {
@@ -320,9 +376,23 @@
     "entityType": "container",
     "entityUrn": "urn:li:container:a282913be26fceff334523c2be119df1",
     "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "value": "{\"removed\": false}",
+        "contentType": "application/json"
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "allow_table.json"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:a282913be26fceff334523c2be119df1",
+    "changeType": "UPSERT",
     "aspectName": "dataPlatformInstance",
     "aspect": {
-        "value": "{\"platform\": \"urn:li:dataPlatform:delta-lake\", \"instance\": \"urn:li:dataPlatformInstance:(urn:li:dataPlatform:delta-lake,my-platform)\"}",
+        "value": "{\"platform\": \"urn:li:dataPlatform:delta-lake\"}",
         "contentType": "application/json"
     },
     "systemMetadata": {
@@ -892,9 +962,23 @@
     "entityType": "container",
     "entityUrn": "urn:li:container:3df8f6b0f3a70d42cf70612a2fe5e5ef",
     "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "value": "{\"removed\": false}",
+        "contentType": "application/json"
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "allow_table.json"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:3df8f6b0f3a70d42cf70612a2fe5e5ef",
+    "changeType": "UPSERT",
     "aspectName": "dataPlatformInstance",
     "aspect": {
-        "value": "{\"platform\": \"urn:li:dataPlatform:delta-lake\", \"instance\": \"urn:li:dataPlatformInstance:(urn:li:dataPlatform:delta-lake,my-platform)\"}",
+        "value": "{\"platform\": \"urn:li:dataPlatform:delta-lake\"}",
         "contentType": "application/json"
     },
     "systemMetadata": {
