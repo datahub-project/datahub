@@ -8,7 +8,12 @@ from pydantic.fields import Field
 import datahub.metadata.schema_classes as models
 from datahub.configuration.common import ConfigModel
 from datahub.configuration.config_loader import load_config_file
-from datahub.emitter.mce_builder import get_sys_time, make_group_urn, make_user_urn
+from datahub.emitter.mce_builder import (
+    datahub_guid,
+    get_sys_time,
+    make_group_urn,
+    make_user_urn,
+)
 from datahub.ingestion.api.decorators import (  # SourceCapability,; capability,
     SupportStatus,
     config_class,
@@ -68,6 +73,7 @@ class DefaultConfig(ConfigModel):
 
 class BusinessGlossarySourceConfig(ConfigModel):
     file: str = Field(description="Path to business glossary file to ingest.")
+    enable_datahub_guid: bool = False
 
 
 class BusinessGlossaryConfig(DefaultConfig):
@@ -82,12 +88,19 @@ class BusinessGlossaryConfig(DefaultConfig):
         return v
 
 
-def make_glossary_node_urn(path: List[str]) -> str:
-    return "urn:li:glossaryNode:" + ".".join(path)
+def create_id(path: List[str], enable_datahub_guid: bool) -> str:
+    id_: str = ".".join(path)
+    if enable_datahub_guid:
+        id_ = datahub_guid({"path": id_})
+    return id_
 
 
-def make_glossary_term_urn(path: List[str]) -> str:
-    return "urn:li:glossaryTerm:" + ".".join(path)
+def make_glossary_node_urn(path: List[str], enable_datahub_guid: bool) -> str:
+    return "urn:li:glossaryNode:" + create_id(path, enable_datahub_guid)
+
+
+def make_glossary_term_urn(path: List[str], enable_datahub_guid: bool) -> str:
+    return "urn:li:glossaryTerm:" + create_id(path, enable_datahub_guid)
 
 
 def get_owners(owners: Owners) -> models.OwnershipClass:
@@ -112,7 +125,7 @@ def get_owners(owners: Owners) -> models.OwnershipClass:
 
 
 def get_mces(
-    glossary: BusinessGlossaryConfig,
+    glossary: BusinessGlossaryConfig, ingestion_config: BusinessGlossarySourceConfig
 ) -> List[models.MetadataChangeEventClass]:
     events: List[models.MetadataChangeEventClass] = []
     path: List[str] = []
@@ -126,6 +139,7 @@ def get_mces(
                 parentNode=None,
                 parentOwners=root_owners,
                 defaults=glossary,
+                ingestion_config=ingestion_config,
             )
 
     if glossary.terms:
@@ -136,6 +150,7 @@ def get_mces(
                 parentNode=None,
                 parentOwnership=root_owners,
                 defaults=glossary,
+                ingestion_config=ingestion_config,
             )
 
     return events
@@ -151,11 +166,13 @@ def get_mces_from_node(
     parentNode: Optional[str],
     parentOwners: models.OwnershipClass,
     defaults: DefaultConfig,
+    ingestion_config: BusinessGlossarySourceConfig,
 ) -> List[models.MetadataChangeEventClass]:
-    node_urn = make_glossary_node_urn(path)
+    node_urn = make_glossary_node_urn(path, ingestion_config.enable_datahub_guid)
     node_info = models.GlossaryNodeInfoClass(
         definition=glossaryNode.description,
         parentNode=parentNode,
+        name=glossaryNode.name,
     )
     node_owners = parentOwners
     if glossaryNode.owners is not None:
@@ -175,6 +192,7 @@ def get_mces_from_node(
                 parentNode=node_urn,
                 parentOwners=node_owners,
                 defaults=defaults,
+                ingestion_config=ingestion_config,
             )
 
     if glossaryNode.terms:
@@ -185,6 +203,7 @@ def get_mces_from_node(
                 parentNode=node_urn,
                 parentOwnership=node_owners,
                 defaults=defaults,
+                ingestion_config=ingestion_config,
             )
     return mces
 
@@ -195,8 +214,9 @@ def get_mces_from_term(
     parentNode: Optional[str],
     parentOwnership: models.OwnershipClass,
     defaults: DefaultConfig,
+    ingestion_config: BusinessGlossarySourceConfig,
 ) -> List[models.MetadataChangeEventClass]:
-    term_urn = make_glossary_term_urn(path)
+    term_urn = make_glossary_term_urn(path, ingestion_config.enable_datahub_guid)
     aspects: List[
         Union[
             models.GlossaryTermInfoClass,
@@ -218,6 +238,7 @@ def get_mces_from_term(
         sourceUrl=glossaryTerm.source_url if glossaryTerm.source_url else defaults.url,
         parentNode=parentNode,
         customProperties=glossaryTerm.custom_properties,
+        name=glossaryTerm.name,
     )
     aspects.append(term_info)
 
@@ -227,17 +248,27 @@ def get_mces_from_term(
     is_related_to_term = None
     if glossaryTerm.inherits is not None:
         assert glossaryTerm.inherits is not None
-        is_a = [make_glossary_term_urn([term]) for term in glossaryTerm.inherits]
+        is_a = [
+            make_glossary_term_urn([term], ingestion_config.enable_datahub_guid)
+            for term in glossaryTerm.inherits
+        ]
     if glossaryTerm.contains is not None:
         assert glossaryTerm.contains is not None
-        has_a = [make_glossary_term_urn([term]) for term in glossaryTerm.contains]
+        has_a = [
+            make_glossary_term_urn([term], ingestion_config.enable_datahub_guid)
+            for term in glossaryTerm.contains
+        ]
     if glossaryTerm.has_value is not None:
         assert glossaryTerm.has_value is not None
-        has_value = [make_glossary_term_urn([term]) for term in glossaryTerm.has_value]
+        has_value = [
+            make_glossary_term_urn([term], ingestion_config.enable_datahub_guid)
+            for term in glossaryTerm.has_value
+        ]
     if glossaryTerm.is_related_to is not None:
         assert glossaryTerm.is_related_to is not None
         is_related_to_term = [
-            make_glossary_term_urn([term]) for term in glossaryTerm.is_related_to
+            make_glossary_term_urn([term], ingestion_config.enable_datahub_guid)
+            for term in glossaryTerm.is_related_to
         ]
 
     if (
@@ -294,7 +325,7 @@ class BusinessGlossaryFileSource(Source):
 
     def get_workunits(self) -> Iterable[Union[MetadataWorkUnit, UsageStatsWorkUnit]]:
         glossary_config = self.load_glossary_config(self.config.file)
-        for mce in get_mces(glossary_config):
+        for mce in get_mces(glossary_config, ingestion_config=self.config):
             wu = MetadataWorkUnit(f"{mce.proposedSnapshot.urn}", mce=mce)
             self.report.report_workunit(wu)
             yield wu
