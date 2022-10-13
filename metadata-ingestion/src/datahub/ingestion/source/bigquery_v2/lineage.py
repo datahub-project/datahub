@@ -19,6 +19,10 @@ from datahub.ingestion.source.bigquery_v2.bigquery_audit import (
 )
 from datahub.ingestion.source.bigquery_v2.bigquery_config import BigQueryV2Config
 from datahub.ingestion.source.bigquery_v2.bigquery_report import BigQueryV2Report
+from datahub.ingestion.source.bigquery_v2.bigquery_schema import (
+    BigqueryTable,
+    BigqueryView,
+)
 from datahub.ingestion.source.bigquery_v2.common import (
     BQ_DATE_SHARD_FORMAT,
     BQ_DATETIME_FORMAT,
@@ -396,6 +400,10 @@ timestamp < "{end_time}"
                 continue
 
             destination_table_str = destination_table.table_identifier.get_table_name()
+            destination_table_str = str(
+                BigQueryTableRef(table_identifier=destination_table.table_identifier)
+            )
+
             if not self.config.dataset_pattern.allowed(
                 destination_table.table_identifier.dataset
             ) or not self.config.table_pattern.allowed(
@@ -464,6 +472,47 @@ timestamp < "{end_time}"
         logger.info("Exiting create lineage map function")
         return lineage_map
 
+    def parse_view_lineage(
+        self, project: str, dataset: str, view: BigqueryView
+    ) -> List[BigqueryTableIdentifier]:
+        parsed_tables = set()
+        if view.ddl:
+            try:
+                parser = BigQuerySQLParser(view.ddl)
+                tables = parser.get_tables()
+            except Exception as ex:
+                logger.debug(
+                    f"View {view.name} definination sql parsing failed on query: {view.ddl}. Edge from physical table to view won't be added. The error was {ex}."
+                )
+                return []
+
+            for table in tables:
+                parts = table.split(".")
+                if len(parts) == 1:
+                    parsed_tables.add(
+                        BigqueryTableIdentifier(
+                            project_id=project, dataset=dataset, table=table
+                        )
+                    )
+                elif len(parts) == 2:
+                    parsed_tables.add(
+                        BigqueryTableIdentifier(
+                            project_id=project, dataset=parts[0], table=parts[1]
+                        )
+                    )
+                elif len(parts) == 3:
+                    parsed_tables.add(
+                        BigqueryTableIdentifier(
+                            project_id=parts[0], dataset=parts[1], table=parts[2]
+                        )
+                    )
+                else:
+                    continue
+
+            return list(parsed_tables)
+        else:
+            return []
+
     def _compute_bigquery_lineage(self, project_id: str) -> Dict[str, Set[str]]:
         lineage_extractor: BigqueryLineageExtractor = BigqueryLineageExtractor(
             config=self.config, report=self.report
@@ -524,11 +573,18 @@ timestamp < "{end_time}"
                     )
             else:
                 upstreams.add(upstream_table)
+
         return upstreams
 
     def get_upstream_lineage_info(
-        self, table_identifier: BigqueryTableIdentifier, platform: str
+        self,
+        project_id: str,
+        dataset_name: str,
+        table: Union[BigqueryTable, BigqueryView],
+        platform: str,
     ) -> Optional[Tuple[UpstreamLineageClass, Dict[str, str]]]:
+        table_identifier = BigqueryTableIdentifier(project_id, dataset_name, table.name)
+
         if table_identifier.project_id not in self.loaded_project_ids:
             with PerfTimer() as timer:
                 self.lineage_metadata.update(
@@ -538,6 +594,21 @@ timestamp < "{end_time}"
                     timer.elapsed_seconds(), 2
                 )
                 self.loaded_project_ids.append(table_identifier.project_id)
+
+        if self.config.lineage_parse_view_ddl and isinstance(table, BigqueryView):
+            for table_id in self.parse_view_lineage(project_id, dataset_name, table):
+                if table_identifier.get_table_name() in self.lineage_metadata:
+                    self.lineage_metadata[
+                        str(
+                            BigQueryTableRef(table_identifier).get_sanitized_table_ref()
+                        )
+                    ].add(str(BigQueryTableRef(table_id).get_sanitized_table_ref()))
+                else:
+                    self.lineage_metadata[
+                        str(
+                            BigQueryTableRef(table_identifier).get_sanitized_table_ref()
+                        )
+                    ] = {str(BigQueryTableRef(table_id).get_sanitized_table_ref())}
 
         bq_table = BigQueryTableRef.from_bigquery_table(table_identifier)
         if str(bq_table) in self.lineage_metadata:
