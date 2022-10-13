@@ -100,6 +100,10 @@ from datahub.metadata.schema_classes import (
     ViewPropertiesClass,
 )
 from datahub.utilities import config_clean
+from datahub.utilities.source_helpers import (
+    auto_stale_entity_removal,
+    auto_status_aspect,
+)
 
 logger: logging.Logger = logging.getLogger(__name__)
 
@@ -145,6 +149,11 @@ class TableauConnectionConfig(ConfigModel):
         description="Unique relationship between the Tableau Server and site",
     )
 
+    ssl_verify: Union[bool, str] = Field(
+        default=True,
+        description="Whether to verify SSL certificates. If using self-signed certificates, set to false or provide the path to the .pem certificate bundle.",
+    )
+
     @validator("connect_uri")
     def remove_trailing_slash(cls, v):
         return config_clean.remove_trailing_slashes(v)
@@ -169,6 +178,11 @@ class TableauConnectionConfig(ConfigModel):
 
         try:
             server = Server(self.connect_uri, use_server_version=True)
+
+            # From https://stackoverflow.com/a/50159273/5004662.
+            server._session.verify = self.ssl_verify
+            server._session.trust_env = False
+
             server.auth.sign_in(authentication)
             return server
         except ServerResponseError as e:
@@ -776,23 +790,6 @@ class TableauSource(StatefulIngestionSourceBase):
         work_unit = MetadataWorkUnit(id=snap_shot.urn, mce=mce)
         self.report.report_workunit(work_unit)
 
-        # Add snapshot to the checkpoint state.
-        entity = None
-        if type(snap_shot).__name__ == "DatasetSnapshotClass":
-            entity = "dataset"
-        elif type(snap_shot).__name__ == "DashboardSnapshotClass":
-            entity = "dashboard"
-        elif type(snap_shot).__name__ == "ChartSnapshotClass":
-            entity = "chart"
-        else:
-            logger.warning(
-                f"Skipping snapshot {snap_shot.urn} from being added to the state"
-                f" since it is not of the expected type {type(snap_shot).__name__}."
-            )
-
-        if entity is not None:
-            self.stale_entity_removal_handler.add_entity_to_state(entity, snap_shot.urn)
-
         return work_unit
 
     def get_metadata_change_proposal(
@@ -1395,6 +1392,12 @@ class TableauSource(StatefulIngestionSourceBase):
         return cls(config, ctx)
 
     def get_workunits(self) -> Iterable[MetadataWorkUnit]:
+        return auto_stale_entity_removal(
+            self.stale_entity_removal_handler,
+            auto_status_aspect(self.get_workunits_internal()),
+        )
+
+    def get_workunits_internal(self) -> Iterable[MetadataWorkUnit]:
         if self.server is None or not self.server.is_signed_in():
             return
         try:
@@ -1414,8 +1417,6 @@ class TableauSource(StatefulIngestionSourceBase):
                 key="tableau-metadata",
                 reason=f"Unable to retrieve metadata from tableau. Information: {str(md_exception)}",
             )
-        # Clean up stale entities.
-        yield from self.stale_entity_removal_handler.gen_removed_entity_workunits()
 
     def get_report(self) -> StaleEntityRemovalSourceReport:
         return self.report

@@ -182,8 +182,8 @@ s3_base = {
     "parse>=1.19.0",
     "pyarrow>=6.0.1",
     "tableschema>=1.20.2",
-    "ujson>=4.3.0",
-    "types-ujson>=4.2.1",
+    # ujson 5.2.0 has the JSONDecodeError exception type, which we need for error handling.
+    "ujson>=5.2.0",
     "smart-open[s3]>=5.2.1",
     "moto[s3]",
     *path_spec_common,
@@ -350,6 +350,7 @@ mypy_stubs = {
     "types-pytz",
     "types-pyOpenSSL",
     "types-click-spinner",
+    "types-ujson>=5.2.0",
 }
 
 base_dev_requirements = {
