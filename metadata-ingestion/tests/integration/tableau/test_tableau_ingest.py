@@ -42,9 +42,7 @@ config_source_default = {
         "dvdrental": "public",
         "someotherdb": "schema",
     },
-    "platform_instance_map": {
-        "postgres": "demo_postgres_instance"
-    },
+    "platform_instance_map": {"postgres": "demo_postgres_instance"},
     "extract_usage_stats": True,
     "stateful_ingestion": {
         "enabled": True,
@@ -56,6 +54,7 @@ config_source_default = {
         },
     },
 }
+
 
 def read_response(pytestconfig, file_name):
     test_resources_dir = pathlib.Path(
@@ -92,7 +91,7 @@ def tableau_ingest_common(
     golden_file_name,
     output_file_name,
     mock_datahub_graph,
-    pipeline_config = config_source_default
+    pipeline_config=config_source_default,
 ):
     test_resources_dir = pathlib.Path(
         pytestconfig.rootpath / "tests/integration/tableau"
@@ -175,7 +174,9 @@ def test_tableau_ingest(pytestconfig, tmp_path, mock_datahub_graph):
 
 @freeze_time(FROZEN_TIME)
 @pytest.mark.slow_unit
-def test_tableau_ingest_with_platform_instance(pytestconfig, tmp_path, mock_datahub_graph):
+def test_tableau_ingest_with_platform_instance(
+    pytestconfig, tmp_path, mock_datahub_graph
+):
     output_file_name: str = "tableau_with_platform_instance_mces.json"
     golden_file_name: str = "tableau_with_platform_instance_mces_golden.json"
 
@@ -194,9 +195,7 @@ def test_tableau_ingest_with_platform_instance(pytestconfig, tmp_path, mock_data
             "dvdrental": "public",
             "someotherdb": "schema",
         },
-        "platform_instance_map": {
-            "postgres": "demo_postgres_instance"
-        },
+        "platform_instance_map": {"postgres": "demo_postgres_instance"},
         "extract_usage_stats": True,
         "stateful_ingestion": {
             "enabled": True,
@@ -221,7 +220,7 @@ def test_tableau_ingest_with_platform_instance(pytestconfig, tmp_path, mock_data
         golden_file_name,
         output_file_name,
         mock_datahub_graph,
-        config_source
+        config_source,
     )
 
 
