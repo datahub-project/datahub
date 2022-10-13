@@ -26,11 +26,12 @@ from starlette_exporter import PrometheusMiddleware, handle_metrics
 from ingest_api.helper.mce_convenience import *
 from ingest_api.helper.models import *
 from ingest_api.helper.security import authenticate_action, verify_token
+from urllib3.exceptions import InsecureRequestWarning 
 
 CLI_MODE = False if environ.get("RUNNING_IN_DOCKER") else True
 
 frequency_enum = ["Adhoc","Periodic","Onetime","Unknown"]
-
+requests.packages.urllib3.disable_warnings(category=InsecureRequestWarning)
 
 # when running ingest-api from CLI, need to set some params.
 # cos dataset_profile_index name varies depending on ES. If there is an existing index (and datahub is instantiated on top, then it will append a UUID to it)
@@ -272,6 +273,11 @@ async def delete_samples(item: delete_sample_params):
         "Content-Type": "application/json",
     }
     elastic_host = os.environ["ELASTIC_HOST"]
+    elastic_username = os.environ.get("ELASTIC_USERNAME")
+    elastic_password = os.environ.get("ELASTIC_PASSWORD")
+    if elastic_username:
+        scheme, host = elastic_host.split("//")
+        elastic_host = f"{scheme}//{elastic_username}:{elastic_password}@{host}"
     profile_index = os.environ["DATASET_PROFILE_INDEX"]
     if authenticate_action(token=token, user=user, dataset=datasetName):
         data = """{{"query":{{"bool":{{"must":[{{"match":{{"timestampMillis":{timestamp}}}}},
