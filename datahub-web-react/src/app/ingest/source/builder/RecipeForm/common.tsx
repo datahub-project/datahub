@@ -76,6 +76,23 @@ export function setListValuesOnRecipe(recipe: any, values: string[] | undefined,
     return updatedRecipe;
 }
 
+const NUM_CHARACTERS_TO_REMOVE_FROM_DATE = 5;
+
+export function setDateValueOnRecipe(recipe: any, value: Moment | undefined, fieldPath: string) {
+    const updatedRecipe = { ...recipe };
+    if (value !== undefined) {
+        if (!value) {
+            return setFieldValueOnRecipe(updatedRecipe, null, fieldPath);
+        }
+        const isoDateString = value.toISOString();
+        const formattedDateString = isoDateString
+            .substring(0, isoDateString.length - NUM_CHARACTERS_TO_REMOVE_FROM_DATE)
+            .concat('Z');
+        return setFieldValueOnRecipe(updatedRecipe, formattedDateString, fieldPath);
+    }
+    return updatedRecipe;
+}
+
 /* ---------------------------------------------------- Filter Section ---------------------------------------------------- */
 const databaseAllowFieldPath = 'source.config.database_pattern.allow';
 export const DATABASE_ALLOW: RecipeField = {
@@ -360,8 +377,6 @@ export const SKIP_PERSONAL_FOLDERS: RecipeField = {
     rules: null,
 };
 
-const NUM_CHARACTERS_TO_REMOVE_FROM_DATE = 5;
-
 const startTimeFieldPath = 'source.config.start_time';
 export const START_TIME: RecipeField = {
     name: 'start_time',
@@ -379,14 +394,5 @@ export const START_TIME: RecipeField = {
         }
         return isoDateString;
     },
-    setValueOnRecipeOverride: (recipe: any, value?: Moment) => {
-        if (!value) {
-            return setFieldValueOnRecipe(recipe, null, startTimeFieldPath);
-        }
-        const isoDateString = value.toISOString();
-        const formattedDateString = isoDateString
-            .substring(0, isoDateString.length - NUM_CHARACTERS_TO_REMOVE_FROM_DATE)
-            .concat('Z');
-        return setFieldValueOnRecipe(recipe, formattedDateString, startTimeFieldPath);
-    },
+    setValueOnRecipeOverride: (recipe: any, value?: Moment) => setDateValueOnRecipe(recipe, value, startTimeFieldPath),
 };
