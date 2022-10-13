@@ -182,6 +182,7 @@ s3_base = {
     "parse>=1.19.0",
     "pyarrow>=6.0.1",
     "tableschema>=1.20.2",
+    # ujson 5.2.0 has the JSONDecodeError exception type, which we need for error handling.
     "ujson>=5.2.0",
     "smart-open[s3]>=5.2.1",
     "moto[s3]",
