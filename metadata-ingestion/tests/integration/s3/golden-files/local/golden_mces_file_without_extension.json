@@ -140,7 +140,7 @@
     "changeType": "UPSERT",
     "aspectName": "dataPlatformInstance",
     "aspect": {
-        "value": "{\"platform\": \"urn:li:dataPlatform:file\"}",
+        "value": "{\"platform\": \"urn:li:dataPlatform:file\", \"instance\": \"urn:li:dataPlatformInstance:(urn:li:dataPlatform:file,test-platform-instance)\"}",
         "contentType": "application/json"
     },
     "systemMetadata": {
@@ -196,7 +196,7 @@
     "changeType": "UPSERT",
     "aspectName": "dataPlatformInstance",
     "aspect": {
-        "value": "{\"platform\": \"urn:li:dataPlatform:file\"}",
+        "value": "{\"platform\": \"urn:li:dataPlatform:file\", \"instance\": \"urn:li:dataPlatformInstance:(urn:li:dataPlatform:file,test-platform-instance)\"}",
         "contentType": "application/json"
     },
     "systemMetadata": {
@@ -266,7 +266,7 @@
     "changeType": "UPSERT",
     "aspectName": "dataPlatformInstance",
     "aspect": {
-        "value": "{\"platform\": \"urn:li:dataPlatform:file\"}",
+        "value": "{\"platform\": \"urn:li:dataPlatform:file\", \"instance\": \"urn:li:dataPlatformInstance:(urn:li:dataPlatform:file,test-platform-instance)\"}",
         "contentType": "application/json"
     },
     "systemMetadata": {
@@ -336,7 +336,7 @@
     "changeType": "UPSERT",
     "aspectName": "dataPlatformInstance",
     "aspect": {
-        "value": "{\"platform\": \"urn:li:dataPlatform:file\"}",
+        "value": "{\"platform\": \"urn:li:dataPlatform:file\", \"instance\": \"urn:li:dataPlatformInstance:(urn:li:dataPlatform:file,test-platform-instance)\"}",
         "contentType": "application/json"
     },
     "systemMetadata": {
@@ -406,7 +406,7 @@
     "changeType": "UPSERT",
     "aspectName": "dataPlatformInstance",
     "aspect": {
-        "value": "{\"platform\": \"urn:li:dataPlatform:file\"}",
+        "value": "{\"platform\": \"urn:li:dataPlatform:file\", \"instance\": \"urn:li:dataPlatformInstance:(urn:li:dataPlatform:file,test-platform-instance)\"}",
         "contentType": "application/json"
     },
     "systemMetadata": {
@@ -476,7 +476,7 @@
     "changeType": "UPSERT",
     "aspectName": "dataPlatformInstance",
     "aspect": {
-        "value": "{\"platform\": \"urn:li:dataPlatform:file\"}",
+        "value": "{\"platform\": \"urn:li:dataPlatform:file\", \"instance\": \"urn:li:dataPlatformInstance:(urn:li:dataPlatform:file,test-platform-instance)\"}",
         "contentType": "application/json"
     },
     "systemMetadata": {
@@ -546,7 +546,7 @@
     "changeType": "UPSERT",
     "aspectName": "dataPlatformInstance",
     "aspect": {
-        "value": "{\"platform\": \"urn:li:dataPlatform:file\"}",
+        "value": "{\"platform\": \"urn:li:dataPlatform:file\", \"instance\": \"urn:li:dataPlatformInstance:(urn:li:dataPlatform:file,test-platform-instance)\"}",
         "contentType": "application/json"
     },
     "systemMetadata": {
@@ -616,7 +616,7 @@
     "changeType": "UPSERT",
     "aspectName": "dataPlatformInstance",
     "aspect": {
-        "value": "{\"platform\": \"urn:li:dataPlatform:file\"}",
+        "value": "{\"platform\": \"urn:li:dataPlatform:file\", \"instance\": \"urn:li:dataPlatformInstance:(urn:li:dataPlatform:file,test-platform-instance)\"}",
         "contentType": "application/json"
     },
     "systemMetadata": {
@@ -686,7 +686,7 @@
     "changeType": "UPSERT",
     "aspectName": "dataPlatformInstance",
     "aspect": {
-        "value": "{\"platform\": \"urn:li:dataPlatform:file\"}",
+        "value": "{\"platform\": \"urn:li:dataPlatform:file\", \"instance\": \"urn:li:dataPlatformInstance:(urn:li:dataPlatform:file,test-platform-instance)\"}",
         "contentType": "application/json"
     },
     "systemMetadata": {
