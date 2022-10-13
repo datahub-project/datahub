@@ -3,6 +3,7 @@ import { message, Button, Input, Modal, Typography, Form, Collapse } from 'antd'
 import { useCreateGroupMutation } from '../../../graphql/group.generated';
 import { useEnterKeyListener } from '../../shared/useEnterKeyListener';
 import { groupIdTextValidation } from '../../shared/textUtil';
+import analytics, { EventType } from '../../analytics';
 
 type Props = {
     onClose: () => void;
@@ -27,6 +28,13 @@ export default function CreateGroupModal({ onClose, onCreate }: Props) {
                 },
             },
         })
+            .then(({ errors }) => {
+                if (!errors) {
+                    analytics.event({
+                        type: EventType.CreateGroupEvent,
+                    });
+                }
+            })
             .catch((e) => {
                 message.destroy();
                 message.error({ content: `Failed to create group!: \n ${e.message || ''}`, duration: 3 });
