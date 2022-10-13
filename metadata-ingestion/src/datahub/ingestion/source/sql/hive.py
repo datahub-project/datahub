@@ -93,14 +93,14 @@ except Exception as e:
 
 class HiveConfig(BasicSQLAlchemyConfig):
     # defaults
-    scheme = Field(default="hive", exclude=True)
+    scheme = Field(default="hive", hidden_from_schema=True)
 
     # Hive SQLAlchemy connector returns views as tables.
     # See https://github.com/dropbox/PyHive/blob/b21c507a24ed2f2b0cf15b0b6abb1c43f31d3ee0/pyhive/sqlalchemy_hive.py#L270-L273.
     # Disabling views helps us prevent this duplication.
     include_views = Field(
         default=False,
-        exclude=True,
+        hidden_from_schema=True,
         description="Hive SQLAlchemy connector returns views as tables. See https://github.com/dropbox/PyHive/blob/b21c507a24ed2f2b0cf15b0b6abb1c43f31d3ee0/pyhive/sqlalchemy_hive.py#L270-L273. Disabling views helps us prevent this duplication.",
     )
 

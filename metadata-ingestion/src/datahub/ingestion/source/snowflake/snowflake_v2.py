@@ -724,7 +724,7 @@ class SnowflakeV2Source(
                         SNOWFLAKE_FIELD_TYPE_MAPPINGS.get(col.data_type, NullType)()
                     ),
                     # NOTE: nativeDataType will not be in sync with older connector
-                    nativeDataType=col.data_type,
+                    nativeDataType=col.get_precise_native_type(),
                     description=col.comment,
                     nullable=col.is_nullable,
                     isPartOfKey=col.name in table.pk.column_names

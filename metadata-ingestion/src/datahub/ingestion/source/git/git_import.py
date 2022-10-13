@@ -2,6 +2,7 @@ import logging
 import os
 import pathlib
 from pathlib import Path
+from typing import Optional
 from uuid import uuid4
 
 import git
@@ -15,7 +16,7 @@ class GitClone:
         self.tmp_dir = tmp_dir
         self.skip_known_host_verification = skip_known_host_verification
 
-    def clone(self, ssh_key: SecretStr, repo_url: str) -> Path:
+    def clone(self, ssh_key: Optional[SecretStr], repo_url: str) -> Path:
         unique_dir = str(uuid4())
         keys_dir = f"{self.tmp_dir}/{unique_dir}/keys"
         checkout_dir = f"{self.tmp_dir}/{unique_dir}/checkout"
@@ -24,19 +25,24 @@ class GitClone:
             os.makedirs(d, exist_ok=True)
 
         # Write the SSH key to a file.
-        git_ssh_identity_file = os.path.join(keys_dir, "ssh_key")
-        with open(
-            git_ssh_identity_file,
-            "w",
-            opener=lambda path, flags: os.open(path, flags, 0o600),
-        ) as fp:
-            fp.write(ssh_key.get_secret_value())
-            # SSH keys must have a trailing newline. Multiple newlines are fine,
-            # so we can just add one unconditionally.
-            fp.write("\n")
+        if ssh_key is not None:
+            git_ssh_identity_file = os.path.join(keys_dir, "ssh_key")
+            with open(
+                git_ssh_identity_file,
+                "w",
+                opener=lambda path, flags: os.open(path, flags, 0o600),
+            ) as fp:
+                fp.write(ssh_key.get_secret_value())
+                # SSH keys must have a trailing newline. Multiple newlines are fine,
+                # so we can just add one unconditionally.
+                fp.write("\n")
+        else:
+            git_ssh_identity_file = None
 
         # Clone the repo using the ssh key.
-        git_ssh_cmd = f"ssh -i {git_ssh_identity_file}"
+        git_ssh_cmd = "ssh"
+        if git_ssh_identity_file:
+            git_ssh_cmd += f" -i {git_ssh_identity_file}"
         if self.skip_known_host_verification:
             # Without this, the ssh command will prompt for confirmation of the host key.
             # See https://stackoverflow.com/a/28527476/5004662.
