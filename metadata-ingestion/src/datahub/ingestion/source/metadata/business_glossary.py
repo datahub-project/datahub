@@ -8,7 +8,7 @@ from pydantic.fields import Field
 import datahub.metadata.schema_classes as models
 from datahub.configuration.common import ConfigModel
 from datahub.configuration.config_loader import load_config_file
-from datahub.emitter.mce_builder import get_sys_time, make_group_urn, make_user_urn
+from datahub.emitter.mce_builder import get_sys_time, make_group_urn, make_user_urn, datahub_guid
 from datahub.ingestion.api.decorators import (  # SourceCapability,; capability,
     SupportStatus,
     config_class,
@@ -64,6 +64,7 @@ class DefaultConfig(ConfigModel):
     owners: Owners
     url: Optional[str] = None
     source_type: Optional[str] = "INTERNAL"
+    datahub_guid: bool = False
 
 
 class BusinessGlossarySourceConfig(ConfigModel):
@@ -82,12 +83,23 @@ class BusinessGlossaryConfig(DefaultConfig):
         return v
 
 
-def make_glossary_node_urn(path: List[str]) -> str:
-    return "urn:li:glossaryNode:" + ".".join(path)
+def create_id(path: List[str], defaults: DefaultConfig):
+    id_: str = ".".join(path)
+    if defaults.datahub_guid:
+        id_ = datahub_guid(
+            {
+                "path": id_
+            }
+        )
+    return id_
 
 
-def make_glossary_term_urn(path: List[str]) -> str:
-    return "urn:li:glossaryTerm:" + ".".join(path)
+def make_glossary_node_urn(path: List[str], defaults: DefaultConfig) -> str:
+    return "urn:li:glossaryNode:" + create_id(path, defaults)
+
+
+def make_glossary_term_urn(path: List[str], defaults: DefaultConfig) -> str:
+    return "urn:li:glossaryTerm:" + create_id(path, defaults)
 
 
 def get_owners(owners: Owners) -> models.OwnershipClass:
@@ -152,7 +164,7 @@ def get_mces_from_node(
     parentOwners: models.OwnershipClass,
     defaults: DefaultConfig,
 ) -> List[models.MetadataChangeEventClass]:
-    node_urn = make_glossary_node_urn(path)
+    node_urn = make_glossary_node_urn(path, defaults)
     node_info = models.GlossaryNodeInfoClass(
         definition=glossaryNode.description,
         parentNode=parentNode,
@@ -196,7 +208,7 @@ def get_mces_from_term(
     parentOwnership: models.OwnershipClass,
     defaults: DefaultConfig,
 ) -> List[models.MetadataChangeEventClass]:
-    term_urn = make_glossary_term_urn(path)
+    term_urn = make_glossary_term_urn(path, defaults)
     aspects: List[
         Union[
             models.GlossaryTermInfoClass,
