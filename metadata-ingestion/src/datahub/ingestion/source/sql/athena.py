@@ -172,9 +172,8 @@ class AthenaSource(SQLAlchemySource):
         return DatabaseKey(
             database=schema,
             platform=self.platform,
-            instance=self.config.platform_instance
-            if self.config.platform_instance is not None
-            else self.config.env,
+            instance=self.config.platform_instance,
+            backcompat_instance_for_guid=self.config.env,
         )
 
     def gen_schema_containers(
