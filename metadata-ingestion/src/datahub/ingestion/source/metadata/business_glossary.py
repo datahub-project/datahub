@@ -25,7 +25,6 @@ from datahub.ingestion.api.workunit import MetadataWorkUnit, UsageStatsWorkUnit
 
 logger = logging.getLogger(__name__)
 
-
 valid_status: models.StatusClass = models.StatusClass(removed=False)
 auditStamp = models.AuditStampClass(
     time=get_sys_time(), actor="urn:li:corpUser:restEmitter"
@@ -73,7 +72,8 @@ class DefaultConfig(ConfigModel):
 
 class BusinessGlossarySourceConfig(ConfigModel):
     file: str = Field(description="Path to business glossary file to ingest.")
-    enable_datahub_guid: bool = False
+    enable_datahub_guid: bool = Field(
+        description="Generate DataHub guid from glossary node/term name for glossary urn.", default=False)
 
 
 class BusinessGlossaryConfig(DefaultConfig):
@@ -125,7 +125,7 @@ def get_owners(owners: Owners) -> models.OwnershipClass:
 
 
 def get_mces(
-    glossary: BusinessGlossaryConfig, ingestion_config: BusinessGlossarySourceConfig
+        glossary: BusinessGlossaryConfig, ingestion_config: BusinessGlossarySourceConfig
 ) -> List[models.MetadataChangeEventClass]:
     events: List[models.MetadataChangeEventClass] = []
     path: List[str] = []
@@ -161,12 +161,12 @@ def get_mce_from_snapshot(snapshot: Any) -> models.MetadataChangeEventClass:
 
 
 def get_mces_from_node(
-    glossaryNode: GlossaryNodeConfig,
-    path: List[str],
-    parentNode: Optional[str],
-    parentOwners: models.OwnershipClass,
-    defaults: DefaultConfig,
-    ingestion_config: BusinessGlossarySourceConfig,
+        glossaryNode: GlossaryNodeConfig,
+        path: List[str],
+        parentNode: Optional[str],
+        parentOwners: models.OwnershipClass,
+        defaults: DefaultConfig,
+        ingestion_config: BusinessGlossarySourceConfig,
 ) -> List[models.MetadataChangeEventClass]:
     node_urn = make_glossary_node_urn(path, ingestion_config.enable_datahub_guid)
     node_info = models.GlossaryNodeInfoClass(
@@ -209,12 +209,12 @@ def get_mces_from_node(
 
 
 def get_mces_from_term(
-    glossaryTerm: GlossaryTermConfig,
-    path: List[str],
-    parentNode: Optional[str],
-    parentOwnership: models.OwnershipClass,
-    defaults: DefaultConfig,
-    ingestion_config: BusinessGlossarySourceConfig,
+        glossaryTerm: GlossaryTermConfig,
+        path: List[str],
+        parentNode: Optional[str],
+        parentOwnership: models.OwnershipClass,
+        defaults: DefaultConfig,
+        ingestion_config: BusinessGlossarySourceConfig,
 ) -> List[models.MetadataChangeEventClass]:
     term_urn = make_glossary_term_urn(path, ingestion_config.enable_datahub_guid)
     aspects: List[
@@ -272,10 +272,10 @@ def get_mces_from_term(
         ]
 
     if (
-        is_a is not None
-        or has_a is not None
-        or has_value is not None
-        or is_related_to_term is not None
+            is_a is not None
+            or has_a is not None
+            or has_value is not None
+            or is_related_to_term is not None
     ):
         relatedTerms = models.GlossaryRelatedTermsClass(
             isRelatedTerms=is_a,
