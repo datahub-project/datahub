@@ -37,7 +37,7 @@ export const Preview = ({
             typeIcon={entityRegistry.getIcon(EntityType.GlossaryTerm, 14, IconStyleType.ACCENT)}
             deprecation={deprecation}
             parentNodes={parentNodes}
-            glossaryAssociatedDomain={domain}
+            domain={domain}
         />
     );
 };
