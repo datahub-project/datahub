@@ -1,5 +1,6 @@
 FROM python:3.8-slim as base
 RUN apt-get update && apt-get install -y jq
+RUN apt update && apt install -y build-essential python3-dev
 
 # FROM tiangolo/uvicorn-gunicorn-fastapi:python3.8-slim as base
 FROM openjdk:8 as prod-build
@@ -15,8 +16,7 @@ RUN cd /datahub-src/metadata-ingestion && \
 FROM base as final
 ENV PROMETHEUS_MULTIPROC_DIR=/gunicorn/
 COPY --from=prod-codegen /datahub-src/metadata-ingestion /datahub-ingestion
-RUN cd /datahub-ingestion && \
-    pip install .
+RUN pip install /datahub-ingestion/.
 COPY ./ingest-api/ /ingest-api/
 WORKDIR /ingest-api/ingest_api
 RUN pip install -r ../requirements.txt && pip install ../ && mkdir /gunicorn/

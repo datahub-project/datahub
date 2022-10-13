@@ -28,7 +28,7 @@ env:
   DATAHUB_ELASTIC_SETUP_IMAGE: 'heruko/datahub-elasticsearch-setup'
   DATAHUB_MYSQL_SETUP_IMAGE: 'heruko/datahub-mysql-setup'
   DATAHUB_UPGRADE_IMAGE: 'heruko/datahub-upgrade'
-  
+  INGEST_API_IMAGE: 'heruko/ingest-api'
 
 jobs:
   setup:
@@ -432,4 +432,45 @@ jobs:
           job-status: ${{ job.status }}
           slack-bot-token: ${{ secrets.SLACK_BOT_TOKEN }}
           channel: github-activities
-
+  ingestapi_build:
+    name: Build and Push Ingest API image
+    runs-on: ubuntu-latest
+    needs: setup
+    outputs:
+      image_tag: ${{ steps.docker_meta.outputs.tags }}
+      image_name: ${{ env.INGEST_API_IMAGE }}
+    steps:
+      - name: Check out the repo
+        uses: actions/checkout@v2
+        with:
+          fetch-depth: 0
+      - name: Build and push
+        uses: ./.github/actions/docker-custom-build-and-push
+        with:
+          images: |
+            ${{ env.INGEST_API_IMAGE }}
+          tags: ${{ needs.setup.outputs.tag }}
+          username: ${{ secrets.DOCKER_USERNAME }}
+          password: ${{ secrets.DOCKER_PASSWORD }}
+          publish: ${{ needs.setup.outputs.publish }}
+          context: .
+          file: ./docker/ingest-api/Dockerfile
+          platforms: linux/amd64,linux/arm64
+  ingestapi_scan:
+    name: "[Monitoring] Scan ingest-api images for vulnerabilities"
+    runs-on: ubuntu-latest
+    needs: [setup, ingestapi_build]
+    steps:
+      - name: Download image
+        uses: ishworkh/docker-image-artifact-download@v1
+        if: ${{ needs.setup.outputs.publish != 'true' }}
+        with:
+          image: ${{ env.INGEST_API_IMAGE }}:${{ needs.setup.outputs.unique_tag }}
+      - name: Run Trivy vulnerability scanner
+        uses: aquasecurity/trivy-action@master
+        with:
+          image-ref: ${{ env.INGEST_API_IMAGE }}:${{ needs.setup.outputs.unique_tag }}
+          format: 'table'
+          ignore-unfixed: true
+          vuln-type: 'os,library'
+          severity: 'CRITICAL,HIGH'
