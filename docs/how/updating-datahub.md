@@ -13,6 +13,17 @@ This file documents any backwards-incompatible changes in DataHub and assists pe
 
 ### Other notable Changes
 
+## 0.9.0
+
+### Breaking Changes
+- Java version 11 or greater is required.
+
+### Potential Downtime
+
+### Deprecations
+
+### Other notable Changes
+
 ## `v0.8.45`
 
 ### Breaking Changes
