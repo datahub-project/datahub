@@ -16,9 +16,9 @@ def other_checkpoint_state():
 def test_add_checkpoint_urn():
     state = LdapCheckpointState()
     assert len(state.encoded_ldap_users) == 0
-    assert state.add_checkpoint_urn("corpuser", "urn:li:corpuser:user1") is None
+    state.add_checkpoint_urn("corpuser", "urn:li:corpuser:user1") 
     assert len(state.encoded_ldap_users) == 1
-    assert state.add_checkpoint_urn("corpuser", "urn:li:corpuser:user2") is None
+    state.add_checkpoint_urn("corpuser", "urn:li:corpuser:user2") 
     assert len(state.encoded_ldap_users) != 1
 
 
