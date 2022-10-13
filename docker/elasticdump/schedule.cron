@@ -1,0 +1,2 @@
+PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+0 22 * * * env >> /etc/environment; python3 /script.py >> /dump/cron.log 2>&1
