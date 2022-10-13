@@ -4,8 +4,7 @@ import json
 import logging
 import os
 from json.decoder import JSONDecodeError
-from types import TracebackType
-from typing import Any, Dict, List, Optional, Tuple, Type, Union
+from typing import Any, Dict, List, Optional, Tuple, Union
 
 import requests
 from requests.adapters import HTTPAdapter, Retry
@@ -16,6 +15,7 @@ from datahub.configuration.common import ConfigurationError, OperationalError
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.emitter.request_helper import _make_curl_command
 from datahub.emitter.serialization_helper import pre_json_transform
+from datahub.ingestion.api.closeable import Closeable
 from datahub.metadata.com.linkedin.pegasus2avro.mxe import (
     MetadataChangeEvent,
     MetadataChangeProposal,
@@ -25,7 +25,7 @@ from datahub.metadata.com.linkedin.pegasus2avro.usage import UsageAggregation
 logger = logging.getLogger(__name__)
 
 
-class DataHubRestEmitter:
+class DataHubRestEmitter(Closeable):
     DEFAULT_CONNECT_TIMEOUT_SEC = 30  # 30 seconds should be plenty to connect
     DEFAULT_READ_TIMEOUT_SEC = (
         30  # Any ingest call taking longer than 30 seconds should be abandoned
@@ -141,17 +141,6 @@ class DataHubRestEmitter:
             self._session.request,
             timeout=(self._connect_timeout_sec, self._read_timeout_sec),
         )
-
-    def __enter__(self) -> "DataHubRestEmitter":
-        return self
-
-    def __exit__(
-        self,
-        exc_type: Optional[Type[BaseException]],
-        exc_val: Optional[BaseException],
-        exc_tb: Optional[TracebackType],
-    ) -> None:
-        self._session.close()
 
     def test_connection(self) -> dict:
         response = self._session.get(f"{self._gms_server}/config")
@@ -276,6 +265,9 @@ class DataHubRestEmitter:
         return (
             f"DataHubRestEmitter: configured to talk to {self._gms_server}{token_str}"
         )
+
+    def close(self) -> None:
+        self._session.close()
 
 
 class DatahubRestEmitter(DataHubRestEmitter):
