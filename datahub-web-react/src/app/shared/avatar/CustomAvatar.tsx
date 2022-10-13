@@ -31,8 +31,11 @@ type Props = {
     placement?: TooltipPlacement;
     size?: number;
     isGroup?: boolean;
+    isPolicy?: boolean;
+    isRole?: boolean;
 };
 
+// TODO: Refactor Policy and Role to NOT use CustomAvatar and use a clickable link instead
 export default function CustomAvatar({
     url,
     photoUrl,
@@ -42,6 +45,8 @@ export default function CustomAvatar({
     placement,
     size,
     isGroup = false,
+    isPolicy = false,
+    isRole = false,
 }: Props) {
     const avatarWithInitial = name ? (
         <AvatarStyled style={style} size={size} $backgroundColor={getAvatarColor(name)}>
@@ -64,8 +69,21 @@ export default function CustomAvatar({
     if (!name) {
         return url ? <Link to={url}>{avatar}</Link> : avatar;
     }
+
+    const renderTitle = (input) => {
+        let title = `${input}`;
+        if (isGroup) {
+            title = `${title} - Group`;
+        } else if (isPolicy) {
+            title = `${title}`;
+        } else if (isRole) {
+            title = `${title} - Role`;
+        }
+        return title;
+    };
+
     return (
-        <Tooltip title={isGroup ? `${name} - Group` : name} placement={placement}>
+        <Tooltip title={renderTitle(name)} placement={placement}>
             {url ? <Link to={url}>{avatar}</Link> : avatar}
         </Tooltip>
     );

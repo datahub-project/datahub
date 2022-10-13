@@ -27,7 +27,7 @@ query getUser($urn: String!, $groupsCount: Int!) {
         globalTags {
             ...globalTagsFields
         }
-        relationships(
+        groups: relationships(
             input: {
                 types: ["IsMemberOfGroup", "IsMemberOfNativeGroup"]
                 direction: OUTGOING
@@ -52,6 +52,25 @@ query getUser($urn: String!, $groupsCount: Int!) {
                         relationships(
                             input: { types: ["IsMemberOfGroup", "IsMemberOfNativeGroup"], direction: INCOMING }
                         ) {
+                            start
+                            count
+                            total
+                        }
+                    }
+                }
+            }
+        }
+        roles: relationships(input: { types: ["IsMemberOfRole"], direction: OUTGOING, start: 0, count: $groupsCount }) {
+            start
+            count
+            total
+            relationships {
+                entity {
+                    ... on DataHubRole {
+                        urn
+                        type
+                        name
+                        relationships(input: { types: ["IsMemberOfRole"], direction: INCOMING }) {
                             start
                             count
                             total
@@ -125,6 +144,25 @@ query listUsers($input: ListUsersInput!) {
                 skills
             }
             status
+            roles: relationships(input: { types: ["IsMemberOfRole"], direction: OUTGOING, start: 0 }) {
+                start
+                count
+                total
+                relationships {
+                    entity {
+                        ... on DataHubRole {
+                            urn
+                            type
+                            name
+                            relationships(input: { types: ["IsMemberOfRole"], direction: INCOMING }) {
+                                start
+                                count
+                                total
+                            }
+                        }
+                    }
+                }
+            }
         }
     }
 }
@@ -155,9 +193,8 @@ query getNativeUserInviteToken {
     }
 }
 
-mutation createNativeUserResetToken($input: CreateNativeUserResetTokenInput!)  {
+mutation createNativeUserResetToken($input: CreateNativeUserResetTokenInput!) {
     createNativeUserResetToken(input: $input) {
         resetToken
     }
 }
-

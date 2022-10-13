@@ -40,8 +40,8 @@ public class SiblingGraphService {
    * Unless overridden, it uses the lineage registry to fetch valid edge types and queries for them
    */
   @Nonnull
-  public EntityLineageResult getLineage(@Nonnull Urn entityUrn, @Nonnull LineageDirection direction, int offset,
-      int count, int maxHops, boolean separateSiblings) {
+  public EntityLineageResult getLineage(@Nonnull Urn entityUrn, @Nonnull LineageDirection direction,
+     int offset, int count, int maxHops, boolean separateSiblings) {
     if (separateSiblings) {
       return _graphService.getLineage(entityUrn, direction, offset, count, maxHops);
     }

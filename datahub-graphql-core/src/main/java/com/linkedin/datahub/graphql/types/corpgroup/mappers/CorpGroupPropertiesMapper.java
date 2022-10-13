@@ -1,5 +1,6 @@
 package com.linkedin.datahub.graphql.types.corpgroup.mappers;
 
+import com.linkedin.data.template.GetMode;
 import com.linkedin.datahub.graphql.generated.CorpGroupProperties;
 import com.linkedin.datahub.graphql.types.mappers.ModelMapper;
 
@@ -24,6 +25,7 @@ public class CorpGroupPropertiesMapper implements ModelMapper<com.linkedin.ident
     result.setEmail(info.getEmail());
     result.setDescription(info.getDescription());
     result.setDisplayName(info.getDisplayName());
+    result.setSlack(info.getSlack(GetMode.DEFAULT));
     return result;
   }
 }

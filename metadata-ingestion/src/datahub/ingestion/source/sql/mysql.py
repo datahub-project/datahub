@@ -13,10 +13,12 @@ from datahub.ingestion.api.decorators import (
     support_status,
 )
 from datahub.ingestion.source.sql.sql_common import (
-    BasicSQLAlchemyConfig,
-    SQLAlchemySource,
     make_sqlalchemy_type,
     register_custom_type,
+)
+from datahub.ingestion.source.sql.two_tier_sql_source import (
+    TwoTierSQLAlchemyConfig,
+    TwoTierSQLAlchemySource,
 )
 
 GEOMETRY = make_sqlalchemy_type("GEOMETRY")
@@ -38,7 +40,7 @@ base.ischema_names["polygon"] = POLYGON
 base.ischema_names["decimal128"] = DECIMAL128
 
 
-class MySQLConfig(BasicSQLAlchemyConfig):
+class MySQLConfig(TwoTierSQLAlchemyConfig):
     # defaults
     host_port = Field(default="localhost:3306", description="MySQL host URL.")
     scheme = "mysql+pymysql"
@@ -58,7 +60,7 @@ class MySQLConfig(BasicSQLAlchemyConfig):
 @capability(SourceCapability.DOMAINS, "Supported via the `domain` config field")
 @capability(SourceCapability.DATA_PROFILING, "Optionally enabled via configuration")
 @capability(SourceCapability.DELETION_DETECTION, "Enabled via stateful ingestion")
-class MySQLSource(SQLAlchemySource):
+class MySQLSource(TwoTierSQLAlchemySource):
     """
     This plugin extracts the following:
 

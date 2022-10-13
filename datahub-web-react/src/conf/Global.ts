@@ -19,6 +19,8 @@ export enum PageRoutes {
     ANALYTICS = '/analytics',
     ADHOC = '/adhoc/',
     POLICIES = '/policies',
+    SETTINGS_POLICIES = '/settings/policies',
+    PERMISSIONS = '/permissions',
     IDENTITIES = '/identities',
     INGESTION = '/ingestion',
     SETTINGS = '/settings',

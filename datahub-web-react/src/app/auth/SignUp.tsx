@@ -90,8 +90,8 @@ export const SignUp: React.VFC<SignUpProps> = () => {
                     analytics.event({ type: EventType.SignUpEvent, title: values.title });
                     return Promise.resolve();
                 })
-                .catch((error) => {
-                    message.error(`Failed to log in! ${error}`);
+                .catch((_) => {
+                    message.error(`Failed to log in! An unexpected error occurred.`);
                 })
                 .finally(() => setLoading(false));
         },

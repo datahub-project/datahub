@@ -4,7 +4,7 @@ import json
 import logging
 from dataclasses import dataclass
 from datetime import datetime
-from typing import Any, Callable, Dict, Optional, Type
+from typing import Any, Callable, Dict, Generic, Optional, Type, TypeVar
 
 import pydantic
 
@@ -64,9 +64,18 @@ class CheckpointStateBase(ConfigModel):
         json_str = data_bytes.decode("utf-8")
         return json.loads(json_str)
 
+    def prepare_for_commit(self) -> None:
+        """
+        Perform any pre-commit steps, such as deduplication, custom-compression across data etc.
+        """
+        pass
+
+
+StateType = TypeVar("StateType", bound=CheckpointStateBase)
+
 
 @dataclass
-class Checkpoint:
+class Checkpoint(Generic[StateType]):
     """
     Ingestion Run Checkpoint class. This is a more convenient abstraction for use in the python ingestion code,
     providing a strongly typed state object vs the opaque blob in the PDL, and the config persisted as the first-class
@@ -78,7 +87,7 @@ class Checkpoint:
     platform_instance_id: str
     run_id: str
     config: ConfigModel
-    state: CheckpointStateBase
+    state: StateType
 
     @classmethod
     def create_from_checkpoint_aspect(
@@ -86,7 +95,7 @@ class Checkpoint:
         job_name: str,
         checkpoint_aspect: Optional[DatahubIngestionCheckpointClass],
         config_class: Type[ConfigModel],
-        state_class: Type[CheckpointStateBase],
+        state_class: Type[StateType],
     ) -> Optional["Checkpoint"]:
         if checkpoint_aspect is None:
             return None
@@ -159,3 +168,6 @@ class Checkpoint:
             )
 
         return None
+
+    def prepare_for_commit(self) -> None:
+        self.state.prepare_for_commit()

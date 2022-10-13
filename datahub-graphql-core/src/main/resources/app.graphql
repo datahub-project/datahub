@@ -167,6 +167,11 @@ type VisualConfig {
   Custom logo url for the homepage & top banner
   """
   logoUrl: String
+
+  """
+  Custom favicon url for the homepage & top banner
+  """
+  faviconUrl: String
 }
 
 """

@@ -103,7 +103,7 @@ class DataJob:
         tags = GlobalTagsClass(
             tags=[
                 TagAssociationClass(tag=builder.make_tag_urn(tag))
-                for tag in (self.tags or [])
+                for tag in (sorted(self.tags) or [])
             ]
         )
         return [tags]

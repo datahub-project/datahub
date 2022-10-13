@@ -35,6 +35,7 @@ import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Import;
 import org.springframework.stereotype.Component;
 
@@ -91,17 +92,25 @@ public class EntityChangeEventGeneratorHook implements MetadataChangeLogHook {
   private final EntityClient _entityClient;
   private final Authentication _systemAuthentication;
   private final EntityRegistry _entityRegistry;
+  private final Boolean _isEnabled;
 
   @Autowired
   public EntityChangeEventGeneratorHook(
       @Nonnull final AspectDifferRegistry aspectDifferRegistry,
       @Nonnull final RestliEntityClient entityClient,
       @Nonnull final Authentication systemAuthentication,
-      @Nonnull final EntityRegistry entityRegistry) {
+      @Nonnull final EntityRegistry entityRegistry,
+      @Nonnull @Value("${entityChangeEvents.enabled:true}") Boolean isEnabled) {
     _aspectDifferRegistry = Objects.requireNonNull(aspectDifferRegistry);
     _entityClient = Objects.requireNonNull(entityClient);
     _systemAuthentication = Objects.requireNonNull(systemAuthentication);
     _entityRegistry = Objects.requireNonNull(entityRegistry);
+    _isEnabled = isEnabled;
+  }
+
+  @Override
+  public boolean isEnabled() {
+    return _isEnabled;
   }
 
   @Override
@@ -147,7 +156,7 @@ public class EntityChangeEventGeneratorHook implements MetadataChangeLogHook {
             platformEvent,
             String.format("%s-%s", Constants.CHANGE_EVENT_PLATFORM_EVENT_NAME, event.getEntityUrn())
         );
-        log.info("Successfully emitted change event. category: {}, operation: {}, entity urn: {}",
+        log.debug("Successfully emitted change event. category: {}, operation: {}, entity urn: {}",
             event.getCategory(),
             event.getOperation(),
             event.getEntityUrn());
@@ -204,7 +213,7 @@ public class EntityChangeEventGeneratorHook implements MetadataChangeLogHook {
    */
   private RecordTemplate convertRawEventToChangeEvent(final ChangeEvent rawChangeEvent) {
     com.linkedin.platform.event.v1.EntityChangeEvent changeEvent = new com.linkedin.platform.event.v1.EntityChangeEvent();
-    log.info(String.format("Attempting to convert %s", rawChangeEvent));
+    log.debug(String.format("Attempting to convert %s", rawChangeEvent));
     try {
       Urn entityUrn = Urn.createFromString(rawChangeEvent.getEntityUrn());
       changeEvent.setEntityType(entityUrn.getEntityType());
@@ -220,7 +229,6 @@ public class EntityChangeEventGeneratorHook implements MetadataChangeLogHook {
             new Parameters(new DataMap(rawChangeEvent.getParameters()))
         );
       }
-      System.out.println(changeEvent.toString());
       return changeEvent;
     } catch (Exception e) {
       throw new RuntimeException("Failed to convert raw change event into PDL change", e);

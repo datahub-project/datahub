@@ -5,6 +5,7 @@ import com.linkedin.common.DataPlatformInstance;
 import com.linkedin.common.Deprecation;
 import com.linkedin.common.GlobalTags;
 import com.linkedin.common.GlossaryTerms;
+import com.linkedin.common.InputFields;
 import com.linkedin.common.InstitutionalMemory;
 import com.linkedin.common.Ownership;
 import com.linkedin.common.Status;
@@ -30,6 +31,7 @@ import com.linkedin.datahub.graphql.types.common.mappers.OwnershipMapper;
 import com.linkedin.datahub.graphql.types.common.mappers.StatusMapper;
 import com.linkedin.datahub.graphql.types.common.mappers.CustomPropertiesMapper;
 import com.linkedin.datahub.graphql.types.common.mappers.util.MappingHelper;
+import com.linkedin.datahub.graphql.types.common.mappers.util.SystemMetadataUtils;
 import com.linkedin.datahub.graphql.types.domain.DomainAssociationMapper;
 import com.linkedin.datahub.graphql.types.glossary.mappers.GlossaryTermsMapper;
 import com.linkedin.datahub.graphql.types.mappers.ModelMapper;
@@ -62,6 +64,9 @@ public class ChartMapper implements ModelMapper<EntityResponse, Chart> {
         result.setUrn(entityResponse.getUrn().toString());
         result.setType(EntityType.CHART);
         EnvelopedAspectMap aspectMap = entityResponse.getAspects();
+        Long lastIngested = SystemMetadataUtils.getLastIngested(aspectMap);
+        result.setLastIngested(lastIngested);
+
         MappingHelper<Chart> mappingHelper = new MappingHelper<>(aspectMap, result);
         mappingHelper.mapToResult(CHART_KEY_ASPECT_NAME, this::mapChartKey);
         mappingHelper.mapToResult(CHART_INFO_ASPECT_NAME, (entity, dataMap) -> this.mapChartInfo(entity, dataMap, entityUrn));
@@ -82,6 +87,8 @@ public class ChartMapper implements ModelMapper<EntityResponse, Chart> {
             chart.setDeprecation(DeprecationMapper.map(new Deprecation(dataMap))));
         mappingHelper.mapToResult(DATA_PLATFORM_INSTANCE_ASPECT_NAME, (dataset, dataMap) ->
             dataset.setDataPlatformInstance(DataPlatformInstanceAspectMapper.map(new DataPlatformInstance(dataMap))));
+        mappingHelper.mapToResult(INPUT_FIELDS_ASPECT_NAME, (chart, dataMap) ->
+            chart.setInputFields(InputFieldsMapper.map(new InputFields(dataMap), entityUrn)));
 
         return mappingHelper.getResult();
     }

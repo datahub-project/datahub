@@ -121,7 +121,7 @@ def test_redshift_usage_filtering(pytestconfig, tmp_path):
                         "include_views": True,
                         "include_tables": True,
                         "schema_pattern": {"allow": ["public"]},
-                        "table_pattern": {"deny": ["orders"]},
+                        "table_pattern": {"deny": [r"dev\.public\.orders"]},
                     },
                 },
                 "sink": {

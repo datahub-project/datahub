@@ -5,15 +5,14 @@ title: "datahub-web-react"
 # DataHub React App
 
 ## About
-This module contains a React version of the DataHub UI. This is now the production version of the DataHub client experience. 
-Notice that this is a completely separate frontend experience from the legacy Ember app and will remain so as it evolves. 
+This module contains a React application that serves as the DataHub UI.
 
 Feel free to take a look around, deploy, and contribute. 
 
 For details about the motivation please see [this RFC](../docs/rfc/active/2055-react-app/README.md). 
 
 ## Functional Goals
-The initial milestone for the app was to achieve functional parity with the existing Ember app. This meant supporting
+The initial milestone for the app was to achieve functional parity with the previous Ember app. This meant supporting
 
 - Dataset Profiles, Search, Browse Experience
 - User Profiles, Search
@@ -22,8 +21,8 @@ The initial milestone for the app was to achieve functional parity with the exis
 This has since been achieved. The new set of functional goals are reflected in the latest version of the [DataHub Roadmap](../docs/roadmap.md). 
 
 ## Design Goals
-In building out the client experience, we intend to leverage learnings from the Ember app and incorporate feedback gathered
-from organizations operating DataHub. Two themes have emerged to serve as guideposts: 
+In building out the client experience, we intend to leverage learnings from the previous Ember-based app and incorporate feedback gathered
+from organizations operating DataHub. Two themes have emerged to serve as guideposts:
 
 1. **Configurability**: The client experience should be configurable, such that deploying organizations can tailor certain 
    aspects to their needs. This includes theme / styling configurability, showing and hiding specific functionality, 

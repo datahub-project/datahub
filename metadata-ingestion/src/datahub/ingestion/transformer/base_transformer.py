@@ -213,7 +213,7 @@ class BaseTransformer(Transformer, metaclass=ABCMeta):
         # remember stuff
         assert envelope.record.entityUrn
         assert isinstance(self, SingleAspectTransformer)
-        if envelope.record.aspectName == self.aspect_name():
+        if envelope.record.aspectName == self.aspect_name() and envelope.record.aspect:
             # we have a match on the aspect name, call the specific transform function
             transformed_aspect = self.transform_aspect(
                 entity_urn=envelope.record.entityUrn,

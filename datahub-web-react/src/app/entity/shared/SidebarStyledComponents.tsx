@@ -64,7 +64,7 @@ export const Name = styled.div`
     margin: 13px 0 7px 0;
 `;
 
-export const Role = styled.div`
+export const TitleRole = styled.div`
     font-size: 14px;
     line-height: 22px;
     color: #595959;

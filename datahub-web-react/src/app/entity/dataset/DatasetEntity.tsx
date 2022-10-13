@@ -18,21 +18,18 @@ import { SidebarTagsSection } from '../shared/containers/profile/sidebar/Sidebar
 import StatsTab from '../shared/tabs/Dataset/Stats/StatsTab';
 import { LineageTab } from '../shared/tabs/Lineage/LineageTab';
 import { capitalizeFirstLetter } from '../../shared/textUtil';
-import { EditSchemaTab } from '../shared/tabs/Dataset/Schema/EditSchemaTab';
-import { AdminTab } from '../shared/tabs/Dataset/Schema/AdminTab';
-import { EditPropertiesTab } from '../shared/tabs/Dataset/PropertiesEdit/EditPropertiesTab';
 import ViewDefinitionTab from '../shared/tabs/Dataset/View/ViewDefinitionTab';
 import { SidebarViewDefinitionSection } from '../shared/containers/profile/sidebar/Dataset/View/SidebarViewDefinitionSection';
 import { SidebarRecommendationsSection } from '../shared/containers/profile/sidebar/Recommendations/SidebarRecommendationsSection';
 import { getDataForEntityType } from '../shared/containers/profile/utils';
 import { SidebarDomainSection } from '../shared/containers/profile/sidebar/Domain/SidebarDomainSection';
-import { CheckOwnership } from './whoAmI';
-import { EditSampleTab } from '../shared/tabs/Dataset/Schema/EditSampleTab';
 import { ValidationsTab } from '../shared/tabs/Dataset/Validations/ValidationsTab';
 import { OperationsTab } from './profile/OperationsTab';
 import { EntityMenuItems } from '../shared/EntityDropdown/EntityDropdown';
 import { SidebarSiblingsSection } from '../shared/containers/profile/sidebar/SidebarSiblingsSection';
 import { DatasetStatsSummarySubHeader } from './profile/stats/stats/DatasetStatsSummarySubHeader';
+import { TagSummary } from './shared/TagSummary';
+import { TermSummary } from './shared/TermSummary';
 
 const SUBTYPES = {
     VIEW: 'view',
@@ -121,12 +118,7 @@ export class DatasetEntity implements Entity<Dataset> {
                     name: 'Lineage',
                     component: LineageTab,
                     display: {
-                        visible: (_, dataset: GetDatasetQuery) => {
-                            return (
-                                (dataset?.dataset?.upstream?.total || 0) > 0 ||
-                                (dataset?.dataset?.downstream?.total || 0) > 0
-                            );
-                        },
+                        visible: (_, _1) => true,
                         enabled: (_, dataset: GetDatasetQuery) => {
                             return (
                                 (dataset?.dataset?.upstream?.total || 0) > 0 ||
@@ -139,8 +131,7 @@ export class DatasetEntity implements Entity<Dataset> {
                     name: 'Queries',
                     component: QueriesTab,
                     display: {
-                        visible: (_, dataset: GetDatasetQuery) =>
-                            (dataset?.dataset?.usageStats?.buckets?.length || 0) > 0,
+                        visible: (_, _1) => true,
                         enabled: (_, dataset: GetDatasetQuery) =>
                             (dataset?.dataset?.usageStats?.buckets?.length || 0) > 0,
                     },
@@ -160,9 +151,7 @@ export class DatasetEntity implements Entity<Dataset> {
                     name: 'Validation',
                     component: ValidationsTab,
                     display: {
-                        visible: (_, dataset: GetDatasetQuery) => {
-                            return (dataset?.dataset?.assertions?.total || 0) > 0;
-                        },
+                        visible: (_, _1) => true,
                         enabled: (_, dataset: GetDatasetQuery) => {
                             return (
                                 (dataset?.dataset?.assertions?.total || 0) > 0 || dataset?.dataset?.testResults !== null
@@ -183,54 +172,6 @@ export class DatasetEntity implements Entity<Dataset> {
                             return (
                                 (dataset?.dataset?.readRuns?.total || 0) + (dataset?.dataset?.writeRuns?.total || 0) > 0
                             );
-                        },
-                    },
-                },
-                {
-                    name: 'Edit Schema',
-                    component: EditSchemaTab,
-                    display: {
-                        visible: (_, _dataset: GetDatasetQuery) => {
-                            return CheckOwnership(_dataset);
-                        },
-                        enabled: (_, _dataset: GetDatasetQuery) => {
-                            return true;
-                        },
-                    },
-                },
-                {
-                    name: 'Edit Properties',
-                    component: EditPropertiesTab,
-                    display: {
-                        visible: (_, _dataset: GetDatasetQuery) => {
-                            return CheckOwnership(_dataset);
-                        },
-                        enabled: (_, _dataset: GetDatasetQuery) => {
-                            return true;
-                        },
-                    },
-                },
-                {
-                    name: 'Edit Samples',
-                    component: EditSampleTab,
-                    display: {
-                        visible: (_, _dataset: GetDatasetQuery) => {
-                            return CheckOwnership(_dataset);
-                        },
-                        enabled: (_, _dataset: GetDatasetQuery) => {
-                            return true;
-                        },
-                    },
-                },
-                {
-                    name: 'Dataset Administration',
-                    component: AdminTab,
-                    display: {
-                        visible: (_, _dataset: GetDatasetQuery) => {
-                            return CheckOwnership(_dataset);
-                        },
-                        enabled: (_, _dataset: GetDatasetQuery) => {
-                            return true;
                         },
                     },
                 },
@@ -314,6 +255,19 @@ export class DatasetEntity implements Entity<Dataset> {
     renderSearch = (result: SearchResult) => {
         const data = result.entity as Dataset;
         const genericProperties = this.getGenericEntityProperties(data);
+
+        let snippet: React.ReactNode;
+
+        if (result.matchedFields.length > 0) {
+            if (result.matchedFields[0].value.includes('urn:li:tag')) {
+                snippet = <TagSummary urn={result.matchedFields[0].value} />;
+            } else if (result.matchedFields[0].value.includes('urn:li:glossaryTerm')) {
+                snippet = <TermSummary urn={result.matchedFields[0].value} />;
+            } else {
+                snippet = <b>{result.matchedFields[0].value}</b>;
+            }
+        }
+
         return (
             <Preview
                 urn={data.urn}
@@ -340,8 +294,7 @@ export class DatasetEntity implements Entity<Dataset> {
                     result.matchedFields.length > 0 &&
                     result.matchedFields.every((field) => FIELDS_TO_HIGHLIGHT.has(field.name)) && (
                         <Typography.Text>
-                            Matches {FIELDS_TO_HIGHLIGHT.get(result.matchedFields[0].name)}{' '}
-                            <b>{result.matchedFields[0].value}</b>
+                            Matches {FIELDS_TO_HIGHLIGHT.get(result.matchedFields[0].name)} {snippet}
                         </Typography.Text>
                     )
                 }
@@ -364,7 +317,7 @@ export class DatasetEntity implements Entity<Dataset> {
             type: EntityType.Dataset,
             subtype: entity?.subTypes?.typeNames?.[0] || undefined,
             icon: entity?.platform?.properties?.logoUrl || undefined,
-            platform: entity?.platform?.name,
+            platform: entity?.platform,
         };
     };
 

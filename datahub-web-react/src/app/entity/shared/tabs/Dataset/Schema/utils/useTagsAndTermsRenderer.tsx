@@ -9,6 +9,7 @@ export default function useTagsAndTermsRenderer(
     tagHoveredIndex: string | undefined,
     setTagHoveredIndex: (index: string | undefined) => void,
     options: { showTags: boolean; showTerms: boolean },
+    filterText: string,
 ) {
     const urn = useMutationUrn();
     const refetch = useRefetch();
@@ -33,6 +34,7 @@ export default function useTagsAndTermsRenderer(
                     entityUrn={urn}
                     entityType={EntityType.Dataset}
                     entitySubresource={record.fieldPath}
+                    highlightText={filterText}
                     refetch={refetch}
                 />
             </div>

@@ -52,6 +52,7 @@ export function HeaderLinks(props: Props) {
     const showSettings = true;
     const showIngestion =
         isIngestionEnabled && me && me.platformPrivileges.manageIngestion && me.platformPrivileges.manageSecrets;
+    const showDomains = me?.platformPrivileges.createDomains || me?.platformPrivileges.manageDomains;
 
     return (
         <LinksWrapper areLinksHidden={areLinksHidden}>
@@ -82,11 +83,13 @@ export function HeaderLinks(props: Props) {
                                 <BookOutlined style={{ fontSize: '14px', fontWeight: 'bold' }} /> Glossary
                             </Link>
                         </MenuItem>
-                        <MenuItem key="1">
-                            <Link to="/domains">
-                                <FolderOutlined style={{ fontSize: '14px', fontWeight: 'bold' }} /> Domains
-                            </Link>
-                        </MenuItem>
+                        {showDomains && (
+                            <MenuItem key="1">
+                                <Link to="/domains">
+                                    <FolderOutlined style={{ fontSize: '14px', fontWeight: 'bold' }} /> Domains
+                                </Link>
+                            </MenuItem>
+                        )}
                     </Menu>
                 }
             >

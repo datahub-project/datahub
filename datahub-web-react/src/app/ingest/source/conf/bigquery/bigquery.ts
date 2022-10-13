@@ -15,12 +15,13 @@ source:
             client_email: # Your BQ client email, e.g. "test@suppproject-id-1234567.iam.gserviceaccount.com"
             client_id: # Your BQ client id, e.g. "123456678890"
             
-            include_table_lineage: true
-            include_view_lineage: true
-            profiling:
-                enabled: true
-            stateful_ingestion:
-                enabled: true
+        include_table_lineage: true
+        include_view_lineage: true
+        profiling:
+            enabled: true
+        stateful_ingestion:
+            enabled: true
+                
 `;
 
 export const BIGQUERY = 'bigquery';

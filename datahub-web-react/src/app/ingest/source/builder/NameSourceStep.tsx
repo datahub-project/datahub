@@ -1,4 +1,4 @@
-import { Button, Collapse, Form, Input, Typography } from 'antd';
+import { Button, Checkbox, Collapse, Form, Input, Typography } from 'antd';
 import React from 'react';
 import styled from 'styled-components';
 import { SourceBuilderState, StepProps } from './types';
@@ -39,6 +39,17 @@ export const NameSourceStep = ({ state, updateState, prev, submit }: StepProps) 
             config: {
                 ...state.config,
                 version,
+            },
+        };
+        updateState(newState);
+    };
+
+    const setDebugMode = (debugMode: boolean) => {
+        const newState: SourceBuilderState = {
+            ...state,
+            config: {
+                ...state.config,
+                debugMode,
             },
         };
         updateState(newState);
@@ -90,6 +101,15 @@ export const NameSourceStep = ({ state, updateState, prev, submit }: StepProps) 
                                 placeholder="0.8.42"
                                 value={state.config?.version || ''}
                                 onChange={(event) => setVersion(event.target.value)}
+                            />
+                        </Form.Item>
+                        <Form.Item label={<Typography.Text strong>Debug Mode</Typography.Text>}>
+                            <Typography.Paragraph>
+                                Advanced: Turn on debug mode in order to get more verbose logs.
+                            </Typography.Paragraph>
+                            <Checkbox
+                                checked={state.config?.debugMode || false}
+                                onChange={(event) => setDebugMode(event.target.checked)}
                             />
                         </Form.Item>
                     </Collapse.Panel>

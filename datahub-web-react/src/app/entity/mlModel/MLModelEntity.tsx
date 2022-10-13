@@ -130,7 +130,7 @@ export class MLModelEntity implements Entity<MlModel> {
             name: entity.name,
             type: EntityType.Mlmodel,
             icon: entity.platform?.properties?.logoUrl || undefined,
-            platform: entity.platform?.name,
+            platform: entity.platform,
         };
     };
 

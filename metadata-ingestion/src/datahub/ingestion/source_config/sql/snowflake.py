@@ -126,7 +126,7 @@ class BaseSnowflakeConfig(BaseTimeWindowConfig):
         description="DEPRECATED: Snowflake account. e.g. abc48144"
     )  # Deprecated
     account_id: Optional[str] = pydantic.Field(
-        description="Snowflake account. e.g. abc48144"
+        description="Snowflake account identifier. e.g. xy12345,  xy12345.us-east-2.aws, xy12345.us-central1.gcp, xy12345.central-us.azure. Refer [Account Identifiers](https://docs.snowflake.com/en/user-guide/admin-account-identifier.html#format-2-legacy-account-locator-in-a-region) for more details."
     )  # Once host_port is removed this will be made mandatory
     warehouse: Optional[str] = pydantic.Field(description="Snowflake warehouse.")
     role: Optional[str] = pydantic.Field(description="Snowflake role.")
@@ -213,12 +213,12 @@ class BaseSnowflakeConfig(BaseTimeWindowConfig):
                     f"but should be set when using {v} authentication"
                 )
             if values.get("oauth_config").use_certificate is True:
-                if values.get("oauth_config").base64_encoded_oauth_private_key is None:
+                if values.get("oauth_config").encoded_oauth_private_key is None:
                     raise ValueError(
                         "'base64_encoded_oauth_private_key' was none "
                         "but should be set when using certificate for oauth_config"
                     )
-                if values.get("oauth").base64_encoded_oauth_public_key is None:
+                if values.get("oauth").encoded_oauth_public_key is None:
                     raise ValueError(
                         "'base64_encoded_oauth_public_key' was none"
                         "but should be set when using use_certificate true for oauth_config"
@@ -319,6 +319,8 @@ class SnowflakeConfig(BaseSnowflakeConfig, SQLAlchemyConfig):
         options_connect_args: Dict = super().get_sql_alchemy_connect_args()
         options_connect_args.update(self.options.get("connect_args", {}))
         self.options["connect_args"] = options_connect_args
+        if self.connect_args is not None:
+            self.options["connect_args"].update(self.connect_args)
         return self.options
 
     def get_oauth_connection(self):
@@ -330,7 +332,7 @@ class SnowflakeConfig(BaseSnowflakeConfig, SQLAlchemyConfig):
             self.oauth_config.authority_url,
             self.oauth_config.provider,
         )
-        if self.oauth_config.use_certificate is True:
+        if self.oauth_config.use_certificate:
             response = generator.get_token_with_certificate(
                 private_key_content=str(self.oauth_config.encoded_oauth_public_key),
                 public_key_content=str(self.oauth_config.encoded_oauth_private_key),

@@ -83,18 +83,16 @@ export const EditOwnersModal = ({
 
     // Invokes the search API as the owner types
     const handleSearch = (type: EntityType, text: string, searchQuery: any) => {
-        if (text.length > 2) {
-            searchQuery({
-                variables: {
-                    input: {
-                        type,
-                        query: text,
-                        start: 0,
-                        count: 5,
-                    },
+        searchQuery({
+            variables: {
+                input: {
+                    type,
+                    query: text,
+                    start: 0,
+                    count: 5,
                 },
-            });
-        }
+            },
+        });
     };
 
     // Invokes the user search API for both users and groups.

@@ -180,7 +180,7 @@ export class DataJobEntity implements Entity<DataJob> {
             name: entity?.properties?.name || '',
             type: EntityType.DataJob,
             icon: entity?.dataFlow?.platform?.properties?.logoUrl || '',
-            platform: getDataJobPlatformName(entity),
+            platform: entity?.dataFlow?.platform,
         };
     };
 

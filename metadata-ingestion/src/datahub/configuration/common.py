@@ -1,32 +1,44 @@
 import re
 from abc import ABC, abstractmethod
-from enum import Enum
-from typing import IO, Any, Dict, List, Optional, Pattern, cast
+from enum import auto
+from typing import IO, Any, ClassVar, Dict, List, Optional, Pattern, cast
 
-from pydantic import BaseModel, Extra, validator
+from cached_property import cached_property
+from pydantic import BaseModel, Extra
 from pydantic.fields import Field
+
+from datahub.configuration._config_enum import ConfigEnum
 
 
 class ConfigModel(BaseModel):
     class Config:
         extra = Extra.forbid
+        underscore_attrs_are_private = True
+        keep_untouched = (
+            cached_property,
+        )  # needed to allow cached_property to work. See https://github.com/samuelcolvin/pydantic/issues/1241 for more info.
 
 
-class TransformerSemantics(Enum):
+class PermissiveConfigModel(ConfigModel):
+    # A permissive config model that allows extra fields.
+    # This is useful for cases where we want to strongly type certain fields,
+    # but still allow the user to pass in arbitrary fields that we don't care about.
+    # It is usually used for argument bags that are passed through to third-party libraries.
+
+    class Config:
+        extra = Extra.allow
+
+
+class TransformerSemantics(ConfigEnum):
     """Describes semantics for aspect changes"""
 
-    OVERWRITE = "OVERWRITE"  # Apply changes blindly
-    PATCH = "PATCH"  # Only apply differences from what exists already on the server
+    OVERWRITE = auto()  # Apply changes blindly
+    PATCH = auto()  # Only apply differences from what exists already on the server
 
 
 class TransformerSemanticsConfigModel(ConfigModel):
     semantics: TransformerSemantics = TransformerSemantics.OVERWRITE
-
-    @validator("semantics", pre=True)
-    def ensure_semantics_is_upper_case(cls, v: str) -> str:
-        if isinstance(v, str):
-            return v.upper()
-        return v
+    replace_existing: bool = False
 
 
 class DynamicTypedConfig(ConfigModel):
@@ -100,7 +112,7 @@ class OauthConfiguration(ConfigModel):
     scopes: Optional[List[str]] = Field(
         description="scopes required to connect to snowflake"
     )
-    use_certificate: Optional[str] = Field(
+    use_certificate: bool = Field(
         description="Do you want to use certificate and private key to authenticate using oauth",
         default=False,
     )
@@ -121,6 +133,12 @@ class OauthConfiguration(ConfigModel):
 class AllowDenyPattern(ConfigModel):
     """A class to store allow deny regexes"""
 
+    # This regex is used to check if a given rule is a regex expression or a literal.
+    # Note that this is not a perfect check. For example, the '.' character should
+    # be considered a regex special character, but it's used frequently in literal
+    # patterns and hence we allow it anyway.
+    IS_SIMPLE_REGEX: ClassVar = re.compile(r"^[A-Za-z0-9 _.-]+$")
+
     allow: List[str] = Field(
         default=[".*"],
         description="List of regex patterns to include in ingestion",
@@ -133,13 +151,6 @@ class AllowDenyPattern(ConfigModel):
         default=True,
         description="Whether to ignore case sensitivity during pattern matching.",
     )  # Name comparisons should default to ignoring case
-    alphabet: str = Field(
-        default="[A-Za-z0-9 _.-]", description="Allowed alphabets pattern"
-    )
-
-    @property
-    def alphabet_pattern(self) -> Pattern:
-        return re.compile(f"^{self.alphabet}+$")
 
     @property
     def regex_flags(self) -> int:
@@ -167,13 +178,16 @@ class AllowDenyPattern(ConfigModel):
         much more efficient in some cases.
         """
         return all(
-            self.alphabet_pattern.match(allow_pattern) for allow_pattern in self.allow
+            self.IS_SIMPLE_REGEX.match(allow_pattern) for allow_pattern in self.allow
         )
 
     def get_allowed_list(self) -> List[str]:
         """Return the list of allowed strings as a list, after taking into account deny patterns, if possible"""
         assert self.is_fully_specified_allow_list()
         return [a for a in self.allow if self.allowed(a)]
+
+    def __eq__(self, other):  # type: ignore
+        return isinstance(other, self.__class__) and self.__dict__ == other.__dict__
 
 
 class KeyValuePattern(ConfigModel):

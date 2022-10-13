@@ -36,7 +36,7 @@ jobs:
           java-version: 1.8
       - uses: actions/setup-python@v2
         with:
-          python-version: "3.6"
+          python-version: "3.7"
       - name: check datahub-client jar
         run: |
           ./gradlew :metadata-integration:java:datahub-client:build
@@ -45,3 +45,7 @@ jobs:
         run: |
           ./gradlew :metadata-integration:java:spark-lineage:build
           ./gradlew :metadata-integration:java:spark-lineage:javadoc
+      - name: check datahub-protobuf jar
+        run: |
+          ./gradlew :metadata-integration:java:datahub-protobuf:build
+          ./gradlew :metadata-integration:java:datahub-protobuf:javadoc

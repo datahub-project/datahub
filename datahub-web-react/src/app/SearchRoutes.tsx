@@ -31,7 +31,12 @@ export const SearchRoutes = (): JSX.Element => {
                 <Route path={PageRoutes.SEARCH_RESULTS} render={() => <SearchPage />} />
                 <Route path={PageRoutes.BROWSE_RESULTS} render={() => <BrowseResultsPage />} />
                 <Route path={PageRoutes.ANALYTICS} render={() => <AnalyticsPage />} />
-                <Route path={PageRoutes.POLICIES} render={() => <Redirect to="/settings/policies" />} />
+                <Route path={PageRoutes.POLICIES} render={() => <Redirect to="/settings/permissions/policies" />} />
+                <Route
+                    path={PageRoutes.SETTINGS_POLICIES}
+                    render={() => <Redirect to="/settings/permissions/policies" />}
+                />
+                <Route path={PageRoutes.PERMISSIONS} render={() => <Redirect to="/settings/permissions" />} />
                 <Route path={PageRoutes.IDENTITIES} render={() => <Redirect to="/settings/identities" />} />
                 <Route path={PageRoutes.DOMAINS} render={() => <ManageDomainsPage />} />
                 <Route path={PageRoutes.INGESTION} render={() => <ManageIngestionPage />} />

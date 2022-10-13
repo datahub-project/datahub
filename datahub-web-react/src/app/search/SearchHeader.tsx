@@ -7,11 +7,8 @@ import { SearchBar } from './SearchBar';
 import { ManageAccount } from '../shared/ManageAccount';
 import { AutoCompleteResultForEntity, EntityType } from '../../types.generated';
 import EntityRegistry from '../entity/EntityRegistry';
-import AdhocLink from '../create/AdhocLink';
-import HelpLink from '../shared/admin/HelpLink';
 import { ANTD_GRAY } from '../entity/shared/constants';
 import { HeaderLinks } from '../shared/admin/HeaderLinks';
-import ContactLink from '../shared/admin/ContactLink';
 import { useAppConfig } from '../useAppConfig';
 import { DEFAULT_APP_CONFIG } from '../../appConfigContext';
 
@@ -107,9 +104,6 @@ export const SearchHeader = ({
                 />
             </LogoSearchContainer>
             <NavGroup>
-                <ContactLink />
-                <HelpLink />
-                <AdhocLink />
                 <HeaderLinks areLinksHidden={isSearchBarFocused} />
                 <ManageAccount urn={authenticatedUserUrn} pictureLink={authenticatedUserPictureLink || ''} />
             </NavGroup>

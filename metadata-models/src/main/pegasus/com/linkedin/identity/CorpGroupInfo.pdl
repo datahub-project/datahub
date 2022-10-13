@@ -73,4 +73,8 @@ record CorpGroupInfo {
   }
   description: optional string
 
+  /**
+   * Slack channel for the group
+   */
+  slack: optional string
 }

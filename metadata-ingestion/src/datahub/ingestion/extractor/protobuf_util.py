@@ -20,16 +20,9 @@ from typing import (
     cast,
 )
 
-try:
-    import grpc
-    import grpc.experimental
-    import networkx as nx
-except ImportError:
-    raise ModuleNotFoundError(
-        "The protobuf_util module requires Python 3.7 or newer because of the"
-        " networkx.algorithms.dag.topological_generations dependency."
-    )
-
+import grpc
+import grpc.experimental
+import networkx as nx
 from google.protobuf.descriptor import (
     Descriptor,
     DescriptorBase,

@@ -9,7 +9,7 @@ from datahub.configuration.source_common import (
     EnvBasedSourceConfigBase,
     PlatformSourceConfigBase,
 )
-from datahub.ingestion.source.aws.aws_common import AwsSourceConfig
+from datahub.ingestion.source.aws.aws_common import AwsConnectionConfig
 from datahub.ingestion.source.aws.path_spec import PathSpec
 from datahub.ingestion.source.aws.s3_util import get_bucket_name
 from datahub.ingestion.source.s3.profiling import DataLakeProfilerConfig
@@ -33,7 +33,7 @@ class DataLakeSourceConfig(PlatformSourceConfigBase, EnvBasedSourceConfigBase):
         default=None,
         description="The instance of the platform that all assets produced by this recipe belong to",
     )
-    aws_config: Optional[AwsSourceConfig] = Field(
+    aws_config: Optional[AwsConnectionConfig] = Field(
         default=None, description="AWS configuration"
     )
 
@@ -66,10 +66,6 @@ class DataLakeSourceConfig(PlatformSourceConfigBase, EnvBasedSourceConfigBase):
 
     @pydantic.root_validator(pre=False)
     def validate_platform(cls, values: Dict) -> Dict:
-        value = values.get("platform")
-        if value is not None and value != "":
-            return values
-
         if not values.get("path_specs") and not values.get("path_spec"):
             raise ValueError("Either path_specs or path_spec needs to be specified")
 
@@ -86,7 +82,7 @@ class DataLakeSourceConfig(PlatformSourceConfigBase, EnvBasedSourceConfigBase):
 
         bucket_name: str = ""
         for path_spec in values.get("path_specs", []):
-            if path_spec.is_s3():
+            if path_spec.is_s3:
                 platform = "s3"
             else:
                 if values.get("use_s3_object_tags") or values.get("use_s3_bucket_tags"):
@@ -96,8 +92,8 @@ class DataLakeSourceConfig(PlatformSourceConfigBase, EnvBasedSourceConfigBase):
 
                 platform = "file"
 
-            if values.get("platform", "") != "":
-                if values["platform"] != platform:
+            if values.get("platform", ""):
+                if platform == "s3" and values["platform"] != platform:
                     raise ValueError("all path_spec should belong to the same platform")
             else:
                 values["platform"] = platform
@@ -118,7 +114,7 @@ class DataLakeSourceConfig(PlatformSourceConfigBase, EnvBasedSourceConfigBase):
     def ensure_profiling_pattern_is_passed_to_profiling(
         cls, values: Dict[str, Any]
     ) -> Dict[str, Any]:
-        profiling = values.get("profiling")
+        profiling: Optional[DataLakeProfilerConfig] = values.get("profiling")
         if profiling is not None and profiling.enabled:
-            profiling.allow_deny_patterns = values["profile_patterns"]
+            profiling._allow_deny_patterns = values["profile_patterns"]
         return values

@@ -7,6 +7,7 @@ import com.linkedin.common.urn.Urn;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.generated.Domain;
 import com.linkedin.datahub.graphql.generated.DomainEntitiesInput;
+import com.linkedin.datahub.graphql.resolvers.EntityTypeMapper;
 import com.linkedin.entity.client.EntityClient;
 import com.linkedin.metadata.query.filter.Condition;
 import com.linkedin.metadata.query.filter.ConjunctiveCriterion;
@@ -21,9 +22,11 @@ import com.linkedin.metadata.search.SearchResult;
 import com.linkedin.metadata.search.SearchResultMetadata;
 import graphql.schema.DataFetchingEnvironment;
 import java.util.Collections;
+import java.util.stream.Collectors;
 import org.mockito.Mockito;
 import org.testng.annotations.Test;
 
+import static com.linkedin.datahub.graphql.resolvers.search.SearchUtils.*;
 import static org.testng.Assert.*;
 
 
@@ -50,7 +53,7 @@ public class DomainEntitiesResolverTest {
         .setValue(domainUrn);
 
     Mockito.when(mockClient.searchAcrossEntities(
-        Mockito.eq(Collections.emptyList()),
+        Mockito.eq(SEARCHABLE_ENTITY_TYPES.stream().map(EntityTypeMapper::getName).collect(Collectors.toList())),
         Mockito.eq("*"),
         Mockito.eq(
             new Filter().setOr(new ConjunctiveCriterionArray(

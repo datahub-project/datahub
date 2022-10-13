@@ -24,6 +24,7 @@ import com.linkedin.datahub.graphql.types.common.mappers.SiblingsMapper;
 import com.linkedin.datahub.graphql.types.common.mappers.StatusMapper;
 import com.linkedin.datahub.graphql.types.common.mappers.CustomPropertiesMapper;
 import com.linkedin.datahub.graphql.types.common.mappers.util.MappingHelper;
+import com.linkedin.datahub.graphql.types.common.mappers.util.SystemMetadataUtils;
 import com.linkedin.datahub.graphql.types.domain.DomainAssociationMapper;
 import com.linkedin.datahub.graphql.types.glossary.mappers.GlossaryTermsMapper;
 import com.linkedin.datahub.graphql.types.mappers.ModelMapper;
@@ -58,7 +59,6 @@ public class DatasetMapper implements ModelMapper<EntityResponse, Dataset> {
         return INSTANCE.apply(dataset);
     }
 
-    @Override
     public Dataset apply(@Nonnull final EntityResponse entityResponse) {
         Dataset result = new Dataset();
         Urn entityUrn = entityResponse.getUrn();
@@ -66,6 +66,9 @@ public class DatasetMapper implements ModelMapper<EntityResponse, Dataset> {
         result.setType(EntityType.DATASET);
 
         EnvelopedAspectMap aspectMap = entityResponse.getAspects();
+        Long lastIngested = SystemMetadataUtils.getLastIngested(aspectMap);
+        result.setLastIngested(lastIngested);
+
         MappingHelper<Dataset> mappingHelper = new MappingHelper<>(aspectMap, result);
         mappingHelper.mapToResult(DATASET_KEY_ASPECT_NAME, this::mapDatasetKey);
         mappingHelper.mapToResult(DATASET_PROPERTIES_ASPECT_NAME, (entity, dataMap) -> this.mapDatasetProperties(entity, dataMap, entityUrn));

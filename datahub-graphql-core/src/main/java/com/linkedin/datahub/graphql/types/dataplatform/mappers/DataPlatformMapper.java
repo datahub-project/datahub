@@ -4,6 +4,7 @@ import com.linkedin.common.urn.Urn;
 import com.linkedin.datahub.graphql.generated.DataPlatform;
 import com.linkedin.datahub.graphql.generated.EntityType;
 import com.linkedin.datahub.graphql.types.common.mappers.util.MappingHelper;
+import com.linkedin.datahub.graphql.types.common.mappers.util.SystemMetadataUtils;
 import com.linkedin.datahub.graphql.types.mappers.ModelMapper;
 import com.linkedin.dataplatform.DataPlatformInfo;
 import com.linkedin.entity.EntityResponse;
@@ -26,7 +27,7 @@ public class DataPlatformMapper implements ModelMapper<EntityResponse, DataPlatf
     @Override
     public DataPlatform apply(@Nonnull final EntityResponse entityResponse) {
         final DataPlatform result = new DataPlatform();
-        final DataPlatformKey dataPlatformKey = (DataPlatformKey) EntityKeyUtils.convertUrnToEntityKey(entityResponse.getUrn(),
+        final DataPlatformKey dataPlatformKey = (DataPlatformKey) EntityKeyUtils.convertUrnToEntityKeyInternal(entityResponse.getUrn(),
             new DataPlatformKey().schema());
         result.setType(EntityType.DATA_PLATFORM);
         Urn urn = entityResponse.getUrn();
@@ -34,6 +35,9 @@ public class DataPlatformMapper implements ModelMapper<EntityResponse, DataPlatf
         result.setName(dataPlatformKey.getPlatformName());
 
         EnvelopedAspectMap aspectMap = entityResponse.getAspects();
+        Long lastIngested = SystemMetadataUtils.getLastIngested(aspectMap);
+        result.setLastIngested(lastIngested);
+
         MappingHelper<DataPlatform> mappingHelper = new MappingHelper<>(aspectMap, result);
         mappingHelper.mapToResult(DATA_PLATFORM_KEY_ASPECT_NAME, (dataPlatform, dataMap) ->
             dataPlatform.setName(new DataPlatformKey(dataMap).getPlatformName()));

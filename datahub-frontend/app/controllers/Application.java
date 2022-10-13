@@ -9,6 +9,7 @@ import com.datahub.authentication.AuthenticationConstants;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.linkedin.util.Pair;
 import com.typesafe.config.Config;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
@@ -107,18 +108,24 @@ public class Application extends Controller {
     // TODO: Fully support custom internal SSL.
     final String protocol = metadataServiceUseSsl ? "https" : "http";
 
+    final Map<String, List<String>> headers = request().getHeaders().toMap();
+
+    if (headers.containsKey(Http.HeaderNames.HOST) && !headers.containsKey(Http.HeaderNames.X_FORWARDED_HOST)) {
+        headers.put(Http.HeaderNames.X_FORWARDED_HOST, headers.get(Http.HeaderNames.HOST));
+    }
+
     return _ws.url(String.format("%s://%s:%s%s", protocol, metadataServiceHost, metadataServicePort, resolvedUri))
         .setMethod(request().method())
-        .setHeaders(request()
-            .getHeaders()
-            .toMap()
+        .setHeaders(headers
             .entrySet()
             .stream()
             // Remove X-DataHub-Actor to prevent malicious delegation.
-            .filter(entry -> !AuthenticationConstants.LEGACY_X_DATAHUB_ACTOR_HEADER.equals(entry.getKey()))
+            .filter(entry -> !AuthenticationConstants.LEGACY_X_DATAHUB_ACTOR_HEADER.equalsIgnoreCase(entry.getKey()))
             .filter(entry -> !Http.HeaderNames.CONTENT_LENGTH.equals(entry.getKey()))
             .filter(entry -> !Http.HeaderNames.CONTENT_TYPE.equals(entry.getKey()))
             .filter(entry -> !Http.HeaderNames.AUTHORIZATION.equals(entry.getKey()))
+            // Remove Host s.th. service meshes do not route to wrong host
+            .filter(entry -> !Http.HeaderNames.HOST.equals(entry.getKey()))
             .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue))
         )
         .addHeader(Http.HeaderNames.AUTHORIZATION, authorizationHeaderValue)
@@ -298,7 +305,11 @@ public class Application extends Controller {
     // Case 2: Map requests to /gms to / (Rest.li API)
     final String gmsApiPath = "/api/gms";
     if (path.startsWith(gmsApiPath)) {
-      return String.format("%s", path.substring(gmsApiPath.length()));
+      String newPath = path.substring(gmsApiPath.length());
+      if (!newPath.startsWith("/")) {
+        newPath = "/" + newPath;
+      }
+      return newPath;
     }
 
     // Otherwise, return original path

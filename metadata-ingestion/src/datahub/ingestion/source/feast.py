@@ -1,11 +1,5 @@
-import sys
 from dataclasses import dataclass
 from typing import Dict, Iterable, List, Tuple, Union
-
-from pydantic import Field
-
-if sys.version_info < (3, 7):
-    raise ModuleNotFoundError("The feast plugin requires Python 3.7 or newer.")
 
 from feast import (
     BigQuerySource,
@@ -20,6 +14,7 @@ from feast import (
     ValueType,
 )
 from feast.data_source import DataSource, RequestDataSource
+from pydantic import Field
 
 import datahub.emitter.mce_builder as builder
 from datahub.configuration.common import ConfigModel
@@ -49,8 +44,6 @@ from datahub.metadata.schema_classes import (
     MLPrimaryKeyPropertiesClass,
     StatusClass,
 )
-
-assert sys.version_info >= (3, 7)  # needed for mypy
 
 # FIXME: ValueType module cannot be used as a type
 _field_type_mapping: Dict[ValueType, str] = {

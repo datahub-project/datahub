@@ -86,6 +86,7 @@ if any(var in os.environ for var in CI_ENV_VARS):
     ENV_ENABLED = False
 
 TIMEOUT = int(os.environ.get("DATAHUB_TELEMETRY_TIMEOUT", "10"))
+MIXPANEL_ENDPOINT = "track.datahubproject.io/mp"
 MIXPANEL_TOKEN = "5ee83d940754d63cacbf7d34daa6f44a"
 
 
@@ -101,15 +102,22 @@ class Telemetry:
         if not CONFIG_FILE.exists() or not self.load_config():
             # set up defaults
             self.client_id = str(uuid.uuid4())
-            self.enabled = self.enabled & ENV_ENABLED
-            self.update_config()
+            self.enabled = self.enabled and ENV_ENABLED
+            if not self.update_config():
+                # If we're not able to persist the client ID, we should default
+                # to a standardized value. This prevents us from minting a new
+                # client ID every time we start the CLI.
+                self.client_id = "00000000-0000-0000-0000-000000000001"
 
         # send updated user-level properties
         self.mp = None
         if self.enabled:
             try:
                 self.mp = Mixpanel(
-                    MIXPANEL_TOKEN, consumer=Consumer(request_timeout=int(TIMEOUT))
+                    MIXPANEL_TOKEN,
+                    consumer=Consumer(
+                        request_timeout=int(TIMEOUT), api_host=MIXPANEL_ENDPOINT
+                    ),
                 )
             except Exception as e:
                 logger.debug(f"Error connecting to mixpanel: {e}")
@@ -210,7 +218,7 @@ class Telemetry:
                 },
             )
         except Exception as e:
-            logger.debug(f"Error reporting telemetry: {e}")
+            logger.debug(f"Error initializing telemetry: {e}")
         self.init_track = True
 
     def ping(

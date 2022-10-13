@@ -106,7 +106,7 @@ protoPayload.serviceData.jobCompletedEvent.job.jobStatistics.referencedTables.ta
 AND
 timestamp >= "2021-07-18T23:45:00Z"
 AND
-timestamp < "2021-07-21T00:15:00Z\""""  # noqa: W293
+timestamp < "2021-07-20T00:15:00Z\""""  # noqa: W293
 
     source = BigQueryUsageSource.create(config, PipelineContext(run_id="bq-usage-test"))
 
@@ -164,7 +164,7 @@ protoPayload.serviceData.jobCompletedEvent.job.jobStatistics.referencedTables.ta
 AND
 timestamp >= "2021-07-18T23:45:00Z"
 AND
-timestamp < "2021-07-21T00:15:00Z\""""  # noqa: W293
+timestamp < "2021-07-20T00:15:00Z\""""  # noqa: W293
     source = BigQueryUsageSource.create(config, PipelineContext(run_id="bq-usage-test"))
     filter: str = source._generate_filter(BQ_AUDIT_V1)
     assert filter == expected_filter

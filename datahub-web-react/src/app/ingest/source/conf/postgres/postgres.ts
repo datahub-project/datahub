@@ -21,10 +21,14 @@ source:
         # Profiling
         profiling:
             enabled: false
+        stateful_ingestion:
+            enabled: true    
 `;
 
+export const POSTGRES = 'postgres';
+
 const postgresConfig: SourceConfig = {
-    type: 'postgres',
+    type: POSTGRES,
     placeholderRecipe,
     displayName: 'Postgres',
     docsUrl: 'https://datahubproject.io/docs/generated/ingestion/sources/postgres/',

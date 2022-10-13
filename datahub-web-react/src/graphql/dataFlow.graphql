@@ -1,6 +1,7 @@
 fragment dataFlowFields on DataFlow {
     urn
     type
+    lastIngested
     orchestrator
     flowId
     cluster
