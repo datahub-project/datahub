@@ -33,7 +33,7 @@
     "changeType": "UPSERT",
     "aspectName": "dataPlatformInstance",
     "aspect": {
-        "value": "{\"platform\": \"urn:li:dataPlatform:tableau\"}",
+        "value": "{\"platform\": \"urn:li:dataPlatform:tableau\", \"instance\": \"urn:li:dataPlatformInstance:(urn:li:dataPlatform:tableau,acryl_site1)\"}",
         "contentType": "application/json"
     },
     "systemMetadata": {
@@ -585,7 +585,7 @@
     "changeType": "UPSERT",
     "aspectName": "dataPlatformInstance",
     "aspect": {
-        "value": "{\"platform\": \"urn:li:dataPlatform:tableau\"}",
+        "value": "{\"platform\": \"urn:li:dataPlatform:tableau\", \"instance\": \"urn:li:dataPlatformInstance:(urn:li:dataPlatform:tableau,acryl_site1)\"}",
         "contentType": "application/json"
     },
     "systemMetadata": {
@@ -1080,7 +1080,7 @@
     "changeType": "UPSERT",
     "aspectName": "dataPlatformInstance",
     "aspect": {
-        "value": "{\"platform\": \"urn:li:dataPlatform:tableau\"}",
+        "value": "{\"platform\": \"urn:li:dataPlatform:tableau\", \"instance\": \"urn:li:dataPlatformInstance:(urn:li:dataPlatform:tableau,acryl_site1)\"}",
         "contentType": "application/json"
     },
     "systemMetadata": {
@@ -2669,7 +2669,7 @@
     "changeType": "UPSERT",
     "aspectName": "dataPlatformInstance",
     "aspect": {
-        "value": "{\"platform\": \"urn:li:dataPlatform:tableau\"}",
+        "value": "{\"platform\": \"urn:li:dataPlatform:tableau\", \"instance\": \"urn:li:dataPlatformInstance:(urn:li:dataPlatform:tableau,acryl_site1)\"}",
         "contentType": "application/json"
     },
     "systemMetadata": {
