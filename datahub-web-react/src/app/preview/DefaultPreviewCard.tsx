@@ -196,6 +196,7 @@ interface Props {
     parentContainers?: ParentContainersResult | null;
     parentNodes?: ParentNodesResult | null;
     previewType?: Maybe<PreviewType>;
+    glossaryAssociatedDomain?: Domain | undefined;
 }
 
 export default function DefaultPreviewCard({
@@ -232,6 +233,7 @@ export default function DefaultPreviewCard({
     platforms,
     logoUrls,
     previewType,
+    glossaryAssociatedDomain,
 }: Props) {
     // sometimes these lists will be rendered inside an entity container (for example, in the case of impact analysis)
     // in those cases, we may want to enrich the preview w/ context about the container entity
@@ -312,6 +314,7 @@ export default function DefaultPreviewCard({
                     {!!degree && entityCount && <PlatformDivider />}
                     <EntityCount entityCount={entityCount} />
                 </TitleContainer>
+                {glossaryAssociatedDomain && <TagTermGroup domain={glossaryAssociatedDomain} maxShow={3} />}
                 {description && description.length > 0 && (
                     <DescriptionContainer>
                         <NoMarkdownViewer
