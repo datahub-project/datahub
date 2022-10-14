@@ -1,5 +1,7 @@
 package com.linkedin.gms.factory.search;
 
+import com.google.gson.Gson;
+import com.google.gson.reflect.TypeToken;
 import com.linkedin.gms.factory.common.RestHighLevelClientFactory;
 import com.linkedin.gms.factory.spring.YamlPropertySourceFactory;
 import com.linkedin.metadata.search.elasticsearch.indexbuilder.ESIndexBuilder;
@@ -37,12 +39,14 @@ public class ElasticSearchIndexBuilderFactory {
   @Value("${elasticsearch.index.refreshIntervalSeconds}")
   private Integer refreshIntervalSeconds;
 
-  @Value("#{${elasticsearch.index.settingsOverrides:{T(java.util.Collections).emptyMap()}}}")
-  private Map<String, Map<String, String>> indexSettingOverrides;
+  @Value("${elasticsearch.index.settingsOverrides}")
+  private String indexSettingOverrides;
 
   @Bean(name = "elasticSearchIndexBuilder")
   @Nonnull
   protected ESIndexBuilder getInstance() {
-    return new ESIndexBuilder(searchClient, numShards, numReplicas, numRetries, refreshIntervalSeconds, indexSettingOverrides);
+    Map<String, Map<String, String>> overrides = new Gson()
+            .fromJson(indexSettingOverrides, new TypeToken<Map<String, Map<String, String>>>() { }.getType());
+    return new ESIndexBuilder(searchClient, numShards, numReplicas, numRetries, refreshIntervalSeconds, overrides);
   }
 }
