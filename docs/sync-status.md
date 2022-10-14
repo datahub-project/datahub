@@ -18,11 +18,21 @@ The DataHub UI will display the sync status in the top right corner of the page.
 
 The last synchronized date is basically the last time an ingestion run saw an entity. It is computed as the most recent update to the entity, excluding changes done through the UI. If an ingestion run restates an entity but doesn't actually cause any changes, we still count that as an update for the purposes of sync status.
 
+<details>
+  <summary>Technical details: computing the last synchronized timestamp</summary>
+
+To compute the last synchronized timestamp, we look at the system metadata of all aspects associated with the entity.
+We exclude any aspects where the system metadata `runId` value is unset or equal to `no-run-id-provided`, as this is what filters out changes made through the UI.
+Finally, we take the most recent system metadata `lastObserved` timestamp across the aspects and use that as the last synchronized timestamp.
+
+</details>
+
 <p align="center">
   <img width="70%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/master/imgs/sync-status-normal.png"/>
 </p>
 
 We'll automatically assign a color based on the sync status recency:
+
 - Green: last synchronized in the past week
 - Yellow: last synchronized in the past month
 - Red: last synchronized more than a month ago
