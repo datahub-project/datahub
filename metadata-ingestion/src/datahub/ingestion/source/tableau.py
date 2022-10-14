@@ -91,6 +91,7 @@ from datahub.metadata.schema_classes import (
     ChartUsageStatisticsClass,
     DashboardInfoClass,
     DashboardUsageStatisticsClass,
+    DataPlatformInstanceClass,
     DatasetPropertiesClass,
     OwnerClass,
     OwnershipClass,
@@ -142,6 +143,10 @@ class TableauConnectionConfig(ConfigModel):
     site: str = Field(
         default="",
         description="Tableau Site. Always required for Tableau Online. Use emptystring to connect with Default site on Tableau Server.",
+    )
+    platform_instance: Optional[str] = Field(
+        default=None,
+        description="Unique relationship between the Tableau Server and site",
     )
 
     ssl_verify: Union[bool, str] = Field(
@@ -249,11 +254,7 @@ class UsageStat:
 @platform_name("Tableau")
 @config_class(TableauConfig)
 @support_status(SupportStatus.INCUBATING)
-@capability(
-    SourceCapability.PLATFORM_INSTANCE,
-    "Not applicable to source",
-    supported=False,
-)
+@capability(SourceCapability.PLATFORM_INSTANCE, "Enabled by default")
 @capability(SourceCapability.DOMAINS, "Requires transformer", supported=False)
 @capability(SourceCapability.DESCRIPTIONS, "Enabled by default")
 @capability(
@@ -332,6 +333,16 @@ class TableauSource(StatefulIngestionSourceBase):
                 key="tableau-login",
                 reason=str(e),
             )
+
+    def get_data_platform_instance(self) -> DataPlatformInstanceClass:
+        return DataPlatformInstanceClass(
+            platform=builder.make_data_platform_urn(self.platform),
+            instance=builder.make_dataplatform_instance_urn(
+                self.platform, self.config.platform_instance
+            )
+            if self.config.platform_instance
+            else None,
+        )
 
     def get_connection_object_page(
         self,
@@ -444,8 +455,11 @@ class TableauSource(StatefulIngestionSourceBase):
             if ds["id"] not in self.datasource_ids_being_used:
                 self.datasource_ids_being_used.append(ds["id"])
 
-            datasource_urn = builder.make_dataset_urn(
-                self.platform, ds["id"], self.config.env
+            datasource_urn = builder.make_dataset_urn_with_platform_instance(
+                platform=self.platform,
+                name=ds["id"],
+                platform_instance=self.config.platform_instance,
+                env=self.config.env,
             )
             upstream_table = UpstreamClass(
                 dataset=datasource_urn,
@@ -550,10 +564,15 @@ class TableauSource(StatefulIngestionSourceBase):
 
         for csql in unique_custom_sql:
             csql_id: str = csql["id"]
-            csql_urn = builder.make_dataset_urn(self.platform, csql_id, self.config.env)
+            csql_urn = builder.make_dataset_urn_with_platform_instance(
+                platform=self.platform,
+                name=csql_id,
+                platform_instance=self.config.platform_instance,
+                env=self.config.env,
+            )
             dataset_snapshot = DatasetSnapshot(
                 urn=csql_urn,
-                aspects=[],
+                aspects=[self.get_data_platform_instance()],
             )
 
             datasource_name = None
@@ -666,8 +685,11 @@ class TableauSource(StatefulIngestionSourceBase):
         self, csql_urn: str, csql_datasource: List[dict]
     ) -> Iterable[MetadataWorkUnit]:
         for datasource in csql_datasource:
-            datasource_urn = builder.make_dataset_urn(
-                self.platform, datasource.get("id", ""), self.config.env
+            datasource_urn = builder.make_dataset_urn_with_platform_instance(
+                self.platform,
+                datasource.get("id", ""),
+                self.config.platform_instance,
+                self.config.env,
             )
             upstream_csql = UpstreamClass(
                 dataset=csql_urn,
@@ -804,15 +826,15 @@ class TableauSource(StatefulIngestionSourceBase):
             else ""
         )
         datasource_id = datasource["id"]
-        datasource_urn = builder.make_dataset_urn(
-            self.platform, datasource_id, self.config.env
+        datasource_urn = builder.make_dataset_urn_with_platform_instance(
+            self.platform, datasource_id, self.config.platform_instance, self.config.env
         )
         if datasource_id not in self.datasource_ids_being_used:
             self.datasource_ids_being_used.append(datasource_id)
 
         dataset_snapshot = DatasetSnapshot(
             urn=datasource_urn,
-            aspects=[],
+            aspects=[self.get_data_platform_instance()],
         )
 
         datasource_name = datasource.get("name") or datasource_id
@@ -1012,10 +1034,12 @@ class TableauSource(StatefulIngestionSourceBase):
 
     def emit_sheets_as_charts(self, workbook: Dict) -> Iterable[MetadataWorkUnit]:
         for sheet in workbook.get("sheets", []):
-            sheet_urn: str = builder.make_chart_urn(self.platform, sheet.get("id"))
+            sheet_urn: str = builder.make_chart_urn(
+                self.platform, sheet.get("id"), self.config.platform_instance
+            )
             chart_snapshot = ChartSnapshot(
                 urn=sheet_urn,
-                aspects=[],
+                aspects=[self.get_data_platform_instance()],
             )
 
             creator: Optional[str] = workbook["owner"].get("username")
@@ -1051,7 +1075,9 @@ class TableauSource(StatefulIngestionSourceBase):
             data_sources = self.get_sheetwise_upstream_datasources(sheet)
 
             for ds_id in data_sources:
-                ds_urn = builder.make_dataset_urn(self.platform, ds_id, self.config.env)
+                ds_urn = builder.make_dataset_urn_with_platform_instance(
+                    self.platform, ds_id, self.config.platform_instance, self.config.env
+                )
                 datasource_urn.append(ds_urn)
                 if ds_id not in self.datasource_ids_being_used:
                     self.datasource_ids_being_used.append(ds_id)
@@ -1156,7 +1182,9 @@ class TableauSource(StatefulIngestionSourceBase):
 
     def gen_workbook_key(self, workbook):
         return WorkbookKey(
-            platform=self.platform, instance=None, workbook_id=workbook["id"]
+            platform=self.platform,
+            instance=self.config.platform_instance,
+            workbook_id=workbook["id"],
         )
 
     @staticmethod
@@ -1208,11 +1236,11 @@ class TableauSource(StatefulIngestionSourceBase):
     def emit_dashboards(self, workbook: Dict) -> Iterable[MetadataWorkUnit]:
         for dashboard in workbook.get("dashboards", []):
             dashboard_urn: str = builder.make_dashboard_urn(
-                self.platform, dashboard["id"]
+                self.platform, dashboard["id"], self.config.platform_instance
             )
             dashboard_snapshot = DashboardSnapshot(
                 urn=dashboard_urn,
-                aspects=[],
+                aspects=[self.get_data_platform_instance()],
             )
 
             creator = workbook.get("owner", {}).get("username", "")
@@ -1228,7 +1256,9 @@ class TableauSource(StatefulIngestionSourceBase):
                 else ""
             )
             chart_urns = [
-                builder.make_chart_urn(self.platform, sheet.get("id"))
+                builder.make_chart_urn(
+                    self.platform, sheet.get("id"), self.config.platform_instance
+                )
                 for sheet in dashboard.get("sheets", [])
             ]
             dashboard_info_class = DashboardInfoClass(
@@ -1392,4 +1422,4 @@ class TableauSource(StatefulIngestionSourceBase):
         return self.report
 
     def get_platform_instance_id(self) -> str:
-        return self.platform
+        return self.config.platform_instance or self.platform
