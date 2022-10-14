@@ -74,7 +74,7 @@ class KafkaConnectSourceConfig(DatasetLineageProviderConfigBase):
         description='Platform instance mapping to use when constructing URNs. e.g.`platform_instance_map: { "hive": "warehouse" }`',
     )
     generic_connectors: List[GenericConnectorConfig] = Field(
-        default=[]],
+        default=[],
         description="Provide lineage graph for sources connectors other than Confluent JDBC Source Connector or Debezium Source Connector",
     )
 
