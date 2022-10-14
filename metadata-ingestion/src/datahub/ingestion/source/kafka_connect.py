@@ -941,14 +941,8 @@ class KafkaConnectSource(Source):
                         connector_manifest=connector_manifest, config=self.config
                     ).connector_manifest
                 else:
-                    # empty list of customized connector
-                    if not self.config.generic_connectors:
-                        logger.warning(
-                            f"Detected undefined connector {connector_manifest.name}, but user defined no customized connectors. Please refer to Kafka Connect ingestion recipe to define this customized connector."
-                        )
-                        continue
-
-                    # imcomplete customized connector list
+                    # since the default self.config.generic_connectors is empty list, not checking value emptiness here.
+                    # can't find connector in self.config.generic_connectors
                     connector_names = [
                         i.connector_name for i in self.config.generic_connectors
                     ]
