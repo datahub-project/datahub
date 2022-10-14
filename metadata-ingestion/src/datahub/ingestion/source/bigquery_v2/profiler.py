@@ -76,7 +76,7 @@ class BigqueryProfiler:
         See more about partitioned tables at https://cloud.google.com/bigquery/docs/partitioned-tables
         """
         logger.debug(
-            f"generate partition profiler query for project: {project} schema: {schema} and table {table}, partition_datetime: {partition_datetime}"
+            f"generate partition profiler query for project: {project} schema: {schema} and table {table.name}, partition_datetime: {partition_datetime}"
         )
         partition = table.max_partition_id
         if partition:
