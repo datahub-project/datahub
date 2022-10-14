@@ -393,7 +393,7 @@ def _delete_one_urn(
     if soft:
         if aspect_name: 
             raise click.UsageError(
-            "Please providem --hard flag, as aspect values cannot be soft deleted."
+            "Please provide --hard flag, as aspect values cannot be soft deleted."
         )
         # Add removed aspect
         if cached_emitter:
