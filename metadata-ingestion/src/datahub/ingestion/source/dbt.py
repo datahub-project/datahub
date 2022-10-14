@@ -576,7 +576,7 @@ def extract_dbt_entities(
             dbt_name=key,
             dbt_adapter=manifest_adapter,
             database=manifest_node["database"],
-            schema=manifest_node["schema"],
+            schema=schema,
             name=name,
             alias=manifest_node.get("alias"),
             dbt_file_path=manifest_node["original_file_path"],
