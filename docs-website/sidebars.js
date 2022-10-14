@@ -454,6 +454,7 @@ module.exports = {
       "docs/tags",
       "docs/features/dataset-usage-and-query-history",
       "docs/posts",
+      "docs/sync-status",
       // "docs/wip/ui-ingestion-guide", -- not needed
       // "docs/wip/personal-access-tokens-guide", -- not needed
 
