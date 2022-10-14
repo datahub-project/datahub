@@ -87,7 +87,7 @@ export default function CreateGroupModal({ onClose, onCreate }: Props) {
                         rules={[
                             {
                                 required: true,
-                                message: 'Enter a Domain name.',
+                                message: 'Enter a Group name.',
                             },
                             { whitespace: true },
                             { min: 1, max: 50 },
