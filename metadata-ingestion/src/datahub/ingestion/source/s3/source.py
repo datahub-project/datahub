@@ -543,6 +543,8 @@ class S3Source(Source):
                 "number_of_files": str(table_data.number_of_files),
                 "size_in_bytes": str(table_data.size_in_bytes),
             }
+            if table_data.is_s3:
+                customProperties["table_path"] = str(table_data.table_path)
 
         dataset_properties = DatasetPropertiesClass(
             description="",

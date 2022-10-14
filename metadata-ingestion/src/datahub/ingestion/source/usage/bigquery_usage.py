@@ -268,19 +268,12 @@ class BigQueryTableRef:
         # Temporary tables will have a dataset that begins with an underscore.
         return self.dataset.startswith(prefix)
 
-    @staticmethod
-    def remove_suffix(input_string, suffix):
-        if suffix and input_string.endswith(suffix):
-            return input_string[: -len(suffix)]
-        return input_string
-
     def remove_extras(self, sharded_table_regex: str) -> "BigQueryTableRef":
         # Handle partitioned and sharded tables.
         table_name: Optional[str] = None
         shortened_table_name = self.table
         # if table name ends in _* or * then we strip it as that represents a query on a sharded table
-        shortened_table_name = self.remove_suffix(shortened_table_name, "_*")
-        shortened_table_name = self.remove_suffix(shortened_table_name, "*")
+        shortened_table_name = re.sub("(_(.+)?\\*)|\\*$", "", shortened_table_name)
 
         matches = re.match(sharded_table_regex, shortened_table_name)
         if matches:

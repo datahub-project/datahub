@@ -47,10 +47,14 @@ workbook_graphql_query = """
       uri
       createdAt
       updatedAt
+      tags {
+          name
+      }
       sheets {
         id
         name
         path
+        luid
         createdAt
         updatedAt
         tags {
@@ -116,11 +120,15 @@ workbook_graphql_query = """
         id
         name
         path
+        luid
         createdAt
         updatedAt
         sheets {
           id
           name
+        }
+        tags {
+            name
         }
       }
       embeddedDatasources {

@@ -8,6 +8,7 @@ import { ACCESS_TOKEN_DURATIONS, getTokenExpireDate } from './utils';
 import { useCreateAccessTokenMutation } from '../../graphql/auth.generated';
 import { AccessTokenDuration, AccessTokenType, CreateAccessTokenInput } from '../../types.generated';
 import { AccessTokenModal } from './AccessTokenModal';
+import analytics, { EventType } from '../analytics';
 
 type Props = {
     currentUserUrn: string;
@@ -75,6 +76,15 @@ export default function CreateTokenModal({ currentUserUrn, visible, onClose, onC
             description: tokenDescription,
         };
         createAccessToken({ variables: { input } })
+            .then(({ errors }) => {
+                if (!errors) {
+                    analytics.event({
+                        type: EventType.CreateAccessTokenEvent,
+                        accessTokenType: AccessTokenType.Personal,
+                        duration: selectedTokenDuration,
+                    });
+                }
+            })
             .catch((e) => {
                 message.destroy();
                 message.error({ content: `Failed to create Token!: \n ${e.message || ''}`, duration: 3 });

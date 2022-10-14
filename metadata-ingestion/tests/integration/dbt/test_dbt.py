@@ -45,6 +45,8 @@ class DbtTestConfig:
     output_file: Union[str, PathLike]
     golden_file: Union[str, PathLike]
     manifest_file: str = "dbt_manifest.json"
+    catalog_file: str = "dbt_catalog.json"
+    sources_file: str = "dbt_sources.json"
     source_config_modifiers: Dict[str, Any] = dataclasses.field(default_factory=dict)
     sink_config_modifiers: Dict[str, Any] = dataclasses.field(default_factory=dict)
 
@@ -55,8 +57,8 @@ class DbtTestConfig:
         tmp_path: PathLike,
     ) -> None:
         self.manifest_path = f"{dbt_metadata_uri_prefix}/{self.manifest_file}"
-        self.catalog_path = f"{dbt_metadata_uri_prefix}/dbt_catalog.json"
-        self.sources_path = f"{dbt_metadata_uri_prefix}/dbt_sources.json"
+        self.catalog_path = f"{dbt_metadata_uri_prefix}/{self.catalog_file}"
+        self.sources_path = f"{dbt_metadata_uri_prefix}/{self.sources_file}"
         self.target_platform = "postgres"
 
         self.output_path = f"{tmp_path}/{self.output_file}"
@@ -163,6 +165,29 @@ class DbtTestConfig:
                 "target_platform_instance": "ps-instance-1",
             },
         ),
+        DbtTestConfig(
+            "dbt-column-meta-mapping",
+            "dbt_test_column_meta_mapping.json",
+            "dbt_test_column_meta_mapping_golden.json",
+            catalog_file="sample_dbt_catalog.json",
+            manifest_file="sample_dbt_manifest.json",
+            sources_file="sample_dbt_sources.json",
+            source_config_modifiers={
+                "enable_meta_mapping": True,
+                "column_meta_mapping": {
+                    "terms": {
+                        "match": ".*",
+                        "operation": "add_terms",
+                        "config": {"separator": ","},
+                    },
+                    "is_sensitive": {
+                        "match": True,
+                        "operation": "add_tag",
+                        "config": {"tag": "sensitive"},
+                    },
+                },
+            },
+        ),
     ],
     ids=lambda dbt_test_config: dbt_test_config.run_id,
 )
@@ -248,6 +273,7 @@ def test_dbt_stateful(pytestconfig, tmp_path, mock_time, mock_datahub_graph):
         "stateful_ingestion": {
             "enabled": True,
             "remove_stale_metadata": True,
+            "fail_safe_threshold": 100.0,
             "state_provider": {
                 "type": "datahub",
                 "config": {"datahub_api": {"server": GMS_SERVER}},
@@ -363,6 +389,7 @@ def test_dbt_state_backward_compatibility(
         "stateful_ingestion": {
             "enabled": True,
             "remove_stale_metadata": True,
+            "fail_safe_threshold": 100.0,
             "state_provider": {
                 "type": "datahub",
                 "config": {"datahub_api": {"server": GMS_SERVER}},
@@ -503,6 +530,7 @@ def test_dbt_stateful_tests(pytestconfig, tmp_path, mock_time, mock_datahub_grap
         "stateful_ingestion": {
             "enabled": True,
             "remove_stale_metadata": True,
+            "fail_safe_threshold": 100.0,
             "state_provider": {
                 "type": "datahub",
                 "config": {"datahub_api": {"server": GMS_SERVER}},

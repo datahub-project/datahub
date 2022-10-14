@@ -7,6 +7,7 @@ import com.linkedin.gms.factory.search.EntitySearchServiceFactory;
 import com.linkedin.gms.factory.search.SearchDocumentTransformerFactory;
 import com.linkedin.metadata.boot.BootstrapManager;
 import com.linkedin.metadata.boot.BootstrapStep;
+import com.linkedin.metadata.boot.steps.IndexDataPlatformsStep;
 import com.linkedin.metadata.boot.steps.IngestDataPlatformInstancesStep;
 import com.linkedin.metadata.boot.steps.IngestDataPlatformsStep;
 import com.linkedin.metadata.boot.steps.IngestPoliciesStep;
@@ -73,19 +74,21 @@ public class BootstrapManagerFactory {
     final IngestRootUserStep ingestRootUserStep = new IngestRootUserStep(_entityService);
     final IngestPoliciesStep ingestPoliciesStep =
         new IngestPoliciesStep(_entityRegistry, _entityService, _entitySearchService, _searchDocumentTransformer);
-    final IngestRolesStep ingestRolesStep = new IngestRolesStep(_entityService);
+    final IngestRolesStep ingestRolesStep = new IngestRolesStep(_entityService, _entityRegistry);
     final IngestDataPlatformsStep ingestDataPlatformsStep = new IngestDataPlatformsStep(_entityService);
     final IngestDataPlatformInstancesStep ingestDataPlatformInstancesStep =
         new IngestDataPlatformInstancesStep(_entityService, _migrationsDao);
     final RestoreGlossaryIndices restoreGlossaryIndicesStep =
         new RestoreGlossaryIndices(_entityService, _entitySearchService, _entityRegistry);
+    final IndexDataPlatformsStep indexDataPlatformsStep =
+        new IndexDataPlatformsStep(_entityService, _entitySearchService, _entityRegistry);
     final RestoreDbtSiblingsIndices restoreDbtSiblingsIndices =
         new RestoreDbtSiblingsIndices(_entityService, _entityRegistry);
     final RemoveClientIdAspectStep removeClientIdAspectStep = new RemoveClientIdAspectStep(_entityService);
 
     final List<BootstrapStep> finalSteps = new ArrayList<>(ImmutableList.of(ingestRootUserStep, ingestPoliciesStep, ingestRolesStep,
         ingestDataPlatformsStep, ingestDataPlatformInstancesStep, _ingestRetentionPoliciesStep, restoreGlossaryIndicesStep,
-        removeClientIdAspectStep, restoreDbtSiblingsIndices));
+        removeClientIdAspectStep, restoreDbtSiblingsIndices, indexDataPlatformsStep));
 
     if (_upgradeDefaultBrowsePathsEnabled) {
       finalSteps.add(new UpgradeDefaultBrowsePathsStep(_entityService));

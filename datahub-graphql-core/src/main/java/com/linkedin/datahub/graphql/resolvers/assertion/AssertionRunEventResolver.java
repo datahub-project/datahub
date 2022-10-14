@@ -1,5 +1,6 @@
 package com.linkedin.datahub.graphql.resolvers.assertion;
 
+import com.google.common.collect.ImmutableList;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.generated.Assertion;
 import com.linkedin.datahub.graphql.generated.AssertionResultType;
@@ -14,7 +15,6 @@ import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.aspect.EnvelopedAspect;
 import com.linkedin.metadata.query.filter.ConjunctiveCriterion;
 import com.linkedin.metadata.query.filter.ConjunctiveCriterionArray;
-import com.linkedin.metadata.query.filter.Criterion;
 import com.linkedin.metadata.query.filter.CriterionArray;
 import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.r2.RemoteInvocationException;
@@ -100,13 +100,16 @@ public class AssertionRunEventResolver implements DataFetcher<CompletableFuture<
     }
     List<FacetFilterInput> facetFilters = new ArrayList<>();
     if (status != null) {
-      facetFilters.add(new FacetFilterInput("status", status));
+      FacetFilterInput filter = new FacetFilterInput();
+      filter.setField("status");
+      filter.setValues(ImmutableList.of(status));
+      facetFilters.add(filter);
     }
     if (filtersInput != null) {
       facetFilters.addAll(filtersInput.getAnd());
     }
     return new Filter().setOr(new ConjunctiveCriterionArray(new ConjunctiveCriterion().setAnd(new CriterionArray(facetFilters.stream()
-        .map(filter -> new Criterion().setField(filter.getField()).setValue(filter.getValue()))
+        .map(filter -> criterionFromFilter(filter))
         .collect(Collectors.toList())))));
   }
 }

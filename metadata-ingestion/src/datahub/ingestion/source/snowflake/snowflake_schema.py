@@ -34,6 +34,28 @@ class SnowflakeColumn:
     is_nullable: bool
     data_type: str
     comment: Optional[str]
+    character_maximum_length: Optional[int]
+    numeric_precision: Optional[int]
+    numeric_scale: Optional[int]
+
+    def get_precise_native_type(self):
+        precise_native_type = self.data_type
+        # https://docs.snowflake.com/en/sql-reference/data-types-numeric.html
+        if (
+            self.data_type in ("NUMBER", "NUMERIC", "DECIMAL")
+            and self.numeric_precision is not None
+            and self.numeric_scale is not None
+        ):
+            precise_native_type = (
+                f"NUMBER({self.numeric_precision},{self.numeric_scale})"
+            )
+        # https://docs.snowflake.com/en/sql-reference/data-types-text.html
+        elif (
+            self.data_type in ("TEXT", "STRING", "VARCHAR")
+            and self.character_maximum_length is not None
+        ):
+            precise_native_type = f"VARCHAR({self.character_maximum_length})"
+        return precise_native_type
 
 
 @dataclass
@@ -251,6 +273,9 @@ class SnowflakeDataDictionary(SnowflakeQueryMixin):
                     is_nullable=column["IS_NULLABLE"] == "YES",
                     data_type=column["DATA_TYPE"],
                     comment=column["COMMENT"],
+                    character_maximum_length=column["CHARACTER_MAXIMUM_LENGTH"],
+                    numeric_precision=column["NUMERIC_PRECISION"],
+                    numeric_scale=column["NUMERIC_SCALE"],
                 )
             )
         return columns
@@ -273,6 +298,9 @@ class SnowflakeDataDictionary(SnowflakeQueryMixin):
                     is_nullable=column["IS_NULLABLE"] == "YES",
                     data_type=column["DATA_TYPE"],
                     comment=column["COMMENT"],
+                    character_maximum_length=column["CHARACTER_MAXIMUM_LENGTH"],
+                    numeric_precision=column["NUMERIC_PRECISION"],
+                    numeric_scale=column["NUMERIC_SCALE"],
                 )
             )
         return columns
