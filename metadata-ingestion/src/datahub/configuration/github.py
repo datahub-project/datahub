@@ -6,7 +6,7 @@ from pydantic import Field, FilePath, SecretStr, validator
 from datahub.configuration.common import ConfigModel, ConfigurationError
 
 
-class GitHubInfo(ConfigModel):
+class GitHubReference(ConfigModel):
     repo: str = Field(
         description="Name of your github repository in org/repo format. e.g. repo for https://github.com/datahub-project/datahub is `datahub-project/datahub`."
     )
@@ -19,6 +19,19 @@ class GitHubInfo(ConfigModel):
         description="Base url for Github. Used to construct clickable links on the UI.",
     )
 
+    @validator("repo")
+    def repo_should_be_org_slash_repo(cls, repo: str) -> str:
+        if "/" not in repo or len(repo.split("/")) != 2:
+            raise ConfigurationError(
+                "github repo should be in organization/repo form e.g. datahub-project/datahub"
+            )
+        return repo
+
+    def get_url_for_file_path(self, file_path: str) -> str:
+        return f"{self.base_url}/{self.repo}/blob/{self.branch}/{file_path}"
+
+
+class GitHubInfo(GitHubReference):
     deploy_key_file: Optional[FilePath] = Field(
         None,
         description="A private key file that contains an ssh key that has been configured as a deploy key for this repository. Use a file where possible, else see deploy_key for a config field that accepts a raw string.",
@@ -32,17 +45,6 @@ class GitHubInfo(ConfigModel):
         None,
         description="Auto-inferred from repo as git@github.com:{repo}, but you can override this if needed.",
     )
-
-    @validator("repo")
-    def repo_should_be_org_slash_repo(cls, repo: str) -> str:
-        if "/" not in repo or len(repo.split("/")) != 2:
-            raise ConfigurationError(
-                "github repo should be in organization/repo form e.g. datahub-project/datahub"
-            )
-        return repo
-
-    def get_url_for_file_path(self, file_path: str) -> str:
-        return f"{self.base_url}/{self.repo}/blob/{self.branch}/{file_path}"
 
     @validator("deploy_key_file")
     def deploy_key_file_should_be_readable(

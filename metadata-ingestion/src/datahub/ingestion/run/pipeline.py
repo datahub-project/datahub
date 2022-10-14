@@ -479,7 +479,7 @@ class Pipeline:
         )
 
     def _approx_all_vals(self, d: LossyDict[str, LossyList]) -> int:
-        result = d.get_keys_upper_bound()
+        result = d.dropped_keys_count()
         for k in d:
             result += len(d[k])
         return result
@@ -528,7 +528,7 @@ class Pipeline:
             num_warn_source = self._approx_all_vals(self.source.get_report().warnings)
             num_warn_sink = len(self.sink.get_report().warnings)
             click.secho(
-                f"{'⏳' if currently_running else ''} Pipeline {'running' if currently_running else 'finished'} with at least {num_warn_source+num_warn_sink} warnings {'so far' if currently_running else ''}; produced {workunits_produced} events {duration_message}",
+                f"{'⏳' if currently_running else ''} Pipeline {'running' if currently_running else 'finished'} with at least {num_warn_source+num_warn_sink} warnings{' so far' if currently_running else ''}; produced {workunits_produced} events {duration_message}",
                 fg=self._get_text_color(
                     running=currently_running, failures=False, warnings=True
                 ),
@@ -537,7 +537,7 @@ class Pipeline:
             return 1 if warnings_as_failure else 0
         else:
             click.secho(
-                f"{'⏳' if currently_running else ''} Pipeline {'running' if currently_running else 'finished'} successfully {'so far' if currently_running else ''}; produced {workunits_produced} events {duration_message}",
+                f"{'⏳' if currently_running else ''} Pipeline {'running' if currently_running else 'finished'} successfully{' so far' if currently_running else ''}; produced {workunits_produced} events {duration_message}",
                 fg=self._get_text_color(
                     running=currently_running, failures=False, warnings=False
                 ),

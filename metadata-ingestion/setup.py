@@ -164,8 +164,9 @@ snowflake_common = {
 }
 
 trino = {
-    "trino>=0.308",
-    "trino[sqlalchemy]>=0.308",
+    # The upper bound was added because of a breaking change in the Trino dialect.
+    # See https://github.com/trinodb/trino-python-client/issues/250.
+    "trino[sqlalchemy]>=0.308, <0.317",
 }
 
 microsoft_common = {"msal==1.16.0"}
@@ -181,8 +182,8 @@ s3_base = {
     "parse>=1.19.0",
     "pyarrow>=6.0.1",
     "tableschema>=1.20.2",
-    "ujson>=4.3.0",
-    "types-ujson>=4.2.1",
+    # ujson 5.2.0 has the JSONDecodeError exception type, which we need for error handling.
+    "ujson>=5.2.0",
     "smart-open[s3]>=5.2.1",
     "moto[s3]",
     *path_spec_common,
@@ -349,6 +350,7 @@ mypy_stubs = {
     "types-pytz",
     "types-pyOpenSSL",
     "types-click-spinner",
+    "types-ujson>=5.2.0",
 }
 
 base_dev_requirements = {

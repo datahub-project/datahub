@@ -1,5 +1,6 @@
 import React from 'react';
 import { set, get } from 'lodash';
+import moment, { Moment } from 'moment-timezone';
 
 export enum FieldType {
     TEXT,
@@ -9,6 +10,7 @@ export enum FieldType {
     SECRET,
     DICT,
     TEXTAREA,
+    DATE,
 }
 
 interface Option {
@@ -70,6 +72,23 @@ export function setListValuesOnRecipe(recipe: any, values: string[] | undefined,
         return filteredValues.length
             ? setFieldValueOnRecipe(updatedRecipe, filteredValues, fieldPath)
             : setFieldValueOnRecipe(updatedRecipe, null, fieldPath);
+    }
+    return updatedRecipe;
+}
+
+const NUM_CHARACTERS_TO_REMOVE_FROM_DATE = 5;
+
+export function setDateValueOnRecipe(recipe: any, value: Moment | undefined, fieldPath: string) {
+    const updatedRecipe = { ...recipe };
+    if (value !== undefined) {
+        if (!value) {
+            return setFieldValueOnRecipe(updatedRecipe, null, fieldPath);
+        }
+        const isoDateString = value.toISOString();
+        const formattedDateString = isoDateString
+            .substring(0, isoDateString.length - NUM_CHARACTERS_TO_REMOVE_FROM_DATE)
+            .concat('Z');
+        return setFieldValueOnRecipe(updatedRecipe, formattedDateString, fieldPath);
     }
     return updatedRecipe;
 }
@@ -356,4 +375,24 @@ export const SKIP_PERSONAL_FOLDERS: RecipeField = {
     type: FieldType.BOOLEAN,
     fieldPath: 'source.config.skip_personal_folders',
     rules: null,
+};
+
+const startTimeFieldPath = 'source.config.start_time';
+export const START_TIME: RecipeField = {
+    name: 'start_time',
+    label: 'Start Time',
+    tooltip:
+        'Earliest date of audit logs to process for usage, lineage etc. Default: Last full day in UTC or last time DataHub ingested usage (if stateful ingestion is enabled). Tip: Set this to an older date (e.g. 1 month ago) for your first ingestion run, and then uncheck it for future runs.',
+    placeholder: 'Select date and time',
+    type: FieldType.DATE,
+    fieldPath: startTimeFieldPath,
+    rules: null,
+    getValueFromRecipeOverride: (recipe: any) => {
+        const isoDateString = get(recipe, startTimeFieldPath);
+        if (isoDateString) {
+            return moment(isoDateString);
+        }
+        return isoDateString;
+    },
+    setValueOnRecipeOverride: (recipe: any, value?: Moment) => setDateValueOnRecipe(recipe, value, startTimeFieldPath),
 };
