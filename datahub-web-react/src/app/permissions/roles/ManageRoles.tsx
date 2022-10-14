@@ -15,6 +15,7 @@ import { EntityCapabilityType } from '../../entity/Entity';
 import { useBatchAssignRoleMutation } from '../../../graphql/mutations.generated';
 import { CorpUser, DataHubRole, DataHubPolicy } from '../../../types.generated';
 import RoleDetailsModal from './RoleDetailsModal';
+import analytics, { EventType } from '../../analytics';
 
 const SourceContainer = styled.div``;
 
@@ -99,6 +100,11 @@ export const ManageRoles = () => {
         })
             .then(({ errors }) => {
                 if (!errors) {
+                    analytics.event({
+                        type: EventType.BatchSelectUserRoleEvent,
+                        roleUrn: focusRole?.urn,
+                        userUrns: actorUrns,
+                    });
                     message.success({
                         content: `Assigned Role to users!`,
                         duration: 2,
