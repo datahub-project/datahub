@@ -1236,11 +1236,12 @@ def test_native_user_endpoints(frontend_session):
 
     # Test getting the invite token
     get_invite_token_json = {
-        "query": """query getNativeUserInviteToken {\n
-            getNativeUserInviteToken{\n
+        "query": """query getInviteToken($input: GetInviteTokenInput!) {\n
+            getInviteToken(input: $input){\n
               inviteToken\n
             }\n
-        }"""
+        }""",
+        "variables": {"input": {}},
     }
 
     get_invite_token_response = frontend_session.post(
@@ -1251,9 +1252,7 @@ def test_native_user_endpoints(frontend_session):
 
     assert get_invite_token_res_data
     assert get_invite_token_res_data["data"]
-    invite_token = get_invite_token_res_data["data"]["getNativeUserInviteToken"][
-        "inviteToken"
-    ]
+    invite_token = get_invite_token_res_data["data"]["getInviteToken"]["inviteToken"]
     assert invite_token is not None
     assert "errors" not in get_invite_token_res_data
 
@@ -1386,10 +1385,7 @@ def test_native_user_endpoints(frontend_session):
     assert unauthenticated_get_invite_token_res_data
     assert "errors" in unauthenticated_get_invite_token_res_data
     assert unauthenticated_get_invite_token_res_data["data"]
-    assert (
-        unauthenticated_get_invite_token_res_data["data"]["getNativeUserInviteToken"]
-        is None
-    )
+    assert unauthenticated_get_invite_token_res_data["data"]["getInviteToken"] is None
 
     unauthenticated_create_reset_token_json = {
         "query": """mutation createNativeUserResetToken($input: CreateNativeUserResetTokenInput!) {\n

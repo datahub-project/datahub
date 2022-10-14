@@ -4,6 +4,8 @@ import com.linkedin.common.urn.Urn;
 import com.datahub.util.RecordUtils;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.entity.RetentionService;
+import com.linkedin.metadata.entity.retention.BulkApplyRetentionArgs;
+import com.linkedin.metadata.entity.retention.BulkApplyRetentionResult;
 import com.linkedin.retention.DataHubRetentionConfig;
 import com.linkedin.retention.Retention;
 import com.linkedin.retention.TimeBasedRetention;
@@ -12,6 +14,7 @@ import io.ebean.EbeanServer;
 import io.ebean.Expression;
 import io.ebean.ExpressionList;
 import io.ebean.PagedList;
+import io.ebean.Query;
 import io.ebean.Transaction;
 import io.ebeaninternal.server.expression.Op;
 import io.ebeaninternal.server.expression.SimpleExpression;
@@ -111,11 +114,50 @@ public class EbeanRetentionService extends RetentionService {
         new Timestamp(_clock.millis() - retention.getMaxAgeInSeconds() * 1000));
   }
 
+  private void applyRetention(
+          PagedList<EbeanAspectV2> rows,
+          Map<String, DataHubRetentionConfig> retentionPolicyMap,
+          BulkApplyRetentionResult applyRetentionResult
+  ) {
+    try (Transaction transaction = _server.beginTransaction()) {
+      transaction.setBatchMode(true);
+      transaction.setBatchSize(_batchSize);
+      for (EbeanAspectV2 row : rows.getList()) {
+        // Only run for cases where there's multiple versions of the aspect
+        if (row.getVersion() == 0) {
+          continue;
+        }
+        // 1. Extract an Entity type from the entity Urn
+        Urn urn;
+        try {
+          urn = Urn.createFromString(row.getUrn());
+        } catch (Exception e) {
+          log.error("Failed to serialize urn {}", row.getUrn(), e);
+          continue;
+        }
+        final String aspectNameFromRecord = row.getAspect();
+        log.debug("Handling urn {} aspect {}", row.getUrn(), row.getAspect());
+        // Get the retention policies to apply from the local retention policy map
+        Optional<Retention> retentionPolicy = getRetentionKeys(urn.getEntityType(), aspectNameFromRecord).stream()
+                .map(key -> retentionPolicyMap.get(key.toString()))
+                .filter(Objects::nonNull)
+                .findFirst()
+                .map(DataHubRetentionConfig::getRetention);
+        retentionPolicy.ifPresent(retention -> applyRetention(urn, aspectNameFromRecord, retention,
+                Optional.of(new RetentionContext(Optional.of(row.getVersion())))));
+        if (applyRetentionResult != null) {
+          applyRetentionResult.rowsHandled += 1;
+        }
+      }
+      transaction.commit();
+    }
+  }
+
   @Override
   @WithSpan
   public void batchApplyRetention(@Nullable String entityName, @Nullable String aspectName) {
     log.debug("Applying retention to all records");
-    int numCandidates = queryCandidates(entityName, aspectName).findCount();
+    int numCandidates = queryCandidates(null, entityName, aspectName).findCount();
     log.info("Found {} urn, aspect pair with more than 1 version", numCandidates);
     Map<String, DataHubRetentionConfig> retentionPolicyMap = getAllRetentionPolicies();
 
@@ -123,40 +165,77 @@ public class EbeanRetentionService extends RetentionService {
     while (start < numCandidates) {
       log.info("Applying retention to pairs {} through {}", start, start + _batchSize);
       PagedList<EbeanAspectV2> rows = getPagedAspects(entityName, aspectName, start, _batchSize);
-
-      try (Transaction transaction = _server.beginTransaction()) {
-        transaction.setBatchMode(true);
-        transaction.setBatchSize(_batchSize);
-        for (EbeanAspectV2 row : rows.getList()) {
-          // Only run for cases where there's multiple versions of the aspect
-          if (row.getVersion() == 0) {
-            continue;
-          }
-          // 1. Extract an Entity type from the entity Urn
-          Urn urn;
-          try {
-            urn = Urn.createFromString(row.getUrn());
-          } catch (Exception e) {
-            log.error("Failed to serialize urn {}", row.getUrn(), e);
-            continue;
-          }
-          final String aspectNameFromRecord = row.getAspect();
-          // Get the retention policies to apply from the local retention policy map
-          Optional<Retention> retentionPolicy = getRetentionKeys(urn.getEntityType(), aspectNameFromRecord).stream()
-              .map(key -> retentionPolicyMap.get(key.toString()))
-              .filter(Objects::nonNull)
-              .findFirst()
-              .map(DataHubRetentionConfig::getRetention);
-          retentionPolicy.ifPresent(retention -> applyRetention(urn, aspectNameFromRecord, retention,
-              Optional.of(new RetentionContext(Optional.of(row.getVersion())))));
-        }
-        transaction.commit();
-      }
-
+      applyRetention(rows, retentionPolicyMap, null);
       start += _batchSize;
     }
 
     log.info("Finished applying retention to all records");
+  }
+
+  @Override
+  public BulkApplyRetentionResult batchApplyRetentionEntities(@Nonnull BulkApplyRetentionArgs args) {
+    long startTime = System.currentTimeMillis();
+
+    BulkApplyRetentionResult result = new BulkApplyRetentionResult();
+    result.argStart = args.start;
+    result.argCount = args.count;
+    result.argAttemptWithVersion = args.attemptWithVersion;
+    result.argAspectName = args.aspectName;
+    result.argUrn = args.urn;
+
+    Map<String, DataHubRetentionConfig> retentionPolicyMap = getAllRetentionPolicies();
+    result.timeRetentionPolicyMapMs = System.currentTimeMillis() - startTime;
+    startTime = System.currentTimeMillis();
+
+    //only supports version based retention for batch apply
+    //find urn, aspect pair where distinct versions > 20 to apply retention policy
+    Query<EbeanAspectV2> query = _server.find(EbeanAspectV2.class)
+            .setDistinct(true)
+            .select(String.format(
+                    "%s, %s, count(%s)", EbeanAspectV2.URN_COLUMN, EbeanAspectV2.ASPECT_COLUMN, EbeanAspectV2.VERSION_COLUMN)
+            );
+    ExpressionList<EbeanAspectV2> exp = null;
+    if (args.urn != null || args.aspectName != null) {
+      exp = query.where();
+      if (args.aspectName != null) {
+        exp = exp.eq(EbeanAspectV2.ASPECT_COLUMN, args.aspectName);
+      }
+      if (args.urn != null) {
+        exp = exp.eq(EbeanAspectV2.URN_COLUMN, args.urn);
+      }
+    }
+    if (exp == null) {
+      exp = query.having();
+    } else {
+      exp = exp.having();
+    }
+
+    PagedList<EbeanAspectV2> rows = exp
+              .gt(String.format("count(%s)", EbeanAspectV2.VERSION_COLUMN), args.attemptWithVersion)
+            .setFirstRow(args.start)
+            .setMaxRows(args.count)
+            .findPagedList();
+    result.timeRowMs = System.currentTimeMillis() - startTime;
+
+    for (EbeanAspectV2 row : rows.getList()) {
+      startTime = System.currentTimeMillis();
+      log.debug("For {},{} version count is {}", row.getUrn(), row.getAspect(), row.getVersion());
+      try {
+        Urn.createFromString(row.getUrn());
+      } catch (Exception e) {
+        log.error("Failed to serialize urn {}", row.getUrn(), e);
+        continue;
+      }
+      PagedList<EbeanAspectV2> rowsToChange = queryCandidates(row.getUrn(), null, row.getAspect())
+              .setFirstRow(args.start)
+              .setMaxRows(args.count)
+              .findPagedList();
+
+      applyRetention(rowsToChange, retentionPolicyMap, result);
+      result.timeApplyRetentionMs += System.currentTimeMillis() - startTime;
+    }
+
+    return result;
   }
 
   private Map<String, DataHubRetentionConfig> getAllRetentionPolicies() {
@@ -172,12 +251,16 @@ public class EbeanRetentionService extends RetentionService {
             row -> RecordUtils.toRecordTemplate(DataHubRetentionConfig.class, row.getMetadata())));
   }
 
-  private ExpressionList<EbeanAspectV2> queryCandidates(@Nullable String entityName, @Nullable String aspectName) {
+  private ExpressionList<EbeanAspectV2> queryCandidates(@Nullable String urn,
+          @Nullable String entityName, @Nullable String aspectName) {
     ExpressionList<EbeanAspectV2> query = _server.find(EbeanAspectV2.class)
         .setDistinct(true)
         .select(String.format("%s, %s, max(%s)", EbeanAspectV2.URN_COLUMN, EbeanAspectV2.ASPECT_COLUMN,
             EbeanAspectV2.VERSION_COLUMN))
         .where();
+    if (urn != null) {
+      query.eq(EbeanAspectV2.URN_COLUMN, urn);
+    }
     if (entityName != null) {
       query.like(EbeanAspectV2.URN_COLUMN, String.format("urn:li:%s%%", entityName));
     }
@@ -189,7 +272,7 @@ public class EbeanRetentionService extends RetentionService {
 
   private PagedList<EbeanAspectV2> getPagedAspects(@Nullable String entityName, @Nullable String aspectName,
       final int start, final int pageSize) {
-    return queryCandidates(entityName, aspectName).orderBy(
+    return queryCandidates(null, entityName, aspectName).orderBy(
         EbeanAspectV2.URN_COLUMN + ", " + EbeanAspectV2.ASPECT_COLUMN)
         .setFirstRow(start)
         .setMaxRows(pageSize)

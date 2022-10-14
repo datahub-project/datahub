@@ -25,4 +25,9 @@ record Criterion {
    * The condition for the criterion, e.g. EQUAL, START_WITH
    */
   condition: Condition = "EQUAL"
+
+  /**
+   * Whether the condition should be negated
+   */
+  negated: boolean = false
 }

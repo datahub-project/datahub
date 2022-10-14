@@ -149,7 +149,7 @@ export class ContainerEntity implements Entity<Container> {
     };
 
     displayName = (data: Container) => {
-        return data?.properties?.name || data?.urn;
+        return data?.properties?.name || data?.properties?.qualifiedName || data?.urn;
     };
 
     getOverridePropertiesFromEntity = (data: Container) => {

@@ -1,9 +1,7 @@
 [
 {
-    "auditHeader": null,
     "entityType": "container",
     "entityUrn": "urn:li:container:b7062d1c0c650d9de0f7a9a5de00b1b5",
-    "entityKeyAspect": null,
     "changeType": "UPSERT",
     "aspectName": "containerProperties",
     "aspect": {
@@ -12,17 +10,26 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "mssql-test",
-        "registryName": null,
-        "registryVersion": null,
-        "properties": null
+        "runId": "mssql-test"
     }
 },
 {
-    "auditHeader": null,
     "entityType": "container",
     "entityUrn": "urn:li:container:b7062d1c0c650d9de0f7a9a5de00b1b5",
-    "entityKeyAspect": null,
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "value": "{\"removed\": false}",
+        "contentType": "application/json"
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "mssql-test"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:b7062d1c0c650d9de0f7a9a5de00b1b5",
     "changeType": "UPSERT",
     "aspectName": "dataPlatformInstance",
     "aspect": {
@@ -31,17 +38,12 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "mssql-test",
-        "registryName": null,
-        "registryVersion": null,
-        "properties": null
+        "runId": "mssql-test"
     }
 },
 {
-    "auditHeader": null,
     "entityType": "container",
     "entityUrn": "urn:li:container:b7062d1c0c650d9de0f7a9a5de00b1b5",
-    "entityKeyAspect": null,
     "changeType": "UPSERT",
     "aspectName": "subTypes",
     "aspect": {
@@ -50,17 +52,12 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "mssql-test",
-        "registryName": null,
-        "registryVersion": null,
-        "properties": null
+        "runId": "mssql-test"
     }
 },
 {
-    "auditHeader": null,
     "entityType": "container",
     "entityUrn": "urn:li:container:f1b4c0e379c4b2e2e09a8ecd6c1b6dec",
-    "entityKeyAspect": null,
     "changeType": "UPSERT",
     "aspectName": "containerProperties",
     "aspect": {
@@ -69,17 +66,26 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "mssql-test",
-        "registryName": null,
-        "registryVersion": null,
-        "properties": null
+        "runId": "mssql-test"
     }
 },
 {
-    "auditHeader": null,
     "entityType": "container",
     "entityUrn": "urn:li:container:f1b4c0e379c4b2e2e09a8ecd6c1b6dec",
-    "entityKeyAspect": null,
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "value": "{\"removed\": false}",
+        "contentType": "application/json"
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "mssql-test"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:f1b4c0e379c4b2e2e09a8ecd6c1b6dec",
     "changeType": "UPSERT",
     "aspectName": "dataPlatformInstance",
     "aspect": {
@@ -88,17 +94,12 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "mssql-test",
-        "registryName": null,
-        "registryVersion": null,
-        "properties": null
+        "runId": "mssql-test"
     }
 },
 {
-    "auditHeader": null,
     "entityType": "container",
     "entityUrn": "urn:li:container:f1b4c0e379c4b2e2e09a8ecd6c1b6dec",
-    "entityKeyAspect": null,
     "changeType": "UPSERT",
     "aspectName": "subTypes",
     "aspect": {
@@ -107,17 +108,12 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "mssql-test",
-        "registryName": null,
-        "registryVersion": null,
-        "properties": null
+        "runId": "mssql-test"
     }
 },
 {
-    "auditHeader": null,
     "entityType": "container",
     "entityUrn": "urn:li:container:f1b4c0e379c4b2e2e09a8ecd6c1b6dec",
-    "entityKeyAspect": null,
     "changeType": "UPSERT",
     "aspectName": "container",
     "aspect": {
@@ -126,17 +122,12 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "mssql-test",
-        "registryName": null,
-        "registryVersion": null,
-        "properties": null
+        "runId": "mssql-test"
     }
 },
 {
-    "auditHeader": null,
     "entityType": "container",
     "entityUrn": "urn:li:container:bad84e08ecf49aee863df68243d8b9d0",
-    "entityKeyAspect": null,
     "changeType": "UPSERT",
     "aspectName": "containerProperties",
     "aspect": {
@@ -145,17 +136,26 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "mssql-test",
-        "registryName": null,
-        "registryVersion": null,
-        "properties": null
+        "runId": "mssql-test"
     }
 },
 {
-    "auditHeader": null,
     "entityType": "container",
     "entityUrn": "urn:li:container:bad84e08ecf49aee863df68243d8b9d0",
-    "entityKeyAspect": null,
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "value": "{\"removed\": false}",
+        "contentType": "application/json"
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "mssql-test"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:bad84e08ecf49aee863df68243d8b9d0",
     "changeType": "UPSERT",
     "aspectName": "dataPlatformInstance",
     "aspect": {
@@ -164,17 +164,12 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "mssql-test",
-        "registryName": null,
-        "registryVersion": null,
-        "properties": null
+        "runId": "mssql-test"
     }
 },
 {
-    "auditHeader": null,
     "entityType": "container",
     "entityUrn": "urn:li:container:bad84e08ecf49aee863df68243d8b9d0",
-    "entityKeyAspect": null,
     "changeType": "UPSERT",
     "aspectName": "subTypes",
     "aspect": {
@@ -183,17 +178,12 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "mssql-test",
-        "registryName": null,
-        "registryVersion": null,
-        "properties": null
+        "runId": "mssql-test"
     }
 },
 {
-    "auditHeader": null,
     "entityType": "container",
     "entityUrn": "urn:li:container:bad84e08ecf49aee863df68243d8b9d0",
-    "entityKeyAspect": null,
     "changeType": "UPSERT",
     "aspectName": "container",
     "aspect": {
@@ -202,17 +192,12 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "mssql-test",
-        "registryName": null,
-        "registryVersion": null,
-        "properties": null
+        "runId": "mssql-test"
     }
 },
 {
-    "auditHeader": null,
     "entityType": "container",
     "entityUrn": "urn:li:container:e48d82445eeacfbe13b431f0bb1826ee",
-    "entityKeyAspect": null,
     "changeType": "UPSERT",
     "aspectName": "containerProperties",
     "aspect": {
@@ -221,17 +206,26 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "mssql-test",
-        "registryName": null,
-        "registryVersion": null,
-        "properties": null
+        "runId": "mssql-test"
     }
 },
 {
-    "auditHeader": null,
     "entityType": "container",
     "entityUrn": "urn:li:container:e48d82445eeacfbe13b431f0bb1826ee",
-    "entityKeyAspect": null,
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "value": "{\"removed\": false}",
+        "contentType": "application/json"
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "mssql-test"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:e48d82445eeacfbe13b431f0bb1826ee",
     "changeType": "UPSERT",
     "aspectName": "dataPlatformInstance",
     "aspect": {
@@ -240,17 +234,12 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "mssql-test",
-        "registryName": null,
-        "registryVersion": null,
-        "properties": null
+        "runId": "mssql-test"
     }
 },
 {
-    "auditHeader": null,
     "entityType": "container",
     "entityUrn": "urn:li:container:e48d82445eeacfbe13b431f0bb1826ee",
-    "entityKeyAspect": null,
     "changeType": "UPSERT",
     "aspectName": "subTypes",
     "aspect": {
@@ -259,17 +248,12 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "mssql-test",
-        "registryName": null,
-        "registryVersion": null,
-        "properties": null
+        "runId": "mssql-test"
     }
 },
 {
-    "auditHeader": null,
     "entityType": "container",
     "entityUrn": "urn:li:container:e48d82445eeacfbe13b431f0bb1826ee",
-    "entityKeyAspect": null,
     "changeType": "UPSERT",
     "aspectName": "container",
     "aspect": {
@@ -278,17 +262,12 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "mssql-test",
-        "registryName": null,
-        "registryVersion": null,
-        "properties": null
+        "runId": "mssql-test"
     }
 },
 {
-    "auditHeader": null,
     "entityType": "container",
     "entityUrn": "urn:li:container:884bfecd9e414990a494681293413e8e",
-    "entityKeyAspect": null,
     "changeType": "UPSERT",
     "aspectName": "containerProperties",
     "aspect": {
@@ -297,17 +276,26 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "mssql-test",
-        "registryName": null,
-        "registryVersion": null,
-        "properties": null
+        "runId": "mssql-test"
     }
 },
 {
-    "auditHeader": null,
     "entityType": "container",
     "entityUrn": "urn:li:container:884bfecd9e414990a494681293413e8e",
-    "entityKeyAspect": null,
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "value": "{\"removed\": false}",
+        "contentType": "application/json"
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "mssql-test"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:884bfecd9e414990a494681293413e8e",
     "changeType": "UPSERT",
     "aspectName": "dataPlatformInstance",
     "aspect": {
@@ -316,17 +304,12 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "mssql-test",
-        "registryName": null,
-        "registryVersion": null,
-        "properties": null
+        "runId": "mssql-test"
     }
 },
 {
-    "auditHeader": null,
     "entityType": "container",
     "entityUrn": "urn:li:container:884bfecd9e414990a494681293413e8e",
-    "entityKeyAspect": null,
     "changeType": "UPSERT",
     "aspectName": "subTypes",
     "aspect": {
@@ -335,17 +318,12 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "mssql-test",
-        "registryName": null,
-        "registryVersion": null,
-        "properties": null
+        "runId": "mssql-test"
     }
 },
 {
-    "auditHeader": null,
     "entityType": "container",
     "entityUrn": "urn:li:container:884bfecd9e414990a494681293413e8e",
-    "entityKeyAspect": null,
     "changeType": "UPSERT",
     "aspectName": "container",
     "aspect": {
@@ -354,17 +332,12 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "mssql-test",
-        "registryName": null,
-        "registryVersion": null,
-        "properties": null
+        "runId": "mssql-test"
     }
 },
 {
-    "auditHeader": null,
     "entityType": "container",
     "entityUrn": "urn:li:container:142ca5fc51b7f44e5e6a424bf1043590",
-    "entityKeyAspect": null,
     "changeType": "UPSERT",
     "aspectName": "containerProperties",
     "aspect": {
@@ -373,17 +346,26 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "mssql-test",
-        "registryName": null,
-        "registryVersion": null,
-        "properties": null
+        "runId": "mssql-test"
     }
 },
 {
-    "auditHeader": null,
     "entityType": "container",
     "entityUrn": "urn:li:container:142ca5fc51b7f44e5e6a424bf1043590",
-    "entityKeyAspect": null,
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "value": "{\"removed\": false}",
+        "contentType": "application/json"
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "mssql-test"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:142ca5fc51b7f44e5e6a424bf1043590",
     "changeType": "UPSERT",
     "aspectName": "dataPlatformInstance",
     "aspect": {
@@ -392,17 +374,12 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "mssql-test",
-        "registryName": null,
-        "registryVersion": null,
-        "properties": null
+        "runId": "mssql-test"
     }
 },
 {
-    "auditHeader": null,
     "entityType": "container",
     "entityUrn": "urn:li:container:142ca5fc51b7f44e5e6a424bf1043590",
-    "entityKeyAspect": null,
     "changeType": "UPSERT",
     "aspectName": "subTypes",
     "aspect": {
@@ -411,17 +388,12 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "mssql-test",
-        "registryName": null,
-        "registryVersion": null,
-        "properties": null
+        "runId": "mssql-test"
     }
 },
 {
-    "auditHeader": null,
     "entityType": "container",
     "entityUrn": "urn:li:container:142ca5fc51b7f44e5e6a424bf1043590",
-    "entityKeyAspect": null,
     "changeType": "UPSERT",
     "aspectName": "container",
     "aspect": {
@@ -430,17 +402,12 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "mssql-test",
-        "registryName": null,
-        "registryVersion": null,
-        "properties": null
+        "runId": "mssql-test"
     }
 },
 {
-    "auditHeader": null,
     "entityType": "container",
     "entityUrn": "urn:li:container:1b9d125d390447de36719bfb8dd1f782",
-    "entityKeyAspect": null,
     "changeType": "UPSERT",
     "aspectName": "containerProperties",
     "aspect": {
@@ -449,17 +416,26 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "mssql-test",
-        "registryName": null,
-        "registryVersion": null,
-        "properties": null
+        "runId": "mssql-test"
     }
 },
 {
-    "auditHeader": null,
     "entityType": "container",
     "entityUrn": "urn:li:container:1b9d125d390447de36719bfb8dd1f782",
-    "entityKeyAspect": null,
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "value": "{\"removed\": false}",
+        "contentType": "application/json"
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "mssql-test"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:1b9d125d390447de36719bfb8dd1f782",
     "changeType": "UPSERT",
     "aspectName": "dataPlatformInstance",
     "aspect": {
@@ -468,17 +444,12 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "mssql-test",
-        "registryName": null,
-        "registryVersion": null,
-        "properties": null
+        "runId": "mssql-test"
     }
 },
 {
-    "auditHeader": null,
     "entityType": "container",
     "entityUrn": "urn:li:container:1b9d125d390447de36719bfb8dd1f782",
-    "entityKeyAspect": null,
     "changeType": "UPSERT",
     "aspectName": "subTypes",
     "aspect": {
@@ -487,17 +458,12 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "mssql-test",
-        "registryName": null,
-        "registryVersion": null,
-        "properties": null
+        "runId": "mssql-test"
     }
 },
 {
-    "auditHeader": null,
     "entityType": "container",
     "entityUrn": "urn:li:container:1b9d125d390447de36719bfb8dd1f782",
-    "entityKeyAspect": null,
     "changeType": "UPSERT",
     "aspectName": "container",
     "aspect": {
@@ -506,17 +472,12 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "mssql-test",
-        "registryName": null,
-        "registryVersion": null,
-        "properties": null
+        "runId": "mssql-test"
     }
 },
 {
-    "auditHeader": null,
     "entityType": "container",
     "entityUrn": "urn:li:container:fcd4c8da3739150766f91e7f6c2a3a30",
-    "entityKeyAspect": null,
     "changeType": "UPSERT",
     "aspectName": "containerProperties",
     "aspect": {
@@ -525,17 +486,26 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "mssql-test",
-        "registryName": null,
-        "registryVersion": null,
-        "properties": null
+        "runId": "mssql-test"
     }
 },
 {
-    "auditHeader": null,
     "entityType": "container",
     "entityUrn": "urn:li:container:fcd4c8da3739150766f91e7f6c2a3a30",
-    "entityKeyAspect": null,
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "value": "{\"removed\": false}",
+        "contentType": "application/json"
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "mssql-test"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:fcd4c8da3739150766f91e7f6c2a3a30",
     "changeType": "UPSERT",
     "aspectName": "dataPlatformInstance",
     "aspect": {
@@ -544,17 +514,12 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "mssql-test",
-        "registryName": null,
-        "registryVersion": null,
-        "properties": null
+        "runId": "mssql-test"
     }
 },
 {
-    "auditHeader": null,
     "entityType": "container",
     "entityUrn": "urn:li:container:fcd4c8da3739150766f91e7f6c2a3a30",
-    "entityKeyAspect": null,
     "changeType": "UPSERT",
     "aspectName": "subTypes",
     "aspect": {
@@ -563,17 +528,12 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "mssql-test",
-        "registryName": null,
-        "registryVersion": null,
-        "properties": null
+        "runId": "mssql-test"
     }
 },
 {
-    "auditHeader": null,
     "entityType": "container",
     "entityUrn": "urn:li:container:fcd4c8da3739150766f91e7f6c2a3a30",
-    "entityKeyAspect": null,
     "changeType": "UPSERT",
     "aspectName": "container",
     "aspect": {
@@ -582,17 +542,12 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "mssql-test",
-        "registryName": null,
-        "registryVersion": null,
-        "properties": null
+        "runId": "mssql-test"
     }
 },
 {
-    "auditHeader": null,
     "entityType": "container",
     "entityUrn": "urn:li:container:2029cab615b3cd82cb87b153957d2e92",
-    "entityKeyAspect": null,
     "changeType": "UPSERT",
     "aspectName": "containerProperties",
     "aspect": {
@@ -601,17 +556,26 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "mssql-test",
-        "registryName": null,
-        "registryVersion": null,
-        "properties": null
+        "runId": "mssql-test"
     }
 },
 {
-    "auditHeader": null,
     "entityType": "container",
     "entityUrn": "urn:li:container:2029cab615b3cd82cb87b153957d2e92",
-    "entityKeyAspect": null,
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "value": "{\"removed\": false}",
+        "contentType": "application/json"
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "mssql-test"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:2029cab615b3cd82cb87b153957d2e92",
     "changeType": "UPSERT",
     "aspectName": "dataPlatformInstance",
     "aspect": {
@@ -620,17 +584,12 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "mssql-test",
-        "registryName": null,
-        "registryVersion": null,
-        "properties": null
+        "runId": "mssql-test"
     }
 },
 {
-    "auditHeader": null,
     "entityType": "container",
     "entityUrn": "urn:li:container:2029cab615b3cd82cb87b153957d2e92",
-    "entityKeyAspect": null,
     "changeType": "UPSERT",
     "aspectName": "subTypes",
     "aspect": {
@@ -639,17 +598,12 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "mssql-test",
-        "registryName": null,
-        "registryVersion": null,
-        "properties": null
+        "runId": "mssql-test"
     }
 },
 {
-    "auditHeader": null,
     "entityType": "container",
     "entityUrn": "urn:li:container:2029cab615b3cd82cb87b153957d2e92",
-    "entityKeyAspect": null,
     "changeType": "UPSERT",
     "aspectName": "container",
     "aspect": {
@@ -658,17 +612,12 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "mssql-test",
-        "registryName": null,
-        "registryVersion": null,
-        "properties": null
+        "runId": "mssql-test"
     }
 },
 {
-    "auditHeader": null,
     "entityType": "container",
     "entityUrn": "urn:li:container:556e25ccec98892284f017f870ef7809",
-    "entityKeyAspect": null,
     "changeType": "UPSERT",
     "aspectName": "containerProperties",
     "aspect": {
@@ -677,17 +626,26 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "mssql-test",
-        "registryName": null,
-        "registryVersion": null,
-        "properties": null
+        "runId": "mssql-test"
     }
 },
 {
-    "auditHeader": null,
     "entityType": "container",
     "entityUrn": "urn:li:container:556e25ccec98892284f017f870ef7809",
-    "entityKeyAspect": null,
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "value": "{\"removed\": false}",
+        "contentType": "application/json"
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "mssql-test"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:556e25ccec98892284f017f870ef7809",
     "changeType": "UPSERT",
     "aspectName": "dataPlatformInstance",
     "aspect": {
@@ -696,17 +654,12 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "mssql-test",
-        "registryName": null,
-        "registryVersion": null,
-        "properties": null
+        "runId": "mssql-test"
     }
 },
 {
-    "auditHeader": null,
     "entityType": "container",
     "entityUrn": "urn:li:container:556e25ccec98892284f017f870ef7809",
-    "entityKeyAspect": null,
     "changeType": "UPSERT",
     "aspectName": "subTypes",
     "aspect": {
@@ -715,17 +668,12 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "mssql-test",
-        "registryName": null,
-        "registryVersion": null,
-        "properties": null
+        "runId": "mssql-test"
     }
 },
 {
-    "auditHeader": null,
     "entityType": "container",
     "entityUrn": "urn:li:container:556e25ccec98892284f017f870ef7809",
-    "entityKeyAspect": null,
     "changeType": "UPSERT",
     "aspectName": "container",
     "aspect": {
@@ -734,17 +682,12 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "mssql-test",
-        "registryName": null,
-        "registryVersion": null,
-        "properties": null
+        "runId": "mssql-test"
     }
 },
 {
-    "auditHeader": null,
     "entityType": "container",
     "entityUrn": "urn:li:container:d41a036a2e6cfa44b834edf7683199ec",
-    "entityKeyAspect": null,
     "changeType": "UPSERT",
     "aspectName": "containerProperties",
     "aspect": {
@@ -753,17 +696,26 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "mssql-test",
-        "registryName": null,
-        "registryVersion": null,
-        "properties": null
+        "runId": "mssql-test"
     }
 },
 {
-    "auditHeader": null,
     "entityType": "container",
     "entityUrn": "urn:li:container:d41a036a2e6cfa44b834edf7683199ec",
-    "entityKeyAspect": null,
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "value": "{\"removed\": false}",
+        "contentType": "application/json"
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "mssql-test"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:d41a036a2e6cfa44b834edf7683199ec",
     "changeType": "UPSERT",
     "aspectName": "dataPlatformInstance",
     "aspect": {
@@ -772,17 +724,12 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "mssql-test",
-        "registryName": null,
-        "registryVersion": null,
-        "properties": null
+        "runId": "mssql-test"
     }
 },
 {
-    "auditHeader": null,
     "entityType": "container",
     "entityUrn": "urn:li:container:d41a036a2e6cfa44b834edf7683199ec",
-    "entityKeyAspect": null,
     "changeType": "UPSERT",
     "aspectName": "subTypes",
     "aspect": {
@@ -791,17 +738,12 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "mssql-test",
-        "registryName": null,
-        "registryVersion": null,
-        "properties": null
+        "runId": "mssql-test"
     }
 },
 {
-    "auditHeader": null,
     "entityType": "container",
     "entityUrn": "urn:li:container:d41a036a2e6cfa44b834edf7683199ec",
-    "entityKeyAspect": null,
     "changeType": "UPSERT",
     "aspectName": "container",
     "aspect": {
@@ -810,17 +752,12 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "mssql-test",
-        "registryName": null,
-        "registryVersion": null,
-        "properties": null
+        "runId": "mssql-test"
     }
 },
 {
-    "auditHeader": null,
     "entityType": "dataset",
     "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:mssql,DemoDataAlias.dbo.Products,PROD)",
-    "entityKeyAspect": null,
     "changeType": "UPSERT",
     "aspectName": "container",
     "aspect": {
@@ -829,14 +766,10 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "mssql-test",
-        "registryName": null,
-        "registryVersion": null,
-        "properties": null
+        "runId": "mssql-test"
     }
 },
 {
-    "auditHeader": null,
     "proposedSnapshot": {
         "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
             "urn": "urn:li:dataset:(urn:li:dataPlatform:mssql,DemoDataAlias.dbo.Products,PROD)",
@@ -849,11 +782,7 @@
                 {
                     "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
                         "customProperties": {},
-                        "externalUrl": null,
                         "name": "Products",
-                        "qualifiedName": null,
-                        "description": null,
-                        "uri": null,
                         "tags": []
                     }
                 },
@@ -864,17 +793,12 @@
                         "version": 0,
                         "created": {
                             "time": 0,
-                            "actor": "urn:li:corpuser:unknown",
-                            "impersonator": null
+                            "actor": "urn:li:corpuser:unknown"
                         },
                         "lastModified": {
                             "time": 0,
-                            "actor": "urn:li:corpuser:unknown",
-                            "impersonator": null
+                            "actor": "urn:li:corpuser:unknown"
                         },
-                        "deleted": null,
-                        "dataset": null,
-                        "cluster": null,
                         "hash": "",
                         "platformSchema": {
                             "com.linkedin.pegasus2avro.schema.MySqlDDL": {
@@ -884,11 +808,7 @@
                         "fields": [
                             {
                                 "fieldPath": "ID",
-                                "jsonPath": null,
                                 "nullable": true,
-                                "description": null,
-                                "created": null,
-                                "lastModified": null,
                                 "type": {
                                     "type": {
                                         "com.linkedin.pegasus2avro.schema.NumberType": {}
@@ -896,19 +816,11 @@
                                 },
                                 "nativeDataType": "INTEGER()",
                                 "recursive": false,
-                                "globalTags": null,
-                                "glossaryTerms": null,
-                                "isPartOfKey": false,
-                                "isPartitioningKey": null,
-                                "jsonProps": null
+                                "isPartOfKey": false
                             },
                             {
                                 "fieldPath": "ProductName",
-                                "jsonPath": null,
                                 "nullable": true,
-                                "description": null,
-                                "created": null,
-                                "lastModified": null,
                                 "type": {
                                     "type": {
                                         "com.linkedin.pegasus2avro.schema.StringType": {}
@@ -916,35 +828,22 @@
                                 },
                                 "nativeDataType": "NVARCHAR()",
                                 "recursive": false,
-                                "globalTags": null,
-                                "glossaryTerms": null,
-                                "isPartOfKey": false,
-                                "isPartitioningKey": null,
-                                "jsonProps": null
+                                "isPartOfKey": false
                             }
-                        ],
-                        "primaryKeys": null,
-                        "foreignKeysSpecs": null,
-                        "foreignKeys": null
+                        ]
                     }
                 }
             ]
         }
     },
-    "proposedDelta": null,
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "mssql-test",
-        "registryName": null,
-        "registryVersion": null,
-        "properties": null
+        "runId": "mssql-test"
     }
 },
 {
-    "auditHeader": null,
     "entityType": "dataset",
     "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:mssql,DemoDataAlias.dbo.Products,PROD)",
-    "entityKeyAspect": null,
     "changeType": "UPSERT",
     "aspectName": "subTypes",
     "aspect": {
@@ -953,17 +852,12 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "mssql-test",
-        "registryName": null,
-        "registryVersion": null,
-        "properties": null
+        "runId": "mssql-test"
     }
 },
 {
-    "auditHeader": null,
     "entityType": "container",
     "entityUrn": "urn:li:container:6e5c6d608d0a2dcc4eb03591382e5671",
-    "entityKeyAspect": null,
     "changeType": "UPSERT",
     "aspectName": "containerProperties",
     "aspect": {
@@ -972,17 +866,26 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "mssql-test",
-        "registryName": null,
-        "registryVersion": null,
-        "properties": null
+        "runId": "mssql-test"
     }
 },
 {
-    "auditHeader": null,
     "entityType": "container",
     "entityUrn": "urn:li:container:6e5c6d608d0a2dcc4eb03591382e5671",
-    "entityKeyAspect": null,
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "value": "{\"removed\": false}",
+        "contentType": "application/json"
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "mssql-test"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:6e5c6d608d0a2dcc4eb03591382e5671",
     "changeType": "UPSERT",
     "aspectName": "dataPlatformInstance",
     "aspect": {
@@ -991,17 +894,12 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "mssql-test",
-        "registryName": null,
-        "registryVersion": null,
-        "properties": null
+        "runId": "mssql-test"
     }
 },
 {
-    "auditHeader": null,
     "entityType": "container",
     "entityUrn": "urn:li:container:6e5c6d608d0a2dcc4eb03591382e5671",
-    "entityKeyAspect": null,
     "changeType": "UPSERT",
     "aspectName": "subTypes",
     "aspect": {
@@ -1010,17 +908,12 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "mssql-test",
-        "registryName": null,
-        "registryVersion": null,
-        "properties": null
+        "runId": "mssql-test"
     }
 },
 {
-    "auditHeader": null,
     "entityType": "container",
     "entityUrn": "urn:li:container:6e5c6d608d0a2dcc4eb03591382e5671",
-    "entityKeyAspect": null,
     "changeType": "UPSERT",
     "aspectName": "container",
     "aspect": {
@@ -1029,17 +922,12 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "mssql-test",
-        "registryName": null,
-        "registryVersion": null,
-        "properties": null
+        "runId": "mssql-test"
     }
 },
 {
-    "auditHeader": null,
     "entityType": "dataset",
     "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:mssql,DemoDataAlias.Foo.Items,PROD)",
-    "entityKeyAspect": null,
     "changeType": "UPSERT",
     "aspectName": "container",
     "aspect": {
@@ -1048,14 +936,10 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "mssql-test",
-        "registryName": null,
-        "registryVersion": null,
-        "properties": null
+        "runId": "mssql-test"
     }
 },
 {
-    "auditHeader": null,
     "proposedSnapshot": {
         "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
             "urn": "urn:li:dataset:(urn:li:dataPlatform:mssql,DemoDataAlias.Foo.Items,PROD)",
@@ -1068,11 +952,8 @@
                 {
                     "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
                         "customProperties": {},
-                        "externalUrl": null,
                         "name": "Items",
-                        "qualifiedName": null,
                         "description": "Description for table Items of schema Foo.",
-                        "uri": null,
                         "tags": []
                     }
                 },
@@ -1083,17 +964,12 @@
                         "version": 0,
                         "created": {
                             "time": 0,
-                            "actor": "urn:li:corpuser:unknown",
-                            "impersonator": null
+                            "actor": "urn:li:corpuser:unknown"
                         },
                         "lastModified": {
                             "time": 0,
-                            "actor": "urn:li:corpuser:unknown",
-                            "impersonator": null
+                            "actor": "urn:li:corpuser:unknown"
                         },
-                        "deleted": null,
-                        "dataset": null,
-                        "cluster": null,
                         "hash": "",
                         "platformSchema": {
                             "com.linkedin.pegasus2avro.schema.MySqlDDL": {
@@ -1103,11 +979,7 @@
                         "fields": [
                             {
                                 "fieldPath": "ID",
-                                "jsonPath": null,
                                 "nullable": true,
-                                "description": null,
-                                "created": null,
-                                "lastModified": null,
                                 "type": {
                                     "type": {
                                         "com.linkedin.pegasus2avro.schema.NumberType": {}
@@ -1115,19 +987,11 @@
                                 },
                                 "nativeDataType": "INTEGER()",
                                 "recursive": false,
-                                "globalTags": null,
-                                "glossaryTerms": null,
-                                "isPartOfKey": false,
-                                "isPartitioningKey": null,
-                                "jsonProps": null
+                                "isPartOfKey": false
                             },
                             {
                                 "fieldPath": "ItemName",
-                                "jsonPath": null,
                                 "nullable": true,
-                                "description": null,
-                                "created": null,
-                                "lastModified": null,
                                 "type": {
                                     "type": {
                                         "com.linkedin.pegasus2avro.schema.StringType": {}
@@ -1135,35 +999,22 @@
                                 },
                                 "nativeDataType": "NVARCHAR()",
                                 "recursive": false,
-                                "globalTags": null,
-                                "glossaryTerms": null,
-                                "isPartOfKey": false,
-                                "isPartitioningKey": null,
-                                "jsonProps": null
+                                "isPartOfKey": false
                             }
-                        ],
-                        "primaryKeys": null,
-                        "foreignKeysSpecs": null,
-                        "foreignKeys": null
+                        ]
                     }
                 }
             ]
         }
     },
-    "proposedDelta": null,
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "mssql-test",
-        "registryName": null,
-        "registryVersion": null,
-        "properties": null
+        "runId": "mssql-test"
     }
 },
 {
-    "auditHeader": null,
     "entityType": "dataset",
     "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:mssql,DemoDataAlias.Foo.Items,PROD)",
-    "entityKeyAspect": null,
     "changeType": "UPSERT",
     "aspectName": "subTypes",
     "aspect": {
@@ -1172,17 +1023,12 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "mssql-test",
-        "registryName": null,
-        "registryVersion": null,
-        "properties": null
+        "runId": "mssql-test"
     }
 },
 {
-    "auditHeader": null,
     "entityType": "dataset",
     "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:mssql,DemoDataAlias.Foo.Persons,PROD)",
-    "entityKeyAspect": null,
     "changeType": "UPSERT",
     "aspectName": "container",
     "aspect": {
@@ -1191,14 +1037,10 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "mssql-test",
-        "registryName": null,
-        "registryVersion": null,
-        "properties": null
+        "runId": "mssql-test"
     }
 },
 {
-    "auditHeader": null,
     "proposedSnapshot": {
         "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
             "urn": "urn:li:dataset:(urn:li:dataPlatform:mssql,DemoDataAlias.Foo.Persons,PROD)",
@@ -1211,11 +1053,7 @@
                 {
                     "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
                         "customProperties": {},
-                        "externalUrl": null,
                         "name": "Persons",
-                        "qualifiedName": null,
-                        "description": null,
-                        "uri": null,
                         "tags": []
                     }
                 },
@@ -1226,17 +1064,12 @@
                         "version": 0,
                         "created": {
                             "time": 0,
-                            "actor": "urn:li:corpuser:unknown",
-                            "impersonator": null
+                            "actor": "urn:li:corpuser:unknown"
                         },
                         "lastModified": {
                             "time": 0,
-                            "actor": "urn:li:corpuser:unknown",
-                            "impersonator": null
+                            "actor": "urn:li:corpuser:unknown"
                         },
-                        "deleted": null,
-                        "dataset": null,
-                        "cluster": null,
                         "hash": "",
                         "platformSchema": {
                             "com.linkedin.pegasus2avro.schema.MySqlDDL": {
@@ -1246,11 +1079,7 @@
                         "fields": [
                             {
                                 "fieldPath": "ID",
-                                "jsonPath": null,
                                 "nullable": false,
-                                "description": null,
-                                "created": null,
-                                "lastModified": null,
                                 "type": {
                                     "type": {
                                         "com.linkedin.pegasus2avro.schema.NumberType": {}
@@ -1258,19 +1087,12 @@
                                 },
                                 "nativeDataType": "INTEGER()",
                                 "recursive": false,
-                                "globalTags": null,
-                                "glossaryTerms": null,
-                                "isPartOfKey": true,
-                                "isPartitioningKey": null,
-                                "jsonProps": null
+                                "isPartOfKey": true
                             },
                             {
                                 "fieldPath": "LastName",
-                                "jsonPath": null,
                                 "nullable": false,
                                 "description": "Description for column LastName of table Persons of schema Foo.",
-                                "created": null,
-                                "lastModified": null,
                                 "type": {
                                     "type": {
                                         "com.linkedin.pegasus2avro.schema.StringType": {}
@@ -1278,19 +1100,11 @@
                                 },
                                 "nativeDataType": "VARCHAR(length=255, collation='SQL_Latin1_General_CP1_CI_AS')",
                                 "recursive": false,
-                                "globalTags": null,
-                                "glossaryTerms": null,
-                                "isPartOfKey": false,
-                                "isPartitioningKey": null,
-                                "jsonProps": null
+                                "isPartOfKey": false
                             },
                             {
                                 "fieldPath": "FirstName",
-                                "jsonPath": null,
                                 "nullable": true,
-                                "description": null,
-                                "created": null,
-                                "lastModified": null,
                                 "type": {
                                     "type": {
                                         "com.linkedin.pegasus2avro.schema.StringType": {}
@@ -1298,19 +1112,11 @@
                                 },
                                 "nativeDataType": "VARCHAR(length=255, collation='SQL_Latin1_General_CP1_CI_AS')",
                                 "recursive": false,
-                                "globalTags": null,
-                                "glossaryTerms": null,
-                                "isPartOfKey": false,
-                                "isPartitioningKey": null,
-                                "jsonProps": null
+                                "isPartOfKey": false
                             },
                             {
                                 "fieldPath": "Age",
-                                "jsonPath": null,
                                 "nullable": true,
-                                "description": null,
-                                "created": null,
-                                "lastModified": null,
                                 "type": {
                                     "type": {
                                         "com.linkedin.pegasus2avro.schema.NumberType": {}
@@ -1318,35 +1124,22 @@
                                 },
                                 "nativeDataType": "INTEGER()",
                                 "recursive": false,
-                                "globalTags": null,
-                                "glossaryTerms": null,
-                                "isPartOfKey": false,
-                                "isPartitioningKey": null,
-                                "jsonProps": null
+                                "isPartOfKey": false
                             }
-                        ],
-                        "primaryKeys": null,
-                        "foreignKeysSpecs": null,
-                        "foreignKeys": null
+                        ]
                     }
                 }
             ]
         }
     },
-    "proposedDelta": null,
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "mssql-test",
-        "registryName": null,
-        "registryVersion": null,
-        "properties": null
+        "runId": "mssql-test"
     }
 },
 {
-    "auditHeader": null,
     "entityType": "dataset",
     "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:mssql,DemoDataAlias.Foo.Persons,PROD)",
-    "entityKeyAspect": null,
     "changeType": "UPSERT",
     "aspectName": "subTypes",
     "aspect": {
@@ -1355,17 +1148,12 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "mssql-test",
-        "registryName": null,
-        "registryVersion": null,
-        "properties": null
+        "runId": "mssql-test"
     }
 },
 {
-    "auditHeader": null,
     "entityType": "dataset",
     "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:mssql,DemoDataAlias.Foo.SalesReason,PROD)",
-    "entityKeyAspect": null,
     "changeType": "UPSERT",
     "aspectName": "container",
     "aspect": {
@@ -1374,14 +1162,10 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "mssql-test",
-        "registryName": null,
-        "registryVersion": null,
-        "properties": null
+        "runId": "mssql-test"
     }
 },
 {
-    "auditHeader": null,
     "proposedSnapshot": {
         "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
             "urn": "urn:li:dataset:(urn:li:dataPlatform:mssql,DemoDataAlias.Foo.SalesReason,PROD)",
@@ -1394,11 +1178,7 @@
                 {
                     "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
                         "customProperties": {},
-                        "externalUrl": null,
                         "name": "SalesReason",
-                        "qualifiedName": null,
-                        "description": null,
-                        "uri": null,
                         "tags": []
                     }
                 },
@@ -1409,17 +1189,12 @@
                         "version": 0,
                         "created": {
                             "time": 0,
-                            "actor": "urn:li:corpuser:unknown",
-                            "impersonator": null
+                            "actor": "urn:li:corpuser:unknown"
                         },
                         "lastModified": {
                             "time": 0,
-                            "actor": "urn:li:corpuser:unknown",
-                            "impersonator": null
+                            "actor": "urn:li:corpuser:unknown"
                         },
-                        "deleted": null,
-                        "dataset": null,
-                        "cluster": null,
                         "hash": "",
                         "platformSchema": {
                             "com.linkedin.pegasus2avro.schema.MySqlDDL": {
@@ -1429,11 +1204,7 @@
                         "fields": [
                             {
                                 "fieldPath": "TempID",
-                                "jsonPath": null,
                                 "nullable": false,
-                                "description": null,
-                                "created": null,
-                                "lastModified": null,
                                 "type": {
                                     "type": {
                                         "com.linkedin.pegasus2avro.schema.NumberType": {}
@@ -1441,19 +1212,11 @@
                                 },
                                 "nativeDataType": "INTEGER()",
                                 "recursive": false,
-                                "globalTags": null,
-                                "glossaryTerms": null,
-                                "isPartOfKey": true,
-                                "isPartitioningKey": null,
-                                "jsonProps": null
+                                "isPartOfKey": true
                             },
                             {
                                 "fieldPath": "Name",
-                                "jsonPath": null,
                                 "nullable": true,
-                                "description": null,
-                                "created": null,
-                                "lastModified": null,
                                 "type": {
                                     "type": {
                                         "com.linkedin.pegasus2avro.schema.StringType": {}
@@ -1461,15 +1224,9 @@
                                 },
                                 "nativeDataType": "NVARCHAR(length=50)",
                                 "recursive": false,
-                                "globalTags": null,
-                                "glossaryTerms": null,
-                                "isPartOfKey": false,
-                                "isPartitioningKey": null,
-                                "jsonProps": null
+                                "isPartOfKey": false
                             }
                         ],
-                        "primaryKeys": null,
-                        "foreignKeysSpecs": null,
                         "foreignKeys": [
                             {
                                 "name": "FK_TempSales_SalesReason",
@@ -1487,20 +1244,14 @@
             ]
         }
     },
-    "proposedDelta": null,
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "mssql-test",
-        "registryName": null,
-        "registryVersion": null,
-        "properties": null
+        "runId": "mssql-test"
     }
 },
 {
-    "auditHeader": null,
     "entityType": "dataset",
     "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:mssql,DemoDataAlias.Foo.SalesReason,PROD)",
-    "entityKeyAspect": null,
     "changeType": "UPSERT",
     "aspectName": "subTypes",
     "aspect": {
@@ -1509,17 +1260,12 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "mssql-test",
-        "registryName": null,
-        "registryVersion": null,
-        "properties": null
+        "runId": "mssql-test"
     }
 },
 {
-    "auditHeader": null,
     "entityType": "container",
     "entityUrn": "urn:li:container:a6bea84fba7b05fb5d12630c8e6306ac",
-    "entityKeyAspect": null,
     "changeType": "UPSERT",
     "aspectName": "containerProperties",
     "aspect": {
@@ -1528,17 +1274,26 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "mssql-test",
-        "registryName": null,
-        "registryVersion": null,
-        "properties": null
+        "runId": "mssql-test"
     }
 },
 {
-    "auditHeader": null,
     "entityType": "container",
     "entityUrn": "urn:li:container:a6bea84fba7b05fb5d12630c8e6306ac",
-    "entityKeyAspect": null,
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "value": "{\"removed\": false}",
+        "contentType": "application/json"
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "mssql-test"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:a6bea84fba7b05fb5d12630c8e6306ac",
     "changeType": "UPSERT",
     "aspectName": "dataPlatformInstance",
     "aspect": {
@@ -1547,17 +1302,12 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "mssql-test",
-        "registryName": null,
-        "registryVersion": null,
-        "properties": null
+        "runId": "mssql-test"
     }
 },
 {
-    "auditHeader": null,
     "entityType": "container",
     "entityUrn": "urn:li:container:a6bea84fba7b05fb5d12630c8e6306ac",
-    "entityKeyAspect": null,
     "changeType": "UPSERT",
     "aspectName": "subTypes",
     "aspect": {
@@ -1566,17 +1316,12 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "mssql-test",
-        "registryName": null,
-        "registryVersion": null,
-        "properties": null
+        "runId": "mssql-test"
     }
 },
 {
-    "auditHeader": null,
     "entityType": "container",
     "entityUrn": "urn:li:container:a6bea84fba7b05fb5d12630c8e6306ac",
-    "entityKeyAspect": null,
     "changeType": "UPSERT",
     "aspectName": "container",
     "aspect": {
@@ -1585,17 +1330,12 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "mssql-test",
-        "registryName": null,
-        "registryVersion": null,
-        "properties": null
+        "runId": "mssql-test"
     }
 },
 {
-    "auditHeader": null,
     "entityType": "container",
     "entityUrn": "urn:li:container:9f37bb7baa7ded19cc023e9f644a8cf8",
-    "entityKeyAspect": null,
     "changeType": "UPSERT",
     "aspectName": "containerProperties",
     "aspect": {
@@ -1604,17 +1344,26 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "mssql-test",
-        "registryName": null,
-        "registryVersion": null,
-        "properties": null
+        "runId": "mssql-test"
     }
 },
 {
-    "auditHeader": null,
     "entityType": "container",
     "entityUrn": "urn:li:container:9f37bb7baa7ded19cc023e9f644a8cf8",
-    "entityKeyAspect": null,
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "value": "{\"removed\": false}",
+        "contentType": "application/json"
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "mssql-test"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:9f37bb7baa7ded19cc023e9f644a8cf8",
     "changeType": "UPSERT",
     "aspectName": "dataPlatformInstance",
     "aspect": {
@@ -1623,17 +1372,12 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "mssql-test",
-        "registryName": null,
-        "registryVersion": null,
-        "properties": null
+        "runId": "mssql-test"
     }
 },
 {
-    "auditHeader": null,
     "entityType": "container",
     "entityUrn": "urn:li:container:9f37bb7baa7ded19cc023e9f644a8cf8",
-    "entityKeyAspect": null,
     "changeType": "UPSERT",
     "aspectName": "subTypes",
     "aspect": {
@@ -1642,17 +1386,12 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "mssql-test",
-        "registryName": null,
-        "registryVersion": null,
-        "properties": null
+        "runId": "mssql-test"
     }
 },
 {
-    "auditHeader": null,
     "entityType": "container",
     "entityUrn": "urn:li:container:9f37bb7baa7ded19cc023e9f644a8cf8",
-    "entityKeyAspect": null,
     "changeType": "UPSERT",
     "aspectName": "container",
     "aspect": {
@@ -1661,17 +1400,12 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "mssql-test",
-        "registryName": null,
-        "registryVersion": null,
-        "properties": null
+        "runId": "mssql-test"
     }
 },
 {
-    "auditHeader": null,
     "entityType": "container",
     "entityUrn": "urn:li:container:3f157d8292fb473142f19e2250af537f",
-    "entityKeyAspect": null,
     "changeType": "UPSERT",
     "aspectName": "containerProperties",
     "aspect": {
@@ -1680,17 +1414,26 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "mssql-test",
-        "registryName": null,
-        "registryVersion": null,
-        "properties": null
+        "runId": "mssql-test"
     }
 },
 {
-    "auditHeader": null,
     "entityType": "container",
     "entityUrn": "urn:li:container:3f157d8292fb473142f19e2250af537f",
-    "entityKeyAspect": null,
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "value": "{\"removed\": false}",
+        "contentType": "application/json"
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "mssql-test"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:3f157d8292fb473142f19e2250af537f",
     "changeType": "UPSERT",
     "aspectName": "dataPlatformInstance",
     "aspect": {
@@ -1699,17 +1442,12 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "mssql-test",
-        "registryName": null,
-        "registryVersion": null,
-        "properties": null
+        "runId": "mssql-test"
     }
 },
 {
-    "auditHeader": null,
     "entityType": "container",
     "entityUrn": "urn:li:container:3f157d8292fb473142f19e2250af537f",
-    "entityKeyAspect": null,
     "changeType": "UPSERT",
     "aspectName": "subTypes",
     "aspect": {
@@ -1718,17 +1456,12 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "mssql-test",
-        "registryName": null,
-        "registryVersion": null,
-        "properties": null
+        "runId": "mssql-test"
     }
 },
 {
-    "auditHeader": null,
     "entityType": "container",
     "entityUrn": "urn:li:container:3f157d8292fb473142f19e2250af537f",
-    "entityKeyAspect": null,
     "changeType": "UPSERT",
     "aspectName": "container",
     "aspect": {
@@ -1737,10 +1470,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "mssql-test",
-        "registryName": null,
-        "registryVersion": null,
-        "properties": null
+        "runId": "mssql-test"
     }
 }
 ]

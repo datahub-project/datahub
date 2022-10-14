@@ -1,6 +1,5 @@
 [
 {
-    "auditHeader": null,
     "proposedSnapshot": {
         "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
             "urn": "urn:li:dataset:(urn:li:dataPlatform:file,tests/integration/s3/test_data/local_system/folder_a/folder_aa/folder_aaa/pokemon_abilities_json,UAT)",
@@ -11,11 +10,8 @@
                             "number_of_files": "12",
                             "size_in_bytes": "174060"
                         },
-                        "externalUrl": null,
                         "name": "folder_aaa.pokemon_abilities_json",
-                        "qualifiedName": null,
                         "description": "",
-                        "uri": null,
                         "tags": []
                     }
                 },
@@ -26,17 +22,12 @@
                         "version": 0,
                         "created": {
                             "time": 0,
-                            "actor": "urn:li:corpuser:unknown",
-                            "impersonator": null
+                            "actor": "urn:li:corpuser:unknown"
                         },
                         "lastModified": {
                             "time": 0,
-                            "actor": "urn:li:corpuser:unknown",
-                            "impersonator": null
+                            "actor": "urn:li:corpuser:unknown"
                         },
-                        "deleted": null,
-                        "dataset": null,
-                        "cluster": null,
                         "hash": "",
                         "platformSchema": {
                             "com.linkedin.pegasus2avro.schema.OtherSchema": {
@@ -46,55 +37,31 @@
                         "fields": [
                             {
                                 "fieldPath": "effect_changes",
-                                "jsonPath": null,
                                 "nullable": false,
-                                "description": null,
-                                "created": null,
-                                "lastModified": null,
                                 "type": {
                                     "type": {
-                                        "com.linkedin.pegasus2avro.schema.ArrayType": {
-                                            "nestedType": null
-                                        }
+                                        "com.linkedin.pegasus2avro.schema.ArrayType": {}
                                     }
                                 },
                                 "nativeDataType": "list",
                                 "recursive": false,
-                                "globalTags": null,
-                                "glossaryTerms": null,
-                                "isPartOfKey": false,
-                                "isPartitioningKey": null,
-                                "jsonProps": null
+                                "isPartOfKey": false
                             },
                             {
                                 "fieldPath": "effect_changes.effect_entries",
-                                "jsonPath": null,
                                 "nullable": false,
-                                "description": null,
-                                "created": null,
-                                "lastModified": null,
                                 "type": {
                                     "type": {
-                                        "com.linkedin.pegasus2avro.schema.ArrayType": {
-                                            "nestedType": null
-                                        }
+                                        "com.linkedin.pegasus2avro.schema.ArrayType": {}
                                     }
                                 },
                                 "nativeDataType": "list",
                                 "recursive": false,
-                                "globalTags": null,
-                                "glossaryTerms": null,
-                                "isPartOfKey": false,
-                                "isPartitioningKey": null,
-                                "jsonProps": null
+                                "isPartOfKey": false
                             },
                             {
                                 "fieldPath": "effect_changes.effect_entries.effect",
-                                "jsonPath": null,
                                 "nullable": false,
-                                "description": null,
-                                "created": null,
-                                "lastModified": null,
                                 "type": {
                                     "type": {
                                         "com.linkedin.pegasus2avro.schema.StringType": {}
@@ -102,19 +69,11 @@
                                 },
                                 "nativeDataType": "str",
                                 "recursive": false,
-                                "globalTags": null,
-                                "glossaryTerms": null,
-                                "isPartOfKey": false,
-                                "isPartitioningKey": null,
-                                "jsonProps": null
+                                "isPartOfKey": false
                             },
                             {
                                 "fieldPath": "effect_changes.effect_entries.language",
-                                "jsonPath": null,
                                 "nullable": false,
-                                "description": null,
-                                "created": null,
-                                "lastModified": null,
                                 "type": {
                                     "type": {
                                         "com.linkedin.pegasus2avro.schema.RecordType": {}
@@ -122,19 +81,11 @@
                                 },
                                 "nativeDataType": "dict",
                                 "recursive": false,
-                                "globalTags": null,
-                                "glossaryTerms": null,
-                                "isPartOfKey": false,
-                                "isPartitioningKey": null,
-                                "jsonProps": null
+                                "isPartOfKey": false
                             },
                             {
                                 "fieldPath": "effect_changes.effect_entries.language.name",
-                                "jsonPath": null,
                                 "nullable": false,
-                                "description": null,
-                                "created": null,
-                                "lastModified": null,
                                 "type": {
                                     "type": {
                                         "com.linkedin.pegasus2avro.schema.StringType": {}
@@ -142,19 +93,11 @@
                                 },
                                 "nativeDataType": "str",
                                 "recursive": false,
-                                "globalTags": null,
-                                "glossaryTerms": null,
-                                "isPartOfKey": false,
-                                "isPartitioningKey": null,
-                                "jsonProps": null
+                                "isPartOfKey": false
                             },
                             {
                                 "fieldPath": "effect_changes.effect_entries.language.url",
-                                "jsonPath": null,
                                 "nullable": false,
-                                "description": null,
-                                "created": null,
-                                "lastModified": null,
                                 "type": {
                                     "type": {
                                         "com.linkedin.pegasus2avro.schema.StringType": {}
@@ -162,19 +105,11 @@
                                 },
                                 "nativeDataType": "str",
                                 "recursive": false,
-                                "globalTags": null,
-                                "glossaryTerms": null,
-                                "isPartOfKey": false,
-                                "isPartitioningKey": null,
-                                "jsonProps": null
+                                "isPartOfKey": false
                             },
                             {
                                 "fieldPath": "effect_changes.version_group",
-                                "jsonPath": null,
                                 "nullable": false,
-                                "description": null,
-                                "created": null,
-                                "lastModified": null,
                                 "type": {
                                     "type": {
                                         "com.linkedin.pegasus2avro.schema.RecordType": {}
@@ -182,19 +117,11 @@
                                 },
                                 "nativeDataType": "dict",
                                 "recursive": false,
-                                "globalTags": null,
-                                "glossaryTerms": null,
-                                "isPartOfKey": false,
-                                "isPartitioningKey": null,
-                                "jsonProps": null
+                                "isPartOfKey": false
                             },
                             {
                                 "fieldPath": "effect_changes.version_group.name",
-                                "jsonPath": null,
                                 "nullable": false,
-                                "description": null,
-                                "created": null,
-                                "lastModified": null,
                                 "type": {
                                     "type": {
                                         "com.linkedin.pegasus2avro.schema.StringType": {}
@@ -202,19 +129,11 @@
                                 },
                                 "nativeDataType": "str",
                                 "recursive": false,
-                                "globalTags": null,
-                                "glossaryTerms": null,
-                                "isPartOfKey": false,
-                                "isPartitioningKey": null,
-                                "jsonProps": null
+                                "isPartOfKey": false
                             },
                             {
                                 "fieldPath": "effect_changes.version_group.url",
-                                "jsonPath": null,
                                 "nullable": false,
-                                "description": null,
-                                "created": null,
-                                "lastModified": null,
                                 "type": {
                                     "type": {
                                         "com.linkedin.pegasus2avro.schema.StringType": {}
@@ -222,41 +141,23 @@
                                 },
                                 "nativeDataType": "str",
                                 "recursive": false,
-                                "globalTags": null,
-                                "glossaryTerms": null,
-                                "isPartOfKey": false,
-                                "isPartitioningKey": null,
-                                "jsonProps": null
+                                "isPartOfKey": false
                             },
                             {
                                 "fieldPath": "effect_entries",
-                                "jsonPath": null,
                                 "nullable": false,
-                                "description": null,
-                                "created": null,
-                                "lastModified": null,
                                 "type": {
                                     "type": {
-                                        "com.linkedin.pegasus2avro.schema.ArrayType": {
-                                            "nestedType": null
-                                        }
+                                        "com.linkedin.pegasus2avro.schema.ArrayType": {}
                                     }
                                 },
                                 "nativeDataType": "list",
                                 "recursive": false,
-                                "globalTags": null,
-                                "glossaryTerms": null,
-                                "isPartOfKey": false,
-                                "isPartitioningKey": null,
-                                "jsonProps": null
+                                "isPartOfKey": false
                             },
                             {
                                 "fieldPath": "effect_entries.effect",
-                                "jsonPath": null,
                                 "nullable": false,
-                                "description": null,
-                                "created": null,
-                                "lastModified": null,
                                 "type": {
                                     "type": {
                                         "com.linkedin.pegasus2avro.schema.StringType": {}
@@ -264,19 +165,11 @@
                                 },
                                 "nativeDataType": "str",
                                 "recursive": false,
-                                "globalTags": null,
-                                "glossaryTerms": null,
-                                "isPartOfKey": false,
-                                "isPartitioningKey": null,
-                                "jsonProps": null
+                                "isPartOfKey": false
                             },
                             {
                                 "fieldPath": "effect_entries.language",
-                                "jsonPath": null,
                                 "nullable": false,
-                                "description": null,
-                                "created": null,
-                                "lastModified": null,
                                 "type": {
                                     "type": {
                                         "com.linkedin.pegasus2avro.schema.RecordType": {}
@@ -284,19 +177,11 @@
                                 },
                                 "nativeDataType": "dict",
                                 "recursive": false,
-                                "globalTags": null,
-                                "glossaryTerms": null,
-                                "isPartOfKey": false,
-                                "isPartitioningKey": null,
-                                "jsonProps": null
+                                "isPartOfKey": false
                             },
                             {
                                 "fieldPath": "effect_entries.language.name",
-                                "jsonPath": null,
                                 "nullable": false,
-                                "description": null,
-                                "created": null,
-                                "lastModified": null,
                                 "type": {
                                     "type": {
                                         "com.linkedin.pegasus2avro.schema.StringType": {}
@@ -304,19 +189,11 @@
                                 },
                                 "nativeDataType": "str",
                                 "recursive": false,
-                                "globalTags": null,
-                                "glossaryTerms": null,
-                                "isPartOfKey": false,
-                                "isPartitioningKey": null,
-                                "jsonProps": null
+                                "isPartOfKey": false
                             },
                             {
                                 "fieldPath": "effect_entries.language.url",
-                                "jsonPath": null,
                                 "nullable": false,
-                                "description": null,
-                                "created": null,
-                                "lastModified": null,
                                 "type": {
                                     "type": {
                                         "com.linkedin.pegasus2avro.schema.StringType": {}
@@ -324,19 +201,11 @@
                                 },
                                 "nativeDataType": "str",
                                 "recursive": false,
-                                "globalTags": null,
-                                "glossaryTerms": null,
-                                "isPartOfKey": false,
-                                "isPartitioningKey": null,
-                                "jsonProps": null
+                                "isPartOfKey": false
                             },
                             {
                                 "fieldPath": "effect_entries.short_effect",
-                                "jsonPath": null,
                                 "nullable": false,
-                                "description": null,
-                                "created": null,
-                                "lastModified": null,
                                 "type": {
                                     "type": {
                                         "com.linkedin.pegasus2avro.schema.StringType": {}
@@ -344,41 +213,23 @@
                                 },
                                 "nativeDataType": "str",
                                 "recursive": false,
-                                "globalTags": null,
-                                "glossaryTerms": null,
-                                "isPartOfKey": false,
-                                "isPartitioningKey": null,
-                                "jsonProps": null
+                                "isPartOfKey": false
                             },
                             {
                                 "fieldPath": "flavor_text_entries",
-                                "jsonPath": null,
                                 "nullable": false,
-                                "description": null,
-                                "created": null,
-                                "lastModified": null,
                                 "type": {
                                     "type": {
-                                        "com.linkedin.pegasus2avro.schema.ArrayType": {
-                                            "nestedType": null
-                                        }
+                                        "com.linkedin.pegasus2avro.schema.ArrayType": {}
                                     }
                                 },
                                 "nativeDataType": "list",
                                 "recursive": false,
-                                "globalTags": null,
-                                "glossaryTerms": null,
-                                "isPartOfKey": false,
-                                "isPartitioningKey": null,
-                                "jsonProps": null
+                                "isPartOfKey": false
                             },
                             {
                                 "fieldPath": "flavor_text_entries.flavor_text",
-                                "jsonPath": null,
                                 "nullable": false,
-                                "description": null,
-                                "created": null,
-                                "lastModified": null,
                                 "type": {
                                     "type": {
                                         "com.linkedin.pegasus2avro.schema.StringType": {}
@@ -386,19 +237,11 @@
                                 },
                                 "nativeDataType": "str",
                                 "recursive": false,
-                                "globalTags": null,
-                                "glossaryTerms": null,
-                                "isPartOfKey": false,
-                                "isPartitioningKey": null,
-                                "jsonProps": null
+                                "isPartOfKey": false
                             },
                             {
                                 "fieldPath": "flavor_text_entries.language",
-                                "jsonPath": null,
                                 "nullable": false,
-                                "description": null,
-                                "created": null,
-                                "lastModified": null,
                                 "type": {
                                     "type": {
                                         "com.linkedin.pegasus2avro.schema.RecordType": {}
@@ -406,19 +249,11 @@
                                 },
                                 "nativeDataType": "dict",
                                 "recursive": false,
-                                "globalTags": null,
-                                "glossaryTerms": null,
-                                "isPartOfKey": false,
-                                "isPartitioningKey": null,
-                                "jsonProps": null
+                                "isPartOfKey": false
                             },
                             {
                                 "fieldPath": "flavor_text_entries.language.name",
-                                "jsonPath": null,
                                 "nullable": false,
-                                "description": null,
-                                "created": null,
-                                "lastModified": null,
                                 "type": {
                                     "type": {
                                         "com.linkedin.pegasus2avro.schema.StringType": {}
@@ -426,19 +261,11 @@
                                 },
                                 "nativeDataType": "str",
                                 "recursive": false,
-                                "globalTags": null,
-                                "glossaryTerms": null,
-                                "isPartOfKey": false,
-                                "isPartitioningKey": null,
-                                "jsonProps": null
+                                "isPartOfKey": false
                             },
                             {
                                 "fieldPath": "flavor_text_entries.language.url",
-                                "jsonPath": null,
                                 "nullable": false,
-                                "description": null,
-                                "created": null,
-                                "lastModified": null,
                                 "type": {
                                     "type": {
                                         "com.linkedin.pegasus2avro.schema.StringType": {}
@@ -446,19 +273,11 @@
                                 },
                                 "nativeDataType": "str",
                                 "recursive": false,
-                                "globalTags": null,
-                                "glossaryTerms": null,
-                                "isPartOfKey": false,
-                                "isPartitioningKey": null,
-                                "jsonProps": null
+                                "isPartOfKey": false
                             },
                             {
                                 "fieldPath": "flavor_text_entries.version_group",
-                                "jsonPath": null,
                                 "nullable": false,
-                                "description": null,
-                                "created": null,
-                                "lastModified": null,
                                 "type": {
                                     "type": {
                                         "com.linkedin.pegasus2avro.schema.RecordType": {}
@@ -466,19 +285,11 @@
                                 },
                                 "nativeDataType": "dict",
                                 "recursive": false,
-                                "globalTags": null,
-                                "glossaryTerms": null,
-                                "isPartOfKey": false,
-                                "isPartitioningKey": null,
-                                "jsonProps": null
+                                "isPartOfKey": false
                             },
                             {
                                 "fieldPath": "flavor_text_entries.version_group.name",
-                                "jsonPath": null,
                                 "nullable": false,
-                                "description": null,
-                                "created": null,
-                                "lastModified": null,
                                 "type": {
                                     "type": {
                                         "com.linkedin.pegasus2avro.schema.StringType": {}
@@ -486,19 +297,11 @@
                                 },
                                 "nativeDataType": "str",
                                 "recursive": false,
-                                "globalTags": null,
-                                "glossaryTerms": null,
-                                "isPartOfKey": false,
-                                "isPartitioningKey": null,
-                                "jsonProps": null
+                                "isPartOfKey": false
                             },
                             {
                                 "fieldPath": "flavor_text_entries.version_group.url",
-                                "jsonPath": null,
                                 "nullable": false,
-                                "description": null,
-                                "created": null,
-                                "lastModified": null,
                                 "type": {
                                     "type": {
                                         "com.linkedin.pegasus2avro.schema.StringType": {}
@@ -506,19 +309,11 @@
                                 },
                                 "nativeDataType": "str",
                                 "recursive": false,
-                                "globalTags": null,
-                                "glossaryTerms": null,
-                                "isPartOfKey": false,
-                                "isPartitioningKey": null,
-                                "jsonProps": null
+                                "isPartOfKey": false
                             },
                             {
                                 "fieldPath": "generation",
-                                "jsonPath": null,
                                 "nullable": false,
-                                "description": null,
-                                "created": null,
-                                "lastModified": null,
                                 "type": {
                                     "type": {
                                         "com.linkedin.pegasus2avro.schema.RecordType": {}
@@ -526,19 +321,11 @@
                                 },
                                 "nativeDataType": "dict",
                                 "recursive": false,
-                                "globalTags": null,
-                                "glossaryTerms": null,
-                                "isPartOfKey": false,
-                                "isPartitioningKey": null,
-                                "jsonProps": null
+                                "isPartOfKey": false
                             },
                             {
                                 "fieldPath": "generation.name",
-                                "jsonPath": null,
                                 "nullable": false,
-                                "description": null,
-                                "created": null,
-                                "lastModified": null,
                                 "type": {
                                     "type": {
                                         "com.linkedin.pegasus2avro.schema.StringType": {}
@@ -546,19 +333,11 @@
                                 },
                                 "nativeDataType": "str",
                                 "recursive": false,
-                                "globalTags": null,
-                                "glossaryTerms": null,
-                                "isPartOfKey": false,
-                                "isPartitioningKey": null,
-                                "jsonProps": null
+                                "isPartOfKey": false
                             },
                             {
                                 "fieldPath": "generation.url",
-                                "jsonPath": null,
                                 "nullable": false,
-                                "description": null,
-                                "created": null,
-                                "lastModified": null,
                                 "type": {
                                     "type": {
                                         "com.linkedin.pegasus2avro.schema.StringType": {}
@@ -566,19 +345,11 @@
                                 },
                                 "nativeDataType": "str",
                                 "recursive": false,
-                                "globalTags": null,
-                                "glossaryTerms": null,
-                                "isPartOfKey": false,
-                                "isPartitioningKey": null,
-                                "jsonProps": null
+                                "isPartOfKey": false
                             },
                             {
                                 "fieldPath": "id",
-                                "jsonPath": null,
                                 "nullable": false,
-                                "description": null,
-                                "created": null,
-                                "lastModified": null,
                                 "type": {
                                     "type": {
                                         "com.linkedin.pegasus2avro.schema.NumberType": {}
@@ -586,19 +357,11 @@
                                 },
                                 "nativeDataType": "int",
                                 "recursive": false,
-                                "globalTags": null,
-                                "glossaryTerms": null,
-                                "isPartOfKey": false,
-                                "isPartitioningKey": null,
-                                "jsonProps": null
+                                "isPartOfKey": false
                             },
                             {
                                 "fieldPath": "is_main_series",
-                                "jsonPath": null,
                                 "nullable": false,
-                                "description": null,
-                                "created": null,
-                                "lastModified": null,
                                 "type": {
                                     "type": {
                                         "com.linkedin.pegasus2avro.schema.BooleanType": {}
@@ -606,19 +369,11 @@
                                 },
                                 "nativeDataType": "bool",
                                 "recursive": false,
-                                "globalTags": null,
-                                "glossaryTerms": null,
-                                "isPartOfKey": false,
-                                "isPartitioningKey": null,
-                                "jsonProps": null
+                                "isPartOfKey": false
                             },
                             {
                                 "fieldPath": "name",
-                                "jsonPath": null,
                                 "nullable": false,
-                                "description": null,
-                                "created": null,
-                                "lastModified": null,
                                 "type": {
                                     "type": {
                                         "com.linkedin.pegasus2avro.schema.StringType": {}
@@ -626,41 +381,23 @@
                                 },
                                 "nativeDataType": "str",
                                 "recursive": false,
-                                "globalTags": null,
-                                "glossaryTerms": null,
-                                "isPartOfKey": false,
-                                "isPartitioningKey": null,
-                                "jsonProps": null
+                                "isPartOfKey": false
                             },
                             {
                                 "fieldPath": "names",
-                                "jsonPath": null,
                                 "nullable": false,
-                                "description": null,
-                                "created": null,
-                                "lastModified": null,
                                 "type": {
                                     "type": {
-                                        "com.linkedin.pegasus2avro.schema.ArrayType": {
-                                            "nestedType": null
-                                        }
+                                        "com.linkedin.pegasus2avro.schema.ArrayType": {}
                                     }
                                 },
                                 "nativeDataType": "list",
                                 "recursive": false,
-                                "globalTags": null,
-                                "glossaryTerms": null,
-                                "isPartOfKey": false,
-                                "isPartitioningKey": null,
-                                "jsonProps": null
+                                "isPartOfKey": false
                             },
                             {
                                 "fieldPath": "names.language",
-                                "jsonPath": null,
                                 "nullable": false,
-                                "description": null,
-                                "created": null,
-                                "lastModified": null,
                                 "type": {
                                     "type": {
                                         "com.linkedin.pegasus2avro.schema.RecordType": {}
@@ -668,19 +405,11 @@
                                 },
                                 "nativeDataType": "dict",
                                 "recursive": false,
-                                "globalTags": null,
-                                "glossaryTerms": null,
-                                "isPartOfKey": false,
-                                "isPartitioningKey": null,
-                                "jsonProps": null
+                                "isPartOfKey": false
                             },
                             {
                                 "fieldPath": "names.language.name",
-                                "jsonPath": null,
                                 "nullable": false,
-                                "description": null,
-                                "created": null,
-                                "lastModified": null,
                                 "type": {
                                     "type": {
                                         "com.linkedin.pegasus2avro.schema.StringType": {}
@@ -688,19 +417,11 @@
                                 },
                                 "nativeDataType": "str",
                                 "recursive": false,
-                                "globalTags": null,
-                                "glossaryTerms": null,
-                                "isPartOfKey": false,
-                                "isPartitioningKey": null,
-                                "jsonProps": null
+                                "isPartOfKey": false
                             },
                             {
                                 "fieldPath": "names.language.url",
-                                "jsonPath": null,
                                 "nullable": false,
-                                "description": null,
-                                "created": null,
-                                "lastModified": null,
                                 "type": {
                                     "type": {
                                         "com.linkedin.pegasus2avro.schema.StringType": {}
@@ -708,19 +429,11 @@
                                 },
                                 "nativeDataType": "str",
                                 "recursive": false,
-                                "globalTags": null,
-                                "glossaryTerms": null,
-                                "isPartOfKey": false,
-                                "isPartitioningKey": null,
-                                "jsonProps": null
+                                "isPartOfKey": false
                             },
                             {
                                 "fieldPath": "names.name",
-                                "jsonPath": null,
                                 "nullable": false,
-                                "description": null,
-                                "created": null,
-                                "lastModified": null,
                                 "type": {
                                     "type": {
                                         "com.linkedin.pegasus2avro.schema.StringType": {}
@@ -728,41 +441,23 @@
                                 },
                                 "nativeDataType": "str",
                                 "recursive": false,
-                                "globalTags": null,
-                                "glossaryTerms": null,
-                                "isPartOfKey": false,
-                                "isPartitioningKey": null,
-                                "jsonProps": null
+                                "isPartOfKey": false
                             },
                             {
                                 "fieldPath": "pokemon",
-                                "jsonPath": null,
                                 "nullable": false,
-                                "description": null,
-                                "created": null,
-                                "lastModified": null,
                                 "type": {
                                     "type": {
-                                        "com.linkedin.pegasus2avro.schema.ArrayType": {
-                                            "nestedType": null
-                                        }
+                                        "com.linkedin.pegasus2avro.schema.ArrayType": {}
                                     }
                                 },
                                 "nativeDataType": "list",
                                 "recursive": false,
-                                "globalTags": null,
-                                "glossaryTerms": null,
-                                "isPartOfKey": false,
-                                "isPartitioningKey": null,
-                                "jsonProps": null
+                                "isPartOfKey": false
                             },
                             {
                                 "fieldPath": "pokemon.is_hidden",
-                                "jsonPath": null,
                                 "nullable": false,
-                                "description": null,
-                                "created": null,
-                                "lastModified": null,
                                 "type": {
                                     "type": {
                                         "com.linkedin.pegasus2avro.schema.BooleanType": {}
@@ -770,19 +465,11 @@
                                 },
                                 "nativeDataType": "bool",
                                 "recursive": false,
-                                "globalTags": null,
-                                "glossaryTerms": null,
-                                "isPartOfKey": false,
-                                "isPartitioningKey": null,
-                                "jsonProps": null
+                                "isPartOfKey": false
                             },
                             {
                                 "fieldPath": "pokemon.pokemon",
-                                "jsonPath": null,
                                 "nullable": false,
-                                "description": null,
-                                "created": null,
-                                "lastModified": null,
                                 "type": {
                                     "type": {
                                         "com.linkedin.pegasus2avro.schema.RecordType": {}
@@ -790,19 +477,11 @@
                                 },
                                 "nativeDataType": "dict",
                                 "recursive": false,
-                                "globalTags": null,
-                                "glossaryTerms": null,
-                                "isPartOfKey": false,
-                                "isPartitioningKey": null,
-                                "jsonProps": null
+                                "isPartOfKey": false
                             },
                             {
                                 "fieldPath": "pokemon.pokemon.name",
-                                "jsonPath": null,
                                 "nullable": false,
-                                "description": null,
-                                "created": null,
-                                "lastModified": null,
                                 "type": {
                                     "type": {
                                         "com.linkedin.pegasus2avro.schema.StringType": {}
@@ -810,19 +489,11 @@
                                 },
                                 "nativeDataType": "str",
                                 "recursive": false,
-                                "globalTags": null,
-                                "glossaryTerms": null,
-                                "isPartOfKey": false,
-                                "isPartitioningKey": null,
-                                "jsonProps": null
+                                "isPartOfKey": false
                             },
                             {
                                 "fieldPath": "pokemon.pokemon.url",
-                                "jsonPath": null,
                                 "nullable": false,
-                                "description": null,
-                                "created": null,
-                                "lastModified": null,
                                 "type": {
                                     "type": {
                                         "com.linkedin.pegasus2avro.schema.StringType": {}
@@ -830,19 +501,11 @@
                                 },
                                 "nativeDataType": "str",
                                 "recursive": false,
-                                "globalTags": null,
-                                "glossaryTerms": null,
-                                "isPartOfKey": false,
-                                "isPartitioningKey": null,
-                                "jsonProps": null
+                                "isPartOfKey": false
                             },
                             {
                                 "fieldPath": "pokemon.slot",
-                                "jsonPath": null,
                                 "nullable": false,
-                                "description": null,
-                                "created": null,
-                                "lastModified": null,
                                 "type": {
                                     "type": {
                                         "com.linkedin.pegasus2avro.schema.NumberType": {}
@@ -850,35 +513,22 @@
                                 },
                                 "nativeDataType": "int",
                                 "recursive": false,
-                                "globalTags": null,
-                                "glossaryTerms": null,
-                                "isPartOfKey": false,
-                                "isPartitioningKey": null,
-                                "jsonProps": null
+                                "isPartOfKey": false
                             }
-                        ],
-                        "primaryKeys": null,
-                        "foreignKeysSpecs": null,
-                        "foreignKeys": null
+                        ]
                     }
                 }
             ]
         }
     },
-    "proposedDelta": null,
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "folder_partition_keyval.json",
-        "registryName": null,
-        "registryVersion": null,
-        "properties": null
+        "runId": "folder_partition_keyval.json"
     }
 },
 {
-    "auditHeader": null,
     "entityType": "container",
     "entityUrn": "urn:li:container:583fb3ef3a2b226ea2630157568eb7dc",
-    "entityKeyAspect": null,
     "changeType": "UPSERT",
     "aspectName": "containerProperties",
     "aspect": {
@@ -887,17 +537,26 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "folder_partition_keyval.json",
-        "registryName": null,
-        "registryVersion": null,
-        "properties": null
+        "runId": "folder_partition_keyval.json"
     }
 },
 {
-    "auditHeader": null,
     "entityType": "container",
     "entityUrn": "urn:li:container:583fb3ef3a2b226ea2630157568eb7dc",
-    "entityKeyAspect": null,
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "value": "{\"removed\": false}",
+        "contentType": "application/json"
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "folder_partition_keyval.json"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:583fb3ef3a2b226ea2630157568eb7dc",
     "changeType": "UPSERT",
     "aspectName": "dataPlatformInstance",
     "aspect": {
@@ -906,17 +565,12 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "folder_partition_keyval.json",
-        "registryName": null,
-        "registryVersion": null,
-        "properties": null
+        "runId": "folder_partition_keyval.json"
     }
 },
 {
-    "auditHeader": null,
     "entityType": "container",
     "entityUrn": "urn:li:container:583fb3ef3a2b226ea2630157568eb7dc",
-    "entityKeyAspect": null,
     "changeType": "UPSERT",
     "aspectName": "subTypes",
     "aspect": {
@@ -925,17 +579,12 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "folder_partition_keyval.json",
-        "registryName": null,
-        "registryVersion": null,
-        "properties": null
+        "runId": "folder_partition_keyval.json"
     }
 },
 {
-    "auditHeader": null,
     "entityType": "container",
     "entityUrn": "urn:li:container:bc816cf2df9acd90fcefa42dc425d886",
-    "entityKeyAspect": null,
     "changeType": "UPSERT",
     "aspectName": "containerProperties",
     "aspect": {
@@ -944,17 +593,26 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "folder_partition_keyval.json",
-        "registryName": null,
-        "registryVersion": null,
-        "properties": null
+        "runId": "folder_partition_keyval.json"
     }
 },
 {
-    "auditHeader": null,
     "entityType": "container",
     "entityUrn": "urn:li:container:bc816cf2df9acd90fcefa42dc425d886",
-    "entityKeyAspect": null,
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "value": "{\"removed\": false}",
+        "contentType": "application/json"
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "folder_partition_keyval.json"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:bc816cf2df9acd90fcefa42dc425d886",
     "changeType": "UPSERT",
     "aspectName": "dataPlatformInstance",
     "aspect": {
@@ -963,17 +621,12 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "folder_partition_keyval.json",
-        "registryName": null,
-        "registryVersion": null,
-        "properties": null
+        "runId": "folder_partition_keyval.json"
     }
 },
 {
-    "auditHeader": null,
     "entityType": "container",
     "entityUrn": "urn:li:container:bc816cf2df9acd90fcefa42dc425d886",
-    "entityKeyAspect": null,
     "changeType": "UPSERT",
     "aspectName": "subTypes",
     "aspect": {
@@ -982,17 +635,12 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "folder_partition_keyval.json",
-        "registryName": null,
-        "registryVersion": null,
-        "properties": null
+        "runId": "folder_partition_keyval.json"
     }
 },
 {
-    "auditHeader": null,
     "entityType": "container",
     "entityUrn": "urn:li:container:bc816cf2df9acd90fcefa42dc425d886",
-    "entityKeyAspect": null,
     "changeType": "UPSERT",
     "aspectName": "container",
     "aspect": {
@@ -1001,17 +649,12 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "folder_partition_keyval.json",
-        "registryName": null,
-        "registryVersion": null,
-        "properties": null
+        "runId": "folder_partition_keyval.json"
     }
 },
 {
-    "auditHeader": null,
     "entityType": "container",
     "entityUrn": "urn:li:container:d20e88ff88a6de6e53e437d342e218f4",
-    "entityKeyAspect": null,
     "changeType": "UPSERT",
     "aspectName": "containerProperties",
     "aspect": {
@@ -1020,17 +663,26 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "folder_partition_keyval.json",
-        "registryName": null,
-        "registryVersion": null,
-        "properties": null
+        "runId": "folder_partition_keyval.json"
     }
 },
 {
-    "auditHeader": null,
     "entityType": "container",
     "entityUrn": "urn:li:container:d20e88ff88a6de6e53e437d342e218f4",
-    "entityKeyAspect": null,
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "value": "{\"removed\": false}",
+        "contentType": "application/json"
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "folder_partition_keyval.json"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:d20e88ff88a6de6e53e437d342e218f4",
     "changeType": "UPSERT",
     "aspectName": "dataPlatformInstance",
     "aspect": {
@@ -1039,17 +691,12 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "folder_partition_keyval.json",
-        "registryName": null,
-        "registryVersion": null,
-        "properties": null
+        "runId": "folder_partition_keyval.json"
     }
 },
 {
-    "auditHeader": null,
     "entityType": "container",
     "entityUrn": "urn:li:container:d20e88ff88a6de6e53e437d342e218f4",
-    "entityKeyAspect": null,
     "changeType": "UPSERT",
     "aspectName": "subTypes",
     "aspect": {
@@ -1058,17 +705,12 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "folder_partition_keyval.json",
-        "registryName": null,
-        "registryVersion": null,
-        "properties": null
+        "runId": "folder_partition_keyval.json"
     }
 },
 {
-    "auditHeader": null,
     "entityType": "container",
     "entityUrn": "urn:li:container:d20e88ff88a6de6e53e437d342e218f4",
-    "entityKeyAspect": null,
     "changeType": "UPSERT",
     "aspectName": "container",
     "aspect": {
@@ -1077,17 +719,12 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "folder_partition_keyval.json",
-        "registryName": null,
-        "registryVersion": null,
-        "properties": null
+        "runId": "folder_partition_keyval.json"
     }
 },
 {
-    "auditHeader": null,
     "entityType": "container",
     "entityUrn": "urn:li:container:f6ff9cd64806a7bb00e2e3bf37acca50",
-    "entityKeyAspect": null,
     "changeType": "UPSERT",
     "aspectName": "containerProperties",
     "aspect": {
@@ -1096,17 +733,26 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "folder_partition_keyval.json",
-        "registryName": null,
-        "registryVersion": null,
-        "properties": null
+        "runId": "folder_partition_keyval.json"
     }
 },
 {
-    "auditHeader": null,
     "entityType": "container",
     "entityUrn": "urn:li:container:f6ff9cd64806a7bb00e2e3bf37acca50",
-    "entityKeyAspect": null,
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "value": "{\"removed\": false}",
+        "contentType": "application/json"
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "folder_partition_keyval.json"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:f6ff9cd64806a7bb00e2e3bf37acca50",
     "changeType": "UPSERT",
     "aspectName": "dataPlatformInstance",
     "aspect": {
@@ -1115,17 +761,12 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "folder_partition_keyval.json",
-        "registryName": null,
-        "registryVersion": null,
-        "properties": null
+        "runId": "folder_partition_keyval.json"
     }
 },
 {
-    "auditHeader": null,
     "entityType": "container",
     "entityUrn": "urn:li:container:f6ff9cd64806a7bb00e2e3bf37acca50",
-    "entityKeyAspect": null,
     "changeType": "UPSERT",
     "aspectName": "subTypes",
     "aspect": {
@@ -1134,17 +775,12 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "folder_partition_keyval.json",
-        "registryName": null,
-        "registryVersion": null,
-        "properties": null
+        "runId": "folder_partition_keyval.json"
     }
 },
 {
-    "auditHeader": null,
     "entityType": "container",
     "entityUrn": "urn:li:container:f6ff9cd64806a7bb00e2e3bf37acca50",
-    "entityKeyAspect": null,
     "changeType": "UPSERT",
     "aspectName": "container",
     "aspect": {
@@ -1153,17 +789,12 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "folder_partition_keyval.json",
-        "registryName": null,
-        "registryVersion": null,
-        "properties": null
+        "runId": "folder_partition_keyval.json"
     }
 },
 {
-    "auditHeader": null,
     "entityType": "container",
     "entityUrn": "urn:li:container:93525defb812252106d3b0c08a55e39a",
-    "entityKeyAspect": null,
     "changeType": "UPSERT",
     "aspectName": "containerProperties",
     "aspect": {
@@ -1172,17 +803,26 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "folder_partition_keyval.json",
-        "registryName": null,
-        "registryVersion": null,
-        "properties": null
+        "runId": "folder_partition_keyval.json"
     }
 },
 {
-    "auditHeader": null,
     "entityType": "container",
     "entityUrn": "urn:li:container:93525defb812252106d3b0c08a55e39a",
-    "entityKeyAspect": null,
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "value": "{\"removed\": false}",
+        "contentType": "application/json"
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "folder_partition_keyval.json"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:93525defb812252106d3b0c08a55e39a",
     "changeType": "UPSERT",
     "aspectName": "dataPlatformInstance",
     "aspect": {
@@ -1191,17 +831,12 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "folder_partition_keyval.json",
-        "registryName": null,
-        "registryVersion": null,
-        "properties": null
+        "runId": "folder_partition_keyval.json"
     }
 },
 {
-    "auditHeader": null,
     "entityType": "container",
     "entityUrn": "urn:li:container:93525defb812252106d3b0c08a55e39a",
-    "entityKeyAspect": null,
     "changeType": "UPSERT",
     "aspectName": "subTypes",
     "aspect": {
@@ -1210,17 +845,12 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "folder_partition_keyval.json",
-        "registryName": null,
-        "registryVersion": null,
-        "properties": null
+        "runId": "folder_partition_keyval.json"
     }
 },
 {
-    "auditHeader": null,
     "entityType": "container",
     "entityUrn": "urn:li:container:93525defb812252106d3b0c08a55e39a",
-    "entityKeyAspect": null,
     "changeType": "UPSERT",
     "aspectName": "container",
     "aspect": {
@@ -1229,17 +859,12 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "folder_partition_keyval.json",
-        "registryName": null,
-        "registryVersion": null,
-        "properties": null
+        "runId": "folder_partition_keyval.json"
     }
 },
 {
-    "auditHeader": null,
     "entityType": "container",
     "entityUrn": "urn:li:container:48a8653fc4afb55b12cd8d0280e09156",
-    "entityKeyAspect": null,
     "changeType": "UPSERT",
     "aspectName": "containerProperties",
     "aspect": {
@@ -1248,17 +873,26 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "folder_partition_keyval.json",
-        "registryName": null,
-        "registryVersion": null,
-        "properties": null
+        "runId": "folder_partition_keyval.json"
     }
 },
 {
-    "auditHeader": null,
     "entityType": "container",
     "entityUrn": "urn:li:container:48a8653fc4afb55b12cd8d0280e09156",
-    "entityKeyAspect": null,
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "value": "{\"removed\": false}",
+        "contentType": "application/json"
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "folder_partition_keyval.json"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:48a8653fc4afb55b12cd8d0280e09156",
     "changeType": "UPSERT",
     "aspectName": "dataPlatformInstance",
     "aspect": {
@@ -1267,17 +901,12 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "folder_partition_keyval.json",
-        "registryName": null,
-        "registryVersion": null,
-        "properties": null
+        "runId": "folder_partition_keyval.json"
     }
 },
 {
-    "auditHeader": null,
     "entityType": "container",
     "entityUrn": "urn:li:container:48a8653fc4afb55b12cd8d0280e09156",
-    "entityKeyAspect": null,
     "changeType": "UPSERT",
     "aspectName": "subTypes",
     "aspect": {
@@ -1286,17 +915,12 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "folder_partition_keyval.json",
-        "registryName": null,
-        "registryVersion": null,
-        "properties": null
+        "runId": "folder_partition_keyval.json"
     }
 },
 {
-    "auditHeader": null,
     "entityType": "container",
     "entityUrn": "urn:li:container:48a8653fc4afb55b12cd8d0280e09156",
-    "entityKeyAspect": null,
     "changeType": "UPSERT",
     "aspectName": "container",
     "aspect": {
@@ -1305,17 +929,12 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "folder_partition_keyval.json",
-        "registryName": null,
-        "registryVersion": null,
-        "properties": null
+        "runId": "folder_partition_keyval.json"
     }
 },
 {
-    "auditHeader": null,
     "entityType": "container",
     "entityUrn": "urn:li:container:98a716614da5246426edd48260406364",
-    "entityKeyAspect": null,
     "changeType": "UPSERT",
     "aspectName": "containerProperties",
     "aspect": {
@@ -1324,17 +943,26 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "folder_partition_keyval.json",
-        "registryName": null,
-        "registryVersion": null,
-        "properties": null
+        "runId": "folder_partition_keyval.json"
     }
 },
 {
-    "auditHeader": null,
     "entityType": "container",
     "entityUrn": "urn:li:container:98a716614da5246426edd48260406364",
-    "entityKeyAspect": null,
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "value": "{\"removed\": false}",
+        "contentType": "application/json"
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "folder_partition_keyval.json"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:98a716614da5246426edd48260406364",
     "changeType": "UPSERT",
     "aspectName": "dataPlatformInstance",
     "aspect": {
@@ -1343,17 +971,12 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "folder_partition_keyval.json",
-        "registryName": null,
-        "registryVersion": null,
-        "properties": null
+        "runId": "folder_partition_keyval.json"
     }
 },
 {
-    "auditHeader": null,
     "entityType": "container",
     "entityUrn": "urn:li:container:98a716614da5246426edd48260406364",
-    "entityKeyAspect": null,
     "changeType": "UPSERT",
     "aspectName": "subTypes",
     "aspect": {
@@ -1362,17 +985,12 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "folder_partition_keyval.json",
-        "registryName": null,
-        "registryVersion": null,
-        "properties": null
+        "runId": "folder_partition_keyval.json"
     }
 },
 {
-    "auditHeader": null,
     "entityType": "container",
     "entityUrn": "urn:li:container:98a716614da5246426edd48260406364",
-    "entityKeyAspect": null,
     "changeType": "UPSERT",
     "aspectName": "container",
     "aspect": {
@@ -1381,17 +999,12 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "folder_partition_keyval.json",
-        "registryName": null,
-        "registryVersion": null,
-        "properties": null
+        "runId": "folder_partition_keyval.json"
     }
 },
 {
-    "auditHeader": null,
     "entityType": "container",
     "entityUrn": "urn:li:container:a0904d16a673fde8cbc8d0f2e167ecec",
-    "entityKeyAspect": null,
     "changeType": "UPSERT",
     "aspectName": "containerProperties",
     "aspect": {
@@ -1400,17 +1013,26 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "folder_partition_keyval.json",
-        "registryName": null,
-        "registryVersion": null,
-        "properties": null
+        "runId": "folder_partition_keyval.json"
     }
 },
 {
-    "auditHeader": null,
     "entityType": "container",
     "entityUrn": "urn:li:container:a0904d16a673fde8cbc8d0f2e167ecec",
-    "entityKeyAspect": null,
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "value": "{\"removed\": false}",
+        "contentType": "application/json"
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "folder_partition_keyval.json"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:a0904d16a673fde8cbc8d0f2e167ecec",
     "changeType": "UPSERT",
     "aspectName": "dataPlatformInstance",
     "aspect": {
@@ -1419,17 +1041,12 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "folder_partition_keyval.json",
-        "registryName": null,
-        "registryVersion": null,
-        "properties": null
+        "runId": "folder_partition_keyval.json"
     }
 },
 {
-    "auditHeader": null,
     "entityType": "container",
     "entityUrn": "urn:li:container:a0904d16a673fde8cbc8d0f2e167ecec",
-    "entityKeyAspect": null,
     "changeType": "UPSERT",
     "aspectName": "subTypes",
     "aspect": {
@@ -1438,17 +1055,12 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "folder_partition_keyval.json",
-        "registryName": null,
-        "registryVersion": null,
-        "properties": null
+        "runId": "folder_partition_keyval.json"
     }
 },
 {
-    "auditHeader": null,
     "entityType": "container",
     "entityUrn": "urn:li:container:a0904d16a673fde8cbc8d0f2e167ecec",
-    "entityKeyAspect": null,
     "changeType": "UPSERT",
     "aspectName": "container",
     "aspect": {
@@ -1457,17 +1069,12 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "folder_partition_keyval.json",
-        "registryName": null,
-        "registryVersion": null,
-        "properties": null
+        "runId": "folder_partition_keyval.json"
     }
 },
 {
-    "auditHeader": null,
     "entityType": "dataset",
     "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:file,tests/integration/s3/test_data/local_system/folder_a/folder_aa/folder_aaa/pokemon_abilities_json,UAT)",
-    "entityKeyAspect": null,
     "changeType": "UPSERT",
     "aspectName": "container",
     "aspect": {
@@ -1476,17 +1083,12 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "folder_partition_keyval.json",
-        "registryName": null,
-        "registryVersion": null,
-        "properties": null
+        "runId": "folder_partition_keyval.json"
     }
 },
 {
-    "auditHeader": null,
     "entityType": "dataset",
     "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:file,tests/integration/s3/test_data/local_system/folder_a/folder_aa/folder_aaa/pokemon_abilities_json,UAT)",
-    "entityKeyAspect": null,
     "changeType": "UPSERT",
     "aspectName": "datasetProfile",
     "aspect": {
@@ -1495,10 +1097,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "folder_partition_keyval.json",
-        "registryName": null,
-        "registryVersion": null,
-        "properties": null
+        "runId": "folder_partition_keyval.json"
     }
 }
 ]

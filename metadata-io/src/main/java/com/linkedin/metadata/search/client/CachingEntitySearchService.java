@@ -1,5 +1,6 @@
 package com.linkedin.metadata.search.client;
 
+import com.linkedin.metadata.browse.BrowseResult;
 import com.linkedin.metadata.query.AutoCompleteResult;
 import com.linkedin.metadata.query.SearchFlags;
 import com.linkedin.metadata.query.filter.Filter;
@@ -19,6 +20,7 @@ import org.springframework.cache.CacheManager;
 public class CachingEntitySearchService {
   private static final String ENTITY_SEARCH_SERVICE_SEARCH_CACHE_NAME = "entitySearchServiceSearch";
   private static final String ENTITY_SEARCH_SERVICE_AUTOCOMPLETE_CACHE_NAME = "entitySearchServiceAutoComplete";
+  private static final String ENTITY_SEARCH_SERVICE_BROWSE_CACHE_NAME = "entitySearchServiceBrowse";
 
   private final CacheManager cacheManager;
   private final EntitySearchService entitySearchService; // This is a shared component, also used in search aggregation
@@ -70,6 +72,29 @@ public class CachingEntitySearchService {
       @Nullable SearchFlags flags) {
     return getCachedAutoCompleteResults(entityName, input, field, filters, limit, flags);
   }
+
+  /**
+   * Retrieves cached auto complete results
+   *
+   * @param entityName type of entity to query
+   * @param path the path to be browsed
+   * @param filters the request map with fields and values as filters
+   * @param from index of the first entity located in path
+   * @param size the max number of entities contained in the response
+   *
+   * @return a {@link SearchResult} containing the requested batch of search results
+   */
+  public BrowseResult browse(
+      @Nonnull String entityName,
+      @Nonnull String path,
+      @Nullable Filter filters,
+      int from,
+      int size,
+      @Nullable SearchFlags flags) {
+    return getCachedBrowseResults(entityName, path, filters, from, size, flags);
+  }
+
+
 
   /**
    * Get search results corresponding to the input "from" and "size"
@@ -130,6 +155,43 @@ public class CachingEntitySearchService {
   }
 
   /**
+   * Returns cached browse results.
+   */
+  public BrowseResult getCachedBrowseResults(
+      @Nonnull String entityName,
+      @Nonnull String path,
+      @Nullable Filter filters,
+      int from,
+      int size,
+      @Nullable SearchFlags flags) {
+    Cache cache = cacheManager.getCache(ENTITY_SEARCH_SERVICE_BROWSE_CACHE_NAME);
+    BrowseResult result;
+    if (enableCache(flags)) {
+      Object cacheKey = Quintet.with(entityName, path, filters, from, size);
+      result = cache.get(cacheKey, BrowseResult.class);
+      if (result == null) {
+        result = getRawBrowseResults(
+            entityName,
+            path,
+            filters,
+            from,
+            size
+        );
+        cache.put(cacheKey, result);
+      }
+    } else {
+      result = getRawBrowseResults(
+          entityName,
+          path,
+          filters,
+          from,
+          size
+      );
+    }
+    return result;
+  }
+
+  /**
    * Executes the expensive search query using the {@link EntitySearchService}
    */
   private SearchResult getRawSearchResults(
@@ -163,6 +225,23 @@ public class CachingEntitySearchService {
         field,
         filters,
         limit);
+  }
+
+  /**
+   * Executes the expensive autocomplete query using the {@link EntitySearchService}
+   */
+  private BrowseResult getRawBrowseResults(
+      final String entityName,
+      final String input,
+      final Filter filters,
+      final int start,
+      final int count) {
+    return entitySearchService.browse(
+        entityName,
+        input,
+        filters,
+        start,
+        count);
   }
 
   /**
