@@ -558,6 +558,10 @@ def extract_dbt_entities(
         if owner is None:
             owner = manifest_node.get("config", {}).get("meta", {}).get("owner")
 
+        schema = manifest_node.get("config", {}).get("schema")        
+        if schema is None:
+            schema = manifest_node.get("schema")
+
         tags = manifest_node.get("tags", [])
         tags = [tag_prefix + tag for tag in tags]
         if not meta:
