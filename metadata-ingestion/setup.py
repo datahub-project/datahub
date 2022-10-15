@@ -111,7 +111,7 @@ sql_common = {
     # Required for all SQL sources.
     "sqlalchemy==1.3.24",
     # Required for SQL profiling.
-    "great-expectations>=0.15.12, <0.15.23",
+    "great-expectations>=0.15.12",
     # GE added handling for higher version of jinja2
     # https://github.com/great-expectations/great_expectations/pull/5382/files
     # datahub does not depend on traitlets directly but great expectations does.
@@ -262,6 +262,10 @@ plugins: Dict[str, Set[str]] = {
         # - 0.6.12 adds support for Spark Thrift Server
         "acryl-pyhive[hive]>=0.6.13",
         "databricks-dbapi",
+        # Due to https://github.com/great-expectations/great_expectations/issues/6146,
+        # we cannot allow 0.15.{23-26}. This was fixed in 0.15.27 by
+        # https://github.com/great-expectations/great_expectations/pull/6149.
+        "great-expectations != 0.15.23, != 0.15.24, != 0.15.25, != 0.15.26",
     },
     "iceberg": iceberg_common,
     "kafka": {*kafka_common, *kafka_protobuf},
