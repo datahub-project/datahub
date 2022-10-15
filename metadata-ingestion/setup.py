@@ -164,9 +164,9 @@ snowflake_common = {
 }
 
 trino = {
-    # The upper bound was added because of a breaking change in the Trino dialect.
+    # Trino 0.317 broke compatibility with SQLAlchemy 1.3.24.
     # See https://github.com/trinodb/trino-python-client/issues/250.
-    "trino[sqlalchemy]>=0.308, <0.317",
+    "trino[sqlalchemy]>=0.308, !=0.317",
 }
 
 microsoft_common = {"msal==1.16.0"}
