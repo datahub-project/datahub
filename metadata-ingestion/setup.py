@@ -28,6 +28,7 @@ base_requirements = {
 }
 
 framework_common = {
+    "pyorient @ git+https://github.com/OpenConjecture/pyorient.git",
     "click>=6.0.0",
     "click-default-group",
     "PyYAML",
@@ -202,6 +203,7 @@ usage_common = {
 # Note: for all of these, framework_common will be added.
 plugins: Dict[str, Set[str]] = {
     # Sink plugins.
+    "pyorient": {"pyorient"},
     "datahub-kafka": kafka_common,
     "datahub-rest": {"requests"},
     # Integrations.
@@ -479,6 +481,9 @@ entry_points = {
     "datahub.ingestion.source.plugins": [
         "csv-enricher = datahub.ingestion.source.csv_enricher:CSVEnricherSource",
         "file = datahub.ingestion.source.file:GenericFileSource",
+        "data-catalog = datahub.ingestion.source.ib.data_catalog:DataCatalogSource",
+        "ib-lineages = datahub.ingestion.source.ib.ib_lineages:IBLineagesSource",
+        "ib-kafka = datahub.ingestion.source.ib.ib_kafka:IBKafkaSource",
         "sqlalchemy = datahub.ingestion.source.sql.sql_generic:SQLAlchemyGenericSource",
         "athena = datahub.ingestion.source.sql.athena:AthenaSource",
         "azure-ad = datahub.ingestion.source.identity.azure_ad:AzureADSource",
