@@ -1,0 +1,44 @@
+import java.util.*;
+public class bubble_sort_in_one_loop
+{
+    public static void main()
+    {
+        Scanner sc= new Scanner (System.in);
+        System.out.println("Enter the no. of elements");
+        int n1=sc.nextInt();
+        System.out.println("Enter 5 no. in an array");
+        int a[]=new int[n1];int n=0;
+        for(int i=0;i<n1;i++)
+        {
+            a[i]=sc.nextInt();
+        }
+
+        for(int i=0;i<n1;i++)
+        {
+            if(i==n1-1 && n<n1-1 )
+            {
+                i=0;
+                n++;
+            }
+
+            else if(n==n1-1)
+            {
+                break;
+            }
+
+            if(a[i]>a[i+1])
+            {
+                int temp = a[i];
+                a[i]=a[i+1];
+                a[i+1]=temp;
+            }
+
+            
+        }
+        System.out.println("Sorted array");
+        for(int i=0;i<n1;i++)
+        {
+            System.out.println(a[i]);
+        }
+    }
+}
