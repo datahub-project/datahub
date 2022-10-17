@@ -18,6 +18,7 @@ import { useEntityRegistry } from '../../useEntityRegistry';
 import { useGetRecommendations } from '../recommendation';
 import { FORBIDDEN_URN_CHARS_REGEX } from '../../entity/shared/utils';
 import { TagTermLabel } from './TagTermLabel';
+import { ENTER_KEY_CODE } from '../constants';
 
 export enum OperationType {
     ADD,
@@ -408,7 +409,7 @@ export default function EditTagTermsModal({
     }
 
     function handleKeyDown(event) {
-        if (event.keyCode === 13) {
+        if (event.keyCode === ENTER_KEY_CODE) {
             setInputValue('');
             (inputEl.current as any).blur();
         }
@@ -461,7 +462,7 @@ export default function EditTagTermsModal({
                     onClear={clearInput}
                     onFocus={() => setIsFocusedOnInput(true)}
                     onBlur={handleBlur}
-                    onInputKeyDown={(e) => handleKeyDown(e)}
+                    onInputKeyDown={handleKeyDown}
                     dropdownStyle={isShowingGlossaryBrowser ? { display: 'none' } : {}}
                 >
                     {tagSearchOptions}
