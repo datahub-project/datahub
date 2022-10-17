@@ -1,4 +1,6 @@
 fragment childGlossaryTerm on GlossaryTerm {
+    urn
+    type
     name
     hierarchicalName
     properties {
