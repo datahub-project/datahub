@@ -210,6 +210,7 @@ export default function EditTagTermsModal({
             if (isValidTagName(inputValue)) {
                 setShowCreateModal(true);
             }
+            setInputValue('');
             return;
         }
         const newUrns = [...(urns || []), urn];
