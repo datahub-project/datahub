@@ -104,7 +104,7 @@ def test_ldap_config_stateful_ingest(docker_compose_runner, pytestconfig, tmp_pa
     test_resources_dir = pytestconfig.rootpath / "tests/integration/ldap"
 
     with docker_compose_runner(
-            test_resources_dir / "docker-compose.yml", "ldap"
+        test_resources_dir / "docker-compose.yml", "ldap"
     ) as docker_services:
         # The openldap container loads the sample data after exposing the port publicly. As such,
         # we must wait a little bit extra to ensure that the sample data is loaded.
