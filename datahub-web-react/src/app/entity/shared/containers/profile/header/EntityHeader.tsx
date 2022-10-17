@@ -69,8 +69,12 @@ const ExternalUrlButton = styled(Button)`
     padding-right: 12px;
 `;
 
-export function getCanEditName(entityType: EntityType, me: AuthenticatedUser, entityData?: GenericEntityProperties) {
-    const privileges = me?.platformPrivileges as PlatformPrivileges;
+export function getCanEditName(
+    entityType: EntityType,
+    privileges?: PlatformPrivileges,
+    me?: AuthenticatedUser,
+    entityData?: GenericEntityProperties,
+) {
     switch (entityType) {
         case EntityType.Dataset: {
             const ownerExists = entityData?.ownership?.owners?.some(
@@ -124,7 +128,13 @@ export const EntityHeader = ({
     };
 
     const canEditName =
-        isNameEditable && getCanEditName(entityType, me as AuthenticatedUser, entityData as GenericEntityProperties);
+        isNameEditable &&
+        getCanEditName(
+            entityType,
+            me?.platformPrivileges as PlatformPrivileges,
+            me as AuthenticatedUser,
+            entityData as GenericEntityProperties,
+        );
 
     return (
         <>
