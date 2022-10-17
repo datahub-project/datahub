@@ -100,7 +100,9 @@ def test_ldap_memberof_ingest(docker_compose_runner, pytestconfig, tmp_path, moc
 
 
 @pytest.mark.integration
-def test_ldap_config_stateful_ingest(docker_compose_runner, pytestconfig, tmp_path, mock_time):
+def test_ldap_config_stateful_ingest(
+    docker_compose_runner, pytestconfig, tmp_path, mock_time
+):
     test_resources_dir = pytestconfig.rootpath / "tests/integration/ldap"
 
     with docker_compose_runner(
