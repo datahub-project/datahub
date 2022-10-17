@@ -5,6 +5,8 @@ import org.elasticsearch.action.bulk.BulkProcessor;
 import org.elasticsearch.action.bulk.BulkRequest;
 import org.elasticsearch.action.bulk.BulkResponse;
 
+import java.util.stream.Collectors;
+
 
 @Slf4j
 public class BulkListener implements BulkProcessor.Listener {
@@ -32,6 +34,13 @@ public class BulkListener implements BulkProcessor.Listener {
 
   @Override
   public void afterBulk(long executionId, BulkRequest request, Throwable failure) {
-    log.error("Error feeding bulk request. No retries left", failure);
+    log.error("Error feeding bulk request. No retries left. Request: {}", bulkRequestSummary(request), failure);
+  }
+
+  private static String bulkRequestSummary(BulkRequest request) {
+    return request.requests().stream().map(req -> String.format(
+            "Failed to perform bulk request: index [%s], optype: [%s], type [%s], id [%s]",
+            req.index(), req.opType(), req.type(), req.id())
+    ).collect(Collectors.joining(";"));
   }
 }
