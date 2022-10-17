@@ -407,6 +407,13 @@ export default function EditTagTermsModal({
         setInputValue('');
     }
 
+    function handleKeyDown(event) {
+        if (event.keyCode === 13) {
+            setInputValue('');
+            (inputEl.current as any).blur();
+        }
+    }
+
     const isShowingGlossaryBrowser = !inputValue && type === EntityType.GlossaryTerm && isFocusedOnInput;
 
     return (
@@ -454,6 +461,7 @@ export default function EditTagTermsModal({
                     onClear={clearInput}
                     onFocus={() => setIsFocusedOnInput(true)}
                     onBlur={handleBlur}
+                    onInputKeyDown={(e) => handleKeyDown(e)}
                     dropdownStyle={isShowingGlossaryBrowser ? { display: 'none' } : {}}
                 >
                     {tagSearchOptions}
