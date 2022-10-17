@@ -188,6 +188,6 @@ describe('EntityProfile Edit', () => {
         userEvent.click(getByText('Dataset Administration'));
         userEvent.click(getByText('Edit Dataset Container'));
         // should see more than 1 instance of container name - the default place next to the platform icon
-        await waitFor(() => expect(screen.getAllByText('newContainer').length).toBeGreaterThan(0));
+        await waitFor(() => expect(screen.getByText('Specify a Container(Optional)')).toBeInTheDocument());
     });
 });

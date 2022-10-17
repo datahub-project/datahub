@@ -311,9 +311,7 @@ export const dataset3 = {
         },
     ],
     domain: null,
-    container: {
-        ...customContainer,
-    },
+    container: null,
     lineage: null,
     relationships: null,
     health: [],
@@ -325,7 +323,6 @@ export const dataset3 = {
     siblings: null,
     statsSummary: null,
 } as Dataset;
-
 /*
     Define mock data to be returned by Apollo MockProvider.
 */
