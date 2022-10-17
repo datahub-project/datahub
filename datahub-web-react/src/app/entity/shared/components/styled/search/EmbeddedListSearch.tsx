@@ -115,7 +115,7 @@ export const EmbeddedListSearch = ({
                 start: (page - 1) * SearchCfg.RESULTS_PER_PAGE,
                 count: SearchCfg.RESULTS_PER_PAGE,
                 filters: [],
-                orFilters: generateOrFilters(unionType, filtersWithoutEntities),
+                orFilters: generateOrFilters(unionType, finalFilters),
             },
         },
         skip: true,
@@ -133,7 +133,7 @@ export const EmbeddedListSearch = ({
                 start: (page - 1) * numResultsPerPage,
                 count: numResultsPerPage,
                 filters: [],
-                orFilters: generateOrFilters(unionType, filtersWithoutEntities),
+                orFilters: generateOrFilters(unionType, finalFilters),
             },
         },
     });

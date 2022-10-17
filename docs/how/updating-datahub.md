@@ -6,6 +6,18 @@ This file documents any backwards-incompatible changes in DataHub and assists pe
 
 ### Breaking Changes
 - Java version 11 or greater is required.
+- For any of the GraphQL search queries, the input no longer supports value but instead now accepts a list of values. These values represent an OR relationship where the field value must match any of the values.
+
+### Potential Downtime
+
+### Deprecations
+
+### Other notable Changes
+
+## 0.9.0
+
+### Breaking Changes
+- Java version 11 or greater is required.
 
 ### Potential Downtime
 
