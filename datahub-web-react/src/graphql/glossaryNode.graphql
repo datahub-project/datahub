@@ -1,3 +1,11 @@
+fragment childGlossaryTerm on GlossaryTerm {
+    name
+    hierarchicalName
+    properties {
+        name
+    }
+}
+
 query getGlossaryNode($urn: String!) {
     glossaryNode(urn: $urn) {
         urn
@@ -17,19 +25,19 @@ query getGlossaryNode($urn: String!) {
                 types: ["IsPartOf"]
                 direction: INCOMING
                 start: 0
-                count: 1000
+                count: 10000
             }
         ) {
-            count
             relationships {
                 direction
                 entity {
                     type
+                    urn
                     ... on GlossaryNode {
                         ...glossaryNode
                     }
                     ... on GlossaryTerm {
-                        ...glossaryTerm
+                        ...childGlossaryTerm
                     }
                 }
             }

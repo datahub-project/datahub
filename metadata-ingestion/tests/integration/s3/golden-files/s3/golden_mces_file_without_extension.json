@@ -8,7 +8,8 @@
                     "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
                         "customProperties": {
                             "number_of_files": "1",
-                            "size_in_bytes": "172"
+                            "size_in_bytes": "172",
+                            "table_path": "s3://my-test-bucket/folder_a/folder_aa/folder_aaa/no_extension/small"
                         },
                         "name": "small",
                         "description": "",
@@ -140,7 +141,7 @@
     "changeType": "UPSERT",
     "aspectName": "dataPlatformInstance",
     "aspect": {
-        "value": "{\"platform\": \"urn:li:dataPlatform:s3\"}",
+        "value": "{\"platform\": \"urn:li:dataPlatform:s3\", \"instance\": \"urn:li:dataPlatformInstance:(urn:li:dataPlatform:s3,test-platform-instance)\"}",
         "contentType": "application/json"
     },
     "systemMetadata": {
@@ -196,7 +197,7 @@
     "changeType": "UPSERT",
     "aspectName": "dataPlatformInstance",
     "aspect": {
-        "value": "{\"platform\": \"urn:li:dataPlatform:s3\"}",
+        "value": "{\"platform\": \"urn:li:dataPlatform:s3\", \"instance\": \"urn:li:dataPlatformInstance:(urn:li:dataPlatform:s3,test-platform-instance)\"}",
         "contentType": "application/json"
     },
     "systemMetadata": {
@@ -266,7 +267,7 @@
     "changeType": "UPSERT",
     "aspectName": "dataPlatformInstance",
     "aspect": {
-        "value": "{\"platform\": \"urn:li:dataPlatform:s3\"}",
+        "value": "{\"platform\": \"urn:li:dataPlatform:s3\", \"instance\": \"urn:li:dataPlatformInstance:(urn:li:dataPlatform:s3,test-platform-instance)\"}",
         "contentType": "application/json"
     },
     "systemMetadata": {
@@ -336,7 +337,7 @@
     "changeType": "UPSERT",
     "aspectName": "dataPlatformInstance",
     "aspect": {
-        "value": "{\"platform\": \"urn:li:dataPlatform:s3\"}",
+        "value": "{\"platform\": \"urn:li:dataPlatform:s3\", \"instance\": \"urn:li:dataPlatformInstance:(urn:li:dataPlatform:s3,test-platform-instance)\"}",
         "contentType": "application/json"
     },
     "systemMetadata": {
@@ -406,7 +407,7 @@
     "changeType": "UPSERT",
     "aspectName": "dataPlatformInstance",
     "aspect": {
-        "value": "{\"platform\": \"urn:li:dataPlatform:s3\"}",
+        "value": "{\"platform\": \"urn:li:dataPlatform:s3\", \"instance\": \"urn:li:dataPlatformInstance:(urn:li:dataPlatform:s3,test-platform-instance)\"}",
         "contentType": "application/json"
     },
     "systemMetadata": {

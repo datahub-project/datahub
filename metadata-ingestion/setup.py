@@ -46,11 +46,6 @@ framework_common = {
     "types-termcolor>=1.0.0",
     "psutil>=5.8.0",
     "ratelimiter",
-    # Markupsafe breaking change broke Jinja and some other libs
-    # Pinning it to a version which works even though we are not using explicitly
-    # https://github.com/aws/aws-sam-cli/issues/3661
-    # Airflow compatibility: https://github.com/apache/airflow/blob/2.2.2/setup.cfg#L125
-    "markupsafe>=1.1.1,<=2.0.1",
     "Deprecated",
     "types-Deprecated",
     "humanfriendly",
@@ -111,7 +106,7 @@ sql_common = {
     # Required for all SQL sources.
     "sqlalchemy==1.3.24",
     # Required for SQL profiling.
-    "great-expectations>=0.15.12, <0.15.23",
+    "great-expectations>=0.15.12",
     # GE added handling for higher version of jinja2
     # https://github.com/great-expectations/great_expectations/pull/5382/files
     # datahub does not depend on traitlets directly but great expectations does.
@@ -164,9 +159,9 @@ snowflake_common = {
 }
 
 trino = {
-    # The upper bound was added because of a breaking change in the Trino dialect.
+    # Trino 0.317 broke compatibility with SQLAlchemy 1.3.24.
     # See https://github.com/trinodb/trino-python-client/issues/250.
-    "trino[sqlalchemy]>=0.308, <0.317",
+    "trino[sqlalchemy]>=0.308, !=0.317",
 }
 
 microsoft_common = {"msal==1.16.0"}
@@ -182,8 +177,8 @@ s3_base = {
     "parse>=1.19.0",
     "pyarrow>=6.0.1",
     "tableschema>=1.20.2",
-    "ujson>=4.3.0",
-    "types-ujson>=4.2.1",
+    # ujson 5.2.0 has the JSONDecodeError exception type, which we need for error handling.
+    "ujson>=5.2.0",
     "smart-open[s3]>=5.2.1",
     "moto[s3]",
     *path_spec_common,
@@ -262,6 +257,10 @@ plugins: Dict[str, Set[str]] = {
         # - 0.6.12 adds support for Spark Thrift Server
         "acryl-pyhive[hive]>=0.6.13",
         "databricks-dbapi",
+        # Due to https://github.com/great-expectations/great_expectations/issues/6146,
+        # we cannot allow 0.15.{23-26}. This was fixed in 0.15.27 by
+        # https://github.com/great-expectations/great_expectations/pull/6149.
+        "great-expectations != 0.15.23, != 0.15.24, != 0.15.25, != 0.15.26",
     },
     "iceberg": iceberg_common,
     "kafka": {*kafka_common, *kafka_protobuf},
@@ -350,6 +349,7 @@ mypy_stubs = {
     "types-pytz",
     "types-pyOpenSSL",
     "types-click-spinner",
+    "types-ujson>=5.2.0",
 }
 
 base_dev_requirements = {
@@ -370,7 +370,7 @@ base_dev_requirements = {
     "pytest>=6.2.2",
     "pytest-asyncio>=0.16.0",
     "pytest-cov>=2.8.1",
-    "pytest-docker>=0.10.3,<0.12",
+    "pytest-docker[docker-compose-v1]>=1.0.1",
     "deepdiff",
     "requests-mock",
     "freezegun",

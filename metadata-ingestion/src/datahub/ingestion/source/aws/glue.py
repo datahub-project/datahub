@@ -923,10 +923,8 @@ class GlueSource(StatefulIngestionSourceBase):
         return DatabaseKey(
             database=database,
             platform=self.platform,
-            instance=self.source_config.platform_instance
-            # keeps backward compatibility when platform instance is missed
-            if self.source_config.platform_instance is not None
-            else self.source_config.env,
+            instance=self.source_config.platform_instance,
+            backcompat_instance_for_guid=self.source_config.env,
         )
 
     def gen_database_containers(
@@ -1196,9 +1194,8 @@ class GlueSource(StatefulIngestionSourceBase):
                 logger.debug(
                     "Connected to DatahubApi, grabbing current tags to maintain."
                 )
-                current_tags: Optional[GlobalTagsClass] = self.ctx.graph.get_aspect_v2(
+                current_tags: Optional[GlobalTagsClass] = self.ctx.graph.get_aspect(
                     entity_urn=dataset_urn,
-                    aspect="globalTags",
                     aspect_type=GlobalTagsClass,
                 )
                 if current_tags:
