@@ -1,4 +1,4 @@
-import { FolderOutlined, RightOutlined, DownOutlined } from '@ant-design/icons';
+import { FolderOutlined, RightOutlined, DownOutlined, LoadingOutlined } from '@ant-design/icons';
 import styled from 'styled-components/macro';
 import React, { useState, useEffect } from 'react';
 import { ANTD_GRAY } from '../../entity/shared/constants';
@@ -45,6 +45,17 @@ const ChildrenWrapper = styled.div`
     padding-left: 12px;
 `;
 
+const LoadingWrapper = styled.div`
+    padding: 8px;
+    display: flex;
+    justify-content: center;
+
+    svg {
+        height: 15px;
+        width: 15px;
+    }
+`;
+
 interface Props {
     node: GlossaryNode;
     isSelecting?: boolean;
@@ -63,7 +74,7 @@ function NodeItem(props: Props) {
     const [areChildrenVisible, setAreChildrenVisible] = useState(false);
     const entityRegistry = useEntityRegistry();
     const { entityData } = useEntityData();
-    const { data } = useGetGlossaryNodeQuery({
+    const { data, loading } = useGetGlossaryNodeQuery({
         variables: { urn: node.urn },
         skip: !areChildrenVisible || shouldHideNode,
     });
@@ -126,24 +137,33 @@ function NodeItem(props: Props) {
                     </NameWrapper>
                 )}
             </NodeWrapper>
-            {areChildrenVisible && data && data.glossaryNode && (
-                <ChildrenWrapper>
-                    {(childNodes as GlossaryNode[]).map((child) => (
-                        <NodeItem
-                            node={child}
-                            isSelecting={isSelecting}
-                            hideTerms={hideTerms}
-                            openToEntity={openToEntity}
-                            nodeUrnToHide={nodeUrnToHide}
-                            selectTerm={selectTerm}
-                            selectNode={selectNode}
-                        />
-                    ))}
-                    {!hideTerms &&
-                        (childTerms as GlossaryTerm[]).map((child) => (
-                            <TermItem term={child} isSelecting={isSelecting} selectTerm={selectTerm} />
-                        ))}
-                </ChildrenWrapper>
+            {areChildrenVisible && (
+                <>
+                    {!data && loading && (
+                        <LoadingWrapper>
+                            <LoadingOutlined />
+                        </LoadingWrapper>
+                    )}
+                    {data && data.glossaryNode && (
+                        <ChildrenWrapper>
+                            {(childNodes as GlossaryNode[]).map((child) => (
+                                <NodeItem
+                                    node={child}
+                                    isSelecting={isSelecting}
+                                    hideTerms={hideTerms}
+                                    openToEntity={openToEntity}
+                                    nodeUrnToHide={nodeUrnToHide}
+                                    selectTerm={selectTerm}
+                                    selectNode={selectNode}
+                                />
+                            ))}
+                            {!hideTerms &&
+                                (childTerms as GlossaryTerm[]).map((child) => (
+                                    <TermItem term={child} isSelecting={isSelecting} selectTerm={selectTerm} />
+                                ))}
+                        </ChildrenWrapper>
+                    )}
+                </>
             )}
         </ItemWrapper>
     );

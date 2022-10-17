@@ -3,7 +3,9 @@ import datetime
 import logging
 from typing import Callable, Dict, Iterable, List, Optional, Tuple, cast
 
+from snowflake.sqlalchemy import snowdialect
 from sqlalchemy import create_engine, inspect
+from sqlalchemy.sql import sqltypes
 
 from datahub.emitter.mce_builder import make_dataset_urn_with_platform_instance
 from datahub.ingestion.api.common import WorkUnit
@@ -21,6 +23,8 @@ from datahub.ingestion.source.snowflake.snowflake_schema import (
 from datahub.ingestion.source.snowflake.snowflake_utils import SnowflakeCommonMixin
 from datahub.metadata.com.linkedin.pegasus2avro.dataset import DatasetProfile
 from datahub.metadata.schema_classes import DatasetProfileClass
+
+snowdialect.ischema_names["GEOGRAPHY"] = sqltypes.NullType
 
 logger = logging.getLogger(__name__)
 

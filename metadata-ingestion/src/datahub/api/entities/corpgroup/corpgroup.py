@@ -8,7 +8,6 @@ from datahub.emitter.kafka_emitter import DatahubKafkaEmitter
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.emitter.rest_emitter import DatahubRestEmitter
 from datahub.metadata.schema_classes import (
-    ChangeTypeClass,
     CorpGroupEditableInfoClass,
     CorpGroupInfoClass,
 )
@@ -47,23 +46,18 @@ class CorpGroup:
     def generate_mcp(self) -> Iterable[MetadataChangeProposalWrapper]:
         if self.overrideEditable:
             mcp = MetadataChangeProposalWrapper(
-                entityType="corpgroup",
                 entityUrn=str(self.urn),
-                aspectName="corpGroupEditableInfo",
                 aspect=CorpGroupEditableInfoClass(
                     description=self.description,
                     pictureLink=self.picture_link,
                     slack=self.slack,
                     email=self.email,
                 ),
-                changeType=ChangeTypeClass.UPSERT,
             )
             yield mcp
 
         mcp = MetadataChangeProposalWrapper(
-            entityType="corpgroup",
             entityUrn=str(self.urn),
-            aspectName="corpGroupInfo",
             aspect=CorpGroupInfoClass(
                 admins=[],  # Deprecated, replaced by Ownership aspect
                 members=[],  # Deprecated, replaced by GroupMembership aspect
@@ -72,7 +66,6 @@ class CorpGroup:
                 email=self.email,
                 description=self.description,
             ),
-            changeType=ChangeTypeClass.UPSERT,
         )
         yield mcp
 

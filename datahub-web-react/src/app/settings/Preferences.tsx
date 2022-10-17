@@ -5,6 +5,7 @@ import { Divider, Typography, Switch, Card, message } from 'antd';
 import { useGetMeQuery, useUpdateUserSettingMutation } from '../../graphql/me.generated';
 import { UserSetting } from '../../types.generated';
 import { ANTD_GRAY } from '../entity/shared/constants';
+import analytics, { EventType } from '../analytics';
 
 const Page = styled.div`
     width: 100%;
@@ -69,7 +70,7 @@ export const Preferences = () => {
                 <Card>
                     <UserSettingRow>
                         <span>
-                            <SettingText>Show simplified hompeage </SettingText>
+                            <SettingText>Show simplified homepage </SettingText>
                             <div>
                                 <DescriptionText>
                                     Limits entity browse cards on homepage to Domains, Charts, Datasets, Dashboards and
@@ -87,6 +88,11 @@ export const Preferences = () => {
                                             value: !showSimplifiedHomepage,
                                         },
                                     },
+                                });
+                                analytics.event({
+                                    type: showSimplifiedHomepage
+                                        ? EventType.ShowStandardHomepageEvent
+                                        : EventType.ShowSimplifiedHomepageEvent,
                                 });
                                 message.success({ content: 'Setting updated!', duration: 2 });
                                 refetch?.();

@@ -49,11 +49,16 @@ public class TrackingService {
   private static final String RENDER_TYPE_FIELD = "renderType";
   private static final String SCENARIO_TYPE_FIELD = "scenarioType";
   private static final String SECTION_FIELD = "section";
+  private static final String ACCESS_TOKEN_TYPE_FIELD = "accessTokenType";
+  private static final String DURATION_FIELD = "duration";
+  private static final String ROLE_URN_FIELD = "roleUrn";
+  private static final String POLICY_URN_FIELD = "policyUrn";
 
   private static final Set<String> ALLOWED_EVENT_FIELDS = new HashSet<>(
       ImmutableList.of(EVENT_TYPE_FIELD, SIGN_UP_TITLE_FIELD, ENTITY_TYPE_FIELD, ENTITY_TYPE_FILTER_FIELD,
           PAGE_NUMBER_FIELD, PAGE_FIELD, TOTAL_FIELD, INDEX_FIELD, RESULT_TYPE_FIELD, RENDER_ID_FIELD, MODULE_ID_FIELD,
-          RENDER_TYPE_FIELD, SCENARIO_TYPE_FIELD, SECTION_FIELD));
+          RENDER_TYPE_FIELD, SCENARIO_TYPE_FIELD, SECTION_FIELD, ACCESS_TOKEN_TYPE_FIELD, DURATION_FIELD,
+          ROLE_URN_FIELD, POLICY_URN_FIELD));
 
   private static final String ACTOR_URN_FIELD = "actorUrn";
   private static final String ORIGIN_FIELD = "origin";
@@ -62,9 +67,11 @@ public class TrackingService {
   private static final String GROUP_NAME_FIELD = "groupName";
   private static final String ENTITY_PAGE_FILTER_FIELD = "entityPageFilter";
   private static final String PATH_FIELD = "path";
+  private static final String USER_URN_FIELD = "userUrn";
+  private static final String USER_URNS_FIELD = "userUrns";
   private static final Set<String> ALLOWED_OBFUSCATED_EVENT_FIELDS = new HashSet<>(
       ImmutableList.of(ACTOR_URN_FIELD, ORIGIN_FIELD, ENTITY_URN_FIELD, ENTITY_URNS_FIELD, GROUP_NAME_FIELD,
-          SECTION_FIELD, ENTITY_PAGE_FILTER_FIELD, PATH_FIELD));
+          SECTION_FIELD, ENTITY_PAGE_FILTER_FIELD, PATH_FIELD, USER_URN_FIELD, USER_URNS_FIELD));
 
   private final MixpanelAPI _mixpanelAPI;
   private final MessageBuilder _mixpanelMessageBuilder;

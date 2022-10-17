@@ -126,7 +126,7 @@
     "changeType": "UPSERT",
     "aspectName": "dataPlatformInstance",
     "aspect": {
-        "value": "{\"platform\": \"urn:li:dataPlatform:delta-lake\"}",
+        "value": "{\"platform\": \"urn:li:dataPlatform:delta-lake\", \"instance\": \"urn:li:dataPlatformInstance:(urn:li:dataPlatform:delta-lake,my-platform)\"}",
         "contentType": "application/json"
     },
     "systemMetadata": {
@@ -182,7 +182,7 @@
     "changeType": "UPSERT",
     "aspectName": "dataPlatformInstance",
     "aspect": {
-        "value": "{\"platform\": \"urn:li:dataPlatform:delta-lake\"}",
+        "value": "{\"platform\": \"urn:li:dataPlatform:delta-lake\", \"instance\": \"urn:li:dataPlatformInstance:(urn:li:dataPlatform:delta-lake,my-platform)\"}",
         "contentType": "application/json"
     },
     "systemMetadata": {
@@ -252,7 +252,7 @@
     "changeType": "UPSERT",
     "aspectName": "dataPlatformInstance",
     "aspect": {
-        "value": "{\"platform\": \"urn:li:dataPlatform:delta-lake\"}",
+        "value": "{\"platform\": \"urn:li:dataPlatform:delta-lake\", \"instance\": \"urn:li:dataPlatformInstance:(urn:li:dataPlatform:delta-lake,my-platform)\"}",
         "contentType": "application/json"
     },
     "systemMetadata": {
@@ -322,7 +322,7 @@
     "changeType": "UPSERT",
     "aspectName": "dataPlatformInstance",
     "aspect": {
-        "value": "{\"platform\": \"urn:li:dataPlatform:delta-lake\"}",
+        "value": "{\"platform\": \"urn:li:dataPlatform:delta-lake\", \"instance\": \"urn:li:dataPlatformInstance:(urn:li:dataPlatform:delta-lake,my-platform)\"}",
         "contentType": "application/json"
     },
     "systemMetadata": {
@@ -392,7 +392,7 @@
     "changeType": "UPSERT",
     "aspectName": "dataPlatformInstance",
     "aspect": {
-        "value": "{\"platform\": \"urn:li:dataPlatform:delta-lake\"}",
+        "value": "{\"platform\": \"urn:li:dataPlatform:delta-lake\", \"instance\": \"urn:li:dataPlatformInstance:(urn:li:dataPlatform:delta-lake,my-platform)\"}",
         "contentType": "application/json"
     },
     "systemMetadata": {
@@ -978,7 +978,7 @@
     "changeType": "UPSERT",
     "aspectName": "dataPlatformInstance",
     "aspect": {
-        "value": "{\"platform\": \"urn:li:dataPlatform:delta-lake\"}",
+        "value": "{\"platform\": \"urn:li:dataPlatform:delta-lake\", \"instance\": \"urn:li:dataPlatformInstance:(urn:li:dataPlatform:delta-lake,my-platform)\"}",
         "contentType": "application/json"
     },
     "systemMetadata": {
