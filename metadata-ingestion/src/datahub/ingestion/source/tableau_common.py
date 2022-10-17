@@ -181,21 +181,25 @@ embedded_datasource_graphql_query = """
         description
         isHidden
         folderName
+        upstreamFields {
+            name
+            datasource {
+                id
+            }
+        }
+        upstreamColumns {
+            name
+            table {
+                __typename
+                id
+            }
+        }
         ... on ColumnField {
             dataCategory
             role
             dataType
             defaultFormat
             aggregation
-            columns {
-                table {
-                    __typename
-                    ... on CustomSQLTable {
-                        id
-                        name
-                    }
-                }
-            }
         }
         ... on CalculatedField {
             role
@@ -273,6 +277,11 @@ custom_sql_graphql_query = """
         schema
         fullName
         connectionType
+        description
+        columns {
+            name
+            remoteType
+        }
       }
 }
 """
@@ -309,21 +318,25 @@ published_datasource_graphql_query = """
         description
         isHidden
         folderName
+        upstreamFields {
+            name
+            datasource {
+                id
+            }
+        }
+        upstreamColumns {
+            name
+            table {
+                __typename
+                id
+            }
+        }
         ... on ColumnField {
             dataCategory
             role
             dataType
             defaultFormat
             aggregation
-            columns {
-                table {
-                  __typename
-                    ... on CustomSQLTable {
-                        id
-                        name
-                        }
-                    }
-                }
             }
         ... on CalculatedField {
             role
