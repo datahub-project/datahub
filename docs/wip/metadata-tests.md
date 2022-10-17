@@ -268,14 +268,14 @@ each asset, regardless of whether it is being changed on DataHub.
 **How is a Metadata Test different from an Assertion?**
 
 An Assertion is a specific test, similar to a unit test, that is defined for a single data asset. Typically,
-it will include domain-specific knowledge about the assets and test against physical attributes of the asset. For example, an Assertion
-may verify that the number of Rows for a specific Snowflake Table falls into a well-defined range. Most importantly, it is most often the case that you will have Assertions defined on a *per-asset* basis. 
+it will include domain-specific knowledge about the asset and test against physical attributes of it. For example, an Assertion
+may verify that the number of rows for a specific table in Snowflake falls into a well-defined range. 
 
-A Metadata Test is a broad spanning predicate which applies to an entire subset of the Metadata Graph (e.g. across multiple
+A Metadata Test is a broad spanning predicate which applies to a subset of the Metadata Graph (e.g. across multiple
 data assets). Typically, it is defined against *metadata* attributes, as opposed to the physical data itself. For example,
-a Metadata Test may verify that ALL Tables in Snowflake have at least 1 explicitly assigned owners and a description written by
-the owner. Metadata Tests effectively allow you to manage broad metadata policies across your entire data ecosystem, e.g. for
-running larger scale Data Governance initiatives. 
+a Metadata Test may verify that ALL tables in Snowflake have at least 1 assigned owner, and a human-authored description. 
+Metadata Tests allow you to manage broad policies across your entire data ecosystem driven by metadata, for example to
+augment a larger scale Data Governance initiative. 
 
 
 *Need more help? Join the conversation in [Slack](http://slack.datahubproject.io)!*
