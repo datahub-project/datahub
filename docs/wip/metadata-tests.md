@@ -176,6 +176,7 @@ When combined with the selection criteria, Rules allow us to define complex, hig
 - All Snowflake Tables that are in the Top 25% of most queried AND do not have a Domain **must have
 a Glossary Term from the Classification Term Group**
 
+
 ##### Validating Test Conditions
 
 During Step 2, we can quickly verify that the Selection Criteria & Rules we've authored
