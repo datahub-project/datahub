@@ -9,7 +9,7 @@ Note that the name of the relationship reflects the direction, i.e. pointing fro
 This is due to the fact that the actual metadata aspect holding this information is associated with `Group`, rather than User. 
 Had the direction been reversed, the relationship would have been named `IsMemberOf` instead. 
 See [Direction of Relationships](#direction-of-relationships) for more discussions on relationship directionality. 
-A specific instance of a relationship, e.g. `urn:li:corpgroup:group1` has a member `urn:li:corpuser:user1`, 
+A specific instance of a relationship, e.g. `urn:li:corpGroup:group1` has a member `urn:li:corpuser:user1`, 
 corresponds to an edge in the metadata graph.
 
 Similar to an entity, a relationship can also be associated with optional attributes that are derived from the metadata. 
