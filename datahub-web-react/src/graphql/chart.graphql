@@ -2,6 +2,7 @@ query getChart($urn: String!) {
     chart(urn: $urn) {
         urn
         type
+        lastIngested
         tool
         chartId
         platform {
@@ -89,6 +90,9 @@ query getChart($urn: String!) {
                     pictureLink
                 }
             }
+        }
+        inputFields {
+            ...inputFieldsFields
         }
     }
 }

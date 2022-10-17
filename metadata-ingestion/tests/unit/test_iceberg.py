@@ -1,11 +1,6 @@
-import sys
-
-import pytest
-
-if sys.version_info < (3, 7):
-    pytest.skip("iceberg not available for python < 3.7", allow_module_level=True)
 from typing import Any, Optional
 
+import pytest
 from iceberg.api import types as IcebergTypes
 from iceberg.api.types.types import NestedField
 

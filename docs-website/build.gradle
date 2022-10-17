@@ -68,17 +68,13 @@ task yarnInstall(type: YarnTask) {
   }
 }
 
-task generateGraphQLDocumentation(type: YarnTask, dependsOn: [yarnInstall, generateGraphQLSchema] ) {
-  args = ['docusaurus', 'docs:generate:graphql']
-}
-
-task yarnGenerate(type: YarnTask, dependsOn: [yarnInstall, generateGraphQLDocumentation, generateJsonSchema, ':metadata-ingestion:modelDocGen', ':metadata-ingestion:docGen'] ) {
+task yarnGenerate(type: YarnTask, dependsOn: [yarnInstall, generateGraphQLSchema, generateJsonSchema, ':metadata-ingestion:modelDocGen', ':metadata-ingestion:docGen'] ) {
   inputs.files(projectMdFiles)
   outputs.cacheIf { true }
   args = ['run', 'generate']
 }
 
-task yarnServe(type: YarnTask, dependsOn: [yarnInstall, yarnGenerate]) {
+task yarnStart(type: YarnTask, dependsOn: [yarnInstall, yarnGenerate]) {
   args = ['run', 'start']
 }
 

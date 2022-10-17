@@ -21,7 +21,8 @@
 
    # needed if profiling enabled
 
-   bigquery.tables.create 
+   bigquery.tables.create
+   bigquery.tables.delete
    bigquery.tables.getData
    bigquery.tables.list
 

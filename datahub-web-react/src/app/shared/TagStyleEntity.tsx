@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { grey } from '@ant-design/colors';
-import { Alert, Button, Divider, message, Typography } from 'antd';
+import { Button, Divider, message, Typography } from 'antd';
 import { useHistory } from 'react-router';
 import { ApolloError } from '@apollo/client';
 import styled from 'styled-components';
@@ -21,6 +21,7 @@ import { EditOwnersModal } from '../entity/shared/containers/profile/sidebar/Own
 import CopyUrn from './CopyUrn';
 import EntityDropdown from '../entity/shared/EntityDropdown';
 import { EntityMenuItems } from '../entity/shared/EntityDropdown/EntityDropdown';
+import { ErrorSection } from './error/ErrorSection';
 
 function useWrappedSearchResults(params: GetSearchResultsParams) {
     const { data, loading, error } = useGetSearchResultsForMultipleQuery(params);
@@ -180,7 +181,7 @@ const generateColor = new ColorHash({
 export default function TagStyleEntity({ urn, useGetSearchResults = useWrappedSearchResults }: Props) {
     const history = useHistory();
     const entityRegistry = useEntityRegistry();
-    const { loading, error, data, refetch } = useGetTagQuery({ variables: { urn } });
+    const { error, data, refetch } = useGetTagQuery({ variables: { urn } });
     const [updateDescription] = useUpdateDescriptionMutation();
     const [setTagColorMutation] = useSetTagColorMutation();
     const entityAndSchemaQuery = `tags:"${data?.tag?.name}" OR fieldTags:"${data?.tag?.name}" OR editedFieldTags:"${data?.tag?.name}"`;
@@ -309,12 +310,9 @@ export default function TagStyleEntity({ urn, useGetSearchResults = useWrappedSe
         refetch?.();
     };
 
-    if (error || (!loading && !error && !data)) {
-        return <Alert type="error" message={error?.message || 'Entity failed to load'} />;
-    }
-
     return (
         <>
+            {error && <ErrorSection />}
             {/* Tag Title */}
             <TagHeader>
                 <div>

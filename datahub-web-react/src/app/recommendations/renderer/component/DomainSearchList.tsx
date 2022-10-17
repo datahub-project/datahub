@@ -1,10 +1,8 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
 import styled from 'styled-components';
-import { PageRoutes } from '../../../../conf/Global';
 import { Domain, EntityType, RecommendationContent } from '../../../../types.generated';
 import { IconStyleType } from '../../../entity/Entity';
-import { urlEncodeUrn } from '../../../entity/shared/utils';
 import { LogoCountCard } from '../../../shared/LogoCountCard';
 import { useEntityRegistry } from '../../../useEntityRegistry';
 
@@ -34,10 +32,7 @@ export const DomainSearchList = ({ content, onClick }: Props) => {
         <DomainListContainer>
             {domainsWithCounts.map((domain, index) => (
                 <Link
-                    to={{
-                        pathname: `${PageRoutes.SEARCH}`,
-                        search: `?filter_domains=${urlEncodeUrn(domain.domain.urn)}`,
-                    }}
+                    to={entityRegistry.getEntityUrl(EntityType.Domain, domain.domain.urn)}
                     key={domain.domain.urn}
                     onClick={() => onClick?.(index)}
                 >

@@ -93,6 +93,11 @@ public class PoliciesConfig {
       "Create Domains",
       "Create new Domains.");
 
+  public static final Privilege CREATE_GLOBAL_ANNOUNCEMENTS_PRIVILEGE = Privilege.of(
+      "CREATE_GLOBAL_ANNOUNCEMENTS",
+      "Create Global Announcements",
+      "Create new Global Announcements.");
+
   public static final List<Privilege> PLATFORM_PRIVILEGES = ImmutableList.of(
       MANAGE_POLICIES_PRIVILEGE,
       MANAGE_USERS_AND_GROUPS_PRIVILEGE,
@@ -107,7 +112,7 @@ public class PoliciesConfig {
       MANAGE_USER_CREDENTIALS_PRIVILEGE,
       MANAGE_TAGS_PRIVILEGE,
       CREATE_TAGS_PRIVILEGE,
-      CREATE_DOMAINS_PRIVILEGE
+      CREATE_DOMAINS_PRIVILEGE, CREATE_GLOBAL_ANNOUNCEMENTS_PRIVILEGE
   );
 
   // Resource Privileges //
@@ -340,6 +345,20 @@ public class PoliciesConfig {
           EDIT_ENTITY_PRIVILEGE)
   );
 
+  // Glossary Node Privileges
+  public static final ResourcePrivileges GLOSSARY_NODE_PRIVILEGES = ResourcePrivileges.of(
+      "glossaryNode",
+      "Glossary Term Groups",
+      "Glossary Term Groups created on DataHub",
+      ImmutableList.of(
+          VIEW_ENTITY_PAGE_PRIVILEGE,
+          EDIT_ENTITY_OWNERS_PRIVILEGE,
+          EDIT_ENTITY_DOCS_PRIVILEGE,
+          EDIT_ENTITY_DOC_LINKS_PRIVILEGE,
+          EDIT_ENTITY_DEPRECATION_PRIVILEGE,
+          EDIT_ENTITY_PRIVILEGE)
+  );
+
   // Group Privileges
   public static final ResourcePrivileges CORP_GROUP_PRIVILEGES = ResourcePrivileges.of(
       "corpGroup",
@@ -376,6 +395,7 @@ public class PoliciesConfig {
       CONTAINER_PRIVILEGES,
       DOMAIN_PRIVILEGES,
       GLOSSARY_TERM_PRIVILEGES,
+      GLOSSARY_NODE_PRIVILEGES,
       CORP_GROUP_PRIVILEGES,
       CORP_USER_PRIVILEGES,
       NOTEBOOK_PRIVILEGES

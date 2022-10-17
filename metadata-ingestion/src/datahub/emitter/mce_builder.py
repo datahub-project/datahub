@@ -12,15 +12,18 @@ import typing_inspect
 
 from datahub.configuration.source_common import DEFAULT_ENV as DEFAULT_ENV_CONFIGURATION
 from datahub.emitter.serialization_helper import pre_json_transform
-from datahub.metadata.com.linkedin.pegasus2avro.common import GlossaryTerms
 from datahub.metadata.schema_classes import (
+    AssertionKeyClass,
     AuditStampClass,
+    ChartKeyClass,
     ContainerKeyClass,
+    DashboardKeyClass,
     DatasetKeyClass,
     DatasetLineageTypeClass,
     DatasetSnapshotClass,
     GlobalTagsClass,
     GlossaryTermAssociationClass,
+    GlossaryTermsClass as GlossaryTerms,
     MetadataChangeEventClass,
     OwnerClass,
     OwnershipClass,
@@ -31,8 +34,8 @@ from datahub.metadata.schema_classes import (
     TagAssociationClass,
     UpstreamClass,
     UpstreamLineageClass,
+    _Aspect as AspectAbstract,
 )
-from datahub.metadata.schema_classes import _Aspect as AspectAbstract
 from datahub.utilities.urns.dataset_urn import DatasetUrn
 
 logger = logging.getLogger(__name__)
@@ -158,6 +161,14 @@ def make_assertion_urn(assertion_id: str) -> str:
     return f"urn:li:assertion:{assertion_id}"
 
 
+def assertion_urn_to_key(assertion_urn: str) -> Optional[AssertionKeyClass]:
+    pattern = r"urn:li:assertion:(.*)"
+    results = re.search(pattern, assertion_urn)
+    if results is not None:
+        return AssertionKeyClass(assertionId=results[1])
+    return None
+
+
 def make_user_urn(username: str) -> str:
     return f"urn:li:corpuser:{username}"
 
@@ -200,14 +211,40 @@ def make_data_job_urn(
     )
 
 
-def make_dashboard_urn(platform: str, name: str) -> str:
+def make_dashboard_urn(
+    platform: str, name: str, platform_instance: Optional[str] = None
+) -> str:
     # FIXME: dashboards don't currently include data platform urn prefixes.
-    return f"urn:li:dashboard:({platform},{name})"
+    if platform_instance:
+        return f"urn:li:dashboard:({platform},{platform_instance}.{name})"
+    else:
+        return f"urn:li:dashboard:({platform},{name})"
 
 
-def make_chart_urn(platform: str, name: str) -> str:
+def dashboard_urn_to_key(dashboard_urn: str) -> Optional[DashboardKeyClass]:
+    pattern = r"urn:li:dashboard:\((.*),(.*)\)"
+    results = re.search(pattern, dashboard_urn)
+    if results is not None:
+        return DashboardKeyClass(dashboardTool=results[1], dashboardId=results[2])
+    return None
+
+
+def make_chart_urn(
+    platform: str, name: str, platform_instance: Optional[str] = None
+) -> str:
     # FIXME: charts don't currently include data platform urn prefixes.
-    return f"urn:li:chart:({platform},{name})"
+    if platform_instance:
+        return f"urn:li:chart:({platform},{platform_instance}.{name})"
+    else:
+        return f"urn:li:chart:({platform},{name})"
+
+
+def chart_urn_to_key(chart_urn: str) -> Optional[ChartKeyClass]:
+    pattern = r"urn:li:chart:\((.*),(.*)\)"
+    results = re.search(pattern, chart_urn)
+    if results is not None:
+        return ChartKeyClass(dashboardTool=results[1], chartId=results[2])
+    return None
 
 
 def make_domain_urn(domain: str) -> str:

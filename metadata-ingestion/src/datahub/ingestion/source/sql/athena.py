@@ -89,18 +89,11 @@ class AthenaConfig(SQLAlchemyConfig):
     "Optionally enabled via configuration. Profiling uses sql queries on whole table which can be expensive operation.",
 )
 @capability(SourceCapability.DESCRIPTIONS, "Enabled by default")
-@capability(SourceCapability.LINEAGE_COARSE, "Optionally enabled via configuration")
 class AthenaSource(SQLAlchemySource):
     """
     This plugin supports extracting the following metadata from Athena
     - Tables, schemas etc.
     - Profiling when enabled.
-
-    :::note
-
-    Athena source only works with python 3.7+.
-
-    :::
     """
 
     def __init__(self, config, ctx):
@@ -179,9 +172,8 @@ class AthenaSource(SQLAlchemySource):
         return DatabaseKey(
             database=schema,
             platform=self.platform,
-            instance=self.config.platform_instance
-            if self.config.platform_instance is not None
-            else self.config.env,
+            instance=self.config.platform_instance,
+            backcompat_instance_for_guid=self.config.env,
         )
 
     def gen_schema_containers(

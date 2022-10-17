@@ -115,6 +115,7 @@ public class AppConfigResolver implements DataFetcher<CompletableFuture<AppConfi
     final VisualConfig visualConfig = new VisualConfig();
     if (_visualConfiguration != null && _visualConfiguration.getAssets() != null) {
       visualConfig.setLogoUrl(_visualConfiguration.getAssets().getLogoUrl());
+      visualConfig.setFaviconUrl(_visualConfiguration.getAssets().getFaviconUrl());
     }
     appConfig.setVisualConfig(visualConfig);
 
@@ -165,6 +166,8 @@ public class AppConfigResolver implements DataFetcher<CompletableFuture<AppConfi
       return EntityType.TAG;
     } else if (com.linkedin.metadata.authorization.PoliciesConfig.GLOSSARY_TERM_PRIVILEGES.getResourceType().equals(resourceType)) {
       return EntityType.GLOSSARY_TERM;
+    } else if (com.linkedin.metadata.authorization.PoliciesConfig.GLOSSARY_NODE_PRIVILEGES.getResourceType().equals(resourceType)) {
+      return EntityType.GLOSSARY_NODE;
     } else if (com.linkedin.metadata.authorization.PoliciesConfig.DOMAIN_PRIVILEGES.getResourceType().equals(resourceType)) {
       return EntityType.DOMAIN;
     } else if (com.linkedin.metadata.authorization.PoliciesConfig.CONTAINER_PRIVILEGES.getResourceType().equals(resourceType)) {

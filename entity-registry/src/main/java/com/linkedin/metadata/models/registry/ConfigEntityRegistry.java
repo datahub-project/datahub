@@ -13,6 +13,7 @@ import com.linkedin.metadata.models.EventSpecBuilder;
 import com.linkedin.metadata.models.registry.config.Entities;
 import com.linkedin.metadata.models.registry.config.Entity;
 import com.linkedin.metadata.models.registry.config.Event;
+import com.linkedin.metadata.models.registry.template.AspectTemplateEngine;
 import com.linkedin.util.Pair;
 import java.io.FileInputStream;
 import java.io.FileNotFoundException;
@@ -30,6 +31,8 @@ import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
 import lombok.extern.slf4j.Slf4j;
 
+import static com.linkedin.metadata.models.registry.EntityRegistryUtils.*;
+
 
 /**
  * Implementation of {@link EntityRegistry} that builds {@link DefaultEntitySpec} objects
@@ -43,6 +46,7 @@ public class ConfigEntityRegistry implements EntityRegistry {
   private final Map<String, EventSpec> eventNameToSpec;
   private final List<EntitySpec> entitySpecs;
   private final String identifier;
+  private final Map<String, AspectSpec> _aspectNameToSpec;
 
   private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper(new YAMLFactory());
 
@@ -131,6 +135,7 @@ public class ConfigEntityRegistry implements EntityRegistry {
       }
     }
     entitySpecs = new ArrayList<>(entityNameToSpec.values());
+    _aspectNameToSpec = populateAspectMap(entitySpecs);
   }
 
   @Override
@@ -185,7 +190,21 @@ public class ConfigEntityRegistry implements EntityRegistry {
 
   @Nonnull
   @Override
+  public Map<String, AspectSpec> getAspectSpecs() {
+    return _aspectNameToSpec;
+  }
+
+  @Nonnull
+  @Override
   public Map<String, EventSpec> getEventSpecs() {
     return eventNameToSpec;
+  }
+
+  @Nonnull
+  @Override
+  public AspectTemplateEngine getAspectTemplateEngine() {
+
+    //TODO: add support for config based aspect templates
+    return new AspectTemplateEngine();
   }
 }

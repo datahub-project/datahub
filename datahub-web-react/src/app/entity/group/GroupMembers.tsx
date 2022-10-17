@@ -8,6 +8,7 @@ import { CorpUser, EntityType } from '../../../types.generated';
 import { CustomAvatar } from '../../shared/avatar';
 import { useEntityRegistry } from '../../useEntityRegistry';
 import { AddGroupMembersModal } from './AddGroupMembersModal';
+import { scrollToTop } from '../../shared/searchUtils';
 
 const ADD_MEMBER_STYLE = {
     backGround: '#ffffff',
@@ -96,6 +97,7 @@ export default function GroupMembers({ urn, pageSize, isExternalGroup, onChangeM
     const [removeGroupMembersMutation] = useRemoveGroupMembersMutation();
 
     const onChangeMembersPage = (newPage: number) => {
+        scrollToTop();
         setPage(newPage);
     };
 

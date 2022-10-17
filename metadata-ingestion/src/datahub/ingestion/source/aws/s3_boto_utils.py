@@ -1,9 +1,9 @@
 import logging
-from typing import Iterable, Optional
+from typing import Iterable, Optional, Union
 
 from datahub.emitter.mce_builder import make_tag_urn
 from datahub.ingestion.api.common import PipelineContext
-from datahub.ingestion.source.aws.aws_common import AwsSourceConfig
+from datahub.ingestion.source.aws.aws_common import AwsConnectionConfig
 from datahub.ingestion.source.aws.s3_util import (
     get_bucket_name,
     get_bucket_relative_path,
@@ -19,17 +19,18 @@ def get_s3_tags(
     bucket_name: str,
     key_name: Optional[str],
     dataset_urn: str,
-    aws_config: Optional[AwsSourceConfig],
+    aws_config: Optional[AwsConnectionConfig],
     ctx: PipelineContext,
     use_s3_bucket_tags: Optional[bool] = False,
     use_s3_object_tags: Optional[bool] = False,
+    verify_ssl: Optional[Union[bool, str]] = None,
 ) -> Optional[GlobalTagsClass]:
     if aws_config is None:
         raise ValueError("aws_config not set. Cannot browse s3")
     new_tags = GlobalTagsClass(tags=[])
     tags_to_add = []
     if use_s3_bucket_tags:
-        s3 = aws_config.get_s3_resource()
+        s3 = aws_config.get_s3_resource(verify_ssl)
         bucket = s3.Bucket(bucket_name)
         try:
             tags_to_add.extend(
@@ -57,9 +58,8 @@ def get_s3_tags(
         return None
     if ctx.graph is not None:
         logger.debug("Connected to DatahubApi, grabbing current tags to maintain.")
-        current_tags: Optional[GlobalTagsClass] = ctx.graph.get_aspect_v2(
+        current_tags: Optional[GlobalTagsClass] = ctx.graph.get_aspect(
             entity_urn=dataset_urn,
-            aspect="globalTags",
             aspect_type=GlobalTagsClass,
         )
         if current_tags:
@@ -75,7 +75,7 @@ def get_s3_tags(
 
 
 def list_folders_path(
-    s3_uri: str, aws_config: Optional[AwsSourceConfig]
+    s3_uri: str, aws_config: Optional[AwsConnectionConfig]
 ) -> Iterable[str]:
     if not is_s3_uri(s3_uri):
         raise ValueError("Not a s3 URI: " + s3_uri)
@@ -87,7 +87,7 @@ def list_folders_path(
 
 
 def list_folders(
-    bucket_name: str, prefix: str, aws_config: Optional[AwsSourceConfig]
+    bucket_name: str, prefix: str, aws_config: Optional[AwsConnectionConfig]
 ) -> Iterable[str]:
     if aws_config is None:
         raise ValueError("aws_config not set. Cannot browse s3")

@@ -8,6 +8,8 @@ from typing import Dict, List, Optional, Set
 from sqllineage.core.holders import Column, SQLLineageHolder
 from sqllineage.exceptions import SQLLineageException
 
+from datahub.utilities.sql_parser_base import SQLParser, SqlParserException
+
 with contextlib.suppress(ImportError):
     import sqlparse
     from networkx import DiGraph
@@ -17,7 +19,7 @@ with contextlib.suppress(ImportError):
 logger = logging.getLogger(__name__)
 
 
-class SqlLineageSQLParserImpl:
+class SqlLineageSQLParserImpl(SQLParser):
     _DATE_SWAP_TOKEN = "__d_a_t_e"
     _HOUR_SWAP_TOKEN = "__h_o_u_r"
     _TIMESTAMP_SWAP_TOKEN = "__t_i_m_e_s_t_a_m_p"
@@ -27,6 +29,7 @@ class SqlLineageSQLParserImpl:
     _MYVIEW_LOOKER_TOKEN = "my_view.SQL_TABLE_NAME"
 
     def __init__(self, sql_query: str) -> None:
+        super().__init__(sql_query)
         original_sql_query = sql_query
 
         # SqlLineageParser makes mistakes on lateral flatten queries, use the prefix
@@ -42,8 +45,13 @@ class SqlLineageSQLParserImpl:
             self._ADMIN_SWAP_TOKEN: "admin",
         }
         for replacement, original in self.token_to_original.items():
+            # Replace original tokens with replacement. Since table and column name can contain a hyphen('-'),
+            # also prevent original tokens appearing as part of these names with a hyphen from getting substituted.
             sql_query = re.sub(
-                rf"(\b{original}\b)", rf"{replacement}", sql_query, flags=re.IGNORECASE
+                rf"((?<!-)\b{original}\b)(?!-)",
+                rf"{replacement}",
+                sql_query,
+                flags=re.IGNORECASE,
             )
 
         # SqlLineageParser lowercarese tablenames and we need to replace Looker specific token which should be uppercased
@@ -92,7 +100,9 @@ class SqlLineageSQLParserImpl:
                     ]
                     self._sql_holder = SQLLineageHolder.of(*self._stmt_holders)
         except SQLLineageException as e:
-            logger.error(f"SQL lineage analyzer error '{e}' for query: '{self._sql}")
+            raise SqlParserException(
+                f"SQL lineage analyzer error '{e}' for query: '{self._sql}"
+            ) from e
 
     def get_tables(self) -> List[str]:
         result: List[str] = []
@@ -118,8 +128,7 @@ class SqlLineageSQLParserImpl:
 
     def get_columns(self) -> List[str]:
         if self._sql_holder is None:
-            logger.error("sql holder not present so cannot get columns")
-            return []
+            raise SqlParserException("sql holder not present so cannot get columns")
         graph: DiGraph = self._sql_holder.graph  # For mypy attribute checking
         column_nodes = [n for n in graph.nodes if isinstance(n, Column)]
         column_graph = graph.subgraph(column_nodes)

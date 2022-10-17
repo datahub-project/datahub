@@ -11,10 +11,14 @@ query listIngestionSources($input: ListIngestionSourcesInput!) {
                 recipe
                 version
                 executorId
+                debugMode
             }
             schedule {
                 interval
                 timezone
+            }
+            platform {
+                urn
             }
             executions(start: 0, count: 1) {
                 start
@@ -46,10 +50,14 @@ query getIngestionSource($urn: String!, $runStart: Int, $runCount: Int) {
             recipe
             version
             executorId
+            debugMode
         }
         schedule {
             interval
             timezone
+        }
+        platform {
+            urn
         }
         executions(start: $runStart, count: $runCount) {
             start
@@ -139,4 +147,8 @@ mutation cancelIngestionExecutionRequest($input: CancelIngestionExecutionRequest
 
 mutation createTestConnectionRequest($input: CreateTestConnectionRequestInput!) {
     createTestConnectionRequest(input: $input)
+}
+
+mutation rollbackIngestion($input: RollbackIngestionInput!) {
+    rollbackIngestion(input: $input)
 }

@@ -42,10 +42,10 @@ public class SearchRequestHandlerTest {
     HighlightBuilder highlightBuilder = sourceBuilder.highlighter();
     List<String> fields =
         highlightBuilder.fields().stream().map(HighlightBuilder.Field::name).collect(Collectors.toList());
-    assertEquals(fields.size(), 16);
+    assertEquals(fields.size(), 18);
     List<String> highlightableFields =
         ImmutableList.of("keyPart1", "textArrayField", "textFieldOverride", "foreignKey", "nestedForeignKey",
-            "nestedArrayStringField", "nestedArrayArrayField", "customProperties");
+            "nestedArrayStringField", "nestedArrayArrayField", "customProperties", "esObjectField");
     highlightableFields.forEach(field -> {
       assertTrue(fields.contains(field));
       assertTrue(fields.contains(field + ".*"));
@@ -91,7 +91,7 @@ public class SearchRequestHandlerTest {
             .filter(match -> match.fieldName().equals("removed"))
             .findAny();
 
-    assertTrue(mustNotHaveRemovedCondition.isPresent(), "Expected must not have removed condition to exist" 
+    assertTrue(mustNotHaveRemovedCondition.isPresent(), "Expected must not have removed condition to exist"
             + " if filter does not have it");
 
     final Filter filterWithRemovedCondition = new Filter().setOr(
@@ -118,7 +118,7 @@ public class SearchRequestHandlerTest {
             .filter(match -> match.fieldName().equals("removed"))
             .findAny();
 
-    assertFalse(mustNotHaveRemovedCondition.isPresent(), "Expect `must not have removed` condition to not" 
+    assertFalse(mustNotHaveRemovedCondition.isPresent(), "Expect `must not have removed` condition to not"
             + " exist because filter already has it a condition for the removed property");
   }
 }

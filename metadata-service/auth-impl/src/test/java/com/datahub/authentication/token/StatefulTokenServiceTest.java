@@ -63,6 +63,33 @@ public class StatefulTokenServiceTest {
   }
 
   @Test
+  public void testGenerateAccessTokenPersonalTokenEternal() throws Exception {
+    StatefulTokenService tokenService = new StatefulTokenService(TEST_SIGNING_KEY, "HS256", null, mockService, TEST_SALTING_KEY);
+    Actor datahub = new Actor(ActorType.USER, "datahub");
+    String token = tokenService.generateAccessToken(TokenType.PERSONAL, datahub,
+            null, System.currentTimeMillis(),
+            "some token",
+            "A token description",
+            datahub.toUrnStr());
+    assertNotNull(token);
+
+    // Verify token claims
+    TokenClaims claims = tokenService.validateAccessToken(token);
+
+    assertEquals(claims.getTokenVersion(), TokenVersion.TWO);
+    assertEquals(claims.getTokenType(), TokenType.PERSONAL);
+    assertEquals(claims.getActorType(), ActorType.USER);
+    assertEquals(claims.getActorId(), "datahub");
+    assertNull(claims.getExpirationInMs());
+
+    Map<String, Object> claimsMap = claims.asMap();
+    assertEquals(claimsMap.get(TOKEN_VERSION_CLAIM_NAME), 2);
+    assertEquals(claimsMap.get(TOKEN_TYPE_CLAIM_NAME), "PERSONAL");
+    assertEquals(claimsMap.get(ACTOR_TYPE_CLAIM_NAME), "USER");
+    assertEquals(claimsMap.get(ACTOR_ID_CLAIM_NAME), "datahub");
+  }
+
+  @Test
   public void testGenerateAccessTokenSessionToken() throws Exception {
     StatefulTokenService tokenService = new StatefulTokenService(TEST_SIGNING_KEY, "HS256", null, mockService, TEST_SALTING_KEY);
     Actor datahub = new Actor(ActorType.USER, "datahub");

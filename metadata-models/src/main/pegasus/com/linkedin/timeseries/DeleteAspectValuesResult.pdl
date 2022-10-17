@@ -1,0 +1,12 @@
+namespace com.linkedin.timeseries
+
+/**
+ * Encapsulates the response of the deleteAspectValues API so that it can be extended
+ * as required in future.
+ */
+record DeleteAspectValuesResult{
+  /**
+   * Number of documents deleted.
+   */
+  numDocsDeleted: long = 0
+}

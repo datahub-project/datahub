@@ -1,25 +1,17 @@
 import React from 'react';
-import { Button, Checkbox, Form, Input, Select, Tooltip } from 'antd';
+import { Checkbox, DatePicker, Form, Input, Select, Tooltip } from 'antd';
 import styled from 'styled-components/macro';
-import { MinusCircleOutlined, PlusOutlined, QuestionCircleOutlined } from '@ant-design/icons';
-import { FieldType, RecipeField } from './utils';
-import { ANTD_GRAY } from '../../../../entity/shared/constants';
+import Button from 'antd/lib/button';
+import { MinusCircleOutlined, PlusOutlined } from '@ant-design/icons';
+import { RecipeField, FieldType } from './common';
 import { Secret } from '../../../../../types.generated';
-import SecretField from './SecretField/SecretField';
-
-const Label = styled.div`
-    font-weight: bold;
-    padding-bottom: 8px;
-`;
+import SecretField, { StyledFormItem } from './SecretField/SecretField';
+import DictField, { Label, StyledQuestion, ListWrapper, ErrorWrapper } from './DictField';
+import { ANTD_GRAY } from '../../../../entity/shared/constants';
 
 const StyledButton = styled(Button)`
     color: ${ANTD_GRAY[7]};
     width: 80%;
-`;
-
-const StyledQuestion = styled(QuestionCircleOutlined)`
-    color: rgba(0, 0, 0, 0.45);
-    margin-left: 4px;
 `;
 
 const StyledRemoveIcon = styled(MinusCircleOutlined)`
@@ -27,45 +19,15 @@ const StyledRemoveIcon = styled(MinusCircleOutlined)`
     margin-left: 10px;
 `;
 
-const StyledSelectField = styled(Select)`
-    margin-left: 10px;
-`;
-
-const StyledFormItem = styled(Form.Item)<{ alignLeft: boolean; removeMargin: boolean }>`
-    margin-bottom: ${(props) => (props.removeMargin ? '0' : '16px')};
-
-    ${(props) =>
-        props.alignLeft &&
-        `
-        .ant-form-item {
-            flex-direction: row;
-
-        }
-
-        .ant-form-item-label {
-            padding: 0;
-            margin-right: 10px;
-        }
-    `}
-`;
-
-const ListWrapper = styled.div<{ removeMargin: boolean }>`
-    margin-bottom: ${(props) => (props.removeMargin ? '0' : '16px')};
-`;
-
-interface ListFieldProps {
+interface CommonFieldProps {
     field: RecipeField;
     removeMargin?: boolean;
 }
 
-interface SelectFieldProps {
-    field: RecipeField;
-}
-
-function ListField({ field, removeMargin }: ListFieldProps) {
+function ListField({ field, removeMargin }: CommonFieldProps) {
     return (
-        <Form.List name={field.name}>
-            {(fields, { add, remove }) => (
+        <Form.List name={field.name} rules={field.rules || undefined}>
+            {(fields, { add, remove }, { errors }) => (
                 <ListWrapper removeMargin={!!removeMargin}>
                     <Label>
                         {field.label}
@@ -76,7 +38,7 @@ function ListField({ field, removeMargin }: ListFieldProps) {
                     {fields.map((item) => (
                         <Form.Item key={item.fieldKey} style={{ marginBottom: '10px' }}>
                             <Form.Item {...item} noStyle>
-                                <Input style={{ width: '80%' }} />
+                                <Input style={{ width: '80%' }} placeholder={field.placeholder} />
                             </Form.Item>
                             <StyledRemoveIcon onClick={() => remove(item.name)} />
                         </Form.Item>
@@ -84,28 +46,44 @@ function ListField({ field, removeMargin }: ListFieldProps) {
                     <StyledButton type="dashed" onClick={() => add()} style={{ width: '80%' }} icon={<PlusOutlined />}>
                         {field.buttonLabel}
                     </StyledButton>
+                    <ErrorWrapper>{errors}</ErrorWrapper>
                 </ListWrapper>
             )}
         </Form.List>
     );
 }
 
-function SelectField({ field }: SelectFieldProps) {
+function SelectField({ field, removeMargin }: CommonFieldProps) {
     return (
-        <Form.Item
+        <StyledFormItem
             name={field.name}
             label={field.label}
             tooltip={field.tooltip}
-            style={{ flexDirection: 'row', width: '80%', display: 'flex', alignItems: 'baseline' }}
+            removeMargin={!!removeMargin}
+            rules={field.rules || undefined}
         >
             {field.options && (
-                <StyledSelectField>
+                <Select placeholder={field.placeholder}>
                     {field.options.map((option) => (
                         <Select.Option value={option.value}>{option.label}</Select.Option>
                     ))}
-                </StyledSelectField>
+                </Select>
             )}
-        </Form.Item>
+        </StyledFormItem>
+    );
+}
+
+function DateField({ field, removeMargin }: CommonFieldProps) {
+    return (
+        <StyledFormItem
+            name={field.name}
+            label={field.label}
+            tooltip={field.tooltip}
+            removeMargin={!!removeMargin}
+            rules={field.rules || undefined}
+        >
+            <DatePicker showTime />
+        </StyledFormItem>
     );
 }
 
@@ -121,13 +99,21 @@ function FormField(props: Props) {
 
     if (field.type === FieldType.LIST) return <ListField field={field} removeMargin={removeMargin} />;
 
-    if (field.type === FieldType.SELECT) return <SelectField field={field} />;
+    if (field.type === FieldType.SELECT) return <SelectField field={field} removeMargin={removeMargin} />;
+
+    if (field.type === FieldType.DATE) return <DateField field={field} removeMargin={removeMargin} />;
 
     if (field.type === FieldType.SECRET)
-        return <SecretField field={field} secrets={secrets} refetchSecrets={refetchSecrets} />;
+        return (
+            <SecretField field={field} secrets={secrets} removeMargin={removeMargin} refetchSecrets={refetchSecrets} />
+        );
+
+    if (field.type === FieldType.DICT) return <DictField field={field} />;
 
     const isBoolean = field.type === FieldType.BOOLEAN;
-    const input = isBoolean ? <Checkbox /> : <Input />;
+    let input = <Input placeholder={field.placeholder} />;
+    if (isBoolean) input = <Checkbox />;
+    if (field.type === FieldType.TEXTAREA) input = <Input.TextArea placeholder={field.placeholder} />;
     const valuePropName = isBoolean ? 'checked' : 'value';
     const getValueFromEvent = isBoolean ? undefined : (e) => (e.target.value === '' ? null : e.target.value);
 

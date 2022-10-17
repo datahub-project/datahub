@@ -19,6 +19,7 @@ import { MLModelEntity } from '../../app/entity/mlModel/MLModelEntity';
 import { MLModelGroupEntity } from '../../app/entity/mlModelGroup/MLModelGroupEntity';
 import { ChartEntity } from '../../app/entity/chart/ChartEntity';
 import { DashboardEntity } from '../../app/entity/dashboard/DashboardEntity';
+import { LineageExplorerContext } from '../../app/lineage/utils/LineageExplorerContext';
 
 type Props = {
     children: React.ReactNode;
@@ -53,7 +54,27 @@ export default ({ children, initialEntries }: Props) => {
     return (
         <ThemeProvider theme={defaultThemeConfig}>
             <MemoryRouter initialEntries={initialEntries}>
-                <EntityRegistryContext.Provider value={entityRegistry}>{children}</EntityRegistryContext.Provider>
+                <EntityRegistryContext.Provider value={entityRegistry}>
+                    <LineageExplorerContext.Provider
+                        value={{
+                            expandTitles: false,
+                            showColumns: false,
+                            collapsedColumnsNodes: {},
+                            setCollapsedColumnsNodes: null,
+                            fineGrainedMap: {},
+                            selectedField: null,
+                            setSelectedField: () => {},
+                            highlightedEdges: [],
+                            setHighlightedEdges: () => {},
+                            visibleColumnsByUrn: {},
+                            setVisibleColumnsByUrn: () => {},
+                            columnsByUrn: {},
+                            setColumnsByUrn: () => {},
+                        }}
+                    >
+                        {children}
+                    </LineageExplorerContext.Provider>
+                </EntityRegistryContext.Provider>
             </MemoryRouter>
         </ThemeProvider>
     );

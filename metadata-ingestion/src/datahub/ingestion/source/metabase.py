@@ -3,9 +3,9 @@ from functools import lru_cache
 from typing import Dict, Iterable, Optional
 
 import dateutil.parser as dp
+import pydantic
 import requests
-from pydantic import validator
-from pydantic.fields import Field
+from pydantic import Field, validator
 from requests.models import HTTPError
 from sqllineage.runner import LineageRunner
 
@@ -48,8 +48,10 @@ class MetabaseConfig(DatasetLineageProviderConfigBase):
     # See the Metabase /api/session endpoint for details
     # https://www.metabase.com/docs/latest/api-documentation.html#post-apisession
     connect_uri: str = Field(default="localhost:3000", description="Metabase host URL.")
-    username: str = Field(default=None, description="Metabase username.")
-    password: str = Field(default=None, description="Metabase password.")
+    username: Optional[str] = Field(default=None, description="Metabase username.")
+    password: Optional[pydantic.SecretStr] = Field(
+        default=None, description="Metabase password."
+    )
     database_alias_map: Optional[dict] = Field(
         default=None,
         description="Database name map to use when constructing dataset URN.",
@@ -126,7 +128,9 @@ class MetabaseSource(Source):
             None,
             {
                 "username": self.config.username,
-                "password": self.config.password,
+                "password": self.config.password.get_secret_value()
+                if self.config.password
+                else None,
             },
         )
 

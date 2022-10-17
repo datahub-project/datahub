@@ -4,8 +4,7 @@ import time
 import pytest
 import tenacity
 
-from tests.utils import (get_frontend_url, get_sleep_info,
-                         wait_for_healthcheck_util)
+from tests.utils import get_frontend_url, get_sleep_info, wait_for_healthcheck_util
 
 sleep_sec, sleep_times = get_sleep_info()
 
@@ -153,6 +152,7 @@ def _ensure_ingestion_source_present(
     )
     response.raise_for_status()
     res_data = response.json()
+    print(res_data)
 
     assert res_data
     assert res_data["data"]
@@ -507,7 +507,7 @@ def test_create_list_get_ingestion_execution_request(frontend_session):
 
     # Verify input
     assert execution_request["input"]["task"] == "RUN_INGEST"
-    assert len(execution_request["input"]["arguments"]) == 2
+    assert len(execution_request["input"]["arguments"]) == 3
     assert execution_request["input"]["arguments"][0]["key"] == "recipe"
     assert (
         json.loads(execution_request["input"]["arguments"][0]["value"])["source"]
@@ -517,6 +517,10 @@ def test_create_list_get_ingestion_execution_request(frontend_session):
     )
     assert execution_request["input"]["arguments"][1]["key"] == "version"
     assert execution_request["input"]["arguments"][1]["value"] == "0.8.18"
+    assert execution_request["input"]["arguments"][2] == {
+        "key": "debug_mode",
+        "value": "false",
+    }
 
     # Verify no result
     assert execution_request["result"] is None

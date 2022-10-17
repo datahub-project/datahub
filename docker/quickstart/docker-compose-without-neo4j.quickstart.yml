@@ -14,11 +14,11 @@ services:
     - KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR=1
     - KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS=0
     - KAFKA_HEAP_OPTS=-Xms256m -Xmx256m
+    - KAFKA_CONFLUENT_SUPPORT_METRICS_ENABLE=false
     hostname: broker
     image: confluentinc/cp-kafka:5.4.0
     ports:
-    - 29092:29092
-    - 9092:9092
+    - ${DATAHUB_MAPPED_KAFKA_BROKER_PORT:-9092}:9092
   datahub-actions:
     depends_on:
     - datahub-gms
@@ -55,7 +55,7 @@ services:
     hostname: datahub-frontend-react
     image: ${DATAHUB_FRONTEND_IMAGE:-linkedin/datahub-frontend-react}:${DATAHUB_VERSION:-head}
     ports:
-    - 9002:9002
+    - ${DATAHUB_MAPPED_FRONTEND_PORT:-9002}:9002
     volumes:
     - ${HOME}/.datahub/plugins:/etc/datahub/plugins
   datahub-gms:
@@ -82,14 +82,13 @@ services:
     - MCE_CONSUMER_ENABLED=true
     - PE_CONSUMER_ENABLED=true
     - UI_INGESTION_ENABLED=true
-    - UI_INGESTION_DEFAULT_CLI_VERSION=0.8.42
+    - ENTITY_SERVICE_ENABLE_RETENTION=true
     hostname: datahub-gms
     image: ${DATAHUB_GMS_IMAGE:-linkedin/datahub-gms}:${DATAHUB_VERSION:-head}
     ports:
-    - 8080:8080
+    - ${DATAHUB_MAPPED_GMS_PORT:-8080}:8080
     volumes:
     - ${HOME}/.datahub/plugins:/etc/datahub/plugins
-    - ${HOME}/.datahub/plugins/auth/resources/:/etc/datahub/plugins/auth/resources
   elasticsearch:
     container_name: elasticsearch
     environment:
@@ -107,7 +106,7 @@ services:
     image: elasticsearch:7.9.3
     mem_limit: 1g
     ports:
-    - 9200:9200
+    - ${DATAHUB_MAPPED_ELASTIC_PORT:-9200}:9200
     volumes:
     - esdata:/usr/share/elasticsearch/data
   elasticsearch-setup:
@@ -141,7 +140,7 @@ services:
     hostname: mysql
     image: mysql:5.7
     ports:
-    - 3306:3306
+    - ${DATAHUB_MAPPED_MYSQL_PORT:-3306}:3306
     volumes:
     - ../mysql/init.sql:/docker-entrypoint-initdb.d/init.sql
     - mysqldata:/var/lib/mysql
@@ -168,7 +167,7 @@ services:
     hostname: schema-registry
     image: confluentinc/cp-schema-registry:5.4.0
     ports:
-    - 8081:8081
+    - ${DATAHUB_MAPPED_SCHEMA_REGISTRY_PORT:-8081}:8081
   zookeeper:
     container_name: zookeeper
     environment:
@@ -177,9 +176,9 @@ services:
     hostname: zookeeper
     image: confluentinc/cp-zookeeper:5.4.0
     ports:
-    - 2181:2181
+    - ${DATAHUB_MAPPED_ZK_PORT:-2181}:2181
     volumes:
-    - zkdata:/var/opt/zookeeper
+    - zkdata:/var/lib/zookeeper
 version: '2.3'
 volumes:
   esdata: null

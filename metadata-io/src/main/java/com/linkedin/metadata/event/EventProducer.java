@@ -6,8 +6,10 @@ import com.linkedin.metadata.models.AspectSpec;
 import com.linkedin.metadata.snapshot.Snapshot;
 import com.linkedin.mxe.MetadataChangeLog;
 import com.linkedin.mxe.MetadataAuditOperation;
+import com.linkedin.mxe.MetadataChangeProposal;
 import com.linkedin.mxe.PlatformEvent;
 import com.linkedin.mxe.SystemMetadata;
+import io.opentelemetry.extension.annotations.WithSpan;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 
@@ -51,6 +53,15 @@ public interface EventProducer {
       @Nonnull AspectSpec aspectSpec,
       @Nonnull final MetadataChangeLog metadataChangeLog
   );
+
+  /**
+   * Produces a {@link com.linkedin.mxe.MetadataChangeProposal}
+   * as an async update to an entity
+   *
+   * @param metadataChangeProposal metadata change proposal to push into MCP kafka topic
+   */
+  @WithSpan
+  void produceMetadataChangeProposal(@Nonnull MetadataChangeProposal metadataChangeProposal);
 
   /**
    * Produces a generic platform "event".

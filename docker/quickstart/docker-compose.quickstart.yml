@@ -14,6 +14,7 @@ services:
     - KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR=1
     - KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS=0
     - KAFKA_HEAP_OPTS=-Xms256m -Xmx256m
+    - KAFKA_CONFLUENT_SUPPORT_METRICS_ENABLE=false
     hostname: broker
     image: confluentinc/cp-kafka:5.4.0
     ports:
@@ -83,11 +84,11 @@ services:
     - JAVA_OPTS=-Xms1g -Xmx1g
     - GRAPH_SERVICE_IMPL=neo4j
     - ENTITY_REGISTRY_CONFIG_PATH=/datahub/datahub-gms/resources/entity-registry.yml
+    - ENTITY_SERVICE_ENABLE_RETENTION=true
     - MAE_CONSUMER_ENABLED=true
     - MCE_CONSUMER_ENABLED=true
     - PE_CONSUMER_ENABLED=true
     - UI_INGESTION_ENABLED=true
-    - UI_INGESTION_DEFAULT_CLI_VERSION=0.8.42
     hostname: datahub-gms
     image: ${DATAHUB_GMS_IMAGE:-linkedin/datahub-gms}:${DATAHUB_VERSION:-head}
     ports:
@@ -169,7 +170,7 @@ services:
     - NEO4J_dbms_default__database=graph.db
     - NEO4J_dbms_allow__upgrade=true
     hostname: neo4j
-    image: neo4j:4.0.6
+    image: neo4j:4.4.9-community
     ports:
     - ${DATAHUB_MAPPED_NEO4J_HTTP_PORT:-7474}:7474
     - ${DATAHUB_MAPPED_NEO4J_BOLT_PORT:-7687}:7687
@@ -197,7 +198,7 @@ services:
     ports:
     - ${DATAHUB_MAPPED_ZK_PORT:-2181}:2181
     volumes:
-    - zkdata:/var/opt/zookeeper
+    - zkdata:/var/lib/zookeeper
 version: '2.3'
 volumes:
   broker: null

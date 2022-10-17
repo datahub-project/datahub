@@ -1,5 +1,6 @@
 package com.linkedin.metadata.graph.dgraph;
 
+import com.google.common.collect.ImmutableList;
 import com.linkedin.metadata.graph.GraphService;
 import com.linkedin.metadata.graph.GraphServiceTestBase;
 import com.linkedin.metadata.graph.RelatedEntity;
@@ -532,8 +533,8 @@ public class DgraphGraphServiceTest extends GraphServiceTestBase {
     public void testGetQueryForRelatedEntitiesOutgoing() {
         doTestGetQueryForRelatedEntitiesDirection(RelationshipDirection.OUTGOING,
                 "query {\n"
-                        + "  sourceType as var(func: eq(<type>, \"sourceType\"))\n"
-                        + "  destinationType as var(func: eq(<type>, \"destinationType\"))\n"
+                        + "  sourceType as var(func: eq(<type>, [\"sourceType\"]))\n"
+                        + "  destinationType as var(func: eq(<type>, [\"destinationType\"]))\n"
                         + "  sourceFilter1 as var(func: eq(<urn>, \"urn:ns:type:source-key\"))\n"
                         + "  sourceFilter2 as var(func: eq(<key>, \"source-key\"))\n"
                         + "  destinationFilter1 as var(func: eq(<urn>, \"urn:ns:type:dest-key\"))\n"
@@ -565,8 +566,8 @@ public class DgraphGraphServiceTest extends GraphServiceTestBase {
     public void testGetQueryForRelatedEntitiesIncoming() {
         doTestGetQueryForRelatedEntitiesDirection(RelationshipDirection.INCOMING,
                 "query {\n"
-                        + "  sourceType as var(func: eq(<type>, \"sourceType\"))\n"
-                        + "  destinationType as var(func: eq(<type>, \"destinationType\"))\n"
+                        + "  sourceType as var(func: eq(<type>, [\"sourceType\"]))\n"
+                        + "  destinationType as var(func: eq(<type>, [\"destinationType\"]))\n"
                         + "  sourceFilter1 as var(func: eq(<urn>, \"urn:ns:type:source-key\"))\n"
                         + "  sourceFilter2 as var(func: eq(<key>, \"source-key\"))\n"
                         + "  destinationFilter1 as var(func: eq(<urn>, \"urn:ns:type:dest-key\"))\n"
@@ -598,8 +599,8 @@ public class DgraphGraphServiceTest extends GraphServiceTestBase {
     public void testGetQueryForRelatedEntitiesUndirected() {
         doTestGetQueryForRelatedEntitiesDirection(RelationshipDirection.UNDIRECTED,
                 "query {\n"
-                        + "  sourceType as var(func: eq(<type>, \"sourceType\"))\n"
-                        + "  destinationType as var(func: eq(<type>, \"destinationType\"))\n"
+                        + "  sourceType as var(func: eq(<type>, [\"sourceType\"]))\n"
+                        + "  destinationType as var(func: eq(<type>, [\"destinationType\"]))\n"
                         + "  sourceFilter1 as var(func: eq(<urn>, \"urn:ns:type:source-key\"))\n"
                         + "  sourceFilter2 as var(func: eq(<key>, \"source-key\"))\n"
                         + "  destinationFilter1 as var(func: eq(<urn>, \"urn:ns:type:dest-key\"))\n"
@@ -638,12 +639,12 @@ public class DgraphGraphServiceTest extends GraphServiceTestBase {
     private void doTestGetQueryForRelatedEntitiesDirection(@Nonnull RelationshipDirection direction, @Nonnull String expectedQuery) {
         assertEquals(
                 DgraphGraphService.getQueryForRelatedEntities(
-                        "sourceType",
+                        ImmutableList.of("sourceType"),
                         newFilter(new HashMap<String, String>() {{
                             put("urn", "urn:ns:type:source-key");
                             put("key", "source-key");
                         }}),
-                        "destinationType",
+                        ImmutableList.of("destinationType"),
                         newFilter(new HashMap<String, String>() {{
                             put("urn", "urn:ns:type:dest-key");
                             put("key", "dest-key");

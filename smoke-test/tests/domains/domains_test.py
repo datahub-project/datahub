@@ -1,5 +1,3 @@
-import time
-
 import pytest
 import tenacity
 from tests.utils import (
@@ -32,7 +30,6 @@ def test_healthchecks(wait_for_healthchecks):
     stop=tenacity.stop_after_attempt(sleep_times), wait=tenacity.wait_fixed(sleep_sec)
 )
 def _ensure_more_domains(frontend_session, list_domains_json, before_count):
-    time.sleep(2)
 
     # Get new count of Domains
     response = frontend_session.post(

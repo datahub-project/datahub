@@ -17,9 +17,7 @@ public class ResourceUtils {
     return entityService.getEntityAspectNames(entityName);
   }
 
-  public static void tryIndexRunId(
-      final Urn urn,
-      final @Nullable SystemMetadata systemMetadata,
+  public static void tryIndexRunId(final Urn urn, final @Nullable SystemMetadata systemMetadata,
       final EntitySearchService entitySearchService) {
     if (systemMetadata != null && systemMetadata.hasRunId()) {
       entitySearchService.appendRunId(urn.getEntityType(), urn, systemMetadata.getRunId());

@@ -43,15 +43,19 @@ def wait_for_port(
 
 
 @pytest.fixture(scope="module")
-def docker_compose_runner(docker_compose_project_name, docker_cleanup):
+def docker_compose_runner(
+    docker_compose_command, docker_compose_project_name, docker_setup, docker_cleanup
+):
     @contextlib.contextmanager
     def run(
         compose_file_path: Union[str, list], key: str
     ) -> pytest_docker.plugin.Services:
         with pytest_docker.plugin.get_docker_services(
-            compose_file_path,
-            f"{docker_compose_project_name}-{key}",
-            docker_cleanup,
+            docker_compose_command=docker_compose_command,
+            docker_compose_file=compose_file_path,
+            docker_compose_project_name=f"{docker_compose_project_name}-{key}",
+            docker_setup=docker_setup,
+            docker_cleanup=docker_cleanup,
         ) as docker_services:
             yield docker_services
 

@@ -268,19 +268,12 @@ class BigQueryTableRef:
         # Temporary tables will have a dataset that begins with an underscore.
         return self.dataset.startswith(prefix)
 
-    @staticmethod
-    def remove_suffix(input_string, suffix):
-        if suffix and input_string.endswith(suffix):
-            return input_string[: -len(suffix)]
-        return input_string
-
     def remove_extras(self, sharded_table_regex: str) -> "BigQueryTableRef":
         # Handle partitioned and sharded tables.
         table_name: Optional[str] = None
         shortened_table_name = self.table
         # if table name ends in _* or * then we strip it as that represents a query on a sharded table
-        shortened_table_name = self.remove_suffix(shortened_table_name, "_*")
-        shortened_table_name = self.remove_suffix(shortened_table_name, "*")
+        shortened_table_name = re.sub("(_(.+)?\\*)|\\*$", "", shortened_table_name)
 
         matches = re.match(sharded_table_regex, shortened_table_name)
         if matches:
@@ -734,8 +727,8 @@ class BigQueryUsageSource(Source):
     #    return BigQueryUsageConfig
 
     def add_config_to_report(self):
-        self.report.start_time = self.config.start_time
-        self.report.end_time = self.config.end_time
+        self.report.window_start_time = self.config.start_time
+        self.report.window_end_time = self.config.end_time
         self.report.use_v2_audit_metadata = self.config.use_v2_audit_metadata
         self.report.query_log_delay = self.config.query_log_delay
         self.report.log_page_size = self.config.log_page_size

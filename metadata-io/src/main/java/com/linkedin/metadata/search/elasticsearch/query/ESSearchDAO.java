@@ -54,12 +54,12 @@ public class ESSearchDAO {
 
   @Nonnull
   @WithSpan
-  private SearchResult executeAndExtract(@Nonnull EntitySpec entitySpec, @Nonnull SearchRequest searchRequest, int from,
+  private SearchResult executeAndExtract(@Nonnull EntitySpec entitySpec, @Nonnull SearchRequest searchRequest, @Nullable Filter filter, int from,
       int size) {
     try (Timer.Context ignored = MetricUtils.timer(this.getClass(), "esSearch").time()) {
       final SearchResponse searchResponse = client.search(searchRequest, RequestOptions.DEFAULT);
       // extract results, validated against document model as well
-      return SearchRequestHandler.getBuilder(entitySpec).extractResult(searchResponse, from, size);
+      return SearchRequestHandler.getBuilder(entitySpec).extractResult(searchResponse, filter, from, size);
     } catch (Exception e) {
       if (e instanceof ElasticsearchStatusException) {
         final ElasticsearchStatusException statusException = (ElasticsearchStatusException) e;
@@ -97,7 +97,7 @@ public class ESSearchDAO {
     searchRequest.indices(indexConvention.getIndexName(entitySpec));
     searchRequestTimer.stop();
     // Step 2: execute the query and extract results, validated against document model as well
-    return executeAndExtract(entitySpec, searchRequest, from, size);
+    return executeAndExtract(entitySpec, searchRequest, postFilters, from, size);
   }
 
   /**
@@ -116,7 +116,7 @@ public class ESSearchDAO {
     final SearchRequest searchRequest =
         SearchRequestHandler.getBuilder(entitySpec).getFilterRequest(filters, sortCriterion, from, size);
     searchRequest.indices(indexConvention.getIndexName(entitySpec));
-    return executeAndExtract(entitySpec, searchRequest, from, size);
+    return executeAndExtract(entitySpec, searchRequest, filters, from, size);
   }
 
   /**

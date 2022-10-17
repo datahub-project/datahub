@@ -15,6 +15,8 @@ from tests.utils import (
     get_sleep_info,
     ingest_file_via_rest,
     wait_for_healthcheck_util,
+    get_frontend_session,
+    get_admin_credentials,
 )
 
 bootstrap_sample_data = "../metadata-ingestion/examples/mce_files/bootstrap_mce.json"
@@ -44,16 +46,7 @@ def test_healthchecks(wait_for_healthchecks):
 
 @pytest.fixture(scope="session")
 def frontend_session(wait_for_healthchecks):
-    session = requests.Session()
-
-    headers = {
-        "Content-Type": "application/json",
-    }
-    data = '{"username":"datahub", "password":"datahub"}'
-    response = session.post(f"{get_frontend_url()}/logIn", headers=headers, data=data)
-    response.raise_for_status()
-
-    yield session
+    yield get_frontend_session()
 
 
 @tenacity.retry(
@@ -74,6 +67,32 @@ def _ensure_user_present(urn: str):
     assert data["value"][user_key]
     assert data["value"][user_key]["urn"] == urn
     return data
+
+
+@tenacity.retry(
+    stop=tenacity.stop_after_attempt(sleep_times), wait=tenacity.wait_fixed(sleep_sec)
+)
+def _ensure_user_relationship_present(frontend_session, urn, relationships):
+    json = {
+        "query": """query corpUser($urn: String!) {\n
+            corpUser(urn: $urn) {\n
+                urn\n
+                relationships(input: { types: ["IsMemberOfNativeGroup"], direction: OUTGOING, start: 0, count: 1 }) {\n
+                    total\n
+                }\n
+            }\n
+        }""",
+        "variables": {"urn": urn},
+    }
+    response = frontend_session.post(f"{get_frontend_url()}/api/v2/graphql", json=json)
+    response.raise_for_status()
+    res_data = response.json()
+
+    assert res_data
+    assert res_data["data"]
+    assert res_data["data"]["corpUser"]
+    assert res_data["data"]["corpUser"]["relationships"]
+    assert res_data["data"]["corpUser"]["relationships"]["total"] == 1
 
 
 @tenacity.retry(
@@ -816,30 +835,8 @@ def test_add_remove_members_from_group(frontend_session):
     response = frontend_session.post(f"{get_frontend_url()}/api/v2/graphql", json=json)
     response.raise_for_status()
 
-    # Sleep for edge store to be updated. Not ideal!
-    time.sleep(3)
-
     # Verify the member has been added
-    json = {
-        "query": """query corpUser($urn: String!) {\n
-            corpUser(urn: $urn) {\n
-                urn\n
-                relationships(input: { types: ["IsMemberOfNativeGroup"], direction: OUTGOING, start: 0, count: 1 }) {\n
-                    total\n
-                }\n
-            }\n
-        }""",
-        "variables": {"urn": "urn:li:corpuser:jdoe"},
-    }
-    response = frontend_session.post(f"{get_frontend_url()}/api/v2/graphql", json=json)
-    response.raise_for_status()
-    res_data = response.json()
-
-    assert res_data
-    assert res_data["data"]
-    assert res_data["data"]["corpUser"]
-    assert res_data["data"]["corpUser"]["relationships"]
-    assert res_data["data"]["corpUser"]["relationships"]["total"] == 1
+    _ensure_user_relationship_present(frontend_session, "urn:li:corpuser:jdoe", 1)
 
     # Now remove jdoe from the group
     json = {
@@ -856,29 +853,8 @@ def test_add_remove_members_from_group(frontend_session):
     response = frontend_session.post(f"{get_frontend_url()}/api/v2/graphql", json=json)
     response.raise_for_status()
 
-    # Sleep for edge store to be updated. Not ideal!
-    time.sleep(3)
-
     # Verify the member has been removed
-    json = {
-        "query": """query corpUser($urn: String!) {\n
-            corpUser(urn: $urn) {\n
-                urn\n
-                relationships(input: { types: ["IsMemberOfNativeGroup"], direction: OUTGOING, start: 0, count: 1 }) {\n
-                    total\n
-                }\n
-            }\n
-        }""",
-        "variables": {"urn": "urn:li:corpuser:jdoe"},
-    }
-    response = frontend_session.post(f"{get_frontend_url()}/api/v2/graphql", json=json)
-    response.raise_for_status()
-    res_data = response.json()
-
-    assert res_data
-    assert res_data["data"]
-    assert res_data["data"]["corpUser"]
-    assert res_data["data"]["corpUser"]["relationships"]["total"] == 0
+    _ensure_user_relationship_present(frontend_session, "urn:li:corpuser:jdoe", 0)
 
 
 @pytest.mark.dependency(depends=["test_healthchecks", "test_run_ingestion"])
@@ -1260,11 +1236,12 @@ def test_native_user_endpoints(frontend_session):
 
     # Test getting the invite token
     get_invite_token_json = {
-        "query": """query getNativeUserInviteToken {\n
-            getNativeUserInviteToken{\n
+        "query": """query getInviteToken($input: GetInviteTokenInput!) {\n
+            getInviteToken(input: $input){\n
               inviteToken\n
             }\n
-        }"""
+        }""",
+        "variables": {"input": {}},
     }
 
     get_invite_token_response = frontend_session.post(
@@ -1275,9 +1252,7 @@ def test_native_user_endpoints(frontend_session):
 
     assert get_invite_token_res_data
     assert get_invite_token_res_data["data"]
-    invite_token = get_invite_token_res_data["data"]["getNativeUserInviteToken"][
-        "inviteToken"
-    ]
+    invite_token = get_invite_token_res_data["data"]["getInviteToken"]["inviteToken"]
     assert invite_token is not None
     assert "errors" not in get_invite_token_res_data
 
@@ -1323,7 +1298,8 @@ def test_native_user_endpoints(frontend_session):
     headers = {
         "Content-Type": "application/json",
     }
-    root_login_data = '{"username":"datahub", "password":"datahub"}'
+    username, password = get_admin_credentials()
+    root_login_data = '{"username":"' + username + '", "password":"' + password + '"}'
     frontend_session.post(
         f"{get_frontend_url()}/logIn", headers=headers, data=root_login_data
     )
@@ -1409,10 +1385,7 @@ def test_native_user_endpoints(frontend_session):
     assert unauthenticated_get_invite_token_res_data
     assert "errors" in unauthenticated_get_invite_token_res_data
     assert unauthenticated_get_invite_token_res_data["data"]
-    assert (
-        unauthenticated_get_invite_token_res_data["data"]["getNativeUserInviteToken"]
-        is None
-    )
+    assert unauthenticated_get_invite_token_res_data["data"]["getInviteToken"] is None
 
     unauthenticated_create_reset_token_json = {
         "query": """mutation createNativeUserResetToken($input: CreateNativeUserResetTokenInput!) {\n

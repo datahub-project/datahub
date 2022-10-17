@@ -12,7 +12,8 @@
                         "admins": [],
                         "members": [],
                         "groups": [],
-                        "description": "All Employees in the Test Company."
+                        "description": "All Employees in the Test Company.",
+                        "slack": null
                     }
                 }
             ]
@@ -48,6 +49,25 @@
 },
 {
     "auditHeader": null,
+    "entityType": "corpGroup",
+    "entityUrn": "urn:li:corpGroup:All%20Employees",
+    "entityKeyAspect": null,
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "value": "{\"removed\": false}",
+        "contentType": "application/json"
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "test-okta-usage",
+        "registryName": null,
+        "registryVersion": null,
+        "properties": null
+    }
+},
+{
+    "auditHeader": null,
     "proposedSnapshot": {
         "com.linkedin.pegasus2avro.metadata.snapshot.CorpGroupSnapshot": {
             "urn": "urn:li:corpGroup:Engineering",
@@ -59,7 +79,8 @@
                         "admins": [],
                         "members": [],
                         "groups": [],
-                        "description": "Engineering team!"
+                        "description": "Engineering team!",
+                        "slack": null
                     }
                 }
             ]
@@ -83,6 +104,25 @@
     "aspectName": "origin",
     "aspect": {
         "value": "{\"type\": \"EXTERNAL\", \"externalType\": \"OKTA\"}",
+        "contentType": "application/json"
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "test-okta-usage",
+        "registryName": null,
+        "registryVersion": null,
+        "properties": null
+    }
+},
+{
+    "auditHeader": null,
+    "entityType": "corpGroup",
+    "entityUrn": "urn:li:corpGroup:Engineering",
+    "entityKeyAspect": null,
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "value": "{\"removed\": false}",
         "contentType": "application/json"
     },
     "systemMetadata": {
@@ -155,6 +195,25 @@
 },
 {
     "auditHeader": null,
+    "entityType": "corpuser",
+    "entityUrn": "urn:li:corpuser:john.doe@test.com",
+    "entityKeyAspect": null,
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "value": "{\"removed\": false}",
+        "contentType": "application/json"
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "test-okta-usage",
+        "registryName": null,
+        "registryVersion": null,
+        "properties": null
+    }
+},
+{
+    "auditHeader": null,
     "proposedSnapshot": {
         "com.linkedin.pegasus2avro.metadata.snapshot.CorpUserSnapshot": {
             "urn": "urn:li:corpuser:mary.jane@test.com",
@@ -205,6 +264,25 @@
     "aspectName": "origin",
     "aspect": {
         "value": "{\"type\": \"EXTERNAL\", \"externalType\": \"OKTA\"}",
+        "contentType": "application/json"
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "test-okta-usage",
+        "registryName": null,
+        "registryVersion": null,
+        "properties": null
+    }
+},
+{
+    "auditHeader": null,
+    "entityType": "corpuser",
+    "entityUrn": "urn:li:corpuser:mary.jane@test.com",
+    "entityKeyAspect": null,
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "value": "{\"removed\": false}",
         "contentType": "application/json"
     },
     "systemMetadata": {

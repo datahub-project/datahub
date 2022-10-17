@@ -1,0 +1,32 @@
+namespace com.linkedin.policy
+
+import com.linkedin.common.Urn
+
+/**
+ * Information about a DataHub Role.
+ */
+@Aspect = {
+  "name": "dataHubRoleInfo"
+}
+record DataHubRoleInfo {
+  /**
+   * Name of the Role
+   */
+  @Searchable = {
+    "fieldType": "TEXT_PARTIAL"
+  }
+  name: string
+
+  /**
+   * Description of the Role
+   */
+  @Searchable = {
+    "fieldType": "TEXT"
+  }
+  description: string
+
+  /**
+   * Whether the role should be editable via the UI
+   */
+  editable: boolean = false
+}

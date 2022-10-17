@@ -30,6 +30,8 @@ import {
     SiblingProperties,
     CustomPropertiesEntry,
     DomainAssociation,
+    InputFields,
+    FineGrainedLineage,
 } from '../../../types.generated';
 import { FetchedEntity } from '../../lineage/types';
 
@@ -94,6 +96,9 @@ export type GenericEntityProperties = {
     isAChildren?: Maybe<EntityRelationshipsResult>;
     siblings?: Maybe<SiblingProperties>;
     siblingPlatforms?: Maybe<DataPlatform[]>;
+    lastIngested?: Maybe<number>;
+    inputFields?: Maybe<InputFields>;
+    fineGrainedLineages?: Maybe<FineGrainedLineage[]>;
 };
 
 export type GenericEntityUpdate = {

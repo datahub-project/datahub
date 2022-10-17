@@ -142,6 +142,7 @@ public class IngestionResolverUtils {
     result.setRecipe(config.getRecipe());
     result.setVersion(config.getVersion());
     result.setExecutorId(config.getExecutorId());
+    result.setDebugMode(config.isDebugMode());
     return result;
   }
 

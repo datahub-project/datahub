@@ -21,7 +21,7 @@ import org.testng.annotations.Test;
 
 import java.util.concurrent.CompletionException;
 
-import static com.linkedin.datahub.graphql.TestUtils.getMockAllowContext;
+import static com.linkedin.datahub.graphql.TestUtils.*;
 import static org.testng.Assert.assertThrows;
 import static org.testng.Assert.assertTrue;
 
@@ -71,10 +71,7 @@ public class UpdateNameResolverTest {
     final MetadataChangeProposal proposal = setupTests(mockEnv, mockService);
 
     assertTrue(resolver.get(mockEnv).get());
-    Mockito.verify(mockService, Mockito.times(1)).ingestProposal(
-        Mockito.eq(proposal),
-        Mockito.any()
-    );
+    verifyIngestProposal(mockService, 1, proposal);
   }
 
   @Test
@@ -108,10 +105,7 @@ public class UpdateNameResolverTest {
     UpdateNameResolver resolver = new UpdateNameResolver(mockService);
 
     assertTrue(resolver.get(mockEnv).get());
-    Mockito.verify(mockService, Mockito.times(1)).ingestProposal(
-        Mockito.eq(proposal),
-        Mockito.any()
-    );
+    verifyIngestProposal(mockService, 1, proposal);
   }
 
   @Test
@@ -145,10 +139,7 @@ public class UpdateNameResolverTest {
     UpdateNameResolver resolver = new UpdateNameResolver(mockService);
 
     assertTrue(resolver.get(mockEnv).get());
-    Mockito.verify(mockService, Mockito.times(1)).ingestProposal(
-        Mockito.eq(proposal),
-        Mockito.any()
-    );
+    verifyIngestProposal(mockService, 1, proposal);
   }
 
   @Test
@@ -162,8 +153,6 @@ public class UpdateNameResolverTest {
     setupTests(mockEnv, mockService);
 
     assertThrows(CompletionException.class, () -> resolver.get(mockEnv).join());
-    Mockito.verify(mockService, Mockito.times(0)).ingestProposal(
-        Mockito.any(),
-        Mockito.any());
+    verifyNoIngestProposal(mockService);
   }
 }

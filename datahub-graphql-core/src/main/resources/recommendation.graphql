@@ -217,7 +217,7 @@ type SearchParams {
   """
   Entity types to be searched. If this is not provided, all entities will be searched.
   """
-	types: [EntityType!]
+  types: [EntityType!]
 
   """
   Search query
@@ -237,12 +237,22 @@ type Filter {
   """
   Name of field to filter by
   """
-	field: String!
+  field: String!
 
-	"""
-	Value of the field to filter by
-	"""
-	value: String!
+  """
+  Values, one of which the intended field should match.
+  """
+  values: [String!]!
+
+  """
+  If the filter should or should not be matched
+  """
+  negated: Boolean
+
+  """
+  Condition for the values. How to If unset, assumed to be equality
+  """
+  condition: FilterOperator
 }
 
 """
