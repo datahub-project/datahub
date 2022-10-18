@@ -705,14 +705,11 @@ enum EntityType {
     DATAHUB_ROLE
 
     """
-<<<<<<< HEAD
     A DataHub Post
     """
     POST
 
     """
-=======
->>>>>>> 1f594e3cc7 (make changes to return hydrated parent in schemaField path and fix build error)
     A Schema Field
     """
     SCHEMA_FIELD

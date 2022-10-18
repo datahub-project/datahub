@@ -299,7 +299,7 @@ public class UpdateIndicesHook implements MetadataChangeLogHook {
     if (urnToRelationshipTypesBeingAdded.size() > 0) {
       for (Map.Entry<Urn, Set<String>> entry : urnToRelationshipTypesBeingAdded.entrySet()) {
         _graphService.removeEdgesFromNode(entry.getKey(), new ArrayList<>(entry.getValue()),
-            newRelationshipFilter(new Filter().setOr(new ConjunctiveCriterionArray()), RelationshipDirection.OUTGOING));
+            createRelationshipFilter(new Filter().setOr(new ConjunctiveCriterionArray()), RelationshipDirection.OUTGOING));
       }
     }
   }
