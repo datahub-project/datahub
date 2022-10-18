@@ -193,12 +193,17 @@ export default function EditTagTermsModal({
         querySelectorToExecuteClick: '#addTagButton',
     });
 
+    function handleOnClickBack() {
+        setInputValue('');
+        setShowCreateModal(false);
+    }
+
     if (showCreateModal) {
         return (
             <CreateTagModal
                 visible={visible}
                 onClose={onCloseModal}
-                onBack={() => setShowCreateModal(false)}
+                onBack={handleOnClickBack}
                 tagName={inputValue}
                 resources={resources}
             />
@@ -211,7 +216,6 @@ export default function EditTagTermsModal({
             if (isValidTagName(inputValue)) {
                 setShowCreateModal(true);
             }
-            setInputValue('');
             return;
         }
         const newUrns = [...(urns || []), urn];
@@ -410,7 +414,6 @@ export default function EditTagTermsModal({
 
     function handleKeyDown(event) {
         if (event.keyCode === ENTER_KEY_CODE) {
-            setInputValue('');
             (inputEl.current as any).blur();
         }
     }
