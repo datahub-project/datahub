@@ -12,10 +12,11 @@ from datahub.ingestion.source.bigquery_v2.bigquery_audit import BigqueryTableIde
 logger: logging.Logger = logging.getLogger(__name__)
 
 
-@dataclass
+@dataclass(frozen=True, eq=True)
 class BigqueryColumn:
     name: str
     ordinal_position: int
+    field_path: str
     is_nullable: bool
     is_partition_column: bool
     data_type: str
@@ -27,8 +28,8 @@ class BigqueryTable:
     name: str
     created: datetime
     last_altered: Optional[datetime]
-    size_in_bytes: int
-    rows_count: int
+    size_in_bytes: Optional[int]
+    rows_count: Optional[int]
     expires: Optional[datetime]
     clustering_fields: Optional[List[str]]
     labels: Optional[Dict[str, str]]
@@ -142,6 +143,33 @@ order by
   table_suffix DESC
 """
 
+    tables_for_dataset_without_partition_data = """
+SELECT
+  t.table_catalog as table_catalog,
+  t.table_schema as table_schema,
+  t.table_name as table_name,
+  t.table_type as table_type,
+  t.creation_time as created,
+  tos.OPTION_VALUE as comment,
+  is_insertable_into,
+  ddl,
+  REGEXP_EXTRACT(t.table_name, r".*_(\\d+)$") as table_suffix,
+  REGEXP_REPLACE(t.table_name, r"_(\\d+)$", "") as table_base
+
+FROM
+  `{project_id}`.`{dataset_name}`.INFORMATION_SCHEMA.TABLES t
+  left join `{project_id}`.`{dataset_name}`.INFORMATION_SCHEMA.TABLE_OPTIONS as tos on t.table_schema = tos.table_schema
+  and t.TABLE_NAME = tos.TABLE_NAME
+  and tos.OPTION_NAME = "description"
+WHERE
+  table_type in ('BASE TABLE', 'EXTERNAL TABLE')
+{table_filter}
+order by
+  table_schema ASC,
+  table_base ASC,
+  table_suffix DESC
+"""
+
     views_for_dataset: str = """
 SELECT
   t.table_catalog as table_catalog,
@@ -168,6 +196,28 @@ order by
   table_name ASC
 """
 
+    views_for_dataset_without_data_read: str = """
+SELECT
+  t.table_catalog as table_catalog,
+  t.table_schema as table_schema,
+  t.table_name as table_name,
+  t.table_type as table_type,
+  t.creation_time as created,
+  tos.OPTION_VALUE as comment,
+  is_insertable_into,
+  ddl as view_definition
+FROM
+  `{project_id}`.`{dataset_name}`.INFORMATION_SCHEMA.TABLES t
+  left join `{project_id}`.`{dataset_name}`.INFORMATION_SCHEMA.TABLE_OPTIONS as tos on t.table_schema = tos.table_schema
+  and t.TABLE_NAME = tos.TABLE_NAME
+  and tos.OPTION_NAME = "description"
+WHERE
+  table_type in ('VIEW MATERIALIZED', 'VIEW')
+order by
+  table_schema ASC,
+  table_name ASC
+"""
+
     columns_for_dataset: str = """
 select
   c.table_catalog as table_catalog,
@@ -175,8 +225,9 @@ select
   c.table_name as table_name,
   c.column_name as column_name,
   c.ordinal_position as ordinal_position,
+  cfp.field_path as field_path,
   c.is_nullable as is_nullable,
-  c.data_type as data_type,
+  CASE WHEN CONTAINS_SUBSTR(field_path, ".") THEN NULL ELSE c.data_type END as data_type,
   description as comment,
   c.is_hidden as is_hidden,
   c.is_partitioning_column as is_partitioning_column
@@ -185,7 +236,7 @@ from
   join `{project_id}`.`{dataset_name}`.INFORMATION_SCHEMA.COLUMN_FIELD_PATHS as cfp on cfp.table_name = c.table_name
   and cfp.column_name = c.column_name
 ORDER BY
-  ordinal_position"""
+  table_catalog, table_schema, table_name, ordinal_position ASC, data_type DESC"""
 
     columns_for_table: str = """
 select
@@ -194,8 +245,9 @@ select
   c.table_name as table_name,
   c.column_name as column_name,
   c.ordinal_position as ordinal_position,
+  cfp.field_path as field_path,
   c.is_nullable as is_nullable,
-  c.data_type as data_type,
+  CASE WHEN CONTAINS_SUBSTR(field_path, ".") THEN NULL ELSE c.data_type END as data_type,
   c.is_hidden as is_hidden,
   c.is_partitioning_column as is_partitioning_column,
   description as comment
@@ -206,7 +258,7 @@ from
 where
   c.table_name = '{table_identifier.table}'
 ORDER BY
-  ordinal_position"""
+  table_catalog, table_schema, table_name, ordinal_position ASC, data_type DESC"""
 
 
 class BigQueryDataDictionary:
@@ -226,9 +278,9 @@ class BigQueryDataDictionary:
 
     @staticmethod
     def get_datasets_for_project_id(
-        conn: bigquery.Client, project_id: str
+        conn: bigquery.Client, project_id: str, maxResults: Optional[int] = None
     ) -> List[BigqueryDataset]:
-        datasets = conn.list_datasets(project_id)
+        datasets = conn.list_datasets(project_id, max_results=maxResults)
 
         return [BigqueryDataset(name=d.dataset_id) for d in datasets]
 
@@ -258,20 +310,33 @@ class BigQueryDataDictionary:
         project_id: str,
         dataset_name: str,
         tables: Dict[str, TableListItem],
+        with_data_read_permission: bool = False,
     ) -> List[BigqueryTable]:
 
         filter: str = ", ".join(f"'{table}'" for table in tables.keys())
 
-        # Tables are ordered by name and table suffix to make sure we always process the latest sharded table
-        # and skip the others. Sharded tables are tables with suffix _20220102
-        cur = BigQueryDataDictionary.get_query_result(
-            conn,
-            BigqueryQuery.tables_for_dataset.format(
-                project_id=project_id,
-                dataset_name=dataset_name,
-                table_filter=f" and t.table_name in ({filter})" if filter else "",
-            ),
-        )
+        if with_data_read_permission:
+            # Tables are ordered by name and table suffix to make sure we always process the latest sharded table
+            # and skip the others. Sharded tables are tables with suffix _20220102
+            cur = BigQueryDataDictionary.get_query_result(
+                conn,
+                BigqueryQuery.tables_for_dataset.format(
+                    project_id=project_id,
+                    dataset_name=dataset_name,
+                    table_filter=f" and t.table_name in ({filter})" if filter else "",
+                ),
+            )
+        else:
+            # Tables are ordered by name and table suffix to make sure we always process the latest sharded table
+            # and skip the others. Sharded tables are tables with suffix _20220102
+            cur = BigQueryDataDictionary.get_query_result(
+                conn,
+                BigqueryQuery.tables_for_dataset_without_partition_data.format(
+                    project_id=project_id,
+                    dataset_name=dataset_name,
+                    table_filter=f" and t.table_name in ({filter})" if filter else "",
+                ),
+            )
 
         # Some property we want to capture only available from the TableListItem we get from an earlier query of
         # the list of tables.
@@ -282,10 +347,10 @@ class BigQueryDataDictionary:
                 last_altered=datetime.fromtimestamp(
                     table.last_altered / 1000, tz=timezone.utc
                 )
-                if table.last_altered
+                if "last_altered" in table
                 else None,
-                size_in_bytes=table.bytes,
-                rows_count=table.row_count,
+                size_in_bytes=table.bytes if "bytes" in table else None,
+                rows_count=table.row_count if "row_count" in table else None,
                 comment=table.comment,
                 ddl=table.ddl,
                 expires=tables[table.table_name].expires if tables else None,
@@ -296,36 +361,56 @@ class BigQueryDataDictionary:
                 clustering_fields=tables[table.table_name].clustering_fields
                 if tables
                 else None,
-                max_partition_id=table.max_partition_id,
+                max_partition_id=table.max_partition_id
+                if "max_partition_id" in table
+                else None,
                 max_shard_id=BigqueryTableIdentifier.get_table_and_shard(
                     table.table_name
                 )[1]
                 if len(BigqueryTableIdentifier.get_table_and_shard(table.table_name))
                 == 2
                 else None,
-                num_partitions=table.num_partitions,
-                active_billable_bytes=table.active_billable_bytes,
-                long_term_billable_bytes=table.long_term_billable_bytes,
+                num_partitions=table.num_partitions
+                if "num_partitions" in table
+                else None,
+                active_billable_bytes=table.active_billable_bytes
+                if "active_billable_bytes" in table
+                else None,
+                long_term_billable_bytes=table.long_term_billable_bytes
+                if "long_term_billable_bytes" in table
+                else None,
             )
             for table in cur
         ]
 
     @staticmethod
     def get_views_for_dataset(
-        conn: bigquery.Client, project_id: str, dataset_name: str
+        conn: bigquery.Client,
+        project_id: str,
+        dataset_name: str,
+        has_data_read: bool,
     ) -> List[BigqueryView]:
 
-        cur = BigQueryDataDictionary.get_query_result(
-            conn,
-            BigqueryQuery.views_for_dataset.format(
-                project_id=project_id, dataset_name=dataset_name
-            ),
-        )
+        if has_data_read:
+            cur = BigQueryDataDictionary.get_query_result(
+                conn,
+                BigqueryQuery.views_for_dataset.format(
+                    project_id=project_id, dataset_name=dataset_name
+                ),
+            )
+        else:
+            cur = BigQueryDataDictionary.get_query_result(
+                conn,
+                BigqueryQuery.views_for_dataset_without_data_read.format(
+                    project_id=project_id, dataset_name=dataset_name
+                ),
+            )
+
         return [
             BigqueryView(
                 name=table.table_name,
                 created=table.created,
-                last_altered=table.last_altered,
+                last_altered=table.last_altered if "last_altered" in table else None,
                 comment=table.comment,
                 ddl=table.view_definition,
             )
@@ -334,7 +419,10 @@ class BigQueryDataDictionary:
 
     @staticmethod
     def get_columns_for_dataset(
-        conn: bigquery.Client, project_id: str, dataset_name: str
+        conn: bigquery.Client,
+        project_id: str,
+        dataset_name: str,
+        column_limit: Optional[int] = None,
     ) -> Optional[Dict[str, List[BigqueryColumn]]]:
         columns: Dict[str, List[BigqueryColumn]] = defaultdict(list)
         try:
@@ -350,23 +438,38 @@ class BigQueryDataDictionary:
             # Please repeat query with more selective predicates.
             return None
 
+        last_seen_table: str = ""
         for column in cur:
-            columns[column.table_name].append(
-                BigqueryColumn(
-                    name=column.column_name,
-                    ordinal_position=column.ordinal_position,
-                    is_nullable=column.is_nullable == "YES",
-                    data_type=column.data_type,
-                    comment=column.comment,
-                    is_partition_column=column.is_partitioning_column == "YES",
+            if (
+                column_limit
+                and column.table_name in columns
+                and len(columns[column.table_name]) >= column_limit
+            ):
+                if last_seen_table != column.table_name:
+                    logger.warning(
+                        f"{project_id}.{dataset_name}.{column.table_name} contains more than {column_limit} columns, only processing {column_limit} columns"
+                    )
+                    last_seen_table = column.table_name
+            else:
+                columns[column.table_name].append(
+                    BigqueryColumn(
+                        name=column.column_name,
+                        ordinal_position=column.ordinal_position,
+                        field_path=column.field_path,
+                        is_nullable=column.is_nullable == "YES",
+                        data_type=column.data_type,
+                        comment=column.comment,
+                        is_partition_column=column.is_partitioning_column == "YES",
+                    )
                 )
-            )
 
         return columns
 
     @staticmethod
     def get_columns_for_table(
-        conn: bigquery.Client, table_identifier: BigqueryTableIdentifier
+        conn: bigquery.Client,
+        table_identifier: BigqueryTableIdentifier,
+        column_limit: Optional[int],
     ) -> List[BigqueryColumn]:
 
         cur = BigQueryDataDictionary.get_query_result(
@@ -374,14 +477,31 @@ class BigQueryDataDictionary:
             BigqueryQuery.columns_for_table.format(table_identifier=table_identifier),
         )
 
-        return [
-            BigqueryColumn(
-                name=column.column_name,
-                ordinal_position=column.ordinal_position,
-                is_nullable=column.is_nullable == "YES",
-                data_type=column.data_type,
-                comment=column.comment,
-                is_partition_column=column.is_partitioning_column == "YES",
-            )
-            for column in cur
-        ]
+        columns: List[BigqueryColumn] = []
+        last_seen_table: str = ""
+        for column in cur:
+            if (
+                column_limit
+                and column.table_name in columns
+                and len(columns[column.table_name]) >= column_limit
+            ):
+                if last_seen_table != column.table_name:
+                    logger.warning(
+                        f"{table_identifier.project_id}.{table_identifier.dataset}.{column.table_name} contains more than {column_limit} columns, only processing {column_limit} columns"
+                    )
+                    last_seen_table = column.table_name
+            else:
+                columns.append(
+                    BigqueryColumn(
+                        name=column.column_name,
+                        ordinal_position=column.ordinal_position,
+                        is_nullable=column.is_nullable == "YES",
+                        field_path=column.field_path,
+                        data_type=column.data_type,
+                        comment=column.comment,
+                        is_partition_column=column.is_partitioning_column == "YES",
+                    )
+                )
+            last_seen_table = column.table_name
+
+        return columns

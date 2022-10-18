@@ -22,6 +22,8 @@ def _entities_to_urn_list(iolets: List[_Entity]) -> List[DatasetUrn]:
 
 
 class DatahubBasicLineageConfig(ConfigModel):
+    enabled: bool = True
+
     # DataHub hook connection ID.
     datahub_conn_id: str
 
@@ -50,6 +52,9 @@ def send_lineage_to_datahub(
     outlets: List[_Entity],
     context: Dict,
 ) -> None:
+    if not config.enabled:
+        return
+
     dag: "DAG" = context["dag"]
     task: "BaseOperator" = context["task"]
     ti: "TaskInstance" = context["task_instance"]

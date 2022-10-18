@@ -45,10 +45,8 @@ gms_endpoint = "http://localhost:8080"
 graph = DataHubGraph(DatahubClientConfig(server=gms_endpoint))
 
 
-current_editable_schema_metadata = graph.get_aspect_v2(
-    entity_urn=dataset_urn,
-    aspect="editableSchemaMetadata",
-    aspect_type=EditableSchemaMetadataClass,
+current_editable_schema_metadata = graph.get_aspect(
+    entity_urn=dataset_urn, aspect_type=EditableSchemaMetadataClass
 )
 
 

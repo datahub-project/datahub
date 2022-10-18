@@ -250,7 +250,12 @@ class SnowflakeQuery:
         downstream_table_columns AS "DOWNSTREAM_TABLE_COLUMNS"
         FROM table_lineage_history
         WHERE upstream_table_domain in ('Table', 'External table') and downstream_table_domain = 'Table'
-        QUALIFY ROW_NUMBER() OVER (PARTITION BY downstream_table_name, upstream_table_name ORDER BY query_start_time DESC) = 1"""
+        QUALIFY ROW_NUMBER() OVER (
+            PARTITION BY downstream_table_name,
+            upstream_table_name,
+            downstream_table_columns
+            ORDER BY query_start_time DESC
+        ) = 1"""
 
     @staticmethod
     def view_dependencies() -> str:
@@ -260,6 +265,7 @@ class SnowflakeQuery:
             referenced_database, '.', referenced_schema,
             '.', referenced_object_name
           ) AS "VIEW_UPSTREAM",
+          referenced_object_domain as "REFERENCED_OBJECT_DOMAIN",
           concat(
             referencing_database, '.', referencing_schema,
             '.', referencing_object_name
@@ -305,6 +311,7 @@ class SnowflakeQuery:
           view_domain AS "VIEW_DOMAIN",
           view_columns AS "VIEW_COLUMNS",
           downstream_table_name AS "DOWNSTREAM_TABLE_NAME",
+          downstream_table_domain AS "DOWNSTREAM_TABLE_DOMAIN",
           downstream_table_columns AS "DOWNSTREAM_TABLE_COLUMNS"
         FROM
           view_lineage_history
@@ -312,7 +319,8 @@ class SnowflakeQuery:
           view_domain in ('View', 'Materialized view')
           QUALIFY ROW_NUMBER() OVER (
             PARTITION BY view_name,
-            downstream_table_name
+            downstream_table_name,
+            downstream_table_columns
             ORDER BY
               query_start_time DESC
           ) = 1

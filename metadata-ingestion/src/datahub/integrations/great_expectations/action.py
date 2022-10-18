@@ -1,6 +1,7 @@
 import json
 import logging
 import os
+import sys
 import time
 from dataclasses import dataclass
 from datetime import timezone
@@ -57,6 +58,8 @@ from datahub.utilities.sql_parser import DefaultSQLParser
 
 logger = logging.getLogger(__name__)
 if os.getenv("DATAHUB_DEBUG", False):
+    handler = logging.StreamHandler(stream=sys.stdout)
+    logger.addHandler(handler)
     logger.setLevel(logging.DEBUG)
 
 GE_PLATFORM_NAME = "great-expectations"
@@ -642,7 +645,12 @@ class DataHubValidationAction(ValidationAction):
                     query=query,
                     customProperties=batchSpecProperties,
                 )
-                tables = DefaultSQLParser(query).get_tables()
+                try:
+                    tables = DefaultSQLParser(query).get_tables()
+                except Exception as e:
+                    logger.warning(f"Sql parser failed on {query} with {e}")
+                    tables = []
+
                 if len(set(tables)) != 1:
                     warn(
                         "DataHubValidationAction does not support cross dataset assertions."

@@ -14,6 +14,8 @@ import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.entity.RetentionService;
 import com.linkedin.metadata.entity.EntityAspectIdentifier;
 import com.linkedin.metadata.entity.EntityAspect;
+import com.linkedin.metadata.entity.retention.BulkApplyRetentionArgs;
+import com.linkedin.metadata.entity.retention.BulkApplyRetentionResult;
 import com.linkedin.retention.DataHubRetentionConfig;
 import com.linkedin.retention.Retention;
 import com.linkedin.retention.TimeBasedRetention;
@@ -110,6 +112,12 @@ public class CassandraRetentionService extends RetentionService {
     }
 
     log.info("Finished applying retention to all records");
+  }
+
+  @Override
+  public BulkApplyRetentionResult batchApplyRetentionEntities(@Nonnull BulkApplyRetentionArgs args) {
+    log.error("batchApplyRetentionEntities not implemented for cassandra");
+    return null;
   }
 
   private void applyVersionBasedRetention(

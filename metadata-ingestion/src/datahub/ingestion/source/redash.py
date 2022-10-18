@@ -390,7 +390,11 @@ class RedashSource(Source):
     def _get_sql_table_names(cls, sql: str, sql_parser_path: str) -> List[str]:
         parser_cls = cls._import_sql_parser_cls(sql_parser_path)
 
-        sql_table_names: List[str] = parser_cls(sql).get_tables()
+        try:
+            sql_table_names: List[str] = parser_cls(sql).get_tables()
+        except Exception as e:
+            logger.warning(f"Sql parser failed on {sql} with {e}")
+            return []
 
         # Remove quotes from table names
         sql_table_names = [t.replace('"', "") for t in sql_table_names]

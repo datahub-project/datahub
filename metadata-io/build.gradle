@@ -24,11 +24,11 @@ dependencies {
   compile externalDependency.datastaxOssNativeProtocol
   compile externalDependency.datastaxOssCore
   compile externalDependency.datastaxOssQueryBuilder
-  compile externalDependency.parquet
   compile externalDependency.elasticSearchRest
   compile externalDependency.elasticSearchTransport
   compile externalDependency.javatuples
   compile externalDependency.javaxValidation
+  runtimeOnly externalDependency.jna
   compile externalDependency.kafkaClients
   compile externalDependency.ebean
   enhance externalDependency.ebeanAgent

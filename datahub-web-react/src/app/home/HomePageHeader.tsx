@@ -166,6 +166,7 @@ export const HomePageHeader = () => {
                 start: 0,
                 count: 6,
                 filters: [],
+                orFilters: [],
             },
         },
     });
