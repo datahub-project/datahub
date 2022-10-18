@@ -7,16 +7,16 @@ import com.linkedin.common.urn.Urn;
 import com.linkedin.data.schema.RecordDataSchema;
 import com.linkedin.data.template.RecordTemplate;
 import com.linkedin.entity.EnvelopedAspect;
+import com.linkedin.metadata.entity.validation.RecordTemplateValidator;
 import com.linkedin.metadata.models.AspectSpec;
 import com.linkedin.metadata.models.EntitySpec;
 import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.utils.PegasusUtils;
 import com.linkedin.mxe.SystemMetadata;
+import javax.annotation.Nonnull;
 import lombok.extern.slf4j.Slf4j;
 
-import javax.annotation.Nonnull;
-
-import static com.linkedin.metadata.entity.EntityService.DEFAULT_RUN_ID;
+import static com.linkedin.metadata.entity.EntityService.*;
 
 
 @Slf4j

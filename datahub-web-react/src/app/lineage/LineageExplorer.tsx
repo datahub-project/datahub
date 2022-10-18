@@ -16,7 +16,9 @@ import { capitalizeFirstLetter } from '../shared/textUtil';
 import { ANTD_GRAY } from '../entity/shared/constants';
 import { GetEntityLineageQuery, useGetEntityLineageQuery } from '../../graphql/lineage.generated';
 import { useIsSeparateSiblingsMode } from '../entity/shared/siblingUtils';
+import { SHOW_COLUMNS_URL_PARAMS, useIsShowColumnsMode } from './utils/useIsShowColumnsMode';
 import { ErrorSection } from '../shared/error/ErrorSection';
+import usePrevious from '../shared/usePrevious';
 
 const DEFAULT_DISTANCE_FROM_TOP = 106;
 
@@ -39,14 +41,6 @@ const EntityDrawer = styled(Drawer)<{ distanceFromTop: number }>`
     }
 `;
 
-function usePrevious(value) {
-    const ref = useRef();
-    useEffect(() => {
-        ref.current = value;
-    });
-    return ref.current;
-}
-
 export function getEntityAndType(lineageData?: GetEntityLineageQuery) {
     if (lineageData && lineageData.entity) {
         return {
@@ -65,12 +59,14 @@ type Props = {
 export default function LineageExplorer({ urn, type }: Props) {
     const previousUrn = usePrevious(urn);
     const history = useHistory();
+    const [fineGrainedMap] = useState<any>({ forward: {}, reverse: {} });
 
     const entityRegistry = useEntityRegistry();
     const isHideSiblingMode = useIsSeparateSiblingsMode();
+    const showColumns = useIsShowColumnsMode();
 
     const { loading, error, data } = useGetEntityLineageQuery({
-        variables: { urn, separateSiblings: isHideSiblingMode },
+        variables: { urn, separateSiblings: isHideSiblingMode, showColumns },
     });
 
     const entityData: EntityAndType | null | undefined = useMemo(() => getEntityAndType(data), [data]);
@@ -84,25 +80,49 @@ export default function LineageExplorer({ urn, type }: Props) {
         setAsyncEntities({});
     }, [isHideSiblingMode]);
 
+    useEffect(() => {
+        if (showColumns) {
+            setAsyncEntities({});
+        }
+    }, [showColumns]);
+
     const drawerRef: React.MutableRefObject<HTMLDivElement | null> = useRef(null);
 
     const maybeAddAsyncLoadedEntity = useCallback(
         (entityAndType: EntityAndType) => {
             if (entityAndType?.entity.urn && !asyncEntities[entityAndType?.entity.urn]?.fullyFetched) {
                 // record that we have added this entity
-                let newAsyncEntities = extendAsyncEntities(asyncEntities, entityRegistry, entityAndType, true);
+                let newAsyncEntities = extendAsyncEntities(
+                    fineGrainedMap,
+                    asyncEntities,
+                    entityRegistry,
+                    entityAndType,
+                    true,
+                );
                 const config = entityRegistry.getLineageVizConfig(entityAndType.type, entityAndType.entity);
 
                 config?.downstreamChildren?.forEach((downstream) => {
-                    newAsyncEntities = extendAsyncEntities(newAsyncEntities, entityRegistry, downstream, false);
+                    newAsyncEntities = extendAsyncEntities(
+                        fineGrainedMap,
+                        newAsyncEntities,
+                        entityRegistry,
+                        downstream,
+                        false,
+                    );
                 });
                 config?.upstreamChildren?.forEach((downstream) => {
-                    newAsyncEntities = extendAsyncEntities(newAsyncEntities, entityRegistry, downstream, false);
+                    newAsyncEntities = extendAsyncEntities(
+                        fineGrainedMap,
+                        newAsyncEntities,
+                        entityRegistry,
+                        downstream,
+                        false,
+                    );
                 });
                 setAsyncEntities(newAsyncEntities);
             }
         },
-        [asyncEntities, setAsyncEntities, entityRegistry],
+        [asyncEntities, setAsyncEntities, entityRegistry, fineGrainedMap],
     );
 
     const handleClose = () => {
@@ -126,6 +146,7 @@ export default function LineageExplorer({ urn, type }: Props) {
             {!!data && (
                 <div>
                     <LineageViz
+                        fineGrainedMap={fineGrainedMap}
                         selectedEntity={selectedEntity}
                         fetchedEntities={asyncEntities}
                         entityAndType={entityData}
@@ -135,7 +156,10 @@ export default function LineageExplorer({ urn, type }: Props) {
                         }}
                         onEntityCenter={(params: EntitySelectParams) => {
                             history.push(
-                                `${entityRegistry.getEntityUrl(params.type, params.urn)}/?is_lineage_mode=true`,
+                                `${entityRegistry.getEntityUrl(
+                                    params.type,
+                                    params.urn,
+                                )}/?is_lineage_mode=true&${SHOW_COLUMNS_URL_PARAMS}=${showColumns}`,
                             );
                         }}
                         onLineageExpand={(asyncData: EntityAndType) => {

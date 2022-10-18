@@ -1,0 +1,12 @@
+{
+    "data": {
+        "workbooksConnection": {
+            "nodes": [],
+            "pageInfo": {
+                "hasNextPage": false,
+                "endCursor": null
+            },
+            "totalCount": 0
+        }
+    }
+}

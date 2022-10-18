@@ -268,7 +268,8 @@ public class BatchIngestionRunResource extends CollectionResourceTaskTemplate<St
         proposal.setAspect(GenericRecordUtils.serializeAspect(requestResult));
         proposal.setChangeType(ChangeType.UPSERT);
 
-        _entityService.ingestProposal(proposal, new AuditStamp().setActor(UrnUtils.getUrn(Constants.SYSTEM_ACTOR)).setTime(System.currentTimeMillis()));
+        _entityService.ingestProposal(proposal,
+            new AuditStamp().setActor(UrnUtils.getUrn(Constants.SYSTEM_ACTOR)).setTime(System.currentTimeMillis()), false);
       }
     } catch (Exception e) {
       log.error(String.format("Not able to update execution result aspect with runId %s and new status %s.", runId, status), e);

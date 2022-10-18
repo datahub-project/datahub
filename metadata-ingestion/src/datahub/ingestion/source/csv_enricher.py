@@ -17,7 +17,6 @@ from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source_config.csv_enricher import CSVEnricherConfig
 from datahub.metadata.schema_classes import (
     AuditStampClass,
-    ChangeTypeClass,
     DomainsClass,
     EditableDatasetPropertiesClass,
     EditableSchemaFieldInfoClass,
@@ -33,14 +32,8 @@ from datahub.metadata.schema_classes import (
 from datahub.utilities.urns.dataset_urn import DatasetUrn
 from datahub.utilities.urns.urn import Urn
 
-SCHEMA_ASPECT_NAME = "editableSchemaMetadata"
-DATASET_ENTITY_TYPE = "dataset"
-GLOSSARY_TERMS_ASPECT_NAME = "glossaryTerms"
-TAGS_ASPECT_NAME = "globalTags"
-OWNERSHIP_ASPECT_NAME = "ownership"
-EDITABLE_DATASET_PROPERTIES_ASPECT_NAME = "editableDatasetProperties"
+DATASET_ENTITY_TYPE = DatasetUrn.ENTITY_TYPE
 ACTOR = "urn:li:corpuser:ingestion"
-DOMAIN_ASPECT_NAME = "domains"
 
 
 def get_audit_stamp() -> AuditStampClass:
@@ -124,7 +117,6 @@ class CSVEnricherSource(Source):
     def get_resource_glossary_terms_work_unit(
         self,
         entity_urn: str,
-        entity_type: str,
         term_associations: List[GlossaryTermAssociationClass],
     ) -> Optional[MetadataWorkUnit]:
         # Check if there are glossary terms to add. If not, return None.
@@ -155,23 +147,14 @@ class CSVEnricherSource(Source):
             # Add any terms that don't already exist in the existing GlossaryTerms object to the object
             current_terms.terms.extend(term_associations_filtered)
 
-        terms_mcpw: MetadataChangeProposalWrapper = MetadataChangeProposalWrapper(
-            entityType=entity_type,
+        return MetadataChangeProposalWrapper(
             entityUrn=entity_urn,
-            changeType=ChangeTypeClass.UPSERT,
-            aspectName=GLOSSARY_TERMS_ASPECT_NAME,
             aspect=current_terms,
-        )
-        terms_wu: MetadataWorkUnit = MetadataWorkUnit(
-            id=f"{entity_urn}-{GLOSSARY_TERMS_ASPECT_NAME}",
-            mcp=terms_mcpw,
-        )
-        return terms_wu
+        ).as_workunit()
 
     def get_resource_tags_work_unit(
         self,
         entity_urn: str,
-        entity_type: str,
         tag_associations: List[TagAssociationClass],
     ) -> Optional[MetadataWorkUnit]:
         # Check if there are tags to add. If not, return None.
@@ -200,23 +183,14 @@ class CSVEnricherSource(Source):
             # Add any terms that don't already exist in the existing GlobalTags object to the object
             current_tags.tags.extend(tag_associations_filtered)
 
-        tags_mcpw: MetadataChangeProposalWrapper = MetadataChangeProposalWrapper(
-            entityType=entity_type,
+        return MetadataChangeProposalWrapper(
             entityUrn=entity_urn,
-            changeType=ChangeTypeClass.UPSERT,
-            aspectName=TAGS_ASPECT_NAME,
             aspect=current_tags,
-        )
-        tags_wu: MetadataWorkUnit = MetadataWorkUnit(
-            id=f"{entity_urn}-{TAGS_ASPECT_NAME}",
-            mcp=tags_mcpw,
-        )
-        return tags_wu
+        ).as_workunit()
 
     def get_resource_owners_work_unit(
         self,
         entity_urn: str,
-        entity_type: str,
         owners: List[OwnerClass],
     ) -> Optional[MetadataWorkUnit]:
         # Check if there are owners to add. If not, return None.
@@ -245,23 +219,14 @@ class CSVEnricherSource(Source):
             # Add any terms that don't already exist in the existing GlobalTags object to the object
             current_ownership.owners.extend(owners_filtered)
 
-        owners_mcpw: MetadataChangeProposalWrapper = MetadataChangeProposalWrapper(
-            entityType=entity_type,
+        return MetadataChangeProposalWrapper(
             entityUrn=entity_urn,
-            changeType=ChangeTypeClass.UPSERT,
-            aspectName=OWNERSHIP_ASPECT_NAME,
             aspect=current_ownership,
-        )
-        owners_wu: MetadataWorkUnit = MetadataWorkUnit(
-            id=f"{entity_urn}-{OWNERSHIP_ASPECT_NAME}",
-            mcp=owners_mcpw,
-        )
-        return owners_wu
+        ).as_workunit()
 
     def get_resource_domain_work_unit(
         self,
         entity_urn: str,
-        entity_type: str,
         domain: Optional[str],
     ) -> Optional[MetadataWorkUnit]:
         # Check if there is a domain to add. If not, return None.
@@ -277,23 +242,14 @@ class CSVEnricherSource(Source):
             # If we want to overwrite or there is no existing domain, create a new object
             current_domain = DomainsClass([domain])
 
-        domain_mcpw: MetadataChangeProposalWrapper = MetadataChangeProposalWrapper(
-            entityType=entity_type,
+        return MetadataChangeProposalWrapper(
             entityUrn=entity_urn,
-            changeType=ChangeTypeClass.UPSERT,
-            aspectName=DOMAIN_ASPECT_NAME,
             aspect=current_domain,
-        )
-        domain_wu: MetadataWorkUnit = MetadataWorkUnit(
-            id=f"{entity_urn}-{DOMAIN_ASPECT_NAME}",
-            mcp=domain_mcpw,
-        )
-        return domain_wu
+        ).as_workunit()
 
     def get_resource_description_work_unit(
         self,
         entity_urn: str,
-        entity_type: str,
         description: Optional[str],
     ) -> Optional[MetadataWorkUnit]:
         # Check if there is a description to add. If not, return None.
@@ -307,9 +263,8 @@ class CSVEnricherSource(Source):
         current_editable_properties: Optional[EditableDatasetPropertiesClass] = None
         if self.ctx.graph and not self.should_overwrite:
             # Get the existing editable properties for the entity from the DataHub graph
-            current_editable_properties = self.ctx.graph.get_aspect_v2(
+            current_editable_properties = self.ctx.graph.get_aspect(
                 entity_urn=entity_urn,
-                aspect=EDITABLE_DATASET_PROPERTIES_ASPECT_NAME,
                 aspect_type=EditableDatasetPropertiesClass,
             )
 
@@ -324,23 +279,14 @@ class CSVEnricherSource(Source):
             current_editable_properties.description = description
             current_editable_properties.lastModified = get_audit_stamp()
 
-        description_mcpw: MetadataChangeProposalWrapper = MetadataChangeProposalWrapper(
-            entityType=entity_type,
+        return MetadataChangeProposalWrapper(
             entityUrn=entity_urn,
-            changeType=ChangeTypeClass.UPSERT,
-            aspectName=EDITABLE_DATASET_PROPERTIES_ASPECT_NAME,
             aspect=current_editable_properties,
-        )
-        description_wu: MetadataWorkUnit = MetadataWorkUnit(
-            id=f"{entity_urn}-{EDITABLE_DATASET_PROPERTIES_ASPECT_NAME}",
-            mcp=description_mcpw,
-        )
-        return description_wu
+        ).as_workunit()
 
     def get_resource_workunits(
         self,
         entity_urn: str,
-        entity_type: str,
         term_associations: List[GlossaryTermAssociationClass],
         tag_associations: List[TagAssociationClass],
         owners: List[OwnerClass],
@@ -351,7 +297,6 @@ class CSVEnricherSource(Source):
             MetadataWorkUnit
         ] = self.get_resource_glossary_terms_work_unit(
             entity_urn=entity_urn,
-            entity_type=entity_type,
             term_associations=term_associations,
         )
         if maybe_terms_wu:
@@ -361,7 +306,6 @@ class CSVEnricherSource(Source):
 
         maybe_tags_wu: Optional[MetadataWorkUnit] = self.get_resource_tags_work_unit(
             entity_urn=entity_urn,
-            entity_type=entity_type,
             tag_associations=tag_associations,
         )
         if maybe_tags_wu:
@@ -373,7 +317,6 @@ class CSVEnricherSource(Source):
             MetadataWorkUnit
         ] = self.get_resource_owners_work_unit(
             entity_urn=entity_urn,
-            entity_type=entity_type,
             owners=owners,
         )
         if maybe_owners_wu:
@@ -385,7 +328,6 @@ class CSVEnricherSource(Source):
             MetadataWorkUnit
         ] = self.get_resource_domain_work_unit(
             entity_urn=entity_urn,
-            entity_type=entity_type,
             domain=domain,
         )
         if maybe_domain_wu:
@@ -397,7 +339,6 @@ class CSVEnricherSource(Source):
             MetadataWorkUnit
         ] = self.get_resource_description_work_unit(
             entity_urn=entity_urn,
-            entity_type=entity_type,
             description=description,
         )
         if maybe_description_wu:
@@ -510,9 +451,8 @@ class CSVEnricherSource(Source):
             ] = None
             if self.ctx.graph and not self.should_overwrite:
                 # Fetch the current editable schema metadata
-                current_editable_schema_metadata = self.ctx.graph.get_aspect_v2(
+                current_editable_schema_metadata = self.ctx.graph.get_aspect(
                     entity_urn=entity_urn,
-                    aspect=SCHEMA_ASPECT_NAME,
                     aspect_type=EditableSchemaMetadataClass,
                 )
 
@@ -537,20 +477,10 @@ class CSVEnricherSource(Source):
 
             # Write an MCPW if needed.
             if needs_write:
-                editable_schema_metadata_mcpw: MetadataChangeProposalWrapper = (
-                    MetadataChangeProposalWrapper(
-                        entityType=DATASET_ENTITY_TYPE,
-                        changeType=ChangeTypeClass.UPSERT,
-                        entityUrn=entity_urn,
-                        aspectName=SCHEMA_ASPECT_NAME,
-                        aspect=current_editable_schema_metadata,
-                    )
-                )
-                wu: MetadataWorkUnit = MetadataWorkUnit(
-                    id=f"{entity_urn}-{SCHEMA_ASPECT_NAME}",
-                    mcp=editable_schema_metadata_mcpw,
-                )
-                yield wu
+                yield MetadataChangeProposalWrapper(
+                    entityUrn=entity_urn,
+                    aspect=current_editable_schema_metadata,
+                ).as_workunit()
 
     def maybe_extract_glossary_terms(
         self, row: Dict[str, str]
@@ -643,7 +573,6 @@ class CSVEnricherSource(Source):
                 if is_resource_row:
                     for wu in self.get_resource_workunits(
                         entity_urn=entity_urn,
-                        entity_type=entity_type,
                         term_associations=term_associations,
                         tag_associations=tag_associations,
                         owners=owners,

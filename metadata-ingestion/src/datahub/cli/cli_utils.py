@@ -555,6 +555,7 @@ def post_entity(
     aspect_name: str,
     aspect_value: Dict,
     cached_session_host: Optional[Tuple[Session, str]] = None,
+    is_async: Optional[str] = "false",
 ) -> int:
     session, gms_host = cached_session_host or get_session_and_host()
     endpoint: str = "/aspects/?action=ingestProposal"
@@ -569,7 +570,8 @@ def post_entity(
                 "contentType": "application/json",
                 "value": json.dumps(aspect_value),
             },
-        }
+        },
+        "async": is_async,
     }
     payload = json.dumps(proposal)
     url = gms_host + endpoint

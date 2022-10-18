@@ -22,7 +22,7 @@ import java.util.Optional;
 import java.util.stream.Collectors;
 import javax.annotation.Nullable;
 import lombok.extern.slf4j.Slf4j;
-import org.apache.parquet.SemanticVersion;
+import org.apache.maven.artifact.versioning.ComparableVersion;
 
 import static com.linkedin.datahub.graphql.types.timeline.utils.TimelineUtils.*;
 
@@ -45,12 +45,12 @@ public class SchemaBlameMapper {
         truncateSemanticVersion(changeTransactions.get(changeTransactions.size() - 1).getSemVer());
 
     String semanticVersionFilterString = versionCutoff == null ? latestSemanticVersionString : versionCutoff;
-    Optional<SemanticVersion> semanticVersionFilterOptional = createSemanticVersion(semanticVersionFilterString);
+    Optional<ComparableVersion> semanticVersionFilterOptional = createSemanticVersion(semanticVersionFilterString);
     if (!semanticVersionFilterOptional.isPresent()) {
       return result;
     }
 
-    SemanticVersion semanticVersionFilter = semanticVersionFilterOptional.get();
+    ComparableVersion semanticVersionFilter = semanticVersionFilterOptional.get();
 
     List<ChangeTransaction> reversedChangeTransactions = changeTransactions.stream()
         .map(TimelineUtils::semanticVersionChangeTransactionPair)
