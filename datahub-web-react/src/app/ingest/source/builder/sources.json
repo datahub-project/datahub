@@ -4,14 +4,14 @@
         "name": "bigquery",
         "displayName": "BigQuery",
         "docsUrl": "https://datahubproject.io/docs/generated/ingestion/sources/bigquery/",
-        "recipe": "source:\n    type: bigquery\n    config:\n        # Coordinates\n        project_id: # Your BigQuery project id, e.g. sample_project_id\n        # Credentials\n        credential:\n            project_id: # Your BQ project id, e.g. sample_project_id\n            private_key_id: \"${BQ_PRIVATE_KEY_ID}\"\n            private_key: \"${BQ_PRIVATE_KEY}\"\n            client_email: # Your BQ client email, e.g. \"test@suppproject-id-1234567.iam.gserviceaccount.com\"\n            client_id: # Your BQ client id, e.g.\"123456678890\"\n            \n        include_table_lineage: true\n        include_view_lineage: true\n        profiling:\n            enabled: true\n        stateful_ingestion:\n            enabled: true"
+        "recipe": "source:\n    type: bigquery\n    config:\n        # Coordinates\n        project_id: # Your BigQuery project id, e.g. sample_project_id\n        # Credentials\n        credential:\n            project_id: # Your BQ project id, e.g. sample_project_id\n            private_key_id: \"${BQ_PRIVATE_KEY_ID}\"\n            private_key: \"${BQ_PRIVATE_KEY}\"\n            client_email: # Your BQ client email, e.g. \"test@suppproject-id-1234567.iam.gserviceaccount.com\"\n            client_id: # Your BQ client id, e.g.\"123456678890\"\n            \n        include_table_lineage: true\n        profiling:\n            enabled: true\n        stateful_ingestion:\n            enabled: true"
     },
     {
         "urn": "urn:li:dataPlatform:redshift",
         "name": "redshift",
         "displayName": "Redshift",
         "docsUrl": "https://datahubproject.io/docs/generated/ingestion/sources/redshift/",
-        "recipe": "source: \n    type: redshift\n    config:\n        # Coordinates\n        host_port: # Your Redshift host and post, e.g. example.something.us-west-2.redshift.amazonaws.com:5439\n        database: # Your Redshift database, e.g. SampleDatabase\n\n        # Credentials\n        # Add secret in Secrets Tab with relevant names for each variable\n        username: \"${REDSHIFT_USERNAME}\" # Your Redshift username, e.g. admin\n        password: \"${REDSHIFT_PASSWORD}\" # Your Redshift password, e.g. password_01\n\n        table_lineage_mode: stl_scan_based\n        include_table_lineage: true\n        include_view_lineage: true\n        profiling:\n            enabled: true\n        stateful_ingestion:\n            enabled: true"
+        "recipe": "source: \n    type: redshift\n    config:\n        # Coordinates\n        host_port: # Your Redshift host and post, e.g. example.something.us-west-2.redshift.amazonaws.com:5439\n        database: # Your Redshift database, e.g. SampleDatabase\n\n        # Credentials\n        # Add secret in Secrets Tab with relevant names for each variable\n        username: \"${REDSHIFT_USERNAME}\" # Your Redshift username, e.g. admin\n        password: \"${REDSHIFT_PASSWORD}\" # Your Redshift password, e.g. password_01\n\n        table_lineage_mode: stl_scan_based\n        include_table_lineage: true\n        profiling:\n            enabled: true\n        stateful_ingestion:\n            enabled: true"
     },
     {
         "urn": "urn:li:dataPlatform:snowflake",

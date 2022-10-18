@@ -2,9 +2,9 @@ import React from 'react';
 import styled from 'styled-components/macro';
 import { Link } from 'react-router-dom';
 import { useEntityData } from '../../entity/shared/EntityContext';
-import { GlossaryTerm } from '../../../types.generated';
 import { useEntityRegistry } from '../../useEntityRegistry';
 import { ANTD_GRAY } from '../../entity/shared/constants';
+import { ChildGlossaryTermFragment } from '../../../graphql/glossaryNode.generated';
 
 const TermWrapper = styled.div`
     font-weight: normal;
@@ -44,7 +44,7 @@ export const NameWrapper = styled.span<{ showSelectStyles?: boolean }>`
 `;
 
 interface Props {
-    term: GlossaryTerm;
+    term: ChildGlossaryTermFragment;
     isSelecting?: boolean;
     selectTerm?: (urn: string, displayName: string) => void;
 }

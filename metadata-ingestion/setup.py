@@ -46,11 +46,6 @@ framework_common = {
     "types-termcolor>=1.0.0",
     "psutil>=5.8.0",
     "ratelimiter",
-    # Markupsafe breaking change broke Jinja and some other libs
-    # Pinning it to a version which works even though we are not using explicitly
-    # https://github.com/aws/aws-sam-cli/issues/3661
-    # Airflow compatibility: https://github.com/apache/airflow/blob/2.2.2/setup.cfg#L125
-    "markupsafe>=1.1.1,<=2.0.1",
     "Deprecated",
     "types-Deprecated",
     "humanfriendly",
@@ -375,7 +370,7 @@ base_dev_requirements = {
     "pytest>=6.2.2",
     "pytest-asyncio>=0.16.0",
     "pytest-cov>=2.8.1",
-    "pytest-docker>=0.10.3,<0.12",
+    "pytest-docker[docker-compose-v1]>=1.0.1",
     "deepdiff",
     "requests-mock",
     "freezegun",

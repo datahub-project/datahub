@@ -22,6 +22,7 @@ import {
     SKIP_PERSONAL_FOLDERS,
     RecipeField,
     START_TIME,
+    INCLUDE_TABLE_LINEAGE,
 } from './common';
 import {
     SNOWFLAKE_ACCOUNT_ID,
@@ -137,7 +138,12 @@ export const RECIPE_FIELDS: RecipeFields = {
             BIGQUERY_CLIENT_EMAIL,
             BIGQUERY_CLIENT_ID,
         ],
-        advancedFields: [INCLUDE_LINEAGE, PROFILING_ENABLED, STATEFUL_INGESTION_ENABLED, UPSTREAM_LINEAGE_IN_REPORT],
+        advancedFields: [
+            INCLUDE_TABLE_LINEAGE,
+            PROFILING_ENABLED,
+            STATEFUL_INGESTION_ENABLED,
+            UPSTREAM_LINEAGE_IN_REPORT,
+        ],
         filterFields: [
             BIGQUERY_SCHEMA_ALLOW,
             BIGQUERY_SCHEMA_DENY,
@@ -157,7 +163,7 @@ export const RECIPE_FIELDS: RecipeFields = {
             BIGQUERY_CLIENT_EMAIL,
             BIGQUERY_CLIENT_ID,
         ],
-        advancedFields: [INCLUDE_LINEAGE, PROFILING_ENABLED, STATEFUL_INGESTION_ENABLED, START_TIME],
+        advancedFields: [INCLUDE_TABLE_LINEAGE, PROFILING_ENABLED, STATEFUL_INGESTION_ENABLED, START_TIME],
         filterFields: [
             PROJECT_ALLOW,
             PROJECT_DENY,
@@ -173,7 +179,7 @@ export const RECIPE_FIELDS: RecipeFields = {
     },
     [REDSHIFT]: {
         fields: [REDSHIFT_HOST_PORT, REDSHIFT_DATABASE, REDSHIFT_USERNAME, REDSHIFT_PASSWORD],
-        advancedFields: [INCLUDE_LINEAGE, PROFILING_ENABLED, STATEFUL_INGESTION_ENABLED, TABLE_LINEAGE_MODE],
+        advancedFields: [INCLUDE_TABLE_LINEAGE, PROFILING_ENABLED, STATEFUL_INGESTION_ENABLED, TABLE_LINEAGE_MODE],
         filterFields: [
             REDSHIFT_SCHEMA_ALLOW,
             REDSHIFT_SCHEMA_DENY,
