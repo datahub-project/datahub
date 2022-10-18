@@ -57,6 +57,8 @@ def loaded_presto_on_hive(presto_on_hive_runner):
     [
         ("hive", False, False, "_1"),
         ("presto-on-hive", True, True, "_2"),
+        ("hive", False, False, "_3"),
+        ("presto-on-hive", True, True, "_4"),
     ],
 )
 def test_presto_on_hive_ingest(
@@ -68,6 +70,7 @@ def test_presto_on_hive_ingest(
     mode,
     use_catalog_subtype,
     use_dataset_pascalcase_subtype,
+    add_dataset_to_urns,
     test_suffix,
 ):
 
@@ -91,6 +94,7 @@ def test_presto_on_hive_ingest(
                     "scheme": "postgresql+psycopg2",
                     "include_views": True,
                     "include_tables": True,
+                    "add_dataset_to_urns": add_dataset_to_urns,
                     "schema_pattern": {"allow": ["^public"]},
                     "mode": mode,
                     "use_catalog_subtype": use_catalog_subtype,

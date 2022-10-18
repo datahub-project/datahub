@@ -121,6 +121,11 @@ class PrestoOnHiveConfig(BasicSQLAlchemyConfig):
         description="Dataset Subtype name to be 'Table' or 'View' Valid options: ['True', 'False']",
     )
 
+    add_db_name_to_urns: bool = Field(
+        default=False,
+        description="Add database name/alias to the generated dataset urns",
+    )
+
     def get_sql_alchemy_url(self, uri_opts: Optional[Dict[str, Any]] = None) -> str:
         if not ((self.host_port and self.scheme) or self.sqlalchemy_uri):
             raise ValueError("host_port and schema or connect_uri required.")
@@ -408,9 +413,16 @@ class PrestoOnHiveSource(SQLAlchemySource):
 
         for key, group in groupby(iter_res, self._get_table_key):
             db_name = self.get_db_name(inspector)
-            dataset_name = self.get_identifier(
-                schema=f"{db_name}.{key.schema}", entity=key.table, inspector=inspector
+            schema_name = (
+                f"{db_name}.{key.schema}"
+                if self.config.add_db_name_to_urns
+                else key.schema
             )
+
+            dataset_name = self.get_identifier(
+                schema=schema_name, entity=key.table, inspector=inspector
+            )
+
             self.report.report_entity_scanned(dataset_name, ent_type="table")
 
             if not sql_config.table_pattern.allowed(dataset_name):
@@ -523,8 +535,13 @@ class PrestoOnHiveSource(SQLAlchemySource):
         iter_res = self._alchemy_client.execute_query(statement)
         for key, group in groupby(iter_res, self._get_table_key):
             db_name = self.get_db_name(inspector)
+            schema_name = (
+                f"{db_name}.{key.schema}"
+                if self.config.add_db_name_to_urns
+                else key.schema
+            )
             dataset_name = self.get_identifier(
-                schema=f"{db_name}.{key.schema}", entity=key.table, inspector=inspector
+                schema=schema_name, entity=key.table, inspector=inspector
             )
             columns = list(group)
 
@@ -556,8 +573,13 @@ class PrestoOnHiveSource(SQLAlchemySource):
         iter_res = self._alchemy_client.execute_query(statement)
         for row in iter_res:
             db_name = self.get_db_name(inspector)
+            schema_name = (
+                f"{db_name}.{row['schema']}"
+                if self.config.add_db_name_to_urns
+                else row["schema"]
+            )
             dataset_name = self.get_identifier(
-                schema=f"{db_name}.{row['schema']}",
+                schema=schema_name,
                 entity=row["name"],
                 inspector=inspector,
             )
