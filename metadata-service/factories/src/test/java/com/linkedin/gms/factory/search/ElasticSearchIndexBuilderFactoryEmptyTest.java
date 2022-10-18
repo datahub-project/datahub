@@ -13,7 +13,13 @@ import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertNotNull;
 
 @PropertySource("classpath:/test-empty-application.yml")
-@SpringBootTest(classes = {ElasticSearchIndexBuilderFactory.class})
+@SpringBootTest(
+        properties = {
+                "elasticsearch.index.settingsOverrides=",
+                "elasticsearch.index.entitySettingsOverrides=",
+                "elasticsearch.index.prefix=test_prefix"
+        },
+        classes = {ElasticSearchIndexBuilderFactory.class})
 public class ElasticSearchIndexBuilderFactoryEmptyTest extends AbstractTestNGSpringContextTests {
     @Autowired
     ESIndexBuilder test;
