@@ -39,7 +39,7 @@ const TagSelect = styled(Select)`
 `;
 
 const StyleTag = styled(CustomTag)`
-    margin-right: 3px;
+    margin: 2px;
     display: flex;
     justify-content: start;
     align-items: center;
