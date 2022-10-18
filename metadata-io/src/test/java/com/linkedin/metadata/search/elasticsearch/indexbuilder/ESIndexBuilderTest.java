@@ -40,7 +40,7 @@ public class ESIndexBuilderTest {
     public static void setup() {
         _searchClient = ElasticTestUtils.getElasticsearchClient();
         _indexClient = _searchClient.indices();
-        testDefaultBuilder = new ESIndexBuilder(_searchClient, 1, 0, 0, 0, Map.of());
+        testDefaultBuilder = new ESIndexBuilder(_searchClient, 1, 0, 0, 0, Map.of(), false);
     }
 
     @BeforeMethod
@@ -69,7 +69,7 @@ public class ESIndexBuilderTest {
 
     @Test
     public void testESIndexBuilderCreation() throws Exception {
-        ESIndexBuilder customIndexBuilder = new ESIndexBuilder(_searchClient, 2, 0, 1, 0, Map.of());
+        ESIndexBuilder customIndexBuilder = new ESIndexBuilder(_searchClient, 2, 0, 1, 0, Map.of(), false);
         customIndexBuilder.buildIndex(TEST_INDEX_NAME, Map.of(), Map.of());
         GetIndexResponse resp = getTestIndex();
 
@@ -121,7 +121,8 @@ public class ESIndexBuilderTest {
                 testDefaultBuilder.getNumReplicas(),
                 testDefaultBuilder.getNumRetries(),
                 testDefaultBuilder.getRefreshIntervalSeconds(),
-                Map.of());
+                Map.of(),
+                true);
 
         // add new shard setting
         changedShardBuilder.buildIndex(TEST_INDEX_NAME, Map.of(), Map.of());
@@ -146,13 +147,29 @@ public class ESIndexBuilderTest {
                         testDefaultBuilder.getNumReplicas() + 1,
                         testDefaultBuilder.getNumRetries(),
                         testDefaultBuilder.getRefreshIntervalSeconds(),
-                        Map.of()),
+                        Map.of(),
+                        true),
                 new ESIndexBuilder(_searchClient,
                         testDefaultBuilder.getNumShards(),
                         testDefaultBuilder.getNumReplicas(),
                         testDefaultBuilder.getNumRetries(),
                         testDefaultBuilder.getRefreshIntervalSeconds() + 10,
-                        Map.of())
+                        Map.of(),
+                        true),
+               new ESIndexBuilder(_searchClient,
+                                testDefaultBuilder.getNumShards() + 1,
+                                testDefaultBuilder.getNumReplicas(),
+                                testDefaultBuilder.getNumRetries(),
+                                testDefaultBuilder.getRefreshIntervalSeconds(),
+                                Map.of(),
+                                false),
+                new ESIndexBuilder(_searchClient,
+                        testDefaultBuilder.getNumShards(),
+                        testDefaultBuilder.getNumReplicas() + 1,
+                        testDefaultBuilder.getNumRetries(),
+                        testDefaultBuilder.getRefreshIntervalSeconds(),
+                        Map.of(),
+                        false)
         );
 
         for (ESIndexBuilder builder : noReindexBuilders) {

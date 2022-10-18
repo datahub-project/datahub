@@ -59,6 +59,9 @@ public class ESIndexBuilder {
   @Getter
   private final Map<String, Map<String, String>> indexSettingOverrides;
 
+  @Getter
+  private final boolean enableIndexSettingsReindex;
+
   /*
     Most index settings are default values and populated by Elastic. This list is an include list to determine which
     settings we care about when a difference is present.
@@ -130,17 +133,26 @@ public class ESIndexBuilder {
     } else {
       log.info("There's an update to settings");
       if (requireReindex(finalSettings, oldSettings)) {
-        log.info("There's an update to settings that requires reindexing.");
-        reindex(indexName, mappings, finalSettings);
-      } else if (!isSettingsEqual) {
+        if (enableIndexSettingsReindex) {
+          log.info("There's an update to settings that requires reindexing.");
+          reindex(indexName, mappings, finalSettings);
+        } else {
+          log.warn("There's an update to settings that requires reindexing, however reindexing is disabled.");
+        }
+      }
+
+      if (!isSettingsEqual && !(requireReindex(finalSettings, oldSettings) && enableIndexSettingsReindex)) {
         UpdateSettingsRequest request = new UpdateSettingsRequest(indexName);
         Map<String, Object> indexSettings = ((Map<String, Object>) finalSettings.get("index"))
                 .entrySet().stream()
                 .filter(e -> SETTINGS_DYNAMIC.contains(e.getKey()))
                 .collect(Collectors.toMap(e -> "index." + e.getKey(), Map.Entry::getValue));
-        request.settings(indexSettings);
-        boolean ack = searchClient.indices().putSettings(request, RequestOptions.DEFAULT).isAcknowledged();
-        log.info("Updated index {} with new settings. Acknowledged: {}", indexName, ack);
+
+        if (!indexSettings.isEmpty()) {
+          request.settings(indexSettings);
+          boolean ack = searchClient.indices().putSettings(request, RequestOptions.DEFAULT).isAcknowledged();
+          log.info("Updated index {} with new settings. Acknowledged: {}", indexName, ack);
+        }
       }
     }
   }
