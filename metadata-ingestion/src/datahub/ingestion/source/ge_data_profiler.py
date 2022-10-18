@@ -100,21 +100,14 @@ def get_column_unique_count_patch(self, column):
     if self.engine.dialect.name.lower() == "redshift":
         element_values = self.engine.execute(
             sa.select(
-                [sa.text(f"APPROXIMATE count(distinct {column})")]  # type:ignore
+                [sa.text(f'APPROXIMATE count(distinct "{column}")')]  # type:ignore
             ).select_from(self._table)
         )
         return convert_to_json_serializable(element_values.fetchone()[0])
-    elif self.engine.dialect.name.lower() == "bigquery":
+    elif self.engine.dialect.name.lower() in {"bigquery", "snowflake"}:
         element_values = self.engine.execute(
             sa.select(
-                [sa.text(f"APPROX_COUNT_DISTINCT ({column})")]  # type:ignore
-            ).select_from(self._table)
-        )
-        return convert_to_json_serializable(element_values.fetchone()[0])
-    elif self.engine.dialect.name.lower() == "snowflake":
-        element_values = self.engine.execute(
-            sa.select(
-                [sa.text(f"APPROX_COUNT_DISTINCT({column})")]  # type:ignore
+                [sa.text(f"APPROX_COUNT_DISTINCT ({sa.column(column)})")]  # type:ignore
             ).select_from(self._table)
         )
         return convert_to_json_serializable(element_values.fetchone()[0])
@@ -467,16 +460,28 @@ class _SingleDatasetProfiler(BasicDatasetProfilerBase):
     def _get_dataset_column_sample_values(
         self, column_profile: DatasetFieldProfileClass, column: str
     ) -> None:
-        if self.config.include_field_sample_values:
+        if not self.config.include_field_sample_values:
+            return
+
+        try:
             # TODO do this without GE
             self.dataset.set_config_value("interactive_evaluation", True)
 
             res = self.dataset.expect_column_values_to_be_in_set(
                 column, [], result_format="SUMMARY"
             ).result
+
             column_profile.sampleValues = [
                 str(v) for v in res["partial_unexpected_list"]
             ]
+        except Exception as e:
+            logger.debug(
+                f"Caught exception while attempting to get sample values for column {column}. {e}"
+            )
+            self.report.report_warning(
+                "Profiling - Unable to get column sample values",
+                f"{self.dataset_name}.{column}",
+            )
 
     def generate_dataset_profile(  # noqa: C901 (complexity)
         self,

@@ -47,6 +47,9 @@ workbook_graphql_query = """
       uri
       createdAt
       updatedAt
+      tags {
+          name
+      }
       sheets {
         id
         name
@@ -123,6 +126,9 @@ workbook_graphql_query = """
         sheets {
           id
           name
+        }
+        tags {
+            name
         }
       }
       embeddedDatasources {

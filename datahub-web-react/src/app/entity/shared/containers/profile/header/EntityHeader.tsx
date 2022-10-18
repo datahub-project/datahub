@@ -125,7 +125,13 @@ export const EntityHeader = ({
                     <TitleWrapper>
                         <EntityName isNameEditable={canEditName} />
                         {entityData?.deprecation?.deprecated && (
-                            <DeprecationPill deprecation={entityData?.deprecation} preview={isCompact} />
+                            <DeprecationPill
+                                urn={urn}
+                                deprecation={entityData?.deprecation}
+                                showUndeprecate
+                                preview={isCompact}
+                                refetch={refetch}
+                            />
                         )}
                         {entityData?.health?.map((health) => (
                             <EntityHealthStatus

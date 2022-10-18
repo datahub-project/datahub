@@ -51,12 +51,12 @@ class TwoTierSQLAlchemyConfig(BasicSQLAlchemyConfig):
 class TwoTierSQLAlchemySource(SQLAlchemySource):
     def __init__(self, config, ctx, platform):
         super().__init__(config, ctx, platform)
-        self.current_database = None
         self.config: TwoTierSQLAlchemyConfig = config
 
     def get_parent_container_key(self, db_name: str, schema: str) -> PlatformKey:
         # Because our overridden get_allowed_schemas method returns db_name as the schema name,
         # the db_name and schema here will be the same. Hence, we just ignore the schema parameter.
+        assert db_name == schema
         return self.gen_database_key(db_name)
 
     def get_allowed_schemas(
@@ -65,6 +65,10 @@ class TwoTierSQLAlchemySource(SQLAlchemySource):
         # This method returns schema names but for 2 tier databases there is no schema layer at all hence passing
         # dbName itself as an allowed schema
         yield db_name
+
+    def gen_schema_key(self, db_name: str, schema: str) -> PlatformKey:
+        # Sanity check that we don't try to generate schema containers for 2 tier databases.
+        raise NotImplementedError
 
     def get_inspectors(self):
         # This method can be overridden in the case that you want to dynamically
@@ -84,7 +88,6 @@ class TwoTierSQLAlchemySource(SQLAlchemySource):
                     inspector = inspect(
                         create_engine(url, **self.config.options).connect()
                     )
-                    self.current_database = db
                     yield inspector
 
     def gen_schema_containers(
