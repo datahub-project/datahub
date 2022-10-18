@@ -92,7 +92,7 @@ def test_bq_usage_source(pytestconfig, tmp_path):
             {
                 "run_id": "test-bigquery-usage",
                 "source": {
-                    "type": "bigquery-usage",
+                    "type": "bigquery-usage-legacy",
                     "config": {
                         "projects": ["sample-bigquery-project-1234"],
                         "start_time": "2021-01-01T00:00Z",
@@ -160,7 +160,7 @@ def test_bq_usage_source_with_read_events(pytestconfig, tmp_path):
             {
                 "run_id": "test-bigquery-usage",
                 "source": {
-                    "type": "bigquery-usage",
+                    "type": "bigquery-usage-legacy",
                     "config": {
                         "projects": ["sample-bigquery-project-1234"],
                         "start_time": "2021-01-01T00:00Z",

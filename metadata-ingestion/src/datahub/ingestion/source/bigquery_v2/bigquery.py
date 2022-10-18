@@ -2,6 +2,7 @@ import atexit
 import logging
 import os
 import re
+import traceback
 from collections import defaultdict
 from datetime import datetime, timedelta
 from typing import Dict, Iterable, List, Optional, Tuple, Type, Union, cast
@@ -116,7 +117,7 @@ def cleanup(config: BigQueryV2Config) -> None:
 
 @platform_name("BigQuery", doc_order=1)
 @config_class(BigQueryV2Config)
-@support_status(SupportStatus.INCUBATING)
+@support_status(SupportStatus.CERTIFIED)
 @capability(SourceCapability.PLATFORM_INSTANCE, "Enabled by default")
 @capability(SourceCapability.DOMAINS, "Supported via the `domain` config field")
 @capability(SourceCapability.CONTAINERS, "Enabled by default")
@@ -551,6 +552,8 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
             try:
                 yield from self._process_schema(conn, project_id, bigquery_dataset)
             except Exception as e:
+                trace = traceback.format_exc()
+                logger.error(trace)
                 logger.error(
                     f"Unable to get tables for dataset {bigquery_dataset.name} in project {project_id}, skipping. The error was: {e}"
                 )
@@ -626,7 +629,7 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
             conn, table_identifier, self.config.column_limit
         )
         if not table.columns:
-            logger.warning(f"Unable to get columns for table: {table_identifier}")
+            logger.warning(f"Table doesn't have any column or unable to get columns for table: {table_identifier}")
 
         lineage_info: Optional[Tuple[UpstreamLineage, Dict[str, str]]] = None
 
