@@ -6,12 +6,15 @@ import { capitalizeFirstLetterOnly } from './textUtil';
 
 export const EntityHead = () => {
     const entityRegistry = useEntityRegistry();
-    const entityData = useEntityData();
+    const { entityType, entityData } = useEntityData();
 
-    const entityDisplayName = entityRegistry.getDisplayName(entityData.entityType, entityData.entityData);
+    if (!entityData) {
+        return null;
+    }
+
+    const entityDisplayName = entityRegistry.getDisplayName(entityType, entityData);
     const type =
-        capitalizeFirstLetterOnly(entityData?.entityData?.subTypes?.typeNames?.[0]) ||
-        entityRegistry.getEntityName(entityData.entityType);
+        capitalizeFirstLetterOnly(entityData?.subTypes?.typeNames?.[0]) || entityRegistry.getEntityName(entityType);
 
     return (
         <Helmet>
