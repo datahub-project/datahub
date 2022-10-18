@@ -629,7 +629,9 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
             conn, table_identifier, self.config.column_limit
         )
         if not table.columns:
-            logger.warning(f"Table doesn't have any column or unable to get columns for table: {table_identifier}")
+            logger.warning(
+                f"Table doesn't have any column or unable to get columns for table: {table_identifier}"
+            )
 
         lineage_info: Optional[Tuple[UpstreamLineage, Dict[str, str]]] = None
 
