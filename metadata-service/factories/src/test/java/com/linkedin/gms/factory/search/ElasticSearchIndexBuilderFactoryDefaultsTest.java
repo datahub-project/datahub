@@ -7,8 +7,10 @@ import org.springframework.test.context.TestPropertySource;
 import org.springframework.test.context.testng.AbstractTestNGSpringContextTests;
 import org.testng.annotations.Test;
 
-import static org.testng.Assert.assertNull;
+import java.util.Map;
+
 import static org.testng.Assert.assertNotNull;
+import static org.testng.Assert.assertEquals;
 
 @TestPropertySource(locations = "classpath:/application.yml")
 @SpringBootTest(classes = {ElasticSearchIndexBuilderFactory.class})
@@ -19,6 +21,6 @@ public class ElasticSearchIndexBuilderFactoryDefaultsTest extends AbstractTestNG
     @Test
     void testInjection() {
         assertNotNull(test);
-        assertNull(test.getIndexSettingOverrides());
+        assertEquals(Map.of(), test.getIndexSettingOverrides());
     }
 }

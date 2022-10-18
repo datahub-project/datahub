@@ -7,7 +7,9 @@ import org.springframework.context.annotation.PropertySource;
 import org.springframework.test.context.testng.AbstractTestNGSpringContextTests;
 import org.testng.annotations.Test;
 
-import static org.testng.Assert.assertNull;
+import java.util.Map;
+
+import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertNotNull;
 
 @PropertySource("classpath:/test-empty-application.yml")
@@ -19,6 +21,6 @@ public class ElasticSearchIndexBuilderFactoryEmptyTest extends AbstractTestNGSpr
     @Test
     void testInjection() {
         assertNotNull(test);
-        assertNull(test.getIndexSettingOverrides());
+        assertEquals(Map.of(), test.getIndexSettingOverrides());
     }
 }

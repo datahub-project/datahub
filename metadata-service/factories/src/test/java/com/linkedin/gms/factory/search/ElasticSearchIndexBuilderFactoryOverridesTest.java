@@ -9,7 +9,10 @@ import org.springframework.beans.factory.annotation.Autowired;
 import static org.testng.Assert.*;
 
 @SpringBootTest(
-        properties = "elasticsearch.index.settingsOverrides={\"my_index\":{\"number_of_shards\":\"10\"}}",
+        properties = {
+                "elasticsearch.index.settingsOverrides={\"my_index\":{\"number_of_shards\":\"10\"}}",
+                "elasticsearch.index.prefix=test_prefix"
+        },
         classes = {ElasticSearchIndexBuilderFactory.class})
 public class ElasticSearchIndexBuilderFactoryOverridesTest extends AbstractTestNGSpringContextTests {
     @Autowired
@@ -18,6 +21,6 @@ public class ElasticSearchIndexBuilderFactoryOverridesTest extends AbstractTestN
     @Test
     void testInjection() {
         assertNotNull(test);
-        assertEquals("10", test.getIndexSettingOverrides().get("my_index").get("number_of_shards"));
+        assertEquals("10", test.getIndexSettingOverrides().get("test_prefix_my_index").get("number_of_shards"));
     }
 }

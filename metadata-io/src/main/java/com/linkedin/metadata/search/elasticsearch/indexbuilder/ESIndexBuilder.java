@@ -9,7 +9,6 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
-import java.util.Optional;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
@@ -79,7 +78,7 @@ public class ESIndexBuilder {
     baseSettings.put("number_of_shards", numShards);
     baseSettings.put("number_of_replicas", numReplicas);
     baseSettings.put("refresh_interval", String.format("%ss", refreshIntervalSeconds));
-    baseSettings.putAll(Optional.ofNullable(indexSettingOverrides).orElse(Map.of()).getOrDefault(indexName, Map.of()));
+    baseSettings.putAll(indexSettingOverrides.getOrDefault(indexName, Map.of()));
     Map<String, Object> finalSettings = ImmutableMap.of("index", baseSettings);
 
     // If index doesn't exist, create index
