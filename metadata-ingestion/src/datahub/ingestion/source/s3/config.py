@@ -1,5 +1,5 @@
 import logging
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Union
 
 import pydantic
 from pydantic.fields import Field
@@ -59,6 +59,11 @@ class DataLakeSourceConfig(PlatformSourceConfigBase, EnvBasedSourceConfigBase):
     max_rows: int = Field(
         default=100,
         description="Maximum number of rows to use when inferring schemas for TSV and CSV files.",
+    )
+
+    verify_ssl: Union[bool, str] = Field(
+        default=True,
+        description="Either a boolean, in which case it controls whether we verify the server's TLS certificate, or a string, in which case it must be a path to a CA bundle to use.",
     )
 
     _rename_path_spec_to_plural = pydantic_renamed_field(

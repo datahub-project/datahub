@@ -1,11 +1,15 @@
 import hashlib
 import json
-from typing import Any, Iterable, List, Optional, TypeVar
+from typing import Any, Dict, Iterable, List, Optional, TypeVar
 
 from pydantic.fields import Field
 from pydantic.main import BaseModel
 
-from datahub.emitter.mce_builder import make_container_urn, make_data_platform_urn
+from datahub.emitter.mce_builder import (
+    make_container_urn,
+    make_data_platform_urn,
+    make_dataplatform_instance_urn,
+)
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.metadata.com.linkedin.pegasus2avro.common import DataPlatformInstance
@@ -28,22 +32,50 @@ from datahub.metadata.schema_classes import (
 from datahub.utilities.urns.urn import guess_entity_type
 
 
+def _stable_guid_from_dict(d: dict) -> str:
+    json_key = json.dumps(
+        d,
+        separators=(",", ":"),
+        sort_keys=True,
+        cls=DatahubKeyJSONEncoder,
+    )
+    md5_hash = hashlib.md5(json_key.encode("utf-8"))
+    return str(md5_hash.hexdigest())
+
+
 class DatahubKey(BaseModel):
+    def guid_dict(self) -> Dict[str, str]:
+        return self.dict(by_alias=True, exclude_none=True)
+
     def guid(self) -> str:
-        nonnull_dict = self.dict(by_alias=True, exclude_none=True)
-        json_key = json.dumps(
-            nonnull_dict,
-            separators=(",", ":"),
-            sort_keys=True,
-            cls=DatahubKeyJSONEncoder,
-        )
-        md5_hash = hashlib.md5(json_key.encode("utf-8"))
-        return str(md5_hash.hexdigest())
+        bag = self.guid_dict()
+        return _stable_guid_from_dict(bag)
 
 
 class PlatformKey(DatahubKey):
     platform: str
     instance: Optional[str] = None
+
+    # BUG: In some of our sources, we incorrectly set the platform instance
+    # to the env if no platform instance was specified. Now, we have to maintain
+    # backwards compatibility with this bug, which means generating our GUIDs
+    # in the same way. Specifically, we need to use the backcompat value if
+    # the normal instance value is not set.
+    backcompat_instance_for_guid: Optional[str] = Field(default=None, exclude=True)
+
+    def guid_dict(self) -> Dict[str, str]:
+        # FIXME: Notice that we can't use exclude_none=True here. This is because
+        # we need to maintain the insertion order in the dict (so that instance)
+        # comes before the keys from any subclasses. While the guid computation
+        # method uses sort_keys=True, we also use the guid_dict method when
+        # generating custom properties, which are not sorted.
+        bag = self.dict(by_alias=True, exclude_none=False)
+
+        if self.instance is None:
+            bag["instance"] = self.backcompat_instance_for_guid
+
+        bag = {k: v for k, v in bag.items() if v is not None}
+        return bag
 
 
 class DatabaseKey(PlatformKey):
@@ -173,7 +205,7 @@ def gen_containers(
         aspect=ContainerProperties(
             name=name,
             description=description,
-            customProperties=container_key.dict(exclude_none=True, by_alias=True),
+            customProperties=container_key.guid_dict(),
             externalUrl=external_url,
             qualifiedName=qualified_name,
         ),
@@ -196,6 +228,9 @@ def gen_containers(
         # entityKeyAspect=ContainerKeyClass(guid=schema_container_key.guid()),
         aspect=DataPlatformInstance(
             platform=f"{make_data_platform_urn(container_key.platform)}",
+            instance=f"{make_dataplatform_instance_urn(container_key.platform, container_key.instance)}"
+            if container_key.instance
+            else None,
         ),
     )
     wu = MetadataWorkUnit(
