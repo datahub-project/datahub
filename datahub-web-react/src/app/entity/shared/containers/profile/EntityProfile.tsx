@@ -33,6 +33,7 @@ import { BrowserWrapper, MAX_BROWSER_WIDTH, MIN_BROWSWER_WIDTH } from '../../../
 import { combineEntityDataWithSiblings, useIsSeparateSiblingsMode } from '../../siblingUtils';
 import { EntityActionItem } from '../../entity/EntityActions';
 import { ErrorSection } from '../../../../shared/error/ErrorSection';
+import { EntityHead } from '../../../../shared/EntityHead';
 
 type Props<T, U> = {
     urn: string;
@@ -297,6 +298,7 @@ export const EntityProfile = <T, U>({
             }}
         >
             <>
+                <EntityHead />
                 {customNavBar}
                 {showBrowseBar && !customNavBar && <EntityProfileNavBar urn={urn} entityType={entityType} />}
                 {entityData?.status?.removed === true && (
