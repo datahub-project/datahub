@@ -225,7 +225,7 @@ def test_kafka_connect_ingest(docker_compose_runner, pytestconfig, tmp_path, moc
                         "name": "generic_source",
                         "config": {
                             "connector.class": "io.confluent.kafka.connect.datagen.DatagenConnector",
-                            "kafka.topic": "product",
+                            "kafka.topic": "my-topic",
                             "quickstart": "product",
                             "key.converter": "org.apache.kafka.connect.storage.StringConverter",
                             "value.converter": "org.apache.kafka.connect.json.JsonConverter",
