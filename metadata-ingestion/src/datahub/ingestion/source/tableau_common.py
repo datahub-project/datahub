@@ -467,7 +467,10 @@ def get_fully_qualified_table_name(
     fully_qualified_table_name = fully_qualified_table_name.lower()
     # strip double quotes and escaped double quotes
     fully_qualified_table_name = (
-        fully_qualified_table_name.replace('\\"', "").replace('"', "").replace("\\", "")
+        fully_qualified_table_name.replace('\\"', "")
+        .replace('"', "")
+        .replace("\\", "")
+        .replace("`", "")
     )
 
     if platform in ("athena", "hive", "mysql"):
