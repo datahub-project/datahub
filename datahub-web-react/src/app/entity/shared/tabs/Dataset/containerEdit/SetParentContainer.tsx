@@ -29,6 +29,7 @@ export const SetParentContainer = (props: Props) => {
                         value: props.platformType,
                     },
                 ],
+                count: 1000,
             },
         },
     });
