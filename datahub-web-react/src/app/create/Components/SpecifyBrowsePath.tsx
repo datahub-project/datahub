@@ -42,7 +42,7 @@ export const SpecifyBrowsePath = () => {
                                                         required: true,
                                                         pattern: new RegExp(/^\/([0-9a-zA-Z-_ ]+\/){1,10}$/),
                                                         message:
-                                                            'The path must start and end with a / char, Legal Characters: [a-zA-Z0-9_- ] and the dataset cannot be kpet in more than 10 folders deep',
+                                                            'The path must start and end with a / char, Legal Characters: [a-zA-Z0-9_- ] and the dataset cannot be kept in more than 10 folders deep',
                                                     },
                                                 ]}
                                             >
