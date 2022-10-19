@@ -1,9 +1,6 @@
 from typing import Iterable, List, Set
 
-from datahub.emitter.mce_builder import (
-    dataset_key_to_urn,
-    dataset_urn_to_key,
-)
+from datahub.emitter.mce_builder import dataset_key_to_urn, dataset_urn_to_key
 from datahub.metadata.schema_classes import DatasetKeyClass
 
 
