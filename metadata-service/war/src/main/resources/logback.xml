@@ -25,7 +25,7 @@
             <level>INFO</level>
         </filter>
         <encoder>
-            <pattern>%d{HH:mm:ss} [%thread] %-5level %logger{36} - %msg%n</pattern>
+            <pattern>%d{dd MMM yyyy;HH:mm:ss} [%thread] %-5level %logger{36} - %msg%n</pattern>
         </encoder>
     </appender>
 
@@ -36,7 +36,7 @@
             <!-- each archived file, size max 10MB -->
             <maxFileSize>100MB</maxFileSize>
             <!-- total size of all archive files, if total size > 2GB, it will delete old archived file -->
-            <totalSizeCap>2GB</totalSizeCap>
+            <totalSizeCap>5GB</totalSizeCap>
             <!-- 1 days to keep -->
             <maxHistory>1</maxHistory>
         </rollingPolicy>
@@ -46,7 +46,7 @@
             <onMismatch>DENY</onMismatch>
         </filter>
         <encoder>
-            <pattern>%d{HH:mm:ss} [%thread] %-5level %logger{36} - %msg%n</pattern>
+            <pattern>%d{dd MMM yyyy;HH:mm:ss} [%thread] %-5level %logger{36} - %msg%n</pattern>
         </encoder>
     </appender>
 
