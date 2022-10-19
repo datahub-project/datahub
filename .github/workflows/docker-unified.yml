@@ -355,7 +355,7 @@ jobs:
   smoke_test:
     name: Run Smoke Tests
     runs-on: ubuntu-latest
-    needs: [setup,gms_build,frontend_build,kafka_setup_build,mysql_setup_build,elasticsearch_setup_build]
+    needs: [setup,gms_build,frontend_build,kafka_setup_build,mysql_setup_build,elasticsearch_setup_build,mae_consumer_build,mce_consumer_build]
     steps:
       - name: Check out the repo
         uses: actions/checkout@v2
