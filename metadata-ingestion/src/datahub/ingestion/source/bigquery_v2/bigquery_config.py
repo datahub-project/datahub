@@ -77,6 +77,11 @@ class BigQueryV2Config(BigQueryConfig):
         description="Sql parse view ddl to get lineage.",
     )
 
+    convert_urns_to_lowercase: bool = Field(
+        default=False,
+        description="Convert urns to lowercase.",
+    )
+
     @root_validator(pre=False)
     def profile_default_settings(cls, values: Dict) -> Dict:
         # Extra default SQLAlchemy option for better connection pooling and threading.
