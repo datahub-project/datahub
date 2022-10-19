@@ -1202,9 +1202,7 @@ jobs:
           account: 74336327
           repository: 370568987
           path: |
-            **/build/reports/tests/test/**
-            **/build/test-results/test/**
-            **/junit.*.xml
+            **/junit.smoke.xml
           key: ${{ secrets.BUILDPULSE_ACCESS_KEY_ID }}
           secret: ${{ secrets.BUILDPULSE_SECRET_ACCESS_KEY }}
       - name: Slack failure notification
