@@ -27,6 +27,26 @@ export enum EventType {
     DownloadAsCsvEvent,
     SignUpEvent,
     ResetCredentialsEvent,
+    CreateAccessTokenEvent,
+    RevokeAccessTokenEvent,
+    CreateGroupEvent,
+    CreateInviteLinkEvent,
+    CreateResetCredentialsLinkEvent,
+    DeleteEntityEvent,
+    SelectUserRoleEvent,
+    BatchSelectUserRoleEvent,
+    CreatePolicyEvent,
+    UpdatePolicyEvent,
+    DeactivatePolicyEvent,
+    ActivatePolicyEvent,
+    ShowSimplifiedHomepageEvent,
+    ShowStandardHomepageEvent,
+    CreateGlossaryEntityEvent,
+    CreateDomainEvent,
+    CreateIngestionSourceEvent,
+    UpdateIngestionSourceEvent,
+    DeleteIngestionSourceEvent,
+    ExecuteIngestionSourceEvent,
 }
 
 /**
@@ -247,6 +267,108 @@ export interface DownloadAsCsvEvent extends BaseEvent {
     path: string;
 }
 
+export interface CreateAccessTokenEvent extends BaseEvent {
+    type: EventType.CreateAccessTokenEvent;
+    accessTokenType: string;
+    duration: string;
+}
+
+export interface RevokeAccessTokenEvent extends BaseEvent {
+    type: EventType.RevokeAccessTokenEvent;
+}
+
+export interface CreateGroupEvent extends BaseEvent {
+    type: EventType.CreateGroupEvent;
+}
+export interface CreateInviteLinkEvent extends BaseEvent {
+    type: EventType.CreateInviteLinkEvent;
+    roleUrn?: string;
+}
+
+export interface CreateResetCredentialsLinkEvent extends BaseEvent {
+    type: EventType.CreateResetCredentialsLinkEvent;
+    userUrn: string;
+}
+
+export interface DeleteEntityEvent extends BaseEvent {
+    type: EventType.DeleteEntityEvent;
+    entityUrn: string;
+    entityType: EntityType;
+}
+
+export interface SelectUserRoleEvent extends BaseEvent {
+    type: EventType.SelectUserRoleEvent;
+    roleUrn: string;
+    userUrn: string;
+}
+
+export interface BatchSelectUserRoleEvent extends BaseEvent {
+    type: EventType.BatchSelectUserRoleEvent;
+    roleUrn: string;
+    userUrns: string[];
+}
+
+// Policy events
+
+export interface CreatePolicyEvent extends BaseEvent {
+    type: EventType.CreatePolicyEvent;
+}
+
+export interface UpdatePolicyEvent extends BaseEvent {
+    type: EventType.UpdatePolicyEvent;
+    policyUrn: string;
+}
+
+export interface DeactivatePolicyEvent extends BaseEvent {
+    type: EventType.DeactivatePolicyEvent;
+    policyUrn: string;
+}
+
+export interface ActivatePolicyEvent extends BaseEvent {
+    type: EventType.ActivatePolicyEvent;
+    policyUrn: string;
+}
+
+export interface ShowSimplifiedHomepageEvent extends BaseEvent {
+    type: EventType.ShowSimplifiedHomepageEvent;
+}
+
+export interface ShowStandardHomepageEvent extends BaseEvent {
+    type: EventType.ShowStandardHomepageEvent;
+}
+
+// Business glossary events
+
+export interface CreateGlossaryEntityEvent extends BaseEvent {
+    type: EventType.CreateGlossaryEntityEvent;
+    entityType: EntityType;
+    parentNodeUrn?: string;
+}
+
+export interface CreateDomainEvent extends BaseEvent {
+    type: EventType.CreateDomainEvent;
+}
+
+export interface CreateIngestionSourceEvent extends BaseEvent {
+    type: EventType.CreateIngestionSourceEvent;
+    sourceType: string;
+    interval?: string;
+}
+
+export interface UpdateIngestionSourceEvent extends BaseEvent {
+    type: EventType.UpdateIngestionSourceEvent;
+    sourceType: string;
+    interval?: string;
+}
+
+export interface DeleteIngestionSourceEvent extends BaseEvent {
+    type: EventType.DeleteIngestionSourceEvent;
+}
+
+export interface ExecuteIngestionSourceEvent extends BaseEvent {
+    type: EventType.ExecuteIngestionSourceEvent;
+}
+
 /**
  * Event consisting of a union of specific event types.
  */
@@ -272,4 +394,24 @@ export type Event =
     | DownloadAsCsvEvent
     | RecommendationClickEvent
     | HomePageRecommendationClickEvent
-    | BatchEntityActionEvent;
+    | BatchEntityActionEvent
+    | CreateAccessTokenEvent
+    | RevokeAccessTokenEvent
+    | CreateGroupEvent
+    | CreateInviteLinkEvent
+    | CreateResetCredentialsLinkEvent
+    | DeleteEntityEvent
+    | SelectUserRoleEvent
+    | BatchSelectUserRoleEvent
+    | CreatePolicyEvent
+    | UpdatePolicyEvent
+    | DeactivatePolicyEvent
+    | ActivatePolicyEvent
+    | ShowSimplifiedHomepageEvent
+    | ShowStandardHomepageEvent
+    | CreateGlossaryEntityEvent
+    | CreateDomainEvent
+    | CreateIngestionSourceEvent
+    | UpdateIngestionSourceEvent
+    | DeleteIngestionSourceEvent
+    | ExecuteIngestionSourceEvent;

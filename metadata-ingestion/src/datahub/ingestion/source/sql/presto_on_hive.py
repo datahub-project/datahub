@@ -101,7 +101,9 @@ class PrestoOnHiveConfig(BasicSQLAlchemyConfig):
         default="localhost:3306",
         description="Host URL and port to connect to. Example: localhost:3306",
     )
-    scheme: str = Field(default="mysql+pymysql", description="", exclude=True)
+    scheme: str = Field(
+        default="mysql+pymysql", description="", hidden_from_schema=True
+    )
     metastore_db_name: Optional[str] = Field(
         default=None,
         description="Name of the Hive metastore's database (usually: metastore). For backward compatibility, if this field is not provided, the database field will be used. If both the 'database' and 'metastore_db_name' fields are set then the 'database' field will be used to filter the hive/presto/trino database",
@@ -117,6 +119,11 @@ class PrestoOnHiveConfig(BasicSQLAlchemyConfig):
     use_dataset_pascalcase_subtype: bool = Field(
         default=False,
         description="Dataset Subtype name to be 'Table' or 'View' Valid options: ['True', 'False']",
+    )
+
+    include_catalog_name_in_ids: bool = Field(
+        default=False,
+        description="Add the Presto catalog name (e.g. hive) to the generated dataset urns. `urn:li:dataset:(urn:li:dataPlatform:hive,hive.user.logging_events,PROD)` versus `urn:li:dataset:(urn:li:dataPlatform:hive,user.logging_events,PROD)`",
     )
 
     def get_sql_alchemy_url(self, uri_opts: Optional[Dict[str, Any]] = None) -> str:
@@ -405,9 +412,17 @@ class PrestoOnHiveSource(SQLAlchemySource):
         iter_res = self._alchemy_client.execute_query(statement)
 
         for key, group in groupby(iter_res, self._get_table_key):
-            dataset_name = self.get_identifier(
-                schema=key.schema, entity=key.table, inspector=inspector
+            db_name = self.get_db_name(inspector)
+            schema_name = (
+                f"{db_name}.{key.schema}"
+                if self.config.include_catalog_name_in_ids
+                else key.schema
             )
+
+            dataset_name = self.get_identifier(
+                schema=schema_name, entity=key.table, inspector=inspector
+            )
+
             self.report.report_entity_scanned(dataset_name, ent_type="table")
 
             if not sql_config.table_pattern.allowed(dataset_name):
@@ -519,8 +534,14 @@ class PrestoOnHiveSource(SQLAlchemySource):
 
         iter_res = self._alchemy_client.execute_query(statement)
         for key, group in groupby(iter_res, self._get_table_key):
+            db_name = self.get_db_name(inspector)
+            schema_name = (
+                f"{db_name}.{key.schema}"
+                if self.config.include_catalog_name_in_ids
+                else key.schema
+            )
             dataset_name = self.get_identifier(
-                schema=key.schema, entity=key.table, inspector=inspector
+                schema=schema_name, entity=key.table, inspector=inspector
             )
             columns = list(group)
 
@@ -551,8 +572,16 @@ class PrestoOnHiveSource(SQLAlchemySource):
 
         iter_res = self._alchemy_client.execute_query(statement)
         for row in iter_res:
+            db_name = self.get_db_name(inspector)
+            schema_name = (
+                f"{db_name}.{row['schema']}"
+                if self.config.include_catalog_name_in_ids
+                else row["schema"]
+            )
             dataset_name = self.get_identifier(
-                schema=row["schema"], entity=row["name"], inspector=inspector
+                schema=schema_name,
+                entity=row["name"],
+                inspector=inspector,
             )
 
             columns, view_definition = self._get_presto_view_column_metadata(

@@ -1,12 +1,12 @@
 {
     "data": {
-        "embeddedDatasourcesConnection": {
+        "workbooksConnection": {
             "nodes": [],
             "pageInfo": {
-                "hasNextPage": true,
+                "hasNextPage": false,
                 "endCursor": null
             },
-            "totalCount": 8
+            "totalCount": 0
         }
     }
 }
