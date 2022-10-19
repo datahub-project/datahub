@@ -121,9 +121,9 @@ class PrestoOnHiveConfig(BasicSQLAlchemyConfig):
         description="Dataset Subtype name to be 'Table' or 'View' Valid options: ['True', 'False']",
     )
 
-    add_db_name_to_urns: bool = Field(
+    include_catalog_name_in_ids: bool = Field(
         default=False,
-        description="Add database name/alias to the generated dataset urns",
+        description="Add the Presto catalog name (e.g. hive) to the generated dataset urns. `urn:li:dataset:(urn:li:dataPlatform:hive,hive.user.logging_events,PROD)` versus `urn:li:dataset:(urn:li:dataPlatform:hive,user.logging_events,PROD)`",
     )
 
     def get_sql_alchemy_url(self, uri_opts: Optional[Dict[str, Any]] = None) -> str:
@@ -415,7 +415,7 @@ class PrestoOnHiveSource(SQLAlchemySource):
             db_name = self.get_db_name(inspector)
             schema_name = (
                 f"{db_name}.{key.schema}"
-                if self.config.add_db_name_to_urns
+                if self.config.include_catalog_name_in_ids
                 else key.schema
             )
 
@@ -537,7 +537,7 @@ class PrestoOnHiveSource(SQLAlchemySource):
             db_name = self.get_db_name(inspector)
             schema_name = (
                 f"{db_name}.{key.schema}"
-                if self.config.add_db_name_to_urns
+                if self.config.include_catalog_name_in_ids
                 else key.schema
             )
             dataset_name = self.get_identifier(
@@ -575,7 +575,7 @@ class PrestoOnHiveSource(SQLAlchemySource):
             db_name = self.get_db_name(inspector)
             schema_name = (
                 f"{db_name}.{row['schema']}"
-                if self.config.add_db_name_to_urns
+                if self.config.include_catalog_name_in_ids
                 else row["schema"]
             )
             dataset_name = self.get_identifier(
