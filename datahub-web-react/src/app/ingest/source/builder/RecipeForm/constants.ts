@@ -21,6 +21,8 @@ import {
     EXTRACT_OWNERS,
     SKIP_PERSONAL_FOLDERS,
     RecipeField,
+    START_TIME,
+    INCLUDE_TABLE_LINEAGE,
 } from './common';
 import {
     SNOWFLAKE_ACCOUNT_ID,
@@ -89,6 +91,8 @@ import {
     PARSE_TABLE_NAMES_FROM_SQL,
     PROJECT_NAME,
 } from './lookml';
+import { BIGQUERY_BETA } from '../constants';
+import { BIGQUERY_BETA_PROJECT_ID, DATASET_ALLOW, DATASET_DENY, PROJECT_ALLOW, PROJECT_DENY } from './bigqueryBeta';
 
 export enum RecipeSections {
     Connection = 0,
@@ -134,7 +138,12 @@ export const RECIPE_FIELDS: RecipeFields = {
             BIGQUERY_CLIENT_EMAIL,
             BIGQUERY_CLIENT_ID,
         ],
-        advancedFields: [INCLUDE_LINEAGE, PROFILING_ENABLED, STATEFUL_INGESTION_ENABLED, UPSTREAM_LINEAGE_IN_REPORT],
+        advancedFields: [
+            INCLUDE_TABLE_LINEAGE,
+            PROFILING_ENABLED,
+            STATEFUL_INGESTION_ENABLED,
+            UPSTREAM_LINEAGE_IN_REPORT,
+        ],
         filterFields: [
             BIGQUERY_SCHEMA_ALLOW,
             BIGQUERY_SCHEMA_DENY,
@@ -146,9 +155,31 @@ export const RECIPE_FIELDS: RecipeFields = {
         filterSectionTooltip:
             'Filter out data assets based on allow/deny regex patterns we match against. Deny patterns take precedence over allow patterns.',
     },
+    [BIGQUERY_BETA]: {
+        fields: [
+            BIGQUERY_BETA_PROJECT_ID,
+            BIGQUERY_PRIVATE_KEY,
+            BIGQUERY_PRIVATE_KEY_ID,
+            BIGQUERY_CLIENT_EMAIL,
+            BIGQUERY_CLIENT_ID,
+        ],
+        advancedFields: [INCLUDE_TABLE_LINEAGE, PROFILING_ENABLED, STATEFUL_INGESTION_ENABLED, START_TIME],
+        filterFields: [
+            PROJECT_ALLOW,
+            PROJECT_DENY,
+            DATASET_ALLOW,
+            DATASET_DENY,
+            BIGQUERY_TABLE_ALLOW,
+            BIGQUERY_TABLE_DENY,
+            BIGQUERY_VIEW_ALLOW,
+            BIGQUERY_VIEW_DENY,
+        ],
+        filterSectionTooltip:
+            'Filter out data assets based on allow/deny regex patterns we match against. Deny patterns take precedence over allow patterns.',
+    },
     [REDSHIFT]: {
         fields: [REDSHIFT_HOST_PORT, REDSHIFT_DATABASE, REDSHIFT_USERNAME, REDSHIFT_PASSWORD],
-        advancedFields: [INCLUDE_LINEAGE, PROFILING_ENABLED, STATEFUL_INGESTION_ENABLED, TABLE_LINEAGE_MODE],
+        advancedFields: [INCLUDE_TABLE_LINEAGE, PROFILING_ENABLED, STATEFUL_INGESTION_ENABLED, TABLE_LINEAGE_MODE],
         filterFields: [
             REDSHIFT_SCHEMA_ALLOW,
             REDSHIFT_SCHEMA_DENY,

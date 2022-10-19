@@ -4,9 +4,9 @@ To integrate Spark with DataHub, we provide a lightweight Java agent that listen
 
 ## Configuring Spark agent
 
-The Spark agent can be configured using a config file or while creating a spark Session.
+The Spark agent can be configured using a config file or while creating a Spark Session. If you are using Spark on Databricks, refer [Configuration Instructions for Databricks](#configuration-instructions--databricks).
 
-## Before you begin: Versions and Release Notes
+### Before you begin: Versions and Release Notes
 
 Versioning of the jar artifact will follow the semantic versioning of the main [DataHub repo](https://github.com/datahub-project/datahub) and release notes will be available [here](https://github.com/datahub-project/datahub/releases).
 Always check [the Maven central repository](https://search.maven.org/search?q=a:datahub-spark-lineage) for the latest released version.
@@ -16,18 +16,18 @@ Always check [the Maven central repository](https://search.maven.org/search?q=a:
 When running jobs using spark-submit, the agent needs to be configured in the config file.
 
 ```text
-#Configuring datahub spark agent jar
+#Configuring DataHub spark agent jar
 spark.jars.packages                          io.acryl:datahub-spark-lineage:0.8.23
 spark.extraListeners                         datahub.spark.DatahubSparkListener
 spark.datahub.rest.server                    http://localhost:8080
 ```
 
-#### Configuration for Amazon EMR
+### Configuration Instructions:  Amazon EMR
 
 Set the following spark-defaults configuration properties as it stated [here](https://docs.aws.amazon.com/emr/latest/ReleaseGuide/emr-spark-configure.html)
 
-```
-spark.jars.packages        io.acryl:datahub-spark-lineage:0.8.23
+```text
+spark.jars.packages                          io.acryl:datahub-spark-lineage:0.8.23
 spark.extraListeners                         datahub.spark.DatahubSparkListener
 spark.datahub.rest.server                    https://your_datahub_host/gms
 #If you have authentication set up then you also need to specify the Datahub access token
@@ -64,7 +64,63 @@ spark = SparkSession.builder()
         .getOrCreate();
  ```
 
-### Configuration details
+### Configuration Instructions:  Databricks
+
+The Spark agent can be configured using Databricks Cluster [Spark configuration](https://docs.databricks.com/clusters/configure.html#spark-configuration) and [Init script](https://docs.databricks.com/clusters/configure.html#init-scripts).
+
+[Databricks Secrets](https://docs.databricks.com/security/secrets/secrets.html) can be leveraged to store sensitive information like tokens.
+
+- Download `datahub-spark-lineage` jar from [the Maven central repository](https://search.maven.org/search?q=a:datahub-spark-lineage).
+- Create `init.sh` with below content
+
+    ```sh
+    #!/bin/bash
+    cp /dbfs/datahub/datahub-spark-lineage*.jar /databricks/jars
+    ```
+
+- Install and configure [Databricks CLI](https://docs.databricks.com/dev-tools/cli/index.html).
+- Copy jar and init script to Databricks File System(DBFS) using Databricks CLI.
+
+    ```sh
+    databricks fs mkdirs dbfs:/datahub
+    databricks fs --overwrite datahub-spark-lineage*.jar dbfs:/datahub
+    databricks fs --overwrite init.sh dbfs:/datahub
+    ```
+
+- Open Databricks Cluster configuration page. Click the **Advanced Options** toggle. Click the **Spark** tab. Add below configurations under `Spark Config`.
+
+    ```text
+    spark.extraListeners                datahub.spark.DatahubSparkListener
+    spark.datahub.rest.server           http://localhost:8080
+    spark.datahub.databricks.cluster    cluster-name<any preferred cluster identifier>
+    ```
+
+- Click the **Init Scripts** tab. Set cluster init script as `dbfs:/datahub/init.sh`.
+
+- Configuring DataHub authentication token
+
+  - Add below config in cluster spark config.
+
+    ```text
+    spark.datahub.rest.token <token>
+    ```
+
+  - Alternatively, Databricks secrets can be used to secure token.
+    - Create secret using Databricks CLI.
+
+      ```sh
+      databricks secrets create-scope --scope datahub --initial-manage-principal users
+      databricks secrets put --scope datahub --key rest-token
+      databricks secrets list --scope datahub &lt;&lt;Edit prompted file with token value&gt;&gt;
+      ```
+  
+    - Add in spark config
+  
+      ```text
+      spark.datahub.rest.token {{secrets/datahub/rest-token}}
+      ```
+
+## Configuration Options
 
 | Field                                           | Required | Default | Description                                                             |
 |-------------------------------------------------|----------|---------|-------------------------------------------------------------------------|
@@ -86,15 +142,23 @@ As of current writing, the Spark agent produces metadata related to the Spark jo
 - A pipeline is created per Spark <master, appName>.
 - A task is created per unique Spark query execution within an app.
 
+For Spark on Databricks,
+
+- A pipeline is created per
+  - cluster_identifier: specified with spark.datahub.databricks.cluster
+  - applicationID: on every restart of the cluster new spark applicationID will be created.
+- A task is created per unique Spark query execution.
+
 ### Custom properties & relating to Spark UI
 
 The following custom properties in pipelines and tasks relate to the Spark UI:
 
 - appName and appId in a pipeline can be used to determine the Spark application
 - description and SQLQueryId in a task can be used to determine the Query Execution within the application on the SQL tab of Spark UI
+- Other custom properties of pipelines and tasks capture the start and end times of execution etc.
+- The query plan is captured in the *queryPlan* property of a task.
 
-Other custom properties of pipelines and tasks capture the start and end times of execution etc.
-The query plan is captured in the *queryPlan* property of a task.
+For Spark on Databricks, pipeline start time is the cluster start time.
 
 ### Spark versions supported
 
@@ -110,8 +174,9 @@ This initial release has been tested with the following environments:
 - spark-submit of Python/Java applications to local and remote servers
 - Jupyter notebooks with pyspark code
 - Standalone Java applications
+- Databricks Standalone Cluster
 
-Note that testing for other environments such as Databricks is planned in near future.
+Testing with Databricks Standard and High-concurrency Cluster is not done yet.
 
 ### Spark commands supported
 
@@ -157,7 +222,7 @@ YY/MM/DD HH:mm:ss INFO SparkContext: Registered listener datahub.spark.DatahubSp
 
 On application start
 
-```
+```text
 YY/MM/DD HH:mm:ss INFO DatahubSparkListener: Application started: SparkListenerApplicationStart(AppName,Some(local-1644489736794),1644489735772,user,None,None)
 YY/MM/DD HH:mm:ss INFO McpEmitter: REST Emitter Configuration: GMS url <rest.server>
 YY/MM/DD HH:mm:ss INFO McpEmitter: REST Emitter Configuration: Token XXXXX
@@ -165,19 +230,19 @@ YY/MM/DD HH:mm:ss INFO McpEmitter: REST Emitter Configuration: Token XXXXX
 
 On pushing data to server
 
-```
+```text
 YY/MM/DD HH:mm:ss INFO McpEmitter: MetadataWriteResponse(success=true, responseContent={"value":"<URN>"}, underlyingResponse=HTTP/1.1 200 OK [Date: day, DD month year HH:mm:ss GMT, Content-Type: application/json, X-RestLi-Protocol-Version: 2.0.0, Content-Length: 97, Server: Jetty(9.4.46.v20220331)] [Content-Length: 97,Chunked: false])
 ```
 
 On application end
 
-```
+```text
 YY/MM/DD HH:mm:ss INFO DatahubSparkListener: Application ended : AppName AppID
 ```
 
 - To enable debugging logs, add below configuration in log4j.properties file
 
-```
+```properties
 log4j.logger.datahub.spark=DEBUG
 log4j.logger.datahub.client.rest=DEBUG
 ```

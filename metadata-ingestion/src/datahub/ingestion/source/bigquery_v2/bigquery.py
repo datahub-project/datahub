@@ -2,6 +2,7 @@ import atexit
 import logging
 import os
 import re
+import traceback
 from collections import defaultdict
 from datetime import datetime, timedelta
 from typing import Dict, Iterable, List, Optional, Tuple, Type, Union, cast
@@ -17,6 +18,7 @@ from datahub.emitter.mce_builder import (
     make_dataset_urn_with_platform_instance,
     make_domain_urn,
     make_tag_urn,
+    set_dataset_urn_to_lower,
 )
 from datahub.emitter.mcp_builder import (
     BigQueryDatasetKey,
@@ -183,6 +185,8 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
         BigqueryTableIdentifier._BIGQUERY_DEFAULT_SHARDED_TABLE_REGEX = (
             self.config.sharded_table_pattern
         )
+
+        set_dataset_urn_to_lower(self.config.convert_urns_to_lowercase)
 
         # For database, schema, tables, views, etc
         self.lineage_extractor = BigqueryLineageExtractor(config, self.report)
@@ -399,18 +403,16 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
             project_id=db_name,
             dataset_id=schema,
             platform=self.platform,
-            instance=self.config.platform_instance
-            if self.config.platform_instance is not None
-            else self.config.env,
+            instance=self.config.platform_instance,
+            backcompat_instance_for_guid=self.config.env,
         )
 
     def gen_project_id_key(self, database: str) -> PlatformKey:
         return ProjectIdKey(
             project_id=database,
             platform=self.platform,
-            instance=self.config.platform_instance
-            if self.config.platform_instance is not None
-            else self.config.env,
+            instance=self.config.platform_instance,
+            backcompat_instance_for_guid=self.config.env,
         )
 
     def _gen_domain_urn(self, dataset_name: str) -> Optional[str]:
@@ -551,6 +553,8 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
             try:
                 yield from self._process_schema(conn, project_id, bigquery_dataset)
             except Exception as e:
+                trace = traceback.format_exc()
+                logger.error(trace)
                 logger.error(
                     f"Unable to get tables for dataset {bigquery_dataset.name} in project {project_id}, skipping. The error was: {e}"
                 )
@@ -626,13 +630,18 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
             conn, table_identifier, self.config.column_limit
         )
         if not table.columns:
-            logger.warning(f"Unable to get columns for table: {table_identifier}")
+            logger.warning(
+                f"Table doesn't have any column or unable to get columns for table: {table_identifier}"
+            )
 
         lineage_info: Optional[Tuple[UpstreamLineage, Dict[str, str]]] = None
 
         if self.config.include_table_lineage:
             lineage_info = self.lineage_extractor.get_upstream_lineage_info(
-                table_identifier, self.platform
+                project_id=project_id,
+                dataset_name=schema_name,
+                table=table,
+                platform=self.platform,
             )
 
         table_workunits = self.gen_table_dataset_workunits(
@@ -665,7 +674,10 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
         lineage_info: Optional[Tuple[UpstreamLineage, Dict[str, str]]] = None
         if self.config.include_table_lineage:
             lineage_info = self.lineage_extractor.get_upstream_lineage_info(
-                table_identifier, self.platform
+                project_id=project_id,
+                dataset_name=dataset_name,
+                table=view,
+                platform=self.platform,
             )
 
         view_workunits = self.gen_view_dataset_workunits(
