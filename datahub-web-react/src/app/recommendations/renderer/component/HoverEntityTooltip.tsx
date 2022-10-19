@@ -9,9 +9,10 @@ type Props = {
     // whether the tooltip can be opened or if it should always stay closed
     canOpen?: boolean;
     children: React.ReactNode;
+    minWidth: number;
 };
 
-export const HoverEntityTooltip = ({ entity, canOpen = true, children }: Props) => {
+export const HoverEntityTooltip = ({ entity, canOpen = true, children, minWidth }: Props) => {
     const entityRegistry = useEntityRegistry();
 
     if (!entity || !entity.type || !entity.urn) {
@@ -24,7 +25,7 @@ export const HoverEntityTooltip = ({ entity, canOpen = true, children }: Props) 
             visible={canOpen ? undefined : false}
             color="white"
             placement="topRight"
-            overlayStyle={{ minWidth: 500 }}
+            overlayStyle={{ minWidth }}
             overlayInnerStyle={{ padding: 12 }}
             title={<a href={url}>{entityRegistry.renderPreview(entity.type, PreviewType.HOVER_CARD, entity)}</a>}
         >

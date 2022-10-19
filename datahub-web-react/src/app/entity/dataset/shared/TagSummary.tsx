@@ -20,7 +20,7 @@ export const TagSummary = ({ urn }: Props) => {
     return (
         <>
             {data && (
-                <HoverEntityTooltip entity={data?.tag as Tag}>
+                <HoverEntityTooltip entity={data?.tag as Tag} minWidth={300}>
                     <TagLink key={data?.tag?.urn}>
                         <StyledTag
                             style={{ cursor: 'pointer' }}
