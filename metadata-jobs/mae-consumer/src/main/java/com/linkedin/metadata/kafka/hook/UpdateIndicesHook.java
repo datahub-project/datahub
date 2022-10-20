@@ -181,6 +181,8 @@ public class UpdateIndicesHook implements MetadataChangeLogHook {
     final HashMap<Urn, Set<String>> urnToRelationshipTypesBeingAdded = new HashMap<>();
 
     if (aspectSpec.getName().equals(Constants.UPSTREAM_LINEAGE_ASPECT_NAME)) {
+      // we need to manually set schemaField <-> schemaField edges for fineGrainedLineage since
+      // @Relationship only links between the parent entity urn and something else.
       updateFineGrainedEdgesAndRelationships(aspect, edgesToAdd, urnToRelationshipTypesBeingAdded);
     }
 

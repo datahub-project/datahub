@@ -10,6 +10,7 @@ import com.linkedin.metadata.graph.EntityLineageResult;
 import com.linkedin.metadata.graph.GraphService;
 import com.linkedin.metadata.graph.LineageDirection;
 import com.linkedin.metadata.graph.LineageRelationship;
+import com.linkedin.metadata.graph.LineageRelationshipArray;
 import com.linkedin.metadata.query.SearchFlags;
 import com.linkedin.metadata.query.filter.ConjunctiveCriterion;
 import com.linkedin.metadata.query.filter.Criterion;
@@ -96,22 +97,27 @@ public class LineageSearchService {
       }
     }
 
+    // set schemaField relationship entity to be its reference urn
+    LineageRelationshipArray updatedRelationships = convertSchemaFieldRelationships(lineageResult);
+    lineageResult.setRelationships(updatedRelationships);
+
     // Filter hopped result based on the set of entities to return and inputFilters before sending to search
     List<LineageRelationship> lineageRelationships =
         filterRelationships(lineageResult, new HashSet<>(entities), inputFilters);
 
-    List<LineageRelationship> updatedLineageRelationships = convertSchemaFieldRelationships(lineageRelationships);
-
-    return getSearchResultInBatches(updatedLineageRelationships, input != null ? input : "*", inputFilters, sortCriterion,
+    return getSearchResultInBatches(lineageRelationships, input != null ? input : "*", inputFilters, sortCriterion,
         from, size);
   }
 
-  private List<LineageRelationship> convertSchemaFieldRelationships(List<LineageRelationship> lineageRelationships) {
-    return lineageRelationships.stream().map(relationship -> {
-      Urn entity = getSchemaFieldReferenceUrn(relationship.getEntity());
-      relationship.setEntity(entity);
+  // Necessary so we don't filter out schemaField entities and so that we search to get the parent reference entity
+  private LineageRelationshipArray convertSchemaFieldRelationships(EntityLineageResult lineageResult) {
+    return lineageResult.getRelationships().stream().map(relationship -> {
+      if (relationship.getEntity().getEntityType().equals("schemaField")) {
+        Urn entity = getSchemaFieldReferenceUrn(relationship.getEntity());
+        relationship.setEntity(entity);
+      }
       return relationship;
-    }).collect(Collectors.toList());
+    }).collect(Collectors.toCollection(LineageRelationshipArray::new));
   }
 
   private Map<Urn, LineageRelationship> generateUrnToRelationshipMap(List<LineageRelationship> lineageRelationships) {
@@ -213,7 +219,7 @@ public class LineageSearchService {
     Stream<LineageRelationship> relationshipsFilteredByEntities = lineageResult.getRelationships().stream();
     if (!entities.isEmpty()) {
       relationshipsFilteredByEntities = relationshipsFilteredByEntities.filter(
-          relationship -> entities.contains(getSchemaFieldReferenceUrn(relationship.getEntity()).getEntityType()));
+          relationship -> entities.contains(relationship.getEntity().getEntityType()));
     }
     if (inputFilters != null && !CollectionUtils.isEmpty(inputFilters.getOr())) {
       ConjunctiveCriterion conjunctiveCriterion = inputFilters.getOr().get(0);

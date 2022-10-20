@@ -1,7 +1,6 @@
 package com.linkedin.datahub.graphql.types.mappers;
 
 import com.linkedin.common.UrnArray;
-import com.linkedin.common.urn.Urn;
 import com.linkedin.data.template.DoubleMap;
 import com.linkedin.data.template.RecordTemplate;
 import com.linkedin.datahub.graphql.generated.AggregationMetadata;
