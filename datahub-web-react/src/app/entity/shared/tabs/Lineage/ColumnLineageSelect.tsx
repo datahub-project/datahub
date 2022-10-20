@@ -15,16 +15,16 @@ const StyledSelect = styled(Select)`
 
 interface Props {
     selectedColumn?: string;
-    isShowingColumnSelect: boolean;
+    isColumnLevelLineage: boolean;
     setSelectedColumn: (column: any) => void;
-    setIsShowingColumnSelect: (isShowing: boolean) => void;
+    setIsColumnLevelLineage: (isShowing: boolean) => void;
 }
 
 export default function ColumnsLineageSelect({
     selectedColumn,
-    isShowingColumnSelect,
+    isColumnLevelLineage,
     setSelectedColumn,
-    setIsShowingColumnSelect,
+    setIsColumnLevelLineage,
 }: Props) {
     const { entityData } = useEntityData();
     const location = useLocation();
@@ -35,11 +35,11 @@ export default function ColumnsLineageSelect({
         setSelectedColumn(column);
     }
 
-    const columnButtonTooltip = isShowingColumnSelect ? 'Hide column level lineage' : 'Show column level lineage';
+    const columnButtonTooltip = isColumnLevelLineage ? 'Hide column level lineage' : 'Show column level lineage';
 
     return (
         <>
-            {isShowingColumnSelect && (
+            {isColumnLevelLineage && (
                 <StyledSelect
                     value={selectedColumn}
                     onChange={selectColumn}
@@ -53,7 +53,7 @@ export default function ColumnsLineageSelect({
                 </StyledSelect>
             )}
             <Tooltip title={columnButtonTooltip}>
-                <Button type="text" onClick={() => setIsShowingColumnSelect(!isShowingColumnSelect)}>
+                <Button type="text" onClick={() => setIsColumnLevelLineage(!isColumnLevelLineage)}>
                     <ImpactAnalysisIcon />
                 </Button>
             </Tooltip>

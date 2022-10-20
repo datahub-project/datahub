@@ -48,7 +48,7 @@ export const LineageTab = ({
     const params = QueryString.parse(location.search, { arrayFormat: 'comma' });
     const [lineageDirection, setLineageDirection] = useState<LineageDirection>(properties.defaultDirection);
     const [selectedColumn, setSelectedColumn] = useState<string | undefined>(params?.column as string);
-    const [isShowingColumnSelect, setIsShowingColumnSelect] = useState(!!params?.column);
+    const [isColumnLevelLineage, setIsColumnLevelLineage] = useState(!!params?.column);
 
     const routeToLineage = useCallback(() => {
         history.push(getEntityPath(entityType, urn, entityRegistry, true, false));
@@ -56,7 +56,7 @@ export const LineageTab = ({
 
     const selectedV1FieldPath = downgradeV2FieldPath(selectedColumn) || '';
     const selectedColumnUrn = generateSchemaFieldUrn(selectedV1FieldPath, urn);
-    const impactAnalysisUrn = isShowingColumnSelect && selectedColumnUrn ? selectedColumnUrn : urn;
+    const impactAnalysisUrn = isColumnLevelLineage && selectedColumnUrn ? selectedColumnUrn : urn;
 
     return (
         <>
@@ -80,9 +80,9 @@ export const LineageTab = ({
                 <RightButtonsWrapper>
                     <ColumnsLineageSelect
                         selectedColumn={selectedColumn}
-                        isShowingColumnSelect={isShowingColumnSelect}
+                        isColumnLevelLineage={isColumnLevelLineage}
                         setSelectedColumn={setSelectedColumn}
-                        setIsShowingColumnSelect={setIsShowingColumnSelect}
+                        setIsColumnLevelLineage={setIsColumnLevelLineage}
                     />
                     <Button type="text" onClick={routeToLineage}>
                         <PartitionOutlined />
@@ -90,7 +90,7 @@ export const LineageTab = ({
                     </Button>
                 </RightButtonsWrapper>
             </StyledTabToolbar>
-            <LineageTabContext.Provider value={{ selectedColumn, lineageDirection }}>
+            <LineageTabContext.Provider value={{ isColumnLevelLineage, selectedColumn, lineageDirection }}>
                 <ImpactAnalysis urn={impactAnalysisUrn} direction={lineageDirection as LineageDirection} />
             </LineageTabContext.Provider>
         </>

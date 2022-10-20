@@ -16,12 +16,11 @@ interface Props {
 }
 
 export default function EntityPaths({ paths, resultEntityUrn, degree }: Props) {
-    const { selectedColumn } = useContext(LineageTabContext);
+    const { isColumnLevelLineage } = useContext(LineageTabContext);
     const [isPathsModalVisible, setIsPathsModalVisible] = useState(false);
 
-    const isColumnLineage = !!selectedColumn;
-    if (!isColumnLineage) return null;
-    if (!isColumnLineage && degree && degree === 1) return null;
+    if (!isColumnLevelLineage) return null;
+    if (!isColumnLevelLineage && degree && degree === 1) return null;
 
     return (
         <>
