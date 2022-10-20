@@ -178,9 +178,15 @@ input FacetFilterInput {
   field: String!
 
   """
+  Value of the field to filter by. Deprecated in favor of `values`, which should accept a single element array for a
+  value
+  """
+  value: String @deprecated(reason: "Prefer `values` for single elements")
+
+  """
   Values, one of which the intended field should match.
   """
-  values: [String!]!
+  values: [String!]
 
   """
   If the filter should or should not be matched

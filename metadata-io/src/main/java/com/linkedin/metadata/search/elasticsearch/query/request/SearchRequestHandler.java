@@ -73,6 +73,8 @@ public class SearchRequestHandler {
   private static final String URN_FILTER = "urn";
   private static final int DEFAULT_MAX_TERM_BUCKET_SIZE = 20;
 
+  private static final long MAX_VALUE_FOR_FILTER_VALUE = 10000000L;
+
   private final EntitySpec _entitySpec;
   private final Set<String> _facetFields;
   private final Set<String> _defaultQueryFieldNames;
@@ -488,7 +490,7 @@ public class SearchRequestHandler {
             || originalMetadata.getFilterValues().stream().noneMatch(entry -> entry.getValue().equals(value))
     ) {
       // No aggregation found for filtered value -- inject one!
-      originalMetadata.getAggregations().put(value, 0L);
+      originalMetadata.getAggregations().put(value, MAX_VALUE_FOR_FILTER_VALUE);
       originalMetadata.getFilterValues().add(createFilterValue(value, 0L));
     }
   }
