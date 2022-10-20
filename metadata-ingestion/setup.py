@@ -413,7 +413,8 @@ base_dev_requirements = {
             "starburst-trino-usage",
             "powerbi",
             "vertica",
-            "salesforce"
+            "salesforce",
+            "unity-catalog"
             # airflow is added below
         ]
         for dependency in plugins[plugin]
