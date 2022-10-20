@@ -5,6 +5,9 @@ import styled from 'styled-components/macro';
 import { EntityType } from '../../../types.generated';
 import analytics, { EventType, EntityActionType } from '../../analytics';
 
+const GITHUB_LINK = 'github.com';
+const GITHUB = 'GitHub';
+
 const ExternalUrlWrapper = styled.span`
     font-size: 12px;
 `;
@@ -37,6 +40,11 @@ export default function ExternalUrlButton({ externalUrl, platformName, entityTyp
         });
     }
 
+    let displayedName = platformName;
+    if (externalUrl.toLocaleLowerCase().includes(GITHUB_LINK)) {
+        displayedName = GITHUB;
+    }
+
     return (
         <ExternalUrlWrapper>
             <StyledButton
@@ -46,7 +54,7 @@ export default function ExternalUrlButton({ externalUrl, platformName, entityTyp
                 rel="noreferrer noopener"
                 onClick={sendAnalytics}
             >
-                View in {platformName} <ArrowRightOutlined style={{ fontSize: 12 }} />
+                View in {displayedName} <ArrowRightOutlined style={{ fontSize: 12 }} />
             </StyledButton>
         </ExternalUrlWrapper>
     );
