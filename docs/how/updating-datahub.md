@@ -3,6 +3,8 @@
 This file documents any backwards-incompatible changes in DataHub and assists people when migrating to a new version.
 
 ## Next
+- LookML source will only emit views that are reachable from explores while scanning your git repo. Previous behavior can be achieved by setting `emit_reachable_views_only` to False.
+- LookML source will always lowercase urns for lineage edges from views to upstream tables. There is no fallback provided to previous behavior because it was inconsistent in application of lower-casing earlier.
 
 ### Breaking Changes
 - Java version 11 or greater is required.
