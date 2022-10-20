@@ -65,7 +65,6 @@ const NoMetadataContainer = styled.div`
 `;
 
 const DomainsRecomendationContainer = styled.div`
-    margin-top: -48px;
     margin-bottom: 32px;
     max-width: 1000px;
     min-width: 750px;
