@@ -106,9 +106,9 @@ class PrestoOnHiveConfig(BasicSQLAlchemyConfig):
         default="mysql+pymysql", description="", hidden_from_schema=True
     )
 
-    hive_schema_pattern: AllowDenyPattern = Field(
+    database_pattern: AllowDenyPattern = Field(
         default=AllowDenyPattern.allow_all(),
-        description="Regex patterns for hive databases to filter in ingestion. Specify regex to only match the schema name. e.g. to match all tables in database analytics, use the regex 'analytics'",
+        description="Regex patterns for hive/presto database to filter in ingestion. Specify regex to only match the database name. e.g. to match all tables in database analytics, use the regex 'analytics'",
     )
 
     metastore_db_name: Optional[str] = Field(
@@ -357,7 +357,7 @@ class PrestoOnHiveSource(SQLAlchemySource):
         iter_res = self._alchemy_client.execute_query(statement)
         for row in iter_res:
             schema = row["schema"]
-            if not self.config.hive_schema_pattern.allowed(schema):
+            if not self.config.database_pattern.allowed(schema):
                 continue
 
             schema_container_key: PlatformKey = self.gen_schema_key(db_name, schema)
@@ -435,7 +435,7 @@ class PrestoOnHiveSource(SQLAlchemySource):
 
             self.report.report_entity_scanned(dataset_name, ent_type="table")
 
-            if not self.config.hive_schema_pattern.allowed(key.schema):
+            if not self.config.database_pattern.allowed(key.schema):
                 self.report.report_dropped(f"{dataset_name}")
                 continue
 
@@ -560,7 +560,7 @@ class PrestoOnHiveSource(SQLAlchemySource):
                 schema=schema_name, entity=key.table, inspector=inspector
             )
 
-            if not self.config.hive_schema_pattern.allowed(key.schema):
+            if not self.config.database_pattern.allowed(key.schema):
                 self.report.report_dropped(f"{dataset_name}")
                 continue
 
