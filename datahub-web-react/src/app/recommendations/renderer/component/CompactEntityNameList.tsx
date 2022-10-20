@@ -34,7 +34,7 @@ export const CompactEntityNameList = ({ entities, onClick, linkUrlParams, showTo
                             history.push(url);
                         }}
                     >
-                        <HoverEntityTooltip entity={entity} canOpen={showTooltips} minWidth={500}>
+                        <HoverEntityTooltip entity={entity} canOpen={showTooltips}>
                             <span data-testid={`compact-entity-link-${entity.urn}`}>
                                 <EntityPreviewTag
                                     displayName={displayName}

@@ -203,7 +203,7 @@ export default function TagTermGroup({
                 if (maxShow && renderedTags > maxShow) return null;
 
                 return (
-                    <HoverEntityTooltip entity={term.term} minWidth={500}>
+                    <HoverEntityTooltip entity={term.term}>
                         <TermLink
                             to={entityRegistry.getEntityUrl(EntityType.GlossaryTerm, term.term.urn)}
                             key={term.term.urn}
@@ -223,7 +223,7 @@ export default function TagTermGroup({
                 );
             })}
             {editableGlossaryTerms?.terms?.map((term) => (
-                <HoverEntityTooltip entity={term.term} minWidth={500}>
+                <HoverEntityTooltip entity={term.term}>
                     <TermLink
                         to={entityRegistry.getEntityUrl(EntityType.GlossaryTerm, term.term.urn)}
                         key={term.term.urn}
@@ -259,7 +259,7 @@ export default function TagTermGroup({
 
                 const displayName = entityRegistry.getDisplayName(EntityType.Tag, tag.tag);
                 return (
-                    <HoverEntityTooltip entity={tag?.tag} minWidth={300}>
+                    <HoverEntityTooltip entity={tag?.tag}>
                         <TagLink key={tag?.tag?.urn} data-testid={`tag-${displayName}`}>
                             <StyledTag
                                 style={{ cursor: 'pointer' }}
@@ -287,7 +287,7 @@ export default function TagTermGroup({
 
                 const displayName = entityRegistry.getDisplayName(EntityType.Tag, tag.tag);
                 return (
-                    <HoverEntityTooltip entity={tag?.tag} minWidth={300}>
+                    <HoverEntityTooltip entity={tag?.tag}>
                         <TagLink data-testid={`tag-${displayName}`}>
                             <StyledTag
                                 style={{ cursor: 'pointer' }}

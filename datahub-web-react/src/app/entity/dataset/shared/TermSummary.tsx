@@ -22,7 +22,7 @@ export const TermSummary = ({ urn }: Props) => {
     return (
         <>
             {data && (
-                <HoverEntityTooltip entity={data?.glossaryTerm as GlossaryTerm} minWidth={500}>
+                <HoverEntityTooltip entity={data?.glossaryTerm as GlossaryTerm}>
                     <TermLink key={data?.glossaryTerm?.urn}>
                         <Tag closable={false} style={{ cursor: 'pointer' }}>
                             <BookOutlined style={{ marginRight: '3%' }} />

@@ -26,7 +26,7 @@ export const DomainLink = ({ domain, name, closable, onClose, tagStyle }: Props)
     const displayName = name || entityRegistry.getDisplayName(EntityType.Domain, domain);
 
     return (
-        <HoverEntityTooltip entity={domain} minWidth={300}>
+        <HoverEntityTooltip entity={domain}>
             <DomainLinkContainer to={entityRegistry.getEntityUrl(EntityType.Domain, urn)}>
                 <Tag style={tagStyle} closable={closable} onClose={onClose}>
                     <span style={{ paddingRight: '4px' }}>
