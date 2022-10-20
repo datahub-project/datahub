@@ -280,16 +280,19 @@ def _create_table_property_aspect_mcp(
         platform_instance=self._platform_instance_name,
         name=table.id,
     )
+    custom_properties: dict = {}
+    if table.storage_location is not None:
+        custom_properties["storage_location"] = table.storage_location
+    if table.data_source_format is not None:
+        custom_properties["data_source_format"] = table.data_source_format
+
     return MetadataChangeProposalWrapper(
         entityType="dataset",
         changeType=ChangeTypeClass.UPSERT,
         entityUrn=dataset_urn,
         aspect=DatasetPropertiesClass(
             name=table.name,
-            customProperties={
-                "storage_location": table.storage_location,
-                "data_source_format": table.data_source_format,
-            },
+            customProperties=custom_properties,
         ),
     )
 

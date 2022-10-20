@@ -3,7 +3,7 @@ Manage the communication with DataBricks Server and provide equivalent dataclass
 """
 import logging
 from dataclasses import dataclass
-from typing import Iterable, List
+from typing import Iterable, List, Optional
 
 import requests
 from databricks_cli.sdk.api_client import ApiClient
@@ -84,8 +84,8 @@ class Column(CommonProperty):
 class Table(CommonProperty):
     schema: Schema
     columns: List[Column]
-    storage_location: str
-    data_source_format: str
+    storage_location: Optional[str]
+    data_source_format: Optional[str]
     table_type: str
 
 
@@ -138,7 +138,7 @@ class UnityCatalogApiProxy:
         catalogs: List[Catalog] = []
         response: dict = self._unity_catalog_api.list_catalogs()
         if response.get("catalogs") is None:
-            LOGGER.info("Catalogs not found")
+            LOGGER.info(f"Catalogs not found for metastore {metastore.name}")
             return catalogs
 
         for obj in response["catalogs"]:
@@ -158,9 +158,11 @@ class UnityCatalogApiProxy:
 
     def schemas(self, catalog: Catalog) -> Iterable[List[Schema]]:
         schemas: List[Schema] = []
-        response: dict = self._unity_catalog_api.list_schemas(catalog_name=catalog.name)
+        response: dict = self._unity_catalog_api.list_schemas(
+            catalog_name=catalog.name, name_pattern=None
+        )
         if response.get("schemas") is None:
-            LOGGER.info("Schemas not found")
+            LOGGER.info(f"Schemas not found for catalog {catalog.name}")
             return schemas
 
         for obj in response["schemas"]:
@@ -183,10 +185,11 @@ class UnityCatalogApiProxy:
         response: dict = self._unity_catalog_api.list_tables(
             catalog_name=schema.catalog.name,
             schema_name=schema.name,
+            name_pattern=None,
         )
 
         if response.get("tables") is None:
-            LOGGER.info("Tables not found")
+            LOGGER.info(f"Tables not found for schema {schema.name}")
             return tables
 
         for obj in response["tables"]:
@@ -195,8 +198,8 @@ class UnityCatalogApiProxy:
                 id="{}.{}".format(schema.id, _escape_sequence(obj["name"])),
                 table_type=obj["table_type"],
                 schema=schema,
-                storage_location=obj["storage_location"],
-                data_source_format=obj["data_source_format"],
+                storage_location=obj.get("storage_location"),
+                data_source_format=obj.get("data_source_format"),
                 columns=[],
                 type="Table",
             )
