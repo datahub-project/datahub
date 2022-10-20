@@ -8,17 +8,24 @@ import pydantic
 
 from datahub.configuration import ConfigModel
 from datahub.ingestion.api.common import PipelineContext
-from datahub.ingestion.api.decorators import platform_name, config_class, support_status, SupportStatus
+from datahub.ingestion.api.decorators import (
+    SupportStatus,
+    config_class,
+    platform_name,
+    support_status,
+)
 from datahub.ingestion.api.source import Source, SourceReport
 from datahub.ingestion.api.workunit import MetadataWorkUnit
-
-from datahub.ingestion.source.unity import proxy
-from datahub.ingestion.source.unity import emitter
+from datahub.ingestion.source.unity import emitter, proxy
 
 
 class UnityCatalogSourceConfig(ConfigModel):
     token: str = pydantic.Field(description="Databricks personal access token")
     workspace_url: str = pydantic.Field(description="Databricks workspace url")
+    workspace_name: str = pydantic.Field(
+        default=None,
+        description="Name of the workspace. Default to deployment name present in workspace_url",
+    )
 
 
 @dataclass
@@ -51,6 +58,7 @@ class UnityCatalogSource(Source):
     - schemas
     - tables and column lineage
     """
+
     source_config: UnityCatalogSourceConfig
     reporter: UnityCatalogSourceReport
     unity_catalog_api_proxy: proxy.UnityCatalogApiProxy
@@ -75,12 +83,25 @@ class UnityCatalogSource(Source):
         super().__init__(ctx)
         self.source_config = config
         self.reporter = UnityCatalogSourceReport()
-        self.unity_catalog_api_proxy = proxy.UnityCatalogApiProxy(config.workspace_url, config.token)
+        self.unity_catalog_api_proxy = proxy.UnityCatalogApiProxy(
+            config.workspace_url, config.token
+        )
         # Check if we are able to connect to DataBricks workspace url
         if not self.unity_catalog_api_proxy.check_connectivity():
-            raise Exception(f"Not able to connect to workspace url {config.workspace_url}")
-        self.emitter = emitter.Emitter(platform_name=self.platform_name, platform_instance_name="acryl",
-                                       unity_catalog_api_proxy=self.unity_catalog_api_proxy)
+            raise Exception(
+                f"Not able to connect to workspace url {config.workspace_url}"
+            )
+        # Determine the platform_instance_name
+        platform_instance_name: str = (
+            config.workspace_name
+            if config.workspace_name is not None
+            else config.workspace_url.split("//")[1].split(".")[0]
+        )
+        self.emitter = emitter.Emitter(
+            platform_name=self.platform_name,
+            platform_instance_name=platform_instance_name,
+            unity_catalog_api_proxy=self.unity_catalog_api_proxy,
+        )
 
     @classmethod
     def create(cls, config_dict, ctx):

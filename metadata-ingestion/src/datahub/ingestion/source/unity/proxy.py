@@ -1,9 +1,11 @@
-from typing import List, Iterable
+"""
+Manage the communication with DataBricks Server and provide equivalent dataclasses for dependent modules
+"""
+import logging
+from dataclasses import dataclass
+from typing import Iterable, List
 
 import requests
-import logging
-
-from dataclasses import dataclass
 from databricks_cli.sdk.api_client import ApiClient
 from databricks_cli.unity_catalog.api import UnityCatalogApi
 
@@ -19,24 +21,36 @@ class CommonProperty:
 
 @dataclass
 class Metastore(CommonProperty):
-    type: str = "Metastore"
+    pass
 
 
 @dataclass
 class Catalog(CommonProperty):
     metastore: Metastore
-    type: str = "Catalog"
 
 
 @dataclass
 class Schema(CommonProperty):
     catalog: Catalog
-    type: str = "Schema"
+
+
+@dataclass
+class Column(CommonProperty):
+    type_text: str
+    type_name: str
+    type_precision: int
+    type_scale: int
+    position: int
+    nullable: bool
+
 
 @dataclass
 class Table(CommonProperty):
     schema: Schema
-    type: str = "Table"
+    columns: List[Column]
+    storage_location: str
+    data_source_format: str
+    table_type: str
 
 
 class UnityCatalogApiProxy:
@@ -72,7 +86,8 @@ class UnityCatalogApiProxy:
             metastores.append(
                 Metastore(
                     name=obj["name"],
-                    id=obj["metastore_id"]
+                    id=obj["metastore_id"],
+                    type="Metastore",
                 )
             )
         # yield here to support paginated response later
@@ -90,11 +105,12 @@ class UnityCatalogApiProxy:
                 catalogs.append(
                     Catalog(
                         name=obj["name"],
-                        id="{}_{}".format(
+                        id="{}.{}".format(
                             metastore.id,
                             obj["name"],
                         ),
                         metastore=metastore,
+                        type="Catalog",
                     )
                 )
         yield catalogs
@@ -110,16 +126,53 @@ class UnityCatalogApiProxy:
             schemas.append(
                 Schema(
                     name=obj["name"],
-                    id="{}_{}".format(
+                    id="{}.{}".format(
                         catalog.id,
                         obj["name"],
                     ),
                     catalog=catalog,
+                    type="Schema",
                 )
             )
 
         yield schemas
 
-    def tables(self, schema: Schema):
-        table: List[Table] = []
-        response: dict =
+    def tables(self, schema: Schema) -> Iterable[List[Metastore]]:
+        tables: List[Table] = []
+        response: dict = self._unity_catalog_api.list_tables(
+            catalog_name=schema.catalog.name,
+            schema_name=schema.name,
+        )
+
+        if response.get("tables") is None:
+            LOGGER.info("Tables not found")
+            return tables
+
+        for obj in response.get("tables"):
+            table = Table(
+                name=obj["name"],
+                id="{}.{}".format(schema.id, obj["name"]),
+                table_type=obj["table_type"],
+                schema=schema,
+                storage_location=obj["storage_location"],
+                data_source_format=obj["data_source_format"],
+                columns=[],
+                type="Table",
+            )
+            for column in obj["columns"]:
+                table.columns.append(
+                    Column(
+                        name=column["name"],
+                        id="{}.{}".format(table.id, column["name"]),
+                        type_text=column["type_text"],
+                        type_name=column["type_name"],
+                        type_scale=column["type_scale"],
+                        type_precision=column["type_precision"],
+                        position=column["position"],
+                        nullable=column["nullable"],
+                        type="Column",
+                    )
+                )
+            tables.append(table)
+
+        yield tables
