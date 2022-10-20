@@ -7,7 +7,7 @@ from urllib.parse import urlparse
 
 # These imports verify that the dependencies are available.
 import psycopg2  # noqa: F401
-import pydantic  # noqa: F401
+import pydantic
 import sqlalchemy
 import sqlalchemy_redshift  # noqa: F401
 from pydantic.fields import Field
@@ -141,7 +141,7 @@ class RedshiftConfig(
     scheme = Field(
         default="redshift+psycopg2",
         description="",
-        exclude=True,
+        hidden_from_schema=True,
     )
 
     default_schema: str = Field(
@@ -427,7 +427,7 @@ class RedshiftReport(SQLSourceReport):
 @capability(SourceCapability.LINEAGE_COARSE, "Optionally enabled via configuration")
 @capability(
     SourceCapability.USAGE_STATS,
-    "Not provided by this module, use `bigquery-usage` for that.",
+    "Not provided by this module, use `redshift-usage` for that.",
     supported=False,
 )
 @capability(SourceCapability.DELETION_DETECTION, "Enabled via stateful ingestion")

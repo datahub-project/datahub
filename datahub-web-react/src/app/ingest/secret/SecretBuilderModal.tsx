@@ -41,12 +41,18 @@ export const SecretBuilderModal = ({ initialState, visible, onSubmit, onCancel }
         querySelectorToExecuteClick: '#createSecretButton',
     });
 
+    function resetValues() {
+        setSecretBuilderState({});
+        form.resetFields();
+    }
+
     return (
         <Modal
             width={540}
             title={<Typography.Text>Create a new Secret</Typography.Text>}
             visible={visible}
             onCancel={onCancel}
+            zIndex={1051} // one higher than other modals - needed for managed ingestion forms
             footer={
                 <>
                     <Button onClick={onCancel} type="text">
@@ -54,7 +60,7 @@ export const SecretBuilderModal = ({ initialState, visible, onSubmit, onCancel }
                     </Button>
                     <Button
                         id="createSecretButton"
-                        onClick={() => onSubmit?.(secretBuilderState, () => setSecretBuilderState({}))}
+                        onClick={() => onSubmit?.(secretBuilderState, resetValues)}
                         disabled={createButtonEnabled}
                     >
                         Create
@@ -64,7 +70,7 @@ export const SecretBuilderModal = ({ initialState, visible, onSubmit, onCancel }
         >
             <Form
                 form={form}
-                initialValues={{}}
+                initialValues={initialState}
                 layout="vertical"
                 onFieldsChange={() =>
                     setCreateButtonEnabled(form.getFieldsError().some((field) => field.errors.length > 0))
@@ -109,10 +115,11 @@ export const SecretBuilderModal = ({ initialState, visible, onSubmit, onCancel }
                         ]}
                         hasFeedback
                     >
-                        <Input
+                        <Input.TextArea
                             placeholder="The value of your secret"
                             value={secretBuilderState.value}
                             onChange={(event) => setValue(event.target.value)}
+                            autoComplete="false"
                         />
                     </Form.Item>
                 </Form.Item>

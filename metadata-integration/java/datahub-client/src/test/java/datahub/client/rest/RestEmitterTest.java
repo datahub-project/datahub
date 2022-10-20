@@ -27,7 +27,11 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.stream.Collectors;
+
+import javax.net.ssl.SSLHandshakeException;
+
 import org.apache.http.HttpResponse;
+import org.apache.http.client.methods.HttpGet;
 import org.apache.http.client.methods.HttpPost;
 import org.apache.http.concurrent.FutureCallback;
 import org.apache.http.impl.nio.client.CloseableHttpAsyncClient;
@@ -379,5 +383,31 @@ public class RestEmitterTest {
     testDataHubServer.getMockServer().verify(
         request("/config")
             .withHeader("User-Agent", "DataHub-RestClient/" + version));
+  }
+  
+  @Test
+  public void testDisableSslVerification() throws IOException, InterruptedException, ExecutionException {
+    RestEmitter restEmitter = new RestEmitter(RestEmitterConfig.builder().disableSslVerification(true).build());
+    final String hostWithSsl = "https://self-signed.badssl.com";
+    final HttpGet request = new HttpGet(hostWithSsl);
+
+    final HttpResponse response = restEmitter.getHttpClient().execute(request, null).get();
+    restEmitter.close();
+    Assert.assertEquals(200, response.getStatusLine().getStatusCode());
+  }
+  
+  @Test
+  public void testSslVerificationException() throws IOException, InterruptedException, ExecutionException {
+    RestEmitter restEmitter = new RestEmitter(RestEmitterConfig.builder().disableSslVerification(false).build());
+    final String hostWithSsl = "https://self-signed.badssl.com";
+    final HttpGet request = new HttpGet(hostWithSsl);
+    try {
+      HttpResponse response = restEmitter.getHttpClient().execute(request, null).get();
+      Assert.fail();
+    } catch (Exception e) {
+      Assert.assertTrue(e instanceof ExecutionException);
+      Assert.assertTrue(((ExecutionException) e).getCause() instanceof SSLHandshakeException);
+    }
+    restEmitter.close();
   }
 }

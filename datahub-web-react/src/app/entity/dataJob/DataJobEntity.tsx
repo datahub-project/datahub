@@ -2,7 +2,7 @@ import * as React from 'react';
 import { ConsoleSqlOutlined } from '@ant-design/icons';
 import { DataJob, EntityType, OwnershipType, SearchResult } from '../../../types.generated';
 import { Preview } from './preview/Preview';
-import { Entity, IconStyleType, PreviewType } from '../Entity';
+import { Entity, EntityCapabilityType, IconStyleType, PreviewType } from '../Entity';
 import { EntityProfile } from '../shared/containers/profile/EntityProfile';
 import { GetDataJobQuery, useGetDataJobQuery, useUpdateDataJobMutation } from '../../../graphql/dataJob.generated';
 import { DocumentationTab } from '../shared/tabs/Documentation/DocumentationTab';
@@ -17,6 +17,7 @@ import { getDataForEntityType } from '../shared/containers/profile/utils';
 import { SidebarDomainSection } from '../shared/containers/profile/sidebar/Domain/SidebarDomainSection';
 import { RunsTab } from './tabs/RunsTab';
 import { EntityMenuItems } from '../shared/EntityDropdown/EntityDropdown';
+import { DataFlowEntity } from '../dataFlow/DataFlowEntity';
 
 const getDataJobPlatformName = (data?: DataJob): string => {
     return data?.dataFlow?.platform?.properties?.displayName || data?.dataFlow?.platform?.name || '';
@@ -174,13 +175,32 @@ export class DataJobEntity implements Entity<DataJob> {
         );
     };
 
+    getExpandedNameForDataJob = (entity: DataJob): string => {
+        const name = this.displayName(entity);
+        const flowName = entity?.dataFlow ? new DataFlowEntity().displayName(entity?.dataFlow) : undefined;
+
+        // if we have no name, just return blank. this should not happen, so dont try & construct a name
+        if (!name) {
+            return '';
+        }
+
+        // if we have a flow name, return the full name of flow.task
+        if (flowName) {
+            return `${flowName}.${name}`;
+        }
+
+        // otherwise, just return the task name (same as non-expanded)
+        return name;
+    };
+
     getLineageVizConfig = (entity: DataJob) => {
         return {
             urn: entity?.urn,
-            name: entity?.properties?.name || '',
+            name: this.displayName(entity),
+            expandedName: this.getExpandedNameForDataJob(entity),
             type: EntityType.DataJob,
             icon: entity?.dataFlow?.platform?.properties?.logoUrl || '',
-            platform: getDataJobPlatformName(entity),
+            platform: entity?.dataFlow?.platform,
         };
     };
 
@@ -194,5 +214,16 @@ export class DataJobEntity implements Entity<DataJob> {
             entityType: this.type,
             getOverrideProperties: this.getOverridePropertiesFromEntity,
         });
+    };
+
+    supportedCapabilities = () => {
+        return new Set([
+            EntityCapabilityType.OWNERS,
+            EntityCapabilityType.GLOSSARY_TERMS,
+            EntityCapabilityType.TAGS,
+            EntityCapabilityType.DOMAINS,
+            EntityCapabilityType.DEPRECATION,
+            EntityCapabilityType.SOFT_DELETE,
+        ]);
     };
 }

@@ -30,6 +30,7 @@ query listPolicies($input: ListPoliciesInput!) {
             actors {
                 users
                 groups
+                roles
                 allUsers
                 allGroups
                 resourceOwners
@@ -66,6 +67,12 @@ query listPolicies($input: ListPoliciesInput!) {
                         slack
                         email
                     }
+                }
+                resolvedRoles {
+                    urn
+                    type
+                    name
+                    description
                 }
             }
             editable

@@ -3,3 +3,5 @@ pytest-dependency>=0.5.1
 psutil
 tenacity
 -e ../metadata-ingestion[datahub-rest,datahub-kafka,mysql]
+slack-sdk==3.18.1
+aiohttp

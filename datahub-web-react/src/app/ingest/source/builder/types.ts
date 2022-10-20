@@ -13,6 +13,14 @@ export enum ModalSize {
  */
 export const DEFAULT_EXECUTOR_ID = 'default';
 
+export interface SourceConfig {
+    urn: string;
+    name: string;
+    displayName: string;
+    docsUrl: string;
+    recipe: string;
+}
+
 /**
  * Props provided to each step as input.
  */
@@ -21,8 +29,9 @@ export type StepProps = {
     updateState: (newState: SourceBuilderState) => void;
     goTo: (step: IngestionSourceBuilderStep) => void;
     prev?: () => void;
-    submit: () => void;
+    submit: (shouldRun?: boolean) => void;
     cancel: () => void;
+    ingestionSources: SourceConfig[];
 };
 
 /**
@@ -77,5 +86,10 @@ export interface SourceBuilderState {
          * Advanced: The version of the DataHub Ingestion Framework to use to perform ingestion
          */
         version?: string | null;
+
+        /**
+         * Advanced: Whether or not to run this ingestion source in debug mode
+         */
+        debugMode?: boolean | null;
     };
 }

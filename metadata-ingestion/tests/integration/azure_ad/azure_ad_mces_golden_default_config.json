@@ -12,7 +12,8 @@
                         "admins": [],
                         "members": [],
                         "groups": [],
-                        "description": null
+                        "description": null,
+                        "slack": null
                     }
                 }
             ]
@@ -22,6 +23,46 @@
     "systemMetadata": {
         "lastObserved": 1629795600000,
         "runId": "test-azure-ad",
+        "registryName": null,
+        "registryVersion": null,
+        "properties": null
+    }
+},
+{
+    "auditHeader": null,
+    "entityType": "corpGroup",
+    "entityUrn": "urn:li:corpGroup:groupDisplayName1",
+    "entityKeyAspect": null,
+    "changeType": "UPSERT",
+    "aspectName": "origin",
+    "aspect": {
+        "value": "{\"type\": \"EXTERNAL\", \"externalType\": \"AZURE_AD\"}",
+        "contentType": "application/json"
+    },
+    "systemMetadata": {
+        "lastObserved": 1629795600000,
+        "runId": "test-azure-ad",
+        "registryName": null,
+        "registryVersion": null,
+        "properties": null
+    }
+},
+{
+    "auditHeader": null,
+    "entityType": "corpGroup",
+    "entityUrn": "urn:li:corpGroup:groupDisplayName1",
+    "entityKeyAspect": null,
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "value": "{\"removed\": false}",
+        "contentType": "application/json"
+    },
+    "systemMetadata": {
+        "lastObserved": 1629795600000,
+        "runId": "test-azure-ad",
+        "registryName": null,
+        "registryVersion": null,
         "properties": null
     }
 },
@@ -38,7 +79,8 @@
                         "admins": [],
                         "members": [],
                         "groups": [],
-                        "description": "This is an interesting description"
+                        "description": "This is an interesting description",
+                        "slack": null
                     }
                 }
             ]
@@ -48,6 +90,46 @@
     "systemMetadata": {
         "lastObserved": 1629795600000,
         "runId": "test-azure-ad",
+        "registryName": null,
+        "registryVersion": null,
+        "properties": null
+    }
+},
+{
+    "auditHeader": null,
+    "entityType": "corpGroup",
+    "entityUrn": "urn:li:corpGroup:groupDisplayName2",
+    "entityKeyAspect": null,
+    "changeType": "UPSERT",
+    "aspectName": "origin",
+    "aspect": {
+        "value": "{\"type\": \"EXTERNAL\", \"externalType\": \"AZURE_AD\"}",
+        "contentType": "application/json"
+    },
+    "systemMetadata": {
+        "lastObserved": 1629795600000,
+        "runId": "test-azure-ad",
+        "registryName": null,
+        "registryVersion": null,
+        "properties": null
+    }
+},
+{
+    "auditHeader": null,
+    "entityType": "corpGroup",
+    "entityUrn": "urn:li:corpGroup:groupDisplayName2",
+    "entityKeyAspect": null,
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "value": "{\"removed\": false}",
+        "contentType": "application/json"
+    },
+    "systemMetadata": {
+        "lastObserved": 1629795600000,
+        "runId": "test-azure-ad",
+        "registryName": null,
+        "registryVersion": null,
         "properties": null
     }
 },
@@ -87,6 +169,46 @@
     "systemMetadata": {
         "lastObserved": 1629795600000,
         "runId": "test-azure-ad",
+        "registryName": null,
+        "registryVersion": null,
+        "properties": null
+    }
+},
+{
+    "auditHeader": null,
+    "entityType": "corpuser",
+    "entityUrn": "urn:li:corpuser:johngreen@acryl.io",
+    "entityKeyAspect": null,
+    "changeType": "UPSERT",
+    "aspectName": "origin",
+    "aspect": {
+        "value": "{\"type\": \"EXTERNAL\", \"externalType\": \"AZURE_AD\"}",
+        "contentType": "application/json"
+    },
+    "systemMetadata": {
+        "lastObserved": 1629795600000,
+        "runId": "test-azure-ad",
+        "registryName": null,
+        "registryVersion": null,
+        "properties": null
+    }
+},
+{
+    "auditHeader": null,
+    "entityType": "corpuser",
+    "entityUrn": "urn:li:corpuser:johngreen@acryl.io",
+    "entityKeyAspect": null,
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "value": "{\"removed\": false}",
+        "contentType": "application/json"
+    },
+    "systemMetadata": {
+        "lastObserved": 1629795600000,
+        "runId": "test-azure-ad",
+        "registryName": null,
+        "registryVersion": null,
         "properties": null
     }
 },
@@ -126,6 +248,46 @@
     "systemMetadata": {
         "lastObserved": 1629795600000,
         "runId": "test-azure-ad",
+        "registryName": null,
+        "registryVersion": null,
+        "properties": null
+    }
+},
+{
+    "auditHeader": null,
+    "entityType": "corpuser",
+    "entityUrn": "urn:li:corpuser:adamhall@acryl.io",
+    "entityKeyAspect": null,
+    "changeType": "UPSERT",
+    "aspectName": "origin",
+    "aspect": {
+        "value": "{\"type\": \"EXTERNAL\", \"externalType\": \"AZURE_AD\"}",
+        "contentType": "application/json"
+    },
+    "systemMetadata": {
+        "lastObserved": 1629795600000,
+        "runId": "test-azure-ad",
+        "registryName": null,
+        "registryVersion": null,
+        "properties": null
+    }
+},
+{
+    "auditHeader": null,
+    "entityType": "corpuser",
+    "entityUrn": "urn:li:corpuser:adamhall@acryl.io",
+    "entityKeyAspect": null,
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "value": "{\"removed\": false}",
+        "contentType": "application/json"
+    },
+    "systemMetadata": {
+        "lastObserved": 1629795600000,
+        "runId": "test-azure-ad",
+        "registryName": null,
+        "registryVersion": null,
         "properties": null
     }
 }

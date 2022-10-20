@@ -158,7 +158,6 @@ public class AllEntitiesSearchAggregator {
       searchResults = ConcurrencyUtils.transformAndCollectAsync(entities, entity -> new Pair<>(entity,
           _cachingEntitySearchService.search(entity, input, postFilters, sortCriterion, queryFrom, querySize, searchFlags)))
           .stream()
-          .filter(pair -> pair.getValue().getNumEntities() > 0)
           .collect(Collectors.toMap(Pair::getKey, Pair::getValue));
     }
     return searchResults;
@@ -172,7 +171,8 @@ public class AllEntitiesSearchAggregator {
         entry -> Pair.of(entry.getKey(), new AggregationMetadata()
             .setName(entry.getValue().getName())
             .setDisplayName(entry.getValue().getDisplayName(GetMode.NULL))
-            .setAggregations(entry.getValue().getAggregations())
+            .setAggregations(
+                entry.getValue().getAggregations())
             .setFilterValues(
                 trimFilterValues(entry.getValue().getFilterValues()))
         )

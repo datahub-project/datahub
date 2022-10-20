@@ -29,4 +29,10 @@ record DashboardUserUsageCounts {
   @TimeseriesField = {}
   usageCount: optional int
 
+  /**
+   * If user_email is set, we attempt to resolve the user's urn upon ingest
+   */
+  @TimeseriesField = {}
+  userEmail: optional string
+
 }

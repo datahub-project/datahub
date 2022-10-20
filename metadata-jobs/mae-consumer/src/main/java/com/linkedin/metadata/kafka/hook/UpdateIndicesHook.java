@@ -43,7 +43,10 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import java.util.stream.Collectors;
+import java.util.stream.Stream;
 import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Import;
@@ -63,6 +66,12 @@ public class UpdateIndicesHook implements MetadataChangeLogHook {
   private final SystemMetadataService _systemMetadataService;
   private final EntityRegistry _entityRegistry;
   private final SearchDocumentTransformer _searchDocumentTransformer;
+
+  private static final Set<ChangeType> VALID_CHANGE_TYPES =
+      Stream.of(
+          ChangeType.UPSERT,
+          ChangeType.RESTATE,
+          ChangeType.PATCH).collect(Collectors.toSet());
 
   @Autowired
   public UpdateIndicesHook(
@@ -95,7 +104,7 @@ public class UpdateIndicesHook implements MetadataChangeLogHook {
     }
     Urn urn = EntityKeyUtils.getUrnFromLog(event, entitySpec.getKeyAspectSpec());
 
-    if (event.getChangeType() == ChangeType.UPSERT || event.getChangeType() == ChangeType.RESTATE) {
+    if (VALID_CHANGE_TYPES.contains(event.getChangeType())) {
 
       if (!event.hasAspectName() || !event.hasAspect()) {
         log.error("Aspect or aspect name is missing");
@@ -115,7 +124,7 @@ public class UpdateIndicesHook implements MetadataChangeLogHook {
         updateTimeseriesFields(event.getEntityType(), event.getAspectName(), urn, aspect, aspectSpec,
             event.getSystemMetadata());
       } else {
-        updateSearchService(entitySpec.getName(), urn, aspectSpec, aspect);
+        updateSearchService(entitySpec.getName(), urn, aspectSpec, aspect, event.hasSystemMetadata() ? event.getSystemMetadata().getRunId() : null);
         updateGraphService(urn, aspectSpec, aspect);
         updateSystemMetadata(event.getSystemMetadata(), urn, aspectSpec, aspect);
       }
@@ -185,7 +194,7 @@ public class UpdateIndicesHook implements MetadataChangeLogHook {
   /**
    * Process snapshot and update search index
    */
-  private void updateSearchService(String entityName, Urn urn, AspectSpec aspectSpec, RecordTemplate aspect) {
+  private void updateSearchService(String entityName, Urn urn, AspectSpec aspectSpec, RecordTemplate aspect, @Nullable String runId) {
     Optional<String> searchDocument;
     try {
       searchDocument = _searchDocumentTransformer.transformAspect(urn, aspect, aspectSpec, false);
@@ -277,7 +286,7 @@ public class UpdateIndicesHook implements MetadataChangeLogHook {
 
       Optional<String> searchDocument;
       try {
-        searchDocument = _searchDocumentTransformer.transformAspect(urn, aspect, aspectSpec, true);
+        searchDocument = _searchDocumentTransformer.transformAspect(urn, aspect, aspectSpec, true); // TODO
       } catch (Exception e) {
         log.error("Error in getting documents from aspect: {} for aspect {}", e, aspectSpec.getName());
         return;

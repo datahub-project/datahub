@@ -96,6 +96,7 @@ By default the quickstart deploy will require the following ports to be free on 
 
   In case the default ports conflict with software you are already running on your machine, you can override these ports by passing additional flags to the `datahub docker quickstart` command.
   e.g. To override the MySQL port with 53306 (instead of the default 3306), you can say: `datahub docker quickstart --mysql-port 53306`. Use `datahub docker quickstart --help` to see all the supported options.
+  For the metadata service container (datahub-gms), you need to use an environment variable, `DATAHUB_MAPPED_GMS_PORT`. So for instance to use the port 58080, you would say `DATAHUB_MAPPED_GMS_PORT=58080 datahub docker quickstart`
 
 </details>
 
@@ -117,6 +118,7 @@ docker system prune
 <summary>
 Still stuck?
 </summary>
+
 Hop over to our [Slack community](https://slack.datahubproject.io) and ask for help in the [#troubleshoot](https://datahubspace.slack.com/archives/C029A3M079U) channel!
 </details>
 
@@ -173,6 +175,7 @@ datahub docker quickstart --backup --backup-file /home/my_user/datahub_backups/q
 
 Note that the Quickstart backup does not include any timeseries data (dataset statistics, profiles, etc.), so you will lose that information if you delete all your indexes and restore from this backup. 
 
+:::
 
 ### Restoring your DataHub Quickstart (experimental)
 As you might imagine, these backups are restore-able. The following section describes a few different options you have to restore your backup.

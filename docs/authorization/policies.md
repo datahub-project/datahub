@@ -56,7 +56,7 @@ A Metadata Policy can be broken down into 3 parts:
 #### Actors
 
 We currently support 3 ways to define the set of actors the policy applies to: a) list of users b) list of groups, and
-c) owners of the entity. You also have the option to apply the policy to all users.
+c) owners of the entity. You also have the option to apply the policy to all users or groups.
 
 #### Privileges
 
@@ -161,7 +161,7 @@ Supported fields are as follows
 
 ## Managing Policies
 
-Policies can be managed under the `/policies` page, or accessed via the top navigation bar. The `Policies` tab will only 
+Policies can be managed on the page **Settings > Permissions > Policies** page. The `Policies` tab will only 
 be visible to those users having the `Manage Policies` privilege.
 
 Out of the box, DataHub is deployed with a set of pre-baked Policies. The set of default policies are created at deploy 

@@ -9,19 +9,21 @@ from hashlib import md5
 from typing import Any, List, Optional, Type, TypeVar, Union, cast, get_type_hints
 
 import typing_inspect
-from avrogen.dict_wrapper import DictWrapper
 
 from datahub.configuration.source_common import DEFAULT_ENV as DEFAULT_ENV_CONFIGURATION
 from datahub.emitter.serialization_helper import pre_json_transform
-from datahub.metadata.com.linkedin.pegasus2avro.common import GlossaryTerms
 from datahub.metadata.schema_classes import (
+    AssertionKeyClass,
     AuditStampClass,
+    ChartKeyClass,
     ContainerKeyClass,
+    DashboardKeyClass,
     DatasetKeyClass,
     DatasetLineageTypeClass,
     DatasetSnapshotClass,
     GlobalTagsClass,
     GlossaryTermAssociationClass,
+    GlossaryTermsClass as GlossaryTerms,
     MetadataChangeEventClass,
     OwnerClass,
     OwnershipClass,
@@ -32,10 +34,12 @@ from datahub.metadata.schema_classes import (
     TagAssociationClass,
     UpstreamClass,
     UpstreamLineageClass,
+    _Aspect as AspectAbstract,
 )
 from datahub.utilities.urns.dataset_urn import DatasetUrn
 
 logger = logging.getLogger(__name__)
+Aspect = TypeVar("Aspect", bound=AspectAbstract)
 
 DEFAULT_ENV = DEFAULT_ENV_CONFIGURATION
 DEFAULT_FLOW_CLUSTER = "prod"
@@ -118,6 +122,12 @@ def dataset_urn_to_key(dataset_urn: str) -> Optional[DatasetKeyClass]:
     return None
 
 
+def dataset_key_to_urn(key: DatasetKeyClass) -> str:
+    return (
+        f"urn:li:dataset:(urn:li:dataPlatform:{key.platform},{key.name},{key.origin})"
+    )
+
+
 def make_container_new_urn(guid: str) -> str:
     return f"urn:dh:container:0:({guid})"
 
@@ -155,6 +165,14 @@ def datahub_guid(obj: dict) -> str:
 
 def make_assertion_urn(assertion_id: str) -> str:
     return f"urn:li:assertion:{assertion_id}"
+
+
+def assertion_urn_to_key(assertion_urn: str) -> Optional[AssertionKeyClass]:
+    pattern = r"urn:li:assertion:(.*)"
+    results = re.search(pattern, assertion_urn)
+    if results is not None:
+        return AssertionKeyClass(assertionId=results[1])
+    return None
 
 
 def make_user_urn(username: str) -> str:
@@ -199,14 +217,40 @@ def make_data_job_urn(
     )
 
 
-def make_dashboard_urn(platform: str, name: str) -> str:
+def make_dashboard_urn(
+    platform: str, name: str, platform_instance: Optional[str] = None
+) -> str:
     # FIXME: dashboards don't currently include data platform urn prefixes.
-    return f"urn:li:dashboard:({platform},{name})"
+    if platform_instance:
+        return f"urn:li:dashboard:({platform},{platform_instance}.{name})"
+    else:
+        return f"urn:li:dashboard:({platform},{name})"
 
 
-def make_chart_urn(platform: str, name: str) -> str:
+def dashboard_urn_to_key(dashboard_urn: str) -> Optional[DashboardKeyClass]:
+    pattern = r"urn:li:dashboard:\((.*),(.*)\)"
+    results = re.search(pattern, dashboard_urn)
+    if results is not None:
+        return DashboardKeyClass(dashboardTool=results[1], dashboardId=results[2])
+    return None
+
+
+def make_chart_urn(
+    platform: str, name: str, platform_instance: Optional[str] = None
+) -> str:
     # FIXME: charts don't currently include data platform urn prefixes.
-    return f"urn:li:chart:({platform},{name})"
+    if platform_instance:
+        return f"urn:li:chart:({platform},{platform_instance}.{name})"
+    else:
+        return f"urn:li:chart:({platform},{name})"
+
+
+def chart_urn_to_key(chart_urn: str) -> Optional[ChartKeyClass]:
+    pattern = r"urn:li:chart:\((.*),(.*)\)"
+    results = re.search(pattern, chart_urn)
+    if results is not None:
+        return ChartKeyClass(dashboardTool=results[1], chartId=results[2])
+    return None
 
 
 def make_domain_urn(domain: str) -> str:
@@ -216,7 +260,6 @@ def make_domain_urn(domain: str) -> str:
 
 
 def make_ml_primary_key_urn(feature_table_name: str, primary_key_name: str) -> str:
-
     return f"urn:li:mlPrimaryKey:({feature_table_name},{primary_key_name})"
 
 
@@ -224,7 +267,6 @@ def make_ml_feature_urn(
     feature_table_name: str,
     feature_name: str,
 ) -> str:
-
     return f"urn:li:mlFeature:({feature_table_name},{feature_name})"
 
 
@@ -290,10 +332,6 @@ def make_lineage_mce(
         )
     )
     return mce
-
-
-# This bound isn't tight, but it's better than nothing.
-Aspect = TypeVar("Aspect", bound=DictWrapper)
 
 
 def can_add_aspect(mce: MetadataChangeEventClass, AspectType: Type[Aspect]) -> bool:

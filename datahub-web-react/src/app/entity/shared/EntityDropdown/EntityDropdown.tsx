@@ -13,7 +13,7 @@ import {
 import { Redirect } from 'react-router';
 import { EntityType, PlatformPrivileges } from '../../../../types.generated';
 import CreateGlossaryEntityModal from './CreateGlossaryEntityModal';
-import { AddDeprecationDetailsModal } from './AddDeprecationDetailsModal';
+import { UpdateDeprecationModal } from './UpdateDeprecationModal';
 import { useUpdateDeprecationMutation } from '../../../../graphql/mutations.generated';
 import MoveGlossaryEntityModal from './MoveGlossaryEntityModal';
 import { ANTD_GRAY } from '../constants';
@@ -233,9 +233,8 @@ function EntityDropdown(props: Props) {
                 />
             )}
             {isDeprecationModalVisible && (
-                <AddDeprecationDetailsModal
-                    visible={isDeprecationModalVisible}
-                    urn={urn}
+                <UpdateDeprecationModal
+                    urns={[urn]}
                     onClose={() => setIsDeprecationModalVisible(false)}
                     refetch={refetchForEntity}
                 />

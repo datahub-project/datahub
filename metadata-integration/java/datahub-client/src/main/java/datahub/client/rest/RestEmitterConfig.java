@@ -28,7 +28,9 @@ public class RestEmitterConfig {
   private final String server = "http://localhost:8080";
 
   private final Integer timeoutSec;
-
+  @Builder.Default
+  private final boolean disableSslVerification = false;
+  
   @Builder.Default
   private final String token = DEFAULT_AUTH_TOKEN;
 

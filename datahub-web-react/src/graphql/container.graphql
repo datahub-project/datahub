@@ -1,6 +1,7 @@
 query getContainer($urn: String!) {
     container(urn: $urn) {
         urn
+        lastIngested
         platform {
             ...platformFields
         }
@@ -48,6 +49,8 @@ query getContainer($urn: String!) {
         dataPlatformInstance {
             ...dataPlatformInstanceFields
         }
-
+        status {
+            removed
+        }
     }
 }

@@ -102,7 +102,7 @@
     "changeType": "UPSERT",
     "aspectName": "dataJobInfo",
     "aspect": {
-        "value": "{\"customProperties\": {\"schedulingPeriod\": \"0 sec\", \"schedulingStrategy\": \"TIMER_DRIVEN\", \"executionNode\": \"ALL\", \"concurrentlySchedulableTaskCount\": \"1\", \"properties\": \"{\\\"Bucket\\\": \\\"enriched-topical-chat\\\", \\\"Object Key\\\": \\\"${filename}\\\", \\\"Region\\\": \\\"us-west-2\\\", \\\"Access Key\\\": null, \\\"Secret Key\\\": null, \\\"Credentials File\\\": null, \\\"AWS Credentials Provider service\\\": null, \\\"Communications Timeout\\\": \\\"30 secs\\\", \\\"Version\\\": null, \\\"SSL Context Service\\\": null, \\\"Endpoint Override URL\\\": null, \\\"Signer Override\\\": \\\"Default Signature\\\", \\\"encryption-service\\\": null, \\\"proxy-configuration-service\\\": null, \\\"Proxy Host\\\": null, \\\"Proxy Host Port\\\": null, \\\"proxy-user-name\\\": null, \\\"proxy-user-password\\\": null, \\\"requester-pays\\\": \\\"false\\\", \\\"range-start\\\": null, \\\"range-length\\\": null}\", \"last_event_time\": \"2022-01-15 03:05:07.136000+00:00\"}, \"externalUrl\": \"http://localhost:9443/nifi/?processGroupId=80404c81-017d-1000-e8e8-af7420af06c1&componentIds=91d59f03-1c2b-3f3f-48bc-f89296a328bd\", \"name\": \"FetchS3Object\", \"description\": \"\", \"type\": {\"string\": \"NIFI_PROCESSOR\"}}",
+        "value": "{\"customProperties\": {\"schedulingPeriod\": \"0 sec\", \"schedulingStrategy\": \"TIMER_DRIVEN\", \"executionNode\": \"ALL\", \"concurrentlySchedulableTaskCount\": \"1\", \"properties\": \"{\\\"Bucket\\\": \\\"enriched-topical-chat\\\", \\\"Object Key\\\": \\\"${filename}\\\", \\\"Region\\\": \\\"us-west-2\\\", \\\"Access Key\\\": null, \\\"Secret Key\\\": null, \\\"Credentials File\\\": null, \\\"AWS Credentials Provider service\\\": null, \\\"Communications Timeout\\\": \\\"30 secs\\\", \\\"Version\\\": null, \\\"SSL Context Service\\\": null, \\\"Endpoint Override URL\\\": null, \\\"Signer Override\\\": \\\"Default Signature\\\", \\\"encryption-service\\\": null, \\\"proxy-configuration-service\\\": null, \\\"Proxy Host\\\": null, \\\"Proxy Host Port\\\": null, \\\"proxy-user-name\\\": null, \\\"proxy-user-password\\\": null, \\\"requester-pays\\\": \\\"false\\\", \\\"range-start\\\": null, \\\"range-length\\\": null}\", \"last_event_time\": \"2022-08-23 19:43:21.880000+00:00\"}, \"externalUrl\": \"http://localhost:9443/nifi/?processGroupId=80404c81-017d-1000-e8e8-af7420af06c1&componentIds=91d59f03-1c2b-3f3f-48bc-f89296a328bd\", \"name\": \"FetchS3Object\", \"description\": \"\", \"type\": {\"string\": \"NIFI_PROCESSOR\"}}",
         "contentType": "application/json"
     },
     "systemMetadata": {
@@ -134,13 +134,51 @@
 },
 {
     "auditHeader": null,
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:s3,enriched-topical-chat,PROD)",
+    "entityKeyAspect": null,
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "value": "{\"platform\": \"urn:li:dataPlatform:s3\"}",
+        "contentType": "application/json"
+    },
+    "systemMetadata": {
+        "lastObserved": 1638532800000,
+        "runId": "nifi-test-standalone",
+        "registryName": null,
+        "registryVersion": null,
+        "properties": null
+    }
+},
+{
+    "auditHeader": null,
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:s3,enriched-topical-chat,PROD)",
+    "entityKeyAspect": null,
+    "changeType": "UPSERT",
+    "aspectName": "datasetProperties",
+    "aspect": {
+        "value": "{\"customProperties\": {\"s3_uri\": \"s3://enriched-topical-chat\"}, \"tags\": []}",
+        "contentType": "application/json"
+    },
+    "systemMetadata": {
+        "lastObserved": 1638532800000,
+        "runId": "nifi-test-standalone",
+        "registryName": null,
+        "registryVersion": null,
+        "properties": null
+    }
+},
+{
+    "auditHeader": null,
     "entityType": "dataJob",
     "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(nifi,803ebb92-017d-1000-2961-4bdaa27a3ba0,PROD),cb7693ed-f93b-3340-3776-fe80e6283ddc)",
     "entityKeyAspect": null,
     "changeType": "UPSERT",
     "aspectName": "dataJobInfo",
     "aspect": {
-        "value": "{\"customProperties\": {\"schedulingPeriod\": \"0 sec\", \"schedulingStrategy\": \"TIMER_DRIVEN\", \"executionNode\": \"PRIMARY\", \"concurrentlySchedulableTaskCount\": \"1\", \"properties\": \"{\\\"Bucket\\\": \\\"enriched-topical-chat\\\", \\\"Region\\\": \\\"us-west-2\\\", \\\"Access Key\\\": null, \\\"Secret Key\\\": null, \\\"record-writer\\\": null, \\\"min-age\\\": \\\"0 sec\\\", \\\"Listing Batch Size\\\": \\\"100\\\", \\\"write-s3-object-tags\\\": \\\"false\\\", \\\"write-s3-user-metadata\\\": \\\"false\\\", \\\"Credentials File\\\": null, \\\"AWS Credentials Provider service\\\": null, \\\"Communications Timeout\\\": \\\"30 secs\\\", \\\"SSL Context Service\\\": null, \\\"Endpoint Override URL\\\": null, \\\"Signer Override\\\": \\\"Default Signature\\\", \\\"proxy-configuration-service\\\": null, \\\"Proxy Host\\\": null, \\\"Proxy Host Port\\\": null, \\\"proxy-user-name\\\": null, \\\"proxy-user-password\\\": null, \\\"delimiter\\\": null, \\\"prefix\\\": null, \\\"use-versions\\\": \\\"false\\\", \\\"list-type\\\": \\\"1\\\", \\\"requester-pays\\\": \\\"false\\\"}\", \"last_event_time\": \"2022-01-15 03:05:01.720000+00:00\"}, \"externalUrl\": \"http://localhost:9443/nifi/?processGroupId=80404c81-017d-1000-e8e8-af7420af06c1&componentIds=cb7693ed-f93b-3340-3776-fe80e6283ddc\", \"name\": \"ListS3\", \"description\": \"\", \"type\": {\"string\": \"NIFI_PROCESSOR\"}}",
+        "value": "{\"customProperties\": {\"schedulingPeriod\": \"0 sec\", \"schedulingStrategy\": \"TIMER_DRIVEN\", \"executionNode\": \"PRIMARY\", \"concurrentlySchedulableTaskCount\": \"1\", \"properties\": \"{\\\"Bucket\\\": \\\"enriched-topical-chat\\\", \\\"Region\\\": \\\"us-west-2\\\", \\\"Access Key\\\": null, \\\"Secret Key\\\": null, \\\"record-writer\\\": null, \\\"min-age\\\": \\\"0 sec\\\", \\\"Listing Batch Size\\\": \\\"100\\\", \\\"write-s3-object-tags\\\": \\\"false\\\", \\\"write-s3-user-metadata\\\": \\\"false\\\", \\\"Credentials File\\\": null, \\\"AWS Credentials Provider service\\\": null, \\\"Communications Timeout\\\": \\\"30 secs\\\", \\\"SSL Context Service\\\": null, \\\"Endpoint Override URL\\\": null, \\\"Signer Override\\\": \\\"Default Signature\\\", \\\"proxy-configuration-service\\\": null, \\\"Proxy Host\\\": null, \\\"Proxy Host Port\\\": null, \\\"proxy-user-name\\\": null, \\\"proxy-user-password\\\": null, \\\"delimiter\\\": null, \\\"prefix\\\": null, \\\"use-versions\\\": \\\"false\\\", \\\"list-type\\\": \\\"1\\\", \\\"requester-pays\\\": \\\"false\\\"}\", \"last_event_time\": \"2022-08-23 19:43:17.474000+00:00\"}, \"externalUrl\": \"http://localhost:9443/nifi/?processGroupId=80404c81-017d-1000-e8e8-af7420af06c1&componentIds=cb7693ed-f93b-3340-3776-fe80e6283ddc\", \"name\": \"ListS3\", \"description\": \"\", \"type\": {\"string\": \"NIFI_PROCESSOR\"}}",
         "contentType": "application/json"
     },
     "systemMetadata": {

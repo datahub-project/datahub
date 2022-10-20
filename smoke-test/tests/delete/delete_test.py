@@ -8,7 +8,7 @@ from datahub.cli.delete_cli import delete_references
 from tests.utils import ingest_file_via_rest, wait_for_healthcheck_util
 
 # Disable telemetry
-os.putenv("DATAHUB_TELEMETRY_ENABLED", "false")
+os.environ["DATAHUB_TELEMETRY_ENABLED"] = "false"
 
 
 @pytest.fixture(scope="session")

@@ -73,6 +73,8 @@ class DatahubLineageBackend(LineageBackend):
         context: Dict = None,
     ) -> None:
         config = get_lineage_config()
+        if not config.enabled:
+            return
 
         try:
             # This is necessary to avoid issues with circular imports.
@@ -120,6 +122,8 @@ class DatahubLineageBackend(LineageBackend):
         except Exception as e:
             if config.graceful_exceptions:
                 operator.log.error(e)
-                operator.log.info("Supressing error because graceful_exceptions is set")
+                operator.log.info(
+                    "Suppressing error because graceful_exceptions is set"
+                )
             else:
                 raise

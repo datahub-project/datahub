@@ -1,6 +1,6 @@
 import { Entity as EntityInterface, EntityType, SearchResult } from '../../types.generated';
 import { FetchedEntity } from '../lineage/types';
-import { Entity, IconStyleType, PreviewType } from './Entity';
+import { Entity, EntityCapabilityType, IconStyleType, PreviewType } from './Entity';
 import { GenericEntityProperties } from './shared/types';
 import { dictToQueryStringParams, urlEncodeUrn } from './shared/utils';
 
@@ -140,6 +140,8 @@ export default class EntityRegistry {
                 numUpstreamChildren: genericEntityProperties?.upstream?.total,
                 status: genericEntityProperties?.status,
                 siblingPlatforms: genericEntityProperties?.siblingPlatforms,
+                fineGrainedLineages: genericEntityProperties?.fineGrainedLineages,
+                schemaMetadata: genericEntityProperties?.schemaMetadata,
             } as FetchedEntity) || undefined
         );
     }
@@ -152,5 +154,18 @@ export default class EntityRegistry {
     getGenericEntityProperties<T>(type: EntityType, data: T): GenericEntityProperties | null {
         const entity = validatedGet(type, this.entityTypeToEntity);
         return entity.getGenericEntityProperties(data);
+    }
+
+    getSupportedEntityCapabilities(type: EntityType): Set<EntityCapabilityType> {
+        const entity = validatedGet(type, this.entityTypeToEntity);
+        return entity.supportedCapabilities();
+    }
+
+    getTypesWithSupportedCapabilities(capability: EntityCapabilityType): Set<EntityType> {
+        return new Set(
+            this.getEntities()
+                .filter((entity) => entity.supportedCapabilities().has(capability))
+                .map((entity) => entity.type),
+        );
     }
 }

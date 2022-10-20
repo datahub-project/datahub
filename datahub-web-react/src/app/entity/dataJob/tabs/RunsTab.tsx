@@ -14,6 +14,7 @@ import { CompactEntityNameList } from '../../../recommendations/renderer/compone
 import { ANTD_GRAY } from '../../shared/constants';
 import { useEntityData } from '../../shared/EntityContext';
 import { ReactComponent as LoadingSvg } from '../../../../images/datahub-logo-color-loading_pendulum.svg';
+import { scrollToTop } from '../../../shared/searchUtils';
 
 const ExternalUrlLink = styled.a`
     font-size: 16px;
@@ -141,6 +142,11 @@ export const RunsTab = () => {
         );
     }
 
+    const onChangePage = (newPage: number) => {
+        scrollToTop();
+        setPage(newPage);
+    };
+
     return (
         <>
             <Table dataSource={tableData} columns={columns} pagination={false} />
@@ -150,7 +156,7 @@ export const RunsTab = () => {
                     pageSize={PAGE_SIZE}
                     total={data?.dataJob?.runs?.total || 0}
                     showLessItems
-                    onChange={(newPage) => setPage(newPage)}
+                    onChange={onChangePage}
                     showSizeChanger={false}
                 />
             </PaginationControlContainer>

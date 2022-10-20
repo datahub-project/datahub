@@ -1,13 +1,14 @@
-import { Alert, Button, message, Space, Typography } from 'antd';
 import React, { useEffect, useState } from 'react';
+import { Alert, Button, message, Space, Typography } from 'antd';
 import styled from 'styled-components';
 import { StepProps } from './types';
-import { getSourceConfigs, jsonToYaml, yamlToJson } from '../utils';
+import { getPlaceholderRecipe, getSourceConfigs, jsonToYaml } from '../utils';
 import { YamlEditor } from './YamlEditor';
 import { ANTD_GRAY } from '../../../entity/shared/constants';
 import { IngestionSourceBuilderStep } from './steps';
 import RecipeBuilder from './RecipeBuilder';
-import { CONNECTORS_WITH_FORM } from './RecipeForm/utils';
+import { CONNECTORS_WITH_FORM } from './RecipeForm/constants';
+import { getRecipeJson } from './RecipeForm/TestConnection/TestConnectionButton';
 
 const LOOKML_DOC_LINK = 'https://datahubproject.io/docs/generated/ingestion/sources/looker#module-lookml';
 
@@ -36,13 +37,14 @@ const ControlsContainer = styled.div`
 /**
  * The step for defining a recipe
  */
-export const DefineRecipeStep = ({ state, updateState, goTo, prev }: StepProps) => {
+export const DefineRecipeStep = ({ state, updateState, goTo, prev, ingestionSources }: StepProps) => {
     const existingRecipeJson = state.config?.recipe;
     const existingRecipeYaml = existingRecipeJson && jsonToYaml(existingRecipeJson);
     const { type } = state;
-    const sourceConfigs = getSourceConfigs(type as string);
+    const sourceConfigs = getSourceConfigs(ingestionSources, type as string);
+    const placeholderRecipe = getPlaceholderRecipe(ingestionSources, type);
 
-    const [stagedRecipeYml, setStagedRecipeYml] = useState(existingRecipeYaml || sourceConfigs.placeholderRecipe);
+    const [stagedRecipeYml, setStagedRecipeYml] = useState(existingRecipeYaml || placeholderRecipe);
 
     useEffect(() => {
         if (existingRecipeYaml) {
@@ -53,12 +55,12 @@ export const DefineRecipeStep = ({ state, updateState, goTo, prev }: StepProps) 
     const [stepComplete, setStepComplete] = useState(false);
 
     const isEditing: boolean = prev === undefined;
-    const displayRecipe = stagedRecipeYml || sourceConfigs.placeholderRecipe;
-    const sourceDisplayName = sourceConfigs.displayName;
-    const sourceDocumentationUrl = sourceConfigs.docsUrl; // Maybe undefined (in case of "custom")
+    const displayRecipe = stagedRecipeYml || placeholderRecipe;
+    const sourceDisplayName = sourceConfigs?.displayName;
+    const sourceDocumentationUrl = sourceConfigs?.docsUrl;
 
     // TODO: Delete LookML banner specific code
-    const isSourceLooker: boolean = sourceConfigs.type === 'looker';
+    const isSourceLooker: boolean = sourceConfigs?.name === 'looker';
     const [showLookerBanner, setShowLookerBanner] = useState(isSourceLooker && !isEditing);
 
     useEffect(() => {
@@ -68,12 +70,14 @@ export const DefineRecipeStep = ({ state, updateState, goTo, prev }: StepProps) 
     }, [stagedRecipeYml, showLookerBanner]);
 
     const onClickNext = () => {
-        // Convert the recipe into it's json representation, and catch + report exceptions while we do it.
-        let recipeJson;
-        try {
-            recipeJson = yamlToJson(stagedRecipeYml);
-        } catch (e) {
-            message.warn('Found invalid YAML. Please check your recipe configuration.');
+        const recipeJson = getRecipeJson(stagedRecipeYml);
+        if (!recipeJson) return;
+
+        if (!JSON.parse(recipeJson).source?.type) {
+            message.warning({
+                content: `Please add valid ingestion type`,
+                duration: 3,
+            });
             return;
         }
 
@@ -83,6 +87,7 @@ export const DefineRecipeStep = ({ state, updateState, goTo, prev }: StepProps) 
                 ...state.config,
                 recipe: recipeJson,
             },
+            type: JSON.parse(recipeJson).source.type,
         };
         updateState(newState);
 
@@ -92,9 +97,10 @@ export const DefineRecipeStep = ({ state, updateState, goTo, prev }: StepProps) 
     if (type && CONNECTORS_WITH_FORM.has(type)) {
         return (
             <RecipeBuilder
-                type={type}
+                state={state}
                 isEditing={isEditing}
                 displayRecipe={displayRecipe}
+                sourceConfigs={sourceConfigs}
                 setStagedRecipe={setStagedRecipeYml}
                 onClickNext={onClickNext}
                 goToPrevious={prev}

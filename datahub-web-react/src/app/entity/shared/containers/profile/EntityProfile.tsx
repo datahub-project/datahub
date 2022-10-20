@@ -31,6 +31,8 @@ import GlossaryBrowser from '../../../../glossary/GlossaryBrowser/GlossaryBrowse
 import GlossarySearch from '../../../../glossary/GlossarySearch';
 import { BrowserWrapper, MAX_BROWSER_WIDTH, MIN_BROWSWER_WIDTH } from '../../../../glossary/BusinessGlossaryPage';
 import { combineEntityDataWithSiblings, useIsSeparateSiblingsMode } from '../../siblingUtils';
+import { EntityActionItem } from '../../entity/EntityActions';
+import { ErrorSection } from '../../../../shared/error/ErrorSection';
 
 type Props<T, U> = {
     urn: string;
@@ -57,6 +59,7 @@ type Props<T, U> = {
     customNavBar?: React.ReactNode;
     subHeader?: EntitySubHeaderSection;
     headerDropdownItems?: Set<EntityMenuItems>;
+    headerActionItems?: Set<EntityActionItem>;
     displayGlossaryBrowser?: boolean;
     isNameEditable?: boolean;
 };
@@ -141,6 +144,7 @@ export const EntityProfile = <T, U>({
     sidebarSections,
     customNavBar,
     headerDropdownItems,
+    headerActionItems,
     displayGlossaryBrowser,
     isNameEditable,
     subHeader,
@@ -257,16 +261,18 @@ export const EntityProfile = <T, U>({
             >
                 <div>
                     {loading && <Message type="loading" content="Loading..." style={{ marginTop: '10%' }} />}
-                    {!loading && error && (
-                        <Alert type="error" message={error?.message || `Entity failed to load for urn ${urn}`} />
-                    )}
-                    {!loading && (
-                        <>
-                            <EntityHeader headerDropdownItems={headerDropdownItems} subHeader={subHeader} />
-                            <Divider />
-                            <EntitySidebar sidebarSections={sideBarSectionsWithDefaults} />
-                        </>
-                    )}
+                    {(error && <ErrorSection />) ||
+                        (!loading && (
+                            <>
+                                <EntityHeader
+                                    headerDropdownItems={headerDropdownItems}
+                                    headerActionItems={headerActionItems}
+                                    subHeader={subHeader}
+                                />
+                                <Divider style={{ marginBottom: '0' }} />
+                                <EntitySidebar sidebarSections={sideBarSectionsWithDefaults} />
+                            </>
+                        ))}
                 </div>
             </EntityContext.Provider>
         );
@@ -300,62 +306,62 @@ export const EntityProfile = <T, U>({
                     />
                 )}
                 {loading && <Message type="loading" content="Loading..." style={{ marginTop: '10%' }} />}
-                {!loading && error && (
-                    <Alert type="error" message={error?.message || `Entity failed to load for urn ${urn}`} />
+                {(error && <ErrorSection />) || (
+                    <ContentContainer>
+                        {isLineageMode ? (
+                            <LineageExplorer type={entityType} urn={urn} />
+                        ) : (
+                            <>
+                                {displayGlossaryBrowser && (
+                                    <>
+                                        <BrowserWrapper width={browserWidth}>
+                                            <GlossarySearch />
+                                            <GlossaryBrowser openToEntity refreshBrowser={shouldUpdateBrowser} />
+                                        </BrowserWrapper>
+                                        <ProfileSidebarResizer
+                                            setSidePanelWidth={(width) =>
+                                                setBrowserWith(
+                                                    Math.min(Math.max(width, MIN_BROWSWER_WIDTH), MAX_BROWSER_WIDTH),
+                                                )
+                                            }
+                                            initialSize={browserWidth}
+                                            isSidebarOnLeft
+                                        />
+                                    </>
+                                )}
+                                <HeaderAndTabs>
+                                    <HeaderAndTabsFlex>
+                                        <Header>
+                                            <EntityHeader
+                                                headerDropdownItems={headerDropdownItems}
+                                                headerActionItems={headerActionItems}
+                                                isNameEditable={isNameEditable}
+                                                subHeader={subHeader}
+                                                refreshBrowser={refreshBrowser}
+                                            />
+                                            <EntityTabs
+                                                tabs={[...tabsWithDefaults, ...autoRenderTabs]}
+                                                selectedTab={routedTab}
+                                            />
+                                        </Header>
+                                        <TabContent>
+                                            {routedTab && <routedTab.component properties={routedTab.properties} />}
+                                        </TabContent>
+                                    </HeaderAndTabsFlex>
+                                </HeaderAndTabs>
+                                <ProfileSidebarResizer
+                                    setSidePanelWidth={(width) =>
+                                        setSidebarWidth(Math.min(Math.max(width, MIN_SIDEBAR_WIDTH), MAX_SIDEBAR_WIDTH))
+                                    }
+                                    initialSize={sidebarWidth}
+                                />
+                                <Sidebar $width={sidebarWidth}>
+                                    <EntitySidebar sidebarSections={sideBarSectionsWithDefaults} />
+                                </Sidebar>
+                            </>
+                        )}
+                    </ContentContainer>
                 )}
-                <ContentContainer>
-                    {isLineageMode ? (
-                        <LineageExplorer type={entityType} urn={urn} />
-                    ) : (
-                        <>
-                            {displayGlossaryBrowser && (
-                                <>
-                                    <BrowserWrapper width={browserWidth}>
-                                        <GlossarySearch />
-                                        <GlossaryBrowser openToEntity refreshBrowser={shouldUpdateBrowser} />
-                                    </BrowserWrapper>
-                                    <ProfileSidebarResizer
-                                        setSidePanelWidth={(width) =>
-                                            setBrowserWith(
-                                                Math.min(Math.max(width, MIN_BROWSWER_WIDTH), MAX_BROWSER_WIDTH),
-                                            )
-                                        }
-                                        initialSize={browserWidth}
-                                        isSidebarOnLeft
-                                    />
-                                </>
-                            )}
-                            <HeaderAndTabs>
-                                <HeaderAndTabsFlex>
-                                    <Header>
-                                        <EntityHeader
-                                            headerDropdownItems={headerDropdownItems}
-                                            isNameEditable={isNameEditable}
-                                            subHeader={subHeader}
-                                            refreshBrowser={refreshBrowser}
-                                        />
-                                        <EntityTabs
-                                            tabs={[...tabsWithDefaults, ...autoRenderTabs]}
-                                            selectedTab={routedTab}
-                                        />
-                                    </Header>
-                                    <TabContent>
-                                        {routedTab && <routedTab.component properties={routedTab.properties} />}
-                                    </TabContent>
-                                </HeaderAndTabsFlex>
-                            </HeaderAndTabs>
-                            <ProfileSidebarResizer
-                                setSidePanelWidth={(width) =>
-                                    setSidebarWidth(Math.min(Math.max(width, MIN_SIDEBAR_WIDTH), MAX_SIDEBAR_WIDTH))
-                                }
-                                initialSize={sidebarWidth}
-                            />
-                            <Sidebar $width={sidebarWidth}>
-                                <EntitySidebar sidebarSections={sideBarSectionsWithDefaults} />
-                            </Sidebar>
-                        </>
-                    )}
-                </ContentContainer>
             </>
         </EntityContext.Provider>
     );

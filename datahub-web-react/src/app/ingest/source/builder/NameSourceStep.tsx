@@ -1,4 +1,4 @@
-import { Button, Collapse, Form, Input, Typography } from 'antd';
+import { Button, Checkbox, Collapse, Form, Input, Typography } from 'antd';
 import React from 'react';
 import styled from 'styled-components';
 import { SourceBuilderState, StepProps } from './types';
@@ -7,6 +7,10 @@ const ControlsContainer = styled.div`
     display: flex;
     justify-content: space-between;
     margin-top: 8px;
+`;
+
+const SaveButton = styled(Button)`
+    margin-right: 15px;
 `;
 
 export const NameSourceStep = ({ state, updateState, prev, submit }: StepProps) => {
@@ -40,9 +44,20 @@ export const NameSourceStep = ({ state, updateState, prev, submit }: StepProps) 
         updateState(newState);
     };
 
-    const onClickCreate = () => {
+    const setDebugMode = (debugMode: boolean) => {
+        const newState: SourceBuilderState = {
+            ...state,
+            config: {
+                ...state.config,
+                debugMode,
+            },
+        };
+        updateState(newState);
+    };
+
+    const onClickCreate = (shouldRun?: boolean) => {
         if (state.name !== undefined && state.name.length > 0) {
-            submit();
+            submit(shouldRun);
         }
     };
 
@@ -83,9 +98,18 @@ export const NameSourceStep = ({ state, updateState, prev, submit }: StepProps) 
                                 Advanced: Provide a custom CLI version to use for ingestion.
                             </Typography.Paragraph>
                             <Input
-                                placeholder="0.8.41"
+                                placeholder="(e.g. 0.9.0)"
                                 value={state.config?.version || ''}
                                 onChange={(event) => setVersion(event.target.value)}
+                            />
+                        </Form.Item>
+                        <Form.Item label={<Typography.Text strong>Debug Mode</Typography.Text>}>
+                            <Typography.Paragraph>
+                                Advanced: Turn on debug mode in order to get more verbose logs.
+                            </Typography.Paragraph>
+                            <Checkbox
+                                checked={state.config?.debugMode || false}
+                                onChange={(event) => setDebugMode(event.target.checked)}
                             />
                         </Form.Item>
                     </Collapse.Panel>
@@ -93,9 +117,21 @@ export const NameSourceStep = ({ state, updateState, prev, submit }: StepProps) 
             </Form>
             <ControlsContainer>
                 <Button onClick={prev}>Previous</Button>
-                <Button disabled={!(state.name !== undefined && state.name.length > 0)} onClick={onClickCreate}>
-                    Done
-                </Button>
+                <div>
+                    <SaveButton
+                        disabled={!(state.name !== undefined && state.name.length > 0)}
+                        onClick={() => onClickCreate(false)}
+                    >
+                        Save
+                    </SaveButton>
+                    <Button
+                        disabled={!(state.name !== undefined && state.name.length > 0)}
+                        onClick={() => onClickCreate(true)}
+                        type="primary"
+                    >
+                        Save & Run
+                    </Button>
+                </div>
             </ControlsContainer>
         </>
     );

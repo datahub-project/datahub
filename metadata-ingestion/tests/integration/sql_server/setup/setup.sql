@@ -1,3 +1,20 @@
+CREATE DATABASE NewData;
+GO
+USE NewData;
+GO
+CREATE TABLE ProductsNew (ID int, ProductName nvarchar(max));
+GO
+CREATE SCHEMA FooNew;
+GO
+CREATE TABLE FooNew.ItemsNew (ID int, ItemName nvarchar(max));
+GO
+CREATE TABLE FooNew.PersonsNew (
+    ID int NOT NULL PRIMARY KEY,
+    LastName varchar(255) NOT NULL,
+    FirstName varchar(255),
+    Age int
+);
+
 CREATE DATABASE DemoData;
 GO
 USE DemoData;

@@ -1,3 +1,4 @@
+import collections
 import concurrent.futures
 import contextlib
 import dataclasses
@@ -9,23 +10,8 @@ import unittest.mock
 import uuid
 from typing import Any, Callable, Dict, Iterable, Iterator, List, Optional, Tuple, Union
 
-from great_expectations import __version__ as ge_version
-
-from datahub.configuration.common import ConfigurationError
-from datahub.telemetry import stats, telemetry
-
-# Fun compatibility hack! GE version 0.13.44 broke compatibility with SQLAlchemy 1.3.24.
-# This is a temporary workaround until GE fixes the issue on their end.
-# See https://github.com/great-expectations/great_expectations/issues/3758.
-try:
-    import sqlalchemy.engine
-    from sqlalchemy.engine.url import make_url
-
-    sqlalchemy.engine.make_url = make_url  # type: ignore
-except ImportError:
-    pass
-
 import sqlalchemy as sa
+from great_expectations import __version__ as ge_version
 from great_expectations.core.util import convert_to_json_serializable
 from great_expectations.data_context import BaseDataContext
 from great_expectations.data_context.types.base import (
@@ -42,6 +28,7 @@ from sqlalchemy.engine import Connection, Engine
 from sqlalchemy.exc import ProgrammingError
 from typing_extensions import Concatenate, ParamSpec
 
+from datahub.configuration.common import ConfigurationError
 from datahub.emitter.mce_builder import get_sys_time
 from datahub.ingestion.source.ge_profiling_config import GEProfilingConfig
 from datahub.ingestion.source.profiling.common import (
@@ -57,6 +44,7 @@ from datahub.metadata.schema_classes import (
     QuantileClass,
     ValueFrequencyClass,
 )
+from datahub.telemetry import stats, telemetry
 from datahub.utilities.perf_timer import PerfTimer
 from datahub.utilities.sqlalchemy_query_combiner import (
     SQLAlchemyQueryCombiner,
@@ -112,21 +100,14 @@ def get_column_unique_count_patch(self, column):
     if self.engine.dialect.name.lower() == "redshift":
         element_values = self.engine.execute(
             sa.select(
-                [sa.text(f"APPROXIMATE count(distinct {column})")]  # type:ignore
+                [sa.text(f'APPROXIMATE count(distinct "{column}")')]  # type:ignore
             ).select_from(self._table)
         )
         return convert_to_json_serializable(element_values.fetchone()[0])
-    elif self.engine.dialect.name.lower() == "bigquery":
+    elif self.engine.dialect.name.lower() in {"bigquery", "snowflake"}:
         element_values = self.engine.execute(
             sa.select(
-                [sa.text(f"APPROX_COUNT_DISTINCT ({column})")]  # type:ignore
-            ).select_from(self._table)
-        )
-        return convert_to_json_serializable(element_values.fetchone()[0])
-    elif self.engine.dialect.name.lower() == "snowflake":
-        element_values = self.engine.execute(
-            sa.select(
-                [sa.text(f"APPROX_COUNT_DISTINCT({column})")]  # type:ignore
+                [sa.text(f"APPROX_COUNT_DISTINCT ({sa.column(column)})")]  # type:ignore
             ).select_from(self._table)
         )
         return convert_to_json_serializable(element_values.fetchone()[0])
@@ -226,10 +207,9 @@ def _is_single_row_query_method(query: Any) -> bool:
     return False
 
 
-# mypy does not yet support ParamSpec. See https://github.com/python/mypy/issues/8645.
 def _run_with_query_combiner(
-    method: Callable[Concatenate["_SingleDatasetProfiler", P], None]  # type: ignore
-) -> Callable[Concatenate["_SingleDatasetProfiler", P], None]:  # type: ignore
+    method: Callable[Concatenate["_SingleDatasetProfiler", P], None]
+) -> Callable[Concatenate["_SingleDatasetProfiler", P], None]:
     @functools.wraps(method)
     def inner(
         self: "_SingleDatasetProfiler", *args: P.args, **kwargs: P.kwargs
@@ -271,7 +251,7 @@ class _SingleDatasetProfiler(BasicDatasetProfilerBase):
         ignored_columns: List[str] = []
         for col in self.dataset.get_table_columns():
             # We expect the allow/deny patterns to specify '<table_pattern>.<column_pattern>'
-            if not self.config.allow_deny_patterns.allowed(
+            if not self.config._allow_deny_patterns.allowed(
                 f"{self.dataset_name}.{col}"
             ):
                 ignored_columns.append(col)
@@ -290,10 +270,10 @@ class _SingleDatasetProfiler(BasicDatasetProfilerBase):
                 columns_to_profile = columns_to_profile[
                     : self.config.max_number_of_fields_to_profile
                 ]
-
-                self.report.report_dropped(
-                    f"The max_number_of_fields_to_profile={self.config.max_number_of_fields_to_profile} reached. Profile of columns {self.dataset_name}({', '.join(sorted(columns_being_dropped))})"
-                )
+                if self.config.report_dropped_profiles:
+                    self.report.report_dropped(
+                        f"The max_number_of_fields_to_profile={self.config.max_number_of_fields_to_profile} reached. Profile of columns {self.dataset_name}({', '.join(sorted(columns_being_dropped))})"
+                    )
         return columns_to_profile
 
     @_run_with_query_combiner
@@ -480,16 +460,28 @@ class _SingleDatasetProfiler(BasicDatasetProfilerBase):
     def _get_dataset_column_sample_values(
         self, column_profile: DatasetFieldProfileClass, column: str
     ) -> None:
-        if self.config.include_field_sample_values:
+        if not self.config.include_field_sample_values:
+            return
+
+        try:
             # TODO do this without GE
             self.dataset.set_config_value("interactive_evaluation", True)
 
             res = self.dataset.expect_column_values_to_be_in_set(
                 column, [], result_format="SUMMARY"
             ).result
+
             column_profile.sampleValues = [
                 str(v) for v in res["partial_unexpected_list"]
             ]
+        except Exception as e:
+            logger.debug(
+                f"Caught exception while attempting to get sample values for column {column}. {e}"
+            )
+            self.report.report_warning(
+                "Profiling - Unable to get column sample values",
+                f"{self.dataset_name}.{column}",
+            )
 
     def generate_dataset_profile(  # noqa: C901 (complexity)
         self,
@@ -528,14 +520,6 @@ class _SingleDatasetProfiler(BasicDatasetProfilerBase):
 
         assert profile.rowCount is not None
         row_count: int = profile.rowCount
-
-        telemetry.telemetry_instance.ping(
-            "profile_sql_table",
-            # bucket by taking floor of log of the number of rows scanned
-            {
-                "rows_profiled": stats.discretize(row_count),
-            },
-        )
 
         for column_spec in columns_profiling_queue:
             column = column_spec.column
@@ -664,6 +648,7 @@ class DatahubGEProfiler:
     report: SQLSourceReport
     config: GEProfilingConfig
     times_taken: List[float]
+    total_row_count: int
 
     base_engine: Engine
     platform: str  # passed from parent source config
@@ -681,6 +666,7 @@ class DatahubGEProfiler:
         self.report = report
         self.config = config
         self.times_taken = []
+        self.total_row_count = 0
 
         # TRICKY: The call to `.engine` is quite important here. Connection.connect()
         # returns a "branched" connection, which does not actually use a new underlying
@@ -754,7 +740,7 @@ class DatahubGEProfiler:
                     "great_expectations.dataset.sqlalchemy_dataset.SqlAlchemyDataset._get_column_quantiles_bigquery",
                     _get_column_quantiles_bigquery_patch,
                 ):
-                    async_profiles = [
+                    async_profiles = collections.deque(
                         async_executor.submit(
                             self._generate_profile_from_request,
                             query_combiner,
@@ -763,12 +749,13 @@ class DatahubGEProfiler:
                             profiler_args=profiler_args,
                         )
                         for request in requests
-                    ]
+                    )
 
                     # Avoid using as_completed so that the results are yielded in the
                     # same order as the requests.
                     # for async_profile in concurrent.futures.as_completed(async_profiles):
-                    for async_profile in async_profiles:
+                    while len(async_profiles) > 0:
+                        async_profile = async_profiles.popleft()
                         yield async_profile.result()
 
                     total_time_taken = timer.elapsed_seconds()
@@ -798,6 +785,7 @@ class DatahubGEProfiler:
                         {
                             "total_time_taken": stats.discretize(total_time_taken),
                             "count": stats.discretize(len(self.times_taken)),
+                            "total_row_count": stats.discretize(self.total_row_count),
                             "platform": self.platform,
                             **time_percentiles,
                         },
@@ -840,6 +828,16 @@ class DatahubGEProfiler:
                 f"Unable to delete bigquery temporary table: {bigquery_temp_table}"
             )
 
+    def _drop_trino_temp_table(self, temp_dataset: Dataset) -> None:
+        schema = temp_dataset._table.schema
+        table = temp_dataset._table.name
+        try:
+            with self.base_engine.connect() as connection:
+                connection.execute(f"drop view if exists {schema}.{table}")
+                logger.debug(f"View {schema}.{table} was dropped.")
+        except Exception:
+            logger.warning(f"Unable to delete trino temporary table: {schema}.{table}")
+
     def _generate_single_profile(
         self,
         query_combiner: SQLAlchemyQueryCombiner,
@@ -870,7 +868,7 @@ class DatahubGEProfiler:
             if profiler_args is not None:
                 temp_table_db = profiler_args.get("temp_table_db", schema)
                 if platform is not None and platform == "bigquery":
-                    ge_config["schema"] = temp_table_db
+                    ge_config["schema"] = None
 
             if self.config.bigquery_temp_table_schema:
                 num_parts = self.config.bigquery_temp_table_schema.split(".")
@@ -931,6 +929,8 @@ class DatahubGEProfiler:
                     f"Finished profiling {pretty_name}; took {time_taken:.3f} seconds"
                 )
                 self.times_taken.append(time_taken)
+                if profile.rowCount is not None:
+                    self.total_row_count += profile.rowCount
 
                 return profile
             except Exception as e:
@@ -940,7 +940,9 @@ class DatahubGEProfiler:
                 self.report.report_failure(pretty_name, f"Profiling exception {e}")
                 return None
             finally:
-                if bigquery_temp_table:
+                if self.base_engine.engine.name == "trino":
+                    self._drop_trino_temp_table(batch)
+                elif bigquery_temp_table:
                     self._drop_bigquery_temp_table(bigquery_temp_table)
 
     def _get_ge_dataset(

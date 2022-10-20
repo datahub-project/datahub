@@ -72,6 +72,11 @@ extend type Mutation {
   input: Input required for creating a test connection request
   """
   createTestConnectionRequest(input: CreateTestConnectionRequestInput!): String
+
+  """
+  Rollback a specific ingestion execution run based on its runId
+  """
+  rollbackIngestion(input: RollbackIngestionInput!): String
 }
 
 """
@@ -133,6 +138,29 @@ type ExecutionRequestResult {
   """
   report: String
 
+  """
+  A structured report for this Execution Request
+  """
+  structuredReport: StructuredReport
+
+}
+
+"""
+A flexible carrier for structured results of an execution request.
+"""
+type StructuredReport {
+  """
+  The type of the structured report. (e.g. INGESTION_REPORT, TEST_CONNECTION_REPORT, etc.)
+  """
+  type: String!
+  """
+  The serialized value of the structured report
+  """
+  serializedValue: String!
+  """
+  The content-type of the serialized value (e.g. application/json, application/json;gzip etc.)
+  """
+  contentType: String!
 }
 
 """
@@ -143,6 +171,11 @@ type ExecutionRequest {
   Urn of the execution request
   """
   urn: String!
+
+  """
+  Unique id for the execution request
+  """
+  id: String!
 
   """
   Input provided when creating the Execution Request
@@ -174,6 +207,11 @@ input CreateTestConnectionRequestInput {
   A JSON-encoded recipe
   """
   recipe: String!
+
+  """
+  Advanced: The version of the ingestion framework to use
+  """
+  version: String
 }
 
 """
@@ -289,6 +327,11 @@ type IngestionConfig {
   Advanced: The version of the ingestion framework to use
   """
   version: String
+
+  """
+  Advanced: Whether or not to run ingestion in debug mode
+  """
+  debugMode: Boolean
 }
 
 """
@@ -350,6 +393,11 @@ type IngestionSource {
   An optional schedule associated with the Ingestion Source
   """
   schedule: IngestionSchedule
+
+  """
+  The data platform associated with this ingestion source
+  """
+  platform: DataPlatform
 
   """
   An type-specific set of configurations for the ingestion source
@@ -425,6 +473,11 @@ input UpdateIngestionSourceConfigInput {
   The id of the executor to use for executing the recipe
   """
   executorId: String!
+
+  """
+  Whether or not to run ingestion in debug mode
+  """
+  debugMode: Boolean
 }
 
 """
@@ -516,3 +569,14 @@ type SecretValue {
   """
   value: String!
 }
+
+"""
+Input for rolling back an ingestion execution
+"""
+input RollbackIngestionInput {
+  """
+  An ingestion run ID
+  """
+  runId: String!
+}
+

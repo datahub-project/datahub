@@ -1,4 +1,3 @@
-import sys
 from datetime import datetime
 from unittest import mock
 
@@ -12,7 +11,6 @@ FROZEN_TIME = "2020-04-14 07:00:00"
 
 
 @pytest.mark.integration
-@pytest.mark.skipif(sys.version_info < (3, 7), reason="requires python3.7 or higher")
 def test_athena_uri():
     from datahub.ingestion.source.sql.athena import AthenaConfig
 
@@ -25,13 +23,12 @@ def test_athena_uri():
     )
     assert (
         config.get_sql_alchemy_url()
-        == "awsathena+rest://@athena.us-west-1.amazonaws.com:443/?s3_staging_dir=s3%3A%2F%2Fsample-staging-dir%2F&work_group=test-workgroup"
+        == "awsathena+rest://@athena.us-west-1.amazonaws.com:443/?s3_staging_dir=s3%3A%2F%2Fsample-staging-dir%2F&work_group=test-workgroup&catalog_name=awsdatacatalog&duration_seconds=3600"
     )
 
 
 @pytest.mark.integration
 @freeze_time(FROZEN_TIME)
-@pytest.mark.skipif(sys.version_info < (3, 7), reason="requires python3.7 or higher")
 def test_athena_get_table_properties():
     from pyathena.model import AthenaTableMetadata
 

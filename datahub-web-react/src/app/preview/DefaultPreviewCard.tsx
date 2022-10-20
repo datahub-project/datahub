@@ -1,4 +1,4 @@
-import React, { ReactNode } from 'react';
+import React, { ReactNode, useState } from 'react';
 import { Button, Divider, Tooltip, Typography } from 'antd';
 import { Link } from 'react-router-dom';
 import styled from 'styled-components';
@@ -10,11 +10,12 @@ import {
     GlossaryTerms,
     SearchInsight,
     Container,
-    Domain,
     ParentContainersResult,
     Maybe,
     CorpUser,
     Deprecation,
+    Domain,
+    ParentNodesResult,
 } from '../../types.generated';
 import TagTermGroup from '../shared/tags/TagTermGroup';
 import { ANTD_GRAY } from '../entity/shared/constants';
@@ -26,6 +27,7 @@ import { useParentContainersTruncation } from '../entity/shared/containers/profi
 import EntityCount from '../entity/shared/containers/profile/header/EntityCount';
 import { ExpandedActorGroup } from '../entity/shared/components/styled/ExpandedActorGroup';
 import { DeprecationPill } from '../entity/shared/components/styled/DeprecationPill';
+import { PreviewType } from '../entity/Entity';
 
 const PreviewContainer = styled.div`
     display: flex;
@@ -69,6 +71,13 @@ const EntityTitle = styled(Typography.Text)<{ $titleSizePx?: number }>`
         font-weight: 600;
         vertical-align: middle;
     }
+`;
+
+const CardEntityTitle = styled(EntityTitle)`
+    max-width: 350px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
 `;
 
 const PlatformText = styled(Typography.Text)`
@@ -176,7 +185,7 @@ interface Props {
     insights?: Array<SearchInsight> | null;
     glossaryTerms?: GlossaryTerms;
     container?: Container;
-    domain?: Domain | null;
+    domain?: Domain | undefined | null;
     entityCount?: number;
     dataTestID?: string;
     titleSizePx?: number;
@@ -185,6 +194,8 @@ interface Props {
     // how the listed node is connected to the source node
     degree?: number;
     parentContainers?: ParentContainersResult | null;
+    parentNodes?: ParentNodesResult | null;
+    previewType?: Maybe<PreviewType>;
 }
 
 export default function DefaultPreviewCard({
@@ -217,8 +228,10 @@ export default function DefaultPreviewCard({
     onClick,
     degree,
     parentContainers,
+    parentNodes,
     platforms,
     logoUrls,
+    previewType,
 }: Props) {
     // sometimes these lists will be rendered inside an entity container (for example, in the case of impact analysis)
     // in those cases, we may want to enrich the preview w/ context about the container entity
@@ -236,11 +249,17 @@ export default function DefaultPreviewCard({
     if (snippet) {
         insightViews.push(snippet);
     }
+    const [descriptionExpanded, setDescriptionExpanded] = useState(false);
 
     const { parentContainersRef, areContainersTruncated } = useParentContainersTruncation(container);
 
+    const onPreventMouseDown = (event) => {
+        event.preventDefault();
+        event.stopPropagation();
+    };
+
     return (
-        <PreviewContainer data-testid={dataTestID}>
+        <PreviewContainer data-testid={dataTestID} onMouseDown={onPreventMouseDown}>
             <LeftColumn>
                 <TitleContainer>
                     <PlatformContentView
@@ -253,16 +272,25 @@ export default function DefaultPreviewCard({
                         typeIcon={typeIcon}
                         entityType={type}
                         parentContainers={parentContainers?.containers}
+                        parentNodes={parentNodes?.nodes}
                         parentContainersRef={parentContainersRef}
                         areContainersTruncated={areContainersTruncated}
                     />
                     <EntityTitleContainer>
                         <Link to={url}>
-                            <EntityTitle onClick={onClick} $titleSizePx={titleSizePx}>
-                                {name || ' '}
-                            </EntityTitle>
+                            {previewType === PreviewType.HOVER_CARD ? (
+                                <CardEntityTitle onClick={onClick} $titleSizePx={titleSizePx}>
+                                    {name || ' '}
+                                </CardEntityTitle>
+                            ) : (
+                                <EntityTitle onClick={onClick} $titleSizePx={titleSizePx}>
+                                    {name || ' '}
+                                </EntityTitle>
+                            )}
                         </Link>
-                        {deprecation?.deprecated && <DeprecationPill deprecation={deprecation} preview />}
+                        {deprecation?.deprecated && (
+                            <DeprecationPill deprecation={deprecation} urn="" showUndeprecate={false} preview />
+                        )}
                         {externalUrl && (
                             <ExternalUrlContainer>
                                 <ExternalUrlButton type="link" href={externalUrl} target="_blank">
@@ -286,7 +314,24 @@ export default function DefaultPreviewCard({
                 </TitleContainer>
                 {description && description.length > 0 && (
                     <DescriptionContainer>
-                        <NoMarkdownViewer limit={250}>{description}</NoMarkdownViewer>
+                        <NoMarkdownViewer
+                            limit={descriptionExpanded ? undefined : 250}
+                            shouldWrap={previewType === PreviewType.HOVER_CARD}
+                            readMore={
+                                previewType === PreviewType.HOVER_CARD ? (
+                                    <Typography.Link
+                                        onClickCapture={(e) => {
+                                            onPreventMouseDown(e);
+                                            setDescriptionExpanded(!descriptionExpanded);
+                                        }}
+                                    >
+                                        {descriptionExpanded ? 'Show Less' : 'Show More'}
+                                    </Typography.Link>
+                                ) : undefined
+                            }
+                        >
+                            {description}
+                        </NoMarkdownViewer>
                     </DescriptionContainer>
                 )}
                 {(domain || hasGlossaryTerms || hasTags) && (

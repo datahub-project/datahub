@@ -5,6 +5,7 @@ import com.linkedin.datahub.graphql.generated.ExecutionRequest;
 import com.linkedin.datahub.graphql.generated.IngestionConfig;
 import com.linkedin.datahub.graphql.generated.IngestionSchedule;
 import com.linkedin.datahub.graphql.generated.IngestionSource;
+import com.linkedin.datahub.graphql.generated.StructuredReport;
 import com.linkedin.datahub.graphql.types.common.mappers.StringMapMapper;
 import com.linkedin.entity.EntityResponse;
 import com.linkedin.entity.EnvelopedAspect;
@@ -12,6 +13,7 @@ import com.linkedin.entity.EnvelopedAspectMap;
 import com.linkedin.execution.ExecutionRequestInput;
 import com.linkedin.execution.ExecutionRequestResult;
 import com.linkedin.execution.ExecutionRequestSource;
+import com.linkedin.execution.StructuredExecutionReport;
 import com.linkedin.ingestion.DataHubIngestionSourceConfig;
 import com.linkedin.ingestion.DataHubIngestionSourceInfo;
 import com.linkedin.ingestion.DataHubIngestionSourceSchedule;
@@ -19,8 +21,10 @@ import com.linkedin.metadata.Constants;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
+import lombok.extern.slf4j.Slf4j;
 
 
+@Slf4j
 public class IngestionResolverUtils {
 
   public static List<ExecutionRequest> mapExecutionRequests(final Collection<EntityResponse> requests) {
@@ -37,6 +41,7 @@ public class IngestionResolverUtils {
 
     final ExecutionRequest result = new ExecutionRequest();
     result.setUrn(entityUrn.toString());
+    result.setId(entityUrn.getId());
 
     // Map input aspect. Must be present.
     final EnvelopedAspect envelopedInput = aspects.get(Constants.EXECUTION_REQUEST_INPUT_ASPECT_NAME);
@@ -77,13 +82,28 @@ public class IngestionResolverUtils {
     result.setStartTimeMs(execRequestResult.getStartTimeMs());
     result.setDurationMs(execRequestResult.getDurationMs());
     result.setReport(execRequestResult.getReport());
+    if (execRequestResult.hasStructuredReport()) {
+      result.setStructuredReport(mapStructuredReport(execRequestResult.getStructuredReport()));
+    }
     return result;
+  }
+
+  public static StructuredReport mapStructuredReport(final StructuredExecutionReport structuredReport) {
+    StructuredReport structuredReportResult = new StructuredReport();
+    structuredReportResult.setType(structuredReport.getType());
+    structuredReportResult.setSerializedValue(structuredReport.getSerializedValue());
+    structuredReportResult.setContentType(structuredReport.getContentType());
+    return structuredReportResult;
   }
 
   public static List<IngestionSource> mapIngestionSources(final Collection<EntityResponse> entities) {
     final List<IngestionSource> results = new ArrayList<>();
     for (EntityResponse response : entities) {
-      results.add(mapIngestionSource(response));
+      try {
+        results.add(mapIngestionSource(response));
+      } catch (IllegalStateException e) {
+        log.error("Unable to map ingestion source, continuing to other sources.", e);
+      }
     }
     return results;
   }
@@ -94,6 +114,10 @@ public class IngestionResolverUtils {
 
     // There should ALWAYS be an info aspect.
     final EnvelopedAspect envelopedInfo = aspects.get(Constants.INGESTION_INFO_ASPECT_NAME);
+
+    if (envelopedInfo == null) {
+      throw new IllegalStateException("No ingestion source info aspect exists for urn: " + entityUrn);
+    }
 
     // Bind into a strongly typed object.
     final DataHubIngestionSourceInfo ingestionSourceInfo = new DataHubIngestionSourceInfo(envelopedInfo.getValue().data());
@@ -118,6 +142,7 @@ public class IngestionResolverUtils {
     result.setRecipe(config.getRecipe());
     result.setVersion(config.getVersion());
     result.setExecutorId(config.getExecutorId());
+    result.setDebugMode(config.isDebugMode());
     return result;
   }
 

@@ -1,8 +1,9 @@
-from unittest.mock import patch
+from unittest.mock import MagicMock, patch
 
 import pytest
 
 from datahub.configuration.common import ConfigurationError, OauthConfiguration
+from datahub.ingestion.api.source import SourceCapability
 from datahub.ingestion.source.sql.snowflake import SnowflakeConfig, SnowflakeSource
 
 
@@ -186,6 +187,7 @@ def test_test_connection_failure(mock_connect):
 
 @patch("snowflake.connector.connect")
 def test_test_connection_basic_success(mock_connect):
+
     config = {
         "username": "user",
         "password": "password",
@@ -198,3 +200,211 @@ def test_test_connection_basic_success(mock_connect):
     assert report.basic_connectivity
     assert report.basic_connectivity.capable
     assert report.basic_connectivity.failure_reason is None
+
+
+def setup_mock_connect(mock_connect, query_results=None):
+    def default_query_results(query):
+        if query == "select current_role()":
+            return [("TEST_ROLE",)]
+        elif query == "select current_secondary_roles()":
+            return [('{"roles":"","value":""}',)]
+        elif query == "select current_warehouse()":
+            return [("TEST_WAREHOUSE")]
+        # Unreachable code
+        raise Exception()
+
+    connection_mock = MagicMock()
+    cursor_mock = MagicMock()
+    cursor_mock.execute.side_effect = (
+        query_results if query_results is not None else default_query_results
+    )
+    connection_mock.cursor.return_value = cursor_mock
+    mock_connect.return_value = connection_mock
+
+
+@patch("snowflake.connector.connect")
+def test_test_connection_no_warehouse(mock_connect):
+    def query_results(query):
+        if query == "select current_role()":
+            return [("TEST_ROLE",)]
+        elif query == "select current_secondary_roles()":
+            return [('{"roles":"","value":""}',)]
+        elif query == "select current_warehouse()":
+            return [(None,)]
+        elif query == 'show grants to role "TEST_ROLE"':
+            return [
+                ("", "USAGE", "DATABASE", "DB1"),
+                ("", "USAGE", "SCHEMA", "DB1.SCHEMA1"),
+                ("", "REFERENCES", "TABLE", "DB1.SCHEMA1.TABLE1"),
+            ]
+        elif query == 'show grants to role "PUBLIC"':
+            return []
+        # Unreachable code
+        raise Exception()
+
+    config = {
+        "username": "user",
+        "password": "password",
+        "account_id": "missing",
+        "warehouse": "COMPUTE_WH",
+        "role": "sysadmin",
+    }
+    setup_mock_connect(mock_connect, query_results)
+    report = SnowflakeSource.test_connection(config)
+    assert report is not None
+    assert report.basic_connectivity
+    assert report.basic_connectivity.capable
+    assert report.basic_connectivity.failure_reason is None
+
+    assert report.capability_report
+    assert report.capability_report[SourceCapability.CONTAINERS].capable
+    assert not report.capability_report[SourceCapability.SCHEMA_METADATA].capable
+    failure_reason = report.capability_report[
+        SourceCapability.SCHEMA_METADATA
+    ].failure_reason
+    assert failure_reason
+
+    assert "Current role does not have permissions to use warehouse" in failure_reason
+
+
+@patch("snowflake.connector.connect")
+def test_test_connection_capability_schema_failure(mock_connect):
+    def query_results(query):
+        if query == "select current_role()":
+            return [("TEST_ROLE",)]
+        elif query == "select current_secondary_roles()":
+            return [('{"roles":"","value":""}',)]
+        elif query == "select current_warehouse()":
+            return [("TEST_WAREHOUSE",)]
+        elif query == 'show grants to role "TEST_ROLE"':
+            return [("", "USAGE", "DATABASE", "DB1")]
+        elif query == 'show grants to role "PUBLIC"':
+            return []
+        # Unreachable code
+        raise Exception()
+
+    setup_mock_connect(mock_connect, query_results)
+
+    config = {
+        "username": "user",
+        "password": "password",
+        "account_id": "missing",
+        "warehouse": "COMPUTE_WH",
+        "role": "sysadmin",
+    }
+    report = SnowflakeSource.test_connection(config)
+    assert report is not None
+    assert report.basic_connectivity
+    assert report.basic_connectivity.capable
+    assert report.basic_connectivity.failure_reason is None
+    assert report.capability_report
+
+    assert report.capability_report[SourceCapability.CONTAINERS].capable
+    assert not report.capability_report[SourceCapability.SCHEMA_METADATA].capable
+    assert (
+        report.capability_report[SourceCapability.SCHEMA_METADATA].failure_reason
+        is not None
+    )
+
+
+@patch("snowflake.connector.connect")
+def test_test_connection_capability_schema_success(mock_connect):
+    def query_results(query):
+        if query == "select current_role()":
+            return [("TEST_ROLE",)]
+        elif query == "select current_secondary_roles()":
+            return [('{"roles":"","value":""}',)]
+        elif query == "select current_warehouse()":
+            return [("TEST_WAREHOUSE")]
+        elif query == 'show grants to role "TEST_ROLE"':
+            return [
+                ["", "USAGE", "DATABASE", "DB1"],
+                ["", "USAGE", "SCHEMA", "DB1.SCHEMA1"],
+                ["", "REFERENCES", "TABLE", "DB1.SCHEMA1.TABLE1"],
+            ]
+        elif query == 'show grants to role "PUBLIC"':
+            return []
+        # Unreachable code
+        raise Exception()
+
+    setup_mock_connect(mock_connect, query_results)
+
+    config = {
+        "username": "user",
+        "password": "password",
+        "account_id": "missing",
+        "warehouse": "COMPUTE_WH",
+        "role": "sysadmin",
+    }
+    report = SnowflakeSource.test_connection(config)
+    assert report is not None
+    assert report.basic_connectivity
+    assert report.basic_connectivity.capable
+    assert report.basic_connectivity.failure_reason is None
+    assert report.capability_report
+
+    assert report.capability_report[SourceCapability.CONTAINERS].capable
+    assert report.capability_report[SourceCapability.SCHEMA_METADATA].capable
+    assert report.capability_report[SourceCapability.DESCRIPTIONS].capable
+    assert not report.capability_report[SourceCapability.DATA_PROFILING].capable
+    assert (
+        report.capability_report[SourceCapability.DATA_PROFILING].failure_reason
+        is not None
+    )
+    assert not report.capability_report[SourceCapability.LINEAGE_COARSE].capable
+    assert (
+        report.capability_report[SourceCapability.LINEAGE_COARSE].failure_reason
+        is not None
+    )
+
+
+@patch("snowflake.connector.connect")
+def test_test_connection_capability_all_success(mock_connect):
+    def query_results(query):
+        if query == "select current_role()":
+            return [("TEST_ROLE",)]
+        elif query == "select current_secondary_roles()":
+            return [('{"roles":"","value":""}',)]
+        elif query == "select current_warehouse()":
+            return [("TEST_WAREHOUSE")]
+        elif query == 'show grants to role "TEST_ROLE"':
+            return [
+                ("", "USAGE", "DATABASE", "DB1"),
+                ("", "USAGE", "SCHEMA", "DB1.SCHEMA1"),
+                ("", "SELECT", "TABLE", "DB1.SCHEMA1.TABLE1"),
+                ("", "USAGE", "ROLE", "TEST_USAGE_ROLE"),
+            ]
+        elif query == 'show grants to role "PUBLIC"':
+            return []
+        elif query == 'show grants to role "TEST_USAGE_ROLE"':
+            return [
+                ["", "USAGE", "DATABASE", "SNOWFLAKE"],
+                ["", "USAGE", "SCHEMA", "ACCOUNT_USAGE"],
+                ["", "USAGE", "VIEW", "SNOWFLAKE.ACCOUNT_USAGE.QUERY_HISTORY"],
+                ["", "USAGE", "VIEW", "SNOWFLAKE.ACCOUNT_USAGE.ACCESS_HISTORY"],
+                ["", "USAGE", "VIEW", "SNOWFLAKE.ACCOUNT_USAGE.OBJECT_DEPENDENCIES"],
+            ]
+        # Unreachable code
+        raise Exception()
+
+    setup_mock_connect(mock_connect, query_results)
+
+    config = {
+        "username": "user",
+        "password": "password",
+        "account_id": "missing",
+        "warehouse": "COMPUTE_WH",
+        "role": "sysadmin",
+    }
+    report = SnowflakeSource.test_connection(config)
+    assert report is not None
+    assert report.basic_connectivity
+    assert report.basic_connectivity.capable
+    assert report.basic_connectivity.failure_reason is None
+    assert report.capability_report
+
+    assert report.capability_report[SourceCapability.CONTAINERS].capable
+    assert report.capability_report[SourceCapability.SCHEMA_METADATA].capable
+    assert report.capability_report[SourceCapability.DATA_PROFILING].capable
+    assert report.capability_report[SourceCapability.DESCRIPTIONS].capable
+    assert report.capability_report[SourceCapability.LINEAGE_COARSE].capable

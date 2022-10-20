@@ -1,7 +1,3 @@
-import sys
-
-import pytest
-
 from datahub.utilities.delayed_iter import delayed_iter
 from datahub.utilities.sql_parser import MetadataSQLSQLParser, SqlLineageSQLParser
 
@@ -40,9 +36,6 @@ def test_delayed_iter():
     ]
 
 
-@pytest.mark.skipif(
-    sys.version_info < (3, 7), reason="The LookML source requires Python 3.7+"
-)
 def test_metadatasql_sql_parser_get_tables_from_simple_query():
     sql_query = "SELECT foo.a, foo.b, bar.c FROM foo JOIN bar ON (foo.a == bar.b);"
 
@@ -51,9 +44,6 @@ def test_metadatasql_sql_parser_get_tables_from_simple_query():
     assert tables_list == ["bar", "foo"]
 
 
-@pytest.mark.skipif(
-    sys.version_info < (3, 7), reason="The LookML source requires Python 3.7+"
-)
 def test_sqllineage_sql_parser_get_tables_from_simple_query():
     sql_query = "SELECT foo.a, foo.b, bar.c FROM foo JOIN bar ON (foo.a == bar.b);"
 
@@ -62,9 +52,6 @@ def test_sqllineage_sql_parser_get_tables_from_simple_query():
     assert tables_list == ["bar", "foo"]
 
 
-@pytest.mark.skipif(
-    sys.version_info < (3, 7), reason="The LookML source requires Python 3.7+"
-)
 def test_sqllineage_sql_parser_get_tables_from_complex_query():
     sql_query = """
 (
@@ -118,9 +105,6 @@ date :: date) <= 7
     assert tables_list == ["schema1.foo", "schema2.bar"]
 
 
-@pytest.mark.skipif(
-    sys.version_info < (3, 7), reason="The LookML source requires Python 3.7+"
-)
 def test_sqllineage_sql_parser_get_columns_with_join():
     sql_query = "SELECT foo.a, foo.b, bar.c FROM foo JOIN bar ON (foo.a == bar.b);"
 
@@ -137,9 +121,6 @@ def test_sqllineage_sql_parser_get_columns_from_simple_query():
     assert columns_list == ["a", "b"]
 
 
-@pytest.mark.skipif(
-    sys.version_info < (3, 7), reason="The LookML source requires Python 3.7+"
-)
 def test_metadatasql_sql_parser_get_columns_with_alias_and_count_star():
     sql_query = "SELECT foo.a, foo.b, bar.c as test, count(*) as count FROM foo JOIN bar ON (foo.a == bar.b);"
 
@@ -148,9 +129,6 @@ def test_metadatasql_sql_parser_get_columns_with_alias_and_count_star():
     assert columns_list == ["a", "b", "count", "test"]
 
 
-@pytest.mark.skipif(
-    sys.version_info < (3, 7), reason="The LookML source requires Python 3.7+"
-)
 def test_metadatasql_sql_parser_get_columns_with_more_complex_join():
     sql_query = """
     INSERT
@@ -175,9 +153,6 @@ WHERE
     assert columns_list == ["bs", "pi", "pt", "pu", "v"]
 
 
-@pytest.mark.skipif(
-    sys.version_info < (3, 7), reason="The LookML source requires Python 3.7+"
-)
 def test_sqllineage_sql_parser_get_columns_complex_query_with_union():
     sql_query = """
 (
@@ -231,9 +206,6 @@ date :: date) <= 7
     assert columns_list == ["c", "date", "e", "u", "x"]
 
 
-@pytest.mark.skipif(
-    sys.version_info < (3, 7), reason="The LookML source requires Python 3.7+"
-)
 def test_metadatasql_sql_parser_get_tables_from_templated_query():
     sql_query = """
         SELECT
@@ -249,9 +221,6 @@ def test_metadatasql_sql_parser_get_tables_from_templated_query():
     assert tables_list == ["my_view.SQL_TABLE_NAME"]
 
 
-@pytest.mark.skipif(
-    sys.version_info < (3, 7), reason="The LookML source requires Python 3.7+"
-)
 def test_sqllineage_sql_parser_get_tables_from_templated_query():
     sql_query = """
         SELECT
@@ -267,9 +236,6 @@ def test_sqllineage_sql_parser_get_tables_from_templated_query():
     assert tables_list == ["my_view.SQL_TABLE_NAME"]
 
 
-@pytest.mark.skipif(
-    sys.version_info < (3, 7), reason="The LookML source requires Python 3.7+"
-)
 def test_metadatasql_sql_parser_get_columns_from_templated_query():
     sql_query = """
         SELECT
@@ -285,9 +251,6 @@ def test_metadatasql_sql_parser_get_columns_from_templated_query():
     assert columns_list == ["city", "country", "measurement", "timestamp"]
 
 
-@pytest.mark.skipif(
-    sys.version_info < (3, 7), reason="The LookML source requires Python 3.7+"
-)
 def test_sqllineage_sql_parser_get_columns_from_templated_query():
     sql_query = """
         SELECT
@@ -303,9 +266,6 @@ def test_sqllineage_sql_parser_get_columns_from_templated_query():
     assert columns_list == ["city", "country", "measurement", "timestamp"]
 
 
-@pytest.mark.skipif(
-    sys.version_info < (3, 7), reason="The LookML source requires Python 3.7+"
-)
 def test_sqllineage_sql_parser_with_weird_lookml_query():
     sql_query = """
     SELECT date DATE,
@@ -317,9 +277,6 @@ def test_sqllineage_sql_parser_with_weird_lookml_query():
     assert columns_list == ["aliased_platform", "country", "date"]
 
 
-@pytest.mark.skipif(
-    sys.version_info < (3, 7), reason="The LookML source requires Python 3.7+"
-)
 def test_metadatasql_sql_parser_with_weird_lookml_query():
     sql_query = """
     SELECT date DATE,
@@ -363,3 +320,32 @@ year(order_date)"""
     table_list = SqlLineageSQLParser(sql_query).get_tables()
     table_list.sort()
     assert table_list == ["order_items", "orders", "staffs"]
+
+
+def test_sqllineage_sql_parser_tables_with_special_names():
+
+    # The hyphen appears after the special token in tables names, and before the special token in the column names.
+    sql_query = """
+SELECT `column-date`, `column-hour`, `column-timestamp`, `column-data`, `column-admin`
+FROM `date-table` d
+JOIN `hour-table` h on d.`column-date`= h.`column-hour`
+JOIN `timestamp-table` t on d.`column-date` = t.`column-timestamp`
+JOIN `data-table` da on d.`column-date` = da.`column-data`
+JOIN `admin-table` a on d.`column-date` = a.`column-admin`
+"""
+    expected_tables = [
+        "admin-table",
+        "data-table",
+        "date-table",
+        "hour-table",
+        "timestamp-table",
+    ]
+    expected_columns = [
+        "column-admin",
+        "column-data",
+        "column-date",
+        "column-hour",
+        "column-timestamp",
+    ]
+    assert sorted(SqlLineageSQLParser(sql_query).get_tables()) == expected_tables
+    assert sorted(SqlLineageSQLParser(sql_query).get_columns()) == expected_columns

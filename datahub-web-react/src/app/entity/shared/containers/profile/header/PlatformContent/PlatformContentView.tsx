@@ -1,9 +1,9 @@
 import React from 'react';
 import styled from 'styled-components';
 import { Typography, Image, Tooltip } from 'antd';
-import { RightOutlined } from '@ant-design/icons';
+import { FolderOutlined, RightOutlined } from '@ant-design/icons';
 import { Maybe } from 'graphql/jsutils/Maybe';
-import { Container } from '../../../../../../../types.generated';
+import { Container, GlossaryNode } from '../../../../../../../types.generated';
 import { ANTD_GRAY } from '../../../../constants';
 import ContainerLink from './ContainerLink';
 import { capitalizeFirstLetterOnly } from '../../../../../../shared/textUtil';
@@ -70,6 +70,21 @@ const StyledTooltip = styled(Tooltip)`
     overflow: hidden;
 `;
 
+const GlossaryNodeText = styled(Typography.Text)`
+    font-size: 12px;
+    line-height: 20px;
+    color: ${ANTD_GRAY[7]};
+`;
+
+const GlossaryNodeIcon = styled(FolderOutlined)`
+    color: ${ANTD_GRAY[7]};
+
+    &&& {
+        font-size: 12px;
+        margin-right: 4px;
+    }
+`;
+
 export function getParentContainerNames(containers?: Maybe<Container>[] | null) {
     let parentNames = '';
     if (containers) {
@@ -95,12 +110,14 @@ interface Props {
     typeIcon?: JSX.Element;
     entityType?: string;
     parentContainers?: Maybe<Container>[] | null;
+    parentNodes?: GlossaryNode[] | null;
     parentContainersRef: React.RefObject<HTMLDivElement>;
     areContainersTruncated: boolean;
 }
 
 function PlatformContentView(props: Props) {
     const {
+        parentNodes,
         platformName,
         platformLogoUrl,
         platformNames,
@@ -121,7 +138,9 @@ function PlatformContentView(props: Props) {
         <PlatformContentWrapper>
             {typeIcon && <LogoIcon>{typeIcon}</LogoIcon>}
             <PlatformText>{capitalizeFirstLetterOnly(entityType)}</PlatformText>
-            {(!!platformName || !!instanceId || !!parentContainers?.length) && <PlatformDivider />}
+            {(!!platformName || !!instanceId || !!parentContainers?.length || !!parentNodes?.length) && (
+                <PlatformDivider />
+            )}
             {platformName && (
                 <LogoIcon>
                     {!platformLogoUrl && !platformLogoUrls && entityLogoComponent}
@@ -162,6 +181,13 @@ function PlatformContentView(props: Props) {
                 </ParentContainersWrapper>
                 {directParentContainer && <ContainerLink container={directParentContainer} />}
             </StyledTooltip>
+            {[...(parentNodes || [])]?.reverse()?.map((parentNode, idx) => (
+                <>
+                    <GlossaryNodeIcon />
+                    <GlossaryNodeText>{parentNode?.properties?.name}</GlossaryNodeText>
+                    {idx + 1 !== parentNodes?.length && <StyledRightOutlined data-testid="right-arrow" />}
+                </>
+            ))}
         </PlatformContentWrapper>
     );
 }

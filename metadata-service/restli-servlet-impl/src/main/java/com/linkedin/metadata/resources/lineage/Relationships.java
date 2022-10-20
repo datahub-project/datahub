@@ -67,7 +67,7 @@ public final class Relationships extends SimpleResourceTemplate<EntityRelationsh
     start = start == null ? 0 : start;
     count = count == null ? MAX_DOWNSTREAM_CNT : count;
 
-    return _graphService.findRelatedEntities("", newFilter("urn", rawUrn), "", QueryUtils.EMPTY_FILTER,
+    return _graphService.findRelatedEntities(null, newFilter("urn", rawUrn), null, QueryUtils.EMPTY_FILTER,
         relationshipTypes, newRelationshipFilter(QueryUtils.EMPTY_FILTER, direction), start, count);
   }
 

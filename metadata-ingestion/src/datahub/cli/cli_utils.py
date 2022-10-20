@@ -10,52 +10,15 @@ from typing import Any, Dict, Iterable, List, Optional, Tuple, Type, Union
 import click
 import requests
 import yaml
-from avrogen.dict_wrapper import DictWrapper
 from pydantic import BaseModel, ValidationError
 from requests.models import Response
 from requests.sessions import Session
 
-from datahub.emitter.mce_builder import Aspect
+from datahub.emitter.aspect import ASPECT_MAP, TIMESERIES_ASPECT_MAP
 from datahub.emitter.request_helper import _make_curl_command
 from datahub.emitter.serialization_helper import post_json_transform
-from datahub.metadata.schema_classes import (
-    AssertionRunEventClass,
-    BrowsePathsClass,
-    ChartInfoClass,
-    ChartKeyClass,
-    ContainerClass,
-    ContainerKeyClass,
-    ContainerPropertiesClass,
-    DatahubIngestionCheckpointClass,
-    DatahubIngestionRunSummaryClass,
-    DataJobInputOutputClass,
-    DataJobKeyClass,
-    DataPlatformInstanceClass,
-    DataProcessInfoClass,
-    DatasetDeprecationClass,
-    DatasetKeyClass,
-    DatasetProfileClass,
-    DatasetPropertiesClass,
-    DatasetUpstreamLineageClass,
-    DatasetUsageStatisticsClass,
-    EditableDatasetPropertiesClass,
-    EditableSchemaMetadataClass,
-    GlobalTagsClass,
-    GlossaryTermsClass,
-    InstitutionalMemoryClass,
-    MLFeatureKeyClass,
-    MLFeaturePropertiesClass,
-    MLPrimaryKeyKeyClass,
-    MLPrimaryKeyPropertiesClass,
-    OperationClass,
-    OwnershipClass,
-    SchemaMetadataClass,
-    StatusClass,
-    SubTypesClass,
-    UpstreamLineageClass,
-    ViewPropertiesClass,
-)
-from datahub.utilities.urns.urn import Urn
+from datahub.metadata.schema_classes import _Aspect
+from datahub.utilities.urns.urn import Urn, guess_entity_type
 
 log = logging.getLogger(__name__)
 
@@ -75,6 +38,10 @@ ENV_DATAHUB_SYSTEM_CLIENT_ID = "DATAHUB_SYSTEM_CLIENT_ID"
 ENV_DATAHUB_SYSTEM_CLIENT_SECRET = "DATAHUB_SYSTEM_CLIENT_SECRET"
 
 config_override: Dict = {}
+
+# TODO: Many of the methods in this file duplicate logic that already lives
+# in the DataHubGraph client. We should refactor this to use the client instead.
+# For the methods that aren't duplicates, that logic should be moved to the client.
 
 
 class GmsConfig(BaseModel):
@@ -161,11 +128,6 @@ def get_details_from_env() -> Tuple[Optional[str], Optional[str]]:
 
 def first_non_null(ls: List[Optional[str]]) -> Optional[str]:
     return next((el for el in ls if el is not None and el.strip() != ""), None)
-
-
-def guess_entity_type(urn: str) -> str:
-    assert urn.startswith("urn:li:"), "urns must start with urn:li:"
-    return urn.split(":")[2]
 
 
 def get_system_auth() -> Optional[str]:
@@ -341,7 +303,7 @@ def post_delete_endpoint(
     payload_obj: dict,
     path: str,
     cached_session_host: Optional[Tuple[Session, str]] = None,
-) -> typing.Tuple[str, int]:
+) -> typing.Tuple[str, int, int]:
     session, gms_host = cached_session_host or get_session_and_host()
     url = gms_host + path
 
@@ -352,24 +314,26 @@ def post_delete_endpoint_with_session_and_url(
     session: Session,
     url: str,
     payload_obj: dict,
-) -> typing.Tuple[str, int]:
+) -> typing.Tuple[str, int, int]:
     payload = json.dumps(payload_obj)
 
     response = session.post(url, payload)
 
     summary = parse_run_restli_response(response)
-    urn = summary.get("urn", "")
-    rows_affected = summary.get("rows", 0)
+    urn: str = summary.get("urn", "")
+    rows_affected: int = summary.get("rows", 0)
+    timeseries_rows_affected: int = summary.get("timeseriesRows", 0)
 
-    return urn, rows_affected
+    return urn, rows_affected, timeseries_rows_affected
 
 
 def get_urns_by_filter(
     platform: Optional[str],
-    env: Optional[str],
+    env: Optional[str] = None,
     entity_type: str = "dataset",
     search_query: str = "*",
     include_removed: bool = False,
+    only_soft_deleted: Optional[bool] = None,
 ) -> Iterable[str]:
     session, gms_host = get_session_and_host()
     endpoint: str = "/entities?action=search"
@@ -401,7 +365,15 @@ def get_urns_by_filter(
             }
         )
 
-    if include_removed:
+    if only_soft_deleted:
+        filter_criteria.append(
+            {
+                "field": "removed",
+                "value": "true",
+                "condition": "EQUAL",
+            }
+        )
+    elif include_removed:
         filter_criteria.append(
             {
                 "field": "removed",
@@ -583,6 +555,7 @@ def post_entity(
     aspect_name: str,
     aspect_value: Dict,
     cached_session_host: Optional[Tuple[Session, str]] = None,
+    is_async: Optional[str] = "false",
 ) -> int:
     session, gms_host = cached_session_host or get_session_and_host()
     endpoint: str = "/aspects/?action=ingestProposal"
@@ -597,7 +570,8 @@ def post_entity(
                 "contentType": "application/json",
                 "value": json.dumps(aspect_value),
             },
-        }
+        },
+        "async": is_async,
     }
     payload = json.dumps(proposal)
     url = gms_host + endpoint
@@ -611,69 +585,8 @@ def post_entity(
     return response.status_code
 
 
-type_class_to_name_map = {
-    DatasetKeyClass: "datasetKey",
-    UpstreamLineageClass: "upstreamLineage",
-    DataJobKeyClass: "datajobKey",
-    DataJobInputOutputClass: "dataJobInputOutput",
-    SchemaMetadataClass: "schemaMetadata",
-    MLPrimaryKeyKeyClass: "mlPrimaryKey",
-    MLPrimaryKeyPropertiesClass: "mlPrimaryKeyProperties",
-    MLFeatureKeyClass: "mlFeatureKey",
-    MLFeaturePropertiesClass: "mlFeatureProperties",
-    InstitutionalMemoryClass: "institutionalMemory",
-    OwnershipClass: "ownership",
-    BrowsePathsClass: "browsePaths",
-    DataPlatformInstanceClass: "dataPlatformInstance",
-    GlobalTagsClass: "globalTags",
-    StatusClass: "status",
-    DatasetPropertiesClass: "datasetProperties",
-    GlossaryTermsClass: "glossaryTerms",
-    SubTypesClass: "subTypes",
-    EditableSchemaMetadataClass: "editableSchemaMetadata",
-    ViewPropertiesClass: "viewProperties",
-    EditableDatasetPropertiesClass: "editableDatasetProperties",
-    DatasetDeprecationClass: "datasetDeprecation",
-    DatasetUpstreamLineageClass: "datasetUpstreamLineage",
-    ChartInfoClass: "chartInfo",
-    DataProcessInfoClass: "dataProcessInfo",
-    ChartKeyClass: "chartKey",
-    ContainerClass: "container",
-    ContainerKeyClass: "containerKey",
-    ContainerPropertiesClass: "containerProperties",
-}
-
-timeseries_class_to_aspect_name_map: Dict[Type, str] = {
-    DatahubIngestionCheckpointClass: "datahubIngestionCheckpoint",
-    DatahubIngestionRunSummaryClass: "datahubIngestionRunSummary",
-    DatasetUsageStatisticsClass: "datasetUsageStatistics",
-    DatasetProfileClass: "datasetProfile",
-    AssertionRunEventClass: "assertionRunEvent",
-    OperationClass: "operation",
-}
-
-
-def _get_pydantic_class_from_aspect_name(aspect_name: str) -> Optional[Type[Aspect]]:
-    candidates = [k for (k, v) in type_class_to_name_map.items() if v == aspect_name]
-    candidates.extend(
-        [
-            k
-            for (k, v) in timeseries_class_to_aspect_name_map.items()
-            if v == aspect_name
-        ]
-    )
-    return candidates[0] if candidates else None
-
-
-def _get_aspect_name_from_aspect_class(aspect_class: str) -> str:
-    class_to_name_map = {
-        k.RECORD_SCHEMA.fullname.replace("pegasus2avro.", ""): v  # type: ignore
-        for (k, v) in (
-            set(type_class_to_name_map.items())
-            | set(timeseries_class_to_aspect_name_map.items())
-        )
-    }
-    return class_to_name_map.get(aspect_class, "unknown")
+def _get_pydantic_class_from_aspect_name(aspect_name: str) -> Optional[Type[_Aspect]]:
+    return ASPECT_MAP.get(aspect_name)
 
 
 def get_latest_timeseries_aspect_values(
@@ -703,22 +616,18 @@ def get_aspects_for_entity(
     aspects: List[str] = [],
     typed: bool = False,
     cached_session_host: Optional[Tuple[Session, str]] = None,
-) -> Dict[str, Union[dict, DictWrapper]]:
+) -> Dict[str, Union[dict, _Aspect]]:
     # Process non-timeseries aspects
-    non_timeseries_aspects: List[str] = [
-        a for a in aspects if a not in timeseries_class_to_aspect_name_map.values()
-    ]
+    non_timeseries_aspects = [a for a in aspects if a not in TIMESERIES_ASPECT_MAP]
     entity_response = get_entity(
         entity_urn, non_timeseries_aspects, cached_session_host
     )
     aspect_list: Dict[str, dict] = entity_response["aspects"]
 
     # Process timeseries aspects & append to aspect_list
-    timeseries_aspects: List[str] = [
-        a for a in aspects if a in timeseries_class_to_aspect_name_map.values()
-    ]
+    timeseries_aspects: List[str] = [a for a in aspects if a in TIMESERIES_ASPECT_MAP]
     for timeseries_aspect in timeseries_aspects:
-        timeseries_response = get_latest_timeseries_aspect_values(
+        timeseries_response: Dict = get_latest_timeseries_aspect_values(
             entity_urn, timeseries_aspect, cached_session_host
         )
         values: List[Dict] = timeseries_response.get("value", {}).get("values", [])
@@ -727,18 +636,13 @@ def get_aspects_for_entity(
                 timeseries_aspect
             )
             if aspect_cls is not None:
-                aspect_value = values[0]
+                ts_aspect = values[0]["aspect"]
                 # Decode the json-encoded generic aspect value.
-                aspect_value["aspect"]["value"] = json.loads(
-                    aspect_value["aspect"]["value"]
-                )
-                aspect_list[
-                    aspect_cls.RECORD_SCHEMA.fullname.replace("pegasus2avro.", "")
-                ] = aspect_value
+                ts_aspect["value"] = json.loads(ts_aspect["value"])
+                aspect_list[timeseries_aspect] = ts_aspect
 
-    aspect_map: Dict[str, Union[dict, DictWrapper]] = {}
-    for a in aspect_list.values():
-        aspect_name = a["name"]
+    aspect_map: Dict[str, Union[dict, _Aspect]] = {}
+    for aspect_name, a in aspect_list.items():
         aspect_py_class: Optional[Type[Any]] = _get_pydantic_class_from_aspect_name(
             aspect_name
         )

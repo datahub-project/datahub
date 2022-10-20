@@ -1,7 +1,11 @@
 import React, { useEffect } from 'react';
 import styled from 'styled-components/macro';
 import { useGetRootGlossaryNodesQuery, useGetRootGlossaryTermsQuery } from '../../../graphql/glossary.generated';
-import { GlossaryNode, GlossaryTerm } from '../../../types.generated';
+import { ChildGlossaryTermFragment } from '../../../graphql/glossaryNode.generated';
+import { GlossaryNode } from '../../../types.generated';
+import { sortGlossaryNodes } from '../../entity/glossaryNode/utils';
+import { sortGlossaryTerms } from '../../entity/glossaryTerm/utils';
+import { useEntityRegistry } from '../../useEntityRegistry';
 import NodeItem from './NodeItem';
 import TermItem from './TermItem';
 
@@ -15,7 +19,7 @@ const BrowserWrapper = styled.div`
 
 interface Props {
     rootNodes?: GlossaryNode[];
-    rootTerms?: GlossaryTerm[];
+    rootTerms?: ChildGlossaryTermFragment[];
     isSelecting?: boolean;
     hideTerms?: boolean;
     openToEntity?: boolean;
@@ -44,6 +48,10 @@ function GlossaryBrowser(props: Props) {
     const displayedNodes = rootNodes || nodesData?.getRootGlossaryNodes?.nodes || [];
     const displayedTerms = rootTerms || termsData?.getRootGlossaryTerms?.terms || [];
 
+    const entityRegistry = useEntityRegistry();
+    const sortedNodes = displayedNodes.sort((nodeA, nodeB) => sortGlossaryNodes(entityRegistry, nodeA, nodeB));
+    const sortedTerms = displayedTerms.sort((termA, termB) => sortGlossaryTerms(entityRegistry, termA, termB));
+
     useEffect(() => {
         if (refreshBrowser) {
             refetchNodes();
@@ -53,7 +61,7 @@ function GlossaryBrowser(props: Props) {
 
     return (
         <BrowserWrapper>
-            {displayedNodes.map((node) => (
+            {sortedNodes.map((node) => (
                 <NodeItem
                     key={node.urn}
                     node={node}
@@ -67,7 +75,7 @@ function GlossaryBrowser(props: Props) {
                 />
             ))}
             {!hideTerms &&
-                displayedTerms.map((term) => (
+                sortedTerms.map((term) => (
                     <TermItem key={term.urn} term={term} isSelecting={isSelecting} selectTerm={selectTerm} />
                 ))}
         </BrowserWrapper>

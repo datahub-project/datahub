@@ -2,6 +2,7 @@ package com.datahub.authorization;
 
 import lombok.Data;
 
+
 @Data
 public class DefaultAuthorizerConfiguration {
   /**

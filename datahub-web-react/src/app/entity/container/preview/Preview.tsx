@@ -11,6 +11,7 @@ import {
     ParentContainersResult,
     GlobalTags,
     Deprecation,
+    GlossaryTerms,
 } from '../../../../types.generated';
 import DefaultPreviewCard from '../../../preview/DefaultPreviewCard';
 import { useEntityRegistry } from '../../../useEntityRegistry';
@@ -30,6 +31,7 @@ export const Preview = ({
     description,
     owners,
     tags,
+    glossaryTerms,
     insights,
     subTypes,
     logoComponent,
@@ -48,6 +50,7 @@ export const Preview = ({
     description?: string | null;
     owners?: Array<Owner> | null;
     tags?: GlobalTags | null;
+    glossaryTerms?: GlossaryTerms | null;
     insights?: Array<SearchInsight> | null;
     subTypes?: SubTypes | null;
     logoComponent?: JSX.Element;
@@ -78,6 +81,7 @@ export const Preview = ({
             domain={domain || undefined}
             parentContainers={parentContainers}
             tags={tags || undefined}
+            glossaryTerms={glossaryTerms || undefined}
             externalUrl={externalUrl}
             subHeader={
                 (entityCount && [

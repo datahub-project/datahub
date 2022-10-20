@@ -13,10 +13,14 @@ source:
         # Add secret in Secrets Tab with relevant names for each variable
         username: "\${HIVE_USERNAME}" # Your Hive username, e.g. admin
         password: "\${HIVE_PASSWORD}"# Your Hive password, e.g. password_01
+        stateful_ingestion:
+            enabled: true
 `;
 
+export const HIVE = 'hive';
+
 const hiveConfig: SourceConfig = {
-    type: 'hive',
+    type: HIVE,
     placeholderRecipe,
     displayName: 'Hive',
     docsUrl: 'https://datahubproject.io/docs/generated/ingestion/sources/hive/',

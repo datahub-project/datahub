@@ -1,0 +1,14 @@
+namespace com.linkedin.identity
+
+/**
+ * Settings that a user can customize through the datahub ui
+ */
+@Aspect = {
+  "name": "corpUserSettings"
+}
+record CorpUserSettings {
+  /**
+   *Settings for a user around the appearance of their DataHub U
+   */
+  appearance: CorpUserAppearanceSettings
+}

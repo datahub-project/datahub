@@ -51,14 +51,14 @@ public class LineageRegistryTest {
     LineageRegistry.LineageSpec lineageSpec = lineageRegistry.getLineageSpec("dataset");
     assertEquals(lineageSpec.getUpstreamEdges().size(), 2);
     assertTrue(lineageSpec.getUpstreamEdges()
-        .contains(new LineageRegistry.EdgeInfo("DownstreamOf", RelationshipDirection.OUTGOING)));
+        .contains(new LineageRegistry.EdgeInfo("DownstreamOf", RelationshipDirection.OUTGOING, "dataset")));
     assertTrue(lineageSpec.getUpstreamEdges()
-        .contains(new LineageRegistry.EdgeInfo("Produces", RelationshipDirection.INCOMING)));
+        .contains(new LineageRegistry.EdgeInfo("Produces", RelationshipDirection.INCOMING, "dataJob")));
     assertEquals(lineageSpec.getDownstreamEdges().size(), 2);
     assertTrue(lineageSpec.getDownstreamEdges()
-        .contains(new LineageRegistry.EdgeInfo("DownstreamOf", RelationshipDirection.INCOMING)));
+        .contains(new LineageRegistry.EdgeInfo("DownstreamOf", RelationshipDirection.INCOMING, "dataset")));
     assertTrue(lineageSpec.getDownstreamEdges()
-        .contains(new LineageRegistry.EdgeInfo("Consumes", RelationshipDirection.INCOMING)));
+        .contains(new LineageRegistry.EdgeInfo("Consumes", RelationshipDirection.INCOMING, "dataJob")));
   }
 
   private RelationshipFieldSpec buildSpec(String relationshipType, List<String> destinationEntityTypes,

@@ -40,18 +40,16 @@ export const AddGroupMembersModal = ({ urn, visible, onCloseModal, onSubmit }: P
     const inputEl = useRef(null);
 
     const handleUserSearch = (text: string) => {
-        if (text.length > 2) {
-            userSearch({
-                variables: {
-                    input: {
-                        type: EntityType.CorpUser,
-                        query: text,
-                        start: 0,
-                        count: 5,
-                    },
+        userSearch({
+            variables: {
+                input: {
+                    type: EntityType.CorpUser,
+                    query: text,
+                    start: 0,
+                    count: 5,
                 },
-            });
-        }
+            },
+        });
     };
 
     // Renders a search result in the select dropdown.

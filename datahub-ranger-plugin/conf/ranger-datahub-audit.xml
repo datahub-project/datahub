@@ -1,0 +1,79 @@
+<?xml version="1.0"?>
+<!--
+  Licensed to the Apache Software Foundation (ASF) under one or more
+  contributor license agreements.  See the NOTICE file distributed with
+  this work for additional information regarding copyright ownership.
+  The ASF licenses this file to You under the Apache License, Version 2.0
+  (the "License"); you may not use this file except in compliance with
+  the License.  You may obtain a copy of the License at
+
+      http://www.apache.org/licenses/LICENSE-2.0
+
+  Unless required by applicable law or agreed to in writing, software
+  distributed under the License is distributed on an "AS IS" BASIS,
+  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+  See the License for the specific language governing permissions and
+  limitations under the License.
+-->
+<?xml-stylesheet type="text/xsl" href="configuration.xsl"?>
+<configuration xmlns:xi="http://www.w3.org/2001/XInclude">
+    <!-- DB audit provider configuration -->
+    <property>
+        <name>xasecure.audit.destination.db</name>
+        <value>false</value>
+    </property>
+
+    <property>
+        <name>xasecure.audit.destination.db.jdbc.driver</name>
+        <value>com.mysql.jdbc.Driver</value>
+    </property>
+
+    <property>
+        <name>xasecure.audit.destination.db.jdbc.url</name>
+        <value>jdbc:mysql://localhost/ranger_audit</value>
+    </property>
+
+    <property>
+        <name>xasecure.audit.destination.db.password</name>
+        <value>rangerlogger</value>
+    </property>
+
+    <property>
+        <name>xasecure.audit.destination.db.user</name>
+        <value>rangerlogger</value>
+    </property>
+
+    <property>
+        <name>xasecure.audit.destination.db.batch.filespool.dir</name>
+        <value>/tmp/audit/db/spool</value>
+    </property>
+
+
+    <!-- HDFS audit provider configuration -->
+    <property>
+        <name>xasecure.audit.destination.hdfs</name>
+        <value>false</value>
+    </property>
+
+    <property>
+        <name>xasecure.audit.destination.hdfs.dir</name>
+        <value>hdfs://localhost:8020/ranger/audit</value>
+    </property>
+
+    <property>
+        <name>xasecure.audit.destination.hdfs.batch.filespool.dir</name>
+        <value>/tmp/audit/hdfs/spool</value>
+    </property>
+
+
+    <!-- Log4j audit provider configuration -->
+    <property>
+        <name>xasecure.audit.destination.log4j</name>
+        <value>true</value>
+    </property>
+
+    <property>
+        <name>xasecure.audit.destination.log4j.logger</name>
+        <value>ranger_audit_logger</value>
+    </property>
+</configuration>

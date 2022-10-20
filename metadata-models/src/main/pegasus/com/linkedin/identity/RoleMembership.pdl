@@ -1,0 +1,19 @@
+namespace com.linkedin.identity
+
+import com.linkedin.common.Urn
+
+/**
+ * Carries information about which roles a user is assigned to.
+ */
+@Aspect = {
+  "name": "roleMembership"
+}
+record RoleMembership {
+  @Relationship = {
+    "/*": {
+      "name": "IsMemberOfRole",
+      "entityTypes": [ "dataHubRole" ]
+    }
+  }
+  roles: array[Urn]
+}

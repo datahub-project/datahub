@@ -1,11 +1,14 @@
 package com.linkedin.datahub.graphql.resolvers.mutate;
 
+import com.google.common.collect.ImmutableList;
 import com.linkedin.common.urn.CorpuserUrn;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.exception.AuthorizationException;
+import com.linkedin.datahub.graphql.generated.ResourceRefInput;
 import com.linkedin.datahub.graphql.generated.TagAssociationInput;
 import com.linkedin.datahub.graphql.resolvers.mutate.util.LabelUtils;
+import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.entity.EntityService;
 import graphql.schema.DataFetcher;
 import graphql.schema.DataFetchingEnvironment;
@@ -32,28 +35,27 @@ public class RemoveTagResolver implements DataFetcher<CompletableFuture<Boolean>
     }
 
     return CompletableFuture.supplyAsync(() -> {
-      LabelUtils.validateInput(
+      LabelUtils.validateResourceAndLabel(
           tagUrn,
           targetUrn,
           input.getSubResource(),
           input.getSubResourceType(),
-          "tag",
+          Constants.TAG_ENTITY_NAME,
           _entityService,
           true
       );
       try {
 
-        if (!tagUrn.getEntityType().equals("tag")) {
+        if (!tagUrn.getEntityType().equals(Constants.TAG_ENTITY_NAME)) {
           log.error("Failed to remove %s. It is not a tag urn.", tagUrn.toString());
           return false;
         }
 
-        log.info("Removing Tag. input: %s", input);
+        log.debug("Removing Tag. input: %s", input);
         Urn actor = CorpuserUrn.createFromString(((QueryContext) environment.getContext()).getActorUrn());
-        LabelUtils.removeTagFromTarget(
-            tagUrn,
-            targetUrn,
-            input.getSubResource(),
+        LabelUtils.removeTagsFromResources(
+            ImmutableList.of(tagUrn),
+            ImmutableList.of(new ResourceRefInput(input.getResourceUrn(), input.getSubResourceType(), input.getSubResource())),
             actor,
             _entityService
         );

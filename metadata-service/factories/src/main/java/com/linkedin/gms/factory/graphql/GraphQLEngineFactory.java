@@ -1,12 +1,15 @@
 package com.linkedin.gms.factory.graphql;
 
 import com.datahub.authentication.group.GroupService;
+import com.datahub.authentication.invite.InviteTokenService;
+import com.datahub.authentication.post.PostService;
 import com.datahub.authentication.token.StatefulTokenService;
 import com.datahub.authentication.user.NativeUserService;
+import com.datahub.authorization.role.RoleService;
 import com.linkedin.datahub.graphql.GmsGraphQLEngine;
 import com.linkedin.datahub.graphql.GraphQLEngine;
 import com.linkedin.datahub.graphql.analytics.service.AnalyticsService;
-import com.linkedin.entity.client.JavaEntityClient;
+import com.linkedin.metadata.client.JavaEntityClient;
 import com.linkedin.gms.factory.auth.DataHubTokenServiceFactory;
 import com.linkedin.gms.factory.common.GitVersionFactory;
 import com.linkedin.gms.factory.common.IndexConventionFactory;
@@ -113,8 +116,21 @@ public class GraphQLEngineFactory {
   @Qualifier("groupService")
   private GroupService _groupService;
 
+  @Autowired
+  @Qualifier("roleService")
+  private RoleService _roleService;
+
+  @Autowired
+  @Qualifier("inviteTokenService")
+  private InviteTokenService _inviteTokenService;
+
+  @Autowired
+  @Qualifier("postService")
+  private PostService _postService;
+
   @Value("${platformAnalytics.enabled}") // TODO: Migrate to DATAHUB_ANALYTICS_ENABLED
   private Boolean isAnalyticsEnabled;
+
 
   @Bean(name = "graphQLEngine")
   @Nonnull
@@ -143,7 +159,11 @@ public class GraphQLEngineFactory {
           _configProvider.getMetadataTests(),
           _configProvider.getDatahub(),
           _siblingGraphService,
-          _groupService
+          _groupService,
+          _roleService,
+          _inviteTokenService,
+          _postService,
+          _configProvider.getFeatureFlags()
           ).builder().build();
     }
     return new GmsGraphQLEngine(
@@ -169,7 +189,11 @@ public class GraphQLEngineFactory {
         _configProvider.getMetadataTests(),
         _configProvider.getDatahub(),
         _siblingGraphService,
-        _groupService
+        _groupService,
+        _roleService,
+        _inviteTokenService,
+        _postService,
+        _configProvider.getFeatureFlags()
     ).builder().build();
   }
 }

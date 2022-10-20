@@ -23,6 +23,9 @@ source:
     index_pattern:
       allow: [".*some_index_name_pattern*"]
       deny: [".*skip_index_name_pattern*"]
+    ingest_index_templates: False
+    index_template_pattern:
+      allow: [".*some_index_template_name_pattern*"]
 
 sink:
 # sink configs

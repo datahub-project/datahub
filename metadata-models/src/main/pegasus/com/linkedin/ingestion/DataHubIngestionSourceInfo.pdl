@@ -51,5 +51,10 @@ record DataHubIngestionSourceInfo {
       * The id of the executor to use to execute the ingestion run
       */
       executorId: optional string
+
+     /**
+      * Whether or not to run this ingestion source in debug mode
+      */
+      debugMode: optional boolean
   }
 }

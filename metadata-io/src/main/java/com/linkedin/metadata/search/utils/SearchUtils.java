@@ -1,7 +1,9 @@
 package com.linkedin.metadata.search.utils;
 
+import com.linkedin.common.UrnArray;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.data.template.LongMap;
+import com.linkedin.metadata.query.ListResult;
 import com.linkedin.metadata.query.filter.ConjunctiveCriterion;
 import com.linkedin.metadata.query.filter.ConjunctiveCriterionArray;
 import com.linkedin.metadata.query.filter.Criterion;
@@ -9,6 +11,7 @@ import com.linkedin.metadata.query.filter.CriterionArray;
 import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.metadata.search.AggregationMetadata;
 import com.linkedin.metadata.search.FilterValueArray;
+import com.linkedin.metadata.search.SearchEntity;
 import com.linkedin.metadata.search.SearchEntityArray;
 import com.linkedin.metadata.search.SearchResult;
 import com.linkedin.metadata.search.SearchResultMetadata;
@@ -134,7 +137,21 @@ public class SearchUtils {
         Stream.concat(one.getAggregations().entrySet().stream(), two.getAggregations().entrySet().stream())
             .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue, Long::sum));
     return one.clone()
+        .setDisplayName(two.getDisplayName() != two.getName() ? two.getDisplayName() : one.getDisplayName())
         .setAggregations(new LongMap(mergedMap))
         .setFilterValues(new FilterValueArray(SearchUtil.convertToFilters(mergedMap)));
+  }
+
+  public static ListResult toListResult(final SearchResult searchResult) {
+    if (searchResult == null) {
+      return null;
+    }
+    final ListResult listResult = new ListResult();
+    listResult.setStart(searchResult.getFrom());
+    listResult.setCount(searchResult.getPageSize());
+    listResult.setTotal(searchResult.getNumEntities());
+    listResult.setEntities(
+        new UrnArray(searchResult.getEntities().stream().map(SearchEntity::getEntity).collect(Collectors.toList())));
+    return listResult;
   }
 }

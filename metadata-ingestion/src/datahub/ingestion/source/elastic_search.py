@@ -1,6 +1,5 @@
 import json
 import logging
-import re
 from collections import defaultdict
 from dataclasses import dataclass, field
 from hashlib import md5
@@ -10,8 +9,9 @@ from elasticsearch import Elasticsearch
 from pydantic import validator
 from pydantic.fields import Field
 
-from datahub.configuration.common import AllowDenyPattern, ConfigurationError
+from datahub.configuration.common import AllowDenyPattern
 from datahub.configuration.source_common import DatasetSourceConfigBase
+from datahub.configuration.validate_host_port import validate_host_port
 from datahub.emitter.mce_builder import (
     make_data_platform_urn,
     make_dataplatform_instance_urn,
@@ -47,9 +47,11 @@ from datahub.metadata.schema_classes import (
     NumberTypeClass,
     OtherSchemaClass,
     RecordTypeClass,
+    SchemaFieldDataTypeClass,
     StringTypeClass,
     SubTypesClass,
 )
+from datahub.utilities.config_clean import remove_protocol
 
 logger = logging.getLogger(__name__)
 
@@ -85,10 +87,12 @@ class ElasticToSchemaFieldConverter:
         "match_only_text": StringTypeClass,
         "completion": StringTypeClass,
         "search_as_you_type": StringTypeClass,
+        "ip": StringTypeClass,
         # Records
         "object": RecordTypeClass,
         "flattened": RecordTypeClass,
         "nested": RecordTypeClass,
+        "geo_point": RecordTypeClass,
         # Arrays
         "histogram": ArrayTypeClass,
         "aggregate_metric_double": ArrayTypeClass,
@@ -120,9 +124,10 @@ class ElasticToSchemaFieldConverter:
         self, elastic_schema_dict: Dict[str, Any]
     ) -> Generator[SchemaField, None, None]:
         # append each schema field (sort so output is consistent)
+        PROPERTIES: str = "properties"
         for columnName, column in elastic_schema_dict.items():
             elastic_type: Optional[str] = column.get("type")
-            nested_props: Optional[Dict[str, Any]] = column.get("properties")
+            nested_props: Optional[Dict[str, Any]] = column.get(PROPERTIES)
             if elastic_type is not None:
                 self._prefix_name_stack.append(f"[type={elastic_type}].{columnName}")
                 schema_field_data_type = self.get_column_type(elastic_type)
@@ -137,7 +142,16 @@ class ElasticToSchemaFieldConverter:
                 yield schema_field
                 self._prefix_name_stack.pop()
             elif nested_props:
-                self._prefix_name_stack.append(f"[type={columnName}]")
+                self._prefix_name_stack.append(f"[type={PROPERTIES}].{columnName}")
+                schema_field = SchemaField(
+                    fieldPath=self._get_cur_field_path(),
+                    nativeDataType=PROPERTIES,
+                    type=SchemaFieldDataTypeClass(RecordTypeClass()),
+                    description=None,
+                    nullable=True,
+                    recursive=False,
+                )
+                yield schema_field
                 yield from self._get_schema_fields(nested_props)
                 self._prefix_name_stack.pop()
             else:
@@ -224,33 +238,22 @@ class ElasticsearchSourceConfig(DatasetSourceConfigBase):
         default=AllowDenyPattern(allow=[".*"], deny=["^_.*", "^ilm-history.*"]),
         description="regex patterns for indexes to filter in ingestion.",
     )
+    ingest_index_templates: bool = Field(
+        default=False, description="Ingests ES index templates if enabled."
+    )
+    index_template_pattern: AllowDenyPattern = Field(
+        default=AllowDenyPattern(allow=[".*"], deny=["^_.*"]),
+        description="The regex patterns for filtering index templates to ingest.",
+    )
 
     @validator("host")
     def host_colon_port_comma(cls, host_val: str) -> str:
         for entry in host_val.split(","):
-            # The port can be provided but is not required.
-            port = None
-            for prefix in ["http://", "https://"]:
-                if entry.startswith(prefix):
-                    entry = entry[len(prefix) :]
+            entry = remove_protocol(entry)
             for suffix in ["/"]:
                 if entry.endswith(suffix):
                     entry = entry[: -len(suffix)]
-
-            if ":" in entry:
-                (host, port) = entry.rsplit(":", 1)
-            else:
-                host = entry
-            if not re.match(
-                # This regex is quite loose. Many invalid hostnames or IPs will slip through,
-                # but it serves as a good first line of validation. We defer to Elastic for the
-                # remaining validation.
-                r"^[\w\-\.]+$",
-                host,
-            ):
-                raise ConfigurationError(f"host contains bad characters, found {host}")
-            if port is not None and not port.isdigit():
-                raise ConfigurationError(f"port must be all digits, found {port}")
+            validate_host_port(entry)
         return host_val
 
     @property
@@ -304,7 +307,7 @@ class ElasticsearchSource(Source):
             self.report.report_index_scanned(index)
 
             if self.source_config.index_pattern.allowed(index):
-                for mcp in self._extract_mcps(index):
+                for mcp in self._extract_mcps(index, is_index=True):
                     wu = MetadataWorkUnit(id=f"index-{index}", mcp=mcp)
                     self.report.report_workunit(wu)
                     yield wu
@@ -315,6 +318,14 @@ class ElasticsearchSource(Source):
             wu = MetadataWorkUnit(id=f"index-{index}", mcp=mcp)
             self.report.report_workunit(wu)
             yield wu
+        if self.source_config.ingest_index_templates:
+            templates = self.client.indices.get_template()
+            for template in templates:
+                if self.source_config.index_template_pattern.allowed(template):
+                    for mcp in self._extract_mcps(template, is_index=False):
+                        wu = MetadataWorkUnit(id=f"template-{template}", mcp=mcp)
+                        self.report.report_workunit(wu)
+                        yield wu
 
     def _get_data_stream_index_count_mcps(
         self,
@@ -336,19 +347,26 @@ class ElasticsearchSource(Source):
                 changeType=ChangeTypeClass.UPSERT,
             )
 
-    def _extract_mcps(self, index: str) -> Iterable[MetadataChangeProposalWrapper]:
-        logger.debug(f"index = {index}")
-        raw_index = self.client.indices.get(index=index)
-        raw_index_metadata = raw_index[index]
+    def _extract_mcps(
+        self, index: str, is_index: bool = True
+    ) -> Iterable[MetadataChangeProposalWrapper]:
+        logger.debug(f"index='{index}', is_index={is_index}")
 
-        # 0. Dedup data_streams.
-        data_stream = raw_index_metadata.get("data_stream")
-        if data_stream:
-            index = data_stream
-            self.data_stream_partition_count[index] += 1
-            if self.data_stream_partition_count[index] > 1:
-                # This is a duplicate, skip processing it further.
-                return
+        if is_index:
+            raw_index = self.client.indices.get(index=index)
+            raw_index_metadata = raw_index[index]
+
+            # 0. Dedup data_streams.
+            data_stream = raw_index_metadata.get("data_stream")
+            if data_stream:
+                index = data_stream
+                self.data_stream_partition_count[index] += 1
+                if self.data_stream_partition_count[index] > 1:
+                    # This is a duplicate, skip processing it further.
+                    return
+        else:
+            raw_index = self.client.indices.get_template(name=index)
+            raw_index_metadata = raw_index[index]
 
         # 1. Construct and emit the schemaMetadata aspect
         # 1.1 Generate the schema fields from ES mappings.
@@ -401,23 +419,47 @@ class ElasticsearchSource(Source):
             entityUrn=dataset_urn,
             aspectName="subTypes",
             aspect=SubTypesClass(
-                typeNames=["Index" if not data_stream else "DataStream"]
+                typeNames=[
+                    "Index Template"
+                    if not is_index
+                    else "Index"
+                    if not data_stream
+                    else "Datastream"
+                ]
             ),
             changeType=ChangeTypeClass.UPSERT,
         )
 
-        # 4. Construct and emit properties if needed
-        index_aliases = raw_index_metadata.get("aliases", {}).keys()
+        # 4. Construct and emit properties if needed. Will attempt to get the following properties
+        custom_properties: Dict[str, str] = {}
+        # 4.1 aliases
+        index_aliases: List[str] = raw_index_metadata.get("aliases", {}).keys()
         if index_aliases:
-            yield MetadataChangeProposalWrapper(
-                entityType="dataset",
-                entityUrn=dataset_urn,
-                aspectName="datasetProperties",
-                aspect=DatasetPropertiesClass(
-                    customProperties={"aliases": ",".join(index_aliases)}
-                ),
-                changeType=ChangeTypeClass.UPSERT,
-            )
+            custom_properties["aliases"] = ",".join(index_aliases)
+        # 4.2 index_patterns
+        index_patterns: List[str] = raw_index_metadata.get("index_patterns", [])
+        if index_patterns:
+            custom_properties["index_patterns"] = ",".join(index_patterns)
+
+        # 4.3 number_of_shards
+        index_settings: Dict[str, Any] = raw_index_metadata.get("settings", {}).get(
+            "index", {}
+        )
+        num_shards: str = index_settings.get("number_of_shards", "")
+        if num_shards:
+            custom_properties["num_shards"] = num_shards
+        # 4.4 number_of_replicas
+        num_replicas: str = index_settings.get("number_of_replicas", "")
+        if num_replicas:
+            custom_properties["num_replicas"] = num_replicas
+
+        yield MetadataChangeProposalWrapper(
+            entityType="dataset",
+            entityUrn=dataset_urn,
+            aspectName="datasetProperties",
+            aspect=DatasetPropertiesClass(customProperties=custom_properties),
+            changeType=ChangeTypeClass.UPSERT,
+        )
 
         # 5. Construct and emit platform instance aspect
         if self.source_config.platform_instance:

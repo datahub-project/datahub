@@ -108,8 +108,48 @@ class TestPipeline(object):
         assert pipeline.ctx.graph.config.token == pipeline.config.sink.config["token"]
 
     @freeze_time(FROZEN_TIME)
+    @patch(
+        "datahub.emitter.rest_emitter.DatahubRestEmitter.test_connection",
+        return_value={"noCode": True},
+    )
+    @patch(
+        "datahub.ingestion.graph.client.DataHubGraph.get_config",
+        return_value={"noCode": True},
+    )
+    def test_configure_with_rest_sink_with_additional_props_initializes_graph(
+        self, mock_source, mock_test_connection
+    ):
+        pipeline = Pipeline.create(
+            {
+                "source": {
+                    "type": "file",
+                    "config": {"filename": "test_events.json"},
+                },
+                "sink": {
+                    "type": "datahub-rest",
+                    "config": {
+                        "server": "http://somehost.someplace.some:8080",
+                        "token": "foo",
+                        "mode": "sync",
+                    },
+                },
+            }
+        )
+        # assert that the default sink config is for a DatahubRestSink
+        assert isinstance(pipeline.config.sink, DynamicTypedConfig)
+        assert pipeline.config.sink.type == "datahub-rest"
+        assert pipeline.config.sink.config == {
+            "server": "http://somehost.someplace.some:8080",
+            "token": "foo",
+            "mode": "sync",
+        }
+        assert pipeline.ctx.graph is not None, "DataHubGraph should be initialized"
+        assert pipeline.ctx.graph.config.server == pipeline.config.sink.config["server"]
+        assert pipeline.ctx.graph.config.token == pipeline.config.sink.config["token"]
+
+    @freeze_time(FROZEN_TIME)
     @patch("datahub.ingestion.source.kafka.KafkaSource.get_workunits", autospec=True)
-    def test_configure_with_file_sink_does_not_init_graph(self, mock_source):
+    def test_configure_with_file_sink_does_not_init_graph(self, mock_source, tmp_path):
         pipeline = Pipeline.create(
             {
                 "source": {
@@ -119,7 +159,7 @@ class TestPipeline(object):
                 "sink": {
                     "type": "file",
                     "config": {
-                        "filename": "test.json",
+                        "filename": str(tmp_path / "test.json"),
                     },
                 },
             }
@@ -127,7 +167,7 @@ class TestPipeline(object):
         # assert that the default sink config is for a DatahubRestSink
         assert isinstance(pipeline.config.sink, DynamicTypedConfig)
         assert pipeline.config.sink.type == "file"
-        assert pipeline.config.sink.config == {"filename": "test.json"}
+        assert pipeline.config.sink.config == {"filename": str(tmp_path / "test.json")}
         assert pipeline.ctx.graph is None, "DataHubGraph should not be initialized"
 
     @freeze_time(FROZEN_TIME)

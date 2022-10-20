@@ -4,7 +4,6 @@ import com.google.common.base.Preconditions;
 import java.util.Collections;
 import javax.annotation.Nonnull;
 import javax.naming.AuthenticationException;
-import javax.naming.NamingException;
 import javax.security.auth.callback.Callback;
 import javax.security.auth.callback.CallbackHandler;
 import javax.security.auth.callback.NameCallback;
@@ -23,21 +22,18 @@ public class AuthenticationManager {
 
   }
 
-  public static void authenticateJaasUser(@Nonnull String userName, @Nonnull String password) throws NamingException {
+  public static void authenticateJaasUser(@Nonnull String userName, @Nonnull String password) throws Exception {
     Preconditions.checkArgument(!StringUtils.isAnyEmpty(userName), "Username cannot be empty");
+    JAASLoginService jaasLoginService = new JAASLoginService("WHZ-Authentication");
+    PropertyUserStoreManager propertyUserStoreManager = new PropertyUserStoreManager();
+    propertyUserStoreManager.start();
+    jaasLoginService.setBeans(Collections.singletonList(propertyUserStoreManager));
+    JAASLoginService.INSTANCE.set(jaasLoginService);
     try {
-      JAASLoginService jaasLoginService = new JAASLoginService("WHZ-Authentication");
-      PropertyUserStoreManager propertyUserStoreManager = new PropertyUserStoreManager();
-      propertyUserStoreManager.start();
-      jaasLoginService.setBeans(Collections.singletonList(propertyUserStoreManager));
-      JAASLoginService.INSTANCE.set(jaasLoginService);
       LoginContext lc = new LoginContext("WHZ-Authentication", new WHZCallbackHandler(userName, password));
       lc.login();
     } catch (LoginException le) {
       throw new AuthenticationException(le.toString());
-    } catch (Exception e) {
-      // Bad abstract class design, empty doStart that has throws Exception in the signature and subclass that also
-      // does not throw any checked exceptions. This should never happen, all it does is create an empty HashMap...
     }
   }
 

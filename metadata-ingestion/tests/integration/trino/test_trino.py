@@ -51,6 +51,7 @@ def loaded_trino(trino_runner):
 
 
 @freeze_time(FROZEN_TIME)
+@pytest.mark.xfail  # TODO: debug the flakes for this test
 @pytest.mark.integration
 def test_trino_ingest(
     loaded_trino, test_resources_dir, pytestconfig, tmp_path, mock_time

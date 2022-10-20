@@ -1,6 +1,6 @@
+import * as React from 'react';
 import { BookOutlined } from '@ant-design/icons';
 import { Tag, Tooltip } from 'antd';
-import * as React from 'react';
 import styled from 'styled-components';
 import {
     AggregationMetadata,
@@ -21,10 +21,12 @@ import { useEntityRegistry } from '../useEntityRegistry';
 import { ENTITY_FILTER_NAME } from './utils/constants';
 import CustomAvatar from '../shared/avatar/CustomAvatar';
 import { IconStyleType } from '../entity/Entity';
+import { formatNumber } from '../shared/formatNumber';
 
 type Props = {
     aggregation: AggregationMetadata;
     field: string;
+    hideCount?: boolean;
 };
 
 const PreviewImage = styled.img`
@@ -38,15 +40,20 @@ const PreviewImage = styled.img`
 const MAX_COUNT_VAL = 10000;
 
 // SearchFilterLabel renders custom labels for entity, tag, term & data platform filters. All other filters use the default behavior.
-export const SearchFilterLabel = ({ aggregation, field }: Props) => {
+export const SearchFilterLabel = ({ aggregation, field, hideCount }: Props) => {
     const entityRegistry = useEntityRegistry();
-    const countText = aggregation.count === MAX_COUNT_VAL ? '10000+' : aggregation.count;
+    const countText = hideCount
+        ? ''
+        : ` (${aggregation.count === MAX_COUNT_VAL ? '10k+' : formatNumber(aggregation.count)})`;
+
+    if (!aggregation) return <></>;
 
     if (field === ENTITY_FILTER_NAME) {
         const entityType = aggregation.value.toUpperCase() as EntityType;
         return (
             <span>
-                {entityType ? entityRegistry.getCollectionName(entityType) : aggregation.value} ({countText})
+                {entityType ? entityRegistry.getCollectionName(entityType) : aggregation.value}
+                {countText}
             </span>
         );
     }
@@ -60,7 +67,7 @@ export const SearchFilterLabel = ({ aggregation, field }: Props) => {
                 <StyledTag $colorHash={tag?.urn} $color={tag?.properties?.colorHex}>
                     {truncatedDisplayName}
                 </StyledTag>
-                ({countText})
+                {countText}
             </Tooltip>
         );
     }
@@ -80,7 +87,8 @@ export const SearchFilterLabel = ({ aggregation, field }: Props) => {
                         marginRight: 8,
                     }}
                 />
-                {displayName} ({countText})
+                {displayName}
+                {countText}
             </Tooltip>
         );
     }
@@ -94,7 +102,8 @@ export const SearchFilterLabel = ({ aggregation, field }: Props) => {
                 <span style={{ marginRight: 8 }}>
                     {entityRegistry.getIcon(EntityType.CorpGroup, 16, IconStyleType.ACCENT)}
                 </span>
-                {truncatedDisplayName} ({countText})
+                {truncatedDisplayName}
+                {countText}
             </Tooltip>
         );
     }
@@ -109,7 +118,7 @@ export const SearchFilterLabel = ({ aggregation, field }: Props) => {
                     <BookOutlined style={{ marginRight: '3%' }} />
                     {truncatedDisplayName}
                 </Tag>
-                ({countText})
+                {countText}
             </Tooltip>
         );
     }
@@ -124,7 +133,8 @@ export const SearchFilterLabel = ({ aggregation, field }: Props) => {
                     <PreviewImage src={platform.properties?.logoUrl} alt={platform.name} />
                 )}
                 <span>
-                    {truncatedDisplayName} ({countText})
+                    {truncatedDisplayName}
+                    {countText}
                 </span>
             </Tooltip>
         );
@@ -136,7 +146,8 @@ export const SearchFilterLabel = ({ aggregation, field }: Props) => {
         const truncatedDisplayName = displayName.length > 25 ? `${displayName.slice(0, 25)}...` : displayName;
         return (
             <Tooltip title={displayName}>
-                {truncatedDisplayName} ({countText})
+                {truncatedDisplayName}
+                {countText}
             </Tooltip>
         );
     }
@@ -151,7 +162,8 @@ export const SearchFilterLabel = ({ aggregation, field }: Props) => {
                     <PreviewImage src={container.platform?.properties?.logoUrl} alt={container.properties?.name} />
                 )}
                 <span>
-                    {truncatedDisplayName} ({countText})
+                    {truncatedDisplayName}
+                    {countText}
                 </span>
             </Tooltip>
         );
@@ -163,7 +175,8 @@ export const SearchFilterLabel = ({ aggregation, field }: Props) => {
         const truncatedDomainName = displayName.length > 25 ? `${displayName.slice(0, 25)}...` : displayName;
         return (
             <Tooltip title={displayName}>
-                <DomainLink urn={domain.urn} name={truncatedDomainName} />({countText})
+                <DomainLink domain={domain} name={truncatedDomainName} />
+                {countText}
             </Tooltip>
         );
     }
@@ -175,7 +188,8 @@ export const SearchFilterLabel = ({ aggregation, field }: Props) => {
         return (
             <Tooltip title={displayName}>
                 <span>
-                    {truncatedDomainName} ({countText})
+                    {truncatedDomainName}
+                    {countText}
                 </span>
             </Tooltip>
         );
@@ -186,7 +200,8 @@ export const SearchFilterLabel = ({ aggregation, field }: Props) => {
     }
     return (
         <>
-            {aggregation.value} ({countText})
+            {aggregation.value}
+            {countText}
         </>
     );
 };

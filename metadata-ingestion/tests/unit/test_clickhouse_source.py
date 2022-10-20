@@ -47,3 +47,16 @@ def test_clickhouse_uri_native_secure():
         config.get_sql_alchemy_url()
         == "clickhouse+native://user:password@host:1111/db?secure=true"
     )
+
+
+def test_clickhouse_uri_default_password():
+
+    config = ClickHouseConfig.parse_obj(
+        {
+            "username": "user",
+            "host_port": "host:1111",
+            "database": "db",
+            "scheme": "clickhouse+native",
+        }
+    )
+    assert config.get_sql_alchemy_url() == "clickhouse+native://user:@host:1111/db"

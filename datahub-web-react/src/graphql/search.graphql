@@ -162,6 +162,9 @@ fragment autoCompleteFields on Entity {
             ...dataPlatformInstanceFields
         }
     }
+    ... on DataPlatform {
+        ...nonConflictingPlatformFields
+    }
 }
 
 query getAutoCompleteResults($input: AutoCompleteInput!) {
@@ -312,7 +315,9 @@ fragment searchResultFields on Entity {
             displayName
             description
         }
-        memberCount: relationships(input: { types: ["IsMemberOfGroup"], direction: INCOMING, start: 0, count: 1 }) {
+        memberCount: relationships(
+            input: { types: ["IsMemberOfGroup", "IsMemberOfNativeGroup"], direction: INCOMING, start: 0, count: 1 }
+        ) {
             total
         }
     }
@@ -372,6 +377,9 @@ fragment searchResultFields on Entity {
                     pictureLink
                 }
             }
+        }
+        subTypes {
+            typeNames
         }
     }
     ... on Chart {
@@ -534,6 +542,9 @@ fragment searchResultFields on Entity {
         deprecation {
             ...deprecationFields
         }
+        parentNodes {
+            ...parentNodesFields
+        }
     }
     ... on GlossaryNode {
         ...glossaryNode
@@ -657,6 +668,9 @@ fragment searchResultFields on Entity {
             name
         }
         description
+    }
+    ... on DataPlatform {
+        ...nonConflictingPlatformFields
     }
 }
 

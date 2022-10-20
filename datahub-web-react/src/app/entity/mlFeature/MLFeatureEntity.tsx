@@ -2,7 +2,7 @@ import * as React from 'react';
 import { DotChartOutlined } from '@ant-design/icons';
 import { MlFeature, EntityType, SearchResult, OwnershipType } from '../../../types.generated';
 import { Preview } from './preview/Preview';
-import { Entity, IconStyleType, PreviewType } from '../Entity';
+import { Entity, EntityCapabilityType, IconStyleType, PreviewType } from '../Entity';
 import { getDataForEntityType } from '../shared/containers/profile/utils';
 import { EntityProfile } from '../shared/containers/profile/EntityProfile';
 import { GenericEntityProperties } from '../shared/types';
@@ -171,5 +171,16 @@ export class MLFeatureEntity implements Entity<MlFeature> {
             // eslint-disable-next-line
             platform: entity?.['featureTables']?.relationships?.[0]?.entity?.platform?.name,
         };
+    };
+
+    supportedCapabilities = () => {
+        return new Set([
+            EntityCapabilityType.OWNERS,
+            EntityCapabilityType.GLOSSARY_TERMS,
+            EntityCapabilityType.TAGS,
+            EntityCapabilityType.DOMAINS,
+            EntityCapabilityType.DEPRECATION,
+            EntityCapabilityType.SOFT_DELETE,
+        ]);
     };
 }

@@ -25,8 +25,11 @@ public class AuthorizerChain implements Authorizer {
 
   private final List<Authorizer> authorizers;
 
-  public AuthorizerChain(final List<Authorizer> authorizers) {
+  private final Authorizer defaultAuthorizer;
+
+  public AuthorizerChain(final List<Authorizer> authorizers, Authorizer defaultAuthorizer) {
     this.authorizers = Objects.requireNonNull(authorizers);
+    this.defaultAuthorizer = defaultAuthorizer;
   }
 
   @Override
@@ -116,13 +119,9 @@ public class AuthorizerChain implements Authorizer {
   }
 
   /**
-   * Returns an instance of {@link DataHubAuthorizer} if it is present in the Authentication chain,
-   * or null if it cannot be found.
+   * Returns an instance of default {@link DataHubAuthorizer}
    */
   public DataHubAuthorizer getDefaultAuthorizer() {
-    return (DataHubAuthorizer) this.authorizers.stream()
-        .filter(authorizer -> authorizer instanceof DataHubAuthorizer)
-        .findFirst()
-        .orElse(null);
+    return (DataHubAuthorizer) defaultAuthorizer;
   }
 }

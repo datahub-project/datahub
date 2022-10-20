@@ -1,10 +1,10 @@
-# Adding user in DataHub
+# Adding user metadata in DataHub
 
 This guide shares how you can add user metadata in DataHub. Usually you would want to use one of our sources for ingesting user metadata. But if there is no connector for your use case then you would want to use this guide.
 
 :::note
 
-This does not allow you to add new users for Authentication. If you want to add a new user in DataHub for Login please refer to [JaaS Authentication](../authentication/guides/jaas.md)
+This does not allow you to add new users for Authentication. If you want to add a new user in DataHub for Login please refer to [Adding Users to DataHub](../authentication/guides/add-users.md)
 
 :::
 
