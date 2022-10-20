@@ -1,14 +1,25 @@
 import { Modal } from 'antd';
 import React from 'react';
 import styled from 'styled-components/macro';
-import { EntityPath } from '../../../types.generated';
+import { Entity, EntityPath } from '../../../types.generated';
 import { ANTD_GRAY } from '../../entity/shared/constants';
+import { CompactEntityNameList } from '../../recommendations/renderer/component/CompactEntityNameList';
 import { getDisplayedColumns } from './ColumnPathsText';
 import ColumnsRelationshipText from './ColumnsRelationshipText';
 
 const StyledModal = styled(Modal)`
     width: 70vw;
     max-width: 850px;
+`;
+
+const PathWrapper = styled.div`
+    display: inline-block;
+    margin: 15px 0 15px -4px;
+    padding: 20px;
+    border: 1px solid ${ANTD_GRAY[4]};
+    border-radius: 8px;
+    box-shadow: 1px 1px 12px 4px #0000000d;
+    width: 100%;
 `;
 
 const Header = styled.div`
@@ -41,7 +52,11 @@ export default function EntityPathsModal({ paths, resultEntityUrn, hideModal }: 
             footer={null}
             bodyStyle={{ padding: '16px 24px' }}
         >
-            {/* TODO: next PR display CompactEntityNameList with tweaks */}
+            {paths.map((path) => (
+                <PathWrapper>
+                    <CompactEntityNameList entities={path.path as Entity[]} showArrows />
+                </PathWrapper>
+            ))}{' '}
         </StyledModal>
     );
 }
