@@ -1,12 +1,11 @@
 """
 DataBricks Unity Catalog source plugin
 """
-from dataclasses import dataclass
 from typing import Iterable
 
 import pydantic
 
-from datahub.configuration import ConfigModel
+from datahub.configuration.source_common import EnvBasedSourceConfigBase
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.decorators import (
     SupportStatus,
@@ -19,33 +18,13 @@ from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.unity import emitter, proxy
 
 
-class UnityCatalogSourceConfig(ConfigModel):
+class UnityCatalogSourceConfig(EnvBasedSourceConfigBase):
     token: str = pydantic.Field(description="Databricks personal access token")
     workspace_url: str = pydantic.Field(description="Databricks workspace url")
     workspace_name: str = pydantic.Field(
         default=None,
         description="Name of the workspace. Default to deployment name present in workspace_url",
     )
-
-
-@dataclass
-class UnityCatalogSourceReport(SourceReport):
-    metastore_scanned: int = 0
-    catalog_scanned: int = 0
-    schema_scanned: int = 0
-    table_scanned: int = 0
-
-    def increment_metastore_scanned(self, count: int = 1) -> None:
-        self.metastore_scanned += count
-
-    def increment_catalog_scanned(self, count: int = 1) -> None:
-        self.catalog_scanned += count
-
-    def increment_schema_scanned(self, count: int = 1) -> None:
-        self.schema_scanned += count
-
-    def increment_table_scanned(self, count: int = 1) -> None:
-        self.table_scanned += count
 
 
 @platform_name("Unity Catalog")
@@ -60,7 +39,6 @@ class UnityCatalogSource(Source):
     """
 
     source_config: UnityCatalogSourceConfig
-    reporter: UnityCatalogSourceReport
     unity_catalog_api_proxy: proxy.UnityCatalogApiProxy
     emitter: emitter.Emitter
     platform_name: str = "unity-catalog"
@@ -73,16 +51,15 @@ class UnityCatalogSource(Source):
                     id=f"{self.platform_name}-{mcp.entityUrn}-{mcp.aspectName}",
                     mcp=mcp,
                 )
-                self.reporter.report_workunit(metadata_work_unit)
+                self.emitter.report.report_workunit(metadata_work_unit)
                 yield metadata_work_unit
 
     def get_report(self) -> SourceReport:
-        return self.reporter
+        return self.emitter.report
 
     def __init__(self, config: UnityCatalogSourceConfig, ctx: PipelineContext):
         super().__init__(ctx)
         self.source_config = config
-        self.reporter = UnityCatalogSourceReport()
         self.unity_catalog_api_proxy = proxy.UnityCatalogApiProxy(
             config.workspace_url, config.token
         )

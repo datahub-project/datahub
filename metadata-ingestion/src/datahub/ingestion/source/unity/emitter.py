@@ -10,6 +10,7 @@ from datahub.emitter.mce_builder import (
     make_dataset_urn_with_platform_instance,
 )
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
+from datahub.ingestion.api.source import SourceReport
 from datahub.ingestion.source.unity import proxy
 from datahub.metadata.schema_classes import (
     ChangeTypeClass,
@@ -25,26 +26,31 @@ from datahub.metadata.schema_classes import (
 
 
 @dataclass
-class Report:
+class Report(SourceReport):
     scanned_metastore: int = 0
     scanned_catalog: int = 0
     scanned_schema: int = 0
     scanned_table: int = 0
 
-    def increment_scanned_metastore(self, count: int = 1):
+    def increment_scanned_metastore(self, count: int = 1) -> None:
         self.scanned_metastore = self.scanned_metastore + count
 
-    def increment_scanned_catalog(self, count: int = 1):
+    def increment_scanned_catalog(self, count: int = 1) -> None:
         self.scanned_catalog = self.scanned_catalog + count
 
-    def increment_scanned_schema(self, count: int = 1):
+    def increment_scanned_schema(self, count: int = 1) -> None:
         self.scanned_schema = self.scanned_schema + count
 
-    def increment_scanned_table(self, count: int = 1):
+    def increment_scanned_table(self, count: int = 1) -> None:
         self.scanned_table = self.scanned_table + count
 
 
 class Emitter:
+    _unity_catalog_api_proxy: proxy.UnityCatalogApiProxy
+    _platform_name: str
+    platform_instance_name: str
+    report: Report
+
     def __init__(
         self,
         platform_name: str,
@@ -54,7 +60,7 @@ class Emitter:
         self._unity_catalog_api_proxy = unity_catalog_api_proxy
         self._platform_name = platform_name
         self._platform_instance_name = platform_instance_name
-        self._report = Report()
+        self.report = Report()
 
     def emit(self) -> Iterable[List[MetadataChangeProposalWrapper]]:
         for metastores in self._unity_catalog_api_proxy.metastores():
@@ -71,7 +77,7 @@ class Emitter:
                 )
             ]
 
-            self._report.increment_scanned_metastore(len(metastores))
+            self.report.increment_scanned_metastore(len(metastores))
             # We can replace map with ThreadPoolExecutor.map if needed in later phase
             for mcps in map(partial(_emit_catalog_mcps, self), metastores):
                 yield mcps
@@ -166,7 +172,7 @@ def _emit_catalog_mcps(
                 )
             ]
         )
-        self._report.increment_scanned_catalog(len(catalogs))
+        self.report.increment_scanned_catalog(len(catalogs))
         for schema_mcps in map(partial(_emit_schema_mcps, self), catalogs):
             mcps.extend(schema_mcps)
 
@@ -202,7 +208,7 @@ def _emit_schema_mcps(
                 )
             ]
         )
-        self._report.increment_scanned_schema(len(schemas))
+        self.report.increment_scanned_schema(len(schemas))
         # Add table mcps
         for table_mcps in map(partial(_emit_table_mcps, self), schemas):
             mcps.extend(table_mcps)
@@ -243,7 +249,7 @@ def _emit_table_mcps(
                 )
             ]
         )
-        self._report.increment_scanned_table(len(tables))
+        self.report.increment_scanned_table(len(tables))
 
     return mcps
 

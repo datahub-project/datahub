@@ -3,6 +3,7 @@ from unittest import mock
 from freezegun import freeze_time
 
 from datahub.ingestion.run.pipeline import Pipeline
+from tests.test_helpers import mce_helpers
 
 FROZEN_TIME = "2021-12-07 07:00:00"
 
@@ -186,10 +187,12 @@ def register_mock_data(unity_catalog_api_instance):
 
 @freeze_time(FROZEN_TIME)
 def test_ingestion(pytestconfig, tmp_path, requests_mock):
+    test_resources_dir = pytestconfig.rootpath / "tests/integration/unity"
 
     register_mock_api(request_mock=requests_mock)
 
     output_file_name = "unity_catalog_mcps.json"
+
     with mock.patch(
         "databricks_cli.unity_catalog.api.UnityCatalogApi"
     ) as UnityCatalogApi:
@@ -209,10 +212,18 @@ def test_ingestion(pytestconfig, tmp_path, requests_mock):
             "sink": {
                 "type": "file",
                 "config": {
-                    "filename": f"/tmp/{output_file_name}",
+                    "filename": f"/{tmp_path}/{output_file_name}",
                 },
             },
         }
         pipeline = Pipeline.create(config_dict)
         pipeline.run()
         pipeline.raise_from_status()
+
+        mce_golden_file: str = "unity_catalog_mces_golden.json"
+
+        mce_helpers.check_golden_file(
+            pytestconfig,
+            output_path=f"/{tmp_path}/{output_file_name}",
+            golden_path=f"{test_resources_dir}/{mce_golden_file}",
+        )

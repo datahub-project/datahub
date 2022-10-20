@@ -9,7 +9,43 @@ import requests
 from databricks_cli.sdk.api_client import ApiClient
 from databricks_cli.unity_catalog.api import UnityCatalogApi
 
+from datahub.metadata.schema_classes import (
+    ArrayTypeClass,
+    BooleanTypeClass,
+    BytesTypeClass,
+    MapTypeClass,
+    NullTypeClass,
+    NumberTypeClass,
+    RecordTypeClass,
+    SchemaFieldDataTypeClass,
+    StringTypeClass,
+    TimeTypeClass,
+)
+
 LOGGER = logging.getLogger(__name__)
+
+# Supported types are available at
+# https://api-docs.databricks.com/rest/latest/unity-catalog-api-specification-2-1.html?_ga=2.151019001.1795147704.1666247755-2119235717.1666247755
+
+DATA_TYPE_REGISTRY: dict = {
+    "BOOLEAN": BooleanTypeClass,
+    "BYTE": BytesTypeClass,
+    "SHORT": NumberTypeClass,
+    "INT": NumberTypeClass,
+    "LONG": NumberTypeClass,
+    "FLOAT": NumberTypeClass,
+    "DOUBLE": NumberTypeClass,
+    "TIMESTAMP": TimeTypeClass,
+    "STRING": StringTypeClass,
+    "BINARY": BytesTypeClass,
+    "DECIMAL": NumberTypeClass,
+    "INTERVAL": TimeTypeClass,
+    "ARRAY": ArrayTypeClass,
+    "STRUCT": RecordTypeClass,
+    "MAP": MapTypeClass,
+    "CHAR": StringTypeClass,
+    "NULL": NullTypeClass,
+}
 
 
 @dataclass
@@ -21,7 +57,7 @@ class CommonProperty:
 
 @dataclass
 class Metastore(CommonProperty):
-    pass
+    metastore_id: str
 
 
 @dataclass
@@ -37,7 +73,7 @@ class Schema(CommonProperty):
 @dataclass
 class Column(CommonProperty):
     type_text: str
-    type_name: str
+    type_name: SchemaFieldDataTypeClass
     type_precision: int
     type_scale: int
     position: int
@@ -51,6 +87,10 @@ class Table(CommonProperty):
     storage_location: str
     data_source_format: str
     table_type: str
+
+
+def _escape_sequence(value: str) -> str:
+    return value.replace(" ", "_")
 
 
 class UnityCatalogApiProxy:
@@ -82,32 +122,33 @@ class UnityCatalogApiProxy:
             LOGGER.info("Metastores not found")
             return metastores
 
-        for obj in response.get("metastores"):
+        for obj in response["metastores"]:
             metastores.append(
                 Metastore(
                     name=obj["name"],
-                    id=obj["metastore_id"],
+                    id=_escape_sequence(obj["name"]),
+                    metastore_id=obj["metastore_id"],
                     type="Metastore",
                 )
             )
         # yield here to support paginated response later
         yield metastores
 
-    def catalogs(self, metastore: Metastore) -> Iterable[List[Metastore]]:
+    def catalogs(self, metastore: Metastore) -> Iterable[List[Catalog]]:
         catalogs: List[Catalog] = []
         response: dict = self._unity_catalog_api.list_catalogs()
         if response.get("catalogs") is None:
             LOGGER.info("Catalogs not found")
             return catalogs
 
-        for obj in response.get("catalogs"):
-            if obj["metastore_id"] == metastore.id:
+        for obj in response["catalogs"]:
+            if obj["metastore_id"] == metastore.metastore_id:
                 catalogs.append(
                     Catalog(
                         name=obj["name"],
                         id="{}.{}".format(
                             metastore.id,
-                            obj["name"],
+                            _escape_sequence(obj["name"]),
                         ),
                         metastore=metastore,
                         type="Catalog",
@@ -115,20 +156,20 @@ class UnityCatalogApiProxy:
                 )
         yield catalogs
 
-    def schemas(self, catalog: Catalog) -> Iterable[List[Metastore]]:
+    def schemas(self, catalog: Catalog) -> Iterable[List[Schema]]:
         schemas: List[Schema] = []
         response: dict = self._unity_catalog_api.list_schemas(catalog_name=catalog.name)
         if response.get("schemas") is None:
             LOGGER.info("Schemas not found")
             return schemas
 
-        for obj in response.get("schemas"):
+        for obj in response["schemas"]:
             schemas.append(
                 Schema(
                     name=obj["name"],
                     id="{}.{}".format(
                         catalog.id,
-                        obj["name"],
+                        _escape_sequence(obj["name"]),
                     ),
                     catalog=catalog,
                     type="Schema",
@@ -137,7 +178,7 @@ class UnityCatalogApiProxy:
 
         yield schemas
 
-    def tables(self, schema: Schema) -> Iterable[List[Metastore]]:
+    def tables(self, schema: Schema) -> Iterable[List[Table]]:
         tables: List[Table] = []
         response: dict = self._unity_catalog_api.list_tables(
             catalog_name=schema.catalog.name,
@@ -148,10 +189,10 @@ class UnityCatalogApiProxy:
             LOGGER.info("Tables not found")
             return tables
 
-        for obj in response.get("tables"):
+        for obj in response["tables"]:
             table = Table(
                 name=obj["name"],
-                id="{}.{}".format(schema.id, obj["name"]),
+                id="{}.{}".format(schema.id, _escape_sequence(obj["name"])),
                 table_type=obj["table_type"],
                 schema=schema,
                 storage_location=obj["storage_location"],
@@ -163,9 +204,11 @@ class UnityCatalogApiProxy:
                 table.columns.append(
                     Column(
                         name=column["name"],
-                        id="{}.{}".format(table.id, column["name"]),
+                        id="{}.{}".format(table.id, _escape_sequence(column["name"])),
                         type_text=column["type_text"],
-                        type_name=column["type_name"],
+                        type_name=SchemaFieldDataTypeClass(
+                            type=DATA_TYPE_REGISTRY[column["type_name"]]()
+                        ),
                         type_scale=column["type_scale"],
                         type_precision=column["type_precision"],
                         position=column["position"],
