@@ -24,8 +24,6 @@ import com.linkedin.metadata.utils.elasticsearch.IndexConvention;
 import com.linkedin.metadata.utils.metrics.MetricUtils;
 import io.opentelemetry.extension.annotations.WithSpan;
 import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.Collection;
 import java.util.Collections;
 import java.util.HashSet;
 import java.util.LinkedList;
@@ -238,7 +236,9 @@ public class ESGraphQueryDAO {
 
   private UrnArrayArray getAndUpdatePaths(UrnArrayArray existingPaths, Urn parentUrn, Urn childUrn, RelationshipDirection direction) {
     try {
-      UrnArrayArray currentPaths = existingPaths.stream().filter(path -> path.get(direction == RelationshipDirection.OUTGOING ? 0 : path.size() - 1).equals(parentUrn)).collect(Collectors.toCollection(UrnArrayArray::new));
+      UrnArrayArray currentPaths = existingPaths.stream()
+          .filter(path -> path.get(direction == RelationshipDirection.OUTGOING ? 0 : path.size() - 1).equals(parentUrn))
+          .collect(Collectors.toCollection(UrnArrayArray::new));
       UrnArrayArray resultPaths = new UrnArrayArray();
       if (currentPaths.size() > 0) {
         for (UrnArray path : currentPaths) {
