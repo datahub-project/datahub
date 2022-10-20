@@ -127,6 +127,8 @@ export const EmbeddedListSearchResults = ({
                                     // when we add impact analysis, we will want to pipe the path to each element to the result this
                                     // eslint-disable-next-line @typescript-eslint/dot-notation
                                     degree: searchResult['degree'],
+                                    // eslint-disable-next-line @typescript-eslint/dot-notation
+                                    paths: searchResult['paths'],
                                 })) || []
                             }
                             isSelectMode={isSelectMode}

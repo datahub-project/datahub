@@ -14,6 +14,7 @@ import { LineageDirection } from '../../../../../types.generated';
 import { generateSchemaFieldUrn } from './utils';
 import { downgradeV2FieldPath } from '../../../dataset/profile/schema/utils/utils';
 import ColumnsLineageSelect from './ColumnLineageSelect';
+import { LineageTabContext } from './LineageTabContext';
 
 const StyledTabToolbar = styled(TabToolbar)`
     justify-content: space-between;
@@ -89,7 +90,9 @@ export const LineageTab = ({
                     </Button>
                 </RightButtonsWrapper>
             </StyledTabToolbar>
-            <ImpactAnalysis urn={impactAnalysisUrn} direction={lineageDirection as LineageDirection} />
+            <LineageTabContext.Provider value={{ selectedColumn, lineageDirection }}>
+                <ImpactAnalysis urn={impactAnalysisUrn} direction={lineageDirection as LineageDirection} />
+            </LineageTabContext.Provider>
         </>
     );
 };
