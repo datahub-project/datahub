@@ -14,6 +14,7 @@ services:
     - KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR=1
     - KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS=0
     - KAFKA_HEAP_OPTS=-Xms256m -Xmx256m
+    - KAFKA_CONFLUENT_SUPPORT_METRICS_ENABLE=false
     hostname: broker
     image: confluentinc/cp-kafka:5.4.0
     ports:
@@ -81,7 +82,6 @@ services:
     - MCE_CONSUMER_ENABLED=true
     - PE_CONSUMER_ENABLED=true
     - UI_INGESTION_ENABLED=true
-    - UI_INGESTION_DEFAULT_CLI_VERSION=0.8.42
     - ENTITY_SERVICE_ENABLE_RETENTION=true
     hostname: datahub-gms
     image: ${DATAHUB_GMS_IMAGE:-linkedin/datahub-gms}:${DATAHUB_VERSION:-head}
@@ -178,7 +178,7 @@ services:
     ports:
     - ${DATAHUB_MAPPED_ZK_PORT:-2181}:2181
     volumes:
-    - zkdata:/var/opt/zookeeper
+    - zkdata:/var/lib/zookeeper
 version: '2.3'
 volumes:
   esdata: null

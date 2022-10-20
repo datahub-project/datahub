@@ -48,6 +48,9 @@ export type Props = {
     expandedRowsFromFilter?: Set<string>;
     filterText?: string;
 };
+
+const EMPTY_SET: Set<string> = new Set();
+
 export default function SchemaTable({
     rows,
     schemaMetadata,
@@ -56,7 +59,7 @@ export default function SchemaTable({
     editMode = true,
     schemaFieldBlameList,
     showSchemaAuditView,
-    expandedRowsFromFilter = new Set(),
+    expandedRowsFromFilter = EMPTY_SET,
     filterText = '',
 }: Props): JSX.Element {
     const hasUsageStats = useMemo(() => (usageStats?.aggregations?.fields?.length || 0) > 0, [usageStats]);

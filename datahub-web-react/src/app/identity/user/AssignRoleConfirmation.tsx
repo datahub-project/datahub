@@ -2,6 +2,7 @@ import React from 'react';
 import { message, Popconfirm } from 'antd';
 import { useBatchAssignRoleMutation } from '../../../graphql/mutations.generated';
 import { DataHubRole } from '../../../types.generated';
+import analytics, { EventType } from '../../analytics';
 
 type Props = {
     visible: boolean;
@@ -34,6 +35,11 @@ export default function AssignRoleConfirmation({
             })
                 .then(({ errors }) => {
                     if (!errors) {
+                        analytics.event({
+                            type: EventType.SelectUserRoleEvent,
+                            roleUrn: roleToAssign.urn,
+                            userUrn,
+                        });
                         message.success({
                             content: `Assigned role ${roleToAssign?.name} to user ${username}!`,
                             duration: 2,

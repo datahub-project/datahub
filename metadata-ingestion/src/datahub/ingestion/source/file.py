@@ -2,17 +2,18 @@ import datetime
 import json
 import logging
 import os.path
+import pathlib
 from dataclasses import dataclass, field
 from enum import auto
 from io import BufferedReader
-from pathlib import Path
 from typing import Any, Dict, Iterable, Iterator, Optional, Tuple, Union
 
 import ijson
-from pydantic import root_validator, validator
+from pydantic import validator
 from pydantic.fields import Field
 
 from datahub.configuration.common import ConfigEnum, ConfigModel
+from datahub.configuration.validate_field_rename import pydantic_renamed_field
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.decorators import (
     SupportStatus,
@@ -43,8 +44,10 @@ class FileReadMode(ConfigEnum):
 
 
 class FileSourceConfig(ConfigModel):
-    filename: Optional[str] = Field(None, description="Path to file to ingest.")
-    path: str = Field(
+    filename: Optional[str] = Field(
+        None, description="[deprecated in favor or `path`] The file to ingest."
+    )
+    path: pathlib.Path = Field(
         description="Path to folder or file to ingest. If pointed to a folder, all files with extension {file_extension} (default json) within that folder will be processed."
     )
     file_extension: str = Field(
@@ -56,23 +59,18 @@ class FileSourceConfig(ConfigModel):
         default=None,
         description="Set to an aspect to only read this aspect for ingestion.",
     )
+    count_all_before_starting: bool = Field(
+        default=True,
+        description="When enabled, counts total number of records in the file before starting. Used for accurate estimation of completion time. Turn it off if startup time is too high.",
+    )
 
     _minsize_for_streaming_mode_in_bytes: int = (
         100 * 1000 * 1000  # Must be at least 100MB before we use streaming mode
     )
 
-    @root_validator(pre=True)
-    def filename_populates_path_if_present(
-        cls, values: Dict[str, Any]
-    ) -> Dict[str, Any]:
-        if "path" not in values and "filename" in values:
-            values["path"] = values["filename"]
-        elif values.get("filename"):
-            raise ValueError(
-                "Both path and filename should not be provided together. Use one. We recommend using path. filename is deprecated."
-            )
-
-        return values
+    _filename_populates_path_if_present = pydantic_renamed_field(
+        "filename", "path", print_warning=False
+    )
 
     @validator("file_extension", always=True)
     def add_leading_dot_to_extension(cls, v: str) -> str:
@@ -179,16 +177,13 @@ class GenericFileSource(TestableSource):
         return cls(ctx, config)
 
     def get_filenames(self) -> Iterable[str]:
-        is_file = os.path.isfile(self.config.path)
-        is_dir = os.path.isdir(self.config.path)
-        if is_file:
+        if self.config.path.is_file():
             self.report.total_num_files = 1
-            return [self.config.path]
-        if is_dir:
-            p = Path(self.config.path)
+            return [str(self.config.path)]
+        elif self.config.path.is_dir():
             files_and_stats = [
                 (str(x), os.path.getsize(x))
-                for x in list(p.glob(f"*{self.config.file_extension}"))
+                for x in list(self.config.path.glob(f"*{self.config.file_extension}"))
                 if x.is_file()
             ]
             self.report.total_num_files = len(files_and_stats)
@@ -260,14 +255,15 @@ class GenericFileSource(TestableSource):
                 self.report.current_file_elements_read += 1
         else:
             self.fp = open(path, "rb")
-            count_start_time = datetime.datetime.now()
-            parse_stream = ijson.parse(self.fp, use_float=True)
-            total_elements = 0
-            for row in ijson.items(parse_stream, "item", use_float=True):
-                total_elements += 1
-            count_end_time = datetime.datetime.now()
-            self.report.add_count_time(count_end_time - count_start_time)
-            self.report.current_file_num_elements = total_elements
+            if self.config.count_all_before_starting:
+                count_start_time = datetime.datetime.now()
+                parse_stream = ijson.parse(self.fp, use_float=True)
+                total_elements = 0
+                for row in ijson.items(parse_stream, "item", use_float=True):
+                    total_elements += 1
+                count_end_time = datetime.datetime.now()
+                self.report.add_count_time(count_end_time - count_start_time)
+                self.report.current_file_num_elements = total_elements
             self.report.current_file_elements_read = 0
             self.fp.seek(0)
             parse_start_time = datetime.datetime.now()

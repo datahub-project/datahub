@@ -49,6 +49,8 @@ query getContainer($urn: String!) {
         dataPlatformInstance {
             ...dataPlatformInstanceFields
         }
-
+        status {
+            removed
+        }
     }
 }
