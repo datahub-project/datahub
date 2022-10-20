@@ -61,7 +61,7 @@ Cypress.Commands.add("addViaModel", (text) => {
   cy.get(".ant-modal-footer > button:nth-child(2)").click();
 });
 
-Cypress.Commands.add("ensureNotPresent", (text) => {
+Cypress.Commands.add("ensureTextNotPresent", (text) => {
   cy.contains(text).should("not.exist");
 });
 

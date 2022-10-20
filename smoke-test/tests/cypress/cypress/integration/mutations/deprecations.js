@@ -13,6 +13,6 @@ describe("deprecation", () => {
 
         cy.openThreeDotDropdown();
         cy.clickOptionWithText("Mark as un-deprecated");
-        cy.ensureNotPresent("Deprecated");
+        cy.ensureTextNotPresent("Deprecated");
     });
 });

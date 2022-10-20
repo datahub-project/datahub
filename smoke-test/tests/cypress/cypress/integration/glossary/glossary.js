@@ -20,13 +20,13 @@ describe("glossary", () => {
         cy.deleteFromDropdown();
 
         cy.goToDataset(urn);
-        cy.ensureNotPresent(glossaryTerm);
+        cy.ensureTextNotPresent(glossaryTerm);
 
         cy.goToGlossaryList();
         cy.clickOptionWithText(glossaryTermGroup);
         cy.deleteFromDropdown();
 
         cy.goToGlossaryList();
-        cy.ensureNotPresent(glossaryTermGroup);
+        cy.ensureTextNotPresent(glossaryTermGroup);
     });
 });
