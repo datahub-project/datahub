@@ -1,0 +1,1220 @@
+[
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:acryl_metastore",
+    "changeType": "UPSERT",
+    "aspectName": "containerProperties",
+    "aspect": {
+        "value": "{\"customProperties\": {}, \"name\": \"acryl metastore\"}",
+        "contentType": "application/json"
+    },
+    "systemMetadata": {
+        "lastObserved": 1638860400000,
+        "runId": "unity-catalog-test"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:acryl_metastore",
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+        "value": "{\"typeNames\": [\"Metastore\"]}",
+        "contentType": "application/json"
+    },
+    "systemMetadata": {
+        "lastObserved": 1638860400000,
+        "runId": "unity-catalog-test"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:acryl_metastore",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "value": "{\"platform\": \"urn:li:dataPlatform:unity-catalog\", \"instance\": \"urn:li:dataPlatformInstance:(urn:li:dataPlatform:unity-catalog,dummy)\"}",
+        "contentType": "application/json"
+    },
+    "systemMetadata": {
+        "lastObserved": 1638860400000,
+        "runId": "unity-catalog-test"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:acryl_metastore.main",
+    "changeType": "UPSERT",
+    "aspectName": "containerProperties",
+    "aspect": {
+        "value": "{\"customProperties\": {}, \"name\": \"main\"}",
+        "contentType": "application/json"
+    },
+    "systemMetadata": {
+        "lastObserved": 1638860400000,
+        "runId": "unity-catalog-test"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:acryl_metastore.quickstart_catalog",
+    "changeType": "UPSERT",
+    "aspectName": "containerProperties",
+    "aspect": {
+        "value": "{\"customProperties\": {}, \"name\": \"quickstart_catalog\"}",
+        "contentType": "application/json"
+    },
+    "systemMetadata": {
+        "lastObserved": 1638860400000,
+        "runId": "unity-catalog-test"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:acryl_metastore.system",
+    "changeType": "UPSERT",
+    "aspectName": "containerProperties",
+    "aspect": {
+        "value": "{\"customProperties\": {}, \"name\": \"system\"}",
+        "contentType": "application/json"
+    },
+    "systemMetadata": {
+        "lastObserved": 1638860400000,
+        "runId": "unity-catalog-test"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:acryl_metastore.main",
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+        "value": "{\"typeNames\": [\"Catalog\"]}",
+        "contentType": "application/json"
+    },
+    "systemMetadata": {
+        "lastObserved": 1638860400000,
+        "runId": "unity-catalog-test"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:acryl_metastore.quickstart_catalog",
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+        "value": "{\"typeNames\": [\"Catalog\"]}",
+        "contentType": "application/json"
+    },
+    "systemMetadata": {
+        "lastObserved": 1638860400000,
+        "runId": "unity-catalog-test"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:acryl_metastore.system",
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+        "value": "{\"typeNames\": [\"Catalog\"]}",
+        "contentType": "application/json"
+    },
+    "systemMetadata": {
+        "lastObserved": 1638860400000,
+        "runId": "unity-catalog-test"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:acryl_metastore.main",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "value": "{\"platform\": \"urn:li:dataPlatform:unity-catalog\", \"instance\": \"urn:li:dataPlatformInstance:(urn:li:dataPlatform:unity-catalog,dummy)\"}",
+        "contentType": "application/json"
+    },
+    "systemMetadata": {
+        "lastObserved": 1638860400000,
+        "runId": "unity-catalog-test"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:acryl_metastore.quickstart_catalog",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "value": "{\"platform\": \"urn:li:dataPlatform:unity-catalog\", \"instance\": \"urn:li:dataPlatformInstance:(urn:li:dataPlatform:unity-catalog,dummy)\"}",
+        "contentType": "application/json"
+    },
+    "systemMetadata": {
+        "lastObserved": 1638860400000,
+        "runId": "unity-catalog-test"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:acryl_metastore.system",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "value": "{\"platform\": \"urn:li:dataPlatform:unity-catalog\", \"instance\": \"urn:li:dataPlatformInstance:(urn:li:dataPlatform:unity-catalog,dummy)\"}",
+        "contentType": "application/json"
+    },
+    "systemMetadata": {
+        "lastObserved": 1638860400000,
+        "runId": "unity-catalog-test"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:acryl_metastore.main",
+    "changeType": "UPSERT",
+    "aspectName": "container",
+    "aspect": {
+        "value": "{\"container\": \"urn:li:container:acryl_metastore\"}",
+        "contentType": "application/json"
+    },
+    "systemMetadata": {
+        "lastObserved": 1638860400000,
+        "runId": "unity-catalog-test"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:acryl_metastore.quickstart_catalog",
+    "changeType": "UPSERT",
+    "aspectName": "container",
+    "aspect": {
+        "value": "{\"container\": \"urn:li:container:acryl_metastore\"}",
+        "contentType": "application/json"
+    },
+    "systemMetadata": {
+        "lastObserved": 1638860400000,
+        "runId": "unity-catalog-test"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:acryl_metastore.system",
+    "changeType": "UPSERT",
+    "aspectName": "container",
+    "aspect": {
+        "value": "{\"container\": \"urn:li:container:acryl_metastore\"}",
+        "contentType": "application/json"
+    },
+    "systemMetadata": {
+        "lastObserved": 1638860400000,
+        "runId": "unity-catalog-test"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:acryl_metastore.main.default",
+    "changeType": "UPSERT",
+    "aspectName": "containerProperties",
+    "aspect": {
+        "value": "{\"customProperties\": {}, \"name\": \"default\"}",
+        "contentType": "application/json"
+    },
+    "systemMetadata": {
+        "lastObserved": 1638860400000,
+        "runId": "unity-catalog-test"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:acryl_metastore.main.information_schema",
+    "changeType": "UPSERT",
+    "aspectName": "containerProperties",
+    "aspect": {
+        "value": "{\"customProperties\": {}, \"name\": \"information_schema\"}",
+        "contentType": "application/json"
+    },
+    "systemMetadata": {
+        "lastObserved": 1638860400000,
+        "runId": "unity-catalog-test"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:acryl_metastore.main.quickstart_schema",
+    "changeType": "UPSERT",
+    "aspectName": "containerProperties",
+    "aspect": {
+        "value": "{\"customProperties\": {}, \"name\": \"quickstart_schema\"}",
+        "contentType": "application/json"
+    },
+    "systemMetadata": {
+        "lastObserved": 1638860400000,
+        "runId": "unity-catalog-test"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:acryl_metastore.main.default",
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+        "value": "{\"typeNames\": [\"Schema\"]}",
+        "contentType": "application/json"
+    },
+    "systemMetadata": {
+        "lastObserved": 1638860400000,
+        "runId": "unity-catalog-test"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:acryl_metastore.main.information_schema",
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+        "value": "{\"typeNames\": [\"Schema\"]}",
+        "contentType": "application/json"
+    },
+    "systemMetadata": {
+        "lastObserved": 1638860400000,
+        "runId": "unity-catalog-test"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:acryl_metastore.main.quickstart_schema",
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+        "value": "{\"typeNames\": [\"Schema\"]}",
+        "contentType": "application/json"
+    },
+    "systemMetadata": {
+        "lastObserved": 1638860400000,
+        "runId": "unity-catalog-test"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:acryl_metastore.main.default",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "value": "{\"platform\": \"urn:li:dataPlatform:unity-catalog\", \"instance\": \"urn:li:dataPlatformInstance:(urn:li:dataPlatform:unity-catalog,dummy)\"}",
+        "contentType": "application/json"
+    },
+    "systemMetadata": {
+        "lastObserved": 1638860400000,
+        "runId": "unity-catalog-test"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:acryl_metastore.main.information_schema",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "value": "{\"platform\": \"urn:li:dataPlatform:unity-catalog\", \"instance\": \"urn:li:dataPlatformInstance:(urn:li:dataPlatform:unity-catalog,dummy)\"}",
+        "contentType": "application/json"
+    },
+    "systemMetadata": {
+        "lastObserved": 1638860400000,
+        "runId": "unity-catalog-test"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:acryl_metastore.main.quickstart_schema",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "value": "{\"platform\": \"urn:li:dataPlatform:unity-catalog\", \"instance\": \"urn:li:dataPlatformInstance:(urn:li:dataPlatform:unity-catalog,dummy)\"}",
+        "contentType": "application/json"
+    },
+    "systemMetadata": {
+        "lastObserved": 1638860400000,
+        "runId": "unity-catalog-test"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:acryl_metastore.main.default",
+    "changeType": "UPSERT",
+    "aspectName": "container",
+    "aspect": {
+        "value": "{\"container\": \"urn:li:container:acryl_metastore.main\"}",
+        "contentType": "application/json"
+    },
+    "systemMetadata": {
+        "lastObserved": 1638860400000,
+        "runId": "unity-catalog-test"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:acryl_metastore.main.information_schema",
+    "changeType": "UPSERT",
+    "aspectName": "container",
+    "aspect": {
+        "value": "{\"container\": \"urn:li:container:acryl_metastore.main\"}",
+        "contentType": "application/json"
+    },
+    "systemMetadata": {
+        "lastObserved": 1638860400000,
+        "runId": "unity-catalog-test"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:acryl_metastore.main.quickstart_schema",
+    "changeType": "UPSERT",
+    "aspectName": "container",
+    "aspect": {
+        "value": "{\"container\": \"urn:li:container:acryl_metastore.main\"}",
+        "contentType": "application/json"
+    },
+    "systemMetadata": {
+        "lastObserved": 1638860400000,
+        "runId": "unity-catalog-test"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:unity-catalog,dummy.acryl_metastore.main.default.quickstart_table,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "container",
+    "aspect": {
+        "value": "{\"container\": \"urn:li:container:acryl_metastore.main.default\"}",
+        "contentType": "application/json"
+    },
+    "systemMetadata": {
+        "lastObserved": 1638860400000,
+        "runId": "unity-catalog-test"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:unity-catalog,dummy.acryl_metastore.main.default.quickstart_table,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "datasetProperties",
+    "aspect": {
+        "value": "{\"customProperties\": {\"storage_location\": \"s3://db-02eec1f70bfe4115445be9fdb1aac6ac-s3-root-bucket/metastore/2c983545-d403-4f87-9063-5b7e3b6d3736/tables/cff27aa1-1c6a-4d78-b713-562c660c2896\", \"data_source_format\": \"DELTA\"}, \"name\": \"quickstart_table\", \"tags\": []}",
+        "contentType": "application/json"
+    },
+    "systemMetadata": {
+        "lastObserved": 1638860400000,
+        "runId": "unity-catalog-test"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:unity-catalog,dummy.acryl_metastore.main.default.quickstart_table,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+        "value": "{\"typeNames\": [\"MANAGED\"]}",
+        "contentType": "application/json"
+    },
+    "systemMetadata": {
+        "lastObserved": 1638860400000,
+        "runId": "unity-catalog-test"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:unity-catalog,dummy.acryl_metastore.main.default.quickstart_table,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "schemaMetadata",
+    "aspect": {
+        "value": "{\"schemaName\": \"acryl_metastore.main.default.quickstart_table\", \"platform\": \"urn:li:dataPlatform:unity-catalog\", \"version\": 0, \"created\": {\"time\": 0, \"actor\": \"urn:li:corpuser:unknown\"}, \"lastModified\": {\"time\": 0, \"actor\": \"urn:li:corpuser:unknown\"}, \"hash\": \"\", \"platformSchema\": {\"com.linkedin.schema.MySqlDDL\": {\"tableSchema\": \"\"}}, \"fields\": [{\"fieldPath\": \"columnA\", \"nullable\": true, \"type\": {\"type\": {\"com.linkedin.schema.NumberType\": {}}}, \"nativeDataType\": \"int\", \"recursive\": false, \"isPartOfKey\": false}, {\"fieldPath\": \"columnB\", \"nullable\": true, \"type\": {\"type\": {\"com.linkedin.schema.StringType\": {}}}, \"nativeDataType\": \"string\", \"recursive\": false, \"isPartOfKey\": false}]}",
+        "contentType": "application/json"
+    },
+    "systemMetadata": {
+        "lastObserved": 1638860400000,
+        "runId": "unity-catalog-test"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:unity-catalog,dummy.acryl_metastore.main.information_schema.quickstart_table,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "container",
+    "aspect": {
+        "value": "{\"container\": \"urn:li:container:acryl_metastore.main.information_schema\"}",
+        "contentType": "application/json"
+    },
+    "systemMetadata": {
+        "lastObserved": 1638860400000,
+        "runId": "unity-catalog-test"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:unity-catalog,dummy.acryl_metastore.main.information_schema.quickstart_table,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "datasetProperties",
+    "aspect": {
+        "value": "{\"customProperties\": {\"storage_location\": \"s3://db-02eec1f70bfe4115445be9fdb1aac6ac-s3-root-bucket/metastore/2c983545-d403-4f87-9063-5b7e3b6d3736/tables/cff27aa1-1c6a-4d78-b713-562c660c2896\", \"data_source_format\": \"DELTA\"}, \"name\": \"quickstart_table\", \"tags\": []}",
+        "contentType": "application/json"
+    },
+    "systemMetadata": {
+        "lastObserved": 1638860400000,
+        "runId": "unity-catalog-test"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:unity-catalog,dummy.acryl_metastore.main.information_schema.quickstart_table,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+        "value": "{\"typeNames\": [\"MANAGED\"]}",
+        "contentType": "application/json"
+    },
+    "systemMetadata": {
+        "lastObserved": 1638860400000,
+        "runId": "unity-catalog-test"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:unity-catalog,dummy.acryl_metastore.main.information_schema.quickstart_table,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "schemaMetadata",
+    "aspect": {
+        "value": "{\"schemaName\": \"acryl_metastore.main.information_schema.quickstart_table\", \"platform\": \"urn:li:dataPlatform:unity-catalog\", \"version\": 0, \"created\": {\"time\": 0, \"actor\": \"urn:li:corpuser:unknown\"}, \"lastModified\": {\"time\": 0, \"actor\": \"urn:li:corpuser:unknown\"}, \"hash\": \"\", \"platformSchema\": {\"com.linkedin.schema.MySqlDDL\": {\"tableSchema\": \"\"}}, \"fields\": [{\"fieldPath\": \"columnA\", \"nullable\": true, \"type\": {\"type\": {\"com.linkedin.schema.NumberType\": {}}}, \"nativeDataType\": \"int\", \"recursive\": false, \"isPartOfKey\": false}, {\"fieldPath\": \"columnB\", \"nullable\": true, \"type\": {\"type\": {\"com.linkedin.schema.StringType\": {}}}, \"nativeDataType\": \"string\", \"recursive\": false, \"isPartOfKey\": false}]}",
+        "contentType": "application/json"
+    },
+    "systemMetadata": {
+        "lastObserved": 1638860400000,
+        "runId": "unity-catalog-test"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:unity-catalog,dummy.acryl_metastore.main.quickstart_schema.quickstart_table,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "container",
+    "aspect": {
+        "value": "{\"container\": \"urn:li:container:acryl_metastore.main.quickstart_schema\"}",
+        "contentType": "application/json"
+    },
+    "systemMetadata": {
+        "lastObserved": 1638860400000,
+        "runId": "unity-catalog-test"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:unity-catalog,dummy.acryl_metastore.main.quickstart_schema.quickstart_table,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "datasetProperties",
+    "aspect": {
+        "value": "{\"customProperties\": {\"storage_location\": \"s3://db-02eec1f70bfe4115445be9fdb1aac6ac-s3-root-bucket/metastore/2c983545-d403-4f87-9063-5b7e3b6d3736/tables/cff27aa1-1c6a-4d78-b713-562c660c2896\", \"data_source_format\": \"DELTA\"}, \"name\": \"quickstart_table\", \"tags\": []}",
+        "contentType": "application/json"
+    },
+    "systemMetadata": {
+        "lastObserved": 1638860400000,
+        "runId": "unity-catalog-test"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:unity-catalog,dummy.acryl_metastore.main.quickstart_schema.quickstart_table,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+        "value": "{\"typeNames\": [\"MANAGED\"]}",
+        "contentType": "application/json"
+    },
+    "systemMetadata": {
+        "lastObserved": 1638860400000,
+        "runId": "unity-catalog-test"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:unity-catalog,dummy.acryl_metastore.main.quickstart_schema.quickstart_table,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "schemaMetadata",
+    "aspect": {
+        "value": "{\"schemaName\": \"acryl_metastore.main.quickstart_schema.quickstart_table\", \"platform\": \"urn:li:dataPlatform:unity-catalog\", \"version\": 0, \"created\": {\"time\": 0, \"actor\": \"urn:li:corpuser:unknown\"}, \"lastModified\": {\"time\": 0, \"actor\": \"urn:li:corpuser:unknown\"}, \"hash\": \"\", \"platformSchema\": {\"com.linkedin.schema.MySqlDDL\": {\"tableSchema\": \"\"}}, \"fields\": [{\"fieldPath\": \"columnA\", \"nullable\": true, \"type\": {\"type\": {\"com.linkedin.schema.NumberType\": {}}}, \"nativeDataType\": \"int\", \"recursive\": false, \"isPartOfKey\": false}, {\"fieldPath\": \"columnB\", \"nullable\": true, \"type\": {\"type\": {\"com.linkedin.schema.StringType\": {}}}, \"nativeDataType\": \"string\", \"recursive\": false, \"isPartOfKey\": false}]}",
+        "contentType": "application/json"
+    },
+    "systemMetadata": {
+        "lastObserved": 1638860400000,
+        "runId": "unity-catalog-test"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:acryl_metastore.quickstart_catalog.default",
+    "changeType": "UPSERT",
+    "aspectName": "containerProperties",
+    "aspect": {
+        "value": "{\"customProperties\": {}, \"name\": \"default\"}",
+        "contentType": "application/json"
+    },
+    "systemMetadata": {
+        "lastObserved": 1638860400000,
+        "runId": "unity-catalog-test"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:acryl_metastore.quickstart_catalog.information_schema",
+    "changeType": "UPSERT",
+    "aspectName": "containerProperties",
+    "aspect": {
+        "value": "{\"customProperties\": {}, \"name\": \"information_schema\"}",
+        "contentType": "application/json"
+    },
+    "systemMetadata": {
+        "lastObserved": 1638860400000,
+        "runId": "unity-catalog-test"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:acryl_metastore.quickstart_catalog.quickstart_schema",
+    "changeType": "UPSERT",
+    "aspectName": "containerProperties",
+    "aspect": {
+        "value": "{\"customProperties\": {}, \"name\": \"quickstart_schema\"}",
+        "contentType": "application/json"
+    },
+    "systemMetadata": {
+        "lastObserved": 1638860400000,
+        "runId": "unity-catalog-test"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:acryl_metastore.quickstart_catalog.default",
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+        "value": "{\"typeNames\": [\"Schema\"]}",
+        "contentType": "application/json"
+    },
+    "systemMetadata": {
+        "lastObserved": 1638860400000,
+        "runId": "unity-catalog-test"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:acryl_metastore.quickstart_catalog.information_schema",
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+        "value": "{\"typeNames\": [\"Schema\"]}",
+        "contentType": "application/json"
+    },
+    "systemMetadata": {
+        "lastObserved": 1638860400000,
+        "runId": "unity-catalog-test"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:acryl_metastore.quickstart_catalog.quickstart_schema",
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+        "value": "{\"typeNames\": [\"Schema\"]}",
+        "contentType": "application/json"
+    },
+    "systemMetadata": {
+        "lastObserved": 1638860400000,
+        "runId": "unity-catalog-test"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:acryl_metastore.quickstart_catalog.default",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "value": "{\"platform\": \"urn:li:dataPlatform:unity-catalog\", \"instance\": \"urn:li:dataPlatformInstance:(urn:li:dataPlatform:unity-catalog,dummy)\"}",
+        "contentType": "application/json"
+    },
+    "systemMetadata": {
+        "lastObserved": 1638860400000,
+        "runId": "unity-catalog-test"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:acryl_metastore.quickstart_catalog.information_schema",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "value": "{\"platform\": \"urn:li:dataPlatform:unity-catalog\", \"instance\": \"urn:li:dataPlatformInstance:(urn:li:dataPlatform:unity-catalog,dummy)\"}",
+        "contentType": "application/json"
+    },
+    "systemMetadata": {
+        "lastObserved": 1638860400000,
+        "runId": "unity-catalog-test"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:acryl_metastore.quickstart_catalog.quickstart_schema",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "value": "{\"platform\": \"urn:li:dataPlatform:unity-catalog\", \"instance\": \"urn:li:dataPlatformInstance:(urn:li:dataPlatform:unity-catalog,dummy)\"}",
+        "contentType": "application/json"
+    },
+    "systemMetadata": {
+        "lastObserved": 1638860400000,
+        "runId": "unity-catalog-test"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:acryl_metastore.quickstart_catalog.default",
+    "changeType": "UPSERT",
+    "aspectName": "container",
+    "aspect": {
+        "value": "{\"container\": \"urn:li:container:acryl_metastore.quickstart_catalog\"}",
+        "contentType": "application/json"
+    },
+    "systemMetadata": {
+        "lastObserved": 1638860400000,
+        "runId": "unity-catalog-test"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:acryl_metastore.quickstart_catalog.information_schema",
+    "changeType": "UPSERT",
+    "aspectName": "container",
+    "aspect": {
+        "value": "{\"container\": \"urn:li:container:acryl_metastore.quickstart_catalog\"}",
+        "contentType": "application/json"
+    },
+    "systemMetadata": {
+        "lastObserved": 1638860400000,
+        "runId": "unity-catalog-test"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:acryl_metastore.quickstart_catalog.quickstart_schema",
+    "changeType": "UPSERT",
+    "aspectName": "container",
+    "aspect": {
+        "value": "{\"container\": \"urn:li:container:acryl_metastore.quickstart_catalog\"}",
+        "contentType": "application/json"
+    },
+    "systemMetadata": {
+        "lastObserved": 1638860400000,
+        "runId": "unity-catalog-test"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:unity-catalog,dummy.acryl_metastore.quickstart_catalog.default.quickstart_table,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "container",
+    "aspect": {
+        "value": "{\"container\": \"urn:li:container:acryl_metastore.quickstart_catalog.default\"}",
+        "contentType": "application/json"
+    },
+    "systemMetadata": {
+        "lastObserved": 1638860400000,
+        "runId": "unity-catalog-test"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:unity-catalog,dummy.acryl_metastore.quickstart_catalog.default.quickstart_table,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "datasetProperties",
+    "aspect": {
+        "value": "{\"customProperties\": {\"storage_location\": \"s3://db-02eec1f70bfe4115445be9fdb1aac6ac-s3-root-bucket/metastore/2c983545-d403-4f87-9063-5b7e3b6d3736/tables/cff27aa1-1c6a-4d78-b713-562c660c2896\", \"data_source_format\": \"DELTA\"}, \"name\": \"quickstart_table\", \"tags\": []}",
+        "contentType": "application/json"
+    },
+    "systemMetadata": {
+        "lastObserved": 1638860400000,
+        "runId": "unity-catalog-test"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:unity-catalog,dummy.acryl_metastore.quickstart_catalog.default.quickstart_table,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+        "value": "{\"typeNames\": [\"MANAGED\"]}",
+        "contentType": "application/json"
+    },
+    "systemMetadata": {
+        "lastObserved": 1638860400000,
+        "runId": "unity-catalog-test"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:unity-catalog,dummy.acryl_metastore.quickstart_catalog.default.quickstart_table,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "schemaMetadata",
+    "aspect": {
+        "value": "{\"schemaName\": \"acryl_metastore.quickstart_catalog.default.quickstart_table\", \"platform\": \"urn:li:dataPlatform:unity-catalog\", \"version\": 0, \"created\": {\"time\": 0, \"actor\": \"urn:li:corpuser:unknown\"}, \"lastModified\": {\"time\": 0, \"actor\": \"urn:li:corpuser:unknown\"}, \"hash\": \"\", \"platformSchema\": {\"com.linkedin.schema.MySqlDDL\": {\"tableSchema\": \"\"}}, \"fields\": [{\"fieldPath\": \"columnA\", \"nullable\": true, \"type\": {\"type\": {\"com.linkedin.schema.NumberType\": {}}}, \"nativeDataType\": \"int\", \"recursive\": false, \"isPartOfKey\": false}, {\"fieldPath\": \"columnB\", \"nullable\": true, \"type\": {\"type\": {\"com.linkedin.schema.StringType\": {}}}, \"nativeDataType\": \"string\", \"recursive\": false, \"isPartOfKey\": false}]}",
+        "contentType": "application/json"
+    },
+    "systemMetadata": {
+        "lastObserved": 1638860400000,
+        "runId": "unity-catalog-test"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:unity-catalog,dummy.acryl_metastore.quickstart_catalog.information_schema.quickstart_table,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "container",
+    "aspect": {
+        "value": "{\"container\": \"urn:li:container:acryl_metastore.quickstart_catalog.information_schema\"}",
+        "contentType": "application/json"
+    },
+    "systemMetadata": {
+        "lastObserved": 1638860400000,
+        "runId": "unity-catalog-test"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:unity-catalog,dummy.acryl_metastore.quickstart_catalog.information_schema.quickstart_table,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "datasetProperties",
+    "aspect": {
+        "value": "{\"customProperties\": {\"storage_location\": \"s3://db-02eec1f70bfe4115445be9fdb1aac6ac-s3-root-bucket/metastore/2c983545-d403-4f87-9063-5b7e3b6d3736/tables/cff27aa1-1c6a-4d78-b713-562c660c2896\", \"data_source_format\": \"DELTA\"}, \"name\": \"quickstart_table\", \"tags\": []}",
+        "contentType": "application/json"
+    },
+    "systemMetadata": {
+        "lastObserved": 1638860400000,
+        "runId": "unity-catalog-test"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:unity-catalog,dummy.acryl_metastore.quickstart_catalog.information_schema.quickstart_table,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+        "value": "{\"typeNames\": [\"MANAGED\"]}",
+        "contentType": "application/json"
+    },
+    "systemMetadata": {
+        "lastObserved": 1638860400000,
+        "runId": "unity-catalog-test"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:unity-catalog,dummy.acryl_metastore.quickstart_catalog.information_schema.quickstart_table,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "schemaMetadata",
+    "aspect": {
+        "value": "{\"schemaName\": \"acryl_metastore.quickstart_catalog.information_schema.quickstart_table\", \"platform\": \"urn:li:dataPlatform:unity-catalog\", \"version\": 0, \"created\": {\"time\": 0, \"actor\": \"urn:li:corpuser:unknown\"}, \"lastModified\": {\"time\": 0, \"actor\": \"urn:li:corpuser:unknown\"}, \"hash\": \"\", \"platformSchema\": {\"com.linkedin.schema.MySqlDDL\": {\"tableSchema\": \"\"}}, \"fields\": [{\"fieldPath\": \"columnA\", \"nullable\": true, \"type\": {\"type\": {\"com.linkedin.schema.NumberType\": {}}}, \"nativeDataType\": \"int\", \"recursive\": false, \"isPartOfKey\": false}, {\"fieldPath\": \"columnB\", \"nullable\": true, \"type\": {\"type\": {\"com.linkedin.schema.StringType\": {}}}, \"nativeDataType\": \"string\", \"recursive\": false, \"isPartOfKey\": false}]}",
+        "contentType": "application/json"
+    },
+    "systemMetadata": {
+        "lastObserved": 1638860400000,
+        "runId": "unity-catalog-test"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:unity-catalog,dummy.acryl_metastore.quickstart_catalog.quickstart_schema.quickstart_table,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "container",
+    "aspect": {
+        "value": "{\"container\": \"urn:li:container:acryl_metastore.quickstart_catalog.quickstart_schema\"}",
+        "contentType": "application/json"
+    },
+    "systemMetadata": {
+        "lastObserved": 1638860400000,
+        "runId": "unity-catalog-test"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:unity-catalog,dummy.acryl_metastore.quickstart_catalog.quickstart_schema.quickstart_table,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "datasetProperties",
+    "aspect": {
+        "value": "{\"customProperties\": {\"storage_location\": \"s3://db-02eec1f70bfe4115445be9fdb1aac6ac-s3-root-bucket/metastore/2c983545-d403-4f87-9063-5b7e3b6d3736/tables/cff27aa1-1c6a-4d78-b713-562c660c2896\", \"data_source_format\": \"DELTA\"}, \"name\": \"quickstart_table\", \"tags\": []}",
+        "contentType": "application/json"
+    },
+    "systemMetadata": {
+        "lastObserved": 1638860400000,
+        "runId": "unity-catalog-test"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:unity-catalog,dummy.acryl_metastore.quickstart_catalog.quickstart_schema.quickstart_table,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+        "value": "{\"typeNames\": [\"MANAGED\"]}",
+        "contentType": "application/json"
+    },
+    "systemMetadata": {
+        "lastObserved": 1638860400000,
+        "runId": "unity-catalog-test"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:unity-catalog,dummy.acryl_metastore.quickstart_catalog.quickstart_schema.quickstart_table,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "schemaMetadata",
+    "aspect": {
+        "value": "{\"schemaName\": \"acryl_metastore.quickstart_catalog.quickstart_schema.quickstart_table\", \"platform\": \"urn:li:dataPlatform:unity-catalog\", \"version\": 0, \"created\": {\"time\": 0, \"actor\": \"urn:li:corpuser:unknown\"}, \"lastModified\": {\"time\": 0, \"actor\": \"urn:li:corpuser:unknown\"}, \"hash\": \"\", \"platformSchema\": {\"com.linkedin.schema.MySqlDDL\": {\"tableSchema\": \"\"}}, \"fields\": [{\"fieldPath\": \"columnA\", \"nullable\": true, \"type\": {\"type\": {\"com.linkedin.schema.NumberType\": {}}}, \"nativeDataType\": \"int\", \"recursive\": false, \"isPartOfKey\": false}, {\"fieldPath\": \"columnB\", \"nullable\": true, \"type\": {\"type\": {\"com.linkedin.schema.StringType\": {}}}, \"nativeDataType\": \"string\", \"recursive\": false, \"isPartOfKey\": false}]}",
+        "contentType": "application/json"
+    },
+    "systemMetadata": {
+        "lastObserved": 1638860400000,
+        "runId": "unity-catalog-test"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:acryl_metastore.system.default",
+    "changeType": "UPSERT",
+    "aspectName": "containerProperties",
+    "aspect": {
+        "value": "{\"customProperties\": {}, \"name\": \"default\"}",
+        "contentType": "application/json"
+    },
+    "systemMetadata": {
+        "lastObserved": 1638860400000,
+        "runId": "unity-catalog-test"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:acryl_metastore.system.information_schema",
+    "changeType": "UPSERT",
+    "aspectName": "containerProperties",
+    "aspect": {
+        "value": "{\"customProperties\": {}, \"name\": \"information_schema\"}",
+        "contentType": "application/json"
+    },
+    "systemMetadata": {
+        "lastObserved": 1638860400000,
+        "runId": "unity-catalog-test"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:acryl_metastore.system.quickstart_schema",
+    "changeType": "UPSERT",
+    "aspectName": "containerProperties",
+    "aspect": {
+        "value": "{\"customProperties\": {}, \"name\": \"quickstart_schema\"}",
+        "contentType": "application/json"
+    },
+    "systemMetadata": {
+        "lastObserved": 1638860400000,
+        "runId": "unity-catalog-test"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:acryl_metastore.system.default",
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+        "value": "{\"typeNames\": [\"Schema\"]}",
+        "contentType": "application/json"
+    },
+    "systemMetadata": {
+        "lastObserved": 1638860400000,
+        "runId": "unity-catalog-test"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:acryl_metastore.system.information_schema",
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+        "value": "{\"typeNames\": [\"Schema\"]}",
+        "contentType": "application/json"
+    },
+    "systemMetadata": {
+        "lastObserved": 1638860400000,
+        "runId": "unity-catalog-test"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:acryl_metastore.system.quickstart_schema",
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+        "value": "{\"typeNames\": [\"Schema\"]}",
+        "contentType": "application/json"
+    },
+    "systemMetadata": {
+        "lastObserved": 1638860400000,
+        "runId": "unity-catalog-test"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:acryl_metastore.system.default",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "value": "{\"platform\": \"urn:li:dataPlatform:unity-catalog\", \"instance\": \"urn:li:dataPlatformInstance:(urn:li:dataPlatform:unity-catalog,dummy)\"}",
+        "contentType": "application/json"
+    },
+    "systemMetadata": {
+        "lastObserved": 1638860400000,
+        "runId": "unity-catalog-test"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:acryl_metastore.system.information_schema",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "value": "{\"platform\": \"urn:li:dataPlatform:unity-catalog\", \"instance\": \"urn:li:dataPlatformInstance:(urn:li:dataPlatform:unity-catalog,dummy)\"}",
+        "contentType": "application/json"
+    },
+    "systemMetadata": {
+        "lastObserved": 1638860400000,
+        "runId": "unity-catalog-test"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:acryl_metastore.system.quickstart_schema",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "value": "{\"platform\": \"urn:li:dataPlatform:unity-catalog\", \"instance\": \"urn:li:dataPlatformInstance:(urn:li:dataPlatform:unity-catalog,dummy)\"}",
+        "contentType": "application/json"
+    },
+    "systemMetadata": {
+        "lastObserved": 1638860400000,
+        "runId": "unity-catalog-test"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:acryl_metastore.system.default",
+    "changeType": "UPSERT",
+    "aspectName": "container",
+    "aspect": {
+        "value": "{\"container\": \"urn:li:container:acryl_metastore.system\"}",
+        "contentType": "application/json"
+    },
+    "systemMetadata": {
+        "lastObserved": 1638860400000,
+        "runId": "unity-catalog-test"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:acryl_metastore.system.information_schema",
+    "changeType": "UPSERT",
+    "aspectName": "container",
+    "aspect": {
+        "value": "{\"container\": \"urn:li:container:acryl_metastore.system\"}",
+        "contentType": "application/json"
+    },
+    "systemMetadata": {
+        "lastObserved": 1638860400000,
+        "runId": "unity-catalog-test"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:acryl_metastore.system.quickstart_schema",
+    "changeType": "UPSERT",
+    "aspectName": "container",
+    "aspect": {
+        "value": "{\"container\": \"urn:li:container:acryl_metastore.system\"}",
+        "contentType": "application/json"
+    },
+    "systemMetadata": {
+        "lastObserved": 1638860400000,
+        "runId": "unity-catalog-test"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:unity-catalog,dummy.acryl_metastore.system.default.quickstart_table,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "container",
+    "aspect": {
+        "value": "{\"container\": \"urn:li:container:acryl_metastore.system.default\"}",
+        "contentType": "application/json"
+    },
+    "systemMetadata": {
+        "lastObserved": 1638860400000,
+        "runId": "unity-catalog-test"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:unity-catalog,dummy.acryl_metastore.system.default.quickstart_table,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "datasetProperties",
+    "aspect": {
+        "value": "{\"customProperties\": {\"storage_location\": \"s3://db-02eec1f70bfe4115445be9fdb1aac6ac-s3-root-bucket/metastore/2c983545-d403-4f87-9063-5b7e3b6d3736/tables/cff27aa1-1c6a-4d78-b713-562c660c2896\", \"data_source_format\": \"DELTA\"}, \"name\": \"quickstart_table\", \"tags\": []}",
+        "contentType": "application/json"
+    },
+    "systemMetadata": {
+        "lastObserved": 1638860400000,
+        "runId": "unity-catalog-test"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:unity-catalog,dummy.acryl_metastore.system.default.quickstart_table,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+        "value": "{\"typeNames\": [\"MANAGED\"]}",
+        "contentType": "application/json"
+    },
+    "systemMetadata": {
+        "lastObserved": 1638860400000,
+        "runId": "unity-catalog-test"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:unity-catalog,dummy.acryl_metastore.system.default.quickstart_table,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "schemaMetadata",
+    "aspect": {
+        "value": "{\"schemaName\": \"acryl_metastore.system.default.quickstart_table\", \"platform\": \"urn:li:dataPlatform:unity-catalog\", \"version\": 0, \"created\": {\"time\": 0, \"actor\": \"urn:li:corpuser:unknown\"}, \"lastModified\": {\"time\": 0, \"actor\": \"urn:li:corpuser:unknown\"}, \"hash\": \"\", \"platformSchema\": {\"com.linkedin.schema.MySqlDDL\": {\"tableSchema\": \"\"}}, \"fields\": [{\"fieldPath\": \"columnA\", \"nullable\": true, \"type\": {\"type\": {\"com.linkedin.schema.NumberType\": {}}}, \"nativeDataType\": \"int\", \"recursive\": false, \"isPartOfKey\": false}, {\"fieldPath\": \"columnB\", \"nullable\": true, \"type\": {\"type\": {\"com.linkedin.schema.StringType\": {}}}, \"nativeDataType\": \"string\", \"recursive\": false, \"isPartOfKey\": false}]}",
+        "contentType": "application/json"
+    },
+    "systemMetadata": {
+        "lastObserved": 1638860400000,
+        "runId": "unity-catalog-test"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:unity-catalog,dummy.acryl_metastore.system.information_schema.quickstart_table,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "container",
+    "aspect": {
+        "value": "{\"container\": \"urn:li:container:acryl_metastore.system.information_schema\"}",
+        "contentType": "application/json"
+    },
+    "systemMetadata": {
+        "lastObserved": 1638860400000,
+        "runId": "unity-catalog-test"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:unity-catalog,dummy.acryl_metastore.system.information_schema.quickstart_table,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "datasetProperties",
+    "aspect": {
+        "value": "{\"customProperties\": {\"storage_location\": \"s3://db-02eec1f70bfe4115445be9fdb1aac6ac-s3-root-bucket/metastore/2c983545-d403-4f87-9063-5b7e3b6d3736/tables/cff27aa1-1c6a-4d78-b713-562c660c2896\", \"data_source_format\": \"DELTA\"}, \"name\": \"quickstart_table\", \"tags\": []}",
+        "contentType": "application/json"
+    },
+    "systemMetadata": {
+        "lastObserved": 1638860400000,
+        "runId": "unity-catalog-test"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:unity-catalog,dummy.acryl_metastore.system.information_schema.quickstart_table,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+        "value": "{\"typeNames\": [\"MANAGED\"]}",
+        "contentType": "application/json"
+    },
+    "systemMetadata": {
+        "lastObserved": 1638860400000,
+        "runId": "unity-catalog-test"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:unity-catalog,dummy.acryl_metastore.system.information_schema.quickstart_table,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "schemaMetadata",
+    "aspect": {
+        "value": "{\"schemaName\": \"acryl_metastore.system.information_schema.quickstart_table\", \"platform\": \"urn:li:dataPlatform:unity-catalog\", \"version\": 0, \"created\": {\"time\": 0, \"actor\": \"urn:li:corpuser:unknown\"}, \"lastModified\": {\"time\": 0, \"actor\": \"urn:li:corpuser:unknown\"}, \"hash\": \"\", \"platformSchema\": {\"com.linkedin.schema.MySqlDDL\": {\"tableSchema\": \"\"}}, \"fields\": [{\"fieldPath\": \"columnA\", \"nullable\": true, \"type\": {\"type\": {\"com.linkedin.schema.NumberType\": {}}}, \"nativeDataType\": \"int\", \"recursive\": false, \"isPartOfKey\": false}, {\"fieldPath\": \"columnB\", \"nullable\": true, \"type\": {\"type\": {\"com.linkedin.schema.StringType\": {}}}, \"nativeDataType\": \"string\", \"recursive\": false, \"isPartOfKey\": false}]}",
+        "contentType": "application/json"
+    },
+    "systemMetadata": {
+        "lastObserved": 1638860400000,
+        "runId": "unity-catalog-test"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:unity-catalog,dummy.acryl_metastore.system.quickstart_schema.quickstart_table,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "container",
+    "aspect": {
+        "value": "{\"container\": \"urn:li:container:acryl_metastore.system.quickstart_schema\"}",
+        "contentType": "application/json"
+    },
+    "systemMetadata": {
+        "lastObserved": 1638860400000,
+        "runId": "unity-catalog-test"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:unity-catalog,dummy.acryl_metastore.system.quickstart_schema.quickstart_table,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "datasetProperties",
+    "aspect": {
+        "value": "{\"customProperties\": {\"storage_location\": \"s3://db-02eec1f70bfe4115445be9fdb1aac6ac-s3-root-bucket/metastore/2c983545-d403-4f87-9063-5b7e3b6d3736/tables/cff27aa1-1c6a-4d78-b713-562c660c2896\", \"data_source_format\": \"DELTA\"}, \"name\": \"quickstart_table\", \"tags\": []}",
+        "contentType": "application/json"
+    },
+    "systemMetadata": {
+        "lastObserved": 1638860400000,
+        "runId": "unity-catalog-test"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:unity-catalog,dummy.acryl_metastore.system.quickstart_schema.quickstart_table,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+        "value": "{\"typeNames\": [\"MANAGED\"]}",
+        "contentType": "application/json"
+    },
+    "systemMetadata": {
+        "lastObserved": 1638860400000,
+        "runId": "unity-catalog-test"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:unity-catalog,dummy.acryl_metastore.system.quickstart_schema.quickstart_table,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "schemaMetadata",
+    "aspect": {
+        "value": "{\"schemaName\": \"acryl_metastore.system.quickstart_schema.quickstart_table\", \"platform\": \"urn:li:dataPlatform:unity-catalog\", \"version\": 0, \"created\": {\"time\": 0, \"actor\": \"urn:li:corpuser:unknown\"}, \"lastModified\": {\"time\": 0, \"actor\": \"urn:li:corpuser:unknown\"}, \"hash\": \"\", \"platformSchema\": {\"com.linkedin.schema.MySqlDDL\": {\"tableSchema\": \"\"}}, \"fields\": [{\"fieldPath\": \"columnA\", \"nullable\": true, \"type\": {\"type\": {\"com.linkedin.schema.NumberType\": {}}}, \"nativeDataType\": \"int\", \"recursive\": false, \"isPartOfKey\": false}, {\"fieldPath\": \"columnB\", \"nullable\": true, \"type\": {\"type\": {\"com.linkedin.schema.StringType\": {}}}, \"nativeDataType\": \"string\", \"recursive\": false, \"isPartOfKey\": false}]}",
+        "contentType": "application/json"
+    },
+    "systemMetadata": {
+        "lastObserved": 1638860400000,
+        "runId": "unity-catalog-test"
+    }
+}
+]
