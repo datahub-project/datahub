@@ -255,6 +255,15 @@ export const INCLUDE_LINEAGE: RecipeField = {
     },
 };
 
+export const INCLUDE_TABLE_LINEAGE: RecipeField = {
+    name: 'include_table_lineage',
+    label: 'Include Table Lineage',
+    tooltip: 'Whether or not table lineage should be ingested.',
+    type: FieldType.BOOLEAN,
+    fieldPath: 'source.config.include_table_lineage',
+    rules: null,
+};
+
 export const PROFILING_ENABLED: RecipeField = {
     name: 'profiling.enabled',
     label: 'Enable Profiling',

@@ -452,6 +452,7 @@ module.exports = {
       "docs/domains",
       "docs/how/business-glossary-guide",
       "docs/tags",
+      "docs/authorization/access-policies-guide",
       "docs/features/dataset-usage-and-query-history",
       "docs/posts",
       "docs/sync-status",
