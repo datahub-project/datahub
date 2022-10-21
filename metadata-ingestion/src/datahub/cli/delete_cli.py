@@ -391,10 +391,10 @@ def _delete_one_urn(
     deletion_result.num_records = UNKNOWN_NUM_RECORDS  # Default is unknown
 
     if soft:
-        if aspect_name: 
+        if aspect_name:
             raise click.UsageError(
-            "Please provide --hard flag, as aspect values cannot be soft deleted."
-        )
+                "Please provide --hard flag, as aspect values cannot be soft deleted."
+            )
         # Add removed aspect
         if cached_emitter:
             emitter = cached_emitter
