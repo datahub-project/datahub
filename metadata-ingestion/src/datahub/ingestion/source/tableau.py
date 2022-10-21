@@ -54,12 +54,11 @@ from datahub.ingestion.source.tableau_common import (
     custom_sql_graphql_query,
     embedded_datasource_graphql_query,
     get_field_value_in_sheet,
-    get_tags_from_params,
     get_unique_custom_sql,
-    make_description_from_params,
     make_table_urn,
     published_datasource_graphql_query,
     query_metadata,
+    tableau_field_to_schema_field,
     workbook_graphql_query,
 )
 from datahub.metadata.com.linkedin.pegasus2avro.common import (
@@ -936,26 +935,7 @@ class TableauSource(StatefulIngestionSourceBase):
                 )
                 continue
 
-            nativeDataType = field.get("dataType", "UNKNOWN")
-            TypeClass = FIELD_TYPE_MAPPING.get(nativeDataType, NullTypeClass)
-
-            schema_field = SchemaField(
-                fieldPath=field["name"],
-                type=SchemaFieldDataType(type=TypeClass()),
-                description=make_description_from_params(
-                    field.get("description", ""), field.get("formula")
-                ),
-                nativeDataType=nativeDataType,
-                globalTags=get_tags_from_params(
-                    [
-                        field.get("role", ""),
-                        field.get("__typename", ""),
-                        field.get("aggregation", ""),
-                    ]
-                )
-                if self.config.ingest_tags
-                else None,
-            )
+            schema_field = tableau_field_to_schema_field(field, self.config.ingest_tags)
             fields.append(schema_field)
 
         return (
@@ -1259,9 +1239,8 @@ class TableauSource(StatefulIngestionSourceBase):
                 # hidden or viz-in-tooltip sheet
                 sheet_external_url = None
             input_fields: List[InputField] = []
-            fields: dict = {}
             if sheet.get("datasourceFields"):
-                self.populate_sheet_upstream_fields(sheet, input_fields, fields)
+                self.populate_sheet_upstream_fields(sheet, input_fields)
 
             # datasource urn
             datasource_urn = []
@@ -1282,12 +1261,7 @@ class TableauSource(StatefulIngestionSourceBase):
                 lastModified=last_modified,
                 externalUrl=sheet_external_url,
                 inputs=sorted(datasource_urn),
-                customProperties={
-                    "luid": sheet.get("luid") or "",
-                    # TODO: Remove this after chart field level lineage is
-                    # surfaced in UI
-                    **{f"field: {k}": v for k, v in fields.items()},
-                },
+                customProperties={"luid": sheet.get("luid") or ""},
             )
             chart_snapshot.aspects.append(chart_info)
             # chart_snapshot doesn't support the stat aspect as list element and hence need to emit MCP
@@ -1342,7 +1316,7 @@ class TableauSource(StatefulIngestionSourceBase):
                 yield wu
 
     def populate_sheet_upstream_fields(
-        self, sheet: dict, input_fields: List[InputField], fields: dict
+        self, sheet: dict, input_fields: List[InputField]
     ) -> None:
         for field in sheet.get("datasourceFields"):  # type: ignore
             if not field:
@@ -1353,11 +1327,7 @@ class TableauSource(StatefulIngestionSourceBase):
             )
             if name and upstream_ds_id:
                 name = get_field_value_in_sheet(field, "name")
-                description = make_description_from_params(
-                    get_field_value_in_sheet(field, "description"),
-                    get_field_value_in_sheet(field, "formula"),
-                )
-                fields[name] = description
+
                 input_fields.append(
                     InputField(
                         schemaFieldUrn=builder.make_schema_field_urn(
@@ -1368,7 +1338,10 @@ class TableauSource(StatefulIngestionSourceBase):
                                 self.config.env,
                             ),
                             field_path=name,
-                        )
+                        ),
+                        schemaField=tableau_field_to_schema_field(
+                            field, self.config.ingest_tags
+                        ),
                     )
                 )
 
