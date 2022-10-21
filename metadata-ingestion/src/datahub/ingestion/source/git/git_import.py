@@ -15,6 +15,7 @@ class GitClone:
     def __init__(self, tmp_dir: str, skip_known_host_verification: bool = True):
         self.tmp_dir = tmp_dir
         self.skip_known_host_verification = skip_known_host_verification
+        self.last_repo_cloned: Optional[git.Repo] = None
 
     def clone(self, ssh_key: Optional[SecretStr], repo_url: str) -> Path:
         unique_dir = str(uuid4())
@@ -51,10 +52,13 @@ class GitClone:
             )
         logger.debug("ssh_command=%s", git_ssh_cmd)
         logger.info(f"⏳ Cloning repo '{repo_url}', this can take some time...")
-        git.Repo.clone_from(
+        self.last_repo_cloned = git.Repo.clone_from(
             repo_url,
             checkout_dir,
             env=dict(GIT_SSH_COMMAND=git_ssh_cmd),
         )
         logger.info("✅ Cloning complete!")
         return pathlib.Path(checkout_dir)
+
+    def get_last_repo_cloned(self) -> Optional[git.Repo]:
+        return self.last_repo_cloned
