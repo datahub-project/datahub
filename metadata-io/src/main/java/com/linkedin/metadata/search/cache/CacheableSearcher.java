@@ -97,6 +97,7 @@ public class CacheableSearcher<K> {
           result = searcher.apply(batch);
           cache.put(cacheKey, result);
           cacheMiss.stop();
+          MetricUtils.counter(this.getClass(), "getBatch_cache_miss").inc();
         }
       } else {
         result = searcher.apply(batch);
