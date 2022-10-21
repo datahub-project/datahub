@@ -248,7 +248,7 @@ class ViewField:
     description: str
     field_type: ViewFieldType
     is_primary_key: bool = False
-    upstream_field: Optional[str] = None
+    upstream_fields: List[str] = dataclasses_field(default_factory=list)
 
 
 class LookerUtil:
@@ -673,7 +673,7 @@ class LookerExplore:
                                     is_primary_key=dim_field.primary_key
                                     if dim_field.primary_key
                                     else False,
-                                    upstream_field=dim_field.name,
+                                    upstream_fields=[dim_field.name],
                                 )
                             )
                 if explore.fields.measures is not None:
@@ -695,7 +695,7 @@ class LookerExplore:
                                     is_primary_key=measure_field.primary_key
                                     if measure_field.primary_key
                                     else False,
-                                    upstream_field=measure_field.name,
+                                    upstream_fields=[measure_field.name],
                                 )
                             )
 
@@ -818,27 +818,25 @@ class LookerExplore:
             fine_grained_lineages = []
             if config.extract_column_level_lineage:
                 for field in self.fields or []:
-                    if (
-                        field.upstream_field
-                        and len(field.upstream_field.split(".")) >= 2
-                    ):
-                        (view_name, field_path) = field.upstream_field.split(".")[
-                            0
-                        ], ".".join(field.upstream_field.split(".")[1:])
-                        assert view_name
-                        view_urn = view_name_to_urn_map.get(view_name, "")
-                        if view_urn:
-                            fine_grained_lineages.append(
-                                FineGrainedLineageClass(
-                                    upstreamType=FineGrainedLineageUpstreamType.FIELD_SET,
-                                    downstreamType=FineGrainedLineageDownstreamType.FIELD,
-                                    upstreams=[
-                                        builder.make_schema_field_urn(
-                                            view_urn, field_path
-                                        )
-                                    ],
+                    for upstream_field in field.upstream_fields:
+                        if len(upstream_field.split(".")) >= 2:
+                            (view_name, field_path) = upstream_field.split(".")[
+                                0
+                            ], ".".join(upstream_field.split(".")[1:])
+                            assert view_name
+                            view_urn = view_name_to_urn_map.get(view_name, "")
+                            if view_urn:
+                                fine_grained_lineages.append(
+                                    FineGrainedLineageClass(
+                                        upstreamType=FineGrainedLineageUpstreamType.FIELD_SET,
+                                        downstreamType=FineGrainedLineageDownstreamType.FIELD,
+                                        upstreams=[
+                                            builder.make_schema_field_urn(
+                                                view_urn, field_path
+                                            )
+                                        ],
+                                    )
                                 )
-                            )
 
             upstream_lineage = UpstreamLineage(
                 upstreams=upstreams, fineGrainedLineages=fine_grained_lineages or None
