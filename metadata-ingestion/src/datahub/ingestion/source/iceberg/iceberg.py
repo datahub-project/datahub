@@ -27,7 +27,7 @@ from datahub.ingestion.api.decorators import (
     platform_name,
     support_status,
 )
-from datahub.ingestion.api.source import Source, SourceReport
+from datahub.ingestion.api.source import SourceReport
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.extractor import schema_util
 from datahub.ingestion.source.iceberg.iceberg_common import (
@@ -35,6 +35,14 @@ from datahub.ingestion.source.iceberg.iceberg_common import (
     IcebergSourceReport,
 )
 from datahub.ingestion.source.iceberg.iceberg_profiler import IcebergProfiler
+from datahub.ingestion.source.state.iceberg_state import IcebergCheckpointState
+from datahub.ingestion.source.state.stale_entity_removal_handler import (
+    StaleEntityRemovalHandler,
+)
+from datahub.ingestion.source.state.stateful_ingestion_base import (
+    StatefulIngestionSourceBase,
+)
+from datahub.metadata.com.linkedin.pegasus2avro.common import Status
 from datahub.metadata.com.linkedin.pegasus2avro.metadata.snapshot import DatasetSnapshot
 from datahub.metadata.com.linkedin.pegasus2avro.mxe import MetadataChangeEvent
 from datahub.metadata.com.linkedin.pegasus2avro.schema import (
@@ -81,7 +89,8 @@ _all_atomic_types = {
     SourceCapability.OWNERSHIP,
     "Optionally enabled via configuration by specifying which Iceberg table property holds user or group ownership.",
 )
-class IcebergSource(Source):
+@capability(SourceCapability.DELETION_DETECTION, "Enabled via stateful ingestion")
+class IcebergSource(StatefulIngestionSourceBase):
     """
     ## Integration Details
 
@@ -101,11 +110,19 @@ class IcebergSource(Source):
     """
 
     def __init__(self, config: IcebergSourceConfig, ctx: PipelineContext) -> None:
-        super().__init__(ctx)
-        self.PLATFORM: str = "iceberg"
+        super().__init__(config, ctx)
+        self.platform: str = "iceberg"
         self.report: IcebergSourceReport = IcebergSourceReport()
         self.config: IcebergSourceConfig = config
         self.iceberg_client: FilesystemTables = config.filesystem_tables
+
+        self.stale_entity_removal_handler = StaleEntityRemovalHandler(
+            source=self,
+            config=self.config,
+            state_type_class=IcebergCheckpointState,
+            pipeline_name=self.ctx.pipeline_name,
+            run_id=self.ctx.run_id,
+        )
 
     @classmethod
     def create(cls, config_dict: Dict, ctx: PipelineContext) -> "IcebergSource":
@@ -123,6 +140,15 @@ class IcebergSource(Source):
                 # Try to load an Iceberg table.  Might not contain one, this will be caught by NoSuchTableException.
                 table: Table = self.iceberg_client.load(dataset_path)
                 yield from self._create_iceberg_workunit(dataset_name, table)
+                dataset_urn: str = make_dataset_urn_with_platform_instance(
+                    self.platform,
+                    dataset_name,
+                    self.config.platform_instance,
+                    self.config.env,
+                )
+                self.stale_entity_removal_handler.add_entity_to_state(
+                    type="table", urn=dataset_urn
+                )
             except NoSuchTableException:
                 # Path did not contain a valid Iceberg table. Silently ignore this.
                 LOGGER.debug(
@@ -135,19 +161,22 @@ class IcebergSource(Source):
                     f"Exception while processing table {dataset_path}, skipping it.",
                 )
 
+        # Clean up stale entities at the end
+        yield from self.stale_entity_removal_handler.gen_removed_entity_workunits()
+
     def _create_iceberg_workunit(
         self, dataset_name: str, table: Table
     ) -> Iterable[MetadataWorkUnit]:
         self.report.report_table_scanned(dataset_name)
         dataset_urn: str = make_dataset_urn_with_platform_instance(
-            self.PLATFORM,
+            self.platform,
             dataset_name,
             self.config.platform_instance,
             self.config.env,
         )
         dataset_snapshot = DatasetSnapshot(
             urn=dataset_urn,
-            aspects=[],
+            aspects=[Status(removed=False)],
         )
 
         custom_properties: Dict = dict(table.properties())
@@ -227,9 +256,9 @@ class IcebergSource(Source):
                 entityUrn=dataset_urn,
                 aspectName="dataPlatformInstance",
                 aspect=DataPlatformInstanceClass(
-                    platform=make_data_platform_urn(self.PLATFORM),
+                    platform=make_data_platform_urn(self.platform),
                     instance=make_dataplatform_instance_urn(
-                        self.PLATFORM, self.config.platform_instance
+                        self.platform, self.config.platform_instance
                     ),
                 ),
             )
@@ -247,7 +276,7 @@ class IcebergSource(Source):
         )
         schema_metadata = SchemaMetadata(
             schemaName=dataset_name,
-            platform=make_data_platform_urn(self.PLATFORM),
+            platform=make_data_platform_urn(self.platform),
             version=0,
             hash="",
             platformSchema=OtherSchema(rawSchema=repr(table.schema())),
@@ -295,11 +324,15 @@ class IcebergSource(Source):
             ],
         }
 
+    def get_platform_instance_id(self) -> str:
+        assert self.config.platform_instance is not None
+        return self.config.platform_instance
+
     def get_report(self) -> SourceReport:
         return self.report
 
     def close(self) -> None:
-        pass
+        self.prepare_for_commit()
 
 
 def _parse_datatype(type: IcebergTypes.Type, nullable: bool = False) -> Dict[str, Any]:

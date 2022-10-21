@@ -2,6 +2,7 @@ import os
 from dataclasses import dataclass, field
 from typing import Dict, Iterable, List, Optional, Tuple
 
+import pydantic
 from azure.storage.filedatalake import FileSystemClient, PathProperties
 from iceberg.core.filesystem.abfss_filesystem import AbfssFileSystem
 from iceberg.core.filesystem.filesystem_tables import FilesystemTables
@@ -13,8 +14,14 @@ from datahub.configuration.common import (
     ConfigurationError,
 )
 from datahub.configuration.source_common import DatasetSourceConfigBase
-from datahub.ingestion.api.source import SourceReport
 from datahub.ingestion.source.azure.azure_common import AdlsSourceConfig
+from datahub.ingestion.source.state.stale_entity_removal_handler import (
+    StaleEntityRemovalSourceReport,
+    StatefulStaleMetadataRemovalConfig,
+)
+from datahub.ingestion.source.state.stateful_ingestion_base import (
+    StatefulIngestionConfigBase,
+)
 
 
 class IcebergProfilingConfig(ConfigModel):
@@ -44,7 +51,17 @@ class IcebergProfilingConfig(ConfigModel):
     # include_field_sample_values: bool = True
 
 
-class IcebergSourceConfig(DatasetSourceConfigBase):
+class IcebergSourceStatefulIngestionConfig(StatefulStaleMetadataRemovalConfig):
+    """Iceberg custom stateful ingestion config definition(overrides _entity_types of StatefulStaleMetadataRemovalConfig)."""
+
+    _entity_types: List[str] = pydantic.Field(default=["table"])
+
+
+class IcebergSourceConfig(StatefulIngestionConfigBase, DatasetSourceConfigBase):
+    # Override the stateful_ingestion config param with the Iceberg custom stateful ingestion config in the IcebergSourceConfig
+    stateful_ingestion: Optional[IcebergSourceStatefulIngestionConfig] = pydantic.Field(
+        default=None, description="Iceberg Stateful Ingestion Config."
+    )
     adls: Optional[AdlsSourceConfig] = Field(
         default=None,
         description="[Azure Data Lake Storage](https://docs.microsoft.com/en-us/azure/storage/blobs/data-lake-storage-introduction) to crawl for Iceberg tables.  This is one filesystem type supported by this source and **only one can be configured**.",
@@ -70,6 +87,19 @@ class IcebergSourceConfig(DatasetSourceConfigBase):
         description="Iceberg table property to look for a `CorpGroup` owner.  Can only hold a single group value.  If property has no value, no owner information will be emitted.",
     )
     profiling: IcebergProfilingConfig = IcebergProfilingConfig()
+
+    @pydantic.root_validator
+    def validate_platform_instance(cls: "IcebergSourceConfig", values: Dict) -> Dict:
+        stateful_ingestion = values.get("stateful_ingestion")
+        if (
+            stateful_ingestion
+            and stateful_ingestion.enabled
+            and not values.get("platform_instance")
+        ):
+            raise ConfigurationError(
+                "Enabling Iceberg stateful ingestion requires to specify a platform instance."
+            )
+        return values
 
     @root_validator()
     def _ensure_one_filesystem_is_configured(
@@ -160,7 +190,7 @@ class IcebergSourceConfig(DatasetSourceConfigBase):
 
 
 @dataclass
-class IcebergSourceReport(SourceReport):
+class IcebergSourceReport(StaleEntityRemovalSourceReport):
     tables_scanned: int = 0
     entities_profiled: int = 0
     filtered: List[str] = field(default_factory=list)
