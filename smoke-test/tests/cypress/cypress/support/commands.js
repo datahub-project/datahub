@@ -92,8 +92,9 @@ Cypress.Commands.add("deleteFromDropdown", () => {
   cy.clickOptionWithText("Yes");
 });
 
-Cypress.Commands.add("addViaModel", (text) => {
-  cy.get(".ant-form-item-control-input-content > input[type='text']").type(text);
+Cypress.Commands.add("addViaModel", (text, modelHeader) => {
+  cy.waitTextVisible(modelHeader);
+  cy.get(".ant-form-item-control-input-content > input[type='text']").first().type(text);
   cy.get(".ant-modal-footer > button:nth-child(2)").click();
 });
 
