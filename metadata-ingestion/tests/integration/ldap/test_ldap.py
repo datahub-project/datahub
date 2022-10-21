@@ -130,7 +130,7 @@ def test_ldap_config_stateful_ingest(
                         },
                         "stateful_ingestion": {
                             "enabled": "False",
-                            "remove_stale_metadata": "True",
+                            "remove_stale_metadata": "False",
                             "fail_safe_threshold": "100",
                             "state_provider": {
                                 "type": "datahub",
