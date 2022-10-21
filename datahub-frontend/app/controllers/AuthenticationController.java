@@ -12,8 +12,6 @@ import com.linkedin.common.urn.Urn;
 import com.typesafe.config.Config;
 import java.io.UnsupportedEncodingException;
 import java.net.URLEncoder;
-import java.time.Duration;
-import java.time.temporal.ChronoUnit;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Optional;
@@ -141,17 +139,11 @@ public class AuthenticationController extends Controller {
 
         final Urn actorUrn = new CorpuserUrn(username);
         final String accessToken = _authClient.generateSessionTokenForUser(actorUrn.getId());
-        Result result = ok().withSession(createSessionMap(actorUrn.toString(), accessToken))
-            .withCookies(Http.Cookie.builder(ACTOR, actorUrn.toString())
-                .withHttpOnly(false)
-                .withMaxAge(Duration.of(30, ChronoUnit.DAYS))
-                .build());
-        return result;
+        return createSession(actorUrn.toString(), accessToken);
     }
 
     /**
-     * Sign up a native user based on a name, email, title, and password. The invite token must match the global invite
-     * token stored for the DataHub instance.
+     * Sign up a native user based on a name, email, title, and password. The invite token must match an existing invite token.
      *
      */
     @Nonnull
@@ -199,17 +191,13 @@ public class AuthenticationController extends Controller {
 
         final Urn userUrn = new CorpuserUrn(email);
         final String userUrnString = userUrn.toString();
-        boolean isNativeUserCreated = _authClient.signUp(userUrnString, fullName, email, title, password, inviteToken);
+        _authClient.signUp(userUrnString, fullName, email, title, password, inviteToken);
         final String accessToken = _authClient.generateSessionTokenForUser(userUrn.getId());
-        return ok().withSession(createSessionMap(userUrnString, accessToken))
-            .withCookies(Http.Cookie.builder(ACTOR, userUrnString)
-                .withHttpOnly(false)
-                .withMaxAge(Duration.of(30, ChronoUnit.DAYS))
-                .build());
+        return createSession(userUrnString, accessToken);
     }
 
     /**
-     * Create a native user based on a name, email, and password.
+     * Reset a native user's credentials based on a username, old password, and new password.
      *
      */
     @Nonnull
@@ -245,15 +233,9 @@ public class AuthenticationController extends Controller {
 
         final Urn userUrn = new CorpuserUrn(email);
         final String userUrnString = userUrn.toString();
-        boolean areNativeUserCredentialsReset =
-            _authClient.resetNativeUserCredentials(userUrnString, password, resetToken);
-        _logger.debug(String.format("Are native user credentials reset: %b", areNativeUserCredentialsReset));
+        _authClient.resetNativeUserCredentials(userUrnString, password, resetToken);
         final String accessToken = _authClient.generateSessionTokenForUser(userUrn.getId());
-        return ok().withSession(createSessionMap(userUrnString, accessToken))
-            .withCookies(Http.Cookie.builder(ACTOR, userUrnString)
-                .withHttpOnly(false)
-                .withMaxAge(Duration.of(30, ChronoUnit.DAYS))
-                .build());
+        return createSession(userUrnString, accessToken);
     }
 
     private Result redirectToIdentityProvider() {
@@ -288,7 +270,6 @@ public class AuthenticationController extends Controller {
     }
 
     private boolean tryLogin(String username, String password) {
-        JsonNode invalidCredsJson = Json.newObject().put("message", "Invalid Credentials");
         boolean loginSucceeded = false;
 
         // First try jaas login, if enabled
@@ -311,6 +292,13 @@ public class AuthenticationController extends Controller {
         }
 
         return loginSucceeded;
+    }
+
+    private Result createSession(String userUrnString, String accessToken) {
+        int ttlInHours = _configs.hasPath(SESSION_TTL_CONFIG_PATH) ? _configs.getInt(SESSION_TTL_CONFIG_PATH)
+            : DEFAULT_SESSION_TTL_HOURS;
+        return ok().withSession(createSessionMap(userUrnString, accessToken))
+            .withCookies(createActorCookie(userUrnString, ttlInHours));
     }
 
     private Map<String, String> createSessionMap(final String userUrnStr, final String accessToken) {

@@ -3,8 +3,41 @@
 This file documents any backwards-incompatible changes in DataHub and assists people when migrating to a new version.
 
 ## Next
+- LookML source will only emit views that are reachable from explores while scanning your git repo. Previous behavior can be achieved by setting `emit_reachable_views_only` to False.
+- LookML source will always lowercase urns for lineage edges from views to upstream tables. There is no fallback provided to previous behavior because it was inconsistent in application of lower-casing earlier.
 
 ### Breaking Changes
+- Java version 11 or greater is required.
+- For any of the GraphQL search queries, the input no longer supports value but instead now accepts a list of values. These values represent an OR relationship where the field value must match any of the values.
+
+### Potential Downtime
+
+### Deprecations
+
+### Other notable Changes
+
+## 0.9.0
+
+### Breaking Changes
+- Java version 11 or greater is required.
+
+### Potential Downtime
+
+### Deprecations
+
+### Other notable Changes
+
+## `v0.8.45`
+
+### Breaking Changes
+- The `getNativeUserInviteToken` and `createNativeUserInviteToken` GraphQL endpoints have been renamed to 
+  `getInviteToken` and `createInviteToken` respectively.  Additionally, both now accept an optional `roleUrn` parameter. 
+  Both endpoints also now require the `MANAGE_POLICIES` privilege to execute, rather than `MANAGE_USER_CREDENTIALS`
+  privilege.
+- One of the default policies shipped with DataHub (`urn:li:dataHubPolicy:7`, or `All Users - All Platform Privileges`)
+  has been edited to no longer include `MANAGE_POLICIES`. Its name has consequently been changed to
+    `All Users - All Platform Privileges (EXCEPT MANAGE POLICIES)`. This change was made to prevent all users from
+  effectively acting as superusers by default.
 
 ### Potential Downtime
 

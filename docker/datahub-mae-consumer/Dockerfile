@@ -14,7 +14,7 @@ RUN apk --no-cache --update-cache --available upgrade \
     else \
       echo >&2 "Unsupported architecture $(arch)" ; exit 1; \
     fi \
-    && apk --no-cache add tar curl bash \
+    && apk --no-cache add tar curl bash coreutils \
     && apk --no-cache add openjdk11-jre --repository=http://dl-cdn.alpinelinux.org/alpine/edge/community \
     && wget --no-verbose https://github.com/open-telemetry/opentelemetry-java-instrumentation/releases/download/v1.4.1/opentelemetry-javaagent-all.jar \
     && wget --no-verbose https://repo1.maven.org/maven2/io/prometheus/jmx/jmx_prometheus_javaagent/0.16.1/jmx_prometheus_javaagent-0.16.1.jar -O jmx_prometheus_javaagent.jar \
@@ -25,7 +25,7 @@ FROM --platform=$BUILDPLATFORM alpine:3.14.2 AS prod-build
 
 # Upgrade Alpine and base packages
 RUN apk --no-cache --update-cache --available upgrade \
-    && apk --no-cache add openjdk8 perl
+    && apk --no-cache add openjdk8 openjdk11 perl
 
 COPY . datahub-src
 RUN cd datahub-src && ./gradlew :metadata-jobs:mae-consumer-job:build -x test

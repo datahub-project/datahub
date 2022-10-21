@@ -15,8 +15,6 @@ public class Constants {
 
   public static final String DEFAULT_RUN_ID = "no-run-id-provided";
 
-  public static final String GLOBAL_INVITE_TOKEN = "urn:li:inviteToken:global";
-
   /**
    * Entities
    */
@@ -49,6 +47,7 @@ public class Constants {
   public static final String DATA_HUB_UPGRADE_ENTITY_NAME = "dataHubUpgrade";
   public static final String INVITE_TOKEN_ENTITY_NAME = "inviteToken";
   public static final String DATAHUB_ROLE_ENTITY_NAME = "dataHubRole";
+  public static final String POST_ENTITY_NAME = "post";
 
 
   /**
@@ -236,12 +235,15 @@ public class Constants {
 
   // Invite Token
   public static final String INVITE_TOKEN_ASPECT_NAME = "inviteToken";
+  public static final int INVITE_TOKEN_LENGTH = 32;
+  public static final int SALT_TOKEN_LENGTH = 16;
+  public static final int PASSWORD_RESET_TOKEN_LENGTH = 32;
+
 
   // Relationships
   public static final String IS_MEMBER_OF_GROUP_RELATIONSHIP_NAME = "IsMemberOfGroup";
   public static final String IS_MEMBER_OF_NATIVE_GROUP_RELATIONSHIP_NAME = "IsMemberOfNativeGroup";
 
-  // acryl-main only
   public static final String CHANGE_EVENT_PLATFORM_EVENT_NAME = "entityChangeEvent";
 
   /**
@@ -255,6 +257,14 @@ public class Constants {
   public static final String DATA_PROCESS_INSTANCE_ENTITY_NAME = "dataProcessInstance";
   public static final String DATA_PROCESS_INSTANCE_PROPERTIES_ASPECT_NAME = "dataProcessInstanceProperties";
   public static final String DATA_PROCESS_INSTANCE_RUN_EVENT_ASPECT_NAME = "dataProcessInstanceRunEvent";
+
+  // Posts
+  public static final String POST_INFO_ASPECT_NAME = "postInfo";
+  public static final String LAST_MODIFIED_FIELD_NAME = "lastModified";
+
+  // Telemetry
+  public static final String CLIENT_ID_URN = "urn:li:telemetry:clientId";
+  public static final String CLIENT_ID_ASPECT = "telemetryClientId";
 
   private Constants() {
   }

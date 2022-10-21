@@ -9,6 +9,7 @@ import { EntityType } from '../../../../types.generated';
 import { useEntityRegistry } from '../../../useEntityRegistry';
 import NodeParentSelect from './NodeParentSelect';
 import { useEntityData, useRefetch } from '../EntityContext';
+import analytics, { EventType } from '../../../analytics';
 
 const StyledItem = styled(Form.Item)`
     margin-bottom: 0;
@@ -52,6 +53,11 @@ function CreateGlossaryEntityModal(props: Props) {
             .then(() => {
                 message.loading({ content: 'Updating...', duration: 2 });
                 setTimeout(() => {
+                    analytics.event({
+                        type: EventType.CreateGlossaryEntityEvent,
+                        entityType,
+                        parentNodeUrn: selectedParentUrn || undefined,
+                    });
                     message.success({
                         content: `Created ${entityRegistry.getEntityName(entityType)}!`,
                         duration: 2,

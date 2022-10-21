@@ -77,10 +77,7 @@ public class BatchSetDomainResolverTest {
     proposal1.setAspect(GenericRecordUtils.serializeAspect(newDomains));
     proposal1.setChangeType(ChangeType.UPSERT);
 
-    Mockito.verify(mockService, Mockito.times(1)).ingestProposal(
-        Mockito.eq(proposal1),
-        Mockito.any(AuditStamp.class)
-    );
+    verifyIngestProposal(mockService, 1, proposal1);
 
     final MetadataChangeProposal proposal2 = new MetadataChangeProposal();
     proposal2.setEntityUrn(Urn.createFromString(TEST_ENTITY_URN_2));
@@ -89,10 +86,7 @@ public class BatchSetDomainResolverTest {
     proposal2.setAspect(GenericRecordUtils.serializeAspect(newDomains));
     proposal2.setChangeType(ChangeType.UPSERT);
 
-    Mockito.verify(mockService, Mockito.times(1)).ingestProposal(
-        Mockito.eq(proposal2),
-        Mockito.any(AuditStamp.class)
-    );
+    verifyIngestProposal(mockService, 1, proposal2);
 
     Mockito.verify(mockService, Mockito.times(1)).exists(
         Mockito.eq(Urn.createFromString(TEST_DOMAIN_2_URN))
@@ -147,10 +141,7 @@ public class BatchSetDomainResolverTest {
     proposal1.setAspect(GenericRecordUtils.serializeAspect(newDomains));
     proposal1.setChangeType(ChangeType.UPSERT);
 
-    Mockito.verify(mockService, Mockito.times(1)).ingestProposal(
-        Mockito.eq(proposal1),
-        Mockito.any(AuditStamp.class)
-    );
+    verifyIngestProposal(mockService, 1, proposal1);
 
     final MetadataChangeProposal proposal2 = new MetadataChangeProposal();
     proposal2.setEntityUrn(Urn.createFromString(TEST_ENTITY_URN_2));
@@ -159,10 +150,7 @@ public class BatchSetDomainResolverTest {
     proposal2.setAspect(GenericRecordUtils.serializeAspect(newDomains));
     proposal2.setChangeType(ChangeType.UPSERT);
 
-    Mockito.verify(mockService, Mockito.times(1)).ingestProposal(
-        Mockito.eq(proposal2),
-        Mockito.any(AuditStamp.class)
-    );
+    verifyIngestProposal(mockService, 1, proposal2);
 
     Mockito.verify(mockService, Mockito.times(1)).exists(
         Mockito.eq(Urn.createFromString(TEST_DOMAIN_2_URN))
@@ -215,10 +203,7 @@ public class BatchSetDomainResolverTest {
     proposal1.setAspect(GenericRecordUtils.serializeAspect(newDomains));
     proposal1.setChangeType(ChangeType.UPSERT);
 
-    Mockito.verify(mockService, Mockito.times(1)).ingestProposal(
-        Mockito.eq(proposal1),
-        Mockito.any(AuditStamp.class)
-    );
+    verifyIngestProposal(mockService, 1, proposal1);
 
     final MetadataChangeProposal proposal2 = new MetadataChangeProposal();
     proposal2.setEntityUrn(Urn.createFromString(TEST_ENTITY_URN_2));
@@ -227,10 +212,7 @@ public class BatchSetDomainResolverTest {
     proposal2.setAspect(GenericRecordUtils.serializeAspect(newDomains));
     proposal2.setChangeType(ChangeType.UPSERT);
 
-    Mockito.verify(mockService, Mockito.times(1)).ingestProposal(
-        Mockito.eq(proposal2),
-        Mockito.any(AuditStamp.class)
-    );
+    verifyIngestProposal(mockService, 1, proposal2);
   }
 
   @Test
@@ -258,9 +240,7 @@ public class BatchSetDomainResolverTest {
     Mockito.when(mockEnv.getContext()).thenReturn(mockContext);
 
     assertThrows(CompletionException.class, () -> resolver.get(mockEnv).join());
-    Mockito.verify(mockService, Mockito.times(0)).ingestProposal(
-        Mockito.any(),
-        Mockito.any(AuditStamp.class));
+    verifyNoIngestProposal(mockService);
   }
 
   @Test
@@ -294,9 +274,7 @@ public class BatchSetDomainResolverTest {
     Mockito.when(mockEnv.getContext()).thenReturn(mockContext);
 
     assertThrows(CompletionException.class, () -> resolver.get(mockEnv).join());
-    Mockito.verify(mockService, Mockito.times(0)).ingestProposal(
-        Mockito.any(),
-        Mockito.any(AuditStamp.class));
+    verifyNoIngestProposal(mockService);
   }
 
   @Test
@@ -315,9 +293,7 @@ public class BatchSetDomainResolverTest {
     Mockito.when(mockEnv.getContext()).thenReturn(mockContext);
 
     assertThrows(CompletionException.class, () -> resolver.get(mockEnv).join());
-    Mockito.verify(mockService, Mockito.times(0)).ingestProposal(
-        Mockito.any(),
-        Mockito.any(AuditStamp.class));
+    verifyNoIngestProposal(mockService);
   }
 
   @Test
@@ -326,7 +302,7 @@ public class BatchSetDomainResolverTest {
 
     Mockito.doThrow(RuntimeException.class).when(mockService).ingestProposal(
         Mockito.any(),
-        Mockito.any(AuditStamp.class));
+        Mockito.any(AuditStamp.class), Mockito.anyBoolean());
 
     BatchSetDomainResolver resolver = new BatchSetDomainResolver(mockService);
 

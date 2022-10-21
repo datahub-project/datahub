@@ -89,7 +89,8 @@ public class UpgradeDefaultBrowsePathsStepTest {
     // Verify that 4 aspects are ingested, 2 for the upgrade request / result, but none for ingesting
     Mockito.verify(mockService, Mockito.times(2)).ingestProposal(
         Mockito.any(MetadataChangeProposal.class),
-        Mockito.any()
+        Mockito.any(),
+        Mockito.eq(false)
     );
   }
 
@@ -156,7 +157,8 @@ public class UpgradeDefaultBrowsePathsStepTest {
     // Verify that 4 aspects are ingested, 2 for the upgrade request / result and 2 for the browse pahts
     Mockito.verify(mockService, Mockito.times(4)).ingestProposal(
         Mockito.any(MetadataChangeProposal.class),
-        Mockito.any()
+        Mockito.any(),
+        Mockito.eq(false)
     );
   }
 
@@ -223,7 +225,8 @@ public class UpgradeDefaultBrowsePathsStepTest {
     // Verify that 2 aspects are ingested, only those for the upgrade step
     Mockito.verify(mockService, Mockito.times(2)).ingestProposal(
         Mockito.any(MetadataChangeProposal.class),
-        Mockito.any()
+        Mockito.any(),
+        Mockito.eq(false)
     );
   }
 
@@ -248,7 +251,8 @@ public class UpgradeDefaultBrowsePathsStepTest {
 
     Mockito.verify(mockService, Mockito.times(0)).ingestProposal(
         Mockito.any(MetadataChangeProposal.class),
-        Mockito.any(AuditStamp.class)
+        Mockito.any(AuditStamp.class),
+        Mockito.anyBoolean()
     );
   }
 

@@ -1,10 +1,12 @@
 package com.linkedin.metadata.entity;
 
+import com.datahub.authentication.Authentication;
 import com.google.common.collect.ImmutableSet;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.data.template.RecordTemplate;
 import com.linkedin.entity.Aspect;
 import com.linkedin.entity.EntityResponse;
+import com.linkedin.entity.client.EntityClient;
 import com.linkedin.events.metadata.ChangeType;
 import com.linkedin.metadata.utils.EntityKeyUtils;
 import com.linkedin.metadata.utils.GenericRecordUtils;
@@ -17,10 +19,9 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
 import java.util.stream.Collectors;
-import com.linkedin.entity.client.EntityClient;
-import com.datahub.authentication.Authentication;
 import javax.annotation.Nonnull;
 import lombok.extern.slf4j.Slf4j;
+
 
 @Slf4j
 public class AspectUtils {
@@ -85,12 +86,21 @@ public class AspectUtils {
   }
 
   public static MetadataChangeProposal buildMetadataChangeProposal(
-      @Nonnull Urn urn,
-      @Nonnull String aspectName,
-      @Nonnull RecordTemplate aspect) {
+      @Nonnull Urn urn, @Nonnull String aspectName, @Nonnull RecordTemplate aspect) {
     final MetadataChangeProposal proposal = new MetadataChangeProposal();
     proposal.setEntityUrn(urn);
     proposal.setEntityType(urn.getEntityType());
+    proposal.setAspectName(aspectName);
+    proposal.setAspect(GenericRecordUtils.serializeAspect(aspect));
+    proposal.setChangeType(ChangeType.UPSERT);
+    return proposal;
+  }
+
+  public static MetadataChangeProposal buildMetadataChangeProposal(@Nonnull String entityType,
+      @Nonnull RecordTemplate keyAspect, @Nonnull String aspectName, @Nonnull RecordTemplate aspect) {
+    final MetadataChangeProposal proposal = new MetadataChangeProposal();
+    proposal.setEntityType(entityType);
+    proposal.setEntityKeyAspect(GenericRecordUtils.serializeAspect(keyAspect));
     proposal.setAspectName(aspectName);
     proposal.setAspect(GenericRecordUtils.serializeAspect(aspect));
     proposal.setChangeType(ChangeType.UPSERT);

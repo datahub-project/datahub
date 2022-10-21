@@ -13,9 +13,19 @@
     "entityType": "container",
     "entityUrn": "urn:li:container:7d53111f2c71396ea6f6d26c84770665",
     "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+      "value": "{\"removed\": false}",
+      "contentType": "application/json"
+    }
+  },
+  {
+    "entityType": "container",
+    "entityUrn": "urn:li:container:7d53111f2c71396ea6f6d26c84770665",
+    "changeType": "UPSERT",
     "aspectName": "dataPlatformInstance",
     "aspect": {
-      "value": "{\"platform\": \"urn:li:dataPlatform:glue\"}",
+      "value": "{\"platform\": \"urn:li:dataPlatform:glue\", \"instance\": \"urn:li:dataPlatformInstance:(urn:li:dataPlatform:glue,some_instance_name)\"}",
       "contentType": "application/json"
     }
   },
@@ -218,10 +228,10 @@
             "com.linkedin.pegasus2avro.common.GlobalTags": {
               "tags": [
                 {
-                  "tag": "urn:li:tag:foo:bar"
+                  "tag": "urn:li:tag:baz:bob"
                 },
                 {
-                  "tag": "urn:li:tag:baz:bob"
+                  "tag": "urn:li:tag:foo:bar"
                 }
               ]
             }
@@ -264,9 +274,19 @@
     "entityType": "container",
     "entityUrn": "urn:li:container:9fb26491b2c92dde9e80791dbecca9ca",
     "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+      "value": "{\"removed\": false}",
+      "contentType": "application/json"
+    }
+  },
+  {
+    "entityType": "container",
+    "entityUrn": "urn:li:container:9fb26491b2c92dde9e80791dbecca9ca",
+    "changeType": "UPSERT",
     "aspectName": "dataPlatformInstance",
     "aspect": {
-      "value": "{\"platform\": \"urn:li:dataPlatform:glue\"}",
+      "value": "{\"platform\": \"urn:li:dataPlatform:glue\", \"instance\": \"urn:li:dataPlatformInstance:(urn:li:dataPlatform:glue,some_instance_name)\"}",
       "contentType": "application/json"
     }
   },
@@ -428,10 +448,10 @@
             "com.linkedin.pegasus2avro.common.GlobalTags": {
               "tags": [
                 {
-                  "tag": "urn:li:tag:foo:bar"
+                  "tag": "urn:li:tag:baz:bob"
                 },
                 {
-                  "tag": "urn:li:tag:baz:bob"
+                  "tag": "urn:li:tag:foo:bar"
                 }
               ]
             }
@@ -609,10 +629,10 @@
             "com.linkedin.pegasus2avro.common.GlobalTags": {
               "tags": [
                 {
-                  "tag": "urn:li:tag:foo:bar"
+                  "tag": "urn:li:tag:baz:bob"
                 },
                 {
-                  "tag": "urn:li:tag:baz:bob"
+                  "tag": "urn:li:tag:foo:bar"
                 }
               ]
             }

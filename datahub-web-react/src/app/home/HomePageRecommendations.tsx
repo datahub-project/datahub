@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import styled from 'styled-components';
+import styled from 'styled-components/macro';
 import { Button, Divider, Empty, Typography } from 'antd';
 import { RocketOutlined } from '@ant-design/icons';
 import {
@@ -16,6 +16,7 @@ import { useGetEntityCountsQuery } from '../../graphql/app.generated';
 import { GettingStartedModal } from './GettingStartedModal';
 import { ANTD_GRAY } from '../entity/shared/constants';
 import { useGetAuthenticatedUser } from '../useGetAuthenticatedUser';
+import { HomePagePosts } from './HomePagePosts';
 
 const RecommendationsContainer = styled.div`
     margin-top: 32px;
@@ -139,6 +140,7 @@ export const HomePageRecommendations = ({ userUrn }: Props) => {
 
     return (
         <RecommendationsContainer>
+            <HomePagePosts />
             {orderedEntityCounts && orderedEntityCounts.length > 0 && (
                 <RecommendationContainer>
                     {domainRecommendationModule && (
