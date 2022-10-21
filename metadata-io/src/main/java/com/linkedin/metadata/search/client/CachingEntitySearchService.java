@@ -142,7 +142,7 @@ public class CachingEntitySearchService {
           result = getRawAutoCompleteResults(entityName, input, field, filters, limit);
           cache.put(cacheKey, result);
           cacheMiss.stop();
-          MetricUtils.counter(this.getClass(), "autocomplete_cache_miss").inc();
+          MetricUtils.counter(this.getClass(), "autocomplete_cache_miss_count").inc();
         }
       } else {
         result = getRawAutoCompleteResults(entityName, input, field, filters, limit);
@@ -174,7 +174,7 @@ public class CachingEntitySearchService {
           result = getRawBrowseResults(entityName, path, filters, from, size);
           cache.put(cacheKey, result);
           cacheMiss.stop();
-          MetricUtils.counter(this.getClass(), "browse_cache_miss").inc();
+          MetricUtils.counter(this.getClass(), "browse_cache_miss_count").inc();
         }
       } else {
         result = getRawBrowseResults(entityName, path, filters, from, size);
