@@ -41,10 +41,13 @@ This will take you into the folder explorer view for browse in which you can dri
 
 ## FAQ and Troubleshooting
 
-* How are BrowsePaths created?
-  * BrowsePaths are automatically created for ingested entities based on separator characters that appear within an Urn.
-* How can I customize browse paths?
-  * BrowsePaths are an Aspect similar to other components of an Entity. They can be customized by ingesting custom paths for specified Urns.
+**How are BrowsePaths created?**
+
+BrowsePaths are automatically created for ingested entities based on separator characters that appear within an Urn.
+
+**How can I customize browse paths?**
+
+BrowsePaths are an Aspect similar to other components of an Entity. They can be customized by ingesting custom paths for specified Urns.
 
 *Need more help? Join the conversation in [Slack](http://slack.datahubproject.io)!*
 
