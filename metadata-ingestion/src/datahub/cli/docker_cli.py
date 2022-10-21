@@ -217,8 +217,7 @@ def _attempt_stop(quickstart_compose_file: List[pathlib.Path]) -> None:
     if compose_files_for_stopping:
         # docker-compose stop
         base_command: List[str] = [
-            "docker",
-            "compose",
+            "docker-compose",
             *itertools.chain.from_iterable(
                 ("-f", f"{path}") for path in compose_files_for_stopping
             ),
@@ -654,8 +653,7 @@ def quickstart(
     )
 
     base_command: List[str] = [
-        "docker",
-        "compose",
+        "docker-compose",
         *itertools.chain.from_iterable(
             ("-f", f"{path}") for path in quickstart_compose_file
         ),
