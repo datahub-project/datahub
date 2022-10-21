@@ -11,7 +11,7 @@ import { SearchFiltersSection } from '../../../../../search/SearchFiltersSection
 
 const SearchBody = styled.div`
     height: 100%;
-    overflow-y: scroll;
+    overflow-y: auto;
     display: flex;
 `;
 
