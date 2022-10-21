@@ -4,6 +4,7 @@ import { message, Button, Input, Modal, Typography, Form, Collapse, Tag } from '
 import { useCreateDomainMutation } from '../../graphql/domain.generated';
 import { useEnterKeyListener } from '../shared/useEnterKeyListener';
 import { groupIdTextValidation } from '../shared/textUtil';
+import analytics, { EventType } from '../analytics';
 
 const SuggestedNamesGroup = styled.div`
     margin-top: 12px;
@@ -40,6 +41,13 @@ export default function CreateDomainModal({ onClose, onCreate }: Props) {
                 },
             },
         })
+            .then(({ errors }) => {
+                if (!errors) {
+                    analytics.event({
+                        type: EventType.CreateDomainEvent,
+                    });
+                }
+            })
             .catch((e) => {
                 message.destroy();
                 message.error({ content: `Failed to create Domain!: \n ${e.message || ''}`, duration: 3 });

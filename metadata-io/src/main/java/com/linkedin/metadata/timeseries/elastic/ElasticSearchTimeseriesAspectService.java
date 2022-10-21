@@ -9,11 +9,14 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.data.ByteString;
 import com.linkedin.metadata.aspect.EnvelopedAspect;
+import com.linkedin.metadata.models.AspectSpec;
+import com.linkedin.metadata.models.EntitySpec;
 import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.query.filter.Condition;
 import com.linkedin.metadata.query.filter.Criterion;
 import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.metadata.search.utils.ESUtils;
+import com.linkedin.metadata.search.utils.QueryUtils;
 import com.linkedin.metadata.timeseries.TimeseriesAspectService;
 import com.linkedin.metadata.timeseries.elastic.indexbuilder.MappingsBuilder;
 import com.linkedin.metadata.timeseries.elastic.indexbuilder.TimeseriesAspectIndexBuilders;
@@ -23,8 +26,10 @@ import com.linkedin.metadata.utils.metrics.MetricUtils;
 import com.linkedin.mxe.GenericAspect;
 import com.linkedin.mxe.SystemMetadata;
 import com.linkedin.timeseries.AggregationSpec;
+import com.linkedin.timeseries.DeleteAspectValuesResult;
 import com.linkedin.timeseries.GenericTable;
 import com.linkedin.timeseries.GroupingBucket;
+import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.util.Arrays;
 import java.util.List;
@@ -40,9 +45,12 @@ import org.elasticsearch.action.search.SearchResponse;
 import org.elasticsearch.action.update.UpdateRequest;
 import org.elasticsearch.client.RequestOptions;
 import org.elasticsearch.client.RestHighLevelClient;
+import org.elasticsearch.common.unit.TimeValue;
 import org.elasticsearch.common.xcontent.XContentType;
 import org.elasticsearch.index.query.BoolQueryBuilder;
 import org.elasticsearch.index.query.QueryBuilders;
+import org.elasticsearch.index.reindex.BulkByScrollResponse;
+import org.elasticsearch.index.reindex.DeleteByQueryRequest;
 import org.elasticsearch.search.SearchHit;
 import org.elasticsearch.search.SearchHits;
 import org.elasticsearch.search.builder.SearchSourceBuilder;
@@ -62,6 +70,7 @@ public class ElasticSearchTimeseriesAspectService implements TimeseriesAspectSer
   private final TimeseriesAspectIndexBuilders _indexBuilders;
   private final RestHighLevelClient _searchClient;
   private final ESAggregatedStatsDAO _esAggregatedStatsDAO;
+  private final EntityRegistry _entityRegistry;
 
   public ElasticSearchTimeseriesAspectService(@Nonnull RestHighLevelClient searchClient,
       @Nonnull IndexConvention indexConvention, @Nonnull TimeseriesAspectIndexBuilders indexBuilders,
@@ -70,6 +79,7 @@ public class ElasticSearchTimeseriesAspectService implements TimeseriesAspectSer
     _indexBuilders = indexBuilders;
     _searchClient = searchClient;
     _bulkProcessor = bulkProcessor;
+    _entityRegistry = entityRegistry;
 
     _esAggregatedStatsDAO = new ESAggregatedStatsDAO(indexConvention, searchClient, entityRegistry);
   }
@@ -160,7 +170,7 @@ public class ElasticSearchTimeseriesAspectService implements TimeseriesAspectSer
       final SearchResponse searchResponse = _searchClient.search(searchRequest, RequestOptions.DEFAULT);
       hits = searchResponse.getHits();
     } catch (Exception e) {
-      log.error("Search query failed:" + e.getMessage());
+      log.error("Search query failed:", e);
       throw new ESQueryException("Search query failed:", e);
     }
     return Arrays.stream(hits.getHits())
@@ -174,5 +184,56 @@ public class ElasticSearchTimeseriesAspectService implements TimeseriesAspectSer
       @Nonnull AggregationSpec[] aggregationSpecs, @Nullable Filter filter,
       @Nullable GroupingBucket[] groupingBuckets) {
     return _esAggregatedStatsDAO.getAggregatedStats(entityName, aspectName, aggregationSpecs, filter, groupingBuckets);
+  }
+
+  /**
+   * A generic delete by filter API which uses elasticsearch's deleteByQuery.
+   * NOTE: There is no need for the client to explicitly walk each scroll page with this approach. Elastic will synchronously
+   * delete all of the documents matching the query that is specified by the filter, and internally handles the batching logic
+   * by the scroll page size specified(i.e. the DEFAULT_LIMIT value of 10,000).
+   * @param entityName the name of the entity.
+   * @param aspectName the name of the aspect.
+   * @param filter the filter to be used for deletion of the documents on the index.
+   * @return the numer of documents returned.
+   */
+  @Nonnull
+  @Override
+  public DeleteAspectValuesResult deleteAspectValues(@Nonnull String entityName, @Nonnull String aspectName,
+      @Nonnull Filter filter) {
+    final String indexName = _indexConvention.getTimeseriesAspectIndexName(entityName, aspectName);
+    final BoolQueryBuilder filterQueryBuilder = ESUtils.buildFilterQuery(filter);
+    final DeleteByQueryRequest deleteByQueryRequest = new DeleteByQueryRequest(indexName).setQuery(filterQueryBuilder)
+        .setBatchSize(DEFAULT_LIMIT)
+        .setRefresh(true)
+        .setTimeout(TimeValue.timeValueMinutes(10));
+    try {
+      final BulkByScrollResponse response = _searchClient.deleteByQuery(deleteByQueryRequest, RequestOptions.DEFAULT);
+      return new DeleteAspectValuesResult().setNumDocsDeleted(response.getDeleted());
+    } catch (IOException e) {
+      log.error("Delete query failed:", e);
+      throw new ESQueryException("Delete query failed:", e);
+    }
+  }
+
+  @Nonnull
+  @Override
+  public DeleteAspectValuesResult rollbackTimeseriesAspects(@Nonnull String runId) {
+    DeleteAspectValuesResult rollbackResult = new DeleteAspectValuesResult();
+    // Construct the runId filter for deletion.
+    Filter filter = QueryUtils.newFilter("runId", runId);
+
+    // Delete the timeseries aspects across all entities with the runId.
+    for (Map.Entry<String, EntitySpec> entry : _entityRegistry.getEntitySpecs().entrySet()) {
+      for (AspectSpec aspectSpec : entry.getValue().getAspectSpecs()) {
+        if (aspectSpec.isTimeseries()) {
+          DeleteAspectValuesResult result = this.deleteAspectValues(entry.getKey(), aspectSpec.getName(), filter);
+          rollbackResult.setNumDocsDeleted(rollbackResult.getNumDocsDeleted() + result.getNumDocsDeleted());
+          log.info("Number of timeseries docs deleted for entity:{}, aspect:{}, runId:{}={}", entry.getKey(),
+              aspectSpec.getName(), runId, result.getNumDocsDeleted());
+        }
+      }
+    }
+
+    return rollbackResult;
   }
 }

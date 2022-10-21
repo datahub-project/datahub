@@ -1,12 +1,11 @@
 import logging
-import platform
+from abc import abstractmethod
 from dataclasses import dataclass
-from datetime import datetime
-from typing import Any, Dict, Optional, Type, cast
+from typing import Any, Dict, Generic, Optional, Type, TypeVar, cast
 
-import psutil
 import pydantic
 from pydantic.fields import Field
+from pydantic.generics import GenericModel
 
 from datahub.configuration.common import (
     ConfigModel,
@@ -19,18 +18,17 @@ from datahub.ingestion.api.ingestion_job_checkpointing_provider_base import (
     IngestionCheckpointingProviderBase,
     JobId,
 )
-from datahub.ingestion.api.ingestion_job_reporting_provider_base import (
-    IngestionReportingProviderBase,
-)
 from datahub.ingestion.api.source import Source, SourceReport
-from datahub.ingestion.source.state.checkpoint import Checkpoint, CheckpointStateBase
+from datahub.ingestion.source.state.checkpoint import Checkpoint, StateType
+from datahub.ingestion.source.state.use_case_handler import (
+    StatefulIngestionUsecaseHandlerBase,
+)
 from datahub.ingestion.source.state_provider.state_provider_registry import (
     ingestion_checkpoint_provider_registry,
 )
 from datahub.metadata.schema_classes import (
     DatahubIngestionCheckpointClass,
     DatahubIngestionRunSummaryClass,
-    JobStatusClass,
 )
 
 logger: logging.Logger = logging.getLogger(__name__)
@@ -85,12 +83,19 @@ class StatefulIngestionConfig(ConfigModel):
         return values
 
 
-class StatefulIngestionConfigBase(DatasetSourceConfigBase):
+CustomConfig = TypeVar("CustomConfig", bound=StatefulIngestionConfig)
+
+
+class StatefulIngestionConfigBase(
+    DatasetSourceConfigBase, GenericModel, Generic[CustomConfig]
+):
     """
     Base configuration class for stateful ingestion for source configs to inherit from.
     """
 
-    stateful_ingestion: Optional[StatefulIngestionConfig] = None
+    stateful_ingestion: Optional[CustomConfig] = Field(
+        default=None, description="Stateful Ingestion Config"
+    )
 
 
 @dataclass
@@ -112,8 +117,9 @@ class StatefulIngestionSourceBase(Source):
         self.last_checkpoints: Dict[JobId, Optional[Checkpoint]] = {}
         self.cur_checkpoints: Dict[JobId, Optional[Checkpoint]] = {}
         self.run_summaries_to_report: Dict[JobId, DatahubIngestionRunSummaryClass] = {}
-        self._initialize_checkpointing_state_provider()
         self.report: StatefulIngestionReport = StatefulIngestionReport()
+        self._initialize_checkpointing_state_provider()
+        self._usecase_handlers: Dict[JobId, StatefulIngestionUsecaseHandlerBase] = {}
 
     def warn(self, log: logging.Logger, key: str, reason: str) -> None:
         self.report.report_warning(key, reason)
@@ -175,6 +181,18 @@ class StatefulIngestionSourceBase(Source):
                 f"Successfully created {self.stateful_ingestion_config.state_provider.type} state provider."
             )
 
+    def register_stateful_ingestion_usecase_handler(
+        self, usecase_handler: StatefulIngestionUsecaseHandlerBase
+    ) -> None:
+        """
+        Registers a use-case handler with the common-base class.
+
+        NOTE: The use-case handlers must invoke this method from their constructor(__init__) on the source.
+        Also, the subclasses should not override this method.
+        """
+        assert usecase_handler.job_id not in self._usecase_handlers
+        self._usecase_handlers[usecase_handler.job_id] = usecase_handler
+
     def is_stateful_ingestion_configured(self) -> bool:
         if (
             self.stateful_ingestion_config is not None
@@ -184,23 +202,31 @@ class StatefulIngestionSourceBase(Source):
             return True
         return False
 
-    # Basic methods that sub-classes must implement
     def create_checkpoint(self, job_id: JobId) -> Optional[Checkpoint]:
-        raise NotImplementedError("Sub-classes must implement this method.")
-
-    def get_platform_instance_id(self) -> str:
-        raise NotImplementedError("Sub-classes must implement this method.")
+        """
+        Template base-class method that delegates the initial checkpoint state creation to
+        the appropriate use-case handler registered for the job_id.
+        """
+        if job_id not in self._usecase_handlers:
+            raise ValueError(f"No use-case handler for job_id{job_id}")
+        return self._usecase_handlers[job_id].create_checkpoint()
 
     def is_checkpointing_enabled(self, job_id: JobId) -> bool:
         """
-        Sub-classes should override this method to tell if checkpointing is enabled for this run.
-        For instance, currently all of the SQL based sources use checkpointing for stale entity removal.
-        They would turn it on only if remove_stale_metadata=True. Otherwise, the feature won't work correctly.
+        Template base-class method that delegates the check if checkpointing is enabled for the job
+        to the appropriate use-case handler registered for the job_id.
         """
+        if job_id not in self._usecase_handlers:
+            raise ValueError(f"No use-case handler for job_id{job_id}")
+        return self._usecase_handlers[job_id].is_checkpointing_enabled()
+
+    # Methods that sub-classes must implement
+    @abstractmethod
+    def get_platform_instance_id(self) -> str:
         raise NotImplementedError("Sub-classes must implement this method.")
 
     def _get_last_checkpoint(
-        self, job_id: JobId, checkpoint_state_class: Type[CheckpointStateBase]
+        self, job_id: JobId, checkpoint_state_class: Type[StateType]
     ) -> Optional[Checkpoint]:
         """
         This is a template method implementation for querying the last checkpoint state.
@@ -214,7 +240,7 @@ class StatefulIngestionSourceBase(Source):
                 job_name=job_id,
             )
             # Convert it to a first-class Checkpoint object.
-            last_checkpoint = Checkpoint.create_from_checkpoint_aspect(
+            last_checkpoint = Checkpoint[StateType].create_from_checkpoint_aspect(
                 job_name=job_id,
                 checkpoint_aspect=last_checkpoint_aspect,
                 config_class=self.source_config_type,
@@ -224,7 +250,7 @@ class StatefulIngestionSourceBase(Source):
 
     # Base-class implementations for common state management tasks.
     def get_last_checkpoint(
-        self, job_id: JobId, checkpoint_state_class: Type[CheckpointStateBase]
+        self, job_id: JobId, checkpoint_state_class: Type[StateType]
     ) -> Optional[Checkpoint]:
         if not self.is_stateful_ingestion_configured() or (
             self.stateful_ingestion_config
@@ -274,6 +300,7 @@ class StatefulIngestionSourceBase(Source):
         for job_name, job_checkpoint in self.cur_checkpoints.items():
             if job_checkpoint is None:
                 continue
+            job_checkpoint.prepare_for_commit()
             try:
                 checkpoint_aspect = job_checkpoint.to_checkpoint_aspect(
                     self.stateful_ingestion_config.max_checkpoint_state_size  # type: ignore
@@ -293,64 +320,6 @@ class StatefulIngestionSourceBase(Source):
             job_checkpoint_aspects
         )
 
-    #
-    # Reporting specific support.
-    #
-    def _is_reporting_enabled(self):
-        for rc in self.ctx.get_reporters():
-            assert rc is not None
-            return True
-        return False
-
-    def _create_default_job_run_summary(self) -> DatahubIngestionRunSummaryClass:
-        assert self.ctx.pipeline_name
-        job_run_summary_default = DatahubIngestionRunSummaryClass(
-            timestampMillis=int(datetime.utcnow().timestamp() * 1000),
-            pipelineName=self.ctx.pipeline_name,
-            platformInstanceId=self.get_platform_instance_id(),
-            runId=self.ctx.run_id,
-            runStatus=JobStatusClass.COMPLETED,
-        )
-        # Add system specific info
-        job_run_summary_default.systemHostName = platform.node()
-        job_run_summary_default.operatingSystemName = platform.system()
-        job_run_summary_default.numProcessors = psutil.cpu_count(logical=True)
-        vmem = psutil.virtual_memory()
-        job_run_summary_default.availableMemory = getattr(vmem, "available", None)
-        job_run_summary_default.totalMemory = getattr(vmem, "total", None)
-        # Sources can add config in config + source report in custom_value.
-        # and also populate other source specific metrics.
-        return job_run_summary_default
-
-    def get_job_run_summary(
-        self, job_id: JobId
-    ) -> Optional[DatahubIngestionRunSummaryClass]:
-        """
-        Get the cached/newly created job run summary for this job if reporting is configured.
-        """
-        if not self._is_reporting_enabled():
-            return None
-        if job_id not in self.run_summaries_to_report:
-            self.run_summaries_to_report[
-                job_id
-            ] = self._create_default_job_run_summary()
-        return self.run_summaries_to_report[job_id]
-
-    #
-    # Commit handoff to provider for both checkpointing and reporting.
-    #
-    def _prepare_job_run_summaries_for_commit(self) -> None:
-        for reporting_committable in self.ctx.get_reporters():
-            if isinstance(reporting_committable, IngestionReportingProviderBase):
-                reporting_provider = cast(
-                    IngestionReportingProviderBase, reporting_committable
-                )
-                reporting_provider.state_to_commit.update(self.run_summaries_to_report)
-                logger.info(
-                    f"Successfully handed-off job run summaries to {reporting_provider.name}."
-                )
-
     def prepare_for_commit(self) -> None:
         """NOTE: Sources should call this method from their close method."""
         self._prepare_checkpoint_states_for_commit()
-        self._prepare_job_run_summaries_for_commit()

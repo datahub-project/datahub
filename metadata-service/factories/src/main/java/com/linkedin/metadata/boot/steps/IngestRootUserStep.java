@@ -4,7 +4,6 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.linkedin.common.AuditStamp;
 import com.linkedin.common.urn.Urn;
-import com.linkedin.data.schema.RecordDataSchema;
 import com.linkedin.identity.CorpUserInfo;
 import com.linkedin.metadata.boot.BootstrapStep;
 import com.datahub.util.RecordUtils;
@@ -61,16 +60,15 @@ public class IngestRootUserStep implements BootstrapStep {
 
     final CorpUserInfo info =
         RecordUtils.toRecordTemplate(CorpUserInfo.class, userObj.get("info").toString());
-    final CorpUserKey key = (CorpUserKey) EntityKeyUtils.convertUrnToEntityKey(urn, getUserKeySchema());
+    final CorpUserKey key = (CorpUserKey) EntityKeyUtils.convertUrnToEntityKey(urn, getUserKeyAspectSpec());
     final AuditStamp aspectAuditStamp =
         new AuditStamp().setActor(Urn.createFromString(SYSTEM_ACTOR)).setTime(System.currentTimeMillis());
     _entityService.ingestAspect(urn, CORP_USER_KEY_ASPECT_NAME, key, aspectAuditStamp, null);
     _entityService.ingestAspect(urn, USER_INFO_ASPECT_NAME, info, aspectAuditStamp, null);
   }
 
-  private RecordDataSchema getUserKeySchema() {
+  private AspectSpec getUserKeyAspectSpec() {
     final EntitySpec spec = _entityService.getEntityRegistry().getEntitySpec(CORP_USER_ENTITY_NAME);
-    final AspectSpec keySpec = spec.getKeyAspectSpec();
-    return keySpec.getPegasusSchema();
+    return spec.getKeyAspectSpec();
   }
 }

@@ -66,39 +66,42 @@ html[data-theme="dark"] .invert-on-dark {
   padding: 5vh 0;
 }
 
-div[class^="announcementBarContent"] {
-  display: flex;
-  align-items: center;
-  padding: 0 1rem;
-  justify-content: space-between;
-  font-size: 1rem;
-  > div {
+div[class^="announcementBar"] {
+  z-index: calc(var(--ifm-z-index-fixed) - 1);
+  div {
     display: flex;
     align-items: center;
+    padding: 0 1rem;
+    justify-content: space-between;
+    font-size: 1rem;
+    > div {
+      display: flex;
+      align-items: center;
 
-    > p {
-      text-align: left;
-      line-height: 1.1rem;
-      margin: 0;
-      > span {
-        @media (max-width: 780px) {
+      > p {
+        text-align: left;
+        line-height: 1.1rem;
+        margin: 0;
+        > span {
+          @media (max-width: 780px) {
+            display: none;
+          }
+        }
+        @media (max-width: 480px) {
           display: none;
         }
       }
-      @media (max-width: 480px) {
-        display: none;
-      }
     }
-  }
 
-  img {
-    width: 24px;
-    height: auto;
-    margin-right: 1rem;
-  }
-  a {
-    color: var(--ifm-button-color);
-    text-decoration: none;
+    img {
+      width: 24px;
+      height: auto;
+      margin-right: 1rem;
+    }
+    a {
+      color: var(--ifm-button-color);
+      text-decoration: none;
+    }
   }
 }
 

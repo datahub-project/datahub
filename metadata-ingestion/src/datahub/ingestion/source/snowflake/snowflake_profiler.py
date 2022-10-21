@@ -3,7 +3,9 @@ import datetime
 import logging
 from typing import Callable, Dict, Iterable, List, Optional, Tuple, cast
 
+from snowflake.sqlalchemy import snowdialect
 from sqlalchemy import create_engine, inspect
+from sqlalchemy.sql import sqltypes
 
 from datahub.emitter.mce_builder import make_dataset_urn_with_platform_instance
 from datahub.ingestion.api.common import WorkUnit
@@ -21,6 +23,8 @@ from datahub.ingestion.source.snowflake.snowflake_schema import (
 from datahub.ingestion.source.snowflake.snowflake_utils import SnowflakeCommonMixin
 from datahub.metadata.com.linkedin.pegasus2avro.dataset import DatasetProfile
 from datahub.metadata.schema_classes import DatasetProfileClass
+
+snowdialect.ischema_names["GEOGRAPHY"] = sqltypes.NullType
 
 logger = logging.getLogger(__name__)
 
@@ -46,7 +50,6 @@ class SnowflakeProfiler(SnowflakeCommonMixin):
                 "max_overflow", self.config.profiling.max_workers
             )
 
-        # Otherwise, if column level profiling is enabled, use  GE profiler.
         for db in databases:
             if not self.config.database_pattern.allowed(db.name):
                 continue
@@ -72,9 +75,11 @@ class SnowflakeProfiler(SnowflakeCommonMixin):
                 platform=self.platform,
                 profiler_args=self.get_profile_args(),
             ):
-                profile.sizeInBytes = request.table.size_in_bytes  # type:ignore
                 if profile is None:
                     continue
+                profile.sizeInBytes = cast(
+                    SnowflakeProfilerRequest, request
+                ).table.size_in_bytes
                 dataset_name = request.pretty_name
                 dataset_urn = make_dataset_urn_with_platform_instance(
                     self.platform,
@@ -153,14 +158,18 @@ class SnowflakeProfiler(SnowflakeCommonMixin):
                     size_in_bytes is not None
                     and size_in_bytes / (2**30)
                     <= self.config.profiling.profile_table_size_limit
-                )  # Note: Profiling is not allowed is size_in_bytes is not available
+                )
+                # Note: Profiling is not allowed is size_in_bytes is not available
+                # and self.config.profiling.profile_table_size_limit is set
             )
             and (
                 self.config.profiling.profile_table_row_limit is None
                 or (
                     rows_count is not None
                     and rows_count <= self.config.profiling.profile_table_row_limit
-                )  # Note: Profiling is not allowed is rows_count is not available
+                )
+                # Note: Profiling is not allowed is rows_count is not available
+                # and self.config.profiling.profile_table_row_limit is set
             )
         )
 
@@ -230,6 +239,7 @@ class SnowflakeProfiler(SnowflakeCommonMixin):
         if len(ge_profile_requests) == 0:
             return
 
+        # Otherwise, if column level profiling is enabled, use  GE profiler.
         ge_profiler = self.get_profiler_instance(db_name)
         yield from ge_profiler.generate_profiles(
             ge_profile_requests, max_workers, platform, profiler_args

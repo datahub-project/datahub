@@ -17,7 +17,8 @@ import static org.testng.Assert.*;
 public class CreateTestConnectionRequestResolverTest {
 
   private static final CreateTestConnectionRequestInput TEST_INPUT = new CreateTestConnectionRequestInput(
-      "test recipe"
+      "test recipe",
+      "0.8.44"
   );
 
   @Test

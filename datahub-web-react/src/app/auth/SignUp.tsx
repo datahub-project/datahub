@@ -1,9 +1,10 @@
-import React, { useCallback, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import { Input, Button, Form, message, Image, Select } from 'antd';
 import { UserOutlined, LockOutlined } from '@ant-design/icons';
 import { useReactiveVar } from '@apollo/client';
 import styled, { useTheme } from 'styled-components/macro';
-import { Redirect } from 'react-router';
+// import { Redirect } from 'react-router';
+import { useHistory } from 'react-router-dom';
 import styles from './login.module.css';
 import { Message } from '../shared/Message';
 import { isLoggedInVar } from './checkAuthStatus';
@@ -11,6 +12,7 @@ import analytics, { EventType } from '../analytics';
 import { useAppConfig } from '../useAppConfig';
 import { PageRoutes } from '../../conf/Global';
 import useGetInviteTokenFromUrlParams from './useGetInviteTokenFromUrlParams';
+import { useAcceptRoleMutation } from '../../graphql/mutations.generated';
 
 type FormValues = {
     fullName: string;
@@ -56,6 +58,7 @@ const TitleSelector = styled(Select)`
 export type SignUpProps = Record<string, never>;
 
 export const SignUp: React.VFC<SignUpProps> = () => {
+    const history = useHistory();
     const isLoggedIn = useReactiveVar(isLoggedInVar);
     const inviteToken = useGetInviteTokenFromUrlParams();
 
@@ -63,6 +66,32 @@ export const SignUp: React.VFC<SignUpProps> = () => {
     const [loading, setLoading] = useState(false);
 
     const { refreshContext } = useAppConfig();
+
+    const [acceptRoleMutation] = useAcceptRoleMutation();
+    const acceptRole = () => {
+        acceptRoleMutation({
+            variables: {
+                input: {
+                    inviteToken,
+                },
+            },
+        })
+            .then(({ errors }) => {
+                if (!errors) {
+                    message.success({
+                        content: `Accepted invite!`,
+                        duration: 2,
+                    });
+                }
+            })
+            .catch((e) => {
+                message.destroy();
+                message.error({
+                    content: `Failed to accept invite: \n ${e.message || ''}`,
+                    duration: 3,
+                });
+            });
+    };
 
     const handleSignUp = useCallback(
         (values: FormValues) => {
@@ -98,9 +127,12 @@ export const SignUp: React.VFC<SignUpProps> = () => {
         [refreshContext, inviteToken],
     );
 
-    if (isLoggedIn && !loading) {
-        return <Redirect to={`${PageRoutes.ROOT}`} />;
-    }
+    useEffect(() => {
+        if (isLoggedIn && !loading) {
+            acceptRole();
+            history.push(PageRoutes.ROOT);
+        }
+    });
 
     return (
         <div className={styles.login_page}>
@@ -112,10 +144,10 @@ export const SignUp: React.VFC<SignUpProps> = () => {
                     {loading && <Message type="loading" content="Signing up..." />}
                     <Form onFinish={handleSignUp} layout="vertical">
                         <Form.Item
-                            rules={[{ required: true, message: 'Please fill in your email!' }]}
+                            rules={[{ required: true, message: 'Please fill in your username!' }]}
                             name="email"
                             // eslint-disable-next-line jsx-a11y/label-has-associated-control
-                            label={<label style={{ color: 'white' }}>Email</label>}
+                            label={<label style={{ color: 'white' }}>Username</label>}
                         >
                             <FormInput prefix={<UserOutlined />} data-testid="email" />
                         </Form.Item>

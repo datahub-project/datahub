@@ -4,7 +4,7 @@ from typing import Dict, List, Optional
 
 from pydantic import Field, PositiveInt, root_validator
 
-from datahub.configuration.common import AllowDenyPattern, ConfigurationError
+from datahub.configuration.common import AllowDenyPattern
 from datahub.ingestion.source.usage.usage_common import BaseUsageConfig
 from datahub.ingestion.source_config.sql.bigquery import BigQueryConfig
 
@@ -32,9 +32,15 @@ class BigQueryV2Config(BigQueryConfig):
     usage: BigQueryUsageConfig = Field(
         default=BigQueryUsageConfig(), description="Usage related configs"
     )
+
     include_usage_statistics: bool = Field(
         default=True,
         description="Generate usage statistic",
+    )
+
+    capture_table_label_as_tag: bool = Field(
+        default=False,
+        description="Capture BigQuery table labels as tag",
     )
 
     dataset_pattern: AllowDenyPattern = Field(
@@ -47,17 +53,58 @@ class BigQueryV2Config(BigQueryConfig):
         description="Include full payload into events. It is only for debugging and internal use.",
     )
 
+    number_of_datasets_process_in_batch: int = Field(
+        default=80,
+        description="Number of table queried in batch when getting metadata. This is a low level config property which should be touched with care. This restriction is needed because we query partitions system view which throws error if we try to touch too many tables.",
+    )
+    column_limit: int = Field(
+        default=300,
+        description="Maximum number of columns to process in a table. This is a low level config property which should be touched with care. This restriction is needed because excessively wide tables can result in failure to ingest the schema.",
+    )
+    # The inheritance hierarchy is wonky here, but these options need modifications.
+    project_id: Optional[str] = Field(
+        default=None,
+        description="[deprecated] Use project_id_pattern instead.",
+    )
+    storage_project_id: None = Field(default=None, hidden_from_schema=True)
+
+    lineage_use_sql_parser: bool = Field(
+        default=False,
+        description="Experimental. Use sql parser to resolve view/table lineage. If there is a view being referenced then bigquery sends both the view as well as underlying tablein the references. There is no distinction between direct/base objects accessed. So doing sql parsing to ensure we only use direct objects accessed for lineage.",
+    )
+    lineage_parse_view_ddl: bool = Field(
+        default=True,
+        description="Sql parse view ddl to get lineage.",
+    )
+
+    convert_urns_to_lowercase: bool = Field(
+        default=False,
+        description="Convert urns to lowercase.",
+    )
+
     @root_validator(pre=False)
-    def validate_unsupported_configs(cls, values: Dict) -> Dict:
-        value = values.get("profiling")
-        if value is not None and value.enabled and not value.profile_table_level_only:
-            raise ConfigurationError(
-                "Only table level profiling is supported. Set `profiling.profile_table_level_only` to True.",
-            )
+    def profile_default_settings(cls, values: Dict) -> Dict:
+        # Extra default SQLAlchemy option for better connection pooling and threading.
+        # https://docs.sqlalchemy.org/en/14/core/pooling.html#sqlalchemy.pool.QueuePool.params.max_overflow
+        values["options"].setdefault("max_overflow", values["profiling"].max_workers)
+
         return values
 
     @root_validator(pre=False)
     def backward_compatibility_configs_set(cls, values: Dict) -> Dict:
+        project_id = values.get("project_id")
+        project_id_pattern = values.get("project_id_pattern")
+
+        if project_id_pattern == AllowDenyPattern.allow_all() and project_id:
+            logging.warning(
+                "project_id_pattern is not set but project_id is set, setting project_id as project_id_pattern. project_id will be deprecated, please use project_id_pattern instead."
+            )
+            values["project_id_pattern"] = AllowDenyPattern(allow=[f"^{project_id}$"])
+        elif project_id_pattern != AllowDenyPattern.allow_all() and project_id:
+            logging.warning(
+                "project_id will be ignored in favour of project_id_pattern. project_id will be deprecated, please use project_id only."
+            )
+            values.pop("project_id")
 
         dataset_pattern = values.get("dataset_pattern")
         schema_pattern = values.get("schema_pattern")
@@ -76,7 +123,6 @@ class BigQueryV2Config(BigQueryConfig):
             logging.warning(
                 "schema_pattern will be ignored in favour of dataset_pattern. schema_pattern will be deprecated, please use dataset_pattern only."
             )
-
         return values
 
     def get_table_pattern(self, pattern: List[str]) -> str:

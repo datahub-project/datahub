@@ -1,7 +1,7 @@
 import { LineChartOutlined } from '@ant-design/icons';
 import * as React from 'react';
 
-import { Chart, EntityType, SearchResult } from '../../../types.generated';
+import { Chart, EntityType, LineageDirection, SearchResult } from '../../../types.generated';
 import { Entity, EntityCapabilityType, IconStyleType, PreviewType } from '../Entity';
 import { ChartPreview } from './preview/ChartPreview';
 import { GetChartQuery, useGetChartQuery, useUpdateChartMutation } from '../../../graphql/chart.generated';
@@ -12,7 +12,6 @@ import { SidebarOwnerSection } from '../shared/containers/profile/sidebar/Owners
 import { GenericEntityProperties } from '../shared/types';
 import { EntityProfile } from '../shared/containers/profile/EntityProfile';
 import { PropertiesTab } from '../shared/tabs/Properties/PropertiesTab';
-import { ChartInputsTab } from '../shared/tabs/Entity/ChartInputsTab';
 import { ChartDashboardsTab } from '../shared/tabs/Entity/ChartDashboardsTab';
 import { getDataForEntityType } from '../shared/containers/profile/utils';
 import { SidebarDomainSection } from '../shared/containers/profile/sidebar/Domain/SidebarDomainSection';
@@ -98,6 +97,9 @@ export class ChartEntity implements Entity<Chart> {
                 {
                     name: 'Lineage',
                     component: LineageTab,
+                    properties: {
+                        defaultDirection: LineageDirection.Upstream,
+                    },
                     display: {
                         visible: (_, _1) => true,
                         enabled: (_, chart: GetChartQuery) => {
@@ -105,15 +107,6 @@ export class ChartEntity implements Entity<Chart> {
                                 (chart?.chart?.upstream?.total || 0) > 0 || (chart?.chart?.downstream?.total || 0) > 0
                             );
                         },
-                    },
-                },
-
-                {
-                    name: 'Inputs',
-                    component: ChartInputsTab,
-                    display: {
-                        visible: (_, _1) => true,
-                        enabled: (_, chart: GetChartQuery) => (chart?.chart?.inputs?.total || 0) > 0,
                     },
                 },
                 {

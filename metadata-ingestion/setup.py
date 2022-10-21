@@ -35,7 +35,7 @@ framework_common = {
     "entrypoints",
     "docker",
     "expandvars>=0.6.5",
-    "avro-gen3==0.7.5",
+    "avro-gen3==0.7.6",
     # "avro-gen3 @ git+https://github.com/acryldata/avro_gen@master#egg=avro-gen3",
     "avro>=1.10.2,<1.11",
     "python-dateutil>=2.8.0",
@@ -46,11 +46,6 @@ framework_common = {
     "types-termcolor>=1.0.0",
     "psutil>=5.8.0",
     "ratelimiter",
-    # Markupsafe breaking change broke Jinja and some other libs
-    # Pinning it to a version which works even though we are not using explicitly
-    # https://github.com/aws/aws-sam-cli/issues/3661
-    # Airflow compatibility: https://github.com/apache/airflow/blob/2.2.2/setup.cfg#L125
-    "markupsafe>=1.1.1,<=2.0.1",
     "Deprecated",
     "types-Deprecated",
     "humanfriendly",
@@ -135,7 +130,7 @@ path_spec_common = {
 
 looker_common = {
     # Looker Python SDK
-    "looker-sdk==22.2.1"
+    "looker-sdk==22.2.1",
 }
 
 bigquery_common = {
@@ -150,7 +145,7 @@ redshift_common = {
     "sqlalchemy-redshift",
     "psycopg2-binary",
     "GeoAlchemy2",
-    "sqllineage==1.3.5",
+    "sqllineage==1.3.6",
     *path_spec_common,
 }
 
@@ -164,8 +159,9 @@ snowflake_common = {
 }
 
 trino = {
-    "trino>=0.308",
-    "trino[sqlalchemy]>=0.308",
+    # Trino 0.317 broke compatibility with SQLAlchemy 1.3.24.
+    # See https://github.com/trinodb/trino-python-client/issues/250.
+    "trino[sqlalchemy]>=0.308, !=0.317",
 }
 
 microsoft_common = {"msal==1.16.0"}
@@ -181,8 +177,8 @@ s3_base = {
     "parse>=1.19.0",
     "pyarrow>=6.0.1",
     "tableschema>=1.20.2",
-    "ujson>=4.3.0",
-    "types-ujson>=4.2.1",
+    # ujson 5.2.0 has the JSONDecodeError exception type, which we need for error handling.
+    "ujson>=5.2.0",
     "smart-open[s3]>=5.2.1",
     "moto[s3]",
     *path_spec_common,
@@ -216,18 +212,18 @@ plugins: Dict[str, Set[str]] = {
         "gql>=3.3.0",
         "gql[requests]>=3.3.0",
     },
-    "great-expectations": sql_common | {"sqllineage==1.3.5"},
+    "great-expectations": sql_common | {"sqllineage==1.3.6"},
     # Source plugins
     # PyAthena is pinned with exact version because we use private method in PyAthena
     "athena": sql_common | {"PyAthena[SQLAlchemy]==2.4.1"},
     "azure-ad": set(),
     "bigquery": sql_common
     | bigquery_common
-    | {"sqlalchemy-bigquery>=1.4.1", "sqllineage==1.3.5", "sqlparse"},
+    | {"sqlalchemy-bigquery>=1.4.1", "sqllineage==1.3.6", "sqlparse"},
     "bigquery-usage": bigquery_common | usage_common | {"cachetools"},
     "bigquery-beta": sql_common
     | bigquery_common
-    | {"sqllineage==1.3.5", "sql_metadata"},
+    | {"sqllineage==1.3.6", "sql_metadata"},
     "clickhouse": sql_common | {"clickhouse-sqlalchemy==0.1.8"},
     "clickhouse-usage": sql_common
     | usage_common
@@ -261,17 +257,28 @@ plugins: Dict[str, Set[str]] = {
         # - 0.6.12 adds support for Spark Thrift Server
         "acryl-pyhive[hive]>=0.6.13",
         "databricks-dbapi",
+        # Due to https://github.com/great-expectations/great_expectations/issues/6146,
+        # we cannot allow 0.15.{23-26}. This was fixed in 0.15.27 by
+        # https://github.com/great-expectations/great_expectations/pull/6149.
+        "great-expectations != 0.15.23, != 0.15.24, != 0.15.25, != 0.15.26",
     },
     "iceberg": iceberg_common,
     "kafka": {*kafka_common, *kafka_protobuf},
     "kafka-connect": sql_common | {"requests", "JPype1"},
     "ldap": {"python-ldap>=2.4"},
     "looker": looker_common,
-    # lkml>=1.1.2 is required to support the sql_preamble expression in LookML
     "lookml": looker_common
-    | {"lkml>=1.1.2", "sql-metadata==2.2.2", "sqllineage==1.3.5"},
-    "metabase": {"requests", "sqllineage==1.3.5"},
-    "mode": {"requests", "sqllineage==1.3.5", "tenacity>=8.0.1"},
+    | {
+        # This version of lkml contains a fix for parsing lists in
+        # LookML files with spaces between an item and the following comma.
+        # See https://github.com/joshtemple/lkml/issues/73.
+        "lkml>=1.3.0b5",
+        "sql-metadata==2.2.2",
+        "sqllineage==1.3.6",
+        "GitPython>2",
+    },
+    "metabase": {"requests", "sqllineage==1.3.6"},
+    "mode": {"requests", "sqllineage==1.3.6", "tenacity>=8.0.1"},
     "mongodb": {"pymongo[srv]>=3.11", "packaging"},
     "mssql": sql_common | {"sqlalchemy-pytds>=0.3"},
     "mssql-odbc": sql_common | {"pyodbc"},
@@ -284,19 +291,22 @@ plugins: Dict[str, Set[str]] = {
     "presto-on-hive": sql_common
     | {"psycopg2-binary", "acryl-pyhive[hive]>=0.6.12", "pymysql>=1.0.2"},
     "pulsar": {"requests"},
-    "redash": {"redash-toolbelt", "sql-metadata", "sqllineage==1.3.5"},
+    "redash": {"redash-toolbelt", "sql-metadata", "sqllineage==1.3.6"},
     "redshift": sql_common | redshift_common,
     "redshift-usage": sql_common | usage_common | redshift_common,
     "s3": {*s3_base, *data_lake_profiling},
     "sagemaker": aws_common,
     "salesforce": {"simple-salesforce"},
-    "snowflake": snowflake_common,
-    "snowflake-usage": snowflake_common
+    "snowflake-legacy": snowflake_common,
+    "snowflake-usage-legacy": snowflake_common
     | usage_common
     | {
         "more-itertools>=8.12.0",
     },
-    "snowflake-beta": snowflake_common | usage_common,
+    "snowflake": snowflake_common | usage_common,
+    "snowflake-beta": (
+        snowflake_common | usage_common
+    ),  # deprecated, but keeping the extra for backwards compatibility
     "sqlalchemy": sql_common,
     "superset": {
         "requests",
@@ -333,12 +343,13 @@ mypy_stubs = {
     "types-cachetools",
     # versions 0.1.13 and 0.1.14 seem to have issues
     "types-click==0.1.12",
-    "boto3-stubs[s3,glue,sagemaker]",
+    "boto3-stubs[s3,glue,sagemaker,sts]",
     "types-tabulate",
     # avrogen package requires this
     "types-pytz",
     "types-pyOpenSSL",
     "types-click-spinner",
+    "types-ujson>=5.2.0",
 }
 
 base_dev_requirements = {
@@ -351,7 +362,7 @@ base_dev_requirements = {
     "flake8>=3.8.3",
     "flake8-tidy-imports>=4.3.0",
     "isort>=5.7.0",
-    "mypy>=0.950",
+    "mypy>=0.981",
     # pydantic 1.8.2 is incompatible with mypy 0.910.
     # See https://github.com/samuelcolvin/pydantic/pull/3175#issuecomment-995382910.
     # Restricting top version to <1.10 until we can fix our types.
@@ -359,7 +370,7 @@ base_dev_requirements = {
     "pytest>=6.2.2",
     "pytest-asyncio>=0.16.0",
     "pytest-cov>=2.8.1",
-    "pytest-docker>=0.10.3,<0.12",
+    "pytest-docker[docker-compose-v1]>=1.0.1",
     "deepdiff",
     "requests-mock",
     "freezegun",
@@ -505,9 +516,9 @@ entry_points = {
         "redash = datahub.ingestion.source.redash:RedashSource",
         "redshift = datahub.ingestion.source.sql.redshift:RedshiftSource",
         "redshift-usage = datahub.ingestion.source.usage.redshift_usage:RedshiftUsageSource",
-        "snowflake = datahub.ingestion.source.sql.snowflake:SnowflakeSource",
-        "snowflake-usage = datahub.ingestion.source.usage.snowflake_usage:SnowflakeUsageSource",
-        "snowflake-beta = datahub.ingestion.source.snowflake.snowflake_v2:SnowflakeV2Source",
+        "snowflake-legacy = datahub.ingestion.source.sql.snowflake:SnowflakeSource",
+        "snowflake-usage-legacy = datahub.ingestion.source.usage.snowflake_usage:SnowflakeUsageSource",
+        "snowflake = datahub.ingestion.source.snowflake.snowflake_v2:SnowflakeV2Source",
         "superset = datahub.ingestion.source.superset:SupersetSource",
         "tableau = datahub.ingestion.source.tableau:TableauSource",
         "openapi = datahub.ingestion.source.openapi:OpenApiSource",

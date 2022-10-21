@@ -51,7 +51,6 @@ import com.linkedin.platform.event.v1.Parameters;
 import java.util.Map;
 import org.mockito.Mockito;
 import org.testng.annotations.BeforeMethod;
-
 import org.testng.annotations.Test;
 
 import static com.linkedin.metadata.Constants.*;
@@ -368,7 +367,8 @@ public class EntityChangeEventGeneratorHookTest {
         ChangeOperation.ADD,
         ownerUrn1.toString(),
         ImmutableMap.of(
-            "ownerUrn", ownerUrn1.toString()
+            "ownerUrn", ownerUrn1.toString(),
+            "ownerType", OwnershipType.TECHNICAL_OWNER.toString()
         ),
         Urn.createFromString(TEST_ACTOR_URN),
         eventTime
@@ -382,7 +382,8 @@ public class EntityChangeEventGeneratorHookTest {
         ChangeOperation.ADD,
         ownerUrn2.toString(),
         ImmutableMap.of(
-            "ownerUrn", ownerUrn2.toString()
+            "ownerUrn", ownerUrn2.toString(),
+            "ownerType", OwnershipType.BUSINESS_OWNER.toString()
         ),
         Urn.createFromString(TEST_ACTOR_URN),
         eventTime

@@ -258,7 +258,7 @@
                     "upstreamDatabases": [
                         {
                             "id": "1ade1d51-bbc3-ed8d-25d2-c51f44b8b31b",
-                            "name": "Sample - Superstore.xls",
+                            "name": "Sample - Superstore, (new).xls",
                             "connectionType": "excel-direct",
                             "isEmbedded": true
                         }
@@ -267,7 +267,7 @@
                         {
                             "id": "15714253-8e46-a209-63cc-700705b66de9",
                             "database": {
-                                "name": "Sample - Superstore.xls"
+                                "name": "Sample - Superstore, (new).xls"
                             },
                             "name": "People",
                             "schema": "",
@@ -288,7 +288,7 @@
                         {
                             "id": "19be3c28-8e4d-ebac-b44d-8f0851d9f206",
                             "database": {
-                                "name": "Sample - Superstore.xls"
+                                "name": "Sample - Superstore, (new).xls"
                             },
                             "name": "Returns",
                             "schema": "",
@@ -309,7 +309,7 @@
                         {
                             "id": "b0e0c3eb-6e53-e0f5-ded1-478d5d9f7281",
                             "database": {
-                                "name": "Sample - Superstore.xls"
+                                "name": "Sample - Superstore, (new).xls"
                             },
                             "name": "Orders",
                             "schema": "",

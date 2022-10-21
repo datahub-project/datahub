@@ -1,14 +1,13 @@
 import json
 import logging
 from dataclasses import dataclass
-from datetime import datetime, timezone
 from typing import Dict, Iterable, List, Optional, Tuple, Union, cast
 
 import pydantic
 from snowflake.connector import SnowflakeConnection
 
-from datahub.configuration.time_window_config import get_time_bucket
 from datahub.emitter.mce_builder import (
+    make_container_urn,
     make_data_platform_urn,
     make_dataplatform_instance_urn,
     make_dataset_urn,
@@ -33,7 +32,6 @@ from datahub.ingestion.api.decorators import (
     platform_name,
     support_status,
 )
-from datahub.ingestion.api.ingestion_job_state_provider import JobId
 from datahub.ingestion.api.source import (
     CapabilityReport,
     Source,
@@ -68,14 +66,18 @@ from datahub.ingestion.source.snowflake.snowflake_utils import (
     SnowflakeQueryMixin,
 )
 from datahub.ingestion.source.sql.sql_common import SqlContainerSubTypes
-from datahub.ingestion.source.state.checkpoint import Checkpoint
+from datahub.ingestion.source.state.redundant_run_skip_handler import (
+    RedundantRunSkipHandler,
+)
 from datahub.ingestion.source.state.sql_common_state import (
     BaseSQLAlchemyCheckpointState,
+)
+from datahub.ingestion.source.state.stale_entity_removal_handler import (
+    StaleEntityRemovalHandler,
 )
 from datahub.ingestion.source.state.stateful_ingestion_base import (
     StatefulIngestionSourceBase,
 )
-from datahub.ingestion.source.state.usage_common_state import BaseUsageCheckpointState
 from datahub.metadata.com.linkedin.pegasus2avro.common import Status, SubTypes
 from datahub.metadata.com.linkedin.pegasus2avro.dataset import (
     DatasetProperties,
@@ -98,14 +100,9 @@ from datahub.metadata.com.linkedin.pegasus2avro.schema import (
     StringType,
     TimeType,
 )
-from datahub.metadata.schema_classes import (
-    ChangeTypeClass,
-    DataPlatformInstanceClass,
-    JobStatusClass,
-    StatusClass,
-    TimeWindowSizeClass,
-)
+from datahub.metadata.schema_classes import ChangeTypeClass, DataPlatformInstanceClass
 from datahub.utilities.registries.domain_registry import DomainRegistry
+from datahub.utilities.time import datetime_to_ts_millis
 
 logger: logging.Logger = logging.getLogger(__name__)
 
@@ -148,9 +145,9 @@ SNOWFLAKE_FIELD_TYPE_MAPPINGS = {
 }
 
 
-@platform_name("Snowflake")
+@platform_name("Snowflake", doc_order=1)
 @config_class(SnowflakeV2Config)
-@support_status(SupportStatus.INCUBATING)
+@support_status(SupportStatus.CERTIFIED)
 @capability(SourceCapability.PLATFORM_INSTANCE, "Enabled by default")
 @capability(SourceCapability.DOMAINS, "Supported via the `domain` config field")
 @capability(SourceCapability.CONTAINERS, "Enabled by default")
@@ -162,6 +159,10 @@ SNOWFLAKE_FIELD_TYPE_MAPPINGS = {
 @capability(SourceCapability.DESCRIPTIONS, "Enabled by default")
 @capability(
     SourceCapability.LINEAGE_COARSE,
+    "Enabled by default, can be disabled via configuration `include_table_lineage` and `include_view_lineage`",
+)
+@capability(
+    SourceCapability.LINEAGE_FINE,
     "Enabled by default, can be disabled via configuration `include_table_lineage` and `include_view_lineage`",
 )
 @capability(
@@ -184,15 +185,29 @@ class SnowflakeV2Source(
         self.config: SnowflakeV2Config = config
         self.report: SnowflakeV2Report = SnowflakeV2Report()
         self.logger = logger
+        # Create and register the stateful ingestion use-case handlers.
+        self.stale_entity_removal_handler = StaleEntityRemovalHandler(
+            source=self,
+            config=self.config,
+            state_type_class=BaseSQLAlchemyCheckpointState,
+            pipeline_name=self.ctx.pipeline_name,
+            run_id=self.ctx.run_id,
+        )
+
+        self.redundant_run_skip_handler = RedundantRunSkipHandler(
+            source=self,
+            config=self.config,
+            pipeline_name=self.ctx.pipeline_name,
+            run_id=self.ctx.run_id,
+        )
 
         if self.config.domain:
             self.domain_registry = DomainRegistry(
                 cached_domains=[k for k in self.config.domain], graph=self.ctx.graph
             )
 
-        if self.config.include_technical_schema:
-            # For database, schema, tables, views, etc
-            self.data_dictionary = SnowflakeDataDictionary()
+        # For database, schema, tables, views, etc
+        self.data_dictionary = SnowflakeDataDictionary()
 
         if config.include_table_lineage:
             # For lineage
@@ -343,6 +358,11 @@ class SnowflakeV2Source(
                         _report[SourceCapability.LINEAGE_COARSE] = CapabilityReport(
                             capable=True
                         )
+
+                        _report[SourceCapability.LINEAGE_FINE] = CapabilityReport(
+                            capable=True
+                        )
+
                         _report[SourceCapability.USAGE_STATS] = CapabilityReport(
                             capable=True
                         )
@@ -367,6 +387,7 @@ class SnowflakeV2Source(
             SourceCapability.DATA_PROFILING: "Either no tables exist or current role does not have permissions to access them",
             SourceCapability.CONTAINERS: "Current role does not have permissions to use any database",
             SourceCapability.LINEAGE_COARSE: "Current role does not have permissions to snowflake account usage views",
+            SourceCapability.LINEAGE_FINE: "Current role does not have permissions to snowflake account usage views",
             SourceCapability.USAGE_STATS: "Current role does not have permissions to snowflake account usage views",
         }
 
@@ -378,6 +399,7 @@ class SnowflakeV2Source(
                 SourceCapability.DESCRIPTIONS,
                 SourceCapability.DATA_PROFILING,
                 SourceCapability.LINEAGE_COARSE,
+                SourceCapability.LINEAGE_FINE,
                 SourceCapability.USAGE_STATS,
             ):
                 failure_message = (
@@ -408,42 +430,58 @@ class SnowflakeV2Source(
         self.inspect_session_metadata(conn)
 
         self.report.include_technical_schema = self.config.include_technical_schema
-        if self.config.include_technical_schema:
-            databases: List[SnowflakeDatabase] = self.data_dictionary.get_databases(
-                conn
-            )
-            for snowflake_db in databases:
-                if not self.config.database_pattern.allowed(snowflake_db.name):
-                    self.report.report_dropped(f"{snowflake_db.name}.*")
-                    continue
+        databases: List[SnowflakeDatabase] = []
 
-                yield from self._process_database(conn, snowflake_db)
+        databases = self.data_dictionary.get_databases(conn)
+        for snowflake_db in databases:
+            self.report.report_entity_scanned(snowflake_db.name, "database")
 
-            conn.close()
-            if self.is_stateful_ingestion_configured():
-                # For database, schema, table, view
-                removed_entity_workunits = self.gen_removed_entity_workunits()
-                for wu in removed_entity_workunits:
-                    self.report.report_workunit(wu)
-                    yield wu
+            if not self.config.database_pattern.allowed(snowflake_db.name):
+                self.report.report_dropped(f"{snowflake_db.name}.*")
+                continue
 
-            if self.config.profiling.enabled and len(databases) != 0:
-                yield from self.profiler.get_workunits(databases)
+            yield from self._process_database(conn, snowflake_db)
+
+        conn.close()
+        # Emit Stale entity workunits
+        yield from self.stale_entity_removal_handler.gen_removed_entity_workunits()
+
+        if self.config.profiling.enabled and len(databases) != 0:
+            yield from self.profiler.get_workunits(databases)
 
         if self.config.include_usage_stats or self.config.include_operational_stats:
-            self.should_skip_usage_run = self._should_skip_usage_run()
-            if self.should_skip_usage_run:
+            if self.redundant_run_skip_handler.should_skip_this_run(
+                cur_start_time_millis=datetime_to_ts_millis(self.config.start_time)
+            ):
+                # Skip this run
                 return
-            # creating checkpoint for usage ingestion
-            self.get_current_checkpoint(self.get_usage_ingestion_job_id())
-            yield from self.usage_extractor.get_workunits()
+
+            # Update the checkpoint state for this run.
+            self.redundant_run_skip_handler.update_state(
+                start_time_millis=datetime_to_ts_millis(self.config.start_time),
+                end_time_millis=datetime_to_ts_millis(self.config.end_time),
+            )
+
+            discovered_datasets: List[str] = [
+                self.get_dataset_identifier(table.name, schema.name, db.name)
+                for db in databases
+                for schema in db.schemas
+                for table in schema.tables
+            ] + [
+                self.get_dataset_identifier(table.name, schema.name, db.name)
+                for db in databases
+                for schema in db.schemas
+                for table in schema.views
+            ]
+            yield from self.usage_extractor.get_workunits(discovered_datasets)
 
     def _process_database(
         self, conn: SnowflakeConnection, snowflake_db: SnowflakeDatabase
     ) -> Iterable[MetadataWorkUnit]:
         db_name = snowflake_db.name
 
-        yield from self.gen_database_containers(snowflake_db)
+        if self.config.include_technical_schema:
+            yield from self.gen_database_containers(snowflake_db)
 
         # Use database and extract metadata from its information_schema
         # If this query fails, it means, user does not have usage access on database
@@ -463,6 +501,8 @@ class SnowflakeV2Source(
 
         for snowflake_schema in snowflake_db.schemas:
 
+            self.report.report_entity_scanned(snowflake_schema.name, "schema")
+
             if not self.config.schema_pattern.allowed(snowflake_schema.name):
                 self.report.report_dropped(f"{db_name}.{snowflake_schema.name}.*")
                 continue
@@ -473,23 +513,26 @@ class SnowflakeV2Source(
         self, conn: SnowflakeConnection, snowflake_schema: SnowflakeSchema, db_name: str
     ) -> Iterable[MetadataWorkUnit]:
         schema_name = snowflake_schema.name
-        yield from self.gen_schema_containers(snowflake_schema, db_name)
+        if self.config.include_technical_schema:
+            yield from self.gen_schema_containers(snowflake_schema, db_name)
 
         if self.config.include_tables:
             snowflake_schema.tables = self.get_tables_for_schema(
                 conn, schema_name, db_name
             )
 
-            for table in snowflake_schema.tables:
-                yield from self._process_table(conn, table, schema_name, db_name)
+            if self.config.include_technical_schema:
+                for table in snowflake_schema.tables:
+                    yield from self._process_table(conn, table, schema_name, db_name)
 
         if self.config.include_views:
             snowflake_schema.views = self.get_views_for_schema(
                 conn, schema_name, db_name
             )
 
-            for view in snowflake_schema.views:
-                yield from self._process_view(conn, view, schema_name, db_name)
+            if self.config.include_technical_schema:
+                for view in snowflake_schema.views:
+                    yield from self._process_view(conn, view, schema_name, db_name)
 
     def _process_table(
         self,
@@ -542,8 +585,8 @@ class SnowflakeV2Source(
 
         view.columns = self.get_columns_for_table(conn, view.name, schema_name, db_name)
         lineage_info = None
-        if self.config.include_table_lineage:
-            self.lineage_extractor._get_upstream_lineage_info(view_name)
+        if self.config.include_view_lineage:
+            lineage_info = self.lineage_extractor._get_upstream_lineage_info(view_name)
         yield from self.gen_dataset_workunits(view, schema_name, db_name, lineage_info)
 
     def gen_dataset_workunits(
@@ -561,18 +604,12 @@ class SnowflakeV2Source(
             self.config.env,
         )
 
-        if self.is_stateful_ingestion_configured():
-            cur_checkpoint = self.get_current_checkpoint(
-                self.get_default_ingestion_job_id()
-            )
-            if cur_checkpoint is not None:
-                checkpoint_state = cast(
-                    BaseSQLAlchemyCheckpointState, cur_checkpoint.state
-                )
-                if isinstance(table, SnowflakeTable):
-                    checkpoint_state.add_table_urn(dataset_urn)
-                else:
-                    checkpoint_state.add_view_urn(dataset_urn)
+        # Add the entity to the state.
+        type = "table" if isinstance(table, SnowflakeTable) else "view"
+        self.stale_entity_removal_handler.add_entity_to_state(
+            type=type, urn=dataset_urn
+        )
+
         if lineage_info is not None:
             upstream_lineage, upstream_column_props = lineage_info
         else:
@@ -688,7 +725,7 @@ class SnowflakeV2Source(
                         SNOWFLAKE_FIELD_TYPE_MAPPINGS.get(col.data_type, NullType)()
                     ),
                     # NOTE: nativeDataType will not be in sync with older connector
-                    nativeDataType=col.data_type,
+                    nativeDataType=col.get_precise_native_type(),
                     description=col.comment,
                     nullable=col.is_nullable,
                     isPartOfKey=col.name in table.pk.column_names
@@ -753,6 +790,14 @@ class SnowflakeV2Source(
             container_key=schema_container_key,
             dataset_urn=dataset_urn,
         )
+
+        self.stale_entity_removal_handler.add_entity_to_state(
+            type="container",
+            urn=make_container_urn(
+                guid=schema_container_key.guid(),
+            ),
+        )
+
         for wu in container_workunits:
             self.report.report_workunit(wu)
             yield wu
@@ -762,18 +807,16 @@ class SnowflakeV2Source(
             database=db_name,
             schema=schema,
             platform=self.platform,
-            instance=self.config.platform_instance
-            if self.config.platform_instance is not None
-            else self.config.env,
+            instance=self.config.platform_instance,
+            backcompat_instance_for_guid=self.config.env,
         )
 
     def gen_database_key(self, database: str) -> PlatformKey:
         return DatabaseKey(
             database=database,
             platform=self.platform,
-            instance=self.config.platform_instance
-            if self.config.platform_instance is not None
-            else self.config.env,
+            instance=self.config.platform_instance,
+            backcompat_instance_for_guid=self.config.env,
         )
 
     def _gen_domain_urn(self, dataset_name: str) -> Optional[str]:
@@ -802,6 +845,13 @@ class SnowflakeV2Source(
             description=database.comment,
             sub_types=[SqlContainerSubTypes.DATABASE],
             domain_urn=domain_urn,
+        )
+
+        self.stale_entity_removal_handler.add_entity_to_state(
+            type="container",
+            urn=make_container_urn(
+                guid=database_container_key.guid(),
+            ),
         )
 
         for wu in container_workunits:
@@ -961,187 +1011,9 @@ class SnowflakeV2Source(
         except Exception as e:
             self.report.report_failure("current_warehouse", f"Error: {e}")
 
-    def get_default_ingestion_job_id(self) -> JobId:
-
-        # For backward compatibility, keeping job id same as sql common
-        return JobId("common_ingest_from_sql_source")
-
-    def get_usage_ingestion_job_id(self) -> JobId:
-        """
-        Default ingestion job name for snowflake_usage.
-        """
-        return JobId("snowflake_usage_ingestion")
-
     # Stateful Ingestion Overrides.
     def get_platform_instance_id(self) -> str:
         return self.config.get_account()
 
-    # Stateful Ingestion Overrides.
-    def create_checkpoint(self, job_id: JobId) -> Optional[Checkpoint]:
-        assert self.ctx.pipeline_name is not None
-        if job_id == self.get_default_ingestion_job_id():
-            return Checkpoint(
-                job_name=job_id,
-                pipeline_name=self.ctx.pipeline_name,
-                platform_instance_id=self.get_platform_instance_id(),
-                run_id=self.ctx.run_id,
-                config=self.config,
-                state=BaseSQLAlchemyCheckpointState(),
-            )
-        elif job_id == self.get_usage_ingestion_job_id():
-            return Checkpoint(
-                job_name=job_id,
-                pipeline_name=self.ctx.pipeline_name,
-                platform_instance_id=self.get_platform_instance_id(),
-                run_id=self.ctx.run_id,
-                config=self.config,
-                state=BaseUsageCheckpointState(
-                    begin_timestamp_millis=int(
-                        self.config.start_time.timestamp() * 1000
-                    ),
-                    end_timestamp_millis=int(self.config.end_time.timestamp() * 1000),
-                ),
-            )
-        return None
-
-    # Stateful Ingestion Overrides.
-    def is_checkpointing_enabled(self, job_id: JobId) -> bool:
-        if job_id == self.get_default_ingestion_job_id():
-            if (
-                job_id == self.get_default_ingestion_job_id()
-                and self.is_stateful_ingestion_configured()
-                and self.config.stateful_ingestion
-                and self.config.stateful_ingestion.remove_stale_metadata
-            ):
-                return True
-        elif job_id == self.get_usage_ingestion_job_id():
-            assert self.config.stateful_ingestion
-            return self.config.stateful_ingestion.enabled
-        return False
-
-    def update_job_run_summary(self):
-        self.update_default_job_run_summary()
-        if self.config.include_usage_stats or self.config.include_operational_stats:
-            self.update_usage_job_run_summary()
-
-    def update_default_job_run_summary(self) -> None:
-        summary = self.get_job_run_summary(self.get_default_ingestion_job_id())
-        if summary is not None:
-            summary.config = self.config.json()
-            summary.custom_summary = self.report.as_string()
-            summary.runStatus = (
-                JobStatusClass.FAILED
-                if self.get_report().failures
-                else JobStatusClass.COMPLETED
-            )
-            summary.numWarnings = len(self.report.warnings)
-            summary.numErrors = len(self.report.failures)
-            summary.numAspects = self.report.events_produced
-
-    def update_usage_job_run_summary(self):
-        summary = self.get_job_run_summary(self.get_usage_ingestion_job_id())
-        if summary is not None:
-            summary.runStatus = (
-                JobStatusClass.SKIPPED
-                if self.should_skip_usage_run
-                else JobStatusClass.COMPLETED
-            )
-            summary.eventGranularity = TimeWindowSizeClass(
-                unit=self.config.bucket_duration, multiple=1
-            )
-
     def close(self):
-        self.update_job_run_summary()
         self.prepare_for_commit()
-
-    def gen_removed_entity_workunits(self) -> Iterable[MetadataWorkUnit]:
-        last_checkpoint = self.get_last_checkpoint(
-            self.get_default_ingestion_job_id(), BaseSQLAlchemyCheckpointState
-        )
-        cur_checkpoint = self.get_current_checkpoint(
-            self.get_default_ingestion_job_id()
-        )
-        if (
-            self.config.stateful_ingestion
-            and self.config.stateful_ingestion.remove_stale_metadata
-            and last_checkpoint is not None
-            and last_checkpoint.state is not None
-            and cur_checkpoint is not None
-            and cur_checkpoint.state is not None
-        ):
-            logger.debug("Checking for stale entity removal.")
-
-            def soft_delete_item(urn: str, type: str) -> Iterable[MetadataWorkUnit]:
-                entity_type: str = "dataset"
-
-                if type == "container":
-                    entity_type = "container"
-
-                logger.info(f"Soft-deleting stale entity of type {type} - {urn}.")
-                mcp = MetadataChangeProposalWrapper(
-                    entityType=entity_type,
-                    entityUrn=urn,
-                    changeType=ChangeTypeClass.UPSERT,
-                    aspectName="status",
-                    aspect=StatusClass(removed=True),
-                )
-                wu = MetadataWorkUnit(id=f"soft-delete-{type}-{urn}", mcp=mcp)
-                self.report.report_workunit(wu)
-                self.report.report_stale_entity_soft_deleted(urn)
-                yield wu
-
-            last_checkpoint_state = cast(
-                BaseSQLAlchemyCheckpointState, last_checkpoint.state
-            )
-            cur_checkpoint_state = cast(
-                BaseSQLAlchemyCheckpointState, cur_checkpoint.state
-            )
-
-            for table_urn in last_checkpoint_state.get_table_urns_not_in(
-                cur_checkpoint_state
-            ):
-                yield from soft_delete_item(table_urn, "table")
-
-            for view_urn in last_checkpoint_state.get_view_urns_not_in(
-                cur_checkpoint_state
-            ):
-                yield from soft_delete_item(view_urn, "view")
-
-            for container_urn in last_checkpoint_state.get_container_urns_not_in(
-                cur_checkpoint_state
-            ):
-                yield from soft_delete_item(container_urn, "container")
-
-    def _should_skip_usage_run(self) -> bool:
-        # Check if forced rerun.
-        if (
-            self.config.stateful_ingestion
-            and self.config.stateful_ingestion.ignore_old_state
-        ):
-            return False
-        # Determine from the last check point state
-        last_successful_pipeline_run_end_time_millis: Optional[int] = None
-        last_checkpoint = self.get_last_checkpoint(
-            self.get_usage_ingestion_job_id(), BaseUsageCheckpointState
-        )
-        if last_checkpoint and last_checkpoint.state:
-            state = cast(BaseUsageCheckpointState, last_checkpoint.state)
-            last_successful_pipeline_run_end_time_millis = state.end_timestamp_millis
-
-        if last_successful_pipeline_run_end_time_millis is not None:
-            last_run_bucket_start = get_time_bucket(
-                datetime.fromtimestamp(
-                    last_successful_pipeline_run_end_time_millis / 1000, tz=timezone.utc
-                ),
-                self.config.bucket_duration,
-            )
-            if self.config.start_time < last_run_bucket_start:
-                warn_msg = (
-                    f"Skippig usage run, since the last run's bucket duration start: "
-                    f"{last_run_bucket_start}"
-                    f" is later than the current start_time: {self.config.start_time}"
-                )
-                logger.warning(warn_msg)
-                self.report.report_warning("skip-run", warn_msg)
-                return True
-        return False
