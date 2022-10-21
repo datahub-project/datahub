@@ -19,6 +19,7 @@ source venv/bin/activate
 pip install --upgrade pip wheel setuptools
 pip install -r requirements.txt
 
+mkdirs -p ~/.datahub/plugins/frontend/auth/
 echo "test_user:test_pass" >> ~/.datahub/plugins/frontend/auth/user.props
 
 echo "DATAHUB_VERSION = $DATAHUB_VERSION"

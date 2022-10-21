@@ -40,6 +40,6 @@ describe("impact analysis", () => {
     cy.clickOptionWithTestId('edit-text-done-btn');
 
     cy.ensureTextNotPresent("User Creations");
-    cy.ensureTextPresent("User Deletions");
+    cy.waitTextVisible("User Deletions");
   });
 });

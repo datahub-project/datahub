@@ -6,10 +6,10 @@ describe('analytics', () => {
     cy.ensureTextNotPresent("dashboards");
 
     cy.goToChart("urn:li:chart:(looker,cypress_baz1)");
-    cy.ensureTextPresent("Baz Chart 1");
+    cy.waitTextVisible("Baz Chart 1");
     cy.openEntityTab("Dashboards");
 
     cy.goToAnalytics();
-    cy.ensureTextPresent("dashboards");
+    cy.waitTextVisible("dashboards");
   });
 })

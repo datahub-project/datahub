@@ -33,3 +33,8 @@ describe("add_user", () => {
         });
     });
 });
+
+// Verify you can’t generate a reset password link for a non-native user (root, for example)
+// Generate a reset password link for a native user
+// Log out, then verify that using a bad reset token in the URL doesn’t allow you to reset password
+// Use the correct reset link to reset native user credentials

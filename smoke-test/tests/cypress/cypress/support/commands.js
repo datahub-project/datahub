@@ -39,14 +39,20 @@ Cypress.Commands.add("logout", () => {
 
 Cypress.Commands.add("goToGlossaryList", () => {
   cy.visit("/glossary");
-  cy.contains("Glossary");
+  cy.waitTextVisible("Glossary");
+});
+
+Cypress.Commands.add("goToDomainList", () => {
+  cy.visit("/domains");
+  cy.waitTextVisible("Domains");
+  cy.waitTextVisible("New Domain");
 });
 
 Cypress.Commands.add("goToDataset", (urn, dataset_name) => {
   cy.visit(
     "/dataset/" + urn
   );
-  cy.ensureTextPresent(dataset_name);
+  cy.waitTextVisible(dataset_name);
 })
 
 Cypress.Commands.add("goToChart", (urn) => {
@@ -69,7 +75,7 @@ Cypress.Commands.add("goToDomain", (urn) => {
 
 Cypress.Commands.add("goToAnalytics", () => {
   cy.visit("/analytics");
-  cy.ensureTextPresent("Data Landscape Summary");
+  cy.waitTextVisible("Data Landscape Summary");
 });
 
 Cypress.Commands.add("openThreeDotDropdown", () => {
@@ -89,10 +95,6 @@ Cypress.Commands.add("deleteFromDropdown", () => {
 Cypress.Commands.add("addViaModel", (text) => {
   cy.get(".ant-form-item-control-input-content > input[type='text']").type(text);
   cy.get(".ant-modal-footer > button:nth-child(2)").click();
-});
-
-Cypress.Commands.add("ensureTextPresent", (text) => {
-  cy.contains(text);
 });
 
 Cypress.Commands.add("ensureTextNotPresent", (text) => {
