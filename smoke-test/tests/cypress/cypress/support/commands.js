@@ -36,18 +36,42 @@ Cypress.Commands.add("goToGlossaryList", () => {
   cy.contains("Glossary");
 });
 
-Cypress.Commands.add("goToDataset", (urn) => {
+Cypress.Commands.add("goToDataset", (urn, dataset_name) => {
   cy.visit(
     "/dataset/" + urn
   );
+  cy.ensureTextPresent(dataset_name);
 })
+
+Cypress.Commands.add("goToChart", (urn) => {
+  cy.visit(
+    "/chart/" + urn
+  );
+})
+
+Cypress.Commands.add("goToContainer", (urn) => {
+  cy.visit(
+    "/container/" + urn
+  );
+})
+
+Cypress.Commands.add("goToDomain", (urn) => {
+  cy.visit(
+    "/domain/" + urn
+  );
+})
+
+Cypress.Commands.add("goToAnalytics", () => {
+  cy.visit("/analytics");
+  cy.ensureTextPresent("Data Landscape Summary");
+});
 
 Cypress.Commands.add("openThreeDotDropdown", () => {
   cy.get('div[class^="EntityHeader__SideHeaderContent-"] > div > .ant-dropdown-trigger').click();
 });
 
 Cypress.Commands.add("clickOptionWithText", (text) => {
-  cy.contains(text).click();
+  cy.contains(text).click({force: true});
 });
 
 Cypress.Commands.add("deleteFromDropdown", () => {
@@ -61,24 +85,46 @@ Cypress.Commands.add("addViaModel", (text) => {
   cy.get(".ant-modal-footer > button:nth-child(2)").click();
 });
 
+Cypress.Commands.add("ensureTextPresent", (text) => {
+  cy.contains(text);
+});
+
 Cypress.Commands.add("ensureTextNotPresent", (text) => {
   cy.contains(text).should("not.exist");
 });
 
-Cypress.Commands.add('addTermToDataset', (urn, term) => {
-  cy.goToDataset(urn);
+Cypress.Commands.add("clickOptionWithTestId", (id) => {
+  cy.get('[data-testid="' + id +'"]').click({
+    force: true,
+  });
+})
+
+Cypress.Commands.add('addTermToDataset', (urn, dataset_name, term) => {
+  cy.goToDataset(urn, dataset_name);
   cy.clickOptionWithText("Add Term");
   cy.focused().type(term);
   cy.get(".ant-select-item-option-content").within(() =>
     cy.contains(term).click({ force: true })
   );
-  cy.get('[data-testid="add-tag-term-from-modal-btn"]').click({
-    force: true,
-  });
+  cy.clickOptionWithTestId('add-tag-term-from-modal-btn');
   cy.get('[data-testid="add-tag-term-from-modal-btn"]').should("not.exist");
 
   cy.contains(term);
 });
+
+Cypress.Commands.add("openEntityTab", (tab) => {
+  const selector = 'div[id$="' + tab + '"]:nth-child(1)'
+  cy.highlighElement(selector);
+  cy.get(selector).click()
+});
+
+Cypress.Commands.add("highlighElement", (selector) => {
+  cy.wait(3000);
+  cy.get(selector).then($button => {
+    $button.css('border', '1px solid magenta')
+  })
+  cy.wait(3000);
+})
 
 //
 //
