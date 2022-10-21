@@ -77,10 +77,7 @@ describe("mutations", () => {
     cy.login();
     cy.viewport(2000, 800);
     cy.goToDataset("urn:li:dataset:(urn:li:dataPlatform:hive,cypress_logging_events,PROD)", "cypress_logging_events");
-    cy.get('[data-testid="schema-field-event_name-tags"]').trigger(
-      "mouseover",
-      { force: true }
-    );
+    cy.mouseover('[data-testid="schema-field-event_name-tags"]');
     cy.get('[data-testid="schema-field-event_name-tags"]').within(() =>
       cy.contains("Add Tag").click()
     );

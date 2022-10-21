@@ -31,6 +31,12 @@ Cypress.Commands.add('deleteUrn', (urn) => {
     }})
 })
 
+Cypress.Commands.add("logout", () => {
+  cy.visit("/logOut")
+  cy.waitTextVisible("Username");
+  cy.waitTextVisible("Password");
+});
+
 Cypress.Commands.add("goToGlossaryList", () => {
   cy.visit("/glossary");
   cy.contains("Glossary");
@@ -71,7 +77,7 @@ Cypress.Commands.add("openThreeDotDropdown", () => {
 });
 
 Cypress.Commands.add("clickOptionWithText", (text) => {
-  cy.contains(text).click({force: true});
+  cy.contains(text).click();
 });
 
 Cypress.Commands.add("deleteFromDropdown", () => {
@@ -92,6 +98,17 @@ Cypress.Commands.add("ensureTextPresent", (text) => {
 Cypress.Commands.add("ensureTextNotPresent", (text) => {
   cy.contains(text).should("not.exist");
 });
+
+Cypress.Commands.add("waitTextVisible", (text) => {
+  cy.contains(text).should('exist');
+  cy.contains(text).should('be.visible');
+  cy.contains(text).should('have.length.above', 0);
+  return cy.contains(text);
+})
+
+Cypress.Commands.add("enterTextInTestId", (id, text) => {
+  cy.get('[data-testid="' + id +'"]').type(text);
+})
 
 Cypress.Commands.add("clickOptionWithTestId", (id) => {
   cy.get('[data-testid="' + id +'"]').click({
@@ -124,6 +141,13 @@ Cypress.Commands.add("highlighElement", (selector) => {
     $button.css('border', '1px solid magenta')
   })
   cy.wait(3000);
+})
+
+Cypress.Commands.add("mouseover", (selector) => {
+  return cy.get(selector).trigger(
+    "mouseover",
+    { force: true }
+  );
 })
 
 //

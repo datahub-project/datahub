@@ -1,23 +1,22 @@
-describe("impact analysis", () => {
-  it("can see 1 hop of lineage by default", () => {
+const startAtDataSetLineage = () => {
     cy.login();
     cy.goToDataset(
       "urn:li:dataset:(urn:li:dataPlatform:kafka,SampleCypressKafkaDataset,PROD)",
       "SampleCypressKafkaDataset"
     );
     cy.openEntityTab("Lineage")
+}
+
+describe("impact analysis", () => {
+  it("can see 1 hop of lineage by default", () => {
+    startAtDataSetLineage()
 
     cy.ensureTextNotPresent("User Creations");
     cy.ensureTextNotPresent("User Deletions");
   });
 
   it("can see lineage multiple hops away", () => {
-    cy.login();
-    cy.goToDataset(
-      "urn:li:dataset:(urn:li:dataPlatform:kafka,SampleCypressKafkaDataset,PROD)",
-      "SampleCypressKafkaDataset"
-    );
-    cy.openEntityTab("Lineage")
+    startAtDataSetLineage()
     // click to show more relationships now that we default to 1 degree of dependency
     cy.clickOptionWithText("3+");
 
@@ -26,12 +25,7 @@ describe("impact analysis", () => {
   });
 
   it("can filter the lineage results as well", () => {
-    cy.login();
-    cy.goToDataset(
-      "urn:li:dataset:(urn:li:dataPlatform:kafka,SampleCypressKafkaDataset,PROD)",
-      "SampleCypressKafkaDataset"
-    );
-    cy.openEntityTab("Lineage")
+    startAtDataSetLineage()
     // click to show more relationships now that we default to 1 degree of dependency
     cy.clickOptionWithText("3+");
 

@@ -19,6 +19,8 @@ source venv/bin/activate
 pip install --upgrade pip wheel setuptools
 pip install -r requirements.txt
 
+echo "test_user:test_pass" >> ~/.datahub/plugins/frontend/auth/user.props
+
 echo "DATAHUB_VERSION = $DATAHUB_VERSION"
 DATAHUB_TELEMETRY_ENABLED=false datahub docker quickstart --standalone_consumers --dump-logs-on-failure
 
