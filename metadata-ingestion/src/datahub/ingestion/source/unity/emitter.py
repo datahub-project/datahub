@@ -64,18 +64,13 @@ class Emitter:
 
     def emit(self) -> Iterable[List[MetadataChangeProposalWrapper]]:
         for metastores in self._unity_catalog_api_proxy.metastores():
-            yield [
-                mcp for mcp in map(_create_container_property_aspect_mcp, metastores)
-            ]
-            yield [
-                mcp for mcp in map(_create_container_sub_type_aspect_mcp, metastores)
-            ]
-            yield [
-                mcp
-                for mcp in map(
+            yield list(map(_create_container_property_aspect_mcp, metastores))
+            yield list(map(_create_container_sub_type_aspect_mcp, metastores))
+            yield list(
+                map(
                     partial(_create_container_dataplatform_aspect_mcp, self), metastores
                 )
-            ]
+            )
 
             self.report.increment_scanned_metastore(len(metastores))
             # We can replace map with ThreadPoolExecutor.map if needed in later phase
@@ -147,30 +142,18 @@ def _emit_catalog_mcps(
 
     for catalogs in self._unity_catalog_api_proxy.catalogs(metastore=metastore):
         # Add property aspect
-        mcps.extend(
-            [mcp for mcp in map(_create_container_property_aspect_mcp, catalogs)]
-        )
+        mcps.extend(list(map(_create_container_property_aspect_mcp, catalogs)))
         # Add subtype aspect
-        mcps.extend(
-            [mcp for mcp in map(_create_container_sub_type_aspect_mcp, catalogs)]
-        )
+        mcps.extend(list(map(_create_container_sub_type_aspect_mcp, catalogs)))
         # Add dataplatform aspect
         mcps.extend(
-            [
-                mcp
-                for mcp in map(
-                    partial(_create_container_dataplatform_aspect_mcp, self), catalogs
-                )
-            ]
+            list(
+                map(partial(_create_container_dataplatform_aspect_mcp, self), catalogs)
+            )
         )
         # Add parent container aspect
         mcps.extend(
-            [
-                mcp
-                for mcp in map(
-                    partial(_create_container_parent_aspect_mcp, metastore), catalogs
-                )
-            ]
+            list(map(partial(_create_container_parent_aspect_mcp, metastore), catalogs))
         )
         self.report.increment_scanned_catalog(len(catalogs))
         for schema_mcps in map(partial(_emit_schema_mcps, self), catalogs):
@@ -185,28 +168,14 @@ def _emit_schema_mcps(
     mcps: List[MetadataChangeProposalWrapper] = []
 
     for schemas in self._unity_catalog_api_proxy.schemas(catalog=catalog):
+        mcps.extend(list(map(_create_container_property_aspect_mcp, schemas)))
+        mcps.extend(list(map(_create_container_sub_type_aspect_mcp, schemas)))
         mcps.extend(
-            [mcp for mcp in map(_create_container_property_aspect_mcp, schemas)]
-        )
-        mcps.extend(
-            [mcp for mcp in map(_create_container_sub_type_aspect_mcp, schemas)]
-        )
-        mcps.extend(
-            [
-                mcp
-                for mcp in map(
-                    partial(_create_container_dataplatform_aspect_mcp, self), schemas
-                )
-            ]
+            list(map(partial(_create_container_dataplatform_aspect_mcp, self), schemas))
         )
         # Add parent container aspect
         mcps.extend(
-            [
-                mcp
-                for mcp in map(
-                    partial(_create_container_parent_aspect_mcp, catalog), schemas
-                )
-            ]
+            list(map(partial(_create_container_parent_aspect_mcp, catalog), schemas))
         )
         self.report.increment_scanned_schema(len(schemas))
         # Add table mcps
@@ -222,32 +191,12 @@ def _emit_table_mcps(
     mcps: List[MetadataChangeProposalWrapper] = []
     for tables in self._unity_catalog_api_proxy.tables(schema=schema):
         mcps.extend(
-            [
-                mcp
-                for mcp in map(
-                    partial(_create_table_parent_aspect_mcp, self, schema), tables
-                )
-            ]
+            list(map(partial(_create_table_parent_aspect_mcp, self, schema), tables))
         )
+        mcps.extend(list(map(partial(_create_table_property_aspect_mcp, self), tables)))
+        mcps.extend(list(map(partial(_create_table_sub_type_aspect_mcp, self), tables)))
         mcps.extend(
-            [
-                mcp
-                for mcp in map(partial(_create_table_property_aspect_mcp, self), tables)
-            ]
-        )
-        mcps.extend(
-            [
-                mcp
-                for mcp in map(partial(_create_table_sub_type_aspect_mcp, self), tables)
-            ]
-        )
-        mcps.extend(
-            [
-                mcp
-                for mcp in map(
-                    partial(_create_schema_metadata_aspect_mcp, self), tables
-                )
-            ]
+            list(map(partial(_create_schema_metadata_aspect_mcp, self), tables))
         )
         self.report.increment_scanned_table(len(tables))
 
