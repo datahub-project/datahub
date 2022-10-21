@@ -3,7 +3,8 @@ Manage the communication with DataBricks Server and provide equivalent dataclass
 """
 import logging
 from dataclasses import dataclass
-from typing import Iterable, List, Optional
+from functools import partial
+from typing import Any, Iterable, List, Optional
 
 import requests
 from databricks_cli.sdk.api_client import ApiClient
@@ -81,16 +82,91 @@ class Column(CommonProperty):
 
 
 @dataclass
+class TableInfo(CommonProperty):
+    pass
+
+
+@dataclass
+class Lineage:
+    upstreams: TableInfo
+    downstreams: TableInfo
+
+
+@dataclass
 class Table(CommonProperty):
     schema: Schema
     columns: List[Column]
     storage_location: Optional[str]
     data_source_format: Optional[str]
     table_type: str
+    # lineage: Optional[Lineage]
 
 
 def _escape_sequence(value: str) -> str:
     return value.replace(" ", "_")
+
+
+def _create_metastore(obj: Any) -> Metastore:
+    return Metastore(
+        name=obj["name"],
+        id=_escape_sequence(obj["name"]),
+        metastore_id=obj["metastore_id"],
+        type="Metastore",
+    )
+
+
+def _create_catalog(metastore: Metastore, obj: Any) -> Catalog:
+    return Catalog(
+        name=obj["name"],
+        id="{}.{}".format(
+            metastore.id,
+            _escape_sequence(obj["name"]),
+        ),
+        metastore=metastore,
+        type="Catalog",
+    )
+
+
+def _create_schema(catalog: Catalog, obj: Any) -> Schema:
+    return Schema(
+        name=obj["name"],
+        id="{}.{}".format(
+            catalog.id,
+            _escape_sequence(obj["name"]),
+        ),
+        catalog=catalog,
+        type="Schema",
+    )
+
+
+def _create_column(table_id: str, obj: Any) -> Column:
+    return Column(
+        name=obj["name"],
+        id="{}.{}".format(table_id, _escape_sequence(obj["name"])),
+        type_text=obj["type_text"],
+        type_name=SchemaFieldDataTypeClass(type=DATA_TYPE_REGISTRY[obj["type_name"]]()),
+        type_scale=obj["type_scale"],
+        type_precision=obj["type_precision"],
+        position=obj["position"],
+        nullable=obj["nullable"],
+        type="Column",
+    )
+
+
+def _create_table(schema: Schema, obj: Any) -> Table:
+    table_id: str = "{}.{}".format(schema.id, _escape_sequence(obj["name"]))
+    return Table(
+        name=obj["name"],
+        id=table_id,
+        table_type=obj["table_type"],
+        schema=schema,
+        storage_location=obj.get("storage_location"),
+        data_source_format=obj.get("data_source_format"),
+        columns=list(map(partial(_create_column, table_id), obj["columns"]))
+        if obj.get("columns") is not None
+        else [],
+        type="Table",
+    )
 
 
 class UnityCatalogApiProxy:
@@ -115,73 +191,44 @@ class UnityCatalogApiProxy:
         return False
 
     def metastores(self) -> Iterable[List[Metastore]]:
-        metastores: List[Metastore] = []
         response: dict = self._unity_catalog_api.list_metastores()
-
         if response.get("metastores") is None:
             LOGGER.info("Metastores not found")
-            return metastores
+            return []
 
-        for obj in response["metastores"]:
-            metastores.append(
-                Metastore(
-                    name=obj["name"],
-                    id=_escape_sequence(obj["name"]),
-                    metastore_id=obj["metastore_id"],
-                    type="Metastore",
-                )
-            )
         # yield here to support paginated response later
-        yield metastores
+        yield list(map(_create_metastore, response["metastores"]))
 
     def catalogs(self, metastore: Metastore) -> Iterable[List[Catalog]]:
-        catalogs: List[Catalog] = []
         response: dict = self._unity_catalog_api.list_catalogs()
         if response.get("catalogs") is None:
             LOGGER.info(f"Catalogs not found for metastore {metastore.name}")
-            return catalogs
+            return []
 
-        for obj in response["catalogs"]:
-            if obj["metastore_id"] == metastore.metastore_id:
-                catalogs.append(
-                    Catalog(
-                        name=obj["name"],
-                        id="{}.{}".format(
-                            metastore.id,
-                            _escape_sequence(obj["name"]),
-                        ),
-                        metastore=metastore,
-                        type="Catalog",
-                    )
-                )
-        yield catalogs
+        filtered_catalogs = [
+            obj
+            for obj in response["catalogs"]
+            if obj["metastore_id"] == metastore.metastore_id
+        ]
+        if len(filtered_catalogs) == 0:
+            LOGGER.info(
+                f"Catalogs not found for metastore where metastore_id is {metastore.metastore_id}"
+            )
+            return []
+
+        yield list(map(partial(_create_catalog, metastore), filtered_catalogs))
 
     def schemas(self, catalog: Catalog) -> Iterable[List[Schema]]:
-        schemas: List[Schema] = []
         response: dict = self._unity_catalog_api.list_schemas(
             catalog_name=catalog.name, name_pattern=None
         )
         if response.get("schemas") is None:
             LOGGER.info(f"Schemas not found for catalog {catalog.name}")
-            return schemas
+            return []
 
-        for obj in response["schemas"]:
-            schemas.append(
-                Schema(
-                    name=obj["name"],
-                    id="{}.{}".format(
-                        catalog.id,
-                        _escape_sequence(obj["name"]),
-                    ),
-                    catalog=catalog,
-                    type="Schema",
-                )
-            )
-
-        yield schemas
+        yield list(map(partial(_create_schema, catalog), response["schemas"]))
 
     def tables(self, schema: Schema) -> Iterable[List[Table]]:
-        tables: List[Table] = []
         response: dict = self._unity_catalog_api.list_tables(
             catalog_name=schema.catalog.name,
             schema_name=schema.name,
@@ -190,35 +237,10 @@ class UnityCatalogApiProxy:
 
         if response.get("tables") is None:
             LOGGER.info(f"Tables not found for schema {schema.name}")
-            return tables
+            return []
 
-        for obj in response["tables"]:
-            table = Table(
-                name=obj["name"],
-                id="{}.{}".format(schema.id, _escape_sequence(obj["name"])),
-                table_type=obj["table_type"],
-                schema=schema,
-                storage_location=obj.get("storage_location"),
-                data_source_format=obj.get("data_source_format"),
-                columns=[],
-                type="Table",
-            )
-            for column in obj["columns"]:
-                table.columns.append(
-                    Column(
-                        name=column["name"],
-                        id="{}.{}".format(table.id, _escape_sequence(column["name"])),
-                        type_text=column["type_text"],
-                        type_name=SchemaFieldDataTypeClass(
-                            type=DATA_TYPE_REGISTRY[column["type_name"]]()
-                        ),
-                        type_scale=column["type_scale"],
-                        type_precision=column["type_precision"],
-                        position=column["position"],
-                        nullable=column["nullable"],
-                        type="Column",
-                    )
-                )
-            tables.append(table)
+        tables: List[Table] = list(
+            map(partial(_create_table, schema), response["tables"])
+        )
 
         yield tables
