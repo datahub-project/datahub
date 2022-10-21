@@ -934,7 +934,7 @@ class KafkaConnectSource(Source):
                         config=self.config,
                         report=self.report,
                     ).connector_manifest
-                elif connector_manifest.config.get("connector.class").startswith(
+                elif connector_manifest.config.get("connector.class", "").startswith(
                     "io.debezium.connector"
                 ):
                     connector_manifest = DebeziumSourceConnector(

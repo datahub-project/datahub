@@ -240,9 +240,7 @@ def test_kafka_connect_ingest(docker_compose_runner, pytestconfig, tmp_path, moc
         except requests.exceptions.HTTPError as err:
             raise SystemExit(err)
 
-        
         assert r.status_code == 201  # Created
-
 
         # Give time for connectors to process the table data
         time.sleep(60)
