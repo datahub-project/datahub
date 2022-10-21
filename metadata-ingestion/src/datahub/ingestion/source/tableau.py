@@ -515,7 +515,6 @@ class TableauSource(StatefulIngestionSourceBase):
                 fine_grained_lineages.extend(upstream_fields)
 
                 # Find fine grained lineage for table column to datasource column edge,
-                # This also returns upstream CustomSQLTables, which are not part of `upstreamTables` query
                 upstream_columns = self.get_upstream_columns_of_fields_in_datasource(
                     datasource,
                     datasource_urn,
