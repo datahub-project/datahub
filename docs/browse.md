@@ -53,4 +53,4 @@ BrowsePaths are an Aspect similar to other components of an Entity. They can be 
 
 ### Related Features
 
-* [Search](./docs/how/search.md)
+* [Search](./how/search.md)
