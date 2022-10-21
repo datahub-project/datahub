@@ -36,8 +36,8 @@ This will take you into the folder explorer view for browse in which you can dri
 
 ### GraphQL
 
-* [browse](../../graphql/queries.md#browse)
-* [browsePaths](../../graphql/queries.md#browsePaths)
+* [browse](../graphql/queries.md#browse)
+* [browsePaths](../graphql/queries.md#browsePaths)
 
 ## FAQ and Troubleshooting
 
