@@ -212,7 +212,10 @@ databricks_cli = {
 plugins: Dict[str, Set[str]] = {
     # Sink plugins.
     "datahub-kafka": kafka_common,
-    "datahub-rest": {"requests"},
+    "datahub-rest": {
+        "requests",
+        "requests_file"
+    },
     # Integrations.
     "airflow": {
         "apache-airflow >= 2.0.2",

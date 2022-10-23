@@ -3,7 +3,7 @@ import urllib
 from typing import Any, Optional
 
 import pytest
-import requests
+import requests_wrapper as requests
 import tenacity
 from datahub.ingestion.run.pipeline import Pipeline
 
@@ -27,7 +27,7 @@ bq_sample_data = "./sample_bq_data.json"
 restli_default_headers = {
     "X-RestLi-Protocol-Version": "2.0.0",
 }
-kafka_post_ingestion_wait_sec = 60
+kafka_post_ingestion_wait_sec = 30
 
 sleep_sec, sleep_times = get_sleep_info()
 
@@ -92,7 +92,7 @@ def _ensure_user_relationship_present(frontend_session, urn, relationships):
     assert res_data["data"]
     assert res_data["data"]["corpUser"]
     assert res_data["data"]["corpUser"]["relationships"]
-    assert res_data["data"]["corpUser"]["relationships"]["total"] == 1
+    assert res_data["data"]["corpUser"]["relationships"]["total"] == relationships
 
 
 @tenacity.retry(

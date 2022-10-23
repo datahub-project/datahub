@@ -20,7 +20,9 @@ pip install --upgrade pip wheel setuptools
 pip install -r requirements.txt
 
 echo "DATAHUB_VERSION = $DATAHUB_VERSION"
-DATAHUB_TELEMETRY_ENABLED=false datahub docker quickstart --standalone_consumers --dump-logs-on-failure
+DATAHUB_TELEMETRY_ENABLED=false  \
+DOCKER_COMPOSE_BASE="file://$( dirname "$DIR" )" \
+datahub docker quickstart --standalone_consumers --dump-logs-on-failure
 
 (cd ..; ./gradlew :smoke-test:yarnInstall)
 

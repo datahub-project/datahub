@@ -27,6 +27,8 @@ import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
+
+import org.springframework.test.context.testng.AbstractTestNGSpringContextTests;
 import org.testng.Assert;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.DataProvider;
@@ -54,7 +56,7 @@ import static org.testng.Assert.fail;
  * Feel free to add a test to your test implementation that calls `getPopulatedGraphService` and
  * asserts the state of the graph in an implementation specific way.
  */
-abstract public class GraphServiceTestBase {
+abstract public class GraphServiceTestBase extends AbstractTestNGSpringContextTests {
 
   private static class RelatedEntityComparator implements Comparator<RelatedEntity> {
     @Override
