@@ -46,7 +46,8 @@ public class ListIngestionSourceResolverTest {
         Mockito.eq(Collections.emptyMap()),
         Mockito.eq(0),
         Mockito.eq(20),
-        Mockito.any(Authentication.class)
+        Mockito.any(Authentication.class),
+        Mockito.eq(Boolean.TRUE)
     )).thenReturn(
         new SearchResult()
         .setFrom(0)
@@ -115,7 +116,8 @@ public class ListIngestionSourceResolverTest {
         Mockito.anyMap(),
         Mockito.anyInt(),
         Mockito.anyInt(),
-        Mockito.any(Authentication.class));
+        Mockito.any(Authentication.class),
+        Mockito.eq(Boolean.TRUE));
   }
 
   @Test

@@ -89,12 +89,22 @@ public class ElasticSearchService implements EntitySearchService {
 
   @Nonnull
   @Override
-  public SearchResult search(@Nonnull String entityName, @Nonnull String input, @Nullable Filter postFilters,
+  public SearchResult fullTextSearch(@Nonnull String entityName, @Nonnull String input, @Nullable Filter postFilters,
       @Nullable SortCriterion sortCriterion, int from, int size) {
     log.debug(String.format(
-        "Searching Search documents entityName: %s, input: %s, postFilters: %s, sortCriterion: %s, from: %s, size: %s",
+        "Searching FullText Search documents entityName: %s, input: %s, postFilters: %s, sortCriterion: %s, from: %s, size: %s",
         entityName, input, postFilters, sortCriterion, from, size));
-    return esSearchDAO.search(entityName, input, postFilters, sortCriterion, from, size);
+    return esSearchDAO.search(entityName, input, postFilters, sortCriterion, from, size, false);
+  }
+
+  @Nonnull
+  @Override
+  public SearchResult structuredSearch(@Nonnull String entityName, @Nonnull String input, @Nullable Filter postFilters,
+                                       @Nullable SortCriterion sortCriterion, int from, int size) {
+    log.debug(String.format(
+            "Searching Structured Search documents entityName: %s, input: %s, postFilters: %s, sortCriterion: %s, from: %s, size: %s",
+            entityName, input, postFilters, sortCriterion, from, size));
+    return esSearchDAO.search(entityName, input, postFilters, sortCriterion, from, size, true);
   }
 
   @Nonnull

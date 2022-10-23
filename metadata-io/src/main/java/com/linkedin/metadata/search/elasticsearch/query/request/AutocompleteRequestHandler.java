@@ -26,10 +26,9 @@ import lombok.extern.slf4j.Slf4j;
 import org.elasticsearch.action.search.SearchRequest;
 import org.elasticsearch.action.search.SearchResponse;
 import org.elasticsearch.index.query.BoolQueryBuilder;
-import org.elasticsearch.index.query.Operator;
+import org.elasticsearch.index.query.MultiMatchQueryBuilder;
 import org.elasticsearch.index.query.QueryBuilder;
 import org.elasticsearch.index.query.QueryBuilders;
-import org.elasticsearch.index.query.QueryStringQueryBuilder;
 import org.elasticsearch.search.SearchHit;
 import org.elasticsearch.search.builder.SearchSourceBuilder;
 import org.elasticsearch.search.fetch.subphase.highlight.HighlightBuilder;
@@ -38,7 +37,6 @@ import org.elasticsearch.search.fetch.subphase.highlight.HighlightBuilder;
 @Slf4j
 public class AutocompleteRequestHandler {
 
-  private static final String ANALYZER = "word_delimited";
   private final List<String> _defaultAutocompleteFields;
 
   private static final Map<EntitySpec, AutocompleteRequestHandler> AUTOCOMPLETE_QUERY_BUILDER_BY_ENTITY_NAME =
@@ -58,8 +56,7 @@ public class AutocompleteRequestHandler {
         k -> new AutocompleteRequestHandler(entitySpec));
   }
 
-  public SearchRequest getSearchRequest(@Nonnull String input, @Nullable String field, @Nullable Filter filter,
-      int limit) {
+  public SearchRequest getSearchRequest(@Nonnull String input, @Nullable String field, @Nullable Filter filter, int limit) {
     SearchRequest searchRequest = new SearchRequest();
     SearchSourceBuilder searchSourceBuilder = new SearchSourceBuilder();
     searchSourceBuilder.size(limit);
@@ -73,14 +70,19 @@ public class AutocompleteRequestHandler {
   private QueryBuilder getQuery(@Nonnull String query, @Nullable String field) {
     BoolQueryBuilder finalQuery = QueryBuilders.boolQuery();
     // Search for exact matches with higher boost and ngram matches
-    QueryStringQueryBuilder autocompleteQueryBuilder = QueryBuilders.queryStringQuery(query);
-    autocompleteQueryBuilder.analyzer(ANALYZER);
-    autocompleteQueryBuilder.defaultOperator(Operator.AND);
+    MultiMatchQueryBuilder autocompleteQueryBuilder = QueryBuilders.multiMatchQuery(query)
+            .type(MultiMatchQueryBuilder.Type.BOOL_PREFIX);
+
     getAutocompleteFields(field).forEach(fieldName -> {
-      autocompleteQueryBuilder.field(fieldName, 4);
       autocompleteQueryBuilder.field(fieldName + ".ngram");
+      autocompleteQueryBuilder.field(fieldName + ".ngram._2gram");
+      autocompleteQueryBuilder.field(fieldName + ".ngram._3gram");
+      autocompleteQueryBuilder.field(fieldName + ".ngram._4gram");
+
+      finalQuery.should(QueryBuilders.matchPhrasePrefixQuery(fieldName + ".delimited", query));
     });
-    finalQuery.must(autocompleteQueryBuilder);
+
+    finalQuery.should(autocompleteQueryBuilder);
 
     finalQuery.mustNot(QueryBuilders.matchQuery("removed", true));
     return finalQuery;

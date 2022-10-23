@@ -252,7 +252,7 @@ public class SiblingAssociationHookTest {
     returnSearchResult.setEntities(returnEntityArray);
 
     Mockito.when(
-        _mockSearchService.search(
+        _mockSearchService.structuredSearch(
             anyString(), anyString(), any(), any(), anyInt(), anyInt()
         )).thenReturn(returnSearchResult);
 

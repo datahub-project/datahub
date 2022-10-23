@@ -262,6 +262,9 @@
       }, {
         "name" : "count",
         "type" : "int"
+      }, {
+        "name" : "structured",
+        "type" : "boolean"
       } ],
       "returns" : "com.linkedin.metadata.search.SearchResult"
     }, {

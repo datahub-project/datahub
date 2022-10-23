@@ -73,7 +73,7 @@ public class BulkListener implements BulkProcessor.Listener {
     return opType.getLowercase() + MetricUtils.DELIMITER + status.toLowerCase();
   }
 
-  private static String buildBulkRequestSummary(BulkRequest request) {
+  public static String buildBulkRequestSummary(BulkRequest request) {
     return request.requests().stream().map(req -> String.format(
             "Failed to perform bulk request: index [%s], optype: [%s], type [%s], id [%s]",
             req.index(), req.opType(), req.type(), req.id())

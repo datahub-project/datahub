@@ -154,12 +154,13 @@ public class SearchRequestHandler {
    * @param filter the search filter
    * @param from index to start the search from
    * @param size the number of search hits to return
+   * @param structured Structured or full text search modes
    * @return a valid search request
    */
   @Nonnull
   @WithSpan
   public SearchRequest getSearchRequest(@Nonnull String input, @Nullable Filter filter,
-      @Nullable SortCriterion sortCriterion, int from, int size) {
+      @Nullable SortCriterion sortCriterion, int from, int size, boolean structured) {
     SearchRequest searchRequest = new SearchRequest();
     SearchSourceBuilder searchSourceBuilder = new SearchSourceBuilder();
 
@@ -168,7 +169,9 @@ public class SearchRequestHandler {
     searchSourceBuilder.fetchSource("urn", null);
 
     BoolQueryBuilder filterQuery = getFilterQuery(filter);
-    searchSourceBuilder.query(QueryBuilders.boolQuery().must(getQuery(input)).must(filterQuery));
+    searchSourceBuilder.query(QueryBuilders.boolQuery()
+            .must(getQuery(input, structured))
+            .must(filterQuery));
     getAggregations().forEach(searchSourceBuilder::aggregation);
     searchSourceBuilder.highlighter(getHighlights());
     ESUtils.buildSortOrder(searchSourceBuilder, sortCriterion);
@@ -225,8 +228,8 @@ public class SearchRequestHandler {
     return searchRequest;
   }
 
-  private QueryBuilder getQuery(@Nonnull String query) {
-    return SearchQueryBuilder.buildQuery(_entitySpec, query);
+  private QueryBuilder getQuery(@Nonnull String query, boolean structured) {
+    return SearchQueryBuilder.buildQuery(_entitySpec, query, structured);
   }
 
   private List<AggregationBuilder> getAggregations() {

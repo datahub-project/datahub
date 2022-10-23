@@ -4,6 +4,7 @@ import com.datahub.authentication.AuthenticationConfiguration;
 import com.datahub.authorization.AuthorizationConfiguration;
 import com.linkedin.datahub.graphql.featureflags.FeatureFlags;
 import com.linkedin.metadata.config.DataHubConfiguration;
+import com.linkedin.metadata.config.ElasticSearchConfiguration;
 import com.linkedin.metadata.config.IngestionConfiguration;
 import com.linkedin.metadata.config.TestsConfiguration;
 import com.linkedin.metadata.config.ViewsConfiguration;
@@ -57,4 +58,9 @@ public class ConfigurationProvider {
    * Feature flags indicating what is turned on vs turned off
    */
   private FeatureFlags featureFlags;
+
+  /**
+   * ElasticSearch configurations
+   */
+  private ElasticSearchConfiguration elasticSearch;
 }

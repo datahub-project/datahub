@@ -1,5 +1,6 @@
 package com.linkedin.metadata.models;
 
+import com.linkedin.data.DataMap;
 import com.linkedin.data.schema.ComplexDataSchema;
 import com.linkedin.data.schema.DataSchema;
 import com.linkedin.data.schema.DataSchemaTraverse;
@@ -25,6 +26,20 @@ public class SearchableFieldSpecExtractor implements SchemaVisitor {
   private final Map<String, String> _searchFieldNamesToPatch = new HashMap<>();
 
   private static final String MAP = "map";
+
+  private static final Map<String, Object> URN_SEARCH_PROPERTIES;
+  static {
+    URN_SEARCH_PROPERTIES = new DataMap();
+    URN_SEARCH_PROPERTIES.putAll(
+            Map.of(
+                    "fieldName", "urn",
+                    "enableAutocomplete", "true",
+                    "fieldType", "URN",
+                    "boostScore", "4.0"
+            )
+    );
+  }
+
 
   public List<SearchableFieldSpec> getSpecs() {
     return _specs;
@@ -80,9 +95,18 @@ public class SearchableFieldSpecExtractor implements SchemaVisitor {
       return null;
     }
 
-    // Next, check resolved properties for annotations on primitives.
-    final Map<String, Object> resolvedProperties = FieldSpecUtils.getResolvedProperties(currentSchema);
-    return resolvedProperties.get(SearchableAnnotation.ANNOTATION_NAME);
+    final boolean isUrn = ((DataMap) context.getParentSchema().getProperties()
+            .getOrDefault("java", new DataMap()))
+            .getOrDefault("class", "").equals("com.linkedin.common.urn.Urn");
+    final boolean hasUrnSpec = getSpecs().stream().anyMatch(spec -> spec.getSearchableAnnotation().getFieldName().equals("urn"));
+
+    if (isUrn && !hasUrnSpec) {
+      return URN_SEARCH_PROPERTIES;
+    } else {
+      // Next, check resolved properties for annotations on primitives.
+      final Map<String, Object> resolvedProperties = FieldSpecUtils.getResolvedProperties(currentSchema);
+      return resolvedProperties.get(SearchableAnnotation.ANNOTATION_NAME);
+    }
   }
 
   private void extractSearchableAnnotation(final Object annotationObj, final DataSchema currentSchema,

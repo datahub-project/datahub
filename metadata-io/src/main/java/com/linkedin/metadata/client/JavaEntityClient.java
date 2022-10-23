@@ -240,16 +240,24 @@ public class JavaEntityClient implements EntityClient {
      */
     @Nonnull
     @WithSpan
+    @Override
     public SearchResult search(
         @Nonnull String entity,
         @Nonnull String input,
         @Nullable Map<String, String> requestFilters,
         int start,
         int count,
-        @Nonnull final Authentication authentication)
+        @Nonnull Authentication authentication,
+        @Nullable Boolean structured)
         throws RemoteInvocationException {
-        return ValidationUtils.validateSearchResult(
-            _entitySearchService.search(entity, input, newFilter(requestFilters), null, start, count), _entityService);
+
+        if (Optional.ofNullable(structured).orElse(true)) {
+            return ValidationUtils.validateSearchResult(
+                    _entitySearchService.structuredSearch(entity, input, newFilter(requestFilters), null, start, count), _entityService);
+        } else {
+            return ValidationUtils.validateSearchResult(
+                    _entitySearchService.fullTextSearch(entity, input, newFilter(requestFilters), null, start, count), _entityService);
+        }
     }
 
     /**
@@ -288,6 +296,7 @@ public class JavaEntityClient implements EntityClient {
      * @throws RemoteInvocationException
      */
     @Nonnull
+    @Override
     public SearchResult search(
         @Nonnull String entity,
         @Nonnull String input,
@@ -295,10 +304,18 @@ public class JavaEntityClient implements EntityClient {
         @Nullable SortCriterion sortCriterion,
         int start,
         int count,
-        @Nonnull final Authentication authentication)
+        @Nonnull Authentication authentication,
+        @Nullable Boolean structured)
         throws RemoteInvocationException {
-        return ValidationUtils.validateSearchResult(_entitySearchService.search(entity, input, filter, sortCriterion, start, count),
-            _entityService);
+        if (Optional.ofNullable(structured).orElse(true)) {
+            return ValidationUtils.validateSearchResult(
+                    _entitySearchService.structuredSearch(entity, input, filter, sortCriterion, start, count),
+                    _entityService);
+        } else {
+            return ValidationUtils.validateSearchResult(
+                    _entitySearchService.fullTextSearch(entity, input, filter, sortCriterion, start, count),
+                    _entityService);
+        }
     }
 
     /**

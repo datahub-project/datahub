@@ -17,9 +17,13 @@ import com.linkedin.dataset.Upstream;
 import com.linkedin.dataset.UpstreamArray;
 import com.linkedin.dataset.UpstreamLineage;
 import com.linkedin.events.metadata.ChangeType;
+import com.linkedin.gms.factory.config.ConfigurationProvider;
 import com.linkedin.metadata.Constants;
+import com.linkedin.metadata.config.BuildIndicesConfiguration;
+import com.linkedin.metadata.config.ElasticSearchConfiguration;
 import com.linkedin.metadata.graph.Edge;
 import com.linkedin.metadata.graph.GraphService;
+import com.linkedin.metadata.kafka.elasticsearch.indices.BuildIndicesKafkaListener;
 import com.linkedin.metadata.key.ChartKey;
 import com.linkedin.metadata.models.AspectSpec;
 import com.linkedin.metadata.models.EntitySpec;
@@ -60,6 +64,8 @@ public class UpdateIndicesHookTest {
   private TimeseriesAspectService _mockTimeseriesAspectService;
   private SystemMetadataService _mockSystemMetadataService;
   private SearchDocumentTransformer _mockSearchDocumentTransformer;
+  private BuildIndicesKafkaListener _mockBuildIndicesKafkaListener;
+  private ConfigurationProvider _mockConfigurationProvider;
   private Urn _actorUrn;
 
   @BeforeMethod
@@ -72,13 +78,22 @@ public class UpdateIndicesHookTest {
     _mockTimeseriesAspectService = Mockito.mock(TimeseriesAspectService.class);
     _mockSystemMetadataService = Mockito.mock(SystemMetadataService.class);
     _mockSearchDocumentTransformer = Mockito.mock(SearchDocumentTransformer.class);
+    _mockBuildIndicesKafkaListener = Mockito.mock(BuildIndicesKafkaListener.class);
+    _mockConfigurationProvider = Mockito.mock(ConfigurationProvider.class);
+    ElasticSearchConfiguration elasticSearchConfiguration = new ElasticSearchConfiguration();
+    BuildIndicesConfiguration buildIndicesConfiguration = new BuildIndicesConfiguration();
+    buildIndicesConfiguration.setWaitForBuildIndices(false);
+    elasticSearchConfiguration.setBuildIndices(buildIndicesConfiguration);
+    Mockito.when(_mockConfigurationProvider.getElasticSearch()).thenReturn(elasticSearchConfiguration);
     _updateIndicesHook = new UpdateIndicesHook(
         _mockGraphService,
         _mockEntitySearchService,
         _mockTimeseriesAspectService,
         _mockSystemMetadataService,
         registry,
-        _mockSearchDocumentTransformer
+        _mockSearchDocumentTransformer,
+        _mockBuildIndicesKafkaListener,
+        _mockConfigurationProvider
     );
   }
 
@@ -110,7 +125,9 @@ public class UpdateIndicesHookTest {
         _mockTimeseriesAspectService,
         _mockSystemMetadataService,
         mockEntityRegistry,
-        _mockSearchDocumentTransformer
+        _mockSearchDocumentTransformer,
+        _mockBuildIndicesKafkaListener,
+        _mockConfigurationProvider
     );
 
     _updateIndicesHook.invoke(event);

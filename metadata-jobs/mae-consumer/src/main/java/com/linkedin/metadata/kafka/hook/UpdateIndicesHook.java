@@ -14,6 +14,7 @@ import com.linkedin.dataset.UpstreamLineage;
 import com.linkedin.events.metadata.ChangeType;
 import com.linkedin.gms.factory.common.GraphServiceFactory;
 import com.linkedin.gms.factory.common.SystemMetadataServiceFactory;
+import com.linkedin.gms.factory.config.ConfigurationProvider;
 import com.linkedin.gms.factory.entityregistry.EntityRegistryFactory;
 import com.linkedin.gms.factory.search.EntitySearchServiceFactory;
 import com.linkedin.gms.factory.search.SearchDocumentTransformerFactory;
@@ -21,6 +22,7 @@ import com.linkedin.gms.factory.timeseries.TimeseriesAspectServiceFactory;
 import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.graph.Edge;
 import com.linkedin.metadata.graph.GraphService;
+import com.linkedin.metadata.kafka.elasticsearch.indices.BuildIndicesKafkaListener;
 import com.linkedin.metadata.key.SchemaFieldKey;
 import com.linkedin.metadata.models.AspectSpec;
 import com.linkedin.metadata.models.EntitySpec;
@@ -93,17 +95,18 @@ public class UpdateIndicesHook implements MetadataChangeLogHook {
       TimeseriesAspectService timeseriesAspectService,
       SystemMetadataService systemMetadataService,
       EntityRegistry entityRegistry,
-      SearchDocumentTransformer searchDocumentTransformer) {
+      SearchDocumentTransformer searchDocumentTransformer,
+      BuildIndicesKafkaListener buildIndicesKafkaListener,
+      ConfigurationProvider configurationProvider) {
     _graphService = graphService;
     _entitySearchService = entitySearchService;
     _timeseriesAspectService = timeseriesAspectService;
     _systemMetadataService = systemMetadataService;
     _entityRegistry = entityRegistry;
     _searchDocumentTransformer = searchDocumentTransformer;
-    _graphService.configure();
-    _entitySearchService.configure();
-    _systemMetadataService.configure();
-    _timeseriesAspectService.configure();
+    if (configurationProvider.getElasticSearch().getBuildIndices().isWaitForBuildIndices()) {
+      buildIndicesKafkaListener.waitForUpdate();
+    }
   }
 
   @Override
