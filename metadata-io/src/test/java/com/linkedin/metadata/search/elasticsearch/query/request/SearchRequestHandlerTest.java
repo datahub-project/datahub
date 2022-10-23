@@ -28,7 +28,8 @@ public class SearchRequestHandlerTest {
   @Test
   public void testSearchRequestHandler() {
     SearchRequestHandler requestHandler = SearchRequestHandler.getBuilder(TestEntitySpecBuilder.getSpec());
-    SearchRequest searchRequest = requestHandler.getSearchRequest("testQuery", null, null, 0, 10);
+    SearchRequest searchRequest = requestHandler.getSearchRequest("testQuery", null, null, 0,
+            10, false);
     SearchSourceBuilder sourceBuilder = searchRequest.source();
     assertEquals(sourceBuilder.from(), 0);
     assertEquals(sourceBuilder.size(), 10);
@@ -42,10 +43,10 @@ public class SearchRequestHandlerTest {
     HighlightBuilder highlightBuilder = sourceBuilder.highlighter();
     List<String> fields =
         highlightBuilder.fields().stream().map(HighlightBuilder.Field::name).collect(Collectors.toList());
-    assertEquals(fields.size(), 18);
+    assertEquals(fields.size(), 20);
     List<String> highlightableFields =
         ImmutableList.of("keyPart1", "textArrayField", "textFieldOverride", "foreignKey", "nestedForeignKey",
-            "nestedArrayStringField", "nestedArrayArrayField", "customProperties", "esObjectField");
+            "nestedArrayStringField", "nestedArrayArrayField", "customProperties", "esObjectField", "urn");
     highlightableFields.forEach(field -> {
       assertTrue(fields.contains(field));
       assertTrue(fields.contains(field + ".*"));
@@ -74,7 +75,7 @@ public class SearchRequestHandlerTest {
     final SearchRequestHandler requestHandler = SearchRequestHandler.getBuilder(TestEntitySpecBuilder.getSpec());
 
     final BoolQueryBuilder testQuery = (BoolQueryBuilder) requestHandler
-            .getSearchRequest("testQuery", filterWithoutRemovedCondition, null, 0, 10)
+            .getSearchRequest("testQuery", filterWithoutRemovedCondition, null, 0, 10, false)
             .source()
             .query();
 
@@ -101,7 +102,7 @@ public class SearchRequestHandlerTest {
             ));
 
     final BoolQueryBuilder queryWithRemoved = (BoolQueryBuilder) requestHandler
-            .getSearchRequest("testQuery", filterWithRemovedCondition, null, 0, 10)
+            .getSearchRequest("testQuery", filterWithRemovedCondition, null, 0, 10, false)
             .source()
             .query();
 

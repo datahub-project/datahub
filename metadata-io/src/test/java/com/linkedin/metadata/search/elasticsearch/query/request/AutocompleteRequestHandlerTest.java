@@ -5,9 +5,9 @@ import java.util.List;
 import java.util.Map;
 import org.elasticsearch.action.search.SearchRequest;
 import org.elasticsearch.index.query.BoolQueryBuilder;
+import org.elasticsearch.index.query.MatchPhrasePrefixQueryBuilder;
 import org.elasticsearch.index.query.MatchQueryBuilder;
-import org.elasticsearch.index.query.Operator;
-import org.elasticsearch.index.query.QueryStringQueryBuilder;
+import org.elasticsearch.index.query.MultiMatchQueryBuilder;
 import org.elasticsearch.search.builder.SearchSourceBuilder;
 import org.elasticsearch.search.fetch.subphase.highlight.HighlightBuilder;
 import org.testng.annotations.Test;
@@ -26,13 +26,19 @@ public class AutocompleteRequestHandlerTest {
     SearchSourceBuilder sourceBuilder = autocompleteRequest.source();
     assertEquals(sourceBuilder.size(), 10);
     BoolQueryBuilder query = (BoolQueryBuilder) sourceBuilder.query();
-    assertEquals(query.must().size(), 1);
-    QueryStringQueryBuilder autocompleteQuery = (QueryStringQueryBuilder) query.must().get(0);
+    assertEquals(query.should().size(), 2);
+
+    MultiMatchQueryBuilder autocompleteQuery = (MultiMatchQueryBuilder) query.should().get(1);
     Map<String, Float> queryFields = autocompleteQuery.fields();
-    assertTrue(queryFields.containsKey("keyPart1"));
     assertTrue(queryFields.containsKey("keyPart1.ngram"));
-    assertEquals(autocompleteQuery.analyzer(), "word_delimited");
-    assertEquals(autocompleteQuery.defaultOperator(), Operator.AND);
+    assertTrue(queryFields.containsKey("keyPart1.ngram._2gram"));
+    assertTrue(queryFields.containsKey("keyPart1.ngram._3gram"));
+    assertTrue(queryFields.containsKey("keyPart1.ngram._4gram"));
+    assertEquals(autocompleteQuery.type(), MultiMatchQueryBuilder.Type.BOOL_PREFIX);
+
+    MatchPhrasePrefixQueryBuilder prefixQuery = (MatchPhrasePrefixQueryBuilder) query.should().get(0);
+    assertEquals("keyPart1.delimited", prefixQuery.fieldName());
+
     assertEquals(query.mustNot().size(), 1);
     MatchQueryBuilder removedFilter = (MatchQueryBuilder) query.mustNot().get(0);
     assertEquals(removedFilter.fieldName(), "removed");
@@ -51,13 +57,19 @@ public class AutocompleteRequestHandlerTest {
     SearchSourceBuilder sourceBuilder = autocompleteRequest.source();
     assertEquals(sourceBuilder.size(), 10);
     BoolQueryBuilder query = (BoolQueryBuilder) sourceBuilder.query();
-    assertEquals(query.must().size(), 1);
-    QueryStringQueryBuilder autocompleteQuery = (QueryStringQueryBuilder) query.must().get(0);
+    assertEquals(query.should().size(), 2);
+
+    MultiMatchQueryBuilder autocompleteQuery = (MultiMatchQueryBuilder) query.should().get(1);
     Map<String, Float> queryFields = autocompleteQuery.fields();
-    assertTrue(queryFields.containsKey("field"));
     assertTrue(queryFields.containsKey("field.ngram"));
-    assertEquals(autocompleteQuery.analyzer(), "word_delimited");
-    assertEquals(autocompleteQuery.defaultOperator(), Operator.AND);
+    assertTrue(queryFields.containsKey("field.ngram._2gram"));
+    assertTrue(queryFields.containsKey("field.ngram._3gram"));
+    assertTrue(queryFields.containsKey("field.ngram._4gram"));
+    assertEquals(autocompleteQuery.type(), MultiMatchQueryBuilder.Type.BOOL_PREFIX);
+
+    MatchPhrasePrefixQueryBuilder prefixQuery = (MatchPhrasePrefixQueryBuilder) query.should().get(0);
+    assertEquals("field.delimited", prefixQuery.fieldName());
+
     MatchQueryBuilder removedFilter = (MatchQueryBuilder) query.mustNot().get(0);
     assertEquals(removedFilter.fieldName(), "removed");
     assertEquals(removedFilter.value(), true);

@@ -99,6 +99,7 @@ public class EntityResource extends CollectionResourceTaskTemplate<String, Entit
   private static final String PARAM_ENTITY = "entity";
   private static final String PARAM_ENTITIES = "entities";
   private static final String PARAM_COUNT = "count";
+  private static final String PARAM_STRUCTURED = "structured";
   private static final String PARAM_VALUE = "value";
   private static final String PARAM_ASPECT_NAME = "aspectName";
   private static final String PARAM_START_TIME_MILLIS = "startTimeMillis";
@@ -268,13 +269,21 @@ public class EntityResource extends CollectionResourceTaskTemplate<String, Entit
   public Task<SearchResult> search(@ActionParam(PARAM_ENTITY) @Nonnull String entityName,
       @ActionParam(PARAM_INPUT) @Nonnull String input, @ActionParam(PARAM_FILTER) @Optional @Nullable Filter filter,
       @ActionParam(PARAM_SORT) @Optional @Nullable SortCriterion sortCriterion, @ActionParam(PARAM_START) int start,
-      @ActionParam(PARAM_COUNT) int count) {
+      @ActionParam(PARAM_COUNT) int count, @ActionParam(PARAM_STRUCTURED) Boolean structured) {
 
     log.info("GET SEARCH RESULTS for {} with query {}", entityName, input);
     // TODO - change it to use _searchService once we are confident on it's latency
     return RestliUtil.toTask(
-        () -> validateSearchResult(_entitySearchService.search(entityName, input, filter, sortCriterion, start, count),
-            _entityService), MetricRegistry.name(this.getClass(), "search"));
+            () -> {
+              final SearchResult result;
+              if (structured) {
+                result = _entitySearchService.structuredSearch(entityName, input, filter, sortCriterion, start, count);
+              } else {
+                result = _entitySearchService.fullTextSearch(entityName, input, filter, sortCriterion, start, count);
+              }
+              return validateSearchResult(result, _entityService);
+            },
+            MetricRegistry.name(this.getClass(), "search"));
   }
 
   @Action(name = ACTION_SEARCH_ACROSS_ENTITIES)

@@ -86,6 +86,7 @@ services:
     - ELASTICSEARCH_HOST=elasticsearch
     - ELASTICSEARCH_PORT=9200
     - ES_BULK_REFRESH_POLICY=WAIT_UNTIL
+    - ELASTICSEARCH_INDEX_BUILDER_MAPPINGS_REINDEX=true
     - GRAPH_SERVICE_DIFF_MODE_ENABLED=true
     - GRAPH_SERVICE_IMPL=elasticsearch
     - JAVA_OPTS=-Xms1g -Xmx1g
@@ -115,7 +116,7 @@ services:
       - curl -sS --fail 'http://localhost:9200/_cluster/health?wait_for_status=yellow&timeout=0s'
         || exit 1
     hostname: elasticsearch
-    image: elasticsearch:7.9.3
+    image: elasticsearch:7.10.1
     mem_limit: 1g
     ports:
     - ${DATAHUB_MAPPED_ELASTIC_PORT:-9200}:9200

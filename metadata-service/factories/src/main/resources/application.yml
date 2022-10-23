@@ -160,9 +160,15 @@ elasticsearch:
     maxArrayLength: ${SEARCH_DOCUMENT_MAX_ARRAY_LENGTH:1000}
     maxObjectKeys: ${SEARCH_DOCUMENT_MAX_OBJECT_KEYS:1000}
     mainTokenizer: ${ELASTICSEARCH_MAIN_TOKENIZER:#{null}}
+    enableMappingsReindex: ${ELASTICSEARCH_INDEX_BUILDER_MAPPINGS_REINDEX:false}
     enableSettingsReindex: ${ELASTICSEARCH_INDEX_BUILDER_SETTINGS_REINDEX:false}
     settingsOverrides: ${ELASTICSEARCH_INDEX_BUILDER_SETTINGS_OVERRIDES:#{null}}
     entitySettingsOverrides: ${ELASTICSEARCH_INDEX_BUILDER_ENTITY_SETTINGS_OVERRIDES:#{null}}
+  buildIndices:
+    initialBackOffMs: ${ELASTICSEARCH_BUILD_INDICES_INITIAL_BACK_OFF_MILLIS:5000}
+    maxBackOffs: ${ELASTICSEARCH_BUILD_INDICES_MAX_BACK_OFFS:5}
+    backOffFactor: ${ELASTICSEARCH_BUILD_INDICES_BACK_OFF_FACTOR:2} # Multiplicative factor for back off, default values will result in waiting 5min 15s
+    waitForBuildIndices: ${ELASTICSEARCH_BUILD_INDICES_WAIT_FOR_BUILD_INDICES:true}
 
 # TODO: Kafka topic convention
 kafka:

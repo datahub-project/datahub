@@ -7,6 +7,7 @@ import com.linkedin.metadata.EventUtils;
 import com.linkedin.metadata.event.EventProducer;
 import com.linkedin.metadata.models.AspectSpec;
 import com.linkedin.metadata.snapshot.Snapshot;
+import com.linkedin.mxe.BuildIndicesHistoryEvent;
 import com.linkedin.mxe.MetadataAuditEvent;
 import com.linkedin.mxe.MetadataAuditOperation;
 import com.linkedin.mxe.MetadataChangeLog;
@@ -155,6 +156,22 @@ public class KafkaEventProducer implements EventProducer {
     final String topic = _topicConvention.getPlatformEventTopicName();
     _producer.send(new ProducerRecord(topic, key == null ? name : key, record),
             _kafkaHealthChecker.getKafkaCallBack("Platform Event", name));
+  }
+
+  @Override
+  public void produceBuildIndicesHistoryEvent(@Nonnull BuildIndicesHistoryEvent event) {
+    GenericRecord record;
+    try {
+      log.debug(String.format("Converting Pegasus Event to Avro Event\nEvent: %s", event));
+      record = EventUtils.pegasusToAvroBIHE(event);
+    } catch (IOException e) {
+      log.error(String.format("Failed to convert Pegasus Build Indices History Event to Avro: %s", event), e);
+      throw new ModelConversionException("Failed to convert Pegasus Platform Event to Avro", e);
+    }
+
+    final String topic = _topicConvention.getBuildIndicesHistoryTopicName();
+    _producer.send(new ProducerRecord(topic, event.getVersion(), record), _kafkaHealthChecker
+            .getKafkaCallBack("History Event", "Event Version: " + event.getVersion()));
   }
 
   @VisibleForTesting
