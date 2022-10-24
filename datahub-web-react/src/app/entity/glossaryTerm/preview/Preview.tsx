@@ -28,6 +28,7 @@ export const Preview = ({
             previewType={previewType}
             url={entityRegistry.getEntityUrl(EntityType.GlossaryTerm, urn)}
             name={name || ''}
+            urn={urn}
             description={description || ''}
             owners={owners}
             logoComponent={<BookOutlined style={{ fontSize: '20px' }} />}

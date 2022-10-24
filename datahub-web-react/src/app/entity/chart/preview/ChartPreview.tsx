@@ -68,6 +68,7 @@ export const ChartPreview = ({
         <DefaultPreviewCard
             url={entityRegistry.getEntityUrl(EntityType.Chart, urn)}
             name={name || ''}
+            urn={urn}
             description={description || ''}
             type="Chart"
             typeIcon={entityRegistry.getIcon(EntityType.Chart, 14, IconStyleType.ACCENT)}
