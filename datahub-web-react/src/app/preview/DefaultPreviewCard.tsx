@@ -36,8 +36,8 @@ const PreviewContainer = styled.div`
     align-items: center;
 `;
 
-const LeftColumn = styled.div`
-    max-width: 60%;
+const LeftColumn = styled.div<{ expandWidth: boolean }>`
+    max-width: ${(props) => (props.expandWidth ? '100%' : '60%')};
 `;
 
 const RightColumn = styled.div`
@@ -245,9 +245,11 @@ export default function DefaultPreviewCard({
         event.stopPropagation();
     };
 
+    const shouldShowRightColumn = (topUsers && topUsers.length > 0) || (owners && owners.length > 0);
+
     return (
         <PreviewContainer data-testid={dataTestID} onMouseDown={onPreventMouseDown}>
-            <LeftColumn>
+            <LeftColumn expandWidth={!shouldShowRightColumn}>
                 <TitleContainer>
                     <PlatformContentView
                         platformName={platform}
