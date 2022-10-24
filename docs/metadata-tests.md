@@ -247,9 +247,9 @@ When you delete a Test, it may take up to 2 minutes for changes to be reflected.
 
 ### GraphQL
 
-* [listTests](../../graphql/queries.md#listtests)
-* [createTest](../../graphql/mutations.md#createtest)
-* [deleteTest](../../graphql/mutations.md#deletetest)
+* [listTests](../graphql/queries.md#listtests)
+* [createTest](../graphql/mutations.md#createtest)
+* [deleteTest](../graphql/mutations.md#deletetest)
 
 ## FAQ and Troubleshooting
 
