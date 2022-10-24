@@ -2,7 +2,12 @@ import { useContext, useEffect } from 'react';
 import usePrevious from '../../shared/usePrevious';
 import { NUM_COLUMNS_PER_PAGE } from '../constants';
 import { FetchedEntity } from '../types';
-import { getHighlightedColumnsForNode, sortColumnsByDefault, sortRelatedLineageColumns } from './columnLineageUtils';
+import {
+    convertFieldsToV1FieldPath,
+    getHighlightedColumnsForNode,
+    sortColumnsByDefault,
+    sortRelatedLineageColumns,
+} from './columnLineageUtils';
 import { LineageExplorerContext } from './LineageExplorerContext';
 
 export default function useSortColumnsBySelectedField(fetchedEntities: { [x: string]: FetchedEntity }) {
@@ -35,7 +40,7 @@ export default function useSortColumnsBySelectedField(fetchedEntities: { [x: str
                     updatedColumnsByUrn = sortColumnsByDefault(
                         updatedColumnsByUrn,
                         columns,
-                        fetchedEntity.schemaMetadata.fields,
+                        convertFieldsToV1FieldPath(fetchedEntity.schemaMetadata.fields),
                         urn,
                     );
                 }

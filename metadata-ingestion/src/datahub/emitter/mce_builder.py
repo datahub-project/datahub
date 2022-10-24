@@ -122,6 +122,12 @@ def dataset_urn_to_key(dataset_urn: str) -> Optional[DatasetKeyClass]:
     return None
 
 
+def dataset_key_to_urn(key: DatasetKeyClass) -> str:
+    return (
+        f"urn:li:dataset:(urn:li:dataPlatform:{key.platform},{key.name},{key.origin})"
+    )
+
+
 def make_container_new_urn(guid: str) -> str:
     return f"urn:dh:container:0:({guid})"
 
