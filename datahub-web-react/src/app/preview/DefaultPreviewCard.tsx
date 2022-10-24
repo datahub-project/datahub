@@ -308,7 +308,7 @@ export default function DefaultPreviewCard({
                     {!!degree && entityCount && <PlatformDivider />}
                     <EntityCount entityCount={entityCount} />
                 </TitleContainer>
-                {paths && paths.length > 0 && <EntityPaths paths={paths} resultEntityUrn={urn || ''} degree={degree} />}
+                {paths && paths.length > 0 && <EntityPaths paths={paths} resultEntityUrn={urn || ''} />}
                 {description && description.length > 0 && (
                     <DescriptionContainer>
                         <NoMarkdownViewer

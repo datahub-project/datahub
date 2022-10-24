@@ -12,10 +12,9 @@ const EntityPathsWrapper = styled.div`
 interface Props {
     paths: EntityPath[];
     resultEntityUrn: string;
-    degree?: number;
 }
 
-export default function EntityPaths({ paths, resultEntityUrn, degree }: Props) {
+export default function EntityPaths({ paths, resultEntityUrn }: Props) {
     const { isColumnLevelLineage } = useContext(LineageTabContext);
     const [isPathsModalVisible, setIsPathsModalVisible] = useState(false);
 
