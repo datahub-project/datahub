@@ -49,6 +49,7 @@ export const Preview = ({
         <DefaultPreviewCard
             url={entityRegistry.getEntityUrl(EntityType.DataFlow, urn)}
             name={name}
+            urn={urn}
             description={description || ''}
             platformInstanceId={platformInstanceId}
             type="Data Pipeline"
