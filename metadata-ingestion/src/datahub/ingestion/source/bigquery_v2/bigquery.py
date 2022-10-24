@@ -2,6 +2,7 @@ import atexit
 import logging
 import os
 import re
+import traceback
 from collections import defaultdict
 from datetime import datetime, timedelta
 from typing import Dict, Iterable, List, Optional, Tuple, Type, Union, cast
@@ -17,6 +18,7 @@ from datahub.emitter.mce_builder import (
     make_dataset_urn_with_platform_instance,
     make_domain_urn,
     make_tag_urn,
+    set_dataset_urn_to_lower,
 )
 from datahub.emitter.mcp_builder import (
     BigQueryDatasetKey,
@@ -184,6 +186,8 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
             self.config.sharded_table_pattern
         )
 
+        set_dataset_urn_to_lower(self.config.convert_urns_to_lowercase)
+
         # For database, schema, tables, views, etc
         self.lineage_extractor = BigqueryLineageExtractor(config, self.report)
         self.usage_extractor = BigQueryUsageExtractor(config, self.report)
@@ -234,6 +238,44 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
             return CapabilityReport(capable=True)
 
     @staticmethod
+    def metada_read_capability_test(
+        project_ids: List[str], profiling_enabled: bool
+    ) -> CapabilityReport:
+        for project_id in project_ids:
+            try:
+                logger.info((f"Metadata read capability test for project {project_id}"))
+                client: bigquery.Client = bigquery.Client(project_id)
+                assert client
+                result = BigQueryDataDictionary.get_datasets_for_project_id(
+                    client, project_id, 10
+                )
+                if len(result) == 0:
+                    return CapabilityReport(
+                        capable=False,
+                        failure_reason=f"Dataset query returned empty dataset. It is either empty or no dataset in project {project_id}",
+                    )
+                tables = BigQueryDataDictionary.get_tables_for_dataset(
+                    conn=client,
+                    project_id=project_id,
+                    dataset_name=result[0].name,
+                    tables={},
+                    with_data_read_permission=profiling_enabled,
+                )
+                if len(tables) == 0:
+                    return CapabilityReport(
+                        capable=False,
+                        failure_reason=f"Tables query did not return any table. It is either empty or no tables in project {project_id}.{result[0].name}",
+                    )
+
+            except Exception as e:
+                return CapabilityReport(
+                    capable=False,
+                    failure_reason=f"Dataset query failed with error: {e}",
+                )
+
+        return CapabilityReport(capable=True)
+
+    @staticmethod
     def lineage_capability_test(
         connection_conf: BigQueryV2Config,
         project_ids: List[str],
@@ -262,7 +304,13 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
         for project_id in project_ids:
             try:
                 logger.info((f"Usage capability test for project {project_id}"))
+                failures_before_test = len(report.failures)
                 usage_extractor.test_capability(project_id)
+                if failures_before_test != len(report.failures):
+                    return CapabilityReport(
+                        capable=False,
+                        failure_reason="Usage capability test failed. Check the logs for further info",
+                    )
             except Exception as e:
                 return CapabilityReport(
                     capable=False,
@@ -296,17 +344,25 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
                 if connection_conf.project_id_pattern.allowed(project.project_id):
                     project_ids.append(project.project_id)
 
-            lineage_capability = BigqueryV2Source.lineage_capability_test(
-                connection_conf, project_ids, report
+            metada_read_capability = BigqueryV2Source.metada_read_capability_test(
+                project_ids, connection_conf.profiling.enabled
             )
-            if SourceCapability.LINEAGE_COARSE not in _report:
-                _report[SourceCapability.LINEAGE_COARSE] = lineage_capability
+            if SourceCapability.SCHEMA_METADATA not in _report:
+                _report[SourceCapability.SCHEMA_METADATA] = metada_read_capability
 
-            usage_capability = BigqueryV2Source.usage_capability_test(
-                connection_conf, project_ids, report
-            )
-            if SourceCapability.USAGE_STATS not in _report:
-                _report[SourceCapability.USAGE_STATS] = usage_capability
+            if connection_conf.include_table_lineage:
+                lineage_capability = BigqueryV2Source.lineage_capability_test(
+                    connection_conf, project_ids, report
+                )
+                if SourceCapability.LINEAGE_COARSE not in _report:
+                    _report[SourceCapability.LINEAGE_COARSE] = lineage_capability
+
+            if connection_conf.include_usage_statistics:
+                usage_capability = BigqueryV2Source.usage_capability_test(
+                    connection_conf, project_ids, report
+                )
+                if SourceCapability.USAGE_STATS not in _report:
+                    _report[SourceCapability.USAGE_STATS] = usage_capability
 
             test_report.capability_report = _report
             return test_report
@@ -347,18 +403,16 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
             project_id=db_name,
             dataset_id=schema,
             platform=self.platform,
-            instance=self.config.platform_instance
-            if self.config.platform_instance is not None
-            else self.config.env,
+            instance=self.config.platform_instance,
+            backcompat_instance_for_guid=self.config.env,
         )
 
     def gen_project_id_key(self, database: str) -> PlatformKey:
         return ProjectIdKey(
             project_id=database,
             platform=self.platform,
-            instance=self.config.platform_instance
-            if self.config.platform_instance is not None
-            else self.config.env,
+            instance=self.config.platform_instance,
+            backcompat_instance_for_guid=self.config.env,
         )
 
     def _gen_domain_urn(self, dataset_name: str) -> Optional[str]:
@@ -488,6 +542,9 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
             )
             return
 
+        self.report.num_project_datasets_to_scan[project_id] = len(
+            bigquery_project.datasets
+        )
         for bigquery_dataset in bigquery_project.datasets:
 
             if not self.config.dataset_pattern.allowed(bigquery_dataset.name):
@@ -496,6 +553,8 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
             try:
                 yield from self._process_schema(conn, project_id, bigquery_dataset)
             except Exception as e:
+                trace = traceback.format_exc()
+                logger.error(trace)
                 logger.error(
                     f"Unable to get tables for dataset {bigquery_dataset.name} in project {project_id}, skipping. The error was: {e}"
                 )
@@ -567,15 +626,22 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
             self.report.report_dropped(table_identifier.raw_table_name())
             return
 
-        table.columns = self.get_columns_for_table(conn, table_identifier)
+        table.columns = self.get_columns_for_table(
+            conn, table_identifier, self.config.column_limit
+        )
         if not table.columns:
-            logger.warning(f"Unable to get columns for table: {table_identifier}")
+            logger.warning(
+                f"Table doesn't have any column or unable to get columns for table: {table_identifier}"
+            )
 
         lineage_info: Optional[Tuple[UpstreamLineage, Dict[str, str]]] = None
 
         if self.config.include_table_lineage:
             lineage_info = self.lineage_extractor.get_upstream_lineage_info(
-                table_identifier, self.platform
+                project_id=project_id,
+                dataset_name=schema_name,
+                table=table,
+                platform=self.platform,
             )
 
         table_workunits = self.gen_table_dataset_workunits(
@@ -601,12 +667,17 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
             self.report.report_dropped(table_identifier.raw_table_name())
             return
 
-        view.columns = self.get_columns_for_table(conn, table_identifier)
+        view.columns = self.get_columns_for_table(
+            conn, table_identifier, column_limit=self.config.column_limit
+        )
 
         lineage_info: Optional[Tuple[UpstreamLineage, Dict[str, str]]] = None
         if self.config.include_table_lineage:
             lineage_info = self.lineage_extractor.get_upstream_lineage_info(
-                table_identifier, self.platform
+                project_id=project_id,
+                dataset_name=dataset_name,
+                table=view,
+                platform=self.platform,
             )
 
         view_workunits = self.gen_view_dataset_workunits(
@@ -825,8 +896,8 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
         _COMPLEX_TYPE = re.compile("^(struct|array)")
         last_id = -1
         for col in columns:
-
-            if _COMPLEX_TYPE.match(col.data_type.lower()):
+            # if col.data_type is empty that means this column is part of a complex type
+            if col.data_type is None or _COMPLEX_TYPE.match(col.data_type.lower()):
                 # If the we have seen the ordinal position that most probably means we already processed this complex type
                 if last_id != col.ordinal_position:
                     schema_fields.extend(
@@ -982,7 +1053,11 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
                     ):
                         bigquery_tables.extend(
                             BigQueryDataDictionary.get_tables_for_dataset(
-                                conn, project_id, dataset_name, table_items
+                                conn,
+                                project_id,
+                                dataset_name,
+                                table_items,
+                                with_data_read_permission=self.config.profiling.enabled,
                             )
                         )
                         table_items.clear()
@@ -1000,7 +1075,11 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
                 if table_items:
                     bigquery_tables.extend(
                         BigQueryDataDictionary.get_tables_for_dataset(
-                            conn, project_id, dataset_name, table_items
+                            conn,
+                            project_id,
+                            dataset_name,
+                            table_items,
+                            with_data_read_permission=self.config.profiling.enabled,
                         )
                     )
 
@@ -1032,14 +1111,17 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
         # falling back to get views for schema
         if not views:
             return BigQueryDataDictionary.get_views_for_dataset(
-                conn, project_id, dataset_name
+                conn, project_id, dataset_name, self.config.profiling.enabled
             )
 
         # Some schema may not have any table
         return views.get(dataset_name, [])
 
     def get_columns_for_table(
-        self, conn: bigquery.Client, table_identifier: BigqueryTableIdentifier
+        self,
+        conn: bigquery.Client,
+        table_identifier: BigqueryTableIdentifier,
+        column_limit: Optional[int] = None,
     ) -> List[BigqueryColumn]:
 
         if (
@@ -1050,6 +1132,7 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
                 conn,
                 project_id=table_identifier.project_id,
                 dataset_name=table_identifier.dataset,
+                column_limit=column_limit,
             )
             self.schema_columns[
                 (table_identifier.project_id, table_identifier.dataset)
@@ -1065,7 +1148,9 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
             logger.warning(
                 f"Couldn't get columns on the dataset level for {table_identifier}. Trying to get on table level..."
             )
-            return BigQueryDataDictionary.get_columns_for_table(conn, table_identifier)
+            return BigQueryDataDictionary.get_columns_for_table(
+                conn, table_identifier, self.config.column_limit
+            )
 
         # Access to table but none of its columns - is this possible ?
         return columns.get(table_identifier.table, [])

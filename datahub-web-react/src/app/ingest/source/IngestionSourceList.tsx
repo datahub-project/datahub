@@ -25,6 +25,7 @@ import IngestionSourceTable from './IngestionSourceTable';
 import { scrollToTop } from '../../shared/searchUtils';
 import useRefreshIngestionData from './executions/useRefreshIngestionData';
 import { isExecutionRequestActive } from './executions/IngestionSourceExecutionList';
+import analytics, { EventType } from '../../analytics';
 
 const SourceContainer = styled.div``;
 
@@ -141,6 +142,9 @@ export const IngestionSourceList = () => {
             },
         })
             .then(() => {
+                analytics.event({
+                    type: EventType.ExecuteIngestionSourceEvent,
+                });
                 message.success({
                     content: `Successfully submitted ingestion execution request!`,
                     duration: 3,
@@ -171,6 +175,11 @@ export const IngestionSourceList = () => {
             // Update:
             updateIngestionSource({ variables: { urn: focusSourceUrn as string, input } })
                 .then(() => {
+                    analytics.event({
+                        type: EventType.UpdateIngestionSourceEvent,
+                        sourceType: input.type,
+                        interval: input.schedule?.interval,
+                    });
                     message.success({
                         content: `Successfully updated ingestion source!`,
                         duration: 3,
@@ -193,6 +202,11 @@ export const IngestionSourceList = () => {
                     message.loading({ content: 'Loading...', duration: 2 });
                     setTimeout(() => {
                         refetch();
+                        analytics.event({
+                            type: EventType.CreateIngestionSourceEvent,
+                            sourceType: input.type,
+                            interval: input.schedule?.interval,
+                        });
                         message.success({
                             content: `Successfully created ingestion source!`,
                             duration: 3,
@@ -226,6 +240,9 @@ export const IngestionSourceList = () => {
             variables: { urn },
         })
             .then(() => {
+                analytics.event({
+                    type: EventType.DeleteIngestionSourceEvent,
+                });
                 message.success({ content: 'Removed ingestion source.', duration: 2 });
                 const newRemovedUrns = [...removedUrns, urn];
                 setRemovedUrns(newRemovedUrns);

@@ -146,6 +146,7 @@ entities:
       - schemaMetadata
       - ownership
       - deprecation
+      - domains
   - name: glossaryNode
     keyAspect: glossaryNodeKey
     aspects:

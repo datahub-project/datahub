@@ -1448,6 +1448,11 @@ type GlossaryTerm implements Entity {
     ownership: Ownership
 
     """
+    The Domain associated with the glossary term
+    """
+    domain: DomainAssociation
+
+    """
     References to internal resources related to the Glossary Term
     """
     institutionalMemory: InstitutionalMemory

@@ -1,5 +1,5 @@
 import React from 'react';
-import { Checkbox, Form, Input, Select, Tooltip } from 'antd';
+import { Checkbox, DatePicker, Form, Input, Select, Tooltip } from 'antd';
 import styled from 'styled-components/macro';
 import Button from 'antd/lib/button';
 import { MinusCircleOutlined, PlusOutlined } from '@ant-design/icons';
@@ -19,17 +19,12 @@ const StyledRemoveIcon = styled(MinusCircleOutlined)`
     margin-left: 10px;
 `;
 
-interface ListFieldProps {
+interface CommonFieldProps {
     field: RecipeField;
     removeMargin?: boolean;
 }
 
-interface SelectFieldProps {
-    field: RecipeField;
-    removeMargin?: boolean;
-}
-
-function ListField({ field, removeMargin }: ListFieldProps) {
+function ListField({ field, removeMargin }: CommonFieldProps) {
     return (
         <Form.List name={field.name} rules={field.rules || undefined}>
             {(fields, { add, remove }, { errors }) => (
@@ -58,7 +53,7 @@ function ListField({ field, removeMargin }: ListFieldProps) {
     );
 }
 
-function SelectField({ field, removeMargin }: SelectFieldProps) {
+function SelectField({ field, removeMargin }: CommonFieldProps) {
     return (
         <StyledFormItem
             name={field.name}
@@ -78,6 +73,20 @@ function SelectField({ field, removeMargin }: SelectFieldProps) {
     );
 }
 
+function DateField({ field, removeMargin }: CommonFieldProps) {
+    return (
+        <StyledFormItem
+            name={field.name}
+            label={field.label}
+            tooltip={field.tooltip}
+            removeMargin={!!removeMargin}
+            rules={field.rules || undefined}
+        >
+            <DatePicker showTime />
+        </StyledFormItem>
+    );
+}
+
 interface Props {
     field: RecipeField;
     secrets: Secret[];
@@ -91,6 +100,8 @@ function FormField(props: Props) {
     if (field.type === FieldType.LIST) return <ListField field={field} removeMargin={removeMargin} />;
 
     if (field.type === FieldType.SELECT) return <SelectField field={field} removeMargin={removeMargin} />;
+
+    if (field.type === FieldType.DATE) return <DateField field={field} removeMargin={removeMargin} />;
 
     if (field.type === FieldType.SECRET)
         return (
