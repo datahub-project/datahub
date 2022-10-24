@@ -156,7 +156,6 @@ export const EntityNameList = ({
                                 degree={additionalProperties?.degree}
                                 deprecation={deprecation}
                                 paths={additionalProperties?.paths}
-                                urn={entity.urn}
                             />
                         </ListItem>
                         <ThinDivider />

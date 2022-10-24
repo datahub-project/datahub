@@ -185,7 +185,6 @@ interface Props {
     parentNodes?: ParentNodesResult | null;
     previewType?: Maybe<PreviewType>;
     paths?: EntityPath[];
-    urn?: string;
 }
 
 export default function DefaultPreviewCard({
@@ -224,7 +223,6 @@ export default function DefaultPreviewCard({
     logoUrls,
     previewType,
     paths,
-    urn,
 }: Props) {
     // sometimes these lists will be rendered inside an entity container (for example, in the case of impact analysis)
     // in those cases, we may want to enrich the preview w/ context about the container entity
