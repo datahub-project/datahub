@@ -156,7 +156,11 @@ public class UpdateIndicesHook implements MetadataChangeLogHook {
     }
   }
 
-  private void updateFineGrainedEdgesAndRelationships(RecordTemplate aspect, List<Edge> edgesToAdd, HashMap<Urn, Set<String>> urnToRelationshipTypesBeingAdded) {
+  private void updateFineGrainedEdgesAndRelationships(
+      RecordTemplate aspect,
+      List<Edge> edgesToAdd,
+      HashMap<Urn, Set<String>> urnToRelationshipTypesBeingAdded
+  ) {
     UpstreamLineage upstreamLineage = new UpstreamLineage(aspect.data());
     if (upstreamLineage.getFineGrainedLineages() != null) {
       for (FineGrainedLineage fineGrainedLineage : upstreamLineage.getFineGrainedLineages()) {
