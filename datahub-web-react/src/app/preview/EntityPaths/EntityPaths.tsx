@@ -20,7 +20,6 @@ export default function EntityPaths({ paths, resultEntityUrn, degree }: Props) {
     const [isPathsModalVisible, setIsPathsModalVisible] = useState(false);
 
     if (!isColumnLevelLineage) return null;
-    if (!isColumnLevelLineage && degree && degree === 1) return null;
 
     return (
         <>

@@ -19,17 +19,19 @@ interface Props {
 export default function ColumnsRelationshipText({ displayedColumns }: Props) {
     const { selectedColumn, lineageDirection } = useContext(LineageTabContext);
 
+    const displayedFieldPath = downgradeV2FieldPath(selectedColumn);
+
     return (
         <>
             {lineageDirection === LineageDirection.Downstream ? (
                 <span>
-                    <ColumnNameWrapper>{downgradeV2FieldPath(selectedColumn)}</ColumnNameWrapper> to&nbsp;
+                    <ColumnNameWrapper>{displayedFieldPath}</ColumnNameWrapper> to&nbsp;
                     <DisplayedColumns displayedColumns={displayedColumns} />
                 </span>
             ) : (
                 <span>
                     <DisplayedColumns displayedColumns={displayedColumns} /> to{' '}
-                    <ColumnNameWrapper>{downgradeV2FieldPath(selectedColumn)}</ColumnNameWrapper>
+                    <ColumnNameWrapper>{displayedFieldPath}</ColumnNameWrapper>
                 </span>
             )}
         </>
