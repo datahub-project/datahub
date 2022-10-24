@@ -75,7 +75,7 @@ Metadata Tests can be created by first navigating to **Govern > Tests**.
 To begin building a new Metadata, click **Create new Test**.
 
 <p align="center">
-  <img width="40%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/manage-tests.png"/>
+  <img width="70%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/manage-tests.png"/>
 </p>
 
 ### Creating a Metadata Test
@@ -88,7 +88,7 @@ Inside the Metadata Test builder, we'll need to construct the 3 parts of a Metad
 or failing the test
    
 <p align="center">
-  <img width="40%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/metadata-test-create.png"/>
+  <img width="70%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/metadata-test-create.png"/>
 </p>
 
 #### Step 1. Defining Selection Criteria (Scope)
@@ -104,7 +104,7 @@ You must select at least one asset *type* from a set that includes Datasets, Das
 and Containers.
 
 <p align="center">
-  <img width="25%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/metadata-test-select-type.png"/>
+  <img width="50%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/metadata-test-select-type.png"/>
 </p>
 
 Entities will the selected types will be considered in scope, while those of other types will be considered out of scope and
@@ -186,7 +186,7 @@ To verify your Test conditions, simply click **Try it out**, find an asset to te
 and finally click **Run Test** to see whether the asset is passes or fails the provided conditions. 
 
 <p align="center">
-  <img width="40%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/metadata-test-validate-conditions.png"/>
+  <img width="70%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/metadata-test-validate-conditions.png"/>
 </p>
 
 
@@ -207,7 +207,7 @@ A few of the supported Action types include:
 - Adding or removing to a specific Domain
 
 <p align="center">
-  <img width="40%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/metadata-test-define-actions.png"/>
+  <img width="70%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/metadata-test-define-actions.png"/>
 </p>
 
 
@@ -225,7 +225,7 @@ Metadata Test results can be viewed in 2 places:
 simply click on the labels which showing the number of passing or failing assets.
 
 <p align="center">
-  <img width="15%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/metadata-test-view-results.png"/>
+  <img width="50%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/metadata-test-view-results.png"/>
 </p>
 
 
