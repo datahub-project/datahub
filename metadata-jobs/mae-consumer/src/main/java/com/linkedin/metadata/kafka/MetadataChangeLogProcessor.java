@@ -2,8 +2,6 @@ package com.linkedin.metadata.kafka;
 
 import com.codahale.metrics.Histogram;
 import com.codahale.metrics.MetricRegistry;
-import com.codahale.metrics.Timer;
-import com.google.common.collect.ImmutableList;
 import com.linkedin.gms.factory.kafka.KafkaEventConsumerFactory;
 import com.linkedin.metadata.EventUtils;
 import com.linkedin.metadata.kafka.config.MetadataChangeLogProcessorCondition;
@@ -15,7 +13,8 @@ import com.linkedin.metadata.kafka.hook.siblings.SiblingAssociationHook;
 import com.linkedin.metadata.utils.metrics.MetricUtils;
 import com.linkedin.mxe.MetadataChangeLog;
 import com.linkedin.mxe.Topics;
-import java.util.List;
+import java.util.HashMap;
+import java.util.Map;
 import javax.annotation.Nonnull;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.avro.generic.GenericRecord;
@@ -26,7 +25,6 @@ import org.springframework.context.annotation.Import;
 import org.springframework.kafka.annotation.EnableKafka;
 import org.springframework.kafka.annotation.KafkaListener;
 import org.springframework.stereotype.Component;
-
 
 @Slf4j
 @Component
@@ -41,7 +39,7 @@ import org.springframework.stereotype.Component;
 @EnableKafka
 public class MetadataChangeLogProcessor {
 
-  private final List<MetadataChangeLogHook> hooks;
+  private final Map<Class, MetadataChangeLogHook> hookMap;
   private final Histogram kafkaLagStats = MetricUtils.get().histogram(MetricRegistry.name(this.getClass(), "kafkaLag"));
 
   @Autowired
@@ -51,18 +49,60 @@ public class MetadataChangeLogProcessor {
       @Nonnull final EntityChangeEventGeneratorHook entityChangeEventHook,
       @Nonnull final SiblingAssociationHook siblingAssociationHook
   ) {
-    this.hooks = ImmutableList.of(updateIndicesHook, ingestionSchedulerHook, entityChangeEventHook, siblingAssociationHook);
-    this.hooks.forEach(MetadataChangeLogHook::init);
+    hookMap = new HashMap<>();
+    // Here - plug in additional "custom processor hooks" and create handler
+    hookMap.put(updateIndicesHook.getClass(), updateIndicesHook);
+    hookMap.put(ingestionSchedulerHook.getClass(), ingestionSchedulerHook);
+    hookMap.put(entityChangeEventHook.getClass(), entityChangeEventHook);
+    hookMap.put(siblingAssociationHook.getClass(), siblingAssociationHook);
   }
 
-  @KafkaListener(id = "${METADATA_CHANGE_LOG_KAFKA_CONSUMER_GROUP_ID:generic-mae-consumer-job-client}", topics = {
-      "${METADATA_CHANGE_LOG_VERSIONED_TOPIC_NAME:" + Topics.METADATA_CHANGE_LOG_VERSIONED + "}",
-      "${METADATA_CHANGE_LOG_TIMESERIES_TOPIC_NAME:" + Topics.METADATA_CHANGE_LOG_TIMESERIES
-          + "}"}, containerFactory = "kafkaEventConsumer")
-  public void consume(final ConsumerRecord<String, GenericRecord> consumerRecord) {
+  @KafkaListener(id = "${METADATA_CHANGE_LOG_KAFKA_UPDATE_INDICES_CONSUMER_GROUP_ID:"
+          + "generic-mae-consumer-job-client-update-indices-hook}", topics = {
+          "${METADATA_CHANGE_LOG_VERSIONED_TOPIC_NAME:" + Topics.METADATA_CHANGE_LOG_VERSIONED + "}",
+          "${METADATA_CHANGE_LOG_TIMESERIES_TOPIC_NAME:" + Topics.METADATA_CHANGE_LOG_TIMESERIES
+                  + "}"}, containerFactory = "kafkaEventConsumerWithRetry")
+  public void consumeForUpdateIndicesHook(final ConsumerRecord<String, GenericRecord> consumerRecord) throws Exception {
+    consume(consumerRecord, UpdateIndicesHook.class);
+  }
+
+  @KafkaListener(id = "${METADATA_CHANGE_LOG_KAFKA_INGESTION_SCHEDULER_CONSUMER_GROUP_ID:"
+          + "generic-mae-consumer-job-client-ingestion-scheduler-hook}", topics = {
+          "${METADATA_CHANGE_LOG_VERSIONED_TOPIC_NAME:" + Topics.METADATA_CHANGE_LOG_VERSIONED + "}",
+          "${METADATA_CHANGE_LOG_TIMESERIES_TOPIC_NAME:" + Topics.METADATA_CHANGE_LOG_TIMESERIES
+                  + "}"}, containerFactory = "kafkaEventConsumerWithRetry")
+  public void consumeForIngestionSchedulerHook(final ConsumerRecord<String, GenericRecord> consumerRecord) throws Exception {
+    consume(consumerRecord, IngestionSchedulerHook.class);
+  }
+
+  @KafkaListener(id = "${METADATA_CHANGE_LOG_KAFKA_ENTITY_CHANGE_EVENT_GENERATOR_CONSUMER_GROUP_ID:"
+          + "generic-mae-consumer-job-client-entity-change-event-generator-hook}", topics = {
+          "${METADATA_CHANGE_LOG_VERSIONED_TOPIC_NAME:" + Topics.METADATA_CHANGE_LOG_VERSIONED + "}",
+          "${METADATA_CHANGE_LOG_TIMESERIES_TOPIC_NAME:" + Topics.METADATA_CHANGE_LOG_TIMESERIES
+                  + "}"}, containerFactory = "kafkaEventConsumerWithRetry")
+  public void consumeForEntityChangeEventGeneratorHook(final ConsumerRecord<String, GenericRecord> consumerRecord) throws Exception {
+    consume(consumerRecord, EntityChangeEventGeneratorHook.class);
+  }
+
+  @KafkaListener(id = "${METADATA_CHANGE_LOG_KAFKA_SIBLING_ASSOCIATION_CONSUMER_GROUP_ID:"
+          + "generic-mae-consumer-job-client-sibling-association-hook}", topics = {
+          "${METADATA_CHANGE_LOG_VERSIONED_TOPIC_NAME:" + Topics.METADATA_CHANGE_LOG_VERSIONED + "}",
+          "${METADATA_CHANGE_LOG_TIMESERIES_TOPIC_NAME:" + Topics.METADATA_CHANGE_LOG_TIMESERIES
+                  + "}"}, containerFactory = "kafkaEventConsumerWithRetry")
+  public void consumeForSiblingAssociationHook(final ConsumerRecord<String, GenericRecord> consumerRecord) throws Exception {
+    consume(consumerRecord, SiblingAssociationHook.class);
+  }
+
+  public void consume(final ConsumerRecord<String, GenericRecord> consumerRecord, Class clazz) throws Exception {
     kafkaLagStats.update(System.currentTimeMillis() - consumerRecord.timestamp());
+    MetadataChangeLogHook hook = hookMap.get(clazz);
+    if (hook == null) {
+      log.debug("Unable to retrieve hook for: {}", clazz.toString());
+      return;
+    }
     final GenericRecord record = consumerRecord.value();
-    log.debug("Got Generic MCL on topic: {}, partition: {}, offset: {}", consumerRecord.topic(), consumerRecord.partition(), consumerRecord.offset());
+    log.debug("Got Generic MCL on topic: {}, partition: {}, offset: {}, hook: {}", consumerRecord.topic(), consumerRecord.partition(),
+            consumerRecord.offset(), clazz);
     MetricUtils.counter(this.getClass(), "received_mcl_count").inc();
 
     MetadataChangeLog event;
@@ -78,24 +118,11 @@ public class MetadataChangeLogProcessor {
     }
 
     log.debug("Invoking MCL hooks for urn: {}, key: {}", event.getEntityUrn(), event.getEntityKeyAspect());
-
-    // Here - plug in additional "custom processor hooks"
-    for (MetadataChangeLogHook hook : this.hooks) {
-      if (!hook.isEnabled()) {
-        continue;
-      }
-      try (Timer.Context ignored = MetricUtils.timer(this.getClass(), hook.getClass().getSimpleName() + "_latency")
-          .time()) {
-        hook.invoke(event);
-      } catch (Exception e) {
-        // Just skip this hook and continue. - Note that this represents "at most once" processing.
-        MetricUtils.counter(this.getClass(), hook.getClass().getSimpleName() + "_failure").inc();
-        log.error("Failed to execute MCL hook with name {}", hook.getClass().getCanonicalName(), e);
-      }
+    if (hook.isEnabled()) {
+      hook.invoke(event);
+      MetricUtils.counter(this.getClass(), "consumed_mcl_count").inc();
+      log.debug("Successfully completed MCL hook {} for urn: {}, key: {}", clazz, event.getEntityUrn(),
+              event.getEntityKeyAspect());
     }
-    // TODO: Manually commit kafka offsets after full processing.
-    MetricUtils.counter(this.getClass(), "consumed_mcl_count").inc();
-    log.debug("Successfully completed MCL hooks for urn: {}, key: {}", event.getEntityUrn(),
-        event.getEntityKeyAspect());
   }
 }
