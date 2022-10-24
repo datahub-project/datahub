@@ -1,6 +1,6 @@
 import React from 'react';
 import { BookOutlined } from '@ant-design/icons';
-import { Deprecation, EntityType, Owner, ParentNodesResult } from '../../../../types.generated';
+import { Deprecation, Domain, EntityType, Owner, ParentNodesResult } from '../../../../types.generated';
 import DefaultPreviewCard from '../../../preview/DefaultPreviewCard';
 import { useEntityRegistry } from '../../../useEntityRegistry';
 import { IconStyleType, PreviewType } from '../../Entity';
@@ -13,6 +13,7 @@ export const Preview = ({
     deprecation,
     parentNodes,
     previewType,
+    domain,
 }: {
     urn: string;
     name: string;
@@ -21,6 +22,7 @@ export const Preview = ({
     deprecation?: Deprecation | null;
     parentNodes?: ParentNodesResult | null;
     previewType: PreviewType;
+    domain?: Domain | undefined;
 }): JSX.Element => {
     const entityRegistry = useEntityRegistry();
     return (
@@ -36,6 +38,7 @@ export const Preview = ({
             typeIcon={entityRegistry.getIcon(EntityType.GlossaryTerm, 14, IconStyleType.ACCENT)}
             deprecation={deprecation}
             parentNodes={parentNodes}
+            domain={domain}
         />
     );
 };
