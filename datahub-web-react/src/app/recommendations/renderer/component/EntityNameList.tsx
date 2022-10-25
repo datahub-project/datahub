@@ -140,6 +140,7 @@ export const EntityNameList = ({
                             )}
                             <DefaultPreviewCard
                                 name={displayName}
+                                urn={entity.urn}
                                 logoUrl={platformLogoUrl || undefined}
                                 logoComponent={fallbackIcon}
                                 url={url}
