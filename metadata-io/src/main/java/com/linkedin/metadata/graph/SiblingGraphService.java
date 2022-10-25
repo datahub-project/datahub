@@ -142,8 +142,7 @@ public class SiblingGraphService {
     }).collect(Collectors.toList());
 
     entityLineageResult.setRelationships(new LineageRelationshipArray(filteredRelationships));
-    entityLineageResult.setTotal(filteredRelationships.size());
-//    entityLineageResult.setTotal(entityLineageResult.getTotal() + (existingResult != null ? existingResult.getTotal() : 0));
+    entityLineageResult.setTotal(entityLineageResult.getTotal() + (existingResult != null ? existingResult.getTotal() : 0));
     entityLineageResult.setCount(filteredRelationships.size());
     return entityLineageResult;
   }
