@@ -41,7 +41,7 @@ public class ForeignKeyConstraintMapper {
       Urn resourceUrn = Urn.createFromString(schemaFieldUrn.getEntityKey().get(0));
       result.setParent(UrnToEntityMapper.map(resourceUrn));
     } catch (Exception e) {
-      log.error("Error converting schemaField parent urn string to Urn", e);
+      throw new RuntimeException("Error converting schemaField parent urn string to Urn", e);
     }
     result.setFieldPath(schemaFieldUrn.getEntityKey().get(1));
     return result;
