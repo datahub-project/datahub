@@ -7,6 +7,8 @@ import com.linkedin.common.UrnArray;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.data.template.RecordTemplate;
 import com.linkedin.metadata.entity.EntityService;
+
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -92,11 +94,14 @@ public class SiblingGraphService {
       EntityLineageResult entityLineageResult,
       EntityLineageResult existingResult
   ) {
-    // 1) remove the source entities siblings from this entity's downstreams
+    Set<Urn> existingResultUrns = existingResult != null ?
+        existingResult.getRelationships().stream().map(LineageRelationship::getEntity).collect(Collectors.toSet()) : new HashSet<>();
+
+    // 1) remove duplicates and the source entities siblings from this entity's downstreams
     List<LineageRelationship> filteredRelationships = entityLineageResult.getRelationships()
         .stream()
-        .filter(lineageRelationship -> !allSiblingsInGroup.contains(lineageRelationship.getEntity())
-            || lineageRelationship.getEntity().equals(urn))
+        .filter(lineageRelationship -> !existingResultUrns.contains(lineageRelationship.getEntity()) &&
+            (!allSiblingsInGroup.contains(lineageRelationship.getEntity()) || lineageRelationship.getEntity().equals(urn)))
         .collect(Collectors.toList());
 
     // 2) combine this entity's lineage with the lineage we've already seen
