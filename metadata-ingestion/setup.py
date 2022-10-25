@@ -224,6 +224,9 @@ plugins: Dict[str, Set[str]] = {
     "bigquery": sql_common
     | bigquery_common
     | {"sqllineage==1.3.6", "sql_metadata"},
+    "bigquery-beta": sql_common
+    | bigquery_common
+    | {"sqllineage==1.3.6", "sql_metadata"}, # deprecated, but keeping the extra for backwards compatibility
     "clickhouse": sql_common | {"clickhouse-sqlalchemy==0.1.8"},
     "clickhouse-usage": sql_common
     | usage_common
