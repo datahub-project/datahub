@@ -8,6 +8,7 @@ import com.linkedin.common.urn.Urn;
 import com.linkedin.data.template.RecordTemplate;
 import com.linkedin.metadata.entity.EntityService;
 
+import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
@@ -94,21 +95,18 @@ public class SiblingGraphService {
       EntityLineageResult entityLineageResult,
       EntityLineageResult existingResult
   ) {
-    Set<Urn> existingResultUrns = existingResult != null ?
-        existingResult.getRelationships().stream().map(LineageRelationship::getEntity).collect(Collectors.toSet()) : new HashSet<>();
-
-    // 1) remove duplicates and the source entities siblings from this entity's downstreams
+    // 1) remove the source entities siblings from this entity's downstreams
     List<LineageRelationship> filteredRelationships = entityLineageResult.getRelationships()
         .stream()
-        .filter(lineageRelationship -> !existingResultUrns.contains(lineageRelationship.getEntity()) &&
-            (!allSiblingsInGroup.contains(lineageRelationship.getEntity()) || lineageRelationship.getEntity().equals(urn)))
+        .filter(lineageRelationship -> !allSiblingsInGroup.contains(lineageRelationship.getEntity())
+            || lineageRelationship.getEntity().equals(urn))
         .collect(Collectors.toList());
 
-    // 2) combine this entity's lineage with the lineage we've already seen
-    List<LineageRelationship> combinedResults = Stream.concat(
-        filteredRelationships.stream(),
-        existingResult != null ? existingResult.getRelationships().stream() : ImmutableList.<LineageRelationship>of().stream())
-        .collect(Collectors.toList());
+    // 2) combine this entity's lineage with the lineage we've already seen and remove duplicates
+    List<LineageRelationship> combinedResults = new ArrayList<>(Stream.concat(
+            filteredRelationships.stream(),
+            existingResult != null ? existingResult.getRelationships().stream() : ImmutableList.<LineageRelationship>of().stream())
+        .collect(Collectors.toSet()));
 
     // 3) fetch the siblings of each lineage result
     Set<Urn> combinedResultUrns = combinedResults.stream().map(result -> result.getEntity()).collect(Collectors.toSet());
@@ -144,7 +142,8 @@ public class SiblingGraphService {
     }).collect(Collectors.toList());
 
     entityLineageResult.setRelationships(new LineageRelationshipArray(filteredRelationships));
-    entityLineageResult.setTotal(entityLineageResult.getTotal() + (existingResult != null ? existingResult.getTotal() : 0));
+    entityLineageResult.setTotal(filteredRelationships.size());
+//    entityLineageResult.setTotal(entityLineageResult.getTotal() + (existingResult != null ? existingResult.getTotal() : 0));
     entityLineageResult.setCount(filteredRelationships.size());
     return entityLineageResult;
   }
