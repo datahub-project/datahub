@@ -65,7 +65,7 @@
     {
         "urn": "urn:li:dataPlatform:mongodb",
         "name": "mongodb",
-        "displayName": "Postgres",
+        "displayName": "MongoDB",
         "docsUrl": "https://datahubproject.io/docs/generated/ingestion/sources/mongodb/",
         "recipe": "source:\n    type: mongodb\n    config:\n        # Coordinates\n        connect_uri: # Your MongoDB connect URI, e.g. \"mongodb://localhost\"\n\n        # Credentials\n        # Add secret in Secrets Tab with relevant names for each variable\n        username: \"${MONGO_USERNAME}\" # Your MongoDB username, e.g. admin\n        password: \"${MONGO_PASSWORD}\" # Your MongoDB password, e.g. password_01\n\n        # Options (recommended)\n        enableSchemaInference: True\n        useRandomSampling: True\n        maxSchemaSize: 300"
     },

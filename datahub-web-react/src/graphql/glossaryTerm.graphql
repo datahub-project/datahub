@@ -47,6 +47,9 @@ query getGlossaryTerm($urn: String!, $start: Int, $count: Int) {
         ownership {
             ...ownershipFields
         }
+        domain {
+            ...entityDomain
+        }
         institutionalMemory {
             ...institutionalMemoryFields
         }
