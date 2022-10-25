@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { ColumnsType } from 'antd/es/table';
+import { VList } from 'virtuallist-antd';
 import styled from 'styled-components';
-import {} from 'antd';
 import {
     EditableSchemaMetadata,
     ForeignKeyConstraint,
@@ -17,7 +17,6 @@ import useUsageStatsRenderer from './utils/useUsageStatsRenderer';
 import useTagsAndTermsRenderer from './utils/useTagsAndTermsRenderer';
 import ExpandIcon from './components/ExpandIcon';
 import { StyledTable } from '../../../components/styled/StyledTable';
-import { SchemaRow } from './components/SchemaRow';
 import { FkContext } from './utils/selectedFkContext';
 import useSchemaBlameRenderer from './utils/useSchemaBlameRenderer';
 import { ANTD_GRAY } from '../../../constants';
@@ -194,11 +193,8 @@ export default function SchemaTable({
                     columns={allColumns}
                     dataSource={rows}
                     rowKey="fieldPath"
-                    components={{
-                        body: {
-                            row: SchemaRow,
-                        },
-                    }}
+                    scroll={{ y: '100vh', x: '100%' }}
+                    components={VList({ height: 'auto' })}
                     expandable={{
                         expandedRowKeys: [...Array.from(expandedRows)],
                         defaultExpandAllRows: false,
