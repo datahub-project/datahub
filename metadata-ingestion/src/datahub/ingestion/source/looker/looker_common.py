@@ -835,6 +835,11 @@ class LookerExplore:
                                                 view_urn, field_path
                                             )
                                         ],
+                                        downstreams=[
+                                            builder.make_schema_field_urn(
+                                                self.get_explore_urn(config), field.name
+                                            )
+                                        ],
                                     )
                                 )
 
