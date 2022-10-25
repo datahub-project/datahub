@@ -9,7 +9,7 @@ class SqlParserException(Exception):
 
 
 class SQLParser(metaclass=ABCMeta):
-    def __init__(self, sql_query: str) -> None:
+    def __init__(self, sql_query: str, use_external_process: bool = True) -> None:
         self._sql_query = sql_query
 
     @abstractmethod

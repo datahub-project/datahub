@@ -65,6 +65,7 @@ from datahub.metadata.schema_classes import (
     FineGrainedLineageUpstreamTypeClass,
     SubTypesClass,
 )
+from datahub.utilities.lossy_collections import LossyList
 from datahub.utilities.sql_parser import SQLParser
 
 logger = logging.getLogger(__name__)
@@ -200,6 +201,10 @@ class LookMLSourceConfig(LookerCommonConfig):
         False,
         description="When enabled, field descriptions will include the sql logic for computed fields if descriptions are missing",
     )
+    process_isolation_for_sql_parsing: bool = Field(
+        True,
+        description="When enabled, sql parsing will be executed in a separate process to prevent memory leaks.",
+    )
 
     @validator("platform_instance")
     def platform_instance_not_supported(cls, v: str) -> str:
@@ -270,9 +275,12 @@ class LookMLSourceConfig(LookerCommonConfig):
 class LookMLSourceReport(SourceReport):
     git_clone_latency: Optional[timedelta] = None
     models_discovered: int = 0
-    models_dropped: List[str] = dataclass_field(default_factory=list)
+    models_dropped: List[str] = dataclass_field(default_factory=LossyList)
     views_discovered: int = 0
-    views_dropped: List[str] = dataclass_field(default_factory=list)
+    views_dropped: List[str] = dataclass_field(default_factory=LossyList)
+    query_parse_attempts: int = 0
+    query_parse_failures: int = 0
+    query_parse_failure_views: List[str] = dataclass_field(default_factory=LossyList)
     _looker_api: Optional[LookerAPI] = None
 
     def report_models_scanned(self) -> None:
@@ -609,6 +617,9 @@ def _find_view_from_resolved_includes(
     return None
 
 
+_SQL_FUNCTIONS = ["UNNEST"]
+
+
 @dataclass
 class LookerView:
     id: LookerViewId
@@ -629,11 +640,15 @@ class LookerView:
         return parser_cls
 
     @classmethod
-    def _get_sql_info(cls, sql: str, sql_parser_path: str) -> SQLInfo:
+    def _get_sql_info(
+        cls, sql: str, sql_parser_path: str, use_external_process: bool = True
+    ) -> SQLInfo:
         parser_cls = cls._import_sql_parser_cls(sql_parser_path)
 
         try:
-            parser_instance: SQLParser = parser_cls(sql)
+            parser_instance: SQLParser = parser_cls(
+                sql, use_external_process=use_external_process
+            )
         except Exception as e:
             logger.warning(f"Sql parser failed on {sql} with {e}")
             return SQLInfo(table_names=[], column_names=[])
@@ -658,6 +673,10 @@ class LookerView:
         # Remove quotes from table names
         sql_table_names = [t.replace('"', "") for t in sql_table_names]
         sql_table_names = [t.replace("`", "") for t in sql_table_names]
+        # Remove reserved words from table names
+        sql_table_names = [
+            t for t in sql_table_names if t.upper() not in _SQL_FUNCTIONS
+        ]
 
         return SQLInfo(table_names=sql_table_names, column_names=column_names)
 
@@ -722,6 +741,7 @@ class LookerView:
         sql_parser_path: str = "datahub.utilities.sql_parser.DefaultSQLParser",
         extract_col_level_lineage: bool = False,
         populate_sql_logic_in_descriptions: bool = False,
+        process_isolation_for_sql_parsing: bool = True,
     ) -> Optional["LookerView"]:
         view_name = looker_view["name"]
         logger.debug(f"Handling view {view_name} in model {model_name}")
@@ -786,6 +806,7 @@ class LookerView:
                 sql_table_name,
                 derived_table,
                 fields,
+                use_external_process=process_isolation_for_sql_parsing,
             )
             if "sql" in derived_table:
                 view_logic = derived_table["sql"]
@@ -845,31 +866,41 @@ class LookerView:
     @classmethod
     def _extract_metadata_from_sql_query(
         cls: Type,
-        reporter: SourceReport,
+        reporter: LookMLSourceReport,
         parse_table_names_from_sql: bool,
         sql_parser_path: str,
         view_name: str,
         sql_table_name: Optional[str],
         derived_table: dict,
         fields: List[ViewField],
+        use_external_process: bool,
     ) -> Tuple[List[ViewField], List[str]]:
         sql_table_names: List[str] = []
         if parse_table_names_from_sql and "sql" in derived_table:
             logger.debug(f"Parsing sql from derived table section of view: {view_name}")
             sql_query = derived_table["sql"]
+            reporter.query_parse_attempts += 1
 
             # Skip queries that contain liquid variables. We currently don't parse them correctly
             if "{%" in sql_query:
-                logger.debug(
-                    f"{view_name}: Skipping sql_query parsing since it contains liquid variables"
-                )
-                # A hail-mary simple parse.
-                for maybe_table_match in re.finditer(
-                    r"FROM\s*([a-zA-Z0-9_.]+)", sql_query
-                ):
-                    if maybe_table_match.group(1) not in sql_table_names:
-                        sql_table_names.append(maybe_table_match.group(1))
-                return fields, sql_table_names
+                try:
+                    # test if parsing works
+                    sql_info: SQLInfo = cls._get_sql_info(
+                        sql_query, sql_parser_path, use_external_process
+                    )
+                    if not sql_info.table_names:
+                        raise Exception("Failed to find any tables")
+                except Exception:
+                    logger.debug(
+                        f"{view_name}: SQL Parsing didn't return any tables, trying a hail-mary"
+                    )
+                    # A hail-mary simple parse.
+                    for maybe_table_match in re.finditer(
+                        r"FROM\s*([a-zA-Z0-9_.`]+)", sql_query
+                    ):
+                        if maybe_table_match.group(1) not in sql_table_names:
+                            sql_table_names.append(maybe_table_match.group(1))
+                    return fields, sql_table_names
             # Looker supports sql fragments that omit the SELECT and FROM parts of the query
             # Add those in if we detect that it is missing
             if not re.search(r"SELECT\s", sql_query, flags=re.I):
@@ -880,7 +911,9 @@ class LookerView:
                 sql_query = f"{sql_query} FROM {sql_table_name if sql_table_name is not None else view_name}"
                 # Get the list of tables in the query
             try:
-                sql_info = cls._get_sql_info(sql_query, sql_parser_path)
+                sql_info = cls._get_sql_info(
+                    sql_query, sql_parser_path, use_external_process
+                )
                 sql_table_names = sql_info.table_names
                 column_names = sql_info.column_names
                 if not fields:
@@ -890,11 +923,19 @@ class LookerView:
                         ViewField(c, "", "unknown", "", ViewFieldType.UNKNOWN)
                         for c in sorted(column_names)
                     ]
+                if not sql_info.table_names:
+                    reporter.query_parse_failures += 1
+                    reporter.query_parse_failure_views.append(view_name)
             except Exception as e:
+                reporter.query_parse_failures += 1
                 reporter.report_warning(
                     f"looker-view-{view_name}",
                     f"Failed to parse sql query, lineage will not be accurate. Exception: {e}",
                 )
+
+        # remove fields or sql tables that contain liquid variables
+        fields = [f for f in fields if "{%" not in f.name]
+        sql_table_names = [table for table in sql_table_names if "{%" not in table]
 
         return fields, sql_table_names
 
@@ -1156,7 +1197,11 @@ class LookMLSource(Source):
                 sql_table_name, looker_view
             )
             fine_grained_lineages: List[FineGrainedLineageClass] = []
-            if self.source_config.extract_column_level_lineage:
+            if self.source_config.extract_column_level_lineage and (
+                looker_view.view_details is not None
+                and looker_view.view_details.viewLanguage
+                != VIEW_LANGUAGE_SQL  # we currently only map col-level lineage for views without sql
+            ):
                 for field in looker_view.fields:
                     if field.upstream_fields:
                         fine_grained_lineage = FineGrainedLineageClass(
@@ -1571,6 +1616,7 @@ class LookMLSource(Source):
                                 self.source_config.sql_parser,
                                 self.source_config.extract_column_level_lineage,
                                 self.source_config.populate_sql_logic_for_missing_descriptions,
+                                process_isolation_for_sql_parsing=self.source_config.process_isolation_for_sql_parsing,
                             )
                         except Exception as e:
                             self.reporter.report_warning(

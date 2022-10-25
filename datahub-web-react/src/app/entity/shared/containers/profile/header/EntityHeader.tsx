@@ -1,10 +1,7 @@
 import React, { useState } from 'react';
-import { ArrowRightOutlined } from '@ant-design/icons';
-import { Button } from 'antd';
 import styled from 'styled-components/macro';
 import { capitalizeFirstLetterOnly } from '../../../../../shared/textUtil';
 import { useEntityData, useRefetch } from '../../../EntityContext';
-import analytics, { EventType, EntityActionType } from '../../../../../analytics';
 import { EntityHealthStatus } from './EntityHealthStatus';
 import EntityDropdown, { EntityMenuItems } from '../../../EntityDropdown/EntityDropdown';
 import PlatformContent from './PlatformContent';
@@ -18,6 +15,7 @@ import { DeprecationPill } from '../../../components/styled/DeprecationPill';
 import CompactContext from '../../../../../shared/CompactContext';
 import { EntitySubHeaderSection } from '../../../types';
 import EntityActions, { EntityActionItem } from '../../../entity/EntityActions';
+import ExternalUrlButton from '../../../ExternalUrlButton';
 
 const TitleWrapper = styled.div`
     display: flex;
@@ -57,18 +55,6 @@ const TopButtonsWrapper = styled.div`
     margin-bottom: 8px;
 `;
 
-const ExternalUrlContainer = styled.span`
-    font-size: 14px;
-`;
-
-const ExternalUrlButton = styled(Button)`
-    > :hover {
-        text-decoration: underline;
-    }
-    padding-left: 12px;
-    padding-right: 12px;
-`;
-
 export function getCanEditName(entityType: EntityType, privileges?: PlatformPrivileges) {
     switch (entityType) {
         case EntityType.GlossaryTerm:
@@ -106,15 +92,6 @@ export const EntityHeader = ({
     const entityCount = entityData?.entityCount;
     const isCompact = React.useContext(CompactContext);
 
-    const sendAnalytics = () => {
-        analytics.event({
-            type: EventType.EntityActionEvent,
-            actionType: EntityActionType.ClickExternalUrl,
-            entityType,
-            entityUrn: urn,
-        });
-    };
-
     const canEditName = isNameEditable && getCanEditName(entityType, me?.platformPrivileges as PlatformPrivileges);
 
     return (
@@ -146,16 +123,12 @@ export const EntityHeader = ({
                 <SideHeaderContent>
                     <TopButtonsWrapper>
                         {externalUrl && (
-                            <ExternalUrlContainer>
-                                <ExternalUrlButton
-                                    type="link"
-                                    href={externalUrl}
-                                    target="_blank"
-                                    onClick={sendAnalytics}
-                                >
-                                    View in {platformName} <ArrowRightOutlined style={{ fontSize: 12 }} />
-                                </ExternalUrlButton>
-                            </ExternalUrlContainer>
+                            <ExternalUrlButton
+                                externalUrl={externalUrl}
+                                entityUrn={urn}
+                                platformName={platformName}
+                                entityType={entityType}
+                            />
                         )}
                         {headerActionItems && (
                             <EntityActions urn={urn} actionItems={headerActionItems} refetchForEntity={refetch} />
