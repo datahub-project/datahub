@@ -395,6 +395,24 @@ DATAHUB_MAE_CONSUMER_PORT=9091
     return result.returncode
 
 
+def detect_quickstart_arch(arch: Optional[str]) -> Architectures:
+    running_on_m1 = is_m1()
+    if running_on_m1:
+        click.secho("Detected M1 machine", fg="yellow")
+
+    quickstart_arch = Architectures.x86 if not running_on_m1 else Architectures.arm64
+    if arch:
+        matched_arch = [a for a in Architectures if arch.lower() == a.value]
+        if not matched_arch:
+            click.secho(
+                f"Failed to match arch {arch} with list of architectures supported {[a.value for a in Architectures]}"
+            )
+        quickstart_arch = matched_arch[0]
+        click.secho(f"Using architecture {quickstart_arch}", fg="yellow")
+
+    return quickstart_arch
+
+
 @docker.command()
 @click.option(
     "--version",
@@ -585,19 +603,7 @@ def quickstart(
         )
         return
 
-    running_on_m1 = is_m1()
-    if running_on_m1:
-        click.secho("Detected M1 machine", fg="yellow")
-
-    quickstart_arch = Architectures.x86 if not running_on_m1 else Architectures.arm64
-    if arch:
-        matched_arch = [a for a in Architectures if arch.lower() == a.value]
-        if not matched_arch:
-            click.secho(
-                f"Failed to match arch {arch} with list of architectures supported {[a.value for a in Architectures]}"
-            )
-        quickstart_arch = matched_arch[0]
-        click.secho(f"Using architecture {quickstart_arch}", fg="yellow")
+    quickstart_arch = detect_quickstart_arch(arch)
 
     # Run pre-flight checks.
     issues = check_local_docker_containers(preflight_only=True)
