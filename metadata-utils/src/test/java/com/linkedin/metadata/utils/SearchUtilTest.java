@@ -1,18 +1,12 @@
 package com.linkedin.metadata.utils;
 
-import com.datahub.test.KeyPartEnum;
-import com.datahub.test.TestEntityKey;
 import com.google.common.collect.ImmutableSet;
 import com.linkedin.common.urn.Urn;
-import com.linkedin.data.template.RecordTemplate;
-import com.linkedin.metadata.models.EntitySpec;
-import com.linkedin.metadata.models.registry.ConfigEntityRegistry;
 import com.linkedin.metadata.search.FilterValue;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-import org.testng.Assert;
 import org.testng.annotations.Test;
 
 import static org.testng.Assert.*;
