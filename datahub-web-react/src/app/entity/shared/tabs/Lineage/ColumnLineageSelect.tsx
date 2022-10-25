@@ -53,7 +53,11 @@ export default function ColumnsLineageSelect({
                 </StyledSelect>
             )}
             <Tooltip title={columnButtonTooltip}>
-                <Button type="text" onClick={() => setIsColumnLevelLineage(!isColumnLevelLineage)}>
+                <Button
+                    type="text"
+                    onClick={() => setIsColumnLevelLineage(!isColumnLevelLineage)}
+                    data-testid="column-lineage-toggle"
+                >
                     <ImpactAnalysisIcon />
                 </Button>
             </Tooltip>
