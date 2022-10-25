@@ -1,10 +1,12 @@
 # Act on Metadata Overview
 
-DataHub's metadata infrastructure is stream-oriented, meaning that all changes in metadata are communicated and reflected within the platform within seconds. This unlocks endless opportunities to automate data governance and data management workflows, such as:
+DataHub's metadata infrastructure is stream-oriented, meaning that all changes in metadata are communicated and reflected within the platform within seconds. 
 
-* Enriching or annotating existing data entities within DataHub, i.e., apply Tags, Terms, Owners, etc.
+This unlocks endless opportunities to automate data governance and data management workflows, such as:
+
+* Automatically enrich or annotate existing data entities within DataHub, i.e., apply Tags, Terms, Owners, etc.
 * Trigger external workflows or send alerts to external systems, i.e., send a message to a team channel when there's a schema change
-* Proactively identify what data resources will be impacted by a breaking change
+* Proactively identify what business-critical data resources will be impacted by a breaking schema change
 
 This section contains resources to help you take real-time action on your rapidly evolving data stack.
 
