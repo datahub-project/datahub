@@ -514,5 +514,15 @@
       "type": "OTHERS",
       "logoUrl": "/assets/platforms/deltalakelogo.png"
     }
+  },
+  {
+    "urn": "urn:li:dataPlatform:infobip-location",
+    "aspect": {
+      "datasetNameDelimiter": ".",
+      "name": "location",
+      "displayName": "Location",
+      "type": "OTHERS",
+      "logoUrl": "/assets/platforms/datahublogo.png"
+    }
   }
 ]

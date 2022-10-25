@@ -1,10 +1,12 @@
-import itertools
 import json
 import logging
 import math
+import pickle
+import re
 import sys
+import zlib
 from abc import abstractmethod
-from typing import Iterable, List, Optional, Union, cast
+from typing import Dict, Iterable, List, Optional, Set, Union, cast
 
 import pandas as pd
 from pydantic.fields import Field
@@ -17,7 +19,10 @@ from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.common import PipelineContext, WorkUnit
 from datahub.ingestion.api.workunit import MetadataWorkUnit, UsageStatsWorkUnit
 from datahub.ingestion.source.state.checkpoint import Checkpoint
-from datahub.ingestion.source.state.redash_state import RedashCheckpointState
+from datahub.ingestion.source.state.redash_state import (
+    RedashCheckpointsList,
+    RedashCheckpointState,
+)
 from datahub.ingestion.source.state.stateful_ingestion_base import (
     JobId,
     StatefulIngestionConfig,
@@ -53,6 +58,7 @@ from datahub.metadata.schema_classes import (
     StringTypeClass,
     SubTypesClass,
 )
+from datahub.utilities.urns.urn import Urn
 
 logger = logging.getLogger(__name__)
 
@@ -62,8 +68,8 @@ class IBRedashSourceStatefulIngestionConfig(StatefulIngestionConfig):
 
 
 class RedashSourceReport(StatefulIngestionReport):
-    workunits_skipped: int = 0
-    workunits_deleted: int = 0
+    events_skipped: int = 0
+    events_deleted: int = 0
 
 
 class IBRedashSourceConfig(StatefulIngestionConfigBase):
@@ -138,35 +144,19 @@ class IBRedashSource(StatefulIngestionSourceBase):
     def get_workunits(self) -> Iterable[WorkUnit]:
         if not self.is_stateful_ingestion_configured():
             for wu in self.fetch_workunits():
-                self.report.workunits_produced += 1
+                self.report.report_workunit(wu)
                 yield wu
             return
 
-        cur_checkpoint = self.get_current_checkpoint(
-            self.get_default_ingestion_job_id()
-        )
-        cur_checkpoint_state = (
-            cast(RedashCheckpointState, cur_checkpoint.state)
-            if cur_checkpoint is not None
-            else None
-        )
-
-        last_checkpoint = self.get_last_checkpoint(
-            self.get_default_ingestion_job_id(), RedashCheckpointState
-        )
-        last_checkpoint_state = (
-            cast(RedashCheckpointState, last_checkpoint.state)
-            if last_checkpoint is not None
-            else None
-        )
+        last_state = self._load_last_state()
+        current_state = self._create_current_state()
 
         for wu in self.fetch_workunits():
             if type(wu) is not MetadataWorkUnit:
-                self.report.workunits_produced += 1
                 yield wu
                 continue
 
-            if cur_checkpoint_state is not None:
+            if current_state is not None:
                 if type(wu.metadata) is MetadataChangeEvent:
                     urn = wu.metadata.proposedSnapshot.urn
                     wu.metadata.proposedSnapshot.aspects.append(
@@ -177,39 +167,46 @@ class IBRedashSource(StatefulIngestionSourceBase):
                 else:
                     raise TypeError(f"Unknown metadata type {type(wu.metadata)}")
 
-                cur_checkpoint_state.add_workunit(urn, wu)
+                IBRedashSource._state_add_workunit(current_state, urn, wu)
 
                 # Emitting workuntis not presented in last state
-                if (
-                    last_checkpoint_state is None
-                    or not last_checkpoint_state.has_workunit(urn, wu)
+                if last_state is None or not IBRedashSource._state_has_workunit(
+                    last_state, urn, wu
                 ):
-                    self.report.workunits_produced += 1
+                    self.report.report_workunit(wu)
                     yield wu
                     continue
                 else:
-                    self.report.workunits_skipped += 1
+                    self.report.events_skipped += 1
             else:
-                self.report.workunits_produced += 1
+                self.report.report_workunit(wu)
                 yield wu
 
         if (
             self.config.stateful_ingestion
             and self.config.stateful_ingestion.remove_stale_metadata
-            and last_checkpoint_state is not None
-            and cur_checkpoint_state is not None
+            and last_state is not None
+            and current_state is not None
         ):
             # Deleting workunits not presented in current state
-            for urn in last_checkpoint_state.get_urns_not_in(cur_checkpoint_state):
+            for urn_str in last_state.keys() - current_state.keys():
+                urn = Urn.create_from_string(urn_str)
                 mcp = MetadataChangeProposalWrapper(
-                    entityType="dataset",
-                    entityUrn=urn,
+                    entityType=urn.get_type(),
+                    entityUrn=urn_str,
                     changeType=ChangeTypeClass.UPSERT,
                     aspectName="status",
                     aspect=Status(removed=True),
                 )
-                self.report.workunits_deleted += 1
-                yield MetadataWorkUnit(id=f"soft-delete-{urn}", mcp=mcp)
+                self.report.events_deleted += 1
+                yield MetadataWorkUnit(id=f"soft-delete-{urn_str}", mcp=mcp)
+
+        if (
+            self.config.stateful_ingestion
+            and not self.config.stateful_ingestion.ignore_new_state
+            and current_state is not None
+        ):
+            self._save_current_state(current_state)
 
     def close(self):
         self.prepare_for_commit()
@@ -220,7 +217,7 @@ class IBRedashSource(StatefulIngestionSourceBase):
 
     def is_checkpointing_enabled(self, job_id: JobId) -> bool:
         if (
-            job_id == self.get_default_ingestion_job_id()
+            job_id.startswith(self.get_default_ingestion_job_id_prefix())
             and self.is_stateful_ingestion_configured()
             and self.config.stateful_ingestion
             and self.config.stateful_ingestion.remove_stale_metadata
@@ -231,14 +228,19 @@ class IBRedashSource(StatefulIngestionSourceBase):
 
     def create_checkpoint(self, job_id: JobId) -> Optional[Checkpoint]:
         assert self.ctx.pipeline_name is not None
-        if job_id == self.get_default_ingestion_job_id():
+        if job_id.startswith(self.get_default_ingestion_job_id_prefix()):
+            if job_id == self._get_checkpoints_list_job_id():
+                state = RedashCheckpointsList()
+            else:
+                state = RedashCheckpointState()
+
             return Checkpoint(
                 job_name=job_id,
                 pipeline_name=self.ctx.pipeline_name,
                 platform_instance_id=self.get_platform_instance_id(),
                 run_id=self.ctx.run_id,
                 config=self.config,
-                state=RedashCheckpointState(),
+                state=state,
             )
         return None
 
@@ -246,9 +248,99 @@ class IBRedashSource(StatefulIngestionSourceBase):
         assert self.config.platform_instance is not None
         return self.config.platform_instance
 
+    def _get_checkpoints_list_job_id(self):
+        return self.get_default_ingestion_job_id_prefix() + "checkpoints_list"
+
+    def _get_checkpoint_job_id(self, checkpoint_id: int):
+        return self.get_default_ingestion_job_id_prefix() + str(checkpoint_id)
+
+    def _load_last_state(self) -> Dict[str, Set[int]]:
+        last_checkpoints_list = self.get_last_checkpoint(
+            self._get_checkpoints_list_job_id(), RedashCheckpointsList
+        )
+        last_checkpoints_list_state = (
+            cast(RedashCheckpointsList, last_checkpoints_list.state)
+            if last_checkpoints_list is not None
+            else None
+        )
+        if last_checkpoints_list_state is None:
+            return None
+
+        state: Dict[str, Set[int]] = dict()
+        for checkpoint_id in last_checkpoints_list_state.get_ids():
+            checkpoint = self.get_last_checkpoint(
+                self._get_checkpoint_job_id(checkpoint_id), RedashCheckpointState
+            )
+            checkpoint_state = cast(RedashCheckpointState, checkpoint.state)
+            for urn, wu_list in checkpoint_state.get_entries().items():
+                state[urn] = wu_list
+
+        return state
+
+    def _create_current_state(self) -> Dict[str, Set[int]]:
+        if (
+            self.config.stateful_ingestion
+            and not self.config.stateful_ingestion.ignore_new_state
+        ):
+            return dict()
+        return None
+
+    def _save_current_state(self, state: Dict[str, Set[int]]):
+        cur_checkpoint_list = self.get_current_checkpoint(
+            self._get_checkpoints_list_job_id()
+        )
+
+        if cur_checkpoint_list is None:
+            return
+
+        cur_checkpoint_list_state = cast(
+            RedashCheckpointsList, cur_checkpoint_list.state
+        )
+
+        checkpoint_id: int = 0
+        cur_checkpoint = self.get_current_checkpoint(
+            self._get_checkpoint_job_id(checkpoint_id)
+        )
+        cur_checkpoint_state = cast(RedashCheckpointState, cur_checkpoint.state)
+        cur_checkpoint_list_state.add_id(checkpoint_id)
+
+        for urn, wu_list in state.items():
+            cur_checkpoint_state.add_entry(urn, wu_list)
+            if cur_checkpoint_state.size() >= 15000:
+                checkpoint_id += 1
+                cur_checkpoint = self.get_current_checkpoint(
+                    self._get_checkpoint_job_id(checkpoint_id)
+                )
+                cur_checkpoint_state = cast(RedashCheckpointState, cur_checkpoint.state)
+                cur_checkpoint_list_state.add_id(checkpoint_id)
+
     @abstractmethod
-    def get_default_ingestion_job_id(self) -> JobId:
+    def get_default_ingestion_job_id_prefix(self) -> JobId:
         raise NotImplementedError("Sub-classes must implement this method.")
+
+    @staticmethod
+    def _state_has_workunit(state: Dict[str, Set[int]], urn: str, wu: WorkUnit) -> bool:
+        workunit_hash = IBRedashSource._hash_workunit(wu)
+        return workunit_hash in state.get(urn, set())
+
+    @staticmethod
+    def _state_add_workunit(state: Dict[str, Set[int]], urn: str, wu: WorkUnit):
+        workunits = state.get(urn, set())
+        workunits.add(IBRedashSource._hash_workunit(wu))
+        state[urn] = workunits
+
+    @staticmethod
+    def _hash_workunit(wu: WorkUnit):
+        return zlib.crc32(pickle.dumps(wu)) & 0xFFFFFFFF
+
+
+class IBPathElementInfo:
+    subtype: str
+    is_location: bool
+
+    def __init__(self, subtype: str, is_location: bool = False):
+        self.subtype: str = subtype
+        self.is_location: bool = is_location
 
 
 class IBRedashDatasetSource(IBRedashSource):
@@ -261,12 +353,7 @@ class IBRedashDatasetSource(IBRedashSource):
 
     @property
     @abstractmethod
-    def parent_subtypes(self) -> List[str]:
-        raise NotImplementedError("Sub-classes must define this variable.")
-
-    @property
-    @abstractmethod
-    def object_subtype(self):
+    def path_info(self) -> List[IBPathElementInfo]:
         raise NotImplementedError("Sub-classes must define this variable.")
 
     def __init__(self, config: IBRedashSourceConfig, ctx: PipelineContext):
@@ -275,50 +362,58 @@ class IBRedashDatasetSource(IBRedashSource):
 
     def fetch_workunits(self) -> Iterable[Union[MetadataWorkUnit, UsageStatsWorkUnit]]:
         json_data = pd.read_json(json.dumps(self.query_get(self.config.query_id)))
-        json_data_grouped = json_data.groupby(
-            ["locationCode", "parent1", "parent2", "parent3", "objectName"],
-            dropna=False,
-        )
-        return itertools.chain.from_iterable(
-            json_data_grouped.apply(
-                lambda fields_by_object: self.fetch_object_workunits(fields_by_object)
+
+        for i, row in json_data.iterrows():
+            yield from self.fetch_object_workunits(row)
+
+    def fetch_object_workunits(self, row: pd.DataFrame) -> Iterable[MetadataWorkUnit]:
+        object_name = row.objectName
+        location_code = row.locationCode
+        if pd.isna(object_name) or pd.isna(location_code):
+            self.report.report_failure(
+                "missing_mandatory_field",
+                f"object_name is None or location_code is None in {row.to_string()}",
             )
+            return
+
+        dataset_path = self.normalize_dataset_path(
+            [
+                location_code,
+                row.parent1,
+                row.parent2,
+                row.parent3,
+                object_name,
+            ]
         )
-
-    def fetch_object_workunits(self, fields_by_object: pd.DataFrame):
-        object_sample = fields_by_object.iloc[0]
-        object_name = object_sample.objectName
-
-        dataset_path = [
-            object_sample.locationCode,
-            object_sample.parent1,
-            object_sample.parent2,
-            object_sample.parent3,
-            object_name,
-        ]
 
         properties = DatasetPropertiesClass(
             name=object_name,
-            description=object_sample.description,
+            description=row.description,
             qualifiedName=build_dataset_qualified_name(*dataset_path),
         )
 
         browse_paths = BrowsePathsClass([build_dataset_browse_path(*dataset_path)])
 
+        columns = (
+            list(map(lambda col: self.map_column(col), row.columns.split("|;|")))
+            if pd.notna(row.columns)
+            else []
+        )
         schema = SchemaMetadataClass(
             schemaName=self.platform,
             version=1,
             hash="",
             platform=builder.make_data_platform_urn(self.platform),
             platformSchema=KafkaSchemaClass.construct_with_defaults(),
-            fields=fields_by_object.dropna(subset="fieldName")
-            .apply(lambda field: self.map_column(field), axis=1)
-            .values.tolist(),
+            fields=columns,
         )
-        owners = [
-            builder.make_group_urn(owner.strip())
-            for owner in object_sample.owners.split(",")
-        ]
+
+        owners = []
+        if row.owners is not None:
+            owners = [
+                builder.make_group_urn(owner.strip()) for owner in row.owners.split(",")
+            ]
+
         ownership = builder.make_ownership_aspect_from_urn_list(
             owners, OwnershipSourceTypeClass.SERVICE, OwnershipTypeClass.TECHNICAL_OWNER
         )
@@ -337,7 +432,7 @@ class IBRedashDatasetSource(IBRedashSource):
                 changeType=ChangeTypeClass.UPSERT,
                 entityUrn=snapshot.urn,
                 aspectName="subTypes",
-                aspect=SubTypesClass(typeNames=[self.object_subtype]),
+                aspect=SubTypesClass(typeNames=[self.path_info[-1].subtype]),
             ),
         )
 
@@ -347,7 +442,7 @@ class IBRedashDatasetSource(IBRedashSource):
             if pd.isna(container_path[-1]):
                 break
             yield from self.fetch_container_workunits(
-                container_path, self.parent_subtypes[i - 1], container_parent_path
+                container_path, self.path_info[i - 1], container_parent_path
             )
             container_parent_path = container_path
 
@@ -367,7 +462,7 @@ class IBRedashDatasetSource(IBRedashSource):
     def fetch_container_workunits(
         self,
         path: List[str],
-        container_subtype: str,
+        container_info: IBPathElementInfo,
         parent_path: Optional[List[str]] = None,
     ) -> Iterable[MetadataWorkUnit]:
         qualified_name = build_dataset_qualified_name(*path)
@@ -383,20 +478,22 @@ class IBRedashDatasetSource(IBRedashSource):
         )
 
         yield self.build_container_workunit_with_aspect(
-            container_urn, SubTypesClass(typeNames=[container_subtype])
+            container_urn, SubTypesClass(typeNames=[container_info.subtype])
+        )
+
+        yield self.build_container_workunit_with_aspect(
+            container_urn,
+            aspect=DataPlatformInstance(
+                platform=builder.make_data_platform_urn("infobip-location")
+                if container_info.is_location
+                else builder.make_data_platform_urn(self.platform),
+            ),
         )
 
         if parent_path is not None:
             yield self.build_container_workunit_with_aspect(
                 container_urn,
                 ContainerClass(container=build_container_urn(*parent_path)),
-            )
-            # todo wrong, fix
-            yield self.build_container_workunit_with_aspect(
-                container_urn,
-                aspect=DataPlatformInstance(
-                    platform=builder.make_data_platform_urn(self.platform),
-                ),
             )
 
     @staticmethod
@@ -411,17 +508,28 @@ class IBRedashDatasetSource(IBRedashSource):
 
     @staticmethod
     def map_column(field) -> SchemaFieldClass:
-        data_type = field.fieldType
+        parts = field.split("|:|")
+        data_type = parts[1]
         return SchemaFieldClass(
-            fieldPath=field.fieldName,
-            description=field.fieldExampleValues,
+            fieldPath=parts[0],
+            description=parts[3],
             type=SchemaFieldDataTypeClass(type=get_type_class(data_type)),
             nativeDataType=data_type,
-            nullable=bool(field.nullable),
+            nullable=bool(parts[2]),
+        )
+
+    def normalize_dataset_path(self, dataset_path: List[str]):
+        return list(
+            map(
+                lambda i_el: i_el[1].lower()
+                if self.path_info[i_el[0]].is_location
+                else i_el[1],
+                enumerate(filter(lambda e: not pd.isna(e), dataset_path)),
+            )
         )
 
     @abstractmethod
-    def get_default_ingestion_job_id(self) -> JobId:
+    def get_default_ingestion_job_id_prefix(self) -> JobId:
         pass
 
 
@@ -472,10 +580,10 @@ def get_type_class(type_str: str):
         return NullTypeClass()
 
 
-def build_dataset_urn(platform: str, location_code: str, *path: str):
+def build_dataset_urn(platform: str, *path: str):
     return builder.make_dataset_urn(
         platform.lower(),
-        build_dataset_path_with_separator(".", location_code, *path),
+        build_dataset_path_with_separator(".", *path),
         "PROD",
     )
 
@@ -484,17 +592,18 @@ def build_container_urn(*path: str):
     return builder.make_container_urn(build_dataset_qualified_name(*path))
 
 
-def build_dataset_qualified_name(location_code: str, *path: str):
-    return build_dataset_path_with_separator(".", location_code, *path)
+def build_dataset_qualified_name(*path: str):
+    return build_dataset_path_with_separator(".", *path)
 
 
-def build_dataset_browse_path(location_code: str, *path: str):
-    return f"/prod/{build_dataset_path_with_separator('/', location_code, *path)}"
+def build_dataset_browse_path(*path: str):
+    return f"/prod/{build_dataset_path_with_separator('/', *path)}"
 
 
-def build_dataset_path_with_separator(separator: str, location_code: str, *path: str):
-    return build_str_path_with_separator(separator, location_code.lower(), *path)
+def build_dataset_path_with_separator(separator: str, *path: str):
+    return build_str_path_with_separator(separator, *path)
 
 
 def build_str_path_with_separator(separator: str, *path: str):
-    return f"{separator.join(filter(lambda e: not pd.isna(e), path))}"
+    replace_chars_regex = re.compile("[/\\\\&?*=]")
+    return separator.join(map(lambda p: replace_chars_regex.sub("-", p), path))
