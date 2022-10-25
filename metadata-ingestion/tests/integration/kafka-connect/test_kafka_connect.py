@@ -215,6 +215,29 @@ def test_kafka_connect_ingest(docker_compose_runner, pytestconfig, tmp_path, moc
                 }""",
         )
         assert r.status_code == 201  # Created
+
+        # Creating Generic source
+        r = requests.post(
+            "http://localhost:58083/connectors",
+            headers={"Content-Type": "application/json"},
+            data="""{
+                    "name": "generic_source",
+                    "config": {
+                        "connector.class": "io.confluent.kafka.connect.datagen.DatagenConnector",
+                        "kafka.topic": "my-topic",
+                        "quickstart": "product",
+                        "key.converter": "org.apache.kafka.connect.storage.StringConverter",
+                        "value.converter": "org.apache.kafka.connect.json.JsonConverter",
+                        "value.converter.schemas.enable": "false",
+                        "max.interval": 1000,
+                        "iterations": 10000000,
+                        "tasks.max": "1"
+                    }
+                }""",
+        )
+        r.raise_for_status()
+        assert r.status_code == 201  # Created
+
         # Give time for connectors to process the table data
         time.sleep(60)
 
