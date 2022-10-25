@@ -100,7 +100,7 @@ export const EmbeddedListSearch = ({
     const finalFilters = (fixedFilter && [...filtersWithoutEntities, fixedFilter]) || filtersWithoutEntities;
     const entityFilters: Array<EntityType> = filters
         .filter((filter) => filter.field === ENTITY_FILTER_NAME)
-        .flatMap((filter) => filter.values.map((value) => value?.toUpperCase() as EntityType));
+        .flatMap((filter) => filter.values?.map((value) => value?.toUpperCase() as EntityType) || []);
 
     const [showFilters, setShowFilters] = useState(defaultShowFilters || false);
     const [isSelectMode, setIsSelectMode] = useState(false);
