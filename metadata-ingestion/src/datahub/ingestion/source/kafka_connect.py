@@ -941,23 +941,17 @@ class KafkaConnectSource(Source):
                         connector_manifest=connector_manifest, config=self.config
                     ).connector_manifest
                 else:
-                    # since the default self.config.generic_connectors is empty list, not checking value emptiness here.
-                    # can't find connector in self.config.generic_connectors
-                    connector_names = [
-                        i.connector_name for i in self.config.generic_connectors
-                    ]
-                    if connector_manifest.name not in connector_names:
-                        logger.warning(
-                            f"Detected undefined connector {connector_manifest.name}, which is not in the customized connector list. Please refer to Kafka Connect ingestion recipe to define this customized connector."
-                        )
-                        continue
-
-                    # find the target connector object in the list.
-                    # already checked target_connector's existence in last step, so no null pointer problem.
+                    # Find the target connector object in the list, or log an error if unknown.
+                    target_connector = None
                     for connector in self.config.generic_connectors:
                         if connector.connector_name == connector_manifest.name:
                             target_connector = connector
                             break
+                    if not target_connector:
+                        logger.warning(
+                            f"Detected undefined connector {connector_manifest.name}, which is not in the customized connector list. Please refer to Kafka Connect ingestion recipe to define this customized connector."
+                        )
+                        continue
 
                     for topic in topics:
                         lineage = KafkaConnectLineage(
