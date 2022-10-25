@@ -545,6 +545,9 @@ fragment searchResultFields on Entity {
         parentNodes {
             ...parentNodesFields
         }
+        domain {
+            ...entityDomain
+        }
     }
     ... on GlossaryNode {
         ...glossaryNode
