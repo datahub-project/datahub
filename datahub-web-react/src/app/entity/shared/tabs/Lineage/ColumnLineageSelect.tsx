@@ -1,6 +1,7 @@
 import { Button, Select, Tooltip } from 'antd';
 import * as React from 'react';
 import styled from 'styled-components/macro';
+import { blue } from '@ant-design/colors';
 import { useHistory, useLocation } from 'react-router';
 import { ImpactAnalysisIcon } from '../Dataset/Schema/components/MenuColumn';
 import updateQueryParams from '../../../../shared/updateQueryParams';
@@ -11,6 +12,25 @@ const StyledSelect = styled(Select)`
     margin-right: 5px;
     min-width: 140px;
     max-width: 200px;
+`;
+
+const StyledButton = styled(Button)<{ isSelected: boolean }>`
+    transition: color 0s;
+    display: flex;
+    align-items: center;
+
+    ${(props) =>
+        props.isSelected &&
+        `
+        color: ${blue[5]};
+        &:focus, &:hover {
+            color: ${blue[5]};
+        }
+    `};
+`;
+
+const TextWrapper = styled.span`
+    margin-left: 8px;
 `;
 
 interface Props {
@@ -53,13 +73,15 @@ export default function ColumnsLineageSelect({
                 </StyledSelect>
             )}
             <Tooltip title={columnButtonTooltip}>
-                <Button
+                <StyledButton
                     type="text"
                     onClick={() => setIsColumnLevelLineage(!isColumnLevelLineage)}
                     data-testid="column-lineage-toggle"
+                    isSelected={isColumnLevelLineage}
                 >
                     <ImpactAnalysisIcon />
-                </Button>
+                    <TextWrapper>Column Lineage</TextWrapper>
+                </StyledButton>
             </Tooltip>
         </>
     );
