@@ -1,11 +1,9 @@
 import logging
 import re
-from typing import Dict, Iterable, List, Optional
+from typing import Iterable, List, Optional
 
 import pydantic
-from pydantic import Field
 
-from datahub.configuration.common import AllowDenyPattern
 from datahub.emitter.mce_builder import (
     make_data_platform_urn,
     make_dataset_urn_with_platform_instance,
@@ -39,13 +37,12 @@ from datahub.ingestion.api.source import (
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.state.stale_entity_removal_handler import (
     StaleEntityRemovalHandler,
-    StatefulStaleMetadataRemovalConfig,
 )
 from datahub.ingestion.source.state.stateful_ingestion_base import (
-    StatefulIngestionConfigBase,
     StatefulIngestionSourceBase,
 )
 from datahub.ingestion.source.unity import proxy
+from datahub.ingestion.source.unity.config import UnityCatalogSourceConfig
 from datahub.ingestion.source.unity.proxy import Catalog, Metastore, Schema
 from datahub.ingestion.source.unity.report import UnityCatalogReport
 from datahub.ingestion.source.unity.unity_state import UnityCatalogCheckpointState
@@ -67,52 +64,6 @@ from datahub.utilities.source_helpers import (
 )
 
 logger: logging.Logger = logging.getLogger(__name__)
-
-
-class UnityCatalogStatefulIngestionConfig(StatefulStaleMetadataRemovalConfig):
-    """
-    Specialization of StatefulStaleMetadataRemovalConfig to adding custom config.
-    This will be used to override the stateful_ingestion config param of StatefulIngestionConfigBase
-    in the TableauConfig.
-    """
-
-    _entity_types: List[str] = Field(default=["dataset", "container"])
-
-
-class UnityCatalogSourceConfig(StatefulIngestionConfigBase):
-    token: str = pydantic.Field(description="Databricks personal access token")
-    workspace_url: str = pydantic.Field(description="Databricks workspace url")
-    workspace_name: str = pydantic.Field(
-        default=None,
-        description="Name of the workspace. Default to deployment name present in workspace_url",
-    )
-
-    metastore_id_pattern: AllowDenyPattern = Field(
-        default=AllowDenyPattern.allow_all(),
-        description="Regex patterns for metastore_id to filter in ingestion.",
-    )
-
-    catalog_pattern: AllowDenyPattern = Field(
-        default=AllowDenyPattern.allow_all(),
-        description="Regex patterns for catalogs to filter in ingestion. Specify regex to match the entire view name in database.schema.view format. e.g. to match all views starting with customer in Customer database and public schema, use the regex 'Customer.public.customer.*'",
-    )
-
-    schema_pattern: AllowDenyPattern = Field(
-        default=AllowDenyPattern.allow_all(),
-        description="Regex patterns for schemas to filter in ingestion. Specify regex to only match the schema name. e.g. to match all tables in schema analytics, use the regex 'analytics'",
-    )
-    table_pattern: AllowDenyPattern = Field(
-        default=AllowDenyPattern.allow_all(),
-        description="Regex patterns for tables to filter in ingestion. Specify regex to match the entire table name in database.schema.table format. e.g. to match all tables starting with customer in Customer catalog and public schema, use the regex 'Customer.public.customer.*'",
-    )
-    domain: Dict[str, AllowDenyPattern] = Field(
-        default=dict(),
-        description='Attach domains to catalogs, schemas or tables during ingestion using regex patterns. Domain key can be a guid like *urn:li:domain:ec428203-ce86-4db3-985d-5a8ee6df32ba* or a string like "Marketing".) If you provide strings, then datahub will attempt to resolve this name to a guid, and will error out if this fails. There can be multiple domain keys specified.',
-    )
-
-    stateful_ingestion: Optional[UnityCatalogStatefulIngestionConfig] = pydantic.Field(
-        default=None, description="Unity Catalog Stateful Ingestion Config."
-    )
 
 
 @platform_name("Unity Catalog")
