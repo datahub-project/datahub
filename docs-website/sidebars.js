@@ -223,11 +223,11 @@ module.exports = {
           },
         ],
       },
-      //  {
-      //    type: "doc",
-      //    id: "docs/wip/metadata-tests",
-      //    className: "saasOnly",
-      //  },
+      {
+        type: "doc",
+        id: "docs/tests/metadata-tests",
+        className: "saasOnly",
+      },
       //  "docs/wip/metadata-analytics",
       "docs/act-on-metadata/impact-analysis",
       // {
