@@ -225,7 +225,7 @@ module.exports = {
       },
       {
         type: "doc",
-        id: "docs/metadata-tests",
+        id: "docs/tests/metadata-tests",
         className: "saasOnly",
       },
       //  "docs/wip/metadata-analytics",
