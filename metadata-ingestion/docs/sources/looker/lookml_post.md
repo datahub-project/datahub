@@ -14,13 +14,28 @@ and must be made available to Datahub by ,for example, installing it. The config
 
 Looker projects support organization as multiple git repos, with [remote includes that can refer to projects that are stored in a different repo](https://cloud.google.com/looker/docs/importing-projects#include_files_from_an_imported_project). If your Looker implementation uses multi-project setup, you can configure the LookML source to pull in metadata from your remote projects as well.
 
-If you are using remote dependencies, you will see include directives in your lookml files that look like this:
+If you are using local or remote dependencies, you will see include directives in your lookml files that look like this:
 ```
 include: "//e_flights/views/users.view.lkml"
 include: "//e_commerce/public/orders.view.lkml"
 ```
 
-To ingest Looker repositories that are using remote includes, you will need to use the `project_dependencies` directive within the configuration section.
+Also, you will see projects that are being referred to listed in your `manifest.lkml` file. Something like this:
+```
+project_name: this_project
+
+local_dependency: {
+    project: "my-remote-project"
+}
+
+remote_dependency: ga_360_block {
+  url: "https://github.com/llooker/google_ga360"
+  ref: "0bbbef5d8080e88ade2747230b7ed62418437c21"
+}
+```
+
+
+To ingest Looker repositories that are including files defined in other projects, you will need to use the `project_dependencies` directive within the configuration section.
 Consider the following scenario:
 - Your primary project refers to a remote project called `my_remote_project`
 - The remote project is homed in the GitHub repo `my_org/my_remote_project`
