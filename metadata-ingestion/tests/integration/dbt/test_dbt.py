@@ -12,7 +12,7 @@ from datahub.configuration.common import DynamicTypedConfig
 from datahub.ingestion.api.ingestion_job_checkpointing_provider_base import JobId
 from datahub.ingestion.run.pipeline import Pipeline
 from datahub.ingestion.run.pipeline_config import PipelineConfig, SourceConfig
-from datahub.ingestion.source.dbt import (
+from datahub.ingestion.source.dbt.dbt import (
     DBTConfig,
     DBTEntitiesEnabled,
     DBTSource,

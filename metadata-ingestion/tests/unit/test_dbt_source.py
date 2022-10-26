@@ -5,7 +5,7 @@ from pydantic import ValidationError
 
 from datahub.emitter import mce_builder
 from datahub.ingestion.api.common import PipelineContext
-from datahub.ingestion.source.dbt import DBTConfig, DBTSource
+from datahub.ingestion.source.dbt.dbt import DBTConfig, DBTSource
 from datahub.metadata.schema_classes import (
     OwnerClass,
     OwnershipSourceClass,
