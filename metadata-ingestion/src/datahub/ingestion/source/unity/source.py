@@ -8,6 +8,7 @@ from datahub.emitter.mce_builder import (
     make_data_platform_urn,
     make_dataset_urn_with_platform_instance,
     make_domain_urn,
+    make_schema_field_urn,
 )
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.emitter.mcp_builder import (
@@ -47,14 +48,22 @@ from datahub.ingestion.source.unity.proxy import Catalog, Metastore, Schema
 from datahub.ingestion.source.unity.report import UnityCatalogReport
 from datahub.ingestion.source.unity.unity_state import UnityCatalogCheckpointState
 from datahub.metadata.com.linkedin.pegasus2avro.common import Status
-from datahub.metadata.com.linkedin.pegasus2avro.dataset import ViewProperties
+from datahub.metadata.com.linkedin.pegasus2avro.dataset import (
+    FineGrainedLineage,
+    FineGrainedLineageUpstreamType,
+    Upstream,
+    ViewProperties,
+)
 from datahub.metadata.schema_classes import (
     ChangeTypeClass,
+    DatasetLineageTypeClass,
     DatasetPropertiesClass,
     MySqlDDLClass,
     SchemaFieldClass,
     SchemaMetadataClass,
     SubTypesClass,
+    UpstreamClass,
+    UpstreamLineageClass,
 )
 from datahub.utilities.hive_schema_to_avro import get_schema_fields_for_hive_column
 from datahub.utilities.registries.domain_registry import DomainRegistry
@@ -92,7 +101,7 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
 
     config: UnityCatalogSourceConfig
     unity_catalog_api_proxy: proxy.UnityCatalogApiProxy
-    platform: str = "unity-catalog"
+    platform: str = "databricks"
     platform_instance_name: str
 
     def get_workunits_internal(self) -> Iterable[MetadataWorkUnit]:
@@ -225,7 +234,6 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
                 yield self._create_view_property_aspect(table)
             yield self._create_table_sub_type_aspect_mcp(table)
             yield self._create_schema_metadata_aspect_mcp(table)
-
             status = Status(removed=False)
             mcp = MetadataChangeProposalWrapper(
                 entityType="dataset",
@@ -246,12 +254,92 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
                 entity_type="dataset",
             )
 
+            if self.config.include_column_lineage:
+                self.unity_catalog_api_proxy.get_column_lineage(table)
+                yield from self._generate_column_lineage_mcp(dataset_urn, table)
+            else:
+                self.unity_catalog_api_proxy.table_lineage(table)
+                yield from self._generate_lineage_mcp(dataset_urn, table)
+
             self.report.report_entity_scanned(
                 f"{table.schema.catalog.name}.{table.schema.name}.{table.name}",
                 table.type,
             )
 
             self.report.increment_scanned_table(1)
+
+    def _generate_column_lineage_mcp(
+        self, dataset_urn: str, table: proxy.Table
+    ) -> Iterable[MetadataWorkUnit]:
+        upstreams: List[UpstreamClass] = []
+        finegrained_lineages: List[FineGrainedLineage] = []
+        for upstream in table.upstreams.keys():
+            upstream_urn = make_dataset_urn_with_platform_instance(
+                self.platform,
+                f"{table.schema.catalog.metastore.metastore_id}.{upstream}",
+                self.platform_instance_name,
+            )
+
+            for col in table.upstreams[upstream].keys():
+                fl = FineGrainedLineage(
+                    upstreamType=FineGrainedLineageUpstreamType.FIELD_SET,
+                    upstreams=[
+                        make_schema_field_urn(upstream_urn, upstream_col)
+                        for upstream_col in table.upstreams[upstream][col]
+                    ],
+                    downstreamType=FineGrainedLineageUpstreamType.FIELD_SET,
+                    downstreams=[make_schema_field_urn(dataset_urn, col)],
+                )
+                finegrained_lineages.append(fl)
+
+            upstream_table = UpstreamClass(
+                upstream_urn,
+                DatasetLineageTypeClass.TRANSFORMED,
+            )
+            upstreams.append(upstream_table)
+
+        if upstreams:
+            upstream_lineage = UpstreamLineageClass(
+                upstreams=upstreams, fineGrainedLineages=finegrained_lineages
+            )
+            mcp = MetadataChangeProposalWrapper(
+                entityType="dataset",
+                changeType=ChangeTypeClass.UPSERT,
+                entityUrn=dataset_urn,
+                aspect=upstream_lineage,
+            )
+            wu = MetadataWorkUnit(id=f"upstream-{dataset_urn}", mcp=mcp)
+            self.report.report_workunit(wu)
+            yield wu
+
+    def _generate_lineage_mcp(
+        self, dataset_urn: str, table: proxy.Table
+    ) -> Iterable[MetadataWorkUnit]:
+        upstreams: List[UpstreamClass] = []
+        for upstream in table.upstreams.keys():
+            upstream_urn = make_dataset_urn_with_platform_instance(
+                self.platform,
+                f"{table.schema.catalog.metastore.metastore_id}.{upstream}",
+                self.platform_instance_name,
+            )
+
+            upstream_table = UpstreamClass(
+                upstream_urn,
+                DatasetLineageTypeClass.TRANSFORMED,
+            )
+            upstreams.append(upstream_table)
+
+        if upstreams:
+            upstream_lineage = UpstreamLineageClass(upstreams=upstreams)
+            mcp = MetadataChangeProposalWrapper(
+                entityType="dataset",
+                changeType=ChangeTypeClass.UPSERT,
+                entityUrn=dataset_urn,
+                aspect=upstream_lineage,
+            )
+            wu = MetadataWorkUnit(id=f"upstream-{dataset_urn}", mcp=mcp)
+            self.report.report_workunit(wu)
+            yield wu
 
     def _get_domain_wu(
         self,

@@ -3,9 +3,10 @@ Manage the communication with DataBricks Server and provide equivalent dataclass
 """
 import datetime
 import logging
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Any, Dict, Iterable, List, Optional
 
+from databricks_cli.sdk import version
 from databricks_cli.sdk.api_client import ApiClient
 from databricks_cli.unity_catalog.api import UnityCatalogApi
 
@@ -84,14 +85,9 @@ class Column(CommonProperty):
 
 
 @dataclass
-class TableInfo(CommonProperty):
-    pass
-
-
-@dataclass
-class Lineage:
-    upstreams: TableInfo
-    downstreams: TableInfo
+class ColumnLineage:
+    source: str
+    destination: str
 
 
 @dataclass
@@ -111,6 +107,7 @@ class Table(CommonProperty):
     table_id: str
     view_definition: Optional[str]
     properties: Dict[str, str]
+    upstreams: Dict[str, Dict[str, List[str]]] = field(default_factory=dict)
 
     # lineage: Optional[Lineage]
 
@@ -196,6 +193,81 @@ class UnityCatalogApiProxy:
         for table in response["tables"]:
             yield self._create_table(schema=schema, obj=table)
 
+    def list_lineages_by_table(self, table_name=None, headers=None):
+        """
+        List table lineage by table name
+        """
+        _data = {}
+        if table_name is not None:
+            _data["table_name"] = table_name
+
+        return self._unity_catalog_api.client.client.perform_query(
+            "GET",
+            "/lineage-tracking/table-lineage/get",
+            data=_data,
+            headers=headers,
+            version="2.0",
+        )
+
+    def list_lineages_by_column(self, table_name=None, column_name=None, headers=None):
+        """
+        List column lineage by table name and comlumn name
+        """
+        # Lineage endpoint doesn't exists on 2.1 version
+        _data = {}
+        if table_name is not None:
+            _data["table_name"] = table_name
+        if column_name is not None:
+            _data["column_name"] = column_name
+
+        return self._unity_catalog_api.client.client.perform_query(
+            "GET",
+            "/lineage-tracking/column-lineage/get",
+            data=_data,
+            headers=headers,
+            version="2.0",
+        )
+
+    def table_lineage(self, table: Table) -> None:
+        # Lineage endpoint doesn't exists on 2.1 version
+        try:
+            response: dict = self.list_lineages_by_table(
+                table_name=f"{table.schema.catalog.name}.{table.schema.name}.{table.name}"
+            )
+            table.upstreams = {
+                f"{item['catalog_name']}.{item['schema_name']}.{item['name']}": {}
+                for item in response.get("upstream_tables", [])
+            }
+        except Exception as e:
+            logger.error(f"Error getting lineage: {e}")
+
+    def get_column_lineage(self, table: Table) -> None:
+        try:
+            table_lineage_response: dict = self.list_lineages_by_table(
+                table_name=f"{table.schema.catalog.name}.{table.schema.name}.{table.name}"
+            )
+            if table_lineage_response:
+                for column in table.columns:
+                    response: dict = self.list_lineages_by_column(
+                        table_name=f"{table.schema.catalog.name}.{table.schema.name}.{table.name}",
+                        column_name=column.name,
+                    )
+                    for item in response.get("upstream_cols", []):
+                        table_name = f"{item['catalog_name']}.{item['schema_name']}.{item['table_name']}"
+                        col_name = item["name"]
+                        if not table.upstreams.get(table_name):
+                            table.upstreams[table_name] = {column.name: [col_name]}
+                        else:
+                            if column.name in table.upstreams[table_name]:
+                                table.upstreams[table_name][column.name].append(
+                                    col_name
+                                )
+                            else:
+                                table.upstreams[table_name][column.name] = [col_name]
+
+        except Exception as e:
+            logger.error(f"Error getting lineage: {e}")
+
     @staticmethod
     def _escape_sequence(value: str) -> str:
         return value.replace(" ", "_")
@@ -203,7 +275,7 @@ class UnityCatalogApiProxy:
     def _create_metastore(self, obj: Any) -> Metastore:
         return Metastore(
             name=obj["name"],
-            id=self._escape_sequence(obj["name"]),
+            id=obj["metastore_id"],
             metastore_id=obj["metastore_id"],
             type="Metastore",
             comment=obj.get("comment"),
