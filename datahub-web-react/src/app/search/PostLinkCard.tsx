@@ -1,19 +1,15 @@
 import React from 'react';
-// import { Link } from 'react-router-dom';
 import { Button, Image, Typography } from 'antd';
 import { ArrowRightOutlined } from '@ant-design/icons';
 import styled from 'styled-components/macro';
 import { ANTD_GRAY } from '../entity/shared/constants';
 import { Post } from '../../types.generated';
 
-const CardContainer = styled(Button)<{ isLastCardInRow?: boolean }>`
+const CardContainer = styled(Button)`
     display: flex;
     flex-direction: row;
     justify-content: space-between;
-    margin-right: ${(props) => (props.isLastCardInRow ? '0%' : '4%')};
-    margin-left: 12px;
-    margin-bottom: 12px;
-    width: 29%;
+    padding: 0px;
     height: 100px;
     border: 1px solid ${ANTD_GRAY[4]};
     border-radius: 12px;
@@ -25,9 +21,11 @@ const CardContainer = styled(Button)<{ isLastCardInRow?: boolean }>`
 `;
 
 const LogoContainer = styled.div`
-    margin-top: 25px;
-    margin-left: 25px;
-    margin-right: 40px;
+    display: flex;
+    height: 100%;
+    flex: 1;
+    justify-content: center;
+    align-items: center;
 `;
 
 const PlatformLogo = styled(Image)`
@@ -38,56 +36,58 @@ const PlatformLogo = styled(Image)`
 
 const TextContainer = styled.div`
     display: flex;
-    flex: 1;
-    justify-content: center;
-    align-items: start;
+    flex: 2;
+`;
+
+const TextWrapper = styled.div`
+    text-align: left;
+    display: flex;
     flex-direction: column;
+    justify-content: center;
+    flex: 2;
 `;
 
 const HeaderText = styled(Typography.Text)`
     line-height: 10px;
-    margin-top: 12px;
-`;
-
-const TitleDiv = styled.div`
-    display: flex;
-    justify-content: space-evenly;
-    align-items: center;
-    gap: 6px;
-    font-size: 14px;
+    display: box;
+    text-align: left;
+    margin-bottom: 8px;
 `;
 
 const Title = styled(Typography.Title)`
-    word-break: break-word;
+    font-size: 14px;
+    text-align: left;
 `;
 
-const NUM_CARDS_PER_ROW = 3;
+const StyledArrowOutlined = styled(ArrowRightOutlined)`
+    align-self: center;
+    flex: 1;
+    color: black;
+`;
 
 type Props = {
     linkPost: Post;
-    index: number;
 };
 
-export const PostLinkCard = ({ linkPost, index }: Props) => {
+export const PostLinkCard = ({ linkPost }: Props) => {
     const hasMedia = !!linkPost?.content?.media?.location;
     const link = linkPost?.content?.link || '';
-    const isLastCardInRow = (index + 1) % NUM_CARDS_PER_ROW === 0;
 
     return (
-        <CardContainer type="link" href={link} isLastCardInRow={isLastCardInRow}>
+        <CardContainer type="link" href={link}>
             {hasMedia && (
                 <LogoContainer>
                     <PlatformLogo width={50} height={50} preview={false} src={linkPost?.content?.media?.location} />
                 </LogoContainer>
             )}
             <TextContainer>
-                <HeaderText type="secondary">Link</HeaderText>
-                <Title level={5}>
-                    <TitleDiv>
+                <TextWrapper style={{ textAlign: 'left' }}>
+                    <HeaderText type="secondary">Link</HeaderText>
+                    <Title style={{ margin: 0 }} ellipsis={{ rows: 2 }} level={5}>
                         {linkPost?.content?.title}
-                        <ArrowRightOutlined />
-                    </TitleDiv>
-                </Title>
+                    </Title>
+                </TextWrapper>
+                <StyledArrowOutlined />
             </TextContainer>
         </CardContainer>
     );
