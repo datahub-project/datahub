@@ -34,12 +34,8 @@ class UUID(String):
 class TIMESTAMPWP(TIMESTAMP):
     """The SQL TIMESTAMP With Precision type.
 
-    :class:`_types.TIMESTAMP` datatypes have support for timezone
-    storage on some backends, such as PostgreSQL and Oracle.  Use the
-    :paramref:`~types.TIMESTAMP.timezone` argument in order to enable
-    "TIMESTAMP WITH TIMEZONE" for these backends. Also since Vertica supports
-    precision values for timestamp this allows ingestion of timestamp fields
-    with precision values.
+    Since Vertica supports precision values for timestamp this allows ingestion
+    of timestamp fields with precision values.
     PS: THIS DATA IS CURRENTLY UNUSED, IT JUST FIXES INGESTION PROBLEMS
     TODO: Should research the possibility of reflecting the precision in the schema
 
@@ -68,14 +64,10 @@ def TIMESTAMP_WITH_PRECISION(*args, **kwargs):
 
 
 class TIMESTAMPTZWP(TIMESTAMP):
-    """The SQL TIMESTAMPWP type.
+    """The SQL TIMESTAMP with Timezone and possible precision type.
 
-    :class:`_types.TIMESTAMPWP` datatypes have support for timezone
-    storage on some backends, such as PostgreSQL and Oracle.  Use the
-    :paramref:`~types.TIMESTAMPWP.timezone` argument in order to enable
-    "TIMESTAMP WITH TIMEZONE" for these backends.Also since Vertica supports
-    precision values for timestamp this allows ingestion of timestamp fields
-    with precision values.
+    Since Vertica supports precision values for timestamp this allows ingestion
+    of timestamp fields with precision values.
 
     PS: THIS DATA IS CURRENTLY UNUSED, IT JUST FIXES INGESTION PROBLEMS
     TODO: Should research the possibility of reflecting the precision in the schema
