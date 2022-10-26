@@ -161,6 +161,7 @@ export default function SchemaTable({
         dataIndex: 'fieldPath',
         key: 'usage',
         render: usageStatsRenderer,
+        sorter: (sourceA, sourceB) => sourceA.name.localeCompare(sourceB.name),
     };
 
     let allColumns: ColumnsType<ExtendedSchemaFields> = [fieldColumn, descriptionColumn, tagColumn, termColumn];
