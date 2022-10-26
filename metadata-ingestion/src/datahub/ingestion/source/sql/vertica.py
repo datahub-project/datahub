@@ -31,9 +31,78 @@ class UUID(String):
     __visit_name__ = "UUID"
 
 
+class TIMESTAMPWP(TIMESTAMP):
+    """The SQL TIMESTAMP With Precision type.
+
+    :class:`_types.TIMESTAMP` datatypes have support for timezone
+    storage on some backends, such as PostgreSQL and Oracle.  Use the
+    :paramref:`~types.TIMESTAMP.timezone` argument in order to enable
+    "TIMESTAMP WITH TIMEZONE" for these backends. Also since Vertica supports
+    precision values for timestamp this allows ingestion of timestamp fields
+    with precision values.
+    PS: THIS DATA IS CURRENTLY UNUSED, IT JUST FIXES INGESTION PROBLEMS
+    TODO: Should research the possibility of reflecting the precision in the schema
+
+    """
+
+    __visit_name__ = "TIMESTAMP"
+
+    def __init__(self, timezone=False, precision=None):
+        """Construct a new :class:`_types.TIMESTAMPWP`.
+
+        :param timezone: boolean.  Indicates that the TIMESTAMP type should
+         enable timezone support, if available on the target database.
+         On a per-dialect basis is similar to "TIMESTAMP WITH TIMEZONE".
+         If the target database does not support timezones, this flag is
+         ignored.
+        :param precision: integer.  Indicates the PRECISION field when provided
+
+
+        """
+        super(TIMESTAMP, self).__init__(timezone=timezone)
+        self.precision = precision
+
+
+def TIMESTAMP_WITH_PRECISION(*args, **kwargs):
+    return TIMESTAMPWP(*args, **kwargs)
+
+
+class TIMESTAMPTZWP(TIMESTAMP):
+    """The SQL TIMESTAMPWP type.
+
+    :class:`_types.TIMESTAMPWP` datatypes have support for timezone
+    storage on some backends, such as PostgreSQL and Oracle.  Use the
+    :paramref:`~types.TIMESTAMPWP.timezone` argument in order to enable
+    "TIMESTAMP WITH TIMEZONE" for these backends.Also since Vertica supports
+    precision values for timestamp this allows ingestion of timestamp fields
+    with precision values.
+
+    PS: THIS DATA IS CURRENTLY UNUSED, IT JUST FIXES INGESTION PROBLEMS
+    TODO: Should research the possibility of reflecting the precision in the schema
+
+    """
+
+    __visit_name__ = "TIMESTAMP"
+
+    def __init__(self, timezone=False, precision=None):
+        """Construct a new :class:`_types.TIMESTAMPWP`.
+
+        :param timezone: boolean.  Indicates that the TIMESTAMP type should
+         enable timezone support, if available on the target database.
+         On a per-dialect basis is similar to "TIMESTAMP WITH TIMEZONE".
+         If the target database does not support timezones, this flag is
+         ignored.
+        :param precision: integer.  Indicates the PRECISION field when provided
+
+
+        """
+        super(TIMESTAMP, self).__init__(timezone=timezone)
+        self.precision = precision
+
+
 def TIMESTAMP_WITH_TIMEZONE(*args, **kwargs):
     kwargs["timezone"] = True
-    return TIMESTAMP(*args, **kwargs)
+    return TIMESTAMPTZWP(*args, **kwargs)
 
 
 def TIME_WITH_TIMEZONE(*args, **kwargs):
@@ -175,6 +244,7 @@ def _get_column_info(  # noqa: C901
             break
 
     self.ischema_names["UUID"] = UUID
+    self.ischema_names["TIMESTAMP"] = TIMESTAMP_WITH_PRECISION
     self.ischema_names["TIMESTAMPTZ"] = TIMESTAMP_WITH_TIMEZONE
     self.ischema_names["TIMETZ"] = TIME_WITH_TIMEZONE
 
