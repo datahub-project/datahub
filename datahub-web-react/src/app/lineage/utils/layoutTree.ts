@@ -33,6 +33,7 @@ function layoutNodesForOneDirection(
     collapsedColumnsNodes: any,
     nodesToRender: VizNode[],
     edgesToRender: VizEdge[],
+    renderedNodeUrns: Set<string>,
 ) {
     const nodesByUrn: Record<string, VizNode> = {};
     const xModifier = direction === Direction.Downstream ? 1 : UPSTREAM_X_MODIFIER;
@@ -100,7 +101,6 @@ function layoutNodesForOneDirection(
                     ) + VERTICAL_SPACE_BETWEEN_NODES;
 
                 nodesByUrn[node.urn] = vizNodeForNode;
-                nodesToRender.push(vizNodeForNode);
                 nodesInNextLayer = [
                     ...nodesInNextLayer,
                     ...(node.children?.map((child) => ({
@@ -108,6 +108,10 @@ function layoutNodesForOneDirection(
                         node: child,
                     })) || []),
                 ];
+                if (!renderedNodeUrns.has(node.urn)) {
+                    nodesToRender.push(vizNodeForNode);
+                    renderedNodeUrns.add(node.urn);
+                }
             }
 
             if (parent) {
@@ -349,6 +353,7 @@ export default function layoutTree(
     nodesByUrn: Record<string, VizNode>;
     layers: number;
 } {
+    const renderedNodeUrns = new Set<string>();
     const nodesToRender: VizNode[] = [];
     const edgesToRender: VizEdge[] = [];
 
@@ -362,6 +367,7 @@ export default function layoutTree(
         collapsedColumnsNodes,
         nodesToRender,
         edgesToRender,
+        renderedNodeUrns,
     );
 
     const { numInCurrentLayer: numDownstream, nodesByUrn: downstreamNodesByUrn } = layoutNodesForOneDirection(
@@ -374,6 +380,7 @@ export default function layoutTree(
         collapsedColumnsNodes,
         nodesToRender,
         edgesToRender,
+        renderedNodeUrns,
     );
 
     const nodesByUrn = { ...upstreamNodesByUrn, ...downstreamNodesByUrn };
