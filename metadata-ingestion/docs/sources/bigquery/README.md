@@ -1,1 +1,1 @@
-To get all metadata from BigQuery you need to use two plugins `bigquery` and `bigquery-usage`. Both of them are described in this page. These will require 2 separate recipes. We understand this is not ideal and we plan to make this easier in the future.
+Ingesting metadata from Bigquery requires either using the **bigquery** module with just one recipe (recommended) or the two separate modules **bigquery-legacy** and **bigquery-usage-legacy** (soon to be deprecated) with two separate recipes.
