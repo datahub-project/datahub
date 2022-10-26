@@ -33,7 +33,7 @@ export const ImpactAnalysis = ({ urn, direction }: Props) => {
     );
     const entityFilters: Array<EntityType> = filters
         .filter((filter) => filter.field === ENTITY_FILTER_NAME)
-        .flatMap((filter) => filter.values.map((value) => value.toUpperCase() as EntityType));
+        .flatMap((filter) => filter.values?.map((value) => value.toUpperCase() as EntityType) || []);
 
     const { data, loading } = useSearchAcrossLineageQuery({
         variables: {
