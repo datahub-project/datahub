@@ -51,7 +51,8 @@ out/
 
 #VS Code
 .vscode
-.devcontainer
+### CCCS modification - allow the devcontainer to be committed
+#.devcontainer
 
 #spark smoke test
 smoke-test/spark-smoke-test/docker/workspace/

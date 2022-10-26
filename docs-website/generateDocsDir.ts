@@ -107,6 +107,8 @@ function list_markdown_files(): string[] {
   }
 
   const filter_patterns = [
+    // CCCS modification: Ignore the devcontainer
+    /^\.devcontainer\//,
     // We don't need our issue and pull request templates.
     /^\.github\//,
     // Ignore everything within this directory.

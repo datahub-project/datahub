@@ -1,0 +1,46 @@
+// For format details, see https://aka.ms/devcontainer.json. For config options, see the README at:
+// https://github.com/microsoft/vscode-dev-containers/tree/v0.177.0/containers/java
+{
+	"name": "DataHub",
+	"build": {
+		"dockerfile": "Dockerfile"
+	},
+	"runArgs": [
+		"--init",
+		"--privileged"
+	],
+	"initializeCommand": "mkdir -p ${env:HOME}/scratch && mkdir -p ${env:HOME}/.devcontainers/datahub-caches/dot-cache && mkdir -p ${env:HOME}/.devcontainers/datahub-caches/dot-gradle && touch ${env:HOME}/.devcontainers/datahub-bashhistory && WORK_DIR=${localWorkspaceFolder}/.devcontainer/.work && rm -rf $WORK_DIR && mkdir -p $WORK_DIR && cp /etc/ssl/certs/ssl_proxy_corp_cse-cst_gc_ca.pem $WORK_DIR/ssl_proxy_corp_cse-cst_gc_ca.crt",
+	"mounts": [
+		"source=${env:HOME}/.ssh/agent.sock,target=/usr/local/share/ssh-agent.sock,type=bind",
+		"source=${env:HOME}/.devcontainers/datahub-bashhistory,target=/usr/local/share/bash_history,type=bind",
+		"source=${env:HOME}/scratch,target=${containerWorkspaceFolder}/scratch,type=bind",
+		"source=datahub-dind-var-lib-docker,target=/var/lib/docker,type=volume",
+		"source=${env:HOME}/.devcontainers/datahub-caches/dot-cache,target=/home/vscode/.cache,type=bind",
+		"source=${env:HOME}/.devcontainers/datahub-caches/dot-gradle,target=/home/vscode/.gradle,type=bind"
+	],
+	"remoteEnv": {
+		"SSH_AUTH_SOCK": "/usr/local/share/ssh-agent.sock",
+		"HISTFILE": "/usr/local/share/bash_history",
+		"PROMPT_COMMAND": "history -a"
+	},
+	"workspaceMount": "source=${localWorkspaceFolder}/..,target=${containerWorkspaceFolder}/repositories,type=bind,consistency=cached",
+	"workspaceFolder": "/workspace",
+	// Set *default* container specific settings.json values on container create.
+	"settings": {
+		"terminal.integrated.cwd": "${containerWorkspaceFolder}/repositories/datahub",
+		"terminal.integrated.defaultProfile.linux": "bash"
+	},
+	// Add the IDs of extensions you want installed when the container is created.
+	"extensions": [
+		"eamodio.gitlens",
+		"ms-azuretools.vscode-docker",
+		"ms-vscode.azure-account",
+		"ms-vscode.azurecli",
+		"vscjava.vscode-java-pack"
+	],
+	"overrideCommand": false,
+	// Use 'forwardPorts' to make a list of ports inside the container available locally.
+	// "forwardPorts": [],
+	// Comment out connect as root instead. More info: https://aka.ms/vscode-remote/containers/non-root.
+	"remoteUser": "vscode"
+}
