@@ -1,6 +1,7 @@
 import json
 import logging
 import re
+from abc import abstractmethod
 from dataclasses import dataclass, field
 from datetime import datetime
 from enum import auto
@@ -18,7 +19,6 @@ from typing import (
 )
 from urllib.parse import urlparse
 
-import dateutil.parser
 import pydantic
 import requests
 from pydantic import BaseModel, root_validator, validator
@@ -214,21 +214,7 @@ class DBTEntitiesEnabled(ConfigModel):
         return self.test_results == EmitDirective.YES
 
 
-class DBTConfig(StatefulIngestionConfigBase):
-    manifest_path: str = Field(
-        description="Path to dbt manifest JSON. See https://docs.getdbt.com/reference/artifacts/manifest-json Note this can be a local file or a URI."
-    )
-    catalog_path: str = Field(
-        description="Path to dbt catalog JSON. See https://docs.getdbt.com/reference/artifacts/catalog-json Note this can be a local file or a URI."
-    )
-    sources_path: Optional[str] = Field(
-        default=None,
-        description="Path to dbt sources JSON. See https://docs.getdbt.com/reference/artifacts/sources-json. If not specified, last-modified fields will not be populated. Note this can be a local file or a URI.",
-    )
-    test_results_path: Optional[str] = Field(
-        default=None,
-        description="Path to output of dbt test run as run_results file in JSON format. See https://docs.getdbt.com/reference/artifacts/run-results-json. If not specified, test execution results will not be populated in DataHub.",
-    )
+class DBTCommonConfig(StatefulIngestionConfigBase):
     env: str = Field(
         default=mce_builder.DEFAULT_ENV,
         description="Environment to use in namespace when constructing URNs.",
@@ -451,150 +437,6 @@ class DBTNode:
             platform_instance=data_platform_instance,
             env=env,
         )
-
-
-def get_columns(
-    catalog_node: dict, manifest_node: dict, tag_prefix: str
-) -> List[DBTColumn]:
-    columns = []
-
-    catalog_columns = catalog_node["columns"]
-    manifest_columns = manifest_node.get("columns", {})
-
-    for key, catalog_column in catalog_columns.items():
-        manifest_column = manifest_columns.get(key.lower(), {})
-
-        meta = manifest_column.get("meta", {})
-
-        tags = manifest_column.get("tags", [])
-        tags = [tag_prefix + tag for tag in tags]
-
-        dbtCol = DBTColumn(
-            name=catalog_column["name"].lower(),
-            comment=catalog_column.get("comment", ""),
-            description=manifest_column.get("description", ""),
-            data_type=catalog_column["type"],
-            index=catalog_column["index"],
-            meta=meta,
-            tags=tags,
-        )
-        columns.append(dbtCol)
-    return columns
-
-
-def extract_dbt_entities(
-    all_manifest_entities: Dict[str, Dict[str, Any]],
-    all_catalog_entities: Dict[str, Dict[str, Any]],
-    sources_results: List[Dict[str, Any]],
-    manifest_adapter: str,
-    use_identifiers: bool,
-    tag_prefix: str,
-    report: DBTSourceReport,
-) -> List[DBTNode]:
-    sources_by_id = {x["unique_id"]: x for x in sources_results}
-
-    dbt_entities = []
-    for key, manifest_node in all_manifest_entities.items():
-        name = manifest_node["name"]
-
-        if "identifier" in manifest_node and use_identifiers:
-            name = manifest_node["identifier"]
-
-        if (
-            manifest_node.get("alias") is not None
-            and manifest_node.get("resource_type")
-            != "test"  # tests have non-human-friendly aliases, so we don't want to use it for tests
-        ):
-            name = manifest_node["alias"]
-
-        # initialize comment to "" for consistency with descriptions
-        # (since dbt null/undefined descriptions as "")
-        comment = ""
-
-        if key in all_catalog_entities and all_catalog_entities[key]["metadata"].get(
-            "comment"
-        ):
-            comment = all_catalog_entities[key]["metadata"]["comment"]
-
-        materialization = None
-        upstream_nodes = []
-
-        if "materialized" in manifest_node.get("config", {}):
-            # It's a model
-            materialization = manifest_node["config"]["materialized"]
-            upstream_nodes = manifest_node["depends_on"]["nodes"]
-
-        # It's a source
-        catalog_node = all_catalog_entities.get(key)
-        catalog_type = None
-
-        if catalog_node is None:
-            if materialization != "test":
-                report.report_warning(
-                    key,
-                    f"Entity {key} ({name}) is in manifest but missing from catalog",
-                )
-        else:
-            catalog_type = all_catalog_entities[key]["metadata"]["type"]
-
-        query_tag_props = manifest_node.get("query_tag", {})
-
-        meta = manifest_node.get("meta", {})
-
-        owner = meta.get("owner")
-        if owner is None:
-            owner = manifest_node.get("config", {}).get("meta", {}).get("owner")
-
-        tags = manifest_node.get("tags", [])
-        tags = [tag_prefix + tag for tag in tags]
-        if not meta:
-            meta = manifest_node.get("config", {}).get("meta", {})
-
-        max_loaded_at_str = sources_by_id.get(key, {}).get("max_loaded_at")
-        max_loaded_at = None
-        if max_loaded_at_str:
-            max_loaded_at = dateutil.parser.parse(max_loaded_at_str)
-
-        dbtNode = DBTNode(
-            dbt_name=key,
-            dbt_adapter=manifest_adapter,
-            database=manifest_node["database"],
-            schema=manifest_node["schema"],
-            name=name,
-            alias=manifest_node.get("alias"),
-            dbt_file_path=manifest_node["original_file_path"],
-            node_type=manifest_node["resource_type"],
-            max_loaded_at=max_loaded_at,
-            comment=comment,
-            description=manifest_node.get("description", ""),
-            raw_sql=manifest_node.get("raw_sql"),
-            upstream_nodes=upstream_nodes,
-            materialization=materialization,
-            catalog_type=catalog_type,
-            meta=meta,
-            query_tag=query_tag_props,
-            tags=tags,
-            owner=owner,
-            compiled_sql=manifest_node.get("compiled_sql"),
-            manifest_raw=manifest_node,
-        )
-
-        # Load columns from catalog, and override some properties from manifest.
-        if dbtNode.materialization not in [
-            "ephemeral",
-            "test",
-        ]:
-            logger.debug(f"Loading schema info for {dbtNode.dbt_name}")
-            if catalog_node is not None:
-                # We already have done the reporting for catalog_node being None above.
-                dbtNode.columns = get_columns(catalog_node, manifest_node, tag_prefix)
-
-        else:
-            dbtNode.columns = []
-
-        dbt_entities.append(dbtNode)
-
-    return dbt_entities
 
 
 def get_custom_properties(node: DBTNode) -> Dict[str, str]:
@@ -855,7 +697,7 @@ class DBTTest:
 
     @staticmethod
     def load_test_results(
-        config: DBTConfig,
+        config: DBTCommonConfig,
         test_results_json: Dict[str, Any],
         test_nodes: List[DBTNode],
         all_nodes_map: Dict[str, DBTNode],
@@ -950,48 +792,15 @@ class DBTTest:
 
 
 @platform_name("dbt")
-@config_class(DBTConfig)
+@config_class(DBTCommonConfig)
 @support_status(SupportStatus.CERTIFIED)
 @capability(SourceCapability.DELETION_DETECTION, "Enabled via stateful ingestion")
 @capability(SourceCapability.LINEAGE_COARSE, "Enabled by default")
 @capability(SourceCapability.USAGE_STATS, "", supported=False)
-class DBTSource(StatefulIngestionSourceBase):
-    """
-    This plugin pulls metadata from dbt's artifact files and generates:
-    - dbt Tables: for nodes in the dbt manifest file that are models materialized as tables
-    - dbt Views: for nodes in the dbt manifest file that are models materialized as views
-    - dbt Ephemeral: for nodes in the dbt manifest file that are ephemeral models
-    - dbt Sources: for nodes that are sources on top of the underlying platform tables
-    - dbt Seed: for seed entities
-    - dbt Tests as Assertions: for dbt test entities (starting with version 0.8.38.1)
-
-    Note:
-    1. It also generates lineage between the `dbt` nodes (e.g. ephemeral nodes that depend on other dbt sources) as well as lineage between the `dbt` nodes and the underlying (target) platform nodes (e.g. BigQuery Table -> dbt Source, dbt View -> BigQuery View).
-    2. We also support automated actions (like add a tag, term or owner) based on properties defined in dbt meta.
-
-    The artifacts used by this source are:
-    - [dbt manifest file](https://docs.getdbt.com/reference/artifacts/manifest-json)
-      - This file contains model, source, tests and lineage data.
-    - [dbt catalog file](https://docs.getdbt.com/reference/artifacts/catalog-json)
-      - This file contains schema data.
-      - dbt does not record schema data for Ephemeral models, as such datahub will show Ephemeral models in the lineage, however there will be no associated schema for Ephemeral models
-    - [dbt sources file](https://docs.getdbt.com/reference/artifacts/sources-json)
-      - This file contains metadata for sources with freshness checks.
-      - We transfer dbt's freshness checks to DataHub's last-modified fields.
-      - Note that this file is optional – if not specified, we'll use time of ingestion instead as a proxy for time last-modified.
-    - [dbt run_results file](https://docs.getdbt.com/reference/artifacts/run-results-json)
-      - This file contains metadata from the result of a dbt run, e.g. dbt test
-      - When provided, we transfer dbt test run results into assertion run events to see a timeline of test runs on the dataset
-    """
-
-    @classmethod
-    def create(cls, config_dict, ctx):
-        config = DBTConfig.parse_obj(config_dict)
-        return cls(config, ctx, "dbt")
-
-    def __init__(self, config: DBTConfig, ctx: PipelineContext, platform: str):
+class DBTSourceBase(StatefulIngestionSourceBase):
+    def __init__(self, config: DBTCommonConfig, ctx: PipelineContext, platform: str):
         super().__init__(config, ctx)
-        self.config: DBTConfig = config
+        self.config = config
         self.platform: str = platform
         self.report: DBTSourceReport = DBTSourceReport()
         self.compiled_owner_extraction_pattern: Optional[Any] = None
@@ -1015,13 +824,13 @@ class DBTSource(StatefulIngestionSourceBase):
         is_conversion_required: bool = False
         try:
             # Best-case that last checkpoint state is DbtCheckpointState
-            last_checkpoint = super(DBTSource, self).get_last_checkpoint(
+            last_checkpoint = super(DBTSourceBase, self).get_last_checkpoint(
                 job_id, checkpoint_state_class
             )
         except Exception as e:
             # Backward compatibility for old dbt ingestion source which was saving dbt-nodes in
             # BaseSQLAlchemyCheckpointState
-            last_checkpoint = super(DBTSource, self).get_last_checkpoint(
+            last_checkpoint = super(DBTSourceBase, self).get_last_checkpoint(
                 job_id, BaseSQLAlchemyCheckpointState  # type: ignore
             )
             logger.debug(
@@ -1053,67 +862,6 @@ class DBTSource(StatefulIngestionSourceBase):
         else:
             with open(uri, "r") as f:
                 return json.load(f)
-
-    def loadManifestAndCatalog(
-        self,
-        manifest_path: str,
-        catalog_path: str,
-        sources_path: Optional[str],
-        use_identifiers: bool,
-        tag_prefix: str,
-    ) -> Tuple[
-        List[DBTNode],
-        Optional[str],
-        Optional[str],
-        Optional[str],
-        Optional[str],
-        Optional[str],
-    ]:
-        dbt_manifest_json = self.load_file_as_json(manifest_path)
-
-        dbt_catalog_json = self.load_file_as_json(catalog_path)
-
-        if sources_path is not None:
-            dbt_sources_json = self.load_file_as_json(sources_path)
-            sources_results = dbt_sources_json["results"]
-        else:
-            sources_results = {}
-
-        manifest_schema = dbt_manifest_json["metadata"].get("dbt_schema_version")
-        manifest_version = dbt_manifest_json["metadata"].get("dbt_version")
-        manifest_adapter = dbt_manifest_json["metadata"].get("adapter_type")
-
-        catalog_schema = dbt_catalog_json.get("metadata", {}).get("dbt_schema_version")
-        catalog_version = dbt_catalog_json.get("metadata", {}).get("dbt_version")
-
-        manifest_nodes = dbt_manifest_json["nodes"]
-        manifest_sources = dbt_manifest_json["sources"]
-
-        all_manifest_entities = {**manifest_nodes, **manifest_sources}
-
-        catalog_nodes = dbt_catalog_json["nodes"]
-        catalog_sources = dbt_catalog_json["sources"]
-
-        all_catalog_entities = {**catalog_nodes, **catalog_sources}
-
-        nodes = extract_dbt_entities(
-            all_manifest_entities,
-            all_catalog_entities,
-            sources_results,
-            manifest_adapter,
-            use_identifiers,
-            tag_prefix,
-            self.report,
-        )
-
-        return (
-            nodes,
-            manifest_schema,
-            manifest_version,
-            manifest_adapter,
-            catalog_schema,
-            catalog_version,
-        )
 
     def create_test_entity_mcps(
         self,
@@ -1269,6 +1017,19 @@ class DBTSource(StatefulIngestionSourceBase):
                 self.report.report_workunit(wu)
                 yield wu
 
+    @abstractmethod
+    def load_nodes(self) -> Tuple[List[DBTNode], Dict[str, Optional[str]]]:
+        # return dbt nodes + global custom properties
+        raise NotImplementedError()
+
+    @abstractmethod
+    def load_tests(
+        self,
+        test_nodes: List[DBTNode],
+        all_nodes_map: Dict[str, DBTNode],
+    ) -> Iterable[MetadataWorkUnit]:
+        raise NotImplementedError()
+
     # create workunits from dbt nodes
     def get_workunits(self) -> Iterable[MetadataWorkUnit]:
         if self.config.write_semantics == "PATCH" and not self.ctx.graph:
@@ -1277,31 +1038,10 @@ class DBTSource(StatefulIngestionSourceBase):
                 "Consider using the datahub-rest sink or provide a datahub_api: configuration on your ingestion recipe."
             )
 
-        (
-            all_nodes,
-            manifest_schema,
-            manifest_version,
-            manifest_adapter,
-            catalog_schema,
-            catalog_version,
-        ) = self.loadManifestAndCatalog(
-            self.config.manifest_path,
-            self.config.catalog_path,
-            self.config.sources_path,
-            self.config.use_identifiers,
-            self.config.tag_prefix,
-        )
+        all_nodes, additional_custom_props = self.load_nodes()
 
         all_nodes_map = {node.dbt_name: node for node in all_nodes}
         nodes = self.filter_nodes(all_nodes)
-
-        additional_custom_props = {
-            "manifest_schema": manifest_schema,
-            "manifest_version": manifest_version,
-            "manifest_adapter": manifest_adapter,
-            "catalog_schema": catalog_schema,
-            "catalog_version": catalog_version,
-        }
 
         additional_custom_props_filtered = {
             key: value
@@ -1336,13 +1076,7 @@ class DBTSource(StatefulIngestionSourceBase):
             all_nodes_map,
         )
 
-        if self.config.test_results_path:
-            yield from DBTTest.load_test_results(
-                self.config,
-                self.load_file_as_json(self.config.test_results_path),
-                test_nodes,
-                all_nodes_map,
-            )
+        yield from self.load_tests(test_nodes, all_nodes_map)
 
         yield from self.stale_entity_removal_handler.gen_removed_entity_workunits()
 
@@ -1850,21 +1584,6 @@ class DBTSource(StatefulIngestionSourceBase):
 
     def get_report(self):
         return self.report
-
-    def get_platform_instance_id(self) -> str:
-        """
-        DBT project identifier is used as platform instance.
-        """
-
-        project_id = (
-            self.load_file_as_json(self.config.manifest_path)
-            .get("metadata", {})
-            .get("project_id")
-        )
-        if project_id is None:
-            raise ValueError("DBT project identifier is not found in manifest")
-
-        return f"{self.platform}_{project_id}"
 
     def close(self):
         self.prepare_for_commit()

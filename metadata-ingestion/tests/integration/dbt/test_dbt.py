@@ -12,13 +12,12 @@ from datahub.configuration.common import DynamicTypedConfig
 from datahub.ingestion.api.ingestion_job_checkpointing_provider_base import JobId
 from datahub.ingestion.run.pipeline import Pipeline
 from datahub.ingestion.run.pipeline_config import PipelineConfig, SourceConfig
-from datahub.ingestion.source.dbt.dbt import (
-    DBTConfig,
+from datahub.ingestion.source.dbt.dbt_common import (
     DBTEntitiesEnabled,
-    DBTSource,
     EmitDirective,
     StatefulIngestionSourceBase,
 )
+from datahub.ingestion.source.dbt.dbt_core import DBTCoreConfig, DBTCoreSource
 from datahub.ingestion.source.sql.sql_types import (
     TRINO_SQL_TYPES_MAP,
     resolve_trino_modified_type,
@@ -240,7 +239,7 @@ def test_dbt_ingest(dbt_test_config, pytestconfig, tmp_path, mock_time, **kwargs
 def get_current_checkpoint_from_pipeline(
     pipeline: Pipeline,
 ) -> Optional[Checkpoint]:
-    dbt_source = cast(DBTSource, pipeline.source)
+    dbt_source = cast(DBTCoreSource, pipeline.source)
     return dbt_source.get_current_checkpoint(
         dbt_source.stale_entity_removal_handler.job_id
     )
@@ -456,7 +455,7 @@ def test_dbt_state_backward_compatibility(
     ) as mock_source_base_get_last_checkpoint:
         mock_checkpoint.return_value = mock_datahub_graph
         pipeline = Pipeline.create(pipeline_config_dict)
-        dbt_source = cast(DBTSource, pipeline.source)
+        dbt_source = cast(DBTCoreSource, pipeline.source)
 
         last_checkpoint = dbt_source.get_last_checkpoint(
             dbt_source.stale_entity_removal_handler.job_id, DbtCheckpointState
@@ -484,7 +483,7 @@ def test_dbt_tests(pytestconfig, tmp_path, mock_time, **kwargs):
         config=PipelineConfig(
             source=SourceConfig(
                 type="dbt",
-                config=DBTConfig(
+                config=DBTCoreConfig(
                     manifest_path=str(
                         (test_resources_dir / "jaffle_shop_manifest.json").resolve()
                     ),
@@ -626,7 +625,7 @@ def test_dbt_tests_only_assertions(pytestconfig, tmp_path, mock_time, **kwargs):
         config=PipelineConfig(
             source=SourceConfig(
                 type="dbt",
-                config=DBTConfig(
+                config=DBTCoreConfig(
                     manifest_path=str(
                         (test_resources_dir / "jaffle_shop_manifest.json").resolve()
                     ),
@@ -705,7 +704,7 @@ def test_dbt_only_test_definitions_and_results(
         config=PipelineConfig(
             source=SourceConfig(
                 type="dbt",
-                config=DBTConfig(
+                config=DBTCoreConfig(
                     manifest_path=str(
                         (test_resources_dir / "jaffle_shop_manifest.json").resolve()
                     ),
