@@ -189,6 +189,19 @@
                   "dataset": "urn:li:dataset:(urn:li:dataPlatform:kafka,SampleCypressKafkaDataset,PROD)",
                   "type": "TRANSFORMED"
                 }
+              ],
+              "fineGrainedLineages": [
+                {
+                    "upstreamType": "FIELD_SET",
+                    "upstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:kafka,SampleCypressKafkaDataset,PROD),field_bar)"
+                    ],
+                    "downstreamType": "FIELD",
+                    "downstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:hdfs,SampleCypressHdfsDataset,PROD),shipment_info)"
+                    ],
+                    "confidenceScore": 1.0
+                }
               ]
             }
           },

@@ -2343,11 +2343,16 @@ type KeyValueSchema {
 Standalone schema field entity. Differs from the SchemaField struct because it is not directly nested inside a
 schema field
 """
-type SchemaFieldEntity {
+type SchemaFieldEntity implements Entity {
     """
     Primary key of the schema field
     """
     urn: String!
+
+    """
+    A standard Entity Type
+    """
+    type: EntityType!
 
     """
     Field path identifying the field in its dataset
@@ -2355,9 +2360,14 @@ type SchemaFieldEntity {
     fieldPath: String!
 
     """
-    The primary key of the field's parent.
+    The field's parent.
     """
-    parent: String!
+    parent: Entity!
+
+    """
+    Granular API for querying edges extending from this entity
+    """
+    relationships(input: RelationshipsInput!): EntityRelationshipsResult
 }
 
 """

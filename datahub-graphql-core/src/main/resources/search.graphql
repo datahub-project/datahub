@@ -318,13 +318,24 @@ type SearchAcrossLineageResult {
   """
   Optional list of entities between the source and destination node
   """
-  path: [Entity!]
+  paths: [EntityPath]
 
   """
   Degree of relationship (number of hops to get to entity)
   """
   degree: Int!
 }
+
+"""
+An overview of the field that was matched in the entity search document
+"""
+type EntityPath {
+    """
+    Path of entities between source and destination nodes
+    """
+    path: [Entity]
+}
+
 
 """
 An overview of the field that was matched in the entity search document
