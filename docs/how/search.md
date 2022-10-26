@@ -39,6 +39,41 @@ The filters sidebar sits on the left hand side of search results, and lets users
  <img width="70%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/filters_highlighted.png" />
 </p>
 
+### Advanced Filters
+
+Using the Advanced Filter view, you can apply more complex filters. To get there, click 'Advanced' in the top right of the filter panel:
+
+<p align="center">
+  <img width="70%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/advanced_search/click_to_advanced_search_view.png"/>
+</p>
+
+#### Adding an Advanced Filter
+
+Currently, Advanced Filters support filtering by Column Name, Container, Domain, Description (entity or column level), Tag (entity or column level), Glossary Term (entity or column level), Owner, Entity Type, Subtype, Environment and soft-deleted status.
+
+To add a new filter, click the add filter menu, choose a filter type, and then fill in the values you want to filter by.
+
+<p align="center">
+  <img width="70%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/advanced_search/click_add_advanced_filter.png"/>
+</p>
+
+#### Matching Any Advanced Filter
+
+By default, all filters must be matched in order for a result to appear. For example, if you add a tag filter and a platform filter, all results will have the tag and the platform. You can set the results to match any filter instead. Click on `all filters` and select `any filter` from the drop-down menu.
+
+<p align="center">
+  <img width="70%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/advanced_search/advanced_search_choose_matches_any.png"/>
+</p>
+
+#### Negating An Advanced Filter
+
+After creating a filter, you can choose whether results should or should not match it. Change this by clicking the operation in the top right of the filter and selecting the negated operation.
+
+<p align="center">
+  <img width="70%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/advanced_search/advanced_search_select_negated.png"/>
+</p>
+
+
 ### Results
 
 Search results appear ranked by their relevance. In self-hosted DataHub ranking is based on how closely the query matched textual fields of an asset and its metadata. In Managed DataHub, ranking is based on a combination of textual relevance, usage (queries / views), and change frequency. 
@@ -142,7 +177,8 @@ The order of the search results is based on the weight what Datahub gives them b
 
 The sample queries here are non exhaustive. [The link here](https://demo.datahubproject.io/tag/urn:li:tag:Searchable) shows the current list of indexed fields for each entity inside Datahub. Click on the fields inside each entity and see which field has the tag ```Searchable```.  
 However, it does not tell you the specific attribute name to use for specialized searches. One way to do so is to inspect the ElasticSearch indices, for example:  
-```curl http://localhost:9200/_cat/indices``` returns all the ES indices in the ElasticSearch container.  
+`curl http://localhost:9200/_cat/indices` returns all the ES indices in the ElasticSearch container.
+
 ```
 yellow open chartindex_v2_1643510690325                           bQO_RSiCSUiKJYsmJClsew 1 1   2 0   8.5kb   8.5kb
 yellow open mlmodelgroupindex_v2_1643510678529                    OjIy0wb7RyKqLz3uTENRHQ 1 1   0 0    208b    208b
@@ -176,11 +212,13 @@ yellow open system_metadata_service_v1                            36spEDbDTdKgVl
 yellow open schemafieldindex_v2_1643510684410                     tZ1gC3haTReRLmpCxirVxQ 1 1   0 0    208b    208b
 yellow open mlfeatureindex_v2_1643510680246                       aQO5HF0mT62Znn-oIWBC8A 1 1  20 0  17.4kb  17.4kb
 yellow open tagindex_v2_1643510684785                             PfnUdCUORY2fnF3I3W7HwA 1 1   3 1  18.6kb  18.6kb
-```  
-The index name will vary from instance to instance. Indexed information about Datasets can be found in:  
-```curl http://localhost:9200/datasetindex_v2_1643510688970/_search?=pretty```  
+```
 
-example information of a dataset:  
+The index name will vary from instance to instance. Indexed information about Datasets can be found in:  
+`curl http://localhost:9200/datasetindex_v2_1643510688970/_search?=pretty`
+
+example information of a dataset:
+
 ```
 {
         "_index" : "datasetindex_v2_1643510688970",

@@ -30,7 +30,7 @@ from datahub.configuration.common import (
     ConfigEnum,
     ConfigurationError,
 )
-from datahub.configuration.github import GitHubInfo
+from datahub.configuration.github import GitHubReference
 from datahub.emitter import mce_builder
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.common import PipelineContext
@@ -315,7 +315,7 @@ class DBTConfig(StatefulIngestionConfigBase):
         False,
         description="Prior to version 0.8.41, lineage edges to sources were directed to the target platform node rather than the dbt source node. This contradicted the established pattern for other lineage edges to point to upstream dbt nodes. To revert lineage logic to this legacy approach, set this flag to true.",
     )
-    github_info: Optional[GitHubInfo] = Field(
+    github_info: Optional[GitHubReference] = Field(
         None,
         description="Reference to your github location to enable easy navigation from DataHub to your dbt files.",
     )

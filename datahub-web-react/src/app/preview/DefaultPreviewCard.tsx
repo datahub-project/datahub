@@ -1,8 +1,7 @@
 import React, { ReactNode, useState } from 'react';
-import { Button, Divider, Tooltip, Typography } from 'antd';
+import { Divider, Tooltip, Typography } from 'antd';
 import { Link } from 'react-router-dom';
 import styled from 'styled-components';
-import { ArrowRightOutlined } from '@ant-design/icons';
 
 import {
     GlobalTags,
@@ -28,6 +27,7 @@ import EntityCount from '../entity/shared/containers/profile/header/EntityCount'
 import { ExpandedActorGroup } from '../entity/shared/components/styled/ExpandedActorGroup';
 import { DeprecationPill } from '../entity/shared/components/styled/DeprecationPill';
 import { PreviewType } from '../entity/Entity';
+import ExternalUrlButton from '../entity/shared/ExternalUrlButton';
 
 const PreviewContainer = styled.div`
     display: flex;
@@ -36,8 +36,8 @@ const PreviewContainer = styled.div`
     align-items: center;
 `;
 
-const LeftColumn = styled.div`
-    max-width: 60%;
+const LeftColumn = styled.div<{ expandWidth: boolean }>`
+    max-width: ${(props) => (props.expandWidth ? '100%' : '60%')};
 `;
 
 const RightColumn = styled.div`
@@ -129,21 +129,6 @@ const InsightIconContainer = styled.span`
     margin-right: 4px;
 `;
 
-const ExternalUrlContainer = styled.span`
-    font-size: 12px;
-`;
-
-const ExternalUrlButton = styled(Button)`
-    > :hover {
-        text-decoration: underline;
-    }
-    &&& {
-        padding-bottom: 0px;
-    }
-    padding-left: 12px;
-    padding-right: 12px;
-`;
-
 const UserListContainer = styled.div`
     display: flex;
     flex-direction: column;
@@ -164,6 +149,7 @@ const UserListTitle = styled(Typography.Text)`
 
 interface Props {
     name: string;
+    urn: string;
     logoUrl?: string;
     logoComponent?: JSX.Element;
     url: string;
@@ -200,6 +186,7 @@ interface Props {
 
 export default function DefaultPreviewCard({
     name,
+    urn,
     logoUrl,
     logoComponent,
     url,
@@ -258,9 +245,11 @@ export default function DefaultPreviewCard({
         event.stopPropagation();
     };
 
+    const shouldShowRightColumn = (topUsers && topUsers.length > 0) || (owners && owners.length > 0);
+
     return (
         <PreviewContainer data-testid={dataTestID} onMouseDown={onPreventMouseDown}>
-            <LeftColumn>
+            <LeftColumn expandWidth={!shouldShowRightColumn}>
                 <TitleContainer>
                     <PlatformContentView
                         platformName={platform}
@@ -288,13 +277,16 @@ export default function DefaultPreviewCard({
                                 </EntityTitle>
                             )}
                         </Link>
-                        {deprecation?.deprecated && <DeprecationPill deprecation={deprecation} preview />}
+                        {deprecation?.deprecated && (
+                            <DeprecationPill deprecation={deprecation} urn="" showUndeprecate={false} preview />
+                        )}
                         {externalUrl && (
-                            <ExternalUrlContainer>
-                                <ExternalUrlButton type="link" href={externalUrl} target="_blank">
-                                    View in {platform} <ArrowRightOutlined style={{ fontSize: 12 }} />
-                                </ExternalUrlButton>
-                            </ExternalUrlContainer>
+                            <ExternalUrlButton
+                                externalUrl={externalUrl}
+                                platformName={platform}
+                                entityUrn={urn}
+                                entityType={type}
+                            />
                         )}
                     </EntityTitleContainer>
 

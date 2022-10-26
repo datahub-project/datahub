@@ -378,9 +378,6 @@ fragment searchResultFields on Entity {
                 }
             }
         }
-        inputFields {
-            ...inputFieldsFields
-        }
         subTypes {
             typeNames
         }
@@ -445,9 +442,6 @@ fragment searchResultFields on Entity {
                     pictureLink
                 }
             }
-        }
-        inputFields {
-            ...inputFieldsFields
         }
     }
     ... on DataFlow {
@@ -550,6 +544,9 @@ fragment searchResultFields on Entity {
         }
         parentNodes {
             ...parentNodesFields
+        }
+        domain {
+            ...entityDomain
         }
     }
     ... on GlossaryNode {
