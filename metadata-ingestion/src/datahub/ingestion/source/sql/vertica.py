@@ -63,38 +63,9 @@ def TIMESTAMP_WITH_PRECISION(*args, **kwargs):
     return TIMESTAMPWP(*args, **kwargs)
 
 
-class TIMESTAMPTZWP(TIMESTAMP):
-    """The SQL TIMESTAMP with Timezone and possible precision type.
-
-    Since Vertica supports precision values for timestamp this allows ingestion
-    of timestamp fields with precision values.
-
-    PS: THIS DATA IS CURRENTLY UNUSED, IT JUST FIXES INGESTION PROBLEMS
-    TODO: Should research the possibility of reflecting the precision in the schema
-
-    """
-
-    __visit_name__ = "TIMESTAMP"
-
-    def __init__(self, timezone=False, precision=None):
-        """Construct a new :class:`_types.TIMESTAMPWP`.
-
-        :param timezone: boolean.  Indicates that the TIMESTAMP type should
-         enable timezone support, if available on the target database.
-         On a per-dialect basis is similar to "TIMESTAMP WITH TIMEZONE".
-         If the target database does not support timezones, this flag is
-         ignored.
-        :param precision: integer.  Indicates the PRECISION field when provided
-
-
-        """
-        super(TIMESTAMP, self).__init__(timezone=timezone)
-        self.precision = precision
-
-
 def TIMESTAMP_WITH_TIMEZONE(*args, **kwargs):
     kwargs["timezone"] = True
-    return TIMESTAMPTZWP(*args, **kwargs)
+    return TIMESTAMPWP(*args, **kwargs)
 
 
 def TIME_WITH_TIMEZONE(*args, **kwargs):
