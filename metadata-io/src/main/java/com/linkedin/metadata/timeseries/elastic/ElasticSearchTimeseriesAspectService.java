@@ -166,7 +166,7 @@ public class ElasticSearchTimeseriesAspectService implements TimeseriesAspectSer
 
     log.debug("Search request is: " + searchRequest);
     SearchHits hits;
-    try (Timer.Context ignored = MetricUtils.timer(this.getClass(), "esSearch").time()) {
+    try (Timer.Context ignored = MetricUtils.timer(this.getClass(), "searchAspectValues_search").time()) {
       final SearchResponse searchResponse = _searchClient.search(searchRequest, RequestOptions.DEFAULT);
       hits = searchResponse.getHits();
     } catch (Exception e) {

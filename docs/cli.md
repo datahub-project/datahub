@@ -11,6 +11,7 @@ CLI release is made through a different repository and release notes can be foun
 If server with version `0.8.28` is being used then CLI used to connect to it should be `0.8.28.x`. Tests of new CLI are not ran with older server versions so it is not recommended to update the CLI if the server is not updated.
 
 ## Installation
+
 ### Using pip
 
 We recommend python virtual environments (venv-s) to namespace pip modules. The folks over at [Acryl Data](https://www.acryl.io/) maintain a PyPI package for DataHub metadata ingestion. Here's an example setup:
@@ -66,7 +67,6 @@ We use a plugin architecture so that you can install only the dependencies you a
 | [file](./generated/ingestion/sources/file.md)                                   | _included by default_                                      | File source and sink                |
 | [athena](./generated/ingestion/sources/athena.md)                               | `pip install 'acryl-datahub[athena]'`                      | AWS Athena source                   |
 | [bigquery](./generated/ingestion/sources/bigquery.md)                           | `pip install 'acryl-datahub[bigquery]'`                    | BigQuery source                     |
-| [bigquery-usage](./generated/ingestion/sources/bigquery.md#module-bigquery-usage)                     | `pip install 'acryl-datahub[bigquery-usage]'`              | BigQuery usage statistics source    |
 | [datahub-lineage-file](./generated/ingestion/sources/file-based-lineage.md)           | _no additional dependencies_                               | Lineage File source           |
 | [datahub-business-glossary](./generated/ingestion/sources/business-glossary.md) | _no additional dependencies_                               | Business Glossary File source       |
 | [dbt](./generated/ingestion/sources/dbt.md)                                     | _no additional dependencies_                               | dbt source                          |
@@ -126,7 +126,9 @@ datahub check plugins
 [extra requirements]: https://www.python-ldap.org/en/python-ldap-3.3.0/installing.html#build-prerequisites
 
 ## Environment variables supported
+
 The env variables take precedence over what is in the DataHub CLI config created through `init` command. The list of supported environment variables are as follows
+
 - `DATAHUB_SKIP_CONFIG` (default `false`) - Set to `true` to skip creating the configuration file.
 - `DATAHUB_GMS_URL` (default `http://localhost:8080`) - Set to a URL of GMS instance
 - `DATAHUB_GMS_HOST` (default `localhost`) - Set to a host of GMS instance. Prefer using `DATAHUB_GMS_URL` to set the URL.
@@ -136,7 +138,7 @@ The env variables take precedence over what is in the DataHub CLI config created
 - `DATAHUB_TELEMETRY_ENABLED` (default `true`) - Set to `false` to disable telemetry. If CLI is being run in an environment with no access to public internet then this should be disabled.
 - `DATAHUB_TELEMETRY_TIMEOUT` (default `10`) - Set to a custom integer value to specify timeout in secs when sending telemetry.
 - `DATAHUB_DEBUG` (default `false`) - Set to `true` to enable debug logging for CLI. Can also be achieved through `--debug` option of the CLI.
-- `DATAHUB_VERSION` (default `head`) - Set to a specific version to run quickstart with the particular version of docker images. 
+- `DATAHUB_VERSION` (default `head`) - Set to a specific version to run quickstart with the particular version of docker images.
 - `ACTIONS_VERSION` (default `head`) - Set to a specific version to run quickstart with that image tag of `datahub-actions` container.
 
 ```shell
@@ -271,6 +273,7 @@ datahub get --urn "urn:li:dataset:(urn:li:dataPlatform:hive,SampleHiveDataset,PR
 The `put` group of commands allows you to write metadata into DataHub. This is a flexible way for you to issue edits to metadata from the command line.
 
 #### put aspect
+
 The **put aspect** (also the default `put`) command instructs `datahub` to set a specific aspect for an entity to a specified value.
 For example, the command shown below sets the `ownership` aspect of the dataset `urn:li:dataset:(urn:li:dataPlatform:hive,SampleHiveDataset,PROD)` to the value in the file `ownership.json`.
 The JSON in the `ownership.json` file needs to conform to the [`Ownership`](https://github.com/datahub-project/datahub/blob/master/metadata-models/src/main/pegasus/com/linkedin/common/Ownership.pdl) Aspect model as shown below.
@@ -299,13 +302,13 @@ Update succeeded with status 200
 ```
 
 #### put platform
+
 The **put platform** command (available in version>0.8.44.4) instructs `datahub` to create or update metadata about a data platform. This is very useful if you are using a custom data platform, to set up its logo and display name for a native UI experience.
 
 ```shell
 datahub put platform --name longtail_schemas --display_name "Long Tail Schemas" --logo "https://flink.apache.org/img/logo/png/50/color_50.png"
 ✅ Successfully wrote data platform metadata for urn:li:dataPlatform:longtail_schemas to DataHub (DataHubRestEmitter: configured to talk to https://longtailcompanions.acryl.io/api/gms with token: eyJh**********Cics)
 ```
-
 
 ### migrate
 
@@ -316,6 +319,7 @@ The `migrate` group of commands allows you to perform certain kinds of migration
 The `dataplatform2instance` migration command allows you to migrate your entities from an instance-agnostic platform identifier to an instance-specific platform identifier. If you have ingested metadata in the past for this platform and would like to transfer any important metadata over to the new instance-specific entities, then you should use this command. For example, if your users have added documentation or added tags or terms to your datasets, then you should run this command to transfer this metadata over to the new entities. For further context, read the Platform Instance Guide [here](./platform-instances.md).
 
 A few important options worth calling out:
+
 - --dry-run / -n : Use this to get a report for what will be migrated before running
 - --force / -F : Use this if you know what you are doing and do not want to get a confirmation prompt before migration is started
 - --keep : When enabled, will preserve the old entities and not delete them. Default behavior is to soft-delete old entities.
@@ -324,6 +328,7 @@ A few important options worth calling out:
 **_Note_**: Timeseries aspects such as Usage Statistics and Dataset Profiles are not migrated over to the new entity instances, you will get new data points created when you re-run ingestion using the `usage` or sources with profiling turned on.
 
 ##### Dry Run
+
 ```console
 datahub migrate dataplatform2instance --platform elasticsearch --instance prod_index --dry-run
 Starting migration: platform:elasticsearch, instance=prod_index, force=False, dry-run=True
@@ -341,6 +346,7 @@ Starting migration: platform:elasticsearch, instance=prod_index, force=False, dr
 ```
 
 ##### Real Migration (with soft-delete)
+
 ```
 > datahub migrate dataplatform2instance --platform hive --instance
 datahub migrate dataplatform2instance --platform hive --instance warehouse
@@ -373,7 +379,7 @@ to get the raw JSON difference in addition to the API output you can add the `--
 ```console
 datahub timeline --urn "urn:li:dataset:(urn:li:dataPlatform:mysql,User.UserAccount,PROD)" --category TAG --start 7daysago
 2022-02-17 14:03:42 - 0.0.0-computed
-	MODIFY TAG dataset:mysql:User.UserAccount : A change in aspect editableSchemaMetadata happened at time 2022-02-17 20:03:42.0
+ MODIFY TAG dataset:mysql:User.UserAccount : A change in aspect editableSchemaMetadata happened at time 2022-02-17 20:03:42.0
 2022-02-17 14:17:30 - 0.0.0-computed
-	MODIFY TAG dataset:mysql:User.UserAccount : A change in aspect editableSchemaMetadata happened at time 2022-02-17 20:17:30.118
+ MODIFY TAG dataset:mysql:User.UserAccount : A change in aspect editableSchemaMetadata happened at time 2022-02-17 20:17:30.118
 ```

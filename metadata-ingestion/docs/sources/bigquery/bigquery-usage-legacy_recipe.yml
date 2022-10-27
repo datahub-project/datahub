@@ -1,5 +1,5 @@
 source:
-  type: bigquery-usage
+  type: bigquery-usage-legacy
   config:
     # Coordinates
     projects:

@@ -234,9 +234,7 @@ timestamp < "{end_time}"
         logger.info(
             f"Start iterating over log entries from BigQuery for {client.project}"
         )
-
         for entry in entries:
-            # for num in range(0, 100):
             self.report.num_total_log_entries[client.project] += 1
             if self.report.num_total_log_entries[client.project] % 1000 == 0:
                 logger.info(
@@ -418,9 +416,7 @@ timestamp < "{end_time}"
                 continue
             has_table = False
             for ref_table in e.referencedTables:
-                ref_table_str = (
-                    ref_table.get_sanitized_table_ref().table_identifier.get_table_name()
-                )
+                ref_table_str = str(ref_table.get_sanitized_table_ref())
                 if ref_table_str != destination_table_str:
                     lineage_map[destination_table_str].add(ref_table_str)
                     has_table = True
@@ -438,12 +434,6 @@ timestamp < "{end_time}"
                     parser = BigQuerySQLParser(e.query)
                     referenced_objs = set(
                         map(lambda x: x.split(".")[-1], parser.get_tables())
-                    )
-                    self.report.num_lineage_entries_sql_parser_failure[e.project_id] = (
-                        self.report.num_lineage_entries_sql_parser_failure.get(
-                            e.project_id, 0
-                        )
-                        + 1
                     )
                 except Exception as ex:
                     logger.debug(

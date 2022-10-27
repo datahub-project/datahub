@@ -72,7 +72,6 @@ public class SearchRequestHandler {
 
   private static final String URN_FILTER = "urn";
   private static final int DEFAULT_MAX_TERM_BUCKET_SIZE = 20;
-
   private final EntitySpec _entitySpec;
   private final Set<String> _facetFields;
   private final Set<String> _defaultQueryFieldNames;
@@ -358,7 +357,7 @@ public class SearchRequestHandler {
       final AggregationMetadata aggregationMetadata = new AggregationMetadata().setName(entry.getKey())
           .setDisplayName(_filtersToDisplayName.get(entry.getKey()))
           .setAggregations(new LongMap(oneTermAggResult))
-          .setFilterValues(new FilterValueArray(SearchUtil.convertToFilters(oneTermAggResult)));
+          .setFilterValues(new FilterValueArray(SearchUtil.convertToFilters(oneTermAggResult, Collections.emptySet())));
       aggregationMetadataList.add(aggregationMetadata);
     }
 
@@ -476,7 +475,7 @@ public class SearchRequestHandler {
           finalFacetField,
           _filtersToDisplayName.getOrDefault(finalFacetField, finalFacetField),
           new LongMap(criterion.getValues().stream().collect(Collectors.toMap(i -> i, i -> 0L))),
-          new FilterValueArray(criterion.getValues().stream().map(value -> createFilterValue(value, 0L)).collect(
+          new FilterValueArray(criterion.getValues().stream().map(value -> createFilterValue(value, 0L, true)).collect(
               Collectors.toList())))
       );
     }
@@ -489,7 +488,7 @@ public class SearchRequestHandler {
     ) {
       // No aggregation found for filtered value -- inject one!
       originalMetadata.getAggregations().put(value, 0L);
-      originalMetadata.getFilterValues().add(createFilterValue(value, 0L));
+      originalMetadata.getFilterValues().add(createFilterValue(value, 0L, true));
     }
   }
 
