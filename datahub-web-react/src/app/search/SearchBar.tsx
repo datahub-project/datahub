@@ -293,7 +293,7 @@ export const SearchBar = ({
 
     return (
         <AutoCompleteContainer style={style} ref={searchBarWrapperRef}>
-            <StyledAutoComplete
+            <StyledAutoComplete<any>
                 defaultActiveFirstOption={false}
                 style={autoCompleteStyle}
                 options={options}

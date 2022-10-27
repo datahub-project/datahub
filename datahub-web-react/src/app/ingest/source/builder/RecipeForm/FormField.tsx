@@ -36,7 +36,7 @@ function ListField({ field, removeMargin }: CommonFieldProps) {
                         </Tooltip>
                     </Label>
                     {fields.map((item) => (
-                        <Form.Item key={item.fieldKey} style={{ marginBottom: '10px' }}>
+                        <Form.Item key={item.key} style={{ marginBottom: '10px' }}>
                             <Form.Item {...item} noStyle>
                                 <Input style={{ width: '80%' }} placeholder={field.placeholder} />
                             </Form.Item>

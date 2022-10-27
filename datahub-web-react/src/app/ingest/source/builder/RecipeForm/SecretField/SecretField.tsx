@@ -89,7 +89,7 @@ function SecretField({ field, secrets, removeMargin, refetchSecrets }: SecretFie
             removeMargin={!!removeMargin}
             isSecretField
         >
-            <Select
+            <Select<string, { children: string }>
                 showSearch
                 placeholder={field.placeholder}
                 filterOption={(input, option) => !!option?.children.toLowerCase().includes(input.toLowerCase())}
