@@ -54,21 +54,25 @@ from datahub.ingestion.source.tableau_common import (
     custom_sql_graphql_query,
     embedded_datasource_graphql_query,
     get_field_value_in_sheet,
-    get_tags_from_params,
     get_unique_custom_sql,
-    make_description_from_params,
     make_table_urn,
     published_datasource_graphql_query,
     query_metadata,
+    tableau_field_to_schema_field,
     workbook_graphql_query,
 )
 from datahub.metadata.com.linkedin.pegasus2avro.common import (
     AuditStamp,
     ChangeAuditStamps,
+    InputField,
+    InputFields,
 )
 from datahub.metadata.com.linkedin.pegasus2avro.dataset import (
-    DatasetLineageTypeClass,
-    UpstreamClass,
+    DatasetLineageType,
+    FineGrainedLineage,
+    FineGrainedLineageDownstreamType,
+    FineGrainedLineageUpstreamType,
+    Upstream,
     UpstreamLineage,
 )
 from datahub.metadata.com.linkedin.pegasus2avro.metadata.snapshot import (
@@ -152,6 +156,11 @@ class TableauConnectionConfig(ConfigModel):
     ssl_verify: Union[bool, str] = Field(
         default=True,
         description="Whether to verify SSL certificates. If using self-signed certificates, set to false or provide the path to the .pem certificate bundle.",
+    )
+
+    extract_column_level_lineage: bool = Field(
+        True,
+        description="When enabled, extracts column-level lineage from Tableau Datasources",
     )
 
     @validator("connect_uri")
@@ -429,43 +438,32 @@ class TableauSource(StatefulIngestionSourceBase):
                 self.embedded_datasource_ids_being_used.append(ds["id"])
 
     def _track_custom_sql_ids(self, field: dict) -> None:
-        # Tableau shows custom sql datasource as a table in ColumnField.
-        if field.get("__typename") == "ColumnField":
-            for column in field.get("columns", []):
-                table_id = (
-                    column.get("table", {}).get("id") if column.get("table") else None
-                )
+        # Tableau shows custom sql datasource as a table in ColumnField's upstreamColumns.
+        for column in field.get("upstreamColumns", []):
+            table_id = (
+                column.get("table", {}).get("id")
+                if column.get("table")
+                and column["table"]["__typename"] == "CustomSQLTable"
+                else None
+            )
 
-                if (
-                    table_id is not None
-                    and table_id not in self.custom_sql_ids_being_used
-                ):
-                    self.custom_sql_ids_being_used.append(table_id)
+            if table_id is not None and table_id not in self.custom_sql_ids_being_used:
+                self.custom_sql_ids_being_used.append(table_id)
 
     def _create_upstream_table_lineage(
         self,
         datasource: dict,
         project: str,
-        is_custom_sql: bool = False,
         is_embedded_ds: bool = False,
-    ) -> List[UpstreamClass]:
-        upstream_tables = []
+    ) -> Tuple:
+        upstream_tables: List[Upstream] = []
+        fine_grained_lineages: List[FineGrainedLineage] = []
+        table_id_to_urn = {}
 
-        for ds in datasource.get("upstreamDatasources", []):
-            if ds["id"] not in self.datasource_ids_being_used:
-                self.datasource_ids_being_used.append(ds["id"])
-
-            datasource_urn = builder.make_dataset_urn_with_platform_instance(
-                platform=self.platform,
-                name=ds["id"],
-                platform_instance=self.config.platform_instance,
-                env=self.config.env,
-            )
-            upstream_table = UpstreamClass(
-                dataset=datasource_urn,
-                type=DatasetLineageTypeClass.TRANSFORMED,
-            )
-            upstream_tables.append(upstream_table)
+        upstream_datasources = self.get_upstream_datasources(
+            datasource, upstream_tables
+        )
+        upstream_tables.extend(upstream_datasources)
 
         # When tableau workbook connects to published datasource, it creates an embedded
         # datasource inside workbook that connects to published datasource. Both embedded
@@ -476,9 +474,114 @@ class TableauSource(StatefulIngestionSourceBase):
                 Setting only upstreamDatasources lineage. The upstreamTables lineage \
                     will be set via upstream published datasource."
             )
-            return upstream_tables
+        else:
+            # This adds an edge to upstream DatabaseTables using `upstreamTables`
+            upstreams, id_to_urn = self.get_upstream_tables(
+                datasource.get("upstreamTables", []),
+                datasource.get("name"),
+                project,
+                is_custom_sql=False,
+            )
+            upstream_tables.extend(upstreams)
+            table_id_to_urn.update(id_to_urn)
 
-        for table in datasource.get("upstreamTables", []):
+            # This adds an edge to upstream CustomSQLTables using `fields`.`upstreamColumns`.`table`
+            csql_upstreams, csql_id_to_urn = self.get_upstream_csql_tables(
+                datasource.get("fields"),
+                datasource.get("name"),
+                project,
+            )
+            upstream_tables.extend(csql_upstreams)
+            table_id_to_urn.update(csql_id_to_urn)
+
+        logger.debug(
+            f"A total of {len(upstream_tables)} upstream table edges found for datasource {datasource['id']}"
+        )
+
+        if datasource.get("fields"):
+            datasource_urn = builder.make_dataset_urn_with_platform_instance(
+                platform=self.platform,
+                name=datasource["id"],
+                platform_instance=self.config.platform_instance,
+                env=self.config.env,
+            )
+
+            if self.config.extract_column_level_lineage:
+                # Find fine grained lineage for datasource column to datasource column edge,
+                # upstream columns may be from same datasource
+                upstream_fields = self.get_upstream_fields_of_field_in_datasource(
+                    datasource, datasource_urn
+                )
+                fine_grained_lineages.extend(upstream_fields)
+
+                # Find fine grained lineage for table column to datasource column edge,
+                upstream_columns = self.get_upstream_columns_of_fields_in_datasource(
+                    datasource,
+                    datasource_urn,
+                    table_id_to_urn,
+                )
+                fine_grained_lineages.extend(upstream_columns)
+
+                logger.debug(
+                    f"A total of {len(fine_grained_lineages)} upstream column edges found for datasource {datasource['id']}"
+                )
+
+        return upstream_tables, fine_grained_lineages
+
+    def get_upstream_datasources(self, datasource, upstream_tables):
+        upstream_tables = []
+        for ds in datasource.get("upstreamDatasources", []):
+            if ds["id"] not in self.datasource_ids_being_used:
+                self.datasource_ids_being_used.append(ds["id"])
+
+            upstream_ds_urn = builder.make_dataset_urn_with_platform_instance(
+                platform=self.platform,
+                name=ds["id"],
+                platform_instance=self.config.platform_instance,
+                env=self.config.env,
+            )
+            upstream_table = Upstream(
+                dataset=upstream_ds_urn,
+                type=DatasetLineageType.TRANSFORMED,
+            )
+            upstream_tables.append(upstream_table)
+        return upstream_tables
+
+    def get_upstream_csql_tables(self, fields, datasource_name, project):
+        upstream_csql_urns = set()
+        csql_id_to_urn = {}
+
+        for field in fields:
+            if not field.get("upstreamColumns"):
+                continue
+            for upstream_col in field.get("upstreamColumns"):
+                if (
+                    upstream_col
+                    and upstream_col.get("table")
+                    and upstream_col.get("table")["__typename"] == "CustomSQLTable"
+                ):
+                    upstream_table_id = upstream_col.get("table")["id"]
+
+                    csql_urn = builder.make_dataset_urn_with_platform_instance(
+                        platform=self.platform,
+                        name=upstream_table_id,
+                        platform_instance=self.config.platform_instance,
+                        env=self.config.env,
+                    )
+                    csql_id_to_urn[upstream_table_id] = csql_urn
+
+                    upstream_csql_urns.add(csql_urn)
+
+        return [
+            Upstream(dataset=csql_urn, type=DatasetLineageType.TRANSFORMED)
+            for csql_urn in upstream_csql_urns
+        ], csql_id_to_urn
+
+    def get_upstream_tables(self, tables, datasource_name, project, is_custom_sql):
+        upstream_tables = []
+        # Same table urn can be used when setting fine grained lineage,
+        table_id_to_urn: Dict[str, str] = {}
+        for table in tables:
             # skip upstream tables when there is no column info when retrieving datasource
             # Lineage and Schema details for these will be taken care in self.emit_custom_sql_datasources()
             if not is_custom_sql and not table.get("columns"):
@@ -528,17 +631,18 @@ class TableauSource(StatefulIngestionSourceBase):
                 self.config.platform_instance_map,
                 self.config.lineage_overrides,
             )
+            table_id_to_urn[table["id"]] = table_urn
 
-            upstream_table = UpstreamClass(
+            upstream_table = Upstream(
                 dataset=table_urn,
-                type=DatasetLineageTypeClass.TRANSFORMED,
+                type=DatasetLineageType.TRANSFORMED,
             )
             upstream_tables.append(upstream_table)
 
             table_path = None
-            if project and datasource.get("name"):
+            if project and datasource_name:
                 table_path = (
-                    f"{project.replace('/', REPLACE_SLASH_CHAR)}/{datasource['name']}"
+                    f"{project.replace('/', REPLACE_SLASH_CHAR)}/{datasource_name}"
                 )
 
             self.upstream_tables[table_urn] = (
@@ -546,8 +650,118 @@ class TableauSource(StatefulIngestionSourceBase):
                 table_path,
                 table.get("isEmbedded") or False,
             )
+        return upstream_tables, table_id_to_urn
 
-        return upstream_tables
+    def get_upstream_columns_of_fields_in_datasource(
+        self,
+        datasource,
+        datasource_urn,
+        table_id_to_urn,
+    ):
+        fine_grained_lineages = []
+        for field in datasource.get("fields"):
+            field_name = field.get("name")
+            # upstreamColumns lineage will be set via upstreamFields.
+            # such as for CalculatedField
+            if (
+                not field_name
+                or not field.get("upstreamColumns")
+                or field.get("upstreamFields")
+            ):
+                continue
+            input_columns = []
+            for upstream_col in field.get("upstreamColumns"):
+                if not upstream_col:
+                    continue
+                name = upstream_col.get("name")
+                upstream_table_id = (
+                    upstream_col.get("table")["id"]
+                    if upstream_col.get("table")
+                    else None
+                )
+                if (
+                    name
+                    and upstream_table_id
+                    and upstream_table_id in table_id_to_urn.keys()
+                ):
+                    input_columns.append(
+                        builder.make_schema_field_urn(
+                            parent_urn=table_id_to_urn[upstream_table_id],
+                            field_path=name,
+                        )
+                    )
+
+            if input_columns:
+                fine_grained_lineages.append(
+                    FineGrainedLineage(
+                        downstreamType=FineGrainedLineageDownstreamType.FIELD,
+                        downstreams=sorted(
+                            [builder.make_schema_field_urn(datasource_urn, field_name)]
+                        ),
+                        upstreamType=FineGrainedLineageUpstreamType.FIELD_SET,
+                        upstreams=sorted(input_columns),
+                    )
+                )
+
+        return fine_grained_lineages
+
+    def get_upstream_fields_of_field_in_datasource(self, datasource, datasource_urn):
+        fine_grained_lineages = []
+        for field in datasource.get("fields"):
+            field_name = field.get("name")
+            # It is observed that upstreamFields gives one-hop field
+            # lineage, and not multi-hop field lineage
+            # This behavior is as desired in our case.
+            if not field_name or not field.get("upstreamFields"):
+                continue
+            input_fields = []
+            for upstream_field in field.get("upstreamFields"):
+                if not upstream_field:
+                    continue
+                name = upstream_field.get("name")
+                upstream_ds_id = (
+                    upstream_field.get("datasource")["id"]
+                    if upstream_field.get("datasource")
+                    else None
+                )
+                if name and upstream_ds_id:
+                    input_fields.append(
+                        builder.make_schema_field_urn(
+                            parent_urn=builder.make_dataset_urn_with_platform_instance(
+                                self.platform,
+                                upstream_ds_id,
+                                self.config.platform_instance,
+                                self.config.env,
+                            ),
+                            field_path=name,
+                        )
+                    )
+            if input_fields:
+                fine_grained_lineages.append(
+                    FineGrainedLineage(
+                        downstreamType=FineGrainedLineageDownstreamType.FIELD,
+                        downstreams=[
+                            builder.make_schema_field_urn(datasource_urn, field_name)
+                        ],
+                        upstreamType=FineGrainedLineageUpstreamType.FIELD_SET,
+                        upstreams=input_fields,
+                        transformOperation=self.get_transform_operation(field),
+                    )
+                )
+        return fine_grained_lineages
+
+    def get_transform_operation(self, field):
+        field_type = field["__typename"]
+        if field_type in ("DatasourceField", "ColumnField"):
+            op = "IDENTITY"  # How to specify exact same
+        elif field_type == "CalculatedField":
+            op = field_type
+            if field.get("formula"):
+                op += f'formula: {field.get("formula")}'
+        else:
+            op = field_type  # BinField, CombinedField, etc
+
+        return op
 
     def emit_custom_sql_datasources(self) -> Iterable[MetadataWorkUnit]:
         custom_sql_filter = f"idWithin: {json.dumps(self.custom_sql_ids_being_used)}"
@@ -578,10 +792,6 @@ class TableauSource(StatefulIngestionSourceBase):
             datasource_name = None
             project = None
             if len(csql["datasources"]) > 0:
-                yield from self._create_lineage_from_csql_datasource(
-                    csql_urn, csql["datasources"]
-                )
-
                 # CustomSQLTable id owned by exactly one tableau data source
                 logger.debug(
                     f"Number of datasources referencing CustomSQLTable: {len(csql['datasources'])}"
@@ -607,11 +817,14 @@ class TableauSource(StatefulIngestionSourceBase):
                         yield wu
                 project = self._get_project(datasource)
 
-            # lineage from custom sql -> datasets/tables #
-            columns = csql.get("columns", [])
-            yield from self._create_lineage_to_upstream_tables(csql_urn, columns)
+                # lineage from custom sql -> datasets/tables #
+                tables = csql.get("tables", [])
+                yield from self._create_lineage_to_upstream_tables(
+                    csql_urn, tables, datasource
+                )
 
             #  Schema Metadata
+            columns = csql.get("columns", [])
             schema_metadata = self.get_schema_metadata_for_custom_sql(columns)
             if schema_metadata is not None:
                 dataset_snapshot.aspects.append(schema_metadata)
@@ -681,26 +894,6 @@ class TableauSource(StatefulIngestionSourceBase):
         )
         return schema_metadata
 
-    def _create_lineage_from_csql_datasource(
-        self, csql_urn: str, csql_datasource: List[dict]
-    ) -> Iterable[MetadataWorkUnit]:
-        for datasource in csql_datasource:
-            datasource_urn = builder.make_dataset_urn_with_platform_instance(
-                self.platform,
-                datasource.get("id", ""),
-                self.config.platform_instance,
-                self.config.env,
-            )
-            upstream_csql = UpstreamClass(
-                dataset=csql_urn,
-                type=DatasetLineageTypeClass.TRANSFORMED,
-            )
-
-            upstream_lineage = UpstreamLineage(upstreams=[upstream_csql])
-            yield self.get_metadata_change_proposal(
-                datasource_urn, aspect_name="upstreamLineage", aspect=upstream_lineage
-            )
-
     def _get_project(self, node):
         if node.get("__typename") == "EmbeddedDatasource" and node.get("workbook"):
             return node["workbook"].get("projectName")
@@ -709,31 +902,24 @@ class TableauSource(StatefulIngestionSourceBase):
         return None
 
     def _create_lineage_to_upstream_tables(
-        self, csql_urn: str, columns: List[dict]
+        self, csql_urn: str, tables: List[dict], datasource: dict
     ) -> Iterable[MetadataWorkUnit]:
-        used_datasources = []
-        # Get data sources from columns' reference fields.
-        for field in columns:
-            data_sources = [
-                reference.get("datasource")
-                for reference in field.get("referencedByFields", {})
-                if reference.get("datasource") is not None
-            ]
 
-            for datasource in data_sources:
-                if datasource.get("id", "") in used_datasources:
-                    continue
-                used_datasources.append(datasource.get("id", ""))
-                upstream_tables = self._create_upstream_table_lineage(
-                    datasource, self._get_project(datasource), is_custom_sql=True
-                )
-                if upstream_tables:
-                    upstream_lineage = UpstreamLineage(upstreams=upstream_tables)
-                    yield self.get_metadata_change_proposal(
-                        csql_urn,
-                        aspect_name="upstreamLineage",
-                        aspect=upstream_lineage,
-                    )
+        # This adds an edge to upstream DatabaseTables using `upstreamTables`
+        upstream_tables, _ = self.get_upstream_tables(
+            tables,
+            datasource.get("name"),
+            self._get_project(datasource),
+            is_custom_sql=True,
+        )
+
+        if upstream_tables:
+            upstream_lineage = UpstreamLineage(upstreams=upstream_tables)
+            yield self.get_metadata_change_proposal(
+                csql_urn,
+                aspect_name="upstreamLineage",
+                aspect=upstream_lineage,
+            )
 
     def _get_schema_metadata_for_datasource(
         self, datasource_fields: List[dict]
@@ -748,26 +934,7 @@ class TableauSource(StatefulIngestionSourceBase):
                 )
                 continue
 
-            nativeDataType = field.get("dataType", "UNKNOWN")
-            TypeClass = FIELD_TYPE_MAPPING.get(nativeDataType, NullTypeClass)
-
-            schema_field = SchemaField(
-                fieldPath=field["name"],
-                type=SchemaFieldDataType(type=TypeClass()),
-                description=make_description_from_params(
-                    field.get("description", ""), field.get("formula")
-                ),
-                nativeDataType=nativeDataType,
-                globalTags=get_tags_from_params(
-                    [
-                        field.get("role", ""),
-                        field.get("__typename", ""),
-                        field.get("aggregation", ""),
-                    ]
-                )
-                if self.config.ingest_tags
-                else None,
-            )
+            schema_field = tableau_field_to_schema_field(field, self.config.ingest_tags)
             fields.append(schema_field)
 
         return (
@@ -877,12 +1044,22 @@ class TableauSource(StatefulIngestionSourceBase):
         # Upstream Tables
         if datasource.get("upstreamTables") or datasource.get("upstreamDatasources"):
             # datasource -> db table relations
-            upstream_tables = self._create_upstream_table_lineage(
+            (
+                upstream_tables,
+                fine_grained_lineages,
+            ) = self._create_upstream_table_lineage(
                 datasource, project, is_embedded_ds=is_embedded_ds
             )
 
             if upstream_tables:
-                upstream_lineage = UpstreamLineage(upstreams=upstream_tables)
+                upstream_lineage = UpstreamLineage(
+                    upstreams=upstream_tables,
+                    fineGrainedLineages=sorted(
+                        fine_grained_lineages,
+                        key=lambda x: (x.downstreams, x.upstreams),
+                    )
+                    or None,
+                )
                 yield self.get_metadata_change_proposal(
                     datasource_urn,
                     aspect_name="upstreamLineage",
@@ -1060,15 +1237,9 @@ class TableauSource(StatefulIngestionSourceBase):
             else:
                 # hidden or viz-in-tooltip sheet
                 sheet_external_url = None
-            fields = {}
-            for field in sheet.get("datasourceFields", ""):
-                name = get_field_value_in_sheet(field, "name")
-                description = make_description_from_params(
-                    get_field_value_in_sheet(field, "description"),
-                    get_field_value_in_sheet(field, "formula"),
-                )
-                if name:
-                    fields[name] = description
+            input_fields: List[InputField] = []
+            if sheet.get("datasourceFields"):
+                self.populate_sheet_upstream_fields(sheet, input_fields)
 
             # datasource urn
             datasource_urn = []
@@ -1089,10 +1260,7 @@ class TableauSource(StatefulIngestionSourceBase):
                 lastModified=last_modified,
                 externalUrl=sheet_external_url,
                 inputs=sorted(datasource_urn),
-                customProperties={
-                    "luid": sheet.get("luid") or "",
-                    **{f"field: {k}": v for k, v in fields.items()},
-                },
+                customProperties={"luid": sheet.get("luid") or ""},
             )
             chart_snapshot.aspects.append(chart_info)
             # chart_snapshot doesn't support the stat aspect as list element and hence need to emit MCP
@@ -1131,9 +1299,50 @@ class TableauSource(StatefulIngestionSourceBase):
             workunits = add_entity_to_container(
                 self.gen_workbook_key(workbook), "chart", chart_snapshot.urn
             )
+
             for wu in workunits:
                 self.report.report_workunit(wu)
                 yield wu
+
+            if input_fields:
+                wu = MetadataChangeProposalWrapper(
+                    entityUrn=sheet_urn,
+                    aspect=InputFields(
+                        fields=sorted(input_fields, key=lambda x: x.schemaFieldUrn)
+                    ),
+                ).as_workunit()
+                self.report.report_workunit(wu)
+                yield wu
+
+    def populate_sheet_upstream_fields(
+        self, sheet: dict, input_fields: List[InputField]
+    ) -> None:
+        for field in sheet.get("datasourceFields"):  # type: ignore
+            if not field:
+                continue
+            name = field.get("name")
+            upstream_ds_id = (
+                field.get("datasource")["id"] if field.get("datasource") else None
+            )
+            if name and upstream_ds_id:
+                name = get_field_value_in_sheet(field, "name")
+
+                input_fields.append(
+                    InputField(
+                        schemaFieldUrn=builder.make_schema_field_urn(
+                            parent_urn=builder.make_dataset_urn_with_platform_instance(
+                                self.platform,
+                                upstream_ds_id,
+                                self.config.platform_instance,
+                                self.config.env,
+                            ),
+                            field_path=name,
+                        ),
+                        schemaField=tableau_field_to_schema_field(
+                            field, self.config.ingest_tags
+                        ),
+                    )
+                )
 
     def emit_workbook_as_container(self, workbook: Dict) -> Iterable[MetadataWorkUnit]:
 
