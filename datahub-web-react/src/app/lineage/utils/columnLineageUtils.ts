@@ -115,3 +115,10 @@ export function filterColumns(
         }));
     }
 }
+
+export function getSourceUrnFromSchemaFieldUrn(schemaFieldUrn: string) {
+    return schemaFieldUrn.replace('urn:li:schemaField:(', '').split(')')[0].concat(')');
+}
+export function getFieldPathFromSchemaFieldUrn(schemaFieldUrn: string) {
+    return schemaFieldUrn.replace('urn:li:schemaField:(', '').split(')')[1].replace(',', '');
+}
