@@ -474,6 +474,7 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
             custom_properties["data_source_format"] = table.data_source_format
 
         custom_properties["generation"] = str(table.generation)
+        custom_properties["table_type"] = table.table_type
 
         custom_properties["created_by"] = table.created_by
         custom_properties["created_at"] = str(table.created_at)
@@ -510,7 +511,7 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
             entityType="dataset",
             changeType=ChangeTypeClass.UPSERT,
             entityUrn=dataset_urn,
-            aspect=SubTypesClass(typeNames=[table.table_type]),
+            aspect=SubTypesClass(typeNames=["View" if table.table_type.lower() == "view" else "Table"]),
         )
 
         wu = MetadataWorkUnit(id=f"subType-{dataset_urn}", mcp=mcp)
