@@ -31,7 +31,7 @@ export enum EntityMenuItems {
     MOVE,
 }
 
-const MenuIcon = styled(MoreOutlined)<{ fontSize?: number }>`
+export const MenuIcon = styled(MoreOutlined)<{ fontSize?: number }>`
     display: flex;
     justify-content: center;
     align-items: center;

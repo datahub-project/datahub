@@ -435,12 +435,6 @@ timestamp < "{end_time}"
                     referenced_objs = set(
                         map(lambda x: x.split(".")[-1], parser.get_tables())
                     )
-                    self.report.num_lineage_entries_sql_parser_failure[e.project_id] = (
-                        self.report.num_lineage_entries_sql_parser_failure.get(
-                            e.project_id, 0
-                        )
-                        + 1
-                    )
                 except Exception as ex:
                     logger.debug(
                         f"Sql Parser failed on query: {e.query}. It won't cause any issue except table/view lineage can't be detected reliably. The error was {ex}."
