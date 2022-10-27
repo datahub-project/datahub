@@ -919,6 +919,8 @@ class DBTSourceBase(StatefulIngestionSourceBase):
                     f"Failed to find test node {node.dbt_name} in the manifest"
                 )
                 continue
+
+            # TODO update this
             raw_node = raw_node_obj.manifest_raw
 
             test_metadata = raw_node.get("test_metadata", {})
@@ -1142,11 +1144,11 @@ class DBTSourceBase(StatefulIngestionSourceBase):
             if self.config.enable_query_tag_mapping and node.query_tag:
                 self.extract_query_tag_aspects(action_processor_tag, meta_aspects, node)
 
-            aspects = self._generate_base_aspects(
-                node, additional_custom_props_filtered, mce_platform, meta_aspects
-            )
-
             if mce_platform == DBT_PLATFORM:
+                aspects = self._generate_base_aspects(
+                    node, additional_custom_props_filtered, mce_platform, meta_aspects
+                )
+
                 # add upstream lineage
                 upstream_lineage_class = self._create_lineage_aspect_for_dbt_node(
                     node, all_nodes_map
