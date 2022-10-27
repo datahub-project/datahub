@@ -113,13 +113,25 @@
             "type" : "com.linkedin.common.Urn",
             "doc" : "Entity that is related via lineage"
           }, {
+            "name" : "paths",
+            "type" : {
+              "type" : "array",
+              "items" : {
+                "type" : "array",
+                "items" : "com.linkedin.common.Urn"
+              }
+            },
+            "doc" : "Optional list of entities between the source and destination node.\nThere can be multiple paths from the source to the destination.",
+            "default" : [ [ ] ]
+          }, {
             "name" : "path",
             "type" : {
               "type" : "array",
               "items" : "com.linkedin.common.Urn"
             },
             "doc" : "Optional list of entities between the source and destination node",
-            "default" : [ ]
+            "default" : [ ],
+            "deprecated" : true
           }, {
             "name" : "degree",
             "type" : "int",

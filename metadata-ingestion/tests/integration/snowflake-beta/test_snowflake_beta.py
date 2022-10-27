@@ -202,7 +202,18 @@ def default_query_results(query):
                     [
                         {
                             "columns": [
-                                {"columnId": 0, "columnName": "COL_{}".format(col_idx)}
+                                {
+                                    "columnId": 0,
+                                    "columnName": "COL_{}".format(col_idx),
+                                    "directSources": [
+                                        {
+                                            "columnName": "COL_{}".format(col_idx),
+                                            "objectDomain": "Table",
+                                            "objectId": 0,
+                                            "objectName": "TEST_DB.TEST_SCHEMA.TABLE_2",
+                                        }
+                                    ],
+                                }
                                 for col_idx in range(1, NUM_COLS + 1)
                             ],
                             "objectDomain": "Table",
@@ -220,7 +231,40 @@ def default_query_results(query):
             }
             for op_idx in range(1, NUM_OPS + 1)
         ]
-
+    elif query == snowflake_query.SnowflakeQuery.table_to_table_lineage_history(
+        1654499820000,
+        1654586220000,
+    ):
+        return [
+            {
+                "DOWNSTREAM_TABLE_NAME": "TEST_DB.TEST_SCHEMA.TABLE_{}".format(op_idx),
+                "UPSTREAM_TABLE_NAME": "TEST_DB.TEST_SCHEMA.TABLE_2",
+                "UPSTREAM_TABLE_COLUMNS": json.dumps(
+                    [
+                        {"columnId": 0, "columnName": "COL_{}".format(col_idx)}
+                        for col_idx in range(1, NUM_COLS + 1)
+                    ]
+                ),
+                "DOWNSTREAM_TABLE_COLUMNS": json.dumps(
+                    [
+                        {
+                            "columnId": 0,
+                            "columnName": "COL_{}".format(col_idx),
+                            "directSources": [
+                                {
+                                    "columnName": "COL_{}".format(col_idx),
+                                    "objectDomain": "Table",
+                                    "objectId": 0,
+                                    "objectName": "TEST_DB.TEST_SCHEMA.TABLE_2",
+                                }
+                            ],
+                        }
+                        for col_idx in range(1, NUM_COLS + 1)
+                    ]
+                ),
+            }
+            for op_idx in range(1, NUM_OPS + 1)
+        ]
     # Unreachable code
     raise Exception(f"Unknown query {query}")
 
@@ -254,7 +298,7 @@ def test_snowflake_basic(pytestconfig, tmp_path, mock_time, mock_datahub_graph):
                         password="TST_PWD",
                         include_views=False,
                         include_technical_schema=True,
-                        include_table_lineage=False,
+                        include_table_lineage=True,
                         include_view_lineage=False,
                         include_usage_stats=False,
                         include_operational_stats=True,

@@ -12,6 +12,8 @@ from datahub.metadata.com.linkedin.pegasus2avro.schema import (
     DateTypeClass,
     NullTypeClass,
     NumberTypeClass,
+    SchemaField,
+    SchemaFieldDataType,
     StringTypeClass,
     TimeTypeClass,
 )
@@ -181,21 +183,25 @@ embedded_datasource_graphql_query = """
         description
         isHidden
         folderName
+        upstreamFields {
+            name
+            datasource {
+                id
+            }
+        }
+        upstreamColumns {
+            name
+            table {
+                __typename
+                id
+            }
+        }
         ... on ColumnField {
             dataCategory
             role
             dataType
             defaultFormat
             aggregation
-            columns {
-                table {
-                    __typename
-                    ... on CustomSQLTable {
-                        id
-                        name
-                    }
-                }
-            }
         }
         ... on CalculatedField {
             role
@@ -273,6 +279,11 @@ custom_sql_graphql_query = """
         schema
         fullName
         connectionType
+        description
+        columns {
+            name
+            remoteType
+        }
       }
 }
 """
@@ -309,21 +320,25 @@ published_datasource_graphql_query = """
         description
         isHidden
         folderName
+        upstreamFields {
+            name
+            datasource {
+                id
+            }
+        }
+        upstreamColumns {
+            name
+            table {
+                __typename
+                id
+            }
+        }
         ... on ColumnField {
             dataCategory
             role
             dataType
             defaultFormat
             aggregation
-            columns {
-                table {
-                  __typename
-                    ... on CustomSQLTable {
-                        id
-                        name
-                        }
-                    }
-                }
             }
         ... on CalculatedField {
             role
@@ -412,6 +427,31 @@ def get_tags_from_params(params: List[str] = []) -> GlobalTagsClass:
         if tag
     ]
     return GlobalTagsClass(tags=tags)
+
+
+def tableau_field_to_schema_field(field, ingest_tags):
+    nativeDataType = field.get("dataType", "UNKNOWN")
+    TypeClass = FIELD_TYPE_MAPPING.get(nativeDataType, NullTypeClass)
+
+    schema_field = SchemaField(
+        fieldPath=field["name"],
+        type=SchemaFieldDataType(type=TypeClass()),
+        description=make_description_from_params(
+            field.get("description", ""), field.get("formula")
+        ),
+        nativeDataType=nativeDataType,
+        globalTags=get_tags_from_params(
+            [
+                field.get("role", ""),
+                field.get("__typename", ""),
+                field.get("aggregation", ""),
+            ]
+        )
+        if ingest_tags
+        else None,
+    )
+
+    return schema_field
 
 
 @lru_cache(128)
