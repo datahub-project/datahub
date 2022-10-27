@@ -39,7 +39,7 @@ export const SearchPage = () => {
     );
     const entityFilters: Array<EntityType> = filters
         .filter((filter) => filter.field === ENTITY_FILTER_NAME)
-        .flatMap((filter) => filter.values.map((value) => value?.toUpperCase() as EntityType));
+        .flatMap((filter) => filter.values?.map((value) => value?.toUpperCase() as EntityType) || []);
 
     const [numResultsPerPage, setNumResultsPerPage] = useState(SearchCfg.RESULTS_PER_PAGE);
     const [isSelectMode, setIsSelectMode] = useState(false);

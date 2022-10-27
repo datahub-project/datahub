@@ -28,6 +28,8 @@ services:
         #
         confluent-hub install --no-prompt confluentinc/connect-transforms:1.4.1
         #
+        confluent-hub install --no-prompt confluentinc/kafka-connect-datagen:0.6.0
+        #
         confluent-hub install --no-prompt debezium/debezium-connector-mysql:1.7.0
         #
         #confluent-hub install --no-prompt wepay/kafka-connect-bigquery:1.6.8

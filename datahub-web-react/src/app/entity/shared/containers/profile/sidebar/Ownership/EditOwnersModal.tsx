@@ -15,14 +15,12 @@ import { useGetRecommendations } from '../../../../../../shared/recommendation';
 import { OwnerLabel } from '../../../../../../shared/OwnerLabel';
 
 const SelectInput = styled(Select)`
-    > .ant-select-selector {
-        height: 36px;
-    }
+    width: 480px;
 `;
 
 const StyleTag = styled(Tag)`
     padding: 0px 7px 0px 0px;
-    margin-right: 3px;
+    margin: 2px;
     display: flex;
     justify-content: start;
     align-items: center;

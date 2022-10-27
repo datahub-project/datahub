@@ -18,6 +18,7 @@ from datahub.emitter.mce_builder import (
     make_dataset_urn_with_platform_instance,
     make_domain_urn,
     make_tag_urn,
+    set_dataset_urn_to_lower,
 )
 from datahub.emitter.mcp_builder import (
     BigQueryDatasetKey,
@@ -117,7 +118,7 @@ def cleanup(config: BigQueryV2Config) -> None:
 
 @platform_name("BigQuery", doc_order=1)
 @config_class(BigQueryV2Config)
-@support_status(SupportStatus.INCUBATING)
+@support_status(SupportStatus.CERTIFIED)
 @capability(SourceCapability.PLATFORM_INSTANCE, "Enabled by default")
 @capability(SourceCapability.DOMAINS, "Supported via the `domain` config field")
 @capability(SourceCapability.CONTAINERS, "Enabled by default")
@@ -184,6 +185,8 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
         BigqueryTableIdentifier._BIGQUERY_DEFAULT_SHARDED_TABLE_REGEX = (
             self.config.sharded_table_pattern
         )
+
+        set_dataset_urn_to_lower(self.config.convert_urns_to_lowercase)
 
         # For database, schema, tables, views, etc
         self.lineage_extractor = BigqueryLineageExtractor(config, self.report)

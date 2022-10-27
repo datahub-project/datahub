@@ -1,5 +1,6 @@
 package com.linkedin.metadata.search.client;
 
+import com.codahale.metrics.Timer;
 import com.linkedin.metadata.browse.BrowseResult;
 import com.linkedin.metadata.query.AutoCompleteResult;
 import com.linkedin.metadata.query.SearchFlags;
@@ -8,6 +9,7 @@ import com.linkedin.metadata.query.filter.SortCriterion;
 import com.linkedin.metadata.search.EntitySearchService;
 import com.linkedin.metadata.search.SearchResult;
 import com.linkedin.metadata.search.cache.CacheableSearcher;
+import com.linkedin.metadata.utils.metrics.MetricUtils;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import lombok.RequiredArgsConstructor;
@@ -127,31 +129,26 @@ public class CachingEntitySearchService {
       @Nullable Filter filters,
       int limit,
       @Nullable SearchFlags flags) {
-    Cache cache = cacheManager.getCache(ENTITY_SEARCH_SERVICE_AUTOCOMPLETE_CACHE_NAME);
-    AutoCompleteResult result;
-    if (enableCache(flags)) {
-      Object cacheKey = Quintet.with(entityName, input, field, filters, limit);
-      result = cache.get(cacheKey, AutoCompleteResult.class);
-      if (result == null) {
-        result = getRawAutoCompleteResults(
-            entityName,
-            input,
-            field,
-            filters,
-            limit
-        );
-        cache.put(cacheKey, result);
+    try (Timer.Context ignored = MetricUtils.timer(this.getClass(), "getCachedAutoCompleteResults").time()) {
+      Cache cache = cacheManager.getCache(ENTITY_SEARCH_SERVICE_AUTOCOMPLETE_CACHE_NAME);
+      AutoCompleteResult result;
+      if (enableCache(flags)) {
+        Timer.Context cacheAccess = MetricUtils.timer(this.getClass(), "autocomplete_cache_access").time();
+        Object cacheKey = Quintet.with(entityName, input, field, filters, limit);
+        result = cache.get(cacheKey, AutoCompleteResult.class);
+        cacheAccess.stop();
+        if (result == null) {
+          Timer.Context cacheMiss = MetricUtils.timer(this.getClass(), "autocomplete_cache_miss").time();
+          result = getRawAutoCompleteResults(entityName, input, field, filters, limit);
+          cache.put(cacheKey, result);
+          cacheMiss.stop();
+          MetricUtils.counter(this.getClass(), "autocomplete_cache_miss_count").inc();
+        }
+      } else {
+        result = getRawAutoCompleteResults(entityName, input, field, filters, limit);
       }
-    } else {
-      result = getRawAutoCompleteResults(
-          entityName,
-          input,
-          field,
-          filters,
-          limit
-      );
+      return result;
     }
-    return result;
   }
 
   /**
@@ -164,31 +161,26 @@ public class CachingEntitySearchService {
       int from,
       int size,
       @Nullable SearchFlags flags) {
-    Cache cache = cacheManager.getCache(ENTITY_SEARCH_SERVICE_BROWSE_CACHE_NAME);
-    BrowseResult result;
-    if (enableCache(flags)) {
-      Object cacheKey = Quintet.with(entityName, path, filters, from, size);
-      result = cache.get(cacheKey, BrowseResult.class);
-      if (result == null) {
-        result = getRawBrowseResults(
-            entityName,
-            path,
-            filters,
-            from,
-            size
-        );
-        cache.put(cacheKey, result);
+    try (Timer.Context ignored = MetricUtils.timer(this.getClass(), "getCachedBrowseResults").time()) {
+      Cache cache = cacheManager.getCache(ENTITY_SEARCH_SERVICE_BROWSE_CACHE_NAME);
+      BrowseResult result;
+      if (enableCache(flags)) {
+        Timer.Context cacheAccess = MetricUtils.timer(this.getClass(), "browse_cache_access").time();
+        Object cacheKey = Quintet.with(entityName, path, filters, from, size);
+        result = cache.get(cacheKey, BrowseResult.class);
+        cacheAccess.stop();
+        if (result == null) {
+          Timer.Context cacheMiss = MetricUtils.timer(this.getClass(), "browse_cache_miss").time();
+          result = getRawBrowseResults(entityName, path, filters, from, size);
+          cache.put(cacheKey, result);
+          cacheMiss.stop();
+          MetricUtils.counter(this.getClass(), "browse_cache_miss_count").inc();
+        }
+      } else {
+        result = getRawBrowseResults(entityName, path, filters, from, size);
       }
-    } else {
-      result = getRawBrowseResults(
-          entityName,
-          path,
-          filters,
-          from,
-          size
-      );
+      return result;
     }
-    return result;
   }
 
   /**
