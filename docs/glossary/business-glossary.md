@@ -1,8 +1,6 @@
 ---
 title: About DataHub Business Glossary
 sidebar_label: Business Glossary
-slug: /glossary
-custom_edit_url: 'https://github.com/datahub-project/datahub/blob/master/docs/glosary/business-glossary.md'
 ---
 
 import FeatureAvailability from '@site/src/components/FeatureAvailability';
