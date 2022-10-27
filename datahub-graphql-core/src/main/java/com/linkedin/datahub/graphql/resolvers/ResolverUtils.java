@@ -135,14 +135,24 @@ public class ResolverUtils {
     public static Criterion criterionFromFilter(final FacetFilterInput filter) {
         Criterion result = new Criterion();
         result.setField(getFilterField(filter.getField()));
-        if (filter.getValues() != null) {
+
+        // `value` is deprecated in place of `values`- this is to support old query patterns. If values is provided,
+        // this statement will be skipped
+        if (filter.getValues() == null && filter.getValue() != null) {
+            result.setValues(new StringArray(filter.getValue()));
+            result.setValue(filter.getValue());
+        } else if (filter.getValues() != null) {
             result.setValues(new StringArray(filter.getValues()));
             if (!filter.getValues().isEmpty()) {
                 result.setValue(filter.getValues().get(0));
             } else {
                 result.setValue("");
             }
+        } else {
+            result.setValues(new StringArray());
+            result.setValue("");
         }
+
 
         if (filter.getCondition() != null) {
             result.setCondition(Condition.valueOf(filter.getCondition().toString()));

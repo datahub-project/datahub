@@ -15,6 +15,7 @@ import {
     Deprecation,
     Domain,
     ParentNodesResult,
+    EntityPath,
 } from '../../types.generated';
 import TagTermGroup from '../shared/tags/TagTermGroup';
 import { ANTD_GRAY } from '../entity/shared/constants';
@@ -28,6 +29,7 @@ import { ExpandedActorGroup } from '../entity/shared/components/styled/ExpandedA
 import { DeprecationPill } from '../entity/shared/components/styled/DeprecationPill';
 import { PreviewType } from '../entity/Entity';
 import ExternalUrlButton from '../entity/shared/ExternalUrlButton';
+import EntityPaths from './EntityPaths/EntityPaths';
 
 const PreviewContainer = styled.div`
     display: flex;
@@ -182,6 +184,7 @@ interface Props {
     parentContainers?: ParentContainersResult | null;
     parentNodes?: ParentNodesResult | null;
     previewType?: Maybe<PreviewType>;
+    paths?: EntityPath[];
 }
 
 export default function DefaultPreviewCard({
@@ -219,6 +222,7 @@ export default function DefaultPreviewCard({
     platforms,
     logoUrls,
     previewType,
+    paths,
 }: Props) {
     // sometimes these lists will be rendered inside an entity container (for example, in the case of impact analysis)
     // in those cases, we may want to enrich the preview w/ context about the container entity
@@ -302,6 +306,7 @@ export default function DefaultPreviewCard({
                     {!!degree && entityCount && <PlatformDivider />}
                     <EntityCount entityCount={entityCount} />
                 </TitleContainer>
+                {paths && paths.length > 0 && <EntityPaths paths={paths} resultEntityUrn={urn || ''} />}
                 {description && description.length > 0 && (
                     <DescriptionContainer>
                         <NoMarkdownViewer
@@ -345,27 +350,29 @@ export default function DefaultPreviewCard({
                     </InsightContainer>
                 )}
             </LeftColumn>
-            <RightColumn>
-                {topUsers && topUsers?.length > 0 && (
-                    <>
+            {shouldShowRightColumn && (
+                <RightColumn>
+                    {topUsers && topUsers?.length > 0 && (
+                        <>
+                            <UserListContainer>
+                                <UserListTitle strong>Top Users</UserListTitle>
+                                <div>
+                                    <ExpandedActorGroup actors={topUsers} max={2} />
+                                </div>
+                            </UserListContainer>
+                        </>
+                    )}
+                    {(topUsers?.length || 0) > 0 && (owners?.length || 0) > 0 && <UserListDivider type="vertical" />}
+                    {owners && owners?.length > 0 && (
                         <UserListContainer>
-                            <UserListTitle strong>Top Users</UserListTitle>
+                            <UserListTitle strong>Owners</UserListTitle>
                             <div>
-                                <ExpandedActorGroup actors={topUsers} max={2} />
+                                <ExpandedActorGroup actors={owners.map((owner) => owner.owner)} max={2} />
                             </div>
                         </UserListContainer>
-                    </>
-                )}
-                {(topUsers?.length || 0) > 0 && (owners?.length || 0) > 0 && <UserListDivider type="vertical" />}
-                {owners && owners?.length > 0 && (
-                    <UserListContainer>
-                        <UserListTitle strong>Owners</UserListTitle>
-                        <div>
-                            <ExpandedActorGroup actors={owners.map((owner) => owner.owner)} max={2} />
-                        </div>
-                    </UserListContainer>
-                )}
-            </RightColumn>
+                    )}
+                </RightColumn>
+            )}
         </PreviewContainer>
     );
 }

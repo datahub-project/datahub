@@ -7,8 +7,6 @@ import { Post } from '../../types.generated';
 const CardContainer = styled.div`
     display: flex;
     flex-direction: row;
-    margin-right: 12px;
-    margin-left: 12px;
     margin-bottom: 12px;
     height: 140px;
     border: 1px solid ${ANTD_GRAY[4]};

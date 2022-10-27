@@ -259,7 +259,7 @@ public class SiblingGraphServiceTest {
     EntityLineageResult expectedResult = mockResult.clone();
     expectedResult.setTotal(3);
     expectedResult.setCount(2);
-    expectedResult.setRelationships(new LineageRelationshipArray(relationship1, relationship2));
+    expectedResult.setRelationships(new LineageRelationshipArray(relationship2, relationship1));
 
     EntityLineageResult upstreamLineage = service.getLineage(datasetFourUrn, LineageDirection.UPSTREAM, 0, 100, 1);
 
