@@ -511,7 +511,9 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
             entityType="dataset",
             changeType=ChangeTypeClass.UPSERT,
             entityUrn=dataset_urn,
-            aspect=SubTypesClass(typeNames=["View" if table.table_type.lower() == "view" else "Table"]),
+            aspect=SubTypesClass(
+                typeNames=["View" if table.table_type.lower() == "view" else "Table"]
+            ),
         )
 
         wu = MetadataWorkUnit(id=f"subType-{dataset_urn}", mcp=mcp)
