@@ -116,6 +116,9 @@ public class Neo4jGraphService implements GraphService {
 
     List<Record> neo4jResult = statement != null ? runQuery(buildStatement(statement, new HashMap<>())).list() : new ArrayList<>();
 
+    // It is possible to have more than 1 path from node A to node B in the graph and previous query returns all the paths.
+    // We convert the List into Map with only the shortest paths. "item.get(i).size()" is the path size between two nodes in relation.
+    // The key for mapping is the destination node as the source node is always the same, and it is defined by parameter.
     neo4jResult = neo4jResult.stream()
             .collect(Collectors.toMap(item -> item.values().get(2).asNode().get("urn").asString(),
                     Function.identity(),
@@ -126,7 +129,7 @@ public class Neo4jGraphService implements GraphService {
 
     LineageRelationshipArray relations = new LineageRelationshipArray();
     neo4jResult.stream()
-            .skip(offset).limit(offset + count)
+            .skip(offset).limit(count)
             .forEach(item -> {
               String urn = item.values().get(2).asNode().get("urn").asString();
               String relationType = ((InternalRelationship) item.get(1).asList().get(0)).type();
@@ -174,13 +177,10 @@ public class Neo4jGraphService implements GraphService {
     String statement = null;
     if (upstreamRel.length() > 0 && dowStreamRel.length() > 0) {
       statement = statementDirect + " UNION " + statementIndirect;
-    } else {
-      if (upstreamRel.length() > 0) {
-        statement = statementDirect;
-      }
-      if (dowStreamRel.length() > 0) {
-        statement = statementIndirect;
-      }
+    } else if (upstreamRel.length() > 0) {
+      statement = statementDirect;
+    } else if (dowStreamRel.length() > 0) {
+      statement = statementIndirect;
     }
     return statement;
   }
