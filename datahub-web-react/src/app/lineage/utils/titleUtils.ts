@@ -1,4 +1,4 @@
-import { SchemaField, SchemaMetadata } from '../../../types.generated';
+import { SchemaField } from '../../../types.generated';
 import { COLUMN_HEIGHT, EXPAND_COLLAPSE_COLUMNS_TOGGLE_HEIGHT, NUM_COLUMNS_PER_PAGE } from '../constants';
 
 interface OptionalOptions {
