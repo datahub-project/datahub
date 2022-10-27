@@ -51,7 +51,6 @@ from datahub.metadata.com.linkedin.pegasus2avro.common import Status
 from datahub.metadata.com.linkedin.pegasus2avro.dataset import (
     FineGrainedLineage,
     FineGrainedLineageUpstreamType,
-    Upstream,
     ViewProperties,
 )
 from datahub.metadata.schema_classes import (
@@ -273,19 +272,19 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
     ) -> Iterable[MetadataWorkUnit]:
         upstreams: List[UpstreamClass] = []
         finegrained_lineages: List[FineGrainedLineage] = []
-        for upstream in table.upstreams.keys():
+        for upstream in sorted(table.upstreams.keys()):
             upstream_urn = make_dataset_urn_with_platform_instance(
                 self.platform,
-                f"{table.schema.catalog.metastore.metastore_id}.{upstream}",
+                f"{table.schema.catalog.metastore.id}.{upstream}",
                 self.platform_instance_name,
             )
 
-            for col in table.upstreams[upstream].keys():
+            for col in sorted(table.upstreams[upstream].keys()):
                 fl = FineGrainedLineage(
                     upstreamType=FineGrainedLineageUpstreamType.FIELD_SET,
                     upstreams=[
                         make_schema_field_urn(upstream_urn, upstream_col)
-                        for upstream_col in table.upstreams[upstream][col]
+                        for upstream_col in sorted(table.upstreams[upstream][col])
                     ],
                     downstreamType=FineGrainedLineageUpstreamType.FIELD_SET,
                     downstreams=[make_schema_field_urn(dataset_urn, col)],
@@ -316,10 +315,10 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
         self, dataset_urn: str, table: proxy.Table
     ) -> Iterable[MetadataWorkUnit]:
         upstreams: List[UpstreamClass] = []
-        for upstream in table.upstreams.keys():
+        for upstream in sorted(table.upstreams.keys()):
             upstream_urn = make_dataset_urn_with_platform_instance(
                 self.platform,
-                f"{table.schema.catalog.metastore.metastore_id}.{upstream}",
+                f"{table.schema.catalog.metastore.id}.{upstream}",
                 self.platform_instance_name,
             )
 

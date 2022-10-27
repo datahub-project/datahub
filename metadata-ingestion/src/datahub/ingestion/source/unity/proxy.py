@@ -6,7 +6,6 @@ import logging
 from dataclasses import dataclass, field
 from typing import Any, Dict, Iterable, List, Optional
 
-from databricks_cli.sdk import version
 from databricks_cli.sdk.api_client import ApiClient
 from databricks_cli.unity_catalog.api import UnityCatalogApi
 
@@ -272,10 +271,11 @@ class UnityCatalogApiProxy:
     def _escape_sequence(value: str) -> str:
         return value.replace(" ", "_")
 
-    def _create_metastore(self, obj: Any) -> Metastore:
+    @staticmethod
+    def _create_metastore(obj: Any) -> Metastore:
         return Metastore(
             name=obj["name"],
-            id=obj["metastore_id"],
+            id=UnityCatalogApiProxy._escape_sequence(obj["name"]),
             metastore_id=obj["metastore_id"],
             type="Metastore",
             comment=obj.get("comment"),
