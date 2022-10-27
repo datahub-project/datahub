@@ -1,5 +1,5 @@
 import { ColumnEdge, FetchedEntity, NodeData } from '../types';
-import { SchemaField } from '../../../types.generated';
+import { InputFields, SchemaField } from '../../../types.generated';
 import { downgradeV2FieldPath } from '../../entity/dataset/profile/schema/utils/utils';
 
 export function getHighlightedColumnsForNode(highlightedEdges: ColumnEdge[], fields: SchemaField[], nodeUrn: string) {
@@ -71,6 +71,13 @@ export function populateColumnsByUrn(
                 ...populatedColumnsByUrn,
                 [urn]: convertFieldsToV1FieldPath(fetchedEntity.schemaMetadata.fields),
             };
+        } else if (fetchedEntity.inputFields?.fields && !columnsByUrn[urn]) {
+            populatedColumnsByUrn = {
+                ...populatedColumnsByUrn,
+                [urn]: convertFieldsToV1FieldPath(
+                    convertInputFieldsToSchemaFields(fetchedEntity.inputFields) as SchemaField[],
+                ),
+            };
         }
     });
     setColumnsByUrn(populatedColumnsByUrn);
@@ -103,4 +110,8 @@ export function filterColumns(
             [node.data.urn || 'noop']: convertFieldsToV1FieldPath(filteredFields),
         }));
     }
+}
+
+export function convertInputFieldsToSchemaFields(inputFields?: InputFields) {
+    return inputFields?.fields?.map((field) => field?.schemaField) as SchemaField[] | undefined;
 }

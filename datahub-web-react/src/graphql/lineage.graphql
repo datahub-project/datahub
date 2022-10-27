@@ -259,6 +259,11 @@ fragment fullLineageResults on EntityLineageResult {
                     ...schemaMetadataFields
                 }
             }
+            ... on Chart {
+                inputFields @include(if: $showColumns) {
+                    ...inputFieldsFields
+                }
+            }
         }
     }
 }
@@ -298,6 +303,11 @@ query getEntityLineage($urn: String!, $separateSiblings: Boolean, $showColumns: 
                     type
                     ...lineageNodeProperties
                 }
+            }
+        }
+        ... on Chart {
+            inputFields @include(if: $showColumns) {
+                ...inputFieldsFields
             }
         }
         ... on EntityWithRelationships {
