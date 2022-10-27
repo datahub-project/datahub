@@ -59,6 +59,10 @@ export function sortColumnsByDefault(
     };
 }
 
+export function convertInputFieldsToSchemaFields(inputFields?: InputFields) {
+    return inputFields?.fields?.map((field) => field?.schemaField) as SchemaField[] | undefined;
+}
+
 export function populateColumnsByUrn(
     columnsByUrn: Record<string, SchemaField[]>,
     fetchedEntities: { [x: string]: FetchedEntity },
@@ -110,8 +114,4 @@ export function filterColumns(
             [node.data.urn || 'noop']: convertFieldsToV1FieldPath(filteredFields),
         }));
     }
-}
-
-export function convertInputFieldsToSchemaFields(inputFields?: InputFields) {
-    return inputFields?.fields?.map((field) => field?.schemaField) as SchemaField[] | undefined;
 }
