@@ -394,7 +394,7 @@ class DBTNode:
 
     dbt_adapter: str
     dbt_name: str
-    dbt_file_path: str
+    dbt_file_path: Optional[str]
 
     node_type: str  # source, model
     max_loaded_at: Optional[datetime]
@@ -1262,7 +1262,7 @@ class DBTSourceBase(StatefulIngestionSourceBase):
             tags=node.tags,
             name=node.name,
         )
-        if self.config.github_info is not None:
+        if self.config.github_info and node.dbt_file_path:
             github_file_url = self.config.github_info.get_url_for_file_path(
                 node.dbt_file_path
             )

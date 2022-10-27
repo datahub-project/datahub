@@ -186,7 +186,13 @@ class DBTCloudSource(DBTSourceBase):
         config = DBTCloudConfig.parse_obj(config_dict)
         return cls(config, ctx, "dbt")
 
+    # TODO: Add support for test_connection.
+
     def load_nodes(self) -> Tuple[List[DBTNode], Dict[str, Optional[str]]]:
+        # TODO: model dbt cloud runs as datahub DataProcesses or DataJobs
+        # TODO: figure out how to deal with jobs that only run part of the job
+        # TODO capture model creation failures?
+
         response = requests.post(
             DBT_METADATA_API_ENDPOINT,
             json={
@@ -299,7 +305,7 @@ class DBTCloudSource(DBTSourceBase):
             schema=node["schema"],
             name=name,
             alias=node.get("alias"),
-            dbt_file_path="TODO",
+            dbt_file_path=None,  # TODO: Get this from the dbt API.
             node_type=node["resourceType"],
             max_loaded_at=max_loaded_at,
             comment=comment,
