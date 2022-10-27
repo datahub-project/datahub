@@ -586,12 +586,12 @@ class TableauSource(StatefulIngestionSourceBase):
             # Lineage and Schema details for these will be taken care in self.emit_custom_sql_datasources()
             if not is_custom_sql and not table.get("columns"):
                 logger.debug(
-                    f"Skipping upstream table with id {table['id']}, no columns"
+                    f"Skipping upstream table with id {table['id']}, no columns: {table}"
                 )
                 continue
             elif table["name"] is None:
                 logger.warning(
-                    f"Skipping upstream table {table['id']} from lineage since its name is none"
+                    f"Skipping upstream table {table['id']} from lineage since its name is none: {table}"
                 )
                 continue
 
