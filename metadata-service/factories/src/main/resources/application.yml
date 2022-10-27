@@ -158,6 +158,11 @@ elasticsearch:
 kafka:
   listener:
     concurrency: ${KAFKA_LISTENER_CONCURRENCY:1}
+  retry:
+    attempts: ${KAFKA_RETRY_ATTEMPTS:5}
+    firstInterval: ${KAFKA_RETRY_FIRST_INTERVAL:1000}
+    maxInterval: ${KAFKA_RETRY_MAX_INTERVAL:10000}
+    multiplier: ${KAFKA_RETRY_MULTIPLIER:2}
   bootstrapServers: ${KAFKA_BOOTSTRAP_SERVER:http://localhost:9092}
   schemaRegistry:
     type: ${SCHEMA_REGISTRY_TYPE:KAFKA} # KAFKA or AWS_GLUE
