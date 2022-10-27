@@ -297,6 +297,10 @@ class DBTCloudSource(DBTSourceBase):
 
         # TODO add project id, env, etc to custom metadata
 
+        if "tests" in node:
+            tests = node["tests"]
+            breakpoint()
+
         return DBTNode(
             dbt_name=key,
             # TODO get the dbt adapter natively
