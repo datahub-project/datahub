@@ -2,12 +2,15 @@ package com.linkedin.metadata.search;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Lists;
+import com.linkedin.common.UrnArrayArray;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.data.template.StringArray;
+import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.graph.EntityLineageResult;
 import com.linkedin.metadata.graph.GraphService;
 import com.linkedin.metadata.graph.LineageDirection;
 import com.linkedin.metadata.graph.LineageRelationship;
+import com.linkedin.metadata.graph.LineageRelationshipArray;
 import com.linkedin.metadata.query.SearchFlags;
 import com.linkedin.metadata.query.filter.ConjunctiveCriterion;
 import com.linkedin.metadata.query.filter.Criterion;
@@ -19,6 +22,7 @@ import com.linkedin.metadata.search.utils.QueryUtils;
 import com.linkedin.metadata.search.utils.SearchUtils;
 import io.opentelemetry.extension.annotations.WithSpan;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
@@ -93,12 +97,42 @@ public class LineageSearchService {
       }
     }
 
+    // set schemaField relationship entity to be its reference urn
+    LineageRelationshipArray updatedRelationships = convertSchemaFieldRelationships(lineageResult);
+    lineageResult.setRelationships(updatedRelationships);
+
     // Filter hopped result based on the set of entities to return and inputFilters before sending to search
     List<LineageRelationship> lineageRelationships =
         filterRelationships(lineageResult, new HashSet<>(entities), inputFilters);
 
     return getSearchResultInBatches(lineageRelationships, input != null ? input : "*", inputFilters, sortCriterion,
         from, size);
+  }
+
+  // Necessary so we don't filter out schemaField entities and so that we search to get the parent reference entity
+  private LineageRelationshipArray convertSchemaFieldRelationships(EntityLineageResult lineageResult) {
+    return lineageResult.getRelationships().stream().map(relationship -> {
+      if (relationship.getEntity().getEntityType().equals("schemaField")) {
+        Urn entity = getSchemaFieldReferenceUrn(relationship.getEntity());
+        relationship.setEntity(entity);
+      }
+      return relationship;
+    }).collect(Collectors.toCollection(LineageRelationshipArray::new));
+  }
+
+  private Map<Urn, LineageRelationship> generateUrnToRelationshipMap(List<LineageRelationship> lineageRelationships) {
+    Map<Urn, LineageRelationship> urnToRelationship = new HashMap<>();
+    for (LineageRelationship relationship : lineageRelationships) {
+      LineageRelationship existingRelationship = urnToRelationship.get(relationship.getEntity());
+      if (existingRelationship == null) {
+        urnToRelationship.put(relationship.getEntity(), relationship);
+      } else {
+        UrnArrayArray paths = existingRelationship.getPaths();
+        paths.addAll(relationship.getPaths());
+        existingRelationship.setPaths(paths);
+      }
+    }
+    return urnToRelationship;
   }
 
   // Search service can only take up to 50K term filter, so query search service in batches
@@ -118,8 +152,7 @@ public class LineageSearchService {
           .map(relationship -> relationship.getEntity().getEntityType())
           .distinct()
           .collect(Collectors.toList());
-      Map<Urn, LineageRelationship> urnToRelationship =
-          batch.stream().collect(Collectors.toMap(LineageRelationship::getEntity, Function.identity()));
+      Map<Urn, LineageRelationship> urnToRelationship = generateUrnToRelationshipMap(batch);
       Filter finalFilter = buildFilter(urnToRelationship.keySet(), inputFilters);
       LineageSearchResult resultForBatch = buildLineageSearchResult(
           _searchService.searchAcrossEntities(entitiesToQuery, input, finalFilter, sortCriterion, queryFrom, querySize,
@@ -167,6 +200,18 @@ public class LineageSearchService {
           throw new IllegalArgumentException(String.format("%s is not a valid filter value for degree filters", value));
       }
     }).reduce(x -> false, Predicate::or);
+  }
+
+  private Urn getSchemaFieldReferenceUrn(Urn urn) {
+    if (urn.getEntityType().equals(Constants.SCHEMA_FIELD_ENTITY_NAME)) {
+      try {
+        // Get the dataset urn referenced inside the schemaField urn
+        return Urn.createFromString(urn.getId());
+      } catch (Exception e) {
+        log.error("Invalid destination urn: {}", urn.getId(), e);
+      }
+    }
+    return urn;
   }
 
   private List<LineageRelationship> filterRelationships(@Nonnull EntityLineageResult lineageResult,
@@ -231,7 +276,7 @@ public class LineageSearchService {
       @Nullable LineageRelationship lineageRelationship) {
     LineageSearchEntity entity = new LineageSearchEntity(searchEntity.data());
     if (lineageRelationship != null) {
-      entity.setPath(lineageRelationship.getPath());
+      entity.setPaths(lineageRelationship.getPaths());
       entity.setDegree(lineageRelationship.getDegree());
     }
     return entity;
