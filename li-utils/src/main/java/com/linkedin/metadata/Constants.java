@@ -48,6 +48,7 @@ public class Constants {
   public static final String INVITE_TOKEN_ENTITY_NAME = "inviteToken";
   public static final String DATAHUB_ROLE_ENTITY_NAME = "dataHubRole";
   public static final String POST_ENTITY_NAME = "post";
+  public static final String SCHEMA_FIELD_ENTITY_NAME = "schemaField";
 
 
   /**

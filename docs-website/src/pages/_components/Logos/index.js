@@ -22,6 +22,11 @@ const companiesByIndustry = [
         imageSize: "medium",
       },
       {
+        name: "ClassDojo",
+        imageUrl: "/img/logos/companies/classdojo.png",
+        imageSize: "medium",
+      },
+      {
         name: "Coursera",
         imageUrl: "/img/logos/companies/coursera.svg",
         imageSize: "small",

@@ -9,6 +9,7 @@ import subprocess
 import sys
 import tempfile
 import time
+from enum import Enum
 from pathlib import Path
 from typing import Dict, List, NoReturn, Optional
 
@@ -56,6 +57,13 @@ GITHUB_ELASTIC_QUICKSTART_COMPOSE_URL = (
 )
 GITHUB_M1_QUICKSTART_COMPOSE_URL = f"{GITHUB_BASE_URL}/{M1_QUICKSTART_COMPOSE_FILE}"
 GITHUB_BOOTSTRAP_MCES_URL = f"{GITHUB_BASE_URL}/{BOOTSTRAP_MCES_FILE}"
+
+
+class Architectures(Enum):
+    x86 = "x86"
+    arm64 = "arm64"
+    m1 = "m1"
+    m2 = "m2"
 
 
 @functools.lru_cache()
@@ -123,6 +131,10 @@ def is_m1() -> bool:
     except Exception:
         # Catch-all
         return False
+
+
+def is_arch_m1(arch: Architectures) -> bool:
+    return arch in [Architectures.arm64, Architectures.m1, Architectures.m2]
 
 
 def should_use_neo4j_for_graph_service(graph_service_override: Optional[str]) -> bool:
@@ -383,6 +395,24 @@ DATAHUB_MAE_CONSUMER_PORT=9091
     return result.returncode
 
 
+def detect_quickstart_arch(arch: Optional[str]) -> Architectures:
+    running_on_m1 = is_m1()
+    if running_on_m1:
+        click.secho("Detected M1 machine", fg="yellow")
+
+    quickstart_arch = Architectures.x86 if not running_on_m1 else Architectures.arm64
+    if arch:
+        matched_arch = [a for a in Architectures if arch.lower() == a.value]
+        if not matched_arch:
+            click.secho(
+                f"Failed to match arch {arch} with list of architectures supported {[a.value for a in Architectures]}"
+            )
+        quickstart_arch = matched_arch[0]
+        click.secho(f"Using architecture {quickstart_arch}", fg="yellow")
+
+    return quickstart_arch
+
+
 @docker.command()
 @click.option(
     "--version",
@@ -518,6 +548,11 @@ DATAHUB_MAE_CONSUMER_PORT=9091
     default=False,
     help="Launches MAE & MCE consumers as stand alone docker containers",
 )
+@click.option(
+    "--arch",
+    required=False,
+    help="Specify the architecture for the quickstart images to use. Options are x86, arm64, m1 etc.",
+)
 @upgrade.check_upgrade
 @telemetry.with_telemetry
 def quickstart(
@@ -540,6 +575,7 @@ def quickstart(
     restore_indices: bool,
     no_restore_indices: bool,
     standalone_consumers: bool,
+    arch: Optional[str],
 ) -> None:
     """Start an instance of DataHub locally using docker-compose.
 
@@ -567,9 +603,7 @@ def quickstart(
         )
         return
 
-    running_on_m1 = is_m1()
-    if running_on_m1:
-        click.secho("Detected M1 machine", fg="yellow")
+    quickstart_arch = detect_quickstart_arch(arch)
 
     # Run pre-flight checks.
     issues = check_local_docker_containers(preflight_only=True)
@@ -590,16 +624,16 @@ def quickstart(
     elif not quickstart_compose_file:
         # download appropriate quickstart file
         should_use_neo4j = should_use_neo4j_for_graph_service(graph_service_impl)
-        if should_use_neo4j and running_on_m1:
+        if should_use_neo4j and is_arch_m1(quickstart_arch):
             click.secho(
                 "Running with neo4j on M1 is not currently supported, will be using elasticsearch as graph",
                 fg="red",
             )
         github_file = (
             GITHUB_NEO4J_AND_ELASTIC_QUICKSTART_COMPOSE_URL
-            if should_use_neo4j and not running_on_m1
+            if should_use_neo4j and not is_arch_m1(quickstart_arch)
             else GITHUB_ELASTIC_QUICKSTART_COMPOSE_URL
-            if not running_on_m1
+            if not is_arch_m1(quickstart_arch)
             else GITHUB_M1_QUICKSTART_COMPOSE_URL
         )
 
