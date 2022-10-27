@@ -509,7 +509,7 @@ public class CassandraAspectDao implements AspectDao, AspectMigrationsDao {
               oldActor,
               oldImpersonator
       );
-      batch.add(generateSaveStatement(aspect, true));
+      batch = batch.add(generateSaveStatement(aspect, true));
     }
 
     // Save newValue as the latest version (v0)
@@ -523,7 +523,7 @@ public class CassandraAspectDao implements AspectDao, AspectMigrationsDao {
             newActor,
             newImpersonator
     );
-    batch.add(generateSaveStatement(aspect, oldAspectMetadata == null));
+    batch = batch.add(generateSaveStatement(aspect, oldAspectMetadata == null));
     _cqlSession.execute(batch);
     return largestVersion;
   }
