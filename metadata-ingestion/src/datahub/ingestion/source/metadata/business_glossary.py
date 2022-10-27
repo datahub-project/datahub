@@ -244,8 +244,8 @@ def get_mces_from_term(
 
     is_a = None
     has_a = None
-    has_value = None
-    is_related_to_term = None
+    values: List[str] = None
+    related_to: List[str] = None
     if glossaryTerm.inherits is not None:
         assert glossaryTerm.inherits is not None
         is_a = [
@@ -260,13 +260,13 @@ def get_mces_from_term(
         ]
     if glossaryTerm.has_value is not None:
         assert glossaryTerm.has_value is not None
-        has_value = [
+        values = [
             make_glossary_term_urn([term], ingestion_config.enable_datahub_guid)
             for term in glossaryTerm.has_value
         ]
     if glossaryTerm.is_related_to is not None:
         assert glossaryTerm.is_related_to is not None
-        is_related_to_term = [
+        related_to = [
             make_glossary_term_urn([term], ingestion_config.enable_datahub_guid)
             for term in glossaryTerm.is_related_to
         ]
@@ -274,14 +274,14 @@ def get_mces_from_term(
     if (
             is_a is not None
             or has_a is not None
-            or has_value is not None
-            or is_related_to_term is not None
+            or values is not None
+            or related_to is not None
     ):
         relatedTerms = models.GlossaryRelatedTermsClass(
             isRelatedTerms=is_a,
             hasRelatedTerms=has_a,
-            hasRelatedTermValues=has_value,
-            isRelatedToTerms=is_related_to_term,
+            values=values,
+            relatedTo=related_to,
         )
         aspects.append(relatedTerms)
 
