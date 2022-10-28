@@ -49,8 +49,8 @@ public class IsolatedClassLoaderImpl extends ClassLoader implements IsolatedClas
 
   private final Path _executionDirectory;
 
-  public IsolatedClassLoaderImpl(PluginPermissionManager pluginPermissionManager, PluginConfigWithJar pluginToLoad,
-      ClassLoader... applicationClassLoaders) {
+  public IsolatedClassLoaderImpl(@Nonnull PluginPermissionManager pluginPermissionManager, @Nonnull PluginConfigWithJar pluginToLoad,
+      @Nonnull ClassLoader... applicationClassLoaders) {
     this._pluginPermissionManager = pluginPermissionManager;
     this._pluginConfig = pluginToLoad;
     this._classLoaders.add(this.getClass().getClassLoader()); // then application class-loader
@@ -90,7 +90,7 @@ public class IsolatedClassLoaderImpl extends ClassLoader implements IsolatedClas
    * @throws ClassNotFoundException className parameter available in Plugin configuration is not found
    */
   @Nonnull
-  public Plugin instantiatePlugin(Class<? extends Plugin> expectedInstanceOf) throws ClassNotFoundException {
+  public Plugin instantiatePlugin(@Nonnull Class<? extends Plugin> expectedInstanceOf) throws ClassNotFoundException {
     Class<?> clazz = this.loadClass(this._pluginConfig.getClassName(), true);
 
     try {
@@ -110,7 +110,7 @@ public class IsolatedClassLoaderImpl extends ClassLoader implements IsolatedClas
     }
   }
 
-  private String classNameToPath(String resourceName) {
+  private String classNameToPath(@Nonnull String resourceName) {
     // in-case of java class , we need to append the .class to last element
     return resourceName.replaceAll("\\.", "/") + ".class";
   }

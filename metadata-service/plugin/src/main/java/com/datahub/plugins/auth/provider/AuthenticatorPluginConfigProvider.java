@@ -8,7 +8,7 @@ import com.datahub.plugins.common.YamlMapper;
 import java.nio.file.Path;
 
 
-public class AuthenticatorPluginConfigConfigProvider extends AuthPluginConfigProvider {
+public class AuthenticatorPluginConfigProvider extends AuthPluginConfigProvider {
   @Override
   public PluginType getType() {
     return PluginType.AUTHENTICATOR;

@@ -7,6 +7,7 @@ import com.fasterxml.jackson.datatype.jdk8.Jdk8Module;
 import java.io.IOException;
 import java.nio.file.Path;
 import java.util.Map;
+import javax.annotation.Nonnull;
 
 
 /**
@@ -21,11 +22,11 @@ public class YamlMapper<T> {
     objectMapper.registerModule(new Jdk8Module());
   }
 
-  public T fromMap(Map<String, Object> params, Class<T> clazz) {
+  public T fromMap(@Nonnull Map<String, Object> params, Class<T> clazz) {
     return objectMapper.convertValue(params, clazz);
   }
 
-  public T fromFile(Path file, Class clazz) {
+  public T fromFile(@Nonnull Path file, @Nonnull Class clazz) {
     T pojo = null;
     try {
       pojo = (T) objectMapper.readValue(file.toFile(), clazz);

@@ -9,6 +9,7 @@ import java.nio.file.Path;
 import java.util.Enumeration;
 import java.util.jar.JarEntry;
 import java.util.jar.JarFile;
+import javax.annotation.Nonnull;
 import lombok.extern.slf4j.Slf4j;
 
 
@@ -18,7 +19,7 @@ class JarExtractor {
   private JarExtractor() {
   }
 
-  public static void write(URL url, Path destinationFilePath) throws IOException {
+  public static void write(@Nonnull URL url, @Nonnull Path destinationFilePath) throws IOException {
     try (InputStream input = url.openStream()) {
       try (FileOutputStream output = new FileOutputStream(destinationFilePath.toFile())) {
         while (input.available() > 0) {
@@ -28,7 +29,7 @@ class JarExtractor {
     }
   }
 
-  public static void unzipJar(Path destinationDir, Path jarPath) throws IOException {
+  public static void unzipJar(@Nonnull Path destinationDir, @Nonnull Path jarPath) throws IOException {
     JarFile jar = new JarFile(jarPath.toFile());
 
     // Create the destination directory if not exist

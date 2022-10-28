@@ -9,7 +9,7 @@ plugins:
         username: "foo"
         password: "bar"
 
-  - name: "apache-ranger-authenticator"  # duplicate name
+  - name: "apache-ranger-authenticator"
     type: "authenticator"
     enabled: "true"
     params:
