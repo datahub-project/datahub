@@ -9,7 +9,7 @@ import com.datahub.plugins.configuration.PluginConfig;
 import java.nio.file.Path;
 
 
-public class AuthorizerPluginConfigConfigProvider extends AuthPluginConfigProvider {
+public class AuthorizerPluginConfigProvider extends AuthPluginConfigProvider {
   @Override
   public PluginType getType() {
     return PluginType.AUTHORIZER;

@@ -1,7 +1,7 @@
 package com.datahub.plugins.factory;
 
-import com.datahub.plugins.auth.provider.AuthenticatorPluginConfigConfigProvider;
-import com.datahub.plugins.auth.provider.AuthorizerPluginConfigConfigProvider;
+import com.datahub.plugins.auth.provider.AuthenticatorPluginConfigProvider;
+import com.datahub.plugins.auth.provider.AuthorizerPluginConfigProvider;
 import com.datahub.plugins.common.PluginConfig;
 import com.datahub.plugins.common.PluginProvider;
 import com.datahub.plugins.common.PluginType;
@@ -22,18 +22,18 @@ public class PluginConfigFactory<T extends PluginConfig> {
 
   static {
     CONFIG_PROVIDER_REGISTRY = new HashMap<>(2);
-    CONFIG_PROVIDER_REGISTRY.put(PluginType.AUTHENTICATOR, new AuthenticatorPluginConfigConfigProvider());
-    CONFIG_PROVIDER_REGISTRY.put(PluginType.AUTHORIZER, new AuthorizerPluginConfigConfigProvider());
+    CONFIG_PROVIDER_REGISTRY.put(PluginType.AUTHENTICATOR, new AuthenticatorPluginConfigProvider());
+    CONFIG_PROVIDER_REGISTRY.put(PluginType.AUTHORIZER, new AuthorizerPluginConfigProvider());
   }
 
   private final Config _config;
 
-  public PluginConfigFactory(Config config) {
+  public PluginConfigFactory(@Nonnull Config config) {
     this._config = config;
   }
 
   @Nonnull
-  public List<T> loadPluginConfigs(PluginType pluginType) {
+  public List<T> loadPluginConfigs(@Nonnull PluginType pluginType) {
     return CONFIG_PROVIDER_REGISTRY.get(pluginType).processConfig(this._config.getPlugins());
   }
 }

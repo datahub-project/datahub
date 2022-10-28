@@ -9,13 +9,14 @@ import java.security.CodeSource;
 import java.security.Permissions;
 import java.security.ProtectionDomain;
 import java.security.cert.Certificate;
+import javax.annotation.Nonnull;
 
 
 public class PluginPermissionManagerImpl implements PluginPermissionManager {
 
   private SecurityMode _securityMode;
 
-  public PluginPermissionManagerImpl(SecurityMode securityMode) {
+  public PluginPermissionManagerImpl(@Nonnull SecurityMode securityMode) {
     this._securityMode = securityMode;
   }
 

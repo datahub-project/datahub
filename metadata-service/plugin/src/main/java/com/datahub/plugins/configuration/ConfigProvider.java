@@ -4,6 +4,7 @@ import com.datahub.plugins.common.YamlMapper;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.Optional;
+import javax.annotation.Nonnull;
 import lombok.extern.slf4j.Slf4j;
 
 
@@ -20,12 +21,12 @@ public class ConfigProvider {
    */
   private final Path _pluginBaseDir;
 
-  public ConfigProvider(Path pluginBaseDirectory) {
+  public ConfigProvider(@Nonnull Path pluginBaseDirectory) {
     this._pluginBaseDir = pluginBaseDirectory.toAbsolutePath();
     this.configFilePath = Paths.get(this._pluginBaseDir.toString(), CONFIG_FILE_NAME);
   }
 
-  public void setPluginDir(PluginConfig pluginConfig) {
+  private void setPluginDir(@Nonnull PluginConfig pluginConfig) {
     Path pluginDir = Paths.get(this._pluginBaseDir.toString(), pluginConfig.getName());
     pluginConfig.setPluginDirectory(pluginDir);
   }
