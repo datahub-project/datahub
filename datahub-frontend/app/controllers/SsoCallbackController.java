@@ -40,6 +40,7 @@ public class SsoCallbackController extends CallbackController {
       @Nonnull AuthServiceClient authClient) {
     _ssoManager = ssoManager;
     setDefaultUrl("/"); // By default, redirects to Home Page on log in.
+    setSaveInSession(false);
     setCallbackLogic(new SsoCallbackLogic(ssoManager, systemAuthentication, entityClient, authClient));
   }
 

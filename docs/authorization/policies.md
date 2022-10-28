@@ -56,7 +56,7 @@ A Metadata Policy can be broken down into 3 parts:
 #### Actors
 
 We currently support 3 ways to define the set of actors the policy applies to: a) list of users b) list of groups, and
-c) owners of the entity. You also have the option to apply the policy to all users.
+c) owners of the entity. You also have the option to apply the policy to all users or groups.
 
 #### Privileges
 

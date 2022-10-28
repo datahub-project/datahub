@@ -26,6 +26,7 @@ export const Preview = ({
         <DefaultPreviewCard
             url={entityRegistry.getEntityUrl(EntityType.Domain, urn)}
             name={name || ''}
+            urn={urn}
             description={description || ''}
             type="Domain"
             typeIcon={entityRegistry.getIcon(EntityType.Domain, 14, IconStyleType.ACCENT)}

@@ -1,6 +1,5 @@
 apply plugin: 'java'
 
-
 dependencies {
 
   implementation 'org.apache.commons:commons-lang3:3.12.0'
@@ -14,11 +13,9 @@ dependencies {
   implementation externalDependency.logbackClassic;
   implementation externalDependency.lombok
 
-
   testImplementation externalDependency.mockito
   testImplementation externalDependency.testng
   annotationProcessor externalDependency.lombok
-
 }
 
 test {

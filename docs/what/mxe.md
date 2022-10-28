@@ -6,7 +6,7 @@ DataHub makes use a few important Kafka events for operation. The most notable o
 2. Metadata Change Log (Versioned + Timeseries) 
 3. Platform Event
 
-Each event is originally authored using [PDL]( https://linkedin.github.io/rest.li/DATA-Data-Schema-and-Templates), a modeling language developed by LinkedIn, and 
+Each event is originally authored using [PDL](https://linkedin.github.io/rest.li/pdl_schema), a modeling language developed by LinkedIn, and 
 then converted into their Avro equivalents, which are used when writing and reading the events to Kafka. 
 
 In the document, we'll describe each of these events in detail - including notes about their structure & semantics. 

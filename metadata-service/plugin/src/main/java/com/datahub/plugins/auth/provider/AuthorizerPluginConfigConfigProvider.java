@@ -19,7 +19,7 @@ public class AuthorizerPluginConfigConfigProvider extends AuthPluginConfigProvid
   public AuthPluginConfig createAuthPluginConfig(PluginConfig pluginConfig) {
     AuthConfig authConfig = (new YamlMapper<AuthConfig>()).fromMap(pluginConfig.getParams(), AuthConfig.class);
     Path pluginJar = formPluginJar(pluginConfig, authConfig);
-    return new AuthorizerPluginConfig(pluginConfig.getName(), pluginConfig.getEnabled(),
-        authConfig.getClassName(), pluginConfig.getPluginDirectory(), pluginJar, authConfig.getConfigs());
+    return new AuthorizerPluginConfig(pluginConfig.getName(), pluginConfig.getEnabled(), authConfig.getClassName(),
+        pluginConfig.getPluginDirectory(), pluginJar, authConfig.getConfigs());
   }
 }

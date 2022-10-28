@@ -19,8 +19,8 @@ fragment glossaryNode on GlossaryNode {
     properties {
         name
     }
-    children: relationships(input: { types: ["IsPartOf"], direction: INCOMING, start: 0, count: 1000 }) {
-        count
+    children: relationships(input: { types: ["IsPartOf"], direction: INCOMING, start: 0, count: 10000 }) {
+        total
     }
 }
 

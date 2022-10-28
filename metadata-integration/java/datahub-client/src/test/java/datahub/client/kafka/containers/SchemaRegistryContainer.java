@@ -4,8 +4,10 @@ import static datahub.client.kafka.containers.Utils.CONFLUENT_PLATFORM_VERSION;
 import static java.lang.String.format;
 
 import java.io.IOException;
+import java.time.Duration;
+
 import org.testcontainers.containers.GenericContainer;
-import org.testcontainers.containers.wait.strategy.Wait;
+import org.testcontainers.containers.wait.strategy.HttpWaitStrategy;
 import org.testcontainers.utility.TestcontainersConfiguration;
 
 
@@ -27,7 +29,7 @@ public class SchemaRegistryContainer extends GenericContainer<SchemaRegistryCont
         withExposedPorts(SCHEMA_REGISTRY_INTERNAL_PORT);
         withNetworkAliases(networkAlias);
 
-        waitingFor(Wait.forHttp("/subjects"));
+        waitingFor(new HttpWaitStrategy().forPath("/subjects").withStartupTimeout(Duration.ofMinutes(2)));
     }
 
     public String getUrl() {

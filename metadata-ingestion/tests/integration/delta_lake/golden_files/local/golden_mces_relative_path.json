@@ -1,6 +1,5 @@
 [
 {
-    "auditHeader": null,
     "proposedSnapshot": {
         "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
             "urn": "urn:li:dataset:(urn:li:dataPlatform:delta-lake,delta_tables/my_table_basic,UAT)",
@@ -15,11 +14,8 @@
                             "version": "4",
                             "location": "tests/integration/delta_lake/test_data/delta_tables/my_table_basic/"
                         },
-                        "externalUrl": null,
                         "name": "test-table-basic",
-                        "qualifiedName": null,
                         "description": "test delta table basic with table name",
-                        "uri": null,
                         "tags": []
                     }
                 },
@@ -30,17 +26,12 @@
                         "version": 4,
                         "created": {
                             "time": 0,
-                            "actor": "urn:li:corpuser:unknown",
-                            "impersonator": null
+                            "actor": "urn:li:corpuser:unknown"
                         },
                         "lastModified": {
                             "time": 0,
-                            "actor": "urn:li:corpuser:unknown",
-                            "impersonator": null
+                            "actor": "urn:li:corpuser:unknown"
                         },
-                        "deleted": null,
-                        "dataset": null,
-                        "cluster": null,
                         "hash": "",
                         "platformSchema": {
                             "com.linkedin.pegasus2avro.schema.OtherSchema": {
@@ -50,11 +41,8 @@
                         "fields": [
                             {
                                 "fieldPath": "bar",
-                                "jsonPath": null,
                                 "nullable": true,
                                 "description": "{}",
-                                "created": null,
-                                "lastModified": null,
                                 "type": {
                                     "type": {
                                         "com.linkedin.pegasus2avro.schema.NumberType": {}
@@ -62,19 +50,13 @@
                                 },
                                 "nativeDataType": "integer",
                                 "recursive": false,
-                                "globalTags": null,
-                                "glossaryTerms": null,
                                 "isPartOfKey": false,
-                                "isPartitioningKey": true,
-                                "jsonProps": null
+                                "isPartitioningKey": true
                             },
                             {
                                 "fieldPath": "foo",
-                                "jsonPath": null,
                                 "nullable": true,
                                 "description": "{}",
-                                "created": null,
-                                "lastModified": null,
                                 "type": {
                                     "type": {
                                         "com.linkedin.pegasus2avro.schema.NumberType": {}
@@ -82,19 +64,13 @@
                                 },
                                 "nativeDataType": "integer",
                                 "recursive": false,
-                                "globalTags": null,
-                                "glossaryTerms": null,
                                 "isPartOfKey": false,
-                                "isPartitioningKey": true,
-                                "jsonProps": null
+                                "isPartitioningKey": true
                             },
                             {
                                 "fieldPath": "zip",
-                                "jsonPath": null,
                                 "nullable": true,
                                 "description": "{}",
-                                "created": null,
-                                "lastModified": null,
                                 "type": {
                                     "type": {
                                         "com.linkedin.pegasus2avro.schema.StringType": {}
@@ -102,35 +78,23 @@
                                 },
                                 "nativeDataType": "string",
                                 "recursive": false,
-                                "globalTags": null,
-                                "glossaryTerms": null,
                                 "isPartOfKey": false,
-                                "isPartitioningKey": false,
-                                "jsonProps": null
+                                "isPartitioningKey": false
                             }
-                        ],
-                        "primaryKeys": null,
-                        "foreignKeysSpecs": null,
-                        "foreignKeys": null
+                        ]
                     }
                 }
             ]
         }
     },
-    "proposedDelta": null,
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "relative_path.json",
-        "registryName": null,
-        "registryVersion": null,
-        "properties": null
+        "runId": "relative_path.json"
     }
 },
 {
-    "auditHeader": null,
     "entityType": "container",
     "entityUrn": "urn:li:container:85267d161e1a2ffa647cec6c1188549f",
-    "entityKeyAspect": null,
     "changeType": "UPSERT",
     "aspectName": "containerProperties",
     "aspect": {
@@ -139,17 +103,26 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "relative_path.json",
-        "registryName": null,
-        "registryVersion": null,
-        "properties": null
+        "runId": "relative_path.json"
     }
 },
 {
-    "auditHeader": null,
     "entityType": "container",
     "entityUrn": "urn:li:container:85267d161e1a2ffa647cec6c1188549f",
-    "entityKeyAspect": null,
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "value": "{\"removed\": false}",
+        "contentType": "application/json"
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "relative_path.json"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:85267d161e1a2ffa647cec6c1188549f",
     "changeType": "UPSERT",
     "aspectName": "dataPlatformInstance",
     "aspect": {
@@ -158,17 +131,12 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "relative_path.json",
-        "registryName": null,
-        "registryVersion": null,
-        "properties": null
+        "runId": "relative_path.json"
     }
 },
 {
-    "auditHeader": null,
     "entityType": "container",
     "entityUrn": "urn:li:container:85267d161e1a2ffa647cec6c1188549f",
-    "entityKeyAspect": null,
     "changeType": "UPSERT",
     "aspectName": "subTypes",
     "aspect": {
@@ -177,17 +145,12 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "relative_path.json",
-        "registryName": null,
-        "registryVersion": null,
-        "properties": null
+        "runId": "relative_path.json"
     }
 },
 {
-    "auditHeader": null,
     "entityType": "dataset",
     "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:delta-lake,delta_tables/my_table_basic,UAT)",
-    "entityKeyAspect": null,
     "changeType": "UPSERT",
     "aspectName": "container",
     "aspect": {
@@ -196,17 +159,12 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "relative_path.json",
-        "registryName": null,
-        "registryVersion": null,
-        "properties": null
+        "runId": "relative_path.json"
     }
 },
 {
-    "auditHeader": null,
     "entityType": "dataset",
     "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:delta-lake,delta_tables/my_table_basic,UAT)",
-    "entityKeyAspect": null,
     "changeType": "UPSERT",
     "aspectName": "operation",
     "aspect": {
@@ -215,17 +173,12 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "relative_path.json",
-        "registryName": null,
-        "registryVersion": null,
-        "properties": null
+        "runId": "relative_path.json"
     }
 },
 {
-    "auditHeader": null,
     "entityType": "dataset",
     "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:delta-lake,delta_tables/my_table_basic,UAT)",
-    "entityKeyAspect": null,
     "changeType": "UPSERT",
     "aspectName": "operation",
     "aspect": {
@@ -234,17 +187,12 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "relative_path.json",
-        "registryName": null,
-        "registryVersion": null,
-        "properties": null
+        "runId": "relative_path.json"
     }
 },
 {
-    "auditHeader": null,
     "entityType": "dataset",
     "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:delta-lake,delta_tables/my_table_basic,UAT)",
-    "entityKeyAspect": null,
     "changeType": "UPSERT",
     "aspectName": "operation",
     "aspect": {
@@ -253,17 +201,12 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "relative_path.json",
-        "registryName": null,
-        "registryVersion": null,
-        "properties": null
+        "runId": "relative_path.json"
     }
 },
 {
-    "auditHeader": null,
     "entityType": "dataset",
     "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:delta-lake,delta_tables/my_table_basic,UAT)",
-    "entityKeyAspect": null,
     "changeType": "UPSERT",
     "aspectName": "operation",
     "aspect": {
@@ -272,17 +215,12 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "relative_path.json",
-        "registryName": null,
-        "registryVersion": null,
-        "properties": null
+        "runId": "relative_path.json"
     }
 },
 {
-    "auditHeader": null,
     "entityType": "dataset",
     "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:delta-lake,delta_tables/my_table_basic,UAT)",
-    "entityKeyAspect": null,
     "changeType": "UPSERT",
     "aspectName": "operation",
     "aspect": {
@@ -291,10 +229,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "relative_path.json",
-        "registryName": null,
-        "registryVersion": null,
-        "properties": null
+        "runId": "relative_path.json"
     }
 }
 ]

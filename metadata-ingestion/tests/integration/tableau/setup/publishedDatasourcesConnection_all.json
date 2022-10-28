@@ -79,11 +79,13 @@
                             "dataType": "DATETIME",
                             "defaultFormat": null,
                             "aggregation": "Year",
-                            "columns": [
+                            "upstreamFields": [],
+                            "upstreamColumns": [
                                 {
+                                    "name": "payment_date",
                                     "table": {
-                                        "id": "4fb670d5-3e19-9656-e684-74aa9729cf18",
-                                        "name": "Custom SQL Query"
+                                        "__typename": "CustomSQLTable",
+                                        "id": "4fb670d5-3e19-9656-e684-74aa9729cf18"
                                     }
                                 }
                             ]
@@ -100,11 +102,13 @@
                             "dataType": "STRING",
                             "defaultFormat": null,
                             "aggregation": "Count",
-                            "columns": [
+                            "upstreamFields": [],
+                            "upstreamColumns": [
                                 {
+                                    "name": "staff_first_name",
                                     "table": {
-                                        "id": "4fb670d5-3e19-9656-e684-74aa9729cf18",
-                                        "name": "Custom SQL Query"
+                                        "__typename": "CustomSQLTable",
+                                        "id": "4fb670d5-3e19-9656-e684-74aa9729cf18"
                                     }
                                 }
                             ]
@@ -121,11 +125,13 @@
                             "dataType": "INTEGER",
                             "defaultFormat": null,
                             "aggregation": "Sum",
-                            "columns": [
+                            "upstreamFields": [],
+                            "upstreamColumns": [
                                 {
+                                    "name": "customer_id",
                                     "table": {
-                                        "id": "4fb670d5-3e19-9656-e684-74aa9729cf18",
-                                        "name": "Custom SQL Query"
+                                        "__typename": "CustomSQLTable",
+                                        "id": "4fb670d5-3e19-9656-e684-74aa9729cf18"
                                     }
                                 }
                             ]
@@ -142,11 +148,13 @@
                             "dataType": "REAL",
                             "defaultFormat": null,
                             "aggregation": "Sum",
-                            "columns": [
+                            "upstreamFields": [],
+                            "upstreamColumns": [
                                 {
+                                    "name": "amount",
                                     "table": {
-                                        "id": "4fb670d5-3e19-9656-e684-74aa9729cf18",
-                                        "name": "Custom SQL Query"
+                                        "__typename": "CustomSQLTable",
+                                        "id": "4fb670d5-3e19-9656-e684-74aa9729cf18"
                                     }
                                 }
                             ]
@@ -163,6 +171,7 @@
                             "dataType": "TABLE",
                             "defaultFormat": null,
                             "aggregation": null,
+                            "upstreamFields": [],
                             "columns": []
                         },
                         {
@@ -177,11 +186,13 @@
                             "dataType": "STRING",
                             "defaultFormat": null,
                             "aggregation": "Count",
-                            "columns": [
+                            "upstreamFields": [],
+                            "upstreamColumns": [
                                 {
+                                    "name": "customer_last_name",
                                     "table": {
-                                        "id": "4fb670d5-3e19-9656-e684-74aa9729cf18",
-                                        "name": "Custom SQL Query"
+                                        "__typename": "CustomSQLTable",
+                                        "id": "4fb670d5-3e19-9656-e684-74aa9729cf18"
                                     }
                                 }
                             ]
@@ -198,11 +209,13 @@
                             "dataType": "STRING",
                             "defaultFormat": null,
                             "aggregation": "Count",
-                            "columns": [
+                            "upstreamFields": [],
+                            "upstreamColumns": [
                                 {
+                                    "name": "customer_first_name",
                                     "table": {
-                                        "id": "4fb670d5-3e19-9656-e684-74aa9729cf18",
-                                        "name": "Custom SQL Query"
+                                        "__typename": "CustomSQLTable",
+                                        "id": "4fb670d5-3e19-9656-e684-74aa9729cf18"
                                     }
                                 }
                             ]
@@ -219,11 +232,13 @@
                             "dataType": "STRING",
                             "defaultFormat": null,
                             "aggregation": "Count",
-                            "columns": [
+                            "upstreamFields": [],
+                            "upstreamColumns": [
                                 {
+                                    "name": "staff_last_name",
                                     "table": {
-                                        "id": "4fb670d5-3e19-9656-e684-74aa9729cf18",
-                                        "name": "Custom SQL Query"
+                                        "__typename": "CustomSQLTable",
+                                        "id": "4fb670d5-3e19-9656-e684-74aa9729cf18"
                                     }
                                 }
                             ]
@@ -411,7 +426,15 @@
                             "name": "Top Customers by Profit",
                             "description": null,
                             "isHidden": false,
-                            "folderName": null
+                            "folderName": null,
+                            "upstreamFields": [
+                                {
+                                    "name": "Profit",
+                                    "datasource": {
+                                        "id": "6cbbeeb2-9f3a-00f6-2342-17139d6e97ae"
+                                    }
+                                }
+                            ]
                         },
                         {
                             "__typename": "ColumnField",
@@ -425,6 +448,7 @@
                             "dataType": "TABLE",
                             "defaultFormat": null,
                             "aggregation": null,
+                            "upstreamFields": [],
                             "columns": []
                         },
                         {
@@ -439,9 +463,14 @@
                             "dataType": "STRING",
                             "defaultFormat": null,
                             "aggregation": "Count",
-                            "columns": [
+                            "upstreamFields": [],
+                            "upstreamColumns": [
                                 {
-                                    "table": {}
+                                    "name": "Segment",
+                                    "table": {
+                                        "__typename":"DatabaseTable",
+                                        "id": "b0e0c3eb-6e53-e0f5-ded1-478d5d9f7281"
+                                    }
                                 }
                             ]
                         },
@@ -456,7 +485,21 @@
                             "dataType": "REAL",
                             "defaultFormat": null,
                             "aggregation": null,
-                            "formula": "SUM([Profit])/SUM([Sales])"
+                            "formula": "SUM([Profit])/SUM([Sales])",
+                            "upstreamFields": [
+                                {
+                                    "name": "Profit",
+                                    "datasource": {
+                                        "id": "6cbbeeb2-9f3a-00f6-2342-17139d6e97ae"
+                                    }
+                                },
+                                {
+                                    "name": "Sales",
+                                    "datasource": {
+                                        "id": "6cbbeeb2-9f3a-00f6-2342-17139d6e97ae"
+                                    }
+                                }
+                            ]
                         },
                         {
                             "__typename": "ColumnField",
@@ -470,9 +513,13 @@
                             "dataType": "STRING",
                             "defaultFormat": null,
                             "aggregation": null,
+                            "upstreamFields": [],
                             "columns": [
                                 {
-                                    "table": {}
+                                    "name": "City",
+                                    "table": {
+                                        "id": "b0e0c3eb-6e53-e0f5-ded1-478d5d9f7281"
+                                    }
                                 }
                             ]
                         },
@@ -488,9 +535,13 @@
                             "dataType": "REAL",
                             "defaultFormat": null,
                             "aggregation": null,
+                            "upstreamFields": [],
                             "columns": [
                                 {
-                                    "table": {}
+                                    "name": "Profit",
+                                    "table": {
+                                        "id": "b0e0c3eb-6e53-e0f5-ded1-478d5d9f7281"
+                                    }
                                 }
                             ]
                         },
@@ -506,6 +557,7 @@
                             "dataType": "INTEGER",
                             "defaultFormat": null,
                             "aggregation": "Sum",
+                            "upstreamFields": [],
                             "columns": [
                                 {
                                     "table": {}
@@ -524,6 +576,7 @@
                             "dataType": "STRING",
                             "defaultFormat": null,
                             "aggregation": "Count",
+                            "upstreamFields": [],
                             "columns": [
                                 {
                                     "table": {}
@@ -542,6 +595,7 @@
                             "dataType": "STRING",
                             "defaultFormat": null,
                             "aggregation": "Count",
+                            "upstreamFields": [],
                             "columns": [
                                 {
                                     "table": {}
@@ -560,6 +614,7 @@
                             "dataType": "STRING",
                             "defaultFormat": null,
                             "aggregation": null,
+                            "upstreamFields": [],
                             "columns": [
                                 {
                                     "table": {}
@@ -578,6 +633,7 @@
                             "dataType": "TABLE",
                             "defaultFormat": null,
                             "aggregation": null,
+                            "upstreamFields": [],
                             "columns": []
                         },
                         {
@@ -592,6 +648,7 @@
                             "dataType": "STRING",
                             "defaultFormat": null,
                             "aggregation": null,
+                            "upstreamFields": [],
                             "columns": [
                                 {
                                     "table": {}
@@ -604,7 +661,15 @@
                             "name": "Profit (bin)",
                             "description": null,
                             "isHidden": false,
-                            "folderName": null
+                            "folderName": null,
+                            "upstreamFields": [
+                                {
+                                    "name": "Profit",
+                                    "datasource": {
+                                        "id": "6cbbeeb2-9f3a-00f6-2342-17139d6e97ae"
+                                    }
+                                }
+                            ]
                         },
                         {
                             "__typename": "ColumnField",
@@ -618,6 +683,7 @@
                             "dataType": "STRING",
                             "defaultFormat": null,
                             "aggregation": null,
+                            "upstreamFields": [],
                             "columns": [
                                 {
                                     "table": {}
@@ -636,6 +702,7 @@
                             "dataType": "STRING",
                             "defaultFormat": null,
                             "aggregation": "Count",
+                            "upstreamFields": [],
                             "columns": [
                                 {
                                     "table": {}
@@ -654,6 +721,7 @@
                             "dataType": "STRING",
                             "defaultFormat": null,
                             "aggregation": "Count",
+                            "upstreamFields": [],
                             "columns": [
                                 {
                                     "table": {}
@@ -672,6 +740,7 @@
                             "dataType": "INTEGER",
                             "defaultFormat": "*00000",
                             "aggregation": "Sum",
+                            "upstreamFields": [],
                             "columns": [
                                 {
                                     "table": {}
@@ -684,7 +753,33 @@
                             "name": "Product",
                             "description": null,
                             "isHidden": false,
-                            "folderName": null
+                            "folderName": null,
+                            "upstreamFields": [
+                                {
+                                    "name": "Category",
+                                    "datasource": {
+                                        "id": "6cbbeeb2-9f3a-00f6-2342-17139d6e97ae"
+                                    }
+                                },
+                                {
+                                    "name": "Sub-Category",
+                                    "datasource": {
+                                        "id": "6cbbeeb2-9f3a-00f6-2342-17139d6e97ae"
+                                    }
+                                },
+                                {
+                                    "name": "Manufacturer",
+                                    "datasource": {
+                                        "id": "6cbbeeb2-9f3a-00f6-2342-17139d6e97ae"
+                                    }
+                                },
+                                {
+                                    "name": "Product Name",
+                                    "datasource": {
+                                        "id": "6cbbeeb2-9f3a-00f6-2342-17139d6e97ae"
+                                    }
+                                }
+                            ]
                         },
                         {
                             "__typename": "ColumnField",
@@ -698,6 +793,7 @@
                             "dataType": "DATE",
                             "defaultFormat": null,
                             "aggregation": "Year",
+                            "upstreamFields": [],
                             "columns": [
                                 {
                                     "table": {}
@@ -710,7 +806,39 @@
                             "name": "Location",
                             "description": null,
                             "isHidden": false,
-                            "folderName": null
+                            "folderName": null,
+                            "upstreamFields": [
+                                {
+                                    "name": "City",
+                                    "datasource": {
+                                        "id": "6cbbeeb2-9f3a-00f6-2342-17139d6e97ae"
+                                    }
+                                },
+                                {
+                                    "name": "Postal Code",
+                                    "datasource": {
+                                        "id": "6cbbeeb2-9f3a-00f6-2342-17139d6e97ae"
+                                    }
+                                },
+                                {
+                                    "name": "Country/Region",
+                                    "datasource": {
+                                        "id": "6cbbeeb2-9f3a-00f6-2342-17139d6e97ae"
+                                    }
+                                },
+                                {
+                                    "name": "Region",
+                                    "datasource": {
+                                        "id": "6cbbeeb2-9f3a-00f6-2342-17139d6e97ae"
+                                    }
+                                },
+                                {
+                                    "name": "State",
+                                    "datasource": {
+                                        "id": "6cbbeeb2-9f3a-00f6-2342-17139d6e97ae"
+                                    }
+                                }
+                            ]
                         },
                         {
                             "__typename": "ColumnField",
@@ -724,6 +852,7 @@
                             "dataType": "TABLE",
                             "defaultFormat": null,
                             "aggregation": null,
+                            "upstreamFields": [],
                             "columns": []
                         },
                         {
@@ -738,6 +867,7 @@
                             "dataType": "STRING",
                             "defaultFormat": null,
                             "aggregation": null,
+                            "upstreamFields": [],
                             "columns": [
                                 {
                                     "table": {}
@@ -756,6 +886,7 @@
                             "dataType": "STRING",
                             "defaultFormat": null,
                             "aggregation": null,
+                            "upstreamFields": [],
                             "columns": [
                                 {
                                     "table": {}
@@ -774,6 +905,7 @@
                             "dataType": "STRING",
                             "defaultFormat": null,
                             "aggregation": null,
+                            "upstreamFields": [],
                             "columns": [
                                 {
                                     "table": {}
@@ -792,6 +924,7 @@
                             "dataType": "STRING",
                             "defaultFormat": null,
                             "aggregation": "Count",
+                            "upstreamFields": [],
                             "columns": [
                                 {
                                     "table": {}
@@ -810,6 +943,7 @@
                             "dataType": "STRING",
                             "defaultFormat": null,
                             "aggregation": "Count",
+                            "upstreamFields": [],
                             "columns": [
                                 {
                                     "table": {}
@@ -828,6 +962,7 @@
                             "dataType": "REAL",
                             "defaultFormat": null,
                             "aggregation": "Sum",
+                            "upstreamFields": [],
                             "columns": [
                                 {
                                     "table": {}
@@ -846,6 +981,7 @@
                             "dataType": "STRING",
                             "defaultFormat": null,
                             "aggregation": null,
+                            "upstreamFields": [],
                             "columns": [
                                 {
                                     "table": {}
@@ -864,6 +1000,7 @@
                             "dataType": "INTEGER",
                             "defaultFormat": null,
                             "aggregation": null,
+                            "upstreamFields": [],
                             "columns": [
                                 {
                                     "table": {}
@@ -878,7 +1015,15 @@
                             "isHidden": false,
                             "folderName": null,
                             "role": "DIMENSION",
-                            "dataType": "STRING"
+                            "dataType": "STRING",
+                            "upstreamFields": [
+                                {
+                                    "name": "Sub-Category",
+                                    "datasource": {
+                                        "id": "6cbbeeb2-9f3a-00f6-2342-17139d6e97ae"
+                                    }
+                                }
+                            ]
                         },
                         {
                             "__typename": "ColumnField",
@@ -892,6 +1037,7 @@
                             "dataType": "STRING",
                             "defaultFormat": null,
                             "aggregation": null,
+                            "upstreamFields": [],
                             "columns": [
                                 {
                                     "table": {}
@@ -910,6 +1056,7 @@
                             "dataType": "REAL",
                             "defaultFormat": null,
                             "aggregation": "Sum",
+                            "upstreamFields": [],
                             "columns": [
                                 {
                                     "table": {}
@@ -928,6 +1075,7 @@
                             "dataType": "DATE",
                             "defaultFormat": null,
                             "aggregation": "Year",
+                            "upstreamFields": [],
                             "columns": [
                                 {
                                     "table": {}
@@ -946,6 +1094,7 @@
                             "dataType": "STRING",
                             "defaultFormat": null,
                             "aggregation": null,
+                            "upstreamFields": [],
                             "columns": [
                                 {
                                     "table": {}
