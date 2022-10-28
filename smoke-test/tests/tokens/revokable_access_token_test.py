@@ -262,7 +262,7 @@ def test_non_admin_can_create_list_revoke_tokens(wait_for_healthchecks):
 
     # User should be able to list his own token
     res_data = listAccessTokens(
-        user_session, [{"field": "ownerUrn", "value": "urn:li:corpuser:user"}]
+        user_session, [{"field": "ownerUrn", "values": ["urn:li:corpuser:user"]}]
     )
     assert res_data
     assert res_data["data"]
@@ -289,7 +289,7 @@ def test_non_admin_can_create_list_revoke_tokens(wait_for_healthchecks):
 
     # Using a normal account, check that all its tokens where removed.
     res_data = listAccessTokens(
-        user_session, [{"field": "ownerUrn", "value": "urn:li:corpuser:user"}]
+        user_session, [{"field": "ownerUrn", "values": ["urn:li:corpuser:user"]}]
     )
     assert res_data
     assert res_data["data"]
@@ -331,7 +331,7 @@ def test_admin_can_manage_tokens_generated_by_other_user(wait_for_healthchecks):
     user_session.cookies.clear()
     admin_session = loginAs(admin_user, admin_pass)
     res_data = listAccessTokens(
-        admin_session, [{"field": "ownerUrn", "value": "urn:li:corpuser:user"}]
+        admin_session, [{"field": "ownerUrn", "values": ["urn:li:corpuser:user"]}]
     )
     assert res_data
     assert res_data["data"]
@@ -362,7 +362,7 @@ def test_admin_can_manage_tokens_generated_by_other_user(wait_for_healthchecks):
     user_session.cookies.clear()
     user_session = loginAs("user", "user")
     res_data = listAccessTokens(
-        user_session, [{"field": "ownerUrn", "value": "urn:li:corpuser:user"}]
+        user_session, [{"field": "ownerUrn", "values": ["urn:li:corpuser:user"]}]
     )
     assert res_data
     assert res_data["data"]
@@ -372,7 +372,7 @@ def test_admin_can_manage_tokens_generated_by_other_user(wait_for_healthchecks):
     # Using the super account, check that all tokens where removed.
     admin_session = loginAs(admin_user, admin_pass)
     res_data = listAccessTokens(
-        admin_session, [{"field": "ownerUrn", "value": "urn:li:corpuser:user"}]
+        admin_session, [{"field": "ownerUrn", "values": ["urn:li:corpuser:user"]}]
     )
     assert res_data
     assert res_data["data"]

@@ -37,7 +37,6 @@ public class TestAuthorizer implements Authorizer {
     assert authorizerConfig.get("key3").equals("value3");
 
     log.info("Init succeed");
-
   }
 
   @Override
@@ -47,7 +46,8 @@ public class TestAuthorizer implements Authorizer {
     assert url != null;
 
     // Try to create a file on PLUGIN_DIRECTORY to test plugin should have permission to read/write on plugin directory
-    Path pluginDirectory = Paths.get((String) this._authorizerContext.data().get(PluginConstant.PLUGIN_HOME), "tmp_file1.txt");
+    Path pluginDirectory =
+        Paths.get((String) this._authorizerContext.data().get(PluginConstant.PLUGIN_HOME), "tmp_file1.txt");
     try {
 
       try (BufferedWriter writer = new BufferedWriter(new FileWriter(pluginDirectory.toString()))) {

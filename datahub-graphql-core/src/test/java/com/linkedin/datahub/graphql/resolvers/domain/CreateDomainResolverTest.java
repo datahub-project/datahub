@@ -9,6 +9,7 @@ import com.linkedin.events.metadata.ChangeType;
 import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.key.DomainKey;
 import com.linkedin.metadata.utils.GenericRecordUtils;
+import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.mxe.MetadataChangeProposal;
 import com.linkedin.r2.RemoteInvocationException;
 import graphql.schema.DataFetchingEnvironment;
@@ -27,12 +28,16 @@ public class CreateDomainResolverTest {
       "test-name",
       "test-description"
   );
+  private static final String TEST_ENTITY_URN = "urn:li:dataset:(urn:li:dataPlatform:mysql,my-test,PROD)";
+  private static final String TEST_TAG_1_URN = "urn:li:tag:test-id-1";
+  private static final String TEST_TAG_2_URN = "urn:li:tag:test-id-2";
 
   @Test
   public void testGetSuccess() throws Exception {
     // Create resolver
     EntityClient mockClient = Mockito.mock(EntityClient.class);
-    CreateDomainResolver resolver = new CreateDomainResolver(mockClient);
+    EntityService mockService = Mockito.mock(EntityService.class);
+    CreateDomainResolver resolver = new CreateDomainResolver(mockClient, mockService);
 
     // Execute resolver
     QueryContext mockContext = getMockAllowContext();
@@ -65,7 +70,8 @@ public class CreateDomainResolverTest {
   public void testGetUnauthorized() throws Exception {
     // Create resolver
     EntityClient mockClient = Mockito.mock(EntityClient.class);
-    CreateDomainResolver resolver = new CreateDomainResolver(mockClient);
+    EntityService mockService = Mockito.mock(EntityService.class);
+    CreateDomainResolver resolver = new CreateDomainResolver(mockClient, mockService);
 
     // Execute resolver
     DataFetchingEnvironment mockEnv = Mockito.mock(DataFetchingEnvironment.class);
@@ -83,10 +89,11 @@ public class CreateDomainResolverTest {
   public void testGetEntityClientException() throws Exception {
     // Create resolver
     EntityClient mockClient = Mockito.mock(EntityClient.class);
+    EntityService mockService = Mockito.mock(EntityService.class);
     Mockito.doThrow(RemoteInvocationException.class).when(mockClient).ingestProposal(
         Mockito.any(),
         Mockito.any(Authentication.class));
-    CreateDomainResolver resolver = new CreateDomainResolver(mockClient);
+    CreateDomainResolver resolver = new CreateDomainResolver(mockClient, mockService);
 
     // Execute resolver
     DataFetchingEnvironment mockEnv = Mockito.mock(DataFetchingEnvironment.class);

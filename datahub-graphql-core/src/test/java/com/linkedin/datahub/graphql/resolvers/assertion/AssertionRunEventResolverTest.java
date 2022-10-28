@@ -51,7 +51,7 @@ public class AssertionRunEventResolverTest {
         Mockito.eq(10L),
         Mockito.eq(5),
         Mockito.eq(false),
-        Mockito.any(Filter.class),
+        Mockito.eq(AssertionRunEventResolver.buildFilter(null, AssertionRunStatus.COMPLETE.toString())),
         Mockito.any(Authentication.class)
     )).thenReturn(
         ImmutableList.of(

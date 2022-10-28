@@ -10,6 +10,7 @@ import com.linkedin.datahub.graphql.generated.UpdateNameInput;
 import com.linkedin.domain.DomainProperties;
 import com.linkedin.glossary.GlossaryTermInfo;
 import com.linkedin.glossary.GlossaryNodeInfo;
+import com.linkedin.identity.CorpGroupInfo;
 import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.entity.EntityService;
 import graphql.schema.DataFetcher;
@@ -47,6 +48,8 @@ public class UpdateNameResolver implements DataFetcher<CompletableFuture<Boolean
           return updateGlossaryNodeName(targetUrn, input, environment.getContext());
         case Constants.DOMAIN_ENTITY_NAME:
           return updateDomainName(targetUrn, input, environment.getContext());
+        case Constants.CORP_GROUP_ENTITY_NAME:
+          return updateGroupName(targetUrn, input, environment.getContext());
         default:
           throw new RuntimeException(
               String.format("Failed to update name. Unsupported resource type %s provided.", targetUrn));
@@ -117,6 +120,30 @@ public class UpdateNameResolver implements DataFetcher<CompletableFuture<Boolean
         domainProperties.setName(input.getName());
         Urn actor = CorpuserUrn.createFromString(context.getActorUrn());
         persistAspect(targetUrn, Constants.DOMAIN_PROPERTIES_ASPECT_NAME, domainProperties, actor, _entityService);
+
+        return true;
+      } catch (Exception e) {
+        throw new RuntimeException(String.format("Failed to perform update against input %s", input), e);
+      }
+    }
+    throw new AuthorizationException("Unauthorized to perform this action. Please contact your DataHub administrator.");
+  }
+
+  private Boolean updateGroupName(
+          Urn targetUrn,
+          UpdateNameInput input,
+          QueryContext context
+  ) {
+    if (AuthorizationUtils.canManageUsersAndGroups(context)) {
+      try {
+        CorpGroupInfo corpGroupInfo = (CorpGroupInfo) getAspectFromEntity(
+                targetUrn.toString(), Constants.CORP_GROUP_INFO_ASPECT_NAME, _entityService, null);
+        if (corpGroupInfo == null) {
+          throw new IllegalArgumentException("Group does not exist");
+        }
+        corpGroupInfo.setDisplayName(input.getName());
+        Urn actor = CorpuserUrn.createFromString(context.getActorUrn());
+        persistAspect(targetUrn, Constants.CORP_GROUP_INFO_ASPECT_NAME, corpGroupInfo, actor, _entityService);
 
         return true;
       } catch (Exception e) {

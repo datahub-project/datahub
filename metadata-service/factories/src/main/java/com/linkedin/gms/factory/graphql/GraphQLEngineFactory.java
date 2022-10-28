@@ -5,6 +5,7 @@ import com.datahub.auth.authentication.invite.InviteTokenService;
 import com.datahub.auth.authentication.token.StatefulTokenService;
 import com.datahub.auth.authentication.user.NativeUserService;
 import com.datahub.auth.authorization.role.RoleService;
+import com.datahub.auth.authentication.post.PostService;
 import com.linkedin.datahub.graphql.GmsGraphQLEngine;
 import com.linkedin.datahub.graphql.GraphQLEngine;
 import com.linkedin.datahub.graphql.analytics.service.AnalyticsService;
@@ -123,6 +124,10 @@ public class GraphQLEngineFactory {
   @Qualifier("inviteTokenService")
   private InviteTokenService _inviteTokenService;
 
+  @Autowired
+  @Qualifier("postService")
+  private PostService _postService;
+
   @Value("${platformAnalytics.enabled}") // TODO: Migrate to DATAHUB_ANALYTICS_ENABLED
   private Boolean isAnalyticsEnabled;
 
@@ -157,6 +162,7 @@ public class GraphQLEngineFactory {
           _groupService,
           _roleService,
           _inviteTokenService,
+          _postService,
           _configProvider.getFeatureFlags()
           ).builder().build();
     }
@@ -186,6 +192,7 @@ public class GraphQLEngineFactory {
         _groupService,
         _roleService,
         _inviteTokenService,
+        _postService,
         _configProvider.getFeatureFlags()
     ).builder().build();
   }

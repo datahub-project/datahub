@@ -15,7 +15,9 @@ import lombok.extern.slf4j.Slf4j;
 @Slf4j
 class JarExtractor {
 
-  private JarExtractor() { }
+  private JarExtractor() {
+  }
+
   public static void write(URL url, Path destinationFilePath) throws IOException {
     try (InputStream input = url.openStream()) {
       try (FileOutputStream output = new FileOutputStream(destinationFilePath.toFile())) {

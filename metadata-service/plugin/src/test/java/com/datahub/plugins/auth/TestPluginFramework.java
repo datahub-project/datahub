@@ -34,7 +34,6 @@ import org.testng.annotations.Test;
 
 public class TestPluginFramework {
 
-
   @BeforeClass
   public void setSecurityManager() {
     System.setSecurityManager(new SecurityManager());
@@ -137,7 +136,7 @@ public class TestPluginFramework {
 
   public static Path getSamplePluginDirectory() {
     // plugin directory
-    return  Paths.get("src", "test", "resources", "sample-plugins").toAbsolutePath();
+    return Paths.get("src", "test", "resources", "sample-plugins").toAbsolutePath();
   }
 
   public static Path getSamplePluginJar() {
@@ -178,8 +177,7 @@ public class TestPluginFramework {
     // authenticator plugin config instance
     AuthenticatorPluginConfig authenticatorPluginConfig = getAuthenticatorPluginConfig();
     // create IsolatedClassLoader
-    PluginPermissionManager permissionManager =
-        new PluginPermissionManagerImpl(SecurityMode.RESTRICTED);
+    PluginPermissionManager permissionManager = new PluginPermissionManagerImpl(SecurityMode.RESTRICTED);
     IsolatedClassLoader isolatedClassLoader = new IsolatedClassLoaderImpl(permissionManager, authenticatorPluginConfig);
     // initiate and invoke the init and authenticate methods
     Authenticator authenticator = (Authenticator) isolatedClassLoader.instantiatePlugin(Authenticator.class);
@@ -197,8 +195,7 @@ public class TestPluginFramework {
     // authenticator plugin config instance
     AuthorizerPluginConfig authorizerPluginConfig = getAuthorizerPluginConfig();
     // create IsolatedClassLoader
-    PluginPermissionManager permissionManager =
-        new PluginPermissionManagerImpl(SecurityMode.RESTRICTED);
+    PluginPermissionManager permissionManager = new PluginPermissionManagerImpl(SecurityMode.RESTRICTED);
     IsolatedClassLoader isolatedClassLoader = new IsolatedClassLoaderImpl(permissionManager, authorizerPluginConfig);
     // initiate and invoke the init and authenticate methods
     Authorizer authorizer = (Authorizer) isolatedClassLoader.instantiatePlugin(Authorizer.class);
@@ -213,8 +210,7 @@ public class TestPluginFramework {
   public void testIncorrectImplementation() {
     AuthorizerPluginConfig authorizerPluginConfig = getAuthorizerPluginConfig();
     // create IsolatedClassLoader
-    PluginPermissionManager permissionManager =
-        new PluginPermissionManagerImpl(SecurityMode.RESTRICTED);
+    PluginPermissionManager permissionManager = new PluginPermissionManagerImpl(SecurityMode.RESTRICTED);
     IsolatedClassLoader isolatedClassLoader = new IsolatedClassLoaderImpl(permissionManager, authorizerPluginConfig);
     // initiate and invoke the init and authenticate methods
     try {
@@ -232,8 +228,7 @@ public class TestPluginFramework {
     AuthenticatorPluginConfig authenticatorPluginConfig = getAuthenticatorPluginConfig();
     authenticatorPluginConfig.setClassName("com.datahub.plugins.test.TestLenientModeAuthenticator");
     // create IsolatedClassLoader
-    PluginPermissionManager permissionManager =
-        new PluginPermissionManagerImpl(SecurityMode.LENIENT);
+    PluginPermissionManager permissionManager = new PluginPermissionManagerImpl(SecurityMode.LENIENT);
     IsolatedClassLoader isolatedClassLoader = new IsolatedClassLoaderImpl(permissionManager, authenticatorPluginConfig);
     // initiate and invoke the init and authenticate methods
     Authenticator authenticator = (Authenticator) isolatedClassLoader.instantiatePlugin(Authenticator.class);
@@ -241,5 +236,4 @@ public class TestPluginFramework {
     AuthenticationRequest request = new AuthenticationRequest(ImmutableMap.of("foo", "bar"));
     assert authenticator.authenticate(request) != null;
   }
-
 }

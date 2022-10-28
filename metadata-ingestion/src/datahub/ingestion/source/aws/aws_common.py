@@ -167,18 +167,24 @@ class AwsConnectionConfig(ConfigModel):
             }
         return {}
 
-    def get_s3_client(self) -> "S3Client":
+    def get_s3_client(
+        self, verify_ssl: Optional[Union[bool, str]] = None
+    ) -> "S3Client":
         return self.get_session().client(
             "s3",
             endpoint_url=self.aws_endpoint_url,
             config=Config(proxies=self.aws_proxy),
+            verify=verify_ssl,
         )
 
-    def get_s3_resource(self) -> "S3ServiceResource":
+    def get_s3_resource(
+        self, verify_ssl: Optional[Union[bool, str]] = None
+    ) -> "S3ServiceResource":
         resource = self.get_session().resource(
             "s3",
             endpoint_url=self.aws_endpoint_url,
             config=Config(proxies=self.aws_proxy),
+            verify=verify_ssl,
         )
         # according to: https://stackoverflow.com/questions/32618216/override-s3-endpoint-using-boto3-configuration-file
         # boto3 only reads the signature version for s3 from that config file. boto3 automatically changes the endpoint to

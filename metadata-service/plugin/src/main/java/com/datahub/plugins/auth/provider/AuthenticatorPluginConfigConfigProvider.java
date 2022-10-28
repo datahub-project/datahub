@@ -18,8 +18,8 @@ public class AuthenticatorPluginConfigConfigProvider extends AuthPluginConfigPro
   public AuthPluginConfig createAuthPluginConfig(com.datahub.plugins.configuration.PluginConfig pluginConfig) {
     AuthConfig authConfig = (new YamlMapper<AuthConfig>()).fromMap(pluginConfig.getParams(), AuthConfig.class);
     Path pluginJar = formPluginJar(pluginConfig, authConfig);
-    return new AuthenticatorPluginConfig(pluginConfig.getName(), pluginConfig.getEnabled(),
-        authConfig.getClassName(), pluginConfig.getPluginDirectory(), pluginJar, authConfig.getConfigs());
+    return new AuthenticatorPluginConfig(pluginConfig.getName(), pluginConfig.getEnabled(), authConfig.getClassName(),
+        pluginConfig.getPluginDirectory(), pluginJar, authConfig.getConfigs());
   }
 }
 

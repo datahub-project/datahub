@@ -14,6 +14,7 @@ import java.security.cert.Certificate;
 public class PluginPermissionManagerImpl implements PluginPermissionManager {
 
   private SecurityMode _securityMode;
+
   public PluginPermissionManagerImpl(SecurityMode securityMode) {
     this._securityMode = securityMode;
   }

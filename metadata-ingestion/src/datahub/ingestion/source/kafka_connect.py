@@ -37,6 +37,12 @@ class ProvidedConfig(ConfigModel):
     value: str
 
 
+class GenericConnectorConfig(ConfigModel):
+    connector_name: str
+    source_dataset: str
+    source_platform: str
+
+
 class KafkaConnectSourceConfig(DatasetLineageProviderConfigBase):
     # See the Connect REST Interface for details
     # https://docs.confluent.io/platform/current/connect/references/restapi.html#
@@ -66,6 +72,10 @@ class KafkaConnectSourceConfig(DatasetLineageProviderConfigBase):
     platform_instance_map: Optional[Dict[str, str]] = Field(
         default=None,
         description='Platform instance mapping to use when constructing URNs. e.g.`platform_instance_map: { "hive": "warehouse" }`',
+    )
+    generic_connectors: List[GenericConnectorConfig] = Field(
+        default=[],
+        description="Provide lineage graph for sources connectors other than Confluent JDBC Source Connector or Debezium Source Connector",
     )
 
 
@@ -836,6 +846,7 @@ class KafkaConnectSource(Source):
 
     - works only for
         - JDBC and Debezium source connectors
+        - Generic connectors with user-defined lineage graph
         - BigQuery sink connector
     """
 
@@ -923,19 +934,34 @@ class KafkaConnectSource(Source):
                         config=self.config,
                         report=self.report,
                     ).connector_manifest
+                elif connector_manifest.config.get("connector.class", "").startswith(
+                    "io.debezium.connector"
+                ):
+                    connector_manifest = DebeziumSourceConnector(
+                        connector_manifest=connector_manifest, config=self.config
+                    ).connector_manifest
                 else:
-                    # Debezium Source Connector lineages
-                    try:
-                        connector_manifest = DebeziumSourceConnector(
-                            connector_manifest=connector_manifest, config=self.config
-                        ).connector_manifest
-
-                    except ValueError as err:
+                    # Find the target connector object in the list, or log an error if unknown.
+                    target_connector = None
+                    for connector in self.config.generic_connectors:
+                        if connector.connector_name == connector_manifest.name:
+                            target_connector = connector
+                            break
+                    if not target_connector:
                         logger.warning(
-                            f"Skipping connector {connector_manifest.name} due to error: {err}"
+                            f"Detected undefined connector {connector_manifest.name}, which is not in the customized connector list. Please refer to Kafka Connect ingestion recipe to define this customized connector."
                         )
-                        self.report.report_failure(connector_manifest.name, str(err))
                         continue
+
+                    for topic in topics:
+                        lineage = KafkaConnectLineage(
+                            source_dataset=target_connector.source_dataset,
+                            source_platform=target_connector.source_platform,
+                            target_dataset=topic,
+                            target_platform="kafka",
+                        )
+
+                    connector_manifest.lineages.append(lineage)
 
             if connector_manifest.type == "sink":
                 if connector_manifest.config.get("connector.class").__eq__(

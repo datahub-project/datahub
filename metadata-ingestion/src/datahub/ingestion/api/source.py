@@ -114,8 +114,7 @@ class Extractor(Generic[WorkUnitType, ExtractorConfig], Closeable, metaclass=ABC
         pass
 
 
-# See https://github.com/python/mypy/issues/5374 for why we suppress this mypy error.
-@dataclass  # type: ignore[misc]
+@dataclass
 class Source(Closeable, metaclass=ABCMeta):
     ctx: PipelineContext
 
@@ -129,6 +128,9 @@ class Source(Closeable, metaclass=ABCMeta):
 
     @abstractmethod
     def get_report(self) -> SourceReport:
+        pass
+
+    def close(self) -> None:
         pass
 
 

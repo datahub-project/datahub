@@ -56,7 +56,7 @@ public class ESSearchDAO {
   @WithSpan
   private SearchResult executeAndExtract(@Nonnull EntitySpec entitySpec, @Nonnull SearchRequest searchRequest, @Nullable Filter filter, int from,
       int size) {
-    try (Timer.Context ignored = MetricUtils.timer(this.getClass(), "esSearch").time()) {
+    try (Timer.Context ignored = MetricUtils.timer(this.getClass(), "executeAndExtract_search").time()) {
       final SearchResponse searchResponse = client.search(searchRequest, RequestOptions.DEFAULT);
       // extract results, validated against document model as well
       return SearchRequestHandler.getBuilder(entitySpec).extractResult(searchResponse, filter, from, size);
@@ -168,7 +168,7 @@ public class ESSearchDAO {
     }
     searchRequest.indices(indexName);
 
-    try (Timer.Context ignored = MetricUtils.timer(this.getClass(), "esSearch").time()) {
+    try (Timer.Context ignored = MetricUtils.timer(this.getClass(), "aggregateByValue_search").time()) {
       final SearchResponse searchResponse = client.search(searchRequest, RequestOptions.DEFAULT);
       // extract results, validated against document model as well
       return SearchRequestHandler.extractTermAggregations(searchResponse, field);
