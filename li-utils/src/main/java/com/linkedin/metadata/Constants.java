@@ -267,6 +267,14 @@ public class Constants {
   public static final String CLIENT_ID_URN = "urn:li:telemetry:clientId";
   public static final String CLIENT_ID_ASPECT = "telemetryClientId";
 
+  // Metadata Change Event Parameter Names
+
+  // Runs
+  public static final String RUN_RESULT_KEY = "runResult";
+  public static final String RUN_ID_KEY = "runId";
+  public static final String ASSERTEE_URN_KEY = "asserteeUrn";
+  public static final String ASSERTION_RESULT_KEY = "assertionResult";
+
   private Constants() {
   }
 }
