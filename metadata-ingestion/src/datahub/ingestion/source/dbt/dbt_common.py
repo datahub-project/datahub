@@ -17,10 +17,8 @@ from typing import (
     Union,
     cast,
 )
-from urllib.parse import urlparse
 
 import pydantic
-import requests
 from pydantic import BaseModel, root_validator, validator
 from pydantic.fields import Field
 
@@ -44,7 +42,6 @@ from datahub.ingestion.api.decorators import (
 )
 from datahub.ingestion.api.ingestion_job_state_provider import JobId
 from datahub.ingestion.api.workunit import MetadataWorkUnit
-from datahub.ingestion.source.aws.aws_common import AwsConnectionConfig
 from datahub.ingestion.source.sql.sql_types import (
     BIGQUERY_TYPES_MAP,
     POSTGRES_TYPES_MAP,
@@ -278,10 +275,6 @@ class DBTCommonConfig(StatefulIngestionConfigBase):
         default=None,
         description='Regex string to extract owner from the dbt node using the `(?P<name>...) syntax` of the [match object](https://docs.python.org/3/library/re.html#match-objects), where the group name must be `owner`. Examples: (1)`r"(?P<owner>(.*)): (\\w+) (\\w+)"` will extract `jdoe` as the owner from `"jdoe: John Doe"` (2) `r"@(?P<owner>(.*))"` will extract `alice` as the owner from `"@alice"`.',
     )
-    aws_connection: Optional[AwsConnectionConfig] = Field(
-        default=None,
-        description="When fetching manifest files from s3, configuration for aws connection details",
-    )
     backcompat_skip_source_on_lineage_edge: bool = Field(
         False,
         description="Prior to version 0.8.41, lineage edges to sources were directed to the target platform node rather than the dbt source node. This contradicted the established pattern for other lineage edges to point to upstream dbt nodes. To revert lineage logic to this legacy approach, set this flag to true.",
@@ -294,11 +287,6 @@ class DBTCommonConfig(StatefulIngestionConfigBase):
     stateful_ingestion: Optional[DBTStatefulIngestionConfig] = pydantic.Field(
         default=None, description="DBT Stateful Ingestion Config."
     )
-
-    @property
-    def s3_client(self):
-        assert self.aws_connection
-        return self.aws_connection.get_s3_client()
 
     @validator("target_platform")
     def validate_target_platform_value(cls, target_platform: str) -> str:
@@ -318,23 +306,6 @@ class DBTCommonConfig(StatefulIngestionConfigBase):
                 "provide a datahub_api: configuration on your ingestion recipe"
             )
         return write_semantics
-
-    @validator("aws_connection")
-    def aws_connection_needed_if_s3_uris_present(
-        cls, aws_connection: Optional[AwsConnectionConfig], values: Dict, **kwargs: Any
-    ) -> Optional[AwsConnectionConfig]:
-        # first check if there are fields that contain s3 uris
-        uri_containing_fields = [
-            f
-            for f in ["manifest_path", "catalog_path", "sources_path"]
-            if (values.get(f) or "").startswith("s3://")
-        ]
-
-        if uri_containing_fields and not aws_connection:
-            raise ValueError(
-                f"Please provide aws_connection configuration, since s3 uris have been provided in fields {uri_containing_fields}"
-            )
-        return aws_connection
 
     @validator("meta_mapping")
     def meta_mapping_validator(
@@ -849,19 +820,6 @@ class DBTSourceBase(StatefulIngestionSourceBase):
             last_checkpoint.state = dbt_checkpoint_state
 
         return last_checkpoint
-
-    def load_file_as_json(self, uri: str) -> Any:
-        if re.match("^https?://", uri):
-            return json.loads(requests.get(uri).text)
-        elif re.match("^s3://", uri):
-            u = urlparse(uri)
-            response = self.config.s3_client.get_object(
-                Bucket=u.netloc, Key=u.path.lstrip("/")
-            )
-            return json.loads(response["Body"].read().decode("utf-8"))
-        else:
-            with open(uri, "r") as f:
-                return json.load(f)
 
     def create_test_entity_mcps(
         self,

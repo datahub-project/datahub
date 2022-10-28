@@ -1,8 +1,12 @@
+import json
 import logging
+import re
 from typing import Any, Dict, Iterable, List, Optional, Tuple
+from urllib.parse import urlparse
 
 import dateutil.parser
-from pydantic import Field
+import requests
+from pydantic import Field, validator
 
 from datahub.ingestion.api.decorators import (
     SupportStatus,
@@ -13,6 +17,7 @@ from datahub.ingestion.api.decorators import (
 )
 from datahub.ingestion.api.source import SourceCapability
 from datahub.ingestion.api.workunit import MetadataWorkUnit
+from datahub.ingestion.source.aws.aws_common import AwsConnectionConfig
 from datahub.ingestion.source.dbt.dbt_common import (
     DBTColumn,
     DBTCommonConfig,
@@ -40,6 +45,38 @@ class DBTCoreConfig(DBTCommonConfig):
         default=None,
         description="Path to output of dbt test run as run_results file in JSON format. See https://docs.getdbt.com/reference/artifacts/run-results-json. If not specified, test execution results will not be populated in DataHub.",
     )
+
+    aws_connection: Optional[AwsConnectionConfig] = Field(
+        default=None,
+        description="When fetching manifest files from s3, configuration for aws connection details",
+    )
+
+    @property
+    def s3_client(self):
+        assert self.aws_connection
+        return self.aws_connection.get_s3_client()
+
+    @validator("aws_connection")
+    def aws_connection_needed_if_s3_uris_present(
+        cls, aws_connection: Optional[AwsConnectionConfig], values: Dict, **kwargs: Any
+    ) -> Optional[AwsConnectionConfig]:
+        # first check if there are fields that contain s3 uris
+        uri_containing_fields = [
+            f
+            for f in [
+                "manifest_path",
+                "catalog_path",
+                "sources_path",
+                "test_results_path",
+            ]
+            if (values.get(f) or "").startswith("s3://")
+        ]
+
+        if uri_containing_fields and not aws_connection:
+            raise ValueError(
+                f"Please provide aws_connection configuration, since s3 uris have been provided in fields {uri_containing_fields}"
+            )
+        return aws_connection
 
 
 def get_columns(
@@ -227,6 +264,19 @@ class DBTCoreSource(DBTSourceBase):
     def create(cls, config_dict, ctx):
         config = DBTCoreConfig.parse_obj(config_dict)
         return cls(config, ctx, "dbt")
+
+    def load_file_as_json(self, uri: str) -> Any:
+        if re.match("^https?://", uri):
+            return json.loads(requests.get(uri).text)
+        elif re.match("^s3://", uri):
+            u = urlparse(uri)
+            response = self.config.s3_client.get_object(
+                Bucket=u.netloc, Key=u.path.lstrip("/")
+            )
+            return json.loads(response["Body"].read().decode("utf-8"))
+        else:
+            with open(uri, "r") as f:
+                return json.load(f)
 
     def loadManifestAndCatalog(
         self,
