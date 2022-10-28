@@ -1,4 +1,13 @@
-# Business Glossary Guide
+---
+title: About DataHub Business Glossary
+sidebar_label: Business Glossary
+---
+
+import FeatureAvailability from '@site/src/components/FeatureAvailability';
+
+# About DataHub Business Glossary
+
+<FeatureAvailability/>
 
 ## Introduction
 
