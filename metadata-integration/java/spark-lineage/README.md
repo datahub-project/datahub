@@ -132,9 +132,9 @@ The Spark agent can be configured using Databricks Cluster [Spark configuration]
 | spark.datahub.metadata.pipeline.platformInstance |          |         | Pipeline level platform instance                                                                                                      |
 | spark.datahub.metadata.dataset.platformInstance  |          |         | dataset level platform instance                                                                                                       |
 | spark.datahub.metadata.dataset.env               |          | PROD    | [Supported values](https://datahubproject.io/docs/graphql/enums#fabrictype). In all other cases, will fallback to PROD                |
-| spark.datahub.metadata.table.hive_platform_alias |          | hive    | Platform for tables                                                                                                                   |
-| spark.datahub.metadata.include_scheme            |          | true    | Include scheme (e.g. hdfs://, s3://) in dataset URN                                                                                   |
-| spark.datahub.coalesce_jobs                      |          | false   | Only one datajob(taask) will be emitted containing all input and output datasets for the spark application                            |
+| spark.datahub.metadata.table.hive_platform_alias |          | hive    | By default, datahub assigns Hive-like tables to the Hive platform. If you are using Glue as your Hive metastore, set this config flag to `glue`                                                                                                                   |
+| spark.datahub.metadata.include_scheme            |          | true    | Include scheme from the path URI (e.g. hdfs://, s3://) in the dataset URN. We recommend setting this value to false, it is set to true for backwards compatibility with previous versions                                                                             |
+| spark.datahub.coalesce_jobs                      |          | false   | Only one datajob(task) will be emitted containing all input and output datasets for the spark application                            |
 | spark.datahub.parent.datajob_urn                 |          |         | Specified dataset will be set as upstream dataset for datajob created. Effective only when spark.datahub.coalesce_jobs is set to true |
 
 ## What to Expect: The Metadata Model
