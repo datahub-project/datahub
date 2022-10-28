@@ -5,7 +5,7 @@
 #########################################################
 import logging
 from dataclasses import dataclass, field as dataclass_field
-from typing import Any, Dict, Iterable, List, Optional, Set
+from typing import Any, Dict, Iterable, List
 
 import pydantic
 import requests
@@ -127,7 +127,7 @@ class PowerBiReportServerAPI:
     def get_auth_credentials(self):
         return self.__auth
 
-    def requests_get(self, url_http: str, url_https: str, content_type: str):
+    def requests_get(self, url_http: str, url_https: str, content_type: str) -> Any:
         try:
             LOGGER.info("Request to Report URL={}".format(url_https))
             response = requests.get(
@@ -544,6 +544,7 @@ class PowerBiReportServerDashboardSource(Source):
         )
         user_urn = builder.make_user_urn(report.display_name)
 
+        assert self.ctx.graph
         if ownership := self.ctx.graph.get_ownership(entity_urn=dashboard_urn):
             existing_ownership = ownership.owners
         if self.ctx.graph.get_aspect_v2(

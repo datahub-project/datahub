@@ -4,7 +4,6 @@ from unittest import mock
 from freezegun import freeze_time
 
 from datahub.ingestion.run.pipeline import Pipeline
-from datahub.ingestion.source.powerbi_report_server import Constant, CorpUser
 from datahub.metadata.schema_classes import AuditStampClass, OwnerClass, OwnershipClass
 from tests.test_helpers import mce_helpers
 
@@ -14,16 +13,16 @@ FROZEN_TIME = "2022-02-03 07:00:00"
 def mock_existing_users(*args, **kwargs):
     return OwnershipClass(
         owners=[
-            OwnerClass(
-                **{
+            OwnerClass.from_obj(
+                {
                     "owner": "urn:li:corpuser:TEST_USER",
                     "type": "TECHNICAL_OWNER",
                     "source": None,
                 }
             )
         ],
-        lastModified=AuditStampClass(
-            **{"time": 0, "actor": "urn:li:corpuser:unknown", "impersonator": None}
+        lastModified=AuditStampClass.from_obj(
+            {"time": 0, "actor": "urn:li:corpuser:unknown", "impersonator": None}
         ),
     )
 
