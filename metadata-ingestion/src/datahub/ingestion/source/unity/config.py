@@ -56,12 +56,12 @@ class UnityCatalogSourceConfig(StatefulIngestionConfigBase):
 
     include_table_lineage: Optional[bool] = pydantic.Field(
         default=True,
-        description="Option to enable/disable lineage generation. Is enabled by default.",
+        description="Option to enable/disable lineage generation.",
     )
 
     include_column_lineage: Optional[bool] = pydantic.Field(
         default=True,
-        description="Option to enable/disable lineage generation. Is enabled by default.",
+        description="Option to enable/disable lineage generation. Currently we have to call a rest call per column to get column level lineage due to the Databrick api which can slow down ingestion. ",
     )
 
     stateful_ingestion: Optional[UnityCatalogStatefulIngestionConfig] = pydantic.Field(
