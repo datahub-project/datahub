@@ -39,7 +39,7 @@ jobs:
         run: |
           docker logs datahub-gms >& quickstart-gms.log
       - name: Upload logs
-        uses: actions/upload-artifact@v2
+        uses: actions/upload-artifact@v3
         if: failure()
         with:
           name: docker-quickstart-logs-${{ matrix.os }}

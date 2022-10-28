@@ -37,7 +37,7 @@ jobs:
         run: ./metadata-ingestion/scripts/install_deps.sh
       - name: Run metadata-ingestion tests
         run: ./gradlew :metadata-ingestion:build :metadata-ingestion:testQuick :metadata-ingestion:check
-      - uses: actions/upload-artifact@v2
+      - uses: actions/upload-artifact@v3
         if: always()
         with:
           name: Test Results (metadata ingestion ${{ matrix.python-version }} testQuick)
@@ -79,7 +79,7 @@ jobs:
       - name: pip freeze show list installed
         if: always()
         run: source metadata-ingestion/venv/bin/activate && pip freeze
-      - uses: actions/upload-artifact@v2
+      - uses: actions/upload-artifact@v3
         if: always()
         with:
           name: Test Results (metadata ingestion ${{ matrix.python-version }})
@@ -92,7 +92,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Upload
-        uses: actions/upload-artifact@v2
+        uses: actions/upload-artifact@v3
         with:
           name: Event File
           path: ${{ github.event_path }}
