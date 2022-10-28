@@ -1,4 +1,4 @@
-package com.linkedin.metadata.timeline.differ;
+package com.linkedin.metadata.timeline.eventgenerator;
 
 import com.datahub.util.RecordUtils;
 import com.github.fge.jsonpatch.JsonPatch;
@@ -27,13 +27,10 @@ import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
 import org.apache.commons.lang.StringUtils;
 
-import static com.linkedin.metadata.timeline.differ.DifferUtils.convertEntityGlossaryTermChangeEvents;
-import static com.linkedin.metadata.timeline.differ.DifferUtils.convertEntityTagChangeEvents;
-import static com.linkedin.metadata.timeline.differ.DifferUtils.getFieldPathV1;
-import static com.linkedin.metadata.timeline.differ.DifferUtils.getSchemaFieldUrn;
+import static com.linkedin.metadata.timeline.eventgenerator.ChangeEventGeneratorUtils.*;
 
 
-public class SchemaMetadataDiffer implements AspectDiffer<SchemaMetadata> {
+public class SchemaMetadataChangeEventGenerator extends EntityChangeEventGenerator<SchemaMetadata> {
   private static final String SCHEMA_METADATA_ASPECT_NAME = "schemaMetadata";
   private static final String BACKWARDS_INCOMPATIBLE_DESC = "A backwards incompatible change due to";
   private static final String FORWARDS_COMPATIBLE_DESC = "A forwards compatible change due to ";
@@ -92,8 +89,9 @@ public class SchemaMetadataDiffer implements AspectDiffer<SchemaMetadata> {
       AuditStamp auditStamp) {
 
     // 1. Get EntityTagChangeEvent, then rebind into a SchemaFieldTagChangeEvent.
-    List<ChangeEvent> entityTagChangeEvents = GlobalTagsDiffer.computeDiffs(baseField != null ? baseField.getGlobalTags() : null,
-        targetField != null ? targetField.getGlobalTags() : null, datasetFieldUrn, auditStamp);
+    List<ChangeEvent> entityTagChangeEvents =
+        GlobalTagsChangeEventGenerator.computeDiffs(baseField != null ? baseField.getGlobalTags() : null,
+            targetField != null ? targetField.getGlobalTags() : null, datasetFieldUrn, auditStamp);
 
     if (baseField != null || targetField != null) {
       String fieldPath = targetField != null ? targetField.getFieldPath() : baseField.getFieldPath();
@@ -113,8 +111,9 @@ public class SchemaMetadataDiffer implements AspectDiffer<SchemaMetadata> {
       AuditStamp auditStamp) {
 
     // 1. Get EntityGlossaryTermChangeEvent, then rebind into a SchemaFieldGlossaryTermChangeEvent.
-    List<ChangeEvent> entityGlossaryTermsChangeEvents = GlossaryTermsDiffer.computeDiffs(baseField != null ? baseField.getGlossaryTerms() : null,
-        targetField != null ? targetField.getGlossaryTerms() : null, datasetFieldUrn, auditStamp);
+    List<ChangeEvent> entityGlossaryTermsChangeEvents =
+        GlossaryTermsChangeEventGenerator.computeDiffs(baseField != null ? baseField.getGlossaryTerms() : null,
+            targetField != null ? targetField.getGlossaryTerms() : null, datasetFieldUrn, auditStamp);
 
     if (targetField != null || baseField != null) {
       String fieldPath = targetField != null ? targetField.getFieldPath() : baseField.getFieldPath();

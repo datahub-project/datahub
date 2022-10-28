@@ -1,4 +1,4 @@
-package com.linkedin.metadata.timeline.differ;
+package com.linkedin.metadata.timeline.eventgenerator;
 
 import com.datahub.util.RecordUtils;
 import com.github.fge.jsonpatch.JsonPatch;
@@ -19,15 +19,15 @@ import java.util.Comparator;
 import java.util.List;
 import javax.annotation.Nonnull;
 
-import static com.linkedin.metadata.Constants.GLOBAL_TAGS_ASPECT_NAME;
+import static com.linkedin.metadata.Constants.*;
 
 
-public class GlobalTagsDiffer implements AspectDiffer<GlobalTags> {
+public class GlobalTagsChangeEventGenerator extends EntityChangeEventGenerator<GlobalTags> {
   private static final String TAG_ADDED_FORMAT = "Tag '%s' added to entity '%s'.";
   private static final String TAG_REMOVED_FORMAT = "Tag '%s' removed from entity '%s'.";
 
-  public static List<ChangeEvent> computeDiffs(GlobalTags baseGlobalTags, GlobalTags targetGlobalTags,
-      String entityUrn, AuditStamp auditStamp) {
+  public static List<ChangeEvent> computeDiffs(GlobalTags baseGlobalTags, GlobalTags targetGlobalTags, String entityUrn,
+      AuditStamp auditStamp) {
     sortGlobalTagsByTagUrn(baseGlobalTags);
     sortGlobalTagsByTagUrn(targetGlobalTags);
     List<ChangeEvent> changeEvents = new ArrayList<>();

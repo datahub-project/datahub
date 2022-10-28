@@ -1,4 +1,4 @@
-package com.linkedin.metadata.timeline.differ;
+package com.linkedin.metadata.timeline.eventgenerator;
 
 import com.datahub.util.RecordUtils;
 import com.github.fge.jsonpatch.JsonPatch;
@@ -19,10 +19,10 @@ import java.util.Comparator;
 import java.util.List;
 import javax.annotation.Nonnull;
 
-import static com.linkedin.metadata.Constants.INSTITUTIONAL_MEMORY_ASPECT_NAME;
+import static com.linkedin.metadata.Constants.*;
 
 
-public class InstitutionalMemoryDiffer implements AspectDiffer<InstitutionalMemory> {
+public class InstitutionalMemoryChangeEventGenerator extends EntityChangeEventGenerator<InstitutionalMemory> {
 
   private static final String INSTITUTIONAL_MEMORY_ADDED_FORMAT =
       "Institutional Memory '%s' with documentation of '%s' has been added: '%s'";
