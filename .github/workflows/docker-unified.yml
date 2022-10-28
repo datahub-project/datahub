@@ -4,14 +4,14 @@ on:
     branches:
       - master
     paths-ignore:
-      - 'docs/**'
-      - '**.md'
+      - "docs/**"
+      - "**.md"
   pull_request:
     branches:
       - master
     paths-ignore:
-      - 'docs/**'
-      - '**.md'
+      - "docs/**"
+      - "**.md"
   release:
     types: [published, edited]
 
@@ -23,15 +23,14 @@ concurrency:
   cancel-in-progress: true
 
 env:
-  DATAHUB_GMS_IMAGE: 'linkedin/datahub-gms'
-  DATAHUB_FRONTEND_IMAGE: 'linkedin/datahub-frontend-react'
-  DATAHUB_MAE_CONSUMER_IMAGE: 'linkedin/datahub-mae-consumer'
-  DATAHUB_MCE_CONSUMER_IMAGE: 'linkedin/datahub-mce-consumer'
-  DATAHUB_KAFKA_SETUP_IMAGE: 'linkedin/datahub-kafka-setup'
-  DATAHUB_ELASTIC_SETUP_IMAGE: 'linkedin/datahub-elasticsearch-setup'
-  DATAHUB_MYSQL_SETUP_IMAGE: 'acryldata/datahub-mysql-setup'
-  DATAHUB_UPGRADE_IMAGE: 'acryldata/datahub-upgrade'
-  
+  DATAHUB_GMS_IMAGE: "linkedin/datahub-gms"
+  DATAHUB_FRONTEND_IMAGE: "linkedin/datahub-frontend-react"
+  DATAHUB_MAE_CONSUMER_IMAGE: "linkedin/datahub-mae-consumer"
+  DATAHUB_MCE_CONSUMER_IMAGE: "linkedin/datahub-mce-consumer"
+  DATAHUB_KAFKA_SETUP_IMAGE: "linkedin/datahub-kafka-setup"
+  DATAHUB_ELASTIC_SETUP_IMAGE: "linkedin/datahub-elasticsearch-setup"
+  DATAHUB_MYSQL_SETUP_IMAGE: "acryldata/datahub-mysql-setup"
+  DATAHUB_UPGRADE_IMAGE: "acryldata/datahub-upgrade"
 
 jobs:
   setup:
@@ -100,10 +99,10 @@ jobs:
         uses: aquasecurity/trivy-action@master
         with:
           image-ref: ${{ env.DATAHUB_GMS_IMAGE }}:${{ needs.setup.outputs.unique_tag }}
-          format: 'table'
+          format: "table"
           ignore-unfixed: true
-          vuln-type: 'os,library'
-          severity: 'CRITICAL,HIGH'
+          vuln-type: "os,library"
+          severity: "CRITICAL,HIGH"
 
   mae_consumer_build:
     name: Build and Push DataHub MAE Consumer Docker Image
@@ -132,7 +131,7 @@ jobs:
   mae_consumer_scan:
     name: "[Monitoring] Scan MAE consumer images for vulnerabilities"
     runs-on: ubuntu-latest
-    needs: [setup,mae_consumer_build]
+    needs: [setup, mae_consumer_build]
     steps:
       - name: Download image
         uses: ishworkh/docker-image-artifact-download@v1
@@ -143,10 +142,10 @@ jobs:
         uses: aquasecurity/trivy-action@master
         with:
           image-ref: ${{ env.DATAHUB_MAE_CONSUMER_IMAGE }}:${{ needs.setup.outputs.unique_tag }}
-          format: 'table'
+          format: "table"
           ignore-unfixed: true
-          vuln-type: 'os,library'
-          severity: 'CRITICAL,HIGH'
+          vuln-type: "os,library"
+          severity: "CRITICAL,HIGH"
 
   mce_consumer_build:
     name: Build and Push DataHub MCE Consumer Docker Image
@@ -175,7 +174,7 @@ jobs:
   mce_consumer_scan:
     name: "[Monitoring] Scan MCE consumer images for vulnerabilities"
     runs-on: ubuntu-latest
-    needs: [setup,mce_consumer_build]
+    needs: [setup, mce_consumer_build]
     steps:
       - name: Download image
         uses: ishworkh/docker-image-artifact-download@v1
@@ -186,10 +185,10 @@ jobs:
         uses: aquasecurity/trivy-action@master
         with:
           image-ref: ${{ env.DATAHUB_MCE_CONSUMER_IMAGE }}:${{ needs.setup.outputs.unique_tag }}
-          format: 'table'
+          format: "table"
           ignore-unfixed: true
-          vuln-type: 'os,library'
-          severity: 'CRITICAL,HIGH'
+          vuln-type: "os,library"
+          severity: "CRITICAL,HIGH"
 
   datahub_upgrade_build:
     name: Build and Push DataHub Upgrade Docker Image
@@ -229,10 +228,10 @@ jobs:
         uses: aquasecurity/trivy-action@master
         with:
           image-ref: ${{ env.DATAHUB_UPGRADE_IMAGE }}:${{ needs.setup.outputs.unique_tag }}
-          format: 'table'
+          format: "table"
           ignore-unfixed: true
-          vuln-type: 'os,library'
-          severity: 'CRITICAL,HIGH'
+          vuln-type: "os,library"
+          severity: "CRITICAL,HIGH"
 
   frontend_build:
     name: Build and Push DataHub Frontend Docker Image
@@ -272,10 +271,10 @@ jobs:
         uses: aquasecurity/trivy-action@master
         with:
           image-ref: ${{ env.DATAHUB_FRONTEND_IMAGE }}:${{ needs.setup.outputs.unique_tag }}
-          format: 'table'
+          format: "table"
           ignore-unfixed: true
-          vuln-type: 'os,library'
-          severity: 'CRITICAL,HIGH'
+          vuln-type: "os,library"
+          severity: "CRITICAL,HIGH"
 
   kafka_setup_build:
     name: Build and Push DataHub Kafka Setup Docker Image
@@ -355,7 +354,17 @@ jobs:
   smoke_test:
     name: Run Smoke Tests
     runs-on: ubuntu-latest
-    needs: [setup,gms_build,frontend_build,kafka_setup_build,mysql_setup_build,elasticsearch_setup_build,mae_consumer_build,mce_consumer_build]
+    needs:
+      [
+        setup,
+        gms_build,
+        frontend_build,
+        kafka_setup_build,
+        mysql_setup_build,
+        elasticsearch_setup_build,
+        mae_consumer_build,
+        mce_consumer_build,
+      ]
     steps:
       - name: Check out the repo
         uses: actions/checkout@v2
@@ -380,7 +389,7 @@ jobs:
         uses: ishworkh/docker-image-artifact-download@v1
         if: ${{ needs.setup.outputs.publish != 'true' }}
         with:
-          image:  ${{ env.DATAHUB_FRONTEND_IMAGE }}:${{ needs.setup.outputs.unique_tag }}
+          image: ${{ env.DATAHUB_FRONTEND_IMAGE }}:${{ needs.setup.outputs.unique_tag }}
       - name: Download Kafka Setup image
         uses: ishworkh/docker-image-artifact-download@v1
         if: ${{ needs.setup.outputs.publish != 'true' }}
@@ -445,4 +454,3 @@ jobs:
           job-status: ${{ job.status }}
           slack-bot-token: ${{ secrets.SLACK_BOT_TOKEN }}
           channel: github-activities
-

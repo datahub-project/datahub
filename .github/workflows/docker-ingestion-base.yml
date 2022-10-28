@@ -15,7 +15,6 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-
   build-base:
     name: Build and Push Docker Image to Docker Hub
     runs-on: ubuntu-latest

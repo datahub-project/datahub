@@ -44,5 +44,3 @@ jobs:
           DATAHUB_SERVER: ${{ secrets.DataHubServer }}
           DATAHUB_TOKEN: ${{ secrets.DataHubToken }}
         run: ./gradlew :metadata-ingestion:modelDocUpload
-
-

@@ -4,14 +4,14 @@ on:
     branches:
       - master
     paths:
-      - 'metadata-ingestion/src/datahub/ingestion/source/feast_image/**'
-      - '.github/workflows/docker-feast-source.yml'
+      - "metadata-ingestion/src/datahub/ingestion/source/feast_image/**"
+      - ".github/workflows/docker-feast-source.yml"
   pull_request:
     branches:
       - master
     paths:
-      - 'metadata-ingestion/src/datahub/ingestion/source/feast_image/**'
-      - '.github/workflows/docker-feast-source.yml'
+      - "metadata-ingestion/src/datahub/ingestion/source/feast_image/**"
+      - ".github/workflows/docker-feast-source.yml"
   release:
     types: [published, edited]
 
