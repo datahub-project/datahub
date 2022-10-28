@@ -34,14 +34,14 @@ import com.linkedin.metadata.models.EntitySpec;
 import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.timeline.data.ChangeCategory;
 import com.linkedin.metadata.timeline.data.ChangeOperation;
-import com.linkedin.metadata.timeline.differ.AspectDifferRegistry;
-import com.linkedin.metadata.timeline.differ.DeprecationDiffer;
-import com.linkedin.metadata.timeline.differ.EntityKeyDiffer;
-import com.linkedin.metadata.timeline.differ.GlobalTagsDiffer;
-import com.linkedin.metadata.timeline.differ.GlossaryTermsDiffer;
-import com.linkedin.metadata.timeline.differ.OwnershipDiffer;
-import com.linkedin.metadata.timeline.differ.SingleDomainDiffer;
-import com.linkedin.metadata.timeline.differ.StatusDiffer;
+import com.linkedin.metadata.timeline.eventgenerator.DeprecationChangeEventGenerator;
+import com.linkedin.metadata.timeline.eventgenerator.EntityChangeEventGeneratorRegistry;
+import com.linkedin.metadata.timeline.eventgenerator.EntityKeyChangeEventGenerator;
+import com.linkedin.metadata.timeline.eventgenerator.GlobalTagsChangeEventGenerator;
+import com.linkedin.metadata.timeline.eventgenerator.GlossaryTermsChangeEventGenerator;
+import com.linkedin.metadata.timeline.eventgenerator.OwnershipChangeEventGenerator;
+import com.linkedin.metadata.timeline.eventgenerator.SingleDomainChangeEventGenerator;
+import com.linkedin.metadata.timeline.eventgenerator.StatusChangeEventGenerator;
 import com.linkedin.metadata.utils.GenericRecordUtils;
 import com.linkedin.mxe.MetadataChangeLog;
 import com.linkedin.mxe.PlatformEvent;
@@ -71,15 +71,11 @@ public class EntityChangeEventGeneratorHookTest {
 
   @BeforeMethod
   public void setupTest() {
-    AspectDifferRegistry differRegistry = createAspectDifferRegistry();
+    EntityChangeEventGeneratorRegistry entityChangeEventGeneratorRegistry = createEntityChangeEventGeneratorRegistry();
     Authentication mockAuthentication = Mockito.mock(Authentication.class);
     _mockClient = Mockito.mock(RestliEntityClient.class);
-    _entityChangeEventHook = new EntityChangeEventGeneratorHook(
-        differRegistry,
-        _mockClient,
-        mockAuthentication,
-        createMockEntityRegistry(),
-        true);
+    _entityChangeEventHook = new EntityChangeEventGeneratorHook(entityChangeEventGeneratorRegistry, _mockClient,
+        mockAuthentication, createMockEntityRegistry(), true);
   }
 
   @Test
@@ -594,25 +590,23 @@ public class EntityChangeEventGeneratorHookTest {
     final PlatformEvent platformEvent = new PlatformEvent();
     platformEvent.setName(CHANGE_EVENT_PLATFORM_EVENT_NAME);
     platformEvent.setHeader(new PlatformEventHeader().setTimestampMillis(timestamp));
-    platformEvent.setPayload(GenericRecordUtils.serializePayload(
-        changeEvent
-    ));
+    platformEvent.setPayload(GenericRecordUtils.serializePayload(changeEvent));
     return platformEvent;
   }
 
-  private AspectDifferRegistry createAspectDifferRegistry() {
-    final AspectDifferRegistry registry = new AspectDifferRegistry();
-    registry.register(GLOBAL_TAGS_ASPECT_NAME, new GlobalTagsDiffer());
-    registry.register(GLOSSARY_TERMS_ASPECT_NAME, new GlossaryTermsDiffer());
-    registry.register(DOMAINS_ASPECT_NAME, new SingleDomainDiffer());
-    registry.register(OWNERSHIP_ASPECT_NAME, new OwnershipDiffer());
-    registry.register(STATUS_ASPECT_NAME, new StatusDiffer());
-    registry.register(DEPRECATION_ASPECT_NAME, new DeprecationDiffer());
+  private EntityChangeEventGeneratorRegistry createEntityChangeEventGeneratorRegistry() {
+    final EntityChangeEventGeneratorRegistry registry = new EntityChangeEventGeneratorRegistry();
+    registry.register(GLOBAL_TAGS_ASPECT_NAME, new GlobalTagsChangeEventGenerator());
+    registry.register(GLOSSARY_TERMS_ASPECT_NAME, new GlossaryTermsChangeEventGenerator());
+    registry.register(DOMAINS_ASPECT_NAME, new SingleDomainChangeEventGenerator());
+    registry.register(OWNERSHIP_ASPECT_NAME, new OwnershipChangeEventGenerator());
+    registry.register(STATUS_ASPECT_NAME, new StatusChangeEventGenerator());
+    registry.register(DEPRECATION_ASPECT_NAME, new DeprecationChangeEventGenerator());
 
     // TODO Add Dataset Schema Field related differs.
 
     // Entity Lifecycle Differs
-    registry.register(DATASET_KEY_ASPECT_NAME, new EntityKeyDiffer<>());
+    registry.register(DATASET_KEY_ASPECT_NAME, new EntityKeyChangeEventGenerator<>());
     return registry;
   }
 
