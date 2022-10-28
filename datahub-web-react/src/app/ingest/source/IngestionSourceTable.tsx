@@ -15,6 +15,14 @@ import { IngestionSource } from '../../../types.generated';
 import { IngestionSourceExecutionList } from './executions/IngestionSourceExecutionList';
 
 const StyledSourceTable = styled(StyledTable)`
+    tr {
+        pointer-events: none;
+
+        button {
+            pointer-events: all;
+        }
+    }
+
     .cliIngestion {
         td {
             background-color: ${ANTD_GRAY[2]} !important;
@@ -43,6 +51,7 @@ function IngestionSourceTable({
     onDelete,
     onRefresh,
 }: Props) {
+    /* eslint-disable */
     const tableColumns = [
         {
             title: 'Type',
@@ -151,6 +160,7 @@ function IngestionSourceTable({
                 defaultExpandAllRows: false,
                 indentSize: 0,
             }}
+            onRow={() => ({ onMouseEnter: (e) => e.stopPropagation() })}
             pagination={false}
         />
     );
