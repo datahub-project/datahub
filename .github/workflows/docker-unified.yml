@@ -41,7 +41,7 @@ jobs:
       publish: ${{ steps.publish.outputs.publish }}
     steps:
       - name: Checkout
-        uses: actions/checkout@v2
+        uses: actions/checkout@v3
       - name: Compute Tag
         id: tag
         run: |
@@ -70,7 +70,7 @@ jobs:
       image_name: ${{ env.DATAHUB_GMS_IMAGE }}
     steps:
       - name: Check out the repo
-        uses: actions/checkout@v2
+        uses: actions/checkout@v3
         with:
           fetch-depth: 0
       - name: Build and push
@@ -113,7 +113,7 @@ jobs:
       image_name: ${{ env.DATAHUB_MAE_CONSUMER_IMAGE }}
     steps:
       - name: Check out the repo
-        uses: actions/checkout@v2
+        uses: actions/checkout@v3
         with:
           fetch-depth: 0
       - name: Build and push
@@ -156,7 +156,7 @@ jobs:
       image_name: ${{ env.DATAHUB_MCE_CONSUMER_IMAGE }}
     steps:
       - name: Check out the repo
-        uses: actions/checkout@v2
+        uses: actions/checkout@v3
         with:
           fetch-depth: 0
       - name: Build and push
@@ -199,7 +199,7 @@ jobs:
       image_name: ${{ env.DATAHUB_UPGRADE_IMAGE }}
     steps:
       - name: Check out the repo
-        uses: actions/checkout@v2
+        uses: actions/checkout@v3
         with:
           fetch-depth: 0
       - name: Build and push
@@ -242,7 +242,7 @@ jobs:
       image_name: ${{ env.DATAHUB_FRONTEND_IMAGE }}
     steps:
       - name: Check out the repo
-        uses: actions/checkout@v2
+        uses: actions/checkout@v3
         with:
           fetch-depth: 0
       - name: Build and push
@@ -285,7 +285,7 @@ jobs:
       image_name: ${{ env.DATAHUB_KAFKA_SETUP_IMAGE }}
     steps:
       - name: Check out the repo
-        uses: actions/checkout@v2
+        uses: actions/checkout@v3
         with:
           fetch-depth: 0
       - name: Build and push
@@ -310,7 +310,7 @@ jobs:
       image_name: ${{ env.DATAHUB_MYSQL_SETUP_IMAGE }}
     steps:
       - name: Check out the repo
-        uses: actions/checkout@v2
+        uses: actions/checkout@v3
         with:
           fetch-depth: 0
       - name: Build and push
@@ -335,7 +335,7 @@ jobs:
       image_name: ${{ env.DATAHUB_ELASTIC_SETUP_IMAGE }}
     steps:
       - name: Check out the repo
-        uses: actions/checkout@v2
+        uses: actions/checkout@v3
         with:
           fetch-depth: 0
       - name: Build and push
@@ -367,7 +367,7 @@ jobs:
       ]
     steps:
       - name: Check out the repo
-        uses: actions/checkout@v2
+        uses: actions/checkout@v3
       - name: Set up JDK 11
         uses: actions/setup-java@v1
         with:
