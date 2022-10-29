@@ -827,7 +827,7 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
             for mcp in mcps:
                 wu = MetadataWorkUnit(
                     id=f"upstreamLineage-for-{dataset_urn}",
-                    mcp=mcp,
+                    mcp_raw=mcp,
                 )
 
                 yield wu
