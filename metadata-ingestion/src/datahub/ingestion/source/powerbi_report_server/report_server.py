@@ -425,7 +425,8 @@ class Mapper:
         user_mcps = []
         LOGGER.info("Converting Dashboard={} to DataHub Dashboard".format(report.name))
         # Convert user to CorpUser
-        if user_info := report.user_info.owner_to_add:
+        user_info = report.user_info.owner_to_add
+        if user_info:
             user_mcps = self.to_datahub_user(user_info)
         # Convert tiles to charts
         ds_mcps: List[Any]
@@ -545,7 +546,8 @@ class PowerBiReportServerDashboardSource(Source):
         user_urn = builder.make_user_urn(report.display_name)
 
         assert self.ctx.graph
-        if ownership := self.ctx.graph.get_ownership(entity_urn=dashboard_urn):
+        ownership = self.ctx.graph.get_ownership(entity_urn=dashboard_urn)
+        if ownership:
             existing_ownership = ownership.owners
         if self.ctx.graph.get_aspect_v2(
             entity_urn=user_urn, aspect="corpUserInfo", aspect_type=CorpUserInfoClass
