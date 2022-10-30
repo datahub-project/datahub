@@ -2,6 +2,7 @@ import base64
 import json
 import logging
 from collections import namedtuple
+from datetime import datetime
 from enum import Enum
 from itertools import groupby
 from typing import Any, Dict, Iterable, List, Optional, Tuple, Union
@@ -41,7 +42,7 @@ from datahub.ingestion.source.sql.sql_common import (
     make_sqlalchemy_uri,
 )
 from datahub.ingestion.source.state.stateful_ingestion_base import JobId
-from datahub.metadata.com.linkedin.pegasus2avro.common import StatusClass
+from datahub.metadata.com.linkedin.pegasus2avro.common import AuditStamp, StatusClass
 from datahub.metadata.com.linkedin.pegasus2avro.metadata.snapshot import DatasetSnapshot
 from datahub.metadata.com.linkedin.pegasus2avro.mxe import MetadataChangeEvent
 from datahub.metadata.com.linkedin.pegasus2avro.schema import SchemaField
@@ -80,6 +81,7 @@ class PrestoOnHiveConfigMode(str, Enum):
 class ViewDataset:
     dataset_name: str
     schema_name: str
+    create_time: int
     columns: List[dict]
     view_definition: Optional[str] = None
 
@@ -164,7 +166,7 @@ class PrestoOnHiveSource(SQLAlchemySource):
     _TABLES_SQL_STATEMENT = """
     SELECT source.* FROM
     (SELECT t.TBL_ID, d.NAME as schema_name, t.TBL_NAME as table_name, t.TBL_TYPE as table_type, tp.PARAM_VALUE as description,
-           FROM_UNIXTIME(t.CREATE_TIME, '%Y-%m-%d') as create_date, p.PKEY_NAME as col_name, p.INTEGER_IDX as col_sort_order,
+           t.CREATE_TIME as create_time, p.PKEY_NAME as col_name, p.INTEGER_IDX as col_sort_order,
            p.PKEY_COMMENT as col_description, p.PKEY_TYPE as col_type, 1 as is_partition_col, s.LOCATION as table_location
     FROM TBLS t
     JOIN DBS d ON t.DB_ID = d.DB_ID
@@ -175,7 +177,7 @@ class PrestoOnHiveSource(SQLAlchemySource):
     {where_clause_suffix}
     UNION
     SELECT t.TBL_ID, d.NAME as schema_name, t.TBL_NAME as table_name, t.TBL_TYPE as table_type, tp.PARAM_VALUE as description,
-           FROM_UNIXTIME(t.CREATE_TIME, '%Y-%m-%d') as create_date, c.COLUMN_NAME as col_name, c.INTEGER_IDX as col_sort_order,
+           t.CREATE_TIME as create_time, c.COLUMN_NAME as col_name, c.INTEGER_IDX as col_sort_order,
             c.COMMENT as col_description, c.TYPE_NAME as col_type, 0 as is_partition_col, s.LOCATION as table_location
     FROM TBLS t
     JOIN DBS d ON t.DB_ID = d.DB_ID
@@ -191,7 +193,7 @@ class PrestoOnHiveSource(SQLAlchemySource):
     _TABLES_POSTGRES_SQL_STATEMENT = """
     SELECT source.* FROM
     (SELECT t."TBL_ID" as tbl_id, d."NAME" as schema_name, t."TBL_NAME" as table_name, t."TBL_TYPE" as table_type, tp."PARAM_VALUE" as description,
-            to_char(to_timestamp(t."CREATE_TIME"), 'YYYY-MM-DD') as create_date, p."PKEY_NAME" as col_name, p."INTEGER_IDX" as col_sort_order,
+            t."CREATE_TIME" as create_time, p."PKEY_NAME" as col_name, p."INTEGER_IDX" as col_sort_order,
             p."PKEY_COMMENT" as col_description, p."PKEY_TYPE" as col_type, 1 as is_partition_col, s."LOCATION" as table_location
     FROM "TBLS" t
     JOIN "DBS" d ON t."DB_ID" = d."DB_ID"
@@ -202,7 +204,7 @@ class PrestoOnHiveSource(SQLAlchemySource):
     {where_clause_suffix}
     UNION
     SELECT t."TBL_ID" as tbl_id, d."NAME" as schema_name, t."TBL_NAME" as table_name, t."TBL_TYPE" as table_type, tp."PARAM_VALUE" as description,
-           to_char(to_timestamp(t."CREATE_TIME"), 'YYYY-MM-DD') as create_date, c."COLUMN_NAME" as col_name,
+           t."CREATE_TIME" as create_time, c."COLUMN_NAME" as col_name,
            c."INTEGER_IDX" as col_sort_order, c."COMMENT" as col_description, c."TYPE_NAME" as col_type, 0 as is_partition_col, s."LOCATION" as table_location
     FROM "TBLS" t
     JOIN "DBS" d ON t."DB_ID" = d."DB_ID"
@@ -236,7 +238,7 @@ class PrestoOnHiveSource(SQLAlchemySource):
     _HIVE_VIEWS_SQL_STATEMENT = """
     SELECT source.* FROM
     (SELECT t.TBL_ID, d.NAME as schema_name, t.TBL_NAME as table_name, t.TBL_TYPE as table_type, t.VIEW_EXPANDED_TEXT as view_expanded_text, tp.PARAM_VALUE as description,
-           FROM_UNIXTIME(t.CREATE_TIME, '%Y-%m-%d') as create_date, c.COLUMN_NAME as col_name, c.INTEGER_IDX as col_sort_order,
+          t.CREATE_TIME as create_time, c.COLUMN_NAME as col_name, c.INTEGER_IDX as col_sort_order,
             c.COMMENT as col_description, c.TYPE_NAME as col_type
     FROM TBLS t
     JOIN DBS d ON t.DB_ID = d.DB_ID
@@ -252,7 +254,7 @@ class PrestoOnHiveSource(SQLAlchemySource):
     _HIVE_VIEWS_POSTGRES_SQL_STATEMENT = """
     SELECT source.* FROM
     (SELECT t."TBL_ID" as tbl_id, d."NAME" as schema_name, t."TBL_NAME" as table_name, t."TBL_TYPE" as table_type, t."VIEW_EXPANDED_TEXT" as view_expanded_text, tp."PARAM_VALUE" as description,
-           to_char(to_timestamp(t."CREATE_TIME"), 'YYYY-MM-DD') as create_date, c."COLUMN_NAME" as col_name,
+           t."CREATE_TIME" as create_time, c."COLUMN_NAME" as col_name,
            c."INTEGER_IDX" as col_sort_order, c."TYPE_NAME" as col_type
     FROM "TBLS" t
     JOIN "DBS" d ON t."DB_ID" = d."DB_ID"
@@ -473,11 +475,16 @@ class PrestoOnHiveSource(SQLAlchemySource):
                 None,
                 schema_fields,
             )
+            schema_metadata.created = AuditStamp(
+                time=int(columns[-1]["create_time"] * 1000), actor="urn:li:corpuser:etl"
+            )
             dataset_snapshot.aspects.append(schema_metadata)
 
             # add table properties
             properties: Dict[str, str] = {
-                "create_date": columns[-1]["create_date"],
+                "create_time": datetime.utcfromtimestamp(
+                    columns[-1]["create_time"]
+                ).strftime("%Y-%m-%d %H:%M:%S"),
                 "table_type": columns[-1]["table_type"],
                 "table_location": ""
                 if columns[-1]["table_location"] is None
@@ -572,6 +579,7 @@ class PrestoOnHiveSource(SQLAlchemySource):
             yield ViewDataset(
                 dataset_name=dataset_name,
                 schema_name=key.schema,
+                create_time=columns[-1]["create_time"],
                 columns=columns,
                 view_definition=columns[-1]["view_expanded_text"],
             )
@@ -617,6 +625,7 @@ class PrestoOnHiveSource(SQLAlchemySource):
                 schema_name=row["schema"],
                 columns=columns,
                 view_definition=view_definition,
+                create_time=row["create_time"],
             )
 
     def loop_views(
@@ -671,11 +680,18 @@ class PrestoOnHiveSource(SQLAlchemySource):
                 dataset.columns,
                 canonical_schema=schema_fields,
             )
+            schema_metadata.created = AuditStamp(
+                time=dataset.create_time * 1000, actor="urn:li:corpuser:etl"
+            )
+
             dataset_snapshot.aspects.append(schema_metadata)
 
             # add view properties
             properties: Dict[str, str] = {
                 "is_view": "True",
+                "create_time": datetime.utcfromtimestamp(dataset.create_time).strftime(
+                    "%Y-%m-%d %H:%M:%S"
+                ),
             }
             dataset_properties = DatasetPropertiesClass(
                 name=dataset.dataset_name.split(".")[-1],
