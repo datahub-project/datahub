@@ -93,7 +93,7 @@ const ingestionGuideContent = [
 
 const featureGuideContent = [
   { title: "Domains", icon: <FolderTwoTone />, to: "docs/domains" },
-  { title: "Glossary Terms", icon: <BookTwoTone />, to: "docs/how/business-glossary-guide" },
+  { title: "Glossary Terms", icon: <BookTwoTone />, to: "docs/glossary/business-glossary" },
   { title: "Tags", icon: <TagsTwoTone />, to: "docs/tags" },
   { title: "UI-Based Ingestion", icon: <ApiTwoTone />, to: "docs/ui-ingestion" },
   { title: "Search", icon: <SearchOutlined />, to: "docs/how/search" },

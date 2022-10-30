@@ -131,10 +131,19 @@ public class ResolverUtils {
         return new Filter().setOr(new ConjunctiveCriterionArray(new ConjunctiveCriterion().setAnd(new CriterionArray(andCriterions))));
     }
 
-    // Translates a FacetFilterInput (graphql input class) into Criterion (our internal model)
     public static Criterion criterionFromFilter(final FacetFilterInput filter) {
+        return criterionFromFilter(filter, false);
+    }
+
+    // Translates a FacetFilterInput (graphql input class) into Criterion (our internal model)
+    public static Criterion criterionFromFilter(final FacetFilterInput filter, final Boolean skipKeywordSuffix) {
         Criterion result = new Criterion();
-        result.setField(getFilterField(filter.getField()));
+
+        if (skipKeywordSuffix) {
+            result.setField(filter.getField());
+        } else {
+            result.setField(getFilterField(filter.getField()));
+        }
 
         // `value` is deprecated in place of `values`- this is to support old query patterns. If values is provided,
         // this statement will be skipped
