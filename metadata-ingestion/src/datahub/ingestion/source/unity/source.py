@@ -74,13 +74,15 @@ from datahub.utilities.source_helpers import (
 logger: logging.Logger = logging.getLogger(__name__)
 
 
-@platform_name("Unity Catalog")
+@platform_name("Databricks")
 @config_class(UnityCatalogSourceConfig)
+@capability(SourceCapability.SCHEMA_METADATA, "Enabled by default")
+@capability(SourceCapability.DESCRIPTIONS, "Enabled by default")
+@capability(SourceCapability.LINEAGE_COARSE, "Enabled by default")
+@capability(SourceCapability.LINEAGE_FINE, "Enabled by default")
 @capability(SourceCapability.PLATFORM_INSTANCE, "Enabled by default")
 @capability(SourceCapability.DOMAINS, "Supported via the `domain` config field")
 @capability(SourceCapability.CONTAINERS, "Enabled by default")
-@capability(SourceCapability.SCHEMA_METADATA, "Enabled by default")
-@capability(SourceCapability.DESCRIPTIONS, "Enabled by default")
 @capability(
     SourceCapability.DELETION_DETECTION,
     "Optionally enabled via `stateful_ingestion.remove_stale_metadata`",

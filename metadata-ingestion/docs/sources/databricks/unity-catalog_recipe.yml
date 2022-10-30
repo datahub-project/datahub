@@ -1,4 +1,3 @@
-pipeline_name: unity-catalog-pipeline
 source:
   type: unity-catalog
   config:
@@ -25,5 +24,7 @@ source:
     stateful_ingestion:
       enabled: true
 
-sink:
-# sink configs
+pipeline_name: acme-corp-unity
+
+
+# sink configs if needed
