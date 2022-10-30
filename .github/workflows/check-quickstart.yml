@@ -9,7 +9,6 @@ concurrency:
   group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
   cancel-in-progress: true
 
-
 jobs:
   test-quickstart:
     strategy:
@@ -18,30 +17,30 @@ jobs:
         os: [ubuntu-20.04]
     runs-on: ${{ matrix.os }}
     steps:
-    - uses: actions/setup-python@v2
-      with:
-        python-version: "3.10"
-    - name: Install acryl-datahub
-      run: |
-        pip install --upgrade acryl-datahub
-        datahub version
-        python  -c "import platform; print(platform.platform())"
-    - name: Run quickstart
-      run: |
-        datahub docker quickstart
-    - name: Ingest sample data
-      run: |
-        datahub docker ingest-sample-data
-    - name: See status
-      run: |
-        docker ps -a && datahub docker check
-    - name: store logs
-      if: failure()
-      run: |
-        docker logs datahub-gms >& quickstart-gms.log
-    - name: Upload logs
-      uses: actions/upload-artifact@v2
-      if: failure()
-      with:
-        name: docker-quickstart-logs-${{ matrix.os }}
-        path: "*.log"
+      - uses: actions/setup-python@v4
+        with:
+          python-version: "3.10"
+      - name: Install acryl-datahub
+        run: |
+          pip install --upgrade acryl-datahub
+          datahub version
+          python  -c "import platform; print(platform.platform())"
+      - name: Run quickstart
+        run: |
+          datahub docker quickstart
+      - name: Ingest sample data
+        run: |
+          datahub docker ingest-sample-data
+      - name: See status
+        run: |
+          docker ps -a && datahub docker check
+      - name: store logs
+        if: failure()
+        run: |
+          docker logs datahub-gms >& quickstart-gms.log
+      - name: Upload logs
+        uses: actions/upload-artifact@v3
+        if: failure()
+        with:
+          name: docker-quickstart-logs-${{ matrix.os }}
+          path: "*.log"

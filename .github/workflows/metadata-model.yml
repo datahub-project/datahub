@@ -30,8 +30,8 @@ jobs:
     runs-on: ubuntu-latest
     needs: setup
     steps:
-      - uses: actions/checkout@v2
-      - uses: actions/setup-python@v2
+      - uses: actions/checkout@v3
+      - uses: actions/setup-python@v4
         with:
           python-version: "3.10"
       - name: Install dependencies
@@ -44,5 +44,3 @@ jobs:
           DATAHUB_SERVER: ${{ secrets.DataHubServer }}
           DATAHUB_TOKEN: ${{ secrets.DataHubToken }}
         run: ./gradlew :metadata-ingestion:modelDocUpload
-
-

@@ -763,13 +763,12 @@ Then define your class to return a list of custom properties, for example:
   import logging
   from typing import Dict
   from datahub.ingestion.transformer.add_dataset_properties import AddDatasetPropertiesResolverBase
-  from datahub.metadata.schema_classes import DatasetSnapshotClass
-  
+
   class MyPropertiesResolver(AddDatasetPropertiesResolverBase):
-      def get_properties_to_add(self, current: DatasetSnapshotClass) -> Dict[str, str]:
+      def get_properties_to_add(self, entity_urn: str) -> Dict[str, str]:
           ### Add custom logic here        
           properties= {'my_custom_property': 'property value'}
-          logging.info(f"Adding properties: {properties} to dataset: {current.urn}.")
+          logging.info(f"Adding properties: {properties} to dataset: {entity_urn}.")
           return properties
   ```
 
