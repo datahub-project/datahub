@@ -819,17 +819,28 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
             upstream_lineage = None
 
         if upstream_lineage is not None:
-            patch_builder: DatasetPatchBuilder = DatasetPatchBuilder(urn=dataset_urn)
-            for upstream in upstream_lineage.upstreams:
-                patch_builder.add_upstream_lineage(upstream)
-
-            mcps = patch_builder.build()
-            for mcp in mcps:
-                wu = MetadataWorkUnit(
-                    id=f"upstreamLineage-for-{dataset_urn}",
-                    mcp_raw=mcp,
+            if self.config.incremental_lineage:
+                patch_builder: DatasetPatchBuilder = DatasetPatchBuilder(
+                    urn=dataset_urn
                 )
+                for upstream in upstream_lineage.upstreams:
+                    patch_builder.add_upstream_lineage(upstream)
 
+                lineage_workunits = [
+                    MetadataWorkUnit(
+                        id=f"upstreamLineage-for-{dataset_urn}",
+                        mcp_raw=mcp,
+                    )
+                    for mcp in patch_builder.build()
+                ]
+            else:
+                lineage_workunits = [
+                    wrap_aspect_as_workunit(
+                        "dataset", dataset_urn, "upstreamLineage", upstream_lineage
+                    )
+                ]
+
+            for wu in lineage_workunits:
                 yield wu
                 self.report.report_workunit(wu)
 
