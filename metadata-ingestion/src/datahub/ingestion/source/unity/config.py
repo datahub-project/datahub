@@ -16,7 +16,7 @@ class UnityCatalogStatefulIngestionConfig(StatefulStaleMetadataRemovalConfig):
     """
     Specialization of StatefulStaleMetadataRemovalConfig to adding custom config.
     This will be used to override the stateful_ingestion config param of StatefulIngestionConfigBase
-    in the TableauConfig.
+    in the UnityCatalogConfig.
     """
 
     _entity_types: List[str] = Field(default=["dataset", "container"])
