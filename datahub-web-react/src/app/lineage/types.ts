@@ -15,6 +15,7 @@ import {
     DataPlatform,
     FineGrainedLineage,
     SchemaMetadata,
+    InputFields,
 } from '../../types.generated';
 
 export type EntitySelectParams = {
@@ -47,6 +48,7 @@ export type FetchedEntity = {
     siblingPlatforms?: Maybe<DataPlatform[]>;
     fineGrainedLineages?: [FineGrainedLineage];
     schemaMetadata?: SchemaMetadata;
+    inputFields?: InputFields;
 };
 
 export type NodeData = {
@@ -66,6 +68,7 @@ export type NodeData = {
     status?: Maybe<Status>;
     siblingPlatforms?: Maybe<DataPlatform[]>;
     schemaMetadata?: SchemaMetadata;
+    inputFields?: InputFields;
 };
 
 export type VizNode = {

@@ -1,5 +1,5 @@
 import { ColumnEdge, FetchedEntity, NodeData } from '../types';
-import { SchemaField } from '../../../types.generated';
+import { InputFields, SchemaField } from '../../../types.generated';
 import { downgradeV2FieldPath } from '../../entity/dataset/profile/schema/utils/utils';
 
 export function getHighlightedColumnsForNode(highlightedEdges: ColumnEdge[], fields: SchemaField[], nodeUrn: string) {
@@ -59,6 +59,10 @@ export function sortColumnsByDefault(
     };
 }
 
+export function convertInputFieldsToSchemaFields(inputFields?: InputFields) {
+    return inputFields?.fields?.map((field) => field?.schemaField) as SchemaField[] | undefined;
+}
+
 export function populateColumnsByUrn(
     columnsByUrn: Record<string, SchemaField[]>,
     fetchedEntities: { [x: string]: FetchedEntity },
@@ -70,6 +74,13 @@ export function populateColumnsByUrn(
             populatedColumnsByUrn = {
                 ...populatedColumnsByUrn,
                 [urn]: convertFieldsToV1FieldPath(fetchedEntity.schemaMetadata.fields),
+            };
+        } else if (fetchedEntity.inputFields?.fields && !columnsByUrn[urn]) {
+            populatedColumnsByUrn = {
+                ...populatedColumnsByUrn,
+                [urn]: convertFieldsToV1FieldPath(
+                    convertInputFieldsToSchemaFields(fetchedEntity.inputFields) as SchemaField[],
+                ),
             };
         }
     });
@@ -103,4 +114,11 @@ export function filterColumns(
             [node.data.urn || 'noop']: convertFieldsToV1FieldPath(filteredFields),
         }));
     }
+}
+
+export function getSourceUrnFromSchemaFieldUrn(schemaFieldUrn: string) {
+    return schemaFieldUrn.replace('urn:li:schemaField:(', '').split(')')[0].concat(')');
+}
+export function getFieldPathFromSchemaFieldUrn(schemaFieldUrn: string) {
+    return schemaFieldUrn.replace('urn:li:schemaField:(', '').split(')')[1].replace(',', '');
 }

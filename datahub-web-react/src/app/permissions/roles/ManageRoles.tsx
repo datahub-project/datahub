@@ -209,6 +209,7 @@ export const ManageRoles = () => {
             {rolesError && message.error('Failed to load roles! An unexpected error occurred.')}
             <SourceContainer>
                 <TabToolbar>
+                    <div />
                     <SearchBar
                         initialQuery={query || ''}
                         placeholderText="Search roles..."

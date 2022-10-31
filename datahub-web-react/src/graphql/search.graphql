@@ -760,6 +760,15 @@ fragment searchResults on SearchResults {
     }
 }
 
+fragment schemaFieldEntityFields on SchemaFieldEntity {
+    urn
+    type
+    fieldPath
+    parent {
+        ...searchResultFields
+    }
+}
+
 fragment searchAcrossRelationshipResults on SearchAcrossLineageResults {
     start
     count
@@ -775,6 +784,14 @@ fragment searchAcrossRelationshipResults on SearchAcrossLineageResults {
         insights {
             text
             icon
+        }
+        paths {
+            path {
+                ...searchResultFields
+                ... on SchemaFieldEntity {
+                    ...schemaFieldEntityFields
+                }
+            }
         }
         degree
     }

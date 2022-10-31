@@ -205,6 +205,9 @@ usage_common = {
     "sqlparse",
 }
 
+databricks_cli = {
+    "databricks-cli==0.17.3",
+}
 
 # Note: for all of these, framework_common will be added.
 plugins: Dict[str, Set[str]] = {
@@ -224,13 +227,16 @@ plugins: Dict[str, Set[str]] = {
     # PyAthena is pinned with exact version because we use private method in PyAthena
     "athena": sql_common | {"PyAthena[SQLAlchemy]==2.4.1"},
     "azure-ad": set(),
-    "bigquery": sql_common
+    "bigquery-legacy": sql_common
     | bigquery_common
     | {"sqlalchemy-bigquery>=1.4.1", "sqllineage==1.3.6", "sqlparse"},
-    "bigquery-usage": bigquery_common | usage_common | {"cachetools"},
-    "bigquery-beta": sql_common
+    "bigquery-usage-legacy": bigquery_common | usage_common | {"cachetools"},
+    "bigquery": sql_common
     | bigquery_common
     | {"sqllineage==1.3.6", "sql_metadata"},
+    "bigquery-beta": sql_common
+    | bigquery_common
+    | {"sqllineage==1.3.6", "sql_metadata"}, # deprecated, but keeping the extra for backwards compatibility
     "clickhouse": sql_common | {"clickhouse-sqlalchemy==0.1.8"},
     "clickhouse-usage": sql_common
     | usage_common
@@ -319,6 +325,7 @@ plugins: Dict[str, Set[str]] = {
     "nifi": {"requests", "packaging"},
     "powerbi": microsoft_common,
     "vertica": sql_common | {"sqlalchemy-vertica[vertica-python]==0.0.5"},
+    "unity-catalog": databricks_cli | {"requests"},
 }
 
 all_exclude_plugins: Set[str] = {
@@ -379,7 +386,8 @@ base_dev_requirements = {
         dependency
         for plugin in [
             "bigquery",
-            "bigquery-usage",
+            "bigquery-legacy",
+            "bigquery-usage-legacy",
             "clickhouse",
             "clickhouse-usage",
             "delta-lake",
@@ -407,7 +415,8 @@ base_dev_requirements = {
             "starburst-trino-usage",
             "powerbi",
             "vertica",
-            "salesforce"
+            "salesforce",
+            "unity-catalog"
             # airflow is added below
         ]
         for dependency in plugins[plugin]
@@ -480,9 +489,9 @@ entry_points = {
         "sqlalchemy = datahub.ingestion.source.sql.sql_generic:SQLAlchemyGenericSource",
         "athena = datahub.ingestion.source.sql.athena:AthenaSource",
         "azure-ad = datahub.ingestion.source.identity.azure_ad:AzureADSource",
-        "bigquery = datahub.ingestion.source.sql.bigquery:BigQuerySource",
-        "bigquery-beta = datahub.ingestion.source.bigquery_v2.bigquery:BigqueryV2Source",
-        "bigquery-usage = datahub.ingestion.source.usage.bigquery_usage:BigQueryUsageSource",
+        "bigquery-legacy = datahub.ingestion.source.sql.bigquery:BigQuerySource",
+        "bigquery = datahub.ingestion.source.bigquery_v2.bigquery:BigqueryV2Source",
+        "bigquery-usage-legacy = datahub.ingestion.source.usage.bigquery_usage:BigQueryUsageSource",
         "clickhouse = datahub.ingestion.source.sql.clickhouse:ClickHouseSource",
         "clickhouse-usage = datahub.ingestion.source.usage.clickhouse_usage:ClickHouseUsageSource",
         "delta-lake = datahub.ingestion.source.delta_lake:DeltaLakeSource",
@@ -530,6 +539,7 @@ entry_points = {
         "presto-on-hive = datahub.ingestion.source.sql.presto_on_hive:PrestoOnHiveSource",
         "pulsar = datahub.ingestion.source.pulsar:PulsarSource",
         "salesforce = datahub.ingestion.source.salesforce:SalesforceSource",
+        "unity-catalog = datahub.ingestion.source.unity.source:UnityCatalogSource",
     ],
     "datahub.ingestion.sink.plugins": [
         "file = datahub.ingestion.sink.file:FileSink",

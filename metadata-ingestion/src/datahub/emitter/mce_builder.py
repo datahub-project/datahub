@@ -36,6 +36,7 @@ from datahub.metadata.schema_classes import (
     UpstreamLineageClass,
     _Aspect as AspectAbstract,
 )
+from datahub.utilities.urn_encoder import UrnEncoder
 from datahub.utilities.urns.dataset_urn import DatasetUrn
 
 logger = logging.getLogger(__name__)
@@ -99,9 +100,11 @@ def make_dataset_urn_with_platform_instance(
     )
 
 
+# Schema Field Urns url-encode reserved characters.
+# TODO: This needs to be handled on consumer (UI) side well.
 def make_schema_field_urn(parent_urn: str, field_path: str) -> str:
     assert parent_urn.startswith("urn:li:"), "Schema field's parent must be an urn"
-    return f"urn:li:schemaField:({parent_urn},{field_path})"
+    return f"urn:li:schemaField:({parent_urn},{UrnEncoder.encode_string(field_path)})"
 
 
 def schema_field_urn_to_key(schema_field_urn: str) -> Optional[SchemaFieldKeyClass]:
