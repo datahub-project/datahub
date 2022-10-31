@@ -4473,6 +4473,15 @@
                   "doc" : "Properties associated with a GlossaryTerm",
                   "include" : [ "com.linkedin.common.CustomProperties" ],
                   "fields" : [ {
+                    "name" : "id",
+                    "type" : "string",
+                    "doc" : "Optional id for the term",
+                    "optional" : true,
+                    "Searchable" : {
+                      "enableAutocomplete" : true,
+                      "fieldType" : "TEXT_PARTIAL"
+                    }
+                  }, {
                     "name" : "name",
                     "type" : "string",
                     "doc" : "Display name of the term",
@@ -4579,7 +4588,7 @@
                       }
                     }
                   }, {
-                    "name" : "hasRelatedTermValues",
+                    "name" : "values",
                     "type" : {
                       "type" : "array",
                       "items" : "com.linkedin.common.GlossaryTermUrn"
@@ -4595,12 +4604,12 @@
                     "Searchable" : {
                       "/*" : {
                         "boostScore" : 2.0,
-                        "fieldName" : "hasRelatedTermValues",
+                        "fieldName" : "values",
                         "fieldType" : "URN"
                       }
                     }
                   }, {
-                    "name" : "isRelatedToTerms",
+                    "name" : "relatedTerms",
                     "type" : {
                       "type" : "array",
                       "items" : "com.linkedin.common.GlossaryTermUrn"
@@ -4616,7 +4625,7 @@
                     "Searchable" : {
                       "/*" : {
                         "boostScore" : 2.0,
-                        "fieldName" : "isRelatedToTerms",
+                        "fieldName" : "relatedTerms",
                         "fieldType" : "URN"
                       }
                     }
@@ -4699,6 +4708,15 @@
                       "boostScore" : 10.0,
                       "enableAutocomplete" : true,
                       "fieldName" : "displayName",
+                      "fieldType" : "TEXT_PARTIAL"
+                    }
+                  }, {
+                    "name" : "id",
+                    "type" : "string",
+                    "doc" : "Optional id for the GlossaryNode",
+                    "optional" : true,
+                    "Searchable" : {
+                      "enableAutocomplete" : true,
                       "fieldType" : "TEXT_PARTIAL"
                     }
                   } ],
@@ -5566,7 +5584,7 @@
         }
       },
       "doc" : "Optional list of entities between the source and destination node.\nThere can be multiple paths from the source to the destination.",
-      "default" : [ [ ] ]
+      "default" : [ ]
     }, {
       "name" : "path",
       "type" : {

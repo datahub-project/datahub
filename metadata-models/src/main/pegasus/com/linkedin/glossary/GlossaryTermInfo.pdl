@@ -11,6 +11,14 @@ import com.linkedin.common.CustomProperties
    "name": "glossaryTermInfo"
 }
 record GlossaryTermInfo includes CustomProperties {
+  /**
+   * Optional id for the term
+   */
+  @Searchable = {
+    "fieldType": "TEXT_PARTIAL",
+    "enableAutocomplete": true
+  }
+  id: optional string
 
   /**
    * Display name of the term

@@ -78,11 +78,11 @@ record GlossaryRelatedTerms {
   }
   @Searchable = {
     "/*": {
-      "fieldName": "relatedTo",
+      "fieldName": "relatedTerms",
       "fieldType": "URN",
       "boostScore": 2.0
     }
   }
-  relatedTo: optional array[GlossaryTermUrn]
+  relatedTerms: optional array[GlossaryTermUrn]
 
 }
