@@ -122,6 +122,24 @@ export const getEntitySiblingData = <T>(baseEntity: T): Maybe<SiblingProperties>
     return extractedBaseEntity?.['siblings'];
 };
 
+// should the entity's metadata win out against its siblings?
+export const shouldEntityBeTreatedAsPrimary = (extractedBaseEntity: { siblings?: SiblingProperties | null }) => {
+    const siblingAspect = extractedBaseEntity?.siblings;
+
+    const siblingsList = siblingAspect?.siblings || [];
+
+    // if the entity is marked as primary, take its metadata first
+    const isPrimarySibling = !!siblingAspect?.isPrimary;
+
+    // if no entity in the cohort is primary, just have the entity whos urn is navigated
+    // to be primary
+    const hasAnyPrimarySibling = siblingsList.find((sibling) => !!(sibling as any)?.siblings?.isPrimary) !== undefined;
+
+    const isPrimary = isPrimarySibling || !hasAnyPrimarySibling;
+
+    return isPrimary;
+};
+
 export const combineEntityDataWithSiblings = <T>(baseEntity: T): T => {
     if (!baseEntity) {
         return baseEntity;
@@ -137,7 +155,8 @@ export const combineEntityDataWithSiblings = <T>(baseEntity: T): T => {
 
     // eslint-disable-next-line @typescript-eslint/dot-notation
     const siblings: T[] = siblingAspect?.siblings || [];
-    const isPrimary = !!extractedBaseEntity?.siblings?.isPrimary;
+
+    const isPrimary = shouldEntityBeTreatedAsPrimary(extractedBaseEntity);
 
     const combinedBaseEntity: any = siblings.reduce(
         (prev, current) =>
