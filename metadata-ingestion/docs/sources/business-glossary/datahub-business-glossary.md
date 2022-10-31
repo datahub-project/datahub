@@ -16,6 +16,7 @@ The business glossary source file should be a `.yml` file with the following top
 **GlossaryNode**: a container of **GlossaryNode** and **GlossaryTerm** objects
 - **name**: name of the node
 - **description**: description of the node
+- **id**: (optional) identifier of the node
 - **owners**: (optional) owners contains two nested fields
   - **users**: (optional) a list of user ids
   - **groups**: (optional) a list of group ids
@@ -25,6 +26,7 @@ The business glossary source file should be a `.yml` file with the following top
 **GlossaryTerm**: a term in your business glossary
 - **name**: name of the term
 - **description**: description of the term
+- **id**: (optional) identifier of the term
 - **owners**: (optional) owners contains two nested fields
   - **users**: (optional) a list of user ids
   - **groups**: (optional) a list of group ids

@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Alert, Button, Space, Typography } from 'antd';
+import { Alert, Button, message, Space, Typography } from 'antd';
 import styled from 'styled-components';
 import { StepProps } from './types';
 import { getPlaceholderRecipe, getSourceConfigs, jsonToYaml } from '../utils';
@@ -73,12 +73,21 @@ export const DefineRecipeStep = ({ state, updateState, goTo, prev, ingestionSour
         const recipeJson = getRecipeJson(stagedRecipeYml);
         if (!recipeJson) return;
 
+        if (!JSON.parse(recipeJson).source?.type) {
+            message.warning({
+                content: `Please add valid ingestion type`,
+                duration: 3,
+            });
+            return;
+        }
+
         const newState = {
             ...state,
             config: {
                 ...state.config,
                 recipe: recipeJson,
             },
+            type: JSON.parse(recipeJson).source.type,
         };
         updateState(newState);
 

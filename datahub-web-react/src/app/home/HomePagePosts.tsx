@@ -1,15 +1,20 @@
 import React from 'react';
 import { Divider, Typography } from 'antd';
-import styled from 'styled-components';
+import styled from 'styled-components/macro';
 import { useListPostsQuery } from '../../graphql/post.generated';
 import { Post, PostContentType } from '../../types.generated';
 import { PostTextCard } from '../search/PostTextCard';
 import { PostLinkCard } from '../search/PostLinkCard';
 
 const RecommendationContainer = styled.div`
-    margin-bottom: 32px;
+    margin-bottom: 92px;
     max-width: 1000px;
     min-width: 750px;
+`;
+
+const ContentContainer = styled.div`
+    padding-right: 12px;
+    padding-left: 12px;
 `;
 
 const RecommendationTitle = styled(Typography.Title)`
@@ -23,9 +28,15 @@ const ThinDivider = styled(Divider)`
     margin-bottom: 12px;
 `;
 
+const TextPostsContainer = styled.div`
+    margin-bottom: 12px;
+`;
+
 const LinkPostsContainer = styled.div`
-    display: flex;
-    flex-direction: row;
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    gap: 12px;
+    margin-bottom: 12px;
 `;
 
 export const HomePagePosts = () => {
@@ -47,14 +58,18 @@ export const HomePagePosts = () => {
         <RecommendationContainer>
             <RecommendationTitle level={4}>Pinned</RecommendationTitle>
             <ThinDivider />
-            {textPosts.map((post) => (
-                <PostTextCard textPost={post as Post} />
-            ))}
-            <LinkPostsContainer>
-                {linkPosts.map((post, index) => (
-                    <PostLinkCard linkPost={post as Post} index={index} />
-                ))}
-            </LinkPostsContainer>
+            <ContentContainer>
+                <TextPostsContainer>
+                    {textPosts.map((post) => (
+                        <PostTextCard textPost={post as Post} />
+                    ))}
+                </TextPostsContainer>
+                <LinkPostsContainer>
+                    {linkPosts.map((post) => (
+                        <PostLinkCard linkPost={post as Post} />
+                    ))}
+                </LinkPostsContainer>
+            </ContentContainer>
         </RecommendationContainer>
     ) : (
         <></>

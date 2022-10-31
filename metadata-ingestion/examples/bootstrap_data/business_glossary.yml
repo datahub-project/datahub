@@ -27,6 +27,7 @@ nodes:
         - mjames
     terms:
       - name: Email
+        id: Email
         description: An individual's email address
         inherits:
           - Classification.Confidential
@@ -88,7 +89,7 @@ nodes:
         term_source: "EXTERNAL"
         source_ref: FIBO
         source_url: "https://spec.edmcouncil.org/fibo/ontology/FBC/ProductsAndServices/ClientsAndAccounts/Account"
-        has_value:
+        values:
           - House.Red
           - House.Pink
 
@@ -103,6 +104,6 @@ nodes:
         term_source: "EXTERNAL"
         source_ref: FIBO
         source_url: "https://spec.edmcouncil.org/fibo/ontology/FBC/ProductsAndServices/ClientsAndAccounts/Account"
-        is_related_to:
+        related_terms:
           - House.Kitchen
 

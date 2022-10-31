@@ -64,7 +64,7 @@ module.exports = {
       //   - Create Polices & assign roles
       //   - Ingest at least one source (ie. data warehouse)
       //   - Understand high-level options for enriching metadata
-      "docs/wip/get-started",
+      "docs/get-started-with-datahub",
       {
         "Self-Hosted DataHub": [
           "docs/quickstart",
@@ -223,11 +223,11 @@ module.exports = {
           },
         ],
       },
-      //  {
-      //    type: "doc",
-      //    id: "docs/wip/metadata-tests",
-      //    className: "saasOnly",
-      //  },
+      {
+        type: "doc",
+        id: "docs/tests/metadata-tests",
+        className: "saasOnly",
+      },
       //  "docs/wip/metadata-analytics",
       "docs/act-on-metadata/impact-analysis",
       // {
@@ -452,6 +452,11 @@ module.exports = {
       "docs/domains",
       "docs/how/business-glossary-guide",
       "docs/tags",
+      "docs/browse",
+      "docs/authorization/access-policies-guide",
+      "docs/features/dataset-usage-and-query-history",
+      "docs/posts",
+      "docs/sync-status",
       // "docs/wip/ui-ingestion-guide", -- not needed
       // "docs/wip/personal-access-tokens-guide", -- not needed
 
