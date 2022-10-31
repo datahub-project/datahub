@@ -192,7 +192,6 @@ export const AccessTokens = () => {
                     <span>{`${formattedExpireAt.toLocaleDateString()} at ${formattedExpireAt.toLocaleTimeString()} (${localeTimezone})`}</span>
                 );
             },
-            sorter: (sourceA, sourceB) => sourceA.name.localeCompare(sourceB.name),
         },
         {
             title: '',
