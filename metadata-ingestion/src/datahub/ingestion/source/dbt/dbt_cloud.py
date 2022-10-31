@@ -286,15 +286,17 @@ class DBTCloudSource(DBTSourceBase):
 
         # TODO add project id, env, etc to custom metadata
 
+        test_info = None
         if node["resourceType"] == "test":
             breakpoint()
+            test_info = TODO
 
         return DBTNode(
             dbt_name=key,
             # TODO: Get the dbt adapter natively.
             dbt_adapter=self.config.target_platform,
-            database=node["database"],
-            schema=node["schema"],
+            database=node.get("database"),
+            schema=node.get("schema"),
             name=name,
             alias=node.get("alias"),
             dbt_file_path=None,  # TODO: Get this from the dbt API.
@@ -311,8 +313,8 @@ class DBTCloudSource(DBTSourceBase):
             owner=owner,
             raw_sql=raw_sql,
             compiled_sql=compiled_sql,
-            manifest_raw=node,
             columns=columns,
+            test_info=test_info,
         )
 
     def _parse_into_dbt_column(self, column: Dict) -> DBTColumn:
