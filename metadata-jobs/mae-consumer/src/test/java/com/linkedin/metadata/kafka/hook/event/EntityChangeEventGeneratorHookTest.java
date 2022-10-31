@@ -3,7 +3,6 @@ package com.linkedin.metadata.kafka.hook.event;
 import com.datahub.authentication.Authentication;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.ImmutableSortedMap;
 import com.linkedin.assertion.AssertionResult;
 import com.linkedin.assertion.AssertionResultType;
 import com.linkedin.assertion.AssertionRunEvent;
@@ -28,11 +27,21 @@ import com.linkedin.common.urn.TagUrn;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.data.DataMap;
 import com.linkedin.data.template.RecordTemplate;
+import com.linkedin.dataprocess.DataProcessInstanceRelationships;
+import com.linkedin.dataprocess.DataProcessInstanceRunEvent;
+import com.linkedin.dataprocess.DataProcessInstanceRunResult;
+import com.linkedin.dataprocess.DataProcessRunStatus;
+import com.linkedin.dataprocess.RunResultType;
 import com.linkedin.dataset.DatasetProperties;
 import com.linkedin.domain.Domains;
+import com.linkedin.entity.Aspect;
+import com.linkedin.entity.EntityResponse;
+import com.linkedin.entity.EnvelopedAspect;
+import com.linkedin.entity.EnvelopedAspectMap;
 import com.linkedin.entity.client.EntityClient;
 import com.linkedin.entity.client.RestliEntityClient;
 import com.linkedin.events.metadata.ChangeType;
+import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.key.DatasetKey;
 import com.linkedin.metadata.models.AspectSpec;
 import com.linkedin.metadata.models.EntitySpec;
@@ -40,6 +49,7 @@ import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.timeline.data.ChangeCategory;
 import com.linkedin.metadata.timeline.data.ChangeOperation;
 import com.linkedin.metadata.timeline.eventgenerator.AssertionRunEventChangeEventGenerator;
+import com.linkedin.metadata.timeline.eventgenerator.DataProcessInstanceRunEventChangeEventGenerator;
 import com.linkedin.metadata.timeline.eventgenerator.DeprecationChangeEventGenerator;
 import com.linkedin.metadata.timeline.eventgenerator.EntityChangeEventGeneratorRegistry;
 import com.linkedin.metadata.timeline.eventgenerator.EntityKeyChangeEventGenerator;
@@ -61,6 +71,8 @@ import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
 import static com.linkedin.metadata.Constants.*;
+import static org.mockito.ArgumentMatchers.*;
+import static org.mockito.Mockito.*;
 
 
 /**
@@ -75,19 +87,26 @@ public class EntityChangeEventGeneratorHookTest {
   private static final String TEST_ACTOR_URN = "urn:li:corpuser:test";
   private static final String TEST_ASSERTION_URN = "urn:li:assertion:123";
   private static final String TEST_RUN_ID = "runId";
+  private static final String TEST_DATA_PROCESS_INSTANCE_URN = "urn:li:dataProcessInstance:instance";
+  private static final String TEST_DATA_PROCESS_INSTANCE_PARENT_URN = "urn:li:dataProcessInstance:parent";
+  private static final String TEST_DATA_FLOW_URN = "urn:li:dataFlow:flow";
+  private static final String TEST_DATA_JOB_URN = "urn:li:dataJob:job";
   private Urn actorUrn;
+  private Authentication _mockAuthentication;
 
   private RestliEntityClient _mockClient;
+  private EntityService _mockEntityService;
   private EntityChangeEventGeneratorHook _entityChangeEventHook;
 
   @BeforeMethod
   public void setupTest() throws URISyntaxException {
     actorUrn = Urn.createFromString(TEST_ACTOR_URN);
-    EntityChangeEventGeneratorRegistry entityChangeEventGeneratorRegistry = createEntityChangeEventGeneratorRegistry();
-    Authentication mockAuthentication = Mockito.mock(Authentication.class);
+    _mockAuthentication = Mockito.mock(Authentication.class);
     _mockClient = Mockito.mock(RestliEntityClient.class);
+    _mockEntityService = Mockito.mock(EntityService.class);
+    EntityChangeEventGeneratorRegistry entityChangeEventGeneratorRegistry = createEntityChangeEventGeneratorRegistry();
     _entityChangeEventHook =
-        new EntityChangeEventGeneratorHook(entityChangeEventGeneratorRegistry, _mockClient, mockAuthentication,
+        new EntityChangeEventGeneratorHook(entityChangeEventGeneratorRegistry, _mockClient, _mockAuthentication,
             createMockEntityRegistry(), true);
   }
 
@@ -441,7 +460,7 @@ public class EntityChangeEventGeneratorHookTest {
     _entityChangeEventHook.invoke(event);
 
     Map<String, Object> paramsMap =
-        ImmutableSortedMap.of(
+        ImmutableMap.of(
             RUN_RESULT_KEY, ASSERTION_RUN_EVENT_STATUS_COMPLETE,
             RUN_ID_KEY, TEST_RUN_ID,
             ASSERTEE_URN_KEY, TEST_DATASET_URN,
@@ -453,6 +472,89 @@ public class EntityChangeEventGeneratorHookTest {
             paramsMap, actorUrn);
 
     verifyProducePlatformEvent(_mockClient, platformEvent);
+  }
+
+  @Test
+  public void testInvokeDataProcessInstanceRunEventStart() throws Exception {
+    Urn dataProcessInstanceUrn = Urn.createFromString(TEST_DATA_PROCESS_INSTANCE_URN);
+
+    MetadataChangeLog event = new MetadataChangeLog();
+    event.setEntityType(DATA_PROCESS_INSTANCE_ENTITY_NAME);
+    event.setEntityUrn(dataProcessInstanceUrn);
+    event.setAspectName(DATA_PROCESS_INSTANCE_RUN_EVENT_ASPECT_NAME);
+    event.setChangeType(ChangeType.UPSERT);
+
+    DataProcessInstanceRunEvent dataProcessInstanceRunEvent =
+        new DataProcessInstanceRunEvent().setStatus(DataProcessRunStatus.STARTED).setAttempt(1);
+
+    event.setAspect(GenericRecordUtils.serializeAspect(dataProcessInstanceRunEvent));
+    event.setCreated(new AuditStamp().setActor(actorUrn).setTime(EVENT_TIME));
+
+    DataProcessInstanceRelationships relationships =
+        new DataProcessInstanceRelationships().setParentInstance(
+                Urn.createFromString(TEST_DATA_PROCESS_INSTANCE_PARENT_URN))
+            .setParentTemplate(Urn.createFromString(TEST_DATA_JOB_URN));
+
+    final EntityResponse entityResponse =
+        buildEntityResponse(ImmutableMap.of(DATA_PROCESS_INSTANCE_RELATIONSHIPS_ASPECT_NAME, relationships));
+
+    Mockito.when(_mockClient.getV2(eq(DATA_PROCESS_INSTANCE_ENTITY_NAME), eq(dataProcessInstanceUrn),
+        any(), eq(_mockAuthentication))).thenReturn(entityResponse);
+
+    _entityChangeEventHook.invoke(event);
+
+    Map<String, Object> parameters =
+        ImmutableMap.of(ATTEMPT_KEY, 1, PARENT_INSTANCE_URN_KEY, TEST_DATA_PROCESS_INSTANCE_PARENT_URN,
+            DATA_JOB_URN_KEY, TEST_DATA_JOB_URN);
+
+    // Create Platform Event
+    PlatformEvent platformEvent =
+        createChangeEvent(DATA_PROCESS_INSTANCE_ENTITY_NAME, dataProcessInstanceUrn, ChangeCategory.RUN,
+            ChangeOperation.STARTED, null, parameters, actorUrn);
+
+    verifyProducePlatformEvent(_mockClient, platformEvent, false);
+  }
+
+  @Test
+  public void testInvokeDataProcessInstanceRunEventComplete() throws Exception {
+    Urn dataProcessInstanceUrn = Urn.createFromString(TEST_DATA_PROCESS_INSTANCE_URN);
+
+    MetadataChangeLog event = new MetadataChangeLog();
+    event.setEntityType(DATA_PROCESS_INSTANCE_ENTITY_NAME);
+    event.setEntityUrn(dataProcessInstanceUrn);
+    event.setAspectName(DATA_PROCESS_INSTANCE_RUN_EVENT_ASPECT_NAME);
+    event.setChangeType(ChangeType.UPSERT);
+
+    DataProcessInstanceRunEvent dataProcessInstanceRunEvent =
+        new DataProcessInstanceRunEvent().setStatus(DataProcessRunStatus.COMPLETE)
+            .setAttempt(1)
+            .setResult(new DataProcessInstanceRunResult().setType(RunResultType.SUCCESS));
+
+    event.setAspect(GenericRecordUtils.serializeAspect(dataProcessInstanceRunEvent));
+    event.setCreated(new AuditStamp().setActor(actorUrn).setTime(EVENT_TIME));
+
+    DataProcessInstanceRelationships relationships =
+        new DataProcessInstanceRelationships().setParentInstance(
+                Urn.createFromString(TEST_DATA_PROCESS_INSTANCE_PARENT_URN))
+            .setParentTemplate(Urn.createFromString(TEST_DATA_FLOW_URN));
+    final EntityResponse entityResponse =
+        buildEntityResponse(ImmutableMap.of(DATA_PROCESS_INSTANCE_RELATIONSHIPS_ASPECT_NAME, relationships));
+
+    Mockito.when(_mockClient.getV2(eq(DATA_PROCESS_INSTANCE_ENTITY_NAME), eq(dataProcessInstanceUrn),
+        any(), eq(_mockAuthentication))).thenReturn(entityResponse);
+
+    _entityChangeEventHook.invoke(event);
+
+    Map<String, Object> parameters =
+        ImmutableMap.of(ATTEMPT_KEY, 1, RUN_RESULT_KEY, RunResultType.SUCCESS.toString(), PARENT_INSTANCE_URN_KEY,
+            TEST_DATA_PROCESS_INSTANCE_PARENT_URN, DATA_FLOW_URN_KEY, TEST_DATA_FLOW_URN);
+
+    // Create Platform Event
+    PlatformEvent platformEvent =
+        createChangeEvent(DATA_PROCESS_INSTANCE_ENTITY_NAME, dataProcessInstanceUrn, ChangeCategory.RUN,
+            ChangeOperation.COMPLETED, null, parameters, actorUrn);
+
+    verifyProducePlatformEvent(_mockClient, platformEvent, false);
   }
 
   @Test
@@ -515,6 +617,8 @@ public class EntityChangeEventGeneratorHookTest {
 
     // Run change event generators
     registry.register(ASSERTION_RUN_EVENT_ASPECT_NAME, new AssertionRunEventChangeEventGenerator());
+    registry.register(DATA_PROCESS_INSTANCE_RUN_EVENT_ASPECT_NAME,
+        new DataProcessInstanceRunEventChangeEventGenerator(_mockClient, _mockAuthentication));
     return registry;
   }
 
@@ -524,35 +628,42 @@ public class EntityChangeEventGeneratorHookTest {
     EntitySpec datasetSpec = Mockito.mock(EntitySpec.class);
 
     AspectSpec mockTags = createMockAspectSpec(GlobalTags.class);
-    Mockito.when(datasetSpec.getAspectSpec(Mockito.eq(GLOBAL_TAGS_ASPECT_NAME))).thenReturn(mockTags);
+    Mockito.when(datasetSpec.getAspectSpec(eq(GLOBAL_TAGS_ASPECT_NAME))).thenReturn(mockTags);
 
     AspectSpec mockTerms = createMockAspectSpec(GlossaryTerms.class);
-    Mockito.when(datasetSpec.getAspectSpec(Mockito.eq(GLOSSARY_TERMS_ASPECT_NAME))).thenReturn(mockTerms);
+    Mockito.when(datasetSpec.getAspectSpec(eq(GLOSSARY_TERMS_ASPECT_NAME))).thenReturn(mockTerms);
 
     AspectSpec mockOwners = createMockAspectSpec(Ownership.class);
-    Mockito.when(datasetSpec.getAspectSpec(Mockito.eq(OWNERSHIP_ASPECT_NAME))).thenReturn(mockOwners);
+    Mockito.when(datasetSpec.getAspectSpec(eq(OWNERSHIP_ASPECT_NAME))).thenReturn(mockOwners);
 
     AspectSpec mockStatus = createMockAspectSpec(Status.class);
-    Mockito.when(datasetSpec.getAspectSpec(Mockito.eq(STATUS_ASPECT_NAME))).thenReturn(mockStatus);
+    Mockito.when(datasetSpec.getAspectSpec(eq(STATUS_ASPECT_NAME))).thenReturn(mockStatus);
 
     AspectSpec mockDomains = createMockAspectSpec(Domains.class);
-    Mockito.when(datasetSpec.getAspectSpec(Mockito.eq(DOMAINS_ASPECT_NAME))).thenReturn(mockDomains);
+    Mockito.when(datasetSpec.getAspectSpec(eq(DOMAINS_ASPECT_NAME))).thenReturn(mockDomains);
 
     AspectSpec mockDeprecation = createMockAspectSpec(Deprecation.class);
-    Mockito.when(datasetSpec.getAspectSpec(Mockito.eq(DEPRECATION_ASPECT_NAME))).thenReturn(mockDeprecation);
+    Mockito.when(datasetSpec.getAspectSpec(eq(DEPRECATION_ASPECT_NAME))).thenReturn(mockDeprecation);
 
     AspectSpec mockDatasetKey = createMockAspectSpec(DatasetKey.class);
-    Mockito.when(datasetSpec.getAspectSpec(Mockito.eq(DATASET_KEY_ASPECT_NAME))).thenReturn(mockDatasetKey);
+    Mockito.when(datasetSpec.getAspectSpec(eq(DATASET_KEY_ASPECT_NAME))).thenReturn(mockDatasetKey);
 
-    Mockito.when(registry.getEntitySpec(Mockito.eq(DATASET_ENTITY_NAME))).thenReturn(datasetSpec);
+    Mockito.when(registry.getEntitySpec(eq(DATASET_ENTITY_NAME))).thenReturn(datasetSpec);
 
     // Build Assertion Entity Spec
     EntitySpec assertionSpec = Mockito.mock(EntitySpec.class);
     AspectSpec mockAssertionRunEvent = createMockAspectSpec(AssertionRunEvent.class);
-    Mockito.when(assertionSpec.getAspectSpec(Mockito.eq(ASSERTION_RUN_EVENT_ASPECT_NAME)))
-        .thenReturn(mockAssertionRunEvent);
+    Mockito.when(assertionSpec.getAspectSpec(eq(ASSERTION_RUN_EVENT_ASPECT_NAME))).thenReturn(mockAssertionRunEvent);
 
-    Mockito.when(registry.getEntitySpec(Mockito.eq(ASSERTION_ENTITY_NAME))).thenReturn(assertionSpec);
+    Mockito.when(registry.getEntitySpec(eq(ASSERTION_ENTITY_NAME))).thenReturn(assertionSpec);
+
+    // Build Data Process Instance Entity Spec
+    EntitySpec dataProcessInstanceSpec = Mockito.mock(EntitySpec.class);
+    AspectSpec mockDataProcessInstanceRunEvent = createMockAspectSpec(DataProcessInstanceRunEvent.class);
+    Mockito.when(dataProcessInstanceSpec.getAspectSpec(eq(DATA_PROCESS_INSTANCE_RUN_EVENT_ASPECT_NAME)))
+        .thenReturn(mockDataProcessInstanceRunEvent);
+
+    Mockito.when(registry.getEntitySpec(DATA_PROCESS_INSTANCE_ENTITY_NAME)).thenReturn(dataProcessInstanceSpec);
 
     return registry;
   }
@@ -563,13 +674,8 @@ public class EntityChangeEventGeneratorHookTest {
 
   private void verifyProducePlatformEvent(EntityClient mockClient, PlatformEvent platformEvent, boolean noMoreInteractions) throws Exception {
     // Verify event has been emitted.
-    Mockito.verify(mockClient, Mockito.times(1))
-        .producePlatformEvent(
-            Mockito.eq(CHANGE_EVENT_PLATFORM_EVENT_NAME),
-            Mockito.anyString(),
-            Mockito.eq(platformEvent),
-            Mockito.any(Authentication.class)
-        );
+    verify(mockClient, Mockito.times(1)).producePlatformEvent(eq(CHANGE_EVENT_PLATFORM_EVENT_NAME), Mockito.anyString(),
+        argThat(new PlatformEventMatcher(platformEvent)), Mockito.any(Authentication.class));
 
     if (noMoreInteractions) {
       Mockito.verifyNoMoreInteractions(_mockClient);
@@ -580,5 +686,15 @@ public class EntityChangeEventGeneratorHookTest {
     AspectSpec mockSpec = Mockito.mock(AspectSpec.class);
     Mockito.when(mockSpec.getDataTemplateClass()).thenReturn((Class<RecordTemplate>) clazz);
     return mockSpec;
+  }
+
+  private EntityResponse buildEntityResponse(Map<String, RecordTemplate> aspects) {
+    final EntityResponse entityResponse = new EntityResponse();
+    final EnvelopedAspectMap aspectMap = new EnvelopedAspectMap();
+    for (Map.Entry<String, RecordTemplate> entry : aspects.entrySet()) {
+      aspectMap.put(entry.getKey(), new EnvelopedAspect().setValue(new Aspect(entry.getValue().data())));
+    }
+    entityResponse.setAspects(aspectMap);
+    return entityResponse;
   }
 }

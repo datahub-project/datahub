@@ -65,6 +65,7 @@ public class EntityChangeEventGeneratorHook implements MetadataChangeLogHook {
           Constants.DATASET_PROPERTIES_ASPECT_NAME,
           Constants.EDITABLE_DATASET_PROPERTIES_ASPECT_NAME,
           Constants.ASSERTION_RUN_EVENT_ASPECT_NAME,
+          Constants.DATA_PROCESS_INSTANCE_RUN_EVENT_ASPECT_NAME,
 
           // Entity Lifecycle Event
           Constants.DATASET_KEY_ASPECT_NAME,
