@@ -181,6 +181,27 @@ def extract_dbt_entities(
         if max_loaded_at_str:
             max_loaded_at = dateutil.parser.parse(max_loaded_at_str)
 
+        test_info = None
+        if manifest_node.get("resource_type") == "test":
+            test_metadata = manifest_node.get("test_metadata", {})
+            kw_args = test_metadata.get("kwargs", {})
+
+            qualified_test_name = (
+                (test_metadata.get("namespace") or "")
+                + "."
+                + (test_metadata.get("name") or "")
+            )
+            qualified_test_name = (
+                qualified_test_name[1:]
+                if qualified_test_name.startswith(".")
+                else qualified_test_name
+            )
+            test_info = DBTTest(
+                qualified_test_name=qualified_test_name,
+                column_name=kw_args.get("column_name"),
+                kw_args=kw_args,
+            )
+
         dbtNode = DBTNode(
             dbt_name=key,
             dbt_adapter=manifest_adapter,
@@ -202,7 +223,7 @@ def extract_dbt_entities(
             tags=tags,
             owner=owner,
             compiled_sql=manifest_node.get("compiled_sql"),
-            manifest_raw=manifest_node,
+            test_info=test_info,
         )
 
         # Load columns from catalog, and override some properties from manifest.

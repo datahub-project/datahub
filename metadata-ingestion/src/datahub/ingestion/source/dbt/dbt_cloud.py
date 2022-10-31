@@ -51,7 +51,7 @@ class DBTCloudConfig(DBTCommonConfig):
     # TODO project id?
 
 
-_DBT_NODE_GRAPHQL_COMMON_FIELDS = """
+_DBT_GRAPHQL_COMMON_FIELDS = """
   runId
   accountId
   projectId
@@ -64,6 +64,9 @@ _DBT_NODE_GRAPHQL_COMMON_FIELDS = """
   meta
   dbtVersion
   tags
+"""
+
+_DBT_GRAPHQL_NODE_COMMON_FIELDS = """
   database
   schema
   type
@@ -90,7 +93,7 @@ _DBT_NODE_GRAPHQL_COMMON_FIELDS = """
   }
 """
 
-_DBT_NODE_GRAPHQL_MODEL_SEED_FIELDS = """
+_DBT_GRAPHQL_MODEL_SEED_FIELDS = """
   alias
   error
   status
@@ -101,20 +104,37 @@ _DBT_NODE_GRAPHQL_MODEL_SEED_FIELDS = """
   compiledCode
 """
 
-_DBT_NODE_GRAPHQL_TEST_FIELDS = """
-  tests {
-    runId
-    accountId
-    projectId
-    environmentId
-    jobId
-    resourceType
-    uniqueId
-    name
-    description
-    meta
-    dbtVersion
-    tags
+_DBT_GRAPHQL_QUERY = f"""
+query DatahubMetadataQuery($jobId: Int!, $runId: Int) {{
+  models(jobId: $jobId, runId: $runId) {{
+    { _DBT_GRAPHQL_COMMON_FIELDS }
+    { _DBT_GRAPHQL_NODE_COMMON_FIELDS }
+    { _DBT_GRAPHQL_MODEL_SEED_FIELDS }
+    dependsOn
+    materializedType
+  }}
+
+  seeds(jobId: $jobId, runId: $runId) {{
+    { _DBT_GRAPHQL_COMMON_FIELDS }
+    { _DBT_GRAPHQL_NODE_COMMON_FIELDS }
+    { _DBT_GRAPHQL_MODEL_SEED_FIELDS }
+  }}
+
+  sources(jobId: $jobId, runId: $runId) {{
+    { _DBT_GRAPHQL_COMMON_FIELDS }
+    { _DBT_GRAPHQL_NODE_COMMON_FIELDS }
+    identifier
+    sourceName
+    sourceDescription
+    maxLoadedAt
+    snapshottedAt
+    state
+    freshnessChecked
+    loader
+  }}
+
+  tests(jobId: $jobId, runId: $runId) {{
+    { _DBT_GRAPHQL_COMMON_FIELDS }
     state
     columnName
     status
@@ -127,38 +147,7 @@ _DBT_NODE_GRAPHQL_TEST_FIELDS = """
     rawCode
     compiledSql
     compiledCode
-  }
-"""
-
-_DBT_GRAPHQL_QUERY = f"""
-query DatahubMetadataQuery($jobId: Int!, $runId: Int) {{
-  models(jobId: $jobId, runId: $runId) {{
-    { _DBT_NODE_GRAPHQL_COMMON_FIELDS }
-    { _DBT_NODE_GRAPHQL_MODEL_SEED_FIELDS }
-    { _DBT_NODE_GRAPHQL_TEST_FIELDS }
-    dependsOn
-    materializedType
   }}
-
-  seeds(jobId: $jobId, runId: $runId) {{
-    { _DBT_NODE_GRAPHQL_COMMON_FIELDS }
-    { _DBT_NODE_GRAPHQL_MODEL_SEED_FIELDS }
-  }}
-
-  sources(jobId: $jobId, runId: $runId) {{
-    { _DBT_NODE_GRAPHQL_COMMON_FIELDS }
-    { _DBT_NODE_GRAPHQL_TEST_FIELDS }
-    identifier
-    sourceName
-    sourceDescription
-    maxLoadedAt
-    snapshottedAt
-    state
-    freshnessChecked
-    loader
-  }}
-
-  # TODO: tests
 
   # TODO: Currently unsupported dbt node types:
   # - metrics
@@ -193,6 +182,7 @@ class DBTCloudSource(DBTSourceBase):
         # TODO: figure out how to deal with jobs that only run part of the job
         # TODO capture model creation failures?
 
+        logger.debug("Sending graphql request to the dbt Cloud metadata API")
         response = requests.post(
             DBT_METADATA_API_ENDPOINT,
             json={
@@ -222,6 +212,7 @@ class DBTCloudSource(DBTSourceBase):
             *data["models"],
             *data["seeds"],
             *data["sources"],
+            *data["tests"],
         ]
 
         nodes = [self._parse_into_dbt_node(node) for node in raw_nodes]
@@ -250,9 +241,7 @@ class DBTCloudSource(DBTSourceBase):
             materialization = None
             upstream_nodes = []
 
-        catalog_type = node["type"]
-
-        # TODO query_tag_props
+        catalog_type = node.get("type")
 
         meta = node["meta"]
 
@@ -297,13 +286,12 @@ class DBTCloudSource(DBTSourceBase):
 
         # TODO add project id, env, etc to custom metadata
 
-        if "tests" in node:
-            tests = node["tests"]
+        if node["resourceType"] == "test":
             breakpoint()
 
         return DBTNode(
             dbt_name=key,
-            # TODO get the dbt adapter natively
+            # TODO: Get the dbt adapter natively.
             dbt_adapter=self.config.target_platform,
             database=node["database"],
             schema=node["schema"],
@@ -318,7 +306,7 @@ class DBTCloudSource(DBTSourceBase):
             materialization=materialization,
             catalog_type=catalog_type,
             meta=meta,
-            query_tag={},
+            query_tag={},  # TODO: Get this from the dbt API.
             tags=tags,
             owner=owner,
             raw_sql=raw_sql,

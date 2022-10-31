@@ -8,6 +8,7 @@ from enum import auto
 from typing import (
     Any,
     Callable,
+    ClassVar,
     Dict,
     Iterable,
     List,
@@ -373,8 +374,6 @@ class DBTNode:
     # see https://docs.getdbt.com/reference/artifacts/manifest-json
     catalog_type: Optional[str]
 
-    manifest_raw: Dict
-
     owner: Optional[str]
 
     columns: List[DBTColumn] = field(default_factory=list)
@@ -385,6 +384,8 @@ class DBTNode:
 
     tags: List[str] = field(default_factory=list)
     compiled_sql: Optional[str] = None
+
+    test_info: Optional["DBTTest"] = None  # only populated if node_type == 'test'
 
     def get_db_fqn(self) -> str:
         if self.database:
@@ -591,9 +592,13 @@ class DBTRunMetadata(BaseModel):
     invocation_id: str
 
 
+@dataclass
 class DBTTest:
+    qualified_test_name: str
+    column_name: Optional[str]
+    kw_args: dict
 
-    test_name_to_assertion_map = {
+    TEST_NAME_TO_ASSERTION_MAP: ClassVar[Dict[str, AssertionParams]] = {
         "not_null": AssertionParams(
             scope=DatasetAssertionScopeClass.DATASET_COLUMN,
             operator=AssertionStdOperatorClass.NOT_NULL,
@@ -762,6 +767,10 @@ class DBTTest:
                     logger.debug(f"Failed to process test result {result} due to {e}")
 
 
+def string_map(input_map: Dict[str, Any]) -> Dict[str, str]:
+    return {k: str(v) for k, v in input_map.items()}
+
+
 @platform_name("dbt")
 @config_class(DBTCommonConfig)
 @support_status(SupportStatus.CERTIFIED)
@@ -827,14 +836,11 @@ class DBTSourceBase(StatefulIngestionSourceBase):
         custom_props: Dict[str, str],
         all_nodes_map: Dict[str, DBTNode],
     ) -> Iterable[MetadataWorkUnit]:
-        def string_map(input_map: Dict[str, Any]) -> Dict[str, str]:
-            return {k: str(v) for k, v in input_map.items()}
-
         if not self.config.entities_enabled.can_emit_node_type("test"):
             return []
 
         for node in test_nodes:
-            node_datahub_urn = mce_builder.make_assertion_urn(
+            assertion_urn = mce_builder.make_assertion_urn(
                 mce_builder.datahub_guid(
                     {
                         "platform": DBT_PLATFORM,
@@ -845,14 +851,11 @@ class DBTSourceBase(StatefulIngestionSourceBase):
             )
             self.stale_entity_removal_handler.add_entity_to_state(
                 type="assertion",
-                urn=node_datahub_urn,
+                urn=assertion_urn,
             )
 
             wu = MetadataChangeProposalWrapper(
-                entityType="assertion",
-                entityUrn=node_datahub_urn,
-                changeType=ChangeTypeClass.UPSERT,
-                aspectName="dataPlatformInstance",
+                entityUrn=assertion_urn,
                 aspect=DataPlatformInstanceClass(
                     platform=mce_builder.make_data_platform_urn(DBT_PLATFORM)
                 ),
@@ -871,111 +874,102 @@ class DBTSourceBase(StatefulIngestionSourceBase):
                 legacy_skip_source_lineage=self.config.backcompat_skip_source_on_lineage_edge,
             )
 
-            raw_node_obj = all_nodes_map.get(node.dbt_name)
-            if raw_node_obj is None:
-                logger.warning(
-                    f"Failed to find test node {node.dbt_name} in the manifest"
-                )
-                continue
-
-            # TODO update this
-            raw_node = raw_node_obj.manifest_raw
-
-            test_metadata = raw_node.get("test_metadata", {})
-            kw_args = test_metadata.get("kwargs", {})
             for upstream_urn in upstream_urns:
-                qualified_test_name = (
-                    (test_metadata.get("namespace") or "")
-                    + "."
-                    + (test_metadata.get("name") or "")
-                )
-                qualified_test_name = (
-                    qualified_test_name[1:]
-                    if qualified_test_name.startswith(".")
-                    else qualified_test_name
-                )
-
-                if qualified_test_name in DBTTest.test_name_to_assertion_map:
-                    assertion_params: AssertionParams = (
-                        DBTTest.test_name_to_assertion_map[qualified_test_name]
-                    )
-                    assertion_info = AssertionInfoClass(
-                        type=AssertionTypeClass.DATASET,
-                        customProperties=custom_props,
-                        datasetAssertion=DatasetAssertionInfoClass(
-                            dataset=upstream_urn,
-                            scope=assertion_params.scope,
-                            operator=assertion_params.operator,
-                            fields=[
-                                mce_builder.make_schema_field_urn(
-                                    upstream_urn, kw_args.get("column_name")
-                                )
-                            ]
-                            if assertion_params.scope
-                            == DatasetAssertionScopeClass.DATASET_COLUMN
-                            else [],
-                            nativeType=node.name,
-                            aggregation=assertion_params.aggregation,
-                            parameters=assertion_params.parameters(kw_args)
-                            if assertion_params.parameters
-                            else None,
-                            logic=assertion_params.logic_fn(kw_args)
-                            if assertion_params.logic_fn
-                            else None,
-                            nativeParameters=string_map(kw_args),
-                        ),
-                    )
-                elif kw_args.get("column_name"):
-                    # no match with known test types, column-level test
-                    assertion_info = AssertionInfoClass(
-                        type=AssertionTypeClass.DATASET,
-                        customProperties=custom_props,
-                        datasetAssertion=DatasetAssertionInfoClass(
-                            dataset=upstream_urn,
-                            scope=DatasetAssertionScopeClass.DATASET_COLUMN,
-                            operator=AssertionStdOperatorClass._NATIVE_,
-                            fields=[
-                                mce_builder.make_schema_field_urn(
-                                    upstream_urn, kw_args.get("column_name")
-                                )
-                            ],
-                            nativeType=node.name,
-                            logic=node.compiled_sql
-                            if node.compiled_sql
-                            else node.raw_sql,
-                            aggregation=AssertionStdAggregationClass._NATIVE_,
-                            nativeParameters=string_map(kw_args),
-                        ),
-                    )
-                else:
-                    # no match with known test types, default to row-level test
-                    assertion_info = AssertionInfoClass(
-                        type=AssertionTypeClass.DATASET,
-                        customProperties=custom_props,
-                        datasetAssertion=DatasetAssertionInfoClass(
-                            dataset=upstream_urn,
-                            scope=DatasetAssertionScopeClass.DATASET_ROWS,
-                            operator=AssertionStdOperatorClass._NATIVE_,
-                            logic=node.compiled_sql
-                            if node.compiled_sql
-                            else node.raw_sql,
-                            nativeType=node.name,
-                            aggregation=AssertionStdAggregationClass._NATIVE_,
-                            nativeParameters=string_map(kw_args),
-                        ),
-                    )
-                wu = MetadataWorkUnit(
-                    id=f"{node_datahub_urn}-assertioninfo",
-                    mcp=MetadataChangeProposalWrapper(
-                        entityType="assertion",
-                        entityUrn=node_datahub_urn,
-                        changeType=ChangeTypeClass.UPSERT,
-                        aspectName="assertionInfo",
-                        aspect=assertion_info,
-                    ),
+                wu = self._make_assertion_from_test(
+                    custom_props,
+                    node,
+                    assertion_urn,
+                    upstream_urn,
                 )
                 self.report.report_workunit(wu)
                 yield wu
+
+    def _make_assertion_from_test(
+        self,
+        extra_custom_props: Dict[str, str],
+        node: DBTNode,
+        assertion_urn: str,
+        upstream_urn: str,
+    ) -> MetadataWorkUnit:
+        assert node.test_info
+        qualified_test_name = node.test_info.qualified_test_name
+        column_name = node.test_info.column_name
+        kw_args = node.test_info.kw_args
+
+        if qualified_test_name in DBTTest.TEST_NAME_TO_ASSERTION_MAP:
+            assertion_params = DBTTest.TEST_NAME_TO_ASSERTION_MAP[qualified_test_name]
+            assertion_info = AssertionInfoClass(
+                type=AssertionTypeClass.DATASET,
+                customProperties=extra_custom_props,
+                datasetAssertion=DatasetAssertionInfoClass(
+                    dataset=upstream_urn,
+                    scope=assertion_params.scope,
+                    operator=assertion_params.operator,
+                    fields=[
+                        mce_builder.make_schema_field_urn(upstream_urn, column_name)
+                    ]
+                    if (
+                        assertion_params.scope
+                        == DatasetAssertionScopeClass.DATASET_COLUMN
+                        and column_name
+                    )
+                    else [],
+                    nativeType=node.name,
+                    aggregation=assertion_params.aggregation,
+                    parameters=assertion_params.parameters(kw_args)
+                    if assertion_params.parameters
+                    else None,
+                    logic=assertion_params.logic_fn(kw_args)
+                    if assertion_params.logic_fn
+                    else None,
+                    nativeParameters=string_map(kw_args),
+                ),
+            )
+        elif column_name:
+            # no match with known test types, column-level test
+            assertion_info = AssertionInfoClass(
+                type=AssertionTypeClass.DATASET,
+                customProperties=extra_custom_props,
+                datasetAssertion=DatasetAssertionInfoClass(
+                    dataset=upstream_urn,
+                    scope=DatasetAssertionScopeClass.DATASET_COLUMN,
+                    operator=AssertionStdOperatorClass._NATIVE_,
+                    fields=[
+                        mce_builder.make_schema_field_urn(upstream_urn, column_name)
+                    ],
+                    nativeType=node.name,
+                    logic=node.compiled_sql if node.compiled_sql else node.raw_sql,
+                    aggregation=AssertionStdAggregationClass._NATIVE_,
+                    nativeParameters=string_map(kw_args),
+                ),
+            )
+        else:
+            # no match with known test types, default to row-level test
+            assertion_info = AssertionInfoClass(
+                type=AssertionTypeClass.DATASET,
+                customProperties=extra_custom_props,
+                datasetAssertion=DatasetAssertionInfoClass(
+                    dataset=upstream_urn,
+                    scope=DatasetAssertionScopeClass.DATASET_ROWS,
+                    operator=AssertionStdOperatorClass._NATIVE_,
+                    logic=node.compiled_sql if node.compiled_sql else node.raw_sql,
+                    nativeType=node.name,
+                    aggregation=AssertionStdAggregationClass._NATIVE_,
+                    nativeParameters=string_map(kw_args),
+                ),
+            )
+        wu = MetadataWorkUnit(
+            id=f"{assertion_urn}-assertioninfo",
+            mcp=MetadataChangeProposalWrapper(
+                entityType="assertion",
+                entityUrn=assertion_urn,
+                changeType=ChangeTypeClass.UPSERT,
+                aspectName="assertionInfo",
+                aspect=assertion_info,
+            ),
+        )
+
+        return wu
 
     @abstractmethod
     def load_nodes(self) -> Tuple[List[DBTNode], Dict[str, Optional[str]]]:
@@ -1502,13 +1496,6 @@ class DBTSourceBase(StatefulIngestionSourceBase):
 
     def owner_sort_key(self, owner_class: OwnerClass) -> str:
         return str(owner_class)
-        # TODO: Remove. keeping this till PR review
-        # assert owner_class is not None
-        # owner = owner_class.owner
-        # type = str(owner_class.type)
-        # source_type = "None" if not owner_class.source else str(owner_class.source.type)
-        # source_url = "None" if not owner_class.source else str(owner_class.source.url)
-        # return f"{owner}-{type}-{source_type}-{source_url}"
 
     # This method attempts to read-modify and return the tags of a dataset.
     # From the existing tags it will remove the tags that have a prefix tags_prefix_filter and
