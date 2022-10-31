@@ -274,53 +274,59 @@ def load_test_results(
     test_results_json: Dict[str, Any],
     all_nodes: List[DBTNode],
 ) -> List[DBTNode]:
-    args = test_results_json.get("args", {})
     dbt_metadata = DBTRunMetadata.parse_obj(test_results_json.get("metadata", {}))
 
     test_nodes_map: Dict[str, DBTNode] = {
         x.dbt_name: x for x in all_nodes if x.node_type == "test"
     }
 
-    if "test" in args.get("which", "") or "test" in args.get("rpc_method", ""):
-        # this was a test run
-        results = test_results_json.get("results", [])
-        for result in results:
-            run_result = DBTRunResult.parse_obj(result)
-            id = run_result.unique_id
-            test_node = test_nodes_map.get(id)
-            if not test_node:
-                logger.debug(f"Failed to find test node {id} in the catalog")
-                continue
+    results = test_results_json.get("results", [])
+    for result in results:
+        run_result = DBTRunResult.parse_obj(result)
+        id = run_result.unique_id
 
-            if run_result.status != "pass":
-                native_results = {"message": run_result.message or ""}
-                if run_result.failures:
-                    native_results.update({"failures": str(run_result.failures)})
-            else:
-                native_results = {}
+        if not id.startswith("test."):
+            continue
 
-            stage_timings = {x.name: x.started_at for x in run_result.timing}
-            # look for execution start time, fall back to compile start time and finally generation time
-            execution_timestamp = (
-                stage_timings.get("execute")
-                or stage_timings.get("compile")
-                or dbt_metadata.generated_at
-            )
+        test_node = test_nodes_map.get(id)
+        if not test_node:
+            logger.debug(f"Failed to find test node {id} in the catalog")
+            continue
 
-            execution_timestamp_parsed = datetime.strptime(
-                execution_timestamp, "%Y-%m-%dT%H:%M:%S.%fZ"
-            )
+        if run_result.status == "success":
+            # This was probably a docs generate run result, so this isn't actually
+            # a test result.
+            continue
 
-            test_result = DBTTestResult(
-                invocation_id=dbt_metadata.invocation_id,
-                status=run_result.status,
-                native_results=native_results,
-                execution_time=execution_timestamp_parsed,
-            )
+        if run_result.status != "pass":
+            native_results = {"message": run_result.message or ""}
+            if run_result.failures:
+                native_results.update({"failures": str(run_result.failures)})
+        else:
+            native_results = {}
 
-            assert test_node.test_info is not None
-            assert test_node.test_result is None
-            test_node.test_result = test_result
+        stage_timings = {x.name: x.started_at for x in run_result.timing}
+        # look for execution start time, fall back to compile start time and finally generation time
+        execution_timestamp = (
+            stage_timings.get("execute")
+            or stage_timings.get("compile")
+            or dbt_metadata.generated_at
+        )
+
+        execution_timestamp_parsed = datetime.strptime(
+            execution_timestamp, "%Y-%m-%dT%H:%M:%S.%fZ"
+        )
+
+        test_result = DBTTestResult(
+            invocation_id=dbt_metadata.invocation_id,
+            status=run_result.status,
+            native_results=native_results,
+            execution_time=execution_timestamp_parsed,
+        )
+
+        assert test_node.test_info is not None
+        assert test_node.test_result is None
+        test_node.test_result = test_result
 
     return all_nodes
 
