@@ -523,6 +523,16 @@
       "displayName": "PowerBI Report Server",
       "type": "OTHERS",
       "logoUrl": "/assets/platforms/powerbireportserverlogo.png"
+      }
+  },
+  {
+    "urn": "urn:li:dataPlatform:databricks",
+    "aspect": {
+      "datasetNameDelimiter": ".",
+      "name": "databricks",
+      "displayName": "Databricks",
+      "type": "OTHERS",
+      "logoUrl": "/assets/platforms/databrickslogo.png"
     }
   }
 ]

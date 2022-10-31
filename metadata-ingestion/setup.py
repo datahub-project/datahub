@@ -207,6 +207,9 @@ usage_common = {
     "sqlparse",
 }
 
+databricks_cli = {
+    "databricks-cli==0.17.3",
+}
 
 # Note: for all of these, framework_common will be added.
 plugins: Dict[str, Set[str]] = {
@@ -323,9 +326,9 @@ plugins: Dict[str, Set[str]] = {
     "starburst-trino-usage": sql_common | usage_common | trino,
     "nifi": {"requests", "packaging"},
     "powerbi": microsoft_common,
-    "vertica": sql_common | {"sqlalchemy-vertica[vertica-python]==0.0.5"},
     "powerbi-report-server": powerbi_report_server,
-
+    "vertica": sql_common | {"sqlalchemy-vertica[vertica-python]==0.0.5"},
+    "unity-catalog": databricks_cli | {"requests"},
 }
 
 all_exclude_plugins: Set[str] = {
@@ -416,7 +419,8 @@ base_dev_requirements = {
             "powerbi",
             "powerbi-report-server",
             "vertica",
-            "salesforce"
+            "salesforce",
+            "unity-catalog"
             # airflow is added below
         ]
         for dependency in plugins[plugin]
@@ -540,6 +544,7 @@ entry_points = {
         "presto-on-hive = datahub.ingestion.source.sql.presto_on_hive:PrestoOnHiveSource",
         "pulsar = datahub.ingestion.source.pulsar:PulsarSource",
         "salesforce = datahub.ingestion.source.salesforce:SalesforceSource",
+        "unity-catalog = datahub.ingestion.source.unity.source:UnityCatalogSource",
     ],
     "datahub.ingestion.sink.plugins": [
         "file = datahub.ingestion.sink.file:FileSink",

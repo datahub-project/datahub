@@ -1,5 +1,5 @@
 import React, { ReactNode } from 'react';
-import { Divider, Form, Select } from 'antd';
+import { AutoComplete, Divider, Form } from 'antd';
 import styled from 'styled-components/macro';
 import { Secret } from '../../../../../../types.generated';
 import CreateSecretButton from './CreateSecretButton';
@@ -80,6 +80,8 @@ function SecretFieldTooltip({ tooltipLabel }: { tooltipLabel?: string | ReactNod
 }
 
 function SecretField({ field, secrets, removeMargin, refetchSecrets }: SecretFieldProps) {
+    const options = secrets.map((secret) => ({ value: `\${${secret.name}}`, label: secret.name }));
+
     return (
         <StyledFormItem
             name={field.name}
@@ -89,10 +91,10 @@ function SecretField({ field, secrets, removeMargin, refetchSecrets }: SecretFie
             removeMargin={!!removeMargin}
             isSecretField
         >
-            <Select
-                showSearch
+            <AutoComplete
                 placeholder={field.placeholder}
-                filterOption={(input, option) => !!option?.children.toLowerCase().includes(input.toLowerCase())}
+                filterOption={(input, option) => !!option?.value.toLowerCase().includes(input.toLowerCase())}
+                options={options}
                 dropdownRender={(menu) => (
                     <>
                         {menu}
@@ -100,13 +102,7 @@ function SecretField({ field, secrets, removeMargin, refetchSecrets }: SecretFie
                         <CreateSecretButton refetchSecrets={refetchSecrets} />
                     </>
                 )}
-            >
-                {secrets.map((secret) => (
-                    <Select.Option key={secret.urn} value={`\${${secret.name}}`}>
-                        {secret.name}
-                    </Select.Option>
-                ))}
-            </Select>
+            />
         </StyledFormItem>
     );
 }

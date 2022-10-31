@@ -10,7 +10,11 @@ import { centerY, EXPAND_COLLAPSE_COLUMNS_TOGGLE_HEIGHT, iconX, NUM_COLUMNS_PER_
 import ColumnNode from './ColumnNode';
 import NodeColumnsHeader from './NodeColumnsHeader';
 import usePrevious from '../shared/usePrevious';
-import { filterColumns, haveDisplayedFieldsChanged } from './utils/columnLineageUtils';
+import {
+    convertInputFieldsToSchemaFields,
+    filterColumns,
+    haveDisplayedFieldsChanged,
+} from './utils/columnLineageUtils';
 import { useResetPageIndexAfterSelect } from './utils/useResetPageIndexAfterSelect';
 
 const StyledPagination = styled(Pagination)`
@@ -32,7 +36,10 @@ export default function LineageEntityColumns({ node, onHover }: Props) {
 
     const titleHeight = getTitleHeight(expandTitles ? node.data.expandedName || node.data.name : undefined);
 
-    const fields = columnsByUrn[node.data.urn || ''] || node.data.schemaMetadata?.fields;
+    const fields =
+        columnsByUrn[node.data.urn || ''] ||
+        node.data.schemaMetadata?.fields ||
+        convertInputFieldsToSchemaFields(node.data.inputFields);
 
     const displayedFields = fields?.slice(
         pageIndex * NUM_COLUMNS_PER_PAGE,
@@ -60,7 +67,8 @@ export default function LineageEntityColumns({ node, onHover }: Props) {
     }, [displayedFields, node?.data?.urn, setVisibleColumnsByUrn, previousDisplayedFields]);
 
     const hasColumnPagination =
-        node.data.schemaMetadata?.fields && node.data.schemaMetadata?.fields.length > NUM_COLUMNS_PER_PAGE;
+        (node.data.schemaMetadata?.fields && node.data.schemaMetadata?.fields.length > NUM_COLUMNS_PER_PAGE) ||
+        (node.data.inputFields?.fields && node.data.inputFields.fields.length > NUM_COLUMNS_PER_PAGE);
 
     return (
         <>

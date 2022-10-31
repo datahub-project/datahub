@@ -14,6 +14,7 @@ import { useGetEntityLineageLazyQuery } from '../../graphql/lineage.generated';
 import { useIsSeparateSiblingsMode } from '../entity/shared/siblingUtils';
 import { centerX, centerY, iconHeight, iconWidth, iconX, iconY, textX, width } from './constants';
 import LineageEntityColumns from './LineageEntityColumns';
+import { convertInputFieldsToSchemaFields } from './utils/columnLineageUtils';
 
 const CLICK_DELAY_THRESHOLD = 1000;
 const DRAG_DISTANCE_THRESHOLD = 20;
@@ -100,7 +101,7 @@ export default function LineageEntityNode({
 
     const nodeHeight = nodeHeightFromTitleLength(
         expandTitles ? node.data.expandedName || node.data.name : undefined,
-        node.data.schemaMetadata,
+        node.data.schemaMetadata?.fields || convertInputFieldsToSchemaFields(node.data.inputFields),
         showColumns,
         areColumnsCollapsed,
     );
@@ -320,7 +321,9 @@ export default function LineageEntityNode({
                         {unexploredHiddenChildren > 1 ? 'dependencies' : 'dependency'}
                     </UnselectableText>
                 ) : null}
-                {showColumns && node.data.schemaMetadata && <LineageEntityColumns node={node} onHover={onHover} />}
+                {showColumns && (node.data.schemaMetadata || node.data.inputFields) && (
+                    <LineageEntityColumns node={node} onHover={onHover} />
+                )}
             </Group>
         </PointerGroup>
     );
