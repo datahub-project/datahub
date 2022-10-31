@@ -1,6 +1,6 @@
 import logging
 from json import JSONDecodeError
-from typing import Dict, Iterable, List, Optional, Tuple
+from typing import Dict, List, Optional, Tuple
 
 import dateutil.parser
 import requests
@@ -14,7 +14,6 @@ from datahub.ingestion.api.decorators import (
     support_status,
 )
 from datahub.ingestion.api.source import SourceCapability
-from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.dbt.dbt_common import (
     DBTColumn,
     DBTCommonConfig,
@@ -287,9 +286,11 @@ class DBTCloudSource(DBTSourceBase):
         # TODO add project id, env, etc to custom metadata
 
         test_info = None
+        test_result = None
         if node["resourceType"] == "test":
             breakpoint()
             test_info = TODO
+            test_result = TODO
 
         return DBTNode(
             dbt_name=key,
@@ -315,6 +316,7 @@ class DBTCloudSource(DBTSourceBase):
             compiled_sql=compiled_sql,
             columns=columns,
             test_info=test_info,
+            test_result=test_result,
         )
 
     def _parse_into_dbt_column(self, column: Dict) -> DBTColumn:
@@ -327,12 +329,6 @@ class DBTCloudSource(DBTSourceBase):
             meta=column["meta"],
             tags=column["tags"],
         )
-
-    def load_tests(
-        self, test_nodes: List[DBTNode], all_nodes_map: Dict[str, DBTNode]
-    ) -> Iterable[MetadataWorkUnit]:
-        # TODO
-        return []
 
     def get_platform_instance_id(self) -> str:
         """The DBT project identifier is used as platform instance."""

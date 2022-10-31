@@ -2,15 +2,13 @@ import json
 import logging
 import re
 from datetime import datetime
-from typing import Any, Dict, Iterable, List, Optional, Tuple
+from typing import Any, Dict, List, Optional, Tuple
 from urllib.parse import urlparse
 
 import dateutil.parser
 import requests
 from pydantic import BaseModel, Field, validator
 
-from datahub.emitter import mce_builder
-from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.decorators import (
     SupportStatus,
     capability,
@@ -19,23 +17,15 @@ from datahub.ingestion.api.decorators import (
     support_status,
 )
 from datahub.ingestion.api.source import SourceCapability
-from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.aws.aws_common import AwsConnectionConfig
 from datahub.ingestion.source.dbt.dbt_common import (
-    DBT_PLATFORM,
     DBTColumn,
     DBTCommonConfig,
     DBTNode,
     DBTSourceBase,
     DBTSourceReport,
     DBTTest,
-    get_upstreams,
-)
-from datahub.metadata.schema_classes import (
-    AssertionResultClass,
-    AssertionResultTypeClass,
-    AssertionRunEventClass,
-    AssertionRunStatusClass,
+    DBTTestResult,
 )
 
 logger = logging.getLogger(__name__)
@@ -255,18 +245,18 @@ def extract_dbt_entities(
     return dbt_entities
 
 
-class DBTTestStep(BaseModel):
+class DBTRunTiming(BaseModel):
     name: Optional[str] = None
     started_at: Optional[str] = None
     completed_at: Optional[str] = None
 
 
-class DBTTestResult(BaseModel):
+class DBTRunResult(BaseModel):
     class Config:
         extra = "allow"
 
     status: str
-    timing: List[DBTTestStep] = []
+    timing: List[DBTRunTiming] = []
     unique_id: str
     failures: Optional[int] = None
     message: Optional[str] = None
@@ -282,91 +272,57 @@ class DBTRunMetadata(BaseModel):
 def load_test_results(
     config: DBTCommonConfig,
     test_results_json: Dict[str, Any],
-    test_nodes: List[DBTNode],
-    all_nodes_map: Dict[str, DBTNode],
-) -> Iterable[MetadataWorkUnit]:
-    if not config.entities_enabled.can_emit_test_results:
-        logger.debug("Skipping test result emission since it is turned off.")
-        return []
-
+    all_nodes: List[DBTNode],
+) -> List[DBTNode]:
     args = test_results_json.get("args", {})
     dbt_metadata = DBTRunMetadata.parse_obj(test_results_json.get("metadata", {}))
-    test_nodes_map: Dict[str, DBTNode] = {x.dbt_name: x for x in test_nodes}
+
+    test_nodes_map: Dict[str, DBTNode] = {
+        x.dbt_name: x for x in all_nodes if x.node_type == "test"
+    }
+
     if "test" in args.get("which", "") or "test" in args.get("rpc_method", ""):
         # this was a test run
         results = test_results_json.get("results", [])
         for result in results:
-            try:
-                test_result = DBTTestResult.parse_obj(result)
-                id = test_result.unique_id
-                test_node = test_nodes_map.get(id)
-                assert test_node, f"Failed to find test_node {id} in the catalog"
-                upstream_urns = get_upstreams(
-                    test_node.upstream_nodes,
-                    all_nodes_map,
-                    config.use_identifiers,
-                    config.target_platform,
-                    config.target_platform_instance,
-                    config.env,
-                    config.platform_instance,
-                    config.backcompat_skip_source_on_lineage_edge,
-                )
-                assertion_urn = mce_builder.make_assertion_urn(
-                    mce_builder.datahub_guid(
-                        {
-                            "platform": DBT_PLATFORM,
-                            "name": test_result.unique_id,
-                            "instance": config.platform_instance,
-                        }
-                    )
-                )
+            run_result = DBTRunResult.parse_obj(result)
+            id = run_result.unique_id
+            test_node = test_nodes_map.get(id)
+            if not test_node:
+                logger.debug(f"Failed to find test node {id} in the catalog")
+                continue
 
-                if test_result.status != "pass":
-                    native_results = {"message": test_result.message or ""}
-                    if test_result.failures:
-                        native_results.update({"failures": str(test_result.failures)})
-                else:
-                    native_results = {}
+            if run_result.status != "pass":
+                native_results = {"message": run_result.message or ""}
+                if run_result.failures:
+                    native_results.update({"failures": str(run_result.failures)})
+            else:
+                native_results = {}
 
-                stage_timings = {x.name: x.started_at for x in test_result.timing}
-                # look for execution start time, fall back to compile start time and finally generation time
-                execution_timestamp = (
-                    stage_timings.get("execute")
-                    or stage_timings.get("compile")
-                    or dbt_metadata.generated_at
-                )
+            stage_timings = {x.name: x.started_at for x in run_result.timing}
+            # look for execution start time, fall back to compile start time and finally generation time
+            execution_timestamp = (
+                stage_timings.get("execute")
+                or stage_timings.get("compile")
+                or dbt_metadata.generated_at
+            )
 
-                execution_timestamp_parsed = datetime.strptime(
-                    execution_timestamp, "%Y-%m-%dT%H:%M:%S.%fZ"
-                )
+            execution_timestamp_parsed = datetime.strptime(
+                execution_timestamp, "%Y-%m-%dT%H:%M:%S.%fZ"
+            )
 
-                for upstream in upstream_urns:
-                    assertionResult = AssertionRunEventClass(
-                        timestampMillis=int(
-                            execution_timestamp_parsed.timestamp() * 1000.0
-                        ),
-                        assertionUrn=assertion_urn,
-                        asserteeUrn=upstream,
-                        runId=dbt_metadata.invocation_id,
-                        result=AssertionResultClass(
-                            type=AssertionResultTypeClass.SUCCESS
-                            if test_result.status == "pass"
-                            else AssertionResultTypeClass.FAILURE,
-                            nativeResults=native_results,
-                        ),
-                        status=AssertionRunStatusClass.COMPLETE,
-                    )
+            test_result = DBTTestResult(
+                invocation_id=dbt_metadata.invocation_id,
+                status=run_result.status,
+                native_results=native_results,
+                execution_time=execution_timestamp_parsed,
+            )
 
-                    event = MetadataChangeProposalWrapper(
-                        entityUrn=assertion_urn,
-                        aspect=assertionResult,
-                    )
-                    yield MetadataWorkUnit(
-                        id=f"{assertion_urn}-assertionRunEvent-{upstream}",
-                        mcp=event,
-                    )
-            except Exception as e:
-                logger.debug(f"Failed to process test result {result} due to {e}")
+            assert test_node.test_info is not None
+            assert test_node.test_result is None
+            test_node.test_result = test_result
+
+    return all_nodes
 
 
 @platform_name("dbt")
@@ -508,18 +464,15 @@ class DBTCoreSource(DBTSourceBase):
             "catalog_version": catalog_version,
         }
 
-        return all_nodes, additional_custom_props
-
-    def load_tests(
-        self, test_nodes: List[DBTNode], all_nodes_map: Dict[str, DBTNode]
-    ) -> Iterable[MetadataWorkUnit]:
         if self.config.test_results_path:
-            yield from load_test_results(
+            # This will populate the test_results field on each test node.
+            all_nodes = load_test_results(
                 self.config,
                 self.load_file_as_json(self.config.test_results_path),
-                test_nodes,
-                all_nodes_map,
+                all_nodes,
             )
+
+        return all_nodes, additional_custom_props
 
     def get_platform_instance_id(self) -> str:
         """The DBT project identifier is used as platform instance."""

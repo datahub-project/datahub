@@ -93,6 +93,10 @@ from datahub.metadata.com.linkedin.pegasus2avro.schema import (
 )
 from datahub.metadata.schema_classes import (
     AssertionInfoClass,
+    AssertionResultClass,
+    AssertionResultTypeClass,
+    AssertionRunEventClass,
+    AssertionRunStatusClass,
     AssertionStdAggregationClass,
     AssertionStdOperatorClass,
     AssertionStdParameterClass,
@@ -382,6 +386,7 @@ class DBTNode:
     compiled_sql: Optional[str] = None
 
     test_info: Optional["DBTTest"] = None  # only populated if node_type == 'test'
+    test_result: Optional["DBTTestResult"] = None
 
     def get_db_fqn(self) -> str:
         if self.database:
@@ -644,6 +649,16 @@ class DBTTest:
     }
 
 
+@dataclass
+class DBTTestResult:
+    invocation_id: str
+
+    status: str
+    execution_time: datetime
+
+    native_results: Dict[str, str]
+
+
 def string_map(input_map: Dict[str, Any]) -> Dict[str, str]:
     return {k: str(v) for k, v in input_map.items()}
 
@@ -713,9 +728,6 @@ class DBTSourceBase(StatefulIngestionSourceBase):
         custom_props: Dict[str, str],
         all_nodes_map: Dict[str, DBTNode],
     ) -> Iterable[MetadataWorkUnit]:
-        if not self.config.entities_enabled.can_emit_node_type("test"):
-            return []
-
         for node in test_nodes:
             assertion_urn = mce_builder.make_assertion_urn(
                 mce_builder.datahub_guid(
@@ -731,14 +743,15 @@ class DBTSourceBase(StatefulIngestionSourceBase):
                 urn=assertion_urn,
             )
 
-            wu = MetadataChangeProposalWrapper(
-                entityUrn=assertion_urn,
-                aspect=DataPlatformInstanceClass(
-                    platform=mce_builder.make_data_platform_urn(DBT_PLATFORM)
-                ),
-            ).as_workunit()
-            self.report.report_workunit(wu)
-            yield wu
+            if self.config.entities_enabled.can_emit_node_type("test"):
+                wu = MetadataChangeProposalWrapper(
+                    entityUrn=assertion_urn,
+                    aspect=DataPlatformInstanceClass(
+                        platform=mce_builder.make_data_platform_urn(DBT_PLATFORM)
+                    ),
+                ).as_workunit()
+                self.report.report_workunit(wu)
+                yield wu
 
             upstream_urns = get_upstreams(
                 upstreams=node.upstream_nodes,
@@ -752,14 +765,27 @@ class DBTSourceBase(StatefulIngestionSourceBase):
             )
 
             for upstream_urn in upstream_urns:
-                wu = self._make_assertion_from_test(
-                    custom_props,
-                    node,
-                    assertion_urn,
-                    upstream_urn,
-                )
-                self.report.report_workunit(wu)
-                yield wu
+                if self.config.entities_enabled.can_emit_node_type("test"):
+                    wu = self._make_assertion_from_test(
+                        custom_props,
+                        node,
+                        assertion_urn,
+                        upstream_urn,
+                    )
+                    self.report.report_workunit(wu)
+                    yield wu
+
+                if node.test_result:
+                    if self.config.entities_enabled.can_emit_test_results:
+                        wu = self._make_assertion_result_from_test(
+                            node, assertion_urn, upstream_urn
+                        )
+                        self.report.report_workunit(wu)
+                        yield wu
+                    else:
+                        logger.debug(
+                            f"Skipping test result {node.name} emission since it is turned off."
+                        )
 
     def _make_assertion_from_test(
         self,
@@ -835,30 +861,50 @@ class DBTSourceBase(StatefulIngestionSourceBase):
                     nativeParameters=string_map(kw_args),
                 ),
             )
-        wu = MetadataWorkUnit(
-            id=f"{assertion_urn}-assertioninfo",
-            mcp=MetadataChangeProposalWrapper(
-                entityType="assertion",
-                entityUrn=assertion_urn,
-                changeType=ChangeTypeClass.UPSERT,
-                aspectName="assertionInfo",
-                aspect=assertion_info,
+
+        wu = MetadataChangeProposalWrapper(
+            entityUrn=assertion_urn,
+            aspect=assertion_info,
+        ).as_workunit()
+
+        return wu
+
+    def _make_assertion_result_from_test(
+        self,
+        node: DBTNode,
+        assertion_urn: str,
+        upstream_urn: str,
+    ) -> MetadataWorkUnit:
+        assert node.test_result
+        test_result = node.test_result
+
+        assertionResult = AssertionRunEventClass(
+            timestampMillis=int(test_result.execution_time.timestamp() * 1000.0),
+            assertionUrn=assertion_urn,
+            asserteeUrn=upstream_urn,
+            runId=test_result.invocation_id,
+            result=AssertionResultClass(
+                type=AssertionResultTypeClass.SUCCESS
+                if test_result.status == "pass"
+                else AssertionResultTypeClass.FAILURE,
+                nativeResults=test_result.native_results,
             ),
+            status=AssertionRunStatusClass.COMPLETE,
         )
 
+        event = MetadataChangeProposalWrapper(
+            entityUrn=assertion_urn,
+            aspect=assertionResult,
+        )
+        wu = MetadataWorkUnit(
+            id=f"{assertion_urn}-assertionRunEvent-{upstream_urn}",
+            mcp=event,
+        )
         return wu
 
     @abstractmethod
     def load_nodes(self) -> Tuple[List[DBTNode], Dict[str, Optional[str]]]:
         # return dbt nodes + global custom properties
-        raise NotImplementedError()
-
-    @abstractmethod
-    def load_tests(
-        self,
-        test_nodes: List[DBTNode],
-        all_nodes_map: Dict[str, DBTNode],
-    ) -> Iterable[MetadataWorkUnit]:
         raise NotImplementedError()
 
     # create workunits from dbt nodes
@@ -906,8 +952,6 @@ class DBTSourceBase(StatefulIngestionSourceBase):
             additional_custom_props_filtered,
             all_nodes_map,
         )
-
-        yield from self.load_tests(test_nodes, all_nodes_map)
 
         yield from self.stale_entity_removal_handler.gen_removed_entity_workunits()
 
