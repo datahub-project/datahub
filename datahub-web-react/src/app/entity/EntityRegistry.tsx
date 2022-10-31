@@ -142,6 +142,7 @@ export default class EntityRegistry {
                 siblingPlatforms: genericEntityProperties?.siblingPlatforms,
                 fineGrainedLineages: genericEntityProperties?.fineGrainedLineages,
                 schemaMetadata: genericEntityProperties?.schemaMetadata,
+                inputFields: genericEntityProperties?.inputFields,
             } as FetchedEntity) || undefined
         );
     }
