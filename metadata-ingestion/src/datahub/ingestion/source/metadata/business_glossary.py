@@ -28,7 +28,7 @@ logger = logging.getLogger(__name__)
 valid_status: models.StatusClass = models.StatusClass(removed=False)
 
 # This needed to map path presents in inherits, contains, values, and related_terms to terms' optional id
-path_vs_id: Dict[str, str] = {}
+path_vs_id: Dict[str, Optional[str]] = {}
 
 auditStamp = models.AuditStampClass(
     time=get_sys_time(), actor="urn:li:corpUser:restEmitter"
@@ -79,7 +79,9 @@ class DefaultConfig(ConfigModel):
 class BusinessGlossarySourceConfig(ConfigModel):
     file: str = Field(description="Path to business glossary file to ingest.")
     enable_auto_id: bool = Field(
-        description="Generate id field from GlossaryNode and GlossaryTerm's name field", default=False)
+        description="Generate id field from GlossaryNode and GlossaryTerm's name field",
+        default=False,
+    )
 
 
 class BusinessGlossaryConfig(DefaultConfig):
@@ -96,7 +98,7 @@ class BusinessGlossaryConfig(DefaultConfig):
 
 def create_id(path: List[str], default_id: Optional[str], enable_auto_id: bool) -> str:
     if default_id is not None:
-        return default_id   # No need to create id from path as default_id is provided
+        return default_id  # No need to create id from path as default_id is provided
 
     id_: str = ".".join(path)
     if enable_auto_id:
@@ -104,17 +106,25 @@ def create_id(path: List[str], default_id: Optional[str], enable_auto_id: bool) 
     return id_
 
 
-def make_glossary_node_urn(path: List[str], default_id: Optional[str], enable_auto_id: bool) -> str:
+def make_glossary_node_urn(
+    path: List[str], default_id: Optional[str], enable_auto_id: bool
+) -> str:
     if default_id is not None and default_id.startswith("urn:li:glossaryNode:"):
-        logger.debug(f"node's default_id({default_id}) is in urn format for path {path}. Returning same as urn")
+        logger.debug(
+            f"node's default_id({default_id}) is in urn format for path {path}. Returning same as urn"
+        )
         return default_id
 
     return "urn:li:glossaryNode:" + create_id(path, default_id, enable_auto_id)
 
 
-def make_glossary_term_urn(path: List[str], default_id: Optional[str], enable_auto_id: bool) -> str:
+def make_glossary_term_urn(
+    path: List[str], default_id: Optional[str], enable_auto_id: bool
+) -> str:
     if default_id is not None and default_id.startswith("urn:li:glossaryTerm:"):
-        logger.debug(f"term's default_id({default_id}) is in urn format for path {path}. Returning same as urn")
+        logger.debug(
+            f"term's default_id({default_id}) is in urn format for path {path}. Returning same as urn"
+        )
         return default_id
 
     return "urn:li:glossaryTerm:" + create_id(path, default_id, enable_auto_id)
@@ -142,7 +152,7 @@ def get_owners(owners: Owners) -> models.OwnershipClass:
 
 
 def get_mces(
-        glossary: BusinessGlossaryConfig, ingestion_config: BusinessGlossarySourceConfig
+    glossary: BusinessGlossaryConfig, ingestion_config: BusinessGlossarySourceConfig
 ) -> List[models.MetadataChangeEventClass]:
     events: List[models.MetadataChangeEventClass] = []
     path: List[str] = []
@@ -178,14 +188,16 @@ def get_mce_from_snapshot(snapshot: Any) -> models.MetadataChangeEventClass:
 
 
 def get_mces_from_node(
-        glossaryNode: GlossaryNodeConfig,
-        path: List[str],
-        parentNode: Optional[str],
-        parentOwners: models.OwnershipClass,
-        defaults: DefaultConfig,
-        ingestion_config: BusinessGlossarySourceConfig,
+    glossaryNode: GlossaryNodeConfig,
+    path: List[str],
+    parentNode: Optional[str],
+    parentOwners: models.OwnershipClass,
+    defaults: DefaultConfig,
+    ingestion_config: BusinessGlossarySourceConfig,
 ) -> List[models.MetadataChangeEventClass]:
-    node_urn = make_glossary_node_urn(path, glossaryNode.id, ingestion_config.enable_auto_id)
+    node_urn = make_glossary_node_urn(
+        path, glossaryNode.id, ingestion_config.enable_auto_id
+    )
     node_info = models.GlossaryNodeInfoClass(
         definition=glossaryNode.description,
         parentNode=parentNode,
@@ -226,14 +238,16 @@ def get_mces_from_node(
 
 
 def get_mces_from_term(
-        glossaryTerm: GlossaryTermConfig,
-        path: List[str],
-        parentNode: Optional[str],
-        parentOwnership: models.OwnershipClass,
-        defaults: DefaultConfig,
-        ingestion_config: BusinessGlossarySourceConfig,
+    glossaryTerm: GlossaryTermConfig,
+    path: List[str],
+    parentNode: Optional[str],
+    parentOwnership: models.OwnershipClass,
+    defaults: DefaultConfig,
+    ingestion_config: BusinessGlossarySourceConfig,
 ) -> List[models.MetadataChangeEventClass]:
-    term_urn = make_glossary_term_urn(path, glossaryTerm.id, ingestion_config.enable_auto_id)
+    term_urn = make_glossary_term_urn(
+        path, glossaryTerm.id, ingestion_config.enable_auto_id
+    )
     aspects: List[
         Union[
             models.GlossaryTermInfoClass,
@@ -261,46 +275,62 @@ def get_mces_from_term(
 
     is_a = None
     has_a = None
-    values: List[str] = None
-    related_terms: List[str] = None
+    values: Union[None, List[str]] = None
+    related_terms: Union[None, List[str]] = None
     if glossaryTerm.inherits is not None:
         assert glossaryTerm.inherits is not None
         is_a = [
-            make_glossary_term_urn([term], default_id=path_vs_id.get(term), enable_auto_id=ingestion_config.enable_auto_id)
+            make_glossary_term_urn(
+                [term],
+                default_id=path_vs_id.get(term),
+                enable_auto_id=ingestion_config.enable_auto_id,
+            )
             for term in glossaryTerm.inherits
         ]
     if glossaryTerm.contains is not None:
         assert glossaryTerm.contains is not None
         has_a = [
-            make_glossary_term_urn([term], default_id=path_vs_id.get(term), enable_auto_id=ingestion_config.enable_auto_id)
+            make_glossary_term_urn(
+                [term],
+                default_id=path_vs_id.get(term),
+                enable_auto_id=ingestion_config.enable_auto_id,
+            )
             for term in glossaryTerm.contains
         ]
     if glossaryTerm.values is not None:
         assert glossaryTerm.values is not None
         values = [
-            make_glossary_term_urn([term], default_id=path_vs_id.get(term), enable_auto_id=ingestion_config.enable_auto_id)
+            make_glossary_term_urn(
+                [term],
+                default_id=path_vs_id.get(term),
+                enable_auto_id=ingestion_config.enable_auto_id,
+            )
             for term in glossaryTerm.values
         ]
     if glossaryTerm.related_terms is not None:
         assert glossaryTerm.related_terms is not None
         related_terms = [
-            make_glossary_term_urn([term], default_id=path_vs_id.get(term), enable_auto_id=ingestion_config.enable_auto_id)
+            make_glossary_term_urn(
+                [term],
+                default_id=path_vs_id.get(term),
+                enable_auto_id=ingestion_config.enable_auto_id,
+            )
             for term in glossaryTerm.related_terms
         ]
 
     if (
-            is_a is not None
-            or has_a is not None
-            or values is not None
-            or related_terms is not None
+        is_a is not None
+        or has_a is not None
+        or values is not None
+        or related_terms is not None
     ):
-        related_terms = models.GlossaryRelatedTermsClass(
+        related_term_aspect = models.GlossaryRelatedTermsClass(
             isRelatedTerms=is_a,
             hasRelatedTerms=has_a,
             values=values,
             relatedTerms=related_terms,
         )
-        aspects.append(related_terms)
+        aspects.append(related_term_aspect)
 
     ownership: models.OwnershipClass = parentOwnership
     if glossaryTerm.owners is not None:
@@ -318,10 +348,10 @@ def get_mces_from_term(
     return [get_mce_from_snapshot(term_snapshot)]
 
 
-def populate_path_vs_id(glossary: BusinessGlossaryConfig):
+def populate_path_vs_id(glossary: BusinessGlossaryConfig) -> None:
     path: List[str] = []
 
-    def _process_child_terms(parent_node: GlossaryNodeConfig, path: List[str]):
+    def _process_child_terms(parent_node: GlossaryNodeConfig, path: List[str]) -> None:
         path_vs_id[".".join(path + [parent_node.name])] = parent_node.id
 
         if parent_node.terms:
@@ -338,7 +368,7 @@ def populate_path_vs_id(glossary: BusinessGlossaryConfig):
 
     if glossary.terms:
         for term in glossary.terms:
-            path_vs_id[".".join(path+[term.name])] = term.id
+            path_vs_id[".".join(path + [term.name])] = term.id
 
 
 @platform_name("Business Glossary")
