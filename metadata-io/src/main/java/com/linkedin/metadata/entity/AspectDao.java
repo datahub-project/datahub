@@ -71,7 +71,7 @@ public interface AspectDao {
         @Nonnull final Timestamp newTime,
         @Nullable final String newSystemMetadata,
         final Long nextVersion,
-        Long createdOn); // Parameter createdOn is part of eTag Variable/Header. In this function we should use it in order to implement conditional update.
+        Long updateIfCreatedOn); // Parameter createdOn is part of eTag Variable/Header. In this function we should use it in order to implement conditional update.
 
     void deleteAspect(@Nonnull final EntityAspect aspect);
 

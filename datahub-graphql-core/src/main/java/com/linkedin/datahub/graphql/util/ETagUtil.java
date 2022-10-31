@@ -15,7 +15,7 @@ public class ETagUtil {
     public static Map<String, Long> extractETag(String eTag) {
         Map<String, Long> createdOnMap = new HashMap<>();
         if (eTag != null) {
-            Arrays.stream(eTag.split(":"))
+            Arrays.stream(eTag.split(";"))
                     .forEach(item -> {
                         String[] values = item.split("=");
                         if (values.length == 2) {

@@ -115,10 +115,10 @@ public class EntitiesController {
     String actorUrnStr = authentication.getActor().toUrnStr();
 
     // ETAG Comment: eTag String is converted to Map and send to next level.
-    Map<String, Long> createdOnMap = ETagUtil.extractETag(eTag);
+    Map<String, Long> updateIfCreatedOnMap = ETagUtil.extractETag(eTag);
     List<Pair<String, Boolean>> responses = aspectRequests.stream()
         .map(MappingUtil::mapToProposal)
-        .map(proposal -> MappingUtil.ingestProposal(proposal, actorUrnStr,  _entityService, _objectMapper, createdOnMap.get(actorUrnStr)))
+        .map(proposal -> MappingUtil.ingestProposal(proposal, actorUrnStr,  _entityService, _objectMapper, updateIfCreatedOnMap.get(actorUrnStr)))
         .collect(Collectors.toList());
     if (responses.stream().anyMatch(Pair::getSecond)) {
       return ResponseEntity.status(HttpStatus.CREATED)
@@ -160,11 +160,11 @@ public class EntitiesController {
 
 
         // ETAG Comment: eTag String is converted to Map and send to next level.
-        Map<String, Long> createdOnMap = ETagUtil.extractETag(eTag);
+        Map<String, Long> updateIfCreatedOnMap = ETagUtil.extractETag(eTag);
         return ResponseEntity.ok(Collections.singletonList(RollbackRunResultDto.builder()
             .rowsRolledBack(deleteRequests.stream()
                 .map(MappingUtil::mapToProposal)
-                .map(proposal -> MappingUtil.ingestProposal(proposal, actorUrnStr, _entityService, _objectMapper, createdOnMap.get(actorUrnStr)))
+                .map(proposal -> MappingUtil.ingestProposal(proposal, actorUrnStr, _entityService, _objectMapper, updateIfCreatedOnMap.get(actorUrnStr)))
                 .filter(Pair::getSecond)
                 .map(Pair::getFirst)
                 .map(urnString -> new AspectRowSummary().urn(urnString))
