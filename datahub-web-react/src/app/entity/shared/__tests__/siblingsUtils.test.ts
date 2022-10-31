@@ -459,7 +459,7 @@ const searchResultWithSiblings = [
 
 describe('siblingUtils', () => {
     describe('combineEntityDataWithSiblings', () => {
-        it('combines my metadata with my siblings', () => {
+        it('combines my metadata with my siblings as primary', () => {
             const baseEntity = { dataset: datasetPrimaryWithSiblings };
             expect(baseEntity.dataset.usageStats).toBeNull();
             const combinedData = combineEntityDataWithSiblings(baseEntity);
@@ -476,6 +476,17 @@ describe('siblingUtils', () => {
 
             // will take secondary string properties in the case of empty string
             expect(combinedData.dataset.properties.description).toEqual('primary description');
+
+            // will stay primary
+            expect(combinedData.dataset.siblings.isPrimary).toBeTruthy();
+        });
+
+        it('combines my metadata with my siblings as secondary', () => {
+            const baseEntity = { dataset: datasetUnprimaryWithPrimarySiblings };
+            const combinedData = combineEntityDataWithSiblings(baseEntity);
+
+            // will stay secondary
+            expect(combinedData.dataset.siblings.isPrimary).toBeFalsy();
         });
     });
 
