@@ -1,4 +1,4 @@
-package com.linkedin.metadata.timeline.differ;
+package com.linkedin.metadata.timeline.eventgenerator;
 
 import com.datahub.util.RecordUtils;
 import com.github.fge.jsonpatch.JsonPatch;
@@ -17,13 +17,11 @@ import java.util.List;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 
-import static com.linkedin.metadata.Constants.DATASET_PROPERTIES_ASPECT_NAME;
-import static com.linkedin.metadata.timeline.differ.EditableDatasetPropertiesDiffer.DESCRIPTION_ADDED;
-import static com.linkedin.metadata.timeline.differ.EditableDatasetPropertiesDiffer.DESCRIPTION_CHANGED;
-import static com.linkedin.metadata.timeline.differ.EditableDatasetPropertiesDiffer.DESCRIPTION_REMOVED;
+import static com.linkedin.metadata.Constants.*;
+import static com.linkedin.metadata.timeline.eventgenerator.EditableDatasetPropertiesChangeEventGenerator.*;
 
 
-public class DatasetPropertiesDiffer implements AspectDiffer<DatasetProperties> {
+public class DatasetPropertiesChangeEventGenerator extends EntityChangeEventGenerator<DatasetProperties> {
   private static List<ChangeEvent> computeDiffs(DatasetProperties baseDatasetProperties,
       @Nonnull DatasetProperties targetDatasetProperties, @Nonnull String entityUrn, AuditStamp auditStamp) {
     List<ChangeEvent> changeEvents = new ArrayList<>();
@@ -32,8 +30,7 @@ public class DatasetPropertiesDiffer implements AspectDiffer<DatasetProperties> 
 
     if (baseDescription == null && targetDescription != null) {
       // Description added
-      changeEvents.add(ChangeEvent.builder()
-          .entityUrn(entityUrn)
+      changeEvents.add(ChangeEvent.builder().entityUrn(entityUrn)
           .category(ChangeCategory.DOCUMENTATION)
           .operation(ChangeOperation.ADD)
           .semVerChange(SemanticChangeType.MINOR)
