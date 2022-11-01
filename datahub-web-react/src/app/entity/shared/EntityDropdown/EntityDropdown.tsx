@@ -124,7 +124,7 @@ function EntityDropdown(props: Props) {
         ? platformPrivileges.manageGlossaries
         : me?.platformPrivileges.manageGlossaries;
     const pageUrl = window.location.href;
-    const isDeleteDisabled = !!entityData?.children?.count;
+    const isDeleteDisabled = !!entityData?.children?.total;
 
     /**
      * A default path to redirect to if the entity is deleted.
