@@ -27,6 +27,7 @@ import { EntityMenuItems } from '../shared/EntityDropdown/EntityDropdown';
 import { SidebarSiblingsSection } from '../shared/containers/profile/sidebar/SidebarSiblingsSection';
 import { DatasetStatsSummarySubHeader } from './profile/stats/stats/DatasetStatsSummarySubHeader';
 import { DatasetSearchSnippet } from './DatasetSearchSnippet';
+import { ChangeEventsTab } from '../shared/tabs/Dataset/Schema/ChangeEventsTab';
 
 const SUBTYPES = {
     VIEW: 'view',
@@ -171,6 +172,10 @@ export class DatasetEntity implements Entity<Dataset> {
                             );
                         },
                     },
+                },
+                {
+                    name: 'Change Events',
+                    component: ChangeEventsTab,
                 },
             ]}
             sidebarSections={[

@@ -1,0 +1,11 @@
+query getDatasetChangeEvents($input: GetDatasetChangeEventsInput!) {
+    getDatasetChangeEvents(input: $input) {
+        changedEventsList {
+            timestampMillis
+            actor
+            category
+            operation
+            description
+        }
+    }
+}
