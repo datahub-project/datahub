@@ -4,6 +4,7 @@ import com.google.common.collect.ImmutableList;
 import com.linkedin.gms.factory.recommendation.candidatesource.DomainsCandidateSourceFactory;
 import com.linkedin.gms.factory.recommendation.candidatesource.MostPopularCandidateSourceFactory;
 import com.linkedin.gms.factory.recommendation.candidatesource.RecentlyViewedCandidateSourceFactory;
+import com.linkedin.gms.factory.recommendation.candidatesource.RecentlyEditedCandidateSourceFactory;
 import com.linkedin.gms.factory.recommendation.candidatesource.TopPlatformsCandidateSourceFactory;
 import com.linkedin.gms.factory.recommendation.candidatesource.TopTagsCandidateSourceFactory;
 import com.linkedin.gms.factory.recommendation.candidatesource.TopTermsCandidateSourceFactory;
@@ -12,6 +13,7 @@ import com.linkedin.metadata.recommendation.candidatesource.DomainsCandidateSour
 import com.linkedin.metadata.recommendation.candidatesource.MostPopularSource;
 import com.linkedin.metadata.recommendation.candidatesource.RecentlySearchedSource;
 import com.linkedin.metadata.recommendation.candidatesource.RecentlyViewedSource;
+import com.linkedin.metadata.recommendation.candidatesource.RecentlyEditedSource;
 import com.linkedin.metadata.recommendation.candidatesource.RecommendationSource;
 import com.linkedin.metadata.recommendation.candidatesource.TopPlatformsSource;
 import com.linkedin.metadata.recommendation.candidatesource.TopTagsSource;
@@ -38,6 +40,10 @@ public class RecommendationServiceFactory {
   @Autowired
   @Qualifier("recentlyViewedCandidateSource")
   private RecentlyViewedSource recentlyViewedCandidateSource;
+
+  @Autowired
+  @Qualifier("recentlyEditedCandidateSource")
+  private RecentlyEditedSource recentlyEditedCandidateSource;
 
   @Autowired
   @Qualifier("mostPopularCandidateSource")
@@ -67,7 +73,7 @@ public class RecommendationServiceFactory {
     final List<RecommendationSource> candidateSources = ImmutableList.of(
         topPlatformsCandidateSource,
         domainsCandidateSource,
-        recentlyViewedCandidateSource, _mostPopularCandidateSource,
+        recentlyViewedCandidateSource, recentlyEditedCandidateSource, _mostPopularCandidateSource,
         topTagsCandidateSource, topTermsCandidateSource, recentlySearchedCandidateSource);
     return new RecommendationsService(candidateSources, new SimpleRecommendationRanker());
   }
