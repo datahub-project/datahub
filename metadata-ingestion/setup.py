@@ -201,6 +201,8 @@ delta_lake = {
     "deltalake",
 }
 
+powerbi_report_server = {"requests", "requests_ntlm"}
+
 usage_common = {
     "sqlparse",
 }
@@ -324,6 +326,7 @@ plugins: Dict[str, Set[str]] = {
     "starburst-trino-usage": sql_common | usage_common | trino,
     "nifi": {"requests", "packaging"},
     "powerbi": microsoft_common,
+    "powerbi-report-server": powerbi_report_server,
     "vertica": sql_common | {"sqlalchemy-vertica[vertica-python]==0.0.5"},
     "unity-catalog": databricks_cli | {"requests"},
 }
@@ -414,6 +417,7 @@ base_dev_requirements = {
             "hive",
             "starburst-trino-usage",
             "powerbi",
+            "powerbi-report-server",
             "vertica",
             "salesforce",
             "unity-catalog"
@@ -534,6 +538,7 @@ entry_points = {
         "starburst-trino-usage = datahub.ingestion.source.usage.starburst_trino_usage:TrinoUsageSource",
         "nifi = datahub.ingestion.source.nifi:NifiSource",
         "powerbi = datahub.ingestion.source.powerbi:PowerBiDashboardSource",
+        "powerbi-report-server = datahub.ingestion.source.powerbi_report_server:PowerBiReportServerDashboardSource",
         "iceberg = datahub.ingestion.source.iceberg.iceberg:IcebergSource",
         "vertica = datahub.ingestion.source.sql.vertica:VerticaSource",
         "presto-on-hive = datahub.ingestion.source.sql.presto_on_hive:PrestoOnHiveSource",
