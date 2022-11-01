@@ -249,10 +249,10 @@ class DBTCloudSource(DBTSourceBase):
 
         if node["resourceType"] == "model":
             materialization = node["materializedType"]
-            upstream_nodes = node["dependsOn"]
         else:
             materialization = None
-            upstream_nodes = []
+
+        upstream_nodes = node.get("dependsOn", [])
 
         catalog_type = node.get("type")
 
@@ -331,7 +331,7 @@ class DBTCloudSource(DBTSourceBase):
                     execution_time=datetime.now(),  # TODO: dbt Cloud doesn't expose this.
                     status=node["status"],
                     native_results={
-                        key: node[key]
+                        key: str(node[key])
                         for key in {
                             "columnName",
                             "error",

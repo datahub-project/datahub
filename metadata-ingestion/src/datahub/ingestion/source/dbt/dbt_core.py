@@ -144,11 +144,12 @@ def extract_dbt_entities(
             comment = all_catalog_entities[key]["metadata"]["comment"]
 
         materialization = None
-        upstream_nodes = []
-
         if "materialized" in manifest_node.get("config", {}):
             # It's a model
             materialization = manifest_node["config"]["materialized"]
+
+        upstream_nodes = []
+        if "depends_on" in manifest_node:
             upstream_nodes = manifest_node["depends_on"]["nodes"]
 
         # It's a source
