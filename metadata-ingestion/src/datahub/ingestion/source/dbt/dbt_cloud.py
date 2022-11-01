@@ -1,4 +1,5 @@
 import logging
+from datetime import datetime
 from json import JSONDecodeError
 from typing import Dict, List, Optional, Tuple
 
@@ -19,6 +20,8 @@ from datahub.ingestion.source.dbt.dbt_common import (
     DBTCommonConfig,
     DBTNode,
     DBTSourceBase,
+    DBTTest,
+    DBTTestResult,
 )
 
 logger = logging.getLogger(__name__)
@@ -288,9 +291,49 @@ class DBTCloudSource(DBTSourceBase):
         test_info = None
         test_result = None
         if node["resourceType"] == "test":
-            breakpoint()
-            test_info = TODO
-            test_result = TODO
+            qualified_test_name = name
+
+            # The qualified test name should be the test name from the dbt project.
+            # It can be simple (e.g. 'unique') or prefixed (e.g. 'dbt_expectations.expect_column_values_to_not_be_null').
+            # We attempt to guess the test name based on the macros used.
+            for dependency in node["dependsOn"]:
+                # An example dependsOn list could be:
+                #     ['model.sample_dbt.monthly_billing_with_cust', 'macro.dbt.test_not_null', 'macro.dbt.get_where_subquery']
+                # In that case, the test should be `not_null`.
+
+                if dependency.startswith("macro."):
+                    _, macro = dependency.split(".", 1)
+                    if macro.startswith("dbt."):
+                        if not macro.startswith("dbt.test_"):
+                            continue
+                        macro = macro[len("dbt.test_") :]
+
+                    qualified_test_name = macro
+                    break
+
+            test_info = DBTTest(
+                qualified_test_name=qualified_test_name,
+                column_name=node["columnName"],
+                kw_args={},  # TODO: dbt Cloud doesn't expose the args.
+            )
+            if not node["skip"]:
+                test_result = DBTTestResult(
+                    invocation_id=f"job{node['jobId']}-run{node['runId']}",
+                    execution_time=datetime.now(),  # TODO: dbt Cloud doesn't expose this.
+                    status=node["status"],
+                    native_results={
+                        key: node[key]
+                        for key in {
+                            "columnName",
+                            "error",
+                            "fail",
+                            "warn",
+                            "skip",
+                            "state",
+                            "status",
+                        }
+                    },
+                )
 
         return DBTNode(
             dbt_name=key,
