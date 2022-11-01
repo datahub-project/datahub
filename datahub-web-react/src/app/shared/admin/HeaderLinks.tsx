@@ -8,11 +8,14 @@ import {
     FolderOutlined,
     SolutionOutlined,
     DownOutlined,
+    QuestionCircleOutlined,
+    EditOutlined,
 } from '@ant-design/icons';
 import { Link } from 'react-router-dom';
 import { Button, Dropdown, Menu } from 'antd';
 import { useAppConfig } from '../../useAppConfig';
 import { useGetAuthenticatedUser } from '../../useGetAuthenticatedUser';
+import { env } from '../../../env';
 
 const LinkWrapper = styled.span`
     margin-right: 0px;
@@ -52,6 +55,7 @@ export function HeaderLinks(props: Props) {
     const showSettings = true;
     const showIngestion =
         isIngestionEnabled && me && me.platformPrivileges.manageIngestion && me.platformPrivileges.manageSecrets;
+    const showCreateDataset = true;
 
     return (
         <LinksWrapper areLinksHidden={areLinksHidden}>
@@ -93,6 +97,38 @@ export function HeaderLinks(props: Props) {
                 <LinkWrapper>
                     <Button type="text">
                         <SolutionOutlined /> Govern <DownOutlined style={{ fontSize: '6px' }} />
+                    </Button>
+                </LinkWrapper>
+            </Dropdown>
+            {showCreateDataset && (
+                <LinkWrapper>
+                    <Link to="/adhoc">
+                        <Button type="text">
+                            <EditOutlined /> Create Dataset
+                        </Button>
+                    </Link>
+                </LinkWrapper>
+            )}
+            <Dropdown
+                trigger={['click']}
+                overlay={
+                    <Menu>
+                        <MenuItem key="0">
+                            <a href={env.CONTACTUS} target="_blank" rel="noopener noreferrer">
+                                Contact Us
+                            </a>
+                        </MenuItem>
+                        <MenuItem key="1">
+                            <a href={env.FAQ} target="_blank" rel="noopener noreferrer">
+                                FAQ
+                            </a>
+                        </MenuItem>
+                    </Menu>
+                }
+            >
+                <LinkWrapper>
+                    <Button type="text">
+                        <QuestionCircleOutlined /> Helpful Links <DownOutlined style={{ fontSize: '6px' }} />
                     </Button>
                 </LinkWrapper>
             </Dropdown>
