@@ -216,7 +216,7 @@ plugins: Dict[str, Set[str]] = {
     "datahub-rest": {"requests"},
     # Integrations.
     "airflow": {
-        "apache-airflow >= 1.10.2",
+        "apache-airflow >= 2.0.2",
     },
     "circuit-breaker": {
         "gql>=3.3.0",
@@ -231,12 +231,13 @@ plugins: Dict[str, Set[str]] = {
     | bigquery_common
     | {"sqlalchemy-bigquery>=1.4.1", "sqllineage==1.3.6", "sqlparse"},
     "bigquery-usage-legacy": bigquery_common | usage_common | {"cachetools"},
-    "bigquery": sql_common
-    | bigquery_common
-    | {"sqllineage==1.3.6", "sql_metadata"},
+    "bigquery": sql_common | bigquery_common | {"sqllineage==1.3.6", "sql_metadata"},
     "bigquery-beta": sql_common
     | bigquery_common
-    | {"sqllineage==1.3.6", "sql_metadata"}, # deprecated, but keeping the extra for backwards compatibility
+    | {
+        "sqllineage==1.3.6",
+        "sql_metadata",
+    },  # deprecated, but keeping the extra for backwards compatibility
     "clickhouse": sql_common | {"clickhouse-sqlalchemy==0.1.8"},
     "clickhouse-usage": sql_common
     | usage_common
@@ -393,6 +394,7 @@ base_dev_requirements = {
             "delta-lake",
             "druid",
             "elasticsearch",
+            "feast",
             "iceberg",
             "ldap",
             "looker",
@@ -423,34 +425,10 @@ base_dev_requirements = {
     ),
 }
 
-base_dev_requirements_airflow_1 = base_dev_requirements.copy()
-
-base_dev_requirements = base_dev_requirements.union(
-    # The feast plugin is not compatible with Airflow 1, so we add it later.
-    {
-        dependency
-        for plugin in [
-            "feast",
-        ]
-        for dependency in plugins[plugin]
-    }
-)
-
-
 dev_requirements = {
     *base_dev_requirements,
     "apache-airflow[snowflake]>=2.0.2",  # snowflake is used in example dags
     "snowflake-sqlalchemy<=1.2.4",  # make constraint consistent with extras
-}
-dev_requirements_airflow_1_base = {
-    "apache-airflow==1.10.15",
-    "apache-airflow-backport-providers-snowflake",
-    "snowflake-sqlalchemy<=1.2.4",  # make constraint consistent with extras
-    "WTForms==2.3.3",  # make constraint consistent with extras
-}
-dev_requirements_airflow_1 = {
-    *base_dev_requirements_airflow_1,
-    *dev_requirements_airflow_1_base,
 }
 
 full_test_dev_requirements = {
@@ -622,8 +600,6 @@ setuptools.setup(
             )
         ),
         "dev": list(dev_requirements),
-        "dev-airflow1-base": list(dev_requirements_airflow_1_base),
-        "dev-airflow1": list(dev_requirements_airflow_1),
         "integration-tests": list(full_test_dev_requirements),
     },
 )
