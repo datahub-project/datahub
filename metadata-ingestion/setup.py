@@ -28,7 +28,7 @@ base_requirements = {
 }
 
 framework_common = {
-    "click>=6.0.0",
+    "click>=7.1.2",
     "click-default-group",
     "PyYAML",
     "toml>=0.10.0",
@@ -43,11 +43,9 @@ framework_common = {
     "tabulate",
     "progressbar2",
     "termcolor>=1.0.0",
-    "types-termcolor>=1.0.0",
     "psutil>=5.8.0",
     "ratelimiter",
     "Deprecated",
-    "types-Deprecated",
     "humanfriendly",
     "packaging",
     "aiohttp<4",
@@ -99,7 +97,6 @@ kafka_protobuf = {
     # Required to generate protobuf python modules from the schema downloaded from the schema registry
     "grpcio==1.44.0",
     "grpcio-tools==1.44.0",
-    "types-protobuf",
 }
 
 sql_common = {
@@ -356,6 +353,9 @@ mypy_stubs = {
     "types-pyOpenSSL",
     "types-click-spinner",
     "types-ujson>=5.2.0",
+    "types-termcolor>=1.0.0",
+    "types-Deprecated",
+    "types-protobuf",
 }
 
 base_dev_requirements = {
