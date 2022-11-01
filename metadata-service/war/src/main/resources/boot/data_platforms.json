@@ -516,16 +516,6 @@
     }
   },
   {
-    "urn": "urn:li:dataPlatform:powerbi-report-server",
-    "aspect": {
-      "datasetNameDelimiter": ".",
-      "name": "powerbi-report-server",
-      "displayName": "PowerBI Report Server",
-      "type": "OTHERS",
-      "logoUrl": "/assets/platforms/powerbireportserverlogo.png"
-      }
-  },
-  {
     "urn": "urn:li:dataPlatform:databricks",
     "aspect": {
       "datasetNameDelimiter": ".",
