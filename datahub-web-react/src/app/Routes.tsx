@@ -8,7 +8,6 @@ import { NoPageFound } from './shared/NoPageFound';
 import { PageRoutes } from '../conf/Global';
 import { isLoggedInVar } from './auth/checkAuthStatus';
 import { useTrackPageView } from './analytics';
-import { AdHocPage } from './create/AdHocPage';
 import { ProtectedRoutes } from './ProtectedRoutes';
 
 const ProtectedRoute = ({
@@ -37,7 +36,6 @@ export const Routes = (): JSX.Element => {
             <Route path={PageRoutes.LOG_IN} component={LogIn} />
             <Route path={PageRoutes.SIGN_UP} component={SignUp} />
             <Route path={PageRoutes.RESET_CREDENTIALS} component={ResetCredentials} />
-            <ProtectedRoute isLoggedIn={isLoggedIn} path={PageRoutes.ADHOC} render={() => <AdHocPage />} />
             <ProtectedRoute isLoggedIn={isLoggedIn} render={() => <ProtectedRoutes />} />
             {/* Starting the react app locally opens /assets by default. For a smoother dev experience, we'll redirect to the homepage */}
             <Route path={PageRoutes.ASSETS} component={() => <Redirect to="/" />} exact />
