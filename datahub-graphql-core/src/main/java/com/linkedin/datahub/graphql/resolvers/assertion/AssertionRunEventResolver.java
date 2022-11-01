@@ -94,7 +94,7 @@ public class AssertionRunEventResolver implements DataFetcher<CompletableFuture<
   }
 
   @Nullable
-  private Filter buildFilter(@Nullable FilterInput filtersInput, @Nullable final String status) {
+  public static Filter buildFilter(@Nullable FilterInput filtersInput, @Nullable final String status) {
     if (filtersInput == null && status == null) {
       return null;
     }
@@ -109,7 +109,7 @@ public class AssertionRunEventResolver implements DataFetcher<CompletableFuture<
       facetFilters.addAll(filtersInput.getAnd());
     }
     return new Filter().setOr(new ConjunctiveCriterionArray(new ConjunctiveCriterion().setAnd(new CriterionArray(facetFilters.stream()
-        .map(filter -> criterionFromFilter(filter))
+        .map(filter -> criterionFromFilter(filter, true))
         .collect(Collectors.toList())))));
   }
 }

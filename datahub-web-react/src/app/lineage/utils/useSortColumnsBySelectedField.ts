@@ -1,9 +1,11 @@
 import { useContext, useEffect } from 'react';
+import { SchemaField } from '../../../types.generated';
 import usePrevious from '../../shared/usePrevious';
 import { NUM_COLUMNS_PER_PAGE } from '../constants';
 import { FetchedEntity } from '../types';
 import {
     convertFieldsToV1FieldPath,
+    convertInputFieldsToSchemaFields,
     getHighlightedColumnsForNode,
     sortColumnsByDefault,
     sortRelatedLineageColumns,
@@ -19,7 +21,7 @@ export default function useSortColumnsBySelectedField(fetchedEntities: { [x: str
 
         if (selectedField && previousSelectedField !== selectedField) {
             Object.entries(columnsByUrn).forEach(([urn, columns]) => {
-                if (selectedField.urn !== urn && columns.length >= NUM_COLUMNS_PER_PAGE) {
+                if (selectedField.urn !== urn && columns.length > NUM_COLUMNS_PER_PAGE) {
                     const highlightedColumnsForNode = getHighlightedColumnsForNode(highlightedEdges, columns, urn);
 
                     if (highlightedColumnsForNode.length > 0) {
@@ -41,6 +43,15 @@ export default function useSortColumnsBySelectedField(fetchedEntities: { [x: str
                         updatedColumnsByUrn,
                         columns,
                         convertFieldsToV1FieldPath(fetchedEntity.schemaMetadata.fields),
+                        urn,
+                    );
+                } else if (fetchedEntity && fetchedEntity.inputFields) {
+                    updatedColumnsByUrn = sortColumnsByDefault(
+                        updatedColumnsByUrn,
+                        columns,
+                        convertFieldsToV1FieldPath(
+                            convertInputFieldsToSchemaFields(fetchedEntity.inputFields) as SchemaField[],
+                        ),
                         urn,
                     );
                 }
