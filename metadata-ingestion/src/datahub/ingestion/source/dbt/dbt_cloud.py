@@ -162,7 +162,7 @@ query DatahubMetadataQuery($jobId: Int!, $runId: Int) {{
 
 @platform_name("dbt")
 @config_class(DBTCloudConfig)
-@support_status(SupportStatus.CERTIFIED)
+@support_status(SupportStatus.INCUBATING)
 @capability(SourceCapability.DELETION_DETECTION, "Enabled via stateful ingestion")
 @capability(SourceCapability.LINEAGE_COARSE, "Enabled by default")
 @capability(SourceCapability.USAGE_STATS, "", supported=False)
