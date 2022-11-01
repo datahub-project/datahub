@@ -61,7 +61,6 @@ record GlossaryRelatedTerms {
     "/*": {
       "fieldName": "values",
       "fieldType": "URN",
-      "boostScore": 2.0
     }
   }
   values: optional array[GlossaryTermUrn]
@@ -72,7 +71,7 @@ record GlossaryRelatedTerms {
    */
   @Relationship = {
     "/*": {
-      "name": "isRelatedTo",
+      "name": "IsRelatedTo",
       "entityTypes": [ "glossaryTerm" ]
     }
   }
@@ -80,7 +79,6 @@ record GlossaryRelatedTerms {
     "/*": {
       "fieldName": "relatedTerms",
       "fieldType": "URN",
-      "boostScore": 2.0
     }
   }
   relatedTerms: optional array[GlossaryTermUrn]

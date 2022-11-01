@@ -16,7 +16,6 @@ record GlossaryTermInfo includes CustomProperties {
    */
   @Searchable = {
     "fieldType": "TEXT_PARTIAL",
-    "enableAutocomplete": true
   }
   id: optional string
 
