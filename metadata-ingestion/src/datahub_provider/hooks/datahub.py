@@ -95,7 +95,7 @@ class DatahubKafkaHook(BaseHook):
     hook_name = "DataHub Kafka Sink"
 
     def __init__(self, datahub_kafka_conn_id: str = default_conn_name) -> None:
-        super().__init__(*_default_hook_args)
+        super().__init__()
         self.datahub_kafka_conn_id = datahub_kafka_conn_id
 
     @staticmethod
@@ -178,7 +178,7 @@ class DatahubGenericHook(BaseHook):
     """
 
     def __init__(self, datahub_conn_id: str) -> None:
-        super().__init__(*_default_hook_args)
+        super().__init__()
         self.datahub_conn_id = datahub_conn_id
 
     def get_underlying_hook(self) -> Union[DatahubRestHook, DatahubKafkaHook]:
