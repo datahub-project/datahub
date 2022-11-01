@@ -159,10 +159,10 @@ export default function SchemaTable({
     function getCount(fieldPath: any) {
         const data: any =
             usageStats?.aggregations?.fields &&
-            usageStats?.aggregations?.fields.filter((field) => {
+            usageStats?.aggregations?.fields.find((field) => {
                 return field?.fieldName === fieldPath;
             });
-        return data && data[0]?.count;
+        return data && data.count;
     }
 
     const usageColumn = {
