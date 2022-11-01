@@ -339,18 +339,6 @@ def load_test_results(
 @capability(SourceCapability.USAGE_STATS, "", supported=False)
 class DBTCoreSource(DBTSourceBase):
     """
-    This plugin pulls metadata from dbt's artifact files and generates:
-    - dbt Tables: for nodes in the dbt manifest file that are models materialized as tables
-    - dbt Views: for nodes in the dbt manifest file that are models materialized as views
-    - dbt Ephemeral: for nodes in the dbt manifest file that are ephemeral models
-    - dbt Sources: for nodes that are sources on top of the underlying platform tables
-    - dbt Seed: for seed entities
-    - dbt Tests as Assertions: for dbt test entities (starting with version 0.8.38.1)
-
-    Note:
-    1. It also generates lineage between the `dbt` nodes (e.g. ephemeral nodes that depend on other dbt sources) as well as lineage between the `dbt` nodes and the underlying (target) platform nodes (e.g. BigQuery Table -> dbt Source, dbt View -> BigQuery View).
-    2. We also support automated actions (like add a tag, term or owner) based on properties defined in dbt meta.
-
     The artifacts used by this source are:
     - [dbt manifest file](https://docs.getdbt.com/reference/artifacts/manifest-json)
       - This file contains model, source, tests and lineage data.

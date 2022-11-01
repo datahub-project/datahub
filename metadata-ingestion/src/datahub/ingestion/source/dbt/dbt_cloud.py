@@ -26,31 +26,32 @@ from datahub.ingestion.source.dbt.dbt_common import (
 
 logger = logging.getLogger(__name__)
 
-DBT_METADATA_API_ENDPOINT = "https://metadata.cloud.getdbt.com/graphql"
-
 
 class DBTCloudConfig(DBTCommonConfig):
+    metadata_endpoint: str = Field(
+        default="https://metadata.cloud.getdbt.com/graphql",
+        description="The dbt Cloud metadata API endpoint.",
+    )
     token: str = Field(
         description="The API token to use to authenticate with DBT Cloud.",
     )
 
-    # In the URL https://cloud.getdbt.com/next/deploy/107298/projects/175705/jobs/148094,
-    # the job ID would be 148094.
+    # We don't actually need the account ID or project ID right now, but will
+    # need it once we start using the dbt Cloud admin API to list jobs/runs within a project.
+    # As such, I've preemptively added these fields to the config.
     account_id: int = Field(
         description="The DBT Cloud account ID to use.",
     )
     project_id: int = Field(
         description="The dbt Cloud project ID to use.",
     )
+
     job_id: int = Field(
         description="The ID of the job to ingest metadata from.",
     )
     run_id: Optional[int] = Field(
         description="The ID of the run to ingest metadata from. If not specified, we'll default to the latest run.",
     )
-
-    # TODO account id?
-    # TODO project id?
 
 
 _DBT_GRAPHQL_COMMON_FIELDS = """
@@ -85,14 +86,14 @@ _DBT_GRAPHQL_NODE_COMMON_FIELDS = """
     meta
   }
 
-  # TODO: We currently don't support this field.
-  stats {
-    id
-    label
-    description
-    include
-    value
-  }
+  # We don't currently support this field, but should in the future.
+  #stats {
+  #  id
+  #  label
+  #  description
+  #  include
+  #  value
+  #}
 """
 
 _DBT_GRAPHQL_MODEL_SEED_FIELDS = """
@@ -167,7 +168,9 @@ query DatahubMetadataQuery($jobId: Int!, $runId: Int) {{
 @capability(SourceCapability.USAGE_STATS, "", supported=False)
 class DBTCloudSource(DBTSourceBase):
     """
-    TODO docs
+    This source pulls dbt metadata directly from the dbt Cloud APIs.
+
+    You'll need to have a dbt Cloud job set up to run your dbt project, and "Generate docs on run" should be enabled.
     """
 
     config: DBTCloudConfig
@@ -177,16 +180,19 @@ class DBTCloudSource(DBTSourceBase):
         config = DBTCloudConfig.parse_obj(config_dict)
         return cls(config, ctx, "dbt")
 
-    # TODO: Add support for test_connection.
-
     def load_nodes(self) -> Tuple[List[DBTNode], Dict[str, Optional[str]]]:
-        # TODO: model dbt cloud runs as datahub DataProcesses or DataJobs
-        # TODO: figure out how to deal with jobs that only run part of the job
-        # TODO capture model creation failures?
+        # TODO: In dbt Cloud, commands are scheduled as part of jobs, where
+        # each job can have multiple runs. We currently only fully support
+        # jobs that do a full / mostly full build of the project, and will
+        # print out warnings if data is missing. In the future, it'd be nice
+        # to automatically detect all jobs that are part of a project and combine
+        # their metadata together.
+        # Additionally, we'd like to model dbt Cloud jobs/runs in DataHub
+        # as DataProcesses or DataJobs.
 
         logger.debug("Sending graphql request to the dbt Cloud metadata API")
         response = requests.post(
-            DBT_METADATA_API_ENDPOINT,
+            self.config.metadata_endpoint,
             json={
                 "query": _DBT_GRAPHQL_QUERY,
                 "variables": {
@@ -219,7 +225,13 @@ class DBTCloudSource(DBTSourceBase):
 
         nodes = [self._parse_into_dbt_node(node) for node in raw_nodes]
 
-        return nodes, {}
+        additional_metadata: Dict[str, Optional[str]] = {
+            "project_id": str(self.config.project_id),
+            "account_id": str(self.config.account_id),
+            "job_id": str(self.config.job_id),
+        }
+
+        return nodes, additional_metadata
 
     def _parse_into_dbt_node(self, node: Dict) -> DBTNode:
         key = node["uniqueId"]
@@ -229,7 +241,6 @@ class DBTCloudSource(DBTSourceBase):
             name = node["identifier"]
         if node["resourceType"] != "test" and node.get("alias"):
             name = node["alias"]
-        # TODO check sourceName for alternative source schema
 
         comment = node.get("comment", "")
         description = node["description"]
@@ -258,7 +269,7 @@ class DBTCloudSource(DBTSourceBase):
             status = node["status"]
             if status is None and materialization != "ephemeral":
                 self.report.report_warning(
-                    key, "node is missing a status, metadata will be incomplete"
+                    key, "node is missing a status, schema metadata will be incomplete"
                 )
 
             # The code fields are new in dbt 1.3, and replace the sql ones.
@@ -285,8 +296,6 @@ class DBTCloudSource(DBTSourceBase):
                 self._parse_into_dbt_column(column)
                 for column in sorted(node["columns"], key=lambda c: c["index"])
             ]
-
-        # TODO add project id, env, etc to custom metadata
 
         test_info = None
         test_result = None
