@@ -46,11 +46,6 @@ framework_common = {
     "types-termcolor>=1.0.0",
     "psutil>=5.8.0",
     "ratelimiter",
-    # Markupsafe breaking change broke Jinja and some other libs
-    # Pinning it to a version which works even though we are not using explicitly
-    # https://github.com/aws/aws-sam-cli/issues/3661
-    # Airflow compatibility: https://github.com/apache/airflow/blob/2.2.2/setup.cfg#L125
-    "markupsafe>=1.1.1,<=2.0.1",
     "Deprecated",
     "types-Deprecated",
     "humanfriendly",
@@ -111,7 +106,7 @@ sql_common = {
     # Required for all SQL sources.
     "sqlalchemy==1.3.24",
     # Required for SQL profiling.
-    "great-expectations>=0.15.12, <0.15.23",
+    "great-expectations>=0.15.12",
     # GE added handling for higher version of jinja2
     # https://github.com/great-expectations/great_expectations/pull/5382/files
     # datahub does not depend on traitlets directly but great expectations does.
@@ -136,6 +131,13 @@ path_spec_common = {
 looker_common = {
     # Looker Python SDK
     "looker-sdk==22.2.1",
+    # This version of lkml contains a fix for parsing lists in
+    # LookML files with spaces between an item and the following comma.
+    # See https://github.com/joshtemple/lkml/issues/73.
+    "lkml>=1.3.0b5",
+    "sql-metadata==2.2.2",
+    "sqllineage==1.3.6",
+    "GitPython>2",
 }
 
 bigquery_common = {
@@ -164,8 +166,9 @@ snowflake_common = {
 }
 
 trino = {
-    "trino>=0.308",
-    "trino[sqlalchemy]>=0.308",
+    # Trino 0.317 broke compatibility with SQLAlchemy 1.3.24.
+    # See https://github.com/trinodb/trino-python-client/issues/250.
+    "trino[sqlalchemy]>=0.308, !=0.317",
 }
 
 microsoft_common = {"msal==1.16.0"}
@@ -181,8 +184,8 @@ s3_base = {
     "parse>=1.19.0",
     "pyarrow>=6.0.1",
     "tableschema>=1.20.2",
-    "ujson>=4.3.0",
-    "types-ujson>=4.2.1",
+    # ujson 5.2.0 has the JSONDecodeError exception type, which we need for error handling.
+    "ujson>=5.2.0",
     "smart-open[s3]>=5.2.1",
     "moto[s3]",
     *path_spec_common,
@@ -202,6 +205,9 @@ usage_common = {
     "sqlparse",
 }
 
+databricks_cli = {
+    "databricks-cli==0.17.3",
+}
 
 # Note: for all of these, framework_common will be added.
 plugins: Dict[str, Set[str]] = {
@@ -221,13 +227,16 @@ plugins: Dict[str, Set[str]] = {
     # PyAthena is pinned with exact version because we use private method in PyAthena
     "athena": sql_common | {"PyAthena[SQLAlchemy]==2.4.1"},
     "azure-ad": set(),
-    "bigquery": sql_common
+    "bigquery-legacy": sql_common
     | bigquery_common
     | {"sqlalchemy-bigquery>=1.4.1", "sqllineage==1.3.6", "sqlparse"},
-    "bigquery-usage": bigquery_common | usage_common | {"cachetools"},
-    "bigquery-beta": sql_common
+    "bigquery-usage-legacy": bigquery_common | usage_common | {"cachetools"},
+    "bigquery": sql_common
     | bigquery_common
     | {"sqllineage==1.3.6", "sql_metadata"},
+    "bigquery-beta": sql_common
+    | bigquery_common
+    | {"sqllineage==1.3.6", "sql_metadata"}, # deprecated, but keeping the extra for backwards compatibility
     "clickhouse": sql_common | {"clickhouse-sqlalchemy==0.1.8"},
     "clickhouse-usage": sql_common
     | usage_common
@@ -261,22 +270,17 @@ plugins: Dict[str, Set[str]] = {
         # - 0.6.12 adds support for Spark Thrift Server
         "acryl-pyhive[hive]>=0.6.13",
         "databricks-dbapi",
+        # Due to https://github.com/great-expectations/great_expectations/issues/6146,
+        # we cannot allow 0.15.{23-26}. This was fixed in 0.15.27 by
+        # https://github.com/great-expectations/great_expectations/pull/6149.
+        "great-expectations != 0.15.23, != 0.15.24, != 0.15.25, != 0.15.26",
     },
     "iceberg": iceberg_common,
     "kafka": {*kafka_common, *kafka_protobuf},
     "kafka-connect": sql_common | {"requests", "JPype1"},
     "ldap": {"python-ldap>=2.4"},
     "looker": looker_common,
-    "lookml": looker_common
-    | {
-        # This version of lkml contains a fix for parsing lists in
-        # LookML files with spaces between an item and the following comma.
-        # See https://github.com/joshtemple/lkml/issues/73.
-        "lkml>=1.3.0b5",
-        "sql-metadata==2.2.2",
-        "sqllineage==1.3.6",
-        "GitPython>2",
-    },
+    "lookml": looker_common,
     "metabase": {"requests", "sqllineage==1.3.6"},
     "mode": {"requests", "sqllineage==1.3.6", "tenacity>=8.0.1"},
     "mongodb": {"pymongo[srv]>=3.11", "packaging"},
@@ -321,6 +325,7 @@ plugins: Dict[str, Set[str]] = {
     "nifi": {"requests", "packaging"},
     "powerbi": microsoft_common,
     "vertica": sql_common | {"sqlalchemy-vertica[vertica-python]==0.0.5"},
+    "unity-catalog": databricks_cli | {"requests"},
 }
 
 all_exclude_plugins: Set[str] = {
@@ -349,6 +354,7 @@ mypy_stubs = {
     "types-pytz",
     "types-pyOpenSSL",
     "types-click-spinner",
+    "types-ujson>=5.2.0",
 }
 
 base_dev_requirements = {
@@ -369,7 +375,7 @@ base_dev_requirements = {
     "pytest>=6.2.2",
     "pytest-asyncio>=0.16.0",
     "pytest-cov>=2.8.1",
-    "pytest-docker>=0.10.3,<0.12",
+    "pytest-docker[docker-compose-v1]>=1.0.1",
     "deepdiff",
     "requests-mock",
     "freezegun",
@@ -380,7 +386,8 @@ base_dev_requirements = {
         dependency
         for plugin in [
             "bigquery",
-            "bigquery-usage",
+            "bigquery-legacy",
+            "bigquery-usage-legacy",
             "clickhouse",
             "clickhouse-usage",
             "delta-lake",
@@ -408,7 +415,8 @@ base_dev_requirements = {
             "starburst-trino-usage",
             "powerbi",
             "vertica",
-            "salesforce"
+            "salesforce",
+            "unity-catalog"
             # airflow is added below
         ]
         for dependency in plugins[plugin]
@@ -481,9 +489,9 @@ entry_points = {
         "sqlalchemy = datahub.ingestion.source.sql.sql_generic:SQLAlchemyGenericSource",
         "athena = datahub.ingestion.source.sql.athena:AthenaSource",
         "azure-ad = datahub.ingestion.source.identity.azure_ad:AzureADSource",
-        "bigquery = datahub.ingestion.source.sql.bigquery:BigQuerySource",
-        "bigquery-beta = datahub.ingestion.source.bigquery_v2.bigquery:BigqueryV2Source",
-        "bigquery-usage = datahub.ingestion.source.usage.bigquery_usage:BigQueryUsageSource",
+        "bigquery-legacy = datahub.ingestion.source.sql.bigquery:BigQuerySource",
+        "bigquery = datahub.ingestion.source.bigquery_v2.bigquery:BigqueryV2Source",
+        "bigquery-usage-legacy = datahub.ingestion.source.usage.bigquery_usage:BigQueryUsageSource",
         "clickhouse = datahub.ingestion.source.sql.clickhouse:ClickHouseSource",
         "clickhouse-usage = datahub.ingestion.source.usage.clickhouse_usage:ClickHouseUsageSource",
         "delta-lake = datahub.ingestion.source.delta_lake:DeltaLakeSource",
@@ -531,6 +539,7 @@ entry_points = {
         "presto-on-hive = datahub.ingestion.source.sql.presto_on_hive:PrestoOnHiveSource",
         "pulsar = datahub.ingestion.source.pulsar:PulsarSource",
         "salesforce = datahub.ingestion.source.salesforce:SalesforceSource",
+        "unity-catalog = datahub.ingestion.source.unity.source:UnityCatalogSource",
     ],
     "datahub.ingestion.sink.plugins": [
         "file = datahub.ingestion.sink.file:FileSink",

@@ -12,8 +12,6 @@ import com.linkedin.common.urn.Urn;
 import com.typesafe.config.Config;
 import java.io.UnsupportedEncodingException;
 import java.net.URLEncoder;
-import java.time.Duration;
-import java.time.temporal.ChronoUnit;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Optional;
@@ -41,6 +39,8 @@ import static org.pac4j.core.client.IndirectClient.*;
 public class AuthenticationController extends Controller {
 
     private static final String AUTH_REDIRECT_URI_PARAM = "redirect_uri";
+    private static final String ERROR_MESSAGE_URI_PARAM = "error_msg";
+    private static final String SSO_DISABLED_ERROR_MESSAGE = "SSO is not configured";
 
     private final Logger _logger = LoggerFactory.getLogger(AuthenticationController.class.getName());
     private final Config _configs;
@@ -105,6 +105,17 @@ public class AuthenticationController extends Controller {
     }
 
     /**
+     * Redirect to the identity provider for authentication.
+     */
+    @Nonnull
+    public Result sso() {
+        if (_ssoManager.isSsoEnabled()) {
+            return redirectToIdentityProvider();
+        }
+        return redirect(LOGIN_ROUTE + String.format("?%s=%s", ERROR_MESSAGE_URI_PARAM, SSO_DISABLED_ERROR_MESSAGE));
+    }
+
+    /**
      * Log in a user based on a username + password.
      *
      * TODO: Implement built-in support for LDAP auth. Currently dummy jaas authentication is the default.
@@ -141,12 +152,7 @@ public class AuthenticationController extends Controller {
 
         final Urn actorUrn = new CorpuserUrn(username);
         final String accessToken = _authClient.generateSessionTokenForUser(actorUrn.getId());
-        Result result = ok().withSession(createSessionMap(actorUrn.toString(), accessToken))
-            .withCookies(Http.Cookie.builder(ACTOR, actorUrn.toString())
-                .withHttpOnly(false)
-                .withMaxAge(Duration.of(30, ChronoUnit.DAYS))
-                .build());
-        return result;
+        return createSession(actorUrn.toString(), accessToken);
     }
 
     /**
@@ -200,11 +206,7 @@ public class AuthenticationController extends Controller {
         final String userUrnString = userUrn.toString();
         _authClient.signUp(userUrnString, fullName, email, title, password, inviteToken);
         final String accessToken = _authClient.generateSessionTokenForUser(userUrn.getId());
-        return ok().withSession(createSessionMap(userUrnString, accessToken))
-            .withCookies(Http.Cookie.builder(ACTOR, userUrnString)
-                .withHttpOnly(false)
-                .withMaxAge(Duration.of(30, ChronoUnit.DAYS))
-                .build());
+        return createSession(userUrnString, accessToken);
     }
 
     /**
@@ -246,11 +248,7 @@ public class AuthenticationController extends Controller {
         final String userUrnString = userUrn.toString();
         _authClient.resetNativeUserCredentials(userUrnString, password, resetToken);
         final String accessToken = _authClient.generateSessionTokenForUser(userUrn.getId());
-        return ok().withSession(createSessionMap(userUrnString, accessToken))
-            .withCookies(Http.Cookie.builder(ACTOR, userUrnString)
-                .withHttpOnly(false)
-                .withMaxAge(Duration.of(30, ChronoUnit.DAYS))
-                .build());
+        return createSession(userUrnString, accessToken);
     }
 
     private Result redirectToIdentityProvider() {
@@ -307,6 +305,13 @@ public class AuthenticationController extends Controller {
         }
 
         return loginSucceeded;
+    }
+
+    private Result createSession(String userUrnString, String accessToken) {
+        int ttlInHours = _configs.hasPath(SESSION_TTL_CONFIG_PATH) ? _configs.getInt(SESSION_TTL_CONFIG_PATH)
+            : DEFAULT_SESSION_TTL_HOURS;
+        return ok().withSession(createSessionMap(userUrnString, accessToken))
+            .withCookies(createActorCookie(userUrnString, ttlInHours));
     }
 
     private Map<String, String> createSessionMap(final String userUrnStr, final String accessToken) {
