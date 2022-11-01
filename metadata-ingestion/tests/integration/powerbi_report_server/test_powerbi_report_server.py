@@ -177,7 +177,9 @@ def default_source_config():
 @freeze_time(FROZEN_TIME)
 @mock.patch("requests_ntlm.HttpNtlmAuth")
 def test_powerbi_ingest(mock_msal, pytestconfig, tmp_path, mock_time, requests_mock):
-    test_resources_dir = pytestconfig.rootpath / "tests/integration/powerbi_report_server"
+    test_resources_dir = (
+        pytestconfig.rootpath / "tests/integration/powerbi_report_server"
+    )
 
     register_mock_api(request_mock=requests_mock)
 

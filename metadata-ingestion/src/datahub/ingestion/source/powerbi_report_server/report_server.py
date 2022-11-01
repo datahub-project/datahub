@@ -460,13 +460,14 @@ class PowerBiReportServerDashboardSourceReport(SourceReport):
         self.filtered_reports.append(view)
 
 
-@platform_name("PowerBI Report Server")
+@platform_name("PowerBI")
 @config_class(PowerBiReportServerDashboardSourceConfig)
-@support_status(SupportStatus.UNKNOWN)
+@support_status(SupportStatus.INCUBATING)
 @capability(SourceCapability.OWNERSHIP, "Enabled by default")
 class PowerBiReportServerDashboardSource(Source):
     """
-    This plugin extracts the following:
+    Use this plugin to connect to [PowerBI Report Server](https://powerbi.microsoft.com/en-us/report-server/).
+    It extracts the following:
 
     Metadata that can be ingested:
        - report name
