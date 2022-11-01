@@ -151,7 +151,7 @@ query DatahubMetadataQuery($jobId: Int!, $runId: Int) {{
     compiledCode
   }}
 
-  # TODO: Currently unsupported dbt node types:
+  # Currently unsupported dbt node types:
   # - metrics
   # - snapshots
   # - exposures
@@ -160,7 +160,7 @@ query DatahubMetadataQuery($jobId: Int!, $runId: Int) {{
 
 
 @platform_name("dbt")
-@config_class(DBTCommonConfig)
+@config_class(DBTCloudConfig)
 @support_status(SupportStatus.CERTIFIED)
 @capability(SourceCapability.DELETION_DETECTION, "Enabled via stateful ingestion")
 @capability(SourceCapability.LINEAGE_COARSE, "Enabled by default")

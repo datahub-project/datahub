@@ -332,7 +332,7 @@ def load_test_results(
 
 
 @platform_name("dbt")
-@config_class(DBTCommonConfig)
+@config_class(DBTCoreConfig)
 @support_status(SupportStatus.CERTIFIED)
 @capability(SourceCapability.DELETION_DETECTION, "Enabled via stateful ingestion")
 @capability(SourceCapability.LINEAGE_COARSE, "Enabled by default")
