@@ -574,13 +574,6 @@ def make_description_from_params(description, formula):
     return final_description
 
 
-def get_field_value_in_sheet(field, field_name):
-    if field.get("__typename", "") == "DatasourceField":
-        field = field.get("remoteField") or {}
-
-    return field.get(field_name, "")
-
-
 def get_unique_custom_sql(custom_sql_list: List[dict]) -> List[dict]:
     unique_custom_sql = []
     for custom_sql in custom_sql_list:
