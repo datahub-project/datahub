@@ -11,14 +11,13 @@ import {
     PlusOutlined,
 } from '@ant-design/icons';
 import { Redirect } from 'react-router';
-import { EntityType, PlatformPrivileges } from '../../../../types.generated';
+import { EntityType } from '../../../../types.generated';
 import CreateGlossaryEntityModal from './CreateGlossaryEntityModal';
 import { UpdateDeprecationModal } from './UpdateDeprecationModal';
 import { useUpdateDeprecationMutation } from '../../../../graphql/mutations.generated';
 import MoveGlossaryEntityModal from './MoveGlossaryEntityModal';
 import { ANTD_GRAY } from '../constants';
 import { useEntityRegistry } from '../../../useEntityRegistry';
-import { useGetAuthenticatedUser } from '../../../useGetAuthenticatedUser';
 import useDeleteEntity from './useDeleteEntity';
 import { getEntityProfileDeleteRedirectPath } from '../../../shared/deleteUtils';
 
