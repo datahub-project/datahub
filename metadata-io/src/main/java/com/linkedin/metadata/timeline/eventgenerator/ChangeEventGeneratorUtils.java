@@ -1,4 +1,4 @@
-package com.linkedin.metadata.timeline.differ;
+package com.linkedin.metadata.timeline.eventgenerator;
 
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
@@ -14,7 +14,7 @@ import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
 
 
-public class DifferUtils {
+public class ChangeEventGeneratorUtils {
 
   public static Urn getSchemaFieldUrn(@Nonnull String datasetUrnStr, @Nonnull String schemaFieldPath) {
     return UrnUtils.getUrn(String.format("urn:li:schemaField:(%s,%s)", datasetUrnStr, schemaFieldPath));
@@ -81,5 +81,5 @@ public class DifferUtils {
         .collect(Collectors.toList());
   }
 
-  private DifferUtils() { }
+  private ChangeEventGeneratorUtils() { }
 }

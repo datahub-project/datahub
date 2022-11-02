@@ -30,6 +30,7 @@ query getGlossaryNode($urn: String!) {
                 count: 10000
             }
         ) {
+            total
             relationships {
                 direction
                 entity {

@@ -1,15 +1,12 @@
-package com.linkedin.metadata.timeline.differ;
+package com.linkedin.metadata.timeline.eventgenerator;
 
-import com.github.fge.jsonpatch.JsonPatch;
 import com.google.common.collect.ImmutableList;
 import com.linkedin.common.AuditStamp;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.domain.Domains;
-import com.linkedin.metadata.entity.EntityAspect;
 import com.linkedin.metadata.timeline.data.ChangeCategory;
 import com.linkedin.metadata.timeline.data.ChangeEvent;
 import com.linkedin.metadata.timeline.data.ChangeOperation;
-import com.linkedin.metadata.timeline.data.ChangeTransaction;
 import com.linkedin.metadata.timeline.data.entity.DomainChangeEvent;
 import java.util.Collections;
 import java.util.List;
@@ -21,30 +18,14 @@ import javax.annotation.Nullable;
  * This is a simple differ that compares to Domains aspects and assumes that each domain
  * will have a single domain (currently the semantic contract).
  */
-public class SingleDomainDiffer implements AspectDiffer<Domains> {
+public class SingleDomainChangeEventGenerator extends EntityChangeEventGenerator<Domains> {
   @Override
-  public ChangeTransaction getSemanticDiff(EntityAspect previousValue, EntityAspect currentValue,
-      ChangeCategory element, JsonPatch rawDiff, boolean rawDiffsRequested) {
-
-    // TODO: Migrate away from using getSemanticDiff.
-    throw new UnsupportedOperationException();
-  }
-
-  @Override
-  public List<ChangeEvent> getChangeEvents(
-      @Nonnull Urn urn,
-      @Nonnull String entity,
-      @Nonnull String aspect,
-      @Nonnull Aspect<Domains> from,
-      @Nonnull Aspect<Domains> to,
-      @Nonnull AuditStamp auditStamp) {
+  public List<ChangeEvent> getChangeEvents(@Nonnull Urn urn, @Nonnull String entity, @Nonnull String aspect,
+      @Nonnull Aspect<Domains> from, @Nonnull Aspect<Domains> to, @Nonnull AuditStamp auditStamp) {
     return computeDiffs(from.getValue(), to.getValue(), urn.toString(), auditStamp);
   }
 
-  private List<ChangeEvent> computeDiffs(
-      Domains baseDomains,
-      Domains targetDomains,
-      String entityUrn,
+  private List<ChangeEvent> computeDiffs(Domains baseDomains, Domains targetDomains, String entityUrn,
       AuditStamp auditStamp) {
 
     // Simply fetch the first element from each domains list and compare. If they are different, emit
