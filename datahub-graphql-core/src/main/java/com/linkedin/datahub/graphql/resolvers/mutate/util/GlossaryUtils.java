@@ -85,4 +85,14 @@ public class GlossaryUtils {
       throw new RuntimeException("Failed to fetch Glossary Term to check for privileges", e);
     }
   }
+
+  public static Urn getParentUrn(Urn urn, QueryContext context, EntityClient entityClient) {
+    switch (urn.getEntityType()) {
+      case Constants.GLOSSARY_TERM_ENTITY_NAME:
+        return getTermParentUrn(urn, context, entityClient);
+      case Constants.GLOSSARY_NODE_ENTITY_NAME:
+        return getNodeParentUrn(urn, context, entityClient);
+    }
+    return null;
+  }
 }

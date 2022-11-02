@@ -29,7 +29,7 @@ public class DeleteGlossaryEntityResolver implements DataFetcher<CompletableFutu
   public CompletableFuture<Boolean> get(final DataFetchingEnvironment environment) throws Exception {
     final QueryContext context = environment.getContext();
     final Urn entityUrn = Urn.createFromString(environment.getArgument("urn"));
-    final Urn parentNodeUrn = getParentNodeUrn(entityUrn, context);
+    final Urn parentNodeUrn = GlossaryUtils.getParentUrn(entityUrn, context, _entityClient);
 
     return CompletableFuture.supplyAsync(() -> {
       if (GlossaryUtils.canManageGlossaryEntity(environment.getContext(), parentNodeUrn)) {
@@ -56,15 +56,6 @@ public class DeleteGlossaryEntityResolver implements DataFetcher<CompletableFutu
       }
       throw new AuthorizationException("Unauthorized to perform this action. Please contact your DataHub administrator.");
     });
-  }
-
-  private Urn getParentNodeUrn(Urn entityUrn, QueryContext context) {
-    if (entityUrn.getEntityType().equals(Constants.GLOSSARY_TERM_ENTITY_NAME)) {
-      return GlossaryUtils.getTermParentUrn(entityUrn, context, _entityClient);
-    } else if (entityUrn.getEntityType().equals(Constants.GLOSSARY_NODE_ENTITY_NAME)) {
-      return GlossaryUtils.getNodeParentUrn(entityUrn, context, _entityClient);
-    }
-    return null;
   }
 }
 
