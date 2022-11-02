@@ -109,14 +109,6 @@ task testSingle(dependsOn: [installDevTest]) {
   }
 }
 
-task installAirflow1(type: Exec, dependsOn: [install]) {
-  inputs.file file('setup.py')
-  outputs.dir("${venv_name}")
-  outputs.file("${venv_name}/.build_install_airflow_sentinel")
-  commandLine 'bash', '-x', '-c',
-    "${venv_name}/bin/pip install -e .[dev-airflow1] -c tests/airflow1-constraints.txt && touch ${venv_name}/.build_install_airflow_sentinel"
-}
-
 task testIntegration(type: Exec, dependsOn: [installDevTest]) {
   commandLine 'bash', '-c',
     "source ${venv_name}/bin/activate && pytest --durations=50 -m 'integration' -vv --continue-on-collection-errors --junit-xml=junit.integration.xml"

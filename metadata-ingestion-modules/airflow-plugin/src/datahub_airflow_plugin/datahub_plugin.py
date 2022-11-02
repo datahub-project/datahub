@@ -11,7 +11,7 @@ from airflow.utils.module_loading import import_string
 from cattr import structure
 from datahub.api.entities.dataprocess.dataprocess_instance import InstanceRunResult
 from datahub_provider.client.airflow_generator import AirflowGenerator
-from datahub_provider.hooks.datahub import AIRFLOW_1, DatahubGenericHook
+from datahub_provider.hooks.datahub import DatahubGenericHook
 from datahub_provider.lineage.datahub import DatahubLineageConfig
 
 
@@ -40,38 +40,6 @@ def get_lineage_config() -> DatahubLineageConfig:
 
 def get_inlets_from_task(task: BaseOperator, context: Any) -> Iterable[Any]:
     inlets = []
-    needs_repeat_preparation = False
-    if (
-        not AIRFLOW_1
-        and isinstance(task._inlets, list)
-        and len(task._inlets) == 1
-        and isinstance(task._inlets[0], dict)
-    ):
-        # This is necessary to avoid issues with circular imports.
-        from airflow.lineage import AUTO, prepare_lineage
-
-        task._inlets = [
-            # See https://airflow.apache.org/docs/apache-airflow/1.10.15/lineage.html.
-            *task._inlets[0].get("datasets", []),  # assumes these are attr-annotated
-            *task._inlets[0].get("task_ids", []),
-            *([AUTO] if task._inlets[0].get("auto", False) else []),
-        ]
-        needs_repeat_preparation = True
-
-        if (
-            not AIRFLOW_1
-            and isinstance(task._outlets, list)
-            and len(task._outlets) == 1
-            and isinstance(task._outlets[0], dict)
-        ):
-            task._outlets = [*task._outlets[0].get("datasets", [])]
-            needs_repeat_preparation = True
-        if needs_repeat_preparation:
-            # Rerun the lineage preparation routine, now that the old format has been translated to the new one.
-            prepare_lineage(lambda self, ctx: None)(task, context)
-
-        context = context or {}  # ensure not None to satisfy mypy
-
     if isinstance(task._inlets, (str, BaseOperator)) or attr.has(task._inlets):  # type: ignore
         inlets = [
             task._inlets,
@@ -370,25 +338,11 @@ def _wrap_task_policy(policy):
     return custom_task_policy
 
 
-def set_airflow2_policies(settings):
+def _patch_policy(settings):
+    print("Patching datahub policy")
     if hasattr(settings, "task_policy"):
         datahub_task_policy = _wrap_task_policy(settings.task_policy)
         settings.task_policy = datahub_task_policy
-
-
-def set_airflow1_policies(settings):
-    if hasattr(settings, "policy"):
-        datahub_task_policy = _wrap_task_policy(settings.policy)
-        settings.policy = datahub_task_policy
-
-
-def _patch_policy(settings):
-    if AIRFLOW_1:
-        print("Patching datahub policy for Airflow 1")
-        set_airflow1_policies(settings)
-    else:
-        print("Patching datahub policy for Airflow 2")
-        set_airflow2_policies(settings)
 
 
 def _patch_datahub_policy():
