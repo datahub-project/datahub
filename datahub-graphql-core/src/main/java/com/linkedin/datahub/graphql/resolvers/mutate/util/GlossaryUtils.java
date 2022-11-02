@@ -14,6 +14,7 @@ import com.linkedin.glossary.GlossaryTermInfo;
 import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.authorization.PoliciesConfig;
 import com.linkedin.r2.RemoteInvocationException;
+import lombok.extern.slf4j.Slf4j;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -22,6 +23,7 @@ import java.util.Optional;
 
 import static com.linkedin.datahub.graphql.resolvers.AuthUtils.ALL_PRIVILEGES_GROUP;
 
+@Slf4j
 public class GlossaryUtils {
 
   private GlossaryUtils() { }
@@ -60,7 +62,7 @@ public class GlossaryUtils {
     try {
       EntityResponse response = entityClient.getV2(Constants.GLOSSARY_TERM_ENTITY_NAME, termUrn,
           ImmutableSet.of(Constants.GLOSSARY_TERM_INFO_ASPECT_NAME), context.getAuthentication());
-      if (response.getAspects().get(Constants.GLOSSARY_TERM_INFO_ASPECT_NAME) != null) {
+      if (response != null && response.getAspects().get(Constants.GLOSSARY_TERM_INFO_ASPECT_NAME) != null) {
         GlossaryTermInfo termInfo = new GlossaryTermInfo(response.getAspects()
             .get(Constants.GLOSSARY_TERM_INFO_ASPECT_NAME).getValue().data());
         return termInfo.getParentNode();
@@ -75,7 +77,7 @@ public class GlossaryUtils {
     try {
       EntityResponse response = entityClient.getV2(Constants.GLOSSARY_NODE_ENTITY_NAME, nodeUrn,
           ImmutableSet.of(Constants.GLOSSARY_NODE_INFO_ASPECT_NAME), context.getAuthentication());
-      if (response.getAspects().get(Constants.GLOSSARY_NODE_INFO_ASPECT_NAME) != null) {
+      if (response != null && response.getAspects().get(Constants.GLOSSARY_NODE_INFO_ASPECT_NAME) != null) {
         GlossaryNodeInfo nodeInfo = new GlossaryNodeInfo(response.getAspects()
             .get(Constants.GLOSSARY_NODE_INFO_ASPECT_NAME).getValue().data());
         return nodeInfo.getParentNode();
@@ -92,7 +94,9 @@ public class GlossaryUtils {
         return getTermParentUrn(urn, context, entityClient);
       case Constants.GLOSSARY_NODE_ENTITY_NAME:
         return getNodeParentUrn(urn, context, entityClient);
+      default:
+        log.warn("Tried to get entity privileges for entity type {} but nothing is implemented for it yet", urn.getEntityType());
+        return null;
     }
-    return null;
   }
 }

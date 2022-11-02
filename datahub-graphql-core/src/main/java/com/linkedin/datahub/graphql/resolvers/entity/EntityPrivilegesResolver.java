@@ -1,24 +1,20 @@
 package com.linkedin.datahub.graphql.resolvers.entity;
 
-import com.google.common.collect.ImmutableSet;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.generated.Entity;
 import com.linkedin.datahub.graphql.generated.EntityPrivileges;
 import com.linkedin.datahub.graphql.resolvers.mutate.util.GlossaryUtils;
-import com.linkedin.entity.EntityResponse;
 import com.linkedin.entity.client.EntityClient;
-import com.linkedin.glossary.GlossaryNodeInfo;
-import com.linkedin.glossary.GlossaryTermInfo;
 import com.linkedin.metadata.Constants;
-import com.linkedin.r2.RemoteInvocationException;
 import graphql.schema.DataFetcher;
 import graphql.schema.DataFetchingEnvironment;
+import lombok.extern.slf4j.Slf4j;
 
-import java.net.URISyntaxException;
 import java.util.concurrent.CompletableFuture;
 
+@Slf4j
 public class EntityPrivilegesResolver implements DataFetcher<CompletableFuture<EntityPrivileges>> {
 
   private final EntityClient _entityClient;
@@ -39,8 +35,10 @@ public class EntityPrivilegesResolver implements DataFetcher<CompletableFuture<E
           return getGlossaryTermPrivileges(urn, context);
         case Constants.GLOSSARY_NODE_ENTITY_NAME:
           return getGlossaryNodePrivileges(urn, context);
+        default:
+          log.warn("Tried to get entity privileges for entity type {} but nothing is implemented for it yet", urn.getEntityType());
+          return new EntityPrivileges();
       }
-      return new EntityPrivileges();
     });
   }
 

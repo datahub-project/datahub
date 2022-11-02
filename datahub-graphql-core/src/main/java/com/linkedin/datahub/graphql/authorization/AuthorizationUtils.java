@@ -5,24 +5,15 @@ import com.datahub.authorization.AuthorizationResult;
 import com.datahub.authorization.Authorizer;
 import com.datahub.authorization.ResourceSpec;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableSet;
 import com.linkedin.common.AuditStamp;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.datahub.graphql.QueryContext;
-import com.linkedin.entity.EntityResponse;
-import com.linkedin.entity.client.EntityClient;
-import com.linkedin.glossary.GlossaryNodeInfo;
-import com.linkedin.glossary.GlossaryTermInfo;
-import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.authorization.PoliciesConfig;
-import com.linkedin.r2.RemoteInvocationException;
 
-import java.net.URISyntaxException;
 import java.time.Clock;
 import java.util.Optional;
 import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
 
 import static com.linkedin.datahub.graphql.resolvers.AuthUtils.*;
 import static com.linkedin.metadata.Constants.*;
