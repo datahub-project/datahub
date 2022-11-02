@@ -8,6 +8,11 @@ extend type Query {
     Returns the list of schema versions for a dataset.
     """
     getSchemaVersionList(input: GetSchemaVersionListInput!): GetSchemaVersionListResult
+
+    """
+    Returns the list of changes made to dataset
+    """
+    getDatasetChangeEvents(input: GetDatasetChangeEventsInput!): GetDatasetChangeEventsResult
 }
 
 """
@@ -167,4 +172,50 @@ type SemanticVersionStruct {
     Version stamp of the change
     """
     versionStamp: String
+}
+
+"""
+Input for getting list of changes made to dataset
+"""
+input GetDatasetChangeEventsInput {
+    """
+    The dataset urn
+    """
+    datasetUrn: String!
+}
+
+"""
+Changes of the dataset
+"""
+type GetDatasetChangeEventsResult {
+    """
+    List of dataset changes.
+    """
+    changedEventsList: [ChangeEvent!]
+}
+
+"""
+Struct for 1 change event
+"""
+type ChangeEvent {
+    """
+    The time at which the change took place
+    """
+    timestampMillis: Long!
+    """
+    The user that modified the dataset
+    """
+    actor: String!
+    """
+    Category of the change
+    """
+    category: String!
+    """
+    Operation of the change
+    """
+    operation: String!
+    """
+    Description of the change
+    """
+    description: String!
 }
