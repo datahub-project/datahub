@@ -3,7 +3,6 @@ describe('analytics', () => {
     cy.login();
 
     cy.goToAnalytics();
-    cy.wait(1000);
     cy.ensureTextNotPresent("dashboards");
 
     cy.goToChart("urn:li:chart:(looker,cypress_baz1)");
@@ -11,7 +10,7 @@ describe('analytics', () => {
     cy.openEntityTab("Dashboards");
 
     cy.goToAnalytics();
-    cy.wait(1000);
+    cy.wait(2000);
     cy.waitTextVisible("dashboards");
   });
 })
