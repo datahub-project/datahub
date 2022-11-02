@@ -107,6 +107,7 @@ import com.linkedin.datahub.graphql.resolvers.domain.ListDomainsResolver;
 import com.linkedin.datahub.graphql.resolvers.domain.SetDomainResolver;
 import com.linkedin.datahub.graphql.resolvers.domain.UnsetDomainResolver;
 import com.linkedin.datahub.graphql.resolvers.entity.EntityExistsResolver;
+import com.linkedin.datahub.graphql.resolvers.entity.EntityPrivilegesResolver;
 import com.linkedin.datahub.graphql.resolvers.glossary.AddRelatedTermsResolver;
 import com.linkedin.datahub.graphql.resolvers.glossary.CreateGlossaryNodeResolver;
 import com.linkedin.datahub.graphql.resolvers.glossary.CreateGlossaryTermResolver;
@@ -1007,12 +1008,14 @@ public class GmsGraphQLEngine {
         builder.type("GlossaryTerm", typeWiring -> typeWiring
             .dataFetcher("schemaMetadata", new AspectResolver())
             .dataFetcher("parentNodes", new ParentNodesResolver(entityClient))
+            .dataFetcher("privileges", new EntityPrivilegesResolver(entityClient))
         );
     }
 
     private void configureGlossaryNodeResolvers(final RuntimeWiring.Builder builder) {
         builder.type("GlossaryNode", typeWiring -> typeWiring
             .dataFetcher("parentNodes", new ParentNodesResolver(entityClient))
+            .dataFetcher("privileges", new EntityPrivilegesResolver(entityClient))
         );
     }
 

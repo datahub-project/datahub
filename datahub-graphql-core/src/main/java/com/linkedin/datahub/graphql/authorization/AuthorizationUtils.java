@@ -69,6 +69,29 @@ public class AuthorizationUtils {
   }
 
   /**
+   * Returns true if the current user is able to create, delete, or move Glossary Terms and Nodes under a parent Node.
+   * They can do this with either the global MANAGE_GLOSSARIES privilege, or if they have the MANAGE_CHILDREN privilege
+   * on the relevant parent node in the Glossary.
+   */
+  public static boolean canManageGlossaryEntity(@Nonnull QueryContext context, Urn parentNodeUrn) {
+    if (canManageGlossaries(context)) {
+      return true;
+    }
+
+    final DisjunctivePrivilegeGroup orPrivilegeGroups = new DisjunctivePrivilegeGroup(ImmutableList.of(
+        ALL_PRIVILEGES_GROUP,
+        new ConjunctivePrivilegeGroup(ImmutableList.of(PoliciesConfig.MANAGE_CHILDREN_PRIVILEGE.getType()))
+    ));
+
+    return AuthorizationUtils.isAuthorized(
+        context.getAuthorizer(),
+        context.getActorUrn(),
+        parentNodeUrn.getEntityType(),
+        parentNodeUrn.toString(),
+        orPrivilegeGroups);
+  }
+
+  /**
    * Returns true if the current used is able to create Tags. This is true if the user has the 'Manage Tags' or 'Create Tags' platform privilege.
    */
   public static boolean canCreateTags(@Nonnull QueryContext context) {
