@@ -1,5 +1,3 @@
-from datahub_provider._airflow_compat import AIRFLOW_1, BaseHook
-
 from typing import TYPE_CHECKING, Any, Dict, List, Optional, Tuple, Union
 
 from airflow.exceptions import AirflowException

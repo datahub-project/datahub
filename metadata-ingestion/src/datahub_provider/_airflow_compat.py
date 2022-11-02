@@ -1,6 +1,5 @@
 from datahub.utilities._markupsafe_compat import MARKUPSAFE_PATCHED
 
-from airflow.hooks.base import BaseHook
 from airflow.models.baseoperator import BaseOperator
 
 try:
@@ -19,7 +18,6 @@ assert MARKUPSAFE_PATCHED
 
 __all__ = [
     "MARKUPSAFE_PATCHED",
-    "BaseHook",
     "Operator",
     "BaseOperator",
     "MappedOperator",
