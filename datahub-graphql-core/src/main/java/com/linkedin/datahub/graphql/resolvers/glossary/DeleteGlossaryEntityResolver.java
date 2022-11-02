@@ -2,9 +2,10 @@ package com.linkedin.datahub.graphql.resolvers.glossary;
 
 import com.linkedin.common.urn.Urn;
 import com.linkedin.datahub.graphql.QueryContext;
-import com.linkedin.datahub.graphql.authorization.AuthorizationUtils;
 import com.linkedin.datahub.graphql.exception.AuthorizationException;
+import com.linkedin.datahub.graphql.resolvers.mutate.util.GlossaryUtils;
 import com.linkedin.entity.client.EntityClient;
+import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.r2.RemoteInvocationException;
 import graphql.schema.DataFetcher;
@@ -28,9 +29,10 @@ public class DeleteGlossaryEntityResolver implements DataFetcher<CompletableFutu
   public CompletableFuture<Boolean> get(final DataFetchingEnvironment environment) throws Exception {
     final QueryContext context = environment.getContext();
     final Urn entityUrn = Urn.createFromString(environment.getArgument("urn"));
+    final Urn parentNodeUrn = getParentNodeUrn(entityUrn, context);
 
     return CompletableFuture.supplyAsync(() -> {
-      if (AuthorizationUtils.canManageGlossaries(environment.getContext())) {
+      if (GlossaryUtils.canManageGlossaryEntity(environment.getContext(), parentNodeUrn)) {
         if (!_entityService.exists(entityUrn)) {
           throw new RuntimeException(String.format("This urn does not exist: %s", entityUrn));
         }
@@ -54,6 +56,15 @@ public class DeleteGlossaryEntityResolver implements DataFetcher<CompletableFutu
       }
       throw new AuthorizationException("Unauthorized to perform this action. Please contact your DataHub administrator.");
     });
+  }
+
+  private Urn getParentNodeUrn(Urn entityUrn, QueryContext context) {
+    if (entityUrn.getEntityType().equals(Constants.GLOSSARY_TERM_ENTITY_NAME)) {
+      return GlossaryUtils.getTermParentUrn(entityUrn, context, _entityClient);
+    } else if (entityUrn.getEntityType().equals(Constants.GLOSSARY_NODE_ENTITY_NAME)) {
+      return GlossaryUtils.getNodeParentUrn(entityUrn, context, _entityClient);
+    }
+    return null;
   }
 }
 

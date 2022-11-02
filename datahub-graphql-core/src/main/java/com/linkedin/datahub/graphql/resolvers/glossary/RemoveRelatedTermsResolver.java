@@ -4,10 +4,10 @@ import com.linkedin.common.GlossaryTermUrnArray;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.datahub.graphql.QueryContext;
-import com.linkedin.datahub.graphql.authorization.AuthorizationUtils;
 import com.linkedin.datahub.graphql.exception.AuthorizationException;
 import com.linkedin.datahub.graphql.generated.RelatedTermsInput;
 import com.linkedin.datahub.graphql.generated.TermRelationshipType;
+import com.linkedin.datahub.graphql.resolvers.mutate.util.GlossaryUtils;
 import com.linkedin.glossary.GlossaryRelatedTerms;
 import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.entity.EntityService;
@@ -37,7 +37,7 @@ public class RemoveRelatedTermsResolver implements DataFetcher<CompletableFuture
     final RelatedTermsInput input = bindArgument(environment.getArgument("input"), RelatedTermsInput.class);
 
     return CompletableFuture.supplyAsync(() -> {
-      if (AuthorizationUtils.canManageGlossaries(context)) {
+      if (GlossaryUtils.canManageGlossaries(context)) {
         try {
           final TermRelationshipType relationshipType = input.getRelationshipType();
           final Urn urn = Urn.createFromString(input.getUrn());

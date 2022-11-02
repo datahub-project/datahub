@@ -5,14 +5,24 @@ import com.datahub.authorization.AuthorizationResult;
 import com.datahub.authorization.Authorizer;
 import com.datahub.authorization.ResourceSpec;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
 import com.linkedin.common.AuditStamp;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.datahub.graphql.QueryContext;
+import com.linkedin.entity.EntityResponse;
+import com.linkedin.entity.client.EntityClient;
+import com.linkedin.glossary.GlossaryNodeInfo;
+import com.linkedin.glossary.GlossaryTermInfo;
+import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.authorization.PoliciesConfig;
+import com.linkedin.r2.RemoteInvocationException;
+
+import java.net.URISyntaxException;
 import java.time.Clock;
 import java.util.Optional;
 import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 
 import static com.linkedin.datahub.graphql.resolvers.AuthUtils.*;
 import static com.linkedin.metadata.Constants.*;
@@ -62,33 +72,6 @@ public class AuthorizationUtils {
 
   public static boolean canManageDomains(@Nonnull QueryContext context) {
     return isAuthorized(context, Optional.empty(), PoliciesConfig.MANAGE_DOMAINS_PRIVILEGE);
-  }
-
-  public static boolean canManageGlossaries(@Nonnull QueryContext context) {
-    return isAuthorized(context, Optional.empty(), PoliciesConfig.MANAGE_GLOSSARIES_PRIVILEGE);
-  }
-
-  /**
-   * Returns true if the current user is able to create, delete, or move Glossary Terms and Nodes under a parent Node.
-   * They can do this with either the global MANAGE_GLOSSARIES privilege, or if they have the MANAGE_CHILDREN privilege
-   * on the relevant parent node in the Glossary.
-   */
-  public static boolean canManageGlossaryEntity(@Nonnull QueryContext context, Urn parentNodeUrn) {
-    if (canManageGlossaries(context)) {
-      return true;
-    }
-
-    final DisjunctivePrivilegeGroup orPrivilegeGroups = new DisjunctivePrivilegeGroup(ImmutableList.of(
-        ALL_PRIVILEGES_GROUP,
-        new ConjunctivePrivilegeGroup(ImmutableList.of(PoliciesConfig.MANAGE_CHILDREN_PRIVILEGE.getType()))
-    ));
-
-    return AuthorizationUtils.isAuthorized(
-        context.getAuthorizer(),
-        context.getActorUrn(),
-        parentNodeUrn.getEntityType(),
-        parentNodeUrn.toString(),
-        orPrivilegeGroups);
   }
 
   /**

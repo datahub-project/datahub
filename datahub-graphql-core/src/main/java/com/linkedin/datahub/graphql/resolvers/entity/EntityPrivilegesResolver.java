@@ -4,9 +4,9 @@ import com.google.common.collect.ImmutableSet;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.datahub.graphql.QueryContext;
-import com.linkedin.datahub.graphql.authorization.AuthorizationUtils;
 import com.linkedin.datahub.graphql.generated.Entity;
 import com.linkedin.datahub.graphql.generated.EntityPrivileges;
+import com.linkedin.datahub.graphql.resolvers.mutate.util.GlossaryUtils;
 import com.linkedin.entity.EntityResponse;
 import com.linkedin.entity.client.EntityClient;
 import com.linkedin.glossary.GlossaryNodeInfo;
@@ -47,52 +47,34 @@ public class EntityPrivilegesResolver implements DataFetcher<CompletableFuture<E
   private EntityPrivileges getGlossaryTermPrivileges(Urn termUrn, QueryContext context) {
     final EntityPrivileges result = new EntityPrivileges();
     result.setCanManageEntity(false);
-    if (AuthorizationUtils.canManageGlossaries(context)) {
+    if (GlossaryUtils.canManageGlossaries(context)) {
       result.setCanManageEntity(true);
       return result;
     }
-    try {
-      EntityResponse response = _entityClient.getV2(Constants.GLOSSARY_TERM_ENTITY_NAME, termUrn,
-          ImmutableSet.of(Constants.GLOSSARY_TERM_INFO_ASPECT_NAME), context.getAuthentication());
-      if (response.getAspects().get(Constants.GLOSSARY_TERM_INFO_ASPECT_NAME) != null) {
-        GlossaryTermInfo termInfo = new GlossaryTermInfo(response.getAspects()
-            .get(Constants.GLOSSARY_TERM_INFO_ASPECT_NAME).getValue().data());
-        if (termInfo.hasParentNode()) {
-          Boolean canManage = AuthorizationUtils.canManageGlossaryEntity(context, termInfo.getParentNode());
-          result.setCanManageEntity(canManage);
-        }
-      }
-      return result;
-    } catch (URISyntaxException | RemoteInvocationException e) {
-      throw new RuntimeException("Failed to fetch Glossary Term to check for privileges", e);
+    Urn parentNodeUrn = GlossaryUtils.getTermParentUrn(termUrn, context, _entityClient);
+    if (parentNodeUrn != null) {
+      Boolean canManage = GlossaryUtils.canManageGlossaryEntity(context, parentNodeUrn);
+      result.setCanManageEntity(canManage);
     }
+    return result;
   }
 
   private EntityPrivileges getGlossaryNodePrivileges(Urn nodeUrn, QueryContext context) {
     final EntityPrivileges result = new EntityPrivileges();
     result.setCanManageEntity(false);
-    if (AuthorizationUtils.canManageGlossaries(context)) {
+    if (GlossaryUtils.canManageGlossaries(context)) {
       result.setCanManageEntity(true);
       result.setCanManageChildren(true);
       return result;
     }
-    Boolean canManageChildren = AuthorizationUtils.canManageGlossaryEntity(context, nodeUrn);
+    Boolean canManageChildren = GlossaryUtils.canManageGlossaryEntity(context, nodeUrn);
     result.setCanManageChildren(canManageChildren);
-    // get parent node to see if you can manage this entity
-    try {
-      EntityResponse response = _entityClient.getV2(Constants.GLOSSARY_NODE_ENTITY_NAME, nodeUrn,
-          ImmutableSet.of(Constants.GLOSSARY_NODE_INFO_ASPECT_NAME), context.getAuthentication());
-      if (response.getAspects().get(Constants.GLOSSARY_NODE_INFO_ASPECT_NAME) != null) {
-        GlossaryNodeInfo nodeInfo = new GlossaryNodeInfo(response.getAspects()
-            .get(Constants.GLOSSARY_NODE_INFO_ASPECT_NAME).getValue().data());
-        if (nodeInfo.hasParentNode()) {
-          Boolean canManage = AuthorizationUtils.canManageGlossaryEntity(context, nodeInfo.getParentNode());
-          result.setCanManageEntity(canManage);
-        }
-      }
-      return result;
-    } catch (URISyntaxException | RemoteInvocationException e) {
-      throw new RuntimeException("Failed to fetch Glossary Node to check for privileges", e);
+
+    Urn parentNodeUrn = GlossaryUtils.getNodeParentUrn(nodeUrn, context, _entityClient);
+    if (parentNodeUrn != null) {
+      Boolean canManage = GlossaryUtils.canManageGlossaryEntity(context, parentNodeUrn);
+      result.setCanManageEntity(canManage);
     }
+    return result;
   }
 }

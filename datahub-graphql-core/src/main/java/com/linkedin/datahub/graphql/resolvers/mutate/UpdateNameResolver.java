@@ -7,6 +7,7 @@ import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.authorization.AuthorizationUtils;
 import com.linkedin.datahub.graphql.exception.AuthorizationException;
 import com.linkedin.datahub.graphql.generated.UpdateNameInput;
+import com.linkedin.datahub.graphql.resolvers.mutate.util.GlossaryUtils;
 import com.linkedin.domain.DomainProperties;
 import com.linkedin.glossary.GlossaryTermInfo;
 import com.linkedin.glossary.GlossaryNodeInfo;
@@ -62,7 +63,7 @@ public class UpdateNameResolver implements DataFetcher<CompletableFuture<Boolean
       UpdateNameInput input,
       QueryContext context
   ) {
-    if (AuthorizationUtils.canManageGlossaries(context)) {
+    if (GlossaryUtils.canManageGlossaries(context)) {
       try {
         GlossaryTermInfo glossaryTermInfo = (GlossaryTermInfo) getAspectFromEntity(
             targetUrn.toString(), Constants.GLOSSARY_TERM_INFO_ASPECT_NAME, _entityService, null);
@@ -86,7 +87,7 @@ public class UpdateNameResolver implements DataFetcher<CompletableFuture<Boolean
       UpdateNameInput input,
       QueryContext context
   ) {
-    if (AuthorizationUtils.canManageGlossaries(context)) {
+    if (GlossaryUtils.canManageGlossaries(context)) {
       try {
         GlossaryNodeInfo glossaryNodeInfo = (GlossaryNodeInfo) getAspectFromEntity(
             targetUrn.toString(), Constants.GLOSSARY_NODE_INFO_ASPECT_NAME, _entityService, null);

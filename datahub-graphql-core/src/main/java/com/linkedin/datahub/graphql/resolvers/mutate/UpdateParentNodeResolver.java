@@ -4,9 +4,9 @@ import com.linkedin.common.urn.CorpuserUrn;
 import com.linkedin.common.urn.GlossaryNodeUrn;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.datahub.graphql.QueryContext;
-import com.linkedin.datahub.graphql.authorization.AuthorizationUtils;
 import com.linkedin.datahub.graphql.exception.AuthorizationException;
 import com.linkedin.datahub.graphql.generated.UpdateParentNodeInput;
+import com.linkedin.datahub.graphql.resolvers.mutate.util.GlossaryUtils;
 import com.linkedin.glossary.GlossaryTermInfo;
 import com.linkedin.glossary.GlossaryNodeInfo;
 import com.linkedin.metadata.Constants;
@@ -43,7 +43,7 @@ public class UpdateParentNodeResolver implements DataFetcher<CompletableFuture<B
       throw new IllegalArgumentException(String.format("Failed to update %s. %s either does not exist or is not a glossaryNode.", targetUrn, parentNodeUrn));
     }
     return CompletableFuture.supplyAsync(() -> {
-      if (AuthorizationUtils.canManageGlossaries(environment.getContext())) {
+      if (GlossaryUtils.canManageGlossaries(environment.getContext())) {
         switch (targetUrn.getEntityType()) {
           case Constants.GLOSSARY_TERM_ENTITY_NAME:
             return updateGlossaryTermParentNode(targetUrn, parentNodeUrn, input, environment.getContext());
