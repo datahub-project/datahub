@@ -19,7 +19,7 @@ import { UnionType } from './constants';
  * @param conjunction1 a conjunctive set of filters
  * @param conjunction2 a conjunctive set of filters
  */
-export const mergeConjunctions = (conjunction1: FacetFilterInput[], conjunction2: FacetFilterInput[]): OrFilter[] => {
+const mergeConjunctions = (conjunction1: FacetFilterInput[], conjunction2: FacetFilterInput[]): OrFilter[] => {
     return [
         {
             and: [...conjunction1, ...conjunction2],
@@ -55,7 +55,7 @@ export const mergeConjunctions = (conjunction1: FacetFilterInput[], conjunction2
  * @param disjunction1 a disjunctive set of filters
  * @param disjunction2 a disjunctive set of filters
  */
-export const mergeDisjunctions = (disjunction1: FacetFilterInput[], disjunction2: FacetFilterInput[]): OrFilter[] => {
+const mergeDisjunctions = (disjunction1: FacetFilterInput[], disjunction2: FacetFilterInput[]): OrFilter[] => {
     const finalOrFilters: OrFilter[] = [];
 
     disjunction1.forEach((d1) => {
@@ -90,10 +90,7 @@ export const mergeDisjunctions = (disjunction1: FacetFilterInput[], disjunction2
  * @param conjunction a conjunctive set of filters
  * @param disjunction a disjunctive set of filters
  */
-export const mergeConjunctionDisjunction = (
-    conjunction: FacetFilterInput[],
-    disjunction: FacetFilterInput[],
-): OrFilter[] => {
+const mergeConjunctionDisjunction = (conjunction: FacetFilterInput[], disjunction: FacetFilterInput[]): OrFilter[] => {
     const finalOrFilters: OrFilter[] = [];
 
     disjunction.forEach((filter) => {
@@ -115,7 +112,7 @@ export const mergeConjunctionDisjunction = (
  * @param orFilters the fixed set of filters in disjunction
  * @param baseFilters a base set of filters in either conjunction or disjunction
  */
-export const mergeOrFilters = (orFilters: FacetFilterInput[], baseFilters: FilterSet): OrFilter[] => {
+const mergeOrFilters = (orFilters: FacetFilterInput[], baseFilters: FilterSet): OrFilter[] => {
     // If the user-provided union type is AND, we need to treat differenty
     // than if user-provided union type is OR.
     if (baseFilters.unionType === UnionType.AND) {
@@ -135,7 +132,7 @@ export const mergeOrFilters = (orFilters: FacetFilterInput[], baseFilters: Filte
  * @param andFilters the fixed set of filters in conjunction
  * @param baseFilters a base set of filters in either conjunction or disjunction
  */
-export const mergeAndFilters = (andFilters: FacetFilterInput[], baseFilters: FilterSet): OrFilter[] => {
+const mergeAndFilters = (andFilters: FacetFilterInput[], baseFilters: FilterSet): OrFilter[] => {
     // If the user-provided union type is AND, we need to treat differenty
     // than if user-provided union type is OR.
     if (baseFilters.unionType === UnionType.AND) {
@@ -146,15 +143,19 @@ export const mergeAndFilters = (andFilters: FacetFilterInput[], baseFilters: Fil
 
 /**
  * Merges in a set of Fixed Filters with user-provided base filters.
+ * Both arguments are required.
  *
  * @param filterSet1 the fixed set of filters to be merged.
  * @param filterSet2 the set of base filters to merge into.
  */
 export const mergeFilterSets = (filterSet1: FilterSet, filterSet2: FilterSet): OrFilter[] => {
-    if (filterSet1.unionType === UnionType.AND) {
-        // Inject fixed AND filters.
-        return mergeAndFilters(filterSet1.filters, filterSet2);
+    if (filterSet1 && filterSet2) {
+        if (filterSet1.unionType === UnionType.AND) {
+            // Inject fixed AND filters.
+            return mergeAndFilters(filterSet1.filters, filterSet2);
+        }
+        // Inject fixed OR filters.
+        return mergeOrFilters(filterSet1.filters, filterSet2);
     }
-    // Inject fixed OR filters.
-    return mergeOrFilters(filterSet1.filters, filterSet2);
+    return [];
 };

@@ -28,10 +28,6 @@ export const navigateToEntitySearchUrl = ({
         constructedFilters.push({ field: 'entity', values: [newType] });
     }
 
-    console.log(baseUrl);
-    console.log(baseParams);
-    console.log(JSON.stringify(newFilters));
-
     const search = QueryString.stringify(
         {
             ...baseParams,
