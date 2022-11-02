@@ -189,7 +189,6 @@ class RedshiftUsageSource(Source):
     1. For a specific dataset this plugin ingests the following statistics -
        1. top n queries.
        2. top users.
-       3. usage of each column in the dataset.
     2. Aggregation of these statistics into buckets, by day or hour granularity.
 
     :::note
