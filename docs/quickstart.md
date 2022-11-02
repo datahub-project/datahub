@@ -4,15 +4,25 @@
 
 To deploy a new instance of DataHub, perform the following steps.
 
-1. Install [docker](https://docs.docker.com/install/), [jq](https://stedolan.github.io/jq/download/) and [docker-compose v1 ](https://github.com/docker/compose/blob/master/INSTALL.md) (if
-   using Linux). Make sure to allocate enough hardware resources for Docker engine. Tested & confirmed config: 2 CPUs,
-   8GB RAM, 2GB Swap area, and 10GB disk space.
 
-2. Launch the Docker Engine from command line or the desktop app.
+1. Install Docker for your platform.
+- On Windows or Mac, install [Docker Desktop](https://www.docker.com/products/docker-desktop/).
+- On Linux, install [Docker for Linux](https://docs.docker.com/desktop/install/linux-install/).
+
+:::note
+
+Make sure to allocate enough hardware resources for Docker engine. 
+Tested & confirmed config: 2 CPUs, 8GB RAM, 2GB Swap area, and 10GB disk space.
+
+:::
+
+2. Install [jq](https://stedolan.github.io/jq/download/)
+   
+3. Launch the Docker Engine from command line or the desktop app.
 
 3. Install the DataHub CLI
 
-   a. Ensure you have Python 3.6+ installed & configured. (Check using `python3 --version`)
+   a. Ensure you have Python 3.7+ installed & configured. (Check using `python3 --version`).
 
    b. Run the following commands in your terminal
 
@@ -37,10 +47,43 @@ To deploy a new instance of DataHub, perform the following steps.
    ```
 
    This will deploy a DataHub instance using [docker-compose](https://docs.docker.com/compose/).
+   If you are curious, the `docker-compose.yaml` file is downloaded to your home directory under the `.datahub/quickstart` directory.
+
+   If things go well, you should see messages like the ones below:
+
+   ```
+   Fetching docker-compose file https://raw.githubusercontent.com/datahub-project/datahub/master/docker/quickstart/docker-compose-without-neo4j-m1.quickstart.yml from GitHub
+   Pulling docker images...
+   Finished pulling docker images!
+
+   [+] Running 11/11
+   ⠿ Container zookeeper                  Running                                                                                                                                                         0.0s
+   ⠿ Container elasticsearch              Running                                                                                                                                                         0.0s
+   ⠿ Container broker                     Running                                                                                                                                                         0.0s
+   ⠿ Container schema-registry            Running                                                                                                                                                         0.0s
+   ⠿ Container elasticsearch-setup        Started                                                                                                                                                         0.7s
+   ⠿ Container kafka-setup                Started                                                                                                                                                         0.7s
+   ⠿ Container mysql                      Running                                                                                                                                                         0.0s
+   ⠿ Container datahub-gms                Running                                                                                                                                                         0.0s
+   ⠿ Container mysql-setup                Started                                                                                                                                                         0.7s
+   ⠿ Container datahub-datahub-actions-1  Running                                                                                                                                                         0.0s
+   ⠿ Container datahub-frontend-react     Running                                                                                                                                                         0.0s
+   .......
+   ✔ DataHub is now running
+   Ingest some demo data using `datahub docker ingest-sample-data`,
+   or head to http://localhost:9002 (username: datahub, password: datahub) to play around with the frontend.
+   Need support? Get in touch on Slack: https://slack.datahubproject.io/
+   ```
 
    Upon completion of this step, you should be able to navigate to the DataHub UI
    at [http://localhost:9002](http://localhost:9002) in your browser. You can sign in using `datahub` as both the
    username and password.
+
+:::note
+   
+   On Mac computers with Apple Silicon (M1, M2 etc.), you might see an error like `no matching manifest for linux/arm64/v8 in the manifest list entries`, this typically means that the datahub cli was not able to detect that you are running it on Apple Silicon. To resolve this issue, override the default architecture detection by issuing `datahub docker quickstart --arch m1`
+
+:::
 
 
 5. To ingest the sample metadata, run the following CLI command from your terminal
@@ -100,6 +143,13 @@ By default the quickstart deploy will require the following ports to be free on 
 
 </details>
 
+<details>
+<summary>
+no matching manifest for linux/arm64/v8 in the manifest list entries
+</summary>
+On Mac computers with Apple Silicon (M1, M2 etc.), you might see an error like `no matching manifest for linux/arm64/v8 in the manifest list entries`, this typically means that the datahub cli was not able to detect that you are running it on Apple Silicon. To resolve this issue, override the default architecture detection by issuing `datahub docker quickstart --arch m1`
+
+</details>
 <details>
 <summary>
 Miscellaneous Docker issues

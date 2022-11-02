@@ -1,13 +1,14 @@
 import re
 from abc import ABC, abstractmethod
 from enum import auto
-from typing import IO, Any, ClassVar, Dict, List, Optional, Pattern, Type, cast
+from typing import IO, Any, ClassVar, Dict, List, Optional, Type, cast
 
 from cached_property import cached_property
 from pydantic import BaseModel, Extra
 from pydantic.fields import Field
 
 from datahub.configuration._config_enum import ConfigEnum
+from datahub.utilities.dedup_list import deduplicate_list
 
 
 class ConfigModel(BaseModel):
@@ -203,40 +204,31 @@ class AllowDenyPattern(ConfigModel):
 
 
 class KeyValuePattern(ConfigModel):
-    """A class to store allow deny regexes"""
+    """
+    The key-value pattern is used to map a regex pattern to a set of values.
+    For example, you can use it to map a table name to a list of tags to apply to it.
+    """
 
     rules: Dict[str, List[str]] = {".*": []}
-    alphabet: str = "[A-Za-z0-9 _.-]"
-
-    @property
-    def alphabet_pattern(self) -> Pattern:
-        return re.compile(f"^{self.alphabet}+$")
+    first_match_only: bool = Field(
+        default=True,
+        description="Whether to stop after the first match. If false, all matching rules will be applied.",
+    )
 
     @classmethod
     def all(cls) -> "KeyValuePattern":
         return KeyValuePattern()
 
     def value(self, string: str) -> List[str]:
-        return next(
-            (self.rules[key] for key in self.rules.keys() if re.match(key, string)), []
-        )
-
-    def matched(self, string: str) -> bool:
-        return any(re.match(key, string) for key in self.rules.keys())
-
-    def is_fully_specified_key(self) -> bool:
-        """
-        If the allow patterns are literals and not full regexes, then it is considered
-        fully specified. This is useful if you want to convert a 'list + filter'
-        pattern into a 'search for the ones that are allowed' pattern, which can be
-        much more efficient in some cases.
-        """
-        return any(not self.alphabet_pattern.match(key) for key in self.rules.keys())
-
-    def get(self) -> Dict[str, List[str]]:
-        """Return the list of allowed strings as a list, after taking into account deny patterns, if possible"""
-        assert self.is_fully_specified_key()
-        return self.rules
+        matching_keys = [key for key in self.rules.keys() if re.match(key, string)]
+        if not matching_keys:
+            return []
+        elif self.first_match_only:
+            return self.rules[matching_keys[0]]
+        else:
+            return deduplicate_list(
+                [v for key in matching_keys for v in self.rules[key]]
+            )
 
 
 class VersionedConfig(ConfigModel):

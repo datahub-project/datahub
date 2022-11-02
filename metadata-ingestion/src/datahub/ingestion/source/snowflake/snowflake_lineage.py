@@ -4,6 +4,7 @@ from collections import defaultdict
 from dataclasses import dataclass, field
 from typing import Dict, FrozenSet, List, Optional, Set, Tuple
 
+from pydantic import Field
 from pydantic.error_wrappers import ValidationError
 from snowflake.connector import SnowflakeConnection
 
@@ -32,7 +33,13 @@ logger: logging.Logger = logging.getLogger(__name__)
 
 
 class SnowflakeColumnWithLineage(SnowflakeColumnReference):
-    directSourceColumns: Optional[List[SnowflakeColumnReference]] = None
+    class Config:
+        # This is for backward compatibility and can be removed later
+        allow_population_by_field_name = True
+
+    directSourceColumns: Optional[List[SnowflakeColumnReference]] = Field(
+        default=None, alias="directSources"
+    )
 
 
 @dataclass(frozen=True)
@@ -125,6 +132,7 @@ class SnowflakeTableLineage:
 
         if table.downstreamColumns:
             for col in table.downstreamColumns:
+
                 if col.directSourceColumns:
                     self.columnLineages[col.columnName].update_column_lineage(
                         col.directSourceColumns

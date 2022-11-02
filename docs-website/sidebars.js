@@ -64,7 +64,7 @@ module.exports = {
       //   - Create Polices & assign roles
       //   - Ingest at least one source (ie. data warehouse)
       //   - Understand high-level options for enriching metadata
-      "docs/wip/get-started",
+      "docs/get-started-with-datahub",
       {
         "Self-Hosted DataHub": [
           "docs/quickstart",
@@ -175,7 +175,7 @@ module.exports = {
       // "docs/wip/csv-enrichment",
       // "docs/wip/ui-based-enrichment",
       "docs/domains",
-      "docs/how/business-glossary-guide",
+      "docs/glossary/business-glossary",
       "docs/tags",
       {
         Lineage: ["docs/lineage/intro", "docs/lineage/sample_code"],
@@ -223,11 +223,11 @@ module.exports = {
           },
         ],
       },
-      //  {
-      //    type: "doc",
-      //    id: "docs/wip/metadata-tests",
-      //    className: "saasOnly",
-      //  },
+      {
+        type: "doc",
+        id: "docs/tests/metadata-tests",
+        className: "saasOnly",
+      },
       //  "docs/wip/metadata-analytics",
       "docs/act-on-metadata/impact-analysis",
       // {
@@ -448,10 +448,11 @@ module.exports = {
       // "docs/wip/tutorials",
       "docs/how/search",
       "docs/schema-history",
-      "docs/how/ui-tabs-guide",
+      // "docs/how/ui-tabs-guide",
       "docs/domains",
-      "docs/how/business-glossary-guide",
+      "docs/glossary/business-glossary",
       "docs/tags",
+      "docs/browse",
       "docs/authorization/access-policies-guide",
       "docs/features/dataset-usage-and-query-history",
       "docs/posts",

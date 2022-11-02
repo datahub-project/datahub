@@ -39,6 +39,8 @@ import static org.pac4j.core.client.IndirectClient.*;
 public class AuthenticationController extends Controller {
 
     private static final String AUTH_REDIRECT_URI_PARAM = "redirect_uri";
+    private static final String ERROR_MESSAGE_URI_PARAM = "error_msg";
+    private static final String SSO_DISABLED_ERROR_MESSAGE = "SSO is not configured";
 
     private final Logger _logger = LoggerFactory.getLogger(AuthenticationController.class.getName());
     private final Config _configs;
@@ -100,6 +102,17 @@ public class AuthenticationController extends Controller {
             .withCookies(createActorCookie(DEFAULT_ACTOR_URN.toString(),
                 _configs.hasPath(SESSION_TTL_CONFIG_PATH) ? _configs.getInt(SESSION_TTL_CONFIG_PATH)
                     : DEFAULT_SESSION_TTL_HOURS));
+    }
+
+    /**
+     * Redirect to the identity provider for authentication.
+     */
+    @Nonnull
+    public Result sso() {
+        if (_ssoManager.isSsoEnabled()) {
+            return redirectToIdentityProvider();
+        }
+        return redirect(LOGIN_ROUTE + String.format("?%s=%s", ERROR_MESSAGE_URI_PARAM, SSO_DISABLED_ERROR_MESSAGE));
     }
 
     /**

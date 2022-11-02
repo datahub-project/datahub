@@ -107,10 +107,24 @@ public class LineageRegistry {
       return Collections.emptyList();
     }
 
+    if (entityName.equals("schemaField")) {
+      return getSchemaFieldRelationships(direction);
+    }
+
     if (direction == LineageDirection.UPSTREAM) {
       return spec.getUpstreamEdges();
     }
     return spec.getDownstreamEdges();
+  }
+
+  private List<EdgeInfo> getSchemaFieldRelationships(LineageDirection direction) {
+    List<EdgeInfo> schemaFieldEdges = new ArrayList<>();
+    if (direction == LineageDirection.UPSTREAM) {
+      schemaFieldEdges.add(new EdgeInfo("DownstreamOf", RelationshipDirection.OUTGOING, "schemafield"));
+    } else {
+      schemaFieldEdges.add(new EdgeInfo("DownstreamOf", RelationshipDirection.INCOMING, "schemafield"));
+    }
+    return schemaFieldEdges;
   }
 
   @Value
