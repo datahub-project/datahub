@@ -156,12 +156,23 @@ export default function SchemaTable({
         },
     };
 
+    // Function to get the count of each usageStats fieldPath
+    function getCount(fieldPath: any) {
+        const data: any =
+            usageStats?.aggregations?.fields &&
+            usageStats?.aggregations?.fields.find((field) => {
+                return field?.fieldName === fieldPath;
+            });
+        return data && data.count;
+    }
+
     const usageColumn = {
         width: '10%',
         title: 'Usage',
         dataIndex: 'fieldPath',
         key: 'usage',
         render: usageStatsRenderer,
+        sorter: (sourceA, sourceB) => getCount(sourceA.fieldPath) - getCount(sourceB.fieldPath),
     };
 
     const menuColumn = {

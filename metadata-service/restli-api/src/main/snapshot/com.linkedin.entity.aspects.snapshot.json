@@ -1759,6 +1759,15 @@
         "fieldName" : "displayName",
         "fieldType" : "TEXT_PARTIAL"
       }
+    }, {
+      "name" : "id",
+      "type" : "string",
+      "doc" : "Optional id for the GlossaryNode",
+      "optional" : true,
+      "Searchable" : {
+        "enableAutocomplete" : true,
+        "fieldType" : "TEXT_PARTIAL"
+      }
     } ],
     "Aspect" : {
       "name" : "glossaryNodeInfo"
@@ -1770,6 +1779,15 @@
     "doc" : "Properties associated with a GlossaryTerm",
     "include" : [ "com.linkedin.common.CustomProperties" ],
     "fields" : [ {
+      "name" : "id",
+      "type" : "string",
+      "doc" : "Optional id for the term",
+      "optional" : true,
+      "Searchable" : {
+        "enableAutocomplete" : true,
+        "fieldType" : "TEXT_PARTIAL"
+      }
+    }, {
       "name" : "name",
       "type" : "string",
       "doc" : "Display name of the term",

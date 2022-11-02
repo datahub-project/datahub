@@ -1,4 +1,4 @@
-package com.linkedin.metadata.timeline.differ;
+package com.linkedin.metadata.timeline.eventgenerator;
 
 import com.datahub.util.RecordUtils;
 import com.github.fge.jsonpatch.JsonPatch;
@@ -25,13 +25,11 @@ import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import javax.annotation.Nonnull;
 
-import static com.linkedin.metadata.Constants.EDITABLE_SCHEMA_METADATA_ASPECT_NAME;
-import static com.linkedin.metadata.timeline.differ.DifferUtils.convertEntityGlossaryTermChangeEvents;
-import static com.linkedin.metadata.timeline.differ.DifferUtils.convertEntityTagChangeEvents;
-import static com.linkedin.metadata.timeline.differ.DifferUtils.getSchemaFieldUrn;
+import static com.linkedin.metadata.Constants.*;
+import static com.linkedin.metadata.timeline.eventgenerator.ChangeEventGeneratorUtils.*;
 
 
-public class EditableSchemaMetadataDiffer implements AspectDiffer<EditableSchemaMetadata> {
+public class EditableSchemaMetadataChangeEventGenerator extends EntityChangeEventGenerator<EditableSchemaMetadata> {
   public static final String FIELD_DOCUMENTATION_ADDED_FORMAT =
       "Documentation for the field '%s' of '%s' has been added: '%s'";
   public static final String FIELD_DOCUMENTATION_REMOVED_FORMAT =
@@ -178,11 +176,9 @@ public class EditableSchemaMetadataDiffer implements AspectDiffer<EditableSchema
     GlossaryTerms targetGlossaryTerms = (targetFieldInfo != null) ? targetFieldInfo.getGlossaryTerms() : null;
 
     // 1. Get EntityGlossaryTermChangeEvent, then rebind into a SchemaFieldGlossaryTermChangeEvent.
-    List<ChangeEvent> entityGlossaryTermsChangeEvents = GlossaryTermsDiffer.computeDiffs(
-        baseGlossaryTerms,
-        targetGlossaryTerms,
-        datasetFieldUrn.toString(),
-        auditStamp);
+    List<ChangeEvent> entityGlossaryTermsChangeEvents =
+        GlossaryTermsChangeEventGenerator.computeDiffs(baseGlossaryTerms, targetGlossaryTerms,
+            datasetFieldUrn.toString(), auditStamp);
 
     if (targetFieldInfo != null || baseFieldInfo != null) {
       String fieldPath = targetFieldInfo != null ? targetFieldInfo.getFieldPath() : baseFieldInfo.getFieldPath();
@@ -202,7 +198,9 @@ public class EditableSchemaMetadataDiffer implements AspectDiffer<EditableSchema
     GlobalTags targetGlobalTags = (targetFieldInfo != null) ? targetFieldInfo.getGlobalTags() : null;
 
     // 1. Get EntityTagChangeEvent, then rebind into a SchemaFieldTagChangeEvent.
-    List<ChangeEvent> entityTagChangeEvents = GlobalTagsDiffer.computeDiffs(baseGlobalTags, targetGlobalTags, datasetFieldUrn.toString(), auditStamp);
+    List<ChangeEvent> entityTagChangeEvents =
+        GlobalTagsChangeEventGenerator.computeDiffs(baseGlobalTags, targetGlobalTags, datasetFieldUrn.toString(),
+            auditStamp);
 
     if (targetFieldInfo != null || baseFieldInfo != null) {
       String fieldPath = targetFieldInfo != null ? targetFieldInfo.getFieldPath() : baseFieldInfo.getFieldPath();
