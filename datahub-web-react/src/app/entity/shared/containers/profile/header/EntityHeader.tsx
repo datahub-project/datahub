@@ -142,7 +142,6 @@ export const EntityHeader = ({
                                 menuItems={headerDropdownItems}
                                 refetchForEntity={refetch}
                                 refreshBrowser={refreshBrowser}
-                                platformPrivileges={me?.platformPrivileges as PlatformPrivileges}
                             />
                         )}
                     </TopButtonsWrapper>

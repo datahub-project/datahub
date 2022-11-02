@@ -62,7 +62,6 @@ interface Props {
     entityType: EntityType;
     entityData?: any;
     menuItems: Set<EntityMenuItems>;
-    platformPrivileges?: PlatformPrivileges;
     size?: number;
     refetchForEntity?: () => void;
     refetchForTerms?: () => void;
@@ -77,7 +76,6 @@ function EntityDropdown(props: Props) {
         entityData,
         entityType,
         menuItems,
-        platformPrivileges,
         refetchForEntity,
         refetchForTerms,
         refetchForNodes,
@@ -87,7 +85,6 @@ function EntityDropdown(props: Props) {
     } = props;
 
     const entityRegistry = useEntityRegistry();
-    const me = useGetAuthenticatedUser(!!platformPrivileges);
     const [updateDeprecation] = useUpdateDeprecationMutation();
     const { onDeleteEntity, hasBeenDeleted } = useDeleteEntity(urn, entityType, entityData, onDelete);
 
@@ -120,9 +117,6 @@ function EntityDropdown(props: Props) {
         refetchForEntity?.();
     };
 
-    const canManageGlossaries = platformPrivileges
-        ? platformPrivileges.manageGlossaries
-        : me?.platformPrivileges.manageGlossaries;
     const pageUrl = window.location.href;
     const entityHasChildren = !!entityData?.children?.total;
     const canManageGlossaryEntity = !!entityData?.privileges?.canManageEntity;
@@ -188,7 +182,7 @@ function EntityDropdown(props: Props) {
                         {menuItems.has(EntityMenuItems.MOVE) && (
                             <StyledMenuItem
                                 key="4"
-                                disabled={!canManageGlossaries}
+                                disabled={!canManageGlossaryEntity}
                                 onClick={() => setIsMoveModalVisible(true)}
                             >
                                 <MenuItem>
