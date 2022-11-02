@@ -2,6 +2,7 @@ import React from 'react';
 import { useEntityData } from '../shared/EntityContext';
 import { EntityType } from '../../../types.generated';
 import { EmbeddedListSearchSection } from '../shared/components/styled/search/EmbeddedListSearchSection';
+import { UnionType } from '../../search/utils/constants';
 
 export const DomainEntitiesTab = () => {
     const { urn, entityType } = useEntityData();
@@ -17,7 +18,10 @@ export const DomainEntitiesTab = () => {
 
     return (
         <EmbeddedListSearchSection
-            fixedFilter={fixedFilter}
+            fixedFilters={{
+                unionType: UnionType.AND,
+                filters: [fixedFilter],
+            }}
             emptySearchQuery="*"
             placeholderText="Filter domain entities..."
         />
