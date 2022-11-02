@@ -1,14 +1,11 @@
-package com.linkedin.metadata.timeline.differ;
+package com.linkedin.metadata.timeline.eventgenerator;
 
-import com.github.fge.jsonpatch.JsonPatch;
 import com.linkedin.common.AuditStamp;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.data.template.RecordTemplate;
-import com.linkedin.metadata.entity.EntityAspect;
 import com.linkedin.metadata.timeline.data.ChangeCategory;
 import com.linkedin.metadata.timeline.data.ChangeEvent;
 import com.linkedin.metadata.timeline.data.ChangeOperation;
-import com.linkedin.metadata.timeline.data.ChangeTransaction;
 import java.util.Collections;
 import java.util.List;
 import javax.annotation.Nonnull;
@@ -17,16 +14,7 @@ import javax.annotation.Nonnull;
 /**
  * A general purpose differ which simply determines whether an entity has been created or hard deleted.
  */
-public class EntityKeyDiffer<K extends RecordTemplate> implements AspectDiffer<K> {
-
-  @Override
-  public ChangeTransaction getSemanticDiff(EntityAspect previousValue, EntityAspect currentValue,
-      ChangeCategory element, JsonPatch rawDiff, boolean rawDiffsRequested) {
-
-    // TODO: Migrate callers to use getChangeEvents.
-    throw new UnsupportedOperationException();
-  }
-
+public class EntityKeyChangeEventGenerator<K extends RecordTemplate> extends EntityChangeEventGenerator<K> {
   @Override
   public List<ChangeEvent> getChangeEvents(
       @Nonnull Urn urn,

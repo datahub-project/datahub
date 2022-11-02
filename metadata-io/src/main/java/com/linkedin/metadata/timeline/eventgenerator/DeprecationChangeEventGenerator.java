@@ -1,41 +1,25 @@
-package com.linkedin.metadata.timeline.differ;
+package com.linkedin.metadata.timeline.eventgenerator;
 
-import com.github.fge.jsonpatch.JsonPatch;
 import com.google.common.collect.ImmutableMap;
 import com.linkedin.common.AuditStamp;
 import com.linkedin.common.Deprecation;
 import com.linkedin.common.urn.Urn;
-import com.linkedin.metadata.entity.EntityAspect;
 import com.linkedin.metadata.timeline.data.ChangeCategory;
 import com.linkedin.metadata.timeline.data.ChangeEvent;
 import com.linkedin.metadata.timeline.data.ChangeOperation;
-import com.linkedin.metadata.timeline.data.ChangeTransaction;
-
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
 import java.util.Collections;
 import java.util.List;
+import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 
 
 /**
  * Differ responsible for determining whether an entity has been soft-deleted or soft-created.
  */
-public class DeprecationDiffer implements AspectDiffer<Deprecation> {
+public class DeprecationChangeEventGenerator extends EntityChangeEventGenerator<Deprecation> {
   @Override
-  public ChangeTransaction getSemanticDiff(EntityAspect previousValue, EntityAspect currentValue,
-      ChangeCategory element, JsonPatch rawDiff, boolean rawDiffsRequested) {
-    // TODO: Migrate away from using getSemanticDiff.
-    throw new UnsupportedOperationException();
-  }
-
-  @Override
-  public List<ChangeEvent> getChangeEvents(
-      @Nonnull Urn urn,
-      @Nonnull String entity,
-      @Nonnull String aspect,
-      @Nonnull Aspect<Deprecation> from,
-      @Nonnull Aspect<Deprecation> to,
-      @Nonnull AuditStamp auditStamp) {
+  public List<ChangeEvent> getChangeEvents(@Nonnull Urn urn, @Nonnull String entity, @Nonnull String aspect,
+      @Nonnull Aspect<Deprecation> from, @Nonnull Aspect<Deprecation> to, @Nonnull AuditStamp auditStamp) {
     return computeDiffs(from.getValue(), to.getValue(), urn.toString(), auditStamp);
   }
 
