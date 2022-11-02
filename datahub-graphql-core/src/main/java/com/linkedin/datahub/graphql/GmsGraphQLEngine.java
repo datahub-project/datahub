@@ -800,7 +800,7 @@ public class GmsGraphQLEngine {
             .dataFetcher("reportOperation", new ReportOperationResolver(this.entityClient))
             .dataFetcher("createGlossaryTerm", new CreateGlossaryTermResolver(this.entityClient, this.entityService))
             .dataFetcher("createGlossaryNode", new CreateGlossaryNodeResolver(this.entityClient, this.entityService))
-            .dataFetcher("updateParentNode", new UpdateParentNodeResolver(entityService))
+            .dataFetcher("updateParentNode", new UpdateParentNodeResolver(this.entityService, this.entityClient))
             .dataFetcher("deleteGlossaryEntity",
                 new DeleteGlossaryEntityResolver(this.entityClient, this.entityService))
             .dataFetcher("updateName", new UpdateNameResolver(entityService))
