@@ -1,8 +1,8 @@
 package com.datahub.plugins.auth.provider;
 
-import com.datahub.plugins.auth.configuration.AuthConfig;
-import com.datahub.plugins.auth.pojo.AuthPluginConfig;
-import com.datahub.plugins.common.PluginProvider;
+import com.datahub.plugins.auth.configuration.AuthParam;
+import com.datahub.plugins.auth.configuration.AuthPluginConfig;
+import com.datahub.plugins.common.PluginConfigProvider;
 import com.datahub.plugins.common.PluginType;
 import com.datahub.plugins.configuration.PluginConfig;
 import java.nio.file.Path;
@@ -12,7 +12,7 @@ import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 
-public abstract class AuthPluginConfigProvider implements PluginProvider<AuthPluginConfig> {
+public abstract class AuthPluginConfigProvider implements PluginConfigProvider<AuthPluginConfig> {
   public abstract PluginType getType();
 
   public abstract AuthPluginConfig createAuthPluginConfig(PluginConfig pluginConfig);
@@ -29,7 +29,7 @@ public abstract class AuthPluginConfigProvider implements PluginProvider<AuthPlu
     return authPlugins;
   }
 
-  public Path formPluginJar(PluginConfig pluginConfig, AuthConfig authConfig) {
+  public Path formPluginJar(PluginConfig pluginConfig, AuthParam authConfig) {
     // User is either going to explicitly set the jarFileName or we will infer it from plugin name
     String jarName = authConfig.getJarFileName().orElse(pluginConfig.getName() + ".jar");
     Path jarPath = Paths.get(pluginConfig.getPluginDirectory().toString(), jarName);

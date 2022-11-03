@@ -1,8 +1,7 @@
 package com.datahub.plugins.loader;
 
 import com.datahub.plugins.Plugin;
-import com.datahub.plugins.common.IsolatedClassLoader;
-import com.datahub.plugins.common.PluginConfigWithJar;
+import com.datahub.plugins.common.PluginConfig;
 import com.datahub.plugins.common.PluginPermissionManager;
 import java.io.ByteArrayOutputStream;
 import java.io.File;
@@ -35,11 +34,11 @@ import org.apache.commons.lang3.StringUtils;
  * IsolatedClassLoader to load custom implementation of DataHub Plugins.
  */
 @Slf4j
-public class IsolatedClassLoaderImpl extends ClassLoader implements IsolatedClassLoader {
+public class IsolatedClassLoader extends ClassLoader {
   public static final String EXECUTION_DIR = "__run__";
   private final PluginPermissionManager _pluginPermissionManager;
 
-  private final PluginConfigWithJar _pluginConfig;
+  private final PluginConfig _pluginConfig;
 
   private final List<ClassLoader> _classLoaders = new ArrayList<>(2);
 
@@ -49,7 +48,7 @@ public class IsolatedClassLoaderImpl extends ClassLoader implements IsolatedClas
 
   private final Path _executionDirectory;
 
-  public IsolatedClassLoaderImpl(@Nonnull PluginPermissionManager pluginPermissionManager, @Nonnull PluginConfigWithJar pluginToLoad,
+  public IsolatedClassLoader(@Nonnull PluginPermissionManager pluginPermissionManager, @Nonnull PluginConfig pluginToLoad,
       @Nonnull ClassLoader... applicationClassLoaders) {
     this._pluginPermissionManager = pluginPermissionManager;
     this._pluginConfig = pluginToLoad;

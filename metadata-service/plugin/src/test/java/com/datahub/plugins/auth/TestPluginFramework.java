@@ -9,16 +9,15 @@ import com.datahub.plugins.auth.authentication.AuthenticatorContext;
 import com.datahub.plugins.auth.authorization.AuthorizationRequest;
 import com.datahub.plugins.auth.authorization.Authorizer;
 import com.datahub.plugins.auth.authorization.AuthorizerContext;
-import com.datahub.plugins.auth.pojo.AuthenticatorPluginConfig;
-import com.datahub.plugins.auth.pojo.AuthorizerPluginConfig;
-import com.datahub.plugins.common.IsolatedClassLoader;
+import com.datahub.plugins.auth.configuration.AuthenticatorPluginConfig;
+import com.datahub.plugins.auth.configuration.AuthorizerPluginConfig;
 import com.datahub.plugins.common.PluginPermissionManager;
 import com.datahub.plugins.common.PluginType;
 import com.datahub.plugins.common.SecurityMode;
 import com.datahub.plugins.configuration.Config;
 import com.datahub.plugins.configuration.ConfigProvider;
 import com.datahub.plugins.factory.PluginConfigFactory;
-import com.datahub.plugins.loader.IsolatedClassLoaderImpl;
+import com.datahub.plugins.loader.IsolatedClassLoader;
 import com.datahub.plugins.loader.PluginPermissionManagerImpl;
 import com.google.common.collect.ImmutableMap;
 import java.nio.file.Path;
@@ -199,7 +198,7 @@ public class TestPluginFramework {
     AuthenticatorPluginConfig authenticatorPluginConfig = getAuthenticatorPluginConfig();
     // create IsolatedClassLoader
     PluginPermissionManager permissionManager = new PluginPermissionManagerImpl(SecurityMode.RESTRICTED);
-    IsolatedClassLoader isolatedClassLoader = new IsolatedClassLoaderImpl(permissionManager, authenticatorPluginConfig);
+    IsolatedClassLoader isolatedClassLoader = new IsolatedClassLoader(permissionManager, authenticatorPluginConfig);
     // initiate and invoke the init and authenticate methods
     Authenticator authenticator = (Authenticator) isolatedClassLoader.instantiatePlugin(Authenticator.class);
     AuthenticatorContext authenticatorContext = new AuthenticatorContext(
@@ -217,7 +216,7 @@ public class TestPluginFramework {
     AuthorizerPluginConfig authorizerPluginConfig = getAuthorizerPluginConfig();
     // create IsolatedClassLoader
     PluginPermissionManager permissionManager = new PluginPermissionManagerImpl(SecurityMode.RESTRICTED);
-    IsolatedClassLoader isolatedClassLoader = new IsolatedClassLoaderImpl(permissionManager, authorizerPluginConfig);
+    IsolatedClassLoader isolatedClassLoader = new IsolatedClassLoader(permissionManager, authorizerPluginConfig);
     // initiate and invoke the init and authenticate methods
     Authorizer authorizer = (Authorizer) isolatedClassLoader.instantiatePlugin(Authorizer.class);
     AuthorizerContext authorizerContext = new AuthorizerContext(
@@ -232,7 +231,7 @@ public class TestPluginFramework {
     AuthorizerPluginConfig authorizerPluginConfig = getAuthorizerPluginConfig();
     // create IsolatedClassLoader
     PluginPermissionManager permissionManager = new PluginPermissionManagerImpl(SecurityMode.RESTRICTED);
-    IsolatedClassLoader isolatedClassLoader = new IsolatedClassLoaderImpl(permissionManager, authorizerPluginConfig);
+    IsolatedClassLoader isolatedClassLoader = new IsolatedClassLoader(permissionManager, authorizerPluginConfig);
     // initiate and invoke the init and authenticate methods
     try {
       // Authorizer configuration is provided, however here we were expecting that plugin should be of type Authenticator.class
@@ -250,7 +249,7 @@ public class TestPluginFramework {
     authenticatorPluginConfig.setClassName("com.datahub.plugins.test.TestLenientModeAuthenticator");
     // create IsolatedClassLoader
     PluginPermissionManager permissionManager = new PluginPermissionManagerImpl(SecurityMode.LENIENT);
-    IsolatedClassLoader isolatedClassLoader = new IsolatedClassLoaderImpl(permissionManager, authenticatorPluginConfig);
+    IsolatedClassLoader isolatedClassLoader = new IsolatedClassLoader(permissionManager, authenticatorPluginConfig);
     // initiate and invoke the init and authenticate methods
     Authenticator authenticator = (Authenticator) isolatedClassLoader.instantiatePlugin(Authenticator.class);
     authenticator.init(authenticatorPluginConfig.getConfigs().orElse(new HashMap<>()), null);

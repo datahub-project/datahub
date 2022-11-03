@@ -1,7 +1,6 @@
-package com.datahub.plugins.auth.pojo;
+package com.datahub.plugins.auth.configuration;
 
-import com.datahub.plugins.common.PluginConfigImpl;
-import com.datahub.plugins.common.PluginConfigWithJar;
+import com.datahub.plugins.common.PluginConfig;
 import com.datahub.plugins.common.PluginType;
 import java.nio.file.Path;
 import java.util.Map;
@@ -14,14 +13,10 @@ import lombok.NoArgsConstructor;
 @Data
 @NoArgsConstructor
 @EqualsAndHashCode(callSuper = false)
-public class AuthPluginConfig extends PluginConfigImpl implements PluginConfigWithJar {
-  private Path pluginHomeDirectory;
-  private Path pluginJarPath;
-
+public class AuthPluginConfig extends PluginConfig {
+  // No extra parameter needed in this class, The PluginConfig provided by framework is sufficient for processing.
   public AuthPluginConfig(PluginType type, String name, Boolean enabled, String className, Path pluginHomeDirectory,
       Path pluginJarPath, Optional<Map<String, Object>> configs) {
-    super(type, name, enabled, className, configs);
-    this.pluginHomeDirectory = pluginHomeDirectory;
-    this.pluginJarPath = pluginJarPath;
+    super(type, name, enabled, className, pluginHomeDirectory, pluginJarPath, configs);
   }
 }

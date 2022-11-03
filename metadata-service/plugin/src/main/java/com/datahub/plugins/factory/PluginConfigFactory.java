@@ -3,7 +3,7 @@ package com.datahub.plugins.factory;
 import com.datahub.plugins.auth.provider.AuthenticatorPluginConfigProvider;
 import com.datahub.plugins.auth.provider.AuthorizerPluginConfigProvider;
 import com.datahub.plugins.common.PluginConfig;
-import com.datahub.plugins.common.PluginProvider;
+import com.datahub.plugins.common.PluginConfigProvider;
 import com.datahub.plugins.common.PluginType;
 import com.datahub.plugins.configuration.Config;
 import java.util.HashMap;
@@ -18,7 +18,7 @@ import javax.annotation.Nonnull;
  *
  */
 public class PluginConfigFactory<T extends PluginConfig> {
-  private final static Map<PluginType, PluginProvider> CONFIG_PROVIDER_REGISTRY;
+  private final static Map<PluginType, PluginConfigProvider> CONFIG_PROVIDER_REGISTRY;
 
   static {
     CONFIG_PROVIDER_REGISTRY = new HashMap<>(2);

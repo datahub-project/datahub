@@ -1,4 +1,4 @@
-package com.datahub.plugins.auth.pojo;
+package com.datahub.plugins.auth.configuration;
 
 import com.datahub.plugins.common.PluginType;
 import java.nio.file.Path;
@@ -13,6 +13,7 @@ import lombok.NoArgsConstructor;
 @NoArgsConstructor
 @EqualsAndHashCode(callSuper = false)
 public class AuthorizerPluginConfig extends AuthPluginConfig {
+  // set PluginType to AUTHORIZER
   public AuthorizerPluginConfig(String name, Boolean enabled, String className, Path pluginDirectory, Path pluginJar,
       Optional<Map<String, Object>> configs) {
     super(PluginType.AUTHORIZER, name, enabled, className, pluginDirectory, pluginJar, configs);
