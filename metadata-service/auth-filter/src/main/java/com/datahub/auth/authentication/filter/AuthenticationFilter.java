@@ -6,12 +6,12 @@ import com.datahub.auth.authentication.authenticator.NoOpAuthenticator;
 import com.datahub.auth.authentication.token.StatefulTokenService;
 import com.datahub.plugins.PluginConstant;
 import com.datahub.plugins.auth.authentication.Authentication;
-import com.datahub.plugins.auth.authentication.AuthenticationConfiguration;
+import com.datahub.auth.authentication.AuthenticationConfiguration;
 import com.datahub.plugins.auth.authentication.AuthenticationContext;
 import com.datahub.plugins.auth.authentication.AuthenticationException;
 import com.datahub.plugins.auth.authentication.AuthenticationRequest;
 import com.datahub.plugins.auth.authentication.Authenticator;
-import com.datahub.plugins.auth.authentication.AuthenticatorConfiguration;
+import com.datahub.auth.authentication.AuthenticatorConfiguration;
 import com.datahub.plugins.auth.authentication.AuthenticatorContext;
 import com.datahub.plugins.auth.pojo.AuthenticatorPluginConfig;
 import com.datahub.plugins.common.IsolatedClassLoader;
@@ -47,7 +47,7 @@ import javax.servlet.http.HttpServletResponse;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.web.context.support.SpringBeanAutowiringSupport;
 
-import static com.datahub.plugins.auth.authentication.AuthenticationConstants.*;
+import static com.datahub.auth.authentication.AuthenticationConstants.*;
 
 
 /**

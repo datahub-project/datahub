@@ -8,7 +8,7 @@ import com.google.common.collect.ImmutableMap;
 import java.util.Collections;
 import org.testng.annotations.Test;
 
-import static com.datahub.plugins.auth.authentication.AuthenticationConstants.*;
+import static com.datahub.auth.authentication.AuthenticationConstants.*;
 import static org.testng.Assert.*;
 
 public class DataHubSystemAuthenticatorTest {

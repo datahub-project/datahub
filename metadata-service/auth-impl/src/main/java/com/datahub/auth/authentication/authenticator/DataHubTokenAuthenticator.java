@@ -7,7 +7,7 @@ import com.datahub.auth.authentication.token.TokenExpiredException;
 import com.datahub.plugins.auth.authentication.Actor;
 
 import com.datahub.plugins.auth.authentication.Authentication;
-import com.datahub.plugins.auth.authentication.AuthenticationConstants;
+import com.datahub.auth.authentication.AuthenticationConstants;
 import com.datahub.plugins.auth.authentication.AuthenticationExpiredException;
 import com.datahub.plugins.auth.authentication.AuthenticationRequest;
 import com.datahub.plugins.auth.authentication.AuthenticationException;
@@ -19,7 +19,7 @@ import java.util.Map;
 import java.util.Objects;
 import lombok.extern.slf4j.Slf4j;
 
-import static com.datahub.plugins.auth.authentication.AuthenticationConstants.*;
+import static com.datahub.auth.authentication.AuthenticationConstants.*;
 
 
 /**
