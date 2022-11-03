@@ -11,14 +11,13 @@ import {
     PlusOutlined,
 } from '@ant-design/icons';
 import { Redirect } from 'react-router';
-import { EntityType, PlatformPrivileges } from '../../../../types.generated';
+import { EntityType } from '../../../../types.generated';
 import CreateGlossaryEntityModal from './CreateGlossaryEntityModal';
 import { UpdateDeprecationModal } from './UpdateDeprecationModal';
 import { useUpdateDeprecationMutation } from '../../../../graphql/mutations.generated';
 import MoveGlossaryEntityModal from './MoveGlossaryEntityModal';
 import { ANTD_GRAY } from '../constants';
 import { useEntityRegistry } from '../../../useEntityRegistry';
-import { useGetAuthenticatedUser } from '../../../useGetAuthenticatedUser';
 import useDeleteEntity from './useDeleteEntity';
 import { getEntityProfileDeleteRedirectPath } from '../../../shared/deleteUtils';
 
@@ -62,7 +61,6 @@ interface Props {
     entityType: EntityType;
     entityData?: any;
     menuItems: Set<EntityMenuItems>;
-    platformPrivileges?: PlatformPrivileges;
     size?: number;
     refetchForEntity?: () => void;
     refetchForTerms?: () => void;
@@ -77,7 +75,6 @@ function EntityDropdown(props: Props) {
         entityData,
         entityType,
         menuItems,
-        platformPrivileges,
         refetchForEntity,
         refetchForTerms,
         refetchForNodes,
@@ -87,7 +84,6 @@ function EntityDropdown(props: Props) {
     } = props;
 
     const entityRegistry = useEntityRegistry();
-    const me = useGetAuthenticatedUser(!!platformPrivileges);
     const [updateDeprecation] = useUpdateDeprecationMutation();
     const { onDeleteEntity, hasBeenDeleted } = useDeleteEntity(urn, entityType, entityData, onDelete);
 
@@ -120,11 +116,10 @@ function EntityDropdown(props: Props) {
         refetchForEntity?.();
     };
 
-    const canManageGlossaries = platformPrivileges
-        ? platformPrivileges.manageGlossaries
-        : me?.platformPrivileges.manageGlossaries;
     const pageUrl = window.location.href;
-    const isDeleteDisabled = !!entityData?.children?.total;
+    const entityHasChildren = !!entityData?.children?.total;
+    const canManageGlossaryEntity = !!entityData?.privileges?.canManageEntity;
+    const canCreateGlossaryEntity = !!entityData?.privileges?.canManageChildren;
 
     /**
      * A default path to redirect to if the entity is deleted.
@@ -164,7 +159,7 @@ function EntityDropdown(props: Props) {
                         {menuItems.has(EntityMenuItems.ADD_TERM) && (
                             <StyledMenuItem
                                 key="2"
-                                disabled={!canManageGlossaries}
+                                disabled={!canCreateGlossaryEntity}
                                 onClick={() => setIsCreateTermModalVisible(true)}
                             >
                                 <MenuItem>
@@ -175,7 +170,7 @@ function EntityDropdown(props: Props) {
                         {menuItems.has(EntityMenuItems.ADD_TERM_GROUP) && (
                             <StyledMenuItem
                                 key="3"
-                                disabled={!canManageGlossaries}
+                                disabled={!canCreateGlossaryEntity}
                                 onClick={() => setIsCreateNodeModalVisible(true)}
                             >
                                 <MenuItem>
@@ -186,7 +181,7 @@ function EntityDropdown(props: Props) {
                         {menuItems.has(EntityMenuItems.MOVE) && (
                             <StyledMenuItem
                                 key="4"
-                                disabled={!canManageGlossaries}
+                                disabled={!canManageGlossaryEntity}
                                 onClick={() => setIsMoveModalVisible(true)}
                             >
                                 <MenuItem>
@@ -197,14 +192,16 @@ function EntityDropdown(props: Props) {
                         {menuItems.has(EntityMenuItems.DELETE) && (
                             <StyledMenuItem
                                 key="5"
-                                disabled={isDeleteDisabled || !canManageGlossaries}
+                                disabled={entityHasChildren || !canManageGlossaryEntity}
                                 onClick={onDeleteEntity}
                             >
                                 <Tooltip
                                     title={`Can't delete ${entityRegistry.getEntityName(
                                         entityType,
                                     )} with child entities.`}
-                                    overlayStyle={isDeleteDisabled ? {} : { display: 'none' }}
+                                    overlayStyle={
+                                        canManageGlossaryEntity && entityHasChildren ? {} : { display: 'none' }
+                                    }
                                 >
                                     <MenuItem>
                                         <DeleteOutlined /> &nbsp;Delete
