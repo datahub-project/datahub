@@ -31,7 +31,7 @@ public class DeleteGlossaryEntityResolver implements DataFetcher<CompletableFutu
     final Urn parentNodeUrn = GlossaryUtils.getParentUrn(entityUrn, context, _entityClient);
 
     return CompletableFuture.supplyAsync(() -> {
-      if (GlossaryUtils.canManageGlossaryEntity(environment.getContext(), parentNodeUrn)) {
+      if (GlossaryUtils.canManageChildrenEntities(context, parentNodeUrn)) {
         if (!_entityService.exists(entityUrn)) {
           throw new RuntimeException(String.format("This urn does not exist: %s", entityUrn));
         }

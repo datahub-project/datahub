@@ -199,7 +199,9 @@ function EntityDropdown(props: Props) {
                                     title={`Can't delete ${entityRegistry.getEntityName(
                                         entityType,
                                     )} with child entities.`}
-                                    overlayStyle={entityHasChildren ? {} : { display: 'none' }}
+                                    overlayStyle={
+                                        canManageGlossaryEntity && entityHasChildren ? {} : { display: 'none' }
+                                    }
                                 >
                                     <MenuItem>
                                         <DeleteOutlined /> &nbsp;Delete

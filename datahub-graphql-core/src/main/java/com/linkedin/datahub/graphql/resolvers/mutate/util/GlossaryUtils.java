@@ -28,16 +28,20 @@ public class GlossaryUtils {
 
   private GlossaryUtils() { }
 
+  /**
+   * Checks the Platform Privilege MANAGE_GLOSSARIES to see if a user is authorized. If true, the user has global control
+   * of their Business Glossary to create, edit, move, and delete Terms and Nodes.
+   */
   public static boolean canManageGlossaries(@Nonnull QueryContext context) {
     return AuthorizationUtils.isAuthorized(context, Optional.empty(), PoliciesConfig.MANAGE_GLOSSARIES_PRIVILEGE);
   }
 
   /**
    * Returns true if the current user is able to create, delete, or move Glossary Terms and Nodes under a parent Node.
-   * They can do this with either the global MANAGE_GLOSSARIES privilege, or if they have the MANAGE_CHILDREN privilege
+   * They can do this with either the global MANAGE_GLOSSARIES privilege, or if they have the MANAGE_GLOSSARY_CHILDREN privilege
    * on the relevant parent node in the Glossary.
    */
-  public static boolean canManageGlossaryEntity(@Nonnull QueryContext context, @Nullable Urn parentNodeUrn) {
+  public static boolean canManageChildrenEntities(@Nonnull QueryContext context, @Nullable Urn parentNodeUrn) {
     if (canManageGlossaries(context)) {
       return true;
     }
@@ -47,7 +51,7 @@ public class GlossaryUtils {
 
     final DisjunctivePrivilegeGroup orPrivilegeGroups = new DisjunctivePrivilegeGroup(ImmutableList.of(
         ALL_PRIVILEGES_GROUP,
-        new ConjunctivePrivilegeGroup(ImmutableList.of(PoliciesConfig.MANAGE_CHILDREN_PRIVILEGE.getType()))
+        new ConjunctivePrivilegeGroup(ImmutableList.of(PoliciesConfig.MANAGE_GLOSSARY_CHILDREN_PRIVILEGE.getType()))
     ));
 
     return AuthorizationUtils.isAuthorized(
@@ -58,7 +62,11 @@ public class GlossaryUtils {
         orPrivilegeGroups);
   }
 
-  public static Urn getTermParentUrn(Urn termUrn, QueryContext context, EntityClient entityClient) {
+  /**
+   * Returns the urn of the parent node for a given Glossary Term. Returns null if it doesn't exist.
+   */
+  @Nullable
+  private static Urn getTermParentUrn(@Nonnull Urn termUrn, @Nonnull QueryContext context, @Nonnull EntityClient entityClient) {
     try {
       EntityResponse response = entityClient.getV2(Constants.GLOSSARY_TERM_ENTITY_NAME, termUrn,
           ImmutableSet.of(Constants.GLOSSARY_TERM_INFO_ASPECT_NAME), context.getAuthentication());
@@ -73,7 +81,11 @@ public class GlossaryUtils {
     }
   }
 
-  public static Urn getNodeParentUrn(Urn nodeUrn, QueryContext context, EntityClient entityClient) {
+  /**
+   * Returns the urn of the parent node for a given Glossary Node. Returns null if it doesn't exist.
+   */
+  @Nullable
+  private static Urn getNodeParentUrn(@Nonnull Urn nodeUrn, @Nonnull QueryContext context, @Nonnull EntityClient entityClient) {
     try {
       EntityResponse response = entityClient.getV2(Constants.GLOSSARY_NODE_ENTITY_NAME, nodeUrn,
           ImmutableSet.of(Constants.GLOSSARY_NODE_INFO_ASPECT_NAME), context.getAuthentication());
@@ -84,18 +96,22 @@ public class GlossaryUtils {
       }
       return null;
     } catch (URISyntaxException | RemoteInvocationException e) {
-      throw new RuntimeException("Failed to fetch Glossary Term to check for privileges", e);
+      throw new RuntimeException("Failed to fetch Glossary Node to check for privileges", e);
     }
   }
 
-  public static Urn getParentUrn(Urn urn, QueryContext context, EntityClient entityClient) {
+  /**
+   * Gets the urn of a Term or Node parent Node. Returns the urn if it exists. Returns null otherwise.
+   */
+  @Nullable
+  public static Urn getParentUrn(@Nonnull Urn urn, @Nonnull QueryContext context, @Nonnull EntityClient entityClient) {
     switch (urn.getEntityType()) {
       case Constants.GLOSSARY_TERM_ENTITY_NAME:
         return getTermParentUrn(urn, context, entityClient);
       case Constants.GLOSSARY_NODE_ENTITY_NAME:
         return getNodeParentUrn(urn, context, entityClient);
       default:
-        log.warn("Tried to get entity privileges for entity type {} but nothing is implemented for it yet", urn.getEntityType());
+        log.warn("Tried to get the parent node urn of a non-glossary entity type: {}", urn.getEntityType());
         return null;
     }
   }

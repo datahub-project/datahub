@@ -803,7 +803,7 @@ public class GmsGraphQLEngine {
             .dataFetcher("updateParentNode", new UpdateParentNodeResolver(this.entityService, this.entityClient))
             .dataFetcher("deleteGlossaryEntity",
                 new DeleteGlossaryEntityResolver(this.entityClient, this.entityService))
-            .dataFetcher("updateName", new UpdateNameResolver(entityService))
+            .dataFetcher("updateName", new UpdateNameResolver(this.entityService, this.entityClient))
             .dataFetcher("addRelatedTerms", new AddRelatedTermsResolver(this.entityService))
             .dataFetcher("removeRelatedTerms", new RemoveRelatedTermsResolver(this.entityService))
             .dataFetcher("createNativeUserResetToken", new CreateNativeUserResetTokenResolver(this.nativeUserService))
