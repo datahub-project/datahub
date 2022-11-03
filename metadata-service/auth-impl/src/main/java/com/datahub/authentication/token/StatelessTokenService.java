@@ -108,7 +108,7 @@ public class StatelessTokenService {
       .setSubject(sub);
 
     if (expiresInMs != null) {
-      builder.setExpiration(new Date(System.currentTimeMillis() + expiresInMs));
+      builder.setExpiration(new Date(expiresInMs));
     }
     if (this.iss != null) {
       builder.setIssuer(this.iss);
