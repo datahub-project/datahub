@@ -348,10 +348,19 @@ def can_add_aspect(mce: MetadataChangeEventClass, AspectType: Type[Aspect]) -> b
     return issubclass(AspectType, supported_aspect_types)
 
 
+def assert_can_add_aspect(
+    mce: MetadataChangeEventClass, AspectType: Type[Aspect]
+) -> None:
+    if not can_add_aspect(mce, AspectType):
+        raise AssertionError(
+            f"Cannot add aspect {AspectType} to {type(mce.proposedSnapshot)}"
+        )
+
+
 def get_aspect_if_available(
     mce: MetadataChangeEventClass, AspectType: Type[Aspect]
 ) -> Optional[Aspect]:
-    assert can_add_aspect(mce, AspectType)
+    assert_can_add_aspect(mce, AspectType)
 
     all_aspects = mce.proposedSnapshot.aspects
     aspects: List[Aspect] = [
@@ -370,7 +379,7 @@ def get_aspect_if_available(
 def remove_aspect_if_available(
     mce: MetadataChangeEventClass, aspect_type: Type[Aspect]
 ) -> bool:
-    assert can_add_aspect(mce, aspect_type)
+    assert_can_add_aspect(mce, aspect_type)
     # loose type annotations since we checked before
     aspects: List[Any] = [
         aspect

@@ -1636,7 +1636,7 @@ def test_pattern_dataset_schema_tags_transformation(mock_time):
 
 def run_dataset_transformer_pipeline(
     transformer_type: Type[DatasetTransformer],
-    aspect: builder.Aspect,
+    aspect: Optional[builder.Aspect],
     config: dict,
     pipeline_context: PipelineContext = PipelineContext(run_id="transformer_pipe_line"),
     use_mce: bool = False,
@@ -1651,10 +1651,11 @@ def run_dataset_transformer_pipeline(
         dataset = MetadataChangeEventClass(
             proposedSnapshot=models.DatasetSnapshotClass(
                 urn="urn:li:dataset:(urn:li:dataPlatform:bigquery,example1,PROD)",
-                aspects=[aspect],  # type: ignore
+                aspects=[],
             )
         )
     else:
+        assert aspect
         dataset = make_generic_dataset_mcp(
             aspect=aspect, aspect_name=transformer.aspect_name()
         )
@@ -1707,8 +1708,8 @@ def test_simple_add_dataset_domain_mce_support(mock_datahub_graph):
 
     output = run_dataset_transformer_pipeline(
         transformer_type=SimpleAddDatasetDomain,
-        aspect=models.DomainsClass(domains=[gslab_domain]),
-        config={"domains": [acryl_domain]},
+        aspect=None,
+        config={"domains": [gslab_domain, acryl_domain]},
         pipeline_context=pipeline_context,
         use_mce=True,
     )
