@@ -368,7 +368,9 @@ class Pipeline:
                 except SystemExit:
                     raise
                 except Exception as e:
-                    logger.error("Failed to process some records. Continuing.", exc_info=e)
+                    logger.error(
+                        "Failed to process some records. Continuing.", exc_info=e
+                    )
 
                 self.extractor.close()
                 if not self.dry_run:
