@@ -116,7 +116,7 @@ public class StatefulTokenService extends StatelessTokenService {
     value.setOwnerUrn(UrnUtils.getUrn(actorUrn));
     value.setCreatedAt(createdAtInMs);
     if (expiresInMs != null) {
-      value.setExpiresAt(createdAtInMs + expiresInMs);
+      value.setExpiresAt(expiresInMs);
     }
     proposal.setEntityType(Constants.ACCESS_TOKEN_ENTITY_NAME);
     proposal.setAspectName(Constants.ACCESS_TOKEN_INFO_NAME);
