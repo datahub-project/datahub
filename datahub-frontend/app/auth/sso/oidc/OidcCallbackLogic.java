@@ -151,7 +151,7 @@ public class OidcCallbackLogic extends DefaultCallbackLogic<Result, PlayWebConte
           if (roleLists.isPresent()) {
             // check for access role
             if (!roleLists.get().contains(oidcConfigs.getResourceClientRole().get())) {
-              if (oidcConfigs.getResourceErrorMessage().isPresent()){
+              if (oidcConfigs.getResourceErrorMessage().isPresent()) {
                 return internalServerError(oidcConfigs.getResourceErrorMessage().get()).as("text/html");
               } else {
                 return internalServerError(String.format("Failed to pass authorization-with-keycloak step. "
@@ -160,7 +160,7 @@ public class OidcCallbackLogic extends DefaultCallbackLogic<Result, PlayWebConte
               }
             }
           } else {
-            if (oidcConfigs.getResourceErrorMessage().isPresent()){
+            if (oidcConfigs.getResourceErrorMessage().isPresent()) {
               return internalServerError(oidcConfigs.getResourceErrorMessage().get()).as("text/html");
             } else {
               return internalServerError(String.format("Failed to pass authorization-with-keycloak step. "
