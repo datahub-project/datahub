@@ -354,6 +354,7 @@ class AirflowGenerator:
             assert dag_run.dag
             dataflow = AirflowGenerator.generate_dataflow(cluster, dag_run.dag)
 
+        assert dag_run.run_id
         dpi = DataProcessInstance.from_dataflow(dataflow=dataflow, id=dag_run.run_id)
         if end_timestamp_millis is None:
             if dag_run.end_date is None:
@@ -394,6 +395,7 @@ class AirflowGenerator:
         if datajob is None:
             datajob = AirflowGenerator.generate_datajob(cluster, ti.task, dag)
 
+        assert dag_run.run_id
         dpi = DataProcessInstance.from_datajob(
             datajob=datajob,
             id=f"{dag.dag_id}_{ti.task_id}_{dag_run.run_id}",
