@@ -453,7 +453,6 @@ public class SearchRequestHandler {
     }
 
     if (aggregationMetadataMap.containsKey(finalFacetField)) {
-
       /*
        * If we already have aggregations for the facet field, simply inject any missing values counts into the set.
        * If there are no results for a particular facet value, it will NOT be in the original aggregation set returned by
@@ -466,8 +465,6 @@ public class SearchRequestHandler {
         addMissingAggregationValueToAggregationMetadata(criterion.getValue(), originalAggMetadata);
       }
     } else {
-      System.out.println(String.format("I found a key NOT already in the map %s", finalFacetField));
-
       /*
        * If we do not have ANY aggregation for the facet field, then inject a new aggregation metadata object for the
        * facet field.
