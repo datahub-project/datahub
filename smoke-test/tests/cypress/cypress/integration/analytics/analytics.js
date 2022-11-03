@@ -14,6 +14,6 @@ describe('analytics', () => {
       ensureScrollable: false
     })
     cy.wait(1000);
-    cy.waitTextVisible("dashboards");
+    cy.waitTextPresent("dashboards");
   });
 })
