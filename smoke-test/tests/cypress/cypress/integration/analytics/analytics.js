@@ -9,7 +9,11 @@ describe('analytics', () => {
     cy.openEntityTab("Dashboards");
 
     cy.goToAnalytics();
-    cy.wait(2000);
+    cy.wait(1000);
+    cy.contains("Section Views across Entity Types").scrollIntoView({
+      ensureScrollable: false
+    })
+    cy.wait(1000);
     cy.waitTextVisible("dashboards");
   });
 })

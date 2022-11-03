@@ -78,6 +78,11 @@ Cypress.Commands.add("goToAnalytics", () => {
   cy.waitTextVisible("Data Landscape Summary");
 });
 
+Cypress.Commands.add("goToUserList", () => {
+  cy.visit("/settings/identities/users");
+  cy.waitTextVisible("Manage Users & Groups");
+})
+
 Cypress.Commands.add("openThreeDotDropdown", () => {
   cy.get('div[class^="EntityHeader__SideHeaderContent-"] > div > .ant-dropdown-trigger').click();
 });
@@ -104,7 +109,6 @@ Cypress.Commands.add("ensureTextNotPresent", (text) => {
 
 Cypress.Commands.add("waitTextVisible", (text) => {
   cy.contains(text).should('exist');
-  cy.contains(text).should('be.visible');
   cy.contains(text).should('have.length.above', 0);
   return cy.contains(text);
 })
