@@ -5,14 +5,14 @@ import platform
 import sys
 import time
 from dataclasses import dataclass
-from typing import Any, Dict, Iterable, List, Optional, cast
+from typing import Any, Dict, Iterable, List, NoReturn, Optional, cast
 
 import click
 import humanfriendly
 import psutil
 
 import datahub
-from datahub.configuration.common import PipelineExecutionError
+from datahub.configuration.common import IgnorableError, PipelineExecutionError
 from datahub.ingestion.api.committable import CommitPolicy
 from datahub.ingestion.api.common import EndOfStream, PipelineContext, RecordEnvelope
 from datahub.ingestion.api.pipeline_run_listener import PipelineRunListener
@@ -125,8 +125,8 @@ class Pipeline:
     sink: Sink
     transformers: List[Transformer]
 
-    def _record_initialization_failure(self, e: Exception, msg: str) -> None:
-        raise PipelineInitError(msg) from e
+    def _raise_initialization_error(self, e: Exception, msg: str) -> NoReturn:
+        raise PipelineInitError(f"{msg}: {e}") from e
 
     def __init__(
         self,
@@ -157,16 +157,15 @@ class Pipeline:
                 pipeline_config=self.config,
             )
         except Exception as e:
-            self._record_initialization_failure(e, "Failed to set up framework context")
+            self._raise_initialization_error(e, "Failed to set up framework context")
 
         sink_type = self.config.sink.type
         try:
             sink_class = sink_registry.get(sink_type)
         except Exception as e:
-            self._record_initialization_failure(
+            self._raise_initialization_error(
                 e, f"Failed to find a registered sink for type {sink_type}"
             )
-            return
 
         try:
             sink_config = self.config.sink.dict().get("config") or {}
@@ -174,7 +173,7 @@ class Pipeline:
             logger.debug(f"Sink type:{self.config.sink.type},{sink_class} configured")
             logger.info(f"Sink configured successfully. {self.sink.configured()}")
         except Exception as e:
-            self._record_initialization_failure(
+            self._raise_initialization_error(
                 e, f"Failed to configure sink ({sink_type})"
             )
 
@@ -182,15 +181,13 @@ class Pipeline:
         try:
             self._configure_reporting(report_to, no_default_report)
         except Exception as e:
-            self._record_initialization_failure(e, "Failed to configure reporters")
-            return
+            self._raise_initialization_error(e, "Failed to configure reporters")
 
         try:
             source_type = self.config.source.type
             source_class = source_registry.get(source_type)
         except Exception as e:
-            self._record_initialization_failure(e, "Failed to create source")
-            return
+            self._raise_initialization_error(e, "Failed to create source")
 
         try:
             self.source: Source = source_class.create(
@@ -199,10 +196,9 @@ class Pipeline:
             logger.debug(f"Source type:{source_type},{source_class} configured")
             logger.info("Source configured successfully.")
         except Exception as e:
-            self._record_initialization_failure(
+            self._raise_initialization_error(
                 e, f"Failed to configure source ({source_type})"
             )
-            return
 
         try:
             extractor_class = extractor_registry.get(self.config.source.extractor)
@@ -210,16 +206,14 @@ class Pipeline:
                 self.config.source.extractor_config, self.ctx
             )
         except Exception as e:
-            self._record_initialization_failure(
+            self._raise_initialization_error(
                 e, f"Failed to configure extractor ({self.config.source.extractor})"
             )
-            return
 
         try:
             self._configure_transforms()
         except ValueError as e:
-            self._record_initialization_failure(e, "Failed to configure transformers")
-            return
+            self._raise_initialization_error(e, "Failed to configure transformers")
 
     def _configure_transforms(self) -> None:
         self.transformers = []
@@ -272,6 +266,8 @@ class Pipeline:
             except Exception as e:
                 if reporter.required:
                     raise
+                elif isinstance(e, IgnorableError):
+                    logger.debug(f"Reporter type {reporter_type} is disabled: {e}")
                 else:
                     logger.warning(
                         f"Failed to configure reporter: {reporter_type}", exc_info=e
