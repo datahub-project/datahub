@@ -1,6 +1,6 @@
 # Enriching Metadata in DataHub
 
-Metadata Enrichment is a powerful way to annotate entities within DataHub, ensuring end-users have quick access to critical context for a given entity, such as:
+Metadata Enrichment is a powerful way to annotate entities within DataHub, supercharging data discoverability and ensuring end-users have quick access to critical context for a given entity, such as:
 
 * **Ownership**: who is responsible/accountable?
 * **Description**: what is the intended use case? What known caveats/edge cases exist?
