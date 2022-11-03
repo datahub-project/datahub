@@ -1,17 +1,24 @@
 package com.datahub.plugins.common;
 
+import java.nio.file.Path;
 import java.util.Map;
 import java.util.Optional;
+import lombok.AllArgsConstructor;
+import lombok.Data;
+import lombok.NoArgsConstructor;
 
 
-public interface PluginConfig {
-  public PluginType getType();
+// Flat form of plugin config
+@Data
+@NoArgsConstructor
+@AllArgsConstructor
+public class PluginConfig {
+  private PluginType type;
+  private String name;
+  private Boolean enabled;
+  private String className;
+  private Path pluginHomeDirectory;
+  private Path pluginJarPath;
 
-  public String getName();
-
-  public Boolean getEnabled();
-
-  public String getClassName();
-
-  public Optional<Map<String, Object>> getConfigs();
+  private Optional<Map<String, Object>> configs;
 }

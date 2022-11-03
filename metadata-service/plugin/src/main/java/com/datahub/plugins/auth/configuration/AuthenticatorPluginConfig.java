@@ -1,4 +1,4 @@
-package com.datahub.plugins.auth.pojo;
+package com.datahub.plugins.auth.configuration;
 
 import com.datahub.plugins.common.PluginType;
 import java.nio.file.Path;
@@ -13,6 +13,7 @@ import lombok.NoArgsConstructor;
 @NoArgsConstructor
 @EqualsAndHashCode(callSuper = false)
 public class AuthenticatorPluginConfig extends AuthPluginConfig {
+  // set PluginType to AUTHENTICATOR
   public AuthenticatorPluginConfig(String name, Boolean enabled, String className, Path pluginDirectory, Path pluginJar,
       Optional<Map<String, Object>> configs) {
     super(PluginType.AUTHENTICATOR, name, enabled, className, pluginDirectory, pluginJar, configs);

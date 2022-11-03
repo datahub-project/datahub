@@ -8,15 +8,14 @@ import com.datahub.plugins.auth.authentication.Authentication;
 import com.datahub.plugins.auth.authorization.Authorizer;
 import com.datahub.plugins.auth.authorization.AuthorizerContext;
 import com.datahub.plugins.auth.authorization.ResourceSpecResolver;
-import com.datahub.plugins.auth.pojo.AuthorizerPluginConfig;
-import com.datahub.plugins.common.IsolatedClassLoader;
+import com.datahub.plugins.auth.configuration.AuthorizerPluginConfig;
 import com.datahub.plugins.common.PluginPermissionManager;
 import com.datahub.plugins.common.PluginType;
 import com.datahub.plugins.common.SecurityMode;
 import com.datahub.plugins.configuration.Config;
 import com.datahub.plugins.configuration.ConfigProvider;
 import com.datahub.plugins.factory.PluginConfigFactory;
-import com.datahub.plugins.loader.IsolatedClassLoaderImpl;
+import com.datahub.plugins.loader.IsolatedClassLoader;
 import com.datahub.plugins.loader.PluginPermissionManagerImpl;
 import com.google.common.collect.ImmutableMap;
 import com.linkedin.gms.factory.config.ConfigurationProvider;
@@ -128,7 +127,7 @@ public class AuthorizerChainFactory {
       // Create context
       AuthorizerContext context = new AuthorizerContext(
           ImmutableMap.of(PluginConstant.PLUGIN_HOME, pluginConfig.getPluginHomeDirectory().toString()), resolver);
-      IsolatedClassLoader isolatedClassLoader = new IsolatedClassLoaderImpl(permissionManager, pluginConfig);
+      IsolatedClassLoader isolatedClassLoader = new IsolatedClassLoader(permissionManager, pluginConfig);
       try {
         Thread.currentThread().setContextClassLoader((ClassLoader) isolatedClassLoader);
         Authorizer authorizer = (Authorizer) isolatedClassLoader.instantiatePlugin(Authorizer.class);

@@ -13,15 +13,14 @@ import com.datahub.plugins.auth.authentication.AuthenticationRequest;
 import com.datahub.plugins.auth.authentication.Authenticator;
 import com.datahub.auth.authentication.AuthenticatorConfiguration;
 import com.datahub.plugins.auth.authentication.AuthenticatorContext;
-import com.datahub.plugins.auth.pojo.AuthenticatorPluginConfig;
-import com.datahub.plugins.common.IsolatedClassLoader;
+import com.datahub.plugins.auth.configuration.AuthenticatorPluginConfig;
 import com.datahub.plugins.common.PluginPermissionManager;
 import com.datahub.plugins.common.PluginType;
 import com.datahub.plugins.common.SecurityMode;
 import com.datahub.plugins.configuration.Config;
 import com.datahub.plugins.configuration.ConfigProvider;
 import com.datahub.plugins.factory.PluginConfigFactory;
-import com.datahub.plugins.loader.IsolatedClassLoaderImpl;
+import com.datahub.plugins.loader.IsolatedClassLoader;
 import com.datahub.plugins.loader.PluginPermissionManagerImpl;
 import com.google.common.collect.ImmutableMap;
 import com.linkedin.gms.factory.config.ConfigurationProvider;
@@ -178,7 +177,7 @@ public class AuthenticationFilter implements Filter {
 
       // Initiate Authenticators
       enabledAuthenticators.forEach((pluginConfig) -> {
-        IsolatedClassLoader isolatedClassLoader = new IsolatedClassLoaderImpl(permissionManager, pluginConfig);
+        IsolatedClassLoader isolatedClassLoader = new IsolatedClassLoader(permissionManager, pluginConfig);
         // Create context
         AuthenticatorContext context = new AuthenticatorContext(
             ImmutableMap.of(PluginConstant.PLUGIN_HOME, pluginConfig.getPluginHomeDirectory().toString()));
