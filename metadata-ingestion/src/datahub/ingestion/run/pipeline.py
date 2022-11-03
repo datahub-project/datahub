@@ -353,7 +353,7 @@ class Pipeline:
                     if self._time_to_print():
                         self.pretty_print_summary(currently_running=True)
                 except Exception as e:
-                    logger.warning("Failed to print summary", e)
+                    logger.warning(f"Failed to print summary {e}")
 
                 if not self.dry_run:
                     self.sink.handle_work_unit_start(wu)
@@ -368,7 +368,9 @@ class Pipeline:
                 except SystemExit:
                     raise
                 except Exception as e:
-                    logger.error("Failed to process some records. Continuing.", e)
+                    logger.error(
+                        "Failed to process some records. Continuing.", exc_info=e
+                    )
 
                 self.extractor.close()
                 if not self.dry_run:
@@ -393,7 +395,7 @@ class Pipeline:
             self.final_status = "completed"
         except (SystemExit, RuntimeError) as e:
             self.final_status = "cancelled"
-            logger.error("Caught error", e)
+            logger.error("Caught error", exc_info=e)
             raise
         finally:
             if callback and hasattr(callback, "close"):
