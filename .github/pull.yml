@@ -1,5 +1,5 @@
 version: "1"
 rules:
   - base: master
-    upstream: datahub-project/datahub:master
+    upstream: datahub-project:master
     mergeMethod: merge
