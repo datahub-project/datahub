@@ -15,7 +15,6 @@ public class AccessTokenUtil {
     long millis = localDateTime
       .atZone(ZoneId.systemDefault())
       .toInstant().toEpochMilli();
-    System.out.println("date after days millis: " + millis);
     return millis;
   }
 
