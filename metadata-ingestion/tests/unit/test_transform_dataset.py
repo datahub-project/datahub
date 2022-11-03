@@ -1639,22 +1639,29 @@ def run_dataset_transformer_pipeline(
     aspect: builder.Aspect,
     config: dict,
     pipeline_context: PipelineContext = PipelineContext(run_id="transformer_pipe_line"),
+    use_mce: bool = False,
 ) -> List[RecordEnvelope]:
 
     transformer: DatasetTransformer = cast(
         DatasetTransformer, transformer_type.create(config, pipeline_context)
     )
 
-    dataset_mcp = make_generic_dataset_mcp(
-        aspect=aspect, aspect_name=transformer.aspect_name()
-    )
+    dataset: Union[MetadataChangeEventClass, MetadataChangeProposalWrapper]
+    if use_mce:
+        dataset = MetadataChangeEventClass(
+            proposedSnapshot=models.DatasetSnapshotClass(
+                urn="urn:li:dataset:(urn:li:dataPlatform:bigquery,example1,PROD)",
+                aspects=[aspect],  # type: ignore
+            )
+        )
+    else:
+        dataset = make_generic_dataset_mcp(
+            aspect=aspect, aspect_name=transformer.aspect_name()
+        )
 
     outputs = list(
         transformer.transform(
-            [
-                RecordEnvelope(input, metadata={})
-                for input in [dataset_mcp, EndOfStream()]
-            ]
+            [RecordEnvelope(input, metadata={}) for input in [dataset, EndOfStream()]]
         )
     )
     return outputs
@@ -1683,6 +1690,39 @@ def test_simple_add_dataset_domain(mock_datahub_graph):
     assert output[0].record.aspect is not None
     assert isinstance(output[0].record.aspect, models.DomainsClass)
     transformed_aspect = cast(models.DomainsClass, output[0].record.aspect)
+    assert len(transformed_aspect.domains) == 2
+    assert gslab_domain in transformed_aspect.domains
+    assert acryl_domain in transformed_aspect.domains
+
+
+@pytest.mark.xfail(reason="The domain transformer does not work with MCEs right now")
+def test_simple_add_dataset_domain_mce_support(mock_datahub_graph):
+    acryl_domain = builder.make_domain_urn("acryl.io")
+    gslab_domain = builder.make_domain_urn("gslab.io")
+
+    pipeline_context: PipelineContext = PipelineContext(
+        run_id="test_simple_add_dataset_domain"
+    )
+    pipeline_context.graph = mock_datahub_graph(DatahubClientConfig)
+
+    output = run_dataset_transformer_pipeline(
+        transformer_type=SimpleAddDatasetDomain,
+        aspect=models.DomainsClass(domains=[gslab_domain]),
+        config={"domains": [acryl_domain]},
+        pipeline_context=pipeline_context,
+        use_mce=True,
+    )
+
+    assert len(output) == 2
+    assert output[0] is not None
+    assert output[0].record is not None
+    assert isinstance(output[0].record, MetadataChangeEventClass)
+    assert output[0].record.proposedSnapshot.aspects is not None
+    assert isinstance(output[0].record.proposedSnapshot, models.DatasetSnapshotClass)
+    assert isinstance(output[0].record.proposedSnapshot.aspects[0], models.DomainsClass)
+    transformed_aspect = cast(
+        models.DomainsClass, output[0].record.proposedSnapshot.aspects[0]
+    )
     assert len(transformed_aspect.domains) == 2
     assert gslab_domain in transformed_aspect.domains
     assert acryl_domain in transformed_aspect.domains
