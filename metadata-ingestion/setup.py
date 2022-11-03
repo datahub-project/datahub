@@ -1,4 +1,5 @@
 import os
+import sys
 from typing import Dict, Set
 
 import setuptools
@@ -398,7 +399,7 @@ base_dev_requirements = {
             "delta-lake",
             "druid",
             "elasticsearch",
-            "feast",
+            "feast" if sys.version_info >= (3, 8) else None,
             "iceberg",
             "ldap",
             "looker",
@@ -426,6 +427,7 @@ base_dev_requirements = {
             "unity-catalog"
             # airflow is added below
         ]
+        if plugin
         for dependency in plugins[plugin]
     ),
 }
@@ -445,7 +447,6 @@ full_test_dev_requirements = {
             "clickhouse",
             "delta-lake",
             "druid",
-            "feast",
             "feast-legacy",
             "hana",
             "hive",
