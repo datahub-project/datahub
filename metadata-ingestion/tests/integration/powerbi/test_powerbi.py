@@ -237,6 +237,7 @@ def test_powerbi_ingest(mock_msal, pytestconfig, tmp_path, mock_time, requests_m
                 "type": "powerbi",
                 "config": {
                     **default_source_config(),
+                    "extract_reports": False,
                 },
             },
             "sink": {
@@ -276,6 +277,8 @@ def test_override_ownership(
                 "config": {
                     **default_source_config(),
                     "extract_ownership": False,
+                    "extract_reports": False,
+
                 },
             },
             "sink": {
@@ -312,7 +315,6 @@ def test_extract_reports(mock_msal, pytestconfig, tmp_path, mock_time, requests_
                 "type": "powerbi",
                 "config": {
                     **default_source_config(),
-                    "extract_reports": True,
                 },
             },
             "sink": {

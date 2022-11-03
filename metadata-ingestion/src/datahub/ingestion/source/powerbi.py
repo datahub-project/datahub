@@ -130,7 +130,7 @@ class PowerBiAPIConfig(EnvBasedSourceConfigBase):
     )
     # Enable/Disable extracting report information
     extract_reports: bool = pydantic.Field(
-        default=False, description="Whether reports should be ingested"
+        default=True, description="Whether reports should be ingested"
     )
 
 
