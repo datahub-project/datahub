@@ -5,7 +5,7 @@ import akka.stream.ActorMaterializer;
 import akka.stream.Materializer;
 import akka.util.ByteString;
 import auth.Authenticator;
-import com.datahub.plugins.auth.authentication.AuthenticationConstants;
+import com.datahub.auth.authentication.AuthenticationConstants;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.linkedin.util.Pair;
 import com.typesafe.config.Config;

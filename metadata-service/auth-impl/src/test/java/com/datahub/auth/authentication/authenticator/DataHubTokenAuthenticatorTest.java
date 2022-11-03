@@ -21,7 +21,7 @@ import org.testng.annotations.Test;
 import java.util.Collections;
 import java.util.Map;
 
-import static com.datahub.plugins.auth.authentication.AuthenticationConstants.*;
+import static com.datahub.auth.authentication.AuthenticationConstants.*;
 import static com.datahub.auth.authentication.authenticator.DataHubTokenAuthenticator.SALT_CONFIG_NAME;
 import static com.datahub.auth.authentication.authenticator.DataHubTokenAuthenticator.SIGNING_ALG_CONFIG_NAME;
 import static com.datahub.auth.authentication.authenticator.DataHubTokenAuthenticator.SIGNING_KEY_CONFIG_NAME;

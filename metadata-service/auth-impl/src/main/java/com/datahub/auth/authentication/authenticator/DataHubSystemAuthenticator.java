@@ -14,7 +14,7 @@ import java.util.Objects;
 import javax.annotation.Nullable;
 import lombok.extern.slf4j.Slf4j;
 
-import static com.datahub.plugins.auth.authentication.AuthenticationConstants.*;
+import static com.datahub.auth.authentication.AuthenticationConstants.*;
 
 
 /**
