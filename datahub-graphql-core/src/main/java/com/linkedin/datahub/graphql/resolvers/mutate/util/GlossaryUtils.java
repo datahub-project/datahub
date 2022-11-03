@@ -21,8 +21,6 @@ import javax.annotation.Nullable;
 import java.net.URISyntaxException;
 import java.util.Optional;
 
-import static com.linkedin.datahub.graphql.resolvers.AuthUtils.ALL_PRIVILEGES_GROUP;
-
 @Slf4j
 public class GlossaryUtils {
 
@@ -50,7 +48,6 @@ public class GlossaryUtils {
     }
 
     final DisjunctivePrivilegeGroup orPrivilegeGroups = new DisjunctivePrivilegeGroup(ImmutableList.of(
-        ALL_PRIVILEGES_GROUP,
         new ConjunctivePrivilegeGroup(ImmutableList.of(PoliciesConfig.MANAGE_GLOSSARY_CHILDREN_PRIVILEGE.getType()))
     ));
 
