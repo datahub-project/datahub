@@ -52,7 +52,7 @@ export const addFixedQuery = (baseQuery: string, fixedQuery: string, emptyQuery:
 // responds.
 export const removeFixedFiltersFromFacets = (fixedFilters: FilterSet, facets: FacetMetadata[]) => {
     const fixedFields = fixedFilters.filters.map((filter) => filter.field);
-    return facets.filter((facet) => !(fixedFields.indexOf(facet.field) > -1));
+    return facets.filter((facet) => !fixedFields.includes(facet.field));
 };
 
 type Props = {
