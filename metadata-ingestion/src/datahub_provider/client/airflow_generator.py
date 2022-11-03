@@ -302,6 +302,7 @@ class AirflowGenerator:
             assert dag_run.execution_date
             start_timestamp_millis = int(dag_run.execution_date.timestamp() * 1000)
 
+        assert dag_run.run_id
         dpi = DataProcessInstance.from_dataflow(dataflow=dataflow, id=dag_run.run_id)
 
         # This property only exists in Airflow2
