@@ -141,7 +141,7 @@
     "changeType": "UPSERT",
     "aspectName": "dataPlatformInstance",
     "aspect": {
-        "value": "{\"platform\": \"urn:li:dataPlatform:s3\"}",
+        "value": "{\"platform\": \"urn:li:dataPlatform:s3\", \"instance\": \"urn:li:dataPlatformInstance:(urn:li:dataPlatform:s3,test-platform-instance)\"}",
         "contentType": "application/json"
     },
     "systemMetadata": {
@@ -197,7 +197,7 @@
     "changeType": "UPSERT",
     "aspectName": "dataPlatformInstance",
     "aspect": {
-        "value": "{\"platform\": \"urn:li:dataPlatform:s3\"}",
+        "value": "{\"platform\": \"urn:li:dataPlatform:s3\", \"instance\": \"urn:li:dataPlatformInstance:(urn:li:dataPlatform:s3,test-platform-instance)\"}",
         "contentType": "application/json"
     },
     "systemMetadata": {
@@ -267,7 +267,7 @@
     "changeType": "UPSERT",
     "aspectName": "dataPlatformInstance",
     "aspect": {
-        "value": "{\"platform\": \"urn:li:dataPlatform:s3\"}",
+        "value": "{\"platform\": \"urn:li:dataPlatform:s3\", \"instance\": \"urn:li:dataPlatformInstance:(urn:li:dataPlatform:s3,test-platform-instance)\"}",
         "contentType": "application/json"
     },
     "systemMetadata": {
@@ -337,7 +337,7 @@
     "changeType": "UPSERT",
     "aspectName": "dataPlatformInstance",
     "aspect": {
-        "value": "{\"platform\": \"urn:li:dataPlatform:s3\"}",
+        "value": "{\"platform\": \"urn:li:dataPlatform:s3\", \"instance\": \"urn:li:dataPlatformInstance:(urn:li:dataPlatform:s3,test-platform-instance)\"}",
         "contentType": "application/json"
     },
     "systemMetadata": {
@@ -407,7 +407,7 @@
     "changeType": "UPSERT",
     "aspectName": "dataPlatformInstance",
     "aspect": {
-        "value": "{\"platform\": \"urn:li:dataPlatform:s3\"}",
+        "value": "{\"platform\": \"urn:li:dataPlatform:s3\", \"instance\": \"urn:li:dataPlatformInstance:(urn:li:dataPlatform:s3,test-platform-instance)\"}",
         "contentType": "application/json"
     },
     "systemMetadata": {

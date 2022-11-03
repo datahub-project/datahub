@@ -24,7 +24,7 @@ export const HoverEntityTooltip = ({ entity, canOpen = true, children }: Props) 
             visible={canOpen ? undefined : false}
             color="white"
             placement="topRight"
-            overlayStyle={{ minWidth: 500 }}
+            overlayStyle={{ minWidth: 300, maxWidth: 500, width: 'fit-content' }}
             overlayInnerStyle={{ padding: 12 }}
             title={<a href={url}>{entityRegistry.renderPreview(entity.type, PreviewType.HOVER_CARD, entity)}</a>}
         >

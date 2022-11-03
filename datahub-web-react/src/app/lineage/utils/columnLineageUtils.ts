@@ -1,5 +1,6 @@
 import { ColumnEdge, FetchedEntity, NodeData } from '../types';
-import { SchemaField } from '../../../types.generated';
+import { InputFields, SchemaField } from '../../../types.generated';
+import { downgradeV2FieldPath } from '../../entity/dataset/profile/schema/utils/utils';
 
 export function getHighlightedColumnsForNode(highlightedEdges: ColumnEdge[], fields: SchemaField[], nodeUrn: string) {
     return highlightedEdges
@@ -35,6 +36,13 @@ export function sortRelatedLineageColumns(
     };
 }
 
+export function convertFieldsToV1FieldPath(fields: SchemaField[]) {
+    return fields.map((field) => ({
+        ...field,
+        fieldPath: downgradeV2FieldPath(field.fieldPath) || '',
+    }));
+}
+
 export function sortColumnsByDefault(
     columnsByUrn: Record<string, SchemaField[]>,
     fields: SchemaField[],
@@ -51,6 +59,10 @@ export function sortColumnsByDefault(
     };
 }
 
+export function convertInputFieldsToSchemaFields(inputFields?: InputFields) {
+    return inputFields?.fields?.map((field) => field?.schemaField) as SchemaField[] | undefined;
+}
+
 export function populateColumnsByUrn(
     columnsByUrn: Record<string, SchemaField[]>,
     fetchedEntities: { [x: string]: FetchedEntity },
@@ -59,7 +71,17 @@ export function populateColumnsByUrn(
     let populatedColumnsByUrn = { ...columnsByUrn };
     Object.entries(fetchedEntities).forEach(([urn, fetchedEntity]) => {
         if (fetchedEntity.schemaMetadata && !columnsByUrn[urn]) {
-            populatedColumnsByUrn = { ...populatedColumnsByUrn, [urn]: fetchedEntity.schemaMetadata.fields };
+            populatedColumnsByUrn = {
+                ...populatedColumnsByUrn,
+                [urn]: convertFieldsToV1FieldPath(fetchedEntity.schemaMetadata.fields),
+            };
+        } else if (fetchedEntity.inputFields?.fields && !columnsByUrn[urn]) {
+            populatedColumnsByUrn = {
+                ...populatedColumnsByUrn,
+                [urn]: convertFieldsToV1FieldPath(
+                    convertInputFieldsToSchemaFields(fetchedEntity.inputFields) as SchemaField[],
+                ),
+            };
         }
     });
     setColumnsByUrn(populatedColumnsByUrn);
@@ -87,6 +109,16 @@ export function filterColumns(
 ) {
     const filteredFields = node.data.schemaMetadata?.fields.filter((field) => field.fieldPath.includes(filterText));
     if (filteredFields) {
-        setColumnsByUrn((colsByUrn) => ({ ...colsByUrn, [node.data.urn || 'noop']: filteredFields }));
+        setColumnsByUrn((colsByUrn) => ({
+            ...colsByUrn,
+            [node.data.urn || 'noop']: convertFieldsToV1FieldPath(filteredFields),
+        }));
     }
+}
+
+export function getSourceUrnFromSchemaFieldUrn(schemaFieldUrn: string) {
+    return schemaFieldUrn.replace('urn:li:schemaField:(', '').split(')')[0].concat(')');
+}
+export function getFieldPathFromSchemaFieldUrn(schemaFieldUrn: string) {
+    return schemaFieldUrn.replace('urn:li:schemaField:(', '').split(')')[1].replace(',', '');
 }

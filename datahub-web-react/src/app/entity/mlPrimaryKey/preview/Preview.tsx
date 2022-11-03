@@ -27,6 +27,7 @@ export const Preview = ({
         <DefaultPreviewCard
             url={entityRegistry.getEntityUrl(EntityType.MlprimaryKey, urn)}
             name={name}
+            urn={urn}
             description={description || ''}
             platform={capitalizeFirstLetterOnly(platform?.properties?.displayName) || featureNamespace}
             logoUrl={platform?.properties?.logoUrl || ''}

@@ -3,6 +3,7 @@ package com.linkedin.metadata.graph.neo4j;
 import com.codahale.metrics.Timer;
 import com.datahub.util.Statement;
 import com.datahub.util.exception.RetryLimitReached;
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableMap;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.metadata.graph.Edge;
@@ -252,6 +253,11 @@ public class Neo4jGraphService implements GraphService {
   @Override
   public void clear() {
     removeNodesMatchingLabel(".*");
+  }
+
+  @VisibleForTesting
+  public void wipe() {
+    runQuery(new Statement("MATCH (n) DETACH DELETE n", Map.of())).consume();
   }
 
   // visible for testing

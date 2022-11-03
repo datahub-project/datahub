@@ -5,6 +5,8 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.linkedin.common.Status;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.data.template.RecordTemplate;
+import com.linkedin.dataset.FineGrainedLineage;
+import com.linkedin.dataset.UpstreamLineage;
 import com.linkedin.events.metadata.ChangeType;
 import com.linkedin.gms.factory.common.GraphServiceFactory;
 import com.linkedin.gms.factory.common.SystemMetadataServiceFactory;
@@ -38,6 +40,7 @@ import java.io.UnsupportedEncodingException;
 import java.net.URISyntaxException;
 import java.net.URLEncoder;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
@@ -67,6 +70,7 @@ public class UpdateIndicesHook implements MetadataChangeLogHook {
   private final EntityRegistry _entityRegistry;
   private final SearchDocumentTransformer _searchDocumentTransformer;
 
+  public static final String DOWNSTREAM_OF = "DownstreamOf";
   private static final Set<ChangeType> VALID_CHANGE_TYPES =
       Stream.of(
           ChangeType.UPSERT,
@@ -152,15 +156,47 @@ public class UpdateIndicesHook implements MetadataChangeLogHook {
     }
   }
 
-  private Pair<List<Edge>, Set<String>> getEdgesAndRelationshipTypesFromAspect(Urn urn, AspectSpec aspectSpec, RecordTemplate aspect) {
-    final Set<String> relationshipTypesBeingAdded = new HashSet<>();
+  private void updateFineGrainedEdgesAndRelationships(
+      RecordTemplate aspect,
+      List<Edge> edgesToAdd,
+      HashMap<Urn, Set<String>> urnToRelationshipTypesBeingAdded
+  ) {
+    UpstreamLineage upstreamLineage = new UpstreamLineage(aspect.data());
+    if (upstreamLineage.getFineGrainedLineages() != null) {
+      for (FineGrainedLineage fineGrainedLineage : upstreamLineage.getFineGrainedLineages()) {
+        if (!fineGrainedLineage.hasDownstreams() || !fineGrainedLineage.hasUpstreams()) {
+          break;
+        }
+        // for every downstream, create an edge with each of the upstreams
+        for (Urn downstream : fineGrainedLineage.getDownstreams()) {
+          for (Urn upstream : fineGrainedLineage.getUpstreams()) {
+            edgesToAdd.add(new Edge(downstream, upstream, DOWNSTREAM_OF));
+            Set<String> relationshipTypes = urnToRelationshipTypesBeingAdded.getOrDefault(downstream, new HashSet<>());
+            relationshipTypes.add(DOWNSTREAM_OF);
+            urnToRelationshipTypesBeingAdded.put(downstream, relationshipTypes);
+          }
+        }
+      }
+    }
+  }
+
+  private Pair<List<Edge>, HashMap<Urn, Set<String>>> getEdgesAndRelationshipTypesFromAspect(Urn urn, AspectSpec aspectSpec, RecordTemplate aspect) {
     final List<Edge> edgesToAdd = new ArrayList<>();
+    final HashMap<Urn, Set<String>> urnToRelationshipTypesBeingAdded = new HashMap<>();
+
+    if (aspectSpec.getName().equals(Constants.UPSTREAM_LINEAGE_ASPECT_NAME)) {
+      // we need to manually set schemaField <-> schemaField edges for fineGrainedLineage since
+      // @Relationship only links between the parent entity urn and something else.
+      updateFineGrainedEdgesAndRelationships(aspect, edgesToAdd, urnToRelationshipTypesBeingAdded);
+    }
 
     Map<RelationshipFieldSpec, List<Object>> extractedFields =
         FieldExtractor.extractFields(aspect, aspectSpec.getRelationshipFieldSpecs());
 
     for (Map.Entry<RelationshipFieldSpec, List<Object>> entry : extractedFields.entrySet()) {
-      relationshipTypesBeingAdded.add(entry.getKey().getRelationshipName());
+      Set<String> relationshipTypes = urnToRelationshipTypesBeingAdded.getOrDefault(urn, new HashSet<>());
+      relationshipTypes.add(entry.getKey().getRelationshipName());
+      urnToRelationshipTypesBeingAdded.put(urn, relationshipTypes);
       for (Object fieldValue : entry.getValue()) {
         try {
           edgesToAdd.add(
@@ -170,23 +206,25 @@ public class UpdateIndicesHook implements MetadataChangeLogHook {
         }
       }
     }
-    return Pair.of(edgesToAdd, relationshipTypesBeingAdded);
+    return Pair.of(edgesToAdd, urnToRelationshipTypesBeingAdded);
   }
 
   /**
    * Process snapshot and update graph index
    */
   private void updateGraphService(Urn urn, AspectSpec aspectSpec, RecordTemplate aspect) {
-    Pair<List<Edge>, Set<String>> edgeAndRelationTypes =
+    Pair<List<Edge>, HashMap<Urn, Set<String>>> edgeAndRelationTypes =
         getEdgesAndRelationshipTypesFromAspect(urn, aspectSpec, aspect);
 
     final List<Edge> edgesToAdd = edgeAndRelationTypes.getFirst();
-    final Set<String> relationshipTypesBeingAdded = edgeAndRelationTypes.getSecond();
+    final HashMap<Urn, Set<String>> urnToRelationshipTypesBeingAdded = edgeAndRelationTypes.getSecond();
 
-    log.debug("Here's the relationship types found {}", relationshipTypesBeingAdded);
-    if (relationshipTypesBeingAdded.size() > 0) {
-      _graphService.removeEdgesFromNode(urn, new ArrayList<>(relationshipTypesBeingAdded),
-          newRelationshipFilter(new Filter().setOr(new ConjunctiveCriterionArray()), RelationshipDirection.OUTGOING));
+    log.debug("Here's the relationship types found {}", urnToRelationshipTypesBeingAdded);
+    if (urnToRelationshipTypesBeingAdded.size() > 0) {
+      for (Map.Entry<Urn, Set<String>> entry : urnToRelationshipTypesBeingAdded.entrySet()) {
+        _graphService.removeEdgesFromNode(entry.getKey(), new ArrayList<>(entry.getValue()),
+            newRelationshipFilter(new Filter().setOr(new ConjunctiveCriterionArray()), RelationshipDirection.OUTGOING));
+      }
       edgesToAdd.forEach(edge -> _graphService.addEdge(edge));
     }
   }
@@ -260,13 +298,15 @@ public class UpdateIndicesHook implements MetadataChangeLogHook {
       return;
     }
 
-    Pair<List<Edge>, Set<String>> edgeAndRelationTypes =
+    Pair<List<Edge>, HashMap<Urn, Set<String>>> edgeAndRelationTypes =
         getEdgesAndRelationshipTypesFromAspect(urn, aspectSpec, aspect);
 
-    final Set<String> relationshipTypesBeingAdded = edgeAndRelationTypes.getSecond();
-    if (relationshipTypesBeingAdded.size() > 0) {
-      _graphService.removeEdgesFromNode(urn, new ArrayList<>(relationshipTypesBeingAdded),
-          createRelationshipFilter(new Filter().setOr(new ConjunctiveCriterionArray()), RelationshipDirection.OUTGOING));
+    final HashMap<Urn, Set<String>> urnToRelationshipTypesBeingAdded = edgeAndRelationTypes.getSecond();
+    if (urnToRelationshipTypesBeingAdded.size() > 0) {
+      for (Map.Entry<Urn, Set<String>> entry : urnToRelationshipTypesBeingAdded.entrySet()) {
+        _graphService.removeEdgesFromNode(entry.getKey(), new ArrayList<>(entry.getValue()),
+            createRelationshipFilter(new Filter().setOr(new ConjunctiveCriterionArray()), RelationshipDirection.OUTGOING));
+      }
     }
   }
 

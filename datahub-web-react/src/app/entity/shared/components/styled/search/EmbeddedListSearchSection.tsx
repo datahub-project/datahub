@@ -40,9 +40,10 @@ export const EmbeddedListSearchSection = ({
 }: Props) => {
     const history = useHistory();
     const location = useLocation();
-    const baseParams = useEntityQueryParams();
+    const entityQueryParams = useEntityQueryParams();
 
     const params = QueryString.parse(location.search, { arrayFormat: 'comma' });
+    const baseParams = { ...params, ...entityQueryParams };
     const query: string = params?.query as string;
     const page: number = params.page && Number(params.page as string) > 0 ? Number(params.page as string) : 1;
     const unionType: UnionType = Number(params.unionType as any as UnionType) || UnionType.AND;
