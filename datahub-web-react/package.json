@@ -43,7 +43,7 @@
         "@vx/shape": "^0.0.199",
         "@vx/zoom": "^0.0.199",
         "analytics": "^0.7.5",
-        "antd": "^4.16.0",
+        "antd": "4.17.4",
         "apollo-link": "^1.2.14",
         "apollo-link-error": "^1.1.13",
         "apollo-link-http": "^1.5.17",
