@@ -47,11 +47,15 @@ MAX_CONTENT_WIDTH = 120
 )
 @click.option(
     "--debug/--no-debug",
+    type=bool,
+    is_flag=True,
     default=False,
     help="Enable debug logging.",
 )
 @click.option(
     "--debug-vars/--no-debug-vars",
+    type=bool,
+    is_flag=True,
     default=False,
     help="Show variable values in stack traces. Implies --debug. While we try to avoid printing sensitive information like passwords, this may still happen.",
 )
