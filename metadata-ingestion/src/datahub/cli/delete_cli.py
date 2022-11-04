@@ -13,6 +13,7 @@ from tabulate import tabulate
 from datahub.cli import cli_utils
 from datahub.emitter import rest_emitter
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
+from datahub.ingestion.graph.client import DataHubGraph, DataHubGraphConfig
 from datahub.metadata.schema_classes import (
     ChangeTypeClass,
     StatusClass,
@@ -132,6 +133,7 @@ def delete_for_registry(
 @click.option("--registry-id", required=False, type=str)
 @click.option("-n", "--dry-run", required=False, is_flag=True)
 @click.option("--only-soft-deleted", required=False, is_flag=True, default=False)
+@click.option("--delete-children", required=False, is_flag=True, default=False)
 @upgrade.check_upgrade
 @telemetry.with_telemetry
 def delete(
@@ -148,6 +150,7 @@ def delete(
     registry_id: str,
     dry_run: bool,
     only_soft_deleted: bool,
+    delete_children: bool,
 ) -> None:
     """Delete metadata from datahub using a single urn or a combination of filters"""
 
@@ -177,48 +180,62 @@ def delete(
 
     if urn:
         # Single urn based delete
+        server_url, datahub_token = cli_utils.get_url_and_token()
+        graph = DataHubGraph(DataHubGraphConfig(server=server_url, token=datahub_token))
+
         session, host = cli_utils.get_session_and_host()
         entity_type = guess_entity_type(urn=urn)
         logger.info(f"DataHub configured with {host}")
 
-        references_count, related_aspects = delete_references(
-            urn, dry_run=True, cached_session_host=(session, host)
-        )
-        remove_references: bool = False
+        if delete_children:
+            urns = graph.get_children(urn)
+            for child_urn in urns:
+                print(f"Child urn found {child_urn}")
+                urns.extend(graph.get_children(child_urn))
 
-        if references_count > 0:
-            print(
-                f"This urn was referenced in {references_count} other aspects across your metadata graph:"
+        urns.append(urn)
+
+        # references_count, related_aspects = delete_references(
+        #     urn, dry_run=True, cached_session_host=(session, host)
+        # )
+        # remove_references: bool = False
+
+        # if references_count > 0:
+        #     print(
+        #         f"This urn was referenced in {references_count} other aspects across your metadata graph:"
+        #     )
+        #     click.echo(
+        #         tabulate(
+        #             [x.values() for x in related_aspects],
+        #             ["relationship", "entity", "aspect"],
+        #             tablefmt="grid",
+        #         )
+        #     )
+        #     remove_references = click.confirm("Do you want to delete these references?")
+
+        # if remove_references:
+        #     delete_references(urn, dry_run=False, cached_session_host=(session, host))
+
+        deletion_result = DeletionResult()
+        for urn in urns:
+            one_deletion_result: DeletionResult = _delete_one_urn(
+                urn,
+                aspect_name=aspect_name,
+                soft=soft,
+                dry_run=dry_run,
+                entity_type=guess_entity_type(urn),
+                start_time=start_time,
+                end_time=end_time,
+                cached_session_host=(session, host),
             )
-            click.echo(
-                tabulate(
-                    [x.values() for x in related_aspects],
-                    ["relationship", "entity", "aspect"],
-                    tablefmt="grid",
-                )
-            )
-            remove_references = click.confirm("Do you want to delete these references?")
-
-        if remove_references:
-            delete_references(urn, dry_run=False, cached_session_host=(session, host))
-
-        deletion_result: DeletionResult = delete_one_urn_cmd(
-            urn,
-            aspect_name=aspect_name,
-            soft=soft,
-            dry_run=dry_run,
-            entity_type=entity_type,
-            start_time=start_time,
-            end_time=end_time,
-            cached_session_host=(session, host),
-        )
+            deletion_result.merge(one_deletion_result)
 
         if not dry_run:
             if deletion_result.num_records == 0:
                 click.echo(f"Nothing deleted for {urn}")
             else:
                 click.echo(
-                    f"Successfully deleted {urn}. {deletion_result.num_records} rows deleted"
+                    f"Successfully deleted {urns}. {deletion_result.num_records} rows deleted"
                 )
 
     elif registry_id:
@@ -243,16 +260,23 @@ def delete(
             include_removed=include_removed,
             aspect_name=aspect_name,
             only_soft_deleted=only_soft_deleted,
+            delete_children=delete_children,
         )
 
     if not dry_run:
-        message = "soft delete" if soft else "hard delete"
-        click.echo(
-            f"Took {(deletion_result.end_time-deletion_result.start_time)/1000.0} seconds to {message}"
-            f" {deletion_result.num_records} versioned rows"
-            f" and {deletion_result.num_timeseries_records} timeseries aspect rows"
-            f" for {deletion_result.num_entities} entities."
-        )
+        if soft:
+            click.echo(
+                f"Took {(deletion_result.end_time-deletion_result.start_time)/1000.0} seconds to soft-delete"
+                f" {deletion_result.num_entities} entities."
+            )
+        else:
+            click.echo(
+                f"Took {(deletion_result.end_time-deletion_result.start_time)/1000.0} seconds to hard-delete"
+                f" {deletion_result.num_records} versioned rows"
+                f" and {deletion_result.num_timeseries_records} timeseries aspect rows"
+                f" for {deletion_result.num_entities} entities."
+            )
+
     else:
         click.echo(
             f"{deletion_result.num_entities} entities with {deletion_result.num_records if deletion_result.num_records != UNKNOWN_NUM_RECORDS else 'unknown'} rows will be affected. Took {(deletion_result.end_time-deletion_result.start_time)/1000.0} seconds to evaluate."
@@ -273,6 +297,7 @@ def delete_with_filters(
     soft: bool,
     force: bool,
     include_removed: bool,
+    delete_children: bool,
     aspect_name: Optional[str] = None,
     search_query: str = "*",
     entity_type: str = "dataset",
@@ -285,7 +310,7 @@ def delete_with_filters(
     token = cli_utils.get_token()
 
     logger.info(f"datahub configured with {gms_host}")
-    emitter = rest_emitter.DatahubRestEmitter(gms_server=gms_host, token=token)
+    graph = DataHubGraph(DataHubGraphConfig(server=gms_host, token=token))
     batch_deletion_result = DeletionResult()
 
     urns: List[str] = []
@@ -336,16 +361,23 @@ def delete_with_filters(
             abort=True,
         )
 
-    if len(urns) > 0:
+    if urns:
+        all_children = []
+        if delete_children:
+            for urn in urns:
+                child_urns = graph.get_children(urn, hops=-1)
+                all_children.extend(child_urns)
+
+        urns.extend(all_children)
         for urn in progressbar.progressbar(urns, redirect_stdout=True):
             one_result = _delete_one_urn(
                 urn,
                 soft=soft,
                 aspect_name=aspect_name,
-                entity_type=entity_type,
+                entity_type=guess_entity_type(urn),
                 dry_run=dry_run,
                 cached_session_host=(session, gms_host),
-                cached_emitter=emitter,
+                cached_emitter=graph,
             )
             batch_deletion_result.merge(one_result)
 
@@ -355,10 +387,10 @@ def delete_with_filters(
             one_result = _delete_one_urn(
                 urn,
                 soft=soft,
-                entity_type=entity_type,
+                entity_type=guess_entity_type(urn),
                 dry_run=dry_run,
                 cached_session_host=(session, gms_host),
-                cached_emitter=emitter,
+                cached_emitter=graph,
                 is_soft_deleted=True,
             )
             batch_deletion_result.merge(one_result)
@@ -389,6 +421,27 @@ def _delete_one_urn(
     deletion_result = DeletionResult()
     deletion_result.num_entities = 1
     deletion_result.num_records = UNKNOWN_NUM_RECORDS  # Default is unknown
+
+    references_count, related_aspects = delete_references(
+        urn, dry_run=True, cached_session_host=cached_session_host
+    )
+    remove_references: bool = False
+
+    if references_count > 0:
+        print(
+            f"This urn was referenced in {references_count} other aspects across your metadata graph:"
+        )
+        click.echo(
+            tabulate(
+                [x.values() for x in related_aspects],
+                ["relationship", "entity", "aspect"],
+                tablefmt="grid",
+            )
+        )
+        remove_references = click.confirm("Do you want to delete these references?")
+
+    if remove_references:
+        delete_references(urn, dry_run=False, cached_session_host=cached_session_host)
 
     if soft:
         if aspect_name:

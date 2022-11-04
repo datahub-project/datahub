@@ -1,6 +1,7 @@
 import json
 import logging
 import os
+import urllib
 from json.decoder import JSONDecodeError
 from typing import Any, Dict, Iterable, List, Optional, Type, Union
 
@@ -358,6 +359,9 @@ class DataHubGraph(DatahubRestEmitter):
 
         return result
 
+    def _get_relationships_endpoint(self):
+        return f"{self.config.server}/relationships"
+
     def _get_search_endpoint(self):
         return f"{self.config.server}/entities?action=search"
 
@@ -455,3 +459,39 @@ class DataHubGraph(DatahubRestEmitter):
             args["urnLike"] = urn_like
         results = self._post_generic(self._get_aspect_count_endpoint(), args)
         return results["value"]
+
+    def get_relationships(
+        self, entity_urn: str, relationships: List[str], direction: str
+    ) -> List[str]:
+        relationships_param = (
+            "List(" + ",".join(relationships) + ")"
+            if len(relationships) > 0
+            else relationships[0]
+        )
+        relationships_payload = f"direction={direction}&urn={Urn.url_encode(entity_urn)}&types={relationships_param}"
+        results = self._get_generic(
+            self._get_relationships_endpoint() + "?" + relationships_payload
+        )
+        if results and "relationships" in results:
+            urns = [x["entity"] for x in results["relationships"]]
+            return urns
+
+        return []
+
+    def get_children(
+        self, entity_urn: str, relationships: List[str] = [], hops: int = 1
+    ) -> List[str]:
+        if hops == 0:
+            return []
+        entity_type = guess_entity_type(entity_urn)
+        entity_child_relationship_map = {"glossaryNode": ["IsPartOf"]}
+
+        relationships = entity_child_relationship_map.get(entity_type, relationships)
+        if relationships:
+            related = self.get_relationships(
+                entity_urn, relationships, direction="INCOMING"
+            )
+            for one in related:
+                related.extend(self.get_children(one, hops=hops - 1))
+            return related
+        return []
