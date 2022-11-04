@@ -10,9 +10,10 @@ import {
     DownOutlined,
 } from '@ant-design/icons';
 import { Link } from 'react-router-dom';
-import { Button, Dropdown, Menu } from 'antd';
+import { Button, Dropdown, Menu, Tooltip } from 'antd';
 import { useAppConfig } from '../../useAppConfig';
 import { useGetAuthenticatedUser } from '../../useGetAuthenticatedUser';
+import { ANTD_GRAY } from '../../entity/shared/constants';
 
 const LinkWrapper = styled.span`
     margin-right: 0px;
@@ -34,6 +35,24 @@ const LinksWrapper = styled.div<{ areLinksHidden?: boolean }>`
 const MenuItem = styled(Menu.Item)`
     font-size: 12px;
     font-weight: bold;
+    max-width: 240px;
+`;
+
+const NavTitleContainer = styled.span`
+    display: flex;
+    align-items: center;
+    justify-content: left;
+    padding: 2px;
+`;
+
+const NavTitleText = styled.span`
+    margin-left: 6px;
+`;
+
+const NavTitleDescription = styled.div`
+    font-size: 12px;
+    font-weight: normal;
+    color: ${ANTD_GRAY[7]};
 `;
 
 interface Props {
@@ -60,7 +79,12 @@ export function HeaderLinks(props: Props) {
                 <LinkWrapper>
                     <Link to="/analytics">
                         <Button type="text">
-                            <BarChartOutlined /> Analytics
+                            <Tooltip title="View DataHub usage analytics">
+                                <NavTitleContainer>
+                                    <BarChartOutlined />
+                                    <NavTitleText>Analytics</NavTitleText>
+                                </NavTitleContainer>
+                            </Tooltip>
                         </Button>
                     </Link>
                 </LinkWrapper>
@@ -69,7 +93,12 @@ export function HeaderLinks(props: Props) {
                 <LinkWrapper>
                     <Link to="/ingestion">
                         <Button type="text">
-                            <ApiOutlined /> Ingestion
+                            <Tooltip title="Connect DataHub to your organization's data sources">
+                                <NavTitleContainer>
+                                    <ApiOutlined />
+                                    <NavTitleText>Ingestion</NavTitleText>
+                                </NavTitleContainer>
+                            </Tooltip>
                         </Button>
                     </Link>
                 </LinkWrapper>
@@ -80,13 +109,21 @@ export function HeaderLinks(props: Props) {
                     <Menu>
                         <MenuItem key="0">
                             <Link to="/glossary">
-                                <BookOutlined style={{ fontSize: '14px', fontWeight: 'bold' }} /> Glossary
+                                <NavTitleContainer>
+                                    <BookOutlined style={{ fontSize: '14px', fontWeight: 'bold' }} />
+                                    <NavTitleText>Glossary</NavTitleText>
+                                </NavTitleContainer>
+                                <NavTitleDescription>View and modify your data dictionary</NavTitleDescription>
                             </Link>
                         </MenuItem>
                         {showDomains && (
                             <MenuItem key="1">
                                 <Link to="/domains">
-                                    <FolderOutlined style={{ fontSize: '14px', fontWeight: 'bold' }} /> Domains
+                                    <NavTitleContainer>
+                                        <FolderOutlined style={{ fontSize: '14px', fontWeight: 'bold' }} />
+                                        <NavTitleText>Domains</NavTitleText>
+                                    </NavTitleContainer>
+                                    <NavTitleDescription>Manage related groups of data assets</NavTitleDescription>
                                 </Link>
                             </MenuItem>
                         )}
@@ -103,7 +140,9 @@ export function HeaderLinks(props: Props) {
                 <LinkWrapper style={{ marginRight: 12 }}>
                     <Link to="/settings">
                         <Button type="text">
-                            <SettingOutlined />
+                            <Tooltip title="Manage your DataHub settings">
+                                <SettingOutlined />
+                            </Tooltip>
                         </Button>
                     </Link>
                 </LinkWrapper>

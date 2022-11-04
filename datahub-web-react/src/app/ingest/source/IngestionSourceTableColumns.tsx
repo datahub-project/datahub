@@ -90,7 +90,7 @@ export function TypeColumn(type: string, record: any) {
 export function LastExecutionColumn(time: any) {
     const executionDate = time && new Date(time);
     const localTime = executionDate && `${executionDate.toLocaleDateString()} at ${executionDate.toLocaleTimeString()}`;
-    return <Typography.Text>{localTime || 'N/A'}</Typography.Text>;
+    return <Typography.Text>{localTime || 'None'}</Typography.Text>;
 }
 
 export function ScheduleColumn(schedule: any, record: any) {
@@ -117,7 +117,7 @@ export function LastStatusColumn({ status, record, setFocusExecutionUrn }: LastS
             {Icon && <Icon style={{ color }} />}
             <StatusButton type="link" onClick={() => setFocusExecutionUrn(record.lastExecUrn)}>
                 <Typography.Text strong style={{ color, marginLeft: 8 }}>
-                    {text || 'N/A'}
+                    {text || 'Pending...'}
                 </Typography.Text>
             </StatusButton>
         </StatusContainer>
