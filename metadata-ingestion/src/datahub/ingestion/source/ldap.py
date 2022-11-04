@@ -399,9 +399,7 @@ class LDAPSource(StatefulIngestionSourceBase):
                     title=title,
                     managerUrn=manager_urn,
                 ),
-                StatusClass (
-                    removed=False
-                )                
+                StatusClass(removed=False)        
             ],
         )
 
