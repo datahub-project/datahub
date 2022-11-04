@@ -13,7 +13,7 @@ import EntityName from './EntityName';
 import CopyUrn from '../../../../../shared/CopyUrn';
 import { DeprecationPill } from '../../../components/styled/DeprecationPill';
 import CompactContext from '../../../../../shared/CompactContext';
-import { EntitySubHeaderSection } from '../../../types';
+import { EntitySubHeaderSection, GenericEntityProperties } from '../../../types';
 import EntityActions, { EntityActionItem } from '../../../entity/EntityActions';
 import ExternalUrlButton from '../../../ExternalUrlButton';
 
@@ -55,11 +55,15 @@ const TopButtonsWrapper = styled.div`
     margin-bottom: 8px;
 `;
 
-export function getCanEditName(entityType: EntityType, privileges?: PlatformPrivileges) {
+export function getCanEditName(
+    entityType: EntityType,
+    entityData: GenericEntityProperties | null,
+    privileges?: PlatformPrivileges,
+) {
     switch (entityType) {
         case EntityType.GlossaryTerm:
         case EntityType.GlossaryNode:
-            return privileges?.manageGlossaries;
+            return privileges?.manageGlossaries || !!entityData?.privileges?.canManageEntity;
         case EntityType.Domain:
             return privileges?.manageDomains;
         default:
@@ -92,7 +96,8 @@ export const EntityHeader = ({
     const entityCount = entityData?.entityCount;
     const isCompact = React.useContext(CompactContext);
 
-    const canEditName = isNameEditable && getCanEditName(entityType, me?.platformPrivileges as PlatformPrivileges);
+    const canEditName =
+        isNameEditable && getCanEditName(entityType, entityData, me?.platformPrivileges as PlatformPrivileges);
 
     return (
         <>
@@ -142,7 +147,6 @@ export const EntityHeader = ({
                                 menuItems={headerDropdownItems}
                                 refetchForEntity={refetch}
                                 refreshBrowser={refreshBrowser}
-                                platformPrivileges={me?.platformPrivileges as PlatformPrivileges}
                             />
                         )}
                     </TopButtonsWrapper>

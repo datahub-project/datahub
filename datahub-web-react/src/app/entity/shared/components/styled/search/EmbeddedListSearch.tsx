@@ -1,17 +1,18 @@
 import React, { useState, useEffect } from 'react';
 import styled from 'styled-components';
 import { ApolloError } from '@apollo/client';
-import { EntityType, FacetFilterInput } from '../../../../../../types.generated';
+import { EntityType, FacetFilterInput, FacetMetadata } from '../../../../../../types.generated';
 import { ENTITY_FILTER_NAME, UnionType } from '../../../../../search/utils/constants';
 import { SearchCfg } from '../../../../../../conf';
 import { EmbeddedListSearchResults } from './EmbeddedListSearchResults';
 import EmbeddedListSearchHeader from './EmbeddedListSearchHeader';
 import { useGetSearchResultsForMultipleQuery } from '../../../../../../graphql/search.generated';
-import { GetSearchResultsParams, SearchResultsInterface } from './types';
+import { FilterSet, GetSearchResultsParams, SearchResultsInterface } from './types';
 import { isListSubset } from '../../../utils';
 import { EntityAndType } from '../../../types';
 import { Message } from '../../../../../shared/Message';
 import { generateOrFilters } from '../../../../../search/utils/generateOrFilters';
+import { mergeFilterSets } from '../../../../../search/utils/filterUtils';
 
 const Container = styled.div`
     display: flex;
@@ -31,6 +32,7 @@ function useWrappedSearchResults(params: GetSearchResultsParams) {
             refetch(refetchParams).then((res) => res.data.searchAcrossEntities),
     };
 }
+
 // the addFixedQuery checks and generate the query as per params pass to embeddedListSearch
 export const addFixedQuery = (baseQuery: string, fixedQuery: string, emptyQuery: string) => {
     let finalQuery = ``;
@@ -46,6 +48,13 @@ export const addFixedQuery = (baseQuery: string, fixedQuery: string, emptyQuery:
     return finalQuery;
 };
 
+// Simply remove the fields that were marked as fixed from the facets that the server
+// responds.
+export const removeFixedFiltersFromFacets = (fixedFilters: FilterSet, facets: FacetMetadata[]) => {
+    const fixedFields = fixedFilters.filters.map((filter) => filter.field);
+    return facets.filter((facet) => !fixedFields.includes(facet.field));
+};
+
 type Props = {
     query: string;
     page: number;
@@ -56,7 +65,7 @@ type Props = {
     onChangePage: (page) => void;
     onChangeUnionType: (unionType: UnionType) => void;
     emptySearchQuery?: string | null;
-    fixedFilter?: FacetFilterInput | null;
+    fixedFilters?: FilterSet;
     fixedQuery?: string | null;
     placeholderText?: string | null;
     defaultShowFilters?: boolean;
@@ -81,7 +90,7 @@ export const EmbeddedListSearch = ({
     onChangePage,
     onChangeUnionType,
     emptySearchQuery,
-    fixedFilter,
+    fixedFilters,
     fixedQuery,
     placeholderText,
     defaultShowFilters,
@@ -97,7 +106,16 @@ export const EmbeddedListSearch = ({
     const filtersWithoutEntities: Array<FacetFilterInput> = filters.filter(
         (filter) => filter.field !== ENTITY_FILTER_NAME,
     );
-    const finalFilters = (fixedFilter && [...filtersWithoutEntities, fixedFilter]) || filtersWithoutEntities;
+
+    const baseFilters = {
+        unionType,
+        filters: filtersWithoutEntities,
+    };
+
+    const finalFilters =
+        (fixedFilters && mergeFilterSets(fixedFilters, baseFilters)) ||
+        generateOrFilters(unionType, filtersWithoutEntities);
+
     const entityFilters: Array<EntityType> = filters
         .filter((filter) => filter.field === ENTITY_FILTER_NAME)
         .flatMap((filter) => filter.values?.map((value) => value?.toUpperCase() as EntityType) || []);
@@ -114,8 +132,7 @@ export const EmbeddedListSearch = ({
                 query: finalQuery,
                 start: (page - 1) * SearchCfg.RESULTS_PER_PAGE,
                 count: SearchCfg.RESULTS_PER_PAGE,
-                filters: [],
-                orFilters: generateOrFilters(unionType, finalFilters),
+                orFilters: finalFilters,
             },
         },
         skip: true,
@@ -132,8 +149,7 @@ export const EmbeddedListSearch = ({
                 query: finalQuery,
                 start: (page - 1) * numResultsPerPage,
                 count: numResultsPerPage,
-                filters: [],
-                orFilters: generateOrFilters(unionType, finalFilters),
+                orFilters: finalFilters,
             },
         },
     });
@@ -183,8 +199,13 @@ export const EmbeddedListSearch = ({
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
 
-    // Filter out the persistent filter values
-    const filteredFilters = data?.facets?.filter((facet) => facet.field !== fixedFilter?.field) || [];
+    /**
+     * Compute the final Facet fields that we show in the left hand search Filters (aggregation).
+     *
+     * Do this by filtering out any fields that are included in the fixed filters.
+     */
+    const finalFacets =
+        (fixedFilters && removeFixedFiltersFromFacets(fixedFilters, data?.facets || [])) || data?.facets;
 
     return (
         <Container>
@@ -210,7 +231,7 @@ export const EmbeddedListSearch = ({
                 unionType={unionType}
                 loading={loading}
                 searchResponse={data}
-                filters={filteredFilters}
+                filters={finalFacets}
                 selectedFilters={filters}
                 onChangeFilters={onChangeFilters}
                 onChangePage={onChangePage}

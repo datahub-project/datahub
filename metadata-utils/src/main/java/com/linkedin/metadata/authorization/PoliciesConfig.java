@@ -249,6 +249,12 @@ public class PoliciesConfig {
       "Edit Contact Information",
       "The ability to change the contact information such as email & chat handles.");
 
+  // Glossary Node Privileges
+  public static final Privilege MANAGE_GLOSSARY_CHILDREN_PRIVILEGE = Privilege.of(
+      "MANAGE_GLOSSARY_CHILDREN",
+      "Manage Glossary Children",
+      "The ability to create and delete the children of this entity.");
+
   public static final ResourcePrivileges DATASET_PRIVILEGES = ResourcePrivileges.of(
       "dataset",
       "Datasets",
@@ -356,7 +362,8 @@ public class PoliciesConfig {
           EDIT_ENTITY_DOCS_PRIVILEGE,
           EDIT_ENTITY_DOC_LINKS_PRIVILEGE,
           EDIT_ENTITY_DEPRECATION_PRIVILEGE,
-          EDIT_ENTITY_PRIVILEGE)
+          EDIT_ENTITY_PRIVILEGE,
+          MANAGE_GLOSSARY_CHILDREN_PRIVILEGE)
   );
 
   // Group Privileges

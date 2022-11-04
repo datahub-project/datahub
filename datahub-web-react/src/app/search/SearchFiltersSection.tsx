@@ -71,7 +71,7 @@ export const SearchFiltersSection = ({
                         type="link"
                         onClick={() => setSeeAdvancedFilters(!seeAdvancedFilters)}
                     >
-                        {seeAdvancedFilters ? 'Filter' : 'Advanced'}
+                        {seeAdvancedFilters ? 'Basic' : 'Advanced'}
                     </Button>
                 </span>
             </FiltersHeader>
