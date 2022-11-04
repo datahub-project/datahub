@@ -398,7 +398,10 @@ class LDAPSource(StatefulIngestionSourceBase):
                     countryCode=country_code,
                     title=title,
                     managerUrn=manager_urn,
-                )
+                ),
+                StatusClass (
+                    removed=False
+                )                
             ],
         )
 
