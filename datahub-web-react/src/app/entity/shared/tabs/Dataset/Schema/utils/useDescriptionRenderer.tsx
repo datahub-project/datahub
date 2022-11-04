@@ -6,7 +6,10 @@ import { pathMatchesNewPath } from '../../../../../dataset/profile/schema/utils/
 import { useUpdateDescriptionMutation } from '../../../../../../../graphql/mutations.generated';
 import { useMutationUrn, useRefetch } from '../../../../EntityContext';
 
-export default function useDescriptionRenderer(editableSchemaMetadata: EditableSchemaMetadata | null | undefined) {
+export default function useDescriptionRenderer(
+    editableSchemaMetadata: EditableSchemaMetadata | null | undefined,
+    filterText: string,
+) {
     const urn = useMutationUrn();
     const refetch = useRefetch();
     const [updateDescription] = useUpdateDescriptionMutation();
@@ -36,6 +39,7 @@ export default function useDescriptionRenderer(editableSchemaMetadata: EditableS
                         },
                     }).then(refetch)
                 }
+                highlightText={filterText}
             />
         );
     };
