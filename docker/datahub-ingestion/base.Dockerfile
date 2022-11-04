@@ -29,6 +29,7 @@ RUN apt-get update && apt-get install -y \
     zip \
     unzip \
     ldap-utils \
+    openjdk-11-jre-headless \
     && curl -L https://github.com/treff7es/dockerize/releases/download/$DOCKERIZE_VERSION/dockerize-linux-${DOCKERIZE_ARCH}-$DOCKERIZE_VERSION.tar.gz | tar -C /usr/local/bin -xzv \
     && python -m pip install --upgrade pip wheel setuptools==57.5.0 \
     && curl -Lk -o /root/librdkafka-${LIBRDKAFKA_VERSION}.tar.gz https://github.com/edenhill/librdkafka/archive/v${LIBRDKAFKA_VERSION}.tar.gz \
