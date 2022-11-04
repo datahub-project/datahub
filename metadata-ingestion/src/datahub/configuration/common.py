@@ -217,3 +217,10 @@ class KeyValuePattern(ConfigModel):
 
 class VersionedConfig(ConfigModel):
     version: str = "1"
+
+
+class LineageConfig(ConfigModel):
+    incremental_lineage: bool = Field(
+        default=True,
+        description="When enabled, emits lineage as incremental to existing lineage already in DataHub. When disabled, re-states lineage on each run.",
+    )
