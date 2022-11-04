@@ -114,7 +114,7 @@ export function LastStatusColumn({ status, record, setFocusExecutionUrn }: LastS
     const color = getExecutionRequestStatusDisplayColor(status);
     return (
         <StatusContainer>
-            {Icon && <Icon style={{ color }} />}
+            {Icon && <Icon style={{ color, fontSize: 14 }} />}
             <StatusButton type="link" onClick={() => setFocusExecutionUrn(record.lastExecUrn)}>
                 <Typography.Text strong style={{ color, marginLeft: 8 }}>
                     {text || 'Pending...'}
