@@ -40,7 +40,8 @@ def get_lineage_config() -> DatahubLineageConfig:
 
 
 def get_inlets_from_task(task: BaseOperator, context: Any) -> Iterable[Any]:
-    # TODO fix for https://github.com/apache/airflow/commit/1b1f3fabc5909a447a6277cafef3a0d4ef1f01ae
+    # TODO: Fix for https://github.com/apache/airflow/commit/1b1f3fabc5909a447a6277cafef3a0d4ef1f01ae
+    # in Airflow 2.4.
 
     inlets = []
     if isinstance(task._inlets, (str, BaseOperator)) or attr.has(task._inlets):  # type: ignore
@@ -342,17 +343,19 @@ def _wrap_task_policy(policy):
 
 
 def _patch_policy(settings):
-    print("Patching datahub policy")
     if hasattr(settings, "task_policy"):
         datahub_task_policy = _wrap_task_policy(settings.task_policy)
         settings.task_policy = datahub_task_policy
 
 
 def _patch_datahub_policy():
+    print("Patching datahub policy")
+
     with contextlib.suppress(ImportError):
         import airflow_local_settings
 
         _patch_policy(airflow_local_settings)
+
     from airflow.models.dagbag import settings
 
     _patch_policy(settings)
