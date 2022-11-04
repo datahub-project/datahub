@@ -592,7 +592,9 @@ class SQLAlchemySource(StatefulIngestionSourceBase):
 
         # Add container to the checkpoint state
         container_urn = make_container_urn(database_container_key.guid())
-        self.stale_entity_removal_handler.add_entity_to_state("container", container_urn)
+        self.stale_entity_removal_handler.add_entity_to_state(
+            "container", container_urn
+        )
 
         for wu in container_workunits:
             self.report.report_workunit(wu)
@@ -617,7 +619,9 @@ class SQLAlchemySource(StatefulIngestionSourceBase):
 
         # Add container to the checkpoint state
         container_urn = make_container_urn(schema_container_key.guid())
-        self.stale_entity_removal_handler.add_entity_to_state("container", container_urn)
+        self.stale_entity_removal_handler.add_entity_to_state(
+            "container", container_urn
+        )
 
         for wu in container_workunits:
             self.report.report_workunit(wu)
