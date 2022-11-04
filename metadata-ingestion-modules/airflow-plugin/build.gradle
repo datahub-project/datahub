@@ -7,7 +7,7 @@ ext {
   venv_name = 'venv'
 }
 
-def pip_install_command = "USE_DEV_VERSION=1 ${venv_name}/bin/pip install -e ../../metadata-ingestion"
+def pip_install_command = "${venv_name}/bin/pip install -e ../../metadata-ingestion"
 
 task checkPythonVersion(type: Exec) {
   commandLine python_executable, '-c', 'import sys; assert sys.version_info >= (3, 7)'
