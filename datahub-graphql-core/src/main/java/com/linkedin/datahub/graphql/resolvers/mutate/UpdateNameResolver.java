@@ -7,7 +7,9 @@ import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.authorization.AuthorizationUtils;
 import com.linkedin.datahub.graphql.exception.AuthorizationException;
 import com.linkedin.datahub.graphql.generated.UpdateNameInput;
+import com.linkedin.datahub.graphql.resolvers.mutate.util.GlossaryUtils;
 import com.linkedin.domain.DomainProperties;
+import com.linkedin.entity.client.EntityClient;
 import com.linkedin.glossary.GlossaryTermInfo;
 import com.linkedin.glossary.GlossaryNodeInfo;
 import com.linkedin.identity.CorpGroupInfo;
@@ -29,6 +31,7 @@ import static com.linkedin.datahub.graphql.resolvers.mutate.MutationUtils.persis
 public class UpdateNameResolver implements DataFetcher<CompletableFuture<Boolean>> {
 
   private final EntityService _entityService;
+  private final EntityClient _entityClient;
 
   @Override
   public CompletableFuture<Boolean> get(DataFetchingEnvironment environment) throws Exception {
@@ -62,7 +65,8 @@ public class UpdateNameResolver implements DataFetcher<CompletableFuture<Boolean
       UpdateNameInput input,
       QueryContext context
   ) {
-    if (AuthorizationUtils.canManageGlossaries(context)) {
+    final Urn parentNodeUrn = GlossaryUtils.getParentUrn(targetUrn, context, _entityClient);
+    if (GlossaryUtils.canManageChildrenEntities(context, parentNodeUrn)) {
       try {
         GlossaryTermInfo glossaryTermInfo = (GlossaryTermInfo) getAspectFromEntity(
             targetUrn.toString(), Constants.GLOSSARY_TERM_INFO_ASPECT_NAME, _entityService, null);
@@ -86,7 +90,8 @@ public class UpdateNameResolver implements DataFetcher<CompletableFuture<Boolean
       UpdateNameInput input,
       QueryContext context
   ) {
-    if (AuthorizationUtils.canManageGlossaries(context)) {
+    final Urn parentNodeUrn = GlossaryUtils.getParentUrn(targetUrn, context, _entityClient);
+    if (GlossaryUtils.canManageChildrenEntities(context, parentNodeUrn)) {
       try {
         GlossaryNodeInfo glossaryNodeInfo = (GlossaryNodeInfo) getAspectFromEntity(
             targetUrn.toString(), Constants.GLOSSARY_NODE_INFO_ASPECT_NAME, _entityService, null);

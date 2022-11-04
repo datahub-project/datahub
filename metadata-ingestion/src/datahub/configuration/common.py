@@ -1,7 +1,7 @@
 import re
 from abc import ABC, abstractmethod
 from enum import auto
-from typing import IO, Any, ClassVar, Dict, List, Optional, Type, cast
+from typing import IO, Any, ClassVar, Dict, List, Optional, Type
 
 from cached_property import cached_property
 from pydantic import BaseModel, Extra
@@ -89,24 +89,8 @@ class ConfigurationError(MetaError):
     """A configuration error has happened"""
 
 
-class SensitiveError(Exception):
-    """Wraps an exception that should not be logged with variable information."""
-
-    @classmethod
-    def get_sensitive_cause(cls, exc: Exception) -> Optional[Exception]:
-        """
-        Returns the underlying exception if the exception is sensitive, and None otherwise.
-        """
-
-        e: Optional[Exception] = exc
-        while e:
-            # This cast converts BaseException to Exception.
-            inner = cast(Optional[Exception], e.__cause__)
-
-            if isinstance(e, cls):
-                return inner
-            e = inner
-        return None
+class IgnorableError(MetaError):
+    """An error that can be ignored"""
 
 
 class ConfigurationMechanism(ABC):

@@ -1,15 +1,7 @@
 from typing import TYPE_CHECKING, Any, Dict, List, Optional, Tuple, Union
 
 from airflow.exceptions import AirflowException
-
-try:
-    from airflow.hooks.base import BaseHook
-
-    AIRFLOW_1 = False
-except ModuleNotFoundError:
-    from airflow.hooks.base_hook import BaseHook
-
-    AIRFLOW_1 = True
+from airflow.hooks.base import BaseHook
 
 from datahub.metadata.com.linkedin.pegasus2avro.mxe import (
     MetadataChangeEvent,
@@ -20,11 +12,6 @@ if TYPE_CHECKING:
     from datahub.emitter.kafka_emitter import DatahubKafkaEmitter
     from datahub.emitter.rest_emitter import DatahubRestEmitter
     from datahub.ingestion.sink.datahub_kafka import KafkaSinkConfig
-
-
-_default_hook_args = []
-if AIRFLOW_1:
-    _default_hook_args = [None]
 
 
 class DatahubRestHook(BaseHook):
@@ -46,7 +33,7 @@ class DatahubRestHook(BaseHook):
     hook_name = "DataHub REST Server"
 
     def __init__(self, datahub_rest_conn_id: str = default_conn_name) -> None:
-        super().__init__(*_default_hook_args)
+        super().__init__()
         self.datahub_rest_conn_id = datahub_rest_conn_id
 
     @staticmethod
@@ -108,7 +95,7 @@ class DatahubKafkaHook(BaseHook):
     hook_name = "DataHub Kafka Sink"
 
     def __init__(self, datahub_kafka_conn_id: str = default_conn_name) -> None:
-        super().__init__(*_default_hook_args)
+        super().__init__()
         self.datahub_kafka_conn_id = datahub_kafka_conn_id
 
     @staticmethod
@@ -191,7 +178,7 @@ class DatahubGenericHook(BaseHook):
     """
 
     def __init__(self, datahub_conn_id: str) -> None:
-        super().__init__(*_default_hook_args)
+        super().__init__()
         self.datahub_conn_id = datahub_conn_id
 
     def get_underlying_hook(self) -> Union[DatahubRestHook, DatahubKafkaHook]:

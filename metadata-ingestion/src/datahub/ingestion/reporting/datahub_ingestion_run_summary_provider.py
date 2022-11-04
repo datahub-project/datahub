@@ -4,7 +4,7 @@ import time
 from typing import Any, Dict, Optional
 
 from datahub import nice_version_name
-from datahub.configuration.common import ConfigModel, DynamicTypedConfig
+from datahub.configuration.common import ConfigModel, DynamicTypedConfig, IgnorableError
 from datahub.emitter.mce_builder import datahub_guid
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.emitter.mcp_builder import make_data_platform_urn
@@ -89,7 +89,7 @@ class DatahubIngestionRunSummaryProvider(PipelineRunListener):
             # Global instances are safe to use only if the types are datahub-rest and datahub-kafka
             # Re-using a shared file sink will result in clobbering the events
             if sink_config_holder.type not in ["datahub-rest", "datahub-kafka"]:
-                raise ValueError(
+                raise IgnorableError(
                     f"Datahub ingestion reporter will be disabled because sink type {sink_config_holder.type} is not supported"
                 )
 

@@ -1,20 +1,49 @@
 import * as React from 'react';
+import { UnionType } from '../../../search/utils/constants';
 import { EmbeddedListSearchSection } from '../../shared/components/styled/search/EmbeddedListSearchSection';
 
 import { useEntityData } from '../../shared/EntityContext';
 
 export default function GlossaryRelatedEntity() {
     const { entityData }: any = useEntityData();
-    const glossaryTermHierarchicalName = entityData?.hierarchicalName;
-    let fixedQueryString = `glossaryTerms:"${glossaryTermHierarchicalName}" OR fieldGlossaryTerms:"${glossaryTermHierarchicalName}" OR editedFieldGlossaryTerms:"${glossaryTermHierarchicalName}"`;
+
+    const entityUrn = entityData?.urn;
+
+    const fixedOrFilters =
+        (entityUrn && [
+            {
+                field: 'glossaryTerms',
+                values: [entityUrn],
+            },
+            {
+                field: 'fieldGlossaryTerms',
+                values: [entityUrn],
+            },
+        ]) ||
+        [];
+
     entityData?.isAChildren?.relationships.forEach((term) => {
-        const name = term.entity?.hierarchicalName;
-        fixedQueryString += `OR glossaryTerms:"${name}" OR fieldGlossaryTerms:"${name}" OR editedFieldGlossaryTerms:"${name}"`;
+        const childUrn = term.entity?.urn;
+
+        if (childUrn) {
+            fixedOrFilters.push({
+                field: 'glossaryTerms',
+                values: [childUrn],
+            });
+
+            fixedOrFilters.push({
+                field: 'fieldGlossaryTerms',
+                values: [childUrn],
+            });
+        }
     });
 
     return (
         <EmbeddedListSearchSection
-            fixedQuery={fixedQueryString}
+            fixedFilters={{
+                unionType: UnionType.OR,
+                filters: fixedOrFilters,
+            }}
             emptySearchQuery="*"
             placeholderText="Filter entities..."
         />
