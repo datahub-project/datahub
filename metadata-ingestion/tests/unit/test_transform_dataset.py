@@ -1696,7 +1696,6 @@ def test_simple_add_dataset_domain(mock_datahub_graph):
     assert acryl_domain in transformed_aspect.domains
 
 
-@pytest.mark.xfail(reason="The domain transformer does not work with MCEs right now")
 def test_simple_add_dataset_domain_mce_support(mock_datahub_graph):
     acryl_domain = builder.make_domain_urn("acryl.io")
     gslab_domain = builder.make_domain_urn("gslab.io")
@@ -1714,16 +1713,15 @@ def test_simple_add_dataset_domain_mce_support(mock_datahub_graph):
         use_mce=True,
     )
 
-    assert len(output) == 2
-    assert output[0] is not None
-    assert output[0].record is not None
+    assert len(output) == 3
     assert isinstance(output[0].record, MetadataChangeEventClass)
-    assert output[0].record.proposedSnapshot.aspects is not None
     assert isinstance(output[0].record.proposedSnapshot, models.DatasetSnapshotClass)
-    assert isinstance(output[0].record.proposedSnapshot.aspects[0], models.DomainsClass)
-    transformed_aspect = cast(
-        models.DomainsClass, output[0].record.proposedSnapshot.aspects[0]
-    )
+    assert len(output[0].record.proposedSnapshot.aspects) == 0
+
+    assert isinstance(output[1].record, MetadataChangeProposalWrapper)
+    assert output[1].record.aspect is not None
+    assert isinstance(output[1].record.aspect, models.DomainsClass)
+    transformed_aspect = cast(models.DomainsClass, output[1].record.aspect)
     assert len(transformed_aspect.domains) == 2
     assert gslab_domain in transformed_aspect.domains
     assert acryl_domain in transformed_aspect.domains
