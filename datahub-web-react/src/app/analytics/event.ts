@@ -41,6 +41,13 @@ export enum EventType {
     ActivatePolicyEvent,
     ShowSimplifiedHomepageEvent,
     ShowStandardHomepageEvent,
+    CreateGlossaryEntityEvent,
+    CreateDomainEvent,
+    CreateIngestionSourceEvent,
+    UpdateIngestionSourceEvent,
+    DeleteIngestionSourceEvent,
+    ExecuteIngestionSourceEvent,
+    SsoEvent,
 }
 
 /**
@@ -302,6 +309,8 @@ export interface BatchSelectUserRoleEvent extends BaseEvent {
     userUrns: string[];
 }
 
+// Policy events
+
 export interface CreatePolicyEvent extends BaseEvent {
     type: EventType.CreatePolicyEvent;
 }
@@ -327,6 +336,45 @@ export interface ShowSimplifiedHomepageEvent extends BaseEvent {
 
 export interface ShowStandardHomepageEvent extends BaseEvent {
     type: EventType.ShowStandardHomepageEvent;
+}
+
+// Business glossary events
+
+export interface CreateGlossaryEntityEvent extends BaseEvent {
+    type: EventType.CreateGlossaryEntityEvent;
+    entityType: EntityType;
+    parentNodeUrn?: string;
+}
+
+export interface CreateDomainEvent extends BaseEvent {
+    type: EventType.CreateDomainEvent;
+}
+
+// Managed Ingestion Events
+
+export interface CreateIngestionSourceEvent extends BaseEvent {
+    type: EventType.CreateIngestionSourceEvent;
+    sourceType: string;
+    interval?: string;
+}
+
+export interface UpdateIngestionSourceEvent extends BaseEvent {
+    type: EventType.UpdateIngestionSourceEvent;
+    sourceType: string;
+    interval?: string;
+}
+
+export interface DeleteIngestionSourceEvent extends BaseEvent {
+    type: EventType.DeleteIngestionSourceEvent;
+}
+
+export interface ExecuteIngestionSourceEvent extends BaseEvent {
+    type: EventType.ExecuteIngestionSourceEvent;
+}
+
+// TODO: Find a way to use this event
+export interface SsoEvent extends BaseEvent {
+    type: EventType.SsoEvent;
 }
 
 /**
@@ -368,4 +416,12 @@ export type Event =
     | DeactivatePolicyEvent
     | ActivatePolicyEvent
     | ShowSimplifiedHomepageEvent
-    | ShowStandardHomepageEvent;
+    | ShowStandardHomepageEvent
+    | CreateGlossaryEntityEvent
+    | CreateDomainEvent
+    | CreateIngestionSourceEvent
+    | UpdateIngestionSourceEvent
+    | DeleteIngestionSourceEvent
+    | ExecuteIngestionSourceEvent
+    | ShowStandardHomepageEvent
+    | SsoEvent;

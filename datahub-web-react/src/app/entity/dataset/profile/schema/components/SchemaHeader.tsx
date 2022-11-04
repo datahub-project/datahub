@@ -108,12 +108,6 @@ const StyledQuestionCircleOutlined = styled(QuestionCircleOutlined)`
     }
 `;
 
-const StyledCaretDownOutlined = styled(CaretDownOutlined)`
-    &&& {
-        margin-top: 8px;
-    }
-`;
-
 const StyledInput = styled(Input)`
     border-radius: 70px;
     max-width: 300px;
@@ -275,7 +269,7 @@ export default function SchemaHeader({
                                     });
                                 }}
                                 data-testid="schema-version-selector-dropdown"
-                                suffixIcon={<StyledCaretDownOutlined />}
+                                suffixIcon={<CaretDownOutlined />}
                             >
                                 {renderOptions()}
                             </SchemaBlameSelector>

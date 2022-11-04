@@ -21,7 +21,6 @@ from datahub.cli.cli_utils import (
     get_session_and_host,
     post_rollback_endpoint,
 )
-from datahub.configuration import SensitiveError
 from datahub.configuration.config_loader import load_config_file
 from datahub.ingestion.run.connection import ConnectionManager
 from datahub.ingestion.run.pipeline import Pipeline
@@ -76,13 +75,6 @@ def ingest() -> None:
     help="If enabled, ingestion runs with warnings will yield a non-zero error code",
 )
 @click.option(
-    "--suppress-error-logs",
-    type=bool,
-    is_flag=True,
-    default=False,
-    help="Suppress display of variable values in logs by suppressing elaborate stacktrace (stackprinter) during ingestion failures",
-)
-@click.option(
     "--test-source-connection",
     type=bool,
     is_flag=True,
@@ -115,7 +107,6 @@ def run(
     preview: bool,
     strict_warnings: bool,
     preview_workunits: int,
-    suppress_error_logs: bool,
     test_source_connection: bool,
     report_to: str,
     no_default_report: bool,
@@ -139,13 +130,7 @@ def run(
                 logger.info(
                     f"Sink ({pipeline.config.sink.type}) report:\n{pipeline.sink.get_report().as_string()}"
                 )
-                # We dont want to log sensitive information in variables if the pipeline fails due to
-                # an unexpected error. Disable printing sensitive info to logs if ingestion is running
-                # with `--suppress-error-logs` flag.
-                if suppress_error_logs:
-                    raise SensitiveError() from e
-                else:
-                    raise e
+                raise e
             else:
                 logger.info("Finished metadata ingestion")
                 pipeline.log_ingestion_stats()
@@ -192,21 +177,16 @@ def run(
     if test_source_connection:
         _test_source_connection(report_to, pipeline_config)
 
-    try:
-        logger.debug(f"Using config: {pipeline_config}")
-        pipeline = Pipeline.create(
-            pipeline_config,
-            dry_run,
-            preview,
-            preview_workunits,
-            report_to,
-            no_default_report,
-            raw_pipeline_config,
-        )
-    except Exception as e:
-        # The pipeline_config may contain sensitive information, so we wrap the exception
-        # in a SensitiveError to prevent detailed variable-level information from being logged.
-        raise SensitiveError() from e
+    # logger.debug(f"Using config: {pipeline_config}")
+    pipeline = Pipeline.create(
+        pipeline_config,
+        dry_run,
+        preview,
+        preview_workunits,
+        report_to,
+        no_default_report,
+        raw_pipeline_config,
+    )
 
     loop = asyncio.get_event_loop()
     loop.run_until_complete(run_func_check_upgrade(pipeline))

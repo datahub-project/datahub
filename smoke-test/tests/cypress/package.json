@@ -4,6 +4,6 @@
   "main": "index.js",
   "license": "MIT",
   "devDependencies": {
-    "cypress": "^9.5.1"
+    "cypress": "^9.7.0"
   }
 }
