@@ -117,9 +117,11 @@ function EntityDropdown(props: Props) {
     };
 
     const pageUrl = window.location.href;
+    const isGlossaryEntity = entityType === EntityType.GlossaryNode || entityType === EntityType.GlossaryTerm;
     const entityHasChildren = !!entityData?.children?.total;
     const canManageGlossaryEntity = !!entityData?.privileges?.canManageEntity;
     const canCreateGlossaryEntity = !!entityData?.privileges?.canManageChildren;
+    const canDeleteGlossaryEntity = !entityHasChildren && canManageGlossaryEntity;
 
     /**
      * A default path to redirect to if the entity is deleted.
@@ -192,7 +194,7 @@ function EntityDropdown(props: Props) {
                         {menuItems.has(EntityMenuItems.DELETE) && (
                             <StyledMenuItem
                                 key="5"
-                                disabled={entityHasChildren || !canManageGlossaryEntity}
+                                disabled={isGlossaryEntity && !canDeleteGlossaryEntity}
                                 onClick={onDeleteEntity}
                             >
                                 <Tooltip
