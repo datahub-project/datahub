@@ -4,6 +4,7 @@ import styled from 'styled-components/macro';
 import { Entity, LineageDirection } from '../../../types.generated';
 import { downgradeV2FieldPath } from '../../entity/dataset/profile/schema/utils/utils';
 import { LineageTabContext } from '../../entity/shared/tabs/Lineage/LineageTabContext';
+import { decodeSchemaField } from '../../lineage/utils/columnLineageUtils';
 import DisplayedColumns from './DisplayedColumns';
 
 const ColumnNameWrapper = styled.span<{ isBlack?: boolean }>`
@@ -19,7 +20,7 @@ interface Props {
 export default function ColumnsRelationshipText({ displayedColumns }: Props) {
     const { selectedColumn, lineageDirection } = useContext(LineageTabContext);
 
-    const displayedFieldPath = downgradeV2FieldPath(selectedColumn);
+    const displayedFieldPath = decodeSchemaField(downgradeV2FieldPath(selectedColumn) || '');
 
     return (
         <>

@@ -4,7 +4,7 @@ from typing import Dict, List, Optional
 
 from pydantic import Field, PositiveInt, root_validator
 
-from datahub.configuration.common import AllowDenyPattern
+from datahub.configuration.common import AllowDenyPattern, LineageConfig
 from datahub.ingestion.source.usage.usage_common import BaseUsageConfig
 from datahub.ingestion.source_config.sql.bigquery import BigQueryConfig
 
@@ -23,7 +23,7 @@ class BigQueryUsageConfig(BaseUsageConfig):
     )
 
 
-class BigQueryV2Config(BigQueryConfig):
+class BigQueryV2Config(BigQueryConfig, LineageConfig):
     project_id_pattern: AllowDenyPattern = Field(
         default=AllowDenyPattern.allow_all(),
         description="Regex patterns for project_id to filter in ingestion.",
