@@ -25,6 +25,7 @@ dependencies {
   runtime spec.product.pegasus.restliSpringBridge
 
   implementation externalDependency.awsMskIamAuth
+  implementation externalDependency.awsPostgresIamAuth
 }
 
 configurations {
