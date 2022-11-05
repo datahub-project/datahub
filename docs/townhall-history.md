@@ -29,7 +29,7 @@ A list of previous Town Halls, their planned schedule, and the recording of the 
 ### Agenda
 
 - Community Case Study - The Etsy Team shares their journey of adopting DataHub
-- Looker <> DataHub Improvements - surface the most relevant Looks and Dashboards
+- Looker & DataHub Improvements - surface the most relevant Looks and Dashboards
 - Home Page Improvements to tailor the Browse experience
 - Unified Ingestion Summaries - View live logs for UI-based ingestion and see historical ingestion reports across CLI and UI-based ingestion
 - Patch Support - Native support for PATCH in the metadata protocol to support efficient updates to add & remove owners, lineage, tags and more
