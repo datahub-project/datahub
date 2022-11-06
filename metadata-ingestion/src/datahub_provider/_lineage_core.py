@@ -1,12 +1,11 @@
-from datahub_provider._airflow_compat import Operator
-
 from datetime import datetime
-from typing import TYPE_CHECKING, Dict, List, Optional
+from typing import TYPE_CHECKING, Dict, List
 
 import datahub.emitter.mce_builder as builder
 from datahub.api.entities.dataprocess.dataprocess_instance import InstanceRunResult
 from datahub.configuration.common import ConfigModel
 from datahub.utilities.urns.dataset_urn import DatasetUrn
+from datahub_provider._airflow_compat import Operator
 from datahub_provider.client.airflow_generator import AirflowGenerator
 from datahub_provider.entities import _Entity
 
@@ -44,18 +43,6 @@ class DatahubBasicLineageConfig(ConfigModel):
         from datahub_provider.hooks.datahub import DatahubGenericHook
 
         return DatahubGenericHook(self.datahub_conn_id)
-
-
-def _task_underscore_inlets(operator: "Operator") -> Optional[List]:
-    if hasattr(operator, "_inlets"):
-        return operator._inlets  # type: ignore[attr-defined,union-attr]
-    return None
-
-
-def _task_underscore_outlets(operator: "Operator") -> Optional[List]:
-    if hasattr(operator, "_outlets"):
-        return operator._outlets  # type: ignore[attr-defined,union-attr]
-    return None
 
 
 def send_lineage_to_datahub(
