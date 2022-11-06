@@ -23,7 +23,7 @@ except ModuleNotFoundError:
 import datahub.emitter.mce_builder as builder
 from datahub_provider import get_provider_info
 from datahub_provider.entities import Dataset
-from datahub_provider.hooks.datahub import AIRFLOW_1, DatahubKafkaHook, DatahubRestHook
+from datahub_provider.hooks.datahub import DatahubKafkaHook, DatahubRestHook
 from datahub_provider.operators.datahub import DatahubEmitterOperator
 
 # Approach suggested by https://stackoverflow.com/a/11887885/5004662.
@@ -81,14 +81,6 @@ def test_dags_load_with_no_errors(pytestconfig):
     dag_bag = DagBag(dag_folder=str(airflow_examples_folder), include_examples=False)
 
     import_errors = dag_bag.import_errors
-    if AIRFLOW_1:
-        # The TaskFlow API is new in Airflow 2.x, so we don't expect that demo DAG
-        # to work on earlier versions.
-        import_errors = {
-            dag_filename: dag_errors
-            for dag_filename, dag_errors in import_errors.items()
-            if "taskflow" not in dag_filename
-        }
 
     assert import_errors == {}
     assert len(dag_bag.dag_ids) > 0
@@ -180,22 +172,9 @@ def test_hook_airflow_ui(hook):
     ["inlets", "outlets"],
     [
         pytest.param(
-            # Airflow 1.10.x uses a dictionary structure for inlets and outlets.
-            # We want the lineage backend to support this structure for backwards
-            # compatability reasons, so this test is not conditional.
-            {"datasets": [Dataset("snowflake", "mydb.schema.tableConsumed")]},
-            {"datasets": [Dataset("snowflake", "mydb.schema.tableProduced")]},
-            id="airflow-1-10-lineage-syntax",
-        ),
-        pytest.param(
-            # Airflow 2.x also supports a flattened list for inlets and outlets.
-            # We want to test this capability.
+            # Airflow 2.x uses a flattened list for inlets and outlets.
             [Dataset("snowflake", "mydb.schema.tableConsumed")],
             [Dataset("snowflake", "mydb.schema.tableProduced")],
-            marks=pytest.mark.skipif(
-                AIRFLOW_VERSION < packaging.version.parse("2.0.0"),
-                reason="list-style lineage is only supported in Airflow 2.x",
-            ),
             id="airflow-2-lineage-syntax",
         ),
     ],
@@ -344,22 +323,8 @@ def test_lineage_backend(mock_emit, inlets, outlets):
     ["inlets", "outlets"],
     [
         pytest.param(
-            # Airflow 1.10.x uses a dictionary structure for inlets and outlets.
-            # We want the lineage backend to support this structure for backwards
-            # compatability reasons, so this test is not conditional.
-            {"datasets": [Dataset("snowflake", "mydb.schema.tableConsumed")]},
-            {"datasets": [Dataset("snowflake", "mydb.schema.tableProduced")]},
-            id="airflow-1-10-lineage-syntax",
-        ),
-        pytest.param(
-            # Airflow 2.x also supports a flattened list for inlets and outlets.
-            # We want to test this capability.
             [Dataset("snowflake", "mydb.schema.tableConsumed")],
             [Dataset("snowflake", "mydb.schema.tableProduced")],
-            marks=pytest.mark.skipif(
-                AIRFLOW_VERSION < packaging.version.parse("2.0.0"),
-                reason="list-style lineage is only supported in Airflow 2.x",
-            ),
             id="airflow-2-lineage-syntax",
         ),
     ],

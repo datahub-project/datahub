@@ -1,13 +1,15 @@
 package com.linkedin.datahub.graphql.resolvers.glossary;
 
 import com.linkedin.common.urn.GlossaryNodeUrn;
+import com.linkedin.common.urn.Urn;
+import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.data.template.SetMode;
 import com.linkedin.datahub.graphql.QueryContext;
-import com.linkedin.datahub.graphql.authorization.AuthorizationUtils;
 import com.linkedin.datahub.graphql.exception.AuthorizationException;
 import com.linkedin.datahub.graphql.generated.CreateGlossaryEntityInput;
 import com.linkedin.datahub.graphql.generated.OwnerEntityType;
 import com.linkedin.datahub.graphql.generated.OwnershipType;
+import com.linkedin.datahub.graphql.resolvers.mutate.util.GlossaryUtils;
 import com.linkedin.datahub.graphql.resolvers.mutate.util.OwnerUtils;
 import com.linkedin.entity.client.EntityClient;
 import com.linkedin.events.metadata.ChangeType;
@@ -41,9 +43,10 @@ public class CreateGlossaryNodeResolver implements DataFetcher<CompletableFuture
 
     final QueryContext context = environment.getContext();
     final CreateGlossaryEntityInput input = bindArgument(environment.getArgument("input"), CreateGlossaryEntityInput.class);
+    final Urn parentNode = input.getParentNode() != null ? UrnUtils.getUrn(input.getParentNode()) : null;
 
     return CompletableFuture.supplyAsync(() -> {
-      if (AuthorizationUtils.canManageGlossaries(context)) {
+      if (GlossaryUtils.canManageChildrenEntities(context, parentNode)) {
         try {
           final GlossaryNodeKey key = new GlossaryNodeKey();
 

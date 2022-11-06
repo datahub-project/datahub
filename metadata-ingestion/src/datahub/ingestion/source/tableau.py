@@ -53,7 +53,6 @@ from datahub.ingestion.source.tableau_common import (
     clean_query,
     custom_sql_graphql_query,
     embedded_datasource_graphql_query,
-    get_field_value_in_sheet,
     get_unique_custom_sql,
     make_table_urn,
     published_datasource_graphql_query,
@@ -1325,8 +1324,6 @@ class TableauSource(StatefulIngestionSourceBase):
                 field.get("datasource")["id"] if field.get("datasource") else None
             )
             if name and upstream_ds_id:
-                name = get_field_value_in_sheet(field, "name")
-
                 input_fields.append(
                     InputField(
                         schemaFieldUrn=builder.make_schema_field_urn(
