@@ -51,6 +51,7 @@ function IngestionSourceTable({
     onDelete,
     onRefresh,
 }: Props) {
+    /* eslint-disable */
     const tableColumns = [
         {
             title: 'Type',
