@@ -91,7 +91,8 @@ function SecretField({ field, secrets, removeMargin, refetchSecrets }: SecretFie
             removeMargin={!!removeMargin}
             isSecretField
         >
-            <AutoComplete
+            <Select
+                showSearch
                 placeholder={field.placeholder}
                 filterOption={(input, option) => !!option?.value.toLowerCase().includes(input.toLowerCase())}
                 options={options}
