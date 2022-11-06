@@ -1,6 +1,6 @@
 import contextlib
 import traceback
-from typing import Any, Iterable
+from typing import Any, Iterable, List, Optional
 
 import attr
 from airflow.configuration import conf
@@ -11,6 +11,7 @@ from airflow.utils.module_loading import import_string
 from cattr import structure
 
 from datahub.api.entities.dataprocess.dataprocess_instance import InstanceRunResult
+from datahub_provider._airflow_compat import Operator
 from datahub_provider.client.airflow_generator import AirflowGenerator
 from datahub_provider.hooks.datahub import DatahubGenericHook
 from datahub_provider.lineage.datahub import DatahubLineageConfig
@@ -39,9 +40,22 @@ def get_lineage_config() -> DatahubLineageConfig:
     )
 
 
+def _task_inlets(operator: "Operator") -> Optional[List]:
+    if hasattr(operator, "_inlets"):
+        return operator._inlets  # type: ignore[attr-defined,union-attr]
+    return operator.inlets
+
+
+def _task_outlets(operator: "Operator") -> Optional[List]:
+    if hasattr(operator, "_outlets"):
+        return operator._outlets  # type: ignore[attr-defined,union-attr]
+    return operator.outlets
+
+
 def get_inlets_from_task(task: BaseOperator, context: Any) -> Iterable[Any]:
     # TODO: Fix for https://github.com/apache/airflow/commit/1b1f3fabc5909a447a6277cafef3a0d4ef1f01ae
     # in Airflow 2.4.
+    # TODO: ignore/handle airflow's dataset type in our lineage
 
     inlets = []
     if isinstance(task._inlets, (str, BaseOperator)) or attr.has(task._inlets):  # type: ignore
@@ -86,75 +100,7 @@ def get_inlets_from_task(task: BaseOperator, context: Any) -> Iterable[Any]:
     return inlets
 
 
-def datahub_on_failure_callback(context, *args, **kwargs):
-    ti = context["ti"]
-    task: "BaseOperator" = ti.task
-    dag = context["dag"]
-
-    # This code is from the original airflow lineage code ->
-    # https://github.com/apache/airflow/blob/main/airflow/lineage/__init__.py
-    inlets = get_inlets_from_task(task, context)
-
-    emitter = (
-        DatahubGenericHook(context["_datahub_config"].datahub_conn_id)
-        .get_underlying_hook()
-        .make_emitter()
-    )
-
-    dataflow = AirflowGenerator.generate_dataflow(
-        cluster=context["_datahub_config"].cluster,
-        dag=dag,
-        capture_tags=context["_datahub_config"].capture_tags_info,
-        capture_owner=context["_datahub_config"].capture_ownership_info,
-    )
-    dataflow.emit(emitter)
-
-    task.log.info(f"Emitted Datahub DataFlow: {dataflow}")
-
-    datajob = AirflowGenerator.generate_datajob(
-        cluster=context["_datahub_config"].cluster,
-        task=context["ti"].task,
-        dag=dag,
-        capture_tags=context["_datahub_config"].capture_tags_info,
-        capture_owner=context["_datahub_config"].capture_ownership_info,
-    )
-
-    for inlet in inlets:
-        datajob.inlets.append(inlet.urn)
-
-    for outlet in task._outlets:
-        datajob.outlets.append(outlet.urn)
-
-    task.log.info(f"Emitted Datahub DataJob: {datajob}")
-    datajob.emit(emitter)
-
-    if context["_datahub_config"].capture_executions:
-        dpi = AirflowGenerator.run_datajob(
-            emitter=emitter,
-            cluster=context["_datahub_config"].cluster,
-            ti=context["ti"],
-            dag=dag,
-            dag_run=context["dag_run"],
-            datajob=datajob,
-            start_timestamp_millis=int(ti.start_date.timestamp() * 1000),
-        )
-
-        task.log.info(f"Emitted Start Datahub Dataprocess Instance: {dpi}")
-
-        dpi = AirflowGenerator.complete_datajob(
-            emitter=emitter,
-            cluster=context["_datahub_config"].cluster,
-            ti=context["ti"],
-            dag_run=context["dag_run"],
-            result=InstanceRunResult.FAILURE,
-            dag=dag,
-            datajob=datajob,
-            end_timestamp_millis=int(ti.end_date.timestamp() * 1000),
-        )
-        task.log.info(f"Emitted Completed Datahub Dataprocess Instance: {dpi}")
-
-
-def datahub_on_success_callback(context, *args, **kwargs):
+def datahub_task_status_callback(context, status):
     ti = context["ti"]
     task: "BaseOperator" = ti.task
     dag = context["dag"]
@@ -215,7 +161,7 @@ def datahub_on_success_callback(context, *args, **kwargs):
             cluster=context["_datahub_config"].cluster,
             ti=context["ti"],
             dag_run=context["dag_run"],
-            result=InstanceRunResult.SUCCESS,
+            result=status,
             dag=dag,
             datajob=datajob,
             end_timestamp_millis=int(ti.end_date.timestamp() * 1000),
@@ -289,7 +235,7 @@ def _wrap_on_failure_callback(on_failure_callback):
         config = get_lineage_config()
         context["_datahub_config"] = config
         try:
-            datahub_on_failure_callback(context)
+            datahub_task_status_callback(context, status=InstanceRunResult.FAILURE)
         except Exception as e:
             if not config.graceful_exceptions:
                 raise e
@@ -308,7 +254,7 @@ def _wrap_on_success_callback(on_success_callback):
         config = get_lineage_config()
         context["_datahub_config"] = config
         try:
-            datahub_on_success_callback(context)
+            datahub_task_status_callback(context, status=InstanceRunResult.SUCCESS)
         except Exception as e:
             if not config.graceful_exceptions:
                 raise e
