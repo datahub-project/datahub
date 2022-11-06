@@ -1,7 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { ColumnsType } from 'antd/es/table';
 import { VList } from 'virtuallist-antd';
-import ResizeObserver from 'rc-resize-observer';
 import styled from 'styled-components';
 import {
     EditableSchemaMetadata,
@@ -17,7 +16,6 @@ import useDescriptionRenderer from './utils/useDescriptionRenderer';
 import useUsageStatsRenderer from './utils/useUsageStatsRenderer';
 import useTagsAndTermsRenderer from './utils/useTagsAndTermsRenderer';
 import ExpandIcon from './components/ExpandIcon';
-import ForeignKeyRow from './components/ForeignKeyRow';
 import { StyledTable } from '../../../components/styled/StyledTable';
 import { FkContext } from './utils/selectedFkContext';
 import useSchemaBlameRenderer from './utils/useSchemaBlameRenderer';
@@ -25,9 +23,6 @@ import { ANTD_GRAY } from '../../../constants';
 import MenuColumn from './components/MenuColumn';
 
 const TableContainer = styled.div`
-    overflow: inherit;
-    height: inherit;
-
     &&& .ant-table-tbody > tr > .ant-table-cell-with-append {
         border-right: none;
         padding: 0px;
@@ -35,6 +30,10 @@ const TableContainer = styled.div`
 
     &&& .ant-table-tbody > tr > .ant-table-cell {
         border-right: none;
+    }
+    &&& .open-fk-row > td {
+        padding-bottom: 600px;
+        vertical-align: top;
     }
 `;
 
@@ -51,7 +50,6 @@ export type Props = {
 };
 
 const EMPTY_SET: Set<string> = new Set();
-const TABLE_HEADER_HEIGHT = 52;
 
 export default function SchemaTable({
     rows,
@@ -65,7 +63,7 @@ export default function SchemaTable({
     filterText = '',
 }: Props): JSX.Element {
     const hasUsageStats = useMemo(() => (usageStats?.aggregations?.fields?.length || 0) > 0, [usageStats]);
-    const [tableHeight, setTableHeight] = useState(0);
+
     const [tagHoveredIndex, setTagHoveredIndex] = useState<string | undefined>(undefined);
     const [selectedFkFieldPath, setSelectedFkFieldPath] =
         useState<null | { fieldPath: string; constraint?: ForeignKeyConstraint | null }>(null);
@@ -189,50 +187,44 @@ export default function SchemaTable({
 
     useEffect(() => {
         setExpandedRows((previousRows) => {
-            if (selectedFkFieldPath) {
-                return new Set<string>(previousRows.add(selectedFkFieldPath.fieldPath));
-            }
-            return expandedRowsFromFilter as Set<string>;
+            const finalRowsSet = new Set();
+            expandedRowsFromFilter.forEach((row) => finalRowsSet.add(row));
+            previousRows.forEach((row) => finalRowsSet.add(row));
+            return finalRowsSet as Set<string>;
         });
-    }, [selectedFkFieldPath, expandedRowsFromFilter]);
-
-    const vComponents = useMemo(() => VList({ height: tableHeight }), [tableHeight]);
+    }, [expandedRowsFromFilter]);
 
     return (
         <FkContext.Provider value={selectedFkFieldPath}>
             <TableContainer>
-                <ResizeObserver onResize={(dimensions) => setTableHeight(dimensions.height - TABLE_HEADER_HEIGHT)}>
-                    <StyledTable
-                        rowClassName={(record) =>
-                            record.fieldPath === selectedFkFieldPath?.fieldPath ? 'open-fk-row' : ''
-                        }
-                        columns={allColumns}
-                        dataSource={rows}
-                        rowKey="fieldPath"
-                        scroll={{ y: tableHeight }}
-                        components={vComponents}
-                        expandable={{
-                            expandedRowKeys: [...Array.from(expandedRows)],
-                            defaultExpandAllRows: false,
-                            expandRowByClick: false,
-                            showExpandColumn: false,
-                            expandIcon: ExpandIcon,
-                            onExpand: (expanded, record) => {
-                                if (expanded) {
-                                    setExpandedRows((previousRows) => new Set(previousRows.add(record.fieldPath)));
-                                } else {
-                                    setExpandedRows((previousRows) => {
-                                        previousRows.delete(record.fieldPath);
-                                        return new Set(previousRows);
-                                    });
-                                }
-                            },
-                            expandedRowRender: ForeignKeyRow,
-                            indentSize: 0,
-                        }}
-                        pagination={false}
-                    />
-                </ResizeObserver>
+                <StyledTable
+                    rowClassName={(record) =>
+                        record.fieldPath === selectedFkFieldPath?.fieldPath ? 'open-fk-row' : ''
+                    }
+                    columns={allColumns}
+                    dataSource={rows}
+                    rowKey="fieldPath"
+                    scroll={{ y: '100vh', x: '100%' }}
+                    components={VList({ height: 'auto' })}
+                    expandable={{
+                        expandedRowKeys: [...Array.from(expandedRows)],
+                        defaultExpandAllRows: false,
+                        expandRowByClick: false,
+                        expandIcon: ExpandIcon,
+                        onExpand: (expanded, record) => {
+                            if (expanded) {
+                                setExpandedRows((previousRows) => new Set(previousRows.add(record.fieldPath)));
+                            } else {
+                                setExpandedRows((previousRows) => {
+                                    previousRows.delete(record.fieldPath);
+                                    return new Set(previousRows);
+                                });
+                            }
+                        },
+                        indentSize: 0,
+                    }}
+                    pagination={false}
+                />
             </TableContainer>
         </FkContext.Provider>
     );
