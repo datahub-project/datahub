@@ -89,7 +89,6 @@
         "styled-components": "^5.2.1",
         "typescript": "^4.1.3",
         "uuid": "^8.3.2",
-        "virtuallist-antd": "^0.7.4",
         "vx": "^0.0.1",
         "web-vitals": "^0.2.4",
         "yamljs": "^0.3.0"

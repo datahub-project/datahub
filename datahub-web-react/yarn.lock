@@ -16811,11 +16811,6 @@ vfile@^4.0.0:
     unist-util-stringify-position "^2.0.0"
     vfile-message "^2.0.0"
 
-virtuallist-antd@^0.7.4:
-  version "0.7.4"
-  resolved "https://registry.yarnpkg.com/virtuallist-antd/-/virtuallist-antd-0.7.4.tgz#759a28ccdf1dda295d33867ee9197519bd5ad6e2"
-  integrity sha512-MNzhQa34VAuLZO265FIhzDv6rzsRDOQMgxo3AL0HLq+hSVpqTmIp8sjBdFLnk+8yQh6SsBb1FZ/IjOlXF0vbmw==
-
 vm-browserify@^1.0.1:
   version "1.1.2"
   resolved "https://registry.yarnpkg.com/vm-browserify/-/vm-browserify-1.1.2.tgz#78641c488b8e6ca91a75f511e7a3b32a86e5dda0"
