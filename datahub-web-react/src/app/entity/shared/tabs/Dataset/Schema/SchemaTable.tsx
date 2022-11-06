@@ -190,7 +190,7 @@ export default function SchemaTable({
     useEffect(() => {
         setExpandedRows((previousRows) => {
             if (selectedFkFieldPath) {
-                return new Set<string>([...Array.from(previousRows), selectedFkFieldPath.fieldPath]);
+                return new Set<string>(previousRows.add(selectedFkFieldPath.fieldPath));
             }
             return expandedRowsFromFilter as Set<string>;
         });
