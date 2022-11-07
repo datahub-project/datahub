@@ -38,7 +38,7 @@ const quickLinkContent = [
     title: "Act on Metadata",
     icon: <SyncOutlined />,
     description: "Step-by-step guides for acting on Metadata Events",
-    to: "docs/wip/act-on-metadata",
+    to: "docs/act-on-metadata",
   },
   {
     title: "Developer Guides",

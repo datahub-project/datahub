@@ -61,6 +61,16 @@ const companiesByIndustry = [
         imageUrl: "/img/logos/companies/zynga.png",
         imageSize: "default",
       },
+      {
+        name: "Hurb",
+        imageUrl: "/img/logos/companies/hurb.png",
+        imageSize: "medium",
+      },
+      {
+        name: "Razer",
+        imageUrl: "/img/logos/companies/razer.jpeg",
+        imageSize: "large",
+      },
     ],
   },
   {

@@ -1,6 +1,8 @@
 import urllib.parse
 from typing import List
 
+# NOTE: Frontend relies on encoding these three characters. Specifically, we decode and encode schema fields for column level lineage.
+# If this changes, make appropriate changes to datahub-web-react/src/app/lineage/utils/columnLineageUtils.ts
 RESERVED_CHARS = [",", "(", ")"]
 
 
