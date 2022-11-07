@@ -7,6 +7,9 @@ url: "https://github.com/datahub-project/datahub/"
 nodes:
   - name: Classification
     description: A set of terms related to Data Classification
+    knowledge_links:
+      - label: Wiki link for classification
+        url: "https://en.wikipedia.org/wiki/Classification"
     terms:
       - name: Sensitive
         description: Sensitive Data

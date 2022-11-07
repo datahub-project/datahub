@@ -38,6 +38,20 @@
     }
 },
 {
+    "entityType": "glossaryNode",
+    "entityUrn": "urn:li:glossaryNode:Classification",
+    "changeType": "UPSERT",
+    "aspectName": "institutionalMemory",
+    "aspect": {
+        "value": "{\"elements\": [{\"url\": \"https://en.wikipedia.org/wiki/Classification\", \"description\": \"Wiki link for classification\", \"createStamp\": {\"time\": 1586847600000, \"actor\": \"urn:li:corpuser:datahub\", \"message\": \"ingestion bot\"}}]}",
+        "contentType": "application/json"
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "datahub-business-glossary-2020_04_14-07_00_00"
+    }
+},
+{
     "proposedSnapshot": {
         "com.linkedin.pegasus2avro.metadata.snapshot.GlossaryTermSnapshot": {
             "urn": "urn:li:glossaryTerm:Classification.Sensitive",

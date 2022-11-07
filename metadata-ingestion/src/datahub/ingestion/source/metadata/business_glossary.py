@@ -74,6 +74,7 @@ class GlossaryNodeConfig(ConfigModel):
     owners: Optional[Owners]
     terms: Optional[List[GlossaryTermConfig]]
     nodes: Optional[List["GlossaryNodeConfig"]]
+    knowledge_links: Optional[List[KnowledgeCard]]
 
 
 GlossaryNodeConfig.update_forward_refs()
@@ -203,6 +204,34 @@ def get_mce_from_snapshot(snapshot: Any) -> models.MetadataChangeEventClass:
     return models.MetadataChangeEventClass(proposedSnapshot=snapshot)
 
 
+def make_institutional_memory_mcp(
+    urn: str, knowledge_cards: List[KnowledgeCard]
+) -> Optional[MetadataChangeProposalWrapper]:
+    elements: List[models.InstitutionalMemoryMetadataClass] = []
+
+    for knowledge_card in knowledge_cards:
+        if knowledge_card.label and knowledge_card.url:
+            elements.append(
+                models.InstitutionalMemoryMetadataClass(
+                    url=knowledge_card.url,
+                    description=knowledge_card.label,
+                    createStamp=models.AuditStampClass(
+                        time=int(time.time() * 1000.0),
+                        actor="urn:li:corpuser:datahub",
+                        message="ingestion bot",
+                    ),
+                )
+            )
+
+    if elements:
+        return MetadataChangeProposalWrapper(
+            entityUrn=urn,
+            aspect=models.InstitutionalMemoryClass(elements=elements),
+        )
+
+    return None
+
+
 def get_mces_from_node(
     glossaryNode: GlossaryNodeConfig,
     path: List[str],
@@ -229,6 +258,13 @@ def get_mces_from_node(
         aspects=[node_info, node_owners, valid_status],
     )
     yield get_mce_from_snapshot(node_snapshot)
+
+    if glossaryNode.knowledge_links is not None:
+        mcp: Optional[MetadataChangeProposalWrapper] = make_institutional_memory_mcp(
+            node_urn, glossaryNode.knowledge_links
+        )
+        if mcp is not None:
+            yield mcp
 
     if glossaryNode.nodes:
         for node in glossaryNode.nodes:
@@ -361,25 +397,11 @@ def get_mces_from_term(
     yield get_mce_from_snapshot(term_snapshot)
 
     if glossaryTerm.knowledge_links:
-        elements = []
-        for knowledge_card in glossaryTerm.knowledge_links:
-            if knowledge_card.label and knowledge_card.url:
-                elements.append(
-                    models.InstitutionalMemoryMetadataClass(
-                        url=knowledge_card.url,
-                        description=knowledge_card.label,
-                        createStamp=models.AuditStampClass(
-                            time=int(time.time() * 1000.0),
-                            actor="urn:li:corpuser:datahub",
-                            message="ingestion bot",
-                        ),
-                    )
-                )
-        if elements:
-            yield MetadataChangeProposalWrapper(
-                entityUrn=term_urn,
-                aspect=models.InstitutionalMemoryClass(elements=elements),
-            )
+        mcp: Optional[MetadataChangeProposalWrapper] = make_institutional_memory_mcp(
+            term_urn, glossaryTerm.knowledge_links
+        )
+        if mcp is not None:
+            yield mcp
 
 
 def populate_path_vs_id(glossary: BusinessGlossaryConfig) -> None:
