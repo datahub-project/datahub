@@ -206,6 +206,9 @@ fragment nonSiblingDatasetFields on Dataset {
             }
         }
     }
+    siblings {
+      isPrimary
+    }
 }
 
 mutation updateDataset($urn: String!, $input: DatasetUpdateInput!) {

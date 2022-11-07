@@ -162,6 +162,9 @@ fragment autoCompleteFields on Entity {
             ...dataPlatformInstanceFields
         }
     }
+    ... on DataPlatform {
+        ...nonConflictingPlatformFields
+    }
 }
 
 query getAutoCompleteResults($input: AutoCompleteInput!) {
@@ -375,8 +378,8 @@ fragment searchResultFields on Entity {
                 }
             }
         }
-        inputFields {
-            ...inputFieldsFields
+        subTypes {
+            typeNames
         }
     }
     ... on Chart {
@@ -439,9 +442,6 @@ fragment searchResultFields on Entity {
                     pictureLink
                 }
             }
-        }
-        inputFields {
-            ...inputFieldsFields
         }
     }
     ... on DataFlow {
@@ -544,6 +544,9 @@ fragment searchResultFields on Entity {
         }
         parentNodes {
             ...parentNodesFields
+        }
+        domain {
+            ...entityDomain
         }
     }
     ... on GlossaryNode {
@@ -669,6 +672,9 @@ fragment searchResultFields on Entity {
         }
         description
     }
+    ... on DataPlatform {
+        ...nonConflictingPlatformFields
+    }
 }
 
 fragment facetFields on FacetMetadata {
@@ -754,6 +760,15 @@ fragment searchResults on SearchResults {
     }
 }
 
+fragment schemaFieldEntityFields on SchemaFieldEntity {
+    urn
+    type
+    fieldPath
+    parent {
+        ...searchResultFields
+    }
+}
+
 fragment searchAcrossRelationshipResults on SearchAcrossLineageResults {
     start
     count
@@ -769,6 +784,14 @@ fragment searchAcrossRelationshipResults on SearchAcrossLineageResults {
         insights {
             text
             icon
+        }
+        paths {
+            path {
+                ...searchResultFields
+                ... on SchemaFieldEntity {
+                    ...schemaFieldEntityFields
+                }
+            }
         }
         degree
     }

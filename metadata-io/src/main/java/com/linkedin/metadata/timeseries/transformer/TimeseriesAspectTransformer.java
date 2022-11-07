@@ -12,10 +12,10 @@ import com.linkedin.data.DataMap;
 import com.linkedin.data.schema.ArrayDataSchema;
 import com.linkedin.data.schema.DataSchema;
 import com.linkedin.data.template.RecordTemplate;
-import com.linkedin.metadata.models.extractor.FieldExtractor;
 import com.linkedin.metadata.models.AspectSpec;
 import com.linkedin.metadata.models.TimeseriesFieldCollectionSpec;
 import com.linkedin.metadata.models.TimeseriesFieldSpec;
+import com.linkedin.metadata.models.extractor.FieldExtractor;
 import com.linkedin.metadata.timeseries.elastic.indexbuilder.MappingsBuilder;
 import com.linkedin.mxe.SystemMetadata;
 import com.linkedin.util.Pair;
@@ -80,6 +80,10 @@ public class TimeseriesAspectTransformer {
         (Long) timeseriesAspect.data().get(MappingsBuilder.TIMESTAMP_MILLIS_FIELD));
     document.put(MappingsBuilder.TIMESTAMP_MILLIS_FIELD,
         (Long) timeseriesAspect.data().get(MappingsBuilder.TIMESTAMP_MILLIS_FIELD));
+    if (systemMetadata != null && systemMetadata.getRunId() != null) {
+      // We need this as part of the common document for rollback support.
+      document.put(MappingsBuilder.RUN_ID_FIELD, systemMetadata.getRunId());
+    }
     Object eventGranularity = timeseriesAspect.data().get(MappingsBuilder.EVENT_GRANULARITY);
     if (eventGranularity != null) {
       try {

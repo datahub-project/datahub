@@ -1,6 +1,6 @@
 package com.linkedin.gms.factory.entity;
 
-import com.linkedin.entity.client.JavaEntityClient;
+import com.linkedin.metadata.client.JavaEntityClient;
 import com.linkedin.entity.client.RestliEntityClient;
 import com.linkedin.gms.factory.kafka.DataHubKafkaProducerFactory;
 import com.linkedin.metadata.entity.DeleteEntityService;

@@ -1,8 +1,8 @@
 import unittest
 
+import pydantic
 import pytest
 
-from datahub.configuration.common import ConfigurationError
 from datahub.emitter.kafka_emitter import (
     DEFAULT_MCE_KAFKA_TOPIC,
     DEFAULT_MCP_KAFKA_TOPIC,
@@ -25,8 +25,8 @@ class KafkaEmitterTest(unittest.TestCase):
     """
 
     def test_kafka_emitter_config_old_and_new(self):
-        with pytest.raises(ConfigurationError):
-            emitter_config = KafkaEmitterConfig.parse_obj(  # noqa 841
+        with pytest.raises(pydantic.ValidationError):
+            KafkaEmitterConfig.parse_obj(
                 {
                     "connection": {"bootstrap": "foobar:9092"},
                     "topic": "NewTopic",

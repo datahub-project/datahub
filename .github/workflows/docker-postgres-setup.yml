@@ -4,14 +4,14 @@ on:
     branches:
       - master
     paths:
-      - 'docker/postgres-setup/**'
-      - '.github/workflows/docker-postgres-setup.yml'
+      - "docker/postgres-setup/**"
+      - ".github/workflows/docker-postgres-setup.yml"
   pull_request:
     branches:
       - master
     paths:
-      - 'docker/postgres-setup/**'
-      - '.github/workflows/docker-postgres-setup.yml'
+      - "docker/postgres-setup/**"
+      - ".github/workflows/docker-postgres-setup.yml"
   release:
     types: [published, edited]
 
@@ -27,7 +27,7 @@ jobs:
       publish: ${{ steps.publish.outputs.publish }}
     steps:
       - name: Checkout
-        uses: actions/checkout@v2
+        uses: actions/checkout@v3
       - name: Compute Tag
         id: tag
         run: |
@@ -50,7 +50,7 @@ jobs:
     needs: setup
     steps:
       - name: Check out the repo
-        uses: actions/checkout@v2
+        uses: actions/checkout@v3
         with:
           fetch-depth: 0
       - name: Docker meta

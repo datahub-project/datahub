@@ -117,6 +117,34 @@ def _ensure_dataset_present(
     return res_data
 
 
+@tenacity.retry(
+    stop=tenacity.stop_after_attempt(sleep_times), wait=tenacity.wait_fixed(sleep_sec)
+)
+def _ensure_group_not_present(
+    urn: str,
+    frontend_session
+) -> Any:
+    json = {
+        "query": """query corpGroup($urn: String!) {\n
+            corpGroup(urn: $urn) {\n
+                urn\n
+                properties {\n
+                    displayName\n
+                }\n
+            }\n
+        }""",
+        "variables": {"urn": urn},
+    }
+    response = frontend_session.post(f"{get_frontend_url()}/api/v2/graphql", json=json)
+    response.raise_for_status()
+    res_data = response.json()
+
+    assert res_data
+    assert res_data["data"]
+    assert res_data["data"]["corpGroup"]
+    assert res_data["data"]["corpGroup"]["properties"] is None
+
+
 @pytest.mark.dependency(depends=["test_healthchecks"])
 def test_ingestion_via_rest(wait_for_healthchecks):
     ingest_file_via_rest(bootstrap_sample_data)
@@ -1042,35 +1070,18 @@ def test_remove_user(frontend_session):
     ]
 )
 def test_remove_group(frontend_session):
+    group_urn = "urn:li:corpGroup:bfoo"
 
     json = {
         "query": """mutation removeGroup($urn: String!) {\n
             removeGroup(urn: $urn) }""",
-        "variables": {"urn": "urn:li:corpGroup:bfoo"},
+        "variables": {"urn": group_urn},
     }
 
     response = frontend_session.post(f"{get_frontend_url()}/api/v2/graphql", json=json)
     response.raise_for_status()
 
-    json = {
-        "query": """query corpGroup($urn: String!) {\n
-            corpGroup(urn: $urn) {\n
-                urn\n
-                properties {\n
-                    displayName\n
-                }\n
-            }\n
-        }""",
-        "variables": {"urn": "urn:li:corpGroup:bfoo"},
-    }
-    response = frontend_session.post(f"{get_frontend_url()}/api/v2/graphql", json=json)
-    response.raise_for_status()
-    res_data = response.json()
-
-    assert res_data
-    assert res_data["data"]
-    assert res_data["data"]["corpGroup"]
-    assert res_data["data"]["corpGroup"]["properties"] is None
+    _ensure_group_not_present(group_urn, frontend_session)
 
 
 @pytest.mark.dependency(
@@ -1236,11 +1247,12 @@ def test_native_user_endpoints(frontend_session):
 
     # Test getting the invite token
     get_invite_token_json = {
-        "query": """query getNativeUserInviteToken {\n
-            getNativeUserInviteToken{\n
+        "query": """query getInviteToken($input: GetInviteTokenInput!) {\n
+            getInviteToken(input: $input){\n
               inviteToken\n
             }\n
-        }"""
+        }""",
+        "variables": {"input": {}},
     }
 
     get_invite_token_response = frontend_session.post(
@@ -1251,9 +1263,7 @@ def test_native_user_endpoints(frontend_session):
 
     assert get_invite_token_res_data
     assert get_invite_token_res_data["data"]
-    invite_token = get_invite_token_res_data["data"]["getNativeUserInviteToken"][
-        "inviteToken"
-    ]
+    invite_token = get_invite_token_res_data["data"]["getInviteToken"]["inviteToken"]
     assert invite_token is not None
     assert "errors" not in get_invite_token_res_data
 
@@ -1386,10 +1396,7 @@ def test_native_user_endpoints(frontend_session):
     assert unauthenticated_get_invite_token_res_data
     assert "errors" in unauthenticated_get_invite_token_res_data
     assert unauthenticated_get_invite_token_res_data["data"]
-    assert (
-        unauthenticated_get_invite_token_res_data["data"]["getNativeUserInviteToken"]
-        is None
-    )
+    assert unauthenticated_get_invite_token_res_data["data"]["getInviteToken"] is None
 
     unauthenticated_create_reset_token_json = {
         "query": """mutation createNativeUserResetToken($input: CreateNativeUserResetTokenInput!) {\n

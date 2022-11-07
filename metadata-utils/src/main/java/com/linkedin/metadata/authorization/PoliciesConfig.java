@@ -93,6 +93,11 @@ public class PoliciesConfig {
       "Create Domains",
       "Create new Domains.");
 
+  public static final Privilege CREATE_GLOBAL_ANNOUNCEMENTS_PRIVILEGE = Privilege.of(
+      "CREATE_GLOBAL_ANNOUNCEMENTS",
+      "Create Global Announcements",
+      "Create new Global Announcements.");
+
   public static final List<Privilege> PLATFORM_PRIVILEGES = ImmutableList.of(
       MANAGE_POLICIES_PRIVILEGE,
       MANAGE_USERS_AND_GROUPS_PRIVILEGE,
@@ -107,7 +112,7 @@ public class PoliciesConfig {
       MANAGE_USER_CREDENTIALS_PRIVILEGE,
       MANAGE_TAGS_PRIVILEGE,
       CREATE_TAGS_PRIVILEGE,
-      CREATE_DOMAINS_PRIVILEGE
+      CREATE_DOMAINS_PRIVILEGE, CREATE_GLOBAL_ANNOUNCEMENTS_PRIVILEGE
   );
 
   // Resource Privileges //
@@ -244,6 +249,12 @@ public class PoliciesConfig {
       "Edit Contact Information",
       "The ability to change the contact information such as email & chat handles.");
 
+  // Glossary Node Privileges
+  public static final Privilege MANAGE_GLOSSARY_CHILDREN_PRIVILEGE = Privilege.of(
+      "MANAGE_GLOSSARY_CHILDREN",
+      "Manage Glossary Children",
+      "The ability to create and delete the children of this entity.");
+
   public static final ResourcePrivileges DATASET_PRIVILEGES = ResourcePrivileges.of(
       "dataset",
       "Datasets",
@@ -351,7 +362,8 @@ public class PoliciesConfig {
           EDIT_ENTITY_DOCS_PRIVILEGE,
           EDIT_ENTITY_DOC_LINKS_PRIVILEGE,
           EDIT_ENTITY_DEPRECATION_PRIVILEGE,
-          EDIT_ENTITY_PRIVILEGE)
+          EDIT_ENTITY_PRIVILEGE,
+          MANAGE_GLOSSARY_CHILDREN_PRIVILEGE)
   );
 
   // Group Privileges

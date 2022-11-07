@@ -1,3 +1,13 @@
+fragment childGlossaryTerm on GlossaryTerm {
+    urn
+    type
+    name
+    hierarchicalName
+    properties {
+        name
+    }
+}
+
 query getGlossaryNode($urn: String!) {
     glossaryNode(urn: $urn) {
         urn
@@ -12,24 +22,29 @@ query getGlossaryNode($urn: String!) {
         parentNodes {
             ...parentNodesFields
         }
+        privileges {
+            canManageEntity
+            canManageChildren
+        }
         children: relationships(
             input: {
                 types: ["IsPartOf"]
                 direction: INCOMING
                 start: 0
-                count: 1000
+                count: 10000
             }
         ) {
-            count
+            total
             relationships {
                 direction
                 entity {
                     type
+                    urn
                     ... on GlossaryNode {
                         ...glossaryNode
                     }
                     ... on GlossaryTerm {
-                        ...glossaryTerm
+                        ...childGlossaryTerm
                     }
                 }
             }

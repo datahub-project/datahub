@@ -104,7 +104,8 @@ public class RestoreGlossaryIndicesTest {
     Mockito.verify(mockRegistry, Mockito.times(1)).getEntitySpec(Constants.GLOSSARY_NODE_ENTITY_NAME);
     Mockito.verify(mockService, Mockito.times(2)).ingestProposal(
         Mockito.any(MetadataChangeProposal.class),
-        Mockito.any(AuditStamp.class)
+        Mockito.any(AuditStamp.class),
+        Mockito.eq(false)
         );
     Mockito.verify(mockService, Mockito.times(1)).produceMetadataChangeLog(
         Mockito.eq(glossaryTermUrn),
@@ -164,7 +165,8 @@ public class RestoreGlossaryIndicesTest {
     Mockito.verify(mockRegistry, Mockito.times(1)).getEntitySpec(Constants.GLOSSARY_NODE_ENTITY_NAME);
     Mockito.verify(mockService, Mockito.times(2)).ingestProposal(
         Mockito.any(MetadataChangeProposal.class),
-        Mockito.any(AuditStamp.class)
+        Mockito.any(AuditStamp.class),
+        Mockito.eq(false)
         );
     Mockito.verify(mockService, Mockito.times(1)).produceMetadataChangeLog(
         Mockito.eq(glossaryTermUrn),
@@ -220,7 +222,8 @@ public class RestoreGlossaryIndicesTest {
     Mockito.verify(mockSearchService, Mockito.times(0)).search(Constants.GLOSSARY_NODE_ENTITY_NAME, "", null, null, 0, 1000);
     Mockito.verify(mockService, Mockito.times(0)).ingestProposal(
         Mockito.any(MetadataChangeProposal.class),
-        Mockito.any(AuditStamp.class)
+        Mockito.any(AuditStamp.class),
+        Mockito.anyBoolean()
     );
     Mockito.verify(mockService, Mockito.times(0)).produceMetadataChangeLog(
         Mockito.eq(glossaryTermUrn),

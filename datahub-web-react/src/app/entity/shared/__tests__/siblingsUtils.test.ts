@@ -1,6 +1,10 @@
 import { dataset3WithLineage, dataset4WithLineage } from '../../../../Mocks';
 import { EntityType } from '../../../../types.generated';
-import { combineEntityDataWithSiblings, combineSiblingsInSearchResults } from '../siblingUtils';
+import {
+    combineEntityDataWithSiblings,
+    combineSiblingsInSearchResults,
+    shouldEntityBeTreatedAsPrimary,
+} from '../siblingUtils';
 
 const usageStats = {
     buckets: [
@@ -70,7 +74,11 @@ const datasetPrimary = {
             },
         ],
     },
+    siblings: {
+        isPrimary: true,
+    },
 };
+
 const datasetUnprimary = {
     ...dataset4WithLineage,
     usageStats,
@@ -98,12 +106,31 @@ const datasetUnprimary = {
             },
         ],
     },
+    siblings: {
+        isPrimary: false,
+    },
 };
 
 const datasetPrimaryWithSiblings = {
     ...datasetPrimary,
     siblings: {
         isPrimary: true,
+        siblings: [datasetUnprimary],
+    },
+};
+
+const datasetUnprimaryWithPrimarySiblings = {
+    ...datasetUnprimary,
+    siblings: {
+        isPrimary: false,
+        siblings: [datasetPrimary],
+    },
+};
+
+const datasetUnprimaryWithNoPrimarySiblings = {
+    ...datasetUnprimary,
+    siblings: {
+        isPrimary: false,
         siblings: [datasetUnprimary],
     },
 };
@@ -430,17 +457,9 @@ const searchResultWithSiblings = [
     },
 ];
 
-// const datasetUnprimaryWithSiblings = {
-//     ...datasetUnprimary,
-//     siblings: {
-//         isPrimary: true,
-//         siblings: [datasetPrimary],
-//     },
-// };
-
 describe('siblingUtils', () => {
     describe('combineEntityDataWithSiblings', () => {
-        it('combines my metadata with my siblings', () => {
+        it('combines my metadata with my siblings as primary', () => {
             const baseEntity = { dataset: datasetPrimaryWithSiblings };
             expect(baseEntity.dataset.usageStats).toBeNull();
             const combinedData = combineEntityDataWithSiblings(baseEntity);
@@ -457,6 +476,17 @@ describe('siblingUtils', () => {
 
             // will take secondary string properties in the case of empty string
             expect(combinedData.dataset.properties.description).toEqual('primary description');
+
+            // will stay primary
+            expect(combinedData.dataset.siblings.isPrimary).toBeTruthy();
+        });
+
+        it('combines my metadata with my siblings as secondary', () => {
+            const baseEntity = { dataset: datasetUnprimaryWithPrimarySiblings };
+            const combinedData = combineEntityDataWithSiblings(baseEntity);
+
+            // will stay secondary
+            expect(combinedData.dataset.siblings.isPrimary).toBeFalsy();
         });
     });
 
@@ -471,6 +501,20 @@ describe('siblingUtils', () => {
             expect(result?.[0]?.matchedEntities?.[1]?.urn).toEqual(
                 'urn:li:dataset:(urn:li:dataPlatform:bigquery,cypress_project.jaffle_shop.raw_orders,PROD)',
             );
+        });
+    });
+
+    describe('shouldEntityBeTreatedAsPrimary', () => {
+        it('will say a primary entity is primary', () => {
+            expect(shouldEntityBeTreatedAsPrimary(datasetPrimaryWithSiblings)).toBeTruthy();
+        });
+
+        it('will say a un-primary entity is not primary', () => {
+            expect(shouldEntityBeTreatedAsPrimary(datasetUnprimaryWithPrimarySiblings)).toBeFalsy();
+        });
+
+        it('will say a un-primary entity is primary if it has no primary sibling', () => {
+            expect(shouldEntityBeTreatedAsPrimary(datasetUnprimaryWithNoPrimarySiblings)).toBeTruthy();
         });
     });
 });

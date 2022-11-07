@@ -33,7 +33,29 @@ class SnowflakeColumn:
     ordinal_position: int
     is_nullable: bool
     data_type: str
-    comment: str
+    comment: Optional[str]
+    character_maximum_length: Optional[int]
+    numeric_precision: Optional[int]
+    numeric_scale: Optional[int]
+
+    def get_precise_native_type(self):
+        precise_native_type = self.data_type
+        # https://docs.snowflake.com/en/sql-reference/data-types-numeric.html
+        if (
+            self.data_type in ("NUMBER", "NUMERIC", "DECIMAL")
+            and self.numeric_precision is not None
+            and self.numeric_scale is not None
+        ):
+            precise_native_type = (
+                f"NUMBER({self.numeric_precision},{self.numeric_scale})"
+            )
+        # https://docs.snowflake.com/en/sql-reference/data-types-text.html
+        elif (
+            self.data_type in ("TEXT", "STRING", "VARCHAR")
+            and self.character_maximum_length is not None
+        ):
+            precise_native_type = f"VARCHAR({self.character_maximum_length})"
+        return precise_native_type
 
 
 @dataclass
@@ -43,7 +65,7 @@ class SnowflakeTable:
     last_altered: datetime
     size_in_bytes: int
     rows_count: int
-    comment: str
+    comment: Optional[str]
     clustering_key: str
     pk: Optional[SnowflakePK] = None
     columns: List[SnowflakeColumn] = field(default_factory=list)
@@ -65,7 +87,7 @@ class SnowflakeSchema:
     name: str
     created: datetime
     last_altered: datetime
-    comment: str
+    comment: Optional[str]
     tables: List[SnowflakeTable] = field(default_factory=list)
     views: List[SnowflakeView] = field(default_factory=list)
 
@@ -74,7 +96,7 @@ class SnowflakeSchema:
 class SnowflakeDatabase:
     name: str
     created: datetime
-    comment: str
+    comment: Optional[str]
     schemas: List[SnowflakeSchema] = field(default_factory=list)
 
 
@@ -251,6 +273,9 @@ class SnowflakeDataDictionary(SnowflakeQueryMixin):
                     is_nullable=column["IS_NULLABLE"] == "YES",
                     data_type=column["DATA_TYPE"],
                     comment=column["COMMENT"],
+                    character_maximum_length=column["CHARACTER_MAXIMUM_LENGTH"],
+                    numeric_precision=column["NUMERIC_PRECISION"],
+                    numeric_scale=column["NUMERIC_SCALE"],
                 )
             )
         return columns
@@ -273,6 +298,9 @@ class SnowflakeDataDictionary(SnowflakeQueryMixin):
                     is_nullable=column["IS_NULLABLE"] == "YES",
                     data_type=column["DATA_TYPE"],
                     comment=column["COMMENT"],
+                    character_maximum_length=column["CHARACTER_MAXIMUM_LENGTH"],
+                    numeric_precision=column["NUMERIC_PRECISION"],
+                    numeric_scale=column["NUMERIC_SCALE"],
                 )
             )
         return columns

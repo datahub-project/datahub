@@ -240,3 +240,72 @@ def test_null_hiding() -> None:
         "recursive": False,
         "type": {"type": {"com.linkedin.pegasus2avro.schema.StringType": {}}},
     }
+
+
+def test_missing_optional_simple() -> None:
+    original = models.DataHubResourceFilterClass.from_obj(
+        {
+            "allResources": False,
+            "filter": {
+                "criteria": [
+                    {
+                        "condition": "EQUALS",
+                        "field": "RESOURCE_TYPE",
+                        "values": ["notebook", "dataset", "dashboard"],
+                    }
+                ]
+            },
+        }
+    )
+
+    # This one is missing the optional filters.allResources field.
+    revised_obj = {
+        "filter": {
+            "criteria": [
+                {
+                    "condition": "EQUALS",
+                    "field": "RESOURCE_TYPE",
+                    "values": ["notebook", "dataset", "dashboard"],
+                }
+            ]
+        },
+    }
+    revised = models.DataHubResourceFilterClass.from_obj(revised_obj)
+    assert revised.validate()
+
+    assert original == revised
+
+
+def test_missing_optional_in_union() -> None:
+    # This one doesn't contain any optional fields and should work fine.
+    revised_json = json.loads(
+        '{"lastUpdatedTimestamp":1662356745807,"actors":{"groups":[],"resourceOwners":false,"allUsers":true,"allGroups":false,"users":[]},"privileges":["EDIT_ENTITY_ASSERTIONS","EDIT_DATASET_COL_GLOSSARY_TERMS","EDIT_DATASET_COL_TAGS","EDIT_DATASET_COL_DESCRIPTION"],"displayName":"customtest","resources":{"filter":{"criteria":[{"field":"RESOURCE_TYPE","condition":"EQUALS","values":["notebook","dataset","dashboard"]}]},"allResources":false},"description":"","state":"ACTIVE","type":"METADATA"}'
+    )
+    revised = models.DataHubPolicyInfoClass.from_obj(revised_json)
+
+    # This one is missing the optional filters.allResources field.
+    original_json = json.loads(
+        '{"privileges":["EDIT_ENTITY_ASSERTIONS","EDIT_DATASET_COL_GLOSSARY_TERMS","EDIT_DATASET_COL_TAGS","EDIT_DATASET_COL_DESCRIPTION"],"actors":{"resourceOwners":false,"groups":[],"allGroups":false,"allUsers":true,"users":[]},"lastUpdatedTimestamp":1662356745807,"displayName":"customtest","description":"","resources":{"filter":{"criteria":[{"field":"RESOURCE_TYPE","condition":"EQUALS","values":["notebook","dataset","dashboard"]}]}},"state":"ACTIVE","type":"METADATA"}'
+    )
+    original = models.DataHubPolicyInfoClass.from_obj(original_json)
+
+    assert revised == original
+
+
+def test_reserved_keywords() -> None:
+    filter1 = models.FilterClass()
+    assert filter1.or_ is None
+
+    filter2 = models.FilterClass(
+        or_=[
+            models.ConjunctiveCriterionClass(
+                and_=[
+                    models.CriterionClass(field="foo", value="var", negated=True),
+                ]
+            )
+        ]
+    )
+    assert "or" in filter2.to_obj()
+
+    filter3 = models.FilterClass.from_obj(filter2.to_obj())
+    assert filter2 == filter3
