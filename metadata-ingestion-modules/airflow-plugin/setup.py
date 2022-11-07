@@ -1,12 +1,8 @@
 import os
 import pathlib
-import sys
 from typing import Dict, Set
 
 import setuptools
-
-is_py37_or_newer = sys.version_info >= (3, 7)
-
 
 package_metadata: dict = {}
 with open("./src/datahub_airflow_plugin/__init__.py") as fp:
@@ -26,7 +22,7 @@ base_requirements = {
     # Actual dependencies.
     "typing-inspect",
     "pydantic>=1.5.1",
-    "apache-airflow >= 1.10.2",
+    "apache-airflow >= 2.0.2",
     "acryl-datahub[airflow] >= 0.8.36",
     # Pinned dependencies to make dependency resolution faster.
     "sqlalchemy==1.3.24",
@@ -77,20 +73,10 @@ base_dev_requirements = {
     "packaging",
 }
 
-base_dev_requirements_airflow_1 = base_dev_requirements.copy()
-
 dev_requirements = {
     *base_dev_requirements,
 }
 
-dev_requirements_airflow_1_base = {
-    "apache-airflow==1.10.15",
-    "apache-airflow-backport-providers-snowflake",
-}
-dev_requirements_airflow_1 = {
-    *base_dev_requirements_airflow_1,
-    *dev_requirements_airflow_1_base,
-}
 
 entry_points = {
     "airflow.plugins": "acryl-datahub-airflow-plugin = datahub_airflow_plugin.datahub_plugin:DatahubPlugin"
@@ -119,6 +105,7 @@ setuptools.setup(
         "Programming Language :: Python :: 3.7",
         "Programming Language :: Python :: 3.8",
         "Programming Language :: Python :: 3.9",
+        "Programming Language :: Python :: 3.10",
         "Intended Audience :: Developers",
         "Intended Audience :: Information Technology",
         "Intended Audience :: System Administrators",
@@ -140,7 +127,5 @@ setuptools.setup(
     install_requires=list(base_requirements),
     extras_require={
         "dev": list(dev_requirements),
-        "dev-airflow1-base": list(dev_requirements_airflow_1_base),
-        "dev-airflow1": list(dev_requirements_airflow_1),
     },
 )

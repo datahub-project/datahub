@@ -5,7 +5,6 @@ from datetime import datetime
 from typing import Any, List, Optional
 
 import click
-from click.exceptions import UsageError
 from requests import Response
 from termcolor import colored
 
@@ -155,7 +154,7 @@ def timeline(
 
     if urn is None:
         if not ctx.args:
-            raise UsageError("Nothing for me to get. Maybe provide an urn?")
+            raise click.UsageError("Nothing for me to get. Maybe provide an urn?")
         urn = ctx.args[0]
         logger.debug(f"Using urn from args {urn}")
 

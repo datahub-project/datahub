@@ -1,4 +1,4 @@
-package com.linkedin.metadata.timeline.differ;
+package com.linkedin.metadata.timeline.eventgenerator;
 
 import com.datahub.util.RecordUtils;
 import com.github.fge.jsonpatch.JsonPatch;
@@ -19,10 +19,10 @@ import java.util.Comparator;
 import java.util.List;
 import javax.annotation.Nonnull;
 
-import static com.linkedin.metadata.Constants.OWNERSHIP_ASPECT_NAME;
+import static com.linkedin.metadata.Constants.*;
 
 
-public class OwnershipDiffer implements AspectDiffer<Ownership> {
+public class OwnershipChangeEventGenerator extends EntityChangeEventGenerator<Ownership> {
   private static final String OWNER_ADDED_FORMAT = "'%s' added as a `%s` of '%s'.";
   private static final String OWNER_REMOVED_FORMAT = "'%s' removed as a `%s` of '%s'.";
   private static final String OWNERSHIP_TYPE_CHANGE_FORMAT =

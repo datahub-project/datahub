@@ -92,6 +92,7 @@ from datahub.metadata.schema_classes import (
     GlobalTagsClass,
     TagAssociationClass,
 )
+from datahub.specific.dataset import DatasetPatchBuilder
 from datahub.utilities.hive_schema_to_avro import (
     HiveColumnToAvroConverter,
     get_schema_fields_for_hive_column,
@@ -818,12 +819,30 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
             upstream_lineage = None
 
         if upstream_lineage is not None:
-            # Emit the lineage work unit
-            wu = wrap_aspect_as_workunit(
-                "dataset", dataset_urn, "upstreamLineage", upstream_lineage
-            )
-            yield wu
-            self.report.report_workunit(wu)
+            if self.config.incremental_lineage:
+                patch_builder: DatasetPatchBuilder = DatasetPatchBuilder(
+                    urn=dataset_urn
+                )
+                for upstream in upstream_lineage.upstreams:
+                    patch_builder.add_upstream_lineage(upstream)
+
+                lineage_workunits = [
+                    MetadataWorkUnit(
+                        id=f"upstreamLineage-for-{dataset_urn}",
+                        mcp_raw=mcp,
+                    )
+                    for mcp in patch_builder.build()
+                ]
+            else:
+                lineage_workunits = [
+                    wrap_aspect_as_workunit(
+                        "dataset", dataset_urn, "upstreamLineage", upstream_lineage
+                    )
+                ]
+
+            for wu in lineage_workunits:
+                yield wu
+                self.report.report_workunit(wu)
 
         dataset_properties = DatasetProperties(
             name=datahub_dataset_name.get_table_display_name(),

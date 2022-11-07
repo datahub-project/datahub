@@ -1,4 +1,4 @@
-package com.linkedin.metadata.timeline.differ;
+package com.linkedin.metadata.timeline.eventgenerator;
 
 import com.linkedin.data.template.RecordTemplate;
 import com.linkedin.mxe.SystemMetadata;

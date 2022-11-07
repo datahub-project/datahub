@@ -16,6 +16,7 @@ The business glossary source file should be a `.yml` file with the following top
 **GlossaryNode**: a container of **GlossaryNode** and **GlossaryTerm** objects
 - **name**: name of the node
 - **description**: description of the node
+- **id**: (optional) identifier of the node (normally inferred from the name, see `enable_auto_id` config. Use this if you need a stable identifier)
 - **owners**: (optional) owners contains two nested fields
   - **users**: (optional) a list of user ids
   - **groups**: (optional) a list of group ids
@@ -25,6 +26,7 @@ The business glossary source file should be a `.yml` file with the following top
 **GlossaryTerm**: a term in your business glossary
 - **name**: name of the term
 - **description**: description of the term
+- **id**: (optional) identifier of the term (normally inferred from the name, see `enable_auto_id` config. Use this if you need a stable identifier)
 - **owners**: (optional) owners contains two nested fields
   - **users**: (optional) a list of user ids
   - **groups**: (optional) a list of group ids
@@ -35,7 +37,7 @@ The business glossary source file should be a `.yml` file with the following top
 - **contains**: (optional) List of **GlossaryTerm** that this term contains
 - **custom_properties**: A map of key/value pairs of arbitrary custom properties
 
-You can also view an example business glossary file checked in [here](../examples/bootstrap_data/business_glossary.yml)
+You can also view an example business glossary file checked in [here](../../../examples/bootstrap_data/business_glossary.yml)
 
 ## Compatibility
 
