@@ -1,6 +1,6 @@
 import logging
+import pathlib
 import time
-import urllib
 from dataclasses import dataclass, field
 from typing import Any, Dict, Iterable, List, Optional, Union
 
@@ -26,7 +26,6 @@ from datahub.ingestion.api.decorators import (  # SourceCapability,; capability,
 )
 from datahub.ingestion.api.source import Source, SourceReport
 from datahub.ingestion.api.workunit import MetadataWorkUnit, UsageStatsWorkUnit
-from datahub.utilities import urn_encoder
 
 logger = logging.getLogger(__name__)
 
@@ -34,6 +33,8 @@ valid_status: models.StatusClass = models.StatusClass(removed=False)
 
 # This needed to map path presents in inherits, contains, values, and related_terms to terms' optional id
 path_vs_id: Dict[str, Optional[str]] = {}
+
+URN_RESERVED_CHARS = ("%",)
 
 auditStamp = models.AuditStampClass(
     time=get_sys_time(), actor="urn:li:corpUser:restEmitter"
@@ -116,7 +117,7 @@ def create_id(path: List[str], default_id: Optional[str], enable_auto_id: bool) 
     id_: str = ".".join(path)
 
     for c in id_:
-        if c in urn_encoder.RESERVED_CHARS:
+        if c in URN_RESERVED_CHARS:
             enable_auto_id = True
 
     if enable_auto_id:
@@ -353,11 +354,6 @@ def get_mces_from_term(
         ownership = get_owners(glossaryTerm.owners)
     aspects.append(ownership)
 
-    term_browse = models.BrowsePathsClass(
-        paths=["/" + "/".join([urllib.parse.quote(p) for p in path])]
-    )
-    aspects.append(term_browse)
-
     term_snapshot: models.GlossaryTermSnapshotClass = models.GlossaryTermSnapshotClass(
         urn=term_urn,
         aspects=aspects,
@@ -426,7 +422,7 @@ class BusinessGlossaryFileSource(Source):
         config = BusinessGlossarySourceConfig.parse_obj(config_dict)
         return cls(ctx, config)
 
-    def load_glossary_config(self, file_name: str) -> BusinessGlossaryConfig:
+    def load_glossary_config(self, file_name: pathlib.Path) -> BusinessGlossaryConfig:
         config = load_config_file(file_name)
         glossary_cfg = BusinessGlossaryConfig.parse_obj(config)
         return glossary_cfg

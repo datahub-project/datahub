@@ -68,13 +68,6 @@
                             "actor": "urn:li:corpuser:unknown"
                         }
                     }
-                },
-                {
-                    "com.linkedin.pegasus2avro.common.BrowsePaths": {
-                        "paths": [
-                            "/Classification/Sensitive"
-                        ]
-                    }
                 }
             ]
         }
@@ -129,13 +122,6 @@
                             "actor": "urn:li:corpuser:unknown"
                         }
                     }
-                },
-                {
-                    "com.linkedin.pegasus2avro.common.BrowsePaths": {
-                        "paths": [
-                            "/Classification/Confidential"
-                        ]
-                    }
                 }
             ]
         }
@@ -175,13 +161,6 @@
                             "time": 0,
                             "actor": "urn:li:corpuser:unknown"
                         }
-                    }
-                },
-                {
-                    "com.linkedin.pegasus2avro.common.BrowsePaths": {
-                        "paths": [
-                            "/Classification/Highly%20Confidential"
-                        ]
                     }
                 }
             ]
@@ -266,13 +245,6 @@
                             "actor": "urn:li:corpuser:unknown"
                         }
                     }
-                },
-                {
-                    "com.linkedin.pegasus2avro.common.BrowsePaths": {
-                        "paths": [
-                            "/Personal%20Information/Email"
-                        ]
-                    }
                 }
             ]
         }
@@ -310,13 +282,6 @@
                             "time": 0,
                             "actor": "urn:li:corpuser:unknown"
                         }
-                    }
-                },
-                {
-                    "com.linkedin.pegasus2avro.common.BrowsePaths": {
-                        "paths": [
-                            "/Personal%20Information/Address"
-                        ]
                     }
                 }
             ]
@@ -362,13 +327,6 @@
                             "time": 0,
                             "actor": "urn:li:corpuser:unknown"
                         }
-                    }
-                },
-                {
-                    "com.linkedin.pegasus2avro.common.BrowsePaths": {
-                        "paths": [
-                            "/Personal%20Information/Gender"
-                        ]
                     }
                 }
             ]
@@ -456,13 +414,6 @@
                             "actor": "urn:li:corpuser:unknown"
                         }
                     }
-                },
-                {
-                    "com.linkedin.pegasus2avro.common.BrowsePaths": {
-                        "paths": [
-                            "/Clients%20And%20Accounts/Account"
-                        ]
-                    }
                 }
             ]
         }
@@ -500,13 +451,6 @@
                             "time": 0,
                             "actor": "urn:li:corpuser:unknown"
                         }
-                    }
-                },
-                {
-                    "com.linkedin.pegasus2avro.common.BrowsePaths": {
-                        "paths": [
-                            "/Clients%20And%20Accounts/Balance"
-                        ]
                     }
                 }
             ]
@@ -558,7 +502,7 @@
 {
     "proposedSnapshot": {
         "com.linkedin.pegasus2avro.metadata.snapshot.GlossaryTermSnapshot": {
-            "urn": "urn:li:glossaryTerm:KPIs.CSAT %",
+            "urn": "urn:li:glossaryTerm:4faf1eed790370f65942f2998a7993d6",
             "aspects": [
                 {
                     "com.linkedin.pegasus2avro.glossary.GlossaryTermInfo": {
@@ -583,13 +527,6 @@
                             "time": 0,
                             "actor": "urn:li:corpuser:unknown"
                         }
-                    }
-                },
-                {
-                    "com.linkedin.pegasus2avro.common.BrowsePaths": {
-                        "paths": [
-                            "/KPIs/CSAT%20%25"
-                        ]
                     }
                 }
             ]

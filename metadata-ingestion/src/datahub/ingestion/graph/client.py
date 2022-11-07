@@ -1,7 +1,6 @@
 import json
 import logging
 import os
-import urllib
 from json.decoder import JSONDecodeError
 from typing import Any, Dict, Iterable, List, Optional, Type, Union
 
