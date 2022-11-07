@@ -14,10 +14,9 @@ import javax.annotation.Nonnull;
 
 /**
  * Return instance of config provider as per type mentioned in {@link Config}
- * @param <T>
  *
  */
-public class PluginConfigFactory<T extends PluginConfig> {
+public class PluginConfigFactory {
   private final static Map<PluginType, PluginConfigProvider> CONFIG_PROVIDER_REGISTRY;
 
   static {
@@ -33,7 +32,7 @@ public class PluginConfigFactory<T extends PluginConfig> {
   }
 
   @Nonnull
-  public List<T> loadPluginConfigs(@Nonnull PluginType pluginType) {
+  public List<PluginConfig> loadPluginConfigs(@Nonnull PluginType pluginType) {
     return CONFIG_PROVIDER_REGISTRY.get(pluginType).processConfig(this._config.getPlugins());
   }
 }
