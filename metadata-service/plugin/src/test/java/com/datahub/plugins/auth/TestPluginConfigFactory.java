@@ -27,13 +27,13 @@ public class TestPluginConfigFactory {
     // Load authenticator plugin configuration
     List<PluginConfig> authenticatorConfigs = authenticatorPluginConfigFactory.loadPluginConfigs(PluginType.AUTHENTICATOR);
     authenticatorConfigs.forEach(c -> {
-      assert c.getClassName().equals("com.datahub.ranger.Authenticator");
+      assert c.getClassName().equals("com.datahub.ranger.Authenticator"); // className should match to Authenticator
     });
 
     // Load authorizer plugin configuration
     List<PluginConfig> authorizerConfigs = authenticatorPluginConfigFactory.loadPluginConfigs(PluginType.AUTHORIZER);
     authorizerConfigs.forEach(c -> {
-      assert c.getClassName().equals("com.datahub.ranger.Authorizer");
+      assert c.getClassName().equals("com.datahub.ranger.Authorizer"); // className should match to Authorizer
     });
 
   }
