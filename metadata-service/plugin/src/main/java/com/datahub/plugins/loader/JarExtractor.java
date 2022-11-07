@@ -28,44 +28,4 @@ class JarExtractor {
       }
     }
   }
-
-  public static void unzipJar(@Nonnull Path destinationDir, @Nonnull Path jarPath) throws IOException {
-    JarFile jar = new JarFile(jarPath.toFile());
-
-    // Create the destination directory if not exist
-    if (!destinationDir.toFile().exists()) {
-      destinationDir.toFile().mkdirs();
-    }
-    log.info(String.format("Extracting %s to %s", jarPath, destinationDir));
-    // First enumerate all directories create them on destination path
-    for (Enumeration<JarEntry> enums = jar.entries(); enums.hasMoreElements(); ) {
-      JarEntry entry = (JarEntry) enums.nextElement();
-
-      String fileName = destinationDir + File.separator + entry.getName();
-      File f = new File(fileName);
-      if (fileName.endsWith("/")) {
-        f.mkdirs();
-      }
-    }
-    // Create all files
-    for (Enumeration<JarEntry> enums = jar.entries(); enums.hasMoreElements(); ) {
-      JarEntry entry = (JarEntry) enums.nextElement();
-
-      String fileName = destinationDir + File.separator + entry.getName();
-      File f = new File(fileName);
-
-      if (fileName.endsWith("/")) {
-        // it is directory
-        continue;
-      }
-
-      try (InputStream input = jar.getInputStream(entry)) {
-        try (FileOutputStream output = new FileOutputStream(f)) {
-          while (input.available() > 0) {
-            output.write(input.read());
-          }
-        }
-      }
-    }
-  }
 }

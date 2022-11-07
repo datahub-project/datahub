@@ -9,6 +9,7 @@ import com.datahub.plugins.auth.authorization.Authorizer;
 import com.datahub.plugins.auth.authorization.AuthorizerContext;
 import com.datahub.plugins.auth.authorization.ResourceSpecResolver;
 import com.datahub.plugins.auth.configuration.AuthorizerPluginConfig;
+import com.datahub.plugins.common.PluginConfig;
 import com.datahub.plugins.common.PluginPermissionManager;
 import com.datahub.plugins.common.PluginType;
 import com.datahub.plugins.common.SecurityMode;
@@ -100,13 +101,13 @@ public class AuthorizerChainFactory {
   }
 
   private void registerAuthorizer(List<Authorizer> customAuthorizers, ResourceSpecResolver resolver, Config config) {
-    PluginConfigFactory<AuthorizerPluginConfig> authorizerPluginPluginConfigFactory = new PluginConfigFactory<>(config);
+    PluginConfigFactory authorizerPluginPluginConfigFactory = new PluginConfigFactory(config);
     // Load only Authorizer configuration from plugin config factory
-    List<AuthorizerPluginConfig> authorizers =
+    List<PluginConfig> authorizers =
         authorizerPluginPluginConfigFactory.loadPluginConfigs(PluginType.AUTHORIZER);
 
     // Select only enabled authorizer for instantiation
-    List<AuthorizerPluginConfig> enabledAuthorizers = authorizers.stream().filter(pluginConfig -> {
+    List<PluginConfig> enabledAuthorizers = authorizers.stream().filter(pluginConfig -> {
       if (!pluginConfig.getEnabled()) {
         log.info(String.format("Authorizer %s is not enabled", pluginConfig.getName()));
       }

@@ -11,6 +11,7 @@ import com.datahub.plugins.auth.authorization.Authorizer;
 import com.datahub.plugins.auth.authorization.AuthorizerContext;
 import com.datahub.plugins.auth.configuration.AuthenticatorPluginConfig;
 import com.datahub.plugins.auth.configuration.AuthorizerPluginConfig;
+import com.datahub.plugins.common.PluginConfig;
 import com.datahub.plugins.common.PluginPermissionManager;
 import com.datahub.plugins.common.PluginType;
 import com.datahub.plugins.common.SecurityMode;
@@ -52,7 +53,7 @@ import org.testng.annotations.Test;
  *    This scenario is covered in @{link com.datahub.plugins.auth.TestPluginFramework#testIncorrectImplementation()}.
  *    The test case tries to load authorizer plugin as authenticator plugin
  */
-public class TestPluginFramework {
+class TestPluginFramework {
 
   @BeforeClass
   public void setSecurityManager() {
@@ -67,19 +68,18 @@ public class TestPluginFramework {
 
     assert config != null;
 
-    PluginConfigFactory<AuthenticatorPluginConfig> authenticatorPluginPluginConfigFactory =
-        new PluginConfigFactory<>(config);
-    List<AuthenticatorPluginConfig> authenticators =
+    PluginConfigFactory authenticatorPluginPluginConfigFactory =
+        new PluginConfigFactory(config);
+    List<PluginConfig> authenticators =
         authenticatorPluginPluginConfigFactory.loadPluginConfigs(PluginType.AUTHENTICATOR);
 
-    PluginConfigFactory<AuthorizerPluginConfig> authorizerPluginPluginConfigFactory = new PluginConfigFactory<>(config);
-    List<AuthorizerPluginConfig> authorizers =
-        authorizerPluginPluginConfigFactory.loadPluginConfigs(PluginType.AUTHORIZER);
+    List<PluginConfig> authorizers =
+        authenticatorPluginPluginConfigFactory.loadPluginConfigs(PluginType.AUTHORIZER);
 
     assert authenticators.size() != 0;
     assert authorizers.size() != 0;
 
-    Consumer<AuthenticatorPluginConfig> validateAuthenticationPlugin = (plugin) -> {
+    Consumer<PluginConfig> validateAuthenticationPlugin = (plugin) -> {
       assert plugin.getName().equals("apache-ranger-authenticator");
 
       assert "com.datahub.ranger.Authenticator".equals(plugin.getClassName());
@@ -96,7 +96,7 @@ public class TestPluginFramework {
       assert pluginDirectory.equals(plugin.getPluginHomeDirectory().toString());
     };
 
-    Consumer<AuthorizerPluginConfig> validateAuthorizationPlugin = (plugin) -> {
+    Consumer<PluginConfig> validateAuthorizationPlugin = (plugin) -> {
       assert plugin.getName().equals("apache-ranger-authorizer");
 
       assert "com.datahub.ranger.Authorizer".equals(plugin.getClassName());
@@ -138,16 +138,16 @@ public class TestPluginFramework {
     Path authenticatorPluginJarPath = Paths.get(configPath.toAbsolutePath().toString(), "apache-ranger-authenticator",
         "apache-ranger-authenticator-v1.0.1.jar");
     Config config = (new ConfigProvider(configPath)).load().orElseThrow(() -> new Exception("Should not be empty"));
-    List<AuthenticatorPluginConfig> pluginConfig =
-        (new PluginConfigFactory<AuthenticatorPluginConfig>(config)).loadPluginConfigs(PluginType.AUTHENTICATOR);
+    List<PluginConfig> pluginConfig =
+        (new PluginConfigFactory(config)).loadPluginConfigs(PluginType.AUTHENTICATOR);
     pluginConfig.forEach((pluginConfigWithJar) -> {
       assert pluginConfigWithJar.getPluginJarPath().equals(authenticatorPluginJarPath);
     });
 
     Path authorizerPluginJarPath = Paths.get(configPath.toAbsolutePath().toString(), "apache-ranger-authorizer",
         "apache-ranger-authorizer-v2.0.1.jar");
-    List<AuthorizerPluginConfig> authorizerPluginConfigs =
-        (new PluginConfigFactory<AuthorizerPluginConfig>(config)).loadPluginConfigs(PluginType.AUTHORIZER);
+    List<PluginConfig> authorizerPluginConfigs =
+        (new PluginConfigFactory(config)).loadPluginConfigs(PluginType.AUTHORIZER);
 
     authorizerPluginConfigs.forEach((pluginConfigWithJar) -> {
       assert pluginConfigWithJar.getPluginJarPath().equals(authorizerPluginJarPath);

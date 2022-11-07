@@ -13,7 +13,7 @@ import com.datahub.plugins.auth.authentication.AuthenticationRequest;
 import com.datahub.plugins.auth.authentication.Authenticator;
 import com.datahub.auth.authentication.AuthenticatorConfiguration;
 import com.datahub.plugins.auth.authentication.AuthenticatorContext;
-import com.datahub.plugins.auth.configuration.AuthenticatorPluginConfig;
+import com.datahub.plugins.common.PluginConfig;
 import com.datahub.plugins.common.PluginPermissionManager;
 import com.datahub.plugins.common.PluginType;
 import com.datahub.plugins.common.SecurityMode;
@@ -157,13 +157,13 @@ public class AuthenticationFilter implements Filter {
     Optional<Config> optionalConfig = (new ConfigProvider(pluginBaseDirectory)).load();
     optionalConfig.ifPresent((config) -> {
       log.info("Processing authenticator plugin from auth plugin directory {}", pluginBaseDirectory);
-      PluginConfigFactory<AuthenticatorPluginConfig> authenticatorPluginPluginConfigFactory =
-          new PluginConfigFactory<>(config);
+      PluginConfigFactory authenticatorPluginPluginConfigFactory =
+          new PluginConfigFactory(config);
 
-      List<AuthenticatorPluginConfig> authorizers =
+      List<PluginConfig> authorizers =
           authenticatorPluginPluginConfigFactory.loadPluginConfigs(PluginType.AUTHENTICATOR);
       // Filter enabled authenticator plugins
-      List<AuthenticatorPluginConfig> enabledAuthenticators = authorizers.stream().filter(pluginConfig -> {
+      List<PluginConfig> enabledAuthenticators = authorizers.stream().filter(pluginConfig -> {
         if (!pluginConfig.getEnabled()) {
           log.info(String.format("Authenticator %s is not enabled", pluginConfig.getName()));
         }
