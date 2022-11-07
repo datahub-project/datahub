@@ -28,6 +28,7 @@ from datahub.ingestion.source.state.stateful_ingestion_base import (
     StatefulIngestionConfigBase,
     StatefulIngestionSourceBase,
 )
+from datahub.metadata.com.linkedin.pegasus2avro.common import StatusClass
 from datahub.metadata.com.linkedin.pegasus2avro.mxe import MetadataChangeEvent
 from datahub.metadata.schema_classes import (
     CorpGroupInfoClass,
@@ -399,6 +400,7 @@ class LDAPSource(StatefulIngestionSourceBase):
                     title=title,
                     managerUrn=manager_urn,
                 ),
+                StatusClass(removed=False),
             ],
         )
 
