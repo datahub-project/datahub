@@ -2,15 +2,14 @@ describe("mutations", () => {
   before(() => {
     // warm up elastic by issuing a `*` search
     cy.login();
-    cy.visit("http://localhost:9002/search?query=%2A");
+    cy.visit("/search?query=%2A");
     cy.wait(5000);
   });
 
   it("can create and add a tag to dataset and visit new tag page", () => {
     cy.deleteUrn("urn:li:tag:CypressTestAddTag");
     cy.login();
-    cy.goToDataset("urn:li:dataset:(urn:li:dataPlatform:hive,cypress_logging_events,PROD)");
-    cy.contains("cypress_logging_events");
+    cy.goToDataset("urn:li:dataset:(urn:li:dataPlatform:hive,cypress_logging_events,PROD)", "cypress_logging_events");
 
     cy.contains("Add Tag").click({ force: true });
 
@@ -62,6 +61,7 @@ describe("mutations", () => {
     cy.login();
     cy.addTermToDataset(
       "urn:li:dataset:(urn:li:dataPlatform:hive,cypress_logging_events,PROD)",
+      "cypress_logging_events",
       "CypressTerm"
     )
 
@@ -76,11 +76,8 @@ describe("mutations", () => {
   it("can add and remove tags from a dataset field", () => {
     cy.login();
     cy.viewport(2000, 800);
-    cy.goToDataset("urn:li:dataset:(urn:li:dataPlatform:hive,cypress_logging_events,PROD)");
-    cy.get('[data-testid="schema-field-event_name-tags"]').trigger(
-      "mouseover",
-      { force: true }
-    );
+    cy.goToDataset("urn:li:dataset:(urn:li:dataPlatform:hive,cypress_logging_events,PROD)", "cypress_logging_events");
+    cy.mouseover('[data-testid="schema-field-event_name-tags"]');
     cy.get('[data-testid="schema-field-event_name-tags"]').within(() =>
       cy.contains("Add Tag").click()
     );
@@ -136,7 +133,7 @@ describe("mutations", () => {
     cy.login();
     // make space for the glossary term column
     cy.viewport(2000, 800);
-    cy.goToDataset("urn:li:dataset:(urn:li:dataPlatform:hive,cypress_logging_events,PROD)");
+    cy.goToDataset("urn:li:dataset:(urn:li:dataPlatform:hive,cypress_logging_events,PROD)", "cypress_logging_events");
     cy.get('[data-testid="schema-field-event_name-terms"]').trigger(
       "mouseover",
       { force: true }

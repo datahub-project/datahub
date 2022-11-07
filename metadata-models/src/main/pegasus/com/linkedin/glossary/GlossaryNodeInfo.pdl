@@ -40,4 +40,13 @@ record GlossaryNodeInfo {
       "boostScore": 10.0
     }
     name: optional string
+
+    /**
+     * Optional id for the GlossaryNode
+     */
+    @Searchable = {
+      "fieldType": "TEXT_PARTIAL",
+    }
+    id: optional string
+
 }

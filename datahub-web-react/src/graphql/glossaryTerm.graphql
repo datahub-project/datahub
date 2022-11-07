@@ -71,6 +71,9 @@ query getGlossaryTerm($urn: String!, $start: Int, $count: Int) {
         deprecation {
             ...deprecationFields
         }
+        privileges {
+            canManageEntity
+        }
     }
 }
 

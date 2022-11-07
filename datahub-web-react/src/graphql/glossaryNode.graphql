@@ -22,6 +22,10 @@ query getGlossaryNode($urn: String!) {
         parentNodes {
             ...parentNodesFields
         }
+        privileges {
+            canManageEntity
+            canManageChildren
+        }
         children: relationships(
             input: {
                 types: ["IsPartOf"]
@@ -30,6 +34,7 @@ query getGlossaryNode($urn: String!) {
                 count: 10000
             }
         ) {
+            total
             relationships {
                 direction
                 entity {

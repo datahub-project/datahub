@@ -76,11 +76,11 @@
           {
             "com.linkedin.datajob.DataJobInputOutput": {
               "inputDatasets": [
-                "urn:li:dataset:(urn:li:dataPlatform:hdfs,file:/opt/workspace/resources/data/in1.csv,PROD)",
-                "urn:li:dataset:(urn:li:dataPlatform:hdfs,file:/opt/workspace/resources/data/in2.csv,PROD)"
+                "urn:li:dataset:(urn:li:dataPlatform:file,file:/opt/workspace/resources/data/in1.csv,PROD)",
+                "urn:li:dataset:(urn:li:dataPlatform:file,file:/opt/workspace/resources/data/in2.csv,PROD)"
               ],
               "outputDatasets": [
-                "urn:li:dataset:(urn:li:dataPlatform:hive,JavaHdfsIn2HiveCreateTable.foo3,PROD)"
+                "urn:li:dataset:(urn:li:dataPlatform:file,JavaHdfsIn2HiveCreateTable.foo3,PROD)"
               ]
             }
           }

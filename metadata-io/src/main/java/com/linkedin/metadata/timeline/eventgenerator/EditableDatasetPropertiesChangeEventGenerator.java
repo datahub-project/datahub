@@ -1,4 +1,4 @@
-package com.linkedin.metadata.timeline.differ;
+package com.linkedin.metadata.timeline.eventgenerator;
 
 import com.datahub.util.RecordUtils;
 import com.github.fge.jsonpatch.JsonPatch;
@@ -11,16 +11,16 @@ import com.linkedin.metadata.timeline.data.ChangeEvent;
 import com.linkedin.metadata.timeline.data.ChangeOperation;
 import com.linkedin.metadata.timeline.data.ChangeTransaction;
 import com.linkedin.metadata.timeline.data.SemanticChangeType;
-
-import javax.annotation.Nonnull;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
+import javax.annotation.Nonnull;
 
-import static com.linkedin.metadata.Constants.EDITABLE_DATASET_PROPERTIES_ASPECT_NAME;
+import static com.linkedin.metadata.Constants.*;
 
 
-public class EditableDatasetPropertiesDiffer implements AspectDiffer<EditableDatasetProperties> {
+public class EditableDatasetPropertiesChangeEventGenerator
+    extends EntityChangeEventGenerator<EditableDatasetProperties> {
   public static final String DESCRIPTION_ADDED = "Documentation for '%s' has been added: '%s'.";
   public static final String DESCRIPTION_REMOVED = "Documentation for '%s' has been removed: '%s'.";
   public static final String DESCRIPTION_CHANGED = "Documentation of '%s' has been changed from '%s' to '%s'.";

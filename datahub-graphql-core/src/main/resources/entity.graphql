@@ -1502,6 +1502,11 @@ type GlossaryTerm implements Entity {
     Recursively get the lineage of glossary nodes for this entity
     """
     parentNodes: ParentNodesResult
+
+    """
+    Privileges given to a user relevant to this entity
+    """
+    privileges: EntityPrivileges
 }
 
 """
@@ -1629,6 +1634,11 @@ type GlossaryNode implements Entity {
     Recursively get the lineage of glossary nodes for this entity
     """
     parentNodes: ParentNodesResult
+
+    """
+    Privileges given to a user relevant to this entity
+    """
+    privileges: EntityPrivileges
 }
 
 """
