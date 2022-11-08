@@ -109,23 +109,36 @@ class ClassificationMixin:
     ) -> None:
 
         assert self.config.classification
-        column_infos: List[ColumnInfo] = [
-            ColumnInfo(
-                metadata=Metadata(
-                    {
-                        "Name": field.fieldPath,
-                        "Description": field.description,
-                        "DataType": field.nativeDataType,
-                        "Dataset_Name": dataset_name,
-                    }
-                ),
-                values=sample_data[field.fieldPath].values,
+        column_infos: List[ColumnInfo] = []
+
+        for field in schema_metadata.fields:
+            if not self.is_classification_enabled_for_column(
+                dataset_name, field.fieldPath
+            ):
+                self.logger.debug(
+                    f"Skipping column {dataset_name}.{field.fieldPath} from classification"
+                )
+                continue
+            column_infos.append(
+                ColumnInfo(
+                    metadata=Metadata(
+                        {
+                            "Name": field.fieldPath,
+                            "Description": field.description,
+                            "DataType": field.nativeDataType,
+                            "Dataset_Name": dataset_name,
+                        }
+                    ),
+                    values=sample_data[field.fieldPath].values
+                    if field.fieldPath in sample_data.columns
+                    else [],
+                )
             )
-            for field in schema_metadata.fields
-            if self.is_classification_enabled_for_column(dataset_name, field.fieldPath)
-        ]
 
         if not column_infos:
+            self.logger.debug(
+                f"No columns in {dataset_name} considered for classification"
+            )
             return None
 
         field_terms = {}
