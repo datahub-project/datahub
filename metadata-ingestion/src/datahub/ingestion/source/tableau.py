@@ -370,6 +370,9 @@ class TableauSource(StatefulIngestionSourceBase):
                 self.server, query, connection_type, count, offset, query_filter
             )
         except NonXMLResponseError:
+            if not retry_on_auth_error:
+                raise
+
             # If ingestion has been running for over 2 hours, the Tableau
             # temporary credentials will expire. If this happens, this exception
             # will be thrown and we need to re-authenticate and retry.
@@ -377,6 +380,7 @@ class TableauSource(StatefulIngestionSourceBase):
             return self.get_connection_object_page(
                 query, connection_type, query_filter, count, offset, False
             )
+
         if "errors" in query_data:
             errors = query_data["errors"]
             if all(error["extensions"]["severity"] == "WARNING" for error in errors):
