@@ -117,7 +117,7 @@ class LookerAPI:
                 transport_options=self.transport_options,
             )
         except SDKError as e:
-            logger.warning(f"Could not find user with id {id}")
+            logger.warning(f"Could not find user with id {id_}")
             logger.warning(f"Failure was {e}")
         # User not found
         return None

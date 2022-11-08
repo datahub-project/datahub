@@ -130,6 +130,9 @@ class Source(Closeable, metaclass=ABCMeta):
     def get_report(self) -> SourceReport:
         pass
 
+    def close(self) -> None:
+        pass
+
 
 class TestableSource(Source):
     @staticmethod
