@@ -1,11 +1,15 @@
 import { SchemaFieldRef } from '../../../types.generated';
 import EntityRegistry from '../../entity/EntityRegistry';
 import { EntityAndType, FetchedEntities, FetchedEntity } from '../types';
-import { getFieldPathFromSchemaFieldUrn, getSourceUrnFromSchemaFieldUrn } from './columnLineageUtils';
+import {
+    decodeSchemaField,
+    getFieldPathFromSchemaFieldUrn,
+    getSourceUrnFromSchemaFieldUrn,
+} from './columnLineageUtils';
 
 const breakFieldUrn = (ref: SchemaFieldRef) => {
     const before = ref.urn;
-    const after = ref.path;
+    const after = decodeSchemaField(ref.path);
 
     return [before, after];
 };
