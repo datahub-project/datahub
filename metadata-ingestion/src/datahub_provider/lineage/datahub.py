@@ -77,44 +77,6 @@ class DatahubLineageBackend(LineageBackend):
             return
 
         try:
-            # This is necessary to avoid issues with circular imports.
-            from airflow.lineage import prepare_lineage
-
-            from datahub_provider.hooks.datahub import AIRFLOW_1
-
-            # Detect Airflow 1.10.x inlet/outlet configurations in Airflow 2.x, and
-            # convert to the newer version. This code path will only be triggered
-            # when 2.x receives a 1.10.x inlet/outlet config.
-            needs_repeat_preparation = False
-            if (
-                not AIRFLOW_1
-                and isinstance(operator._inlets, list)
-                and len(operator._inlets) == 1
-                and isinstance(operator._inlets[0], dict)
-            ):
-                from airflow.lineage import AUTO
-
-                operator._inlets = [
-                    # See https://airflow.apache.org/docs/apache-airflow/1.10.15/lineage.html.
-                    *operator._inlets[0].get(
-                        "datasets", []
-                    ),  # assumes these are attr-annotated
-                    *operator._inlets[0].get("task_ids", []),
-                    *([AUTO] if operator._inlets[0].get("auto", False) else []),
-                ]
-                needs_repeat_preparation = True
-            if (
-                not AIRFLOW_1
-                and isinstance(operator._outlets, list)
-                and len(operator._outlets) == 1
-                and isinstance(operator._outlets[0], dict)
-            ):
-                operator._outlets = [*operator._outlets[0].get("datasets", [])]
-                needs_repeat_preparation = True
-            if needs_repeat_preparation:
-                # Rerun the lineage preparation routine, now that the old format has been translated to the new one.
-                prepare_lineage(lambda self, ctx: None)(operator, context)
-
             context = context or {}  # ensure not None to satisfy mypy
             send_lineage_to_datahub(
                 config, operator, operator.inlets, operator.outlets, context

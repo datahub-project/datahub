@@ -85,9 +85,6 @@ export class DomainEntity implements Entity<Domain> {
                 },
                 {
                     component: SidebarOwnerSection,
-                    properties: {
-                        hideOwnerType: true,
-                    },
                 },
             ]}
         />

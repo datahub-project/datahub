@@ -24,6 +24,7 @@ export default function constructTree(
         unexploredChildren: 0,
         siblingPlatforms: fetchedEntity?.siblingPlatforms,
         schemaMetadata: fetchedEntity?.schemaMetadata,
+        inputFields: fetchedEntity?.inputFields,
     };
     const lineageConfig = entityRegistry.getLineageVizConfig(entityAndType.type, entityAndType.entity);
     let children: EntityAndType[] = [];
