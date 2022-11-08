@@ -21,6 +21,11 @@
                     }
                 },
                 {
+                    "com.linkedin.pegasus2avro.common.Status": {
+                        "removed": false
+                    }
+                },
+                {
                     "com.linkedin.pegasus2avro.identity.GroupMembership": {
                         "groups": [
                             "urn:li:corpGroup:HR Department"
@@ -58,6 +63,11 @@
                         "lastName": "Haas",
                         "fullName": "Evalyn Haas",
                         "countryCode": null
+                    }
+                },
+                {
+                    "com.linkedin.pegasus2avro.common.Status": {
+                        "removed": false
                     }
                 },
                 {
