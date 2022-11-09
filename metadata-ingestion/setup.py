@@ -1,4 +1,5 @@
 import os
+import sys
 from typing import Dict, Set
 
 import setuptools
@@ -95,8 +96,9 @@ kafka_common = {
 kafka_protobuf = {
     "networkx>=2.6.2",
     # Required to generate protobuf python modules from the schema downloaded from the schema registry
-    "grpcio==1.44.0",
-    "grpcio-tools==1.44.0",
+    # NOTE: potential conflict with feast also depending on grpcio
+    "grpcio>=1.44.0,<2",
+    "grpcio-tools>=1.44.0,<2",
 }
 
 sql_common = {
@@ -254,7 +256,7 @@ plugins: Dict[str, Set[str]] = {
     # https://github.com/elastic/elasticsearch-py/issues/1639#issuecomment-883587433
     "elasticsearch": {"elasticsearch==7.13.4"},
     "feast-legacy": {"docker"},
-    "feast": {"feast==0.18.0", "flask-openid>=1.3.0"},
+    "feast": {"feast~=0.26.0", "flask-openid>=1.3.0"},
     "glue": aws_common,
     # hdbcli is supported officially by SAP, sqlalchemy-hana is built on top but not officially supported
     "hana": sql_common
@@ -371,7 +373,10 @@ base_dev_requirements = {
     "flake8>=3.8.3",
     "flake8-tidy-imports>=4.3.0",
     "isort>=5.7.0",
-    "mypy>=0.981",
+    # mypy 0.990 enables namespace packages by default and sets
+    # no implicit optional to True.
+    # FIXME: Enable mypy 0.990 when our codebase is fixed.
+    "mypy>=0.981,<0.990",
     # pydantic 1.8.2 is incompatible with mypy 0.910.
     # See https://github.com/samuelcolvin/pydantic/pull/3175#issuecomment-995382910.
     # Restricting top version to <1.10 until we can fix our types.
@@ -397,7 +402,7 @@ base_dev_requirements = {
             "delta-lake",
             "druid",
             "elasticsearch",
-            "feast",
+            "feast" if sys.version_info >= (3, 8) else None,
             "iceberg",
             "ldap",
             "looker",
@@ -425,6 +430,7 @@ base_dev_requirements = {
             "unity-catalog"
             # airflow is added below
         ]
+        if plugin
         for dependency in plugins[plugin]
     ),
 }
@@ -444,7 +450,6 @@ full_test_dev_requirements = {
             "clickhouse",
             "delta-lake",
             "druid",
-            "feast",
             "feast-legacy",
             "hana",
             "hive",

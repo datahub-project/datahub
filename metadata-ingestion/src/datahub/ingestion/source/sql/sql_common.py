@@ -30,6 +30,7 @@ from sqlalchemy.sql import sqltypes as types
 
 from datahub.configuration.common import AllowDenyPattern
 from datahub.emitter.mce_builder import (
+    make_container_urn,
     make_data_platform_urn,
     make_dataplatform_instance_urn,
     make_dataset_urn_with_platform_instance,
@@ -589,6 +590,12 @@ class SQLAlchemySource(StatefulIngestionSourceBase):
             domain_urn=domain_urn,
         )
 
+        # Add container to the checkpoint state
+        container_urn = make_container_urn(database_container_key.guid())
+        self.stale_entity_removal_handler.add_entity_to_state(
+            "container", container_urn
+        )
+
         for wu in container_workunits:
             self.report.report_workunit(wu)
             yield wu
@@ -608,6 +615,12 @@ class SQLAlchemySource(StatefulIngestionSourceBase):
             schema,
             [SqlContainerSubTypes.SCHEMA],
             database_container_key,
+        )
+
+        # Add container to the checkpoint state
+        container_urn = make_container_urn(schema_container_key.guid())
+        self.stale_entity_removal_handler.add_entity_to_state(
+            "container", container_urn
         )
 
         for wu in container_workunits:

@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { Button, Input, Modal } from 'antd';
 import { useLocation } from 'react-router';
 
-import { EntityType, FacetFilterInput, SearchAcrossEntitiesInput } from '../../../../../../types.generated';
+import { EntityType, OrFilter, SearchAcrossEntitiesInput } from '../../../../../../types.generated';
 import { SearchResultsInterface } from './types';
 import { getSearchCsvDownloadHeader, transformResultsToCsvRow } from './downloadAsCsvUtil';
 import { downloadRowsAsCsv } from '../../../../../search/utils/csvUtils';
@@ -15,7 +15,7 @@ type Props = {
         input: SearchAcrossEntitiesInput;
     }) => Promise<SearchResultsInterface | null | undefined>;
     entityFilters: EntityType[];
-    filters: FacetFilterInput[];
+    filters: OrFilter[];
     query: string;
     setIsDownloadingCsv: (isDownloadingCsv: boolean) => any;
     showDownloadAsCsvModal: boolean;
@@ -63,7 +63,7 @@ export default function DownloadAsCsvModal({
                     query,
                     start: SEARCH_PAGE_SIZE_FOR_DOWNLOAD * downloadPage,
                     count: SEARCH_PAGE_SIZE_FOR_DOWNLOAD,
-                    filters,
+                    orFilters: filters,
                 },
             }).then((refetchData) => {
                 console.log('fetched data for page number ', downloadPage);
