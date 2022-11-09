@@ -92,9 +92,7 @@ export const UserList = () => {
         fetchPolicy: 'no-cache',
         variables: {
             input: {
-                start,
                 count: pageSize,
-                query,
             },
         },
     });

@@ -25,7 +25,7 @@ const RoleIcon = styled.span`
 export default function SelectRole({ user, userRoleUrn, selectRoleOptions, refetch }: Props) {
     const [isViewingAssignRole, setIsViewingAssignRole] = useState(false);
     const [roleToAssign, setRoleToAssign] = useState<DataHubRole>();
-
+    const [roleToAssignEmpty] = useState<DataHubRole>();
     const rolesMap: Map<string, DataHubRole> = new Map();
     selectRoleOptions.forEach((role) => {
         rolesMap.set(role.urn, role);
@@ -68,7 +68,10 @@ export default function SelectRole({ user, userRoleUrn, selectRoleOptions, refet
                 roleToAssign={roleToAssign}
                 userUrn={user.urn}
                 username={user.username}
-                onClose={() => setIsViewingAssignRole(false)}
+                onClose={() => {
+                    setRoleToAssign(roleToAssignEmpty)
+                    setIsViewingAssignRole(false)}
+                }
                 onConfirm={() => {
                     setIsViewingAssignRole(false);
                     setTimeout(function () {
