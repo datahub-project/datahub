@@ -158,6 +158,14 @@ class DbtTestConfig:
             },
         ),
         DbtTestConfig(
+            "dbt-test-with-non-incremental-lineage",
+            "dbt_test_with_non_incremental_lineage_mces.json",
+            "dbt_test_with_non_incremental_lineage_mces_golden.json",
+            source_config_modifiers={
+                "incremental_lineage": "False",
+            },
+        ),
+        DbtTestConfig(
             "dbt-test-with-target-platform-instance",
             "dbt_test_with_target_platform_instance_mces.json",
             "dbt_test_with_target_platform_instance_mces_golden.json",
