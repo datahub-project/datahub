@@ -122,6 +122,7 @@ Here are the companies that have officially adopted DataHub. Please feel free to
 - [Klarna](https://www.klarna.com)
 - [LinkedIn](http://linkedin.com)
 - [Moloco](https://www.moloco.com/en)
+- [Parimatch Tech](https://parimatch.tech)
 - [Peloton](https://www.onepeloton.com)
 - [Razer](https://www.razer.com)
 - [Saxo Bank](https://www.home.saxo)
