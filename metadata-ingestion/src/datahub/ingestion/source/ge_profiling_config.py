@@ -45,6 +45,10 @@ class GEProfilingConfig(ConfigModel):
         default=True,
         description="Whether to profile for the number of nulls for each column.",
     )
+    include_field_distinct_count: bool = Field(
+        default=True,
+        description="Whether to profile for the number of distinct values for each column.",
+    )
     include_field_min_value: bool = Field(
         default=True,
         description="Whether to profile for the min value of numeric columns.",
