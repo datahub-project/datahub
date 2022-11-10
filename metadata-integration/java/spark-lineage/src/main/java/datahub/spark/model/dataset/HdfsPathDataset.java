@@ -13,8 +13,15 @@ public class HdfsPathDataset extends SparkDataset {
 
   private static String getPath(Path path, boolean includeScheme) {
     URI uri = path.toUri();
-
+    String = uri.getScheme();
     if (includeScheme) {
+      /* S3 paths ingested into Datahub through the S3 Data Lake Soure
+         do not have s3*:// in their name.  Remove this from the path before setting the path.
+       */
+      if (scheme.equals("s3a") || scheme.equals("s3n")) {
+        toRemove = scheme + "://";
+        return uri.toString().replace(toRemove, "");
+      }
       return uri.toString();
     } else {
       return uri.getHost() + uri.getPath();
