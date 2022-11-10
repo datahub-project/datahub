@@ -1377,6 +1377,23 @@ class Mapper:
         # Return set of work_unit
         return deduplicate_list([wu for wu in work_units if wu is not None])
 
+    def dataset_to_datahub_work_units(
+            self, dataset: PowerBiAPI.Dataset
+    ) -> List[EquableMetadataWorkUnit]:
+        mcps = []
+
+        LOGGER.info(
+            f"Converting dataset={dataset.name} to datahub dataset"
+        )
+
+        dataset_mpcs = self.__to_datahub_dataset(dataset)
+        mcps.extend(dataset_mpcs)
+
+        # Convert MCP to work_units
+        work_units = map(self.__to_work_unit, mcps)
+        # Return set of work_unit
+        return deduplicate_list([wu for wu in work_units if wu is not None])
+
 
 @dataclass
 class PowerBiDashboardSourceReport(SourceReport):
@@ -1438,8 +1455,15 @@ class PowerBiDashboardSource(Source):
         # Fetch PowerBi workspace for given workspace identifier
         workspace = self.powerbi_client.get_workspace(self.source_config.workspace_id)
 
-        for dashboard in workspace.dashboards:
+        for dataset in workspace.dataset_instances:
+            workunits = self.mapper.dataset_to_datahub_work_units(dataset)
+            for workunit in workunits:
+                # Add workunit to report
+                self.reporter.report_workunit(workunit)
+                # Return workunit to Datahub Ingestion framework
+                yield workunit
 
+        for dashboard in workspace.dashboards:
             try:
                 # Fetch PowerBi users for dashboards
                 dashboard.users = self.powerbi_client.get_dashboard_users(dashboard)
