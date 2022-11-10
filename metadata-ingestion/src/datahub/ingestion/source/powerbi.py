@@ -65,6 +65,7 @@ class Constant:
     DATASET_GET = "DATASET_GET"
     REPORT_GET = "REPORT_GET"
     DATASOURCE_GET = "DATASOURCE_GET"
+    DATASET_EXECUTE_QUERIES_POST = "DATASET_EXECUTE_QUERIES_POST"
     TILE_GET = "TILE_GET"
     ENTITY_USER_LIST = "ENTITY_USER_LIST"
     SCAN_CREATE = "SCAN_CREATE"
@@ -143,6 +144,7 @@ class PowerBiAPI:
         Constant.TILE_LIST: "{POWERBI_BASE_URL}/{WORKSPACE_ID}/dashboards/{DASHBOARD_ID}/tiles",
         Constant.DATASET_GET: "{POWERBI_BASE_URL}/{WORKSPACE_ID}/datasets/{DATASET_ID}",
         Constant.DATASOURCE_GET: "{POWERBI_BASE_URL}/{WORKSPACE_ID}/datasets/{DATASET_ID}/datasources",
+        Constant.DATASET_EXECUTE_QUERIES_POST: "{POWERBI_BASE_URL}/{WORKSPACE_ID}/datasets/{DATASET_ID}/executeQueries",
         Constant.REPORT_GET: "{POWERBI_BASE_URL}/{WORKSPACE_ID}/reports/{REPORT_ID}",
         Constant.SCAN_GET: "{POWERBI_ADMIN_BASE_URL}/workspaces/scanStatus/{SCAN_ID}",
         Constant.SCAN_RESULT_GET: "{POWERBI_ADMIN_BASE_URL}/workspaces/scanResult/{SCAN_ID}",
@@ -165,6 +167,7 @@ class PowerBiAPI:
         state: str
         dashboards: List[Any]
         datasets: Dict
+        dataset_instances: List["Dataset"]
 
     @dataclass
     class DataSource:
@@ -553,6 +556,45 @@ class PowerBiAPI:
             datasource=None,
         )
 
+    def get_dataset_schema(self, dataset: Dataset) -> Dict[str, List[str]]:
+        dataset_query_endpoint: str = PowerBiAPI.API_ENDPOINTS[Constant.DATASET_EXECUTE_QUERIES_POST]
+        # Replace place holders
+        dataset_query_endpoint = dataset_query_endpoint.format(
+            POWERBI_BASE_URL=PowerBiAPI.BASE_URL,
+            WORKSPACE_ID=dataset.workspace_id,
+            DATASET_ID=dataset.id,
+        )
+        # Hit PowerBi
+        LOGGER.info(f"Request to query endpoint URL={dataset_query_endpoint}")
+        payload = {
+            "queries": [
+                {
+                    "query": "EVALUATE COLUMNSTATISTICS()",
+                }
+            ],
+            "serializerSettings": {
+                "includeNulls": True,
+            },
+        }
+        response = requests.post(
+            dataset_query_endpoint,
+            json=payload,
+            headers={Constant.Authorization: self.get_access_token()},
+        )
+        response.raise_for_status()
+
+        results = {}
+        data = response.json()
+        rows = data['results'][0]['tables'][0]['rows']
+        for row in rows:
+            table_name = row['[Table Name]']
+            col_name = row['[Column Name]']
+            if table_name not in results:
+                results[table_name] = [col_name]
+            else:
+                results[table_name].append(col_name)
+        return results
+
     def get_data_source(self, dataset: Dataset) -> Any:
         """
         Fetch the data source from PowerBi for the given dataset
@@ -622,8 +664,10 @@ class PowerBiAPI:
         if self.__config.dataset_type_mapping.get(datasource.type) is not None:
             # Now set the database detail as it is relational data source
             datasource.metadata = PowerBiAPI.DataSource.MetaData(is_relational=True)
-            datasource.database = datasource_dict["connectionDetails"]["database"]
-            datasource.server = datasource_dict["connectionDetails"]["server"]
+            datasource.database = datasource_dict.get("connectionDetails", {}).get("database", None) or \
+                datasource_dict.get("connectionDetails", {}).get("connectionString", None)
+            datasource.server = datasource_dict.get("connectionDetails", {}).get("server", None) or \
+                datasource_dict.get("connectionDetails", {}).get("connectionString", None)
         else:
             datasource.metadata = PowerBiAPI.DataSource.MetaData(is_relational=False)
             LOGGER.warning(
@@ -823,12 +867,13 @@ class PowerBiAPI:
 
             return res.json()["workspaces"][0]
 
-        def json_to_dataset_map(scan_result: dict) -> dict:
+        def json_to_dataset_map(scan_result: dict) -> Tuple[dict, List[PowerBiAPI.Dataset]]:
             """
             Filter out "dataset" from scan_result and return PowerBiAPI.Dataset instance set
             """
             datasets: Optional[Any] = scan_result.get("datasets")
             dataset_map: dict = {}
+            dataset_instances: List[PowerBiAPI.Dataset] = []
 
             if datasets is None or len(datasets) == 0:
                 LOGGER.warning(
@@ -836,7 +881,7 @@ class PowerBiAPI:
                 )
 
                 LOGGER.info("Returning empty datasets")
-                return dataset_map
+                return dataset_map, []
 
             for dataset_dict in datasets:
                 dataset_instance: PowerBiAPI.Dataset = self.get_dataset(
@@ -857,6 +902,16 @@ class PowerBiAPI:
                         f"Processing tables attribute for dataset {dataset_instance.name}({dataset_instance.id})"
                     )
 
+                    if not dataset_dict["tables"]:
+                        schema = self.get_dataset_schema(dataset_instance)
+                        for table_name, columns in schema.items():
+                            dataset_instance.tables.append(
+                                PowerBiAPI.Dataset.Table(
+                                    schema_name='public',
+                                    name=table_name,
+                                )
+                            )
+
                     for table in dataset_dict["tables"]:
                         if "Value.NativeQuery(" in table["source"][0]["expression"]:
                             LOGGER.warning(
@@ -873,8 +928,9 @@ class PowerBiAPI:
                                 name=schema_and_name[1],
                             )
                         )
+                dataset_instances.append(dataset_instance)
 
-            return dataset_map
+            return dataset_map, dataset_instances
 
         def init_dashboard_tiles(workspace: PowerBiAPI.Workspace) -> None:
             for dashboard in workspace.dashboards:
@@ -906,10 +962,11 @@ class PowerBiAPI:
             state=scan_result["state"],
             datasets={},
             dashboards=[],
+            dataset_instances=[],
         )
         # Get workspace dashboards
         workspace.dashboards = self.get_dashboards(workspace)
-        workspace.datasets = json_to_dataset_map(scan_result)
+        workspace.datasets, workspace.dataset_instances = json_to_dataset_map(scan_result)
         init_dashboard_tiles(workspace)
 
         return workspace

@@ -82,6 +82,55 @@ def register_mock_api(request_mock):
                 "webUrl": "http://localhost/groups/64ED5CAD-7C10-4684-8180-826122881108/datasets/05169CD2-E713-41E6-9600-1D8066D95445",
             },
         },
+        "https://api.powerbi.com/v1.0/myorg/groups/64ED5CAD-7C10-4684-8180-826122881108/datasets/05169CD2-E7E4-41E6-9600-1D8066D95445": {
+            "method": "GET",
+            "status_code": 200,
+            "json": {
+                "id": "05169CD2-E7E4-41E6-9600-1D8066D95445",
+                "name": "library-dataset",
+                "webUrl": "http://localhost/groups/64ED5CAD-7C10-4684-8180-826122881108/datasets/05169CD2-E7E4-41E6-9600-1D8066D95445",
+            },
+        },
+        "https://api.powerbi.com/v1.0/myorg/groups/64ED5CAD-7C10-4684-8180-826122881108/datasets/05169CD2-E7E4-41E6-9600-1D8066D95445/executeQueries": {
+            "method": "POST",
+            "status_code": 200,
+            "json": {
+                "results": [
+                    {
+                        "tables": [
+                            {
+                                "rows": [
+                                    {
+                                        "[Table Name]": "articles",
+                                        "[Column Name]": "link",
+                                        "[Min]": 0,
+                                        "[Max]": 1,
+                                        "[Cardinality]": 2,
+                                        "[Max Length]": None
+                                    },
+                                    {
+                                        "[Table Name]": "articles",
+                                        "[Column Name]": "description",
+                                        "[Min]": "0",
+                                        "[Max]": "1",
+                                        "[Cardinality]": 2,
+                                        "[Max Length]": 1
+                                    },
+                                    {
+                                        "[Table Name]": "articles",
+                                        "[Column Name]": "topic",
+                                        "[Min]": 0,
+                                        "[Max]": 1,
+                                        "[Cardinality]": 2,
+                                        "[Max Length]": None
+                                    },
+                                ]
+                            }
+                        ]
+                    }
+                ]
+            },
+        },
         "https://api.powerbi.com/v1.0/myorg/groups/64ED5CAD-7C10-4684-8180-826122881108/datasets/05169CD2-E713-41E6-9600-1D8066D95445/datasources": {
             "method": "GET",
             "status_code": 200,
@@ -93,6 +142,21 @@ def register_mock_api(request_mock):
                         "connectionDetails": {
                             "database": "library_db",
                             "server": "foo",
+                        },
+                    },
+                ]
+            },
+        },
+        "https://api.powerbi.com/v1.0/myorg/groups/64ED5CAD-7C10-4684-8180-826122881108/datasets/05169CD2-E7E4-41E6-9600-1D8066D95445/datasources": {
+            "method": "GET",
+            "status_code": 200,
+            "json": {
+                "value": [
+                    {
+                        "datasourceId": "DCE90B40-84D6-467A-9A5C-EEEE830E72D3",
+                        "datasourceType": "ODBC",
+                        "connectionDetails": {
+                            "connectionString": "dsn=datawarehouse_prod",
                         },
                     },
                 ]
@@ -127,6 +191,10 @@ def register_mock_api(request_mock):
                                         ],
                                     }
                                 ],
+                            },
+                            {
+                                "id": "05169CD2-E7E4-41E6-9600-1D8066D95445",
+                                "tables": []
                             }
                         ],
                     },
@@ -160,6 +228,7 @@ def default_source_config():
         "dataset_type_mapping": {
             "PostgreSql": "postgres",
             "Oracle": "oracle",
+            "ODBC": "odbc",
         },
         "env": "DEV",
     }
