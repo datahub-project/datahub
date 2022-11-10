@@ -5,6 +5,11 @@
             "urn": "urn:li:dataset:(urn:li:dataPlatform:delta-lake,my-platform.tests/integration/delta_lake/test_data/delta_tables/my_table_basic,UAT)",
             "aspects": [
                 {
+                    "com.linkedin.pegasus2avro.common.Status": {
+                        "removed": false
+                    }
+                },
+                {
                     "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
                         "customProperties": {
                             "number_of_files": "5",
@@ -518,6 +523,11 @@
             "urn": "urn:li:dataset:(urn:li:dataPlatform:delta-lake,my-platform.tests/integration/delta_lake/test_data/delta_tables/sales,UAT)",
             "aspects": [
                 {
+                    "com.linkedin.pegasus2avro.common.Status": {
+                        "removed": false
+                    }
+                },
+                {
                     "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
                         "customProperties": {
                             "number_of_files": "3",
@@ -680,6 +690,11 @@
         "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
             "urn": "urn:li:dataset:(urn:li:dataPlatform:delta-lake,my-platform.tests/integration/delta_lake/test_data/delta_tables/my_table_no_name,UAT)",
             "aspects": [
+                {
+                    "com.linkedin.pegasus2avro.common.Status": {
+                        "removed": false
+                    }
+                },
                 {
                     "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
                         "customProperties": {
@@ -856,6 +871,11 @@
         "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
             "urn": "urn:li:dataset:(urn:li:dataPlatform:delta-lake,my-platform.tests/integration/delta_lake/test_data/delta_tables/level1/my_table_inner,UAT)",
             "aspects": [
+                {
+                    "com.linkedin.pegasus2avro.common.Status": {
+                        "removed": false
+                    }
+                },
                 {
                     "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
                         "customProperties": {

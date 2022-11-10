@@ -36,6 +36,7 @@ from datahub.ingestion.source.delta_lake.delta_lake_utils import (
 from datahub.ingestion.source.delta_lake.report import DeltaLakeSourceReport
 from datahub.ingestion.source.s3.data_lake_utils import ContainerWUCreator
 from datahub.ingestion.source.schema_inference.csv_tsv import tableschema_type_map
+from datahub.metadata.com.linkedin.pegasus2avro.common import Status
 from datahub.metadata.com.linkedin.pegasus2avro.metadata.snapshot import DatasetSnapshot
 from datahub.metadata.com.linkedin.pegasus2avro.mxe import MetadataChangeEvent
 from datahub.metadata.com.linkedin.pegasus2avro.schema import (
@@ -224,7 +225,7 @@ class DeltaLakeSource(Source):
         )
         dataset_snapshot = DatasetSnapshot(
             urn=dataset_urn,
-            aspects=[],
+            aspects=[Status(removed=False)],
         )
 
         customProperties = {
@@ -235,6 +236,8 @@ class DeltaLakeSource(Source):
             "version": str(delta_table.version()),
             "location": self.source_config.complete_path,
         }
+        if not self.source_config.require_files:
+            del customProperties["number_of_files"]  # always 0
 
         dataset_properties = DatasetPropertiesClass(
             description=delta_table.metadata().description,
