@@ -494,7 +494,7 @@ class SQLAlchemySource(StatefulIngestionSourceBase):
         if config.profiling.enabled:
             telemetry.telemetry_instance.ping(
                 "sql_profiling_config",
-                config.profiling.telemetry_props(),
+                config.profiling.config_for_telemetry(),
             )
         if self.config.domain:
             self.domain_registry = DomainRegistry(
