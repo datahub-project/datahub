@@ -16,7 +16,7 @@ public class HdfsPathDataset extends SparkDataset {
     String = uri.getScheme();
     if (includeScheme) {
       /* S3 paths ingested into Datahub through the S3 Data Lake Soure
-         do not have s3*:// in their name.  Remove this from the path before setting the path.
+         do not have s3*:// in their name.  Remove this from the URI before setting the path.
        */
       if (scheme.equals("s3a") || scheme.equals("s3n")) {
         toRemove = scheme + "://";
