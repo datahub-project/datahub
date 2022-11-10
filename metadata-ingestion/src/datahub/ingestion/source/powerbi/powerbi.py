@@ -900,6 +900,8 @@ class PowerBiAPI:
         # Scan is complete lets take the result
         scan_result = get_scan_result(scan_id=scan_id)
         LOGGER.debug("scan result = {}".format(scan_result))
+        import json
+        print(json.dumps(scan_result, indent=1))
         workspace = PowerBiAPI.Workspace(
             id=scan_result["id"],
             name=scan_result["name"],
