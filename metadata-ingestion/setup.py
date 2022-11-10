@@ -373,7 +373,10 @@ base_dev_requirements = {
     "flake8>=3.8.3",
     "flake8-tidy-imports>=4.3.0",
     "isort>=5.7.0",
-    "mypy>=0.981",
+    # mypy 0.990 enables namespace packages by default and sets
+    # no implicit optional to True.
+    # FIXME: Enable mypy 0.990 when our codebase is fixed.
+    "mypy>=0.981,<0.990",
     # pydantic 1.8.2 is incompatible with mypy 0.910.
     # See https://github.com/samuelcolvin/pydantic/pull/3175#issuecomment-995382910.
     # Restricting top version to <1.10 until we can fix our types.
