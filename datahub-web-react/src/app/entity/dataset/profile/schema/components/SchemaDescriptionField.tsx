@@ -134,10 +134,9 @@ export default function DescriptionField({ description, onUpdate, isEdited = fal
                 <>
                     {!!description && (
                         <Highlight matchStyle={highlightMatchStyle} search={highlightText}>
-                            {description}
+                            <DescriptionText source={description} />
                         </Highlight>
                     )}
-                    {!!description && <DescriptionText source={description} />}
                     {!!description && (
                         <ExpandedActions>
                             {overLimit && (
@@ -170,6 +169,9 @@ export default function DescriptionField({ description, onUpdate, isEdited = fal
                         }
                         suffix={EditButton}
                     >
+                        {/* <Highlight matchStyle={highlightMatchStyle} search={highlightText}>
+                            {description}
+                        </Highlight> */}
                         {description}
                     </StripMarkdownText>
                 </>
