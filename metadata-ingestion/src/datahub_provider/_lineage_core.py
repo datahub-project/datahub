@@ -1,3 +1,5 @@
+from datahub_provider._airflow_compat import Operator
+
 from datetime import datetime
 from typing import TYPE_CHECKING, Dict, List
 
@@ -5,7 +7,6 @@ import datahub.emitter.mce_builder as builder
 from datahub.api.entities.dataprocess.dataprocess_instance import InstanceRunResult
 from datahub.configuration.common import ConfigModel
 from datahub.utilities.urns.dataset_urn import DatasetUrn
-from datahub_provider._airflow_compat import Operator
 from datahub_provider.client.airflow_generator import AirflowGenerator
 from datahub_provider.entities import _Entity
 

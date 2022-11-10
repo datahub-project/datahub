@@ -1,8 +1,9 @@
+from datahub_provider._airflow_compat import Operator
+
 import contextlib
 import traceback
-from typing import Any, Iterable, List, Optional
+from typing import Any, Iterable, List
 
-import attr
 from airflow.configuration import conf
 from airflow.lineage import PIPELINE_OUTLETS
 from airflow.models.baseoperator import BaseOperator
@@ -11,7 +12,6 @@ from airflow.utils.module_loading import import_string
 from cattr import structure
 
 from datahub.api.entities.dataprocess.dataprocess_instance import InstanceRunResult
-from datahub_provider._airflow_compat import Operator
 from datahub_provider.client.airflow_generator import AirflowGenerator
 from datahub_provider.hooks.datahub import DatahubGenericHook
 from datahub_provider.lineage.datahub import DatahubLineageConfig
@@ -40,15 +40,18 @@ def get_lineage_config() -> DatahubLineageConfig:
     )
 
 
-def _task_inlets(operator: "Operator") -> Optional[List]:
+def _task_inlets(operator: "Operator") -> List:
+    # From Airflow 2.4 _inlets is dropped and inlets used consistently. Earlier it was not the case, so we have to stick there to _inlets
     if hasattr(operator, "_inlets"):
-        return operator._inlets  # type: ignore[attr-defined,union-attr]
+        return operator._inlets  # type: ignore[attr-defined, union-attr]
     return operator.inlets
 
 
-def _task_outlets(operator: "Operator") -> Optional[List]:
+def _task_outlets(operator: "Operator") -> List:
+    # From Airflow 2.4 _outlets is dropped and inlets used consistently. Earlier it was not the case, so we have to stick there to _outlets
+    # We have to use _outlets because outlets is empty in Airflow < 2.4.0
     if hasattr(operator, "_outlets"):
-        return operator._outlets  # type: ignore[attr-defined,union-attr]
+        return operator._outlets  # type: ignore[attr-defined, union-attr]
     return operator.outlets
 
 
@@ -57,24 +60,26 @@ def get_inlets_from_task(task: BaseOperator, context: Any) -> Iterable[Any]:
     # in Airflow 2.4.
     # TODO: ignore/handle airflow's dataset type in our lineage
 
-    inlets = []
-    if isinstance(task._inlets, (str, BaseOperator)) or attr.has(task._inlets):  # type: ignore
+    inlets: List[Any] = []
+    task_inlets = _task_inlets(task)
+    # From Airflow 2.3 this should be AbstractOperator but due to compatibility reason lets use BaseOperator
+    if isinstance(task_inlets, (str, BaseOperator)):
         inlets = [
-            task._inlets,
+            task_inlets,
         ]
 
-    if task._inlets and isinstance(task._inlets, list):
+    if task_inlets and isinstance(task_inlets, list):
         inlets = []
         task_ids = (
-            {o for o in task._inlets if isinstance(o, str)}
-            .union(op.task_id for op in task._inlets if isinstance(op, BaseOperator))
+            {o for o in task_inlets if isinstance(o, str)}
+            .union(op.task_id for op in task_inlets if isinstance(op, BaseOperator))
             .intersection(task.get_flat_relative_ids(upstream=True))
         )
 
         from airflow.lineage import AUTO
 
         # pick up unique direct upstream task_ids if AUTO is specified
-        if AUTO.upper() in task._inlets or AUTO.lower() in task._inlets:
+        if AUTO.upper() in task_inlets or AUTO.lower() in task_inlets:
             print("Picking up unique direct upstream task_ids as AUTO is specified")
             task_ids = task_ids.union(
                 task_ids.symmetric_difference(task.upstream_task_ids)
@@ -93,7 +98,7 @@ def get_inlets_from_task(task: BaseOperator, context: Any) -> Iterable[Any]:
             for item in sublist
         ]
 
-        for inlet in task._inlets:
+        for inlet in task_inlets:
             if type(inlet) != str:
                 inlets.append(inlet)
 
@@ -136,8 +141,8 @@ def datahub_task_status_callback(context, status):
     for inlet in inlets:
         datajob.inlets.append(inlet.urn)
 
-    # We have to use _outlets because outlets is empty
-    for outlet in task._outlets:
+    task_outlets = _task_outlets(task)
+    for outlet in task_outlets:
         datajob.outlets.append(outlet.urn)
 
     task.log.info(f"Emitted Datahub dataJob: {datajob}")
@@ -197,7 +202,9 @@ def datahub_pre_execution(context):
     for inlet in inlets:
         datajob.inlets.append(inlet.urn)
 
-    for outlet in task._outlets:
+    task_outlets = _task_outlets(task)
+
+    for outlet in task_outlets:
         datajob.outlets.append(outlet.urn)
 
     datajob.emit(emitter)
