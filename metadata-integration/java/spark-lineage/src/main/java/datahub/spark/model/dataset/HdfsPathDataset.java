@@ -19,7 +19,7 @@ public class HdfsPathDataset extends SparkDataset {
          do not have s3*:// in their name.  Remove this from the URI before setting the path.
        */
       if (scheme.equals("s3a") || scheme.equals("s3n")) {
-        toRemove = scheme + "://";
+        String toRemove = scheme + "://";
         return uri.toString().replace(toRemove, "");
       }
       return uri.toString();
