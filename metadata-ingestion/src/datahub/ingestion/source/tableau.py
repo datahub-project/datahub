@@ -383,7 +383,10 @@ class TableauSource(StatefulIngestionSourceBase):
 
         if "errors" in query_data:
             errors = query_data["errors"]
-            if all(error["extensions"]["severity"] == "WARNING" for error in errors):
+            if all(
+                error.get("extensions", {}).get("severity", None) == "WARNING"
+                for error in errors
+            ):
                 self.report.report_warning(key=connection_type, reason=f"{errors}")
             else:
                 raise RuntimeError(f"Query {connection_type} error: {errors}")
