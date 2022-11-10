@@ -39,6 +39,10 @@ class GEProfilingConfig(ConfigModel):
         default=True,
         description="Whether to profile for the number of nulls for each column.",
     )
+    include_field_distinct_count: bool = Field(
+        default=True,
+        description="Whether to profile for the number of distinct values for each column.",
+    )
     include_field_min_value: bool = Field(
         default=True,
         description="Whether to profile for the min value of numeric columns.",
@@ -137,6 +141,7 @@ class GEProfilingConfig(ConfigModel):
         if values.get(table_level_profiling_only_key):
             all_field_level_metrics: List[str] = [
                 "include_field_null_count",
+                "include_field_distinct_count",
                 "include_field_min_value",
                 "include_field_max_value",
                 "include_field_mean_value",
