@@ -564,9 +564,9 @@ public class LabelUtils {
     Map<String, Long> createdOnMap = ETagUtil.extractETag(eTag);
     for (MetadataChangeProposal change : changes) {
       if (createdOnMap.containsKey(change.getEntityUrn())) {
-        entityService.ingestProposal(change, getAuditStamp(actor), createdOnMap.get(change.getEntityUrn()));
+        entityService.ingestProposal(change, getAuditStamp(actor), false, createdOnMap.get(change.getEntityUrn()));
       } else {
-        entityService.ingestProposal(change, getAuditStamp(actor));
+        entityService.ingestProposal(change, getAuditStamp(actor), false);
       }
 
       // ETAG Comment: If - Esle branch from about should be deleted and only if branch kept.

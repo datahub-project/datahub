@@ -21,6 +21,7 @@
                             "path": "",
                             "createdAt": "2021-12-22T19:10:34Z",
                             "updatedAt": "2021-12-22T19:10:34Z",
+                            "luid": "f0779f9d-6765-47a9-a8f6-c740cfd27783",
                             "tags": [],
                             "containedInDashboards": [
                                 {
@@ -957,6 +958,7 @@
                             "path": "EmailPerformancebyCampaign/EmailPerformancebyCampaign",
                             "createdAt": "2021-12-22T19:10:34Z",
                             "updatedAt": "2021-12-22T19:10:34Z",
+                            "luid": "fc9ea488-f810-4fa8-ac19-aa96018b5d66",
                             "sheets": [
                                 {
                                     "id": "222d1406-de0e-cd8d-0b94-9b45a0007e59",
@@ -995,6 +997,11 @@
                     "uri": "sites/4989/workbooks/15619",
                     "createdAt": "2021-12-17T20:28:31Z",
                     "updatedAt": "2022-01-18T16:14:34Z",
+                    "tags": [
+                        {
+                            "name": "TagSheet3"
+                        }
+                    ],
                     "sheets": [
                         {
                             "id": "8a6a269a-d6de-fae4-5050-513255b40ffc",
@@ -4171,7 +4178,7 @@
                                     "remoteField": {
                                         "__typename": "ColumnField",
                                         "id": "ca23efe0-5a93-344a-3f69-ec777ee1b318",
-                                        "name": "customer_first_name",
+                                        "name": "",
                                         "description": null,
                                         "folderName": null,
                                         "dataCategory": "NOMINAL",
@@ -4207,7 +4214,7 @@
                 "hasNextPage": false,
                 "endCursor": null
             },
-            "totalCount": 3
+            "totalCount": 4
         }
     }
 }

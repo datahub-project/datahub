@@ -18,6 +18,7 @@ import { useEntityRegistry } from '../../useEntityRegistry';
 import { useGetRecommendations } from '../recommendation';
 import { FORBIDDEN_URN_CHARS_REGEX } from '../../entity/shared/utils';
 import { TagTermLabel } from './TagTermLabel';
+import { ENTER_KEY_CODE } from '../constants';
 
 export enum OperationType {
     ADD,
@@ -39,7 +40,7 @@ const TagSelect = styled(Select)`
 `;
 
 const StyleTag = styled(CustomTag)`
-    margin-right: 3px;
+    margin: 2px;
     display: flex;
     justify-content: start;
     align-items: center;
@@ -136,7 +137,7 @@ export default function EditTagTermsModal({
             entity.type === EntityType.Tag ? (entity as Tag).name : entityRegistry.getDisplayName(entity.type, entity);
         const tagOrTermComponent = <TagTermLabel entity={entity} />;
         return (
-            <Select.Option value={entity.urn} key={entity.urn} name={displayName}>
+            <Select.Option data-testid="tag-term-option" value={entity.urn} key={entity.urn} name={displayName}>
                 {tagOrTermComponent}
             </Select.Option>
         );
@@ -192,12 +193,17 @@ export default function EditTagTermsModal({
         querySelectorToExecuteClick: '#addTagButton',
     });
 
+    function handleOnClickBack() {
+        setInputValue('');
+        setShowCreateModal(false);
+    }
+
     if (showCreateModal) {
         return (
             <CreateTagModal
                 visible={visible}
                 onClose={onCloseModal}
-                onBack={() => setShowCreateModal(false)}
+                onBack={handleOnClickBack}
                 tagName={inputValue}
                 resources={resources}
             />
@@ -406,6 +412,12 @@ export default function EditTagTermsModal({
         setInputValue('');
     }
 
+    function handleKeyDown(event) {
+        if (event.keyCode === ENTER_KEY_CODE) {
+            (inputEl.current as any).blur();
+        }
+    }
+
     const isShowingGlossaryBrowser = !inputValue && type === EntityType.GlossaryTerm && isFocusedOnInput;
 
     return (
@@ -431,6 +443,7 @@ export default function EditTagTermsModal({
         >
             <ClickOutside onClickOutside={() => setIsFocusedOnInput(false)}>
                 <TagSelect
+                    data-testid="tag-term-modal-input"
                     autoFocus
                     defaultOpen
                     mode="multiple"
@@ -452,6 +465,7 @@ export default function EditTagTermsModal({
                     onClear={clearInput}
                     onFocus={() => setIsFocusedOnInput(true)}
                     onBlur={handleBlur}
+                    onInputKeyDown={handleKeyDown}
                     dropdownStyle={isShowingGlossaryBrowser ? { display: 'none' } : {}}
                 >
                     {tagSearchOptions}

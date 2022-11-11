@@ -30,6 +30,7 @@ from sqlalchemy.sql import sqltypes as types
 
 from datahub.configuration.common import AllowDenyPattern
 from datahub.emitter.mce_builder import (
+    make_container_urn,
     make_data_platform_urn,
     make_dataplatform_instance_urn,
     make_dataset_urn_with_platform_instance,
@@ -566,18 +567,16 @@ class SQLAlchemySource(StatefulIngestionSourceBase):
             database=db_name,
             schema=schema,
             platform=self.platform,
-            instance=self.config.platform_instance
-            if self.config.platform_instance is not None
-            else self.config.env,
+            instance=self.config.platform_instance,
+            backcompat_instance_for_guid=self.config.env,
         )
 
     def gen_database_key(self, database: str) -> PlatformKey:
         return DatabaseKey(
             database=database,
             platform=self.platform,
-            instance=self.config.platform_instance
-            if self.config.platform_instance is not None
-            else self.config.env,
+            instance=self.config.platform_instance,
+            backcompat_instance_for_guid=self.config.env,
         )
 
     def gen_database_containers(self, database: str) -> Iterable[MetadataWorkUnit]:
@@ -589,6 +588,12 @@ class SQLAlchemySource(StatefulIngestionSourceBase):
             name=database,
             sub_types=[SqlContainerSubTypes.DATABASE],
             domain_urn=domain_urn,
+        )
+
+        # Add container to the checkpoint state
+        container_urn = make_container_urn(database_container_key.guid())
+        self.stale_entity_removal_handler.add_entity_to_state(
+            "container", container_urn
         )
 
         for wu in container_workunits:
@@ -605,10 +610,17 @@ class SQLAlchemySource(StatefulIngestionSourceBase):
             database_container_key = self.gen_database_key(database=db_name)
 
         container_workunits = gen_containers(
+            # TODO: this one is bad
             schema_container_key,
             schema,
             [SqlContainerSubTypes.SCHEMA],
             database_container_key,
+        )
+
+        # Add container to the checkpoint state
+        container_urn = make_container_urn(schema_container_key.guid())
+        self.stale_entity_removal_handler.add_entity_to_state(
+            "container", container_urn
         )
 
         for wu in container_workunits:

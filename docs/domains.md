@@ -247,5 +247,5 @@ DataHub supports Tags, Glossary Terms, & Domains as distinct types of Metadata t
 
 ### Related Features
 
-* [Glossary Terms](./how/business-glossary-guide.md)
+* [Glossary Terms](./glossary/business-glossary.md)
 * [Tags](./tags.md)

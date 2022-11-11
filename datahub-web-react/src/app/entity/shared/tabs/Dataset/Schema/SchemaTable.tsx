@@ -21,6 +21,7 @@ import { SchemaRow } from './components/SchemaRow';
 import { FkContext } from './utils/selectedFkContext';
 import useSchemaBlameRenderer from './utils/useSchemaBlameRenderer';
 import { ANTD_GRAY } from '../../../constants';
+import MenuColumn from './components/MenuColumn';
 
 const TableContainer = styled.div`
     &&& .ant-table-tbody > tr > .ant-table-cell-with-append {
@@ -155,12 +156,31 @@ export default function SchemaTable({
         },
     };
 
+    // Function to get the count of each usageStats fieldPath
+    function getCount(fieldPath: any) {
+        const data: any =
+            usageStats?.aggregations?.fields &&
+            usageStats?.aggregations?.fields.find((field) => {
+                return field?.fieldName === fieldPath;
+            });
+        return data && data.count;
+    }
+
     const usageColumn = {
         width: '10%',
         title: 'Usage',
         dataIndex: 'fieldPath',
         key: 'usage',
         render: usageStatsRenderer,
+        sorter: (sourceA, sourceB) => getCount(sourceA.fieldPath) - getCount(sourceB.fieldPath),
+    };
+
+    const menuColumn = {
+        width: '5%',
+        title: '',
+        dataIndex: '',
+        key: 'menu',
+        render: (field: SchemaField) => <MenuColumn field={field} />,
     };
 
     let allColumns: ColumnsType<ExtendedSchemaFields> = [fieldColumn, descriptionColumn, tagColumn, termColumn];
@@ -172,6 +192,8 @@ export default function SchemaTable({
     if (showSchemaAuditView) {
         allColumns = [...allColumns, blameColumn];
     }
+
+    allColumns = [...allColumns, menuColumn];
 
     const [expandedRows, setExpandedRows] = useState<Set<string>>(new Set());
 

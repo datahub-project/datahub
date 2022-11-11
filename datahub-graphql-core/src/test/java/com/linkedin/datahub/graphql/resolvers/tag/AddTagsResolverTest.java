@@ -70,10 +70,7 @@ public class AddTagsResolverTest {
     proposal.setAspect(GenericRecordUtils.serializeAspect(newTags));
     proposal.setChangeType(ChangeType.UPSERT);
 
-    Mockito.verify(mockService, Mockito.times(1)).ingestProposal(
-        Mockito.eq(proposal),
-        Mockito.any(AuditStamp.class)
-    );
+    verifyIngestProposal(mockService, 1, proposal);
 
     Mockito.verify(mockService, Mockito.times(1)).exists(
         Mockito.eq(Urn.createFromString(TEST_TAG_1_URN))
@@ -127,10 +124,7 @@ public class AddTagsResolverTest {
     proposal.setAspect(GenericRecordUtils.serializeAspect(newTags));
     proposal.setChangeType(ChangeType.UPSERT);
 
-    Mockito.verify(mockService, Mockito.times(1)).ingestProposal(
-        Mockito.eq(proposal),
-        Mockito.any(AuditStamp.class)
-    );
+    verifyIngestProposal(mockService, 1, proposal);
 
     Mockito.verify(mockService, Mockito.times(1)).exists(
         Mockito.eq(Urn.createFromString(TEST_TAG_1_URN))
@@ -166,9 +160,7 @@ public class AddTagsResolverTest {
     Mockito.when(mockEnv.getContext()).thenReturn(mockContext);
 
     assertThrows(CompletionException.class, () -> resolver.get(mockEnv).join());
-    Mockito.verify(mockService, Mockito.times(0)).ingestProposal(
-        Mockito.any(),
-        Mockito.any(AuditStamp.class));
+    verifyNoIngestProposal(mockService);
   }
 
   @Test
@@ -196,9 +188,7 @@ public class AddTagsResolverTest {
     Mockito.when(mockEnv.getContext()).thenReturn(mockContext);
 
     assertThrows(CompletionException.class, () -> resolver.get(mockEnv).join());
-    Mockito.verify(mockService, Mockito.times(0)).ingestProposal(
-        Mockito.any(),
-        Mockito.any(AuditStamp.class));
+    verifyNoIngestProposal(mockService);
   }
 
   @Test
@@ -217,9 +207,7 @@ public class AddTagsResolverTest {
     Mockito.when(mockEnv.getContext()).thenReturn(mockContext);
 
     assertThrows(CompletionException.class, () -> resolver.get(mockEnv).join());
-    Mockito.verify(mockService, Mockito.times(0)).ingestProposal(
-        Mockito.any(),
-        Mockito.any(AuditStamp.class));
+    verifyNoIngestProposal(mockService);
   }
 
   @Test
@@ -228,7 +216,7 @@ public class AddTagsResolverTest {
 
     Mockito.doThrow(RuntimeException.class).when(mockService).ingestProposal(
         Mockito.any(),
-        Mockito.any(AuditStamp.class));
+        Mockito.any(AuditStamp.class), Mockito.eq(false));
 
     AddTagsResolver resolver = new AddTagsResolver(Mockito.mock(EntityService.class));
 

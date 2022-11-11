@@ -1,6 +1,5 @@
 package com.linkedin.metadata.search.elasticsearch.query.request;
 
-import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.data.template.DoubleMap;
@@ -61,6 +60,7 @@ import org.elasticsearch.search.builder.SearchSourceBuilder;
 import org.elasticsearch.search.fetch.subphase.highlight.HighlightBuilder;
 import org.elasticsearch.search.fetch.subphase.highlight.HighlightField;
 
+import static com.linkedin.metadata.search.utils.ESUtils.*;
 import static com.linkedin.metadata.utils.SearchUtil.*;
 
 
@@ -69,8 +69,9 @@ public class SearchRequestHandler {
 
   private static final Map<EntitySpec, SearchRequestHandler> REQUEST_HANDLER_BY_ENTITY_NAME = new ConcurrentHashMap<>();
   private static final String REMOVED = "removed";
-  private static final int DEFAULT_MAX_TERM_BUCKET_SIZE = 20;
 
+  private static final String URN_FILTER = "urn";
+  private static final int DEFAULT_MAX_TERM_BUCKET_SIZE = 20;
   private final EntitySpec _entitySpec;
   private final Set<String> _facetFields;
   private final Set<String> _defaultQueryFieldNames;
@@ -133,7 +134,7 @@ public class SearchRequestHandler {
     boolean removedInOrFilter = false;
     if (filter != null) {
       removedInOrFilter = filter.getOr().stream().anyMatch(
-              or -> or.getAnd().stream().anyMatch(criterion -> criterion.getField().equals(REMOVED))
+              or -> or.getAnd().stream().anyMatch(criterion -> criterion.getField().equals(REMOVED) || criterion.getField().equals(REMOVED + KEYWORD_SUFFIX))
       );
     }
     // Filter out entities that are marked "removed" if and only if filter does not contain a criterion referencing it.
@@ -356,7 +357,7 @@ public class SearchRequestHandler {
       final AggregationMetadata aggregationMetadata = new AggregationMetadata().setName(entry.getKey())
           .setDisplayName(_filtersToDisplayName.get(entry.getKey()))
           .setAggregations(new LongMap(oneTermAggResult))
-          .setFilterValues(new FilterValueArray(SearchUtil.convertToFilters(oneTermAggResult)));
+          .setFilterValues(new FilterValueArray(SearchUtil.convertToFilters(oneTermAggResult, Collections.emptySet())));
       aggregationMetadataList.add(aggregationMetadata);
     }
 
@@ -404,8 +405,8 @@ public class SearchRequestHandler {
   /**
    * Injects the missing conjunctive filters into the aggregations list.
    */
-  private List<AggregationMetadata> addFiltersToAggregationMetadata(@Nonnull final List<AggregationMetadata> originalMetadata, @Nullable final Filter filter) {
-    if (filter == null) {
+  public List<AggregationMetadata> addFiltersToAggregationMetadata(@Nonnull final List<AggregationMetadata> originalMetadata, @Nullable final Filter filter) {
+     if (filter == null) {
       return originalMetadata;
     }
     if (filter.hasOr()) {
@@ -416,7 +417,7 @@ public class SearchRequestHandler {
     return originalMetadata;
   }
 
-  private void addOrFiltersToAggregationMetadata(@Nonnull final ConjunctiveCriterionArray or, @Nonnull final List<AggregationMetadata> originalMetadata) {
+  void addOrFiltersToAggregationMetadata(@Nonnull final ConjunctiveCriterionArray or, @Nonnull final List<AggregationMetadata> originalMetadata) {
     for (ConjunctiveCriterion conjunction : or) {
       // For each item in the conjunction, inject an empty aggregation if necessary
       addCriteriaFiltersToAggregationMetadata(conjunction.getAnd(), originalMetadata);
@@ -424,24 +425,30 @@ public class SearchRequestHandler {
   }
 
   private void addCriteriaFiltersToAggregationMetadata(@Nonnull final CriterionArray criteria, @Nonnull final List<AggregationMetadata> originalMetadata) {
-    // For each criterion check whether its already appearing in aggregations
-    Map<String, AggregationMetadata> aggMetadataMap = originalMetadata.stream().collect(Collectors.toMap(
-        AggregationMetadata::getName, agg -> agg));
-
     for (Criterion criterion : criteria) {
-      addCriterionFiltersToAggregationMetadata(criterion, originalMetadata, aggMetadataMap);
+      addCriterionFiltersToAggregationMetadata(criterion, originalMetadata);
     }
   }
 
   private void addCriterionFiltersToAggregationMetadata(
       @Nonnull final Criterion criterion,
-      @Nonnull final List<AggregationMetadata> originalMetadata,
-      @Nonnull Map<String, AggregationMetadata> aggregationMetadataMap) {
+      @Nonnull final List<AggregationMetadata> aggregationMetadata) {
+
+    // We should never see duplicate aggregation for the same field in aggregation metadata list.
+    final Map<String, AggregationMetadata> aggregationMetadataMap = aggregationMetadata.stream().collect(Collectors.toMap(
+        AggregationMetadata::getName, agg -> agg));
+
     // Map a filter criterion to a facet field (e.g. domains.keyword -> domains)
     final String finalFacetField = toFacetField(criterion.getField());
 
     if (finalFacetField == null) {
       log.warn(String.format("Found invalid filter field for entity search. Invalid or unrecognized facet %s", criterion.getField()));
+      return;
+    }
+
+    // We don't want to add urn filters to the aggregations we return as a sidecar to search results.
+    // They are automatically added by searchAcrossLineage and we dont need them to show up in the filter panel.
+    if (finalFacetField.equals(URN_FILTER)) {
       return;
     }
 
@@ -452,7 +459,11 @@ public class SearchRequestHandler {
        * Elasticsearch.
        */
       AggregationMetadata originalAggMetadata = aggregationMetadataMap.get(finalFacetField);
-      addMissingAggregationValueToAggregationMetadata(criterion.getValue(), originalAggMetadata);
+      if (criterion.hasValues()) {
+        criterion.getValues().stream().forEach(value -> addMissingAggregationValueToAggregationMetadata(value, originalAggMetadata));
+      } else {
+        addMissingAggregationValueToAggregationMetadata(criterion.getValue(), originalAggMetadata);
+      }
     } else {
       /*
        * If we do not have ANY aggregation for the facet field, then inject a new aggregation metadata object for the
@@ -460,20 +471,24 @@ public class SearchRequestHandler {
        * If there are no results for a particular facet, it will NOT be in the original aggregation set returned by
        * Elasticsearch.
        */
-      originalMetadata.add(buildAggregationMetadata(
+      aggregationMetadata.add(buildAggregationMetadata(
           finalFacetField,
           _filtersToDisplayName.getOrDefault(finalFacetField, finalFacetField),
-          new LongMap(ImmutableMap.of(criterion.getValue(), 0L)),
-          new FilterValueArray(ImmutableList.of(createFilterValue(criterion.getValue(), 0L))))
+          new LongMap(criterion.getValues().stream().collect(Collectors.toMap(i -> i, i -> 0L))),
+          new FilterValueArray(criterion.getValues().stream().map(value -> createFilterValue(value, 0L, true)).collect(
+              Collectors.toList())))
       );
     }
   }
 
   private void addMissingAggregationValueToAggregationMetadata(@Nonnull final String value, @Nonnull final AggregationMetadata originalMetadata) {
-    if (originalMetadata.getAggregations().entrySet().stream().noneMatch(entry -> value.equals(entry.getKey()))) {
+    if (
+        originalMetadata.getAggregations().entrySet().stream().noneMatch(entry -> value.equals(entry.getKey()))
+            || originalMetadata.getFilterValues().stream().noneMatch(entry -> entry.getValue().equals(value))
+    ) {
       // No aggregation found for filtered value -- inject one!
       originalMetadata.getAggregations().put(value, 0L);
-      originalMetadata.getFilterValues().add(createFilterValue(value, 0L));
+      originalMetadata.getFilterValues().add(createFilterValue(value, 0L, true));
     }
   }
 
@@ -489,12 +504,4 @@ public class SearchRequestHandler {
         .setFilterValues(filterValues);
   }
 
-  @Nullable
-  private String toFacetField(@Nonnull final String filterField) {
-    String trimmedField = filterField.replace(ESUtils.KEYWORD_SUFFIX, "");
-    if (_facetFields.contains(trimmedField)) {
-      return trimmedField;
-    }
-    return null;
-  }
 }

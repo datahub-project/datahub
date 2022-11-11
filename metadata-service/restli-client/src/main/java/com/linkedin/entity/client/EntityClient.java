@@ -276,22 +276,40 @@ public interface EntityClient {
       @Nonnull Boolean getLatestValue, @Nullable Filter filter, @Nonnull Authentication authentication)
       throws RemoteInvocationException;
 
-  public String ingestProposal(@Nonnull final MetadataChangeProposal metadataChangeProposal,
-      @Nonnull final Authentication authentication) throws RemoteInvocationException;
+  @Deprecated
+  default String ingestProposal(@Nonnull final MetadataChangeProposal metadataChangeProposal,
+      @Nonnull final Authentication authentication) throws RemoteInvocationException {
+    return ingestProposal(metadataChangeProposal, authentication, false);
+  }
 
+  String ingestProposal(@Nonnull final MetadataChangeProposal metadataChangeProposal,
+      @Nonnull final Authentication authentication, final boolean async) throws RemoteInvocationException;
+
+  @Deprecated
   default String wrappedIngestProposal(@Nonnull MetadataChangeProposal metadataChangeProposal,
       @Nonnull final Authentication authentication) {
+    return wrappedIngestProposal(metadataChangeProposal, authentication, false);
+  }
+
+  default String wrappedIngestProposal(@Nonnull MetadataChangeProposal metadataChangeProposal,
+      @Nonnull final Authentication authentication, final boolean async) {
     try {
-      return ingestProposal(metadataChangeProposal, authentication);
+      return ingestProposal(metadataChangeProposal, authentication, async);
     } catch (RemoteInvocationException e) {
       throw new RuntimeException(e);
     }
   }
 
+  @Deprecated
   default List<String> batchIngestProposals(@Nonnull final Collection<MetadataChangeProposal> metadataChangeProposals,
       @Nonnull final Authentication authentication) throws RemoteInvocationException {
+    return batchIngestProposals(metadataChangeProposals, authentication, false);
+  }
+
+  default List<String> batchIngestProposals(@Nonnull final Collection<MetadataChangeProposal> metadataChangeProposals,
+      @Nonnull final Authentication authentication, final boolean async) throws RemoteInvocationException {
     return metadataChangeProposals.stream()
-        .map(proposal -> wrappedIngestProposal(proposal, authentication))
+        .map(proposal -> wrappedIngestProposal(proposal, authentication, async))
         .collect(Collectors.toList());
   }
 

@@ -4,6 +4,7 @@ include: "foo.view.lkml"
 include: "bar.view.lkml"
 include: "nested/*"
 include: "liquid.view.lkml"
+include: "ability.view.lkml"
 
 explore: aliased_explore {
   from: my_view

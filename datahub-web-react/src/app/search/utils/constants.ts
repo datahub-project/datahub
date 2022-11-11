@@ -29,8 +29,8 @@ export const FIELD_TO_LABEL = {
     domains: 'Domain',
     platform: 'Platform',
     fieldTags: 'Column Tag',
-    glossaryTerms: 'Term',
-    fieldGlossaryTerms: 'Column Term',
+    glossaryTerms: 'Glossary Term',
+    fieldGlossaryTerms: 'Column Glossary Term',
     fieldPaths: 'Column Name',
     description: 'Description',
     fieldDescriptions: 'Column Description',
@@ -39,13 +39,16 @@ export const FIELD_TO_LABEL = {
     container: 'Container',
     typeNames: 'Subtype',
     origin: 'Environment',
+    degree: 'Degree',
 };
 
 export const FIELDS_THAT_USE_CONTAINS_OPERATOR = ['description', 'fieldDescriptions'];
 
 export const ADVANCED_SEARCH_ONLY_FILTERS = [
     'fieldGlossaryTerms',
+    'editedFieldGlossaryTerms',
     'fieldTags',
+    'editedFieldTags',
     'fieldPaths',
     'description',
     'fieldDescriptions',

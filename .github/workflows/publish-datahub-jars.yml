@@ -36,7 +36,7 @@ jobs:
       tag: ${{ steps.tag.outputs.tag }}
     steps:
       - name: Checkout
-        uses: actions/checkout@v2
+        uses: actions/checkout@v3
       - name: Compute Tag
         id: tag
         run: |
@@ -50,14 +50,15 @@ jobs:
     needs: ["check-secret", "setup"]
     if: ${{ needs.check-secret.outputs.publish-enabled == 'true' }}
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v3
         with:
           fetch-depth: 0
       - name: Set up JDK 11
-        uses: actions/setup-java@v1
+        uses: actions/setup-java@v3
         with:
+          distribution: "zulu"
           java-version: 11
-      - uses: actions/setup-python@v2
+      - uses: actions/setup-python@v4
         with:
           python-version: "3.7"
       - name: checkout upstream repo

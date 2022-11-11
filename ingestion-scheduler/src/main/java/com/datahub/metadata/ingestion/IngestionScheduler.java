@@ -204,6 +204,9 @@ public class IngestionScheduler {
     public void run() {
       try {
 
+        // First un-schedule all currently scheduled runs (to make sure consistency is maintained)
+        _unscheduleAll.run();
+
         int start = 0;
         int count = 30;
         int total = 30;
@@ -229,9 +232,6 @@ public class IngestionScheduler {
 
             // 3. Reschedule ingestion sources based on the fetched schedules (inside "info")
             log.debug("Received batch of Ingestion Source Info aspects. Attempting to re-schedule execution requests.");
-
-            // First unschedule all currently scheduled runs (to make sure consistency is maintained)
-            _unscheduleAll.run();
 
             // Then schedule the next ingestion runs
             scheduleNextIngestionRuns(new ArrayList<>(ingestionSources.values()));

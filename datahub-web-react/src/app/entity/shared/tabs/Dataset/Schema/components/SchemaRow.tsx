@@ -4,6 +4,7 @@ import { Link } from 'react-router-dom';
 import styled from 'styled-components';
 import { GetDatasetQuery } from '../../../../../../../graphql/dataset.generated';
 import { EntityType } from '../../../../../../../types.generated';
+import { decodeSchemaField } from '../../../../../../lineage/utils/columnLineageUtils';
 import CompactContext from '../../../../../../shared/CompactContext';
 import { useEntityRegistry } from '../../../../../../useEntityRegistry';
 import { ANTD_GRAY } from '../../../../constants';
@@ -130,7 +131,7 @@ export const SchemaRow = ({
                                     <TableTitle>{baseEntity.dataset?.name}</TableTitle>
                                     {selectedFk?.constraint?.sourceFields?.map((field) => (
                                         <div key={field?.fieldPath}>
-                                            <FieldBadge count={field?.fieldPath} />
+                                            <FieldBadge count={decodeSchemaField(field?.fieldPath || '')} />
                                         </div>
                                     ))}
                                 </div>
@@ -139,7 +140,7 @@ export const SchemaRow = ({
                                     <TableTitle>{selectedFk?.constraint?.foreignDataset?.name}</TableTitle>
                                     {selectedFk?.constraint?.foreignFields?.map((field) => (
                                         <div key={field?.fieldPath}>
-                                            <FieldBadge count={field?.fieldPath} />
+                                            <FieldBadge count={decodeSchemaField(field?.fieldPath || '')} />
                                         </div>
                                     ))}
                                 </div>

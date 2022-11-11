@@ -10,6 +10,7 @@ import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.metadata.authorization.PoliciesConfig;
+
 import java.time.Clock;
 import java.util.Optional;
 import javax.annotation.Nonnull;
@@ -64,10 +65,6 @@ public class AuthorizationUtils {
     return isAuthorized(context, Optional.empty(), PoliciesConfig.MANAGE_DOMAINS_PRIVILEGE);
   }
 
-  public static boolean canManageGlossaries(@Nonnull QueryContext context) {
-    return isAuthorized(context, Optional.empty(), PoliciesConfig.MANAGE_GLOSSARIES_PRIVILEGE);
-  }
-
   /**
    * Returns true if the current used is able to create Tags. This is true if the user has the 'Manage Tags' or 'Create Tags' platform privilege.
    */
@@ -105,6 +102,10 @@ public class AuthorizationUtils {
 
     return AuthorizationUtils.isAuthorized(context.getAuthorizer(), context.getActorUrn(), CORP_GROUP_ENTITY_NAME,
         groupUrnStr, orPrivilegeGroups);
+  }
+
+  public static boolean canCreateGlobalAnnouncements(@Nonnull QueryContext context) {
+    return isAuthorized(context, Optional.empty(), PoliciesConfig.CREATE_GLOBAL_ANNOUNCEMENTS_PRIVILEGE);
   }
 
   public static boolean isAuthorized(

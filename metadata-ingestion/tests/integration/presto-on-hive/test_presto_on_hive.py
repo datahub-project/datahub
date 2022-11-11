@@ -53,10 +53,12 @@ def loaded_presto_on_hive(presto_on_hive_runner):
 @freeze_time(FROZEN_TIME)
 @pytest.mark.integration_batch_1
 @pytest.mark.parametrize(
-    "mode,use_catalog_subtype,use_dataset_pascalcase_subtype,test_suffix",
+    "mode,use_catalog_subtype,use_dataset_pascalcase_subtype,include_catalog_name_in_ids,test_suffix",
     [
-        ("hive", False, False, "_1"),
-        ("presto-on-hive", True, True, "_2"),
+        ("hive", False, False, False, "_1"),
+        ("presto-on-hive", True, True, False, "_2"),
+        ("hive", False, False, True, "_3"),
+        ("presto-on-hive", True, True, True, "_4"),
     ],
 )
 def test_presto_on_hive_ingest(
@@ -68,6 +70,7 @@ def test_presto_on_hive_ingest(
     mode,
     use_catalog_subtype,
     use_dataset_pascalcase_subtype,
+    include_catalog_name_in_ids,
     test_suffix,
 ):
 
@@ -91,6 +94,7 @@ def test_presto_on_hive_ingest(
                     "scheme": "postgresql+psycopg2",
                     "include_views": True,
                     "include_tables": True,
+                    "include_catalog_name_in_ids": include_catalog_name_in_ids,
                     "schema_pattern": {"allow": ["^public"]},
                     "mode": mode,
                     "use_catalog_subtype": use_catalog_subtype,

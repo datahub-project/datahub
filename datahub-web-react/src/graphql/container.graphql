@@ -31,8 +31,8 @@ query getContainer($urn: String!) {
         subTypes {
             typeNames
         }
-        entities(input: {}) {
-            ...searchResults
+        entities(input: { start: 0, count: 1 }) {
+            total
         }
         container {
             ...entityContainer
