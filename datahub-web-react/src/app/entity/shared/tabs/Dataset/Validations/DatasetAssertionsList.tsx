@@ -95,6 +95,7 @@ export const DatasetAssertionsList = ({ assertions, onDelete }: Props) => {
                 const resultColor = (record.lastExecResult && getResultColor(record.lastExecResult)) || 'default';
                 const resultText = (record.lastExecResult && getResultText(record.lastExecResult)) || 'No Evaluations';
                 const resultIcon = (record.lastExecResult && getResultIcon(record.lastExecResult)) || <StopOutlined />;
+                console.log('record', record);
                 return (
                     <ResultContainer>
                         <div>
