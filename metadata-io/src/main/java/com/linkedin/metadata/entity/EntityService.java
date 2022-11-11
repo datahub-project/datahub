@@ -658,7 +658,7 @@ private Map<Urn, List<EnvelopedAspect>> getCorrespondingAspects(Set<EntityAspect
         EntityAspect latest = latestAspects.get(aspectName);
         long nextVersion = nextVersions.get(aspectName);
         UpdateAspectResult updateResult = ingestAspectToLocalDBNoTransaction(urn, aspectName, ignored -> newValue, auditStamp, systemMetadata,
-            latest, nextVersion, updateIfCreatedOnMap.get(urn));
+            latest, nextVersion, updateIfCreatedOnMap != null ? updateIfCreatedOnMap.get(urn) : null);
         result.add(new Pair<>(aspectName, updateResult));
       }
       return result;
