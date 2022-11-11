@@ -55,6 +55,10 @@ framework_common = {
     "click-spinner",
 }
 
+rest_common = {
+    "requests",
+}
+
 kafka_common = {
     # The confluent_kafka package provides a number of pre-built wheels for
     # various platforms and architectures. However, it does not provide wheels
@@ -220,10 +224,12 @@ databricks_cli = {
 plugins: Dict[str, Set[str]] = {
     # Sink plugins.
     "datahub-kafka": kafka_common,
-    "datahub-rest": {"requests"},
+    "datahub-rest": rest_common,
     # Integrations.
     "airflow": {
         "apache-airflow >= 2.0.2",
+        *rest_common,
+        *kafka_common,
     },
     "circuit-breaker": {
         "gql>=3.3.0",
