@@ -6,7 +6,7 @@ from unittest import mock
 import pytest
 from freezegun import freeze_time
 from requests.adapters import ConnectionError
-from tableauserverclient.models import ViewItem
+from tableauserverclient.models import ViewItem, ProjectItem, DatasourceItem
 
 from datahub.configuration.source_common import DEFAULT_ENV
 from datahub.ingestion.run.pipeline import Pipeline, PipelineContext
@@ -34,7 +34,8 @@ config_source_default = {
     "password": "pass`",
     "connect_uri": "https://do-not-connect",
     "site": "acryl",
-    "projects": ["default", "Project 2"],
+    "projects": ["default", "Project 2", "Samples"],
+    "extract_project_hierarchy": False,
     "page_size": 10,
     "ingest_tags": True,
     "ingest_owner": True,
@@ -85,6 +86,107 @@ def side_effect_usage_stat(*arg, **kwargs):
     return [dashboard_stat, sheet_stat], mock_pagination
 
 
+def side_effect_project_data(*arg, **kwargs):
+    mock_pagination = mock.MagicMock()
+    mock_pagination.total_available = None
+
+    project1: ProjectItem = ProjectItem(name="default")
+    project1._id = "190a6a5c-63ed-4de1-8045-faeae5df5b01"
+
+    project2: ProjectItem = ProjectItem(name="Project 2")
+    project2._id = "c30aafe5-44f4-4f28-80d3-d181010a263c"
+
+    project3: ProjectItem = ProjectItem(name="Samples")
+    project3._id = "910733aa-2e95-4ac3-a2e8-71570751099d"
+    return [project1, project2, project3], mock_pagination
+
+
+def side_effect_datasource_data(*arg, **kwargs):
+    mock_pagination = mock.MagicMock()
+    mock_pagination.total_available = None
+
+    datasource1: DatasourceItem = DatasourceItem(
+        name="Customer Payment Query",
+        project_id="190a6a5c-63ed-4de1-8045-faeae5df5b01",
+    )
+
+    datasource1._id = "4644ccb1-2adc-cf26-c654-04ed1dcc7090"
+
+    datasource2: DatasourceItem = DatasourceItem(
+        name="Marketo",
+        project_id="190a6a5c-63ed-4de1-8045-faeae5df5b01",
+    )
+    datasource2._id = "678978a0-afab-5483-1a9a-536b77999ec1"
+
+    datasource3: DatasourceItem = DatasourceItem(
+        name="address",
+        project_id="190a6a5c-63ed-4de1-8045-faeae5df5b01",
+    )
+    datasource3._id = "5acb3a52-00b1-0e5c-b8b2-040445db9824"
+
+    datasource4: DatasourceItem = DatasourceItem(
+        name="actor",
+        project_id="190a6a5c-63ed-4de1-8045-faeae5df5b01",
+    )
+    datasource4._id = "985d7629-535b-9326-79bc-748e29e97949"
+
+    datasource5: DatasourceItem = DatasourceItem(
+        name="task",
+        project_id="190a6a5c-63ed-4de1-8045-faeae5df5b01",
+    )
+    datasource5._id = "57135afa-7602-93fe-0f9f-c7fe7c36dd5d"
+
+    datasource6: DatasourceItem = DatasourceItem(
+        name="activity10",
+        project_id="190a6a5c-63ed-4de1-8045-faeae5df5b01",
+    )
+    datasource6._id = "4aee37cd-e738-e5de-3c77-7a118964ac70"
+
+    datasource7: DatasourceItem = DatasourceItem(
+        name="activity7",
+        project_id="190a6a5c-63ed-4de1-8045-faeae5df5b01",
+    )
+    datasource7._id = "6a9da5b0-a1bc-ef1b-a154-59c2627f49b0"
+
+    datasource8: DatasourceItem = DatasourceItem(
+        name="test publish datasource",
+        project_id="190a6a5c-63ed-4de1-8045-faeae5df5b01",
+    )
+    datasource8._id = "ffd72f16-004a-4a7d-8f5b-a8fd18d4317d"
+
+    datasource9: DatasourceItem = DatasourceItem(
+        name="Superstore Datasource",
+        project_id="910733aa-2e95-4ac3-a2e8-71570751099d",
+    )
+    datasource9._id = "db86f6cc-9c0e-400f-9fe0-0777f31c6ae2"
+
+    datasource10: DatasourceItem = DatasourceItem(
+        name="Customer Payment Query",
+        project_id="910733aa-2e95-4ac3-a2e8-71570751099d",
+    )
+    datasource10._id = "1a4e81b9-1107-4b8c-a864-7009b6414858"
+
+    datasource11: DatasourceItem = DatasourceItem(
+        name="test publish datasource",
+        project_id="910733aa-2e95-4ac3-a2e8-71570751099d",
+    )
+    datasource11._id = "aa10420e-73da-435c-b7c9-b0325a19849a"
+
+    return [
+        datasource1,
+        datasource2,
+        datasource3,
+        datasource4,
+        datasource5,
+        datasource6,
+        datasource7,
+        datasource8,
+        datasource9,
+        datasource10,
+        datasource11,
+    ], mock_pagination
+
+
 def tableau_ingest_common(
     pytestconfig,
     tmp_path,
@@ -111,6 +213,10 @@ def tableau_ingest_common(
             mock_client.metadata = mocked_metadata
             mock_client.auth = mock.Mock()
             mock_client.views = mock.Mock()
+            mock_client.projects = mock.Mock()
+            mock_client.projects.get.side_effect = side_effect_project_data
+            mock_client.datasources = mock.Mock()
+            mock_client.datasources.get.side_effect = side_effect_datasource_data
             mock_client.views.get.side_effect = side_effect_usage_stat
             mock_client.auth.sign_in.return_value = None
             mock_client.auth.sign_out.side_effect = sign_out_side_effect
@@ -300,7 +406,6 @@ def test_tableau_stateful(pytestconfig, tmp_path, mock_time, mock_datahub_graph)
         output_file_name,
         mock_datahub_graph,
     )
-
     checkpoint1 = get_current_checkpoint_from_pipeline(pipeline_run1)
     assert checkpoint1
     assert checkpoint1.state

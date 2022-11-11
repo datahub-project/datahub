@@ -1,9 +1,12 @@
 import json
 import logging
+import re
+
 from dataclasses import dataclass
 from datetime import datetime
 from functools import lru_cache
 from typing import Any, Dict, Iterable, List, Optional, Tuple, Union
+from pydantic.class_validators import root_validator
 
 import dateutil.parser as dp
 import tableauserverclient as TSC
@@ -19,7 +22,11 @@ from tableauserverclient import (
 from tableauserverclient.server.endpoint.exceptions import NonXMLResponseError
 
 import datahub.emitter.mce_builder as builder
-from datahub.configuration.common import ConfigModel, ConfigurationError
+from datahub.configuration.common import (
+    ConfigModel,
+    ConfigurationError,
+    AllowDenyPattern,
+)
 from datahub.configuration.source_common import DatasetLineageProviderConfigBase
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.emitter.mcp_builder import (
@@ -157,6 +164,11 @@ class TableauConnectionConfig(ConfigModel):
         description="When enabled, extracts column-level lineage from Tableau Datasources",
     )
 
+    extract_project_hierarchy: bool = Field(
+        default=True,
+        description="Whether to extract entire project hierarchy for nested projects.",
+    )
+
     @validator("connect_uri")
     def remove_trailing_slash(cls, v):
         return config_clean.remove_trailing_slashes(v)
@@ -222,7 +234,14 @@ class TableauConfig(
     TableauConnectionConfig,
 ):
     projects: Optional[List[str]] = Field(
-        default=["default"], description="List of projects"
+        default=["default"],
+        description="[deprecated] Use project_pattern instead of projects. List of tableau "
+        "projects ",
+    )
+    # Tableau project pattern
+    project_pattern: AllowDenyPattern = Field(
+        default=AllowDenyPattern.allow_all(),
+        description="Regex patterns to filter tableau projects in ingestion",
     )
     default_schema_map: dict = Field(
         default={}, description="Default schema to use when schema is not found."
@@ -291,9 +310,22 @@ class WorkbookKey(PlatformKey):
     workbook_id: str
 
 
+class ProjectKey(PlatformKey):
+    project_id: str
+
+
 @dataclass
 class UsageStat:
     view_count: int
+
+
+@dataclass
+class TableauProject:
+    id: str
+    name: str
+    description: str
+    parent_id: Optional[str]
+    path: []
 
 
 @platform_name("Tableau")
@@ -320,6 +352,8 @@ class TableauSource(StatefulIngestionSourceBase):
     server: Optional[Server]
     upstream_tables: Dict[str, Tuple[Any, Optional[str], bool]] = {}
     tableau_stat_registry: Dict[str, UsageStat] = {}
+    tableau_project_registry: Dict[str, TableauProject] = {}
+    datasource_project_map: Dict[str, str] = {}
 
     def __hash__(self):
         return id(self)
@@ -385,6 +419,90 @@ class TableauSource(StatefulIngestionSourceBase):
                 continue
             self.tableau_stat_registry[view.id] = UsageStat(view_count=view.total_views)
         logger.debug("Tableau stats %s", self.tableau_stat_registry)
+
+    def _get_all_project(self) -> Dict[str, TableauProject]:
+        all_project_map: Dict[str, TableauProject] = {}
+        for project in TSC.Pager(self.server.projects):
+            all_project_map[project.id] = TableauProject(
+                id=project.id,
+                name=project.name,
+                parent_id=project.parent_id,
+                description=project.description,
+                path=[project.name],
+            )
+        return all_project_map
+
+    def _is_allowed_project(self, project: TableauProject) -> bool:
+        is_allowed: bool = self.config.project_pattern.allowed(project.name)
+        if is_allowed is False:
+            logger.info(
+                f"project({project.name}) is not allowed as per project_pattern"
+            )
+        return is_allowed
+
+    def _is_denied_project(self, project: TableauProject) -> bool:
+        for deny_pattern in self.config.project_pattern.deny:
+            if re.match(
+                deny_pattern, project.name, self.config.project_pattern.regex_flags
+            ):
+                return True
+        logger.info(f"project({project.name}) is not denied as per project_pattern")
+        return False
+
+    def _populate_projects_registry(self):
+        if self.server is None:
+            return
+
+        logger.info("Populating site project registry")
+
+        all_project_map = self._get_all_project()
+
+        def init_tableau_project_registry():
+            list_of_skip_projects: List[TableauProject] = []
+
+            for project in all_project_map.values():
+                # Skip project if it is not allowed
+                if self._is_allowed_project(project) is False:
+                    list_of_skip_projects.append(project)
+                    continue
+
+                self.tableau_project_registry[project.id] = project
+
+            if self.config.extract_project_hierarchy is False:
+                logger.info(
+                    "Skipping project hierarchy processing as configuration extract_project_hierarchy is "
+                    "disabled"
+                )
+                return
+
+            logger.info("Reevaluating projects as extract_project_hierarchy is enabled")
+
+            for project in list_of_skip_projects:
+                if (
+                    project.parent_id in self.tableau_project_registry.keys()
+                    and self._is_denied_project(project) is False
+                ):
+                    self.tableau_project_registry[project.id] = project
+
+        def init_datasource_registry():
+            project_keys: List[str] = self.tableau_project_registry.keys()
+            for ds in TSC.Pager(self.server.datasources):
+                if ds.project_id not in project_keys:
+                    logger.debug(
+                        f"project id ({ds.project_id}) of datasource {ds.name} is not present in project "
+                        f"registry"
+                    )
+                    continue
+                self.datasource_project_map[ds.id] = ds.project_id
+
+        init_tableau_project_registry()
+        init_datasource_registry()
+
+        logger.debug(f"All site projects {all_project_map}")
+        logger.debug(f"Projects selected for ingestion {self.tableau_project_registry}")
+        logger.debug(
+            f"Tableau data-sources {self.datasource_project_map}",
+        )
 
     def _authenticate(self):
         try:
@@ -499,6 +617,12 @@ class TableauSource(StatefulIngestionSourceBase):
             if self.config.projects
             else ""
         )
+        if self.tableau_project_registry:
+            project_names: List[str] = [
+                project.name for project in self.tableau_project_registry.values()
+            ]
+            project_names_str: str = json.dumps(project_names)
+            projects = f"projectNameWithin: {project_names_str}"
 
         for workbook in self.get_connection_objects(
             workbook_graphql_query,
@@ -532,7 +656,7 @@ class TableauSource(StatefulIngestionSourceBase):
     def _create_upstream_table_lineage(
         self,
         datasource: dict,
-        project: str,
+        browse_path: str,
         is_embedded_ds: bool = False,
     ) -> Tuple:
         upstream_tables: List[Upstream] = []
@@ -558,7 +682,7 @@ class TableauSource(StatefulIngestionSourceBase):
             upstreams, id_to_urn = self.get_upstream_tables(
                 datasource.get("upstreamTables", []),
                 datasource.get("name"),
-                project,
+                browse_path,
                 is_custom_sql=False,
             )
             upstream_tables.extend(upstreams)
@@ -567,8 +691,6 @@ class TableauSource(StatefulIngestionSourceBase):
             # This adds an edge to upstream CustomSQLTables using `fields`.`upstreamColumns`.`table`
             csql_upstreams, csql_id_to_urn = self.get_upstream_csql_tables(
                 datasource.get("fields"),
-                datasource.get("name"),
-                project,
             )
             upstream_tables.extend(csql_upstreams)
             table_id_to_urn.update(csql_id_to_urn)
@@ -626,7 +748,7 @@ class TableauSource(StatefulIngestionSourceBase):
             upstream_tables.append(upstream_table)
         return upstream_tables
 
-    def get_upstream_csql_tables(self, fields, datasource_name, project):
+    def get_upstream_csql_tables(self, fields):
         upstream_csql_urns = set()
         csql_id_to_urn = {}
 
@@ -656,7 +778,7 @@ class TableauSource(StatefulIngestionSourceBase):
             for csql_urn in upstream_csql_urns
         ], csql_id_to_urn
 
-    def get_upstream_tables(self, tables, datasource_name, project, is_custom_sql):
+    def get_upstream_tables(self, tables, datasource_name, browse_path, is_custom_sql):
         upstream_tables = []
         # Same table urn can be used when setting fine grained lineage,
         table_id_to_urn: Dict[str, str] = {}
@@ -719,10 +841,8 @@ class TableauSource(StatefulIngestionSourceBase):
             upstream_tables.append(upstream_table)
 
             table_path = None
-            if project and datasource_name:
-                table_path = (
-                    f"{project.replace('/', REPLACE_SLASH_CHAR)}/{datasource_name}"
-                )
+            if browse_path and datasource_name:
+                table_path = f"{browse_path}/{datasource_name}"
 
             self.upstream_tables[table_urn] = (
                 table.get("columns", []),
@@ -973,11 +1093,38 @@ class TableauSource(StatefulIngestionSourceBase):
         )
         return schema_metadata
 
-    def _get_project(self, node):
-        if node.get("__typename") == "EmbeddedDatasource" and node.get("workbook"):
-            return node["workbook"].get("projectName")
-        elif node.get("__typename") == "PublishedDatasource":
-            return node.get("projectName")
+    def _get_project(self, ds):
+        if self.config.extract_project_hierarchy:
+            if (
+                ds.get("__typename") == "PublishedDatasource"
+                and ds.get("luid")
+                and ds["luid"] in self.datasource_project_map.keys()
+                and self.datasource_project_map[ds["luid"]]
+                in self.tableau_project_registry.keys()
+            ):
+                return self._get_project_path(self.datasource_project_map[ds["luid"]])
+            elif (
+                ds.get("__typename") == "EmbeddedDatasource"
+                and ds.get("workbook")
+                and ds.get("workbook").get("projectLuid")
+                and ds["workbook"]["projectLuid"]
+                in self.tableau_project_registry.keys()
+            ):
+                return self._get_project_path(ds["workbook"]["projectLuid"])
+
+            datasource_name: str = ds.get("name")
+            logger.warning(
+                f"Could not load project hierarchy for datasource {datasource_name}. Please check permissions."
+            )
+            logger.debug(f"datasource = {ds}")
+
+            return None
+
+        # default behavior in absence of extract_project_hierarchy
+        elif ds.get("__typename") == "EmbeddedDatasource" and ds.get("workbook"):
+            return ds["workbook"].get("projectName")
+        elif ds.get("__typename") == "PublishedDatasource":
+            return ds.get("projectName")
         return None
 
     def _create_lineage_to_upstream_tables(
@@ -1068,11 +1215,7 @@ class TableauSource(StatefulIngestionSourceBase):
         if not is_embedded_ds:
             datasource_info = datasource
 
-        project = (
-            datasource_info.get("projectName", "").replace("/", REPLACE_SLASH_CHAR)
-            if datasource_info and datasource_info.get("projectName", "")
-            else ""
-        )
+        browse_path = self._get_project(datasource)
         datasource_id = datasource["id"]
         datasource_urn = builder.make_dataset_urn_with_platform_instance(
             self.platform, datasource_id, self.config.platform_instance, self.config.env
@@ -1085,14 +1228,18 @@ class TableauSource(StatefulIngestionSourceBase):
             aspects=[self.get_data_platform_instance()],
         )
 
-        datasource_name = datasource.get("name") or datasource_id
-        if is_embedded_ds and workbook and workbook.get("name"):
-            datasource_name = f"{workbook['name']}/{datasource_name}"
         # Browse path
-        browse_paths = BrowsePathsClass(
-            paths=[f"/{self.config.env.lower()}/{self.platform}/{project}"]
-        )
-        dataset_snapshot.aspects.append(browse_paths)
+
+        if browse_path and is_embedded_ds and workbook and workbook.get("name"):
+            browse_path = (
+                f"{browse_path}/{workbook['name'].replace('/', REPLACE_SLASH_CHAR)}"
+            )
+
+        if browse_path:
+            browse_paths = BrowsePathsClass(
+                paths=[f"/{self.config.env.lower()}/{self.platform}/{browse_path}"]
+            )
+            dataset_snapshot.aspects.append(browse_paths)
 
         # Ownership
         owner = (
@@ -1129,7 +1276,7 @@ class TableauSource(StatefulIngestionSourceBase):
                 upstream_tables,
                 fine_grained_lineages,
             ) = self._create_upstream_table_lineage(
-                datasource, project, is_embedded_ds=is_embedded_ds
+                datasource, browse_path, is_embedded_ds=is_embedded_ds
             )
 
             if upstream_tables:
@@ -1174,6 +1321,22 @@ class TableauSource(StatefulIngestionSourceBase):
             for wu in workunits:
                 self.report.report_workunit(wu)
                 yield wu
+        elif (
+            datasource.get("luid")
+            and datasource["luid"] in self.datasource_project_map.keys()
+        ):
+            workunits = add_entity_to_container(
+                self.gen_project_key(self.datasource_project_map[datasource["luid"]]),
+                "dataset",
+                dataset_snapshot.urn,
+            )
+            for wu in workunits:
+                self.report.report_workunit(wu)
+                yield wu
+        else:
+            logger.warning(
+                f"Parent container not set for datasource {datasource['id']}"
+            )
 
     def emit_published_datasources(self) -> Iterable[MetadataWorkUnit]:
         datasource_filter = f"idWithin: {json.dumps(self.datasource_ids_being_used)}"
@@ -1186,7 +1349,10 @@ class TableauSource(StatefulIngestionSourceBase):
             yield from self.emit_datasource(datasource)
 
     def emit_upstream_tables(self) -> Iterable[MetadataWorkUnit]:
-        for table_urn, (columns, path, is_embedded) in self.upstream_tables.items():
+        for (
+            table_urn,
+            (columns, browse_path, is_embedded),
+        ) in self.upstream_tables.items():
             if not is_embedded and not self.config.ingest_tables_external:
                 logger.debug(
                     f"Skipping external table {table_urn} as ingest_tables_external is set to False"
@@ -1197,10 +1363,10 @@ class TableauSource(StatefulIngestionSourceBase):
                 urn=table_urn,
                 aspects=[],
             )
-            if path:
+            if browse_path:
                 # Browse path
                 browse_paths = BrowsePathsClass(
-                    paths=[f"/{self.config.env.lower()}/{self.platform}/{path}"]
+                    paths=[f"/{self.config.env.lower()}/{self.platform}/{browse_path}"]
                 )
                 dataset_snapshot.aspects.append(browse_paths)
             else:
@@ -1371,20 +1537,23 @@ class TableauSource(StatefulIngestionSourceBase):
                 yield wu
 
         if (
-            workbook is not None
-            and workbook.get("projectName")
+            workbook.get("projectLuid")
+            and workbook["projectLuid"] in self.tableau_project_registry.keys()
             and workbook.get("name")
         ):
-            # Browse path
-            browse_path = BrowsePathsClass(
+
+            browse_paths = BrowsePathsClass(
                 paths=[
-                    f"/{self.platform}/{workbook['projectName'].replace('/', REPLACE_SLASH_CHAR)}"
-                    f"/{workbook['name']}"
+                    f"/{self.platform}/{self._get_project_path(workbook['projectLuid'])}"
+                    f"/{workbook['name'].replace('/', REPLACE_SLASH_CHAR)}"
                 ]
             )
-            chart_snapshot.aspects.append(browse_path)
+            chart_snapshot.aspects.append(browse_paths)
         else:
-            logger.debug(f"Browse path not set for sheet {sheet['id']}")
+            logger.warning(
+                f"Could not set browse path for workbook {sheet['id']}. Please check permissions."
+            )
+
         # Ownership
         owner = self._get_ownership(creator)
         if owner is not None:
@@ -1423,6 +1592,15 @@ class TableauSource(StatefulIngestionSourceBase):
             ).as_workunit()
             self.report.report_workunit(wu)
             yield wu
+
+    def _get_project_path(self, project_luid: str) -> str:
+        assert project_luid
+        cur_proj = self.tableau_project_registry[project_luid]
+        ancestors = [cur_proj.name.replace("/", REPLACE_SLASH_CHAR)]
+        while cur_proj.parent_id is not None:
+            cur_proj = self.tableau_project_registry[cur_proj.parent_id]
+            ancestors.insert(0, cur_proj.name.replace("/", REPLACE_SLASH_CHAR))
+        return "/".join(ancestors)
 
     def populate_sheet_upstream_fields(
         self, sheet: dict, input_fields: List[InputField]
@@ -1481,11 +1659,24 @@ class TableauSource(StatefulIngestionSourceBase):
             if (tag_list and self.config.ingest_tags)
             else None
         )
+        parent_key = None
+        if (
+            workbook.get("projectLuid")
+            and workbook["projectLuid"] in self.tableau_project_registry.keys()
+        ):
+            parent_key = self.gen_project_key(workbook["projectLuid"])
+        else:
+            workbook_id: str = workbook.get("id")
+            workbook_name: str = workbook.get("name")
+            logger.warning(
+                f"Could not load project hierarchy for workbook {workbook_name}({workbook_id}). Please check permissions."
+            )
 
         container_workunits = gen_containers(
             container_key=workbook_container_key,
             name=workbook.get("name", ""),
             sub_types=["Workbook"],
+            parent_container_key=parent_key,
             description=workbook.get("description"),
             owner_urn=owner_urn,
             external_url=workbook_external_url,
@@ -1501,6 +1692,13 @@ class TableauSource(StatefulIngestionSourceBase):
             platform=self.platform,
             instance=self.config.platform_instance,
             workbook_id=workbook["id"],
+        )
+
+    def gen_project_key(self, project_luid):
+        return ProjectKey(
+            platform=self.platform,
+            instance=self.config.platform_instance,
+            project_id=project_luid,
         )
 
     @staticmethod
@@ -1654,6 +1852,24 @@ class TableauSource(StatefulIngestionSourceBase):
                 yield wu
 
         if (
+            workbook.get("projectLuid")
+            and workbook["projectLuid"] in self.tableau_project_registry.keys()
+            and workbook.get("name")
+        ):
+
+            browse_paths = BrowsePathsClass(
+                paths=[
+                    f"/{self.platform}/{self._get_project_path(workbook['projectLuid'])}"
+                    f"/{workbook['name'].replace('/', REPLACE_SLASH_CHAR)}"
+                ]
+            )
+            dashboard_snapshot.aspects.append(browse_paths)
+        else:
+            logger.warning(
+                f"Could not set browse path for dashboard {dashboard['id']}. Please check permissions."
+            )
+
+        if (
             workbook is not None
             and workbook.get("projectName")
             and workbook.get("name")
@@ -1777,6 +1993,21 @@ class TableauSource(StatefulIngestionSourceBase):
             auto_status_aspect(self.get_workunits_internal()),
         )
 
+    def emit_project_containers(self) -> Iterable[MetadataWorkUnit]:
+        for _id, project in self.tableau_project_registry.items():
+            project_workunits = gen_containers(
+                container_key=self.gen_project_key(_id),
+                name=project.name,
+                description=project.description,
+                sub_types=["Project"],
+                parent_container_key=self.gen_project_key(project.parent_id)
+                if project.parent_id
+                else None,
+            )
+            for wu in project_workunits:
+                self.report.report_workunit(wu)
+                yield wu
+
     def get_workunits_internal(self) -> Iterable[MetadataWorkUnit]:
         if self.server is None or not self.server.is_signed_in():
             return
@@ -1784,6 +2015,9 @@ class TableauSource(StatefulIngestionSourceBase):
             # Initialise the dictionary to later look-up for chart and dashboard stat
             if self.config.extract_usage_stats:
                 self._populate_usage_stat_registry()
+
+            self._populate_projects_registry()
+            yield from self.emit_project_containers()
             yield from self.emit_workbooks()
             if self.sheet_ids:
                 yield from self.emit_sheets()

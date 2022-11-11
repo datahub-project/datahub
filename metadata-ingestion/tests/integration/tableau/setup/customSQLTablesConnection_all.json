@@ -17,6 +17,7 @@
                                     "datasource": {
                                         "__typename": "EmbeddedDatasource",
                                         "id": "4644ccb1-2adc-cf26-c654-04ed1dcc7090",
+                                        "luid": "1a4e81b9-1107-4b8c-a864-7009b6414858",
                                         "name": "Customer Payment Query",
                                         "upstreamDatabases": [
                                             {
@@ -66,6 +67,7 @@
                                         "__typename": "EmbeddedDatasource",
                                         "id": "4644ccb1-2adc-cf26-c654-04ed1dcc7090",
                                         "name": "Customer Payment Query",
+                                        "luid": "1a4e81b9-1107-4b8c-a864-7009b6414858",
                                         "upstreamDatabases": [
                                             {
                                                 "id": "a7825692-7de9-113d-5377-ae113331a9ec",
@@ -114,6 +116,7 @@
                                         "__typename": "EmbeddedDatasource",
                                         "id": "4644ccb1-2adc-cf26-c654-04ed1dcc7090",
                                         "name": "Customer Payment Query",
+                                        "luid": "1a4e81b9-1107-4b8c-a864-7009b6414858",
                                         "upstreamDatabases": [
                                             {
                                                 "id": "a7825692-7de9-113d-5377-ae113331a9ec",
@@ -162,6 +165,7 @@
                                         "__typename": "EmbeddedDatasource",
                                         "id": "4644ccb1-2adc-cf26-c654-04ed1dcc7090",
                                         "name": "Customer Payment Query",
+                                        "luid": "1a4e81b9-1107-4b8c-a864-7009b6414858",
                                         "upstreamDatabases": [
                                             {
                                                 "id": "a7825692-7de9-113d-5377-ae113331a9ec",
@@ -210,6 +214,7 @@
                                         "__typename": "EmbeddedDatasource",
                                         "id": "4644ccb1-2adc-cf26-c654-04ed1dcc7090",
                                         "name": "Customer Payment Query",
+                                        "luid": "1a4e81b9-1107-4b8c-a864-7009b6414858",
                                         "upstreamDatabases": [
                                             {
                                                 "id": "a7825692-7de9-113d-5377-ae113331a9ec",
@@ -258,6 +263,7 @@
                                         "__typename": "EmbeddedDatasource",
                                         "id": "4644ccb1-2adc-cf26-c654-04ed1dcc7090",
                                         "name": "Customer Payment Query",
+                                        "luid": "1a4e81b9-1107-4b8c-a864-7009b6414858",
                                         "upstreamDatabases": [
                                             {
                                                 "id": "a7825692-7de9-113d-5377-ae113331a9ec",
@@ -335,6 +341,7 @@
                                         "__typename": "PublishedDatasource",
                                         "id": "00cce29f-b561-bb41-3557-8e19660bb5dd",
                                         "name": "test publish datasource",
+                                        "luid": "aa10420e-73da-435c-b7c9-b0325a19849a",
                                         "upstreamDatabases": [
                                             {
                                                 "id": "a7825692-7de9-113d-5377-ae113331a9ec",
@@ -389,6 +396,7 @@
                                         "__typename": "PublishedDatasource",
                                         "id": "00cce29f-b561-bb41-3557-8e19660bb5dd",
                                         "name": "test publish datasource",
+                                        "luid": "aa10420e-73da-435c-b7c9-b0325a19849a",
                                         "upstreamDatabases": [
                                             {
                                                 "id": "a7825692-7de9-113d-5377-ae113331a9ec",
@@ -443,6 +451,7 @@
                                         "__typename": "PublishedDatasource",
                                         "id": "00cce29f-b561-bb41-3557-8e19660bb5dd",
                                         "name": "test publish datasource",
+                                        "luid": "aa10420e-73da-435c-b7c9-b0325a19849a",
                                         "upstreamDatabases": [
                                             {
                                                 "id": "a7825692-7de9-113d-5377-ae113331a9ec",
@@ -497,6 +506,7 @@
                                         "__typename": "PublishedDatasource",
                                         "id": "00cce29f-b561-bb41-3557-8e19660bb5dd",
                                         "name": "test publish datasource",
+                                        "luid": "aa10420e-73da-435c-b7c9-b0325a19849a",
                                         "upstreamDatabases": [
                                             {
                                                 "id": "a7825692-7de9-113d-5377-ae113331a9ec",
@@ -551,6 +561,7 @@
                                         "__typename": "PublishedDatasource",
                                         "id": "00cce29f-b561-bb41-3557-8e19660bb5dd",
                                         "name": "test publish datasource",
+                                        "luid": "aa10420e-73da-435c-b7c9-b0325a19849a",
                                         "upstreamDatabases": [
                                             {
                                                 "id": "a7825692-7de9-113d-5377-ae113331a9ec",
@@ -605,6 +616,7 @@
                                         "__typename": "PublishedDatasource",
                                         "id": "00cce29f-b561-bb41-3557-8e19660bb5dd",
                                         "name": "test publish datasource",
+                                        "luid": "aa10420e-73da-435c-b7c9-b0325a19849a",
                                         "upstreamDatabases": [
                                             {
                                                 "id": "a7825692-7de9-113d-5377-ae113331a9ec",
@@ -659,6 +671,7 @@
                                         "__typename": "PublishedDatasource",
                                         "id": "00cce29f-b561-bb41-3557-8e19660bb5dd",
                                         "name": "test publish datasource",
+                                        "luid": "aa10420e-73da-435c-b7c9-b0325a19849a",
                                         "upstreamDatabases": [
                                             {
                                                 "id": "a7825692-7de9-113d-5377-ae113331a9ec",

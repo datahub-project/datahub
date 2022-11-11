@@ -45,25 +45,19 @@ in `metadata-ingestion/src/datahub/ingestion/source/tableau_common.py`
 
 This ingestion source maps the following Source System Concepts to DataHub Concepts:
 
-| Source Concept              | DataHub Concept                                               | Notes                                                                       |
-| --------------------------- | ------------------------------------------------------------- | --------------------------------------------------------------------------- |
-| `"Tableau"`                 | [Data Platform](../../metamodel/entities/dataPlatform.md)     |                                                                             |
-| Embedded DataSource         | [Dataset](../../metamodel/entities/dataset.md)                | SubType `"Embedded Data Source"`                                            |
-| Published DataSource        | [Dataset](../../metamodel/entities/dataset.md)                | SubType `"Published Data Source"`                                           |
-| Custom SQL Table            | [Dataset](../../metamodel/entities/dataset.md)                | SubTypes `"View"`, `"Custom SQL"`, Raw SQL shown in the View Definition tab |
-| Embedded or External Tables | [Dataset](../../metamodel/entities/dataset.md)                |                                                                             |
-| Sheet                       | [Chart](../../metamodel/entities/chart.md)                    |                                                                             |
-| Dashboard                   | [Dashboard](../../metamodel/entities/dashboard.md)            |                                                                             |
-| User                        | [User (a.k.a CorpUser)](../../metamodel/entities/corpuser.md) |                                                                             |
-| Workbook                    | [Container](../../metamodel/entities/container.md)            | SubType `"Workbook"`                                                        |
-| Tag                         | [Tag](../../metamodel/entities/tag.md)                        |                                                                             |
-
-- [Workbook](#Workbook)
-- [Dashboard](#Dashboard)
-- [Sheet](#Sheet)
-- [Embedded Data source](#Embedded-Data-Source)
-- [Published Data source](#Published-Data-Source)
-- [Custom SQL Data source](#Custom-SQL-Data-Source)
+| Source Concept              | DataHub Concept                                               | Notes                             |
+| --------------------------- | ------------------------------------------------------------- | --------------------------------- |
+| `"Tableau"`                 | [Data Platform](../../metamodel/entities/dataPlatform.md)     |  
+| Project                 | [Container](../../metamodel/entities/container.md)      | SubType `"Project"`              |
+| Embedded DataSource         | [Dataset](../../metamodel/entities/dataset.md)                | SubType `"Embedded Data Source"`  |
+| Published DataSource        | [Dataset](../../metamodel/entities/dataset.md)                | SubType `"Published Data Source"` |
+| Custom SQL Table            | [Dataset](../../metamodel/entities/dataset.md)                | SubTypes `"View"`, `"Custom SQL"` |
+| Embedded or External Tables | [Dataset](../../metamodel/entities/dataset.md)                |                                   |
+| Sheet                       | [Chart](../../metamodel/entities/chart.md)                    |                                   |
+| Dashboard                   | [Dashboard](../../metamodel/entities/dashboard.md)            |                                   |
+| User                        | [User (a.k.a CorpUser)](../../metamodel/entities/corpuser.md) |                                   |
+| Workbook                    | [Container](../../metamodel/entities/container.md)            | SubType `"Workbook"`              |
+| Tag                         | [Tag](../../metamodel/entities/tag.md)                        |                                   |
 
 #### Lineage
 
