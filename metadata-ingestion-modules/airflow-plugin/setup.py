@@ -23,7 +23,7 @@ base_requirements = {
     "typing-inspect",
     "pydantic>=1.5.1",
     "apache-airflow >= 2.0.2",
-    f"acryl-datahub[airflow] == {package_metadata['__version__']}",
+    f"acryl-datahub[airflow,datahub-rest,datahub-kafka] == {package_metadata['__version__']}",
 }
 
 
