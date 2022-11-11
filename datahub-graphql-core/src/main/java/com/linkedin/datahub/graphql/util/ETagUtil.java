@@ -10,7 +10,7 @@ import java.util.Map;
 public class ETagUtil {
 
     // ETAG Comment: Utils class to convert eTag String into Map
-    // eTag String format: "urn1=createdOn1:urn2=createdOn2:...:urnN=createdOnN"
+    // eTag String format: "urn1=createdOn1;urn2=createdOn2;...;urnN=createdOnN"
 
     public static Map<String, Long> extractETag(String eTag) {
         Map<String, Long> createdOnMap = new HashMap<>();
