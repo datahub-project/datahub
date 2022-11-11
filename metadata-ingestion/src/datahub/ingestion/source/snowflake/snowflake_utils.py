@@ -13,6 +13,8 @@ from datahub.metadata.com.linkedin.pegasus2avro.events.metadata import ChangeTyp
 from datahub.metadata.schema_classes import _Aspect
 
 
+# Required only for mypy, since we are using mixin classes, and not inheritance.
+# Reference - https://mypy.readthedocs.io/en/latest/more_types.html#mixin-classes
 class SnowflakeLoggingProtocol(Protocol):
     @property
     def logger(self) -> logging.Logger:
