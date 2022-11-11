@@ -113,7 +113,8 @@ public class EbeanAspectDao implements AspectDao, AspectMigrationsDao {
       @Nonnull final Timestamp newTime,
       @Nullable final String newSystemMetadata,
       final Long nextVersion,
-      Long updateIfCreatedOn // Parameter updateIfCreatedOn is part of eTag Variable/Header. In this function we should use it in order to implement conditional update.
+      Long updateIfCreatedOn // Parameter updateIfCreatedOn is part of eTag Variable/Header.
+      // In this function we should use it in order to implement conditional update.
   ) {
 
     validateConnection();

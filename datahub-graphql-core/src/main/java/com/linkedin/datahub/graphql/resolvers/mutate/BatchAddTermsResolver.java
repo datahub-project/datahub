@@ -45,7 +45,8 @@ public class BatchAddTermsResolver implements DataFetcher<CompletableFuture<Bool
 
       try {
         // Then execute the bulk add
-        batchAddTerms(termUrns, resources, context, eTag); // ETAG Comment: eTag is sent to one of the Utils class. (Still not implemented for the other Utils classes)
+        batchAddTerms(termUrns, resources, context, eTag);
+        // ETAG Comment: eTag is sent to one of the Utils class. (Still not implemented for the other Utils classes)
         return true;
       } catch (Exception e) {
         log.error("Failed to perform update against input {}, {}", input.toString(), e.getMessage());

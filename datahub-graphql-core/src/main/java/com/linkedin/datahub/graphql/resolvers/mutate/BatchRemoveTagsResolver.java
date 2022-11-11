@@ -43,7 +43,8 @@ public class BatchRemoveTagsResolver implements DataFetcher<CompletableFuture<Bo
 
       try {
         // Then execute the bulk add
-        batchRemoveTags(tagUrns, resources, context, eTag); // ETAG Comment: eTag is sent to one of the Utils class. (Still not implemented for the other Utils classes)
+        batchRemoveTags(tagUrns, resources, context, eTag);
+        // ETAG Comment: eTag is sent to one of the Utils class. (Still not implemented for the other Utils classes)
         return true;
       } catch (Exception e) {
         log.error("Failed to perform update against input {}, {}", input.toString(), e.getMessage());
