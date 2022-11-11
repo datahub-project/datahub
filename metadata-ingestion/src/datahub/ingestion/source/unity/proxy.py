@@ -14,6 +14,7 @@ from datahub.metadata.schema_classes import (
     ArrayTypeClass,
     BooleanTypeClass,
     BytesTypeClass,
+    DateTypeClass,
     MapTypeClass,
     NullTypeClass,
     NumberTypeClass,
@@ -31,6 +32,7 @@ logger: logging.Logger = logging.getLogger(__name__)
 DATA_TYPE_REGISTRY: dict = {
     "BOOLEAN": BooleanTypeClass,
     "BYTE": BytesTypeClass,
+    "DATE": DateTypeClass,
     "SHORT": NumberTypeClass,
     "INT": NumberTypeClass,
     "LONG": NumberTypeClass,
