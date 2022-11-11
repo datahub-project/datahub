@@ -95,7 +95,12 @@ class SnowflakeUpstreamTable:
     downstreamColumns: List[SnowflakeColumnWithLineage]
 
     @classmethod
-    def from_dict(cls, dataset, upstreams_columns_json, downstream_columns_json):
+    def from_dict(
+        cls,
+        dataset: str,
+        upstreams_columns_json: Optional[str],
+        downstream_columns_json: Optional[str],
+    ) -> "SnowflakeUpstreamTable":
         try:
             upstreams_columns_list = []
             downstream_columns_list = []

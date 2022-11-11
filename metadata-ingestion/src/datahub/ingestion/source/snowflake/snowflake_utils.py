@@ -37,6 +37,9 @@ class SnowflakeCommonProtocol(Protocol):
     ) -> str:
         ...
 
+    def get_dataset_identifier_from_qualified_name(self, qualified_name: str) -> str:
+        ...
+
     def snowflake_identifier(self, identifier: str) -> str:
         ...
 
@@ -76,14 +79,16 @@ class SnowflakeCommonMixin:
             return False
 
         if dataset_type.lower() in {"table"} and not self.config.table_pattern.allowed(
-            dataset_params[2].strip('"')
+            self.get_dataset_identifier_from_qualified_name(dataset_name)
         ):
             return False
 
         if dataset_type.lower() in {
             "view",
             "materialized_view",
-        } and not self.config.view_pattern.allowed(dataset_params[2].strip('"')):
+        } and not self.config.view_pattern.allowed(
+            self.get_dataset_identifier_from_qualified_name(dataset_name)
+        ):
             return False
 
         return True
