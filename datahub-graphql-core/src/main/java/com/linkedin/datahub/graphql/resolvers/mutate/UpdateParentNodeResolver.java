@@ -4,9 +4,10 @@ import com.linkedin.common.urn.CorpuserUrn;
 import com.linkedin.common.urn.GlossaryNodeUrn;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.datahub.graphql.QueryContext;
-import com.linkedin.datahub.graphql.authorization.AuthorizationUtils;
 import com.linkedin.datahub.graphql.exception.AuthorizationException;
 import com.linkedin.datahub.graphql.generated.UpdateParentNodeInput;
+import com.linkedin.datahub.graphql.resolvers.mutate.util.GlossaryUtils;
+import com.linkedin.entity.client.EntityClient;
 import com.linkedin.glossary.GlossaryTermInfo;
 import com.linkedin.glossary.GlossaryNodeInfo;
 import com.linkedin.metadata.Constants;
@@ -27,10 +28,12 @@ import static com.linkedin.datahub.graphql.resolvers.mutate.MutationUtils.persis
 public class UpdateParentNodeResolver implements DataFetcher<CompletableFuture<Boolean>> {
 
   private final EntityService _entityService;
+  private final EntityClient _entityClient;
 
   @Override
   public CompletableFuture<Boolean> get(DataFetchingEnvironment environment) throws Exception {
     final UpdateParentNodeInput input = bindArgument(environment.getArgument("input"), UpdateParentNodeInput.class);
+    final QueryContext context = environment.getContext();
     Urn targetUrn = Urn.createFromString(input.getResourceUrn());
     log.info("Updating parent node. input: {}", input.toString());
 
@@ -43,7 +46,9 @@ public class UpdateParentNodeResolver implements DataFetcher<CompletableFuture<B
       throw new IllegalArgumentException(String.format("Failed to update %s. %s either does not exist or is not a glossaryNode.", targetUrn, parentNodeUrn));
     }
     return CompletableFuture.supplyAsync(() -> {
-      if (AuthorizationUtils.canManageGlossaries(environment.getContext())) {
+      Urn currentParentUrn = GlossaryUtils.getParentUrn(targetUrn, context, _entityClient);
+      // need to be able to manage current parent node and new parent node
+      if (GlossaryUtils.canManageChildrenEntities(context, currentParentUrn) && GlossaryUtils.canManageChildrenEntities(context, parentNodeUrn)) {
         switch (targetUrn.getEntityType()) {
           case Constants.GLOSSARY_TERM_ENTITY_NAME:
             return updateGlossaryTermParentNode(targetUrn, parentNodeUrn, input, environment.getContext());

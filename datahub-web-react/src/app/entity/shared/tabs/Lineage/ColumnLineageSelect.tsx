@@ -67,9 +67,14 @@ export default function ColumnsLineageSelect({
                     allowClear
                     placeholder="Select column"
                 >
-                    {entityData?.schemaMetadata?.fields.map((field) => (
-                        <Select.Option value={field.fieldPath}>{downgradeV2FieldPath(field.fieldPath)}</Select.Option>
-                    ))}
+                    {entityData?.schemaMetadata?.fields.map((field) => {
+                        const fieldPath = downgradeV2FieldPath(field.fieldPath);
+                        return (
+                            <Select.Option value={field.fieldPath}>
+                                <Tooltip title={fieldPath}>{fieldPath}</Tooltip>
+                            </Select.Option>
+                        );
+                    })}
                 </StyledSelect>
             )}
             <Tooltip title={columnButtonTooltip}>

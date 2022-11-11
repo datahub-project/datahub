@@ -116,9 +116,17 @@ export function filterColumns(
     }
 }
 
+export function decodeSchemaField(fieldPath: string) {
+    return fieldPath.replaceAll('%28', '(').replaceAll('%29', ')').replaceAll('%2C', ',');
+}
+
+export function encodeSchemaField(fieldPath: string) {
+    return fieldPath.replaceAll('(', '%28').replaceAll(')', '%29').replaceAll(',', '%2C');
+}
+
 export function getSourceUrnFromSchemaFieldUrn(schemaFieldUrn: string) {
     return schemaFieldUrn.replace('urn:li:schemaField:(', '').split(')')[0].concat(')');
 }
 export function getFieldPathFromSchemaFieldUrn(schemaFieldUrn: string) {
-    return schemaFieldUrn.replace('urn:li:schemaField:(', '').split(')')[1].replace(',', '');
+    return decodeSchemaField(schemaFieldUrn.replace('urn:li:schemaField:(', '').split(')')[1].replace(',', ''));
 }

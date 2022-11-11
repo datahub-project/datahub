@@ -1,3 +1,5 @@
+from datahub.utilities._markupsafe_compat import MARKUPSAFE_PATCHED
+
 import json
 import logging
 import os
@@ -56,6 +58,7 @@ from datahub.metadata.com.linkedin.pegasus2avro.events.metadata import ChangeTyp
 from datahub.metadata.schema_classes import PartitionSpecClass, PartitionTypeClass
 from datahub.utilities.sql_parser import DefaultSQLParser
 
+assert MARKUPSAFE_PATCHED
 logger = logging.getLogger(__name__)
 if os.getenv("DATAHUB_DEBUG", False):
     handler = logging.StreamHandler(stream=sys.stdout)

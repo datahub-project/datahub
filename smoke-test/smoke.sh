@@ -29,4 +29,7 @@ datahub docker quickstart --standalone_consumers --dump-logs-on-failure
 
 (cd ..; ./gradlew :smoke-test:yarnInstall)
 
+export CYPRESS_ADMIN_USERNAME=${ADMIN_USERNAME:-datahub}
+export CYPRESS_ADMIN_PASSWORD=${ADMIN_PASSWORD:-datahub}
+
 pytest -rP --durations=20 -vv --continue-on-collection-errors --junit-xml=junit.smoke.xml

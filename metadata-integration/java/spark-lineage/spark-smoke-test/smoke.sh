@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/bin/bash -x
 
 set -e
 # Script assumptions:
@@ -6,6 +6,24 @@ set -e
 #   - Python 3.6+ is installed and in the PATH.
 #   - pytest is installed
 #   - requests is installed
+
+is_healthy() {
+    local service="$1"
+    local -r -i max_attempts="$2"; shift
+    local -i attempt_num=1
+
+    until [ -n "$(docker ps -f name="$service" -f "health=healthy"|tail -n +2)" ]
+    do
+        if (( attempt_num == max_attempts ))
+        then
+            echo "Attempt $attempt_num failed and there are no more attempts left!"
+            return 1
+        else
+            echo "Attempt $attempt_num failed! Trying again in $attempt_num seconds..."
+            sleep $(( attempt_num++ ))
+        fi
+    done
+}
 
 DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null 2>&1 && pwd )"
 cd "$DIR"
@@ -22,28 +40,8 @@ echo "--------------------------------------------------------------------"
 
 pwd ../../../
 
-function abspath() {
-    # generate absolute path from relative path
-    # $1     : relative filename
-    # return : absolute path
-    if [ -d "$1" ]; then
-        # dir
-        (cd "$1"; pwd)
-    elif [ -f "$1" ]; then
-        # file
-        if [[ $1 = /* ]]; then
-            echo "$1"
-        elif [[ $1 == */* ]]; then
-            echo "$(cd "${1%/*}"; pwd)/${1##*/}"
-        else
-            echo "$(pwd)/$1"
-        fi
-    fi
-}
-
-DATAHUB_TELEMETRY_ENABLED=false \
-DOCKER_COMPOSE_BASE="file://$( abspath ../../../../ )" \
-datahub docker quickstart --build-locally --dump-logs-on-failure
+../../../../docker/dev.sh -d
+is_healthy "datahub-gms" 60
 
 echo "--------------------------------------------------------------------"
 echo "Setup environment for pytest"
