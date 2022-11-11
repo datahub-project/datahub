@@ -530,25 +530,23 @@ class _SingleDatasetProfiler(BasicDatasetProfilerBase):
             non_null_count = column_spec.nonnull_count
             unique_count = column_spec.unique_count
 
-            if self.config.include_field_null_count and non_null_count is not None:
-                null_count = row_count - non_null_count
-                if null_count < 0:
-                    null_count = 0
+            if non_null_count is not None:
+                null_count = max(0, row_count - non_null_count)
 
-                column_profile.nullCount = null_count
-                if row_count > 0:
-                    column_profile.nullProportion = null_count / row_count
-                    # Sometimes this value is bigger than 1 because of the approx queries
-                    if column_profile.nullProportion > 1:
-                        column_profile.nullProportion = 1
+                if self.config.include_field_null_count:
+                    column_profile.nullCount = null_count
+                    if row_count > 0:
+                        # Sometimes this value is bigger than 1 because of the approx queries
+                        column_profile.nullProportion = min(1, null_count / row_count)
 
             if unique_count is not None:
-                column_profile.uniqueCount = unique_count
-                if non_null_count is not None and non_null_count > 0:
-                    column_profile.uniqueProportion = unique_count / non_null_count
-                    # Sometimes this value is bigger than 1 because of the approx queries
-                    if column_profile.uniqueProportion > 1:
-                        column_profile.uniqueProportion = 1
+                if not self.config.include_field_distinct_count:
+                    column_profile.uniqueCount = unique_count
+                    if non_null_count is not None and non_null_count > 0:
+                        # Sometimes this value is bigger than 1 because of the approx queries
+                        column_profile.uniqueProportion = min(
+                            1, unique_count / non_null_count
+                        )
 
             self._get_dataset_column_sample_values(column_profile, column)
 

@@ -1,5 +1,4 @@
 version: "3.6"
-
 services:
   spark-master:
     image: spark-master

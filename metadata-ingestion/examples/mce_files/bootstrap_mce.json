@@ -3243,5 +3243,44 @@
       "contentType":"application/json"
     },
     "systemMetadata":null
+  },
+  {
+    "auditHeader": null,
+    "entityType": "assertion",
+    "entityUrn": "urn:li:assertion:358c683782c93c2fc2bd4bdd4fdb0153",
+    "entityKeyAspect": null,
+    "changeType": "UPSERT",
+    "aspectName": "assertionInfo",
+    "aspect": {
+      "value": "{\"customProperties\": {\"expectation_suite_name\": \"test_suite\"}, \"type\": \"DATASET\", \"datasetAssertion\": {\"dataset\": \"urn:li:dataset:(urn:li:dataPlatform:hive,SampleHiveDataset,PROD)\", \"scope\": \"DATASET_COLUMN\", \"fields\": [\"urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:hive,SampleHiveDataset,PROD),field_foo)\"], \"aggregation\": \"IDENTITY\", \"operator\": \"EQUAL_TO\", \"parameters\": {\"value\": {\"value\": \"true\", \"type\": \"UNKNOWN\"} }, \"nativeType\": \"expect_column_values_to_equal\", \"nativeParameters\": {\"column\": \"field_foo\", \"value\": \"true\"}}}",
+      "contentType": "application/json"
+    },
+    "systemMetadata": null
+  },
+  {
+    "auditHeader": null,
+    "entityType": "assertion",
+    "entityUrn": "urn:li:assertion:358c683782c93c2fc2bd4bdd4fdb0153",
+    "entityKeyAspect": null,
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+      "value": "{\"platform\": \"urn:li:dataPlatform:great-expectations\"}",
+      "contentType": "application/json"
+    },
+    "systemMetadata": null
+  },
+  {
+    "auditHeader": null,
+    "entityType": "assertion",
+    "entityUrn": "urn:li:assertion:358c683782c93c2fc2bd4bdd4fdb0153",
+    "entityKeyAspect": null,
+    "changeType": "UPSERT",
+    "aspectName": "assertionRunEvent",
+    "aspect": {
+      "value": "{\"timestampMillis\": 1640692800000, \"partitionSpec\": {\"type\": \"PARTITION\", \"partition\": \"{\\\"category\\\": \\\"catA\\\"}\"}, \"runId\": \"2021-12-28T12:00:00Z\", \"assertionUrn\": \"urn:li:assertion:358c683782c93c2fc2bd4bdd4fdb0153\", \"asserteeUrn\": \"urn:li:dataset:(urn:li:dataPlatform:hive,SampleHiveDataset,PROD)\", \"batchSpec\": {\"customProperties\": {\"data_asset_name\": \"data__foo1__asset\", \"datasource_name\": \"my_hive_datasource\"}, \"nativeBatchId\": \"c8f12129f2e57412eee5fb8656154d05\", \"limit\": 10}, \"status\": \"COMPLETE\", \"result\": {\"type\": \"SUCCESS\", \"nativeResults\": {}}}",
+      "contentType": "application/json"
+    },
+    "systemMetadata": null
   }
 ]

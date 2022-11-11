@@ -1,10 +1,15 @@
 import { SchemaFieldRef } from '../../../types.generated';
 import EntityRegistry from '../../entity/EntityRegistry';
 import { EntityAndType, FetchedEntities, FetchedEntity } from '../types';
+import {
+    decodeSchemaField,
+    getFieldPathFromSchemaFieldUrn,
+    getSourceUrnFromSchemaFieldUrn,
+} from './columnLineageUtils';
 
 const breakFieldUrn = (ref: SchemaFieldRef) => {
     const before = ref.urn;
-    const after = ref.path;
+    const after = decodeSchemaField(ref.path);
 
     return [before, after];
 };
@@ -53,6 +58,22 @@ function extendColumnLineage(lineageVizConfig: FetchedEntity, fineGrainedMap: an
                     );
                 });
             });
+        });
+    }
+    if (lineageVizConfig.inputFields?.fields && lineageVizConfig.inputFields.fields.length > 0) {
+        lineageVizConfig.inputFields.fields.forEach((inputField) => {
+            if (inputField?.schemaFieldUrn && inputField.schemaField) {
+                const sourceUrn = getSourceUrnFromSchemaFieldUrn(inputField.schemaFieldUrn);
+                if (sourceUrn !== lineageVizConfig.urn) {
+                    updateFineGrainedMap(
+                        fineGrainedMap,
+                        sourceUrn,
+                        getFieldPathFromSchemaFieldUrn(inputField.schemaFieldUrn),
+                        lineageVizConfig.urn,
+                        inputField.schemaField.fieldPath,
+                    );
+                }
+            }
         });
     }
 }

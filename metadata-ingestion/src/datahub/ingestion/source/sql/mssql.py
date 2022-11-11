@@ -3,6 +3,7 @@ import urllib.parse
 from typing import Any, Dict, Iterable, List, Optional, Tuple
 
 import pydantic
+import sqlalchemy.dialects.mssql
 
 # This import verifies that the dependencies are available.
 import sqlalchemy_pytds  # noqa: F401
@@ -26,9 +27,14 @@ from datahub.ingestion.source.sql.sql_common import (
     BasicSQLAlchemyConfig,
     SQLAlchemySource,
     make_sqlalchemy_uri,
+    register_custom_type,
 )
+from datahub.metadata.schema_classes import BooleanTypeClass, UnionTypeClass
 
 logger: logging.Logger = logging.getLogger(__name__)
+
+register_custom_type(sqlalchemy.dialects.mssql.BIT, BooleanTypeClass)
+register_custom_type(sqlalchemy.dialects.mssql.SQL_VARIANT, UnionTypeClass)
 
 
 class SQLServerConfig(BasicSQLAlchemyConfig):
