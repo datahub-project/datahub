@@ -10,6 +10,7 @@ import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.metadata.authorization.PoliciesConfig;
+
 import java.time.Clock;
 import java.util.Optional;
 import javax.annotation.Nonnull;
@@ -62,10 +63,6 @@ public class AuthorizationUtils {
 
   public static boolean canManageDomains(@Nonnull QueryContext context) {
     return isAuthorized(context, Optional.empty(), PoliciesConfig.MANAGE_DOMAINS_PRIVILEGE);
-  }
-
-  public static boolean canManageGlossaries(@Nonnull QueryContext context) {
-    return isAuthorized(context, Optional.empty(), PoliciesConfig.MANAGE_GLOSSARIES_PRIVILEGE);
   }
 
   /**

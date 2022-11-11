@@ -1,7 +1,6 @@
 """Lineage Backend
 
 An example DAG demonstrating the usage of DataHub's Airflow lineage backend using the TaskFlow API.
-This example only works with Airflow 2.x. See https://airflow.apache.org/docs/apache-airflow/stable/concepts/taskflow.html.
 """
 
 from datetime import timedelta

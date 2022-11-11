@@ -4,7 +4,7 @@
         "name": "bigquery",
         "displayName": "BigQuery",
         "docsUrl": "https://datahubproject.io/docs/generated/ingestion/sources/bigquery/",
-        "recipe": "source:\n    type: bigquery\n    config:\n        # Coordinates\n        project_id: # Your BigQuery project id, e.g. sample_project_id\n        # Credentials\n        credential:\n            project_id: # Your BQ project id, e.g. sample_project_id\n            private_key_id: \"${BQ_PRIVATE_KEY_ID}\"\n            private_key: \"${BQ_PRIVATE_KEY}\"\n            client_email: # Your BQ client email, e.g. \"test@suppproject-id-1234567.iam.gserviceaccount.com\"\n            client_id: # Your BQ client id, e.g.\"123456678890\"\n            \n        include_table_lineage: true\n        profiling:\n            enabled: true\n        stateful_ingestion:\n            enabled: true"
+        "recipe": "source:\n    type: bigquery\n    config:\n        include_table_lineage: true\n        include_usage_statistics: true\n        credential:\n            private_key_id: \n            client_email: \n            private_key: \n            client_id: \n            project_id: \n        profiling:\n            enabled: true\n            profile_table_level_only: true\n        stateful_ingestion:\n            enabled: true"
     },
     {
         "urn": "urn:li:dataPlatform:redshift",

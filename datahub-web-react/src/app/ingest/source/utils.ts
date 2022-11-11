@@ -61,7 +61,7 @@ export const getExecutionRequestStatusIcon = (status: string) => {
         (status === ROLLED_BACK && WarningOutlined) ||
         (status === ROLLING_BACK && LoadingOutlined) ||
         (status === ROLLBACK_FAILED && CloseCircleOutlined) ||
-        undefined
+        ClockCircleOutlined
     );
 };
 
