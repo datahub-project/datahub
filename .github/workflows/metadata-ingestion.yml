@@ -38,6 +38,11 @@ jobs:
             "testIntegrationBatch1",
             "testSlowIntegration",
           ]
+        include:
+          - python-version: "3.7"
+            extraPythonRequirement: "sqlalchemy==1.3.24 apache-airflow~=2.2.0"
+          - python-version: "3.10"
+            extraPythonRequirement: "sqlalchemy~=1.4.0 apache-airflow>=2.4.0"
       fail-fast: false
     steps:
       - uses: actions/checkout@v3
@@ -50,8 +55,8 @@ jobs:
           hadoop-version: "3.2"
       - name: Install dependencies
         run: ./metadata-ingestion/scripts/install_deps.sh
-      - name: Run metadata-ingestion tests
-        run: ./gradlew :metadata-ingestion:build :metadata-ingestion:${{ matrix.command }}
+      - name: Run metadata-ingestion tests (extras ${{ matrix.extraPythonRequirement }})
+        run: ./gradlew -Pextra_pip_requirements='${{ matrix.extraPythonRequirement }}' :metadata-ingestion:${{ matrix.command }}
       - name: pip freeze show list installed
         if: always()
         run: source metadata-ingestion/venv/bin/activate && pip freeze
