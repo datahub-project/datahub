@@ -574,7 +574,7 @@ class MongoSourceConnector:
         source_platform: str
         database_name: Optional[str]
         topic_prefix: Optional[str]
-        transforms: list[str]
+        transforms: List[str]
 
     def get_parser(
         self,
