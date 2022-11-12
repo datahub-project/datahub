@@ -75,7 +75,7 @@ class KafkaConnectSourceConfig(DatasetLineageProviderConfigBase):
     )
     generic_connectors: List[GenericConnectorConfig] = Field(
         default=[],
-        description="Provide lineage graph for sources connectors other than Confluent JDBC Source Connector or Debezium Source Connector",
+        description="Provide lineage graph for sources connectors other than Confluent JDBC Source Connector, Debezium Source Connector, and Mongo Source Connector",
     )
 
 
@@ -909,7 +909,7 @@ class KafkaConnectSource(Source):
     Current limitations:
 
     - works only for
-        - JDBC and Debezium source connectors
+        - JDBC, Debezium, and Mongo source connectors
         - Generic connectors with user-defined lineage graph
         - BigQuery sink connector
     """
