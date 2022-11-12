@@ -246,7 +246,6 @@ public class UpdateIndicesHook implements MetadataChangeLogHook {
     }
   }
 
-  // Todo
   private void updateGraphServiceDiff(Urn urn, AspectSpec aspectSpec, @Nullable RecordTemplate oldAspect, @Nonnull RecordTemplate newAspect) {
     Pair<List<Edge>, HashMap<Urn, Set<String>>> oldEdgeAndRelationTypes = null;
     if (oldAspect != null) {

@@ -150,6 +150,42 @@
               "jobId": "QueryExecId_7",
               "flow": "urn:li:dataFlow:(spark,JavaHdfsIn2HiveCreateInsertTable,spark_spark-master_7077)"
             }
+          },
+          {
+            "com.linkedin.datajob.DataJobInfo": {
+              "name": "insertInto at HdfsIn2HiveCreateInsertTable.java:30",
+              "type": {
+                "string": "sparkJob"
+              },
+              "customProperties": {
+                "SQLQueryId": "7",
+                "appName": "JavaHdfsIn2HiveCreateInsertTable",
+                "description": "insertInto at HdfsIn2HiveCreateInsertTable.java:30"
+              }
+            }
+          },
+          {
+            "com.linkedin.common.BrowsePaths": {
+              "paths": [
+                "/spark/spark_spark-master_7077"
+              ]
+            }
+          },
+          {
+            "com.linkedin.common.DataPlatformInstance": {
+              "platform": "urn:li:dataPlatform:spark"
+            }
+          },
+          {
+            "com.linkedin.datajob.DataJobInputOutput": {
+              "inputDatasets": [
+                "urn:li:dataset:(urn:li:dataPlatform:file,file:/opt/workspace/resources/data/in1.csv,PROD)",
+                "urn:li:dataset:(urn:li:dataPlatform:file,file:/opt/workspace/resources/data/in2.csv,PROD)"
+              ],
+              "outputDatasets": [
+                "urn:li:dataset:(urn:li:dataPlatform:hive,javahdfsin2hivecreateinserttable.foo4,PROD)"
+              ]
+            }
           }
         ]
       }

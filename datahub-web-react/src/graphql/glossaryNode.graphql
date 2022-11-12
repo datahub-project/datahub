@@ -22,6 +22,10 @@ query getGlossaryNode($urn: String!) {
         parentNodes {
             ...parentNodesFields
         }
+        privileges {
+            canManageEntity
+            canManageChildren
+        }
         children: relationships(
             input: {
                 types: ["IsPartOf"]
