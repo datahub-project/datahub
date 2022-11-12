@@ -605,9 +605,7 @@ class MongoSourceConnector:
             found = re.search(re.compile(topic_naming_pattern), topic)
 
             if found:
-                table_name = get_dataset_name(
-                    found.group(1), None, found.group(2)
-                ) 
+                table_name = get_dataset_name(found.group(1), None, found.group(2))
 
                 lineage = KafkaConnectLineage(
                     source_dataset=table_name,
