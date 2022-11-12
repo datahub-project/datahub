@@ -238,6 +238,24 @@ def test_kafka_connect_ingest(docker_compose_runner, pytestconfig, tmp_path, moc
         r.raise_for_status()
         assert r.status_code == 201  # Created
 
+        # Creating MongoDB source
+        r = requests.post(
+            "http://localhost:58083/connectors",
+            headers={"Content-Type": "application/json"},
+            data="""{
+                    "name": "source_mongodb_connector",
+                    "config": {
+                        "tasks.max": "1",
+                        "connector.class": "com.mongodb.kafka.connect.MongoSourceConnector",
+                        "connection.uri": "mongodb://admin:admin@test_mongo:27017",
+                        "topic.prefix": "mongodb",
+                        "database": "test_db",
+                        "copy.existing": false,
+                        "change.stream.full.document": "updateLookup"
+                    }
+                }""",
+        )
+
         # Give time for connectors to process the table data
         time.sleep(60)
 

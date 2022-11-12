@@ -556,6 +556,70 @@ class ConfluentJDBCSourceConnector:
 
 
 @dataclass
+class MongoSourceConnector:
+    # https://www.mongodb.com/docs/kafka-connector/current/source-connector/
+
+    connector_manifest: ConnectorManifest
+
+    def __init__(
+        self, connector_manifest: ConnectorManifest, config: KafkaConnectSourceConfig
+    ) -> None:
+        self.connector_manifest = connector_manifest
+        self.config = config
+        self._extract_lineages()
+
+    @dataclass
+    class MongoSourceParser:
+        db_connection_url: Optional[str]
+        source_platform: str
+        database_name: Optional[str]
+        topic_prefix: Optional[str]
+        transforms: list[str]
+
+    def get_parser(
+        self,
+        connector_manifest: ConnectorManifest,
+    ) -> MongoSourceParser:
+        parser = self.MongoSourceParser(
+            db_connection_url=connector_manifest.config.get("connection.uri"),
+            source_platform="mongodb",
+            database_name=connector_manifest.config.get("database"),
+            topic_prefix=connector_manifest.config.get("topic_prefix"),
+            transforms=connector_manifest.config["transforms"].split(",")
+            if "transforms" in connector_manifest.config
+            else [],
+        )
+
+        return parser
+
+    def _extract_lineages(self):
+        lineages: List[KafkaConnectLineage] = list()
+        parser = self.get_parser(self.connector_manifest)
+        source_platform = parser.source_platform
+        topic_naming_pattern = r"mongodb\.(\w+)\.(\w+)"
+
+        if not self.connector_manifest.topic_names:
+            return lineages
+
+        for topic in self.connector_manifest.topic_names:
+            found = re.search(re.compile(topic_naming_pattern), topic)
+
+            if found:
+                table_name = get_dataset_name(
+                    found.group(1), None, found.group(2)
+                ) 
+
+                lineage = KafkaConnectLineage(
+                    source_dataset=table_name,
+                    source_platform=source_platform,
+                    target_dataset=topic,
+                    target_platform="kafka",
+                )
+                lineages.append(lineage)
+        self.connector_manifest.lineages = lineages
+
+
+@dataclass
 class DebeziumSourceConnector:
     connector_manifest: ConnectorManifest
 
@@ -938,6 +1002,13 @@ class KafkaConnectSource(Source):
                     "io.debezium.connector"
                 ):
                     connector_manifest = DebeziumSourceConnector(
+                        connector_manifest=connector_manifest, config=self.config
+                    ).connector_manifest
+                elif (
+                    connector_manifest.config.get("connector.class", "")
+                    == "com.mongodb.kafka.connect.MongoSourceConnector"
+                ):
+                    connector_manifest = MongoSourceConnector(
                         connector_manifest=connector_manifest, config=self.config
                     ).connector_manifest
                 else:
