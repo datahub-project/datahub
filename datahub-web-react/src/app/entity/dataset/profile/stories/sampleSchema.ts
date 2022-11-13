@@ -197,7 +197,7 @@ export const sampleSchemaWithTags: Schema = {
 };
 
 export const sampleSchemaWithPkFk: SchemaMetadata = {
-    primaryKeys: ['name'],
+    primaryKeys: ['id'],
     foreignKeys: [
         {
             name: 'constraint',
@@ -319,6 +319,45 @@ export const sampleSchemaWithPkFk: SchemaMetadata = {
             description: 'struct representing the payment information',
             type: SchemaFieldDataType.Struct,
             nativeDataType: 'struct',
+            recursive: false,
+        } as SchemaField,
+    ],
+};
+
+export const sampleSchemaWithFk: SchemaMetadata = {
+    foreignKeys: [
+        {
+            name: 'constraint',
+            sourceFields: [
+                {
+                    urn: 'datasetUrn',
+                    type: EntityType.Dataset,
+                    parent: { urn: 'test', type: EntityType.Dataset },
+                    fieldPath: 'shipping_address',
+                },
+            ],
+            foreignFields: [
+                {
+                    urn: dataset3.urn,
+                    type: EntityType.Dataset,
+                    parent: { urn: dataset3.name, type: EntityType.Dataset },
+                    fieldPath: 'address',
+                },
+            ],
+            foreignDataset: dataset3,
+        },
+    ],
+    name: 'MockSchema',
+    platformUrn: 'mock:urn',
+    version: 1,
+    hash: '',
+    fields: [
+        {
+            fieldPath: 'shipping_address',
+            nullable: true,
+            description: 'the address the order ships to',
+            type: SchemaFieldDataType.String,
+            nativeDataType: 'string',
             recursive: false,
         } as SchemaField,
     ],

@@ -5,6 +5,7 @@ import { MockedProvider } from '@apollo/client/testing';
 import TestPageContainer from '../../../../../utils/test-utils/TestPageContainer';
 import {
     sampleSchema,
+    sampleSchemaWithFk,
     sampleSchemaWithKeyValueFields,
     sampleSchemaWithoutFields,
     sampleSchemaWithPkFk,
@@ -39,10 +40,8 @@ describe('Schema', () => {
                 </TestPageContainer>
             </MockedProvider>,
         );
-        expect(getByText('name')).toBeInTheDocument();
-        expect(getByText('the name of the order')).toBeInTheDocument();
-        expect(getByText('shipping_address')).toBeInTheDocument();
-        expect(getByText('the address the order ships to')).toBeInTheDocument();
+        expect(getByText('id')).toBeInTheDocument();
+        expect(getByText('order id')).toBeInTheDocument();
     });
 
     it('renders raw', () => {
@@ -158,7 +157,7 @@ describe('Schema', () => {
                 </TestPageContainer>
             </MockedProvider>,
         );
-        expect(getByText('shipping_address')).toBeInTheDocument();
+        expect(getByText('id')).toBeInTheDocument();
     });
 
     it('renders primary keys', () => {
@@ -197,7 +196,7 @@ describe('Schema', () => {
                             entityType: EntityType.Dataset,
                             entityData: {
                                 description: 'This is a description',
-                                schemaMetadata: sampleSchemaWithPkFk as SchemaMetadata,
+                                schemaMetadata: sampleSchemaWithFk as SchemaMetadata,
                             },
                             baseEntity: {},
                             updateEntity: jest.fn(),
@@ -245,7 +244,6 @@ describe('Schema', () => {
         expect(getByText('Key')).toBeInTheDocument();
         expect(getByText('Value')).toBeInTheDocument();
         expect(getByText('count')).toBeInTheDocument();
-        expect(getByText('cost')).toBeInTheDocument();
         expect(queryByText('id')).not.toBeInTheDocument();
 
         const keyButton = getByText('Key');
@@ -255,7 +253,6 @@ describe('Schema', () => {
         expect(getByText('Value')).toBeInTheDocument();
         expect(getByText('id')).toBeInTheDocument();
         expect(queryByText('count')).not.toBeInTheDocument();
-        expect(queryByText('cost')).not.toBeInTheDocument();
     });
 
     it('does not renders key/value toggle when no schema', () => {
