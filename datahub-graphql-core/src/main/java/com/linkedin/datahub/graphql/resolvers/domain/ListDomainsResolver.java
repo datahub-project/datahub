@@ -59,7 +59,8 @@ public class ListDomainsResolver implements DataFetcher<CompletableFuture<ListDo
                   Collections.emptyMap(),
                   start,
                   count,
-                  context.getAuthentication());
+                  context.getAuthentication(),
+                  true);
 
           // Now that we have entities we can bind this to a result.
           final ListDomainsResult result = new ListDomainsResult();

@@ -326,8 +326,10 @@ public class RestliEntityClient extends BaseClient implements EntityClient {
    * @throws RemoteInvocationException
    */
   @Nonnull
+  @Override
   public SearchResult search(@Nonnull String entity, @Nonnull String input,
-      @Nullable Map<String, String> requestFilters, int start, int count, @Nonnull final Authentication authentication)
+      @Nullable Map<String, String> requestFilters, int start, int count, @Nonnull final Authentication authentication,
+                             @Nullable Boolean structured)
       throws RemoteInvocationException {
 
     final EntitiesDoSearchRequestBuilder requestBuilder = ENTITIES_REQUEST_BUILDERS.actionSearch()
@@ -335,7 +337,8 @@ public class RestliEntityClient extends BaseClient implements EntityClient {
         .inputParam(input)
         .filterParam(newFilter(requestFilters))
         .startParam(start)
-        .countParam(count);
+        .countParam(count)
+        .structuredParam(structured);
 
     return sendClientRequest(requestBuilder, authentication).getEntity();
   }
@@ -373,15 +376,18 @@ public class RestliEntityClient extends BaseClient implements EntityClient {
    * @throws RemoteInvocationException
    */
   @Nonnull
+  @Override
   public SearchResult search(@Nonnull String entity, @Nonnull String input, @Nullable Filter filter,
-      SortCriterion sortCriterion, int start, int count, @Nonnull final Authentication authentication)
+      SortCriterion sortCriterion, int start, int count, @Nonnull final Authentication authentication,
+                             @Nullable Boolean structured)
       throws RemoteInvocationException {
 
     final EntitiesDoSearchRequestBuilder requestBuilder = ENTITIES_REQUEST_BUILDERS.actionSearch()
         .entityParam(entity)
         .inputParam(input)
         .startParam(start)
-        .countParam(count);
+        .countParam(count)
+        .structuredParam(structured);
 
     if (filter != null) {
       requestBuilder.filterParam(filter);

@@ -10,6 +10,7 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 import javax.annotation.Nonnull;
+
 import org.elasticsearch.common.lucene.search.function.CombineFunction;
 import org.elasticsearch.common.lucene.search.function.FieldValueFactorFunction;
 import org.elasticsearch.common.lucene.search.function.FunctionScoreQuery;
@@ -18,16 +19,15 @@ import org.elasticsearch.index.query.Operator;
 import org.elasticsearch.index.query.QueryBuilder;
 import org.elasticsearch.index.query.QueryBuilders;
 import org.elasticsearch.index.query.QueryStringQueryBuilder;
+import org.elasticsearch.index.query.SimpleQueryStringBuilder;
 import org.elasticsearch.index.query.functionscore.FieldValueFactorFunctionBuilder;
 import org.elasticsearch.index.query.functionscore.FunctionScoreQueryBuilder;
 import org.elasticsearch.index.query.functionscore.ScoreFunctionBuilders;
 
+import static com.linkedin.metadata.search.elasticsearch.indexbuilder.SettingsBuilder.KEYWORD_LOWERCASE_ANALYZER;
+
 
 public class SearchQueryBuilder {
-
-  private static final String KEYWORD_LOWERCASE_ANALYZER = "custom_keyword";
-  private static final String TEXT_ANALYZER = "word_delimited";
-
   private static final Set<FieldType> TYPES_WITH_DELIMITED_SUBFIELD =
       new HashSet<>(Arrays.asList(FieldType.TEXT, FieldType.TEXT_PARTIAL));
   private static final Set<FieldType> TYPES_WITH_NGRAM_SUBFIELD =
@@ -36,22 +36,43 @@ public class SearchQueryBuilder {
   private SearchQueryBuilder() {
   }
 
-  public static QueryBuilder buildQuery(@Nonnull EntitySpec entitySpec, @Nonnull String query) {
-    return QueryBuilders.functionScoreQuery(buildInternalQuery(entitySpec, query), buildScoreFunctions(entitySpec))
+  public static QueryBuilder buildQuery(@Nonnull EntitySpec entitySpec, @Nonnull String query, boolean structured) {
+    final QueryBuilder queryBuilder;
+    if (structured) {
+      queryBuilder = buildInternalQuery(entitySpec, query, false, true);
+    } else {
+      queryBuilder = buildInternalQuery(entitySpec, query, true, false);
+    }
+
+    return QueryBuilders.functionScoreQuery(queryBuilder, buildScoreFunctions(entitySpec))
         .scoreMode(FunctionScoreQuery.ScoreMode.AVG) // Average score functions
         .boostMode(CombineFunction.MULTIPLY); // Multiply score function with the score from query
   }
 
-  private static QueryBuilder buildInternalQuery(@Nonnull EntitySpec entitySpec, @Nonnull String query) {
+  /**
+   * Constructs the search query.
+   * @param entitySpec entity being searched
+   * @param query search string
+   * @param safeMode should be used for user provided search strings. Either escapes them or executes them
+   *                 with simple_query_search which will suppress syntax errors.
+   * @param exactMatch override all analyzer with `custom_keyword` matching. Case-insensitive!
+   * @return query builder
+   */
+  private static QueryBuilder buildInternalQuery(@Nonnull EntitySpec entitySpec, @Nonnull String query, boolean safeMode,
+                                                 boolean exactMatch) {
     BoolQueryBuilder finalQuery = QueryBuilders.boolQuery();
-    // Key word lowercase queries do case agnostic exact matching between document value and query
-    QueryStringQueryBuilder keywordLowercaseQuery = QueryBuilders.queryStringQuery(query);
-    keywordLowercaseQuery.analyzer(KEYWORD_LOWERCASE_ANALYZER);
-    keywordLowercaseQuery.defaultOperator(Operator.AND);
-    // Text queries tokenize input query and document value into words before checking for matches
-    QueryStringQueryBuilder textQuery = QueryBuilders.queryStringQuery(query);
-    textQuery.analyzer(TEXT_ANALYZER);
-    textQuery.defaultOperator(Operator.AND);
+
+    SimpleQueryStringBuilder simpleBuilder = QueryBuilders.simpleQueryStringQuery(query);
+    simpleBuilder.defaultOperator(Operator.AND);
+
+    QueryStringQueryBuilder escapedBuilder = QueryBuilders.queryStringQuery(query);
+    escapedBuilder.defaultOperator(Operator.AND);
+    escapedBuilder.escape(safeMode);
+
+    if (exactMatch) {
+      simpleBuilder.analyzer(KEYWORD_LOWERCASE_ANALYZER);
+      escapedBuilder.analyzer(KEYWORD_LOWERCASE_ANALYZER);
+    }
 
     for (SearchableFieldSpec fieldSpec : entitySpec.getSearchableFieldSpecs()) {
       if (!fieldSpec.getSearchableAnnotation().isQueryByDefault()) {
@@ -60,24 +81,29 @@ public class SearchQueryBuilder {
 
       String fieldName = fieldSpec.getSearchableAnnotation().getFieldName();
       double boostScore = fieldSpec.getSearchableAnnotation().getBoostScore();
-      keywordLowercaseQuery.field(fieldName, (float) (boostScore));
+      simpleBuilder.field(fieldName, (float) (boostScore));
+      escapedBuilder.field(fieldName, (float) (boostScore));
 
       FieldType fieldType = fieldSpec.getSearchableAnnotation().getFieldType();
       if (TYPES_WITH_DELIMITED_SUBFIELD.contains(fieldType)) {
-        textQuery.field(fieldName + ".delimited", (float) (boostScore * 0.4));
+        simpleBuilder.field(fieldName + ".delimited", (float) (boostScore * 0.4));
+        escapedBuilder.field(fieldName + ".delimited", (float) (boostScore * 0.4));
       }
       if (TYPES_WITH_NGRAM_SUBFIELD.contains(fieldType)) {
-        textQuery.field(fieldName + ".ngram", (float) (boostScore * 0.1));
+        simpleBuilder.field(fieldName + ".ngram", (float) (boostScore * 0.1));
+        escapedBuilder.field(fieldName + ".ngram", (float) (boostScore * 0.1));
+      }
+      if ("urn".equals(fieldName)) {
+        simpleBuilder.field(fieldName + ".delimited", (float) (boostScore));
+        escapedBuilder.field(fieldName + ".delimited", (float) (boostScore));
       }
     }
 
-    // Only add the queries in if corresponding fields exist
-    if (!keywordLowercaseQuery.fields().isEmpty()) {
-      finalQuery.should(keywordLowercaseQuery);
+    if (safeMode) {
+      finalQuery.should(simpleBuilder);
     }
-    if (!textQuery.fields().isEmpty()) {
-      finalQuery.should(textQuery);
-    }
+    finalQuery.should(escapedBuilder);
+
     return finalQuery;
   }
 

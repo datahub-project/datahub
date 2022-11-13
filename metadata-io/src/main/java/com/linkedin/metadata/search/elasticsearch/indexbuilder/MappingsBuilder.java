@@ -10,6 +10,9 @@ import java.util.Map;
 import javax.annotation.Nonnull;
 import lombok.extern.slf4j.Slf4j;
 
+import static com.linkedin.metadata.search.elasticsearch.indexbuilder.SettingsBuilder.TEXT_ANALYZER;
+import static com.linkedin.metadata.search.elasticsearch.indexbuilder.SettingsBuilder.TEXT_SEARCH_ANALYZER;
+
 
 @Slf4j
 public class MappingsBuilder {
@@ -20,19 +23,30 @@ public class MappingsBuilder {
   public static Map<String, Object> getMappings(@Nonnull final EntitySpec entitySpec) {
     Map<String, Object> mappings = new HashMap<>();
 
-    // Fixed fields
-    mappings.put("urn", getMappingsForUrn());
-    mappings.put("runId", getMappingsForRunId());
-
     entitySpec.getSearchableFieldSpecs()
         .forEach(searchableFieldSpec -> mappings.putAll(getMappingsForField(searchableFieldSpec)));
     entitySpec.getSearchScoreFieldSpecs()
         .forEach(searchScoreFieldSpec -> mappings.putAll(getMappingsForSearchScoreField(searchScoreFieldSpec)));
+
+    // Fixed fields
+    mappings.put("urn", getMappingsForUrn());
+    mappings.put("runId", getMappingsForRunId());
+
     return ImmutableMap.of("properties", mappings);
   }
 
   private static Map<String, Object> getMappingsForUrn() {
-    return ImmutableMap.<String, Object>builder().put("type", "keyword").build();
+    Map<String, Object> subFields = new HashMap<>();
+    subFields.put("delimited", ImmutableMap.of(
+            "type", "text",
+            "analyzer", "urn_component"));
+    subFields.put("ngram", ImmutableMap.of(
+            "type", "search_as_you_type",
+            "max_shingle_size", "4"));
+    return ImmutableMap.<String, Object>builder()
+            .put("type", "keyword")
+            .put("fields", subFields)
+            .build();
   }
 
   private static Map<String, Object> getMappingsForRunId() {
@@ -55,9 +69,14 @@ public class MappingsBuilder {
       mappingForField.put("normalizer", "keyword_normalizer");
       Map<String, Object> subFields = new HashMap<>();
       if (fieldType == FieldType.TEXT_PARTIAL) {
-        subFields.put("ngram", ImmutableMap.of("type", "text", "analyzer", "partial"));
+        subFields.put("ngram", ImmutableMap.of(
+                "type", "search_as_you_type",
+                "max_shingle_size", "4"));
       }
-      subFields.put("delimited", ImmutableMap.of("type", "text", "analyzer", "word_delimited"));
+      subFields.put("delimited", ImmutableMap.of(
+              "type", "text",
+              "analyzer", TEXT_ANALYZER,
+              "search_analyzer", TEXT_SEARCH_ANALYZER));
       // Add keyword subfield without lowercase filter
       subFields.put("keyword", ImmutableMap.of("type", "keyword"));
       mappingForField.put("fields", subFields);
@@ -72,7 +91,9 @@ public class MappingsBuilder {
       mappingForField.put("analyzer", "urn_component");
       Map<String, Object> subFields = new HashMap<>();
       if (fieldType == FieldType.URN_PARTIAL) {
-        subFields.put("ngram", ImmutableMap.of("type", "text", "analyzer", "partial_urn_component"));
+        subFields.put("ngram", ImmutableMap.of(
+                "type", "search_as_you_type",
+                "max_shingle_size", "4"));
       }
       subFields.put("keyword", ImmutableMap.of("type", "keyword"));
       mappingForField.put("fields", subFields);

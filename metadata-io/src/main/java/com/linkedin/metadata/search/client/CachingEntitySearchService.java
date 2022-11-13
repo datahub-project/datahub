@@ -17,6 +17,8 @@ import org.javatuples.Quintet;
 import org.springframework.cache.Cache;
 import org.springframework.cache.CacheManager;
 
+import java.util.Optional;
+
 
 @RequiredArgsConstructor
 public class CachingEntitySearchService {
@@ -111,10 +113,12 @@ public class CachingEntitySearchService {
       int from,
       int size,
       @Nullable SearchFlags flags) {
+    SearchFlags searchFlags = Optional.ofNullable(flags).orElse(new SearchFlags());
     return new CacheableSearcher<>(
         cacheManager.getCache(ENTITY_SEARCH_SERVICE_SEARCH_CACHE_NAME),
         batchSize,
-        querySize -> getRawSearchResults(entityName, query, filters, sortCriterion, querySize.getFrom(), querySize.getSize()),
+        querySize -> getRawSearchResults(entityName, query, filters, sortCriterion, querySize.getFrom(),
+                querySize.getSize(), searchFlags.isStructured()),
         querySize -> Quintet.with(entityName, query, filters, sortCriterion, querySize), flags, enableCache).getSearchResults(from, size);
   }
 
@@ -192,14 +196,25 @@ public class CachingEntitySearchService {
       final Filter filters,
       final SortCriterion sortCriterion,
       final int start,
-      final int count) {
-    return entitySearchService.search(
-        entityName,
-        input,
-        filters,
-        sortCriterion,
-        start,
-        count);
+      final int count,
+      final boolean structured) {
+    if (structured) {
+      return entitySearchService.structuredSearch(
+              entityName,
+              input,
+              filters,
+              sortCriterion,
+              start,
+              count);
+    } else {
+      return entitySearchService.fullTextSearch(
+              entityName,
+              input,
+              filters,
+              sortCriterion,
+              start,
+              count);
+    }
   }
 
   /**

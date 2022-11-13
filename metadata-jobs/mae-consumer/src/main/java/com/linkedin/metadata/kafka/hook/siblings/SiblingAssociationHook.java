@@ -126,7 +126,7 @@ public class SiblingAssociationHook implements MetadataChangeLogHook {
 
   private void handleEntityKeyEvent(DatasetUrn datasetUrn) {
     Filter entitiesWithYouAsSiblingFilter = createFilterForEntitiesWithYouAsSibling(datasetUrn);
-    final SearchResult searchResult = _searchService.search(
+    final SearchResult searchResult = _searchService.structuredSearch(
         "dataset",
         "*",
         entitiesWithYouAsSiblingFilter,

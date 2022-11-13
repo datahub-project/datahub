@@ -1,0 +1,1 @@
+{"urn":"urn:li:dashboard:(looker,baz)","hasOwners":false,"owners":[],"customProperties":["prop2=pikachu","prop1=fakeprop"],"hasDescription":true,"description":"Baz Dashboard","title":"Baz Dashboard","tool":"looker","browsePaths":["/looker"],"platform":"urn:li:dataPlatform:looker","runId":["file-2022_11_11-23_20_49"]}

@@ -63,7 +63,8 @@ public class ListSecretsResolver implements DataFetcher<CompletableFuture<ListSe
         try {
           // First, get all secrets
           final SearchResult
-              gmsResult = _entityClient.search(Constants.SECRETS_ENTITY_NAME, query, Collections.emptyMap(), start, count, context.getAuthentication());
+              gmsResult = _entityClient.search(Constants.SECRETS_ENTITY_NAME, query, Collections.emptyMap(), start,
+                  count, context.getAuthentication(), true);
 
           // Then, resolve all secrets
           final Map<Urn, EntityResponse> entities = _entityClient.batchGetV2(

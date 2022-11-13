@@ -53,7 +53,7 @@ services:
       - "8081:8081"
 
   elasticsearch:
-    image: elasticsearch:7.9.3
+    image: elasticsearch:7.10.1
     env_file: elasticsearch/env/docker.env
     container_name: elasticsearch
     hostname: elasticsearch

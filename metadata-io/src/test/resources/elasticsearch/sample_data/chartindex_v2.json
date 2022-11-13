@@ -1,0 +1,2 @@
+{"urn":"urn:li:chart:(looker,baz1)","customProperties":[],"description":"Baz Chart 1","title":"Baz Chart 1","hasTags":true,"tags":["urn:li:tag:Legacy"],"tool":"looker","browsePaths":["/looker"],"platform":"urn:li:dataPlatform:looker","runId":["file-2022_11_11-23_20_49"]}
+{"urn":"urn:li:chart:(looker,baz2)","customProperties":[],"description":"Baz Chart 2","title":"Baz Chart 2","tool":"looker","browsePaths":["/looker"],"platform":"urn:li:dataPlatform:looker","runId":["file-2022_11_11-23_20_49"]}

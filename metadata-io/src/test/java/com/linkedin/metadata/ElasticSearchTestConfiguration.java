@@ -82,7 +82,8 @@ public class ElasticSearchTestConfiguration {
     @Primary
     @Bean(name = "elasticSearchIndexBuilder")
     @Nonnull
-    public ESIndexBuilder getIndexBuilder(@Qualifier("elasticSearchRestHighLevelClient") RestHighLevelClient searchClient) {
-        return new ESIndexBuilder(searchClient, 1, 1, 3, 1, Map.of(), false);
+    protected ESIndexBuilder getIndexBuilder(@Qualifier("elasticSearchRestHighLevelClient") RestHighLevelClient searchClient) {
+        return new ESIndexBuilder(searchClient, 1, 1, 3, 1, Map.of(),
+                false, false);
     }
 }

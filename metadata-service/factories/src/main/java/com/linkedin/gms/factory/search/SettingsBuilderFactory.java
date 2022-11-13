@@ -1,6 +1,5 @@
 package com.linkedin.gms.factory.search;
 
-import com.google.common.collect.ImmutableList;
 import com.linkedin.gms.factory.entityregistry.EntityRegistryFactory;
 import com.linkedin.gms.factory.spring.YamlPropertySourceFactory;
 import com.linkedin.metadata.models.registry.EntityRegistry;
@@ -27,10 +26,6 @@ public class SettingsBuilderFactory {
 
   @Bean("settingsBuilder")
   protected SettingsBuilder getInstance() {
-    // Filter to process URNs
-    ImmutableList.Builder<String> stopWords = ImmutableList.<String>builder().add("urn").add("li");
-    // Add all entity names to stop word list
-    entityRegistry.getEntitySpecs().values().forEach(entitySpec -> stopWords.add(entitySpec.getName().toLowerCase()));
-    return new SettingsBuilder(stopWords.build(), mainTokenizer);
+    return new SettingsBuilder(mainTokenizer);
   }
 }

@@ -84,7 +84,7 @@ public class LineageSearchServiceTest extends AbstractTestNGSpringContextTests {
   public void setup() {
     _entityRegistry = new SnapshotEntityRegistry(new Snapshot());
     _indexConvention = new IndexConventionImpl("lineage_search_service_test");
-    _settingsBuilder = new SettingsBuilder(Collections.emptyList(), null);
+    _settingsBuilder = new SettingsBuilder(null);
     _elasticSearchService = buildEntitySearchService();
     _elasticSearchService.configure();
     _cacheManager = new ConcurrentMapCacheManager();
@@ -206,7 +206,7 @@ public class LineageSearchServiceTest extends AbstractTestNGSpringContextTests {
     assertEquals(searchResult.getEntities().size(), 0);
     clearCache();
 
-    Urn urn2 = new TestEntityUrn("test", "testUrn2", "VALUE_2");
+    Urn urn2 = new TestEntityUrn("test2", "testUrn2", "VALUE_2");
     ObjectNode document2 = JsonNodeFactory.instance.objectNode();
     document2.set("urn", JsonNodeFactory.instance.textNode(urn2.toString()));
     document2.set("keyPart1", JsonNodeFactory.instance.textNode("random"));

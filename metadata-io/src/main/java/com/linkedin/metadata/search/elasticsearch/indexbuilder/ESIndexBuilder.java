@@ -5,11 +5,14 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.MapDifference;
 import com.google.common.collect.Maps;
+
 import java.io.IOException;
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Set;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
@@ -18,13 +21,13 @@ import javax.annotation.Nonnull;
 import lombok.Getter;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.elasticsearch.action.admin.cluster.node.tasks.list.ListTasksRequest;
-import org.elasticsearch.action.admin.cluster.node.tasks.list.ListTasksResponse;
 import org.elasticsearch.action.admin.indices.alias.IndicesAliasesRequest;
 import org.elasticsearch.action.admin.indices.alias.IndicesAliasesRequest.AliasActions;
 import org.elasticsearch.action.admin.indices.alias.get.GetAliasesRequest;
 import org.elasticsearch.action.admin.indices.delete.DeleteIndexRequest;
 import org.elasticsearch.action.admin.indices.settings.get.GetSettingsRequest;
+import org.elasticsearch.action.search.SearchRequest;
+import org.elasticsearch.action.search.SearchResponse;
 import org.elasticsearch.client.GetAliasesResponse;
 import org.elasticsearch.client.RequestOptions;
 import org.elasticsearch.client.RestHighLevelClient;
@@ -33,11 +36,16 @@ import org.elasticsearch.client.indices.CreateIndexRequest;
 import org.elasticsearch.client.indices.GetIndexRequest;
 import org.elasticsearch.client.indices.GetMappingsRequest;
 import org.elasticsearch.client.indices.PutMappingRequest;
-import org.elasticsearch.client.tasks.TaskSubmissionResponse;
 import org.elasticsearch.common.settings.Settings;
+import org.elasticsearch.core.TimeValue;
 import org.elasticsearch.index.query.QueryBuilders;
+import org.elasticsearch.index.reindex.BulkByScrollResponse;
 import org.elasticsearch.index.reindex.ReindexRequest;
 import org.elasticsearch.action.admin.indices.settings.put.UpdateSettingsRequest;
+import org.elasticsearch.search.SearchHit;
+import org.elasticsearch.search.builder.SearchSourceBuilder;
+import org.elasticsearch.search.sort.SortBuilders;
+import org.elasticsearch.search.sort.SortOrder;
 
 
 @Slf4j
@@ -62,6 +70,9 @@ public class ESIndexBuilder {
 
   @Getter
   private final boolean enableIndexSettingsReindex;
+
+  @Getter
+  private final boolean enableIndexMappingsReindex;
 
   private final static ObjectMapper OBJECT_MAPPER = new ObjectMapper();
 
@@ -133,8 +144,12 @@ public class ESIndexBuilder {
     }
 
     if (!mappingsDiff.entriesDiffering().isEmpty()) {
-      log.info("There's diff between new mappings (left) and old mappings (right): {}", mappingsDiff);
-      reindex(indexName, mappings, finalSettings);
+      if (enableIndexMappingsReindex) {
+        log.info("There's diff between new mappings (left) and old mappings (right): {}", mappingsDiff);
+        reindex(indexName, mappings, finalSettings);
+      } else {
+        log.warn("There's diff between new mappings, however reindexing is DISABLED. (left) and old mappings (right): {}", mappingsDiff);
+      }
     } else {
       log.info("There's an update to settings");
       if (isSettingsReindexRequired) {
@@ -143,7 +158,7 @@ public class ESIndexBuilder {
                   OBJECT_MAPPER.writeValueAsString(finalSettings));
           reindex(indexName, mappings, finalSettings);
         } else {
-          log.warn("There's an update to settings that requires reindexing, however reindexing is disabled. Existing: {} Target: {}",
+          log.warn("There's an update to settings that requires reindexing, however reindexing is DISABLED. Existing: {} Target: {}",
                   oldSettings, OBJECT_MAPPER.writeValueAsString(finalSettings));
         }
       }
@@ -179,37 +194,24 @@ public class ESIndexBuilder {
     String tempIndexName = indexName + "_" + System.currentTimeMillis();
     createIndex(tempIndexName, mappings, finalSettings);
     try {
-      TaskSubmissionResponse reindexTask;
-      reindexTask =
-          searchClient.submitReindexTask(new ReindexRequest().setSourceIndices(indexName).setDestIndex(tempIndexName),
-              RequestOptions.DEFAULT);
+      ReindexRequest reindexRequest = new ReindexRequest()
+              .setSourceIndices(indexName)
+              .setDestIndex(tempIndexName)
+              .setMaxRetries(numRetries)
+              .setRequestsPerSecond(10)
+              .setAbortOnVersionConflict(false)
+              .setRefresh(true)
+              .setTimeout(TimeValue.timeValueHours(1))
+              .setSourceBatchSize(2500);
 
-      // wait up to 5 minutes for the task to complete
-      long startTime = System.currentTimeMillis();
-      long millisToWait60Minutes = 1000 * 60 * 60;
-      Boolean reindexTaskCompleted = false;
-
-      while ((System.currentTimeMillis() - startTime) < millisToWait60Minutes) {
+      BulkByScrollResponse bulkResponse = searchClient.reindex(reindexRequest, RequestOptions.DEFAULT);
+      if (!bulkResponse.getBulkFailures().isEmpty()) {
+        log.error("Reindexing failures {} to {}. Failures: [{}]",
+                indexName, tempIndexName, bulkResponse.getBulkFailures());
+      } else {
         log.info("Reindexing from {} to {} in progress...", indexName, tempIndexName);
-        ListTasksRequest request = new ListTasksRequest();
-        ListTasksResponse tasks = searchClient.tasks().list(request, RequestOptions.DEFAULT);
-        if (tasks.getTasks().stream().noneMatch(task -> task.getTaskId().toString().equals(reindexTask.getTask()))) {
-          log.info("Reindexing {} to {} task has completed, will now check if reindex was successful", indexName,
-              tempIndexName);
-          reindexTaskCompleted = true;
-          break;
-        }
-        try {
-          Thread.sleep(5000);
-        } catch (InterruptedException e) {
-          log.info("Trouble sleeping while reindexing {} to {}: Exception {}. Retrying...", indexName, tempIndexName,
-              e.toString());
-        }
       }
-      if (!reindexTaskCompleted) {
-        throw new RuntimeException(
-            String.format("Reindex from %s to %s failed-- task exceeded 60 minute limit", indexName, tempIndexName));
-      }
+
     } catch (Exception e) {
       log.info("Failed to reindex {} to {}: Exception {}", indexName, tempIndexName, e.toString());
       searchClient.indices().delete(new DeleteIndexRequest().indices(tempIndexName), RequestOptions.DEFAULT);
@@ -237,8 +239,10 @@ public class ESIndexBuilder {
     if (originalCount != reindexedCount) {
       log.info("Post-reindex document count is different, source_doc_count: {} reindex_doc_count: {}", originalCount,
           reindexedCount);
+      diff(indexName, tempIndexName, Math.max(originalCount, reindexedCount));
       searchClient.indices().delete(new DeleteIndexRequest().indices(tempIndexName), RequestOptions.DEFAULT);
-      throw new RuntimeException(String.format("Reindex from %s to %s failed", indexName, tempIndexName));
+      throw new RuntimeException(String.format("Reindex from %s to %s failed. Document count %s != %s", indexName, tempIndexName,
+              originalCount, reindexedCount));
     }
 
     log.info("Reindex from {} to {} succeeded", indexName, tempIndexName);
@@ -262,6 +266,34 @@ public class ESIndexBuilder {
         .updateAliases(new IndicesAliasesRequest().addAliasAction(removeAction).addAliasAction(addAction),
             RequestOptions.DEFAULT);
     log.info("Finished setting up {}", indexName);
+  }
+
+  private void diff(String indexA, String indexB, long maxDocs) {
+    if (maxDocs <= 100) {
+
+      SearchSourceBuilder searchSourceBuilder = new SearchSourceBuilder();
+      searchSourceBuilder.size(100);
+      searchSourceBuilder.sort(SortBuilders.fieldSort("_id").order(SortOrder.ASC));
+
+      SearchRequest indexARequest = new SearchRequest(indexA);
+      indexARequest.source(searchSourceBuilder);
+      SearchRequest indexBRequest = new SearchRequest(indexB);
+      indexBRequest.source(searchSourceBuilder);
+
+      try {
+        SearchResponse responseA = searchClient.search(indexARequest, RequestOptions.DEFAULT);
+        SearchResponse responseB = searchClient.search(indexBRequest, RequestOptions.DEFAULT);
+
+        Set<String> actual = Arrays.stream(responseB.getHits().getHits())
+                .map(SearchHit::getId).collect(Collectors.toSet());
+
+        log.error("Missing {}", Arrays.stream(responseA.getHits().getHits())
+                .filter(doc -> !actual.contains(doc.getId()))
+                .map(SearchHit::getSourceAsString).collect(Collectors.toSet()));
+      } catch (IOException e) {
+        throw new RuntimeException(e);
+      }
+    }
   }
 
   private long getCount(@Nonnull String indexName) throws IOException {
