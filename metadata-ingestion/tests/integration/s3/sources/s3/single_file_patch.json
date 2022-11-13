@@ -9,11 +9,11 @@
         "aws_config": {
             "aws_region": "us-east-1",
             "aws_access_key_id": "testing",
-            "aws_secret_access_key": "testing",
+            "aws_secret_access_key": "testing"
         },
         "profiling": {"enabled": false},
         "use_s3_bucket_tags": true,
         "use_s3_object_tags": true,
-        "ingest_patches": true,
-    },
+        "ingest_patches": true
+    }
 }
