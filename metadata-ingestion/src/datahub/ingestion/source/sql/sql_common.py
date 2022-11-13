@@ -93,6 +93,7 @@ from datahub.metadata.schema_classes import (
     UpstreamClass,
     ViewPropertiesClass,
 )
+from datahub.specific.dataset import DatasetPatchBuilder
 from datahub.telemetry import telemetry
 from datahub.utilities.lossy_collections import LossyList
 from datahub.utilities.registries.domain_registry import DomainRegistry
@@ -269,6 +270,12 @@ class SQLAlchemyConfig(StatefulIngestionConfigBase):
     profiling: GEProfilingConfig = GEProfilingConfig()
     # Custom Stateful Ingestion settings
     stateful_ingestion: Optional[SQLAlchemyStatefulIngestionConfig] = None
+
+    ingest_patches: bool = Field(
+        default=False,
+        description="Append aspects whenever possible instead of overwrite (for example for Dataset Properties)",
+        hidden_from_schema=True,
+    )
 
     @pydantic.root_validator(pre=True)
     def view_pattern_is_table_pattern_unless_specified(
@@ -860,8 +867,20 @@ class SQLAlchemySource(StatefulIngestionSourceBase):
         dataset_properties = DatasetPropertiesClass(
             name=normalised_table,
             description=description,
-            customProperties=properties,
         )
+        if properties:
+            if self.config.ingest_patches:
+                builder = DatasetPatchBuilder(urn=dataset_urn)
+                for key in properties.keys():
+                    builder.add_dataset_custom_property(key=key, value=properties[key])
+                for mcp in builder.build():
+                    dataset_properties_wu = MetadataWorkUnit(
+                        id=f"{dataset_name}-properties", mcp_raw=mcp
+                    )
+                    yield dataset_properties_wu
+            else:
+                dataset_properties.customProperties = properties
+
         dataset_snapshot.aspects.append(dataset_properties)
 
         if location_urn:
@@ -1159,8 +1178,21 @@ class SQLAlchemySource(StatefulIngestionSourceBase):
         dataset_properties = DatasetPropertiesClass(
             name=view,
             description=description,
-            customProperties=properties,
         )
+
+        if properties:
+            if self.config.ingest_patches:
+                builder = DatasetPatchBuilder(urn=dataset_urn)
+                for key in properties.keys():
+                    builder.add_dataset_custom_property(key=key, value=properties[key])
+                for mcp in builder.build():
+                    dataset_properties_wu = MetadataWorkUnit(
+                        id=f"{dataset_name}-properties", mcp_raw=mcp
+                    )
+                    yield dataset_properties_wu
+            else:
+                dataset_properties.customProperties = properties
+
         dataset_snapshot.aspects.append(dataset_properties)
         if schema_metadata:
             dataset_snapshot.aspects.append(schema_metadata)

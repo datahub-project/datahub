@@ -83,6 +83,7 @@ from datahub.metadata.schema_classes import (
     MapTypeClass,
     OtherSchemaClass,
 )
+from datahub.specific.dataset import DatasetPatchBuilder
 from datahub.telemetry import stats, telemetry
 from datahub.utilities.perf_timer import PerfTimer
 
@@ -551,8 +552,23 @@ class S3Source(Source):
         dataset_properties = DatasetPropertiesClass(
             description="",
             name=table_data.display_name,
-            customProperties=customProperties,
         )
+
+        if customProperties:
+            if self.source_config.ingest_patches:
+                builder = DatasetPatchBuilder(urn=dataset_urn)
+                for key in customProperties.keys():
+                    builder.add_dataset_custom_property(
+                        key=key, value=customProperties[key]
+                    )
+                for mcp in builder.build():
+                    dataset_properties_wu = MetadataWorkUnit(
+                        id=f"{table_data.table_path}-properties", mcp_raw=mcp
+                    )
+                    yield dataset_properties_wu
+            else:
+                dataset_properties.customProperties = customProperties
+
         dataset_snapshot.aspects.append(dataset_properties)
 
         fields = self.get_fields(table_data, path_spec)

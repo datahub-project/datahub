@@ -848,10 +848,25 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
             name=datahub_dataset_name.get_table_display_name(),
             description=table.comment,
             qualifiedName=str(datahub_dataset_name),
-            customProperties={**upstream_column_props},
         )
+        custom_props_to_add: Dict[str, str] = {**upstream_column_props}
         if custom_properties:
-            dataset_properties.customProperties.update(custom_properties)
+            custom_props_to_add.update(custom_properties)
+
+        if custom_props_to_add:
+            if self.config.ingest_patches:
+                builder = DatasetPatchBuilder(urn=dataset_urn)
+                for key in custom_props_to_add.keys():
+                    builder.add_dataset_custom_property(
+                        key=key, value=custom_props_to_add[key]
+                    )
+                for mcp in builder.build():
+                    dataset_properties_wu = MetadataWorkUnit(
+                        id=f"{dataset_name}-properties", mcp_raw=mcp
+                    )
+                    yield dataset_properties_wu
+            else:
+                dataset_properties.customProperties = custom_props_to_add
 
         wu = wrap_aspect_as_workunit(
             "dataset", dataset_urn, "datasetProperties", dataset_properties

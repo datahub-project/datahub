@@ -70,6 +70,12 @@ class DataLakeSourceConfig(PlatformSourceConfigBase, EnvBasedSourceConfigBase):
         "path_spec", "path_specs", lambda path_spec: [path_spec]
     )
 
+    ingest_patches: bool = Field(
+        default=False,
+        description="Append aspects whenever possible instead of overwrite (for example for Dataset Properties)",
+        hidden_from_schema=True,
+    )
+
     @pydantic.validator("path_specs", always=True)
     def check_path_specs_and_infer_platform(
         cls, path_specs: List[PathSpec], values: Dict

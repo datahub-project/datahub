@@ -155,6 +155,17 @@ class DatasetPatchBuilder(MetadataPatchProposal):
         self._add_patch("glossaryTerms", "remove", path=f"/terms/{term}", value={})
         return self
 
+    def add_dataset_custom_property(
+        self, key: str, value: str
+    ) -> "DatasetPatchBuilder":
+        self._add_patch(
+            "datasetProperties",
+            "add",
+            path=f"/customProperties/{key}",
+            value=value,
+        )
+        return self
+
     def field_patch_builder(
         self, field_path: str, editable: bool = True
     ) -> "FieldPatchBuilder":

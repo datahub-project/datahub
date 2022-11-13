@@ -101,6 +101,7 @@ from datahub.metadata.com.linkedin.pegasus2avro.schema import (
     TimeType,
 )
 from datahub.metadata.schema_classes import ChangeTypeClass, DataPlatformInstanceClass
+from datahub.specific.dataset import DatasetPatchBuilder
 from datahub.utilities.registries.domain_registry import DomainRegistry
 from datahub.utilities.time import datetime_to_ts_millis
 
@@ -628,8 +629,24 @@ class SnowflakeV2Source(
             name=table.name,
             description=table.comment,
             qualifiedName=dataset_name,
-            customProperties={**upstream_column_props},
         )
+        customProperties = {**upstream_column_props}
+
+        if customProperties:
+            if self.config.ingest_patches:
+                builder = DatasetPatchBuilder(urn=dataset_urn)
+                for key in customProperties.keys():
+                    builder.add_dataset_custom_property(
+                        key=key, value=customProperties[key]
+                    )
+                for mcp in builder.build():
+                    dataset_properties_wu = MetadataWorkUnit(
+                        id=f"{dataset_name}-properties", mcp_raw=mcp
+                    )
+                    yield dataset_properties_wu
+            else:
+                dataset_properties.customProperties = customProperties
+
         yield self.wrap_aspect_as_workunit(
             "dataset", dataset_urn, "datasetProperties", dataset_properties
         )
