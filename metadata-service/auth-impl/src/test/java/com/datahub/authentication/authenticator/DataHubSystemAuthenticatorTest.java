@@ -1,4 +1,4 @@
-package com.datahub.auth.authentication.authenticator;
+package com.datahub.authentication.authenticator;
 
 import com.datahub.authentication.ActorType;
 import com.datahub.authentication.Authentication;

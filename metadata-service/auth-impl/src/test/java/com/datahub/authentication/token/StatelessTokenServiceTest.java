@@ -1,4 +1,4 @@
-package com.datahub.auth.authentication.token;
+package com.datahub.authentication.token;
 
 import com.datahub.authentication.Actor;
 import com.datahub.authentication.ActorType;

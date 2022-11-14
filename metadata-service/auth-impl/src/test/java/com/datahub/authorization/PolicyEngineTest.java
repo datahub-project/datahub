@@ -1,4 +1,4 @@
-package com.datahub.auth.authorization;
+package com.datahub.authorization;
 
 import com.datahub.authentication.Authentication;
 import com.datahub.authorization.FieldResolver;
