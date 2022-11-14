@@ -6,6 +6,8 @@ import com.datahub.authorization.AuthorizationRequest;
 import com.datahub.authorization.AuthorizationResult;
 import com.datahub.authorization.AuthorizedActors;
 import com.datahub.authorization.AuthorizerContext;
+import com.datahub.authorization.DataHubAuthorizer;
+import com.datahub.authorization.DefaultResourceSpecResolver;
 import com.datahub.authorization.ResourceSpec;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;

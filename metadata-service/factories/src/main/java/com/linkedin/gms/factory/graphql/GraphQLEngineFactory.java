@@ -1,11 +1,11 @@
 package com.linkedin.gms.factory.graphql;
 
-import com.datahub.auth.authentication.group.GroupService;
-import com.datahub.auth.authentication.invite.InviteTokenService;
-import com.datahub.auth.authentication.token.StatefulTokenService;
-import com.datahub.auth.authentication.user.NativeUserService;
-import com.datahub.auth.authorization.role.RoleService;
-import com.datahub.auth.authentication.post.PostService;
+import com.datahub.authentication.group.GroupService;
+import com.datahub.authentication.invite.InviteTokenService;
+import com.datahub.authentication.token.StatefulTokenService;
+import com.datahub.authentication.user.NativeUserService;
+import com.datahub.authorization.role.RoleService;
+import com.datahub.authentication.post.PostService;
 import com.linkedin.datahub.graphql.GmsGraphQLEngine;
 import com.linkedin.datahub.graphql.GraphQLEngine;
 import com.linkedin.datahub.graphql.analytics.service.AnalyticsService;

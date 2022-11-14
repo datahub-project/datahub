@@ -6,7 +6,7 @@ authentication:
   # Required if enabled is true! A configurable chain of Authenticators
   authenticators:
       # Required for authenticating requests with DataHub-issued Access Tokens - best not to remove.
-    - type: com.datahub.auth.authentication.authenticator.DataHubTokenAuthenticator
+    - type: com.datahub.authentication.authenticator.DataHubTokenAuthenticator
       configs:
         # Key used to validate incoming tokens. Should typically be the same as authentication.tokenService.signingKey
         signingKey: ${DATAHUB_TOKEN_SERVICE_SIGNING_KEY:WnEdIeTG/VVCLQqGwC/BAkqyY0k+H8NEAtWGejrBI94=}

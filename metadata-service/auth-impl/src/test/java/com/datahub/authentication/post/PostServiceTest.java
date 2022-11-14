@@ -1,6 +1,5 @@
 package com.datahub.authentication.post;
 
-import com.datahub.auth.authentication.post.PostService;
 import com.datahub.authentication.Actor;
 import com.datahub.authentication.ActorType;
 import com.datahub.authentication.Authentication;

@@ -1,8 +1,8 @@
 package com.linkedin.gms.factory.auth;
 
-import com.datahub.auth.authorization.AuthorizerChain;
-import com.datahub.auth.authorization.DataHubAuthorizer;
-import com.datahub.auth.authorization.DefaultResourceSpecResolver;
+import com.datahub.authorization.AuthorizerChain;
+import com.datahub.authorization.DataHubAuthorizer;
+import com.datahub.authorization.DefaultResourceSpecResolver;
 import com.datahub.plugins.PluginConstant;
 import com.datahub.authentication.Authentication;
 import com.datahub.plugins.auth.authorization.Authorizer;

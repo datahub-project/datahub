@@ -4,6 +4,7 @@ import com.datahub.authentication.ActorType;
 import com.datahub.authentication.Authentication;
 import com.datahub.authentication.AuthenticationException;
 import com.datahub.authentication.AuthenticationRequest;
+import com.datahub.authentication.authenticator.DataHubSystemAuthenticator;
 import com.google.common.collect.ImmutableMap;
 import java.util.Collections;
 import org.testng.annotations.Test;

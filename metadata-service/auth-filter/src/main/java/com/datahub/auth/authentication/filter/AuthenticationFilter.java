@@ -1,9 +1,9 @@
 package com.datahub.auth.authentication.filter;
 
-import com.datahub.auth.authentication.authenticator.AuthenticatorChain;
-import com.datahub.auth.authentication.authenticator.DataHubSystemAuthenticator;
-import com.datahub.auth.authentication.authenticator.NoOpAuthenticator;
-import com.datahub.auth.authentication.token.StatefulTokenService;
+import com.datahub.authentication.authenticator.AuthenticatorChain;
+import com.datahub.authentication.authenticator.DataHubSystemAuthenticator;
+import com.datahub.authentication.authenticator.NoOpAuthenticator;
+import com.datahub.authentication.token.StatefulTokenService;
 import com.datahub.plugins.PluginConstant;
 import com.datahub.authentication.Authentication;
 import com.datahub.authentication.AuthenticationConfiguration;

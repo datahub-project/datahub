@@ -2,8 +2,8 @@ package com.linkedin.datahub.graphql.resolvers.auth;
 
 import com.datahub.authentication.Actor;
 import com.datahub.authentication.ActorType;
-import com.datahub.auth.authentication.token.StatelessTokenService;
-import com.datahub.auth.authentication.token.TokenType;
+import com.datahub.authentication.token.StatelessTokenService;
+import com.datahub.authentication.token.TokenType;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.authorization.AuthorizationUtils;

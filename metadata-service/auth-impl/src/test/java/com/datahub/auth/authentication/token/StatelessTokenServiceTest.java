@@ -2,7 +2,13 @@ package com.datahub.auth.authentication.token;
 
 import com.datahub.authentication.Actor;
 import com.datahub.authentication.ActorType;
-import com.datahub.auth.authentication.authenticator.DataHubTokenAuthenticator;
+import com.datahub.authentication.authenticator.DataHubTokenAuthenticator;
+import com.datahub.authentication.token.StatelessTokenService;
+import com.datahub.authentication.token.TokenClaims;
+import com.datahub.authentication.token.TokenException;
+import com.datahub.authentication.token.TokenExpiredException;
+import com.datahub.authentication.token.TokenType;
+import com.datahub.authentication.token.TokenVersion;
 import io.jsonwebtoken.JwtBuilder;
 import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.SignatureAlgorithm;
@@ -15,7 +21,7 @@ import java.util.UUID;
 import javax.crypto.spec.SecretKeySpec;
 import org.testng.annotations.Test;
 
-import static com.datahub.auth.authentication.token.TokenClaims.*;
+import static com.datahub.authentication.token.TokenClaims.*;
 import static org.testng.Assert.*;
 
 
