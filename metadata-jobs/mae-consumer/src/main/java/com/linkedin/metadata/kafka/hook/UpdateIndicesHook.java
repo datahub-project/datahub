@@ -2,8 +2,11 @@ package com.linkedin.metadata.kafka.hook;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonNode;
+import com.linkedin.common.InputField;
+import com.linkedin.common.InputFields;
 import com.linkedin.common.Status;
 import com.linkedin.common.urn.Urn;
+import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.data.template.RecordTemplate;
 import com.linkedin.dataset.FineGrainedLineage;
 import com.linkedin.dataset.UpstreamLineage;
@@ -180,14 +183,44 @@ public class UpdateIndicesHook implements MetadataChangeLogHook {
     }
   }
 
+  private Urn generateSchemaFieldUrn(@Nonnull String resourceUrn, @Nonnull String fieldPath) {
+    // we rely on schemaField fieldPaths to be encoded since we do that with fineGrainedLineage on the ingestion side
+    String encodedFieldPath = fieldPath.replaceAll("\\(", "%28").replaceAll("\\)", "%29").replaceAll(",", "%2C");
+    String urnString = String.format("urn:li:schemaField:(%s,%s)", resourceUrn, encodedFieldPath);
+    return UrnUtils.getUrn(urnString);
+  }
+
+  private void updateInputFieldEdgesAndRelationships(
+      Urn urn,
+      RecordTemplate aspect,
+      List<Edge> edgesToAdd,
+      HashMap<Urn, Set<String>> urnToRelationshipTypesBeingAdded
+  ) {
+    InputFields inputFields = new InputFields(aspect.data());
+    if (inputFields.hasFields()) {
+      for (InputField field : inputFields.getFields()) {
+        if (field.hasSchemaFieldUrn() && field.hasSchemaField() && field.getSchemaField().hasFieldPath()) {
+          Urn sourceFieldUrn = generateSchemaFieldUrn(urn.toString(), field.getSchemaField().getFieldPath());
+          edgesToAdd.add(new Edge(sourceFieldUrn, field.getSchemaFieldUrn(), DOWNSTREAM_OF));
+          Set<String> relationshipTypes = urnToRelationshipTypesBeingAdded.getOrDefault(sourceFieldUrn, new HashSet<>());
+          relationshipTypes.add(DOWNSTREAM_OF);
+          urnToRelationshipTypesBeingAdded.put(sourceFieldUrn, relationshipTypes);
+        }
+      }
+    }
+  }
+
   private Pair<List<Edge>, HashMap<Urn, Set<String>>> getEdgesAndRelationshipTypesFromAspect(Urn urn, AspectSpec aspectSpec, RecordTemplate aspect) {
     final List<Edge> edgesToAdd = new ArrayList<>();
     final HashMap<Urn, Set<String>> urnToRelationshipTypesBeingAdded = new HashMap<>();
 
+    // we need to manually set schemaField <-> schemaField edges for fineGrainedLineage and inputFields
+    // since @Relationship only links between the parent entity urn and something else.
     if (aspectSpec.getName().equals(Constants.UPSTREAM_LINEAGE_ASPECT_NAME)) {
-      // we need to manually set schemaField <-> schemaField edges for fineGrainedLineage since
-      // @Relationship only links between the parent entity urn and something else.
       updateFineGrainedEdgesAndRelationships(aspect, edgesToAdd, urnToRelationshipTypesBeingAdded);
+    }
+    if (aspectSpec.getName().equals(Constants.INPUT_FIELDS_ASPECT_NAME)) {
+      updateInputFieldEdgesAndRelationships(urn, aspect, edgesToAdd, urnToRelationshipTypesBeingAdded);
     }
 
     Map<RelationshipFieldSpec, List<Object>> extractedFields =
