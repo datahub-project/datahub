@@ -36,9 +36,6 @@ class DBTCloudConfig(DBTCommonConfig):
         description="The API token to use to authenticate with DBT Cloud.",
     )
 
-    # We don't actually need the account ID or project ID right now, but will
-    # need it once we start using the dbt Cloud admin API to list jobs/runs within a project.
-    # As such, I've preemptively added these fields to the config.
     account_id: int = Field(
         description="The DBT Cloud account ID to use.",
     )
@@ -171,7 +168,15 @@ class DBTCloudSource(DBTSourceBase):
     This source pulls dbt metadata directly from the dbt Cloud APIs.
 
     You'll need to have a dbt Cloud job set up to run your dbt project, and "Generate docs on run" should be enabled.
+
+    The token should have the "read metadata" permission.
+
+    To get the required IDs, go to the job details page (this is the one with the "Run History" table), and look at the URL.
+    It should look something like this: https://cloud.getdbt.com/next/deploy/107298/projects/175705/jobs/148094.
+    In this example, the account ID is 107298, the project ID is 175705, and the job ID is 148094.
     """
+
+    # TODO: add some screenshots to the docs
 
     config: DBTCloudConfig
 
@@ -381,6 +386,10 @@ class DBTCloudSource(DBTSourceBase):
             meta=column["meta"],
             tags=column["tags"],
         )
+
+    def get_external_url(self, node: DBTNode) -> Optional[str]:
+        # TODO: Once dbt Cloud supports deep linking to specific files, we can use that.
+        return f"https://cloud.getdbt.com/next/accounts/{self.config.account_id}/projects/{self.config.project_id}/develop"
 
     def get_platform_instance_id(self) -> str:
         """The DBT project identifier is used as platform instance."""

@@ -30,7 +30,6 @@ from datahub.configuration.common import (
     ConfigurationError,
     LineageConfig,
 )
-from datahub.configuration.github import GitHubReference
 from datahub.emitter import mce_builder
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.common import PipelineContext
@@ -281,10 +280,6 @@ class DBTCommonConfig(StatefulIngestionConfigBase, LineageConfig):
     backcompat_skip_source_on_lineage_edge: bool = Field(
         False,
         description="Prior to version 0.8.41, lineage edges to sources were directed to the target platform node rather than the dbt source node. This contradicted the established pattern for other lineage edges to point to upstream dbt nodes. To revert lineage logic to this legacy approach, set this flag to true.",
-    )
-    github_info: Optional[GitHubReference] = Field(
-        None,
-        description="Reference to your github location to enable easy navigation from DataHub to your dbt files.",
     )
 
     stateful_ingestion: Optional[DBTStatefulIngestionConfig] = pydantic.Field(
@@ -1156,13 +1151,13 @@ class DBTSourceBase(StatefulIngestionSourceBase):
             tags=node.tags,
             name=node.name,
         )
-        if self.config.github_info and node.dbt_file_path:
-            github_file_url = self.config.github_info.get_url_for_file_path(
-                node.dbt_file_path
-            )
-            dbt_properties.externalUrl = github_file_url
+        dbt_properties.externalUrl = self.get_external_url(node)
 
         return dbt_properties
+
+    @abstractmethod
+    def get_external_url(self, node: DBTNode) -> Optional[str]:
+        pass
 
     def _create_view_properties_aspect(self, node: DBTNode) -> ViewPropertiesClass:
         materialized = node.materialization in {"table", "incremental"}
