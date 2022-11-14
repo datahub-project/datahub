@@ -1,6 +1,6 @@
 package com.linkedin.gms.factory.auth;
 
-import com.datahub.auth.authentication.post.PostService;
+import com.datahub.authentication.post.PostService;
 import com.linkedin.gms.factory.spring.YamlPropertySourceFactory;
 import com.linkedin.metadata.client.JavaEntityClient;
 import javax.annotation.Nonnull;

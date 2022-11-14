@@ -3,6 +3,12 @@ package com.datahub.auth.authentication.token;
 import com.datahub.authentication.Actor;
 import com.datahub.authentication.ActorType;
 import com.datahub.auth.authentication.authenticator.DataHubTokenAuthenticatorTest;
+import com.datahub.authentication.token.StatefulTokenService;
+import com.datahub.authentication.token.TokenClaims;
+import com.datahub.authentication.token.TokenException;
+import com.datahub.authentication.token.TokenExpiredException;
+import com.datahub.authentication.token.TokenType;
+import com.datahub.authentication.token.TokenVersion;
 import com.google.common.collect.ImmutableList;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.data.schema.annotation.PathSpecBasedSchemaAnnotationVisitor;
@@ -16,7 +22,7 @@ import java.util.Map;
 import org.mockito.Mockito;
 import org.testng.annotations.Test;
 
-import static com.datahub.auth.authentication.token.TokenClaims.*;
+import static com.datahub.authentication.token.TokenClaims.*;
 import static org.testng.Assert.*;
 
 
@@ -117,7 +123,8 @@ public class StatefulTokenServiceTest {
 
   @Test
   public void testValidateAccessTokenFailsDueToExpiration() {
-    StatefulTokenService tokenService = new StatefulTokenService(TEST_SIGNING_KEY, "HS256", null, mockService, TEST_SALTING_KEY);
+    StatefulTokenService
+        tokenService = new StatefulTokenService(TEST_SIGNING_KEY, "HS256", null, mockService, TEST_SALTING_KEY);
     // Generate token that expires immediately.
     Date date = new Date();
     //This method returns the time in millis

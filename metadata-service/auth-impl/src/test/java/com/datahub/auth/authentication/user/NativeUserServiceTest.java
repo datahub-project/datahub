@@ -3,6 +3,7 @@ package com.datahub.auth.authentication.user;
 import com.datahub.authentication.Actor;
 import com.datahub.authentication.ActorType;
 import com.datahub.authentication.Authentication;
+import com.datahub.authentication.user.NativeUserService;
 import com.linkedin.common.urn.CorpuserUrn;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.entity.client.EntityClient;

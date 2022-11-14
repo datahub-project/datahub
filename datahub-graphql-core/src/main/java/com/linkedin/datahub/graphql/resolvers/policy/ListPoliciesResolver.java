@@ -1,6 +1,6 @@
 package com.linkedin.datahub.graphql.resolvers.policy;
 
-import com.datahub.auth.authorization.PolicyFetcher;
+import com.datahub.authorization.PolicyFetcher;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.exception.AuthorizationException;
 import com.linkedin.datahub.graphql.generated.ListPoliciesInput;
