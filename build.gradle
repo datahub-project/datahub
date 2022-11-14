@@ -13,7 +13,7 @@ buildscript {
   dependencies {
     classpath 'com.linkedin.pegasus:gradle-plugins:' + pegasusVersion
     classpath 'com.github.node-gradle:gradle-node-plugin:2.2.4'
-    classpath 'com.commercehub.gradle.plugin:gradle-avro-plugin:0.8.1'
+    classpath 'io.acryl.gradle.plugin:gradle-avro-plugin:0.8.1'
     classpath 'org.springframework.boot:spring-boot-gradle-plugin:' + springBootVersion
     classpath "io.codearte.gradle.nexus:gradle-nexus-staging-plugin:0.30.0"
     classpath "com.palantir.gradle.gitversion:gradle-git-version:0.12.3"

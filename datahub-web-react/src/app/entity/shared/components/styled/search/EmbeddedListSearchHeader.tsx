@@ -5,7 +5,7 @@ import styled from 'styled-components';
 import TabToolbar from '../TabToolbar';
 import { SearchBar } from '../../../../../search/SearchBar';
 import { useEntityRegistry } from '../../../../../useEntityRegistry';
-import { EntityType, FacetFilterInput, SearchAcrossEntitiesInput } from '../../../../../../types.generated';
+import { EntityType, OrFilter, SearchAcrossEntitiesInput } from '../../../../../../types.generated';
 import { SearchResultsInterface } from './types';
 import SearchExtendedMenu from './SearchExtendedMenu';
 import { SearchSelectBar } from './SearchSelectBar';
@@ -36,7 +36,7 @@ type Props = {
         input: SearchAcrossEntitiesInput;
     }) => Promise<SearchResultsInterface | null | undefined>;
     entityFilters: EntityType[];
-    filters: FacetFilterInput[];
+    filters: OrFilter[];
     query: string;
     isSelectMode: boolean;
     isSelectAll: boolean;
@@ -77,6 +77,7 @@ export default function EmbeddedListSearchHeader({
                     </Button>
                     <SearchAndDownloadContainer>
                         <SearchBar
+                            data-testid="embedded-search-bar"
                             initialQuery=""
                             placeholderText={placeholderText || 'Search entities...'}
                             suggestions={[]}

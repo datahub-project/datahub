@@ -13,6 +13,7 @@ GET           /config                                                         co
 
 # Authentication in React
 GET           /authenticate                                                   controllers.AuthenticationController.authenticate(request: Request)
+GET           /sso                                                            controllers.AuthenticationController.sso()
 POST          /logIn                                                          controllers.AuthenticationController.logIn(request: Request)
 POST          /signUp                                                         controllers.AuthenticationController.signUp(request: Request)
 POST          /resetNativeUserCredentials                                     controllers.AuthenticationController.resetNativeUserCredentials(request: Request)

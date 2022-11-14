@@ -47,6 +47,7 @@ export enum EventType {
     UpdateIngestionSourceEvent,
     DeleteIngestionSourceEvent,
     ExecuteIngestionSourceEvent,
+    SsoEvent,
 }
 
 /**
@@ -349,6 +350,8 @@ export interface CreateDomainEvent extends BaseEvent {
     type: EventType.CreateDomainEvent;
 }
 
+// Managed Ingestion Events
+
 export interface CreateIngestionSourceEvent extends BaseEvent {
     type: EventType.CreateIngestionSourceEvent;
     sourceType: string;
@@ -367,6 +370,11 @@ export interface DeleteIngestionSourceEvent extends BaseEvent {
 
 export interface ExecuteIngestionSourceEvent extends BaseEvent {
     type: EventType.ExecuteIngestionSourceEvent;
+}
+
+// TODO: Find a way to use this event
+export interface SsoEvent extends BaseEvent {
+    type: EventType.SsoEvent;
 }
 
 /**
@@ -414,4 +422,6 @@ export type Event =
     | CreateIngestionSourceEvent
     | UpdateIngestionSourceEvent
     | DeleteIngestionSourceEvent
-    | ExecuteIngestionSourceEvent;
+    | ExecuteIngestionSourceEvent
+    | ShowStandardHomepageEvent
+    | SsoEvent;

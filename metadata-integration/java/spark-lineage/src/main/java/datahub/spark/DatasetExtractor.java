@@ -58,7 +58,7 @@ public class DatasetExtractor {
       CreateDataSourceTableAsSelectCommand.class, CreateHiveTableAsSelectCommand.class, InsertIntoHiveTable.class);
   private static final String DATASET_ENV_KEY = "metadata.dataset.env";
   private static final String DATASET_PLATFORM_INSTANCE_KEY = "metadata.dataset.platformInstance";
-  private static final String TABLE_PLATFORM_KEY = "metadata.table.platform";
+  private static final String TABLE_HIVE_PLATFORM_ALIAS = "metadata.table.hive_platform_alias";
   private static final String INCLUDE_SCHEME_KEY = "metadata.include_scheme";
   // TODO InsertIntoHiveDirCommand, InsertIntoDataSourceDirCommand
 
@@ -122,7 +122,7 @@ public class DatasetExtractor {
       InsertIntoHadoopFsRelationCommand cmd = (InsertIntoHadoopFsRelationCommand) p;
       if (cmd.catalogTable().isDefined()) {
         return Optional.of(Collections.singletonList(new CatalogTableDataset(cmd.catalogTable().get(),
-            getCommonPlatformInstance(datahubConfig), getTablePlatform(datahubConfig),
+            getCommonPlatformInstance(datahubConfig), getTableHivePlatformAlias(datahubConfig),
             getCommonFabricType(datahubConfig))));
       }
       return Optional.of(Collections.singletonList(new HdfsPathDataset(cmd.outputPath(),
@@ -157,26 +157,26 @@ public class DatasetExtractor {
       CreateDataSourceTableAsSelectCommand cmd = (CreateDataSourceTableAsSelectCommand) p;
       // TODO what of cmd.mode()
       return Optional.of(Collections.singletonList(new CatalogTableDataset(cmd.table(),
-          getCommonPlatformInstance(datahubConfig), getTablePlatform(datahubConfig),
+          getCommonPlatformInstance(datahubConfig), getTableHivePlatformAlias(datahubConfig),
           getCommonFabricType(datahubConfig))));
     });
     PLAN_TO_DATASET.put(CreateHiveTableAsSelectCommand.class, (p, ctx, datahubConfig) -> {
       CreateHiveTableAsSelectCommand cmd = (CreateHiveTableAsSelectCommand) p;
       return Optional.of(Collections.singletonList(new CatalogTableDataset(cmd.tableDesc(),
-          getCommonPlatformInstance(datahubConfig), getTablePlatform(datahubConfig),
+          getCommonPlatformInstance(datahubConfig), getTableHivePlatformAlias(datahubConfig),
           getCommonFabricType(datahubConfig))));
     });
     PLAN_TO_DATASET.put(InsertIntoHiveTable.class, (p, ctx, datahubConfig) -> {
       InsertIntoHiveTable cmd = (InsertIntoHiveTable) p;
       return Optional.of(Collections.singletonList(new CatalogTableDataset(cmd.table(),
-          getCommonPlatformInstance(datahubConfig), getTablePlatform(datahubConfig),
+          getCommonPlatformInstance(datahubConfig), getTableHivePlatformAlias(datahubConfig),
           getCommonFabricType(datahubConfig))));
     });
 
     PLAN_TO_DATASET.put(HiveTableRelation.class, (p, ctx, datahubConfig) -> {
       HiveTableRelation cmd = (HiveTableRelation) p;
       return Optional.of(Collections.singletonList(new CatalogTableDataset(cmd.tableMeta(),
-          getCommonPlatformInstance(datahubConfig), getTablePlatform(datahubConfig),
+          getCommonPlatformInstance(datahubConfig), getTableHivePlatformAlias(datahubConfig),
           getCommonFabricType(datahubConfig))));
     });
 
@@ -268,8 +268,8 @@ public class DatasetExtractor {
         : null;
   }
 
-  private static String getTablePlatform(Config datahubConfig) {
-   return datahubConfig.hasPath(TABLE_PLATFORM_KEY) ? datahubConfig.getString(TABLE_PLATFORM_KEY)
+  private static String getTableHivePlatformAlias(Config datahubConfig) {
+   return datahubConfig.hasPath(TABLE_HIVE_PLATFORM_ALIAS) ? datahubConfig.getString(TABLE_HIVE_PLATFORM_ALIAS)
        : "hive";
   }
 

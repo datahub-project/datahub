@@ -109,7 +109,7 @@ class AthenaSource(SQLAlchemySource):
         self, inspector: Inspector, schema: str, table: str
     ) -> Tuple[Optional[str], Dict[str, str], Optional[str]]:
         if not self.cursor:
-            self.cursor = inspector.dialect._raw_connection(inspector.engine).cursor()
+            self.cursor = inspector.engine.raw_connection().cursor()
 
         assert self.cursor
         # Unfortunately properties can be only get through private methods as those are not exposed

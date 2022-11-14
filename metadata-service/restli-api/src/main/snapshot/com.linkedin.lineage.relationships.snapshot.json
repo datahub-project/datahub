@@ -122,7 +122,7 @@
               }
             },
             "doc" : "Optional list of entities between the source and destination node.\nThere can be multiple paths from the source to the destination.",
-            "default" : [ [ ] ]
+            "default" : [ ]
           }, {
             "name" : "path",
             "type" : {
