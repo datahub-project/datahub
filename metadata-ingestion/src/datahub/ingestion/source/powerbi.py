@@ -125,6 +125,12 @@ class PowerBiAPIConfig(EnvBasedSourceConfigBase):
     extract_ownership: bool = pydantic.Field(
         default=True, description="Whether ownership should be ingested"
     )
+    scan_all_workspaces: bool = pydantic.Field(
+        default=False, description="Scan all workspaces the role has access to"
+    )
+    scan_exclusion_list: List[str] = pydantic.Field(
+        default=[], description="List of workspace IDs which are excluded from scan"
+    )
 
 
 class PowerBiDashboardSourceConfig(PowerBiAPIConfig):
@@ -552,6 +558,33 @@ class PowerBiAPI:
             tables=[],
             datasource=None,
         )
+
+    def get_groups(self):
+        # Replace place holders
+        dataset_query_endpoint = PowerBiAPI.BASE_URL
+        # Hit PowerBi
+        LOGGER.info(f"Request to get groups endpoint URL={dataset_query_endpoint}")
+        response = requests.get(
+            dataset_query_endpoint,
+            headers={Constant.Authorization: self.get_access_token()},
+        )
+        response.raise_for_status()
+        return response.json()
+
+    def get_workspaces(self):
+        groups = self.get_groups()
+        workspaces = [
+            PowerBiAPI.Workspace(
+                id=workspace.get("id"),
+                name=workspace.get("name"),
+                state='',
+                datasets={},
+                dashboards=[],
+            )
+            for workspace in groups.get("value", [])
+            if workspace["type"] == "Workspace"
+        ]
+        return workspaces
 
     def get_data_source(self, dataset: Dataset) -> Any:
         """
@@ -1372,6 +1405,17 @@ class PowerBiDashboardSource(Source):
         config = PowerBiDashboardSourceConfig.parse_obj(config_dict)
         return cls(config, ctx)
 
+    def get_workspace_ids(self) -> Iterable[str]:
+        if not self.source_config.scan_all_workspaces:
+            return self.source_config.workspace_id,
+
+        all_workspaces = self.powerbi_client.get_workspaces()
+        return [
+            workspace.id for workspace
+            in all_workspaces
+            if workspace.id not in self.source_config.scan_exclusion_list
+        ]
+
     def get_workunits(self) -> Iterable[MetadataWorkUnit]:
         """
         Datahub Ingestion framework invoke this method
@@ -1379,28 +1423,30 @@ class PowerBiDashboardSource(Source):
         LOGGER.info("PowerBi plugin execution is started")
 
         # Fetch PowerBi workspace for given workspace identifier
-        workspace = self.powerbi_client.get_workspace(self.source_config.workspace_id)
+        for workspace_id in self.get_workspace_ids():
+            LOGGER.info(f"Scanning {workspace_id=}")
+            workspace = self.powerbi_client.get_workspace(workspace_id)
 
-        for dashboard in workspace.dashboards:
+            for dashboard in workspace.dashboards:
 
-            try:
-                # Fetch PowerBi users for dashboards
-                dashboard.users = self.powerbi_client.get_dashboard_users(dashboard)
-                # Increase dashboard and tiles count in report
-                self.reporter.report_dashboards_scanned()
-                self.reporter.report_charts_scanned(count=len(dashboard.tiles))
-            except Exception as e:
-                message = f"Error ({e}) occurred while loading dashboard {dashboard.displayName}(id={dashboard.id}) tiles."
+                try:
+                    # Fetch PowerBi users for dashboards
+                    dashboard.users = self.powerbi_client.get_dashboard_users(dashboard)
+                    # Increase dashboard and tiles count in report
+                    self.reporter.report_dashboards_scanned()
+                    self.reporter.report_charts_scanned(count=len(dashboard.tiles))
+                except Exception as e:
+                    message = f"Error ({e}) occurred while loading dashboard {dashboard.displayName}(id={dashboard.id}) tiles."
 
-                LOGGER.exception(message, e)
-                self.reporter.report_warning(dashboard.id, message)
-            # Convert PowerBi Dashboard and child entities to Datahub work unit to ingest into Datahub
-            workunits = self.mapper.to_datahub_work_units(dashboard)
-            for workunit in workunits:
-                # Add workunit to report
-                self.reporter.report_workunit(workunit)
-                # Return workunit to Datahub Ingestion framework
-                yield workunit
+                    LOGGER.exception(message, e)
+                    self.reporter.report_warning(dashboard.id, message)
+                # Convert PowerBi Dashboard and child entities to Datahub work unit to ingest into Datahub
+                workunits = self.mapper.to_datahub_work_units(dashboard)
+                for workunit in workunits:
+                    # Add workunit to report
+                    self.reporter.report_workunit(workunit)
+                    # Return workunit to Datahub Ingestion framework
+                    yield workunit
 
     def get_report(self) -> SourceReport:
         return self.reporter
