@@ -168,8 +168,9 @@ redshift_common = {
 snowflake_common = {
     # Snowflake plugin utilizes sql common
     *sql_common,
-    # Required for all Snowflake sources
-    "snowflake-sqlalchemy<=1.2.4",
+    # Required for all Snowflake sources.
+    # See https://github.com/snowflakedb/snowflake-sqlalchemy/issues/234 for why 1.2.5 is blocked.
+    "snowflake-sqlalchemy>=1.2.4, !=1.2.5",
     "cryptography",
     "msal",
 }
