@@ -56,7 +56,7 @@ function clearFieldAndParents(recipe: any, fieldPath: string | string[]) {
 export function setFieldValueOnRecipe(recipe: any, value: any, fieldPath: string | string[]) {
     const updatedRecipe = { ...recipe };
     if (value !== undefined) {
-        if (value === null) {
+        if (value === null || value === '') {
             clearFieldAndParents(updatedRecipe, fieldPath);
             return updatedRecipe;
         }

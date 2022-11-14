@@ -28,6 +28,7 @@ from datahub.configuration.common import (
     ConfigEnum,
     ConfigModel,
     ConfigurationError,
+    LineageConfig,
 )
 from datahub.configuration.github import GitHubReference
 from datahub.emitter import mce_builder
@@ -120,6 +121,7 @@ from datahub.metadata.schema_classes import (
     UpstreamLineageClass,
     ViewPropertiesClass,
 )
+from datahub.specific.dataset import DatasetPatchBuilder
 from datahub.utilities.mapping import Constants, OperationProcessor
 from datahub.utilities.time import datetime_to_ts_millis
 
@@ -212,7 +214,7 @@ class DBTEntitiesEnabled(ConfigModel):
         return self.test_results == EmitDirective.YES
 
 
-class DBTCommonConfig(StatefulIngestionConfigBase):
+class DBTCommonConfig(StatefulIngestionConfigBase, LineageConfig):
     env: str = Field(
         default=mce_builder.DEFAULT_ENV,
         description="Environment to use in namespace when constructing URNs.",
@@ -484,6 +486,7 @@ def get_upstream_lineage(upstream_urns: List[str]) -> UpstreamLineage:
             dataset=dep,
             type=DatasetLineageTypeClass.TRANSFORMED,
         )
+        uc.auditStamp.time = int(datetime.utcnow().timestamp() * 1000)
         ucl.append(uc)
 
     return UpstreamLineage(upstreams=ucl)
@@ -1056,7 +1059,25 @@ class DBTSourceBase(StatefulIngestionSourceBase):
                         self.config.platform_instance,
                     )
                     upstreams_lineage_class = get_upstream_lineage([upstream_dbt_urn])
-                    aspects.append(upstreams_lineage_class)
+                    if self.config.incremental_lineage:
+                        patch_builder: DatasetPatchBuilder = DatasetPatchBuilder(
+                            urn=node_datahub_urn
+                        )
+                        for upstream in upstreams_lineage_class.upstreams:
+                            patch_builder.add_upstream_lineage(upstream)
+
+                        lineage_workunits = [
+                            MetadataWorkUnit(
+                                id=f"upstreamLineage-for-{node_datahub_urn}",
+                                mcp_raw=mcp,
+                            )
+                            for mcp in patch_builder.build()
+                        ]
+                        for wu in lineage_workunits:
+                            yield wu
+                            self.report.report_workunit(wu)
+                    else:
+                        aspects.append(upstreams_lineage_class)
 
             if len(aspects) == 0:
                 continue

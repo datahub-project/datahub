@@ -18,8 +18,6 @@ from datahub.cli.migrate import migrate
 from datahub.cli.put_cli import put
 from datahub.cli.telemetry import telemetry as telemetry_cli
 from datahub.cli.timeline_cli import timeline
-from datahub.configuration import SensitiveError
-from datahub.configuration.common import ConfigurationError
 from datahub.telemetry import telemetry
 from datahub.utilities.server_config_util import get_gms_config
 
@@ -45,9 +43,22 @@ MAX_CONTENT_WIDTH = 120
         # Avoid truncation of help text.
         # See https://github.com/pallets/click/issues/486.
         max_content_width=MAX_CONTENT_WIDTH,
-    )
+    ),
 )
-@click.option("--debug/--no-debug", default=False)
+@click.option(
+    "--debug/--no-debug",
+    type=bool,
+    is_flag=True,
+    default=False,
+    help="Enable debug logging.",
+)
+@click.option(
+    "--debug-vars/--no-debug-vars",
+    type=bool,
+    is_flag=True,
+    default=False,
+    help="Show variable values in stack traces. Implies --debug. While we try to avoid printing sensitive information like passwords, this may still happen.",
+)
 @click.version_option(
     version=datahub_package.nice_version_name(),
     prog_name=datahub_package.__package_name__,
@@ -61,7 +72,12 @@ MAX_CONTENT_WIDTH = 120
     help="Run memory leak detection.",
 )
 @click.pass_context
-def datahub(ctx: click.Context, debug: bool, detect_memory_leaks: bool) -> None:
+def datahub(
+    ctx: click.Context, debug: bool, debug_vars: bool, detect_memory_leaks: bool
+) -> None:
+    if debug_vars:
+        debug = True
+
     # Insulate 'datahub' and all child loggers from inadvertent changes to the
     # root logger by the external site packages that we import.
     # (Eg: https://github.com/reata/sqllineage/commit/2df027c77ea0a8ea4909e471dcd1ecbf4b8aeb2f#diff-30685ea717322cd1e79c33ed8d37903eea388e1750aa00833c33c0c5b89448b3R11
@@ -85,8 +101,7 @@ def datahub(ctx: click.Context, debug: bool, detect_memory_leaks: bool) -> None:
     else:
         logging.getLogger().setLevel(logging.WARNING)
         datahub_logger.setLevel(logging.INFO)
-    # loggers = [logging.getLogger(name) for name in logging.root.manager.loggerDict]
-    # print(loggers)
+
     # Setup the context for the memory_leak_detector decorator.
     ctx.ensure_object(dict)
     ctx.obj["detect_memory_leaks"] = detect_memory_leaks
@@ -147,25 +162,27 @@ def main(**kwargs):
     # This wrapper prevents click from suppressing errors.
     try:
         sys.exit(datahub(standalone_mode=False, **kwargs))
-    except click.exceptions.Abort:
+    except click.Abort:
         # Click already automatically prints an abort message, so we can just exit.
         sys.exit(1)
     except click.ClickException as error:
         error.show()
         sys.exit(1)
     except Exception as exc:
-        kwargs = {}
-        sensitive_cause = SensitiveError.get_sensitive_cause(exc)
-        if sensitive_cause:
-            kwargs = {"show_vals": None}
-            exc = sensitive_cause
-
-        # suppress stack printing for common configuration errors
-        if isinstance(exc, (ConfigurationError, ValidationError)):
-            logger.error(exc)
+        if "--debug-vars" in sys.argv:
+            show_vals = "like_source"
         else:
-            # only print stacktraces during debug
-            logger.debug(
+            # Unless --debug-vars is passed, we don't want to print the values of variables.
+            show_vals = None
+
+        if isinstance(exc, ValidationError) or isinstance(
+            exc.__cause__, ValidationError
+        ):
+            # Don't print the full stack trace for simple config errors.
+            logger.error(exc)
+        elif logger.isEnabledFor(logging.DEBUG):
+            # We only print rich stacktraces during debug.
+            logger.error(
                 stackprinter.format(
                     exc,
                     line_wrap=MAX_CONTENT_WIDTH,
@@ -182,19 +199,12 @@ def main(**kwargs):
                         r".*cparams.*",
                     ],
                     suppressed_paths=[r"lib/python.*/site-packages/click/"],
-                    **kwargs,
+                    show_vals=show_vals,
                 )
             )
+        else:
+            logger.exception(f"Command failed: {exc}")
 
-            if "--debug" not in sys.argv:
-                pretty_msg = _get_pretty_chained_message(exc)
-                # log the exception with a basic traceback
-                logger.exception(msg="", exc_info=exc)
-                debug_variant_command = " ".join(["datahub", "--debug"] + sys.argv[1:])
-                # log a more human readable message at the very end
-                logger.error(
-                    f"Command failed: \n\t{pretty_msg}.\n\tRun with --debug to get full stacktrace.\n\te.g. '{debug_variant_command}'"
-                )
         logger.debug(
             f"DataHub CLI version: {datahub_package.__version__} at {datahub_package.__file__}"
         )

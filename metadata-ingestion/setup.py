@@ -1,4 +1,5 @@
 import os
+import sys
 from typing import Dict, Set
 
 import setuptools
@@ -28,14 +29,14 @@ base_requirements = {
 }
 
 framework_common = {
-    "click>=6.0.0",
+    "click>=7.1.2",
     "click-default-group",
     "PyYAML",
     "toml>=0.10.0",
     "entrypoints",
     "docker",
     "expandvars>=0.6.5",
-    "avro-gen3==0.7.6",
+    "avro-gen3==0.7.7",
     # "avro-gen3 @ git+https://github.com/acryldata/avro_gen@master#egg=avro-gen3",
     "avro>=1.10.2,<1.11",
     "python-dateutil>=2.8.0",
@@ -43,17 +44,19 @@ framework_common = {
     "tabulate",
     "progressbar2",
     "termcolor>=1.0.0",
-    "types-termcolor>=1.0.0",
     "psutil>=5.8.0",
     "ratelimiter",
     "Deprecated",
-    "types-Deprecated",
     "humanfriendly",
     "packaging",
     "aiohttp<4",
     "cached_property",
     "ijson",
     "click-spinner",
+}
+
+rest_common = {
+    "requests",
 }
 
 kafka_common = {
@@ -97,14 +100,14 @@ kafka_common = {
 kafka_protobuf = {
     "networkx>=2.6.2",
     # Required to generate protobuf python modules from the schema downloaded from the schema registry
-    "grpcio==1.44.0",
-    "grpcio-tools==1.44.0",
-    "types-protobuf",
+    # NOTE: potential conflict with feast also depending on grpcio
+    "grpcio>=1.44.0,<2",
+    "grpcio-tools>=1.44.0,<2",
 }
 
 sql_common = {
     # Required for all SQL sources.
-    "sqlalchemy==1.3.24",
+    "sqlalchemy>=1.3.24, <2",
     # Required for SQL profiling.
     "great-expectations>=0.15.12",
     # GE added handling for higher version of jinja2
@@ -148,6 +151,12 @@ bigquery_common = {
     "more-itertools>=8.12.0",
 }
 
+clickhouse_common = {
+    # Clickhouse 0.1.8 requires SQLAlchemy 1.3.x, while the newer versions
+    # allow SQLAlchemy 1.4.x.
+    "clickhouse-sqlalchemy>=0.1.8",
+}
+
 redshift_common = {
     "sqlalchemy-redshift",
     "psycopg2-binary",
@@ -159,8 +168,9 @@ redshift_common = {
 snowflake_common = {
     # Snowflake plugin utilizes sql common
     *sql_common,
-    # Required for all Snowflake sources
-    "snowflake-sqlalchemy<=1.2.4",
+    # Required for all Snowflake sources.
+    # See https://github.com/snowflakedb/snowflake-sqlalchemy/issues/234 for why 1.2.5 is blocked.
+    "snowflake-sqlalchemy>=1.2.4, !=1.2.5",
     "cryptography",
     "msal",
 }
@@ -201,19 +211,26 @@ delta_lake = {
     "deltalake",
 }
 
+powerbi_report_server = {"requests", "requests_ntlm"}
+
 usage_common = {
     "sqlparse",
 }
 
+databricks_cli = {
+    "databricks-cli==0.17.3",
+}
 
 # Note: for all of these, framework_common will be added.
 plugins: Dict[str, Set[str]] = {
     # Sink plugins.
     "datahub-kafka": kafka_common,
-    "datahub-rest": {"requests"},
+    "datahub-rest": rest_common,
     # Integrations.
     "airflow": {
-        "apache-airflow >= 1.10.2",
+        "apache-airflow >= 2.0.2",
+        *rest_common,
+        *kafka_common,
     },
     "circuit-breaker": {
         "gql>=3.3.0",
@@ -228,18 +245,15 @@ plugins: Dict[str, Set[str]] = {
     | bigquery_common
     | {"sqlalchemy-bigquery>=1.4.1", "sqllineage==1.3.6", "sqlparse"},
     "bigquery-usage-legacy": bigquery_common | usage_common | {"cachetools"},
-    "bigquery": sql_common
-    | bigquery_common
-    | {"sqllineage==1.3.6", "sql_metadata"},
+    "bigquery": sql_common | bigquery_common | {"sqllineage==1.3.6", "sql_metadata"},
     "bigquery-beta": sql_common
     | bigquery_common
-    | {"sqllineage==1.3.6", "sql_metadata"}, # deprecated, but keeping the extra for backwards compatibility
-    "clickhouse": sql_common | {"clickhouse-sqlalchemy==0.1.8"},
-    "clickhouse-usage": sql_common
-    | usage_common
     | {
-        "clickhouse-sqlalchemy==0.1.8",
-    },
+        "sqllineage==1.3.6",
+        "sql_metadata",
+    },  # deprecated, but keeping the extra for backwards compatibility
+    "clickhouse": sql_common | clickhouse_common,
+    "clickhouse-usage": sql_common | usage_common | clickhouse_common,
     "datahub-lineage-file": set(),
     "datahub-business-glossary": set(),
     "delta-lake": {*data_lake_profiling, *delta_lake},
@@ -251,7 +265,7 @@ plugins: Dict[str, Set[str]] = {
     # https://github.com/elastic/elasticsearch-py/issues/1639#issuecomment-883587433
     "elasticsearch": {"elasticsearch==7.13.4"},
     "feast-legacy": {"docker"},
-    "feast": {"feast==0.18.0", "flask-openid>=1.3.0"},
+    "feast": {"feast~=0.26.0", "flask-openid>=1.3.0"},
     "glue": aws_common,
     # hdbcli is supported officially by SAP, sqlalchemy-hana is built on top but not officially supported
     "hana": sql_common
@@ -321,7 +335,9 @@ plugins: Dict[str, Set[str]] = {
     "starburst-trino-usage": sql_common | usage_common | trino,
     "nifi": {"requests", "packaging"},
     "powerbi": microsoft_common,
+    "powerbi-report-server": powerbi_report_server,
     "vertica": sql_common | {"sqlalchemy-vertica[vertica-python]==0.0.5"},
+    "unity-catalog": databricks_cli | {"requests"},
 }
 
 all_exclude_plugins: Set[str] = {
@@ -332,7 +348,6 @@ all_exclude_plugins: Set[str] = {
 
 mypy_stubs = {
     "types-dataclasses",
-    "sqlalchemy-stubs",
     "types-pkg_resources",
     "types-six",
     "types-python-dateutil",
@@ -351,6 +366,9 @@ mypy_stubs = {
     "types-pyOpenSSL",
     "types-click-spinner",
     "types-ujson>=5.2.0",
+    "types-termcolor>=1.0.0",
+    "types-Deprecated",
+    "types-protobuf",
 }
 
 base_dev_requirements = {
@@ -363,7 +381,10 @@ base_dev_requirements = {
     "flake8>=3.8.3",
     "flake8-tidy-imports>=4.3.0",
     "isort>=5.7.0",
-    "mypy>=0.981",
+    # mypy 0.990 enables namespace packages by default and sets
+    # no implicit optional to True.
+    # FIXME: Enable mypy 0.990 when our codebase is fixed.
+    "mypy>=0.981,<0.990",
     # pydantic 1.8.2 is incompatible with mypy 0.910.
     # See https://github.com/samuelcolvin/pydantic/pull/3175#issuecomment-995382910.
     # Restricting top version to <1.10 until we can fix our types.
@@ -389,6 +410,7 @@ base_dev_requirements = {
             "delta-lake",
             "druid",
             "elasticsearch",
+            "feast" if sys.version_info >= (3, 8) else None,
             "iceberg",
             "ldap",
             "looker",
@@ -410,42 +432,21 @@ base_dev_requirements = {
             "hive",
             "starburst-trino-usage",
             "powerbi",
+            "powerbi-report-server",
             "vertica",
-            "salesforce"
+            "salesforce",
+            "unity-catalog"
             # airflow is added below
         ]
+        if plugin
         for dependency in plugins[plugin]
     ),
 }
-
-base_dev_requirements_airflow_1 = base_dev_requirements.copy()
-
-base_dev_requirements = base_dev_requirements.union(
-    # The feast plugin is not compatible with Airflow 1, so we add it later.
-    {
-        dependency
-        for plugin in [
-            "feast",
-        ]
-        for dependency in plugins[plugin]
-    }
-)
-
 
 dev_requirements = {
     *base_dev_requirements,
     "apache-airflow[snowflake]>=2.0.2",  # snowflake is used in example dags
     "snowflake-sqlalchemy<=1.2.4",  # make constraint consistent with extras
-}
-dev_requirements_airflow_1_base = {
-    "apache-airflow==1.10.15",
-    "apache-airflow-backport-providers-snowflake",
-    "snowflake-sqlalchemy<=1.2.4",  # make constraint consistent with extras
-    "WTForms==2.3.3",  # make constraint consistent with extras
-}
-dev_requirements_airflow_1 = {
-    *base_dev_requirements_airflow_1,
-    *dev_requirements_airflow_1_base,
 }
 
 full_test_dev_requirements = {
@@ -457,7 +458,6 @@ full_test_dev_requirements = {
             "clickhouse",
             "delta-lake",
             "druid",
-            "feast",
             "feast-legacy",
             "hana",
             "hive",
@@ -530,11 +530,13 @@ entry_points = {
         "starburst-trino-usage = datahub.ingestion.source.usage.starburst_trino_usage:TrinoUsageSource",
         "nifi = datahub.ingestion.source.nifi:NifiSource",
         "powerbi = datahub.ingestion.source.powerbi:PowerBiDashboardSource",
+        "powerbi-report-server = datahub.ingestion.source.powerbi_report_server:PowerBiReportServerDashboardSource",
         "iceberg = datahub.ingestion.source.iceberg.iceberg:IcebergSource",
         "vertica = datahub.ingestion.source.sql.vertica:VerticaSource",
         "presto-on-hive = datahub.ingestion.source.sql.presto_on_hive:PrestoOnHiveSource",
         "pulsar = datahub.ingestion.source.pulsar:PulsarSource",
         "salesforce = datahub.ingestion.source.salesforce:SalesforceSource",
+        "unity-catalog = datahub.ingestion.source.unity.source:UnityCatalogSource",
     ],
     "datahub.ingestion.sink.plugins": [
         "file = datahub.ingestion.sink.file:FileSink",
@@ -617,8 +619,6 @@ setuptools.setup(
             )
         ),
         "dev": list(dev_requirements),
-        "dev-airflow1-base": list(dev_requirements_airflow_1_base),
-        "dev-airflow1": list(dev_requirements_airflow_1),
         "integration-tests": list(full_test_dev_requirements),
     },
 )

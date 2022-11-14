@@ -175,7 +175,7 @@ module.exports = {
       // "docs/wip/csv-enrichment",
       // "docs/wip/ui-based-enrichment",
       "docs/domains",
-      "docs/how/business-glossary-guide",
+      "docs/glossary/business-glossary",
       "docs/tags",
       {
         Lineage: ["docs/lineage/intro", "docs/lineage/sample_code"],
@@ -183,7 +183,7 @@ module.exports = {
     ],
 
     "Act on Metadata": [
-      // "docs/wip/act-on-metadata",
+      "docs/act-on-metadata",
       {
         "Actions Framework": [
           "docs/actions/README",
@@ -448,9 +448,9 @@ module.exports = {
       // "docs/wip/tutorials",
       "docs/how/search",
       "docs/schema-history",
-      "docs/how/ui-tabs-guide",
+      // "docs/how/ui-tabs-guide",
       "docs/domains",
-      "docs/how/business-glossary-guide",
+      "docs/glossary/business-glossary",
       "docs/tags",
       "docs/browse",
       "docs/authorization/access-policies-guide",
