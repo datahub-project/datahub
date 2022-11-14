@@ -17,8 +17,6 @@ dependencies {
     implementation 'org.apache.ranger:ranger-plugins-common:2.2.0'
     implementation project(path: ':metadata-auth:auth-api')
     implementation externalDependency.lombok
-
-
     annotationProcessor externalDependency.lombok
     testImplementation externalDependency.mockito
     testImplementation project(path: ':metadata-utils')

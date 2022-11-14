@@ -59,7 +59,7 @@ datahub:
   plugin:
     pluginSecurityMode: ${PLUGIN_SECURITY_MODE:RESTRICTED} # Possible value RESTRICTED or LENIENT, default to RESTRICTED
     entityRegistry:
-      path: ${ENTITY_REGISTRY_PLUGIN_PATH:/etc/datahub/plugins/models}
+        path: ${ENTITY_REGISTRY_PLUGIN_PATH:/etc/datahub/plugins/models}
     retention:
       path: ${RETENTION_PLUGIN_PATH:/etc/datahub/plugins/retention}
     auth:

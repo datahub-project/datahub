@@ -248,7 +248,7 @@ import com.linkedin.datahub.graphql.types.schemafield.SchemaFieldType;
 import com.linkedin.datahub.graphql.types.tag.TagType;
 import com.linkedin.datahub.graphql.types.test.TestType;
 import com.linkedin.entity.client.EntityClient;
-import com.linkedin.metadata.config.DatahubConfiguration;
+import com.linkedin.metadata.config.DataHubConfiguration;
 import com.linkedin.metadata.config.IngestionConfiguration;
 import com.linkedin.metadata.config.TestsConfiguration;
 import com.linkedin.metadata.config.VisualConfiguration;
@@ -326,7 +326,7 @@ public class GmsGraphQLEngine {
     private final VisualConfiguration visualConfiguration;
     private final TelemetryConfiguration telemetryConfiguration;
     private final TestsConfiguration testsConfiguration;
-    private final DatahubConfiguration datahubConfiguration;
+    private final DataHubConfiguration datahubConfiguration;
 
     private final DatasetType datasetType;
     private final CorpUserType corpUserType;
@@ -392,7 +392,7 @@ public class GmsGraphQLEngine {
         final AuthorizationConfiguration authorizationConfiguration, final GitVersion gitVersion,
         final TimelineService timelineService, final boolean supportsImpactAnalysis,
         final VisualConfiguration visualConfiguration, final TelemetryConfiguration telemetryConfiguration,
-        final TestsConfiguration testsConfiguration, final DatahubConfiguration datahubConfiguration,
+        final TestsConfiguration testsConfiguration, final DataHubConfiguration datahubConfiguration,
         final SiblingGraphService siblingGraphService, final GroupService groupService, final RoleService roleService,
         final InviteTokenService inviteTokenService, final PostService postService, final FeatureFlags featureFlags) {
 

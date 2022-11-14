@@ -5,7 +5,7 @@ import lombok.Data;
  * POJO representing the "datahub" configuration block in application.yml.
  */
 @Data
-public class  DatahubConfiguration {
+public class DataHubConfiguration {
   /**
    * Indicates the type of server that has been deployed: quickstart, prod, or a custom configuration
    */

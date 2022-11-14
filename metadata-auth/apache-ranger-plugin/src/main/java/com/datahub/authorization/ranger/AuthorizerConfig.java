@@ -22,11 +22,11 @@ public class AuthorizerConfig {
     public AuthorizerConfig build() {
 
       if (super.username == null || super.username.trim().length() == 0) {
-        throw new IllegalArgumentException("username should not empty");
+        throw new IllegalArgumentException("username should not be empty");
       }
 
       if (super.password == null || super.password.trim().length() == 0) {
-        throw new IllegalArgumentException("password should not empty");
+        throw new IllegalArgumentException("password should not be empty");
       }
 
       return super.build();
