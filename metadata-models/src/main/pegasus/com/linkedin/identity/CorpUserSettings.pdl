@@ -15,5 +15,5 @@ record CorpUserSettings {
   /**
    * User preferences for the Views feature.
    */
-  views: CorpUserViewsSettings
+  views: optional CorpUserViewsSettings
 }

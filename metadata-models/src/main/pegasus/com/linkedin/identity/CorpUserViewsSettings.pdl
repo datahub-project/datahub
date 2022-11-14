@@ -8,6 +8,7 @@ import com.linkedin.common.Urn
 record CorpUserViewsSettings {
   /**
    * The default View which is selected for the user.
+   * If none is chosen, then this value will be left blank.
    */
-  defaultView: Urn
+  defaultView: optional Urn
 }

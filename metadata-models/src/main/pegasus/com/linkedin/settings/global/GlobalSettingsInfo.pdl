@@ -10,5 +10,5 @@ record GlobalSettingsInfo {
   /**
    * Settings related to the Views Feature
    */
-   views: GlobalViewsSettings
+   views: optional GlobalViewsSettings
 }

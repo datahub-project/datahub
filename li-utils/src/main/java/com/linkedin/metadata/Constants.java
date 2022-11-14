@@ -246,6 +246,7 @@ public class Constants {
   public static final int PASSWORD_RESET_TOKEN_LENGTH = 32;
 
   // Views
+  public static final String DATAHUB_VIEW_KEY_ASPECT_NAME = "dataHubViewKey";
   public static final String DATAHUB_VIEW_INFO_ASPECT_NAME = "dataHubViewInfo";
 
   // Settings

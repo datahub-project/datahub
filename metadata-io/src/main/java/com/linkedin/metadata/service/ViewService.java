@@ -57,7 +57,7 @@ public class ViewService extends BaseService {
       @Nullable String description,
       @Nonnull DataHubViewDefinition definition,
       @Nonnull Authentication authentication,
-      long currentTimeMs) throws RemoteInvocationException {
+      long currentTimeMs) {
     Objects.requireNonNull(type, "type must not be null");
     Objects.requireNonNull(name, "name must not be null");
     Objects.requireNonNull(definition, "definition must not be null");
@@ -117,7 +117,7 @@ public class ViewService extends BaseService {
       @Nullable String description,
       @Nullable DataHubViewDefinition definition,
       @Nonnull Authentication authentication,
-      long currentTimeMs) throws RemoteInvocationException {
+      long currentTimeMs) {
     Objects.requireNonNull(viewUrn, "viewUrn must not be null");
     Objects.requireNonNull(authentication, "authentication must not be null");
 
@@ -166,7 +166,7 @@ public class ViewService extends BaseService {
    */
   public void deleteView(
       @Nonnull Urn viewUrn,
-      @Nonnull Authentication authentication) throws RemoteInvocationException {
+      @Nonnull Authentication authentication) {
     try {
       this.entityClient.deleteEntity(
           Objects.requireNonNull(viewUrn, "viewUrn must not be null"),

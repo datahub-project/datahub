@@ -9,5 +9,5 @@ record GlobalViewsSettings {
   /**
    * The default View for the instance, or organization.
    */
-   defaultView: Urn
+   defaultView: optional Urn
 }
