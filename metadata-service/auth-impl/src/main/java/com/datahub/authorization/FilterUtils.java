@@ -1,6 +1,5 @@
 package com.datahub.authorization;
 
-import com.datahub.authorization.ResourceFieldType;
 import com.linkedin.data.template.StringArray;
 import com.linkedin.policy.PolicyMatchCondition;
 import com.linkedin.policy.PolicyMatchCriterion;
