@@ -10,6 +10,9 @@ const config: any = {
     //    apiKey: 'c5c212632315d19c752ab083bc7c92ff',
     // },
     // logging: true,
+    googleTagManager: {
+        containerId: 'GTM-PLWQQZB',
+    },
     datahub: {
         enabled: true,
     },
