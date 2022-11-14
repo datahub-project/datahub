@@ -21,15 +21,15 @@ public class PluginPermissionManagerImpl implements PluginPermissionManager {
   }
 
   @Override
-  public ProtectionDomain createProtectionDomain(Path sourceCodeDirectory) {
+  public ProtectionDomain createProtectionDomain(@Nonnull Path pluginHome) {
     {
       URL url = null;
       try {
-        url = sourceCodeDirectory.toUri().toURL();
+        url = pluginHome.toUri().toURL();
       } catch (MalformedURLException e) {
         throw new RuntimeException(e);
       }
-      Permissions permissions = this._securityMode.permissionsSupplier().apply(sourceCodeDirectory);
+      Permissions permissions = this._securityMode.permissionsSupplier().apply(pluginHome);
       CodeSource codeSource = new CodeSource(url, (Certificate[]) null);
       return new ProtectionDomain(codeSource, permissions);
     }
