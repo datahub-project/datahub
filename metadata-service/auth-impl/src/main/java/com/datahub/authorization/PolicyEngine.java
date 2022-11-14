@@ -1,8 +1,6 @@
 package com.datahub.authorization;
 
 import com.datahub.authentication.Authentication;
-import com.datahub.authorization.ResolvedResourceSpec;
-import com.datahub.authorization.ResourceFieldType;
 import com.google.common.collect.ImmutableSet;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
