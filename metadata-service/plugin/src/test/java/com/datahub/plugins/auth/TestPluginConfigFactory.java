@@ -1,6 +1,5 @@
 package com.datahub.plugins.auth;
 
-import com.datahub.plugins.auth.configuration.AuthenticatorPluginConfig;
 import com.datahub.plugins.common.PluginConfig;
 import com.datahub.plugins.common.PluginType;
 import com.datahub.plugins.configuration.Config;
@@ -25,7 +24,8 @@ public class TestPluginConfigFactory {
     PluginConfigFactory authenticatorPluginConfigFactory = new PluginConfigFactory(config);
 
     // Load authenticator plugin configuration
-    List<PluginConfig> authenticatorConfigs = authenticatorPluginConfigFactory.loadPluginConfigs(PluginType.AUTHENTICATOR);
+    List<PluginConfig> authenticatorConfigs =
+        authenticatorPluginConfigFactory.loadPluginConfigs(PluginType.AUTHENTICATOR);
     authenticatorConfigs.forEach(c -> {
       assert c.getClassName().equals("com.datahub.ranger.Authenticator"); // className should match to Authenticator
     });
@@ -35,7 +35,5 @@ public class TestPluginConfigFactory {
     authorizerConfigs.forEach(c -> {
       assert c.getClassName().equals("com.datahub.ranger.Authorizer"); // className should match to Authorizer
     });
-
   }
-
 }

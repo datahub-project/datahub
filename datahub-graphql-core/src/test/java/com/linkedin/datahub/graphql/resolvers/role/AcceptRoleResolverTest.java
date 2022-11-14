@@ -1,7 +1,7 @@
 package com.linkedin.datahub.graphql.resolvers.role;
 
-import com.datahub.plugins.auth.authentication.Actor;
-import com.datahub.plugins.auth.authentication.Authentication;
+import com.datahub.authentication.Actor;
+import com.datahub.authentication.Authentication;
 import com.datahub.auth.authentication.invite.InviteTokenService;
 import com.datahub.auth.authorization.role.RoleService;
 import com.linkedin.common.urn.Urn;

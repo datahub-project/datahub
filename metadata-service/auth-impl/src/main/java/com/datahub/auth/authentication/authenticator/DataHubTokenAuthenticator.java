@@ -4,22 +4,22 @@ import com.datahub.auth.authentication.token.StatefulTokenService;
 import com.datahub.auth.authentication.token.StatelessTokenService;
 import com.datahub.auth.authentication.token.TokenClaims;
 import com.datahub.auth.authentication.token.TokenExpiredException;
-import com.datahub.plugins.auth.authentication.Actor;
+import com.datahub.authentication.Actor;
 
-import com.datahub.plugins.auth.authentication.Authentication;
-import com.datahub.auth.authentication.AuthenticationConstants;
-import com.datahub.plugins.auth.authentication.AuthenticationExpiredException;
-import com.datahub.plugins.auth.authentication.AuthenticationRequest;
-import com.datahub.plugins.auth.authentication.AuthenticationException;
+import com.datahub.authentication.Authentication;
+import com.datahub.authentication.AuthenticationConstants;
+import com.datahub.authentication.AuthenticationExpiredException;
+import com.datahub.authentication.AuthenticationRequest;
+import com.datahub.authentication.AuthenticationException;
 import com.datahub.plugins.auth.authentication.Authenticator;
-import com.datahub.plugins.auth.authentication.AuthenticatorContext;
+import com.datahub.authentication.AuthenticatorContext;
 import com.linkedin.metadata.entity.EntityService;
 import javax.annotation.Nonnull;
 import java.util.Map;
 import java.util.Objects;
 import lombok.extern.slf4j.Slf4j;
 
-import static com.datahub.auth.authentication.AuthenticationConstants.*;
+import static com.datahub.authentication.AuthenticationConstants.*;
 
 
 /**

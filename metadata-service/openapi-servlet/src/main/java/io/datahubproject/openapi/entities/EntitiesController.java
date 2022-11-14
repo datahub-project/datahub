@@ -2,8 +2,8 @@ package io.datahubproject.openapi.entities;
 
 import com.codahale.metrics.MetricRegistry;
 import com.codahale.metrics.Timer;
-import com.datahub.plugins.auth.authentication.Authentication;
-import com.datahub.plugins.auth.authentication.AuthenticationContext;
+import com.datahub.authentication.Authentication;
+import com.datahub.authentication.AuthenticationContext;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;

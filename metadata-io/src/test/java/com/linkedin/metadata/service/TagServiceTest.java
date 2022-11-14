@@ -1,8 +1,8 @@
 package com.linkedin.metadata.service;
 
-import com.datahub.plugins.auth.authentication.Actor;
-import com.datahub.plugins.auth.authentication.ActorType;
-import com.datahub.plugins.auth.authentication.Authentication;
+import com.datahub.authentication.Actor;
+import com.datahub.authentication.ActorType;
+import com.datahub.authentication.Authentication;
 import com.google.common.collect.ImmutableSet;
 import com.linkedin.common.GlobalTags;
 import com.linkedin.common.TagAssociation;

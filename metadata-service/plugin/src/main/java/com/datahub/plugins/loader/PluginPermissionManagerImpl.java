@@ -14,7 +14,7 @@ import javax.annotation.Nonnull;
 
 public class PluginPermissionManagerImpl implements PluginPermissionManager {
 
-  private SecurityMode _securityMode;
+  private final SecurityMode _securityMode;
 
   public PluginPermissionManagerImpl(@Nonnull SecurityMode securityMode) {
     this._securityMode = securityMode;

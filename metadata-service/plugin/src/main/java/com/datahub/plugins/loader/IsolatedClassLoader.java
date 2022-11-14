@@ -48,8 +48,8 @@ public class IsolatedClassLoader extends ClassLoader {
 
   private final Path _executionDirectory;
 
-  public IsolatedClassLoader(@Nonnull PluginPermissionManager pluginPermissionManager, @Nonnull PluginConfig pluginToLoad,
-      @Nonnull ClassLoader... applicationClassLoaders) {
+  public IsolatedClassLoader(@Nonnull PluginPermissionManager pluginPermissionManager,
+      @Nonnull PluginConfig pluginToLoad, @Nonnull ClassLoader... applicationClassLoaders) {
     this._pluginPermissionManager = pluginPermissionManager;
     this._pluginConfig = pluginToLoad;
     this._classLoaders.add(this.getClass().getClassLoader()); // then application class-loader

@@ -2,7 +2,6 @@ package com.datahub.plugins.auth;
 
 import com.datahub.plugins.common.SecurityMode;
 import com.datahub.plugins.loader.PluginPermissionManagerImpl;
-import java.io.FilePermission;
 import java.net.MalformedURLException;
 import java.nio.file.Path;
 import java.nio.file.Paths;
@@ -27,7 +26,10 @@ public class TestPluginPermissionManager {
     ProtectionDomain protectionDomain = pluginPermissionManager.createProtectionDomain(pluginHome.toAbsolutePath());
 
     // provided pluginHome and codeSource in protection domain should be equal
-    assert pluginHome.toUri().toURL().toExternalForm().equals(protectionDomain.getCodeSource().getLocation().toExternalForm());
+    assert pluginHome.toUri()
+        .toURL()
+        .toExternalForm()
+        .equals(protectionDomain.getCodeSource().getLocation().toExternalForm());
 
     PermissionCollection permissionCollection = protectionDomain.getPermissions();
     List<Permission> permissions = Collections.list(permissionCollection.elements());
@@ -45,7 +47,6 @@ public class TestPluginPermissionManager {
       assert map.keySet().contains(permission.getName());
       assert map.values().contains(permission.getActions());
     });
-
   }
 
   public void testLenientMode() throws MalformedURLException {
@@ -56,7 +57,10 @@ public class TestPluginPermissionManager {
     ProtectionDomain protectionDomain = pluginPermissionManager.createProtectionDomain(pluginHome.toAbsolutePath());
 
     // provided pluginHome and codeSource in protection domain should be equal
-    assert pluginHome.toUri().toURL().toExternalForm().equals(protectionDomain.getCodeSource().getLocation().toExternalForm());
+    assert pluginHome.toUri()
+        .toURL()
+        .toExternalForm()
+        .equals(protectionDomain.getCodeSource().getLocation().toExternalForm());
 
     PermissionCollection permissionCollection = protectionDomain.getPermissions();
     List<Permission> permissions = Collections.list(permissionCollection.elements());
@@ -67,6 +71,5 @@ public class TestPluginPermissionManager {
     permissions.forEach(permission -> {
       assert permission.getName().equals("<all permissions>");
     });
-
   }
 }

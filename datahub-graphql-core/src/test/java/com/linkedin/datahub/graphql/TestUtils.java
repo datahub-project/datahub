@@ -1,7 +1,7 @@
 package com.linkedin.datahub.graphql;
 
-import com.datahub.plugins.auth.authentication.Authentication;
-import com.datahub.plugins.auth.authorization.AuthorizationResult;
+import com.datahub.authentication.Authentication;
+import com.datahub.authorization.AuthorizationResult;
 import com.datahub.plugins.auth.authorization.Authorizer;
 import com.linkedin.common.AuditStamp;
 import com.linkedin.metadata.entity.EntityService;

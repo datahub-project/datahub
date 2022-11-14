@@ -1,4 +1,4 @@
-package com.datahub.plugins.auth.authorization;
+package com.datahub.authorization;
 
 /**
  * A Resource Spec Resolver is responsible for resolving a {@link ResourceSpec} to a {@link ResolvedResourceSpec}.

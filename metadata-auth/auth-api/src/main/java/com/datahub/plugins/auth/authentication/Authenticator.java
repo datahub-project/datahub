@@ -1,5 +1,10 @@
 package com.datahub.plugins.auth.authentication;
 
+import com.datahub.authentication.Actor;
+import com.datahub.authentication.Authentication;
+import com.datahub.authentication.AuthenticationException;
+import com.datahub.authentication.AuthenticationRequest;
+import com.datahub.authentication.AuthenticatorContext;
 import com.datahub.plugins.Plugin;
 import java.util.Map;
 import javax.annotation.Nonnull;

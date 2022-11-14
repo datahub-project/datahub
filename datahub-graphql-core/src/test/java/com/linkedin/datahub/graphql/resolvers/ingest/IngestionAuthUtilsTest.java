@@ -1,7 +1,7 @@
 package com.linkedin.datahub.graphql.resolvers.ingest;
 
-import com.datahub.plugins.auth.authorization.AuthorizationRequest;
-import com.datahub.plugins.auth.authorization.AuthorizationResult;
+import com.datahub.authorization.AuthorizationRequest;
+import com.datahub.authorization.AuthorizationResult;
 import com.datahub.plugins.auth.authorization.Authorizer;
 import com.linkedin.datahub.graphql.QueryContext;
 import java.util.Optional;

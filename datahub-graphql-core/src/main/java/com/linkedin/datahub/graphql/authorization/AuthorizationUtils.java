@@ -1,9 +1,9 @@
 package com.linkedin.datahub.graphql.authorization;
 
-import com.datahub.plugins.auth.authorization.AuthorizationRequest;
-import com.datahub.plugins.auth.authorization.AuthorizationResult;
+import com.datahub.authorization.AuthorizationRequest;
+import com.datahub.authorization.AuthorizationResult;
 import com.datahub.plugins.auth.authorization.Authorizer;
-import com.datahub.plugins.auth.authorization.ResourceSpec;
+import com.datahub.authorization.ResourceSpec;
 import com.google.common.collect.ImmutableList;
 import com.linkedin.common.AuditStamp;
 import com.linkedin.common.urn.Urn;

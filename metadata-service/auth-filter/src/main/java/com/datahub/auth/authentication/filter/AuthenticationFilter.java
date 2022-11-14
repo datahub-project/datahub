@@ -5,14 +5,14 @@ import com.datahub.auth.authentication.authenticator.DataHubSystemAuthenticator;
 import com.datahub.auth.authentication.authenticator.NoOpAuthenticator;
 import com.datahub.auth.authentication.token.StatefulTokenService;
 import com.datahub.plugins.PluginConstant;
-import com.datahub.plugins.auth.authentication.Authentication;
-import com.datahub.auth.authentication.AuthenticationConfiguration;
-import com.datahub.plugins.auth.authentication.AuthenticationContext;
-import com.datahub.plugins.auth.authentication.AuthenticationException;
-import com.datahub.plugins.auth.authentication.AuthenticationRequest;
+import com.datahub.authentication.Authentication;
+import com.datahub.authentication.AuthenticationConfiguration;
+import com.datahub.authentication.AuthenticationContext;
+import com.datahub.authentication.AuthenticationException;
+import com.datahub.authentication.AuthenticationRequest;
 import com.datahub.plugins.auth.authentication.Authenticator;
-import com.datahub.auth.authentication.AuthenticatorConfiguration;
-import com.datahub.plugins.auth.authentication.AuthenticatorContext;
+import com.datahub.authentication.AuthenticatorConfiguration;
+import com.datahub.authentication.AuthenticatorContext;
 import com.datahub.plugins.common.PluginConfig;
 import com.datahub.plugins.common.PluginPermissionManager;
 import com.datahub.plugins.common.PluginType;
@@ -46,7 +46,7 @@ import javax.servlet.http.HttpServletResponse;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.web.context.support.SpringBeanAutowiringSupport;
 
-import static com.datahub.auth.authentication.AuthenticationConstants.*;
+import static com.datahub.authentication.AuthenticationConstants.*;
 
 
 /**

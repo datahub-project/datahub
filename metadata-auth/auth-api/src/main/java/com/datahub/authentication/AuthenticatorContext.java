@@ -1,5 +1,6 @@
-package com.datahub.plugins.auth.authentication;
+package com.datahub.authentication;
 
+import com.datahub.plugins.auth.authentication.Authenticator;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Objects;

@@ -1,11 +1,11 @@
 package com.linkedin.datahub.graphql;
 
-import com.datahub.auth.authentication.AuthenticationConfiguration;
+import com.datahub.authentication.AuthenticationConfiguration;
 import com.datahub.auth.authentication.group.GroupService;
 import com.datahub.auth.authentication.invite.InviteTokenService;
 import com.datahub.auth.authentication.token.StatefulTokenService;
 import com.datahub.auth.authentication.user.NativeUserService;
-import com.datahub.auth.authorization.AuthorizationConfiguration;
+import com.datahub.authorization.AuthorizationConfiguration;
 import com.datahub.auth.authorization.role.RoleService;
 import com.datahub.auth.authentication.post.PostService;
 import com.google.common.collect.ImmutableList;

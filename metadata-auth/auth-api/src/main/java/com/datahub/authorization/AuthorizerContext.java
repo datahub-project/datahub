@@ -1,7 +1,7 @@
-package com.datahub.plugins.auth.authorization;
+package com.datahub.authorization;
 
+import com.datahub.authentication.AuthenticatorContext;
 import com.datahub.plugins.auth.authentication.Authenticator;
-import com.datahub.plugins.auth.authentication.AuthenticatorContext;
 import java.util.Map;
 import javax.annotation.Nonnull;
 import lombok.AllArgsConstructor;
@@ -21,6 +21,7 @@ public class AuthorizerContext {
    * A utility for resolving a {@link ResourceSpec} to resolved resource field values.
    */
   private ResourceSpecResolver resourceSpecResolver;
+
   /**
    *
    * @return contextMap   The contextMap contains below key and value

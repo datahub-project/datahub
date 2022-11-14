@@ -1,6 +1,6 @@
 package com.linkedin.datahub.upgrade.common.steps;
 
-import com.datahub.plugins.auth.authentication.Authentication;
+import com.datahub.authentication.Authentication;
 import com.linkedin.datahub.upgrade.UpgradeContext;
 import com.linkedin.datahub.upgrade.UpgradeStep;
 import com.linkedin.datahub.upgrade.UpgradeStepResult;

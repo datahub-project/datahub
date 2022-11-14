@@ -15,7 +15,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
 import com.linkedin.entity.client.EntityClient;
-import com.datahub.plugins.auth.authentication.Authentication;
+import com.datahub.authentication.Authentication;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import lombok.extern.slf4j.Slf4j;

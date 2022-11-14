@@ -1,6 +1,6 @@
 package com.datahub.metadata.ingestion;
 
-import com.datahub.plugins.auth.authentication.Authentication;
+import com.datahub.authentication.Authentication;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableSet;
 import com.linkedin.common.urn.Urn;

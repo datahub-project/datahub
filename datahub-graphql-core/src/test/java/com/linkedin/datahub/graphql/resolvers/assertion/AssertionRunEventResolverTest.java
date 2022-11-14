@@ -1,6 +1,6 @@
 package com.linkedin.datahub.graphql.resolvers.assertion;
 
-import com.datahub.plugins.auth.authentication.Authentication;
+import com.datahub.authentication.Authentication;
 import com.google.common.collect.ImmutableList;
 import com.linkedin.assertion.AssertionResult;
 import com.linkedin.assertion.AssertionResultType;

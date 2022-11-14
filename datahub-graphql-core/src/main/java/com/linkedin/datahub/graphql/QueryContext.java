@@ -1,7 +1,7 @@
 package com.linkedin.datahub.graphql;
 
-import com.datahub.plugins.auth.authentication.Actor;
-import com.datahub.plugins.auth.authentication.Authentication;
+import com.datahub.authentication.Actor;
+import com.datahub.authentication.Authentication;
 import com.datahub.plugins.auth.authorization.Authorizer;
 
 

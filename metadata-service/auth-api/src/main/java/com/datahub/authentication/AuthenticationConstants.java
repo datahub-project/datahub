@@ -1,4 +1,4 @@
-package com.datahub.auth.authentication;
+package com.datahub.authentication;
 
 /**
  * A set of shared constants related to Authentication.

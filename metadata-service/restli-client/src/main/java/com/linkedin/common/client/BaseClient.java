@@ -1,6 +1,6 @@
 package com.linkedin.common.client;
 
-import com.datahub.plugins.auth.authentication.Authentication;
+import com.datahub.authentication.Authentication;
 import com.linkedin.common.callback.FutureCallback;
 import com.linkedin.r2.RemoteInvocationException;
 import com.linkedin.restli.client.AbstractRequestBuilder;

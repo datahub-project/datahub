@@ -1,6 +1,6 @@
 package com.linkedin.usage;
 
-import com.datahub.plugins.auth.authentication.Authentication;
+import com.datahub.authentication.Authentication;
 import com.linkedin.common.EntityRelationships;
 
 import com.linkedin.common.WindowDuration;

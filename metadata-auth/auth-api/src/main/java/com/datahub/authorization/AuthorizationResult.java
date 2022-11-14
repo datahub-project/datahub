@@ -1,4 +1,4 @@
-package com.datahub.plugins.auth.authorization;
+package com.datahub.authorization;
 
 import lombok.AllArgsConstructor;
 import lombok.Data;

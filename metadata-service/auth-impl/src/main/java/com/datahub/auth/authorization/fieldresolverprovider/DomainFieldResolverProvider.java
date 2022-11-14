@@ -1,9 +1,9 @@
 package com.datahub.auth.authorization.fieldresolverprovider;
 
-import com.datahub.plugins.auth.authentication.Authentication;
-import com.datahub.plugins.auth.authorization.FieldResolver;
-import com.datahub.plugins.auth.authorization.ResourceFieldType;
-import com.datahub.plugins.auth.authorization.ResourceSpec;
+import com.datahub.authentication.Authentication;
+import com.datahub.authorization.FieldResolver;
+import com.datahub.authorization.ResourceFieldType;
+import com.datahub.authorization.ResourceSpec;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.domain.Domains;

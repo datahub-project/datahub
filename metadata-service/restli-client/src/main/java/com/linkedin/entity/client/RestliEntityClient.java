@@ -1,6 +1,6 @@
 package com.linkedin.entity.client;
 
-import com.datahub.plugins.auth.authentication.Authentication;
+import com.datahub.authentication.Authentication;
 import com.datahub.util.RecordUtils;
 import com.google.common.collect.ImmutableList;
 import com.linkedin.common.VersionedUrn;

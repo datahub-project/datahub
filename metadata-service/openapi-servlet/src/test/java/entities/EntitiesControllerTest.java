@@ -1,9 +1,9 @@
 package entities;
 
-import com.datahub.plugins.auth.authentication.Actor;
-import com.datahub.plugins.auth.authentication.ActorType;
-import com.datahub.plugins.auth.authentication.Authentication;
-import com.datahub.plugins.auth.authentication.AuthenticationContext;
+import com.datahub.authentication.Actor;
+import com.datahub.authentication.ActorType;
+import com.datahub.authentication.Authentication;
+import com.datahub.authentication.AuthenticationContext;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.linkedin.metadata.entity.AspectDao;
 import com.linkedin.metadata.event.EventProducer;

@@ -1,10 +1,10 @@
 package com.datahub.auth.authorization;
 
-import com.datahub.plugins.auth.authentication.Authentication;
-import com.datahub.plugins.auth.authorization.FieldResolver;
-import com.datahub.plugins.auth.authorization.ResolvedResourceSpec;
-import com.datahub.plugins.auth.authorization.ResourceFieldType;
-import com.datahub.plugins.auth.authorization.ResourceSpec;
+import com.datahub.authentication.Authentication;
+import com.datahub.authorization.FieldResolver;
+import com.datahub.authorization.ResolvedResourceSpec;
+import com.datahub.authorization.ResourceFieldType;
+import com.datahub.authorization.ResourceSpec;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;

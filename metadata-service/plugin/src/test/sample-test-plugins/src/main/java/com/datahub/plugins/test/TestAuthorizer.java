@@ -1,12 +1,12 @@
 package com.datahub.plugins.test;
 
+import com.datahub.authorization.AuthorizationRequest;
+import com.datahub.authorization.AuthorizationResult;
+import com.datahub.authorization.AuthorizedActors;
+import com.datahub.authorization.AuthorizerContext;
+import com.datahub.authorization.ResourceSpec;
 import com.datahub.plugins.PluginConstant;
-import com.datahub.plugins.auth.authorization.AuthorizationRequest;
-import com.datahub.plugins.auth.authorization.AuthorizationResult;
-import com.datahub.plugins.auth.authorization.AuthorizedActors;
 import com.datahub.plugins.auth.authorization.Authorizer;
-import com.datahub.plugins.auth.authorization.AuthorizerContext;
-import com.datahub.plugins.auth.authorization.ResourceSpec;
 import java.io.BufferedReader;
 import java.io.BufferedWriter;
 import java.io.FileWriter;

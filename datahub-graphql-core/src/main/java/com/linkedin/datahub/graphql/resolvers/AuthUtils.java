@@ -5,8 +5,8 @@ import com.linkedin.datahub.graphql.authorization.ConjunctivePrivilegeGroup;
 import com.linkedin.metadata.authorization.PoliciesConfig;
 import java.util.List;
 import java.util.Optional;
-import com.datahub.plugins.auth.authorization.AuthorizationRequest;
-import com.datahub.plugins.auth.authorization.AuthorizationResult;
+import com.datahub.authorization.AuthorizationRequest;
+import com.datahub.authorization.AuthorizationResult;
 import com.datahub.plugins.auth.authorization.Authorizer;
 
 public class AuthUtils {

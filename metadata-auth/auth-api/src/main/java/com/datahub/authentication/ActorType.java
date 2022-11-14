@@ -1,4 +1,4 @@
-package com.datahub.plugins.auth.authentication;
+package com.datahub.authentication;
 
 /**
  * A specific type of Actor on DataHub's platform.

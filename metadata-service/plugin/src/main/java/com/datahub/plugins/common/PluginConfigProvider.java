@@ -4,5 +4,5 @@ import java.util.List;
 
 
 public interface PluginConfigProvider<T extends PluginConfig> {
-  public List<T> processConfig(List<com.datahub.plugins.configuration.PluginConfig> pluginConfigConfigs);
+  List<T> processConfig(List<com.datahub.plugins.configuration.PluginConfig> pluginConfigConfigs);
 }

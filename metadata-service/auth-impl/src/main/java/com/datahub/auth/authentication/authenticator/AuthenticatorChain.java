@@ -1,11 +1,11 @@
 package com.datahub.auth.authentication.authenticator;
 
-import com.datahub.plugins.auth.authentication.Authentication;
+import com.datahub.authentication.Authentication;
 
-import com.datahub.plugins.auth.authentication.AuthenticationException;
-import com.datahub.plugins.auth.authentication.AuthenticationExpiredException;
+import com.datahub.authentication.AuthenticationException;
+import com.datahub.authentication.AuthenticationExpiredException;
 import com.datahub.plugins.auth.authentication.Authenticator;
-import com.datahub.plugins.auth.authentication.AuthenticationRequest;
+import com.datahub.authentication.AuthenticationRequest;
 import com.linkedin.util.Pair;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -13,7 +13,6 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
 import lombok.extern.slf4j.Slf4j;
-import org.apache.commons.compress.harmony.unpack200.bytecode.forms.ThisFieldRefForm;
 
 
 /**
