@@ -1,4 +1,4 @@
-package com.datahub.auth.authentication.authenticator;
+package com.datahub.authentication.authenticator;
 
 import com.datahub.authentication.Actor;
 import com.datahub.authentication.ActorType;
@@ -6,7 +6,6 @@ import com.datahub.authentication.Authentication;
 import com.datahub.authentication.AuthenticationException;
 import com.datahub.authentication.AuthenticationRequest;
 import com.datahub.authentication.AuthenticatorContext;
-import com.datahub.authentication.authenticator.DataHubTokenAuthenticator;
 import com.datahub.authentication.token.StatefulTokenService;
 import com.datahub.authentication.token.TokenType;
 import com.google.common.collect.ImmutableMap;

@@ -1,14 +1,8 @@
-package com.datahub.auth.authentication.token;
+package com.datahub.authentication.token;
 
 import com.datahub.authentication.Actor;
 import com.datahub.authentication.ActorType;
-import com.datahub.auth.authentication.authenticator.DataHubTokenAuthenticatorTest;
-import com.datahub.authentication.token.StatefulTokenService;
-import com.datahub.authentication.token.TokenClaims;
-import com.datahub.authentication.token.TokenException;
-import com.datahub.authentication.token.TokenExpiredException;
-import com.datahub.authentication.token.TokenType;
-import com.datahub.authentication.token.TokenVersion;
+import com.datahub.authentication.authenticator.DataHubTokenAuthenticatorTest;
 import com.google.common.collect.ImmutableList;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.data.schema.annotation.PathSpecBasedSchemaAnnotationVisitor;
