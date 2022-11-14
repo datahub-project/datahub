@@ -582,7 +582,7 @@ class PowerBiAPI:
                 dashboards=[],
             )
             for workspace in groups.get("value", [])
-            if workspace["type"] == "Workspace"
+            if workspace.get("type", None) == "Workspace"
         ]
         return workspaces
 

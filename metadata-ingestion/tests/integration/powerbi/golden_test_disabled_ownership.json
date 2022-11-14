@@ -169,5 +169,61 @@
         "registryVersion": null,
         "properties": null
     }
+},
+{
+    "aspect": {
+        "contentType": "application/json",
+        "value": "{\"paths\": [\"/powerbi/64ED5CAD-7C10-4684-8180-826122881108\"]}"
+    },
+    "aspectName": "browsePaths",
+    "changeType": "UPSERT",
+    "entityType": "dashboard",
+    "entityUrn": "urn:li:dashboard:(powerbi,dashboards.7D668CAD-8FFC-4505-9215-655BCA5BEBAE)",
+    "systemMetadata": {
+        "lastObserved": 1643871600000,
+        "runId": "powerbi-test"
+    }
+},
+{
+    "aspect": {
+        "contentType": "application/json",
+        "value": "{\"customProperties\": {\"chartCount\": \"0\", \"workspaceName\": \"second-demo-workspace\", \"workspaceId\": \"7D668CAD-8FFC-4505-9215-655BCA5BEBAE\"}, \"title\": \"test_dashboard2\", \"description\": \"test_dashboard2\", \"charts\": [], \"datasets\": [], \"lastModified\": {\"created\": {\"time\": 0, \"actor\": \"urn:li:corpuser:unknown\"}, \"lastModified\": {\"time\": 0, \"actor\": \"urn:li:corpuser:unknown\"}}, \"dashboardUrl\": \"https://localhost/dashboards/web/1\"}"
+    },
+    "aspectName": "dashboardInfo",
+    "changeType": "UPSERT",
+    "entityType": "dashboard",
+    "entityUrn": "urn:li:dashboard:(powerbi,dashboards.7D668CAD-8FFC-4505-9215-655BCA5BEBAE)",
+    "systemMetadata": {
+        "lastObserved": 1643871600000,
+        "runId": "powerbi-test"
+    }
+},
+{
+    "aspect": {
+        "contentType": "application/json",
+        "value": "{\"removed\": false}"
+    },
+    "aspectName": "status",
+    "changeType": "UPSERT",
+    "entityType": "dashboard",
+    "entityUrn": "urn:li:dashboard:(powerbi,dashboards.7D668CAD-8FFC-4505-9215-655BCA5BEBAE)",
+    "systemMetadata": {
+        "lastObserved": 1643871600000,
+        "runId": "powerbi-test"
+    }
+},
+{
+    "aspect": {
+        "contentType": "application/json",
+        "value": "{\"dashboardTool\": \"powerbi\", \"dashboardId\": \"powerbi.linkedin.com/dashboards/7D668CAD-8FFC-4505-9215-655BCA5BEBAE\"}"
+    },
+    "aspectName": "dashboardKey",
+    "changeType": "UPSERT",
+    "entityType": "dashboard",
+    "entityUrn": "urn:li:dashboard:(powerbi,dashboards.7D668CAD-8FFC-4505-9215-655BCA5BEBAE)",
+    "systemMetadata": {
+        "lastObserved": 1643871600000,
+        "runId": "powerbi-test"
+    }
 }
 ]
