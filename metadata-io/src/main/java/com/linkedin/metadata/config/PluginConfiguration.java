@@ -8,7 +8,8 @@ public class PluginConfiguration {
   /**
    * Plugin security mode, either RESTRICTED or LENIENT
    */
-  // Ideally it should be com.datahub.plugin.common.SecurityMode from metadata-service/plugin, However avoiding to include it as dependency as some modules from metadata-service/ are dependent on metadata-io, so it might create a circular dependency
+  // Ideally it should be com.datahub.plugin.common.SecurityMode from metadata-service/plugin,
+  // However avoiding to include it as dependency as some modules from metadata-service/ are dependent on metadata-io, so it might create a circular dependency
   private String pluginSecurityMode;
 
   /**
