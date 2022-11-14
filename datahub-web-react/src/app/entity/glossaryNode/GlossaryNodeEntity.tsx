@@ -80,9 +80,6 @@ class GlossaryNodeEntity implements Entity<GlossaryNode> {
                     },
                     {
                         component: SidebarOwnerSection,
-                        properties: {
-                            hideOwnerType: true,
-                        },
                     },
                 ]}
                 customNavBar={<GlossaryEntitiesPath />}

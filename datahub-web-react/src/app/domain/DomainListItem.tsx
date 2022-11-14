@@ -58,7 +58,7 @@ export default function DomainListItem({ domain, onDelete }: Props) {
     const totalEntitiesText = getElasticCappedTotalValueText(domain.entities?.total || 0);
 
     return (
-        <List.Item>
+        <List.Item data-testid={domain.urn}>
             <DomainItemContainer>
                 <DomainStartContainer>
                     <Link to={entityRegistry.getEntityUrl(EntityType.Domain, domain.urn)}>

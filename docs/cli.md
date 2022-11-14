@@ -100,7 +100,8 @@ We use a plugin architecture so that you can install only the dependencies you a
 | [trino](./generated/ingestion/sources/trino.md)                                 | `pip install 'acryl-datahub[trino]'`                       | Trino source                        |
 | [starburst-trino-usage](./generated/ingestion/sources/trino.md)                 | `pip install 'acryl-datahub[starburst-trino-usage]'`       | Starburst Trino usage statistics source |
 | [nifi](./generated/ingestion/sources/nifi.md)                                   | `pip install 'acryl-datahub[nifi]'`                        | Nifi source                         |
-| [powerbi](./generated/ingestion/sources/powerbi.md)                             | `pip install 'acryl-datahub[powerbi]'`                     | Microsoft Power BI source           |
+| [powerbi](./generated/ingestion/sources/powerbi.md#module-powerbi)                             | `pip install 'acryl-datahub[powerbi]'`                     | Microsoft Power BI source           |
+| [powerbi-report-server](./generated/ingestion/sources/powerbi.md#module-powerbi-report-server) | `pip install 'acryl-datahub[powerbi-report-server]'`       | Microsoft Power BI Report Server source           |
 
 ### Sinks
 
