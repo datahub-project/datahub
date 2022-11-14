@@ -33,7 +33,7 @@ public class ESUtils {
 
   // we use this to make sure we filter for editable & non-editable fields
   public static final String[][] EDITABLE_FIELD_TO_QUERY_PAIRS = {
-      {"fieldGlossaryTags", "editedFieldGlossaryTags"},
+      {"fieldTags", "editedFieldTags"},
       {"fieldGlossaryTerms", "editedFieldGlossaryTerms"},
       {"fieldDescriptions", "editedFieldDescriptions"},
       {"description", "editedDescription"},

@@ -43,3 +43,4 @@ def pytest_addoption(parser):
         action="store_true",
         default=False,
     )
+    parser.addoption("--copy-output-files", action="store_true", default=False)

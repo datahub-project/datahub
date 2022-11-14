@@ -23,9 +23,6 @@ query getDomain($urn: String!) {
                 }
             }
         }
-        entities(input: {}) {
-            ...searchResults
-        }
     }
 }
 

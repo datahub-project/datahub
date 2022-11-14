@@ -6,6 +6,7 @@ import { TagSummary } from './shared/TagSummary';
 import { TermSummary } from './shared/TermSummary';
 import { FIELDS_TO_HIGHLIGHT } from './search/highlights';
 import { getMatchPrioritizingPrimary } from '../shared/utils';
+import { downgradeV2FieldPath } from './profile/schema/utils/utils';
 
 type Props = {
     matchedFields: MatchedField[];
@@ -23,6 +24,8 @@ export const DatasetSearchSnippet = ({ matchedFields }: Props) => {
             snippet = <TagSummary urn={matchedField.value} />;
         } else if (matchedField.value.includes('urn:li:glossaryTerm')) {
             snippet = <TermSummary urn={matchedField.value} />;
+        } else if (matchedField.name === 'fieldPaths') {
+            snippet = <b>{downgradeV2FieldPath(matchedField.value)}</b>;
         } else {
             snippet = <b>{matchedField.value}</b>;
         }

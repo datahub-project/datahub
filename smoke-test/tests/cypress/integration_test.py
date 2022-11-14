@@ -27,6 +27,7 @@ def test_run_cypress(frontend_session, wait_for_healthchecks):
         command = "NO_COLOR=1 npx cypress run --record"
     else:
         print('Running Cypress tests without recording')
+        # command = "NO_COLOR=1 npx cypress --version"
         command = "NO_COLOR=1 npx cypress run"
         # Add --headed --spec '**/mutations/mutations.js' (change spec name)
         # in case you want to see the browser for debugging

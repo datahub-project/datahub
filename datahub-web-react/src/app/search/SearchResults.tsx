@@ -24,6 +24,7 @@ import { EntityAndType } from '../entity/shared/types';
 import { ErrorSection } from '../shared/error/ErrorSection';
 import { UnionType } from './utils/constants';
 import { SearchFiltersSection } from './SearchFiltersSection';
+import { generateOrFilters } from './utils/generateOrFilters';
 
 const SearchBody = styled.div`
     display: flex;
@@ -161,7 +162,7 @@ export const SearchResults = ({
                                     <SearchExtendedMenu
                                         callSearchOnVariables={callSearchOnVariables}
                                         entityFilters={entityFilters}
-                                        filters={filtersWithoutEntities}
+                                        filters={generateOrFilters(unionType, filtersWithoutEntities)}
                                         query={query}
                                         setShowSelectMode={setIsSelectMode}
                                     />

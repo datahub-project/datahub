@@ -56,7 +56,7 @@ function clearFieldAndParents(recipe: any, fieldPath: string | string[]) {
 export function setFieldValueOnRecipe(recipe: any, value: any, fieldPath: string | string[]) {
     const updatedRecipe = { ...recipe };
     if (value !== undefined) {
-        if (value === null) {
+        if (value === null || value === '') {
             clearFieldAndParents(updatedRecipe, fieldPath);
             return updatedRecipe;
         }
@@ -253,6 +253,15 @@ export const INCLUDE_LINEAGE: RecipeField = {
         updatedRecipe = setFieldValueOnRecipe(updatedRecipe, value, includeLineageFieldPathB);
         return updatedRecipe;
     },
+};
+
+export const INCLUDE_TABLE_LINEAGE: RecipeField = {
+    name: 'include_table_lineage',
+    label: 'Include Table Lineage',
+    tooltip: 'Whether or not table lineage should be ingested.',
+    type: FieldType.BOOLEAN,
+    fieldPath: 'source.config.include_table_lineage',
+    rules: null,
 };
 
 export const PROFILING_ENABLED: RecipeField = {
