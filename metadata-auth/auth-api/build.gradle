@@ -87,10 +87,10 @@ publishing {
     mavenJava(MavenPublication) {
       from components.java
       pom {
-        name = 'DataHub AuthNAuth Stub API'
+        name = 'DataHub Auth API'
         group = 'io.acryl'
         artifactId = 'datahub-auth-api'
-        description = 'DataHub AuthNAuth Stub API for developers to write custom authentication & authorization plugins for DataHub'
+        description = 'DataHub Auth API for developers to write custom Authentication & Authorization plugins for DataHub'
         url = 'https://datahubproject.io'
         scm {
           connection = 'scm:git:git://github.com/datahub-project/datahub.git'
