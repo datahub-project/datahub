@@ -16,6 +16,7 @@ import EntityContext from '../../../shared/EntityContext';
 import { EntityType, SchemaMetadata } from '../../../../../types.generated';
 
 jest.mock('virtualizedtableforantd4', () => {
+    /* eslint-disable-next-line */
     const { SchemaRow } = require('../../../shared/tabs/Dataset/Schema/components/SchemaRow');
     return {
         ...jest.requireActual('virtualizedtableforantd4'),
