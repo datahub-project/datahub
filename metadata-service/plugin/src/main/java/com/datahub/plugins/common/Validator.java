@@ -13,7 +13,8 @@ public class Validator {
   private Validator() {
   }
 
-  public static void whiteSpacesValidation(@Nonnull String fieldName, @Nonnull String value) throws IllegalArgumentException {
+  public static void whiteSpacesValidation(@Nonnull String fieldName, @Nonnull String value)
+      throws IllegalArgumentException {
     if (StringUtils.isEmpty(value) || StringUtils.containsWhitespace(value)) {
       throw new IllegalArgumentException(
           String.format("%s should not be empty and should not contains whitespaces", fieldName));
@@ -27,7 +28,8 @@ public class Validator {
     }
   }
 
-  public static void listShouldNotBeEmpty(@Nonnull String fieldName, @Nonnull List<Object> list) throws IllegalArgumentException {
+  public static void listShouldNotBeEmpty(@Nonnull String fieldName, @Nonnull List<Object> list)
+      throws IllegalArgumentException {
     if (list.isEmpty()) {
       throw new IllegalArgumentException(String.format("%s should not be empty", fieldName));
     }

@@ -1,4 +1,4 @@
-package com.datahub.plugins.auth.authentication;
+package com.datahub.authentication;
 
 import java.util.Collections;
 import java.util.Map;
@@ -27,7 +27,7 @@ public class Authentication {
   }
 
   /**
-   * @return  Returns the authenticated actor
+   * @return Returns the authenticated actor
    */
   public Actor getActor() {
     return this.authenticatedActor;

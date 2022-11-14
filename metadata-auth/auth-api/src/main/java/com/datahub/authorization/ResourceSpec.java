@@ -1,4 +1,4 @@
-package com.datahub.plugins.auth.authorization;
+package com.datahub.authorization;
 
 import javax.annotation.Nonnull;
 import lombok.Value;

@@ -1,6 +1,6 @@
 package com.datahub.auth.authentication.token;
 
-import com.datahub.plugins.auth.authentication.Actor;
+import com.datahub.authentication.Actor;
 import com.google.common.cache.CacheBuilder;
 import com.google.common.cache.CacheLoader;
 import com.google.common.cache.LoadingCache;

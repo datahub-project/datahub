@@ -1,14 +1,14 @@
 package com.datahub.plugins.auth;
 
+import com.datahub.authentication.Authentication;
+import com.datahub.authentication.AuthenticationException;
+import com.datahub.authentication.AuthenticationRequest;
+import com.datahub.authentication.AuthenticatorContext;
+import com.datahub.authorization.AuthorizationRequest;
+import com.datahub.authorization.AuthorizerContext;
 import com.datahub.plugins.PluginConstant;
-import com.datahub.plugins.auth.authentication.Authentication;
-import com.datahub.plugins.auth.authentication.AuthenticationException;
-import com.datahub.plugins.auth.authentication.AuthenticationRequest;
 import com.datahub.plugins.auth.authentication.Authenticator;
-import com.datahub.plugins.auth.authentication.AuthenticatorContext;
-import com.datahub.plugins.auth.authorization.AuthorizationRequest;
 import com.datahub.plugins.auth.authorization.Authorizer;
-import com.datahub.plugins.auth.authorization.AuthorizerContext;
 import com.datahub.plugins.auth.configuration.AuthenticatorPluginConfig;
 import com.datahub.plugins.auth.configuration.AuthorizerPluginConfig;
 import com.datahub.plugins.common.PluginConfig;
@@ -68,13 +68,11 @@ class TestPluginFramework {
 
     assert config != null;
 
-    PluginConfigFactory authenticatorPluginPluginConfigFactory =
-        new PluginConfigFactory(config);
+    PluginConfigFactory authenticatorPluginPluginConfigFactory = new PluginConfigFactory(config);
     List<PluginConfig> authenticators =
         authenticatorPluginPluginConfigFactory.loadPluginConfigs(PluginType.AUTHENTICATOR);
 
-    List<PluginConfig> authorizers =
-        authenticatorPluginPluginConfigFactory.loadPluginConfigs(PluginType.AUTHORIZER);
+    List<PluginConfig> authorizers = authenticatorPluginPluginConfigFactory.loadPluginConfigs(PluginType.AUTHORIZER);
 
     assert authenticators.size() != 0;
     assert authorizers.size() != 0;
@@ -138,8 +136,7 @@ class TestPluginFramework {
     Path authenticatorPluginJarPath = Paths.get(configPath.toAbsolutePath().toString(), "apache-ranger-authenticator",
         "apache-ranger-authenticator-v1.0.1.jar");
     Config config = (new ConfigProvider(configPath)).load().orElseThrow(() -> new Exception("Should not be empty"));
-    List<PluginConfig> pluginConfig =
-        (new PluginConfigFactory(config)).loadPluginConfigs(PluginType.AUTHENTICATOR);
+    List<PluginConfig> pluginConfig = (new PluginConfigFactory(config)).loadPluginConfigs(PluginType.AUTHENTICATOR);
     pluginConfig.forEach((pluginConfigWithJar) -> {
       assert pluginConfigWithJar.getPluginJarPath().equals(authenticatorPluginJarPath);
     });

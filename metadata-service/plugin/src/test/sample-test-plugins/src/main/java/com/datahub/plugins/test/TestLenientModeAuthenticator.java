@@ -1,12 +1,12 @@
 package com.datahub.plugins.test;
 
-import com.datahub.plugins.auth.authentication.Actor;
-import com.datahub.plugins.auth.authentication.ActorType;
-import com.datahub.plugins.auth.authentication.Authentication;
-import com.datahub.plugins.auth.authentication.AuthenticationException;
-import com.datahub.plugins.auth.authentication.AuthenticationRequest;
+import com.datahub.authentication.Actor;
+import com.datahub.authentication.ActorType;
+import com.datahub.authentication.Authentication;
+import com.datahub.authentication.AuthenticationException;
+import com.datahub.authentication.AuthenticationRequest;
+import com.datahub.authentication.AuthenticatorContext;
 import com.datahub.plugins.auth.authentication.Authenticator;
-import com.datahub.plugins.auth.authentication.AuthenticatorContext;
 import java.util.Map;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;

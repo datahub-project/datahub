@@ -1,5 +1,10 @@
 package com.datahub.plugins.auth.authorization;
 
+import com.datahub.authorization.AuthorizationRequest;
+import com.datahub.authorization.AuthorizationResult;
+import com.datahub.authorization.AuthorizedActors;
+import com.datahub.authorization.AuthorizerContext;
+import com.datahub.authorization.ResourceSpec;
 import com.datahub.plugins.Plugin;
 import java.util.Map;
 import java.util.Optional;

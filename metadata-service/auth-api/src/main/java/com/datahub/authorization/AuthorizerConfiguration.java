@@ -1,4 +1,4 @@
-package com.datahub.auth.authorization;
+package com.datahub.authorization;
 
 import com.datahub.plugins.auth.authorization.Authorizer;
 import java.util.Map;

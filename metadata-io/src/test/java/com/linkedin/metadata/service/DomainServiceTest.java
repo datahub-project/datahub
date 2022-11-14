@@ -1,7 +1,7 @@
 package com.linkedin.metadata.service;
 
-import com.datahub.plugins.auth.authentication.Actor;
-import com.datahub.plugins.auth.authentication.ActorType;
+import com.datahub.authentication.Actor;
+import com.datahub.authentication.ActorType;
 import com.google.common.collect.ImmutableSet;
 import com.linkedin.common.UrnArray;
 import com.linkedin.common.urn.Urn;
@@ -25,7 +25,7 @@ import org.testcontainers.shaded.com.google.common.collect.ImmutableMap;
 import org.testng.Assert;
 import org.testng.annotations.Test;
 import  com.linkedin.entity.client.EntityClient;
-import com.datahub.plugins.auth.authentication.Authentication;
+import com.datahub.authentication.Authentication;
 
 public class DomainServiceTest {
 

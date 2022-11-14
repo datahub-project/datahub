@@ -1,6 +1,6 @@
 package com.linkedin.datahub.graphql.resolvers.post;
 
-import com.datahub.plugins.auth.authentication.Authentication;
+import com.datahub.authentication.Authentication;
 import com.datahub.auth.authentication.post.PostService;
 import com.linkedin.common.Media;
 import com.linkedin.datahub.graphql.QueryContext;

@@ -1,11 +1,11 @@
 package com.datahub.auth.authentication.authenticator;
 
-import com.datahub.plugins.auth.authentication.Actor;
-import com.datahub.plugins.auth.authentication.ActorType;
-import com.datahub.plugins.auth.authentication.Authentication;
-import com.datahub.plugins.auth.authentication.AuthenticationException;
-import com.datahub.plugins.auth.authentication.AuthenticationRequest;
-import com.datahub.plugins.auth.authentication.AuthenticatorContext;
+import com.datahub.authentication.Actor;
+import com.datahub.authentication.ActorType;
+import com.datahub.authentication.Authentication;
+import com.datahub.authentication.AuthenticationException;
+import com.datahub.authentication.AuthenticationRequest;
+import com.datahub.authentication.AuthenticatorContext;
 import com.datahub.auth.authentication.token.StatefulTokenService;
 import com.datahub.auth.authentication.token.TokenType;
 import com.google.common.collect.ImmutableMap;
@@ -21,7 +21,7 @@ import org.testng.annotations.Test;
 import java.util.Collections;
 import java.util.Map;
 
-import static com.datahub.auth.authentication.AuthenticationConstants.*;
+import static com.datahub.authentication.AuthenticationConstants.*;
 import static com.datahub.auth.authentication.authenticator.DataHubTokenAuthenticator.SALT_CONFIG_NAME;
 import static com.datahub.auth.authentication.authenticator.DataHubTokenAuthenticator.SIGNING_ALG_CONFIG_NAME;
 import static com.datahub.auth.authentication.authenticator.DataHubTokenAuthenticator.SIGNING_KEY_CONFIG_NAME;

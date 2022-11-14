@@ -1,14 +1,14 @@
 package com.datahub.auth.authorization;
 
-import com.datahub.plugins.auth.authentication.Authentication;
-import com.datahub.plugins.auth.authorization.AuthorizationRequest;
-import com.datahub.plugins.auth.authorization.AuthorizationResult;
-import com.datahub.plugins.auth.authorization.AuthorizedActors;
+import com.datahub.authentication.Authentication;
+import com.datahub.authorization.AuthorizationRequest;
+import com.datahub.authorization.AuthorizationResult;
+import com.datahub.authorization.AuthorizedActors;
 import com.datahub.plugins.auth.authorization.Authorizer;
-import com.datahub.plugins.auth.authorization.AuthorizerContext;
-import com.datahub.plugins.auth.authorization.ResolvedResourceSpec;
-import com.datahub.plugins.auth.authorization.ResourceSpec;
-import com.datahub.plugins.auth.authorization.ResourceSpecResolver;
+import com.datahub.authorization.AuthorizerContext;
+import com.datahub.authorization.ResolvedResourceSpec;
+import com.datahub.authorization.ResourceSpec;
+import com.datahub.authorization.ResourceSpecResolver;
 import com.google.common.annotations.VisibleForTesting;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;

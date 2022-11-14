@@ -1,6 +1,6 @@
 package com.linkedin.datahub.graphql.resolvers.operation;
 
-import com.datahub.plugins.auth.authentication.Authentication;
+import com.datahub.authentication.Authentication;
 import com.linkedin.common.Operation;
 import com.linkedin.common.OperationSourceType;
 import com.linkedin.common.OperationType;
