@@ -9,7 +9,7 @@
         "contentType": "application/json"
     },
     "systemMetadata": {
-        "lastObserved": 1615443388097,
+        "lastObserved": 1643871600000,
         "runId": "dbt-test-with-non-incremental-lineage"
     }
 },
@@ -98,7 +98,7 @@
                         "upstreams": [
                             {
                                 "auditStamp": {
-                                    "time": 0,
+                                    "time": 1643871600000,
                                     "actor": "urn:li:corpuser:unknown"
                                 },
                                 "dataset": "urn:li:dataset:(urn:li:dataPlatform:dbt,pagila.public.customer,PROD)",
@@ -106,7 +106,7 @@
                             },
                             {
                                 "auditStamp": {
-                                    "time": 0,
+                                    "time": 1643871600000,
                                     "actor": "urn:li:corpuser:unknown"
                                 },
                                 "dataset": "urn:li:dataset:(urn:li:dataPlatform:dbt,pagila.public.address,PROD)",
@@ -114,7 +114,7 @@
                             },
                             {
                                 "auditStamp": {
-                                    "time": 0,
+                                    "time": 1643871600000,
                                     "actor": "urn:li:corpuser:unknown"
                                 },
                                 "dataset": "urn:li:dataset:(urn:li:dataPlatform:dbt,pagila.public.city,PROD)",
@@ -134,7 +134,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1615443388097,
+        "lastObserved": 1643871600000,
         "runId": "dbt-test-with-non-incremental-lineage"
     }
 },
@@ -148,7 +148,7 @@
         "contentType": "application/json"
     },
     "systemMetadata": {
-        "lastObserved": 1615443388097,
+        "lastObserved": 1643871600000,
         "runId": "dbt-test-with-non-incremental-lineage"
     }
 },
@@ -261,7 +261,7 @@
                         "upstreams": [
                             {
                                 "auditStamp": {
-                                    "time": 0,
+                                    "time": 1643871600000,
                                     "actor": "urn:li:corpuser:unknown"
                                 },
                                 "dataset": "urn:li:dataset:(urn:li:dataPlatform:postgres,pagila.dbt_postgres.payments_by_customer_by_month,PROD)",
@@ -269,7 +269,7 @@
                             },
                             {
                                 "auditStamp": {
-                                    "time": 0,
+                                    "time": 1643871600000,
                                     "actor": "urn:li:corpuser:unknown"
                                 },
                                 "dataset": "urn:li:dataset:(urn:li:dataPlatform:dbt,pagila.dbt_postgres.customer_details,PROD)",
@@ -289,7 +289,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1615443388097,
+        "lastObserved": 1643871600000,
         "runId": "dbt-test-with-non-incremental-lineage"
     }
 },
@@ -303,7 +303,7 @@
         "contentType": "application/json"
     },
     "systemMetadata": {
-        "lastObserved": 1615443388097,
+        "lastObserved": 1643871600000,
         "runId": "dbt-test-with-non-incremental-lineage"
     }
 },
@@ -435,7 +435,7 @@
                         "upstreams": [
                             {
                                 "auditStamp": {
-                                    "time": 0,
+                                    "time": 1643871600000,
                                     "actor": "urn:li:corpuser:unknown"
                                 },
                                 "dataset": "urn:li:dataset:(urn:li:dataPlatform:dbt,pagila.public.payment_p2020_01,PROD)",
@@ -443,7 +443,7 @@
                             },
                             {
                                 "auditStamp": {
-                                    "time": 0,
+                                    "time": 1643871600000,
                                     "actor": "urn:li:corpuser:unknown"
                                 },
                                 "dataset": "urn:li:dataset:(urn:li:dataPlatform:dbt,pagila.public.payment_p2020_02,PROD)",
@@ -451,7 +451,7 @@
                             },
                             {
                                 "auditStamp": {
-                                    "time": 0,
+                                    "time": 1643871600000,
                                     "actor": "urn:li:corpuser:unknown"
                                 },
                                 "dataset": "urn:li:dataset:(urn:li:dataPlatform:dbt,pagila.public.payment_p2020_02,PROD)",
@@ -459,7 +459,7 @@
                             },
                             {
                                 "auditStamp": {
-                                    "time": 0,
+                                    "time": 1643871600000,
                                     "actor": "urn:li:corpuser:unknown"
                                 },
                                 "dataset": "urn:li:dataset:(urn:li:dataPlatform:dbt,pagila.public.payment_p2020_03,PROD)",
@@ -467,7 +467,7 @@
                             },
                             {
                                 "auditStamp": {
-                                    "time": 0,
+                                    "time": 1643871600000,
                                     "actor": "urn:li:corpuser:unknown"
                                 },
                                 "dataset": "urn:li:dataset:(urn:li:dataPlatform:dbt,pagila.public.payment_p2020_04,PROD)",
@@ -475,7 +475,7 @@
                             },
                             {
                                 "auditStamp": {
-                                    "time": 0,
+                                    "time": 1643871600000,
                                     "actor": "urn:li:corpuser:unknown"
                                 },
                                 "dataset": "urn:li:dataset:(urn:li:dataPlatform:dbt,pagila.public.payment_p2020_05,PROD)",
@@ -483,7 +483,7 @@
                             },
                             {
                                 "auditStamp": {
-                                    "time": 0,
+                                    "time": 1643871600000,
                                     "actor": "urn:li:corpuser:unknown"
                                 },
                                 "dataset": "urn:li:dataset:(urn:li:dataPlatform:dbt,pagila.public.payment_p2020_06,PROD)",
@@ -503,7 +503,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1615443388097,
+        "lastObserved": 1643871600000,
         "runId": "dbt-test-with-non-incremental-lineage"
     }
 },
@@ -517,7 +517,7 @@
         "contentType": "application/json"
     },
     "systemMetadata": {
-        "lastObserved": 1615443388097,
+        "lastObserved": 1643871600000,
         "runId": "dbt-test-with-non-incremental-lineage"
     }
 },
@@ -613,7 +613,7 @@
                         "upstreams": [
                             {
                                 "auditStamp": {
-                                    "time": 0,
+                                    "time": 1643871600000,
                                     "actor": "urn:li:corpuser:unknown"
                                 },
                                 "dataset": "urn:li:dataset:(urn:li:dataPlatform:postgres,pagila.dbt_postgres.an-aliased-view-for-payments,PROD)",
@@ -633,7 +633,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1615443388097,
+        "lastObserved": 1643871600000,
         "runId": "dbt-test-with-non-incremental-lineage"
     }
 },
@@ -647,7 +647,7 @@
         "contentType": "application/json"
     },
     "systemMetadata": {
-        "lastObserved": 1615443388097,
+        "lastObserved": 1643871600000,
         "runId": "dbt-test-with-non-incremental-lineage"
     }
 },
@@ -781,7 +781,7 @@
                         "upstreams": [
                             {
                                 "auditStamp": {
-                                    "time": 0,
+                                    "time": 1643871600000,
                                     "actor": "urn:li:corpuser:unknown"
                                 },
                                 "dataset": "urn:li:dataset:(urn:li:dataPlatform:postgres,pagila.public.actor,PROD)",
@@ -794,7 +794,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1615443388097,
+        "lastObserved": 1643871600000,
         "runId": "dbt-test-with-non-incremental-lineage"
     }
 },
@@ -808,7 +808,7 @@
         "contentType": "application/json"
     },
     "systemMetadata": {
-        "lastObserved": 1615443388097,
+        "lastObserved": 1643871600000,
         "runId": "dbt-test-with-non-incremental-lineage"
     }
 },
@@ -963,7 +963,7 @@
                         "upstreams": [
                             {
                                 "auditStamp": {
-                                    "time": 0,
+                                    "time": 1643871600000,
                                     "actor": "urn:li:corpuser:unknown"
                                 },
                                 "dataset": "urn:li:dataset:(urn:li:dataPlatform:postgres,pagila.public.address,PROD)",
@@ -976,7 +976,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1615443388097,
+        "lastObserved": 1643871600000,
         "runId": "dbt-test-with-non-incremental-lineage"
     }
 },
@@ -990,7 +990,7 @@
         "contentType": "application/json"
     },
     "systemMetadata": {
-        "lastObserved": 1615443388097,
+        "lastObserved": 1643871600000,
         "runId": "dbt-test-with-non-incremental-lineage"
     }
 },
@@ -1085,7 +1085,7 @@
                         "upstreams": [
                             {
                                 "auditStamp": {
-                                    "time": 0,
+                                    "time": 1643871600000,
                                     "actor": "urn:li:corpuser:unknown"
                                 },
                                 "dataset": "urn:li:dataset:(urn:li:dataPlatform:postgres,pagila.public.category,PROD)",
@@ -1098,7 +1098,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1615443388097,
+        "lastObserved": 1643871600000,
         "runId": "dbt-test-with-non-incremental-lineage"
     }
 },
@@ -1112,7 +1112,7 @@
         "contentType": "application/json"
     },
     "systemMetadata": {
-        "lastObserved": 1615443388097,
+        "lastObserved": 1643871600000,
         "runId": "dbt-test-with-non-incremental-lineage"
     }
 },
@@ -1219,7 +1219,7 @@
                         "upstreams": [
                             {
                                 "auditStamp": {
-                                    "time": 0,
+                                    "time": 1643871600000,
                                     "actor": "urn:li:corpuser:unknown"
                                 },
                                 "dataset": "urn:li:dataset:(urn:li:dataPlatform:postgres,pagila.public.city,PROD)",
@@ -1232,7 +1232,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1615443388097,
+        "lastObserved": 1643871600000,
         "runId": "dbt-test-with-non-incremental-lineage"
     }
 },
@@ -1246,7 +1246,7 @@
         "contentType": "application/json"
     },
     "systemMetadata": {
-        "lastObserved": 1615443388097,
+        "lastObserved": 1643871600000,
         "runId": "dbt-test-with-non-incremental-lineage"
     }
 },
@@ -1358,7 +1358,7 @@
                         "upstreams": [
                             {
                                 "auditStamp": {
-                                    "time": 0,
+                                    "time": 1643871600000,
                                     "actor": "urn:li:corpuser:unknown"
                                 },
                                 "dataset": "urn:li:dataset:(urn:li:dataPlatform:postgres,pagila.public.country,PROD)",
@@ -1371,7 +1371,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1615443388097,
+        "lastObserved": 1643871600000,
         "runId": "dbt-test-with-non-incremental-lineage"
     }
 },
@@ -1385,7 +1385,7 @@
         "contentType": "application/json"
     },
     "systemMetadata": {
-        "lastObserved": 1615443388097,
+        "lastObserved": 1643871600000,
         "runId": "dbt-test-with-non-incremental-lineage"
     }
 },
@@ -1564,7 +1564,7 @@
                         "upstreams": [
                             {
                                 "auditStamp": {
-                                    "time": 0,
+                                    "time": 1643871600000,
                                     "actor": "urn:li:corpuser:unknown"
                                 },
                                 "dataset": "urn:li:dataset:(urn:li:dataPlatform:postgres,pagila.public.customer,PROD)",
@@ -1577,7 +1577,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1615443388097,
+        "lastObserved": 1643871600000,
         "runId": "dbt-test-with-non-incremental-lineage"
     }
 },
@@ -1591,7 +1591,7 @@
         "contentType": "application/json"
     },
     "systemMetadata": {
-        "lastObserved": 1615443388097,
+        "lastObserved": 1643871600000,
         "runId": "dbt-test-with-non-incremental-lineage"
     }
 },
@@ -1722,7 +1722,7 @@
                         "upstreams": [
                             {
                                 "auditStamp": {
-                                    "time": 0,
+                                    "time": 1643871600000,
                                     "actor": "urn:li:corpuser:unknown"
                                 },
                                 "dataset": "urn:li:dataset:(urn:li:dataPlatform:postgres,pagila.public.payment_p2020_01,PROD)",
@@ -1735,7 +1735,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1615443388097,
+        "lastObserved": 1643871600000,
         "runId": "dbt-test-with-non-incremental-lineage"
     }
 },
@@ -1749,7 +1749,7 @@
         "contentType": "application/json"
     },
     "systemMetadata": {
-        "lastObserved": 1615443388097,
+        "lastObserved": 1643871600000,
         "runId": "dbt-test-with-non-incremental-lineage"
     }
 },
@@ -1898,7 +1898,7 @@
                         "upstreams": [
                             {
                                 "auditStamp": {
-                                    "time": 0,
+                                    "time": 1643871600000,
                                     "actor": "urn:li:corpuser:unknown"
                                 },
                                 "dataset": "urn:li:dataset:(urn:li:dataPlatform:postgres,pagila.public.payment_p2020_02,PROD)",
@@ -1911,7 +1911,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1615443388097,
+        "lastObserved": 1643871600000,
         "runId": "dbt-test-with-non-incremental-lineage"
     }
 },
@@ -1925,7 +1925,7 @@
         "contentType": "application/json"
     },
     "systemMetadata": {
-        "lastObserved": 1615443388097,
+        "lastObserved": 1643871600000,
         "runId": "dbt-test-with-non-incremental-lineage"
     }
 },
@@ -2056,7 +2056,7 @@
                         "upstreams": [
                             {
                                 "auditStamp": {
-                                    "time": 0,
+                                    "time": 1643871600000,
                                     "actor": "urn:li:corpuser:unknown"
                                 },
                                 "dataset": "urn:li:dataset:(urn:li:dataPlatform:postgres,pagila.public.payment_p2020_03,PROD)",
@@ -2069,7 +2069,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1615443388097,
+        "lastObserved": 1643871600000,
         "runId": "dbt-test-with-non-incremental-lineage"
     }
 },
@@ -2083,7 +2083,7 @@
         "contentType": "application/json"
     },
     "systemMetadata": {
-        "lastObserved": 1615443388097,
+        "lastObserved": 1643871600000,
         "runId": "dbt-test-with-non-incremental-lineage"
     }
 },
@@ -2214,7 +2214,7 @@
                         "upstreams": [
                             {
                                 "auditStamp": {
-                                    "time": 0,
+                                    "time": 1643871600000,
                                     "actor": "urn:li:corpuser:unknown"
                                 },
                                 "dataset": "urn:li:dataset:(urn:li:dataPlatform:postgres,pagila.public.payment_p2020_04,PROD)",
@@ -2227,7 +2227,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1615443388097,
+        "lastObserved": 1643871600000,
         "runId": "dbt-test-with-non-incremental-lineage"
     }
 },
@@ -2241,7 +2241,7 @@
         "contentType": "application/json"
     },
     "systemMetadata": {
-        "lastObserved": 1615443388097,
+        "lastObserved": 1643871600000,
         "runId": "dbt-test-with-non-incremental-lineage"
     }
 },
@@ -2372,7 +2372,7 @@
                         "upstreams": [
                             {
                                 "auditStamp": {
-                                    "time": 0,
+                                    "time": 1643871600000,
                                     "actor": "urn:li:corpuser:unknown"
                                 },
                                 "dataset": "urn:li:dataset:(urn:li:dataPlatform:postgres,pagila.public.payment_p2020_05,PROD)",
@@ -2385,7 +2385,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1615443388097,
+        "lastObserved": 1643871600000,
         "runId": "dbt-test-with-non-incremental-lineage"
     }
 },
@@ -2399,7 +2399,7 @@
         "contentType": "application/json"
     },
     "systemMetadata": {
-        "lastObserved": 1615443388097,
+        "lastObserved": 1643871600000,
         "runId": "dbt-test-with-non-incremental-lineage"
     }
 },
@@ -2530,7 +2530,7 @@
                         "upstreams": [
                             {
                                 "auditStamp": {
-                                    "time": 0,
+                                    "time": 1643871600000,
                                     "actor": "urn:li:corpuser:unknown"
                                 },
                                 "dataset": "urn:li:dataset:(urn:li:dataPlatform:postgres,pagila.public.payment_p2020_06,PROD)",
@@ -2543,7 +2543,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1615443388097,
+        "lastObserved": 1643871600000,
         "runId": "dbt-test-with-non-incremental-lineage"
     }
 },
@@ -2557,7 +2557,7 @@
                         "upstreams": [
                             {
                                 "auditStamp": {
-                                    "time": 0,
+                                    "time": 1643871600000,
                                     "actor": "urn:li:corpuser:unknown"
                                 },
                                 "dataset": "urn:li:dataset:(urn:li:dataPlatform:dbt,pagila.dbt_postgres.an-aliased-view-for-monthly-billing,PROD)",
@@ -2570,7 +2570,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1615443388097,
+        "lastObserved": 1643871600000,
         "runId": "dbt-test-with-non-incremental-lineage"
     }
 },
@@ -2584,7 +2584,7 @@
                         "upstreams": [
                             {
                                 "auditStamp": {
-                                    "time": 0,
+                                    "time": 1643871600000,
                                     "actor": "urn:li:corpuser:unknown"
                                 },
                                 "dataset": "urn:li:dataset:(urn:li:dataPlatform:dbt,pagila.dbt_postgres.an-aliased-view-for-payments,PROD)",
@@ -2597,7 +2597,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1615443388097,
+        "lastObserved": 1643871600000,
         "runId": "dbt-test-with-non-incremental-lineage"
     }
 },
@@ -2611,7 +2611,7 @@
                         "upstreams": [
                             {
                                 "auditStamp": {
-                                    "time": 0,
+                                    "time": 1643871600000,
                                     "actor": "urn:li:corpuser:unknown"
                                 },
                                 "dataset": "urn:li:dataset:(urn:li:dataPlatform:dbt,pagila.dbt_postgres.payments_by_customer_by_month,PROD)",
@@ -2624,7 +2624,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1615443388097,
+        "lastObserved": 1643871600000,
         "runId": "dbt-test-with-non-incremental-lineage"
     }
 }

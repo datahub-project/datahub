@@ -671,6 +671,7 @@ def get_upstream_lineage(upstream_urns: List[str]) -> UpstreamLineage:
             dataset=dep,
             type=DatasetLineageTypeClass.TRANSFORMED,
         )
+        uc.auditStamp.time = int(datetime.utcnow().timestamp() * 1000)
         ucl.append(uc)
 
     return UpstreamLineage(upstreams=ucl)

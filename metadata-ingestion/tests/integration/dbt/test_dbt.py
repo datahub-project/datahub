@@ -201,6 +201,7 @@ class DbtTestConfig:
 )
 @pytest.mark.integration
 @requests_mock.Mocker(kw="req_mock")
+@freeze_time(FROZEN_TIME)
 def test_dbt_ingest(dbt_test_config, pytestconfig, tmp_path, mock_time, **kwargs):
     config: DbtTestConfig = dbt_test_config
     test_resources_dir = pytestconfig.rootpath / "tests/integration/dbt"
