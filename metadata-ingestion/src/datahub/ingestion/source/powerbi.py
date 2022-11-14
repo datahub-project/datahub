@@ -557,7 +557,9 @@ class PowerBiAPI:
         )
 
     def get_dataset_schema(self, dataset: Dataset) -> Dict[str, List[str]]:
-        dataset_query_endpoint: str = PowerBiAPI.API_ENDPOINTS[Constant.DATASET_EXECUTE_QUERIES_POST]
+        dataset_query_endpoint: str = PowerBiAPI.API_ENDPOINTS[
+            Constant.DATASET_EXECUTE_QUERIES_POST
+        ]
         # Replace place holders
         dataset_query_endpoint = dataset_query_endpoint.format(
             POWERBI_BASE_URL=PowerBiAPI.BASE_URL,
@@ -585,10 +587,10 @@ class PowerBiAPI:
 
         results = {}
         data = response.json()
-        rows = data['results'][0]['tables'][0]['rows']
+        rows = data["results"][0]["tables"][0]["rows"]
         for row in rows:
-            table_name = row['[Table Name]']
-            col_name = row['[Column Name]']
+            table_name = row["[Table Name]"]
+            col_name = row["[Column Name]"]
             if table_name not in results:
                 results[table_name] = [col_name]
             else:
@@ -664,10 +666,16 @@ class PowerBiAPI:
         if self.__config.dataset_type_mapping.get(datasource.type) is not None:
             # Now set the database detail as it is relational data source
             datasource.metadata = PowerBiAPI.DataSource.MetaData(is_relational=True)
-            datasource.database = datasource_dict.get("connectionDetails", {}).get("database", None) or \
-                datasource_dict.get("connectionDetails", {}).get("connectionString", None)
-            datasource.server = datasource_dict.get("connectionDetails", {}).get("server", None) or \
-                datasource_dict.get("connectionDetails", {}).get("connectionString", None)
+            datasource.database = datasource_dict.get("connectionDetails", {}).get(
+                "database", None
+            ) or datasource_dict.get("connectionDetails", {}).get(
+                "connectionString", None
+            )
+            datasource.server = datasource_dict.get("connectionDetails", {}).get(
+                "server", None
+            ) or datasource_dict.get("connectionDetails", {}).get(
+                "connectionString", None
+            )
         else:
             datasource.metadata = PowerBiAPI.DataSource.MetaData(is_relational=False)
             LOGGER.warning(
@@ -867,7 +875,9 @@ class PowerBiAPI:
 
             return res.json()["workspaces"][0]
 
-        def json_to_dataset_map(scan_result: dict) -> Tuple[dict, List[PowerBiAPI.Dataset]]:
+        def json_to_dataset_map(
+            scan_result: dict,
+        ) -> Tuple[dict, List[PowerBiAPI.Dataset]]:
             """
             Filter out "dataset" from scan_result and return PowerBiAPI.Dataset instance set
             """
@@ -907,7 +917,7 @@ class PowerBiAPI:
                         for table_name, columns in schema.items():
                             dataset_instance.tables.append(
                                 PowerBiAPI.Dataset.Table(
-                                    schema_name='public',
+                                    schema_name="public",
                                     name=table_name,
                                 )
                             )
@@ -966,7 +976,9 @@ class PowerBiAPI:
         )
         # Get workspace dashboards
         workspace.dashboards = self.get_dashboards(workspace)
-        workspace.datasets, workspace.dataset_instances = json_to_dataset_map(scan_result)
+        workspace.datasets, workspace.dataset_instances = json_to_dataset_map(
+            scan_result
+        )
         init_dashboard_tiles(workspace)
 
         return workspace
@@ -1378,13 +1390,11 @@ class Mapper:
         return deduplicate_list([wu for wu in work_units if wu is not None])
 
     def dataset_to_datahub_work_units(
-            self, dataset: PowerBiAPI.Dataset
+        self, dataset: PowerBiAPI.Dataset
     ) -> List[EquableMetadataWorkUnit]:
         mcps = []
 
-        LOGGER.info(
-            f"Converting dataset={dataset.name} to datahub dataset"
-        )
+        LOGGER.info(f"Converting dataset={dataset.name} to datahub dataset")
 
         dataset_mpcs = self.__to_datahub_dataset(dataset)
         mcps.extend(dataset_mpcs)
