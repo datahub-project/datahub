@@ -11,14 +11,6 @@ class _Entity:
     def urn(self) -> str:
         pass
 
-    def set_context(self, context):
-        # Required for compat with Airflow 1.10.x
-        pass
-
-    def as_dict(self):
-        # Required for compat with Airflow 1.10.x
-        return attr.asdict(self)
-
 
 @attr.s(auto_attribs=True, str=True)
 class Dataset(_Entity):
