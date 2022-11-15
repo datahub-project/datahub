@@ -8,6 +8,7 @@ import pandas as pd
 from freezegun import freeze_time
 
 from datahub.configuration.common import AllowDenyPattern, DynamicTypedConfig
+
 from datahub.ingestion.glossary.classifier import (
     ClassificationConfig,
     DynamicTypedClassifierConfig,
@@ -339,6 +340,7 @@ def test_snowflake_basic(pytestconfig, tmp_path, mock_time, mock_datahub_graph):
                         username="TST_USR",
                         password="TST_PWD",
                         include_views=False,
+                        table_pattern=AllowDenyPattern(allow=["test_db.test_schema.*"]),
                         include_technical_schema=True,
                         include_table_lineage=True,
                         include_view_lineage=False,
