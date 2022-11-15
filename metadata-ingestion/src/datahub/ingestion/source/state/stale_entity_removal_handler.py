@@ -115,7 +115,7 @@ class StaleEntityCheckpointStateBase(CheckpointStateBase, ABC, Generic[Derived])
             overlap_count_all += overlap_count
             old_count_all += old_count
         if old_count_all:
-            return (1 - overlap_count / old_count_all) * 100.0
+            return (1 - overlap_count_all / old_count_all) * 100.0
         return 0.0
 
     @staticmethod
