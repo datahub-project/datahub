@@ -63,6 +63,7 @@ from datahub.ingestion.source.s3.data_lake_utils import ContainerWUCreator
 from datahub.ingestion.source.s3.profiling import _SingleTableProfiler
 from datahub.ingestion.source.s3.report import DataLakeSourceReport
 from datahub.ingestion.source.schema_inference import avro, csv_tsv, json, parquet
+from datahub.metadata.com.linkedin.pegasus2avro.common import Status
 from datahub.metadata.com.linkedin.pegasus2avro.metadata.snapshot import DatasetSnapshot
 from datahub.metadata.com.linkedin.pegasus2avro.mxe import MetadataChangeEvent
 from datahub.metadata.com.linkedin.pegasus2avro.schema import (
@@ -536,7 +537,7 @@ class S3Source(Source):
 
         dataset_snapshot = DatasetSnapshot(
             urn=dataset_urn,
-            aspects=[],
+            aspects=[Status(removed=False)],
         )
 
         customProperties: Optional[Dict[str, str]] = None

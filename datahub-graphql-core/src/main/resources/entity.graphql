@@ -8333,6 +8333,8 @@ type MLModelProperties {
     groups: [MLModelGroup]
 
     customProperties: [CustomPropertiesEntry!]
+
+    externalUrl: String
 }
 
 type MLFeatureProperties {
