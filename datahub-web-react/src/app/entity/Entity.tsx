@@ -19,6 +19,10 @@ export enum PreviewType {
      * A tiny search preview for text-box search.
      */
     MINI_SEARCH,
+    /**
+     * Previews rendered when hovering over the entity in a compact list
+     */
+    HOVER_CARD,
 }
 
 export enum IconStyleType {

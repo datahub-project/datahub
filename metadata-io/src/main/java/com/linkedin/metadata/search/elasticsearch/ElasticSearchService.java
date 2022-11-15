@@ -127,12 +127,12 @@ public class ElasticSearchService implements EntitySearchService {
 
   @Nonnull
   @Override
-  public BrowseResult browse(@Nonnull String entityName, @Nonnull String path, @Nullable Filter requestParams, int from,
+  public BrowseResult browse(@Nonnull String entityName, @Nonnull String path, @Nullable Filter filters, int from,
       int size) {
     log.debug(
-        String.format("Browsing entities entityName: %s, path: %s, requestParams: %s, from: %s, size: %s", entityName,
-            path, requestParams, from, size));
-    return esBrowseDAO.browse(entityName, path, requestParams, from, size);
+        String.format("Browsing entities entityName: %s, path: %s, filters: %s, from: %s, size: %s", entityName,
+            path, filters, from, size));
+    return esBrowseDAO.browse(entityName, path, filters, from, size);
   }
 
   @Nonnull

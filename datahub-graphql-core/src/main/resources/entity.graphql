@@ -165,19 +165,29 @@ type Query {
     entityExists(urn: String!): Boolean
 
     """
-    Gets the current invite token. If the optional regenerate param is set to true, generate a new invite token.
-    """
-    getNativeUserInviteToken: InviteToken
-
-    """
     Gets an entity based on its urn
     """
     entity(urn: String!): Entity
 
     """
+    Gets entities based on their urns
+    """
+    entities(urns: [String!]!): [Entity]
+
+    """
     List all DataHub Roles
     """
     listRoles(input: ListRolesInput!): ListRolesResult
+
+    """
+    Get invite token
+    """
+    getInviteToken(input: GetInviteTokenInput!): InviteToken
+
+    """
+    List all Posts
+    """
+    listPosts(input: ListPostsInput!): ListPostsResult
 }
 
 """
@@ -485,11 +495,6 @@ type Mutation {
     removeRelatedTerms(input: RelatedTermsInput!): Boolean
 
     """
-    Generates an invite token that can be shared with prospective users to create their accounts.
-    """
-    createNativeUserInviteToken: InviteToken
-
-    """
     Generates a token that can be shared with existing native users to reset their credentials.
     """
     createNativeUserResetToken(input: CreateNativeUserResetTokenInput!): ResetToken
@@ -508,6 +513,21 @@ type Mutation {
     Batch assign roles to users
     """
     batchAssignRole(input: BatchAssignRoleInput!): Boolean
+
+    """
+    Accept role using invite token
+    """
+    acceptRole(input: AcceptRoleInput!): Boolean
+
+    """
+    Create invite token
+    """
+    createInviteToken(input: CreateInviteTokenInput!): InviteToken
+
+    """
+    Create a post
+    """
+    createPost(input: CreatePostInput!): Boolean
 }
 
 """
@@ -683,6 +703,16 @@ enum EntityType {
     A DataHub Role
     """
     DATAHUB_ROLE
+
+    """
+    A DataHub Post
+    """
+    POST
+
+    """
+    A Schema Field
+    """
+    SCHEMA_FIELD
 }
 
 """
@@ -1128,6 +1158,16 @@ type Dataset implements EntityWithRelationships & Entity & BrowsableEntity {
     Metadata about the datasets siblings
     """
     siblings: SiblingProperties
+
+    """
+    fine grained lineage
+    """
+    fineGrainedLineages: [FineGrainedLineage!]
+}
+
+type FineGrainedLineage {
+    upstreams: [SchemaFieldRef!]
+    downstreams: [SchemaFieldRef!]
 }
 
 """
@@ -1408,6 +1448,11 @@ type GlossaryTerm implements Entity {
     ownership: Ownership
 
     """
+    The Domain associated with the glossary term
+    """
+    domain: DomainAssociation
+
+    """
     References to internal resources related to the Glossary Term
     """
     institutionalMemory: InstitutionalMemory
@@ -1457,6 +1502,11 @@ type GlossaryTerm implements Entity {
     Recursively get the lineage of glossary nodes for this entity
     """
     parentNodes: ParentNodesResult
+
+    """
+    Privileges given to a user relevant to this entity
+    """
+    privileges: EntityPrivileges
 }
 
 """
@@ -1584,6 +1634,11 @@ type GlossaryNode implements Entity {
     Recursively get the lineage of glossary nodes for this entity
     """
     parentNodes: ParentNodesResult
+
+    """
+    Privileges given to a user relevant to this entity
+    """
+    privileges: EntityPrivileges
 }
 
 """
@@ -1944,6 +1999,11 @@ type Container implements Entity {
     Edges extending from this entity
     """
     relationships(input: RelationshipsInput!): EntityRelationshipsResult
+
+    """
+    Status metadata of the container
+    """
+    status: Status
 }
 
 """
@@ -1969,6 +2029,11 @@ type ContainerProperties {
   Native platform URL of the Container
   """
   externalUrl: String
+
+  """
+  Fully-qualified name of the Container
+  """
+  qualifiedName: String
 }
 
 """
@@ -2288,11 +2353,16 @@ type KeyValueSchema {
 Standalone schema field entity. Differs from the SchemaField struct because it is not directly nested inside a
 schema field
 """
-type SchemaFieldEntity {
+type SchemaFieldEntity implements Entity {
     """
     Primary key of the schema field
     """
     urn: String!
+
+    """
+    A standard Entity Type
+    """
+    type: EntityType!
 
     """
     Field path identifying the field in its dataset
@@ -2300,9 +2370,14 @@ type SchemaFieldEntity {
     fieldPath: String!
 
     """
-    The primary key of the field's parent.
+    The field's parent.
     """
-    parent: String!
+    parent: Entity!
+
+    """
+    Granular API for querying edges extending from this entity
+    """
+    relationships(input: RelationshipsInput!): EntityRelationshipsResult
 }
 
 """
@@ -2318,6 +2393,11 @@ type SchemaField {
     Flattened name of a field in JSON Path notation
     """
     jsonPath: String
+
+    """
+    Human readable label for the field. Not supplied by all data sources
+    """
+    label: String
 
     """
     Indicates if this field is optional or nullable
@@ -4332,6 +4412,16 @@ type Dashboard implements EntityWithRelationships & Entity & BrowsableEntity {
     Standardized platform urn where the dashboard is defined
     """
     platform: DataPlatform!
+
+    """
+    Input fields that power all the charts in the dashboard
+    """
+    inputFields: InputFields
+
+    """
+    Sub Types of the dashboard
+    """
+    subTypes: SubTypes
 }
 
 """
@@ -4612,6 +4702,11 @@ type Chart implements EntityWithRelationships & Entity & BrowsableEntity {
     Standardized platform urn where the chart is defined
     """
     platform: DataPlatform!
+
+    """
+    Input fields to power the chart
+    """
+    inputFields: InputFields
 }
 
 """
@@ -8031,7 +8126,7 @@ type MLModelGroup implements EntityWithRelationships & Entity & BrowsableEntity 
     ownership: Ownership
 
     """
-    Status metadata of the MLFeature
+    Status metadata of the MLModelGroup
     """
     status: Status
 
@@ -9188,6 +9283,21 @@ input BatchUpdateSoftDeletedInput {
     deleted: Boolean!
 }
 
+"""
+Input fields of the chart
+"""
+type InputFields {
+    fields: [InputField]
+}
+
+"""
+Input field of the chart
+"""
+type InputField {
+    schemaFieldUrn: String
+    schemaField: SchemaField
+}
+
 enum UserSetting {
     """
     Show simplified homepage
@@ -9299,4 +9409,254 @@ type DataHubRole implements Entity {
     The description of the Role
     """
     description: String!
+}
+
+"""
+Input provided when getting an invite token
+"""
+input GetInviteTokenInput {
+    """
+    The urn of the role to get the invite token for
+    """
+    roleUrn: String
+}
+
+"""
+Input provided when creating an invite token
+"""
+input CreateInviteTokenInput {
+    """
+    The urn of the role to create the invite token for
+    """
+    roleUrn: String
+}
+
+"""
+Input provided when accepting a DataHub role using an invite token
+"""
+input AcceptRoleInput {
+    """
+    The token needed to accept the role
+    """
+    inviteToken: String!
+}
+
+"""
+The type of post
+"""
+enum PostType {
+    """
+    Posts on the home page
+    """
+    HOME_PAGE_ANNOUNCEMENT,
+}
+
+"""
+The type of post
+"""
+enum PostContentType {
+    """
+    Text content
+    """
+    TEXT,
+
+    """
+    Link content
+    """
+    LINK
+}
+
+"""
+The type of media
+"""
+enum MediaType {
+    """
+    An image
+    """
+    IMAGE
+}
+
+"""
+Input provided when creating a Post
+"""
+input CreatePostInput {
+    """
+    The type of post
+    """
+    postType: PostType!
+
+    """
+    The content of the post
+    """
+    content: UpdatePostContentInput!
+}
+
+"""
+Input provided for filling in a post content
+"""
+input UpdatePostContentInput {
+    """
+    The type of post content
+    """
+    contentType: PostContentType!
+
+    """
+    The title of the post
+    """
+    title: String!
+
+    """
+    Optional content of the post
+    """
+    description: String
+
+    """
+    Optional link that the post is associated with
+    """
+    link: String
+
+    """
+    Optional media contained in the post
+    """
+    media: UpdateMediaInput
+}
+
+"""
+Input provided for filling in a post content
+"""
+input UpdateMediaInput {
+    """
+    The type of media
+    """
+    type: MediaType!
+
+    """
+    The location of the media (a URL)
+    """
+    location: String!
+}
+
+"""
+Input provided when listing existing posts
+"""
+input ListPostsInput {
+    """
+    The starting offset of the result set returned
+    """
+    start: Int
+
+    """
+    The maximum number of Roles to be returned in the result set
+    """
+    count: Int
+
+    """
+    Optional search query
+    """
+    query: String
+}
+
+"""
+The result obtained when listing Posts
+"""
+type ListPostsResult {
+    """
+    The starting offset of the result set returned
+    """
+    start: Int!
+
+    """
+    The number of Roles in the returned result set
+    """
+    count: Int!
+
+    """
+    The total number of Roles in the result set
+    """
+    total: Int!
+
+    """
+    The Posts themselves
+    """
+    posts: [Post!]!
+}
+
+"""
+Input provided when creating a Post
+"""
+type Post implements Entity {
+    """
+    The primary key of the Post
+    """
+    urn: String!
+
+    """
+    The standard Entity Type
+    """
+    type: EntityType!
+
+    """
+    Granular API for querying edges extending from the Post
+    """
+    relationships(input: RelationshipsInput!): EntityRelationshipsResult
+
+    """
+    The type of post
+    """
+    postType: PostType!
+
+    """
+    The content of the post
+    """
+    content: PostContent!
+
+    """
+    When the post was last modified
+    """
+    lastModified: AuditStamp!
+}
+
+"""
+Post content
+"""
+type PostContent {
+    """
+    The type of post content
+    """
+    contentType: PostContentType!
+
+    """
+    The title of the post
+    """
+    title: String!
+
+    """
+    Optional content of the post
+    """
+    description: String
+
+    """
+    Optional link that the post is associated with
+    """
+    link: String
+
+    """
+    Optional media contained in the post
+    """
+    media: Media
+}
+
+"""
+Media content
+"""
+type Media {
+    """
+    The type of media
+    """
+    type: MediaType!
+
+    """
+    The location of the media (a URL)
+    """
+    location: String!
 }

@@ -162,6 +162,11 @@
                       },
                       "doc" : "The condition for the criterion, e.g. EQUAL, START_WITH",
                       "default" : "EQUAL"
+                    }, {
+                      "name" : "negated",
+                      "type" : "boolean",
+                      "doc" : "Whether the condition should be negated",
+                      "default" : false
                     } ]
                   }
                 },
@@ -1754,6 +1759,15 @@
         "fieldName" : "displayName",
         "fieldType" : "TEXT_PARTIAL"
       }
+    }, {
+      "name" : "id",
+      "type" : "string",
+      "doc" : "Optional id for the GlossaryNode",
+      "optional" : true,
+      "Searchable" : {
+        "enableAutocomplete" : true,
+        "fieldType" : "TEXT_PARTIAL"
+      }
     } ],
     "Aspect" : {
       "name" : "glossaryNodeInfo"
@@ -1765,6 +1779,15 @@
     "doc" : "Properties associated with a GlossaryTerm",
     "include" : [ "com.linkedin.common.CustomProperties" ],
     "fields" : [ {
+      "name" : "id",
+      "type" : "string",
+      "doc" : "Optional id for the term",
+      "optional" : true,
+      "Searchable" : {
+        "enableAutocomplete" : true,
+        "fieldType" : "TEXT_PARTIAL"
+      }
+    }, {
       "name" : "name",
       "type" : "string",
       "doc" : "Display name of the term",
@@ -2445,7 +2468,7 @@
               "optional" : true,
               "Searchable" : {
                 "boostScore" : 0.2,
-                "fieldName" : "fieldLabel",
+                "fieldName" : "fieldLabels",
                 "fieldType" : "TEXT"
               }
             }, {
@@ -3599,6 +3622,17 @@
         } ]
       } ],
       "actions" : [ {
+        "name" : "getCount",
+        "parameters" : [ {
+          "name" : "aspect",
+          "type" : "string"
+        }, {
+          "name" : "urnLike",
+          "type" : "string",
+          "optional" : true
+        } ],
+        "returns" : "int"
+      }, {
         "name" : "getTimeseriesAspectValues",
         "parameters" : [ {
           "name" : "urn",
@@ -3636,6 +3670,34 @@
         "parameters" : [ {
           "name" : "proposal",
           "type" : "com.linkedin.mxe.MetadataChangeProposal"
+        }, {
+          "name" : "async",
+          "type" : "string",
+          "default" : "unset"
+        } ],
+        "returns" : "string"
+      }, {
+        "name" : "restoreIndices",
+        "parameters" : [ {
+          "name" : "aspect",
+          "type" : "string",
+          "optional" : true
+        }, {
+          "name" : "urn",
+          "type" : "string",
+          "optional" : true
+        }, {
+          "name" : "urnLike",
+          "type" : "string",
+          "optional" : true
+        }, {
+          "name" : "start",
+          "type" : "int",
+          "optional" : true
+        }, {
+          "name" : "batchSize",
+          "type" : "int",
+          "optional" : true
         } ],
         "returns" : "string"
       } ],

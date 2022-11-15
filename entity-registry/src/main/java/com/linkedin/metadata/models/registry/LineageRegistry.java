@@ -107,10 +107,24 @@ public class LineageRegistry {
       return Collections.emptyList();
     }
 
+    if (entityName.equals("schemaField")) {
+      return getSchemaFieldRelationships(direction);
+    }
+
     if (direction == LineageDirection.UPSTREAM) {
       return spec.getUpstreamEdges();
     }
     return spec.getDownstreamEdges();
+  }
+
+  private List<EdgeInfo> getSchemaFieldRelationships(LineageDirection direction) {
+    List<EdgeInfo> schemaFieldEdges = new ArrayList<>();
+    if (direction == LineageDirection.UPSTREAM) {
+      schemaFieldEdges.add(new EdgeInfo("DownstreamOf", RelationshipDirection.OUTGOING, "schemafield"));
+    } else {
+      schemaFieldEdges.add(new EdgeInfo("DownstreamOf", RelationshipDirection.INCOMING, "schemafield"));
+    }
+    return schemaFieldEdges;
   }
 
   @Value
@@ -132,5 +146,27 @@ public class LineageRegistry {
     String type;
     RelationshipDirection direction;
     String opposingEntityType;
+
+    @Override
+    public boolean equals(Object o) {
+      if (o == this) {
+        return true;
+      }
+
+      if (o instanceof EdgeInfo) {
+        return ((EdgeInfo) o).type.equalsIgnoreCase(this.type)
+            && ((EdgeInfo) o).direction.equals(this.direction)
+            && ((EdgeInfo) o).opposingEntityType.equalsIgnoreCase(this.opposingEntityType);
+      }
+      return false;
+    }
+
+    @Override
+    public int hashCode() {
+      return ((this.type == null ? 0 : this.type.toLowerCase().hashCode())
+          ^ (this.direction == null ? 0 : this.direction.hashCode())
+          ^ (this.opposingEntityType == null ? 0 : this.opposingEntityType.toLowerCase().hashCode()));
+    }
   }
+
 }

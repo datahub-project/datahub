@@ -175,7 +175,7 @@ class _Aspect(DictWrapper):
         f"""
 from typing import Type
 
-_ASPECT_CLASSES: List[Type[_Aspect]] = [
+ASPECT_CLASSES: List[Type[_Aspect]] = [
     {f',{newline}    '.join(f"{aspect['name']}Class" for aspect in aspects)}
 ]
 """
@@ -197,6 +197,7 @@ def generate(schemas_path: str, outdir: str) -> None:
         "mxe/MetadataChangeLog.avsc",
         "mxe/PlatformEvent.avsc",
         "platform/event/v1/EntityChangeEvent.avsc",
+        "metadata/query/filter/Filter.avsc",  # temporarily added to test reserved keywords support
     }
 
     # Find all the aspect schemas / other important schemas.

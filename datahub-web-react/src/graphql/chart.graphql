@@ -91,6 +91,9 @@ query getChart($urn: String!) {
                 }
             }
         }
+        inputFields {
+            ...inputFieldsFields
+        }
     }
 }
 

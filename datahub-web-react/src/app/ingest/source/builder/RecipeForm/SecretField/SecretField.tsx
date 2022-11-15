@@ -1,5 +1,5 @@
 import React, { ReactNode } from 'react';
-import { Divider, Form, Select } from 'antd';
+import { AutoComplete, Divider, Form } from 'antd';
 import styled from 'styled-components/macro';
 import { Secret } from '../../../../../../types.generated';
 import CreateSecretButton from './CreateSecretButton';
@@ -12,7 +12,7 @@ const StyledDivider = styled(Divider)`
 
 export const StyledFormItem = styled(Form.Item)<{
     alignLeft?: boolean;
-    removeMargin: boolean;
+    removeMargin?: boolean;
     isSecretField?: boolean;
 }>`
     margin-bottom: ${(props) => (props.removeMargin ? '0' : '16px')};
@@ -80,17 +80,21 @@ function SecretFieldTooltip({ tooltipLabel }: { tooltipLabel?: string | ReactNod
 }
 
 function SecretField({ field, secrets, removeMargin, refetchSecrets }: SecretFieldProps) {
+    const options = secrets.map((secret) => ({ value: `\${${secret.name}}`, label: secret.name }));
+
     return (
         <StyledFormItem
             name={field.name}
             label={field.label}
+            rules={field.rules || undefined}
             tooltip={<SecretFieldTooltip tooltipLabel={field?.tooltip} />}
             removeMargin={!!removeMargin}
             isSecretField
         >
-            <Select
-                showSearch
-                filterOption={(input, option) => !!option?.children.toLowerCase().includes(input.toLowerCase())}
+            <AutoComplete
+                placeholder={field.placeholder}
+                filterOption={(input, option) => !!option?.value.toLowerCase().includes(input.toLowerCase())}
+                options={options}
                 dropdownRender={(menu) => (
                     <>
                         {menu}
@@ -98,13 +102,7 @@ function SecretField({ field, secrets, removeMargin, refetchSecrets }: SecretFie
                         <CreateSecretButton refetchSecrets={refetchSecrets} />
                     </>
                 )}
-            >
-                {secrets.map((secret) => (
-                    <Select.Option key={secret.urn} value={`\${${secret.name}}`}>
-                        {secret.name}
-                    </Select.Option>
-                ))}
-            </Select>
+            />
         </StyledFormItem>
     );
 }

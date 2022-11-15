@@ -78,7 +78,6 @@
         "users":[]
       },
       "privileges":[
-        "MANAGE_POLICIES",
         "MANAGE_INGESTION",
         "MANAGE_SECRETS",
         "MANAGE_USERS_AND_GROUPS",
@@ -89,7 +88,7 @@
         "MANAGE_GLOSSARIES",
         "MANAGE_TAGS"
       ],
-      "displayName":"All Users - All Platform Privileges",
+      "displayName":"All Users - All Platform Privileges (EXCEPT MANAGE POLICIES)",
       "description":"Grants full platform privileges to ALL users of DataHub. Change this policy to alter that behavior.",
       "state":"ACTIVE",
       "type":"PLATFORM",
@@ -239,9 +238,6 @@
         ]
       },
       "privileges":[
-        "MANAGE_INGESTION",
-        "MANAGE_SECRETS",
-        "VIEW_ANALYTICS",
         "GENERATE_PERSONAL_ACCESS_TOKENS",
         "MANAGE_DOMAINS",
         "MANAGE_GLOSSARIES",
@@ -314,9 +310,7 @@
           "urn:li:dataHubRole:Reader"
         ]
       },
-      "privileges":[
-        "VIEW_ANALYTICS"
-      ],
+      "privileges":[],
       "displayName":"Readers - Platform Policy",
       "description":"Readers can view analytics.",
       "state":"ACTIVE",

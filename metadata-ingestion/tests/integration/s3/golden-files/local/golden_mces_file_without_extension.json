@@ -1,21 +1,22 @@
 [
 {
-    "auditHeader": null,
     "proposedSnapshot": {
         "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
             "urn": "urn:li:dataset:(urn:li:dataPlatform:file,test-platform-instance.tests/integration/s3/test_data/local_system/folder_a/folder_aa/folder_aaa/no_extension/small,DEV)",
             "aspects": [
+                {
+                    "com.linkedin.pegasus2avro.common.Status": {
+                        "removed": false
+                    }
+                },
                 {
                     "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
                         "customProperties": {
                             "number_of_files": "1",
                             "size_in_bytes": "172"
                         },
-                        "externalUrl": null,
                         "name": "small",
-                        "qualifiedName": null,
                         "description": "",
-                        "uri": null,
                         "tags": []
                     }
                 },
@@ -26,17 +27,12 @@
                         "version": 0,
                         "created": {
                             "time": 0,
-                            "actor": "urn:li:corpuser:unknown",
-                            "impersonator": null
+                            "actor": "urn:li:corpuser:unknown"
                         },
                         "lastModified": {
                             "time": 0,
-                            "actor": "urn:li:corpuser:unknown",
-                            "impersonator": null
+                            "actor": "urn:li:corpuser:unknown"
                         },
-                        "deleted": null,
-                        "dataset": null,
-                        "cluster": null,
                         "hash": "",
                         "platformSchema": {
                             "com.linkedin.pegasus2avro.schema.OtherSchema": {
@@ -46,9 +42,7 @@
                         "fields": [
                             {
                                 "fieldPath": "1st chord",
-                                "jsonPath": null,
                                 "nullable": false,
-                                "description": null,
                                 "type": {
                                     "type": {
                                         "com.linkedin.pegasus2avro.schema.NumberType": {}
@@ -56,16 +50,11 @@
                                 },
                                 "nativeDataType": "integer",
                                 "recursive": false,
-                                "globalTags": null,
-                                "glossaryTerms": null,
-                                "isPartOfKey": false,
-                                "jsonProps": null
+                                "isPartOfKey": false
                             },
                             {
                                 "fieldPath": "2nd chord",
-                                "jsonPath": null,
                                 "nullable": false,
-                                "description": null,
                                 "type": {
                                     "type": {
                                         "com.linkedin.pegasus2avro.schema.NumberType": {}
@@ -73,16 +62,11 @@
                                 },
                                 "nativeDataType": "integer",
                                 "recursive": false,
-                                "globalTags": null,
-                                "glossaryTerms": null,
-                                "isPartOfKey": false,
-                                "jsonProps": null
+                                "isPartOfKey": false
                             },
                             {
                                 "fieldPath": "3rd chord",
-                                "jsonPath": null,
                                 "nullable": false,
-                                "description": null,
                                 "type": {
                                     "type": {
                                         "com.linkedin.pegasus2avro.schema.NumberType": {}
@@ -90,16 +74,11 @@
                                 },
                                 "nativeDataType": "integer",
                                 "recursive": false,
-                                "globalTags": null,
-                                "glossaryTerms": null,
-                                "isPartOfKey": false,
-                                "jsonProps": null
+                                "isPartOfKey": false
                             },
                             {
                                 "fieldPath": "4th chord",
-                                "jsonPath": null,
                                 "nullable": false,
-                                "description": null,
                                 "type": {
                                     "type": {
                                         "com.linkedin.pegasus2avro.schema.NumberType": {}
@@ -107,16 +86,11 @@
                                 },
                                 "nativeDataType": "integer",
                                 "recursive": false,
-                                "globalTags": null,
-                                "glossaryTerms": null,
-                                "isPartOfKey": false,
-                                "jsonProps": null
+                                "isPartOfKey": false
                             },
                             {
                                 "fieldPath": "Progression Quality",
-                                "jsonPath": null,
                                 "nullable": false,
-                                "description": null,
                                 "type": {
                                     "type": {
                                         "com.linkedin.pegasus2avro.schema.StringType": {}
@@ -124,34 +98,22 @@
                                 },
                                 "nativeDataType": "string",
                                 "recursive": false,
-                                "globalTags": null,
-                                "glossaryTerms": null,
-                                "isPartOfKey": false,
-                                "jsonProps": null
+                                "isPartOfKey": false
                             }
-                        ],
-                        "primaryKeys": null,
-                        "foreignKeysSpecs": null,
-                        "foreignKeys": null
+                        ]
                     }
                 }
             ]
         }
     },
-    "proposedDelta": null,
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "file_without_extension.json",
-        "registryName": null,
-        "registryVersion": null,
-        "properties": null
+        "runId": "file_without_extension.json"
     }
 },
 {
-    "auditHeader": null,
     "entityType": "container",
     "entityUrn": "urn:li:container:c0b6448a96b5b99a7cabec1c4bfa66c0",
-    "entityKeyAspect": null,
     "changeType": "UPSERT",
     "aspectName": "containerProperties",
     "aspect": {
@@ -160,36 +122,40 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "file_without_extension.json",
-        "registryName": null,
-        "registryVersion": null,
-        "properties": null
+        "runId": "file_without_extension.json"
     }
 },
 {
-    "auditHeader": null,
     "entityType": "container",
     "entityUrn": "urn:li:container:c0b6448a96b5b99a7cabec1c4bfa66c0",
-    "entityKeyAspect": null,
     "changeType": "UPSERT",
-    "aspectName": "dataPlatformInstance",
+    "aspectName": "status",
     "aspect": {
-        "value": "{\"platform\": \"urn:li:dataPlatform:file\"}",
+        "value": "{\"removed\": false}",
         "contentType": "application/json"
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "file_without_extension.json",
-        "registryName": null,
-        "registryVersion": null,
-        "properties": null
+        "runId": "file_without_extension.json"
     }
 },
 {
-    "auditHeader": null,
     "entityType": "container",
     "entityUrn": "urn:li:container:c0b6448a96b5b99a7cabec1c4bfa66c0",
-    "entityKeyAspect": null,
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "value": "{\"platform\": \"urn:li:dataPlatform:file\", \"instance\": \"urn:li:dataPlatformInstance:(urn:li:dataPlatform:file,test-platform-instance)\"}",
+        "contentType": "application/json"
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "file_without_extension.json"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:c0b6448a96b5b99a7cabec1c4bfa66c0",
     "changeType": "UPSERT",
     "aspectName": "subTypes",
     "aspect": {
@@ -198,17 +164,12 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "file_without_extension.json",
-        "registryName": null,
-        "registryVersion": null,
-        "properties": null
+        "runId": "file_without_extension.json"
     }
 },
 {
-    "auditHeader": null,
     "entityType": "container",
     "entityUrn": "urn:li:container:09bc75f9aaf92d57502aad33cab2e999",
-    "entityKeyAspect": null,
     "changeType": "UPSERT",
     "aspectName": "containerProperties",
     "aspect": {
@@ -217,36 +178,40 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "file_without_extension.json",
-        "registryName": null,
-        "registryVersion": null,
-        "properties": null
+        "runId": "file_without_extension.json"
     }
 },
 {
-    "auditHeader": null,
     "entityType": "container",
     "entityUrn": "urn:li:container:09bc75f9aaf92d57502aad33cab2e999",
-    "entityKeyAspect": null,
     "changeType": "UPSERT",
-    "aspectName": "dataPlatformInstance",
+    "aspectName": "status",
     "aspect": {
-        "value": "{\"platform\": \"urn:li:dataPlatform:file\"}",
+        "value": "{\"removed\": false}",
         "contentType": "application/json"
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "file_without_extension.json",
-        "registryName": null,
-        "registryVersion": null,
-        "properties": null
+        "runId": "file_without_extension.json"
     }
 },
 {
-    "auditHeader": null,
     "entityType": "container",
     "entityUrn": "urn:li:container:09bc75f9aaf92d57502aad33cab2e999",
-    "entityKeyAspect": null,
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "value": "{\"platform\": \"urn:li:dataPlatform:file\", \"instance\": \"urn:li:dataPlatformInstance:(urn:li:dataPlatform:file,test-platform-instance)\"}",
+        "contentType": "application/json"
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "file_without_extension.json"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:09bc75f9aaf92d57502aad33cab2e999",
     "changeType": "UPSERT",
     "aspectName": "subTypes",
     "aspect": {
@@ -255,17 +220,12 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "file_without_extension.json",
-        "registryName": null,
-        "registryVersion": null,
-        "properties": null
+        "runId": "file_without_extension.json"
     }
 },
 {
-    "auditHeader": null,
     "entityType": "container",
     "entityUrn": "urn:li:container:09bc75f9aaf92d57502aad33cab2e999",
-    "entityKeyAspect": null,
     "changeType": "UPSERT",
     "aspectName": "container",
     "aspect": {
@@ -274,17 +234,12 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "file_without_extension.json",
-        "registryName": null,
-        "registryVersion": null,
-        "properties": null
+        "runId": "file_without_extension.json"
     }
 },
 {
-    "auditHeader": null,
     "entityType": "container",
     "entityUrn": "urn:li:container:564adc1710f345e4777dbdc81a4b20db",
-    "entityKeyAspect": null,
     "changeType": "UPSERT",
     "aspectName": "containerProperties",
     "aspect": {
@@ -293,36 +248,40 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "file_without_extension.json",
-        "registryName": null,
-        "registryVersion": null,
-        "properties": null
+        "runId": "file_without_extension.json"
     }
 },
 {
-    "auditHeader": null,
     "entityType": "container",
     "entityUrn": "urn:li:container:564adc1710f345e4777dbdc81a4b20db",
-    "entityKeyAspect": null,
     "changeType": "UPSERT",
-    "aspectName": "dataPlatformInstance",
+    "aspectName": "status",
     "aspect": {
-        "value": "{\"platform\": \"urn:li:dataPlatform:file\"}",
+        "value": "{\"removed\": false}",
         "contentType": "application/json"
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "file_without_extension.json",
-        "registryName": null,
-        "registryVersion": null,
-        "properties": null
+        "runId": "file_without_extension.json"
     }
 },
 {
-    "auditHeader": null,
     "entityType": "container",
     "entityUrn": "urn:li:container:564adc1710f345e4777dbdc81a4b20db",
-    "entityKeyAspect": null,
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "value": "{\"platform\": \"urn:li:dataPlatform:file\", \"instance\": \"urn:li:dataPlatformInstance:(urn:li:dataPlatform:file,test-platform-instance)\"}",
+        "contentType": "application/json"
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "file_without_extension.json"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:564adc1710f345e4777dbdc81a4b20db",
     "changeType": "UPSERT",
     "aspectName": "subTypes",
     "aspect": {
@@ -331,17 +290,12 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "file_without_extension.json",
-        "registryName": null,
-        "registryVersion": null,
-        "properties": null
+        "runId": "file_without_extension.json"
     }
 },
 {
-    "auditHeader": null,
     "entityType": "container",
     "entityUrn": "urn:li:container:564adc1710f345e4777dbdc81a4b20db",
-    "entityKeyAspect": null,
     "changeType": "UPSERT",
     "aspectName": "container",
     "aspect": {
@@ -350,17 +304,12 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "file_without_extension.json",
-        "registryName": null,
-        "registryVersion": null,
-        "properties": null
+        "runId": "file_without_extension.json"
     }
 },
 {
-    "auditHeader": null,
     "entityType": "container",
     "entityUrn": "urn:li:container:c46207c164682005e865a54fcf7f4a9f",
-    "entityKeyAspect": null,
     "changeType": "UPSERT",
     "aspectName": "containerProperties",
     "aspect": {
@@ -369,36 +318,40 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "file_without_extension.json",
-        "registryName": null,
-        "registryVersion": null,
-        "properties": null
+        "runId": "file_without_extension.json"
     }
 },
 {
-    "auditHeader": null,
     "entityType": "container",
     "entityUrn": "urn:li:container:c46207c164682005e865a54fcf7f4a9f",
-    "entityKeyAspect": null,
     "changeType": "UPSERT",
-    "aspectName": "dataPlatformInstance",
+    "aspectName": "status",
     "aspect": {
-        "value": "{\"platform\": \"urn:li:dataPlatform:file\"}",
+        "value": "{\"removed\": false}",
         "contentType": "application/json"
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "file_without_extension.json",
-        "registryName": null,
-        "registryVersion": null,
-        "properties": null
+        "runId": "file_without_extension.json"
     }
 },
 {
-    "auditHeader": null,
     "entityType": "container",
     "entityUrn": "urn:li:container:c46207c164682005e865a54fcf7f4a9f",
-    "entityKeyAspect": null,
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "value": "{\"platform\": \"urn:li:dataPlatform:file\", \"instance\": \"urn:li:dataPlatformInstance:(urn:li:dataPlatform:file,test-platform-instance)\"}",
+        "contentType": "application/json"
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "file_without_extension.json"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:c46207c164682005e865a54fcf7f4a9f",
     "changeType": "UPSERT",
     "aspectName": "subTypes",
     "aspect": {
@@ -407,17 +360,12 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "file_without_extension.json",
-        "registryName": null,
-        "registryVersion": null,
-        "properties": null
+        "runId": "file_without_extension.json"
     }
 },
 {
-    "auditHeader": null,
     "entityType": "container",
     "entityUrn": "urn:li:container:c46207c164682005e865a54fcf7f4a9f",
-    "entityKeyAspect": null,
     "changeType": "UPSERT",
     "aspectName": "container",
     "aspect": {
@@ -426,17 +374,12 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "file_without_extension.json",
-        "registryName": null,
-        "registryVersion": null,
-        "properties": null
+        "runId": "file_without_extension.json"
     }
 },
 {
-    "auditHeader": null,
     "entityType": "container",
     "entityUrn": "urn:li:container:fd50ce59cb982671fc700636ab5744e2",
-    "entityKeyAspect": null,
     "changeType": "UPSERT",
     "aspectName": "containerProperties",
     "aspect": {
@@ -445,36 +388,40 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "file_without_extension.json",
-        "registryName": null,
-        "registryVersion": null,
-        "properties": null
+        "runId": "file_without_extension.json"
     }
 },
 {
-    "auditHeader": null,
     "entityType": "container",
     "entityUrn": "urn:li:container:fd50ce59cb982671fc700636ab5744e2",
-    "entityKeyAspect": null,
     "changeType": "UPSERT",
-    "aspectName": "dataPlatformInstance",
+    "aspectName": "status",
     "aspect": {
-        "value": "{\"platform\": \"urn:li:dataPlatform:file\"}",
+        "value": "{\"removed\": false}",
         "contentType": "application/json"
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "file_without_extension.json",
-        "registryName": null,
-        "registryVersion": null,
-        "properties": null
+        "runId": "file_without_extension.json"
     }
 },
 {
-    "auditHeader": null,
     "entityType": "container",
     "entityUrn": "urn:li:container:fd50ce59cb982671fc700636ab5744e2",
-    "entityKeyAspect": null,
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "value": "{\"platform\": \"urn:li:dataPlatform:file\", \"instance\": \"urn:li:dataPlatformInstance:(urn:li:dataPlatform:file,test-platform-instance)\"}",
+        "contentType": "application/json"
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "file_without_extension.json"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:fd50ce59cb982671fc700636ab5744e2",
     "changeType": "UPSERT",
     "aspectName": "subTypes",
     "aspect": {
@@ -483,17 +430,12 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "file_without_extension.json",
-        "registryName": null,
-        "registryVersion": null,
-        "properties": null
+        "runId": "file_without_extension.json"
     }
 },
 {
-    "auditHeader": null,
     "entityType": "container",
     "entityUrn": "urn:li:container:fd50ce59cb982671fc700636ab5744e2",
-    "entityKeyAspect": null,
     "changeType": "UPSERT",
     "aspectName": "container",
     "aspect": {
@@ -502,17 +444,12 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "file_without_extension.json",
-        "registryName": null,
-        "registryVersion": null,
-        "properties": null
+        "runId": "file_without_extension.json"
     }
 },
 {
-    "auditHeader": null,
     "entityType": "container",
     "entityUrn": "urn:li:container:34dcc9e05fe0d390619cbe1210771ba1",
-    "entityKeyAspect": null,
     "changeType": "UPSERT",
     "aspectName": "containerProperties",
     "aspect": {
@@ -521,36 +458,40 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "file_without_extension.json",
-        "registryName": null,
-        "registryVersion": null,
-        "properties": null
+        "runId": "file_without_extension.json"
     }
 },
 {
-    "auditHeader": null,
     "entityType": "container",
     "entityUrn": "urn:li:container:34dcc9e05fe0d390619cbe1210771ba1",
-    "entityKeyAspect": null,
     "changeType": "UPSERT",
-    "aspectName": "dataPlatformInstance",
+    "aspectName": "status",
     "aspect": {
-        "value": "{\"platform\": \"urn:li:dataPlatform:file\"}",
+        "value": "{\"removed\": false}",
         "contentType": "application/json"
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "file_without_extension.json",
-        "registryName": null,
-        "registryVersion": null,
-        "properties": null
+        "runId": "file_without_extension.json"
     }
 },
 {
-    "auditHeader": null,
     "entityType": "container",
     "entityUrn": "urn:li:container:34dcc9e05fe0d390619cbe1210771ba1",
-    "entityKeyAspect": null,
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "value": "{\"platform\": \"urn:li:dataPlatform:file\", \"instance\": \"urn:li:dataPlatformInstance:(urn:li:dataPlatform:file,test-platform-instance)\"}",
+        "contentType": "application/json"
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "file_without_extension.json"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:34dcc9e05fe0d390619cbe1210771ba1",
     "changeType": "UPSERT",
     "aspectName": "subTypes",
     "aspect": {
@@ -559,17 +500,12 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "file_without_extension.json",
-        "registryName": null,
-        "registryVersion": null,
-        "properties": null
+        "runId": "file_without_extension.json"
     }
 },
 {
-    "auditHeader": null,
     "entityType": "container",
     "entityUrn": "urn:li:container:34dcc9e05fe0d390619cbe1210771ba1",
-    "entityKeyAspect": null,
     "changeType": "UPSERT",
     "aspectName": "container",
     "aspect": {
@@ -578,17 +514,12 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "file_without_extension.json",
-        "registryName": null,
-        "registryVersion": null,
-        "properties": null
+        "runId": "file_without_extension.json"
     }
 },
 {
-    "auditHeader": null,
     "entityType": "container",
     "entityUrn": "urn:li:container:ec0a322960f194cdd055a5a6d5172ecb",
-    "entityKeyAspect": null,
     "changeType": "UPSERT",
     "aspectName": "containerProperties",
     "aspect": {
@@ -597,36 +528,40 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "file_without_extension.json",
-        "registryName": null,
-        "registryVersion": null,
-        "properties": null
+        "runId": "file_without_extension.json"
     }
 },
 {
-    "auditHeader": null,
     "entityType": "container",
     "entityUrn": "urn:li:container:ec0a322960f194cdd055a5a6d5172ecb",
-    "entityKeyAspect": null,
     "changeType": "UPSERT",
-    "aspectName": "dataPlatformInstance",
+    "aspectName": "status",
     "aspect": {
-        "value": "{\"platform\": \"urn:li:dataPlatform:file\"}",
+        "value": "{\"removed\": false}",
         "contentType": "application/json"
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "file_without_extension.json",
-        "registryName": null,
-        "registryVersion": null,
-        "properties": null
+        "runId": "file_without_extension.json"
     }
 },
 {
-    "auditHeader": null,
     "entityType": "container",
     "entityUrn": "urn:li:container:ec0a322960f194cdd055a5a6d5172ecb",
-    "entityKeyAspect": null,
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "value": "{\"platform\": \"urn:li:dataPlatform:file\", \"instance\": \"urn:li:dataPlatformInstance:(urn:li:dataPlatform:file,test-platform-instance)\"}",
+        "contentType": "application/json"
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "file_without_extension.json"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:ec0a322960f194cdd055a5a6d5172ecb",
     "changeType": "UPSERT",
     "aspectName": "subTypes",
     "aspect": {
@@ -635,17 +570,12 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "file_without_extension.json",
-        "registryName": null,
-        "registryVersion": null,
-        "properties": null
+        "runId": "file_without_extension.json"
     }
 },
 {
-    "auditHeader": null,
     "entityType": "container",
     "entityUrn": "urn:li:container:ec0a322960f194cdd055a5a6d5172ecb",
-    "entityKeyAspect": null,
     "changeType": "UPSERT",
     "aspectName": "container",
     "aspect": {
@@ -654,17 +584,12 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "file_without_extension.json",
-        "registryName": null,
-        "registryVersion": null,
-        "properties": null
+        "runId": "file_without_extension.json"
     }
 },
 {
-    "auditHeader": null,
     "entityType": "container",
     "entityUrn": "urn:li:container:46c2438600873ee3264c24c4ac6081b9",
-    "entityKeyAspect": null,
     "changeType": "UPSERT",
     "aspectName": "containerProperties",
     "aspect": {
@@ -673,36 +598,40 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "file_without_extension.json",
-        "registryName": null,
-        "registryVersion": null,
-        "properties": null
+        "runId": "file_without_extension.json"
     }
 },
 {
-    "auditHeader": null,
     "entityType": "container",
     "entityUrn": "urn:li:container:46c2438600873ee3264c24c4ac6081b9",
-    "entityKeyAspect": null,
     "changeType": "UPSERT",
-    "aspectName": "dataPlatformInstance",
+    "aspectName": "status",
     "aspect": {
-        "value": "{\"platform\": \"urn:li:dataPlatform:file\"}",
+        "value": "{\"removed\": false}",
         "contentType": "application/json"
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "file_without_extension.json",
-        "registryName": null,
-        "registryVersion": null,
-        "properties": null
+        "runId": "file_without_extension.json"
     }
 },
 {
-    "auditHeader": null,
     "entityType": "container",
     "entityUrn": "urn:li:container:46c2438600873ee3264c24c4ac6081b9",
-    "entityKeyAspect": null,
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "value": "{\"platform\": \"urn:li:dataPlatform:file\", \"instance\": \"urn:li:dataPlatformInstance:(urn:li:dataPlatform:file,test-platform-instance)\"}",
+        "contentType": "application/json"
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "file_without_extension.json"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:46c2438600873ee3264c24c4ac6081b9",
     "changeType": "UPSERT",
     "aspectName": "subTypes",
     "aspect": {
@@ -711,17 +640,12 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "file_without_extension.json",
-        "registryName": null,
-        "registryVersion": null,
-        "properties": null
+        "runId": "file_without_extension.json"
     }
 },
 {
-    "auditHeader": null,
     "entityType": "container",
     "entityUrn": "urn:li:container:46c2438600873ee3264c24c4ac6081b9",
-    "entityKeyAspect": null,
     "changeType": "UPSERT",
     "aspectName": "container",
     "aspect": {
@@ -730,17 +654,12 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "file_without_extension.json",
-        "registryName": null,
-        "registryVersion": null,
-        "properties": null
+        "runId": "file_without_extension.json"
     }
 },
 {
-    "auditHeader": null,
     "entityType": "container",
     "entityUrn": "urn:li:container:0715c65c4403307618fe7203ff768eaa",
-    "entityKeyAspect": null,
     "changeType": "UPSERT",
     "aspectName": "containerProperties",
     "aspect": {
@@ -749,36 +668,40 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "file_without_extension.json",
-        "registryName": null,
-        "registryVersion": null,
-        "properties": null
+        "runId": "file_without_extension.json"
     }
 },
 {
-    "auditHeader": null,
     "entityType": "container",
     "entityUrn": "urn:li:container:0715c65c4403307618fe7203ff768eaa",
-    "entityKeyAspect": null,
     "changeType": "UPSERT",
-    "aspectName": "dataPlatformInstance",
+    "aspectName": "status",
     "aspect": {
-        "value": "{\"platform\": \"urn:li:dataPlatform:file\"}",
+        "value": "{\"removed\": false}",
         "contentType": "application/json"
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "file_without_extension.json",
-        "registryName": null,
-        "registryVersion": null,
-        "properties": null
+        "runId": "file_without_extension.json"
     }
 },
 {
-    "auditHeader": null,
     "entityType": "container",
     "entityUrn": "urn:li:container:0715c65c4403307618fe7203ff768eaa",
-    "entityKeyAspect": null,
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "value": "{\"platform\": \"urn:li:dataPlatform:file\", \"instance\": \"urn:li:dataPlatformInstance:(urn:li:dataPlatform:file,test-platform-instance)\"}",
+        "contentType": "application/json"
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "file_without_extension.json"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:0715c65c4403307618fe7203ff768eaa",
     "changeType": "UPSERT",
     "aspectName": "subTypes",
     "aspect": {
@@ -787,17 +710,12 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "file_without_extension.json",
-        "registryName": null,
-        "registryVersion": null,
-        "properties": null
+        "runId": "file_without_extension.json"
     }
 },
 {
-    "auditHeader": null,
     "entityType": "container",
     "entityUrn": "urn:li:container:0715c65c4403307618fe7203ff768eaa",
-    "entityKeyAspect": null,
     "changeType": "UPSERT",
     "aspectName": "container",
     "aspect": {
@@ -806,17 +724,12 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "file_without_extension.json",
-        "registryName": null,
-        "registryVersion": null,
-        "properties": null
+        "runId": "file_without_extension.json"
     }
 },
 {
-    "auditHeader": null,
     "entityType": "dataset",
     "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:file,test-platform-instance.tests/integration/s3/test_data/local_system/folder_a/folder_aa/folder_aaa/no_extension/small,DEV)",
-    "entityKeyAspect": null,
     "changeType": "UPSERT",
     "aspectName": "container",
     "aspect": {
@@ -825,10 +738,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "file_without_extension.json",
-        "registryName": null,
-        "registryVersion": null,
-        "properties": null
+        "runId": "file_without_extension.json"
     }
 }
 ]

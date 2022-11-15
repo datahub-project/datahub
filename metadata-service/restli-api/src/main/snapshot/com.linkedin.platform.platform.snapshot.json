@@ -1620,6 +1620,11 @@
       "name" : "name",
       "type" : "string",
       "doc" : "Name of the data platform",
+      "Searchable" : {
+        "boostScore" : 10.0,
+        "enableAutocomplete" : false,
+        "fieldType" : "TEXT_PARTIAL"
+      },
       "validate" : {
         "strlen" : {
           "max" : 15
@@ -1629,7 +1634,12 @@
       "name" : "displayName",
       "type" : "string",
       "doc" : "The name that will be used for displaying a platform type.",
-      "optional" : true
+      "optional" : true,
+      "Searchable" : {
+        "boostScore" : 10.0,
+        "enableAutocomplete" : true,
+        "fieldType" : "TEXT_PARTIAL"
+      }
     }, {
       "name" : "type",
       "type" : {
@@ -2807,7 +2817,7 @@
                           "optional" : true,
                           "Searchable" : {
                             "boostScore" : 0.2,
-                            "fieldName" : "fieldLabel",
+                            "fieldName" : "fieldLabels",
                             "fieldType" : "TEXT"
                           }
                         }, {
@@ -4457,6 +4467,15 @@
                   "doc" : "Properties associated with a GlossaryTerm",
                   "include" : [ "com.linkedin.common.CustomProperties" ],
                   "fields" : [ {
+                    "name" : "id",
+                    "type" : "string",
+                    "doc" : "Optional id for the term",
+                    "optional" : true,
+                    "Searchable" : {
+                      "enableAutocomplete" : true,
+                      "fieldType" : "TEXT_PARTIAL"
+                    }
+                  }, {
                     "name" : "name",
                     "type" : "string",
                     "doc" : "Display name of the term",
@@ -4562,6 +4581,48 @@
                         "fieldType" : "URN"
                       }
                     }
+                  }, {
+                    "name" : "values",
+                    "type" : {
+                      "type" : "array",
+                      "items" : "com.linkedin.common.GlossaryTermUrn"
+                    },
+                    "doc" : "The relationship Has Value with glossary term.\nThese are fixed value a term has. For example a ColorEnum where RED, GREEN and YELLOW are fixed values.",
+                    "optional" : true,
+                    "Relationship" : {
+                      "/*" : {
+                        "entityTypes" : [ "glossaryTerm" ],
+                        "name" : "HasValue"
+                      }
+                    },
+                    "Searchable" : {
+                      "/*" : {
+                        "boostScore" : 2.0,
+                        "fieldName" : "values",
+                        "fieldType" : "URN"
+                      }
+                    }
+                  }, {
+                    "name" : "relatedTerms",
+                    "type" : {
+                      "type" : "array",
+                      "items" : "com.linkedin.common.GlossaryTermUrn"
+                    },
+                    "doc" : "The relationship isRelatedTo with glossary term",
+                    "optional" : true,
+                    "Relationship" : {
+                      "/*" : {
+                        "entityTypes" : [ "glossaryTerm" ],
+                        "name" : "isRelatedTo"
+                      }
+                    },
+                    "Searchable" : {
+                      "/*" : {
+                        "boostScore" : 2.0,
+                        "fieldName" : "relatedTerms",
+                        "fieldType" : "URN"
+                      }
+                    }
                   } ],
                   "Aspect" : {
                     "name" : "glossaryRelatedTerms"
@@ -4641,6 +4702,15 @@
                       "boostScore" : 10.0,
                       "enableAutocomplete" : true,
                       "fieldName" : "displayName",
+                      "fieldType" : "TEXT_PARTIAL"
+                    }
+                  }, {
+                    "name" : "id",
+                    "type" : "string",
+                    "doc" : "Optional id for the GlossaryNode",
+                    "optional" : true,
+                    "Searchable" : {
+                      "enableAutocomplete" : true,
                       "fieldType" : "TEXT_PARTIAL"
                     }
                   } ],
@@ -4841,7 +4911,13 @@
                           "items" : "com.linkedin.common.Urn"
                         },
                         "doc" : "A specific set of roles to apply the policy to (disjunctive).",
-                        "optional" : true
+                        "optional" : true,
+                        "Relationship" : {
+                          "/*" : {
+                            "entityTypes" : [ "dataHubRole" ],
+                            "name" : "IsAssociatedWithRole"
+                          }
+                        }
                       } ]
                     },
                     "doc" : "The actors that the policy applies to."

@@ -1,17 +1,28 @@
+from __future__ import print_function
+
+import dataclasses
 import datetime
 import logging
 import re
-from dataclasses import dataclass
-from dataclasses import field as dataclasses_field
+from dataclasses import dataclass, field as dataclasses_field
 from enum import Enum
-from typing import Dict, Iterable, List, Optional, Tuple, Union
+from functools import lru_cache
+from typing import (
+    TYPE_CHECKING,
+    ClassVar,
+    Dict,
+    Iterable,
+    List,
+    Optional,
+    Set,
+    Tuple,
+    Union,
+)
 
 import pydantic
 from looker_sdk.error import SDKError
-from looker_sdk.rtl.transport import TransportOptions
-from looker_sdk.sdk.api31.methods import Looker31SDK
-from looker_sdk.sdk.api31.models import WriteQuery
-from pydantic import BaseModel, Field
+from looker_sdk.sdk.api31.models import User, WriteQuery
+from pydantic import Field
 from pydantic.class_validators import validator
 
 import datahub.emitter.mce_builder as builder
@@ -20,8 +31,9 @@ from datahub.configuration.common import ConfigurationError
 from datahub.configuration.github import GitHubInfo
 from datahub.configuration.source_common import DatasetSourceConfigBase
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
-from datahub.ingestion.api.report import LossySet, Report
-from datahub.ingestion.api.source import LossyList, SourceReport
+from datahub.ingestion.api.report import Report
+from datahub.ingestion.api.source import SourceReport
+from datahub.ingestion.source.looker.looker_lib_wrapper import LookerAPI
 from datahub.ingestion.source.sql.sql_types import (
     POSTGRES_TYPES_MAP,
     SNOWFLAKE_TYPES_MAP,
@@ -29,6 +41,8 @@ from datahub.ingestion.source.sql.sql_types import (
 )
 from datahub.metadata.com.linkedin.pegasus2avro.dataset import (
     DatasetLineageTypeClass,
+    FineGrainedLineageDownstreamType,
+    FineGrainedLineageUpstreamType,
     UpstreamClass,
     UpstreamLineage,
 )
@@ -53,6 +67,7 @@ from datahub.metadata.schema_classes import (
     ChangeTypeClass,
     DatasetPropertiesClass,
     EnumTypeClass,
+    FineGrainedLineageClass,
     GlobalTagsClass,
     OwnerClass,
     OwnershipClass,
@@ -64,98 +79,103 @@ from datahub.metadata.schema_classes import (
     TagPropertiesClass,
     TagSnapshotClass,
 )
+from datahub.utilities.lossy_collections import LossyList, LossySet
+
+if TYPE_CHECKING:
+    from datahub.ingestion.source.looker.lookml_source import (
+        LookerViewFileLoader,
+        LookMLSourceReport,
+    )
 
 logger = logging.getLogger(__name__)
 
 
-# @dataclass
-class NamingPattern(BaseModel):
-    allowed_vars: List[str]
+class NamingPattern(ConfigModel):
+    ALLOWED_VARS: ClassVar[List[str]] = []
+    REQUIRE_AT_LEAST_ONE_VAR: ClassVar[bool] = True
+
     pattern: str
-    variables: Optional[List[str]] = None
+
+    @classmethod
+    def __get_validators__(cls):
+        yield cls.pydantic_accept_raw_pattern
+        yield cls.validate
+        yield cls.pydantic_validate_pattern
+
+    @classmethod
+    def pydantic_accept_raw_pattern(cls, v):
+        if isinstance(v, (NamingPattern, dict)):
+            return v
+        assert isinstance(v, str), "pattern must be a string"
+        return {"pattern": v}
+
+    @classmethod
+    def pydantic_validate_pattern(cls, v):
+        assert isinstance(v, NamingPattern)
+        assert v.validate_pattern(cls.REQUIRE_AT_LEAST_ONE_VAR)
+        return v
+
+    @classmethod
+    def allowed_docstring(cls) -> str:
+        return f"Allowed variables are {cls.ALLOWED_VARS}"
 
     def validate_pattern(self, at_least_one: bool) -> bool:
         variables = re.findall("({[^}{]+})", self.pattern)
-        self.variables = [v[1:-1] for v in variables]
+
+        variables = [v[1:-1] for v in variables]  # remove the {}
+
         for v in variables:
-            if v[1:-1] not in self.allowed_vars:
+            if v not in self.ALLOWED_VARS:
                 raise ConfigurationError(
-                    f"Failed to find {v} in allowed_variables {self.allowed_vars}"
+                    f"Failed to find {v} in allowed_variables {self.ALLOWED_VARS}"
                 )
         if at_least_one and len(variables) == 0:
             raise ConfigurationError(
-                f"Failed to find any variable assigned to pattern {self.pattern}. Must have at least one. Allowed variables are {self.allowed_vars}"
+                f"Failed to find any variable assigned to pattern {self.pattern}. Must have at least one. {self.allowed_docstring()}"
             )
         return True
 
-
-naming_pattern_variables: List[str] = [
-    "platform",
-    "env",
-    "project",
-    "model",
-    "name",
-]
+    def replace_variables(self, values: Union[Dict[str, Optional[str]], object]) -> str:
+        if not isinstance(values, dict):
+            assert dataclasses.is_dataclass(values)
+            values = dataclasses.asdict(values)
+        values = {k: v for k, v in values.items() if v is not None}
+        return self.pattern.format(**values)
 
 
-class LookerExploreNamingConfig(ConfigModel):
-    explore_naming_pattern: NamingPattern = pydantic.Field(
-        description="Pattern for providing dataset names to explores. Allowed variables are {project}, {model}, {name}. Default is `{model}.explore.{name}`",
-        default=NamingPattern(
-            allowed_vars=naming_pattern_variables, pattern="{model}.explore.{name}"
-        ),
-    )
-    explore_browse_pattern: NamingPattern = NamingPattern(
-        allowed_vars=naming_pattern_variables,
-        pattern="/{env}/{platform}/{project}/explores/{model}.{name}",
-    )
-
-    @validator("explore_naming_pattern", "explore_browse_pattern", pre=True)
-    def init_naming_pattern(cls, v):
-        if isinstance(v, NamingPattern):
-            return v
-        assert isinstance(v, str), "pattern must be a string"
-        return NamingPattern(allowed_vars=naming_pattern_variables, pattern=v)
-
-    @validator("explore_naming_pattern", "explore_browse_pattern", always=True)
-    def validate_naming_pattern(cls, v):
-        assert isinstance(v, NamingPattern)
-        v.validate_pattern(at_least_one=True)
-        return v
+@dataclass
+class NamingPatternMapping:
+    platform: str
+    env: str
+    project: str
+    model: str
+    name: str
 
 
-class LookerViewNamingConfig(ConfigModel):
-    view_naming_pattern: NamingPattern = Field(
-        NamingPattern(
-            allowed_vars=naming_pattern_variables, pattern="{project}.view.{name}"
-        ),
-        description="Pattern for providing dataset names to views. Allowed variables are `{project}`, `{model}`, `{name}`",
-    )
-    view_browse_pattern: NamingPattern = Field(
-        NamingPattern(
-            allowed_vars=naming_pattern_variables,
-            pattern="/{env}/{platform}/{project}/views/{name}",
-        ),
-        description="Pattern for providing browse paths to views. Allowed variables are `{project}`, `{model}`, `{name}`, `{platform}` and `{env}`",
+class LookerNamingPattern(NamingPattern):
+    ALLOWED_VARS = [field.name for field in dataclasses.fields(NamingPatternMapping)]
+
+
+class LookerCommonConfig(DatasetSourceConfigBase):
+    explore_naming_pattern: LookerNamingPattern = pydantic.Field(
+        description=f"Pattern for providing dataset names to explores. {LookerNamingPattern.allowed_docstring()}",
+        default=LookerNamingPattern(pattern="{model}.explore.{name}"),
     )
 
-    @validator("view_naming_pattern", "view_browse_pattern", pre=True)
-    def init_naming_pattern(cls, v):
-        if isinstance(v, NamingPattern):
-            return v
-        assert isinstance(v, str), "pattern must be a string"
-        return NamingPattern(allowed_vars=naming_pattern_variables, pattern=v)
+    explore_browse_pattern: LookerNamingPattern = pydantic.Field(
+        description=f"Pattern for providing browse paths to explores. {LookerNamingPattern.allowed_docstring()}",
+        default=LookerNamingPattern(pattern="/{env}/{platform}/{project}/explores"),
+    )
 
-    @validator("view_naming_pattern", "view_browse_pattern", always=True)
-    def validate_naming_pattern(cls, v):
-        assert isinstance(v, NamingPattern)
-        v.validate_pattern(at_least_one=True)
-        return v
+    view_naming_pattern: LookerNamingPattern = Field(
+        LookerNamingPattern(pattern="{project}.view.{name}"),
+        description=f"Pattern for providing dataset names to views. {LookerNamingPattern.allowed_docstring()}",
+    )
+    view_browse_pattern: LookerNamingPattern = Field(
+        LookerNamingPattern(pattern="/{env}/{platform}/{project}/views"),
+        description=f"Pattern for providing browse paths to views. {LookerNamingPattern.allowed_docstring()}",
+    )
 
-
-class LookerCommonConfig(
-    LookerViewNamingConfig, LookerExploreNamingConfig, DatasetSourceConfigBase
-):
     tag_measures_and_dimensions: bool = Field(
         True,
         description="When enabled, attaches tags to measures, dimensions and dimension groups to make them more discoverable. When disabled, adds this information to the description of the column.",
@@ -165,7 +185,11 @@ class LookerCommonConfig(
     )
     github_info: Optional[GitHubInfo] = Field(
         None,
-        description="Reference to your github location to enable easy navigation from DataHub to your LookML files",
+        description="Reference to your github location. If present, supplies handy links to your lookml on the dataset entity page.",
+    )
+    extract_column_level_lineage: bool = Field(
+        True,
+        description="When enabled, extracts column-level lineage from Views and Explores",
     )
 
 
@@ -175,19 +199,14 @@ class LookerViewId:
     model_name: str
     view_name: str
 
-    def get_mapping(self, variable: str, config: LookerCommonConfig) -> str:
-        assert variable in naming_pattern_variables
-        if variable == "project":
-            return self.project_name
-        if variable == "model":
-            return self.model_name
-        if variable == "name":
-            return self.view_name
-        if variable == "env":
-            return config.env.lower()
-        if variable == "platform":
-            return config.platform_name
-        assert False, "Unreachable code"
+    def get_mapping(self, config: LookerCommonConfig) -> NamingPatternMapping:
+        return NamingPatternMapping(
+            platform=config.platform_name,
+            env=config.env.lower(),
+            project=self.project_name,
+            model=self.model_name,
+            name=self.view_name,
+        )
 
     @validator("view_name")
     def remove_quotes(cls, v):
@@ -196,12 +215,9 @@ class LookerViewId:
         return v
 
     def get_urn(self, config: LookerCommonConfig) -> str:
-        dataset_name = config.view_naming_pattern.pattern
-        assert config.view_naming_pattern.variables is not None
-        for v in config.view_naming_pattern.variables:
-            dataset_name = dataset_name.replace(
-                "{" + v + "}", self.get_mapping(v, config)
-            )
+        dataset_name = config.view_naming_pattern.replace_variables(
+            self.get_mapping(config)
+        )
 
         return builder.make_dataset_urn_with_platform_instance(
             platform=config.platform_name,
@@ -211,12 +227,9 @@ class LookerViewId:
         )
 
     def get_browse_path(self, config: LookerCommonConfig) -> str:
-        browse_path = config.view_browse_pattern.pattern
-        assert config.view_browse_pattern.variables is not None
-        for v in config.view_browse_pattern.variables:
-            browse_path = browse_path.replace(
-                "{" + v + "}", self.get_mapping(v, config)
-            )
+        browse_path = config.view_browse_pattern.replace_variables(
+            self.get_mapping(config)
+        )
         return browse_path
 
 
@@ -235,6 +248,7 @@ class ViewField:
     description: str
     field_type: ViewFieldType
     is_primary_key: bool = False
+    upstream_fields: List[str] = dataclasses_field(default_factory=list)
 
 
 class LookerUtil:
@@ -488,6 +502,12 @@ class LookerUtil:
         )
 
 
+@dataclass(frozen=True, order=True)
+class ProjectInclude:
+    project: str
+    include: str
+
+
 @dataclass
 class LookerExplore:
     name: str
@@ -496,7 +516,7 @@ class LookerExplore:
     label: Optional[str] = None
     description: Optional[str] = None
     upstream_views: Optional[
-        List[str]
+        List[ProjectInclude]
     ] = None  # captures the view name(s) this explore is derived from
     joins: Optional[List[str]] = None
     fields: Optional[List[ViewField]] = None  # the fields exposed in this explore
@@ -514,7 +534,14 @@ class LookerExplore:
         return field_match.findall(sql_fragment)
 
     @classmethod
-    def from_dict(cls, model_name: str, dict: Dict) -> "LookerExplore":
+    def from_dict(
+        cls,
+        model_name: str,
+        dict: Dict,
+        resolved_includes: List[ProjectInclude],
+        looker_viewfile_loader: "LookerViewFileLoader",
+        reporter: "LookMLSourceReport",
+    ) -> "LookerExplore":
         view_names = set()
         joins = None
         # always add the explore's name or the name from the from clause as the view on which this explore is built
@@ -531,12 +558,36 @@ class LookerExplore:
                     fields = cls._get_fields_from_sql_equality(sql_on)
                     joins = fields
 
+        # HACK: We shouldn't be doing imports here. We also have
+        # circular imports that don't belong.
+        from datahub.ingestion.source.looker.lookml_source import (
+            _find_view_from_resolved_includes,
+        )
+
+        upstream_views = []
+        for view_name in view_names:
+            info = _find_view_from_resolved_includes(
+                None,
+                resolved_includes,
+                looker_viewfile_loader,
+                view_name,
+                reporter,
+            )
+            if not info:
+                logger.warning(
+                    f'Could not resolve view {view_name} for explore {dict["name"]} in model {model_name}'
+                )
+            else:
+                upstream_views.append(
+                    ProjectInclude(project=info[0].project, include=view_name)
+                )
+
         return LookerExplore(
             model_name=model_name,
             name=dict["name"],
             label=dict.get("label"),
             description=dict.get("description"),
-            upstream_views=list(view_names),
+            upstream_views=upstream_views,
             joins=joins,
         )
 
@@ -545,15 +596,14 @@ class LookerExplore:
         cls,
         model: str,
         explore_name: str,
-        client: Looker31SDK,
+        client: LookerAPI,
         reporter: SourceReport,
-        transport_options: Optional[TransportOptions],
     ) -> Optional["LookerExplore"]:  # noqa: C901
+        from datahub.ingestion.source.looker.lookml_source import _BASE_PROJECT_NAME
+
         try:
-            explore = client.lookml_model_explore(
-                model, explore_name, transport_options=transport_options
-            )
-            views = set()
+            explore = client.lookml_model_explore(model, explore_name)
+            views: Set[str] = set()
 
             if explore.view_name is not None and explore.view_name != explore.name:
                 # explore is not named after a view and is instead using a from field, which is modeled as view_name.
@@ -623,6 +673,7 @@ class LookerExplore:
                                     is_primary_key=dim_field.primary_key
                                     if dim_field.primary_key
                                     else False,
+                                    upstream_fields=[dim_field.name],
                                 )
                             )
                 if explore.fields.measures is not None:
@@ -644,6 +695,7 @@ class LookerExplore:
                                     is_primary_key=measure_field.primary_key
                                     if measure_field.primary_key
                                     else False,
+                                    upstream_fields=[measure_field.name],
                                 )
                             )
 
@@ -654,7 +706,13 @@ class LookerExplore:
                 label=explore.label,
                 description=explore.description,
                 fields=view_fields,
-                upstream_views=list(views),
+                upstream_views=list(
+                    ProjectInclude(
+                        project=_BASE_PROJECT_NAME,
+                        include=view_name,
+                    )
+                    for view_name in views
+                ),
                 source_file=explore.source_file,
             )
         except SDKError as e:
@@ -674,28 +732,19 @@ class LookerExplore:
             )
         return None
 
-    def get_mapping(self, variable: str, config: LookerCommonConfig) -> str:
-        assert variable in naming_pattern_variables
-        if variable == "project":
-            assert self.project_name is not None
-            return self.project_name
-        if variable == "model":
-            return self.model_name
-        if variable == "name":
-            return self.name
-        if variable == "env":
-            return config.env.lower()
-        if variable == "platform":
-            return config.platform_name
-        assert False, "Unreachable code"
+    def get_mapping(self, config: LookerCommonConfig) -> NamingPatternMapping:
+        return NamingPatternMapping(
+            platform=config.platform_name,
+            project=self.project_name,  # type: ignore
+            model=self.model_name,
+            name=self.name,
+            env=config.env.lower(),
+        )
 
     def get_explore_urn(self, config: LookerCommonConfig) -> str:
-        dataset_name = config.explore_naming_pattern.pattern
-        assert config.explore_naming_pattern.variables is not None
-        for v in config.explore_naming_pattern.variables:
-            dataset_name = dataset_name.replace(
-                "{" + v + "}", self.get_mapping(v, config)
-            )
+        dataset_name = config.explore_naming_pattern.replace_variables(
+            self.get_mapping(config)
+        )
 
         return builder.make_dataset_urn_with_platform_instance(
             platform=config.platform_name,
@@ -705,12 +754,9 @@ class LookerExplore:
         )
 
     def get_explore_browse_path(self, config: LookerCommonConfig) -> str:
-        browse_path = config.explore_browse_pattern.pattern
-        assert config.explore_browse_pattern.variables is not None
-        for v in config.explore_browse_pattern.variables:
-            browse_path = browse_path.replace(
-                "{" + v + "}", self.get_mapping(v, config)
-            )
+        browse_path = config.explore_browse_pattern.replace_variables(
+            self.get_mapping(config)
+        )
         return browse_path
 
     def _get_url(self, base_url):
@@ -725,6 +771,7 @@ class LookerExplore:
     ) -> Optional[List[Union[MetadataChangeEvent, MetadataChangeProposalWrapper]]]:
         # We only generate MCE-s for explores that contain from clauses and do NOT contain joins
         # All other explores (passthrough explores and joins) end in correct resolution of lineage, and don't need additional nodes in the graph.
+        from datahub.ingestion.source.looker.lookml_source import _BASE_PROJECT_NAME
 
         dataset_snapshot = DatasetSnapshot(
             urn=self.get_explore_urn(config),
@@ -747,20 +794,58 @@ class LookerExplore:
         dataset_props.externalUrl = self._get_url(base_url)
 
         dataset_snapshot.aspects.append(dataset_props)
+        view_name_to_urn_map: Dict[str, str] = {}
         if self.upstream_views is not None:
             assert self.project_name is not None
-            upstreams = [
-                UpstreamClass(
-                    dataset=LookerViewId(
-                        project_name=self.project_name,
-                        model_name=self.model_name,
-                        view_name=view_name,
-                    ).get_urn(config),
-                    type=DatasetLineageTypeClass.VIEW,
+            upstreams = []
+            for view_ref in sorted(self.upstream_views):
+                view_urn = LookerViewId(
+                    project_name=view_ref.project
+                    if view_ref.project != _BASE_PROJECT_NAME
+                    else self.project_name,
+                    model_name=self.model_name,
+                    view_name=view_ref.include,
+                ).get_urn(config)
+
+                upstreams.append(
+                    UpstreamClass(
+                        dataset=view_urn,
+                        type=DatasetLineageTypeClass.VIEW,
+                    )
                 )
-                for view_name in sorted(self.upstream_views)
-            ]
-            upstream_lineage = UpstreamLineage(upstreams=upstreams)
+                view_name_to_urn_map[view_ref.include] = view_urn
+
+            fine_grained_lineages = []
+            if config.extract_column_level_lineage:
+                for field in self.fields or []:
+                    for upstream_field in field.upstream_fields:
+                        if len(upstream_field.split(".")) >= 2:
+                            (view_name, field_path) = upstream_field.split(".")[
+                                0
+                            ], ".".join(upstream_field.split(".")[1:])
+                            assert view_name
+                            view_urn = view_name_to_urn_map.get(view_name, "")
+                            if view_urn:
+                                fine_grained_lineages.append(
+                                    FineGrainedLineageClass(
+                                        upstreamType=FineGrainedLineageUpstreamType.FIELD_SET,
+                                        downstreamType=FineGrainedLineageDownstreamType.FIELD,
+                                        upstreams=[
+                                            builder.make_schema_field_urn(
+                                                view_urn, field_path
+                                            )
+                                        ],
+                                        downstreams=[
+                                            builder.make_schema_field_urn(
+                                                self.get_explore_urn(config), field.name
+                                            )
+                                        ],
+                                    )
+                                )
+
+            upstream_lineage = UpstreamLineage(
+                upstreams=upstreams, fineGrainedLineages=fine_grained_lineages or None
+            )
             dataset_snapshot.aspects.append(upstream_lineage)
         if self.fields is not None:
             schema_metadata = LookerUtil._get_schema(
@@ -784,6 +869,33 @@ class LookerExplore:
         return [mce, mcp]
 
 
+class LookerExploreRegistry:
+    """A LRU caching registry of Looker Explores"""
+
+    def __init__(
+        self,
+        looker_api: LookerAPI,
+        report: SourceReport,
+    ):
+        self.client = looker_api
+        self.report = report
+
+    @lru_cache()
+    def get_explore(self, model: str, explore: str) -> Optional[LookerExplore]:
+        looker_explore = LookerExplore.from_api(
+            model,
+            explore,
+            self.client,
+            self.report,
+        )
+        return looker_explore
+
+    def compute_stats(self) -> Dict:
+        return {
+            "cache_info": self.get_explore.cache_info(),
+        }
+
+
 class StageLatency(Report):
     name: str
     start_time: Optional[datetime.datetime]
@@ -795,9 +907,7 @@ class StageLatency(Report):
 
     def compute_stats(self) -> None:
         if self.end_time and self.start_time:
-            self.latency_seconds = round(
-                (self.end_time - self.start_time).total_seconds(), 2
-            )
+            self.latency = self.end_time - self.start_time
             # clear out start and end times to keep logs clean
             self.start_time = None
             self.end_time = None
@@ -805,6 +915,7 @@ class StageLatency(Report):
 
 @dataclass
 class LookerDashboardSourceReport(SourceReport):
+    total_dashboards: int = 0
     dashboards_scanned: int = 0
     looks_scanned: int = 0
     filtered_dashboards: LossyList[str] = dataclasses_field(default_factory=LossyList)
@@ -815,8 +926,20 @@ class LookerDashboardSourceReport(SourceReport):
     dashboards_with_activity: LossySet[str] = dataclasses_field(
         default_factory=LossySet
     )
-    query_latency: Dict[str, float] = dataclasses_field(default_factory=dict)
     stage_latency: List[StageLatency] = dataclasses_field(default_factory=list)
+    _looker_explore_registry: Optional[LookerExploreRegistry] = None
+    total_explores: int = 0
+    explores_scanned: int = 0
+    _looker_api: Optional[LookerAPI] = None
+    query_latency: Dict[str, datetime.timedelta] = dataclasses_field(
+        default_factory=dict
+    )
+    user_resolution_latency: Dict[str, datetime.timedelta] = dataclasses_field(
+        default_factory=dict
+    )
+
+    def report_total_dashboards(self, total_dashboards: int) -> None:
+        self.total_dashboards = total_dashboards
 
     def report_dashboards_scanned(self) -> None:
         self.dashboards_scanned += 1
@@ -843,8 +966,15 @@ class LookerDashboardSourceReport(SourceReport):
         # for future implementation of min / max / percentiles etc.
         pass
 
-    def report_query_latency(self, query_type: str, latency_seconds: float) -> None:
-        self.query_latency[query_type] = round(latency_seconds, 2)
+    def report_query_latency(
+        self, query_type: str, latency: datetime.timedelta
+    ) -> None:
+        self.query_latency[query_type] = latency
+
+    def report_user_resolution_latency(
+        self, generator_type: str, latency: datetime.timedelta
+    ) -> None:
+        self.user_resolution_latency[generator_type] = latency
 
     def report_stage_start(self, stage_name: str) -> None:
         self.stage_latency.append(
@@ -854,3 +984,146 @@ class LookerDashboardSourceReport(SourceReport):
     def report_stage_end(self, stage_name: str) -> None:
         if self.stage_latency[-1].name == stage_name:
             self.stage_latency[-1].end_time = datetime.datetime.now()
+
+    def compute_stats(self) -> None:
+        if self.total_dashboards:
+            self.dashboard_process_percentage_completion = round(
+                100 * self.dashboards_scanned / self.total_dashboards, 2
+            )
+        if self._looker_explore_registry:
+            self.explore_registry_stats = self._looker_explore_registry.compute_stats()
+
+        if self.total_explores:
+            self.explores_process_percentage_completion = round(
+                100 * self.explores_scanned / self.total_explores, 2
+            )
+
+        if self._looker_api:
+            self.looker_api_stats = self._looker_api.compute_stats()
+        return super().compute_stats()
+
+
+@dataclass
+class LookerUser:
+    id: int
+    email: Optional[str]
+    display_name: Optional[str]
+    first_name: Optional[str]
+    last_name: Optional[str]
+
+    @classmethod
+    def create_looker_user(cls, raw_user: User) -> "LookerUser":
+        assert raw_user.id is not None
+        return LookerUser(
+            raw_user.id,
+            raw_user.email,
+            raw_user.display_name,
+            raw_user.first_name,
+            raw_user.last_name,
+        )
+
+    def get_urn(self, strip_user_ids_from_email: bool) -> Optional[str]:
+        if self.email is None:
+            return None
+        if strip_user_ids_from_email:
+            return builder.make_user_urn(self.email.split("@")[0])
+        else:
+            return builder.make_user_urn(self.email)
+
+
+@dataclass
+class InputFieldElement:
+    name: str
+    view_field: Optional[ViewField]
+    model: str = ""
+    explore: str = ""
+
+
+@dataclass
+class LookerDashboardElement:
+    id: str
+    title: str
+    query_slug: str
+    upstream_explores: List[LookerExplore]
+    look_id: Optional[str]
+    type: Optional[str] = None
+    description: Optional[str] = None
+    input_fields: Optional[List[InputFieldElement]] = None
+
+    def url(self, base_url: str) -> str:
+        # A dashboard element can use a look or just a raw query against an explore
+        # If the base_url contains a port number (like https://company.looker.com:19999) remove the port number
+        m = re.match("^(.*):([0-9]+)$", base_url)
+        if m is not None:
+            base_url = m[1]
+        if self.look_id is not None:
+            return f"{base_url}/looks/{self.look_id}"
+        else:
+            return f"{base_url}/x/{self.query_slug}"
+
+    def get_urn_element_id(self):
+        # A dashboard element can use a look or just a raw query against an explore
+        return f"dashboard_elements.{self.id}"
+
+    def get_view_urns(self, config: LookerCommonConfig) -> List[str]:
+        return [v.get_explore_urn(config) for v in self.upstream_explores]
+
+
+# These function will avoid to create LookerDashboard object to get the Looker Dashboard urn id part
+def get_urn_looker_dashboard_id(id_: str) -> str:
+    return f"dashboards.{id_}"
+
+
+def get_urn_looker_element_id(id_: str) -> str:
+    return f"dashboard_elements.{id_}"
+
+
+@dataclass
+class LookerDashboard:
+    id: str
+    title: str
+    dashboard_elements: List[LookerDashboardElement]
+    created_at: Optional[datetime.datetime]
+    description: Optional[str] = None
+    folder_path: Optional[str] = None
+    is_deleted: bool = False
+    is_hidden: bool = False
+    owner: Optional[LookerUser] = None
+    strip_user_ids_from_email: Optional[bool] = True
+    last_updated_at: Optional[datetime.datetime] = None
+    last_updated_by: Optional[LookerUser] = None
+    deleted_at: Optional[datetime.datetime] = None
+    deleted_by: Optional[LookerUser] = None
+    favorite_count: Optional[int] = None
+    view_count: Optional[int] = None
+    last_viewed_at: Optional[datetime.datetime] = None
+
+    def url(self, base_url):
+        # If the base_url contains a port number (like https://company.looker.com:19999) remove the port number
+        m = re.match("^(.*):([0-9]+)$", base_url)
+        if m is not None:
+            base_url = m[1]
+        return f"{base_url}/dashboards/{self.id}"
+
+    def get_urn_dashboard_id(self):
+        return get_urn_looker_dashboard_id(self.id)
+
+
+class LookerUserRegistry:
+    looker_api_wrapper: LookerAPI
+    fields: str = ",".join(["id", "email", "display_name", "first_name", "last_name"])
+
+    def __init__(self, looker_api: LookerAPI):
+        self.looker_api_wrapper = looker_api
+
+    def get_by_id(self, id_: int) -> Optional[LookerUser]:
+        logger.debug(f"Will get user {id_}")
+
+        raw_user: Optional[User] = self.looker_api_wrapper.get_user(
+            id_, user_fields=self.fields
+        )
+        if raw_user is None:
+            return None
+
+        looker_user = LookerUser.create_looker_user(raw_user)
+        return looker_user

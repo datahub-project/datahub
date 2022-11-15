@@ -122,7 +122,9 @@ public class UpsertIngestionSourceResolver implements DataFetcher<CompletableFut
     if (input.getExecutorId() != null) {
       result.setExecutorId(input.getExecutorId());
     }
-    result.setDebugMode(input.getDebugMode());
+    if (input.getDebugMode() != null) {
+      result.setDebugMode(input.getDebugMode());
+    }
     return result;
   }
 

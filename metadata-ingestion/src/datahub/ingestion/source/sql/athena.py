@@ -89,7 +89,6 @@ class AthenaConfig(SQLAlchemyConfig):
     "Optionally enabled via configuration. Profiling uses sql queries on whole table which can be expensive operation.",
 )
 @capability(SourceCapability.DESCRIPTIONS, "Enabled by default")
-@capability(SourceCapability.LINEAGE_COARSE, "Optionally enabled via configuration")
 class AthenaSource(SQLAlchemySource):
     """
     This plugin supports extracting the following metadata from Athena
@@ -110,7 +109,7 @@ class AthenaSource(SQLAlchemySource):
         self, inspector: Inspector, schema: str, table: str
     ) -> Tuple[Optional[str], Dict[str, str], Optional[str]]:
         if not self.cursor:
-            self.cursor = inspector.dialect._raw_connection(inspector.engine).cursor()
+            self.cursor = inspector.engine.raw_connection().cursor()
 
         assert self.cursor
         # Unfortunately properties can be only get through private methods as those are not exposed
@@ -173,9 +172,8 @@ class AthenaSource(SQLAlchemySource):
         return DatabaseKey(
             database=schema,
             platform=self.platform,
-            instance=self.config.platform_instance
-            if self.config.platform_instance is not None
-            else self.config.env,
+            instance=self.config.platform_instance,
+            backcompat_instance_for_guid=self.config.env,
         )
 
     def gen_schema_containers(

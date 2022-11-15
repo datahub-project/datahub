@@ -13,11 +13,7 @@ configurations {
 }
 
 dependencies {
-  if (project.hasProperty('enableEmber') && project.getProperty('enableEmber').toBoolean()) {
-    assets project(path: ':datahub-web', configuration: 'assets')
-  } else {
-    assets project(path: ':datahub-web-react', configuration: 'assets')
-  }
+  assets project(path: ':datahub-web-react', configuration: 'assets')
 
   constraints {
     play('org.springframework:spring-core:5.2.3.RELEASE')
@@ -76,7 +72,7 @@ play {
   platform {
     playVersion = '2.7.6'
     scalaVersion = '2.12'
-    javaVersion = JavaVersion.VERSION_1_8
+    javaVersion = JavaVersion.VERSION_11
   }
 
   injectedRoutesGenerator = true
@@ -85,7 +81,7 @@ play {
 model {
   components {
     play {
-      platform play: '2.7.6', scala: '2.12', java: '1.8'
+      platform play: '2.7.6', scala: '2.12', java: '11'
       injectedRoutesGenerator = true
 
       binaries.all {

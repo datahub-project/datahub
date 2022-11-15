@@ -4,35 +4,22 @@ import multiprocessing
 import re
 import sys
 import traceback
-from abc import ABCMeta, abstractmethod
 from multiprocessing import Process, Queue
-from typing import List, Optional, Tuple, Type
+from typing import Any, List, Optional, Tuple, Type
 
 from datahub.utilities.sql_lineage_parser_impl import SqlLineageSQLParserImpl
+from datahub.utilities.sql_parser_base import SQLParser
 
 with contextlib.suppress(ImportError):
     from sql_metadata import Parser as MetadataSQLParser
 logger = logging.getLogger(__name__)
 
 
-class SQLParser(metaclass=ABCMeta):
-    def __init__(self, sql_query: str) -> None:
-        self._sql_query = sql_query
-
-    @abstractmethod
-    def get_tables(self) -> List[str]:
-        pass
-
-    @abstractmethod
-    def get_columns(self) -> List[str]:
-        pass
-
-
 class MetadataSQLSQLParser(SQLParser):
     _DATE_SWAP_TOKEN = "__d_a_t_e"
 
-    def __init__(self, sql_query: str) -> None:
-        super().__init__(sql_query)
+    def __init__(self, sql_query: str, use_external_process: bool = True) -> None:
+        super().__init__(sql_query, use_external_process)
 
         original_sql_query = sql_query
 
@@ -81,9 +68,9 @@ class MetadataSQLSQLParser(SQLParser):
 
 
 def sql_lineage_parser_impl_func_wrapper(
-    queue: multiprocessing.Queue,
+    queue: Optional[multiprocessing.Queue],
     sql_query: str,
-) -> None:
+) -> Optional[Tuple[List[str], List[str], Any]]:
     """
     The wrapper function that computes the tables and columns using the SqlLineageSQLParserImpl
     and puts the results on the shared IPC queue. This is used to isolate SqlLineageSQLParserImpl
@@ -104,15 +91,30 @@ def sql_lineage_parser_impl_func_wrapper(
         exc_info = sys.exc_info()
         exc_msg: str = str(exc_info[1]) + "".join(traceback.format_tb(exc_info[2]))
         exception_details = (exc_info[0], exc_msg)
-        logger.error(exc_msg)
+        logger.debug(exc_msg)
     finally:
-        queue.put((tables, columns, exception_details))
+        if queue is not None:
+            queue.put((tables, columns, exception_details))
+            return None
+        else:
+            return (tables, columns, exception_details)
 
 
 class SqlLineageSQLParser(SQLParser):
-    def __init__(self, sql_query: str) -> None:
-        super().__init__(sql_query)
-        self.tables, self.columns = self._get_tables_columns_process_wrapped(sql_query)
+    def __init__(self, sql_query: str, use_external_process: bool = True) -> None:
+        super().__init__(sql_query, use_external_process)
+        if use_external_process:
+            self.tables, self.columns = self._get_tables_columns_process_wrapped(
+                sql_query
+            )
+        else:
+            return_tuple = sql_lineage_parser_impl_func_wrapper(None, sql_query)
+            if return_tuple is not None:
+                (
+                    self.tables,
+                    self.columns,
+                    some_exception,
+                ) = return_tuple
 
     @staticmethod
     def _get_tables_columns_process_wrapped(
@@ -143,15 +145,4 @@ class SqlLineageSQLParser(SQLParser):
         return self.columns
 
 
-class DefaultSQLParser(SQLParser):
-    parser: SQLParser
-
-    def __init__(self, sql_query: str) -> None:
-        super().__init__(sql_query)
-        self.parser = SqlLineageSQLParser(sql_query)
-
-    def get_tables(self) -> List[str]:
-        return self.parser.get_tables()
-
-    def get_columns(self) -> List[str]:
-        return self.parser.get_columns()
+DefaultSQLParser = SqlLineageSQLParser

@@ -3,10 +3,64 @@
 This file documents any backwards-incompatible changes in DataHub and assists people when migrating to a new version.
 
 ## Next
+- LookML source will only emit views that are reachable from explores while scanning your git repo. Previous behavior can be achieved by setting `emit_reachable_views_only` to False.
+- LookML source will always lowercase urns for lineage edges from views to upstream tables. There is no fallback provided to previous behavior because it was inconsistent in application of lower-casing earlier.
+- dbt config `node_type_pattern` which was previously deprecated has been removed. Use `entities_enabled` instead to control whether to emit metadata for sources, models, seeds, tests, etc.
+- The DataHub Airflow lineage backend and plugin no longer support Airflow 1.x. You can still run DataHub ingestion in Airflow 1.x using the [PythonVirtualenvOperator](https://airflow.apache.org/docs/apache-airflow/1.10.15/_api/airflow/operators/python_operator/index.html?highlight=pythonvirtualenvoperator#airflow.operators.python_operator.PythonVirtualenvOperator).
+
+### Breaking Changes
+- Java version 11 or greater is required.
+- For any of the GraphQL search queries, the input no longer supports value but instead now accepts a list of values. These values represent an OR relationship where the field value must match any of the values.
+
+### Potential Downtime
+
+### Deprecations
+
+### Other notable Changes
+
+## 0.9.0
+
+### Breaking Changes
+- Java version 11 or greater is required.
+
+### Potential Downtime
+
+### Deprecations
+
+### Other notable Changes
+
+## `v0.8.45`
+
+### Breaking Changes
+- The `getNativeUserInviteToken` and `createNativeUserInviteToken` GraphQL endpoints have been renamed to 
+  `getInviteToken` and `createInviteToken` respectively.  Additionally, both now accept an optional `roleUrn` parameter. 
+  Both endpoints also now require the `MANAGE_POLICIES` privilege to execute, rather than `MANAGE_USER_CREDENTIALS`
+  privilege.
+- One of the default policies shipped with DataHub (`urn:li:dataHubPolicy:7`, or `All Users - All Platform Privileges`)
+  has been edited to no longer include `MANAGE_POLICIES`. Its name has consequently been changed to
+    `All Users - All Platform Privileges (EXCEPT MANAGE POLICIES)`. This change was made to prevent all users from
+  effectively acting as superusers by default.
+
+### Potential Downtime
+
+### Deprecations
+
+### Other notable Changes
+
+## `v0.8.44`
 
 ### Breaking Changes
 
+- Browse Paths have been upgraded to a new format to align more closely with the intention of the feature.
+  Learn more about the changes, including steps on upgrading, here: https://datahubproject.io/docs/advanced/browse-paths-upgrade
+- The dbt ingestion source's `disable_dbt_node_creation` and `load_schema` options have been removed. They were no longer necessary due to the recently added sibling entities functionality.
+- The `snowflake` source now uses newer faster implementation (earlier `snowflake-beta`). Config properties `provision_role` and `check_role_grants` are not supported. Older `snowflake` and `snowflake-usage` are available as `snowflake-legacy` and `snowflake-usage-legacy` sources respectively.
+
 ### Potential Downtime
+
+- [Helm] If you're using Helm, please ensure that your version of the `datahub-actions` container is bumped to `v0.0.7` or `head`. 
+This version contains changes to support running ingestion in debug mode. Previous versions are not compatible with this release.
+Upgrading to helm chart version `0.2.103` will ensure that you have the compatible versions by default. 
 
 ### Deprecations
 

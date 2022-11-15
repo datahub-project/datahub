@@ -1,6 +1,9 @@
+from datahub.utilities._markupsafe_compat import MARKUPSAFE_PATCHED
+
 import json
 import logging
 import os
+import sys
 import time
 from dataclasses import dataclass
 from datetime import timezone
@@ -55,8 +58,11 @@ from datahub.metadata.com.linkedin.pegasus2avro.events.metadata import ChangeTyp
 from datahub.metadata.schema_classes import PartitionSpecClass, PartitionTypeClass
 from datahub.utilities.sql_parser import DefaultSQLParser
 
+assert MARKUPSAFE_PATCHED
 logger = logging.getLogger(__name__)
 if os.getenv("DATAHUB_DEBUG", False):
+    handler = logging.StreamHandler(stream=sys.stdout)
+    logger.addHandler(handler)
     logger.setLevel(logging.DEBUG)
 
 GE_PLATFORM_NAME = "great-expectations"
@@ -188,7 +194,7 @@ class DataHubValidationAction(ValidationAction):
                         aspect=assertionResult,
                     )
 
-                    # Emit Result! (timseries aspect)
+                    # Emit Result! (timeseries aspect)
                     emitter.emit_mcp(dataset_assertionResult_mcp)
             logger.info("Metadata sent to datahub.")
             result = "DataHub notification succeeded"
@@ -196,7 +202,7 @@ class DataHubValidationAction(ValidationAction):
             result = "DataHub notification failed"
             if self.graceful_exceptions:
                 logger.error(e)
-                logger.info("Supressing error because graceful_exceptions is set")
+                logger.info("Suppressing error because graceful_exceptions is set")
             else:
                 raise
 
@@ -642,7 +648,12 @@ class DataHubValidationAction(ValidationAction):
                     query=query,
                     customProperties=batchSpecProperties,
                 )
-                tables = DefaultSQLParser(query).get_tables()
+                try:
+                    tables = DefaultSQLParser(query).get_tables()
+                except Exception as e:
+                    logger.warning(f"Sql parser failed on {query} with {e}")
+                    tables = []
+
                 if len(set(tables)) != 1:
                     warn(
                         "DataHubValidationAction does not support cross dataset assertions."

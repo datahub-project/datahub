@@ -124,6 +124,7 @@ function list_markdown_files(): string[] {
     /^docs\/rfc\/templates\/000-template\.md$/,
     /^docs\/docker\/README\.md/, // This one is just a pointer to another file.
     /^docs\/README\.md/, // This one is just a pointer to the hosted docs site.
+    /^SECURITY\.md$/,
     /^\s*$/, //Empty string
   ];
 
@@ -245,6 +246,9 @@ function markdown_guess_title(
   let sidebar_label = title;
   if (sidebar_label.startsWith("DataHub ")) {
     sidebar_label = sidebar_label.slice(8).trim();
+  }
+  if (sidebar_label.startsWith("About DataHub ")) {
+    sidebar_label = sidebar_label.slice(14).trim();
   }
   if (sidebar_label != title) {
     contents.data.sidebar_label = sidebar_label;

@@ -27,6 +27,7 @@ import {
     RelationshipDirection,
     Container,
     PlatformPrivileges,
+    FilterOperator,
 } from './types.generated';
 import { GetTagDocument } from './graphql/tag.generated';
 import { GetMlModelDocument } from './graphql/mlModel.generated';
@@ -409,7 +410,10 @@ export const dataset3 = {
                         description: 'sample definition',
                         definition: 'sample definition',
                         termSource: 'sample term source',
+                        customProperties: null,
                     },
+                    ownership: null,
+                    parentNodes: null,
                 },
                 associatedUrn: 'urn:li:dataset:3',
             },
@@ -439,6 +443,7 @@ export const dataset3 = {
         createdAt: 0,
         fields: [
             {
+                __typename: 'SchemaField',
                 nullable: false,
                 recursive: false,
                 fieldPath: 'user_id',
@@ -449,8 +454,10 @@ export const dataset3 = {
                 jsonPath: null,
                 globalTags: null,
                 glossaryTerms: null,
+                label: 'hi',
             },
             {
+                __typename: 'SchemaField',
                 nullable: false,
                 recursive: false,
                 fieldPath: 'user_name',
@@ -461,6 +468,7 @@ export const dataset3 = {
                 jsonPath: null,
                 globalTags: null,
                 glossaryTerms: null,
+                label: 'hi',
             },
         ],
         hash: '',
@@ -820,7 +828,7 @@ export const container2 = {
     __typename: 'Container',
 } as Container;
 
-const glossaryTerm1 = {
+export const glossaryTerm1 = {
     urn: 'urn:li:glossaryTerm:1',
     type: EntityType.GlossaryTerm,
     name: 'Another glossary term',
@@ -862,6 +870,7 @@ const glossaryTerm1 = {
         sourceRef: 'sourceRef',
         sourceURI: 'sourceURI',
     },
+    parentNodes: null,
     deprecation: null,
 } as GlossaryTerm;
 
@@ -934,6 +943,7 @@ const glossaryTerm2 = {
         ],
         __typename: 'EntityRelationshipsResult',
     },
+    parentNodes: null,
     __typename: 'GlossaryTerm',
 };
 
@@ -1068,7 +1078,7 @@ export const glossaryNode5 = {
     __typename: 'GlossaryNode',
 } as GlossaryNode;
 
-const sampleTag = {
+export const sampleTag = {
     urn: 'urn:li:tag:abc-sample-tag',
     name: 'abc-sample-tag',
     description: 'sample tag description',
@@ -1692,7 +1702,8 @@ export const mocks = [
                     path: [],
                     start: 0,
                     count: 20,
-                    filters: null,
+                    filters: [],
+                    orFilters: [],
                 },
             },
         },
@@ -1726,7 +1737,8 @@ export const mocks = [
                     path: ['prod', 'hdfs'],
                     start: 0,
                     count: 20,
-                    filters: null,
+                    filters: [],
+                    orFilters: [],
                 },
             },
         },
@@ -1760,7 +1772,8 @@ export const mocks = [
                     path: ['prod'],
                     start: 0,
                     count: 20,
-                    filters: null,
+                    filters: [],
+                    orFilters: [],
                 },
             },
         },
@@ -1864,6 +1877,7 @@ export const mocks = [
                     start: 0,
                     count: 10,
                     filters: [],
+                    orFilters: [],
                 },
             },
         },
@@ -1937,10 +1951,17 @@ export const mocks = [
                     query: 'test',
                     start: 0,
                     count: 10,
-                    filters: [
+                    filters: [],
+                    orFilters: [
                         {
-                            field: 'platform',
-                            value: 'kafka',
+                            and: [
+                                {
+                                    field: 'platform',
+                                    values: ['kafka'],
+                                    negated: false,
+                                    condition: FilterOperator.Equal,
+                                },
+                            ],
                         },
                     ],
                 },
@@ -2010,6 +2031,7 @@ export const mocks = [
                     start: 0,
                     count: 1,
                     filters: [],
+                    orFilters: [],
                 },
             },
         },
@@ -2100,14 +2122,17 @@ export const mocks = [
                     query: 'test',
                     start: 0,
                     count: 10,
-                    filters: [
+                    filters: [],
+                    orFilters: [
                         {
-                            field: 'platform',
-                            value: 'kafka',
-                        },
-                        {
-                            field: 'platform',
-                            value: 'hdfs',
+                            and: [
+                                {
+                                    field: 'platform',
+                                    values: ['kafka', 'hdfs'],
+                                    negated: false,
+                                    condition: FilterOperator.Equal,
+                                },
+                            ],
                         },
                     ],
                 },
@@ -2247,6 +2272,7 @@ export const mocks = [
                     start: 0,
                     count: 1,
                     filters: [],
+                    orFilters: [],
                 },
             },
         },
@@ -2274,6 +2300,7 @@ export const mocks = [
                     start: 0,
                     count: 1,
                     filters: [],
+                    orFilters: [],
                 },
             },
         },
@@ -2339,6 +2366,7 @@ export const mocks = [
                     start: 0,
                     count: 20,
                     filters: [],
+                    orFilters: [],
                 },
             },
         },
@@ -2412,6 +2440,7 @@ export const mocks = [
                     start: 0,
                     count: 10,
                     filters: [],
+                    orFilters: [],
                 },
             },
         },
@@ -2555,6 +2584,7 @@ export const mocks = [
                     start: 0,
                     count: 10,
                     filters: [],
+                    orFilters: [],
                 },
             },
         },
@@ -2628,10 +2658,17 @@ export const mocks = [
                     query: 'test',
                     start: 0,
                     count: 10,
-                    filters: [
+                    filters: [],
+                    orFilters: [
                         {
-                            field: 'platform',
-                            value: 'kafka',
+                            and: [
+                                {
+                                    field: 'platform',
+                                    values: ['kafka'],
+                                    negated: false,
+                                    condition: FilterOperator.Equal,
+                                },
+                            ],
                         },
                     ],
                 },
@@ -2729,10 +2766,17 @@ export const mocks = [
                     query: 'test',
                     start: 0,
                     count: 10,
-                    filters: [
+                    filters: [],
+                    orFilters: [
                         {
-                            field: 'platform',
-                            value: 'kafka',
+                            and: [
+                                {
+                                    field: 'platform',
+                                    values: ['kafka'],
+                                    negated: false,
+                                    condition: FilterOperator.Equal,
+                                },
+                            ],
                         },
                     ],
                 },
@@ -2771,6 +2815,7 @@ export const mocks = [
                     start: 0,
                     count: 10,
                     filters: [],
+                    orFilters: [],
                 },
             },
         },
@@ -2832,6 +2877,7 @@ export const mocks = [
                     start: 0,
                     count: 1,
                     filters: [],
+                    orFilters: [],
                 },
             },
         },
@@ -2897,6 +2943,7 @@ export const mocks = [
                     start: 0,
                     count: 20,
                     filters: [],
+                    orFilters: [],
                 },
             },
         },
@@ -2969,14 +3016,17 @@ export const mocks = [
                     query: 'test',
                     start: 0,
                     count: 10,
-                    filters: [
+                    filters: [],
+                    orFilters: [
                         {
-                            field: 'platform',
-                            value: 'kafka',
-                        },
-                        {
-                            field: 'platform',
-                            value: 'hdfs',
+                            and: [
+                                {
+                                    field: 'platform',
+                                    values: ['kafka', 'hdfs'],
+                                    negated: false,
+                                    condition: FilterOperator.Equal,
+                                },
+                            ],
                         },
                     ],
                 },
@@ -3043,14 +3093,17 @@ export const mocks = [
                     query: 'test',
                     start: 0,
                     count: 10,
-                    filters: [
+                    filters: [],
+                    orFilters: [
                         {
-                            field: 'platform',
-                            value: 'kafka',
-                        },
-                        {
-                            field: 'platform',
-                            value: 'hdfs',
+                            and: [
+                                {
+                                    field: 'platform',
+                                    values: ['kafka', 'hdfs'],
+                                    negated: false,
+                                    condition: FilterOperator.Equal,
+                                },
+                            ],
                         },
                     ],
                 },
@@ -3242,6 +3295,7 @@ export const mocks = [
                     start: 0,
                     count: 10,
                     filters: [],
+                    orFilters: [],
                 },
             },
         },
@@ -3298,6 +3352,7 @@ export const mocks = [
                     start: 0,
                     count: 6,
                     filters: [],
+                    orFilters: [],
                 },
             },
         },

@@ -4,6 +4,8 @@ import com.datahub.util.exception.ModelConversionException;
 import com.datahub.util.exception.RetryLimitReached;
 import com.datastax.oss.driver.api.core.CqlSession;
 import com.datastax.oss.driver.api.core.DriverException;
+import com.datastax.oss.driver.api.core.cql.BatchStatement;
+import com.datastax.oss.driver.api.core.cql.BatchType;
 import com.datastax.oss.driver.api.core.cql.ResultSet;
 import com.datastax.oss.driver.api.core.cql.Row;
 import com.datastax.oss.driver.api.core.cql.SimpleStatement;
@@ -24,6 +26,8 @@ import com.linkedin.metadata.entity.AspectMigrationsDao;
 import com.linkedin.metadata.entity.EntityAspect;
 import com.linkedin.metadata.entity.EntityAspectIdentifier;
 import com.linkedin.metadata.entity.ListResult;
+import com.linkedin.metadata.entity.ebean.EbeanAspectV2;
+import com.linkedin.metadata.entity.restoreindices.RestoreIndicesArgs;
 import com.linkedin.metadata.query.ExtraInfo;
 import com.linkedin.metadata.query.ExtraInfoArray;
 import com.linkedin.metadata.query.ListResultMetadata;
@@ -38,6 +42,8 @@ import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
+
+import io.ebean.PagedList;
 import lombok.extern.slf4j.Slf4j;
 
 import static com.datastax.oss.driver.api.querybuilder.QueryBuilder.*;
@@ -144,41 +150,8 @@ public class CassandraAspectDao implements AspectDao, AspectMigrationsDao {
   @Override
   public void saveAspect(@Nonnull EntityAspect aspect, final boolean insert) {
     validateConnection();
-    String entity;
-
-    try {
-      entity = (new Urn(aspect.getUrn())).getEntityType();
-    } catch (URISyntaxException e) {
-      throw new RuntimeException(e);
-    }
-
-    if (insert) {
-      Insert ri = insertInto(CassandraAspect.TABLE_NAME)
-        .value(CassandraAspect.URN_COLUMN, literal(aspect.getUrn()))
-        .value(CassandraAspect.ASPECT_COLUMN, literal(aspect.getAspect()))
-        .value(CassandraAspect.VERSION_COLUMN, literal(aspect.getVersion()))
-        .value(CassandraAspect.SYSTEM_METADATA_COLUMN, literal(aspect.getSystemMetadata()))
-        .value(CassandraAspect.METADATA_COLUMN, literal(aspect.getMetadata()))
-        .value(CassandraAspect.CREATED_ON_COLUMN, literal(aspect.getCreatedOn().getTime()))
-        .value(CassandraAspect.CREATED_FOR_COLUMN, literal(aspect.getCreatedFor()))
-        .value(CassandraAspect.ENTITY_COLUMN, literal(entity))
-        .value(CassandraAspect.CREATED_BY_COLUMN, literal(aspect.getCreatedBy()));
-      _cqlSession.execute(ri.build());
-    } else {
-
-      UpdateWithAssignments uwa = update(CassandraAspect.TABLE_NAME)
-        .setColumn(CassandraAspect.METADATA_COLUMN, literal(aspect.getMetadata()))
-        .setColumn(CassandraAspect.SYSTEM_METADATA_COLUMN, literal(aspect.getSystemMetadata()))
-        .setColumn(CassandraAspect.CREATED_ON_COLUMN, literal(aspect.getCreatedOn().getTime()))
-        .setColumn(CassandraAspect.CREATED_BY_COLUMN, literal(aspect.getCreatedBy()))
-        .setColumn(CassandraAspect.CREATED_FOR_COLUMN, literal(aspect.getCreatedFor()));
-
-      Update u = uwa.whereColumn(CassandraAspect.URN_COLUMN).isEqualTo(literal(aspect.getUrn()))
-        .whereColumn(CassandraAspect.ASPECT_COLUMN).isEqualTo(literal(aspect.getAspect()))
-        .whereColumn(CassandraAspect.VERSION_COLUMN).isEqualTo(literal(aspect.getVersion()));
-
-      _cqlSession.execute(u.build());
-    }
+    SimpleStatement statement = generateSaveStatement(aspect, insert);
+    _cqlSession.execute(statement);
   }
 
   // TODO: can further improve by running the sub queries in parallel
@@ -351,6 +324,7 @@ public class CassandraAspectDao implements AspectDao, AspectMigrationsDao {
         .whereColumn(CassandraAspect.URN_COLUMN).isEqualTo(literal(aspect.getUrn()))
         .whereColumn(CassandraAspect.ASPECT_COLUMN).isEqualTo(literal(aspect.getAspect()))
         .whereColumn(CassandraAspect.VERSION_COLUMN).isEqualTo(literal(aspect.getVersion()))
+        .ifExists()
         .build();
 
     _cqlSession.execute(ss);
@@ -443,6 +417,20 @@ public class CassandraAspectDao implements AspectDao, AspectMigrationsDao {
     return toListResult(urns, null, start, pageNumber, pageSize, totalCount);
   }
 
+  @Nonnull
+  @Override
+  public Integer countAspect(@Nonnull String aspectName, @Nullable String urnLike) {
+    // Not implemented
+    return -1;
+  }
+
+  @Nonnull
+  public PagedList<EbeanAspectV2> getPagedAspects(final RestoreIndicesArgs args) {
+    // Not implemented
+    return null;
+  }
+
+
   @Override
   @Nonnull
   public Iterable<String> listAllUrns(int start, int pageSize) {
@@ -508,15 +496,74 @@ public class CassandraAspectDao implements AspectDao, AspectMigrationsDao {
     }
     // Save oldValue as the largest version + 1
     long largestVersion = ASPECT_LATEST_VERSION;
+    BatchStatement batch = BatchStatement.newInstance(BatchType.UNLOGGED);
     if (oldAspectMetadata != null && oldTime != null) {
       largestVersion = nextVersion;
-      saveAspect(urn, aspectName, oldAspectMetadata, oldActor, oldImpersonator, oldTime, oldSystemMetadata, largestVersion, true);
+      final EntityAspect aspect = new EntityAspect(
+              urn,
+              aspectName,
+              largestVersion,
+              oldAspectMetadata,
+              oldSystemMetadata,
+              oldTime,
+              oldActor,
+              oldImpersonator
+      );
+      batch = batch.add(generateSaveStatement(aspect, true));
     }
 
     // Save newValue as the latest version (v0)
-    saveAspect(urn, aspectName, newAspectMetadata, newActor, newImpersonator, newTime, newSystemMetadata, ASPECT_LATEST_VERSION, oldAspectMetadata == null);
-
+    final EntityAspect aspect = new EntityAspect(
+            urn,
+            aspectName,
+            ASPECT_LATEST_VERSION,
+            newAspectMetadata,
+            newSystemMetadata,
+            newTime,
+            newActor,
+            newImpersonator
+    );
+    batch = batch.add(generateSaveStatement(aspect, oldAspectMetadata == null));
+    _cqlSession.execute(batch);
     return largestVersion;
+  }
+
+  private SimpleStatement generateSaveStatement(EntityAspect aspect, boolean insert) {
+    String entity;
+    try {
+      entity = (new Urn(aspect.getUrn())).getEntityType();
+    } catch (URISyntaxException e) {
+      throw new RuntimeException(e);
+    }
+    if (insert) {
+      Insert ri = insertInto(CassandraAspect.TABLE_NAME)
+              .value(CassandraAspect.URN_COLUMN, literal(aspect.getUrn()))
+              .value(CassandraAspect.ASPECT_COLUMN, literal(aspect.getAspect()))
+              .value(CassandraAspect.VERSION_COLUMN, literal(aspect.getVersion()))
+              .value(CassandraAspect.SYSTEM_METADATA_COLUMN, literal(aspect.getSystemMetadata()))
+              .value(CassandraAspect.METADATA_COLUMN, literal(aspect.getMetadata()))
+              .value(CassandraAspect.CREATED_ON_COLUMN, literal(aspect.getCreatedOn().getTime()))
+              .value(CassandraAspect.CREATED_FOR_COLUMN, literal(aspect.getCreatedFor()))
+              .value(CassandraAspect.ENTITY_COLUMN, literal(entity))
+              .value(CassandraAspect.CREATED_BY_COLUMN, literal(aspect.getCreatedBy()))
+              .ifNotExists();
+      return ri.build();
+    } else {
+
+      UpdateWithAssignments uwa = update(CassandraAspect.TABLE_NAME)
+              .setColumn(CassandraAspect.METADATA_COLUMN, literal(aspect.getMetadata()))
+              .setColumn(CassandraAspect.SYSTEM_METADATA_COLUMN, literal(aspect.getSystemMetadata()))
+              .setColumn(CassandraAspect.CREATED_ON_COLUMN, literal(aspect.getCreatedOn().getTime()))
+              .setColumn(CassandraAspect.CREATED_BY_COLUMN, literal(aspect.getCreatedBy()))
+              .setColumn(CassandraAspect.CREATED_FOR_COLUMN, literal(aspect.getCreatedFor()));
+
+      Update u = uwa.whereColumn(CassandraAspect.URN_COLUMN).isEqualTo(literal(aspect.getUrn()))
+              .whereColumn(CassandraAspect.ASPECT_COLUMN).isEqualTo(literal(aspect.getAspect()))
+              .whereColumn(CassandraAspect.VERSION_COLUMN).isEqualTo(literal(aspect.getVersion()))
+              .ifExists();
+
+      return u.build();
+    }
   }
 
   @Override

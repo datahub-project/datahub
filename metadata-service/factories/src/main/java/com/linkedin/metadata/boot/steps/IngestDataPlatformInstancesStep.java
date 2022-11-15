@@ -42,7 +42,7 @@ public class IngestDataPlatformInstancesStep implements BootstrapStep {
 
   private Optional<DataPlatformInstance> getDataPlatformInstance(Urn urn) {
     final AspectSpec keyAspectSpec = _entityService.getKeyAspectSpec(urn);
-    RecordTemplate keyAspect = EntityKeyUtils.convertUrnToEntityKey(urn, keyAspectSpec.getPegasusSchema());
+    RecordTemplate keyAspect = EntityKeyUtils.convertUrnToEntityKey(urn, keyAspectSpec);
     return DataPlatformInstanceUtils.buildDataPlatformInstance(urn.getEntityType(), keyAspect);
   }
 

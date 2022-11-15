@@ -6,12 +6,8 @@ An example DAG demonstrating the usage of DataHub's Airflow lineage backend.
 from datetime import timedelta
 
 from airflow import DAG
+from airflow.operators.bash import BashOperator
 from airflow.utils.dates import days_ago
-
-try:
-    from airflow.operators.bash import BashOperator
-except ModuleNotFoundError:
-    from airflow.operators.bash_operator import BashOperator
 
 from datahub_provider.entities import Dataset
 

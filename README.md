@@ -123,6 +123,7 @@ Here are the companies that have officially adopted DataHub. Please feel free to
 - [LinkedIn](http://linkedin.com)
 - [Moloco](https://www.moloco.com/en)
 - [Peloton](https://www.onepeloton.com)
+- [Razer](https://www.razer.com)
 - [Saxo Bank](https://www.home.saxo)
 - [Stash](https://www.stash.com)
 - [Shanghai HuaRui Bank](https://www.shrbank.com)
@@ -150,7 +151,7 @@ Here are the companies that have officially adopted DataHub. Please feel free to
 - [Data Catalogue — Knowing your data](https://medium.com/albert-franzi/data-catalogue-knowing-your-data-15f7d0724900)
 - [DataHub: A Generalized Metadata Search & Discovery Tool](https://engineering.linkedin.com/blog/2019/data-hub)
 - [Open sourcing DataHub: LinkedIn’s metadata search and discovery platform](https://engineering.linkedin.com/blog/2020/open-sourcing-datahub--linkedins-metadata-search-and-discovery-p)
-- [Emerging Architectures for Modern Data Infrastructure](https://a16z.com/2020/10/15/the-emerging-architectures-for-modern-data-infrastructure/)
+- [Emerging Architectures for Modern Data Infrastructure](https://future.com/emerging-architectures-for-modern-data-infrastructure-2020/)
 
 See the full list [here](docs/links.md).
 

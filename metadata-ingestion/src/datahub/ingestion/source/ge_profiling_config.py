@@ -22,7 +22,7 @@ class GEProfilingConfig(ConfigModel):
     )
     report_dropped_profiles: bool = Field(
         default=False,
-        description="If datasets which were not profiled are reported in source report or not. Set to `True` for debugging purposes.",
+        description="Whether to report datasets or dataset columns which were not profiled. Set to `True` for debugging purposes.",
     )
 
     # These settings will override the ones below.
@@ -38,6 +38,10 @@ class GEProfilingConfig(ConfigModel):
     include_field_null_count: bool = Field(
         default=True,
         description="Whether to profile for the number of nulls for each column.",
+    )
+    include_field_distinct_count: bool = Field(
+        default=True,
+        description="Whether to profile for the number of distinct values for each column.",
     )
     include_field_min_value: bool = Field(
         default=True,
@@ -75,9 +79,8 @@ class GEProfilingConfig(ConfigModel):
         description="Whether to profile for the sample values for all columns.",
     )
 
-    allow_deny_patterns: AllowDenyPattern = Field(
+    _allow_deny_patterns: AllowDenyPattern = pydantic.PrivateAttr(
         default=AllowDenyPattern.allow_all(),
-        description="regex patterns for filtering of tables or table columns to profile.",
     )
     max_number_of_fields_to_profile: Optional[pydantic.PositiveInt] = Field(
         default=None,
@@ -138,6 +141,7 @@ class GEProfilingConfig(ConfigModel):
         if values.get(table_level_profiling_only_key):
             all_field_level_metrics: List[str] = [
                 "include_field_null_count",
+                "include_field_distinct_count",
                 "include_field_min_value",
                 "include_field_max_value",
                 "include_field_mean_value",

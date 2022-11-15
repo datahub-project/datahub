@@ -1,19 +1,27 @@
-from dataclasses import dataclass
-from typing import Dict, Iterable, List, Tuple, Union
+import sys
 
+if sys.version_info < (3, 8):
+    raise ImportError("Feast is only supported on Python 3.8+")
+
+from dataclasses import dataclass
+from typing import Dict, Iterable, List, Optional, Tuple, Union
+
+import feast.types
 from feast import (
     BigQuerySource,
     Entity,
-    Feature,
     FeatureStore,
     FeatureView,
+    Field as FeastField,
     FileSource,
     KafkaSource,
     KinesisSource,
     OnDemandFeatureView,
+    RequestSource,
+    SnowflakeSource,
     ValueType,
 )
-from feast.data_source import DataSource, RequestDataSource
+from feast.data_source import DataSource
 from pydantic import Field
 
 import datahub.emitter.mce_builder as builder
@@ -46,7 +54,7 @@ from datahub.metadata.schema_classes import (
 )
 
 # FIXME: ValueType module cannot be used as a type
-_field_type_mapping: Dict[ValueType, str] = {
+_field_type_mapping: Dict[Union[ValueType, feast.types.FeastType], str] = {
     ValueType.UNKNOWN: MLFeatureDataType.UNKNOWN,
     ValueType.BYTES: MLFeatureDataType.BYTE,
     ValueType.STRING: MLFeatureDataType.TEXT,
@@ -65,11 +73,26 @@ _field_type_mapping: Dict[ValueType, str] = {
     ValueType.BOOL_LIST: MLFeatureDataType.SEQUENCE,
     ValueType.UNIX_TIMESTAMP_LIST: MLFeatureDataType.SEQUENCE,
     ValueType.NULL: MLFeatureDataType.UNKNOWN,
+    feast.types.Invalid: MLFeatureDataType.UNKNOWN,
+    feast.types.Bytes: MLFeatureDataType.BYTE,
+    feast.types.String: MLFeatureDataType.TEXT,
+    feast.types.Int32: MLFeatureDataType.ORDINAL,
+    feast.types.Int64: MLFeatureDataType.ORDINAL,
+    feast.types.Float64: MLFeatureDataType.CONTINUOUS,
+    feast.types.Float32: MLFeatureDataType.CONTINUOUS,
+    feast.types.Bool: MLFeatureDataType.BINARY,
+    feast.types.UnixTimestamp: MLFeatureDataType.TIME,
+    feast.types.Array: MLFeatureDataType.SEQUENCE,  # type: ignore
+    feast.types.Invalid: MLFeatureDataType.UNKNOWN,
 }
 
 
 class FeastRepositorySourceConfig(ConfigModel):
     path: str = Field(description="Path to Feast repository")
+    fs_yaml_file: Optional[str] = Field(
+        default=None,
+        description="Path to the `feature_store.yaml` file used to configure the feature store",
+    )
     environment: str = Field(
         default=DEFAULT_ENV, description="Environment to use when constructing URNs"
     )
@@ -85,7 +108,7 @@ class FeastRepositorySource(Source):
     This plugin extracts:
 
     - Entities as [`MLPrimaryKey`](https://datahubproject.io/docs/graphql/objects#mlprimarykey)
-    - Features as [`MLFeature`](https://datahubproject.io/docs/graphql/objects#mlfeature)
+    - Fields as [`MLFeature`](https://datahubproject.io/docs/graphql/objects#mlfeature)
     - Feature views and on-demand feature views as [`MLFeatureTable`](https://datahubproject.io/docs/graphql/objects#mlfeaturetable)
     - Batch and stream source details as [`Dataset`](https://datahubproject.io/docs/graphql/objects#dataset)
     - Column types associated with each entity and feature
@@ -97,12 +120,16 @@ class FeastRepositorySource(Source):
 
     def __init__(self, config: FeastRepositorySourceConfig, ctx: PipelineContext):
         super().__init__(ctx)
-
         self.source_config = config
         self.report = SourceReport()
-        self.feature_store = FeatureStore(self.source_config.path)
+        self.feature_store = FeatureStore(
+            repo_path=self.source_config.path,
+            fs_yaml_file=self.source_config.fs_yaml_file,
+        )
 
-    def _get_field_type(self, field_type: ValueType, parent_name: str) -> str:
+    def _get_field_type(
+        self, field_type: Union[ValueType, feast.types.FeastType], parent_name: str
+    ) -> str:
         """
         Maps types encountered in Feast to corresponding schema types.
         """
@@ -128,26 +155,24 @@ class FeastRepositorySource(Source):
 
         if isinstance(source, FileSource):
             platform = "file"
-
             name = source.path.replace("://", ".").replace("/", ".")
-
-        if isinstance(source, BigQuerySource):
+        elif isinstance(source, BigQuerySource):
             platform = "bigquery"
             name = source.table
-
-        if isinstance(source, KafkaSource):
+        elif isinstance(source, KafkaSource):
             platform = "kafka"
             name = source.kafka_options.topic
-
-        if isinstance(source, KinesisSource):
+        elif isinstance(source, KinesisSource):
             platform = "kinesis"
             name = (
                 f"{source.kinesis_options.region}:{source.kinesis_options.stream_name}"
             )
-
-        if isinstance(source, RequestDataSource):
+        elif isinstance(source, RequestSource):
             platform = "request"
             name = source.name
+        elif isinstance(source, SnowflakeSource):
+            platform = "snowflake"
+            name = source.table
 
         return platform, name
 
@@ -214,7 +239,7 @@ class FeastRepositorySource(Source):
         self,
         # FIXME: FeatureView and OnDemandFeatureView cannot be used as a type
         feature_view: Union[FeatureView, OnDemandFeatureView],
-        feature: Feature,
+        field: FeastField,
     ) -> MetadataWorkUnit:
         """
         Generate an MLFeature work unit for a Feast feature.
@@ -222,17 +247,16 @@ class FeastRepositorySource(Source):
         feature_view_name = f"{self.feature_store.project}.{feature_view.name}"
 
         feature_snapshot = MLFeatureSnapshot(
-            urn=builder.make_ml_feature_urn(feature_view_name, feature.name),
+            urn=builder.make_ml_feature_urn(feature_view_name, field.name),
             aspects=[StatusClass(removed=False)],
         )
 
         feature_sources = []
-
         if isinstance(feature_view, FeatureView):
             feature_sources = self._get_data_sources(feature_view)
         elif isinstance(feature_view, OnDemandFeatureView):
-            if feature_view.input_request_data_sources is not None:
-                for request_source in feature_view.input_request_data_sources.values():
+            if feature_view.source_request_sources is not None:
+                for request_source in feature_view.source_request_sources.values():
                     source_platform, source_name = self._get_data_source_details(
                         request_source
                     )
@@ -245,10 +269,10 @@ class FeastRepositorySource(Source):
                         )
                     )
 
-            if feature_view.input_feature_view_projections is not None:
+            if feature_view.source_feature_view_projections is not None:
                 for (
                     feature_view_projection
-                ) in feature_view.input_feature_view_projections.values():
+                ) in feature_view.source_feature_view_projections.values():
                     feature_view_source = self.feature_store.get_feature_view(
                         feature_view_projection.name
                     )
@@ -257,15 +281,15 @@ class FeastRepositorySource(Source):
 
         feature_snapshot.aspects.append(
             MLFeaturePropertiesClass(
-                description=feature.labels.get("description"),
-                dataType=self._get_field_type(feature.dtype, feature.name),
+                description=field.tags.get("description"),
+                dataType=self._get_field_type(field.dtype, field.name),
                 sources=feature_sources,
             )
         )
 
         mce = MetadataChangeEvent(proposedSnapshot=feature_snapshot)
 
-        return MetadataWorkUnit(id=feature.name, mce=mce)
+        return MetadataWorkUnit(id=field.name, mce=mce)
 
     def _get_feature_view_workunit(self, feature_view: FeatureView) -> MetadataWorkUnit:
         """
@@ -359,8 +383,8 @@ class FeastRepositorySource(Source):
 
                 yield work_unit
 
-            for feature in feature_view.features:
-                work_unit = self._get_feature_workunit(feature_view, feature)
+            for field in feature_view.features:
+                work_unit = self._get_feature_workunit(feature_view, field)
                 self.report.report_workunit(work_unit)
 
                 yield work_unit

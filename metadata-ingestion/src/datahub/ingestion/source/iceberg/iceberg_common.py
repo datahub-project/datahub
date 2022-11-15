@@ -46,9 +46,11 @@ class IcebergProfilingConfig(ConfigModel):
 
 class IcebergSourceConfig(DatasetSourceConfigBase):
     adls: Optional[AdlsSourceConfig] = Field(
+        default=None,
         description="[Azure Data Lake Storage](https://docs.microsoft.com/en-us/azure/storage/blobs/data-lake-storage-introduction) to crawl for Iceberg tables.  This is one filesystem type supported by this source and **only one can be configured**.",
     )
     localfs: Optional[str] = Field(
+        default=None,
         description="Local path to crawl for Iceberg tables. This is one filesystem type supported by this source and **only one can be configured**.",
     )
     max_path_depth: int = Field(
@@ -64,6 +66,7 @@ class IcebergSourceConfig(DatasetSourceConfigBase):
         description="Iceberg table property to look for a `CorpUser` owner.  Can only hold a single user value.  If property has no value, no owner information will be emitted.",
     )
     group_ownership_property: Optional[str] = Field(
+        default=None,
         description="Iceberg table property to look for a `CorpGroup` owner.  Can only hold a single group value.  If property has no value, no owner information will be emitted.",
     )
     profiling: IcebergProfilingConfig = IcebergProfilingConfig()

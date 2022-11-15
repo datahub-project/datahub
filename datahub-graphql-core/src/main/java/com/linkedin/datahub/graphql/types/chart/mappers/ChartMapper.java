@@ -5,6 +5,7 @@ import com.linkedin.common.DataPlatformInstance;
 import com.linkedin.common.Deprecation;
 import com.linkedin.common.GlobalTags;
 import com.linkedin.common.GlossaryTerms;
+import com.linkedin.common.InputFields;
 import com.linkedin.common.InstitutionalMemory;
 import com.linkedin.common.Ownership;
 import com.linkedin.common.Status;
@@ -86,6 +87,8 @@ public class ChartMapper implements ModelMapper<EntityResponse, Chart> {
             chart.setDeprecation(DeprecationMapper.map(new Deprecation(dataMap))));
         mappingHelper.mapToResult(DATA_PLATFORM_INSTANCE_ASPECT_NAME, (dataset, dataMap) ->
             dataset.setDataPlatformInstance(DataPlatformInstanceAspectMapper.map(new DataPlatformInstance(dataMap))));
+        mappingHelper.mapToResult(INPUT_FIELDS_ASPECT_NAME, (chart, dataMap) ->
+            chart.setInputFields(InputFieldsMapper.map(new InputFields(dataMap), entityUrn)));
 
         return mappingHelper.getResult();
     }

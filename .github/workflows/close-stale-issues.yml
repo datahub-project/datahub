@@ -10,8 +10,11 @@ jobs:
       issues: write
       pull-requests: write
     steps:
-      - uses: actions/stale@v5
+      - uses: actions/stale@v6
         with:
+          ascending: true
+          operations-per-run: 100
+          exempt-issue-labels: accepted,on-deck
           days-before-issue-stale: 30
           days-before-issue-close: 30
           stale-issue-label: "stale"

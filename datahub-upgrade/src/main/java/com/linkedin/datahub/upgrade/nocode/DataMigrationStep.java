@@ -17,7 +17,6 @@ import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.entity.ebean.EbeanAspectV1;
 import com.linkedin.metadata.entity.ebean.EbeanAspectV2;
 import com.linkedin.metadata.models.EntitySpec;
-import com.linkedin.metadata.search.utils.BrowsePathUtils;
 import io.ebean.EbeanServer;
 import io.ebean.PagedList;
 import java.net.URISyntaxException;
@@ -151,7 +150,7 @@ public class DataMigrationStep implements UpgradeStep {
             // Emit a browse path aspect.
             final BrowsePaths browsePaths;
             try {
-              browsePaths = BrowsePathUtils.buildBrowsePath(urn, _entityService.getEntityRegistry());
+              browsePaths = _entityService.buildDefaultBrowsePath(urn);
 
               final AuditStamp browsePathsStamp = new AuditStamp();
               browsePathsStamp.setActor(Urn.createFromString(Constants.SYSTEM_ACTOR));

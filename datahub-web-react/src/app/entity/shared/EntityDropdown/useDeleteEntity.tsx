@@ -3,6 +3,7 @@ import { message, Modal } from 'antd';
 import { EntityType } from '../../../../types.generated';
 import { useEntityRegistry } from '../../../useEntityRegistry';
 import { getDeleteEntityMutation } from '../../../shared/deleteUtils';
+import analytics, { EventType } from '../../../analytics';
 
 /**
  * Performs the flow for deleting an entity of a given type.
@@ -25,6 +26,11 @@ function useDeleteEntity(urn: string, type: EntityType, entityData: any, onDelet
             },
         })
             .then(() => {
+                analytics.event({
+                    type: EventType.DeleteEntityEvent,
+                    entityUrn: urn,
+                    entityType: type,
+                });
                 message.loading({
                     content: 'Deleting...',
                     duration: 2,
