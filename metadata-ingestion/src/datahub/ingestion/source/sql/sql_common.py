@@ -27,6 +27,7 @@ from sqlalchemy import create_engine, inspect
 from sqlalchemy.engine.reflection import Inspector
 from sqlalchemy.exc import ProgrammingError
 from sqlalchemy.sql import sqltypes as types
+from sqlalchemy.types import TypeDecorator, TypeEngine
 
 from datahub.configuration.common import AllowDenyPattern
 from datahub.emitter.mce_builder import (
@@ -329,7 +330,7 @@ class SqlWorkUnit(MetadataWorkUnit):
     pass
 
 
-_field_type_mapping: Dict[Type[types.TypeEngine], Type] = {
+_field_type_mapping: Dict[Type[TypeEngine], Type] = {
     types.Integer: NumberTypeClass,
     types.Numeric: NumberTypeClass,
     types.Boolean: BooleanTypeClass,
@@ -367,30 +368,28 @@ _field_type_mapping: Dict[Type[types.TypeEngine], Type] = {
     # assigns the NullType by default. We want to carry this warning through.
     types.NullType: NullTypeClass,
 }
-_known_unknown_field_types: Set[Type[types.TypeEngine]] = {
+_known_unknown_field_types: Set[Type[TypeEngine]] = {
     types.Interval,
     types.CLOB,
 }
 
 
-def register_custom_type(
-    tp: Type[types.TypeEngine], output: Optional[Type] = None
-) -> None:
+def register_custom_type(tp: Type[TypeEngine], output: Optional[Type] = None) -> None:
     if output:
         _field_type_mapping[tp] = output
     else:
         _known_unknown_field_types.add(tp)
 
 
-class _CustomSQLAlchemyDummyType(types.TypeDecorator):
+class _CustomSQLAlchemyDummyType(TypeDecorator):
     impl = types.LargeBinary
 
 
-def make_sqlalchemy_type(name: str) -> Type[types.TypeEngine]:
+def make_sqlalchemy_type(name: str) -> Type[TypeEngine]:
     # This usage of type() dynamically constructs a class.
     # See https://stackoverflow.com/a/15247202/5004662 and
     # https://docs.python.org/3/library/functions.html#type.
-    sqlalchemy_type: Type[types.TypeEngine] = type(
+    sqlalchemy_type: Type[TypeEngine] = type(
         name,
         (_CustomSQLAlchemyDummyType,),
         {

@@ -7,7 +7,7 @@ import random
 import string
 import threading
 import unittest.mock
-from typing import Any, Callable, Dict, Iterator, List, Optional, Set, Tuple
+from typing import Any, Callable, Dict, Iterator, List, Optional, Set, Tuple, cast
 
 import greenlet
 import sqlalchemy
@@ -39,7 +39,8 @@ class _RowProxyFake(collections.OrderedDict):
 
 
 class _ResultProxyFake:
-    # This imitates the interface provided by sqlalchemy.engine.result.ResultProxy.
+    # This imitates the interface provided by sqlalchemy.engine.result.ResultProxy (sqlalchemy 1.3.x)
+    # or sqlalchemy.engine.Result (1.4.x).
     # Adapted from https://github.com/rajivsarvepalli/mock-alchemy/blob/2eba95588e7693aab973a6d60441d2bc3c4ea35d/src/mock_alchemy/mocking.py#L213
 
     def __init__(self, result: List[_RowProxyFake]) -> None:
@@ -363,7 +364,11 @@ class SQLAlchemyQueryCombiner:
                     *query_future.multiparams,
                     **query_future.params,
                 )
-                query_future.res = res
+
+                # The actual execute method returns a CursorResult on SQLAlchemy 1.4.x
+                # and a ResultProxy on SQLAlchemy 1.3.x. Both interfaces are shimmed
+                # by _ResultProxyFake.
+                query_future.res = cast(_ResultProxyFake, res)
             except Exception as e:
                 query_future.exc = e
             finally:
