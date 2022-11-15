@@ -8,7 +8,6 @@ import pandas as pd
 from freezegun import freeze_time
 
 from datahub.configuration.common import AllowDenyPattern, DynamicTypedConfig
-
 from datahub.ingestion.glossary.classifier import (
     ClassificationConfig,
     DynamicTypedClassifierConfig,
@@ -325,8 +324,8 @@ def test_snowflake_basic(pytestconfig, tmp_path, mock_time, mock_datahub_graph):
         datahub_classifier_config.confidence_level_threshold = 0.58
         datahub_classifier_config.info_types_config = {
             "Age": InfoTypeConfig(
-                prediction_factors_and_weights=PredictionFactorsAndWeights(
-                    name=0, values=1, description=0, datatype=0
+                Prediction_Factors_and_Weights=PredictionFactorsAndWeights(
+                    Name=0, Values=1, Description=0, Datatype=0
                 )
             ),
         }
