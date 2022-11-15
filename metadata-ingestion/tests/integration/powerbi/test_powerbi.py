@@ -278,7 +278,6 @@ def test_override_ownership(
                     **default_source_config(),
                     "extract_ownership": False,
                     "extract_reports": False,
-
                 },
             },
             "sink": {
