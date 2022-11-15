@@ -30,9 +30,4 @@ record DataPlatformInstanceProperties includes CustomProperties, ExternalReferen
     "hasValuesFieldName": "hasDescription"
   }
   description: optional string
-
-  /**
-   * The abstracted URI, usually host and port. Uri should not include any environment specific properties.
-   */
-  uri: optional Uri
 }
