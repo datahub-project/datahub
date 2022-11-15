@@ -1451,18 +1451,18 @@ class Mapper:
         if not pages:
             return []
 
-        LOGGER.info(f"Converting pages(count={len(pages)}) to charts")
+        LOGGER.debug(f"Converting pages(count={len(pages)}) to charts")
 
         def to_chart_mcps(
             page: PowerBiAPI.Page, ds_mcps: List[MetadataChangeProposalWrapper]
         ) -> List[MetadataChangeProposalWrapper]:
-            LOGGER.info("Converting page {} to chart".format(page.displayName))
-            # Create an URN for chart
+            LOGGER.debug("Converting page {} to chart".format(page.displayName))
+            # Create a URN for chart
             chart_urn = builder.make_chart_urn(
                 self.__config.platform_name, page.get_urn_part()
             )
 
-            LOGGER.info("{}={}".format(Constant.CHART_URN, chart_urn))
+            LOGGER.debug("{}={}".format(Constant.CHART_URN, chart_urn))
 
             ds_input: List[str] = self.to_urn_set(ds_mcps)
 
@@ -1623,7 +1623,7 @@ class Mapper:
     ) -> Iterable[MetadataWorkUnit]:
         mcps: List[MetadataChangeProposalWrapper] = []
 
-        LOGGER.info(f"Converting dashboard={report.name} to datahub dashboard")
+        LOGGER.debug(f"Converting dashboard={report.name} to datahub dashboard")
 
         # Convert user to CorpUser
         user_mcps = self.to_datahub_users(report.users)
