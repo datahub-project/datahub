@@ -7,8 +7,10 @@ ext {
   venv_name = 'venv'
 }
 
+def pip_install_command = "${venv_name}/bin/pip install -e ../../metadata-ingestion"
+
 task checkPythonVersion(type: Exec) {
-  commandLine python_executable, '-c', 'import sys; assert sys.version_info >= (3, 6)'
+  commandLine python_executable, '-c', 'import sys; assert sys.version_info >= (3, 7)'
 }
 
 task environmentSetup(type: Exec, dependsOn: checkPythonVersion) {
@@ -20,7 +22,7 @@ task environmentSetup(type: Exec, dependsOn: checkPythonVersion) {
 task installPackage(type: Exec, dependsOn: environmentSetup) {
   inputs.file file('setup.py')
   outputs.dir("${venv_name}")
-  commandLine "${venv_name}/bin/pip", 'install', '-e', '.'
+  commandLine 'bash', '-x', '-c', "${pip_install_command} -e ."
 }
 
 task install(dependsOn: [installPackage])
@@ -30,7 +32,7 @@ task installDev(type: Exec, dependsOn: [install]) {
   outputs.dir("${venv_name}")
   outputs.file("${venv_name}/.build_install_dev_sentinel")
   commandLine 'bash', '-x', '-c',
-    "${venv_name}/bin/pip install -e .[dev] && touch ${venv_name}/.build_install_dev_sentinel"
+    "${pip_install_command} -e .[dev] && touch ${venv_name}/.build_install_dev_sentinel"
 }
 
 task lint(type: Exec, dependsOn: installDev) {
@@ -65,7 +67,7 @@ task installDevTest(type: Exec, dependsOn: [installDev]) {
   outputs.dir("${venv_name}")
   outputs.file("${venv_name}/.build_install_dev_test_sentinel")
   commandLine 'bash', '-x', '-c',
-    "${venv_name}/bin/pip install -e .[dev,integration-tests] && touch ${venv_name}/.build_install_dev_test_sentinel"
+    "${pip_install_command} -e .[dev,integration-tests] && touch ${venv_name}/.build_install_dev_test_sentinel"
 }
 
 def testFile = hasProperty('testFile') ? testFile : 'unknown'

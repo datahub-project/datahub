@@ -55,6 +55,10 @@ framework_common = {
     "click-spinner",
 }
 
+rest_common = {
+    "requests",
+}
+
 kafka_common = {
     # The confluent_kafka package provides a number of pre-built wheels for
     # various platforms and architectures. However, it does not provide wheels
@@ -103,7 +107,7 @@ kafka_protobuf = {
 
 sql_common = {
     # Required for all SQL sources.
-    "sqlalchemy==1.3.24",
+    "sqlalchemy>=1.3.24, <2",
     # Required for SQL profiling.
     "great-expectations>=0.15.12",
     # GE added handling for higher version of jinja2
@@ -147,6 +151,12 @@ bigquery_common = {
     "more-itertools>=8.12.0",
 }
 
+clickhouse_common = {
+    # Clickhouse 0.1.8 requires SQLAlchemy 1.3.x, while the newer versions
+    # allow SQLAlchemy 1.4.x.
+    "clickhouse-sqlalchemy>=0.1.8",
+}
+
 redshift_common = {
     "sqlalchemy-redshift",
     "psycopg2-binary",
@@ -158,8 +168,9 @@ redshift_common = {
 snowflake_common = {
     # Snowflake plugin utilizes sql common
     *sql_common,
-    # Required for all Snowflake sources
-    "snowflake-sqlalchemy<=1.2.4",
+    # Required for all Snowflake sources.
+    # See https://github.com/snowflakedb/snowflake-sqlalchemy/issues/234 for why 1.2.5 is blocked.
+    "snowflake-sqlalchemy>=1.2.4, !=1.2.5",
     "cryptography",
     "msal",
 }
@@ -214,10 +225,12 @@ databricks_cli = {
 plugins: Dict[str, Set[str]] = {
     # Sink plugins.
     "datahub-kafka": kafka_common,
-    "datahub-rest": {"requests"},
+    "datahub-rest": rest_common,
     # Integrations.
     "airflow": {
         "apache-airflow >= 2.0.2",
+        *rest_common,
+        *kafka_common,
     },
     "circuit-breaker": {
         "gql>=3.3.0",
@@ -239,12 +252,8 @@ plugins: Dict[str, Set[str]] = {
         "sqllineage==1.3.6",
         "sql_metadata",
     },  # deprecated, but keeping the extra for backwards compatibility
-    "clickhouse": sql_common | {"clickhouse-sqlalchemy==0.1.8"},
-    "clickhouse-usage": sql_common
-    | usage_common
-    | {
-        "clickhouse-sqlalchemy==0.1.8",
-    },
+    "clickhouse": sql_common | clickhouse_common,
+    "clickhouse-usage": sql_common | usage_common | clickhouse_common,
     "datahub-lineage-file": set(),
     "datahub-business-glossary": set(),
     "delta-lake": {*data_lake_profiling, *delta_lake},
@@ -339,7 +348,6 @@ all_exclude_plugins: Set[str] = {
 
 mypy_stubs = {
     "types-dataclasses",
-    "sqlalchemy-stubs",
     "types-pkg_resources",
     "types-six",
     "types-python-dateutil",
@@ -373,7 +381,10 @@ base_dev_requirements = {
     "flake8>=3.8.3",
     "flake8-tidy-imports>=4.3.0",
     "isort>=5.7.0",
-    "mypy>=0.981",
+    # mypy 0.990 enables namespace packages by default and sets
+    # no implicit optional to True.
+    # FIXME: Enable mypy 0.990 when our codebase is fixed.
+    "mypy>=0.981,<0.990",
     # pydantic 1.8.2 is incompatible with mypy 0.910.
     # See https://github.com/samuelcolvin/pydantic/pull/3175#issuecomment-995382910.
     # Restricting top version to <1.10 until we can fix our types.

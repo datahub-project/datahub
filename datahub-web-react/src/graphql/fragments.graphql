@@ -711,6 +711,7 @@ fragment nonRecursiveMLModel on MLModel {
     properties {
         description
         date
+        externalUrl
         version
         type
         trainingMetrics {
@@ -755,6 +756,9 @@ fragment nonRecursiveMLModel on MLModel {
     deprecation {
         ...deprecationFields
     }
+    institutionalMemory {
+        ...institutionalMemoryFields
+    }    
 }
 
 fragment nonRecursiveMLModelGroupFields on MLModelGroup {
