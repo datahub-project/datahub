@@ -577,7 +577,7 @@ class PowerBiAPI:
             PowerBiAPI.Workspace(
                 id=workspace.get("id"),
                 name=workspace.get("name"),
-                state='',
+                state="",
                 datasets={},
                 dashboards=[],
             )
@@ -1407,12 +1407,12 @@ class PowerBiDashboardSource(Source):
 
     def get_workspace_ids(self) -> Iterable[str]:
         if not self.source_config.scan_all_workspaces:
-            return self.source_config.workspace_id,
+            return (self.source_config.workspace_id,)
 
         all_workspaces = self.powerbi_client.get_workspaces()
         return [
-            workspace.id for workspace
-            in all_workspaces
+            workspace.id
+            for workspace in all_workspaces
             if workspace.id not in self.source_config.scan_exclusion_list
         ]
 

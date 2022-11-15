@@ -284,6 +284,9 @@ def default_source_config():
 @freeze_time(FROZEN_TIME)
 @mock.patch("msal.ConfidentialClientApplication", side_effect=mock_msal_cca)
 def test_powerbi_ingest(mock_msal, pytestconfig, tmp_path, mock_time, requests_mock):
+    global call_number
+    call_number = 1
+
     test_resources_dir = pytestconfig.rootpath / "tests/integration/powerbi"
 
     register_mock_api(request_mock=requests_mock)
@@ -322,6 +325,9 @@ def test_powerbi_ingest(mock_msal, pytestconfig, tmp_path, mock_time, requests_m
 def test_override_ownership(
     mock_msal, pytestconfig, tmp_path, mock_time, requests_mock
 ):
+    global call_number
+    call_number = 1
+
     test_resources_dir = pytestconfig.rootpath / "tests/integration/powerbi"
 
     register_mock_api(request_mock=requests_mock)
@@ -360,6 +366,9 @@ def test_override_ownership(
 def test_scan_all_workspaces(
         mock_msal, pytestconfig, tmp_path, mock_time, requests_mock
 ):
+    global call_number
+    call_number = 1
+
     test_resources_dir = pytestconfig.rootpath / "tests/integration/powerbi"
 
     register_mock_api(request_mock=requests_mock)
@@ -379,7 +388,7 @@ def test_scan_all_workspaces(
             "sink": {
                 "type": "file",
                 "config": {
-                    "filename": f"{tmp_path}/powerbi_mces_disabled_ownership.json",
+                    "filename": f"{tmp_path}/powerbi_mces_scan_all_workspaces.json",
                 },
             },
         }
@@ -387,10 +396,10 @@ def test_scan_all_workspaces(
 
     pipeline.run()
     pipeline.raise_from_status()
-    mce_out_file = "golden_test_disabled_ownership.json"
+    mce_out_file = "golden_test_scan_all_workspaces.json"
 
     mce_helpers.check_golden_file(
         pytestconfig,
-        output_path=tmp_path / "powerbi_mces_disabled_ownership.json",
+        output_path=tmp_path / "powerbi_mces_scan_all_workspaces.json",
         golden_path=f"{test_resources_dir}/{mce_out_file}",
     )
