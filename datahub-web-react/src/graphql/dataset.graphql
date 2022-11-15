@@ -1,3 +1,38 @@
+fragment simplifiedGlossaryTerms on GlossaryTerms {
+    terms {
+        term {
+            urn
+            name
+            type
+            hierarchicalName
+            properties {
+                name
+                description
+                definition
+                termSource
+                customProperties {
+                    key
+                    value
+                }
+            }
+            ownership {
+                ...ownershipFields
+            }
+            parentNodes {
+                count
+                nodes {
+                    urn
+                    type
+                    properties {
+                        name
+                    }
+                }
+            }
+        }
+        associatedUrn
+    }
+}
+
 query getDataProfiles($urn: String!, $limit: Int, $startTime: Long, $endTime: Long) {
     dataset(urn: $urn) {
         urn
@@ -49,7 +84,7 @@ fragment nonSiblingDatasetFields on Dataset {
                 ...globalTagsFields
             }
             glossaryTerms {
-                ...glossaryTerms
+                ...simplifiedGlossaryTerms
             }
         }
     }
@@ -63,7 +98,7 @@ fragment nonSiblingDatasetFields on Dataset {
         ...globalTagsFields
     }
     glossaryTerms {
-        ...glossaryTerms
+        ...simplifiedGlossaryTerms
     }
     subTypes {
         typeNames
