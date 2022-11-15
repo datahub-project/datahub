@@ -2,8 +2,11 @@ package com.linkedin.metadata.kafka.hook;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonNode;
+import com.linkedin.common.InputField;
+import com.linkedin.common.InputFields;
 import com.linkedin.common.Status;
 import com.linkedin.common.urn.Urn;
+import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.data.template.RecordTemplate;
 import com.linkedin.dataset.FineGrainedLineage;
 import com.linkedin.dataset.UpstreamLineage;
@@ -17,6 +20,7 @@ import com.linkedin.gms.factory.timeseries.TimeseriesAspectServiceFactory;
 import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.graph.Edge;
 import com.linkedin.metadata.graph.GraphService;
+import com.linkedin.metadata.key.SchemaFieldKey;
 import com.linkedin.metadata.models.AspectSpec;
 import com.linkedin.metadata.models.EntitySpec;
 import com.linkedin.metadata.models.RelationshipFieldSpec;
@@ -57,6 +61,7 @@ import org.springframework.stereotype.Component;
 
 import static com.linkedin.metadata.search.utils.QueryUtils.*;
 
+// TODO: Backfill tests for this class in UpdateIndicesHookTest.java
 @Slf4j
 @Component
 @Import({GraphServiceFactory.class, EntitySearchServiceFactory.class, TimeseriesAspectServiceFactory.class,
@@ -180,14 +185,44 @@ public class UpdateIndicesHook implements MetadataChangeLogHook {
     }
   }
 
+  private Urn generateSchemaFieldUrn(@Nonnull final String resourceUrn, @Nonnull final String fieldPath) {
+    // we rely on schemaField fieldPaths to be encoded since we do that with fineGrainedLineage on the ingestion side
+    final String encodedFieldPath = fieldPath.replaceAll("\\(", "%28").replaceAll("\\)", "%29").replaceAll(",", "%2C");
+    final SchemaFieldKey key = new SchemaFieldKey().setParent(UrnUtils.getUrn(resourceUrn)).setFieldPath(encodedFieldPath);
+    return EntityKeyUtils.convertEntityKeyToUrn(key, Constants.SCHEMA_FIELD_ENTITY_NAME);
+  }
+
+  private void updateInputFieldEdgesAndRelationships(
+      @Nonnull final Urn urn,
+      @Nonnull final InputFields inputFields,
+      @Nonnull final List<Edge> edgesToAdd,
+      @Nonnull final HashMap<Urn, Set<String>> urnToRelationshipTypesBeingAdded
+  ) {
+    if (inputFields.hasFields()) {
+      for (final InputField field : inputFields.getFields()) {
+        if (field.hasSchemaFieldUrn() && field.hasSchemaField() && field.getSchemaField().hasFieldPath()) {
+          final Urn sourceFieldUrn = generateSchemaFieldUrn(urn.toString(), field.getSchemaField().getFieldPath());
+          edgesToAdd.add(new Edge(sourceFieldUrn, field.getSchemaFieldUrn(), DOWNSTREAM_OF));
+          final Set<String> relationshipTypes = urnToRelationshipTypesBeingAdded.getOrDefault(sourceFieldUrn, new HashSet<>());
+          relationshipTypes.add(DOWNSTREAM_OF);
+          urnToRelationshipTypesBeingAdded.put(sourceFieldUrn, relationshipTypes);
+        }
+      }
+    }
+  }
+
   private Pair<List<Edge>, HashMap<Urn, Set<String>>> getEdgesAndRelationshipTypesFromAspect(Urn urn, AspectSpec aspectSpec, RecordTemplate aspect) {
     final List<Edge> edgesToAdd = new ArrayList<>();
     final HashMap<Urn, Set<String>> urnToRelationshipTypesBeingAdded = new HashMap<>();
 
+    // we need to manually set schemaField <-> schemaField edges for fineGrainedLineage and inputFields
+    // since @Relationship only links between the parent entity urn and something else.
     if (aspectSpec.getName().equals(Constants.UPSTREAM_LINEAGE_ASPECT_NAME)) {
-      // we need to manually set schemaField <-> schemaField edges for fineGrainedLineage since
-      // @Relationship only links between the parent entity urn and something else.
       updateFineGrainedEdgesAndRelationships(aspect, edgesToAdd, urnToRelationshipTypesBeingAdded);
+    }
+    if (aspectSpec.getName().equals(Constants.INPUT_FIELDS_ASPECT_NAME)) {
+      final InputFields inputFields = new InputFields(aspect.data());
+      updateInputFieldEdgesAndRelationships(urn, inputFields, edgesToAdd, urnToRelationshipTypesBeingAdded);
     }
 
     Map<RelationshipFieldSpec, List<Object>> extractedFields =
