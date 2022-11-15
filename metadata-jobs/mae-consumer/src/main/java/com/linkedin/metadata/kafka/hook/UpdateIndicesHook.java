@@ -20,6 +20,7 @@ import com.linkedin.gms.factory.timeseries.TimeseriesAspectServiceFactory;
 import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.graph.Edge;
 import com.linkedin.metadata.graph.GraphService;
+import com.linkedin.metadata.key.SchemaFieldKey;
 import com.linkedin.metadata.models.AspectSpec;
 import com.linkedin.metadata.models.EntitySpec;
 import com.linkedin.metadata.models.RelationshipFieldSpec;
@@ -60,6 +61,7 @@ import org.springframework.stereotype.Component;
 
 import static com.linkedin.metadata.search.utils.QueryUtils.*;
 
+// TODO: Backfill tests for this class in UpdateIndicesHookTest.java
 @Slf4j
 @Component
 @Import({GraphServiceFactory.class, EntitySearchServiceFactory.class, TimeseriesAspectServiceFactory.class,
@@ -183,26 +185,25 @@ public class UpdateIndicesHook implements MetadataChangeLogHook {
     }
   }
 
-  private Urn generateSchemaFieldUrn(@Nonnull String resourceUrn, @Nonnull String fieldPath) {
+  private Urn generateSchemaFieldUrn(@Nonnull final String resourceUrn, @Nonnull final String fieldPath) {
     // we rely on schemaField fieldPaths to be encoded since we do that with fineGrainedLineage on the ingestion side
-    String encodedFieldPath = fieldPath.replaceAll("\\(", "%28").replaceAll("\\)", "%29").replaceAll(",", "%2C");
-    String urnString = String.format("urn:li:schemaField:(%s,%s)", resourceUrn, encodedFieldPath);
-    return UrnUtils.getUrn(urnString);
+    final String encodedFieldPath = fieldPath.replaceAll("\\(", "%28").replaceAll("\\)", "%29").replaceAll(",", "%2C");
+    final SchemaFieldKey key = new SchemaFieldKey().setParent(UrnUtils.getUrn(resourceUrn)).setFieldPath(encodedFieldPath);
+    return EntityKeyUtils.convertEntityKeyToUrn(key, Constants.SCHEMA_FIELD_ENTITY_NAME);
   }
 
   private void updateInputFieldEdgesAndRelationships(
-      Urn urn,
-      RecordTemplate aspect,
-      List<Edge> edgesToAdd,
-      HashMap<Urn, Set<String>> urnToRelationshipTypesBeingAdded
+      @Nonnull final Urn urn,
+      @Nonnull final InputFields inputFields,
+      @Nonnull final List<Edge> edgesToAdd,
+      @Nonnull final HashMap<Urn, Set<String>> urnToRelationshipTypesBeingAdded
   ) {
-    InputFields inputFields = new InputFields(aspect.data());
     if (inputFields.hasFields()) {
-      for (InputField field : inputFields.getFields()) {
+      for (final InputField field : inputFields.getFields()) {
         if (field.hasSchemaFieldUrn() && field.hasSchemaField() && field.getSchemaField().hasFieldPath()) {
-          Urn sourceFieldUrn = generateSchemaFieldUrn(urn.toString(), field.getSchemaField().getFieldPath());
+          final Urn sourceFieldUrn = generateSchemaFieldUrn(urn.toString(), field.getSchemaField().getFieldPath());
           edgesToAdd.add(new Edge(sourceFieldUrn, field.getSchemaFieldUrn(), DOWNSTREAM_OF));
-          Set<String> relationshipTypes = urnToRelationshipTypesBeingAdded.getOrDefault(sourceFieldUrn, new HashSet<>());
+          final Set<String> relationshipTypes = urnToRelationshipTypesBeingAdded.getOrDefault(sourceFieldUrn, new HashSet<>());
           relationshipTypes.add(DOWNSTREAM_OF);
           urnToRelationshipTypesBeingAdded.put(sourceFieldUrn, relationshipTypes);
         }
@@ -220,7 +221,8 @@ public class UpdateIndicesHook implements MetadataChangeLogHook {
       updateFineGrainedEdgesAndRelationships(aspect, edgesToAdd, urnToRelationshipTypesBeingAdded);
     }
     if (aspectSpec.getName().equals(Constants.INPUT_FIELDS_ASPECT_NAME)) {
-      updateInputFieldEdgesAndRelationships(urn, aspect, edgesToAdd, urnToRelationshipTypesBeingAdded);
+      final InputFields inputFields = new InputFields(aspect.data());
+      updateInputFieldEdgesAndRelationships(urn, inputFields, edgesToAdd, urnToRelationshipTypesBeingAdded);
     }
 
     Map<RelationshipFieldSpec, List<Object>> extractedFields =
