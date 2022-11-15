@@ -188,6 +188,11 @@ entities:
     category: internal
     keyAspect: dataPlatformInstanceKey
     aspects:
+      - dataPlatformInstanceProperties
+      - ownership
+      - globalTags
+      - institutionalMemory
+      - deprecation
       - status
   - name: mlModel
     category: core
