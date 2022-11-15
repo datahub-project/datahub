@@ -11,7 +11,6 @@ from pydantic.fields import Field
 from sqlalchemy import create_engine, inspect
 from sqlalchemy.engine.base import Connection
 from sqlalchemy.engine.reflection import Inspector
-from sqlalchemy.engine.result import ResultProxy, RowProxy
 
 from datahub.configuration.common import AllowDenyPattern
 from datahub.ingestion.api.common import PipelineContext
@@ -135,7 +134,7 @@ class SQLServerSource(SQLAlchemySource):
     def _populate_table_descriptions(self, conn: Connection, db_name: str) -> None:
         # see https://stackoverflow.com/questions/5953330/how-do-i-map-the-id-in-sys-extended-properties-to-an-object-name
         # also see https://www.mssqltips.com/sqlservertip/5384/working-with-sql-server-extended-properties/
-        table_metadata: ResultProxy = conn.execute(
+        table_metadata = conn.execute(
             """
             SELECT
               SCHEMA_NAME(T.SCHEMA_ID) AS schema_name,
@@ -149,13 +148,13 @@ class SQLServerSource(SQLAlchemySource):
               AND EP.CLASS = 1
             """
         )
-        for row in table_metadata:  # type: RowProxy
+        for row in table_metadata:
             self.table_descriptions[
                 f"{db_name}.{row['schema_name']}.{row['table_name']}"
             ] = row["table_description"]
 
     def _populate_column_descriptions(self, conn: Connection, db_name: str) -> None:
-        column_metadata: RowProxy = conn.execute(
+        column_metadata = conn.execute(
             """
             SELECT
               SCHEMA_NAME(T.SCHEMA_ID) AS schema_name,
@@ -172,7 +171,7 @@ class SQLServerSource(SQLAlchemySource):
               AND EP.CLASS = 1
             """
         )
-        for row in column_metadata:  # type: RowProxy
+        for row in column_metadata:
             self.column_descriptions[
                 f"{db_name}.{row['schema_name']}.{row['table_name']}.{row['column_name']}"
             ] = row["column_description"]

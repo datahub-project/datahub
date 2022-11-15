@@ -15,6 +15,15 @@ import { SchemaTab } from '../../../shared/tabs/Dataset/Schema/SchemaTab';
 import EntityContext from '../../../shared/EntityContext';
 import { EntityType, SchemaMetadata } from '../../../../../types.generated';
 
+jest.mock('virtualizedtableforantd4', () => {
+    /* eslint-disable-next-line */
+    const { SchemaRow } = require('../../../shared/tabs/Dataset/Schema/components/SchemaRow');
+    return {
+        ...jest.requireActual('virtualizedtableforantd4'),
+        useVT: () => [{ body: { row: SchemaRow } }, jest.fn()],
+    };
+});
+
 describe('Schema', () => {
     it('renders', () => {
         const { getByText } = render(
