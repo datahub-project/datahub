@@ -6,6 +6,7 @@ import { Dropdown, Menu } from 'antd';
 import { MenuIcon } from '../../../../EntityDropdown/EntityDropdown';
 import { useEntityData, useRouteToTab } from '../../../../EntityContext';
 import { SchemaField } from '../../../../../../../types.generated';
+import { generateSchemaFieldUrn } from '../../../Lineage/utils';
 
 export const ImpactAnalysisIcon = styled(VscGraphLeft)`
     transform: scaleX(-1);
@@ -32,6 +33,7 @@ interface Props {
 export default function MenuColumn({ field }: Props) {
     const routeToTab = useRouteToTab();
     const { urn } = useEntityData();
+    const selectedColumnUrn = generateSchemaFieldUrn(field.fieldPath, urn);
 
     return (
         <Dropdown
@@ -59,7 +61,7 @@ export default function MenuColumn({ field }: Props) {
                         <Menu.Item key="2">
                             <MenuItem
                                 onClick={() => {
-                                    navigator.clipboard.writeText(urn);
+                                    navigator.clipboard.writeText(selectedColumnUrn || '');
                                 }}
                             >
                                 <CopyOutlinedIcon /> &nbsp; Copy Column Urn
