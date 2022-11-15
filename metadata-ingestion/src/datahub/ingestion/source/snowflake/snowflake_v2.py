@@ -7,6 +7,7 @@ import pydantic
 from snowflake.connector import SnowflakeConnection
 
 from datahub.emitter.mce_builder import (
+    make_container_urn,
     make_data_platform_urn,
     make_dataplatform_instance_urn,
     make_dataset_urn,
@@ -724,7 +725,7 @@ class SnowflakeV2Source(
                         SNOWFLAKE_FIELD_TYPE_MAPPINGS.get(col.data_type, NullType)()
                     ),
                     # NOTE: nativeDataType will not be in sync with older connector
-                    nativeDataType=col.data_type,
+                    nativeDataType=col.get_precise_native_type(),
                     description=col.comment,
                     nullable=col.is_nullable,
                     isPartOfKey=col.name in table.pk.column_names
@@ -789,6 +790,14 @@ class SnowflakeV2Source(
             container_key=schema_container_key,
             dataset_urn=dataset_urn,
         )
+
+        self.stale_entity_removal_handler.add_entity_to_state(
+            type="container",
+            urn=make_container_urn(
+                guid=schema_container_key.guid(),
+            ),
+        )
+
         for wu in container_workunits:
             self.report.report_workunit(wu)
             yield wu
@@ -798,18 +807,16 @@ class SnowflakeV2Source(
             database=db_name,
             schema=schema,
             platform=self.platform,
-            instance=self.config.platform_instance
-            if self.config.platform_instance is not None
-            else self.config.env,
+            instance=self.config.platform_instance,
+            backcompat_instance_for_guid=self.config.env,
         )
 
     def gen_database_key(self, database: str) -> PlatformKey:
         return DatabaseKey(
             database=database,
             platform=self.platform,
-            instance=self.config.platform_instance
-            if self.config.platform_instance is not None
-            else self.config.env,
+            instance=self.config.platform_instance,
+            backcompat_instance_for_guid=self.config.env,
         )
 
     def _gen_domain_urn(self, dataset_name: str) -> Optional[str]:
@@ -838,6 +845,13 @@ class SnowflakeV2Source(
             description=database.comment,
             sub_types=[SqlContainerSubTypes.DATABASE],
             domain_urn=domain_urn,
+        )
+
+        self.stale_entity_removal_handler.add_entity_to_state(
+            type="container",
+            urn=make_container_urn(
+                guid=database_container_key.guid(),
+            ),
         )
 
         for wu in container_workunits:

@@ -12,6 +12,8 @@ from datahub.metadata.com.linkedin.pegasus2avro.schema import (
     DateTypeClass,
     NullTypeClass,
     NumberTypeClass,
+    SchemaField,
+    SchemaFieldDataType,
     StringTypeClass,
     TimeTypeClass,
 )
@@ -47,6 +49,9 @@ workbook_graphql_query = """
       uri
       createdAt
       updatedAt
+      tags {
+          name
+      }
       sheets {
         id
         name
@@ -124,6 +129,9 @@ workbook_graphql_query = """
           id
           name
         }
+        tags {
+            name
+        }
       }
       embeddedDatasources {
         id
@@ -175,21 +183,25 @@ embedded_datasource_graphql_query = """
         description
         isHidden
         folderName
+        upstreamFields {
+            name
+            datasource {
+                id
+            }
+        }
+        upstreamColumns {
+            name
+            table {
+                __typename
+                id
+            }
+        }
         ... on ColumnField {
             dataCategory
             role
             dataType
             defaultFormat
             aggregation
-            columns {
-                table {
-                    __typename
-                    ... on CustomSQLTable {
-                        id
-                        name
-                    }
-                }
-            }
         }
         ... on CalculatedField {
             role
@@ -267,6 +279,11 @@ custom_sql_graphql_query = """
         schema
         fullName
         connectionType
+        description
+        columns {
+            name
+            remoteType
+        }
       }
 }
 """
@@ -303,21 +320,25 @@ published_datasource_graphql_query = """
         description
         isHidden
         folderName
+        upstreamFields {
+            name
+            datasource {
+                id
+            }
+        }
+        upstreamColumns {
+            name
+            table {
+                __typename
+                id
+            }
+        }
         ... on ColumnField {
             dataCategory
             role
             dataType
             defaultFormat
             aggregation
-            columns {
-                table {
-                  __typename
-                    ... on CustomSQLTable {
-                        id
-                        name
-                        }
-                    }
-                }
             }
         ... on CalculatedField {
             role
@@ -408,6 +429,31 @@ def get_tags_from_params(params: List[str] = []) -> GlobalTagsClass:
     return GlobalTagsClass(tags=tags)
 
 
+def tableau_field_to_schema_field(field, ingest_tags):
+    nativeDataType = field.get("dataType", "UNKNOWN")
+    TypeClass = FIELD_TYPE_MAPPING.get(nativeDataType, NullTypeClass)
+
+    schema_field = SchemaField(
+        fieldPath=field["name"],
+        type=SchemaFieldDataType(type=TypeClass()),
+        description=make_description_from_params(
+            field.get("description", ""), field.get("formula")
+        ),
+        nativeDataType=nativeDataType,
+        globalTags=get_tags_from_params(
+            [
+                field.get("role", ""),
+                field.get("__typename", ""),
+                field.get("aggregation", ""),
+            ]
+        )
+        if ingest_tags
+        else None,
+    )
+
+    return schema_field
+
+
 @lru_cache(128)
 def get_platform(connection_type: str) -> str:
     # connection_type taken from
@@ -459,9 +505,12 @@ def get_fully_qualified_table_name(
     # do some final adjustments on the fully qualified table name to help them line up with source systems:
     # lowercase it
     fully_qualified_table_name = fully_qualified_table_name.lower()
-    # strip double quotes and escaped double quotes
+    # strip double quotes, escaped double quotes and backticks
     fully_qualified_table_name = (
-        fully_qualified_table_name.replace('\\"', "").replace('"', "").replace("\\", "")
+        fully_qualified_table_name.replace('\\"', "")
+        .replace('"', "")
+        .replace("\\", "")
+        .replace("`", "")
     )
 
     if platform in ("athena", "hive", "mysql"):
@@ -523,13 +572,6 @@ def make_description_from_params(description, formula):
     if formula:
         final_description += f"formula: {formula}"
     return final_description
-
-
-def get_field_value_in_sheet(field, field_name):
-    if field.get("__typename", "") == "DatasourceField":
-        field = field.get("remoteField") or {}
-
-    return field.get(field_name, "")
 
 
 def get_unique_custom_sql(custom_sql_list: List[dict]) -> List[dict]:

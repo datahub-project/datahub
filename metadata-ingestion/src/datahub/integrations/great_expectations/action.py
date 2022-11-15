@@ -1,6 +1,9 @@
+from datahub.utilities._markupsafe_compat import MARKUPSAFE_PATCHED
+
 import json
 import logging
 import os
+import sys
 import time
 from dataclasses import dataclass
 from datetime import timezone
@@ -55,8 +58,11 @@ from datahub.metadata.com.linkedin.pegasus2avro.events.metadata import ChangeTyp
 from datahub.metadata.schema_classes import PartitionSpecClass, PartitionTypeClass
 from datahub.utilities.sql_parser import DefaultSQLParser
 
+assert MARKUPSAFE_PATCHED
 logger = logging.getLogger(__name__)
 if os.getenv("DATAHUB_DEBUG", False):
+    handler = logging.StreamHandler(stream=sys.stdout)
+    logger.addHandler(handler)
     logger.setLevel(logging.DEBUG)
 
 GE_PLATFORM_NAME = "great-expectations"

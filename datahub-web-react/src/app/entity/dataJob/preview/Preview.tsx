@@ -52,6 +52,7 @@ export const Preview = ({
         <DefaultPreviewCard
             url={entityRegistry.getEntityUrl(EntityType.DataJob, urn)}
             name={name}
+            urn={urn}
             description={description || ''}
             type="Data Task"
             typeIcon={entityRegistry.getIcon(EntityType.DataJob, 14, IconStyleType.ACCENT)}

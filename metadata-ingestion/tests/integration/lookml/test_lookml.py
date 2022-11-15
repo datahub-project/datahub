@@ -8,6 +8,11 @@ from looker_sdk.sdk.api31.models import DBConnection
 
 from datahub.configuration.common import PipelineExecutionError
 from datahub.ingestion.run.pipeline import Pipeline
+from datahub.metadata.schema_classes import (
+    DatasetSnapshotClass,
+    MetadataChangeEventClass,
+    UpstreamLineageClass,
+)
 from tests.test_helpers import mce_helpers
 
 logging.getLogger("lkml").setLevel(logging.INFO)
@@ -37,6 +42,7 @@ def test_lookml_ingest(pytestconfig, tmp_path, mock_time):
                     "tag_measures_and_dimensions": False,
                     "project_name": "lkml_samples",
                     "model_pattern": {"deny": ["data2"]},
+                    "emit_reachable_views_only": False,
                 },
             },
             "sink": {
@@ -80,6 +86,7 @@ def test_lookml_ingest_offline(pytestconfig, tmp_path, mock_time):
                     "parse_table_names_from_sql": True,
                     "project_name": "lkml_samples",
                     "model_pattern": {"deny": ["data2"]},
+                    "emit_reachable_views_only": False,
                 },
             },
             "sink": {
@@ -123,6 +130,7 @@ def test_lookml_ingest_offline_with_model_deny(pytestconfig, tmp_path, mock_time
                     "parse_table_names_from_sql": True,
                     "project_name": "lkml_samples",
                     "model_pattern": {"deny": ["data"]},
+                    "emit_reachable_views_only": False,
                 },
             },
             "sink": {
@@ -168,6 +176,7 @@ def test_lookml_ingest_offline_platform_instance(pytestconfig, tmp_path, mock_ti
                     "parse_table_names_from_sql": True,
                     "project_name": "lkml_samples",
                     "model_pattern": {"deny": ["data2"]},
+                    "emit_reachable_views_only": False,
                 },
             },
             "sink": {
@@ -246,6 +255,7 @@ def ingestion_test(
                         },
                         "parse_table_names_from_sql": True,
                         "model_pattern": {"deny": ["data2"]},
+                        "emit_reachable_views_only": False,
                     },
                 },
                 "sink": {
@@ -289,6 +299,7 @@ def test_lookml_bad_sql_parser(pytestconfig, tmp_path, mock_time):
                     "parse_table_names_from_sql": True,
                     "project_name": "lkml_samples",
                     "sql_parser": "bad.sql.Parser",
+                    "emit_reachable_views_only": False,
                 },
             },
             "sink": {
@@ -338,6 +349,7 @@ def test_lookml_github_info(pytestconfig, tmp_path, mock_time):
                     "project_name": "lkml_samples",
                     "model_pattern": {"deny": ["data2"]},
                     "github_info": {"repo": "datahub/looker-demo", "branch": "master"},
+                    "emit_reachable_views_only": False,
                 },
             },
             "sink": {
@@ -421,3 +433,57 @@ def test_reachable_views(pytestconfig, tmp_path, mock_time):
         "urn:li:dataset:(urn:li:dataPlatform:looker,lkml_samples.view.my_view2,PROD)"
         in entity_urns
     )
+
+
+@freeze_time(FROZEN_TIME)
+def test_hive_platform_drops_ids(pytestconfig, tmp_path, mock_time):
+    """Test omit db name from hive ids"""
+    test_resources_dir = pytestconfig.rootpath / "tests/integration/lookml"
+    mce_out = "lookml_mces_with_db_name_omitted.json"
+    pipeline = Pipeline.create(
+        {
+            "run_id": "lookml-test",
+            "source": {
+                "type": "lookml",
+                "config": {
+                    "base_folder": str(test_resources_dir / "lkml_samples_hive"),
+                    "connection_to_platform_map": {
+                        "my_connection": {
+                            "platform": "hive",
+                            "default_db": "default_database",
+                            "default_schema": "default_schema",
+                        }
+                    },
+                    "parse_table_names_from_sql": True,
+                    "project_name": "lkml_samples",
+                    "model_pattern": {"deny": ["data2"]},
+                    "github_info": {"repo": "datahub/looker-demo", "branch": "master"},
+                    "emit_reachable_views_only": False,
+                },
+            },
+            "sink": {
+                "type": "file",
+                "config": {
+                    "filename": f"{tmp_path}/{mce_out}",
+                },
+            },
+        }
+    )
+    pipeline.run()
+    pipeline.pretty_print_summary()
+    pipeline.raise_from_status(raise_warnings=True)
+
+    maybe_events = mce_helpers.load_json_file(tmp_path / mce_out)
+    assert isinstance(maybe_events, list)
+    for mce in maybe_events:
+        if "proposedSnapshot" in mce:
+            mce_concrete = MetadataChangeEventClass.from_obj(mce)
+            if isinstance(mce_concrete.proposedSnapshot, DatasetSnapshotClass):
+                lineage_aspects = [
+                    a
+                    for a in mce_concrete.proposedSnapshot.aspects
+                    if isinstance(a, UpstreamLineageClass)
+                ]
+                for a in lineage_aspects:
+                    for upstream in a.upstreams:
+                        assert "hive." not in upstream.dataset

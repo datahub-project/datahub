@@ -10,7 +10,8 @@ import com.linkedin.metadata.query.filter.RelationshipFilter;
 import org.neo4j.driver.Driver;
 import org.neo4j.driver.GraphDatabase;
 import org.testng.SkipException;
-import org.testng.annotations.AfterMethod;
+import org.testng.annotations.AfterClass;
+import org.testng.annotations.BeforeClass;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
@@ -28,15 +29,21 @@ public class Neo4jGraphServiceTest extends GraphServiceTestBase {
   private Driver _driver;
   private Neo4jGraphService _client;
 
-  @BeforeMethod
+  @BeforeClass
   public void init() {
     _serverBuilder = new Neo4jTestServerBuilder();
     _serverBuilder.newServer();
     _driver = GraphDatabase.driver(_serverBuilder.boltURI());
     _client = new Neo4jGraphService(new LineageRegistry(SnapshotEntityRegistry.getInstance()), _driver);
+    _client.clear();
   }
 
-  @AfterMethod
+  @BeforeMethod
+  public void wipe() {
+    _client.wipe();
+  }
+
+  @AfterClass
   public void tearDown() {
     _serverBuilder.shutdown();
   }

@@ -12,7 +12,7 @@ function reduceFiltersToCombineDegreeFilters(acc: FacetFilterInput[], filter: Fa
     if (filter.field === DEGREE_FILTER && acc.filter((f) => f.field === DEGREE_FILTER).length > 0) {
         // instead of appending this new degree filter, combine it with the previous one and continue
         return acc.map((f) =>
-            f.field === DEGREE_FILTER ? { ...f, values: [...f.values, ...filter.values] } : f,
+            f.field === DEGREE_FILTER ? { ...f, values: [...(f.values || []), ...(filter.values || [])] } : f,
         ) as FacetFilterInput[];
     }
     return [...acc, filter] as FacetFilterInput[];
