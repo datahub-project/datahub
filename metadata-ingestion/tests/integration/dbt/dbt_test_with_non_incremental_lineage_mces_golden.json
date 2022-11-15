@@ -10,7 +10,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1643871600000,
-        "runId": "dbt-test-with-target-platform-instance"
+        "runId": "dbt-test-with-non-incremental-lineage"
     }
 },
 {
@@ -135,7 +135,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1643871600000,
-        "runId": "dbt-test-with-target-platform-instance"
+        "runId": "dbt-test-with-non-incremental-lineage"
     }
 },
 {
@@ -149,7 +149,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1643871600000,
-        "runId": "dbt-test-with-target-platform-instance"
+        "runId": "dbt-test-with-non-incremental-lineage"
     }
 },
 {
@@ -264,7 +264,7 @@
                                     "time": 1643871600000,
                                     "actor": "urn:li:corpuser:unknown"
                                 },
-                                "dataset": "urn:li:dataset:(urn:li:dataPlatform:postgres,ps-instance-1.pagila.dbt_postgres.payments_by_customer_by_month,PROD)",
+                                "dataset": "urn:li:dataset:(urn:li:dataPlatform:postgres,pagila.dbt_postgres.payments_by_customer_by_month,PROD)",
                                 "type": "TRANSFORMED"
                             },
                             {
@@ -290,7 +290,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1643871600000,
-        "runId": "dbt-test-with-target-platform-instance"
+        "runId": "dbt-test-with-non-incremental-lineage"
     }
 },
 {
@@ -304,7 +304,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1643871600000,
-        "runId": "dbt-test-with-target-platform-instance"
+        "runId": "dbt-test-with-non-incremental-lineage"
     }
 },
 {
@@ -504,7 +504,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1643871600000,
-        "runId": "dbt-test-with-target-platform-instance"
+        "runId": "dbt-test-with-non-incremental-lineage"
     }
 },
 {
@@ -518,7 +518,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1643871600000,
-        "runId": "dbt-test-with-target-platform-instance"
+        "runId": "dbt-test-with-non-incremental-lineage"
     }
 },
 {
@@ -616,7 +616,7 @@
                                     "time": 1643871600000,
                                     "actor": "urn:li:corpuser:unknown"
                                 },
-                                "dataset": "urn:li:dataset:(urn:li:dataPlatform:postgres,ps-instance-1.pagila.dbt_postgres.an-aliased-view-for-payments,PROD)",
+                                "dataset": "urn:li:dataset:(urn:li:dataPlatform:postgres,pagila.dbt_postgres.an-aliased-view-for-payments,PROD)",
                                 "type": "TRANSFORMED"
                             }
                         ]
@@ -634,7 +634,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1643871600000,
-        "runId": "dbt-test-with-target-platform-instance"
+        "runId": "dbt-test-with-non-incremental-lineage"
     }
 },
 {
@@ -648,7 +648,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1643871600000,
-        "runId": "dbt-test-with-target-platform-instance"
+        "runId": "dbt-test-with-non-incremental-lineage"
     }
 },
 {
@@ -784,7 +784,7 @@
                                     "time": 1643871600000,
                                     "actor": "urn:li:corpuser:unknown"
                                 },
-                                "dataset": "urn:li:dataset:(urn:li:dataPlatform:postgres,ps-instance-1.pagila.public.actor,PROD)",
+                                "dataset": "urn:li:dataset:(urn:li:dataPlatform:postgres,pagila.public.actor,PROD)",
                                 "type": "TRANSFORMED"
                             }
                         ]
@@ -795,7 +795,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1643871600000,
-        "runId": "dbt-test-with-target-platform-instance"
+        "runId": "dbt-test-with-non-incremental-lineage"
     }
 },
 {
@@ -809,7 +809,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1643871600000,
-        "runId": "dbt-test-with-target-platform-instance"
+        "runId": "dbt-test-with-non-incremental-lineage"
     }
 },
 {
@@ -966,7 +966,7 @@
                                     "time": 1643871600000,
                                     "actor": "urn:li:corpuser:unknown"
                                 },
-                                "dataset": "urn:li:dataset:(urn:li:dataPlatform:postgres,ps-instance-1.pagila.public.address,PROD)",
+                                "dataset": "urn:li:dataset:(urn:li:dataPlatform:postgres,pagila.public.address,PROD)",
                                 "type": "TRANSFORMED"
                             }
                         ]
@@ -977,7 +977,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1643871600000,
-        "runId": "dbt-test-with-target-platform-instance"
+        "runId": "dbt-test-with-non-incremental-lineage"
     }
 },
 {
@@ -991,7 +991,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1643871600000,
-        "runId": "dbt-test-with-target-platform-instance"
+        "runId": "dbt-test-with-non-incremental-lineage"
     }
 },
 {
@@ -1088,7 +1088,7 @@
                                     "time": 1643871600000,
                                     "actor": "urn:li:corpuser:unknown"
                                 },
-                                "dataset": "urn:li:dataset:(urn:li:dataPlatform:postgres,ps-instance-1.pagila.public.category,PROD)",
+                                "dataset": "urn:li:dataset:(urn:li:dataPlatform:postgres,pagila.public.category,PROD)",
                                 "type": "TRANSFORMED"
                             }
                         ]
@@ -1099,7 +1099,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1643871600000,
-        "runId": "dbt-test-with-target-platform-instance"
+        "runId": "dbt-test-with-non-incremental-lineage"
     }
 },
 {
@@ -1113,7 +1113,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1643871600000,
-        "runId": "dbt-test-with-target-platform-instance"
+        "runId": "dbt-test-with-non-incremental-lineage"
     }
 },
 {
@@ -1222,7 +1222,7 @@
                                     "time": 1643871600000,
                                     "actor": "urn:li:corpuser:unknown"
                                 },
-                                "dataset": "urn:li:dataset:(urn:li:dataPlatform:postgres,ps-instance-1.pagila.public.city,PROD)",
+                                "dataset": "urn:li:dataset:(urn:li:dataPlatform:postgres,pagila.public.city,PROD)",
                                 "type": "TRANSFORMED"
                             }
                         ]
@@ -1233,7 +1233,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1643871600000,
-        "runId": "dbt-test-with-target-platform-instance"
+        "runId": "dbt-test-with-non-incremental-lineage"
     }
 },
 {
@@ -1247,7 +1247,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1643871600000,
-        "runId": "dbt-test-with-target-platform-instance"
+        "runId": "dbt-test-with-non-incremental-lineage"
     }
 },
 {
@@ -1361,7 +1361,7 @@
                                     "time": 1643871600000,
                                     "actor": "urn:li:corpuser:unknown"
                                 },
-                                "dataset": "urn:li:dataset:(urn:li:dataPlatform:postgres,ps-instance-1.pagila.public.country,PROD)",
+                                "dataset": "urn:li:dataset:(urn:li:dataPlatform:postgres,pagila.public.country,PROD)",
                                 "type": "TRANSFORMED"
                             }
                         ]
@@ -1372,7 +1372,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1643871600000,
-        "runId": "dbt-test-with-target-platform-instance"
+        "runId": "dbt-test-with-non-incremental-lineage"
     }
 },
 {
@@ -1386,7 +1386,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1643871600000,
-        "runId": "dbt-test-with-target-platform-instance"
+        "runId": "dbt-test-with-non-incremental-lineage"
     }
 },
 {
@@ -1567,7 +1567,7 @@
                                     "time": 1643871600000,
                                     "actor": "urn:li:corpuser:unknown"
                                 },
-                                "dataset": "urn:li:dataset:(urn:li:dataPlatform:postgres,ps-instance-1.pagila.public.customer,PROD)",
+                                "dataset": "urn:li:dataset:(urn:li:dataPlatform:postgres,pagila.public.customer,PROD)",
                                 "type": "TRANSFORMED"
                             }
                         ]
@@ -1578,7 +1578,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1643871600000,
-        "runId": "dbt-test-with-target-platform-instance"
+        "runId": "dbt-test-with-non-incremental-lineage"
     }
 },
 {
@@ -1592,7 +1592,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1643871600000,
-        "runId": "dbt-test-with-target-platform-instance"
+        "runId": "dbt-test-with-non-incremental-lineage"
     }
 },
 {
@@ -1725,7 +1725,7 @@
                                     "time": 1643871600000,
                                     "actor": "urn:li:corpuser:unknown"
                                 },
-                                "dataset": "urn:li:dataset:(urn:li:dataPlatform:postgres,ps-instance-1.pagila.public.payment_p2020_01,PROD)",
+                                "dataset": "urn:li:dataset:(urn:li:dataPlatform:postgres,pagila.public.payment_p2020_01,PROD)",
                                 "type": "TRANSFORMED"
                             }
                         ]
@@ -1736,7 +1736,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1643871600000,
-        "runId": "dbt-test-with-target-platform-instance"
+        "runId": "dbt-test-with-non-incremental-lineage"
     }
 },
 {
@@ -1750,7 +1750,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1643871600000,
-        "runId": "dbt-test-with-target-platform-instance"
+        "runId": "dbt-test-with-non-incremental-lineage"
     }
 },
 {
@@ -1901,7 +1901,7 @@
                                     "time": 1643871600000,
                                     "actor": "urn:li:corpuser:unknown"
                                 },
-                                "dataset": "urn:li:dataset:(urn:li:dataPlatform:postgres,ps-instance-1.pagila.public.payment_p2020_02,PROD)",
+                                "dataset": "urn:li:dataset:(urn:li:dataPlatform:postgres,pagila.public.payment_p2020_02,PROD)",
                                 "type": "TRANSFORMED"
                             }
                         ]
@@ -1912,7 +1912,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1643871600000,
-        "runId": "dbt-test-with-target-platform-instance"
+        "runId": "dbt-test-with-non-incremental-lineage"
     }
 },
 {
@@ -1926,7 +1926,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1643871600000,
-        "runId": "dbt-test-with-target-platform-instance"
+        "runId": "dbt-test-with-non-incremental-lineage"
     }
 },
 {
@@ -2059,7 +2059,7 @@
                                     "time": 1643871600000,
                                     "actor": "urn:li:corpuser:unknown"
                                 },
-                                "dataset": "urn:li:dataset:(urn:li:dataPlatform:postgres,ps-instance-1.pagila.public.payment_p2020_03,PROD)",
+                                "dataset": "urn:li:dataset:(urn:li:dataPlatform:postgres,pagila.public.payment_p2020_03,PROD)",
                                 "type": "TRANSFORMED"
                             }
                         ]
@@ -2070,7 +2070,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1643871600000,
-        "runId": "dbt-test-with-target-platform-instance"
+        "runId": "dbt-test-with-non-incremental-lineage"
     }
 },
 {
@@ -2084,7 +2084,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1643871600000,
-        "runId": "dbt-test-with-target-platform-instance"
+        "runId": "dbt-test-with-non-incremental-lineage"
     }
 },
 {
@@ -2217,7 +2217,7 @@
                                     "time": 1643871600000,
                                     "actor": "urn:li:corpuser:unknown"
                                 },
-                                "dataset": "urn:li:dataset:(urn:li:dataPlatform:postgres,ps-instance-1.pagila.public.payment_p2020_04,PROD)",
+                                "dataset": "urn:li:dataset:(urn:li:dataPlatform:postgres,pagila.public.payment_p2020_04,PROD)",
                                 "type": "TRANSFORMED"
                             }
                         ]
@@ -2228,7 +2228,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1643871600000,
-        "runId": "dbt-test-with-target-platform-instance"
+        "runId": "dbt-test-with-non-incremental-lineage"
     }
 },
 {
@@ -2242,7 +2242,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1643871600000,
-        "runId": "dbt-test-with-target-platform-instance"
+        "runId": "dbt-test-with-non-incremental-lineage"
     }
 },
 {
@@ -2375,7 +2375,7 @@
                                     "time": 1643871600000,
                                     "actor": "urn:li:corpuser:unknown"
                                 },
-                                "dataset": "urn:li:dataset:(urn:li:dataPlatform:postgres,ps-instance-1.pagila.public.payment_p2020_05,PROD)",
+                                "dataset": "urn:li:dataset:(urn:li:dataPlatform:postgres,pagila.public.payment_p2020_05,PROD)",
                                 "type": "TRANSFORMED"
                             }
                         ]
@@ -2386,7 +2386,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1643871600000,
-        "runId": "dbt-test-with-target-platform-instance"
+        "runId": "dbt-test-with-non-incremental-lineage"
     }
 },
 {
@@ -2400,7 +2400,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1643871600000,
-        "runId": "dbt-test-with-target-platform-instance"
+        "runId": "dbt-test-with-non-incremental-lineage"
     }
 },
 {
@@ -2533,7 +2533,7 @@
                                     "time": 1643871600000,
                                     "actor": "urn:li:corpuser:unknown"
                                 },
-                                "dataset": "urn:li:dataset:(urn:li:dataPlatform:postgres,ps-instance-1.pagila.public.payment_p2020_06,PROD)",
+                                "dataset": "urn:li:dataset:(urn:li:dataPlatform:postgres,pagila.public.payment_p2020_06,PROD)",
                                 "type": "TRANSFORMED"
                             }
                         ]
@@ -2544,49 +2544,88 @@
     },
     "systemMetadata": {
         "lastObserved": 1643871600000,
-        "runId": "dbt-test-with-target-platform-instance"
+        "runId": "dbt-test-with-non-incremental-lineage"
     }
 },
 {
-    "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:postgres,ps-instance-1.pagila.dbt_postgres.an-aliased-view-for-monthly-billing,PROD)",
-    "changeType": "PATCH",
-    "aspectName": "upstreamLineage",
-    "aspect": {
-        "value": "[{\"op\": \"add\", \"path\": \"/upstreams/urn:li:dataset:(urn:li:dataPlatform:dbt,pagila.dbt_postgres.an-aliased-view-for-monthly-billing,PROD)\", \"value\": {\"auditStamp\": {\"time\": 1643871600000, \"actor\": \"urn:li:corpuser:unknown\"}, \"dataset\": \"urn:li:dataset:(urn:li:dataPlatform:dbt,pagila.dbt_postgres.an-aliased-view-for-monthly-billing,PROD)\", \"type\": \"TRANSFORMED\"}}]",
-        "contentType": "application/json-patch+json"
+    "proposedSnapshot": {
+        "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
+            "urn": "urn:li:dataset:(urn:li:dataPlatform:postgres,pagila.dbt_postgres.an-aliased-view-for-monthly-billing,PROD)",
+            "aspects": [
+                {
+                    "com.linkedin.pegasus2avro.dataset.UpstreamLineage": {
+                        "upstreams": [
+                            {
+                                "auditStamp": {
+                                    "time": 1643871600000,
+                                    "actor": "urn:li:corpuser:unknown"
+                                },
+                                "dataset": "urn:li:dataset:(urn:li:dataPlatform:dbt,pagila.dbt_postgres.an-aliased-view-for-monthly-billing,PROD)",
+                                "type": "TRANSFORMED"
+                            }
+                        ]
+                    }
+                }
+            ]
+        }
     },
     "systemMetadata": {
         "lastObserved": 1643871600000,
-        "runId": "dbt-test-with-target-platform-instance"
+        "runId": "dbt-test-with-non-incremental-lineage"
     }
 },
 {
-    "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:postgres,ps-instance-1.pagila.dbt_postgres.an-aliased-view-for-payments,PROD)",
-    "changeType": "PATCH",
-    "aspectName": "upstreamLineage",
-    "aspect": {
-        "value": "[{\"op\": \"add\", \"path\": \"/upstreams/urn:li:dataset:(urn:li:dataPlatform:dbt,pagila.dbt_postgres.an-aliased-view-for-payments,PROD)\", \"value\": {\"auditStamp\": {\"time\": 1643871600000, \"actor\": \"urn:li:corpuser:unknown\"}, \"dataset\": \"urn:li:dataset:(urn:li:dataPlatform:dbt,pagila.dbt_postgres.an-aliased-view-for-payments,PROD)\", \"type\": \"TRANSFORMED\"}}]",
-        "contentType": "application/json-patch+json"
+    "proposedSnapshot": {
+        "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
+            "urn": "urn:li:dataset:(urn:li:dataPlatform:postgres,pagila.dbt_postgres.an-aliased-view-for-payments,PROD)",
+            "aspects": [
+                {
+                    "com.linkedin.pegasus2avro.dataset.UpstreamLineage": {
+                        "upstreams": [
+                            {
+                                "auditStamp": {
+                                    "time": 1643871600000,
+                                    "actor": "urn:li:corpuser:unknown"
+                                },
+                                "dataset": "urn:li:dataset:(urn:li:dataPlatform:dbt,pagila.dbt_postgres.an-aliased-view-for-payments,PROD)",
+                                "type": "TRANSFORMED"
+                            }
+                        ]
+                    }
+                }
+            ]
+        }
     },
     "systemMetadata": {
         "lastObserved": 1643871600000,
-        "runId": "dbt-test-with-target-platform-instance"
+        "runId": "dbt-test-with-non-incremental-lineage"
     }
 },
 {
-    "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:postgres,ps-instance-1.pagila.dbt_postgres.payments_by_customer_by_month,PROD)",
-    "changeType": "PATCH",
-    "aspectName": "upstreamLineage",
-    "aspect": {
-        "value": "[{\"op\": \"add\", \"path\": \"/upstreams/urn:li:dataset:(urn:li:dataPlatform:dbt,pagila.dbt_postgres.payments_by_customer_by_month,PROD)\", \"value\": {\"auditStamp\": {\"time\": 1643871600000, \"actor\": \"urn:li:corpuser:unknown\"}, \"dataset\": \"urn:li:dataset:(urn:li:dataPlatform:dbt,pagila.dbt_postgres.payments_by_customer_by_month,PROD)\", \"type\": \"TRANSFORMED\"}}]",
-        "contentType": "application/json-patch+json"
+    "proposedSnapshot": {
+        "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
+            "urn": "urn:li:dataset:(urn:li:dataPlatform:postgres,pagila.dbt_postgres.payments_by_customer_by_month,PROD)",
+            "aspects": [
+                {
+                    "com.linkedin.pegasus2avro.dataset.UpstreamLineage": {
+                        "upstreams": [
+                            {
+                                "auditStamp": {
+                                    "time": 1643871600000,
+                                    "actor": "urn:li:corpuser:unknown"
+                                },
+                                "dataset": "urn:li:dataset:(urn:li:dataPlatform:dbt,pagila.dbt_postgres.payments_by_customer_by_month,PROD)",
+                                "type": "TRANSFORMED"
+                            }
+                        ]
+                    }
+                }
+            ]
+        }
     },
     "systemMetadata": {
         "lastObserved": 1643871600000,
-        "runId": "dbt-test-with-target-platform-instance"
+        "runId": "dbt-test-with-non-incremental-lineage"
     }
 }
 ]
