@@ -13,6 +13,11 @@ source:
     client_secret: bar
     # Enable / Disable ingestion of user information for dashboards
     extract_ownership: true
+    # Enable / Disable ingestion of all accessible workspaces
+    scan_all_workspaces: false
+    # If scanning of all workspaces is enabled, list of workspace IDs to skip in ingestion
+    # scan_exclusion_list:
+    #   - id
     # dataset_type_mapping is fixed mapping of Power BI datasources type to equivalent Datahub "data platform" dataset
     dataset_type_mapping:
         PostgreSql: postgres
