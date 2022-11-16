@@ -128,8 +128,21 @@ class SQLServerSource(SQLAlchemySource):
         for inspector in self.get_inspectors():
             db_name: str = self.get_db_name(inspector)
             with inspector.engine.connect() as conn:
+                if self.config.use_odbc:
+                    self._add_output_converters(conn)
                 self._populate_table_descriptions(conn, db_name)
                 self._populate_column_descriptions(conn, db_name)
+
+    @staticmethod
+    def _add_output_converters(conn: Connection) -> None:
+        def handle_sql_variant_as_string(value):
+            return value.decode('utf-16le')
+        # see https://stackoverflow.com/questions/45677374/pandas-pyodbc-odbc-sql-type-150-is-not-yet-supported
+        # and https://stackoverflow.com/questions/11671170/adding-output-converter-to-pyodbc-connection-in-sqlalchemy
+        try:
+            conn.connection.add_output_converter(-150, handle_sql_variant_as_string)
+        except AttributeError as e:
+            logger.debug(f"Failed to mount output converter for MSSQL data type -150 due to {e}")
 
     def _populate_table_descriptions(self, conn: Connection, db_name: str) -> None:
         # see https://stackoverflow.com/questions/5953330/how-do-i-map-the-id-in-sys-extended-properties-to-an-object-name
