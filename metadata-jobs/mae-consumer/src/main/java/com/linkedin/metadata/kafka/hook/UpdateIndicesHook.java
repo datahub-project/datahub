@@ -157,16 +157,18 @@ public class UpdateIndicesHook implements MetadataChangeLogHook {
     if (aspectSpec.isTimeseries()) {
       updateTimeseriesFields(event.getEntityType(), event.getAspectName(), urn, aspect, aspectSpec,
           event.getSystemMetadata());
+    } else {
+      // Inject into the System Metadata Index when an aspect is non-timeseries only.
+      // TODO: Verify whether timeseries aspects can be dropped into System Metadata as well
+      // without impacting rollbacks.
+      updateSystemMetadata(event.getSystemMetadata(), urn, aspectSpec, aspect);
     }
 
     // Step 1. For all aspects, attempt to update Search
     updateSearchService(entitySpec.getName(), urn, aspectSpec, aspect,
         event.hasSystemMetadata() ? event.getSystemMetadata().getRunId() : null);
 
-    // Step 2. And system metadata index.
-    updateSystemMetadata(event.getSystemMetadata(), urn, aspectSpec, aspect);
-
-    // Step 3. And finally, add edges to the Graph Service.
+    // Step 2. For all aspects, attempt to update Graph
     if (_diffMode) {
       updateGraphServiceDiff(urn, aspectSpec, previousAspect, aspect);
     } else {
