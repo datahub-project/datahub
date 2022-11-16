@@ -53,11 +53,11 @@ framework_common = {
     "cached_property",
     "ijson",
     "click-spinner",
+    "requests_file",
 }
 
 rest_common = {
     "requests",
-    "requests_file"
 }
 
 kafka_common = {
