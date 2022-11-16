@@ -17,6 +17,7 @@ import click
 import pydantic
 import requests
 from expandvars import expandvars
+from requests_file import FileAdapter
 
 from datahub.cli.cli_utils import DATAHUB_ROOT_FOLDER
 from datahub.cli.docker_check import (
@@ -47,16 +48,19 @@ ELASTIC_CONSUMERS_QUICKSTART_COMPOSE_FILE = (
 
 BOOTSTRAP_MCES_FILE = "metadata-ingestion/examples/mce_files/bootstrap_mce.json"
 
-GITHUB_BASE_URL = "https://raw.githubusercontent.com/datahub-project/datahub/master"
+DOCKER_COMPOSE_BASE = os.getenv(
+    "DOCKER_COMPOSE_BASE",
+    "https://raw.githubusercontent.com/datahub-project/datahub/master",
+)
 
-GITHUB_NEO4J_AND_ELASTIC_QUICKSTART_COMPOSE_URL = (
-    f"{GITHUB_BASE_URL}/{NEO4J_AND_ELASTIC_QUICKSTART_COMPOSE_FILE}"
+NEO4J_AND_ELASTIC_QUICKSTART_COMPOSE_URL = (
+    f"{DOCKER_COMPOSE_BASE}/{NEO4J_AND_ELASTIC_QUICKSTART_COMPOSE_FILE}"
 )
-GITHUB_ELASTIC_QUICKSTART_COMPOSE_URL = (
-    f"{GITHUB_BASE_URL}/{ELASTIC_QUICKSTART_COMPOSE_FILE}"
+ELASTIC_QUICKSTART_COMPOSE_URL = (
+    f"{DOCKER_COMPOSE_BASE}/{ELASTIC_QUICKSTART_COMPOSE_FILE}"
 )
-GITHUB_M1_QUICKSTART_COMPOSE_URL = f"{GITHUB_BASE_URL}/{M1_QUICKSTART_COMPOSE_FILE}"
-GITHUB_BOOTSTRAP_MCES_URL = f"{GITHUB_BASE_URL}/{BOOTSTRAP_MCES_FILE}"
+M1_QUICKSTART_COMPOSE_URL = f"{DOCKER_COMPOSE_BASE}/{M1_QUICKSTART_COMPOSE_FILE}"
+BOOTSTRAP_MCES_URL = f"{DOCKER_COMPOSE_BASE}/{BOOTSTRAP_MCES_FILE}"
 
 
 class Architectures(Enum):
@@ -630,12 +634,16 @@ def quickstart(
                 fg="red",
             )
         github_file = (
-            GITHUB_NEO4J_AND_ELASTIC_QUICKSTART_COMPOSE_URL
+            NEO4J_AND_ELASTIC_QUICKSTART_COMPOSE_URL
             if should_use_neo4j and not is_arch_m1(quickstart_arch)
-            else GITHUB_ELASTIC_QUICKSTART_COMPOSE_URL
+            else ELASTIC_QUICKSTART_COMPOSE_URL
             if not is_arch_m1(quickstart_arch)
-            else GITHUB_M1_QUICKSTART_COMPOSE_URL
+            else M1_QUICKSTART_COMPOSE_URL
         )
+
+        # also allow local files
+        request_session = requests.Session()
+        request_session.mount("file://", FileAdapter())
 
         with open(
             default_quickstart_compose_file, "wb"
@@ -646,16 +654,16 @@ def quickstart(
             quickstart_compose_file.append(path)
             click.echo(f"Fetching docker-compose file {github_file} from GitHub")
             # Download the quickstart docker-compose file from GitHub.
-            quickstart_download_response = requests.get(github_file)
+            quickstart_download_response = request_session.get(github_file)
             quickstart_download_response.raise_for_status()
             tmp_file.write(quickstart_download_response.content)
             logger.debug(f"Copied to {path}")
 
         if standalone_consumers:
             consumer_github_file = (
-                f"{GITHUB_BASE_URL}/{CONSUMERS_QUICKSTART_COMPOSE_FILE}"
+                f"{DOCKER_COMPOSE_BASE}/{CONSUMERS_QUICKSTART_COMPOSE_FILE}"
                 if should_use_neo4j
-                else f"{GITHUB_BASE_URL}/{ELASTIC_CONSUMERS_QUICKSTART_COMPOSE_FILE}"
+                else f"{DOCKER_COMPOSE_BASE}/{ELASTIC_CONSUMERS_QUICKSTART_COMPOSE_FILE}"
             )
 
             default_consumer_compose_file = (
@@ -672,7 +680,7 @@ def quickstart(
                     f"Fetching consumer docker-compose file {consumer_github_file} from GitHub"
                 )
                 # Download the quickstart docker-compose file from GitHub.
-                quickstart_download_response = requests.get(consumer_github_file)
+                quickstart_download_response = request_session.get(consumer_github_file)
                 quickstart_download_response.raise_for_status()
                 tmp_file.write(quickstart_download_response.content)
                 logger.debug(f"Copied to {path}")
@@ -839,7 +847,7 @@ def ingest_sample_data(path: Optional[str], token: Optional[str]) -> None:
             path = str(pathlib.Path(tmp_file.name))
 
             # Download the bootstrap MCE file from GitHub.
-            mce_json_download_response = requests.get(GITHUB_BOOTSTRAP_MCES_URL)
+            mce_json_download_response = requests.get(BOOTSTRAP_MCES_URL)
             mce_json_download_response.raise_for_status()
             tmp_file.write(mce_json_download_response.content)
         click.echo(f"Downloaded to {path}")
