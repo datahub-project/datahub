@@ -30,11 +30,11 @@ export const navigateToEntitySearchUrl = ({
 
     const search = QueryString.stringify(
         {
+            ...baseParams,
             ...filtersToQueryStringParams(constructedFilters),
             query: newQuery,
             page: newPage,
             unionType,
-            ...baseParams,
         },
         { arrayFormat: 'comma' },
     );

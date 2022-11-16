@@ -178,9 +178,15 @@ input FacetFilterInput {
   field: String!
 
   """
+  Value of the field to filter by. Deprecated in favor of `values`, which should accept a single element array for a
+  value
+  """
+  value: String @deprecated(reason: "Prefer `values` for single elements")
+
+  """
   Values, one of which the intended field should match.
   """
-  values: [String!]!
+  values: [String!]
 
   """
   If the filter should or should not be matched
@@ -312,13 +318,24 @@ type SearchAcrossLineageResult {
   """
   Optional list of entities between the source and destination node
   """
-  path: [Entity!]
+  paths: [EntityPath]
 
   """
   Degree of relationship (number of hops to get to entity)
   """
   degree: Int!
 }
+
+"""
+An overview of the field that was matched in the entity search document
+"""
+type EntityPath {
+    """
+    Path of entities between source and destination nodes
+    """
+    path: [Entity]
+}
+
 
 """
 An overview of the field that was matched in the entity search document

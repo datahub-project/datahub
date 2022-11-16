@@ -45,7 +45,7 @@ class PipelineContext:
     def __init__(
         self,
         run_id: str,
-        datahub_api: Optional[DatahubClientConfig] = None,
+        datahub_api: Optional["DatahubClientConfig"] = None,
         pipeline_name: Optional[str] = None,
         dry_run: bool = False,
         preview_mode: bool = False,
