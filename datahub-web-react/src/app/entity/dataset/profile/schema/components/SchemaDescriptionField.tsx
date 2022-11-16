@@ -3,7 +3,6 @@ import { EditOutlined } from '@ant-design/icons';
 import React, { useState } from 'react';
 import styled from 'styled-components';
 import { FetchResult } from '@apollo/client';
-import Highlight from 'react-highlighter';
 
 import { UpdateDatasetMutation } from '../../../../../../graphql/dataset.generated';
 import UpdateDescriptionModal from '../../../../shared/components/legacy/DescriptionModal';
@@ -82,14 +81,11 @@ type Props = {
         description: string,
     ) => Promise<FetchResult<UpdateDatasetMutation, Record<string, any>, Record<string, any>> | void>;
     isEdited?: boolean;
-    highlightText?: string;
 };
 
 const ABBREVIATED_LIMIT = 80;
 
-const highlightMatchStyle = { background: '#ffe58f', padding: '0' };
-
-export default function DescriptionField({ description, onUpdate, isEdited = false, original, highlightText }: Props) {
+export default function DescriptionField({ description, onUpdate, isEdited = false, original }: Props) {
     const [showAddModal, setShowAddModal] = useState(false);
     const overLimit = removeMarkdown(description).length > 80;
     const [expanded, setExpanded] = useState(!overLimit);
@@ -132,11 +128,7 @@ export default function DescriptionField({ description, onUpdate, isEdited = fal
         <DescriptionContainer>
             {expanded ? (
                 <>
-                    {!!description && (
-                        <Highlight matchStyle={highlightMatchStyle} search={highlightText}>
-                            <DescriptionText source={description} />
-                        </Highlight>
-                    )}
+                    {!!description && <DescriptionText source={description} />}
                     {!!description && (
                         <ExpandedActions>
                             {overLimit && (
@@ -169,9 +161,6 @@ export default function DescriptionField({ description, onUpdate, isEdited = fal
                         }
                         suffix={EditButton}
                     >
-                        {/* <Highlight matchStyle={highlightMatchStyle} search={highlightText}>
-                            {description}
-                        </Highlight> */}
                         {description}
                     </StripMarkdownText>
                 </>
