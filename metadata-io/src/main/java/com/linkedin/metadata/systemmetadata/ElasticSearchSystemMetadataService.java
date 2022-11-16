@@ -2,10 +2,12 @@ package com.linkedin.metadata.systemmetadata;
 
 import com.fasterxml.jackson.databind.node.JsonNodeFactory;
 import com.fasterxml.jackson.databind.node.ObjectNode;
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableMap;
 import com.linkedin.metadata.run.AspectRowSummary;
 import com.linkedin.metadata.run.IngestionRunSummary;
 import com.linkedin.metadata.search.elasticsearch.indexbuilder.ESIndexBuilder;
+import com.linkedin.metadata.search.elasticsearch.update.ESBulkProcessor;
 import com.linkedin.metadata.search.utils.ESUtils;
 import com.linkedin.metadata.utils.elasticsearch.IndexConvention;
 import com.linkedin.mxe.SystemMetadata;
@@ -27,10 +29,7 @@ import javax.annotation.Nullable;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.elasticsearch.action.search.SearchResponse;
-import org.elasticsearch.client.RequestOptions;
-import org.elasticsearch.client.RestHighLevelClient;
 import org.elasticsearch.index.query.QueryBuilders;
-import org.elasticsearch.index.reindex.DeleteByQueryRequest;
 import org.elasticsearch.search.SearchHits;
 import org.elasticsearch.search.aggregations.bucket.filter.ParsedFilter;
 import org.elasticsearch.search.aggregations.bucket.terms.ParsedStringTerms;
@@ -42,7 +41,7 @@ import org.elasticsearch.search.aggregations.metrics.ParsedMax;
 @RequiredArgsConstructor
 public class ElasticSearchSystemMetadataService implements SystemMetadataService {
 
-  private final RestHighLevelClient _searchClient;
+  private final ESBulkProcessor _esBulkProcessor;
   private final IndexConvention _indexConvention;
   private final ESSystemMetadataDAO _esDAO;
   private final ESIndexBuilder _indexBuilder;
@@ -204,14 +203,9 @@ public class ElasticSearchSystemMetadataService implements SystemMetadataService
     }
   }
 
+  @VisibleForTesting
   @Override
   public void clear() {
-    DeleteByQueryRequest deleteRequest =
-        new DeleteByQueryRequest(_indexConvention.getIndexName(INDEX_NAME)).setQuery(QueryBuilders.matchAllQuery());
-    try {
-      _searchClient.deleteByQuery(deleteRequest, RequestOptions.DEFAULT);
-    } catch (Exception e) {
-      log.error("Failed to clear system metadata service: {}", e.toString());
-    }
+    _esBulkProcessor.deleteByQuery(QueryBuilders.matchAllQuery(), true, _indexConvention.getIndexName(INDEX_NAME));
   }
 }
