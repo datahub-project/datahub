@@ -24,24 +24,20 @@ function getFilteredFieldPathsByMetadata(editableSchemaMetadata: any, entityRegi
     );
 }
 
-function filterDescription(field: SchemaField, filterText: string) {
-    return field.description?.toLocaleLowerCase().includes(filterText);
+function matchesDescription(fieldDescription: any, filterText: string) {
+    return fieldDescription?.toLocaleLowerCase().includes(filterText);
 }
 
 // returns list of fieldPaths for fields that have description matching the filterText
 function getDescriptionFieldPathsByMetadata(editableSchemaMetadata: any, filterText: string) {
-    const data =
+    return (
         editableSchemaMetadata?.editableSchemaFieldInfo
             .filter((fieldInfo) => {
                 return fieldInfo.description !== null;
             })
-            .filter((fieldInfo) => filterDescription(fieldInfo, filterText))
-            .map((fieldInfo) => fieldInfo.fieldPath) || [];
-    return data;
-}
-
-function matchesDescription(fieldDescription: any, filterText: string) {
-    return fieldDescription.toLocaleLowerCase().includes(filterText);
+            .filter((fieldInfo) => matchesDescription(fieldInfo.description, filterText))
+            .map((fieldInfo) => fieldInfo.fieldPath) || []
+    );
 }
 
 function matchesEditableTagsOrTerms(field: SchemaField, filteredFieldPathsByEditableMetadata: any) {
