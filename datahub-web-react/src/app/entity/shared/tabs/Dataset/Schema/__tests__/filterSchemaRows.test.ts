@@ -40,7 +40,7 @@ describe('filterSchemaRows', () => {
     });
 
     it('should properly filter schema rows based on description', () => {
-        const filterText = 'test';
+        const filterText = 'testing description';
         const editableSchemaMetadata = { editableSchemaFieldInfo: [] };
         const { filteredRows, expandedRowsFromFilter } = filterSchemaRows(
             rows,
@@ -55,7 +55,7 @@ describe('filterSchemaRows', () => {
 
     it('should properly filter schema rows based on description regardless of capitalization', () => {
         const editableSchemaMetadata = { editableSchemaFieldInfo: [] };
-        const filterText = 'TeSt';
+        const filterText = 'TeSting DesCriptioN';
         const { filteredRows, expandedRowsFromFilter } = filterSchemaRows(
             rows,
             editableSchemaMetadata,
@@ -70,10 +70,38 @@ describe('filterSchemaRows', () => {
     it('should properly filter schema rows based on editable description', () => {
         const editableSchemaMetadata = {
             editableSchemaFieldInfo: [
-                { fieldPath: 'customer', description: 'customer description', globalTags: null, glossaryTerms: null },
+                {
+                    fieldPath: 'customer',
+                    description: 'editable customer description',
+                    globalTags: null,
+                    glossaryTerms: null,
+                },
             ],
         };
-        const filterText = sampleTag.properties.name;
+        const filterText = 'editable customer description';
+        const { filteredRows, expandedRowsFromFilter } = filterSchemaRows(
+            rows,
+            editableSchemaMetadata,
+            filterText,
+            testEntityRegistry,
+        );
+
+        expect(filteredRows).toMatchObject([{ fieldPath: 'customer' }]);
+        expect(expandedRowsFromFilter).toMatchObject(new Set());
+    });
+
+    it('should properly filter schema rows based on editable description regardless of capitalization', () => {
+        const editableSchemaMetadata = {
+            editableSchemaFieldInfo: [
+                {
+                    fieldPath: 'customer',
+                    description: 'EdiTable CuStoMer DesCriptioN',
+                    globalTags: null,
+                    glossaryTerms: null,
+                },
+            ],
+        };
+        const filterText = 'EdiTable CuStoMer DesCriptioN';
         const { filteredRows, expandedRowsFromFilter } = filterSchemaRows(
             rows,
             editableSchemaMetadata,
