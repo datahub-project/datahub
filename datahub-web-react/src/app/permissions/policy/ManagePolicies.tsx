@@ -35,6 +35,8 @@ import { ANTD_GRAY } from '../../entity/shared/constants';
 import { SearchBar } from '../../search/SearchBar';
 import { scrollToTop } from '../../shared/searchUtils';
 import analytics, { EventType } from '../../analytics';
+import { POLICIES_CREATE_POLICY_ID, POLICIES_INTRO_ID } from '../../onboarding/config/PoliciesOnboardingConfig';
+import { OnboardingTour } from '../../onboarding/OnboardingTour';
 
 const SourceContainer = styled.div``;
 
@@ -442,6 +444,7 @@ export const ManagePolicies = () => {
 
     return (
         <PageContainer>
+            <OnboardingTour stepIds={[POLICIES_INTRO_ID, POLICIES_CREATE_POLICY_ID]} />
             {policiesLoading && !policiesData && (
                 <Message type="loading" content="Loading policies..." style={{ marginTop: '10%' }} />
             )}
@@ -450,7 +453,12 @@ export const ManagePolicies = () => {
             <SourceContainer>
                 <TabToolbar>
                     <div>
-                        <Button type="text" onClick={onClickNewPolicy} data-testid="add-policy-button">
+                        <Button
+                            id={POLICIES_CREATE_POLICY_ID}
+                            type="text"
+                            onClick={onClickNewPolicy}
+                            data-testid="add-policy-button"
+                        >
                             <PlusOutlined /> Create new policy
                         </Button>
                     </div>

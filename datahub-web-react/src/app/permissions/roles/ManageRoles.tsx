@@ -17,6 +17,8 @@ import { CorpUser, DataHubRole, DataHubPolicy } from '../../../types.generated';
 import RoleDetailsModal from './RoleDetailsModal';
 import analytics, { EventType } from '../../analytics';
 import { ANTD_GRAY } from '../../entity/shared/constants';
+import { OnboardingTour } from '../../onboarding/OnboardingTour';
+import { ROLES_INTRO_ID } from '../../onboarding/config/RolesOnboardingConfig';
 
 const SourceContainer = styled.div``;
 
@@ -212,6 +214,7 @@ export const ManageRoles = () => {
 
     return (
         <PageContainer>
+            <OnboardingTour stepIds={[ROLES_INTRO_ID]} />
             {rolesLoading && !rolesData && (
                 <Message type="loading" content="Loading roles..." style={{ marginTop: '10%' }} />
             )}
