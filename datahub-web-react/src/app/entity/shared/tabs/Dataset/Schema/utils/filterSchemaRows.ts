@@ -25,10 +25,6 @@ function getFilteredFieldPathsByMetadata(editableSchemaMetadata: any, entityRegi
     );
 }
 
-function matchesDescription(fieldDescription: any, filterText: string) {
-    return fieldDescription?.toLocaleLowerCase().includes(filterText);
-}
-
 function matchesEditableTagsOrTermsOrDescription(field: SchemaField, filteredFieldPathsByEditableMetadata: any) {
     return filteredFieldPathsByEditableMetadata.includes(field.fieldPath);
 }
@@ -60,9 +56,7 @@ export function filterSchemaRows(
         if (
             matchesFieldName(row.fieldPath, formattedFilterText) ||
             matchesEditableTagsOrTermsOrDescription(row, filteredFieldPathsByEditableMetadata) ||
-            matchesEditableTagsOrTermsOrDescription(row, filteredFieldPathsByEditableMetadata) ||
-            matchesTagsOrTermsOrDescription(row, formattedFilterText, entityRegistry) || // non-editable tags and terms
-            matchesDescription(row.description, formattedFilterText) // non-editable description
+            matchesTagsOrTermsOrDescription(row, formattedFilterText, entityRegistry) // non-editable tags, terms and description
         ) {
             finalFieldPaths.add(row.fieldPath);
         }
@@ -71,9 +65,7 @@ export function filterSchemaRows(
         if (
             matchesFieldName(fieldName, formattedFilterText) ||
             matchesEditableTagsOrTermsOrDescription(row, filteredFieldPathsByEditableMetadata) ||
-            matchesEditableTagsOrTermsOrDescription(row, filteredFieldPathsByEditableMetadata) ||
-            matchesTagsOrTermsOrDescription(row, formattedFilterText, entityRegistry) || // non-editable tags and terms
-            matchesDescription(row.description, formattedFilterText) // non-editable description
+            matchesTagsOrTermsOrDescription(row, formattedFilterText, entityRegistry) // non-editable tags, terms and description
         ) {
             // if we match specifically on this field (not just its parent), add and expand all parents
             splitFieldPath.reduce((previous, current) => {
