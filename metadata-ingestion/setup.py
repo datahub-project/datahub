@@ -429,6 +429,7 @@ base_dev_requirements = {
             "redshift",
             "redshift-usage",
             "s3",
+            "snowflake",
             "tableau",
             "trino",
             "hive",
