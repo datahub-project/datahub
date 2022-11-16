@@ -74,6 +74,7 @@ public class Neo4jGraphService implements GraphService {
     return _lineageRegistry;
   }
 
+  @Override
   public void addEdge(@Nonnull final Edge edge) {
 
     log.debug(String.format("Adding Edge source: %s, destination: %s, type: %s",
@@ -104,6 +105,11 @@ public class Neo4jGraphService implements GraphService {
     statements.add(buildStatement(statement, paramsMerge));
 
     executeStatements(statements);
+  }
+
+  @Override
+  public void removeEdge(final Edge edge) {
+    throw new UnsupportedOperationException("Remove edge not supported by Neo4JGraphService at this time.");
   }
 
   @Nonnull

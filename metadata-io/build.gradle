@@ -55,6 +55,7 @@ dependencies {
   testCompile externalDependency.testContainersCassandra
   testCompile externalDependency.lombok
   testCompile project(':test-models')
+  testImplementation externalDependency.springBootTest
 
   testAnnotationProcessor externalDependency.lombok
 
