@@ -329,7 +329,7 @@ plugins: Dict[str, Set[str]] = {
         "sqlalchemy",
         "great_expectations",
         "greenlet",
-        "Jinja2<3.1.0",
+        "Jinja2<3.2.0",
     },
     "tableau": {"tableauserverclient>=0.17.0"},
     "trino": sql_common | trino,
