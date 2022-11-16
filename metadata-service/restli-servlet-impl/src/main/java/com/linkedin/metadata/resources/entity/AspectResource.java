@@ -3,19 +3,25 @@ package com.linkedin.metadata.resources.entity;
 import com.codahale.metrics.MetricRegistry;
 import com.datahub.authentication.Authentication;
 import com.datahub.authentication.AuthenticationContext;
+import com.datahub.authorization.ResourceSpec;
+import com.datahub.plugins.auth.authorization.Authorizer;
+import com.google.common.collect.ImmutableList;
 import com.linkedin.aspect.GetTimeseriesAspectValuesResponse;
 import com.linkedin.common.AuditStamp;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.metadata.aspect.EnvelopedAspectArray;
 import com.linkedin.metadata.aspect.VersionedAspect;
+import com.linkedin.metadata.authorization.PoliciesConfig;
 import com.linkedin.metadata.entity.AspectUtils;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.entity.restoreindices.RestoreIndicesArgs;
 import com.linkedin.metadata.entity.validation.ValidationException;
+import com.linkedin.metadata.models.EntitySpec;
 import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.metadata.restli.RestliUtil;
 import com.linkedin.metadata.search.EntitySearchService;
 import com.linkedin.metadata.timeseries.TimeseriesAspectService;
+import com.linkedin.metadata.utils.EntityKeyUtils;
 import com.linkedin.mxe.MetadataChangeProposal;
 import com.linkedin.mxe.SystemMetadata;
 import com.linkedin.parseq.Task;
@@ -40,10 +46,9 @@ import javax.inject.Inject;
 import javax.inject.Named;
 import lombok.extern.slf4j.Slf4j;
 
-import static com.linkedin.metadata.resources.restli.RestliConstants.PARAM_FILTER;
-import static com.linkedin.metadata.resources.restli.RestliConstants.PARAM_LIMIT;
-import static com.linkedin.metadata.resources.restli.RestliConstants.PARAM_URN;
-import static com.linkedin.metadata.resources.restli.RestliConstants.PARAM_URN_LIKE;
+import static com.linkedin.metadata.Constants.*;
+import static com.linkedin.metadata.resources.restli.RestliConstants.*;
+import static com.linkedin.metadata.resources.restli.RestliUtils.*;
 
 
 /**
@@ -82,6 +87,10 @@ public class AspectResource extends CollectionResourceTaskTemplate<String, Versi
   @Inject
   @Named("timeseriesAspectService")
   private TimeseriesAspectService _timeseriesAspectService;
+
+  @Inject
+  @Named("authorizerChain")
+  private Authorizer _authorizer;
 
   /**
    * Retrieves the value for an entity that is made up of latest versions of specified aspects.
@@ -152,6 +161,13 @@ public class AspectResource extends CollectionResourceTaskTemplate<String, Versi
     }
 
     Authentication authentication = AuthenticationContext.getAuthentication();
+    EntitySpec entitySpec = _entityService.getEntityRegistry().getEntitySpec(metadataChangeProposal.getEntityType());
+    Urn urn = EntityKeyUtils.getUrnFromProposal(metadataChangeProposal, entitySpec.getKeyAspectSpec());
+    if (Boolean.parseBoolean(System.getenv(REST_API_AUTHORIZATION_ENABLED_ENV))
+        && isAuthorized(authentication, _authorizer, ImmutableList.of(PoliciesConfig.EDIT_ENTITY_PRIVILEGE),
+        new ResourceSpec(urn.getEntityType(), urn.toString()))) {
+      throw new RestLiServiceException(HttpStatus.S_401_UNAUTHORIZED, "User is unauthorized to modify entity " + urn);
+    }
     String actorUrnStr = authentication.getActor().toUrnStr();
     final AuditStamp auditStamp = new AuditStamp().setTime(_clock.millis()).setActor(Urn.createFromString(actorUrnStr));
 
@@ -159,15 +175,15 @@ public class AspectResource extends CollectionResourceTaskTemplate<String, Versi
       log.debug("Proposal: {}", metadataChangeProposal);
       try {
         EntityService.IngestProposalResult result = _entityService.ingestProposal(metadataChangeProposal, auditStamp, asyncBool);
-        Urn urn = result.getUrn();
+        Urn resultUrn = result.getUrn();
 
         AspectUtils.getAdditionalChanges(metadataChangeProposal, _entityService)
                 .forEach(proposal -> _entityService.ingestProposal(proposal, auditStamp, asyncBool));
 
         if (!result.isQueued()) {
-          tryIndexRunId(urn, metadataChangeProposal.getSystemMetadata(), _entitySearchService);
+          tryIndexRunId(resultUrn, metadataChangeProposal.getSystemMetadata(), _entitySearchService);
         }
-        return urn.toString();
+        return resultUrn.toString();
       } catch (ValidationException e) {
         throw new RestLiServiceException(HttpStatus.S_422_UNPROCESSABLE_ENTITY, e.getMessage());
       }

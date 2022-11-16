@@ -3,12 +3,16 @@ package com.linkedin.metadata.resources.entity;
 import com.codahale.metrics.MetricRegistry;
 import com.datahub.authentication.Authentication;
 import com.datahub.authentication.AuthenticationContext;
+import com.datahub.authorization.ResourceSpec;
+import com.datahub.plugins.auth.authorization.Authorizer;
 import com.google.common.collect.ImmutableList;
 import com.linkedin.common.AuditStamp;
 import com.linkedin.common.urn.Urn;
+import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.data.template.LongMap;
 import com.linkedin.data.template.StringArray;
 import com.linkedin.entity.Entity;
+import com.linkedin.metadata.authorization.PoliciesConfig;
 import com.linkedin.metadata.browse.BrowseResult;
 import com.linkedin.metadata.entity.DeleteEntityService;
 import com.linkedin.metadata.entity.EntityService;
@@ -73,8 +77,10 @@ import javax.inject.Named;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.maven.artifact.versioning.ComparableVersion;
 
+import static com.linkedin.metadata.Constants.*;
 import static com.linkedin.metadata.entity.validation.ValidationUtils.*;
 import static com.linkedin.metadata.resources.restli.RestliConstants.*;
+import static com.linkedin.metadata.resources.restli.RestliUtils.*;
 import static com.linkedin.metadata.search.utils.SearchUtils.*;
 import static com.linkedin.metadata.shared.ValidationUtils.*;
 import static com.linkedin.metadata.utils.PegasusUtils.*;
@@ -146,17 +152,26 @@ public class EntityResource extends CollectionResourceTaskTemplate<String, Entit
   @Named("timeseriesAspectService")
   private TimeseriesAspectService _timeseriesAspectService;
 
+  @Inject
+  @Named("authorizerChain")
+  private Authorizer _authorizer;
+
   /**
    * Retrieves the value for an entity that is made up of latest versions of specified aspects.
    */
   @RestMethod.Get
   @Nonnull
   @WithSpan
-
   public Task<AnyRecord> get(@Nonnull String urnStr,
       @QueryParam(PARAM_ASPECTS) @Optional @Nullable String[] aspectNames) throws URISyntaxException {
     log.info("GET {}", urnStr);
     final Urn urn = Urn.createFromString(urnStr);
+    Authentication auth = AuthenticationContext.getAuthentication();
+    if (Boolean.parseBoolean(System.getenv(REST_API_AUTHORIZATION_ENABLED_ENV))
+        && !isAuthorized(auth, _authorizer, ImmutableList.of(PoliciesConfig.VIEW_ENTITY_PAGE_PRIVILEGE), new ResourceSpec(urn.getEntityType(), urnStr))) {
+      throw new RestLiServiceException(HttpStatus.S_401_UNAUTHORIZED,
+          "User is unauthorized to view entity " + urn);
+    }
     return RestliUtil.toTask(() -> {
       final Set<String> projectedAspects =
           aspectNames == null ? Collections.emptySet() : new HashSet<>(Arrays.asList(aspectNames));
@@ -177,6 +192,15 @@ public class EntityResource extends CollectionResourceTaskTemplate<String, Entit
     final Set<Urn> urns = new HashSet<>();
     for (final String urnStr : urnStrs) {
       urns.add(Urn.createFromString(urnStr));
+    }
+    List<java.util.Optional<ResourceSpec>> resourceSpecs = urns.stream()
+        .map(urn -> java.util.Optional.of(new ResourceSpec(urn.getEntityType(), urn.toString())))
+        .collect(Collectors.toList());
+    Authentication auth = AuthenticationContext.getAuthentication();
+    if (Boolean.parseBoolean(System.getenv(REST_API_AUTHORIZATION_ENABLED_ENV))
+        && !isAuthorized(auth, _authorizer, ImmutableList.of(PoliciesConfig.VIEW_ENTITY_PAGE_PRIVILEGE), resourceSpecs)) {
+      throw new RestLiServiceException(HttpStatus.S_401_UNAUTHORIZED,
+          "User is unauthorized to view entities.");
     }
     return RestliUtil.toTask(() -> {
       final Set<String> projectedAspects =
@@ -208,6 +232,17 @@ public class EntityResource extends CollectionResourceTaskTemplate<String, Entit
   public Task<Void> ingest(@ActionParam(PARAM_ENTITY) @Nonnull Entity entity,
       @ActionParam(SYSTEM_METADATA) @Optional @Nullable SystemMetadata providedSystemMetadata)
       throws URISyntaxException {
+    Authentication authentication = AuthenticationContext.getAuthentication();
+    String actorUrnStr = authentication.getActor().toUrnStr();
+    final Urn urn = com.datahub.util.ModelUtils.getUrnFromSnapshotUnion(entity.getValue());
+    if (Boolean.parseBoolean(System.getenv(REST_API_AUTHORIZATION_ENABLED_ENV))
+        && !isAuthorized(authentication, _authorizer, ImmutableList.of(PoliciesConfig.EDIT_ENTITY_PRIVILEGE),
+        new ResourceSpec(urn.getEntityType(), urn.toString())))
+    {
+      throw new RestLiServiceException(HttpStatus.S_401_UNAUTHORIZED,
+          "User is unauthorized to edit entity " + urn);
+    }
+
     try {
       validateOrThrow(entity);
     } catch (ValidationException e) {
@@ -216,8 +251,6 @@ public class EntityResource extends CollectionResourceTaskTemplate<String, Entit
 
     SystemMetadata systemMetadata = populateDefaultFieldsIfEmpty(providedSystemMetadata);
 
-    Authentication authentication = AuthenticationContext.getAuthentication();
-    String actorUrnStr = authentication.getActor().toUrnStr();
     final AuditStamp auditStamp = new AuditStamp().setTime(_clock.millis()).setActor(Urn.createFromString(actorUrnStr));
 
     // variables referenced in lambdas are required to be final
@@ -234,6 +267,19 @@ public class EntityResource extends CollectionResourceTaskTemplate<String, Entit
   public Task<Void> batchIngest(@ActionParam(PARAM_ENTITIES) @Nonnull Entity[] entities,
       @ActionParam(SYSTEM_METADATA) @Optional @Nullable SystemMetadata[] systemMetadataList) throws URISyntaxException {
 
+    Authentication authentication = AuthenticationContext.getAuthentication();
+    String actorUrnStr = authentication.getActor().toUrnStr();
+    List<java.util.Optional<ResourceSpec>> resourceSpecs = Arrays.stream(entities)
+        .map(Entity::getValue)
+        .map(com.datahub.util.ModelUtils::getUrnFromSnapshotUnion)
+        .map(urn -> java.util.Optional.of(new ResourceSpec(urn.getEntityType(), urn.toString())))
+        .collect(Collectors.toList());
+    if (Boolean.parseBoolean(System.getenv(REST_API_AUTHORIZATION_ENABLED_ENV))
+        && !isAuthorized(authentication, _authorizer, ImmutableList.of(PoliciesConfig.EDIT_ENTITY_PRIVILEGE), resourceSpecs)) {
+      throw new RestLiServiceException(HttpStatus.S_401_UNAUTHORIZED,
+          "User is unauthorized to edit entities.");
+    }
+
     for (Entity entity : entities) {
       try {
         validateOrThrow(entity);
@@ -242,8 +288,6 @@ public class EntityResource extends CollectionResourceTaskTemplate<String, Entit
       }
     }
 
-    Authentication authentication = AuthenticationContext.getAuthentication();
-    String actorUrnStr = authentication.getActor().toUrnStr();
     final AuditStamp auditStamp = new AuditStamp().setTime(_clock.millis()).setActor(Urn.createFromString(actorUrnStr));
 
     if (systemMetadataList == null) {
@@ -414,9 +458,19 @@ public class EntityResource extends CollectionResourceTaskTemplate<String, Entit
               ESUtils.MAX_RESULT_SIZE);
       log.info("found {} rows to delete...", stringifyRowCount(aspectRowsToDelete.size()));
       response.setAspectsAffected(aspectRowsToDelete.size());
-      response.setEntitiesAffected(
-          aspectRowsToDelete.stream().collect(Collectors.groupingBy(AspectRowSummary::getUrn)).keySet().size());
-      response.setEntitiesDeleted(aspectRowsToDelete.stream().filter(row -> row.isKeyAspect()).count());
+      Set<String> urns = aspectRowsToDelete.stream().collect(Collectors.groupingBy(AspectRowSummary::getUrn)).keySet();
+      List<java.util.Optional<ResourceSpec>> resourceSpecs = urns.stream()
+          .map(UrnUtils::getUrn)
+          .map(urn -> java.util.Optional.of(new ResourceSpec(urn.getEntityType(), urn.toString())))
+          .collect(Collectors.toList());
+      Authentication auth = AuthenticationContext.getAuthentication();
+      if (Boolean.parseBoolean(System.getenv(REST_API_AUTHORIZATION_ENABLED_ENV))
+          && !isAuthorized(auth, _authorizer, ImmutableList.of(PoliciesConfig.DELETE_ENTITY_PRIVILEGE), resourceSpecs)) {
+        throw new RestLiServiceException(HttpStatus.S_401_UNAUTHORIZED,
+            "User is unauthorized to delete entities.");
+      }
+      response.setEntitiesAffected(urns.size());
+      response.setEntitiesDeleted(aspectRowsToDelete.stream().filter(AspectRowSummary::isKeyAspect).count());
       response.setAspectRowSummaries(
           new AspectRowSummaryArray(aspectRowsToDelete.subList(0, Math.min(100, aspectRowsToDelete.size()))));
       if ((dryRun == null) || (!dryRun)) {
@@ -446,6 +500,13 @@ public class EntityResource extends CollectionResourceTaskTemplate<String, Entit
                                                  @ActionParam(PARAM_START_TIME_MILLIS) @Optional Long startTimeMills,
                                                  @ActionParam(PARAM_END_TIME_MILLIS) @Optional Long endTimeMillis) throws URISyntaxException {
     Urn urn = Urn.createFromString(urnStr);
+    Authentication auth = AuthenticationContext.getAuthentication();
+    if (Boolean.parseBoolean(System.getenv(REST_API_AUTHORIZATION_ENABLED_ENV))
+        && !isAuthorized(auth, _authorizer, ImmutableList.of(PoliciesConfig.DELETE_ENTITY_PRIVILEGE),
+        Collections.singletonList(java.util.Optional.of(new ResourceSpec(urn.getEntityType(), urn.toString()))))) {
+      throw new RestLiServiceException(HttpStatus.S_401_UNAUTHORIZED,
+          "User is unauthorized to delete entity: " + urnStr);
+    }
     return RestliUtil.toTask(() -> {
       // Find the timeseries aspects to delete. If aspectName is null, delete all.
       List<String> timeseriesAspectNames =
@@ -520,6 +581,13 @@ public class EntityResource extends CollectionResourceTaskTemplate<String, Entit
     boolean dryRun = dry != null ? dry : false;
 
     Urn urn = Urn.createFromString(urnStr);
+    Authentication auth = AuthenticationContext.getAuthentication();
+    if (Boolean.parseBoolean(System.getenv(REST_API_AUTHORIZATION_ENABLED_ENV))
+        && !isAuthorized(auth, _authorizer, ImmutableList.of(PoliciesConfig.DELETE_ENTITY_PRIVILEGE),
+        new ResourceSpec(urn.getEntityType(), urnStr))) {
+      throw new RestLiServiceException(HttpStatus.S_401_UNAUTHORIZED,
+          "User is unauthorized to delete entity " + urnStr);
+    }
     return RestliUtil.toTask(() -> _deleteEntityService.deleteReferencesTo(urn, dryRun),
         MetricRegistry.name(this.getClass(), "deleteReferences"));
   }

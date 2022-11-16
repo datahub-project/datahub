@@ -32,6 +32,8 @@ authorization:
   defaultAuthorizer:
     enabled: ${AUTH_POLICIES_ENABLED:true}
     cacheRefreshIntervalSecs: ${POLICY_CACHE_REFRESH_INTERVAL_SECONDS:120}
+  # Enables authorization of reads, writes, and deletes on REST APIs. Defaults to false for backwards compatibility, but should become true down the road
+  restApiAuthorization: ${REST_API_AUTHORIZATION_ENABLED:false}
 
 ingestion:
   enabled: ${UI_INGESTION_ENABLED:true}
