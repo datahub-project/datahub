@@ -194,3 +194,4 @@ class AthenaSource(SQLAlchemySource):
     def close(self):
         if self.cursor:
             self.cursor.close()
+        super().close()

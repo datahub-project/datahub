@@ -269,6 +269,6 @@ class KafkaSource(StatefulIngestionSourceBase):
         return self.report
 
     def close(self) -> None:
-        super().close()
         if self.consumer:
             self.consumer.close()
+        super().close()
