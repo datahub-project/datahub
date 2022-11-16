@@ -1,5 +1,6 @@
 import React from 'react';
 import styled from 'styled-components';
+import { UnionType } from '../../search/utils/constants';
 import { EmbeddedListSearchSection } from '../shared/components/styled/search/EmbeddedListSearchSection';
 
 const GroupAssetsWrapper = styled.div`
@@ -14,7 +15,10 @@ export const GroupAssets = ({ urn }: Props) => {
     return (
         <GroupAssetsWrapper>
             <EmbeddedListSearchSection
-                fixedFilter={{ field: 'owners', values: [urn] }}
+                fixedFilters={{
+                    unionType: UnionType.AND,
+                    filters: [{ field: 'owners', values: [urn] }],
+                }}
                 emptySearchQuery="*"
                 placeholderText="Filter entities..."
             />

@@ -4178,7 +4178,7 @@
                                     "remoteField": {
                                         "__typename": "ColumnField",
                                         "id": "ca23efe0-5a93-344a-3f69-ec777ee1b318",
-                                        "name": "customer_first_name",
+                                        "name": "",
                                         "description": null,
                                         "folderName": null,
                                         "dataCategory": "NOMINAL",

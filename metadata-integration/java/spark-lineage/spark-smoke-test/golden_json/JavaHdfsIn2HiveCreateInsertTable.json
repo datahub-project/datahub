@@ -50,8 +50,8 @@
           {
             "com.linkedin.datajob.DataJobInputOutput": {
               "inputDatasets": [
-                "urn:li:dataset:(urn:li:dataPlatform:hdfs,file:/opt/workspace/resources/data/in1.csv,PROD)",
-                "urn:li:dataset:(urn:li:dataPlatform:hdfs,file:/opt/workspace/resources/data/in2.csv,PROD)"
+                "urn:li:dataset:(urn:li:dataPlatform:file,file:/opt/workspace/resources/data/in1.csv,PROD)",
+                "urn:li:dataset:(urn:li:dataPlatform:file,file:/opt/workspace/resources/data/in2.csv,PROD)"
               ],
               "outputDatasets": [
                 "urn:li:dataset:(urn:li:dataPlatform:hive,JavaHdfsIn2HiveCreateInsertTable.foo4,PROD)"
@@ -114,8 +114,8 @@
           {
             "com.linkedin.datajob.DataJobInputOutput": {
               "inputDatasets": [
-                "urn:li:dataset:(urn:li:dataPlatform:hdfs,file:/opt/workspace/resources/data/in1.csv,PROD)",
-                "urn:li:dataset:(urn:li:dataPlatform:hdfs,file:/opt/workspace/resources/data/in2.csv,PROD)"
+                "urn:li:dataset:(urn:li:dataPlatform:file,file:/opt/workspace/resources/data/in1.csv,PROD)",
+                "urn:li:dataset:(urn:li:dataPlatform:file,file:/opt/workspace/resources/data/in2.csv,PROD)"
               ],
               "outputDatasets": [
                 "urn:li:dataset:(urn:li:dataPlatform:hive,javahdfsin2hivecreateinserttable.foo4,PROD)"
@@ -179,8 +179,8 @@
           {
             "com.linkedin.datajob.DataJobInputOutput": {
               "inputDatasets": [
-                "urn:li:dataset:(urn:li:dataPlatform:hdfs,file:/opt/workspace/resources/data/in1.csv,PROD)",
-                "urn:li:dataset:(urn:li:dataPlatform:hdfs,file:/opt/workspace/resources/data/in2.csv,PROD)"
+                "urn:li:dataset:(urn:li:dataPlatform:file,file:/opt/workspace/resources/data/in1.csv,PROD)",
+                "urn:li:dataset:(urn:li:dataPlatform:file,file:/opt/workspace/resources/data/in2.csv,PROD)"
               ],
               "outputDatasets": [
                 "urn:li:dataset:(urn:li:dataPlatform:hive,javahdfsin2hivecreateinserttable.foo4,PROD)"

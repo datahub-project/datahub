@@ -12,6 +12,7 @@ from datahub.metadata.schema_classes import DatasetProfileClass
 from tests.aspect_generators.timeseries.dataset_profile_gen import \
     gen_dataset_profiles
 from tests.utils import get_strftime_from_timestamp_millis
+import requests_wrapper as requests
 
 test_aspect_name: str = "datasetProfile"
 test_dataset_urn: str = builder.make_dataset_urn_with_platform_instance(
@@ -25,8 +26,7 @@ runner = CliRunner()
 
 
 def sync_elastic() -> None:
-    elastic_sync_wait_time_seconds: int = 5
-    time.sleep(elastic_sync_wait_time_seconds)
+    time.sleep(requests.ELASTICSEARCH_REFRESH_INTERVAL_SECONDS)
 
 
 def datahub_put_profile(dataset_profile: DatasetProfileClass) -> None:
