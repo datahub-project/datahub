@@ -29,12 +29,8 @@ function matchesDescription(fieldDescription: any, filterText: string) {
     return fieldDescription?.toLocaleLowerCase().includes(filterText);
 }
 
-function matchesEditableTagsOrTerms(field: SchemaField, filteredFieldPathsByEditableMetadata: any) {
+function matchesEditableTagsOrTermsOrDescription(field: SchemaField, filteredFieldPathsByEditableMetadata: any) {
     return filteredFieldPathsByEditableMetadata.includes(field.fieldPath);
-}
-
-function matchesEditableDescription(field: SchemaField, filteredEditableDescription: any) {
-    return filteredEditableDescription.includes(field.fieldPath);
 }
 
 function matchesFieldName(fieldName: string, filterText: string) {
@@ -63,8 +59,8 @@ export function filterSchemaRows(
     rows.forEach((row) => {
         if (
             matchesFieldName(row.fieldPath, formattedFilterText) ||
-            matchesEditableTagsOrTerms(row, filteredFieldPathsByEditableMetadata) ||
-            matchesEditableDescription(row, filteredFieldPathsByEditableMetadata) ||
+            matchesEditableTagsOrTermsOrDescription(row, filteredFieldPathsByEditableMetadata) ||
+            matchesEditableTagsOrTermsOrDescription(row, filteredFieldPathsByEditableMetadata) ||
             matchesTagsOrTermsOrDescription(row, formattedFilterText, entityRegistry) || // non-editable tags and terms
             matchesDescription(row.description, formattedFilterText) // non-editable description
         ) {
@@ -74,8 +70,8 @@ export function filterSchemaRows(
         const fieldName = splitFieldPath.slice(-1)[0];
         if (
             matchesFieldName(fieldName, formattedFilterText) ||
-            matchesEditableTagsOrTerms(row, filteredFieldPathsByEditableMetadata) ||
-            matchesEditableDescription(row, filteredFieldPathsByEditableMetadata) ||
+            matchesEditableTagsOrTermsOrDescription(row, filteredFieldPathsByEditableMetadata) ||
+            matchesEditableTagsOrTermsOrDescription(row, filteredFieldPathsByEditableMetadata) ||
             matchesTagsOrTermsOrDescription(row, formattedFilterText, entityRegistry) || // non-editable tags and terms
             matchesDescription(row.description, formattedFilterText) // non-editable description
         ) {
