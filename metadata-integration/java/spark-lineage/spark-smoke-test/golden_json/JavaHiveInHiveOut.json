@@ -200,42 +200,6 @@
               "jobId": "QueryExecId_11",
               "flow": "urn:li:dataFlow:(spark,JavaHiveInHiveOut,spark_spark-master_7077)"
             }
-          },
-          {
-            "com.linkedin.common.DataPlatformInstance": {
-              "platform": "urn:li:dataPlatform:spark"
-            }
-          },
-          {
-            "com.linkedin.datajob.DataJobInfo": {
-              "name": "insertInto at HiveInHiveOut.java:44",
-              "type": {
-                "string": "sparkJob"
-              },
-              "customProperties": {
-                "SQLQueryId": "11",
-                "appName": "JavaHiveInHiveOut",
-                "description": "insertInto at HiveInHiveOut.java:44",
-                "queryPlan": "InsertIntoHiveTable `javahiveinhiveout`.`hivetab`, org.apache.hadoop.hive.serde2.lazy.LazySimpleSerDe, false, false, [a, b, c, d]\n+- HiveTableRelation `javahiveinhiveout`.`foo5`, org.apache.hadoop.hive.serde2.lazy.LazySimpleSerDe, [a#90, b#91, c#92, d#93]\n"
-              }
-            }
-          },
-          {
-            "com.linkedin.datajob.DataJobInputOutput": {
-              "inputDatasets": [
-                "urn:li:dataset:(urn:li:dataPlatform:hive,javahiveinhiveout.foo5,PROD)"
-              ],
-              "outputDatasets": [
-                "urn:li:dataset:(urn:li:dataPlatform:hive,javahiveinhiveout.hivetab,PROD)"
-              ]
-            }
-          },
-          {
-            "com.linkedin.common.BrowsePaths": {
-              "paths": [
-                "/spark/spark_spark-master_7077"
-              ]
-            }
           }
         ]
       }

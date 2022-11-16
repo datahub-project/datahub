@@ -30,6 +30,7 @@ dependencies {
 
   compile spec.product.pegasus.restliSpringBridge
 
+  testImplementation externalDependency.springBootTest
   testCompile externalDependency.mockito
   testCompile externalDependency.testng
 

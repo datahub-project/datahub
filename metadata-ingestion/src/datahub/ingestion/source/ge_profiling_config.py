@@ -39,6 +39,10 @@ class GEProfilingConfig(ConfigModel):
         default=True,
         description="Whether to profile for the number of nulls for each column.",
     )
+    include_field_distinct_count: bool = Field(
+        default=True,
+        description="Whether to profile for the number of distinct values for each column.",
+    )
     include_field_min_value: bool = Field(
         default=True,
         description="Whether to profile for the min value of numeric columns.",
@@ -85,17 +89,17 @@ class GEProfilingConfig(ConfigModel):
 
     profile_if_updated_since_days: Optional[pydantic.PositiveFloat] = Field(
         default=1,
-        description="Profile table only if it has been updated since these many number of days. If set to `null`, no constraint of last modified time for tables to profile. Supported only in `snowflake`, `snowflake-beta` and `BigQuery`.",
+        description="Profile table only if it has been updated since these many number of days. If set to `null`, no constraint of last modified time for tables to profile. Supported only in `snowflake` and `BigQuery`.",
     )
 
     profile_table_size_limit: Optional[int] = Field(
         default=1,
-        description="Profile tables only if their size is less then specified GBs. If set to `null`, no limit on the size of tables to profile. Supported only in `snowflake-beta` and `BigQuery`",
+        description="Profile tables only if their size is less then specified GBs. If set to `null`, no limit on the size of tables to profile. Supported only in `snowflake` and `BigQuery`",
     )
 
     profile_table_row_limit: Optional[int] = Field(
         default=50000,
-        description="Profile tables only if their row count is less then specified count. If set to `null`, no limit on the row count of tables to profile. Supported only in `snowflake-beta` and `BigQuery`",
+        description="Profile tables only if their row count is less then specified count. If set to `null`, no limit on the row count of tables to profile. Supported only in `snowflake` and `BigQuery`",
     )
 
     # The default of (5 * cpu_count) is adopted from the default max_workers
@@ -137,6 +141,7 @@ class GEProfilingConfig(ConfigModel):
         if values.get(table_level_profiling_only_key):
             all_field_level_metrics: List[str] = [
                 "include_field_null_count",
+                "include_field_distinct_count",
                 "include_field_min_value",
                 "include_field_max_value",
                 "include_field_mean_value",

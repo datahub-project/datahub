@@ -1,5 +1,5 @@
 import logging
-from typing import Any, Iterable, List, Optional, Tuple, cast
+from typing import Any, Iterable, List, NoReturn, Optional, Tuple, cast
 from unittest.mock import patch
 
 # This import verifies that the dependencies are available.
@@ -33,6 +33,10 @@ extra_oracle_types = {
     make_sqlalchemy_type("SDO_ORDINATE_ARRAY"),
 }
 assert OracleDialect.ischema_names
+
+
+def _raise_err(exc: Exception) -> NoReturn:
+    raise exc
 
 
 def output_type_handler(cursor, name, defaultType, size, precision, scale):
@@ -94,7 +98,9 @@ class OracleInspectorObjectWrapper:
         s = "SELECT username FROM dba_users ORDER BY username"
         cursor = self._inspector_instance.bind.execute(s)
         return [
-            self._inspector_instance.dialect.normalize_name(row[0]) for row in cursor
+            self._inspector_instance.dialect.normalize_name(row[0])
+            or _raise_err(ValueError(f"Invalid schema name: {row[0]}"))
+            for row in cursor
         ]
 
     def get_table_names(self, schema: str = None, order_by: str = None) -> List[str]:
@@ -121,7 +127,9 @@ class OracleInspectorObjectWrapper:
         cursor = self._inspector_instance.bind.execute(sql.text(sql_str), owner=schema)
 
         return [
-            self._inspector_instance.dialect.normalize_name(row[0]) for row in cursor
+            self._inspector_instance.dialect.normalize_name(row[0])
+            or _raise_err(ValueError(f"Invalid table name: {row[0]}"))
+            for row in cursor
         ]
 
     def __getattr__(self, item: str) -> Any:
