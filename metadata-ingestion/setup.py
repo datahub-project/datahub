@@ -57,6 +57,7 @@ framework_common = {
 
 rest_common = {
     "requests",
+    "requests_file"
 }
 
 kafka_common = {

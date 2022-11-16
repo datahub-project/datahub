@@ -40,8 +40,6 @@ def test_setup():
 
     ingested_dataset_run_id = ingest_file_via_rest("tests/delete/cli_test_data.json").config.run_id
 
-    sleep(3)
-
     assert "browsePaths" in get_aspects_for_entity(entity_urn=dataset_urn, aspects=["browsePaths"], typed=False)
 
     yield

@@ -1,16 +1,18 @@
 package com.linkedin.metadata.systemmetadata;
 
-import com.linkedin.metadata.ElasticTestUtils;
+import com.linkedin.metadata.ElasticSearchTestConfiguration;
 import com.linkedin.metadata.run.AspectRowSummary;
 import com.linkedin.metadata.run.IngestionRunSummary;
-import com.linkedin.metadata.search.elasticsearch.ElasticSearchServiceTest;
+import com.linkedin.metadata.search.elasticsearch.indexbuilder.ESIndexBuilder;
+import com.linkedin.metadata.search.elasticsearch.update.ESBulkProcessor;
 import com.linkedin.metadata.search.utils.ESUtils;
 import com.linkedin.metadata.utils.elasticsearch.IndexConvention;
 import com.linkedin.metadata.utils.elasticsearch.IndexConventionImpl;
 import com.linkedin.mxe.SystemMetadata;
 import org.elasticsearch.client.RestHighLevelClient;
-import org.testcontainers.elasticsearch.ElasticsearchContainer;
-import org.testng.annotations.AfterClass;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.context.annotation.Import;
+import org.springframework.test.context.testng.AbstractTestNGSpringContextTests;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
@@ -18,26 +20,25 @@ import org.testng.annotations.Test;
 import javax.annotation.Nonnull;
 import java.util.List;
 
-import static com.linkedin.metadata.DockerTestUtils.checkContainerEngine;
-import static com.linkedin.metadata.ElasticSearchTestUtils.syncAfterWrite;
+import static com.linkedin.metadata.ElasticSearchTestConfiguration.syncAfterWrite;
 import static com.linkedin.metadata.systemmetadata.ElasticSearchSystemMetadataService.INDEX_NAME;
 import static org.testng.Assert.assertEquals;
 
+@Import(ElasticSearchTestConfiguration.class)
+public class ElasticSearchSystemMetadataServiceTest extends AbstractTestNGSpringContextTests {
 
-public class ElasticSearchSystemMetadataServiceTest {
-
-  private ElasticsearchContainer _elasticsearchContainer;
+  @Autowired
   private RestHighLevelClient _searchClient;
-  private final IndexConvention _indexConvention = new IndexConventionImpl(null);
+  @Autowired
+  private ESBulkProcessor _bulkProcessor;
+  @Autowired
+  private ESIndexBuilder _esIndexBuilder;
+  private final IndexConvention _indexConvention = new IndexConventionImpl("es_system_metadata_service_test");
   private final String _indexName = _indexConvention.getIndexName(INDEX_NAME);
   private ElasticSearchSystemMetadataService _client;
 
   @BeforeClass
   public void setup() {
-    _elasticsearchContainer = ElasticTestUtils.getNewElasticsearchContainer();
-    checkContainerEngine(_elasticsearchContainer.getDockerClient());
-    _elasticsearchContainer.start();
-    _searchClient = ElasticTestUtils.buildRestClient(_elasticsearchContainer);
     _client = buildService();
     _client.configure();
   }
@@ -45,20 +46,12 @@ public class ElasticSearchSystemMetadataServiceTest {
   @BeforeMethod
   public void wipe() throws Exception {
     _client.clear();
-    syncAfterWrite(_searchClient, _indexName);
   }
 
   @Nonnull
   private ElasticSearchSystemMetadataService buildService() {
-    ESSystemMetadataDAO dao = new ESSystemMetadataDAO(_searchClient, _indexConvention,
-        ElasticSearchServiceTest.getBulkProcessor(_searchClient));
-    return new ElasticSearchSystemMetadataService(_searchClient, _indexConvention, dao,
-        ElasticSearchServiceTest.getIndexBuilder(_searchClient));
-  }
-
-  @AfterClass
-  public void tearDown() {
-    _elasticsearchContainer.stop();
+    ESSystemMetadataDAO dao = new ESSystemMetadataDAO(_searchClient, _indexConvention, _bulkProcessor, 1);
+    return new ElasticSearchSystemMetadataService(_bulkProcessor, _indexConvention, dao, _esIndexBuilder);
   }
 
   @Test
@@ -78,7 +71,7 @@ public class ElasticSearchSystemMetadataServiceTest {
     _client.insert(metadata2, "urn:li:chart:2", "chartKey");
     _client.insert(metadata2, "urn:li:chart:2", "Ownership");
 
-    syncAfterWrite(_searchClient, _indexName);
+    syncAfterWrite();
 
     List<IngestionRunSummary> runs = _client.listRuns(0, 20, false);
 
@@ -107,7 +100,7 @@ public class ElasticSearchSystemMetadataServiceTest {
     _client.insert(metadata2, "urn:li:chart:2", "chartKey");
     _client.insert(metadata2, "urn:li:chart:2", "Ownership");
 
-    syncAfterWrite(_searchClient, _indexName);
+    syncAfterWrite();
 
     List<IngestionRunSummary> runs = _client.listRuns(0, 20, false);
 
@@ -136,7 +129,7 @@ public class ElasticSearchSystemMetadataServiceTest {
     _client.insert(metadata2, "urn:li:chart:2", "chartKey");
     _client.insert(metadata2, "urn:li:chart:2", "Ownership");
 
-    syncAfterWrite(_searchClient, _indexName);
+    syncAfterWrite();
 
     List<AspectRowSummary> rows = _client.findByRunId("abc-456", false, 0, ESUtils.MAX_RESULT_SIZE);
 
@@ -164,11 +157,11 @@ public class ElasticSearchSystemMetadataServiceTest {
     _client.insert(metadata2, "urn:li:chart:2", "chartKey");
     _client.insert(metadata2, "urn:li:chart:2", "Ownership");
 
-    syncAfterWrite(_searchClient, _indexName);
+    syncAfterWrite();
 
     _client.deleteUrn("urn:li:chart:1");
 
-    syncAfterWrite(_searchClient, _indexName);
+    syncAfterWrite();
 
     List<AspectRowSummary> rows = _client.findByRunId("abc-456", false, 0, ESUtils.MAX_RESULT_SIZE);
 
@@ -180,7 +173,7 @@ public class ElasticSearchSystemMetadataServiceTest {
   public void testInsertNullData() throws Exception {
     _client.insert(null, "urn:li:chart:1", "chartKey");
 
-    syncAfterWrite(_searchClient, _indexName);
+    syncAfterWrite();
 
     List<IngestionRunSummary> runs = _client.listRuns(0, 20, false);
 
