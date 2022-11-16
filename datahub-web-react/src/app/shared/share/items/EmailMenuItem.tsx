@@ -39,7 +39,7 @@ export default function EmailMenuItem({ urn, name, type, key }: EmailMenuItemPro
                     <Tooltip title={`Share this ${type} via email`}>
                         {isClicked ? <CheckOutlined /> : <MailOutlined />}
                         <span>
-                            <a href={link} style={{ color: ANTD_GRAY[8] }}>
+                            <a href={link} style={{ color: 'inherit' }}>
                                 <b>Email</b>
                             </a>
                         </span>
