@@ -118,7 +118,7 @@ class Checkpoint(Generic[StateType]):
         except Exception as e:
             # Failure to load config is probably okay...config structure has changed.
             logger.warning(
-                "Failed to construct checkpoint's config from checkpoint aspect.", e
+                "Failed to construct checkpoint's config from checkpoint aspect. %s", e
             )
         else:
             try:
