@@ -1,1 +1,1 @@
-from powerbi import PowerBiDashboardSource
+from datahub.ingestion.source.powerbi.powerbi import PowerBiDashboardSource

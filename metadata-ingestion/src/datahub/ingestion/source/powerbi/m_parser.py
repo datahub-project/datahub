@@ -1,5 +1,7 @@
 from abc import ABC, abstractmethod
 from typing import Optional, List, Dict
+import importlib.resources as pkg_resource
+from lark import Lark
 
 
 class Token(ABC):
@@ -66,14 +68,7 @@ token_registry: Dict[str, BaseToken] = {
 }
 
 
-# identifier with space are not supported.
-# This is one of the way to create identifier in M https://learn.microsoft.com/en-us/powerquery-m/expression-identifier
 def parse_expression(expression: str) -> List[Step]:
-    strip_expression: str = expression.strip()
-    raw_token: str = ""
-    index: int = 0
-    for c in strip_expression:
-        if c == ' ':
-            continue
-
-        raw_token = raw_token + c
+    grammar: str = pkg_resource.read_text("datahub.ingestion.source.powerbi", "powerbi-lexical-grammar.rule")
+    lark_parser = Lark(grammar,  start="let_expression", regex=True)
+    print(lark_parser.parse(expression).pretty())
