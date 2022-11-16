@@ -24,6 +24,12 @@ public class MappingsBuilder {
     mappings.put("urn", getMappingsForUrn());
     mappings.put("runId", getMappingsForRunId());
 
+    // TODO Remove
+    log.info(String.format("Searchable field specs for entity %s: %s",
+        entitySpec.getName(),
+        entitySpec.getSearchableFieldSpecs()
+    ));
+
     entitySpec.getSearchableFieldSpecs()
         .forEach(searchableFieldSpec -> mappings.putAll(getMappingsForField(searchableFieldSpec)));
     entitySpec.getSearchScoreFieldSpecs()

@@ -23,7 +23,6 @@ public class SearchableFieldSpecExtractor implements SchemaVisitor {
 
   private final List<SearchableFieldSpec> _specs = new ArrayList<>();
   private final Map<String, String> _searchFieldNamesToPatch = new HashMap<>();
-
   private static final String MAP = "map";
 
   public List<SearchableFieldSpec> getSpecs() {
