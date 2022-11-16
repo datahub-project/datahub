@@ -238,3 +238,19 @@ type AccessTokenMetadata implements Entity {
   """
   relationships(input: RelationshipsInput!): EntityRelationshipsResult
 }
+
+"""
+Shared privileges object across entities. Not all privileges apply to every entity.
+"""
+type EntityPrivileges {
+  """
+  Whether or not a user can create child entities under a parent entity.
+  For example, can one create Terms/Node sunder a Glossary Node.
+  """
+  canManageChildren: Boolean
+
+  """
+  Whether or not a user can delete or move this entity.
+  """
+  canManageEntity: Boolean
+}

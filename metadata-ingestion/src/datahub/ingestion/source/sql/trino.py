@@ -4,15 +4,12 @@ from textwrap import dedent
 from typing import Any, Dict, List, Optional
 
 import sqlalchemy
-
-# This import verifies that the dependencies are available.
-import trino.sqlalchemy  # noqa: F401
 from pydantic.fields import Field
 from sqlalchemy import exc, sql
 from sqlalchemy.engine import reflection
 from sqlalchemy.engine.reflection import Inspector
 from sqlalchemy.sql import sqltypes
-from sqlalchemy.sql.type_api import TypeEngine
+from sqlalchemy.types import TypeEngine
 from trino.exceptions import TrinoQueryError
 from trino.sqlalchemy import datatype, error
 from trino.sqlalchemy.dialect import TrinoDialect
@@ -131,7 +128,7 @@ TrinoDialect._get_columns = _get_columns
 
 class TrinoConfig(BasicSQLAlchemyConfig):
     # defaults
-    scheme = Field(default="trino", description="", exclude=True)
+    scheme = Field(default="trino", description="", hidden_from_schema=True)
 
     def get_identifier(self: BasicSQLAlchemyConfig, schema: str, table: str) -> str:
         regular = f"{schema}.{table}"
@@ -147,7 +144,7 @@ class TrinoConfig(BasicSQLAlchemyConfig):
         )
 
 
-@platform_name("Trino")
+@platform_name("Trino", doc_order=1)
 @config_class(TrinoConfig)
 @support_status(SupportStatus.CERTIFIED)
 @capability(SourceCapability.DOMAINS, "Supported via the `domain` config field")

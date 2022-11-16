@@ -59,7 +59,7 @@ export const SimpleSearchFilter = ({ facet, selectedFilters, onFilterSelect, def
     const [expanded, setExpanded] = useState(false);
 
     const isFacetSelected = (field, value) => {
-        return selectedFilters.find((f) => f.field === field && f.values.includes(value)) !== undefined;
+        return selectedFilters.find((f) => f.field === field && f.values?.includes(value)) !== undefined;
     };
 
     // Aggregations filtered for count > 0 or selected = true

@@ -1,4 +1,4 @@
-
+#!/bin/bash -xe
 #Remove old configuration
 rm -rf workspace
 

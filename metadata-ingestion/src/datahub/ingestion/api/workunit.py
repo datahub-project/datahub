@@ -64,6 +64,13 @@ class MetadataWorkUnit(WorkUnit):
     def get_metadata(self) -> dict:
         return {"metadata": self.metadata}
 
+    def get_urn(self) -> str:
+        if isinstance(self.metadata, MetadataChangeEvent):
+            return self.metadata.proposedSnapshot.urn
+        else:
+            assert self.metadata.entityUrn
+            return self.metadata.entityUrn
+
     def decompose_mce_into_mcps(self) -> Iterable["MetadataWorkUnit"]:
         from datahub.emitter.mcp_builder import mcps_from_mce
 

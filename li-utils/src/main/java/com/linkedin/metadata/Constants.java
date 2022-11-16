@@ -48,6 +48,7 @@ public class Constants {
   public static final String INVITE_TOKEN_ENTITY_NAME = "inviteToken";
   public static final String DATAHUB_ROLE_ENTITY_NAME = "dataHubRole";
   public static final String POST_ENTITY_NAME = "post";
+  public static final String SCHEMA_FIELD_ENTITY_NAME = "schemaField";
 
 
   /**
@@ -257,6 +258,7 @@ public class Constants {
   public static final String DATA_PROCESS_INSTANCE_ENTITY_NAME = "dataProcessInstance";
   public static final String DATA_PROCESS_INSTANCE_PROPERTIES_ASPECT_NAME = "dataProcessInstanceProperties";
   public static final String DATA_PROCESS_INSTANCE_RUN_EVENT_ASPECT_NAME = "dataProcessInstanceRunEvent";
+  public static final String DATA_PROCESS_INSTANCE_RELATIONSHIPS_ASPECT_NAME = "dataProcessInstanceRelationships";
 
   // Posts
   public static final String POST_INFO_ASPECT_NAME = "postInfo";
@@ -265,6 +267,18 @@ public class Constants {
   // Telemetry
   public static final String CLIENT_ID_URN = "urn:li:telemetry:clientId";
   public static final String CLIENT_ID_ASPECT = "telemetryClientId";
+
+  // Metadata Change Event Parameter Names
+
+  // Runs
+  public static final String RUN_RESULT_KEY = "runResult";
+  public static final String RUN_ID_KEY = "runId";
+  public static final String ASSERTEE_URN_KEY = "asserteeUrn";
+  public static final String ASSERTION_RESULT_KEY = "assertionResult";
+  public static final String ATTEMPT_KEY = "attempt";
+  public static final String PARENT_INSTANCE_URN_KEY = "parentInstanceUrn";
+  public static final String DATA_FLOW_URN_KEY = "dataFlowUrn";
+  public static final String DATA_JOB_URN_KEY = "dataJobUrn";
 
   private Constants() {
   }

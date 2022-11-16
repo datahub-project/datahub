@@ -17,6 +17,7 @@ import { SidebarAboutSection } from '../shared/containers/profile/sidebar/Sideba
 import GlossaryEntitiesPath from '../../glossary/GlossaryEntitiesPath';
 import { EntityMenuItems } from '../shared/EntityDropdown/EntityDropdown';
 import { EntityActionItem } from '../shared/entity/EntityActions';
+import { SidebarDomainSection } from '../shared/containers/profile/sidebar/Domain/SidebarDomainSection';
 
 /**
  * Definition of the DataHub Dataset entity.
@@ -112,6 +113,12 @@ export class GlossaryTermEntity implements Entity<GlossaryTerm> {
                     {
                         component: SidebarOwnerSection,
                     },
+                    {
+                        component: SidebarDomainSection,
+                        properties: {
+                            hideOwnerType: true,
+                        },
+                    },
                 ]}
                 getOverrideProperties={this.getOverridePropertiesFromEntity}
                 customNavBar={<GlossaryEntitiesPath />}
@@ -139,6 +146,7 @@ export class GlossaryTermEntity implements Entity<GlossaryTerm> {
                 name={this.displayName(data)}
                 description={data?.properties?.description || ''}
                 owners={data?.ownership?.owners}
+                domain={data.domain?.domain}
             />
         );
     };

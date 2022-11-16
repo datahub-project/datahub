@@ -5,6 +5,11 @@
             "urn": "urn:li:dataset:(urn:li:dataPlatform:file,test-platform-instance.tests/integration/s3/test_data/local_system/folder_a/folder_aa/folder_aaa/no_extension/small,DEV)",
             "aspects": [
                 {
+                    "com.linkedin.pegasus2avro.common.Status": {
+                        "removed": false
+                    }
+                },
+                {
                     "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
                         "customProperties": {
                             "number_of_files": "1",
@@ -140,7 +145,7 @@
     "changeType": "UPSERT",
     "aspectName": "dataPlatformInstance",
     "aspect": {
-        "value": "{\"platform\": \"urn:li:dataPlatform:file\"}",
+        "value": "{\"platform\": \"urn:li:dataPlatform:file\", \"instance\": \"urn:li:dataPlatformInstance:(urn:li:dataPlatform:file,test-platform-instance)\"}",
         "contentType": "application/json"
     },
     "systemMetadata": {
@@ -196,7 +201,7 @@
     "changeType": "UPSERT",
     "aspectName": "dataPlatformInstance",
     "aspect": {
-        "value": "{\"platform\": \"urn:li:dataPlatform:file\"}",
+        "value": "{\"platform\": \"urn:li:dataPlatform:file\", \"instance\": \"urn:li:dataPlatformInstance:(urn:li:dataPlatform:file,test-platform-instance)\"}",
         "contentType": "application/json"
     },
     "systemMetadata": {
@@ -266,7 +271,7 @@
     "changeType": "UPSERT",
     "aspectName": "dataPlatformInstance",
     "aspect": {
-        "value": "{\"platform\": \"urn:li:dataPlatform:file\"}",
+        "value": "{\"platform\": \"urn:li:dataPlatform:file\", \"instance\": \"urn:li:dataPlatformInstance:(urn:li:dataPlatform:file,test-platform-instance)\"}",
         "contentType": "application/json"
     },
     "systemMetadata": {
@@ -336,7 +341,7 @@
     "changeType": "UPSERT",
     "aspectName": "dataPlatformInstance",
     "aspect": {
-        "value": "{\"platform\": \"urn:li:dataPlatform:file\"}",
+        "value": "{\"platform\": \"urn:li:dataPlatform:file\", \"instance\": \"urn:li:dataPlatformInstance:(urn:li:dataPlatform:file,test-platform-instance)\"}",
         "contentType": "application/json"
     },
     "systemMetadata": {
@@ -406,7 +411,7 @@
     "changeType": "UPSERT",
     "aspectName": "dataPlatformInstance",
     "aspect": {
-        "value": "{\"platform\": \"urn:li:dataPlatform:file\"}",
+        "value": "{\"platform\": \"urn:li:dataPlatform:file\", \"instance\": \"urn:li:dataPlatformInstance:(urn:li:dataPlatform:file,test-platform-instance)\"}",
         "contentType": "application/json"
     },
     "systemMetadata": {
@@ -476,7 +481,7 @@
     "changeType": "UPSERT",
     "aspectName": "dataPlatformInstance",
     "aspect": {
-        "value": "{\"platform\": \"urn:li:dataPlatform:file\"}",
+        "value": "{\"platform\": \"urn:li:dataPlatform:file\", \"instance\": \"urn:li:dataPlatformInstance:(urn:li:dataPlatform:file,test-platform-instance)\"}",
         "contentType": "application/json"
     },
     "systemMetadata": {
@@ -546,7 +551,7 @@
     "changeType": "UPSERT",
     "aspectName": "dataPlatformInstance",
     "aspect": {
-        "value": "{\"platform\": \"urn:li:dataPlatform:file\"}",
+        "value": "{\"platform\": \"urn:li:dataPlatform:file\", \"instance\": \"urn:li:dataPlatformInstance:(urn:li:dataPlatform:file,test-platform-instance)\"}",
         "contentType": "application/json"
     },
     "systemMetadata": {
@@ -616,7 +621,7 @@
     "changeType": "UPSERT",
     "aspectName": "dataPlatformInstance",
     "aspect": {
-        "value": "{\"platform\": \"urn:li:dataPlatform:file\"}",
+        "value": "{\"platform\": \"urn:li:dataPlatform:file\", \"instance\": \"urn:li:dataPlatformInstance:(urn:li:dataPlatform:file,test-platform-instance)\"}",
         "contentType": "application/json"
     },
     "systemMetadata": {
@@ -686,7 +691,7 @@
     "changeType": "UPSERT",
     "aspectName": "dataPlatformInstance",
     "aspect": {
-        "value": "{\"platform\": \"urn:li:dataPlatform:file\"}",
+        "value": "{\"platform\": \"urn:li:dataPlatform:file\", \"instance\": \"urn:li:dataPlatformInstance:(urn:li:dataPlatform:file,test-platform-instance)\"}",
         "contentType": "application/json"
     },
     "systemMetadata": {

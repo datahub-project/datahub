@@ -1,3 +1,5 @@
+from datahub.utilities._markupsafe_compat import MARKUPSAFE_PATCHED
+
 import collections
 import concurrent.futures
 import contextlib
@@ -51,6 +53,7 @@ from datahub.utilities.sqlalchemy_query_combiner import (
     get_query_columns,
 )
 
+assert MARKUPSAFE_PATCHED
 logger: logging.Logger = logging.getLogger(__name__)
 
 P = ParamSpec("P")
@@ -107,7 +110,7 @@ def get_column_unique_count_patch(self, column):
     elif self.engine.dialect.name.lower() in {"bigquery", "snowflake"}:
         element_values = self.engine.execute(
             sa.select(
-                [sa.text(f'APPROX_COUNT_DISTINCT ("{column}")')]  # type:ignore
+                [sa.text(f"APPROX_COUNT_DISTINCT ({sa.column(column)})")]  # type:ignore
             ).select_from(self._table)
         )
         return convert_to_json_serializable(element_values.fetchone()[0])
@@ -460,16 +463,28 @@ class _SingleDatasetProfiler(BasicDatasetProfilerBase):
     def _get_dataset_column_sample_values(
         self, column_profile: DatasetFieldProfileClass, column: str
     ) -> None:
-        if self.config.include_field_sample_values:
+        if not self.config.include_field_sample_values:
+            return
+
+        try:
             # TODO do this without GE
             self.dataset.set_config_value("interactive_evaluation", True)
 
             res = self.dataset.expect_column_values_to_be_in_set(
                 column, [], result_format="SUMMARY"
             ).result
+
             column_profile.sampleValues = [
                 str(v) for v in res["partial_unexpected_list"]
             ]
+        except Exception as e:
+            logger.debug(
+                f"Caught exception while attempting to get sample values for column {column}. {e}"
+            )
+            self.report.report_warning(
+                "Profiling - Unable to get column sample values",
+                f"{self.dataset_name}.{column}",
+            )
 
     def generate_dataset_profile(  # noqa: C901 (complexity)
         self,
@@ -518,25 +533,23 @@ class _SingleDatasetProfiler(BasicDatasetProfilerBase):
             non_null_count = column_spec.nonnull_count
             unique_count = column_spec.unique_count
 
-            if self.config.include_field_null_count and non_null_count is not None:
-                null_count = row_count - non_null_count
-                if null_count < 0:
-                    null_count = 0
+            if non_null_count is not None:
+                null_count = max(0, row_count - non_null_count)
 
-                column_profile.nullCount = null_count
-                if row_count > 0:
-                    column_profile.nullProportion = null_count / row_count
-                    # Sometimes this value is bigger than 1 because of the approx queries
-                    if column_profile.nullProportion > 1:
-                        column_profile.nullProportion = 1
+                if self.config.include_field_null_count:
+                    column_profile.nullCount = null_count
+                    if row_count > 0:
+                        # Sometimes this value is bigger than 1 because of the approx queries
+                        column_profile.nullProportion = min(1, null_count / row_count)
 
             if unique_count is not None:
-                column_profile.uniqueCount = unique_count
-                if non_null_count is not None and non_null_count > 0:
-                    column_profile.uniqueProportion = unique_count / non_null_count
-                    # Sometimes this value is bigger than 1 because of the approx queries
-                    if column_profile.uniqueProportion > 1:
-                        column_profile.uniqueProportion = 1
+                if not self.config.include_field_distinct_count:
+                    column_profile.uniqueCount = unique_count
+                    if non_null_count is not None and non_null_count > 0:
+                        # Sometimes this value is bigger than 1 because of the approx queries
+                        column_profile.uniqueProportion = min(
+                            1, unique_count / non_null_count
+                        )
 
             self._get_dataset_column_sample_values(column_profile, column)
 

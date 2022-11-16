@@ -158,6 +158,14 @@ class DbtTestConfig:
             },
         ),
         DbtTestConfig(
+            "dbt-test-with-non-incremental-lineage",
+            "dbt_test_with_non_incremental_lineage_mces.json",
+            "dbt_test_with_non_incremental_lineage_mces_golden.json",
+            source_config_modifiers={
+                "incremental_lineage": "False",
+            },
+        ),
+        DbtTestConfig(
             "dbt-test-with-target-platform-instance",
             "dbt_test_with_target_platform_instance_mces.json",
             "dbt_test_with_target_platform_instance_mces_golden.json",
@@ -193,6 +201,7 @@ class DbtTestConfig:
 )
 @pytest.mark.integration
 @requests_mock.Mocker(kw="req_mock")
+@freeze_time(FROZEN_TIME)
 def test_dbt_ingest(dbt_test_config, pytestconfig, tmp_path, mock_time, **kwargs):
     config: DbtTestConfig = dbt_test_config
     test_resources_dir = pytestconfig.rootpath / "tests/integration/dbt"
