@@ -917,7 +917,7 @@ class PowerBiAPI:
                         for table_name, columns in schema.items():
                             dataset_instance.tables.append(
                                 PowerBiAPI.Dataset.Table(
-                                    schema_name="public",
+                                    schema_name=dataset_instance.name,
                                     name=table_name,
                                 )
                             )
