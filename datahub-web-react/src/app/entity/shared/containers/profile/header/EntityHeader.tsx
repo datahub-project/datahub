@@ -15,7 +15,7 @@ import CompactContext from '../../../../../shared/CompactContext';
 import { EntitySubHeaderSection, GenericEntityProperties } from '../../../types';
 import EntityActions, { EntityActionItem } from '../../../entity/EntityActions';
 import ExternalUrlButton from '../../../ExternalUrlButton';
-import ShareButton from '../../../../../shared/ShareButton';
+import ShareButton from '../../../../../shared/share/ShareButton';
 
 const TitleWrapper = styled.div`
     display: flex;
