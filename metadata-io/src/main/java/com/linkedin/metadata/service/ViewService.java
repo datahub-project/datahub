@@ -29,6 +29,8 @@ import lombok.extern.slf4j.Slf4j;
  *
  * Note that no Authorization is performed within the service. The expectation
  * is that the caller has already verified the permissions of the active Actor.
+ *
+ * TODO: Ideally we have some basic caching of the view information inside of this class.
  */
 @Slf4j
 public class ViewService extends BaseService {

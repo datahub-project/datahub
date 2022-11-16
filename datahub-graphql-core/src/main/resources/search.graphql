@@ -110,6 +110,11 @@ input SearchAcrossEntitiesInput {
   A list of disjunctive criterion for the filter. (or operation to combine filters)
   """
   orFilters: [AndFilterInput!]
+
+  """
+  Optional - A View to apply when generating results
+  """
+  viewUrn: String
 }
 
 """
