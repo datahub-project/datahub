@@ -32,9 +32,7 @@ function matchesDescription(fieldDescription: any, filterText: string) {
 function getDescriptionFieldPathsByMetadata(editableSchemaMetadata: any, filterText: string) {
     return (
         editableSchemaMetadata?.editableSchemaFieldInfo
-            .filter((fieldInfo) => {
-                return fieldInfo.description !== null;
-            })
+            .filter((fieldInfo) => fieldInfo.description !== null)
             .filter((fieldInfo) => matchesDescription(fieldInfo.description, filterText))
             .map((fieldInfo) => fieldInfo.fieldPath) || []
     );
