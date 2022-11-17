@@ -290,7 +290,7 @@ class AvroToMceSchemaConverter:
 
                 description = self._description
                 if description is None:
-                    description = schema.props.get("doc", None)
+                    description = actual_schema.props.get("doc", None)
 
                 native_data_type = self._converter._prefix_name_stack[-1]
                 if isinstance(schema, (avro.schema.Field, avro.schema.UnionSchema)):
