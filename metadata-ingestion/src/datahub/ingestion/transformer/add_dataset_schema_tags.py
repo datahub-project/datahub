@@ -83,10 +83,8 @@ class AddDatasetSchemaTags(DatasetSchemaMetadataTransformer):
     ) -> Optional[builder.Aspect]:
 
         schema_metadata_aspect: SchemaMetadataClass = cast(SchemaMetadataClass, aspect)
-        assert (
-            schema_metadata_aspect is None
-            or isinstance(schema_metadata_aspect, SchemaMetadataClass)
-            or schema_metadata_aspect.field is None
+        assert schema_metadata_aspect is None or isinstance(
+            schema_metadata_aspect, SchemaMetadataClass
         )
 
         server_field_map: dict = {}
@@ -96,20 +94,24 @@ class AddDatasetSchemaTags(DatasetSchemaMetadataTransformer):
                 SchemaMetadataClass
             ] = self.ctx.graph.get_schema_metadata(entity_urn=entity_urn)
             if server_schema_metadata_aspect is not None:
+                if not schema_metadata_aspect:
+                    schema_metadata_aspect = server_schema_metadata_aspect
+
                 input_field_path = [
                     field.fieldPath
                     for field in schema_metadata_aspect.fields
                     if field is not None
                 ]
-                server_field_to_add: List[SchemaFieldClass] = []
                 # cache the server field to use in patching the schema-field later
                 for field in server_schema_metadata_aspect.fields:
                     server_field_map[field.fieldPath] = field
                     if field.fieldPath not in input_field_path:
                         # This field is present on server but not in input aspect
-                        server_field_to_add.append(field)
-                # Add field present on server
-                schema_metadata_aspect.fields.extend(server_field_to_add)
+                        schema_metadata_aspect.fields.append(field)
+
+        if not schema_metadata_aspect:
+            # We can't add tags to a schema that doesn't exist.
+            return None
 
         schema_metadata_aspect.fields = [
             self.extend_field(field, server_field=server_field_map.get(field.fieldPath))

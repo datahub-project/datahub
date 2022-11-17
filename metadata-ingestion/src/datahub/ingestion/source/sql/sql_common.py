@@ -455,23 +455,6 @@ config_options_to_report = [
     "include_tables",
 ]
 
-# flags to emit telemetry for
-profiling_flags_to_report = [
-    "turn_off_expensive_profiling_metrics",
-    "profile_table_level_only",
-    "include_field_null_count",
-    "include_field_min_value",
-    "include_field_max_value",
-    "include_field_mean_value",
-    "include_field_median_value",
-    "include_field_stddev_value",
-    "include_field_quantiles",
-    "include_field_distinct_value_frequencies",
-    "include_field_histogram",
-    "include_field_sample_values",
-    "query_combiner_enabled",
-]
-
 
 class SQLAlchemySource(StatefulIngestionSourceBase):
     """A Base class for all SQL Sources that use SQLAlchemy to extend"""
@@ -508,13 +491,9 @@ class SQLAlchemySource(StatefulIngestionSourceBase):
         )
 
         if config.profiling.enabled:
-
             telemetry.telemetry_instance.ping(
                 "sql_profiling_config",
-                {
-                    config_flag: config.profiling.dict().get(config_flag)
-                    for config_flag in profiling_flags_to_report
-                },
+                config.profiling.config_for_telemetry(),
             )
         if self.config.domain:
             self.domain_registry = DomainRegistry(
