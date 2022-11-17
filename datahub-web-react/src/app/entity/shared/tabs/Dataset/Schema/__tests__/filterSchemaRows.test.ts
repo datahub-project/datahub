@@ -95,13 +95,13 @@ describe('filterSchemaRows', () => {
             editableSchemaFieldInfo: [
                 {
                     fieldPath: 'customer',
-                    description: 'EdiTable CuStoMer DesCriptioN',
+                    description: 'editable customer description',
                     globalTags: null,
                     glossaryTerms: null,
                 },
             ],
         };
-        const filterText = 'EdiTable CuStoMer DesCriptioN';
+        const filterText = 'editable customer description';
         const { filteredRows, expandedRowsFromFilter } = filterSchemaRows(
             rows,
             editableSchemaMetadata,
