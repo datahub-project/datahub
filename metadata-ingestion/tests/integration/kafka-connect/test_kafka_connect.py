@@ -240,7 +240,7 @@ def test_kafka_connect_ingest(docker_compose_runner, pytestconfig, tmp_path, moc
         assert r.status_code == 201  # Created
 
         # Give time for connectors to process the table data
-        time.sleep(120)
+        time.sleep(60)
 
         # Run the metadata ingestion pipeline.
         config_file = (test_resources_dir / "kafka_connect_to_file.yml").resolve()
