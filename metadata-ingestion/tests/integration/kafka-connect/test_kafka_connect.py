@@ -242,7 +242,7 @@ def test_kafka_connect_ingest(docker_compose_runner, pytestconfig, tmp_path, moc
         r = requests.post(
             "http://localhost:58083/connectors",
             headers={"Content-Type": "application/json"},
-            data="""{
+            data=r"""{
                     "name": "source_mongodb_connector",
                     "config": {
                         "tasks.max": "1",
