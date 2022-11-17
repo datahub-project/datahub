@@ -63,6 +63,8 @@ class DbtTestConfig:
         self.output_path = f"{tmp_path}/{self.output_file}"
 
         self.golden_path = f"{test_resources_dir}/{self.golden_file}"
+
+        self.source_config_modifiers.setdefault("incremental_lineage", True)
         self.source_config = dict(
             {
                 "manifest_path": self.manifest_path,
@@ -297,6 +299,7 @@ def test_dbt_stateful(pytestconfig, tmp_path, mock_time, mock_datahub_graph):
         # This will bypass check in get_workunits function of dbt.py
         "write_semantics": "OVERRIDE",
         "owner_extraction_pattern": r"^@(?P<owner>(.*))",
+        "incremental_lineage": True,
         # enable stateful ingestion
         **stateful_config,
     }
@@ -308,6 +311,7 @@ def test_dbt_stateful(pytestconfig, tmp_path, mock_time, mock_datahub_graph):
         "target_platform": "postgres",
         "write_semantics": "OVERRIDE",
         "owner_extraction_pattern": r"^@(?P<owner>(.*))",
+        "incremental_lineage": True,
         # enable stateful ingestion
         **stateful_config,
     }
@@ -505,6 +509,7 @@ def test_dbt_tests(pytestconfig, tmp_path, mock_time, **kwargs):
                     ),
                     # this is just here to avoid needing to access datahub server
                     write_semantics="OVERRIDE",
+                    incremental_lineage=True,
                 ),
             ),
             sink=DynamicTypedConfig(type="file", config={"filename": str(output_file)}),
@@ -554,6 +559,7 @@ def test_dbt_stateful_tests(pytestconfig, tmp_path, mock_time, mock_datahub_grap
         # This will bypass check in get_workunits function of dbt.py
         "write_semantics": "OVERRIDE",
         "owner_extraction_pattern": r"^@(?P<owner>(.*))",
+        "incremental_lineage": True,
         # enable stateful ingestion
         **stateful_config,
     }

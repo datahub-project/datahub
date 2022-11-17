@@ -282,6 +282,11 @@ class DBTCommonConfig(StatefulIngestionConfigBase, LineageConfig):
         description="Prior to version 0.8.41, lineage edges to sources were directed to the target platform node rather than the dbt source node. This contradicted the established pattern for other lineage edges to point to upstream dbt nodes. To revert lineage logic to this legacy approach, set this flag to true.",
     )
 
+    incremental_lineage: bool = Field(
+        # Copied from LineageConfig, and changed the default.
+        default=False,
+        description="When enabled, emits lineage as incremental to existing lineage already in DataHub. When disabled, re-states lineage on each run.",
+    )
     stateful_ingestion: Optional[DBTStatefulIngestionConfig] = pydantic.Field(
         default=None, description="DBT Stateful Ingestion Config."
     )
