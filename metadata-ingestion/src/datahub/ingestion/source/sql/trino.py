@@ -1,5 +1,6 @@
 import json
 import uuid
+from builtins import Exception
 from textwrap import dedent
 from typing import Any, Dict, List, Optional
 
@@ -86,7 +87,7 @@ def get_table_comment(self, connection, table_name: str, schema: str = None, **k
         if isinstance(e.orig, TrinoQueryError):
             return self.get_table_comment_default(connection, table_name, schema)
         raise
-    except:
+    except Exception:
         return {}
 
 
