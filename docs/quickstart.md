@@ -5,9 +5,9 @@
 To deploy a new instance of DataHub, perform the following steps.
 
 
-1. Install Docker for your platform.
+1. Install Docker and Docker Compose v2 for your platform.
 - On Windows or Mac, install [Docker Desktop](https://www.docker.com/products/docker-desktop/).
-- On Linux, install [Docker for Linux](https://docs.docker.com/desktop/install/linux-install/).
+- On Linux, install [Docker for Linux](https://docs.docker.com/desktop/install/linux-install/) and [Docker Compose](https://docs.docker.com/compose/install/linux/).
 
 :::note
 

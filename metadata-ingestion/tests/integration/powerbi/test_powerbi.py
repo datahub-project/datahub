@@ -35,6 +35,30 @@ def register_mock_api(request_mock):
                 ]
             },
         },
+        "https://api.powerbi.com/v1.0/myorg/admin/reports/5b218778-e7a5-4d73-8187-f10824047715/users": {
+            "method": "GET",
+            "status_code": 200,
+            "json": {
+                "value": [
+                    {
+                        "identifier": "User1@foo.com",
+                        "displayName": "user1",
+                        "emailAddress": "User1@foo.com",
+                        "datasetUserAccessRight": "ReadWrite",
+                        "graphId": "C9EE53F2-88EA-4711-A173-AF0515A3CD46",
+                        "principalType": "User",
+                    },
+                    {
+                        "identifier": "User2@foo.com",
+                        "displayName": "user2",
+                        "emailAddress": "User2@foo.com",
+                        "datasetUserAccessRight": "ReadWrite",
+                        "graphId": "C9EE53F2-88EA-4711-A173-AF0515A5REWS",
+                        "principalType": "User",
+                    },
+                ]
+            },
+        },
         "https://api.powerbi.com/v1.0/myorg/admin/dashboards/7D668CAD-7FFC-4505-9215-655BCA5BEBAE/users": {
             "method": "GET",
             "status_code": 200,
@@ -140,6 +164,40 @@ def register_mock_api(request_mock):
                 "id": "4674efd1-603c-4129-8d82-03cf2be05aff",
             },
         },
+        "https://api.powerbi.com/v1.0/myorg/groups/64ED5CAD-7C10-4684-8180-826122881108/reports": {
+            "method": "GET",
+            "status_code": 200,
+            "json": {
+                "value": [
+                    {
+                        "datasetId": "05169CD2-E713-41E6-9600-1D8066D95445",
+                        "id": "5b218778-e7a5-4d73-8187-f10824047715",
+                        "name": "SalesMarketing",
+                        "description": "Acryl sales marketing report",
+                        "webUrl": "https://app.powerbi.com/groups/f089354e-8366-4e18-aea3-4cb4a3a50b48/reports/5b218778-e7a5-4d73-8187-f10824047715",
+                        "embedUrl": "https://app.powerbi.com/reportEmbed?reportId=5b218778-e7a5-4d73-8187-f10824047715&groupId=f089354e-8366-4e18-aea3-4cb4a3a50b48",
+                    }
+                ]
+            },
+        },
+        "https://api.powerbi.com/v1.0/myorg/groups/64ED5CAD-7C10-4684-8180-826122881108/reports/5b218778-e7a5-4d73-8187-f10824047715/pages": {
+            "method": "GET",
+            "status_code": 200,
+            "json": {
+                "value": [
+                    {
+                        "displayName": "Regional Sales Analysis",
+                        "name": "ReportSection",
+                        "order": "0",
+                    },
+                    {
+                        "displayName": "Geographic Analysis",
+                        "name": "ReportSection1",
+                        "order": "1",
+                    },
+                ]
+            },
+        },
     }
 
     for url in api_vs_response.keys():
@@ -179,6 +237,7 @@ def test_powerbi_ingest(mock_msal, pytestconfig, tmp_path, mock_time, requests_m
                 "type": "powerbi",
                 "config": {
                     **default_source_config(),
+                    "extract_reports": False,
                 },
             },
             "sink": {
@@ -218,6 +277,7 @@ def test_override_ownership(
                 "config": {
                     **default_source_config(),
                     "extract_ownership": False,
+                    "extract_reports": False,
                 },
             },
             "sink": {
@@ -236,5 +296,41 @@ def test_override_ownership(
     mce_helpers.check_golden_file(
         pytestconfig,
         output_path=tmp_path / "powerbi_mces_disabled_ownership.json",
+        golden_path=f"{test_resources_dir}/{mce_out_file}",
+    )
+
+
+@freeze_time(FROZEN_TIME)
+@mock.patch("msal.ConfidentialClientApplication", side_effect=mock_msal_cca)
+def test_extract_reports(mock_msal, pytestconfig, tmp_path, mock_time, requests_mock):
+    test_resources_dir = pytestconfig.rootpath / "tests/integration/powerbi"
+
+    register_mock_api(request_mock=requests_mock)
+
+    pipeline = Pipeline.create(
+        {
+            "run_id": "powerbi-test",
+            "source": {
+                "type": "powerbi",
+                "config": {
+                    **default_source_config(),
+                },
+            },
+            "sink": {
+                "type": "file",
+                "config": {
+                    "filename": f"{tmp_path}/powerbi_report_mces.json",
+                },
+            },
+        }
+    )
+
+    pipeline.run()
+    pipeline.raise_from_status()
+    mce_out_file = "golden_test_report.json"
+
+    mce_helpers.check_golden_file(
+        pytestconfig,
+        output_path=tmp_path / "powerbi_report_mces.json",
         golden_path=f"{test_resources_dir}/{mce_out_file}",
     )
