@@ -144,7 +144,7 @@ class TrinoConfig(BasicSQLAlchemyConfig):
         )
 
 
-@platform_name("Trino")
+@platform_name("Trino", doc_order=1)
 @config_class(TrinoConfig)
 @support_status(SupportStatus.CERTIFIED)
 @capability(SourceCapability.DOMAINS, "Supported via the `domain` config field")

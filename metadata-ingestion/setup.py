@@ -53,6 +53,7 @@ framework_common = {
     "cached_property",
     "ijson",
     "click-spinner",
+    "requests_file",
 }
 
 rest_common = {
@@ -332,7 +333,6 @@ plugins: Dict[str, Set[str]] = {
         "sqlalchemy",
         "great_expectations",
         "greenlet",
-        "Jinja2<3.1.0",
     },
     "tableau": {"tableauserverclient>=0.17.0"},
     "trino": sql_common | trino,
