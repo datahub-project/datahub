@@ -33,7 +33,7 @@ import { ContainerEntity } from './app/entity/container/ContainerEntity';
 import GlossaryNodeEntity from './app/entity/glossaryNode/GlossaryNodeEntity';
 
 /*
-    Construct Apollo Client
+    Construct Apollo Client test comment
 */
 const httpLink = createHttpLink({ uri: '/api/v2/graphql' });
 
