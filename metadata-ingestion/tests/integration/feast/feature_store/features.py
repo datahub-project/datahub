@@ -1,63 +1,74 @@
 from datetime import timedelta
 
+import feast.types
 import pandas as pd
-from feast import Entity, Feature, FeatureView, FileSource, ValueType
-from feast.data_source import RequestDataSource
+from feast import Entity, FeatureView, Field, FileSource, RequestSource, ValueType
 from feast.on_demand_feature_view import on_demand_feature_view
 
 driver_hourly_stats_source = FileSource(
+    name="driver_hourly_stats_source",
     path="data/driver_stats_with_string.parquet",
-    event_timestamp_column="event_timestamp",
+    timestamp_field="event_timestamp",
     created_timestamp_column="created",
 )
 
-driver_entity = Entity(
-    name="driver_id", value_type=ValueType.INT64, description="Driver ID"
+driver = Entity(
+    # It would be the modern Feast pattern to call this `driver`, but the
+    # golden tests have the name as `driver_id`
+    name="driver_id",
+    join_keys=["driver_id"],
+    value_type=ValueType.INT64,
+    description="Driver ID",
 )
 
 driver_hourly_stats_view = FeatureView(
     name="driver_hourly_stats",
-    entities=["driver_id"],
+    entities=[driver],
     ttl=timedelta(days=7),
-    features=[
-        Feature(
+    schema=[
+        Field(
             name="conv_rate",
-            dtype=ValueType.FLOAT,
-            labels=dict(description="Conv rate"),
+            dtype=feast.types.Float64,
+            tags=dict(description="Conv rate"),
         ),
-        Feature(
-            name="acc_rate", dtype=ValueType.FLOAT, labels=dict(description="Acc rate")
+        Field(
+            name="acc_rate",
+            dtype=feast.types.Float64,
+            tags=dict(description="Acc rate"),
         ),
-        Feature(
+        Field(
             name="avg_daily_trips",
-            dtype=ValueType.INT64,
-            labels=dict(description="Avg daily trips"),
+            dtype=feast.types.Int64,
+            tags=dict(description="Avg daily trips"),
         ),
-        Feature(
+        Field(
             name="string_feature",
-            dtype=ValueType.STRING,
-            labels=dict(description="String feature"),
+            dtype=feast.types.String,
+            tags=dict(description="String feature"),
         ),
     ],
     online=True,
-    batch_source=driver_hourly_stats_source,
+    source=driver_hourly_stats_source,
     tags={},
 )
 
-input_request = RequestDataSource(
+input_request = RequestSource(
     name="vals_to_add",
-    schema={"val_to_add": ValueType.INT64, "val_to_add_2": ValueType.INT64},
+    schema=[
+        Field(name="val_to_add", dtype=feast.types.Int64),
+        Field(name="val_to_add_2", dtype=feast.types.Int64),
+    ],
 )
 
 
 @on_demand_feature_view(  # type: ignore
-    inputs={
-        "driver_hourly_stats": driver_hourly_stats_view,
-        "vals_to_add": input_request,
-    },
-    features=[
-        Feature(name="conv_rate_plus_val1", dtype=ValueType.DOUBLE),
-        Feature(name="conv_rate_plus_val2", dtype=ValueType.DOUBLE),
+    sources=[
+        driver_hourly_stats_view,
+        input_request,
+    ],
+    schema=[
+        Field(name="conv_rate_plus_val1", dtype=feast.types.Float64),
+        Field(name="conv_rate_plus_val2", dtype=feast.types.Float64),
     ],
 )
 def transformed_conv_rate(inputs: pd.DataFrame) -> pd.DataFrame:

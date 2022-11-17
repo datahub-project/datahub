@@ -33,7 +33,7 @@
     "changeType": "UPSERT",
     "aspectName": "dataPlatformInstance",
     "aspect": {
-        "value": "{\"platform\": \"urn:li:dataPlatform:clickhouse\"}",
+        "value": "{\"platform\": \"urn:li:dataPlatform:clickhouse\", \"instance\": \"urn:li:dataPlatformInstance:(urn:li:dataPlatform:clickhouse,clickhousetestserver)\"}",
         "contentType": "application/json"
     },
     "systemMetadata": {
@@ -89,7 +89,7 @@
     "changeType": "UPSERT",
     "aspectName": "dataPlatformInstance",
     "aspect": {
-        "value": "{\"platform\": \"urn:li:dataPlatform:clickhouse\"}",
+        "value": "{\"platform\": \"urn:li:dataPlatform:clickhouse\", \"instance\": \"urn:li:dataPlatformInstance:(urn:li:dataPlatform:clickhouse,clickhousetestserver)\"}",
         "contentType": "application/json"
     },
     "systemMetadata": {
@@ -172,11 +172,11 @@
                             "primary_key": "col_Int64",
                             "sampling_key": "",
                             "storage_policy": "default",
-                            "metadata_modification_time": "2022-10-08 00:28:00",
+                            "metadata_modification_time": "2022-10-13 04:56:28",
                             "total_rows": "10",
                             "total_bytes": "671",
-                            "data_paths": "['/var/lib/clickhouse/store/3d0/3d0dc2c7-992b-4867-9bce-9272fff6f4ce/']",
-                            "metadata_path": "/var/lib/clickhouse/store/603/603d6700-1767-42bf-9669-b2b86c3de24e/mv_target_table.sql"
+                            "data_paths": "['/var/lib/clickhouse/store/f12/f12ef1cd-d030-4ce1-aa00-2abe38a0af22/']",
+                            "metadata_path": "/var/lib/clickhouse/store/1df/1df0ba79-5a9d-4f93-8462-1e7056c3aea5/mv_target_table.sql"
                         },
                         "name": "mv_target_table",
                         "description": "This is target table for materialized view",
@@ -340,11 +340,11 @@
                             "primary_key": "",
                             "sampling_key": "",
                             "storage_policy": "default",
-                            "metadata_modification_time": "2022-10-08 00:28:00",
+                            "metadata_modification_time": "2022-10-13 04:56:28",
                             "total_rows": "0",
                             "total_bytes": "0",
-                            "data_paths": "['/var/lib/clickhouse/store/490/4900ce0f-0c6d-4dad-8317-647e14fa4fee/']",
-                            "metadata_path": "/var/lib/clickhouse/store/603/603d6700-1767-42bf-9669-b2b86c3de24e/test_data_types.sql"
+                            "data_paths": "['/var/lib/clickhouse/store/938/9383ca3f-c98e-4240-9e0d-0f32939d170b/']",
+                            "metadata_path": "/var/lib/clickhouse/store/1df/1df0ba79-5a9d-4f93-8462-1e7056c3aea5/test_data_types.sql"
                         },
                         "name": "test_data_types",
                         "description": "This table has basic types",
@@ -951,11 +951,11 @@
                             "primary_key": "",
                             "sampling_key": "",
                             "storage_policy": "",
-                            "metadata_modification_time": "2022-10-08 00:28:00",
+                            "metadata_modification_time": "2022-10-13 04:56:28",
                             "total_rows": "None",
                             "total_bytes": "None",
                             "data_paths": "[]",
-                            "metadata_path": "/var/lib/clickhouse/store/603/603d6700-1767-42bf-9669-b2b86c3de24e/test_dict.sql"
+                            "metadata_path": "/var/lib/clickhouse/store/1df/1df0ba79-5a9d-4f93-8462-1e7056c3aea5/test_dict.sql"
                         },
                         "name": "test_dict",
                         "description": "",
@@ -1080,11 +1080,11 @@
                             "primary_key": "",
                             "sampling_key": "",
                             "storage_policy": "default",
-                            "metadata_modification_time": "2022-10-08 00:28:00",
+                            "metadata_modification_time": "2022-10-13 04:56:28",
                             "total_rows": "0",
                             "total_bytes": "0",
-                            "data_paths": "['/var/lib/clickhouse/store/a35/a358faa5-d2c5-4f95-9557-064345ec20df/']",
-                            "metadata_path": "/var/lib/clickhouse/store/603/603d6700-1767-42bf-9669-b2b86c3de24e/test_nested_data_types.sql"
+                            "data_paths": "['/var/lib/clickhouse/store/f7f/f7f15fe6-10cc-45d6-928e-6eb4ecc7a502/']",
+                            "metadata_path": "/var/lib/clickhouse/store/1df/1df0ba79-5a9d-4f93-8462-1e7056c3aea5/test_nested_data_types.sql"
                         },
                         "name": "test_nested_data_types",
                         "description": "This table has nested types",
@@ -1327,11 +1327,11 @@
                             "primary_key": "",
                             "sampling_key": "",
                             "storage_policy": "",
-                            "metadata_modification_time": "2022-10-08 00:28:00",
+                            "metadata_modification_time": "2022-10-13 04:56:28",
                             "total_rows": "None",
                             "total_bytes": "None",
-                            "data_paths": "['/var/lib/clickhouse/store/3d0/3d0dc2c7-992b-4867-9bce-9272fff6f4ce/']",
-                            "metadata_path": "/var/lib/clickhouse/store/603/603d6700-1767-42bf-9669-b2b86c3de24e/mv_with_target_table.sql",
+                            "data_paths": "['/var/lib/clickhouse/store/f12/f12ef1cd-d030-4ce1-aa00-2abe38a0af22/']",
+                            "metadata_path": "/var/lib/clickhouse/store/1df/1df0ba79-5a9d-4f93-8462-1e7056c3aea5/mv_with_target_table.sql",
                             "view_definition": "",
                             "is_view": "True"
                         },
@@ -1525,11 +1525,11 @@
                             "primary_key": "",
                             "sampling_key": "",
                             "storage_policy": "",
-                            "metadata_modification_time": "2022-10-08 00:28:00",
+                            "metadata_modification_time": "2022-10-13 04:56:28",
                             "total_rows": "0",
                             "total_bytes": "0",
-                            "data_paths": "['/var/lib/clickhouse/store/3b4/3b4a7a66-2669-49b9-aa3d-07443d5ace06/']",
-                            "metadata_path": "/var/lib/clickhouse/store/603/603d6700-1767-42bf-9669-b2b86c3de24e/mv_without_target_table.sql",
+                            "data_paths": "['/var/lib/clickhouse/store/6f6/6f6a1b0a-8873-48b2-a370-1fbf5c04eea8/']",
+                            "metadata_path": "/var/lib/clickhouse/store/1df/1df0ba79-5a9d-4f93-8462-1e7056c3aea5/mv_without_target_table.sql",
                             "view_definition": "",
                             "is_view": "True"
                         },
@@ -1723,11 +1723,11 @@
                             "primary_key": "",
                             "sampling_key": "",
                             "storage_policy": "",
-                            "metadata_modification_time": "2022-10-08 00:28:00",
+                            "metadata_modification_time": "2022-10-13 04:56:28",
                             "total_rows": "None",
                             "total_bytes": "None",
                             "data_paths": "[]",
-                            "metadata_path": "/var/lib/clickhouse/store/603/603d6700-1767-42bf-9669-b2b86c3de24e/test_view.sql",
+                            "metadata_path": "/var/lib/clickhouse/store/1df/1df0ba79-5a9d-4f93-8462-1e7056c3aea5/test_view.sql",
                             "view_definition": "",
                             "is_view": "True"
                         },

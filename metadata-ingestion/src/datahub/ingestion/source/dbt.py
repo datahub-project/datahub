@@ -21,14 +21,15 @@ from urllib.parse import urlparse
 import dateutil.parser
 import pydantic
 import requests
-from cached_property import cached_property
 from pydantic import BaseModel, root_validator, validator
 from pydantic.fields import Field
 
 from datahub.configuration.common import (
     AllowDenyPattern,
     ConfigEnum,
+    ConfigModel,
     ConfigurationError,
+    LineageConfig,
 )
 from datahub.configuration.github import GitHubReference
 from datahub.emitter import mce_builder
@@ -122,6 +123,7 @@ from datahub.metadata.schema_classes import (
     UpstreamLineageClass,
     ViewPropertiesClass,
 )
+from datahub.specific.dataset import DatasetPatchBuilder
 from datahub.utilities.mapping import Constants, OperationProcessor
 from datahub.utilities.time import datetime_to_ts_millis
 
@@ -152,12 +154,8 @@ class EmitDirective(ConfigEnum):
     ONLY = auto()  # Only emit metadata for this type and no others
 
 
-class DBTEntitiesEnabled(BaseModel):
+class DBTEntitiesEnabled(ConfigModel):
     """Controls which dbt entities are going to be emitted by this source"""
-
-    class Config:
-        # Needed to allow cached_property to work. See https://github.com/samuelcolvin/pydantic/issues/1241 for more info.
-        keep_untouched = (cached_property,)
 
     models: EmitDirective = Field(
         EmitDirective.YES,
@@ -175,57 +173,50 @@ class DBTEntitiesEnabled(BaseModel):
         EmitDirective.YES,
         description="Emit metadata for test definitions when enabled when set to Yes or Only",
     )
+
     test_results: EmitDirective = Field(
         EmitDirective.YES,
         description="Emit metadata for test results when set to Yes or Only",
     )
 
     @root_validator
-    def only_one_can_be_set_to_only(cls, values):
+    def process_only_directive(cls, values):
+        # Checks that at most one is set to ONLY, and then sets the others to NO.
+
         only_values = [k for k in values if values.get(k) == EmitDirective.ONLY]
         if len(only_values) > 1:
             raise ValueError(
                 f"Cannot have more than 1 type of entity emission set to ONLY. Found {only_values}"
             )
+
+        if len(only_values) == 1:
+            for k in values:
+                values[k] = EmitDirective.NO
+            values[only_values[0]] = EmitDirective.YES
+
         return values
 
-    def _any_other_only_set(self, attribute: str) -> bool:
-        """Return true if any attribute other than the one passed in is set to ONLY"""
-        other_onlies = [
-            k
-            for k, v in self.__dict__.items()
-            if k != attribute and v == EmitDirective.ONLY
-        ]
-        return len(other_onlies) != 0
-
-    @cached_property  # type: ignore
-    def node_type_emit_decision_cache(self) -> Dict[str, bool]:
-        node_type_for_field_map = {
-            "models": "model",
-            "sources": "source",
-            "seeds": "seed",
-            "test_definitions": "test",
-        }
-        return {
-            node_type_for_field_map[k]: False
-            if self._any_other_only_set(k)
-            or self.__getattribute__(k) == EmitDirective.NO
-            else True
-            for k in ["models", "sources", "seeds", "test_definitions"]
-        }
-
     def can_emit_node_type(self, node_type: str) -> bool:
-        return self.node_type_emit_decision_cache.get(node_type, False)
+        # Node type comes from dbt's node types.
+
+        field_to_node_type_map = {
+            "model": "models",
+            "source": "sources",
+            "seed": "seeds",
+            "test": "test_definitions",
+        }
+        field = field_to_node_type_map.get(node_type)
+        if not field:
+            return False
+
+        return self.__getattribute__(field) == EmitDirective.YES
 
     @property
     def can_emit_test_results(self) -> bool:
-        return (
-            not self._any_other_only_set("test_results")
-            and self.test_results != EmitDirective.NO
-        )
+        return self.test_results == EmitDirective.YES
 
 
-class DBTConfig(StatefulIngestionConfigBase):
+class DBTConfig(StatefulIngestionConfigBase, LineageConfig):
     manifest_path: str = Field(
         description="Path to dbt manifest JSON. See https://docs.getdbt.com/reference/artifacts/manifest-json Note this can be a local file or a URI."
     )
@@ -254,10 +245,6 @@ class DBTConfig(StatefulIngestionConfigBase):
     use_identifiers: bool = Field(
         default=False,
         description="Use model identifier instead of model name if defined (if not, default to model name).",
-    )
-    node_type_pattern: AllowDenyPattern = Field(
-        default=AllowDenyPattern.allow_all(),
-        description="Deprecated: use entities_enabled instead. Regex patterns for dbt nodes to filter in ingestion.",
     )
     entities_enabled: DBTEntitiesEnabled = Field(
         DBTEntitiesEnabled(),
@@ -320,6 +307,11 @@ class DBTConfig(StatefulIngestionConfigBase):
         description="Reference to your github location to enable easy navigation from DataHub to your dbt files.",
     )
 
+    incremental_lineage: bool = Field(
+        # Copied from LineageConfig, and changed the default.
+        default=False,
+        description="When enabled, emits lineage as incremental to existing lineage already in DataHub. When disabled, re-states lineage on each run.",
+    )
     stateful_ingestion: Optional[DBTStatefulIngestionConfig] = pydantic.Field(
         default=None, description="DBT Stateful Ingestion Config."
     )
@@ -458,6 +450,8 @@ class DBTNode:
         data_platform_instance: Optional[str],
     ) -> str:
         db_fqn = self.get_db_fqn()
+        if target_platform != DBT_PLATFORM:
+            db_fqn = db_fqn.lower()
         return mce_builder.make_dataset_urn_with_platform_instance(
             platform=target_platform,
             name=db_fqn,
@@ -682,6 +676,7 @@ def get_upstream_lineage(upstream_urns: List[str]) -> UpstreamLineage:
             dataset=dep,
             type=DatasetLineageTypeClass.TRANSFORMED,
         )
+        uc.auditStamp.time = int(datetime.utcnow().timestamp() * 1000)
         ucl.append(uc)
 
     return UpstreamLineage(upstreams=ucl)
@@ -1364,12 +1359,6 @@ class DBTSource(StatefulIngestionSourceBase):
         for node in all_nodes:
             key = node.dbt_name
 
-            if not self.config.node_type_pattern.allowed(node.node_type):
-                logger.debug(
-                    f"Not extracting dbt entity {key} since node type {node.node_type} is disabled"
-                )
-                continue
-
             if not self.config.node_name_pattern.allowed(key):
                 continue
 
@@ -1466,7 +1455,25 @@ class DBTSource(StatefulIngestionSourceBase):
                         self.config.platform_instance,
                     )
                     upstreams_lineage_class = get_upstream_lineage([upstream_dbt_urn])
-                    aspects.append(upstreams_lineage_class)
+                    if self.config.incremental_lineage:
+                        patch_builder: DatasetPatchBuilder = DatasetPatchBuilder(
+                            urn=node_datahub_urn
+                        )
+                        for upstream in upstreams_lineage_class.upstreams:
+                            patch_builder.add_upstream_lineage(upstream)
+
+                        lineage_workunits = [
+                            MetadataWorkUnit(
+                                id=f"upstreamLineage-for-{node_datahub_urn}",
+                                mcp_raw=mcp,
+                            )
+                            for mcp in patch_builder.build()
+                        ]
+                        for wu in lineage_workunits:
+                            yield wu
+                            self.report.report_workunit(wu)
+                    else:
+                        aspects.append(upstreams_lineage_class)
 
             if len(aspects) == 0:
                 continue

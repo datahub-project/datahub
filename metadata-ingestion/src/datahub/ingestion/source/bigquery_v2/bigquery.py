@@ -2,6 +2,7 @@ import atexit
 import logging
 import os
 import re
+import traceback
 from collections import defaultdict
 from datetime import datetime, timedelta
 from typing import Dict, Iterable, List, Optional, Tuple, Type, Union, cast
@@ -17,6 +18,7 @@ from datahub.emitter.mce_builder import (
     make_dataset_urn_with_platform_instance,
     make_domain_urn,
     make_tag_urn,
+    set_dataset_urn_to_lower,
 )
 from datahub.emitter.mcp_builder import (
     BigQueryDatasetKey,
@@ -90,6 +92,7 @@ from datahub.metadata.schema_classes import (
     GlobalTagsClass,
     TagAssociationClass,
 )
+from datahub.specific.dataset import DatasetPatchBuilder
 from datahub.utilities.hive_schema_to_avro import (
     HiveColumnToAvroConverter,
     get_schema_fields_for_hive_column,
@@ -116,7 +119,7 @@ def cleanup(config: BigQueryV2Config) -> None:
 
 @platform_name("BigQuery", doc_order=1)
 @config_class(BigQueryV2Config)
-@support_status(SupportStatus.INCUBATING)
+@support_status(SupportStatus.CERTIFIED)
 @capability(SourceCapability.PLATFORM_INSTANCE, "Enabled by default")
 @capability(SourceCapability.DOMAINS, "Supported via the `domain` config field")
 @capability(SourceCapability.CONTAINERS, "Enabled by default")
@@ -183,6 +186,8 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
         BigqueryTableIdentifier._BIGQUERY_DEFAULT_SHARDED_TABLE_REGEX = (
             self.config.sharded_table_pattern
         )
+
+        set_dataset_urn_to_lower(self.config.convert_urns_to_lowercase)
 
         # For database, schema, tables, views, etc
         self.lineage_extractor = BigqueryLineageExtractor(config, self.report)
@@ -399,18 +404,16 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
             project_id=db_name,
             dataset_id=schema,
             platform=self.platform,
-            instance=self.config.platform_instance
-            if self.config.platform_instance is not None
-            else self.config.env,
+            instance=self.config.platform_instance,
+            backcompat_instance_for_guid=self.config.env,
         )
 
     def gen_project_id_key(self, database: str) -> PlatformKey:
         return ProjectIdKey(
             project_id=database,
             platform=self.platform,
-            instance=self.config.platform_instance
-            if self.config.platform_instance is not None
-            else self.config.env,
+            instance=self.config.platform_instance,
+            backcompat_instance_for_guid=self.config.env,
         )
 
     def _gen_domain_urn(self, dataset_name: str) -> Optional[str]:
@@ -551,6 +554,8 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
             try:
                 yield from self._process_schema(conn, project_id, bigquery_dataset)
             except Exception as e:
+                trace = traceback.format_exc()
+                logger.error(trace)
                 logger.error(
                     f"Unable to get tables for dataset {bigquery_dataset.name} in project {project_id}, skipping. The error was: {e}"
                 )
@@ -626,7 +631,9 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
             conn, table_identifier, self.config.column_limit
         )
         if not table.columns:
-            logger.warning(f"Unable to get columns for table: {table_identifier}")
+            logger.warning(
+                f"Table doesn't have any column or unable to get columns for table: {table_identifier}"
+            )
 
         lineage_info: Optional[Tuple[UpstreamLineage, Dict[str, str]]] = None
 
@@ -812,12 +819,30 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
             upstream_lineage = None
 
         if upstream_lineage is not None:
-            # Emit the lineage work unit
-            wu = wrap_aspect_as_workunit(
-                "dataset", dataset_urn, "upstreamLineage", upstream_lineage
-            )
-            yield wu
-            self.report.report_workunit(wu)
+            if self.config.incremental_lineage:
+                patch_builder: DatasetPatchBuilder = DatasetPatchBuilder(
+                    urn=dataset_urn
+                )
+                for upstream in upstream_lineage.upstreams:
+                    patch_builder.add_upstream_lineage(upstream)
+
+                lineage_workunits = [
+                    MetadataWorkUnit(
+                        id=f"upstreamLineage-for-{dataset_urn}",
+                        mcp_raw=mcp,
+                    )
+                    for mcp in patch_builder.build()
+                ]
+            else:
+                lineage_workunits = [
+                    wrap_aspect_as_workunit(
+                        "dataset", dataset_urn, "upstreamLineage", upstream_lineage
+                    )
+                ]
+
+            for wu in lineage_workunits:
+                yield wu
+                self.report.report_workunit(wu)
 
         dataset_properties = DatasetProperties(
             name=datahub_dataset_name.get_table_display_name(),

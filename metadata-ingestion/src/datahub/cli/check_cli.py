@@ -91,7 +91,7 @@ def plugins(verbose: bool) -> None:
     )
 
 
-@check.command
+@check.command()
 def graph_consistency() -> None:
     gms_endpoint, gms_token = get_url_and_token()
     check_data_platform.check(gms_endpoint, gms_token)

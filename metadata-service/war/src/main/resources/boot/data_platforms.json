@@ -514,5 +514,15 @@
       "type": "OTHERS",
       "logoUrl": "/assets/platforms/deltalakelogo.png"
     }
+  },
+  {
+    "urn": "urn:li:dataPlatform:databricks",
+    "aspect": {
+      "datasetNameDelimiter": ".",
+      "name": "databricks",
+      "displayName": "Databricks",
+      "type": "OTHERS",
+      "logoUrl": "/assets/platforms/databrickslogo.png"
+    }
   }
 ]

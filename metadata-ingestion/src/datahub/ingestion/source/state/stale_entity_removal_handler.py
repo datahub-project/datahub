@@ -19,7 +19,7 @@ from datahub.ingestion.source.state.stateful_ingestion_base import (
 from datahub.ingestion.source.state.use_case_handler import (
     StatefulIngestionUsecaseHandlerBase,
 )
-from datahub.metadata.schema_classes import ChangeTypeClass, StatusClass
+from datahub.metadata.schema_classes import StatusClass
 
 logger: logging.Logger = logging.getLogger(__name__)
 
@@ -115,7 +115,7 @@ class StaleEntityCheckpointStateBase(CheckpointStateBase, ABC, Generic[Derived])
             overlap_count_all += overlap_count
             old_count_all += old_count
         if old_count_all:
-            return (1 - overlap_count / old_count_all) * 100.0
+            return (1 - overlap_count_all / old_count_all) * 100.0
         return 0.0
 
     @staticmethod
@@ -223,19 +223,12 @@ class StaleEntityRemovalHandler(
         return None
 
     def _create_soft_delete_workunit(self, urn: str, type: str) -> MetadataWorkUnit:
-        entity_type = type
-        if entity_type in ["view", "table", "topic"]:
-            entity_type = "dataset"
-
-        logger.info(f"Soft-deleting stale entity of type {type} - {urn}.")
+        logger.info(f"Soft-deleting stale entity - {urn}")
         mcp = MetadataChangeProposalWrapper(
-            entityType=entity_type,
             entityUrn=urn,
-            changeType=ChangeTypeClass.UPSERT,
-            aspectName="status",
             aspect=StatusClass(removed=True),
         )
-        wu = MetadataWorkUnit(id=f"soft-delete-{type}-{urn}", mcp=mcp)
+        wu = MetadataWorkUnit(id=f"soft-delete-{urn}", mcp=mcp)
         report = self.source.get_report()
         assert isinstance(report, StaleEntityRemovalSourceReport)
         report.report_workunit(wu)

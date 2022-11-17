@@ -69,6 +69,7 @@ class DataHubGraph(DatahubRestEmitter):
             retry_max_times=self.config.retry_max_times,
             extra_headers=self.config.extra_headers,
             ca_certificate_path=self.config.ca_certificate_path,
+            disable_ssl_verification=self.config.disable_ssl_verification,
         )
         self.test_connection()
         if not telemetry_enabled:
@@ -82,12 +83,6 @@ class DataHubGraph(DatahubRestEmitter):
         except Exception as e:
             self.server_id = "missing"
             logger.debug(f"Failed to get server id due to {e}")
-
-    def __enter__(self):
-        return self
-
-    def __exit__(self, type, value, tb):
-        return super().__exit__(type, value, tb)
 
     def _get_generic(self, url: str) -> Dict:
         try:

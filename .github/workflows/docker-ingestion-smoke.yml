@@ -27,7 +27,7 @@ jobs:
       publish: ${{ steps.publish.outputs.publish }}
     steps:
       - name: Checkout
-        uses: actions/checkout@v2
+        uses: actions/checkout@v3
       - name: Compute Tag
         id: tag
         run: |
@@ -55,7 +55,7 @@ jobs:
       image_name: ${{ env.IMAGE }}
     steps:
       - name: Check out the repo
-        uses: actions/checkout@v2
+        uses: actions/checkout@v3
         with:
           fetch-depth: 0
       - name: Build and push

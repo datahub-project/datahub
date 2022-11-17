@@ -4,7 +4,7 @@
 This document describes how you can run Airflow side-by-side with DataHub's quickstart docker images to test out Airflow lineage with DataHub.
 This offers a much easier way to try out Airflow with DataHub, compared to configuring containers by hand, setting up configurations and networking connectivity between the two systems.
 
-## Pre-requisites
+## Prerequisites
 - Docker: ensure that you have a working Docker installation and you have at least 8GB of memory to allocate to both Airflow and DataHub combined.
 ```
 docker info | grep Memory

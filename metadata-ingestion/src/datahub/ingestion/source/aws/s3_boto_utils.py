@@ -1,5 +1,5 @@
 import logging
-from typing import Iterable, Optional
+from typing import Iterable, Optional, Union
 
 from datahub.emitter.mce_builder import make_tag_urn
 from datahub.ingestion.api.common import PipelineContext
@@ -23,13 +23,14 @@ def get_s3_tags(
     ctx: PipelineContext,
     use_s3_bucket_tags: Optional[bool] = False,
     use_s3_object_tags: Optional[bool] = False,
+    verify_ssl: Optional[Union[bool, str]] = None,
 ) -> Optional[GlobalTagsClass]:
     if aws_config is None:
         raise ValueError("aws_config not set. Cannot browse s3")
     new_tags = GlobalTagsClass(tags=[])
     tags_to_add = []
     if use_s3_bucket_tags:
-        s3 = aws_config.get_s3_resource()
+        s3 = aws_config.get_s3_resource(verify_ssl)
         bucket = s3.Bucket(bucket_name)
         try:
             tags_to_add.extend(
