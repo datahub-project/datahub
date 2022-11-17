@@ -292,55 +292,57 @@ export const SearchBar = ({
     }
 
     return (
-        <AutoCompleteContainer style={style} ref={searchBarWrapperRef}>
-            <StyledAutoComplete
-                defaultActiveFirstOption={false}
-                style={autoCompleteStyle}
-                options={options}
-                filterOption={false}
-                onSelect={(value: string, option) => {
-                    // If the autocomplete option type is NOT an entity, then render as a normal search query.
-                    if (
-                        option.type === EXACT_AUTOCOMPLETE_OPTION_TYPE ||
-                        option.type === RECOMMENDED_QUERY_OPTION_TYPE
-                    ) {
-                        onSearch(
-                            `${filterSearchQuery(value)}`,
-                            searchEntityTypes.indexOf(option.type) >= 0 ? option.type : undefined,
-                        );
-                    } else {
-                        // Navigate directly to the entity profile.
-                        history.push(getEntityPath(option.type, value, entityRegistry, false, false));
-                        setSelected('');
-                    }
-                }}
-                onSearch={(value: string) => onQueryChange(value)}
-                defaultValue={initialQuery || undefined}
-                value={selected}
-                onChange={(v) => setSelected(filterSearchQuery(v))}
-                dropdownStyle={{
-                    maxHeight: 1000,
-                    overflowY: 'visible',
-                    position: (fixAutoComplete && 'fixed') || 'relative',
-                }}
-            >
-                <StyledSearchBar
-                    placeholder={placeholderText}
-                    onPressEnter={() => {
-                        // e.stopPropagation();
-                        onSearch(filterSearchQuery(searchQuery || ''));
+        <>
+            <AutoCompleteContainer style={style} ref={searchBarWrapperRef}>
+                <StyledAutoComplete
+                    defaultActiveFirstOption={false}
+                    style={autoCompleteStyle}
+                    options={options}
+                    filterOption={false}
+                    onSelect={(value: string, option) => {
+                        // If the autocomplete option type is NOT an entity, then render as a normal search query.
+                        if (
+                            option.type === EXACT_AUTOCOMPLETE_OPTION_TYPE ||
+                            option.type === RECOMMENDED_QUERY_OPTION_TYPE
+                        ) {
+                            onSearch(
+                                `${filterSearchQuery(value)}`,
+                                searchEntityTypes.indexOf(option.type) >= 0 ? option.type : undefined,
+                            );
+                        } else {
+                            // Navigate directly to the entity profile.
+                            history.push(getEntityPath(option.type, value, entityRegistry, false, false));
+                            setSelected('');
+                        }
                     }}
-                    style={inputStyle}
-                    value={searchQuery}
-                    onChange={(e) => setSearchQuery(e.target.value)}
-                    data-testid="search-input"
-                    onFocus={handleFocus}
-                    onBlur={handleBlur}
-                    allowClear
-                    prefix={<SearchOutlined onClick={() => onSearch(filterSearchQuery(searchQuery || ''))} />}
-                />
-            </StyledAutoComplete>
-        </AutoCompleteContainer>
+                    onSearch={(value: string) => onQueryChange(value)}
+                    defaultValue={initialQuery || undefined}
+                    value={selected}
+                    onChange={(v) => setSelected(filterSearchQuery(v))}
+                    dropdownStyle={{
+                        maxHeight: 1000,
+                        overflowY: 'visible',
+                        position: (fixAutoComplete && 'fixed') || 'relative',
+                    }}
+                >
+                    <StyledSearchBar
+                        placeholder={placeholderText}
+                        onPressEnter={() => {
+                            // e.stopPropagation();
+                            onSearch(filterSearchQuery(searchQuery || ''));
+                        }}
+                        style={inputStyle}
+                        value={searchQuery}
+                        onChange={(e) => setSearchQuery(e.target.value)}
+                        data-testid="search-input"
+                        onFocus={handleFocus}
+                        onBlur={handleBlur}
+                        allowClear
+                        prefix={<SearchOutlined onClick={() => onSearch(filterSearchQuery(searchQuery || ''))} />}
+                    />
+                </StyledAutoComplete>
+            </AutoCompleteContainer>
+        </>
     );
 };
 
