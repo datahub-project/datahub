@@ -12,4 +12,6 @@ public class VisualConfiguration {
    * Asset related configurations
    */
   public AssetsConfiguration assets;
+
+  public TextsConfiguration texts;
 }

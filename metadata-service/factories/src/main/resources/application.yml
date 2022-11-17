@@ -94,6 +94,8 @@ visualConfig:
   assets:
     logoUrl: ${REACT_APP_LOGO_URL:/assets/platforms/datahublogo.png}
     faviconUrl: ${REACT_APP_FAVICON_URL:/assets/favicon.ico}
+  texts:
+    title: ${REACT_APP_TITLE:Datahub}
 
 # Storage Layer
 

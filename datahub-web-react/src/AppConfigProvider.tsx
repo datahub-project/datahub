@@ -18,6 +18,10 @@ function changeFavicon(src) {
     });
 }
 
+function changeTitle(title) {
+    document.title = title;
+}
+
 const AppConfigProvider = ({ children }: { children: React.ReactNode }) => {
     const { data: appConfigData, refetch } = useAppConfigQuery();
 
@@ -34,6 +38,7 @@ const AppConfigProvider = ({ children }: { children: React.ReactNode }) => {
                 localStorage.setItem(THIRD_PARTY_LOGGING_KEY, 'false');
             }
             changeFavicon(appConfigData.appConfig.visualConfig.faviconUrl);
+            changeTitle(appConfigData.appConfig.visualConfig.title);
         }
     }, [appConfigData]);
 

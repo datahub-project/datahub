@@ -172,6 +172,11 @@ type VisualConfig {
   Custom favicon url for the homepage & top banner
   """
   faviconUrl: String
+
+  """
+  Homepage title
+  """
+  title: String
 }
 
 """

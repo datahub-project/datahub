@@ -78,6 +78,7 @@ you can change two things without rebuilding.
 
 1. You customize the logo on the homepage & the search bar header by setting the `REACT_APP_LOGO_URL` env variable when deploying GMS.
 2. You can customize the favicon (the icon on your browser tab) by setting the `REACT_APP_FAVICON_URL` env var when deploying GMS.
+3. You can customize the title (<title> value) by setting the `REACT_APP_TITLE` env var when deploying GMS.
 
 #### Selecting a theme
 

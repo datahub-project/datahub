@@ -117,6 +117,9 @@ public class AppConfigResolver implements DataFetcher<CompletableFuture<AppConfi
       visualConfig.setLogoUrl(_visualConfiguration.getAssets().getLogoUrl());
       visualConfig.setFaviconUrl(_visualConfiguration.getAssets().getFaviconUrl());
     }
+    if (_visualConfiguration != null && _visualConfiguration.getTexts() != null) {
+      visualConfig.setTitle(_visualConfiguration.getTexts().getTitle());
+    }
     appConfig.setVisualConfig(visualConfig);
 
     final TelemetryConfig telemetryConfig = new TelemetryConfig();
