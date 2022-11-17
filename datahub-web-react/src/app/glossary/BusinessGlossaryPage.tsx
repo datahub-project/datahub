@@ -5,7 +5,6 @@ import styled from 'styled-components/macro';
 
 import { useGetRootGlossaryNodesQuery, useGetRootGlossaryTermsQuery } from '../../graphql/glossary.generated';
 import TabToolbar from '../entity/shared/components/styled/TabToolbar';
-import GlossaryEntitiesPath from './GlossaryEntitiesPath';
 import GlossaryEntitiesList from './GlossaryEntitiesList';
 import GlossaryBrowser from './GlossaryBrowser/GlossaryBrowser';
 import GlossarySearch from './GlossarySearch';
@@ -92,7 +91,6 @@ function BusinessGlossaryPage() {
                     isSidebarOnLeft
                 />
                 <MainContentWrapper>
-                    <GlossaryEntitiesPath />
                     <HeaderWrapper>
                         <Typography.Title level={3}>Glossary</Typography.Title>
                         <div>
