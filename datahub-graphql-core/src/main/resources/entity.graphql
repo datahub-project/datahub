@@ -9328,9 +9328,9 @@ Input provided when batch assigning a role to a list of users
 """
 input BatchAssignRoleInput {
     """
-    The urn of the role to assign to the actors
+    The urn of the role to assign to the actors. If undefined, will remove the role.
     """
-    roleUrn: String!
+    roleUrn: String
 
     """
     The urns of the actors to assign the role to

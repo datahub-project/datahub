@@ -3,6 +3,7 @@ import styled from 'styled-components/macro';
 import { Button, Divider, Empty, Typography } from 'antd';
 import { RocketOutlined } from '@ant-design/icons';
 import {
+    CorpUser,
     EntityType,
     RecommendationModule as RecommendationModuleType,
     RecommendationRenderType,
@@ -15,7 +16,6 @@ import { useEntityRegistry } from '../useEntityRegistry';
 import { useGetEntityCountsQuery } from '../../graphql/app.generated';
 import { GettingStartedModal } from './GettingStartedModal';
 import { ANTD_GRAY } from '../entity/shared/constants';
-import { useGetAuthenticatedUser } from '../useGetAuthenticatedUser';
 import { HomePagePosts } from './HomePagePosts';
 
 const RecommendationsContainer = styled.div`
@@ -72,7 +72,7 @@ const DomainsRecomendationContainer = styled.div`
 `;
 
 type Props = {
-    userUrn: string;
+    user: CorpUser;
 };
 
 const simpleViewEntityTypes = [
@@ -83,12 +83,12 @@ const simpleViewEntityTypes = [
     EntityType.GlossaryTerm,
 ];
 
-export const HomePageRecommendations = ({ userUrn }: Props) => {
+export const HomePageRecommendations = ({ user }: Props) => {
     // Entity Types
     const entityRegistry = useEntityRegistry();
     const browseEntityList = entityRegistry.getBrowseEntityTypes();
     const [showGettingStartedModal, setShowGettingStartedModal] = useState(false);
-    const user = useGetAuthenticatedUser()?.corpUser;
+    const userUrn = user?.urn;
 
     const showSimplifiedHomepage = user?.settings?.appearance?.showSimplifiedHomepage;
 
