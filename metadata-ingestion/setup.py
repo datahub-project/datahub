@@ -172,9 +172,11 @@ snowflake_common = {
     # See https://github.com/snowflakedb/snowflake-sqlalchemy/issues/234 for why 1.2.5 is blocked.
     "snowflake-sqlalchemy>=1.2.4, !=1.2.5",
     "snowflake-connector-python[pandas]>=2.8.1",
-    "acryl-datahub-classify>=0.0.2",
     "cryptography",
     "msal",
+    "acryl-datahub-classify>=0.0.2",
+    # Adding constraints to reduce pip backtracking
+    "scipy>=1.8.0",
 }
 
 trino = {
