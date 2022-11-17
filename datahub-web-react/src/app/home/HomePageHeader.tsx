@@ -108,11 +108,6 @@ const SearchBarContainer = styled.div`
     text-align: center;
 `;
 
-const ExploreAllButtonContainer = styled.div`
-    display: flex;
-    justify-content: right;
-`;
-
 const ExploreAllButton = styled(Button)`
     && {
         padding: 0px;
@@ -267,11 +262,9 @@ export const HomePageHeader = () => {
                         <SuggestionsContainer>
                             <SuggestionsHeader>
                                 <SuggestedQueriesText strong>Try searching for</SuggestedQueriesText>
-                                <ExploreAllButtonContainer>
-                                    <ExploreAllButton type="link" onClick={onClickExploreAll}>
-                                        Explore all <StyledRightOutlined />
-                                    </ExploreAllButton>
-                                </ExploreAllButtonContainer>
+                                <ExploreAllButton type="link" onClick={onClickExploreAll}>
+                                    Explore all <StyledRightOutlined />
+                                </ExploreAllButton>
                             </SuggestionsHeader>
                             <SuggestionTagContainer>
                                 {searchResultsToShow.slice(0, 3).map((suggestion) => (
