@@ -73,7 +73,11 @@ fragment parentContainersFields on ParentContainersResult {
 fragment parentNodesFields on ParentNodesResult {
     count
     nodes {
-        ...glossaryNode
+        urn
+        type
+        properties {
+            name
+        }
     }
 }
 
