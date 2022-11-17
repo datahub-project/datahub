@@ -1,7 +1,10 @@
+import logging
 from abc import ABC, abstractmethod
 from typing import Optional, List, Dict
 import importlib.resources as pkg_resource
-from lark import Lark
+from lark import Lark, Tree
+
+logger = logging.getLogger(__name__)
 
 
 class Token(ABC):
@@ -68,7 +71,13 @@ token_registry: Dict[str, BaseToken] = {
 }
 
 
-def parse_expression(expression: str) -> List[Step]:
+def parse_expression(expression: str) -> Tree:
     grammar: str = pkg_resource.read_text("datahub.ingestion.source.powerbi", "powerbi-lexical-grammar.rule")
-    lark_parser = Lark(grammar,  start="let_expression", regex=True, debug=True)
-    print(lark_parser.parse(expression).pretty())
+    lark_parser = Lark(grammar,  start="let_expression", regex=True)
+
+    parse_tree: Tree = lark_parser.parse(expression)
+
+    logger.debug("Parse Tree")
+    logger.debug(parse_tree.pretty())
+
+    return parse_tree
