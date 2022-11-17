@@ -101,7 +101,7 @@ describe('filterSchemaRows', () => {
                 },
             ],
         };
-        const filterText = 'editable customer description';
+        const filterText = 'EdiTable CuStoMer DesCriptioN';
         const { filteredRows, expandedRowsFromFilter } = filterSchemaRows(
             rows,
             editableSchemaMetadata,
