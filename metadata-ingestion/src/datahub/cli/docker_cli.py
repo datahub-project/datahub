@@ -11,7 +11,7 @@ import tempfile
 import time
 from enum import Enum
 from pathlib import Path
-from typing import Dict, List, Literal, NoReturn, Optional, Union
+from typing import Dict, List, NoReturn, Optional, Union
 
 import click
 import click_spinner
@@ -19,6 +19,7 @@ import pydantic
 import requests
 from expandvars import expandvars
 from requests_file import FileAdapter
+from typing_extensions import Literal
 
 from datahub.cli.cli_utils import DATAHUB_ROOT_FOLDER
 from datahub.cli.docker_check import (
