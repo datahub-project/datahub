@@ -17,6 +17,7 @@ from datahub.ingestion.source.sql.trino import (
     TrinoConfig,
     TrinoSource,
     _get_columns,
+    get_table_comment,
     get_table_names,
 )
 
@@ -55,28 +56,6 @@ def get_view_definition(self, connection, view_name, schema=None, **kw):
     ).strip()
     res = connection.execute(sql.text(query))
     return next(res)[0]
-
-
-@reflection.cache  # type: ignore
-def get_table_comment(self, connection, table_name: str, schema: str = None, **kw):  # type: ignore
-    try:
-        properties_table = self._get_full_table(f"{table_name}$properties", schema)
-        query = f"SELECT * FROM {properties_table}"
-        row = connection.execute(sql.text(query)).fetchone()
-
-        # Generate properties dictionary.
-        properties = {}
-        if row:
-            for col_name, col_value in row.items():
-                properties[col_name] = col_value
-
-        return {"text": properties.get("comment", None), "properties": properties}
-    # Fallback to default trino-sqlalchemy behaviour if `$properties` table doesn't exist
-    except Exception:
-        # It seems like on Presto there is no system.metada.table_comment table which exists on Trino
-        # The best thing we can do is to return empty
-        # For views this will be empty on Presto (or at least this is what I can see)
-        return {}
 
 
 def _get_full_table(  # type: ignore
@@ -126,9 +105,8 @@ class PrestoSource(TrinoSource):
     config: PrestoConfig
 
     def __init__(self, config, ctx):
-        super().__init__(config, ctx)
+        super().__init__(config, ctx, platform="presto")
         # We have to override platform as this source inherits from the Trino source
-        self.platform = "presto"
 
     @classmethod
     def create(cls, config_dict, ctx):
