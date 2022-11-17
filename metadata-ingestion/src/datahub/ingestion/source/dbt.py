@@ -307,6 +307,11 @@ class DBTConfig(StatefulIngestionConfigBase, LineageConfig):
         description="Reference to your github location to enable easy navigation from DataHub to your dbt files.",
     )
 
+    incremental_lineage: bool = Field(
+        # Copied from LineageConfig, and changed the default.
+        default=False,
+        description="When enabled, emits lineage as incremental to existing lineage already in DataHub. When disabled, re-states lineage on each run.",
+    )
     stateful_ingestion: Optional[DBTStatefulIngestionConfig] = pydantic.Field(
         default=None, description="DBT Stateful Ingestion Config."
     )
