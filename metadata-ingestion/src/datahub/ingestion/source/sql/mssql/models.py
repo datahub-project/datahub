@@ -1,10 +1,13 @@
+import logging
+import re
 import urllib.parse
 from typing import TYPE_CHECKING, Any, Dict, Iterable, List, Optional, Tuple, Union
 
 import pydantic
-
+import sqlalchemy.dialects.mssql
 # This import verifies that the dependencies are available.
 import sqlalchemy_pytds  # noqa: F401
+from datahub.configuration.common import AllowDenyPattern
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.decorators import (
@@ -20,9 +23,16 @@ from datahub.ingestion.source.sql.sql_common import (
     BasicSQLAlchemyConfig,
     SQLAlchemySource,
     SqlWorkUnit,
+    make_sqlalchemy_uri,
+    register_custom_type,
 )
-from datahub.metadata.schema_classes import ChangeTypeClass
+from datahub.metadata.schema_classes import (
+    BooleanTypeClass,
+    ChangeTypeClass,
+    UnionTypeClass,
+)
 from pydantic.fields import Field
+from sqlalchemy import create_engine, inspect
 from sqlalchemy.engine.base import Connection
 from sqlalchemy.engine.reflection import Inspector
 from sqlalchemy.engine.result import ResultProxy, RowProxy
@@ -45,11 +55,14 @@ if TYPE_CHECKING:
 
 logger: logging.Logger = logging.getLogger(__name__)
 
+register_custom_type(sqlalchemy.dialects.mssql.BIT, BooleanTypeClass)
+register_custom_type(sqlalchemy.dialects.mssql.SQL_VARIANT, UnionTypeClass)
+
 
 class SQLServerConfig(BasicSQLAlchemyConfig):
     # defaults
     host_port: str = Field(default="localhost:1433", description="MSSQL host URL.")
-    scheme: str = Field(default="mssql+pytds", description="", exclude=True)
+    scheme: str = Field(default="mssql+pytds", description="", hidden_from_schema=True)
     include_code: bool = Field(
         default=False, description="Include information about object code"
     )
@@ -60,36 +73,57 @@ class SQLServerConfig(BasicSQLAlchemyConfig):
         default=False, description="Include ingest of MSSQL Jobs"
     )
     include_descriptions: bool = Field(
-        default=True, description="Include table descriptions information."
+        default=False, description="Include table descriptions information."
     )
     use_odbc: bool = Field(
         default=False,
-        description="See https://docs.sqlalchemy.org/"
-        "en/14/dialects/mssql.html#module-sqlalchemy.dialects.mssql.pyodbc.",
+        description="See https://docs.sqlalchemy.org/en/14/dialects/mssql.html#module-sqlalchemy.dialects.mssql.pyodbc.",
     )
     uri_args: Dict[str, str] = Field(
         default={},
-        desscription="Arguments to URL-encode when connecting. "
-        "See https://docs.microsoft.com/"
-        "en-us/sql/connect/odbc/dsn-connection-string-attribute?view=sql-server-ver15.",
+        desscription="Arguments to URL-encode when connecting. See https://docs.microsoft.com/en-us/sql/connect/odbc/dsn-connection-string-attribute?view=sql-server-ver15.",
+    )
+    database_pattern: AllowDenyPattern = Field(
+        default=AllowDenyPattern.allow_all(),
+        description="Regex patterns for databases to filter in ingestion.",
+    )
+    database: Optional[str] = Field(
+        default=None,
+        description="database (catalog). If set to Null, all databases will be considered for ingestion.",
+    )
+
+    database_alias: Optional[str] = Field(
+        default=None,
+        description="Alias to apply to database when ingesting. Ignored when `database` is not set.",
     )
 
     @pydantic.validator("uri_args")
-    def passwords_match(cls, v, values, **kwargs):  # noqa: N805
+    def passwords_match(cls, v, values, **kwargs):
         if values["use_odbc"] and "driver" not in v:
             raise ValueError("uri_args must contain a 'driver' option")
         elif not values["use_odbc"] and v:
             raise ValueError("uri_args is not supported when ODBC is disabled")
         return v
 
-    def get_sql_alchemy_url(self, uri_opts: Optional[Dict[str, Any]] = None) -> str:
+    def get_sql_alchemy_url(
+        self,
+        uri_opts: Optional[Dict[str, Any]] = None,
+        current_db: Optional[str] = None,
+    ) -> str:
         if self.use_odbc:
             # Ensure that the import is available.
             import pyodbc  # noqa: F401
 
             self.scheme = "mssql+pyodbc"
 
-        uri: str = super().get_sql_alchemy_url(uri_opts=uri_opts)
+        uri: str = self.sqlalchemy_uri or make_sqlalchemy_uri(
+            self.scheme,
+            self.username,
+            self.password.get_secret_value() if self.password else None,
+            self.host_port,
+            current_db if current_db else self.database,
+            uri_opts=uri_opts,
+        )
         if self.use_odbc:
             uri = f"{uri}?{urllib.parse.urlencode(self.uri_args)}"
         return uri
@@ -127,21 +161,17 @@ class SQLServerConfig(BasicSQLAlchemyConfig):
 class SQLServerSource(SQLAlchemySource):
     """
     This plugin extracts the following:
-
     - Metadata for databases, schemas, views and tables
     - Column types associated with each table/view
     - Table, row, and column statistics via optional SQL profiling
-
-    We have two options for the underlying library used to connect to SQL Server:
-    (1) [python-tds](https://github.com/denisenkom/pytds) and
-    (2) [pyodbc](https://github.com/mkleehammer/pyodbc).
-    The TDS library is pure Python and hence easier to install, but only PyODBC supports encrypted connections.
+    We have two options for the underlying library used to connect to SQL Server: (1) [python-tds](https://github.com/denisenkom/pytds) and (2) [pyodbc](https://github.com/mkleehammer/pyodbc). The TDS library is pure Python and hence easier to install, but only PyODBC supports encrypted connections.
     """
 
     def __init__(self, config: SQLServerConfig, ctx: PipelineContext):
         super().__init__(config, ctx, "mssql")
-
         # Cache the table and column descriptions
+        self.config: SQLServerConfig = config
+        self.current_database = None
         self.table_descriptions: Dict[str, str] = {}
         self.column_descriptions: Dict[str, str] = {}
         if self.config.include_descriptions:
@@ -152,8 +182,7 @@ class SQLServerSource(SQLAlchemySource):
                     self._populate_column_descriptions(conn, db_name)
 
     def _populate_table_descriptions(self, conn: Connection, db_name: str) -> None:
-        # see
-        # https://stackoverflow.com/questions/5953330/how-do-i-map-the-id-in-sys-extended-properties-to-an-object-name
+        # see https://stackoverflow.com/questions/5953330/how-do-i-map-the-id-in-sys-extended-properties-to-an-object-name
         # also see https://www.mssqltips.com/sqlservertip/5384/working-with-sql-server-extended-properties/
         table_metadata: ResultProxy = conn.execute(
             """
@@ -285,9 +314,8 @@ class SQLServerSource(SQLAlchemySource):
                     profile_requests, profiler, platform=self.platform
                 )
 
-        if self.is_stateful_ingestion_configured():
-            # Clean up stale entities.
-            yield from self.gen_removed_entity_workunits()
+        # Clean up stale entities.
+        yield from self.stale_entity_removal_handler.gen_removed_entity_workunits()
 
     def _get_jobs(self, conn: Connection, db_name: str) -> Dict[str, Dict[str, Any]]:
         jobs_data: RowProxy = conn.execute(
@@ -434,7 +462,7 @@ class SQLServerSource(SQLAlchemySource):
             FROM sys.sql_expression_dependencies AS sed
             INNER JOIN sys.objects AS o ON sed.referencing_id = o.object_id
             left join sys.objects o1 on sed.referenced_id = o1.object_id
-            WHERE referenced_id = OBJECT_ID(N'{procedure.full_name}')
+            WHERE referenced_id = OBJECT_ID(N'{procedure.escape_full_name}')
                 AND o.type_desc in ('TABLE_TYPE', 'VIEW', 'USER_TABLE')
             """
         )
@@ -466,7 +494,7 @@ class SQLServerSource(SQLAlchemySource):
             FROM sys.sql_expression_dependencies AS sed
             INNER JOIN sys.objects AS o ON sed.referencing_id = o.object_id
             left join sys.objects o1 on sed.referenced_id = o1.object_id
-            WHERE referencing_id = OBJECT_ID(N'{procedure.full_name}')
+            WHERE referencing_id = OBJECT_ID(N'{procedure.escape_full_name}')
                 AND referenced_schema_name is not null
                 AND o1.type_desc in ('TABLE_TYPE', 'VIEW', 'SQL_STORED_PROCEDURE', 'USER_TABLE')
             """
@@ -495,7 +523,7 @@ class SQLServerSource(SQLAlchemySource):
                 name,
                 type_name(user_type_id) AS 'type'
             FROM sys.parameters
-            WHERE object_id = object_id('{procedure.full_name}')
+            WHERE object_id = object_id('{procedure.escape_full_name}')
             """
         )
         inputs_list = []
@@ -624,3 +652,40 @@ class SQLServerSource(SQLAlchemySource):
             )
             self.report.report_workunit(wu)
             yield wu
+
+    def get_inspectors(self) -> Iterable[Inspector]:
+        # This method can be overridden in the case that you want to dynamically
+        # run on multiple databases.
+        url = self.config.get_sql_alchemy_url()
+        logger.debug(f"sql_alchemy_url={url}")
+        engine = create_engine(url, **self.config.options)
+        with engine.connect() as conn:
+            if self.config.database and self.config.database != "":
+                inspector = inspect(conn)
+                yield inspector
+            else:
+                databases = conn.execute(
+                    "SELECT name FROM master.sys.databases WHERE name NOT IN \
+                  ('master', 'model', 'msdb', 'tempdb', 'Resource', \
+                       'distribution' , 'reportserver', 'reportservertempdb'); "
+                )
+                for db in databases:
+                    if self.config.database_pattern.allowed(db["name"]):
+                        url = self.config.get_sql_alchemy_url(current_db=db["name"])
+                        inspector = inspect(
+                            create_engine(url, **self.config.options).connect()
+                        )
+                        self.current_database = db["name"]
+                        yield inspector
+
+    def get_identifier(
+        self, *, schema: str, entity: str, inspector: Inspector, **kwargs: Any
+    ) -> str:
+        regular = f"{schema}.{entity}"
+        if self.config.database:
+            if self.config.database_alias:
+                return f"{self.config.database_alias}.{regular}"
+            return f"{self.config.database}.{regular}"
+        if self.current_database:
+            return f"{self.current_database}.{regular}"
+        return regular
