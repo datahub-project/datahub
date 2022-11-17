@@ -250,9 +250,22 @@ def test_kafka_connect_ingest(docker_compose_runner, pytestconfig, tmp_path, moc
                         "connection.uri": "mongodb://admin:admin@test_mongo:27017",
                         "topic.prefix": "mongodb",
                         "database": "test_db",
-                        "copy.existing": false,
+                        "collection": "purchases",
+                        "copy.existing": true,
+                        "copy.existing.namespace.regex": "test_db.purchases",
                         "change.stream.full.document": "updateLookup",
-                        "pipeline": "[{\"$match\": {\"ns.coll\": {\"$regex\": /^(purchases)$/}}}]"
+                        "topic.creation.enable": "true",
+                        "topic.creation.default.replication.factor": "-1",
+                        "topic.creation.default.partitions": "-1",
+                        "output.json.formatter": "com.mongodb.kafka.connect.source.json.formatter.SimplifiedJson",
+                        "key.converter": "org.apache.kafka.connect.storage.StringConverter",
+                        "value.converter": "org.apache.kafka.connect.storage.StringConverter",
+                        "key.converter.schemas.enable": false,
+                        "value.converter.schemas.enable": false,
+                        "output.format.key": "schema",
+                        "output.format.value": "json",
+                        "output.schema.infer.value": false,
+                        "publish.full.document.only":true
                     }
                 }""",
         )
