@@ -23,7 +23,7 @@ from great_expectations.data_asset.data_asset import DataAsset
 from great_expectations.data_context.data_context import DataContext
 from great_expectations.data_context.types.resource_identifiers import (
     ExpectationSuiteIdentifier,
-    GeCloudIdentifier,
+    GXCloudIdentifier,
     ValidationResultIdentifier,
 )
 from great_expectations.execution_engine.sqlalchemy_execution_engine import (
@@ -103,7 +103,7 @@ class DataHubValidationAction(ValidationAction):
         self,
         validation_result_suite: ExpectationSuiteValidationResult,
         validation_result_suite_identifier: Union[
-            ValidationResultIdentifier, GeCloudIdentifier
+            ValidationResultIdentifier, GXCloudIdentifier
         ],
         data_asset: Union[Validator, DataAsset, Batch],
         payload: Any = None,

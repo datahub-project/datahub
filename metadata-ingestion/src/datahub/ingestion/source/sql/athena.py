@@ -1,10 +1,9 @@
 import json
 import logging
 import typing
-from typing import Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Optional, Tuple
 
 import pydantic
-from pyathena.common import BaseCursor
 from pyathena.model import AthenaTableMetadata
 from sqlalchemy.engine.reflection import Inspector
 
@@ -98,7 +97,7 @@ class AthenaSource(SQLAlchemySource):
 
     def __init__(self, config, ctx):
         super().__init__(config, ctx, "athena")
-        self.cursor: Optional[BaseCursor] = None
+        self.cursor: Optional[Any] = None
 
     @classmethod
     def create(cls, config_dict, ctx):
