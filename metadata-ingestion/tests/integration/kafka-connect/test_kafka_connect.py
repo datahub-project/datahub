@@ -252,6 +252,7 @@ def test_kafka_connect_ingest(docker_compose_runner, pytestconfig, tmp_path, moc
                         "database": "test_db",
                         "copy.existing": false,
                         "change.stream.full.document": "updateLookup"
+                        "pipeline": "[{\"$match\": {\"ns.coll\": {\"$regex\": /^(purchases)$/}}}]",
                     }
                 }""",
         )

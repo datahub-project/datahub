@@ -8,5 +8,6 @@ mongo -- "$MONGO_INITDB_DATABASE" <<-EOJS
     var admin = db.getSiblingDB('admin');
     admin.auth(rootUser, rootPassword);
     rs.initiate();
+    db.purchases.insert({ _id: 18576345, item: "lamp post", price: 34.7 });
 EOJS
 } &
