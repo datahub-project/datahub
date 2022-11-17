@@ -70,5 +70,5 @@ token_registry: Dict[str, BaseToken] = {
 
 def parse_expression(expression: str) -> List[Step]:
     grammar: str = pkg_resource.read_text("datahub.ingestion.source.powerbi", "powerbi-lexical-grammar.rule")
-    lark_parser = Lark(grammar,  start="let_expression", parser="lalr", regex=True)
+    lark_parser = Lark(grammar,  start="let_expression", regex=True, debug=True)
     print(lark_parser.parse(expression).pretty())

@@ -71,7 +71,7 @@ number_literal: decimal_number_literal
 decimal_digits: decimal_digit
             |   decimal_digits?
 
-decimal_digit: DIGIT
+decimal_digit: /\d+/
 
 hexadecimal_number_literal: "0x" hex_digits
                         |   "0X" hex_digits
@@ -81,7 +81,8 @@ hex_digits: hex_digit
 
 hex_digit: HEXDIGIT
 
-decimal_number_literal: decimal_digits "." decimal_digits exponent_part?
+decimal_number_literal: decimal_digits
+                    |   decimal_digits "." decimal_digits exponent_part?
                     |   decimal_digits exponent_part?
                     |   decimal_digits exponent_part?
 
@@ -100,7 +101,7 @@ text_literal_character:     single_text_character
                     |       double_quote_escape_sequence
 
 single_text_character: /./
-                     | /[^#]/    
+                     | /[^#]/
 
 double_quote_escape_sequence:   "\"\""
 
@@ -155,7 +156,7 @@ connecting_character:   /[\p{Pc}]+/
 
 formatting_character:   /[\p{Cf}]+/
       
-quoted_identifier:      "#" "\"" text_literal_characters? "\""
+quoted_identifier:      "#" ESCAPED_STRING
 
 keyword:    "and"
         |   "as"
@@ -250,20 +251,25 @@ expression: logical_or_expression
 logical_or_expression:  logical_and_expression
                     |   logical_and_expression "or" logical_or_expression
 
-logical_and_expression: is_expression
-                    |   logical_and_expression "and" is_expression
+logical_and_expression: WS_INLINE? NEWLINE? is_expression WS_INLINE? NEWLINE?
+                    |   WS_INLINE?
+                    |   NEWLINE?     
+                    |   logical_and_expression WS_INLINE? "and" WS_INLINE? is_expression
 
 is_expression:  as_expression
+            |   WS_INLINE?
+            |   NEWLINE?     
             |   is_expression "is" nullable_primitive_type
 
 nullable_primitive_type:    "nullable"? primitive_type
 
-as_expression:  equality_expression
+as_expression:  WS_INLINE? equality_expression
             |   as_expression "as" nullable_primitive_type
+            |   WS_INLINE? multiplicative_expression
 
-equality_expression:    relational_expression
-                   |    relational_expression "=" equality_expression
-                   |    relational_expression "<>" equality_expression
+equality_expression:    WS_INLINE? relational_expression
+                   |    WS_INLINE? relational_expression WS_INLINE? "=" WS_INLINE? equality_expression
+                   |    relational_expression WS_INLINE? "<>" WS_INLINE? equality_expression
 
 relational_expression:  additive_expression
                     |   additive_expression "<" relational_expression
@@ -273,11 +279,12 @@ relational_expression:  additive_expression
 
 additive_expression:    multiplicative_expression
                     |   multiplicative_expression "+" additive_expression
-                    |   multiplicative_expression "_" additive_expression
-                    |   multiplicative_expression "&" "_" additive_expression
+                    |   multiplicative_expression WS_INLINE? "_" WS_INLINE? additive_expression
+                    |   multiplicative_expression  WS_INLINE? NEWLINE? WS_INLINE? "&" WS_INLINE? NEWLINE? WS_INLINE? additive_expression
 
-multiplicative_expression:  metadata_expression
-                        |   metadata_expression "*" multiplicative_expression
+
+multiplicative_expression:  WS_INLINE? metadata_expression
+                        |   metadata_expression WS_INLINE? "*" WS_INLINE? multiplicative_expression
                         |   metadata_expression "/" multiplicative_expression
 
 metadata_expression:    unary_expression
@@ -318,12 +325,19 @@ parenthesized_expression:   "(" WS_INLINE? expression WS_INLINE? ")"
 
 not_implemented_expression: "..."
 
-invoke_expression:  primary_expression WS_INLINE? "(" WS_INLINE? argument_list? WS_INLINE? ")"
+invoke_expression:  "#"? primary_expression "(" NEWLINE? argument_list? NEWLINE? ")"
 
-argument_list:  expression
-            |   expression "," argument_list
+argument_list:  WS_INLINE? expression
+            |   WS_INLINE? expression WS_INLINE? "," WS_INLINE? argument_list
             |   "\"" identifier "\""
             |   "\"" identifier "\"" "," argument_list
+            |   WS_INLINE
+            |   WS_INLINE? ESCAPED_STRING
+            |   WS_INLINE? ESCAPED_STRING "," argument_list
+            |   WS_INLINE? record_literal
+            |   WS_INLINE? record_literal "," argument_list
+            |   WS_INLINE? null_literal
+            |   WS_INLINE? null_literal "," argument_list
 
 
 list_expression:    "{" item_list? "}"
@@ -423,11 +437,12 @@ variable:   variable_name WS_INLINE? "=" WS_INLINE? expression
 
 variable_name:    identifier
 
-if_expression:    "if" WS_INLINE if_condition WS_INLINE NEWLINE? "then" WS_INLINE true_expression WS_INLINE "else" WS_INLINE false_expression
+if_expression:    "if" WS_INLINE if_condition WS_INLINE? NEWLINE? WS_INLINE? "then" WS_INLINE? NEWLINE? true_expression WS_INLINE? NEWLINE? "else" WS_INLINE false_expression
 
 if_condition:     expression
 
-true_expression:  expression
+true_expression:  NEWLINE? WS_INLINE? expression
+                | multiplicative_expression
 
 false_expression: expression
 
@@ -523,7 +538,8 @@ record_literal:   "[" WS_INLINE? literal_field_list? WS_INLINE? "]"
 literal_field_list:     literal_field
                   |     literal_field WS_INLINE? "," WS_INLINE? literal_field_list
 
-literal_field:    field_name WS_INLINE? "=" WS_INLINE? any_literal
+literal_field:  field_name WS_INLINE? "=" WS_INLINE? any_literal
+             |  field_name WS_INLINE? "=" WS_INLINE? invoke_expression
 
 list_literal:     "{" WS_INLINE? literal_item_list? WS_INLINE? "}"
 
