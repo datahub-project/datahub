@@ -289,8 +289,14 @@ class AvroToMceSchemaConverter:
                     )
 
                 description = self._description
-                if description is None:
-                    description = actual_schema.props.get("doc", None)
+                if self._schema.props.get("doc", None) is None:
+                    if actual_schema.props.get("doc"):
+                        if description:
+                            description = (
+                                f"{actual_schema.props.get('doc')}{description}"
+                            )
+                        else:
+                            description = actual_schema.props.get("doc", None)
 
                 native_data_type = self._converter._prefix_name_stack[-1]
                 if isinstance(schema, (avro.schema.Field, avro.schema.UnionSchema)):
@@ -313,7 +319,7 @@ class AvroToMceSchemaConverter:
                 if "deprecated" in merged_props:
                     description = (
                         f"<span style=\"color:red\">DEPRECATED: {merged_props['deprecated']}</span>\n"
-                        + description
+                        + description if description else ""
                     )
                     tags = GlobalTagsClass(
                         tags=[TagAssociationClass(tag="urn:li:tag:Deprecated")]
@@ -408,9 +414,8 @@ class AvroToMceSchemaConverter:
         # Generate the custom-description for the field.
         description = last_field_schema.doc if last_field_schema.doc else None
         if last_field_schema.has_default and last_field_schema.default is not None:
-            description = (
-                f"{description}\nField default value: {last_field_schema.default}"
-            )
+            prefix = f"{description}" if description else ""
+            description = f"{prefix}\nField default value: {last_field_schema.default}"
 
         with AvroToMceSchemaConverter.SchemaFieldEmissionContextManager(
             last_field_schema, last_field_schema, self, description
