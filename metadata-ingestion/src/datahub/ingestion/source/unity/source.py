@@ -228,6 +228,7 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
                 platform=self.platform,
                 platform_instance=self.platform_instance_name,
                 name=table.id,
+                env=self.config.env,
             )
             yield from self.add_table_to_dataset_container(dataset_urn, schema)
             yield self._create_table_property_aspect_mcp(table)
@@ -279,6 +280,7 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
                 self.platform,
                 f"{table.schema.catalog.metastore.id}.{upstream}",
                 self.platform_instance_name,
+                env=self.config.env,
             )
 
             for col in sorted(table.upstreams[upstream].keys()):
@@ -322,6 +324,7 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
                 self.platform,
                 f"{table.schema.catalog.metastore.id}.{upstream}",
                 self.platform_instance_name,
+                env=self.config.env,
             )
 
             upstream_table = UpstreamClass(
@@ -468,6 +471,7 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
             platform=self.platform,
             platform_instance=self.platform_instance_name,
             name=table.id,
+            env=self.config.env,
         )
         custom_properties: dict = {}
         if table.storage_location is not None:
@@ -508,6 +512,7 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
             platform=self.platform,
             platform_instance=self.platform_instance_name,
             name=table.id,
+            env=self.config.env,
         )
         mcp = MetadataChangeProposalWrapper(
             entityType="dataset",
@@ -528,6 +533,7 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
             platform=self.platform,
             platform_instance=self.platform_instance_name,
             name=table.id,
+            env=self.config.env,
         )
         assert table.view_definition
         view_properties_aspect = ViewProperties(
@@ -556,6 +562,7 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
             platform=self.platform,
             platform_instance=self.platform_instance_name,
             name=table.id,
+            env=self.config.env,
         )
         mcp = MetadataChangeProposalWrapper(
             entityType="dataset",
