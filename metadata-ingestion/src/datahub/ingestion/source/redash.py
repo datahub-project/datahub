@@ -796,4 +796,3 @@ class RedashSource(Source):
 
     def get_report(self) -> SourceReport:
         return self.report
-
