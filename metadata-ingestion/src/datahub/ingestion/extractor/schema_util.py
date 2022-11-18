@@ -294,9 +294,11 @@ class AvroToMceSchemaConverter:
                 ) or actual_schema.props.get("doc")
                 # We enrich _description with default value, so it doesn't mean if we have description it is not empty
                 if not self._schema.props.get("doc"):
-                    description = str(
+                    description = (
                         f"{schema_description or ''}{description or ''}" or None
                     )
+                    # Empty description string should be converted to None
+                    description = description or None
 
                 native_data_type = self._converter._prefix_name_stack[-1]
                 if isinstance(schema, (avro.schema.Field, avro.schema.UnionSchema)):
@@ -418,7 +420,6 @@ class AvroToMceSchemaConverter:
         if last_field_schema.has_default and last_field_schema.default is not None:
             prefix = f"{description}" if description else ""
             description = f"{prefix}\nField default value: {last_field_schema.default}"
-
         with AvroToMceSchemaConverter.SchemaFieldEmissionContextManager(
             last_field_schema, last_field_schema, self, description
         ) as f_emit:
