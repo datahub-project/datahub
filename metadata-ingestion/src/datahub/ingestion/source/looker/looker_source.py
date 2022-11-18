@@ -99,16 +99,6 @@ from datahub.utilities.source_helpers import (
 logger = logging.getLogger(__name__)
 
 
-class LookerStatefulIngestionConfig(StatefulStaleMetadataRemovalConfig):
-    """
-    Specialization of StatefulStaleMetadataRemovalConfig to adding custom config.
-    This will be used to override the stateful_ingestion config param of StatefulIngestionConfigBase
-    in the LookerDashboardSourceConfig.
-    """
-
-    _entity_types: List[str] = Field(default=["dataset", "chart", "dashboard"])
-
-
 class LookerDashboardSourceConfig(
     LookerAPIConfig, LookerCommonConfig, StatefulIngestionConfigBase
 ):
@@ -157,7 +147,7 @@ class LookerDashboardSourceConfig(
         description="Used only if extract_usage_history is set to True. Interval to extract looker dashboard usage history for. See https://docs.looker.com/reference/filter-expressions#date_and_time.",
     )
 
-    stateful_ingestion: Optional[LookerStatefulIngestionConfig] = Field(
+    stateful_ingestion: Optional[StatefulStaleMetadataRemovalConfig] = Field(
         default=None, description=""
     )
 

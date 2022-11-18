@@ -207,7 +207,7 @@ def setup_mock_dashboard(mocked_client):
 def setup_mock_dashboard_multiple_charts(mocked_client):
     mocked_client.all_dashboards.return_value = [Dashboard(id="1")]
     mocked_client.dashboard.return_value = Dashboard(
-        id="1",
+        id="11",
         title="foo",
         created_at=datetime.utcfromtimestamp(time.time()),
         updated_at=datetime.utcfromtimestamp(time.time()),
@@ -590,7 +590,7 @@ def test_looker_ingest_usage_history(pytestconfig, tmp_path, mock_time):
 @freeze_time(FROZEN_TIME)
 def test_looker_ingest_stateful(pytestconfig, tmp_path, mock_time, mock_datahub_graph):
     output_file_name: str = "looker_mces.json"
-    golden_file_name: str = "golden_test_ingest.json"
+    golden_file_name: str = "golden_looker_mces.json"
     output_file_deleted_name: str = "looker_mces_deleted_stateful.json"
     golden_file_deleted_name: str = "looker_mces_golden_deleted_stateful.json"
 
@@ -634,7 +634,7 @@ def test_looker_ingest_stateful(pytestconfig, tmp_path, mock_time, mock_datahub_
 
         mock_checkpoint.return_value = mock_datahub_graph
         mock_sdk.return_value = mocked_client
-        setup_mock_dashboard(mocked_client)
+        setup_mock_dashboard_multiple_charts(mocked_client)
         setup_mock_explore(mocked_client)
 
         pipeline_run1 = Pipeline.create(looker_source_config(output_file_name))
@@ -661,7 +661,7 @@ def test_looker_ingest_stateful(pytestconfig, tmp_path, mock_time, mock_datahub_
 
         mock_checkpoint.return_value = mock_datahub_graph
         mock_sdk.return_value = mocked_client
-        mocked_client.all_dashboards.return_value = []
+        setup_mock_dashboard(mocked_client)
         setup_mock_explore(mocked_client)
 
         pipeline_run2 = Pipeline.create(looker_source_config(output_file_deleted_name))
@@ -697,7 +697,7 @@ def test_looker_ingest_stateful(pytestconfig, tmp_path, mock_time, mock_datahub_
     )
     assert len(difference_dataset_urns) == 1
     deleted_dataset_urns: List[str] = [
-        "urn:li:dataset:(urn:li:dataPlatform:looker,data.explore.my_view,PROD)"
+        "urn:li:dataset:(urn:li:dataPlatform:looker,bogus data.explore.my_view,PROD)"
     ]
     assert sorted(deleted_dataset_urns) == sorted(difference_dataset_urns)
 
@@ -705,14 +705,14 @@ def test_looker_ingest_stateful(pytestconfig, tmp_path, mock_time, mock_datahub_
         state1.get_urns_not_in(type="chart", other_checkpoint_state=state2)
     )
     assert len(difference_chart_urns) == 1
-    deleted_chart_urns = ["urn:li:chart:(looker,dashboard_elements.2)"]
+    deleted_chart_urns = ["urn:li:chart:(looker,dashboard_elements.10)"]
     assert sorted(deleted_chart_urns) == sorted(difference_chart_urns)
 
     difference_dashboard_urns = list(
         state1.get_urns_not_in(type="dashboard", other_checkpoint_state=state2)
     )
     assert len(difference_dashboard_urns) == 1
-    deleted_dashboard_urns = ["urn:li:dashboard:(looker,dashboards.1)"]
+    deleted_dashboard_urns = ["urn:li:dashboard:(looker,dashboards.11)"]
     assert sorted(deleted_dashboard_urns) == sorted(difference_dashboard_urns)
 
 
