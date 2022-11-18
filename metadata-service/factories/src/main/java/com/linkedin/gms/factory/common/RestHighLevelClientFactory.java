@@ -113,7 +113,7 @@ public class RestHighLevelClientFactory {
           credentialsProvider.setCredentials(AuthScope.ANY, new UsernamePasswordCredentials(username, password));
           httpAsyncClientBuilder.setDefaultCredentialsProvider(credentialsProvider);
         }
-        if(opensearchUseAwsIamAuth) {
+        if (opensearchUseAwsIamAuth) {
           HttpRequestInterceptor interceptor = getAwsRequestSigningInterceptor(region);
           httpAsyncClientBuilder.addInterceptorLast(interceptor);
         }
