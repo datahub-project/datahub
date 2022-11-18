@@ -34,14 +34,14 @@ The following video shows you how to get started with ingesting Tableau metadata
   />
 </div>
 
-## Integration Details
+### Integration Details
 
 This plugin extracts Sheets, Dashboards, Embedded and Published Data sources metadata within Workbooks in a given project
 on a Tableau site. This plugin is in beta and has only been tested on PostgreSQL database and sample workbooks
 on Tableau online. Tableau's GraphQL interface is used to extract metadata information. Queries used to extract metadata are located
 in `metadata-ingestion/src/datahub/ingestion/source/tableau_common.py`
 
-### Concept Mapping
+#### Concept Mapping
 
 This ingestion source maps the following Source System Concepts to DataHub Concepts:
 
@@ -80,7 +80,7 @@ Lineage is emitted as received from Tableau's metadata API for
 
 - Tableau metadata API might return incorrect schema name for tables for some databases, leading to incorrect metadata in DataHub. This source attempts to extract correct schema from databaseTable's fully qualified name, wherever possible. Read [Using the databaseTable object in query](https://help.tableau.com/current/api/metadata_api/en-us/docs/meta_api_model.html#schema_attribute) for caveats in using schema attribute.
 
-## Troubleshooting
+### Troubleshooting
 
 ### Why are only some workbooks/custom SQLs/published datasources ingested from the specified project?
 
