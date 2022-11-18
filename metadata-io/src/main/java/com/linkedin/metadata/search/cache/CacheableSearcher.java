@@ -1,6 +1,5 @@
 package com.linkedin.metadata.search.cache;
 
-import com.codahale.metrics.Timer;
 import com.linkedin.metadata.query.SearchFlags;
 import com.linkedin.metadata.search.SearchEntity;
 import com.linkedin.metadata.search.SearchEntityArray;
@@ -11,6 +10,8 @@ import java.util.List;
 import java.util.function.Function;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
+
+import io.micrometer.core.instrument.LongTaskTimer;
 import lombok.RequiredArgsConstructor;
 import lombok.Value;
 import org.springframework.cache.Cache;
@@ -44,7 +45,8 @@ public class CacheableSearcher<K> {
    * This let's us have batches that return a variable number of results (we have no idea which batch the "from" "size" page corresponds to)
    */
   public SearchResult getSearchResults(int from, int size) {
-    try (Timer.Context ignored = MetricUtils.timer(this.getClass(), "getSearchResults").time()) {
+    LongTaskTimer.Sample ignored = MetricUtils.timer(this.getClass().toString().toString(), "getSearchResults").start();
+    try {
       int resultsSoFar = 0;
       int batchId = 0;
       boolean foundStart = false;
@@ -77,6 +79,9 @@ public class CacheableSearcher<K> {
           .setPageSize(size)
           .setNumEntities(batchedResult.getNumEntities());
     }
+    finally {
+      ignored.stop();
+    }
   }
 
   private QueryPagination getBatchQuerySize(int batchId) {
@@ -84,25 +89,29 @@ public class CacheableSearcher<K> {
   }
 
   private SearchResult getBatch(int batchId) {
-    try (Timer.Context ignored = MetricUtils.timer(this.getClass(), "getBatch").time()) {
+    LongTaskTimer.Sample ignored = MetricUtils.timer(this.getClass().toString().toString(), "getBatch").start();
+    try {
       QueryPagination batch = getBatchQuerySize(batchId);
       SearchResult result;
       if (enableCache()) {
-        Timer.Context cacheAccess = MetricUtils.timer(this.getClass(), "getBatch_cache_access").time();
+        LongTaskTimer.Sample cacheAccess = MetricUtils.timer(this.getClass().toString().toString(), "getBatch_cache_access").start();
         K cacheKey = cacheKeyGenerator.apply(batch);
         result = cache.get(cacheKey, SearchResult.class);
         cacheAccess.stop();
         if (result == null) {
-          Timer.Context cacheMiss = MetricUtils.timer(this.getClass(), "getBatch_cache_miss").time();
+          LongTaskTimer.Sample cacheMiss = MetricUtils.timer(this.getClass().toString().toString(), "getBatch_cache_miss").start();
           result = searcher.apply(batch);
           cache.put(cacheKey, result);
           cacheMiss.stop();
-          MetricUtils.counter(this.getClass(), "getBatch_cache_miss_count").inc();
+          MetricUtils.counter(this.getClass(), "getBatch_cache_miss_count").increment();
         }
       } else {
         result = searcher.apply(batch);
       }
       return result;
+    }
+    finally {
+      ignored.stop();
     }
   }
 

@@ -1,6 +1,5 @@
 package com.linkedin.metadata.entity;
 
-import com.codahale.metrics.Timer;
 import com.datahub.util.RecordUtils;
 import com.datahub.util.exception.ModelConversionException;
 import com.fasterxml.jackson.core.JsonProcessingException;
@@ -85,6 +84,7 @@ import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 
 import io.ebean.PagedList;
+import io.micrometer.core.instrument.LongTaskTimer;
 import lombok.Value;
 import lombok.extern.slf4j.Slf4j;
 
@@ -682,7 +682,7 @@ private Map<Urn, List<EnvelopedAspect>> getCorrespondingAspects(Set<EntityAspect
 
     systemMetadata = generateSystemMetadataIfEmpty(systemMetadata);
 
-    Timer.Context ingestToLocalDBTimer = MetricUtils.timer(this.getClass(), "ingestAspectsToLocalDB").time();
+    LongTaskTimer.Sample ingestToLocalDBTimer = MetricUtils.timer(this.getClass(), "ingestAspectsToLocalDB").start();
     List<Pair<String, UpdateAspectResult>> ingestResults = wrappedIngestAspectsToLocalDB(urn, aspectRecordsToIngest, auditStamp, systemMetadata);
     ingestToLocalDBTimer.stop();
 
@@ -711,7 +711,7 @@ private Map<Urn, List<EnvelopedAspect>> getCorrespondingAspects(Set<EntityAspect
 
     systemMetadata = generateSystemMetadataIfEmpty(systemMetadata);
 
-    Timer.Context ingestToLocalDBTimer = MetricUtils.timer(this.getClass(), "ingestAspectToLocalDB").time();
+    LongTaskTimer.Sample ingestToLocalDBTimer = MetricUtils.timer(this.getClass(), "ingestAspectToLocalDB").start();
     UpdateAspectResult result = wrappedIngestAspectToLocalDB(urn, aspectName, ignored -> newValue, auditStamp, systemMetadata);
     ingestToLocalDBTimer.stop();
 
@@ -740,7 +740,7 @@ private Map<Urn, List<EnvelopedAspect>> getCorrespondingAspects(Set<EntityAspect
 
     final SystemMetadata internalSystemMetadata = generateSystemMetadataIfEmpty(systemMetadata);
 
-    Timer.Context ingestToLocalDBTimer = MetricUtils.timer(this.getClass(), "ingestAspectToLocalDB").time();
+    LongTaskTimer.Sample ingestToLocalDBTimer = MetricUtils.timer(this.getClass(), "ingestAspectToLocalDB").start();
     UpdateAspectResult result = _aspectDao.runInTransactionWithRetry(() -> {
       final String urnStr = urn.toString();
       final EntityAspect latest = _aspectDao.getLatestAspect(urnStr, aspectName);
@@ -784,14 +784,14 @@ private Map<Urn, List<EnvelopedAspect>> getCorrespondingAspects(Set<EntityAspect
         throw new RuntimeException(String.format("Unknown aspect %s for entity %s", aspectName, entityName));
       }
 
-      Timer.Context produceMCLTimer = MetricUtils.timer(this.getClass(), "produceMCL").time();
+      LongTaskTimer.Sample produceMCLTimer = MetricUtils.timer(this.getClass(), "produceMCL").start();
       produceMetadataChangeLog(urn, entityName, aspectName, aspectSpec, oldValue, updatedValue, oldSystemMetadata,
           updatedSystemMetadata, result.getAuditStamp(), ChangeType.UPSERT);
       produceMCLTimer.stop();
 
       // For legacy reasons, keep producing to the MAE event stream without blocking ingest
       try {
-        Timer.Context produceMAETimer = MetricUtils.timer(this.getClass(), "produceMAE").time();
+        LongTaskTimer.Sample produceMAETimer = MetricUtils.timer(this.getClass(), "produceMAE").start();
         produceMetadataAuditEvent(urn, aspectName, oldValue, updatedValue, result.getOldSystemMetadata(),
             result.getNewSystemMetadata(), MetadataAuditOperation.UPDATE);
         produceMAETimer.stop();
@@ -966,7 +966,7 @@ private Map<Urn, List<EnvelopedAspect>> getCorrespondingAspects(Set<EntityAspect
 
   private UpdateAspectResult upsertAspect(final RecordTemplate aspect, final SystemMetadata systemMetadata,
       MetadataChangeProposal mcp, Urn entityUrn, AuditStamp auditStamp, AspectSpec aspectSpec) {
-    Timer.Context ingestToLocalDBTimer = MetricUtils.timer(this.getClass(), "ingestProposalToLocalDB").time();
+    LongTaskTimer.Sample ingestToLocalDBTimer = MetricUtils.timer(this.getClass(), "ingestProposalToLocalDB").start();
     UpdateAspectResult result =
         wrappedIngestAspectToLocalDB(entityUrn, mcp.getAspectName(), ignored -> aspect, auditStamp,
             systemMetadata);
@@ -983,7 +983,7 @@ private Map<Urn, List<EnvelopedAspect>> getCorrespondingAspects(Set<EntityAspect
 
   private UpdateAspectResult patchAspect(final Patch patch, final SystemMetadata systemMetadata,
       MetadataChangeProposal mcp, Urn entityUrn, AuditStamp auditStamp, AspectSpec aspectSpec) {
-    Timer.Context patchAspectToLocalDBTimer = MetricUtils.timer(this.getClass(), "patchAspect").time();
+    LongTaskTimer.Sample patchAspectToLocalDBTimer = MetricUtils.timer(this.getClass(), "patchAspect").start();
     UpdateAspectResult result = patchAspectToLocalDB(entityUrn, aspectSpec, patch, auditStamp, systemMetadata);
     patchAspectToLocalDBTimer.stop();
     RecordTemplate oldAspect = result.getOldValue();

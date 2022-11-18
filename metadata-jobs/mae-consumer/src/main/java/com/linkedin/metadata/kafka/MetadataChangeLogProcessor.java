@@ -1,8 +1,5 @@
 package com.linkedin.metadata.kafka;
 
-import com.codahale.metrics.Histogram;
-import com.codahale.metrics.MetricRegistry;
-import com.codahale.metrics.Timer;
 import com.google.common.collect.ImmutableList;
 import com.linkedin.gms.factory.kafka.KafkaEventConsumerFactory;
 import com.linkedin.metadata.EventUtils;
@@ -17,6 +14,9 @@ import com.linkedin.mxe.MetadataChangeLog;
 import com.linkedin.mxe.Topics;
 import java.util.List;
 import javax.annotation.Nonnull;
+
+import io.micrometer.core.instrument.DistributionSummary;
+import io.micrometer.core.instrument.LongTaskTimer;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.avro.generic.GenericRecord;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
@@ -42,7 +42,7 @@ import org.springframework.stereotype.Component;
 public class MetadataChangeLogProcessor {
 
   private final List<MetadataChangeLogHook> hooks;
-  private final Histogram kafkaLagStats = MetricUtils.get().histogram(MetricRegistry.name(this.getClass(), "kafkaLag"));
+  private final DistributionSummary kafkaLagStats = MetricUtils.histogram(this.getClass(), "kafkaLag");
 
   @Autowired
   public MetadataChangeLogProcessor(
@@ -60,10 +60,10 @@ public class MetadataChangeLogProcessor {
       "${METADATA_CHANGE_LOG_TIMESERIES_TOPIC_NAME:" + Topics.METADATA_CHANGE_LOG_TIMESERIES
           + "}"}, containerFactory = "kafkaEventConsumer")
   public void consume(final ConsumerRecord<String, GenericRecord> consumerRecord) {
-    kafkaLagStats.update(System.currentTimeMillis() - consumerRecord.timestamp());
+    kafkaLagStats.record(System.currentTimeMillis() - consumerRecord.timestamp());
     final GenericRecord record = consumerRecord.value();
     log.debug("Got Generic MCL on topic: {}, partition: {}, offset: {}", consumerRecord.topic(), consumerRecord.partition(), consumerRecord.offset());
-    MetricUtils.counter(this.getClass(), "received_mcl_count").inc();
+    MetricUtils.counter(this.getClass(), "received_mcl_count").increment();
 
     MetadataChangeLog event;
     try {
@@ -71,7 +71,7 @@ public class MetadataChangeLogProcessor {
       log.debug("Successfully converted Avro MCL to Pegasus MCL. urn: {}, key: {}", event.getEntityUrn(),
           event.getEntityKeyAspect());
     } catch (Exception e) {
-      MetricUtils.counter(this.getClass(), "avro_to_pegasus_conversion_failure").inc();
+      MetricUtils.counter(this.getClass(), "avro_to_pegasus_conversion_failure").increment();
       log.error("Error deserializing message due to: ", e);
       log.error("Message: {}", record.toString());
       return;
@@ -84,17 +84,20 @@ public class MetadataChangeLogProcessor {
       if (!hook.isEnabled()) {
         continue;
       }
-      try (Timer.Context ignored = MetricUtils.timer(this.getClass(), hook.getClass().getSimpleName() + "_latency")
-          .time()) {
+      LongTaskTimer.Sample ignored = MetricUtils.timer(this.getClass(), hook.getClass().getSimpleName() + "_latency").start();
+      try {
         hook.invoke(event);
       } catch (Exception e) {
         // Just skip this hook and continue. - Note that this represents "at most once" processing.
-        MetricUtils.counter(this.getClass(), hook.getClass().getSimpleName() + "_failure").inc();
+        MetricUtils.counter(this.getClass(), hook.getClass().getSimpleName() + "_failure").increment();
         log.error("Failed to execute MCL hook with name {}", hook.getClass().getCanonicalName(), e);
+      }
+      finally {
+        ignored.stop();
       }
     }
     // TODO: Manually commit kafka offsets after full processing.
-    MetricUtils.counter(this.getClass(), "consumed_mcl_count").inc();
+    MetricUtils.counter(this.getClass(), "consumed_mcl_count").increment();
     log.debug("Successfully completed MCL hooks for urn: {}, key: {}", event.getEntityUrn(),
         event.getEntityKeyAspect());
   }

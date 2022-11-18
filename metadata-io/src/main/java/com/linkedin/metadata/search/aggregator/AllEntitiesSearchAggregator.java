@@ -1,6 +1,5 @@
 package com.linkedin.metadata.search.aggregator;
 
-import com.codahale.metrics.Timer;
 import com.linkedin.data.template.GetMode;
 import com.linkedin.data.template.LongMap;
 import com.linkedin.metadata.models.registry.EntityRegistry;
@@ -23,6 +22,7 @@ import com.linkedin.metadata.utils.ConcurrencyUtils;
 import com.linkedin.metadata.utils.SearchUtil;
 import com.linkedin.metadata.utils.metrics.MetricUtils;
 import com.linkedin.util.Pair;
+import io.micrometer.core.instrument.LongTaskTimer;
 import io.opentelemetry.extension.annotations.WithSpan;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -69,8 +69,12 @@ public class AllEntitiesSearchAggregator {
     // 1. Get entities to query for (Do not query entities without a single document)
     List<String> nonEmptyEntities;
     List<String> lowercaseEntities = entities.stream().map(String::toLowerCase).collect(Collectors.toList());
-    try (Timer.Context ignored = MetricUtils.timer(this.getClass(), "getNonEmptyEntities").time()) {
+    LongTaskTimer.Sample ignored = MetricUtils.timer(this.getClass(), "getNonEmptyEntities").start();
+    try {
       nonEmptyEntities = _entityDocCountCache.getNonEmptyEntities();
+    }
+    finally {
+      ignored.stop();
     }
     if (!entities.isEmpty()) {
       nonEmptyEntities = nonEmptyEntities.stream().filter(lowercaseEntities::contains).collect(Collectors.toList());
@@ -95,7 +99,7 @@ public class AllEntitiesSearchAggregator {
       return getEmptySearchResult(from, size);
     }
 
-    Timer.Context postProcessTimer = MetricUtils.timer(this.getClass(), "postProcessTimer").time();
+    LongTaskTimer.Sample postProcessTimer = MetricUtils.timer(this.getClass(), "postProcessTimer").start();
 
     // 3. Combine search results from all entities
     int numEntities = 0;
@@ -156,11 +160,15 @@ public class AllEntitiesSearchAggregator {
       @Nullable SearchFlags searchFlags) {
     Map<String, SearchResult> searchResults;
     // Query the entity search service for all entities asynchronously
-    try (Timer.Context ignored = MetricUtils.timer(this.getClass(), "searchEntities").time()) {
+    LongTaskTimer.Sample ignored = MetricUtils.timer(this.getClass(), "searchEntities").start();
+    try {
       searchResults = ConcurrencyUtils.transformAndCollectAsync(entities, entity -> new Pair<>(entity,
           _cachingEntitySearchService.search(entity, input, postFilters, sortCriterion, queryFrom, querySize, searchFlags)))
           .stream()
           .collect(Collectors.toMap(Pair::getKey, Pair::getValue));
+    }
+    finally {
+      ignored.stop();
     }
     return searchResults;
   }

@@ -1,12 +1,12 @@
 package com.linkedin.metadata.resources.entity;
 
-import com.codahale.metrics.MetricRegistry;
 import com.linkedin.common.VersionedUrn;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.entity.EntityResponse;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.restli.RestliUtil;
+import com.linkedin.metadata.utils.metrics.MetricUtils;
 import com.linkedin.parseq.Task;
 import com.linkedin.restli.server.annotations.Optional;
 import com.linkedin.restli.server.annotations.QueryParam;
@@ -70,6 +70,6 @@ public class EntityVersionedV2Resource extends CollectionResourceTaskTemplate<co
             String.format("Failed to batch get versioned entities: %s, projectedAspects: %s", versionedUrnStrs, projectedAspects),
             e);
       }
-    }, MetricRegistry.name(this.getClass(), "batchGet"));
+    }, MetricUtils.buildName(this.getClass(), "batchGet"));
   }
 }

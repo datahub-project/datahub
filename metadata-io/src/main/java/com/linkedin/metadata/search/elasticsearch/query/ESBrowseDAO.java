@@ -1,6 +1,5 @@
 package com.linkedin.metadata.search.elasticsearch.query;
 
-import com.codahale.metrics.Timer;
 import com.datahub.util.exception.ESQueryException;
 import com.google.common.annotations.VisibleForTesting;
 import com.linkedin.common.urn.Urn;
@@ -25,6 +24,8 @@ import java.util.Map;
 import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
+
+import io.micrometer.core.instrument.LongTaskTimer;
 import lombok.RequiredArgsConstructor;
 import lombok.Value;
 import lombok.extern.slf4j.Slf4j;
@@ -89,9 +90,13 @@ public class ESBrowseDAO {
       final String indexName = indexConvention.getIndexName(entityRegistry.getEntitySpec(entityName));
 
       final SearchResponse groupsResponse;
-      try (Timer.Context ignored = MetricUtils.timer(this.getClass(), "esGroupSearch").time()) {
+      LongTaskTimer.Sample ignoredGS = MetricUtils.timer(this.getClass(), "esGroupSearch").start();
+      try {
         groupsResponse =
             client.search(constructGroupsSearchRequest(indexName, path, requestMap), RequestOptions.DEFAULT);
+      }
+      finally {
+        ignoredGS.stop();
       }
       final BrowseGroupsResult browseGroupsResult = extractGroupsResponse(groupsResponse, path, from, size);
       final int numGroups = browseGroupsResult.getTotalGroups();
@@ -103,10 +108,14 @@ public class ESBrowseDAO {
       int entityFrom = Math.max(from - numGroups, 0);
       int entitySize = Math.min(Math.max(from + size - numGroups, 0), size);
       final SearchResponse entitiesResponse;
-      try (Timer.Context ignored = MetricUtils.timer(this.getClass(), "esEntitiesSearch").time()) {
+      LongTaskTimer.Sample ignoredES = MetricUtils.timer(this.getClass(), "esEntitiesSearch").start();
+      try {
         entitiesResponse =
             client.search(constructEntitiesSearchRequest(indexName, path, requestMap, entityFrom, entitySize),
                 RequestOptions.DEFAULT);
+      }
+      finally {
+        ignoredES.stop();
       }
       final int numEntities = (int) entitiesResponse.getHits().getTotalHits().value;
       final List<BrowseResultEntity> browseResultEntityList = extractEntitiesResponse(entitiesResponse, path);

@@ -1,6 +1,5 @@
 package com.datahub.graphql;
 
-import com.codahale.metrics.MetricRegistry;
 import com.datahub.authentication.Authentication;
 import com.datahub.authentication.AuthenticationContext;
 import com.datahub.authorization.AuthorizerChain;
@@ -132,13 +131,13 @@ public class GraphQLController {
       if (graphQLError instanceof DataHubGraphQLError) {
         DataHubGraphQLError dhGraphQLError = (DataHubGraphQLError) graphQLError;
         int errorCode = dhGraphQLError.getErrorCode();
-        MetricUtils.get().counter(MetricRegistry.name(this.getClass(), "errorCode", Integer.toString(errorCode))).inc();
+        MetricUtils.counter(this.getClass(), "errorCode", Integer.toString(errorCode)).increment();
       } else {
-        MetricUtils.get().counter(MetricRegistry.name(this.getClass(), "errorType", graphQLError.getErrorType().toString())).inc();
+        MetricUtils.counter(this.getClass(), "errorType", graphQLError.getErrorType().toString()).increment();
       }
     });
     if (executionResult.getErrors().size() != 0) {
-      MetricUtils.get().counter(MetricRegistry.name(this.getClass(), "error")).inc();
+      MetricUtils.counter(this.getClass(), "error").increment();
     }
   }
 
@@ -156,10 +155,10 @@ public class GraphQLController {
         Optional<Map<String, Object>>
                 parentResolver = resolvers.stream().filter(resolver -> resolver.get("parentType").equals("Query")).findFirst();
         String fieldName = parentResolver.isPresent() ? (String) parentResolver.get().get("fieldName") : "UNKNOWN";
-        MetricUtils.get().histogram(MetricRegistry.name(this.getClass(), fieldName)).update(totalDuration);
+        MetricUtils.histogram(this.getClass(), fieldName).record(totalDuration);
       }
     } catch (Exception e) {
-      MetricUtils.get().counter(MetricRegistry.name(this.getClass(), "submitMetrics", "exception")).inc();
+      MetricUtils.counter(this.getClass(), "submitMetrics", "exception").increment();
       log.error("Unable to submit metrics for GraphQL call.", e);
     }
   }

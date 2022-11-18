@@ -1,7 +1,5 @@
 package com.linkedin.metadata.kafka;
 
-import com.codahale.metrics.Histogram;
-import com.codahale.metrics.MetricRegistry;
 import com.datahub.authentication.Authentication;
 import com.linkedin.entity.client.RestliEntityClient;
 import com.linkedin.gms.factory.auth.SystemAuthenticationFactory;
@@ -16,6 +14,8 @@ import com.linkedin.mxe.MetadataChangeProposal;
 import com.linkedin.mxe.Topics;
 import java.io.IOException;
 import javax.annotation.Nonnull;
+
+import io.micrometer.core.instrument.DistributionSummary;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.avro.generic.GenericRecord;
@@ -45,7 +45,7 @@ public class MetadataChangeProposalsProcessor {
   private final RestliEntityClient entityClient;
   private final Producer<String, IndexedRecord> kafkaProducer;
 
-  private final Histogram kafkaLagStats = MetricUtils.get().histogram(MetricRegistry.name(this.getClass(), "kafkaLag"));
+  private final DistributionSummary kafkaLagStats = MetricUtils.histogram(this.getClass(), "kafkaLag");
 
   @Value("${FAILED_METADATA_CHANGE_PROPOSAL_TOPIC_NAME:" + Topics.FAILED_METADATA_CHANGE_PROPOSAL + "}")
   private String fmcpTopicName;
@@ -54,7 +54,7 @@ public class MetadataChangeProposalsProcessor {
       "${METADATA_CHANGE_PROPOSAL_TOPIC_NAME:" + Topics.METADATA_CHANGE_PROPOSAL
           + "}", containerFactory = "kafkaEventConsumer")
   public void consume(final ConsumerRecord<String, GenericRecord> consumerRecord) {
-    kafkaLagStats.update(System.currentTimeMillis() - consumerRecord.timestamp());
+    kafkaLagStats.record(System.currentTimeMillis() - consumerRecord.timestamp());
     final GenericRecord record = consumerRecord.value();
     log.debug("Record {}", record);
 

@@ -1,6 +1,5 @@
 package com.linkedin.metadata.graph.neo4j;
 
-import com.codahale.metrics.Timer;
 import com.datahub.util.Statement;
 import com.datahub.util.exception.RetryLimitReached;
 import com.google.common.annotations.VisibleForTesting;
@@ -27,6 +26,8 @@ import java.util.StringJoiner;
 import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
+
+import io.micrometer.core.instrument.LongTaskTimer;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.extern.slf4j.Slf4j;
@@ -331,8 +332,12 @@ public class Neo4jGraphService implements GraphService {
   @Nonnull
   private Result runQuery(@Nonnull Statement statement) {
     log.debug(String.format("Running Neo4j query %s", statement.toString()));
-    try (Timer.Context ignored = MetricUtils.timer(this.getClass(), "runQuery").time()) {
+    LongTaskTimer.Sample ignored = MetricUtils.timer(this.getClass(), "runQuery").start();
+    try {
       return _driver.session(_sessionConfig).run(statement.getCommandText(), statement.getParams());
+    }
+    finally {
+      ignored.stop();
     }
   }
 

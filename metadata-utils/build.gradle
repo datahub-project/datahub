@@ -3,8 +3,7 @@ apply plugin: 'java'
 dependencies {
   compile externalDependency.avro_1_7
   compile externalDependency.commonsLang
-  compile externalDependency.dropwizardMetricsCore
-  compile externalDependency.dropwizardMetricsJmx
+  compile externalDependency.micrometerPrometheus
   compile externalDependency.elasticSearchRest
   compile externalDependency.httpClient
   compile externalDependency.neo4jJavaDriver

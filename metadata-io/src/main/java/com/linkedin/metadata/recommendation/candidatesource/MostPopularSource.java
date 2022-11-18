@@ -1,6 +1,5 @@
 package com.linkedin.metadata.recommendation.candidatesource;
 
-import com.codahale.metrics.Timer;
 import com.datahub.util.exception.ESQueryException;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
@@ -17,6 +16,7 @@ import com.linkedin.metadata.recommendation.ScenarioType;
 import com.linkedin.metadata.search.utils.ESUtils;
 import com.linkedin.metadata.utils.elasticsearch.IndexConvention;
 import com.linkedin.metadata.utils.metrics.MetricUtils;
+import io.micrometer.core.instrument.LongTaskTimer;
 import io.opentelemetry.extension.annotations.WithSpan;
 import java.io.IOException;
 import java.util.List;
@@ -81,7 +81,8 @@ public class MostPopularSource implements RecommendationSource {
   public List<RecommendationContent> getRecommendations(@Nonnull Urn userUrn,
       @Nonnull RecommendationRequestContext requestContext) {
     SearchRequest searchRequest = buildSearchRequest(userUrn);
-    try (Timer.Context ignored = MetricUtils.timer(this.getClass(), "getMostPopular").time()) {
+    LongTaskTimer.Sample ignored = MetricUtils.timer(this.getClass(), "getMostPopular").start();
+    try {
       final SearchResponse searchResponse = _searchClient.search(searchRequest, RequestOptions.DEFAULT);
       // extract results
       ParsedTerms parsedTerms = searchResponse.getAggregations().get(ENTITY_AGG_NAME);
@@ -95,6 +96,9 @@ public class MostPopularSource implements RecommendationSource {
     } catch (Exception e) {
       log.error("Search query to get most popular entities failed", e);
       throw new ESQueryException("Search query failed:", e);
+    }
+    finally {
+      ignored.stop();
     }
   }
 

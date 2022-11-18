@@ -1,6 +1,5 @@
 package com.linkedin.metadata.search.elasticsearch.query;
 
-import com.codahale.metrics.Timer;
 import com.datahub.util.exception.ESQueryException;
 import com.linkedin.metadata.models.EntitySpec;
 import com.linkedin.metadata.models.registry.EntityRegistry;
@@ -12,6 +11,7 @@ import com.linkedin.metadata.search.elasticsearch.query.request.AutocompleteRequ
 import com.linkedin.metadata.search.elasticsearch.query.request.SearchRequestHandler;
 import com.linkedin.metadata.utils.elasticsearch.IndexConvention;
 import com.linkedin.metadata.utils.metrics.MetricUtils;
+import io.micrometer.core.instrument.LongTaskTimer;
 import io.opentelemetry.extension.annotations.WithSpan;
 import java.io.IOException;
 import java.util.Map;
@@ -44,11 +44,15 @@ public class ESSearchDAO {
     EntitySpec entitySpec = entityRegistry.getEntitySpec(entityName);
     CountRequest countRequest =
         new CountRequest(indexConvention.getIndexName(entitySpec)).query(SearchRequestHandler.getFilterQuery(null));
-    try (Timer.Context ignored = MetricUtils.timer(this.getClass(), "docCount").time()) {
+    LongTaskTimer.Sample ignored = MetricUtils.timer(this.getClass(), "docCount").start();
+    try {
       return client.count(countRequest, RequestOptions.DEFAULT).getCount();
     } catch (IOException e) {
       log.error("Count query failed:" + e.getMessage());
       throw new ESQueryException("Count query failed:", e);
+    }
+    finally {
+      ignored.stop();
     }
   }
 
@@ -56,7 +60,8 @@ public class ESSearchDAO {
   @WithSpan
   private SearchResult executeAndExtract(@Nonnull EntitySpec entitySpec, @Nonnull SearchRequest searchRequest, @Nullable Filter filter, int from,
       int size) {
-    try (Timer.Context ignored = MetricUtils.timer(this.getClass(), "executeAndExtract_search").time()) {
+    LongTaskTimer.Sample ignored = MetricUtils.timer(this.getClass(), "executeAndExtract_search").start();
+    try {
       final SearchResponse searchResponse = client.search(searchRequest, RequestOptions.DEFAULT);
       // extract results, validated against document model as well
       return SearchRequestHandler.getBuilder(entitySpec).extractResult(searchResponse, filter, from, size);
@@ -71,6 +76,9 @@ public class ESSearchDAO {
       }
       log.error("Search query failed", e);
       throw new ESQueryException("Search query failed:", e);
+    }
+    finally {
+      ignored.stop();
     }
   }
 
@@ -89,7 +97,7 @@ public class ESSearchDAO {
   public SearchResult search(@Nonnull String entityName, @Nonnull String input, @Nullable Filter postFilters,
       @Nullable SortCriterion sortCriterion, int from, int size) {
     final String finalInput = input.isEmpty() ? "*" : input;
-    Timer.Context searchRequestTimer = MetricUtils.timer(this.getClass(), "searchRequest").time();
+    LongTaskTimer.Sample searchRequestTimer = MetricUtils.timer(this.getClass(), "searchRequest").start();
     EntitySpec entitySpec = entityRegistry.getEntitySpec(entityName);
     // Step 1: construct the query
     final SearchRequest searchRequest = SearchRequestHandler.getBuilder(entitySpec)
@@ -168,13 +176,17 @@ public class ESSearchDAO {
     }
     searchRequest.indices(indexName);
 
-    try (Timer.Context ignored = MetricUtils.timer(this.getClass(), "aggregateByValue_search").time()) {
+    LongTaskTimer.Sample ignored = MetricUtils.timer(this.getClass(), "aggregateByValue_search").start();
+    try {
       final SearchResponse searchResponse = client.search(searchRequest, RequestOptions.DEFAULT);
       // extract results, validated against document model as well
       return SearchRequestHandler.extractTermAggregations(searchResponse, field);
     } catch (Exception e) {
       log.error("Aggregation query failed", e);
       throw new ESQueryException("Aggregation query failed:", e);
+    }
+    finally {
+      ignored.stop();
     }
   }
 }

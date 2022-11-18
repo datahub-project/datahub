@@ -1,41 +1,74 @@
 package com.linkedin.metadata.utils.metrics;
 
-import com.codahale.metrics.Counter;
-import com.codahale.metrics.MetricRegistry;
-import com.codahale.metrics.SharedMetricRegistries;
-import com.codahale.metrics.Timer;
-import com.codahale.metrics.jmx.JmxReporter;
+import io.micrometer.core.instrument.Counter;
+import io.micrometer.core.instrument.DistributionSummary;
+import io.micrometer.core.instrument.LongTaskTimer;
+import io.micrometer.prometheus.PrometheusConfig;
+import io.micrometer.prometheus.PrometheusMeterRegistry;
 
+import java.util.HashMap;
+import java.util.Map;
 
 public class MetricUtils {
   private MetricUtils() {
   }
 
-  public static final String NAME = "default";
-  private static final MetricRegistry REGISTRY = SharedMetricRegistries.getOrCreate(NAME);
+  private static final PrometheusMeterRegistry PROMETHEUS_METER_REGISTRY = new PrometheusMeterRegistry(PrometheusConfig.DEFAULT);
+  private static final Map<String, LongTaskTimer> timerMap = new HashMap<>();
+  private static final Map<String, DistributionSummary> histogramMap = new HashMap<>();
 
-  static {
-    final JmxReporter reporter = JmxReporter.forRegistry(REGISTRY).build();
-    reporter.start();
+  public static Counter counter(Class<?> klass, String... subNames) {
+    return counter(klass.toString(), subNames);
   }
 
-  public static MetricRegistry get() {
-    return REGISTRY;
+  public static Counter counter(String metricName, String... subNames) {
+    String name = buildName(metricName, subNames);
+    return PROMETHEUS_METER_REGISTRY.counter(name);
   }
 
-  public static Counter counter(Class<?> klass, String metricName) {
-    return REGISTRY.counter(MetricRegistry.name(klass, metricName));
+  public static LongTaskTimer timer(Class<?> klass, String... subNames) {
+    return timer(klass.toString(), subNames);
   }
 
-  public static Counter counter(String metricName) {
-    return REGISTRY.counter(MetricRegistry.name(metricName));
+  public static LongTaskTimer timer(String metricName, String... subNames) {
+    String name = buildName(metricName, subNames);
+    if (!timerMap.containsKey(name)) {
+      timerMap.put(name, LongTaskTimer.builder(name).register(PROMETHEUS_METER_REGISTRY));
+    }
+    return timerMap.get(name);
   }
 
-  public static Timer timer(Class<?> klass, String metricName) {
-    return REGISTRY.timer(MetricRegistry.name(klass, metricName));
+  public static DistributionSummary histogram(Class<?> klass, String... subNames) {
+    return histogram(klass.toString(), subNames);
   }
 
-  public static Timer timer(String metricName) {
-    return REGISTRY.timer(MetricRegistry.name(metricName));
+  public static DistributionSummary histogram(String metricName, String... subNames) {
+    String name = buildName(metricName, subNames);
+    if (!histogramMap.containsKey(name)) {
+      histogramMap.put(name, DistributionSummary.builder(name).register(PROMETHEUS_METER_REGISTRY));
+    }
+    return histogramMap.get(name);
+  }
+
+  public static String buildName(Class<?> klass, String... subNames) {
+    return buildName(klass.toString(), subNames);
+  }
+
+  public static String buildName(String name, String... names) {
+    final StringBuilder builder = new StringBuilder();
+    builder.append(name);
+    if (names != null) {
+      for (String s : names) {
+        if (s != null && !s.isEmpty()) {
+          builder.append('.');
+          builder.append(s);
+        }
+      }
+    }
+    return builder.toString();
+  }
+
+  public static String scrapePrometheusData() {
+    return PROMETHEUS_METER_REGISTRY.scrape();
   }
 }

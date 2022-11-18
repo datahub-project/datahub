@@ -1,6 +1,5 @@
 package com.linkedin.metadata.resources.entity;
 
-import com.codahale.metrics.MetricRegistry;
 import com.linkedin.common.AuditStamp;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
@@ -25,6 +24,7 @@ import com.linkedin.metadata.systemmetadata.SystemMetadataService;
 import com.linkedin.metadata.timeseries.TimeseriesAspectService;
 import com.linkedin.metadata.utils.EntityKeyUtils;
 import com.linkedin.metadata.utils.GenericRecordUtils;
+import com.linkedin.metadata.utils.metrics.MetricUtils;
 import com.linkedin.mxe.MetadataChangeProposal;
 import com.linkedin.parseq.Task;
 import com.linkedin.restli.server.annotations.Action;
@@ -228,7 +228,7 @@ public class BatchIngestionRunResource extends CollectionResourceTaskTemplate<St
             .setUnsafeEntitiesCount(unsafeEntitiesCount)
             .setUnsafeEntities(new UnsafeEntityInfoArray(unsafeEntityInfos))
             .setAspectRowSummaries(rowSummaries);
-      }, MetricRegistry.name(this.getClass(), "rollback"));
+      }, MetricUtils.buildName(this.getClass(), "rollback"));
     } catch (Exception e) {
       updateExecutionRequestStatus(runId, ROLLBACK_FAILED_STATUS);
       throw new RuntimeException(String.format("There was an issue rolling back ingestion run with runId %s", runId), e);
@@ -294,7 +294,7 @@ public class BatchIngestionRunResource extends CollectionResourceTaskTemplate<St
               includeSoft != null ? includeSoft : DEFAULT_INCLUDE_SOFT_DELETED);
 
       return new IngestionRunSummaryArray(summaries);
-    }, MetricRegistry.name(this.getClass(), "list"));
+    }, MetricUtils.buildName(this.getClass(), "list"));
   }
 
   @Action(name = "describe")
@@ -327,6 +327,6 @@ public class BatchIngestionRunResource extends CollectionResourceTaskTemplate<St
         });
       }
       return new AspectRowSummaryArray(summaries);
-    }, MetricRegistry.name(this.getClass(), "describe"));
+    }, MetricUtils.buildName(this.getClass(), "describe"));
   }
 }

@@ -1,6 +1,5 @@
 package com.linkedin.metadata.recommendation.candidatesource;
 
-import com.codahale.metrics.Timer;
 import com.datahub.util.exception.ESQueryException;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.metadata.datahubusage.DataHubUsageEventConstants;
@@ -18,6 +17,8 @@ import java.util.List;
 import java.util.Optional;
 import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
+
+import io.micrometer.core.instrument.LongTaskTimer;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.elasticsearch.action.search.SearchRequest;
@@ -75,7 +76,8 @@ public class RecentlySearchedSource implements RecommendationSource {
   public List<RecommendationContent> getRecommendations(@Nonnull Urn userUrn,
       @Nonnull RecommendationRequestContext requestContext) {
     SearchRequest searchRequest = buildSearchRequest(userUrn);
-    try (Timer.Context ignored = MetricUtils.timer(this.getClass(), "getRecentlySearched").time()) {
+    LongTaskTimer.Sample ignored = MetricUtils.timer(this.getClass(), "getRecentlySearched").start();
+    try {
       final SearchResponse searchResponse = _searchClient.search(searchRequest, RequestOptions.DEFAULT);
       // extract results
       ParsedTerms parsedTerms = searchResponse.getAggregations().get(ENTITY_AGG_NAME);
@@ -89,6 +91,9 @@ public class RecentlySearchedSource implements RecommendationSource {
     } catch (Exception e) {
       log.error("Search query to get most recently viewed entities failed", e);
       throw new ESQueryException("Search query failed:", e);
+    }
+    finally {
+      ignored.stop();
     }
   }
 

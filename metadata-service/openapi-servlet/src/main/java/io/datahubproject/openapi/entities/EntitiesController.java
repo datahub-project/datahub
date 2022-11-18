@@ -1,7 +1,5 @@
 package io.datahubproject.openapi.entities;
 
-import com.codahale.metrics.MetricRegistry;
-import com.codahale.metrics.Timer;
 import com.datahub.authentication.Authentication;
 import com.datahub.authentication.AuthenticationContext;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -15,6 +13,7 @@ import io.datahubproject.openapi.dto.UpsertAspectRequest;
 import io.datahubproject.openapi.dto.UrnResponseMap;
 import io.datahubproject.openapi.generated.AspectRowSummary;
 import io.datahubproject.openapi.util.MappingUtil;
+import io.micrometer.core.instrument.LongTaskTimer;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import java.net.URLDecoder;
@@ -66,7 +65,7 @@ public class EntitiesController {
       @RequestParam("urns") @Nonnull String[] urns,
       @Parameter(name = "aspectNames", description = "The list of aspect names to retrieve")
       @RequestParam(name = "aspectNames", required = false) @Nullable String[] aspectNames) {
-    Timer.Context context = MetricUtils.timer("getEntities").time();
+    LongTaskTimer.Sample context = MetricUtils.timer("getEntities").start();
     final Set<Urn> entityUrns =
         Arrays.stream(urns)
             // Have to decode here because of frontend routing, does No-op for already unencoded through direct API access
@@ -93,9 +92,9 @@ public class EntitiesController {
               projectedAspects), e);
     } finally {
       if (exceptionally != null) {
-        MetricUtils.counter(MetricRegistry.name("getEntities", "failed")).inc();
+        MetricUtils.counter("getEntities", "failed").increment();
       } else {
-        MetricUtils.counter(MetricRegistry.name("getEntities", "success")).inc();
+        MetricUtils.counter("getEntities", "success").increment();
       }
       context.stop();
     }
@@ -127,7 +126,7 @@ public class EntitiesController {
       @RequestParam("urns") @Nonnull String[] urns,
       @Parameter(name = "soft", description = "Determines whether the delete will be soft or hard, defaults to true for soft delete")
       @RequestParam(value = "soft", defaultValue = "true") boolean soft) {
-    Timer.Context context = MetricUtils.timer("deleteEntities").time();
+    LongTaskTimer.Sample context = MetricUtils.timer("deleteEntities").start();
     final Set<Urn> entityUrns =
         Arrays.stream(urns)
             // Have to decode here because of frontend routing, does No-op for already unencoded through direct API access
@@ -166,9 +165,9 @@ public class EntitiesController {
           String.format("Failed to batch delete entities with urns: %s", entityUrns), e);
     } finally {
       if (exceptionally != null) {
-        MetricUtils.counter(MetricRegistry.name("getEntities", "failed")).inc();
+        MetricUtils.counter("getEntities", "failed").increment();
       } else {
-        MetricUtils.counter(MetricRegistry.name("getEntities", "success")).inc();
+        MetricUtils.counter("getEntities", "success").increment();
       }
       context.stop();
     }

@@ -1,6 +1,5 @@
 package com.linkedin.metadata.search.client;
 
-import com.codahale.metrics.Timer;
 import com.linkedin.metadata.browse.BrowseResult;
 import com.linkedin.metadata.query.AutoCompleteResult;
 import com.linkedin.metadata.query.SearchFlags;
@@ -12,6 +11,8 @@ import com.linkedin.metadata.search.cache.CacheableSearcher;
 import com.linkedin.metadata.utils.metrics.MetricUtils;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
+
+import io.micrometer.core.instrument.LongTaskTimer;
 import lombok.RequiredArgsConstructor;
 import org.javatuples.Quintet;
 import org.springframework.cache.Cache;
@@ -129,25 +130,29 @@ public class CachingEntitySearchService {
       @Nullable Filter filters,
       int limit,
       @Nullable SearchFlags flags) {
-    try (Timer.Context ignored = MetricUtils.timer(this.getClass(), "getCachedAutoCompleteResults").time()) {
+    LongTaskTimer.Sample ignored = MetricUtils.timer(this.getClass(), "getCachedAutoCompleteResults").start();
+    try {
       Cache cache = cacheManager.getCache(ENTITY_SEARCH_SERVICE_AUTOCOMPLETE_CACHE_NAME);
       AutoCompleteResult result;
       if (enableCache(flags)) {
-        Timer.Context cacheAccess = MetricUtils.timer(this.getClass(), "autocomplete_cache_access").time();
+        LongTaskTimer.Sample cacheAccess = MetricUtils.timer(this.getClass(), "autocomplete_cache_access").start();
         Object cacheKey = Quintet.with(entityName, input, field, filters, limit);
         result = cache.get(cacheKey, AutoCompleteResult.class);
         cacheAccess.stop();
         if (result == null) {
-          Timer.Context cacheMiss = MetricUtils.timer(this.getClass(), "autocomplete_cache_miss").time();
+          LongTaskTimer.Sample cacheMiss = MetricUtils.timer(this.getClass(), "autocomplete_cache_miss").start();
           result = getRawAutoCompleteResults(entityName, input, field, filters, limit);
           cache.put(cacheKey, result);
           cacheMiss.stop();
-          MetricUtils.counter(this.getClass(), "autocomplete_cache_miss_count").inc();
+          MetricUtils.counter(this.getClass(), "autocomplete_cache_miss_count").increment();
         }
       } else {
         result = getRawAutoCompleteResults(entityName, input, field, filters, limit);
       }
       return result;
+    }
+    finally {
+      ignored.stop();
     }
   }
 
@@ -161,25 +166,29 @@ public class CachingEntitySearchService {
       int from,
       int size,
       @Nullable SearchFlags flags) {
-    try (Timer.Context ignored = MetricUtils.timer(this.getClass(), "getCachedBrowseResults").time()) {
+    LongTaskTimer.Sample ignored = MetricUtils.timer(this.getClass(), "getCachedBrowseResults").start();
+    try {
       Cache cache = cacheManager.getCache(ENTITY_SEARCH_SERVICE_BROWSE_CACHE_NAME);
       BrowseResult result;
       if (enableCache(flags)) {
-        Timer.Context cacheAccess = MetricUtils.timer(this.getClass(), "browse_cache_access").time();
+        LongTaskTimer.Sample cacheAccess = MetricUtils.timer(this.getClass(), "browse_cache_access").start();
         Object cacheKey = Quintet.with(entityName, path, filters, from, size);
         result = cache.get(cacheKey, BrowseResult.class);
         cacheAccess.stop();
         if (result == null) {
-          Timer.Context cacheMiss = MetricUtils.timer(this.getClass(), "browse_cache_miss").time();
+          LongTaskTimer.Sample cacheMiss = MetricUtils.timer(this.getClass(), "browse_cache_miss").start();
           result = getRawBrowseResults(entityName, path, filters, from, size);
           cache.put(cacheKey, result);
           cacheMiss.stop();
-          MetricUtils.counter(this.getClass(), "browse_cache_miss_count").inc();
+          MetricUtils.counter(this.getClass(), "browse_cache_miss_count").increment();
         }
       } else {
         result = getRawBrowseResults(entityName, path, filters, from, size);
       }
       return result;
+    }
+    finally {
+      ignored.stop();
     }
   }
 

@@ -1,7 +1,5 @@
 package com.linkedin.metadata.kafka;
 
-import com.codahale.metrics.Histogram;
-import com.codahale.metrics.MetricRegistry;
 import com.datahub.authentication.Authentication;
 import com.linkedin.entity.Entity;
 import com.linkedin.entity.client.RestliEntityClient;
@@ -19,6 +17,8 @@ import com.linkedin.mxe.Topics;
 import com.linkedin.r2.RemoteInvocationException;
 import java.io.IOException;
 import javax.annotation.Nonnull;
+
+import io.micrometer.core.instrument.DistributionSummary;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.avro.generic.GenericRecord;
@@ -48,7 +48,7 @@ public class MetadataChangeEventsProcessor {
   private final RestliEntityClient entityClient;
   private final Producer<String, IndexedRecord> kafkaProducer;
 
-  private final Histogram kafkaLagStats = MetricUtils.get().histogram(MetricRegistry.name(this.getClass(), "kafkaLag"));
+  private final DistributionSummary kafkaLagStats = MetricUtils.histogram(this.getClass(), "kafkaLag");
 
   @Value("${FAILED_METADATA_CHANGE_EVENT_NAME:${KAFKA_FMCE_TOPIC_NAME:" + Topics.FAILED_METADATA_CHANGE_EVENT + "}}")
   private String fmceTopicName;
@@ -56,7 +56,7 @@ public class MetadataChangeEventsProcessor {
   @KafkaListener(id = "${METADATA_CHANGE_EVENT_KAFKA_CONSUMER_GROUP_ID:mce-consumer-job-client}", topics =
       "${METADATA_CHANGE_EVENT_NAME:${KAFKA_MCE_TOPIC_NAME:" + Topics.METADATA_CHANGE_EVENT + "}}", containerFactory = "kafkaEventConsumer")
   public void consume(final ConsumerRecord<String, GenericRecord> consumerRecord) {
-    kafkaLagStats.update(System.currentTimeMillis() - consumerRecord.timestamp());
+    kafkaLagStats.record(System.currentTimeMillis() - consumerRecord.timestamp());
     final GenericRecord record = consumerRecord.value();
     log.debug("Record {}", record);
 

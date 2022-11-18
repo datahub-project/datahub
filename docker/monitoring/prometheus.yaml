@@ -1,10 +1,6 @@
 scrape_configs:
-  - job_name: 'jmx'
-    scrape_interval: 10s
+  - job_name: 'Metrics Scraper'
+    metrics_path: '/openapi/metrics/prometheus'
+    scrape_interval: 5s
     static_configs:
-      - targets:
-        - 'host.docker.internal:4318'
-        - 'datahub-gms:4318'
-        - 'datahub-mae-consumer:4318'
-        - 'datahub-mce-consumer:4318'
-        - 'datahub-frontend-react:4318'
+      - targets: [ 'datahub-gms:8080' ]

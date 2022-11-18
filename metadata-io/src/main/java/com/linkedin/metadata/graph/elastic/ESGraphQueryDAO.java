@@ -1,6 +1,5 @@
 package com.linkedin.metadata.graph.elastic;
 
-import com.codahale.metrics.Timer;
 import com.datahub.util.exception.ESQueryException;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Lists;
@@ -22,6 +21,7 @@ import com.linkedin.metadata.query.filter.RelationshipFilter;
 import com.linkedin.metadata.utils.ConcurrencyUtils;
 import com.linkedin.metadata.utils.elasticsearch.IndexConvention;
 import com.linkedin.metadata.utils.metrics.MetricUtils;
+import io.micrometer.core.instrument.LongTaskTimer;
 import io.opentelemetry.extension.annotations.WithSpan;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -102,11 +102,15 @@ public class ESGraphQueryDAO {
 
     searchRequest.indices(indexConvention.getIndexName(INDEX_NAME));
 
-    try (Timer.Context ignored = MetricUtils.timer(this.getClass(), "esQuery").time()) {
+    LongTaskTimer.Sample ignored = MetricUtils.timer(this.getClass(), "esQuery").start();
+    try {
       return client.search(searchRequest, RequestOptions.DEFAULT);
     } catch (Exception e) {
       log.error("Search query failed", e);
       throw new ESQueryException("Search query failed:", e);
+    }
+    finally {
+      ignored.stop();
     }
   }
 

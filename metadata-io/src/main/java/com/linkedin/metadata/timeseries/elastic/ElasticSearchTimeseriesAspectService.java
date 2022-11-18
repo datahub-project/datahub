@@ -1,6 +1,5 @@
 package com.linkedin.metadata.timeseries.elastic;
 
-import com.codahale.metrics.Timer;
 import com.datahub.util.RecordUtils;
 import com.datahub.util.exception.ESQueryException;
 import com.fasterxml.jackson.core.JsonProcessingException;
@@ -37,6 +36,8 @@ import java.util.Map;
 import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
+
+import io.micrometer.core.instrument.LongTaskTimer;
 import lombok.extern.slf4j.Slf4j;
 import org.elasticsearch.action.bulk.BulkProcessor;
 import org.elasticsearch.action.index.IndexRequest;
@@ -166,12 +167,16 @@ public class ElasticSearchTimeseriesAspectService implements TimeseriesAspectSer
 
     log.debug("Search request is: " + searchRequest);
     SearchHits hits;
-    try (Timer.Context ignored = MetricUtils.timer(this.getClass(), "searchAspectValues_search").time()) {
+    LongTaskTimer.Sample ignored = MetricUtils.timer(this.getClass(), "searchAspectValues_search").start();
+    try {
       final SearchResponse searchResponse = _searchClient.search(searchRequest, RequestOptions.DEFAULT);
       hits = searchResponse.getHits();
     } catch (Exception e) {
       log.error("Search query failed:", e);
       throw new ESQueryException("Search query failed:", e);
+    }
+    finally {
+      ignored.stop();
     }
     return Arrays.stream(hits.getHits())
         .map(ElasticSearchTimeseriesAspectService::parseDocument)
