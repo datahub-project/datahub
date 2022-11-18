@@ -141,18 +141,24 @@ elasticsearch:
     keyStorePassword: ${ELASTICSEARCH_SSL_KEYSTORE_PASSWORD:#{null}}
     keyPassword: ${ELASTICSEARCH_SSL_KEY_PASSWORD:#{null}}
   bulkProcessor:
+    async: ${ES_BULK_ASYNC:true}
     requestsLimit: ${ES_BULK_REQUESTS_LIMIT:1000}
     flushPeriod: ${ES_BULK_FLUSH_PERIOD:1}
     numRetries: ${ES_BULK_NUM_RETRIES:3}
     retryInterval: ${ES_BULK_RETRY_INTERVAL:1}
+    refreshPolicy: ${ES_BULK_REFRESH_POLICY:NONE}
   index:
     prefix: ${INDEX_PREFIX:}
     numShards: ${ELASTICSEARCH_NUM_SHARDS_PER_INDEX:1}
     numReplicas: ${ELASTICSEARCH_NUM_REPLICAS_PER_INDEX:1}
     numRetries: ${ELASTICSEARCH_INDEX_BUILDER_NUM_RETRIES:3}
+    refreshIntervalSeconds: ${ELASTICSEARCH_INDEX_BUILDER_REFRESH_INTERVAL_SECONDS:1} # increase to 30 if expected indexing rates to be greater than 100/s
     maxArrayLength: ${SEARCH_DOCUMENT_MAX_ARRAY_LENGTH:1000}
     maxObjectKeys: ${SEARCH_DOCUMENT_MAX_OBJECT_KEYS:1000}
     mainTokenizer: ${ELASTICSEARCH_MAIN_TOKENIZER:#{null}}
+    enableSettingsReindex: ${ELASTICSEARCH_INDEX_BUILDER_SETTINGS_REINDEX:false}
+    settingsOverrides: ${ELASTICSEARCH_INDEX_BUILDER_SETTINGS_OVERRIDES:#{null}}
+    entitySettingsOverrides: ${ELASTICSEARCH_INDEX_BUILDER_ENTITY_SETTINGS_OVERRIDES:#{null}}
 
 # TODO: Kafka topic convention
 kafka:
@@ -206,6 +212,7 @@ bootstrap:
 featureFlags:
   showSimplifiedHomepageByDefault: ${SHOW_SIMPLIFIED_HOMEPAGE_BY_DEFAULT:false} # shows a simplified homepage with just datasets, charts and dashboards by default to users. this can be configured in user settings
   lineageSearchCacheEnabled: ${LINEAGE_SEARCH_CACHE_ENABLED:false} # Enables in-memory cache for searchAcrossLineage query, disabled by default to prevent unexpected update delays
+  graphServiceDiffModeEnabled: ${GRAPH_SERVICE_DIFF_MODE_ENABLED:true} # Enables diff mode for graph writes, uses a different code path that produces a diff from previous to next to write relationships instead of wholesale deleting edges and reading
 
 entityChangeEvents:
   enabled: ${ENABLE_ENTITY_CHANGE_EVENTS_HOOK:true}

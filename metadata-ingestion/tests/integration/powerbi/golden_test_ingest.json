@@ -1,9 +1,7 @@
 [
 {
-    "auditHeader": null,
     "entityType": "dataset",
     "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:postgres,library_db.public.issue_history,DEV)",
-    "entityKeyAspect": null,
     "changeType": "UPSERT",
     "aspectName": "datasetProperties",
     "aspect": {
@@ -12,17 +10,12 @@
     },
     "systemMetadata": {
         "lastObserved": 1643871600000,
-        "runId": "powerbi-test",
-        "registryName": null,
-        "registryVersion": null,
-        "properties": null
+        "runId": "powerbi-test"
     }
 },
 {
-    "auditHeader": null,
     "entityType": "dataset",
     "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:postgres,library_db.public.issue_history,DEV)",
-    "entityKeyAspect": null,
     "changeType": "UPSERT",
     "aspectName": "status",
     "aspect": {
@@ -31,17 +24,12 @@
     },
     "systemMetadata": {
         "lastObserved": 1643871600000,
-        "runId": "powerbi-test",
-        "registryName": null,
-        "registryVersion": null,
-        "properties": null
+        "runId": "powerbi-test"
     }
 },
 {
-    "auditHeader": null,
     "entityType": "corpuser",
     "entityUrn": "urn:li:corpuser:users.User1@foo.com",
-    "entityKeyAspect": null,
     "changeType": "UPSERT",
     "aspectName": "corpUserInfo",
     "aspect": {
@@ -50,17 +38,12 @@
     },
     "systemMetadata": {
         "lastObserved": 1643871600000,
-        "runId": "powerbi-test",
-        "registryName": null,
-        "registryVersion": null,
-        "properties": null
+        "runId": "powerbi-test"
     }
 },
 {
-    "auditHeader": null,
     "entityType": "corpuser",
     "entityUrn": "urn:li:corpuser:users.User1@foo.com",
-    "entityKeyAspect": null,
     "changeType": "UPSERT",
     "aspectName": "status",
     "aspect": {
@@ -69,17 +52,12 @@
     },
     "systemMetadata": {
         "lastObserved": 1643871600000,
-        "runId": "powerbi-test",
-        "registryName": null,
-        "registryVersion": null,
-        "properties": null
+        "runId": "powerbi-test"
     }
 },
 {
-    "auditHeader": null,
     "entityType": "corpuser",
     "entityUrn": "urn:li:corpuser:users.User1@foo.com",
-    "entityKeyAspect": null,
     "changeType": "UPSERT",
     "aspectName": "corpUserKey",
     "aspect": {
@@ -88,17 +66,12 @@
     },
     "systemMetadata": {
         "lastObserved": 1643871600000,
-        "runId": "powerbi-test",
-        "registryName": null,
-        "registryVersion": null,
-        "properties": null
+        "runId": "powerbi-test"
     }
 },
 {
-    "auditHeader": null,
     "entityType": "corpuser",
     "entityUrn": "urn:li:corpuser:users.User2@foo.com",
-    "entityKeyAspect": null,
     "changeType": "UPSERT",
     "aspectName": "corpUserInfo",
     "aspect": {
@@ -107,17 +80,12 @@
     },
     "systemMetadata": {
         "lastObserved": 1643871600000,
-        "runId": "powerbi-test",
-        "registryName": null,
-        "registryVersion": null,
-        "properties": null
+        "runId": "powerbi-test"
     }
 },
 {
-    "auditHeader": null,
     "entityType": "corpuser",
     "entityUrn": "urn:li:corpuser:users.User2@foo.com",
-    "entityKeyAspect": null,
     "changeType": "UPSERT",
     "aspectName": "status",
     "aspect": {
@@ -126,17 +94,12 @@
     },
     "systemMetadata": {
         "lastObserved": 1643871600000,
-        "runId": "powerbi-test",
-        "registryName": null,
-        "registryVersion": null,
-        "properties": null
+        "runId": "powerbi-test"
     }
 },
 {
-    "auditHeader": null,
     "entityType": "corpuser",
     "entityUrn": "urn:li:corpuser:users.User2@foo.com",
-    "entityKeyAspect": null,
     "changeType": "UPSERT",
     "aspectName": "corpUserKey",
     "aspect": {
@@ -145,17 +108,12 @@
     },
     "systemMetadata": {
         "lastObserved": 1643871600000,
-        "runId": "powerbi-test",
-        "registryName": null,
-        "registryVersion": null,
-        "properties": null
+        "runId": "powerbi-test"
     }
 },
 {
-    "auditHeader": null,
     "entityType": "chart",
     "entityUrn": "urn:li:chart:(powerbi,charts.B8E293DC-0C83-4AA0-9BB9-0A8738DF24A0)",
-    "entityKeyAspect": null,
     "changeType": "UPSERT",
     "aspectName": "chartInfo",
     "aspect": {
@@ -164,17 +122,12 @@
     },
     "systemMetadata": {
         "lastObserved": 1643871600000,
-        "runId": "powerbi-test",
-        "registryName": null,
-        "registryVersion": null,
-        "properties": null
+        "runId": "powerbi-test"
     }
 },
 {
-    "auditHeader": null,
     "entityType": "chart",
     "entityUrn": "urn:li:chart:(powerbi,charts.B8E293DC-0C83-4AA0-9BB9-0A8738DF24A0)",
-    "entityKeyAspect": null,
     "changeType": "UPSERT",
     "aspectName": "status",
     "aspect": {
@@ -183,17 +136,12 @@
     },
     "systemMetadata": {
         "lastObserved": 1643871600000,
-        "runId": "powerbi-test",
-        "registryName": null,
-        "registryVersion": null,
-        "properties": null
+        "runId": "powerbi-test"
     }
 },
 {
-    "auditHeader": null,
     "entityType": "chart",
     "entityUrn": "urn:li:chart:(powerbi,charts.B8E293DC-0C83-4AA0-9BB9-0A8738DF24A0)",
-    "entityKeyAspect": null,
     "changeType": "UPSERT",
     "aspectName": "chartKey",
     "aspect": {
@@ -202,36 +150,26 @@
     },
     "systemMetadata": {
         "lastObserved": 1643871600000,
-        "runId": "powerbi-test",
-        "registryName": null,
-        "registryVersion": null,
-        "properties": null
+        "runId": "powerbi-test"
     }
 },
 {
-    "auditHeader": null,
     "entityType": "dashboard",
     "entityUrn": "urn:li:dashboard:(powerbi,dashboards.7D668CAD-7FFC-4505-9215-655BCA5BEBAE)",
-    "entityKeyAspect": null,
     "changeType": "UPSERT",
     "aspectName": "browsePaths",
     "aspect": {
-        "value": "{\"paths\": [\"/powerbi/64ED5CAD-7C10-4684-8180-826122881108\"]}",
+        "value": "{\"paths\": [\"/powerbi/demo-workspace\"]}",
         "contentType": "application/json"
     },
     "systemMetadata": {
         "lastObserved": 1643871600000,
-        "runId": "powerbi-test",
-        "registryName": null,
-        "registryVersion": null,
-        "properties": null
+        "runId": "powerbi-test"
     }
 },
 {
-    "auditHeader": null,
     "entityType": "dashboard",
     "entityUrn": "urn:li:dashboard:(powerbi,dashboards.7D668CAD-7FFC-4505-9215-655BCA5BEBAE)",
-    "entityKeyAspect": null,
     "changeType": "UPSERT",
     "aspectName": "dashboardInfo",
     "aspect": {
@@ -240,17 +178,12 @@
     },
     "systemMetadata": {
         "lastObserved": 1643871600000,
-        "runId": "powerbi-test",
-        "registryName": null,
-        "registryVersion": null,
-        "properties": null
+        "runId": "powerbi-test"
     }
 },
 {
-    "auditHeader": null,
     "entityType": "dashboard",
     "entityUrn": "urn:li:dashboard:(powerbi,dashboards.7D668CAD-7FFC-4505-9215-655BCA5BEBAE)",
-    "entityKeyAspect": null,
     "changeType": "UPSERT",
     "aspectName": "status",
     "aspect": {
@@ -259,17 +192,12 @@
     },
     "systemMetadata": {
         "lastObserved": 1643871600000,
-        "runId": "powerbi-test",
-        "registryName": null,
-        "registryVersion": null,
-        "properties": null
+        "runId": "powerbi-test"
     }
 },
 {
-    "auditHeader": null,
     "entityType": "dashboard",
     "entityUrn": "urn:li:dashboard:(powerbi,dashboards.7D668CAD-7FFC-4505-9215-655BCA5BEBAE)",
-    "entityKeyAspect": null,
     "changeType": "UPSERT",
     "aspectName": "dashboardKey",
     "aspect": {
@@ -278,17 +206,12 @@
     },
     "systemMetadata": {
         "lastObserved": 1643871600000,
-        "runId": "powerbi-test",
-        "registryName": null,
-        "registryVersion": null,
-        "properties": null
+        "runId": "powerbi-test"
     }
 },
 {
-    "auditHeader": null,
     "entityType": "dashboard",
     "entityUrn": "urn:li:dashboard:(powerbi,dashboards.7D668CAD-7FFC-4505-9215-655BCA5BEBAE)",
-    "entityKeyAspect": null,
     "changeType": "UPSERT",
     "aspectName": "ownership",
     "aspect": {
@@ -297,10 +220,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1643871600000,
-        "runId": "powerbi-test",
-        "registryName": null,
-        "registryVersion": null,
-        "properties": null
+        "runId": "powerbi-test"
     }
 }
 ]

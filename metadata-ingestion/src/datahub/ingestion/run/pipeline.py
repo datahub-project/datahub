@@ -545,6 +545,7 @@ class Pipeline:
 
     def _get_structured_report(self) -> Dict[str, Any]:
         return {
+            "cli": self.cli_report.as_obj(),
             "source": {
                 "type": self.config.source.type,
                 "report": self.source.get_report().as_obj(),

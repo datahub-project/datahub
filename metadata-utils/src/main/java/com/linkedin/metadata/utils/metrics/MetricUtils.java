@@ -13,6 +13,8 @@ public class MetricUtils {
   private MetricUtils() {
   }
 
+  public static final String DELIMITER = "_";
+
   private static final PrometheusMeterRegistry PROMETHEUS_METER_REGISTRY = new PrometheusMeterRegistry(PrometheusConfig.DEFAULT);
   private static final Map<String, LongTaskTimer> timerMap = new HashMap<>();
   private static final Map<String, DistributionSummary> histogramMap = new HashMap<>();
@@ -48,6 +50,13 @@ public class MetricUtils {
       histogramMap.put(name, DistributionSummary.builder(name).register(PROMETHEUS_METER_REGISTRY));
     }
     return histogramMap.get(name);
+  }
+
+  public static void exceptionCounter(Class<?> klass, String metricName, Throwable t) {
+    String[] splitClassName = t.getClass().getName().split("[.]");
+    String snakeCase = splitClassName[splitClassName.length - 1].replaceAll("([A-Z][a-z])", DELIMITER + "$1");
+    counter(klass, metricName).increment();
+    counter(klass, metricName + DELIMITER + snakeCase).increment();
   }
 
   public static String buildName(Class<?> klass, String... subNames) {

@@ -482,3 +482,4 @@ class ElasticsearchSource(Source):
     def close(self):
         if self.client:
             self.client.close()
+        super().close()

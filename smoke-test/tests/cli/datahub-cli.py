@@ -1,14 +1,13 @@
 import json
 import pytest
 from time import sleep
-from datahub.cli import delete_cli, ingest_cli
 from datahub.cli.cli_utils import guess_entity_type, post_entity, get_aspects_for_entity
 from datahub.cli.ingest_cli import get_session_and_host, rollback
-from datahub.cli.delete_cli import guess_entity_type, delete_one_urn_cmd, delete_references
-from tests.utils import ingest_file_via_rest, delete_urns_from_file
+from tests.utils import ingest_file_via_rest
 
 ingested_dataset_run_id = ""
 ingested_editable_run_id = ""
+
 
 @pytest.fixture(autouse=True)
 def test_setup():
@@ -30,7 +29,6 @@ def test_setup():
 
     ingested_dataset_run_id = ingest_file_via_rest("tests/cli/cli_test_data.json").config.run_id
     print("Setup ingestion id: " + ingested_dataset_run_id)
-    sleep(5)
 
     assert "browsePaths" in get_aspects_for_entity(entity_urn=dataset_urn, aspects=["browsePaths"], typed=False)
 
@@ -41,10 +39,10 @@ def test_setup():
 
     session.post(rollback_url, data=json.dumps({"runId": ingested_editable_run_id, "dryRun": False, "hardDelete": True}))
     session.post(rollback_url, data=json.dumps({"runId": ingested_dataset_run_id, "dryRun": False, "hardDelete": True}))
-    sleep(5)
 
     assert "browsePaths" not in get_aspects_for_entity(entity_urn=dataset_urn, aspects=["browsePaths"], typed=False)
     assert "editableDatasetProperties" not in get_aspects_for_entity(entity_urn=dataset_urn, aspects=["editableDatasetProperties"], typed=False)
+
 
 @pytest.mark.dependency()
 def test_rollback_editable():
