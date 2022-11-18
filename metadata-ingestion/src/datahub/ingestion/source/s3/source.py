@@ -805,6 +805,3 @@ class S3Source(Source):
 
     def get_report(self):
         return self.report
-
-    def close(self):
-        pass
