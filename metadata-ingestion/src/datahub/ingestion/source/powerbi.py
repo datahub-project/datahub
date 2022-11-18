@@ -14,9 +14,10 @@ from xmlrpc.client import Boolean
 import msal
 import pydantic
 import requests
+from pydantic import root_validator
 
 import datahub.emitter.mce_builder as builder
-from datahub.configuration.common import ConfigurationError
+from datahub.configuration.common import ConfigurationError, AllowDenyPattern
 from datahub.configuration.source_common import EnvBasedSourceConfigBase
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.common import PipelineContext
@@ -111,7 +112,15 @@ class PowerBiAPIConfig(EnvBasedSourceConfigBase):
     # Organsation Identifier
     tenant_id: str = pydantic.Field(description="PowerBI tenant identifier")
     # PowerBi workspace identifier
-    workspace_id: str = pydantic.Field(description="PowerBI workspace identifier")
+    workspace_id_pattern: AllowDenyPattern = pydantic.Field(
+        default=AllowDenyPattern.allow_all(),
+        description="Regex patterns to filter PowerBI workspaces in ingestion",
+    )
+    workspace_id: str = pydantic.Field(
+        description="[deprecated] Use workspace_id_pattern instead",
+        default=None,
+    )
+
     # Dataset type mapping
     dataset_type_mapping: Dict[str, str] = pydantic.Field(
         description="Mapping of PowerBI datasource type to DataHub supported data-sources. See Quickstart Recipe for mapping"
@@ -128,16 +137,29 @@ class PowerBiAPIConfig(EnvBasedSourceConfigBase):
     extract_ownership: bool = pydantic.Field(
         default=True, description="Whether ownership should be ingested"
     )
-    scan_all_workspaces: bool = pydantic.Field(
-        default=False, description="Scan all workspaces the role has access to"
-    )
-    scan_exclusion_list: List[str] = pydantic.Field(
-        default=[], description="List of workspace IDs which are excluded from scan"
-    )
     # Enable/Disable extracting report information
     extract_reports: bool = pydantic.Field(
         default=True, description="Whether reports should be ingested"
     )
+
+    @root_validator(pre=False)
+    def workspace_id_backward_compatibility(cls, values: Dict) -> Dict:
+        workspace_id = values.get("workspace_id")
+        workspace_id_pattern = values.get("workspace_id_pattern")
+
+        if workspace_id_pattern == AllowDenyPattern.allow_all() and workspace_id:
+            logging.warning(
+                "workspace_id_pattern is not set but workspace_id is set, setting workspace_id as workspace_id_pattern. workspace_id will be deprecated, please use workspace_id_pattern instead."
+            )
+            values["workspace_id_pattern"] = AllowDenyPattern(
+                allow=[f"^{workspace_id}$"]
+            )
+        elif workspace_id_pattern != AllowDenyPattern.allow_all() and workspace_id:
+            logging.warning(
+                "workspace_id will be ignored in favour of workspace_id_pattern. workspace_id will be deprecated, please use workspace_id_pattern only."
+            )
+            values.pop("workspace_id")
+        return values
 
 
 class PowerBiDashboardSourceConfig(PowerBiAPIConfig):
@@ -1732,14 +1754,11 @@ class PowerBiDashboardSource(Source):
         return cls(config, ctx)
 
     def get_workspace_ids(self) -> Iterable[str]:
-        if not self.source_config.scan_all_workspaces:
-            return (self.source_config.workspace_id,)
-
         all_workspaces = self.powerbi_client.get_workspaces()
         return [
             workspace.id
             for workspace in all_workspaces
-            if workspace.id not in self.source_config.scan_exclusion_list
+            if self.source_config.workspace_id_pattern.allowed(workspace.id)
         ]
 
     def get_workunits(self) -> Iterable[MetadataWorkUnit]:

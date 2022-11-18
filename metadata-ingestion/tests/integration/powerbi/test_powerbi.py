@@ -330,7 +330,7 @@ def default_source_config():
         "client_id": "foo",
         "client_secret": "bar",
         "tenant_id": "0B0C960B-FCDF-4D0F-8C45-2E03BB59DDEB",
-        "workspace_id": "64ED5CAD-7C10-4684-8180-826122881108",
+        "workspace_id_pattern": {"allow": ["64ED5CAD-7C10-4684-8180-826122881108"]},
         "dataset_type_mapping": {
             "PostgreSql": "postgres",
             "Oracle": "oracle",
@@ -442,8 +442,9 @@ def test_scan_all_workspaces(
                     **default_source_config(),
                     "extract_reports": False,
                     "extract_ownership": False,
-                    "scan_all_workspaces": True,
-                    "scan_exclusion_list": ["64ED5CAD-7322-4684-8180-826122881108"],
+                    "workspace_id_pattern": {
+                        "deny": ["64ED5CAD-7322-4684-8180-826122881108"],
+                    },
                 },
             },
             "sink": {
