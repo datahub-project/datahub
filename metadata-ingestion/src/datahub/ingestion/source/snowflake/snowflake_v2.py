@@ -1014,6 +1014,3 @@ class SnowflakeV2Source(
     # Stateful Ingestion Overrides.
     def get_platform_instance_id(self) -> str:
         return self.config.get_account()
-
-    def close(self):
-        self.prepare_for_commit()

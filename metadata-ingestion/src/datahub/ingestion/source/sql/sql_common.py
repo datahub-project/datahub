@@ -221,18 +221,6 @@ class SQLSourceReport(StaleEntityRemovalSourceReport):
         self.query_combiner = query_combiner_report
 
 
-class SQLAlchemyStatefulIngestionConfig(StatefulStaleMetadataRemovalConfig):
-    """
-    Specialization of StatefulStaleMetadataRemovalConfig to adding custom config.
-    This will be used to override the stateful_ingestion config param of StatefulIngestionConfigBase
-    in the SQLAlchemyConfig.
-    """
-
-    _entity_types: List[str] = pydantic.Field(
-        default=["assertion", "container", "table", "view"]
-    )
-
-
 class SQLAlchemyConfig(StatefulIngestionConfigBase):
     options: dict = {}
     # Although the 'table_pattern' enables you to skip everything from certain schemas,
@@ -269,7 +257,7 @@ class SQLAlchemyConfig(StatefulIngestionConfigBase):
 
     profiling: GEProfilingConfig = GEProfilingConfig()
     # Custom Stateful Ingestion settings
-    stateful_ingestion: Optional[SQLAlchemyStatefulIngestionConfig] = None
+    stateful_ingestion: Optional[StatefulStaleMetadataRemovalConfig] = None
 
     @pydantic.root_validator(pre=True)
     def view_pattern_is_table_pattern_unless_specified(
@@ -1387,6 +1375,3 @@ class SQLAlchemySource(StatefulIngestionSourceBase):
 
     def get_report(self):
         return self.report
-
-    def close(self):
-        self.prepare_for_commit()

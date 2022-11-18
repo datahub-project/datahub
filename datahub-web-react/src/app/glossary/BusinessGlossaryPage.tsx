@@ -2,10 +2,8 @@ import React, { useState } from 'react';
 import { Button, Typography } from 'antd';
 import { PlusOutlined } from '@ant-design/icons';
 import styled from 'styled-components/macro';
-
 import { useGetRootGlossaryNodesQuery, useGetRootGlossaryTermsQuery } from '../../graphql/glossary.generated';
 import TabToolbar from '../entity/shared/components/styled/TabToolbar';
-import GlossaryEntitiesPath from './GlossaryEntitiesPath';
 import GlossaryEntitiesList from './GlossaryEntitiesList';
 import GlossaryBrowser from './GlossaryBrowser/GlossaryBrowser';
 import GlossarySearch from './GlossarySearch';
@@ -93,9 +91,8 @@ function BusinessGlossaryPage() {
                     isSidebarOnLeft
                 />
                 <MainContentWrapper>
-                    <GlossaryEntitiesPath />
                     <HeaderWrapper>
-                        <Typography.Title level={3}>Glossary</Typography.Title>
+                        <Typography.Title level={3}>Business Glossary</Typography.Title>
                         <div>
                             <Button type="text" onClick={() => setIsCreateTermModalVisible(true)}>
                                 <PlusOutlined /> Add Term
