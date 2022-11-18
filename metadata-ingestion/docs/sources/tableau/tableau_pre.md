@@ -5,6 +5,7 @@ In order to ingest metadata from tableau, you will need:
 - Tableau Server Version 2021.1.10 and above. It may also work for older versions.
 - [Enable the Tableau Metadata API](https://help.tableau.com/current/api/metadata_api/en-us/docs/meta_api_start.html#enable-the-tableau-metadata-api-for-tableau-server) for Tableau Server, if its not already enabled.
 - Tableau Credentials (Username/Password or [Personal Access Token](https://help.tableau.com/current/pro/desktop/en-us/useracct.htm#create-and-revoke-personal-access-tokens))
+- The user or token must have **Site Administrator Explorer** permissions.
 
 ### Ingestion through UI
 
