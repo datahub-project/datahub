@@ -101,7 +101,7 @@ public class RestHighLevelClientFactory {
 
   @Nonnull
   private static RestClientBuilder loadRestHttpClient(@Nonnull String host, int port, String pathPrefix, int threadCount,
-      int connectionRequestTimeout, String username, String password,boolean opensearchUseAwsIamAuth, String region) {
+      int connectionRequestTimeout, String username, String password, boolean opensearchUseAwsIamAuth, String region) {
     RestClientBuilder builder = loadRestHttpClient(host, port, pathPrefix, threadCount, connectionRequestTimeout);
 
     builder.setHttpClientConfigCallback(new RestClientBuilder.HttpClientConfigCallback() {
