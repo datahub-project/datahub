@@ -114,9 +114,7 @@ public class RestHighLevelClientFactory {
           httpAsyncClientBuilder.setDefaultCredentialsProvider(credentialsProvider);
         }
         if(opensearchUseAwsIamAuth) {
-          Aws4Signer signer = Aws4Signer.create();
-          HttpRequestInterceptor interceptor = new AwsRequestSigningApacheInterceptor("es", signer,
-              DefaultCredentialsProvider.create(), region);
+          HttpRequestInterceptor interceptor = getAwsRequestSigningInterceptor(region);
           httpAsyncClientBuilder.addInterceptorLast(interceptor);
         }
 
@@ -147,9 +145,7 @@ public class RestHighLevelClientFactory {
           credentialsProvider.setCredentials(AuthScope.ANY, new UsernamePasswordCredentials(username, password));
           httpAsyncClientBuilder.setDefaultCredentialsProvider(credentialsProvider);
         } else if (opensearchUseAwsIamAuth) {
-          Aws4Signer signer = Aws4Signer.create();
-          HttpRequestInterceptor interceptor = new AwsRequestSigningApacheInterceptor("es", signer,
-              DefaultCredentialsProvider.create(), region);
+          HttpRequestInterceptor interceptor = getAwsRequestSigningInterceptor(region);
           httpAsyncClientBuilder.addInterceptorLast(interceptor);
         }
 
@@ -163,4 +159,15 @@ public class RestHighLevelClientFactory {
     return builder;
   }
 
+  private static HttpRequestInterceptor getAwsRequestSigningInterceptor(String region) {
+
+    if(region == null) {
+      throw new NullPointerException("Region must not be null when opensearchUseAwsIamAuth is used");
+    }
+    Aws4Signer signer = Aws4Signer.create();
+    // Uses default AWS credentials
+    HttpRequestInterceptor interceptor = new AwsRequestSigningApacheInterceptor("es", signer,
+        DefaultCredentialsProvider.create(), region);
+    return interceptor;
+  }
 }
