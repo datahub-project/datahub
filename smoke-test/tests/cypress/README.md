@@ -1,4 +1,4 @@
-Guide to Running Cypress Tests Locally.
+# Running Cypress Tests Locally
 
 1. Make sure the packages are installed. It uses some node moduels to run locally. Run `yarn install` from this directory. If you don't have `yarn`, download it.
 
