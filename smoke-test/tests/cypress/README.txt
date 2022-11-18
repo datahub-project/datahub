@@ -1,6 +1,6 @@
 # Running Cypress Tests Locally
 
-1. Make sure the packages are installed. It uses some node moduels to run locally. Run `yarn install` from this directory. If you don't have `yarn`, download it.
+1. Make sure the packages are installed. It uses some node modules to run locally. Run `yarn install` from this directory. If you don't have `yarn`, download it.
 
 2. Cypress tests run against your local deployment of datahub. They are dependent on the data inside. There is sample cypress data in this directory. Ideally you want to delete all the data in your local instance before ingesting the cypress data as it will throw off a few tests (like the search tests) if you have data cypress is not expecting. However, most tests will still pass- most visit specific entity pages.
 
