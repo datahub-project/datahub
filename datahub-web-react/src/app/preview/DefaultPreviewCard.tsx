@@ -23,7 +23,7 @@ import NoMarkdownViewer from '../entity/shared/components/styled/StripMarkdownTe
 import { getNumberWithOrdinal } from '../entity/shared/utils';
 import { useEntityData } from '../entity/shared/EntityContext';
 import PlatformContentView from '../entity/shared/containers/profile/header/PlatformContent/PlatformContentView';
-import { useParentContainersTruncation } from '../entity/shared/containers/profile/header/PlatformContent/PlatformContentContainer';
+import useContentTruncation from '../shared/useContentTruncation';
 import EntityCount from '../entity/shared/containers/profile/header/EntityCount';
 import { ExpandedActorGroup } from '../entity/shared/components/styled/ExpandedActorGroup';
 import { DeprecationPill } from '../entity/shared/components/styled/DeprecationPill';
@@ -242,7 +242,7 @@ export default function DefaultPreviewCard({
     }
     const [descriptionExpanded, setDescriptionExpanded] = useState(false);
 
-    const { parentContainersRef, areContainersTruncated } = useParentContainersTruncation(container);
+    const { contentRef, isContentTruncated } = useContentTruncation(container);
 
     const onPreventMouseDown = (event) => {
         event.preventDefault();
@@ -266,8 +266,8 @@ export default function DefaultPreviewCard({
                         entityType={type}
                         parentContainers={parentContainers?.containers}
                         parentNodes={parentNodes?.nodes}
-                        parentContainersRef={parentContainersRef}
-                        areContainersTruncated={areContainersTruncated}
+                        parentContainersRef={contentRef}
+                        areContainersTruncated={isContentTruncated}
                     />
                     <EntityTitleContainer>
                         <Link to={url}>

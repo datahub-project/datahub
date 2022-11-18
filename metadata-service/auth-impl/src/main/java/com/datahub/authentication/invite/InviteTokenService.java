@@ -50,7 +50,7 @@ public class InviteTokenService {
   @Nullable
   public Urn getInviteTokenRole(@Nonnull final Urn inviteTokenUrn, @Nonnull final Authentication authentication)
       throws URISyntaxException, RemoteInvocationException {
-    com.linkedin.identity.InviteToken inviteToken = getInviteTokenEntity(inviteTokenUrn, authentication);
+    final com.linkedin.identity.InviteToken inviteToken = getInviteTokenEntity(inviteTokenUrn, authentication);
     return inviteToken.hasRole() ? inviteToken.getRole() : null;
   }
 

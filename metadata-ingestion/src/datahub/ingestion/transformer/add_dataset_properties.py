@@ -90,8 +90,8 @@ class AddDatasetProperties(DatasetPropertiesTransformer):
         in_dataset_properties_aspect: DatasetPropertiesClass = cast(
             DatasetPropertiesClass, aspect
         )
-
-        assert in_dataset_properties_aspect
+        if not in_dataset_properties_aspect:
+            in_dataset_properties_aspect = DatasetPropertiesClass()
 
         out_dataset_properties_aspect: DatasetPropertiesClass = copy.deepcopy(
             in_dataset_properties_aspect
