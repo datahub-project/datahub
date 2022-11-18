@@ -1793,13 +1793,13 @@ class PowerBiDashboardSource(Source):
                     # Return workunit to Datahub Ingestion framework
                     yield workunit
 
-        if self.source_config.extract_reports:
-            for report in self.powerbi_client.get_reports(workspace=workspace):
-                for work_unit in self.mapper.report_to_datahub_work_units(
-                    report, workspace
-                ):
-                    self.reporter.report_workunit(work_unit)
-                    yield work_unit
+            if self.source_config.extract_reports:
+                for report in self.powerbi_client.get_reports(workspace=workspace):
+                    for work_unit in self.mapper.report_to_datahub_work_units(
+                        report, workspace
+                    ):
+                        self.reporter.report_workunit(work_unit)
+                        yield work_unit
 
     def get_report(self) -> SourceReport:
         return self.reporter
