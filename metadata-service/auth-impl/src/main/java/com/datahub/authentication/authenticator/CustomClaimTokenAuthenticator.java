@@ -69,7 +69,7 @@ public class CustomClaimTokenAuthenticator implements Authenticator {
         throw new AuthenticationException("Invalid or missing claim");
 
       return new Authentication(
-          new Actor(ActorType.USER, claim.toString()), jwtToken
+          new Actor(ActorType.USER, claim.asString()), jwtToken
       );
 
     } catch (Exception e) {
@@ -91,7 +91,7 @@ public class CustomClaimTokenAuthenticator implements Authenticator {
     }
   }
 
-  private RSAPublicKey getPublicKey(DecodedJWT token) throws JwkException, MalformedURLException {
+  public RSAPublicKey getPublicKey(DecodedJWT token) throws JwkException, MalformedURLException {
 
     final String url = token.getIssuer() + "/protocol/openid-connect/certs";
     JwkProvider provider = new UrlJwkProvider(new URL(url));
@@ -100,7 +100,7 @@ public class CustomClaimTokenAuthenticator implements Authenticator {
 
   private String getToken(String jwtToken) throws AuthenticationException  {
     var tokenArray = jwtToken.split(" ");
-    return tokenArray.length == 0 ? tokenArray[0]: tokenArray[1];
+    return tokenArray.length == 1 ? tokenArray[0]: tokenArray[1];
   }
 
 }

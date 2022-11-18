@@ -1,5 +1,6 @@
 package datahub.authentication.authenticator;
 
+import com.auth0.jwt.interfaces.DecodedJWT;
 import com.datahub.authentication.Actor;
 import com.datahub.authentication.ActorType;
 import com.datahub.authentication.Authentication;
@@ -14,11 +15,20 @@ import com.datahub.authentication.AuthenticationRequest;
 import com.datahub.authentication.authenticator.CustomClaimTokenAuthenticator;
 import com.google.common.collect.ImmutableMap;
 import java.net.MalformedURLException;
+import java.security.KeyFactory;
 import java.security.NoSuchAlgorithmException;
+import java.security.interfaces.RSAPublicKey;
 import java.security.spec.InvalidKeySpecException;
-import javax.naming.AuthenticationException;
-import org.mockito.ArgumentMatchers.any;
+
+import java.security.spec.X509EncodedKeySpec;
+import java.util.Base64;
+import java.util.HashMap;
+import java.util.Map;
 import org.testng.annotations.Test;
+
+import static com.datahub.authentication.AuthenticationConstants.*;
+import static org.mockito.Mockito.*;
+import static org.testng.AssertJUnit.*;
 
 
 public class CustomClaimTokenAuthenticatorTest {
@@ -42,7 +52,7 @@ public class CustomClaimTokenAuthenticatorTest {
 
     final AuthenticationRequest context = new AuthenticationRequest(
         ImmutableMap.of(
-            "Authorization", token)
+            AUTHORIZATION_HEADER_NAME, token)
     );
 
     when(mock.authenticate(context)).thenCallRealMethod();
@@ -78,7 +88,7 @@ public class CustomClaimTokenAuthenticatorTest {
 
     final AuthenticationRequest context = new AuthenticationRequest(
         ImmutableMap.of(
-            "Authorization", token)
+            AUTHORIZATION_HEADER_NAME, token)
     );
 
     when(mock.authenticate(context)).thenCallRealMethod();
@@ -119,7 +129,7 @@ public class CustomClaimTokenAuthenticatorTest {
 
     final AuthenticationRequest context = new AuthenticationRequest(
         ImmutableMap.of(
-            "Authorization", token)
+            AUTHORIZATION_HEADER_NAME, token)
     );
 
     when(mock.authenticate(context)).thenCallRealMethod();
