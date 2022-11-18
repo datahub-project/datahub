@@ -130,7 +130,7 @@ def register_mock_api(request_mock):
                                         "[Min]": 0,
                                         "[Max]": 1,
                                         "[Cardinality]": 2,
-                                        "[Max Length]": None
+                                        "[Max Length]": None,
                                     },
                                     {
                                         "[Table Name]": "articles",
@@ -138,7 +138,7 @@ def register_mock_api(request_mock):
                                         "[Min]": "0",
                                         "[Max]": "1",
                                         "[Cardinality]": 2,
-                                        "[Max Length]": 1
+                                        "[Max Length]": 1,
                                     },
                                     {
                                         "[Table Name]": "articles",
@@ -146,7 +146,7 @@ def register_mock_api(request_mock):
                                         "[Min]": 0,
                                         "[Max]": 1,
                                         "[Cardinality]": 2,
-                                        "[Max Length]": None
+                                        "[Max Length]": None,
                                     },
                                 ]
                             }
@@ -218,8 +218,8 @@ def register_mock_api(request_mock):
                             },
                             {
                                 "id": "05169CD2-E7E4-41E6-9600-1D8066D95445",
-                                "tables": []
-                            }
+                                "tables": [],
+                            },
                         ],
                     },
                 ]
