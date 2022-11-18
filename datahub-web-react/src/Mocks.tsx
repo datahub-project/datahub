@@ -167,6 +167,7 @@ export const dataset1 = {
                 value: 'My other property value.',
             },
         ],
+        externalUrl: null,
     },
     editableProperties: null,
     created: {
@@ -258,6 +259,7 @@ export const dataset2 = {
         description: 'This is some other dataset, so who cares!',
         customProperties: [],
         origin: 'PROD',
+        externalUrl: null,
     },
     editableProperties: null,
     created: {
@@ -811,6 +813,7 @@ export const container1 = {
     lastIngested: null,
     properties: {
         name: 'database1',
+        externalUrl: null,
         __typename: 'ContainerProperties',
     },
     __typename: 'Container',
@@ -823,6 +826,7 @@ export const container2 = {
     lastIngested: null,
     properties: {
         name: 'schema1',
+        externalUrl: null,
         __typename: 'ContainerProperties',
     },
     __typename: 'Container',
@@ -1122,6 +1126,7 @@ export const dataFlow1 = {
         project: 'DataFlowInfo1 project',
         externalUrl: null,
         customProperties: [],
+        externalUrl: null,
     },
     editableProperties: null,
     ownership: {
@@ -1212,6 +1217,7 @@ export const dataJob1 = {
         description: 'DataJobInfo1 Description',
         externalUrl: null,
         customProperties: [],
+        externalUrl: null,
     },
     editableProperties: null,
     inputOutput: {
@@ -1292,6 +1298,7 @@ export const dataJob2 = {
         description: 'DataJobInfo2 Description',
         externalUrl: null,
         customProperties: [],
+        externalUrl: null,
     },
     editableProperties: null,
     inputOutput: {
@@ -1358,6 +1365,7 @@ export const dataJob3 = {
         description: 'DataJobInfo3 Description',
         externalUrl: null,
         customProperties: [],
+        externalUrl: null,
     },
     editableProperties: null,
     inputOutput: {
