@@ -411,8 +411,8 @@ class LDAPSource(Source):
         return self.report
 
     def close(self) -> None:
-        """Closes the Source."""
         self.ldap_client.unbind()
+        super().close()
 
 
 def parse_from_attrs(attrs: Dict[str, Any], filter_key: str) -> List[str]:

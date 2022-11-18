@@ -1037,9 +1037,6 @@ class SnowflakeV2Source(
     def get_platform_instance_id(self) -> str:
         return self.config.get_account()
 
-    def close(self):
-        self.prepare_for_commit()
-
     # Ideally we do not want null values in sample data for a column.
     # However that would require separate query per column and
     # that would be expensive, hence not done.
