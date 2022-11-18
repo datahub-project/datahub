@@ -18,7 +18,7 @@ const ClickableTag = styled(Tag)`
 
 type Props = {
     onClose: () => void;
-    onCreate: (id: string | undefined, name: string, description: string) => void;
+    onCreate: (urn: string, id: string | undefined, name: string, description: string) => void;
 };
 
 const SUGGESTED_DOMAIN_NAMES = ['Engineering', 'Marketing', 'Sales', 'Product'];
@@ -41,26 +41,24 @@ export default function CreateDomainModal({ onClose, onCreate }: Props) {
                 },
             },
         })
-            .then(({ errors }) => {
+            .then(({ data, errors }) => {
                 if (!errors) {
                     analytics.event({
                         type: EventType.CreateDomainEvent,
                     });
                 }
-            })
-            .catch((e) => {
-                message.destroy();
-                message.error({ content: `Failed to create Domain!: \n ${e.message || ''}`, duration: 3 });
-            })
-            .finally(() => {
                 message.success({
                     content: `Created domain!`,
                     duration: 3,
                 });
-                onCreate(stagedId, stagedName, stagedDescription);
+                onCreate(data?.createDomain || '', stagedId, stagedName, stagedDescription);
                 setStagedName('');
                 setStagedDescription('');
                 setStagedId(undefined);
+            })
+            .catch((e) => {
+                message.destroy();
+                message.error({ content: `Failed to create Domain!: \n ${e.message || ''}`, duration: 3 });
             });
         onClose();
     };

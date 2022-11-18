@@ -5,7 +5,7 @@ import styled from 'styled-components';
 import * as QueryString from 'query-string';
 import { PlusOutlined } from '@ant-design/icons';
 import { Domain } from '../../types.generated';
-import { useListDomainsQuery } from '../../graphql/domain.generated';
+import { ListDomainsDocument, ListDomainsQuery, useListDomainsQuery } from '../../graphql/domain.generated';
 import CreateDomainModal from './CreateDomainModal';
 import { Message } from '../shared/Message';
 import TabToolbar from '../entity/shared/components/styled/TabToolbar';
@@ -56,7 +56,7 @@ export const DomainsList = () => {
     const pageSize = DEFAULT_PAGE_SIZE;
     const start = (page - 1) * pageSize;
 
-    const { loading, error, data, refetch } = useListDomainsQuery({
+    const { loading, error, data, client, refetch } = useListDomainsQuery({
         variables: {
             input: {
                 start,
@@ -64,12 +64,12 @@ export const DomainsList = () => {
                 query,
             },
         },
-        fetchPolicy: 'no-cache',
+        fetchPolicy: 'cache-first',
     });
 
     const totalDomains = data?.listDomains?.total || 0;
     const lastResultIndex = start + pageSize > totalDomains ? totalDomains : start + pageSize;
-    const domains = (data?.listDomains?.domains || []).sort(
+    const domains = [...(data?.listDomains?.domains || [])].sort(
         (a, b) => (b.entities?.total || 0) - (a.entities?.total || 0),
     );
     const filteredDomains = domains.filter((domain) => !removedUrns.includes(domain.urn));
@@ -146,11 +146,52 @@ export const DomainsList = () => {
                 {isCreatingDomain && (
                     <CreateDomainModal
                         onClose={() => setIsCreatingDomain(false)}
-                        onCreate={() => {
-                            // Hack to deal with eventual consistency.
-                            setTimeout(function () {
-                                refetch?.();
-                            }, 2000);
+                        onCreate={(urn, id, name, description) => {
+                            // Read the data from our cache for this query.
+                            const currData: ListDomainsQuery | null = client.readQuery({
+                                query: ListDomainsDocument,
+                                variables: {
+                                    input: {
+                                        start: 0,
+                                        count: 25,
+                                        query: undefined,
+                                    },
+                                },
+                            });
+                            // Add our comment from the mutation to the end.
+                            const newDomains = [
+                                {
+                                    urn,
+                                    id: id || urn,
+                                    properties: {
+                                        name,
+                                        description,
+                                    },
+                                    ownership: null,
+                                    entities: null,
+                                },
+                                ...(currData?.listDomains?.domains || []),
+                            ];
+                            console.log(currData);
+                            // Write our data back to the cache.
+                            client.writeQuery({
+                                query: ListDomainsDocument,
+                                variables: {
+                                    input: {
+                                        start: 0,
+                                        count: 25,
+                                        query: undefined,
+                                    },
+                                },
+                                data: {
+                                    listDomains: {
+                                        start: 0,
+                                        count: 25,
+                                        total: 25,
+                                        domains: newDomains,
+                                    },
+                                },
+                            });
                         }}
                     />
                 )}
