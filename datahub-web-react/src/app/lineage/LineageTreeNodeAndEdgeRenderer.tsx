@@ -73,15 +73,14 @@ export default function LineageTreeNodeAndEdgeRenderer({
                 // concept of a z-index
                 ...edgesToRender.filter((link) => !isLinkHighlighted(link)),
                 ...edgesToRender.filter(isLinkHighlighted),
-            ].map((link) => {
+            ].map((link, idx) => {
                 const isHighlighted = isLinkHighlighted(link);
+                const key = `edge-${idx}-${link.source.data.urn}${link.sourceField && `-${link.sourceField}`}-${
+                    link.target.data.urn
+                }${link.targetField && `-${link.targetField}`}-${direction}`;
 
                 return (
-                    <Group
-                        key={`edge-${link.source.data.urn}${link.sourceField && `-${link.sourceField}`}-${
-                            link.target.data.urn
-                        }${link.targetField && `-${link.targetField}`}-${direction}`}
-                    >
+                    <Group key={key}>
                         <LinePath
                             // we rotated the svg 90 degrees so we need to switch x & y for the last mile
                             x={(d) => d.y}

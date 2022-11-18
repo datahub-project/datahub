@@ -304,6 +304,7 @@ plugins: Dict[str, Set[str]] = {
     "okta": {"okta~=1.7.0"},
     "oracle": sql_common | {"cx_Oracle"},
     "postgres": sql_common | {"psycopg2-binary", "GeoAlchemy2"},
+    "presto": sql_common | trino | {"acryl-pyhive[hive]>=0.6.12"},
     "presto-on-hive": sql_common
     | {"psycopg2-binary", "acryl-pyhive[hive]>=0.6.12", "pymysql>=1.0.2"},
     "pulsar": {"requests"},
@@ -423,6 +424,7 @@ base_dev_requirements = {
             "sagemaker",
             "kafka",
             "datahub-rest",
+            "presto",
             "redash",
             "redshift",
             "redshift-usage",
@@ -532,6 +534,7 @@ entry_points = {
         "powerbi-report-server = datahub.ingestion.source.powerbi_report_server:PowerBiReportServerDashboardSource",
         "iceberg = datahub.ingestion.source.iceberg.iceberg:IcebergSource",
         "vertica = datahub.ingestion.source.sql.vertica:VerticaSource",
+        "presto = datahub.ingestion.source.sql.presto:PrestoSource",
         "presto-on-hive = datahub.ingestion.source.sql.presto_on_hive:PrestoOnHiveSource",
         "pulsar = datahub.ingestion.source.pulsar:PulsarSource",
         "salesforce = datahub.ingestion.source.salesforce:SalesforceSource",
