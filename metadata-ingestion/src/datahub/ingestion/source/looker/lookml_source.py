@@ -1690,6 +1690,3 @@ class LookMLSource(Source):
 
     def get_report(self):
         return self.reporter
-
-    def close(self):
-        pass

@@ -131,16 +131,6 @@ logger = logging.getLogger(__name__)
 DBT_PLATFORM = "dbt"
 
 
-class DBTStatefulIngestionConfig(StatefulStaleMetadataRemovalConfig):
-    """
-    Specialization of basic StatefulStaleMetadataRemovalConfig to adding custom config.
-    This will be used to override the stateful_ingestion config param of StatefulIngestionConfigBase
-    in the SQLAlchemyConfig.
-    """
-
-    _entity_types: List[str] = pydantic.Field(default=["assertion", "dataset"])
-
-
 @dataclass
 class DBTSourceReport(StaleEntityRemovalSourceReport):
     pass
@@ -307,7 +297,12 @@ class DBTConfig(StatefulIngestionConfigBase, LineageConfig):
         description="Reference to your github location to enable easy navigation from DataHub to your dbt files.",
     )
 
-    stateful_ingestion: Optional[DBTStatefulIngestionConfig] = pydantic.Field(
+    incremental_lineage: bool = Field(
+        # Copied from LineageConfig, and changed the default.
+        default=False,
+        description="When enabled, emits lineage as incremental to existing lineage already in DataHub. When disabled, re-states lineage on each run.",
+    )
+    stateful_ingestion: Optional[StatefulStaleMetadataRemovalConfig] = pydantic.Field(
         default=None, description="DBT Stateful Ingestion Config."
     )
 
@@ -1886,6 +1881,3 @@ class DBTSource(StatefulIngestionSourceBase):
             raise ValueError("DBT project identifier is not found in manifest")
 
         return f"{self.platform}_{project_id}"
-
-    def close(self):
-        self.prepare_for_commit()
