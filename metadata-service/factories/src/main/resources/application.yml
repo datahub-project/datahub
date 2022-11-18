@@ -131,7 +131,7 @@ elasticsearch:
   pathPrefix: ${ELASTICSEARCH_PATH_PREFIX:#{null}}
   useSSL: ${ELASTICSEARCH_USE_SSL:false}
   opensearchUseAwsIamAuth: ${OPENSEARCH_USE_AWS_IAM_AUTH:false}
-  region: ${AWS_REGION:us-east-1}
+  region: ${AWS_REGION:#{null}}
   sslContext: # Required if useSSL is true
     protocol: ${ELASTICSEARCH_SSL_PROTOCOL:#{null}}
     secureRandomImplementation: ${ELASTICSEARCH_SSL_SECURE_RANDOM_IMPL:#{null}}

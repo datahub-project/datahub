@@ -75,10 +75,8 @@ public class RestHighLevelClientFactory {
     if (useSSL) {
       restClientBuilder = loadRestHttpsClient(host, port, pathPrefix, threadCount, connectionRequestTimeout, sslContext, username,
           password, opensearchUseAwsIamAuth, region);
-    } else if ((username != null && password != null) || opensearchUseAwsIamAuth) {
-      restClientBuilder = loadRestHttpClient(host, port, pathPrefix, threadCount, connectionRequestTimeout, username, password, region);
     } else {
-      restClientBuilder = loadRestHttpClient(host, port, pathPrefix, threadCount, connectionRequestTimeout);
+      restClientBuilder = loadRestHttpClient(host, port, pathPrefix, threadCount, connectionRequestTimeout, username, password, opensearchUseAwsIamAuth, region);
     }
 
     return new RestHighLevelClient(restClientBuilder);
@@ -103,7 +101,7 @@ public class RestHighLevelClientFactory {
 
   @Nonnull
   private static RestClientBuilder loadRestHttpClient(@Nonnull String host, int port, String pathPrefix, int threadCount,
-      int connectionRequestTimeout, String username, String password, String region) {
+      int connectionRequestTimeout, String username, String password,boolean opensearchUseAwsIamAuth, String region) {
     RestClientBuilder builder = loadRestHttpClient(host, port, pathPrefix, threadCount, connectionRequestTimeout);
 
     builder.setHttpClientConfigCallback(new RestClientBuilder.HttpClientConfigCallback() {
@@ -114,7 +112,8 @@ public class RestHighLevelClientFactory {
           final CredentialsProvider credentialsProvider = new BasicCredentialsProvider();
           credentialsProvider.setCredentials(AuthScope.ANY, new UsernamePasswordCredentials(username, password));
           httpAsyncClientBuilder.setDefaultCredentialsProvider(credentialsProvider);
-        } else {
+        }
+        if(opensearchUseAwsIamAuth) {
           Aws4Signer signer = Aws4Signer.create();
           HttpRequestInterceptor interceptor = new AwsRequestSigningApacheInterceptor("es", signer,
               DefaultCredentialsProvider.create(), region);
