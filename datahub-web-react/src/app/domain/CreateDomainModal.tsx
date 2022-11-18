@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
 import styled from 'styled-components';
+import { useApolloClient } from '@apollo/client';
 import { message, Button, Input, Modal, Typography, Form, Collapse, Tag } from 'antd';
-import { useCreateDomainMutation } from '../../graphql/domain.generated';
+import { ListDomainsDocument, ListDomainsQuery, useCreateDomainMutation } from '../../graphql/domain.generated';
 import { useEnterKeyListener } from '../shared/useEnterKeyListener';
 import { groupIdTextValidation } from '../shared/textUtil';
 import analytics, { EventType } from '../analytics';
@@ -22,6 +23,42 @@ type Props = {
 };
 
 const SUGGESTED_DOMAIN_NAMES = ['Engineering', 'Marketing', 'Sales', 'Product'];
+const DEFAULT_PAGE_SIZE = 25;
+
+const addToListDomainsCache = (client, newDomain) => {
+    // Read the data from our cache for this query.
+    const currData: ListDomainsQuery | null = client.readQuery({
+        query: ListDomainsDocument,
+        variables: {
+            input: {
+                start: 0,
+                count: DEFAULT_PAGE_SIZE,
+                query: undefined,
+            },
+        },
+    });
+    // Add our new domain into the existing list.
+    const newDomains = [newDomain, ...(currData?.listDomains?.domains || [])];
+    // Write our data back to the cache.
+    client.writeQuery({
+        query: ListDomainsDocument,
+        variables: {
+            input: {
+                start: 0,
+                count: DEFAULT_PAGE_SIZE,
+                query: undefined,
+            },
+        },
+        data: {
+            listDomains: {
+                start: 0,
+                count: (currData?.listDomains?.count || 0) + 1,
+                total: (currData?.listDomains?.total || 0) + 1,
+                domains: newDomains,
+            },
+        },
+    });
+};
 
 export default function CreateDomainModal({ onClose, onCreate }: Props) {
     const [stagedName, setStagedName] = useState('');
@@ -30,6 +67,7 @@ export default function CreateDomainModal({ onClose, onCreate }: Props) {
     const [createDomainMutation] = useCreateDomainMutation();
     const [createButtonEnabled, setCreateButtonEnabled] = useState(true);
     const [form] = Form.useForm();
+    const client = useApolloClient();
 
     const onCreateDomain = () => {
         createDomainMutation({
@@ -55,6 +93,16 @@ export default function CreateDomainModal({ onClose, onCreate }: Props) {
                 setStagedName('');
                 setStagedDescription('');
                 setStagedId(undefined);
+                addToListDomainsCache(client, {
+                    urn: data?.createDomain || '',
+                    id: stagedId || '',
+                    properties: {
+                        name: stagedName,
+                        description: stagedDescription,
+                    },
+                    ownership: null,
+                    entities: null,
+                });
             })
             .catch((e) => {
                 message.destroy();
