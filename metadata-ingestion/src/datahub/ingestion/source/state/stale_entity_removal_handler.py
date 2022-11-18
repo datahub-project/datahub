@@ -29,10 +29,9 @@ class StatefulStaleMetadataRemovalConfig(StatefulIngestionConfig):
     Base specialized config for Stateful Ingestion with stale metadata removal capability.
     """
 
-    _entity_types: List[str] = []
     remove_stale_metadata: bool = pydantic.Field(
         default=True,
-        description=f"Soft-deletes the entities of type {', '.join(_entity_types)} in the last successful run but missing in the current run with stateful_ingestion enabled.",
+        description="Soft-deletes the entities present in the last successful run but missing in the current run with stateful_ingestion enabled.",
     )
     fail_safe_threshold: float = pydantic.Field(
         default=20.0,
@@ -115,7 +114,7 @@ class StaleEntityCheckpointStateBase(CheckpointStateBase, ABC, Generic[Derived])
             overlap_count_all += overlap_count
             old_count_all += old_count
         if old_count_all:
-            return (1 - overlap_count / old_count_all) * 100.0
+            return (1 - overlap_count_all / old_count_all) * 100.0
         return 0.0
 
     @staticmethod

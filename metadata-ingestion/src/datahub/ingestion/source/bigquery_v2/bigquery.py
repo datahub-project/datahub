@@ -1187,6 +1187,3 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
     def warn(self, log: logging.Logger, key: str, reason: str) -> None:
         self.report.report_warning(key, reason)
         log.warning(f"{key} => {reason}")
-
-    def close(self) -> None:
-        self.prepare_for_commit()

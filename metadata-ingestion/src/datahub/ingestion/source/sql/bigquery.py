@@ -792,8 +792,11 @@ class BigQuerySource(SQLAlchemySource):
             # Bigquery only supports one partition column
             # https://stackoverflow.com/questions/62886213/adding-multiple-partitioned-columns-to-bigquery-table-from-sql-query
             row = result.fetchone()
+            if row and hasattr(row, "_asdict"):
+                # Compat with sqlalchemy 1.4 Row type.
+                row = row._asdict()
             if row:
-                return BigQueryPartitionColumn(**row)
+                return BigQueryPartitionColumn(**row.items())
             return None
 
     def get_shard_from_table(self, table: str) -> Tuple[str, Optional[str]]:

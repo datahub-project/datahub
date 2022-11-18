@@ -223,6 +223,7 @@ class GenericFileSource(TestableSource):
     def close(self):
         if self.fp:
             self.fp.close()
+        super().close()
 
     def _iterate_file(self, path: str) -> Iterable[Tuple[int, Any]]:
         self.report.current_file_name = path
