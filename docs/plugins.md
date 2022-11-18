@@ -203,5 +203,5 @@ Adhere to below plugin access control to keep your plugin forward compatible.
 
 All other access are forbidden for the plugin.
 
-> In BETA version your plugin can access any port and can read/write to any location on file system, however you should implement the plugin as per above access permission to keep your plugin compatible with upcoming release of DataHub.
+> Disclaimer: In BETA version your plugin can access any port and can read/write to any location on file system, however you should implement the plugin as per above access permission to keep your plugin compatible with upcoming release of DataHub.
 
