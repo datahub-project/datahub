@@ -8,7 +8,7 @@ import time
 from dataclasses import dataclass
 from datetime import timezone
 from decimal import Decimal
-from typing import Any, Dict, List, Optional, Union
+from typing import TYPE_CHECKING, Any, Dict, List, Optional, Union
 
 from great_expectations.checkpoint.actions import ValidationAction
 from great_expectations.core.batch import Batch
@@ -23,7 +23,6 @@ from great_expectations.data_asset.data_asset import DataAsset
 from great_expectations.data_context.data_context import DataContext
 from great_expectations.data_context.types.resource_identifiers import (
     ExpectationSuiteIdentifier,
-    GeCloudIdentifier,
     ValidationResultIdentifier,
 )
 from great_expectations.execution_engine.sqlalchemy_execution_engine import (
@@ -57,6 +56,11 @@ from datahub.metadata.com.linkedin.pegasus2avro.common import DataPlatformInstan
 from datahub.metadata.com.linkedin.pegasus2avro.events.metadata import ChangeType
 from datahub.metadata.schema_classes import PartitionSpecClass, PartitionTypeClass
 from datahub.utilities.sql_parser import DefaultSQLParser
+
+if TYPE_CHECKING:
+    from great_expectations.data_context.types.resource_identifiers import (
+        GXCloudIdentifier,
+    )
 
 assert MARKUPSAFE_PATCHED
 logger = logging.getLogger(__name__)
@@ -103,7 +107,7 @@ class DataHubValidationAction(ValidationAction):
         self,
         validation_result_suite: ExpectationSuiteValidationResult,
         validation_result_suite_identifier: Union[
-            ValidationResultIdentifier, GeCloudIdentifier
+            ValidationResultIdentifier, "GXCloudIdentifier"
         ],
         data_asset: Union[Validator, DataAsset, Batch],
         payload: Any = None,
