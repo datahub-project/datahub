@@ -29,10 +29,9 @@ class StatefulStaleMetadataRemovalConfig(StatefulIngestionConfig):
     Base specialized config for Stateful Ingestion with stale metadata removal capability.
     """
 
-    _entity_types: List[str] = []
     remove_stale_metadata: bool = pydantic.Field(
         default=True,
-        description=f"Soft-deletes the entities of type {', '.join(_entity_types)} in the last successful run but missing in the current run with stateful_ingestion enabled.",
+        description="Soft-deletes the entities present in the last successful run but missing in the current run with stateful_ingestion enabled.",
     )
     fail_safe_threshold: float = pydantic.Field(
         default=20.0,

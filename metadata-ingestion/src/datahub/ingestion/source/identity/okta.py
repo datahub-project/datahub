@@ -418,9 +418,6 @@ class OktaSource(Source):
     def get_report(self):
         return self.report
 
-    def close(self):
-        pass
-
     # Instantiates Okta SDK Client.
     def _create_okta_client(self):
         config = {
