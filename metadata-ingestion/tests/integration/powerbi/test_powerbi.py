@@ -151,9 +151,7 @@ def register_mock_api(request_mock):
         "https://api.powerbi.com/v1.0/myorg/groups/64ED5CAD-7C22-4684-8180-826122881108/dashboards/7D668CAD-8FFC-4505-9215-655BCA5BEBAE/tiles": {
             "method": "GET",
             "status_code": 200,
-            "json": {
-                "value": []
-            },
+            "json": {"value": []},
         },
         "https://api.powerbi.com/v1.0/myorg/groups/64ED5CAD-7C10-4684-8180-826122881108/datasets/05169CD2-E713-41E6-9600-1D8066D95445": {
             "method": "GET",
@@ -421,10 +419,11 @@ def test_override_ownership(
         golden_path=f"{test_resources_dir}/{mce_out_file}",
     )
 
+
 @freeze_time(FROZEN_TIME)
 @mock.patch("msal.ConfidentialClientApplication", side_effect=mock_msal_cca)
 def test_scan_all_workspaces(
-        mock_msal, pytestconfig, tmp_path, mock_time, requests_mock
+    mock_msal, pytestconfig, tmp_path, mock_time, requests_mock
 ):
     global call_number
     call_number = 1
@@ -450,7 +449,7 @@ def test_scan_all_workspaces(
             "sink": {
                 "type": "file",
                 "config": {
-                              "filename": f"{tmp_path}/powerbi_mces_scan_all_workspaces.json",
+                    "filename": f"{tmp_path}/powerbi_mces_scan_all_workspaces.json",
                 },
             },
         }
