@@ -790,7 +790,7 @@ class PrestoOnHiveSource(SQLAlchemySource):
     def close(self) -> None:
         if self._alchemy_client.connection is not None:
             self._alchemy_client.connection.close()
-        self.prepare_for_commit()
+        super().close()
 
     def get_schema_fields_for_column(
         self,
