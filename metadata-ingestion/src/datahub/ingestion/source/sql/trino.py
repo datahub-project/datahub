@@ -1,6 +1,5 @@
 import json
 import uuid
-from builtins import Exception
 from textwrap import dedent
 from typing import Any, Dict, List, Optional
 
