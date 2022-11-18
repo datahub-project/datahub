@@ -131,6 +131,7 @@ function EntityDropdown(props: Props) {
     return (
         <>
             <Dropdown
+                data-testid="entity-header-dropdown"
                 overlay={
                     <Menu>
                         {menuItems.has(EntityMenuItems.COPY_URL) && navigator.clipboard && (
