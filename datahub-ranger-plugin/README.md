@@ -102,31 +102,60 @@ Perform the following steps to configure DataHub to send incoming requests to Ap
     ```
 
 As per your deployment follow either Docker or Kubernetes section below
-### Docker 
-   Configure DataHub to use a Ranger **Authorizer**. On the host where `datahub-gms` is deployed, follow these steps:
-   1. Create directory **~/.datahub/plugins/auth/resources/**: Executes below command 
-        ```bash
-        mkdir -p ~/.datahub/plugins/auth/resources/
-      ```
-   2. Copy **ranger-datahub-security.xml** file to ~/.datahub/plugins/auth/resources/ 
-   3. [Optional] Disable the DataHub default policy authorizer by setting the following environment variable on the `datahub-gms` container:
-        ```bash
-      export AUTH_POLICIES_ENABLED=false
-      ```
-   4. Enable the Apache Ranger authorizer by setting the following environment variable on the `datahub-gms` container:
-        ```bash
-      export RANGER_AUTHORIZER_ENABLED=true 
-      ```
-   5. Set the Apache Ranger admin username by setting the following environment variable on the `datahub-gms` container:
-        ```bash
-      export RANGER_USERNAME=<username>
-      ```
-   6. Set the Apache Ranger admin password by setting the following environment variable on the `datahub-gms` container:
-        ```bash
-      export RANGER_PASSWORD=<password>
-      ```
-   7. Redeploy DataHub (`datahub-gms`) with the new environment variables
+### Docker
+    
+**Build Ranger Authorizer Plugin**
+1.  Clone DataHub Repo: Clone the DataHub repository
+    ```shell
+        cd ~/
+        git clone https://github.com/datahub-project/datahub.git
+    ```
+2. Go inside the datahub directory: You should be inside the `datahub` directory to execute build command
+    ```shell
+        cd ~/datahub
+    ```
+3. Build plugin: Execute below gradle command to build Ranger Authorizer Plugin jar
+    ```shell
+      ./gradlew :metadata-auth:apache-ranger-plugin:shadowJar
+    ```
+   This step will generate a jar file i.e. ./metadata-auth/apache-ranger-plugin/build/libs/apache-ranger-plugin-&lt;version&gt;-SNAPSHOT.jar.
+
+    Let's call this jar as ranger-plugin-jar. We need this jar in below step (Configure Ranger Authorizer Plugin)
+
+
+**Configure Ranger Authorizer Plugin**
+
+On the host where `datahub-gms` is deployed, follow these steps:
+1. Create directory `~/.datahub/plugins/auth/apache-ranger-authorizer/`: Executes below command 
+     ```bash
+     mkdir -p ~/.datahub/plugins/auth/apache-ranger-authorizer/
+   ```
+2. Copy `ranger-datahub-security.xml` file to `~/.datahub/plugins/auth/apache-ranger-authorizer/`
+3. Copy ranger-plugin-jar: Copy the apache-ranger-plugin-&lt;version&gt;-SNAPSHOT.jar 
+     ```bash
+   cp ./metadata-auth/apache-ranger-plugin/build/libs/apache-ranger-plugin-<version>-SNAPSHOT.jar ~/.datahub/plugins/auth/apache-ranger-authorizer/apache-ranger-authorizer.jar
+   ```
+4. Create `config.yml`: Create config.yml if not exist
+    ```shell
+        touch ~/.datahub/plugins/auth/config.yml 
+    ```
+5. Set Apache Ranger Plugin config: In config.yml file add below list element under `plugins` array. Set username and password to Apache Ranger user credentials
+    ```yaml
+       - name: "apache-ranger-authorizer"
+         type: "authorizer"
+         enabled: "true"
+         params:
+         className: "com.datahub.authorization.ranger.RangerAuthorizer"
+         configs:
+         username: "<Apache Ranger username>"
+         password: "<Apache Ranger password>"
+   ```
+6. Redeploy DataHub (`datahub-gms`)
+
+
 ### Kubernetes
+   TODO: Update this section as per latest release
+
    Configure DataHub to use a Ranger **Authorizer**. On the host where `kubectl` is installed, follow these steps:
 
    For kubernetes example command, please replace the &lt;namespace&gt; as per your environment.
@@ -233,13 +262,7 @@ then follow the below sections to undo the configuration steps you have performe
       
 ## Revert Configuration of your DataHub Deployment
 ### Docker 
-   1. Unset environment variables: Execute below command to unset the environment variables
-        ```bash
-        unset AUTH_POLICIES_ENABLED
-        unset RANGER_AUTHORIZER_ENABLED
-        unset RANGER_USERNAME
-        unset RANGER_PASSWORD
-      ```
+   1. Remove Apache Ranger Plugin entry: From `config.yml` file remove the entry which was added for Apache Ranger Plugin
    2. Redeploy DataHub (`datahub-gms`)
 ### Kubernetes
    For kubernetes example command, please replace the &lt;namespace&gt; as per your environment.

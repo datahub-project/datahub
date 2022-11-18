@@ -9,7 +9,7 @@ import javax.annotation.Nonnull;
 
 /**
  *  Context class to provide Authenticator implementations with concrete objects necessary for their correct workings.
- *  DataHub creates {@link AuthenticatorContext} instance and pass it as an argument to init method of {@link Authenticator}
+ *  DataHub creates {@link AuthenticatorContext} instance and provides it as an argument to init method of {@link Authenticator}
  */
 public class AuthenticatorContext {
   private final Map<String, Object> contextMap;

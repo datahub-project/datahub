@@ -69,7 +69,7 @@ The sample authenticator implementation can be found at [Authenticator Sample](.
 4. Refer section [Plugin Installation](#plugin-installation) for plugin installation in DataHub environment
 
 ## Enable GMS Authentication
-By default authentication is disabled in DataHub GMS.
+By default, authentication is disabled in DataHub GMS.
 
 Follow below steps to enable GMS authentication
 1. Download docker-compose.quickstart.yml: Download docker compose file [docker-compose.quickstart.yml](../docker/quickstart/docker-compose.quickstart.yml)
@@ -203,5 +203,5 @@ Adhere to below plugin access control to keep your plugin forward compatible.
 
 All other access are forbidden for the plugin.
 
-> In BETA version your plugin can access any port and can read/write to any location on file system, however you should implement the plugin as per above access permission to keep your plugin compatible with upcoming release of DataHub.
+> Disclaimer: In BETA version your plugin can access any port and can read/write to any location on file system, however you should implement the plugin as per above access permission to keep your plugin compatible with upcoming release of DataHub.
 

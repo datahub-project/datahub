@@ -52,6 +52,9 @@ public class AuthorizerChain implements Authorizer {
     for (final Authorizer authorizer : this.authorizers) {
       try {
         log.debug("Executing Authorizer with class name {}", authorizer.getClass().getCanonicalName());
+        // The library came with plugin can use the contextClassLoader to load the classes. For example apache-ranger library does this.
+        // Here we need to set our IsolatedClassLoader as contextClassLoader to resolve such class loading request from plugin's home directory,
+        // otherwise plugin's internal library wouldn't be able to find their dependent classes
         Thread.currentThread().setContextClassLoader(authorizer.getClass().getClassLoader());
         AuthorizationResult result = authorizer.authorize(request);
         // reset
