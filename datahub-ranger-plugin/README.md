@@ -154,69 +154,9 @@ On the host where `datahub-gms` is deployed, follow these steps:
 
 
 ### Kubernetes
-   TODO: Update this section as per latest release
 
-   Configure DataHub to use a Ranger **Authorizer**. On the host where `kubectl` is installed, follow these steps:
-
-   For kubernetes example command, please replace the &lt;namespace&gt; as per your environment.
-
-
-   1. Download kubernetes configMap for DataHub Apache Ranger authorizer [auth-plugin-configuration-configMap.kubernetes.yaml](../datahub-ranger-plugin/conf/auth-plugin-configuration-configMap.kubernetes.yaml)
-
-   2. In **auth-plugin-configuration-configMap.kubernetes.yaml**  edit the value of property  *ranger.plugin.datahub.policy.rest.url*. Sample snippet is shown below
-        ```xml
-        <property>
-            <name>ranger.plugin.datahub.policy.rest.url</name>
-            <value>http://199.222.9.70:6080</value>
-            <description>
-                URL to Ranger Admin
-            </description>
-        </property>
-      ```
-
-   3. Create a kubernetes configMap resource: Execute below command to create an *auth-plugin-configuration* configMap resource
-       ```bash
-        kubectl apply -f auth-plugin-configuration-configMap.kubernetes.yaml -n <namespace>
-       ```
-
-   4. Edit **datahub-datahub-gms** deployment to set environment variables & volume-mount points: Execute below command to open deployment editor<br/>
-      ```
-      kubectl edit deployment datahub-datahub-gms
-      ```
-      1. Add below environment variables in under *spec.template.spec.containers[0].env*: Replace &lt;username&gt; by Apache Ranger admin username and &lt;password&gt; by Apache Ranger admin user password.
-         ```yaml
-         - name: AUTH_POLICIES_ENABLED
-           value: "false"
-         - name: RANGER_AUTHORIZER_ENABLED
-           value: "true"
-         - name: RANGER_USERNAME
-           value: "<username>"
-         - name: RANGER_PASSWORD
-           value: "<password>"
-         ``` 
-
-       2. Add *volumes* under spec.template.spec: Copy & paste below yaml snippet under *spec.template.spec*
-             ```yaml
-                  volumes:
-                  - configMap:
-                    name: auth-plugin-configuration
-                  name: auth-resource-volume
-            ```
-       3. Add *volumeMounts* under spec.template.spec.containers[0]: Copy & paste below yaml snippet under spec.template.spec.containers[0]
-             ```yaml
-                 volumeMounts:
-                 - mountPath: /etc/datahub/plugins/auth/resources
-                   name: auth-resource-volume
-                   readOnly: true
- 
-             ```
-   5. Save and quit the editor 
-   6. Check status of **datahub-datahub-gms** deployment rollout: Execute below command
-   ```bash 
-   kubectl rollout status deployment/datahub-datahub-gms
-   ```
-   On successful rollout you should see a message *deployment "datahub-datahub-gms" successfully rolled out* 
-
+The steps are similar as mentioned in [Docker](#docker), the difference is instead of creating the directory `~/.datahub/plugins/auth/apache-ranger-authorizer/` mount a volume at `/etc/datahub` and create directory structure and files as mentioned in [Docker](#docker). 
+   
 
 That's it! Now we can test out the integration. 
 
