@@ -6,6 +6,8 @@ import { CorpUser, DataHubRole } from '../../../types.generated';
 import AssignRoleConfirmation from './AssignRoleConfirmation';
 import { mapRoleIcon } from './UserUtils';
 
+const NO_ROLE_TEXT = 'No Role';
+
 type Props = {
     user: CorpUser;
     userRoleUrn: string;
@@ -23,16 +25,13 @@ const RoleIcon = styled.span`
 `;
 
 export default function SelectRole({ user, userRoleUrn, selectRoleOptions, refetch }: Props) {
-    const [isViewingAssignRole, setIsViewingAssignRole] = useState(false);
-    const [roleToAssign, setRoleToAssign] = useState<DataHubRole>();
-
     const rolesMap: Map<string, DataHubRole> = new Map();
     selectRoleOptions.forEach((role) => {
         rolesMap.set(role.urn, role);
     });
-
+    const allSelectRoleOptions = [{ urn: '', name: NO_ROLE_TEXT }, ...selectRoleOptions];
     const selectOptions = () =>
-        selectRoleOptions.map((role) => {
+        allSelectRoleOptions.map((role) => {
             return (
                 <Select.Option value={role.urn}>
                     <RoleIcon>{mapRoleIcon(role.name)}</RoleIcon>
@@ -41,13 +40,27 @@ export default function SelectRole({ user, userRoleUrn, selectRoleOptions, refet
             );
         });
 
+    const initialRole = rolesMap.get(userRoleUrn) as DataHubRole;
+    const [currentRole, setCurrentRole] = useState<DataHubRole | undefined>(initialRole);
+    const [isViewingAssignRole, setIsViewingAssignRole] = useState(false);
+
     const onSelectRole = (roleUrn: string) => {
         const roleFromMap: DataHubRole = rolesMap.get(roleUrn) as DataHubRole;
-        setRoleToAssign(roleFromMap);
+        setCurrentRole(roleFromMap);
         setIsViewingAssignRole(true);
     };
 
-    const noRoleText = 'No Role';
+    const onCancel = () => {
+        setCurrentRole(initialRole);
+        setIsViewingAssignRole(false);
+    };
+
+    const onConfirm = () => {
+        setIsViewingAssignRole(false);
+        setTimeout(function () {
+            refetch?.();
+        }, 3000);
+    };
 
     return (
         <>
@@ -55,26 +68,21 @@ export default function SelectRole({ user, userRoleUrn, selectRoleOptions, refet
                 placeholder={
                     <>
                         <UserOutlined style={{ marginRight: 6, fontSize: 12 }} />
-                        {noRoleText}
+                        {NO_ROLE_TEXT}
                     </>
                 }
-                value={userRoleUrn || undefined}
+                value={currentRole?.urn}
                 onChange={(e) => onSelectRole(e as string)}
             >
                 {selectOptions()}
             </RoleSelect>
             <AssignRoleConfirmation
                 visible={isViewingAssignRole}
-                roleToAssign={roleToAssign}
+                roleToAssign={currentRole}
                 userUrn={user.urn}
                 username={user.username}
-                onClose={() => setIsViewingAssignRole(false)}
-                onConfirm={() => {
-                    setIsViewingAssignRole(false);
-                    setTimeout(function () {
-                        refetch?.();
-                    }, 3000);
-                }}
+                onClose={onCancel}
+                onConfirm={onConfirm}
             />
         </>
     );

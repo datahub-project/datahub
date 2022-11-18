@@ -1,7 +1,7 @@
 import json
 import logging
 import typing
-from typing import Dict, List, Optional, Tuple
+from typing import Dict, List, Optional, Tuple, cast
 
 import pydantic
 from pyathena.common import BaseCursor
@@ -109,9 +109,9 @@ class AthenaSource(SQLAlchemySource):
         self, inspector: Inspector, schema: str, table: str
     ) -> Tuple[Optional[str], Dict[str, str], Optional[str]]:
         if not self.cursor:
-            self.cursor = inspector.engine.raw_connection().cursor()
+            self.cursor = cast(BaseCursor, inspector.engine.raw_connection().cursor())
+            assert self.cursor
 
-        assert self.cursor
         # Unfortunately properties can be only get through private methods as those are not exposed
         # https://github.com/laughingman7743/PyAthena/blob/9e42752b0cc7145a87c3a743bb2634fe125adfa7/pyathena/model.py#L201
         metadata: AthenaTableMetadata = self.cursor._get_table_metadata(

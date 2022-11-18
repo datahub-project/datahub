@@ -91,11 +91,7 @@ export const UserList = () => {
     } = useListRolesQuery({
         fetchPolicy: 'no-cache',
         variables: {
-            input: {
-                start,
-                count: pageSize,
-                query,
-            },
+            input: {},
         },
     });
 

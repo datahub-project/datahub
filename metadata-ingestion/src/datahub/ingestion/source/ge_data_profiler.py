@@ -245,7 +245,7 @@ class _SingleDatasetProfiler(BasicDatasetProfilerBase):
     query_combiner: SQLAlchemyQueryCombiner
 
     def _get_columns_to_profile(self) -> List[str]:
-        if self.config.profile_table_level_only:
+        if not self.config.any_field_level_metrics_enabled():
             return []
 
         # Compute columns to profile

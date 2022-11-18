@@ -11,13 +11,15 @@ import tempfile
 import time
 from enum import Enum
 from pathlib import Path
-from typing import Dict, List, NoReturn, Optional
+from typing import Dict, List, NoReturn, Optional, Union
 
 import click
+import click_spinner
 import pydantic
 import requests
 from expandvars import expandvars
 from requests_file import FileAdapter
+from typing_extensions import Literal
 
 from datahub.cli.cli_utils import DATAHUB_ROOT_FOLDER
 from datahub.cli.docker_check import (
@@ -221,6 +223,44 @@ def _get_default_quickstart_compose_file() -> Optional[str]:
     return None
 
 
+def _docker_compose_v2() -> Union[List[str], Literal[False]]:
+    try:
+        # Check for the docker compose v2 plugin.
+        assert (
+            subprocess.check_output(
+                ["docker", "compose", "version", "--short"], stderr=subprocess.STDOUT
+            )
+            .decode()
+            .startswith("2.")
+        )
+        return ["docker", "compose"]
+    except (OSError, subprocess.CalledProcessError, AssertionError):
+        # We'll check for docker-compose as well.
+        try:
+            compose_version = subprocess.check_output(
+                ["docker-compose", "version", "--short"], stderr=subprocess.STDOUT
+            ).decode()
+            if compose_version.startswith("2."):
+                # This will happen if docker compose v2 is installed in standalone mode
+                # instead of as a plugin.
+                return ["docker-compose"]
+
+            click.secho(
+                "You have docker-compose v1 installed, but we require Docker Compose v2. "
+                "Please upgrade to Docker Compose v2. "
+                "See https://docs.docker.com/compose/compose-v2/ for more information.",
+                fg="red",
+            )
+            return False
+        except (OSError, subprocess.CalledProcessError):
+            # docker-compose v1 is not installed either.
+            click.secho(
+                "You don't have Docker Compose installed. Please install Docker Compose. See https://docs.docker.com/compose/install/.",
+                fg="red",
+            )
+            return False
+
+
 def _attempt_stop(quickstart_compose_file: List[pathlib.Path]) -> None:
     default_quickstart_compose_file = _get_default_quickstart_compose_file()
     compose_files_for_stopping = (
@@ -232,9 +272,11 @@ def _attempt_stop(quickstart_compose_file: List[pathlib.Path]) -> None:
     )
     if compose_files_for_stopping:
         # docker-compose stop
+        compose = _docker_compose_v2()
+        if not compose:
+            return
         base_command: List[str] = [
-            "docker",
-            "compose",
+            *compose,
             *itertools.chain.from_iterable(
                 ("-f", f"{path}") for path in compose_files_for_stopping
             ),
@@ -695,9 +737,11 @@ def quickstart(
         elastic_port=elastic_port,
     )
 
+    compose = _docker_compose_v2()
+    if not compose:
+        return
     base_command: List[str] = [
-        "docker",
-        "compose",
+        *compose,
         *itertools.chain.from_iterable(
             ("-f", f"{path}") for path in quickstart_compose_file
         ),
@@ -709,11 +753,15 @@ def quickstart(
     try:
         if pull_images:
             click.echo("Pulling docker images...")
-            subprocess.run(
-                [*base_command, "pull", "-q"],
-                check=True,
-                env=_docker_subprocess_env(),
-            )
+            # FIXME: Remove args once https://github.com/python/typeshed/pull/9220 is merged.
+            with click_spinner.spinner(
+                beep=False, disable=False, force=False, stream=sys.stdout
+            ):
+                subprocess.run(
+                    [*base_command, "pull", "-q"],
+                    check=True,
+                    env=_docker_subprocess_env(),
+                )
             click.secho("Finished pulling docker images!")
     except subprocess.CalledProcessError:
         click.secho(
