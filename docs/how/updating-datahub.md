@@ -7,6 +7,7 @@ This file documents any backwards-incompatible changes in DataHub and assists pe
 - LookML source will always lowercase urns for lineage edges from views to upstream tables. There is no fallback provided to previous behavior because it was inconsistent in application of lower-casing earlier.
 - dbt config `node_type_pattern` which was previously deprecated has been removed. Use `entities_enabled` instead to control whether to emit metadata for sources, models, seeds, tests, etc.
 - The DataHub Airflow lineage backend and plugin no longer support Airflow 1.x. You can still run DataHub ingestion in Airflow 1.x using the [PythonVirtualenvOperator](https://airflow.apache.org/docs/apache-airflow/1.10.15/_api/airflow/operators/python_operator/index.html?highlight=pythonvirtualenvoperator#airflow.operators.python_operator.PythonVirtualenvOperator).
+- #6243 apache-ranger authorizer is no longer the core part of DataHub GMS, and it is shifted as plugin. Please refer updated documentation [datahub-ranger-plugin](../../datahub-ranger-plugin/README.md#configuring-your-datahub-deployment) for configuring apache-ranger as Authorizer plugin.
 
 ### Breaking Changes
 - Java version 11 or greater is required.

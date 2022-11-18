@@ -44,13 +44,15 @@ public class AuthenticatorChain {
    */
   @Nullable
   public Authentication authenticate(@Nonnull final AuthenticationRequest context) throws AuthenticationException {
-    // TODO: Need to write wrapper around authenticate and authorize to make IsolatedClassLoader as contextClassLoader for plugins
     Objects.requireNonNull(context);
     ClassLoader contextClassLoader = Thread.currentThread().getContextClassLoader();
     List<Pair<String, String>> authenticationFailures = new ArrayList<>();
     for (final Authenticator authenticator : this.authenticators) {
       try {
         log.debug(String.format("Executing Authenticator with class name %s", authenticator.getClass().getCanonicalName()));
+        // The library came with plugin can use the contextClassLoader to load the classes. For example apache-ranger library does this.
+        // Here we need to set our IsolatedClassLoader as contextClassLoader to resolve such class loading request from plugin's home directory,
+        // otherwise plugin's internal library wouldn't be able to find their dependent classes
         Thread.currentThread().setContextClassLoader(authenticator.getClass().getClassLoader());
         Authentication result = authenticator.authenticate(context);
         // reset

@@ -10,7 +10,7 @@ import lombok.Data;
 
 /**
  * Context provided to an Authorizer on initialization.
- * DataHub creates {@link AuthenticatorContext} instance and pass it as an argument to init method of {@link Authenticator}
+ * DataHub creates {@link AuthenticatorContext} instance and provides it as an argument to init method of {@link Authenticator}
  */
 @Data
 @AllArgsConstructor

@@ -3,7 +3,6 @@ package com.datahub.authentication;
 import java.util.List;
 import lombok.Data;
 
-
 /**
  * POJO representing the "authentication" configuration block in application.yml.
  */
