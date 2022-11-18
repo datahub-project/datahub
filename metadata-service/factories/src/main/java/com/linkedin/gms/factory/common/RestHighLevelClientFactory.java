@@ -162,7 +162,7 @@ public class RestHighLevelClientFactory {
   private static HttpRequestInterceptor getAwsRequestSigningInterceptor(String region) {
 
     if(region == null) {
-      throw new NullPointerException("Region must not be null when opensearchUseAwsIamAuth is used");
+      throw new NullPointerException("Region must not be null when opensearchUseAwsIamAuth is enabled");
     }
     Aws4Signer signer = Aws4Signer.create();
     // Uses default AWS credentials
