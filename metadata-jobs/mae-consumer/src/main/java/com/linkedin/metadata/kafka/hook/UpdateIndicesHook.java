@@ -37,6 +37,7 @@ import com.linkedin.metadata.timeseries.TimeseriesAspectService;
 import com.linkedin.metadata.timeseries.transformer.TimeseriesAspectTransformer;
 import com.linkedin.metadata.utils.EntityKeyUtils;
 import com.linkedin.metadata.utils.GenericRecordUtils;
+import com.linkedin.mxe.GenericAspect;
 import com.linkedin.mxe.MetadataChangeLog;
 import com.linkedin.mxe.SystemMetadata;
 import com.linkedin.util.Pair;
@@ -45,6 +46,7 @@ import java.net.URISyntaxException;
 import java.net.URLEncoder;
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
@@ -56,6 +58,7 @@ import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Import;
 import org.springframework.stereotype.Component;
 
@@ -74,6 +77,9 @@ public class UpdateIndicesHook implements MetadataChangeLogHook {
   private final SystemMetadataService _systemMetadataService;
   private final EntityRegistry _entityRegistry;
   private final SearchDocumentTransformer _searchDocumentTransformer;
+
+  @Value("${featureFlags.graphServiceDiffModeEnabled:false}")
+  private boolean _diffMode;
 
   public static final String DOWNSTREAM_OF = "DownstreamOf";
   private static final Set<ChangeType> VALID_CHANGE_TYPES =
@@ -129,13 +135,24 @@ public class UpdateIndicesHook implements MetadataChangeLogHook {
       RecordTemplate aspect =
           GenericRecordUtils.deserializeAspect(event.getAspect().getValue(), event.getAspect().getContentType(),
               aspectSpec);
+      GenericAspect previousAspectValue = event.getPreviousAspectValue();
+      RecordTemplate previousAspect = null;
+      if (previousAspectValue != null) {
+        previousAspect = GenericRecordUtils.deserializeAspect(previousAspectValue.getValue(),
+            previousAspectValue.getContentType(), aspectSpec);
+      }
       if (aspectSpec.isTimeseries()) {
         updateTimeseriesFields(event.getEntityType(), event.getAspectName(), urn, aspect, aspectSpec,
             event.getSystemMetadata());
       } else {
-        updateSearchService(entitySpec.getName(), urn, aspectSpec, aspect, event.hasSystemMetadata() ? event.getSystemMetadata().getRunId() : null);
-        updateGraphService(urn, aspectSpec, aspect);
+        updateSearchService(entitySpec.getName(), urn, aspectSpec, aspect,
+            event.hasSystemMetadata() ? event.getSystemMetadata().getRunId() : null);
         updateSystemMetadata(event.getSystemMetadata(), urn, aspectSpec, aspect);
+        if (_diffMode) {
+          updateGraphServiceDiff(urn, aspectSpec, previousAspect, aspect);
+        } else {
+          updateGraphService(urn, aspectSpec, aspect);
+        }
       }
     } else if (event.getChangeType() == ChangeType.DELETE) {
       if (!event.hasAspectName() || !event.hasPreviousAspectValue()) {
@@ -162,9 +179,9 @@ public class UpdateIndicesHook implements MetadataChangeLogHook {
   }
 
   private void updateFineGrainedEdgesAndRelationships(
-      RecordTemplate aspect,
-      List<Edge> edgesToAdd,
-      HashMap<Urn, Set<String>> urnToRelationshipTypesBeingAdded
+          RecordTemplate aspect,
+          List<Edge> edgesToAdd,
+          HashMap<Urn, Set<String>> urnToRelationshipTypesBeingAdded
   ) {
     UpstreamLineage upstreamLineage = new UpstreamLineage(aspect.data());
     if (upstreamLineage.getFineGrainedLineages() != null) {
@@ -193,10 +210,10 @@ public class UpdateIndicesHook implements MetadataChangeLogHook {
   }
 
   private void updateInputFieldEdgesAndRelationships(
-      @Nonnull final Urn urn,
-      @Nonnull final InputFields inputFields,
-      @Nonnull final List<Edge> edgesToAdd,
-      @Nonnull final HashMap<Urn, Set<String>> urnToRelationshipTypesBeingAdded
+          @Nonnull final Urn urn,
+          @Nonnull final InputFields inputFields,
+          @Nonnull final List<Edge> edgesToAdd,
+          @Nonnull final HashMap<Urn, Set<String>> urnToRelationshipTypesBeingAdded
   ) {
     if (inputFields.hasFields()) {
       for (final InputField field : inputFields.getFields()) {
@@ -211,7 +228,7 @@ public class UpdateIndicesHook implements MetadataChangeLogHook {
     }
   }
 
-  private Pair<List<Edge>, HashMap<Urn, Set<String>>> getEdgesAndRelationshipTypesFromAspect(Urn urn, AspectSpec aspectSpec, RecordTemplate aspect) {
+  private Pair<List<Edge>, HashMap<Urn, Set<String>>> getEdgesAndRelationshipTypesFromAspect(Urn urn, AspectSpec aspectSpec, @Nonnull RecordTemplate aspect) {
     final List<Edge> edgesToAdd = new ArrayList<>();
     final HashMap<Urn, Set<String>> urnToRelationshipTypesBeingAdded = new HashMap<>();
 
@@ -260,7 +277,43 @@ public class UpdateIndicesHook implements MetadataChangeLogHook {
         _graphService.removeEdgesFromNode(entry.getKey(), new ArrayList<>(entry.getValue()),
             newRelationshipFilter(new Filter().setOr(new ConjunctiveCriterionArray()), RelationshipDirection.OUTGOING));
       }
-      edgesToAdd.forEach(edge -> _graphService.addEdge(edge));
+      edgesToAdd.forEach(_graphService::addEdge);
+    }
+  }
+
+  private void updateGraphServiceDiff(Urn urn, AspectSpec aspectSpec, @Nullable RecordTemplate oldAspect, @Nonnull RecordTemplate newAspect) {
+    Pair<List<Edge>, HashMap<Urn, Set<String>>> oldEdgeAndRelationTypes = null;
+    if (oldAspect != null) {
+      oldEdgeAndRelationTypes = getEdgesAndRelationshipTypesFromAspect(urn, aspectSpec, oldAspect);
+    }
+
+    final List<Edge> oldEdges = oldEdgeAndRelationTypes != null ? oldEdgeAndRelationTypes.getFirst() : Collections.emptyList();
+    final Set<Edge> oldEdgeSet = new HashSet<>(oldEdges);
+
+    Pair<List<Edge>, HashMap<Urn, Set<String>>> newEdgeAndRelationTypes =
+            getEdgesAndRelationshipTypesFromAspect(urn, aspectSpec, newAspect);
+
+    final List<Edge> newEdges = newEdgeAndRelationTypes.getFirst();
+    final Set<Edge> newEdgeSet = new HashSet<>(newEdges);
+
+    List<Edge> additiveDifference = newEdges.stream()
+            .filter(edge -> !oldEdgeSet.contains(edge))
+            .collect(Collectors.toList());
+
+    List<Edge> subtractiveDifference = oldEdges.stream()
+            .filter(edge -> !newEdgeSet.contains(edge))
+            .collect(Collectors.toList());
+
+    // Add new edges
+    if (additiveDifference.size() > 0) {
+      log.debug("Adding edges: {}", additiveDifference);
+      additiveDifference.forEach(_graphService::addEdge);
+    }
+
+    // Remove any old edges that no longer exist
+    if (subtractiveDifference.size() > 0) {
+      log.debug("Removing edges: {}", subtractiveDifference);
+      subtractiveDifference.forEach(_graphService::removeEdge);
     }
   }
 

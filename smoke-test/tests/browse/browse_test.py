@@ -1,9 +1,7 @@
-import json
-import urllib
 import time
 
 import pytest
-import requests
+import requests_wrapper as requests
 from tests.utils import delete_urns_from_file, get_frontend_url, ingest_file_via_rest
 
 
@@ -16,7 +14,7 @@ TEST_DATASET_3_URN = "urn:li:dataset:(urn:li:dataPlatform:kafka,test-browse-3,PR
 def ingest_cleanup_data(request):
     print("ingesting browse test data")
     ingest_file_via_rest("tests/browse/data.json")
-    time.sleep(5) # Allow for indexing time
+
     yield
     print("removing browse test data")
     delete_urns_from_file("tests/browse/data.json")

@@ -2,6 +2,7 @@ package com.linkedin.metadata.graph.elastic;
 
 import com.fasterxml.jackson.databind.node.JsonNodeFactory;
 import com.fasterxml.jackson.databind.node.ObjectNode;
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.metadata.graph.Edge;
@@ -22,6 +23,7 @@ import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.metadata.query.filter.RelationshipDirection;
 import com.linkedin.metadata.query.filter.RelationshipFilter;
 import com.linkedin.metadata.search.elasticsearch.indexbuilder.ESIndexBuilder;
+import com.linkedin.metadata.search.elasticsearch.update.ESBulkProcessor;
 import com.linkedin.metadata.utils.elasticsearch.IndexConvention;
 import io.opentelemetry.extension.annotations.WithSpan;
 import java.io.IOException;
@@ -42,10 +44,7 @@ import javax.annotation.Nullable;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.elasticsearch.action.search.SearchResponse;
-import org.elasticsearch.client.RequestOptions;
-import org.elasticsearch.client.RestHighLevelClient;
 import org.elasticsearch.index.query.QueryBuilders;
-import org.elasticsearch.index.reindex.DeleteByQueryRequest;
 
 
 @Slf4j
@@ -53,7 +52,7 @@ import org.elasticsearch.index.reindex.DeleteByQueryRequest;
 public class ElasticSearchGraphService implements GraphService {
 
   private final LineageRegistry _lineageRegistry;
-  private final RestHighLevelClient _searchClient;
+  private final ESBulkProcessor _esBulkProcessor;
   private final IndexConvention _indexConvention;
   private final ESGraphWriteDAO _graphWriteDAO;
   private final ESGraphQueryDAO _graphReadDAO;
@@ -101,10 +100,17 @@ public class ElasticSearchGraphService implements GraphService {
     return _lineageRegistry;
   }
 
+  @Override
   public void addEdge(@Nonnull final Edge edge) {
     String docId = toDocId(edge);
     String edgeDocument = toDocument(edge);
     _graphWriteDAO.upsertDocument(docId, edgeDocument);
+  }
+
+  @Override
+  public void removeEdge(@Nonnull final Edge edge) {
+    String docId = toDocId(edge);
+    _graphWriteDAO.deleteDocument(docId);
   }
 
   @Nonnull
@@ -248,15 +254,10 @@ public class ElasticSearchGraphService implements GraphService {
     }
   }
 
+  @VisibleForTesting
   @Override
   public void clear() {
-    DeleteByQueryRequest deleteRequest =
-        new DeleteByQueryRequest(_indexConvention.getIndexName(INDEX_NAME)).setQuery(QueryBuilders.matchAllQuery());
-    try {
-      _searchClient.deleteByQuery(deleteRequest, RequestOptions.DEFAULT);
-    } catch (Exception e) {
-      log.error("Failed to clear graph service: {}", e.toString());
-    }
+    _esBulkProcessor.deleteByQuery(QueryBuilders.matchAllQuery(), true, _indexConvention.getIndexName(INDEX_NAME));
   }
 
   @Override
