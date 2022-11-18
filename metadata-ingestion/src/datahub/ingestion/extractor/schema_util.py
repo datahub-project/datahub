@@ -289,14 +289,12 @@ class AvroToMceSchemaConverter:
                     )
 
                 description = self._description
-                if self._schema.props.get("doc", None) is None:
-                    if actual_schema.props.get("doc"):
-                        if description:
-                            description = (
-                                f"{actual_schema.props.get('doc')}{description}"
-                            )
-                        else:
-                            description = actual_schema.props.get("doc", None)
+                schema_description = self._schema.props.get(
+                    "doc"
+                ) or actual_schema.props.get("doc")
+                # We enrich _description with default value, so it doesn't mean if we have description it is not empty
+                if not self._schema.props.get("doc"):
+                    description = f"{schema_description or ''}{description or ''}"
 
                 native_data_type = self._converter._prefix_name_stack[-1]
                 if isinstance(schema, (avro.schema.Field, avro.schema.UnionSchema)):
@@ -319,7 +317,9 @@ class AvroToMceSchemaConverter:
                 if "deprecated" in merged_props:
                     description = (
                         f"<span style=\"color:red\">DEPRECATED: {merged_props['deprecated']}</span>\n"
-                        + description if description else ""
+                        + description
+                        if description
+                        else ""
                     )
                     tags = GlobalTagsClass(
                         tags=[TagAssociationClass(tag="urn:li:tag:Deprecated")]
