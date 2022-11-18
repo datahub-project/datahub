@@ -294,7 +294,7 @@ class AvroToMceSchemaConverter:
                 ) or actual_schema.props.get("doc")
                 # We enrich _description with default value, so it doesn't mean if we have description it is not empty
                 if not self._schema.props.get("doc"):
-                    description = f"{schema_description or ''}{description or ''}"
+                    description = str(f"{schema_description or ''}{description or ''}" or None)
 
                 native_data_type = self._converter._prefix_name_stack[-1]
                 if isinstance(schema, (avro.schema.Field, avro.schema.UnionSchema)):
