@@ -14,6 +14,7 @@ from trino.exceptions import TrinoQueryError
 from trino.sqlalchemy import datatype, error
 from trino.sqlalchemy.dialect import TrinoDialect
 
+from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.decorators import (
     SourceCapability,
     SupportStatus,
@@ -164,7 +165,9 @@ class TrinoSource(SQLAlchemySource):
 
     config: TrinoConfig
 
-    def __init__(self, config, ctx, platform: str = "trino"):
+    def __init__(
+        self, config: TrinoConfig, ctx: PipelineContext, platform: str = "trino"
+    ):
         super().__init__(config, ctx, platform)
 
     def get_db_name(self, inspector: Inspector) -> str:

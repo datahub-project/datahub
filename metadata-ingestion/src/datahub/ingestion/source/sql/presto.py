@@ -5,6 +5,7 @@ from pyhive.sqlalchemy_presto import PrestoDialect
 from sqlalchemy import exc, sql
 from sqlalchemy.engine import reflection
 
+from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.decorators import (
     SourceCapability,
     SupportStatus,
@@ -104,7 +105,7 @@ class PrestoSource(TrinoSource):
 
     config: PrestoConfig
 
-    def __init__(self, config, ctx):
+    def __init__(self, config: PrestoConfig, ctx: PipelineContext):
         super().__init__(config, ctx, platform="presto")
         # We have to override platform as this source inherits from the Trino source
 
