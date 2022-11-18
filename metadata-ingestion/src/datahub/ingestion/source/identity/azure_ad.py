@@ -471,9 +471,6 @@ class AzureADSource(Source):
     def get_report(self) -> SourceReport:
         return self.report
 
-    def close(self) -> None:
-        pass
-
     def _get_azure_ad_groups(self) -> Iterable[List]:
         yield from self._get_azure_ad_data(kind="/groups")
 

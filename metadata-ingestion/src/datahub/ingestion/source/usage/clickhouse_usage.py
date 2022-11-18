@@ -257,6 +257,3 @@ class ClickHouseUsageSource(Source):
 
     def get_report(self) -> SourceReport:
         return self.report
-
-    def close(self) -> None:
-        pass
