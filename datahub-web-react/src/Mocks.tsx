@@ -1216,7 +1216,6 @@ export const dataJob1 = {
         description: 'DataJobInfo1 Description',
         externalUrl: null,
         customProperties: [],
-        externalUrl: null,
     },
     editableProperties: null,
     inputOutput: {
@@ -1297,7 +1296,6 @@ export const dataJob2 = {
         description: 'DataJobInfo2 Description',
         externalUrl: null,
         customProperties: [],
-        externalUrl: null,
     },
     editableProperties: null,
     inputOutput: {
@@ -1364,7 +1362,6 @@ export const dataJob3 = {
         description: 'DataJobInfo3 Description',
         externalUrl: null,
         customProperties: [],
-        externalUrl: null,
     },
     editableProperties: null,
     inputOutput: {
