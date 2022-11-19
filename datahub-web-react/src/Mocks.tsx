@@ -1126,7 +1126,6 @@ export const dataFlow1 = {
         project: 'DataFlowInfo1 project',
         externalUrl: null,
         customProperties: [],
-        externalUrl: null,
     },
     editableProperties: null,
     ownership: {
