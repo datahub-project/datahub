@@ -2,7 +2,7 @@ package com.linkedin.metadata.kafka.elasticsearch;
 
 import com.linkedin.events.metadata.ChangeType;
 import lombok.Data;
-import org.elasticsearch.xcontent.XContentBuilder;
+import org.elasticsearch.common.xcontent.XContentBuilder;
 
 @Data
 public abstract class ElasticEvent {

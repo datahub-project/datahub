@@ -11,14 +11,6 @@ record GlossaryTerms {
   /**
    * The related business terms
    */
-   @Searchable = {
-    "/*/urn": {
-      "fieldName": "glossaryTerms",
-      "fieldType": "URN",
-      "boostScore": 0.5,
-      "queryByDefault": true
-    }
-  }
   terms: array[GlossaryTermAssociation]
 
   /**

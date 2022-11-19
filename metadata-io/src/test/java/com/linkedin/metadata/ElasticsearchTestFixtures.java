@@ -34,21 +34,28 @@ import com.linkedin.metadata.utils.elasticsearch.IndexConvention;
 import com.linkedin.metadata.utils.elasticsearch.IndexConventionImpl;
 import org.apache.commons.io.FilenameUtils;
 import org.apache.http.HttpHost;
+import org.apache.http.auth.AuthScope;
+import org.apache.http.auth.UsernamePasswordCredentials;
+import org.apache.http.client.CredentialsProvider;
+import org.apache.http.impl.client.BasicCredentialsProvider;
+import org.apache.http.impl.nio.client.HttpAsyncClientBuilder;
+import org.elasticsearch.action.bulk.BulkProcessor;
 import org.elasticsearch.action.index.IndexRequest;
 import org.elasticsearch.action.search.SearchRequest;
 import org.elasticsearch.action.search.SearchResponse;
+import org.elasticsearch.action.support.WriteRequest;
 import org.elasticsearch.client.RequestOptions;
 import org.elasticsearch.client.RestClient;
 import org.elasticsearch.client.RestClientBuilder;
 import org.elasticsearch.client.RestHighLevelClient;
 import org.elasticsearch.client.indices.GetMappingsRequest;
 import org.elasticsearch.client.indices.GetMappingsResponse;
+import org.elasticsearch.common.xcontent.XContentType;
 import org.elasticsearch.search.SearchHit;
 import org.elasticsearch.search.SearchHits;
 import org.elasticsearch.search.builder.SearchSourceBuilder;
 import org.elasticsearch.search.sort.SortBuilders;
 import org.elasticsearch.search.sort.SortOrder;
-import org.elasticsearch.xcontent.XContentType;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.boot.test.context.TestConfiguration;
@@ -210,7 +217,7 @@ public class ElasticsearchTestFixtures {
 
         // Build indices & write fixture data
         indexBuilders.buildAll();
-        indexFixture(fixtureName, prefix);
+        indexFixture(_bulkProcessor, fixtureName, prefix);
 
         return service;
     }
@@ -241,7 +248,7 @@ public class ElasticsearchTestFixtures {
                 null);
     }
 
-    private Set<String> indexFixture(String fixture, String prefix) throws IOException {
+    private static Set<String> indexFixture(ESBulkProcessor bulkProcessor, String fixture, String prefix) throws IOException {
         try (Stream<Path> files = Files.list(Paths.get(String.format("%s/%s", FIXTURE_BASE, fixture)))) {
             return files.map(file -> {
                 String indexName = String.format("%s_%s", prefix, FilenameUtils.getBaseName(file.toAbsolutePath().toString()));
@@ -254,7 +261,7 @@ public class ElasticsearchTestFixtures {
                                     .id(doc.urn)
                                     .source(line.getBytes(), XContentType.JSON);
 
-                            _bulkProcessor.add(request);
+                            bulkProcessor.add(request);
                         } catch (JsonProcessingException e) {
                             throw new RuntimeException(e);
                         }
@@ -266,24 +273,48 @@ public class ElasticsearchTestFixtures {
                 return indexName;
             }).collect(Collectors.toSet());
         } finally {
-            _bulkProcessor.flush();
+            bulkProcessor.flush();
         }
+    }
+
+    private static RestClientBuilder buildEnvironmentClient() {
+
+        return RestClient.builder(
+                        new HttpHost(System.getenv("ELASTICSEARCH_HOST"),
+                        Integer.parseInt(System.getenv("ELASTICSEARCH_PORT")),
+                                System.getenv("ELASTICSEARCH_PORT").equals("443") ? "https" : "http"))
+                .setHttpClientConfigCallback(new RestClientBuilder.HttpClientConfigCallback() {
+                    @Override
+                    public HttpAsyncClientBuilder customizeHttpClient(
+                            HttpAsyncClientBuilder httpClientBuilder) {
+                        httpClientBuilder.disableAuthCaching();
+
+                        if (System.getenv("ELASTICSEARCH_USERNAME") != null) {
+                            final CredentialsProvider credentialsProvider =
+                                    new BasicCredentialsProvider();
+                            credentialsProvider.setCredentials(AuthScope.ANY,
+                                    new UsernamePasswordCredentials(System.getenv("ELASTICSEARCH_USERNAME"),
+                                            System.getenv("ELASTICSEARCH_PASSWORD")));
+                            httpClientBuilder.setDefaultCredentialsProvider(credentialsProvider);
+                        }
+
+                        return httpClientBuilder;
+                    }
+                });
     }
 
     @Test
     @Ignore("Fixture capture logic")
     /*
      * Run this to capture test fixtures
-     * 1. Update fixture name
-     * 2. Comment @Ignore
-     * 3. Run extraction
-     */
+     * 1. Update environment variables for ELASTICSEARCH_* (see buildEnvironmentClient)
+     * 2. Update fixture name
+     * 3. Comment @Ignore
+     * 4. Run extraction
+     **/
     private static void extractTestFixtureData() throws IOException {
-
-        String fixtureName = "sample_data";
-        String host = "localhost";
-        int port = 9200;
-
+        String fixtureName = "long_tail";
+        String prefix = "482ajm7100-longtailcompanions_";
         String commonSuffix = "index_v2";
         int fetchSize = 1000;
 
@@ -291,14 +322,12 @@ public class ElasticsearchTestFixtures {
                 .map(entityType -> entityType.toString().toLowerCase() + commonSuffix)
                 .collect(Collectors.toSet());
 
-        RestClientBuilder builder = RestClient.builder(
-                new HttpHost(host, port, "http"));
-
-        try (RestHighLevelClient client = new RestHighLevelClient(builder)) {
+        try (RestHighLevelClient client = new RestHighLevelClient(buildEnvironmentClient())) {
             GetMappingsResponse response = client.indices().getMapping(new GetMappingsRequest().indices("*"),
                     RequestOptions.DEFAULT);
             response.mappings().keySet().stream()
-                    .filter(index -> searchIndexSuffixes.stream().anyMatch(index::contains))
+                    .filter(index -> searchIndexSuffixes.stream().anyMatch(index::contains) &&
+                            index.startsWith(prefix))
                     .map(index -> index.split(commonSuffix, 2)[0] + commonSuffix)
                     .forEach(indexName -> {
 
@@ -315,7 +344,8 @@ public class ElasticsearchTestFixtures {
                             long remainingHits = hits.getTotalHits().value;
 
                             if (remainingHits > 0) {
-                                try (FileWriter writer = new FileWriter(String.format("%s/%s/%s.json", FIXTURE_BASE, fixtureName, indexName));
+                                try (FileWriter writer = new FileWriter(String.format("%s/%s/%s.json", FIXTURE_BASE,
+                                        fixtureName, indexName.replaceFirst(prefix, "")));
                                      BufferedWriter bw = new BufferedWriter(writer)) {
 
                                     while (remainingHits > 0) {
@@ -338,6 +368,24 @@ public class ElasticsearchTestFixtures {
                         }
                     });
         }
+    }
+
+    @Test
+    @Ignore("Write capture logic to some external ES cluster for testing")
+    /*
+     * Can be used to write fixture data to external ES cluster
+     * 1. Set environment variables
+     * 2. Update fixture name and prefix
+     * 3. Uncomment and run test
+     */
+    private static void writeTestFixtureData() throws IOException {
+        ESBulkProcessor bulkProcessor = ESBulkProcessor.builder(new RestHighLevelClient(buildEnvironmentClient()))
+                .async(true)
+                .bulkRequestsLimit(1000)
+                .retryInterval(1L)
+                .numRetries(2)
+                .build();
+        indexFixture(bulkProcessor, "long_tail", "");
     }
 
     public static class UrnDocument {

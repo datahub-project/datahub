@@ -14,7 +14,7 @@ import org.elasticsearch.action.bulk.BulkResponse;
 import org.elasticsearch.action.support.WriteRequest;
 import org.elasticsearch.client.RequestOptions;
 import org.elasticsearch.client.RestHighLevelClient;
-import org.elasticsearch.core.TimeValue;
+import org.elasticsearch.common.unit.TimeValue;
 import org.elasticsearch.index.query.QueryBuilder;
 import org.elasticsearch.index.reindex.BulkByScrollResponse;
 import org.elasticsearch.index.reindex.DeleteByQueryRequest;
@@ -55,8 +55,8 @@ public class ESBulkProcessor implements Closeable {
     private final BulkProcessor bulkProcessor;
 
     private ESBulkProcessor(@NonNull RestHighLevelClient searchClient, @NonNull Boolean async, Integer bulkRequestsLimit,
-                           Integer bulkFlushPeriod, Integer numRetries, Long retryInterval,
-                           TimeValue defaultTimeout, WriteRequest.RefreshPolicy writeRequestRefreshPolicy,
+                            Integer bulkFlushPeriod, Integer numRetries, Long retryInterval,
+                            TimeValue defaultTimeout, WriteRequest.RefreshPolicy writeRequestRefreshPolicy,
                             BulkProcessor ignored) {
         this.searchClient = searchClient;
         this.async = async;

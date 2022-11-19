@@ -7,7 +7,6 @@ import com.linkedin.common.urn.TagUrn;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.metadata.ElasticSearchTestConfiguration;
 import com.linkedin.metadata.graph.Edge;
-import com.linkedin.metadata.graph.EntityLineageResult;
 import com.linkedin.metadata.graph.GraphService;
 import com.linkedin.metadata.graph.GraphServiceTestBase;
 import com.linkedin.metadata.graph.RelatedEntitiesResult;

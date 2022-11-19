@@ -21,6 +21,8 @@ public class SettingsBuilder {
   public static final String KEYWORD_LOWERCASE_ANALYZER = "custom_keyword";
   public static final String TEXT_ANALYZER = "word_delimited";
   public static final String TEXT_SEARCH_ANALYZER = "query_word_delimited";
+  public static final String URN_ANALYZER = "urn_component";
+  public static final String URN_SEARCH_ANALYZER = "query_urn_component";
   private final Map<String, Object> settings;
 
   public SettingsBuilder(String mainTokenizer) {
@@ -240,15 +242,31 @@ public class SettingsBuilder {
             .build());
 
     // Analyzer for getting urn components
-    analyzers.put("urn_component", ImmutableMap.<String, Object>builder()
+    analyzers.put(URN_ANALYZER, ImmutableMap.<String, Object>builder()
             .put("tokenizer", "main_tokenizer")
             .put("filter", ImmutableList.of(
                     "asciifolding",
                     "lowercase",
-                    "custom_delimiter",
+                    "multifilter",
                     "trim_colon",
                     "urn_stop",
                     "stop",
+                    "unique",
+                    "stem_override",
+                    "snowball",
+                    "min_length_2"))
+            .build());
+
+    analyzers.put(URN_SEARCH_ANALYZER, ImmutableMap.<String, Object>builder()
+            .put("tokenizer", "keyword")
+            .put("filter", ImmutableList.of(
+                    "asciifolding",
+                    "lowercase",
+                    "multifilter_graph",
+                    "trim_colon",
+                    "urn_stop",
+                    "stop",
+                    "unique",
                     "stem_override",
                     "snowball",
                     "min_length_2"))

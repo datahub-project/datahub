@@ -10,8 +10,7 @@ import java.util.Map;
 import javax.annotation.Nonnull;
 import lombok.extern.slf4j.Slf4j;
 
-import static com.linkedin.metadata.search.elasticsearch.indexbuilder.SettingsBuilder.TEXT_ANALYZER;
-import static com.linkedin.metadata.search.elasticsearch.indexbuilder.SettingsBuilder.TEXT_SEARCH_ANALYZER;
+import static com.linkedin.metadata.search.elasticsearch.indexbuilder.SettingsBuilder.*;
 
 
 @Slf4j
@@ -39,7 +38,9 @@ public class MappingsBuilder {
     Map<String, Object> subFields = new HashMap<>();
     subFields.put("delimited", ImmutableMap.of(
             "type", "text",
-            "analyzer", "urn_component"));
+            "analyzer", URN_ANALYZER,
+            "search_analyzer", URN_SEARCH_ANALYZER)
+    );
     subFields.put("ngram", ImmutableMap.of(
             "type", "search_as_you_type",
             "max_shingle_size", "4"));
@@ -88,7 +89,8 @@ public class MappingsBuilder {
       mappingForField.put("fielddata", true);
     } else if (fieldType == FieldType.URN || fieldType == FieldType.URN_PARTIAL) {
       mappingForField.put("type", "text");
-      mappingForField.put("analyzer", "urn_component");
+      mappingForField.put("analyzer", URN_ANALYZER);
+      mappingForField.put("search_analyzer", URN_SEARCH_ANALYZER);
       Map<String, Object> subFields = new HashMap<>();
       if (fieldType == FieldType.URN_PARTIAL) {
         subFields.put("ngram", ImmutableMap.of(

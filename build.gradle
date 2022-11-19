@@ -8,7 +8,7 @@ buildscript {
   ext.neo4jVersion = '4.4.9'
   ext.graphQLJavaVersion = '19.0'
   ext.testContainersVersion = '1.17.4'
-  ext.elasticsearchVersion = '7.17.7'
+  ext.elasticsearchVersion = '7.10.2'
   apply from: './repositories.gradle'
   buildscript.repositories.addAll(project.repositories)
   dependencies {

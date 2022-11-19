@@ -50,5 +50,13 @@ record DatasetProperties includes CustomProperties, ExternalReference {
   /**
    * [Legacy] Unstructured tags for the dataset. Structured tags can be applied via the `GlobalTags` aspect.
    */
+   @Searchable = {
+    "/*": {
+      "fieldName": "tags",
+      "fieldType": "URN",
+      "boostScore": 0.5,
+      "queryByDefault": true
+    }
+  }
   tags: array[string] = [ ]
 }

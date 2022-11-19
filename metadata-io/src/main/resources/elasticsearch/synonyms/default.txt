@@ -5,5 +5,5 @@ stg, staging
 dev, development
 prod, production
 glue, athena
-big query => bigquery
-data platform => dataplatform
+bigquery, big query
+data platform, dataplatform
