@@ -247,11 +247,13 @@ class AvroToMceSchemaConverter:
             actual_schema: avro.schema.Schema,
             converter: "AvroToMceSchemaConverter",
             description: Optional[str] = None,
+            default_value: Optional[str] = None,
         ):
             self._schema = schema
             self._actual_schema = actual_schema
             self._converter = converter
             self._description = description
+            self._default_value = default_value
 
         def __enter__(self):
             type_annotation = self._converter._get_type_annotation(self._actual_schema)
@@ -289,16 +291,11 @@ class AvroToMceSchemaConverter:
                     )
 
                 description = self._description
-                schema_description = self._schema.props.get(
-                    "doc"
-                ) or actual_schema.props.get("doc")
-                # We enrich _description with default value, so it doesn't mean if we have description it is not empty
-                if not self._schema.props.get("doc"):
-                    description = (
-                        f"{schema_description or ''}{description or ''}" or None
-                    )
-                    # Empty description string should be converted to None
-                    description = description or None
+                if not description and actual_schema.props.get("doc"):
+                    description = actual_schema.props.get("doc")
+
+                if self._default_value is not None:
+                    description = f"{description if description else ''}\nField default value: {self._default_value}"
 
                 native_data_type = self._converter._prefix_name_stack[-1]
                 if isinstance(schema, (avro.schema.Field, avro.schema.UnionSchema)):
@@ -417,11 +414,12 @@ class AvroToMceSchemaConverter:
         last_field_schema = self._fields_stack[-1]
         # Generate the custom-description for the field.
         description = last_field_schema.doc if last_field_schema.doc else None
-        if last_field_schema.has_default and last_field_schema.default is not None:
-            prefix = f"{description}" if description else ""
-            description = f"{prefix}\nField default value: {last_field_schema.default}"
         with AvroToMceSchemaConverter.SchemaFieldEmissionContextManager(
-            last_field_schema, last_field_schema, self, description
+            last_field_schema,
+            last_field_schema,
+            self,
+            description,
+            last_field_schema.default,
         ) as f_emit:
             yield from f_emit.emit()
 
