@@ -215,6 +215,7 @@ fragment searchResultFields on Entity {
                 key
                 value
             }
+            externalUrl
         }
         ownership {
             ...ownershipFields
@@ -251,6 +252,7 @@ fragment searchResultFields on Entity {
                         name
                         description
                         qualifiedName
+                        externalUrl
                     }
                 }
             }
@@ -451,6 +453,7 @@ fragment searchResultFields on Entity {
             name
             description
             project
+            externalUrl
         }
         ownership {
             ...ownershipFields
@@ -491,6 +494,7 @@ fragment searchResultFields on Entity {
         properties {
             name
             description
+            externalUrl
         }
         globalTags {
             ...globalTagsFields
@@ -568,6 +572,7 @@ fragment searchResultFields on Entity {
         properties {
             name
             description
+            externalUrl
         }
         platform {
             ...platformFields
