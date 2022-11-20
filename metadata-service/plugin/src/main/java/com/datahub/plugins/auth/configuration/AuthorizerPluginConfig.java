@@ -9,11 +9,14 @@ import lombok.EqualsAndHashCode;
 import lombok.NoArgsConstructor;
 
 
+/**
+ * Authorizer plugin configuration provided by user.
+ * {@link com.datahub.plugins.auth.provider.AuthorizerPluginConfigProvider} instantiate this class
+ */
 @Data
 @NoArgsConstructor
 @EqualsAndHashCode(callSuper = false)
 public class AuthorizerPluginConfig extends AuthPluginConfig {
-  // set PluginType to AUTHORIZER
   public AuthorizerPluginConfig(String name, Boolean enabled, String className, Path pluginDirectory, Path pluginJar,
       Optional<Map<String, Object>> configs) {
     super(PluginType.AUTHORIZER, name, enabled, className, pluginDirectory, pluginJar, configs);

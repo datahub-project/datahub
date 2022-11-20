@@ -8,6 +8,9 @@ import java.security.Permissions;
 import java.util.function.Function;
 
 
+/**
+ * Supported security modes
+ */
 public enum SecurityMode {
   RESTRICTED(SecurityMode::restrictModePermissionSupplier), LENIENT(SecurityMode::lenientModePermissionSupplier);
 

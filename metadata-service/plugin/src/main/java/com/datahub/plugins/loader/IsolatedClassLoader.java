@@ -32,6 +32,7 @@ import org.apache.commons.lang3.StringUtils;
 
 /**
  * IsolatedClassLoader to load custom implementation of DataHub Plugins.
+ * Override methods behave as per Java ClassLoader documentation.
  */
 @Slf4j
 public class IsolatedClassLoader extends ClassLoader {

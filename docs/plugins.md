@@ -8,10 +8,13 @@ Currently, DataHub formally supports 2 types of plugins:
 
 
 ## Authentication
-Custom authentication plugin makes it possible to authenticate DataHub users against any Identity Management System.
-Choose your Identity Management System and write custom authentication plugin as per detail mentioned in this section.
 
 >**Note:** This is in <b>BETA</b> version
+
+> It is recommend that you do not do this unless you really know what you are doing
+
+Custom authentication plugin makes it possible to authenticate DataHub users against any Identity Management System.
+Choose your Identity Management System and write custom authentication plugin as per detail mentioned in this section.
 
 
 > Currently, custom authenticators cannot be used to authenticate users of DataHub's web UI. This is because the DataHub web app expects the presence of 2 special cookies PLAY_SESSION and actor which are explicitly set by the server when a login action is performed.
@@ -81,10 +84,14 @@ Follow below steps to enable GMS authentication
    ```
 
 ## Authorization
+
+>**Note:** This is in <b>BETA</b> version
+
+> It is recommend that you do not do this unless you really know what you are doing
+
 Custom authorization plugin makes it possible to authorize DataHub users against any Access Management System.
 Choose your Access Management System and write custom authorization plugin as per detail mentioned in this section.
 
->**Note:** This is in <b>BETA</b> version
 
 The sample authorizer implementation can be found at [Authorizer Sample](../metadata-auth/apache-ranger-plugin)
 

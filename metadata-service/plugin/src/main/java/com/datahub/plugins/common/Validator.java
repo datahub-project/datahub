@@ -8,6 +8,10 @@ import javax.annotation.Nonnull;
 import org.apache.commons.lang3.StringUtils;
 
 
+/**
+ * Common validations.
+ * Used in {@link com.datahub.plugins.configuration.PluginConfig}
+ */
 public class Validator {
 
   private Validator() {
