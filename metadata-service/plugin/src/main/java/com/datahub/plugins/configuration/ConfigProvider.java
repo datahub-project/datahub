@@ -28,7 +28,7 @@ public class ConfigProvider {
 
   private void setPluginDir(@Nonnull PluginConfig pluginConfig) {
     Path pluginDir = Paths.get(this._pluginBaseDir.toString(), pluginConfig.getName());
-    pluginConfig.setPluginDirectory(pluginDir);
+    pluginConfig.setPluginHomeDirectory(pluginDir);
   }
 
   public Optional<Config> load() {

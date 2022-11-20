@@ -20,6 +20,11 @@ public class PluginPermissionManagerImpl implements PluginPermissionManager {
     this._securityMode = securityMode;
   }
 
+  /**
+   * Create codeSource instance for the location of pluginHome to apply SecurityMode restriction to the plugin code
+   * @param pluginHome
+   * @return ProtectionDomain
+   */
   @Override
   public ProtectionDomain createProtectionDomain(@Nonnull Path pluginHome) {
     {

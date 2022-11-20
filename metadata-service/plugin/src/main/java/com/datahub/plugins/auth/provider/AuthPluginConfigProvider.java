@@ -12,6 +12,9 @@ import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 
+/**
+ *  Base class for {@link AuthenticatorPluginConfigProvider} and {@link AuthorizerPluginConfigProvider}.
+ */
 public abstract class AuthPluginConfigProvider implements PluginConfigProvider<AuthPluginConfig> {
   public abstract PluginType getType();
 
@@ -32,7 +35,7 @@ public abstract class AuthPluginConfigProvider implements PluginConfigProvider<A
   public Path formPluginJar(PluginConfig pluginConfig, AuthParam authConfig) {
     // User is either going to explicitly set the jarFileName or we will infer it from plugin name
     String jarName = authConfig.getJarFileName().orElse(pluginConfig.getName() + ".jar");
-    Path jarPath = Paths.get(pluginConfig.getPluginDirectory().toString(), jarName);
+    Path jarPath = Paths.get(pluginConfig.getPluginHomeDirectory().toString(), jarName);
     if (!jarPath.toFile().exists()) {
       throw new IllegalArgumentException(String.format("Plugin Jar %s not found", jarPath));
     }
