@@ -15,6 +15,12 @@ class JarExtractor {
   private JarExtractor() {
   }
 
+  /**
+   * Write url content to destinationFilePath
+   * @param url
+   * @param destinationFilePath
+   * @throws IOException
+   */
   public static void write(@Nonnull URL url, @Nonnull Path destinationFilePath) throws IOException {
     try (InputStream input = url.openStream()) {
       try (FileOutputStream output = new FileOutputStream(destinationFilePath.toFile())) {

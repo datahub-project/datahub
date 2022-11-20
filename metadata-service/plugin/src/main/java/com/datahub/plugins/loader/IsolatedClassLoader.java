@@ -271,6 +271,7 @@ public class IsolatedClassLoader extends ClassLoader {
     }
 
     try {
+      // Write jar entry to destinationPath for class-loading
       JarExtractor.write(url, destinationPath);
     } catch (IOException e) {
       throw new RuntimeException(e);

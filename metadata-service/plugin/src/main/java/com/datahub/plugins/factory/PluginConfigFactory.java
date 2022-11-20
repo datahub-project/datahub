@@ -13,8 +13,7 @@ import javax.annotation.Nonnull;
 
 
 /**
- * Return instance of config provider as per type mentioned in {@link Config}
- *
+ * Create instance of config provider as per type mentioned in {@link Config}
  */
 public class PluginConfigFactory {
   private final static Map<PluginType, PluginConfigProvider> CONFIG_PROVIDER_REGISTRY;
