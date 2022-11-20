@@ -76,7 +76,8 @@ public class RestHighLevelClientFactory {
       restClientBuilder = loadRestHttpsClient(host, port, pathPrefix, threadCount, connectionRequestTimeout, sslContext, username,
           password, opensearchUseAwsIamAuth, region);
     } else {
-      restClientBuilder = loadRestHttpClient(host, port, pathPrefix, threadCount, connectionRequestTimeout, username, password, opensearchUseAwsIamAuth, region);
+      restClientBuilder = loadRestHttpClient(host, port, pathPrefix, threadCount, connectionRequestTimeout, username,
+                                             password, opensearchUseAwsIamAuth, region);
     }
 
     return new RestHighLevelClient(restClientBuilder);
@@ -127,7 +128,8 @@ public class RestHighLevelClientFactory {
 
   @Nonnull
   private static RestClientBuilder loadRestHttpsClient(@Nonnull String host, int port, String pathPrefix, int threadCount,
-      int connectionRequestTimeout, @Nonnull SSLContext sslContext, String username, String password, boolean opensearchUseAwsIamAuth, String region) {
+      int connectionRequestTimeout, @Nonnull SSLContext sslContext, String username, String password,
+                                                       boolean opensearchUseAwsIamAuth, String region) {
 
     final RestClientBuilder builder = RestClient.builder(new HttpHost(host, port, "https"));
 
@@ -161,7 +163,7 @@ public class RestHighLevelClientFactory {
 
   private static HttpRequestInterceptor getAwsRequestSigningInterceptor(String region) {
 
-    if(region == null) {
+    if (region == null) {
       throw new NullPointerException("Region must not be null when opensearchUseAwsIamAuth is enabled");
     }
     Aws4Signer signer = Aws4Signer.create();
