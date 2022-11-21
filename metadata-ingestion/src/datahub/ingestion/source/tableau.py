@@ -996,7 +996,7 @@ class TableauSource(StatefulIngestionSourceBase):
 
         project = (
             datasource_info.get("projectName", "").replace("/", REPLACE_SLASH_CHAR)
-            if datasource_info
+            if datasource_info and datasource_info.get("projectName", "")
             else ""
         )
         datasource_id = datasource["id"]
