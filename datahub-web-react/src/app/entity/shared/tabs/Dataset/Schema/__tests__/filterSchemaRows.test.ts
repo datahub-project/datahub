@@ -5,7 +5,11 @@ import { filterSchemaRows } from '../utils/filterSchemaRows';
 
 describe('filterSchemaRows', () => {
     const testEntityRegistry = getTestEntityRegistry();
-    const rows = [{ fieldPath: 'customer' }, { fieldPath: 'testing' }, { fieldPath: 'shipment' }] as SchemaField[];
+    const rows = [
+        { fieldPath: 'customer', description: 'customer description' },
+        { fieldPath: 'testing', description: 'testing description' },
+        { fieldPath: 'shipment', description: 'shipment description' },
+    ] as SchemaField[];
 
     it('should properly filter schema rows based on field name', () => {
         const filterText = 'test';
@@ -32,6 +36,80 @@ describe('filterSchemaRows', () => {
         );
 
         expect(filteredRows).toMatchObject([{ fieldPath: 'testing' }]);
+        expect(expandedRowsFromFilter).toMatchObject(new Set());
+    });
+
+    it('should properly filter schema rows based on description', () => {
+        const filterText = 'testing description';
+        const editableSchemaMetadata = { editableSchemaFieldInfo: [] };
+        const { filteredRows, expandedRowsFromFilter } = filterSchemaRows(
+            rows,
+            editableSchemaMetadata,
+            filterText,
+            testEntityRegistry,
+        );
+
+        expect(filteredRows).toMatchObject([{ fieldPath: 'testing' }]);
+        expect(expandedRowsFromFilter).toMatchObject(new Set());
+    });
+
+    it('should properly filter schema rows based on description regardless of capitalization', () => {
+        const editableSchemaMetadata = { editableSchemaFieldInfo: [] };
+        const filterText = 'TeSting DesCriptioN';
+        const { filteredRows, expandedRowsFromFilter } = filterSchemaRows(
+            rows,
+            editableSchemaMetadata,
+            filterText,
+            testEntityRegistry,
+        );
+
+        expect(filteredRows).toMatchObject([{ fieldPath: 'testing' }]);
+        expect(expandedRowsFromFilter).toMatchObject(new Set());
+    });
+
+    it('should properly filter schema rows based on editable description', () => {
+        const editableSchemaMetadata = {
+            editableSchemaFieldInfo: [
+                {
+                    fieldPath: 'customer',
+                    description: 'editable customer description',
+                    globalTags: null,
+                    glossaryTerms: null,
+                },
+            ],
+        };
+        const filterText = 'editable customer description';
+        const { filteredRows, expandedRowsFromFilter } = filterSchemaRows(
+            rows,
+            editableSchemaMetadata,
+            filterText,
+            testEntityRegistry,
+        );
+
+        expect(filteredRows).toMatchObject([{ fieldPath: 'customer' }]);
+        expect(expandedRowsFromFilter).toMatchObject(new Set());
+    });
+
+    it('should properly filter schema rows based on editable description regardless of capitalization', () => {
+        const editableSchemaMetadata = {
+            editableSchemaFieldInfo: [
+                {
+                    fieldPath: 'customer',
+                    description: 'editable customer description',
+                    globalTags: null,
+                    glossaryTerms: null,
+                },
+            ],
+        };
+        const filterText = 'EdiTable CuStoMer DesCriptioN';
+        const { filteredRows, expandedRowsFromFilter } = filterSchemaRows(
+            rows,
+            editableSchemaMetadata,
+            filterText,
+            testEntityRegistry,
+        );
+
+        expect(filteredRows).toMatchObject([{ fieldPath: 'customer' }]);
         expect(expandedRowsFromFilter).toMatchObject(new Set());
     });
 

@@ -115,16 +115,6 @@ logger: logging.Logger = logging.getLogger(__name__)
 REPLACE_SLASH_CHAR = "|"
 
 
-class TableauStatefulIngestionConfig(StatefulStaleMetadataRemovalConfig):
-    """
-    Specialization of StatefulStaleMetadataRemovalConfig to adding custom config.
-    This will be used to override the stateful_ingestion config param of StatefulIngestionConfigBase
-    in the TableauConfig.
-    """
-
-    _entity_types: List[str] = Field(default=["dataset", "chart", "dashboard"])
-
-
 class TableauConnectionConfig(ConfigModel):
     connect_uri: str = Field(description="Tableau host URL.")
     username: Optional[str] = Field(
@@ -246,7 +236,7 @@ class TableauConfig(
         description="[experimental] Extract usage statistics for dashboards and charts.",
     )
 
-    stateful_ingestion: Optional[TableauStatefulIngestionConfig] = Field(
+    stateful_ingestion: Optional[StatefulStaleMetadataRemovalConfig] = Field(
         default=None, description=""
     )
 
@@ -322,8 +312,8 @@ class TableauSource(StatefulIngestionSourceBase):
 
     def close(self) -> None:
         if self.server is not None:
-            self.prepare_for_commit()
             self.server.auth.sign_out()
+        super().close()
 
     def _populate_usage_stat_registry(self):
         if self.server is None:
