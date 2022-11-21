@@ -239,7 +239,10 @@ class AvroToMceSchemaConverter:
 
     class SchemaFieldEmissionContextManager:
         """Context Manager for MCE SchemaFiled emission
-        - handles prefix name stack management and AVRO record-field generation for non-complex types."""
+        - handles prefix name stack management and AVRO record-field generation for non-complex types.
+        - actual_schema contains the underlying no-null type's schema if the schema is a union
+          This way we can use the type/description of the non-null type if needed.
+        """
 
         def __init__(
             self,
