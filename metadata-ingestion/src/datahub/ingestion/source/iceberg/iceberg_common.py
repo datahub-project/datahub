@@ -51,15 +51,9 @@ class IcebergProfilingConfig(ConfigModel):
     # include_field_sample_values: bool = True
 
 
-class IcebergSourceStatefulIngestionConfig(StatefulStaleMetadataRemovalConfig):
-    """Iceberg custom stateful ingestion config definition(overrides _entity_types of StatefulStaleMetadataRemovalConfig)."""
-
-    _entity_types: List[str] = pydantic.Field(default=["table"])
-
-
-class IcebergSourceConfig(StatefulIngestionConfigBase, DatasetSourceConfigBase):
+class IcebergSourceConfig(StatefulIngestionConfigBase):
     # Override the stateful_ingestion config param with the Iceberg custom stateful ingestion config in the IcebergSourceConfig
-    stateful_ingestion: Optional[IcebergSourceStatefulIngestionConfig] = pydantic.Field(
+    stateful_ingestion: Optional[StatefulStaleMetadataRemovalConfig] = pydantic.Field(
         default=None, description="Iceberg Stateful Ingestion Config."
     )
     adls: Optional[AdlsSourceConfig] = Field(
