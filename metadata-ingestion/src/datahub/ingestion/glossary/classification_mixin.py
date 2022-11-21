@@ -1,8 +1,9 @@
 import logging
-from typing import List, Optional, Protocol
+from typing import List, Optional
 
 from datahub_classify.helper_classes import ColumnInfo, Metadata
 from pandas import DataFrame
+from typing_extensions import Protocol
 
 from datahub.configuration.common import ConfigurationError
 from datahub.emitter.mce_builder import get_sys_time, make_term_urn, make_user_urn
