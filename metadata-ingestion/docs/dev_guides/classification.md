@@ -22,7 +22,7 @@ Note that a `.` is used to denote nested fields in the YAML recipe.
 
 ## DataHub Classifier
 
-DataHub Classifier is the default classifier implementation, which uses `datahub-classify` library to predict info types.
+DataHub Classifier is the default classifier implementation, which uses [acryl-datahub-classify](https://pypi.org/project/acryl-datahub-classify/) library to predict info types.
 
 ### Config Details
 
@@ -30,7 +30,7 @@ DataHub Classifier is the default classifier implementation, which uses `datahub
 | ---   | ---      | ---  | --- | -- |
 | confidence_level_threshold |  | number |  | 0.6 |
 | info_types |  | list[string] | List of infotypes to be predicted. By default, all supported infotypes are considered. If specified. this should be subset of ['Email_Address', 'Gender', 'Credit_Debit_Card_Number', 'Phone_Number', 'Street_Address', 'Full_Name', 'Age'] | None |
-| info_types_config | Configuration details for infotypes | Dict[str, InfoTypeConfig] |  | See [datahub_classifier.py](../../metadata-ingestion/src/datahub/ingestion/glossary/datahub_classifier.py) |
+| info_types_config | Configuration details for infotypes | Dict[str, InfoTypeConfig] |  | See [datahub_classifier.py](../../../metadata-ingestion/src/datahub/ingestion/glossary/datahub_classifier.py) |
 | info_types_config.`key`.prediction_factors_and_weights | ❓ (required if info_types_config.`key` is set) | Dict[str,number] | Factors and their weights to consider when predicting info types |  |
 | info_types_config.`key`.name |  | NameFactorConfig (see below for fields) |  |  |
 | info_types_config.`key`.name.regex |  | Array of string | List of regex patterns the column name follows for the info type | ['.*'] |
