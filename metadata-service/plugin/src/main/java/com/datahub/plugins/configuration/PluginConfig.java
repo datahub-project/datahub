@@ -1,7 +1,7 @@
 package com.datahub.plugins.configuration;
 
 import com.datahub.plugins.common.PluginType;
-import com.datahub.plugins.common.Validator;
+import com.datahub.plugins.common.ConfigValidationUtils;
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.databind.annotation.JsonDeserialize;
 import com.fasterxml.jackson.databind.annotation.JsonPOJOBuilder;
@@ -58,8 +58,8 @@ public class PluginConfig {
   @JsonPOJOBuilder(withPrefix = "")
   public static class CustomBuilder extends PluginConfigBuilder {
     public PluginConfig build() {
-      Validator.whiteSpacesValidation("name", super.name);
-      Validator.mapShouldNotBeEmpty("params", super.params);
+      ConfigValidationUtils.whiteSpacesValidation("name", super.name);
+      ConfigValidationUtils.mapShouldNotBeEmpty("params", super.params);
 
       return super.build();
     }

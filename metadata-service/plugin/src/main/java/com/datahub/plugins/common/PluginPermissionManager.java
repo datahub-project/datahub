@@ -4,7 +4,14 @@ import java.nio.file.Path;
 import java.security.ProtectionDomain;
 
 
-// Common permission manager for authentication and authorization.
+/**
+ * Implement this interface to create Java SecurityManager's ProtectionDomain for the plugin.
+ */
 public interface PluginPermissionManager {
-  ProtectionDomain createProtectionDomain(Path sourceCodeDirectory);
+  /**
+   * Create codeSource instance for the location of pluginHome to apply SecurityMode restriction to the plugin code
+   * @param pluginHome
+   * @return ProtectionDomain
+   */
+  ProtectionDomain createProtectionDomain(Path pluginHome);
 }

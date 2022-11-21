@@ -12,7 +12,24 @@ import java.util.function.Function;
  * Supported security modes
  */
 public enum SecurityMode {
-  RESTRICTED(SecurityMode::restrictModePermissionSupplier), LENIENT(SecurityMode::lenientModePermissionSupplier);
+  /**
+   * In this mode plugins has limited access.
+   *
+   * Plugins are allowed to connect on below ports only
+   *  1) port greater than 1024
+   *  2) port 80
+   *  3) port 443
+   *  All other ports connection are disallowed.
+   *
+   *  Plugins are allowed to read and write files on PLUGIN_HOME directory only and all other read/write access are denied.
+   */
+  RESTRICTED(SecurityMode::restrictModePermissionSupplier),
+
+  /**
+   * Plugins has full access.
+   * In this mode plugin can read/write to any directory, can connect to any port and can read environment variables.
+   */
+  LENIENT(SecurityMode::lenientModePermissionSupplier);
 
   private final Function<Path, Permissions> _permissionsSupplier;
 

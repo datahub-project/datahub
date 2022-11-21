@@ -8,6 +8,7 @@ This file documents any backwards-incompatible changes in DataHub and assists pe
 - dbt config `node_type_pattern` which was previously deprecated has been removed. Use `entities_enabled` instead to control whether to emit metadata for sources, models, seeds, tests, etc.
 - The DataHub Airflow lineage backend and plugin no longer support Airflow 1.x. You can still run DataHub ingestion in Airflow 1.x using the [PythonVirtualenvOperator](https://airflow.apache.org/docs/apache-airflow/1.10.15/_api/airflow/operators/python_operator/index.html?highlight=pythonvirtualenvoperator#airflow.operators.python_operator.PythonVirtualenvOperator).
 - #6243 apache-ranger authorizer is no longer the core part of DataHub GMS, and it is shifted as plugin. Please refer updated documentation [datahub-ranger-plugin](../../datahub-ranger-plugin/README.md#configuring-your-datahub-deployment) for configuring apache-ranger as Authorizer plugin.
+- #6243 Authentication and Authorization plugins configuration are removed from [application.yml](../../metadata-service/factories/src/main/resources/application.yml). Refer documentation [Plugins Guide](../plugins.md) for creating and configuring the custom plugins in DataHub GMS. 
 
 ### Breaking Changes
 - Java version 11 or greater is required.

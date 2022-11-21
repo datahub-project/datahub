@@ -106,6 +106,7 @@ public class IsolatedClassLoader extends ClassLoader {
       log.debug("Successfully created instance of plugin {}", this._pluginConfig.getClassName());
       return plugin;
     } catch (InstantiationException | IllegalAccessException e) {
+      log.debug(String.format("Failed to instantiate the plugin %s", this._pluginConfig.getName()));
       throw new RuntimeException(e);
     }
   }
