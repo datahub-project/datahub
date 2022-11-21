@@ -53,6 +53,7 @@ framework_common = {
     "cached_property",
     "ijson",
     "click-spinner",
+    "requests_file",
 }
 
 rest_common = {
@@ -168,8 +169,9 @@ redshift_common = {
 snowflake_common = {
     # Snowflake plugin utilizes sql common
     *sql_common,
-    # Required for all Snowflake sources
-    "snowflake-sqlalchemy<=1.2.4",
+    # Required for all Snowflake sources.
+    # See https://github.com/snowflakedb/snowflake-sqlalchemy/issues/234 for why 1.2.5 is blocked.
+    "snowflake-sqlalchemy>=1.2.4, !=1.2.5",
     "cryptography",
     "msal",
 }
@@ -257,6 +259,7 @@ plugins: Dict[str, Set[str]] = {
     "datahub-business-glossary": set(),
     "delta-lake": {*data_lake_profiling, *delta_lake},
     "dbt": {"requests"} | aws_common,
+    "dbt-cloud": {"requests"},
     "druid": sql_common | {"pydruid>=0.6.2"},
     # Starting with 7.14.0 python client is checking if it is connected to elasticsearch client. If its not it throws
     # UnsupportedProductError
@@ -302,6 +305,7 @@ plugins: Dict[str, Set[str]] = {
     "okta": {"okta~=1.7.0"},
     "oracle": sql_common | {"cx_Oracle"},
     "postgres": sql_common | {"psycopg2-binary", "GeoAlchemy2"},
+    "presto": sql_common | trino | {"acryl-pyhive[hive]>=0.6.12"},
     "presto-on-hive": sql_common
     | {"psycopg2-binary", "acryl-pyhive[hive]>=0.6.12", "pymysql>=1.0.2"},
     "pulsar": {"requests"},
@@ -327,7 +331,6 @@ plugins: Dict[str, Set[str]] = {
         "sqlalchemy",
         "great_expectations",
         "greenlet",
-        "Jinja2<3.1.0",
     },
     "tableau": {"tableauserverclient>=0.17.0"},
     "trino": sql_common | trino,
@@ -422,6 +425,7 @@ base_dev_requirements = {
             "sagemaker",
             "kafka",
             "datahub-rest",
+            "presto",
             "redash",
             "redshift",
             "redshift-usage",
@@ -490,7 +494,8 @@ entry_points = {
         "clickhouse-usage = datahub.ingestion.source.usage.clickhouse_usage:ClickHouseUsageSource",
         "delta-lake = datahub.ingestion.source.delta_lake:DeltaLakeSource",
         "s3 = datahub.ingestion.source.s3:S3Source",
-        "dbt = datahub.ingestion.source.dbt:DBTSource",
+        "dbt = datahub.ingestion.source.dbt.dbt_core:DBTCoreSource",
+        "dbt-cloud = datahub.ingestion.source.dbt.dbt_cloud:DBTCloudSource",
         "druid = datahub.ingestion.source.sql.druid:DruidSource",
         "elasticsearch = datahub.ingestion.source.elastic_search:ElasticsearchSource",
         "feast-legacy = datahub.ingestion.source.feast_legacy:FeastSource",
@@ -531,6 +536,7 @@ entry_points = {
         "powerbi-report-server = datahub.ingestion.source.powerbi_report_server:PowerBiReportServerDashboardSource",
         "iceberg = datahub.ingestion.source.iceberg.iceberg:IcebergSource",
         "vertica = datahub.ingestion.source.sql.vertica:VerticaSource",
+        "presto = datahub.ingestion.source.sql.presto:PrestoSource",
         "presto-on-hive = datahub.ingestion.source.sql.presto_on_hive:PrestoOnHiveSource",
         "pulsar = datahub.ingestion.source.pulsar:PulsarSource",
         "salesforce = datahub.ingestion.source.salesforce:SalesforceSource",

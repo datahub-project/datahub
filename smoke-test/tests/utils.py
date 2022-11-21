@@ -2,8 +2,9 @@ import json
 import os
 from datetime import datetime, timedelta
 from typing import Tuple
+from time import sleep
 
-import requests
+import requests_wrapper as requests
 
 from datahub.cli import cli_utils
 from datahub.cli.docker_cli import check_local_docker_containers
@@ -62,7 +63,7 @@ def get_mysql_password():
 def get_sleep_info() -> Tuple[int, int]:
     return (
         int(os.getenv("DATAHUB_TEST_SLEEP_BETWEEN", 20)),
-        int(os.getenv("DATAHUB_TEST_SLEEP_TIMES", 15)),
+        int(os.getenv("DATAHUB_TEST_SLEEP_TIMES", 3)),
     )
 
 
@@ -106,6 +107,7 @@ def ingest_file_via_rest(filename: str) -> Pipeline:
     )
     pipeline.run()
     pipeline.raise_from_status()
+    sleep(requests.ELASTICSEARCH_REFRESH_INTERVAL_SECONDS)
 
     return pipeline
 
@@ -138,6 +140,7 @@ def delete_urns_from_file(filename: str) -> None:
                 get_gms_url() + "/entities?action=delete",
                 payload_obj,
             )
+    sleep(requests.ELASTICSEARCH_REFRESH_INTERVAL_SECONDS)
 
 
 # Fixed now value
