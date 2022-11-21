@@ -122,6 +122,7 @@ export class DataFlowEntity implements Entity<DataFlow> {
                 owners={data.ownership?.owners}
                 globalTags={data.globalTags}
                 domain={data.domain?.domain}
+                externalUrl={data.properties?.externalUrl}
             />
         );
     };
