@@ -139,18 +139,19 @@ On the host where `datahub-gms` is deployed, follow these steps:
     ```shell
         touch ~/.datahub/plugins/auth/config.yml 
     ```
-5. Set Apache Ranger Plugin config: In config.yml file add below list element under `plugins` array. Set username and password to Apache Ranger user credentials
+5. Set Apache Ranger Plugin config: Add below entry in config.yml file. Set username and password to Apache Ranger user credentials
     ```yaml
-       - name: "apache-ranger-authorizer"
-         type: "authorizer"
-         enabled: "true"
-         params:
-         className: "com.datahub.authorization.ranger.RangerAuthorizer"
-         configs:
-         username: "<Apache Ranger username>"
-         password: "<Apache Ranger password>"
+       plugins:
+         - name: "apache-ranger-authorizer"
+           type: "authorizer"
+           enabled: "true"
+           params:
+             className: "com.datahub.authorization.ranger.RangerAuthorizer"
+             configs:
+               username: "<Apache Ranger username>"
+               password: "<Apache Ranger password>"
    ```
-6. Redeploy DataHub (`datahub-gms`)
+6. Restart DataHub GMS container (i.e. `datahub-gms`)
 
 
 ### Kubernetes

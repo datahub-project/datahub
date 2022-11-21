@@ -31,7 +31,7 @@ public class YamlMapper<T> {
     try {
       pojo = (T) objectMapper.readValue(file.toFile(), clazz);
     } catch (IOException e) {
-      // Won't occur as we're already checking file existence in constructor
+      // Won't occur as we're already checking file existence in ConfigProvider's load method
       throw new RuntimeException(e);
     }
     return pojo;

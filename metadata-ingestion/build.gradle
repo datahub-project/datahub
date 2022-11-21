@@ -43,8 +43,11 @@ task installDev(type: Exec, dependsOn: [install]) {
   inputs.file file('setup.py')
   outputs.dir("${venv_name}")
   outputs.file("${venv_name}/.build_install_dev_sentinel")
-  commandLine 'bash', '-x', '-c',
-    "${venv_name}/bin/pip install -e .[dev] ${extra_pip_requirements} && touch ${venv_name}/.build_install_dev_sentinel"
+  commandLine 'bash', '-c',
+    "source ${venv_name}/bin/activate && set -x && " +
+    "${venv_name}/bin/pip install -e .[dev] ${extra_pip_requirements} && " +
+    "./scripts/install-sqlalchemy-stubs.sh && " +
+    "touch ${venv_name}/.build_install_dev_sentinel"
 }
 
 
@@ -72,7 +75,6 @@ task lint(type: Exec, dependsOn: installDev) {
   commandLine 'bash', '-c',
     "find ${venv_name}/lib -path *airflow/_vendor/connexion/spec.py -exec sed -i.bak -e '169,169s/  # type: List\\[str\\]//g' {} \\; && " +
     "source ${venv_name}/bin/activate && set -x && " +
-    "./scripts/install-sqlalchemy-stubs.sh && " +
     "black --check --diff src/ tests/ examples/ && " +
     "isort --check --diff src/ tests/ examples/ && " +
     "flake8 --count --statistics src/ tests/ examples/ && " +

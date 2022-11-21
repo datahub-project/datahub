@@ -14,6 +14,7 @@ from trino.exceptions import TrinoQueryError
 from trino.sqlalchemy import datatype, error
 from trino.sqlalchemy.dialect import TrinoDialect
 
+from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.decorators import (
     SourceCapability,
     SupportStatus,
@@ -86,6 +87,8 @@ def get_table_comment(self, connection, table_name: str, schema: str = None, **k
         if isinstance(e.orig, TrinoQueryError):
             return self.get_table_comment_default(connection, table_name, schema)
         raise
+    except Exception:
+        return {}
 
 
 # Include column comment, original trino datatype as full_type
@@ -144,7 +147,7 @@ class TrinoConfig(BasicSQLAlchemyConfig):
         )
 
 
-@platform_name("Trino")
+@platform_name("Trino", doc_order=1)
 @config_class(TrinoConfig)
 @support_status(SupportStatus.CERTIFIED)
 @capability(SourceCapability.DOMAINS, "Supported via the `domain` config field")
@@ -162,8 +165,10 @@ class TrinoSource(SQLAlchemySource):
 
     config: TrinoConfig
 
-    def __init__(self, config, ctx):
-        super().__init__(config, ctx, "trino")
+    def __init__(
+        self, config: TrinoConfig, ctx: PipelineContext, platform: str = "trino"
+    ):
+        super().__init__(config, ctx, platform)
 
     def get_db_name(self, inspector: Inspector) -> str:
         if self.config.database_alias:

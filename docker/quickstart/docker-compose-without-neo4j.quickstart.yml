@@ -75,6 +75,8 @@ services:
     - KAFKA_SCHEMAREGISTRY_URL=http://schema-registry:8081
     - ELASTICSEARCH_HOST=elasticsearch
     - ELASTICSEARCH_PORT=9200
+    - ES_BULK_REFRESH_POLICY=WAIT_UNTIL
+    - GRAPH_SERVICE_DIFF_MODE_ENABLED=true
     - GRAPH_SERVICE_IMPL=elasticsearch
     - JAVA_OPTS=-Xms1g -Xmx1g
     - ENTITY_REGISTRY_CONFIG_PATH=/datahub/datahub-gms/resources/entity-registry.yml

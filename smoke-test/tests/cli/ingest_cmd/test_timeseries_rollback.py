@@ -9,13 +9,13 @@ from datahub.emitter.serialization_helper import post_json_transform
 from datahub.entrypoints import datahub
 from datahub.metadata.schema_classes import DatasetProfileClass
 from tests.utils import ingest_file_via_rest
+import requests_wrapper as requests
 
 runner = CliRunner()
 
 
 def sync_elastic() -> None:
-    elastic_sync_wait_time_seconds: int = 5
-    time.sleep(elastic_sync_wait_time_seconds)
+    time.sleep(requests.ELASTICSEARCH_REFRESH_INTERVAL_SECONDS)
 
 
 def datahub_rollback(run_id: str) -> None:

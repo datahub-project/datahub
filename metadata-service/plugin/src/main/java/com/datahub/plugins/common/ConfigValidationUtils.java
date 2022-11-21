@@ -12,9 +12,9 @@ import org.apache.commons.lang3.StringUtils;
  * Common validations.
  * Used in {@link com.datahub.plugins.configuration.PluginConfig}
  */
-public class Validator {
+public class ConfigValidationUtils {
 
-  private Validator() {
+  private ConfigValidationUtils() {
   }
 
   public static void whiteSpacesValidation(@Nonnull String fieldName, @Nonnull String value)

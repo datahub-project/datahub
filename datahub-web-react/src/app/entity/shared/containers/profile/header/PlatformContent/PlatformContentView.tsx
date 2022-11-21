@@ -1,12 +1,17 @@
 import React from 'react';
 import styled from 'styled-components';
-import { Typography, Image, Tooltip } from 'antd';
-import { FolderOutlined, RightOutlined } from '@ant-design/icons';
+import { Typography, Image } from 'antd';
 import { Maybe } from 'graphql/jsutils/Maybe';
 import { Container, GlossaryNode } from '../../../../../../../types.generated';
 import { ANTD_GRAY } from '../../../../constants';
 import ContainerLink from './ContainerLink';
 import { capitalizeFirstLetterOnly } from '../../../../../../shared/textUtil';
+import ParentNodesView, {
+    StyledRightOutlined,
+    ParentNodesWrapper as ParentContainersWrapper,
+    Ellipsis,
+    StyledTooltip,
+} from './ParentNodesView';
 
 const LogoIcon = styled.span`
     display: flex;
@@ -43,46 +48,6 @@ const PlatformDivider = styled.div`
     border-right: 1px solid ${ANTD_GRAY[4]};
     height: 18px;
     vertical-align: text-top;
-`;
-
-const StyledRightOutlined = styled(RightOutlined)`
-    color: ${ANTD_GRAY[7]};
-    font-size: 8px;
-    margin: 0 10px;
-`;
-
-const ParentContainersWrapper = styled.div`
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    flex-direction: row-reverse;
-    display: flex;
-`;
-
-const Ellipsis = styled.span`
-    color: ${ANTD_GRAY[7]};
-    margin-right: 2px;
-`;
-
-const StyledTooltip = styled(Tooltip)`
-    display: flex;
-    white-space: nowrap;
-    overflow: hidden;
-`;
-
-const GlossaryNodeText = styled(Typography.Text)`
-    font-size: 12px;
-    line-height: 20px;
-    color: ${ANTD_GRAY[7]};
-`;
-
-const GlossaryNodeIcon = styled(FolderOutlined)`
-    color: ${ANTD_GRAY[7]};
-
-    &&& {
-        font-size: 12px;
-        margin-right: 4px;
-    }
 `;
 
 export function getParentContainerNames(containers?: Maybe<Container>[] | null) {
@@ -181,13 +146,7 @@ function PlatformContentView(props: Props) {
                 </ParentContainersWrapper>
                 {directParentContainer && <ContainerLink container={directParentContainer} />}
             </StyledTooltip>
-            {[...(parentNodes || [])]?.reverse()?.map((parentNode, idx) => (
-                <>
-                    <GlossaryNodeIcon />
-                    <GlossaryNodeText>{parentNode?.properties?.name}</GlossaryNodeText>
-                    {idx + 1 !== parentNodes?.length && <StyledRightOutlined data-testid="right-arrow" />}
-                </>
-            ))}
+            <ParentNodesView parentNodes={parentNodes} />
         </PlatformContentWrapper>
     );
 }

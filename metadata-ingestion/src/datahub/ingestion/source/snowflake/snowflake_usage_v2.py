@@ -194,7 +194,7 @@ class SnowflakeUsageExtractor(SnowflakeQueryMixin, SnowflakeCommonMixin):
             [
                 trim_query(format_sql_query(query), budget_per_query)
                 if self.config.format_sql_queries
-                else query
+                else trim_query(query, budget_per_query)
                 for query in top_sql_queries
             ]
         )

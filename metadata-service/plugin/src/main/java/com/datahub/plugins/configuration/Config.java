@@ -1,6 +1,6 @@
 package com.datahub.plugins.configuration;
 
-import com.datahub.plugins.common.Validator;
+import com.datahub.plugins.common.ConfigValidationUtils;
 import com.fasterxml.jackson.databind.annotation.JsonDeserialize;
 import com.fasterxml.jackson.databind.annotation.JsonPOJOBuilder;
 import java.util.ArrayList;
@@ -29,14 +29,14 @@ public class Config {
   @JsonPOJOBuilder(withPrefix = "")
   public static class CustomBuilder extends ConfigBuilder {
     public Config build() {
-      Validator.listShouldNotBeEmpty(FIELD_PLUGINS, Collections.singletonList(super.plugins));
+      ConfigValidationUtils.listShouldNotBeEmpty(FIELD_PLUGINS, Collections.singletonList(super.plugins));
 
       List<String> list = new ArrayList<>(super.plugins.size());
       super.plugins.forEach((pluginConfig) -> {
         list.add(pluginConfig.getName());
       });
 
-      Validator.listShouldNotHaveDuplicate(FIELD_PLUGINS, list);
+      ConfigValidationUtils.listShouldNotHaveDuplicate(FIELD_PLUGINS, list);
 
       return super.build();
     }
