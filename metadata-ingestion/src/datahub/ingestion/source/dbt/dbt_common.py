@@ -1,12 +1,14 @@
 import json
 import logging
 import re
+from abc import abstractmethod
 from dataclasses import dataclass, field
 from datetime import datetime
 from enum import auto
 from typing import (
     Any,
     Callable,
+    ClassVar,
     Dict,
     Iterable,
     List,
@@ -16,12 +18,9 @@ from typing import (
     Union,
     cast,
 )
-from urllib.parse import urlparse
 
-import dateutil.parser
 import pydantic
-import requests
-from pydantic import BaseModel, root_validator, validator
+from pydantic import root_validator, validator
 from pydantic.fields import Field
 
 from datahub.configuration.common import (
@@ -31,7 +30,6 @@ from datahub.configuration.common import (
     ConfigurationError,
     LineageConfig,
 )
-from datahub.configuration.github import GitHubReference
 from datahub.emitter import mce_builder
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.common import PipelineContext
@@ -45,7 +43,6 @@ from datahub.ingestion.api.decorators import (
 )
 from datahub.ingestion.api.ingestion_job_state_provider import JobId
 from datahub.ingestion.api.workunit import MetadataWorkUnit
-from datahub.ingestion.source.aws.aws_common import AwsConnectionConfig
 from datahub.ingestion.source.sql.sql_types import (
     BIGQUERY_TYPES_MAP,
     POSTGRES_TYPES_MAP,
@@ -206,21 +203,7 @@ class DBTEntitiesEnabled(ConfigModel):
         return self.test_results == EmitDirective.YES
 
 
-class DBTConfig(StatefulIngestionConfigBase, LineageConfig):
-    manifest_path: str = Field(
-        description="Path to dbt manifest JSON. See https://docs.getdbt.com/reference/artifacts/manifest-json Note this can be a local file or a URI."
-    )
-    catalog_path: str = Field(
-        description="Path to dbt catalog JSON. See https://docs.getdbt.com/reference/artifacts/catalog-json Note this can be a local file or a URI."
-    )
-    sources_path: Optional[str] = Field(
-        default=None,
-        description="Path to dbt sources JSON. See https://docs.getdbt.com/reference/artifacts/sources-json. If not specified, last-modified fields will not be populated. Note this can be a local file or a URI.",
-    )
-    test_results_path: Optional[str] = Field(
-        default=None,
-        description="Path to output of dbt test run as run_results file in JSON format. See https://docs.getdbt.com/reference/artifacts/run-results-json. If not specified, test execution results will not be populated in DataHub.",
-    )
+class DBTCommonConfig(StatefulIngestionConfigBase, LineageConfig):
     env: str = Field(
         default=mce_builder.DEFAULT_ENV,
         description="Environment to use in namespace when constructing URNs.",
@@ -284,17 +267,9 @@ class DBTConfig(StatefulIngestionConfigBase, LineageConfig):
         default=None,
         description='Regex string to extract owner from the dbt node using the `(?P<name>...) syntax` of the [match object](https://docs.python.org/3/library/re.html#match-objects), where the group name must be `owner`. Examples: (1)`r"(?P<owner>(.*)): (\\w+) (\\w+)"` will extract `jdoe` as the owner from `"jdoe: John Doe"` (2) `r"@(?P<owner>(.*))"` will extract `alice` as the owner from `"@alice"`.',
     )
-    aws_connection: Optional[AwsConnectionConfig] = Field(
-        default=None,
-        description="When fetching manifest files from s3, configuration for aws connection details",
-    )
     backcompat_skip_source_on_lineage_edge: bool = Field(
         False,
         description="Prior to version 0.8.41, lineage edges to sources were directed to the target platform node rather than the dbt source node. This contradicted the established pattern for other lineage edges to point to upstream dbt nodes. To revert lineage logic to this legacy approach, set this flag to true.",
-    )
-    github_info: Optional[GitHubReference] = Field(
-        None,
-        description="Reference to your github location to enable easy navigation from DataHub to your dbt files.",
     )
 
     incremental_lineage: bool = Field(
@@ -305,11 +280,6 @@ class DBTConfig(StatefulIngestionConfigBase, LineageConfig):
     stateful_ingestion: Optional[StatefulStaleMetadataRemovalConfig] = pydantic.Field(
         default=None, description="DBT Stateful Ingestion Config."
     )
-
-    @property
-    def s3_client(self):
-        assert self.aws_connection
-        return self.aws_connection.get_s3_client()
 
     @validator("target_platform")
     def validate_target_platform_value(cls, target_platform: str) -> str:
@@ -329,23 +299,6 @@ class DBTConfig(StatefulIngestionConfigBase, LineageConfig):
                 "provide a datahub_api: configuration on your ingestion recipe"
             )
         return write_semantics
-
-    @validator("aws_connection")
-    def aws_connection_needed_if_s3_uris_present(
-        cls, aws_connection: Optional[AwsConnectionConfig], values: Dict, **kwargs: Any
-    ) -> Optional[AwsConnectionConfig]:
-        # first check if there are fields that contain s3 uris
-        uri_containing_fields = [
-            f
-            for f in ["manifest_path", "catalog_path", "sources_path"]
-            if (values.get(f) or "").startswith("s3://")
-        ]
-
-        if uri_containing_fields and not aws_connection:
-            raise ValueError(
-                f"Please provide aws_connection configuration, since s3 uris have been provided in fields {uri_containing_fields}"
-            )
-        return aws_connection
 
     @validator("meta_mapping")
     def meta_mapping_validator(
@@ -391,12 +344,12 @@ class DBTColumn:
 class DBTNode:
     """
     The DBTNode is generated by joining data from the manifest and catalog files.
-    It can contain source and model nodes, and models can have a variety of
+    It can contain source/model/seed/test nodes, and models can have a variety of
     materialization types.
     """
 
     database: Optional[str]
-    schema: str
+    schema: Optional[str]
     name: str  # name, identifier
     alias: Optional[str]  # alias if present
     comment: str
@@ -405,15 +358,13 @@ class DBTNode:
 
     dbt_adapter: str
     dbt_name: str
-    dbt_file_path: str
+    dbt_file_path: Optional[str]
 
     node_type: str  # source, model
     max_loaded_at: Optional[datetime]
     materialization: Optional[str]  # table, view, ephemeral, incremental
     # see https://docs.getdbt.com/reference/artifacts/manifest-json
     catalog_type: Optional[str]
-
-    manifest_raw: Dict
 
     owner: Optional[str]
 
@@ -425,6 +376,9 @@ class DBTNode:
 
     tags: List[str] = field(default_factory=list)
     compiled_sql: Optional[str] = None
+
+    test_info: Optional["DBTTest"] = None  # only populated if node_type == 'test'
+    test_result: Optional["DBTTestResult"] = None
 
     def get_db_fqn(self) -> str:
         if self.database:
@@ -448,150 +402,6 @@ class DBTNode:
             platform_instance=data_platform_instance,
             env=env,
         )
-
-
-def get_columns(
-    catalog_node: dict, manifest_node: dict, tag_prefix: str
-) -> List[DBTColumn]:
-    columns = []
-
-    catalog_columns = catalog_node["columns"]
-    manifest_columns = manifest_node.get("columns", {})
-
-    for key, catalog_column in catalog_columns.items():
-        manifest_column = manifest_columns.get(key.lower(), {})
-
-        meta = manifest_column.get("meta", {})
-
-        tags = manifest_column.get("tags", [])
-        tags = [tag_prefix + tag for tag in tags]
-
-        dbtCol = DBTColumn(
-            name=catalog_column["name"].lower(),
-            comment=catalog_column.get("comment", ""),
-            description=manifest_column.get("description", ""),
-            data_type=catalog_column["type"],
-            index=catalog_column["index"],
-            meta=meta,
-            tags=tags,
-        )
-        columns.append(dbtCol)
-    return columns
-
-
-def extract_dbt_entities(
-    all_manifest_entities: Dict[str, Dict[str, Any]],
-    all_catalog_entities: Dict[str, Dict[str, Any]],
-    sources_results: List[Dict[str, Any]],
-    manifest_adapter: str,
-    use_identifiers: bool,
-    tag_prefix: str,
-    report: DBTSourceReport,
-) -> List[DBTNode]:
-    sources_by_id = {x["unique_id"]: x for x in sources_results}
-
-    dbt_entities = []
-    for key, manifest_node in all_manifest_entities.items():
-        name = manifest_node["name"]
-
-        if "identifier" in manifest_node and use_identifiers:
-            name = manifest_node["identifier"]
-
-        if (
-            manifest_node.get("alias") is not None
-            and manifest_node.get("resource_type")
-            != "test"  # tests have non-human-friendly aliases, so we don't want to use it for tests
-        ):
-            name = manifest_node["alias"]
-
-        # initialize comment to "" for consistency with descriptions
-        # (since dbt null/undefined descriptions as "")
-        comment = ""
-
-        if key in all_catalog_entities and all_catalog_entities[key]["metadata"].get(
-            "comment"
-        ):
-            comment = all_catalog_entities[key]["metadata"]["comment"]
-
-        materialization = None
-        upstream_nodes = []
-
-        if "materialized" in manifest_node.get("config", {}):
-            # It's a model
-            materialization = manifest_node["config"]["materialized"]
-            upstream_nodes = manifest_node["depends_on"]["nodes"]
-
-        # It's a source
-        catalog_node = all_catalog_entities.get(key)
-        catalog_type = None
-
-        if catalog_node is None:
-            if materialization != "test":
-                report.report_warning(
-                    key,
-                    f"Entity {key} ({name}) is in manifest but missing from catalog",
-                )
-        else:
-            catalog_type = all_catalog_entities[key]["metadata"]["type"]
-
-        query_tag_props = manifest_node.get("query_tag", {})
-
-        meta = manifest_node.get("meta", {})
-
-        owner = meta.get("owner")
-        if owner is None:
-            owner = manifest_node.get("config", {}).get("meta", {}).get("owner")
-
-        tags = manifest_node.get("tags", [])
-        tags = [tag_prefix + tag for tag in tags]
-        if not meta:
-            meta = manifest_node.get("config", {}).get("meta", {})
-
-        max_loaded_at_str = sources_by_id.get(key, {}).get("max_loaded_at")
-        max_loaded_at = None
-        if max_loaded_at_str:
-            max_loaded_at = dateutil.parser.parse(max_loaded_at_str)
-
-        dbtNode = DBTNode(
-            dbt_name=key,
-            dbt_adapter=manifest_adapter,
-            database=manifest_node["database"],
-            schema=manifest_node["schema"],
-            name=name,
-            alias=manifest_node.get("alias"),
-            dbt_file_path=manifest_node["original_file_path"],
-            node_type=manifest_node["resource_type"],
-            max_loaded_at=max_loaded_at,
-            comment=comment,
-            description=manifest_node.get("description", ""),
-            raw_sql=manifest_node.get("raw_sql"),
-            upstream_nodes=upstream_nodes,
-            materialization=materialization,
-            catalog_type=catalog_type,
-            meta=meta,
-            query_tag=query_tag_props,
-            tags=tags,
-            owner=owner,
-            compiled_sql=manifest_node.get("compiled_sql"),
-            manifest_raw=manifest_node,
-        )
-
-        # Load columns from catalog, and override some properties from manifest.
-        if dbtNode.materialization not in [
-            "ephemeral",
-            "test",
-        ]:
-            logger.debug(f"Loading schema info for {dbtNode.dbt_name}")
-            if catalog_node is not None:
-                # We already have done the reporting for catalog_node being None above.
-                dbtNode.columns = get_columns(catalog_node, manifest_node, tag_prefix)
-
-        else:
-            dbtNode.columns = []
-
-        dbt_entities.append(dbtNode)
-
-    return dbt_entities
 
 
 def get_custom_properties(node: DBTNode) -> Dict[str, str]:
@@ -752,33 +562,13 @@ def _get_name_for_relationship_test(kw_args: Dict[str, str]) -> Optional[str]:
     return f"{source_table}.{column_name} referential integrity to {destination_table}.{dest_field_name}"
 
 
-class DBTTestStep(BaseModel):
-    name: Optional[str] = None
-    started_at: Optional[str] = None
-    completed_at: Optional[str] = None
-
-
-class DBTTestResult(BaseModel):
-    class Config:
-        extra = "allow"
-
-    status: str
-    timing: List[DBTTestStep] = []
-    unique_id: str
-    failures: Optional[int] = None
-    message: Optional[str] = None
-
-
-class DBTRunMetadata(BaseModel):
-    dbt_schema_version: str
-    dbt_version: str
-    generated_at: str
-    invocation_id: str
-
-
+@dataclass
 class DBTTest:
+    qualified_test_name: str
+    column_name: Optional[str]
+    kw_args: dict
 
-    test_name_to_assertion_map = {
+    TEST_NAME_TO_ASSERTION_MAP: ClassVar[Dict[str, AssertionParams]] = {
         "not_null": AssertionParams(
             scope=DatasetAssertionScopeClass.DATASET_COLUMN,
             operator=AssertionStdOperatorClass.NOT_NULL,
@@ -851,145 +641,31 @@ class DBTTest:
         ),
     }
 
-    @staticmethod
-    def load_test_results(
-        config: DBTConfig,
-        test_results_json: Dict[str, Any],
-        test_nodes: List[DBTNode],
-        all_nodes_map: Dict[str, DBTNode],
-    ) -> Iterable[MetadataWorkUnit]:
-        if not config.entities_enabled.can_emit_test_results:
-            logger.debug("Skipping test result emission since it is turned off.")
-            return []
 
-        args = test_results_json.get("args", {})
-        dbt_metadata = DBTRunMetadata.parse_obj(test_results_json.get("metadata", {}))
-        test_nodes_map: Dict[str, DBTNode] = {x.dbt_name: x for x in test_nodes}
-        if "test" in args.get("which", "") or "test" in args.get("rpc_method", ""):
-            # this was a test run
-            results = test_results_json.get("results", [])
-            for result in results:
-                try:
-                    test_result = DBTTestResult.parse_obj(result)
-                    id = test_result.unique_id
-                    test_node = test_nodes_map.get(id)
-                    assert test_node, f"Failed to find test_node {id} in the catalog"
-                    upstream_urns = get_upstreams(
-                        test_node.upstream_nodes,
-                        all_nodes_map,
-                        config.use_identifiers,
-                        config.target_platform,
-                        config.target_platform_instance,
-                        config.env,
-                        config.platform_instance,
-                        config.backcompat_skip_source_on_lineage_edge,
-                    )
-                    assertion_urn = mce_builder.make_assertion_urn(
-                        mce_builder.datahub_guid(
-                            {
-                                "platform": DBT_PLATFORM,
-                                "name": test_result.unique_id,
-                                "instance": config.platform_instance,
-                            }
-                        )
-                    )
+@dataclass
+class DBTTestResult:
+    invocation_id: str
 
-                    if test_result.status != "pass":
-                        native_results = {"message": test_result.message or ""}
-                        if test_result.failures:
-                            native_results.update(
-                                {"failures": str(test_result.failures)}
-                            )
-                    else:
-                        native_results = {}
+    status: str
+    execution_time: datetime
 
-                    stage_timings = {x.name: x.started_at for x in test_result.timing}
-                    # look for execution start time, fall back to compile start time and finally generation time
-                    execution_timestamp = (
-                        stage_timings.get("execute")
-                        or stage_timings.get("compile")
-                        or dbt_metadata.generated_at
-                    )
+    native_results: Dict[str, str]
 
-                    execution_timestamp_parsed = datetime.strptime(
-                        execution_timestamp, "%Y-%m-%dT%H:%M:%S.%fZ"
-                    )
 
-                    for upstream in upstream_urns:
-                        assertionResult = AssertionRunEventClass(
-                            timestampMillis=int(
-                                execution_timestamp_parsed.timestamp() * 1000.0
-                            ),
-                            assertionUrn=assertion_urn,
-                            asserteeUrn=upstream,
-                            runId=dbt_metadata.invocation_id,
-                            result=AssertionResultClass(
-                                type=AssertionResultTypeClass.SUCCESS
-                                if test_result.status == "pass"
-                                else AssertionResultTypeClass.FAILURE,
-                                nativeResults=native_results,
-                            ),
-                            status=AssertionRunStatusClass.COMPLETE,
-                        )
-
-                        event = MetadataChangeProposalWrapper(
-                            entityType="assertion",
-                            entityUrn=assertion_urn,
-                            changeType=ChangeTypeClass.UPSERT,
-                            aspectName="assertionRunEvent",
-                            aspect=assertionResult,
-                        )
-                        yield MetadataWorkUnit(
-                            id=f"{assertion_urn}-assertionRunEvent-{upstream}",
-                            mcp=event,
-                        )
-                except Exception as e:
-                    logger.debug(f"Failed to process test result {result} due to {e}")
+def string_map(input_map: Dict[str, Any]) -> Dict[str, str]:
+    return {k: str(v) for k, v in input_map.items()}
 
 
 @platform_name("dbt")
-@config_class(DBTConfig)
+@config_class(DBTCommonConfig)
 @support_status(SupportStatus.CERTIFIED)
 @capability(SourceCapability.DELETION_DETECTION, "Enabled via stateful ingestion")
 @capability(SourceCapability.LINEAGE_COARSE, "Enabled by default")
 @capability(SourceCapability.USAGE_STATS, "", supported=False)
-class DBTSource(StatefulIngestionSourceBase):
-    """
-    This plugin pulls metadata from dbt's artifact files and generates:
-    - dbt Tables: for nodes in the dbt manifest file that are models materialized as tables
-    - dbt Views: for nodes in the dbt manifest file that are models materialized as views
-    - dbt Ephemeral: for nodes in the dbt manifest file that are ephemeral models
-    - dbt Sources: for nodes that are sources on top of the underlying platform tables
-    - dbt Seed: for seed entities
-    - dbt Tests as Assertions: for dbt test entities (starting with version 0.8.38.1)
-
-    Note:
-    1. It also generates lineage between the `dbt` nodes (e.g. ephemeral nodes that depend on other dbt sources) as well as lineage between the `dbt` nodes and the underlying (target) platform nodes (e.g. BigQuery Table -> dbt Source, dbt View -> BigQuery View).
-    2. We also support automated actions (like add a tag, term or owner) based on properties defined in dbt meta.
-
-    The artifacts used by this source are:
-    - [dbt manifest file](https://docs.getdbt.com/reference/artifacts/manifest-json)
-      - This file contains model, source, tests and lineage data.
-    - [dbt catalog file](https://docs.getdbt.com/reference/artifacts/catalog-json)
-      - This file contains schema data.
-      - dbt does not record schema data for Ephemeral models, as such datahub will show Ephemeral models in the lineage, however there will be no associated schema for Ephemeral models
-    - [dbt sources file](https://docs.getdbt.com/reference/artifacts/sources-json)
-      - This file contains metadata for sources with freshness checks.
-      - We transfer dbt's freshness checks to DataHub's last-modified fields.
-      - Note that this file is optional – if not specified, we'll use time of ingestion instead as a proxy for time last-modified.
-    - [dbt run_results file](https://docs.getdbt.com/reference/artifacts/run-results-json)
-      - This file contains metadata from the result of a dbt run, e.g. dbt test
-      - When provided, we transfer dbt test run results into assertion run events to see a timeline of test runs on the dataset
-    """
-
-    @classmethod
-    def create(cls, config_dict, ctx):
-        config = DBTConfig.parse_obj(config_dict)
-        return cls(config, ctx, "dbt")
-
-    def __init__(self, config: DBTConfig, ctx: PipelineContext, platform: str):
+class DBTSourceBase(StatefulIngestionSourceBase):
+    def __init__(self, config: DBTCommonConfig, ctx: PipelineContext, platform: str):
         super().__init__(config, ctx)
-        self.config: DBTConfig = config
+        self.config = config
         self.platform: str = platform
         self.report: DBTSourceReport = DBTSourceReport()
         self.compiled_owner_extraction_pattern: Optional[Any] = None
@@ -1013,13 +689,13 @@ class DBTSource(StatefulIngestionSourceBase):
         is_conversion_required: bool = False
         try:
             # Best-case that last checkpoint state is DbtCheckpointState
-            last_checkpoint = super(DBTSource, self).get_last_checkpoint(
+            last_checkpoint = super(DBTSourceBase, self).get_last_checkpoint(
                 job_id, checkpoint_state_class
             )
         except Exception as e:
             # Backward compatibility for old dbt ingestion source which was saving dbt-nodes in
             # BaseSQLAlchemyCheckpointState
-            last_checkpoint = super(DBTSource, self).get_last_checkpoint(
+            last_checkpoint = super(DBTSourceBase, self).get_last_checkpoint(
                 job_id, BaseSQLAlchemyCheckpointState  # type: ignore
             )
             logger.debug(
@@ -1039,94 +715,14 @@ class DBTSource(StatefulIngestionSourceBase):
 
         return last_checkpoint
 
-    def load_file_as_json(self, uri: str) -> Any:
-        if re.match("^https?://", uri):
-            return json.loads(requests.get(uri).text)
-        elif re.match("^s3://", uri):
-            u = urlparse(uri)
-            response = self.config.s3_client.get_object(
-                Bucket=u.netloc, Key=u.path.lstrip("/")
-            )
-            return json.loads(response["Body"].read().decode("utf-8"))
-        else:
-            with open(uri, "r") as f:
-                return json.load(f)
-
-    def loadManifestAndCatalog(
-        self,
-        manifest_path: str,
-        catalog_path: str,
-        sources_path: Optional[str],
-        use_identifiers: bool,
-        tag_prefix: str,
-    ) -> Tuple[
-        List[DBTNode],
-        Optional[str],
-        Optional[str],
-        Optional[str],
-        Optional[str],
-        Optional[str],
-    ]:
-        dbt_manifest_json = self.load_file_as_json(manifest_path)
-
-        dbt_catalog_json = self.load_file_as_json(catalog_path)
-
-        if sources_path is not None:
-            dbt_sources_json = self.load_file_as_json(sources_path)
-            sources_results = dbt_sources_json["results"]
-        else:
-            sources_results = {}
-
-        manifest_schema = dbt_manifest_json["metadata"].get("dbt_schema_version")
-        manifest_version = dbt_manifest_json["metadata"].get("dbt_version")
-        manifest_adapter = dbt_manifest_json["metadata"].get("adapter_type")
-
-        catalog_schema = dbt_catalog_json.get("metadata", {}).get("dbt_schema_version")
-        catalog_version = dbt_catalog_json.get("metadata", {}).get("dbt_version")
-
-        manifest_nodes = dbt_manifest_json["nodes"]
-        manifest_sources = dbt_manifest_json["sources"]
-
-        all_manifest_entities = {**manifest_nodes, **manifest_sources}
-
-        catalog_nodes = dbt_catalog_json["nodes"]
-        catalog_sources = dbt_catalog_json["sources"]
-
-        all_catalog_entities = {**catalog_nodes, **catalog_sources}
-
-        nodes = extract_dbt_entities(
-            all_manifest_entities,
-            all_catalog_entities,
-            sources_results,
-            manifest_adapter,
-            use_identifiers,
-            tag_prefix,
-            self.report,
-        )
-
-        return (
-            nodes,
-            manifest_schema,
-            manifest_version,
-            manifest_adapter,
-            catalog_schema,
-            catalog_version,
-        )
-
     def create_test_entity_mcps(
         self,
         test_nodes: List[DBTNode],
         custom_props: Dict[str, str],
         all_nodes_map: Dict[str, DBTNode],
     ) -> Iterable[MetadataWorkUnit]:
-        def string_map(input_map: Dict[str, Any]) -> Dict[str, str]:
-            return {k: str(v) for k, v in input_map.items()}
-
-        if not self.config.entities_enabled.can_emit_node_type("test"):
-            return []
-
         for node in test_nodes:
-            node_datahub_urn = mce_builder.make_assertion_urn(
+            assertion_urn = mce_builder.make_assertion_urn(
                 mce_builder.datahub_guid(
                     {
                         "platform": DBT_PLATFORM,
@@ -1137,20 +733,18 @@ class DBTSource(StatefulIngestionSourceBase):
             )
             self.stale_entity_removal_handler.add_entity_to_state(
                 type="assertion",
-                urn=node_datahub_urn,
+                urn=assertion_urn,
             )
 
-            wu = MetadataChangeProposalWrapper(
-                entityType="assertion",
-                entityUrn=node_datahub_urn,
-                changeType=ChangeTypeClass.UPSERT,
-                aspectName="dataPlatformInstance",
-                aspect=DataPlatformInstanceClass(
-                    platform=mce_builder.make_data_platform_urn(DBT_PLATFORM)
-                ),
-            ).as_workunit()
-            self.report.report_workunit(wu)
-            yield wu
+            if self.config.entities_enabled.can_emit_node_type("test"):
+                wu = MetadataChangeProposalWrapper(
+                    entityUrn=assertion_urn,
+                    aspect=DataPlatformInstanceClass(
+                        platform=mce_builder.make_data_platform_urn(DBT_PLATFORM)
+                    ),
+                ).as_workunit()
+                self.report.report_workunit(wu)
+                yield wu
 
             upstream_urns = get_upstreams(
                 upstreams=node.upstream_nodes,
@@ -1163,109 +757,148 @@ class DBTSource(StatefulIngestionSourceBase):
                 legacy_skip_source_lineage=self.config.backcompat_skip_source_on_lineage_edge,
             )
 
-            raw_node_obj = all_nodes_map.get(node.dbt_name)
-            if raw_node_obj is None:
-                logger.warning(
-                    f"Failed to find test node {node.dbt_name} in the manifest"
-                )
-                continue
-            raw_node = raw_node_obj.manifest_raw
-
-            test_metadata = raw_node.get("test_metadata", {})
-            kw_args = test_metadata.get("kwargs", {})
             for upstream_urn in upstream_urns:
-                qualified_test_name = (
-                    (test_metadata.get("namespace") or "")
-                    + "."
-                    + (test_metadata.get("name") or "")
-                )
-                qualified_test_name = (
-                    qualified_test_name[1:]
-                    if qualified_test_name.startswith(".")
-                    else qualified_test_name
-                )
+                if self.config.entities_enabled.can_emit_node_type("test"):
+                    wu = self._make_assertion_from_test(
+                        custom_props,
+                        node,
+                        assertion_urn,
+                        upstream_urn,
+                    )
+                    self.report.report_workunit(wu)
+                    yield wu
 
-                if qualified_test_name in DBTTest.test_name_to_assertion_map:
-                    assertion_params: AssertionParams = (
-                        DBTTest.test_name_to_assertion_map[qualified_test_name]
+                if node.test_result:
+                    if self.config.entities_enabled.can_emit_test_results:
+                        wu = self._make_assertion_result_from_test(
+                            node, assertion_urn, upstream_urn
+                        )
+                        self.report.report_workunit(wu)
+                        yield wu
+                    else:
+                        logger.debug(
+                            f"Skipping test result {node.name} emission since it is turned off."
+                        )
+
+    def _make_assertion_from_test(
+        self,
+        extra_custom_props: Dict[str, str],
+        node: DBTNode,
+        assertion_urn: str,
+        upstream_urn: str,
+    ) -> MetadataWorkUnit:
+        assert node.test_info
+        qualified_test_name = node.test_info.qualified_test_name
+        column_name = node.test_info.column_name
+        kw_args = node.test_info.kw_args
+
+        if qualified_test_name in DBTTest.TEST_NAME_TO_ASSERTION_MAP:
+            assertion_params = DBTTest.TEST_NAME_TO_ASSERTION_MAP[qualified_test_name]
+            assertion_info = AssertionInfoClass(
+                type=AssertionTypeClass.DATASET,
+                customProperties=extra_custom_props,
+                datasetAssertion=DatasetAssertionInfoClass(
+                    dataset=upstream_urn,
+                    scope=assertion_params.scope,
+                    operator=assertion_params.operator,
+                    fields=[
+                        mce_builder.make_schema_field_urn(upstream_urn, column_name)
+                    ]
+                    if (
+                        assertion_params.scope
+                        == DatasetAssertionScopeClass.DATASET_COLUMN
+                        and column_name
                     )
-                    assertion_info = AssertionInfoClass(
-                        type=AssertionTypeClass.DATASET,
-                        customProperties=custom_props,
-                        datasetAssertion=DatasetAssertionInfoClass(
-                            dataset=upstream_urn,
-                            scope=assertion_params.scope,
-                            operator=assertion_params.operator,
-                            fields=[
-                                mce_builder.make_schema_field_urn(
-                                    upstream_urn, kw_args.get("column_name")
-                                )
-                            ]
-                            if assertion_params.scope
-                            == DatasetAssertionScopeClass.DATASET_COLUMN
-                            else [],
-                            nativeType=node.name,
-                            aggregation=assertion_params.aggregation,
-                            parameters=assertion_params.parameters(kw_args)
-                            if assertion_params.parameters
-                            else None,
-                            logic=assertion_params.logic_fn(kw_args)
-                            if assertion_params.logic_fn
-                            else None,
-                            nativeParameters=string_map(kw_args),
-                        ),
-                    )
-                elif kw_args.get("column_name"):
-                    # no match with known test types, column-level test
-                    assertion_info = AssertionInfoClass(
-                        type=AssertionTypeClass.DATASET,
-                        customProperties=custom_props,
-                        datasetAssertion=DatasetAssertionInfoClass(
-                            dataset=upstream_urn,
-                            scope=DatasetAssertionScopeClass.DATASET_COLUMN,
-                            operator=AssertionStdOperatorClass._NATIVE_,
-                            fields=[
-                                mce_builder.make_schema_field_urn(
-                                    upstream_urn, kw_args.get("column_name")
-                                )
-                            ],
-                            nativeType=node.name,
-                            logic=node.compiled_sql
-                            if node.compiled_sql
-                            else node.raw_sql,
-                            aggregation=AssertionStdAggregationClass._NATIVE_,
-                            nativeParameters=string_map(kw_args),
-                        ),
-                    )
-                else:
-                    # no match with known test types, default to row-level test
-                    assertion_info = AssertionInfoClass(
-                        type=AssertionTypeClass.DATASET,
-                        customProperties=custom_props,
-                        datasetAssertion=DatasetAssertionInfoClass(
-                            dataset=upstream_urn,
-                            scope=DatasetAssertionScopeClass.DATASET_ROWS,
-                            operator=AssertionStdOperatorClass._NATIVE_,
-                            logic=node.compiled_sql
-                            if node.compiled_sql
-                            else node.raw_sql,
-                            nativeType=node.name,
-                            aggregation=AssertionStdAggregationClass._NATIVE_,
-                            nativeParameters=string_map(kw_args),
-                        ),
-                    )
-                wu = MetadataWorkUnit(
-                    id=f"{node_datahub_urn}-assertioninfo",
-                    mcp=MetadataChangeProposalWrapper(
-                        entityType="assertion",
-                        entityUrn=node_datahub_urn,
-                        changeType=ChangeTypeClass.UPSERT,
-                        aspectName="assertionInfo",
-                        aspect=assertion_info,
-                    ),
-                )
-                self.report.report_workunit(wu)
-                yield wu
+                    else [],
+                    nativeType=node.name,
+                    aggregation=assertion_params.aggregation,
+                    parameters=assertion_params.parameters(kw_args)
+                    if assertion_params.parameters
+                    else None,
+                    logic=assertion_params.logic_fn(kw_args)
+                    if assertion_params.logic_fn
+                    else None,
+                    nativeParameters=string_map(kw_args),
+                ),
+            )
+        elif column_name:
+            # no match with known test types, column-level test
+            assertion_info = AssertionInfoClass(
+                type=AssertionTypeClass.DATASET,
+                customProperties=extra_custom_props,
+                datasetAssertion=DatasetAssertionInfoClass(
+                    dataset=upstream_urn,
+                    scope=DatasetAssertionScopeClass.DATASET_COLUMN,
+                    operator=AssertionStdOperatorClass._NATIVE_,
+                    fields=[
+                        mce_builder.make_schema_field_urn(upstream_urn, column_name)
+                    ],
+                    nativeType=node.name,
+                    logic=node.compiled_sql if node.compiled_sql else node.raw_sql,
+                    aggregation=AssertionStdAggregationClass._NATIVE_,
+                    nativeParameters=string_map(kw_args),
+                ),
+            )
+        else:
+            # no match with known test types, default to row-level test
+            assertion_info = AssertionInfoClass(
+                type=AssertionTypeClass.DATASET,
+                customProperties=extra_custom_props,
+                datasetAssertion=DatasetAssertionInfoClass(
+                    dataset=upstream_urn,
+                    scope=DatasetAssertionScopeClass.DATASET_ROWS,
+                    operator=AssertionStdOperatorClass._NATIVE_,
+                    logic=node.compiled_sql if node.compiled_sql else node.raw_sql,
+                    nativeType=node.name,
+                    aggregation=AssertionStdAggregationClass._NATIVE_,
+                    nativeParameters=string_map(kw_args),
+                ),
+            )
+
+        wu = MetadataChangeProposalWrapper(
+            entityUrn=assertion_urn,
+            aspect=assertion_info,
+        ).as_workunit()
+
+        return wu
+
+    def _make_assertion_result_from_test(
+        self,
+        node: DBTNode,
+        assertion_urn: str,
+        upstream_urn: str,
+    ) -> MetadataWorkUnit:
+        assert node.test_result
+        test_result = node.test_result
+
+        assertionResult = AssertionRunEventClass(
+            timestampMillis=int(test_result.execution_time.timestamp() * 1000.0),
+            assertionUrn=assertion_urn,
+            asserteeUrn=upstream_urn,
+            runId=test_result.invocation_id,
+            result=AssertionResultClass(
+                type=AssertionResultTypeClass.SUCCESS
+                if test_result.status == "pass"
+                else AssertionResultTypeClass.FAILURE,
+                nativeResults=test_result.native_results,
+            ),
+            status=AssertionRunStatusClass.COMPLETE,
+        )
+
+        event = MetadataChangeProposalWrapper(
+            entityUrn=assertion_urn,
+            aspect=assertionResult,
+        )
+        wu = MetadataWorkUnit(
+            id=f"{assertion_urn}-assertionRunEvent-{upstream_urn}",
+            mcp=event,
+        )
+        return wu
+
+    @abstractmethod
+    def load_nodes(self) -> Tuple[List[DBTNode], Dict[str, Optional[str]]]:
+        # return dbt nodes + global custom properties
+        raise NotImplementedError()
 
     # create workunits from dbt nodes
     def get_workunits(self) -> Iterable[MetadataWorkUnit]:
@@ -1275,31 +908,10 @@ class DBTSource(StatefulIngestionSourceBase):
                 "Consider using the datahub-rest sink or provide a datahub_api: configuration on your ingestion recipe."
             )
 
-        (
-            all_nodes,
-            manifest_schema,
-            manifest_version,
-            manifest_adapter,
-            catalog_schema,
-            catalog_version,
-        ) = self.loadManifestAndCatalog(
-            self.config.manifest_path,
-            self.config.catalog_path,
-            self.config.sources_path,
-            self.config.use_identifiers,
-            self.config.tag_prefix,
-        )
+        all_nodes, additional_custom_props = self.load_nodes()
 
         all_nodes_map = {node.dbt_name: node for node in all_nodes}
         nodes = self.filter_nodes(all_nodes)
-
-        additional_custom_props = {
-            "manifest_schema": manifest_schema,
-            "manifest_version": manifest_version,
-            "manifest_adapter": manifest_adapter,
-            "catalog_schema": catalog_schema,
-            "catalog_version": catalog_version,
-        }
 
         additional_custom_props_filtered = {
             key: value
@@ -1333,14 +945,6 @@ class DBTSource(StatefulIngestionSourceBase):
             additional_custom_props_filtered,
             all_nodes_map,
         )
-
-        if self.config.test_results_path:
-            yield from DBTTest.load_test_results(
-                self.config,
-                self.load_file_as_json(self.config.test_results_path),
-                test_nodes,
-                all_nodes_map,
-            )
 
         yield from self.stale_entity_removal_handler.gen_removed_entity_workunits()
 
@@ -1406,11 +1010,11 @@ class DBTSource(StatefulIngestionSourceBase):
             if self.config.enable_query_tag_mapping and node.query_tag:
                 self.extract_query_tag_aspects(action_processor_tag, meta_aspects, node)
 
-            aspects = self._generate_base_aspects(
-                node, additional_custom_props_filtered, mce_platform, meta_aspects
-            )
-
             if mce_platform == DBT_PLATFORM:
+                aspects = self._generate_base_aspects(
+                    node, additional_custom_props_filtered, mce_platform, meta_aspects
+                )
+
                 # add upstream lineage
                 upstream_lineage_class = self._create_lineage_aspect_for_dbt_node(
                     node, all_nodes_map
@@ -1542,13 +1146,13 @@ class DBTSource(StatefulIngestionSourceBase):
             tags=node.tags,
             name=node.name,
         )
-        if self.config.github_info is not None:
-            github_file_url = self.config.github_info.get_url_for_file_path(
-                node.dbt_file_path
-            )
-            dbt_properties.externalUrl = github_file_url
+        dbt_properties.externalUrl = self.get_external_url(node)
 
         return dbt_properties
+
+    @abstractmethod
+    def get_external_url(self, node: DBTNode) -> Optional[str]:
+        pass
 
     def _create_view_properties_aspect(self, node: DBTNode) -> ViewPropertiesClass:
         materialized = node.materialization in {"table", "incremental"}
@@ -1824,13 +1428,6 @@ class DBTSource(StatefulIngestionSourceBase):
 
     def owner_sort_key(self, owner_class: OwnerClass) -> str:
         return str(owner_class)
-        # TODO: Remove. keeping this till PR review
-        # assert owner_class is not None
-        # owner = owner_class.owner
-        # type = str(owner_class.type)
-        # source_type = "None" if not owner_class.source else str(owner_class.source.type)
-        # source_url = "None" if not owner_class.source else str(owner_class.source.url)
-        # return f"{owner}-{type}-{source_type}-{source_url}"
 
     # This method attempts to read-modify and return the tags of a dataset.
     # From the existing tags it will remove the tags that have a prefix tags_prefix_filter and
@@ -1866,18 +1463,3 @@ class DBTSource(StatefulIngestionSourceBase):
 
     def get_report(self):
         return self.report
-
-    def get_platform_instance_id(self) -> str:
-        """
-        DBT project identifier is used as platform instance.
-        """
-
-        project_id = (
-            self.load_file_as_json(self.config.manifest_path)
-            .get("metadata", {})
-            .get("project_id")
-        )
-        if project_id is None:
-            raise ValueError("DBT project identifier is not found in manifest")
-
-        return f"{self.platform}_{project_id}"
