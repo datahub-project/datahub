@@ -17,7 +17,7 @@ import requests
 from pydantic import root_validator
 
 import datahub.emitter.mce_builder as builder
-from datahub.configuration.common import ConfigurationError, AllowDenyPattern
+from datahub.configuration.common import AllowDenyPattern, ConfigurationError
 from datahub.configuration.source_common import EnvBasedSourceConfigBase
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.common import PipelineContext
