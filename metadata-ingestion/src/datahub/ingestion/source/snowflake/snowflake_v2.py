@@ -3,6 +3,7 @@ import logging
 from dataclasses import dataclass
 from typing import Dict, Iterable, List, Optional, Tuple, Union, cast
 
+import pandas as pd
 import pydantic
 from snowflake.connector import SnowflakeConnection
 
@@ -1044,12 +1045,14 @@ class SnowflakeV2Source(
 
         # Create a cursor object.
         cur = conn.cursor()
-
+        NUM_SAMPLED_ROWS = 1000
         # Execute a statement that will generate a result set.
-        sql = f'select * from "{db_name}"."{schema_name}"."{table_name}" sample (1000 rows);'
+        sql = f'select * from "{db_name}"."{schema_name}"."{table_name}" sample ({NUM_SAMPLED_ROWS} rows);'
 
         cur.execute(sql)
         # Fetch the result set from the cursor and deliver it as the Pandas DataFrame.
-        df = cur.fetch_pandas_all()
+
+        dat = cur.fetchall()
+        df = pd.DataFrame(dat, columns=[col.name for col in cur.description])
 
         return df

@@ -174,7 +174,7 @@ snowflake_common = {
     # Required for all Snowflake sources.
     # See https://github.com/snowflakedb/snowflake-sqlalchemy/issues/234 for why 1.2.5 is blocked.
     "snowflake-sqlalchemy>=1.2.4, !=1.2.5",
-    "snowflake-connector-python[pandas]>=2.7.3",
+    "pandas",
     "cryptography",
     "msal",
     "acryl-datahub-classify>=0.0.3",
@@ -456,10 +456,6 @@ dev_requirements = {
     *base_dev_requirements,
     "apache-airflow[snowflake]>=2.0.2",  # snowflake is used in example dags
     "snowflake-sqlalchemy<=1.2.4",  # make constraint consistent with extras
-    # FIXME - pinned to avoid conflicting dependencies between acryl-datahub-classify and deltalake for pyarrow
-    "deltalake<=0.5.8;  python_version < '3.8'",
-    # FIXME -pinned to avoid conflicting dependencies acryl-datahub-classify and deltalake for typing-extensions
-    "snowflake-connector-python[pandas]<=2.7.8; python_version < '3.8'",
 }
 
 full_test_dev_requirements = {
@@ -481,7 +477,6 @@ full_test_dev_requirements = {
             "mssql",
             "mysql",
             "mariadb",
-            "snowflake",
             "redash",
             "vertica",
         ]
