@@ -3,7 +3,6 @@ package com.datahub.authentication.group;
 import com.datahub.authentication.Actor;
 import com.datahub.authentication.ActorType;
 import com.datahub.authentication.Authentication;
-import com.datahub.authentication.group.GroupService;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.linkedin.common.EntityRelationship;

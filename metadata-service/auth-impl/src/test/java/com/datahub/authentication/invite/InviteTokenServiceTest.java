@@ -3,7 +3,6 @@ package com.datahub.authentication.invite;
 import com.datahub.authentication.Actor;
 import com.datahub.authentication.ActorType;
 import com.datahub.authentication.Authentication;
-import com.datahub.authentication.invite.InviteTokenService;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.entity.Aspect;
 import com.linkedin.entity.EntityResponse;
