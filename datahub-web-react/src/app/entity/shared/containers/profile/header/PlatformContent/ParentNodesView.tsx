@@ -34,26 +34,27 @@ export const StyledTooltip = styled(Tooltip)`
     overflow: hidden;
 `;
 
-const GlossaryNodeText = styled(Typography.Text)<{ color: string }>`
-    font-size: 12px;
+const GlossaryNodeText = styled(Typography.Text)<{ color: string; fontSize: number }>`
     line-height: 20px;
+    font-size: ${(props) => props.fontSize};
     color: ${(props) => props.color};
 `;
 
-const GlossaryNodeIcon = styled(FolderOutlined)<{ color: string }>`
+const GlossaryNodeIcon = styled(FolderOutlined)<{ color: string; fontSize: number }>`
     color: ${(props) => props.color};
 
     &&& {
-        font-size: 12px;
+        font-size: ${(props) => props.fontSize};
         margin-right: 4px;
     }
 `;
 
 interface Props {
     parentNodes?: GlossaryNode[] | null;
+    customizeFontSize: number;
 }
 
-export default function ParentNodesView({ parentNodes }: Props) {
+export default function ParentNodesView({ parentNodes, customizeFontSize }: Props) {
     const entityRegistry = useEntityRegistry();
     const { contentRef, isContentTruncated } = useContentTruncation(parentNodes);
 
@@ -63,8 +64,8 @@ export default function ParentNodesView({ parentNodes }: Props) {
                 <>
                     {[...(parentNodes || [])]?.reverse()?.map((parentNode, idx) => (
                         <>
-                            <GlossaryNodeIcon color="white" />
-                            <GlossaryNodeText color="white">
+                            <GlossaryNodeIcon color="white" fontSize={customizeFontSize} />
+                            <GlossaryNodeText color="white" fontSize={customizeFontSize}>
                                 {entityRegistry.getDisplayName(EntityType.GlossaryNode, parentNode)}
                             </GlossaryNodeText>
                             {idx + 1 !== parentNodes?.length && <StyledRightOutlined data-testid="right-arrow" />}
@@ -78,10 +79,10 @@ export default function ParentNodesView({ parentNodes }: Props) {
             <ParentNodesWrapper ref={contentRef}>
                 {[...(parentNodes || [])]?.map((parentNode, idx) => (
                     <>
-                        <GlossaryNodeText color={ANTD_GRAY[7]}>
+                        <GlossaryNodeText color={ANTD_GRAY[7]} fontSize={customizeFontSize}>
                             {entityRegistry.getDisplayName(EntityType.GlossaryNode, parentNode)}
                         </GlossaryNodeText>
-                        <GlossaryNodeIcon color={ANTD_GRAY[7]} />
+                        <GlossaryNodeIcon color={ANTD_GRAY[7]} fontSize={customizeFontSize} />
                         {idx + 1 !== parentNodes?.length && <StyledRightOutlined data-testid="right-arrow" />}
                     </>
                 ))}

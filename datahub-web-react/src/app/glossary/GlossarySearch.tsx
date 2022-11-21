@@ -29,6 +29,11 @@ const ResultsWrapper = styled.div`
     top: 45px;
 `;
 
+const ParentViewWrapper = styled.div`
+    margin-bottom: 5px;
+    font-size: 8px;
+`;
+
 const SearchResult = styled(Link)`
     color: #262626;
     display: inline-block;
@@ -90,11 +95,16 @@ function GlossarySearch() {
                         {searchResults.map((result: any) => {
                             return (
                                 <>
-                                    <ParentNodesView parentNodes={result.entity.parentNodes.nodes} />
                                     <SearchResult
                                         to={`/${entityRegistry.getPathName(result.entity.type)}/${result.entity.urn}`}
                                         onClick={() => setIsSearchBarFocused(false)}
                                     >
+                                        <ParentViewWrapper>
+                                            <ParentNodesView
+                                                parentNodes={result.entity.parentNodes.nodes}
+                                                customizeFontSize={10}
+                                            />
+                                        </ParentViewWrapper>
                                         <IconWrapper>
                                             {entityRegistry.getIcon(result.entity.type, 12, IconStyleType.ACCENT)}
                                         </IconWrapper>
