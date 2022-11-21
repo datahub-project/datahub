@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { Button, Dropdown, Menu } from 'antd';
 import { FormOutlined, MoreOutlined } from '@ant-design/icons';
 import styled from 'styled-components';
-import { EntityType, FacetFilterInput, SearchAcrossEntitiesInput } from '../../../../../../types.generated';
+import { EntityType, OrFilter, SearchAcrossEntitiesInput } from '../../../../../../types.generated';
 import { SearchResultsInterface } from './types';
 import DownloadAsCsvButton from './DownloadAsCsvButton';
 import DownloadAsCsvModal from './DownloadAsCsvModal';
@@ -27,7 +27,7 @@ type Props = {
         input: SearchAcrossEntitiesInput;
     }) => Promise<SearchResultsInterface | null | undefined>;
     entityFilters: EntityType[];
-    filters: FacetFilterInput[];
+    filters: OrFilter[];
     query: string;
     setShowSelectMode?: (showSelectMode: boolean) => any;
 };

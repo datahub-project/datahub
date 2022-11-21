@@ -152,6 +152,16 @@
         "urn": "urn:li:dataset:(urn:li:dataPlatform:hdfs,SampleCypressHdfsDataset,PROD)",
         "aspects": [
           {
+            "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
+              "description": "my hdfs dataset",
+              "uri": null,
+              "tags": [],
+              "customProperties": {
+                "encoding": "utf-8"
+              }
+            }
+          },
+          {
             "com.linkedin.pegasus2avro.common.BrowsePaths": {
               "paths": ["/prod/hdfs/SampleCypressHdfsDataset"]
             }
@@ -390,7 +400,7 @@
           },
           {
             "com.linkedin.pegasus2avro.common.GlobalTags": {
-              "tags": [{ "tag": "urn:li:tag:Cypress" }]
+              "tags": [{ "tag": "urn:li:tag:Cypress" },  { "tag": "urn:li:tag:Cypress2" }]
             }
           }
         ]
@@ -404,6 +414,17 @@
       "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
         "urn": "urn:li:dataset:(urn:li:dataPlatform:hive,SampleCypressHiveDataset,PROD)",
         "aspects": [
+          {
+            "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
+              "description": "my hive dataset",
+              "uri": null,
+              "tags": [],
+              "customProperties": {
+                "prop1": "fakeprop",
+                "prop2": "pikachu"
+              }
+            }
+          },
           {
             "com.linkedin.pegasus2avro.common.Ownership": {
               "owners": [
@@ -1582,6 +1603,39 @@
             "com.linkedin.pegasus2avro.tag.TagProperties": {
               "name": "Cypress",
               "description": "Indicates the entity is for cypress integration test purposes"
+            }
+          },
+          {
+            "com.linkedin.pegasus2avro.common.Ownership": {
+              "owners": [
+                {
+                  "owner": "urn:li:corpuser:jdoe",
+                  "type": "DATAOWNER",
+                  "source": null
+                }
+              ],
+              "lastModified": {
+                "time": 1581407189000,
+                "actor": "urn:li:corpuser:jdoe",
+                "impersonator": null
+              }
+            }
+          }
+        ]
+      }
+    },
+    "proposedDelta": null
+  },
+  {
+    "auditHeader": null,
+    "proposedSnapshot": {
+      "com.linkedin.pegasus2avro.metadata.snapshot.TagSnapshot": {
+        "urn": "urn:li:tag:Cypress2",
+        "aspects": [
+          {
+            "com.linkedin.pegasus2avro.tag.TagProperties": {
+              "name": "Cypress 2",
+              "description": "Indicates the entity is #2 for cypress test purposes"
             }
           },
           {

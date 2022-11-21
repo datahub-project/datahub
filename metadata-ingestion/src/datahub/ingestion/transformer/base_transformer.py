@@ -2,7 +2,7 @@ import logging
 from abc import ABCMeta, abstractmethod
 from typing import Any, Dict, Iterable, List, Optional, Type, Union
 
-import datahub.emitter.mce_builder
+import datahub.emitter.mce_builder as builder
 from datahub.emitter.aspect import ASPECT_MAP
 from datahub.emitter.mce_builder import Aspect
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
@@ -127,9 +127,13 @@ class BaseTransformer(Transformer, metaclass=ABCMeta):
             aspect_type = ASPECT_MAP.get(self.aspect_name())
             if aspect_type:
                 # if we find a type corresponding to the aspect name we look for it in the mce
-                old_aspect = datahub.emitter.mce_builder.get_aspect_if_available(
-                    mce,
-                    aspect_type,
+                old_aspect = (
+                    builder.get_aspect_if_available(
+                        mce,
+                        aspect_type,
+                    )
+                    if builder.can_add_aspect(mce, aspect_type)
+                    else None
                 )
                 if old_aspect:
                     if isinstance(self, LegacyMCETransformer):
@@ -141,7 +145,7 @@ class BaseTransformer(Transformer, metaclass=ABCMeta):
                             aspect_name=self.aspect_name(),
                             aspect=old_aspect,
                         )
-                        datahub.emitter.mce_builder.set_aspect(
+                        builder.set_aspect(
                             mce,
                             aspect_type=aspect_type,
                             aspect=transformed_aspect,

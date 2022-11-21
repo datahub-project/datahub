@@ -331,9 +331,6 @@ class IcebergSource(StatefulIngestionSourceBase):
     def get_report(self) -> SourceReport:
         return self.report
 
-    def close(self) -> None:
-        self.prepare_for_commit()
-
 
 def _parse_datatype(type: IcebergTypes.Type, nullable: bool = False) -> Dict[str, Any]:
     # Check for complex types: struct, list, map
