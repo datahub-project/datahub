@@ -5,6 +5,7 @@ import { useGetSearchResultsForMultipleQuery } from '../../graphql/search.genera
 import { EntityType } from '../../types.generated';
 import { IconStyleType } from '../entity/Entity';
 import { ANTD_GRAY } from '../entity/shared/constants';
+import ParentNodesView from '../entity/shared/containers/profile/header/PlatformContent/ParentNodesView';
 import { SearchBar } from '../search/SearchBar';
 import ClickOutside from '../shared/ClickOutside';
 import { useEntityRegistry } from '../useEntityRegistry';
@@ -86,17 +87,20 @@ function GlossarySearch() {
                 />
                 {isSearchBarFocused && searchResults && !!searchResults.length && (
                     <ResultsWrapper>
-                        {searchResults.map((result) => {
+                        {searchResults.map((result: any) => {
                             return (
-                                <SearchResult
-                                    to={`/${entityRegistry.getPathName(result.entity.type)}/${result.entity.urn}`}
-                                    onClick={() => setIsSearchBarFocused(false)}
-                                >
-                                    <IconWrapper>
-                                        {entityRegistry.getIcon(result.entity.type, 12, IconStyleType.ACCENT)}
-                                    </IconWrapper>
-                                    {entityRegistry.getDisplayName(result.entity.type, result.entity)}
-                                </SearchResult>
+                                <>
+                                    <ParentNodesView parentNodes={result.entity.parentNodes.nodes} />
+                                    <SearchResult
+                                        to={`/${entityRegistry.getPathName(result.entity.type)}/${result.entity.urn}`}
+                                        onClick={() => setIsSearchBarFocused(false)}
+                                    >
+                                        <IconWrapper>
+                                            {entityRegistry.getIcon(result.entity.type, 12, IconStyleType.ACCENT)}
+                                        </IconWrapper>
+                                        {entityRegistry.getDisplayName(result.entity.type, result.entity)}
+                                    </SearchResult>
+                                </>
                             );
                         })}
                     </ResultsWrapper>
