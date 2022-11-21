@@ -121,6 +121,7 @@ export class ContainerEntity implements Entity<Container> {
                 entityCount={data.entities?.total}
                 domain={data.domain?.domain}
                 tags={data.tags}
+                externalUrl={data.properties?.externalUrl}
             />
         );
     };
