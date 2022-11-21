@@ -174,6 +174,7 @@ module.exports = {
       // The purpose of this section is to provide direction on how to enrich metadata when shift-left isn’t an option
       // "docs/wip/csv-enrichment",
       // "docs/wip/ui-based-enrichment",
+      "docs/enrich-metadata",
       "docs/domains",
       "docs/glossary/business-glossary",
       "docs/tags",
@@ -183,7 +184,7 @@ module.exports = {
     ],
 
     "Act on Metadata": [
-      // "docs/wip/act-on-metadata",
+      "docs/act-on-metadata",
       {
         "Actions Framework": [
           "docs/actions/README",

@@ -32,13 +32,13 @@ const quickLinkContent = [
     title: "Enrich Metadata",
     icon: <DeploymentUnitOutlined />,
     description: "Improve the quality and coverage of Metadata",
-    to: "docs/wip/enrich-metadata",
+    to: "docs/enrich-metadata",
   },
   {
     title: "Act on Metadata",
     icon: <SyncOutlined />,
     description: "Step-by-step guides for acting on Metadata Events",
-    to: "docs/wip/act-on-metadata",
+    to: "docs/act-on-metadata",
   },
   {
     title: "Developer Guides",
