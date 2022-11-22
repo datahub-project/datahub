@@ -366,7 +366,7 @@ mypy_stubs = {
     # avrogen package requires this
     "types-pytz",
     "types-pyOpenSSL",
-    "types-click-spinner",
+    "types-click-spinner>=0.1.13.1",
     "types-ujson>=5.2.0",
     "types-termcolor>=1.0.0",
     "types-Deprecated",

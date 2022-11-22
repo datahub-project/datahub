@@ -753,10 +753,7 @@ def quickstart(
     try:
         if pull_images:
             click.echo("Pulling docker images...")
-            # FIXME: Remove args once https://github.com/python/typeshed/pull/9220 is merged.
-            with click_spinner.spinner(
-                beep=False, disable=False, force=False, stream=sys.stdout
-            ):
+            with click_spinner.spinner():
                 subprocess.run(
                     [*base_command, "pull", "-q"],
                     check=True,
