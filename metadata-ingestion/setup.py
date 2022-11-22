@@ -209,7 +209,7 @@ data_lake_profiling = {
 
 delta_lake = {
     *s3_base,
-    "deltalake",
+    "deltalake>=0.6.3",
 }
 
 powerbi_report_server = {"requests", "requests_ntlm"}
