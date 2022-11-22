@@ -70,6 +70,7 @@ public class IsolatedClassLoader extends ClassLoader {
   }
 
   private void createJarEntryMap() throws IOException {
+    log.debug("Plugin jar file path {}", this._pluginConfig.getPluginJarPath());
     this._pluginJarRef = new JarFile(this._pluginConfig.getPluginJarPath().toFile());
     this._classPathVsZipEntry = new HashMap<>();
     for (Enumeration<JarEntry> enums = this._pluginJarRef.entries(); enums.hasMoreElements(); ) {
@@ -133,9 +134,9 @@ public class IsolatedClassLoader extends ClassLoader {
 
   @Override
   protected Class<?> loadClass(String s, boolean b) throws ClassNotFoundException {
-    log.debug(String.format("Load class %s", s));
+    log.debug("Load class {}", s);
     String path = this.classNameToPath(s);
-    log.debug(String.format("File path %s", path));
+    log.debug("File path {}", path);
     // Check if requested class is available in plugin jar entries
     if (!this._classPathVsZipEntry.containsKey(path)) {
       // Try to load using Application class loader

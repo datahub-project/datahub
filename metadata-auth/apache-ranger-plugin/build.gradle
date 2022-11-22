@@ -10,16 +10,17 @@ compileJava {
 shadowJar {
     determineAndSetVersion()
     archiveFileName = "$project.name-${version}.jar"
-    exclude "com/datahub/plugins/", "META-INF/*.RSA", "META-INF/*.SF","META-INF/*.DSA"
+    exclude "META-INF/*.RSA", "META-INF/*.SF","META-INF/*.DSA"
 }
 
 dependencies {
     implementation 'org.apache.ranger:ranger-plugins-common:2.2.0'
-    implementation project(path: ':metadata-auth:auth-api')
+    compileOnly project(path: ':metadata-auth:auth-api')
     implementation externalDependency.lombok
     annotationProcessor externalDependency.lombok
     testImplementation externalDependency.mockito
     testImplementation project(path: ':metadata-utils')
+    testImplementation project(path: ':metadata-auth:auth-api')
 }
 
 def determineAndSetVersion() {
