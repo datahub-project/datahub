@@ -156,7 +156,7 @@ export const HomePageRecommendations = ({ user }: Props) => {
                             </DomainsRecomendationContainer>
                         </>
                     )}
-                    <RecommendationTitle level={4}>Explore your Metadata</RecommendationTitle>
+                    <RecommendationTitle level={4}>Explore your data</RecommendationTitle>
                     <ThinDivider />
                     {hasIngestedMetadata ? (
                         <BrowseCardContainer>

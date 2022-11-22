@@ -254,6 +254,7 @@ module.exports = {
       "docs/deploy/gcp",
       "docker/README",
       "docs/deploy/kubernetes",
+      "docs/how/updating-datahub",
       {
         Authentication: [
           "docs/authentication/README",
@@ -286,7 +287,6 @@ module.exports = {
       {
         "Advanced Guides": [
           "docs/how/delete-metadata",
-          "docs/how/updating-datahub",
           "datahub-ranger-plugin/README",
           "docs/how/backup-datahub",
           "docs/how/restore-indices",

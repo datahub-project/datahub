@@ -14111,6 +14111,13 @@ react-dom@^17.0.0:
     object-assign "^4.1.1"
     scheduler "^0.20.2"
 
+react-email-share-link@^1.0.3:
+  version "1.0.3"
+  resolved "https://registry.yarnpkg.com/react-email-share-link/-/react-email-share-link-1.0.3.tgz#745d09fa9bca8a1c3820f7a8bc43237bb4e5c05e"
+  integrity sha512-MNWNN4OHbrE3ia3l3a5EHds4dXbu9o7j1F4P+UkQ4y15AdkU/laMDD2EXE3onVRePtk2Et3TUHKyEleocUfN2g==
+  dependencies:
+    prop-types "^15.7.2"
+
 react-error-overlay@^6.0.9:
   version "6.0.9"
   resolved "https://registry.yarnpkg.com/react-error-overlay/-/react-error-overlay-6.0.9.tgz#3c743010c9359608c375ecd6bc76f35d93995b0a"
