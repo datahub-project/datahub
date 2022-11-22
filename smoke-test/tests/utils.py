@@ -78,8 +78,7 @@ def wait_for_healthcheck_util():
         assert not check_endpoint(f"{get_gms_url()}/health")
     else:
         # Simply assert that docker is healthy, but don't wait.
-        # assert not check_local_docker_containers()
-        pass
+        assert not check_local_docker_containers()
 
 
 def check_endpoint(url):
