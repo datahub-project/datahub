@@ -28,6 +28,17 @@ This file documents any backwards-incompatible changes in DataHub and assists pe
 
 ### Other notable Changes
 
+## 0.9.1
+
+### Breaking Changes
+- we have promoted `bigqery-beta` to `bigquery`. If you are using `bigquery-beta` then change your recipes to use the type `bigquery`
+
+### Potential Downtime
+
+### Deprecations
+
+### Other notable Changes
+
 ## 0.9.0
 
 ### Breaking Changes
