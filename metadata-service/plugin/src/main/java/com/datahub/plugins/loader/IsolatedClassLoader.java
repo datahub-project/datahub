@@ -20,12 +20,14 @@ import java.util.Enumeration;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.jar.JarEntry;
 import java.util.jar.JarFile;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import java.util.zip.ZipEntry;
 import javax.annotation.Nonnull;
+import javax.swing.text.html.Option;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.StringUtils;
 
@@ -117,7 +119,7 @@ public class IsolatedClassLoader extends ClassLoader {
     return resourceName.replaceAll("\\.", "/") + ".class";
   }
 
-  private byte[] getClassData(ZipEntry zipEntry) {
+  private byte[] getClassData(ZipEntry zipEntry) throws ClassNotFoundException{
     try (InputStream ins = this._pluginJarRef.getInputStream(zipEntry);
         ByteArrayOutputStream baos = new ByteArrayOutputStream()) {
       byte[] buffer = new byte[4096];
@@ -127,9 +129,9 @@ public class IsolatedClassLoader extends ClassLoader {
       }
       return baos.toByteArray();
     } catch (IOException e) {
-      e.printStackTrace();
+      log.debug("Failed to load the zipEntry {}", zipEntry.getName());
+      throw new ClassNotFoundException();
     }
-    return new byte[]{};
   }
 
   @Override
@@ -140,7 +142,7 @@ public class IsolatedClassLoader extends ClassLoader {
     // Check if requested class is available in plugin jar entries
     if (!this._classPathVsZipEntry.containsKey(path)) {
       // Try to load using Application class loader
-      log.debug(String.format("Class %s not found in plugin jar, trying application class loader chain", s));
+      log.debug("Class {} not found in plugin jar, trying application class loader chain", s);
       for (ClassLoader classLoader : this._classLoaders) {
         try {
           log.debug("Looking in ClassLoader {}", classLoader.getClass().getName());
@@ -149,13 +151,12 @@ public class IsolatedClassLoader extends ClassLoader {
           // Pass it and let search in next ClassLoader
         }
       }
+      log.debug("Class {} not found in application class-loader chain", s);
       throw new ClassNotFoundException();
     }
 
     byte[] classBytes = getClassData(this._classPathVsZipEntry.get(path));
-    if (classBytes.length == 0) {
-      throw new ClassNotFoundException();
-    }
+
     ProtectionDomain protectionDomain =
         this._pluginPermissionManager.createProtectionDomain(this._pluginConfig.getPluginHomeDirectory());
     return defineClass(s, classBytes, 0, classBytes.length, protectionDomain);
@@ -193,6 +194,39 @@ public class IsolatedClassLoader extends ClassLoader {
     }
   }
 
+  private Optional<URL> findResourceInPluginJar(String resource) {
+    if (this._classPathVsZipEntry.containsKey(resource)) {
+      StringBuilder builder = new StringBuilder();
+      builder.append("jar:file:").append(this._pluginConfig.getPluginJarPath()).append("!/");
+      builder.append(resource);
+      try {
+        log.debug("Resource {} is found in plugin jar at location {}", resource, builder);
+        return Optional.of(new URL(builder.toString()));
+      } catch (MalformedURLException e) {
+        throw new RuntimeException(e);
+      }
+    }
+    return Optional.empty();
+  }
+
+  private Optional<URL> findResourceInPluginHome(String resource) {
+    try {
+      try (Stream<Path> stream = Files.find(this._pluginConfig.getPluginHomeDirectory(), 1,
+          ((path, basicFileAttributes) -> path.toFile().getName().equals(resource)))) {
+        List<Path> resources = stream.collect(Collectors.toList());
+        if (resources.size() > 0) {
+          log.debug("Number of resources found {}", resources.size());
+          log.debug("Resource {} is found in plugin directory", resource);
+          return Optional.of(resources.get(0).toUri().toURL());
+        }
+      }
+    } catch (IOException e) {
+      throw new RuntimeException(e);
+    }
+
+    return Optional.empty();
+  }
+
   /**
    * Look for resource in below order
    * - First search in plugin jar if not found
@@ -202,49 +236,35 @@ public class IsolatedClassLoader extends ClassLoader {
    */
   @Override
   protected URL findResource(String resource) {
-    URL url = null;
+    Optional<URL> optionalURL = Optional.empty();
     String trimResource = StringUtils.strip(resource.trim(), "/");
 
     log.debug("Finding resource = {}", trimResource);
+
     // Look for resource in jar entries
-    if (this._classPathVsZipEntry.containsKey(trimResource)) {
-      StringBuilder builder = new StringBuilder();
-      builder.append("jar:file:").append(this._pluginConfig.getPluginJarPath()).append("!/");
-      builder.append(trimResource);
-      try {
-        log.debug("Resource {} is found in plugin jar at location {}", trimResource, builder);
-        return new URL(builder.toString());
-      } catch (MalformedURLException e) {
-        throw new RuntimeException(e);
-      }
-    }
-    // Check if resource is present in plugin directory
-    try {
-      try (Stream<Path> stream = Files.find(this._pluginConfig.getPluginHomeDirectory(), 1,
-          ((path, basicFileAttributes) -> path.toFile().getName().equals(trimResource)))) {
-        List<Path> resources = stream.collect(Collectors.toList());
-        if (resources.size() > 0) {
-          log.debug("Number of resources found {}", resources.size());
-          log.debug("Resource {} is found in plugin directory", trimResource);
-          url = resources.get(0).toUri().toURL();
-        }
-      }
-    } catch (IOException e) {
-      throw new RuntimeException(e);
+    optionalURL = this.findResourceInPluginJar(trimResource);
+    if (optionalURL.isPresent()) {
+      return optionalURL.get();
     }
 
-    if (url == null) {
-      log.debug("Resource not found in plugin = {}", trimResource);
-      log.debug("Trying application class loader chain");
-      for (ClassLoader classLoader : this._classLoaders) {
-        url = classLoader.getResource(trimResource);
-        if (url != null) {
-          log.debug("Resource found in ClassLoader = {}", classLoader.getClass().getName());
-          break;
-        }
+    // Look for resource in PLUGIN_HOME directory
+    optionalURL = this.findResourceInPluginHome(trimResource);
+    if (optionalURL.isPresent()) {
+      return optionalURL.get();
+    }
+
+    // Look for resource in application class loader chain
+    log.debug("Resource not found in plugin = {}", trimResource);
+    log.debug("Trying application class loader chain");
+    for (ClassLoader classLoader : this._classLoaders) {
+      optionalURL = Optional.ofNullable(classLoader.getResource(trimResource));
+      if (optionalURL.isPresent()) {
+        log.debug("Resource found in ClassLoader = {}", classLoader.getClass().getName());
+        break;
       }
     }
-    return url;
+
+    return optionalURL.orElse(null); // As per java class-loader, this method should return null if resource is not found
   }
 
   @Override
