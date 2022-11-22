@@ -20,6 +20,7 @@ dependencies {
     annotationProcessor externalDependency.lombok
     testImplementation externalDependency.mockito
     testImplementation project(path: ':metadata-utils')
+    testImplementation project(path: ':metadata-auth:auth-api')
 }
 
 def determineAndSetVersion() {
