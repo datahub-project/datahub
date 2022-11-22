@@ -162,12 +162,10 @@ class DeltaLakeSource(Source):
             )
 
             operation_custom_properties = dict()
-            for key in sorted(hist.keys()):
-                val = hist[key]
+            for key, val in sorted(hist.items()):
                 if val is not None:
                     if isinstance(val, dict):
-                        for k in sorted(val.keys()):
-                            v = val[k]
+                        for k, v in sorted(val.items()):
                             if v is not None:
                                 operation_custom_properties[f"{key}_{k}"] = str(v)
                     else:
