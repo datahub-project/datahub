@@ -52,12 +52,26 @@
     }
 },
 {
+    "entityType": "chart",
+    "entityUrn": "urn:li:chart:(looker,dashboard_elements.10)",
+    "changeType": "UPSERT",
+    "aspectName": "inputFields",
+    "aspect": {
+        "value": "{\"fields\": [{\"schemaFieldUrn\": \"urn:li:schemaField:(urn:li:chart:(looker,dashboard_elements.10),calc)\", \"schemaField\": {\"fieldPath\": \"calc\", \"nullable\": false, \"description\": \"\", \"label\": \"foobar\", \"type\": {\"type\": {\"com.linkedin.schema.StringType\": {}}}, \"nativeDataType\": \"string\", \"recursive\": false, \"globalTags\": {\"tags\": []}, \"isPartOfKey\": false}}]}",
+        "contentType": "application/json"
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "looker-test"
+    }
+},
+{
     "entityType": "dashboard",
     "entityUrn": "urn:li:dashboard:(looker,dashboards.11)",
     "changeType": "UPSERT",
     "aspectName": "inputFields",
     "aspect": {
-        "value": "{\"fields\": [{\"schemaFieldUrn\": \"urn:li:schemaField:(urn:li:chart:(looker,dashboard_elements.2),calc)\", \"schemaField\": {\"fieldPath\": \"calc\", \"nullable\": false, \"description\": \"\", \"label\": \"foobar\", \"type\": {\"type\": {\"com.linkedin.schema.StringType\": {}}}, \"nativeDataType\": \"string\", \"recursive\": false, \"globalTags\": {\"tags\": []}, \"isPartOfKey\": false}}, {\"schemaFieldUrn\": \"urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:looker,data.explore.my_view,PROD),dim1)\", \"schemaField\": {\"fieldPath\": \"dim1\", \"nullable\": false, \"description\": \"dimension one description\", \"label\": \"Dimensions One Label\", \"type\": {\"type\": {\"com.linkedin.schema.StringType\": {}}}, \"nativeDataType\": \"string\", \"recursive\": false, \"globalTags\": {\"tags\": [{\"tag\": \"urn:li:tag:Dimension\"}]}, \"isPartOfKey\": false}}]}",
+        "value": "{\"fields\": [{\"schemaFieldUrn\": \"urn:li:schemaField:(urn:li:chart:(looker,dashboard_elements.2),calc)\", \"schemaField\": {\"fieldPath\": \"calc\", \"nullable\": false, \"description\": \"\", \"label\": \"foobar\", \"type\": {\"type\": {\"com.linkedin.schema.StringType\": {}}}, \"nativeDataType\": \"string\", \"recursive\": false, \"globalTags\": {\"tags\": []}, \"isPartOfKey\": false}}, {\"schemaFieldUrn\": \"urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:looker,data.explore.my_view,PROD),dim1)\", \"schemaField\": {\"fieldPath\": \"dim1\", \"nullable\": false, \"description\": \"dimension one description\", \"label\": \"Dimensions One Label\", \"type\": {\"type\": {\"com.linkedin.schema.StringType\": {}}}, \"nativeDataType\": \"string\", \"recursive\": false, \"globalTags\": {\"tags\": [{\"tag\": \"urn:li:tag:Dimension\"}]}, \"isPartOfKey\": false}}, {\"schemaFieldUrn\": \"urn:li:schemaField:(urn:li:chart:(looker,dashboard_elements.10),calc)\", \"schemaField\": {\"fieldPath\": \"calc\", \"nullable\": false, \"description\": \"\", \"label\": \"foobar\", \"type\": {\"type\": {\"com.linkedin.schema.StringType\": {}}}, \"nativeDataType\": \"string\", \"recursive\": false, \"globalTags\": {\"tags\": []}, \"isPartOfKey\": false}}]}",
         "contentType": "application/json"
     },
     "systemMetadata": {
@@ -164,6 +178,116 @@
 {
     "entityType": "dataset",
     "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:looker,data.explore.my_view,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+        "value": "{\"typeNames\": [\"explore\"]}",
+        "contentType": "application/json"
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "looker-test"
+    }
+},
+{
+    "proposedSnapshot": {
+        "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
+            "urn": "urn:li:dataset:(urn:li:dataPlatform:looker,bogus data.explore.my_view,PROD)",
+            "aspects": [
+                {
+                    "com.linkedin.pegasus2avro.common.BrowsePaths": {
+                        "paths": [
+                            "/prod/looker/lkml_samples/explores"
+                        ]
+                    }
+                },
+                {
+                    "com.linkedin.pegasus2avro.common.Status": {
+                        "removed": false
+                    }
+                },
+                {
+                    "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
+                        "customProperties": {
+                            "looker.explore.label": "My Explore View",
+                            "looker.explore.file": "test_source_file.lkml"
+                        },
+                        "externalUrl": "https://looker.company.com/explore/bogus data/my_view",
+                        "name": "My Explore View",
+                        "description": "lorem ipsum",
+                        "tags": []
+                    }
+                },
+                {
+                    "com.linkedin.pegasus2avro.dataset.UpstreamLineage": {
+                        "upstreams": [
+                            {
+                                "auditStamp": {
+                                    "time": 0,
+                                    "actor": "urn:li:corpuser:unknown"
+                                },
+                                "dataset": "urn:li:dataset:(urn:li:dataPlatform:looker,lkml_samples.view.underlying_view,PROD)",
+                                "type": "VIEW"
+                            }
+                        ]
+                    }
+                },
+                {
+                    "com.linkedin.pegasus2avro.schema.SchemaMetadata": {
+                        "schemaName": "my_view",
+                        "platform": "urn:li:dataPlatform:looker",
+                        "version": 0,
+                        "created": {
+                            "time": 0,
+                            "actor": "urn:li:corpuser:unknown"
+                        },
+                        "lastModified": {
+                            "time": 0,
+                            "actor": "urn:li:corpuser:unknown"
+                        },
+                        "hash": "",
+                        "platformSchema": {
+                            "com.linkedin.pegasus2avro.schema.OtherSchema": {
+                                "rawSchema": ""
+                            }
+                        },
+                        "fields": [
+                            {
+                                "fieldPath": "dim1",
+                                "nullable": false,
+                                "description": "dimension one description",
+                                "label": "Dimensions One Label",
+                                "type": {
+                                    "type": {
+                                        "com.linkedin.pegasus2avro.schema.StringType": {}
+                                    }
+                                },
+                                "nativeDataType": "string",
+                                "recursive": false,
+                                "globalTags": {
+                                    "tags": [
+                                        {
+                                            "tag": "urn:li:tag:Dimension"
+                                        }
+                                    ]
+                                },
+                                "isPartOfKey": false
+                            }
+                        ],
+                        "primaryKeys": []
+                    }
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "looker-test"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:looker,bogus data.explore.my_view,PROD)",
     "changeType": "UPSERT",
     "aspectName": "subTypes",
     "aspect": {

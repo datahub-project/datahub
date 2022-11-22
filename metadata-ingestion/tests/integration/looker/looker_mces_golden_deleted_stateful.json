@@ -2,7 +2,7 @@
 {
     "proposedSnapshot": {
         "com.linkedin.pegasus2avro.metadata.snapshot.DashboardSnapshot": {
-            "urn": "urn:li:dashboard:(looker,dashboards.11)",
+            "urn": "urn:li:dashboard:(looker,dashboards.1)",
             "aspects": [
                 {
                     "com.linkedin.pegasus2avro.dashboard.DashboardInfo": {
@@ -21,7 +21,7 @@
                                 "actor": "urn:li:corpuser:unknown"
                             }
                         },
-                        "dashboardUrl": "https://looker.company.com/dashboards/11"
+                        "dashboardUrl": "https://looker.company.com/dashboards/1"
                     }
                 },
                 {
@@ -53,7 +53,7 @@
 },
 {
     "entityType": "dashboard",
-    "entityUrn": "urn:li:dashboard:(looker,dashboards.11)",
+    "entityUrn": "urn:li:dashboard:(looker,dashboards.1)",
     "changeType": "UPSERT",
     "aspectName": "inputFields",
     "aspect": {
@@ -268,6 +268,48 @@
                 }
             ]
         }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "looker-test"
+    }
+},
+{
+    "entityType": "dashboard",
+    "entityUrn": "urn:li:dashboard:(looker,dashboards.11)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "value": "{\"removed\": true}",
+        "contentType": "application/json"
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "looker-test"
+    }
+},
+{
+    "entityType": "chart",
+    "entityUrn": "urn:li:chart:(looker,dashboard_elements.10)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "value": "{\"removed\": true}",
+        "contentType": "application/json"
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "looker-test"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:looker,bogus data.explore.my_view,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "value": "{\"removed\": true}",
+        "contentType": "application/json"
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
