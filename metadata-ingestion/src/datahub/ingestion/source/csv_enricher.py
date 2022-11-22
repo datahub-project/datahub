@@ -534,7 +534,12 @@ class CSVEnricherSource(Source):
         return owners
 
     def get_workunits(self) -> Iterable[MetadataWorkUnit]:
-        with open(self.config.filename, "r") as f:
+        # As per https://stackoverflow.com/a/49150749/5004662, we want to use
+        # the 'utf-8-sig' encoding to handle any BOM character that may be
+        # present in the file. Excel is known to add a BOM to CSV files.
+        # As per https://stackoverflow.com/a/63508823/5004662,
+        # this is also safe with normal files that don't have a BOM.
+        with open(self.config.filename, mode="r", encoding="utf-8-sig") as f:
             rows = csv.DictReader(f, delimiter=self.config.delimiter)
             for row in rows:
                 # We need the resource to move forward
