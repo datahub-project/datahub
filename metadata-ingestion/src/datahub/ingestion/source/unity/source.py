@@ -593,6 +593,3 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
                     description=column.comment,
                 )
             ]
-
-    def close(self) -> None:
-        self.prepare_for_commit()

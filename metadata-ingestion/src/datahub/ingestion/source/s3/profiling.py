@@ -124,24 +124,14 @@ class DataLakeProfilerConfig(ConfigModel):
         cls: "DataLakeProfilerConfig", values: Dict[str, Any]
     ) -> Dict[str, Any]:
         max_num_fields_to_profile_key = "max_number_of_fields_to_profile"
-        table_level_profiling_only_key = "profile_table_level_only"
         max_num_fields_to_profile = values.get(max_num_fields_to_profile_key)
-        if values.get(table_level_profiling_only_key):
-            all_field_level_metrics: List[str] = [
-                "include_field_null_count",
-                "include_field_min_value",
-                "include_field_max_value",
-                "include_field_mean_value",
-                "include_field_median_value",
-                "include_field_stddev_value",
-                "include_field_quantiles",
-                "include_field_distinct_value_frequencies",
-                "include_field_histogram",
-                "include_field_sample_values",
-            ]
-            # Suppress all field-level metrics
-            for field_level_metric in all_field_level_metrics:
-                values[field_level_metric] = False
+
+        # Disable all field-level metrics.
+        if values.get("profile_table_level_only"):
+            for field_level_metric in cls.__fields__:
+                if field_level_metric.startswith("include_field_"):
+                    values.setdefault(field_level_metric, False)
+
             assert (
                 max_num_fields_to_profile is None
             ), f"{max_num_fields_to_profile_key} should be set to None"

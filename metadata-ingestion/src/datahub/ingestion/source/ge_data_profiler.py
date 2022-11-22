@@ -1,3 +1,5 @@
+from datahub.utilities._markupsafe_compat import MARKUPSAFE_PATCHED
+
 import collections
 import concurrent.futures
 import contextlib
@@ -51,6 +53,7 @@ from datahub.utilities.sqlalchemy_query_combiner import (
     get_query_columns,
 )
 
+assert MARKUPSAFE_PATCHED
 logger: logging.Logger = logging.getLogger(__name__)
 
 P = ParamSpec("P")
@@ -242,7 +245,7 @@ class _SingleDatasetProfiler(BasicDatasetProfilerBase):
     query_combiner: SQLAlchemyQueryCombiner
 
     def _get_columns_to_profile(self) -> List[str]:
-        if self.config.profile_table_level_only:
+        if not self.config.any_field_level_metrics_enabled():
             return []
 
         # Compute columns to profile

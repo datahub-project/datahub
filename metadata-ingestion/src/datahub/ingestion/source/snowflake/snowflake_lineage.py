@@ -95,7 +95,12 @@ class SnowflakeUpstreamTable:
     downstreamColumns: List[SnowflakeColumnWithLineage]
 
     @classmethod
-    def from_dict(cls, dataset, upstreams_columns_json, downstream_columns_json):
+    def from_dict(
+        cls,
+        dataset: str,
+        upstreams_columns_json: Optional[str],
+        downstream_columns_json: Optional[str],
+    ) -> "SnowflakeUpstreamTable":
         try:
             upstreams_columns_list = []
             downstream_columns_list = []
@@ -387,9 +392,8 @@ class SnowflakeLineageExtractor(SnowflakeQueryMixin, SnowflakeCommonMixin):
                 upstream_table_name = self.get_dataset_identifier_from_qualified_name(
                     db_row["UPSTREAM_TABLE_NAME"]
                 )
-                if not (
-                    self._is_dataset_pattern_allowed(key, "table")
-                    or self._is_dataset_pattern_allowed(upstream_table_name, "table")
+                if not self._is_dataset_pattern_allowed(key, "table") or not (
+                    self._is_dataset_pattern_allowed(upstream_table_name, "table")
                 ):
                     continue
 
