@@ -70,7 +70,7 @@ public class CustomClaimTokenAuthenticator implements Authenticator {
       final DecodedJWT jwt = JWT.decode(token);
 
       // Stop validation if issuer is missing from valid issuers list
-      if(!issuers.containsValue(jwt.getIssuer())) {
+      if (!issuers.containsValue(jwt.getIssuer())) {
         throw new AuthenticationException("Invalid issuer");
       }
 
