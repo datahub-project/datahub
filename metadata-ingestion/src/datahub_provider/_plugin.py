@@ -108,15 +108,12 @@ def get_inlets_from_task(task: BaseOperator, context: Any) -> Iterable[Any]:
 
 def _make_emit_callback(
     logger: logging.Logger,
-    goal: str,
 ) -> Callable[[Optional[Exception], str], None]:
-    def kafka_callback(err: Optional[Exception], msg: str) -> None:
-        if not err:
-            logger.info(f"Sent metadata to datahub {goal}")
-        else:
-            logger.error(f"Failed to send {goal} to datahub: {msg}", exc_info=err)
+    def emit_callback(err: Optional[Exception], msg: str) -> None:
+        if err:
+            logger.error(f"Error sending metadata to datahub: {msg}", exc_info=err)
 
-    return kafka_callback
+    return emit_callback
 
 
 def datahub_task_status_callback(context, status):
@@ -140,9 +137,8 @@ def datahub_task_status_callback(context, status):
         capture_tags=context["_datahub_config"].capture_tags_info,
         capture_owner=context["_datahub_config"].capture_ownership_info,
     )
-    dataflow.emit(
-        emitter, callback=_make_emit_callback(task.log, f"Datahub DataFlow {dataflow}")
-    )
+    task.log.info(f"Emitting Datahub Dataflow: {dataflow}")
+    dataflow.emit(emitter, callback=_make_emit_callback(task.log))
 
     datajob = AirflowGenerator.generate_datajob(
         cluster=context["_datahub_config"].cluster,
@@ -159,9 +155,8 @@ def datahub_task_status_callback(context, status):
     for outlet in task_outlets:
         datajob.outlets.append(outlet.urn)
 
-    datajob.emit(
-        emitter, callback=_make_emit_callback(task.log, f"Datahub dataJob {datajob}")
-    )
+    task.log.info(f"Emitting Datahub Datajob: {datajob}")
+    datajob.emit(emitter, callback=_make_emit_callback(task.log))
 
     if context["_datahub_config"].capture_executions:
         dpi = AirflowGenerator.run_datajob(
@@ -222,9 +217,8 @@ def datahub_pre_execution(context):
     for outlet in task_outlets:
         datajob.outlets.append(outlet.urn)
 
-    datajob.emit(
-        emitter, callback=_make_emit_callback(task.log, f"Datahub dataJob {datajob}")
-    )
+    task.log.info(f"Emitting Datahub dataJob {datajob}")
+    datajob.emit(emitter, callback=_make_emit_callback(task.log))
 
     if context["_datahub_config"].capture_executions:
         dpi = AirflowGenerator.run_datajob(
