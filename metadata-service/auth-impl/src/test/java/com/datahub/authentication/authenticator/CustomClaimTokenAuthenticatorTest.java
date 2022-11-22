@@ -1,4 +1,4 @@
-package datahub.authentication.authenticator;
+package com.datahub.authentication.authenticator;
 
 import com.auth0.jwt.interfaces.DecodedJWT;
 import com.datahub.authentication.Actor;
@@ -23,6 +23,7 @@ import java.security.spec.InvalidKeySpecException;
 import java.security.spec.X509EncodedKeySpec;
 import java.util.Base64;
 import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.Map;
 import org.testng.annotations.Test;
 
@@ -36,7 +37,11 @@ public class CustomClaimTokenAuthenticatorTest {
   @Test
   void TestAuthentication() throws NoSuchAlgorithmException, InvalidKeySpecException, MalformedURLException, JwkException,
                                    AuthenticationException {
-    String token = "eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxMjM0NTY3ODkwIiwidXNlcm5hbWUiOiJqb2huX3Nub3ciLCJhZG1pbiI6dHJ1ZSwiaWF0IjoxNTE2MjM5MDIyLCJpc3MiOiJodHRwczovL3Rlc3QuY29tL3JlYWxtL2RvbWFpbiJ9.Hz6Zpt-b5gpw3YvJ4fk8xfhLQL9Rmwqj2hPhVcvpyDw5IHoiMLIxGZsiC80lxfU8a02f-2Tmek5bNKaXbgSNzYWITL5lrwEO-rTXYNamy8gJOBoM8n7gHDOo6JDd25go4MsLbjHbQ-WNq5SErgaNOMfZdkg2jqKVldZvjW33v8aupx08fzONnuzaYIJBQpONhGzDkYZKkkrewdrYYVl_naNRWsKt8uSVu83G3mLhMPazkxNT5CWfNR7sdXfladz8U6ruLFOGUJJ5KDjEVAReRpEbxaKOIY6oFio1TeUQsi6vppLXB0RupTBmE5dr7rxdL4j9eDY94M2uowBDuOsEGA";
+    String token = "eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxMjM0NTY3ODkwIiwidXNlcm5hbWUiOiJqb2huX3Nub3ci"
+        + "LCJhZG1pbiI6dHJ1ZSwiaWF0IjoxNTE2MjM5MDIyLCJpc3MiOiJodHRwczovL3Rlc3QuY29tL3JlYWxtL2RvbWFpbiJ9.Hz6Zpt-b5gpw3YvJ4fk8x"
+        + "fhLQL9Rmwqj2hPhVcvpyDw5IHoiMLIxGZsiC80lxfU8a02f-2Tmek5bNKaXbgSNzYWITL5lrwEO-rTXYNamy8gJOBoM8n7gHDOo6"
+        + "JDd25go4MsLbjHbQ-WNq5SErgaNOMfZdkg2jqKVldZvjW33v8aupx08fzONnuzaYIJBQpONhGzDkYZKkkrewdrYYVl_naNRWsKt8uSVu83G3mLhMPazk"
+        + "xNT5CWfNR7sdXfladz8U6ruLFOGUJJ5KDjEVAReRpEbxaKOIY6oFio1TeUQsi6vppLXB0RupTBmE5dr7rxdL4j9eDY94M2uowBDuOsEGA";
     String validPublicKey = "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAu1SU1LfVLPHCozMxH2Mo"
         + "4lgOEePzNm0tRgeLezV6ffAt0gunVTLw7onLRnrq0/IzW7yWR7QkrmBL7jTKEn5u"
         + "+qKhbwKfBstIs+bMY2Zkp18gnTxKLxoS2tFczGkPLPgizskuemMghRniWaoLcyeh"
@@ -45,7 +50,6 @@ public class CustomClaimTokenAuthenticatorTest {
         + "cKWTjpBP2dPwVZ4WWC+9aGVd+Gyn1o0CLelf4rEjGoXbAAEgAqeGUxrcIlbjXfbc" + "mwIDAQAB";
 
 
-    final DecodedJWT jwt = JWT.decode(token);
     CustomClaimTokenAuthenticator mock = mock(CustomClaimTokenAuthenticator.class);
     RSAPublicKey pk = loadPublicKey(validPublicKey);
     when(mock.getPublicKey(any())).thenReturn(pk);
@@ -59,7 +63,7 @@ public class CustomClaimTokenAuthenticatorTest {
 
     Map<String, Object> config = new HashMap<String,Object>();
     config.put("idClaim", "username");
-
+    config.put("trustedIssuers", getTrustedIssuer());
     doCallRealMethod().when(mock).init(config,null);
 
     mock.init(config,null);
@@ -73,7 +77,11 @@ public class CustomClaimTokenAuthenticatorTest {
   void TestInvalidKey() throws NoSuchAlgorithmException, InvalidKeySpecException, MalformedURLException, JwkException,
                                AuthenticationException {
 
-    String token = "eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxMjM0NTY3ODkwIiwidXNlcm5hbWUiOiJqb2huX3Nub3ciLCJhZG1pbiI6dHJ1ZSwiaWF0IjoxNTE2MjM5MDIyLCJpc3MiOiJodHRwczovL3Rlc3QuY29tL3JlYWxtL2RvbWFpbiJ9.Hz6Zpt-b5gpw3YvJ4fk8xfhLQL9Rmwqj2hPhVcvpyDw5IHoiMLIxGZsiC80lxfU8a02f-2Tmek5bNKaXbgSNzYWITL5lrwEO-rTXYNamy8gJOBoM8n7gHDOo6JDd25go4MsLbjHbQ-WNq5SErgaNOMfZdkg2jqKVldZvjW33v8aupx08fzONnuzaYIJBQpONhGzDkYZKkkrewdrYYVl_naNRWsKt8uSVu83G3mLhMPazkxNT5CWfNR7sdXfladz8U6ruLFOGUJJ5KDjEVAReRpEbxaKOIY6oFio1TeUQsi6vppLXB0RupTBmE5dr7rxdL4j9eDY94M2uowBDuOsEGA";
+    String token = "eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxMjM0NTY3ODkwIiwidXNlcm5hbWUiOiJqb2huX3Nub3ci"
+        + "LCJhZG1pbiI6dHJ1ZSwiaWF0IjoxNTE2MjM5MDIyLCJpc3MiOiJodHRwczovL3Rlc3QuY29tL3JlYWxtL2RvbWFpbiJ9.Hz6Zpt-b5gpw3YvJ4fk8x"
+        + "fhLQL9Rmwqj2hPhVcvpyDw5IHoiMLIxGZsiC80lxfU8a02f-2Tmek5bNKaXbgSNzYWITL5lrwEO-rTXYNamy8gJOBoM8n7gHDOo6"
+        + "JDd25go4MsLbjHbQ-WNq5SErgaNOMfZdkg2jqKVldZvjW33v8aupx08fzONnuzaYIJBQpONhGzDkYZKkkrewdrYYVl_naNRWsKt8uSVu83G3mLhMPazk"
+        + "xNT5CWfNR7sdXfladz8U6ruLFOGUJJ5KDjEVAReRpEbxaKOIY6oFio1TeUQsi6vppLXB0RupTBmE5dr7rxdL4j9eDY94M2uowBDuOsEGA";
     String inValidPublicKey = "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAu1SU1LfVLPHCozMxH2Mo"
         + "4lgOEePzNm0tRgeLezV6ffAt0gunVTLw7onLRnrq0/IzW7yWR7QkrmBL7jTKEn5u"
         + "+qKhbwKfBstIs+bMY2Zkp18gnTxKLxoS2tFczGkPLPgizskuemMghRniWaoLcyeh"
@@ -81,7 +89,6 @@ public class CustomClaimTokenAuthenticatorTest {
         + "0iT9wCS0DRTXu269V264Vf/3jvr";
 
 
-    final DecodedJWT jwt = JWT.decode(token);
     CustomClaimTokenAuthenticator mock = mock(CustomClaimTokenAuthenticator.class);
     RSAPublicKey pk = loadPublicKey(inValidPublicKey);
     when(mock.getPublicKey(any())).thenReturn(pk);
@@ -90,6 +97,14 @@ public class CustomClaimTokenAuthenticatorTest {
         ImmutableMap.of(
             AUTHORIZATION_HEADER_NAME, token)
     );
+
+    Map<String, Object> config = new HashMap<String,Object>();
+    config.put("idClaim", "missingClaimInToken");
+    config.put("trustedIssuers", getTrustedIssuer());
+    doCallRealMethod().when(mock).init(config,null);
+
+
+    mock.init(config,null);
 
     when(mock.authenticate(context)).thenCallRealMethod();
     Authentication result = mock.authenticate(context);
@@ -113,7 +128,11 @@ public class CustomClaimTokenAuthenticatorTest {
   void TestMissingClaim() throws NoSuchAlgorithmException, InvalidKeySpecException, MalformedURLException, JwkException,
                                  AuthenticationException {
 
-    String token = "eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxMjM0NTY3ODkwIiwidXNlcm5hbWUiOiJqb2huX3Nub3ciLCJhZG1pbiI6dHJ1ZSwiaWF0IjoxNTE2MjM5MDIyLCJpc3MiOiJodHRwczovL3Rlc3QuY29tL3JlYWxtL2RvbWFpbiJ9.Hz6Zpt-b5gpw3YvJ4fk8xfhLQL9Rmwqj2hPhVcvpyDw5IHoiMLIxGZsiC80lxfU8a02f-2Tmek5bNKaXbgSNzYWITL5lrwEO-rTXYNamy8gJOBoM8n7gHDOo6JDd25go4MsLbjHbQ-WNq5SErgaNOMfZdkg2jqKVldZvjW33v8aupx08fzONnuzaYIJBQpONhGzDkYZKkkrewdrYYVl_naNRWsKt8uSVu83G3mLhMPazkxNT5CWfNR7sdXfladz8U6ruLFOGUJJ5KDjEVAReRpEbxaKOIY6oFio1TeUQsi6vppLXB0RupTBmE5dr7rxdL4j9eDY94M2uowBDuOsEGA";
+    String token = "eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxMjM0NTY3ODkwIiwidXNlcm5hbWUiOiJqb2huX3Nub3ci"
+        + "LCJhZG1pbiI6dHJ1ZSwiaWF0IjoxNTE2MjM5MDIyLCJpc3MiOiJodHRwczovL3Rlc3QuY29tL3JlYWxtL2RvbWFpbiJ9.Hz6Zpt-b5gpw3YvJ4fk8x"
+        + "fhLQL9Rmwqj2hPhVcvpyDw5IHoiMLIxGZsiC80lxfU8a02f-2Tmek5bNKaXbgSNzYWITL5lrwEO-rTXYNamy8gJOBoM8n7gHDOo6"
+        + "JDd25go4MsLbjHbQ-WNq5SErgaNOMfZdkg2jqKVldZvjW33v8aupx08fzONnuzaYIJBQpONhGzDkYZKkkrewdrYYVl_naNRWsKt8uSVu83G3mLhMPazk"
+        + "xNT5CWfNR7sdXfladz8U6ruLFOGUJJ5KDjEVAReRpEbxaKOIY6oFio1TeUQsi6vppLXB0RupTBmE5dr7rxdL4j9eDY94M2uowBDuOsEGA";
     String validPublicKey = "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAu1SU1LfVLPHCozMxH2Mo"
         + "4lgOEePzNm0tRgeLezV6ffAt0gunVTLw7onLRnrq0/IzW7yWR7QkrmBL7jTKEn5u"
         + "+qKhbwKfBstIs+bMY2Zkp18gnTxKLxoS2tFczGkPLPgizskuemMghRniWaoLcyeh"
@@ -122,7 +141,6 @@ public class CustomClaimTokenAuthenticatorTest {
         + "cKWTjpBP2dPwVZ4WWC+9aGVd+Gyn1o0CLelf4rEjGoXbAAEgAqeGUxrcIlbjXfbc" + "mwIDAQAB";
 
 
-    final DecodedJWT jwt = JWT.decode(token);
     CustomClaimTokenAuthenticator mock = mock(CustomClaimTokenAuthenticator.class);
     RSAPublicKey pk = loadPublicKey(validPublicKey);
     when(mock.getPublicKey(any())).thenReturn(pk);
@@ -136,6 +154,7 @@ public class CustomClaimTokenAuthenticatorTest {
 
     Map<String, Object> config = new HashMap<String,Object>();
     config.put("idClaim", "missingClaimInToken");
+    config.put("trustedIssuers", getTrustedIssuer());
     doCallRealMethod().when(mock).init(config,null);
 
     mock.init(config,null);
@@ -151,5 +170,11 @@ public class CustomClaimTokenAuthenticatorTest {
 
     RSAPublicKey key = (RSAPublicKey) kf.generatePublic(X509publicKey);
     return key;
+  }
+
+  private LinkedHashMap<String,String> getTrustedIssuer(){
+    LinkedHashMap<String,String> trustedIssuer = new LinkedHashMap<>();
+    trustedIssuer.putIfAbsent("0","https://test.com/realm/domain");
+    return trustedIssuer;
   }
 }

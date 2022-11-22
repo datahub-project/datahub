@@ -42,9 +42,9 @@ public class CustomClaimTokenAuthenticator implements Authenticator {
   private String idClaim;
 
   /**
-   *  List of allowed issuers
+   *  List of trusted issuers
    * **/
-  private LinkedHashMap<String,String> issuers;
+  private LinkedHashMap<String,String> trustedIssuers;
 
   @Override
   public void init(@Nonnull final Map<String, Object> config, @Nullable final AuthenticatorContext context) {
@@ -52,8 +52,8 @@ public class CustomClaimTokenAuthenticator implements Authenticator {
     this.idClaim = Objects.requireNonNull((String) config.get("idClaim"),
         String.format("Missing required config Claim Name"));
 
-    this.issuers = Objects.requireNonNull((LinkedHashMap<String,String>)config.get("issuers"),
-        String.format("Missing required config Issuers"));
+    this.trustedIssuers = Objects.requireNonNull((LinkedHashMap<String,String>)config.get("trustedIssuers"),
+        String.format("Missing required config trusted issuers"));
   }
 
   @Override
@@ -62,7 +62,7 @@ public class CustomClaimTokenAuthenticator implements Authenticator {
 
     try {
       String jwtToken = context.getRequestHeaders().get(AUTHORIZATION_HEADER_NAME);
-      if(jwtToken == null)
+      if (jwtToken == null)
         throw new AuthenticationException("Invalid Authorization token");
 
       String token = getToken(jwtToken);
@@ -70,7 +70,7 @@ public class CustomClaimTokenAuthenticator implements Authenticator {
       final DecodedJWT jwt = JWT.decode(token);
 
       // Stop validation if issuer is missing from valid issuers list
-      if (!issuers.containsValue(jwt.getIssuer())) {
+      if (!trustedIssuers.containsValue(jwt.getIssuer())) {
         throw new AuthenticationException("Invalid issuer");
       }
 
@@ -79,7 +79,7 @@ public class CustomClaimTokenAuthenticator implements Authenticator {
 
       // Extract claim
       Claim claim = jwt.getClaim(this.idClaim);
-      if(claim.isMissing() || claim.isNull())
+      if (claim.isMissing() || claim.isNull())
         throw new AuthenticationException("Invalid or missing claim");
 
       return new Authentication(
