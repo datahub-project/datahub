@@ -18,6 +18,7 @@ import com.datahub.authentication.AuthenticatorContext;
 import java.net.MalformedURLException;
 import java.net.URL;
 import java.security.interfaces.RSAPublicKey;
+import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Objects;
 import javax.annotation.Nonnull;
@@ -40,11 +41,19 @@ public class CustomClaimTokenAuthenticator implements Authenticator {
    * **/
   private String idClaim;
 
+  /**
+   *  List of allowed issuers
+   * **/
+  private LinkedHashMap<String,String> issuers;
+
   @Override
   public void init(@Nonnull final Map<String, Object> config, @Nullable final AuthenticatorContext context) {
     Objects.requireNonNull(config, "Config parameter cannot be null");
     this.idClaim = Objects.requireNonNull((String) config.get("idClaim"),
         String.format("Missing required config Claim Name"));
+
+    this.issuers = Objects.requireNonNull((LinkedHashMap<String,String>)config.get("issuers"),
+        String.format("Missing required config Issuers"));
   }
 
   @Override
@@ -59,6 +68,11 @@ public class CustomClaimTokenAuthenticator implements Authenticator {
       String token = getToken(jwtToken);
       // Decode JWT token
       final DecodedJWT jwt = JWT.decode(token);
+
+      // Stop validation if issuer is missing from valid issuers list
+      if(!issuers.containsValue(jwt.getIssuer())) {
+        throw new AuthenticationException("Invalid issuer");
+      }
 
       // verify JWT token
       verifyToken(jwt);
