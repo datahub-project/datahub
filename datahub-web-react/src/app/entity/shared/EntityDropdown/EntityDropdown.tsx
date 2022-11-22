@@ -131,7 +131,6 @@ function EntityDropdown(props: Props) {
     return (
         <>
             <Dropdown
-                data-testid="entity-header-dropdown"
                 overlay={
                     <Menu>
                         {menuItems.has(EntityMenuItems.COPY_URL) && navigator.clipboard && (
@@ -216,7 +215,7 @@ function EntityDropdown(props: Props) {
                 }
                 trigger={['click']}
             >
-                <MenuIcon fontSize={size} />
+                <MenuIcon data-testid="entity-header-dropdown" fontSize={size} />
             </Dropdown>
             {isCreateTermModalVisible && (
                 <CreateGlossaryEntityModal
