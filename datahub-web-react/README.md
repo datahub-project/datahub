@@ -76,12 +76,12 @@ The best workaround is to revert to the Active LTS version of Node, 16.13.0 with
 To see the results of any change to a theme, you will need to rebuild your datahub-frontend-react container. While this may work for some users, if you don't want to rebuild your container
 you can change two things without rebuilding.
 
-1. You customize the logo on the homepage & the search bar header by setting the `REACT_APP_LOGO_URL` env variable when deploying GMS.
-2. You can customize the favicon (the icon on your browser tab) by setting the `REACT_APP_FAVICON_URL` env var when deploying GMS.
+1. You customize the logo on the homepage & the search bar header by setting the `VITE_LOGO_URL` env variable when deploying GMS.
+2. You can customize the favicon (the icon on your browser tab) by setting the `VITE_FAVICON_URL` env var when deploying GMS.
 
 #### Selecting a theme
 
-Theme configurations are stored in `./src/conf/theme`. To select a theme, choose one and update the `REACT_APP_THEME_CONFIG` env variable stored in `.env`.
+Theme configurations are stored in `./src/conf/theme`. To select a theme, choose one and update the `VITE_THEME_CONFIG` env variable stored in `.env`.
 To change the selected theme, update the `.env` file and re-run `yarn start` from `datahub/datahub-web-react`.
 
 #### Editing a theme
