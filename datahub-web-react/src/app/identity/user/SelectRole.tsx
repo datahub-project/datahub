@@ -43,16 +43,16 @@ export default function SelectRole({ user, userRoleUrn, selectRoleOptions, refet
     });
 
     const defaultRoleUrn = userRoleUrn || NO_ROLE_URN;
-    const [currentRole, setCurrentRole] = useState<string>(defaultRoleUrn);
+    const [currentRoleUrn, setCurrentRoleUrn] = useState<string>(defaultRoleUrn);
     const [isViewingAssignRole, setIsViewingAssignRole] = useState(false);
 
     const onSelectRole = (roleUrn: string) => {
-        setCurrentRole(roleUrn);
+        setCurrentRoleUrn(roleUrn);
         setIsViewingAssignRole(true);
     };
 
     const onCancel = () => {
-        setCurrentRole(defaultRoleUrn);
+        setCurrentRoleUrn(defaultRoleUrn);
         setIsViewingAssignRole(false);
     };
 
@@ -75,15 +75,15 @@ export default function SelectRole({ user, userRoleUrn, selectRoleOptions, refet
                         {NO_ROLE_TEXT}
                     </>
                 }
-                value={currentRole}
+                value={currentRoleUrn}
                 onChange={(e) => onSelectRole(e as string)}
-                color={currentRole === NO_ROLE_URN ? ANTD_GRAY[6] : undefined}
+                color={currentRoleUrn === NO_ROLE_URN ? ANTD_GRAY[6] : undefined}
             >
                 {selectOptions}
             </RoleSelect>
             <AssignRoleConfirmation
                 visible={isViewingAssignRole}
-                roleToAssign={rolesMap.get(currentRole)}
+                roleToAssign={rolesMap.get(currentRoleUrn)}
                 userUrn={user.urn}
                 username={user.username}
                 onClose={onCancel}
