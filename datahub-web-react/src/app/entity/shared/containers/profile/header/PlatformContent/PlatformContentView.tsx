@@ -146,7 +146,7 @@ function PlatformContentView(props: Props) {
                 </ParentContainersWrapper>
                 {directParentContainer && <ContainerLink container={directParentContainer} />}
             </StyledTooltip>
-            <ParentNodesView parentNodes={parentNodes} customizeFontSize={12} />
+            <ParentNodesView parentNodes={parentNodes} />
         </PlatformContentWrapper>
     );
 }

@@ -34,24 +34,24 @@ export const StyledTooltip = styled(Tooltip)`
     overflow: hidden;
 `;
 
-const GlossaryNodeText = styled(Typography.Text)<{ color: string; fontSize: number }>`
+const GlossaryNodeText = styled(Typography.Text)<{ color: string; fontSize?: number }>`
     line-height: 20px;
-    font-size: ${(props) => props.fontSize};
+    font-size: ${(props) => (props.fontSize ? props.fontSize : 12)}px;
     color: ${(props) => props.color};
 `;
 
-const GlossaryNodeIcon = styled(FolderOutlined)<{ color: string; fontSize: number }>`
+const GlossaryNodeIcon = styled(FolderOutlined)<{ color: string; fontSize?: number }>`
     color: ${(props) => props.color};
 
     &&& {
-        font-size: ${(props) => props.fontSize};
+        font-size: ${(props) => (props.fontSize ? props.fontSize : 12)}px;
         margin-right: 4px;
     }
 `;
 
 interface Props {
     parentNodes?: GlossaryNode[] | null;
-    customizeFontSize: number;
+    customizeFontSize?: number;
 }
 
 export default function ParentNodesView({ parentNodes, customizeFontSize }: Props) {

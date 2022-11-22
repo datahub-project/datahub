@@ -31,7 +31,6 @@ const ResultsWrapper = styled.div`
 
 const ParentViewWrapper = styled.div`
     margin-bottom: 5px;
-    font-size: 8px;
 `;
 
 const SearchResult = styled(Link)`
