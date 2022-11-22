@@ -63,7 +63,6 @@ public class AuthorizerChainFactory {
   @Scope("singleton")
   @Nonnull
   protected AuthorizerChain getInstance() {
-    // Init authorizer context
     final ResourceSpecResolver resolver = initResolver();
 
     // Extract + initialize customer authorizers from application configs.
