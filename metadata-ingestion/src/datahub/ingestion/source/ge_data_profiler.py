@@ -579,9 +579,6 @@ class _SingleDatasetProfiler(BasicDatasetProfilerBase):
                     )
 
             elif type_ == ProfilerDataType.STRING:
-                self._get_dataset_column_min(column_profile, column)
-                self._get_dataset_column_max(column_profile, column)
-
                 if cardinality in [
                     Cardinality.ONE,
                     Cardinality.TWO,
