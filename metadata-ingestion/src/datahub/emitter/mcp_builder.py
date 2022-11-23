@@ -82,6 +82,10 @@ class DatabaseKey(PlatformKey):
     database: str
 
 
+class WorkspaceKey(PlatformKey):
+    workspace: str
+
+
 class SchemaKey(DatabaseKey):
     db_schema: str = Field(alias="schema")
 

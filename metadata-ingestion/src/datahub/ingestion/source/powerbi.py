@@ -20,9 +20,9 @@ from datahub.configuration.common import ConfigurationError
 from datahub.configuration.source_common import EnvBasedSourceConfigBase
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.emitter.mcp_builder import (
-    PlatformKey,
-    DatabaseKey,
     KeyType,
+    PlatformKey,
+    WorkspaceKey,
     gen_containers,
 )
 from datahub.ingestion.api.common import PipelineContext
@@ -42,6 +42,7 @@ from datahub.metadata.schema_classes import (
     ChangeTypeClass,
     ChartInfoClass,
     ChartKeyClass,
+    ContainerClass,
     CorpUserInfoClass,
     CorpUserKeyClass,
     DashboardInfoClass,
@@ -52,7 +53,6 @@ from datahub.metadata.schema_classes import (
     OwnershipTypeClass,
     StatusClass,
     SubTypesClass,
-    ContainerClass,
 )
 from datahub.utilities.dedup_list import deduplicate_list
 
@@ -411,7 +411,12 @@ class PowerBiAPI:
 
         return users
 
-    def __get_report(self, workspace_id: str, report_id: str) -> "PowerBiAPI.Report":
+    def __get_report(
+        self,
+        workspace_id: str,
+        report_id: str,
+        workspace_name: str,
+    ) -> "PowerBiAPI.Report":
         """
         Fetch the report from PowerBi for the given report identifier
         """
@@ -454,7 +459,9 @@ class PowerBiAPI:
             users=[],
             pages=[],
             dataset=self.get_dataset(
-                workspace_id=workspace_id, dataset_id=response_dict.get("datasetId")
+                workspace_id=workspace_id,
+                dataset_id=response_dict.get("datasetId"),
+                workspace_name=workspace_name,
             ),
         )
 
@@ -690,6 +697,7 @@ class PowerBiAPI:
                     self.__get_report(
                         workspace_id=workspace.id,
                         report_id=tile_instance.get("reportId"),
+                        workspace_name=workspace.name,
                     )
                     if tile_instance.get("reportId") is not None
                     else None
@@ -1362,8 +1370,8 @@ class Mapper:
 
     @staticmethod
     def gen_workspace_key(workspace_name: str) -> PlatformKey:
-        return DatabaseKey(
-            database=workspace_name,
+        return WorkspaceKey(
+            workspace=workspace_name,
             platform="powerbi",
         )
 
@@ -1392,18 +1400,6 @@ class Mapper:
             sub_types=["Dataset", "Report", "Chart", "Dashboard"],
         )
         return container_workunits
-
-    def create_browse_path_container(
-        self, entity_type: str, entity_urn: str, paths: List[str]
-    ) -> MetadataChangeProposalWrapper:
-        browse_path = BrowsePathsClass(paths=[f"/{'/'.join(paths)}"])
-        browse_path_mcp = self.new_mcp(
-            entity_type=entity_type,
-            entity_urn=entity_urn,
-            aspect_name=Constant.BROWSERPATH,
-            aspect=browse_path,
-        )
-        return browse_path_mcp
 
     def to_datahub_user(
         self, user: PowerBiAPI.User
@@ -1802,7 +1798,9 @@ class PowerBiDashboardSource(Source):
         workspace = self.powerbi_client.get_workspace(self.source_config.workspace_id)
 
         if self.source_config.extract_workspaces_to_containers:
-            workspace_workunits = self.mapper.generate_container_for_workspace(workspace)
+            workspace_workunits = self.mapper.generate_container_for_workspace(
+                workspace
+            )
 
             for workunit in workspace_workunits:
                 # Add workunit to report
