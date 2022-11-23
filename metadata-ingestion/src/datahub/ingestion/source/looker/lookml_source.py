@@ -31,7 +31,6 @@ from datahub.ingestion.api.decorators import (
     support_status,
 )
 from datahub.ingestion.api.registry import import_path
-from datahub.ingestion.api.source import Source, SourceReport
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.git.git_import import GitClone
 from datahub.ingestion.source.looker.looker_common import (
@@ -47,6 +46,16 @@ from datahub.ingestion.source.looker.looker_lib_wrapper import (
     LookerAPI,
     LookerAPIConfig,
     TransportOptionsConfig,
+)
+from datahub.ingestion.source.state.lookml_state import LookMLCheckpointState
+from datahub.ingestion.source.state.stale_entity_removal_handler import (
+    StaleEntityRemovalHandler,
+    StaleEntityRemovalSourceReport,
+    StatefulStaleMetadataRemovalConfig,
+)
+from datahub.ingestion.source.state.stateful_ingestion_base import (
+    StatefulIngestionConfigBase,
+    StatefulIngestionSourceBase,
 )
 from datahub.metadata.com.linkedin.pegasus2avro.common import BrowsePaths, Status
 from datahub.metadata.com.linkedin.pegasus2avro.dataset import (
@@ -66,6 +75,10 @@ from datahub.metadata.schema_classes import (
     SubTypesClass,
 )
 from datahub.utilities.lossy_collections import LossyList
+from datahub.utilities.source_helpers import (
+    auto_stale_entity_removal,
+    auto_status_aspect,
+)
 from datahub.utilities.sql_parser import SQLParser
 
 logger = logging.getLogger(__name__)
@@ -121,8 +134,10 @@ class LookerConnectionDefinition(ConfigModel):
     )
 
     @validator("platform_env")
-    def platform_env_must_be_one_of(cls, v: str) -> str:
-        return EnvBasedSourceConfigBase.env_must_be_one_of(v)
+    def platform_env_must_be_one_of(cls, v: Optional[str]) -> Optional[str]:
+        if v is not None:
+            return EnvBasedSourceConfigBase.env_must_be_one_of(v)
+        return v
 
     @validator("platform", "default_db", "default_schema")
     def lower_everything(cls, v):
@@ -153,7 +168,7 @@ class LookerConnectionDefinition(ConfigModel):
         )
 
 
-class LookMLSourceConfig(LookerCommonConfig):
+class LookMLSourceConfig(LookerCommonConfig, StatefulIngestionConfigBase):
     base_folder: Optional[pydantic.DirectoryPath] = Field(
         None,
         description="Required if not providing github configuration and deploy keys. A pointer to a local directory (accessible to the ingestion system) where the root of the LookML repo has been checked out (typically via a git clone). This is typically the root folder where the `*.model.lkml` and `*.view.lkml` files are stored. e.g. If you have checked out your LookML repo under `/Users/jdoe/workspace/my-lookml-repo`, then set `base_folder` to `/Users/jdoe/workspace/my-lookml-repo`.",
@@ -205,12 +220,17 @@ class LookMLSourceConfig(LookerCommonConfig):
         True,
         description="When enabled, sql parsing will be executed in a separate process to prevent memory leaks.",
     )
+    stateful_ingestion: Optional[StatefulStaleMetadataRemovalConfig] = Field(
+        default=None, description=""
+    )
 
     @validator("platform_instance")
-    def platform_instance_not_supported(cls, v: str) -> str:
-        raise ConfigurationError(
-            "LookML Source doesn't support platform instance at the top level. However connection-specific platform instances are supported for generating lineage edges. Read the documentation to find out more."
-        )
+    def platform_instance_not_supported(cls, v: Optional[str]) -> Optional[str]:
+        if v is not None:
+            raise ConfigurationError(
+                "LookML Source doesn't support platform instance at the top level. However connection-specific platform instances are supported for generating lineage edges. Read the documentation to find out more."
+            )
+        return v
 
     @validator("connection_to_platform_map", pre=True)
     def convert_string_to_connection_def(cls, conn_map):
@@ -272,7 +292,7 @@ class LookMLSourceConfig(LookerCommonConfig):
 
 
 @dataclass
-class LookMLSourceReport(SourceReport):
+class LookMLSourceReport(StaleEntityRemovalSourceReport):
     git_clone_latency: Optional[timedelta] = None
     models_discovered: int = 0
     models_dropped: List[str] = dataclass_field(default_factory=LossyList)
@@ -1027,7 +1047,7 @@ class LookerManifest:
 @platform_name("Looker")
 @config_class(LookMLSourceConfig)
 @support_status(SupportStatus.CERTIFIED)
-class LookMLSource(Source):
+class LookMLSource(StatefulIngestionSourceBase):
     """
     This plugin extracts the following:
     - LookML views from model files in a project
@@ -1039,6 +1059,7 @@ class LookMLSource(Source):
     :::
     """
 
+    platform = "lookml"
     source_config: LookMLSourceConfig
     reporter: LookMLSourceReport
     looker_client: Optional[LookerAPI] = None
@@ -1048,7 +1069,7 @@ class LookMLSource(Source):
     remote_projects_github_info: Dict[str, GitHubInfo] = {}
 
     def __init__(self, config: LookMLSourceConfig, ctx: PipelineContext):
-        super().__init__(ctx)
+        super().__init__(config, ctx)
         self.source_config = config
         self.reporter = LookMLSourceReport()
         if self.source_config.api:
@@ -1060,6 +1081,14 @@ class LookMLSource(Source):
                 raise ValueError(
                     "Failed to retrieve connections from looker client. Please check to ensure that you have manage_models permission enabled on this API key."
                 )
+        # Create and register the stateful ingestion use-case handlers.
+        self.stale_entity_removal_handler = StaleEntityRemovalHandler(
+            source=self,
+            config=self.source_config,
+            state_type_class=LookMLCheckpointState,
+            pipeline_name=self.ctx.pipeline_name,
+            run_id=self.ctx.run_id,
+        )
 
     def _load_model(self, path: str) -> LookerModel:
         with open(path, "r") as file:
@@ -1371,6 +1400,12 @@ class LookMLSource(Source):
             return None
 
     def get_workunits(self) -> Iterable[MetadataWorkUnit]:
+        return auto_stale_entity_removal(
+            self.stale_entity_removal_handler,
+            auto_status_aspect(self.get_workunits_internal()),
+        )
+
+    def get_workunits_internal(self) -> Iterable[MetadataWorkUnit]:
         with tempfile.TemporaryDirectory("lookml_tmp") as tmp_dir:
             # Clone the base_folder if necessary.
             if not self.source_config.base_folder:
@@ -1690,3 +1725,9 @@ class LookMLSource(Source):
 
     def get_report(self):
         return self.reporter
+
+    def get_platform_instance_id(self) -> str:
+        return self.source_config.platform_instance or self.platform
+
+    def close(self):
+        self.prepare_for_commit()
