@@ -121,7 +121,7 @@ describe('siblings', () => {
     cy.get('text:contains(stg_orders)').should('have.length', 2);
 
     // check the platform
-    cy.get('svg').get('text:contains(dbt & BigQuery)').should('have.length', 4);
+    cy.get('svg').get('text:contains(dbt & BigQuery)').should('have.length', 5);
   });
 
   it('can separate results in lineage if flag is set', () => {
@@ -142,7 +142,7 @@ describe('siblings', () => {
 
     // check the platform
     cy.get('svg').get('text:contains(dbt & BigQuery)').should('have.length', 0);
-    cy.get('svg').get('text:contains(Dbt)').should('have.length', 2);
+    cy.get('svg').get('text:contains(Dbt)').should('have.length', 3);
     cy.get('svg').get('text:contains(Bigquery)').should('have.length', 1);
   });
 });
