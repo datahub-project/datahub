@@ -83,7 +83,6 @@ class DataHubOperationCircuitBreakerOperator(BaseSensorOperator):
         else:
             raise Exception(f"urn parameter has invalid type {type(self.urn)}")
 
-        partition: Optional[str]
         for urn in urns:
             self.log.info(f"Checking if dataset {self.urn} is ready to be consumed")
             ret = self.circuit_breaker.is_circuit_breaker_active(
