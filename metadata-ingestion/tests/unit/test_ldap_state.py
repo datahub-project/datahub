@@ -55,4 +55,3 @@ def test_get_percent_entities_changed(other_checkpoint_state):
     percent = oldstate.get_percent_entities_changed(other_checkpoint_state)
     # two states have 75% of differences (total 8 elements, 6 elements are different (75%) and 2 (25%) are the same)
     assert percent == 75.0
-
