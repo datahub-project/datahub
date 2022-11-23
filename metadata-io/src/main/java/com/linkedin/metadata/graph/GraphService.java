@@ -33,6 +33,12 @@ public interface GraphService {
   void addEdge(final Edge edge);
 
   /**
+   * Remove an edge from the graph.
+   * @param edge the edge to delete
+   */
+  void removeEdge(final Edge edge);
+
+  /**
    * Find related entities (nodes) connected to a source entity via edges of given relationship types. Related entities
    * can be filtered by source and destination type (use `null` for any type), by source and destination entity filter
    * and relationship filter. Pagination of the result is controlled via `offset` and `count`.

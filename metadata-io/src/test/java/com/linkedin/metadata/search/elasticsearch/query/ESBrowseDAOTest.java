@@ -30,7 +30,7 @@ public class ESBrowseDAOTest {
   @BeforeMethod
   public void setup() {
     _mockClient = mock(RestHighLevelClient.class);
-    _browseDAO = new ESBrowseDAO(new TestEntityRegistry(), _mockClient, new IndexConventionImpl(null));
+    _browseDAO = new ESBrowseDAO(new TestEntityRegistry(), _mockClient, new IndexConventionImpl("es_browse_dao_test"));
   }
 
   public static Urn makeUrn(Object id) {

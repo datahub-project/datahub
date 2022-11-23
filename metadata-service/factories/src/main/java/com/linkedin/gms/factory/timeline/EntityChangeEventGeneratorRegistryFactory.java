@@ -33,7 +33,7 @@ public class EntityChangeEventGeneratorRegistryFactory {
   ApplicationContext applicationContext;
 
   @Bean(name = "entityChangeEventGeneratorRegistry")
-  @DependsOn({"entityAspectDao", "entityService", "entityRegistry", "restliEntityClient", "systemAuthentication"})
+  @DependsOn({"restliEntityClient", "systemAuthentication"})
   @Singleton
   @Nonnull
   protected com.linkedin.metadata.timeline.eventgenerator.EntityChangeEventGeneratorRegistry entityChangeEventGeneratorRegistry() {

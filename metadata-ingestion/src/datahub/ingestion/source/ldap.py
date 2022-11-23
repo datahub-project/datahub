@@ -465,7 +465,6 @@ class LDAPSource(StatefulIngestionSourceBase):
         return self.report
 
     def close(self) -> None:
-        """Closes the Source."""
         self.ldap_client.unbind()
         self.prepare_for_commit()
         super().close()
