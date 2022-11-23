@@ -1,4 +1,3 @@
-import FeatureAvailability from '@site/src/components/FeatureAvailability';
 
 # DataHub [Source Name] UI Ingestion Guide: Overview
 
