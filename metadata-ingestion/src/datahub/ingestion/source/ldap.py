@@ -468,6 +468,7 @@ class LDAPSource(StatefulIngestionSourceBase):
         """Closes the Source."""
         self.ldap_client.unbind()
         self.prepare_for_commit()
+        super().close()
 
 
 def parse_from_attrs(attrs: Dict[str, Any], filter_key: str) -> List[str]:
