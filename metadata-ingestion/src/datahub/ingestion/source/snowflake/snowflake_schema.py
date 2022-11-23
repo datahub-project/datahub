@@ -3,6 +3,7 @@ from dataclasses import dataclass, field
 from datetime import datetime
 from typing import Dict, List, Optional
 
+import pandas as pd
 from snowflake.connector import SnowflakeConnection
 
 from datahub.ingestion.source.snowflake.snowflake_query import SnowflakeQuery
@@ -70,6 +71,7 @@ class SnowflakeTable:
     pk: Optional[SnowflakePK] = None
     columns: List[SnowflakeColumn] = field(default_factory=list)
     foreign_keys: List[SnowflakeFK] = field(default_factory=list)
+    sample_data: Optional[pd.DataFrame] = None
 
 
 @dataclass

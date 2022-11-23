@@ -3,6 +3,7 @@ import logging
 from dataclasses import dataclass
 from typing import Dict, Iterable, List, Optional, Tuple, Union, cast
 
+import pandas as pd
 import pydantic
 from snowflake.connector import SnowflakeConnection
 
@@ -41,6 +42,7 @@ from datahub.ingestion.api.source import (
     TestConnectionReport,
 )
 from datahub.ingestion.api.workunit import MetadataWorkUnit
+from datahub.ingestion.glossary.classification_mixin import ClassificationMixin
 from datahub.ingestion.source.snowflake.snowflake_config import SnowflakeV2Config
 from datahub.ingestion.source.snowflake.snowflake_lineage import (
     SnowflakeLineageExtractor,
@@ -175,6 +177,7 @@ SNOWFLAKE_FIELD_TYPE_MAPPINGS = {
     supported=True,
 )
 class SnowflakeV2Source(
+    ClassificationMixin,
     SnowflakeQueryMixin,
     SnowflakeCommonMixin,
     StatefulIngestionSourceBase,
@@ -221,6 +224,8 @@ class SnowflakeV2Source(
             # For profiling
             self.profiler = SnowflakeProfiler(config, self.report)
 
+        if self.is_classification_enabled():
+            self.classifiers = self.get_classifiers()
         # Currently caching using instance variables
         # TODO - rewrite cache for readability or use out of the box solution
         self.db_tables: Dict[str, Optional[Dict[str, List[SnowflakeTable]]]] = {}
@@ -560,6 +565,11 @@ class SnowflakeV2Source(
         )
         dataset_name = self.get_dataset_identifier(table.name, schema_name, db_name)
 
+        if self.is_classification_enabled_for_table(dataset_name):
+            table.sample_data = self.get_sample_values_for_table(
+                conn, table.name, schema_name, db_name
+            )
+
         lineage_info = None
         if self.config.include_table_lineage:
             lineage_info = self.lineage_extractor._get_upstream_lineage_info(
@@ -736,6 +746,19 @@ class SnowflakeV2Source(
             ],
             foreignKeys=foreign_keys,
         )
+
+        if isinstance(
+            table, SnowflakeTable
+        ) and self.is_classification_enabled_for_table(dataset_name):
+            if table.sample_data is not None:
+                table.sample_data.columns = [
+                    self.snowflake_identifier(col) for col in table.sample_data.columns
+                ]
+            logger.debug(f"Classifying Table {dataset_name}")
+            self.classify_schema_fields(
+                dataset_name, schema_metadata, table.sample_data
+            )
+
         return schema_metadata
 
     def get_report(self) -> SourceReport:
@@ -1014,3 +1037,22 @@ class SnowflakeV2Source(
     # Stateful Ingestion Overrides.
     def get_platform_instance_id(self) -> str:
         return self.config.get_account()
+
+    # Ideally we do not want null values in sample data for a column.
+    # However that would require separate query per column and
+    # that would be expensive, hence not done.
+    def get_sample_values_for_table(self, conn, table_name, schema_name, db_name):
+
+        # Create a cursor object.
+        cur = conn.cursor()
+        NUM_SAMPLED_ROWS = 1000
+        # Execute a statement that will generate a result set.
+        sql = f'select * from "{db_name}"."{schema_name}"."{table_name}" sample ({NUM_SAMPLED_ROWS} rows);'
+
+        cur.execute(sql)
+        # Fetch the result set from the cursor and deliver it as the Pandas DataFrame.
+
+        dat = cur.fetchall()
+        df = pd.DataFrame(dat, columns=[col.name for col in cur.description])
+
+        return df
