@@ -60,6 +60,15 @@ from datahub.ingestion.source.looker.looker_lib_wrapper import (
     LookerAPI,
     LookerAPIConfig,
 )
+from datahub.ingestion.source.state.looker_state import LookerCheckpointState
+from datahub.ingestion.source.state.stale_entity_removal_handler import (
+    StaleEntityRemovalHandler,
+    StatefulStaleMetadataRemovalConfig,
+)
+from datahub.ingestion.source.state.stateful_ingestion_base import (
+    StatefulIngestionConfigBase,
+    StatefulIngestionSourceBase,
+)
 from datahub.metadata.com.linkedin.pegasus2avro.common import (
     AuditStamp,
     ChangeAuditStamps,
@@ -82,11 +91,17 @@ from datahub.metadata.schema_classes import (
     OwnershipClass,
     OwnershipTypeClass,
 )
+from datahub.utilities.source_helpers import (
+    auto_stale_entity_removal,
+    auto_status_aspect,
+)
 
 logger = logging.getLogger(__name__)
 
 
-class LookerDashboardSourceConfig(LookerAPIConfig, LookerCommonConfig):
+class LookerDashboardSourceConfig(
+    LookerAPIConfig, LookerCommonConfig, StatefulIngestionConfigBase
+):
     dashboard_pattern: AllowDenyPattern = Field(
         AllowDenyPattern.allow_all(),
         description="Patterns for selecting dashboard ids that are to be included",
@@ -132,6 +147,10 @@ class LookerDashboardSourceConfig(LookerAPIConfig, LookerCommonConfig):
         description="Used only if extract_usage_history is set to True. Interval to extract looker dashboard usage history for. See https://docs.looker.com/reference/filter-expressions#date_and_time.",
     )
 
+    stateful_ingestion: Optional[StatefulStaleMetadataRemovalConfig] = Field(
+        default=None, description=""
+    )
+
     @validator("external_base_url", pre=True, always=True)
     def external_url_defaults_to_api_config_base_url(
         cls, v: Optional[str], *, values: Dict[str, Any], **kwargs: Dict[str, Any]
@@ -139,8 +158,10 @@ class LookerDashboardSourceConfig(LookerAPIConfig, LookerCommonConfig):
         return v or values.get("base_url")
 
     @validator("platform_instance")
-    def platform_instance_not_supported(cls, v: str) -> str:
-        raise ConfigurationError("Looker Source doesn't support platform instances")
+    def platform_instance_not_supported(cls, v: Optional[str]) -> Optional[str]:
+        if v is not None:
+            raise ConfigurationError("Looker Source doesn't support platform instances")
+        return v
 
 
 @platform_name("Looker")
@@ -154,7 +175,7 @@ class LookerDashboardSourceConfig(LookerAPIConfig, LookerCommonConfig):
 @capability(
     SourceCapability.USAGE_STATS, "Can be enabled using `extract_usage_history`"
 )
-class LookerDashboardSource(TestableSource):
+class LookerDashboardSource(TestableSource, StatefulIngestionSourceBase):
     """
     This plugin extracts the following:
     - Looker dashboards, dashboard elements (charts) and explores
@@ -167,16 +188,16 @@ class LookerDashboardSource(TestableSource):
     :::
     """
 
+    platform = "looker"
     source_config: LookerDashboardSourceConfig
     reporter: LookerDashboardSourceReport
     user_registry: LookerUserRegistry
-    explores_to_fetch_set: Dict[Tuple[str, str], List[str]] = {}
     accessed_dashboards: int = 0
     resolved_user_ids: int = 0
     email_ids_missing: int = 0  # resolved users with missing email addresses
 
     def __init__(self, config: LookerDashboardSourceConfig, ctx: PipelineContext):
-        super().__init__(ctx)
+        super().__init__(config, ctx)
         self.source_config = config
         self.reporter = LookerDashboardSourceReport()
         self.looker_api: LookerAPI = LookerAPI(self.source_config)
@@ -184,6 +205,9 @@ class LookerDashboardSource(TestableSource):
         self.explore_registry = LookerExploreRegistry(self.looker_api, self.reporter)
         self.reporter._looker_explore_registry = self.explore_registry
         self.reporter._looker_api = self.looker_api
+
+        self.explores_to_fetch_set: Dict[Tuple[str, str], List[str]] = {}
+
         # Keep stat generators to generate entity stat aspect later
         stat_generator_config: looker_usage.StatGeneratorConfig = (
             looker_usage.StatGeneratorConfig(
@@ -204,6 +228,15 @@ class LookerDashboardSource(TestableSource):
         self.chart_stat_generator = looker_usage.create_stat_entity_generator(
             looker_usage.SupportedStatEntity.CHART,
             config=stat_generator_config,
+        )
+
+        # Create and register the stateful ingestion use-case handlers.
+        self.stale_entity_removal_handler = StaleEntityRemovalHandler(
+            source=self,
+            config=self.source_config,
+            state_type_class=LookerCheckpointState,
+            pipeline_name=self.ctx.pipeline_name,
+            run_id=self.ctx.run_id,
         )
 
     @staticmethod
@@ -1089,6 +1122,12 @@ class LookerDashboardSource(TestableSource):
         return mcps
 
     def get_workunits(self) -> Iterable[MetadataWorkUnit]:
+        return auto_stale_entity_removal(
+            self.stale_entity_removal_handler,
+            auto_status_aspect(self.get_workunits_internal()),
+        )
+
+    def get_workunits_internal(self) -> Iterable[MetadataWorkUnit]:
 
         self.reporter.report_stage_start("list_dashboards")
         dashboards = self.looker_api.all_dashboards(fields="id")
@@ -1242,3 +1281,9 @@ class LookerDashboardSource(TestableSource):
 
     def get_report(self) -> SourceReport:
         return self.reporter
+
+    def get_platform_instance_id(self) -> str:
+        return self.source_config.platform_instance or self.platform
+
+    def close(self):
+        self.prepare_for_commit()

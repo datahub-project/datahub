@@ -326,9 +326,6 @@ class APISource(Source, ABC):
     def get_report(self):
         return self.report
 
-    def close(self):
-        pass
-
 
 class OpenApiSource(APISource):
     def __init__(self, config: OpenApiConfig, ctx: PipelineContext):
