@@ -21,7 +21,7 @@ const FilterContainer = styled.div`
     box-shadow: 0px 0px 4px 0px #00000010;
     border-radius: 10px;
     border: 1px solid ${ANTD_GRAY[4]};
-    padding: 5px;
+    padding: 4px;
     margin: 4px;
     :hover {
         cursor: pointer;
@@ -34,6 +34,10 @@ const FieldFilterSection = styled.span`
     padding: 4px;
     display: flex;
     justify-content: space-between;
+`;
+
+const FieldFilterSelect = styled.span`
+    padding-right: 8px;
 `;
 
 const CloseSpan = styled.span`
@@ -57,10 +61,10 @@ export const AdvancedSearchFilter = ({ facet, filter, onClose, onUpdate, loading
                 }}
             >
                 <FieldFilterSection>
-                    <span>
+                    <FieldFilterSelect>
                         <FilterFieldLabel>{FIELD_TO_LABEL[filter.field]} </FilterFieldLabel>
                         <AdvancedSearchFilterConditionSelect filter={filter} onUpdate={onUpdate} />
-                    </span>
+                    </FieldFilterSelect>
                     <CloseSpan
                         role="button"
                         onClick={(e) => {

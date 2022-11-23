@@ -39,6 +39,7 @@ query getMe {
             manageTags
             createDomains
             createTags
+            manageGlobalViews
         }
     }
 }

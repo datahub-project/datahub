@@ -39,6 +39,16 @@ const EmptyStateSection = styled.div`
     margin-top: 10px;
 `;
 
+const AdvancedSearchFiltersGroup = styled.div`
+    display: flex;
+    flex-wrap: wrap;
+`;
+
+export enum LayoutDirection {
+    Horizontal = 'horizontal',
+    Vertical = 'vertical',
+}
+
 interface Props {
     selectedFilters: Array<FacetFilterInput>;
     facets: Array<FacetMetadata>;
@@ -46,6 +56,7 @@ interface Props {
     onChangeUnionType: (unionType: UnionType) => void;
     unionType?: UnionType;
     loading: boolean;
+    direction?: LayoutDirection;
 }
 
 export const AdvancedSearchFilters = ({
@@ -55,6 +66,7 @@ export const AdvancedSearchFilters = ({
     onFilterSelect,
     onChangeUnionType,
     loading,
+    direction = LayoutDirection.Vertical,
 }: Props) => {
     const [filterField, setFilterField] = useState<null | string>(null);
 
@@ -81,6 +93,37 @@ export const AdvancedSearchFilters = ({
                 selectedFilters={selectedFilters}
                 onFilterFieldSelect={onFilterFieldSelect}
             />
+            <AdvancedSearchFiltersGroup>
+                {selectedFilters.map((filter) => (
+                    <AdvancedSearchFilter
+                        key={`${filter.field}-${filter.condition}-${filter.negated}-${filter.values}-${filter.value}`}
+                        facet={facets.find((facet) => facet.field === filter.field) || facets[0]}
+                        loading={loading}
+                        filter={filter}
+                        onClose={() => {
+                            onFilterSelect(selectedFilters.filter((f) => f !== filter));
+                        }}
+                        onUpdate={(newValue) => {
+                            onFilterSelect(
+                                selectedFilters.map((f) => {
+                                    if (f === filter) {
+                                        return newValue;
+                                    }
+                                    return f;
+                                }),
+                            );
+                        }}
+                    />
+                ))}
+            </AdvancedSearchFiltersGroup>
+            {filterField && (
+                <AdvancedFilterSelectValueModal
+                    facet={facets.find((facet) => facet.field === filterField) || null}
+                    onCloseModal={() => setFilterField(null)}
+                    filterField={filterField}
+                    onSelect={onSelectValueFromModal}
+                />
+            )}
             {selectedFilters?.length >= 2 && (
                 <AnyAllSection>
                     Show results that match{' '}
@@ -90,35 +133,9 @@ export const AdvancedSearchFilters = ({
                     />
                 </AnyAllSection>
             )}
-            {selectedFilters.map((filter) => (
-                <AdvancedSearchFilter
-                    facet={facets.find((facet) => facet.field === filter.field) || facets[0]}
-                    loading={loading}
-                    filter={filter}
-                    onClose={() => {
-                        onFilterSelect(selectedFilters.filter((f) => f !== filter));
-                    }}
-                    onUpdate={(newValue) => {
-                        onFilterSelect(
-                            selectedFilters.map((f) => {
-                                if (f === filter) {
-                                    return newValue;
-                                }
-                                return f;
-                            }),
-                        );
-                    }}
-                />
-            ))}
-            {filterField && (
-                <AdvancedFilterSelectValueModal
-                    facet={facets.find((facet) => facet.field === filterField) || null}
-                    onCloseModal={() => setFilterField(null)}
-                    filterField={filterField}
-                    onSelect={onSelectValueFromModal}
-                />
+            {selectedFilters?.length === 0 && direction === LayoutDirection.Vertical && (
+                <EmptyStateSection>No filters applied.</EmptyStateSection>
             )}
-            {selectedFilters?.length === 0 && <EmptyStateSection>No filters applied, add one above.</EmptyStateSection>}
         </SearchFilterWrapper>
     );
 };

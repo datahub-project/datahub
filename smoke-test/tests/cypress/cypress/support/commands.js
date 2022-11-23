@@ -48,6 +48,11 @@ Cypress.Commands.add("goToDomainList", () => {
   cy.waitTextVisible("New Domain");
 });
 
+Cypress.Commands.add("goToViewsSettings", () => {
+  cy.visit("/settings/views");
+  cy.waitTextVisible("Manage Views");
+});
+
 Cypress.Commands.add("goToDataset", (urn, dataset_name) => {
   cy.visit(
     "/dataset/" + urn
@@ -132,6 +137,12 @@ Cypress.Commands.add("enterTextInTestId", (id, text) => {
 
 Cypress.Commands.add("clickOptionWithTestId", (id) => {
   cy.get('[data-testid="' + id +'"]').click({
+    force: true,
+  });
+})
+
+Cypress.Commands.add("clickFirstOptionWithTestId", (id) => {
+  cy.get('[data-testid="' + id +'"]').first().click({
     force: true,
   });
 })

@@ -38,11 +38,11 @@ import static com.linkedin.datahub.graphql.resolvers.ResolverUtils.*;
 @Slf4j
 public class ListMyViewsResolver implements DataFetcher<CompletableFuture<ListViewsResult>> {
 
-  private static final String LAST_UPDATED_FIELD = "lastModifiedAt";
+  private static final String CREATED_AT_FIELD = "createdAt";
   private static final String VIEW_TYPE_FIELD = "type";
   private static final String CREATOR_URN_FIELD = "createdBy";
   private static final SortCriterion DEFAULT_SORT_CRITERION = new SortCriterion()
-      .setField(LAST_UPDATED_FIELD)
+      .setField(CREATED_AT_FIELD)
       .setOrder(SortOrder.DESCENDING);
   private static final Integer DEFAULT_START = 0;
   private static final Integer DEFAULT_COUNT = 20;
