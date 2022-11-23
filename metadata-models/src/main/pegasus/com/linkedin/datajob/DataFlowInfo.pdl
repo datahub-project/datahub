@@ -3,7 +3,7 @@ namespace com.linkedin.datajob
 import com.linkedin.common.CustomProperties
 import com.linkedin.common.ExternalReference
 import com.linkedin.common.Urn
-import com.linkedin.common.AuditStamp
+import com.linkedin.common.Time
 
 /**
  * Information about a Data processing flow
@@ -45,5 +45,8 @@ record DataFlowInfo includes CustomProperties, ExternalReference {
    * Audit stamp describing the time and actor
    * that created the Data Flow in the source Data Platform (not on DataHub)
    */
-  created: optional AuditStamp
+  @Searchable = {
+    "fieldType": "DATETIME"
+  }
+  createdAt: optional Time
 }

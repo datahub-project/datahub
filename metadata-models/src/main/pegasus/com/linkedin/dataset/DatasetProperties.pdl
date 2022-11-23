@@ -3,7 +3,7 @@ namespace com.linkedin.dataset
 import com.linkedin.common.Uri
 import com.linkedin.common.CustomProperties
 import com.linkedin.common.ExternalReference
-import com.linkedin.common.AuditStamp
+import com.linkedin.common.Time
 
 /**
  * Properties associated with a Dataset
@@ -52,7 +52,10 @@ record DatasetProperties includes CustomProperties, ExternalReference {
    * Audit stamp describing the time and actor
    * that created the Dataset in the source Data Platform (not on DataHub)
    */
-  created: optional AuditStamp
+  @Searchable = {
+    "fieldType": "DATETIME"
+  }
+  createdAt: optional Time
 
   /**
    * [Legacy] Unstructured tags for the dataset. Structured tags can be applied via the `GlobalTags` aspect.
