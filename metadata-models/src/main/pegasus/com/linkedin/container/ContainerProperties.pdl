@@ -2,6 +2,7 @@ namespace com.linkedin.container
 
 import com.linkedin.common.CustomProperties
 import com.linkedin.common.ExternalReference
+import com.linkedin.common.AuditStamp
 
 /**
  * Information about a Asset Container as received from a 3rd party source system
@@ -38,4 +39,10 @@ record ContainerProperties includes CustomProperties, ExternalReference {
     "hasValuesFieldName": "hasDescription"
   }
   description: optional string
+
+  /**
+   * Audit stamp describing the time and actor
+   * that created the Container in the source Data Platform (not on DataHub)
+   */
+  created: optional AuditStamp
 }
