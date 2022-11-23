@@ -28,7 +28,8 @@
                 {
                     "com.linkedin.pegasus2avro.identity.GroupMembership": {
                         "groups": [
-                            "urn:li:corpGroup:HR Department"
+                            "urn:li:corpGroup:HR Department",
+                            "urn:li:corpGroup:Finance Department"
                         ]
                     }
                 }
@@ -73,7 +74,8 @@
                 {
                     "com.linkedin.pegasus2avro.identity.GroupMembership": {
                         "groups": [
-                            "urn:li:corpGroup:HR Department"
+                            "urn:li:corpGroup:HR Department",
+                            "urn:li:corpGroup:Finance Department"
                         ]
                     }
                 }
