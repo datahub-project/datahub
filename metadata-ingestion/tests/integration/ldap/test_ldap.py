@@ -97,5 +97,3 @@ def test_ldap_memberof_ingest(docker_compose_runner, pytestconfig, tmp_path, moc
             output_path=tmp_path / "ldap_memberof_mces.json",
             golden_path=test_resources_dir / "ldap_memberof_mces_golden.json",
         )
-
-
