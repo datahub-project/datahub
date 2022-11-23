@@ -269,5 +269,31 @@
         "runId": "ldap-test",
         "properties": null
     }
+},
+{
+    "proposedSnapshot": {
+        "com.linkedin.pegasus2avro.metadata.snapshot.CorpGroupSnapshot": {
+            "urn": "urn:li:corpGroup:Finance Department",
+            "aspects": [
+                {
+                    "com.linkedin.pegasus2avro.identity.CorpGroupInfo": {
+                        "email": "Finance Department",
+                        "admins": [],
+                        "members": [],
+                        "groups": []
+                    }
+                },
+                {
+                    "com.linkedin.pegasus2avro.common.Status": {
+                        "removed": false
+                    }
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "ldap-test"
+    }
 }
 ]
