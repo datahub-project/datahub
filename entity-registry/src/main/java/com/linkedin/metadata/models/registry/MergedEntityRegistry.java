@@ -31,8 +31,10 @@ public class MergedEntityRegistry implements EntityRegistry {
   private final Map<String, AspectSpec> _aspectNameToSpec;
 
   public MergedEntityRegistry(EntityRegistry baseEntityRegistry) {
-    entityNameToSpec = baseEntityRegistry.getEntitySpecs() != null ? baseEntityRegistry.getEntitySpecs() : new HashMap<>();
-    eventNameToSpec = baseEntityRegistry.getEventSpecs() != null ? baseEntityRegistry.getEventSpecs() : new HashMap<>();
+    // baseEntityRegistry.get*Specs() can return immutable Collections.emptyMap() which fails
+    // when this class attempts .put* operations on it.
+    entityNameToSpec = baseEntityRegistry.getEntitySpecs() != null ? new HashMap<>(baseEntityRegistry.getEntitySpecs()) : new HashMap<>();
+    eventNameToSpec = baseEntityRegistry.getEventSpecs() != null ? new HashMap<>(baseEntityRegistry.getEventSpecs()) : new HashMap<>();
     baseEntityRegistry.getAspectTemplateEngine();
     _aspectTemplateEngine = baseEntityRegistry.getAspectTemplateEngine();
     _aspectNameToSpec = baseEntityRegistry.getAspectSpecs();

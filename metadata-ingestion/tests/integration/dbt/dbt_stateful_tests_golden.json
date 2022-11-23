@@ -1,9 +1,7 @@
 [
 {
-    "auditHeader": null,
     "entityType": "dataset",
     "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:dbt,calm-pagoda-323403.jaffle_shop.stg_customers,PROD)",
-    "entityKeyAspect": null,
     "changeType": "UPSERT",
     "aspectName": "subTypes",
     "aspect": {
@@ -12,14 +10,10 @@
     },
     "systemMetadata": {
         "lastObserved": 1643871600000,
-        "runId": "test_pipeline",
-        "registryName": null,
-        "registryVersion": null,
-        "properties": null
+        "runId": "test_pipeline"
     }
 },
 {
-    "auditHeader": null,
     "proposedSnapshot": {
         "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
             "urn": "urn:li:dataset:(urn:li:dataPlatform:dbt,calm-pagoda-323403.jaffle_shop.stg_customers,PROD)",
@@ -37,11 +31,8 @@
                             "catalog_schema": "https://schemas.getdbt.com/dbt/catalog/v1.json",
                             "catalog_version": "1.1.0"
                         },
-                        "externalUrl": null,
                         "name": "stg_customers",
-                        "qualifiedName": null,
                         "description": "",
-                        "uri": null,
                         "tags": []
                     }
                 },
@@ -57,17 +48,12 @@
                         "version": 0,
                         "created": {
                             "time": 0,
-                            "actor": "urn:li:corpuser:unknown",
-                            "impersonator": null
+                            "actor": "urn:li:corpuser:unknown"
                         },
                         "lastModified": {
                             "time": 0,
-                            "actor": "urn:li:corpuser:unknown",
-                            "impersonator": null
+                            "actor": "urn:li:corpuser:unknown"
                         },
-                        "deleted": null,
-                        "dataset": null,
-                        "cluster": null,
                         "hash": "",
                         "platformSchema": {
                             "com.linkedin.pegasus2avro.schema.MySqlDDL": {
@@ -77,11 +63,7 @@
                         "fields": [
                             {
                                 "fieldPath": "customer_id",
-                                "jsonPath": null,
                                 "nullable": false,
-                                "description": null,
-                                "created": null,
-                                "lastModified": null,
                                 "type": {
                                     "type": {
                                         "com.linkedin.pegasus2avro.schema.NumberType": {}
@@ -89,19 +71,11 @@
                                 },
                                 "nativeDataType": "INT64",
                                 "recursive": false,
-                                "globalTags": null,
-                                "glossaryTerms": null,
-                                "isPartOfKey": false,
-                                "isPartitioningKey": null,
-                                "jsonProps": null
+                                "isPartOfKey": false
                             },
                             {
                                 "fieldPath": "first_name",
-                                "jsonPath": null,
                                 "nullable": false,
-                                "description": null,
-                                "created": null,
-                                "lastModified": null,
                                 "type": {
                                     "type": {
                                         "com.linkedin.pegasus2avro.schema.StringType": {}
@@ -109,19 +83,11 @@
                                 },
                                 "nativeDataType": "STRING",
                                 "recursive": false,
-                                "globalTags": null,
-                                "glossaryTerms": null,
-                                "isPartOfKey": false,
-                                "isPartitioningKey": null,
-                                "jsonProps": null
+                                "isPartOfKey": false
                             },
                             {
                                 "fieldPath": "last_name",
-                                "jsonPath": null,
                                 "nullable": false,
-                                "description": null,
-                                "created": null,
-                                "lastModified": null,
                                 "type": {
                                     "type": {
                                         "com.linkedin.pegasus2avro.schema.StringType": {}
@@ -129,16 +95,9 @@
                                 },
                                 "nativeDataType": "STRING",
                                 "recursive": false,
-                                "globalTags": null,
-                                "glossaryTerms": null,
-                                "isPartOfKey": false,
-                                "isPartitioningKey": null,
-                                "jsonProps": null
+                                "isPartOfKey": false
                             }
-                        ],
-                        "primaryKeys": null,
-                        "foreignKeysSpecs": null,
-                        "foreignKeys": null
+                        ]
                     }
                 },
                 {
@@ -146,15 +105,13 @@
                         "upstreams": [
                             {
                                 "auditStamp": {
-                                    "time": 0,
-                                    "actor": "urn:li:corpuser:unknown",
-                                    "impersonator": null
+                                    "time": 1643871600000,
+                                    "actor": "urn:li:corpuser:unknown"
                                 },
                                 "dataset": "urn:li:dataset:(urn:li:dataPlatform:dbt,calm-pagoda-323403.jaffle_shop.raw_customers,PROD)",
                                 "type": "TRANSFORMED"
                             }
-                        ],
-                        "fineGrainedLineages": null
+                        ]
                     }
                 },
                 {
@@ -167,20 +124,14 @@
             ]
         }
     },
-    "proposedDelta": null,
     "systemMetadata": {
         "lastObserved": 1643871600000,
-        "runId": "test_pipeline",
-        "registryName": null,
-        "registryVersion": null,
-        "properties": null
+        "runId": "test_pipeline"
     }
 },
 {
-    "auditHeader": null,
     "entityType": "dataset",
     "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:dbt,calm-pagoda-323403.jaffle_shop.stg_payments,PROD)",
-    "entityKeyAspect": null,
     "changeType": "UPSERT",
     "aspectName": "subTypes",
     "aspect": {
@@ -189,14 +140,10 @@
     },
     "systemMetadata": {
         "lastObserved": 1643871600000,
-        "runId": "test_pipeline",
-        "registryName": null,
-        "registryVersion": null,
-        "properties": null
+        "runId": "test_pipeline"
     }
 },
 {
-    "auditHeader": null,
     "proposedSnapshot": {
         "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
             "urn": "urn:li:dataset:(urn:li:dataPlatform:dbt,calm-pagoda-323403.jaffle_shop.stg_payments,PROD)",
@@ -214,11 +161,8 @@
                             "catalog_schema": "https://schemas.getdbt.com/dbt/catalog/v1.json",
                             "catalog_version": "1.1.0"
                         },
-                        "externalUrl": null,
                         "name": "stg_payments",
-                        "qualifiedName": null,
                         "description": "",
-                        "uri": null,
                         "tags": []
                     }
                 },
@@ -234,17 +178,12 @@
                         "version": 0,
                         "created": {
                             "time": 0,
-                            "actor": "urn:li:corpuser:unknown",
-                            "impersonator": null
+                            "actor": "urn:li:corpuser:unknown"
                         },
                         "lastModified": {
                             "time": 0,
-                            "actor": "urn:li:corpuser:unknown",
-                            "impersonator": null
+                            "actor": "urn:li:corpuser:unknown"
                         },
-                        "deleted": null,
-                        "dataset": null,
-                        "cluster": null,
                         "hash": "",
                         "platformSchema": {
                             "com.linkedin.pegasus2avro.schema.MySqlDDL": {
@@ -254,11 +193,7 @@
                         "fields": [
                             {
                                 "fieldPath": "payment_id",
-                                "jsonPath": null,
                                 "nullable": false,
-                                "description": null,
-                                "created": null,
-                                "lastModified": null,
                                 "type": {
                                     "type": {
                                         "com.linkedin.pegasus2avro.schema.NumberType": {}
@@ -266,19 +201,11 @@
                                 },
                                 "nativeDataType": "INT64",
                                 "recursive": false,
-                                "globalTags": null,
-                                "glossaryTerms": null,
-                                "isPartOfKey": false,
-                                "isPartitioningKey": null,
-                                "jsonProps": null
+                                "isPartOfKey": false
                             },
                             {
                                 "fieldPath": "order_id",
-                                "jsonPath": null,
                                 "nullable": false,
-                                "description": null,
-                                "created": null,
-                                "lastModified": null,
                                 "type": {
                                     "type": {
                                         "com.linkedin.pegasus2avro.schema.NumberType": {}
@@ -286,19 +213,11 @@
                                 },
                                 "nativeDataType": "INT64",
                                 "recursive": false,
-                                "globalTags": null,
-                                "glossaryTerms": null,
-                                "isPartOfKey": false,
-                                "isPartitioningKey": null,
-                                "jsonProps": null
+                                "isPartOfKey": false
                             },
                             {
                                 "fieldPath": "payment_method",
-                                "jsonPath": null,
                                 "nullable": false,
-                                "description": null,
-                                "created": null,
-                                "lastModified": null,
                                 "type": {
                                     "type": {
                                         "com.linkedin.pegasus2avro.schema.StringType": {}
@@ -306,19 +225,11 @@
                                 },
                                 "nativeDataType": "STRING",
                                 "recursive": false,
-                                "globalTags": null,
-                                "glossaryTerms": null,
-                                "isPartOfKey": false,
-                                "isPartitioningKey": null,
-                                "jsonProps": null
+                                "isPartOfKey": false
                             },
                             {
                                 "fieldPath": "amount",
-                                "jsonPath": null,
                                 "nullable": false,
-                                "description": null,
-                                "created": null,
-                                "lastModified": null,
                                 "type": {
                                     "type": {
                                         "com.linkedin.pegasus2avro.schema.NumberType": {}
@@ -326,16 +237,9 @@
                                 },
                                 "nativeDataType": "FLOAT64",
                                 "recursive": false,
-                                "globalTags": null,
-                                "glossaryTerms": null,
-                                "isPartOfKey": false,
-                                "isPartitioningKey": null,
-                                "jsonProps": null
+                                "isPartOfKey": false
                             }
-                        ],
-                        "primaryKeys": null,
-                        "foreignKeysSpecs": null,
-                        "foreignKeys": null
+                        ]
                     }
                 },
                 {
@@ -343,15 +247,13 @@
                         "upstreams": [
                             {
                                 "auditStamp": {
-                                    "time": 0,
-                                    "actor": "urn:li:corpuser:unknown",
-                                    "impersonator": null
+                                    "time": 1643871600000,
+                                    "actor": "urn:li:corpuser:unknown"
                                 },
                                 "dataset": "urn:li:dataset:(urn:li:dataPlatform:dbt,calm-pagoda-323403.jaffle_shop.raw_payments,PROD)",
                                 "type": "TRANSFORMED"
                             }
-                        ],
-                        "fineGrainedLineages": null
+                        ]
                     }
                 },
                 {
@@ -364,20 +266,14 @@
             ]
         }
     },
-    "proposedDelta": null,
     "systemMetadata": {
         "lastObserved": 1643871600000,
-        "runId": "test_pipeline",
-        "registryName": null,
-        "registryVersion": null,
-        "properties": null
+        "runId": "test_pipeline"
     }
 },
 {
-    "auditHeader": null,
     "entityType": "dataset",
     "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:dbt,calm-pagoda-323403.jaffle_shop.stg_orders,PROD)",
-    "entityKeyAspect": null,
     "changeType": "UPSERT",
     "aspectName": "subTypes",
     "aspect": {
@@ -386,14 +282,10 @@
     },
     "systemMetadata": {
         "lastObserved": 1643871600000,
-        "runId": "test_pipeline",
-        "registryName": null,
-        "registryVersion": null,
-        "properties": null
+        "runId": "test_pipeline"
     }
 },
 {
-    "auditHeader": null,
     "proposedSnapshot": {
         "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
             "urn": "urn:li:dataset:(urn:li:dataPlatform:dbt,calm-pagoda-323403.jaffle_shop.stg_orders,PROD)",
@@ -411,11 +303,8 @@
                             "catalog_schema": "https://schemas.getdbt.com/dbt/catalog/v1.json",
                             "catalog_version": "1.1.0"
                         },
-                        "externalUrl": null,
                         "name": "stg_orders",
-                        "qualifiedName": null,
                         "description": "",
-                        "uri": null,
                         "tags": []
                     }
                 },
@@ -431,17 +320,12 @@
                         "version": 0,
                         "created": {
                             "time": 0,
-                            "actor": "urn:li:corpuser:unknown",
-                            "impersonator": null
+                            "actor": "urn:li:corpuser:unknown"
                         },
                         "lastModified": {
                             "time": 0,
-                            "actor": "urn:li:corpuser:unknown",
-                            "impersonator": null
+                            "actor": "urn:li:corpuser:unknown"
                         },
-                        "deleted": null,
-                        "dataset": null,
-                        "cluster": null,
                         "hash": "",
                         "platformSchema": {
                             "com.linkedin.pegasus2avro.schema.MySqlDDL": {
@@ -451,11 +335,7 @@
                         "fields": [
                             {
                                 "fieldPath": "order_id",
-                                "jsonPath": null,
                                 "nullable": false,
-                                "description": null,
-                                "created": null,
-                                "lastModified": null,
                                 "type": {
                                     "type": {
                                         "com.linkedin.pegasus2avro.schema.NumberType": {}
@@ -463,19 +343,11 @@
                                 },
                                 "nativeDataType": "INT64",
                                 "recursive": false,
-                                "globalTags": null,
-                                "glossaryTerms": null,
-                                "isPartOfKey": false,
-                                "isPartitioningKey": null,
-                                "jsonProps": null
+                                "isPartOfKey": false
                             },
                             {
                                 "fieldPath": "customer_id",
-                                "jsonPath": null,
                                 "nullable": false,
-                                "description": null,
-                                "created": null,
-                                "lastModified": null,
                                 "type": {
                                     "type": {
                                         "com.linkedin.pegasus2avro.schema.NumberType": {}
@@ -483,19 +355,11 @@
                                 },
                                 "nativeDataType": "INT64",
                                 "recursive": false,
-                                "globalTags": null,
-                                "glossaryTerms": null,
-                                "isPartOfKey": false,
-                                "isPartitioningKey": null,
-                                "jsonProps": null
+                                "isPartOfKey": false
                             },
                             {
                                 "fieldPath": "order_date",
-                                "jsonPath": null,
                                 "nullable": false,
-                                "description": null,
-                                "created": null,
-                                "lastModified": null,
                                 "type": {
                                     "type": {
                                         "com.linkedin.pegasus2avro.schema.DateType": {}
@@ -503,19 +367,11 @@
                                 },
                                 "nativeDataType": "DATE",
                                 "recursive": false,
-                                "globalTags": null,
-                                "glossaryTerms": null,
-                                "isPartOfKey": false,
-                                "isPartitioningKey": null,
-                                "jsonProps": null
+                                "isPartOfKey": false
                             },
                             {
                                 "fieldPath": "status",
-                                "jsonPath": null,
                                 "nullable": false,
-                                "description": null,
-                                "created": null,
-                                "lastModified": null,
                                 "type": {
                                     "type": {
                                         "com.linkedin.pegasus2avro.schema.StringType": {}
@@ -523,16 +379,9 @@
                                 },
                                 "nativeDataType": "STRING",
                                 "recursive": false,
-                                "globalTags": null,
-                                "glossaryTerms": null,
-                                "isPartOfKey": false,
-                                "isPartitioningKey": null,
-                                "jsonProps": null
+                                "isPartOfKey": false
                             }
-                        ],
-                        "primaryKeys": null,
-                        "foreignKeysSpecs": null,
-                        "foreignKeys": null
+                        ]
                     }
                 },
                 {
@@ -540,15 +389,13 @@
                         "upstreams": [
                             {
                                 "auditStamp": {
-                                    "time": 0,
-                                    "actor": "urn:li:corpuser:unknown",
-                                    "impersonator": null
+                                    "time": 1643871600000,
+                                    "actor": "urn:li:corpuser:unknown"
                                 },
                                 "dataset": "urn:li:dataset:(urn:li:dataPlatform:dbt,calm-pagoda-323403.jaffle_shop.raw_orders,PROD)",
                                 "type": "TRANSFORMED"
                             }
-                        ],
-                        "fineGrainedLineages": null
+                        ]
                     }
                 },
                 {
@@ -561,20 +408,14 @@
             ]
         }
     },
-    "proposedDelta": null,
     "systemMetadata": {
         "lastObserved": 1643871600000,
-        "runId": "test_pipeline",
-        "registryName": null,
-        "registryVersion": null,
-        "properties": null
+        "runId": "test_pipeline"
     }
 },
 {
-    "auditHeader": null,
     "entityType": "dataset",
     "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:dbt,calm-pagoda-323403.jaffle_shop.raw_customers,PROD)",
-    "entityKeyAspect": null,
     "changeType": "UPSERT",
     "aspectName": "subTypes",
     "aspect": {
@@ -583,14 +424,10 @@
     },
     "systemMetadata": {
         "lastObserved": 1643871600000,
-        "runId": "test_pipeline",
-        "registryName": null,
-        "registryVersion": null,
-        "properties": null
+        "runId": "test_pipeline"
     }
 },
 {
-    "auditHeader": null,
     "proposedSnapshot": {
         "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
             "urn": "urn:li:dataset:(urn:li:dataPlatform:dbt,calm-pagoda-323403.jaffle_shop.raw_customers,PROD)",
@@ -608,11 +445,8 @@
                             "catalog_schema": "https://schemas.getdbt.com/dbt/catalog/v1.json",
                             "catalog_version": "1.1.0"
                         },
-                        "externalUrl": null,
                         "name": "raw_customers",
-                        "qualifiedName": null,
                         "description": "",
-                        "uri": null,
                         "tags": []
                     }
                 },
@@ -628,17 +462,12 @@
                         "version": 0,
                         "created": {
                             "time": 0,
-                            "actor": "urn:li:corpuser:unknown",
-                            "impersonator": null
+                            "actor": "urn:li:corpuser:unknown"
                         },
                         "lastModified": {
                             "time": 0,
-                            "actor": "urn:li:corpuser:unknown",
-                            "impersonator": null
+                            "actor": "urn:li:corpuser:unknown"
                         },
-                        "deleted": null,
-                        "dataset": null,
-                        "cluster": null,
                         "hash": "",
                         "platformSchema": {
                             "com.linkedin.pegasus2avro.schema.MySqlDDL": {
@@ -648,11 +477,7 @@
                         "fields": [
                             {
                                 "fieldPath": "id",
-                                "jsonPath": null,
                                 "nullable": false,
-                                "description": null,
-                                "created": null,
-                                "lastModified": null,
                                 "type": {
                                     "type": {
                                         "com.linkedin.pegasus2avro.schema.NumberType": {}
@@ -660,19 +485,11 @@
                                 },
                                 "nativeDataType": "INT64",
                                 "recursive": false,
-                                "globalTags": null,
-                                "glossaryTerms": null,
-                                "isPartOfKey": false,
-                                "isPartitioningKey": null,
-                                "jsonProps": null
+                                "isPartOfKey": false
                             },
                             {
                                 "fieldPath": "first_name",
-                                "jsonPath": null,
                                 "nullable": false,
-                                "description": null,
-                                "created": null,
-                                "lastModified": null,
                                 "type": {
                                     "type": {
                                         "com.linkedin.pegasus2avro.schema.StringType": {}
@@ -680,19 +497,11 @@
                                 },
                                 "nativeDataType": "STRING",
                                 "recursive": false,
-                                "globalTags": null,
-                                "glossaryTerms": null,
-                                "isPartOfKey": false,
-                                "isPartitioningKey": null,
-                                "jsonProps": null
+                                "isPartOfKey": false
                             },
                             {
                                 "fieldPath": "last_name",
-                                "jsonPath": null,
                                 "nullable": false,
-                                "description": null,
-                                "created": null,
-                                "lastModified": null,
                                 "type": {
                                     "type": {
                                         "com.linkedin.pegasus2avro.schema.StringType": {}
@@ -700,35 +509,22 @@
                                 },
                                 "nativeDataType": "STRING",
                                 "recursive": false,
-                                "globalTags": null,
-                                "glossaryTerms": null,
-                                "isPartOfKey": false,
-                                "isPartitioningKey": null,
-                                "jsonProps": null
+                                "isPartOfKey": false
                             }
-                        ],
-                        "primaryKeys": null,
-                        "foreignKeysSpecs": null,
-                        "foreignKeys": null
+                        ]
                     }
                 }
             ]
         }
     },
-    "proposedDelta": null,
     "systemMetadata": {
         "lastObserved": 1643871600000,
-        "runId": "test_pipeline",
-        "registryName": null,
-        "registryVersion": null,
-        "properties": null
+        "runId": "test_pipeline"
     }
 },
 {
-    "auditHeader": null,
     "entityType": "dataset",
     "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:dbt,calm-pagoda-323403.jaffle_shop.raw_orders,PROD)",
-    "entityKeyAspect": null,
     "changeType": "UPSERT",
     "aspectName": "subTypes",
     "aspect": {
@@ -737,14 +533,10 @@
     },
     "systemMetadata": {
         "lastObserved": 1643871600000,
-        "runId": "test_pipeline",
-        "registryName": null,
-        "registryVersion": null,
-        "properties": null
+        "runId": "test_pipeline"
     }
 },
 {
-    "auditHeader": null,
     "proposedSnapshot": {
         "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
             "urn": "urn:li:dataset:(urn:li:dataPlatform:dbt,calm-pagoda-323403.jaffle_shop.raw_orders,PROD)",
@@ -762,11 +554,8 @@
                             "catalog_schema": "https://schemas.getdbt.com/dbt/catalog/v1.json",
                             "catalog_version": "1.1.0"
                         },
-                        "externalUrl": null,
                         "name": "raw_orders",
-                        "qualifiedName": null,
                         "description": "",
-                        "uri": null,
                         "tags": []
                     }
                 },
@@ -782,17 +571,12 @@
                         "version": 0,
                         "created": {
                             "time": 0,
-                            "actor": "urn:li:corpuser:unknown",
-                            "impersonator": null
+                            "actor": "urn:li:corpuser:unknown"
                         },
                         "lastModified": {
                             "time": 0,
-                            "actor": "urn:li:corpuser:unknown",
-                            "impersonator": null
+                            "actor": "urn:li:corpuser:unknown"
                         },
-                        "deleted": null,
-                        "dataset": null,
-                        "cluster": null,
                         "hash": "",
                         "platformSchema": {
                             "com.linkedin.pegasus2avro.schema.MySqlDDL": {
@@ -802,11 +586,7 @@
                         "fields": [
                             {
                                 "fieldPath": "id",
-                                "jsonPath": null,
                                 "nullable": false,
-                                "description": null,
-                                "created": null,
-                                "lastModified": null,
                                 "type": {
                                     "type": {
                                         "com.linkedin.pegasus2avro.schema.NumberType": {}
@@ -814,19 +594,11 @@
                                 },
                                 "nativeDataType": "INT64",
                                 "recursive": false,
-                                "globalTags": null,
-                                "glossaryTerms": null,
-                                "isPartOfKey": false,
-                                "isPartitioningKey": null,
-                                "jsonProps": null
+                                "isPartOfKey": false
                             },
                             {
                                 "fieldPath": "user_id",
-                                "jsonPath": null,
                                 "nullable": false,
-                                "description": null,
-                                "created": null,
-                                "lastModified": null,
                                 "type": {
                                     "type": {
                                         "com.linkedin.pegasus2avro.schema.NumberType": {}
@@ -834,19 +606,11 @@
                                 },
                                 "nativeDataType": "INT64",
                                 "recursive": false,
-                                "globalTags": null,
-                                "glossaryTerms": null,
-                                "isPartOfKey": false,
-                                "isPartitioningKey": null,
-                                "jsonProps": null
+                                "isPartOfKey": false
                             },
                             {
                                 "fieldPath": "order_date",
-                                "jsonPath": null,
                                 "nullable": false,
-                                "description": null,
-                                "created": null,
-                                "lastModified": null,
                                 "type": {
                                     "type": {
                                         "com.linkedin.pegasus2avro.schema.DateType": {}
@@ -854,19 +618,11 @@
                                 },
                                 "nativeDataType": "DATE",
                                 "recursive": false,
-                                "globalTags": null,
-                                "glossaryTerms": null,
-                                "isPartOfKey": false,
-                                "isPartitioningKey": null,
-                                "jsonProps": null
+                                "isPartOfKey": false
                             },
                             {
                                 "fieldPath": "status",
-                                "jsonPath": null,
                                 "nullable": false,
-                                "description": null,
-                                "created": null,
-                                "lastModified": null,
                                 "type": {
                                     "type": {
                                         "com.linkedin.pegasus2avro.schema.StringType": {}
@@ -874,35 +630,22 @@
                                 },
                                 "nativeDataType": "STRING",
                                 "recursive": false,
-                                "globalTags": null,
-                                "glossaryTerms": null,
-                                "isPartOfKey": false,
-                                "isPartitioningKey": null,
-                                "jsonProps": null
+                                "isPartOfKey": false
                             }
-                        ],
-                        "primaryKeys": null,
-                        "foreignKeysSpecs": null,
-                        "foreignKeys": null
+                        ]
                     }
                 }
             ]
         }
     },
-    "proposedDelta": null,
     "systemMetadata": {
         "lastObserved": 1643871600000,
-        "runId": "test_pipeline",
-        "registryName": null,
-        "registryVersion": null,
-        "properties": null
+        "runId": "test_pipeline"
     }
 },
 {
-    "auditHeader": null,
     "entityType": "dataset",
     "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:dbt,calm-pagoda-323403.jaffle_shop.raw_payments,PROD)",
-    "entityKeyAspect": null,
     "changeType": "UPSERT",
     "aspectName": "subTypes",
     "aspect": {
@@ -911,14 +654,10 @@
     },
     "systemMetadata": {
         "lastObserved": 1643871600000,
-        "runId": "test_pipeline",
-        "registryName": null,
-        "registryVersion": null,
-        "properties": null
+        "runId": "test_pipeline"
     }
 },
 {
-    "auditHeader": null,
     "proposedSnapshot": {
         "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
             "urn": "urn:li:dataset:(urn:li:dataPlatform:dbt,calm-pagoda-323403.jaffle_shop.raw_payments,PROD)",
@@ -936,11 +675,8 @@
                             "catalog_schema": "https://schemas.getdbt.com/dbt/catalog/v1.json",
                             "catalog_version": "1.1.0"
                         },
-                        "externalUrl": null,
                         "name": "raw_payments",
-                        "qualifiedName": null,
                         "description": "",
-                        "uri": null,
                         "tags": []
                     }
                 },
@@ -956,17 +692,12 @@
                         "version": 0,
                         "created": {
                             "time": 0,
-                            "actor": "urn:li:corpuser:unknown",
-                            "impersonator": null
+                            "actor": "urn:li:corpuser:unknown"
                         },
                         "lastModified": {
                             "time": 0,
-                            "actor": "urn:li:corpuser:unknown",
-                            "impersonator": null
+                            "actor": "urn:li:corpuser:unknown"
                         },
-                        "deleted": null,
-                        "dataset": null,
-                        "cluster": null,
                         "hash": "",
                         "platformSchema": {
                             "com.linkedin.pegasus2avro.schema.MySqlDDL": {
@@ -976,11 +707,7 @@
                         "fields": [
                             {
                                 "fieldPath": "id",
-                                "jsonPath": null,
                                 "nullable": false,
-                                "description": null,
-                                "created": null,
-                                "lastModified": null,
                                 "type": {
                                     "type": {
                                         "com.linkedin.pegasus2avro.schema.NumberType": {}
@@ -988,19 +715,11 @@
                                 },
                                 "nativeDataType": "INT64",
                                 "recursive": false,
-                                "globalTags": null,
-                                "glossaryTerms": null,
-                                "isPartOfKey": false,
-                                "isPartitioningKey": null,
-                                "jsonProps": null
+                                "isPartOfKey": false
                             },
                             {
                                 "fieldPath": "order_id",
-                                "jsonPath": null,
                                 "nullable": false,
-                                "description": null,
-                                "created": null,
-                                "lastModified": null,
                                 "type": {
                                     "type": {
                                         "com.linkedin.pegasus2avro.schema.NumberType": {}
@@ -1008,19 +727,11 @@
                                 },
                                 "nativeDataType": "INT64",
                                 "recursive": false,
-                                "globalTags": null,
-                                "glossaryTerms": null,
-                                "isPartOfKey": false,
-                                "isPartitioningKey": null,
-                                "jsonProps": null
+                                "isPartOfKey": false
                             },
                             {
                                 "fieldPath": "payment_method",
-                                "jsonPath": null,
                                 "nullable": false,
-                                "description": null,
-                                "created": null,
-                                "lastModified": null,
                                 "type": {
                                     "type": {
                                         "com.linkedin.pegasus2avro.schema.StringType": {}
@@ -1028,19 +739,11 @@
                                 },
                                 "nativeDataType": "STRING",
                                 "recursive": false,
-                                "globalTags": null,
-                                "glossaryTerms": null,
-                                "isPartOfKey": false,
-                                "isPartitioningKey": null,
-                                "jsonProps": null
+                                "isPartOfKey": false
                             },
                             {
                                 "fieldPath": "amount",
-                                "jsonPath": null,
                                 "nullable": false,
-                                "description": null,
-                                "created": null,
-                                "lastModified": null,
                                 "type": {
                                     "type": {
                                         "com.linkedin.pegasus2avro.schema.NumberType": {}
@@ -1048,35 +751,22 @@
                                 },
                                 "nativeDataType": "INT64",
                                 "recursive": false,
-                                "globalTags": null,
-                                "glossaryTerms": null,
-                                "isPartOfKey": false,
-                                "isPartitioningKey": null,
-                                "jsonProps": null
+                                "isPartOfKey": false
                             }
-                        ],
-                        "primaryKeys": null,
-                        "foreignKeysSpecs": null,
-                        "foreignKeys": null
+                        ]
                     }
                 }
             ]
         }
     },
-    "proposedDelta": null,
     "systemMetadata": {
         "lastObserved": 1643871600000,
-        "runId": "test_pipeline",
-        "registryName": null,
-        "registryVersion": null,
-        "properties": null
+        "runId": "test_pipeline"
     }
 },
 {
-    "auditHeader": null,
     "entityType": "dataset",
     "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:dbt,calm-pagoda-323403.jaffle_shop.customers,PROD)",
-    "entityKeyAspect": null,
     "changeType": "UPSERT",
     "aspectName": "subTypes",
     "aspect": {
@@ -1085,14 +775,10 @@
     },
     "systemMetadata": {
         "lastObserved": 1643871600000,
-        "runId": "test_pipeline",
-        "registryName": null,
-        "registryVersion": null,
-        "properties": null
+        "runId": "test_pipeline"
     }
 },
 {
-    "auditHeader": null,
     "proposedSnapshot": {
         "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
             "urn": "urn:li:dataset:(urn:li:dataPlatform:dbt,calm-pagoda-323403.jaffle_shop.customers,PROD)",
@@ -1110,11 +796,8 @@
                             "catalog_schema": "https://schemas.getdbt.com/dbt/catalog/v1.json",
                             "catalog_version": "1.1.0"
                         },
-                        "externalUrl": null,
                         "name": "customers",
-                        "qualifiedName": null,
                         "description": "This table has basic information about a customer, as well as some derived facts based on a customer's orders",
-                        "uri": null,
                         "tags": []
                     }
                 },
@@ -1130,17 +813,12 @@
                         "version": 0,
                         "created": {
                             "time": 0,
-                            "actor": "urn:li:corpuser:unknown",
-                            "impersonator": null
+                            "actor": "urn:li:corpuser:unknown"
                         },
                         "lastModified": {
                             "time": 0,
-                            "actor": "urn:li:corpuser:unknown",
-                            "impersonator": null
+                            "actor": "urn:li:corpuser:unknown"
                         },
-                        "deleted": null,
-                        "dataset": null,
-                        "cluster": null,
                         "hash": "",
                         "platformSchema": {
                             "com.linkedin.pegasus2avro.schema.MySqlDDL": {
@@ -1150,11 +828,8 @@
                         "fields": [
                             {
                                 "fieldPath": "customer_id",
-                                "jsonPath": null,
                                 "nullable": false,
                                 "description": "This is a unique identifier for a customer",
-                                "created": null,
-                                "lastModified": null,
                                 "type": {
                                     "type": {
                                         "com.linkedin.pegasus2avro.schema.NumberType": {}
@@ -1162,19 +837,12 @@
                                 },
                                 "nativeDataType": "INT64",
                                 "recursive": false,
-                                "globalTags": null,
-                                "glossaryTerms": null,
-                                "isPartOfKey": false,
-                                "isPartitioningKey": null,
-                                "jsonProps": null
+                                "isPartOfKey": false
                             },
                             {
                                 "fieldPath": "first_name",
-                                "jsonPath": null,
                                 "nullable": false,
                                 "description": "Customer's first name. PII.",
-                                "created": null,
-                                "lastModified": null,
                                 "type": {
                                     "type": {
                                         "com.linkedin.pegasus2avro.schema.StringType": {}
@@ -1182,19 +850,12 @@
                                 },
                                 "nativeDataType": "STRING",
                                 "recursive": false,
-                                "globalTags": null,
-                                "glossaryTerms": null,
-                                "isPartOfKey": false,
-                                "isPartitioningKey": null,
-                                "jsonProps": null
+                                "isPartOfKey": false
                             },
                             {
                                 "fieldPath": "last_name",
-                                "jsonPath": null,
                                 "nullable": false,
                                 "description": "Customer's last name. PII.",
-                                "created": null,
-                                "lastModified": null,
                                 "type": {
                                     "type": {
                                         "com.linkedin.pegasus2avro.schema.StringType": {}
@@ -1202,19 +863,12 @@
                                 },
                                 "nativeDataType": "STRING",
                                 "recursive": false,
-                                "globalTags": null,
-                                "glossaryTerms": null,
-                                "isPartOfKey": false,
-                                "isPartitioningKey": null,
-                                "jsonProps": null
+                                "isPartOfKey": false
                             },
                             {
                                 "fieldPath": "first_order",
-                                "jsonPath": null,
                                 "nullable": false,
                                 "description": "Date (UTC) of a customer's first order",
-                                "created": null,
-                                "lastModified": null,
                                 "type": {
                                     "type": {
                                         "com.linkedin.pegasus2avro.schema.DateType": {}
@@ -1222,19 +876,12 @@
                                 },
                                 "nativeDataType": "DATE",
                                 "recursive": false,
-                                "globalTags": null,
-                                "glossaryTerms": null,
-                                "isPartOfKey": false,
-                                "isPartitioningKey": null,
-                                "jsonProps": null
+                                "isPartOfKey": false
                             },
                             {
                                 "fieldPath": "most_recent_order",
-                                "jsonPath": null,
                                 "nullable": false,
                                 "description": "Date (UTC) of a customer's most recent order",
-                                "created": null,
-                                "lastModified": null,
                                 "type": {
                                     "type": {
                                         "com.linkedin.pegasus2avro.schema.DateType": {}
@@ -1242,19 +889,12 @@
                                 },
                                 "nativeDataType": "DATE",
                                 "recursive": false,
-                                "globalTags": null,
-                                "glossaryTerms": null,
-                                "isPartOfKey": false,
-                                "isPartitioningKey": null,
-                                "jsonProps": null
+                                "isPartOfKey": false
                             },
                             {
                                 "fieldPath": "number_of_orders",
-                                "jsonPath": null,
                                 "nullable": false,
                                 "description": "Count of the number of orders a customer has placed",
-                                "created": null,
-                                "lastModified": null,
                                 "type": {
                                     "type": {
                                         "com.linkedin.pegasus2avro.schema.NumberType": {}
@@ -1262,19 +902,11 @@
                                 },
                                 "nativeDataType": "INT64",
                                 "recursive": false,
-                                "globalTags": null,
-                                "glossaryTerms": null,
-                                "isPartOfKey": false,
-                                "isPartitioningKey": null,
-                                "jsonProps": null
+                                "isPartOfKey": false
                             },
                             {
                                 "fieldPath": "customer_lifetime_value",
-                                "jsonPath": null,
                                 "nullable": false,
-                                "description": null,
-                                "created": null,
-                                "lastModified": null,
                                 "type": {
                                     "type": {
                                         "com.linkedin.pegasus2avro.schema.NumberType": {}
@@ -1282,16 +914,9 @@
                                 },
                                 "nativeDataType": "FLOAT64",
                                 "recursive": false,
-                                "globalTags": null,
-                                "glossaryTerms": null,
-                                "isPartOfKey": false,
-                                "isPartitioningKey": null,
-                                "jsonProps": null
+                                "isPartOfKey": false
                             }
-                        ],
-                        "primaryKeys": null,
-                        "foreignKeysSpecs": null,
-                        "foreignKeys": null
+                        ]
                     }
                 },
                 {
@@ -1299,33 +924,29 @@
                         "upstreams": [
                             {
                                 "auditStamp": {
-                                    "time": 0,
-                                    "actor": "urn:li:corpuser:unknown",
-                                    "impersonator": null
+                                    "time": 1643871600000,
+                                    "actor": "urn:li:corpuser:unknown"
                                 },
                                 "dataset": "urn:li:dataset:(urn:li:dataPlatform:postgres,calm-pagoda-323403.jaffle_shop.stg_customers,PROD)",
                                 "type": "TRANSFORMED"
                             },
                             {
                                 "auditStamp": {
-                                    "time": 0,
-                                    "actor": "urn:li:corpuser:unknown",
-                                    "impersonator": null
+                                    "time": 1643871600000,
+                                    "actor": "urn:li:corpuser:unknown"
                                 },
                                 "dataset": "urn:li:dataset:(urn:li:dataPlatform:postgres,calm-pagoda-323403.jaffle_shop.stg_orders,PROD)",
                                 "type": "TRANSFORMED"
                             },
                             {
                                 "auditStamp": {
-                                    "time": 0,
-                                    "actor": "urn:li:corpuser:unknown",
-                                    "impersonator": null
+                                    "time": 1643871600000,
+                                    "actor": "urn:li:corpuser:unknown"
                                 },
                                 "dataset": "urn:li:dataset:(urn:li:dataPlatform:postgres,calm-pagoda-323403.jaffle_shop.stg_payments,PROD)",
                                 "type": "TRANSFORMED"
                             }
-                        ],
-                        "fineGrainedLineages": null
+                        ]
                     }
                 },
                 {
@@ -1338,20 +959,14 @@
             ]
         }
     },
-    "proposedDelta": null,
     "systemMetadata": {
         "lastObserved": 1643871600000,
-        "runId": "test_pipeline",
-        "registryName": null,
-        "registryVersion": null,
-        "properties": null
+        "runId": "test_pipeline"
     }
 },
 {
-    "auditHeader": null,
     "entityType": "dataset",
     "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:dbt,calm-pagoda-323403.jaffle_shop.orders,PROD)",
-    "entityKeyAspect": null,
     "changeType": "UPSERT",
     "aspectName": "subTypes",
     "aspect": {
@@ -1360,14 +975,10 @@
     },
     "systemMetadata": {
         "lastObserved": 1643871600000,
-        "runId": "test_pipeline",
-        "registryName": null,
-        "registryVersion": null,
-        "properties": null
+        "runId": "test_pipeline"
     }
 },
 {
-    "auditHeader": null,
     "proposedSnapshot": {
         "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
             "urn": "urn:li:dataset:(urn:li:dataPlatform:dbt,calm-pagoda-323403.jaffle_shop.orders,PROD)",
@@ -1385,11 +996,8 @@
                             "catalog_schema": "https://schemas.getdbt.com/dbt/catalog/v1.json",
                             "catalog_version": "1.1.0"
                         },
-                        "externalUrl": null,
                         "name": "orders",
-                        "qualifiedName": null,
                         "description": "This table has basic information about orders, as well as some derived facts based on payments",
-                        "uri": null,
                         "tags": []
                     }
                 },
@@ -1405,17 +1013,12 @@
                         "version": 0,
                         "created": {
                             "time": 0,
-                            "actor": "urn:li:corpuser:unknown",
-                            "impersonator": null
+                            "actor": "urn:li:corpuser:unknown"
                         },
                         "lastModified": {
                             "time": 0,
-                            "actor": "urn:li:corpuser:unknown",
-                            "impersonator": null
+                            "actor": "urn:li:corpuser:unknown"
                         },
-                        "deleted": null,
-                        "dataset": null,
-                        "cluster": null,
                         "hash": "",
                         "platformSchema": {
                             "com.linkedin.pegasus2avro.schema.MySqlDDL": {
@@ -1425,11 +1028,8 @@
                         "fields": [
                             {
                                 "fieldPath": "order_id",
-                                "jsonPath": null,
                                 "nullable": false,
                                 "description": "This is a unique identifier for an order",
-                                "created": null,
-                                "lastModified": null,
                                 "type": {
                                     "type": {
                                         "com.linkedin.pegasus2avro.schema.NumberType": {}
@@ -1437,19 +1037,12 @@
                                 },
                                 "nativeDataType": "INT64",
                                 "recursive": false,
-                                "globalTags": null,
-                                "glossaryTerms": null,
-                                "isPartOfKey": false,
-                                "isPartitioningKey": null,
-                                "jsonProps": null
+                                "isPartOfKey": false
                             },
                             {
                                 "fieldPath": "customer_id",
-                                "jsonPath": null,
                                 "nullable": false,
                                 "description": "Foreign key to the customers table",
-                                "created": null,
-                                "lastModified": null,
                                 "type": {
                                     "type": {
                                         "com.linkedin.pegasus2avro.schema.NumberType": {}
@@ -1457,19 +1050,12 @@
                                 },
                                 "nativeDataType": "INT64",
                                 "recursive": false,
-                                "globalTags": null,
-                                "glossaryTerms": null,
-                                "isPartOfKey": false,
-                                "isPartitioningKey": null,
-                                "jsonProps": null
+                                "isPartOfKey": false
                             },
                             {
                                 "fieldPath": "order_date",
-                                "jsonPath": null,
                                 "nullable": false,
                                 "description": "Date (UTC) that the order was placed",
-                                "created": null,
-                                "lastModified": null,
                                 "type": {
                                     "type": {
                                         "com.linkedin.pegasus2avro.schema.DateType": {}
@@ -1477,19 +1063,12 @@
                                 },
                                 "nativeDataType": "DATE",
                                 "recursive": false,
-                                "globalTags": null,
-                                "glossaryTerms": null,
-                                "isPartOfKey": false,
-                                "isPartitioningKey": null,
-                                "jsonProps": null
+                                "isPartOfKey": false
                             },
                             {
                                 "fieldPath": "status",
-                                "jsonPath": null,
                                 "nullable": false,
                                 "description": "Orders can be one of the following statuses:\n\n| status         | description                                                                                                            |\n|----------------|------------------------------------------------------------------------------------------------------------------------|\n| placed         | The order has been placed but has not yet left the warehouse                                                           |\n| shipped        | The order has ben shipped to the customer and is currently in transit                                                  |\n| completed      | The order has been received by the customer                                                                            |\n| return_pending | The customer has indicated that they would like to return the order, but it has not yet been received at the warehouse |\n| returned       | The order has been returned by the customer and received at the warehouse                                              |",
-                                "created": null,
-                                "lastModified": null,
                                 "type": {
                                     "type": {
                                         "com.linkedin.pegasus2avro.schema.StringType": {}
@@ -1497,19 +1076,12 @@
                                 },
                                 "nativeDataType": "STRING",
                                 "recursive": false,
-                                "globalTags": null,
-                                "glossaryTerms": null,
-                                "isPartOfKey": false,
-                                "isPartitioningKey": null,
-                                "jsonProps": null
+                                "isPartOfKey": false
                             },
                             {
                                 "fieldPath": "credit_card_amount",
-                                "jsonPath": null,
                                 "nullable": false,
                                 "description": "Amount of the order (AUD) paid for by credit card",
-                                "created": null,
-                                "lastModified": null,
                                 "type": {
                                     "type": {
                                         "com.linkedin.pegasus2avro.schema.NumberType": {}
@@ -1517,19 +1089,12 @@
                                 },
                                 "nativeDataType": "FLOAT64",
                                 "recursive": false,
-                                "globalTags": null,
-                                "glossaryTerms": null,
-                                "isPartOfKey": false,
-                                "isPartitioningKey": null,
-                                "jsonProps": null
+                                "isPartOfKey": false
                             },
                             {
                                 "fieldPath": "coupon_amount",
-                                "jsonPath": null,
                                 "nullable": false,
                                 "description": "Amount of the order (AUD) paid for by coupon",
-                                "created": null,
-                                "lastModified": null,
                                 "type": {
                                     "type": {
                                         "com.linkedin.pegasus2avro.schema.NumberType": {}
@@ -1537,19 +1102,12 @@
                                 },
                                 "nativeDataType": "FLOAT64",
                                 "recursive": false,
-                                "globalTags": null,
-                                "glossaryTerms": null,
-                                "isPartOfKey": false,
-                                "isPartitioningKey": null,
-                                "jsonProps": null
+                                "isPartOfKey": false
                             },
                             {
                                 "fieldPath": "bank_transfer_amount",
-                                "jsonPath": null,
                                 "nullable": false,
                                 "description": "Amount of the order (AUD) paid for by bank transfer",
-                                "created": null,
-                                "lastModified": null,
                                 "type": {
                                     "type": {
                                         "com.linkedin.pegasus2avro.schema.NumberType": {}
@@ -1557,19 +1115,12 @@
                                 },
                                 "nativeDataType": "FLOAT64",
                                 "recursive": false,
-                                "globalTags": null,
-                                "glossaryTerms": null,
-                                "isPartOfKey": false,
-                                "isPartitioningKey": null,
-                                "jsonProps": null
+                                "isPartOfKey": false
                             },
                             {
                                 "fieldPath": "gift_card_amount",
-                                "jsonPath": null,
                                 "nullable": false,
                                 "description": "Amount of the order (AUD) paid for by gift card",
-                                "created": null,
-                                "lastModified": null,
                                 "type": {
                                     "type": {
                                         "com.linkedin.pegasus2avro.schema.NumberType": {}
@@ -1577,19 +1128,12 @@
                                 },
                                 "nativeDataType": "FLOAT64",
                                 "recursive": false,
-                                "globalTags": null,
-                                "glossaryTerms": null,
-                                "isPartOfKey": false,
-                                "isPartitioningKey": null,
-                                "jsonProps": null
+                                "isPartOfKey": false
                             },
                             {
                                 "fieldPath": "amount",
-                                "jsonPath": null,
                                 "nullable": false,
                                 "description": "Total amount (AUD) of the order",
-                                "created": null,
-                                "lastModified": null,
                                 "type": {
                                     "type": {
                                         "com.linkedin.pegasus2avro.schema.NumberType": {}
@@ -1597,16 +1141,9 @@
                                 },
                                 "nativeDataType": "FLOAT64",
                                 "recursive": false,
-                                "globalTags": null,
-                                "glossaryTerms": null,
-                                "isPartOfKey": false,
-                                "isPartitioningKey": null,
-                                "jsonProps": null
+                                "isPartOfKey": false
                             }
-                        ],
-                        "primaryKeys": null,
-                        "foreignKeysSpecs": null,
-                        "foreignKeys": null
+                        ]
                     }
                 },
                 {
@@ -1614,24 +1151,21 @@
                         "upstreams": [
                             {
                                 "auditStamp": {
-                                    "time": 0,
-                                    "actor": "urn:li:corpuser:unknown",
-                                    "impersonator": null
+                                    "time": 1643871600000,
+                                    "actor": "urn:li:corpuser:unknown"
                                 },
                                 "dataset": "urn:li:dataset:(urn:li:dataPlatform:postgres,calm-pagoda-323403.jaffle_shop.stg_orders,PROD)",
                                 "type": "TRANSFORMED"
                             },
                             {
                                 "auditStamp": {
-                                    "time": 0,
-                                    "actor": "urn:li:corpuser:unknown",
-                                    "impersonator": null
+                                    "time": 1643871600000,
+                                    "actor": "urn:li:corpuser:unknown"
                                 },
                                 "dataset": "urn:li:dataset:(urn:li:dataPlatform:postgres,calm-pagoda-323403.jaffle_shop.stg_payments,PROD)",
                                 "type": "TRANSFORMED"
                             }
-                        ],
-                        "fineGrainedLineages": null
+                        ]
                     }
                 },
                 {
@@ -1644,292 +1178,126 @@
             ]
         }
     },
-    "proposedDelta": null,
     "systemMetadata": {
         "lastObserved": 1643871600000,
-        "runId": "test_pipeline",
-        "registryName": null,
-        "registryVersion": null,
-        "properties": null
+        "runId": "test_pipeline"
     }
 },
 {
-    "auditHeader": null,
-    "proposedSnapshot": {
-        "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
-            "urn": "urn:li:dataset:(urn:li:dataPlatform:postgres,calm-pagoda-323403.jaffle_shop.stg_customers,PROD)",
-            "aspects": [
-                {
-                    "com.linkedin.pegasus2avro.dataset.UpstreamLineage": {
-                        "upstreams": [
-                            {
-                                "auditStamp": {
-                                    "time": 0,
-                                    "actor": "urn:li:corpuser:unknown",
-                                    "impersonator": null
-                                },
-                                "dataset": "urn:li:dataset:(urn:li:dataPlatform:dbt,calm-pagoda-323403.jaffle_shop.stg_customers,PROD)",
-                                "type": "TRANSFORMED"
-                            }
-                        ],
-                        "fineGrainedLineages": null
-                    }
-                }
-            ]
-        }
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:postgres,calm-pagoda-323403.jaffle_shop.stg_customers,PROD)",
+    "changeType": "PATCH",
+    "aspectName": "upstreamLineage",
+    "aspect": {
+        "value": "[{\"op\": \"add\", \"path\": \"/upstreams/urn:li:dataset:(urn:li:dataPlatform:dbt,calm-pagoda-323403.jaffle_shop.stg_customers,PROD)\", \"value\": {\"auditStamp\": {\"time\": 1643871600000, \"actor\": \"urn:li:corpuser:unknown\"}, \"dataset\": \"urn:li:dataset:(urn:li:dataPlatform:dbt,calm-pagoda-323403.jaffle_shop.stg_customers,PROD)\", \"type\": \"TRANSFORMED\"}}]",
+        "contentType": "application/json-patch+json"
     },
-    "proposedDelta": null,
     "systemMetadata": {
         "lastObserved": 1643871600000,
-        "runId": "test_pipeline",
-        "registryName": null,
-        "registryVersion": null,
-        "properties": null
+        "runId": "test_pipeline"
     }
 },
 {
-    "auditHeader": null,
-    "proposedSnapshot": {
-        "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
-            "urn": "urn:li:dataset:(urn:li:dataPlatform:postgres,calm-pagoda-323403.jaffle_shop.stg_payments,PROD)",
-            "aspects": [
-                {
-                    "com.linkedin.pegasus2avro.dataset.UpstreamLineage": {
-                        "upstreams": [
-                            {
-                                "auditStamp": {
-                                    "time": 0,
-                                    "actor": "urn:li:corpuser:unknown",
-                                    "impersonator": null
-                                },
-                                "dataset": "urn:li:dataset:(urn:li:dataPlatform:dbt,calm-pagoda-323403.jaffle_shop.stg_payments,PROD)",
-                                "type": "TRANSFORMED"
-                            }
-                        ],
-                        "fineGrainedLineages": null
-                    }
-                }
-            ]
-        }
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:postgres,calm-pagoda-323403.jaffle_shop.stg_payments,PROD)",
+    "changeType": "PATCH",
+    "aspectName": "upstreamLineage",
+    "aspect": {
+        "value": "[{\"op\": \"add\", \"path\": \"/upstreams/urn:li:dataset:(urn:li:dataPlatform:dbt,calm-pagoda-323403.jaffle_shop.stg_payments,PROD)\", \"value\": {\"auditStamp\": {\"time\": 1643871600000, \"actor\": \"urn:li:corpuser:unknown\"}, \"dataset\": \"urn:li:dataset:(urn:li:dataPlatform:dbt,calm-pagoda-323403.jaffle_shop.stg_payments,PROD)\", \"type\": \"TRANSFORMED\"}}]",
+        "contentType": "application/json-patch+json"
     },
-    "proposedDelta": null,
     "systemMetadata": {
         "lastObserved": 1643871600000,
-        "runId": "test_pipeline",
-        "registryName": null,
-        "registryVersion": null,
-        "properties": null
+        "runId": "test_pipeline"
     }
 },
 {
-    "auditHeader": null,
-    "proposedSnapshot": {
-        "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
-            "urn": "urn:li:dataset:(urn:li:dataPlatform:postgres,calm-pagoda-323403.jaffle_shop.stg_orders,PROD)",
-            "aspects": [
-                {
-                    "com.linkedin.pegasus2avro.dataset.UpstreamLineage": {
-                        "upstreams": [
-                            {
-                                "auditStamp": {
-                                    "time": 0,
-                                    "actor": "urn:li:corpuser:unknown",
-                                    "impersonator": null
-                                },
-                                "dataset": "urn:li:dataset:(urn:li:dataPlatform:dbt,calm-pagoda-323403.jaffle_shop.stg_orders,PROD)",
-                                "type": "TRANSFORMED"
-                            }
-                        ],
-                        "fineGrainedLineages": null
-                    }
-                }
-            ]
-        }
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:postgres,calm-pagoda-323403.jaffle_shop.stg_orders,PROD)",
+    "changeType": "PATCH",
+    "aspectName": "upstreamLineage",
+    "aspect": {
+        "value": "[{\"op\": \"add\", \"path\": \"/upstreams/urn:li:dataset:(urn:li:dataPlatform:dbt,calm-pagoda-323403.jaffle_shop.stg_orders,PROD)\", \"value\": {\"auditStamp\": {\"time\": 1643871600000, \"actor\": \"urn:li:corpuser:unknown\"}, \"dataset\": \"urn:li:dataset:(urn:li:dataPlatform:dbt,calm-pagoda-323403.jaffle_shop.stg_orders,PROD)\", \"type\": \"TRANSFORMED\"}}]",
+        "contentType": "application/json-patch+json"
     },
-    "proposedDelta": null,
     "systemMetadata": {
         "lastObserved": 1643871600000,
-        "runId": "test_pipeline",
-        "registryName": null,
-        "registryVersion": null,
-        "properties": null
+        "runId": "test_pipeline"
     }
 },
 {
-    "auditHeader": null,
-    "proposedSnapshot": {
-        "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
-            "urn": "urn:li:dataset:(urn:li:dataPlatform:postgres,calm-pagoda-323403.jaffle_shop.raw_customers,PROD)",
-            "aspects": [
-                {
-                    "com.linkedin.pegasus2avro.dataset.UpstreamLineage": {
-                        "upstreams": [
-                            {
-                                "auditStamp": {
-                                    "time": 0,
-                                    "actor": "urn:li:corpuser:unknown",
-                                    "impersonator": null
-                                },
-                                "dataset": "urn:li:dataset:(urn:li:dataPlatform:dbt,calm-pagoda-323403.jaffle_shop.raw_customers,PROD)",
-                                "type": "TRANSFORMED"
-                            }
-                        ],
-                        "fineGrainedLineages": null
-                    }
-                }
-            ]
-        }
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:postgres,calm-pagoda-323403.jaffle_shop.raw_customers,PROD)",
+    "changeType": "PATCH",
+    "aspectName": "upstreamLineage",
+    "aspect": {
+        "value": "[{\"op\": \"add\", \"path\": \"/upstreams/urn:li:dataset:(urn:li:dataPlatform:dbt,calm-pagoda-323403.jaffle_shop.raw_customers,PROD)\", \"value\": {\"auditStamp\": {\"time\": 1643871600000, \"actor\": \"urn:li:corpuser:unknown\"}, \"dataset\": \"urn:li:dataset:(urn:li:dataPlatform:dbt,calm-pagoda-323403.jaffle_shop.raw_customers,PROD)\", \"type\": \"TRANSFORMED\"}}]",
+        "contentType": "application/json-patch+json"
     },
-    "proposedDelta": null,
     "systemMetadata": {
         "lastObserved": 1643871600000,
-        "runId": "test_pipeline",
-        "registryName": null,
-        "registryVersion": null,
-        "properties": null
+        "runId": "test_pipeline"
     }
 },
 {
-    "auditHeader": null,
-    "proposedSnapshot": {
-        "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
-            "urn": "urn:li:dataset:(urn:li:dataPlatform:postgres,calm-pagoda-323403.jaffle_shop.raw_orders,PROD)",
-            "aspects": [
-                {
-                    "com.linkedin.pegasus2avro.dataset.UpstreamLineage": {
-                        "upstreams": [
-                            {
-                                "auditStamp": {
-                                    "time": 0,
-                                    "actor": "urn:li:corpuser:unknown",
-                                    "impersonator": null
-                                },
-                                "dataset": "urn:li:dataset:(urn:li:dataPlatform:dbt,calm-pagoda-323403.jaffle_shop.raw_orders,PROD)",
-                                "type": "TRANSFORMED"
-                            }
-                        ],
-                        "fineGrainedLineages": null
-                    }
-                }
-            ]
-        }
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:postgres,calm-pagoda-323403.jaffle_shop.raw_orders,PROD)",
+    "changeType": "PATCH",
+    "aspectName": "upstreamLineage",
+    "aspect": {
+        "value": "[{\"op\": \"add\", \"path\": \"/upstreams/urn:li:dataset:(urn:li:dataPlatform:dbt,calm-pagoda-323403.jaffle_shop.raw_orders,PROD)\", \"value\": {\"auditStamp\": {\"time\": 1643871600000, \"actor\": \"urn:li:corpuser:unknown\"}, \"dataset\": \"urn:li:dataset:(urn:li:dataPlatform:dbt,calm-pagoda-323403.jaffle_shop.raw_orders,PROD)\", \"type\": \"TRANSFORMED\"}}]",
+        "contentType": "application/json-patch+json"
     },
-    "proposedDelta": null,
     "systemMetadata": {
         "lastObserved": 1643871600000,
-        "runId": "test_pipeline",
-        "registryName": null,
-        "registryVersion": null,
-        "properties": null
+        "runId": "test_pipeline"
     }
 },
 {
-    "auditHeader": null,
-    "proposedSnapshot": {
-        "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
-            "urn": "urn:li:dataset:(urn:li:dataPlatform:postgres,calm-pagoda-323403.jaffle_shop.raw_payments,PROD)",
-            "aspects": [
-                {
-                    "com.linkedin.pegasus2avro.dataset.UpstreamLineage": {
-                        "upstreams": [
-                            {
-                                "auditStamp": {
-                                    "time": 0,
-                                    "actor": "urn:li:corpuser:unknown",
-                                    "impersonator": null
-                                },
-                                "dataset": "urn:li:dataset:(urn:li:dataPlatform:dbt,calm-pagoda-323403.jaffle_shop.raw_payments,PROD)",
-                                "type": "TRANSFORMED"
-                            }
-                        ],
-                        "fineGrainedLineages": null
-                    }
-                }
-            ]
-        }
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:postgres,calm-pagoda-323403.jaffle_shop.raw_payments,PROD)",
+    "changeType": "PATCH",
+    "aspectName": "upstreamLineage",
+    "aspect": {
+        "value": "[{\"op\": \"add\", \"path\": \"/upstreams/urn:li:dataset:(urn:li:dataPlatform:dbt,calm-pagoda-323403.jaffle_shop.raw_payments,PROD)\", \"value\": {\"auditStamp\": {\"time\": 1643871600000, \"actor\": \"urn:li:corpuser:unknown\"}, \"dataset\": \"urn:li:dataset:(urn:li:dataPlatform:dbt,calm-pagoda-323403.jaffle_shop.raw_payments,PROD)\", \"type\": \"TRANSFORMED\"}}]",
+        "contentType": "application/json-patch+json"
     },
-    "proposedDelta": null,
     "systemMetadata": {
         "lastObserved": 1643871600000,
-        "runId": "test_pipeline",
-        "registryName": null,
-        "registryVersion": null,
-        "properties": null
+        "runId": "test_pipeline"
     }
 },
 {
-    "auditHeader": null,
-    "proposedSnapshot": {
-        "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
-            "urn": "urn:li:dataset:(urn:li:dataPlatform:postgres,calm-pagoda-323403.jaffle_shop.customers,PROD)",
-            "aspects": [
-                {
-                    "com.linkedin.pegasus2avro.dataset.UpstreamLineage": {
-                        "upstreams": [
-                            {
-                                "auditStamp": {
-                                    "time": 0,
-                                    "actor": "urn:li:corpuser:unknown",
-                                    "impersonator": null
-                                },
-                                "dataset": "urn:li:dataset:(urn:li:dataPlatform:dbt,calm-pagoda-323403.jaffle_shop.customers,PROD)",
-                                "type": "TRANSFORMED"
-                            }
-                        ],
-                        "fineGrainedLineages": null
-                    }
-                }
-            ]
-        }
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:postgres,calm-pagoda-323403.jaffle_shop.customers,PROD)",
+    "changeType": "PATCH",
+    "aspectName": "upstreamLineage",
+    "aspect": {
+        "value": "[{\"op\": \"add\", \"path\": \"/upstreams/urn:li:dataset:(urn:li:dataPlatform:dbt,calm-pagoda-323403.jaffle_shop.customers,PROD)\", \"value\": {\"auditStamp\": {\"time\": 1643871600000, \"actor\": \"urn:li:corpuser:unknown\"}, \"dataset\": \"urn:li:dataset:(urn:li:dataPlatform:dbt,calm-pagoda-323403.jaffle_shop.customers,PROD)\", \"type\": \"TRANSFORMED\"}}]",
+        "contentType": "application/json-patch+json"
     },
-    "proposedDelta": null,
     "systemMetadata": {
         "lastObserved": 1643871600000,
-        "runId": "test_pipeline",
-        "registryName": null,
-        "registryVersion": null,
-        "properties": null
+        "runId": "test_pipeline"
     }
 },
 {
-    "auditHeader": null,
-    "proposedSnapshot": {
-        "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
-            "urn": "urn:li:dataset:(urn:li:dataPlatform:postgres,calm-pagoda-323403.jaffle_shop.orders,PROD)",
-            "aspects": [
-                {
-                    "com.linkedin.pegasus2avro.dataset.UpstreamLineage": {
-                        "upstreams": [
-                            {
-                                "auditStamp": {
-                                    "time": 0,
-                                    "actor": "urn:li:corpuser:unknown",
-                                    "impersonator": null
-                                },
-                                "dataset": "urn:li:dataset:(urn:li:dataPlatform:dbt,calm-pagoda-323403.jaffle_shop.orders,PROD)",
-                                "type": "TRANSFORMED"
-                            }
-                        ],
-                        "fineGrainedLineages": null
-                    }
-                }
-            ]
-        }
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:postgres,calm-pagoda-323403.jaffle_shop.orders,PROD)",
+    "changeType": "PATCH",
+    "aspectName": "upstreamLineage",
+    "aspect": {
+        "value": "[{\"op\": \"add\", \"path\": \"/upstreams/urn:li:dataset:(urn:li:dataPlatform:dbt,calm-pagoda-323403.jaffle_shop.orders,PROD)\", \"value\": {\"auditStamp\": {\"time\": 1643871600000, \"actor\": \"urn:li:corpuser:unknown\"}, \"dataset\": \"urn:li:dataset:(urn:li:dataPlatform:dbt,calm-pagoda-323403.jaffle_shop.orders,PROD)\", \"type\": \"TRANSFORMED\"}}]",
+        "contentType": "application/json-patch+json"
     },
-    "proposedDelta": null,
     "systemMetadata": {
         "lastObserved": 1643871600000,
-        "runId": "test_pipeline",
-        "registryName": null,
-        "registryVersion": null,
-        "properties": null
+        "runId": "test_pipeline"
     }
 },
 {
-    "auditHeader": null,
     "entityType": "assertion",
     "entityUrn": "urn:li:assertion:591d8dc8939e0cf9bf0fd03264ad1a0e",
-    "entityKeyAspect": null,
     "changeType": "UPSERT",
     "aspectName": "dataPlatformInstance",
     "aspect": {
@@ -1938,17 +1306,12 @@
     },
     "systemMetadata": {
         "lastObserved": 1643871600000,
-        "runId": "test_pipeline",
-        "registryName": null,
-        "registryVersion": null,
-        "properties": null
+        "runId": "test_pipeline"
     }
 },
 {
-    "auditHeader": null,
     "entityType": "assertion",
     "entityUrn": "urn:li:assertion:591d8dc8939e0cf9bf0fd03264ad1a0e",
-    "entityKeyAspect": null,
     "changeType": "UPSERT",
     "aspectName": "assertionInfo",
     "aspect": {
@@ -1957,17 +1320,12 @@
     },
     "systemMetadata": {
         "lastObserved": 1643871600000,
-        "runId": "test_pipeline",
-        "registryName": null,
-        "registryVersion": null,
-        "properties": null
+        "runId": "test_pipeline"
     }
 },
 {
-    "auditHeader": null,
     "entityType": "assertion",
     "entityUrn": "urn:li:assertion:54bac90e6785bdefd8685ebf8814c429",
-    "entityKeyAspect": null,
     "changeType": "UPSERT",
     "aspectName": "dataPlatformInstance",
     "aspect": {
@@ -1976,17 +1334,12 @@
     },
     "systemMetadata": {
         "lastObserved": 1643871600000,
-        "runId": "test_pipeline",
-        "registryName": null,
-        "registryVersion": null,
-        "properties": null
+        "runId": "test_pipeline"
     }
 },
 {
-    "auditHeader": null,
     "entityType": "assertion",
     "entityUrn": "urn:li:assertion:54bac90e6785bdefd8685ebf8814c429",
-    "entityKeyAspect": null,
     "changeType": "UPSERT",
     "aspectName": "assertionInfo",
     "aspect": {
@@ -1995,17 +1348,12 @@
     },
     "systemMetadata": {
         "lastObserved": 1643871600000,
-        "runId": "test_pipeline",
-        "registryName": null,
-        "registryVersion": null,
-        "properties": null
+        "runId": "test_pipeline"
     }
 },
 {
-    "auditHeader": null,
     "entityType": "assertion",
     "entityUrn": "urn:li:assertion:25ebf4faa9b1654ef54c46d975ca0a81",
-    "entityKeyAspect": null,
     "changeType": "UPSERT",
     "aspectName": "dataPlatformInstance",
     "aspect": {
@@ -2014,17 +1362,12 @@
     },
     "systemMetadata": {
         "lastObserved": 1643871600000,
-        "runId": "test_pipeline",
-        "registryName": null,
-        "registryVersion": null,
-        "properties": null
+        "runId": "test_pipeline"
     }
 },
 {
-    "auditHeader": null,
     "entityType": "assertion",
     "entityUrn": "urn:li:assertion:25ebf4faa9b1654ef54c46d975ca0a81",
-    "entityKeyAspect": null,
     "changeType": "UPSERT",
     "aspectName": "assertionInfo",
     "aspect": {
@@ -2033,17 +1376,12 @@
     },
     "systemMetadata": {
         "lastObserved": 1643871600000,
-        "runId": "test_pipeline",
-        "registryName": null,
-        "registryVersion": null,
-        "properties": null
+        "runId": "test_pipeline"
     }
 },
 {
-    "auditHeader": null,
     "entityType": "assertion",
     "entityUrn": "urn:li:assertion:815963e1332b46a203504ba46ebfab24",
-    "entityKeyAspect": null,
     "changeType": "UPSERT",
     "aspectName": "dataPlatformInstance",
     "aspect": {
@@ -2052,17 +1390,12 @@
     },
     "systemMetadata": {
         "lastObserved": 1643871600000,
-        "runId": "test_pipeline",
-        "registryName": null,
-        "registryVersion": null,
-        "properties": null
+        "runId": "test_pipeline"
     }
 },
 {
-    "auditHeader": null,
     "entityType": "assertion",
     "entityUrn": "urn:li:assertion:815963e1332b46a203504ba46ebfab24",
-    "entityKeyAspect": null,
     "changeType": "UPSERT",
     "aspectName": "assertionInfo",
     "aspect": {
@@ -2071,17 +1404,12 @@
     },
     "systemMetadata": {
         "lastObserved": 1643871600000,
-        "runId": "test_pipeline",
-        "registryName": null,
-        "registryVersion": null,
-        "properties": null
+        "runId": "test_pipeline"
     }
 },
 {
-    "auditHeader": null,
     "entityType": "assertion",
     "entityUrn": "urn:li:assertion:b03abcc447aac70bbebb22a8a9d7dbbe",
-    "entityKeyAspect": null,
     "changeType": "UPSERT",
     "aspectName": "dataPlatformInstance",
     "aspect": {
@@ -2090,17 +1418,12 @@
     },
     "systemMetadata": {
         "lastObserved": 1643871600000,
-        "runId": "test_pipeline",
-        "registryName": null,
-        "registryVersion": null,
-        "properties": null
+        "runId": "test_pipeline"
     }
 },
 {
-    "auditHeader": null,
     "entityType": "assertion",
     "entityUrn": "urn:li:assertion:b03abcc447aac70bbebb22a8a9d7dbbe",
-    "entityKeyAspect": null,
     "changeType": "UPSERT",
     "aspectName": "assertionInfo",
     "aspect": {
@@ -2109,17 +1432,12 @@
     },
     "systemMetadata": {
         "lastObserved": 1643871600000,
-        "runId": "test_pipeline",
-        "registryName": null,
-        "registryVersion": null,
-        "properties": null
+        "runId": "test_pipeline"
     }
 },
 {
-    "auditHeader": null,
     "entityType": "assertion",
     "entityUrn": "urn:li:assertion:da743330013b7e3e3707ac6e526ab408",
-    "entityKeyAspect": null,
     "changeType": "UPSERT",
     "aspectName": "dataPlatformInstance",
     "aspect": {
@@ -2128,17 +1446,12 @@
     },
     "systemMetadata": {
         "lastObserved": 1643871600000,
-        "runId": "test_pipeline",
-        "registryName": null,
-        "registryVersion": null,
-        "properties": null
+        "runId": "test_pipeline"
     }
 },
 {
-    "auditHeader": null,
     "entityType": "assertion",
     "entityUrn": "urn:li:assertion:da743330013b7e3e3707ac6e526ab408",
-    "entityKeyAspect": null,
     "changeType": "UPSERT",
     "aspectName": "assertionInfo",
     "aspect": {
@@ -2147,17 +1460,12 @@
     },
     "systemMetadata": {
         "lastObserved": 1643871600000,
-        "runId": "test_pipeline",
-        "registryName": null,
-        "registryVersion": null,
-        "properties": null
+        "runId": "test_pipeline"
     }
 },
 {
-    "auditHeader": null,
     "entityType": "assertion",
     "entityUrn": "urn:li:assertion:fac27f352406b941125292413afa8096",
-    "entityKeyAspect": null,
     "changeType": "UPSERT",
     "aspectName": "dataPlatformInstance",
     "aspect": {
@@ -2166,17 +1474,12 @@
     },
     "systemMetadata": {
         "lastObserved": 1643871600000,
-        "runId": "test_pipeline",
-        "registryName": null,
-        "registryVersion": null,
-        "properties": null
+        "runId": "test_pipeline"
     }
 },
 {
-    "auditHeader": null,
     "entityType": "assertion",
     "entityUrn": "urn:li:assertion:fac27f352406b941125292413afa8096",
-    "entityKeyAspect": null,
     "changeType": "UPSERT",
     "aspectName": "assertionInfo",
     "aspect": {
@@ -2185,17 +1488,12 @@
     },
     "systemMetadata": {
         "lastObserved": 1643871600000,
-        "runId": "test_pipeline",
-        "registryName": null,
-        "registryVersion": null,
-        "properties": null
+        "runId": "test_pipeline"
     }
 },
 {
-    "auditHeader": null,
     "entityType": "assertion",
     "entityUrn": "urn:li:assertion:c1eebc71f36690e4523adca30314e927",
-    "entityKeyAspect": null,
     "changeType": "UPSERT",
     "aspectName": "dataPlatformInstance",
     "aspect": {
@@ -2204,17 +1502,12 @@
     },
     "systemMetadata": {
         "lastObserved": 1643871600000,
-        "runId": "test_pipeline",
-        "registryName": null,
-        "registryVersion": null,
-        "properties": null
+        "runId": "test_pipeline"
     }
 },
 {
-    "auditHeader": null,
     "entityType": "assertion",
     "entityUrn": "urn:li:assertion:c1eebc71f36690e4523adca30314e927",
-    "entityKeyAspect": null,
     "changeType": "UPSERT",
     "aspectName": "assertionInfo",
     "aspect": {
@@ -2223,17 +1516,12 @@
     },
     "systemMetadata": {
         "lastObserved": 1643871600000,
-        "runId": "test_pipeline",
-        "registryName": null,
-        "registryVersion": null,
-        "properties": null
+        "runId": "test_pipeline"
     }
 },
 {
-    "auditHeader": null,
     "entityType": "assertion",
     "entityUrn": "urn:li:assertion:2887b9c826e0be6296a37833bdc380bd",
-    "entityKeyAspect": null,
     "changeType": "UPSERT",
     "aspectName": "dataPlatformInstance",
     "aspect": {
@@ -2242,17 +1530,12 @@
     },
     "systemMetadata": {
         "lastObserved": 1643871600000,
-        "runId": "test_pipeline",
-        "registryName": null,
-        "registryVersion": null,
-        "properties": null
+        "runId": "test_pipeline"
     }
 },
 {
-    "auditHeader": null,
     "entityType": "assertion",
     "entityUrn": "urn:li:assertion:2887b9c826e0be6296a37833bdc380bd",
-    "entityKeyAspect": null,
     "changeType": "UPSERT",
     "aspectName": "assertionInfo",
     "aspect": {
@@ -2261,17 +1544,12 @@
     },
     "systemMetadata": {
         "lastObserved": 1643871600000,
-        "runId": "test_pipeline",
-        "registryName": null,
-        "registryVersion": null,
-        "properties": null
+        "runId": "test_pipeline"
     }
 },
 {
-    "auditHeader": null,
     "entityType": "assertion",
     "entityUrn": "urn:li:assertion:c51ca9c4b5a1f964bef748f0b8968e71",
-    "entityKeyAspect": null,
     "changeType": "UPSERT",
     "aspectName": "dataPlatformInstance",
     "aspect": {
@@ -2280,17 +1558,12 @@
     },
     "systemMetadata": {
         "lastObserved": 1643871600000,
-        "runId": "test_pipeline",
-        "registryName": null,
-        "registryVersion": null,
-        "properties": null
+        "runId": "test_pipeline"
     }
 },
 {
-    "auditHeader": null,
     "entityType": "assertion",
     "entityUrn": "urn:li:assertion:c51ca9c4b5a1f964bef748f0b8968e71",
-    "entityKeyAspect": null,
     "changeType": "UPSERT",
     "aspectName": "assertionInfo",
     "aspect": {
@@ -2299,17 +1572,12 @@
     },
     "systemMetadata": {
         "lastObserved": 1643871600000,
-        "runId": "test_pipeline",
-        "registryName": null,
-        "registryVersion": null,
-        "properties": null
+        "runId": "test_pipeline"
     }
 },
 {
-    "auditHeader": null,
     "entityType": "assertion",
     "entityUrn": "urn:li:assertion:44519aa345bf3ea896179f9f352ae946",
-    "entityKeyAspect": null,
     "changeType": "UPSERT",
     "aspectName": "dataPlatformInstance",
     "aspect": {
@@ -2318,17 +1586,12 @@
     },
     "systemMetadata": {
         "lastObserved": 1643871600000,
-        "runId": "test_pipeline",
-        "registryName": null,
-        "registryVersion": null,
-        "properties": null
+        "runId": "test_pipeline"
     }
 },
 {
-    "auditHeader": null,
     "entityType": "assertion",
     "entityUrn": "urn:li:assertion:44519aa345bf3ea896179f9f352ae946",
-    "entityKeyAspect": null,
     "changeType": "UPSERT",
     "aspectName": "assertionInfo",
     "aspect": {
@@ -2337,17 +1600,12 @@
     },
     "systemMetadata": {
         "lastObserved": 1643871600000,
-        "runId": "test_pipeline",
-        "registryName": null,
-        "registryVersion": null,
-        "properties": null
+        "runId": "test_pipeline"
     }
 },
 {
-    "auditHeader": null,
     "entityType": "assertion",
     "entityUrn": "urn:li:assertion:2ff754df689ea951ed2e12cbe356708f",
-    "entityKeyAspect": null,
     "changeType": "UPSERT",
     "aspectName": "dataPlatformInstance",
     "aspect": {
@@ -2356,17 +1614,12 @@
     },
     "systemMetadata": {
         "lastObserved": 1643871600000,
-        "runId": "test_pipeline",
-        "registryName": null,
-        "registryVersion": null,
-        "properties": null
+        "runId": "test_pipeline"
     }
 },
 {
-    "auditHeader": null,
     "entityType": "assertion",
     "entityUrn": "urn:li:assertion:2ff754df689ea951ed2e12cbe356708f",
-    "entityKeyAspect": null,
     "changeType": "UPSERT",
     "aspectName": "assertionInfo",
     "aspect": {
@@ -2375,17 +1628,12 @@
     },
     "systemMetadata": {
         "lastObserved": 1643871600000,
-        "runId": "test_pipeline",
-        "registryName": null,
-        "registryVersion": null,
-        "properties": null
+        "runId": "test_pipeline"
     }
 },
 {
-    "auditHeader": null,
     "entityType": "assertion",
     "entityUrn": "urn:li:assertion:bf7fd2b46d2c32ee9bb036acd1559782",
-    "entityKeyAspect": null,
     "changeType": "UPSERT",
     "aspectName": "dataPlatformInstance",
     "aspect": {
@@ -2394,17 +1642,12 @@
     },
     "systemMetadata": {
         "lastObserved": 1643871600000,
-        "runId": "test_pipeline",
-        "registryName": null,
-        "registryVersion": null,
-        "properties": null
+        "runId": "test_pipeline"
     }
 },
 {
-    "auditHeader": null,
     "entityType": "assertion",
     "entityUrn": "urn:li:assertion:bf7fd2b46d2c32ee9bb036acd1559782",
-    "entityKeyAspect": null,
     "changeType": "UPSERT",
     "aspectName": "assertionInfo",
     "aspect": {
@@ -2413,17 +1656,12 @@
     },
     "systemMetadata": {
         "lastObserved": 1643871600000,
-        "runId": "test_pipeline",
-        "registryName": null,
-        "registryVersion": null,
-        "properties": null
+        "runId": "test_pipeline"
     }
 },
 {
-    "auditHeader": null,
     "entityType": "assertion",
     "entityUrn": "urn:li:assertion:caa9b8060e214cecab88a92dc39c2e60",
-    "entityKeyAspect": null,
     "changeType": "UPSERT",
     "aspectName": "dataPlatformInstance",
     "aspect": {
@@ -2432,17 +1670,12 @@
     },
     "systemMetadata": {
         "lastObserved": 1643871600000,
-        "runId": "test_pipeline",
-        "registryName": null,
-        "registryVersion": null,
-        "properties": null
+        "runId": "test_pipeline"
     }
 },
 {
-    "auditHeader": null,
     "entityType": "assertion",
     "entityUrn": "urn:li:assertion:caa9b8060e214cecab88a92dc39c2e60",
-    "entityKeyAspect": null,
     "changeType": "UPSERT",
     "aspectName": "assertionInfo",
     "aspect": {
@@ -2451,17 +1684,12 @@
     },
     "systemMetadata": {
         "lastObserved": 1643871600000,
-        "runId": "test_pipeline",
-        "registryName": null,
-        "registryVersion": null,
-        "properties": null
+        "runId": "test_pipeline"
     }
 },
 {
-    "auditHeader": null,
     "entityType": "assertion",
     "entityUrn": "urn:li:assertion:2e9117138dcc9facda66f1efd55a8cd7",
-    "entityKeyAspect": null,
     "changeType": "UPSERT",
     "aspectName": "dataPlatformInstance",
     "aspect": {
@@ -2470,17 +1698,12 @@
     },
     "systemMetadata": {
         "lastObserved": 1643871600000,
-        "runId": "test_pipeline",
-        "registryName": null,
-        "registryVersion": null,
-        "properties": null
+        "runId": "test_pipeline"
     }
 },
 {
-    "auditHeader": null,
     "entityType": "assertion",
     "entityUrn": "urn:li:assertion:2e9117138dcc9facda66f1efd55a8cd7",
-    "entityKeyAspect": null,
     "changeType": "UPSERT",
     "aspectName": "assertionInfo",
     "aspect": {
@@ -2489,17 +1712,12 @@
     },
     "systemMetadata": {
         "lastObserved": 1643871600000,
-        "runId": "test_pipeline",
-        "registryName": null,
-        "registryVersion": null,
-        "properties": null
+        "runId": "test_pipeline"
     }
 },
 {
-    "auditHeader": null,
     "entityType": "assertion",
     "entityUrn": "urn:li:assertion:11087a3d7ae178df22c42922ac8ef8ad",
-    "entityKeyAspect": null,
     "changeType": "UPSERT",
     "aspectName": "dataPlatformInstance",
     "aspect": {
@@ -2508,17 +1726,12 @@
     },
     "systemMetadata": {
         "lastObserved": 1643871600000,
-        "runId": "test_pipeline",
-        "registryName": null,
-        "registryVersion": null,
-        "properties": null
+        "runId": "test_pipeline"
     }
 },
 {
-    "auditHeader": null,
     "entityType": "assertion",
     "entityUrn": "urn:li:assertion:11087a3d7ae178df22c42922ac8ef8ad",
-    "entityKeyAspect": null,
     "changeType": "UPSERT",
     "aspectName": "assertionInfo",
     "aspect": {
@@ -2527,17 +1740,12 @@
     },
     "systemMetadata": {
         "lastObserved": 1643871600000,
-        "runId": "test_pipeline",
-        "registryName": null,
-        "registryVersion": null,
-        "properties": null
+        "runId": "test_pipeline"
     }
 },
 {
-    "auditHeader": null,
     "entityType": "assertion",
     "entityUrn": "urn:li:assertion:b210dbd31c2ee4efc0c24a9e4cf125ef",
-    "entityKeyAspect": null,
     "changeType": "UPSERT",
     "aspectName": "dataPlatformInstance",
     "aspect": {
@@ -2546,17 +1754,12 @@
     },
     "systemMetadata": {
         "lastObserved": 1643871600000,
-        "runId": "test_pipeline",
-        "registryName": null,
-        "registryVersion": null,
-        "properties": null
+        "runId": "test_pipeline"
     }
 },
 {
-    "auditHeader": null,
     "entityType": "assertion",
     "entityUrn": "urn:li:assertion:b210dbd31c2ee4efc0c24a9e4cf125ef",
-    "entityKeyAspect": null,
     "changeType": "UPSERT",
     "aspectName": "assertionInfo",
     "aspect": {
@@ -2565,17 +1768,12 @@
     },
     "systemMetadata": {
         "lastObserved": 1643871600000,
-        "runId": "test_pipeline",
-        "registryName": null,
-        "registryVersion": null,
-        "properties": null
+        "runId": "test_pipeline"
     }
 },
 {
-    "auditHeader": null,
     "entityType": "assertion",
     "entityUrn": "urn:li:assertion:b210dbd31c2ee4efc0c24a9e4cf125ef",
-    "entityKeyAspect": null,
     "changeType": "UPSERT",
     "aspectName": "assertionInfo",
     "aspect": {
@@ -2584,17 +1782,12 @@
     },
     "systemMetadata": {
         "lastObserved": 1643871600000,
-        "runId": "test_pipeline",
-        "registryName": null,
-        "registryVersion": null,
-        "properties": null
+        "runId": "test_pipeline"
     }
 },
 {
-    "auditHeader": null,
     "entityType": "assertion",
     "entityUrn": "urn:li:assertion:b052a324c05327985f3b579a19ad7579",
-    "entityKeyAspect": null,
     "changeType": "UPSERT",
     "aspectName": "dataPlatformInstance",
     "aspect": {
@@ -2603,17 +1796,12 @@
     },
     "systemMetadata": {
         "lastObserved": 1643871600000,
-        "runId": "test_pipeline",
-        "registryName": null,
-        "registryVersion": null,
-        "properties": null
+        "runId": "test_pipeline"
     }
 },
 {
-    "auditHeader": null,
     "entityType": "assertion",
     "entityUrn": "urn:li:assertion:b052a324c05327985f3b579a19ad7579",
-    "entityKeyAspect": null,
     "changeType": "UPSERT",
     "aspectName": "assertionInfo",
     "aspect": {
@@ -2622,17 +1810,12 @@
     },
     "systemMetadata": {
         "lastObserved": 1643871600000,
-        "runId": "test_pipeline",
-        "registryName": null,
-        "registryVersion": null,
-        "properties": null
+        "runId": "test_pipeline"
     }
 },
 {
-    "auditHeader": null,
     "entityType": "assertion",
     "entityUrn": "urn:li:assertion:bbd78a070092f54313153abec49f6f31",
-    "entityKeyAspect": null,
     "changeType": "UPSERT",
     "aspectName": "dataPlatformInstance",
     "aspect": {
@@ -2641,17 +1824,12 @@
     },
     "systemMetadata": {
         "lastObserved": 1643871600000,
-        "runId": "test_pipeline",
-        "registryName": null,
-        "registryVersion": null,
-        "properties": null
+        "runId": "test_pipeline"
     }
 },
 {
-    "auditHeader": null,
     "entityType": "assertion",
     "entityUrn": "urn:li:assertion:bbd78a070092f54313153abec49f6f31",
-    "entityKeyAspect": null,
     "changeType": "UPSERT",
     "aspectName": "assertionInfo",
     "aspect": {
@@ -2660,17 +1838,12 @@
     },
     "systemMetadata": {
         "lastObserved": 1643871600000,
-        "runId": "test_pipeline",
-        "registryName": null,
-        "registryVersion": null,
-        "properties": null
+        "runId": "test_pipeline"
     }
 },
 {
-    "auditHeader": null,
     "entityType": "assertion",
     "entityUrn": "urn:li:assertion:7a305acc5fc049dc9bbd141b814461d0",
-    "entityKeyAspect": null,
     "changeType": "UPSERT",
     "aspectName": "dataPlatformInstance",
     "aspect": {
@@ -2679,17 +1852,12 @@
     },
     "systemMetadata": {
         "lastObserved": 1643871600000,
-        "runId": "test_pipeline",
-        "registryName": null,
-        "registryVersion": null,
-        "properties": null
+        "runId": "test_pipeline"
     }
 },
 {
-    "auditHeader": null,
     "entityType": "assertion",
     "entityUrn": "urn:li:assertion:7a305acc5fc049dc9bbd141b814461d0",
-    "entityKeyAspect": null,
     "changeType": "UPSERT",
     "aspectName": "assertionInfo",
     "aspect": {
@@ -2698,17 +1866,12 @@
     },
     "systemMetadata": {
         "lastObserved": 1643871600000,
-        "runId": "test_pipeline",
-        "registryName": null,
-        "registryVersion": null,
-        "properties": null
+        "runId": "test_pipeline"
     }
 },
 {
-    "auditHeader": null,
     "entityType": "assertion",
     "entityUrn": "urn:li:assertion:1c217b7587a0cad47a07a09bfe154055",
-    "entityKeyAspect": null,
     "changeType": "UPSERT",
     "aspectName": "dataPlatformInstance",
     "aspect": {
@@ -2717,17 +1880,12 @@
     },
     "systemMetadata": {
         "lastObserved": 1643871600000,
-        "runId": "test_pipeline",
-        "registryName": null,
-        "registryVersion": null,
-        "properties": null
+        "runId": "test_pipeline"
     }
 },
 {
-    "auditHeader": null,
     "entityType": "assertion",
     "entityUrn": "urn:li:assertion:1c217b7587a0cad47a07a09bfe154055",
-    "entityKeyAspect": null,
     "changeType": "UPSERT",
     "aspectName": "assertionInfo",
     "aspect": {
@@ -2736,17 +1894,12 @@
     },
     "systemMetadata": {
         "lastObserved": 1643871600000,
-        "runId": "test_pipeline",
-        "registryName": null,
-        "registryVersion": null,
-        "properties": null
+        "runId": "test_pipeline"
     }
 },
 {
-    "auditHeader": null,
     "entityType": "assertion",
     "entityUrn": "urn:li:assertion:ca065a99637630468f688717590beeab",
-    "entityKeyAspect": null,
     "changeType": "UPSERT",
     "aspectName": "dataPlatformInstance",
     "aspect": {
@@ -2755,17 +1908,12 @@
     },
     "systemMetadata": {
         "lastObserved": 1643871600000,
-        "runId": "test_pipeline",
-        "registryName": null,
-        "registryVersion": null,
-        "properties": null
+        "runId": "test_pipeline"
     }
 },
 {
-    "auditHeader": null,
     "entityType": "assertion",
     "entityUrn": "urn:li:assertion:ca065a99637630468f688717590beeab",
-    "entityKeyAspect": null,
     "changeType": "UPSERT",
     "aspectName": "assertionInfo",
     "aspect": {
@@ -2774,17 +1922,12 @@
     },
     "systemMetadata": {
         "lastObserved": 1643871600000,
-        "runId": "test_pipeline",
-        "registryName": null,
-        "registryVersion": null,
-        "properties": null
+        "runId": "test_pipeline"
     }
 },
 {
-    "auditHeader": null,
     "entityType": "assertion",
     "entityUrn": "urn:li:assertion:52d06197762e3608d94609e96f03a0a7",
-    "entityKeyAspect": null,
     "changeType": "UPSERT",
     "aspectName": "dataPlatformInstance",
     "aspect": {
@@ -2793,17 +1936,12 @@
     },
     "systemMetadata": {
         "lastObserved": 1643871600000,
-        "runId": "test_pipeline",
-        "registryName": null,
-        "registryVersion": null,
-        "properties": null
+        "runId": "test_pipeline"
     }
 },
 {
-    "auditHeader": null,
     "entityType": "assertion",
     "entityUrn": "urn:li:assertion:52d06197762e3608d94609e96f03a0a7",
-    "entityKeyAspect": null,
     "changeType": "UPSERT",
     "aspectName": "assertionInfo",
     "aspect": {
@@ -2812,17 +1950,12 @@
     },
     "systemMetadata": {
         "lastObserved": 1643871600000,
-        "runId": "test_pipeline",
-        "registryName": null,
-        "registryVersion": null,
-        "properties": null
+        "runId": "test_pipeline"
     }
 },
 {
-    "auditHeader": null,
     "entityType": "assertion",
     "entityUrn": "urn:li:assertion:b301bb47cc4ebce4e78a194b3de11f25",
-    "entityKeyAspect": null,
     "changeType": "UPSERT",
     "aspectName": "dataPlatformInstance",
     "aspect": {
@@ -2831,17 +1964,12 @@
     },
     "systemMetadata": {
         "lastObserved": 1643871600000,
-        "runId": "test_pipeline",
-        "registryName": null,
-        "registryVersion": null,
-        "properties": null
+        "runId": "test_pipeline"
     }
 },
 {
-    "auditHeader": null,
     "entityType": "assertion",
     "entityUrn": "urn:li:assertion:b301bb47cc4ebce4e78a194b3de11f25",
-    "entityKeyAspect": null,
     "changeType": "UPSERT",
     "aspectName": "assertionInfo",
     "aspect": {
@@ -2850,17 +1978,12 @@
     },
     "systemMetadata": {
         "lastObserved": 1643871600000,
-        "runId": "test_pipeline",
-        "registryName": null,
-        "registryVersion": null,
-        "properties": null
+        "runId": "test_pipeline"
     }
 },
 {
-    "auditHeader": null,
     "entityType": "assertion",
     "entityUrn": "urn:li:assertion:da743330013b7e3e3707ac6e526ab408",
-    "entityKeyAspect": null,
     "changeType": "UPSERT",
     "aspectName": "assertionRunEvent",
     "aspect": {
@@ -2869,17 +1992,12 @@
     },
     "systemMetadata": {
         "lastObserved": 1643871600000,
-        "runId": "test_pipeline",
-        "registryName": null,
-        "registryVersion": null,
-        "properties": null
+        "runId": "test_pipeline"
     }
 },
 {
-    "auditHeader": null,
     "entityType": "assertion",
     "entityUrn": "urn:li:assertion:591d8dc8939e0cf9bf0fd03264ad1a0e",
-    "entityKeyAspect": null,
     "changeType": "UPSERT",
     "aspectName": "assertionRunEvent",
     "aspect": {
@@ -2888,17 +2006,12 @@
     },
     "systemMetadata": {
         "lastObserved": 1643871600000,
-        "runId": "test_pipeline",
-        "registryName": null,
-        "registryVersion": null,
-        "properties": null
+        "runId": "test_pipeline"
     }
 },
 {
-    "auditHeader": null,
     "entityType": "assertion",
     "entityUrn": "urn:li:assertion:2887b9c826e0be6296a37833bdc380bd",
-    "entityKeyAspect": null,
     "changeType": "UPSERT",
     "aspectName": "assertionRunEvent",
     "aspect": {
@@ -2907,17 +2020,12 @@
     },
     "systemMetadata": {
         "lastObserved": 1643871600000,
-        "runId": "test_pipeline",
-        "registryName": null,
-        "registryVersion": null,
-        "properties": null
+        "runId": "test_pipeline"
     }
 },
 {
-    "auditHeader": null,
     "entityType": "assertion",
     "entityUrn": "urn:li:assertion:b052a324c05327985f3b579a19ad7579",
-    "entityKeyAspect": null,
     "changeType": "UPSERT",
     "aspectName": "assertionRunEvent",
     "aspect": {
@@ -2926,17 +2034,12 @@
     },
     "systemMetadata": {
         "lastObserved": 1643871600000,
-        "runId": "test_pipeline",
-        "registryName": null,
-        "registryVersion": null,
-        "properties": null
+        "runId": "test_pipeline"
     }
 },
 {
-    "auditHeader": null,
     "entityType": "assertion",
     "entityUrn": "urn:li:assertion:bf7fd2b46d2c32ee9bb036acd1559782",
-    "entityKeyAspect": null,
     "changeType": "UPSERT",
     "aspectName": "assertionRunEvent",
     "aspect": {
@@ -2945,17 +2048,12 @@
     },
     "systemMetadata": {
         "lastObserved": 1643871600000,
-        "runId": "test_pipeline",
-        "registryName": null,
-        "registryVersion": null,
-        "properties": null
+        "runId": "test_pipeline"
     }
 },
 {
-    "auditHeader": null,
     "entityType": "assertion",
     "entityUrn": "urn:li:assertion:44519aa345bf3ea896179f9f352ae946",
-    "entityKeyAspect": null,
     "changeType": "UPSERT",
     "aspectName": "assertionRunEvent",
     "aspect": {
@@ -2964,17 +2062,12 @@
     },
     "systemMetadata": {
         "lastObserved": 1643871600000,
-        "runId": "test_pipeline",
-        "registryName": null,
-        "registryVersion": null,
-        "properties": null
+        "runId": "test_pipeline"
     }
 },
 {
-    "auditHeader": null,
     "entityType": "assertion",
     "entityUrn": "urn:li:assertion:1c217b7587a0cad47a07a09bfe154055",
-    "entityKeyAspect": null,
     "changeType": "UPSERT",
     "aspectName": "assertionRunEvent",
     "aspect": {
@@ -2983,17 +2076,12 @@
     },
     "systemMetadata": {
         "lastObserved": 1643871600000,
-        "runId": "test_pipeline",
-        "registryName": null,
-        "registryVersion": null,
-        "properties": null
+        "runId": "test_pipeline"
     }
 },
 {
-    "auditHeader": null,
     "entityType": "assertion",
     "entityUrn": "urn:li:assertion:bbd78a070092f54313153abec49f6f31",
-    "entityKeyAspect": null,
     "changeType": "UPSERT",
     "aspectName": "assertionRunEvent",
     "aspect": {
@@ -3002,17 +2090,12 @@
     },
     "systemMetadata": {
         "lastObserved": 1643871600000,
-        "runId": "test_pipeline",
-        "registryName": null,
-        "registryVersion": null,
-        "properties": null
+        "runId": "test_pipeline"
     }
 },
 {
-    "auditHeader": null,
     "entityType": "assertion",
     "entityUrn": "urn:li:assertion:ca065a99637630468f688717590beeab",
-    "entityKeyAspect": null,
     "changeType": "UPSERT",
     "aspectName": "assertionRunEvent",
     "aspect": {
@@ -3021,17 +2104,12 @@
     },
     "systemMetadata": {
         "lastObserved": 1643871600000,
-        "runId": "test_pipeline",
-        "registryName": null,
-        "registryVersion": null,
-        "properties": null
+        "runId": "test_pipeline"
     }
 },
 {
-    "auditHeader": null,
     "entityType": "assertion",
     "entityUrn": "urn:li:assertion:52d06197762e3608d94609e96f03a0a7",
-    "entityKeyAspect": null,
     "changeType": "UPSERT",
     "aspectName": "assertionRunEvent",
     "aspect": {
@@ -3040,17 +2118,12 @@
     },
     "systemMetadata": {
         "lastObserved": 1643871600000,
-        "runId": "test_pipeline",
-        "registryName": null,
-        "registryVersion": null,
-        "properties": null
+        "runId": "test_pipeline"
     }
 },
 {
-    "auditHeader": null,
     "entityType": "assertion",
     "entityUrn": "urn:li:assertion:7a305acc5fc049dc9bbd141b814461d0",
-    "entityKeyAspect": null,
     "changeType": "UPSERT",
     "aspectName": "assertionRunEvent",
     "aspect": {
@@ -3059,17 +2132,12 @@
     },
     "systemMetadata": {
         "lastObserved": 1643871600000,
-        "runId": "test_pipeline",
-        "registryName": null,
-        "registryVersion": null,
-        "properties": null
+        "runId": "test_pipeline"
     }
 },
 {
-    "auditHeader": null,
     "entityType": "assertion",
     "entityUrn": "urn:li:assertion:11087a3d7ae178df22c42922ac8ef8ad",
-    "entityKeyAspect": null,
     "changeType": "UPSERT",
     "aspectName": "assertionRunEvent",
     "aspect": {
@@ -3078,17 +2146,12 @@
     },
     "systemMetadata": {
         "lastObserved": 1643871600000,
-        "runId": "test_pipeline",
-        "registryName": null,
-        "registryVersion": null,
-        "properties": null
+        "runId": "test_pipeline"
     }
 },
 {
-    "auditHeader": null,
     "entityType": "assertion",
     "entityUrn": "urn:li:assertion:b301bb47cc4ebce4e78a194b3de11f25",
-    "entityKeyAspect": null,
     "changeType": "UPSERT",
     "aspectName": "assertionRunEvent",
     "aspect": {
@@ -3097,17 +2160,12 @@
     },
     "systemMetadata": {
         "lastObserved": 1643871600000,
-        "runId": "test_pipeline",
-        "registryName": null,
-        "registryVersion": null,
-        "properties": null
+        "runId": "test_pipeline"
     }
 },
 {
-    "auditHeader": null,
     "entityType": "assertion",
     "entityUrn": "urn:li:assertion:2e9117138dcc9facda66f1efd55a8cd7",
-    "entityKeyAspect": null,
     "changeType": "UPSERT",
     "aspectName": "assertionRunEvent",
     "aspect": {
@@ -3116,17 +2174,12 @@
     },
     "systemMetadata": {
         "lastObserved": 1643871600000,
-        "runId": "test_pipeline",
-        "registryName": null,
-        "registryVersion": null,
-        "properties": null
+        "runId": "test_pipeline"
     }
 },
 {
-    "auditHeader": null,
     "entityType": "assertion",
     "entityUrn": "urn:li:assertion:25ebf4faa9b1654ef54c46d975ca0a81",
-    "entityKeyAspect": null,
     "changeType": "UPSERT",
     "aspectName": "assertionRunEvent",
     "aspect": {
@@ -3135,17 +2188,12 @@
     },
     "systemMetadata": {
         "lastObserved": 1643871600000,
-        "runId": "test_pipeline",
-        "registryName": null,
-        "registryVersion": null,
-        "properties": null
+        "runId": "test_pipeline"
     }
 },
 {
-    "auditHeader": null,
     "entityType": "assertion",
     "entityUrn": "urn:li:assertion:b03abcc447aac70bbebb22a8a9d7dbbe",
-    "entityKeyAspect": null,
     "changeType": "UPSERT",
     "aspectName": "assertionRunEvent",
     "aspect": {
@@ -3154,17 +2202,12 @@
     },
     "systemMetadata": {
         "lastObserved": 1643871600000,
-        "runId": "test_pipeline",
-        "registryName": null,
-        "registryVersion": null,
-        "properties": null
+        "runId": "test_pipeline"
     }
 },
 {
-    "auditHeader": null,
     "entityType": "assertion",
     "entityUrn": "urn:li:assertion:c1eebc71f36690e4523adca30314e927",
-    "entityKeyAspect": null,
     "changeType": "UPSERT",
     "aspectName": "assertionRunEvent",
     "aspect": {
@@ -3173,17 +2216,12 @@
     },
     "systemMetadata": {
         "lastObserved": 1643871600000,
-        "runId": "test_pipeline",
-        "registryName": null,
-        "registryVersion": null,
-        "properties": null
+        "runId": "test_pipeline"
     }
 },
 {
-    "auditHeader": null,
     "entityType": "assertion",
     "entityUrn": "urn:li:assertion:b210dbd31c2ee4efc0c24a9e4cf125ef",
-    "entityKeyAspect": null,
     "changeType": "UPSERT",
     "aspectName": "assertionRunEvent",
     "aspect": {
@@ -3192,17 +2230,12 @@
     },
     "systemMetadata": {
         "lastObserved": 1643871600000,
-        "runId": "test_pipeline",
-        "registryName": null,
-        "registryVersion": null,
-        "properties": null
+        "runId": "test_pipeline"
     }
 },
 {
-    "auditHeader": null,
     "entityType": "assertion",
     "entityUrn": "urn:li:assertion:b210dbd31c2ee4efc0c24a9e4cf125ef",
-    "entityKeyAspect": null,
     "changeType": "UPSERT",
     "aspectName": "assertionRunEvent",
     "aspect": {
@@ -3211,17 +2244,12 @@
     },
     "systemMetadata": {
         "lastObserved": 1643871600000,
-        "runId": "test_pipeline",
-        "registryName": null,
-        "registryVersion": null,
-        "properties": null
+        "runId": "test_pipeline"
     }
 },
 {
-    "auditHeader": null,
     "entityType": "assertion",
     "entityUrn": "urn:li:assertion:c51ca9c4b5a1f964bef748f0b8968e71",
-    "entityKeyAspect": null,
     "changeType": "UPSERT",
     "aspectName": "assertionRunEvent",
     "aspect": {
@@ -3230,17 +2258,12 @@
     },
     "systemMetadata": {
         "lastObserved": 1643871600000,
-        "runId": "test_pipeline",
-        "registryName": null,
-        "registryVersion": null,
-        "properties": null
+        "runId": "test_pipeline"
     }
 },
 {
-    "auditHeader": null,
     "entityType": "assertion",
     "entityUrn": "urn:li:assertion:caa9b8060e214cecab88a92dc39c2e60",
-    "entityKeyAspect": null,
     "changeType": "UPSERT",
     "aspectName": "assertionRunEvent",
     "aspect": {
@@ -3249,17 +2272,12 @@
     },
     "systemMetadata": {
         "lastObserved": 1643871600000,
-        "runId": "test_pipeline",
-        "registryName": null,
-        "registryVersion": null,
-        "properties": null
+        "runId": "test_pipeline"
     }
 },
 {
-    "auditHeader": null,
     "entityType": "assertion",
     "entityUrn": "urn:li:assertion:54bac90e6785bdefd8685ebf8814c429",
-    "entityKeyAspect": null,
     "changeType": "UPSERT",
     "aspectName": "assertionRunEvent",
     "aspect": {
@@ -3268,17 +2286,12 @@
     },
     "systemMetadata": {
         "lastObserved": 1643871600000,
-        "runId": "test_pipeline",
-        "registryName": null,
-        "registryVersion": null,
-        "properties": null
+        "runId": "test_pipeline"
     }
 },
 {
-    "auditHeader": null,
     "entityType": "assertion",
     "entityUrn": "urn:li:assertion:815963e1332b46a203504ba46ebfab24",
-    "entityKeyAspect": null,
     "changeType": "UPSERT",
     "aspectName": "assertionRunEvent",
     "aspect": {
@@ -3287,17 +2300,12 @@
     },
     "systemMetadata": {
         "lastObserved": 1643871600000,
-        "runId": "test_pipeline",
-        "registryName": null,
-        "registryVersion": null,
-        "properties": null
+        "runId": "test_pipeline"
     }
 },
 {
-    "auditHeader": null,
     "entityType": "assertion",
     "entityUrn": "urn:li:assertion:fac27f352406b941125292413afa8096",
-    "entityKeyAspect": null,
     "changeType": "UPSERT",
     "aspectName": "assertionRunEvent",
     "aspect": {
@@ -3306,10 +2314,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1643871600000,
-        "runId": "test_pipeline",
-        "registryName": null,
-        "registryVersion": null,
-        "properties": null
+        "runId": "test_pipeline"
     }
 }
 ]

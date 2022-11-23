@@ -104,7 +104,7 @@ export const SearchResultList = ({
                                 description={`No results found for "${query}"`}
                             />
                             <Button onClick={() => navigateToSearchUrl({ query: '*', page: 0, history })}>
-                                <RocketOutlined /> Explore your metadata
+                                <RocketOutlined /> Explore all
                             </Button>
                         </NoDataContainer>
                     ),

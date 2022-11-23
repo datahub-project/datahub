@@ -332,6 +332,3 @@ class FeastSource(Source):
 
     def get_report(self) -> FeastSourceReport:
         return self.report
-
-    def close(self):
-        return

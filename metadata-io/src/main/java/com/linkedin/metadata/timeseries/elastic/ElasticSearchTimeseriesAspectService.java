@@ -15,6 +15,7 @@ import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.query.filter.Condition;
 import com.linkedin.metadata.query.filter.Criterion;
 import com.linkedin.metadata.query.filter.Filter;
+import com.linkedin.metadata.search.elasticsearch.update.ESBulkProcessor;
 import com.linkedin.metadata.search.utils.ESUtils;
 import com.linkedin.metadata.search.utils.QueryUtils;
 import com.linkedin.metadata.timeseries.TimeseriesAspectService;
@@ -29,16 +30,15 @@ import com.linkedin.timeseries.AggregationSpec;
 import com.linkedin.timeseries.DeleteAspectValuesResult;
 import com.linkedin.timeseries.GenericTable;
 import com.linkedin.timeseries.GroupingBucket;
-import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import lombok.extern.slf4j.Slf4j;
-import org.elasticsearch.action.bulk.BulkProcessor;
 import org.elasticsearch.action.index.IndexRequest;
 import org.elasticsearch.action.search.SearchRequest;
 import org.elasticsearch.action.search.SearchResponse;
@@ -49,8 +49,6 @@ import org.elasticsearch.common.unit.TimeValue;
 import org.elasticsearch.common.xcontent.XContentType;
 import org.elasticsearch.index.query.BoolQueryBuilder;
 import org.elasticsearch.index.query.QueryBuilders;
-import org.elasticsearch.index.reindex.BulkByScrollResponse;
-import org.elasticsearch.index.reindex.DeleteByQueryRequest;
 import org.elasticsearch.search.SearchHit;
 import org.elasticsearch.search.SearchHits;
 import org.elasticsearch.search.builder.SearchSourceBuilder;
@@ -66,7 +64,8 @@ public class ElasticSearchTimeseriesAspectService implements TimeseriesAspectSer
   private static final Integer DEFAULT_LIMIT = 10000;
 
   private final IndexConvention _indexConvention;
-  private final BulkProcessor _bulkProcessor;
+  private final ESBulkProcessor _bulkProcessor;
+  private final int _numRetries;
   private final TimeseriesAspectIndexBuilders _indexBuilders;
   private final RestHighLevelClient _searchClient;
   private final ESAggregatedStatsDAO _esAggregatedStatsDAO;
@@ -74,12 +73,13 @@ public class ElasticSearchTimeseriesAspectService implements TimeseriesAspectSer
 
   public ElasticSearchTimeseriesAspectService(@Nonnull RestHighLevelClient searchClient,
       @Nonnull IndexConvention indexConvention, @Nonnull TimeseriesAspectIndexBuilders indexBuilders,
-      @Nonnull EntityRegistry entityRegistry, @Nonnull BulkProcessor bulkProcessor) {
+      @Nonnull EntityRegistry entityRegistry, @Nonnull ESBulkProcessor bulkProcessor, int numRetries) {
     _indexConvention = indexConvention;
     _indexBuilders = indexBuilders;
     _searchClient = searchClient;
     _bulkProcessor = bulkProcessor;
     _entityRegistry = entityRegistry;
+    _numRetries = numRetries;
 
     _esAggregatedStatsDAO = new ESAggregatedStatsDAO(indexConvention, searchClient, entityRegistry);
   }
@@ -122,8 +122,9 @@ public class ElasticSearchTimeseriesAspectService implements TimeseriesAspectSer
     final IndexRequest indexRequest =
         new IndexRequest(indexName).id(docId).source(document.toString(), XContentType.JSON);
     final UpdateRequest updateRequest = new UpdateRequest(indexName, docId).doc(document.toString(), XContentType.JSON)
-        .detectNoop(false)
-        .upsert(indexRequest);
+            .detectNoop(false)
+            .retryOnConflict(_numRetries)
+            .upsert(indexRequest);
     _bulkProcessor.add(updateRequest);
   }
 
@@ -202,16 +203,16 @@ public class ElasticSearchTimeseriesAspectService implements TimeseriesAspectSer
       @Nonnull Filter filter) {
     final String indexName = _indexConvention.getTimeseriesAspectIndexName(entityName, aspectName);
     final BoolQueryBuilder filterQueryBuilder = ESUtils.buildFilterQuery(filter);
-    final DeleteByQueryRequest deleteByQueryRequest = new DeleteByQueryRequest(indexName).setQuery(filterQueryBuilder)
-        .setBatchSize(DEFAULT_LIMIT)
-        .setRefresh(true)
-        .setTimeout(TimeValue.timeValueMinutes(10));
-    try {
-      final BulkByScrollResponse response = _searchClient.deleteByQuery(deleteByQueryRequest, RequestOptions.DEFAULT);
-      return new DeleteAspectValuesResult().setNumDocsDeleted(response.getDeleted());
-    } catch (IOException e) {
-      log.error("Delete query failed:", e);
-      throw new ESQueryException("Delete query failed:", e);
+
+    final Optional<DeleteAspectValuesResult> result = _bulkProcessor
+            .deleteByQuery(filterQueryBuilder, false, DEFAULT_LIMIT, TimeValue.timeValueMinutes(10), indexName)
+            .map(response -> new DeleteAspectValuesResult().setNumDocsDeleted(response.getDeleted()));
+
+    if (result.isPresent()) {
+      return result.get();
+    } else {
+      log.error("Delete query failed");
+      throw new ESQueryException("Delete query failed");
     }
   }
 

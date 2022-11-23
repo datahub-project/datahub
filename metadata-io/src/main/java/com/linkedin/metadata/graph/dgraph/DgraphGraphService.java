@@ -385,6 +385,11 @@ public class DgraphGraphService implements GraphService {
                 relationships);
     }
 
+    @Override
+    public void removeEdge(final Edge edge) {
+        throw new UnsupportedOperationException("Remove edge not supported by DgraphGraphService at this time.");
+    }
+
     @Nonnull
     @Override
     public RelatedEntitiesResult findRelatedEntities(@Nullable List<String> sourceTypes,

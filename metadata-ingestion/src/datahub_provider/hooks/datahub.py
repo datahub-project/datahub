@@ -9,6 +9,8 @@ from datahub.metadata.com.linkedin.pegasus2avro.mxe import (
 )
 
 if TYPE_CHECKING:
+    from airflow.models.connection import Connection
+
     from datahub.emitter.kafka_emitter import DatahubKafkaEmitter
     from datahub.emitter.rest_emitter import DatahubRestEmitter
     from datahub.ingestion.sink.datahub_kafka import KafkaSinkConfig
@@ -51,12 +53,14 @@ class DatahubRestHook(BaseHook):
         }
 
     def _get_config(self) -> Tuple[str, Optional[str], Optional[int]]:
-        conn = self.get_connection(self.datahub_rest_conn_id)
+        conn: "Connection" = self.get_connection(self.datahub_rest_conn_id)
+
         host = conn.host
         if host is None:
             raise AirflowException("host parameter is required")
+        password = conn.password
         timeout_sec = conn.extra_dejson.get("timeout_sec")
-        return (host, conn.password, timeout_sec)
+        return (host, password, timeout_sec)
 
     def make_emitter(self) -> "DatahubRestEmitter":
         import datahub.emitter.rest_emitter
