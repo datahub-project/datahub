@@ -1,17 +1,16 @@
 package com.datahub.authentication.authenticator;
 
+import com.auth0.jwk.JwkException;
 import com.datahub.authentication.Actor;
 import com.datahub.authentication.Authentication;
-import com.datahub.authentication.AuthenticationRequest;
 import com.datahub.authentication.AuthenticationException;
-import com.auth0.jwk.JwkException;
+import com.datahub.authentication.AuthenticationRequest;
 import com.google.common.collect.ImmutableMap;
 import java.net.MalformedURLException;
 import java.security.KeyFactory;
 import java.security.NoSuchAlgorithmException;
 import java.security.interfaces.RSAPublicKey;
 import java.security.spec.InvalidKeySpecException;
-
 import java.security.spec.X509EncodedKeySpec;
 import java.util.Base64;
 import java.util.HashMap;
@@ -27,8 +26,9 @@ import static org.testng.AssertJUnit.*;
 public class CustomClaimTokenAuthenticatorTest {
 
   @Test
-  void testAuthentication() throws NoSuchAlgorithmException, InvalidKeySpecException, MalformedURLException, JwkException,
-                                   AuthenticationException {
+  void testAuthentication()
+      throws NoSuchAlgorithmException, InvalidKeySpecException, MalformedURLException, JwkException,
+             AuthenticationException {
     String token = "eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxMjM0NTY3ODkwIiwidXNlcm5hbWUiOiJqb2huX3Nub3ci"
         + "LCJhZG1pbiI6dHJ1ZSwiaWF0IjoxNTE2MjM5MDIyLCJpc3MiOiJodHRwczovL3Rlc3QuY29tL3JlYWxtL2RvbWFpbiJ9.Hz6Zpt-b5gpw3YvJ4fk8x"
         + "fhLQL9Rmwqj2hPhVcvpyDw5IHoiMLIxGZsiC80lxfU8a02f-2Tmek5bNKaXbgSNzYWITL5lrwEO-rTXYNamy8gJOBoM8n7gHDOo6"
@@ -41,15 +41,11 @@ public class CustomClaimTokenAuthenticatorTest {
         + "0iT9wCS0DRTXu269V264Vf/3jvredZiKRkgwlL9xNAwxXFg0x/XFw005UWVRIkdg"
         + "cKWTjpBP2dPwVZ4WWC+9aGVd+Gyn1o0CLelf4rEjGoXbAAEgAqeGUxrcIlbjXfbc" + "mwIDAQAB";
 
-
     CustomClaimTokenAuthenticator mock = mock(CustomClaimTokenAuthenticator.class);
     RSAPublicKey pk = loadPublicKey(validPublicKey);
     when(mock.getPublicKey(any())).thenReturn(pk);
 
-    final AuthenticationRequest context = new AuthenticationRequest(
-        ImmutableMap.of(
-            AUTHORIZATION_HEADER_NAME, token)
-    );
+    final AuthenticationRequest context = new AuthenticationRequest(ImmutableMap.of(AUTHORIZATION_HEADER_NAME, token));
 
     when(mock.authenticate(context)).thenCallRealMethod();
 
@@ -65,6 +61,7 @@ public class CustomClaimTokenAuthenticatorTest {
     assertEquals(token, actualCredential);
     assertEquals("urn:li:corpuser:john_snow", actor.toUrnStr());
   }
+
   @Test(expectedExceptions = InvalidKeySpecException.class)
   void testInvalidKey() throws NoSuchAlgorithmException, InvalidKeySpecException, MalformedURLException, JwkException,
                                AuthenticationException {
@@ -77,24 +74,18 @@ public class CustomClaimTokenAuthenticatorTest {
     String inValidPublicKey = "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAu1SU1LfVLPHCozMxH2Mo"
         + "4lgOEePzNm0tRgeLezV6ffAt0gunVTLw7onLRnrq0/IzW7yWR7QkrmBL7jTKEn5u"
         + "+qKhbwKfBstIs+bMY2Zkp18gnTxKLxoS2tFczGkPLPgizskuemMghRniWaoLcyeh"
-        + "kd3qqGElvW/VDL5AaWTg0nLVkjRo9z+40RQzuVaE8AkAFmxZzow3x+VJYKdjykkJ"
-        + "0iT9wCS0DRTXu269V264Vf/3jvr";
-
+        + "kd3qqGElvW/VDL5AaWTg0nLVkjRo9z+40RQzuVaE8AkAFmxZzow3x+VJYKdjykkJ" + "0iT9wCS0DRTXu269V264Vf/3jvr";
 
     CustomClaimTokenAuthenticator mock = mock(CustomClaimTokenAuthenticator.class);
     RSAPublicKey pk = loadPublicKey(inValidPublicKey);
     when(mock.getPublicKey(any())).thenReturn(pk);
 
-    final AuthenticationRequest context = new AuthenticationRequest(
-        ImmutableMap.of(
-            AUTHORIZATION_HEADER_NAME, token)
-    );
+    final AuthenticationRequest context = new AuthenticationRequest(ImmutableMap.of(AUTHORIZATION_HEADER_NAME, token));
 
     Map<String, Object> config = new HashMap<>();
     config.put("idClaim", "missingClaimInToken");
     config.put("trustedIssuers", getTrustedIssuer());
     doCallRealMethod().when(mock).init(config, null);
-
 
     mock.init(config, null);
 
@@ -107,13 +98,10 @@ public class CustomClaimTokenAuthenticatorTest {
 
     CustomClaimTokenAuthenticator mock = mock(CustomClaimTokenAuthenticator.class);
 
-    final AuthenticationRequest context = new AuthenticationRequest(
-        ImmutableMap.of()
-    );
+    final AuthenticationRequest context = new AuthenticationRequest(ImmutableMap.of());
 
     when(mock.authenticate(context)).thenCallRealMethod();
     mock.authenticate(context);
-
   }
 
   @Test(expectedExceptions = AuthenticationException.class)
@@ -132,15 +120,11 @@ public class CustomClaimTokenAuthenticatorTest {
         + "0iT9wCS0DRTXu269V264Vf/3jvredZiKRkgwlL9xNAwxXFg0x/XFw005UWVRIkdg"
         + "cKWTjpBP2dPwVZ4WWC+9aGVd+Gyn1o0CLelf4rEjGoXbAAEgAqeGUxrcIlbjXfbc" + "mwIDAQAB";
 
-
     CustomClaimTokenAuthenticator mock = mock(CustomClaimTokenAuthenticator.class);
     RSAPublicKey pk = loadPublicKey(validPublicKey);
     when(mock.getPublicKey(any())).thenReturn(pk);
 
-    final AuthenticationRequest context = new AuthenticationRequest(
-        ImmutableMap.of(
-            AUTHORIZATION_HEADER_NAME, token)
-    );
+    final AuthenticationRequest context = new AuthenticationRequest(ImmutableMap.of(AUTHORIZATION_HEADER_NAME, token));
 
     when(mock.authenticate(context)).thenCallRealMethod();
 
@@ -164,7 +148,7 @@ public class CustomClaimTokenAuthenticatorTest {
     return key;
   }
 
-  private LinkedHashMap<String,String> getTrustedIssuer() {
+  private LinkedHashMap<String, String> getTrustedIssuer() {
     LinkedHashMap<String, String> trustedIssuer = new LinkedHashMap<>();
     trustedIssuer.putIfAbsent("0", "https://test.com/realm/domain");
     return trustedIssuer;
