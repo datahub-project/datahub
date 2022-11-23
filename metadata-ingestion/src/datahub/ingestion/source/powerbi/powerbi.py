@@ -40,8 +40,6 @@ from datahub.metadata.schema_classes import (
     CorpUserKeyClass,
     DashboardInfoClass,
     DashboardKeyClass,
-    DataPlatformInfoClass,
-    DatasetKeyClass,
     DatasetPropertiesClass,
     OwnerClass,
     OwnershipClass,
@@ -102,6 +100,26 @@ class Constant:
     ID = "ID"
     HTTP_RESPONSE_TEXT = "HttpResponseText"
     HTTP_RESPONSE_STATUS_CODE = "HttpResponseStatusCode"
+
+
+@dataclass
+class PowerBiDashboardSourceReport(SourceReport):
+    dashboards_scanned: int = 0
+    charts_scanned: int = 0
+    filtered_dashboards: List[str] = dataclass_field(default_factory=list)
+    filtered_charts: List[str] = dataclass_field(default_factory=list)
+
+    def report_dashboards_scanned(self, count: int = 1) -> None:
+        self.dashboards_scanned += count
+
+    def report_charts_scanned(self, count: int = 1) -> None:
+        self.charts_scanned += count
+
+    def report_dashboards_dropped(self, model: str) -> None:
+        self.filtered_dashboards.append(model)
+
+    def report_charts_dropped(self, view: str) -> None:
+        self.filtered_charts.append(view)
 
 
 class PowerBiAPIConfig(EnvBasedSourceConfigBase):
@@ -172,19 +190,9 @@ class PowerBiAPI:
         PowerBi
         """
 
-        @dataclass
-        class MetaData:
-            """
-            MetaData about DataSource
-            """
-
-            is_relational: Boolean
-
         id: str
         type: str
-        database: Optional[str]
-        server: Optional[str]
-        metadata: Any
+        raw_connection_detail: Dict
 
         def __members(self):
             return (self.id,)
@@ -200,19 +208,19 @@ class PowerBiAPI:
 
     # dataclasses for PowerBi Dashboard
     @dataclass
-    class Dataset:
+    class PowerBIDataset:
         @dataclass
         class Table:
             name: str
-            schema_name: str
+            full_name: str
+            data_source: "PowerBiAPI.DataSource"  # We are supporting single data_source for the table
 
         id: str
         name: str
         webUrl: Optional[str]
         workspace_id: str
-        datasource: Any
         # Table in datasets
-        tables: List[Any]
+        tables: List["Table"]
 
         def get_urn_part(self):
             return f"datasets.{self.id}"
@@ -222,7 +230,7 @@ class PowerBiAPI:
 
         def __eq__(self, instance):
             return (
-                isinstance(instance, PowerBiAPI.Dataset)
+                isinstance(instance, PowerBiAPI.PowerBIDataset)
                 and self.__members() == instance.__members()
             )
 
@@ -312,7 +320,6 @@ class PowerBiAPI:
     def __init__(self, config: PowerBiAPIConfig) -> None:
         self.__config: PowerBiAPIConfig = config
         self.__access_token: str = ""
-
         # Power-Bi Auth (Service Principal Auth)
         self.__msal_client = msal.ConfidentialClientApplication(
             self.__config.client_id,
@@ -542,7 +549,7 @@ class PowerBiAPI:
         response_dict = response.json()
         LOGGER.debug("datasets = {}".format(response_dict))
         # PowerBi Always return the webURL, in-case if it is None then setting complete webURL to None instead of None/details
-        return PowerBiAPI.Dataset(
+        return PowerBiAPI.PowerBIDataset(
             id=response_dict.get("id"),
             name=response_dict.get("name"),
             webUrl="{}/details".format(response_dict.get("webUrl"))
@@ -550,10 +557,11 @@ class PowerBiAPI:
             else None,
             workspace_id=workspace_id,
             tables=[],
-            datasource=None,
         )
 
-    def get_data_source(self, dataset: Dataset) -> Any:
+    def get_data_sources(
+        self, dataset: PowerBIDataset
+    ) -> Dict[str, "PowerBiAPI.DataSource"]:
         """
         Fetch the data source from PowerBi for the given dataset
         """
@@ -594,43 +602,21 @@ class PowerBiAPI:
 
             return None
 
-        if len(value) > 1:
-            # We are currently supporting data-set having single relational database
-            LOGGER.warning(
-                "More than one data-source found for {}({})".format(
-                    dataset.name, dataset.id
-                )
-            )
-            LOGGER.debug(value)
-            return None
-
-        # Consider only zero index datasource
-        datasource_dict = value[0]
+        data_sources: Dict[str, "PowerBiAPI.DataSource"] = {}
         LOGGER.debug("data-sources = {}".format(value))
-        # Create datasource instance with basic detail available
-        datasource = PowerBiAPI.DataSource(
-            id=datasource_dict.get(
-                "datasourceId"
-            ),  # datasourceId is not available in all cases
-            type=datasource_dict["datasourceType"],
-            server=None,
-            database=None,
-            metadata=None,
-        )
-
-        # Check if datasource is relational as per our relation mapping
-        if self.__config.dataset_type_mapping.get(datasource.type) is not None:
-            # Now set the database detail as it is relational data source
-            datasource.metadata = PowerBiAPI.DataSource.MetaData(is_relational=True)
-            datasource.database = datasource_dict["connectionDetails"]["database"]
-            datasource.server = datasource_dict["connectionDetails"]["server"]
-        else:
-            datasource.metadata = PowerBiAPI.DataSource.MetaData(is_relational=False)
-            LOGGER.warning(
-                "Non relational data-source found = {}".format(datasource_dict)
+        for datasource_dict in value:
+            # Create datasource instance with basic detail available
+            datasource = PowerBiAPI.DataSource(
+                id=datasource_dict.get(
+                    "datasourceId"
+                ),  # datasourceId is not available in all cases
+                type=datasource_dict["datasourceType"],
+                raw_connection_detail=datasource_dict["connectionDetails"],
             )
 
-        return datasource
+            data_sources[datasource.id] = datasource
+
+        return data_sources
 
     def get_tiles(self, workspace: Workspace, dashboard: Dashboard) -> List[Tile]:
 
@@ -712,10 +698,46 @@ class PowerBiAPI:
 
         return tiles
 
+    def process_extension_table(
+        self, data_source: "PowerBiAPI.DataSource", raw_table: dict
+    ) -> (str, str, str):
+        # All below four condition should meet to process the Extension data-source type
+        if data_source.type != "Extension":
+            LOGGER.debug(f"data_source ({data_source.id}) type is not Extension")
+            return None, None
+        if data_source.raw_connection_detail.get("connectionDetails") is None:
+            LOGGER.debug(
+                f"data_source ({data_source.id}) type is missing connectionDetails"
+            )
+            return None, None
+        if (
+            data_source.raw_connection_detail["connectionDetails"].get(
+                "extensionDataSourceKind"
+            )
+            is None
+        ):
+            LOGGER.debug(
+                f"data_source ({data_source.id}) type is missing extensionDataSourceKind"
+            )
+            return None, None
+
+        if (
+            data_source.raw_connection_detail["connectionDetails"][
+                "extensionDataSourceKind"
+            ]
+            not in self.__config.dataset_type_mapping
+        ):
+            LOGGER.debug(f"expected platforms are {self.__config.dataset_type_mapping}")
+            return None, None
+        # fake and foo need to be find out from M-Query
+        return raw_table["name"], "foo_db.fake_schema.{}".format(raw_table["name"])
+
     # flake8: noqa: C901
-    def get_workspace(self, workspace_id: str) -> Workspace:
+    def get_workspace(
+        self, workspace_id: str, reporter: PowerBiDashboardSourceReport
+    ) -> Workspace:
         """
-        Return Workspace for the given workspace identifier i.e workspace_id
+        Return Workspace for the given workspace identifier i.e. workspace_id
         """
         scan_create_endpoint = PowerBiAPI.API_ENDPOINTS[Constant.SCAN_CREATE]
         scan_create_endpoint = scan_create_endpoint.format(
@@ -839,40 +861,85 @@ class PowerBiAPI:
                 return dataset_map
 
             for dataset_dict in datasets:
-                dataset_instance: PowerBiAPI.Dataset = self.get_dataset(
+                dataset_instance: PowerBiAPI.PowerBIDataset = self.get_dataset(
                     workspace_id=scan_result["id"],
                     dataset_id=dataset_dict["id"],
                 )
-
                 dataset_map[dataset_instance.id] = dataset_instance
-                # set dataset's DataSource
-                dataset_instance.datasource = self.get_data_source(dataset_instance)
-                # Set table only if the datasource is relational and dataset is not created from custom SQL i.e Value.NativeQuery(
-                # There are dataset which doesn't have DataSource
-                if (
-                    dataset_instance.datasource
-                    and dataset_instance.datasource.metadata.is_relational is True
-                ):
-                    LOGGER.info(
-                        f"Processing tables attribute for dataset {dataset_instance.name}({dataset_instance.id})"
+                # Map of data-source attached to this dataset
+                data_source_map: Dict[
+                    str, PowerBiAPI.DataSource
+                ] = self.get_data_sources(dataset_instance)
+                for table in dataset_dict["tables"]:
+                    warning_key_prefix: str = "{}_{}".format(
+                        dataset_dict.get("id") if dataset_dict.get("name") is None else dataset_dict.get("name"), table["name"]
                     )
 
-                    for table in dataset_dict["tables"]:
-                        if "Value.NativeQuery(" in table["source"][0]["expression"]:
-                            LOGGER.warning(
-                                f'Table {table["name"]} is created from Custom SQL. Ignoring in processing'
-                            )
-
-                            continue
-
-                        # PowerBi table name contains schema name and table name. Format is <SchemaName> <TableName>
-                        schema_and_name = table["name"].split(" ")
-                        dataset_instance.tables.append(
-                            PowerBiAPI.Dataset.Table(
-                                schema_name=schema_and_name[0],
-                                name=schema_and_name[1],
-                            )
+                    if table.get("source") is None:
+                        reporter.report_warning(
+                            f"{warning_key_prefix}-source",
+                            "table without source is not supported",
                         )
+                        continue
+
+                    if "Value.NativeQuery(" in table["source"][0]["expression"]:
+                        reporter.report_warning(
+                            f"{warning_key_prefix}-native-query",
+                            "NativeQuery is not supported",
+                        )
+                        continue
+
+                    if table.get("datasourceUsages") is None:
+                        reporter.report_warning(
+                            f"{warning_key_prefix}-no-source",
+                            "table does not have any source",
+                        )
+                        continue
+
+                    if len(table["datasourceUsages"]) > 1:
+                        reporter.report_warning(
+                            f"{warning_key_prefix}-many-source",
+                            "Multiple data-sources for single table is not supported",
+                        )
+                        continue
+
+                    data_source: PowerBiAPI.DataSource = data_source_map[
+                        table["datasourceUsages"][0]["datasourceInstanceId"]
+                    ]
+                    table_name: str = None
+                    table_full_name: str = None
+                    if data_source.type == "Extension":
+                        table_name, table_full_name = self.process_extension_table(
+                            data_source, table
+                        )
+                    elif (
+                        self.__config.dataset_type_mapping.get(data_source.type)
+                        is not None
+                    ):
+                        # PowerBi table name contains schema name and table name. Format is <SchemaName> <TableName>
+                        table_name = table["name"].split(" ")[1]
+                        table_schema_name: str = table["name"].split(" ")[0]
+                        database_name: str = data_source.raw_connection_detail[
+                            "database"
+                        ]
+                        table_full_name = (
+                            f"{database_name}.{table_schema_name}.{table_name}"
+                        )
+
+                    if None in (table_name, table_full_name):
+                        reporter.report_warning(
+                            f"{warning_key_prefix}-extension",
+                            f"The table source ({data_source.id}) is not belongs to supported platforms: {self.__config.dataset_type_mapping}",
+                        )
+                        continue
+
+                    dataset_instance.tables.append(
+                        PowerBiAPI.PowerBIDataset.Table(
+                            full_name=table_full_name,
+                            name=table_name,
+                            data_source=data_source,
+                        )
+                    )
 
             return dataset_map
 
@@ -899,8 +966,8 @@ class PowerBiAPI:
 
         # Scan is complete lets take the result
         scan_result = get_scan_result(scan_id=scan_id)
-        LOGGER.debug("scan result = {}".format(scan_result))
         import json
+
         print(json.dumps(scan_result, indent=1))
         workspace = PowerBiAPI.Workspace(
             id=scan_result["id"],
@@ -969,7 +1036,7 @@ class Mapper:
         )
 
     def __to_datahub_dataset(
-        self, dataset: Optional[PowerBiAPI.Dataset]
+        self, dataset: Optional[PowerBiAPI.PowerBIDataset]
     ) -> List[MetadataChangeProposalWrapper]:
         """
         Map PowerBi dataset to datahub dataset. Here we are mapping each table of PowerBi Dataset to Datahub dataset.
@@ -980,26 +1047,15 @@ class Mapper:
         if dataset is None:
             return dataset_mcps
 
-        # We are only supporting relation PowerBi DataSources
-        if (
-            dataset.datasource is None
-            or dataset.datasource.metadata.is_relational is False
-        ):
-            LOGGER.warning(
-                f"Dataset {dataset.name}({dataset.id}) is not created from relational datasource"
-            )
-
-            return dataset_mcps
-
         LOGGER.info(
             f"Converting dataset={dataset.name}(id={dataset.id}) to datahub dataset"
         )
 
         for table in dataset.tables:
-            # Create an URN for dataset
+            # Create a URN for dataset
             ds_urn = builder.make_dataset_urn(
-                platform=self.__config.dataset_type_mapping[dataset.datasource.type],
-                name=f"{dataset.datasource.database}.{table.schema_name}.{table.name}",
+                platform=self.__config.dataset_type_mapping[table.data_source.type],
+                name=f"{table.full_name}",
                 env=self.__config.env,
             )
 
@@ -1323,26 +1379,6 @@ class Mapper:
         return deduplicate_list([wu for wu in work_units if wu is not None])
 
 
-@dataclass
-class PowerBiDashboardSourceReport(SourceReport):
-    dashboards_scanned: int = 0
-    charts_scanned: int = 0
-    filtered_dashboards: List[str] = dataclass_field(default_factory=list)
-    filtered_charts: List[str] = dataclass_field(default_factory=list)
-
-    def report_dashboards_scanned(self, count: int = 1) -> None:
-        self.dashboards_scanned += count
-
-    def report_charts_scanned(self, count: int = 1) -> None:
-        self.charts_scanned += count
-
-    def report_dashboards_dropped(self, model: str) -> None:
-        self.filtered_dashboards.append(model)
-
-    def report_charts_dropped(self, view: str) -> None:
-        self.filtered_charts.append(view)
-
-
 @platform_name("PowerBI")
 @config_class(PowerBiDashboardSourceConfig)
 @support_status(SupportStatus.CERTIFIED)
@@ -1381,7 +1417,9 @@ class PowerBiDashboardSource(Source):
         LOGGER.info("PowerBi plugin execution is started")
 
         # Fetch PowerBi workspace for given workspace identifier
-        workspace = self.powerbi_client.get_workspace(self.source_config.workspace_id)
+        workspace = self.powerbi_client.get_workspace(
+            self.source_config.workspace_id, self.reporter
+        )
 
         for dashboard in workspace.dashboards:
 
