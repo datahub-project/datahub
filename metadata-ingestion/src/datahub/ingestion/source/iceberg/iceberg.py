@@ -145,8 +145,8 @@ class IcebergSource(StatefulIngestionSourceBase):
                 )
                 pass
             except Exception as e:
-                self.report.report_failure("general", f"Failed to create workunit: {e}")
-                LOGGER.exception(
+                self.report.report_warning("general", f"Failed to create workunit: {e}")
+                LOGGER.warning(
                     f"Exception while processing table {dataset_path}, skipping it.",
                 )
 
