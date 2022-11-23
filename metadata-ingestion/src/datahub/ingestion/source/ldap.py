@@ -451,7 +451,7 @@ class LDAPSource(StatefulIngestionSourceBase):
                     StatusClass(removed=False),
                 ],
             )
-            print("group full_name:" + full_name)
+
             if full_name:
                 self.stale_entity_removal_handler.add_entity_to_state(
                     type="corpGroup", urn=builder.make_group_urn(full_name)
