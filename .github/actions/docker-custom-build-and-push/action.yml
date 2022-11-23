@@ -49,7 +49,7 @@ runs:
     
     # Code for testing the build when not pushing to Docker Hub.
     - name: Build and Load image for testing (if not publishing)
-      uses: docker/build-push-action@v2
+      uses: docker/build-push-action@v3
       if: ${{ inputs.publish != 'true' }}
       with:
         context: ${{ inputs.context }}
@@ -80,7 +80,7 @@ runs:
         username: ${{ inputs.username }}
         password: ${{ inputs.password }}
     - name: Build and Push Multi-Platform image
-      uses: docker/build-push-action@v2
+      uses: docker/build-push-action@v3
       if: ${{ inputs.publish == 'true' }}
       with:
         context: ${{ inputs.context }}
