@@ -42,7 +42,7 @@ import org.elasticsearch.search.builder.SearchSourceBuilder;
 
 @Slf4j
 @RequiredArgsConstructor
-public class MostPopularSource implements RecommendationSourceWithOffline {
+public class MostPopularSource implements RecommendationSource {
   /**
    * Entity Types that should be in scope for this type of recommendation.
    */
