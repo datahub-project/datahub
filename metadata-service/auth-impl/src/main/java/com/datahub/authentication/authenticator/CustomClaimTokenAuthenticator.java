@@ -44,16 +44,15 @@ public class CustomClaimTokenAuthenticator implements Authenticator {
   /**
    *  List of trusted issuers
    * **/
-  private LinkedHashMap<String,String> trustedIssuers;
+  private LinkedHashMap<String, String> trustedIssuers;
 
   @Override
   public void init(@Nonnull final Map<String, Object> config, @Nullable final AuthenticatorContext context) {
     Objects.requireNonNull(config, "Config parameter cannot be null");
-    this.idClaim = Objects.requireNonNull((String) config.get("idClaim"),
-        String.format("Missing required config Claim Name"));
+    this.idClaim = Objects.requireNonNull((String) config.get("idClaim"), "Missing required config Claim Name");
 
-    this.trustedIssuers = Objects.requireNonNull((LinkedHashMap<String,String>)config.get("trustedIssuers"),
-        String.format("Missing required config trusted issuers"));
+    this.trustedIssuers = Objects.requireNonNull((LinkedHashMap<String, String>) config.get("trustedIssuers"),
+        "Missing required config trusted issuers");
   }
 
   @Override
@@ -62,8 +61,9 @@ public class CustomClaimTokenAuthenticator implements Authenticator {
 
     try {
       String jwtToken = context.getRequestHeaders().get(AUTHORIZATION_HEADER_NAME);
-      if (jwtToken == null)
+      if (jwtToken == null) {
         throw new AuthenticationException("Invalid Authorization token");
+      }
 
       String token = getToken(jwtToken);
       // Decode JWT token
@@ -79,8 +79,9 @@ public class CustomClaimTokenAuthenticator implements Authenticator {
 
       // Extract claim
       Claim claim = jwt.getClaim(this.idClaim);
-      if (claim.isMissing() || claim.isNull())
+      if (claim.isMissing() || claim.isNull()) {
         throw new AuthenticationException("Invalid or missing claim");
+      }
 
       return new Authentication(
           new Actor(ActorType.USER, claim.asString()), jwtToken
@@ -112,9 +113,9 @@ public class CustomClaimTokenAuthenticator implements Authenticator {
     return (RSAPublicKey) provider.get(token.getKeyId()).getPublicKey();
   }
 
-  private String getToken(String jwtToken) throws AuthenticationException  {
+  private String getToken(String jwtToken) {
     var tokenArray = jwtToken.split(" ");
-    return tokenArray.length == 1 ? tokenArray[0]: tokenArray[1];
+    return tokenArray.length == 1 ? tokenArray[0] : tokenArray[1];
   }
 
 }
