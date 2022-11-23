@@ -993,13 +993,12 @@ class PowerBiAPI:
 
         def json_to_dataset_map(
             scan_result: dict,
-        ) -> Tuple[dict, List[PowerBiAPI.Dataset]]:
+        ) -> Dict[str, PowerBiAPI.Dataset]:
             """
             Filter out "dataset" from scan_result and return PowerBiAPI.Dataset instance set
             """
             datasets: Optional[Any] = scan_result.get("datasets")
             dataset_map: dict = {}
-            dataset_instances: List[PowerBiAPI.Dataset] = []
 
             if datasets is None or len(datasets) == 0:
                 LOGGER.warning(
@@ -1007,7 +1006,7 @@ class PowerBiAPI:
                 )
 
                 LOGGER.info("Returning empty datasets")
-                return dataset_map, []
+                return dataset_map
 
             for dataset_dict in datasets:
                 dataset_instance: PowerBiAPI.Dataset = self.get_dataset(
@@ -1054,9 +1053,8 @@ class PowerBiAPI:
                                 name=schema_and_name[1],
                             )
                         )
-                dataset_instances.append(dataset_instance)
 
-            return dataset_map, dataset_instances
+            return dataset_map
 
         def init_dashboard_tiles(workspace: PowerBiAPI.Workspace) -> None:
             for dashboard in workspace.dashboards:
@@ -1091,9 +1089,7 @@ class PowerBiAPI:
         )
         # Get workspace dashboards
         workspace.dashboards = self.get_dashboards(workspace)
-        workspace.datasets, workspace.dataset_instances = json_to_dataset_map(
-            scan_result
-        )
+        workspace.datasets = json_to_dataset_map(scan_result)
         init_dashboard_tiles(workspace)
 
         return workspace
