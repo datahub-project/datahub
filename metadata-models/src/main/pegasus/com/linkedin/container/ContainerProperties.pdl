@@ -2,7 +2,7 @@ namespace com.linkedin.container
 
 import com.linkedin.common.CustomProperties
 import com.linkedin.common.ExternalReference
-import com.linkedin.common.Time
+import com.linkedin.common.TimeStamp
 
 /**
  * Information about a Asset Container as received from a 3rd party source system
@@ -41,11 +41,24 @@ record ContainerProperties includes CustomProperties, ExternalReference {
   description: optional string
 
   /**
-   * Audit stamp describing the time and actor
-   * that created the Container in the source Data Platform (not on DataHub)
+   * A timestamp documenting when the asset was created in the source Data Platform (not on DataHub)
    */
   @Searchable = {
-    "fieldType": "DATETIME"
+    "/time": {
+      "fieldName": "createdAt",
+      "fieldType": "DATETIME"
+    }
   }
-  createdAt: optional Time
+  created: optional TimeStamp
+
+  /**
+   * A timestamp documenting when the asset was last modified in the source Data Platform (not on DataHub)
+   */
+  @Searchable = {
+    "/time": {
+      "fieldName": "lastModifiedAt",
+      "fieldType": "DATETIME"
+    }
+  }
+  lastModified: optional TimeStamp
 }
