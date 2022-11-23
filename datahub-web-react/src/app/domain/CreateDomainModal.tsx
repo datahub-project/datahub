@@ -1,8 +1,7 @@
 import React, { useState } from 'react';
 import styled from 'styled-components';
-import { useApolloClient } from '@apollo/client';
 import { message, Button, Input, Modal, Typography, Form, Collapse, Tag } from 'antd';
-import { ListDomainsDocument, ListDomainsQuery, useCreateDomainMutation } from '../../graphql/domain.generated';
+import { useCreateDomainMutation } from '../../graphql/domain.generated';
 import { useEnterKeyListener } from '../shared/useEnterKeyListener';
 import { groupIdTextValidation } from '../shared/textUtil';
 import analytics, { EventType } from '../analytics';
@@ -23,59 +22,29 @@ type Props = {
 };
 
 const SUGGESTED_DOMAIN_NAMES = ['Engineering', 'Marketing', 'Sales', 'Product'];
-const DEFAULT_PAGE_SIZE = 25;
 
-const addToListDomainsCache = (client, newDomain) => {
-    // Read the data from our cache for this query.
-    const currData: ListDomainsQuery | null = client.readQuery({
-        query: ListDomainsDocument,
-        variables: {
-            input: {
-                start: 0,
-                count: DEFAULT_PAGE_SIZE,
-                query: undefined,
-            },
-        },
-    });
-    // Add our new domain into the existing list.
-    const newDomains = [newDomain, ...(currData?.listDomains?.domains || [])];
-    // Write our data back to the cache.
-    client.writeQuery({
-        query: ListDomainsDocument,
-        variables: {
-            input: {
-                start: 0,
-                count: DEFAULT_PAGE_SIZE,
-                query: undefined,
-            },
-        },
-        data: {
-            listDomains: {
-                start: 0,
-                count: (currData?.listDomains?.count || 0) + 1,
-                total: (currData?.listDomains?.total || 0) + 1,
-                domains: newDomains,
-            },
-        },
-    });
-};
+const ID_FIELD_NAME = 'id';
+const NAME_FIELD_NAME = 'name';
+const DESCRIPTION_FIELD_NAME = 'description';
 
 export default function CreateDomainModal({ onClose, onCreate }: Props) {
-    const [stagedName, setStagedName] = useState('');
-    const [stagedDescription, setStagedDescription] = useState('');
-    const [stagedId, setStagedId] = useState<string | undefined>(undefined);
     const [createDomainMutation] = useCreateDomainMutation();
     const [createButtonEnabled, setCreateButtonEnabled] = useState(true);
     const [form] = Form.useForm();
-    const client = useApolloClient();
+
+    const setStagedName = (name) => {
+        form.setFieldsValue({
+            name,
+        });
+    };
 
     const onCreateDomain = () => {
         createDomainMutation({
             variables: {
                 input: {
-                    id: stagedId,
-                    name: stagedName,
-                    description: stagedDescription,
+                    id: form.getFieldValue(ID_FIELD_NAME),
+                    name: form.getFieldValue(NAME_FIELD_NAME),
+                    description: form.getFieldValue(DESCRIPTION_FIELD_NAME),
                 },
             },
         })
@@ -84,25 +53,18 @@ export default function CreateDomainModal({ onClose, onCreate }: Props) {
                     analytics.event({
                         type: EventType.CreateDomainEvent,
                     });
+                    message.success({
+                        content: `Created domain!`,
+                        duration: 3,
+                    });
+                    onCreate(
+                        data?.createDomain || '',
+                        form.getFieldValue(ID_FIELD_NAME),
+                        form.getFieldValue(NAME_FIELD_NAME),
+                        form.getFieldValue(DESCRIPTION_FIELD_NAME),
+                    );
+                    form.resetFields();
                 }
-                message.success({
-                    content: `Created domain!`,
-                    duration: 3,
-                });
-                onCreate(data?.createDomain || '', stagedId, stagedName, stagedDescription);
-                setStagedName('');
-                setStagedDescription('');
-                setStagedId(undefined);
-                addToListDomainsCache(client, {
-                    urn: data?.createDomain || '',
-                    id: stagedId || '',
-                    properties: {
-                        name: stagedName,
-                        description: stagedDescription,
-                    },
-                    ownership: null,
-                    entities: null,
-                });
             })
             .catch((e) => {
                 message.destroy();
@@ -143,7 +105,7 @@ export default function CreateDomainModal({ onClose, onCreate }: Props) {
                 <Form.Item label={<Typography.Text strong>Name</Typography.Text>}>
                     <Typography.Paragraph>Give your new Domain a name. </Typography.Paragraph>
                     <Form.Item
-                        name="name"
+                        name={NAME_FIELD_NAME}
                         rules={[
                             {
                                 required: true,
@@ -154,15 +116,15 @@ export default function CreateDomainModal({ onClose, onCreate }: Props) {
                         ]}
                         hasFeedback
                     >
-                        <Input
-                            placeholder="A name for your domain"
-                            value={stagedName}
-                            onChange={(event) => setStagedName(event.target.value)}
-                        />
+                        <Input placeholder="A name for your domain" />
                     </Form.Item>
                     <SuggestedNamesGroup>
                         {SUGGESTED_DOMAIN_NAMES.map((name) => {
-                            return <ClickableTag onClick={() => setStagedName(name)}>{name}</ClickableTag>;
+                            return (
+                                <ClickableTag key={name} onClick={() => setStagedName(name)}>
+                                    {name}
+                                </ClickableTag>
+                            );
                         })}
                     </SuggestedNamesGroup>
                 </Form.Item>
@@ -170,12 +132,12 @@ export default function CreateDomainModal({ onClose, onCreate }: Props) {
                     <Typography.Paragraph>
                         An optional description for your new domain. You can change this later.
                     </Typography.Paragraph>
-                    <Form.Item name="description" rules={[{ whitespace: true }, { min: 1, max: 500 }]} hasFeedback>
-                        <Input
-                            placeholder="A description for your domain"
-                            value={stagedDescription}
-                            onChange={(event) => setStagedDescription(event.target.value)}
-                        />
+                    <Form.Item
+                        name={DESCRIPTION_FIELD_NAME}
+                        rules={[{ whitespace: true }, { min: 1, max: 500 }]}
+                        hasFeedback
+                    >
+                        <Input placeholder="A description for your domain" />
                     </Form.Item>
                 </Form.Item>
                 <Collapse ghost>
@@ -188,23 +150,19 @@ export default function CreateDomainModal({ onClose, onCreate }: Props) {
                                 creation.
                             </Typography.Paragraph>
                             <Form.Item
-                                name="domainId"
+                                name={ID_FIELD_NAME}
                                 rules={[
                                     () => ({
                                         validator(_, value) {
                                             if (value && groupIdTextValidation(value)) {
                                                 return Promise.resolve();
                                             }
-                                            return Promise.reject(new Error('Please enter correct Domain name'));
+                                            return Promise.reject(new Error('Please enter a valid Domain id'));
                                         },
                                     }),
                                 ]}
                             >
-                                <Input
-                                    placeholder="engineering"
-                                    value={stagedId || ''}
-                                    onChange={(event) => setStagedId(event.target.value)}
-                                />
+                                <Input placeholder="engineering" />
                             </Form.Item>
                         </Form.Item>
                     </Collapse.Panel>

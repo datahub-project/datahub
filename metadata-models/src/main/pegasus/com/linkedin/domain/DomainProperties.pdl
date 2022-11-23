@@ -30,7 +30,7 @@ record DomainProperties {
    */
    @Searchable = {
      "/time": {
-      "fieldName": "createdTime"
+      "fieldName": "createdTime",
       "fieldType": "DATETIME"
      }
    }
