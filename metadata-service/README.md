@@ -1237,13 +1237,15 @@ curl -X POST 'http://localhost:8080/entities?action=search' \
     "start": 0,
     "count": 10,
     "filter": {
-        "criteria": [
-           {
-                "field": "title",
-                "value": "Baz Chart 1",
-                "condition": "EQUAL"
-           }
-        ]
+        "or": [{
+            "and": [
+               {
+                  "field": "title",
+                  "value": "Baz Chart 1",
+                  "condition": "EQUAL"
+               }
+            ]   
+        }]
     }
 }'
 
@@ -1339,13 +1341,15 @@ curl -X POST 'http://localhost:8080/entities?action=autocomplete' \
     "start": 0,
     "limit": 10,
     "filter": {
-        "criteria": [
-           {
+        "or": [{
+            "and": [
+               {
                 "field": "tool",
                 "value": "looker",
                 "condition": "EQUAL"
-           }
-        ]
+               }
+            ]   
+        }]
     }
 }'
 

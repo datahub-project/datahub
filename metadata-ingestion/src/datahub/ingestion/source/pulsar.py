@@ -552,5 +552,5 @@ class PulsarSource(StatefulIngestionSourceBase):
         return self.report
 
     def close(self):
-        self.prepare_for_commit()
+        super().close()
         self.session.close()

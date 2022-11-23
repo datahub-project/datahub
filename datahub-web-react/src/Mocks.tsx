@@ -167,6 +167,7 @@ export const dataset1 = {
                 value: 'My other property value.',
             },
         ],
+        externalUrl: null,
     },
     editableProperties: null,
     created: {
@@ -258,6 +259,7 @@ export const dataset2 = {
         description: 'This is some other dataset, so who cares!',
         customProperties: [],
         origin: 'PROD',
+        externalUrl: null,
     },
     editableProperties: null,
     created: {
@@ -811,6 +813,7 @@ export const container1 = {
     lastIngested: null,
     properties: {
         name: 'database1',
+        externalUrl: null,
         __typename: 'ContainerProperties',
     },
     __typename: 'Container',
@@ -823,6 +826,7 @@ export const container2 = {
     lastIngested: null,
     properties: {
         name: 'schema1',
+        externalUrl: null,
         __typename: 'ContainerProperties',
     },
     __typename: 'Container',

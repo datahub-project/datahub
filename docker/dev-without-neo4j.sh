@@ -15,7 +15,7 @@ fi
 
 M1_COMPOSE=""
 if [[ $(uname -m) == 'arm64' && $(uname) == 'Darwin' ]]; then
-  M1_COMPOSE="-f docker-compose.m1.yml"
+  M1_COMPOSE="-f docker-compose-without-neo4j.m1.yml"
 fi
 
 # Launches dev instances of DataHub images. See documentation for more details.

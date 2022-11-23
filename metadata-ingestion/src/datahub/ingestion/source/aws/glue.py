@@ -108,16 +108,6 @@ DEFAULT_PLATFORM = "glue"
 VALID_PLATFORMS = [DEFAULT_PLATFORM, "athena"]
 
 
-class GlueStatefulIngestionConfig(StatefulStaleMetadataRemovalConfig):
-    """
-    Specialization of StatefulStaleMetadataRemovalConfig to adding custom config.
-    This will be used to override the stateful_ingestion config param of StatefulIngestionConfigBase
-    in the GlueSourceConfig.
-    """
-
-    _entity_types: List[str] = Field(default=["table"])
-
-
 class GlueSourceConfig(
     AwsSourceConfig, GlueProfilingConfig, StatefulIngestionConfigBase
 ):
@@ -164,7 +154,7 @@ class GlueSourceConfig(
         description="Configs to ingest data profiles from glue table",
     )
     # Custom Stateful Ingestion settings
-    stateful_ingestion: Optional[GlueStatefulIngestionConfig] = Field(
+    stateful_ingestion: Optional[StatefulStaleMetadataRemovalConfig] = Field(
         default=None, description=""
     )
 
@@ -1294,6 +1284,3 @@ class GlueSource(StatefulIngestionSourceBase):
 
     def get_platform_instance_id(self) -> str:
         return self.source_config.platform_instance or self.platform
-
-    def close(self):
-        self.prepare_for_commit()

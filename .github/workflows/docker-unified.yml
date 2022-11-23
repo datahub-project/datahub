@@ -49,17 +49,15 @@ jobs:
           SHORT_SHA=$(git rev-parse --short "$GITHUB_SHA")
           TAG=$(echo ${GITHUB_REF} | sed -e "s,refs/heads/master,head\,${SHORT_SHA},g" -e 's,refs/tags/,,g' -e 's,refs/pull/\([0-9]*\).*,pr\1,g')
           UNIQUE_TAG=$(echo ${GITHUB_REF} | sed -e "s,refs/heads/master,${SHORT_SHA},g" -e 's,refs/tags/,,g' -e 's,refs/pull/\([0-9]*\).*,pr\1,g')
-          echo "tag=$TAG"
-          echo "unique_tag=$UNIQUE_TAG"
-          echo "::set-output name=tag::$TAG"
-          echo "::set-output name=unique_tag::$UNIQUE_TAG"
+          echo "tag=$TAG" >> $GITHUB_OUTPUT
+          echo "unique_tag=$UNIQUE_TAG" >> $GITHUB_OUTPUT
       - name: Check whether publishing enabled
         id: publish
         env:
           ENABLE_PUBLISH: ${{ secrets.DOCKER_PASSWORD }}
         run: |
           echo "Enable publish: ${{ env.ENABLE_PUBLISH != '' }}"
-          echo "::set-output name=publish::${{ env.ENABLE_PUBLISH != '' }}"
+          echo "publish=${{ env.ENABLE_PUBLISH != '' }}" >> $GITHUB_OUTPUT
 
   gms_build:
     name: Build and Push DataHub GMS Docker Image
