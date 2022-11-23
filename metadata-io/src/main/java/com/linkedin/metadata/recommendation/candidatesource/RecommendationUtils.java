@@ -18,4 +18,6 @@ public class RecommendationUtils {
     final String entityType = urn.getEntityType();
     return entityTypes.contains(entityType);
   }
+  
+  private RecommendationUtils() { }
 }
