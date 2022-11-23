@@ -417,6 +417,7 @@ class LDAPSource(StatefulIngestionSourceBase):
     def build_corp_group_mce(self, attrs: dict) -> Optional[MetadataChangeEvent]:
         """Creates a MetadataChangeEvent for LDAP groups."""
         cn = attrs.get(self.config.group_attrs_map["urn"])
+        print(cn)
         if cn:
             full_name = cn[0].decode()
             admins = parse_from_attrs(attrs, self.config.group_attrs_map["admins"])
@@ -436,21 +437,27 @@ class LDAPSource(StatefulIngestionSourceBase):
                 if self.config.group_attrs_map["displayName"] in attrs
                 else None
             )
-            return MetadataChangeEvent(
-                proposedSnapshot=CorpGroupSnapshotClass(
-                    urn=f"urn:li:corpGroup:{full_name}",
-                    aspects=[
-                        CorpGroupInfoClass(
-                            email=email,
-                            admins=admins,
-                            members=members,
-                            groups=[],
-                            description=description,
-                            displayName=displayName,
-                        )
-                    ],
-                )
+            group_snapshot = CorpGroupSnapshotClass(
+                urn=f"urn:li:corpGroup:{full_name}",
+                aspects=[
+                    CorpGroupInfoClass(
+                        email=email,
+                        admins=admins,
+                        members=members,
+                        groups=[],
+                        description=description,
+                        displayName=displayName,
+                    ),
+                    StatusClass(removed=False),
+                ],
             )
+            print("group full_name:" + full_name)
+            if full_name:
+                self.stale_entity_removal_handler.add_entity_to_state(
+                    type="corpGroup", urn=builder.make_group_urn(full_name)
+                )
+
+            return MetadataChangeEvent(proposedSnapshot=group_snapshot)
         return None
 
     def get_report(self) -> LDAPSourceReport:
