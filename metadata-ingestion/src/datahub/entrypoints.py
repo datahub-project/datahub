@@ -98,6 +98,7 @@ def datahub(
     if debug or os.getenv("DATAHUB_DEBUG", False):
         logging.getLogger().setLevel(logging.INFO)
         datahub_logger.setLevel(logging.DEBUG)
+        logging.getLogger("datahub_classify").setLevel(logging.DEBUG)
     else:
         logging.getLogger().setLevel(logging.WARNING)
         datahub_logger.setLevel(logging.INFO)
