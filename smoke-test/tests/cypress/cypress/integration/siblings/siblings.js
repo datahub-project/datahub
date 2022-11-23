@@ -117,7 +117,8 @@ describe('siblings', () => {
     // check the names
     cy.get('text:contains(raw_orders)').should('have.length', 1);
     cy.get('text:contains(customers)').should('have.length', 1);
-    cy.get('text:contains(stg_orders)').should('have.length', 1);
+    // center counts twice since we secretely render two center nodes
+    cy.get('text:contains(stg_orders)').should('have.length', 2);
 
     // check the platform
     cy.get('svg').get('text:contains(dbt & BigQuery)').should('have.length', 4);
@@ -136,8 +137,8 @@ describe('siblings', () => {
 
     // check the names
     cy.get('text:contains(raw_orders)').should('have.length', 1);
-    // center node plus the downstream bigquery
-    cy.get('text:contains(stg_orders)').should('have.length', 2);
+    // center counts twice since we secretely render two center nodes, plus the downstream bigquery
+    cy.get('text:contains(stg_orders)').should('have.length', 3);
 
     // check the platform
     cy.get('svg').get('text:contains(dbt & BigQuery)').should('have.length', 0);
