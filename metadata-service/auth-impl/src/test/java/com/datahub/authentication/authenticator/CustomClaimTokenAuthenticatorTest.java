@@ -1,18 +1,10 @@
 package com.datahub.authentication.authenticator;
 
-import com.auth0.jwt.interfaces.DecodedJWT;
 import com.datahub.authentication.Actor;
-import com.datahub.authentication.ActorType;
 import com.datahub.authentication.Authentication;
 import com.datahub.authentication.AuthenticationRequest;
 import com.datahub.authentication.AuthenticationException;
-import com.datahub.authentication.Authenticator;
-import com.datahub.authentication.AuthenticatorContext;
 import com.auth0.jwk.JwkException;
-import com.auth0.jwt.JWT;
-import com.datahub.authentication.Authentication;
-import com.datahub.authentication.AuthenticationRequest;
-import com.datahub.authentication.authenticator.CustomClaimTokenAuthenticator;
 import com.google.common.collect.ImmutableMap;
 import java.net.MalformedURLException;
 import java.security.KeyFactory;
@@ -35,7 +27,7 @@ import static org.testng.AssertJUnit.*;
 public class CustomClaimTokenAuthenticatorTest {
 
   @Test
-  void TestAuthentication() throws NoSuchAlgorithmException, InvalidKeySpecException, MalformedURLException, JwkException,
+  void testAuthentication() throws NoSuchAlgorithmException, InvalidKeySpecException, MalformedURLException, JwkException,
                                    AuthenticationException {
     String token = "eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxMjM0NTY3ODkwIiwidXNlcm5hbWUiOiJqb2huX3Nub3ci"
         + "LCJhZG1pbiI6dHJ1ZSwiaWF0IjoxNTE2MjM5MDIyLCJpc3MiOiJodHRwczovL3Rlc3QuY29tL3JlYWxtL2RvbWFpbiJ9.Hz6Zpt-b5gpw3YvJ4fk8x"
@@ -61,20 +53,20 @@ public class CustomClaimTokenAuthenticatorTest {
 
     when(mock.authenticate(context)).thenCallRealMethod();
 
-    Map<String, Object> config = new HashMap<String,Object>();
+    Map<String, Object> config = new HashMap<String, Object>();
     config.put("idClaim", "username");
     config.put("trustedIssuers", getTrustedIssuer());
-    doCallRealMethod().when(mock).init(config,null);
+    doCallRealMethod().when(mock).init(config, null);
 
-    mock.init(config,null);
+    mock.init(config, null);
     Authentication result = mock.authenticate(context);
     Actor actor = result.getActor();
     String actualCredential = result.getCredentials();
-    assertEquals(token,actualCredential);
-    assertEquals("urn:li:corpuser:john_snow",actor.toUrnStr());
+    assertEquals(token, actualCredential);
+    assertEquals("urn:li:corpuser:john_snow", actor.toUrnStr());
   }
   @Test(expectedExceptions = InvalidKeySpecException.class)
-  void TestInvalidKey() throws NoSuchAlgorithmException, InvalidKeySpecException, MalformedURLException, JwkException,
+  void testInvalidKey() throws NoSuchAlgorithmException, InvalidKeySpecException, MalformedURLException, JwkException,
                                AuthenticationException {
 
     String token = "eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxMjM0NTY3ODkwIiwidXNlcm5hbWUiOiJqb2huX3Nub3ci"
@@ -98,20 +90,20 @@ public class CustomClaimTokenAuthenticatorTest {
             AUTHORIZATION_HEADER_NAME, token)
     );
 
-    Map<String, Object> config = new HashMap<String,Object>();
+    Map<String, Object> config = new HashMap<>();
     config.put("idClaim", "missingClaimInToken");
     config.put("trustedIssuers", getTrustedIssuer());
-    doCallRealMethod().when(mock).init(config,null);
+    doCallRealMethod().when(mock).init(config, null);
 
 
-    mock.init(config,null);
+    mock.init(config, null);
 
     when(mock.authenticate(context)).thenCallRealMethod();
-    Authentication result = mock.authenticate(context);
+    mock.authenticate(context);
   }
 
   @Test(expectedExceptions = AuthenticationException.class)
-  void TestNullToken() throws AuthenticationException {
+  void testNullToken() throws AuthenticationException {
 
     CustomClaimTokenAuthenticator mock = mock(CustomClaimTokenAuthenticator.class);
 
@@ -120,12 +112,12 @@ public class CustomClaimTokenAuthenticatorTest {
     );
 
     when(mock.authenticate(context)).thenCallRealMethod();
-    Authentication result = mock.authenticate(context);
+    mock.authenticate(context);
 
   }
 
   @Test(expectedExceptions = AuthenticationException.class)
-  void TestMissingClaim() throws NoSuchAlgorithmException, InvalidKeySpecException, MalformedURLException, JwkException,
+  void testMissingClaim() throws NoSuchAlgorithmException, InvalidKeySpecException, MalformedURLException, JwkException,
                                  AuthenticationException {
 
     String token = "eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxMjM0NTY3ODkwIiwidXNlcm5hbWUiOiJqb2huX3Nub3ci"
@@ -152,29 +144,29 @@ public class CustomClaimTokenAuthenticatorTest {
 
     when(mock.authenticate(context)).thenCallRealMethod();
 
-    Map<String, Object> config = new HashMap<String,Object>();
+    Map<String, Object> config = new HashMap<>();
     config.put("idClaim", "missingClaimInToken");
     config.put("trustedIssuers", getTrustedIssuer());
-    doCallRealMethod().when(mock).init(config,null);
+    doCallRealMethod().when(mock).init(config, null);
 
-    mock.init(config,null);
+    mock.init(config, null);
     Authentication result = mock.authenticate(context);
   }
 
   private RSAPublicKey loadPublicKey(String publicKey) throws NoSuchAlgorithmException, InvalidKeySpecException {
 
     byte[] byteKey = Base64.getDecoder().decode(publicKey.getBytes());
-    X509EncodedKeySpec X509publicKey = new X509EncodedKeySpec(byteKey);
+    X509EncodedKeySpec x509publicKey = new X509EncodedKeySpec(byteKey);
     KeyFactory kf = null;
     kf = KeyFactory.getInstance("RSA");
 
-    RSAPublicKey key = (RSAPublicKey) kf.generatePublic(X509publicKey);
+    RSAPublicKey key = (RSAPublicKey) kf.generatePublic(x509publicKey);
     return key;
   }
 
-  private LinkedHashMap<String,String> getTrustedIssuer(){
-    LinkedHashMap<String,String> trustedIssuer = new LinkedHashMap<>();
-    trustedIssuer.putIfAbsent("0","https://test.com/realm/domain");
+  private LinkedHashMap<String,String> getTrustedIssuer() {
+    LinkedHashMap<String, String> trustedIssuer = new LinkedHashMap<>();
+    trustedIssuer.putIfAbsent("0", "https://test.com/realm/domain");
     return trustedIssuer;
   }
 }
