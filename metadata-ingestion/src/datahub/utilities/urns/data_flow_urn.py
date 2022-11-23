@@ -75,4 +75,6 @@ class DataFlowUrn(Urn):
 
         env = entity_id[2].upper()
         if env not in ALL_ENV_TYPES:
-            raise InvalidUrnError(f"Invalid env:{env}. Allowed evn are {ALL_ENV_TYPES}")
+            raise InvalidUrnError(
+                f"Invalid env:{env}. Allowed envs are {ALL_ENV_TYPES}"
+            )
