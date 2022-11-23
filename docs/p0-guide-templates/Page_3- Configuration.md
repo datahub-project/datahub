@@ -1,6 +1,6 @@
 # DataHub [Source Name] UI Ingestion Guide: Configuring Your [Source Name] to DataHub Connector
 
-##s UI Ingestion
+## UI Ingestion
 <!-- 
 * Navigate to the "Ingestion Tab"
 * Click "create new source"
