@@ -1356,12 +1356,23 @@ class Mapper:
             aspect=browse_path,
         )
 
+        container_mcp = None
+        if self.__config.extract_workspaces_to_containers:
+            container_mcp = self.add_urn_to_container(
+                self.gen_workspace_key(dashboard.workspace_name),
+                dashboard_urn,
+                Constant.DASHBOARD,
+            )
+
         list_of_mcps = [
             browse_path_mcp,
             info_mcp,
             removed_status_mcp,
             dashboard_key_mcp,
         ]
+
+        if container_mcp is not None:
+            list_of_mcps.append(container_mcp)
 
         if owner_mcp is not None:
             list_of_mcps.append(owner_mcp)
@@ -1521,7 +1532,10 @@ class Mapper:
         return deduplicate_list([wu for wu in work_units if wu is not None])
 
     def __pages_to_chart(
-        self, pages: List[PowerBiAPI.Page], ds_mcps: List[MetadataChangeProposalWrapper]
+        self,
+        pages: List[PowerBiAPI.Page],
+        ds_mcps: List[MetadataChangeProposalWrapper],
+        workspace_name: str,
     ) -> List[MetadataChangeProposalWrapper]:
 
         chart_mcps = []
@@ -1583,7 +1597,17 @@ class Mapper:
                 aspect=chart_key_instance,
             )
 
-            return [info_mcp, status_mcp]
+            list_of_mcps = [info_mcp, status_mcp, chartkey_mcp]
+
+            if self.__config.extract_workspaces_to_containers:
+                container_mcp = self.add_urn_to_container(
+                    self.gen_workspace_key(workspace_name),
+                    chart_urn,
+                    Constant.CHART,
+                )
+                list_of_mcps.append(container_mcp)
+
+            return list_of_mcps
 
         for page in pages:
             if page is None:
@@ -1719,7 +1743,7 @@ class Mapper:
         user_mcps = self.to_datahub_users(report.users)
         # Convert pages to charts. A report has single dataset and same dataset used in pages to create visualization
         ds_mcps = self.__to_datahub_dataset(report.dataset)
-        chart_mcps = self.__pages_to_chart(report.pages, ds_mcps)
+        chart_mcps = self.__pages_to_chart(report.pages, ds_mcps, workspace.name)
 
         # Let's convert report to datahub dashboard
         report_mcps = self.__report_to_dashboard(
