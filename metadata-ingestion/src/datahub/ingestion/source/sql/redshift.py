@@ -15,7 +15,6 @@ from sqlalchemy import create_engine, inspect
 from sqlalchemy.engine import Connection, reflection
 from sqlalchemy.engine.reflection import Inspector
 from sqlalchemy_redshift.dialect import RedshiftDialect, RelationKey
-from sqllineage.runner import LineageRunner
 
 import datahub.emitter.mce_builder as builder
 from datahub.configuration import ConfigModel

@@ -5,32 +5,27 @@ import time
 from datetime import datetime
 from typing import TYPE_CHECKING, Dict, Iterable, List, Optional, Set
 
+import redshift_connector
 from pydantic.fields import Field
 from pydantic.main import BaseModel
 from sqlalchemy import create_engine
 from sqlalchemy.engine import Engine
 
 import datahub.emitter.mce_builder as builder
-from datahub.configuration.source_common import EnvBasedSourceConfigBase
 from datahub.configuration.time_window_config import get_time_bucket
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
-from datahub.ingestion.api.common import PipelineContext
-from datahub.ingestion.api.decorators import (
-    SourceCapability,
-    SupportStatus,
-    capability,
-    config_class,
-    platform_name,
-    support_status,
-)
 from datahub.ingestion.api.source import Source, SourceReport
 from datahub.ingestion.api.workunit import MetadataWorkUnit
-from datahub.ingestion.source.sql.redshift import RedshiftConfig
-from datahub.ingestion.source.usage.usage_common import (
-    BaseUsageConfig,
-    GenericAggregatedDataset,
+from datahub.ingestion.source.redshift.config import RedshiftConfig
+from datahub.ingestion.source.redshift.report import RedshiftReport
+from datahub.ingestion.source.sql.sql_common import SQLSourceReport
+from datahub.ingestion.source.usage.redshift_usage import RedshiftUsageSourceReport
+from datahub.ingestion.source.usage.usage_common import GenericAggregatedDataset
+from datahub.metadata.schema_classes import (
+    ChangeTypeClass,
+    OperationClass,
+    OperationTypeClass,
 )
-from datahub.metadata.schema_classes import OperationClass, OperationTypeClass
 
 logger = logging.getLogger(__name__)
 
@@ -136,7 +131,7 @@ class RedshiftAccessEvent(BaseModel):
     username: str
     query: int
     tbl: int
-    text: Optional[str] = Field(None, alias="querytxt")
+    text: str = Field(None, alias="querytxt")
     database: str
     schema_: str = Field(alias="schema")
     table: str
@@ -145,36 +140,7 @@ class RedshiftAccessEvent(BaseModel):
     endtime: datetime
 
 
-class RedshiftUsageConfig(BaseUsageConfig):
-    email_domain: str = Field(
-        description="Email domain of your organisation so users can be displayed on UI appropriately."
-    )
-
-    options: Dict = Field(
-        default={},
-        description="Any options specified here will be passed to SQLAlchemy's create_engine as kwargs."
-        "See https://docs.sqlalchemy.org/en/14/core/engines.html#sqlalchemy.create_engine for details.",
-    )
-
-    def get_sql_alchemy_url(self):
-        return super().get_sql_alchemy_url()
-
-
-@dataclasses.dataclass
-class RedshiftUsageSourceReport(SourceReport):
-    filtered: Set[str] = dataclasses.field(default_factory=set)
-    num_usage_workunits_emitted: Optional[int] = None
-    num_operational_stats_workunits_emitted: Optional[int] = None
-
-    def report_dropped(self, key: str) -> None:
-        self.filtered.add(key)
-
-
-@platform_name("Redshift")
-@config_class(RedshiftUsageConfig)
-@support_status(SupportStatus.CERTIFIED)
-@capability(SourceCapability.PLATFORM_INSTANCE, "Enabled by default")
-class RedshiftUsageSource(Source):
+class RedshiftUsageExtractor:
     """
     This plugin extracts usage statistics for datasets in Amazon Redshift.
 
@@ -208,22 +174,21 @@ class RedshiftUsageSource(Source):
 
     """
 
-    def __init__(self, config: RedshiftUsageConfig, ctx: PipelineContext):
-        super().__init__(ctx)
-        self.config: RedshiftUsageConfig = config
-        self.report: RedshiftUsageSourceReport = RedshiftUsageSourceReport()
+    def __init__(
+        self,
+        config: RedshiftConfig,
+        connection: redshift_connector.Connection,
+        report: RedshiftReport,
+    ):
+        self.config = config
+        self.report = report
+        self.connection = connection
 
-    @classmethod
-    def create(cls, config_dict: Dict, ctx: PipelineContext) -> "RedshiftUsageSource":
-        config = RedshiftUsageConfig.parse_obj(config_dict)
-        return cls(config, ctx)
-
-    def get_workunits(self) -> Iterable[MetadataWorkUnit]:
+    def generate_usage(self) -> Iterable[MetadataWorkUnit]:
         """Gets Redshift usage stats as work units"""
-        engine: Engine = self._make_sql_engine()
         if self.config.include_operational_stats:
             # Generate operation aspect workunits
-            yield from self._gen_operation_aspect_workunits(engine)
+            yield from self._gen_operation_aspect_workunits(self.connection)
 
         # Generate aggregate events
         query: str = REDSHIFT_USAGE_QUERY_TEMPLATE.format(
@@ -233,7 +198,9 @@ class RedshiftUsageSource(Source):
         )
         access_events_iterable: Iterable[
             RedshiftAccessEvent
-        ] = self._gen_access_events_from_history_query(query, engine)
+        ] = self._gen_access_events_from_history_query(
+            query, connection=self.connection
+        )
 
         aggregated_events: AggregatedAccessEvents = self._aggregate_access_events(
             access_events_iterable
@@ -248,7 +215,7 @@ class RedshiftUsageSource(Source):
                 yield wu
 
     def _gen_operation_aspect_workunits(
-        self, engine: Engine
+        self, connection: redshift_connector.Connection
     ) -> Iterable[MetadataWorkUnit]:
         # Generate access events
         query: str = REDSHIFT_OPERATION_ASPECT_QUERY_TEMPLATE.format(
@@ -257,7 +224,7 @@ class RedshiftUsageSource(Source):
         )
         access_events_iterable: Iterable[
             RedshiftAccessEvent
-        ] = self._gen_access_events_from_history_query(query, engine)
+        ] = self._gen_access_events_from_history_query(query, connection)
 
         # Generate operation aspect work units from the access events
         yield from self._gen_operation_aspect_workunits_from_access_events(
@@ -269,21 +236,10 @@ class RedshiftUsageSource(Source):
         logger.debug(f"sql_alchemy_url = {url}")
         return create_engine(url, **self.config.options)
 
-    def _should_process_row(self, row: "Row") -> bool:
-        # Check for mandatory proerties being present first.
-        missing_props: List[str] = [
-            prop
-            for prop in ["database", "schema", "table", "username"]
-            if not row[prop]
-        ]
-        if missing_props:
-            logging.info(
-                f"Access event parameter(s):[{','.join(missing_props)}] missing. Skipping ...."
-            )
-            return False
+    def _should_process_event(self, event: RedshiftAccessEvent) -> bool:
         # Check schema/table allow/deny patterns
-        full_table_name: str = f"{row['database']}.{row['schema']}.{row['table']}"
-        if not self.config.schema_pattern.allowed(row["schema"]):
+        full_table_name: str = f"{event.database}.{event.schema_}.{event.table}"
+        if not self.config.schema_pattern.allowed(event.schema_):
             logger.debug(f"Filtering out {full_table_name} due to schema_pattern.")
             self.report.report_dropped(full_table_name)
             return False
@@ -295,20 +251,36 @@ class RedshiftUsageSource(Source):
         return True
 
     def _gen_access_events_from_history_query(
-        self, query: str, engine: Engine
+        self, query: str, connection: redshift_connector.Connection
     ) -> Iterable[RedshiftAccessEvent]:
-        results = engine.execute(query)
-        for row in results:
-            if not self._should_process_row(row):
-                continue
-            if hasattr(row, "_asdict"):
-                # Compatibility with sqlalchemy 1.4.x.
-                row = row._asdict()
-            access_event = RedshiftAccessEvent(**dict(row.items()))
-            # Replace database name with the alias name if one is provided in the config.
-            if self.config.database_alias:
-                access_event.database = self.config.database_alias
-            yield access_event
+        cursor = connection.cursor()
+        cursor.execute(query)
+        results = cursor.fetchmany()
+        field_names = [i[0] for i in cursor.description]
+        while results:
+            for row in results:
+                access_event = RedshiftAccessEvent(
+                    userid=row[field_names.index("userid")],
+                    username=row[field_names.index("username")],
+                    query=row[field_names.index("query")],
+                    querytxt=row[field_names.index("querytxt")].strip()
+                    if row[field_names.index("querytxt")]
+                    else None,
+                    tbl=row[field_names.index("tbl")],
+                    database=row[field_names.index("database")],
+                    schema=row[field_names.index("schema")],
+                    table=row[field_names.index("table")],
+                    starttime=row[field_names.index("starttime")],
+                    endtime=row[field_names.index("endtime")],
+                )
+                if not self._should_process_event(access_event):
+                    continue
+                # Replace database name with the alias name if one is provided in the config.
+                if self.config.database_alias:
+                    access_event.database = self.config.database_alias
+                yield access_event
+
+            results = cursor.fetchmany()
 
     def _gen_operation_aspect_workunits_from_access_events(
         self,
@@ -343,6 +315,9 @@ class RedshiftUsageSource(Source):
                 ),
             )
             mcp = MetadataChangeProposalWrapper(
+                entityType="dataset",
+                aspectName="operation",
+                changeType=ChangeTypeClass.UPSERT,
                 entityUrn=builder.make_dataset_urn_with_platform_instance(
                     "redshift",
                     resource.lower(),
@@ -381,7 +356,6 @@ class RedshiftUsageSource(Source):
             user_email: str = f"{event.username if event.username else 'unknown'}"
             if "@" not in user_email:
                 user_email += f"@{self.config.email_domain}"
-            logger.info(f"user_email: {user_email}")
             agg_bucket.add_read_entry(
                 user_email,
                 event.text,
@@ -403,5 +377,8 @@ class RedshiftUsageSource(Source):
             self.config.include_top_n_queries,
         )
 
-    def get_report(self) -> RedshiftUsageSourceReport:
+    def get_report(self) -> RedshiftReport:
         return self.report
+
+    def close(self) -> None:
+        pass
