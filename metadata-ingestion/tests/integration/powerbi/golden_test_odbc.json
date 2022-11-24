@@ -29,7 +29,7 @@
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:odbc,dsn=datawarehouse_prod.library-dataset.articles,DEV)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:odbc,datawarehouse_prod.library-dataset.articles,DEV)",
     "changeType": "UPSERT",
     "aspectName": "datasetProperties",
     "aspect": {
@@ -43,7 +43,7 @@
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:odbc,dsn=datawarehouse_prod.library-dataset.articles,DEV)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:odbc,datawarehouse_prod.library-dataset.articles,DEV)",
     "changeType": "UPSERT",
     "aspectName": "status",
     "aspect": {

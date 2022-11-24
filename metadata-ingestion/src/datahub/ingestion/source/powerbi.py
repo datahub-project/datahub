@@ -619,6 +619,18 @@ class PowerBiAPI:
                 results[table_name].append(col_name)
         return results
 
+    @staticmethod
+    def format_connection_string(data_source: Optional[Dict]) -> Optional[str]:
+        if not data_source:
+            return None
+
+        connection_string = data_source.get("connectionDetails", {}).get(
+            "connectionString", None
+        )
+        if not connection_string:
+            return None
+        return connection_string.replace("dsn=", "")
+
     def get_data_source(self, dataset: Dataset) -> Any:
         """
         Fetch the data source from PowerBi for the given dataset
@@ -690,14 +702,10 @@ class PowerBiAPI:
             datasource.metadata = PowerBiAPI.DataSource.MetaData(is_relational=True)
             datasource.database = datasource_dict.get("connectionDetails", {}).get(
                 "database", None
-            ) or datasource_dict.get("connectionDetails", {}).get(
-                "connectionString", None
-            )
+            ) or self.format_connection_string(datasource_dict)
             datasource.server = datasource_dict.get("connectionDetails", {}).get(
                 "server", None
-            ) or datasource_dict.get("connectionDetails", {}).get(
-                "connectionString", None
-            )
+            ) or self.format_connection_string(datasource_dict)
         else:
             datasource.metadata = PowerBiAPI.DataSource.MetaData(is_relational=False)
             LOGGER.warning(
