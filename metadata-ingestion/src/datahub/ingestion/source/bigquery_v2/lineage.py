@@ -435,12 +435,6 @@ timestamp < "{end_time}"
                     referenced_objs = set(
                         map(lambda x: x.split(".")[-1], parser.get_tables())
                     )
-                    self.report.num_lineage_entries_sql_parser_failure[e.project_id] = (
-                        self.report.num_lineage_entries_sql_parser_failure.get(
-                            e.project_id, 0
-                        )
-                        + 1
-                    )
                 except Exception as ex:
                     logger.debug(
                         f"Sql Parser failed on query: {e.query}. It won't cause any issue except table/view lineage can't be detected reliably. The error was {ex}."
@@ -637,7 +631,6 @@ timestamp < "{end_time}"
         return None
 
     def test_capability(self, project_id: str) -> None:
-        lineage_metadata: Dict[str, Set[str]]
         if self.config.use_exported_bigquery_audit_metadata:
             bigquery_client: BigQueryClient = BigQueryClient(project=project_id)
             entries = self._get_exported_bigquery_audit_metadata(

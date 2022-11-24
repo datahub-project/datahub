@@ -84,7 +84,7 @@ describe("search", () => {
 
     cy.contains("Add Filter").click();
 
-    cy.contains("Column Term").click({ force: true });
+    cy.contains("Column Glossary Term").click({ force: true });
 
     cy.get('[data-testid="tag-term-modal-input"]').type("CypressColumnInfo");
 
@@ -118,7 +118,7 @@ describe("search", () => {
 
     cy.contains("Add Filter").click();
 
-    cy.contains("Column Term").click({ force: true });
+    cy.contains("Column Glossary Term").click({ force: true });
 
     cy.get('[data-testid="tag-term-modal-input"]').type("CypressColumnInfo");
 
@@ -157,7 +157,7 @@ describe("search", () => {
 
     cy.contains("Add Filter").click();
 
-    cy.contains("Column Term").click({ force: true });
+    cy.contains("Column Glossary Term").click({ force: true });
 
     cy.get('[data-testid="tag-term-modal-input"]').type("CypressColumnInfo");
 

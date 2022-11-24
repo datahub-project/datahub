@@ -18,6 +18,7 @@ import { useEntityRegistry } from '../../useEntityRegistry';
 import { useGetRecommendations } from '../recommendation';
 import { FORBIDDEN_URN_CHARS_REGEX } from '../../entity/shared/utils';
 import { TagTermLabel } from './TagTermLabel';
+import { ENTER_KEY_CODE } from '../constants';
 
 export enum OperationType {
     ADD,
@@ -39,7 +40,7 @@ const TagSelect = styled(Select)`
 `;
 
 const StyleTag = styled(CustomTag)`
-    margin-right: 3px;
+    margin: 2px;
     display: flex;
     justify-content: start;
     align-items: center;
@@ -192,12 +193,17 @@ export default function EditTagTermsModal({
         querySelectorToExecuteClick: '#addTagButton',
     });
 
+    function handleOnClickBack() {
+        setInputValue('');
+        setShowCreateModal(false);
+    }
+
     if (showCreateModal) {
         return (
             <CreateTagModal
                 visible={visible}
                 onClose={onCloseModal}
-                onBack={() => setShowCreateModal(false)}
+                onBack={handleOnClickBack}
                 tagName={inputValue}
                 resources={resources}
             />
@@ -406,6 +412,12 @@ export default function EditTagTermsModal({
         setInputValue('');
     }
 
+    function handleKeyDown(event) {
+        if (event.keyCode === ENTER_KEY_CODE) {
+            (inputEl.current as any).blur();
+        }
+    }
+
     const isShowingGlossaryBrowser = !inputValue && type === EntityType.GlossaryTerm && isFocusedOnInput;
 
     return (
@@ -453,6 +465,7 @@ export default function EditTagTermsModal({
                     onClear={clearInput}
                     onFocus={() => setIsFocusedOnInput(true)}
                     onBlur={handleBlur}
+                    onInputKeyDown={handleKeyDown}
                     dropdownStyle={isShowingGlossaryBrowser ? { display: 'none' } : {}}
                 >
                     {tagSearchOptions}

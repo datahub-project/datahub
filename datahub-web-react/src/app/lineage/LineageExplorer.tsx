@@ -12,7 +12,6 @@ import { EntityAndType, EntitySelectParams, FetchedEntities } from './types';
 import LineageViz from './LineageViz';
 import extendAsyncEntities from './utils/extendAsyncEntities';
 import { EntityType } from '../../types.generated';
-import { capitalizeFirstLetter } from '../shared/textUtil';
 import { ANTD_GRAY } from '../entity/shared/constants';
 import { GetEntityLineageQuery, useGetEntityLineageQuery } from '../../graphql/lineage.generated';
 import { useIsSeparateSiblingsMode } from '../entity/shared/siblingUtils';
@@ -184,7 +183,7 @@ export default function LineageExplorer({ urn, type }: Props) {
                                 Close
                             </Button>
                             <Button href={entityRegistry.getEntityUrl(selectedEntity.type, selectedEntity.urn)}>
-                                <InfoCircleOutlined /> {capitalizeFirstLetter(selectedEntity.type)} Details
+                                <InfoCircleOutlined /> {entityRegistry.getEntityName(selectedEntity.type)} Details
                             </Button>
                         </FooterButtonGroup>
                     )

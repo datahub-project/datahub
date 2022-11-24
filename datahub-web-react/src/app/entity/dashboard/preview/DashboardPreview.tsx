@@ -72,6 +72,7 @@ export const DashboardPreview = ({
         <DefaultPreviewCard
             url={entityRegistry.getEntityUrl(EntityType.Dashboard, urn)}
             name={name || ''}
+            urn={urn}
             description={description || ''}
             type={capitalizeFirstLetterOnly(subtype) || 'Dashboard'}
             typeIcon={entityRegistry.getIcon(EntityType.Dashboard, 14, IconStyleType.ACCENT)}

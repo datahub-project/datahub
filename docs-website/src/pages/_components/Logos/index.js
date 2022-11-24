@@ -22,6 +22,11 @@ const companiesByIndustry = [
         imageSize: "medium",
       },
       {
+        name: "ClassDojo",
+        imageUrl: "/img/logos/companies/classdojo.png",
+        imageSize: "medium",
+      },
+      {
         name: "Coursera",
         imageUrl: "/img/logos/companies/coursera.svg",
         imageSize: "small",
@@ -55,6 +60,16 @@ const companiesByIndustry = [
         name: "Zynga",
         imageUrl: "/img/logos/companies/zynga.png",
         imageSize: "default",
+      },
+      {
+        name: "Hurb",
+        imageUrl: "/img/logos/companies/hurb.png",
+        imageSize: "medium",
+      },
+      {
+        name: "Razer",
+        imageUrl: "/img/logos/companies/razer.jpeg",
+        imageSize: "large",
       },
     ],
   },

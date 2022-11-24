@@ -90,7 +90,9 @@ class DatasetUrn(Urn):
         DataPlatformUrn.validate(platform_urn_str)
         env = entity_id[2].upper()
         if env not in ALL_ENV_TYPES:
-            raise InvalidUrnError(f"Invalid env:{env}. Allowed evn are {ALL_ENV_TYPES}")
+            raise InvalidUrnError(
+                f"Invalid env:{env}. Allowed envs are {ALL_ENV_TYPES}"
+            )
 
     """A helper function to extract simple . path notation from the v2 field path"""
 

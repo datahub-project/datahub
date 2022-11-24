@@ -197,6 +197,7 @@ def generate(schemas_path: str, outdir: str) -> None:
         "mxe/MetadataChangeLog.avsc",
         "mxe/PlatformEvent.avsc",
         "platform/event/v1/EntityChangeEvent.avsc",
+        "metadata/query/filter/Filter.avsc",  # temporarily added to test reserved keywords support
     }
 
     # Find all the aspect schemas / other important schemas.

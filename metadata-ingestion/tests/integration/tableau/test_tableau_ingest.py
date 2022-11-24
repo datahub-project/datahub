@@ -28,6 +28,33 @@ GMS_SERVER = f"http://localhost:{GMS_PORT}"
 
 test_resources_dir = None
 
+config_source_default = {
+    "username": "username",
+    "password": "pass`",
+    "connect_uri": "https://do-not-connect",
+    "site": "acryl",
+    "projects": ["default", "Project 2"],
+    "page_size": 10,
+    "ingest_tags": True,
+    "ingest_owner": True,
+    "ingest_tables_external": True,
+    "default_schema_map": {
+        "dvdrental": "public",
+        "someotherdb": "schema",
+    },
+    "platform_instance_map": {"postgres": "demo_postgres_instance"},
+    "extract_usage_stats": True,
+    "stateful_ingestion": {
+        "enabled": True,
+        "remove_stale_metadata": True,
+        "fail_safe_threshold": 100.0,
+        "state_provider": {
+            "type": "datahub",
+            "config": {"datahub_api": {"server": GMS_SERVER}},
+        },
+    },
+}
+
 
 def read_response(pytestconfig, file_name):
     test_resources_dir = pathlib.Path(
@@ -64,6 +91,7 @@ def tableau_ingest_common(
     golden_file_name,
     output_file_name,
     mock_datahub_graph,
+    pipeline_config=config_source_default,
 ):
     test_resources_dir = pathlib.Path(
         pytestconfig.rootpath / "tests/integration/tableau"
@@ -93,34 +121,7 @@ def tableau_ingest_common(
                     "pipeline_name": "tableau-test-pipeline",
                     "source": {
                         "type": "tableau",
-                        "config": {
-                            "username": "username",
-                            "password": "pass`",
-                            "connect_uri": "https://do-not-connect",
-                            "site": "acryl",
-                            "projects": ["default", "Project 2"],
-                            "page_size": 10,
-                            "ingest_tags": True,
-                            "ingest_owner": True,
-                            "ingest_tables_external": True,
-                            "default_schema_map": {
-                                "dvdrental": "public",
-                                "someotherdb": "schema",
-                            },
-                            "platform_instance_map": {
-                                "postgres": "demo_postgres_instance"
-                            },
-                            "extract_usage_stats": True,
-                            "stateful_ingestion": {
-                                "enabled": True,
-                                "remove_stale_metadata": True,
-                                "fail_safe_threshold": 100.0,
-                                "state_provider": {
-                                    "type": "datahub",
-                                    "config": {"datahub_api": {"server": GMS_SERVER}},
-                                },
-                            },
-                        },
+                        "config": pipeline_config,
                     },
                     "sink": {
                         "type": "file",
@@ -168,6 +169,58 @@ def test_tableau_ingest(pytestconfig, tmp_path, mock_datahub_graph):
         golden_file_name,
         output_file_name,
         mock_datahub_graph,
+    )
+
+
+@freeze_time(FROZEN_TIME)
+@pytest.mark.slow_unit
+def test_tableau_ingest_with_platform_instance(
+    pytestconfig, tmp_path, mock_datahub_graph
+):
+    output_file_name: str = "tableau_with_platform_instance_mces.json"
+    golden_file_name: str = "tableau_with_platform_instance_mces_golden.json"
+
+    config_source = {
+        "username": "username",
+        "password": "pass`",
+        "connect_uri": "https://do-not-connect",
+        "site": "acryl",
+        "platform_instance": "acryl_site1",
+        "projects": ["default", "Project 2"],
+        "page_size": 10,
+        "ingest_tags": True,
+        "ingest_owner": True,
+        "ingest_tables_external": True,
+        "default_schema_map": {
+            "dvdrental": "public",
+            "someotherdb": "schema",
+        },
+        "platform_instance_map": {"postgres": "demo_postgres_instance"},
+        "extract_usage_stats": True,
+        "stateful_ingestion": {
+            "enabled": True,
+            "remove_stale_metadata": True,
+            "fail_safe_threshold": 100.0,
+            "state_provider": {
+                "type": "datahub",
+                "config": {"datahub_api": {"server": GMS_SERVER}},
+            },
+        },
+    }
+
+    tableau_ingest_common(
+        pytestconfig,
+        tmp_path,
+        [
+            read_response(pytestconfig, "workbooksConnection_all.json"),
+            read_response(pytestconfig, "embeddedDatasourcesConnection_all.json"),
+            read_response(pytestconfig, "publishedDatasourcesConnection_all.json"),
+            read_response(pytestconfig, "customSQLTablesConnection_all.json"),
+        ],
+        golden_file_name,
+        output_file_name,
+        mock_datahub_graph,
+        config_source,
     )
 
 

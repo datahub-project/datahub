@@ -10,7 +10,7 @@ services:
     build:
       context: ../
       dockerfile: docker/datahub-mae-consumer/Dockerfile
-    image: linkedin/datahub-mae-consumer:${DATAHUB_VERSION:-head}
+    image: ${DATAHUB_MAE_CONSUMER_IMAGE:-linkedin/datahub-mae-consumer}:${DATAHUB_VERSION:-head}
     env_file: datahub-mae-consumer/env/docker-without-neo4j.env
     hostname: datahub-mae-consumer
     container_name: datahub-mae-consumer
@@ -24,7 +24,7 @@ services:
     build:
       context: ../
       dockerfile: docker/datahub-mce-consumer/Dockerfile
-    image: linkedin/datahub-mce-consumer:${DATAHUB_VERSION:-head}
+    image: ${DATAHUB_MCE_CONSUMER_IMAGE:-linkedin/datahub-mce-consumer}:${DATAHUB_VERSION:-head}
     env_file: datahub-mce-consumer/env/docker.env
     hostname: datahub-mce-consumer
     container_name: datahub-mce-consumer

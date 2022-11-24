@@ -308,6 +308,21 @@ class SupersetSource(Source):
         group_bys = params.get("groupby", []) or []
         if isinstance(group_bys, str):
             group_bys = [group_bys]
+        # handling List[Union[str, dict]] case
+        # a dict containing two keys: sqlExpression and label
+        elif isinstance(group_bys, list) and len(group_bys) != 0:
+            temp_group_bys = []
+            for item in group_bys:
+                # if the item is a custom label
+                if isinstance(item, dict):
+                    item_value = item.get("label", "")
+                    if item_value != "": temp_group_bys.append(f"{item_value}_custom_label")
+                    else: temp_group_bys.append(item)
+
+                # if the item is a string
+                elif isinstance(item, str): temp_group_bys.append(item)
+            
+            group_bys = temp_group_bys
 
         custom_properties = {
             "Metrics": ", ".join(metrics),

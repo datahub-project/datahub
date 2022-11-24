@@ -64,7 +64,7 @@ module.exports = {
       //   - Create Polices & assign roles
       //   - Ingest at least one source (ie. data warehouse)
       //   - Understand high-level options for enriching metadata
-      "docs/wip/get-started",
+      "docs/get-started-with-datahub",
       {
         "Self-Hosted DataHub": [
           "docs/quickstart",
@@ -165,6 +165,7 @@ module.exports = {
           // },
           "docs/platform-instances",
           "metadata-ingestion/docs/dev_guides/stateful",
+          "metadata-ingestion/docs/dev_guides/classification",
           "metadata-ingestion/docs/dev_guides/add_stateful_ingestion_to_source",
           "metadata-ingestion/docs/dev_guides/sql_profiles",
         ],
@@ -174,8 +175,9 @@ module.exports = {
       // The purpose of this section is to provide direction on how to enrich metadata when shift-left isn’t an option
       // "docs/wip/csv-enrichment",
       // "docs/wip/ui-based-enrichment",
+      "docs/enrich-metadata",
       "docs/domains",
-      "docs/how/business-glossary-guide",
+      "docs/glossary/business-glossary",
       "docs/tags",
       {
         Lineage: ["docs/lineage/intro", "docs/lineage/sample_code"],
@@ -183,7 +185,7 @@ module.exports = {
     ],
 
     "Act on Metadata": [
-      // "docs/wip/act-on-metadata",
+      "docs/act-on-metadata",
       {
         "Actions Framework": [
           "docs/actions/README",
@@ -223,11 +225,11 @@ module.exports = {
           },
         ],
       },
-      //  {
-      //    type: "doc",
-      //    id: "docs/wip/metadata-tests",
-      //    className: "saasOnly",
-      //  },
+      {
+        type: "doc",
+        id: "docs/tests/metadata-tests",
+        className: "saasOnly",
+      },
       //  "docs/wip/metadata-analytics",
       "docs/act-on-metadata/impact-analysis",
       // {
@@ -253,6 +255,7 @@ module.exports = {
       "docs/deploy/gcp",
       "docker/README",
       "docs/deploy/kubernetes",
+      "docs/how/updating-datahub",
       {
         Authentication: [
           "docs/authentication/README",
@@ -285,7 +288,6 @@ module.exports = {
       {
         "Advanced Guides": [
           "docs/how/delete-metadata",
-          "docs/how/updating-datahub",
           "datahub-ranger-plugin/README",
           "docs/how/backup-datahub",
           "docs/how/restore-indices",
@@ -448,10 +450,15 @@ module.exports = {
       // "docs/wip/tutorials",
       "docs/how/search",
       "docs/schema-history",
-      "docs/how/ui-tabs-guide",
+      // "docs/how/ui-tabs-guide",
       "docs/domains",
-      "docs/how/business-glossary-guide",
+      "docs/glossary/business-glossary",
       "docs/tags",
+      "docs/browse",
+      "docs/authorization/access-policies-guide",
+      "docs/features/dataset-usage-and-query-history",
+      "docs/posts",
+      "docs/sync-status",
       // "docs/wip/ui-ingestion-guide", -- not needed
       // "docs/wip/personal-access-tokens-guide", -- not needed
 
