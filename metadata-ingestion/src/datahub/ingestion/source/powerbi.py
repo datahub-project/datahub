@@ -1096,9 +1096,6 @@ class Mapper:
     def __to_work_unit(
         self, mcp: MetadataChangeProposalWrapper
     ) -> EquableMetadataWorkUnit:
-        if mcp is None:
-            print("fooo1")
-            print("fooo1")
         return Mapper.EquableMetadataWorkUnit(
             id="{PLATFORM}-{ENTITY_URN}-{ASPECT_NAME}".format(
                 PLATFORM=self.__config.platform_name,
