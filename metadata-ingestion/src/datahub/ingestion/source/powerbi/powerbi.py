@@ -1095,6 +1095,7 @@ class PowerBiAPI:
         )
         # Get workspace dashboards
         workspace.dashboards = self.get_dashboards(workspace)
+
         workspace.datasets = json_to_dataset_map(scan_result)
         init_dashboard_tiles(workspace)
 
