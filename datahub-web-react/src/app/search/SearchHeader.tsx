@@ -9,8 +9,6 @@ import { AutoCompleteResultForEntity, EntityType } from '../../types.generated';
 import EntityRegistry from '../entity/EntityRegistry';
 import { ANTD_GRAY } from '../entity/shared/constants';
 import { HeaderLinks } from '../shared/admin/HeaderLinks';
-import { useAppConfig } from '../useAppConfig';
-import { DEFAULT_APP_CONFIG } from '../../appConfigContext';
 import { CIPBanner, FixedCIPHeader } from '../shared/CIPShared';
 
 const { Header } = Layout;

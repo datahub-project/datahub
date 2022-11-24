@@ -117,7 +117,6 @@ export const HomePageHeader = () => {
     const [getAutoCompleteResultsForMultiple, { data: suggestionsData }] = useGetAutoCompleteMultipleResultsLazyQuery();
     const user = useGetAuthenticatedUser()?.corpUser;
     const themeConfig = useTheme();
-    const appConfig = useAppConfig();
     const [newSuggestionData, setNewSuggestionData] = useState<GetAutoCompleteMultipleResultsQuery | undefined>();
 
     useEffect(() => {
