@@ -581,9 +581,9 @@ def post_entity(
         curl_command,
     )
     response = session.post(url, payload)
-    jsonResponse = json.loads(response.content)
-    if 'message' in jsonResponse:
-        log.error(jsonResponse['message'].strip())
+    response_json = response.json()
+    if 'message' in response_json:
+        log.error(response_json['message'].strip())
     response.raise_for_status()
     return response.status_code
 
