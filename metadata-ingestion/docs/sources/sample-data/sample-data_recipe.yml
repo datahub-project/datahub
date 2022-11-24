@@ -1,0 +1,5 @@
+source:
+  type: sample-data
+  config:
+    # This is ignored so doesn't matter.
+    path: ""

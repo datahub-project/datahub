@@ -546,6 +546,7 @@ entry_points = {
         "presto-on-hive = datahub.ingestion.source.sql.presto_on_hive:PrestoOnHiveSource",
         "pulsar = datahub.ingestion.source.pulsar:PulsarSource",
         "salesforce = datahub.ingestion.source.salesforce:SalesforceSource",
+        "sample-data = datahub.ingestion.source.sample_source.SampleDataSource",
         "unity-catalog = datahub.ingestion.source.unity.source:UnityCatalogSource",
     ],
     "datahub.ingestion.sink.plugins": [

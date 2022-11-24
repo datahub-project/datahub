@@ -413,6 +413,7 @@ module.exports = {
         "Developing on DataHub": [
           "docs/developers",
           "docs/docker/development",
+          "metadata-ingestion/developing",
           {
             Modules: [
               "datahub-web-react/README",
@@ -438,7 +439,6 @@ module.exports = {
           "docs/advanced/es-7-upgrade",
           "docs/how/migrating-graph-service-implementation",
           "docs/advanced/field-path-spec-v2",
-          "metadata-ingestion/developing",
           "metadata-ingestion/adding-source",
           "docs/how/add-custom-ingestion-source",
           "docs/how/add-custom-data-platform",
