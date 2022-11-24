@@ -145,6 +145,8 @@ class IcebergSource(StatefulIngestionSourceBase):
                 )
                 pass
             except Exception as e:
+                # This is a custom CCCS modification, when we complete CLDN-1784 we
+                # will be able to change this back to emit an exception instead of a warning
                 self.report.report_warning("general", f"Failed to create workunit: {e}")
                 LOGGER.warning(
                     f"Exception while processing table {dataset_path}, skipping it.",
