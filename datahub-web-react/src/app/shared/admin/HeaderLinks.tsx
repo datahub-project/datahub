@@ -83,7 +83,7 @@ export function HeaderLinks(props: Props) {
             )}
             {showAnalytics && (
                 <LinkWrapper>
-                    <Link to="/analytics">
+                    <Link to="/data-catalogue/analytics">
                         <Button type="text">
                             <Tooltip title="View DataHub usage analytics">
                                 <NavTitleContainer>
