@@ -12,7 +12,6 @@ GET           /data-catalogue/config                                            
 # Routes used exclusively by the React application.
 
 # Authentication in React
-<<<<<<< HEAD
 GET           /data-catalogue/authenticate                                                   controllers.AuthenticationController.authenticate(request: Request)
 GET           /data-catalogue/sso                                                            controllers.AuthenticationController.sso()
 POST          /data-catalogue/logIn                                                          controllers.AuthenticationController.logIn(request: Request)
