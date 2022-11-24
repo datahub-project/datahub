@@ -26,8 +26,11 @@ tasks.withType(Test).configureEach {
 
 dependencies {
 
-    implementation project(':metadata-models')
-    compile externalDependency.avro_1_7
+  implementation project(':metadata-models')
+  implementation project(':kafka-avro-serializer') {
+    exclude group: "org.apache", module: "avro"
+  }
+  compile externalDependency.avro_1_7
     constraints {
       implementation('commons-collections:commons-collections:3.2.2') {
         because 'Vulnerability Issue'
@@ -39,9 +42,9 @@ dependencies {
     runtimeOnly externalDependency.jna
     implementation externalDependency.springContext
     implementation externalDependency.swaggerAnnotations
-    implementation(externalDependency.kafkaAvroSerializer) {
-      exclude group: "org.apache.avro"
-    }
+    //implementation(externalDependency.kafkaAvroSerializer) {
+    //  exclude group: "org.apache.avro"
+    //}
 
     implementation externalDependency.slf4jApi
     compileOnly externalDependency.lombok
