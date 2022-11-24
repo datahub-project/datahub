@@ -153,7 +153,7 @@ def register_mock_api(request_mock):
                                             {
                                                 "datasourceInstanceId": "DCE90B40-84D6-467A-9A5C-648E830E72D3",
                                             }
-                                        ]
+                                        ],
                                     }
                                 ],
                             }

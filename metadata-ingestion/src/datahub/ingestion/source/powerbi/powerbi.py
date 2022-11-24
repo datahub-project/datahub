@@ -191,7 +191,7 @@ class PowerBiAPI:
         name: str
         state: str
         dashboards: List[Any]
-        datasets: Dict[str, "PowerBiAPI.Dataset"]
+        datasets: Dict[str, "PowerBiAPI.PowerBIDataset"]
 
     @dataclass
     class DataSource:
@@ -222,7 +222,7 @@ class PowerBiAPI:
         class Table:
             name: str
             full_name: str
-            data_source: "PowerBiAPI.DataSource"  # We are supporting single data_source for the table
+            expression: Optional[str]
 
         id: str
         name: str
@@ -286,7 +286,7 @@ class PowerBiAPI:
         webUrl: str
         embedUrl: str
         description: str
-        dataset: Optional["PowerBiAPI.Dataset"]
+        dataset: Optional["PowerBiAPI.PowerBIDataset"]
         pages: List["PowerBiAPI.Page"]
         users: List["PowerBiAPI.User"]
 
@@ -304,7 +304,7 @@ class PowerBiAPI:
         id: str
         title: str
         embedUrl: str
-        dataset: Optional["PowerBiAPI.Dataset"]
+        dataset: Optional["PowerBiAPI.PowerBIDataset"]
         report: Optional[Any]
         createdFrom: CreatedFrom
 
@@ -584,7 +584,7 @@ class PowerBiAPI:
 
     def get_data_sources(
         self, dataset: PowerBIDataset
-    ) -> Dict[str, "PowerBiAPI.DataSource"]:
+    ) -> Optional[Dict[str, "PowerBiAPI.DataSource"]]:
         """
         Fetch the data source from PowerBi for the given dataset
         """
@@ -720,40 +720,6 @@ class PowerBiAPI:
         ]
 
         return tiles
-
-    def process_extension_table(
-        self, data_source: "PowerBiAPI.DataSource", raw_table: dict
-    ) -> (str, str, str):
-        # All below four condition should meet to process the Extension data-source type
-        if data_source.type != "Extension":
-            LOGGER.debug(f"data_source ({data_source.id}) type is not Extension")
-            return None, None
-        if data_source.raw_connection_detail.get("connectionDetails") is None:
-            LOGGER.debug(
-                f"data_source ({data_source.id}) type is missing connectionDetails"
-            )
-            return None, None
-        if (
-            data_source.raw_connection_detail["connectionDetails"].get(
-                "extensionDataSourceKind"
-            )
-            is None
-        ):
-            LOGGER.debug(
-                f"data_source ({data_source.id}) type is missing extensionDataSourceKind"
-            )
-            return None, None
-
-        if (
-            data_source.raw_connection_detail["connectionDetails"][
-                "extensionDataSourceKind"
-            ]
-            not in self.__config.dataset_type_mapping
-        ):
-            LOGGER.debug(f"expected platforms are {self.__config.dataset_type_mapping}")
-            return None, None
-        # fake and foo need to be find out from M-Query
-        return raw_table["name"], "foo_db.fake_schema.{}".format(raw_table["name"])
 
     def get_pages_by_report(
         self, workspace_id: str, report_id: str
@@ -983,78 +949,27 @@ class PowerBiAPI:
                     dataset_id=dataset_dict["id"],
                 )
                 dataset_map[dataset_instance.id] = dataset_instance
-                # Map of data-source attached to this dataset
-                data_source_map: Dict[
-                    str, PowerBiAPI.DataSource
-                ] = self.get_data_sources(dataset_instance)
+                # set dataset-name
+                dataset_name: str = (
+                    dataset_instance.name
+                    if dataset_instance.name is not None
+                    else dataset_instance.id
+                )
+
                 for table in dataset_dict["tables"]:
-                    warning_key_prefix: str = "{}_{}".format(
-                        dataset_dict.get("id") if dataset_dict.get("name") is None else dataset_dict.get("name"), table["name"]
+                    expression: str = (
+                        table["source"][0]["expression"]
+                        if table.get("source") is not None and len(table["source"]) > 0
+                        else None
                     )
-
-                    if table.get("source") is None:
-                        reporter.report_warning(
-                            f"{warning_key_prefix}-source",
-                            "table without source is not supported",
-                        )
-                        continue
-
-                    if "Value.NativeQuery(" in table["source"][0]["expression"]:
-                        reporter.report_warning(
-                            f"{warning_key_prefix}-native-query",
-                            "NativeQuery is not supported",
-                        )
-                        continue
-
-                    if table.get("datasourceUsages") is None:
-                        reporter.report_warning(
-                            f"{warning_key_prefix}-no-source",
-                            "table does not have any source",
-                        )
-                        continue
-
-                    if len(table["datasourceUsages"]) > 1:
-                        reporter.report_warning(
-                            f"{warning_key_prefix}-many-source",
-                            "Multiple data-sources for single table is not supported",
-                        )
-                        continue
-
-                    data_source: PowerBiAPI.DataSource = data_source_map[
-                        table["datasourceUsages"][0]["datasourceInstanceId"]
-                    ]
-                    table_name: str = None
-                    table_full_name: str = None
-                    if data_source.type == "Extension":
-                        table_name, table_full_name = self.process_extension_table(
-                            data_source, table
-                        )
-                    elif (
-                        self.__config.dataset_type_mapping.get(data_source.type)
-                        is not None
-                    ):
-                        # PowerBi table name contains schema name and table name. Format is <SchemaName> <TableName>
-                        table_name = table["name"].split(" ")[1]
-                        table_schema_name: str = table["name"].split(" ")[0]
-                        database_name: str = data_source.raw_connection_detail[
-                            "database"
-                        ]
-                        table_full_name = (
-                            f"{database_name}.{table_schema_name}.{table_name}"
-                        )
-
-                    if None in (table_name, table_full_name):
-                        reporter.report_warning(
-                            f"{warning_key_prefix}-extension",
-                            f"The table source ({data_source.id}) is not belongs to supported platforms: {self.__config.dataset_type_mapping}",
-                        )
-                        continue
-
                     dataset_instance.tables.append(
                         PowerBiAPI.PowerBIDataset.Table(
-                            full_name=table_full_name,
-                            name=table_name,
-                            data_source=data_source,
+                            name=table["name"],
+                            full_name="{}.{}".format(
+                                dataset_name.replace(" ", "_"),
+                                table["name"].replace(" ", "_"),
+                            ),
+                            expression=expression,
                         )
                     )
 
@@ -1172,14 +1087,16 @@ class Mapper:
         for table in dataset.tables:
             # Create a URN for dataset
             ds_urn = builder.make_dataset_urn(
-                platform=self.__config.dataset_type_mapping[table.data_source.type],
+                platform=self.__config.platform_name,
                 name=f"{table.full_name}",
                 env=self.__config.env,
             )
 
             LOGGER.info(f"{Constant.Dataset_URN}={ds_urn}")
             # Create datasetProperties mcp
-            ds_properties = DatasetPropertiesClass(description=table.name)
+            ds_properties = DatasetPropertiesClass(
+                name=table.name, description=table.name
+            )
 
             info_mcp = self.new_mcp(
                 entity_type=Constant.DATASET,
