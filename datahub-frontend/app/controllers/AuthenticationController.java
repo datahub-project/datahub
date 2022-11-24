@@ -78,7 +78,7 @@ public class AuthenticationController extends Controller {
         // TODO: Call getAuthenticatedUser and then generate a session cookie for the UI if the user is authenticated.
 
         final Optional<String> maybeRedirectPath = Optional.ofNullable(request.getQueryString(AUTH_REDIRECT_URI_PARAM));
-        final String redirectPath = maybeRedirectPath.orElse("/");
+        final String redirectPath = maybeRedirectPath.orElse("/data-catalogue");
 
         if (AuthUtils.hasValidSessionCookie(ctx())) {
             return redirect(redirectPath);

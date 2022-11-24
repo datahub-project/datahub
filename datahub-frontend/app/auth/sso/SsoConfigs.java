@@ -21,7 +21,7 @@ public class SsoConfigs {
    * Default values
    */
   private static final String DEFAULT_BASE_CALLBACK_PATH = "/data-catalogue/callback";
-  private static final String DEFAULT_SUCCESS_REDIRECT_PATH = "/";
+  private static final String DEFAULT_SUCCESS_REDIRECT_PATH = "/data-catalogue";
 
   private final String _authBaseUrl;
   private final String _authBaseCallbackPath;
