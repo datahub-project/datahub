@@ -53,9 +53,10 @@ public interface AspectDao {
         @Nonnull final Timestamp timestamp,
         @Nonnull final String systemMetadata,
         final long version,
+        Long updateIfCreatedOn,
         final boolean insert);
 
-    void saveAspect(@Nonnull final EntityAspect aspect, final boolean insert);
+    void saveAspect(@Nonnull final EntityAspect aspect, Long updateIfCreatedOn, final boolean insert);
 
     long saveLatestAspect(
         @Nonnull final String urn,

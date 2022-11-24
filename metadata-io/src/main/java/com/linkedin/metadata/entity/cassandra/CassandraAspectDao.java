@@ -148,9 +148,9 @@ public class CassandraAspectDao implements AspectDao, AspectMigrationsDao {
   }
 
   @Override
-  public void saveAspect(@Nonnull EntityAspect aspect, final boolean insert) {
+  public void saveAspect(@Nonnull EntityAspect aspect, Long updateIfCreatedOn, final boolean insert) {
     validateConnection();
-    SimpleStatement statement = generateSaveStatement(aspect, insert);
+    SimpleStatement statement = generateSaveStatement(aspect, updateIfCreatedOn, insert);
     _cqlSession.execute(statement);
   }
 
@@ -511,7 +511,7 @@ public class CassandraAspectDao implements AspectDao, AspectMigrationsDao {
               oldActor,
               oldImpersonator
       );
-      batch = batch.add(generateSaveStatement(aspect, true));
+      batch = batch.add(generateSaveStatement(aspect, updateIfCreatedOn, true));
     }
 
     // Save newValue as the latest version (v0)
@@ -525,12 +525,12 @@ public class CassandraAspectDao implements AspectDao, AspectMigrationsDao {
             newActor,
             newImpersonator
     );
-    batch = batch.add(generateSaveStatement(aspect, oldAspectMetadata == null));
+    batch = batch.add(generateSaveStatement(aspect, updateIfCreatedOn, oldAspectMetadata == null));
     _cqlSession.execute(batch);
     return largestVersion;
   }
 
-  private SimpleStatement generateSaveStatement(EntityAspect aspect, boolean insert) {
+  private SimpleStatement generateSaveStatement(EntityAspect aspect, Long updateIfCreatedOn, boolean insert) {
     String entity;
     try {
       entity = (new Urn(aspect.getUrn())).getEntityType();
@@ -547,8 +547,10 @@ public class CassandraAspectDao implements AspectDao, AspectMigrationsDao {
               .value(CassandraAspect.CREATED_ON_COLUMN, literal(aspect.getCreatedOn().getTime()))
               .value(CassandraAspect.CREATED_FOR_COLUMN, literal(aspect.getCreatedFor()))
               .value(CassandraAspect.ENTITY_COLUMN, literal(entity))
-              .value(CassandraAspect.CREATED_BY_COLUMN, literal(aspect.getCreatedBy()))
-              .ifNotExists();
+              .value(CassandraAspect.CREATED_BY_COLUMN, literal(aspect.getCreatedBy()));
+      if (updateIfCreatedOn != null && updateIfCreatedOn == 0) {
+        ri = ri.ifNotExists();
+      }
       return ri.build();
     } else {
 
@@ -561,9 +563,12 @@ public class CassandraAspectDao implements AspectDao, AspectMigrationsDao {
 
       Update u = uwa.whereColumn(CassandraAspect.URN_COLUMN).isEqualTo(literal(aspect.getUrn()))
               .whereColumn(CassandraAspect.ASPECT_COLUMN).isEqualTo(literal(aspect.getAspect()))
-              .whereColumn(CassandraAspect.VERSION_COLUMN).isEqualTo(literal(aspect.getVersion()))
-              .ifExists();
-
+              .whereColumn(CassandraAspect.VERSION_COLUMN).isEqualTo(literal(aspect.getVersion()));
+      if (updateIfCreatedOn != null) {
+        u = u.ifRaw(CassandraAspect.CREATED_ON_COLUMN + "=" + updateIfCreatedOn);
+      } else {
+        u = u.ifExists();
+      }
       return u.build();
     }
   }
@@ -583,6 +588,7 @@ public class CassandraAspectDao implements AspectDao, AspectMigrationsDao {
       @Nonnull final Timestamp timestamp,
       @Nonnull final String systemMetadata,
       final long version,
+      Long updateIfCreatedOn,
       final boolean insert) {
 
     validateConnection();
@@ -597,7 +603,7 @@ public class CassandraAspectDao implements AspectDao, AspectMigrationsDao {
         impersonator
     );
 
-    saveAspect(aspect, insert);
+    saveAspect(aspect, updateIfCreatedOn, insert);
   }
 
   @Override

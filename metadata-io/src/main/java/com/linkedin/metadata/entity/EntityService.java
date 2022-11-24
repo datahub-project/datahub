@@ -1199,7 +1199,7 @@ private Map<Urn, List<EnvelopedAspect>> getCorrespondingAspects(Set<EntityAspect
         "Invoked updateAspect with urn: {}, aspectName: {}, newValue: {}, version: {}, emitMae: {}", urn,
         aspectName, newValue, version, emitMae);
     return updateAspect(urn, entityName, aspectName, aspectSpec, newValue, auditStamp, version, emitMae,
-        DEFAULT_MAX_TRANSACTION_RETRY);
+        null, DEFAULT_MAX_TRANSACTION_RETRY);
   }
 
   /**
@@ -1719,7 +1719,7 @@ private Map<Urn, List<EnvelopedAspect>> getCorrespondingAspects(Set<EntityAspect
         latest.setCreatedOn(survivingAspect.getCreatedOn());
         latest.setCreatedBy(survivingAspect.getCreatedBy());
         latest.setCreatedFor(survivingAspect.getCreatedFor());
-        _aspectDao.saveAspect(latest, false);
+        _aspectDao.saveAspect(latest, null, false);
         _aspectDao.deleteAspect(survivingAspect);
       } else {
         if (isKeyAspect) {
@@ -1922,7 +1922,7 @@ private Map<Urn, List<EnvelopedAspect>> getCorrespondingAspects(Set<EntityAspect
 
       latest.setSystemMetadata(RecordUtils.toJsonString(latestSystemMetadata));
 
-      _aspectDao.saveAspect(latest, false);
+      _aspectDao.saveAspect(latest, updateIfCreatedOn, false);
 
       return new UpdateAspectResult(urn, oldValue, oldValue,
           EntityUtils.parseSystemMetadata(latest.getSystemMetadata()), latestSystemMetadata,
@@ -1966,6 +1966,7 @@ private Map<Urn, List<EnvelopedAspect>> getCorrespondingAspects(Set<EntityAspect
       @Nonnull final AuditStamp auditStamp,
       @Nonnull final long version,
       @Nonnull final boolean emitMae,
+      Long updateIfCreatedOn,
       final int maxTransactionRetry) {
 
     final UpdateAspectResult result = _aspectDao.runInTransactionWithRetry(() -> {
@@ -1984,7 +1985,7 @@ private Map<Urn, List<EnvelopedAspect>> getCorrespondingAspects(Set<EntityAspect
       log.debug("Updating aspect with name {}, urn {}", aspectName, urn);
       _aspectDao.saveAspect(urn.toString(), aspectName, EntityUtils.toJsonAspect(value), auditStamp.getActor().toString(),
           auditStamp.hasImpersonator() ? auditStamp.getImpersonator().toString() : null,
-          new Timestamp(auditStamp.getTime()), EntityUtils.toJsonAspect(newSystemMetadata), version, oldAspect == null);
+          new Timestamp(auditStamp.getTime()), EntityUtils.toJsonAspect(newSystemMetadata), version, updateIfCreatedOn, oldAspect == null);
 
       return new UpdateAspectResult(urn, oldValue, value, oldSystemMetadata, newSystemMetadata,
           MetadataAuditOperation.UPDATE, auditStamp, version);

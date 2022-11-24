@@ -2,6 +2,7 @@ package com.linkedin.metadata.entity;
 
 import com.datastax.oss.driver.api.core.CqlSession;
 import com.linkedin.common.urn.Urn;
+import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.data.template.RecordTemplate;
 import com.linkedin.identity.CorpUserInfo;
 import com.linkedin.metadata.AspectGenerationUtils;
@@ -19,6 +20,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
+
+import com.linkedin.mxe.SystemMetadata;
 import org.testcontainers.containers.CassandraContainer;
 import org.testng.Assert;
 import org.testng.annotations.AfterClass;
@@ -175,5 +178,34 @@ public class CassandraEntityServiceTest extends EntityServiceTest<CassandraAspec
   @Test
   public void testNestedTransactions() {
     // Doesn't look like Cassandra can support nested transactions (or nested batching).
+  }
+
+  @Test
+  public void testConditionalUpdates() {
+    Urn entityUrn1 = UrnUtils.getUrn("urn:li:corpuser:test1");
+    Urn entityUrn2 = UrnUtils.getUrn("urn:li:corpuser:test2");
+    Urn entityUrn3 = UrnUtils.getUrn("urn:li:corpuser:test3");
+    SystemMetadata metadata = AspectGenerationUtils.createSystemMetadata(1625792689, "run-123");
+    String aspectName = AspectGenerationUtils.getAspectName(new CorpUserInfo());
+    CorpUserInfo writeAspect1 = AspectGenerationUtils.createCorpUserInfo("email_1@test.com");
+    CorpUserInfo writeAspect2 = AspectGenerationUtils.createCorpUserInfo("email_2@test.com");
+
+    // Update without condition
+    _entityService.ingestAspect(entityUrn1, aspectName, writeAspect1, TEST_AUDIT_STAMP, metadata);
+    _entityService.ingestAspect(entityUrn1, aspectName, writeAspect2, TEST_AUDIT_STAMP, metadata);
+    assertEquals(_entityService.getAspect(entityUrn1, aspectName, 0), writeAspect2);
+    assertEquals(_entityService.getAspect(entityUrn1, aspectName, 1), writeAspect1);
+
+    // Condition update with correct condition
+    _entityService.ingestAspect(entityUrn2, aspectName, writeAspect1, TEST_AUDIT_STAMP, metadata, 0L);
+    _entityService.ingestAspect(entityUrn2, aspectName, writeAspect2, TEST_AUDIT_STAMP, metadata, 123L);
+    assertEquals(_entityService.getAspect(entityUrn2, aspectName, 0), writeAspect2);
+    assertEquals(_entityService.getAspect(entityUrn2, aspectName, 1), writeAspect1);
+
+    // Condition update with wrong condition
+    _entityService.ingestAspect(entityUrn3, aspectName, writeAspect1, TEST_AUDIT_STAMP, metadata, 0L);
+    _entityService.ingestAspect(entityUrn3, aspectName, writeAspect2, TEST_AUDIT_STAMP, metadata, 100L);
+    assertEquals(_entityService.getAspect(entityUrn3, aspectName, 0), writeAspect1);
+    assertNull(_entityService.getAspect(entityUrn3, aspectName, 1));
   }
 }

@@ -125,11 +125,12 @@ public class EbeanAspectDao implements AspectDao, AspectMigrationsDao {
     long largestVersion = ASPECT_LATEST_VERSION;
     if (oldAspectMetadata != null && oldTime != null) {
       largestVersion = nextVersion;
-      saveAspect(urn, aspectName, oldAspectMetadata, oldActor, oldImpersonator, oldTime, oldSystemMetadata, largestVersion, true);
+      saveAspect(urn, aspectName, oldAspectMetadata, oldActor, oldImpersonator, oldTime, oldSystemMetadata, largestVersion, updateIfCreatedOn, true);
     }
 
     // Save newValue as the latest version (v0)
-    saveAspect(urn, aspectName, newAspectMetadata, newActor, newImpersonator, newTime, newSystemMetadata, ASPECT_LATEST_VERSION, oldAspectMetadata == null);
+    saveAspect(urn, aspectName, newAspectMetadata, newActor, newImpersonator, newTime, newSystemMetadata, ASPECT_LATEST_VERSION,
+            updateIfCreatedOn, oldAspectMetadata == null);
 
     return largestVersion;
   }
@@ -144,6 +145,7 @@ public class EbeanAspectDao implements AspectDao, AspectMigrationsDao {
       @Nonnull final Timestamp timestamp,
       @Nonnull final String systemMetadata,
       final long version,
+      Long updateIfCreatedOn,
       final boolean insert) {
 
     validateConnection();
@@ -162,7 +164,7 @@ public class EbeanAspectDao implements AspectDao, AspectMigrationsDao {
   }
 
   @Override
-  public void saveAspect(@Nonnull final EntityAspect aspect, final boolean insert) {
+  public void saveAspect(@Nonnull final EntityAspect aspect, Long updateIfCreatedOn, final boolean insert) {
     EbeanAspectV2 ebeanAspect = EbeanAspectV2.fromEntityAspect(aspect);
     saveEbeanAspect(ebeanAspect, insert);
   }
