@@ -72,9 +72,15 @@ export function HeaderLinks(props: Props) {
     const showIngestion =
         isIngestionEnabled && me && me.platformPrivileges.manageIngestion && me.platformPrivileges.manageSecrets;
     const showDomains = me?.platformPrivileges.createDomains || me?.platformPrivileges.manageDomains;
+    const showASD = true;
 
     return (
         <LinksWrapper areLinksHidden={areLinksHidden}>
+            {showASD && (
+                <a href="/">
+                    <Button type="text">Go to Advanced Search and Dashboards</Button>
+                </a>
+            )}
             {showAnalytics && (
                 <LinkWrapper>
                     <Link to="/analytics">
@@ -91,7 +97,7 @@ export function HeaderLinks(props: Props) {
             )}
             {showIngestion && (
                 <LinkWrapper>
-                    <Link to="/ingestion">
+                    <Link to="/data-catalogue/ingestion">
                         <Button type="text">
                             <Tooltip title="Connect DataHub to your organization's data sources">
                                 <NavTitleContainer>
@@ -108,7 +114,7 @@ export function HeaderLinks(props: Props) {
                 overlay={
                     <Menu>
                         <MenuItem key="0">
-                            <Link to="/glossary">
+                            <Link to="/data-catalogue/glossary">
                                 <NavTitleContainer>
                                     <BookOutlined style={{ fontSize: '14px', fontWeight: 'bold' }} />
                                     <NavTitleText>Glossary</NavTitleText>
@@ -118,7 +124,7 @@ export function HeaderLinks(props: Props) {
                         </MenuItem>
                         {showDomains && (
                             <MenuItem key="1">
-                                <Link to="/domains">
+                                <Link to="/data-catalogue/domains">
                                     <NavTitleContainer>
                                         <FolderOutlined style={{ fontSize: '14px', fontWeight: 'bold' }} />
                                         <NavTitleText>Domains</NavTitleText>
@@ -138,7 +144,7 @@ export function HeaderLinks(props: Props) {
             </Dropdown>
             {showSettings && (
                 <LinkWrapper style={{ marginRight: 12 }}>
-                    <Link to="/settings">
+                    <Link to="/data-catalogue/settings">
                         <Button type="text">
                             <Tooltip title="Manage your DataHub settings">
                                 <SettingOutlined />
