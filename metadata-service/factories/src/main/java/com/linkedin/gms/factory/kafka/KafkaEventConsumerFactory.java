@@ -1,8 +1,6 @@
 package com.linkedin.gms.factory.kafka;
 
-import com.linkedin.gms.factory.kafka.schemaregistry.AwsGlueSchemaRegistryFactory;
-import com.linkedin.gms.factory.kafka.schemaregistry.KafkaSchemaRegistryFactory;
-import com.linkedin.gms.factory.kafka.schemaregistry.SchemaRegistryConfig;
+import com.datahub.kafka.avro.deserializer.KafkaAvroDeserializer;
 import com.linkedin.gms.factory.spring.YamlPropertySourceFactory;
 import java.time.Duration;
 import java.util.Arrays;
@@ -10,15 +8,11 @@ import java.util.Map;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.avro.generic.GenericRecord;
 import org.apache.kafka.common.serialization.StringDeserializer;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.autoconfigure.kafka.KafkaProperties;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
-import org.springframework.context.annotation.Import;
-import org.springframework.context.annotation.Lazy;
 import org.springframework.context.annotation.PropertySource;
 import org.springframework.kafka.config.ConcurrentKafkaListenerContainerFactory;
 import org.springframework.kafka.config.KafkaListenerContainerFactory;
@@ -29,18 +23,15 @@ import org.springframework.kafka.core.DefaultKafkaConsumerFactory;
 @Configuration
 @PropertySource(value = "classpath:/application.yml", factory = YamlPropertySourceFactory.class)
 @EnableConfigurationProperties(KafkaProperties.class)
-@Import({KafkaSchemaRegistryFactory.class, AwsGlueSchemaRegistryFactory.class})
 public class KafkaEventConsumerFactory {
 
   @Value("${kafka.bootstrapServers}")
   private String kafkaBootstrapServers;
 
-  @Value("${kafka.schemaRegistry.type}")
-  private String schemaRegistryType;
-
   @Value("${kafka.listener.concurrency:1}")
   private Integer kafkaListenerConcurrency;
 
+  // CHANGE THIS
   @Autowired
   @Lazy
   @Qualifier("kafkaSchemaRegistry")
@@ -74,14 +65,8 @@ public class KafkaEventConsumerFactory {
       consumerProps.setBootstrapServers(Arrays.asList(kafkaBootstrapServers.split(",")));
     } // else we rely on KafkaProperties which defaults to localhost:9092
 
-    SchemaRegistryConfig schemaRegistryConfig;
-    if (schemaRegistryType.equals(KafkaSchemaRegistryFactory.TYPE)) {
-      schemaRegistryConfig = kafkaSchemaRegistryConfig;
-    } else {
-      schemaRegistryConfig = awsGlueSchemaRegistryConfig;
-    }
 
-    consumerProps.setValueDeserializer(schemaRegistryConfig.getDeserializer());
+    consumerProps.setValueDeserializer(KafkaAvroDeserializer.class);
     Map<String, Object> props = properties.buildConsumerProperties();
 
     // Override KafkaProperties with SchemaRegistryConfig only for non-empty values

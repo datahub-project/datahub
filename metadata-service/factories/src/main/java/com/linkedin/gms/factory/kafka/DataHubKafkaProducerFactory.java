@@ -2,7 +2,6 @@ package com.linkedin.gms.factory.kafka;
 
 import com.linkedin.gms.factory.kafka.schemaregistry.AwsGlueSchemaRegistryFactory;
 import com.linkedin.gms.factory.kafka.schemaregistry.KafkaSchemaRegistryFactory;
-import com.linkedin.gms.factory.kafka.schemaregistry.SchemaRegistryConfig;
 import com.linkedin.gms.factory.spring.YamlPropertySourceFactory;
 import java.util.Arrays;
 import java.util.Map;

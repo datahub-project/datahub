@@ -11,6 +11,8 @@ dependencies {
   compile project(':metadata-service:restli-servlet-impl')
   compile project(':metadata-dao-impl:kafka-producer')
   compile project(':ingestion-scheduler')
+  compile project(':kafka-avro-serde')
+
   compile externalDependency.awsGlueSchemaRegistrySerde
   compile externalDependency.elasticSearchRest
   compile externalDependency.httpClient
