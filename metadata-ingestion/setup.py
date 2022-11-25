@@ -252,12 +252,13 @@ plugins: Dict[str, Set[str]] = {
     | bigquery_common
     | {"sqlalchemy-bigquery>=1.4.1", "sqllineage==1.3.6", "sqlparse"},
     "bigquery-usage-legacy": bigquery_common | usage_common | {"cachetools"},
-    "bigquery": sql_common | bigquery_common | {"sqllineage==1.3.6", "sql_metadata"},
+    "bigquery": sql_common | bigquery_common | {"sqllineage==1.3.6", "sql_metadata", "sqlalchemy-bigquery>=1.4.1"},
     "bigquery-beta": sql_common
     | bigquery_common
     | {
         "sqllineage==1.3.6",
         "sql_metadata",
+        "sqlalchemy-bigquery>=1.4.1"
     },  # deprecated, but keeping the extra for backwards compatibility
     "clickhouse": sql_common | clickhouse_common,
     "clickhouse-usage": sql_common | usage_common | clickhouse_common,
@@ -376,7 +377,8 @@ mypy_stubs = {
     "types-ujson>=5.2.0",
     "types-termcolor>=1.0.0",
     "types-Deprecated",
-    "types-protobuf",
+    # Mypy complains with 4.21.0.0 => error: Library stubs not installed for "google.protobuf.descriptor"  
+    "types-protobuf<4.21.0.0",
 }
 
 base_dev_requirements = {
