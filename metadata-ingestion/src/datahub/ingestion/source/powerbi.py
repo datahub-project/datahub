@@ -1405,7 +1405,7 @@ class Mapper:
         container_workunits = gen_containers(
             container_key=schema_key,
             name=workspace.name,
-            sub_types=["Dataset", "Report", "Chart", "Dashboard"],
+            sub_types=["Workspace"],
         )
         return container_workunits
 

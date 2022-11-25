@@ -47,7 +47,7 @@
     "changeType": "UPSERT",
     "aspectName": "subTypes",
     "aspect": {
-        "value": "{\"typeNames\": [\"Dataset\", \"Report\", \"Chart\", \"Dashboard\"]}",
+        "value": "{\"typeNames\": [\"Workspace\"]}",
         "contentType": "application/json"
     },
     "systemMetadata": {
