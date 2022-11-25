@@ -48,6 +48,7 @@ export const CsvForm = () => {
     const publishUrl = `${urlBase}custom/make_dataset`;
     const [visible, setVisible] = useState(false);
     const [confirmLoading, setConfirmLoading] = useState(false);
+    const [erasePath, setErasePath] = useState(false);
     const user = useGetAuthenticatedUser();
     const userUrn = user?.corpUser?.urn || '';
     const userToken = GetMyToken(userUrn);
@@ -87,6 +88,7 @@ export const CsvForm = () => {
     };
     const onReset = () => {
         form.resetFields();
+        setErasePath(true);
     };
     const handleOnFileLoad = (data) => {
         const headerLine = 0;
@@ -136,6 +138,9 @@ export const CsvForm = () => {
     const popupMsg = `Confirm Dataset Name: ${form.getFieldValue('dataset_name')}? 
     This permanently affects the dataset URL`;
     const { TextArea } = Input;
+    const formIsUpdating = () => {
+        setErasePath(false);
+    };
     return (
         <>
             <Form
@@ -152,6 +157,7 @@ export const CsvForm = () => {
                     dataset_location: '',
                     platformSelect: 'urn:li:dataPlatform:file',
                 }}
+                onFieldsChange={formIsUpdating}
             >
                 <Row>
                     <Col span={4} />
@@ -195,7 +201,7 @@ export const CsvForm = () => {
                         </Select>
                     </Form.Item>
                 </Tooltip>
-                <SetParentContainer platformType={selectedPlatform} compulsory={false} />
+                <SetParentContainer platformType={selectedPlatform} compulsory={false} clear={erasePath} />
                 <CommonFields />
                 <SpecifyBrowsePath />
                 <Form.Item label="Dataset Fields" name="fields">

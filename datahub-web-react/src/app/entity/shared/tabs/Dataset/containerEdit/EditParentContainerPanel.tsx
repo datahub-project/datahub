@@ -18,7 +18,7 @@ export const EditParentContainerPanel = () => {
     const currUrn = baseEntity && baseEntity.dataset && baseEntity.dataset?.urn;
     const platform = baseEntity?.dataset?.platform?.urn || '';
     const containerValue = baseEntity?.dataset?.container?.properties?.name || 'none';
-
+    const [clearParent, setClearParent] = useState(false);
     const [modifiedState, setModifiedState] = useState(false);
 
     const layout = {
@@ -33,9 +33,11 @@ export const EditParentContainerPanel = () => {
 
     const updateForm = () => {
         setModifiedState(true);
+        setClearParent(false);
     };
     const resetForm = () => {
         setModifiedState(false);
+        setClearParent(true);
         formState.resetFields();
     };
 
@@ -79,7 +81,7 @@ export const EditParentContainerPanel = () => {
                 <Button htmlType="button" onClick={resetForm}>
                     Reset
                 </Button>
-                <SetParentContainer platformType={platform} compulsory />
+                <SetParentContainer platformType={platform} compulsory clear={clearParent} />
             </Form>
         </>
     );
