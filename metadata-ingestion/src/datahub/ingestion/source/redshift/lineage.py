@@ -6,6 +6,7 @@ from enum import Enum
 from typing import Dict, List, Optional, Set, Tuple, Union
 from urllib.parse import urlparse
 
+import humanfriendly
 import redshift_connector
 from sqllineage.runner import LineageRunner
 
@@ -33,6 +34,7 @@ from datahub.metadata.schema_classes import (
     UpstreamClass,
     UpstreamLineageClass,
 )
+from datahub.utilities import memory_footprint
 
 logger: logging.Logger = logging.getLogger(__name__)
 
@@ -496,6 +498,10 @@ class LineageExtractor:
                 connection=connection,
                 all_tables=all_tables,
             )
+
+        self.report.lineage_mem_size[self.config.database] = humanfriendly.format_size(
+            memory_footprint.total_size(self._lineage_map)
+        )
 
     def get_lineage_mcp(
         self,

@@ -76,7 +76,7 @@ class RedshiftExtraTableMeta:
     last_accessed: Optional[datetime] = None
 
 
-class RedshiftDataDictionary:
+class RedshiftMetadatQueries:
     list_databases: str = """SELECT datname FROM pg_database
         WHERE (datname <> ('padb_harvest')::name)
         AND (datname <> ('template0')::name)
@@ -271,9 +271,11 @@ SELECT null as database_name,
        ;
     """
 
+
+class RedshiftDataDictionary:
     @staticmethod
     def get_query_result(
-        conn: redshift_connector.Connection, query: str
+            conn: redshift_connector.Connection, query: str
     ) -> redshift_connector.Cursor:
         cursor: redshift_connector.Cursor = conn.cursor()
 
@@ -286,7 +288,7 @@ SELECT null as database_name,
 
         cursor = RedshiftDataDictionary.get_query_result(
             conn,
-            RedshiftDataDictionary.list_databases,
+            RedshiftMetadatQueries.list_databases,
         )
 
         dbs = cursor.fetchall()
@@ -295,12 +297,12 @@ SELECT null as database_name,
 
     @staticmethod
     def get_schemas(
-        conn: redshift_connector.Connection, database: str
+            conn: redshift_connector.Connection, database: str
     ) -> List[RedshiftSchema]:
 
         cursor = RedshiftDataDictionary.get_query_result(
             conn,
-            RedshiftDataDictionary.list_schemas.format(database_name=database),
+            RedshiftMetadatQueries.list_schemas.format(database_name=database),
         )
 
         schemas = cursor.fetchall()
@@ -320,11 +322,11 @@ SELECT null as database_name,
 
     @staticmethod
     def enrich_tables(
-        conn: redshift_connector.Connection,
+            conn: redshift_connector.Connection,
     ) -> (Dict[str, Dict[str, RedshiftExtraTableMeta]]):
 
         cur = RedshiftDataDictionary.get_query_result(
-            conn, RedshiftDataDictionary.additional_table_metadata
+            conn, RedshiftMetadatQueries.additional_table_metadata
         )
         field_names = [i[0] for i in cur.description]
         db_table_metadata = cur.fetchall()
@@ -352,7 +354,7 @@ SELECT null as database_name,
 
     @staticmethod
     def get_tables_and_views(
-        conn: redshift_connector.Connection,
+            conn: redshift_connector.Connection,
     ) -> Tuple[Dict[str, List[RedshiftTable]], Dict[str, List[RedshiftView]]]:
         tables: Dict[str, List[RedshiftTable]] = {}
         views: Dict[str, List[RedshiftView]] = {}
@@ -362,7 +364,7 @@ SELECT null as database_name,
         enrich_metada = RedshiftDataDictionary.enrich_tables(conn)
 
         cur = RedshiftDataDictionary.get_query_result(
-            conn, RedshiftDataDictionary.list_tables
+            conn, RedshiftMetadatQueries.list_tables
         )
         field_names = [i[0] for i in cur.description]
         db_tables = cur.fetchall()
@@ -405,7 +407,7 @@ SELECT null as database_name,
                     if enrich_metada[schema][table_name].estimated_visible_rows:
                         rows = enrich_metada[schema][table_name].estimated_visible_rows
                         assert rows
-                        rows_count = rows
+                        rows_count = int(rows)
 
                 tables[schema].append(
                     RedshiftTable(
@@ -444,12 +446,12 @@ SELECT null as database_name,
 
     @staticmethod
     def get_columns_for_schema(
-        conn: redshift_connector.Connection, schema: RedshiftSchema
+            conn: redshift_connector.Connection, schema: RedshiftSchema
     ) -> Dict[str, List[RedshiftColumn]]:
 
         cursor = RedshiftDataDictionary.get_query_result(
             conn,
-            RedshiftDataDictionary.list_columns.format(schema_name=schema.name),
+            RedshiftMetadatQueries.list_columns.format(schema_name=schema.name),
         )
 
         table_columns: Dict[str, List[RedshiftColumn]] = {}

@@ -4,6 +4,8 @@ from typing import Any, Dict, Iterable, List, Optional, Set, Tuple, Type, Union,
 # These imports verify that the dependencies are available.
 import psycopg2  # noqa: F401
 import redshift_connector
+import humanfriendly
+import pydantic
 
 from datahub.emitter.mce_builder import (
     make_data_platform_urn,
@@ -20,7 +22,11 @@ from datahub.ingestion.api.decorators import (
     platform_name,
     support_status,
 )
-from datahub.ingestion.api.source import TestableSource, TestConnectionReport
+from datahub.ingestion.api.source import (
+    TestableSource,
+    TestConnectionReport,
+    CapabilityReport,
+)
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.redshift.common import get_db_name
 from datahub.ingestion.source.redshift.config import RedshiftConfig
@@ -76,7 +82,9 @@ from datahub.metadata.com.linkedin.pegasus2avro.schema import (
 )
 from datahub.metadata.schema_classes import GlobalTagsClass, TagAssociationClass
 from datahub.specific.dataset import DatasetPatchBuilder
+from datahub.utilities import memory_footprint
 from datahub.utilities.mapping import Constants
+from datahub.utilities.perf_timer import PerfTimer
 from datahub.utilities.registries.domain_registry import DomainRegistry
 from datahub.utilities.source_helpers import (
     auto_stale_entity_removal,
@@ -228,7 +236,41 @@ class RedshiftSource(StatefulIngestionSourceBase, TestableSource):
 
     @staticmethod
     def test_connection(config_dict: dict) -> TestConnectionReport:
-        pass
+        test_report = TestConnectionReport()
+        try:
+            RedshiftConfig.Config.extra = (
+                pydantic.Extra.allow
+            )  # we are okay with extra fields during this stage
+            config = RedshiftConfig.parse_obj(config_dict)
+            report = RedshiftReport()
+            # source = RedshiftSource(config, report)
+            connection: redshift_connector.Connection = (
+                RedshiftSource.get_redshift_connection(config)
+            )
+            cur = connection.cursor()
+            try:
+                cur.execute("select 1")
+                test_report.basic_connectivity = CapabilityReport(capable=True)
+            except Exception as e:
+                test_report.basic_connectivity = CapabilityReport(
+                    capable=False, failure_reason=str(e)
+                )
+            test_report.capability_report = {}
+            try:
+                RedshiftDataDictionary.get_schemas(connection, database=config.database)
+                test_report.capability_report[SourceCapability.SCHEMA_METADATA] = CapabilityReport(
+                    capable=True
+                )
+            except Exception as e:
+                test_report.capability_report[SourceCapability.SCHEMA_METADATA] = CapabilityReport(
+                    capable=False, failure_reason=str(e)
+                )
+
+        except Exception as e:
+            test_report.basic_connectivity = CapabilityReport(
+                capable=False, failure_reason=f"{e}"
+            )
+        return test_report
 
     def get_report(self) -> RedshiftReport:
         return self.report
@@ -266,17 +308,18 @@ class RedshiftSource(StatefulIngestionSourceBase, TestableSource):
         config = RedshiftConfig.parse_obj(config_dict)
         return cls(config, ctx)
 
-    def get_redshift_connection(self) -> redshift_connector.Connection:
-        client_options = self.config.extra_client_options
-        host, port = self.config.host_port.split(":")
+    @staticmethod
+    def get_redshift_connection(
+        config: RedshiftConfig,
+    ) -> redshift_connector.Connection:
+        client_options = config.extra_client_options
+        host, port = config.host_port.split(":")
         return redshift_connector.connect(
             host=host,
             port=int(port),
-            user=self.config.username,
-            database=self.config.database if self.config.database else "dev",
-            password=self.config.password.get_secret_value()
-            if self.config.password
-            else None,
+            user=config.username,
+            database=config.database if config.database else "dev",
+            password=config.password.get_secret_value() if config.password else None,
             **client_options,
         )
 
@@ -286,55 +329,74 @@ class RedshiftSource(StatefulIngestionSourceBase, TestableSource):
         database: str,
         schema: RedshiftSchema,
     ):
-        schema_workunits = gen_schema_containers(
-            schema=schema.name,
-            database=database,
-            platform=self.platform,
-            platform_instance=self.config.platform_instance,
-            env=self.config.env,
-            report=self.report,
-        )
+        with PerfTimer() as timer:
 
-        for wu in schema_workunits:
-            self.report.report_workunit(wu)
-            yield wu
+            schema_workunits = gen_schema_containers(
+                schema=schema.name,
+                database=database,
+                platform=self.platform,
+                platform_instance=self.config.platform_instance,
+                env=self.config.env,
+                report=self.report,
+            )
 
-        self.schema_columns[database][
-            schema.name
-        ] = RedshiftDataDictionary.get_columns_for_schema(
-            conn=connection, schema=schema
-        )
+            for wu in schema_workunits:
+                self.report.report_workunit(wu)
+                yield wu
 
-        if self.config.include_tables:
-            logger.info("process tables")
-            if not self.db_tables[schema.database]:
-                return
+            self.schema_columns[database][
+                schema.name
+            ] = RedshiftDataDictionary.get_columns_for_schema(
+                conn=connection, schema=schema
+            )
 
-            if schema.name in self.db_tables[schema.database]:
-                for table in self.db_tables[schema.database][schema.name]:
-                    logger.info(f"Table: {table}")
-                    table.columns = (
-                        self.schema_columns[database][schema.name][table.name]
-                        if table.name in self.schema_columns[database][schema.name]
-                        else []
-                    )
-                    yield from self._process_table(
-                        table, database=database, schema=schema
-                    )
+            if self.config.include_tables:
+                logger.info("process tables")
+                if not self.db_tables[schema.database]:
+                    return
 
-        if self.config.include_views:
-            logger.info("process views")
-            if schema.name in self.db_views[schema.database]:
-                for view in self.db_views[schema.database][schema.name]:
-                    logger.info(f"View: {view}")
-                    view.columns = (
-                        self.schema_columns[database][schema.name][view.name]
-                        if view.name in self.schema_columns[database][schema.name]
-                        else []
-                    )
-                    yield from self._process_view(
-                        view, get_db_name(self.config), schema
-                    )
+                if schema.name in self.db_tables[schema.database]:
+                    for table in self.db_tables[schema.database][schema.name]:
+                        logger.info(f"Table: {table}")
+                        table.columns = (
+                            self.schema_columns[database][schema.name][table.name]
+                            if table.name in self.schema_columns[database][schema.name]
+                            else []
+                        )
+                        yield from self._process_table(
+                            table, database=database, schema=schema
+                        )
+                        self.report.table_processed[f"{database}.{schema.name}"] = (
+                            self.report.table_processed.get(
+                                f"{database}.{schema.name}", 0
+                            )
+                            + 1
+                        )
+
+            if self.config.include_views:
+                logger.info("process views")
+                if schema.name in self.db_views[schema.database]:
+                    for view in self.db_views[schema.database][schema.name]:
+                        logger.info(f"View: {view}")
+                        view.columns = (
+                            self.schema_columns[database][schema.name][view.name]
+                            if view.name in self.schema_columns[database][schema.name]
+                            else []
+                        )
+                        yield from self._process_view(
+                            view, get_db_name(self.config), schema
+                        )
+
+                        self.report.view_processed[f"{database}.{schema.name}"] = (
+                            self.report.view_processed.get(
+                                f"{database}.{schema.name}", 0
+                            )
+                            + 1
+                        )
+
+            self.report.metadata_extraction_sec[f"{database}.{schema.name}"] = round(
+                timer.elapsed_seconds(), 2
+            )
 
     def _process_table(
         self,
@@ -649,7 +711,7 @@ class RedshiftSource(StatefulIngestionSourceBase, TestableSource):
             )
 
     def get_workunits_internal(self) -> Iterable[Union[MetadataWorkUnit, SqlWorkUnit]]:
-        connection = self.get_redshift_connection()
+        connection = RedshiftSource.get_redshift_connection(self.config)
         database = get_db_name(self.config)
         logger.info(f"Processing db {self.config.database} with name {database}")
         # self.add_config_to_report()
@@ -670,34 +732,55 @@ class RedshiftSource(StatefulIngestionSourceBase, TestableSource):
         self.db_tables[database].update(tables)
         self.db_views[database].update(views)
 
-        if self.config.include_table_lineage or self.config.include_copy_lineage:
+        self.report.tables_in_mem_size[database] = humanfriendly.format_size(
+            memory_footprint.total_size(self.db_tables)
+        )
+        self.report.views_in_mem_size[database] = humanfriendly.format_size(
+            memory_footprint.total_size(self.db_views)
+        )
 
+        if self.config.include_table_lineage or self.config.include_copy_lineage:
             self.lineage_extractor = LineageExtractor(
                 config=self.config,
                 report=self.report,
             )
 
-            all_tables: Dict[str, Dict[str, List[Union[RedshiftView, RedshiftTable]]]] = {**self.db_tables, **self.db_views}  # type: ignore
+            all_tables: Dict[
+                str, Dict[str, List[Union[RedshiftView, RedshiftTable]]]
+            ] = {
+                **self.db_tables,
+                **self.db_views,
+            }  # type: ignore
+            with PerfTimer() as timer:
+                self.lineage_extractor.populate_lineage(
+                    connection=connection, all_tables=all_tables
+                )
 
-            self.lineage_extractor.populate_lineage(
-                connection=connection, all_tables=all_tables
-            )
+                self.report.lineage_extraction_sec[f"{database}"] = round(
+                    timer.elapsed_seconds(), 2
+                )
+
         for schema in RedshiftDataDictionary.get_schemas(
             conn=connection, database=database
         ):
-            logger.info(f"Schema: {schema}")
+            logger.info(f"Schema: {database}.{schema.name}")
             if not self.config.schema_pattern.allowed(schema.name):
-                self.report.report_dropped(f"{database}.{schema}")
+                self.report.report_dropped(f"{database}.{schema.name}")
                 continue
             yield from self.process_schema(connection, database, schema)
 
         if self.config.include_usage_statistics:
-            usage_extractor = RedshiftUsageExtractor(
-                config=self.config,
-                connection=self.get_redshift_connection(),
-                report=self.report,
-            )
-            yield from usage_extractor.generate_usage()
+            with PerfTimer() as timer:
+                usage_extractor = RedshiftUsageExtractor(
+                    config=self.config,
+                    connection=RedshiftSource.get_redshift_connection(self.config),
+                    report=self.report,
+                )
+                yield from usage_extractor.generate_usage()
+
+                self.report.usage_extraction_sec[database] = round(
+                    timer.elapsed_seconds(), 2
+                )
 
         if self.config.profiling.enabled:
             profiler = RedshiftProfiler(config=self.config, report=self.report)

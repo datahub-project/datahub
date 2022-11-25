@@ -26,6 +26,7 @@ from datahub.metadata.schema_classes import (
     OperationClass,
     OperationTypeClass,
 )
+from datahub.utilities.perf_timer import PerfTimer
 
 logger = logging.getLogger(__name__)
 
@@ -187,10 +188,14 @@ class RedshiftUsageExtractor:
     def generate_usage(self) -> Iterable[MetadataWorkUnit]:
         """Gets Redshift usage stats as work units"""
         if self.config.include_operational_stats:
-            # Generate operation aspect workunits
-            yield from self._gen_operation_aspect_workunits(self.connection)
+            with PerfTimer() as timer:
+                # Generate operation aspect workunits
+                yield from self._gen_operation_aspect_workunits(self.connection)
+                self.report.operational_metadata_extraction_sec[f"{self.config.database}"] = round(
+                    timer.elapsed_seconds(), 2
+                )
 
-        # Generate aggregate events
+    # Generate aggregate events
         query: str = REDSHIFT_USAGE_QUERY_TEMPLATE.format(
             start_time=self.config.start_time.strftime(REDSHIFT_DATETIME_FORMAT),
             end_time=self.config.end_time.strftime(REDSHIFT_DATETIME_FORMAT),
