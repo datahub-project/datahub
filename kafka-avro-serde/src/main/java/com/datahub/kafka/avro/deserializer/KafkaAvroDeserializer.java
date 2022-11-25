@@ -15,7 +15,7 @@ import org.apache.kafka.common.serialization.Deserializer;
 
 public class KafkaAvroDeserializer implements Deserializer<Object> {
 
-  private static final InMemorySchemaRegistry registry = InMemorySchemaRegistry.getInstance();
+  private static final InMemorySchemaRegistry REGISTRY = InMemorySchemaRegistry.getInstance();
 
   @Override
   public void configure(Map<String, ?> configs, boolean isKey) {
@@ -24,17 +24,17 @@ public class KafkaAvroDeserializer implements Deserializer<Object> {
 
   @Override
   public Object deserialize(String topic, byte[] data) {
-    final Schema schema = registry.getSchema(topic);
+    final Schema schema = REGISTRY.getSchema(topic);
 
     if (schema == null) {
       // TODO tell how to configure it
       throw new RuntimeException("Cannot find schema for topic " + topic + " please configure it");
     }
 
-    try (ByteArrayInputStream os = new ByteArrayInputStream(data)){
+    try (ByteArrayInputStream os = new ByteArrayInputStream(data)) {
       DatumReader<Object> datumReader = new GenericDatumReader<>(schema);
       BinaryDecoder decoder = DecoderFactory.get().binaryDecoder(os, null);
-      return datumReader.read(data,decoder);
+      return datumReader.read(data, decoder);
     } catch (IOException e) {
       throw new RuntimeException(e);
     }

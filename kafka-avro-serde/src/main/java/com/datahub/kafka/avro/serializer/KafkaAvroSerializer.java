@@ -14,21 +14,21 @@ import org.apache.kafka.common.serialization.Serializer;
 
 public class KafkaAvroSerializer implements Serializer<Object> {
 
-  private static final InMemorySchemaRegistry registry = InMemorySchemaRegistry.getInstance();
+  private static final InMemorySchemaRegistry REGISTRY = InMemorySchemaRegistry.getInstance();
 
   @Override
   public byte[] serialize(String topic, Object data) {
-    final Schema schema = registry.getSchema(topic);
+    final Schema schema = REGISTRY.getSchema(topic);
 
     if (schema == null) {
       // TODO tell how to configure it
       throw new RuntimeException("Cannot find schema for topic " + topic + " please configure it");
     }
 
-    try (ByteArrayOutputStream os = new ByteArrayOutputStream()){
+    try (ByteArrayOutputStream os = new ByteArrayOutputStream()) {
       DatumWriter<Object> datumWriter = new GenericDatumWriter<>(schema);
       BinaryEncoder encoder = EncoderFactory.get().binaryEncoder(os, null);
-      datumWriter.write(data,encoder);
+      datumWriter.write(data, encoder);
       encoder.flush();
       return os.toByteArray();
     } catch (IOException e) {
