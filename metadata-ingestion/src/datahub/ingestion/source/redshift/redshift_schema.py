@@ -55,9 +55,13 @@ class RedshiftView:
     type: str
     name: str
     schema: str
-    created: datetime
     ddl: str
+    columns: List[RedshiftColumn] = field(default_factory=list)
     description: Optional[str] = None
+    created: Optional[datetime] = None
+    last_altered: Optional[datetime] = None
+    size_in_bytes: Optional[int] = None
+    rows_count: Optional[int] = None
 
 
 @dataclass
@@ -353,6 +357,8 @@ SELECT null as database_name,
         tables: Dict[str, List[RedshiftTable]] = {}
         views: Dict[str, List[RedshiftView]] = {}
 
+        # This query needs to run separately as we can't join witht the main query because it works with
+        # driver only functions.
         enrich_metada = RedshiftDataDictionary.enrich_tables(conn)
 
         cur = RedshiftDataDictionary.get_query_result(
@@ -370,41 +376,46 @@ SELECT null as database_name,
                 if schema not in tables:
                     tables[schema] = []
                 table_name = table[field_names.index("relname")]
+
+                creation_time: Optional[datetime] = None
+                if table[field_names.index("creation_time")]:
+                    creation_time = table[field_names.index("creation_time")].replace(
+                        tzinfo=timezone.utc
+                    )
+
+                last_altered: Optional[datetime] = None
+                size_in_bytes: Optional[int] = None
+                rows_count: Optional[int] = None
+                if schema in enrich_metada and table_name in enrich_metada[schema]:
+
+                    if enrich_metada[schema][table_name].last_accessed:
+                        # Mypy seems to be not clever enough to understand the above check
+                        last_accessed = enrich_metada[schema][table_name].last_accessed
+                        assert last_accessed
+                        last_altered = last_accessed.replace(tzinfo=timezone.utc)
+                    elif creation_time:
+                        last_altered = creation_time
+
+                    if enrich_metada[schema][table_name].size:
+                        # Mypy seems to be not clever enough to understand the above check
+                        size = enrich_metada[schema][table_name].size
+                        assert size
+                        size_in_bytes = size * 1024 * 1024
+
+                    if enrich_metada[schema][table_name].estimated_visible_rows:
+                        rows = enrich_metada[schema][table_name].estimated_visible_rows
+                        assert rows
+                        rows_count = rows
+
                 tables[schema].append(
                     RedshiftTable(
                         type=table[field_names.index("tabletype")],
-                        created=table[field_names.index("creation_time")].replace(
-                            tzinfo=timezone.utc
-                        )
-                        if table[field_names.index("creation_time")]
-                        else None,
-                        last_altered=enrich_metada[schema][
-                            table_name
-                        ].last_accessed.replace(tzinfo=timezone.utc)
-                        if schema in enrich_metada
-                        and table_name in enrich_metada[schema]
-                        and enrich_metada[schema][table_name].last_accessed
-                        else table[field_names.index("creation_time")].replace(
-                            tzinfo=timezone.utc
-                        )
-                        if table[field_names.index("creation_time")]
-                        else None,
+                        created=creation_time,
+                        last_altered=last_altered,
                         name=table_name,
                         schema=table[field_names.index("schema")],
-                        size_in_bytes=(
-                            enrich_metada[schema][table_name].size * 1024 * 1024
-                        )
-                        if schema in enrich_metada
-                        and table_name in enrich_metada[schema]
-                        and enrich_metada[schema][table_name]
-                        and enrich_metada[schema][table_name].size
-                        else None,
-                        rows_count=enrich_metada[schema][
-                            table_name
-                        ].estimated_visible_rows
-                        if schema in enrich_metada
-                        and table_name in enrich_metada[schema]
-                        else None,
+                        size_in_bytes=size_in_bytes,
+                        rows_count=rows_count,
                         dist_style=table[field_names.index("diststyle")],
                         location=table[field_names.index("location")],
                         parameters=table[field_names.index("parameters")],
@@ -421,10 +432,10 @@ SELECT null as database_name,
                 views[schema].append(
                     RedshiftView(
                         type=table[field_names.index("tabletype")],
-                        created=table[field_names.index("creation_time")],
                         name=table[field_names.index("relname")],
                         schema=table[field_names.index("schema")],
                         ddl=table[field_names.index("view_definition")],
+                        created=table[field_names.index("creation_time")],
                         description=table[field_names.index("table_description")],
                     )
                 )

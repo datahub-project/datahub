@@ -1,6 +1,7 @@
 import dataclasses
 import datetime
 import logging
+from collections import defaultdict
 from typing import Callable, Dict, Iterable, List, Optional, Tuple, Union, cast
 
 from sqlalchemy import create_engine, inspect
@@ -9,6 +10,7 @@ from sqlalchemy.engine.reflection import Inspector
 from datahub.emitter.mce_builder import make_dataset_urn_with_platform_instance
 from datahub.emitter.mcp_builder import wrap_aspect_as_workunit
 from datahub.ingestion.api.common import WorkUnit
+from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.ge_data_profiler import (
     DatahubGEProfiler,
     GEProfilerRequest,
@@ -27,7 +29,7 @@ logger = logging.getLogger(__name__)
 
 @dataclasses.dataclass
 class RedshiftProfilerRequest(GEProfilerRequest):
-    table: RedshiftTable
+    table: Union[RedshiftTable, RedshiftView]
     profile_table_level_only: bool = False
 
 
@@ -40,10 +42,11 @@ class RedshiftProfiler:
 
     def get_workunits(
         self,
-        tables: Dict[
-            str, Dict[str, List[Union[RedshiftTable, RedshiftView]]]
-        ] = {},
-    ) -> Iterable[WorkUnit]:
+        tables: Union[
+            Dict[str, Dict[str, List[RedshiftTable]]],
+            Dict[str, Dict[str, List[RedshiftView]]],
+        ],
+    ) -> Iterable[MetadataWorkUnit]:
 
         # Extra default SQLAlchemy option for better connection pooling and threading.
         # https://docs.sqlalchemy.org/en/14/core/pooling.html#sqlalchemy.pool.QueuePool.params.max_overflow
@@ -96,7 +99,7 @@ class RedshiftProfiler:
 
     def get_redshift_profile_request(
         self,
-        table: RedshiftTable,
+        table: Union[RedshiftTable, RedshiftView],
         schema_name: str,
         db_name: str,
     ) -> Optional[RedshiftProfilerRequest]:
@@ -136,8 +139,8 @@ class RedshiftProfiler:
     def is_dataset_eligible_for_profiling(
         self,
         dataset_name: str,
-        last_altered: datetime.datetime,
-        size_in_bytes: int,
+        last_altered: Optional[datetime.datetime],
+        size_in_bytes: Optional[int],
         rows_count: Optional[int],
     ) -> bool:
         threshold_time: Optional[datetime.datetime] = None
@@ -153,8 +156,7 @@ class RedshiftProfiler:
             )
             and (
                 threshold_time is None
-                or last_altered is None
-                or last_altered >= threshold_time
+                or (last_altered is not None and last_altered >= threshold_time)
             )
             and (
                 self.config.profiling.profile_table_size_limit is None

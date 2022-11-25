@@ -272,6 +272,9 @@ class RedshiftUsageExtractor:
                     table=row[field_names.index("table")],
                     starttime=row[field_names.index("starttime")],
                     endtime=row[field_names.index("endtime")],
+                    operation_type=row[field_names.index("operation_type")]
+                    if "operation_type" in field_names
+                    else None,
                 )
                 if not self._should_process_event(access_event):
                     continue
@@ -376,9 +379,3 @@ class RedshiftUsageExtractor:
             self.config.format_sql_queries,
             self.config.include_top_n_queries,
         )
-
-    def get_report(self) -> RedshiftReport:
-        return self.report
-
-    def close(self) -> None:
-        pass

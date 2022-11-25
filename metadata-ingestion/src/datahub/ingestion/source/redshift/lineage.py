@@ -13,7 +13,10 @@ from datahub.emitter import mce_builder
 from datahub.emitter.mce_builder import make_dataset_urn_with_platform_instance
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.source.aws.s3_util import strip_s3_prefix
-from datahub.ingestion.source.redshift.common import redshift_datetime_format
+from datahub.ingestion.source.redshift.common import (
+    get_db_name,
+    redshift_datetime_format,
+)
 from datahub.ingestion.source.redshift.config import LineageMode, RedshiftConfig
 from datahub.ingestion.source.redshift.redshift_schema import (
     RedshiftSchema,
@@ -28,6 +31,7 @@ from datahub.metadata.schema_classes import (
     DatasetLineageTypeClass,
     DatasetPropertiesClass,
     UpstreamClass,
+    UpstreamLineageClass,
 )
 
 logger: logging.Logger = logging.getLogger(__name__)
@@ -77,13 +81,11 @@ class LineageExtractor:
         self,
         config: RedshiftConfig,
         report: RedshiftReport,
-        all_tables: Dict[str, Dict[str, Dict[str, Union[RedshiftTable, RedshiftView]]]],
     ):
         self.config = config
         self.report = report
         self.lineage_metadata: Dict[str, Set[str]] = defaultdict(set)
-        self._lineage_map: Optional[Dict[str, LineageItem]] = None
-        self.all_tables = all_tables
+        self._lineage_map: Dict[str, LineageItem] = {}
 
     def warn(self, log: logging.Logger, key: str, reason: str) -> None:
         self.report.report_warning(key, reason)
@@ -95,10 +97,11 @@ class LineageExtractor:
                 if path_spec.allowed(path):
                     table_name, table_path = path_spec.extract_table_name_and_path(path)
                     return table_path
-        else:
+
             if self.config.s3_lineage_config.strip_urls:
-                path = pathlib.Path(path)
-        return str(path)
+                return str(pathlib.Path(path))
+
+        return path
 
     def _get_sources_from_query(self, db_name: str, query: str) -> List[LineageDataset]:
         sources = list()
@@ -123,6 +126,7 @@ class LineageExtractor:
         query: str,
         lineage_type: LineageCollectorType,
         connection: redshift_connector.Connection,
+        all_tables: Dict[str, Dict[str, List[Union[RedshiftView, RedshiftTable]]]],
     ) -> None:
         """
         This method generate table level lineage based with the given query.
@@ -137,11 +141,9 @@ class LineageExtractor:
         return: The method does not return with anything as it directly modify the self._lineage_map property.
         :rtype: None
         """
-        assert self._lineage_map is not None
-
         try:
             cursor = connection.cursor()
-            db_name = connection._database
+            db_name = get_db_name(self.config)
             cursor.execute(query)
             field_names = [i[0] for i in cursor.description]
 
@@ -211,9 +213,9 @@ class LineageExtractor:
                         # It was deleted in the meantime or query parser did not capture well the table name
                         if (
                             source.platform == LineageDatasetPlatform.REDSHIFT
-                            and db not in self.all_tables
-                            and schema not in self.all_tables[db]
-                            and table not in self.all_tables[db][schema]
+                            and db not in all_tables
+                            and schema not in all_tables[db]
+                            and table not in all_tables[db][schema]
                         ):
                             self.warn(
                                 logger, "missing-table", f"{source.path} missing table"
@@ -243,7 +245,11 @@ class LineageExtractor:
         except Exception as e:
             self.warn(logger, f"extract-{lineage_type.name}", f"Error was {e}")
 
-    def _populate_lineage(self, connection: redshift_connector.Connection) -> None:
+    def populate_lineage(
+        self,
+        connection: redshift_connector.Connection,
+        all_tables: Dict[str, Dict[str, List[Union[RedshiftView, RedshiftTable]]]],
+    ) -> None:
 
         stl_scan_based_lineage_query: str = """
                 select
@@ -441,6 +447,7 @@ class LineageExtractor:
                 query=stl_scan_based_lineage_query,
                 lineage_type=LineageCollectorType.QUERY_SCAN,
                 connection=connection,
+                all_tables=all_tables,
             )
         elif self.config.table_lineage_mode == LineageMode.SQL_BASED:
             # Populate table level lineage by parsing table creating sqls
@@ -448,6 +455,7 @@ class LineageExtractor:
                 query=list_insert_create_queries_sql,
                 lineage_type=LineageCollectorType.QUERY_SQL_PARSER,
                 connection=connection,
+                all_tables=all_tables,
             )
         elif self.config.table_lineage_mode == LineageMode.MIXED:
             # Populate table level lineage by parsing table creating sqls
@@ -455,12 +463,14 @@ class LineageExtractor:
                 query=list_insert_create_queries_sql,
                 lineage_type=LineageCollectorType.QUERY_SQL_PARSER,
                 connection=connection,
+                all_tables=all_tables,
             )
             # Populate table level lineage by getting upstream tables from stl_scan redshift table
             self._populate_lineage_map(
                 query=stl_scan_based_lineage_query,
                 lineage_type=LineageCollectorType.QUERY_SCAN,
                 connection=connection,
+                all_tables=all_tables,
             )
 
         if self.config.include_views:
@@ -469,6 +479,7 @@ class LineageExtractor:
                 query=view_lineage_query,
                 lineage_type=LineageCollectorType.VIEW,
                 connection=connection,
+                all_tables=all_tables,
             )
 
             # Populate table level lineage for late binding views
@@ -476,12 +487,14 @@ class LineageExtractor:
                 query=list_late_binding_views_query,
                 lineage_type=LineageCollectorType.NON_BINDING_VIEW,
                 connection=connection,
+                all_tables=all_tables,
             )
         if self.config.include_copy_lineage:
             self._populate_lineage_map(
                 query=list_copy_commands_sql,
                 lineage_type=LineageCollectorType.COPY,
                 connection=connection,
+                all_tables=all_tables,
             )
 
     def get_lineage_mcp(
@@ -489,16 +502,10 @@ class LineageExtractor:
         table: Union[RedshiftTable, RedshiftView],
         dataset_urn: str,
         schema: RedshiftSchema,
-        connection: redshift_connector.Connection,
     ) -> Optional[MetadataChangeProposalWrapper]:
         dataset_key = mce_builder.dataset_urn_to_key(dataset_urn)
         if dataset_key is None:
             return None
-
-        if self._lineage_map is None:
-            logger.debug("Populating lineage")
-            self._populate_lineage(connection=connection)
-        assert self._lineage_map is not None
 
         upstream_lineage: List[UpstreamClass] = []
 
@@ -558,3 +565,64 @@ class LineageExtractor:
         )
 
         return mcp
+
+    def get_lineage(
+        self,
+        table: Union[RedshiftTable, RedshiftView],
+        dataset_urn: str,
+        schema: RedshiftSchema,
+    ) -> Optional[tuple[UpstreamLineageClass, dict[str, str]]]:
+        dataset_key = mce_builder.dataset_urn_to_key(dataset_urn)
+        if dataset_key is None:
+            return None
+
+        upstream_lineage: List[UpstreamClass] = []
+
+        if dataset_key.name in self._lineage_map:
+            item = self._lineage_map[dataset_key.name]
+            for upstream in item.upstreams:
+                upstream_table = UpstreamClass(
+                    dataset=make_dataset_urn_with_platform_instance(
+                        upstream.platform.value,
+                        upstream.path,
+                        platform_instance=self.config.platform_instance_map.get(
+                            upstream.platform.value
+                        )
+                        if self.config.platform_instance_map
+                        else None,
+                        env=self.config.env,
+                    ),
+                    type=item.dataset_lineage_type,
+                )
+                upstream_lineage.append(upstream_table)
+
+        tablename = table.name
+        if table.type == "EXTERNAL_TABLE":
+            external_db_params = schema.option
+            upstream_platform = schema.type.lower()
+            catalog_upstream = UpstreamClass(
+                mce_builder.make_dataset_urn_with_platform_instance(
+                    upstream_platform,
+                    "{database}.{table}".format(
+                        database=schema.external_database,
+                        table=tablename,
+                    ),
+                    platform_instance=self.config.platform_instance_map.get(
+                        upstream_platform
+                    )
+                    if self.config.platform_instance_map
+                    else None,
+                    env=self.config.env,
+                ),
+                DatasetLineageTypeClass.COPY,
+            )
+            upstream_lineage.append(catalog_upstream)
+
+        if upstream_lineage:
+            self.report.upstream_lineage[dataset_urn] = [
+                u.dataset for u in upstream_lineage
+            ]
+        else:
+            return None
+
+        return (UpstreamLineage(upstreams=upstream_lineage), {})

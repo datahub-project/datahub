@@ -1,4 +1,4 @@
-from typing import Callable, Iterable, Optional, Set, Union
+from typing import Callable, Iterable, Optional, Set
 
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.workunit import MetadataWorkUnit
@@ -52,7 +52,7 @@ def auto_status_aspect(
 
         yield wu
 
-    for urn in sorted(all_urns - status_urns):
+    for urn in all_urns - status_urns:
         yield MetadataChangeProposalWrapper(
             entityUrn=urn,
             aspect=StatusClass(removed=False),

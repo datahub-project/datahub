@@ -6,9 +6,13 @@ from pydantic import root_validator
 from pydantic.fields import Field
 
 from datahub.configuration import ConfigModel
+from datahub.configuration.common import LineageConfig
 from datahub.configuration.source_common import DatasetLineageProviderConfigBase
 from datahub.ingestion.source.aws.path_spec import PathSpec
 from datahub.ingestion.source.sql.postgres import PostgresConfig
+from datahub.ingestion.source.state.stale_entity_removal_handler import (
+    StatefulStaleMetadataRemovalConfig,
+)
 from datahub.ingestion.source.usage.usage_common import BaseUsageConfig
 
 
@@ -63,6 +67,7 @@ class RedshiftConfig(
     PostgresConfig,
     DatasetLineageProviderConfigBase,
     DatasetS3LineageProviderConfigBase,
+    LineageConfig,
     RedshiftUsageConfig,
 ):
     # Although Amazon Redshift is compatible with Postgres's wire format,
