@@ -377,7 +377,8 @@ mypy_stubs = {
     "types-ujson>=5.2.0",
     "types-termcolor>=1.0.0",
     "types-Deprecated",
-    "types-protobuf",
+    # Mypy complains with 4.21.0.0 => error: Library stubs not installed for "google.protobuf.descriptor"  
+    "types-protobuf<4.21.0.0",
 }
 
 base_dev_requirements = {
