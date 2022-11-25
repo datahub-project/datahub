@@ -171,6 +171,11 @@ class GenericFileSource(TestableSource):
         self.report = FileSourceReport()
         self.fp: Optional[BufferedReader] = None
 
+    @classmethod
+    def create(cls, config_dict, ctx):
+        config = FileSourceConfig.parse_obj(config_dict)
+        return cls(ctx, config)
+
     def get_filenames(self) -> Iterable[str]:
         if self.config.path.is_file():
             self.report.total_num_files = 1
