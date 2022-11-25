@@ -747,6 +747,8 @@ class SnowflakeV2Source(
             foreignKeys=foreign_keys,
         )
 
+        # TODO: classification is only run for snowflake tables.
+        # Should we run classification for snowflake views as well?
         if isinstance(
             table, SnowflakeTable
         ) and self.is_classification_enabled_for_table(dataset_name):
@@ -756,7 +758,7 @@ class SnowflakeV2Source(
                 ]
             logger.debug(f"Classifying Table {dataset_name}")
             self.classify_schema_fields(
-                dataset_name, schema_metadata, table.sample_data
+                dataset_name, schema_metadata, table.sample_data.to_dict(orient="list")
             )
 
         return schema_metadata

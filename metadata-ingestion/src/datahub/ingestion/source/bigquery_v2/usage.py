@@ -4,7 +4,7 @@ import textwrap
 import time
 from dataclasses import dataclass
 from datetime import datetime
-from typing import Any, Dict, Iterable, List, MutableMapping, Optional, Set, Union, cast
+from typing import Any, Dict, Iterable, List, MutableMapping, Optional, Union, cast
 
 import cachetools
 from google.cloud.bigquery import Client as BigQueryClient
@@ -443,7 +443,6 @@ class BigQueryUsageExtractor:
     ) -> Optional[OperationalDataMeta]:
         # If we don't have Query object that means this is a queryless read operation or a read operation which was not executed as JOB
         # https://cloud.google.com/bigquery/docs/reference/auditlogs/rest/Shared.Types/BigQueryAuditMetadata.TableDataRead.Reason/
-        operation_meta: OperationalDataMeta
         if not event.query_event and event.read_event:
             return OperationalDataMeta(
                 statement_type=OperationTypeClass.CUSTOM,
@@ -839,7 +838,6 @@ class BigQueryUsageExtractor:
             )
 
     def test_capability(self, project_id: str) -> None:
-        lineage_metadata: Dict[str, Set[str]]
         for entry in self._get_parsed_bigquery_log_events(project_id, limit=1):
             logger.debug(f"Connection test got one {entry}")
             return
