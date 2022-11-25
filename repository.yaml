@@ -3,12 +3,8 @@ repoVisibility: public_0C3F0CE3E6E6448FAD341E7BFA50FCD333E06A20CFF05FCACE61154DD
 leakDetectionExemptions:
   - ruleId: 'cert_1'
     filePaths:
-      - '/metadata-ingestion/archived/source_docs/bigquery.md'
-      - '/metadata-ingestion/docs/sources/bigquery/bigquery.md'
       - '/metadata-ingestion/examples/recipes/bigquery_to_datahub.dhub.yaml'
       - '/metadata-ingestion/src/datahub/ingestion/source_config/usage/bigquery_usage.py'
-      - '/datahub-web-react/src/app/ingest/source/conf/bigquery/bigquery.ts'
-      - '/metadata-ingestion/source_docs/bigquery.md'
       - '/datahub-web-react/src/app/ingest/source/builder/RecipeForm/bigquery.ts'
       - '/datahub-web-react/src/app/ingest/source/builder/RecipeForm/lookml.tsx'
       - '/metadata-ingestion/docs/sources/bigquery/bigquery-legacy.md'
