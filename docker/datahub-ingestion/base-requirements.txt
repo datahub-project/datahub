@@ -8,7 +8,7 @@ aiosignal==1.2.0
 alembic==1.8.0
 altair==4.2.0
 anyio==3.6.1
-apache-airflow==2.2.5
+apache-airflow==2.4.3
 apache-airflow-providers-ftp==3.0.0
 apache-airflow-providers-http==3.0.0
 apache-airflow-providers-imap==3.0.0
