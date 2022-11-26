@@ -121,18 +121,9 @@ class BigqueryProfiler:
                         partition_column_type = c.data_type
 
                 if table.time_partitioning.type_ in ("DAY", "MONTH", "YEAR"):
-                    partition_where_clause = "{column_name} BETWEEN {partition_column_type}('{partition_id}') AND {partition_column_type}('{upper_bound_partition_id}')".format(
-                        column_name=table.time_partitioning.field,
-                        partition_id=partition_datetime,
-                        upper_bound_partition_id=upper_bound_partition_datetime,
-                        partition_column_type=partition_column_type,
-                    )
+                    partition_where_clause = f"`{table.time_partitioning.field}` BETWEEN {partition_column_type}('{partition_datetime}') AND {partition_column_type}('{upper_bound_partition_datetime}')"
                 elif table.time_partitioning.type_ in ("HOUR"):
-                    partition_where_clause = "{column_name} BETWEEN '{partition_id}' AND '{upper_bound_partition_id}'".format(
-                        column_name=table.time_partitioning.field,
-                        partition_id=partition_datetime,
-                        upper_bound_partition_id=upper_bound_partition_datetime,
-                    )
+                    partition_where_clause = f"`{table.time_partitioning.field}` BETWEEN '{partition_datetime}' AND '{upper_bound_partition_datetime}'"
                 else:
                     logger.warning(
                         f"Not supported partition type {table.time_partitioning.type_}"
