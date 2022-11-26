@@ -66,7 +66,7 @@ class OperationalDataMeta:
 def bigquery_audit_metadata_query_template(
     dataset: str,
     use_date_sharded_tables: bool,
-    table_allow_filter: str = None,
+    table_allow_filter: Optional[str] = None,
     limit: Optional[int] = None,
 ) -> str:
     """
