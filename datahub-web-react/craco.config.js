@@ -40,4 +40,13 @@ module.exports = {
             },
         },
     ],
+    jest: {
+        configure: (jestConfig) => {
+            jestConfig.transformIgnorePatterns = [
+                'node_modules/(?!(lib0|y-protocols)).+\\.(js|jsx|mjs|cjs|ts|tsx)$',
+                '^.+\\.module\\.(css|sass|scss)$',
+            ];
+            return jestConfig;
+        },
+    },
 };
