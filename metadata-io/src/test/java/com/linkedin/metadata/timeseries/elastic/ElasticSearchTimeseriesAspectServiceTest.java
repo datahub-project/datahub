@@ -15,7 +15,7 @@ import com.linkedin.data.template.StringArray;
 import com.linkedin.data.template.StringArrayArray;
 import com.linkedin.data.template.StringMap;
 import com.linkedin.data.template.StringMapArray;
-import com.linkedin.metadata.ElasticSearchTestConfiguration;
+import com.linkedin.metadata.ESTestConfiguration;
 import com.linkedin.metadata.aspect.EnvelopedAspect;
 import com.linkedin.metadata.models.AspectSpec;
 import com.linkedin.metadata.models.DataSchemaFactory;
@@ -57,12 +57,12 @@ import java.util.function.Function;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
-import static com.linkedin.metadata.ElasticSearchTestConfiguration.syncAfterWrite;
+import static com.linkedin.metadata.ESTestConfiguration.syncAfterWrite;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertNotNull;
 import static org.testng.Assert.fail;
 
-@Import(ElasticSearchTestConfiguration.class)
+@Import(ESTestConfiguration.class)
 public class ElasticSearchTimeseriesAspectServiceTest extends AbstractTestNGSpringContextTests {
   private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
 
@@ -181,7 +181,7 @@ public class ElasticSearchTimeseriesAspectServiceTest extends AbstractTestNGSpri
       }
     });
 
-    syncAfterWrite();
+    syncAfterWrite(_bulkProcessor);
   }
 
   @Test(groups = "upsertUniqueMessageId")
@@ -207,7 +207,7 @@ public class ElasticSearchTimeseriesAspectServiceTest extends AbstractTestNGSpri
       }
     });
 
-    syncAfterWrite();
+    syncAfterWrite(_bulkProcessor);
 
     List<EnvelopedAspect> resultAspects =
         _elasticSearchTimeseriesAspectService.getAspectValues(urn, ENTITY_NAME, ASPECT_NAME, null, null,

@@ -5,7 +5,7 @@ import com.fasterxml.jackson.databind.node.JsonNodeFactory;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.linkedin.common.urn.TestEntityUrn;
 import com.linkedin.common.urn.Urn;
-import com.linkedin.metadata.ElasticSearchTestConfiguration;
+import com.linkedin.metadata.ESTestConfiguration;
 import com.linkedin.metadata.browse.BrowseResult;
 import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.models.registry.SnapshotEntityRegistry;
@@ -30,10 +30,10 @@ import org.testng.annotations.Test;
 
 import javax.annotation.Nonnull;
 
-import static com.linkedin.metadata.ElasticSearchTestConfiguration.syncAfterWrite;
+import static com.linkedin.metadata.ESTestConfiguration.syncAfterWrite;
 import static org.testng.Assert.assertEquals;
 
-@Import(ElasticSearchTestConfiguration.class)
+@Import(ESTestConfiguration.class)
 public class ElasticSearchServiceTest extends AbstractTestNGSpringContextTests {
 
   @Autowired
@@ -92,7 +92,7 @@ public class ElasticSearchServiceTest extends AbstractTestNGSpringContextTests {
     document.set("browsePaths", JsonNodeFactory.instance.textNode("/a/b/c"));
     document.set("foreignKey", JsonNodeFactory.instance.textNode("urn:li:tag:Node.Value"));
     _elasticSearchService.upsertDocument(ENTITY_NAME, document.toString(), urn.toString());
-    syncAfterWrite();
+    syncAfterWrite(_bulkProcessor);
 
     searchResult = _elasticSearchService.structuredSearch(ENTITY_NAME, "test", null, null, 0, 10);
     assertEquals(searchResult.getNumEntities().intValue(), 1);
@@ -117,7 +117,7 @@ public class ElasticSearchServiceTest extends AbstractTestNGSpringContextTests {
     document2.set("textFieldOverride", JsonNodeFactory.instance.textNode("textFieldOverride2"));
     document2.set("browsePaths", JsonNodeFactory.instance.textNode("/b/c"));
     _elasticSearchService.upsertDocument(ENTITY_NAME, document2.toString(), urn2.toString());
-    syncAfterWrite();
+    syncAfterWrite(_bulkProcessor);
 
     searchResult = _elasticSearchService.structuredSearch(ENTITY_NAME, "test", null, null, 0, 10);
     assertEquals(searchResult.getNumEntities().intValue(), 1);
@@ -135,7 +135,7 @@ public class ElasticSearchServiceTest extends AbstractTestNGSpringContextTests {
 
     _elasticSearchService.deleteDocument(ENTITY_NAME, urn.toString());
     _elasticSearchService.deleteDocument(ENTITY_NAME, urn2.toString());
-    syncAfterWrite();
+    syncAfterWrite(_bulkProcessor);
     searchResult = _elasticSearchService.structuredSearch(ENTITY_NAME, "test", null, null, 0, 10);
     assertEquals(searchResult.getNumEntities().intValue(), 0);
     browseResult = _elasticSearchService.browse(ENTITY_NAME, "", null, 0, 10);
@@ -157,7 +157,7 @@ public class ElasticSearchServiceTest extends AbstractTestNGSpringContextTests {
     document.set("browsePaths", JsonNodeFactory.instance.textNode("/a/b/c"));
     document.set("foreignKey", JsonNodeFactory.instance.textNode("urn:li:tag:Node.Value"));
     _elasticSearchService.upsertDocument(ENTITY_NAME, document.toString(), urn.toString());
-    syncAfterWrite();
+    syncAfterWrite(_bulkProcessor);
 
     searchResult = _elasticSearchService.fullTextSearch(ENTITY_NAME, "test", null, null, 0, 10);
     assertEquals(searchResult.getNumEntities().intValue(), 1);
@@ -174,7 +174,7 @@ public class ElasticSearchServiceTest extends AbstractTestNGSpringContextTests {
     document2.set("textFieldOverride", JsonNodeFactory.instance.textNode("textFieldOverride2"));
     document2.set("browsePaths", JsonNodeFactory.instance.textNode("/b/c"));
     _elasticSearchService.upsertDocument(ENTITY_NAME, document2.toString(), urn2.toString());
-    syncAfterWrite();
+    syncAfterWrite(_bulkProcessor);
 
     searchResult = _elasticSearchService.fullTextSearch(ENTITY_NAME, "test", null, null, 0, 10);
     assertEquals(searchResult.getNumEntities().intValue(), 1);
@@ -186,7 +186,7 @@ public class ElasticSearchServiceTest extends AbstractTestNGSpringContextTests {
 
     _elasticSearchService.deleteDocument(ENTITY_NAME, urn.toString());
     _elasticSearchService.deleteDocument(ENTITY_NAME, urn2.toString());
-    syncAfterWrite();
+    syncAfterWrite(_bulkProcessor);
     searchResult = _elasticSearchService.fullTextSearch(ENTITY_NAME, "test", null, null, 0, 10);
     assertEquals(searchResult.getNumEntities().intValue(), 0);
 

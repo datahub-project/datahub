@@ -1,6 +1,11 @@
 package com.linkedin.metadata.kafka.elasticsearch;
 
-import org.elasticsearch.common.xcontent.*;
+import org.elasticsearch.common.xcontent.DeprecationHandler;
+import org.elasticsearch.common.xcontent.NamedXContentRegistry;
+import org.elasticsearch.common.xcontent.XContentBuilder;
+import org.elasticsearch.common.xcontent.XContentFactory;
+import org.elasticsearch.common.xcontent.XContentParser;
+import org.elasticsearch.common.xcontent.XContentType;
 
 import java.io.IOException;
 import javax.annotation.Nullable;
