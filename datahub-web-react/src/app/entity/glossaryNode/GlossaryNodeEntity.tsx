@@ -85,7 +85,6 @@ class GlossaryNodeEntity implements Entity<GlossaryNode> {
                 customNavBar={<GlossaryEntitiesPath />}
                 headerDropdownItems={
                     new Set([
-                        EntityMenuItems.COPY_URL,
                         EntityMenuItems.ADD_TERM_GROUP,
                         EntityMenuItems.ADD_TERM,
                         EntityMenuItems.MOVE,

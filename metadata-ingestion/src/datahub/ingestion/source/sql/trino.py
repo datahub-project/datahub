@@ -4,6 +4,8 @@ from textwrap import dedent
 from typing import Any, Dict, List, Optional
 
 import sqlalchemy
+import trino
+from packaging import version
 from pydantic.fields import Field
 from sqlalchemy import exc, sql
 from sqlalchemy.engine import reflection
@@ -40,6 +42,10 @@ register_custom_type(datatype.ROW, RecordTypeClass)
 register_custom_type(datatype.MAP, MapTypeClass)
 register_custom_type(datatype.DOUBLE, NumberTypeClass)
 
+# Type JSON was introduced in trino sqlalchemy dialect in version 0.317.0
+if version.parse(trino.__version__) >= version.parse("0.317.0"):
+    register_custom_type(datatype.JSON, RecordTypeClass)
+
 
 # Read only table names and skip view names, as view names will also be returned
 # from get_view_names
@@ -71,7 +77,8 @@ def get_table_comment(self, connection, table_name: str, schema: str = None, **k
         properties = {}
         if row:
             for col_name, col_value in row.items():
-                properties[col_name] = col_value
+                if col_value is not None:
+                    properties[col_name] = col_value
 
         return {"text": properties.get("comment", None), "properties": properties}
     # Fallback to default trino-sqlalchemy behaviour if `$properties` table doesn't exist

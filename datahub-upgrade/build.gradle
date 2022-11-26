@@ -27,6 +27,8 @@ dependencies {
   runtime externalDependency.mysqlConnector
   runtime externalDependency.postgresql
 
+  implementation externalDependency.awsMskIamAuth
+
   annotationProcessor externalDependency.lombok
   annotationProcessor externalDependency.picocli
 }
