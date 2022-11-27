@@ -1,0 +1,21 @@
+"""
+Input required in order to upsert lineage edges
+"""
+input UpsertLineageInput {
+    """
+    New lineage edges to upsert
+    """
+    edges: [LineageEdge]!
+}
+
+input LineageEdge {
+    """
+    Urn of the source entity. This urn is downstream of the destinationUrn.
+    """
+    downstreamUrn: String!
+
+    """
+    Urn of the destination entity. This urn is upstream of the destinationUrn
+    """
+    upstreamUrn: String!
+}
