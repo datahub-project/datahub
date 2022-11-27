@@ -29,8 +29,8 @@ DataHub Classifier is the default classifier implementation, which uses [acryl-d
 | Field | Required | Type | Description | Default |
 | ---   | ---      | ---  | --- | -- |
 | confidence_level_threshold |  | number |  | 0.6 |
-| info_types |  | list[string] | List of infotypes to be predicted. By default, all supported infotypes are considered. If specified. this should be subset of ['Email_Address', 'Gender', 'Credit_Debit_Card_Number', 'Phone_Number', 'Street_Address', 'Full_Name', 'Age'] | None |
-| info_types_config | Configuration details for infotypes | Dict[str, InfoTypeConfig] |  | See [datahub_classifier.py](../../../metadata-ingestion/src/datahub/ingestion/glossary/datahub_classifier.py) |
+| info_types |  | list[string] | List of infotypes to be predicted. By default, all supported infotypes are considered. If specified. this should be subset of ['Email_Address', 'Gender', 'Credit_Debit_Card_Number', 'Phone_Number', 'Street_Address', 'Full_Name', 'Age', 'IBAN', 'US_Social_Security_Number', 'Vehicle_Identification_Number', 'IP_Address_v4', 'IP_Address_v6', 'US_Driving_License_Number', 'Swift_Code'] | None |
+| info_types_config | Configuration details for infotypes | Dict[str, InfoTypeConfig] |  | See [reference_input.py](https://github.com/acryldata/datahub-classify/blob/main/datahub-classify/src/datahub_classify/reference_input.py) for default configuration. |
 | info_types_config.`key`.prediction_factors_and_weights | ❓ (required if info_types_config.`key` is set) | Dict[str,number] | Factors and their weights to consider when predicting info types |  |
 | info_types_config.`key`.name |  | NameFactorConfig (see below for fields) |  |  |
 | info_types_config.`key`.name.regex |  | Array of string | List of regex patterns the column name follows for the info type | ['.*'] |
