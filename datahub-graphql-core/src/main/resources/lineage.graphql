@@ -1,11 +1,16 @@
 """
 Input required in order to upsert lineage edges
 """
-input UpsertLineageInput {
+input UpdateLineageInput {
     """
     New lineage edges to upsert
     """
-    edges: [LineageEdge]!
+    edgesToAdd: [LineageEdge]!
+
+    """
+    Lineage edges to remove. Takes precedence over edgesToAdd.
+    """
+    edgesToRemove: [LineageEdge]!
 }
 
 input LineageEdge {

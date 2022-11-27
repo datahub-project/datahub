@@ -530,9 +530,9 @@ type Mutation {
     createPost(input: CreatePostInput!): Boolean
 
     """
-    Upsert lineage for an entity
+    Update lineage for an entity
     """
-    upsertLineage(input: UpsertLineageInput!): Boolean
+    updateLineage(input: UpdateLineageInput!): Boolean
 }
 
 """

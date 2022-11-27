@@ -5,7 +5,7 @@ import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.generated.LineageEdge;
-import com.linkedin.datahub.graphql.generated.UpsertLineageInput;
+import com.linkedin.datahub.graphql.generated.UpdateLineageInput;
 import com.linkedin.datahub.graphql.resolvers.mutate.MutationUtils;
 import com.linkedin.dataset.DatasetLineageType;
 import com.linkedin.dataset.Upstream;
@@ -22,8 +22,10 @@ import lombok.extern.slf4j.Slf4j;
 import javax.annotation.Nonnull;
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 
 import static com.linkedin.datahub.graphql.resolvers.ResolverUtils.bindArgument;
@@ -32,38 +34,41 @@ import static com.linkedin.datahub.graphql.resolvers.mutate.MutationUtils.getAud
 
 @Slf4j
 @RequiredArgsConstructor
-public class UpsertLineageResolver implements DataFetcher<CompletableFuture<Boolean>> {
+public class UpdateLineageResolver implements DataFetcher<CompletableFuture<Boolean>> {
 
   private final EntityService _entityService;
 
   @Override
   public CompletableFuture<Boolean> get(DataFetchingEnvironment environment) throws Exception {
     final QueryContext context = environment.getContext();
-    final UpsertLineageInput input = bindArgument(environment.getArgument("input"), UpsertLineageInput.class);
-    final List<LineageEdge> edges = input.getEdges();
+    final UpdateLineageInput input = bindArgument(environment.getArgument("input"), UpdateLineageInput.class);
+    final List<LineageEdge> edgesToAdd = input.getEdgesToAdd();
+    final List<LineageEdge> edgesToRemove = input.getEdgesToRemove();
+    Map<Urn, List<Urn>> downstreamToUpstreamsToAdd = getDownstreamToUpstreamsMap(edgesToAdd);
+    Map<Urn, List<Urn>> downstreamToUpstreamsToRemove = getDownstreamToUpstreamsMap(edgesToRemove);
+    Set<Urn> downstreamUrns = new HashSet<>();
+    downstreamUrns.addAll(downstreamToUpstreamsToAdd.keySet());
+    downstreamUrns.addAll(downstreamToUpstreamsToRemove.keySet());
     final Urn actor = UrnUtils.getUrn(context.getActorUrn());
 
     return CompletableFuture.supplyAsync(() -> {
-      // group edges to get a list of upstream urns for each downstream urn
-      Map<Urn, List<Urn>> downstreamToUpstreams = getDownstreamToUpstreamsMap(edges);
-
-      for (Map.Entry<Urn, List<Urn>> entry: downstreamToUpstreams.entrySet()) {
-        final Urn downstreamUrn = entry.getKey();
-        final List<Urn> upstreamUrns = entry.getValue();
-
+      // build MCP for every downstreamUrn
+      for (Urn downstreamUrn : downstreamUrns) {
         if (!_entityService.exists(downstreamUrn)) {
           throw new IllegalArgumentException(String.format("Cannot upsert lineage as downstream urn %s doesn't exist", downstreamUrn));
         }
 
-        // make this a switch statement when we deal with more than one entity type
+        List<Urn> upstreamUrnsToAdd = downstreamToUpstreamsToAdd.getOrDefault(downstreamUrn, new ArrayList<>());
+        List<Urn> upstreamUrnsToRemove = downstreamToUpstreamsToRemove.getOrDefault(downstreamUrn, new ArrayList<>());
+
         if (downstreamUrn.getEntityType().equals(Constants.DATASET_ENTITY_NAME)) {
-          validateDatasetEdges(upstreamUrns);
+          validateDatasetEdges(upstreamUrnsToAdd);
           // add permissions check here? or have one overall permissions check above
           try {
-            MetadataChangeProposal changeProposal = buildUpsertDatasetLineageProposal(downstreamUrn, upstreamUrns, actor);
+            MetadataChangeProposal changeProposal = buildDatasetLineageProposal(downstreamUrn, upstreamUrnsToAdd, upstreamUrnsToRemove, actor);
             _entityService.ingestProposal(changeProposal, getAuditStamp(actor), false);
           } catch (Exception e) {
-            throw new RuntimeException(String.format("Failed to upsert dataset lineage with downstreamUrn %s and upstreamUrns %s", downstreamUrn, upstreamUrns), e);
+            throw new RuntimeException(String.format("Failed to update dataset lineage for urn %s", downstreamUrn), e);
           }
         }
       }
@@ -100,7 +105,7 @@ public class UpsertLineageResolver implements DataFetcher<CompletableFuture<Bool
     }
   }
 
-  private MetadataChangeProposal buildUpsertDatasetLineageProposal(@Nonnull final Urn downstreamUrn, @Nonnull List<Urn> upstreamUrns, @Nonnull final Urn actor) throws Exception {
+  private MetadataChangeProposal buildDatasetLineageProposal(@Nonnull final Urn downstreamUrn, @Nonnull List<Urn> upstreamUrnsToAdd, @Nonnull List<Urn> upstreamUrnsToRemove, @Nonnull final Urn actor) throws Exception {
     final UpstreamLineage upstreamLineage = (UpstreamLineage) getAspectFromEntity(downstreamUrn.toString(), Constants.UPSTREAM_LINEAGE_ASPECT_NAME, _entityService, new UpstreamLineage());
     if (!upstreamLineage.hasUpstreams()) {
       upstreamLineage.setUpstreams(new UpstreamArray());
@@ -108,7 +113,7 @@ public class UpsertLineageResolver implements DataFetcher<CompletableFuture<Bool
 
     final UpstreamArray upstreams = upstreamLineage.getUpstreams();
     final List<Urn> upstreamsToAdd = new ArrayList<>();
-    for (Urn upstreamUrn : upstreamUrns) {
+    for (Urn upstreamUrn : upstreamUrnsToAdd) {
       if (upstreams.stream().anyMatch(upstream -> upstream.getDataset().equals(upstreamUrn))) {
         continue;
       }
@@ -123,6 +128,8 @@ public class UpsertLineageResolver implements DataFetcher<CompletableFuture<Bool
       newUpstream.setType(DatasetLineageType.TRANSFORMED); // figure this out later
       upstreams.add(newUpstream);
     }
+
+    upstreams.removeIf(upstream -> upstreamUrnsToRemove.contains(upstream.getDataset()));
 
     upstreamLineage.setUpstreams(upstreams);
 

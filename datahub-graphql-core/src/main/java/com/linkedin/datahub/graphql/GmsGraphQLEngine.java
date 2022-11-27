@@ -140,7 +140,7 @@ import com.linkedin.datahub.graphql.resolvers.ingest.source.ListIngestionSources
 import com.linkedin.datahub.graphql.resolvers.ingest.source.UpsertIngestionSourceResolver;
 import com.linkedin.datahub.graphql.resolvers.jobs.DataJobRunsResolver;
 import com.linkedin.datahub.graphql.resolvers.jobs.EntityRunsResolver;
-import com.linkedin.datahub.graphql.resolvers.lineage.UpsertLineageResolver;
+import com.linkedin.datahub.graphql.resolvers.lineage.UpdateLineageResolver;
 import com.linkedin.datahub.graphql.resolvers.load.AspectResolver;
 import com.linkedin.datahub.graphql.resolvers.load.BatchGetEntitiesResolver;
 import com.linkedin.datahub.graphql.resolvers.load.EntityLineageResultResolver;
@@ -823,7 +823,7 @@ public class GmsGraphQLEngine {
             .dataFetcher("acceptRole", new AcceptRoleResolver(this.roleService, this.inviteTokenService))
             .dataFetcher("createPost", new CreatePostResolver(this.postService))
             .dataFetcher("batchUpdateStepStates", new BatchUpdateStepStatesResolver(this.entityClient))
-            .dataFetcher("upsertLineage", new UpsertLineageResolver(this.entityService))
+            .dataFetcher("updateLineage", new UpdateLineageResolver(this.entityService))
         );
     }
 
