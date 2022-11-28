@@ -10,6 +10,8 @@ This file documents any backwards-incompatible changes in DataHub and assists pe
 
 ### Deprecations
 
+- In PowerBI source `workspace_id_pattern` is recommended over deprecated `workspace_id`.
+
 ### Other notable Changes
 
 ## 0.9.2
