@@ -115,18 +115,15 @@ class BigqueryProfiler:
                     ] = partition
                     return None, None
 
+                partition_column_type: str = "DATE"
+                for c in table.columns:
+                    if c.is_partition_column:
+                        partition_column_type = c.data_type
+
                 if table.time_partitioning.type_ in ("DAY", "MONTH", "YEAR"):
-                    partition_where_clause = "{column_name} BETWEEN DATE('{partition_id}') AND DATE('{upper_bound_partition_id}')".format(
-                        column_name=table.time_partitioning.field,
-                        partition_id=partition_datetime,
-                        upper_bound_partition_id=upper_bound_partition_datetime,
-                    )
+                    partition_where_clause = f"`{table.time_partitioning.field}` BETWEEN {partition_column_type}('{partition_datetime}') AND {partition_column_type}('{upper_bound_partition_datetime}')"
                 elif table.time_partitioning.type_ in ("HOUR"):
-                    partition_where_clause = "{column_name} BETWEEN '{partition_id}' AND '{upper_bound_partition_id}'".format(
-                        column_name=table.time_partitioning.field,
-                        partition_id=partition_datetime,
-                        upper_bound_partition_id=upper_bound_partition_datetime,
-                    )
+                    partition_where_clause = f"`{table.time_partitioning.field}` BETWEEN '{partition_datetime}' AND '{upper_bound_partition_datetime}'"
                 else:
                     logger.warning(
                         f"Not supported partition type {table.time_partitioning.type_}"
@@ -216,14 +213,10 @@ WHERE
         if not self.is_dataset_eligible_for_profiling(
             dataset_name, table.last_altered, table.size_in_bytes, table.rows_count
         ):
-            # Profile only table level if dataset is filtered from profiling
-            # due to size limits alone
-            if self.is_dataset_eligible_for_profiling(
-                dataset_name, table.last_altered, 0, 0
-            ):
-                profile_table_level_only = True
-            else:
-                skip_profiling = True
+            profile_table_level_only = True
+            self.report.num_tables_not_eligible_profiling[dataset] = (
+                self.report.num_tables_not_eligible_profiling.get(dataset, 0) + 1
+            )
 
         if not table.columns:
             skip_profiling = True
