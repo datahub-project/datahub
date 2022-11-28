@@ -144,8 +144,9 @@ The sample authorizer implementation can be found at [Authorizer Sample](../meta
 ## Plugin Installation
 DataHub's GMS Service searches for the plugins in container's local directory at location `/etc/datahub/plugins/auth/`. This location will be referred as `plugin-base-directory` hereafter.
 
-For docker, we set docker-compose to mount ${HOME}/.datahub directory to /etc/datahub directory within the GMS containers. For kubernetes you need to mount a volume at /etc/datahub.
+For docker, we set docker-compose to mount ${HOME}/.datahub directory to /etc/datahub directory within the GMS containers.
 
+### Docker
 Follow below steps to install plugins:
 
 Lets consider you have created an uber jar for authorizer plugin and jar name is apache-ranger-authorizer.jar and class com.abc.RangerAuthorizer has implemented the [Authorizer](../metadata-auth/auth-api/src/main/java/com/datahub/plugins/auth/authorization/Authorizer.java) interface.
@@ -185,6 +186,8 @@ Lets consider you have created an uber jar for authorizer plugin and jar name is
 
 By default, authentication is disabled in DataHub GMS, Please follow section [Enable GMS Authentication](#enable-gms-authentication) to enable authentication.
 
+### Kubernetes
+Helm support is coming soon.
 
 ## Config Detail 
 A sample `config.yml` can be found at [config.yml](../metadata-service/plugin/src/test/resources/valid-base-plugin-dir1/config.yml).
@@ -212,3 +215,55 @@ All other access are forbidden for the plugin.
 
 > Disclaimer: In BETA version your plugin can access any port and can read/write to any location on file system, however you should implement the plugin as per above access permission to keep your plugin compatible with upcoming release of DataHub.
 
+## Migration Of Plugins From application.yml
+If you have any custom Authentication or Authorization plugin define in `authorization` or `authentication` section of  [application.yml](../metadata-service/factories/src/main/resources/application.yml) then migrate them as per below steps.
+
+1. Implement Plugin: For Authentication Plugin follow steps of [Implementing an Authentication Plugin](#implementing-an-authentication-plugin) and for Authorization Plugin follow steps of [Implementing an Authorization Plugin](#implementing-an-authorization-plugin)
+2. Install Plugin: Install the plugins as per steps mentioned in [Plugin Installation](#plugin-installation). Here you need to map the configuration from [application.yml](../metadata-service/factories/src/main/resources/application.yml) to configuration in `config.yml`. This mapping from `application.yml` to `config.yml` is described below 
+
+   **Mapping for Authenticators**
+
+   a. In `config.yml` set `plugins[].type` to `authenticator`
+
+   b. `authentication.authenticators[].type` is mapped to `plugins[].params.className`
+   
+   c. `authentication.authenticators[].configs` is mapped to `plugins[].params.configs`
+   
+   Example Authenticator Plugin configuration in `config.yml`
+
+   ```yaml
+   plugins:
+      - name: "apache-ranger-authenticator"
+         type: "authenticator"
+         enabled: "true"
+         params:
+         className: "com.abc.RangerAuthenticator"
+         configs:
+            username: "foo"
+            password: "fake"
+   
+   ```
+
+   
+   **Mapping for Authorizer**
+
+   a. In `config.yml` set `plugins[].type` to `authorizer`
+
+   b. `authorization.authorizers[].type` is mapped to `plugins[].params.className`
+   
+   c. `authorization.authorizers[].configs` is mapped to `plugins[].params.configs`
+
+   Example Authorizer Plugin configuration in `config.yml`
+
+   ```yaml
+   plugins:
+      - name: "apache-ranger-authorizer"
+         type: "authorizer"
+         enabled: "true"
+         params:
+         className: "com.abc.RangerAuthorizer"
+         configs:
+            username: "foo"
+            password: "fake"
+   
+   ```
