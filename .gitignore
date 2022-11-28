@@ -74,3 +74,4 @@ temp/**
 datahub-frontend/public/**
 
 .remote*
+node_modules

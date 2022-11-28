@@ -191,6 +191,11 @@ module.exports = {
             require.resolve("./src/styles/global.scss"),
           ],
         },
+        pages: {
+         
+              path: 'src/pages',
+              mdxPageComponent: '@theme/MDXPage',
+        },
       },
     ],
   ],
