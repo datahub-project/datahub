@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 // import { gql, useLazyQuery } from '@apollo/client';
 import Select from 'antd/lib/select';
 import { Col, Form } from 'antd';
+// import styled from 'styled-components';
 import { EntityType, SearchResult } from '../../../../../../types.generated';
 import { useEntityRegistry } from '../../../../../useEntityRegistry';
 import { useGetSearchResultsQuery } from '../../../../../../graphql/search.generated';
@@ -12,23 +13,29 @@ interface Props {
     compulsory: boolean;
     clear: boolean;
 }
+// const ParentContainerPath = styled.div`
+//     background-color: 'blue';
+// `;
 
 export const SetParentContainer = (props: Props) => {
     // need this to render the display name of the container
     // decided not to put name of parent container of selected container - the new feature in 0.8.36 would be better
     // const aboutContainer = 'Select a collection that this dataset belongs to. Can be optional';
-    const [selectedContainers, setSelectedContainers] = useState('');
+    const entityRegistry = useEntityRegistry();
+    const [selectedContainerUrn, setSelectedContainerUrn] = useState('');
     const [candidatePool, setCandidatePool] = useState<any>([]);
     const [erasePath, setErasePath] = useState(false);
-    const [parentPath, setParentPath] = useState('');
-    console.log(`erase is set to ${erasePath}`);
+    const [parentPath, setParentPath] = useState<any>();
     useEffect(() => {
         setErasePath(props.clear);
-    }, [props.clear]);
+        setParentPath(props.clear ? <div /> : parentPath);
+        setCandidatePool(props.clear ? [] : candidatePool);
+    }, [props.clear, candidatePool, parentPath]);
+    // }, [props.clear, parentPath]);
 
     // const [parentPath, setParentPath] = useState('');
     useEffect(() => {
-        setSelectedContainers('');
+        setSelectedContainerUrn('');
     }, [props.platformType]);
     const { data: containerCandidates } = useGetSearchResultsQuery({
         variables: {
@@ -47,32 +54,28 @@ export const SetParentContainer = (props: Props) => {
     });
     const { data: containerData } = useGetContainerQuery({
         variables: {
-            urn: selectedContainers,
+            urn: selectedContainerUrn,
         },
-        skip: selectedContainers === '',
+        skip: selectedContainerUrn === '',
     });
-    // const queryParentPath = gql`
-    //     query parentPath($urn: String!) {
-    //         container(urn: $urn) {
-    //             parentContainers {
-    //                 containers {
-    //                     ... on Container {
-    //                         properties {
-    //                             name
-    //                         }
-    //                     }
-    //                 }
-    //             }
-    //         }
-    //     }
-    // `;
 
     useEffect(() => {
+        const selectedName = containerData?.container?.properties?.name;
         const containersArray = containerData?.container?.parentContainers?.containers || [];
-        const pathArray = containersArray?.map((item) => item?.properties?.name) || [];
-        const outputString = pathArray.join(' => ') || '';
-        setParentPath(outputString);
-    }, [containerData]);
+        const parentArray = containersArray?.map((item) => item?.properties?.name) || [];
+        const pathString = parentArray.join(' => ') || '';
+        const outputString1 = pathString === '' ? '' : `Parent containers to this container: `;
+        const outputString2a = pathString === '' ? '' : `${pathString} => `;
+        const outputString2b = `${selectedName} (selected)`;
+        const finalString2 = (
+            <div className="blah">
+                {outputString1}
+                <span style={{ color: 'blue' }}>{outputString2a}</span>
+                <span style={{ color: 'red' }}>{outputString2b}</span>
+            </div>
+        );
+        setParentPath(finalString2);
+    }, [containerData, selectedContainerUrn]);
 
     // const [queryParent] = useLazyQuery(queryParentPath, {
     //     onCompleted(data) {
@@ -80,7 +83,6 @@ export const SetParentContainer = (props: Props) => {
     //         setParentPath(generatedPath);
     //     },
     // });
-    const entityRegistry = useEntityRegistry();
     const renderSearchResult = (result: SearchResult) => {
         const displayName = entityRegistry.getDisplayName(result.entity.type, result.entity);
         return displayName;
@@ -109,12 +111,12 @@ export const SetParentContainer = (props: Props) => {
             >
                 <Select
                     filterOption
-                    value={selectedContainers}
+                    value={selectedContainerUrn}
                     showArrow
                     placeholder="Search for a parent container.."
                     allowClear
                     onSelect={(container: any) => {
-                        setSelectedContainers(container);
+                        setSelectedContainerUrn(container);
                         changedSelect();
                     }}
                     onChange={changedSelect}
@@ -126,6 +128,7 @@ export const SetParentContainer = (props: Props) => {
                         </Select.Option>
                     ))}
                 </Select>
+                {/* <ParentContainerPath>`123`</ParentContainerPath> */}
             </Form.Item>
             <Col span="18" offset="6">
                 {erasePath ? '' : parentPath}
