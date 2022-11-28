@@ -60,13 +60,13 @@ The sample authenticator implementation can be found at [Authenticator Sample](.
 
    To see an example of building an uber jar, check out the `build.gradle` file for the apache-ranger-plugin file of [Apache Ranger Plugin](../metadata-auth/apache-ranger-plugin) for reference. 
 
-   Important statements from build.gradle, which exclude datahub plugin dependency and signature classes.
+   Exclude datahub plugin dependency and signature classes as shown in below `shadowJar` task.
 
    ```groovy
      apply plugin: 'com.github.johnrengelman.shadow';
      shadowJar {
          // Exclude com.datahub.plugins package and files related to jar signature   
-         exclude "com/datahub/plugins/", "META-INF/*.RSA", "META-INF/*.SF","META-INF/*.DSA"
+         exclude "com/linkedin/common/", "com/datahub/", "META-INF/*.RSA", "META-INF/*.SF","META-INF/*.DSA"
      }
    ```
 4. Refer section [Plugin Installation](#plugin-installation) for plugin installation in DataHub environment
@@ -129,13 +129,13 @@ The sample authorizer implementation can be found at [Authorizer Sample](../meta
 
    To see an example of building an uber jar, check out the `build.gradle` file for the apache-ranger-plugin file of [Apache Ranger Plugin](../metadata-auth/apache-ranger-plugin) for reference.
 
-   Important statements from build.gradle, which exclude datahub plugin dependency and signature classes.
+   Exclude datahub plugin dependency and signature classes as shown in below `shadowJar` task.
 
    ```groovy
      apply plugin: 'com.github.johnrengelman.shadow';
      shadowJar {
          // Exclude com.datahub.plugins package and files related to jar signature   
-         exclude "com/datahub/plugins/", "META-INF/*.RSA", "META-INF/*.SF","META-INF/*.DSA"
+         exclude "com/linkedin/common/", "com/datahub/", "META-INF/*.RSA", "META-INF/*.SF","META-INF/*.DSA"
      }
    ```
    
