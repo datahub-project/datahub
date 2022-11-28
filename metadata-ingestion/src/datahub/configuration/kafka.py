@@ -11,10 +11,10 @@ class _KafkaConnectionConfig(ConfigModel):
     # schema registry location
     schema_registry_url: str = "http://localhost:8081"
 
-    # Extra schema registry config.
-    # These options will be passed into Kafka's SchemaRegistryClient.
-    # See https://docs.confluent.io/platform/current/clients/confluent-kafka-python/html/index.html?#schemaregistryclient
-    schema_registry_config: dict = Field(default_factory=dict)
+    schema_registry_config: dict = Field(
+        default_factory=dict,
+        description="Extra schema registry config serialized as JSON. These options will be passed into Kafka's SchemaRegistryClient. https://docs.confluent.io/platform/current/clients/confluent-kafka-python/html/index.html?#schemaregistryclient",
+    )
 
     @validator("bootstrap")
     def bootstrap_host_colon_port_comma(cls, val: str) -> str:
@@ -26,18 +26,16 @@ class _KafkaConnectionConfig(ConfigModel):
 class KafkaConsumerConnectionConfig(_KafkaConnectionConfig):
     """Configuration class for holding connectivity information for Kafka consumers"""
 
-    # Extra consumer config.
-    # These options will be passed into Kafka's DeserializingConsumer.
-    # See https://docs.confluent.io/platform/current/clients/confluent-kafka-python/html/index.html#deserializingconsumer
-    # and https://github.com/edenhill/librdkafka/blob/master/CONFIGURATION.md.
-    consumer_config: dict = Field(default_factory=dict)
+    consumer_config: dict = Field(
+        default_factory=dict,
+        description="Extra consumer config serialized as JSON. These options will be passed into Kafka's DeserializingConsumer. See https://docs.confluent.io/platform/current/clients/confluent-kafka-python/html/index.html#deserializingconsumer and https://github.com/edenhill/librdkafka/blob/master/CONFIGURATION.md .",
+    )
 
 
 class KafkaProducerConnectionConfig(_KafkaConnectionConfig):
     """Configuration class for holding connectivity information for Kafka producers"""
 
-    # Extra producer config.
-    # These options will be passed into Kafka's SerializingProducer.
-    # See https://docs.confluent.io/platform/current/clients/confluent-kafka-python/html/index.html#serializingproducer
-    # and https://github.com/edenhill/librdkafka/blob/master/CONFIGURATION.md.
-    producer_config: dict = Field(default_factory=dict)
+    producer_config: dict = Field(
+        default_factory=dict,
+        description="Extra producer config serialized as JSON. These options will be passed into Kafka's SerializingProducer. See https://docs.confluent.io/platform/current/clients/confluent-kafka-python/html/index.html#serializingproducer and https://github.com/edenhill/librdkafka/blob/master/CONFIGURATION.md .",
+    )
