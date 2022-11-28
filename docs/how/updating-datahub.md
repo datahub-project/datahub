@@ -5,7 +5,9 @@ This file documents any backwards-incompatible changes in DataHub and assists pe
 ## Next
 
 ### Breaking Changes
-- #6243 apache-ranger authorizer is no longer the core part of DataHub GMS, and it is shifted as plugin. Please refer updated documentation [datahub-ranger-plugin](../../datahub-ranger-plugin/README.md#configuring-your-datahub-deployment) for configuring apache-ranger as Authorizer plugin.
+- #6243 apache-ranger authorizer is no longer the core part of DataHub GMS, and it is shifted as plugin. Please refer updated documentation [datahub-ranger-plugin](../../datahub-ranger-plugin/README.
+- #6243 apache-ranger authorizer as plugin is not supported in DataHub Kubernetes deployment.
+md#configuring-your-datahub-deployment) for configuring apache-ranger as Authorizer plugin.
 - #6243 Authentication and Authorization plugins configuration are removed from [application.yml](../../metadata-service/factories/src/main/resources/application.yml). Refer documentation [Plugins Guide](../plugins.md) for creating and configuring the custom plugins in DataHub GMS. 
 
 ### Potential Downtime
