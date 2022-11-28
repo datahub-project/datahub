@@ -1,10 +1,22 @@
 import json
+import random
+import string
 from datetime import datetime, timezone
 from unittest import mock
 
+import pandas as pd
 from freezegun import freeze_time
 
 from datahub.configuration.common import AllowDenyPattern, DynamicTypedConfig
+from datahub.ingestion.glossary.classifier import (
+    ClassificationConfig,
+    DynamicTypedClassifierConfig,
+)
+from datahub.ingestion.glossary.datahub_classifier import (
+    DataHubClassifierConfig,
+    InfoTypeConfig,
+    PredictionFactorsAndWeights,
+)
 from datahub.ingestion.run.pipeline import Pipeline
 from datahub.ingestion.run.pipeline_config import PipelineConfig, SourceConfig
 from datahub.ingestion.source.snowflake import snowflake_query
@@ -272,6 +284,18 @@ def default_query_results(query):
 FROZEN_TIME = "2022-06-07 17:00:00"
 
 
+def random_email():
+    return (
+        "".join(
+            [
+                random.choice(string.ascii_lowercase)
+                for i in range(random.randint(10, 15))
+            ]
+        )
+        + "@xyz.com"
+    )
+
+
 @freeze_time(FROZEN_TIME)
 def test_snowflake_basic(pytestconfig, tmp_path, mock_time, mock_datahub_graph):
     test_resources_dir = pytestconfig.rootpath / "tests/integration/snowflake-beta"
@@ -280,13 +304,31 @@ def test_snowflake_basic(pytestconfig, tmp_path, mock_time, mock_datahub_graph):
     output_file = tmp_path / "snowflake_test_events.json"
     golden_file = test_resources_dir / "snowflake_beta_golden.json"
 
-    with mock.patch("snowflake.connector.connect") as mock_connect:
+    with mock.patch("snowflake.connector.connect") as mock_connect, mock.patch(
+        "datahub.ingestion.source.snowflake.snowflake_v2.SnowflakeV2Source.get_sample_values_for_table"
+    ) as mock_sample_values:
         sf_connection = mock.MagicMock()
         sf_cursor = mock.MagicMock()
         mock_connect.return_value = sf_connection
         sf_connection.cursor.return_value = sf_cursor
         sf_cursor.execute.side_effect = default_query_results
 
+        mock_sample_values.return_value = pd.DataFrame(
+            data={
+                "col_1": [random.randint(0, 100) for i in range(1, 200)],
+                "col_2": [random_email() for i in range(1, 200)],
+            }
+        )
+
+        datahub_classifier_config = DataHubClassifierConfig()
+        datahub_classifier_config.confidence_level_threshold = 0.58
+        datahub_classifier_config.info_types_config = {
+            "Age": InfoTypeConfig(
+                Prediction_Factors_and_Weights=PredictionFactorsAndWeights(
+                    Name=0, Values=1, Description=0, Datatype=0
+                )
+            ),
+        }
         pipeline = Pipeline(
             config=PipelineConfig(
                 run_id="snowflake-beta-2022_06_07-17_00_00",
@@ -308,6 +350,17 @@ def test_snowflake_basic(pytestconfig, tmp_path, mock_time, mock_datahub_graph):
                         ),
                         end_time=datetime(2022, 6, 7, 7, 17, 0, 0).replace(
                             tzinfo=timezone.utc
+                        ),
+                        classification=ClassificationConfig(
+                            enabled=True,
+                            column_pattern=AllowDenyPattern(
+                                allow=[".*col_1$", ".*col_2$"]
+                            ),
+                            classifiers=[
+                                DynamicTypedClassifierConfig(
+                                    type="datahub", config=datahub_classifier_config
+                                )
+                            ],
                         ),
                     ),
                 ),

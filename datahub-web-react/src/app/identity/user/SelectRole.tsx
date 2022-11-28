@@ -5,8 +5,10 @@ import styled from 'styled-components';
 import { CorpUser, DataHubRole } from '../../../types.generated';
 import AssignRoleConfirmation from './AssignRoleConfirmation';
 import { mapRoleIcon } from './UserUtils';
+import { ANTD_GRAY } from '../../entity/shared/constants';
 
 const NO_ROLE_TEXT = 'No Role';
+const NO_ROLE_URN = 'urn:li:dataHubRole:NoRole';
 
 type Props = {
     user: CorpUser;
@@ -15,8 +17,9 @@ type Props = {
     refetch?: () => void;
 };
 
-const RoleSelect = styled(Select)`
+const RoleSelect = styled(Select)<{ color?: string }>`
     min-width: 105px;
+    ${(props) => (props.color ? ` color: ${props.color};` : '')}
 `;
 
 const RoleIcon = styled.span`
@@ -29,29 +32,27 @@ export default function SelectRole({ user, userRoleUrn, selectRoleOptions, refet
     selectRoleOptions.forEach((role) => {
         rolesMap.set(role.urn, role);
     });
-    const allSelectRoleOptions = [{ urn: '', name: NO_ROLE_TEXT }, ...selectRoleOptions];
-    const selectOptions = () =>
-        allSelectRoleOptions.map((role) => {
-            return (
-                <Select.Option value={role.urn}>
-                    <RoleIcon>{mapRoleIcon(role.name)}</RoleIcon>
-                    {role.name}
-                </Select.Option>
-            );
-        });
+    const allSelectRoleOptions = [{ urn: NO_ROLE_URN, name: NO_ROLE_TEXT }, ...selectRoleOptions];
+    const selectOptions = allSelectRoleOptions.map((role) => {
+        return (
+            <Select.Option key={role.urn} value={role.urn}>
+                <RoleIcon>{mapRoleIcon(role.name)}</RoleIcon>
+                {role.name}
+            </Select.Option>
+        );
+    });
 
-    const initialRole = rolesMap.get(userRoleUrn) as DataHubRole;
-    const [currentRole, setCurrentRole] = useState<DataHubRole | undefined>(initialRole);
+    const defaultRoleUrn = userRoleUrn || NO_ROLE_URN;
+    const [currentRoleUrn, setCurrentRoleUrn] = useState<string>(defaultRoleUrn);
     const [isViewingAssignRole, setIsViewingAssignRole] = useState(false);
 
     const onSelectRole = (roleUrn: string) => {
-        const roleFromMap: DataHubRole = rolesMap.get(roleUrn) as DataHubRole;
-        setCurrentRole(roleFromMap);
+        setCurrentRoleUrn(roleUrn);
         setIsViewingAssignRole(true);
     };
 
     const onCancel = () => {
-        setCurrentRole(initialRole);
+        setCurrentRoleUrn(defaultRoleUrn);
         setIsViewingAssignRole(false);
     };
 
@@ -62,6 +63,9 @@ export default function SelectRole({ user, userRoleUrn, selectRoleOptions, refet
         }, 3000);
     };
 
+    // wait for available roles to load
+    if (!selectRoleOptions.length) return null;
+
     return (
         <>
             <RoleSelect
@@ -71,14 +75,15 @@ export default function SelectRole({ user, userRoleUrn, selectRoleOptions, refet
                         {NO_ROLE_TEXT}
                     </>
                 }
-                value={currentRole?.urn}
+                value={currentRoleUrn}
                 onChange={(e) => onSelectRole(e as string)}
+                color={currentRoleUrn === NO_ROLE_URN ? ANTD_GRAY[6] : undefined}
             >
-                {selectOptions()}
+                {selectOptions}
             </RoleSelect>
             <AssignRoleConfirmation
                 visible={isViewingAssignRole}
-                roleToAssign={currentRole}
+                roleToAssign={rolesMap.get(currentRoleUrn)}
                 userUrn={user.urn}
                 username={user.username}
                 onClose={onCancel}
