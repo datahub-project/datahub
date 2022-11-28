@@ -492,12 +492,19 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
         conn: bigquery.Client = self.get_bigquery_client()
         self.add_config_to_report()
 
-        projects: List[BigqueryProject] = BigQueryDataDictionary.get_projects(conn)
-        if len(projects) == 0:
-            logger.warning(
-                "Get projects didn't return any project. Maybe resourcemanager.projects.get permission is missing for the service account. You can assign predefined roles/bigquery.metadataViewer role to your service account."
+        projects: List[BigqueryProject]
+        if self.config.project_id:
+            project = BigqueryProject(
+                id=self.config.project_id, name=self.config.project_id
             )
-            return
+            projects = [project]
+        else:
+            projects = BigQueryDataDictionary.get_projects(conn)
+            if len(projects) == 0:
+                logger.warning(
+                    "Get projects didn't return any project. Maybe resourcemanager.projects.get permission is missing for the service account. You can assign predefined roles/bigquery.metadataViewer role to your service account."
+                )
+                return
 
         for project_id in projects:
             if not self.config.project_id_pattern.allowed(project_id.id):

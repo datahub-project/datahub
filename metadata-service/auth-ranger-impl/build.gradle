@@ -10,7 +10,7 @@ dependencies {
 
     implementation 'org.apache.ranger:ranger-plugins-common:2.3.0'
     implementation 'org.apache.logging.log4j:log4j-1.2-api:2.17.1'
-
+    implementation 'rome:rome:1.0'
     runtimeOnly externalDependency.jna
     compile externalDependency.lombok
 
