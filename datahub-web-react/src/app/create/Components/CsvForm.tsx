@@ -150,7 +150,7 @@ export const CsvForm = () => {
                 initialValues={{
                     dataset_name: '',
                     fields: [{ field_description: '', field_type: 'string', field_name: '' }],
-                    browsepathList: [{ browsepath: `/file/` }],
+                    browsepathList: [{ browsepath: `/STAGING/` }],
                     frequency: 'Unknown',
                     dataset_frequency_details: '',
                     dataset_origin: '',
