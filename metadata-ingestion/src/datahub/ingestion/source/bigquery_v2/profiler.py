@@ -186,6 +186,13 @@ WHERE
 
                 request = cast(BigqueryProfilerRequest, request)
                 profile.sizeInBytes = request.table.size_in_bytes
+                # If table is partitioned we profile only one partition (if nothing set then the last one)
+                # but for table level we can use the rows_count from the table metadata
+                # This way even though column statistics only reflects one partition data but the rows count
+                # shows the proper count.
+                if profile.partitionSpec and profile.partitionSpec.partition:
+                    profile.rowCount = request.table.rows_count
+
                 dataset_name = request.pretty_name
                 dataset_urn = make_dataset_urn_with_platform_instance(
                     self.platform,
@@ -250,7 +257,10 @@ WHERE
         profile_request = BigqueryProfilerRequest(
             pretty_name=dataset_name,
             batch_kwargs=dict(
-                schema=project, table=f"{dataset}.{table.name}", custom_sql=custom_sql
+                schema=project,
+                table=f"{dataset}.{table.name}",
+                custom_sql=custom_sql,
+                partition=partition,
             ),
             table=table,
             profile_table_level_only=profile_table_level_only,
