@@ -156,7 +156,7 @@ On the host where `datahub-gms` is deployed, follow these steps:
 
 ### Kubernetes
 
-The steps are similar as mentioned in [Docker](#docker), the difference is instead of creating the directory `~/.datahub/plugins/auth/apache-ranger-authorizer/` mount a volume at `/etc/datahub` in `datahub-gms` pod and create directory structure and files as mentioned in [Docker](#docker). 
+Helm support is coming soon.
    
 
 That's it! Now we can test out the integration. 

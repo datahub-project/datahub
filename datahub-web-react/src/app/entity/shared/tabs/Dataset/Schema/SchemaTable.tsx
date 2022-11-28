@@ -23,6 +23,7 @@ import { FkContext } from './utils/selectedFkContext';
 import useSchemaBlameRenderer from './utils/useSchemaBlameRenderer';
 import { ANTD_GRAY } from '../../../constants';
 import MenuColumn from './components/MenuColumn';
+import translateFieldPath from '../../../../dataset/profile/schema/utils/translateFieldPath';
 
 const TableContainer = styled.div`
     overflow: inherit;
@@ -119,6 +120,9 @@ export default function SchemaTable({
         key: 'fieldPath',
         render: schemaTitleRenderer,
         filtered: true,
+        sorter: (sourceA, sourceB) => {
+            return translateFieldPath(sourceA.fieldPath).localeCompare(translateFieldPath(sourceB.fieldPath));
+        },
     };
 
     const descriptionColumn = {

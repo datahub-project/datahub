@@ -5,8 +5,9 @@ This file documents any backwards-incompatible changes in DataHub and assists pe
 ## Next
 
 ### Breaking Changes
-- #6243 apache-ranger authorizer is no longer the core part of DataHub GMS, and it is shifted as plugin. Please refer updated documentation [datahub-ranger-plugin](../../datahub-ranger-plugin/README.md#configuring-your-datahub-deployment) for configuring apache-ranger as Authorizer plugin.
-- #6243 Authentication and Authorization plugins configuration are removed from [application.yml](../../metadata-service/factories/src/main/resources/application.yml). Refer documentation [Plugins Guide](../plugins.md) for creating and configuring the custom plugins in DataHub GMS. 
+- #6243 apache-ranger authorizer is no longer the core part of DataHub GMS, and it is shifted as plugin. Please refer updated documentation [datahub-ranger-plugin](../../datahub-ranger-plugin/README.md#configuring-your-datahub-deployment) for configuring `datahub-ranger-plugin` in DataHub GMS.
+- #6243 apache-ranger authorizer as plugin is not supported in DataHub Kubernetes deployment.
+- #6243 Authentication and Authorization plugins configuration are removed from [application.yml](../../metadata-service/factories/src/main/resources/application.yml). Refer documentation [Migration Of Plugins From application.yml](../plugins.md#migration-of-plugins-from-applicationyml) for migrating any existing custom plugins. 
 
 ### Potential Downtime
 
@@ -23,6 +24,17 @@ This file documents any backwards-incompatible changes in DataHub and assists pe
 - The DataHub Airflow lineage backend and plugin no longer support Airflow 1.x. You can still run DataHub ingestion in Airflow 1.x using the [PythonVirtualenvOperator](https://airflow.apache.org/docs/apache-airflow/1.10.15/_api/airflow/operators/python_operator/index.html?highlight=pythonvirtualenvoperator#airflow.operators.python_operator.PythonVirtualenvOperator).
 
 ### Breaking Changes
+
+### Potential Downtime
+
+### Deprecations
+
+### Other notable Changes
+
+## 0.9.1
+
+### Breaking Changes
+- we have promoted `bigqery-beta` to `bigquery`. If you are using `bigquery-beta` then change your recipes to use the type `bigquery`
 
 ### Potential Downtime
 
@@ -206,4 +218,3 @@ This file documents any backwards-incompatible changes in DataHub and assists pe
 
 ### Other notable Changes
 - #4760 `check_role_grants` option was added in `snowflake` to disable checking roles in `snowflake` as some people were reporting long run times when checking roles.
->>>>>>> master

@@ -12,7 +12,8 @@ import javax.annotation.Nonnull;
 
 /**
  * Responsible for creating {@link AuthorizerPluginConfig} instance.
- * This provider is register in {@link com.datahub.plugins.factory.PluginConfigFactory} as provider of Authorizer configuration
+ * This provider is register in {@link com.datahub.plugins.factory.PluginConfigFactory} as provider of Authorizer
+ * configuration
  */
 public class AuthorizerPluginConfigProvider extends AuthPluginConfigProvider {
   @Override

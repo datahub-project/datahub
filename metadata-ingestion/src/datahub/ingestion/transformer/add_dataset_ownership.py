@@ -52,41 +52,23 @@ class AddDatasetOwnership(DatasetOwnershipTransformer):
         return cls(config, ctx)
 
     @staticmethod
-    def get_patch_ownership_aspect(
+    def _merge_with_server_ownership(
         graph: DataHubGraph, urn: str, mce_ownership: Optional[OwnershipClass]
     ) -> Optional[OwnershipClass]:
         if not mce_ownership or not mce_ownership.owners:
-            # nothing to add, no need to consult server
+            # If there are no owners to add, we don't need to patch anything.
             return None
-        assert mce_ownership
+
+        # Merge the transformed ownership with existing server ownership.
+        # The transformed ownership takes precedence, which may change the ownership type.
+
         server_ownership = graph.get_ownership(entity_urn=urn)
         if server_ownership:
-            # compute patch
-            # we only include owners who are not present in the server ownership
-            # if owner ids match, but the ownership type differs, we prefer the transformers opinion
-            owners_to_add: List[OwnerClass] = []
-            needs_update = False
-            server_owner_ids = [o.owner for o in server_ownership.owners]
-            for owner in mce_ownership.owners:
-                if owner.owner not in server_owner_ids:
-                    owners_to_add.append(owner)
-                else:
-                    # we need to check if the type matches, and if it doesn't, update it
-                    for server_owner in server_ownership.owners:
-                        if (
-                            owner.owner == server_owner.owner
-                            and owner.type != server_owner.type
-                        ):
-                            server_owner.type = owner.type
-                            needs_update = True
+            owners = {owner.owner: owner for owner in server_ownership.owners}
+            owners.update({owner.owner: owner for owner in mce_ownership.owners})
+            mce_ownership.owners = list(owners.values())
 
-            if owners_to_add or needs_update:
-                mce_ownership.owners = server_ownership.owners + owners_to_add
-                return mce_ownership
-            else:
-                return None
-        else:
-            return mce_ownership
+        return mce_ownership
 
     def transform_aspect(
         self, entity_urn: str, aspect_name: str, aspect: Optional[Aspect]
@@ -108,18 +90,16 @@ class AddDatasetOwnership(DatasetOwnershipTransformer):
         if owners_to_add is not None:
             out_ownership_aspect.owners.extend(owners_to_add)
 
-        patch_ownership: Optional[OwnershipClass] = None
         if self.config.semantics == TransformerSemantics.PATCH:
             assert self.ctx.graph
-            patch_ownership = AddDatasetOwnership.get_patch_ownership_aspect(
-                self.ctx.graph, entity_urn, out_ownership_aspect
+            return cast(
+                Optional[Aspect],
+                self._merge_with_server_ownership(
+                    self.ctx.graph, entity_urn, out_ownership_aspect
+                ),
             )
-
-        return (
-            cast(Aspect, patch_ownership)
-            if patch_ownership is not None
-            else cast(Aspect, out_ownership_aspect)
-        )
+        else:
+            return cast(Aspect, out_ownership_aspect)
 
 
 class DatasetOwnershipBaseConfig(TransformerSemanticsConfigModel):

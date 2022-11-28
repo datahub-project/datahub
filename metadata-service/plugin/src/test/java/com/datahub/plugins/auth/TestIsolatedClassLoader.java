@@ -34,22 +34,30 @@ import org.testng.annotations.Test;
 /**
  * This test case covers below scenarios
  * 1. Loading plugin configuration and validating the loaded configuration against the expected configuration.
- *    This scenario is covered in @{link com.datahub.plugins.auth.TestIsolatedClassLoader#testConfigurationLoading()} test
+ *    This scenario is covered in @{link com.datahub.plugins.auth.TestIsolatedClassLoader#testConfigurationLoading()}
+ *    test
  *
- * 2. Plugin name should be unique in config.yaml. The plugin framework should raise error if more than one plugin has the same name.
- *    This scenario is covered in @{link com.datahub.plugins.auth.TestIsolatedClassLoader#testDuplicatePluginName()} test
+ * 2. Plugin name should be unique in config.yaml. The plugin framework should raise error if more than one plugin
+ * has the same name.
+ *    This scenario is covered in @{link com.datahub.plugins.auth.TestIsolatedClassLoader#testDuplicatePluginName()}
+ *    test
  *
  * 3. Developer can provide plugin jar file name in config.yaml.
  *    This scenario is covered in @{link com.datahub.plugins.auth.TestIsolatedClassLoader#testJarFileName()} test
  *
- * 4. Test @{link com.datahub.plugins.auth.TestIsolatedClassLoader#testAuthenticatorPlugin()} covers the valid authenticator plugin execution.
- *    Plugin used in this test-case is metadata-service/plugin/src/test/sample-test-plugins/src/main/java/com/datahub/plugins/test/TestAuthenticator.java
+ * 4. Test @{link com.datahub.plugins.auth.TestIsolatedClassLoader#testAuthenticatorPlugin()} covers the valid
+ * authenticator plugin execution.
+ *    Plugin used in this test-case is metadata-service/plugin/src/test/sample-test-plugins/src/main/java/com/datahub
+ *    /plugins/test/TestAuthenticator.java
  *
- * 5. Test @{link com.datahub.plugins.auth.TestIsolatedClassLoader#testAuthorizerPlugin()} covers the valid authorizer plugin execution
- *    Plugin used in this test-case is metadata-service/plugin/src/test/sample-test-plugins/src/main/java/com/datahub/plugins/test/TestAuthorizer.java
+ * 5. Test @{link com.datahub.plugins.auth.TestIsolatedClassLoader#testAuthorizerPlugin()} covers the valid
+ * authorizer plugin execution
+ *    Plugin used in this test-case is metadata-service/plugin/src/test/sample-test-plugins/src/main/java/com/datahub
+ *    /plugins/test/TestAuthorizer.java
  *
  * 6. The plugin framework should raise error if authenticator plugin is configured as authorizer plugin or vice-versa.
- *    This scenario is covered in @{link com.datahub.plugins.auth.TestIsolatedClassLoader#testIncorrectImplementation()}.
+ *    This scenario is covered in @{link com.datahub.plugins.auth.TestIsolatedClassLoader#testIncorrectImplementation
+ *    ()}.
  *    The test case tries to load authorizer plugin as authenticator plugin
  */
 class TestIsolatedClassLoader {
@@ -174,7 +182,8 @@ class TestIsolatedClassLoader {
     IsolatedClassLoader isolatedClassLoader = new IsolatedClassLoader(permissionManager, authorizerPluginConfig);
     // initiate and invoke the init and authenticate methods
     try {
-      // Authorizer configuration is provided, however here we were expecting that plugin should be of type Authenticator.class
+      // Authorizer configuration is provided, however here we were expecting that plugin should be of type
+      // Authenticator.class
       Authorizer authorizer = (Authorizer) isolatedClassLoader.instantiatePlugin(Authenticator.class);
       assert authorizer != null;
     } catch (RuntimeException | ClassNotFoundException e) {

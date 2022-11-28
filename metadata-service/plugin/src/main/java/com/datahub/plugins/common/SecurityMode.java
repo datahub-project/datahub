@@ -21,7 +21,8 @@ public enum SecurityMode {
    *  3) port 443
    *  All other ports connection are disallowed.
    *
-   *  Plugins are allowed to read and write files on PLUGIN_HOME directory only and all other read/write access are denied.
+   *  Plugins are allowed to read and write files on PLUGIN_HOME directory only and all other read/write access are
+   *  denied.
    */
   RESTRICTED(SecurityMode::restrictModePermissionSupplier),
 
