@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useState } from 'react';
 import axios from 'axios';
 import { CSVReader } from 'react-papaparse';
 import { Col, Form, Input, Space, Select, Button, message, Divider, Popconfirm, Row, Tooltip } from 'antd';
@@ -110,9 +110,7 @@ export const CsvForm = () => {
         });
     };
     const [selectedPlatform, setSelectedPlatform] = useState('urn:li:dataPlatform:file');
-    useEffect(() => {
-        form.setFieldsValue({ browsepathList: [{ browsepath: `/${selectedPlatform.split(':').pop()}/` }] });
-    }, [selectedPlatform, form]);
+
     const renderSearchResult = (result: string) => {
         const displayName = result.split(':').pop()?.toUpperCase();
         return (
@@ -133,7 +131,6 @@ export const CsvForm = () => {
     const removeOption = () => {
         setSelectedPlatform('');
         form.setFieldsValue({ parentContainer: '' });
-        form.setFieldsValue({ browsepathList: [{ browsepath: '' }] });
     };
     const popupMsg = `Confirm Dataset Name: ${form.getFieldValue('dataset_name')}? 
     This permanently affects the dataset URL`;
