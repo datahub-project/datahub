@@ -13,6 +13,7 @@ import lombok.Data;
 import lombok.EqualsAndHashCode;
 import lombok.NoArgsConstructor;
 
+
 /**
  * POJO to map YAML section present in config.yml at plugins[]
  */
@@ -35,7 +36,8 @@ public class PluginConfig {
   private PluginType type;
 
   /**
-   * Whether to load the plugin in GMS. If set to true plugin will be loaded in GMS take authentication/authorization decisions.
+   * Whether to load the plugin in GMS. If set to true plugin will be loaded in GMS take authentication/authorization
+   * decisions.
    */
   private Boolean enabled;
 
@@ -46,7 +48,8 @@ public class PluginConfig {
 
   /**
    * It is always set to <plugin-base-directory>/<plugin-name>.
-   * For example if plugin-name is ranger-authorizer and plugin-base-directory is /etc/datahub/plugins/auth then pluginDirectory would be /etc/datahub/plugins/auth/ranger-authorizer
+   * For example if plugin-name is ranger-authorizer and plugin-base-directory is /etc/datahub/plugins/auth then
+   * pluginDirectory would be /etc/datahub/plugins/auth/ranger-authorizer
    */
   @JsonIgnore
   private Path pluginHomeDirectory;

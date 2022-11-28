@@ -86,7 +86,8 @@ public class IsolatedClassLoader extends ClassLoader {
   }
 
   /**
-   * Load plugin class from jar given in pluginToLoad parameter and return instance of class which implements Plugin interface.
+   * Load plugin class from jar given in pluginToLoad parameter and return instance of class which implements Plugin
+   * interface.
    * This method verifies whether loaded plugin is assignable to expectedInstanceOf class
    * @param expectedInstanceOf class instance of interface caller is expecting
    * @return Instance of Plugin
@@ -119,7 +120,7 @@ public class IsolatedClassLoader extends ClassLoader {
     return resourceName.replaceAll("\\.", "/") + ".class";
   }
 
-  private byte[] getClassData(ZipEntry zipEntry) throws ClassNotFoundException{
+  private byte[] getClassData(ZipEntry zipEntry) throws ClassNotFoundException {
     try (InputStream ins = this._pluginJarRef.getInputStream(zipEntry);
         ByteArrayOutputStream baos = new ByteArrayOutputStream()) {
       byte[] buffer = new byte[4096];
@@ -264,7 +265,8 @@ public class IsolatedClassLoader extends ClassLoader {
       }
     }
 
-    return optionalURL.orElse(null); // As per java class-loader, this method should return null if resource is not found
+    return optionalURL.orElse(
+        null); // As per java class-loader, this method should return null if resource is not found
   }
 
   @Override

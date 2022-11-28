@@ -26,7 +26,8 @@ public class PluginConfig {
   private String name;
 
   /**
-   * Whether to load the plugin in GMS. If set to true plugin will be loaded in GMS take authentication/authorization decisions.
+   * Whether to load the plugin in GMS. If set to true plugin will be loaded in GMS take authentication/authorization
+   * decisions.
    */
   private Boolean enabled;
 
@@ -37,17 +38,21 @@ public class PluginConfig {
 
   /**
    * It is always set to <plugin-base-directory>/<plugin-name>.
-   * For example if plugin-name is ranger-authorizer and plugin-base-directory is /etc/datahub/plugins/auth then pluginDirectory would be /etc/datahub/plugins/auth/ranger-authorizer
+   * For example if plugin-name is ranger-authorizer and plugin-base-directory is /etc/datahub/plugins/auth then
+   * pluginDirectory would be /etc/datahub/plugins/auth/ranger-authorizer
    */
   private Path pluginHomeDirectory;
 
   /**
-   * Default jarFileName is "<plugin-name>.jar". If plugin's jar file name is different from default value then set this property.
+   * Default jarFileName is "<plugin-name>.jar". If plugin's jar file name is different from default value then set
+   * this property.
    */
   private Path pluginJarPath;
 
   /**
-   * These configs are specific to plugin. GMS pass this map as is to plugin {@link com.datahub.plugins.auth.authentication.Authenticator} or {@link com.datahub.plugins.auth.authorization.Authorizer} init method
+   * These configs are specific to plugin. GMS pass this map as is to plugin
+   * {@link com.datahub.plugins.auth.authentication.Authenticator} or
+   * {@link com.datahub.plugins.auth.authorization.Authorizer} init method
    */
   private Optional<Map<String, Object>> configs;
 }

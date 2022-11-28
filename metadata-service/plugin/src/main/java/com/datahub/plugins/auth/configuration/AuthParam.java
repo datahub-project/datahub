@@ -10,7 +10,8 @@ import lombok.Data;
  *
  * These parameters are same for Authenticator and Authorizer plugins.
  *
- * {@link com.datahub.plugins.auth.provider.AuthPluginConfigProvider} uses this AuthParam to create instance of either {@link AuthenticatorPluginConfig} or {@link AuthorizerPluginConfig}
+ * {@link com.datahub.plugins.auth.provider.AuthPluginConfigProvider} uses this AuthParam to create instance of
+ * either {@link AuthenticatorPluginConfig} or {@link AuthorizerPluginConfig}
  */
 @Data
 public class AuthParam {
@@ -20,12 +21,15 @@ public class AuthParam {
   private String className;
 
   /**
-   * Default jarFileName is "<plugin-name>.jar". If plugin's jar file name is different from default value then set this property.
+   * Default jarFileName is "<plugin-name>.jar". If plugin's jar file name is different from default value then set
+   * this property.
    */
   private Optional<String> jarFileName = Optional.empty();
 
   /**
-   * These configs are specific to plugin. GMS pass this map as is to plugin {@link com.datahub.plugins.auth.authentication.Authenticator} or {@link com.datahub.plugins.auth.authorization.Authorizer} init method
+   * These configs are specific to plugin. GMS pass this map as is to plugin
+   * {@link com.datahub.plugins.auth.authentication.Authenticator} or
+   * {@link com.datahub.plugins.auth.authorization.Authorizer} init method
    */
   private Optional<Map<String, Object>> configs = Optional.empty();
 }

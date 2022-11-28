@@ -27,6 +27,5 @@ public class TestConfig {
     List<PluginConfig> plugins = Arrays.asList(authorizerConfig, authenticatorConfig);
 
     assert Config.builder().plugins(plugins).build() != null;
-
   }
 }
