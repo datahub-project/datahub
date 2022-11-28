@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 // import { gql, useLazyQuery } from '@apollo/client';
 import Select from 'antd/lib/select';
-import { Col, Form } from 'antd';
+import { Col, Form, Row } from 'antd';
 // import styled from 'styled-components';
 import { EntityType, SearchResult } from '../../../../../../types.generated';
 import { useEntityRegistry } from '../../../../../useEntityRegistry';
@@ -63,8 +63,9 @@ export const SetParentContainer = (props: Props) => {
         const selectedName = containerData?.container?.properties?.name;
         const containersArray = containerData?.container?.parentContainers?.containers || [];
         const parentArray = containersArray?.map((item) => item?.properties?.name) || [];
-        const pathString = parentArray.join(' => ') || '';
-        const outputString1 = pathString === '' ? '' : `Parent containers to this container: `;
+        const pathString = parentArray.reverse().join(' => ') || '';
+        const outputString1 =
+            pathString === '' ? `No parent container to this container ` : `Parent containers to this container: `;
         const outputString2a = pathString === '' ? '' : `${pathString} => `;
         const outputString2b = `${selectedName} (selected)`;
         const finalString2 = (
@@ -74,15 +75,10 @@ export const SetParentContainer = (props: Props) => {
                 <span style={{ color: 'red' }}>{outputString2b}</span>
             </div>
         );
-        setParentPath(finalString2);
+        const finalCheckString = selectedContainerUrn === '' ? '' : finalString2;
+        setParentPath(finalCheckString);
     }, [containerData, selectedContainerUrn]);
 
-    // const [queryParent] = useLazyQuery(queryParentPath, {
-    //     onCompleted(data) {
-    //         const generatedPath = derivedPath(data);
-    //         setParentPath(generatedPath);
-    //     },
-    // });
     const renderSearchResult = (result: SearchResult) => {
         const displayName = entityRegistry.getDisplayName(result.entity.type, result.entity);
         return displayName;
@@ -99,7 +95,7 @@ export const SetParentContainer = (props: Props) => {
         <>
             {/* <Popover trigger="hover" content={aboutContainer}> */}
             <Form.Item
-                name="parentContainer"
+                name="parentContainerRow"
                 label="Specify a Container(Optional)"
                 rules={[
                     {
@@ -108,31 +104,38 @@ export const SetParentContainer = (props: Props) => {
                     },
                 ]}
                 shouldUpdate={(prevValues, curValues) => prevValues.props !== curValues.props}
+                style={{ marginBottom: '0px' }}
             >
-                <Select
-                    filterOption
-                    value={selectedContainerUrn}
-                    showArrow
-                    placeholder="Search for a parent container.."
-                    allowClear
-                    onSelect={(container: any) => {
-                        setSelectedContainerUrn(container);
-                        changedSelect();
-                    }}
-                    onChange={changedSelect}
-                    style={{ width: '20%' }}
-                >
-                    {candidatePool.map((result) => (
-                        <Select.Option key={result?.entity?.urn} value={result?.entity?.urn}>
-                            {renderSearchResult(result)}
-                        </Select.Option>
-                    ))}
-                </Select>
-                {/* <ParentContainerPath>`123`</ParentContainerPath> */}
+                <Row>
+                    <Col span={6}>
+                        <Form.Item name="parentContainer">
+                            <Select
+                                filterOption
+                                value={selectedContainerUrn}
+                                showArrow
+                                placeholder="Search for a parent container.."
+                                allowClear
+                                onSelect={(container: any) => {
+                                    setSelectedContainerUrn(container);
+                                    changedSelect();
+                                }}
+                                onChange={changedSelect}
+                                // style={{ width: '20%' }}
+                            >
+                                {candidatePool.map((result) => (
+                                    <Select.Option key={result?.entity?.urn} value={result?.entity?.urn}>
+                                        {renderSearchResult(result)}
+                                    </Select.Option>
+                                ))}
+                            </Select>
+                        </Form.Item>
+                    </Col>
+                    &nbsp;
+                    <Col span={12}>
+                        <Form.Item name="parentContainer2">{erasePath ? '' : parentPath}</Form.Item>
+                    </Col>
+                </Row>
             </Form.Item>
-            <Col span="18" offset="6">
-                {erasePath ? '' : parentPath}
-            </Col>
         </>
     );
 };
