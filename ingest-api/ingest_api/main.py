@@ -83,7 +83,7 @@ logformatter = logging.Formatter("%(asctime)s;%(levelname)s;%(funcName)s;%(messa
 rootLogger.setLevel(logging.DEBUG)
 streamLogger = logging.StreamHandler()
 streamLogger.setFormatter(logformatter)
-streamLogger.setLevel(logging.INFO)  #docker logs will show simplified
+streamLogger.setLevel(logging.DEBUG)  #docker logs will show simplified
 rootLogger.addHandler(streamLogger)
 log_simple = TimedRotatingFileHandler(
     log_path_simple, when="midnight", interval=1, backupCount=730
@@ -151,9 +151,6 @@ async def hello_world() -> None:
     """
     Just a hello world endpoint to ensure that the api is running.
     """
-    # how to check that this dataset exist? - curl to GMS?
-    # rootLogger.info("hello world is called")
-    # rootLogger.info("/custom/hello is called!")
     eventid = f"{str(uuid4())}"
     rootLogger.info(f"{eventid} - hello is called")
     return JSONResponse(
@@ -193,10 +190,10 @@ async def echo_announce() -> None:
 @app.post("/custom/update_browsepath")
 async def update_browsepath(item: browsepath_params):
     eventid = f"{str(uuid4())}"
-    rootLogger.info("update_browsepath_request_received from {} for {}".format(item.requestor, item.dataset_name))
-    rootLogger.debug("update_browsepath_request_received {}".format(item))
+    rootLogger.info(f"{eventid} : update_browsepath_request_received from {item.requestor} for {item.dataset_name}")
+    rootLogger.debug(f"{eventid} : update_browsepath_request_received {item}")
     datasetName = item.dataset_name
-    token = item.user_token
+    token = item.user_token.get_secret_value()
     user = item.requestor
     if authenticate_action(token=token, user=user, dataset=datasetName):
         dataset_snapshot = DatasetSnapshot(
@@ -219,6 +216,7 @@ async def update_browsepath(item: browsepath_params):
             owner=item.requestor,
             event="UI Update Browsepath",
             token=item.user_token,
+            eventid=eventid,
         )
         
         return JSONResponse(
@@ -226,7 +224,7 @@ async def update_browsepath(item: browsepath_params):
         ) 
     else:
         rootLogger.error(
-            f"authentication failed for request\
+            f"{eventid} : authentication failed for request\
             (update_browsepath) from {user}"
         )
         return JSONResponse(content={"message": "Authentication Failed"}, status_code=401)
@@ -235,10 +233,10 @@ async def update_browsepath(item: browsepath_params):
 @app.post("/custom/update_samples")
 async def update_samples(item: add_sample_params):
     eventid = f"{str(uuid4())}"
-    rootLogger.info("update_sample_request_received from {}".format(item.requestor))
-    rootLogger.debug("update_sample_request_received {}".format(item))
+    rootLogger.info(f"{eventid} : update_sample_request_received from {item.requestor}")
+    rootLogger.debug(f"{eventid} : update_sample_request_received {item}")
     datasetName = item.dataset_name
-    token = item.user_token
+    token = item.user_token.get_secret_value()
     user = item.requestor
     if authenticate_action(token=token, user=user, dataset=datasetName):
         generated_mcp = make_profile_mcp(
@@ -267,10 +265,10 @@ async def update_samples(item: add_sample_params):
 @app.post("/custom/delete_samples")
 async def delete_samples(item: delete_sample_params):
     eventid = f"{str(uuid4())}"
-    rootLogger.info("delete_sample_request_received from {}".format(item.requestor))
-    rootLogger.debug("delete_sample_request_received {}".format(item))
+    rootLogger.info(f"{eventid} : delete_sample_request_received from {item.requestor}")
+    rootLogger.debug(f"{eventid} : delete_sample_request_received {item}")
     datasetName = item.dataset_name
-    token = item.user_token
+    token = item.user_token.get_secret_value()
     user = item.requestor
     headers = {
         "Content-Type": "application/json",
@@ -295,13 +293,13 @@ async def delete_samples(item: delete_sample_params):
             data=data,
         )
         results = response.json()
-        rootLogger.error(f"ES delete outcome: {results}")
+        rootLogger.error(f"{eventid} : ES delete outcome: {results}")
         return JSONResponse(
             content={"message": ""}, status_code=response.status_code
         )        
     else:
         rootLogger.error(
-            f"authentication failed for request\
+            f"{eventid} : authentication failed for request\
             (delete_sample) from {user}"
         )
         return JSONResponse(content={"message": "Authentication Failed"}, status_code=401)
@@ -311,11 +309,10 @@ async def delete_samples(item: delete_sample_params):
 async def update_schema(item: schema_params):
     eventid = f"{str(uuid4())}"
     rootLogger.info(
-        "update_dataset_schema_request_received from {}".format(item.requestor)
-    )
-    rootLogger.debug("update_dataset_schema_request_received {}".format(item))
+        f"{eventid} : update_dataset_schema_request_received from {item.requestor}")
+    rootLogger.debug(f"{eventid} : update_dataset_schema_request_received {item}")
     datasetName = item.dataset_name
-    token = item.user_token
+    token = item.user_token.get_secret_value()
     user = item.requestor
     if authenticate_action(token=token, user=user, dataset=datasetName):
         dataset_snapshot = DatasetSnapshot(
@@ -323,8 +320,8 @@ async def update_schema(item: schema_params):
             aspects=[],
         )
         rootLogger.info(
-            f"token check:\
-            {verify_token(item.user_token, item.requestor)}"
+            f"{eventid} : token check:\
+            {verify_token(item.user_token.get_secret_value(), item.requestor)}"
         )
         platformName = derive_platform_name(datasetName)
         rootLogger.info(item.dataset_fields)
@@ -335,7 +332,6 @@ async def update_schema(item: schema_params):
             actor=item.requestor,
             fields=field_params,
         )
-        rootLogger.info(schemaMetadata_aspect)
         dataset_snapshot.aspects.append(schemaMetadata_aspect)
         metadata_record = MetadataChangeEvent(
             proposedSnapshot=dataset_snapshot,
@@ -348,13 +344,15 @@ async def update_schema(item: schema_params):
             owner=item.requestor,
             event="UI Update Schema",
             token=item.user_token,
-        )        
+            eventid=eventid,
+        )
+        rootLogger.error(f"{eventid} : {response}")        
         return JSONResponse(
             content=response.get("message", ""), status_code=response["status_code"]
         )
     else:
         rootLogger.error(
-            f"authentication failed for request(update_schema) from {user}"
+            f"{eventid} : authentication failed for request(update_schema) from {user}"
         )
         return JSONResponse(content={"message": "Authentication Failed"}, status_code=401)
 
@@ -373,7 +371,7 @@ async def update_prop(item: prop_params):
     )
     rootLogger.debug("update_dataset_property_request_received {}".format(item))
     datasetName = item.dataset_name
-    token = item.user_token
+    token = item.user_token.get_secret_value()
     user = item.requestor
     if authenticate_action(token=token, user=user, dataset=datasetName):
         graph = build_datahub_graph(token)
@@ -411,8 +409,9 @@ async def update_prop(item: prop_params):
             owner=item.requestor,
             event="UI Update Properties",
             token=item.user_token,
+            eventid=eventid,
         )
-        rootLogger.error(response)
+        rootLogger.error(f"{eventid} : {response}")
         return JSONResponse(
             content={"message": response["message"]}, status_code=response["status_code"]
         )
@@ -446,12 +445,12 @@ def emit_mce_respond(
     else:
         generate_json_output_mce(metadata_record, "/var/log/ingest/json/")
     try:
-        rootLogger.debug(metadata_record)
+        rootLogger.debug(f"{eventid} : {metadata_record}")
         emitter = DatahubRestEmitter(rest_endpoint, token=token)
         emitter.emit_mce(metadata_record)
         emitter._session.close()
     except Exception as e:
-        rootLogger.error(e)
+        rootLogger.error(f"{eventid} : {e}")
         return {
             "message": f"{event} failed because upstream error {e}",
             "status_code": 500,
@@ -466,7 +465,7 @@ def emit_mce_respond(
     }
 
 def emit_mcp_respond(
-    metadata_record: MetadataChangeProposalWrapper, owner: str, event: str, token: str, eventid
+    metadata_record: MetadataChangeProposalWrapper, owner: str, event: str, token: str, eventid: str
 ) -> dict():
     datasetName = metadata_record.entityUrn
     if CLI_MODE:
@@ -474,19 +473,19 @@ def emit_mcp_respond(
     else:
         generate_json_output_mcp(metadata_record, "/var/log/ingest/json/")
     try:
-        rootLogger.debug(metadata_record)
+        rootLogger.debug(f"{eventid} : {metadata_record}")
         emitter = DatahubRestEmitter(rest_endpoint, token=token)
         emitter.emit_mcp(metadata_record)
         emitter._session.close()
     except Exception as e:
-        rootLogger.error(e)
+        rootLogger.error(f"{eventid} : {e}")
         return {
                 "message": f"{event} failed because upstream error {e}",                
                 "status_code": 500,
         }
             
     rootLogger.info(
-        f"{event} {datasetName} requested_by {owner} completed successfully"
+        f"{eventid} : {event} {datasetName} requested_by {owner} completed successfully"
     )
     return {        
         "message": f"{event} completed successfully",
@@ -500,13 +499,14 @@ async def create_item(item: create_dataset_params) -> None:
     #todo - to revisit to see if refactoring is needed when make_json is up.
     """
     eventid = f"{str(uuid4())}"
-    rootLogger.info("make_dataset_request_received from {}".format(item.dataset_owner))
-    rootLogger.debug("make_dataset_request_received {}".format(item))
+    rootLogger.info(f"{eventid} : make_dataset_request_received from {item.dataset_owner}")
+    rootLogger.debug(f"{eventid} : make_dataset_request_received {item}")
     # instantly fail the request if platform and container platform dont match up.
     if not check_platform_container_test(item):
+        rootLogger.debug(f"{eventid} : make_dataset_request_received : platform and container type mismatch")
         return JSONResponse(content={"message": "Platform and Container Type Mismatch"}, status_code=404)
     dataset_type = determine_type(item.platformSelect)
-    token = item.user_token
+    token = item.user_token.get_secret_value()
     user = item.dataset_owner
     requestor = make_user_urn(user)
     if verify_token(token, user): # check user is who he say he is
@@ -588,6 +588,7 @@ async def create_item(item: create_dataset_params) -> None:
             owner=requestor,
             event="Create Dataset",
             token=token,
+            eventid=eventid,
         )
         response2={}
         response2['status_code']=201
@@ -609,6 +610,7 @@ async def create_item(item: create_dataset_params) -> None:
                 owner=requestor,
                 event=f"Make-Dataset: update_container:{item.parentContainer}",
                 token=item.user_token,
+                eventid=eventid
             )
         
         if response1["status_code"]==201 and response2["status_code"]==201:
@@ -616,7 +618,7 @@ async def create_item(item: create_dataset_params) -> None:
                 content={"message": "completed" }, status_code=201
             )
     else:
-        rootLogger.error("make_dataset request failed from {}".format(requestor))
+        rootLogger.error(f"{eventid} : make_dataset request failed from {requestor}")
         return JSONResponse(content={"message": "Authentication Failed"}, status_code=401)
 
 
@@ -628,10 +630,10 @@ async def delete_item(item: dataset_status_params) -> None:
     suppresses it from search and UI
     """
     eventid = f"{str(uuid4())}"
-    rootLogger.info("remove_dataset_request_received from {}".format(item.requestor))
-    rootLogger.debug("remove_dataset_request_received {}".format(item))
+    rootLogger.info(f"{eventid} : remove_dataset_request_received from {item.requestor}")
+    rootLogger.debug(f"{eventid} : remove_dataset_request_received {item}")
     datasetName = item.dataset_name
-    token = item.user_token
+    token = item.user_token.get_secret_value()
     user = item.requestor
     if authenticate_action(token=token, user=user, dataset=datasetName):
         mce = make_status_mce(
@@ -642,14 +644,15 @@ async def delete_item(item: dataset_status_params) -> None:
             owner=item.requestor,
             event=f"Status Update removed:{item.desired_state}",
             token=item.user_token,
+            eventid=eventid,
         )
-        rootLogger.error(response)
+        rootLogger.error(f"{eventid} : {response}")
         return JSONResponse(
             content={"message": response["message"]}, status_code=response["status_code"]
         )
     else:
         rootLogger.error(
-            f"authentication failed for request\
+            f"{eventid} : authentication failed for request\
             (update_schema) from {user}"
         )
         return JSONResponse(content={"message": "Authentication Failed"}, status_code=401)
@@ -660,10 +663,10 @@ async def update_container(item: container_param) -> None:
     This endpoint is to support update/create container aspect. 
     """
     eventid = f"{str(uuid4())}"
-    rootLogger.info("update_container_request_received from {}".format(item.requestor))
-    rootLogger.debug("update_container_request_received {}".format(item))
+    rootLogger.info(f"{eventid} : update_container_request_received from {item.requestor}")
+    rootLogger.debug(f"{eventid} : update_container_request_received {item}")
     datasetName = item.dataset_name
-    token = item.user_token
+    token = item.user_token.get_secret_value()
     user = item.requestor
     container = item.container
     if authenticate_action(token=token, user=user, dataset=datasetName):
@@ -682,14 +685,15 @@ async def update_container(item: container_param) -> None:
             owner=item.requestor,
             event=f"Update container:{item.container}",
             token=item.user_token,
+            eventid=eventid
         )
-        rootLogger.error(response)
+        rootLogger.error(f"{eventid} : {response}")
         return JSONResponse(
             content={"message": response["message"]}, status_code=response["status_code"]
         )
     else:
         rootLogger.error(
-            f"authentication failed for request\
+            f"{eventid} : authentication failed for request\
             (update_container) from {user}"
         )
         return JSONResponse(content={"message": "Authentication Failed"}, status_code=401)
@@ -700,10 +704,10 @@ async def update_container(item: name_param) -> None:
     This endpoint is to support update of dataset name. 
     """
     eventid = f"{str(uuid4())}"
-    rootLogger.info("update_displayName_request_received from {}".format(item.requestor))
-    rootLogger.debug("update_displayName_request_received {}".format(item))
+    rootLogger.info(f"{eventid} : update_displayName_request_received from {item.requestor}")
+    rootLogger.debug(f"{eventid} : update_displayName_request_received {item}")
     datasetName = item.dataset_name
-    token = item.user_token
+    token = item.user_token.get_secret_value()
     user = item.requestor
     displayName = item.displayName
     if authenticate_action(token=token, user=user, dataset=datasetName):
@@ -736,14 +740,15 @@ async def update_container(item: name_param) -> None:
             owner=item.requestor,
             event=f"Update dataset name:{item.displayName}",
             token=item.user_token,
+            eventid=eventid
         )
-        rootLogger.error(response)
+        rootLogger.error(f"{eventid} : {response}")
         return JSONResponse(
             content={"message": response["message"]}, status_code=response["status_code"]
         )
     else:
         rootLogger.error(
-            f"authentication failed for request\
+            f"{eventid} : authentication failed for request\
             (update_name) from {user}"
         )
         return JSONResponse(content={"message": "Authentication Failed"}, status_code=401)
