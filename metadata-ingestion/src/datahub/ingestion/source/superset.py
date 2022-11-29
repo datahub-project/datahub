@@ -316,12 +316,15 @@ class SupersetSource(Source):
                 # if the item is a custom label
                 if isinstance(item, dict):
                     item_value = item.get("label", "")
-                    if item_value != "": temp_group_bys.append(f"{item_value}_custom_label")
-                    else: temp_group_bys.append(item)
+                    if item_value != "":
+                        temp_group_bys.append(f"{item_value}_custom_label")
+                    else:
+                        temp_group_bys.append(str(item))
 
                 # if the item is a string
-                elif isinstance(item, str): temp_group_bys.append(item)
-            
+                elif isinstance(item, str):
+                    temp_group_bys.append(item)
+
             group_bys = temp_group_bys
 
         custom_properties = {

@@ -7,6 +7,8 @@ from tests.test_helpers import mce_helpers
 
 FROZEN_TIME = "2022-02-03 07:00:00"
 
+call_number = 1
+
 
 def mock_msal_cca(*args, **kwargs):
     class MsalClient:
@@ -18,8 +20,42 @@ def mock_msal_cca(*args, **kwargs):
     return MsalClient()
 
 
+def scan_init_response(_request, _context):
+    global call_number
+    if call_number == 1:
+        call_number += 1
+        return {"id": "4674efd1-603c-4129-8d82-03cf2be05aff"}
+    return {"id": "a674efd1-603c-4129-8d82-03cf2be05aff"}
+
+
 def register_mock_api(request_mock):
     api_vs_response = {
+        "https://api.powerbi.com/v1.0/myorg/groups": {
+            "method": "GET",
+            "status_code": 200,
+            "json": {
+                "value": [
+                    {
+                        "id": "64ED5CAD-7C10-4684-8180-826122881108",
+                        "isReadOnly": True,
+                        "name": "Workspace 1",
+                        "type": "Workspace",
+                    },
+                    {
+                        "id": "64ED5CAD-7C22-4684-8180-826122881108",
+                        "isReadOnly": True,
+                        "name": "Workspace 2",
+                        "type": "Workspace",
+                    },
+                    {
+                        "id": "64ED5CAD-7322-4684-8180-826122881108",
+                        "isReadOnly": True,
+                        "name": "Workspace 2",
+                        "type": "Workspace",
+                    },
+                ]
+            },
+        },
         "https://api.powerbi.com/v1.0/myorg/groups/64ED5CAD-7C10-4684-8180-826122881108/dashboards": {
             "method": "GET",
             "status_code": 200,
@@ -29,6 +65,21 @@ def register_mock_api(request_mock):
                         "id": "7D668CAD-7FFC-4505-9215-655BCA5BEBAE",
                         "isReadOnly": True,
                         "displayName": "test_dashboard",
+                        "embedUrl": "https://localhost/dashboards/embed/1",
+                        "webUrl": "https://localhost/dashboards/web/1",
+                    }
+                ]
+            },
+        },
+        "https://api.powerbi.com/v1.0/myorg/groups/64ED5CAD-7C22-4684-8180-826122881108/dashboards": {
+            "method": "GET",
+            "status_code": 200,
+            "json": {
+                "value": [
+                    {
+                        "id": "7D668CAD-8FFC-4505-9215-655BCA5BEBAE",
+                        "isReadOnly": True,
+                        "displayName": "test_dashboard2",
                         "embedUrl": "https://localhost/dashboards/embed/1",
                         "webUrl": "https://localhost/dashboards/web/1",
                     }
@@ -97,6 +148,11 @@ def register_mock_api(request_mock):
                 ]
             },
         },
+        "https://api.powerbi.com/v1.0/myorg/groups/64ED5CAD-7C22-4684-8180-826122881108/dashboards/7D668CAD-8FFC-4505-9215-655BCA5BEBAE/tiles": {
+            "method": "GET",
+            "status_code": 200,
+            "json": {"value": []},
+        },
         "https://api.powerbi.com/v1.0/myorg/groups/64ED5CAD-7C10-4684-8180-826122881108/datasets/05169CD2-E713-41E6-9600-1D8066D95445": {
             "method": "GET",
             "status_code": 200,
@@ -104,6 +160,15 @@ def register_mock_api(request_mock):
                 "id": "05169CD2-E713-41E6-9600-1D8066D95445",
                 "name": "library-dataset",
                 "webUrl": "http://localhost/groups/64ED5CAD-7C10-4684-8180-826122881108/datasets/05169CD2-E713-41E6-9600-1D8066D95445",
+            },
+        },
+        "https://api.powerbi.com/v1.0/myorg/groups/64ED5CAD-7C22-4684-8180-826122881108/datasets/05169CD2-E713-41E6-96AA-1D8066D95445": {
+            "method": "GET",
+            "status_code": 200,
+            "json": {
+                "id": "05169CD2-E713-41E6-96AA-1D8066D95445",
+                "name": "library-dataset",
+                "webUrl": "http://localhost/groups/64ED5CAD-7C22-4684-8180-826122881108/datasets/05169CD2-E713-41E6-96AA-1D8066D95445",
             },
         },
         "https://api.powerbi.com/v1.0/myorg/groups/64ED5CAD-7C10-4684-8180-826122881108/datasets/05169CD2-E713-41E6-9600-1D8066D95445/datasources": {
@@ -122,7 +187,30 @@ def register_mock_api(request_mock):
                 ]
             },
         },
+        "https://api.powerbi.com/v1.0/myorg/groups/64ED5CAD-7C22-4684-8180-826122881108/datasets/05169CD2-E713-41E6-96AA-1D8066D95445/datasources": {
+            "method": "GET",
+            "status_code": 200,
+            "json": {
+                "value": [
+                    {
+                        "datasourceId": "DCE90B40-84D6-467A-9A5C-648E830E72D3",
+                        "datasourceType": "PostgreSql",
+                        "connectionDetails": {
+                            "database": "library_db",
+                            "server": "foo",
+                        },
+                    },
+                ]
+            },
+        },
         "https://api.powerbi.com/v1.0/myorg/admin/workspaces/scanStatus/4674efd1-603c-4129-8d82-03cf2be05aff": {
+            "method": "GET",
+            "status_code": 200,
+            "json": {
+                "status": "SUCCEEDED",
+            },
+        },
+        "https://api.powerbi.com/v1.0/myorg/admin/workspaces/scanStatus/a674efd1-603c-4129-8d82-03cf2be05aff": {
             "method": "GET",
             "status_code": 200,
             "json": {
@@ -157,12 +245,38 @@ def register_mock_api(request_mock):
                 ]
             },
         },
+        "https://api.powerbi.com/v1.0/myorg/admin/workspaces/scanResult/a674efd1-603c-4129-8d82-03cf2be05aff": {
+            "method": "GET",
+            "status_code": 200,
+            "json": {
+                "workspaces": [
+                    {
+                        "id": "64ED5CAD-7C22-4684-8180-826122881108",
+                        "name": "second-demo-workspace",
+                        "state": "Active",
+                        "datasets": [
+                            {
+                                "id": "05169CD2-E713-41E6-96AA-1D8066D95445",
+                                "tables": [
+                                    {
+                                        "name": "public articles",
+                                        "source": [
+                                            {
+                                                "expression": "dummy",
+                                            }
+                                        ],
+                                    }
+                                ],
+                            }
+                        ],
+                    },
+                ]
+            },
+        },
         "https://api.powerbi.com/v1.0/myorg/admin/workspaces/getInfo": {
             "method": "POST",
             "status_code": 200,
-            "json": {
-                "id": "4674efd1-603c-4129-8d82-03cf2be05aff",
-            },
+            "json": scan_init_response,
         },
         "https://api.powerbi.com/v1.0/myorg/groups/64ED5CAD-7C10-4684-8180-826122881108/reports": {
             "method": "GET",
@@ -214,7 +328,7 @@ def default_source_config():
         "client_id": "foo",
         "client_secret": "bar",
         "tenant_id": "0B0C960B-FCDF-4D0F-8C45-2E03BB59DDEB",
-        "workspace_id": "64ED5CAD-7C10-4684-8180-826122881108",
+        "workspace_id_pattern": {"allow": ["64ED5CAD-7C10-4684-8180-826122881108"]},
         "dataset_type_mapping": {
             "PostgreSql": "postgres",
             "Oracle": "oracle",
@@ -226,6 +340,9 @@ def default_source_config():
 @freeze_time(FROZEN_TIME)
 @mock.patch("msal.ConfidentialClientApplication", side_effect=mock_msal_cca)
 def test_powerbi_ingest(mock_msal, pytestconfig, tmp_path, mock_time, requests_mock):
+    global call_number
+    call_number = 1
+
     test_resources_dir = pytestconfig.rootpath / "tests/integration/powerbi"
 
     register_mock_api(request_mock=requests_mock)
@@ -265,6 +382,9 @@ def test_powerbi_ingest(mock_msal, pytestconfig, tmp_path, mock_time, requests_m
 def test_override_ownership(
     mock_msal, pytestconfig, tmp_path, mock_time, requests_mock
 ):
+    global call_number
+    call_number = 1
+
     test_resources_dir = pytestconfig.rootpath / "tests/integration/powerbi"
 
     register_mock_api(request_mock=requests_mock)
@@ -302,7 +422,57 @@ def test_override_ownership(
 
 @freeze_time(FROZEN_TIME)
 @mock.patch("msal.ConfidentialClientApplication", side_effect=mock_msal_cca)
+def test_scan_all_workspaces(
+    mock_msal, pytestconfig, tmp_path, mock_time, requests_mock
+):
+    global call_number
+    call_number = 1
+
+    test_resources_dir = pytestconfig.rootpath / "tests/integration/powerbi"
+
+    register_mock_api(request_mock=requests_mock)
+
+    pipeline = Pipeline.create(
+        {
+            "run_id": "powerbi-test",
+            "source": {
+                "type": "powerbi",
+                "config": {
+                    **default_source_config(),
+                    "extract_reports": False,
+                    "extract_ownership": False,
+                    "workspace_id_pattern": {
+                        "deny": ["64ED5CAD-7322-4684-8180-826122881108"],
+                    },
+                },
+            },
+            "sink": {
+                "type": "file",
+                "config": {
+                    "filename": f"{tmp_path}/powerbi_mces_scan_all_workspaces.json",
+                },
+            },
+        }
+    )
+
+    pipeline.run()
+    pipeline.raise_from_status()
+
+    mce_out_file = "golden_test_scan_all_workspaces.json"
+
+    mce_helpers.check_golden_file(
+        pytestconfig,
+        output_path=tmp_path / "powerbi_mces_scan_all_workspaces.json",
+        golden_path=f"{test_resources_dir}/{mce_out_file}",
+    )
+
+
+@freeze_time(FROZEN_TIME)
+@mock.patch("msal.ConfidentialClientApplication", side_effect=mock_msal_cca)
 def test_extract_reports(mock_msal, pytestconfig, tmp_path, mock_time, requests_mock):
+    global call_number
+    call_number = 1
+
     test_resources_dir = pytestconfig.rootpath / "tests/integration/powerbi"
 
     register_mock_api(request_mock=requests_mock)
