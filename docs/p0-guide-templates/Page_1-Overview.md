@@ -2,24 +2,16 @@
 # DataHub [Source Name] UI Ingestion Guide: Overview
 
 
-## Is This Guide For Me?
-
-<!--This page is intended to help you find out if this guide is useful for you. 
-* This guide is for ingestion through the DataHub UI, not for CLI (command line interface) ingestion
-* This guide is intended to get data into your DataHub instance without any special considerations or configuration
-* This guide involves no programming.
-* This guide anticipates that you already have a working instance of [Source] -->
-
 ## What You Will Get Out of This Guide
 <!-- 
+* This guide is for ingestion through the DataHub UI, not for CLI (command line interface) ingestion
 * You will have learned how to set up the [Source] connector using the DataHub UI
 * At the end of this guide, you will have extracted [Entities Connector Extracts] from [Source] into your DataHub instance, and set up a recurring link between [Source] and DataHub.
  -->
-## What You Won't Get Out of This Guide
-<!-- * You will NOT have extracted [Excepted Entities] from [Source], as the connector does not support ingesting these assets
-* You will NOT learn to configure custom behaviors in this connector.
-* You will NOT learn how to setup a [Source] instance.
--->
+
+:::caution
+You will NOT have extracted [Excepted Entities] from [Source], as the connector does not support ingesting these assets
+
 
 ## Next Steps
 <!-- If that all sounds like what you're looking for, navigate to the next page, where we'll talk about prerequesites -->

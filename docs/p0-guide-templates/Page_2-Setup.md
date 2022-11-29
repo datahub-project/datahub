@@ -18,31 +18,9 @@
 
 -->
 
-
-## DataHub Prerequesites
-
-<!-- This section should provide plain-language instructions on necessary DataHub configuration:
-
-* What access levels/permissions are required within DataHub? 
-* Screenshots of DataHub UI
-* What special configuration is required, if any?
-* Link to any special configuration guide.
--->
-
 ## Next Steps
-<!-- Once you've confirmed all of the above in both [Source] and in DataHub, it's time to move on to configuring the actual ingestion source within the DataHub UI -->
+<!-- Once you've confirmed all of the above in [Source], it's time to move on to configuring the actual ingestion source within the DataHub UI -->
 
-## FAQ and Troubleshooting
 
-<!-- This section should appear below the fold (collapsed dropdown), and should address next steps if the user is unable to complete a prerequesite due to permissions etc. 
-
-OPTIONAL (For tricky cases): If you're struggling with configuration on the [Source] side, here are some helpful links published by the [Source] team:
-* Links to relevant guides and docs if needed.
-
-**Question in bold text**
-
-Response in plain text
-
--->
 
 *Need more help? Join the conversation in [Slack](http://slack.datahubproject.io)!*

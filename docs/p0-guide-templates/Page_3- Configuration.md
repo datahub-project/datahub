@@ -1,5 +1,15 @@
 # DataHub [Source Name] UI Ingestion Guide: Configuring Your [Source Name] to DataHub Connector
 
+## DataHub Prerequesites
+
+<!-- This section should provide plain-language instructions on necessary DataHub configuration:
+
+* What access levels/permissions are required within DataHub? 
+* Screenshots of DataHub UI
+* What special configuration is required, if any?
+* Link to any special configuration guide.
+-->
+
 ## UI Ingestion
 <!-- 
 * Navigate to the "Ingestion Tab"
@@ -33,13 +43,6 @@
 * Click Save & Run.
 -->
 
-## Validating Your Ingestion Run
-<!-- Plain-language walkthrough of validating the ingestion, with screenshots/gifs
-* Review the "Manage Ingestion" Page to ensure that your ingestion job has exectuted with status "success"
-* Use the Search bar to search for the asset from [Source] you noted down during the prerequesites/setup.
-* Click into the asset to ensure it has the correct information.
-* Congratulations! You've successful set up [Source] as an ingestion source for DataHub!
- -->
 
 ## FAQ and Troubleshooting
 
@@ -67,8 +70,20 @@ Response in plain text
 NOTE: Find the iframe details in YouTube by going to Share > Embed 
  -->
 
+
 ## Next Steps
+<!-- Now that you've run ingestion, it's time to validate it -->
+
+## Validating Your Ingestion Run
+<!-- Plain-language walkthrough of validating the ingestion, with screenshots/gifs
+* Review the "Manage Ingestion" Page to ensure that your ingestion job has exectuted with status "success"
+* Use the Search bar to search for the asset from [Source] you noted down during the prerequesites/setup.
+* Click into the asset to ensure it has the correct information.
+* Congratulations! You've successful set up [Source] as an ingestion source for DataHub!
+ -->
+ ## Next Steps
 <!-- Now that you've completed our [Source] ingestion guide, why not try ingesting another stage of your data pipeline, or attempt a more advanced configuration? -->
+
 
 ### Guides on Ingesting Other Sources
 <!-- Guides on 
