@@ -19,6 +19,7 @@ from datahub_provider.lineage.datahub import DatahubLineageConfig
 
 logger = logging.getLogger(__name__)
 
+
 def get_lineage_config() -> DatahubLineageConfig:
     """Load the lineage config from airflow.cfg."""
 
