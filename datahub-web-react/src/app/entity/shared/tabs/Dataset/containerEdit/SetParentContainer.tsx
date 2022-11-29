@@ -23,17 +23,8 @@ export const SetParentContainer = (props: Props) => {
     // const aboutContainer = 'Select a collection that this dataset belongs to. Can be optional';
     const entityRegistry = useEntityRegistry();
     const [selectedContainerUrn, setSelectedContainerUrn] = useState('');
-    const [candidatePool, setCandidatePool] = useState<any>([]);
-    const [erasePath, setErasePath] = useState(false);
-    const [parentPath, setParentPath] = useState<any>();
-    useEffect(() => {
-        setErasePath(props.clear);
-        setParentPath(props.clear ? <div /> : parentPath);
-        setCandidatePool(props.clear ? [] : candidatePool);
-    }, [props.clear, candidatePool, parentPath]);
-    // }, [props.clear, parentPath]);
+    const [erasePath, setErasePath] = useState(true);
 
-    // const [parentPath, setParentPath] = useState('');
     useEffect(() => {
         setSelectedContainerUrn('');
     }, [props.platformType]);
@@ -59,34 +50,32 @@ export const SetParentContainer = (props: Props) => {
         skip: selectedContainerUrn === '',
     });
 
+    // useEffect(() => {
+    const selectedName = containerData?.container?.properties?.name;
+    const containersArray = containerData?.container?.parentContainers?.containers || [];
+    const parentArray = containersArray?.map((item) => item?.properties?.name) || [];
+    const pathString = parentArray.reverse().join(' => ') || '';
+    const outputString1 =
+        pathString === '' ? `No parent container to this container ` : `Parent containers to this container: `;
+    const outputString2a = pathString === '' ? '' : `${pathString} => `;
+    const outputString2b = `${selectedName} (selected)`;
+    const finalString2 = (
+        <div className="displayContainerPath">
+            {outputString1}
+            <span style={{ color: 'blue' }}>{outputString2a}</span>
+            <span style={{ color: 'red' }}>{outputString2b}</span>
+        </div>
+    );
+    const finalCheckString0 = erasePath ? '' : finalString2;
+    const finalCheckString = selectedContainerUrn === '' ? '' : finalCheckString0;
     useEffect(() => {
-        const selectedName = containerData?.container?.properties?.name;
-        const containersArray = containerData?.container?.parentContainers?.containers || [];
-        const parentArray = containersArray?.map((item) => item?.properties?.name) || [];
-        const pathString = parentArray.reverse().join(' => ') || '';
-        const outputString1 =
-            pathString === '' ? `No parent container to this container ` : `Parent containers to this container: `;
-        const outputString2a = pathString === '' ? '' : `${pathString} => `;
-        const outputString2b = `${selectedName} (selected)`;
-        const finalString2 = (
-            <div className="blah">
-                {outputString1}
-                <span style={{ color: 'blue' }}>{outputString2a}</span>
-                <span style={{ color: 'red' }}>{outputString2b}</span>
-            </div>
-        );
-        const finalCheckString = selectedContainerUrn === '' ? '' : finalString2;
-        setParentPath(finalCheckString);
-    }, [containerData, selectedContainerUrn]);
-
+        setErasePath(props.clear);
+    }, [props.clear]);
     const renderSearchResult = (result: SearchResult) => {
         const displayName = entityRegistry.getDisplayName(result.entity.type, result.entity);
         return displayName;
     };
-
-    useEffect(() => {
-        setCandidatePool(containerCandidates?.search?.searchResults || []);
-    }, [containerCandidates]);
+    const containerPool = containerCandidates?.search?.searchResults || [];
     const changedSelect = () => {
         setErasePath(false);
     };
@@ -122,7 +111,7 @@ export const SetParentContainer = (props: Props) => {
                                 onChange={changedSelect}
                                 // style={{ width: '20%' }}
                             >
-                                {candidatePool.map((result) => (
+                                {(props.clear ? [] : containerPool).map((result) => (
                                     <Select.Option key={result?.entity?.urn} value={result?.entity?.urn}>
                                         {renderSearchResult(result)}
                                     </Select.Option>
@@ -132,7 +121,7 @@ export const SetParentContainer = (props: Props) => {
                     </Col>
                     &nbsp;
                     <Col span={12}>
-                        <Form.Item name="parentContainer2">{erasePath ? '' : parentPath}</Form.Item>
+                        <Form.Item name="parentContainer2">{finalCheckString}</Form.Item>
                     </Col>
                 </Row>
             </Form.Item>

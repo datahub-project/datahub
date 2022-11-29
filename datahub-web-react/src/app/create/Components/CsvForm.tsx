@@ -153,6 +153,7 @@ export const CsvForm = () => {
                     dataset_origin: '',
                     dataset_location: '',
                     platformSelect: 'urn:li:dataPlatform:file',
+                    parentContainer: '',
                 }}
                 onFieldsChange={formIsUpdating}
             >
