@@ -226,13 +226,10 @@ def _get_default_quickstart_compose_file() -> Optional[str]:
 def _docker_compose_v2() -> Union[List[str], Literal[False]]:
     try:
         # Check for the docker compose v2 plugin.
-        assert (
-            subprocess.check_output(
-                ["docker", "compose", "version", "--short"], stderr=subprocess.STDOUT
-            )
-            .decode()
-            .startswith("2.")
-        )
+        compose_version = subprocess.check_output(
+            ["docker", "compose", "version", "--short"], stderr=subprocess.STDOUT
+        ).decode()
+        assert compose_version.startswith("2.") or compose_version.startswith("v2.")
         return ["docker", "compose"]
     except (OSError, subprocess.CalledProcessError, AssertionError):
         # We'll check for docker-compose as well.
@@ -240,13 +237,13 @@ def _docker_compose_v2() -> Union[List[str], Literal[False]]:
             compose_version = subprocess.check_output(
                 ["docker-compose", "version", "--short"], stderr=subprocess.STDOUT
             ).decode()
-            if compose_version.startswith("2."):
+            if compose_version.startswith("2.") or compose_version.startswith("v2."):
                 # This will happen if docker compose v2 is installed in standalone mode
                 # instead of as a plugin.
                 return ["docker-compose"]
 
             click.secho(
-                "You have docker-compose v1 installed, but we require Docker Compose v2. "
+                f"You have docker-compose v1 ({compose_version}) installed, but we require Docker Compose v2. "
                 "Please upgrade to Docker Compose v2. "
                 "See https://docs.docker.com/compose/compose-v2/ for more information.",
                 fg="red",
@@ -274,7 +271,7 @@ def _attempt_stop(quickstart_compose_file: List[pathlib.Path]) -> None:
         # docker-compose stop
         compose = _docker_compose_v2()
         if not compose:
-            return
+            sys.exit(1)
         base_command: List[str] = [
             *compose,
             *itertools.chain.from_iterable(
@@ -739,7 +736,7 @@ def quickstart(
 
     compose = _docker_compose_v2()
     if not compose:
-        return
+        sys.exit(1)
     base_command: List[str] = [
         *compose,
         *itertools.chain.from_iterable(
