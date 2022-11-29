@@ -92,12 +92,12 @@ module.exports = {
           "docs/managed-datahub/acryl-table-contents",
           {
             "Actions Guide": [
-            "docs/managed-datahub/actions-guide/tag-sync",
-            "docs/managed-datahub/actions-guide/terms-sync-propagation",
-           ],
+              "docs/managed-datahub/actions-guide/tag-sync",
+              "docs/managed-datahub/actions-guide/terms-sync-propagation",
+            ],
           },
           {
-            "Administering Datahub" : [
+            "Administering Datahub": [
               "docs/managed-datahub/administering-datahub/metadata-tests",
               "docs/managed-datahub/administering-datahub/policies-guide",
               "docs/managed-datahub/administering-datahub/proposals",
@@ -135,7 +135,7 @@ module.exports = {
                 ],
               },
               {
-                "Concepts": [
+                Concepts: [
                   "docs/managed-datahub/datahub-api/concepts/concepts",
                   "docs/managed-datahub/datahub-api/concepts/urns",
                   "docs/managed-datahub/datahub-api/concepts/constructing-dataset-field-paths",
@@ -144,15 +144,21 @@ module.exports = {
             ],
           },
           {
-            "Integrations": [
+            Integrations: [
               "docs/managed-datahub/integrations/slack-integration",
               "docs/managed-datahub/integrations/oidc-sso-integration",
               "docs/managed-datahub/integrations/aws-privatelink",
             ],
           },
-          
+          {
+            "Operator Guide": [
+              "docs/managed-datahub/operator-guide/setting-up-remote-ingestion-executor-on-aws",
+              "docs/managed-datahub/operator-guide/setting-up-events-api-on-aws-eventbridge",
+            ],
+          },
+
           "docs/managed-datahub/administering-datahub/lineage-sync-configuration-advanced",
-          "docs/managed-datahub/administering-datahub/lineage-sync-configuration-advanced-2", 
+          "docs/managed-datahub/administering-datahub/lineage-sync-configuration-advanced-2",
           "docs/authentication/guides/add-users",
           // "docs/wip/invite-with-email-link",
           // "docs/wip/create-policies",
