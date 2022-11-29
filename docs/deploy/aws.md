@@ -274,6 +274,18 @@ Then use the settings below.
         secretRef: elasticsearch-secrets
         secretKey: elasticsearch-password
 ```
+If you have access control enabled with IAM auth, enable AWS auth signing in Datahub
+```
+ OPENSEARCH_USE_AWS_IAM_AUTH=true 
+```
+Then use the settings below.
+```
+  elasticsearch:
+    host: <<elasticsearch-endpoint>>
+    port: "443"
+    useSSL: "true"
+    region: <<AWS region of Opensearch>>
+```
 
 Lastly, you **NEED** to set the following env variable for **elasticsearchSetupJob**. AWS Elasticsearch/Opensearch
 service uses OpenDistro version of Elasticsearch, which does not support the "datastream" functionality. As such, we use

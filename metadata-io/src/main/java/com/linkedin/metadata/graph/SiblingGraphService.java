@@ -8,7 +8,7 @@ import com.linkedin.common.urn.Urn;
 import com.linkedin.data.template.RecordTemplate;
 import com.linkedin.metadata.entity.EntityService;
 
-import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -16,6 +16,8 @@ import java.util.Set;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
+
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
@@ -89,32 +91,39 @@ public class SiblingGraphService {
 
   // takes a lineage result and removes any nodes that are siblings of some other node already in the result
   private EntityLineageResult filterLineageResultFromSiblings(
-      Urn urn,
-      Set<Urn> allSiblingsInGroup,
-      EntityLineageResult entityLineageResult,
-      EntityLineageResult existingResult
+      @Nonnull final Urn urn,
+      @Nonnull final Set<Urn> allSiblingsInGroup,
+      @Nonnull final EntityLineageResult entityLineageResult,
+      @Nullable final EntityLineageResult existingResult
   ) {
     // 1) remove the source entities siblings from this entity's downstreams
-    List<LineageRelationship> filteredRelationships = entityLineageResult.getRelationships()
+    final List<LineageRelationship> filteredRelationships = entityLineageResult.getRelationships()
         .stream()
         .filter(lineageRelationship -> !allSiblingsInGroup.contains(lineageRelationship.getEntity())
             || lineageRelationship.getEntity().equals(urn))
         .collect(Collectors.toList());
 
-    // 2) combine this entity's lineage with the lineage we've already seen and remove duplicates
-    List<LineageRelationship> combinedResults = new ArrayList<>(Stream.concat(
-            filteredRelationships.stream(),
+    // 2) filter out existing lineage to avoid duplicates in our combined result
+    final Set<Urn> existingUrns = existingResult != null
+        ? existingResult.getRelationships().stream().map(LineageRelationship::getEntity).collect(Collectors.toSet())
+        : new HashSet<>();
+    List<LineageRelationship> uniqueFilteredRelationships = filteredRelationships.stream().filter(
+        lineageRelationship -> !existingUrns.contains(lineageRelationship.getEntity())).collect(Collectors.toList());
+
+    // 3) combine this entity's lineage with the lineage we've already seen and remove duplicates
+    final List<LineageRelationship> combinedResults = Stream.concat(
+            uniqueFilteredRelationships.stream(),
             existingResult != null ? existingResult.getRelationships().stream() : ImmutableList.<LineageRelationship>of().stream())
-        .collect(Collectors.toSet()));
+        .collect(Collectors.toList());
 
-    // 3) fetch the siblings of each lineage result
-    Set<Urn> combinedResultUrns = combinedResults.stream().map(result -> result.getEntity()).collect(Collectors.toSet());
+    // 4) fetch the siblings of each lineage result
+    final Set<Urn> combinedResultUrns = combinedResults.stream().map(result -> result.getEntity()).collect(Collectors.toSet());
 
-    Map<Urn, List<RecordTemplate>> siblingAspects =
+    final Map<Urn, List<RecordTemplate>> siblingAspects =
         _entityService.getLatestAspects(combinedResultUrns, ImmutableSet.of(SIBLINGS_ASPECT_NAME));
 
-    // 4) if you are not primary & your sibling is in the results, filter yourself out of the return set
-    filteredRelationships = combinedResults.stream().filter(result -> {
+    // 5) if you are not primary & your sibling is in the results, filter yourself out of the return set
+    uniqueFilteredRelationships = combinedResults.stream().filter(result -> {
       Optional<RecordTemplate> optionalSiblingsAspect = siblingAspects.get(result.getEntity()).stream().filter(
           aspect -> aspect instanceof Siblings
       ).findAny();
@@ -124,7 +133,7 @@ public class SiblingGraphService {
       }
 
 
-      Siblings siblingsAspect = (Siblings) optionalSiblingsAspect.get();
+      final Siblings siblingsAspect = (Siblings) optionalSiblingsAspect.get();
 
       if (siblingsAspect.isPrimary()) {
         return true;
@@ -140,9 +149,9 @@ public class SiblingGraphService {
       return true;
     }).collect(Collectors.toList());
 
-    entityLineageResult.setRelationships(new LineageRelationshipArray(filteredRelationships));
+    entityLineageResult.setRelationships(new LineageRelationshipArray(uniqueFilteredRelationships));
     entityLineageResult.setTotal(entityLineageResult.getTotal() + (existingResult != null ? existingResult.getTotal() : 0));
-    entityLineageResult.setCount(filteredRelationships.size());
+    entityLineageResult.setCount(uniqueFilteredRelationships.size());
     return entityLineageResult;
   }
 

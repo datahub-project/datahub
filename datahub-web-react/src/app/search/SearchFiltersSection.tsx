@@ -31,7 +31,7 @@ const FiltersHeader = styled.div`
     font-weight: 600;
 
     padding-left: 20px;
-    padding-right: 20px;
+    padding-right: 4px;
     padding-bottom: 8px;
 
     width: 100%;

@@ -4,6 +4,7 @@ from typing import List
 import pytest
 from freezegun import freeze_time
 
+from datahub.ingestion.source.metadata import business_glossary
 from tests.test_helpers import mce_helpers
 from tests.test_helpers.click_helpers import run_datahub_cmd
 
@@ -34,3 +35,9 @@ def test_glossary_ingest(docker_compose_runner, pytestconfig, tmp_path, mock_tim
         output_path=tmp_path / "glossary_events.json",
         golden_path=test_resources_dir / "glossary_events_golden.json",
     )
+
+
+@freeze_time(FROZEN_TIME)
+def test_auto_id_creation_on_reserved_char():
+    id_: str = business_glossary.create_id(["pii", "secure % password"], None, False)
+    assert id_ == "24baf9389cc05c162c7148c96314d733"

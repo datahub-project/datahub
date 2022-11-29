@@ -43,38 +43,27 @@ class AddDatasetTerms(DatasetTermsTransformer):
         return cls(config, ctx)
 
     @staticmethod
-    def get_patch_glossary_terms_aspect(
+    def _merge_with_server_glossary_terms(
         graph: DataHubGraph,
         urn: str,
         glossary_terms_aspect: Optional[GlossaryTermsClass],
     ) -> Optional[GlossaryTermsClass]:
         if not glossary_terms_aspect or not glossary_terms_aspect.terms:
             # nothing to add, no need to consult server
-            return glossary_terms_aspect
+            return None
 
+        # Merge the transformed terms with existing server terms.
+        # The transformed terms takes precedence, which may change the term context.
         server_glossary_terms_aspect = graph.get_glossary_terms(entity_urn=urn)
-        # No server glossary_terms_aspect to compute a patch
-        if server_glossary_terms_aspect is None:
-            return glossary_terms_aspect
+        if server_glossary_terms_aspect is not None:
+            glossary_terms_aspect.terms = list(
+                {
+                    **{term.urn: term for term in server_glossary_terms_aspect.terms},
+                    **{term.urn: term for term in glossary_terms_aspect.terms},
+                }.values()
+            )
 
-        # Compute patch
-        server_term_urns: List[str] = [
-            term.urn for term in server_glossary_terms_aspect.terms
-        ]
-        # We only include terms which are not present in the server_term_urns list
-        terms_to_add: List[GlossaryTermAssociationClass] = [
-            term
-            for term in glossary_terms_aspect.terms
-            if term.urn not in server_term_urns
-        ]
-        # Lets patch
-        patch_glossary_terms_aspect: GlossaryTermsClass = GlossaryTermsClass(
-            terms=[], auditStamp=glossary_terms_aspect.auditStamp
-        )
-        patch_glossary_terms_aspect.terms.extend(server_glossary_terms_aspect.terms)
-        patch_glossary_terms_aspect.terms.extend(terms_to_add)
-
-        return patch_glossary_terms_aspect
+        return glossary_terms_aspect
 
     def transform_aspect(
         self, entity_urn: str, aspect_name: str, aspect: Optional[Aspect]
@@ -103,15 +92,12 @@ class AddDatasetTerms(DatasetTermsTransformer):
         patch_glossary_terms: Optional[GlossaryTermsClass] = None
         if self.config.semantics == TransformerSemantics.PATCH:
             assert self.ctx.graph
-            patch_glossary_terms = AddDatasetTerms.get_patch_glossary_terms_aspect(
+            patch_glossary_terms = AddDatasetTerms._merge_with_server_glossary_terms(
                 self.ctx.graph, entity_urn, out_glossary_terms
             )
-
-        return (
-            cast(Optional[Aspect], patch_glossary_terms)
-            if patch_glossary_terms is not None
-            else cast(Optional[Aspect], out_glossary_terms)
-        )
+            return cast(Optional[Aspect], patch_glossary_terms)
+        else:
+            return cast(Aspect, out_glossary_terms)
 
 
 class SimpleDatasetTermsConfig(TransformerSemanticsConfigModel):

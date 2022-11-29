@@ -26,6 +26,7 @@ from datahub.ingestion.api.decorators import (  # SourceCapability,; capability,
 )
 from datahub.ingestion.api.source import Source, SourceReport
 from datahub.ingestion.api.workunit import MetadataWorkUnit, UsageStatsWorkUnit
+from datahub.ingestion.source.metadata import urn_encoder
 
 logger = logging.getLogger(__name__)
 
@@ -33,8 +34,6 @@ valid_status: models.StatusClass = models.StatusClass(removed=False)
 
 # This needed to map path presents in inherits, contains, values, and related_terms to terms' optional id
 path_vs_id: Dict[str, Optional[str]] = {}
-
-URN_RESERVED_CHARS = ("%",)
 
 auditStamp = models.AuditStampClass(
     time=get_sys_time(), actor="urn:li:corpUser:restEmitter"
@@ -117,9 +116,8 @@ def create_id(path: List[str], default_id: Optional[str], enable_auto_id: bool) 
 
     id_: str = ".".join(path)
 
-    for c in id_:
-        if c in URN_RESERVED_CHARS:
-            enable_auto_id = True
+    if urn_encoder.check_reserved_char(id_):
+        enable_auto_id = True
 
     if enable_auto_id:
         id_ = datahub_guid({"path": id_})
@@ -466,6 +464,3 @@ class BusinessGlossaryFileSource(Source):
 
     def get_report(self):
         return self.report
-
-    def close(self):
-        pass

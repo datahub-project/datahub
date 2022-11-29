@@ -29,16 +29,16 @@ class StatefulStaleMetadataRemovalConfig(StatefulIngestionConfig):
     Base specialized config for Stateful Ingestion with stale metadata removal capability.
     """
 
-    _entity_types: List[str] = []
     remove_stale_metadata: bool = pydantic.Field(
         default=True,
-        description=f"Soft-deletes the entities of type {', '.join(_entity_types)} in the last successful run but missing in the current run with stateful_ingestion enabled.",
+        description="Soft-deletes the entities present in the last successful run but missing in the current run with stateful_ingestion enabled.",
     )
     fail_safe_threshold: float = pydantic.Field(
-        default=20.0,
+        default=100.0,
         description="Prevents large amount of soft deletes & the state from committing from accidental changes to the source configuration if the relative change percent in entities compared to the previous state is above the 'fail_safe_threshold'.",
-        le=100.0,  # mypy does not work with pydantic.confloat. This is the recommended work-around.
+        le=100.0,
         ge=0.0,
+        hidden_from_schema=True,
     )
 
 
@@ -115,7 +115,7 @@ class StaleEntityCheckpointStateBase(CheckpointStateBase, ABC, Generic[Derived])
             overlap_count_all += overlap_count
             old_count_all += old_count
         if old_count_all:
-            return (1 - overlap_count / old_count_all) * 100.0
+            return (1 - overlap_count_all / old_count_all) * 100.0
         return 0.0
 
     @staticmethod
@@ -262,12 +262,16 @@ class StaleEntityRemovalHandler(
         if (
             entity_difference_percent
             > self.stateful_ingestion_config.fail_safe_threshold
+            # Adding this check to protect against cases where get_percent_entities_changed returns over 100%.
+            # This previously happened due to a bug in the implementation, which caused this condition to be
+            # triggered too frequently.
+            and self.stateful_ingestion_config.fail_safe_threshold < 100.0
         ):
             # Log the failure. This would prevent the current state from getting committed.
             self.source.get_report().report_failure(
                 "Stateful Ingestion",
-                f"Fail safe mode triggered, entity difference percent:{entity_difference_percent}"
-                " > fail_safe_threshold:{self.stateful_ingestion_config.fail_safe_threshold}",
+                f"Will not soft-delete entities, since we'd be deleting {entity_difference_percent:.1f}% of the existing entities. "
+                f"To force a deletion, increase the value of 'stateful_ingestion.fail_safe_threshold' (currently {self.stateful_ingestion_config.fail_safe_threshold})",
             )
             # Bail so that we don't emit the stale entity removal workunits.
             return
