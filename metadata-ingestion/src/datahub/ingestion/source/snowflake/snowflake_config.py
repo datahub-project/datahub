@@ -39,7 +39,10 @@ class SnowflakeV2Config(SnowflakeConfig, SnowflakeUsageConfig):
         default=None, description="Not supported"
     )
 
-    classification: Optional[ClassificationConfig] = None
+    classification: Optional[ClassificationConfig] = Field(
+        default=None,
+        description="For details, refer [Classification](../../../../metadata-ingestion/docs/dev_guides/classification.md).",
+    )
 
     @root_validator(pre=False)
     def validate_unsupported_configs(cls, values: Dict) -> Dict:
