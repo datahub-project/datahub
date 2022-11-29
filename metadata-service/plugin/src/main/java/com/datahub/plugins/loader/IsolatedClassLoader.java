@@ -57,7 +57,7 @@ public class IsolatedClassLoader extends ClassLoader {
     this._classLoaders.add(this.getClass().getClassLoader()); // then application class-loader
     this._classLoaders.addAll(Arrays.asList(applicationClassLoaders)); // if any extra class loaders
     this._executionDirectory =
-        Paths.get(pluginToLoad.getPluginHomeDirectory().toString(), EXECUTION_DIR); // to store .so files i.e. libraries
+        Paths.get("/tmp" , pluginToLoad.getPluginHomeDirectory().toString(), EXECUTION_DIR); // to store .so files i.e. libraries
     try {
       this.createJarEntryMap();
     } catch (IOException e) {
@@ -280,6 +280,7 @@ public class IsolatedClassLoader extends ClassLoader {
       return destinationPath.toString();
     }
 
+    // create execution directory if not already created
     if (!this._executionDirectory.toFile().exists()) {
       if (!this._executionDirectory.toFile().mkdirs()) {
         log.warn("Failed to create directory {}", this._executionDirectory);
