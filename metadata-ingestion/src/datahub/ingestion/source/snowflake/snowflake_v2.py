@@ -566,9 +566,16 @@ class SnowflakeV2Source(
         dataset_name = self.get_dataset_identifier(table.name, schema_name, db_name)
 
         if self.is_classification_enabled_for_table(dataset_name):
-            table.sample_data = self.get_sample_values_for_table(
-                conn, table.name, schema_name, db_name
-            )
+            try:
+                table.sample_data = self.get_sample_values_for_table(
+                    conn, table.name, schema_name, db_name
+                )
+            except Exception as e:
+                self.warn(
+                    self.logger,
+                    dataset_name,
+                    f"unable to get table sample data due to error -> {e}",
+                )
 
         lineage_info = None
         if self.config.include_table_lineage:
@@ -757,9 +764,21 @@ class SnowflakeV2Source(
                     self.snowflake_identifier(col) for col in table.sample_data.columns
                 ]
             logger.debug(f"Classifying Table {dataset_name}")
-            self.classify_schema_fields(
-                dataset_name, schema_metadata, table.sample_data.to_dict(orient="list")
-            )
+
+            try:
+                self.classify_schema_fields(
+                    dataset_name,
+                    schema_metadata,
+                    table.sample_data.to_dict(orient="list")
+                    if table.sample_data is not None
+                    else {},
+                )
+            except Exception as e:
+                self.warn(
+                    self.logger,
+                    dataset_name,
+                    f"unable to classify table columns due to error -> {e}",
+                )
 
         return schema_metadata
 

@@ -43,7 +43,7 @@ framework_common = {
     "stackprinter>=0.2.6",
     "tabulate",
     "progressbar2",
-    "termcolor>=2.0.0",
+    "termcolor>=1.0.0",
     "psutil>=5.8.0",
     "ratelimiter",
     "Deprecated",
