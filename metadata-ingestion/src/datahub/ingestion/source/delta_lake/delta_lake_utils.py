@@ -20,12 +20,20 @@ def read_delta_table(
                 opts = {
                     "AWS_ACCESS_KEY_ID": creds.get("aws_access_key_id", ""),
                     "AWS_SECRET_ACCESS_KEY": creds.get("aws_secret_access_key", ""),
+                    # Allow http connections, this is required for minio
+                    "AWS_STORAGE_ALLOW_HTTP": "true",
                 }
+                if delta_lake_config.s3.aws_config.aws_region:
+                    opts["AWS_REGION"] = delta_lake_config.s3.aws_config.aws_region
                 if delta_lake_config.s3.aws_config.aws_endpoint_url:
                     opts[
                         "AWS_ENDPOINT_URL"
                     ] = delta_lake_config.s3.aws_config.aws_endpoint_url
-        delta_table = DeltaTable(path, storage_options=opts)
+        delta_table = DeltaTable(
+            path,
+            storage_options=opts,
+            without_files=not delta_lake_config.require_files,
+        )
 
     except PyDeltaTableError as e:
         if "Not a Delta table" not in str(e):

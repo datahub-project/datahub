@@ -349,8 +349,8 @@ class BigQueryDataDictionary:
                 )
                 if "last_altered" in table
                 else None,
-                size_in_bytes=table.bytes if "bytes" in table else None,
-                rows_count=table.row_count if "row_count" in table else None,
+                size_in_bytes=table.get("bytes"),
+                rows_count=table.get("row_count"),
                 comment=table.comment,
                 ddl=table.ddl,
                 expires=tables[table.table_name].expires if tables else None,
@@ -361,24 +361,16 @@ class BigQueryDataDictionary:
                 clustering_fields=tables[table.table_name].clustering_fields
                 if tables
                 else None,
-                max_partition_id=table.max_partition_id
-                if "max_partition_id" in table
-                else None,
+                max_partition_id=table.get("max_partition_id"),
                 max_shard_id=BigqueryTableIdentifier.get_table_and_shard(
                     table.table_name
                 )[1]
                 if len(BigqueryTableIdentifier.get_table_and_shard(table.table_name))
                 == 2
                 else None,
-                num_partitions=table.num_partitions
-                if "num_partitions" in table
-                else None,
-                active_billable_bytes=table.active_billable_bytes
-                if "active_billable_bytes" in table
-                else None,
-                long_term_billable_bytes=table.long_term_billable_bytes
-                if "long_term_billable_bytes" in table
-                else None,
+                num_partitions=table.get("num_partitions"),
+                active_billable_bytes=table.get("active_billable_bytes"),
+                long_term_billable_bytes=table.get("long_term_billable_bytes"),
             )
             for table in cur
         ]

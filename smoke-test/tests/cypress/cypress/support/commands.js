@@ -15,8 +15,8 @@ Cypress.Commands.add('login', () => {
       method: 'POST',
       url: '/logIn',
       body: {
-        username: 'datahub',
-        password: 'datahub',
+        username: Cypress.env('ADMIN_USERNAME'),
+        password: Cypress.env('ADMIN_PASSWORD'),
       },
       retryOnStatusCodeFailure: true,
     });
@@ -84,7 +84,7 @@ Cypress.Commands.add("goToUserList", () => {
 })
 
 Cypress.Commands.add("openThreeDotDropdown", () => {
-  cy.get('div[class^="EntityHeader__SideHeaderContent-"] > div > .ant-dropdown-trigger').click();
+  cy.get('[data-testid="entity-header-dropdown"]').click();
 });
 
 Cypress.Commands.add("clickOptionWithText", (text) => {

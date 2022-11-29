@@ -466,6 +466,3 @@ class BusinessGlossaryFileSource(Source):
 
     def get_report(self):
         return self.report
-
-    def close(self):
-        pass

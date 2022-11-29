@@ -342,21 +342,25 @@ def can_add_aspect(mce: MetadataChangeEventClass, AspectType: Type[Aspect]) -> b
 
     constructor_annotations = get_type_hints(SnapshotType.__init__)
     aspect_list_union = typing_inspect.get_args(constructor_annotations["aspects"])[0]
-    if not isinstance(aspect_list_union, tuple):
-        supported_aspect_types = typing_inspect.get_args(aspect_list_union)
-    else:
-        # On Python 3.6, the union type is represented as a tuple, where
-        # the first item is typing.Union and the subsequent elements are
-        # the types within the union.
-        supported_aspect_types = aspect_list_union[1:]
+
+    supported_aspect_types = typing_inspect.get_args(aspect_list_union)
 
     return issubclass(AspectType, supported_aspect_types)
+
+
+def assert_can_add_aspect(
+    mce: MetadataChangeEventClass, AspectType: Type[Aspect]
+) -> None:
+    if not can_add_aspect(mce, AspectType):
+        raise AssertionError(
+            f"Cannot add aspect {AspectType} to {type(mce.proposedSnapshot)}"
+        )
 
 
 def get_aspect_if_available(
     mce: MetadataChangeEventClass, AspectType: Type[Aspect]
 ) -> Optional[Aspect]:
-    assert can_add_aspect(mce, AspectType)
+    assert_can_add_aspect(mce, AspectType)
 
     all_aspects = mce.proposedSnapshot.aspects
     aspects: List[Aspect] = [
@@ -375,7 +379,7 @@ def get_aspect_if_available(
 def remove_aspect_if_available(
     mce: MetadataChangeEventClass, aspect_type: Type[Aspect]
 ) -> bool:
-    assert can_add_aspect(mce, aspect_type)
+    assert_can_add_aspect(mce, aspect_type)
     # loose type annotations since we checked before
     aspects: List[Any] = [
         aspect

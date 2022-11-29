@@ -78,7 +78,7 @@ export class DashboardEntity implements Entity<Dashboard> {
             useEntityQuery={useGetDashboardQuery}
             useUpdateQuery={useUpdateDashboardMutation}
             getOverrideProperties={this.getOverridePropertiesFromEntity}
-            headerDropdownItems={new Set([EntityMenuItems.COPY_URL, EntityMenuItems.UPDATE_DEPRECATION])}
+            headerDropdownItems={new Set([EntityMenuItems.UPDATE_DEPRECATION])}
             subHeader={{
                 component: DashboardStatsSummarySubHeader,
             }}

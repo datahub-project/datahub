@@ -47,7 +47,17 @@ const RawButton = styled(Button)`
         display: flex;
         margin-right: 10px;
         justify-content: left;
+        align-items: center;
     }
+`;
+
+const RawButtonTitleContainer = styled.span`
+    display: flex;
+    align-items: center;
+`;
+
+const RawButtonTitle = styled(Typography.Text)`
+    margin-left: 6px;
 `;
 
 const KeyButton = styled(Button)<{ $highlighted: boolean }>`
@@ -206,15 +216,15 @@ export default function SchemaHeader({
                     {hasRaw && (
                         <RawButton type="text" onClick={() => setShowRaw(!showRaw)}>
                             {showRaw ? (
-                                <>
-                                    <TableOutlined />
-                                    <Typography.Text>Tabular</Typography.Text>
-                                </>
+                                <RawButtonTitleContainer>
+                                    <TableOutlined style={{ padding: 0, margin: 0 }} />
+                                    <RawButtonTitle>Tabular</RawButtonTitle>
+                                </RawButtonTitleContainer>
                             ) : (
-                                <>
-                                    <FileTextOutlined />
-                                    <Typography.Text>Raw</Typography.Text>
-                                </>
+                                <RawButtonTitleContainer>
+                                    <FileTextOutlined style={{ padding: 0, margin: 0 }} />
+                                    <RawButtonTitle>Raw</RawButtonTitle>
+                                </RawButtonTitleContainer>
                             )}
                         </RawButton>
                     )}

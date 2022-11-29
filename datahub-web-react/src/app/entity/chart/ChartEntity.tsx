@@ -73,7 +73,7 @@ export class ChartEntity implements Entity<Chart> {
             useEntityQuery={useGetChartQuery}
             useUpdateQuery={useUpdateChartMutation}
             getOverrideProperties={this.getOverridePropertiesFromEntity}
-            headerDropdownItems={new Set([EntityMenuItems.COPY_URL, EntityMenuItems.UPDATE_DEPRECATION])}
+            headerDropdownItems={new Set([EntityMenuItems.UPDATE_DEPRECATION])}
             subHeader={{
                 component: ChartStatsSummarySubHeader,
             }}
