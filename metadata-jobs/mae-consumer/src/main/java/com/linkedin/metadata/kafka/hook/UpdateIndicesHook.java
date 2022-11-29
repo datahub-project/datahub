@@ -2,6 +2,7 @@ package com.linkedin.metadata.kafka.hook;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonNode;
+import com.google.common.collect.ImmutableSet;
 import com.linkedin.common.InputField;
 import com.linkedin.common.InputFields;
 import com.linkedin.common.Status;
@@ -53,7 +54,6 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
-import java.util.stream.Stream;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import lombok.extern.slf4j.Slf4j;
@@ -71,6 +71,12 @@ import static com.linkedin.metadata.search.utils.QueryUtils.*;
     EntityRegistryFactory.class, SystemMetadataServiceFactory.class, SearchDocumentTransformerFactory.class})
 public class UpdateIndicesHook implements MetadataChangeLogHook {
 
+  private static final Set<ChangeType> UPDATE_CHANGE_TYPES = ImmutableSet.of(
+    ChangeType.UPSERT,
+    ChangeType.RESTATE,
+    ChangeType.PATCH);
+  private static final String DOWNSTREAM_OF = "DownstreamOf";
+
   private final GraphService _graphService;
   private final EntitySearchService _entitySearchService;
   private final TimeseriesAspectService _timeseriesAspectService;
@@ -80,13 +86,6 @@ public class UpdateIndicesHook implements MetadataChangeLogHook {
 
   @Value("${featureFlags.graphServiceDiffModeEnabled:false}")
   private boolean _diffMode;
-
-  public static final String DOWNSTREAM_OF = "DownstreamOf";
-  private static final Set<ChangeType> VALID_CHANGE_TYPES =
-      Stream.of(
-          ChangeType.UPSERT,
-          ChangeType.RESTATE,
-          ChangeType.PATCH).collect(Collectors.toSet());
 
   @Autowired
   public UpdateIndicesHook(
@@ -109,72 +108,112 @@ public class UpdateIndicesHook implements MetadataChangeLogHook {
   }
 
   @Override
-  public void invoke(@Nonnull MetadataChangeLog event) {
-    EntitySpec entitySpec;
-    try {
-      entitySpec = _entityRegistry.getEntitySpec(event.getEntityType());
-    } catch (IllegalArgumentException e) {
-      log.error("Error while processing entity type {}: {}", event.getEntityType(), e.toString());
+  public void invoke(@Nonnull final MetadataChangeLog event) {
+    if (UPDATE_CHANGE_TYPES.contains(event.getChangeType())) {
+      handleUpdateChangeEvent(event);
+    } else if (event.getChangeType() == ChangeType.DELETE) {
+      handleDeleteChangeEvent(event);
+    }
+  }
+
+  /**
+   * This very important method processes {@link MetadataChangeLog} events
+   * that represent changes to the Metadata Graph.
+   *
+   * In particular, it handles updating the Search, Graph, Timeseries, and
+   * System Metadata stores in response to a given change type to reflect
+   * the changes present in the new aspect.
+   *
+   * @param event the change event to be processed.
+   */
+  private void handleUpdateChangeEvent(@Nonnull final MetadataChangeLog event) {
+
+    final EntitySpec entitySpec = getEventEntitySpec(event);
+    final Urn urn = EntityKeyUtils.getUrnFromLog(event, entitySpec.getKeyAspectSpec());
+
+    if (!event.hasAspectName() || !event.hasAspect()) {
+      log.error("Aspect or aspect name is missing. Skipping aspect processing...");
       return;
     }
-    Urn urn = EntityKeyUtils.getUrnFromLog(event, entitySpec.getKeyAspectSpec());
 
-    if (VALID_CHANGE_TYPES.contains(event.getChangeType())) {
+    AspectSpec aspectSpec = entitySpec.getAspectSpec(event.getAspectName());
+    if (aspectSpec == null) {
+      throw new RuntimeException(
+          String.format("Failed to retrieve Aspect Spec for entity with name %s, aspect with name %s. Cannot update indices for MCL.",
+              event.getEntityType(),
+              event.getAspectName()));
+    }
 
-      if (!event.hasAspectName() || !event.hasAspect()) {
-        log.error("Aspect or aspect name is missing");
-        return;
-      }
+    RecordTemplate aspect = GenericRecordUtils.deserializeAspect(
+        event.getAspect().getValue(),
+        event.getAspect().getContentType(),
+        aspectSpec);
+    GenericAspect previousAspectValue = event.getPreviousAspectValue();
+    RecordTemplate previousAspect = previousAspectValue != null
+        ? GenericRecordUtils.deserializeAspect(previousAspectValue.getValue(), previousAspectValue.getContentType(), aspectSpec)
+        : null;
 
-      AspectSpec aspectSpec = entitySpec.getAspectSpec(event.getAspectName());
-      if (aspectSpec == null) {
-        log.error("Unrecognized aspect name {} for entity {}", event.getAspectName(), event.getEntityType());
-        return;
-      }
+    // Step 0. If the aspect is timeseries, add to its timeseries index.
+    if (aspectSpec.isTimeseries()) {
+      updateTimeseriesFields(event.getEntityType(), event.getAspectName(), urn, aspect, aspectSpec,
+          event.getSystemMetadata());
+    } else {
+      // Inject into the System Metadata Index when an aspect is non-timeseries only.
+      // TODO: Verify whether timeseries aspects can be dropped into System Metadata as well
+      // without impacting rollbacks.
+      updateSystemMetadata(event.getSystemMetadata(), urn, aspectSpec, aspect);
+    }
 
-      RecordTemplate aspect =
-          GenericRecordUtils.deserializeAspect(event.getAspect().getValue(), event.getAspect().getContentType(),
-              aspectSpec);
-      GenericAspect previousAspectValue = event.getPreviousAspectValue();
-      RecordTemplate previousAspect = null;
-      if (previousAspectValue != null) {
-        previousAspect = GenericRecordUtils.deserializeAspect(previousAspectValue.getValue(),
-            previousAspectValue.getContentType(), aspectSpec);
-      }
-      if (aspectSpec.isTimeseries()) {
-        updateTimeseriesFields(event.getEntityType(), event.getAspectName(), urn, aspect, aspectSpec,
-            event.getSystemMetadata());
-      } else {
-        updateSearchService(entitySpec.getName(), urn, aspectSpec, aspect,
-            event.hasSystemMetadata() ? event.getSystemMetadata().getRunId() : null);
-        updateSystemMetadata(event.getSystemMetadata(), urn, aspectSpec, aspect);
-        if (_diffMode) {
-          updateGraphServiceDiff(urn, aspectSpec, previousAspect, aspect);
-        } else {
-          updateGraphService(urn, aspectSpec, aspect);
-        }
-      }
-    } else if (event.getChangeType() == ChangeType.DELETE) {
-      if (!event.hasAspectName() || !event.hasPreviousAspectValue()) {
-        log.error("Previous aspect or aspect name is missing");
-        return;
-      }
+    // Step 1. For all aspects, attempt to update Search
+    updateSearchService(entitySpec.getName(), urn, aspectSpec, aspect,
+        event.hasSystemMetadata() ? event.getSystemMetadata().getRunId() : null);
 
-      AspectSpec aspectSpec = entitySpec.getAspectSpec(event.getAspectName());
-      if (aspectSpec == null) {
-        log.error("Unrecognized aspect name {} for entity {}", event.getAspectName(), event.getEntityType());
-        return;
-      }
+    // Step 2. For all aspects, attempt to update Graph
+    if (_diffMode) {
+      updateGraphServiceDiff(urn, aspectSpec, previousAspect, aspect);
+    } else {
+      updateGraphService(urn, aspectSpec, aspect);
+    }
+  }
 
-      RecordTemplate aspect = GenericRecordUtils.deserializeAspect(event.getPreviousAspectValue().getValue(),
-              event.getPreviousAspectValue().getContentType(), aspectSpec);
-      Boolean isDeletingKey = event.getAspectName().equals(entitySpec.getKeyAspectName());
+  /**
+   * This very important method processes {@link MetadataChangeLog} deletion events
+   * to cleanup the Metadata Graph when an aspect or entity is removed.
+   *
+   * In particular, it handles updating the Search, Graph, Timeseries, and
+   * System Metadata stores to reflect the deletion of a particular aspect.
+   *
+   * Note that if an entity's key aspect is deleted, the entire entity will be purged
+   * from search, graph, timeseries, etc.
+   *
+   * @param event the change event to be processed.
+   */
+  private void handleDeleteChangeEvent(@Nonnull final MetadataChangeLog event) {
 
-      if (!aspectSpec.isTimeseries()) {
-        deleteSystemMetadata(urn, aspectSpec, isDeletingKey);
-        deleteGraphData(urn, aspectSpec, aspect, isDeletingKey);
-        deleteSearchData(urn, entitySpec.getName(), aspectSpec, aspect, isDeletingKey);
-      }
+    final EntitySpec entitySpec = getEventEntitySpec(event);
+    final Urn urn = EntityKeyUtils.getUrnFromLog(event, entitySpec.getKeyAspectSpec());
+
+    if (!event.hasAspectName() || !event.hasPreviousAspectValue()) {
+      log.error("Previous aspect or aspect name is missing. Skipping aspect processing...");
+      return;
+    }
+
+    AspectSpec aspectSpec = entitySpec.getAspectSpec(event.getAspectName());
+    if (aspectSpec == null) {
+      throw new RuntimeException(
+          String.format("Failed to retrieve Aspect Spec for entity with name %s, aspect with name %s. Cannot update indices for MCL.",
+              event.getEntityType(),
+              event.getAspectName()));
+    }
+
+    RecordTemplate aspect = GenericRecordUtils.deserializeAspect(event.getPreviousAspectValue().getValue(),
+        event.getPreviousAspectValue().getContentType(), aspectSpec);
+    Boolean isDeletingKey = event.getAspectName().equals(entitySpec.getKeyAspectName());
+
+    if (!aspectSpec.isTimeseries()) {
+      deleteSystemMetadata(urn, aspectSpec, isDeletingKey);
+      deleteGraphData(urn, aspectSpec, aspect, isDeletingKey);
+      deleteSearchData(urn, entitySpec.getName(), aspectSpec, aspect, isDeletingKey);
     }
   }
 
@@ -343,7 +382,7 @@ public class UpdateIndicesHook implements MetadataChangeLogHook {
   }
 
   /**
-   * Process snapshot and update timseries index
+   * Process snapshot and update time-series index
    */
   private void updateTimeseriesFields(String entityType, String aspectName, Urn urn, RecordTemplate aspect,
       AspectSpec aspectSpec, SystemMetadata systemMetadata) {
@@ -425,5 +464,15 @@ public class UpdateIndicesHook implements MetadataChangeLogHook {
       }
 
     _entitySearchService.upsertDocument(entityName, searchDocument.get(), docId);
+  }
+
+  private EntitySpec getEventEntitySpec(@Nonnull final MetadataChangeLog event) {
+    try {
+      return _entityRegistry.getEntitySpec(event.getEntityType());
+    } catch (IllegalArgumentException e) {
+      throw new RuntimeException(
+          String.format("Failed to retrieve Entity Spec for entity with name %s. Cannot update indices for MCL.",
+              event.getEntityType()));
+    }
   }
 }
