@@ -44,6 +44,8 @@ This file documents any backwards-incompatible changes in DataHub and assists pe
 
 ### Breaking Changes
 
+- #6570 `snowflake` connector now populates created, last modified timestamps for snowflake datasets and containers. This version of snowflake connnector will not work with **datahub-gms** version order than `v0.9.3`
+
 ### Potential Downtime
 
 ### Deprecations

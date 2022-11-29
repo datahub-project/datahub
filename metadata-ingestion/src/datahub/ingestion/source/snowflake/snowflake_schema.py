@@ -72,8 +72,8 @@ class SnowflakeView(BaseView):
 @dataclass
 class SnowflakeSchema:
     name: str
-    created: datetime
-    last_altered: datetime
+    created: Optional[datetime]
+    last_altered: Optional[datetime]
     comment: Optional[str]
     tables: List[SnowflakeTable] = field(default_factory=list)
     views: List[SnowflakeView] = field(default_factory=list)
@@ -82,8 +82,9 @@ class SnowflakeSchema:
 @dataclass
 class SnowflakeDatabase:
     name: str
-    created: datetime
+    created: Optional[datetime]
     comment: Optional[str]
+    last_altered: Optional[datetime] = None
     schemas: List[SnowflakeSchema] = field(default_factory=list)
 
 
@@ -91,7 +92,7 @@ class SnowflakeDataDictionary(SnowflakeQueryMixin):
     def __init__(self) -> None:
         self.logger = logger
 
-    def get_databases(self, conn: SnowflakeConnection) -> List[SnowflakeDatabase]:
+    def show_databases(self, conn: SnowflakeConnection) -> List[SnowflakeDatabase]:
 
         databases: List[SnowflakeDatabase] = []
 
@@ -105,6 +106,28 @@ class SnowflakeDataDictionary(SnowflakeQueryMixin):
                 name=database["name"],
                 created=database["created_on"],
                 comment=database["comment"],
+            )
+            databases.append(snowflake_db)
+
+        return databases
+
+    def get_databases(
+        self, conn: SnowflakeConnection, db_name: str
+    ) -> List[SnowflakeDatabase]:
+
+        databases: List[SnowflakeDatabase] = []
+
+        cur = self.query(
+            conn,
+            SnowflakeQuery.get_databases(db_name),
+        )
+
+        for database in cur:
+            snowflake_db = SnowflakeDatabase(
+                name=database["DATABASE_NAME"],
+                created=database["CREATED"],
+                last_altered=database["LAST_ALTERED"],
+                comment=database["COMMENT"],
             )
             databases.append(snowflake_db)
 

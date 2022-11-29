@@ -48,6 +48,15 @@ def default_query_results(query):
                 "comment": "Comment for TEST_DB",
             }
         ]
+    elif query == SnowflakeQuery.get_databases("TEST_DB"):
+        return [
+            {
+                "DATABASE_NAME": "TEST_DB",
+                "CREATED": datetime(2021, 6, 8, 0, 0, 0, 0),
+                "LAST_ALTERED": datetime(2021, 6, 8, 0, 0, 0, 0),
+                "COMMENT": "Comment for TEST_DB",
+            }
+        ]
     elif query == SnowflakeQuery.schemas_for_database("TEST_DB"):
         return [
             {
