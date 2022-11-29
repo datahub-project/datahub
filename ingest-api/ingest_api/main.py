@@ -27,6 +27,7 @@ from ingest_api.helper.mce_convenience import *
 from ingest_api.helper.models import *
 from ingest_api.helper.security import authenticate_action, verify_token
 from urllib3.exceptions import InsecureRequestWarning 
+from uuid import uuid4
 
 CLI_MODE = False if environ.get("RUNNING_IN_DOCKER") else True
 
@@ -153,6 +154,8 @@ async def hello_world() -> None:
     # how to check that this dataset exist? - curl to GMS?
     # rootLogger.info("hello world is called")
     # rootLogger.info("/custom/hello is called!")
+    eventid = f"{str(uuid4())}"
+    rootLogger.info(f"{eventid} - hello is called")
     return JSONResponse(
         content={
             "message": "Hello world",
@@ -189,7 +192,7 @@ async def echo_announce() -> None:
 
 @app.post("/custom/update_browsepath")
 async def update_browsepath(item: browsepath_params):
-
+    eventid = f"{str(uuid4())}"
     rootLogger.info("update_browsepath_request_received from {} for {}".format(item.requestor, item.dataset_name))
     rootLogger.debug("update_browsepath_request_received {}".format(item))
     datasetName = item.dataset_name
@@ -231,7 +234,7 @@ async def update_browsepath(item: browsepath_params):
 
 @app.post("/custom/update_samples")
 async def update_samples(item: add_sample_params):
-
+    eventid = f"{str(uuid4())}"
     rootLogger.info("update_sample_request_received from {}".format(item.requestor))
     rootLogger.debug("update_sample_request_received {}".format(item))
     datasetName = item.dataset_name
@@ -263,7 +266,7 @@ async def update_samples(item: add_sample_params):
 
 @app.post("/custom/delete_samples")
 async def delete_samples(item: delete_sample_params):
-
+    eventid = f"{str(uuid4())}"
     rootLogger.info("delete_sample_request_received from {}".format(item.requestor))
     rootLogger.debug("delete_sample_request_received {}".format(item))
     datasetName = item.dataset_name
@@ -306,7 +309,7 @@ async def delete_samples(item: delete_sample_params):
 
 @app.post("/custom/update_schema")
 async def update_schema(item: schema_params):
-
+    eventid = f"{str(uuid4())}"
     rootLogger.info(
         "update_dataset_schema_request_received from {}".format(item.requestor)
     )
@@ -364,7 +367,7 @@ async def update_prop(item: prop_params):
     # properties: get description from graphql and props from form.
     # This will form DatasetProperty (Not EditableDatasetProperty)
     # platform info: needed for schema
-
+    eventid = f"{str(uuid4())}"
     rootLogger.info(
         "update_dataset_property_request_received from {}".format(item.requestor)
     )
@@ -426,7 +429,7 @@ def build_datahub_graph(token: str) -> DataHubGraph:
     return graph
 
 def emit_mce_respond(
-    metadata_record: MetadataChangeEvent, owner: str, event: str, token: str
+    metadata_record: MetadataChangeEvent, owner: str, event: str, token: str, eventid: str
 ) -> dict():
     datasetName = metadata_record.proposedSnapshot.urn
     for mce in metadata_record.proposedSnapshot.aspects:
@@ -455,7 +458,7 @@ def emit_mce_respond(
         }
             
     rootLogger.info(
-        f"{event} {datasetName} requested_by {owner} completed successfully"
+        f"{eventid}: {event} {datasetName} requested_by {owner} completed successfully"
     )
     return {        
         "message": f"{event} completed successfully",
@@ -463,7 +466,7 @@ def emit_mce_respond(
     }
 
 def emit_mcp_respond(
-    metadata_record: MetadataChangeProposalWrapper, owner: str, event: str, token: str
+    metadata_record: MetadataChangeProposalWrapper, owner: str, event: str, token: str, eventid
 ) -> dict():
     datasetName = metadata_record.entityUrn
     if CLI_MODE:
@@ -496,8 +499,12 @@ async def create_item(item: create_dataset_params) -> None:
     This endpoint is meant for manually defined or parsed file datasets.
     #todo - to revisit to see if refactoring is needed when make_json is up.
     """
+    eventid = f"{str(uuid4())}"
     rootLogger.info("make_dataset_request_received from {}".format(item.dataset_owner))
     rootLogger.debug("make_dataset_request_received {}".format(item))
+    # instantly fail the request if platform and container platform dont match up.
+    if not check_platform_container_test(item):
+        return JSONResponse(content={"message": "Platform and Container Type Mismatch"}, status_code=404)
     dataset_type = determine_type(item.platformSelect)
     token = item.user_token
     user = item.dataset_owner
@@ -582,22 +589,27 @@ async def create_item(item: create_dataset_params) -> None:
             event="Create Dataset",
             token=token,
         )
-        container_mcp = MetadataChangeProposalWrapper(
-            aspect = make_container_aspect(item.parentContainer),
-            entityType="dataset",
-            changeType=ChangeTypeClass.UPSERT,
-            entityUrn=datasetUrn,
-            aspectName="container",
-            systemMetadata=SystemMetadataClass(
-                runId=f"{dataset_name_uuid}_container_{str(int(time.time()))}"
-            ),
-        )
-        response2 = emit_mcp_respond(
-            metadata_record=container_mcp,
-            owner=requestor,
-            event=f"Make-Dataset: update_container:{item.parentContainer}",
-            token=item.user_token,
-        )
+        response2={}
+        response2['status_code']=201
+        if item.parentContainer != '':
+            # this edit is non crit and non-blocking, but gms will give alot of  
+            # horrifying warning messages as aspect is not valid
+            container_mcp = MetadataChangeProposalWrapper(
+                aspect = make_container_aspect(item.parentContainer),
+                entityType="dataset",
+                changeType=ChangeTypeClass.UPSERT,
+                entityUrn=datasetUrn,
+                aspectName="container",
+                systemMetadata=SystemMetadataClass(
+                    runId=f"{dataset_name_uuid}_container_{str(int(time.time()))}"
+                ),
+            )
+            response2 = emit_mcp_respond(
+                metadata_record=container_mcp,
+                owner=requestor,
+                event=f"Make-Dataset: update_container:{item.parentContainer}",
+                token=item.user_token,
+            )
         
         if response1["status_code"]==201 and response2["status_code"]==201:
             return JSONResponse(
@@ -615,6 +627,7 @@ async def delete_item(item: dataset_status_params) -> None:
     a database/ES chron job to remove the entries though, it only
     suppresses it from search and UI
     """
+    eventid = f"{str(uuid4())}"
     rootLogger.info("remove_dataset_request_received from {}".format(item.requestor))
     rootLogger.debug("remove_dataset_request_received {}".format(item))
     datasetName = item.dataset_name
@@ -646,6 +659,7 @@ async def update_container(item: container_param) -> None:
     """
     This endpoint is to support update/create container aspect. 
     """
+    eventid = f"{str(uuid4())}"
     rootLogger.info("update_container_request_received from {}".format(item.requestor))
     rootLogger.debug("update_container_request_received {}".format(item))
     datasetName = item.dataset_name
@@ -685,6 +699,7 @@ async def update_container(item: name_param) -> None:
     """
     This endpoint is to support update of dataset name. 
     """
+    eventid = f"{str(uuid4())}"
     rootLogger.info("update_displayName_request_received from {}".format(item.requestor))
     rootLogger.debug("update_displayName_request_received {}".format(item))
     datasetName = item.dataset_name
