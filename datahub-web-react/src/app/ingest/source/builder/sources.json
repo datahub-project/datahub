@@ -177,7 +177,7 @@
     {
         "urn": "urn:li:dataPlatform:custom",
         "name": "custom",
-        "displayName": "Custom",
+        "displayName": "Other",
         "docsUrl": "https://datahubproject.io/docs/metadata-ingestion/",
         "recipe": "source:\n  type: <source-type>\n  config:\n    # Source-type specifics config\n    <source-configs>"
     }
