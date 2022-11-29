@@ -23,12 +23,14 @@ import com.linkedin.metadata.run.UnsafeEntityInfoArray;
 import com.linkedin.metadata.search.utils.ESUtils;
 import com.linkedin.metadata.systemmetadata.SystemMetadataService;
 import com.linkedin.metadata.timeseries.TimeseriesAspectService;
+import com.linkedin.metadata.utils.CondUpdateUtils;
 import com.linkedin.metadata.utils.EntityKeyUtils;
 import com.linkedin.metadata.utils.GenericRecordUtils;
 import com.linkedin.mxe.MetadataChangeProposal;
 import com.linkedin.parseq.Task;
 import com.linkedin.restli.server.annotations.Action;
 import com.linkedin.restli.server.annotations.ActionParam;
+import com.linkedin.restli.server.annotations.HeaderParam;
 import com.linkedin.restli.server.annotations.Optional;
 import com.linkedin.restli.server.annotations.RestLiCollection;
 import com.linkedin.restli.server.resources.CollectionResourceTaskTemplate;
@@ -84,7 +86,8 @@ public class BatchIngestionRunResource extends CollectionResourceTaskTemplate<St
   public Task<RollbackResponse> rollback(@ActionParam("runId") @Nonnull String runId,
       @ActionParam("dryRun") @Optional Boolean dryRun,
       @Deprecated @ActionParam("hardDelete") @Optional Boolean hardDelete,
-      @ActionParam("safe") @Optional Boolean safe) throws Exception {
+      @ActionParam("safe") @Optional Boolean safe,
+      @HeaderParam(value = Constants.IN_UNMODIFIED_SINCE) String condUpdate) throws Exception {
     log.info("ROLLBACK RUN runId: {} dry run: {}", runId, dryRun);
 
     boolean doHardDelete = safe != null ? !safe : hardDelete != null ? hardDelete : DEFAULT_HARD_DELETE;
@@ -100,7 +103,7 @@ public class BatchIngestionRunResource extends CollectionResourceTaskTemplate<St
               runId));
         }
         if (!dryRun) {
-          updateExecutionRequestStatus(runId, ROLLING_BACK_STATUS);
+          updateExecutionRequestStatus(runId, ROLLING_BACK_STATUS, condUpdate);
         }
 
         RollbackResponse response = new RollbackResponse();
@@ -160,7 +163,8 @@ public class BatchIngestionRunResource extends CollectionResourceTaskTemplate<St
               .setAspectRowSummaries(rowSummaries);
         }
 
-        RollbackRunResult rollbackRunResult = _entityService.rollbackRun(aspectRowsToDelete, runId, doHardDelete);
+        Map<String, Long> createdOnMap = CondUpdateUtils.extractCondUpdate(condUpdate);
+        RollbackRunResult rollbackRunResult = _entityService.rollbackRun(aspectRowsToDelete, runId, doHardDelete, createdOnMap);
         final List<AspectRowSummary> deletedRows = rollbackRunResult.getRowsRolledBack();
         int rowsDeletedFromEntityDeletion = rollbackRunResult.getRowsDeletedFromEntityDeletion();
 
@@ -170,7 +174,7 @@ public class BatchIngestionRunResource extends CollectionResourceTaskTemplate<St
           aspectRowsToDelete = _systemMetadataService.findByRunId(runId, doHardDelete, 0, ESUtils.MAX_RESULT_SIZE);
           log.info("{} remaining rows to delete...", stringifyRowCount(aspectRowsToDelete.size()));
           log.info("deleting...");
-          rollbackRunResult = _entityService.rollbackRun(aspectRowsToDelete, runId, doHardDelete);
+          rollbackRunResult = _entityService.rollbackRun(aspectRowsToDelete, runId, doHardDelete, createdOnMap);
           deletedRows.addAll(rollbackRunResult.getRowsRolledBack());
           rowsDeletedFromEntityDeletion += rollbackRunResult.getRowsDeletedFromEntityDeletion();
         }
@@ -219,7 +223,7 @@ public class BatchIngestionRunResource extends CollectionResourceTaskTemplate<St
 
         log.info("calculation done.");
 
-        updateExecutionRequestStatus(runId, ROLLED_BACK_STATUS);
+        updateExecutionRequestStatus(runId, ROLLED_BACK_STATUS, condUpdate);
 
         return response.setAspectsAffected(affectedAspects)
             .setAspectsReverted(aspectsReverted)
@@ -230,7 +234,7 @@ public class BatchIngestionRunResource extends CollectionResourceTaskTemplate<St
             .setAspectRowSummaries(rowSummaries);
       }, MetricRegistry.name(this.getClass(), "rollback"));
     } catch (Exception e) {
-      updateExecutionRequestStatus(runId, ROLLBACK_FAILED_STATUS);
+      updateExecutionRequestStatus(runId, ROLLBACK_FAILED_STATUS, condUpdate);
       throw new RuntimeException(String.format("There was an issue rolling back ingestion run with runId %s", runId), e);
     }
   }
@@ -251,7 +255,7 @@ public class BatchIngestionRunResource extends CollectionResourceTaskTemplate<St
     }
   }
 
-  private void updateExecutionRequestStatus(String runId, String status) {
+  private void updateExecutionRequestStatus(String runId, String status, String condUpdate) {
     try {
       final Urn executionRequestUrn = EntityKeyUtils.convertEntityKeyToUrn(new ExecutionRequestKey().setId(runId), Constants.EXECUTION_REQUEST_ENTITY_NAME);
       EnvelopedAspect aspect =
@@ -268,8 +272,10 @@ public class BatchIngestionRunResource extends CollectionResourceTaskTemplate<St
         proposal.setAspect(GenericRecordUtils.serializeAspect(requestResult));
         proposal.setChangeType(ChangeType.UPSERT);
 
+        Map<String, Long> createdOnMap = CondUpdateUtils.extractCondUpdate(condUpdate);
         _entityService.ingestProposal(proposal,
-            new AuditStamp().setActor(UrnUtils.getUrn(Constants.SYSTEM_ACTOR)).setTime(System.currentTimeMillis()), false);
+            new AuditStamp().setActor(UrnUtils.getUrn(Constants.SYSTEM_ACTOR)).setTime(System.currentTimeMillis()), false,
+            createdOnMap.get(proposal.getEntityUrn()));
       }
     } catch (Exception e) {
       log.error(String.format("Not able to update execution result aspect with runId %s and new status %s.", runId, status), e);

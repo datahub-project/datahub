@@ -7,7 +7,8 @@ import com.datahub.authentication.AuthenticationContext;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
-import com.linkedin.datahub.graphql.util.ETagUtil;
+import com.linkedin.datahub.graphql.util.CondUpdateUtils;
+import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.utils.metrics.MetricUtils;
 import com.linkedin.util.Pair;
@@ -108,14 +109,12 @@ public class EntitiesController {
   public ResponseEntity<List<String>> postEntities(
       @RequestBody @Nonnull List<UpsertAspectRequest> aspectRequests,
       @RequestHeader(name = "eTag") String eTag) {
-    // ETAG Comment: For Rest implementation we expect to receive eTag vai Http header.
     log.info("INGEST PROPOSAL proposal: {}", aspectRequests);
 
     Authentication authentication = AuthenticationContext.getAuthentication();
     String actorUrnStr = authentication.getActor().toUrnStr();
 
-    // ETAG Comment: eTag String is converted to Map and send to next level.
-    Map<String, Long> updateIfCreatedOnMap = ETagUtil.extractETag(eTag);
+    Map<String, Long> updateIfCreatedOnMap = CondUpdateUtils.extractCondUpdate(eTag);
     List<Pair<String, Boolean>> responses = aspectRequests.stream()
         .map(MappingUtil::mapToProposal)
         .map(proposal -> MappingUtil.ingestProposal(proposal, actorUrnStr,  _entityService, _objectMapper, updateIfCreatedOnMap.get(actorUrnStr)))
@@ -134,8 +133,7 @@ public class EntitiesController {
       @RequestParam("urns") @Nonnull String[] urns,
       @Parameter(name = "soft", description = "Determines whether the delete will be soft or hard, defaults to true for soft delete")
       @RequestParam(value = "soft", defaultValue = "true") boolean soft,
-      @RequestHeader(name = "eTag") String eTag) {
-    // ETAG Comment: For Rest implementation we expect to receive eTag via Http header.
+      @RequestHeader(name = Constants.IN_UNMODIFIED_SINCE) String condUpdate) {
     Timer.Context context = MetricUtils.timer("deleteEntities").time();
     final Set<Urn> entityUrns =
         Arrays.stream(urns)
@@ -145,9 +143,9 @@ public class EntitiesController {
     Throwable exceptionally = null;
     try {
       if (!soft) {
-
+        Map<String, Long> createdOnMap = CondUpdateUtils.extractCondUpdate(condUpdate);
         return ResponseEntity.ok(entityUrns.stream()
-            .map(_entityService::deleteUrn)
+            .map(urn -> _entityService.deleteUrn(urn, createdOnMap.get(urn)))
             .map(rollbackRunResult -> MappingUtil.mapRollbackRunResult(rollbackRunResult, _objectMapper))
             .collect(Collectors.toList()));
       } else {
@@ -158,9 +156,7 @@ public class EntitiesController {
         Authentication authentication = AuthenticationContext.getAuthentication();
         String actorUrnStr = authentication.getActor().toUrnStr();
 
-
-        // ETAG Comment: eTag String is converted to Map and send to next level.
-        Map<String, Long> updateIfCreatedOnMap = ETagUtil.extractETag(eTag);
+        Map<String, Long> updateIfCreatedOnMap = CondUpdateUtils.extractCondUpdate(condUpdate);
         return ResponseEntity.ok(Collections.singletonList(RollbackRunResultDto.builder()
             .rowsRolledBack(deleteRequests.stream()
                 .map(MappingUtil::mapToProposal)

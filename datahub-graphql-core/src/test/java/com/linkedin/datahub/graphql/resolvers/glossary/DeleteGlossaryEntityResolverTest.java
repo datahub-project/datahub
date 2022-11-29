@@ -37,7 +37,8 @@ public class DeleteGlossaryEntityResolverTest {
 
     Mockito.verify(mockClient, Mockito.times(1)).deleteEntity(
         Mockito.eq(Urn.createFromString(TEST_TERM_URN)),
-        Mockito.any(Authentication.class)
+        Mockito.any(Authentication.class),
+        Mockito.any()
     );
   }
 
@@ -46,7 +47,8 @@ public class DeleteGlossaryEntityResolverTest {
     EntityClient mockClient = Mockito.mock(EntityClient.class);
     Mockito.doThrow(RemoteInvocationException.class).when(mockClient).deleteEntity(
         Mockito.any(),
-        Mockito.any(Authentication.class));
+        Mockito.any(Authentication.class),
+        Mockito.any());
 
     EntityService mockService = Mockito.mock(EntityService.class);
     Mockito.when(mockService.exists(Urn.createFromString(TEST_TERM_URN))).thenReturn(true);

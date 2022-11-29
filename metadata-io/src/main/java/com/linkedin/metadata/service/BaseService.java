@@ -9,6 +9,7 @@ import com.linkedin.domain.Domains;
 import com.linkedin.entity.Aspect;
 import com.linkedin.entity.client.EntityClient;
 import com.linkedin.metadata.Constants;
+import com.linkedin.metadata.utils.CondUpdateUtils;
 import com.linkedin.mxe.MetadataChangeProposal;
 import com.linkedin.schema.EditableSchemaMetadata;
 import java.util.Collections;
@@ -18,6 +19,7 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
 import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 import lombok.extern.slf4j.Slf4j;
 
 import static com.linkedin.metadata.entity.AspectUtils.*;
@@ -228,10 +230,12 @@ public class BaseService {
     }
   }
 
-  protected void ingestChangeProposals(@Nonnull List<MetadataChangeProposal> changes, @Nonnull Authentication authentication) throws Exception {
+  protected void ingestChangeProposals(@Nonnull List<MetadataChangeProposal> changes, @Nonnull Authentication authentication,
+                                       @Nullable String condUpdate) throws Exception {
     // TODO: Replace this with a batch ingest proposals endpoint.
+    Map<String, Long> createdOnMap = CondUpdateUtils.extractCondUpdate(condUpdate);
     for (MetadataChangeProposal change : changes) {
-      this.entityClient.ingestProposal(change, authentication);
+      this.entityClient.ingestProposal(change, authentication, createdOnMap.get(change.getEntityUrn()));
     }
   }
 }

@@ -3,7 +3,8 @@ package io.datahubproject.openapi.platform.entities;
 import com.datahub.authentication.Authentication;
 import com.datahub.authentication.AuthenticationContext;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.linkedin.datahub.graphql.util.ETagUtil;
+import com.linkedin.datahub.graphql.util.CondUpdateUtils;
+import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.util.Pair;
 import io.datahubproject.openapi.generated.MetadataChangeProposal;
@@ -47,14 +48,13 @@ public class PlatformEntitiesController {
   @PostMapping(value = "/", produces = MediaType.APPLICATION_JSON_VALUE)
   public ResponseEntity<List<String>> postEntities(
       @RequestBody @Nonnull List<MetadataChangeProposal> metadataChangeProposals,
-      @RequestHeader(name = "eTag") String eTag) {
-    // ETAG Comment: For Rest implementation we expect to receive eTag via Http header.
+      @RequestHeader(name = Constants.IN_UNMODIFIED_SINCE) String condUpdate) {
     log.info("INGEST PROPOSAL proposal: {}", metadataChangeProposals);
 
     Authentication authentication = AuthenticationContext.getAuthentication();
     String actorUrnStr = authentication.getActor().toUrnStr();
 
-    Map<String, Long> updateIfCreatedOnMap = ETagUtil.extractETag(eTag);
+    Map<String, Long> updateIfCreatedOnMap = CondUpdateUtils.extractCondUpdate(condUpdate);
     List<Pair<String, Boolean>> responses = metadataChangeProposals.stream()
         .map(proposal -> MappingUtil.ingestProposal(proposal, actorUrnStr, _entityService, _objectMapper, updateIfCreatedOnMap.get(actorUrnStr)))
         .collect(Collectors.toList());

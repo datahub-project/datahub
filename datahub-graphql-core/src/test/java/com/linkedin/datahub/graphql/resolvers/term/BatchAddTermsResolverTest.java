@@ -221,7 +221,7 @@ public class BatchAddTermsResolverTest {
 
     Mockito.doThrow(RuntimeException.class).when(mockService).ingestProposal(
         Mockito.any(),
-        Mockito.any(AuditStamp.class), Mockito.anyBoolean());
+        Mockito.any(AuditStamp.class), Mockito.anyBoolean(), Mockito.any());
 
     BatchAddTermsResolver resolver = new BatchAddTermsResolver(mockService);
 

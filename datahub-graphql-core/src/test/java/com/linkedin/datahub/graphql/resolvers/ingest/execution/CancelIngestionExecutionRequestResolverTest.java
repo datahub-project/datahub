@@ -59,7 +59,8 @@ public class CancelIngestionExecutionRequestResolverTest {
     // Verify ingest proposal has been called to create a Signal request.
     Mockito.verify(mockClient, Mockito.times(1)).ingestProposal(
         Mockito.any(MetadataChangeProposal.class),
-        Mockito.any(Authentication.class)
+        Mockito.any(Authentication.class),
+        Mockito.any()
     );
   }
 
@@ -78,7 +79,8 @@ public class CancelIngestionExecutionRequestResolverTest {
     assertThrows(RuntimeException.class, () -> resolver.get(mockEnv).join());
     Mockito.verify(mockClient, Mockito.times(0)).ingestProposal(
         Mockito.any(),
-        Mockito.any(Authentication.class));
+        Mockito.any(Authentication.class),
+        Mockito.any());
   }
 
   @Test
@@ -87,7 +89,8 @@ public class CancelIngestionExecutionRequestResolverTest {
     EntityClient mockClient = Mockito.mock(EntityClient.class);
     Mockito.doThrow(RemoteInvocationException.class).when(mockClient).ingestProposal(
         Mockito.any(),
-        Mockito.any(Authentication.class));
+        Mockito.any(Authentication.class),
+        Mockito.any());
     CancelIngestionExecutionRequestResolver resolver = new CancelIngestionExecutionRequestResolver(mockClient);
 
     // Execute resolver

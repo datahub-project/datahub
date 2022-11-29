@@ -19,12 +19,14 @@ import com.linkedin.datahub.graphql.generated.OwnerEntityType;
 import com.linkedin.datahub.graphql.generated.OwnerInput;
 import com.linkedin.datahub.graphql.generated.ResourceRefInput;
 import com.linkedin.datahub.graphql.resolvers.mutate.MutationUtils;
+import com.linkedin.datahub.graphql.util.CondUpdateUtils;
 import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.authorization.PoliciesConfig;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.mxe.MetadataChangeProposal;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
 import lombok.extern.slf4j.Slf4j;
@@ -46,26 +48,28 @@ public class OwnerUtils {
       List<OwnerInput> owners,
       List<ResourceRefInput> resources,
       Urn actor,
-      EntityService entityService
+      EntityService entityService,
+      String condUpdate
   ) {
     final List<MetadataChangeProposal> changes = new ArrayList<>();
     for (ResourceRefInput resource : resources) {
       changes.add(buildAddOwnersProposal(owners, UrnUtils.getUrn(resource.getResourceUrn()), actor, entityService));
     }
-    ingestChangeProposals(changes, entityService, actor);
+    ingestChangeProposals(changes, entityService, actor, condUpdate);
   }
 
   public static void removeOwnersFromResources(
       List<Urn> ownerUrns,
       List<ResourceRefInput> resources,
       Urn actor,
-      EntityService entityService
+      EntityService entityService,
+      String condUpdate
   ) {
     final List<MetadataChangeProposal> changes = new ArrayList<>();
     for (ResourceRefInput resource : resources) {
       changes.add(buildRemoveOwnersProposal(ownerUrns, UrnUtils.getUrn(resource.getResourceUrn()), actor, entityService));
     }
-    ingestChangeProposals(changes, entityService, actor);
+    ingestChangeProposals(changes, entityService, actor, condUpdate);
   }
 
 
@@ -214,10 +218,11 @@ public class OwnerUtils {
     return true;
   }
 
-  private static void ingestChangeProposals(List<MetadataChangeProposal> changes, EntityService entityService, Urn actor) {
+  private static void ingestChangeProposals(List<MetadataChangeProposal> changes, EntityService entityService, Urn actor, String condUpdate) {
     // TODO: Replace this with a batch ingest proposals endpoint.
+    Map<String, Long> createdOnMap = CondUpdateUtils.extractCondUpdate(condUpdate);
     for (MetadataChangeProposal change : changes) {
-      entityService.ingestProposal(change, getAuditStamp(actor), false);
+      entityService.ingestProposal(change, getAuditStamp(actor), false, createdOnMap.get(change.getEntityUrn()));
     }
   }
 
@@ -226,14 +231,16 @@ public class OwnerUtils {
     String urn,
     OwnerEntityType ownerEntityType,
     com.linkedin.datahub.graphql.generated.OwnershipType ownershipType,
-    EntityService entityService) {
+    EntityService entityService,
+    String condUpdate) {
     try {
       Urn actorUrn = CorpuserUrn.createFromString(context.getActorUrn());
       addOwnersToResources(
           ImmutableList.of(new OwnerInput(actorUrn.toString(), ownerEntityType, ownershipType)),
           ImmutableList.of(new ResourceRefInput(urn, null, null)),
           actorUrn,
-          entityService
+          entityService,
+          condUpdate
       );
     } catch (Exception e) {
       log.error(String.format("Failed to add creator as owner of tag %s", urn), e);

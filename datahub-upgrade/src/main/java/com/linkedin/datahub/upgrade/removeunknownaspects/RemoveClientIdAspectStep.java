@@ -34,7 +34,7 @@ public class RemoveClientIdAspectStep implements UpgradeStep {
   public Function<UpgradeContext, UpgradeStepResult> executable() {
     return upgradeContext -> {
       _entityService.deleteAspect(TelemetryUtils.CLIENT_ID_URN, INVALID_CLIENT_ID_ASPECT,
-          new HashMap<>(), true);
+          new HashMap<>(), true, null);
       return (UpgradeStepResult) new DefaultUpgradeStepResult(id(), UpgradeStepResult.Result.SUCCEEDED);
     };
   }

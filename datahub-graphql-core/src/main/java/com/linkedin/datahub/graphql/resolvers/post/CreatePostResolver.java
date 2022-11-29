@@ -11,6 +11,7 @@ import com.linkedin.datahub.graphql.generated.PostContentType;
 import com.linkedin.datahub.graphql.generated.PostType;
 import com.linkedin.datahub.graphql.generated.UpdateMediaInput;
 import com.linkedin.datahub.graphql.generated.UpdatePostContentInput;
+import com.linkedin.metadata.Constants;
 import com.linkedin.post.PostContent;
 import graphql.schema.DataFetcher;
 import graphql.schema.DataFetchingEnvironment;
@@ -28,6 +29,8 @@ public class CreatePostResolver implements DataFetcher<CompletableFuture<Boolean
 
   @Override
   public CompletableFuture<Boolean> get(final DataFetchingEnvironment environment) throws Exception {
+    final String condUpdate = environment.getVariables().containsKey(Constants.IN_UNMODIFIED_SINCE)
+            ? environment.getVariables().get(Constants.IN_UNMODIFIED_SINCE).toString() : null;
     final QueryContext context = environment.getContext();
 
     if (!AuthorizationUtils.canCreateGlobalAnnouncements(context)) {
@@ -51,7 +54,7 @@ public class CreatePostResolver implements DataFetcher<CompletableFuture<Boolean
 
     return CompletableFuture.supplyAsync(() -> {
       try {
-        return _postService.createPost(type.toString(), postContent, authentication);
+        return _postService.createPost(type.toString(), postContent, authentication, condUpdate);
       } catch (Exception e) {
         throw new RuntimeException("Failed to create a new post", e);
       }

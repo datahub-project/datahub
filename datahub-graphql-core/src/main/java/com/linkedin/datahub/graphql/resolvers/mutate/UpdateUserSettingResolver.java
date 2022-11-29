@@ -5,12 +5,15 @@ import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.generated.UpdateUserSettingInput;
 import com.linkedin.datahub.graphql.generated.UserSetting;
+import com.linkedin.datahub.graphql.util.CondUpdateUtils;
 import com.linkedin.identity.CorpUserAppearanceSettings;
 import com.linkedin.identity.CorpUserSettings;
+import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.mxe.MetadataChangeProposal;
 import graphql.schema.DataFetcher;
 import graphql.schema.DataFetchingEnvironment;
+import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -28,6 +31,8 @@ public class UpdateUserSettingResolver implements DataFetcher<CompletableFuture<
 
   @Override
   public CompletableFuture<Boolean> get(DataFetchingEnvironment environment) throws Exception {
+    final String condUpdate = environment.getVariables().containsKey(Constants.IN_UNMODIFIED_SINCE)
+            ? environment.getVariables().get(Constants.IN_UNMODIFIED_SINCE).toString() : null;
     final QueryContext context = environment.getContext();
     final UpdateUserSettingInput input = bindArgument(environment.getArgument("input"), UpdateUserSettingInput.class);
 
@@ -51,12 +56,13 @@ public class UpdateUserSettingResolver implements DataFetcher<CompletableFuture<
         MetadataChangeProposal proposal =
             buildMetadataChangeProposal(actor, CORP_USER_SETTINGS_ASPECT_NAME, newSettings, actor, _entityService);
 
-        _entityService.ingestProposal(proposal, getAuditStamp(actor), false);
+        Map<String, Long> createdOnMap = CondUpdateUtils.extractCondUpdate(condUpdate);
+        _entityService.ingestProposal(proposal, getAuditStamp(actor), false, createdOnMap.get(actor));
 
         return true;
       } catch (Exception e) {
-        log.error("Failed to perform user settings update against input {}, {}", input.toString(), e.getMessage());
-        throw new RuntimeException(String.format("Failed to perform user settings update against input %s", input.toString()), e);
+        log.error("Failed to perform user settings update against input {}, {}", input, e.getMessage());
+        throw new RuntimeException(String.format("Failed to perform user settings update against input %s", input), e);
       }
     });
   }

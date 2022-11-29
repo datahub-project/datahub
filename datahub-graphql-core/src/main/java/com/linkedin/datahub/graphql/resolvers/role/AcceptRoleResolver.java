@@ -6,6 +6,7 @@ import com.datahub.authorization.role.RoleService;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.generated.AcceptRoleInput;
+import com.linkedin.metadata.Constants;
 import graphql.schema.DataFetcher;
 import graphql.schema.DataFetchingEnvironment;
 import java.util.Collections;
@@ -25,6 +26,8 @@ public class AcceptRoleResolver implements DataFetcher<CompletableFuture<Boolean
 
   @Override
   public CompletableFuture<Boolean> get(DataFetchingEnvironment environment) throws Exception {
+    final String condUpdate = environment.getVariables().containsKey(Constants.IN_UNMODIFIED_SINCE)
+            ? environment.getVariables().get(Constants.IN_UNMODIFIED_SINCE).toString() : null;
     final QueryContext context = environment.getContext();
 
     final AcceptRoleInput input = bindArgument(environment.getArgument("input"), AcceptRoleInput.class);
@@ -40,7 +43,7 @@ public class AcceptRoleResolver implements DataFetcher<CompletableFuture<Boolean
 
         final Urn roleUrn = _inviteTokenService.getInviteTokenRole(inviteTokenUrn, authentication);
         _roleService.batchAssignRoleToActors(Collections.singletonList(authentication.getActor().toUrnStr()), roleUrn,
-            authentication);
+            authentication, condUpdate);
 
         return true;
       } catch (Exception e) {

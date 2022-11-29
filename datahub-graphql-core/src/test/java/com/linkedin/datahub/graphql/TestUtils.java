@@ -43,7 +43,8 @@ public class TestUtils {
     Mockito.verify(mockService, Mockito.times(numberOfInvocations)).ingestProposal(
         Mockito.eq(proposal),
         Mockito.any(AuditStamp.class),
-        Mockito.eq(false)
+        Mockito.eq(false),
+        Mockito.any()
     );
   }
 
@@ -51,14 +52,16 @@ public class TestUtils {
     Mockito.verify(mockService, Mockito.times(numberOfInvocations)).ingestProposal(
         Mockito.any(MetadataChangeProposal.class),
         Mockito.any(AuditStamp.class),
-        Mockito.eq(false)
+        Mockito.eq(false),
+        Mockito.any()
     );
   }
 
   public static void verifyNoIngestProposal(EntityService mockService) {
     Mockito.verify(mockService, Mockito.times(0)).ingestProposal(
         Mockito.any(),
-        Mockito.any(AuditStamp.class), Mockito.anyBoolean());
+        Mockito.any(AuditStamp.class), Mockito.anyBoolean(),
+        Mockito.any());
   }
 
   private TestUtils() { }

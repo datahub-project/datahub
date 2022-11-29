@@ -26,8 +26,8 @@ public class RemoveTagResolver implements DataFetcher<CompletableFuture<Boolean>
 
   @Override
   public CompletableFuture<Boolean> get(DataFetchingEnvironment environment) throws Exception {
-    // ETAG Comment: Client should send the eTag as part of the Variables. Here we received it for GraphQL implementation.
-    final String eTag = environment.getVariables().containsKey("eTag") ? environment.getVariables().get("eTag").toString() : null;
+    final String condUpdate = environment.getVariables().containsKey(Constants.IN_UNMODIFIED_SINCE)
+            ? environment.getVariables().get(Constants.IN_UNMODIFIED_SINCE).toString() : null;
     final TagAssociationInput input = bindArgument(environment.getArgument("input"), TagAssociationInput.class);
     Urn tagUrn = Urn.createFromString(input.getTagUrn());
     Urn targetUrn = Urn.createFromString(input.getResourceUrn());
@@ -49,7 +49,7 @@ public class RemoveTagResolver implements DataFetcher<CompletableFuture<Boolean>
       try {
 
         if (!tagUrn.getEntityType().equals(Constants.TAG_ENTITY_NAME)) {
-          log.error("Failed to remove %s. It is not a tag urn.", tagUrn.toString());
+          log.error("Failed to remove %s. It is not a tag urn.", tagUrn);
           return false;
         }
 
@@ -60,12 +60,12 @@ public class RemoveTagResolver implements DataFetcher<CompletableFuture<Boolean>
             ImmutableList.of(new ResourceRefInput(input.getResourceUrn(), input.getSubResourceType(), input.getSubResource())),
             actor,
             _entityService,
-            eTag // ETAG Comment: eTag is sent to one of the Utils class. (Still not implemented for the other Utils classes)
+            condUpdate
         );
         return true;
       } catch (Exception e) {
-        log.error("Failed to perform update against input {}, {}", input.toString(), e.getMessage());
-        throw new RuntimeException(String.format("Failed to perform update against input %s", input.toString()), e);
+        log.error("Failed to perform update against input {}, {}", input, e.getMessage());
+        throw new RuntimeException(String.format("Failed to perform update against input %s", input), e);
       }
     });
   }

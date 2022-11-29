@@ -3,6 +3,7 @@ package com.linkedin.datahub.graphql.types;
 import com.linkedin.datahub.graphql.QueryContext;
 
 import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 import java.util.List;
 
 public interface BatchMutableType<I, B, T> extends MutableType<I, T> {
@@ -10,7 +11,7 @@ public interface BatchMutableType<I, B, T> extends MutableType<I, T> {
         throw new UnsupportedOperationException(this.getClass().getName() + " does not implement batchInputClass method");
     }
 
-    default List<T> batchUpdate(@Nonnull final B[] updateInput, QueryContext context) throws Exception {
+    default List<T> batchUpdate(@Nonnull final B[] updateInput, QueryContext context, @Nullable String condUpdate) throws Exception {
         throw new UnsupportedOperationException(this.getClass().getName() + " does not implement batchUpdate method");
     }
 }

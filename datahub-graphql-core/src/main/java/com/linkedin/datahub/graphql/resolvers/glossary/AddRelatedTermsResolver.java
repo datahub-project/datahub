@@ -33,7 +33,8 @@ public class AddRelatedTermsResolver implements DataFetcher<CompletableFuture<Bo
 
   @Override
   public CompletableFuture<Boolean> get(DataFetchingEnvironment environment) throws Exception {
-
+    final String condUpdate = environment.getVariables().containsKey(Constants.IN_UNMODIFIED_SINCE)
+            ? environment.getVariables().get(Constants.IN_UNMODIFIED_SINCE).toString() : null;
     final QueryContext context = environment.getContext();
     final RelatedTermsInput input = bindArgument(environment.getArgument("input"), RelatedTermsInput.class);
 
@@ -64,14 +65,14 @@ public class AddRelatedTermsResolver implements DataFetcher<CompletableFuture<Bo
             }
             final GlossaryTermUrnArray existingTermUrns = glossaryRelatedTerms.getIsRelatedTerms();
 
-            return updateRelatedTerms(termUrns, existingTermUrns, urn, glossaryRelatedTerms, actor);
+            return updateRelatedTerms(termUrns, existingTermUrns, urn, glossaryRelatedTerms, actor, condUpdate);
           } else {
             if (!glossaryRelatedTerms.hasHasRelatedTerms()) {
               glossaryRelatedTerms.setHasRelatedTerms(new GlossaryTermUrnArray());
             }
             final GlossaryTermUrnArray existingTermUrns = glossaryRelatedTerms.getHasRelatedTerms();
 
-            return updateRelatedTerms(termUrns, existingTermUrns, urn, glossaryRelatedTerms, actor);
+            return updateRelatedTerms(termUrns, existingTermUrns, urn, glossaryRelatedTerms, actor, condUpdate);
           }
         } catch (Exception e) {
           throw new RuntimeException(String.format("Failed to add related terms to %s", input.getUrn()), e);
@@ -98,7 +99,8 @@ public class AddRelatedTermsResolver implements DataFetcher<CompletableFuture<Bo
     return true;
   }
 
-  private Boolean updateRelatedTerms(List<Urn> termUrns, GlossaryTermUrnArray existingTermUrns, Urn urn, GlossaryRelatedTerms glossaryRelatedTerms, Urn actor) {
+  private Boolean updateRelatedTerms(List<Urn> termUrns, GlossaryTermUrnArray existingTermUrns, Urn urn, GlossaryRelatedTerms glossaryRelatedTerms,
+                                     Urn actor, String condUpdate) {
     List<Urn> termsToAdd = new ArrayList<>();
     for (Urn termUrn : termUrns) {
       if (existingTermUrns.stream().anyMatch(association -> association.equals(termUrn))) {
@@ -116,7 +118,7 @@ public class AddRelatedTermsResolver implements DataFetcher<CompletableFuture<Bo
 
       existingTermUrns.add(newUrn);
     }
-    persistAspect(urn, Constants.GLOSSARY_RELATED_TERM_ASPECT_NAME, glossaryRelatedTerms, actor, _entityService);
+    persistAspect(urn, Constants.GLOSSARY_RELATED_TERM_ASPECT_NAME, glossaryRelatedTerms, actor, _entityService, condUpdate);
     return true;
   }
 }

@@ -513,7 +513,7 @@ private Map<Urn, List<EnvelopedAspect>> getCorrespondingAspects(Set<EntityAspect
   @Nonnull
   protected UpdateAspectResult wrappedIngestAspectToLocalDB(@Nonnull final Urn urn, @Nonnull final String aspectName,
       @Nonnull final Function<Optional<RecordTemplate>, RecordTemplate> updateLambda,
-      @Nonnull final AuditStamp auditStamp, @Nonnull final SystemMetadata systemMetadata, Long updateIfCreatedOn) {
+      @Nonnull final AuditStamp auditStamp, @Nonnull final SystemMetadata systemMetadata, @Nullable Long updateIfCreatedOn) {
     validateUrn(urn);
     validateAspect(urn, updateLambda.apply(null));
     return ingestAspectToLocalDB(urn, aspectName, updateLambda, auditStamp, systemMetadata, updateIfCreatedOn);
@@ -563,7 +563,7 @@ private Map<Urn, List<EnvelopedAspect>> getCorrespondingAspects(Set<EntityAspect
       @Nonnull final Function<Optional<RecordTemplate>, RecordTemplate> updateLambda,
       @Nonnull final AuditStamp auditStamp,
       @Nonnull final SystemMetadata providedSystemMetadata,
-      Long updateIfCreatedOn) {
+      @Nullable Long updateIfCreatedOn) {
 
     return _aspectDao.runInTransactionWithRetry(() -> {
       final String urnStr = urn.toString();
@@ -591,7 +591,7 @@ private Map<Urn, List<EnvelopedAspect>> getCorrespondingAspects(Set<EntityAspect
       @Nonnull final Patch jsonPatch,
       @Nonnull final AuditStamp auditStamp,
       @Nonnull final SystemMetadata providedSystemMetadata,
-      Long updateIfCreatedOn) {
+      @Nullable Long updateIfCreatedOn) {
 
     return _aspectDao.runInTransactionWithRetry(() -> {
       final String urnStr = urn.toString();
@@ -681,8 +681,6 @@ private Map<Urn, List<EnvelopedAspect>> getCorrespondingAspects(Set<EntityAspect
     }
   }
 
-  // ETAG Comment: Entry Point for Multiple Aspect Changes.
-  // GraphQl and Rest are calling this function.
   public void ingestAspects(@Nonnull final Urn urn, @Nonnull List<Pair<String, RecordTemplate>> aspectRecordsToIngest,
      @Nonnull final AuditStamp auditStamp, SystemMetadata systemMetadata) {
     ingestAspects(urn, aspectRecordsToIngest, auditStamp, systemMetadata, null);
@@ -715,15 +713,9 @@ private Map<Urn, List<EnvelopedAspect>> getCorrespondingAspects(Set<EntityAspect
    * @param systemMetadata
    * @return the {@link RecordTemplate} representation of the written aspect object
    */
-  // ETAG Comment: Entry Point for Single Aspect Changes.
-  // GraphQl and Rest are calling this function.
   public RecordTemplate ingestAspect(@Nonnull final Urn urn, @Nonnull final String aspectName,
-      @Nonnull final RecordTemplate newValue, @Nonnull final AuditStamp auditStamp, @Nonnull SystemMetadata systemMetadata) {
-    return ingestAspect(urn, aspectName, newValue, auditStamp, systemMetadata, null);
-  }
-  public RecordTemplate ingestAspect(@Nonnull final Urn urn, @Nonnull final String aspectName,
-      @Nonnull final RecordTemplate newValue, @Nonnull final AuditStamp auditStamp, @Nonnull SystemMetadata systemMetadata, Long updateIfCreatedOn) {
-
+      @Nonnull final RecordTemplate newValue, @Nonnull final AuditStamp auditStamp, @Nonnull SystemMetadata systemMetadata,
+      @Nullable Long updateIfCreatedOn) {
     log.debug("Invoked ingestAspect with urn: {}, aspectName: {}, newValue: {}", urn, aspectName, newValue);
 
     systemMetadata = generateSystemMetadataIfEmpty(systemMetadata);
@@ -850,13 +842,8 @@ private Map<Urn, List<EnvelopedAspect>> getCorrespondingAspects(Set<EntityAspect
      * @param async a flag to control whether we commit to primary store or just write to proposal log before returning
      * @return an {@link IngestProposalResult} containing the results
      */
-  // ETAG Comment: Entry Point for IngestProposal.
-  // GraphQl and Rest are calling this function.
-  public IngestProposalResult ingestProposal(@Nonnull MetadataChangeProposal mcp, AuditStamp auditStamp, final boolean async) {
-    return ingestProposal(mcp, auditStamp, async, null);
-  }
   public IngestProposalResult ingestProposal(@Nonnull MetadataChangeProposal mcp, AuditStamp auditStamp, final boolean async,
-     Long updateIfCreatedOn) {
+                                             @Nullable Long updateIfCreatedOn) {
 
     log.debug("entity type = {}", mcp.getEntityType());
     EntitySpec entitySpec = getEntityRegistry().getEntitySpec(mcp.getEntityType());
@@ -1569,18 +1556,19 @@ private Map<Urn, List<EnvelopedAspect>> getCorrespondingAspects(Set<EntityAspect
     _aspectDao.setWritable(canWrite);
   }
 
-  public RollbackRunResult rollbackRun(List<AspectRowSummary> aspectRows, String runId, boolean hardDelete) {
-    return rollbackWithConditions(aspectRows, Collections.singletonMap("runId", runId), hardDelete);
+  public RollbackRunResult rollbackRun(List<AspectRowSummary> aspectRows, String runId, boolean hardDelete, Map<String, Long> createdOnMap) {
+    return rollbackWithConditions(aspectRows, Collections.singletonMap("runId", runId), hardDelete, createdOnMap);
   }
 
-  public RollbackRunResult rollbackWithConditions(List<AspectRowSummary> aspectRows, Map<String, String> conditions, boolean hardDelete) {
+  public RollbackRunResult rollbackWithConditions(List<AspectRowSummary> aspectRows, Map<String, String> conditions, boolean hardDelete,
+                                                  Map<String, Long> createdOnMap) {
     List<AspectRowSummary> removedAspects = new ArrayList<>();
     AtomicInteger rowsDeletedFromEntityDeletion = new AtomicInteger(0);
 
     aspectRows.forEach(aspectToRemove -> {
 
       RollbackResult result = deleteAspect(aspectToRemove.getUrn(), aspectToRemove.getAspectName(),
-          conditions, hardDelete);
+          conditions, hardDelete, createdOnMap.get(aspectToRemove.getUrn()));
       if (result != null) {
         Optional<AspectSpec> aspectSpec = getAspectSpec(result.entityName, result.aspectName);
         if (!aspectSpec.isPresent()) {
@@ -1601,7 +1589,7 @@ private Map<Urn, List<EnvelopedAspect>> getCorrespondingAspects(Set<EntityAspect
     return new RollbackRunResult(removedAspects, rowsDeletedFromEntityDeletion.get());
   }
 
-  public RollbackRunResult deleteUrn(Urn urn) {
+  public RollbackRunResult deleteUrn(Urn urn, Long createdOn) {
     List<AspectRowSummary> removedAspects = new ArrayList<>();
     Integer rowsDeletedFromEntityDeletion = 0;
 
@@ -1615,7 +1603,7 @@ private Map<Urn, List<EnvelopedAspect>> getCorrespondingAspects(Set<EntityAspect
     }
 
     SystemMetadata latestKeySystemMetadata = EntityUtils.parseSystemMetadata(latestKey.getSystemMetadata());
-    RollbackResult result = deleteAspect(urn.toString(), keyAspectName, Collections.singletonMap("runId", latestKeySystemMetadata.getRunId()), true);
+    RollbackResult result = deleteAspect(urn.toString(), keyAspectName, Collections.singletonMap("runId", latestKeySystemMetadata.getRunId()), true, createdOn);
 
     if (result != null) {
       AspectRowSummary summary = new AspectRowSummary();
@@ -1648,7 +1636,8 @@ private Map<Urn, List<EnvelopedAspect>> getCorrespondingAspects(Set<EntityAspect
   }
 
   @Nullable
-  public RollbackResult deleteAspect(String urn, String aspectName, @Nonnull Map<String, String> conditions, boolean hardDelete) {
+  public RollbackResult deleteAspect(String urn, String aspectName, @Nonnull Map<String, String> conditions,
+                                     boolean hardDelete, @Nullable Long createdOn) {
     // Validate pre-conditions before running queries
     Urn entityUrn;
     EntitySpec entitySpec;
@@ -1739,7 +1728,7 @@ private Map<Urn, List<EnvelopedAspect>> getCorrespondingAspects(Set<EntityAspect
             gmce.setAspect(GenericRecordUtils.serializeAspect(statusAspect));
             final AuditStamp auditStamp = new AuditStamp().setActor(UrnUtils.getUrn(Constants.SYSTEM_ACTOR)).setTime(System.currentTimeMillis());
 
-            this.ingestProposal(gmce, auditStamp, false);
+            this.ingestProposal(gmce, auditStamp, false, createdOn);
           }
         } else {
           // Else, only delete the specific aspect.
@@ -1907,7 +1896,7 @@ private Map<Urn, List<EnvelopedAspect>> getCorrespondingAspects(Set<EntityAspect
       @Nonnull final SystemMetadata providedSystemMetadata,
       @Nullable final EntityAspect latest,
       @Nonnull final Long nextVersion,
-      Long updateIfCreatedOn) {
+      @Nullable Long updateIfCreatedOn) {
 
     // 2. Compare the latest existing and new.
     final RecordTemplate oldValue =

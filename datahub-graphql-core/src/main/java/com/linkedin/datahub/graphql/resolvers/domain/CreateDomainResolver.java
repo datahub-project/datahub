@@ -8,6 +8,7 @@ import com.linkedin.datahub.graphql.generated.CreateDomainInput;
 import com.linkedin.datahub.graphql.generated.OwnerEntityType;
 import com.linkedin.datahub.graphql.generated.OwnershipType;
 import com.linkedin.datahub.graphql.resolvers.mutate.util.OwnerUtils;
+import com.linkedin.datahub.graphql.util.CondUpdateUtils;
 import com.linkedin.domain.DomainProperties;
 import com.linkedin.entity.client.EntityClient;
 import com.linkedin.events.metadata.ChangeType;
@@ -19,6 +20,7 @@ import com.linkedin.metadata.utils.GenericRecordUtils;
 import com.linkedin.mxe.MetadataChangeProposal;
 import graphql.schema.DataFetcher;
 import graphql.schema.DataFetchingEnvironment;
+import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import lombok.RequiredArgsConstructor;
@@ -38,7 +40,8 @@ public class CreateDomainResolver implements DataFetcher<CompletableFuture<Strin
 
   @Override
   public CompletableFuture<String> get(DataFetchingEnvironment environment) throws Exception {
-
+    final String condUpdate = environment.getVariables().containsKey(Constants.IN_UNMODIFIED_SINCE)
+            ? environment.getVariables().get(Constants.IN_UNMODIFIED_SINCE).toString() : null;
     final QueryContext context = environment.getContext();
     final CreateDomainInput input = bindArgument(environment.getArgument("input"), CreateDomainInput.class);
 
@@ -68,8 +71,9 @@ public class CreateDomainResolver implements DataFetcher<CompletableFuture<Strin
         proposal.setAspect(GenericRecordUtils.serializeAspect(mapDomainProperties(input)));
         proposal.setChangeType(ChangeType.UPSERT);
 
-        String domainUrn = _entityClient.ingestProposal(proposal, context.getAuthentication());
-        OwnerUtils.addCreatorAsOwner(context, domainUrn, OwnerEntityType.CORP_USER, OwnershipType.TECHNICAL_OWNER, _entityService);
+        Map<String, Long> createdOnMap = CondUpdateUtils.extractCondUpdate(condUpdate);
+        String domainUrn = _entityClient.ingestProposal(proposal, context.getAuthentication(), createdOnMap.get(proposal.getEntityUrn()));
+        OwnerUtils.addCreatorAsOwner(context, domainUrn, OwnerEntityType.CORP_USER, OwnershipType.TECHNICAL_OWNER, _entityService, condUpdate);
         return domainUrn;
       } catch (Exception e) {
         log.error("Failed to create Domain with id: {}, name: {}: {}", input.getId(), input.getName(), e.getMessage());

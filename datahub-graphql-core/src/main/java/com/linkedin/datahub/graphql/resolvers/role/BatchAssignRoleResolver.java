@@ -6,6 +6,7 @@ import com.linkedin.common.urn.Urn;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.exception.AuthorizationException;
 import com.linkedin.datahub.graphql.generated.BatchAssignRoleInput;
+import com.linkedin.metadata.Constants;
 import graphql.schema.DataFetcher;
 import graphql.schema.DataFetchingEnvironment;
 import java.util.List;
@@ -24,6 +25,8 @@ public class BatchAssignRoleResolver implements DataFetcher<CompletableFuture<Bo
 
   @Override
   public CompletableFuture<Boolean> get(DataFetchingEnvironment environment) throws Exception {
+    final String condUpdate = environment.getVariables().containsKey(Constants.IN_UNMODIFIED_SINCE)
+            ? environment.getVariables().get(Constants.IN_UNMODIFIED_SINCE).toString() : null;
     final QueryContext context = environment.getContext();
     if (!canManagePolicies(context)) {
       throw new AuthorizationException(
@@ -38,7 +41,7 @@ public class BatchAssignRoleResolver implements DataFetcher<CompletableFuture<Bo
     return CompletableFuture.supplyAsync(() -> {
       try {
         final Urn roleUrn = roleUrnStr == null ? null : Urn.createFromString(roleUrnStr);
-        _roleService.batchAssignRoleToActors(actors, roleUrn, authentication);
+        _roleService.batchAssignRoleToActors(actors, roleUrn, authentication, condUpdate);
         return true;
       } catch (Exception e) {
         throw new RuntimeException(String.format("Failed to perform update against input %s", input), e);

@@ -392,7 +392,7 @@ public class OidcCallbackLogic extends DefaultCallbackLogic<Result, PlayWebConte
     proposal.setAspect(GenericRecordUtils.serializeAspect(groupMembership));
     proposal.setChangeType(ChangeType.UPSERT);
     try {
-      _entityClient.ingestProposal(proposal, _systemAuthentication);
+      _entityClient.ingestProposal(proposal, _systemAuthentication, null);
     } catch (RemoteInvocationException e) {
       throw new RuntimeException(String.format("Failed to update group membership for user with urn %s", urn), e);
     }
@@ -426,7 +426,7 @@ public class OidcCallbackLogic extends DefaultCallbackLogic<Result, PlayWebConte
     proposal.setAspectName(Constants.CORP_USER_STATUS_ASPECT_NAME);
     proposal.setAspect(GenericRecordUtils.serializeAspect(newStatus));
     proposal.setChangeType(ChangeType.UPSERT);
-    _entityClient.ingestProposal(proposal, _systemAuthentication);
+    _entityClient.ingestProposal(proposal, _systemAuthentication, null);
   }
 
   private Optional<String> extractRegexGroup(final String patternStr, final String target) {

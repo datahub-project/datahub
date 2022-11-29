@@ -5,6 +5,7 @@ import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.exception.AuthorizationException;
 import com.linkedin.datahub.graphql.generated.CreateNativeUserResetTokenInput;
 import com.linkedin.datahub.graphql.generated.ResetToken;
+import com.linkedin.metadata.Constants;
 import graphql.schema.DataFetcher;
 import graphql.schema.DataFetchingEnvironment;
 import java.util.Objects;
@@ -26,6 +27,8 @@ public class CreateNativeUserResetTokenResolver implements DataFetcher<Completab
 
   @Override
   public CompletableFuture<ResetToken> get(final DataFetchingEnvironment environment) throws Exception {
+    final String condUpdate = environment.getVariables().containsKey(Constants.IN_UNMODIFIED_SINCE)
+            ? environment.getVariables().get(Constants.IN_UNMODIFIED_SINCE).toString() : null;
     final QueryContext context = environment.getContext();
     final CreateNativeUserResetTokenInput input =
         bindArgument(environment.getArgument("input"), CreateNativeUserResetTokenInput.class);
@@ -41,7 +44,7 @@ public class CreateNativeUserResetTokenResolver implements DataFetcher<Completab
     return CompletableFuture.supplyAsync(() -> {
       try {
         String resetToken =
-            _nativeUserService.generateNativeUserPasswordResetToken(userUrnString, context.getAuthentication());
+            _nativeUserService.generateNativeUserPasswordResetToken(userUrnString, context.getAuthentication(), condUpdate);
         return new ResetToken(resetToken);
       } catch (Exception e) {
         throw new RuntimeException(

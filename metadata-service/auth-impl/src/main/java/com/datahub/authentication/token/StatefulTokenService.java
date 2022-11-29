@@ -14,6 +14,7 @@ import com.linkedin.metadata.entity.AspectUtils;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.key.DataHubAccessTokenKey;
 import com.linkedin.metadata.utils.AuditStampUtils;
+import com.linkedin.metadata.utils.CondUpdateUtils;
 import com.linkedin.metadata.utils.GenericRecordUtils;
 import com.linkedin.mxe.MetadataChangeProposal;
 import java.util.Base64;
@@ -75,16 +76,16 @@ public class StatefulTokenService extends StatelessTokenService {
 
   @Nonnull
   public String generateAccessToken(@Nonnull final TokenType type, @Nonnull final Actor actor,
-      @Nonnull final String name, final String description, final String actorUrn) {
+      @Nonnull final String name, final String description, final String actorUrn, @Nullable String condUpdate) {
     Date date = new Date();
     long timeMilli = date.getTime();
-    return generateAccessToken(type, actor, DEFAULT_EXPIRES_IN_MS, timeMilli, name, description, actorUrn);
+    return generateAccessToken(type, actor, DEFAULT_EXPIRES_IN_MS, timeMilli, name, description, actorUrn, condUpdate);
   }
 
   @Nonnull
   public String generateAccessToken(@Nonnull final TokenType type, @Nonnull final Actor actor,
       @Nullable final Long expiresInMs, @Nonnull final long createdAtInMs, @Nonnull final String tokenName,
-      @Nullable final String tokenDescription, final String actorUrn) {
+      @Nullable final String tokenDescription, final String actorUrn, @Nullable String condUpdate) {
 
     Objects.requireNonNull(type);
     Objects.requireNonNull(actor);
@@ -129,8 +130,9 @@ public class StatefulTokenService extends StatelessTokenService {
     // Need this to write key aspect
     final List<MetadataChangeProposal> additionalChanges = AspectUtils.getAdditionalChanges(proposal, _entityService);
 
-    _entityService.ingestProposal(proposal, auditStamp, false);
-    additionalChanges.forEach(mcp -> _entityService.ingestProposal(mcp, auditStamp, false));
+    Map<String, Long> createdOnMap = CondUpdateUtils.extractCondUpdate(condUpdate);
+    _entityService.ingestProposal(proposal, auditStamp, false, createdOnMap.get(proposal.getEntityUrn()));
+    additionalChanges.forEach(mcp -> _entityService.ingestProposal(mcp, auditStamp, false, createdOnMap.get(proposal.getEntityUrn())));
 
     return accessToken;
   }
@@ -160,7 +162,7 @@ public class StatefulTokenService extends StatelessTokenService {
     try {
       if (!_revokedTokenCache.get(hashedToken)) {
         final Urn tokenUrn = Urn.createFromTuple(Constants.ACCESS_TOKEN_ENTITY_NAME, hashedToken);
-        _entityService.deleteUrn(tokenUrn);
+        _entityService.deleteUrn(tokenUrn, null);
         _revokedTokenCache.put(hashedToken, true);
         return;
       }

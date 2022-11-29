@@ -34,22 +34,24 @@ public class LinkUtils {
       String linkLabel,
       Urn resourceUrn,
       Urn actor,
-      EntityService entityService
+      EntityService entityService,
+      String condUpdate
   ) {
     InstitutionalMemory institutionalMemoryAspect = (InstitutionalMemory) getAspectFromEntity(
         resourceUrn.toString(),
         Constants.INSTITUTIONAL_MEMORY_ASPECT_NAME,
         entityService,
         new InstitutionalMemory());
-    addLink(institutionalMemoryAspect, linkUrl, linkLabel, actor);
-    persistAspect(resourceUrn, Constants.INSTITUTIONAL_MEMORY_ASPECT_NAME, institutionalMemoryAspect, actor, entityService);
+    addLink(institutionalMemoryAspect, linkUrl, linkLabel, actor, condUpdate);
+    persistAspect(resourceUrn, Constants.INSTITUTIONAL_MEMORY_ASPECT_NAME, institutionalMemoryAspect, actor, entityService, condUpdate);
   }
 
   public static void removeLink(
       String linkUrl,
       Urn resourceUrn,
       Urn actor,
-      EntityService entityService
+      EntityService entityService,
+      String condUpdate
   ) {
     InstitutionalMemory institutionalMemoryAspect = (InstitutionalMemory) MutationUtils.getAspectFromEntity(
         resourceUrn.toString(),
@@ -57,10 +59,10 @@ public class LinkUtils {
         entityService,
         new InstitutionalMemory());
     removeLink(institutionalMemoryAspect, linkUrl);
-    persistAspect(resourceUrn, Constants.INSTITUTIONAL_MEMORY_ASPECT_NAME, institutionalMemoryAspect, actor, entityService);
+    persistAspect(resourceUrn, Constants.INSTITUTIONAL_MEMORY_ASPECT_NAME, institutionalMemoryAspect, actor, entityService, condUpdate);
   }
 
-  private static void addLink(InstitutionalMemory institutionalMemoryAspect, String linkUrl, String linkLabel, Urn actor) {
+  private static void addLink(InstitutionalMemory institutionalMemoryAspect, String linkUrl, String linkLabel, Urn actor, String condUpdate) {
     if (!institutionalMemoryAspect.hasElements()) {
       institutionalMemoryAspect.setElements(new InstitutionalMemoryMetadataArray());
     }

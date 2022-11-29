@@ -18,7 +18,7 @@ import com.linkedin.datahub.graphql.authorization.DisjunctivePrivilegeGroup;
 import com.linkedin.datahub.graphql.generated.ResourceRefInput;
 import com.linkedin.datahub.graphql.generated.SubResourceType;
 import com.linkedin.datahub.graphql.resolvers.mutate.MutationUtils;
-import com.linkedin.datahub.graphql.util.ETagUtil;
+import com.linkedin.datahub.graphql.util.CondUpdateUtils;
 import com.linkedin.metadata.authorization.PoliciesConfig;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.mxe.MetadataChangeProposal;
@@ -52,7 +52,8 @@ public class LabelUtils {
       Urn resourceUrn,
       String subResource,
       Urn actor,
-      EntityService entityService
+      EntityService entityService,
+      String condUpdated
   ) {
     if (subResource == null || subResource.equals("")) {
       com.linkedin.common.GlossaryTerms terms =
@@ -61,7 +62,7 @@ public class LabelUtils {
       terms.setAuditStamp(getAuditStamp(actor));
 
       removeTermIfExists(terms, labelUrn);
-      persistAspect(resourceUrn, GLOSSARY_TERM_ASPECT_NAME, terms, actor, entityService);
+      persistAspect(resourceUrn, GLOSSARY_TERM_ASPECT_NAME, terms, actor, entityService, condUpdated);
     } else {
       com.linkedin.schema.EditableSchemaMetadata editableSchemaMetadata =
           (com.linkedin.schema.EditableSchemaMetadata) getAspectFromEntity(
@@ -72,7 +73,7 @@ public class LabelUtils {
       }
 
       removeTermIfExists(editableFieldInfo.getGlossaryTerms(), labelUrn);
-      persistAspect(resourceUrn, EDITABLE_SCHEMA_METADATA, editableSchemaMetadata, actor, entityService);
+      persistAspect(resourceUrn, EDITABLE_SCHEMA_METADATA, editableSchemaMetadata, actor, entityService, condUpdated);
     }
   }
 
@@ -81,13 +82,13 @@ public class LabelUtils {
       List<ResourceRefInput> resources,
       Urn actor,
       EntityService entityService,
-      String eTag
+      String condUpdate
   ) throws Exception {
     final List<MetadataChangeProposal> changes = new ArrayList<>();
     for (ResourceRefInput resource : resources) {
       changes.add(buildRemoveTagsProposal(tags, resource, actor, entityService));
     }
-    ingestChangeProposals(changes, entityService, actor, eTag);
+    ingestChangeProposals(changes, entityService, actor, condUpdate);
   }
 
   public static void addTagsToResources(
@@ -95,13 +96,13 @@ public class LabelUtils {
       List<ResourceRefInput> resources,
       Urn actor,
       EntityService entityService,
-      String eTag
+      String condUpdate
   ) throws Exception {
     final List<MetadataChangeProposal> changes = new ArrayList<>();
     for (ResourceRefInput resource : resources) {
       changes.add(buildAddTagsProposal(tagUrns, resource, actor, entityService));
     }
-    ingestChangeProposals(changes, entityService, actor, eTag);
+    ingestChangeProposals(changes, entityService, actor, condUpdate);
   }
 
   public static void removeTermsFromResources(
@@ -109,13 +110,13 @@ public class LabelUtils {
       List<ResourceRefInput> resources,
       Urn actor,
       EntityService entityService,
-      String eTag
+      String condUpdate
     ) throws Exception {
     final List<MetadataChangeProposal> changes = new ArrayList<>();
     for (ResourceRefInput resource : resources) {
       changes.add(buildRemoveTermsProposal(termUrns, resource, actor, entityService));
     }
-    ingestChangeProposals(changes, entityService, actor, eTag);
+    ingestChangeProposals(changes, entityService, actor, condUpdate);
   }
 
   public static void addTermsToResources(
@@ -123,13 +124,13 @@ public class LabelUtils {
       List<ResourceRefInput> resources,
       Urn actor,
       EntityService entityService,
-      String eTag
+      String condUpdate
   ) throws Exception {
     final List<MetadataChangeProposal> changes = new ArrayList<>();
     for (ResourceRefInput resource : resources) {
       changes.add(buildAddTermsProposal(termUrns, resource, actor, entityService));
     }
-    ingestChangeProposals(changes, entityService, actor, eTag);
+    ingestChangeProposals(changes, entityService, actor, condUpdate);
   }
 
   public static void addTermsToResource(
@@ -137,7 +138,8 @@ public class LabelUtils {
       Urn resourceUrn,
       String subResource,
       Urn actor,
-      EntityService entityService
+      EntityService entityService,
+      String condUpdated
   ) throws URISyntaxException {
     if (subResource == null || subResource.equals("")) {
       com.linkedin.common.GlossaryTerms terms =
@@ -149,7 +151,7 @@ public class LabelUtils {
       }
 
       addTermsIfNotExists(terms, labelUrns);
-      persistAspect(resourceUrn, GLOSSARY_TERM_ASPECT_NAME, terms, actor, entityService);
+      persistAspect(resourceUrn, GLOSSARY_TERM_ASPECT_NAME, terms, actor, entityService, condUpdated);
     } else {
       com.linkedin.schema.EditableSchemaMetadata editableSchemaMetadata =
           (com.linkedin.schema.EditableSchemaMetadata) getAspectFromEntity(
@@ -163,7 +165,7 @@ public class LabelUtils {
       editableFieldInfo.getGlossaryTerms().setAuditStamp(getAuditStamp(actor));
 
       addTermsIfNotExists(editableFieldInfo.getGlossaryTerms(), labelUrns);
-      persistAspect(resourceUrn, EDITABLE_SCHEMA_METADATA, editableSchemaMetadata, actor, entityService);
+      persistAspect(resourceUrn, EDITABLE_SCHEMA_METADATA, editableSchemaMetadata, actor, entityService, condUpdated);
     }
   }
 
@@ -559,20 +561,11 @@ public class LabelUtils {
     return termAssociationArray;
   }
 
-  private static void ingestChangeProposals(List<MetadataChangeProposal> changes, EntityService entityService, Urn actor, String eTag) {
+  private static void ingestChangeProposals(List<MetadataChangeProposal> changes, EntityService entityService, Urn actor, String condUpdate) {
     // TODO: Replace this with a batch ingest proposals endpoint.
-    Map<String, Long> createdOnMap = ETagUtil.extractETag(eTag);
+    Map<String, Long> createdOnMap = CondUpdateUtils.extractCondUpdate(condUpdate);
     for (MetadataChangeProposal change : changes) {
-      if (createdOnMap.containsKey(change.getEntityUrn())) {
-        entityService.ingestProposal(change, getAuditStamp(actor), false, createdOnMap.get(change.getEntityUrn()));
-      } else {
-        entityService.ingestProposal(change, getAuditStamp(actor), false);
-      }
-
-      // ETAG Comment: If - Esle branch from about should be deleted and only if branch kept.
-      // It is leave like this because tests are stil not updated.
-      // Only LabelUtils is updated for now. Once we decide to go this way we need to do similar changes to all Utils classes (there are 5)
-
+      entityService.ingestProposal(change, getAuditStamp(actor), false, createdOnMap.get(change.getEntityUrn()));
     }
   }
 }

@@ -3,6 +3,7 @@ package com.linkedin.datahub.graphql.types;
 import com.linkedin.datahub.graphql.QueryContext;
 
 import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 
 /**
  * Graph type that can be updated.
@@ -23,5 +24,5 @@ public interface MutableType<I, T> {
      * @param input input type
      * @param context the {@link QueryContext} corresponding to the request.
      */
-    T update(@Nonnull final String urn, @Nonnull final I input, @Nonnull final QueryContext context) throws Exception;
+    T update(@Nonnull final String urn, @Nonnull final I input, @Nonnull final QueryContext context, @Nullable String condUpdate) throws Exception;
 }

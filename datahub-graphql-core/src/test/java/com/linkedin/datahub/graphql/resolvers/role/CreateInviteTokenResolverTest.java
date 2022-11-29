@@ -43,7 +43,7 @@ public class CreateInviteTokenResolverTest {
     QueryContext mockContext = getMockAllowContext();
     when(_dataFetchingEnvironment.getContext()).thenReturn(mockContext);
     when(mockContext.getAuthentication()).thenReturn(_authentication);
-    when(_inviteTokenService.getInviteToken(any(), eq(true), eq(_authentication))).thenReturn(INVITE_TOKEN_STRING);
+    when(_inviteTokenService.getInviteToken(any(), eq(true), eq(_authentication), any())).thenReturn(INVITE_TOKEN_STRING);
 
     CreateInviteTokenInput input = new CreateInviteTokenInput();
     input.setRoleUrn(ROLE_URN_STRING);

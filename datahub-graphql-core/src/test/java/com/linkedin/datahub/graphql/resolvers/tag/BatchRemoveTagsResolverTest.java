@@ -81,7 +81,7 @@ public class BatchRemoveTagsResolverTest {
 
     Mockito.verify(mockService, Mockito.times(1)).ingestProposal(
         Mockito.eq(proposal1),
-        Mockito.any(AuditStamp.class), Mockito.eq(false)
+        Mockito.any(AuditStamp.class), Mockito.eq(false), Mockito.any()
     );
 
     final MetadataChangeProposal proposal2 = new MetadataChangeProposal();
@@ -151,7 +151,7 @@ public class BatchRemoveTagsResolverTest {
 
     Mockito.verify(mockService, Mockito.times(1)).ingestProposal(
         Mockito.eq(proposal1),
-        Mockito.any(AuditStamp.class), Mockito.eq(false)
+        Mockito.any(AuditStamp.class), Mockito.eq(false), Mockito.any()
     );
 
     final MetadataChangeProposal proposal2 = new MetadataChangeProposal();
@@ -200,7 +200,9 @@ public class BatchRemoveTagsResolverTest {
     assertThrows(CompletionException.class, () -> resolver.get(mockEnv).join());
     Mockito.verify(mockService, Mockito.times(0)).ingestProposal(
         Mockito.any(),
-        Mockito.any(AuditStamp.class), Mockito.anyBoolean());
+        Mockito.any(AuditStamp.class),
+        Mockito.anyBoolean(),
+        Mockito.any());
   }
 
   @Test
@@ -224,7 +226,9 @@ public class BatchRemoveTagsResolverTest {
     assertThrows(CompletionException.class, () -> resolver.get(mockEnv).join());
     Mockito.verify(mockService, Mockito.times(0)).ingestProposal(
         Mockito.any(),
-        Mockito.any(AuditStamp.class), Mockito.anyBoolean());
+        Mockito.any(AuditStamp.class),
+        Mockito.anyBoolean(),
+        Mockito.any());
   }
 
   @Test
@@ -233,7 +237,9 @@ public class BatchRemoveTagsResolverTest {
 
     Mockito.doThrow(RuntimeException.class).when(mockService).ingestProposal(
         Mockito.any(),
-        Mockito.any(AuditStamp.class), Mockito.anyBoolean());
+        Mockito.any(AuditStamp.class),
+        Mockito.anyBoolean(),
+        Mockito.any());
 
     BatchRemoveTagsResolver resolver = new BatchRemoveTagsResolver(mockService);
 

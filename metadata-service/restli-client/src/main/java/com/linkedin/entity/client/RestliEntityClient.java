@@ -42,6 +42,7 @@ import com.linkedin.entity.EntityArray;
 import com.linkedin.entity.EntityResponse;
 import com.linkedin.entity.RunsDoRollbackRequestBuilder;
 import com.linkedin.entity.RunsRequestBuilders;
+import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.aspect.EnvelopedAspect;
 import com.linkedin.metadata.aspect.VersionedAspect;
 import com.linkedin.metadata.browse.BrowseResult;
@@ -463,6 +464,12 @@ public class RestliEntityClient extends BaseClient implements EntityClient {
     return sendClientRequest(requestBuilder, authentication).getEntity();
   }
 
+  @Override
+  public String wrappedIngestProposal(@Nonnull MetadataChangeProposal metadataChangeProposal, @Nonnull Authentication authentication,
+                                      boolean async, @Nullable Long createdOn) {
+    return EntityClient.super.wrappedIngestProposal(metadataChangeProposal, authentication, async, createdOn);
+  }
+
   public void setWritable(boolean canWrite, @Nonnull final Authentication authentication)
       throws RemoteInvocationException {
     EntitiesDoSetWritableRequestBuilder requestBuilder =
@@ -491,9 +498,10 @@ public class RestliEntityClient extends BaseClient implements EntityClient {
   /**
    * Hard delete an entity with a particular urn.
    */
-  public void deleteEntity(@Nonnull final Urn urn, @Nonnull final Authentication authentication)
+  public void deleteEntity(@Nonnull final Urn urn, @Nonnull final Authentication authentication, @Nullable Long createdOn)
       throws RemoteInvocationException {
     EntitiesDoDeleteRequestBuilder requestBuilder = ENTITIES_REQUEST_BUILDERS.actionDelete().urnParam(urn.toString());
+    requestBuilder.addHeader(Constants.IN_UNMODIFIED_SINCE, urn + ";" + createdOn);
     sendClientRequest(requestBuilder, authentication);
   }
 
@@ -501,9 +509,10 @@ public class RestliEntityClient extends BaseClient implements EntityClient {
    * Delete all references to a particular entity.
    */
   @Override
-  public void deleteEntityReferences(@Nonnull Urn urn, @Nonnull Authentication authentication)
+  public void deleteEntityReferences(@Nonnull Urn urn, @Nonnull Authentication authentication, @Nullable Long createdOn)
       throws RemoteInvocationException {
     EntitiesDoDeleteReferencesRequestBuilder requestBuilder = ENTITIES_REQUEST_BUILDERS.actionDeleteReferences().urnParam(urn.toString());
+    requestBuilder.addHeader(Constants.IN_UNMODIFIED_SINCE, urn + ";" + createdOn);
     sendClientRequest(requestBuilder, authentication);
   }
 
@@ -626,9 +635,10 @@ public class RestliEntityClient extends BaseClient implements EntityClient {
    */
   @Override
   public String ingestProposal(@Nonnull final MetadataChangeProposal metadataChangeProposal,
-      @Nonnull final Authentication authentication, final boolean async) throws RemoteInvocationException {
+      @Nonnull final Authentication authentication, final boolean async, @Nullable Long createdOn) throws RemoteInvocationException {
     final AspectsDoIngestProposalRequestBuilder requestBuilder =
         ASPECTS_REQUEST_BUILDERS.actionIngestProposal().proposalParam(metadataChangeProposal);
+    requestBuilder.addHeader(Constants.IN_UNMODIFIED_SINCE, metadataChangeProposal.getEntityUrn() + ";" + createdOn);
     return sendClientRequest(requestBuilder, authentication).getEntity();
   }
 

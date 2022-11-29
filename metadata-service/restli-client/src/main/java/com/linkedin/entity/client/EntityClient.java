@@ -226,13 +226,13 @@ public interface EntityClient {
   /**
    * Hard delete an entity with a particular urn.
    */
-  public void deleteEntity(@Nonnull final Urn urn, @Nonnull final Authentication authentication)
+  public void deleteEntity(@Nonnull final Urn urn, @Nonnull final Authentication authentication, @Nullable Long createdOn)
       throws RemoteInvocationException;
 
   /**
    * Delete all references to an entity with a particular urn.
    */
-  public void deleteEntityReferences(@Nonnull final Urn urn, @Nonnull final Authentication authentication)
+  public void deleteEntityReferences(@Nonnull final Urn urn, @Nonnull final Authentication authentication, @Nullable Long createdOn)
       throws RemoteInvocationException;
 
   /**
@@ -278,23 +278,23 @@ public interface EntityClient {
 
   @Deprecated
   default String ingestProposal(@Nonnull final MetadataChangeProposal metadataChangeProposal,
-      @Nonnull final Authentication authentication) throws RemoteInvocationException {
-    return ingestProposal(metadataChangeProposal, authentication, false);
+      @Nonnull final Authentication authentication, @Nullable Long createdOn) throws RemoteInvocationException {
+    return ingestProposal(metadataChangeProposal, authentication, false, createdOn);
   }
 
   String ingestProposal(@Nonnull final MetadataChangeProposal metadataChangeProposal,
-      @Nonnull final Authentication authentication, final boolean async) throws RemoteInvocationException;
+      @Nonnull final Authentication authentication, final boolean async, @Nullable Long createdOn) throws RemoteInvocationException;
 
   @Deprecated
   default String wrappedIngestProposal(@Nonnull MetadataChangeProposal metadataChangeProposal,
-      @Nonnull final Authentication authentication) {
-    return wrappedIngestProposal(metadataChangeProposal, authentication, false);
+      @Nonnull final Authentication authentication, @Nullable Long createdOn) {
+    return wrappedIngestProposal(metadataChangeProposal, authentication, false, createdOn);
   }
 
   default String wrappedIngestProposal(@Nonnull MetadataChangeProposal metadataChangeProposal,
-      @Nonnull final Authentication authentication, final boolean async) {
+      @Nonnull final Authentication authentication, final boolean async, @Nullable Long createdOn) {
     try {
-      return ingestProposal(metadataChangeProposal, authentication, async);
+      return ingestProposal(metadataChangeProposal, authentication, async, createdOn);
     } catch (RemoteInvocationException e) {
       throw new RuntimeException(e);
     }
@@ -302,14 +302,14 @@ public interface EntityClient {
 
   @Deprecated
   default List<String> batchIngestProposals(@Nonnull final Collection<MetadataChangeProposal> metadataChangeProposals,
-      @Nonnull final Authentication authentication) throws RemoteInvocationException {
-    return batchIngestProposals(metadataChangeProposals, authentication, false);
+      @Nonnull final Authentication authentication, Map<String, Long> createdOnMap) throws RemoteInvocationException {
+    return batchIngestProposals(metadataChangeProposals, authentication, false, createdOnMap);
   }
 
   default List<String> batchIngestProposals(@Nonnull final Collection<MetadataChangeProposal> metadataChangeProposals,
-      @Nonnull final Authentication authentication, final boolean async) throws RemoteInvocationException {
+      @Nonnull final Authentication authentication, final boolean async, Map<String, Long> createdOnMap) throws RemoteInvocationException {
     return metadataChangeProposals.stream()
-        .map(proposal -> wrappedIngestProposal(proposal, authentication, async))
+        .map(proposal -> wrappedIngestProposal(proposal, authentication, async, createdOnMap.get(proposal.getEntityUrn())))
         .collect(Collectors.toList());
   }
 

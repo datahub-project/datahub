@@ -22,43 +22,45 @@ public class UpdateDescriptionResolver implements DataFetcher<CompletableFuture<
 
   @Override
   public CompletableFuture<Boolean> get(DataFetchingEnvironment environment) throws Exception {
+    final String condUpdate = environment.getVariables().containsKey(Constants.IN_UNMODIFIED_SINCE)
+            ? environment.getVariables().get(Constants.IN_UNMODIFIED_SINCE).toString() : null;
     final DescriptionUpdateInput input = bindArgument(environment.getArgument("input"), DescriptionUpdateInput.class);
     Urn targetUrn = Urn.createFromString(input.getResourceUrn());
-    log.info("Updating description. input: {}", input.toString());
+    log.info("Updating description. input: {}", input);
     switch (targetUrn.getEntityType()) {
       case Constants.DATASET_ENTITY_NAME:
-        return updateDatasetDescription(targetUrn, input, environment.getContext());
+        return updateDatasetDescription(targetUrn, input, environment.getContext(), condUpdate);
       case Constants.CONTAINER_ENTITY_NAME:
-        return updateContainerDescription(targetUrn, input, environment.getContext());
+        return updateContainerDescription(targetUrn, input, environment.getContext(), condUpdate);
       case Constants.DOMAIN_ENTITY_NAME:
-        return updateDomainDescription(targetUrn, input, environment.getContext());
+        return updateDomainDescription(targetUrn, input, environment.getContext(), condUpdate);
       case Constants.GLOSSARY_TERM_ENTITY_NAME:
-        return updateGlossaryTermDescription(targetUrn, input, environment.getContext());
+        return updateGlossaryTermDescription(targetUrn, input, environment.getContext(), condUpdate);
       case Constants.GLOSSARY_NODE_ENTITY_NAME:
-        return updateGlossaryNodeDescription(targetUrn, input, environment.getContext());
+        return updateGlossaryNodeDescription(targetUrn, input, environment.getContext(), condUpdate);
       case Constants.TAG_ENTITY_NAME:
-        return updateTagDescription(targetUrn, input, environment.getContext());
+        return updateTagDescription(targetUrn, input, environment.getContext(), condUpdate);
       case Constants.CORP_GROUP_ENTITY_NAME:
-        return updateCorpGroupDescription(targetUrn, input, environment.getContext());
+        return updateCorpGroupDescription(targetUrn, input, environment.getContext(), condUpdate);
       case Constants.NOTEBOOK_ENTITY_NAME:
-        return updateNotebookDescription(targetUrn, input, environment.getContext());
+        return updateNotebookDescription(targetUrn, input, environment.getContext(), condUpdate);
       case Constants.ML_MODEL_ENTITY_NAME:
-        return updateMlModelDescription(targetUrn, input, environment.getContext());
+        return updateMlModelDescription(targetUrn, input, environment.getContext(), condUpdate);
       case Constants.ML_MODEL_GROUP_ENTITY_NAME:
-        return updateMlModelGroupDescription(targetUrn, input, environment.getContext());
+        return updateMlModelGroupDescription(targetUrn, input, environment.getContext(), condUpdate);
       case Constants.ML_FEATURE_TABLE_ENTITY_NAME:
-        return updateMlFeatureTableDescription(targetUrn, input, environment.getContext());
+        return updateMlFeatureTableDescription(targetUrn, input, environment.getContext(), condUpdate);
       case Constants.ML_FEATURE_ENTITY_NAME:
-        return updateMlFeatureDescription(targetUrn, input, environment.getContext());
+        return updateMlFeatureDescription(targetUrn, input, environment.getContext(), condUpdate);
       case Constants.ML_PRIMARY_KEY_ENTITY_NAME:
-        return updateMlPrimaryKeyDescription(targetUrn, input, environment.getContext());
+        return updateMlPrimaryKeyDescription(targetUrn, input, environment.getContext(), condUpdate);
       default:
         throw new RuntimeException(
             String.format("Failed to update description. Unsupported resource type %s provided.", targetUrn));
     }
   }
 
-  private CompletableFuture<Boolean> updateContainerDescription(Urn targetUrn, DescriptionUpdateInput input, QueryContext context) {
+  private CompletableFuture<Boolean> updateContainerDescription(Urn targetUrn, DescriptionUpdateInput input, QueryContext context, String condUpdate) {
     return CompletableFuture.supplyAsync(() -> {
 
       if (!DescriptionUtils.isAuthorizedToUpdateContainerDescription(context, targetUrn)) {
@@ -74,16 +76,17 @@ public class UpdateDescriptionResolver implements DataFetcher<CompletableFuture<
             input.getDescription(),
             targetUrn,
             actor,
-            _entityService);
+            _entityService,
+            condUpdate);
         return true;
       } catch (Exception e) {
         log.error("Failed to perform update against input {}, {}", input.toString(), e.getMessage());
-        throw new RuntimeException(String.format("Failed to perform update against input %s", input.toString()), e);
+        throw new RuntimeException(String.format("Failed to perform update against input %s", input), e);
       }
     });
   }
 
-  private CompletableFuture<Boolean> updateDomainDescription(Urn targetUrn, DescriptionUpdateInput input, QueryContext context) {
+  private CompletableFuture<Boolean> updateDomainDescription(Urn targetUrn, DescriptionUpdateInput input, QueryContext context, String condUpdate) {
     return CompletableFuture.supplyAsync(() -> {
 
       if (!DescriptionUtils.isAuthorizedToUpdateDomainDescription(context, targetUrn)) {
@@ -98,16 +101,17 @@ public class UpdateDescriptionResolver implements DataFetcher<CompletableFuture<
               input.getDescription(),
               targetUrn,
               actor,
-              _entityService);
+              _entityService,
+              condUpdate);
           return true;
         } catch (Exception e) {
-          log.error("Failed to perform update against input {}, {}", input.toString(), e.getMessage());
-          throw new RuntimeException(String.format("Failed to perform update against input %s", input.toString()), e);
+          log.error("Failed to perform update against input {}, {}", input, e.getMessage());
+          throw new RuntimeException(String.format("Failed to perform update against input %s", input), e);
         }
     });
   }
 
-  private CompletableFuture<Boolean> updateDatasetDescription(Urn targetUrn, DescriptionUpdateInput input, QueryContext context) {
+  private CompletableFuture<Boolean> updateDatasetDescription(Urn targetUrn, DescriptionUpdateInput input, QueryContext context, String condUpdate) {
 
     return CompletableFuture.supplyAsync(() -> {
 
@@ -126,16 +130,16 @@ public class UpdateDescriptionResolver implements DataFetcher<CompletableFuture<
       try {
         Urn actor = CorpuserUrn.createFromString(context.getActorUrn());
         DescriptionUtils.updateFieldDescription(input.getDescription(), targetUrn, input.getSubResource(), actor,
-            _entityService);
+            _entityService, condUpdate);
         return true;
       } catch (Exception e) {
-        log.error("Failed to perform update against input {}, {}", input.toString(), e.getMessage());
-        throw new RuntimeException(String.format("Failed to perform update against input %s", input.toString()), e);
+        log.error("Failed to perform update against input {}, {}", input, e.getMessage());
+        throw new RuntimeException(String.format("Failed to perform update against input %s", input), e);
       }
     });
   }
 
-  private CompletableFuture<Boolean> updateTagDescription(Urn targetUrn, DescriptionUpdateInput input, QueryContext context) {
+  private CompletableFuture<Boolean> updateTagDescription(Urn targetUrn, DescriptionUpdateInput input, QueryContext context, String condUpdate) {
     return CompletableFuture.supplyAsync(() -> {
 
       if (!DescriptionUtils.isAuthorizedToUpdateDescription(context, targetUrn)) {
@@ -150,16 +154,17 @@ public class UpdateDescriptionResolver implements DataFetcher<CompletableFuture<
             input.getDescription(),
             targetUrn,
             actor,
-            _entityService);
+            _entityService,
+            condUpdate);
         return true;
       } catch (Exception e) {
-        log.error("Failed to perform update against input {}, {}", input.toString(), e.getMessage());
-        throw new RuntimeException(String.format("Failed to perform update against input %s", input.toString()), e);
+        log.error("Failed to perform update against input {}, {}", input, e.getMessage());
+        throw new RuntimeException(String.format("Failed to perform update against input %s", input), e);
       }
     });
   }
 
-  private CompletableFuture<Boolean> updateGlossaryTermDescription(Urn targetUrn, DescriptionUpdateInput input, QueryContext context) {
+  private CompletableFuture<Boolean> updateGlossaryTermDescription(Urn targetUrn, DescriptionUpdateInput input, QueryContext context, String condUpdate) {
     return CompletableFuture.supplyAsync(() -> {
 
       if (!DescriptionUtils.isAuthorizedToUpdateDescription(context, targetUrn)) {
@@ -174,16 +179,17 @@ public class UpdateDescriptionResolver implements DataFetcher<CompletableFuture<
             input.getDescription(),
             targetUrn,
             actor,
-            _entityService);
+            _entityService,
+            condUpdate);
         return true;
       } catch (Exception e) {
-        log.error("Failed to perform update against input {}, {}", input.toString(), e.getMessage());
-        throw new RuntimeException(String.format("Failed to perform update against input %s", input.toString()), e);
+        log.error("Failed to perform update against input {}, {}", input, e.getMessage());
+        throw new RuntimeException(String.format("Failed to perform update against input %s", input), e);
       }
     });
   }
 
-  private CompletableFuture<Boolean> updateGlossaryNodeDescription(Urn targetUrn, DescriptionUpdateInput input, QueryContext context) {
+  private CompletableFuture<Boolean> updateGlossaryNodeDescription(Urn targetUrn, DescriptionUpdateInput input, QueryContext context, String condUpdate) {
     return CompletableFuture.supplyAsync(() -> {
 
       if (!DescriptionUtils.isAuthorizedToUpdateDescription(context, targetUrn)) {
@@ -198,16 +204,17 @@ public class UpdateDescriptionResolver implements DataFetcher<CompletableFuture<
             input.getDescription(),
             targetUrn,
             actor,
-            _entityService);
+            _entityService,
+            condUpdate);
         return true;
       } catch (Exception e) {
-        log.error("Failed to perform update against input {}, {}", input.toString(), e.getMessage());
-        throw new RuntimeException(String.format("Failed to perform update against input %s", input.toString()), e);
+        log.error("Failed to perform update against input {}, {}", input, e.getMessage());
+        throw new RuntimeException(String.format("Failed to perform update against input %s", input), e);
       }
     });
   }
 
-  private CompletableFuture<Boolean> updateCorpGroupDescription(Urn targetUrn, DescriptionUpdateInput input, QueryContext context) {
+  private CompletableFuture<Boolean> updateCorpGroupDescription(Urn targetUrn, DescriptionUpdateInput input, QueryContext context, String condUpdate) {
     return CompletableFuture.supplyAsync(() -> {
 
       if (!DescriptionUtils.isAuthorizedToUpdateDescription(context, targetUrn)) {
@@ -222,17 +229,18 @@ public class UpdateDescriptionResolver implements DataFetcher<CompletableFuture<
             input.getDescription(),
             targetUrn,
             actor,
-            _entityService);
+            _entityService,
+            condUpdate);
         return true;
       } catch (Exception e) {
-        log.error("Failed to perform update against input {}, {}", input.toString(), e.getMessage());
-        throw new RuntimeException(String.format("Failed to perform update against input %s", input.toString()), e);
+        log.error("Failed to perform update against input {}, {}", input, e.getMessage());
+        throw new RuntimeException(String.format("Failed to perform update against input %s", input), e);
       }
     });
   }
   
   private CompletableFuture<Boolean> updateNotebookDescription(Urn targetUrn, DescriptionUpdateInput input,
-      QueryContext context) {
+      QueryContext context, String condUpdate) {
     return CompletableFuture.supplyAsync(() -> {
 
       if (!DescriptionUtils.isAuthorizedToUpdateDescription(context, targetUrn)) {
@@ -247,17 +255,18 @@ public class UpdateDescriptionResolver implements DataFetcher<CompletableFuture<
             input.getDescription(),
             targetUrn,
             actor,
-            _entityService);
+            _entityService,
+            condUpdate);
         return true;
       } catch (Exception e) {
-        log.error("Failed to perform update against input {}, {}", input.toString(), e.getMessage());
-        throw new RuntimeException(String.format("Failed to perform update against input %s", input.toString()), e);
+        log.error("Failed to perform update against input {}, {}", input, e.getMessage());
+        throw new RuntimeException(String.format("Failed to perform update against input %s", input), e);
       }
     });
   }
 
   private CompletableFuture<Boolean> updateMlModelDescription(Urn targetUrn, DescriptionUpdateInput input,
-      QueryContext context) {
+      QueryContext context, String condUpdate) {
     return CompletableFuture.supplyAsync(() -> {
 
       if (!DescriptionUtils.isAuthorizedToUpdateDescription(context, targetUrn)) {
@@ -272,17 +281,18 @@ public class UpdateDescriptionResolver implements DataFetcher<CompletableFuture<
             input.getDescription(),
             targetUrn,
             actor,
-            _entityService);
+            _entityService,
+            condUpdate);
         return true;
       } catch (Exception e) {
-        log.error("Failed to perform update against input {}, {}", input.toString(), e.getMessage());
-        throw new RuntimeException(String.format("Failed to perform update against input %s", input.toString()), e);
+        log.error("Failed to perform update against input {}, {}", input, e.getMessage());
+        throw new RuntimeException(String.format("Failed to perform update against input %s", input), e);
       }
     });
   }
 
   private CompletableFuture<Boolean> updateMlModelGroupDescription(Urn targetUrn, DescriptionUpdateInput input,
-      QueryContext context) {
+      QueryContext context, String condUpdate) {
     return CompletableFuture.supplyAsync(() -> {
 
       if (!DescriptionUtils.isAuthorizedToUpdateDescription(context, targetUrn)) {
@@ -297,17 +307,18 @@ public class UpdateDescriptionResolver implements DataFetcher<CompletableFuture<
             input.getDescription(),
             targetUrn,
             actor,
-            _entityService);
+            _entityService,
+            condUpdate);
         return true;
       } catch (Exception e) {
-        log.error("Failed to perform update against input {}, {}", input.toString(), e.getMessage());
-        throw new RuntimeException(String.format("Failed to perform update against input %s", input.toString()), e);
+        log.error("Failed to perform update against input {}, {}", input, e.getMessage());
+        throw new RuntimeException(String.format("Failed to perform update against input %s", input), e);
       }
     });
   }
 
   private CompletableFuture<Boolean> updateMlFeatureDescription(Urn targetUrn, DescriptionUpdateInput input,
-      QueryContext context) {
+      QueryContext context, String condUpdate) {
     return CompletableFuture.supplyAsync(() -> {
 
       if (!DescriptionUtils.isAuthorizedToUpdateDescription(context, targetUrn)) {
@@ -322,17 +333,18 @@ public class UpdateDescriptionResolver implements DataFetcher<CompletableFuture<
             input.getDescription(),
             targetUrn,
             actor,
-            _entityService);
+            _entityService,
+            condUpdate);
         return true;
       } catch (Exception e) {
-        log.error("Failed to perform update against input {}, {}", input.toString(), e.getMessage());
-        throw new RuntimeException(String.format("Failed to perform update against input %s", input.toString()), e);
+        log.error("Failed to perform update against input {}, {}", input, e.getMessage());
+        throw new RuntimeException(String.format("Failed to perform update against input %s", input), e);
       }
     });
   }
 
   private CompletableFuture<Boolean> updateMlPrimaryKeyDescription(Urn targetUrn, DescriptionUpdateInput input,
-      QueryContext context) {
+      QueryContext context, String condUpdate) {
     return CompletableFuture.supplyAsync(() -> {
 
       if (!DescriptionUtils.isAuthorizedToUpdateDescription(context, targetUrn)) {
@@ -347,17 +359,18 @@ public class UpdateDescriptionResolver implements DataFetcher<CompletableFuture<
             input.getDescription(),
             targetUrn,
             actor,
-            _entityService);
+            _entityService,
+            condUpdate);
         return true;
       } catch (Exception e) {
-        log.error("Failed to perform update against input {}, {}", input.toString(), e.getMessage());
-        throw new RuntimeException(String.format("Failed to perform update against input %s", input.toString()), e);
+        log.error("Failed to perform update against input {}, {}", input, e.getMessage());
+        throw new RuntimeException(String.format("Failed to perform update against input %s", input), e);
       }
     });
   }
 
   private CompletableFuture<Boolean> updateMlFeatureTableDescription(Urn targetUrn, DescriptionUpdateInput input,
-      QueryContext context) {
+      QueryContext context, String condUpdate) {
     return CompletableFuture.supplyAsync(() -> {
 
       if (!DescriptionUtils.isAuthorizedToUpdateDescription(context, targetUrn)) {
@@ -372,11 +385,12 @@ public class UpdateDescriptionResolver implements DataFetcher<CompletableFuture<
             input.getDescription(),
             targetUrn,
             actor,
-            _entityService);
+            _entityService,
+            condUpdate);
         return true;
       } catch (Exception e) {
-        log.error("Failed to perform update against input {}, {}", input.toString(), e.getMessage());
-        throw new RuntimeException(String.format("Failed to perform update against input %s", input.toString()), e);
+        log.error("Failed to perform update against input {}, {}", input, e.getMessage());
+        throw new RuntimeException(String.format("Failed to perform update against input %s", input), e);
       }
     });
   }

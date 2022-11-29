@@ -8,6 +8,7 @@ import com.linkedin.datahub.graphql.authorization.ConjunctivePrivilegeGroup;
 import com.linkedin.datahub.graphql.authorization.DisjunctivePrivilegeGroup;
 import com.linkedin.datahub.graphql.exception.AuthorizationException;
 import com.linkedin.datahub.graphql.resolvers.AuthUtils;
+import com.linkedin.datahub.graphql.util.CondUpdateUtils;
 import com.linkedin.entity.client.EntityClient;
 import com.linkedin.events.metadata.ChangeType;
 import com.linkedin.metadata.Constants;
@@ -18,6 +19,7 @@ import com.linkedin.mxe.MetadataChangeProposal;
 import com.linkedin.tag.TagProperties;
 import graphql.schema.DataFetcher;
 import graphql.schema.DataFetchingEnvironment;
+import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import javax.annotation.Nonnull;
 import lombok.RequiredArgsConstructor;
@@ -38,6 +40,8 @@ public class SetTagColorResolver implements DataFetcher<CompletableFuture<Boolea
 
   @Override
   public CompletableFuture<Boolean> get(DataFetchingEnvironment environment) throws Exception {
+    final String condUpdate = environment.getVariables().containsKey(Constants.IN_UNMODIFIED_SINCE)
+            ? environment.getVariables().get(Constants.IN_UNMODIFIED_SINCE).toString() : null;
 
     final QueryContext context = environment.getContext();
     final Urn tagUrn = Urn.createFromString(environment.getArgument("urn"));
@@ -76,7 +80,8 @@ public class SetTagColorResolver implements DataFetcher<CompletableFuture<Boolea
         proposal.setAspectName(Constants.TAG_PROPERTIES_ASPECT_NAME);
         proposal.setAspect(GenericRecordUtils.serializeAspect(tagProperties));
         proposal.setChangeType(ChangeType.UPSERT);
-        _entityClient.ingestProposal(proposal, context.getAuthentication());
+        Map<String, Long> createdOnMap = CondUpdateUtils.extractCondUpdate(condUpdate);
+        _entityClient.ingestProposal(proposal, context.getAuthentication(), createdOnMap.get(proposal.getEntityUrn()));
         return true;
       } catch (Exception e) {
         log.error("Failed to set color for Tag with urn {}: {}", tagUrn, e.getMessage());

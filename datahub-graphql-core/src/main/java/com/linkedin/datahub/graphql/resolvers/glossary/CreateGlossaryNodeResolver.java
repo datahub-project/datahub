@@ -11,6 +11,7 @@ import com.linkedin.datahub.graphql.generated.OwnerEntityType;
 import com.linkedin.datahub.graphql.generated.OwnershipType;
 import com.linkedin.datahub.graphql.resolvers.mutate.util.GlossaryUtils;
 import com.linkedin.datahub.graphql.resolvers.mutate.util.OwnerUtils;
+import com.linkedin.datahub.graphql.util.CondUpdateUtils;
 import com.linkedin.entity.client.EntityClient;
 import com.linkedin.events.metadata.ChangeType;
 import com.linkedin.glossary.GlossaryNodeInfo;
@@ -26,6 +27,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
 import java.net.URISyntaxException;
+import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 
@@ -40,7 +42,8 @@ public class CreateGlossaryNodeResolver implements DataFetcher<CompletableFuture
 
   @Override
   public CompletableFuture<String> get(DataFetchingEnvironment environment) throws Exception {
-
+    final String condUpdate = environment.getVariables().containsKey(Constants.IN_UNMODIFIED_SINCE)
+            ? environment.getVariables().get(Constants.IN_UNMODIFIED_SINCE).toString() : null;
     final QueryContext context = environment.getContext();
     final CreateGlossaryEntityInput input = bindArgument(environment.getArgument("input"), CreateGlossaryEntityInput.class);
     final Urn parentNode = input.getParentNode() != null ? UrnUtils.getUrn(input.getParentNode()) : null;
@@ -64,8 +67,9 @@ public class CreateGlossaryNodeResolver implements DataFetcher<CompletableFuture
           proposal.setAspect(GenericRecordUtils.serializeAspect(mapGlossaryNodeInfo(input)));
           proposal.setChangeType(ChangeType.UPSERT);
 
-          String glossaryNodeUrn = _entityClient.ingestProposal(proposal, context.getAuthentication());
-          OwnerUtils.addCreatorAsOwner(context, glossaryNodeUrn, OwnerEntityType.CORP_USER, OwnershipType.TECHNICAL_OWNER, _entityService);
+          Map<String, Long> createdOnMap = CondUpdateUtils.extractCondUpdate(condUpdate);
+          String glossaryNodeUrn = _entityClient.ingestProposal(proposal, context.getAuthentication(), createdOnMap.get(proposal.getEntityUrn()));
+          OwnerUtils.addCreatorAsOwner(context, glossaryNodeUrn, OwnerEntityType.CORP_USER, OwnershipType.TECHNICAL_OWNER, _entityService, condUpdate);
           return glossaryNodeUrn;
         } catch (Exception e) {
           log.error("Failed to create GlossaryNode with id: {}, name: {}: {}", input.getId(), input.getName(), e.getMessage());

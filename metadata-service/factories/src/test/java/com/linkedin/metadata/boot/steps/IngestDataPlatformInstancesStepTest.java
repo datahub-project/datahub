@@ -101,9 +101,10 @@ public class IngestDataPlatformInstancesStepTest {
             eq(DATA_PLATFORM_INSTANCE_ASPECT_NAME),
             any(DataPlatformInstance.class),
             any(),
+            any(),
             any());
     verify(entityService, times(0))
-        .ingestAspect(argThat(arg -> !arg.getEntityType().equals("chart")), anyString(), any(), any(), any());
+        .ingestAspect(argThat(arg -> !arg.getEntityType().equals("chart")), anyString(), any(), any(), any(), any());
   }
 
   @NotNull

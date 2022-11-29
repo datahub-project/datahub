@@ -6,6 +6,7 @@ import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.authorization.AuthorizationUtils;
 import com.linkedin.datahub.graphql.exception.AuthorizationException;
 import com.linkedin.datahub.graphql.generated.CreateGroupInput;
+import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.key.CorpGroupKey;
 import graphql.schema.DataFetcher;
 import graphql.schema.DataFetchingEnvironment;
@@ -26,6 +27,8 @@ public class CreateGroupResolver implements DataFetcher<CompletableFuture<String
 
   @Override
   public CompletableFuture<String> get(final DataFetchingEnvironment environment) throws Exception {
+    final String condUpdate = environment.getVariables().containsKey(Constants.IN_UNMODIFIED_SINCE)
+            ? environment.getVariables().get(Constants.IN_UNMODIFIED_SINCE).toString() : null;
     final QueryContext context = environment.getContext();
     Authentication authentication = context.getAuthentication();
 
@@ -42,7 +45,7 @@ public class CreateGroupResolver implements DataFetcher<CompletableFuture<String
         final CorpGroupKey key = new CorpGroupKey();
         final String id = input.getId() != null ? input.getId() : UUID.randomUUID().toString();
         key.setName(id); // 'name' in the key really reflects nothing more than a stable "id".
-        return _groupService.createNativeGroup(key, input.getName(), input.getDescription(), authentication);
+        return _groupService.createNativeGroup(key, input.getName(), input.getDescription(), authentication, condUpdate);
       } catch (Exception e) {
         throw new RuntimeException("Failed to create group", e);
       }

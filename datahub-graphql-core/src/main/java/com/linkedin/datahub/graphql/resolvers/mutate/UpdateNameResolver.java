@@ -35,6 +35,8 @@ public class UpdateNameResolver implements DataFetcher<CompletableFuture<Boolean
 
   @Override
   public CompletableFuture<Boolean> get(DataFetchingEnvironment environment) throws Exception {
+    final String condUpdate = environment.getVariables().containsKey(Constants.IN_UNMODIFIED_SINCE)
+            ? environment.getVariables().get(Constants.IN_UNMODIFIED_SINCE).toString() : null;
     final UpdateNameInput input = bindArgument(environment.getArgument("input"), UpdateNameInput.class);
     Urn targetUrn = Urn.createFromString(input.getUrn());
     log.info("Updating name. input: {}", input);
@@ -46,13 +48,13 @@ public class UpdateNameResolver implements DataFetcher<CompletableFuture<Boolean
 
       switch (targetUrn.getEntityType()) {
         case Constants.GLOSSARY_TERM_ENTITY_NAME:
-          return updateGlossaryTermName(targetUrn, input, environment.getContext());
+          return updateGlossaryTermName(targetUrn, input, environment.getContext(), condUpdate);
         case Constants.GLOSSARY_NODE_ENTITY_NAME:
-          return updateGlossaryNodeName(targetUrn, input, environment.getContext());
+          return updateGlossaryNodeName(targetUrn, input, environment.getContext(), condUpdate);
         case Constants.DOMAIN_ENTITY_NAME:
-          return updateDomainName(targetUrn, input, environment.getContext());
+          return updateDomainName(targetUrn, input, environment.getContext(), condUpdate);
         case Constants.CORP_GROUP_ENTITY_NAME:
-          return updateGroupName(targetUrn, input, environment.getContext());
+          return updateGroupName(targetUrn, input, environment.getContext(), condUpdate);
         default:
           throw new RuntimeException(
               String.format("Failed to update name. Unsupported resource type %s provided.", targetUrn));
@@ -63,7 +65,8 @@ public class UpdateNameResolver implements DataFetcher<CompletableFuture<Boolean
   private Boolean updateGlossaryTermName(
       Urn targetUrn,
       UpdateNameInput input,
-      QueryContext context
+      QueryContext context,
+      String condUpdate
   ) {
     final Urn parentNodeUrn = GlossaryUtils.getParentUrn(targetUrn, context, _entityClient);
     if (GlossaryUtils.canManageChildrenEntities(context, parentNodeUrn)) {
@@ -75,7 +78,7 @@ public class UpdateNameResolver implements DataFetcher<CompletableFuture<Boolean
         }
         glossaryTermInfo.setName(input.getName());
         Urn actor = UrnUtils.getUrn(context.getActorUrn());
-        persistAspect(targetUrn, Constants.GLOSSARY_TERM_INFO_ASPECT_NAME, glossaryTermInfo, actor, _entityService);
+        persistAspect(targetUrn, Constants.GLOSSARY_TERM_INFO_ASPECT_NAME, glossaryTermInfo, actor, _entityService, condUpdate);
 
         return true;
       } catch (Exception e) {
@@ -88,7 +91,8 @@ public class UpdateNameResolver implements DataFetcher<CompletableFuture<Boolean
   private Boolean updateGlossaryNodeName(
       Urn targetUrn,
       UpdateNameInput input,
-      QueryContext context
+      QueryContext context,
+      String condUpdate
   ) {
     final Urn parentNodeUrn = GlossaryUtils.getParentUrn(targetUrn, context, _entityClient);
     if (GlossaryUtils.canManageChildrenEntities(context, parentNodeUrn)) {
@@ -100,7 +104,7 @@ public class UpdateNameResolver implements DataFetcher<CompletableFuture<Boolean
         }
         glossaryNodeInfo.setName(input.getName());
         Urn actor = CorpuserUrn.createFromString(context.getActorUrn());
-        persistAspect(targetUrn, Constants.GLOSSARY_NODE_INFO_ASPECT_NAME, glossaryNodeInfo, actor, _entityService);
+        persistAspect(targetUrn, Constants.GLOSSARY_NODE_INFO_ASPECT_NAME, glossaryNodeInfo, actor, _entityService, condUpdate);
 
         return true;
       } catch (Exception e) {
@@ -113,7 +117,8 @@ public class UpdateNameResolver implements DataFetcher<CompletableFuture<Boolean
   private Boolean updateDomainName(
       Urn targetUrn,
       UpdateNameInput input,
-      QueryContext context
+      QueryContext context,
+      String condUpdate
   ) {
     if (AuthorizationUtils.canManageDomains(context)) {
       try {
@@ -124,7 +129,7 @@ public class UpdateNameResolver implements DataFetcher<CompletableFuture<Boolean
         }
         domainProperties.setName(input.getName());
         Urn actor = CorpuserUrn.createFromString(context.getActorUrn());
-        persistAspect(targetUrn, Constants.DOMAIN_PROPERTIES_ASPECT_NAME, domainProperties, actor, _entityService);
+        persistAspect(targetUrn, Constants.DOMAIN_PROPERTIES_ASPECT_NAME, domainProperties, actor, _entityService, condUpdate);
 
         return true;
       } catch (Exception e) {
@@ -137,7 +142,8 @@ public class UpdateNameResolver implements DataFetcher<CompletableFuture<Boolean
   private Boolean updateGroupName(
           Urn targetUrn,
           UpdateNameInput input,
-          QueryContext context
+          QueryContext context,
+          String condUpdate
   ) {
     if (AuthorizationUtils.canManageUsersAndGroups(context)) {
       try {
@@ -148,7 +154,7 @@ public class UpdateNameResolver implements DataFetcher<CompletableFuture<Boolean
         }
         corpGroupInfo.setDisplayName(input.getName());
         Urn actor = CorpuserUrn.createFromString(context.getActorUrn());
-        persistAspect(targetUrn, Constants.CORP_GROUP_INFO_ASPECT_NAME, corpGroupInfo, actor, _entityService);
+        persistAspect(targetUrn, Constants.CORP_GROUP_INFO_ASPECT_NAME, corpGroupInfo, actor, _entityService, condUpdate);
 
         return true;
       } catch (Exception e) {

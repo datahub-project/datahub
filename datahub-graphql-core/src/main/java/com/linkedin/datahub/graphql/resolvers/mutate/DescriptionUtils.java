@@ -46,7 +46,8 @@ public class DescriptionUtils {
       Urn resourceUrn,
       String fieldPath,
       Urn actor,
-      EntityService entityService
+      EntityService entityService,
+      String condUpdate
   ) {
       EditableSchemaMetadata editableSchemaMetadata =
           (EditableSchemaMetadata) getAspectFromEntity(
@@ -55,27 +56,29 @@ public class DescriptionUtils {
 
       editableFieldInfo.setDescription(newDescription);
 
-      persistAspect(resourceUrn, EDITABLE_SCHEMA_METADATA, editableSchemaMetadata, actor, entityService);
+      persistAspect(resourceUrn, EDITABLE_SCHEMA_METADATA, editableSchemaMetadata, actor, entityService, condUpdate);
   }
 
   public static void updateContainerDescription(
       String newDescription,
       Urn resourceUrn,
       Urn actor,
-      EntityService entityService
+      EntityService entityService,
+      String condUpdate
   ) {
     EditableContainerProperties containerProperties =
         (EditableContainerProperties) getAspectFromEntity(
             resourceUrn.toString(), Constants.CONTAINER_EDITABLE_PROPERTIES_ASPECT_NAME, entityService, new EditableContainerProperties());
     containerProperties.setDescription(newDescription);
-    persistAspect(resourceUrn, Constants.CONTAINER_EDITABLE_PROPERTIES_ASPECT_NAME, containerProperties, actor, entityService);
+    persistAspect(resourceUrn, Constants.CONTAINER_EDITABLE_PROPERTIES_ASPECT_NAME, containerProperties, actor, entityService, condUpdate);
   }
 
   public static void updateDomainDescription(
       String newDescription,
       Urn resourceUrn,
       Urn actor,
-      EntityService entityService
+      EntityService entityService,
+      String condUpdate
   ) {
     DomainProperties domainProperties =
         (DomainProperties) getAspectFromEntity(
@@ -85,14 +88,15 @@ public class DescriptionUtils {
       throw new IllegalArgumentException("Properties for this Domain do not yet exist!");
     }
     domainProperties.setDescription(newDescription);
-    persistAspect(resourceUrn, Constants.DOMAIN_PROPERTIES_ASPECT_NAME, domainProperties, actor, entityService);
+    persistAspect(resourceUrn, Constants.DOMAIN_PROPERTIES_ASPECT_NAME, domainProperties, actor, entityService, condUpdate);
   }
 
   public static void updateTagDescription(
       String newDescription,
       Urn resourceUrn,
       Urn actor,
-      EntityService entityService
+      EntityService entityService,
+      String condUpdate
   ) {
     TagProperties tagProperties =
         (TagProperties) getAspectFromEntity(
@@ -102,27 +106,29 @@ public class DescriptionUtils {
       throw new IllegalArgumentException("Properties for this Tag do not yet exist!");
     }
     tagProperties.setDescription(newDescription);
-    persistAspect(resourceUrn, Constants.TAG_PROPERTIES_ASPECT_NAME, tagProperties, actor, entityService);
+    persistAspect(resourceUrn, Constants.TAG_PROPERTIES_ASPECT_NAME, tagProperties, actor, entityService, condUpdate);
   }
 
   public static void updateCorpGroupDescription(
       String newDescription,
       Urn resourceUrn,
       Urn actor,
-      EntityService entityService
+      EntityService entityService,
+      String condUpdate
   ) {
     CorpGroupEditableInfo corpGroupEditableInfo =
         (CorpGroupEditableInfo) getAspectFromEntity(
             resourceUrn.toString(), Constants.CORP_GROUP_EDITABLE_INFO_ASPECT_NAME, entityService, new CorpGroupEditableInfo());
     corpGroupEditableInfo.setDescription(newDescription);
-    persistAspect(resourceUrn, Constants.CORP_GROUP_EDITABLE_INFO_ASPECT_NAME, corpGroupEditableInfo, actor, entityService);
+    persistAspect(resourceUrn, Constants.CORP_GROUP_EDITABLE_INFO_ASPECT_NAME, corpGroupEditableInfo, actor, entityService, condUpdate);
   }
 
   public static void updateGlossaryTermDescription(
       String newDescription,
       Urn resourceUrn,
       Urn actor,
-      EntityService entityService
+      EntityService entityService,
+      String condUpdate
   ) {
     GlossaryTermInfo glossaryTermInfo = (GlossaryTermInfo) getAspectFromEntity(
         resourceUrn.toString(), Constants.GLOSSARY_TERM_INFO_ASPECT_NAME, entityService, null);
@@ -131,14 +137,15 @@ public class DescriptionUtils {
       throw new IllegalArgumentException("Properties for this Glossary Term do not yet exist!");
     }
     glossaryTermInfo.setDefinition(newDescription); // We call description 'definition' for glossary terms. Not great, we know. :(
-    persistAspect(resourceUrn, Constants.GLOSSARY_TERM_INFO_ASPECT_NAME, glossaryTermInfo, actor, entityService);
+    persistAspect(resourceUrn, Constants.GLOSSARY_TERM_INFO_ASPECT_NAME, glossaryTermInfo, actor, entityService, condUpdate);
   }
 
   public static void updateGlossaryNodeDescription(
       String newDescription,
       Urn resourceUrn,
       Urn actor,
-      EntityService entityService
+      EntityService entityService,
+      String condUpdate
   ) {
     GlossaryNodeInfo glossaryNodeInfo = (GlossaryNodeInfo) getAspectFromEntity(
         resourceUrn.toString(), Constants.GLOSSARY_NODE_INFO_ASPECT_NAME, entityService, null);
@@ -146,18 +153,19 @@ public class DescriptionUtils {
       throw new IllegalArgumentException("Glossary Node does not exist");
     }
     glossaryNodeInfo.setDefinition(newDescription);
-    persistAspect(resourceUrn, Constants.GLOSSARY_NODE_INFO_ASPECT_NAME, glossaryNodeInfo, actor, entityService);
+    persistAspect(resourceUrn, Constants.GLOSSARY_NODE_INFO_ASPECT_NAME, glossaryNodeInfo, actor, entityService, condUpdate);
   }
 
   public static void updateNotebookDescription(
       String newDescription,
       Urn resourceUrn,
       Urn actor,
-      EntityService entityService) {
+      EntityService entityService,
+      String condUpdate) {
     EditableNotebookProperties notebookProperties = (EditableNotebookProperties) getAspectFromEntity(
         resourceUrn.toString(), Constants.EDITABLE_NOTEBOOK_PROPERTIES_ASPECT_NAME, entityService, null);
     notebookProperties.setDescription(newDescription);
-    persistAspect(resourceUrn, Constants.EDITABLE_NOTEBOOK_PROPERTIES_ASPECT_NAME, notebookProperties, actor, entityService);
+    persistAspect(resourceUrn, Constants.EDITABLE_NOTEBOOK_PROPERTIES_ASPECT_NAME, notebookProperties, actor, entityService, condUpdate);
   }
 
   public static Boolean validateFieldDescriptionInput(
@@ -287,53 +295,58 @@ public class DescriptionUtils {
       String newDescription,
       Urn resourceUrn,
       Urn actor,
-      EntityService entityService) {
+      EntityService entityService,
+      String condUpdate) {
     EditableMLModelProperties editableProperties = (EditableMLModelProperties) getAspectFromEntity(
         resourceUrn.toString(), Constants.ML_MODEL_EDITABLE_PROPERTIES_ASPECT_NAME, entityService, new EditableMLModelProperties());
     editableProperties.setDescription(newDescription);
-    persistAspect(resourceUrn, Constants.ML_MODEL_EDITABLE_PROPERTIES_ASPECT_NAME, editableProperties, actor, entityService);
+    persistAspect(resourceUrn, Constants.ML_MODEL_EDITABLE_PROPERTIES_ASPECT_NAME, editableProperties, actor, entityService, condUpdate);
   }
 
   public static void updateMlModelGroupDescription(
       String newDescription,
       Urn resourceUrn,
       Urn actor,
-      EntityService entityService) {
+      EntityService entityService,
+      String condUpdate) {
     EditableMLModelGroupProperties editableProperties = (EditableMLModelGroupProperties) getAspectFromEntity(
         resourceUrn.toString(), Constants.ML_MODEL_GROUP_EDITABLE_PROPERTIES_ASPECT_NAME, entityService, new EditableMLModelGroupProperties());
     editableProperties.setDescription(newDescription);
-    persistAspect(resourceUrn, Constants.ML_MODEL_GROUP_EDITABLE_PROPERTIES_ASPECT_NAME, editableProperties, actor, entityService);
+    persistAspect(resourceUrn, Constants.ML_MODEL_GROUP_EDITABLE_PROPERTIES_ASPECT_NAME, editableProperties, actor, entityService, condUpdate);
   }
   public static void updateMlFeatureDescription(
       String newDescription,
       Urn resourceUrn,
       Urn actor,
-      EntityService entityService) {
+      EntityService entityService,
+      String condUpdate) {
     EditableMLFeatureProperties editableProperties = (EditableMLFeatureProperties) getAspectFromEntity(
         resourceUrn.toString(), Constants.ML_FEATURE_EDITABLE_PROPERTIES_ASPECT_NAME, entityService, new EditableMLFeatureProperties());
     editableProperties.setDescription(newDescription);
-    persistAspect(resourceUrn, Constants.ML_FEATURE_EDITABLE_PROPERTIES_ASPECT_NAME, editableProperties, actor, entityService);
+    persistAspect(resourceUrn, Constants.ML_FEATURE_EDITABLE_PROPERTIES_ASPECT_NAME, editableProperties, actor, entityService, condUpdate);
   }
 
   public static void updateMlFeatureTableDescription(
       String newDescription,
       Urn resourceUrn,
       Urn actor,
-      EntityService entityService) {
+      EntityService entityService,
+      String condUpdate) {
     EditableMLFeatureTableProperties editableProperties = (EditableMLFeatureTableProperties) getAspectFromEntity(
         resourceUrn.toString(), Constants.ML_FEATURE_TABLE_EDITABLE_PROPERTIES_ASPECT_NAME, entityService, new EditableMLFeatureTableProperties());
     editableProperties.setDescription(newDescription);
-    persistAspect(resourceUrn, Constants.ML_FEATURE_TABLE_EDITABLE_PROPERTIES_ASPECT_NAME, editableProperties, actor, entityService);
+    persistAspect(resourceUrn, Constants.ML_FEATURE_TABLE_EDITABLE_PROPERTIES_ASPECT_NAME, editableProperties, actor, entityService, condUpdate);
   }
 
   public static void updateMlPrimaryKeyDescription(
       String newDescription,
       Urn resourceUrn,
       Urn actor,
-      EntityService entityService) {
+      EntityService entityService,
+      String condUpdate) {
     EditableMLPrimaryKeyProperties editableProperties = (EditableMLPrimaryKeyProperties) getAspectFromEntity(
         resourceUrn.toString(), Constants.ML_PRIMARY_KEY_EDITABLE_PROPERTIES_ASPECT_NAME, entityService, new EditableMLPrimaryKeyProperties());
     editableProperties.setDescription(newDescription);
-    persistAspect(resourceUrn, Constants.ML_PRIMARY_KEY_EDITABLE_PROPERTIES_ASPECT_NAME, editableProperties, actor, entityService);
+    persistAspect(resourceUrn, Constants.ML_PRIMARY_KEY_EDITABLE_PROPERTIES_ASPECT_NAME, editableProperties, actor, entityService, condUpdate);
   }
 }

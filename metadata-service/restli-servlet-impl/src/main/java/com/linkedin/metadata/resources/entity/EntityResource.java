@@ -9,6 +9,7 @@ import com.linkedin.common.urn.Urn;
 import com.linkedin.data.template.LongMap;
 import com.linkedin.data.template.StringArray;
 import com.linkedin.entity.Entity;
+import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.browse.BrowseResult;
 import com.linkedin.metadata.entity.DeleteEntityService;
 import com.linkedin.metadata.entity.EntityService;
@@ -40,6 +41,7 @@ import com.linkedin.metadata.search.utils.ESUtils;
 import com.linkedin.metadata.search.utils.QueryUtils;
 import com.linkedin.metadata.systemmetadata.SystemMetadataService;
 import com.linkedin.metadata.timeseries.TimeseriesAspectService;
+import com.linkedin.metadata.utils.CondUpdateUtils;
 import com.linkedin.mxe.SystemMetadata;
 import com.linkedin.parseq.Task;
 import com.linkedin.restli.common.HttpStatus;
@@ -47,6 +49,7 @@ import com.linkedin.restli.internal.server.methods.AnyRecord;
 import com.linkedin.restli.server.RestLiServiceException;
 import com.linkedin.restli.server.annotations.Action;
 import com.linkedin.restli.server.annotations.ActionParam;
+import com.linkedin.restli.server.annotations.HeaderParam;
 import com.linkedin.restli.server.annotations.Optional;
 import com.linkedin.restli.server.annotations.QueryParam;
 import com.linkedin.restli.server.annotations.RestLiCollection;
@@ -384,7 +387,7 @@ public class EntityResource extends CollectionResourceTaskTemplate<String, Entit
   @Nonnull
   @WithSpan
   public Task<RollbackResponse> deleteEntities(@ActionParam("registryId") @Optional String registryId,
-      @ActionParam("dryRun") @Optional Boolean dryRun) {
+      @ActionParam("dryRun") @Optional Boolean dryRun, @HeaderParam(value = Constants.IN_UNMODIFIED_SINCE) String condUpdate) {
     String registryName = null;
     ComparableVersion registryVersion = new ComparableVersion("0.0.0-dev");
 
@@ -417,7 +420,8 @@ public class EntityResource extends CollectionResourceTaskTemplate<String, Entit
         Map<String, String> conditions = new HashMap();
         conditions.put("registryName", finalRegistryName1);
         conditions.put("registryVersion", finalRegistryVersion1.toString());
-        _entityService.rollbackWithConditions(aspectRowsToDelete, conditions, false);
+        Map<String, Long> createdOnMap = CondUpdateUtils.extractCondUpdate(condUpdate);
+        _entityService.rollbackWithConditions(aspectRowsToDelete, conditions, false, createdOnMap);
       }
       return response;
     }, MetricRegistry.name(this.getClass(), "deleteAll"));
@@ -438,7 +442,8 @@ public class EntityResource extends CollectionResourceTaskTemplate<String, Entit
   public Task<DeleteEntityResponse> deleteEntity(@ActionParam(PARAM_URN) @Nonnull String urnStr,
       @ActionParam(PARAM_ASPECT_NAME) @Optional String aspectName,
       @ActionParam(PARAM_START_TIME_MILLIS) @Optional Long startTimeMills,
-      @ActionParam(PARAM_END_TIME_MILLIS) @Optional Long endTimeMillis) throws URISyntaxException {
+      @ActionParam(PARAM_END_TIME_MILLIS) @Optional Long endTimeMillis,
+      @HeaderParam(value = Constants.IN_UNMODIFIED_SINCE) String condUpdate) throws URISyntaxException {
     Urn urn = Urn.createFromString(urnStr);
     return RestliUtil.toTask(() -> {
       // Find the timeseries aspects to delete. If aspectName is null, delete all.
@@ -453,7 +458,8 @@ public class EntityResource extends CollectionResourceTaskTemplate<String, Entit
 
       DeleteEntityResponse response = new DeleteEntityResponse();
       if (aspectName == null) {
-        RollbackRunResult result = _entityService.deleteUrn(urn);
+        Map<String, Long> createdOnMap = CondUpdateUtils.extractCondUpdate(condUpdate);
+        RollbackRunResult result = _entityService.deleteUrn(urn, createdOnMap.get(urn));
         response.setRows(result.getRowsDeletedFromEntityDeletion());
       }
       Long numTimeseriesDocsDeleted =
@@ -510,11 +516,13 @@ public class EntityResource extends CollectionResourceTaskTemplate<String, Entit
   @Nonnull
   @WithSpan
   public Task<DeleteReferencesResponse> deleteReferencesTo(@ActionParam(PARAM_URN) @Nonnull String urnStr,
-      @ActionParam("dryRun") @Optional Boolean dry) throws URISyntaxException {
+      @ActionParam("dryRun") @Optional Boolean dry,
+      @HeaderParam(value = Constants.IN_UNMODIFIED_SINCE) String condUpdate) throws URISyntaxException {
     boolean dryRun = dry != null ? dry : false;
 
     Urn urn = Urn.createFromString(urnStr);
-    return RestliUtil.toTask(() -> _deleteEntityService.deleteReferencesTo(urn, dryRun),
+    Map<String, Long> createdOnMap = CondUpdateUtils.extractCondUpdate(condUpdate);
+    return RestliUtil.toTask(() -> _deleteEntityService.deleteReferencesTo(urn, dryRun, createdOnMap.get(urn)),
         MetricRegistry.name(this.getClass(), "deleteReferences"));
   }
 

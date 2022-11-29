@@ -11,6 +11,7 @@ import com.linkedin.datahub.graphql.exception.AuthorizationException;
 import com.linkedin.datahub.graphql.exception.DataHubGraphQLErrorCode;
 import com.linkedin.datahub.graphql.exception.DataHubGraphQLException;
 import com.linkedin.datahub.graphql.generated.AddGroupMembersInput;
+import com.linkedin.metadata.Constants;
 import graphql.schema.DataFetcher;
 import graphql.schema.DataFetchingEnvironment;
 import java.util.List;
@@ -34,6 +35,8 @@ public class AddGroupMembersResolver implements DataFetcher<CompletableFuture<Bo
 
   @Override
   public CompletableFuture<Boolean> get(final DataFetchingEnvironment environment) throws Exception {
+    final String condUpdate = environment.getVariables().containsKey(Constants.IN_UNMODIFIED_SINCE)
+            ? environment.getVariables().get(Constants.IN_UNMODIFIED_SINCE).toString() : null;
 
     final AddGroupMembersInput input = bindArgument(environment.getArgument("input"), AddGroupMembersInput.class);
     final String groupUrnStr = input.getGroupUrn();
@@ -57,7 +60,7 @@ public class AddGroupMembersResolver implements DataFetcher<CompletableFuture<Bo
       if (groupOrigin == null || !groupOrigin.hasType()) {
         try {
           _groupService.migrateGroupMembershipToNativeGroupMembership(groupUrn, context.getActorUrn(),
-              context.getAuthentication());
+              context.getAuthentication(), condUpdate);
         } catch (Exception e) {
           throw new RuntimeException(
               String.format("Failed to migrate group membership for group %s when adding group members", groupUrnStr));
@@ -71,7 +74,7 @@ public class AddGroupMembersResolver implements DataFetcher<CompletableFuture<Bo
       try {
         // Add each user to the group
         final List<Urn> userUrnList = input.getUserUrns().stream().map(UrnUtils::getUrn).collect(Collectors.toList());
-        userUrnList.forEach(userUrn -> _groupService.addUserToNativeGroup(userUrn, groupUrn, authentication));
+        userUrnList.forEach(userUrn -> _groupService.addUserToNativeGroup(userUrn, groupUrn, authentication, condUpdate));
         return true;
       } catch (Exception e) {
         throw new RuntimeException(String.format("Failed to add group members to group %s", groupUrnStr));

@@ -153,7 +153,7 @@ public class MockEntityService extends EntityService {
   @Override
   protected UpdateAspectResult ingestAspectToLocalDB(@Nonnull Urn urn, @Nonnull String aspectName,
       @Nonnull Function<Optional<RecordTemplate>, RecordTemplate> updateLambda, @Nonnull AuditStamp auditStamp,
-      @Nonnull SystemMetadata systemMetadata, Long updateIfCreatedOn) {
+      @Nonnull SystemMetadata systemMetadata, @Nullable Long updateIfCreatedOn) {
     return new UpdateAspectResult(UrnUtils.getUrn(DATASET_URN), null,
         null, null, null, null, null, 0L);
   }
@@ -192,12 +192,12 @@ public class MockEntityService extends EntityService {
 
   @Override
   public RollbackRunResult rollbackWithConditions(List<AspectRowSummary> aspectRows, Map<String, String> conditions,
-      boolean hardDelete) {
+      boolean hardDelete, Map<String, Long> createdOnMap) {
     return null;
   }
 
   @Override
-  public RollbackRunResult deleteUrn(Urn urn) {
+  public RollbackRunResult deleteUrn(Urn urn, Long createdOn) {
     return null;
   }
 

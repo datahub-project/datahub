@@ -17,6 +17,7 @@ import com.linkedin.datahub.graphql.exception.DataHubGraphQLErrorCode;
 import com.linkedin.datahub.graphql.exception.DataHubGraphQLException;
 import com.linkedin.datahub.graphql.generated.ReportOperationInput;
 import com.linkedin.datahub.graphql.generated.StringMapEntryInput;
+import com.linkedin.datahub.graphql.util.CondUpdateUtils;
 import com.linkedin.entity.client.EntityClient;
 import com.linkedin.events.metadata.ChangeType;
 import com.linkedin.metadata.Constants;
@@ -29,6 +30,7 @@ import graphql.schema.DataFetcher;
 import graphql.schema.DataFetchingEnvironment;
 import java.net.URISyntaxException;
 import java.util.List;
+import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -51,7 +53,8 @@ public class ReportOperationResolver implements DataFetcher<CompletableFuture<Bo
 
   @Override
   public CompletableFuture<Boolean> get(DataFetchingEnvironment environment) throws Exception {
-
+    final String condUpdate = environment.getVariables().containsKey(Constants.IN_UNMODIFIED_SINCE)
+            ? environment.getVariables().get(Constants.IN_UNMODIFIED_SINCE).toString() : null;
     final QueryContext context = environment.getContext();
     final ReportOperationInput input = bindArgument(environment.getArgument("input"), ReportOperationInput.class);
 
@@ -73,7 +76,8 @@ public class ReportOperationResolver implements DataFetcher<CompletableFuture<Bo
         proposal.setAspectName(Constants.OPERATION_ASPECT_NAME);
         proposal.setAspect(GenericRecordUtils.serializeAspect(mapOperation(input, context)));
         proposal.setChangeType(ChangeType.UPSERT);
-        _entityClient.ingestProposal(proposal, context.getAuthentication());
+        Map<String, Long> createdOnMap = CondUpdateUtils.extractCondUpdate(condUpdate);
+        _entityClient.ingestProposal(proposal, context.getAuthentication(), createdOnMap.get(proposal.getEntityUrn()));
         return true;
       } catch (Exception e) {
         log.error("Failed to report operation. {}", e.getMessage());

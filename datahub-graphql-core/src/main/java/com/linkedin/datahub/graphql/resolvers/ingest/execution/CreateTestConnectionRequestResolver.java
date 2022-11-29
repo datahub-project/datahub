@@ -5,6 +5,7 @@ import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.exception.AuthorizationException;
 import com.linkedin.datahub.graphql.generated.CreateTestConnectionRequestInput;
 import com.linkedin.datahub.graphql.resolvers.ingest.IngestionAuthUtils;
+import com.linkedin.datahub.graphql.util.CondUpdateUtils;
 import com.linkedin.entity.client.EntityClient;
 import com.linkedin.events.metadata.ChangeType;
 import com.linkedin.execution.ExecutionRequestInput;
@@ -46,6 +47,8 @@ public class CreateTestConnectionRequestResolver implements DataFetcher<Completa
 
   @Override
   public CompletableFuture<String> get(final DataFetchingEnvironment environment) throws Exception {
+    final String condUpdate = environment.getVariables().containsKey(Constants.IN_UNMODIFIED_SINCE)
+            ? environment.getVariables().get(Constants.IN_UNMODIFIED_SINCE).toString() : null;
     final QueryContext context = environment.getContext();
 
     return CompletableFuture.supplyAsync(() -> {
@@ -84,9 +87,10 @@ public class CreateTestConnectionRequestResolver implements DataFetcher<Completa
         proposal.setAspect(GenericRecordUtils.serializeAspect(execInput));
         proposal.setChangeType(ChangeType.UPSERT);
 
-        return _entityClient.ingestProposal(proposal, context.getAuthentication());
+        Map<String, Long> createdOnMap = CondUpdateUtils.extractCondUpdate(condUpdate);
+        return _entityClient.ingestProposal(proposal, context.getAuthentication(), createdOnMap.get(proposal.getEntityUrn()));
       } catch (Exception e) {
-        throw new RuntimeException(String.format("Failed to create new test ingestion connection request %s", input.toString()), e);
+        throw new RuntimeException(String.format("Failed to create new test ingestion connection request %s", input), e);
       }
     });
   }

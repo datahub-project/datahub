@@ -6,6 +6,7 @@ import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.exception.AuthorizationException;
 import com.linkedin.datahub.graphql.generated.BatchUpdateSoftDeletedInput;
 import com.linkedin.datahub.graphql.resolvers.mutate.util.DeleteUtils;
+import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.entity.EntityService;
 import graphql.schema.DataFetcher;
 import graphql.schema.DataFetchingEnvironment;
@@ -25,6 +26,8 @@ public class BatchUpdateSoftDeletedResolver implements DataFetcher<CompletableFu
 
   @Override
   public CompletableFuture<Boolean> get(DataFetchingEnvironment environment) throws Exception {
+    final String condUpdate = environment.getVariables().containsKey(Constants.IN_UNMODIFIED_SINCE)
+            ? environment.getVariables().get(Constants.IN_UNMODIFIED_SINCE).toString() : null;
     final QueryContext context = environment.getContext();
     final BatchUpdateSoftDeletedInput input = bindArgument(environment.getArgument("input"), BatchUpdateSoftDeletedInput.class);
     final List<String> urns = input.getUrns();
@@ -37,11 +40,11 @@ public class BatchUpdateSoftDeletedResolver implements DataFetcher<CompletableFu
 
       try {
         // Then execute the bulk soft delete
-        batchUpdateSoftDeleted(deleted, urns, context);
+        batchUpdateSoftDeleted(deleted, urns, context, condUpdate);
         return true;
       } catch (Exception e) {
-        log.error("Failed to perform batch soft delete against input {}, {}", input.toString(), e.getMessage());
-        throw new RuntimeException(String.format("Failed to perform batch soft delete against input %s", input.toString()), e);
+        log.error("Failed to perform batch soft delete against input {}, {}", input, e.getMessage());
+        throw new RuntimeException(String.format("Failed to perform batch soft delete against input %s", input), e);
       }
     });
   }
@@ -62,14 +65,15 @@ public class BatchUpdateSoftDeletedResolver implements DataFetcher<CompletableFu
     }
   }
 
-  private void batchUpdateSoftDeleted(boolean removed, List<String> urnStrs, QueryContext context) {
+  private void batchUpdateSoftDeleted(boolean removed, List<String> urnStrs, QueryContext context, String condUpdate) {
     log.debug("Batch soft deleting assets. urns: {}", urnStrs);
     try {
       DeleteUtils.updateStatusForResources(
           removed,
           urnStrs,
           UrnUtils.getUrn(context.getActorUrn()),
-          _entityService);
+          _entityService,
+          condUpdate);
     } catch (Exception e) {
       throw new RuntimeException(
           String.format("Failed to batch update soft deleted status entities with urns %s!", urnStrs),

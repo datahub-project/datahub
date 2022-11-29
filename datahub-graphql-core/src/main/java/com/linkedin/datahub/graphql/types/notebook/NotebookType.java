@@ -30,6 +30,7 @@ import com.linkedin.datahub.graphql.types.mappers.UrnSearchResultsMapper;
 import com.linkedin.datahub.graphql.types.notebook.mappers.NotebookMapper;
 import com.linkedin.datahub.graphql.types.notebook.mappers.NotebookUpdateInputMapper;
 import com.linkedin.datahub.graphql.types.mappers.AutoCompleteResultsMapper;
+import com.linkedin.datahub.graphql.util.CondUpdateUtils;
 import com.linkedin.entity.EntityResponse;
 import com.linkedin.entity.client.EntityClient;
 import com.linkedin.metadata.authorization.PoliciesConfig;
@@ -164,7 +165,7 @@ public class NotebookType implements SearchableEntityType<Notebook, String>, Bro
   }
 
   @Override
-  public Notebook update(@Nonnull String urn, @Nonnull NotebookUpdateInput input, @Nonnull QueryContext context)
+  public Notebook update(@Nonnull String urn, @Nonnull NotebookUpdateInput input, @Nonnull QueryContext context, @Nullable String condUpdate)
       throws Exception {
     if (!isAuthorized(urn, input, context)) {
       throw new AuthorizationException("Unauthorized to perform this action. Please contact your DataHub administrator.");
@@ -175,7 +176,8 @@ public class NotebookType implements SearchableEntityType<Notebook, String>, Bro
     proposals.forEach(proposal -> proposal.setEntityUrn(UrnUtils.getUrn(urn)));
 
     try {
-      _entityClient.batchIngestProposals(proposals, context.getAuthentication(), false);
+      Map<String, Long> createdOnMap = CondUpdateUtils.extractCondUpdate(condUpdate);
+      _entityClient.batchIngestProposals(proposals, context.getAuthentication(), false, createdOnMap);
     } catch (RemoteInvocationException e) {
       throw new RuntimeException(String.format("Failed to write entity with urn %s", urn), e);
     }

@@ -39,6 +39,8 @@ public class CreateAccessTokenResolver implements DataFetcher<CompletableFuture<
 
   @Override
   public CompletableFuture<AccessToken> get(final DataFetchingEnvironment environment) throws Exception {
+    final String condUpdate = environment.getVariables().containsKey(Constants.IN_UNMODIFIED_SINCE)
+            ? environment.getVariables().get(Constants.IN_UNMODIFIED_SINCE).toString() : null;
     return CompletableFuture.supplyAsync(() -> {
       final QueryContext context = environment.getContext();
       final CreateAccessTokenInput input = bindArgument(environment.getArgument("input"), CreateAccessTokenInput.class);
@@ -58,7 +60,7 @@ public class CreateAccessTokenResolver implements DataFetcher<CompletableFuture<
 
         final String accessToken =
             _statefulTokenService.generateAccessToken(type, createActor(input.getType(), actorUrn), expiresInMs.orElse(null),
-                createdAtInMs, tokenName, tokenDescription, context.getActorUrn());
+                createdAtInMs, tokenName, tokenDescription, context.getActorUrn(), condUpdate);
         log.info("Generated access token for {} of type {} with duration {}", input.getActorUrn(), input.getType(),
             input.getDuration());
         try {

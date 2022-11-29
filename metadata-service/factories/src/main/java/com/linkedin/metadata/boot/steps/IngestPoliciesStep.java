@@ -73,7 +73,7 @@ public class IngestPoliciesStep implements BootstrapStep {
 
       // If the info is not there, it means that the policy was there before, but must now be removed
       if (!policyObj.has("info")) {
-        _entityService.deleteUrn(urn);
+        _entityService.deleteUrn(urn, null);
         continue;
       }
 
@@ -167,7 +167,7 @@ public class IngestPoliciesStep implements BootstrapStep {
     keyAspectProposal.setEntityUrn(urn);
 
     _entityService.ingestProposal(keyAspectProposal,
-        new AuditStamp().setActor(Urn.createFromString(Constants.SYSTEM_ACTOR)).setTime(System.currentTimeMillis()), false);
+        new AuditStamp().setActor(Urn.createFromString(Constants.SYSTEM_ACTOR)).setTime(System.currentTimeMillis()), false, null);
 
     final MetadataChangeProposal proposal = new MetadataChangeProposal();
     proposal.setEntityUrn(urn);
@@ -177,7 +177,7 @@ public class IngestPoliciesStep implements BootstrapStep {
     proposal.setChangeType(ChangeType.UPSERT);
 
     _entityService.ingestProposal(proposal,
-        new AuditStamp().setActor(Urn.createFromString(Constants.SYSTEM_ACTOR)).setTime(System.currentTimeMillis()), false);
+        new AuditStamp().setActor(Urn.createFromString(Constants.SYSTEM_ACTOR)).setTime(System.currentTimeMillis()), false, null);
   }
 
   private boolean hasPolicy(Urn policyUrn) {

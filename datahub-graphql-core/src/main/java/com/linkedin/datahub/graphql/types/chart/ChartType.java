@@ -31,6 +31,7 @@ import com.linkedin.datahub.graphql.types.mappers.AutoCompleteResultsMapper;
 import com.linkedin.datahub.graphql.types.mappers.BrowsePathsMapper;
 import com.linkedin.datahub.graphql.types.mappers.BrowseResultMapper;
 import com.linkedin.datahub.graphql.types.mappers.UrnSearchResultsMapper;
+import com.linkedin.datahub.graphql.util.CondUpdateUtils;
 import com.linkedin.entity.EntityResponse;
 import com.linkedin.entity.client.EntityClient;
 import com.linkedin.metadata.authorization.PoliciesConfig;
@@ -196,14 +197,15 @@ public class ChartType implements SearchableEntityType<Chart, String>, Browsable
     }
 
     @Override
-    public Chart update(@Nonnull String urn, @Nonnull ChartUpdateInput input, @Nonnull QueryContext context) throws Exception {
+    public Chart update(@Nonnull String urn, @Nonnull ChartUpdateInput input, @Nonnull QueryContext context, @Nullable String condUpdate) throws Exception {
         if (isAuthorized(urn, input, context)) {
             final CorpuserUrn actor = CorpuserUrn.createFromString(context.getAuthentication().getActor().toUrnStr());
             final Collection<MetadataChangeProposal> proposals = ChartUpdateInputMapper.map(input, actor);
             proposals.forEach(proposal -> proposal.setEntityUrn(UrnUtils.getUrn(urn)));
 
             try {
-                _entityClient.batchIngestProposals(proposals, context.getAuthentication(), false);
+                Map<String, Long> createdOnMap = CondUpdateUtils.extractCondUpdate(condUpdate);
+                _entityClient.batchIngestProposals(proposals, context.getAuthentication(), false, createdOnMap);
             } catch (RemoteInvocationException e) {
                 throw new RuntimeException(String.format("Failed to write entity with urn %s", urn), e);
             }

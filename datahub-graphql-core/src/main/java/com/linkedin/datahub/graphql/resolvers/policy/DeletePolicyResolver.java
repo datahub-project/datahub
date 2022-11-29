@@ -4,9 +4,12 @@ import com.datahub.authorization.AuthorizerChain;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.exception.AuthorizationException;
+import com.linkedin.datahub.graphql.util.CondUpdateUtils;
 import com.linkedin.entity.client.EntityClient;
+import com.linkedin.metadata.Constants;
 import graphql.schema.DataFetcher;
 import graphql.schema.DataFetchingEnvironment;
+import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 
 
@@ -23,13 +26,16 @@ public class DeletePolicyResolver implements DataFetcher<CompletableFuture<Strin
 
   @Override
   public CompletableFuture<String> get(final DataFetchingEnvironment environment) throws Exception {
+    final String condUpdate = environment.getVariables().containsKey(Constants.IN_UNMODIFIED_SINCE)
+            ? environment.getVariables().get(Constants.IN_UNMODIFIED_SINCE).toString() : null;
     final QueryContext context = environment.getContext();
     if (PolicyAuthUtils.canManagePolicies(context)) {
       final String policyUrn = environment.getArgument("urn");
       final Urn urn = Urn.createFromString(policyUrn);
       return CompletableFuture.supplyAsync(() -> {
         try {
-          _entityClient.deleteEntity(urn, context.getAuthentication());
+          Map<String, Long> createdOnMap = CondUpdateUtils.extractCondUpdate(condUpdate);
+          _entityClient.deleteEntity(urn, context.getAuthentication(), createdOnMap.get(policyUrn));
           if (context.getAuthorizer() instanceof AuthorizerChain) {
             ((AuthorizerChain) context.getAuthorizer()).getDefaultAuthorizer().invalidateCache();
           }

@@ -22,6 +22,7 @@ import com.linkedin.datahub.graphql.types.mappers.AutoCompleteResultsMapper;
 import com.linkedin.datahub.graphql.types.mappers.UrnSearchResultsMapper;
 import com.linkedin.datahub.graphql.types.tag.mappers.TagMapper;
 import com.linkedin.datahub.graphql.types.tag.mappers.TagUpdateInputMapper;
+import com.linkedin.datahub.graphql.util.CondUpdateUtils;
 import com.linkedin.entity.EntityResponse;
 import com.linkedin.entity.client.EntityClient;
 import com.linkedin.metadata.authorization.PoliciesConfig;
@@ -126,13 +127,14 @@ public class TagType implements com.linkedin.datahub.graphql.types.SearchableEnt
 
 
     @Override
-    public Tag update(@Nonnull String urn, @Nonnull TagUpdateInput input, @Nonnull QueryContext context) throws Exception {
+    public Tag update(@Nonnull String urn, @Nonnull TagUpdateInput input, @Nonnull QueryContext context, @Nullable String condUpdate) throws Exception {
         if (isAuthorized(input, context)) {
             final CorpuserUrn actor = CorpuserUrn.createFromString(context.getAuthentication().getActor().toUrnStr());
             final Collection<MetadataChangeProposal> proposals = TagUpdateInputMapper.map(input, actor);
             proposals.forEach(proposal -> proposal.setEntityUrn(UrnUtils.getUrn(urn)));
             try {
-                _entityClient.batchIngestProposals(proposals, context.getAuthentication(), false);
+                Map<String, Long> createdOnMap = CondUpdateUtils.extractCondUpdate(condUpdate);
+                _entityClient.batchIngestProposals(proposals, context.getAuthentication(), false, createdOnMap);
             } catch (RemoteInvocationException e) {
                 throw new RuntimeException(String.format("Failed to write entity with urn %s", urn), e);
             }

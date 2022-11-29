@@ -6,6 +6,7 @@ import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.exception.AuthorizationException;
 import com.linkedin.datahub.graphql.generated.RemoveLinkInput;
 import com.linkedin.datahub.graphql.resolvers.mutate.util.LinkUtils;
+import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.entity.EntityService;
 import graphql.schema.DataFetcher;
 import graphql.schema.DataFetchingEnvironment;
@@ -24,6 +25,8 @@ public class RemoveLinkResolver implements DataFetcher<CompletableFuture<Boolean
 
   @Override
   public CompletableFuture<Boolean> get(DataFetchingEnvironment environment) throws Exception {
+    final String condUpdate = environment.getVariables().containsKey(Constants.IN_UNMODIFIED_SINCE)
+            ? environment.getVariables().get(Constants.IN_UNMODIFIED_SINCE).toString() : null;
     final RemoveLinkInput input = bindArgument(environment.getArgument("input"), RemoveLinkInput.class);
 
     String linkUrl = input.getLinkUrl();
@@ -47,12 +50,13 @@ public class RemoveLinkResolver implements DataFetcher<CompletableFuture<Boolean
             linkUrl,
             targetUrn,
             actor,
-            _entityService
+            _entityService,
+            condUpdate
         );
         return true;
       } catch (Exception e) {
-        log.error("Failed to remove link from resource with input {}, {}", input.toString(), e.getMessage());
-        throw new RuntimeException(String.format("Failed to remove link from resource with input  %s", input.toString()), e);
+        log.error("Failed to remove link from resource with input {}, {}", input, e.getMessage());
+        throw new RuntimeException(String.format("Failed to remove link from resource with input  %s", input), e);
       }
     });
   }

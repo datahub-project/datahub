@@ -105,12 +105,12 @@ public abstract class RetentionService {
     keyProposal.setEntityUrn(retentionUrn);
     AuditStamp auditStamp =
         new AuditStamp().setActor(Urn.createFromString(Constants.SYSTEM_ACTOR)).setTime(System.currentTimeMillis());
-    getEntityService().ingestProposal(keyProposal, auditStamp, false);
+    getEntityService().ingestProposal(keyProposal, auditStamp, false, null);
     MetadataChangeProposal aspectProposal = keyProposal.clone();
     GenericAspect retentionAspect = GenericRecordUtils.serializeAspect(retentionConfig);
     aspectProposal.setAspect(retentionAspect);
     aspectProposal.setAspectName(DATAHUB_RETENTION_ASPECT);
-    return getEntityService().ingestProposal(aspectProposal, auditStamp, false).isDidUpdate();
+    return getEntityService().ingestProposal(aspectProposal, auditStamp, false, null).isDidUpdate();
   }
 
   /**
@@ -121,12 +121,12 @@ public abstract class RetentionService {
    * @param aspectName Aspect name to apply policy to. If null, set as "*",
    *                   meaning it will delete the default policy for any aspects without specified policy
    */
-  public void deleteRetention(@Nullable String entityName, @Nullable String aspectName) {
+  public void deleteRetention(@Nullable String entityName, @Nullable String aspectName, @Nullable Long createdOn) {
     DataHubRetentionKey retentionKey = new DataHubRetentionKey();
     retentionKey.setEntityName(entityName != null ? entityName : ALL);
     retentionKey.setAspectName(aspectName != null ? aspectName : ALL);
     Urn retentionUrn = EntityKeyUtils.convertEntityKeyToUrn(retentionKey, DATAHUB_RETENTION_ENTITY);
-    getEntityService().deleteUrn(retentionUrn);
+    getEntityService().deleteUrn(retentionUrn, createdOn);
   }
 
   private void validateRetention(Retention retention) {

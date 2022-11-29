@@ -29,7 +29,7 @@ public class AspectIngestionUtils {
       Urn urn = UrnUtils.getUrn(String.format("urn:li:corpuser:tester%d", i));
       CorpUserKey aspect = AspectGenerationUtils.createCorpUserKey(urn);
       aspects.put(urn, aspect);
-      entityService.ingestAspect(urn, aspectName, aspect, AspectGenerationUtils.createAuditStamp(), AspectGenerationUtils.createSystemMetadata());
+      entityService.ingestAspect(urn, aspectName, aspect, AspectGenerationUtils.createAuditStamp(), AspectGenerationUtils.createSystemMetadata(), null);
     }
     return aspects;
   }
@@ -48,7 +48,7 @@ public class AspectIngestionUtils {
       String email = String.format("email%d@test.com", i);
       CorpUserInfo aspect = AspectGenerationUtils.createCorpUserInfo(email);
       aspects.put(urn, aspect);
-      entityService.ingestAspect(urn, aspectName, aspect, AspectGenerationUtils.createAuditStamp(), AspectGenerationUtils.createSystemMetadata());
+      entityService.ingestAspect(urn, aspectName, aspect, AspectGenerationUtils.createAuditStamp(), AspectGenerationUtils.createSystemMetadata(), null);
     }
     return aspects;
   }
@@ -68,7 +68,7 @@ public class AspectIngestionUtils {
       String description = String.format("Test description %d", i);
       ChartInfo aspect = AspectGenerationUtils.createChartInfo(title, description);
       aspects.put(urn, aspect);
-      entityService.ingestAspect(urn, aspectName, aspect, AspectGenerationUtils.createAuditStamp(), AspectGenerationUtils.createSystemMetadata());
+      entityService.ingestAspect(urn, aspectName, aspect, AspectGenerationUtils.createAuditStamp(), AspectGenerationUtils.createSystemMetadata(), null);
     }
     return aspects;
   }

@@ -9,6 +9,7 @@ import com.linkedin.datahub.graphql.generated.OwnerInput;
 import com.linkedin.datahub.graphql.generated.ResourceRefInput;
 import com.linkedin.datahub.graphql.resolvers.mutate.util.LabelUtils;
 import com.linkedin.datahub.graphql.resolvers.mutate.util.OwnerUtils;
+import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.entity.EntityService;
 import graphql.schema.DataFetcher;
 import graphql.schema.DataFetchingEnvironment;
@@ -29,6 +30,8 @@ public class BatchAddOwnersResolver implements DataFetcher<CompletableFuture<Boo
 
   @Override
   public CompletableFuture<Boolean> get(DataFetchingEnvironment environment) throws Exception {
+    final String condUpdate = environment.getVariables().containsKey(Constants.IN_UNMODIFIED_SINCE)
+            ? environment.getVariables().get(Constants.IN_UNMODIFIED_SINCE).toString() : null;
     final BatchAddOwnersInput input = bindArgument(environment.getArgument("input"), BatchAddOwnersInput.class);
     final List<OwnerInput> owners = input.getOwners();
     final List<ResourceRefInput> resources = input.getResources();
@@ -42,11 +45,11 @@ public class BatchAddOwnersResolver implements DataFetcher<CompletableFuture<Boo
 
       try {
         // Then execute the bulk add
-        batchAddOwners(owners, resources, context);
+        batchAddOwners(owners, resources, context, condUpdate);
         return true;
       } catch (Exception e) {
-        log.error("Failed to perform update against input {}, {}", input.toString(), e.getMessage());
-        throw new RuntimeException(String.format("Failed to perform update against input %s", input.toString()), e);
+        log.error("Failed to perform update against input {}, {}", input, e.getMessage());
+        throw new RuntimeException(String.format("Failed to perform update against input %s", input), e);
       }
     });
   }
@@ -76,10 +79,10 @@ public class BatchAddOwnersResolver implements DataFetcher<CompletableFuture<Boo
     LabelUtils.validateResource(resourceUrn, resource.getSubResource(), resource.getSubResourceType(), _entityService);
   }
 
-  private void batchAddOwners(List<OwnerInput> owners, List<ResourceRefInput> resources, QueryContext context) {
+  private void batchAddOwners(List<OwnerInput> owners, List<ResourceRefInput> resources, QueryContext context, String condUpdate) {
     log.debug("Batch adding owners. owners: {}, resources: {}", owners, resources);
     try {
-      OwnerUtils.addOwnersToResources(owners, resources, UrnUtils.getUrn(context.getActorUrn()), _entityService);
+      OwnerUtils.addOwnersToResources(owners, resources, UrnUtils.getUrn(context.getActorUrn()), _entityService, condUpdate);
     } catch (Exception e) {
       throw new RuntimeException(String.format("Failed to batch add Owners %s to resources with urns %s!",
           owners,

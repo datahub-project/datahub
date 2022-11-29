@@ -10,6 +10,7 @@ import com.linkedin.datahub.graphql.authorization.AuthorizationUtils;
 import com.linkedin.datahub.graphql.authorization.ConjunctivePrivilegeGroup;
 import com.linkedin.datahub.graphql.authorization.DisjunctivePrivilegeGroup;
 import com.linkedin.datahub.graphql.generated.ResourceRefInput;
+import com.linkedin.datahub.graphql.util.CondUpdateUtils;
 import com.linkedin.domain.Domains;
 import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.authorization.PoliciesConfig;
@@ -17,6 +18,7 @@ import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.mxe.MetadataChangeProposal;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import lombok.extern.slf4j.Slf4j;
@@ -51,13 +53,14 @@ public class DomainUtils {
       @Nullable Urn domainUrn,
       List<ResourceRefInput> resources,
       Urn actor,
-      EntityService entityService
+      EntityService entityService,
+      @Nullable String condUpdate
   ) throws Exception {
     final List<MetadataChangeProposal> changes = new ArrayList<>();
     for (ResourceRefInput resource : resources) {
       changes.add(buildSetDomainProposal(domainUrn, resource, actor, entityService));
     }
-    ingestChangeProposals(changes, entityService, actor);
+    ingestChangeProposals(changes, entityService, actor, condUpdate);
   }
 
   private static MetadataChangeProposal buildSetDomainProposal(
@@ -85,10 +88,11 @@ public class DomainUtils {
     }
   }
 
-  private static void ingestChangeProposals(List<MetadataChangeProposal> changes, EntityService entityService, Urn actor) {
+  private static void ingestChangeProposals(List<MetadataChangeProposal> changes, EntityService entityService, Urn actor, String condUpdate) {
     // TODO: Replace this with a batch ingest proposals endpoint.
+    Map<String, Long> createdOnMap = CondUpdateUtils.extractCondUpdate(condUpdate);
     for (MetadataChangeProposal change : changes) {
-      entityService.ingestProposal(change, getAuditStamp(actor), false);
+      entityService.ingestProposal(change, getAuditStamp(actor), false, createdOnMap.get(change.getEntityUrn()));
     }
   }
 }

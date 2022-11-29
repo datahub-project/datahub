@@ -15,10 +15,12 @@ import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.metadata.search.SearchEntity;
 import com.linkedin.metadata.search.SearchResult;
 import com.linkedin.metadata.secret.SecretService;
+import com.linkedin.metadata.utils.CondUpdateUtils;
 import com.linkedin.mxe.MetadataChangeProposal;
 import com.linkedin.r2.RemoteInvocationException;
 import java.net.URISyntaxException;
 import java.util.Collections;
+import java.util.Map;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import lombok.RequiredArgsConstructor;
@@ -56,7 +58,7 @@ public class InviteTokenService {
 
   @Nonnull
   public String getInviteToken(@Nullable final String roleUrnStr, boolean regenerate,
-      @Nonnull final Authentication authentication) throws Exception {
+      @Nonnull final Authentication authentication, @Nullable String condUpdate) throws Exception {
     final Filter inviteTokenFilter =
         roleUrnStr == null ? createInviteTokenFilter() : createInviteTokenFilter(roleUrnStr);
 
@@ -66,13 +68,13 @@ public class InviteTokenService {
     final int numEntities = searchResult.getEntities().size();
     // If there is more than one invite token, wipe all of them and generate a fresh one
     if (numEntities > 1) {
-      deleteExistingInviteTokens(searchResult, authentication);
-      return createInviteToken(roleUrnStr, authentication);
+      deleteExistingInviteTokens(searchResult, authentication, condUpdate);
+      return createInviteToken(roleUrnStr, authentication, condUpdate);
     }
 
     // If we want to regenerate, or there are no entities in the result, create a new invite token.
     if (regenerate || numEntities == 0) {
-      return createInviteToken(roleUrnStr, authentication);
+      return createInviteToken(roleUrnStr, authentication, condUpdate);
     }
 
     final SearchEntity searchEntity = searchResult.getEntities().get(0);
@@ -140,7 +142,7 @@ public class InviteTokenService {
   }
 
   @Nonnull
-  private String createInviteToken(@Nullable final String roleUrnStr, @Nonnull final Authentication authentication)
+  private String createInviteToken(@Nullable final String roleUrnStr, @Nonnull final Authentication authentication, @Nullable String condUpdate)
       throws Exception {
     String inviteTokenStr = _secretService.generateUrlSafeToken(INVITE_TOKEN_LENGTH);
     String hashedInviteTokenStr = _secretService.hashString(inviteTokenStr);
@@ -157,16 +159,18 @@ public class InviteTokenService {
     final MetadataChangeProposal proposal =
         buildMetadataChangeProposal(INVITE_TOKEN_ENTITY_NAME, inviteTokenKey, INVITE_TOKEN_ASPECT_NAME,
             inviteTokenAspect);
-    _entityClient.ingestProposal(proposal, authentication);
+    Map<String, Long> createdOnMap = CondUpdateUtils.extractCondUpdate(condUpdate);
+    _entityClient.ingestProposal(proposal, authentication, createdOnMap.get(condUpdate));
 
     return inviteTokenStr;
   }
 
   private void deleteExistingInviteTokens(@Nonnull final SearchResult searchResult,
-      @Nonnull final Authentication authentication) {
+      @Nonnull final Authentication authentication, @Nullable String condUpdate) {
     searchResult.getEntities().forEach(entity -> {
       try {
-        _entityClient.deleteEntity(entity.getEntity(), authentication);
+        Map<String, Long> createdOnMap = CondUpdateUtils.extractCondUpdate(condUpdate);
+        _entityClient.deleteEntity(entity.getEntity(), authentication, createdOnMap.get(condUpdate));
       } catch (RemoteInvocationException e) {
         log.error(String.format("Failed to delete invite token entity %s", entity.getEntity()), e);
       }

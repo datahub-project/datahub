@@ -63,7 +63,7 @@ public class DeleteEntityService {
      * @return A {@link DeleteReferencesResponse} instance detailing the response of deleting references to the provided
      * urn.
      */
-    public DeleteReferencesResponse deleteReferencesTo(final Urn urn, final boolean dryRun) {
+    public DeleteReferencesResponse deleteReferencesTo(final Urn urn, final boolean dryRun, Long createdOn) {
         final DeleteReferencesResponse result = new DeleteReferencesResponse();
         RelatedEntitiesResult relatedEntities =
                 _graphService.findRelatedEntities(null, newFilter("urn", urn.toString()), null,
@@ -86,7 +86,7 @@ public class DeleteEntityService {
 
         for (int processedEntities = 0; processedEntities < relatedEntities.getTotal(); processedEntities += relatedEntities.getCount()) {
             log.info("Processing batch {} of {} aspects", processedEntities, relatedEntities.getTotal());
-            relatedEntities.getEntities().forEach(entity -> deleteReference(urn, entity));
+            relatedEntities.getEntities().forEach(entity -> deleteReference(urn, entity, createdOn));
             if (processedEntities + relatedEntities.getEntities().size() < relatedEntities.getTotal()) {
                 sleep(ELASTIC_BATCH_DELETE_SLEEP_SEC);
                 relatedEntities = _graphService.findRelatedEntities(null, newFilter("urn", urn.toString()),
@@ -192,7 +192,7 @@ public class DeleteEntityService {
      * @param urn           The urn to be found.
      * @param relatedEntity The entity to be modified.
      */
-    private void deleteReference(final Urn urn, final RelatedEntity relatedEntity) {
+    private void deleteReference(final Urn urn, final RelatedEntity relatedEntity, Long createdOn) {
         final Urn relatedUrn = UrnUtils.getUrn(relatedEntity.getUrn());
         final String relationshipType = relatedEntity.getRelationshipType();
         getAspects(urn, relatedUrn, relationshipType)
@@ -227,7 +227,7 @@ public class DeleteEntityService {
                             deleteAspect(relatedUrn, aspectName, aspect);
                         } else {
                             // Then we should update the aspect.
-                            updateAspect(relatedUrn, aspectName, aspect, updatedAspect.get());
+                            updateAspect(relatedUrn, aspectName, aspect, updatedAspect.get(), createdOn);
                         }
                     }
                 });
@@ -248,7 +248,7 @@ public class DeleteEntityService {
         proposal.setAspectName(aspectName);
 
         final AuditStamp auditStamp = new AuditStamp().setActor(UrnUtils.getUrn(Constants.SYSTEM_ACTOR)).setTime(System.currentTimeMillis());
-        final EntityService.IngestProposalResult ingestProposalResult = _entityService.ingestProposal(proposal, auditStamp, false);
+        final EntityService.IngestProposalResult ingestProposalResult = _entityService.ingestProposal(proposal, auditStamp, false, null);
 
         if (!ingestProposalResult.isDidUpdate()) {
             log.error("Failed to ingest aspect with references removed. Before {}, after: null, please check MCP processor"
@@ -267,7 +267,7 @@ public class DeleteEntityService {
      * @param prevAspect the old value for the aspect
      * @param newAspect the new value for the aspect
      */
-    private void updateAspect(Urn urn, String aspectName, RecordTemplate prevAspect, RecordTemplate newAspect) {
+    private void updateAspect(Urn urn, String aspectName, RecordTemplate prevAspect, RecordTemplate newAspect, Long createdOn) {
         final MetadataChangeProposal proposal = new MetadataChangeProposal();
         proposal.setEntityUrn(urn);
         proposal.setChangeType(ChangeType.UPSERT);
@@ -276,7 +276,7 @@ public class DeleteEntityService {
         proposal.setAspect(GenericRecordUtils.serializeAspect(newAspect));
 
         final AuditStamp auditStamp = new AuditStamp().setActor(UrnUtils.getUrn(Constants.SYSTEM_ACTOR)).setTime(System.currentTimeMillis());
-        final EntityService.IngestProposalResult ingestProposalResult = _entityService.ingestProposal(proposal, auditStamp, false);
+        final EntityService.IngestProposalResult ingestProposalResult = _entityService.ingestProposal(proposal, auditStamp, false, createdOn);
 
         if (!ingestProposalResult.isDidUpdate()) {
             log.error("Failed to ingest aspect with references removed. Before {}, after: {}, please check MCP processor"

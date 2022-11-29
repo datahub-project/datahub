@@ -10,6 +10,7 @@ import com.linkedin.datahub.graphql.generated.AddOwnersInput;
 import com.linkedin.datahub.graphql.generated.OwnerInput;
 import com.linkedin.datahub.graphql.generated.ResourceRefInput;
 import com.linkedin.datahub.graphql.resolvers.mutate.util.OwnerUtils;
+import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.entity.EntityService;
 import graphql.schema.DataFetcher;
 import graphql.schema.DataFetchingEnvironment;
@@ -29,6 +30,8 @@ public class AddOwnersResolver implements DataFetcher<CompletableFuture<Boolean>
 
   @Override
   public CompletableFuture<Boolean> get(DataFetchingEnvironment environment) throws Exception {
+    final String condUpdate = environment.getVariables().containsKey(Constants.IN_UNMODIFIED_SINCE)
+            ? environment.getVariables().get(Constants.IN_UNMODIFIED_SINCE).toString() : null;
     final AddOwnersInput input = bindArgument(environment.getArgument("input"), AddOwnersInput.class);
     List<OwnerInput> owners = input.getOwners();
     Urn targetUrn = Urn.createFromString(input.getResourceUrn());
@@ -46,19 +49,20 @@ public class AddOwnersResolver implements DataFetcher<CompletableFuture<Boolean>
       );
       try {
 
-        log.debug("Adding Owners. input: {}", input.toString());
+        log.debug("Adding Owners. input: {}", input);
 
         Urn actor = CorpuserUrn.createFromString(((QueryContext) environment.getContext()).getActorUrn());
         OwnerUtils.addOwnersToResources(
             owners,
             ImmutableList.of(new ResourceRefInput(input.getResourceUrn(), null, null)),
             actor,
-            _entityService
+            _entityService,
+            condUpdate
         );
         return true;
       } catch (Exception e) {
-        log.error("Failed to add owners to resource with input {}, {}", input.toString(), e.getMessage());
-        throw new RuntimeException(String.format("Failed to add owners to resource with input %s", input.toString()), e);
+        log.error("Failed to add owners to resource with input {}, {}", input, e.getMessage());
+        throw new RuntimeException(String.format("Failed to add owners to resource with input %s", input), e);
       }
     });
   }

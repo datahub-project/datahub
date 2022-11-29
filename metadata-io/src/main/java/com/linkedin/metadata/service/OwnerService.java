@@ -18,6 +18,8 @@ import java.util.stream.Collectors;
 import  com.linkedin.entity.client.EntityClient;
 import com.datahub.authentication.Authentication;
 import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
+
 import lombok.extern.slf4j.Slf4j;
 
 import static com.linkedin.metadata.entity.AspectUtils.*;
@@ -37,8 +39,9 @@ public class OwnerService extends BaseService {
    * @param resources references to the resources to change
    * @param ownershipType the ownership type to add
    */
-  public void batchAddOwners(@Nonnull List<Urn> ownerUrns, @Nonnull List<ResourceReference> resources, @Nonnull OwnershipType ownershipType) {
-    batchAddOwners(ownerUrns, resources, ownershipType, this.systemAuthentication);
+  public void batchAddOwners(@Nonnull List<Urn> ownerUrns, @Nonnull List<ResourceReference> resources,
+                             @Nonnull OwnershipType ownershipType, @Nullable String condUpdate) {
+    batchAddOwners(ownerUrns, resources, ownershipType, this.systemAuthentication, condUpdate);
   }
 
   /**
@@ -53,10 +56,11 @@ public class OwnerService extends BaseService {
       @Nonnull List<Urn> ownerUrns,
       @Nonnull List<ResourceReference> resources,
       @Nonnull OwnershipType ownershipType,
-      @Nonnull Authentication authentication) {
+      @Nonnull Authentication authentication,
+      @Nullable String condUpdate) {
     log.debug("Batch adding Owners to entities. owners: {}, resources: {}", resources, ownerUrns);
     try {
-      addOwnersToResources(ownerUrns, resources, ownershipType, authentication);
+      addOwnersToResources(ownerUrns, resources, ownershipType, authentication, condUpdate);
     } catch (Exception e) {
       throw new RuntimeException(String.format("Failed to batch add Owners %s to resources with urns %s!",
           ownerUrns,
@@ -71,8 +75,8 @@ public class OwnerService extends BaseService {
    * @param ownerUrns the urns of the owners to remove
    * @param resources references to the resources to change
    */
-  public void batchRemoveOwners(@Nonnull List<Urn> ownerUrns, @Nonnull List<ResourceReference> resources) {
-    batchRemoveOwners(ownerUrns, resources, this.systemAuthentication);
+  public void batchRemoveOwners(@Nonnull List<Urn> ownerUrns, @Nonnull List<ResourceReference> resources, @Nullable String condUpdate) {
+    batchRemoveOwners(ownerUrns, resources, this.systemAuthentication, condUpdate);
   }
 
   /**
@@ -85,10 +89,11 @@ public class OwnerService extends BaseService {
   public void batchRemoveOwners(
       @Nonnull List<Urn> ownerUrns,
       @Nonnull List<ResourceReference> resources,
-      @Nonnull Authentication authentication) {
+      @Nonnull Authentication authentication,
+      @Nullable String condUpdate) {
     log.debug("Batch adding Owners to entities. owners: {}, resources: {}", resources, ownerUrns);
     try {
-      removeOwnersFromResources(ownerUrns, resources, authentication);
+      removeOwnersFromResources(ownerUrns, resources, authentication, condUpdate);
     } catch (Exception e) {
       throw new RuntimeException(String.format("Failed to batch add Owners %s to resources with urns %s!",
           ownerUrns,
@@ -101,19 +106,21 @@ public class OwnerService extends BaseService {
       List<com.linkedin.common.urn.Urn> ownerUrns,
       List<ResourceReference> resources,
       OwnershipType ownershipType,
-      Authentication authentication
+      Authentication authentication,
+      @Nullable String condUpdate
   ) throws Exception {
     final List<MetadataChangeProposal> changes = buildAddOwnersProposals(ownerUrns, resources, ownershipType, authentication);
-    ingestChangeProposals(changes, authentication);
+    ingestChangeProposals(changes, authentication, condUpdate);
   }
 
   private void removeOwnersFromResources(
       List<Urn> owners,
       List<ResourceReference> resources,
-      Authentication authentication
+      Authentication authentication,
+      @Nullable String condUpdate
   ) throws Exception {
     final List<MetadataChangeProposal> changes = buildRemoveOwnersProposals(owners, resources, authentication);
-    ingestChangeProposals(changes, authentication);
+    ingestChangeProposals(changes, authentication, condUpdate);
   }
 
   @VisibleForTesting

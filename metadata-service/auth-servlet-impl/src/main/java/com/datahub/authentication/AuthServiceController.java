@@ -13,6 +13,7 @@ import com.linkedin.gms.factory.config.ConfigurationProvider;
 import java.util.concurrent.CompletableFuture;
 import javax.annotation.Nullable;
 import javax.inject.Inject;
+import com.linkedin.metadata.Constants;
 import lombok.extern.slf4j.Slf4j;
 import org.json.JSONObject;
 import org.springframework.http.HttpEntity;
@@ -144,6 +145,7 @@ public class AuthServiceController {
    */
   @PostMapping(value = "/signUp", produces = "application/json;charset=utf-8")
   CompletableFuture<ResponseEntity<String>> signUp(final HttpEntity<String> httpEntity) {
+    String condUpdate = httpEntity.getHeaders().getFirst(Constants.IN_UNMODIFIED_SINCE);
     String jsonStr = httpEntity.getBody();
     ObjectMapper mapper = new ObjectMapper();
     JsonNode bodyJson;
@@ -187,7 +189,7 @@ public class AuthServiceController {
         }
 
         _nativeUserService.createNativeUser(userUrnString, fullNameString, emailString, titleString, passwordString,
-            auth);
+            auth, condUpdate);
         String response = buildSignUpResponse();
         return new ResponseEntity<>(response, HttpStatus.OK);
       } catch (Exception e) {
@@ -218,6 +220,7 @@ public class AuthServiceController {
    */
   @PostMapping(value = "/resetNativeUserCredentials", produces = "application/json;charset=utf-8")
   CompletableFuture<ResponseEntity<String>> resetNativeUserCredentials(final HttpEntity<String> httpEntity) {
+    String condUpdate = httpEntity.getHeaders().getFirst(Constants.IN_UNMODIFIED_SINCE);
     String jsonStr = httpEntity.getBody();
     ObjectMapper mapper = new ObjectMapper();
     JsonNode bodyJson;
@@ -248,7 +251,7 @@ public class AuthServiceController {
     return CompletableFuture.supplyAsync(() -> {
       try {
         _nativeUserService.resetCorpUserCredentials(userUrnString, passwordString, resetTokenString,
-            auth);
+            auth, condUpdate);
         String response = buildResetNativeUserCredentialsResponse();
         return new ResponseEntity<>(response, HttpStatus.OK);
       } catch (Exception e) {

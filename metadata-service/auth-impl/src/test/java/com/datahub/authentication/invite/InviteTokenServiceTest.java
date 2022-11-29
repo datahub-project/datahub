@@ -119,7 +119,7 @@ public class InviteTokenServiceTest {
   public void getInviteTokenRoleUrnDoesNotExist() throws Exception {
     when(_entityClient.exists(eq(roleUrn), eq(SYSTEM_AUTHENTICATION))).thenReturn(false);
 
-    assertThrows(() -> _inviteTokenService.getInviteToken(roleUrn.toString(), false, SYSTEM_AUTHENTICATION));
+    assertThrows(() -> _inviteTokenService.getInviteToken(roleUrn.toString(), false, SYSTEM_AUTHENTICATION, null));
   }
 
   @Test
@@ -132,8 +132,8 @@ public class InviteTokenServiceTest {
     when(_secretService.hashString(anyString())).thenReturn(HASHED_INVITE_TOKEN_STRING);
     when(_secretService.encrypt(anyString())).thenReturn(ENCRYPTED_INVITE_TOKEN_STRING);
 
-    _inviteTokenService.getInviteToken(null, true, SYSTEM_AUTHENTICATION);
-    verify(_entityClient, times(1)).ingestProposal(any(), eq(SYSTEM_AUTHENTICATION));
+    _inviteTokenService.getInviteToken(null, true, SYSTEM_AUTHENTICATION, null);
+    verify(_entityClient, times(1)).ingestProposal(any(), eq(SYSTEM_AUTHENTICATION), any());
   }
 
   @Test
@@ -146,8 +146,8 @@ public class InviteTokenServiceTest {
     when(_secretService.hashString(anyString())).thenReturn(HASHED_INVITE_TOKEN_STRING);
     when(_secretService.encrypt(anyString())).thenReturn(ENCRYPTED_INVITE_TOKEN_STRING);
 
-    _inviteTokenService.getInviteToken(null, false, SYSTEM_AUTHENTICATION);
-    verify(_entityClient, times(1)).ingestProposal(any(), eq(SYSTEM_AUTHENTICATION));
+    _inviteTokenService.getInviteToken(null, false, SYSTEM_AUTHENTICATION, null);
+    verify(_entityClient, times(1)).ingestProposal(any(), eq(SYSTEM_AUTHENTICATION), any());
   }
 
   @Test
@@ -162,7 +162,7 @@ public class InviteTokenServiceTest {
     when(_entityClient.getV2(eq(INVITE_TOKEN_ENTITY_NAME), eq(inviteTokenUrn), any(),
         eq(SYSTEM_AUTHENTICATION))).thenReturn(null);
 
-    assertThrows(() -> _inviteTokenService.getInviteToken(null, false, SYSTEM_AUTHENTICATION));
+    assertThrows(() -> _inviteTokenService.getInviteToken(null, false, SYSTEM_AUTHENTICATION, null));
   }
 
   @Test
@@ -181,7 +181,7 @@ public class InviteTokenServiceTest {
 
     when(_secretService.encrypt(anyString())).thenReturn(ENCRYPTED_INVITE_TOKEN_STRING);
 
-    assertThrows(() -> _inviteTokenService.getInviteToken(null, false, SYSTEM_AUTHENTICATION));
+    assertThrows(() -> _inviteTokenService.getInviteToken(null, false, SYSTEM_AUTHENTICATION, null));
   }
 
   @Test
@@ -204,6 +204,6 @@ public class InviteTokenServiceTest {
 
     when(_secretService.decrypt(eq(ENCRYPTED_INVITE_TOKEN_STRING))).thenReturn(INVITE_TOKEN_STRING);
 
-    assertEquals(_inviteTokenService.getInviteToken(null, false, SYSTEM_AUTHENTICATION), INVITE_TOKEN_STRING);
+    assertEquals(_inviteTokenService.getInviteToken(null, false, SYSTEM_AUTHENTICATION, null), INVITE_TOKEN_STRING);
   }
 }

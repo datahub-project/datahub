@@ -10,13 +10,17 @@ import com.linkedin.identity.CorpUserInfo;
 import com.linkedin.identity.CorpUserStatus;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.secret.SecretService;
+import com.linkedin.metadata.utils.CondUpdateUtils;
 import com.linkedin.metadata.utils.GenericRecordUtils;
 import com.linkedin.mxe.MetadataChangeProposal;
 import java.time.Instant;
 import java.util.Base64;
+import java.util.Map;
 import java.util.Objects;
 import java.util.concurrent.TimeUnit;
 import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
+
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
@@ -36,7 +40,7 @@ public class NativeUserService {
   private final SecretService _secretService;
 
   public void createNativeUser(@Nonnull String userUrnString, @Nonnull String fullName, @Nonnull String email,
-      @Nonnull String title, @Nonnull String password, @Nonnull Authentication authentication) throws Exception {
+      @Nonnull String title, @Nonnull String password, @Nonnull Authentication authentication, @Nullable String condUpdate) throws Exception {
     Objects.requireNonNull(userUrnString, "userUrnSting must not be null!");
     Objects.requireNonNull(fullName, "fullName must not be null!");
     Objects.requireNonNull(email, "email must not be null!");
@@ -48,13 +52,13 @@ public class NativeUserService {
     if (_entityService.exists(userUrn)) {
       throw new RuntimeException("This user already exists! Cannot create a new user.");
     }
-    updateCorpUserInfo(userUrn, fullName, email, title, authentication);
-    updateCorpUserStatus(userUrn, authentication);
-    updateCorpUserCredentials(userUrn, password, authentication);
+    updateCorpUserInfo(userUrn, fullName, email, title, authentication, condUpdate);
+    updateCorpUserStatus(userUrn, authentication, condUpdate);
+    updateCorpUserCredentials(userUrn, password, authentication, condUpdate);
   }
 
   void updateCorpUserInfo(@Nonnull Urn userUrn, @Nonnull String fullName, @Nonnull String email, @Nonnull String title,
-      Authentication authentication) throws Exception {
+      Authentication authentication, @Nullable String condUpdate) throws Exception {
     // Construct corpUserInfo
     final CorpUserInfo corpUserInfo = new CorpUserInfo();
     corpUserInfo.setFullName(fullName);
@@ -70,10 +74,11 @@ public class NativeUserService {
     corpUserInfoProposal.setAspectName(CORP_USER_INFO_ASPECT_NAME);
     corpUserInfoProposal.setAspect(GenericRecordUtils.serializeAspect(corpUserInfo));
     corpUserInfoProposal.setChangeType(ChangeType.UPSERT);
-    _entityClient.ingestProposal(corpUserInfoProposal, authentication);
+    Map<String, Long> createdOnMap = CondUpdateUtils.extractCondUpdate(condUpdate);
+    _entityClient.ingestProposal(corpUserInfoProposal, authentication, createdOnMap.get(userUrn));
   }
 
-  void updateCorpUserStatus(@Nonnull Urn userUrn, Authentication authentication) throws Exception {
+  void updateCorpUserStatus(@Nonnull Urn userUrn, Authentication authentication, @Nullable String condUpdate) throws Exception {
     // Construct corpUserStatus
     CorpUserStatus corpUserStatus = new CorpUserStatus();
     corpUserStatus.setStatus(CORP_USER_STATUS_ACTIVE);
@@ -87,10 +92,11 @@ public class NativeUserService {
     corpUserStatusProposal.setAspectName(CORP_USER_STATUS_ASPECT_NAME);
     corpUserStatusProposal.setAspect(GenericRecordUtils.serializeAspect(corpUserStatus));
     corpUserStatusProposal.setChangeType(ChangeType.UPSERT);
-    _entityClient.ingestProposal(corpUserStatusProposal, authentication);
+    Map<String, Long> createdOnMap = CondUpdateUtils.extractCondUpdate(condUpdate);
+    _entityClient.ingestProposal(corpUserStatusProposal, authentication, createdOnMap.get(userUrn));
   }
 
-  void updateCorpUserCredentials(@Nonnull Urn userUrn, @Nonnull String password, @Nonnull Authentication authentication)
+  void updateCorpUserCredentials(@Nonnull Urn userUrn, @Nonnull String password, @Nonnull Authentication authentication, String condUpdate)
       throws Exception {
     // Construct corpUserCredentials
     CorpUserCredentials corpUserCredentials = new CorpUserCredentials();
@@ -107,10 +113,11 @@ public class NativeUserService {
     corpUserCredentialsProposal.setAspectName(CORP_USER_CREDENTIALS_ASPECT_NAME);
     corpUserCredentialsProposal.setAspect(GenericRecordUtils.serializeAspect(corpUserCredentials));
     corpUserCredentialsProposal.setChangeType(ChangeType.UPSERT);
-    _entityClient.ingestProposal(corpUserCredentialsProposal, authentication);
+    Map<String, Long> createdOnMap = CondUpdateUtils.extractCondUpdate(condUpdate);
+    _entityClient.ingestProposal(corpUserCredentialsProposal, authentication, createdOnMap.get(userUrn));
   }
 
-  public String generateNativeUserPasswordResetToken(@Nonnull String userUrnString, Authentication authentication)
+  public String generateNativeUserPasswordResetToken(@Nonnull String userUrnString, Authentication authentication, @Nullable String condUpdate)
       throws Exception {
     Objects.requireNonNull(userUrnString, "userUrnString must not be null!");
 
@@ -135,13 +142,14 @@ public class NativeUserService {
     corpUserCredentialsProposal.setAspectName(CORP_USER_CREDENTIALS_ASPECT_NAME);
     corpUserCredentialsProposal.setAspect(GenericRecordUtils.serializeAspect(corpUserCredentials));
     corpUserCredentialsProposal.setChangeType(ChangeType.UPSERT);
-    _entityClient.ingestProposal(corpUserCredentialsProposal, authentication);
+    Map<String, Long> createdOnMap = CondUpdateUtils.extractCondUpdate(condUpdate);
+    _entityClient.ingestProposal(corpUserCredentialsProposal, authentication, createdOnMap.get(userUrn));
 
     return passwordResetToken;
   }
 
   public void resetCorpUserCredentials(@Nonnull String userUrnString, @Nonnull String password,
-      @Nonnull String resetToken, Authentication authentication) throws Exception {
+      @Nonnull String resetToken, Authentication authentication, @Nullable String condUpdate) throws Exception {
     Objects.requireNonNull(userUrnString, "userUrnString must not be null!");
     Objects.requireNonNull(password, "password must not be null!");
     Objects.requireNonNull(resetToken, "resetToken must not be null!");
@@ -183,7 +191,8 @@ public class NativeUserService {
     corpUserCredentialsProposal.setAspectName(CORP_USER_CREDENTIALS_ASPECT_NAME);
     corpUserCredentialsProposal.setAspect(GenericRecordUtils.serializeAspect(corpUserCredentials));
     corpUserCredentialsProposal.setChangeType(ChangeType.UPSERT);
-    _entityClient.ingestProposal(corpUserCredentialsProposal, authentication);
+    Map<String, Long> createdOnMap = CondUpdateUtils.extractCondUpdate(condUpdate);
+    _entityClient.ingestProposal(corpUserCredentialsProposal, authentication, createdOnMap.get(userUrn));
   }
 
   public boolean doesPasswordMatch(@Nonnull String userUrnString, @Nonnull String password) throws Exception {

@@ -11,6 +11,7 @@ import com.linkedin.datahub.graphql.exception.AuthorizationException;
 import com.linkedin.datahub.graphql.exception.DataHubGraphQLErrorCode;
 import com.linkedin.datahub.graphql.exception.DataHubGraphQLException;
 import com.linkedin.datahub.graphql.generated.RemoveGroupMembersInput;
+import com.linkedin.metadata.Constants;
 import graphql.schema.DataFetcher;
 import graphql.schema.DataFetchingEnvironment;
 import java.util.List;
@@ -31,7 +32,8 @@ public class RemoveGroupMembersResolver implements DataFetcher<CompletableFuture
 
   @Override
   public CompletableFuture<Boolean> get(final DataFetchingEnvironment environment) throws Exception {
-
+    final String condUpdate = environment.getVariables().containsKey(Constants.IN_UNMODIFIED_SINCE)
+            ? environment.getVariables().get(Constants.IN_UNMODIFIED_SINCE).toString() : null;
     final RemoveGroupMembersInput input = bindArgument(environment.getArgument("input"), RemoveGroupMembersInput.class);
     final String groupUrnStr = input.getGroupUrn();
     final QueryContext context = environment.getContext();
@@ -57,7 +59,7 @@ public class RemoveGroupMembersResolver implements DataFetcher<CompletableFuture
       if (groupOrigin == null || !groupOrigin.hasType()) {
         try {
           _groupService.migrateGroupMembershipToNativeGroupMembership(groupUrn, context.getActorUrn(),
-              context.getAuthentication());
+              context.getAuthentication(), condUpdate);
         } catch (Exception e) {
           throw new RuntimeException(
               String.format("Failed to migrate group membership when removing group members from group %s",
@@ -69,7 +71,7 @@ public class RemoveGroupMembersResolver implements DataFetcher<CompletableFuture
             groupUrnStr));
       }
       try {
-        _groupService.removeExistingNativeGroupMembers(groupUrn, userUrnList, authentication);
+        _groupService.removeExistingNativeGroupMembers(groupUrn, userUrnList, authentication, condUpdate);
         return true;
       } catch (Exception e) {
         throw new RuntimeException(e);

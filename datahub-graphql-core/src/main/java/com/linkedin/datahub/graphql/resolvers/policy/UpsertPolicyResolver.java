@@ -6,14 +6,17 @@ import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.exception.AuthorizationException;
 import com.linkedin.datahub.graphql.generated.PolicyUpdateInput;
 import com.linkedin.datahub.graphql.resolvers.policy.mappers.PolicyUpdateInputInfoMapper;
+import com.linkedin.datahub.graphql.util.CondUpdateUtils;
 import com.linkedin.entity.client.EntityClient;
 import com.linkedin.events.metadata.ChangeType;
+import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.key.DataHubPolicyKey;
 import com.linkedin.metadata.utils.GenericRecordUtils;
 import com.linkedin.mxe.MetadataChangeProposal;
 import com.linkedin.policy.DataHubPolicyInfo;
 import graphql.schema.DataFetcher;
 import graphql.schema.DataFetchingEnvironment;
+import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
@@ -33,6 +36,8 @@ public class UpsertPolicyResolver implements DataFetcher<CompletableFuture<Strin
 
   @Override
   public CompletableFuture<String> get(final DataFetchingEnvironment environment) throws Exception {
+    final String condUpdate = environment.getVariables().containsKey(Constants.IN_UNMODIFIED_SINCE)
+            ? environment.getVariables().get(Constants.IN_UNMODIFIED_SINCE).toString() : null;
     final QueryContext context = environment.getContext();
 
     if (PolicyAuthUtils.canManagePolicies(context)) {
@@ -70,13 +75,14 @@ public class UpsertPolicyResolver implements DataFetcher<CompletableFuture<Strin
       return CompletableFuture.supplyAsync(() -> {
         try {
           // TODO: We should also provide SystemMetadata.
-          String urn = _entityClient.ingestProposal(proposal, context.getAuthentication());
+          Map<String, Long> createdOnMap = CondUpdateUtils.extractCondUpdate(condUpdate);
+          String urn = _entityClient.ingestProposal(proposal, context.getAuthentication(), createdOnMap.get(proposal.getEntityUrn()));
           if (context.getAuthorizer() instanceof AuthorizerChain) {
             ((AuthorizerChain) context.getAuthorizer()).getDefaultAuthorizer().invalidateCache();
           }
           return urn;
         } catch (Exception e) {
-          throw new RuntimeException(String.format("Failed to perform update against input %s", input.toString()), e);
+          throw new RuntimeException(String.format("Failed to perform update against input %s", input), e);
         }
       });
     }

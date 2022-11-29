@@ -80,7 +80,7 @@ public class AcceptRoleResolverTest {
     when(_dataFetchingEnvironment.getArgument(eq("input"))).thenReturn(input);
 
     assertTrue(_resolver.get(_dataFetchingEnvironment).join());
-    verify(_roleService, times(1)).batchAssignRoleToActors(any(), any(), any());
+    verify(_roleService, times(1)).batchAssignRoleToActors(any(), any(), any(), any());
   }
 
   @Test
@@ -100,6 +100,6 @@ public class AcceptRoleResolverTest {
     when(_dataFetchingEnvironment.getArgument(eq("input"))).thenReturn(input);
 
     assertTrue(_resolver.get(_dataFetchingEnvironment).join());
-    verify(_roleService, times(1)).batchAssignRoleToActors(any(), any(), any());
+    verify(_roleService, times(1)).batchAssignRoleToActors(any(), any(), any(), any());
   }
 }

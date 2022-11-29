@@ -80,15 +80,15 @@ public class EbeanEntityServiceTest extends EntityServiceTest<EbeanAspectDao, Eb
 
     // Ingest CorpUserInfo Aspect #1
     CorpUserInfo writeAspect1 = AspectGenerationUtils.createCorpUserInfo("email@test.com");
-    _entityService.ingestAspect(entityUrn1, aspectName, writeAspect1, TEST_AUDIT_STAMP, metadata1);
+    _entityService.ingestAspect(entityUrn1, aspectName, writeAspect1, TEST_AUDIT_STAMP, metadata1, null);
 
     // Ingest CorpUserInfo Aspect #2
     CorpUserInfo writeAspect2 = AspectGenerationUtils.createCorpUserInfo("email2@test.com");
-    _entityService.ingestAspect(entityUrn2, aspectName, writeAspect2, TEST_AUDIT_STAMP, metadata1);
+    _entityService.ingestAspect(entityUrn2, aspectName, writeAspect2, TEST_AUDIT_STAMP, metadata1, null);
 
     // Ingest CorpUserInfo Aspect #3
     CorpUserInfo writeAspect3 = AspectGenerationUtils.createCorpUserInfo("email3@test.com");
-    _entityService.ingestAspect(entityUrn3, aspectName, writeAspect3, TEST_AUDIT_STAMP, metadata1);
+    _entityService.ingestAspect(entityUrn3, aspectName, writeAspect3, TEST_AUDIT_STAMP, metadata1, null);
 
     // List aspects
     ListResult<RecordTemplate> batch1 = _entityService.listLatestAspects(entityUrn1.getEntityType(), aspectName, 0, 2);
@@ -125,15 +125,15 @@ public class EbeanEntityServiceTest extends EntityServiceTest<EbeanAspectDao, Eb
 
     // Ingest CorpUserInfo Aspect #1
     RecordTemplate writeAspect1 = AspectGenerationUtils.createCorpUserKey(entityUrn1);
-    _entityService.ingestAspect(entityUrn1, aspectName, writeAspect1, TEST_AUDIT_STAMP, metadata1);
+    _entityService.ingestAspect(entityUrn1, aspectName, writeAspect1, TEST_AUDIT_STAMP, metadata1, null);
 
     // Ingest CorpUserInfo Aspect #2
     RecordTemplate writeAspect2 = AspectGenerationUtils.createCorpUserKey(entityUrn2);
-    _entityService.ingestAspect(entityUrn2, aspectName, writeAspect2, TEST_AUDIT_STAMP, metadata1);
+    _entityService.ingestAspect(entityUrn2, aspectName, writeAspect2, TEST_AUDIT_STAMP, metadata1, null);
 
     // Ingest CorpUserInfo Aspect #3
     RecordTemplate writeAspect3 = AspectGenerationUtils.createCorpUserKey(entityUrn3);
-    _entityService.ingestAspect(entityUrn3, aspectName, writeAspect3, TEST_AUDIT_STAMP, metadata1);
+    _entityService.ingestAspect(entityUrn3, aspectName, writeAspect3, TEST_AUDIT_STAMP, metadata1, null);
 
     // List aspects urns
     ListUrnsResult batch1 = _entityService.listUrns(entityUrn1.getEntityType(), 0, 2);

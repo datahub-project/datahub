@@ -32,10 +32,12 @@ public class UpdateParentNodeResolver implements DataFetcher<CompletableFuture<B
 
   @Override
   public CompletableFuture<Boolean> get(DataFetchingEnvironment environment) throws Exception {
+    final String condUpdate = environment.getVariables().containsKey(Constants.IN_UNMODIFIED_SINCE)
+            ? environment.getVariables().get(Constants.IN_UNMODIFIED_SINCE).toString() : null;
     final UpdateParentNodeInput input = bindArgument(environment.getArgument("input"), UpdateParentNodeInput.class);
     final QueryContext context = environment.getContext();
     Urn targetUrn = Urn.createFromString(input.getResourceUrn());
-    log.info("Updating parent node. input: {}", input.toString());
+    log.info("Updating parent node. input: {}", input);
 
     if (!_entityService.exists(targetUrn)) {
       throw new IllegalArgumentException(String.format("Failed to update %s. %s does not exist.", targetUrn, targetUrn));
@@ -51,9 +53,9 @@ public class UpdateParentNodeResolver implements DataFetcher<CompletableFuture<B
       if (GlossaryUtils.canManageChildrenEntities(context, currentParentUrn) && GlossaryUtils.canManageChildrenEntities(context, parentNodeUrn)) {
         switch (targetUrn.getEntityType()) {
           case Constants.GLOSSARY_TERM_ENTITY_NAME:
-            return updateGlossaryTermParentNode(targetUrn, parentNodeUrn, input, environment.getContext());
+            return updateGlossaryTermParentNode(targetUrn, parentNodeUrn, input, environment.getContext(), condUpdate);
           case Constants.GLOSSARY_NODE_ENTITY_NAME:
-            return updateGlossaryNodeParentNode(targetUrn, parentNodeUrn, input, environment.getContext());
+            return updateGlossaryNodeParentNode(targetUrn, parentNodeUrn, input, environment.getContext(), condUpdate);
           default:
             throw new RuntimeException(
                 String.format("Failed to update parentNode. Unsupported resource type %s provided.", targetUrn));
@@ -67,7 +69,8 @@ public class UpdateParentNodeResolver implements DataFetcher<CompletableFuture<B
       Urn targetUrn,
       GlossaryNodeUrn parentNodeUrn,
       UpdateParentNodeInput input,
-      QueryContext context
+      QueryContext context,
+      String condUpdate
   ) {
     try {
       GlossaryTermInfo glossaryTermInfo = (GlossaryTermInfo) getAspectFromEntity(
@@ -78,12 +81,12 @@ public class UpdateParentNodeResolver implements DataFetcher<CompletableFuture<B
       }
       glossaryTermInfo.setParentNode(parentNodeUrn);
       Urn actor = CorpuserUrn.createFromString(context.getActorUrn());
-      persistAspect(targetUrn, Constants.GLOSSARY_TERM_INFO_ASPECT_NAME, glossaryTermInfo, actor, _entityService);
+      persistAspect(targetUrn, Constants.GLOSSARY_TERM_INFO_ASPECT_NAME, glossaryTermInfo, actor, _entityService, condUpdate);
 
       return true;
     } catch (Exception e) {
-      log.error("Failed to perform update against input {}, {}", input.toString(), e.getMessage());
-      throw new RuntimeException(String.format("Failed to perform update against input %s", input.toString()), e);
+      log.error("Failed to perform update against input {}, {}", input, e.getMessage());
+      throw new RuntimeException(String.format("Failed to perform update against input %s", input), e);
     }
   }
 
@@ -91,7 +94,8 @@ public class UpdateParentNodeResolver implements DataFetcher<CompletableFuture<B
       Urn targetUrn,
       GlossaryNodeUrn parentNodeUrn,
       UpdateParentNodeInput input,
-      QueryContext context
+      QueryContext context,
+      String condUpdate
   ) {
     try {
       GlossaryNodeInfo glossaryNodeInfo = (GlossaryNodeInfo) getAspectFromEntity(
@@ -101,12 +105,12 @@ public class UpdateParentNodeResolver implements DataFetcher<CompletableFuture<B
       }
       glossaryNodeInfo.setParentNode(parentNodeUrn);
       Urn actor = CorpuserUrn.createFromString(context.getActorUrn());
-      persistAspect(targetUrn, Constants.GLOSSARY_NODE_INFO_ASPECT_NAME, glossaryNodeInfo, actor, _entityService);
+      persistAspect(targetUrn, Constants.GLOSSARY_NODE_INFO_ASPECT_NAME, glossaryNodeInfo, actor, _entityService, condUpdate);
 
       return true;
     } catch (Exception e) {
       log.error("Failed to perform update against input {}, {}", input.toString(), e.getMessage());
-      throw new RuntimeException(String.format("Failed to perform update against input %s", input.toString()), e);
+      throw new RuntimeException(String.format("Failed to perform update against input %s", input), e);
     }
   }
 }

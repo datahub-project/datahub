@@ -21,6 +21,7 @@ import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.graph.GraphClient;
 import com.linkedin.metadata.key.CorpGroupKey;
 import com.linkedin.metadata.query.filter.RelationshipDirection;
+import com.linkedin.metadata.utils.CondUpdateUtils;
 import com.linkedin.metadata.utils.EntityKeyUtils;
 import com.linkedin.metadata.utils.GenericRecordUtils;
 import com.linkedin.mxe.MetadataChangeProposal;
@@ -32,6 +33,7 @@ import java.util.Objects;
 import java.util.Set;
 import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 
 import static com.linkedin.metadata.Constants.*;
 
@@ -63,7 +65,7 @@ public class GroupService {
   }
 
   public void addUserToNativeGroup(@Nonnull final Urn userUrn, @Nonnull final Urn groupUrn,
-      final Authentication authentication) {
+      final Authentication authentication, @Nullable String condUpdate) {
     Objects.requireNonNull(userUrn, "userUrn must not be null");
     Objects.requireNonNull(groupUrn, "groupUrn must not be null");
 
@@ -86,14 +88,15 @@ public class GroupService {
       proposal.setAspectName(NATIVE_GROUP_MEMBERSHIP_ASPECT_NAME);
       proposal.setAspect(GenericRecordUtils.serializeAspect(nativeGroupMembership));
       proposal.setChangeType(ChangeType.UPSERT);
-      _entityClient.ingestProposal(proposal, authentication);
+      Map<String, Long> createdOnMap = CondUpdateUtils.extractCondUpdate(condUpdate);
+      _entityClient.ingestProposal(proposal, authentication, createdOnMap.get(userUrn));
     } catch (Exception e) {
       throw new RuntimeException("Failed to add member to group", e);
     }
   }
 
   public String createNativeGroup(@Nonnull final CorpGroupKey corpGroupKey, @Nonnull final String groupName,
-      @Nonnull final String groupDescription, final Authentication authentication) throws Exception {
+      @Nonnull final String groupDescription, final Authentication authentication, @Nullable String condUpdate) throws Exception {
     Objects.requireNonNull(corpGroupKey, "corpGroupKey must not be null");
     Objects.requireNonNull(groupName, "groupName must not be null");
     Objects.requireNonNull(groupDescription, "groupDescription must not be null");
@@ -103,13 +106,13 @@ public class GroupService {
       throw new IllegalArgumentException("This Group already exists!");
     }
 
-    String groupInfo = createGroupInfo(corpGroupKey, groupName, groupDescription, authentication);
-    createNativeGroupOrigin(corpGroupUrn, authentication);
+    String groupInfo = createGroupInfo(corpGroupKey, groupName, groupDescription, authentication, condUpdate);
+    createNativeGroupOrigin(corpGroupUrn, authentication, condUpdate);
     return groupInfo;
   }
 
   public void removeExistingNativeGroupMembers(@Nonnull final Urn groupUrn, @Nonnull final List<Urn> userUrnList,
-      final Authentication authentication) throws Exception {
+      final Authentication authentication, @Nullable String condUpdate) throws Exception {
     Objects.requireNonNull(groupUrn, "groupUrn must not be null");
     Objects.requireNonNull(userUrnList, "userUrnList must not be null");
 
@@ -132,23 +135,24 @@ public class GroupService {
         proposal.setAspectName(NATIVE_GROUP_MEMBERSHIP_ASPECT_NAME);
         proposal.setAspect(GenericRecordUtils.serializeAspect(nativeGroupMembership));
         proposal.setChangeType(ChangeType.UPSERT);
-        _entityClient.ingestProposal(proposal, authentication);
+        Map<String, Long> createdOnMap = CondUpdateUtils.extractCondUpdate(condUpdate);
+        _entityClient.ingestProposal(proposal, authentication, createdOnMap.get(userUrn));
       }
     }
   }
 
   public void migrateGroupMembershipToNativeGroupMembership(@Nonnull final Urn groupUrn, final String actorUrnStr,
-      final Authentication authentication) throws Exception {
+      final Authentication authentication, @Nullable String condUpdate) throws Exception {
     Objects.requireNonNull(groupUrn, "groupUrn must not be null");
 
     // Get the existing set of users
     final List<Urn> userUrnList = getExistingGroupMembers(groupUrn, actorUrnStr);
     // Remove the existing group membership for each user in the group
-    removeExistingGroupMembers(groupUrn, userUrnList, authentication);
+    removeExistingGroupMembers(groupUrn, userUrnList, authentication, condUpdate);
     // Mark the group as a native group
-    createNativeGroupOrigin(groupUrn, authentication);
+    createNativeGroupOrigin(groupUrn, authentication, condUpdate);
     // Add each user as a native group member to the group
-    userUrnList.forEach(userUrn -> addUserToNativeGroup(userUrn, groupUrn, authentication));
+    userUrnList.forEach(userUrn -> addUserToNativeGroup(userUrn, groupUrn, authentication, condUpdate));
   }
 
   NativeGroupMembership getExistingNativeGroupMembership(@Nonnull final Urn userUrn,
@@ -170,7 +174,7 @@ public class GroupService {
   }
 
   String createGroupInfo(@Nonnull final CorpGroupKey corpGroupKey, @Nonnull final String groupName,
-      @Nonnull final String groupDescription, final Authentication authentication) throws Exception {
+      @Nonnull final String groupDescription, final Authentication authentication, @Nullable String condUpdate) throws Exception {
     Objects.requireNonNull(corpGroupKey, "corpGroupKey must not be null");
     Objects.requireNonNull(groupName, "groupName must not be null");
     Objects.requireNonNull(groupDescription, "groupDescription must not be null");
@@ -190,10 +194,11 @@ public class GroupService {
     proposal.setAspectName(Constants.CORP_GROUP_INFO_ASPECT_NAME);
     proposal.setAspect(GenericRecordUtils.serializeAspect(corpGroupInfo));
     proposal.setChangeType(ChangeType.UPSERT);
-    return _entityClient.ingestProposal(proposal, authentication);
+    Map<String, Long> createdOnMap = CondUpdateUtils.extractCondUpdate(condUpdate);
+    return _entityClient.ingestProposal(proposal, authentication, createdOnMap.get(proposal.getEntityUrn()));
   }
 
-  void createNativeGroupOrigin(@Nonnull final Urn groupUrn, final Authentication authentication) throws Exception {
+  void createNativeGroupOrigin(@Nonnull final Urn groupUrn, final Authentication authentication, @Nullable String condUpdate) throws Exception {
     Objects.requireNonNull(groupUrn, "groupUrn must not be null");
 
     // Create the Group info.
@@ -207,7 +212,8 @@ public class GroupService {
     proposal.setAspectName(ORIGIN_ASPECT_NAME);
     proposal.setAspect(GenericRecordUtils.serializeAspect(groupOrigin));
     proposal.setChangeType(ChangeType.UPSERT);
-    _entityClient.ingestProposal(proposal, authentication);
+    Map<String, Long> createdOnMap = CondUpdateUtils.extractCondUpdate(condUpdate);
+    _entityClient.ingestProposal(proposal, authentication, createdOnMap.get(groupUrn));
   }
 
   List<Urn> getExistingGroupMembers(@Nonnull final Urn groupUrn, final String actorUrnStr) {
@@ -220,7 +226,7 @@ public class GroupService {
   }
 
   void removeExistingGroupMembers(@Nonnull final Urn groupUrn, @Nonnull final List<Urn> userUrnList,
-      final Authentication authentication) throws Exception {
+      final Authentication authentication, @Nullable String condUpdate) throws Exception {
     Objects.requireNonNull(groupUrn, "groupUrn must not be null");
     Objects.requireNonNull(userUrnList, "userUrnList must not be null");
 
@@ -244,7 +250,8 @@ public class GroupService {
         proposal.setAspectName(GROUP_MEMBERSHIP_ASPECT_NAME);
         proposal.setAspect(GenericRecordUtils.serializeAspect(groupMembership));
         proposal.setChangeType(ChangeType.UPSERT);
-        _entityClient.ingestProposal(proposal, authentication);
+        Map<String, Long> createdOnMap = CondUpdateUtils.extractCondUpdate(condUpdate);
+        _entityClient.ingestProposal(proposal, authentication, createdOnMap.get(userUrn));
       }
     }
   }

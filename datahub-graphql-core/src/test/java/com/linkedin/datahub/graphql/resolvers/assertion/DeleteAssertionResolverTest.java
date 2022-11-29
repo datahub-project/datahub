@@ -60,7 +60,8 @@ public class DeleteAssertionResolverTest {
 
     Mockito.verify(mockClient, Mockito.times(1)).deleteEntity(
         Mockito.eq(Urn.createFromString(TEST_ASSERTION_URN)),
-        Mockito.any(Authentication.class)
+        Mockito.any(Authentication.class),
+        Mockito.any()
     );
 
     Mockito.verify(mockService, Mockito.times(1)).getAspect(
@@ -98,7 +99,8 @@ public class DeleteAssertionResolverTest {
 
     Mockito.verify(mockClient, Mockito.times(1)).deleteEntity(
         Mockito.eq(Urn.createFromString(TEST_ASSERTION_URN)),
-        Mockito.any(Authentication.class)
+        Mockito.any(Authentication.class),
+        Mockito.any()
     );
 
     Mockito.verify(mockService, Mockito.times(1)).getAspect(
@@ -132,7 +134,8 @@ public class DeleteAssertionResolverTest {
 
     Mockito.verify(mockClient, Mockito.times(0)).deleteEntity(
         Mockito.eq(Urn.createFromString(TEST_ASSERTION_URN)),
-        Mockito.any(Authentication.class)
+        Mockito.any(Authentication.class),
+        Mockito.any()
     );
 
     Mockito.verify(mockClient, Mockito.times(0)).batchGetV2(
@@ -179,7 +182,8 @@ public class DeleteAssertionResolverTest {
     assertThrows(CompletionException.class, () -> resolver.get(mockEnv).join());
     Mockito.verify(mockClient, Mockito.times(0)).deleteEntity(
         Mockito.any(),
-        Mockito.any(Authentication.class));
+        Mockito.any(Authentication.class),
+        Mockito.any());
   }
 
   @Test
@@ -187,7 +191,8 @@ public class DeleteAssertionResolverTest {
     EntityClient mockClient = Mockito.mock(EntityClient.class);
     Mockito.doThrow(RemoteInvocationException.class).when(mockClient).deleteEntity(
         Mockito.any(),
-        Mockito.any(Authentication.class));
+        Mockito.any(Authentication.class),
+        Mockito.any());
 
     EntityService mockService = Mockito.mock(EntityService.class);
     Mockito.when(mockService.exists(Urn.createFromString(TEST_ASSERTION_URN))).thenReturn(true);

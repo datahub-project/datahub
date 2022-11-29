@@ -26,7 +26,8 @@ public class DeleteSecretResolverTest {
     Mockito.when(mockEnv.getContext()).thenReturn(mockContext);
 
     assertEquals(resolver.get(mockEnv).get(), TEST_SECRET_URN.toString());
-    Mockito.verify(mockClient, Mockito.times(1)).deleteEntity(TEST_SECRET_URN, mockContext.getAuthentication());
+    Mockito.verify(mockClient, Mockito.times(1)).deleteEntity(TEST_SECRET_URN, mockContext.getAuthentication(),
+            null);
   }
 
   @Test
@@ -42,14 +43,16 @@ public class DeleteSecretResolverTest {
     Mockito.when(mockEnv.getContext()).thenReturn(mockContext);
 
     assertThrows(RuntimeException.class, () -> resolver.get(mockEnv).join());
-    Mockito.verify(mockClient, Mockito.times(0)).deleteEntity(TEST_SECRET_URN, mockContext.getAuthentication());
+    Mockito.verify(mockClient, Mockito.times(0)).deleteEntity(TEST_SECRET_URN, mockContext.getAuthentication(),
+            null);
   }
 
   @Test
   public void testGetEntityClientException() throws Exception {
     // Create resolver
     EntityClient mockClient = Mockito.mock(EntityClient.class);
-    Mockito.doThrow(RemoteInvocationException.class).when(mockClient).deleteEntity(Mockito.eq(TEST_SECRET_URN), Mockito.any(Authentication.class));
+    Mockito.doThrow(RemoteInvocationException.class).when(mockClient).deleteEntity(Mockito.eq(TEST_SECRET_URN), Mockito.any(Authentication.class),
+            Mockito.any());
     DeleteSecretResolver resolver = new DeleteSecretResolver(mockClient);
 
     // Execute Resolver

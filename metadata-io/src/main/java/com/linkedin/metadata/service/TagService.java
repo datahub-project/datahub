@@ -23,6 +23,8 @@ import java.util.stream.Collectors;
 import  com.linkedin.entity.client.EntityClient;
 import com.datahub.authentication.Authentication;
 import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
+
 import lombok.extern.slf4j.Slf4j;
 
 import static com.linkedin.metadata.entity.AspectUtils.*;
@@ -41,8 +43,8 @@ public class TagService extends BaseService {
    * @param tagUrns the urns of the tags to add
    * @param resources references to the resources to change
    */
-  public void batchAddTags(@Nonnull List<Urn> tagUrns, @Nonnull List<ResourceReference> resources) {
-    batchAddTags(tagUrns, resources, this.systemAuthentication);
+  public void batchAddTags(@Nonnull List<Urn> tagUrns, @Nonnull List<ResourceReference> resources, @Nullable String condUpdate) {
+    batchAddTags(tagUrns, resources, this.systemAuthentication, condUpdate);
   }
 
 
@@ -54,10 +56,11 @@ public class TagService extends BaseService {
    * @param authentication authentication to use when making the change
    *
    */
-  public void batchAddTags(@Nonnull List<Urn> tagUrns, @Nonnull List<ResourceReference> resources, @Nonnull Authentication authentication) {
+  public void batchAddTags(@Nonnull List<Urn> tagUrns, @Nonnull List<ResourceReference> resources,
+                           @Nonnull Authentication authentication, @Nullable String condUpdate) {
     log.debug("Batch adding Tags to entities. tags: {}, resources: {}", resources, tagUrns);
     try {
-      addTagsToResources(tagUrns, resources, authentication);
+      addTagsToResources(tagUrns, resources, authentication, condUpdate);
     } catch (Exception e) {
       throw new RuntimeException(String.format("Failed to batch add Tags %s to resources with urns %s!",
           tagUrns,
@@ -73,8 +76,8 @@ public class TagService extends BaseService {
    * @param resources references to the resources to change
    *
    */
-  public void batchRemoveTags(@Nonnull List<Urn> tagUrns, @Nonnull List<ResourceReference> resources) {
-    batchRemoveTags(tagUrns, resources, this.systemAuthentication);
+  public void batchRemoveTags(@Nonnull List<Urn> tagUrns, @Nonnull List<ResourceReference> resources, @Nullable String condUpdate) {
+    batchRemoveTags(tagUrns, resources, this.systemAuthentication, condUpdate);
   }
 
   /**
@@ -85,10 +88,11 @@ public class TagService extends BaseService {
    * @param authentication authentication to use when making the change
    *
    */
-  public void batchRemoveTags(@Nonnull List<Urn> tagUrns, @Nonnull List<ResourceReference> resources, @Nonnull Authentication authentication) {
+  public void batchRemoveTags(@Nonnull List<Urn> tagUrns, @Nonnull List<ResourceReference> resources,
+                              @Nonnull Authentication authentication, @Nullable String condUpdate) {
     log.debug("Batch adding Tags to entities. tags: {}, resources: {}", resources, tagUrns);
     try {
-      removeTagsFromResources(tagUrns, resources, authentication);
+      removeTagsFromResources(tagUrns, resources, authentication, condUpdate);
     } catch (Exception e) {
       throw new RuntimeException(String.format("Failed to batch add Tags %s to resources with urns %s!",
           tagUrns,
@@ -100,19 +104,21 @@ public class TagService extends BaseService {
   private void addTagsToResources(
       List<com.linkedin.common.urn.Urn> tagUrns,
       List<ResourceReference> resources,
-      @Nonnull Authentication authentication
+      @Nonnull Authentication authentication,
+      @Nullable String condUpdate
   ) throws Exception {
     final List<MetadataChangeProposal> changes = buildAddTagsProposals(tagUrns, resources, authentication);
-    ingestChangeProposals(changes, authentication);
+    ingestChangeProposals(changes, authentication, condUpdate);
   }
 
   private void removeTagsFromResources(
       List<Urn> tags,
       List<ResourceReference> resources,
-      @Nonnull Authentication authentication
+      @Nonnull Authentication authentication,
+      @Nullable String condUpdate
   ) throws Exception {
     final List<MetadataChangeProposal> changes = buildRemoveTagsProposals(tags, resources, authentication);
-    ingestChangeProposals(changes, authentication);
+    ingestChangeProposals(changes, authentication, condUpdate);
   }
 
   @VisibleForTesting

@@ -103,7 +103,7 @@ public class RestoreDbtSiblingsIndices implements BootstrapStep {
       log.info("Successfully restored sibling aspects");
     } catch (Exception e) {
       log.error("Error when running the RestoreDbtSiblingsIndices Bootstrap Step", e);
-      _entityService.deleteUrn(SIBLING_UPGRADE_URN);
+      _entityService.deleteUrn(SIBLING_UPGRADE_URN, null);
       throw new RuntimeException("Error when running the RestoreDbtSiblingsIndices Bootstrap Step", e);
     }
   }
@@ -168,6 +168,6 @@ public class RestoreDbtSiblingsIndices implements BootstrapStep {
     upgradeProposal.setAspect(GenericRecordUtils.serializeAspect(aspect));
     upgradeProposal.setChangeType(ChangeType.UPSERT);
 
-    _entityService.ingestProposal(upgradeProposal, auditStamp, false);
+    _entityService.ingestProposal(upgradeProposal, auditStamp, false, null);
   }
 }

@@ -156,7 +156,7 @@ public class DataMigrationStep implements UpgradeStep {
               browsePathsStamp.setActor(Urn.createFromString(Constants.SYSTEM_ACTOR));
               browsePathsStamp.setTime(System.currentTimeMillis());
 
-              _entityService.ingestAspect(urn, BROWSE_PATHS_ASPECT_NAME, browsePaths, browsePathsStamp, null);
+              _entityService.ingestAspect(urn, BROWSE_PATHS_ASPECT_NAME, browsePaths, browsePathsStamp, null, null);
               urnsWithBrowsePath.add(urn);
 
             } catch (URISyntaxException e) {

@@ -10,6 +10,7 @@ import com.linkedin.datahub.graphql.exception.DataHubGraphQLErrorCode;
 import com.linkedin.datahub.graphql.exception.DataHubGraphQLException;
 import com.linkedin.datahub.graphql.generated.CancelIngestionExecutionRequestInput;
 import com.linkedin.datahub.graphql.resolvers.ingest.IngestionAuthUtils;
+import com.linkedin.datahub.graphql.util.CondUpdateUtils;
 import com.linkedin.entity.EntityResponse;
 import com.linkedin.entity.EnvelopedAspect;
 import com.linkedin.entity.client.EntityClient;
@@ -41,6 +42,8 @@ public class CancelIngestionExecutionRequestResolver implements DataFetcher<Comp
 
   @Override
   public CompletableFuture<String> get(final DataFetchingEnvironment environment) throws Exception {
+    final String condUpdate = environment.getVariables().containsKey(Constants.IN_UNMODIFIED_SINCE)
+            ? environment.getVariables().get(Constants.IN_UNMODIFIED_SINCE).toString() : null;
     final QueryContext context = environment.getContext();
 
     return CompletableFuture.supplyAsync(() -> {
@@ -83,9 +86,10 @@ public class CancelIngestionExecutionRequestResolver implements DataFetcher<Comp
           proposal.setAspect(GenericRecordUtils.serializeAspect(execSignal));
           proposal.setChangeType(ChangeType.UPSERT);
 
-          return _entityClient.ingestProposal(proposal, context.getAuthentication());
+          Map<String, Long> createdOnMap = CondUpdateUtils.extractCondUpdate(condUpdate);
+          return _entityClient.ingestProposal(proposal, context.getAuthentication(), createdOnMap.get(proposal.getEntityUrn()));
         } catch (Exception e) {
-          throw new RuntimeException(String.format("Failed to submit cancel signal %s", input.toString()), e);
+          throw new RuntimeException(String.format("Failed to submit cancel signal %s", input), e);
         }
       }
       throw new AuthorizationException("Unauthorized to perform this action. Please contact your DataHub administrator.");

@@ -6,10 +6,13 @@ import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.authorization.AuthorizationUtils;
 import com.linkedin.datahub.graphql.exception.AuthorizationException;
 import com.linkedin.datahub.graphql.generated.CorpUserStatus;
+import com.linkedin.datahub.graphql.util.CondUpdateUtils;
 import com.linkedin.entity.client.EntityClient;
+import com.linkedin.metadata.Constants;
 import com.linkedin.mxe.MetadataChangeProposal;
 import graphql.schema.DataFetcher;
 import graphql.schema.DataFetchingEnvironment;
+import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 
 
@@ -26,6 +29,8 @@ public class UpdateUserStatusResolver implements DataFetcher<CompletableFuture<S
 
   @Override
   public CompletableFuture<String> get(final DataFetchingEnvironment environment) throws Exception {
+    final String condUpdate = environment.getVariables().containsKey(Constants.IN_UNMODIFIED_SINCE)
+            ? environment.getVariables().get(Constants.IN_UNMODIFIED_SINCE).toString() : null;
     final QueryContext context = environment.getContext();
     if (AuthorizationUtils.canManageUsersAndGroups(context)) {
 
@@ -41,7 +46,8 @@ public class UpdateUserStatusResolver implements DataFetcher<CompletableFuture<S
         try {
           final MetadataChangeProposal proposal = new MetadataChangeProposal();
           proposal.setEntityUrn(Urn.createFromString(userUrn));
-          return _entityClient.ingestProposal(proposal, context.getAuthentication());
+          Map<String, Long> createdOnMap = CondUpdateUtils.extractCondUpdate(condUpdate);
+          return _entityClient.ingestProposal(proposal, context.getAuthentication(), createdOnMap.get(proposal.getEntityUrn()));
         } catch (Exception e) {
           throw new RuntimeException(String.format("Failed to update user status for urn", userUrn), e);
         }

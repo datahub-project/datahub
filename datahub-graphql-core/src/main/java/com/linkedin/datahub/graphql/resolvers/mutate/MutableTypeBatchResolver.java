@@ -3,6 +3,7 @@ package com.linkedin.datahub.graphql.resolvers.mutate;
 import com.codahale.metrics.Timer;
 import com.linkedin.datahub.graphql.exception.AuthorizationException;
 import com.linkedin.datahub.graphql.types.BatchMutableType;
+import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.utils.metrics.MetricUtils;
 import graphql.schema.DataFetcher;
 import graphql.schema.DataFetchingEnvironment;
@@ -33,13 +34,15 @@ public class MutableTypeBatchResolver<I, B, T> implements DataFetcher<Completabl
 
   @Override
   public CompletableFuture<List<T>> get(DataFetchingEnvironment environment) throws Exception {
+    final String condUpdate = environment.getVariables().containsKey(Constants.IN_UNMODIFIED_SINCE)
+            ? environment.getVariables().get(Constants.IN_UNMODIFIED_SINCE).toString() : null;
     final B[] input = bindArgument(environment.getArgument("input"), _batchMutableType.batchInputClass());
 
     return CompletableFuture.supplyAsync(() -> {
       Timer.Context timer = MetricUtils.timer(this.getClass(), "batchMutate").time();
 
       try {
-        return _batchMutableType.batchUpdate(input, environment.getContext());
+        return _batchMutableType.batchUpdate(input, environment.getContext(), condUpdate);
       } catch (AuthorizationException e) {
         throw e;
       } catch (Exception e) {

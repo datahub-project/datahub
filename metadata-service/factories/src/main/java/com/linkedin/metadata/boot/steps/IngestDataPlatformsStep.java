@@ -68,7 +68,7 @@ public class IngestDataPlatformsStep implements BootstrapStep {
       final AuditStamp aspectAuditStamp =
           new AuditStamp().setActor(Urn.createFromString(Constants.SYSTEM_ACTOR)).setTime(System.currentTimeMillis());
 
-      _entityService.ingestAspect(urn, PLATFORM_ASPECT_NAME, info, aspectAuditStamp, null);
+      _entityService.ingestAspect(urn, PLATFORM_ASPECT_NAME, info, aspectAuditStamp, null, null);
     }
   }
 }

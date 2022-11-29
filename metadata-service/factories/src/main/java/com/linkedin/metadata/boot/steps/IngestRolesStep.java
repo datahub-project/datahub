@@ -71,7 +71,7 @@ public class IngestRolesStep implements BootstrapStep {
 
       // If the info is not there, it means that the role was there before, but must now be removed
       if (!roleObj.has("info")) {
-        _entityService.deleteUrn(urn);
+        _entityService.deleteUrn(urn, null);
         continue;
       }
 
@@ -96,7 +96,7 @@ public class IngestRolesStep implements BootstrapStep {
     keyAspectProposal.setEntityUrn(roleUrn);
 
     _entityService.ingestProposal(keyAspectProposal,
-        new AuditStamp().setActor(Urn.createFromString(SYSTEM_ACTOR)).setTime(System.currentTimeMillis()), false);
+        new AuditStamp().setActor(Urn.createFromString(SYSTEM_ACTOR)).setTime(System.currentTimeMillis()), false, null);
 
     final MetadataChangeProposal proposal = new MetadataChangeProposal();
     proposal.setEntityUrn(roleUrn);
@@ -106,7 +106,7 @@ public class IngestRolesStep implements BootstrapStep {
     proposal.setChangeType(ChangeType.UPSERT);
 
     _entityService.ingestProposal(proposal,
-        new AuditStamp().setActor(Urn.createFromString(SYSTEM_ACTOR)).setTime(System.currentTimeMillis()), false);
+        new AuditStamp().setActor(Urn.createFromString(SYSTEM_ACTOR)).setTime(System.currentTimeMillis()), false, null);
 
     _entityService.produceMetadataChangeLog(roleUrn, DATAHUB_ROLE_ENTITY_NAME, DATAHUB_ROLE_INFO_ASPECT_NAME,
         roleInfoAspectSpec, null, dataHubRoleInfo, null, null, auditStamp, ChangeType.RESTATE);

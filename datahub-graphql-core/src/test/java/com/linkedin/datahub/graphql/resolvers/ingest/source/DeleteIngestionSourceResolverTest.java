@@ -8,6 +8,7 @@ import graphql.schema.DataFetchingEnvironment;
 import org.mockito.Mockito;
 import org.testng.annotations.Test;
 
+import static org.mockito.ArgumentMatchers.any;
 import static org.testng.Assert.*;
 import static com.linkedin.datahub.graphql.resolvers.ingest.IngestTestUtils.*;
 
@@ -26,7 +27,8 @@ public class DeleteIngestionSourceResolverTest {
     Mockito.when(mockEnv.getContext()).thenReturn(mockContext);
 
     assertEquals(resolver.get(mockEnv).get(), TEST_INGESTION_SOURCE_URN.toString());
-    Mockito.verify(mockClient, Mockito.times(1)).deleteEntity(TEST_INGESTION_SOURCE_URN, mockContext.getAuthentication());
+    Mockito.verify(mockClient, Mockito.times(1)).deleteEntity(TEST_INGESTION_SOURCE_URN, mockContext.getAuthentication(),
+            null);
   }
 
   @Test
@@ -42,14 +44,16 @@ public class DeleteIngestionSourceResolverTest {
     Mockito.when(mockEnv.getContext()).thenReturn(mockContext);
 
     assertThrows(RuntimeException.class, () -> resolver.get(mockEnv).join());
-    Mockito.verify(mockClient, Mockito.times(0)).deleteEntity(TEST_INGESTION_SOURCE_URN, mockContext.getAuthentication());
+    Mockito.verify(mockClient, Mockito.times(0)).deleteEntity(TEST_INGESTION_SOURCE_URN, mockContext.getAuthentication(),
+            null);
   }
 
   @Test
   public void testGetEntityClientException() throws Exception {
     // Create resolver
     EntityClient mockClient = Mockito.mock(EntityClient.class);
-    Mockito.doThrow(RemoteInvocationException.class).when(mockClient).deleteEntity(Mockito.eq(TEST_INGESTION_SOURCE_URN), Mockito.any(Authentication.class));
+    Mockito.doThrow(RemoteInvocationException.class).when(mockClient).deleteEntity(Mockito.eq(TEST_INGESTION_SOURCE_URN), any(Authentication.class),
+            any());
 
     // Execute Resolver
     QueryContext mockContext = getMockAllowContext();

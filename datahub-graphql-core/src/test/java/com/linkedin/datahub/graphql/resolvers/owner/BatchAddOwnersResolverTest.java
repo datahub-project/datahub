@@ -252,7 +252,7 @@ public class BatchAddOwnersResolverTest {
 
     Mockito.doThrow(RuntimeException.class).when(mockService).ingestProposal(
         Mockito.any(),
-        Mockito.any(AuditStamp.class), Mockito.anyBoolean());
+        Mockito.any(AuditStamp.class), Mockito.anyBoolean(), Mockito.any());
 
     BatchAddOwnersResolver resolver = new BatchAddOwnersResolver(mockService);
 

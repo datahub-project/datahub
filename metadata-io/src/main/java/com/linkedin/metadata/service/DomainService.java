@@ -36,8 +36,8 @@ public class DomainService extends BaseService {
    * @param domainUrn the urns of the domain to set
    * @param resources references to the resources to change
    */
-  public void batchSetDomain(@Nonnull Urn domainUrn, @Nonnull List<ResourceReference> resources) {
-    batchSetDomain(domainUrn, resources, this.systemAuthentication);
+  public void batchSetDomain(@Nonnull Urn domainUrn, @Nonnull List<ResourceReference> resources, @Nullable String condUpdate) {
+    batchSetDomain(domainUrn, resources, this.systemAuthentication, condUpdate);
   }
 
   /**
@@ -47,10 +47,11 @@ public class DomainService extends BaseService {
    * @param resources references to the resources to change
    * @param authentication authentication to use when making the change
    */
-  public void batchSetDomain(@Nonnull Urn domainUrn, @Nonnull List<ResourceReference> resources, @Nonnull Authentication authentication) {
+  public void batchSetDomain(@Nonnull Urn domainUrn, @Nonnull List<ResourceReference> resources,
+                             @Nonnull Authentication authentication, @Nullable String condUpdate) {
     log.debug("Batch setting Domain to entities. domain: {}, resources: {}", resources, domainUrn);
     try {
-      setDomainForResources(domainUrn, resources, authentication);
+      setDomainForResources(domainUrn, resources, authentication, condUpdate);
     } catch (Exception e) {
       throw new RuntimeException(String.format("Failed to batch set Domain %s to resources with urns %s!",
           domainUrn,
@@ -65,8 +66,8 @@ public class DomainService extends BaseService {
    * @param domainUrns the urns of the domain to set
    * @param resources references to the resources to change
    */
-  public void batchAddDomains(@Nonnull List<Urn> domainUrns, @Nonnull List<ResourceReference> resources) {
-    batchAddDomains(domainUrns, resources, this.systemAuthentication);
+  public void batchAddDomains(@Nonnull List<Urn> domainUrns, @Nonnull List<ResourceReference> resources, @Nullable String condUpdate) {
+    batchAddDomains(domainUrns, resources, this.systemAuthentication, condUpdate);
   }
 
   /**
@@ -76,10 +77,11 @@ public class DomainService extends BaseService {
    * @param resources references to the resources to change
    * @param authentication authentication to use when making the change
    */
-  public void batchAddDomains(@Nonnull List<Urn> domainUrns, @Nonnull List<ResourceReference> resources, @Nonnull Authentication authentication) {
+  public void batchAddDomains(@Nonnull List<Urn> domainUrns, @Nonnull List<ResourceReference> resources,
+                              @Nonnull Authentication authentication, @Nullable String condUpdate) {
     log.debug("Batch adding Domains to entities. domains: {}, resources: {}", resources, domainUrns);
     try {
-      addDomainsToResources(domainUrns, resources, authentication);
+      addDomainsToResources(domainUrns, resources, authentication, condUpdate);
     } catch (Exception e) {
       throw new RuntimeException(String.format("Failed to batch add Domains %s to resources with urns %s!",
           domainUrns,
@@ -93,8 +95,8 @@ public class DomainService extends BaseService {
    *
    * @param resources references to the resources to change
    */
-  public void batchUnsetDomain(@Nonnull List<ResourceReference> resources) {
-    batchUnsetDomain(resources, this.systemAuthentication);
+  public void batchUnsetDomain(@Nonnull List<ResourceReference> resources, @Nullable String condUpdate) {
+    batchUnsetDomain(resources, this.systemAuthentication, condUpdate);
   }
 
   /**
@@ -103,10 +105,10 @@ public class DomainService extends BaseService {
    * @param resources references to the resources to change
    * @param authentication authentication to use when making the change
    */
-  public void batchUnsetDomain(@Nonnull List<ResourceReference> resources, @Nullable Authentication authentication) {
+  public void batchUnsetDomain(@Nonnull List<ResourceReference> resources, @Nullable Authentication authentication, @Nullable String condUpdate) {
     log.debug("Batch unsetting Domains to entities. resources: {}", resources);
     try {
-      unsetDomainForResources(resources, authentication);
+      unsetDomainForResources(resources, authentication, condUpdate);
     } catch (Exception e) {
       throw new RuntimeException(String.format("Failed to unset add Domain for resources with urns %s!",
           resources.stream().map(ResourceReference::getUrn).collect(Collectors.toList())),
@@ -120,8 +122,8 @@ public class DomainService extends BaseService {
    * @param domainUrns the urns of domains to remove
    * @param resources references to the resources to change
    */
-  public void batchRemoveDomains(@Nonnull List<Urn> domainUrns, @Nonnull List<ResourceReference> resources) {
-    batchRemoveDomains(domainUrns, resources, this.systemAuthentication);
+  public void batchRemoveDomains(@Nonnull List<Urn> domainUrns, @Nonnull List<ResourceReference> resources, @Nullable String condUpdate) {
+    batchRemoveDomains(domainUrns, resources, this.systemAuthentication, condUpdate);
   }
 
   /**
@@ -131,10 +133,11 @@ public class DomainService extends BaseService {
    * @param resources references to the resources to change
    * @param authentication authentication to use when making the change
    */
-  public void batchRemoveDomains(@Nonnull List<Urn> domainUrns, @Nonnull List<ResourceReference> resources, @Nullable Authentication authentication) {
+  public void batchRemoveDomains(@Nonnull List<Urn> domainUrns, @Nonnull List<ResourceReference> resources,
+                                 @Nullable Authentication authentication, @Nullable String condUpdate) {
     log.debug("Batch adding Domains to entities. domains: {}, resources: {}", resources, domainUrns);
     try {
-      removeDomainsFromResources(domainUrns, resources, authentication);
+      removeDomainsFromResources(domainUrns, resources, authentication, condUpdate);
     } catch (Exception e) {
       throw new RuntimeException(String.format("Failed to batch add Domains %s to resources with urns %s!",
         domainUrns,
@@ -146,36 +149,40 @@ public class DomainService extends BaseService {
   private void setDomainForResources(
       com.linkedin.common.urn.Urn domainUrn,
       List<ResourceReference> resources,
-      @Nullable Authentication authentication
+      @Nullable Authentication authentication,
+      @Nullable String condUpdate
   ) throws Exception {
     final List<MetadataChangeProposal> changes = buildSetDomainProposals(domainUrn, resources);
-    ingestChangeProposals(changes, authentication);
+    ingestChangeProposals(changes, authentication, condUpdate);
   }
 
   private void addDomainsToResources(
       List<com.linkedin.common.urn.Urn> domainUrns,
       List<ResourceReference> resources,
-      @Nonnull Authentication authentication
+      @Nonnull Authentication authentication,
+      @Nullable String condUpdate
   ) throws Exception {
     final List<MetadataChangeProposal> changes = buildAddDomainsProposals(domainUrns, resources, authentication);
-    ingestChangeProposals(changes, authentication);
+    ingestChangeProposals(changes, authentication, condUpdate);
   }
 
   private void unsetDomainForResources(
       List<ResourceReference> resources,
-      @Nonnull Authentication authentication
+      @Nonnull Authentication authentication,
+      @Nullable String condUpdate
   ) throws Exception {
     final List<MetadataChangeProposal> changes = buildUnsetDomainProposals(resources);
-    ingestChangeProposals(changes, authentication);
+    ingestChangeProposals(changes, authentication, condUpdate);
   }
 
   public void removeDomainsFromResources(
       List<Urn> domains,
       List<ResourceReference> resources,
-      @Nonnull Authentication authentication
+      @Nonnull Authentication authentication,
+      @Nullable String condUpdate
   ) throws Exception {
     final List<MetadataChangeProposal> changes = buildRemoveDomainsProposals(domains, resources, authentication);
-    ingestChangeProposals(changes, authentication);
+    ingestChangeProposals(changes, authentication, condUpdate);
   }
 
   @VisibleForTesting

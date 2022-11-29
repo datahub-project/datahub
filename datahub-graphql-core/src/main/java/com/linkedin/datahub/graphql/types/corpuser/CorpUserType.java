@@ -24,6 +24,7 @@ import com.linkedin.datahub.graphql.types.SearchableEntityType;
 import com.linkedin.datahub.graphql.types.corpuser.mappers.CorpUserMapper;
 import com.linkedin.datahub.graphql.types.mappers.AutoCompleteResultsMapper;
 import com.linkedin.datahub.graphql.types.mappers.UrnSearchResultsMapper;
+import com.linkedin.datahub.graphql.util.CondUpdateUtils;
 import com.linkedin.entity.EntityResponse;
 import com.linkedin.entity.client.EntityClient;
 import com.linkedin.events.metadata.ChangeType;
@@ -125,7 +126,8 @@ public class CorpUserType implements SearchableEntityType<CorpUser, String>, Mut
     }
 
     @Override
-    public CorpUser update(@Nonnull String urn, @Nonnull CorpUserUpdateInput input, @Nonnull QueryContext context) throws Exception {
+    public CorpUser update(@Nonnull String urn, @Nonnull CorpUserUpdateInput input, @Nonnull QueryContext context,
+                           @Nullable String condUpdate) throws Exception {
         if (isAuthorizedToUpdate(urn, input, context)) {
             // Get existing editable info to merge with
             Optional<CorpUserEditableInfo> existingCorpUserEditableInfo =
@@ -140,7 +142,8 @@ public class CorpUserType implements SearchableEntityType<CorpUser, String>, Mut
             proposal.setAspect(
                 GenericRecordUtils.serializeAspect(mapCorpUserEditableInfo(input, existingCorpUserEditableInfo)));
             proposal.setChangeType(ChangeType.UPSERT);
-            _entityClient.ingestProposal(proposal, context.getAuthentication());
+            Map<String, Long> createdOnMap = CondUpdateUtils.extractCondUpdate(condUpdate);
+            _entityClient.ingestProposal(proposal, context.getAuthentication(), createdOnMap.get(urn));
 
             return load(urn, context).getData();
         }

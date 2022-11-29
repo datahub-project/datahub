@@ -6,6 +6,7 @@ import com.linkedin.common.MediaType;
 import com.linkedin.common.url.Url;
 import com.linkedin.entity.client.EntityClient;
 import com.linkedin.metadata.key.PostKey;
+import com.linkedin.metadata.utils.CondUpdateUtils;
 import com.linkedin.mxe.MetadataChangeProposal;
 import com.linkedin.post.PostContent;
 import com.linkedin.post.PostContentType;
@@ -13,6 +14,7 @@ import com.linkedin.post.PostInfo;
 import com.linkedin.post.PostType;
 import com.linkedin.r2.RemoteInvocationException;
 import java.time.Instant;
+import java.util.Map;
 import java.util.UUID;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -53,7 +55,7 @@ public class PostService {
   }
 
   public boolean createPost(@Nonnull String postType, @Nonnull PostContent postContent,
-      @Nonnull Authentication authentication) throws RemoteInvocationException {
+      @Nonnull Authentication authentication, @Nullable String condUpdate) throws RemoteInvocationException {
     final String uuid = UUID.randomUUID().toString();
     final PostKey postKey = new PostKey().setId(uuid);
     final long currentTimeMillis = Instant.now().toEpochMilli();
@@ -64,7 +66,8 @@ public class PostService {
 
     final MetadataChangeProposal proposal =
         buildMetadataChangeProposal(POST_ENTITY_NAME, postKey, POST_INFO_ASPECT_NAME, postInfo);
-    _entityClient.ingestProposal(proposal, authentication);
+    Map<String, Long> createdOnMap = CondUpdateUtils.extractCondUpdate(condUpdate);
+    _entityClient.ingestProposal(proposal, authentication, createdOnMap.get(proposal.getEntityUrn()));
 
     return true;
   }

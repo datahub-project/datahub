@@ -6,6 +6,7 @@ import com.datahub.authentication.AuthenticationContext;
 import com.linkedin.aspect.GetTimeseriesAspectValuesResponse;
 import com.linkedin.common.AuditStamp;
 import com.linkedin.common.urn.Urn;
+import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.aspect.EnvelopedAspectArray;
 import com.linkedin.metadata.aspect.VersionedAspect;
 import com.linkedin.metadata.entity.AspectUtils;
@@ -16,6 +17,7 @@ import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.metadata.restli.RestliUtil;
 import com.linkedin.metadata.search.EntitySearchService;
 import com.linkedin.metadata.timeseries.TimeseriesAspectService;
+import com.linkedin.metadata.utils.CondUpdateUtils;
 import com.linkedin.mxe.MetadataChangeProposal;
 import com.linkedin.parseq.Task;
 import com.linkedin.restli.common.HttpStatus;
@@ -23,6 +25,7 @@ import com.linkedin.restli.internal.server.methods.AnyRecord;
 import com.linkedin.restli.server.RestLiServiceException;
 import com.linkedin.restli.server.annotations.Action;
 import com.linkedin.restli.server.annotations.ActionParam;
+import com.linkedin.restli.server.annotations.HeaderParam;
 import com.linkedin.restli.server.annotations.Optional;
 import com.linkedin.restli.server.annotations.QueryParam;
 import com.linkedin.restli.server.annotations.RestLiCollection;
@@ -139,7 +142,8 @@ public class AspectResource extends CollectionResourceTaskTemplate<String, Versi
   @WithSpan
   public Task<String> ingestProposal(
       @ActionParam(PARAM_PROPOSAL) @Nonnull MetadataChangeProposal metadataChangeProposal,
-      @ActionParam(PARAM_ASYNC) @Optional(UNSET) String async) throws URISyntaxException {
+      @ActionParam(PARAM_ASYNC) @Optional(UNSET) String async,
+      @HeaderParam(value = Constants.IN_UNMODIFIED_SINCE) String condUpdate) throws URISyntaxException {
     log.info("INGEST PROPOSAL proposal: {}", metadataChangeProposal);
 
     boolean asyncBool;
@@ -159,8 +163,10 @@ public class AspectResource extends CollectionResourceTaskTemplate<String, Versi
     return RestliUtil.toTask(() -> {
       log.debug("Proposal: {}", metadataChangeProposal);
       try {
-        Urn urn = _entityService.ingestProposal(metadataChangeProposal, auditStamp, asyncBool).getUrn();
-        additionalChanges.forEach(proposal -> _entityService.ingestProposal(proposal, auditStamp, asyncBool));
+        Map<String, Long> createdOnMap = CondUpdateUtils.extractCondUpdate(condUpdate);
+        Urn urn = _entityService.ingestProposal(metadataChangeProposal, auditStamp, asyncBool,
+                createdOnMap.get(metadataChangeProposal.getEntityUrn())).getUrn();
+        additionalChanges.forEach(proposal -> _entityService.ingestProposal(proposal, auditStamp, asyncBool, createdOnMap.get(urn)));
         tryIndexRunId(urn, metadataChangeProposal.getSystemMetadata(), _entitySearchService);
         return urn.toString();
       } catch (ValidationException e) {

@@ -32,7 +32,8 @@ public class DeleteDomainResolverTest {
 
     Mockito.verify(mockClient, Mockito.times(1)).deleteEntity(
         Mockito.eq(Urn.createFromString(TEST_URN)),
-        Mockito.any(Authentication.class)
+        Mockito.any(Authentication.class),
+        Mockito.any()
     );
   }
 
@@ -51,6 +52,7 @@ public class DeleteDomainResolverTest {
     assertThrows(CompletionException.class, () -> resolver.get(mockEnv).join());
     Mockito.verify(mockClient, Mockito.times(0)).deleteEntity(
         Mockito.any(),
-        Mockito.any(Authentication.class));
+        Mockito.any(Authentication.class),
+        Mockito.any());
   }
 }

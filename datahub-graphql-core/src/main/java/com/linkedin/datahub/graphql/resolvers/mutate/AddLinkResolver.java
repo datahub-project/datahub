@@ -7,6 +7,7 @@ import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.exception.AuthorizationException;
 import com.linkedin.datahub.graphql.generated.AddLinkInput;
 import com.linkedin.datahub.graphql.resolvers.mutate.util.LinkUtils;
+import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.entity.EntityService;
 import graphql.schema.DataFetcher;
 import graphql.schema.DataFetchingEnvironment;
@@ -25,6 +26,8 @@ public class AddLinkResolver implements DataFetcher<CompletableFuture<Boolean>> 
 
   @Override
   public CompletableFuture<Boolean> get(DataFetchingEnvironment environment) throws Exception {
+    final String condUpdate = environment.getVariables().containsKey(Constants.IN_UNMODIFIED_SINCE)
+            ? environment.getVariables().get(Constants.IN_UNMODIFIED_SINCE).toString() : null;
     final AddLinkInput input = bindArgument(environment.getArgument("input"), AddLinkInput.class);
 
     String linkUrl = input.getLinkUrl();
@@ -43,7 +46,7 @@ public class AddLinkResolver implements DataFetcher<CompletableFuture<Boolean>> 
       );
       try {
 
-        log.debug("Adding Link. input: {}", input.toString());
+        log.debug("Adding Link. input: {}", input);
 
         Urn actor = CorpuserUrn.createFromString(((QueryContext) environment.getContext()).getActorUrn());
         LinkUtils.addLink(
@@ -51,12 +54,13 @@ public class AddLinkResolver implements DataFetcher<CompletableFuture<Boolean>> 
             linkLabel,
             targetUrn,
             actor,
-            _entityService
+            _entityService,
+            condUpdate
         );
         return true;
       } catch (Exception e) {
-        log.error("Failed to add link to resource with input {}, {}", input.toString(), e.getMessage());
-        throw new RuntimeException(String.format("Failed to add link to resource with input %s", input.toString()), e);
+        log.error("Failed to add link to resource with input {}, {}", input, e.getMessage());
+        throw new RuntimeException(String.format("Failed to add link to resource with input %s", input), e);
       }
     });
   }

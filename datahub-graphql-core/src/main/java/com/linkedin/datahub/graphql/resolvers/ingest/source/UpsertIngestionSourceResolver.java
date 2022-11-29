@@ -9,6 +9,7 @@ import com.linkedin.datahub.graphql.generated.UpdateIngestionSourceConfigInput;
 import com.linkedin.datahub.graphql.generated.UpdateIngestionSourceInput;
 import com.linkedin.datahub.graphql.generated.UpdateIngestionSourceScheduleInput;
 import com.linkedin.datahub.graphql.resolvers.ingest.IngestionAuthUtils;
+import com.linkedin.datahub.graphql.util.CondUpdateUtils;
 import com.linkedin.entity.client.EntityClient;
 import com.linkedin.events.metadata.ChangeType;
 import com.linkedin.ingestion.DataHubIngestionSourceConfig;
@@ -25,6 +26,7 @@ import org.json.JSONException;
 import org.json.JSONObject;
 
 import java.net.URISyntaxException;
+import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
@@ -46,6 +48,8 @@ public class UpsertIngestionSourceResolver implements DataFetcher<CompletableFut
 
   @Override
   public CompletableFuture<String> get(final DataFetchingEnvironment environment) throws Exception {
+    final String condUpdate = environment.getVariables().containsKey(Constants.IN_UNMODIFIED_SINCE)
+            ? environment.getVariables().get(Constants.IN_UNMODIFIED_SINCE).toString() : null;
     final QueryContext context = environment.getContext();
 
     return CompletableFuture.supplyAsync(() -> {
@@ -89,9 +93,10 @@ public class UpsertIngestionSourceResolver implements DataFetcher<CompletableFut
         proposal.setChangeType(ChangeType.UPSERT);
 
         try {
-          return _entityClient.ingestProposal(proposal, context.getAuthentication());
+          Map<String, Long> createdOnMap = CondUpdateUtils.extractCondUpdate(condUpdate);
+          return _entityClient.ingestProposal(proposal, context.getAuthentication(), createdOnMap.get(proposal.getEntityUrn()));
         } catch (Exception e) {
-          throw new RuntimeException(String.format("Failed to perform update against ingestion source with urn %s", input.toString()), e);
+          throw new RuntimeException(String.format("Failed to perform update against ingestion source with urn %s", input), e);
         }
       }
       throw new AuthorizationException("Unauthorized to perform this action. Please contact your DataHub administrator.");

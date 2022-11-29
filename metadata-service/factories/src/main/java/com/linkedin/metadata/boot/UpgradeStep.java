@@ -100,7 +100,7 @@ public abstract class UpgradeStep implements BootstrapStep {
     upgradeProposal.setAspect(GenericRecordUtils.serializeAspect(upgradeRequest));
     upgradeProposal.setChangeType(ChangeType.UPSERT);
 
-    _entityService.ingestProposal(upgradeProposal, auditStamp, false);
+    _entityService.ingestProposal(upgradeProposal, auditStamp, false, null);
   }
 
   private void ingestUpgradeResultAspect() throws URISyntaxException {
@@ -115,11 +115,11 @@ public abstract class UpgradeStep implements BootstrapStep {
     upgradeProposal.setAspect(GenericRecordUtils.serializeAspect(upgradeResult));
     upgradeProposal.setChangeType(ChangeType.UPSERT);
 
-    _entityService.ingestProposal(upgradeProposal, auditStamp, false);
+    _entityService.ingestProposal(upgradeProposal, auditStamp, false, null);
   }
 
   private void cleanUpgradeAfterError(Exception e, String errorMessage) {
     log.error(errorMessage, e);
-    _entityService.deleteUrn(_upgradeUrn);
+    _entityService.deleteUrn(_upgradeUrn, null);
   }
 }

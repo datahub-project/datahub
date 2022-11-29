@@ -47,7 +47,7 @@ public class CreateNativeUserResetTokenResolverTest {
     CreateNativeUserResetTokenInput input = new CreateNativeUserResetTokenInput(null);
     when(_dataFetchingEnvironment.getArgument(eq("input"))).thenReturn(input);
     when(mockContext.getAuthentication()).thenReturn(_authentication);
-    when(_nativeUserService.generateNativeUserPasswordResetToken(any(), any())).thenReturn(RESET_TOKEN);
+    when(_nativeUserService.generateNativeUserPasswordResetToken(any(), any(), any())).thenReturn(RESET_TOKEN);
 
     assertThrows(() -> _resolver.get(_dataFetchingEnvironment).join());
   }
@@ -59,7 +59,7 @@ public class CreateNativeUserResetTokenResolverTest {
     CreateNativeUserResetTokenInput input = new CreateNativeUserResetTokenInput(USER_URN_STRING);
     when(_dataFetchingEnvironment.getArgument(eq("input"))).thenReturn(input);
     when(mockContext.getAuthentication()).thenReturn(_authentication);
-    when(_nativeUserService.generateNativeUserPasswordResetToken(any(), any())).thenReturn(RESET_TOKEN);
+    when(_nativeUserService.generateNativeUserPasswordResetToken(any(), any(), any())).thenReturn(RESET_TOKEN);
 
     assertEquals(RESET_TOKEN, _resolver.get(_dataFetchingEnvironment).join().getResetToken());
   }

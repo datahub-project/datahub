@@ -7,6 +7,7 @@ import com.linkedin.datahub.graphql.exception.AuthorizationException;
 import com.linkedin.datahub.graphql.generated.BatchRemoveTermsInput;
 import com.linkedin.datahub.graphql.generated.ResourceRefInput;
 import com.linkedin.datahub.graphql.resolvers.mutate.util.LabelUtils;
+import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.entity.EntityService;
 import graphql.schema.DataFetcher;
 import graphql.schema.DataFetchingEnvironment;
@@ -27,8 +28,8 @@ public class BatchRemoveTermsResolver implements DataFetcher<CompletableFuture<B
 
   @Override
   public CompletableFuture<Boolean> get(DataFetchingEnvironment environment) throws Exception {
-    // ETAG Comment: Client should send the eTag as part of the Variables. Here we received it for GraphQL implementation.
-    final String eTag = environment.getVariables().containsKey("eTag") ? environment.getVariables().get("eTag").toString() : null;
+    final String condUpdate = environment.getVariables().containsKey(Constants.IN_UNMODIFIED_SINCE)
+            ? environment.getVariables().get(Constants.IN_UNMODIFIED_SINCE).toString() : null;
     final QueryContext context = environment.getContext();
     final BatchRemoveTermsInput input = bindArgument(environment.getArgument("input"), BatchRemoveTermsInput.class);
     final List<Urn> termUrns = input.getTermUrns().stream()
@@ -43,12 +44,11 @@ public class BatchRemoveTermsResolver implements DataFetcher<CompletableFuture<B
 
       try {
         // Then execute the bulk add
-        batchRemoveTerms(termUrns, resources, context, eTag);
-        // ETAG Comment: eTag is sent to one of the Utils class. (Still not implemented for the other Utils classes)
+        batchRemoveTerms(termUrns, resources, context, condUpdate);
         return true;
       } catch (Exception e) {
-        log.error("Failed to perform update against input {}, {}", input.toString(), e.getMessage());
-        throw new RuntimeException(String.format("Failed to perform update against input %s", input.toString()), e);
+        log.error("Failed to perform update against input {}, {}", input, e.getMessage());
+        throw new RuntimeException(String.format("Failed to perform update against input %s", input), e);
       }
     });
   }
@@ -67,11 +67,10 @@ public class BatchRemoveTermsResolver implements DataFetcher<CompletableFuture<B
     LabelUtils.validateResource(resourceUrn, resource.getSubResource(), resource.getSubResourceType(), _entityService);
   }
 
-  private void batchRemoveTerms(List<Urn> termUrns, List<ResourceRefInput> resources, QueryContext context, String eTag) {
+  private void batchRemoveTerms(List<Urn> termUrns, List<ResourceRefInput> resources, QueryContext context, String condUpdate) {
     log.debug("Batch removing Terms. terms: {}, resources: {}", resources, termUrns);
     try {
-      // ETAG Comment: Transfer the parameter deeper.
-      LabelUtils.removeTermsFromResources(termUrns, resources, UrnUtils.getUrn(context.getActorUrn()), _entityService, eTag);
+      LabelUtils.removeTermsFromResources(termUrns, resources, UrnUtils.getUrn(context.getActorUrn()), _entityService, condUpdate);
     } catch (Exception e) {
       throw new RuntimeException(String.format("Failed to remove Terms %s to resources with urns %s!",
           termUrns,

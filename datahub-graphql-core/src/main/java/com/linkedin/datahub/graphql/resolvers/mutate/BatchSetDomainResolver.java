@@ -8,6 +8,7 @@ import com.linkedin.datahub.graphql.generated.BatchSetDomainInput;
 import com.linkedin.datahub.graphql.generated.ResourceRefInput;
 import com.linkedin.datahub.graphql.resolvers.mutate.util.DomainUtils;
 import com.linkedin.datahub.graphql.resolvers.mutate.util.LabelUtils;
+import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.entity.EntityService;
 import graphql.schema.DataFetcher;
 import graphql.schema.DataFetchingEnvironment;
@@ -29,6 +30,8 @@ public class BatchSetDomainResolver implements DataFetcher<CompletableFuture<Boo
 
   @Override
   public CompletableFuture<Boolean> get(DataFetchingEnvironment environment) throws Exception {
+    final String condUpdate = environment.getVariables().containsKey(Constants.IN_UNMODIFIED_SINCE)
+            ? environment.getVariables().get(Constants.IN_UNMODIFIED_SINCE).toString() : null;
     final QueryContext context = environment.getContext();
     final BatchSetDomainInput input = bindArgument(environment.getArgument("input"), BatchSetDomainInput.class);
     final String maybeDomainUrn = input.getDomainUrn();
@@ -42,11 +45,11 @@ public class BatchSetDomainResolver implements DataFetcher<CompletableFuture<Boo
 
       try {
         // Then execute the bulk add
-        batchSetDomains(maybeDomainUrn, resources, context);
+        batchSetDomains(maybeDomainUrn, resources, context, condUpdate);
         return true;
       } catch (Exception e) {
-        log.error("Failed to perform update against input {}, {}", input.toString(), e.getMessage());
-        throw new RuntimeException(String.format("Failed to perform update against input %s", input.toString()), e);
+        log.error("Failed to perform update against input {}, {}", input, e.getMessage());
+        throw new RuntimeException(String.format("Failed to perform update against input %s", input), e);
       }
     });
   }
@@ -71,13 +74,14 @@ public class BatchSetDomainResolver implements DataFetcher<CompletableFuture<Boo
     LabelUtils.validateResource(resourceUrn, resource.getSubResource(), resource.getSubResourceType(), _entityService);
   }
 
-  private void batchSetDomains(String maybeDomainUrn, List<ResourceRefInput> resources, QueryContext context) {
+  private void batchSetDomains(String maybeDomainUrn, List<ResourceRefInput> resources, QueryContext context, String condUpdate) {
     log.debug("Batch adding Domains. domainUrn: {}, resources: {}", maybeDomainUrn, resources);
     try {
       DomainUtils.setDomainForResources(maybeDomainUrn == null ? null : UrnUtils.getUrn(maybeDomainUrn),
           resources,
           UrnUtils.getUrn(context.getActorUrn()),
-          _entityService);
+          _entityService,
+          condUpdate);
     } catch (Exception e) {
       throw new RuntimeException(String.format("Failed to batch set Domain %s to resources with urns %s!",
           maybeDomainUrn,

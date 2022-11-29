@@ -129,7 +129,8 @@ public class UpgradeDefaultBrowsePathsStep extends UpgradeStep {
     _entityService.ingestProposal(
         proposal,
         auditStamp,
-        false
+        false,
+        null
       );
   }
 

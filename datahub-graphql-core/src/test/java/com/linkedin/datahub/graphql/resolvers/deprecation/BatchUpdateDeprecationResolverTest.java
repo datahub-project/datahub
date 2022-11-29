@@ -204,7 +204,8 @@ public class BatchUpdateDeprecationResolverTest {
 
     Mockito.doThrow(RuntimeException.class).when(mockService).ingestProposal(
         Mockito.any(),
-        Mockito.any(AuditStamp.class), Mockito.anyBoolean());
+        Mockito.any(AuditStamp.class), Mockito.anyBoolean(),
+        Mockito.any());
 
     BatchUpdateDeprecationResolver resolver = new BatchUpdateDeprecationResolver(mockService);
 

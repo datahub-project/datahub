@@ -6,6 +6,7 @@ import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.exception.AuthorizationException;
 import com.linkedin.datahub.graphql.generated.GetInviteTokenInput;
 import com.linkedin.datahub.graphql.generated.InviteToken;
+import com.linkedin.metadata.Constants;
 import graphql.schema.DataFetcher;
 import graphql.schema.DataFetchingEnvironment;
 import java.util.concurrent.CompletableFuture;
@@ -23,6 +24,8 @@ public class GetInviteTokenResolver implements DataFetcher<CompletableFuture<Inv
 
   @Override
   public CompletableFuture<InviteToken> get(final DataFetchingEnvironment environment) throws Exception {
+    final String condUpdate = environment.getVariables().containsKey(Constants.IN_UNMODIFIED_SINCE)
+            ? environment.getVariables().get(Constants.IN_UNMODIFIED_SINCE).toString() : null;
     final QueryContext context = environment.getContext();
     if (!canManagePolicies(context)) {
       throw new AuthorizationException(
@@ -35,7 +38,7 @@ public class GetInviteTokenResolver implements DataFetcher<CompletableFuture<Inv
 
     return CompletableFuture.supplyAsync(() -> {
       try {
-        return new InviteToken(_inviteTokenService.getInviteToken(roleUrnStr, false, authentication));
+        return new InviteToken(_inviteTokenService.getInviteToken(roleUrnStr, false, authentication, condUpdate));
       } catch (Exception e) {
         throw new RuntimeException(String.format("Failed to get invite token for role %s", roleUrnStr), e);
       }

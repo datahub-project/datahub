@@ -50,7 +50,8 @@ public class ReportOperationResolverTest {
     // Test setting the domain
     Mockito.when(mockClient.ingestProposal(
         Mockito.eq(expectedProposal),
-        Mockito.any(Authentication.class)))
+        Mockito.any(Authentication.class),
+        Mockito.any()))
       .thenReturn(TEST_ENTITY_URN);
 
     ReportOperationResolver resolver = new ReportOperationResolver(mockClient);
@@ -64,7 +65,8 @@ public class ReportOperationResolverTest {
 
     Mockito.verify(mockClient, Mockito.times(1)).ingestProposal(
         Mockito.eq(expectedProposal),
-        Mockito.any(Authentication.class)
+        Mockito.any(Authentication.class),
+        Mockito.any()
     );
   }
 
@@ -83,7 +85,8 @@ public class ReportOperationResolverTest {
     assertThrows(CompletionException.class, () -> resolver.get(mockEnv).join());
     Mockito.verify(mockClient, Mockito.times(0)).ingestProposal(
         Mockito.any(),
-        Mockito.any(Authentication.class));
+        Mockito.any(Authentication.class),
+        Mockito.any());
   }
 
   private ReportOperationInput getTestInput() {

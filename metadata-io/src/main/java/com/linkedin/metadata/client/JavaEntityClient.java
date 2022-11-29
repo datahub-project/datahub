@@ -369,14 +369,14 @@ public class JavaEntityClient implements EntityClient {
     /**
      * Hard delete an entity with a particular urn.
      */
-    public void deleteEntity(@Nonnull final Urn urn, @Nonnull final Authentication authentication) throws RemoteInvocationException {
-        _entityService.deleteUrn(urn);
+    public void deleteEntity(@Nonnull final Urn urn, @Nonnull final Authentication authentication, @Nullable Long createdOn) throws RemoteInvocationException {
+        _entityService.deleteUrn(urn, createdOn);
     }
 
     @Override
-    public void deleteEntityReferences(@Nonnull Urn urn, @Nonnull Authentication authentication)
+    public void deleteEntityReferences(@Nonnull Urn urn, @Nonnull Authentication authentication, @Nullable Long createdOn)
         throws RemoteInvocationException {
-        _deleteEntityService.deleteReferencesTo(urn, false);
+        _deleteEntityService.deleteReferencesTo(urn, false, createdOn);
     }
 
     @Nonnull
@@ -440,15 +440,15 @@ public class JavaEntityClient implements EntityClient {
     // TODO: Factor out ingest logic into a util that can be accessed by the java client and the resource
     @Override
     public String ingestProposal(@Nonnull final MetadataChangeProposal metadataChangeProposal,
-        @Nonnull final Authentication authentication, final boolean async) throws RemoteInvocationException {
+        @Nonnull final Authentication authentication, final boolean async, @Nullable Long createdOn) throws RemoteInvocationException {
         String actorUrnStr = authentication.getActor() != null ? authentication.getActor().toUrnStr() : Constants.UNKNOWN_ACTOR;
         final AuditStamp auditStamp =
             new AuditStamp().setTime(_clock.millis()).setActor(UrnUtils.getUrn(actorUrnStr));
         final List<MetadataChangeProposal> additionalChanges =
             AspectUtils.getAdditionalChanges(metadataChangeProposal, _entityService);
 
-        Urn urn = _entityService.ingestProposal(metadataChangeProposal, auditStamp, async).getUrn();
-        additionalChanges.forEach(proposal -> _entityService.ingestProposal(proposal, auditStamp, async));
+        Urn urn = _entityService.ingestProposal(metadataChangeProposal, auditStamp, async, createdOn).getUrn();
+        additionalChanges.forEach(proposal -> _entityService.ingestProposal(proposal, auditStamp, async, createdOn));
         tryIndexRunId(urn, metadataChangeProposal.getSystemMetadata());
         return urn.toString();
     }

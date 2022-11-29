@@ -22,6 +22,7 @@ import com.linkedin.datahub.graphql.types.SearchableEntityType;
 import com.linkedin.datahub.graphql.types.corpgroup.mappers.CorpGroupMapper;
 import com.linkedin.datahub.graphql.types.mappers.AutoCompleteResultsMapper;
 import com.linkedin.datahub.graphql.types.mappers.UrnSearchResultsMapper;
+import com.linkedin.datahub.graphql.util.CondUpdateUtils;
 import com.linkedin.entity.EntityResponse;
 import com.linkedin.entity.client.EntityClient;
 import com.linkedin.events.metadata.ChangeType;
@@ -119,7 +120,8 @@ public class CorpGroupType implements SearchableEntityType<CorpGroup, String>, M
     }
 
     @Override
-    public CorpGroup update(@Nonnull String urn, @Nonnull CorpGroupUpdateInput input, @Nonnull QueryContext context) throws Exception {
+    public CorpGroup update(@Nonnull String urn, @Nonnull CorpGroupUpdateInput input, @Nonnull QueryContext context,
+                            @Nullable String condUpdate) throws Exception {
         if (isAuthorizedToUpdate(urn, input, context)) {
             // Get existing editable info to merge with
             Urn groupUrn = Urn.createFromString(urn);
@@ -142,7 +144,8 @@ public class CorpGroupType implements SearchableEntityType<CorpGroup, String>, M
             proposal.setAspect(
                 GenericRecordUtils.serializeAspect(mapCorpGroupEditableInfo(input, existingCorpGroupEditableInfo)));
             proposal.setChangeType(ChangeType.UPSERT);
-            _entityClient.ingestProposal(proposal, context.getAuthentication());
+            Map<String, Long> createdOnMap = CondUpdateUtils.extractCondUpdate(condUpdate);
+            _entityClient.ingestProposal(proposal, context.getAuthentication(), createdOnMap.get(proposal.getEntityUrn()));
 
             return load(urn, context).getData();
         }

@@ -63,8 +63,8 @@ public class IngestRootUserStep implements BootstrapStep {
     final CorpUserKey key = (CorpUserKey) EntityKeyUtils.convertUrnToEntityKey(urn, getUserKeyAspectSpec());
     final AuditStamp aspectAuditStamp =
         new AuditStamp().setActor(Urn.createFromString(SYSTEM_ACTOR)).setTime(System.currentTimeMillis());
-    _entityService.ingestAspect(urn, CORP_USER_KEY_ASPECT_NAME, key, aspectAuditStamp, null);
-    _entityService.ingestAspect(urn, USER_INFO_ASPECT_NAME, info, aspectAuditStamp, null);
+    _entityService.ingestAspect(urn, CORP_USER_KEY_ASPECT_NAME, key, aspectAuditStamp, null, null);
+    _entityService.ingestAspect(urn, USER_INFO_ASPECT_NAME, info, aspectAuditStamp, null, null);
   }
 
   private AspectSpec getUserKeyAspectSpec() {

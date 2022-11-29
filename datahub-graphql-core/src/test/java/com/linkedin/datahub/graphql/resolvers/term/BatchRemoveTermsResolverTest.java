@@ -183,7 +183,7 @@ public class BatchRemoveTermsResolverTest {
 
     Mockito.doThrow(RuntimeException.class).when(mockService).ingestProposal(
         Mockito.any(),
-        Mockito.any(AuditStamp.class), Mockito.anyBoolean());
+        Mockito.any(AuditStamp.class), Mockito.anyBoolean(), Mockito.any());
 
     BatchRemoveTermsResolver resolver = new BatchRemoveTermsResolver(mockService);
 

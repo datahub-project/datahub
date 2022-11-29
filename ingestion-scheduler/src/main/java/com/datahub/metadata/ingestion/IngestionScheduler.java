@@ -363,7 +363,7 @@ public class IngestionScheduler {
         proposal.setAspect(GenericRecordUtils.serializeAspect(input));
         proposal.setChangeType(ChangeType.UPSERT);
 
-        _entityClient.ingestProposal(proposal, _systemAuthentication);
+        _entityClient.ingestProposal(proposal, _systemAuthentication, null);
       } catch (Exception e) {
         // TODO: This type of thing should likely be proactively reported.
         log.error(String.format(

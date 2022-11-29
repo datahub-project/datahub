@@ -4,11 +4,14 @@ import com.linkedin.common.urn.Urn;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.exception.AuthorizationException;
 import com.linkedin.datahub.graphql.resolvers.mutate.util.GlossaryUtils;
+import com.linkedin.datahub.graphql.util.CondUpdateUtils;
 import com.linkedin.entity.client.EntityClient;
+import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.r2.RemoteInvocationException;
 import graphql.schema.DataFetcher;
 import graphql.schema.DataFetchingEnvironment;
+import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import lombok.extern.slf4j.Slf4j;
 
@@ -26,6 +29,8 @@ public class DeleteGlossaryEntityResolver implements DataFetcher<CompletableFutu
 
   @Override
   public CompletableFuture<Boolean> get(final DataFetchingEnvironment environment) throws Exception {
+    final String condUpdate = environment.getVariables().containsKey(Constants.IN_UNMODIFIED_SINCE)
+            ? environment.getVariables().get(Constants.IN_UNMODIFIED_SINCE).toString() : null;
     final QueryContext context = environment.getContext();
     final Urn entityUrn = Urn.createFromString(environment.getArgument("urn"));
     final Urn parentNodeUrn = GlossaryUtils.getParentUrn(entityUrn, context, _entityClient);
@@ -37,12 +42,13 @@ public class DeleteGlossaryEntityResolver implements DataFetcher<CompletableFutu
         }
 
         try {
-          _entityClient.deleteEntity(entityUrn, context.getAuthentication());
+          Map<String, Long> createdOnMap = CondUpdateUtils.extractCondUpdate(condUpdate);
+          _entityClient.deleteEntity(entityUrn, context.getAuthentication(), createdOnMap.get(entityUrn));
 
           // Asynchronously Delete all references to the entity (to return quickly)
           CompletableFuture.runAsync(() -> {
             try {
-              _entityClient.deleteEntityReferences(entityUrn, context.getAuthentication());
+              _entityClient.deleteEntityReferences(entityUrn, context.getAuthentication(), createdOnMap.get(entityUrn));
             } catch (RemoteInvocationException e) {
               log.error(String.format("Caught exception while attempting to clear all entity references for glossary entity with urn %s", entityUrn), e);
             }

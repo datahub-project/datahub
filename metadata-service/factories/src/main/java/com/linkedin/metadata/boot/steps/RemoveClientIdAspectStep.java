@@ -44,14 +44,14 @@ public class RemoveClientIdAspectStep implements BootstrapStep {
         return;
       }
       // Remove invalid telemetry aspect
-      _entityService.deleteAspect(TelemetryUtils.CLIENT_ID_URN, INVALID_TELEMETRY_ASPECT_NAME, new HashMap<>(), true);
+      _entityService.deleteAspect(TelemetryUtils.CLIENT_ID_URN, INVALID_TELEMETRY_ASPECT_NAME, new HashMap<>(), true, null);
 
       final AuditStamp auditStamp = new AuditStamp().setActor(Urn.createFromString(Constants.SYSTEM_ACTOR)).setTime(System.currentTimeMillis());
       final DataHubUpgradeResult upgradeResult = new DataHubUpgradeResult().setTimestampMs(System.currentTimeMillis());
       ingestUpgradeAspect(Constants.DATA_HUB_UPGRADE_RESULT_ASPECT_NAME, upgradeResult, auditStamp);
     } catch (Exception e) {
       log.error("Error when running the RemoveUnknownAspects Bootstrap Step", e);
-      _entityService.deleteUrn(REMOVE_UNKNOWN_ASPECTS_URN);
+      _entityService.deleteUrn(REMOVE_UNKNOWN_ASPECTS_URN, null);
       throw new RuntimeException("Error when running the RemoveUnknownAspects Bootstrap Step", e);
     }
   }
@@ -70,7 +70,7 @@ public class RemoveClientIdAspectStep implements BootstrapStep {
     upgradeProposal.setAspect(GenericRecordUtils.serializeAspect(aspect));
     upgradeProposal.setChangeType(ChangeType.UPSERT);
 
-    _entityService.ingestProposal(upgradeProposal, auditStamp, false);
+    _entityService.ingestProposal(upgradeProposal, auditStamp, false, null);
   }
 
 }

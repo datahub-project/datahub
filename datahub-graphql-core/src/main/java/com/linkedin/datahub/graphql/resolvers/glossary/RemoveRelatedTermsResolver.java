@@ -32,7 +32,8 @@ public class RemoveRelatedTermsResolver implements DataFetcher<CompletableFuture
 
   @Override
   public CompletableFuture<Boolean> get(DataFetchingEnvironment environment) throws Exception {
-
+    final String condUpdate = environment.getVariables().containsKey(Constants.IN_UNMODIFIED_SINCE)
+            ? environment.getVariables().get(Constants.IN_UNMODIFIED_SINCE).toString() : null;
     final QueryContext context = environment.getContext();
     final RelatedTermsInput input = bindArgument(environment.getArgument("input"), RelatedTermsInput.class);
 
@@ -68,7 +69,7 @@ public class RemoveRelatedTermsResolver implements DataFetcher<CompletableFuture
             final GlossaryTermUrnArray existingTermUrns = glossaryRelatedTerms.getIsRelatedTerms();
 
             existingTermUrns.removeIf(termUrn -> termUrnsToRemove.stream().anyMatch(termUrn::equals));
-            persistAspect(urn, Constants.GLOSSARY_RELATED_TERM_ASPECT_NAME, glossaryRelatedTerms, actor, _entityService);
+            persistAspect(urn, Constants.GLOSSARY_RELATED_TERM_ASPECT_NAME, glossaryRelatedTerms, actor, _entityService, condUpdate);
             return true;
           } else {
             if (!glossaryRelatedTerms.hasHasRelatedTerms()) {
@@ -77,7 +78,7 @@ public class RemoveRelatedTermsResolver implements DataFetcher<CompletableFuture
             final GlossaryTermUrnArray existingTermUrns = glossaryRelatedTerms.getHasRelatedTerms();
 
             existingTermUrns.removeIf(termUrn -> termUrnsToRemove.stream().anyMatch(termUrn::equals));
-            persistAspect(urn, Constants.GLOSSARY_RELATED_TERM_ASPECT_NAME, glossaryRelatedTerms, actor, _entityService);
+            persistAspect(urn, Constants.GLOSSARY_RELATED_TERM_ASPECT_NAME, glossaryRelatedTerms, actor, _entityService, condUpdate);
             return true;
           }
         } catch (Exception e) {

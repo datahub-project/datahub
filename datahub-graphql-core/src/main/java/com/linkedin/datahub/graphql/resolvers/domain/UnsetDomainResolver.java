@@ -5,6 +5,7 @@ import com.linkedin.common.urn.Urn;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.exception.AuthorizationException;
 import com.linkedin.datahub.graphql.resolvers.mutate.util.DomainUtils;
+import com.linkedin.datahub.graphql.util.CondUpdateUtils;
 import com.linkedin.domain.Domains;
 import com.linkedin.entity.client.EntityClient;
 import com.linkedin.events.metadata.ChangeType;
@@ -14,6 +15,7 @@ import com.linkedin.metadata.utils.GenericRecordUtils;
 import com.linkedin.mxe.MetadataChangeProposal;
 import graphql.schema.DataFetcher;
 import graphql.schema.DataFetchingEnvironment;
+import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import javax.annotation.Nonnull;
 import lombok.RequiredArgsConstructor;
@@ -33,7 +35,8 @@ public class UnsetDomainResolver implements DataFetcher<CompletableFuture<Boolea
 
   @Override
   public CompletableFuture<Boolean> get(DataFetchingEnvironment environment) throws Exception {
-
+    final String condUpdate = environment.getVariables().containsKey(Constants.IN_UNMODIFIED_SINCE)
+            ? environment.getVariables().get(Constants.IN_UNMODIFIED_SINCE).toString() : null;
     final QueryContext context = environment.getContext();
     final Urn entityUrn = Urn.createFromString(environment.getArgument("entityUrn"));
 
@@ -62,7 +65,8 @@ public class UnsetDomainResolver implements DataFetcher<CompletableFuture<Boolea
         proposal.setAspectName(Constants.DOMAINS_ASPECT_NAME);
         proposal.setAspect(GenericRecordUtils.serializeAspect(domains));
         proposal.setChangeType(ChangeType.UPSERT);
-        _entityClient.ingestProposal(proposal, context.getAuthentication());
+        Map<String, Long> createdOnMap = CondUpdateUtils.extractCondUpdate(condUpdate);
+        _entityClient.ingestProposal(proposal, context.getAuthentication(), createdOnMap.get(proposal.getEntityUrn()));
         return true;
       } catch (Exception e) {
         log.error("Failed to unset Domains for resource with entity urn {}: {}", entityUrn, e.getMessage());

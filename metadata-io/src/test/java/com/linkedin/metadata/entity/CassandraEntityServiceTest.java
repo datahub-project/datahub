@@ -191,8 +191,8 @@ public class CassandraEntityServiceTest extends EntityServiceTest<CassandraAspec
     CorpUserInfo writeAspect2 = AspectGenerationUtils.createCorpUserInfo("email_2@test.com");
 
     // Update without condition
-    _entityService.ingestAspect(entityUrn1, aspectName, writeAspect1, TEST_AUDIT_STAMP, metadata);
-    _entityService.ingestAspect(entityUrn1, aspectName, writeAspect2, TEST_AUDIT_STAMP, metadata);
+    _entityService.ingestAspect(entityUrn1, aspectName, writeAspect1, TEST_AUDIT_STAMP, metadata, null);
+    _entityService.ingestAspect(entityUrn1, aspectName, writeAspect2, TEST_AUDIT_STAMP, metadata, null);
     assertEquals(_entityService.getAspect(entityUrn1, aspectName, 0), writeAspect2);
     assertEquals(_entityService.getAspect(entityUrn1, aspectName, 1), writeAspect1);
 

@@ -5,6 +5,7 @@ import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.exception.AuthorizationException;
 import com.linkedin.datahub.graphql.generated.CreateSecretInput;
 import com.linkedin.datahub.graphql.resolvers.ingest.IngestionAuthUtils;
+import com.linkedin.datahub.graphql.util.CondUpdateUtils;
 import com.linkedin.entity.client.EntityClient;
 import com.linkedin.events.metadata.ChangeType;
 import com.linkedin.metadata.Constants;
@@ -16,6 +17,7 @@ import com.linkedin.mxe.MetadataChangeProposal;
 import com.linkedin.secret.DataHubSecretValue;
 import graphql.schema.DataFetcher;
 import graphql.schema.DataFetchingEnvironment;
+import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 
 import static com.linkedin.datahub.graphql.resolvers.ResolverUtils.*;
@@ -38,6 +40,8 @@ public class CreateSecretResolver implements DataFetcher<CompletableFuture<Strin
 
   @Override
   public CompletableFuture<String> get(final DataFetchingEnvironment environment) throws Exception {
+    final String condUpdate = environment.getVariables().containsKey(Constants.IN_UNMODIFIED_SINCE)
+            ? environment.getVariables().get(Constants.IN_UNMODIFIED_SINCE).toString() : null;
     final QueryContext context = environment.getContext();
     final CreateSecretInput input = bindArgument(environment.getArgument("input"), CreateSecretInput.class);
 
@@ -69,7 +73,8 @@ public class CreateSecretResolver implements DataFetcher<CompletableFuture<Strin
           proposal.setAspect(GenericRecordUtils.serializeAspect(value));
           proposal.setChangeType(ChangeType.UPSERT);
 
-          return _entityClient.ingestProposal(proposal, context.getAuthentication());
+          Map<String, Long> createdOnMap = CondUpdateUtils.extractCondUpdate(condUpdate);
+          return _entityClient.ingestProposal(proposal, context.getAuthentication(), createdOnMap.get(proposal.getEntityUrn()));
         } catch (Exception e) {
           throw new RuntimeException(String.format("Failed to create new secret with name %s", input.getName()), e);
         }

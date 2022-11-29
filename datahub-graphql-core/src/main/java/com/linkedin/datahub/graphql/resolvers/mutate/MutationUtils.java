@@ -4,6 +4,7 @@ import com.linkedin.common.AuditStamp;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.data.template.RecordTemplate;
 import com.linkedin.datahub.graphql.generated.SubResourceType;
+import com.linkedin.datahub.graphql.util.CondUpdateUtils;
 import com.linkedin.events.metadata.ChangeType;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.utils.GenericRecordUtils;
@@ -13,6 +14,7 @@ import com.linkedin.schema.EditableSchemaFieldInfoArray;
 import com.linkedin.schema.EditableSchemaMetadata;
 import com.linkedin.schema.SchemaField;
 import com.linkedin.schema.SchemaMetadata;
+import java.util.Map;
 import java.util.Optional;
 import lombok.extern.slf4j.Slf4j;
 
@@ -23,14 +25,16 @@ public class MutationUtils {
 
   private MutationUtils() { }
 
-  public static void persistAspect(Urn urn, String aspectName, RecordTemplate aspect, Urn actor, EntityService entityService) {
+  public static void persistAspect(Urn urn, String aspectName, RecordTemplate aspect, Urn actor,
+                                   EntityService entityService, String condUpdate) {
+    Map<String, Long> createdOnMap = CondUpdateUtils.extractCondUpdate(condUpdate);
     final MetadataChangeProposal proposal = new MetadataChangeProposal();
     proposal.setEntityUrn(urn);
     proposal.setEntityType(urn.getEntityType());
     proposal.setAspectName(aspectName);
     proposal.setAspect(GenericRecordUtils.serializeAspect(aspect));
     proposal.setChangeType(ChangeType.UPSERT);
-    entityService.ingestProposal(proposal, getAuditStamp(actor), false);
+    entityService.ingestProposal(proposal, getAuditStamp(actor), false, createdOnMap.get(urn));
   }
 
   public static MetadataChangeProposal buildMetadataChangeProposal(Urn urn, String aspectName, RecordTemplate aspect, Urn actor, EntityService entityService) {

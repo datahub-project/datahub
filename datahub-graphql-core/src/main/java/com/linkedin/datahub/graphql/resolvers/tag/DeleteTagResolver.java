@@ -5,10 +5,13 @@ import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.authorization.AuthorizationUtils;
 import com.linkedin.datahub.graphql.exception.AuthorizationException;
+import com.linkedin.datahub.graphql.util.CondUpdateUtils;
 import com.linkedin.entity.client.EntityClient;
+import com.linkedin.metadata.Constants;
 import com.linkedin.r2.RemoteInvocationException;
 import graphql.schema.DataFetcher;
 import graphql.schema.DataFetchingEnvironment;
+import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import lombok.extern.slf4j.Slf4j;
 
@@ -27,6 +30,8 @@ public class DeleteTagResolver implements DataFetcher<CompletableFuture<Boolean>
 
   @Override
   public CompletableFuture<Boolean> get(final DataFetchingEnvironment environment) throws Exception {
+    final String condUpdate = environment.getVariables().containsKey(Constants.IN_UNMODIFIED_SINCE)
+            ? environment.getVariables().get(Constants.IN_UNMODIFIED_SINCE).toString() : null;
     final QueryContext context = environment.getContext();
     final String tagUrn = environment.getArgument("urn");
     final Urn urn = Urn.createFromString(tagUrn);
@@ -35,12 +40,13 @@ public class DeleteTagResolver implements DataFetcher<CompletableFuture<Boolean>
 
       if (AuthorizationUtils.canManageTags(context) || AuthorizationUtils.canDeleteEntity(UrnUtils.getUrn(tagUrn), context)) {
         try {
-          _entityClient.deleteEntity(urn, context.getAuthentication());
+          Map<String, Long> createdOnMap = CondUpdateUtils.extractCondUpdate(condUpdate);
+          _entityClient.deleteEntity(urn, context.getAuthentication(), createdOnMap.get(urn));
 
           // Asynchronously Delete all references to the entity (to return quickly)
           CompletableFuture.runAsync(() -> {
             try {
-              _entityClient.deleteEntityReferences(urn, context.getAuthentication());
+              _entityClient.deleteEntityReferences(urn, context.getAuthentication(), createdOnMap.get(urn));
             } catch (RemoteInvocationException e) {
               log.error(String.format(
                   "Caught exception while attempting to clear all entity references for Tag with urn %s", urn), e);
