@@ -1,8 +1,9 @@
 from datahub_provider._airflow_compat import Operator
 
 import contextlib
+import logging
 import traceback
-from typing import Any, Iterable, List
+from typing import Any, Callable, Iterable, List, Optional
 
 from airflow.configuration import conf
 from airflow.lineage import PIPELINE_OUTLETS
@@ -105,6 +106,16 @@ def get_inlets_from_task(task: BaseOperator, context: Any) -> Iterable[Any]:
     return inlets
 
 
+def _make_emit_callback(
+    logger: logging.Logger,
+) -> Callable[[Optional[Exception], str], None]:
+    def emit_callback(err: Optional[Exception], msg: str) -> None:
+        if err:
+            logger.error(f"Error sending metadata to datahub: {msg}", exc_info=err)
+
+    return emit_callback
+
+
 def datahub_task_status_callback(context, status):
     ti = context["ti"]
     task: "BaseOperator" = ti.task
@@ -126,9 +137,8 @@ def datahub_task_status_callback(context, status):
         capture_tags=context["_datahub_config"].capture_tags_info,
         capture_owner=context["_datahub_config"].capture_ownership_info,
     )
-    dataflow.emit(emitter)
-
-    task.log.info(f"Emitted Datahub DataFlow: {dataflow}")
+    task.log.info(f"Emitting Datahub Dataflow: {dataflow}")
+    dataflow.emit(emitter, callback=_make_emit_callback(task.log))
 
     datajob = AirflowGenerator.generate_datajob(
         cluster=context["_datahub_config"].cluster,
@@ -145,8 +155,8 @@ def datahub_task_status_callback(context, status):
     for outlet in task_outlets:
         datajob.outlets.append(outlet.urn)
 
-    task.log.info(f"Emitted Datahub dataJob: {datajob}")
-    datajob.emit(emitter)
+    task.log.info(f"Emitting Datahub Datajob: {datajob}")
+    datajob.emit(emitter, callback=_make_emit_callback(task.log))
 
     if context["_datahub_config"].capture_executions:
         dpi = AirflowGenerator.run_datajob(
@@ -207,8 +217,8 @@ def datahub_pre_execution(context):
     for outlet in task_outlets:
         datajob.outlets.append(outlet.urn)
 
-    datajob.emit(emitter)
-    task.log.info(f"Emitting Datahub DataJob: {datajob}")
+    task.log.info(f"Emitting Datahub dataJob {datajob}")
+    datajob.emit(emitter, callback=_make_emit_callback(task.log))
 
     if context["_datahub_config"].capture_executions:
         dpi = AirflowGenerator.run_datajob(
@@ -227,8 +237,9 @@ def datahub_pre_execution(context):
 def _wrap_pre_execution(pre_execution):
     def custom_pre_execution(context):
         config = get_lineage_config()
-        context["_datahub_config"] = config
-        datahub_pre_execution(context)
+        if config.enabled:
+            context["_datahub_config"] = config
+            datahub_pre_execution(context)
 
         # Call original policy
         if pre_execution:
@@ -240,14 +251,15 @@ def _wrap_pre_execution(pre_execution):
 def _wrap_on_failure_callback(on_failure_callback):
     def custom_on_failure_callback(context):
         config = get_lineage_config()
-        context["_datahub_config"] = config
-        try:
-            datahub_task_status_callback(context, status=InstanceRunResult.FAILURE)
-        except Exception as e:
-            if not config.graceful_exceptions:
-                raise e
-            else:
-                print(f"Exception: {traceback.format_exc()}")
+        if config.enabled:
+            context["_datahub_config"] = config
+            try:
+                datahub_task_status_callback(context, status=InstanceRunResult.FAILURE)
+            except Exception as e:
+                if not config.graceful_exceptions:
+                    raise e
+                else:
+                    print(f"Exception: {traceback.format_exc()}")
 
         # Call original policy
         if on_failure_callback:
@@ -259,15 +271,17 @@ def _wrap_on_failure_callback(on_failure_callback):
 def _wrap_on_success_callback(on_success_callback):
     def custom_on_success_callback(context):
         config = get_lineage_config()
-        context["_datahub_config"] = config
-        try:
-            datahub_task_status_callback(context, status=InstanceRunResult.SUCCESS)
-        except Exception as e:
-            if not config.graceful_exceptions:
-                raise e
-            else:
-                print(f"Exception: {traceback.format_exc()}")
+        if config.enabled:
+            context["_datahub_config"] = config
+            try:
+                datahub_task_status_callback(context, status=InstanceRunResult.SUCCESS)
+            except Exception as e:
+                if not config.graceful_exceptions:
+                    raise e
+                else:
+                    print(f"Exception: {traceback.format_exc()}")
 
+        # Call original policy
         if on_success_callback:
             on_success_callback(context)
 

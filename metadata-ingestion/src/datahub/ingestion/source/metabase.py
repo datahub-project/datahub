@@ -169,6 +169,7 @@ class MetabaseSource(Source):
                 key="metabase-session",
                 reason=f"Unable to logout for user {self.config.username}",
             )
+        super().close()
 
     def emit_dashboard_mces(self) -> Iterable[MetadataWorkUnit]:
         try:

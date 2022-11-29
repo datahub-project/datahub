@@ -115,16 +115,6 @@ logger: logging.Logger = logging.getLogger(__name__)
 REPLACE_SLASH_CHAR = "|"
 
 
-class TableauStatefulIngestionConfig(StatefulStaleMetadataRemovalConfig):
-    """
-    Specialization of StatefulStaleMetadataRemovalConfig to adding custom config.
-    This will be used to override the stateful_ingestion config param of StatefulIngestionConfigBase
-    in the TableauConfig.
-    """
-
-    _entity_types: List[str] = Field(default=["dataset", "chart", "dashboard"])
-
-
 class TableauConnectionConfig(ConfigModel):
     connect_uri: str = Field(description="Tableau host URL.")
     username: Optional[str] = Field(
@@ -246,7 +236,7 @@ class TableauConfig(
         description="[experimental] Extract usage statistics for dashboards and charts.",
     )
 
-    stateful_ingestion: Optional[TableauStatefulIngestionConfig] = Field(
+    stateful_ingestion: Optional[StatefulStaleMetadataRemovalConfig] = Field(
         default=None, description=""
     )
 
@@ -322,8 +312,8 @@ class TableauSource(StatefulIngestionSourceBase):
 
     def close(self) -> None:
         if self.server is not None:
-            self.prepare_for_commit()
             self.server.auth.sign_out()
+        super().close()
 
     def _populate_usage_stat_registry(self):
         if self.server is None:
@@ -384,7 +374,9 @@ class TableauSource(StatefulIngestionSourceBase):
         if "errors" in query_data:
             errors = query_data["errors"]
             if all(
-                error.get("extensions", {}).get("severity", None) == "WARNING"
+                # The format of the error messages is highly unpredictable, so we have to
+                # be extra defensive with our parsing.
+                error and (error.get("extensions") or {}).get("severity") == "WARNING"
                 for error in errors
             ):
                 self.report.report_warning(key=connection_type, reason=f"{errors}")
@@ -1006,7 +998,7 @@ class TableauSource(StatefulIngestionSourceBase):
 
         project = (
             datasource_info.get("projectName", "").replace("/", REPLACE_SLASH_CHAR)
-            if datasource_info
+            if datasource_info and datasource_info.get("projectName", "")
             else ""
         )
         datasource_id = datasource["id"]

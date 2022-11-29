@@ -46,7 +46,7 @@ class SQLServerConfig(BasicSQLAlchemyConfig):
     )
     uri_args: Dict[str, str] = Field(
         default={},
-        desscription="Arguments to URL-encode when connecting. See https://docs.microsoft.com/en-us/sql/connect/odbc/dsn-connection-string-attribute?view=sql-server-ver15.",
+        description="Arguments to URL-encode when connecting. See https://docs.microsoft.com/en-us/sql/connect/odbc/dsn-connection-string-attribute?view=sql-server-ver15.",
     )
     database_pattern: AllowDenyPattern = Field(
         default=AllowDenyPattern.allow_all(),
@@ -122,7 +122,7 @@ class SQLServerSource(SQLAlchemySource):
         super().__init__(config, ctx, "mssql")
         # Cache the table and column descriptions
         self.config: SQLServerConfig = config
-        self.current_database: Optional[str] = None
+        self.current_database = None
         self.table_descriptions: Dict[str, str] = {}
         self.column_descriptions: Dict[str, str] = {}
         for inspector in self.get_inspectors():
@@ -262,5 +262,5 @@ class SQLServerSource(SQLAlchemySource):
                 return f"{self.config.database_alias}.{regular}"
             return f"{self.config.database}.{regular}"
         if self.current_database:
-            return f"{self.current_database.lower()}.{regular}"
+            return f"{self.current_database}.{regular}"
         return regular

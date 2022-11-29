@@ -8,6 +8,7 @@ import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.generated.AcceptRoleInput;
 import graphql.schema.DataFetcher;
 import graphql.schema.DataFetchingEnvironment;
+import java.util.Collections;
 import java.util.concurrent.CompletableFuture;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -32,15 +33,14 @@ public class AcceptRoleResolver implements DataFetcher<CompletableFuture<Boolean
 
     return CompletableFuture.supplyAsync(() -> {
       try {
-        Urn inviteTokenUrn = _inviteTokenService.getInviteTokenUrn(inviteTokenStr);
+        final Urn inviteTokenUrn = _inviteTokenService.getInviteTokenUrn(inviteTokenStr);
         if (!_inviteTokenService.isInviteTokenValid(inviteTokenUrn, authentication)) {
           throw new RuntimeException(String.format("Invite token %s is invalid", inviteTokenStr));
         }
 
-        Urn roleUrn = _inviteTokenService.getInviteTokenRole(inviteTokenUrn, authentication);
-        if (roleUrn != null) {
-          _roleService.assignRoleToActor(authentication.getActor().toUrnStr(), roleUrn, authentication);
-        }
+        final Urn roleUrn = _inviteTokenService.getInviteTokenRole(inviteTokenUrn, authentication);
+        _roleService.batchAssignRoleToActors(Collections.singletonList(authentication.getActor().toUrnStr()), roleUrn,
+            authentication);
 
         return true;
       } catch (Exception e) {
