@@ -13,15 +13,16 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import javax.annotation.Nonnull;
-import lombok.extern.slf4j.Slf4j;
+import org.apache.commons.logging.Log;
+import org.apache.commons.logging.LogFactory;
 import org.apache.ranger.plugin.policyengine.RangerAccessRequest;
 import org.apache.ranger.plugin.policyengine.RangerAccessRequestImpl;
 import org.apache.ranger.plugin.policyengine.RangerAccessResourceImpl;
 import org.apache.ranger.plugin.policyengine.RangerAccessResult;
 
 
-@Slf4j
 public class RangerAuthorizer implements Authorizer {
+  private static final Log log = LogFactory.getLog(RangerAuthorizer.class);
 
   private AuthorizerConfig authorizerConfig;
   private DataHubRangerClient dataHubRangerClient;
