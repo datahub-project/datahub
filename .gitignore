@@ -39,6 +39,9 @@ MANIFEST
 */i18n
 out/
 
+# Dependencies
+/node_modules
+
 # Mac OS
 **/.DS_Store
 

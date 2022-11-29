@@ -88,6 +88,71 @@ module.exports = {
           //   id: "docs/wip/configure-sso",
           //   className: "saasOnly",
           // },
+          "docs/managed-datahub/welcome-acryl",
+          "docs/managed-datahub/acryl-table-contents",
+          {
+            "Actions Guide": [
+            "docs/managed-datahub/actions-guide/tag-sync",
+            "docs/managed-datahub/actions-guide/terms-sync-propagation",
+           ],
+          },
+          {
+            "Administering Datahub" : [
+              "docs/managed-datahub/administering-datahub/metadata-tests",
+              "docs/managed-datahub/administering-datahub/policies-guide",
+              "docs/managed-datahub/administering-datahub/proposals",
+              "docs/managed-datahub/administering-datahub/tags",
+              {
+                "Metadata Ingestion With Acryl": [
+                  "docs/managed-datahub/administering-datahub/metadata-ingestion-with-acryl/ingestion",
+                  "docs/managed-datahub/administering-datahub/metadata-ingestion-with-acryl/advanced-ingestion",
+                  "docs/managed-datahub/administering-datahub/metadata-ingestion-with-acryl/deleting-ingested-metadata",
+                ],
+              },
+              {
+                "Pre-Ingestion Tasks": [
+                  "docs/managed-datahub/administering-datahub/pre-ingestion-tasks/pre-ingestion",
+                  "docs/managed-datahub/administering-datahub/pre-ingestion-tasks/installing-the-cli",
+                  "docs/managed-datahub/administering-datahub/pre-ingestion-tasks/receiving-admin-credentials",
+                  "docs/managed-datahub/administering-datahub/pre-ingestion-tasks/logging-in-as-administrator",
+                ],
+              },
+            ],
+          },
+          {
+            "DataHub API": [
+              "docs/managed-datahub/datahub-api/datahub-api/datahub-architecture",
+              "docs/managed-datahub/datahub-api/datahub-api/entity-events-api",
+              {
+                "GraphQL API": [
+                  "docs/managed-datahub/datahub-api/graphql-api/graphql-api",
+                  "docs/managed-datahub/datahub-api/graphql-api/graphql-api/getting-started",
+                  "docs/managed-datahub/datahub-api/graphql-api/graphql-api/constraints-api",
+                  "docs/managed-datahub/datahub-api/graphql-api/graphql-api/getting-started",
+                  "docs/managed-datahub/datahub-api/graphql-api/graphql-api/glossary-term-proposal-api",
+                  "docs/managed-datahub/datahub-api/graphql-api/graphql-api/incidents-api-beta",
+                  "docs/managed-datahub/datahub-api/graphql-api/graphql-api/tag-proposal-api",
+                ],
+              },
+              {
+                "Concepts": [
+                  "docs/managed-datahub/datahub-api/concepts/concepts",
+                  "docs/managed-datahub/datahub-api/concepts/urns",
+                  "docs/managed-datahub/datahub-api/concepts/constructing-dataset-field-paths",
+                ],
+              },
+            ],
+          },
+          {
+            "Integrations": [
+              "docs/managed-datahub/integrations/slack-integration",
+              "docs/managed-datahub/integrations/oidc-sso-integration",
+              "docs/managed-datahub/integrations/aws-privatelink",
+            ],
+          },
+          
+          "docs/managed-datahub/administering-datahub/lineage-sync-configuration-advanced",
+          "docs/managed-datahub/administering-datahub/lineage-sync-configuration-advanced-2", 
           "docs/authentication/guides/add-users",
           // "docs/wip/invite-with-email-link",
           // "docs/wip/create-policies",

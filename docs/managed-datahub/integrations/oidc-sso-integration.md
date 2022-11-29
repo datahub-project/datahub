@@ -36,4 +36,4 @@ To enable the OIDC integration, start by navigating to **Settings > Platform > S
 4. If there are any advanced settings you would like to configure, click on the **Advanced** button. These come with defaults, so only input settings here if there is something you need changed from the default configuration.
 5. Click **Update** to save your settings.
 
-<figure><img src="../.gitbook/assets/image (10).png" alt=""><figcaption></figcaption></figure>
+<figure><img src="../imgs/saas/assets/image (10).png" alt=""><figcaption></figcaption></figure>

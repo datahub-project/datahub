@@ -1,4 +1,4 @@
 # Architecture
 
-![Acryl DataHub System Architecture ](../.gitbook/assets/DataHub Architecture.png)
+![Acryl DataHub System Architecture ](../imgs/saas/assets/DataHub Architecture.png)
 

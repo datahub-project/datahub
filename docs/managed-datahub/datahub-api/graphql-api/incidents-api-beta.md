@@ -401,7 +401,7 @@ You can configure Acryl to send slack notifications to a specific channel when i
 
 These notifications are also able to tag the immediate asset's owners, along with the owners of downstream assets consuming it.&#x20;
 
-![](../../.gitbook/assets/Screen Shot 2022-03-22 at 6.46.41 PM.png)
+![](../../imgs/saas/assets/Screen Shot 2022-03-22 at 6.46.41 PM.png)
 
 To do so, simply follow the [Slack Integration Guide](../../integrations/slack-integration.md) and contact your Acryl customer success team to enable the feature! &#x20;
 
