@@ -4,7 +4,10 @@ source:
     # Your Power BI tenant identifier
     tenant_id: a949d688-67c0-4bf1-a344-e939411c6c0a
     # Ingest elements of below PowerBi Workspace into Datahub
-    workspace_id: 4bd10256-e999-45dd-8e56-571c77153a5f
+    workspace_id_pattern:
+      allow:
+        - 4bd10256-e999-45dd-8e56-571c77153a5f
+      deny:
     # Workspaces dataset environments (PROD, DEV, QA, STAGE)
     env: DEV
     # Azure AD Application identifier

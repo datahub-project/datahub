@@ -1,8 +1,7 @@
 import logging
-from typing import List, Optional
+from typing import Dict, List, Optional
 
 from datahub_classify.helper_classes import ColumnInfo, Metadata
-from pandas import DataFrame
 from typing_extensions import Protocol
 
 from datahub.configuration.common import ConfigurationError
@@ -106,7 +105,7 @@ class ClassificationMixin:
         self: ClassificationSourceProtocol,
         dataset_name: str,
         schema_metadata: SchemaMetadata,
-        sample_data: DataFrame,
+        sample_data: Dict[str, list],
     ) -> None:
 
         assert self.config.classification
@@ -130,8 +129,8 @@ class ClassificationMixin:
                             "Dataset_Name": dataset_name,
                         }
                     ),
-                    values=sample_data[field.fieldPath].values
-                    if field.fieldPath in sample_data.columns
+                    values=sample_data[field.fieldPath]
+                    if field.fieldPath in sample_data.keys()
                     else [],
                 )
             )
