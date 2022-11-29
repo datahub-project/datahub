@@ -44,11 +44,13 @@ from datahub.metadata.schema_classes import (
     DataPlatformInfoClass,
     DatasetKeyClass,
     DatasetPropertiesClass,
+    GlobalTagsClass,
     OwnerClass,
     OwnershipClass,
     OwnershipTypeClass,
     StatusClass,
     SubTypesClass,
+    TagAssociationClass,
 )
 from datahub.utilities.dedup_list import deduplicate_list
 
@@ -101,6 +103,7 @@ class Constant:
     DATASET_ID = "powerbi.linkedin.com/datasets/{}"
     DATASET_KEY = "datasetKey"
     DATASET_PROPERTIES = "datasetProperties"
+    GLOBAL_TAGS = "globalTags"
     VALUE = "value"
     ENTITY = "ENTITY"
     ID = "ID"
@@ -140,6 +143,10 @@ class PowerBiAPIConfig(EnvBasedSourceConfigBase):
     # Enable/Disable extracting report information
     extract_reports: bool = pydantic.Field(
         default=True, description="Whether reports should be ingested"
+    )
+    # Enable/Disable extracting endorsements to tags
+    extract_endorsements_to_tags: bool = pydantic.Field(
+        default=False, description="Whether to extract endorsements to tags"
     )
 
     @root_validator(pre=False)
@@ -202,6 +209,7 @@ class PowerBiAPI:
         state: str
         dashboards: List[Any]
         datasets: Dict[str, "PowerBiAPI.Dataset"]
+        reports: List["PowerBiAPI.Report"]
 
     @dataclass
     class DataSource:
@@ -250,6 +258,7 @@ class PowerBiAPI:
         datasource: Any
         # Table in datasets
         tables: List[Any]
+        tags: List[str]
 
         def get_urn_part(self):
             return f"datasets.{self.id}"
@@ -309,6 +318,7 @@ class PowerBiAPI:
         dataset: Optional["PowerBiAPI.Dataset"]
         pages: List["PowerBiAPI.Page"]
         users: List["PowerBiAPI.User"]
+        tags: List[str]
 
         def get_urn_part(self):
             return f"reports.{self.id}"
@@ -342,6 +352,7 @@ class PowerBiAPI:
         workspace_name: str
         tiles: List["PowerBiAPI.Tile"]
         users: List["PowerBiAPI.User"]
+        tags: List[str]
 
         def get_urn_part(self):
             return f"dashboards.{self.id}"
@@ -429,7 +440,9 @@ class PowerBiAPI:
 
         return users
 
-    def __get_report(self, workspace_id: str, report_id: str) -> "PowerBiAPI.Report":
+    def __get_report(
+        self, workspace_id: str, report_id: str
+    ) -> Optional["PowerBiAPI.Report"]:
         """
         Fetch the report from PowerBi for the given report identifier
         """
@@ -474,6 +487,7 @@ class PowerBiAPI:
             dataset=self.get_dataset(
                 workspace_id=workspace_id, dataset_id=response_dict.get("datasetId")
             ),
+            tags=[],
         )
 
     def get_access_token(self):
@@ -511,16 +525,12 @@ class PowerBiAPI:
             workspace_id=dashboard.workspace_id, entity="dashboards", id=dashboard.id
         )
 
-    def get_dashboards(self, workspace: Workspace) -> List[Dashboard]:
-        """
-        Get the list of dashboard from PowerBi for the given workspace identifier
-
-        TODO: Pagination. As per REST API doc (https://docs.microsoft.com/en-us/rest/api/power-bi/dashboards/get-dashboards), there is no information available on pagination
-        """
+    def get_dashboard_data(self, workspace: Workspace) -> dict:
         dashboard_list_endpoint: str = PowerBiAPI.API_ENDPOINTS[Constant.DASHBOARD_LIST]
         # Replace place holders
         dashboard_list_endpoint = dashboard_list_endpoint.format(
-            POWERBI_BASE_URL=PowerBiAPI.BASE_URL, WORKSPACE_ID=workspace.id
+            POWERBI_BASE_URL=PowerBiAPI.BASE_URL,
+            WORKSPACE_ID=workspace.id,
         )
         # Hit PowerBi
         LOGGER.info(f"Request to URL={dashboard_list_endpoint}")
@@ -531,34 +541,73 @@ class PowerBiAPI:
 
         # Check if we got response from PowerBi
         if response.status_code != 200:
-            LOGGER.warning("Failed to fetch dashboard list from power-bi for")
+            LOGGER.warning("Failed to fetch dashboard data from power-bi for")
             LOGGER.warning(f"{Constant.WorkspaceId}={workspace.id}")
+            LOGGER.warning(f"Http result code={response.status_code}")
             raise ConnectionError(
                 "Failed to fetch the dashboard list from the power-bi"
             )
 
-        dashboards_dict: List[Any] = response.json()[Constant.VALUE]
+        return response.json()[Constant.VALUE]
 
-        # Iterate through response and create a list of PowerBiAPI.Dashboard
-        dashboards: List[PowerBiAPI.Dashboard] = [
-            PowerBiAPI.Dashboard(
-                id=instance.get("id"),
-                isReadOnly=instance.get("isReadOnly"),
-                displayName=instance.get("displayName"),
-                embedUrl=instance.get("embedUrl"),
-                webUrl=instance.get("webUrl"),
+    def get_dashboards(
+        self, workspace: Workspace, scan_result: dict
+    ) -> List[Dashboard]:
+        """
+        Get the list of dashboard from PowerBi for the given workspace identifier
+
+        TODO: Pagination. As per REST API doc (https://docs.microsoft.com/en-us/rest/api/power-bi/dashboards/get-dashboards), there is no information available on pagination
+        """
+
+        dashboards: List[PowerBiAPI.Dashboard] = []
+        dashboard_data = self.get_dashboard_data(workspace)
+
+        for scanned_dashboard in scan_result["dashboards"]:
+            # Iterate through response and create a list of PowerBiAPI.Dashboard
+            dashboard_details = next(
+                (x for x in dashboard_data if x["id"] == scanned_dashboard["id"]), None
+            )
+            if not dashboard_details:
+                # Dashboard details was not found from REST API payload,
+                # which probably means we encountered an [App] Dashboard.
+                # Skip for now.
+                continue
+
+            dashboard = PowerBiAPI.Dashboard(
+                id=scanned_dashboard["id"],
+                isReadOnly=dashboard_details.get("isReadOnly"),
+                displayName=dashboard_details.get("displayName"),
+                embedUrl=dashboard_details.get("embedUrl"),
+                webUrl=dashboard_details.get("webUrl"),
                 workspace_id=workspace.id,
                 workspace_name=workspace.name,
                 tiles=[],
                 users=[],
+                tags=self.parse_endorsement(
+                    scanned_dashboard.get("endorsementDetails", None)
+                ),
             )
-            for instance in dashboards_dict
-            if instance is not None
-        ]
+            dashboards.append(dashboard)
 
         return dashboards
 
-    def get_dataset(self, workspace_id: str, dataset_id: str) -> Any:
+    @staticmethod
+    def parse_endorsement(endorsements: Optional[dict]) -> List[str]:
+        if not endorsements:
+            return []
+
+        endorsement = endorsements.get("endorsement", None)
+        if not endorsement:
+            return []
+
+        return [endorsement]
+
+    def get_dataset(
+        self,
+        workspace_id: str,
+        dataset_id: str,
+        endorsements: Optional[dict] = None,
+    ) -> Any:
         """
         Fetch the dataset from PowerBi for the given dataset identifier
         """
@@ -602,6 +651,7 @@ class PowerBiAPI:
             workspace_id=workspace_id,
             tables=[],
             datasource=None,
+            tags=self.parse_endorsement(endorsements),
         )
 
     def get_groups(self):
@@ -625,6 +675,7 @@ class PowerBiAPI:
                 state="",
                 datasets={},
                 dashboards=[],
+                reports=[],
             )
             for workspace in groups.get("value", [])
             if workspace.get("type", None) == "Workspace"
@@ -878,6 +929,7 @@ class PowerBiAPI:
                     workspace_id=workspace.id, entity="reports", id=raw_instance["id"]
                 ),
                 dataset=workspace.datasets.get(raw_instance.get("datasetId")),
+                tags=[],
             )
             for raw_instance in response_dict["value"]
         ]
@@ -1014,6 +1066,7 @@ class PowerBiAPI:
                 dataset_instance: PowerBiAPI.Dataset = self.get_dataset(
                     workspace_id=scan_result["id"],
                     dataset_id=dataset_dict["id"],
+                    endorsements=dataset_dict.get("endorsementDetails", None),
                 )
 
                 dataset_map[dataset_instance.id] = dataset_instance
@@ -1048,6 +1101,45 @@ class PowerBiAPI:
 
             return dataset_map
 
+        def handle_report(report_data: dict) -> Optional[PowerBiAPI.Report]:
+            try:
+                instance = self.__get_report(workspace_id, report_data["id"])
+                if not instance:
+                    return None
+
+                instance.pages = self.get_pages_by_report(
+                    workspace_id=workspace.id, report_id=report_data["id"]
+                )
+                instance.dataset = workspace.datasets.get(
+                    report_data.get("datasetId", None)
+                )
+
+                if self.__config.extract_endorsements_to_tags:
+                    instance.tags = self.parse_endorsement(
+                        report_data.get("endorsementDetails", None)
+                    )
+
+                if self.__config.extract_ownership:
+                    instance.users = self.__get_users(
+                        workspace_id=workspace.id,
+                        entity="reports",
+                        id=report_data["id"],
+                    )
+
+                return instance
+            except ConnectionError:
+                # Encountered [App] Report and must dismiss
+                return None
+
+        def scan_result_to_reports(scan_result: dict) -> List[PowerBiAPI.Report]:
+            reports: List[dict] = scan_result.get("reports", [])
+
+            result_reports: List[Optional[PowerBiAPI.Report]] = [
+                handle_report(report) for report in reports
+            ]
+            # filter None's out
+            return [report for report in result_reports if report]
+
         def init_dashboard_tiles(workspace: PowerBiAPI.Workspace) -> None:
             for dashboard in workspace.dashboards:
                 dashboard.tiles = self.get_tiles(workspace, dashboard=dashboard)
@@ -1078,11 +1170,16 @@ class PowerBiAPI:
             state=scan_result["state"],
             datasets={},
             dashboards=[],
+            reports=[],
         )
         # Get workspace dashboards
-        workspace.dashboards = self.get_dashboards(workspace)
+        workspace.dashboards = self.get_dashboards(workspace, scan_result)
         workspace.datasets = json_to_dataset_map(scan_result)
         init_dashboard_tiles(workspace)
+
+        if self.__config.extract_reports:
+            # Handle reports
+            workspace.reports = scan_result_to_reports(scan_result)
 
         return workspace
 
@@ -1193,6 +1290,21 @@ class Mapper:
             )
 
             dataset_mcps.extend([info_mcp, status_mcp])
+
+            if self.__config.extract_endorsements_to_tags and dataset.tags:
+                tags = GlobalTagsClass(
+                    tags=[
+                        TagAssociationClass(builder.make_tag_urn(tag_to_add))
+                        for tag_to_add in dataset.tags
+                    ]
+                )
+                tags_mcp = self.new_mcp(
+                    Constant.DATASET,
+                    ds_urn,
+                    Constant.GLOBAL_TAGS,
+                    tags,
+                )
+                dataset_mcps.append(tags_mcp)
 
         return dataset_mcps
 
@@ -1373,6 +1485,21 @@ class Mapper:
             removed_status_mcp,
             dashboard_key_mcp,
         ]
+
+        if self.__config.extract_endorsements_to_tags and dashboard.tags:
+            tags = GlobalTagsClass(
+                tags=[
+                    TagAssociationClass(builder.make_tag_urn(tag_to_add))
+                    for tag_to_add in dashboard.tags
+                ]
+            )
+            tags_mcp = self.new_mcp(
+                Constant.DASHBOARD,
+                dashboard_urn,
+                Constant.GLOBAL_TAGS,
+                tags,
+            )
+            list_of_mcps.append(tags_mcp)
 
         if owner_mcp is not None:
             list_of_mcps.append(owner_mcp)
@@ -1668,6 +1795,21 @@ class Mapper:
             sub_type_mcp,
         ]
 
+        if self.__config.extract_endorsements_to_tags and report.tags:
+            tags = GlobalTagsClass(
+                tags=[
+                    TagAssociationClass(builder.make_tag_urn(tag_to_add))
+                    for tag_to_add in report.tags
+                ]
+            )
+            tags_mcp = self.new_mcp(
+                Constant.DASHBOARD,
+                dashboard_urn,
+                Constant.GLOBAL_TAGS,
+                tags,
+            )
+            list_of_mcps.append(tags_mcp)
+
         if owner_mcp is not None:
             list_of_mcps.append(owner_mcp)
 
@@ -1794,7 +1936,7 @@ class PowerBiDashboardSource(Source):
                     yield workunit
 
             if self.source_config.extract_reports:
-                for report in self.powerbi_client.get_reports(workspace=workspace):
+                for report in workspace.reports:
                     for work_unit in self.mapper.report_to_datahub_work_units(
                         report, workspace
                     ):
