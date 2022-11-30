@@ -11,28 +11,15 @@ const devProxyPlugin = () => ({
         const mockServer = server.config.env['VITE_MOCK'];
         if (mockServer !== 'true' && mockServer !== 'cy') {
             const { createProxyMiddleware } = require('http-proxy-middleware');
+            const options = {
+                target: 'http://localhost:9002',
+                changeOrigin: true,
+            };
 
-            server.middlewares.use(
-                '/logIn',
-                createProxyMiddleware(logInFilter, {
-                    target: 'http://localhost:9002',
-                    changeOrigin: true,
-                }),
-            );
-            server.middlewares.use(
-                '/authenticate',
-                createProxyMiddleware({
-                    target: 'http://localhost:9002',
-                    changeOrigin: true,
-                }),
-            );
-            server.middlewares.use(
-                '/api/v2/graphql',
-                createProxyMiddleware({
-                    target: 'http://localhost:9002',
-                    changeOrigin: true,
-                }),
-            );
+            server.middlewares.use('/logIn', createProxyMiddleware(logInFilter, options));
+            server.middlewares.use('/authenticate', createProxyMiddleware(options));
+            server.middlewares.use('/api/v2/graphql', createProxyMiddleware(options));
+            server.middlewares.use('/track', createProxyMiddleware(options));
         }
     },
 });
