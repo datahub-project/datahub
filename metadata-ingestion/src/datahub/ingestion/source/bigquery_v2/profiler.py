@@ -335,6 +335,7 @@ WHERE
         )
 
     def get_profile_args(self) -> Dict:
+        """Passed down to GE profiler"""
         return {}
 
     def generate_profiles(

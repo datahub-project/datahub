@@ -841,43 +841,6 @@ class DatahubGEProfiler:
             **kwargs,
         }
 
-        """
-        # We have to create temporary tables if offset or limit or custom sql is set on Bigquery
-        if custom_sql or self.config.limit or self.config.offset:
-            if profiler_args is not None:
-                temp_table_db = profiler_args.get("temp_table_db", schema)
-                if platform is not None and platform == "bigquery":
-                    ge_config["schema"] = None
-
-            if self.config.bigquery_temp_table_schema:
-                num_parts = self.config.bigquery_temp_table_schema.split(".")
-                # If we only have 1 part that means the project_id is missing from the table name and we add it
-                if len(num_parts) == 1:
-                    bigquery_temp_table = f"{temp_table_db}.{self.config.bigquery_temp_table_schema}.ge-temp-{uuid.uuid4()}"
-                elif len(num_parts) == 2:
-                    bigquery_temp_table = f"{self.config.bigquery_temp_table_schema}.ge-temp-{uuid.uuid4()}"
-                else:
-                    raise ConfigurationError(
-                        f"bigquery_temp_table_schema should be either project.dataset or dataset format but it was: {self.config.bigquery_temp_table_schema}"
-                    )
-            else:
-                assert table
-                table_parts = table.split(".")
-                if len(table_parts) == 2:
-                    bigquery_temp_table = (
-                        f"{temp_table_db}.{table_parts[0]}.ge-temp-{uuid.uuid4()}"
-                    )
-
-            # With this pr there is no option anymore to set the bigquery temp table:
-            # https://github.com/great-expectations/great_expectations/pull/4925
-            # This dirty hack to make it possible to control the temp table to use in Bigquery
-            # otherwise it will expect dataset_id in the connection url which is not option in our case
-            # as we batch these queries.
-            # Currently only with this option is possible to control the temp table which is created:
-            # https://github.com/great-expectations/great_expectations/blob/7e53b615c36a53f78418ce46d6bc91a7011163c0/great_expectations/datasource/sqlalchemy_datasource.py#L397
-            ge_config["snowflake_transient_table"] = bigquery_temp_table
-        """
-
         bigquery_temp_table: Optional[str] = None
         if platform == "bigquery" and (
             custom_sql or self.config.limit or self.config.offset
@@ -1012,7 +975,6 @@ class DatahubGEProfiler:
             # If we only have two parts that means the project_id is missing from the table name and we add it
             # Temp tables has 3 parts while normal tables only has 2 parts
             if len(str(batch._table).split(".")) == 2:
-                breakpoint()
                 batch._table = sa.text(f"{name_parts[0]}.{str(batch._table)}")
                 logger.debug(f"Setting table name to be {batch._table}")
 
