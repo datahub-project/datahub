@@ -53,6 +53,11 @@ framework_common = {
     "cached_property",
     "ijson",
     "click-spinner",
+    "requests_file",
+}
+
+rest_common = {
+    "requests",
 }
 
 kafka_common = {
@@ -103,9 +108,11 @@ kafka_protobuf = {
 
 sql_common = {
     # Required for all SQL sources.
-    "sqlalchemy==1.3.24",
+    "sqlalchemy>=1.3.24, <2",
     # Required for SQL profiling.
     "great-expectations>=0.15.12",
+    # scipy version restricted to reduce backtracking, used by great-expectations,
+    "scipy>=1.7.2",
     # GE added handling for higher version of jinja2
     # https://github.com/great-expectations/great_expectations/pull/5382/files
     # datahub does not depend on traitlets directly but great expectations does.
@@ -147,6 +154,12 @@ bigquery_common = {
     "more-itertools>=8.12.0",
 }
 
+clickhouse_common = {
+    # Clickhouse 0.1.8 requires SQLAlchemy 1.3.x, while the newer versions
+    # allow SQLAlchemy 1.4.x.
+    "clickhouse-sqlalchemy>=0.1.8",
+}
+
 redshift_common = {
     "sqlalchemy-redshift",
     "psycopg2-binary",
@@ -158,10 +171,19 @@ redshift_common = {
 snowflake_common = {
     # Snowflake plugin utilizes sql common
     *sql_common,
-    # Required for all Snowflake sources
-    "snowflake-sqlalchemy<=1.2.4",
+    # Required for all Snowflake sources.
+    # See https://github.com/snowflakedb/snowflake-sqlalchemy/issues/234 for why 1.2.5 is blocked.
+    "snowflake-sqlalchemy>=1.2.4, !=1.2.5",
+    # Because of https://github.com/snowflakedb/snowflake-sqlalchemy/issues/350 we need to restrict SQLAlchemy's max version.
+    # Eventually we should just require snowflake-sqlalchemy>=1.4.3, but I won't do that immediately
+    # because it may break Airflow users that need SQLAlchemy 1.3.x.
+    "SQLAlchemy<1.4.42",
+    "pandas",
     "cryptography",
     "msal",
+    "acryl-datahub-classify>=0.0.4",
+    # spacy version restricted to reduce backtracking, used by acryl-datahub-classify,
+    "spacy==3.4.3",
 }
 
 trino = {
@@ -197,7 +219,7 @@ data_lake_profiling = {
 
 delta_lake = {
     *s3_base,
-    "deltalake",
+    "deltalake>=0.6.3",
 }
 
 powerbi_report_server = {"requests", "requests_ntlm"}
@@ -214,10 +236,12 @@ databricks_cli = {
 plugins: Dict[str, Set[str]] = {
     # Sink plugins.
     "datahub-kafka": kafka_common,
-    "datahub-rest": {"requests"},
+    "datahub-rest": rest_common,
     # Integrations.
     "airflow": {
         "apache-airflow >= 2.0.2",
+        *rest_common,
+        *kafka_common,
     },
     "circuit-breaker": {
         "gql>=3.3.0",
@@ -232,23 +256,23 @@ plugins: Dict[str, Set[str]] = {
     | bigquery_common
     | {"sqlalchemy-bigquery>=1.4.1", "sqllineage==1.3.6", "sqlparse"},
     "bigquery-usage-legacy": bigquery_common | usage_common | {"cachetools"},
-    "bigquery": sql_common | bigquery_common | {"sqllineage==1.3.6", "sql_metadata"},
+    "bigquery": sql_common
+    | bigquery_common
+    | {"sqllineage==1.3.6", "sql_metadata", "sqlalchemy-bigquery>=1.4.1"},
     "bigquery-beta": sql_common
     | bigquery_common
     | {
         "sqllineage==1.3.6",
         "sql_metadata",
+        "sqlalchemy-bigquery>=1.4.1",
     },  # deprecated, but keeping the extra for backwards compatibility
-    "clickhouse": sql_common | {"clickhouse-sqlalchemy==0.1.8"},
-    "clickhouse-usage": sql_common
-    | usage_common
-    | {
-        "clickhouse-sqlalchemy==0.1.8",
-    },
+    "clickhouse": sql_common | clickhouse_common,
+    "clickhouse-usage": sql_common | usage_common | clickhouse_common,
     "datahub-lineage-file": set(),
     "datahub-business-glossary": set(),
     "delta-lake": {*data_lake_profiling, *delta_lake},
     "dbt": {"requests"} | aws_common,
+    "dbt-cloud": {"requests"},
     "druid": sql_common | {"pydruid>=0.6.2"},
     # Starting with 7.14.0 python client is checking if it is connected to elasticsearch client. If its not it throws
     # UnsupportedProductError
@@ -294,6 +318,7 @@ plugins: Dict[str, Set[str]] = {
     "okta": {"okta~=1.7.0"},
     "oracle": sql_common | {"cx_Oracle"},
     "postgres": sql_common | {"psycopg2-binary", "GeoAlchemy2"},
+    "presto": sql_common | trino | {"acryl-pyhive[hive]>=0.6.12"},
     "presto-on-hive": sql_common
     | {"psycopg2-binary", "acryl-pyhive[hive]>=0.6.12", "pymysql>=1.0.2"},
     "pulsar": {"requests"},
@@ -319,7 +344,6 @@ plugins: Dict[str, Set[str]] = {
         "sqlalchemy",
         "great_expectations",
         "greenlet",
-        "Jinja2<3.1.0",
     },
     "tableau": {"tableauserverclient>=0.17.0"},
     "trino": sql_common | trino,
@@ -339,7 +363,6 @@ all_exclude_plugins: Set[str] = {
 
 mypy_stubs = {
     "types-dataclasses",
-    "sqlalchemy-stubs",
     "types-pkg_resources",
     "types-six",
     "types-python-dateutil",
@@ -356,11 +379,12 @@ mypy_stubs = {
     # avrogen package requires this
     "types-pytz",
     "types-pyOpenSSL",
-    "types-click-spinner",
+    "types-click-spinner>=0.1.13.1",
     "types-ujson>=5.2.0",
     "types-termcolor>=1.0.0",
     "types-Deprecated",
-    "types-protobuf",
+    # Mypy complains with 4.21.0.0 => error: Library stubs not installed for "google.protobuf.descriptor"
+    "types-protobuf<4.21.0.0",
 }
 
 base_dev_requirements = {
@@ -415,10 +439,12 @@ base_dev_requirements = {
             "sagemaker",
             "kafka",
             "datahub-rest",
+            "presto",
             "redash",
             "redshift",
             "redshift-usage",
             "s3",
+            "snowflake",
             "tableau",
             "trino",
             "hive",
@@ -460,7 +486,6 @@ full_test_dev_requirements = {
             "mssql",
             "mysql",
             "mariadb",
-            "snowflake",
             "redash",
             "vertica",
         ]
@@ -483,7 +508,8 @@ entry_points = {
         "clickhouse-usage = datahub.ingestion.source.usage.clickhouse_usage:ClickHouseUsageSource",
         "delta-lake = datahub.ingestion.source.delta_lake:DeltaLakeSource",
         "s3 = datahub.ingestion.source.s3:S3Source",
-        "dbt = datahub.ingestion.source.dbt:DBTSource",
+        "dbt = datahub.ingestion.source.dbt.dbt_core:DBTCoreSource",
+        "dbt-cloud = datahub.ingestion.source.dbt.dbt_cloud:DBTCloudSource",
         "druid = datahub.ingestion.source.sql.druid:DruidSource",
         "elasticsearch = datahub.ingestion.source.elastic_search:ElasticsearchSource",
         "feast-legacy = datahub.ingestion.source.feast_legacy:FeastSource",
@@ -524,6 +550,7 @@ entry_points = {
         "powerbi-report-server = datahub.ingestion.source.powerbi_report_server:PowerBiReportServerDashboardSource",
         "iceberg = datahub.ingestion.source.iceberg.iceberg:IcebergSource",
         "vertica = datahub.ingestion.source.sql.vertica:VerticaSource",
+        "presto = datahub.ingestion.source.sql.presto:PrestoSource",
         "presto-on-hive = datahub.ingestion.source.sql.presto_on_hive:PrestoOnHiveSource",
         "pulsar = datahub.ingestion.source.pulsar:PulsarSource",
         "salesforce = datahub.ingestion.source.salesforce:SalesforceSource",

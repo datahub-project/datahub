@@ -13,6 +13,8 @@ from datahub.metadata.com.linkedin.pegasus2avro.events.metadata import ChangeTyp
 from datahub.metadata.schema_classes import _Aspect
 
 
+# Required only for mypy, since we are using mixin classes, and not inheritance.
+# Reference - https://mypy.readthedocs.io/en/latest/more_types.html#mixin-classes
 class SnowflakeLoggingProtocol(Protocol):
     @property
     def logger(self) -> logging.Logger:
@@ -35,6 +37,9 @@ class SnowflakeCommonProtocol(Protocol):
     def get_dataset_identifier(
         self, table_name: str, schema_name: str, db_name: str
     ) -> str:
+        ...
+
+    def get_dataset_identifier_from_qualified_name(self, qualified_name: str) -> str:
         ...
 
     def snowflake_identifier(self, identifier: str) -> str:
@@ -76,14 +81,16 @@ class SnowflakeCommonMixin:
             return False
 
         if dataset_type.lower() in {"table"} and not self.config.table_pattern.allowed(
-            dataset_params[2].strip('"')
+            self.get_dataset_identifier_from_qualified_name(dataset_name)
         ):
             return False
 
         if dataset_type.lower() in {
             "view",
             "materialized_view",
-        } and not self.config.view_pattern.allowed(dataset_params[2].strip('"')):
+        } and not self.config.view_pattern.allowed(
+            self.get_dataset_identifier_from_qualified_name(dataset_name)
+        ):
             return False
 
         return True

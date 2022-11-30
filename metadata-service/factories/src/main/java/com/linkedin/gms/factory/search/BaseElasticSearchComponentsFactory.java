@@ -4,10 +4,10 @@ import com.linkedin.gms.factory.common.IndexConventionFactory;
 import com.linkedin.gms.factory.common.RestHighLevelClientFactory;
 import com.linkedin.gms.factory.spring.YamlPropertySourceFactory;
 import com.linkedin.metadata.search.elasticsearch.indexbuilder.ESIndexBuilder;
+import com.linkedin.metadata.search.elasticsearch.update.ESBulkProcessor;
 import com.linkedin.metadata.utils.elasticsearch.IndexConvention;
 import javax.annotation.Nonnull;
-import lombok.Value;
-import org.elasticsearch.action.bulk.BulkProcessor;
+import org.springframework.beans.factory.annotation.Value;
 import org.elasticsearch.client.RestHighLevelClient;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
@@ -25,13 +25,17 @@ import org.springframework.context.annotation.PropertySource;
     ElasticSearchIndexBuilderFactory.class})
 @PropertySource(value = "classpath:/application.yml", factory = YamlPropertySourceFactory.class)
 public class BaseElasticSearchComponentsFactory {
-  @Value
+  @lombok.Value
   public static class BaseElasticSearchComponents {
     RestHighLevelClient searchClient;
     IndexConvention indexConvention;
-    BulkProcessor bulkProcessor;
+    ESBulkProcessor bulkProcessor;
     ESIndexBuilder indexBuilder;
+    int numRetries;
   }
+
+  @Value("${elasticsearch.bulkProcessor.numRetries}")
+  private Integer numRetries;
 
   @Autowired
   @Qualifier("elasticSearchRestHighLevelClient")
@@ -43,7 +47,7 @@ public class BaseElasticSearchComponentsFactory {
 
   @Autowired
   @Qualifier("elasticSearchBulkProcessor")
-  private BulkProcessor bulkProcessor;
+  private ESBulkProcessor bulkProcessor;
 
   @Autowired
   @Qualifier("elasticSearchIndexBuilder")
@@ -52,6 +56,6 @@ public class BaseElasticSearchComponentsFactory {
   @Bean(name = "baseElasticSearchComponents")
   @Nonnull
   protected BaseElasticSearchComponents getInstance() {
-    return new BaseElasticSearchComponents(searchClient, indexConvention, bulkProcessor, indexBuilder);
+    return new BaseElasticSearchComponents(searchClient, indexConvention, bulkProcessor, indexBuilder, numRetries);
   }
 }
