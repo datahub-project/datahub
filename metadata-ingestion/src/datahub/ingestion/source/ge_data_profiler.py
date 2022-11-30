@@ -13,7 +13,6 @@ import uuid
 from typing import Any, Callable, Dict, Iterable, Iterator, List, Optional, Tuple, Union
 
 import sqlalchemy as sa
-from great_expectations import __version__ as ge_version
 from great_expectations.core.util import convert_to_json_serializable
 from great_expectations.data_context import BaseDataContext
 from great_expectations.data_context.types.base import (
@@ -30,7 +29,6 @@ from sqlalchemy.engine import Connection, Engine
 from sqlalchemy.exc import ProgrammingError
 from typing_extensions import Concatenate, ParamSpec
 
-from datahub.configuration.common import ConfigurationError
 from datahub.emitter.mce_builder import get_sys_time
 from datahub.ingestion.source.ge_profiling_config import GEProfilingConfig
 from datahub.ingestion.source.profiling.common import (
@@ -794,16 +792,6 @@ class DatahubGEProfiler:
 
                     self.report.report_from_query_combiner(query_combiner.report)
 
-    def _is_legacy_ge_temp_table_creation(self) -> bool:
-        legacy_ge_bq_temp_table_creation: bool = False
-        (major, minor, patch) = ge_version.split(".")
-        if int(major) == 0 and (
-            int(minor) < 15 or (int(minor) == 15 and int(patch) < 3)
-        ):
-            legacy_ge_bq_temp_table_creation = True
-
-        return legacy_ge_bq_temp_table_creation
-
     def _generate_profile_from_request(
         self,
         query_combiner: SQLAlchemyQueryCombiner,
@@ -818,16 +806,6 @@ class DatahubGEProfiler:
             profiler_args=profiler_args,
             **request.batch_kwargs,
         )
-
-    def _drop_bigquery_temp_table(self, bigquery_temp_table: str) -> None:
-        try:
-            with self.base_engine.connect() as connection:
-                connection.execute(f"drop view if exists `{bigquery_temp_table}`")
-                logger.debug(f"Temp table {bigquery_temp_table} was dropped.")
-        except Exception:
-            logger.warning(
-                f"Unable to delete bigquery temporary table: {bigquery_temp_table}"
-            )
 
     def _drop_trino_temp_table(self, temp_dataset: Dataset) -> None:
         schema = temp_dataset._table.schema
@@ -854,7 +832,6 @@ class DatahubGEProfiler:
         logger.debug(
             f"Received single profile request for {pretty_name} for {schema}, {table}, {custom_sql}"
         )
-        bigquery_temp_table: Optional[str] = None
 
         ge_config = {
             "schema": schema,
@@ -864,6 +841,7 @@ class DatahubGEProfiler:
             **kwargs,
         }
 
+        """
         # We have to create temporary tables if offset or limit or custom sql is set on Bigquery
         if custom_sql or self.config.limit or self.config.offset:
             if profiler_args is not None:
@@ -897,13 +875,58 @@ class DatahubGEProfiler:
             # as we batch these queries.
             # Currently only with this option is possible to control the temp table which is created:
             # https://github.com/great-expectations/great_expectations/blob/7e53b615c36a53f78418ce46d6bc91a7011163c0/great_expectations/datasource/sqlalchemy_datasource.py#L397
-            if self._is_legacy_ge_temp_table_creation():
-                ge_config["bigquery_temp_table"] = bigquery_temp_table
-            else:
-                ge_config["snowflake_transient_table"] = bigquery_temp_table
+            ge_config["snowflake_transient_table"] = bigquery_temp_table
+        """
 
-        if custom_sql is not None:
-            ge_config["query"] = custom_sql
+        bigquery_temp_table: Optional[str] = None
+        if platform == "bigquery" and (
+            custom_sql or self.config.limit or self.config.offset
+        ):
+            # On BigQuery, we need to bypass GE's mechanism for creating temporary tables because
+            # it requires create/delete table permissions.
+            import google.cloud.bigquery.dbapi.cursor
+            import google.cloud.bigquery.job.query
+
+            raw_connection = self.base_engine.raw_connection()
+            try:
+                cursor: "google.cloud.bigquery.dbapi.cursor.Cursor" = (
+                    raw_connection.cursor()
+                )
+                if custom_sql is not None:
+                    # Note that limit and offset are not supported for custom SQL.
+                    bq_sql = custom_sql
+                else:
+                    bq_sql = f"SELECT * FROM `{table}`"
+                    if self.config.limit:
+                        bq_sql += f" LIMIT {self.config.limit}"
+                    if self.config.offset:
+                        bq_sql += f" OFFSET {self.config.offset}"
+
+                cursor.execute(bq_sql)
+
+                # TODO: comment about why this works
+                query_job: "google.cloud.bigquery.job.query.QueryJob" = (
+                    cursor._query_job
+                )
+                temp_destination_table = query_job.destination
+                bigquery_temp_table = f"{temp_destination_table.project}.{temp_destination_table.dataset_id}.{temp_destination_table.table_id}"
+            finally:
+                raw_connection.close()
+
+        if platform == "bigquery":
+            if bigquery_temp_table:
+                ge_config["table"] = bigquery_temp_table
+                ge_config["schema"] = None
+                ge_config["limit"] = None
+                ge_config["offset"] = None
+
+                bigquery_temp_table = None
+
+            assert not ge_config["limit"]
+            assert not ge_config["offset"]
+        else:
+            if custom_sql is not None:
+                ge_config["query"] = custom_sql
 
         with self._ge_context() as ge_context, PerfTimer() as timer:
             try:
@@ -943,8 +966,6 @@ class DatahubGEProfiler:
             finally:
                 if self.base_engine.engine.name == "trino":
                     self._drop_trino_temp_table(batch)
-                elif bigquery_temp_table:
-                    self._drop_bigquery_temp_table(bigquery_temp_table)
 
     def _get_ge_dataset(
         self,
@@ -991,6 +1012,7 @@ class DatahubGEProfiler:
             # If we only have two parts that means the project_id is missing from the table name and we add it
             # Temp tables has 3 parts while normal tables only has 2 parts
             if len(str(batch._table).split(".")) == 2:
+                breakpoint()
                 batch._table = sa.text(f"{name_parts[0]}.{str(batch._table)}")
                 logger.debug(f"Setting table name to be {batch._table}")
 
