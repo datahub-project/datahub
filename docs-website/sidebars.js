@@ -106,6 +106,15 @@ module.exports = {
         ],
       },
     ],
+    "Integration Guides": [
+      {
+        "BigQuery": [
+          "docs/quick-ingestion-guides/Page_1-Overview",
+          "docs/quick-ingestion-guides/Page_2-Setup",
+          "docs/quick-ingestion-guides/Page_3-Configuration",
+        ]
+      }
+    ],
     "Ingest Metadata": [
       // The purpose of this section is to provide a deeper understanding of how ingestion works.
       // Readers should be able to find details for ingesting from all systems, apply transformers, understand sinks,
