@@ -334,6 +334,7 @@ def default_source_config():
             "Oracle": "oracle",
         },
         "env": "DEV",
+        "extract_workspaces_to_containers": False,
     }
 
 
