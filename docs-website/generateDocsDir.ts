@@ -15,7 +15,7 @@ const GITHUB_EDIT_URL =
 const GITHUB_BROWSE_URL =
   "https://github.com/datahub-project/datahub/blob/master";
 
-const OUTPUT_DIRECTORY = "genDocs";
+const OUTPUT_DIRECTORY = "docs";
 
 const SIDEBARS_DEF_PATH = "./sidebars.js";
 const sidebars = require(SIDEBARS_DEF_PATH);

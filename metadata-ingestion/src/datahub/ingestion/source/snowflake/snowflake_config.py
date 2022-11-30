@@ -4,6 +4,7 @@ from typing import Dict, Optional, cast
 from pydantic import Field, SecretStr, root_validator
 
 from datahub.configuration.common import AllowDenyPattern
+from datahub.ingestion.glossary.classifier import ClassificationConfig
 from datahub.ingestion.source_config.sql.snowflake import (
     BaseSnowflakeConfig,
     SnowflakeConfig,
@@ -36,6 +37,11 @@ class SnowflakeV2Config(SnowflakeConfig, SnowflakeUsageConfig):
 
     provision_role: Optional[SnowflakeProvisionRoleConfig] = Field(
         default=None, description="Not supported"
+    )
+
+    classification: Optional[ClassificationConfig] = Field(
+        default=None,
+        description="For details, refer [Classification](../../../../metadata-ingestion/docs/dev_guides/classification.md).",
     )
 
     @root_validator(pre=False)
