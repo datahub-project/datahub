@@ -15,7 +15,15 @@
         "resolveJsonModule": true,
         "isolatedModules": true,
         "noEmit": true,
-        "jsx": "react-jsx"
+        "jsx": "react-jsx",
+        "rootDir": "src",
     },
-    "include": ["src", "src/conf/theme/styled-components.d.ts"]
+    "include": ["**/*.ts"],
+    "exclude": [
+        "node_modules",
+        "cypress",
+        "src/setupTests.ts",
+        "**/*.spec.ts",
+        "**/*.test.ts"
+    ]
 }
