@@ -68,8 +68,10 @@ export const KAFKA_SECURITY_PROTOCOL: RecipeField = {
     fieldPath: securityProtocolFieldPath,
     rules: null,
     options: [
+        { label: 'PLAINTEXT', value: 'PLAINTEXT' },
         { label: 'SASL_SSL', value: 'SASL_SSL' },
         { label: 'SASL_PLAINTEXT', value: 'SASL_PLAINTEXT' },
+        { label: 'SSL', value: 'SSL' },
     ],
 };
 
