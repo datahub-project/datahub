@@ -43,7 +43,7 @@ framework_common = {
     "stackprinter>=0.2.6",
     "tabulate",
     "progressbar2",
-    "termcolor>=2.0.0",
+    "termcolor>=1.0.0",
     "psutil>=5.8.0",
     "ratelimiter",
     "Deprecated",
@@ -174,6 +174,10 @@ snowflake_common = {
     # Required for all Snowflake sources.
     # See https://github.com/snowflakedb/snowflake-sqlalchemy/issues/234 for why 1.2.5 is blocked.
     "snowflake-sqlalchemy>=1.2.4, !=1.2.5",
+    # Because of https://github.com/snowflakedb/snowflake-sqlalchemy/issues/350 we need to restrict SQLAlchemy's max version.
+    # Eventually we should just require snowflake-sqlalchemy>=1.4.3, but I won't do that immediately
+    # because it may break Airflow users that need SQLAlchemy 1.3.x.
+    "SQLAlchemy<1.4.42",
     "pandas",
     "cryptography",
     "msal",

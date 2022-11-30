@@ -104,7 +104,7 @@ public class OwnerUtils {
 
     final OwnerArray ownerArray = new OwnerArray(ownershipAspect.getOwners()
         .stream()
-        .filter(owner ->  !owner.getOwner().equals(ownerUrn))
+        .filter(owner ->  !(owner.getOwner().equals(ownerUrn) && owner.getType().equals(type)))
         .collect(Collectors.toList()));
 
     Owner newOwner = new Owner();
