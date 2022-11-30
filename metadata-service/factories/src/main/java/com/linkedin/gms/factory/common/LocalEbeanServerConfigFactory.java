@@ -86,8 +86,8 @@ public class LocalEbeanServerConfigFactory {
     dataSourceConfig.setListener(getListenerToTrackCounts(dataSourceType));
     // Adding IAM auth access for AWS Postgres
     if (postgresUseIamAuth) {
-      Map<String,String> custom = new HashMap<>();
-      custom.put("wrapperPlugins","iam");
+      Map<String, String> custom = new HashMap<>();
+      custom.put("wrapperPlugins", "iam");
       dataSourceConfig.setCustomProperties(custom);
     }
     return dataSourceConfig;
