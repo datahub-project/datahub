@@ -148,7 +148,7 @@ class PowerBiAPIConfig(EnvBasedSourceConfigBase):
     )
     # Enable/Disable extracting workspace information to containers
     extract_workspaces_to_containers: bool = pydantic.Field(
-        default=False, description="Extract Workspaces to Datahub Containers"
+        default=True, description="Extract Workspaces to Datahub Containers"
     )
 
     @root_validator(pre=False)

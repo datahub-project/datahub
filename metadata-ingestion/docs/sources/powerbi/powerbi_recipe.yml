@@ -17,7 +17,7 @@ source:
     # Enable / Disable ingestion of user information for dashboards
     extract_ownership: true
     # Enable/Disable extracting workspace information to containers
-    extract_workspaces_to_containers: false
+    extract_workspaces_to_containers: true
     # dataset_type_mapping is fixed mapping of Power BI datasources type to equivalent Datahub "data platform" dataset
     dataset_type_mapping:
         PostgreSql: postgres
