@@ -245,7 +245,7 @@ class MetabaseSource(Source):
         chart_urns = []
         cards_data = dashboard_details.get("ordered_cards", "{}")
         for card_info in cards_data:
-            chart_urn = builder.make_chart_urn(self.platform, card_info.get("id", ""))
+            chart_urn = builder.make_chart_urn(self.platform, card_info.get("card_id", ""))
             chart_urns.append(chart_urn)
 
         dashboard_info_class = DashboardInfoClass(
@@ -315,7 +315,7 @@ class MetabaseSource(Source):
             return None
 
     def construct_card_from_api_data(self, card_data: dict) -> Optional[ChartSnapshot]:
-        card_id = card_data.get("id", "")
+        card_id = card_data.get("card_id", "")
         card_url = f"{self.config.connect_uri}/api/card/{card_id}"
         try:
             card_response = self.session.get(card_url)
@@ -345,7 +345,7 @@ class MetabaseSource(Source):
         )
 
         chart_type = self._get_chart_type(
-            card_details.get("id", ""), card_details.get("display")
+            card_id, card_details.get("display")
         )
         description = card_details.get("description") or ""
         title = card_details.get("name") or ""
