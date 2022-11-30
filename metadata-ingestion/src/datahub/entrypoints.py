@@ -98,6 +98,7 @@ def datahub(
     if debug or os.getenv("DATAHUB_DEBUG", False):
         logging.getLogger().setLevel(logging.INFO)
         datahub_logger.setLevel(logging.DEBUG)
+        logging.getLogger("datahub_classify").setLevel(logging.DEBUG)
     else:
         logging.getLogger().setLevel(logging.WARNING)
         datahub_logger.setLevel(logging.INFO)
@@ -216,11 +217,13 @@ def main(**kwargs):
 
 
 def _get_pretty_chained_message(exc: Exception) -> str:
-    pretty_msg = f"{exc}"
+    pretty_msg = f"{exc.__class__.__name__} {exc}"
     tmp_exc = exc.__cause__
     indent = "\n\t\t"
     while tmp_exc:
-        pretty_msg = f"{pretty_msg} due to {indent}'{tmp_exc}'"
+        pretty_msg = (
+            f"{pretty_msg} due to {indent}{tmp_exc.__class__.__name__}{tmp_exc}"
+        )
         tmp_exc = tmp_exc.__cause__
         indent += "\t"
     return pretty_msg

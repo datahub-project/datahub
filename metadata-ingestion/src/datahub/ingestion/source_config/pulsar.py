@@ -15,16 +15,6 @@ from datahub.ingestion.source.state.stateful_ingestion_base import (
 from datahub.utilities import config_clean
 
 
-class PulsarSourceStatefulIngestionConfig(StatefulStaleMetadataRemovalConfig):
-    """
-    Specialization of the StatefulStaleMetadataRemovalConfig to add custom config.
-    This will be used to override the stateful_ingestion config param of StatefulIngestionConfigBase
-    in the PulsarSourceConfig.
-    """
-
-    _entity_types: List[str] = Field(default=["topic"])
-
-
 def _is_valid_hostname(hostname: str) -> bool:
     """
     Loosely ascii hostname validation. A hostname is considered valid when the total length does not exceed 253
@@ -96,7 +86,7 @@ class PulsarSourceConfig(StatefulIngestionConfigBase, DatasetSourceConfigBase):
         default_factory=dict, description="Domain patterns"
     )
 
-    stateful_ingestion: Optional[PulsarSourceStatefulIngestionConfig] = Field(
+    stateful_ingestion: Optional[StatefulStaleMetadataRemovalConfig] = Field(
         default=None, description="see Stateful Ingestion"
     )
 
