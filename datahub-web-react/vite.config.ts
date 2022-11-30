@@ -29,9 +29,6 @@ export default defineConfig({
         open: true,
         port: 3000,
     },
-    optimizeDeps: {
-        exclude: ['babel-runtime'],
-    },
     css: {
         preprocessorOptions: {
             less: {
