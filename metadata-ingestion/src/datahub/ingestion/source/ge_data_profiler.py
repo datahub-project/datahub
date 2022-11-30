@@ -33,7 +33,7 @@ from datahub.emitter.mce_builder import get_sys_time
 from datahub.ingestion.source.ge_profiling_config import GEProfilingConfig
 from datahub.ingestion.source.profiling.common import (
     Cardinality,
-    _convert_to_cardinality,
+    convert_to_cardinality,
 )
 from datahub.ingestion.source.sql.sql_common import SQLSourceReport
 from datahub.metadata.schema_classes import (
@@ -312,7 +312,7 @@ class _SingleDatasetProfiler(BasicDatasetProfilerBase):
 
         column_spec.unique_count = unique_count
 
-        column_spec.cardinality = _convert_to_cardinality(unique_count, pct_unique)
+        column_spec.cardinality = convert_to_cardinality(unique_count, pct_unique)
 
     @_run_with_query_combiner
     def _get_dataset_rows(self, dataset_profile: DatasetProfileClass) -> None:
