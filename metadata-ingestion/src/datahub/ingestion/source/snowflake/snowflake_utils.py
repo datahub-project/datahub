@@ -13,6 +13,8 @@ from datahub.ingestion.source.snowflake.snowflake_report import SnowflakeV2Repor
 from datahub.metadata.com.linkedin.pegasus2avro.events.metadata import ChangeType
 from datahub.metadata.schema_classes import _Aspect
 
+logger: logging.Logger = logging.getLogger(__name__)
+
 
 # Required only for mypy, since we are using mixin classes, and not inheritance.
 # Reference - https://mypy.readthedocs.io/en/latest/more_types.html#mixin-classes
@@ -67,19 +69,25 @@ class SnowflakeCommonMixin:
         account_locator: Optional[str] = None
         cloud_region_id: Optional[str] = None
 
-        if "." not in account_id:
+        if "." not in account_id:  # e.g. xy12345
             account_locator = account_id.lower()
             cloud_region_id = "us-west-2"
         else:
             parts = account_id.split(".")
-            if len(parts) == 2:
+            if len(parts) == 2:  # e.g. xy12345.us-east-1
                 account_locator = parts[0].lower()
                 cloud_region_id = parts[1].lower()
-            elif len(parts) == 3:
+            elif len(parts) == 3 and cloud in ("aws", "gcp", "azure"):
+                # e.g. xy12345.ap-south-1.aws or xy12345.us-central1.gcp or xy12345.west-us-2.azure
+                # NOT xy12345.us-west-2.privatelink or xy12345.eu-central-1.privatelink
                 account_locator = parts[0].lower()
                 cloud_region_id = parts[1].lower()
                 cloud = parts[2].lower()
             else:
+                logger.warning(
+                    f"Could not create Snowsight base url for account {account_id}."
+                    "This may happen if the account is using private connectivity to the Snowflake service."
+                )
                 return None
 
         # TODO: BASE URL for Snowsight using private connectivity to the Snowflake service
