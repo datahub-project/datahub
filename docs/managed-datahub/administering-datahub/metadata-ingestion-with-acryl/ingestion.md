@@ -1,6 +1,6 @@
 # Ingestion
 
-Acryl Metadata Ingestion functions similarly to that in open source DataHub. Sources are configured via the[ UI Ingestion](https://datahubproject.io/docs/ui-ingestion/) or via a [Recipe](https://datahubproject.io/docs/metadata-ingestion/#recipes), ingestion recipes can be scheduled using your system of choice, and metadata can be pushed from anywhere.&#x20;
+Acryl Metadata Ingestion functions similarly to that in open source DataHub. Sources are configured via the[ UI Ingestion](https://datahubproject.io/docs/ui-ingestion) or via a [Recipe](https://datahubproject.io/docs/metadata-ingestion/#recipes), ingestion recipes can be scheduled using your system of choice, and metadata can be pushed from anywhere.&#x20;
 
 This document will describe the steps required to ingest metadata from your data sources.&#x20;
 
