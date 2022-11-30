@@ -93,7 +93,7 @@ module.exports = {
           {
             "Actions Guide": [
               "docs/managed-datahub/actions-guide/tag-sync",
-              "docs/managed-datahub/actions-guide/terms-sync-propagation",
+              "docs/managed-datahub/actions-guide/term-sync-propagation",
             ],
           },
           {
@@ -121,17 +121,16 @@ module.exports = {
           },
           {
             "DataHub API": [
-              "docs/managed-datahub/datahub-api/datahub-api/datahub-architecture",
-              "docs/managed-datahub/datahub-api/datahub-api/entity-events-api",
+              "docs/managed-datahub/datahub-api/datahub-architecture",
+              "docs/managed-datahub/datahub-api/entity-events-api",
               {
                 "GraphQL API": [
                   "docs/managed-datahub/datahub-api/graphql-api/graphql-api",
-                  "docs/managed-datahub/datahub-api/graphql-api/graphql-api/getting-started",
-                  "docs/managed-datahub/datahub-api/graphql-api/graphql-api/constraints-api",
-                  "docs/managed-datahub/datahub-api/graphql-api/graphql-api/getting-started",
-                  "docs/managed-datahub/datahub-api/graphql-api/graphql-api/glossary-term-proposal-api",
-                  "docs/managed-datahub/datahub-api/graphql-api/graphql-api/incidents-api-beta",
-                  "docs/managed-datahub/datahub-api/graphql-api/graphql-api/tag-proposal-api",
+                  "docs/managed-datahub/datahub-api/graphql-api/getting-started",
+                  "docs/managed-datahub/datahub-api/graphql-api/constraints-api",
+                  "docs/managed-datahub/datahub-api/graphql-api/glossary-term-proposal-api",
+                  "docs/managed-datahub/datahub-api/graphql-api/incidents-api-beta",
+                  "docs/managed-datahub/datahub-api/graphql-api/tag-proposal-api",
                 ],
               },
               {

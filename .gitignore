@@ -54,10 +54,7 @@ out/
 
 #VS Code
 .vscode
-.devcontainer
-
-# Dependencies
-/node_modules
+.devcontainerß
 
 #spark smoke test
 smoke-test/spark-smoke-test/docker/workspace/
