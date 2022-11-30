@@ -1,6 +1,5 @@
 import pathlib
 
-from datahub.cli.docker_cli import download_sample_data
 from datahub.configuration.common import ConfigModel
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.decorators import (
@@ -10,16 +9,21 @@ from datahub.ingestion.api.decorators import (
     support_status,
 )
 from datahub.ingestion.source.file import FileSourceConfig, GenericFileSource
+from datahub.utilities.sample_data import download_sample_data
 
 
-@platform_name("SampleData")
+class DummySourceConfig(FileSourceConfig):
+    path = pathlib.Path("")
+
+
+@platform_name("DummySource")
 @config_class(ConfigModel)
 @support_status(SupportStatus.UNKNOWN)
-class SampleDataSource(GenericFileSource):
+class DummySource(GenericFileSource):
     """
-    This plugin is only for demonstration purposes.
+    This is a dummy plugin only for testing and fast demonstration of managed ingestion.
     """
 
-    def __init__(self, ctx: PipelineContext, config: FileSourceConfig):
+    def __init__(self, ctx: PipelineContext, config: DummySourceConfig):
         config.path = pathlib.Path(download_sample_data())
         super().__init__(ctx, config)

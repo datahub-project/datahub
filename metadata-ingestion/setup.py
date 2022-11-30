@@ -219,7 +219,7 @@ data_lake_profiling = {
 
 delta_lake = {
     *s3_base,
-    "deltalake>=0.6.3",
+    # "deltalake>=0.6.3",
 }
 
 powerbi_report_server = {"requests", "requests_ntlm"}
@@ -554,7 +554,7 @@ entry_points = {
         "presto-on-hive = datahub.ingestion.source.sql.presto_on_hive:PrestoOnHiveSource",
         "pulsar = datahub.ingestion.source.pulsar:PulsarSource",
         "salesforce = datahub.ingestion.source.salesforce:SalesforceSource",
-        "sample-data = datahub.ingestion.source.sample_source.SampleDataSource",
+        "dummy-data = datahub.ingestion.source.dummy_source.DummySource",
         "unity-catalog = datahub.ingestion.source.unity.source:UnityCatalogSource",
     ],
     "datahub.ingestion.sink.plugins": [
