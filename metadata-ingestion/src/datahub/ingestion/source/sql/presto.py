@@ -21,11 +21,12 @@ from datahub.ingestion.source.sql.trino import (
     get_table_comment,
     get_table_names,
 )
+from typing import Optional
 
 
 # On Presto the information_schema.views does not return views but the tables table returns
 @reflection.cache  # type: ignore
-def get_view_names(self, connection, schema: str = None, **kw):  # type: ignore
+def get_view_names(self, connection, schema: Optional[str] = None, **kw):  # type: ignore
     schema = schema or self._get_default_schema_name(connection)
     if schema is None:
         raise exc.NoSuchTableError("schema is required")
@@ -60,7 +61,7 @@ def get_view_definition(self, connection, view_name, schema=None, **kw):
 
 
 def _get_full_table(  # type: ignore
-    self, table_name: str, schema: str = None, quote: bool = True
+    self, table_name: str, schema: Optional[str] = None, quote: bool = True
 ) -> str:
     table_part = (
         self.identifier_preparer.quote_identifier(table_name) if quote else table_name

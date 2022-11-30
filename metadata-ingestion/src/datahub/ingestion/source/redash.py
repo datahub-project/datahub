@@ -402,7 +402,7 @@ class RedashSource(Source):
 
         return sql_table_names
 
-    def _get_chart_data_source(self, data_source_id: int = None) -> Dict:
+    def _get_chart_data_source(self, data_source_id: Optional[int] = None) -> Dict:
         url = f"/api/data_sources/{data_source_id}"
         resp = self.client._get(url).json()
         logger.debug(resp)
