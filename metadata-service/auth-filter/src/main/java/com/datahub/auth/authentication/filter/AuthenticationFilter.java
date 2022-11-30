@@ -190,7 +190,7 @@ public class AuthenticationFilter implements Filter {
           authenticatorChain.register(authenticator);
           log.info("Plugin {} is initialized", pluginConfig.getName());
         } catch (ClassNotFoundException e) {
-          throw new RuntimeException(e);
+          throw new RuntimeException(String.format("Plugin className %s not found", pluginConfig.getClassName()), e);
         } finally {
           Thread.currentThread().setContextClassLoader(contextClassLoader);
         }

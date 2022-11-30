@@ -32,6 +32,9 @@ public class TestAuthenticator implements Authenticator {
 
   @Override
   public void init(@Nonnull Map<String, Object> authenticatorConfig, @Nullable AuthenticatorContext context) {
+    /*
+     * authenticatorConfig contains key, value pairs set in plugins[].params.configs of config.yml
+     */
     this._authenticatorContext = context;
     assert authenticatorConfig.containsKey("key1");
     assert authenticatorConfig.containsKey("key2");
