@@ -1,3 +1,6 @@
+import org.apache.tools.zip.Zip64Mode
+
+
 apply plugin: 'java'
 apply plugin: 'com.github.johnrengelman.shadow'
 
@@ -8,19 +11,26 @@ compileJava {
 }
 
 shadowJar {
+    zip64 true
     determineAndSetVersion()
     archiveFileName = "$project.name-${version}.jar"
     exclude "META-INF/*.RSA", "META-INF/*.SF","META-INF/*.DSA"
 }
 
 dependencies {
-    implementation 'org.apache.ranger:ranger-plugins-common:2.2.0'
-    compileOnly project(path: ':metadata-auth:auth-api')
+    implementation(externalDependency.rangerCommons) {
+        exclude group: "org.apache.htrace", module: "htrace-core4"
+    }
+    implementation externalDependency.hadoopCommon3
     implementation externalDependency.lombok
-    annotationProcessor externalDependency.lombok
+
+    compileOnly project(path: ':metadata-auth:auth-api')
+
     testImplementation externalDependency.mockito
     testImplementation project(path: ':metadata-utils')
     testImplementation project(path: ':metadata-auth:auth-api')
+
+    annotationProcessor externalDependency.lombok
 }
 
 def determineAndSetVersion() {

@@ -32,6 +32,7 @@ The sample authenticator implementation can be found at [Authenticator Sample](.
         implementation 'io.acryl:datahub-auth-api:0.8.45'
     }
    ```
+
 2. Implement the Authenticator interface: Refer [Authenticator Sample](../metadata-service/plugin/src/test/sample-test-plugins)
 
    <details>
@@ -56,7 +57,11 @@ The sample authenticator implementation can be found at [Authenticator Sample](.
     }
    ```
    </details>
-3. Bundle your Jar: Use `com.github.johnrengelman.shadow` gradle plugin to create an uber jar. 
+
+3. Use `getResourceAsStream` to read files: If your plugin read any configuration file like properties or YAML or JSON or xml then use `this.getClass().getClassLoader().getResourceAsStream("<file-name>")` to read that file from DataHub GMS plugin's class-path. For DataHub GMS resource look-up behavior please refer [Plugin Installation](#plugin-installation) section. Sample code of `getResourceAsStream` is available in sample Authenticator plugin [TestAuthenticator.java](../metadata-service/plugin/src/test/sample-test-plugins/src/main/java/com/datahub/plugins/test/TestAuthenticator.java).
+
+
+4. Bundle your Jar: Use `com.github.johnrengelman.shadow` gradle plugin to create an uber jar. 
 
    To see an example of building an uber jar, check out the `build.gradle` file for the apache-ranger-plugin file of [Apache Ranger Plugin](../metadata-auth/apache-ranger-plugin) for reference. 
 
@@ -69,14 +74,16 @@ The sample authenticator implementation can be found at [Authenticator Sample](.
          exclude "com/linkedin/common/", "com/datahub/", "META-INF/*.RSA", "META-INF/*.SF","META-INF/*.DSA"
      }
    ```
-4. Refer section [Plugin Installation](#plugin-installation) for plugin installation in DataHub environment
+5. Refer section [Plugin Installation](#plugin-installation) for plugin installation in DataHub environment
 
 ## Enable GMS Authentication
 By default, authentication is disabled in DataHub GMS.
 
 Follow below steps to enable GMS authentication
 1. Download docker-compose.quickstart.yml: Download docker compose file [docker-compose.quickstart.yml](../docker/quickstart/docker-compose.quickstart.yml)
+
 2. Set environment variable: Set `METADATA_SERVICE_AUTH_ENABLED` environment variable to `true`
+
 3. Redeploy DataHub GMS: Below is quickstart command to redeploy DataHub GMS
 
    ```shell
@@ -98,6 +105,7 @@ The sample authorizer implementation can be found at [Authorizer Sample](../meta
 ### Implementing an Authorization Plugin
 
 1. Add _datahub-auth-api_ as implementation dependency: Maven coordinates of _datahub-auth-api_ can be found at [Maven](https://mvnrepository.com/artifact/io.acryl/datahub-auth-api)
+
 2. Implement the Authorizer interface: [Authorizer Sample](../metadata-auth/apache-ranger-plugin)
 
    <details>
@@ -125,7 +133,10 @@ The sample authorizer implementation can be found at [Authorizer Sample](../meta
    ```
    
    </details>
-3. Bundle your Jar: Use `com.github.johnrengelman.shadow` gradle plugin to create an uber jar. 
+
+3. Use `getResourceAsStream` to read files: If your plugin read any configuration file like properties or YAML or JSON or xml then use `this.getClass().getClassLoader().getResourceAsStream("<file-name>")` to read that file from DataHub GMS plugin's class-path. For DataHub GMS resource look-up behavior please refer [Plugin Installation](#plugin-installation) section. Sample code of `getResourceAsStream` is available in sample Authenticator plugin [TestAuthenticator.java](../metadata-service/plugin/src/test/sample-test-plugins/src/main/java/com/datahub/plugins/test/TestAuthenticator.java).
+
+4. Bundle your Jar: Use `com.github.johnrengelman.shadow` gradle plugin to create an uber jar. 
 
    To see an example of building an uber jar, check out the `build.gradle` file for the apache-ranger-plugin file of [Apache Ranger Plugin](../metadata-auth/apache-ranger-plugin) for reference.
 
@@ -139,12 +150,12 @@ The sample authorizer implementation can be found at [Authorizer Sample](../meta
      }
    ```
    
-4. Install the Plugin: Refer to the section (Plugin Installation)[#plugin_installation] for plugin installation in DataHub environment
+5. Install the Plugin: Refer to the section (Plugin Installation)[#plugin_installation] for plugin installation in DataHub environment
 
 ## Plugin Installation
 DataHub's GMS Service searches for the plugins in container's local directory at location `/etc/datahub/plugins/auth/`. This location will be referred as `plugin-base-directory` hereafter.
 
-For docker, we set docker-compose to mount ${HOME}/.datahub directory to /etc/datahub directory within the GMS containers.
+For docker, we set docker-compose to mount `${HOME}/.datahub` directory to `/etc/datahub` directory within the GMS containers.
 
 ### Docker
 Follow below steps to install plugins:
@@ -152,6 +163,7 @@ Follow below steps to install plugins:
 Lets consider you have created an uber jar for authorizer plugin and jar name is apache-ranger-authorizer.jar and class com.abc.RangerAuthorizer has implemented the [Authorizer](../metadata-auth/auth-api/src/main/java/com/datahub/plugins/auth/authorization/Authorizer.java) interface.
 
 1. Create a plugin configuration file: Create a `config.yml` file at `${HOME}/.datahub/plugins/auth/`. For more detail on configuration refer [Config Detail](#config-detail) section
+
 2. Create a plugin directory: Create plugin directory as `apache-ranger-authorizer`, this directory will be referred as `plugin-home` hereafter
 
    ```shell
@@ -176,13 +188,21 @@ Lets consider you have created an uber jar for authorizer plugin and jar name is
                password: "fake"
    
    ```
-5. Restart datahub-gms container: On startup DataHub GMS service performs below steps 
-   1. Load `config.yml`
-   2. Prepare list of plugin where `enabled` is set to `true`
-   3. Look for directory equivalent to plugin `name` in `plugin-base-directory`. In this case it is `/etc/datahub/plugins/auth/apache-ranger-authorizer/`, this directory will become `plugin-home` 
-   4. Look for `params.jarFileName` attribute otherwise look for jar having name as &lt;plugin-name&gt;.jar. In this case  it is `/etc/datahub/plugins/auth/apache-ranger-authorizer/apache-ranger-authorizer.jar`
-   5. Load class given in plugin `params.className` attribute from the jar, here load class `com.abc.RangerAuthorizer` from `apache-ranger-authorizer.jar`
-   6. Call `init` method of plugin
+5. Restart datahub-gms container: 
+
+   On startup DataHub GMS service performs below steps 
+      1. Load `config.yml`
+      2. Prepare list of plugin where `enabled` is set to `true`
+      3. Look for directory equivalent to plugin `name` in `plugin-base-directory`. In this case it is `/etc/datahub/plugins/auth/apache-ranger-authorizer/`, this directory will become `plugin-home` 
+      4. Look for `params.jarFileName` attribute otherwise look for jar having name as &lt;plugin-name&gt;.jar. In this case  it is `/etc/datahub/plugins/auth/apache-ranger-authorizer/apache-ranger-authorizer.jar`
+      5. Load class given in plugin `params.className` attribute from the jar, here load class `com.abc.RangerAuthorizer` from `apache-ranger-authorizer.jar`
+      6. Call `init` method of plugin
+
+   <br/>On method call of `getResourceAsStream` DataHub GMS service looks for the resource in below order.
+      1. Look for the requested resource in plugin-jar file. if found then return the resource as InputStream.
+      2. Look for the requested resource in `plugin-home` directory. if found then return the resource as InputStream.
+      3. Look for the requested resource in application class-loader. if found then return the resource as InputStream.
+      4. Return `null` as requested resource is not found.
 
 By default, authentication is disabled in DataHub GMS, Please follow section [Enable GMS Authentication](#enable-gms-authentication) to enable authentication.
 
@@ -267,3 +287,4 @@ If you have any custom Authentication or Authorization plugin define in `authori
             password: "fake"
    
    ```
+3. Move any other configurations files of your plugin to `plugin_home` directory. The detail about `plugin_home` is mentioned in [Plugin Installation](#plugin-installation) section.

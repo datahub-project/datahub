@@ -64,9 +64,9 @@ public class IsolatedClassLoader extends ClassLoader {
       // This would occur if we don't have permission on directory and chances of this is close to zero, hence catching
       // this checked exception and throwing runtime exception
       // to make caller code more readable
-      log.warn(String.format("Unable to load jar file %s for plugin %s", pluginToLoad.getPluginJarPath(),
-          pluginToLoad.getName()));
-      throw new RuntimeException(e);
+      String message = String.format("Unable to load jar file %s for plugin %s", pluginToLoad.getPluginJarPath(),
+          pluginToLoad.getName());
+      throw new RuntimeException(message, e);
     }
   }
 
@@ -109,8 +109,7 @@ public class IsolatedClassLoader extends ClassLoader {
       log.debug("Successfully created instance of plugin {}", this._pluginConfig.getClassName());
       return plugin;
     } catch (InstantiationException | IllegalAccessException e) {
-      log.debug(String.format("Failed to instantiate the plugin %s", this._pluginConfig.getName()));
-      throw new RuntimeException(e);
+      throw new RuntimeException(String.format("Failed to instantiate the plugin %s", this._pluginConfig.getName()), e);
     }
   }
 
@@ -190,7 +189,7 @@ public class IsolatedClassLoader extends ClassLoader {
       }
       return url.openStream();
     } catch (IOException e) {
-      throw new RuntimeException(e);
+      throw new RuntimeException(String.format("Resource %s not found", s), e);
     }
   }
 
@@ -203,7 +202,7 @@ public class IsolatedClassLoader extends ClassLoader {
         log.debug("Resource {} is found in plugin jar at location {}", resource, builder);
         return Optional.of(new URL(builder.toString()));
       } catch (MalformedURLException e) {
-        throw new RuntimeException(e);
+        throw new RuntimeException(String.format("Resource %s not found", resource), e);
       }
     }
     return Optional.empty();
@@ -221,7 +220,7 @@ public class IsolatedClassLoader extends ClassLoader {
         }
       }
     } catch (IOException e) {
-      throw new RuntimeException(e);
+      throw new RuntimeException(String.format("Resource %s not found", resource), e);
     }
 
     return Optional.empty();
