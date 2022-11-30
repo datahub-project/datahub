@@ -78,7 +78,7 @@ As illustrated above, the `proposeTerm` Mutation accepts a single 'input' argume
 4. &#x20;_termUrn_: The URN associated with the Term to propose.&#x20;
 
 {% hint style="info" %}
-By default, DataHub deploys with an interactive, web-based API Explorer (GraphiQL)  located at`http://<your-datahub-domain>/api/graphiql`. Check it out to familiarize yourself with the API.
+By default, DataHub deploys with an interactive, web-based API Explorer (GraphiQL)  located at`http://your-datahub-domain/api/graphiql`. Check it out to familiarize yourself with the API.
 {% endhint %}
 
 ### Adding the Actor Header
@@ -104,7 +104,7 @@ X-DataHub-Actor: urn:li:service:term-proposal-agent
 To issue a CURL invoking the `termProposal` GraphQL Mutation , you can use the following template:
 
 ```
-curl --location --request POST 'http://<your-datahub-domain>/api/graphql' \
+curl --location --request POST 'http://your-datahub-domain/api/graphql' \
 --header 'Content-Type: application/json' \
 --header 'X-DataHub-Actor: urn:li:service:<service-principal-name>' \
 --data-raw '{"query":"mutation proposeTerm($resourceUrn: String!, $termUrn: String!) {\n    proposeTerm(resourceUrn: $resourceUrn, termUrn: $termUrn)","variables":{"resourceUrn":"<resource-urn>","termUrn":"<term-urn>"}}'
@@ -113,7 +113,7 @@ curl --location --request POST 'http://<your-datahub-domain>/api/graphql' \
 For example, to add the Term "PII" to a MySQL Dataset with name "product.sales" in a production environment, I would issue the following query.&#x20;
 
 ```
-curl --location --request POST 'http://<your-datahub-domain>/api/graphql' \
+curl --location --request POST 'http://your-datahub-domain/api/graphql' \
 --header 'Content-Type: application/json' \
 --header 'X-DataHub-Actor: urn:li:service:term-proposal-agent' \
 --data-raw '{"query":"mutation proposeTerm($resourceUrn: String!, $termUrn: String!) {\n    proposeTerm(resourceUrn: $resourceUrn, termUrn: $termUrn)","variables":{"resourceUrn":"urn:li:dataset:(urn:li:dataPlatform:mysql,product.sales,PROD)","termUrn":"urn:li:glossaryTerm:PII"}}'

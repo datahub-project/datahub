@@ -110,8 +110,8 @@ Now we'll see how to issue this query using a CURL or Python.&#x20;
 To issue the above GraphQL as a CURL:&#x20;
 
 ```
-curl --location --request POST 'https://<your-account>.acryl.io/api/graphql' \
---header 'Authorization: Bearer <your-access-token>' \
+curl --location --request POST 'https://your-account.acryl.io/api/graphql' \
+--header 'Authorization: Bearer your-access-token' \
 --header 'Content-Type: application/json' \
 --data-raw '{"query":"mutation raiseIncident {\n  raiseIncident(input: {\n    type: OPERATIONAL\n    title: \"Dataset Failed Quality Checks\"\n    description: \"Dataset failed 2/6 Quality Checks for suite run id xy123mksj812pk23.\"\n    resourceUrn: \"urn:li:dataset:(urn:li:dataPlatform:kafka,SampleKafkaDataset,PROD)\"\n  })\n}","variables":{}}'
 ```
@@ -127,7 +127,7 @@ datahub_session = requests.Session()
 
 headers = {
     "Content-Type": "application/json",
-    "Authorization": "Bearer <your-personal-access-token>",
+    "Authorization": "Bearer your-personal-access-token",
 }
 
 json = {
@@ -139,7 +139,7 @@ json = {
     "variables": {},
 }
 
-response = datahub_session.post(f"https://<your-account>.acryl.io/api/graphql", headers=headers, json=json)
+response = datahub_session.post(f"https://your-account.acryl.io/api/graphql", headers=headers, json=json)
 response.raise_for_status()
 res_data = response.json() # Get result as JSON
 ```
@@ -231,8 +231,8 @@ Now we'll see how to issue this query using a CURL or Python.&#x20;
 To issue the above GraphQL as a CURL:&#x20;
 
 ```
-curl --location --request POST 'https://<your-account>.acryl.io/api/graphql' \
---header 'Authorization: Bearer <your-access-token>' \
+curl --location --request POST 'https://your-account.acryl.io/api/graphql' \
+--header 'Authorization: Bearer your-access-token' \
 --header 'Content-Type: application/json' \
 --data-raw '{"query":"query dataset {\n dataset(urn: "urn:li:dataset:(abc)") {\n incidents(state: ACTIVE, start: 0, count: 10) {\n total\n incidents {\n urn\n title\n description\n status {\n state\n }\n }\n }\n }\n}","variables":{}}'Python
 ```
@@ -246,7 +246,7 @@ datahub_session = requests.Session()
 
 headers = {
     "Content-Type": "application/json",
-    "Authorization": "Bearer <your-personal-access-token>",
+    "Authorization": "Bearer your-personal-access-token",
 }
 
 json = {
@@ -268,7 +268,7 @@ json = {
     "variables": {},
 }
 
-response = datahub_session.post(f"https://<your-account>.acryl.io/api/graphql", headers=headers, json=json)
+response = datahub_session.post(f"https://your-account.acryl.io/api/graphql", headers=headers, json=json)
 response.raise_for_status()
 res_data = response.json() # Get result as JSON
 ```
@@ -345,8 +345,8 @@ True is returned if the incident's was successfully marked as resolved.&#x20;
 To issue the above GraphQL as a CURL:&#x20;
 
 ```
-curl --location --request POST 'https://<your-account>.acryl.io/api/graphql' \
---header 'Authorization: Bearer <your-access-token>' \
+curl --location --request POST 'https://your-account.acryl.io/api/graphql' \
+--header 'Authorization: Bearer your-access-token' \
 --header 'Content-Type: application/json' \
 --data-raw '{"query":"mutation updateIncidentStatus {\n updateIncidentStatus(urn: "urn:li:incident:bfecab62-dc10-49a6-a305-78ce0cc6e5b1", \n input: {\n state: RESOLVED\n message: "Dataset is now passing validations. Verified by John Joyce on Data Platform eng."\n })\n}","variables":{}}'Python
 ```
@@ -360,7 +360,7 @@ datahub_session = requests.Session()
 
 headers = {
     "Content-Type": "application/json",
-    "Authorization": "Bearer <your-personal-access-token>",
+    "Authorization": "Bearer your-personal-access-token",
 }
 
 json = {
@@ -374,7 +374,7 @@ json = {
     "variables": {},
 }
 
-response = datahub_session.post(f"https://<your-account>.acryl.io/api/graphql", headers=headers, json=json)
+response = datahub_session.post(f"https://your-account.acryl.io/api/graphql", headers=headers, json=json)
 response.raise_for_status()
 res_data = response.json() # Get result as JSON  
 ```
@@ -392,7 +392,7 @@ Authorization: Bearer <personal-access-token>
 
 **Exploring GraphQL API**
 
-Also, remember that you can play with an interactive version of the Acryl GraphQL API at `https://<your-account-id>.acryl.io/api/graphiql`
+Also, remember that you can play with an interactive version of the Acryl GraphQL API at `https://your-account-id.acryl.io/api/graphiql`
 {% endhint %}
 
 ## Enabling Slack Notifications
@@ -401,7 +401,7 @@ You can configure Acryl to send slack notifications to a specific channel when i
 
 These notifications are also able to tag the immediate asset's owners, along with the owners of downstream assets consuming it.&#x20;
 
-![](../../imgs/saas/assets/Screen Shot 2022-03-22 at 6.46.41 PM.png)
+![](../imgs/saas/Screen Shot 2022-03-22 at 6.46.41 PM.png)
 
 To do so, simply follow the [Slack Integration Guide](../../integrations/slack-integration.md) and contact your Acryl customer success team to enable the feature! &#x20;
 

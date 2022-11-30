@@ -54,7 +54,7 @@ The following steps should be performed by a Slack Workspace Admin.&#x20;
 
 Confirm you see the Basic Information Tab
 
-![](../imgs/saas/assets/Untitled.png)
+![](../imgs/saas/Untitled.png)
 
 * Click **Install to Workspace**
 * It will show you permissions the Slack App is asking for, what they mean and a default channel in which you want to add the slack app
@@ -67,7 +67,7 @@ Confirm you see the Basic Information Tab
 
 * Go to “**OAuth & Permissions” Tab**
 
-![](../imgs/saas/assets/Untitled (1).png)
+![](../imgs/saas/Untitled (1).png)
 
 Here you'll find a “**Bot User OAuth Token**” which DataHub will need to communicate with your slack through the bot.&#x20;
 
@@ -89,7 +89,7 @@ To enable the integration with slack, start by navigating to **Settings > Integr
 4. Enter a **Default Slack Channel** - this is where all notifications will be routed unless&#x20;
 5. Click **Update** to save your settings
 
-![](../imgs/saas/assets/Screen Shot 2022-06-13 at 7.56.16 AM.png)
+![](../imgs/saas/Screen Shot 2022-06-13 at 7.56.16 AM.png)
 
 #### Configuring Notification Types
 
@@ -99,7 +99,7 @@ To enable or disable a specific notification type in Slack, simply click the che
 
 To customize the channel where notifications are send, click the button to the right of the check box.
 
-![](../imgs/saas/assets/Screen Shot 2022-06-13 at 8.02.55 AM.png)
+![](../imgs/saas/Screen Shot 2022-06-13 at 8.02.55 AM.png)
 
 If provided, a custom channel will be used to route notifications of the given type. If not provided, the default channel will be used.&#x20;
 
@@ -118,7 +118,7 @@ For now we support sending notifications to
 * Go to the Slack channel for which you want to get channel ID
 *   Check the URL e.g. for the [troubleshoot channel in OSS DataHub slack](https://app.slack.com/client/TUMKD5EGJ/C029A3M079U)
 
-    ![](../imgs/saas/assets/Untitled (2) (1).png)
+    ![](../imgs/saas/Untitled (2) (1).png)
 * Notice `TUMKD5EGJ/C029A3M079U` in the URL
   * Team ID = `TUMKD5EGJ` from above
   * Channel ID = `C029A3M079U` from above
@@ -131,4 +131,4 @@ For now we support sending notifications to
 * Click on “More”
 * Click on “Copy member ID”
 
-![](../imgs/saas/assets/Untitled (3).png)
+![](../imgs/saas/Untitled (3).png)

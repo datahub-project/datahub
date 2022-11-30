@@ -4,9 +4,24 @@ The Tag Sync (or Tag Propagation) Action allows you to propagate tags from your 
 
 ### Tutorial
 
-[Here](https://www.loom.com/share/e73988c1175e4255ac1a84447e248d18) is a quick video showing application of a tag `dev:critical` to a dataset and seeing it propagate downstream to downstream datasets.
+[Here](https://www.loom.com/embed/e73988c1175e4255ac1a84447e248d18) is a quick video showing application of a tag `dev:critical` to a dataset and seeing it propagate downstream to downstream datasets.
 
-{% embed url="https://www.loom.com/share/e73988c1175e4255ac1a84447e248d18" %}
+<div style={{ position: "relative", paddingBottom: "56.25%", height: 0 }}>
+  <iframe
+    src="https://www.loom.com/embed/e73988c1175e4255ac1a84447e248d18"
+    frameBorder={0}
+    webkitallowfullscreen=""
+    mozallowfullscreen=""
+    allowFullScreen=""
+    style={{
+      position: "absolute",
+      top: 0,
+      left: 0,
+      width: "100%",
+      height: "100%"
+    }}
+  />
+</div>
 
 ### Configurability
 

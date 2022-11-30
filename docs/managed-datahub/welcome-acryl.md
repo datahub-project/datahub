@@ -12,7 +12,7 @@ Close communication is not only welcomed, but highly encouraged. For all questio
 
 Before you go further, you'll need to have a DataHub instance provisioned. The Acryl integrations team will provide you the following once it has been deployed:
 
-1. The URL for your Acryl instance (https://\<your-domain-name>.acryl.io)&#x20;
+1. The URL for your Acryl instance (https://your-domain-name.acryl.io)&#x20;
 2. Admin account credentials for logging into the DataHub UI&#x20;
 
 Once you have these, you're ready to go.
@@ -25,7 +25,7 @@ If you wish to have a private connection to your DataHub instance, Acryl support
 
 Acryl DataHub currently supports the following means to log into a DataHub instance:
 
-1. **Admin account**: With each deployment of DataHub comes a master admin account. It has a randomly generated password that can be accessed by reaching out to Acryl Integrations team (support@acryl.io). To log in with an admin account, navigate to https://\<your-domain>.acryl.io/login&#x20;
+1. **Admin account**: With each deployment of DataHub comes a master admin account. It has a randomly generated password that can be accessed by reaching out to Acryl Integrations team (support@acryl.io). To log in with an admin account, navigate to https://your-domain.acryl.io/login&#x20;
 2. **OIDC**: Acryl DataHub also supports OIDC integration with the Identity Provider of your choice (Okta, Google, etc). To set this up, Acryl integrations team will require the following:&#x20;
 3. _Client ID_ - A unique identifier for your application with the identity provider
 4. _Client Secret_ - A shared secret to use for exchange between you and your identity provider. To send this over securely, we recommend using [onetimesecret.com](https://onetimesecret.com/) to create a link.
@@ -34,7 +34,7 @@ Acryl DataHub currently supports the following means to log into a DataHub insta
 The callback URL to register in your Identity Provider will be&#x20;
 
 ```
-https://<your-acryl-domain>.acryl.io/callback/oidc 
+https://your-acryl-domain.acryl.io/callback/oidc 
 ```
 
 _Note that we do not yet support LDAP or SAML authentication. Please let us know if either of these integrations would be useful for your organization._&#x20;

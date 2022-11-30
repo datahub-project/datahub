@@ -4,7 +4,22 @@
 
 Constraints let you set requirements for what types of terms must be applied to your datasets. For an overview of Constraints, see this video:
 
-{% embed url="https://www.loom.com/share/8834935fd1c64c489c6c131ba10bbe04" %}
+<div style={{ position: "relative", paddingBottom: "56.25%", height: 0 }}>
+  <iframe
+    src="https://www.loom.com/embed/8834935fd1c64c489c6c131ba10bbe04"
+    frameBorder={0}
+    webkitallowfullscreen=""
+    mozallowfullscreen=""
+    allowFullScreen=""
+    style={{
+      position: "absolute",
+      top: 0,
+      left: 0,
+      width: "100%",
+      height: "100%"
+    }}
+  />
+</div>
 
 This feature allows people to specify constraints on your metadata. This currently supports
 

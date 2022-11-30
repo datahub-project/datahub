@@ -15,11 +15,11 @@ Acryl DataHub comes packaged with an Acryl-managed ingestion executor, which is 
 
 For example, if an ingestion source is not publicly accessible via the internet, e.g. hosted privately within a specific AWS account, then the Acryl executor will be unable to extract metadata from it.
 
-![Option 1: Acryl-hosted ingestion runner](../imgs/saas/assets/image (12).png)
+![Option 1: Acryl-hosted ingestion runner](../imgs/saas/image (12).png)
 
 To accommodate these cases, Acryl supports configuring a remote ingestion executor which can be deployed inside of your AWS account. This setup allows you to continue leveraging the Acryl DataHub console to create, schedule, and run metadata ingestion, all while retaining network isolation.&#x20;
 
-![Option 2: Customer-hosted ingestion runner](../imgs/saas/assets/image (6).png)
+![Option 2: Customer-hosted ingestion runner](../imgs/saas/image (6).png)
 
 ## Setting up a Remote Ingestion Executor
 
@@ -30,7 +30,7 @@ To accommodate these cases, Acryl supports configuring a remote ingestion execut
     1. **Deployment Location:** The AWS VPC + subnet in which the Acryl Executor task is to be provisioned.&#x20;
     2. **SQS Queue ARN**: Reference to your private SQS command queue. (Provided by Acryl)&#x20;
     3. **DataHub Access Token**: A valid DataHub access token.&#x20;
-    4. **Acryl DataHub URL**: The URL for your DataHub instance, e.g. \<your-company>.acryl.io.
+    4. **Acryl DataHub URL**: The URL for your DataHub instance, e.g. your-company.acryl.io.
 
 
 3.  **Test the Executor:** To test your remote executor:
@@ -42,6 +42,6 @@ To accommodate these cases, Acryl supports configuring a remote ingestion execut
 
     Now, simple click '**Execute**' to test out the remote executor. If your remote executor is configured properly, you should promptly see the ingestion task state change to 'Running'.&#x20;
 
-![](../imgs/saas/assets/Screen Shot 2022-03-07 at 10.23.31 AM.png)
+![](../imgs/saas/Screen Shot 2022-03-07 at 10.23.31 AM.png)
 
 ## &#x20;

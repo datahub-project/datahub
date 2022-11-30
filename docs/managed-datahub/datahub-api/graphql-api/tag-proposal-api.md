@@ -77,7 +77,7 @@ As illustrated above, the `proposeTag` Mutation accepts a single 'input' argumen
 4. &#x20;_tagUrn_: The URN associated with the Tag to propose.&#x20;
 
 {% hint style="info" %}
-By default, DataHub deploys with an interactive, web-based API Explorer (GraphiQL)  located at`http://<your-datahub-domain>/api/graphiql`. Check it out to familiarize yourself with the API.
+By default, DataHub deploys with an interactive, web-based API Explorer (GraphiQL)  located at`http://your-datahub-domain/api/graphiql`. Check it out to familiarize yourself with the API.
 {% endhint %}
 
 ### Adding the Actor Header
@@ -103,7 +103,7 @@ X-DataHub-Actor: urn:li:service:tag-proposal-agent
 To issue a CURL invoking the `tagProposal` GraphQL Mutation , you can use the following template:
 
 ```
-curl --location --request POST 'http://<your-datahub-domain>/api/graphql' \
+curl --location --request POST 'http://your-datahub-domain/api/graphql' \
 --header 'Content-Type: application/json' \
 --header 'X-DataHub-Actor: urn:li:service:<service-principal-name>' \
 --data-raw '{"query":"mutation proposeTag($resourceUrn: String!, $tagUrn: String!) {\n    proposeTag(resourceUrn: $resourceUrn, tagUrn: $tagUrn)","variables":{"resourceUrn":"<resource-urn>","tagUrn":"<tag-urn>"}}'
@@ -112,7 +112,7 @@ curl --location --request POST 'http://<your-datahub-domain>/api/graphql' \
 For example, to add the tag "Marketing" to a MySQL Dataset with name "product.sales" in a production environment, I would issue the following query.&#x20;
 
 ```
-curl --location --request POST 'http://<your-datahub-domain>/api/graphql' \
+curl --location --request POST 'http://your-datahub-domain/api/graphql' \
 --header 'Content-Type: application/json' \
 --header 'X-DataHub-Actor: urn:li:service:tag-proposal-agent' \
 --data-raw '{"query":"mutation proposeTag($resourceUrn: String!, $tagUrn: String!) {\n    proposeTag(resourceUrn: $resourceUrn, tagUrn: $tagUrn)","variables":{"resourceUrn":"urn:li:dataset:(urn:li:dataPlatform:mysql,product.sales,PROD)","tagUrn":"urn:li:tag:Marketing"}}'

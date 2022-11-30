@@ -8,7 +8,7 @@ description: >-
 
 ## Overview&#x20;
 
-Before proceeding, we recommend you check out the [Policies Guide doc](https://datahubproject.io/docs/policies/), which provides a detailed overview about the new DataHub Access Policies feature
+Before proceeding, we recommend you check out the [Policies Guide doc](https://datahubproject.io/docs/authorization/access-policies-guide), which provides a detailed overview about the new DataHub Access Policies feature
 
 In a nutshell, access policies are a tool for DataHub administrators to define who can perform what actions on the platform.
 
@@ -21,7 +21,7 @@ DataHub comes out of the box with a default set of Access Policies. These grant 
 Expect this set of privileges to grow as capabilities are added to the platform!
 
 {% hint style="info" %}
-**Pro-Tip**: You can access the "admin" account at \<your-datahub-domain>.com/login with the password provided to you by the Acryl team.&#x20;
+**Pro-Tip**: You can access the "admin" account at your-datahub-domain.com/login with the password provided to you by the Acryl team.&#x20;
 {% endhint %}
 
 ## Creating an Access Policy&#x20;
@@ -43,4 +43,4 @@ Acryl DataHub provides some pre-defined groups for you to get started, along wit
 | Organization Admins | Top level DataHub administrators. They have **all** privileges.                                                                                                                                  |
 | Access Admins       | Able to manage users (including resetting passwords for native users) and groups. Can also edit policies and access tokens.                                                                      |
 | Metadata Stewards   | Able to both read and modify **all** assets across DataHub. They **cannot** make changes to users, group, policies and credentials.                                                              |
-| Metadata Readers    | <p>Able to read metadata, but cannot change it by default (<strong>unless</strong> they are an owner of an asset).<br><br>Otherwise, they must request to make changes using approval flows.</p> |
+| Metadata Readers    | <p>Able to read metadata, but cannot change it by default (<strong>unless</strong> they are an owner of an asset).<br></br>Otherwise, they must request to make changes using approval flows.</p> |

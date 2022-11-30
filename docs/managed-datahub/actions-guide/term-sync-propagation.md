@@ -13,12 +13,26 @@ Enable classification of datasets or field of datasets to taint downstream datas
 
 ### Tutorial
 
-[Here](https://www.loom.com/share/b2578d2993c44e94a1cb0cf12877d55a) is a quick video showing
+[Here](https://www.loom.com/embed/b2578d2993c44e94a1cb0cf12877d55a) is a quick video showing
 
 * Application of a term `Classification.Confidential` to a dataset and seeing it propagate downstream to datasets.
 * Application of a term `PersonalInformation.Email` which inherits `Classification.Confidential` to a dataset and seeing the `Classification.Confidential` term propagate downstream to datasets.
-
-{% embed url="https://www.loom.com/share/b2578d2993c44e94a1cb0cf12877d55a" %}
+<div style={{ position: "relative", paddingBottom: "56.25%", height: 0 }}>
+  <iframe
+    src="https://www.loom.com/embed/b2578d2993c44e94a1cb0cf12877d55a"
+    frameBorder={0}
+    webkitallowfullscreen=""
+    mozallowfullscreen=""
+    allowFullScreen=""
+    style={{
+      position: "absolute",
+      top: 0,
+      left: 0,
+      width: "100%",
+      height: "100%"
+    }}
+  />
+</div>
 
 ### Configurability
 

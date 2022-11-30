@@ -21,13 +21,13 @@ In order to create and edit Metadata Tests. you must have the `Metadata Tests` P
 
 We will start the walk-through by going over the various UI elements we added to visualize tests. First, let's look at the test configuration page.&#x20;
 
-![Test Configuration Page](../imgs/saas/assets/Screen Shot 2022-06-24 at 11.02.47 AM.png)
+![Test Configuration Page](../imgs/saas/Screen Shot 2022-06-24 at 11.02.47 AM.png)
 
 If you have permission to manage tests, you will see the "Tests" button on the top right (denoted by the blue box). On this page, you can find the list of configured tests. We have configured four initial tests to start with. You can check out the detailed configuration or make modifications by clicking on the edit button. You can also see summary statistics on how many entities pass/fail the test and click on the buttons (denoted by the red box) to land on a search page to look at the passing/failing entities.&#x20;
 
 Most users will be able to see the test status on each entity page. Click on the Validation tab (denoted by the blue box in the image below) and the Test sub-tab (denoted by the red box) to find the list of tests that were evaluated for the given entities and their status.&#x20;
 
-![Test Results on Entity Page](../imgs/saas/assets/Screen Shot 2022-06-24 at 12.59.38 PM.png)
+![Test Results on Entity Page](../imgs/saas/Screen Shot 2022-06-24 at 12.59.38 PM.png)
 
 Tests are evaluated every time there is a change to the entity i.e. ingestion, edits on UI, etc. with a 3-second buffer. For example, after adding a domain to pass the "Dataset has domain" test, refresh the page to see the test status change. We also evaluate tests for all entities once a day to make sure they are eventually consistent.&#x20;
 
