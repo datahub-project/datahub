@@ -1,4 +1,5 @@
 import logging
+from functools import lru_cache
 from typing import Any, Optional
 
 from snowflake.connector import SnowflakeConnection
@@ -58,6 +59,38 @@ class SnowflakeQueryMixin:
 class SnowflakeCommonMixin:
 
     platform = "snowflake"
+
+    @staticmethod
+    @lru_cache(maxsize=128)
+    def create_snowsight_base_url(account_id: str) -> Optional[str]:
+        cloud: Optional[str] = None
+        account_locator: Optional[str] = None
+        cloud_region_id: Optional[str] = None
+
+        if "." not in account_id:
+            account_locator = account_id.lower()
+            cloud_region_id = "us-west-2"
+        else:
+            parts = account_id.split(".")
+            if len(parts) == 2:
+                account_locator = parts[0].lower()
+                cloud_region_id = parts[1].lower()
+            elif len(parts) == 3:
+                account_locator = parts[0].lower()
+                cloud_region_id = parts[1].lower()
+                cloud = parts[2].lower()
+            else:
+                return None
+
+        # TODO: BASE URL for Snowsight using private connectivity to the Snowflake service
+        # https://docs.snowflake.com/en/user-guide/ui-snowsight-gs.html#signing-in-to-web-interface
+        # alternatively, base_url can be taken as part of config to support this.
+        if cloud is None or cloud == "aws":
+            return f"https://app.snowflake.com/{cloud_region_id}/{account_locator}/"
+        return f"https://app.snowflake.com/{cloud_region_id}.{cloud}/{account_locator}/"
+
+    def get_snowsight_base_url(self: SnowflakeCommonProtocol) -> Optional[str]:
+        return SnowflakeCommonMixin.create_snowsight_base_url(self.config.get_account())
 
     def _is_dataset_pattern_allowed(
         self: SnowflakeCommonProtocol,
