@@ -53,8 +53,9 @@ record Operation includes TimeseriesAspectBase {
    customProperties: optional map[string, string]
 
   /**
-   * The time at which the operation occurred.
+   * The time at which the operation occurred. Would be better named 'operationTime'
    */
   @TimeseriesField = {}
+  @Searchable = { "fieldType": "DATETIME", "fieldName": "lastOperationTime" }
   lastUpdatedTimestamp: long
 }

@@ -1156,6 +1156,21 @@
       "name" : "status"
     }
   }, "com.linkedin.common.TagAssociation", "com.linkedin.common.TagUrn", "com.linkedin.common.Time", {
+    "type" : "record",
+    "name" : "TimeStamp",
+    "namespace" : "com.linkedin.common",
+    "doc" : "A standard event timestamp",
+    "fields" : [ {
+      "name" : "time",
+      "type" : "Time",
+      "doc" : "When did the event occur"
+    }, {
+      "name" : "actor",
+      "type" : "Urn",
+      "doc" : "Optional: The actor urn involved in the event.",
+      "optional" : true
+    } ]
+  }, {
     "type" : "typeref",
     "name" : "Uri",
     "namespace" : "com.linkedin.common",
@@ -1287,6 +1302,28 @@
         "fieldType" : "TEXT_PARTIAL",
         "queryByDefault" : false
       }
+    }, {
+      "name" : "created",
+      "type" : "com.linkedin.common.TimeStamp",
+      "doc" : "A timestamp documenting when the asset was created in the source Data Platform (not on DataHub)",
+      "optional" : true,
+      "Searchable" : {
+        "/time" : {
+          "fieldName" : "createdAt",
+          "fieldType" : "DATETIME"
+        }
+      }
+    }, {
+      "name" : "lastModified",
+      "type" : "com.linkedin.common.TimeStamp",
+      "doc" : "A timestamp documenting when the asset was last modified in the source Data Platform (not on DataHub)",
+      "optional" : true,
+      "Searchable" : {
+        "/time" : {
+          "fieldName" : "lastModifiedAt",
+          "fieldType" : "DATETIME"
+        }
+      }
     } ],
     "Aspect" : {
       "name" : "dataFlowInfo"
@@ -1340,6 +1377,28 @@
       "doc" : "DataFlow urn that this job is part of",
       "optional" : true
     }, {
+      "name" : "created",
+      "type" : "com.linkedin.common.TimeStamp",
+      "doc" : "A timestamp documenting when the asset was created in the source Data Platform (not on DataHub)",
+      "optional" : true,
+      "Searchable" : {
+        "/time" : {
+          "fieldName" : "createdAt",
+          "fieldType" : "DATETIME"
+        }
+      }
+    }, {
+      "name" : "lastModified",
+      "type" : "com.linkedin.common.TimeStamp",
+      "doc" : "A timestamp documenting when the asset was last modified in the source Data Platform (not on DataHub)",
+      "optional" : true,
+      "Searchable" : {
+        "/time" : {
+          "fieldName" : "lastModifiedAt",
+          "fieldType" : "DATETIME"
+        }
+      }
+    }, {
       "name" : "status",
       "type" : {
         "type" : "enum",
@@ -1357,8 +1416,9 @@
           "UNKNOWN" : "Jobs with unknown status (either unmappable or unavailable)"
         }
       },
-      "doc" : "Status of the job",
-      "optional" : true
+      "doc" : "Status of the job - Deprecated for Data Process Instance model.",
+      "optional" : true,
+      "deprecated" : "Use Data Process Instance model, instead"
     } ],
     "Aspect" : {
       "name" : "dataJobInfo"
@@ -1630,13 +1690,36 @@
       "doc" : "The abstracted URI such as hdfs:///data/tracking/PageViewEvent, file:///dir/file_name. Uri should not include any environment specific properties. Some datasets might not have a standardized uri, which makes this field optional (i.e. kafka topic).",
       "optional" : true
     }, {
+      "name" : "created",
+      "type" : "com.linkedin.common.TimeStamp",
+      "doc" : "A timestamp documenting when the asset was created in the source Data Platform (not on DataHub)",
+      "optional" : true,
+      "Searchable" : {
+        "/time" : {
+          "fieldName" : "createdAt",
+          "fieldType" : "DATETIME"
+        }
+      }
+    }, {
+      "name" : "lastModified",
+      "type" : "com.linkedin.common.TimeStamp",
+      "doc" : "A timestamp documenting when the asset was last modified in the source Data Platform (not on DataHub)",
+      "optional" : true,
+      "Searchable" : {
+        "/time" : {
+          "fieldName" : "lastModifiedAt",
+          "fieldType" : "DATETIME"
+        }
+      }
+    }, {
       "name" : "tags",
       "type" : {
         "type" : "array",
         "items" : "string"
       },
-      "doc" : "[Legacy] Unstructured tags for the dataset. Structured tags can be applied via the `GlobalTags` aspect.",
-      "default" : [ ]
+      "doc" : "[Legacy] Unstructured tags for the dataset. Structured tags can be applied via the `GlobalTags` aspect.\nThis is now deprecated.",
+      "default" : [ ],
+      "deprecated" : "Use GlobalTags aspect instead."
     } ],
     "Aspect" : {
       "name" : "datasetProperties"
@@ -1655,12 +1738,11 @@
     "fields" : [ {
       "name" : "auditStamp",
       "type" : "com.linkedin.common.AuditStamp",
-      "doc" : "Audit stamp containing who reported the lineage and when.\nWARNING: this field is deprecated and may be removed in a future release.",
+      "doc" : "Audit stamp containing who reported the lineage and when.",
       "default" : {
         "actor" : "urn:li:corpuser:unknown",
         "time" : 0
-      },
-      "deprecated" : "we no longer associate a timestamp per upstream edge"
+      }
     }, {
       "name" : "dataset",
       "type" : "com.linkedin.common.DatasetUrn",
@@ -1765,7 +1847,6 @@
       "doc" : "Optional id for the GlossaryNode",
       "optional" : true,
       "Searchable" : {
-        "enableAutocomplete" : true,
         "fieldType" : "TEXT_PARTIAL"
       }
     } ],
@@ -1784,7 +1865,6 @@
       "doc" : "Optional id for the term",
       "optional" : true,
       "Searchable" : {
-        "enableAutocomplete" : true,
         "fieldType" : "TEXT_PARTIAL"
       }
     }, {

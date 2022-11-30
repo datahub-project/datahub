@@ -43,7 +43,7 @@ framework_common = {
     "stackprinter>=0.2.6",
     "tabulate",
     "progressbar2",
-    "termcolor>=2.0.0",
+    "termcolor>=1.0.0",
     "psutil>=5.8.0",
     "ratelimiter",
     "Deprecated",
@@ -174,10 +174,14 @@ snowflake_common = {
     # Required for all Snowflake sources.
     # See https://github.com/snowflakedb/snowflake-sqlalchemy/issues/234 for why 1.2.5 is blocked.
     "snowflake-sqlalchemy>=1.2.4, !=1.2.5",
+    # Because of https://github.com/snowflakedb/snowflake-sqlalchemy/issues/350 we need to restrict SQLAlchemy's max version.
+    # Eventually we should just require snowflake-sqlalchemy>=1.4.3, but I won't do that immediately
+    # because it may break Airflow users that need SQLAlchemy 1.3.x.
+    "SQLAlchemy<1.4.42",
     "pandas",
     "cryptography",
     "msal",
-    "acryl-datahub-classify>=0.0.3",
+    "acryl-datahub-classify>=0.0.4",
     # spacy version restricted to reduce backtracking, used by acryl-datahub-classify,
     "spacy==3.4.3",
 }
@@ -252,12 +256,15 @@ plugins: Dict[str, Set[str]] = {
     | bigquery_common
     | {"sqlalchemy-bigquery>=1.4.1", "sqllineage==1.3.6", "sqlparse"},
     "bigquery-usage-legacy": bigquery_common | usage_common | {"cachetools"},
-    "bigquery": sql_common | bigquery_common | {"sqllineage==1.3.6", "sql_metadata"},
+    "bigquery": sql_common
+    | bigquery_common
+    | {"sqllineage==1.3.6", "sql_metadata", "sqlalchemy-bigquery>=1.4.1"},
     "bigquery-beta": sql_common
     | bigquery_common
     | {
         "sqllineage==1.3.6",
         "sql_metadata",
+        "sqlalchemy-bigquery>=1.4.1",
     },  # deprecated, but keeping the extra for backwards compatibility
     "clickhouse": sql_common | clickhouse_common,
     "clickhouse-usage": sql_common | usage_common | clickhouse_common,
@@ -376,7 +383,8 @@ mypy_stubs = {
     "types-ujson>=5.2.0",
     "types-termcolor>=1.0.0",
     "types-Deprecated",
-    "types-protobuf",
+    # Mypy complains with 4.21.0.0 => error: Library stubs not installed for "google.protobuf.descriptor"
+    "types-protobuf<4.21.0.0",
 }
 
 base_dev_requirements = {
