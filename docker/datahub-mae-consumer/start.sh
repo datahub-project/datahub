@@ -34,9 +34,9 @@ if [[ ${GRAPH_SERVICE_IMPL:-} != elasticsearch ]] && [[ ${SKIP_NEO4J_CHECK:-fals
   dockerize_args+=("-wait" "$NEO4J_HOST")
 fi
 
-JAVA_TOOL_OPTIONS="${JDK_JAVA_OPTIONS:-}${JAVA_OPTS:+ JAVA_OPTS}${JMX_OPTS:+ JMX_OPTS}"
+JAVA_TOOL_OPTIONS="${JDK_JAVA_OPTIONS:-}${JAVA_OPTS:+ $JAVA_OPTS}${JMX_OPTS:+ $JMX_OPTS}"
 if [[ ${ENABLE_OTEL:-false} == true ]]; then
-  JAVA_TOOL_OPTIONS="$JAVA_TOOL_OPTIONS -javaagent:opentelemetry-javaagent-all.jar"
+  JAVA_TOOL_OPTIONS="$JAVA_TOOL_OPTIONS -javaagent:opentelemetry-javaagent.jar"
 fi
 if [[ ${ENABLE_PROMETHEUS:-false} == true ]]; then
   JAVA_TOOL_OPTIONS="$JAVA_TOOL_OPTIONS -javaagent:jmx_prometheus_javaagent.jar=4318:/datahub/datahub-mae-consumer/scripts/prometheus-config.yaml"

@@ -51,16 +51,6 @@ from datahub.utilities.registries.domain_registry import DomainRegistry
 logger = logging.getLogger(__name__)
 
 
-class KafkaSourceStatefulIngestionConfig(StatefulStaleMetadataRemovalConfig):
-    """
-    Specialization of StatefulStaleMetadataRemovalConfig to adding custom config.
-    This will be used to override the stateful_ingestion config param of StatefulIngestionConfigBase
-    in the SQLAlchemyConfig.
-    """
-
-    _entity_types: List[str] = pydantic.Field(default=["topic"])
-
-
 class KafkaSourceConfig(StatefulIngestionConfigBase, DatasetSourceConfigBase):
     env: str = DEFAULT_ENV
     # TODO: inline the connection config
@@ -74,8 +64,7 @@ class KafkaSourceConfig(StatefulIngestionConfigBase, DatasetSourceConfigBase):
         default={},
         description="Provides the mapping for the `key` and the `value` schemas of a topic to the corresponding schema registry subject name. Each entry of this map has the form `<topic_name>-key`:`<schema_registry_subject_name_for_key_schema>` and `<topic_name>-value`:`<schema_registry_subject_name_for_value_schema>` for the key and the value schemas associated with the topic, respectively. This parameter is mandatory when the [RecordNameStrategy](https://docs.confluent.io/platform/current/schema-registry/serdes-develop/index.html#how-the-naming-strategies-work) is used as the subject naming strategy in the kafka schema registry. NOTE: When provided, this overrides the default subject name resolution even when the `TopicNameStrategy` or the `TopicRecordNameStrategy` are used.",
     )
-    # Custom Stateful Ingestion settings
-    stateful_ingestion: Optional[KafkaSourceStatefulIngestionConfig] = None
+    stateful_ingestion: Optional[StatefulStaleMetadataRemovalConfig] = None
     schema_registry_class: str = pydantic.Field(
         default="datahub.ingestion.source.confluent_schema_registry.ConfluentSchemaRegistry",
         description="The fully qualified implementation class(custom) that implements the KafkaSchemaRegistryBase interface.",
@@ -280,6 +269,6 @@ class KafkaSource(StatefulIngestionSourceBase):
         return self.report
 
     def close(self) -> None:
-        self.prepare_for_commit()
         if self.consumer:
             self.consumer.close()
+        super().close()

@@ -7,17 +7,19 @@ import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.generated.ListDomainsInput;
 import com.linkedin.entity.client.EntityClient;
 import com.linkedin.metadata.Constants;
+import com.linkedin.metadata.query.filter.SortCriterion;
+import com.linkedin.metadata.query.filter.SortOrder;
 import com.linkedin.metadata.search.SearchEntity;
 import com.linkedin.metadata.search.SearchEntityArray;
 import com.linkedin.metadata.search.SearchResult;
 import com.linkedin.r2.RemoteInvocationException;
 import graphql.schema.DataFetchingEnvironment;
-import java.util.Collections;
 import java.util.concurrent.CompletionException;
 import org.mockito.Mockito;
 import org.testng.annotations.Test;
 
 import static com.linkedin.datahub.graphql.TestUtils.*;
+import static com.linkedin.metadata.Constants.*;
 import static org.testng.Assert.*;
 
 
@@ -37,7 +39,8 @@ public class ListDomainsResolverTest {
     Mockito.when(mockClient.search(
         Mockito.eq(Constants.DOMAIN_ENTITY_NAME),
         Mockito.eq(""),
-        Mockito.eq(Collections.emptyMap()),
+        Mockito.eq(null),
+        Mockito.eq(new SortCriterion().setField(DOMAIN_CREATED_TIME_INDEX_FIELD_NAME).setOrder(SortOrder.DESCENDING)),
         Mockito.eq(0),
         Mockito.eq(20),
         Mockito.any(Authentication.class)

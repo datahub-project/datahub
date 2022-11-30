@@ -27,6 +27,8 @@ import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
+
+import org.springframework.test.context.testng.AbstractTestNGSpringContextTests;
 import org.testng.Assert;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.DataProvider;
@@ -54,7 +56,7 @@ import static org.testng.Assert.fail;
  * Feel free to add a test to your test implementation that calls `getPopulatedGraphService` and
  * asserts the state of the graph in an implementation specific way.
  */
-abstract public class GraphServiceTestBase {
+abstract public class GraphServiceTestBase extends AbstractTestNGSpringContextTests {
 
   private static class RelatedEntityComparator implements Comparator<RelatedEntity> {
     @Override
@@ -1583,4 +1585,45 @@ abstract public class GraphServiceTestBase {
       assertEquals(throwables.size(), 0);
   }
 
+  @Test
+  public void testPopulatedGraphServiceGetLineageMultihop() throws Exception {
+      GraphService service = getLineagePopulatedGraphService();
+
+      EntityLineageResult upstreamLineage = service.getLineage(datasetOneUrn, LineageDirection.UPSTREAM, 0, 1000, 2);
+      assertEquals(upstreamLineage.getTotal().intValue(), 0);
+      assertEquals(upstreamLineage.getRelationships().size(), 0);
+
+      EntityLineageResult downstreamLineage = service.getLineage(datasetOneUrn, LineageDirection.DOWNSTREAM, 0, 1000, 2);
+
+      assertEquals(downstreamLineage.getTotal().intValue(), 5);
+      assertEquals(downstreamLineage.getRelationships().size(), 5);
+      Map<Urn, LineageRelationship> relationships = downstreamLineage.getRelationships().stream().collect(Collectors.toMap(LineageRelationship::getEntity,
+              Function.identity()));
+      assertTrue(relationships.containsKey(datasetTwoUrn));
+      assertEquals(relationships.get(datasetTwoUrn).getDegree().intValue(), 1);
+      assertTrue(relationships.containsKey(datasetThreeUrn));
+      assertEquals(relationships.get(datasetThreeUrn).getDegree().intValue(), 2);
+      assertTrue(relationships.containsKey(datasetFourUrn));
+      assertEquals(relationships.get(datasetFourUrn).getDegree().intValue(), 2);
+      assertTrue(relationships.containsKey(dataJobOneUrn));
+      assertEquals(relationships.get(dataJobOneUrn).getDegree().intValue(), 1);
+      assertTrue(relationships.containsKey(dataJobTwoUrn));
+      assertEquals(relationships.get(dataJobTwoUrn).getDegree().intValue(), 1);
+
+      upstreamLineage = service.getLineage(datasetThreeUrn, LineageDirection.UPSTREAM, 0, 1000, 2);
+      assertEquals(upstreamLineage.getTotal().intValue(), 3);
+      assertEquals(upstreamLineage.getRelationships().size(), 3);
+      relationships = upstreamLineage.getRelationships().stream().collect(Collectors.toMap(LineageRelationship::getEntity,
+              Function.identity()));
+      assertTrue(relationships.containsKey(datasetOneUrn));
+      assertEquals(relationships.get(datasetOneUrn).getDegree().intValue(), 2);
+      assertTrue(relationships.containsKey(datasetTwoUrn));
+      assertEquals(relationships.get(datasetTwoUrn).getDegree().intValue(), 1);
+      assertTrue(relationships.containsKey(dataJobOneUrn));
+      assertEquals(relationships.get(dataJobOneUrn).getDegree().intValue(), 1);
+
+      downstreamLineage = service.getLineage(datasetThreeUrn, LineageDirection.DOWNSTREAM, 0, 1000, 2);
+      assertEquals(downstreamLineage.getTotal().intValue(), 0);
+      assertEquals(downstreamLineage.getRelationships().size(), 0);
+  }
 }

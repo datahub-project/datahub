@@ -84,7 +84,7 @@ Cypress.Commands.add("goToUserList", () => {
 })
 
 Cypress.Commands.add("openThreeDotDropdown", () => {
-  cy.get('div[class^="EntityHeader__SideHeaderContent-"] > div > .ant-dropdown-trigger').click();
+  cy.get('[data-testid="entity-header-dropdown"]').click();
 });
 
 Cypress.Commands.add("clickOptionWithText", (text) => {

@@ -13,3 +13,6 @@ product:
 
 docs:
   - "docs/**/*"
+
+smoke_test:
+  - "smoke-test/**/*"

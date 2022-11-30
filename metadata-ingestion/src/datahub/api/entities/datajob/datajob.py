@@ -1,15 +1,5 @@
 from dataclasses import dataclass, field
-from typing import (
-    TYPE_CHECKING,
-    Callable,
-    Dict,
-    Iterable,
-    List,
-    Optional,
-    Set,
-    Union,
-    cast,
-)
+from typing import TYPE_CHECKING, Callable, Dict, Iterable, List, Optional, Set, Union
 
 import datahub.emitter.mce_builder as builder
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
@@ -187,16 +177,14 @@ class DataJob:
 
         :param emitter: Datahub Emitter to emit the process event
         :param callback: (Optional[Callable[[Exception, str], None]]) the callback method for KafkaEmitter if it is used
-        :rtype: None
         """
+        from datahub.emitter.kafka_emitter import DatahubKafkaEmitter
+
         for mcp in self.generate_mcp():
-            if type(emitter).__name__ == "DatahubKafkaEmitter":
-                assert callback is not None
-                kafka_emitter = cast("DatahubKafkaEmitter", emitter)
-                kafka_emitter.emit(mcp, callback)
+            if isinstance(emitter, DatahubKafkaEmitter):
+                emitter.emit(mcp, callback)
             else:
-                rest_emitter = cast("DatahubRestEmitter", emitter)
-                rest_emitter.emit(mcp)
+                emitter.emit(mcp)
 
     def generate_data_input_output_mcp(self) -> Iterable[MetadataChangeProposalWrapper]:
         mcp = MetadataChangeProposalWrapper(
