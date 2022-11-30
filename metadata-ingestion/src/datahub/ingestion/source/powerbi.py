@@ -1431,11 +1431,10 @@ class Mapper:
 
         return list_of_mcps
 
-    @staticmethod
-    def gen_workspace_key(workspace_name: str) -> PlatformKey:
+    def gen_workspace_key(self, workspace_name: str) -> PlatformKey:
         return WorkspaceKey(
             workspace=workspace_name,
-            platform="powerbi",
+            platform=self.__config.platform_name,
         )
 
     @staticmethod
@@ -1456,9 +1455,9 @@ class Mapper:
     def generate_container_for_workspace(
         self, workspace: PowerBiAPI.Workspace
     ) -> Iterable[MetadataWorkUnit]:
-        schema_key = self.gen_workspace_key(workspace_name=workspace.name)
+        workspace_key = self.gen_workspace_key(workspace_name=workspace.name)
         container_workunits = gen_containers(
-            container_key=schema_key,
+            container_key=workspace_key,
             name=workspace.name,
             sub_types=["Workspace"],
         )
