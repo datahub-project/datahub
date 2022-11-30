@@ -3,6 +3,8 @@ package client;
 import com.datahub.authentication.Authentication;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
+
+import java.nio.charset.StandardCharsets;
 import java.util.Objects;
 import javax.annotation.Nonnull;
 import lombok.extern.slf4j.Slf4j;
@@ -150,9 +152,11 @@ public class AuthServiceClient {
         final String jsonStr = EntityUtils.toString(entity);
         return getIsNativeUserCreatedFromJson(jsonStr);
       } else {
+        String content = response.getEntity().getContent() == null ? "" : new String(
+                response.getEntity().getContent().readAllBytes(), StandardCharsets.UTF_8);
         throw new RuntimeException(
-            String.format("Bad response from the Metadata Service: %s %s", response.getStatusLine().toString(),
-                response.getEntity().toString()));
+            String.format("Bad response from the Metadata Service: %s %s Body: %s", response.getStatusLine().toString(),
+                response.getEntity().toString(), content));
       }
     } catch (Exception e) {
       throw new RuntimeException(String.format("Failed to create user %s", userUrn), e);
