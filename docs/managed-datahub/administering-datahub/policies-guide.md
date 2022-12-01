@@ -20,9 +20,9 @@ DataHub comes out of the box with a default set of Access Policies. These grant 
 
 Expect this set of privileges to grow as capabilities are added to the platform!
 
-{% hint style="info" %}
+:::info
 **Pro-Tip**: You can access the "admin" account at your-datahub-domain.com/login with the password provided to you by the Acryl team.&#x20;
-{% endhint %}
+:::
 
 ## Creating an Access Policy&#x20;
 

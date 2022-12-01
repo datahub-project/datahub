@@ -28,19 +28,19 @@ Tags are metadata that can be added datasets, dataset schema, or containers. The
 
 To add a tag at the dataset or container level, simply navigate to the page for that entity and click on the "Add Tag" button.
 
-![Navigating to the "Add Tag" Button](../imgs/saas/Screen Shot 2022-04-05 at 4.52.55 PM.png)
+![Navigating to the "Add Tag" Button](../imgs/saas/Screen-Shot-2022-04-05-at-4.52.55-PM.png)
 
 You can then type in the name of the tag you would like to add. You can either add a tag that already exists, or add a new tag entirely. The autocomplete will pull up the tag if it already exists.
 
-![Choosing which tag to add](../imgs/saas/Screen Shot 2022-04-05 at 4.56.50 PM.png)
+![Choosing which tag to add](../imgs/saas/Screen-Shot-2022-04-05-at-4.56.50-PM.png)
 
 Click on the "Add" button and you'll see the tag has been added!
 
-![Added tag](../imgs/saas/Screen Shot 2022-04-05 at 4.58.46 PM.png)
+![Added tag](../imgs/saas/Screen-Shot-2022-04-05-at-4.58.46-PM.png)
 
 If you would like to add a tag at the schema level, hover over the "Tags" column for a schema until the "Add Tag" button shows up, and then follow the same flow as above.
 
-![Adding a schema tag](../imgs/saas/Screen Shot 2022-04-05 at 5.01.16 PM.png)
+![Adding a schema tag](../imgs/saas/Screen-Shot-2022-04-05-at-5.01.16-PM.png)
 
 ### Removing a Tag
 
@@ -50,5 +50,5 @@ To remove a tag, simply click on the "X" button in the tag. Then click "Yes" whe
 
 You can search for a tag in the search bar, and if you wish, even filter entities by the presence of a specific tag.
 
-![Searching and filtering by the tag "deprecated"](../imgs/saas/Screen Shot 2022-04-05 at 5.03.36 PM.png)
+![Searching and filtering by the tag "deprecated"](../imgs/saas/Screen-Shot-2022-04-05-at-5.03.36-PM.png)
 

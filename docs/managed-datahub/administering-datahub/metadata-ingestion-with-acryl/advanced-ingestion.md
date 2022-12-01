@@ -29,7 +29,7 @@ Inside the Airflow UI, create a new connection with destination of DataHubs REST
 * Host / server endpoint: `https://<account name>.acryl.io/gms`
 * Password: `<API key>`
 
-![Airflow 2.x Connection Setup UI](../imgs/saas/image (9).png)
+![Airflow 2.x Connection Setup UI](../../imgs/saas/image-(9).png)
 
 ### Configuring an Emitter
 

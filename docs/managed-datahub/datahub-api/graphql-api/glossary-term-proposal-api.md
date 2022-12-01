@@ -77,9 +77,9 @@ As illustrated above, the `proposeTerm` Mutation accepts a single 'input' argume
 3. _subResourceType:_ An optional enum indicating what type of subresource is being referenced.
 4. &#x20;_termUrn_: The URN associated with the Term to propose.&#x20;
 
-{% hint style="info" %}
+:::info
 By default, DataHub deploys with an interactive, web-based API Explorer (GraphiQL)  located at`http://your-datahub-domain/api/graphiql`. Check it out to familiarize yourself with the API.
-{% endhint %}
+:::
 
 ### Adding the Actor Header
 

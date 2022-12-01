@@ -65,7 +65,7 @@ In Acryl DataHub deployments, you _must_ use a sink of type `datahub-rest`, whic
 
 The token can be retrieved by logging in as admin. You can go to Settings page and generate a Personal Access Token with your desired expiration date.&#x20;
 
-![](../../imgs/saas/home (1).png)
+![](../../imgs/saas/home-(1).png)
 
 ![](../../imgs/saas/settings.png)
 
@@ -92,11 +92,11 @@ sink:
     token: <Your API key>
 ```
 
-{% hint style="info" %}
+:::info
 Your API key is a signed JSON Web Token that is valid for 6 months from the date of issuance. Please keep this key secure & avoid sharing it.&#x20;
 
 If your key is compromised for any reason, please reach out to the Acryl team at support@acryl.io.&#x20;
-{% endhint %}
+:::
 
 ### Step 4: Running Ingestion&#x20;
 

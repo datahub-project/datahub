@@ -25,9 +25,9 @@ Let's get started!&#x20;
 
 ## Creating an Incident&#x20;
 
-{% hint style="info" %}
+:::info
 Creating incidents is currently only supported against **Dataset** assets.&#x20;
-{% endhint %}
+:::
 
 To create (i.e. raise) a new incident for a data asset, simply create a GraphQL request using the `raiseIncident` mutation.&#x20;
 
@@ -381,7 +381,7 @@ res_data = response.json() # Get result as JSON
 
 ## Tips
 
-{% hint style="info" %}
+:::info
 **Authorization**
 
 Remember to always provide a DataHub Personal Access Token when calling the GraphQL API. To do so, just add the 'Authorization' header as follows:
@@ -393,7 +393,7 @@ Authorization: Bearer <personal-access-token>
 **Exploring GraphQL API**
 
 Also, remember that you can play with an interactive version of the Acryl GraphQL API at `https://your-account-id.acryl.io/api/graphiql`
-{% endhint %}
+:::
 
 ## Enabling Slack Notifications
 
@@ -401,7 +401,7 @@ You can configure Acryl to send slack notifications to a specific channel when i
 
 These notifications are also able to tag the immediate asset's owners, along with the owners of downstream assets consuming it.&#x20;
 
-![](../../imgs/saas/Screen Shot 2022-03-22 at 6.46.41 PM.png)
+![](../../imgs/saas/Screen-Shot-2022-03-22-at-6.46.41-PM.png)
 
 To do so, simply follow the [Slack Integration Guide](../../integrations/slack-integration.md) and contact your Acryl customer success team to enable the feature! &#x20;
 

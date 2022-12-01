@@ -25,7 +25,7 @@ Steps:
 
 2\. View an ingestion run summary (click on `DETAILS)`&#x20;
 
-<figure><img src="../imgs/saas/Screen Shot 2022-08-22 at 11.21.42 AM.png" alt=""></img><figcaption></figcaption></figure>
+<figure><img src="../imgs/saas/Screen-Shot-2022-08-22-at-11.21.42-AM.png" alt=""></img><figcaption></figcaption></figure>
 
 3\. Click **View All** &#x20;
 
@@ -33,13 +33,13 @@ Steps:
 
 5\. Click **Edit**
 
-<figure><img src="../imgs/saas/Screen Shot 2022-08-22 at 11.22.23 AM.png" alt=""></img><figcaption></figcaption></figure>
+<figure><img src="../imgs/saas/Screen-Shot-2022-08-22-at-11.22.23-AM.png" alt=""></img><figcaption></figcaption></figure>
 
 6\. Select the entities you'd like to delete
 
 7\. Click **Delete** > **Mark as deleted**
 
-<figure><img src="../imgs/saas/Screen Shot 2022-08-22 at 11.23.08 AM.png" alt=""></img><figcaption></figcaption></figure>
+<figure><img src="../imgs/saas/Screen-Shot-2022-08-22-at-11.23.08-AM.png" alt=""></img><figcaption></figcaption></figure>
 
 Now the entities will be "soft" deleted. This means that they will no longer appear in normal search results. This may take up to 10 minutes to be fully applied to your instance.&#x20;
 
@@ -67,7 +67,7 @@ _UI_
 
 3\. Click **Copy Execution Request URN** &#x20;
 
-<figure><img src="../imgs/saas/Screen Shot 2022-08-22 at 11.47.57 AM.png" alt=""></img><figcaption></figcaption></figure>
+<figure><img src="../imgs/saas/Screen-Shot-2022-08-22-at-11.47.57-AM.png" alt=""></img><figcaption></figcaption></figure>
 
 4\. Extract the **run id**: The run id will be inside the URN you just copied. If the copied urn is&#x20;
 

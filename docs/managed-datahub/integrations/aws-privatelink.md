@@ -8,9 +8,9 @@ Once that team reports the PrivateLink has been created, the team will give you 
 
 In order to complete the connection, you will have to create a VPC Endpoint in your AWS account.  To do so, please follow these instructions:
 
-{% hint style="info" %}
+:::info
 Before following the instructions below, please create a VPC security group with ports 80, and 443 (Both TCP) and any required CIDR blocks or other sources as an inbound rule
-{% endhint %}
+:::
 
 1. Open the AWS console to the region that the VPC Endpoint Service is created (Generally this will be in `us-west-2 (Oregon)` but will be seen in the service name itself)
 2. Browse to the **VPC** Service and click on **Endpoints**
