@@ -73,3 +73,10 @@ def test_parse_m_query12():
     expression: str = 'let\n    Source = Sql.Database("AUPRDWHDB", "COMMOPSDB", [Query="Select#(lf)*,#(lf)concat((UPPER(REPLACE(SALES_SPECIALIST,\'-\',\'\'))),#(lf)LEFT(CAST(INVOICE_DATE AS DATE),4)+LEFT(RIGHT(CAST(INVOICE_DATE AS DATE),5),2)) AS AGENT_KEY,#(lf)CASE#(lf)    WHEN CLASS = \'Software\' and (NOT(PRODUCT in (\'ADV\', \'Adv\') and left(ACCOUNT_ID,2)=\'10\') #(lf)    or V_ENTERPRISE_INVOICED_REVENUE.TYPE = \'Manual Adjustment\') THEN INVOICE_AMOUNT#(lf)    WHEN V_ENTERPRISE_INVOICED_REVENUE.TYPE IN (\'Recurring\',\'0\') THEN INVOICE_AMOUNT#(lf)    ELSE 0#(lf)END as SOFTWARE_INV#(lf)#(lf)from V_ENTERPRISE_INVOICED_REVENUE", CommandTimeout=#duration(0, 1, 30, 0)]),\n    #"Added Conditional Column" = Table.AddColumn(Source, "Services", each if [CLASS] = "Services" then [INVOICE_AMOUNT] else 0),\n    #"Added Custom" = Table.AddColumn(#"Added Conditional Column", "Advanced New Sites", each if [PRODUCT] = "ADV"\nor [PRODUCT] = "Adv"\nthen [NEW_SITE]\nelse 0)\nin\n    #"Added Custom"'
     parse_tree: Tree = m_parser.parse_expression(expression)
     assert m_parser.get_output_dataset(parse_tree) == '"Added Custom"'
+
+
+def test_parse_m_query13():
+    expression: str = 'let\n    Source = Snowflake.Databases(\"xaa48144.snowflakecomputing.com\",\"GSL_TEST_WH\",[Role=\"ACCOUNTADMIN\"]),\n Source2 = PostgreSQL.Database(\"localhost\", \"mics\"),\n  public_order_date = Source2{[Schema=\"public\",Item=\"order_date\"]}[Data],\n    GSL_TEST_DB_Database = Source{[Name=\"GSL_TEST_DB\",Kind=\"Database\"]}[Data],\n  PUBLIC_Schema = GSL_TEST_DB_Database{[Name=\"PUBLIC\",Kind=\"Schema\"]}[Data],\n   SALES_ANALYST_VIEW_View = PUBLIC_Schema{[Name=\"SALES_ANALYST_VIEW\",Kind=\"View\"]}[Data],\n  two_source_table  = Table.Combine({public_order_date, SALES_ANALYST_VIEW_View})\n in\n    two_source_table'
+    parse_tree: Tree = m_parser.parse_expression(expression)
+    assert m_parser.get_output_dataset(parse_tree) == 'two_source_table'
+

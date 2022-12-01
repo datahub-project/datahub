@@ -45,7 +45,7 @@ from datahub.metadata.schema_classes import (
     OwnershipClass,
     OwnershipTypeClass,
     StatusClass,
-    SubTypesClass,
+    SubTypesClass, UpstreamClass, DatasetLineageTypeClass, UpstreamLineageClass,
 )
 from datahub.utilities.dedup_list import deduplicate_list
 
@@ -999,6 +999,8 @@ class PowerBiAPI:
         # Scan is complete lets take the result
         scan_result = get_scan_result(scan_id=scan_id)
         LOGGER.debug(f"scan result = {scan_result}")
+        import json
+        print(json.dumps(scan_result, indent=1))
         workspace = PowerBiAPI.Workspace(
             id=scan_result["id"],
             name=scan_result["name"],
@@ -1110,6 +1112,40 @@ class Mapper:
                 aspect_name=Constant.STATUS,
                 aspect=StatusClass(removed=False),
             )
+            if table.name == 'two_source_table':
+                upstreams: List[UpstreamClass] = []
+                upstream_urn = builder.make_dataset_urn_with_platform_instance(
+                    "snowflake",
+                    "GSL_TEST_DB.PUBLIC.SALES_ANALYST_VIEW",
+                    "GSL_TEST_WH",
+                )
+
+                upstream_table = UpstreamClass(
+                    upstream_urn,
+                    DatasetLineageTypeClass.TRANSFORMED,
+                )
+
+                upstreams.append(upstream_table)
+
+                upstream_urn2 = builder.make_dataset_urn(
+                    "postgres",
+                    "mics.public.order_date",
+                )
+                upstream_table2 = UpstreamClass(
+                    upstream_urn2,
+                    DatasetLineageTypeClass.TRANSFORMED,
+                )
+                upstreams.append(upstream_table2)
+
+                upstream_lineage = UpstreamLineageClass(upstreams=upstreams)
+                mcp = MetadataChangeProposalWrapper(
+                    entityType="dataset",
+                    changeType=ChangeTypeClass.UPSERT,
+                    entityUrn=ds_urn,
+                    aspect=upstream_lineage,
+                )
+
+                dataset_mcps.extend([mcp])
 
             dataset_mcps.extend([info_mcp, status_mcp])
 
