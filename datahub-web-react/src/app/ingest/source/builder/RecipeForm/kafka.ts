@@ -41,9 +41,9 @@ export const KAFKA_BOOTSTRAP: RecipeField = {
 
 export const KAFKA_SCHEMA_REGISTRY_URL: RecipeField = {
     name: 'connection.schema_registry_url',
-    required: true,
     label: 'Schema Registry URL',
-    tooltip: 'The URL where the schema Schema Registry is hosted.',
+    tooltip:
+        'The URL where the schema Schema Registry is hosted. If provided, DataHub will attempt to extract Avro and Protobuf topic schemas from the registry.',
     placeholder: 'https://abc-defgh.us-east-2.aws.confluent.cloud',
     type: FieldType.TEXT,
     fieldPath: 'source.config.connection.schema_registry_url',
