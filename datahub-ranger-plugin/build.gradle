@@ -24,8 +24,11 @@ compileJava {
 }
 
 dependencies {
-    implementation 'org.apache.ranger:ranger-plugins-common:2.3.0'
-    compile 'org.apache.logging.log4j:log4j-1.2-api:2.17.1'
+    implementation(externalDependency.rangerCommons) {
+        exclude group: "org.apache.htrace", module: "htrace-core4"
+    }
+    implementation externalDependency.hadoopCommon3
+    implementation externalDependency.log4jApi
 
     testCompile externalDependency.testng
 }

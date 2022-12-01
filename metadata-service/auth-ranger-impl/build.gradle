@@ -8,7 +8,11 @@ compileJava {
 dependencies {
     compile project(path: ':metadata-service:auth-api')
 
-    implementation 'org.apache.ranger:ranger-plugins-common:2.3.0'
+    implementation(externalDependency.rangerCommons) {
+        exclude group: "org.apache.htrace", module: "htrace-core4"
+    }
+    implementation externalDependency.hadoopCommon3
+
     implementation 'org.apache.logging.log4j:log4j-1.2-api:2.17.1'
     implementation 'rome:rome:1.0'
     runtimeOnly externalDependency.jna
