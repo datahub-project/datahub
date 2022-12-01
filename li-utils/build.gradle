@@ -25,6 +25,7 @@ dependencies {
 
     testCompile externalDependency.assertJ
     testCompile project(':test-models')
+    implementation('org.apache.commons:commons-text:1.10.0')
 }
 
 idea {
