@@ -300,6 +300,7 @@ class _SingleDatasetProfiler(BasicDatasetProfilerBase):
                 "Profiling - Unable to get column cardinality",
                 f"{self.dataset_name}.{column}",
             )
+            return
 
         unique_count = None
         pct_unique = None
