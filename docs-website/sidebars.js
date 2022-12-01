@@ -109,9 +109,9 @@ module.exports = {
     "Integration Guides": [
       {
         "BigQuery": [
-          "docs/quick-ingestion-guides/Page_1-Overview",
-          "docs/quick-ingestion-guides/Page_2-Setup",
-          "docs/quick-ingestion-guides/Page_3-Configuration",
+          "docs/quick-ingestion-guides/BigQuery/Overview",
+          "docs/quick-ingestion-guides/BigQuery/Setup",
+          "docs/quick-ingestion-guides/BigQuery/Configuration",
         ]
       }
     ],
