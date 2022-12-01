@@ -10,7 +10,18 @@ import threading
 import traceback
 import unittest.mock
 import uuid
-from typing import Any, Callable, Dict, Iterable, Iterator, List, Optional, Tuple, Union
+from typing import (
+    Any,
+    Callable,
+    Dict,
+    Iterable,
+    Iterator,
+    List,
+    Optional,
+    Tuple,
+    Union,
+    cast,
+)
 
 import sqlalchemy as sa
 from great_expectations.core.util import convert_to_json_serializable
@@ -847,13 +858,13 @@ class DatahubGEProfiler:
         ):
             # On BigQuery, we need to bypass GE's mechanism for creating temporary tables because
             # it requires create/delete table permissions.
-            import google.cloud.bigquery.dbapi.cursor
             import google.cloud.bigquery.job.query
+            from google.cloud.bigquery.dbapi.cursor import Cursor as BigQueryCursor
 
             raw_connection = self.base_engine.raw_connection()
             try:
-                cursor: "google.cloud.bigquery.dbapi.cursor.Cursor" = (
-                    raw_connection.cursor()
+                cursor: "BigQueryCursor" = cast(
+                    "BigQueryCursor", raw_connection.cursor()
                 )
                 if custom_sql is not None:
                     # Note that limit and offset are not supported for custom SQL.
@@ -902,9 +913,10 @@ class DatahubGEProfiler:
                 # temporary table dance. However, that would require either a) upgrading to
                 # use GE's batch v3 API or b) bypassing GE altogether.
 
-                query_job: "google.cloud.bigquery.job.query.QueryJob" = (
-                    cursor._query_job
-                )
+                query_job: Optional[
+                    "google.cloud.bigquery.job.query.QueryJob"
+                ] = cursor._query_job
+                assert query_job
                 temp_destination_table = query_job.destination
                 bigquery_temp_table = f"{temp_destination_table.project}.{temp_destination_table.dataset_id}.{temp_destination_table.table_id}"
             finally:

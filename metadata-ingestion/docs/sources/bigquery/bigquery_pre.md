@@ -93,8 +93,8 @@ Note: Since bigquery source also supports dataset level lineage, the auth client
 
 ### Profiling Details
 
-For performance reasons, we only profile the latest partition for Partitioned tables and the latest shard for sharded tables.
-You can set partition explicitly with `partition.partition_datetime` property if you want. (partition will be applied to all partitioned tables)
+For performance reasons, we only profile the latest partition for partitioned tables and the latest shard for sharded tables.
+You can set partition explicitly with `partition.partition_datetime` property if you want, though note that partition config will be applied to all partitioned tables.
 
 ### Caveats
 
