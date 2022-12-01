@@ -112,7 +112,6 @@ shadowJar {
   relocate 'com.sun.jna', 'datahub.shaded.com.sun.jna'
   // Below jars added for kafka emitter only
   relocate 'org.apache.avro', 'datahub.shaded.org.apache.avro'
-  relocate 'org.codehaus.jackson', 'datahub.shaded.org.codehaus.jackson'
   relocate 'com.thoughtworks.paranamer', 'datahub.shaded.com.thoughtworks.paranamer'
   relocate 'org.xerial.snappy', 'datahub.shaded.org.xerial.snappy'
   relocate 'org.apache.kafka', 'datahub.shaded.org.apache.kafka'

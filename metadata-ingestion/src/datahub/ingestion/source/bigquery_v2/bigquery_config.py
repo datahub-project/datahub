@@ -64,7 +64,7 @@ class BigQueryV2Config(BigQueryConfig, LineageConfig):
     # The inheritance hierarchy is wonky here, but these options need modifications.
     project_id: Optional[str] = Field(
         default=None,
-        description="[deprecated] Use project_id_pattern instead.",
+        description="[deprecated] Use project_id_pattern instead. You can use this property if you only want to ingest one project and don't want to give project resourcemanager.projects.list to your service account",
     )
     storage_project_id: None = Field(default=None, hidden_from_schema=True)
 
@@ -97,14 +97,13 @@ class BigQueryV2Config(BigQueryConfig, LineageConfig):
 
         if project_id_pattern == AllowDenyPattern.allow_all() and project_id:
             logging.warning(
-                "project_id_pattern is not set but project_id is set, setting project_id as project_id_pattern. project_id will be deprecated, please use project_id_pattern instead."
+                "project_id_pattern is not set but project_id is set, source will only ingest the project_id project. project_id will be deprecated, please use project_id_pattern instead."
             )
             values["project_id_pattern"] = AllowDenyPattern(allow=[f"^{project_id}$"])
         elif project_id_pattern != AllowDenyPattern.allow_all() and project_id:
             logging.warning(
-                "project_id will be ignored in favour of project_id_pattern. project_id will be deprecated, please use project_id only."
+                "use project_id_pattern whenever possible. project_id will be deprecated, please use project_id_pattern only if possible."
             )
-            values.pop("project_id")
 
         dataset_pattern = values.get("dataset_pattern")
         schema_pattern = values.get("schema_pattern")

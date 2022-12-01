@@ -12,6 +12,20 @@ This file documents any backwards-incompatible changes in DataHub and assists pe
 
 ### Other notable Changes
 
+## 0.9.3
+
+### Breaking Changes
+
+- The beta `datahub check graph-consistency` command has been removed. 
+
+### Potential Downtime
+
+### Deprecations
+
+- PowerBI source: `workspace_id_pattern` is introduced in place of `workspace_id`. `workspace_id` is now deprecated and set for removal in a future version.
+
+### Other notable Changes
+
 ## 0.9.2
 
 - LookML source will only emit views that are reachable from explores while scanning your git repo. Previous behavior can be achieved by setting `emit_reachable_views_only` to False.
