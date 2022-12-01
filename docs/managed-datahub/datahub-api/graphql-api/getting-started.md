@@ -10,7 +10,7 @@ For a full reference to the Queries & Mutations available for consumption, check
 
 ### Connecting to the API
 
-![](../imgs/saas/image (3).png)
+![](../../imgs/saas/image (3).png)
 
 When you generate the token you will see an example of `curl` command which you can use to connect to the GraphQL API.
 

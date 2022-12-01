@@ -67,7 +67,7 @@ Confirm you see the Basic Information Tab
 
 * Go to “**OAuth & Permissions” Tab**
 
-![](../imgs/saas/Untitled (1).png)
+![](../imgs/saas/Untitled(1).png)
 
 Here you'll find a “**Bot User OAuth Token**” which DataHub will need to communicate with your slack through the bot.&#x20;
 
