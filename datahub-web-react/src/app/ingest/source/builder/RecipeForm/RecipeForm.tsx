@@ -115,6 +115,7 @@ function RecipeForm(props: Props) {
     });
     const secrets =
         data?.listSecrets?.secrets.sort((secretA, secretB) => secretA.name.localeCompare(secretB.name)) || [];
+    const [form] = Form.useForm();
 
     function updateFormValues(changedValues: any, allValues: any) {
         let updatedValues = YAML.parse(displayRecipe);
@@ -137,6 +138,7 @@ function RecipeForm(props: Props) {
             layout="vertical"
             initialValues={getInitialValues(displayRecipe, allFields)}
             onFinish={onClickNext}
+            form={form}
             onValuesChange={updateFormValues}
         >
             <StyledCollapse defaultActiveKey="0">
@@ -147,6 +149,7 @@ function RecipeForm(props: Props) {
                             secrets={secrets}
                             refetchSecrets={refetchSecrets}
                             removeMargin={i === fields.length - 1}
+                            form={form}
                         />
                     ))}
                     {CONNECTORS_WITH_TEST_CONNECTION.has(type as string) && (
@@ -184,6 +187,7 @@ function RecipeForm(props: Props) {
                                         secrets={secrets}
                                         refetchSecrets={refetchSecrets}
                                         removeMargin={i === filterFields.length - 1}
+                                        form={form}
                                     />
                                 </MarginWrapper>
                             </>
@@ -209,6 +213,7 @@ function RecipeForm(props: Props) {
                             secrets={secrets}
                             refetchSecrets={refetchSecrets}
                             removeMargin={i === advancedFields.length - 1}
+                            form={form}
                         />
                     ))}
                 </Collapse.Panel>
