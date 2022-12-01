@@ -20,7 +20,6 @@ source:
     #end_time: 2023-12-15T20:08:23.091Z
     #profiling:
     #  enabled: true
-    #  bigquery_temp_table_schema: my-project-id.my-schema-where-views-can-be-created-for-profiling
     #  turn_off_expensive_profiling_metrics: false
     #  query_combiner_enabled: true
     #  max_number_of_fields_to_profile: 8
