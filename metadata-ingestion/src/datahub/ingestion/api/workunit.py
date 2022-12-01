@@ -1,5 +1,5 @@
 from dataclasses import dataclass
-from typing import Optional, Iterable, Union, overload
+from typing import Iterable, Optional, Union, overload
 
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.source import WorkUnit

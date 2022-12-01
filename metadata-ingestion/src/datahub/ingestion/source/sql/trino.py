@@ -50,7 +50,7 @@ if version.parse(trino.__version__) >= version.parse("0.317.0"):
 # Read only table names and skip view names, as view names will also be returned
 # from get_view_names
 @reflection.cache  # type: ignore
-def get_table_names(self, connection, schema: Optional[str] = None, **kw):  # type: ignore
+def get_table_names(self, connection, schema: str = None, **kw):  # type: ignore
     schema = schema or self._get_default_schema_name(connection)
     if schema is None:
         raise exc.NoSuchTableError("schema is required")
@@ -67,7 +67,7 @@ def get_table_names(self, connection, schema: Optional[str] = None, **kw):  # ty
 
 # Include all table properties instead of only "comment" property
 @reflection.cache  # type: ignore
-def get_table_comment(self, connection, table_name: str, schema: Optional[str] = None, **kw):  # type: ignore
+def get_table_comment(self, connection, table_name: str, schema: str = None, **kw):  # type: ignore
     try:
         properties_table = self._get_full_table(f"{table_name}$properties", schema)
         query = f"SELECT * FROM {properties_table}"
@@ -100,7 +100,7 @@ def get_table_comment(self, connection, table_name: str, schema: Optional[str] =
 
 # Include column comment, original trino datatype as full_type
 @reflection.cache  # type: ignore
-def _get_columns(self, connection, table_name, schema: Optional[str] = None, **kw):  # type: ignore
+def _get_columns(self, connection, table_name, schema: str = None, **kw):  # type: ignore
     schema = schema or self._get_default_schema_name(connection)
     query = dedent(
         """

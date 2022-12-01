@@ -2,7 +2,7 @@ import json
 import re
 import time
 import warnings
-from typing import Optional, Any, Dict, Generator, List, Tuple
+from typing import Any, Dict, Generator, List, Optional, Tuple
 
 import requests
 import yaml
@@ -47,7 +47,10 @@ def flatten2list(d: dict) -> list:
 
 
 def request_call(
-    url: str, token: Optional[str] = None, username: Optional[str] = None, password: Optional[str] = None
+    url: str,
+    token: Optional[str] = None,
+    username: Optional[str] = None,
+    password: Optional[str] = None,
 ) -> requests.Response:
 
     headers = {"accept": "application/json"}

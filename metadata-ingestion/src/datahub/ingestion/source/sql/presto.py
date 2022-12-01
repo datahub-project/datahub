@@ -1,4 +1,5 @@
 from textwrap import dedent
+from typing import Optional
 
 from pydantic.fields import Field
 from pyhive.sqlalchemy_presto import PrestoDialect
@@ -21,7 +22,6 @@ from datahub.ingestion.source.sql.trino import (
     get_table_comment,
     get_table_names,
 )
-from typing import Optional
 
 
 # On Presto the information_schema.views does not return views but the tables table returns
