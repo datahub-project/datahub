@@ -66,7 +66,8 @@ public class UnsetDomainResolver implements DataFetcher<CompletableFuture<Boolea
         proposal.setAspect(GenericRecordUtils.serializeAspect(domains));
         proposal.setChangeType(ChangeType.UPSERT);
         Map<String, Long> createdOnMap = CondUpdateUtils.extractCondUpdate(condUpdate);
-        _entityClient.ingestProposal(proposal, context.getAuthentication(), createdOnMap.get(proposal.getEntityUrn()));
+        _entityClient.ingestProposal(proposal, context.getAuthentication(),
+                proposal.getEntityUrn() != null ? createdOnMap.get(proposal.getEntityUrn().toString()) : null);
         return true;
       } catch (Exception e) {
         log.error("Failed to unset Domains for resource with entity urn {}: {}", entityUrn, e.getMessage());

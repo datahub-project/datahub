@@ -76,7 +76,8 @@ public class UpsertPolicyResolver implements DataFetcher<CompletableFuture<Strin
         try {
           // TODO: We should also provide SystemMetadata.
           Map<String, Long> createdOnMap = CondUpdateUtils.extractCondUpdate(condUpdate);
-          String urn = _entityClient.ingestProposal(proposal, context.getAuthentication(), createdOnMap.get(proposal.getEntityUrn()));
+          String urn = _entityClient.ingestProposal(proposal, context.getAuthentication(),
+                  proposal.getEntityUrn() != null ? createdOnMap.get(proposal.getEntityUrn().toString()) : null);
           if (context.getAuthorizer() instanceof AuthorizerChain) {
             ((AuthorizerChain) context.getAuthorizer()).getDefaultAuthorizer().invalidateCache();
           }

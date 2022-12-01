@@ -523,10 +523,10 @@ private Map<Urn, List<EnvelopedAspect>> getCorrespondingAspects(Set<EntityAspect
   private List<Pair<String, UpdateAspectResult>> wrappedIngestAspectsToLocalDB(@Nonnull final Urn urn,
       @Nonnull List<Pair<String, RecordTemplate>> aspectRecordsToIngest,
       @Nonnull final AuditStamp auditStamp, @Nonnull final SystemMetadata providedSystemMetadata,
-      Map<String, Long> updateIfCreatedOnMap) {
+      Map<String, Long> createdOnMap) {
     validateUrn(urn);
     aspectRecordsToIngest.forEach(pair -> validateAspect(urn, pair.getSecond()));
-    return ingestAspectsToLocalDB(urn, aspectRecordsToIngest, auditStamp, providedSystemMetadata, updateIfCreatedOnMap);
+    return ingestAspectsToLocalDB(urn, aspectRecordsToIngest, auditStamp, providedSystemMetadata, createdOnMap);
   }
 
   // Validates urn subfields using EntityRegistryUrnValidator and does basic field validation for type alignment
@@ -639,7 +639,7 @@ private Map<Urn, List<EnvelopedAspect>> getCorrespondingAspects(Set<EntityAspect
       @Nonnull List<Pair<String, RecordTemplate>> aspectRecordsToIngest,
       @Nonnull final AuditStamp auditStamp,
       @Nonnull final SystemMetadata systemMetadata,
-      Map<String, Long> updateIfCreatedOnMap) {
+      Map<String, Long> createdOnMap) {
 
     return _aspectDao.runInTransactionWithRetry(() -> {
 
@@ -658,7 +658,7 @@ private Map<Urn, List<EnvelopedAspect>> getCorrespondingAspects(Set<EntityAspect
         EntityAspect latest = latestAspects.get(aspectName);
         long nextVersion = nextVersions.get(aspectName);
         UpdateAspectResult updateResult = ingestAspectToLocalDBNoTransaction(urn, aspectName, ignored -> newValue, auditStamp, systemMetadata,
-            latest, nextVersion, updateIfCreatedOnMap != null ? updateIfCreatedOnMap.get(urn) : null);
+            latest, nextVersion, createdOnMap != null ? createdOnMap.get(urn.toString()) : null);
         result.add(new Pair<>(aspectName, updateResult));
       }
       return result;
@@ -686,13 +686,13 @@ private Map<Urn, List<EnvelopedAspect>> getCorrespondingAspects(Set<EntityAspect
     ingestAspects(urn, aspectRecordsToIngest, auditStamp, systemMetadata, null);
   }
   public void ingestAspects(@Nonnull final Urn urn, @Nonnull List<Pair<String, RecordTemplate>> aspectRecordsToIngest,
-     @Nonnull final AuditStamp auditStamp, SystemMetadata systemMetadata, Map<String, Long> updateIfCreatedOnMap) {
+     @Nonnull final AuditStamp auditStamp, SystemMetadata systemMetadata, Map<String, Long> createdOnMap) {
 
     systemMetadata = generateSystemMetadataIfEmpty(systemMetadata);
 
     Timer.Context ingestToLocalDBTimer = MetricUtils.timer(this.getClass(), "ingestAspectsToLocalDB").time();
     List<Pair<String, UpdateAspectResult>> ingestResults = wrappedIngestAspectsToLocalDB(urn, aspectRecordsToIngest,
-            auditStamp, systemMetadata, updateIfCreatedOnMap);
+            auditStamp, systemMetadata, createdOnMap);
     ingestToLocalDBTimer.stop();
 
     for (Pair<String, UpdateAspectResult> result: ingestResults) {
@@ -1898,10 +1898,17 @@ private Map<Urn, List<EnvelopedAspect>> getCorrespondingAspects(Set<EntityAspect
       @Nonnull final Long nextVersion,
       @Nullable Long updateIfCreatedOn) {
 
-    // 2. Compare the latest existing and new.
+    // 1. Compare the latest existing and new.
     final RecordTemplate oldValue =
         latest == null ? null : EntityUtils.toAspectRecord(urn, aspectName, latest.getMetadata(), getEntityRegistry());
     final RecordTemplate newValue = updateLambda.apply(Optional.ofNullable(oldValue));
+
+    // 2. If the condition update is not met we return the original one
+    if (!checkConditionalUpdate(latest, updateIfCreatedOn))
+      return new UpdateAspectResult(urn, oldValue, oldValue,
+              latest != null ? EntityUtils.parseSystemMetadata(latest.getSystemMetadata()) : new SystemMetadata(),
+              latest != null ? EntityUtils.parseSystemMetadata(latest.getSystemMetadata()) : new SystemMetadata(),
+              MetadataAuditOperation.UPDATE, auditStamp, 0);
 
     // 3. If there is no difference between existing and new, we just update
     // the lastObserved in system metadata. RunId should stay as the original runId
@@ -1955,7 +1962,7 @@ private Map<Urn, List<EnvelopedAspect>> getCorrespondingAspects(Set<EntityAspect
       @Nonnull final AuditStamp auditStamp,
       @Nonnull final long version,
       @Nonnull final boolean emitMae,
-      Long updateIfCreatedOn,
+      @Nullable Long updateIfCreatedOn,
       final int maxTransactionRetry) {
 
     final UpdateAspectResult result = _aspectDao.runInTransactionWithRetry(() -> {
@@ -1970,6 +1977,10 @@ private Map<Urn, List<EnvelopedAspect>> getCorrespondingAspects(Set<EntityAspect
       SystemMetadata newSystemMetadata =
           oldAspect == null ? new SystemMetadata() : EntityUtils.parseSystemMetadata(oldAspect.getSystemMetadata());
       newSystemMetadata.setLastObserved(System.currentTimeMillis());
+
+      if (!checkConditionalUpdate(oldAspect, updateIfCreatedOn))
+        return new UpdateAspectResult(urn, oldValue, oldValue, oldSystemMetadata, oldSystemMetadata,
+                MetadataAuditOperation.UPDATE, auditStamp, version);
 
       log.debug("Updating aspect with name {}, urn {}", aspectName, urn);
       _aspectDao.saveAspect(urn.toString(), aspectName, EntityUtils.toJsonAspect(value), auditStamp.getActor().toString(),
@@ -2043,5 +2054,18 @@ private Map<Urn, List<EnvelopedAspect>> getCorrespondingAspects(Set<EntityAspect
       log.warn(String.format("Failed to find Data Platform Info for urn %s", urn));
     }
     return null;
+  }
+
+  private boolean checkConditionalUpdate(EntityAspect oldAspect, Long updateIfCreatedOn) {
+    if (_aspectDao.supportTransactions() && updateIfCreatedOn != null) {
+      long updateIfCreatedOnValue = updateIfCreatedOn.longValue();
+      if (updateIfCreatedOnValue == 0 && oldAspect != null) {
+        return false;
+      }
+      if (updateIfCreatedOnValue != 0 && (oldAspect == null || oldAspect.getCreatedOn().getTime() != updateIfCreatedOnValue)) {
+        return false;
+      }
+    }
+    return true;
   }
 }

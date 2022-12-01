@@ -108,16 +108,16 @@ public class EntitiesController {
   @PostMapping(value = "/", produces = MediaType.APPLICATION_JSON_VALUE)
   public ResponseEntity<List<String>> postEntities(
       @RequestBody @Nonnull List<UpsertAspectRequest> aspectRequests,
-      @RequestHeader(name = "eTag") String eTag) {
+      @RequestHeader(name = Constants.IN_UNMODIFIED_SINCE) String condUpdate) {
     log.info("INGEST PROPOSAL proposal: {}", aspectRequests);
 
     Authentication authentication = AuthenticationContext.getAuthentication();
     String actorUrnStr = authentication.getActor().toUrnStr();
 
-    Map<String, Long> updateIfCreatedOnMap = CondUpdateUtils.extractCondUpdate(eTag);
+    Map<String, Long> createdOnMap = CondUpdateUtils.extractCondUpdate(condUpdate);
     List<Pair<String, Boolean>> responses = aspectRequests.stream()
         .map(MappingUtil::mapToProposal)
-        .map(proposal -> MappingUtil.ingestProposal(proposal, actorUrnStr,  _entityService, _objectMapper, updateIfCreatedOnMap.get(actorUrnStr)))
+        .map(proposal -> MappingUtil.ingestProposal(proposal, actorUrnStr,  _entityService, _objectMapper, createdOnMap.get(actorUrnStr)))
         .collect(Collectors.toList());
     if (responses.stream().anyMatch(Pair::getSecond)) {
       return ResponseEntity.status(HttpStatus.CREATED)
@@ -145,7 +145,7 @@ public class EntitiesController {
       if (!soft) {
         Map<String, Long> createdOnMap = CondUpdateUtils.extractCondUpdate(condUpdate);
         return ResponseEntity.ok(entityUrns.stream()
-            .map(urn -> _entityService.deleteUrn(urn, createdOnMap.get(urn)))
+            .map(urn -> _entityService.deleteUrn(urn, createdOnMap.get(urn.toString())))
             .map(rollbackRunResult -> MappingUtil.mapRollbackRunResult(rollbackRunResult, _objectMapper))
             .collect(Collectors.toList()));
       } else {
@@ -156,11 +156,11 @@ public class EntitiesController {
         Authentication authentication = AuthenticationContext.getAuthentication();
         String actorUrnStr = authentication.getActor().toUrnStr();
 
-        Map<String, Long> updateIfCreatedOnMap = CondUpdateUtils.extractCondUpdate(condUpdate);
+        Map<String, Long> createdOnMap = CondUpdateUtils.extractCondUpdate(condUpdate);
         return ResponseEntity.ok(Collections.singletonList(RollbackRunResultDto.builder()
             .rowsRolledBack(deleteRequests.stream()
                 .map(MappingUtil::mapToProposal)
-                .map(proposal -> MappingUtil.ingestProposal(proposal, actorUrnStr, _entityService, _objectMapper, updateIfCreatedOnMap.get(actorUrnStr)))
+                .map(proposal -> MappingUtil.ingestProposal(proposal, actorUrnStr, _entityService, _objectMapper, createdOnMap.get(actorUrnStr)))
                 .filter(Pair::getSecond)
                 .map(Pair::getFirst)
                 .map(urnString -> new AspectRowSummary().urn(urnString))

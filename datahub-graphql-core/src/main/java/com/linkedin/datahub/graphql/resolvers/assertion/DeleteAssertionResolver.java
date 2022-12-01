@@ -53,12 +53,12 @@ public class DeleteAssertionResolver implements DataFetcher<CompletableFuture<Bo
       if (isAuthorizedToDeleteAssertion(context, assertionUrn)) {
           try {
             Map<String, Long> createdOnMap = CondUpdateUtils.extractCondUpdate(condUpdate);
-            _entityClient.deleteEntity(assertionUrn, context.getAuthentication(), createdOnMap.get(assertionUrn));
+            _entityClient.deleteEntity(assertionUrn, context.getAuthentication(), createdOnMap.get(assertionUrn.toString()));
 
             // Asynchronously Delete all references to the entity (to return quickly)
             CompletableFuture.runAsync(() -> {
               try {
-                _entityClient.deleteEntityReferences(assertionUrn, context.getAuthentication(), createdOnMap.get(assertionUrn));
+                _entityClient.deleteEntityReferences(assertionUrn, context.getAuthentication(), createdOnMap.get(assertionUrn.toString()));
               } catch (RemoteInvocationException e) {
                 log.error(String.format("Caught exception while attempting to clear all entity references for assertion with urn %s", assertionUrn), e);
               }

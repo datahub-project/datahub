@@ -59,6 +59,6 @@ public class RoleService {
     final MetadataChangeProposal proposal =
         buildMetadataChangeProposal(actorUrn, ROLE_MEMBERSHIP_ASPECT_NAME, roleMembership);
     Map<String, Long> createdOnMap = CondUpdateUtils.extractCondUpdate(condUpdate);
-    _entityClient.ingestProposal(proposal, authentication, false, createdOnMap.get(actorUrn));
+    _entityClient.ingestProposal(proposal, authentication, false, createdOnMap.get(actorUrn.toString()));
   }
 }

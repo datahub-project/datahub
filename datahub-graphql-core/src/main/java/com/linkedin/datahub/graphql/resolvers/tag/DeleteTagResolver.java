@@ -41,12 +41,12 @@ public class DeleteTagResolver implements DataFetcher<CompletableFuture<Boolean>
       if (AuthorizationUtils.canManageTags(context) || AuthorizationUtils.canDeleteEntity(UrnUtils.getUrn(tagUrn), context)) {
         try {
           Map<String, Long> createdOnMap = CondUpdateUtils.extractCondUpdate(condUpdate);
-          _entityClient.deleteEntity(urn, context.getAuthentication(), createdOnMap.get(urn));
+          _entityClient.deleteEntity(urn, context.getAuthentication(), createdOnMap.get(urn.toString()));
 
           // Asynchronously Delete all references to the entity (to return quickly)
           CompletableFuture.runAsync(() -> {
             try {
-              _entityClient.deleteEntityReferences(urn, context.getAuthentication(), createdOnMap.get(urn));
+              _entityClient.deleteEntityReferences(urn, context.getAuthentication(), createdOnMap.get(urn.toString()));
             } catch (RemoteInvocationException e) {
               log.error(String.format(
                   "Caught exception while attempting to clear all entity references for Tag with urn %s", urn), e);

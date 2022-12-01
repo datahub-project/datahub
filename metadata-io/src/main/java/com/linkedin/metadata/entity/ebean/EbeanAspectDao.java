@@ -644,4 +644,9 @@ public class EbeanAspectDao implements AspectDao, AspectMigrationsDao {
         .findList();
     return ebeanAspects.stream().map(EbeanAspectV2::toEntityAspect).collect(Collectors.toList());
   }
+
+  @Override
+  public boolean supportTransactions() {
+    return true;
+  }
 }

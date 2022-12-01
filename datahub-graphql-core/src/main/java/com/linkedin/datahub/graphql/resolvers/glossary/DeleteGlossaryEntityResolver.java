@@ -43,12 +43,12 @@ public class DeleteGlossaryEntityResolver implements DataFetcher<CompletableFutu
 
         try {
           Map<String, Long> createdOnMap = CondUpdateUtils.extractCondUpdate(condUpdate);
-          _entityClient.deleteEntity(entityUrn, context.getAuthentication(), createdOnMap.get(entityUrn));
+          _entityClient.deleteEntity(entityUrn, context.getAuthentication(), createdOnMap.get(entityUrn.toString()));
 
           // Asynchronously Delete all references to the entity (to return quickly)
           CompletableFuture.runAsync(() -> {
             try {
-              _entityClient.deleteEntityReferences(entityUrn, context.getAuthentication(), createdOnMap.get(entityUrn));
+              _entityClient.deleteEntityReferences(entityUrn, context.getAuthentication(), createdOnMap.get(entityUrn.toString()));
             } catch (RemoteInvocationException e) {
               log.error(String.format("Caught exception while attempting to clear all entity references for glossary entity with urn %s", entityUrn), e);
             }

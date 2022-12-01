@@ -459,7 +459,7 @@ public class EntityResource extends CollectionResourceTaskTemplate<String, Entit
       DeleteEntityResponse response = new DeleteEntityResponse();
       if (aspectName == null) {
         Map<String, Long> createdOnMap = CondUpdateUtils.extractCondUpdate(condUpdate);
-        RollbackRunResult result = _entityService.deleteUrn(urn, createdOnMap.get(urn));
+        RollbackRunResult result = _entityService.deleteUrn(urn, createdOnMap.get(urn.toString()));
         response.setRows(result.getRowsDeletedFromEntityDeletion());
       }
       Long numTimeseriesDocsDeleted =
@@ -522,7 +522,7 @@ public class EntityResource extends CollectionResourceTaskTemplate<String, Entit
 
     Urn urn = Urn.createFromString(urnStr);
     Map<String, Long> createdOnMap = CondUpdateUtils.extractCondUpdate(condUpdate);
-    return RestliUtil.toTask(() -> _deleteEntityService.deleteReferencesTo(urn, dryRun, createdOnMap.get(urn)),
+    return RestliUtil.toTask(() -> _deleteEntityService.deleteReferencesTo(urn, dryRun, createdOnMap.get(urn.toString())),
         MetricRegistry.name(this.getClass(), "deleteReferences"));
   }
 

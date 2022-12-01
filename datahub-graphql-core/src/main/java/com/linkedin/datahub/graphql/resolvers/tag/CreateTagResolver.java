@@ -71,7 +71,8 @@ public class CreateTagResolver implements DataFetcher<CompletableFuture<String>>
         proposal.setAspect(GenericRecordUtils.serializeAspect(mapTagProperties(input)));
         proposal.setChangeType(ChangeType.UPSERT);
         Map<String, Long> createdOnMap = CondUpdateUtils.extractCondUpdate(condUpdate);
-        String tagUrn = _entityClient.ingestProposal(proposal, context.getAuthentication(), createdOnMap.get(proposal.getEntityUrn()));
+        String tagUrn = _entityClient.ingestProposal(proposal, context.getAuthentication(),
+                proposal.getEntityUrn() != null ? createdOnMap.get(proposal.getEntityUrn().toString()) : null);
         OwnerUtils.addCreatorAsOwner(context, tagUrn, OwnerEntityType.CORP_USER, OwnershipType.TECHNICAL_OWNER, _entityService, condUpdate);
         return tagUrn;
       } catch (Exception e) {

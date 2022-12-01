@@ -68,7 +68,8 @@ public class CreateGlossaryNodeResolver implements DataFetcher<CompletableFuture
           proposal.setChangeType(ChangeType.UPSERT);
 
           Map<String, Long> createdOnMap = CondUpdateUtils.extractCondUpdate(condUpdate);
-          String glossaryNodeUrn = _entityClient.ingestProposal(proposal, context.getAuthentication(), createdOnMap.get(proposal.getEntityUrn()));
+          String glossaryNodeUrn = _entityClient.ingestProposal(proposal, context.getAuthentication(),
+                  proposal.getEntityUrn() != null ? createdOnMap.get(proposal.getEntityUrn().toString()) : null);
           OwnerUtils.addCreatorAsOwner(context, glossaryNodeUrn, OwnerEntityType.CORP_USER, OwnershipType.TECHNICAL_OWNER, _entityService, condUpdate);
           return glossaryNodeUrn;
         } catch (Exception e) {

@@ -34,7 +34,7 @@ public class MutationUtils {
     proposal.setAspectName(aspectName);
     proposal.setAspect(GenericRecordUtils.serializeAspect(aspect));
     proposal.setChangeType(ChangeType.UPSERT);
-    entityService.ingestProposal(proposal, getAuditStamp(actor), false, createdOnMap.get(urn));
+    entityService.ingestProposal(proposal, getAuditStamp(actor), false, createdOnMap.get(urn.toString()));
   }
 
   public static MetadataChangeProposal buildMetadataChangeProposal(Urn urn, String aspectName, RecordTemplate aspect, Urn actor, EntityService entityService) {

@@ -74,7 +74,8 @@ public class CreateDomainResolver implements DataFetcher<CompletableFuture<Strin
         proposal.setChangeType(ChangeType.UPSERT);
 
         Map<String, Long> createdOnMap = CondUpdateUtils.extractCondUpdate(condUpdate);
-        String domainUrn = _entityClient.ingestProposal(proposal, context.getAuthentication(), createdOnMap.get(proposal.getEntityUrn()));
+        String domainUrn = _entityClient.ingestProposal(proposal, context.getAuthentication(),
+                proposal.getEntityUrn() != null ? createdOnMap.get(proposal.getEntityUrn().toString()) : null);
         OwnerUtils.addCreatorAsOwner(context, domainUrn, OwnerEntityType.CORP_USER, OwnershipType.TECHNICAL_OWNER, _entityService, condUpdate);
         return domainUrn;
       } catch (Exception e) {

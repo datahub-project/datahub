@@ -235,7 +235,7 @@ public class BaseService {
     // TODO: Replace this with a batch ingest proposals endpoint.
     Map<String, Long> createdOnMap = CondUpdateUtils.extractCondUpdate(condUpdate);
     for (MetadataChangeProposal change : changes) {
-      this.entityClient.ingestProposal(change, authentication, createdOnMap.get(change.getEntityUrn()));
+      this.entityClient.ingestProposal(change, authentication, createdOnMap.get(change.getEntityUrn().toString()));
     }
   }
 }

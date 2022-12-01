@@ -75,7 +75,7 @@ public class NativeUserService {
     corpUserInfoProposal.setAspect(GenericRecordUtils.serializeAspect(corpUserInfo));
     corpUserInfoProposal.setChangeType(ChangeType.UPSERT);
     Map<String, Long> createdOnMap = CondUpdateUtils.extractCondUpdate(condUpdate);
-    _entityClient.ingestProposal(corpUserInfoProposal, authentication, createdOnMap.get(userUrn));
+    _entityClient.ingestProposal(corpUserInfoProposal, authentication, createdOnMap.get(userUrn.toString()));
   }
 
   void updateCorpUserStatus(@Nonnull Urn userUrn, Authentication authentication, @Nullable String condUpdate) throws Exception {
@@ -93,7 +93,7 @@ public class NativeUserService {
     corpUserStatusProposal.setAspect(GenericRecordUtils.serializeAspect(corpUserStatus));
     corpUserStatusProposal.setChangeType(ChangeType.UPSERT);
     Map<String, Long> createdOnMap = CondUpdateUtils.extractCondUpdate(condUpdate);
-    _entityClient.ingestProposal(corpUserStatusProposal, authentication, createdOnMap.get(userUrn));
+    _entityClient.ingestProposal(corpUserStatusProposal, authentication, createdOnMap.get(userUrn.toString()));
   }
 
   void updateCorpUserCredentials(@Nonnull Urn userUrn, @Nonnull String password, @Nonnull Authentication authentication, String condUpdate)
@@ -114,7 +114,7 @@ public class NativeUserService {
     corpUserCredentialsProposal.setAspect(GenericRecordUtils.serializeAspect(corpUserCredentials));
     corpUserCredentialsProposal.setChangeType(ChangeType.UPSERT);
     Map<String, Long> createdOnMap = CondUpdateUtils.extractCondUpdate(condUpdate);
-    _entityClient.ingestProposal(corpUserCredentialsProposal, authentication, createdOnMap.get(userUrn));
+    _entityClient.ingestProposal(corpUserCredentialsProposal, authentication, createdOnMap.get(userUrn.toString()));
   }
 
   public String generateNativeUserPasswordResetToken(@Nonnull String userUrnString, Authentication authentication, @Nullable String condUpdate)
@@ -143,7 +143,7 @@ public class NativeUserService {
     corpUserCredentialsProposal.setAspect(GenericRecordUtils.serializeAspect(corpUserCredentials));
     corpUserCredentialsProposal.setChangeType(ChangeType.UPSERT);
     Map<String, Long> createdOnMap = CondUpdateUtils.extractCondUpdate(condUpdate);
-    _entityClient.ingestProposal(corpUserCredentialsProposal, authentication, createdOnMap.get(userUrn));
+    _entityClient.ingestProposal(corpUserCredentialsProposal, authentication, createdOnMap.get(userUrn.toString()));
 
     return passwordResetToken;
   }
@@ -192,7 +192,7 @@ public class NativeUserService {
     corpUserCredentialsProposal.setAspect(GenericRecordUtils.serializeAspect(corpUserCredentials));
     corpUserCredentialsProposal.setChangeType(ChangeType.UPSERT);
     Map<String, Long> createdOnMap = CondUpdateUtils.extractCondUpdate(condUpdate);
-    _entityClient.ingestProposal(corpUserCredentialsProposal, authentication, createdOnMap.get(userUrn));
+    _entityClient.ingestProposal(corpUserCredentialsProposal, authentication, createdOnMap.get(userUrn.toString()));
   }
 
   public boolean doesPasswordMatch(@Nonnull String userUrnString, @Nonnull String password) throws Exception {

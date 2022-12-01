@@ -165,8 +165,8 @@ public class AspectResource extends CollectionResourceTaskTemplate<String, Versi
       try {
         Map<String, Long> createdOnMap = CondUpdateUtils.extractCondUpdate(condUpdate);
         Urn urn = _entityService.ingestProposal(metadataChangeProposal, auditStamp, asyncBool,
-                createdOnMap.get(metadataChangeProposal.getEntityUrn())).getUrn();
-        additionalChanges.forEach(proposal -> _entityService.ingestProposal(proposal, auditStamp, asyncBool, createdOnMap.get(urn)));
+                createdOnMap.get(metadataChangeProposal.getEntityUrn().toString())).getUrn();
+        additionalChanges.forEach(proposal -> _entityService.ingestProposal(proposal, auditStamp, asyncBool, createdOnMap.get(urn.toString())));
         tryIndexRunId(urn, metadataChangeProposal.getSystemMetadata(), _entitySearchService);
         return urn.toString();
       } catch (ValidationException e) {

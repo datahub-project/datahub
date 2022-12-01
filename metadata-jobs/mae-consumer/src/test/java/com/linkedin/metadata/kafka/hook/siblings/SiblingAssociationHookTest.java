@@ -106,7 +106,8 @@ public class SiblingAssociationHookTest {
 
     Mockito.verify(_mockEntityClient, Mockito.times(1)).ingestProposal(
         Mockito.eq(proposal),
-        Mockito.eq(_mockAuthentication)
+        Mockito.eq(_mockAuthentication),
+        Mockito.any()
     );
 
     final Siblings sourceSiblingsAspect = new Siblings()
@@ -122,7 +123,8 @@ public class SiblingAssociationHookTest {
 
     Mockito.verify(_mockEntityClient, Mockito.times(1)).ingestProposal(
         Mockito.eq(proposal2),
-        Mockito.eq(_mockAuthentication)
+        Mockito.eq(_mockAuthentication),
+        Mockito.any()
     );
   }
 
@@ -179,7 +181,8 @@ public class SiblingAssociationHookTest {
 
     Mockito.verify(_mockEntityClient, Mockito.times(0)).ingestProposal(
         Mockito.eq(proposal),
-        Mockito.eq(_mockAuthentication)
+        Mockito.eq(_mockAuthentication),
+        Mockito.any()
     );
   }
 
@@ -217,7 +220,8 @@ public class SiblingAssociationHookTest {
 
     Mockito.verify(_mockEntityClient, Mockito.times(1)).ingestProposal(
         Mockito.eq(proposal),
-        Mockito.eq(_mockAuthentication)
+        Mockito.eq(_mockAuthentication),
+        Mockito.any()
     );
 
     final Siblings sourceSiblingsAspect = new Siblings()
@@ -233,7 +237,8 @@ public class SiblingAssociationHookTest {
 
     Mockito.verify(_mockEntityClient, Mockito.times(1)).ingestProposal(
         Mockito.eq(proposal2),
-        Mockito.eq(_mockAuthentication)
+        Mockito.eq(_mockAuthentication),
+        Mockito.any()
     );
   }
 
@@ -282,7 +287,8 @@ public class SiblingAssociationHookTest {
 
     Mockito.verify(_mockEntityClient, Mockito.times(1)).ingestProposal(
         Mockito.eq(proposal),
-        Mockito.eq(_mockAuthentication)
+        Mockito.eq(_mockAuthentication),
+        Mockito.any()
     );
 
     final Siblings sourceSiblingsAspect = new Siblings()
@@ -298,7 +304,8 @@ public class SiblingAssociationHookTest {
 
     Mockito.verify(_mockEntityClient, Mockito.times(1)).ingestProposal(
         Mockito.eq(proposal2),
-        Mockito.eq(_mockAuthentication)
+        Mockito.eq(_mockAuthentication),
+        Mockito.any()
     );
   }
 }

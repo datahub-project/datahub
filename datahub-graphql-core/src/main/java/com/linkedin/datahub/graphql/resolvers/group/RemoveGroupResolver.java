@@ -38,12 +38,12 @@ public class RemoveGroupResolver implements DataFetcher<CompletableFuture<Boolea
       return CompletableFuture.supplyAsync(() -> {
         try {
           Map<String, Long> createdOnMap = CondUpdateUtils.extractCondUpdate(condUpdate);
-          _entityClient.deleteEntity(urn, context.getAuthentication(), createdOnMap.get(urn));
+          _entityClient.deleteEntity(urn, context.getAuthentication(), createdOnMap.get(urn.toString()));
 
           // Asynchronously Delete all references to the entity (to return quickly)
           CompletableFuture.runAsync(() -> {
             try {
-              _entityClient.deleteEntityReferences(urn, context.getAuthentication(), createdOnMap.get(urn));
+              _entityClient.deleteEntityReferences(urn, context.getAuthentication(), createdOnMap.get(urn.toString()));
             } catch (RemoteInvocationException e) {
               log.error(String.format("Caught exception while attempting to clear all entity references for group with urn %s", urn), e);
             }

@@ -275,7 +275,7 @@ public class BatchIngestionRunResource extends CollectionResourceTaskTemplate<St
         Map<String, Long> createdOnMap = CondUpdateUtils.extractCondUpdate(condUpdate);
         _entityService.ingestProposal(proposal,
             new AuditStamp().setActor(UrnUtils.getUrn(Constants.SYSTEM_ACTOR)).setTime(System.currentTimeMillis()), false,
-            createdOnMap.get(proposal.getEntityUrn()));
+                proposal.getEntityUrn() != null ? createdOnMap.get(proposal.getEntityUrn().toString()) : null);
       }
     } catch (Exception e) {
       log.error(String.format("Not able to update execution result aspect with runId %s and new status %s.", runId, status), e);

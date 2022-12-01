@@ -75,7 +75,8 @@ public class UpdateDeprecationResolver implements DataFetcher<CompletableFuture<
         proposal.setAspect(GenericRecordUtils.serializeAspect(deprecation));
         proposal.setChangeType(ChangeType.UPSERT);
         Map<String, Long> createdOnMap = CondUpdateUtils.extractCondUpdate(condUpdate);
-        _entityClient.ingestProposal(proposal, context.getAuthentication(), createdOnMap.get(proposal.getEntityUrn()));
+        _entityClient.ingestProposal(proposal, context.getAuthentication(),
+                proposal.getEntityUrn() != null ? createdOnMap.get(proposal.getEntityUrn().toString()) : null);
         return true;
       } catch (Exception e) {
         log.error("Failed to update Deprecation for resource with entity urn {}: {}", entityUrn, e.getMessage());

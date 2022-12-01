@@ -39,13 +39,13 @@ public class DeleteDomainResolver implements DataFetcher<CompletableFuture<Boole
       if (AuthorizationUtils.canManageDomains(context) || AuthorizationUtils.canDeleteEntity(urn, context)) {
         try {
           Map<String, Long> createdOnMap = CondUpdateUtils.extractCondUpdate(condUpdate);
-          _entityClient.deleteEntity(urn, context.getAuthentication(), createdOnMap.get(urn));
+          _entityClient.deleteEntity(urn, context.getAuthentication(), createdOnMap.get(urn.toString()));
           log.info(String.format("I've successfully deleted the entity %s with urn", domainUrn));
 
           // Asynchronously Delete all references to the entity (to return quickly)
           CompletableFuture.runAsync(() -> {
             try {
-              _entityClient.deleteEntityReferences(urn, context.getAuthentication(), createdOnMap.get(urn));
+              _entityClient.deleteEntityReferences(urn, context.getAuthentication(), createdOnMap.get(urn.toString()));
             } catch (RemoteInvocationException e) {
               log.error(String.format("Caught exception while attempting to clear all entity references for Domain with urn %s", urn), e);
             }

@@ -489,7 +489,6 @@ public class CassandraAspectDao implements AspectDao, AspectMigrationsDao {
       @Nullable final String newSystemMetadata,
       final Long nextVersion,
       Long updateIfCreatedOn
-      // Parameter updateIfCreatedOn is part of eTag Variable/Header. In this function we should use it in order to implement conditional update.
   ) {
 
     validateConnection();
@@ -565,7 +564,8 @@ public class CassandraAspectDao implements AspectDao, AspectMigrationsDao {
               .whereColumn(CassandraAspect.ASPECT_COLUMN).isEqualTo(literal(aspect.getAspect()))
               .whereColumn(CassandraAspect.VERSION_COLUMN).isEqualTo(literal(aspect.getVersion()));
       if (updateIfCreatedOn != null) {
-        u = u.ifRaw(CassandraAspect.CREATED_ON_COLUMN + "=" + updateIfCreatedOn);
+        //u = u.whereColumn(CassandraAspect.CREATED_ON_COLUMN).isEqualTo(literal(updateIfCreatedOn));
+        u = u.ifColumn(CassandraAspect.CREATED_ON_COLUMN).isEqualTo(literal(updateIfCreatedOn));
       } else {
         u = u.ifExists();
       }
@@ -626,5 +626,10 @@ public class CassandraAspectDao implements AspectDao, AspectMigrationsDao {
 
   private Iterable<Term> aspectNamesToLiterals(Set<String> aspectNames) {
     return aspectNames.stream().map(QueryBuilder::literal).collect(Collectors.toSet());
+  }
+
+  @Override
+  public boolean supportTransactions() {
+    return false;
   }
 }

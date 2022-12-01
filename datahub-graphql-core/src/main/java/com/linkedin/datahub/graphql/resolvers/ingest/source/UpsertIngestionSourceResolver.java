@@ -94,7 +94,8 @@ public class UpsertIngestionSourceResolver implements DataFetcher<CompletableFut
 
         try {
           Map<String, Long> createdOnMap = CondUpdateUtils.extractCondUpdate(condUpdate);
-          return _entityClient.ingestProposal(proposal, context.getAuthentication(), createdOnMap.get(proposal.getEntityUrn()));
+          return _entityClient.ingestProposal(proposal, context.getAuthentication(),
+                  proposal.getEntityUrn() != null ? createdOnMap.get(proposal.getEntityUrn().toString()) : null);
         } catch (Exception e) {
           throw new RuntimeException(String.format("Failed to perform update against ingestion source with urn %s", input), e);
         }

@@ -119,4 +119,6 @@ public interface AspectDao {
 
     @Nonnull
     <T> T runInTransactionWithRetry(@Nonnull final Supplier<T> block, final int maxTransactionRetry);
+
+    boolean supportTransactions();
 }

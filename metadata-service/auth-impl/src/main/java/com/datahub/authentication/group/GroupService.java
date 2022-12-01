@@ -89,7 +89,7 @@ public class GroupService {
       proposal.setAspect(GenericRecordUtils.serializeAspect(nativeGroupMembership));
       proposal.setChangeType(ChangeType.UPSERT);
       Map<String, Long> createdOnMap = CondUpdateUtils.extractCondUpdate(condUpdate);
-      _entityClient.ingestProposal(proposal, authentication, createdOnMap.get(userUrn));
+      _entityClient.ingestProposal(proposal, authentication, createdOnMap.get(userUrn.toString()));
     } catch (Exception e) {
       throw new RuntimeException("Failed to add member to group", e);
     }
@@ -136,7 +136,7 @@ public class GroupService {
         proposal.setAspect(GenericRecordUtils.serializeAspect(nativeGroupMembership));
         proposal.setChangeType(ChangeType.UPSERT);
         Map<String, Long> createdOnMap = CondUpdateUtils.extractCondUpdate(condUpdate);
-        _entityClient.ingestProposal(proposal, authentication, createdOnMap.get(userUrn));
+        _entityClient.ingestProposal(proposal, authentication, createdOnMap.get(userUrn.toString()));
       }
     }
   }
@@ -195,7 +195,8 @@ public class GroupService {
     proposal.setAspect(GenericRecordUtils.serializeAspect(corpGroupInfo));
     proposal.setChangeType(ChangeType.UPSERT);
     Map<String, Long> createdOnMap = CondUpdateUtils.extractCondUpdate(condUpdate);
-    return _entityClient.ingestProposal(proposal, authentication, createdOnMap.get(proposal.getEntityUrn()));
+    return _entityClient.ingestProposal(proposal, authentication,
+            proposal.getEntityUrn() != null ? createdOnMap.get(proposal.getEntityUrn().toString()) : null);
   }
 
   void createNativeGroupOrigin(@Nonnull final Urn groupUrn, final Authentication authentication, @Nullable String condUpdate) throws Exception {
@@ -213,7 +214,7 @@ public class GroupService {
     proposal.setAspect(GenericRecordUtils.serializeAspect(groupOrigin));
     proposal.setChangeType(ChangeType.UPSERT);
     Map<String, Long> createdOnMap = CondUpdateUtils.extractCondUpdate(condUpdate);
-    _entityClient.ingestProposal(proposal, authentication, createdOnMap.get(groupUrn));
+    _entityClient.ingestProposal(proposal, authentication, createdOnMap.get(groupUrn.toString()));
   }
 
   List<Urn> getExistingGroupMembers(@Nonnull final Urn groupUrn, final String actorUrnStr) {
@@ -251,7 +252,7 @@ public class GroupService {
         proposal.setAspect(GenericRecordUtils.serializeAspect(groupMembership));
         proposal.setChangeType(ChangeType.UPSERT);
         Map<String, Long> createdOnMap = CondUpdateUtils.extractCondUpdate(condUpdate);
-        _entityClient.ingestProposal(proposal, authentication, createdOnMap.get(userUrn));
+        _entityClient.ingestProposal(proposal, authentication, createdOnMap.get(userUrn.toString()));
       }
     }
   }

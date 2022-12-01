@@ -92,7 +92,7 @@ public class DomainUtils {
     // TODO: Replace this with a batch ingest proposals endpoint.
     Map<String, Long> createdOnMap = CondUpdateUtils.extractCondUpdate(condUpdate);
     for (MetadataChangeProposal change : changes) {
-      entityService.ingestProposal(change, getAuditStamp(actor), false, createdOnMap.get(change.getEntityUrn()));
+      entityService.ingestProposal(change, getAuditStamp(actor), false, createdOnMap.get(change.getEntityUrn().toString()));
     }
   }
 }

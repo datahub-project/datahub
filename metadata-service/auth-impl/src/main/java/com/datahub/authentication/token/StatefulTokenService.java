@@ -131,8 +131,9 @@ public class StatefulTokenService extends StatelessTokenService {
     final List<MetadataChangeProposal> additionalChanges = AspectUtils.getAdditionalChanges(proposal, _entityService);
 
     Map<String, Long> createdOnMap = CondUpdateUtils.extractCondUpdate(condUpdate);
-    _entityService.ingestProposal(proposal, auditStamp, false, createdOnMap.get(proposal.getEntityUrn()));
-    additionalChanges.forEach(mcp -> _entityService.ingestProposal(mcp, auditStamp, false, createdOnMap.get(proposal.getEntityUrn())));
+    _entityService.ingestProposal(proposal, auditStamp, false,
+            proposal.getEntityUrn() != null ? createdOnMap.get(proposal.getEntityUrn().toString()) : null);
+    additionalChanges.forEach(mcp -> _entityService.ingestProposal(mcp, auditStamp, false, createdOnMap.get(proposal.getEntityUrn().toString())));
 
     return accessToken;
   }

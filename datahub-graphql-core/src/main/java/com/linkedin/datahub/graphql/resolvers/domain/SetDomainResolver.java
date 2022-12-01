@@ -67,7 +67,8 @@ public class SetDomainResolver implements DataFetcher<CompletableFuture<Boolean>
         proposal.setAspect(GenericRecordUtils.serializeAspect(domains));
         proposal.setChangeType(ChangeType.UPSERT);
         Map<String, Long> createdOnMap = CondUpdateUtils.extractCondUpdate(condUpdate);
-        _entityClient.ingestProposal(proposal, context.getAuthentication(), createdOnMap.get(proposal.getEntityUrn()));
+        _entityClient.ingestProposal(proposal, context.getAuthentication(),
+                proposal.getEntityUrn() != null ? createdOnMap.get(proposal.getEntityUrn().toString()) : null);
         return true;
       } catch (Exception e) {
         log.error("Failed to set Domain to resource with entity urn {}, domain urn {}: {}", entityUrn, domainUrn, e.getMessage());

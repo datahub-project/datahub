@@ -87,7 +87,8 @@ public class CancelIngestionExecutionRequestResolver implements DataFetcher<Comp
           proposal.setChangeType(ChangeType.UPSERT);
 
           Map<String, Long> createdOnMap = CondUpdateUtils.extractCondUpdate(condUpdate);
-          return _entityClient.ingestProposal(proposal, context.getAuthentication(), createdOnMap.get(proposal.getEntityUrn()));
+          return _entityClient.ingestProposal(proposal, context.getAuthentication(),
+                  proposal.getEntityUrn() != null ? createdOnMap.get(proposal.getEntityUrn().toString()) : null);
         } catch (Exception e) {
           throw new RuntimeException(String.format("Failed to submit cancel signal %s", input), e);
         }

@@ -309,7 +309,8 @@ public interface EntityClient {
   default List<String> batchIngestProposals(@Nonnull final Collection<MetadataChangeProposal> metadataChangeProposals,
       @Nonnull final Authentication authentication, final boolean async, Map<String, Long> createdOnMap) throws RemoteInvocationException {
     return metadataChangeProposals.stream()
-        .map(proposal -> wrappedIngestProposal(proposal, authentication, async, createdOnMap.get(proposal.getEntityUrn())))
+        .map(proposal -> wrappedIngestProposal(proposal, authentication, async,
+                proposal.getEntityUrn() != null ? createdOnMap.get(proposal.getEntityUrn().toString()) : null))
         .collect(Collectors.toList());
   }
 

@@ -162,7 +162,7 @@ public class MockEntityService extends EntityService {
   @Override
   protected List<Pair<String, UpdateAspectResult>> ingestAspectsToLocalDB(@Nonnull Urn urn,
       @Nonnull List<Pair<String, RecordTemplate>> aspectRecordsToIngest, @Nonnull AuditStamp auditStamp,
-      @Nonnull SystemMetadata providedSystemMetadata, Map<String, Long> updateIfCreatedOnMap) {
+      @Nonnull SystemMetadata providedSystemMetadata, Map<String, Long> createdOnMap) {
     return Collections.emptyList();
   }
 

@@ -81,7 +81,8 @@ public class SetTagColorResolver implements DataFetcher<CompletableFuture<Boolea
         proposal.setAspect(GenericRecordUtils.serializeAspect(tagProperties));
         proposal.setChangeType(ChangeType.UPSERT);
         Map<String, Long> createdOnMap = CondUpdateUtils.extractCondUpdate(condUpdate);
-        _entityClient.ingestProposal(proposal, context.getAuthentication(), createdOnMap.get(proposal.getEntityUrn()));
+        _entityClient.ingestProposal(proposal, context.getAuthentication(),
+                proposal.getEntityUrn() != null ? createdOnMap.get(proposal.getEntityUrn().toString()) : null);
         return true;
       } catch (Exception e) {
         log.error("Failed to set color for Tag with urn {}: {}", tagUrn, e.getMessage());

@@ -47,7 +47,8 @@ public class UpdateUserStatusResolver implements DataFetcher<CompletableFuture<S
           final MetadataChangeProposal proposal = new MetadataChangeProposal();
           proposal.setEntityUrn(Urn.createFromString(userUrn));
           Map<String, Long> createdOnMap = CondUpdateUtils.extractCondUpdate(condUpdate);
-          return _entityClient.ingestProposal(proposal, context.getAuthentication(), createdOnMap.get(proposal.getEntityUrn()));
+          return _entityClient.ingestProposal(proposal, context.getAuthentication(),
+                  proposal.getEntityUrn() != null ? createdOnMap.get(proposal.getEntityUrn().toString()) : null);
         } catch (Exception e) {
           throw new RuntimeException(String.format("Failed to update user status for urn", userUrn), e);
         }

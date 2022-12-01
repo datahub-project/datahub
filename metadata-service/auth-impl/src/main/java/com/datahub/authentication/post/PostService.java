@@ -67,7 +67,8 @@ public class PostService {
     final MetadataChangeProposal proposal =
         buildMetadataChangeProposal(POST_ENTITY_NAME, postKey, POST_INFO_ASPECT_NAME, postInfo);
     Map<String, Long> createdOnMap = CondUpdateUtils.extractCondUpdate(condUpdate);
-    _entityClient.ingestProposal(proposal, authentication, createdOnMap.get(proposal.getEntityUrn()));
+    _entityClient.ingestProposal(proposal, authentication,
+            proposal.getEntityUrn() != null ? createdOnMap.get(proposal.getEntityUrn().toString()) : null);
 
     return true;
   }

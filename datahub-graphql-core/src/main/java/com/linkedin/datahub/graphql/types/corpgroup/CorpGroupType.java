@@ -145,7 +145,8 @@ public class CorpGroupType implements SearchableEntityType<CorpGroup, String>, M
                 GenericRecordUtils.serializeAspect(mapCorpGroupEditableInfo(input, existingCorpGroupEditableInfo)));
             proposal.setChangeType(ChangeType.UPSERT);
             Map<String, Long> createdOnMap = CondUpdateUtils.extractCondUpdate(condUpdate);
-            _entityClient.ingestProposal(proposal, context.getAuthentication(), createdOnMap.get(proposal.getEntityUrn()));
+            _entityClient.ingestProposal(proposal, context.getAuthentication(),
+                    proposal.getEntityUrn() != null ? createdOnMap.get(proposal.getEntityUrn().toString()) : null);
 
             return load(urn, context).getData();
         }
