@@ -867,7 +867,41 @@ class DatahubGEProfiler:
 
                 cursor.execute(bq_sql)
 
-                # TODO: comment about why this works
+                # Great Expectations batch v2 API, which is the one we're using, requires
+                # a concrete table name against which profiling is executed. Normally, GE
+                # creates a table with an expiry time of 24 hours. However, we don't want the
+                # temporary tables to stick around that long, so we'd also have to delete them
+                # ourselves. As such, the profiler required create and delete table permissions
+                # on BigQuery.
+                #
+                # It turns out that we can (ab)use the BigQuery cached results feature
+                # to avoid creating temporary tables ourselves. For almost all queries, BigQuery
+                # will store the results in a temporary, cached results table when an explicit
+                # destination table is not provided. These tables are pretty easy to identify
+                # because they live in "anonymous datasets" and have a name that looks like
+                # "project-id._d60e97aec7f471046a960419adb6d44e98300db7.anon10774d0ea85fd20fe9671456c5c53d5f1b85e1b17bedb232dfce91661a219ee3"
+                # These tables are per-user and per-project, so there's no risk of permissions escalation.
+                # As per the docs, the cached results tables typically have a lifetime of 24 hours,
+                # which should be plenty for our purposes.
+                # See https://cloud.google.com/bigquery/docs/cached-results for more details.
+                #
+                # The code below extracts the name of the cached results table from the query job
+                # and points GE to that table for profiling.
+                #
+                # Risks:
+                # 1. If the query results are larger than the maximum response size, BigQuery will
+                #    not cache the results. According to the docs https://cloud.google.com/bigquery/quotas,
+                #    the maximum response size is 10 GB compressed.
+                # 2. The cache lifetime of 24 hours is "best-effort" and hence not guaranteed.
+                # 3. Tables with column-level security may not be cached, and tables with row-level
+                #    security will not be cached.
+                # 4. BigQuery "discourages" using cached results directly, but notes that
+                #    the current semantics do allow it.
+                #
+                # The better long-term solution would be to use a subquery avoid this whole
+                # temporary table dance. However, that would require either a) upgrading to
+                # use GE's batch v3 API or b) bypassing GE altogether.
+
                 query_job: "google.cloud.bigquery.job.query.QueryJob" = (
                     cursor._query_job
                 )
