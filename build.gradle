@@ -8,6 +8,8 @@ buildscript {
   ext.neo4jVersion = '4.4.9'
   ext.graphQLJavaVersion = '19.0'
   ext.testContainersVersion = '1.17.4'
+  ext.jacksonVersion = '2.13.4'
+  ext.jettyVersion = '9.4.46.v20220331'
   apply from: './repositories.gradle'
   buildscript.repositories.addAll(project.repositories)
   dependencies {
@@ -57,6 +59,7 @@ project.ext.externalDependency = [
     'commonsCli': 'commons-cli:commons-cli:1.5.0',
     'commonsIo': 'commons-io:commons-io:2.4',
     'commonsLang': 'commons-lang:commons-lang:2.6',
+    'commonsText': 'org.apache.commons:commons-text:1.10.0',
     'commonsCollections': 'commons-collections:commons-collections:3.2.2',
     'data' : 'com.linkedin.pegasus:data:' + pegasusVersion,
     'datastaxOssNativeProtocol': 'com.datastax.oss:native-protocol:1.5.1',
@@ -75,7 +78,7 @@ project.ext.externalDependency = [
     'gson': 'com.google.code.gson:gson:2.8.9',
     'guice': 'com.google.inject:guice:4.2.2',
     'guava': 'com.google.guava:guava:27.0.1-jre',
-    'h2': 'com.h2database:h2:2.1.210',
+    'h2': 'com.h2database:h2:2.1.214',
     'hadoopClient': 'org.apache.hadoop:hadoop-client:3.2.1',
     'hadoopCommon':'org.apache.hadoop:hadoop-common:2.7.2',
     'hadoopMapreduceClient':'org.apache.hadoop:hadoop-mapreduce-client-core:2.7.2',
@@ -84,15 +87,18 @@ project.ext.externalDependency = [
     'httpClient': 'org.apache.httpcomponents:httpclient:4.5.9',
     'httpAsyncClient': 'org.apache.httpcomponents:httpasyncclient:4.1.5',
     'iStackCommons': 'com.sun.istack:istack-commons-runtime:4.0.1',
-    'jacksonCore': 'com.fasterxml.jackson.core:jackson-core:2.13.2',
-    'jacksonDataBind': 'com.fasterxml.jackson.core:jackson-databind:2.13.2.2',
-    'jacksonDataFormatYaml': 'com.fasterxml.jackson.dataformat:jackson-dataformat-yaml:2.13.2',
+    'jacksonCore': "com.fasterxml.jackson.core:jackson-core:$jacksonVersion",
+    'jacksonDataBind': "com.fasterxml.jackson.core:jackson-databind:$jacksonVersion.2",
+    'jacksonDataFormatYaml': "com.fasterxml.jackson.dataformat:jackson-dataformat-yaml:$jacksonVersion",
+    'woodstoxCore': 'com.fasterxml.woodstox:woodstox-core:6.4.0',
     'javatuples': 'org.javatuples:javatuples:1.2',
     'javaxInject' : 'javax.inject:javax.inject:1',
     'javaxValidation' : 'javax.validation:validation-api:2.0.1.Final',
     'jerseyCore': 'org.glassfish.jersey.core:jersey-client:2.25.1',
     'jerseyGuava': 'org.glassfish.jersey.bundles.repackaged:jersey-guava:2.25.1',
-    'jettyJaas': 'org.eclipse.jetty:jetty-jaas:9.4.46.v20220331',
+    'jettyJaas': "org.eclipse.jetty:jetty-jaas:$jettyVersion",
+    'jettyClient': "org.eclipse.jetty:jetty-client:$jettyVersion",
+    'jettison': 'org.codehaus.jettison:jettison:1.5.2',
     'jgrapht': 'org.jgrapht:jgrapht-core:1.5.1',
     'jna': 'net.java.dev.jna:jna:5.12.1',
     'jsonPatch': 'com.github.java-json-tools:json-patch:1.13',
@@ -136,14 +142,15 @@ project.ext.externalDependency = [
     'playTest': 'com.typesafe.play:play-test_2.12:2.7.6',
     'pac4j': 'org.pac4j:pac4j-oidc:3.6.0',
     'playPac4j': 'org.pac4j:play-pac4j_2.12:8.0.2',
-    'postgresql': 'org.postgresql:postgresql:42.3.3',
-    'protobuf': 'com.google.protobuf:protobuf-java:3.19.3',
+    'postgresql': 'org.postgresql:postgresql:42.3.8',
+    'protobuf': 'com.google.protobuf:protobuf-java:3.19.6',
     'rangerCommons': 'org.apache.ranger:ranger-plugins-common:2.3.0',
     'reflections': 'org.reflections:reflections:0.9.9',
     'resilience4j': 'io.github.resilience4j:resilience4j-retry:1.7.1',
     'rythmEngine': 'org.rythmengine:rythm-engine:1.3.0',
     'servletApi': 'javax.servlet:javax.servlet-api:3.1.0',
-    'shiroCore': 'org.apache.shiro:shiro-core:1.8.0',
+    'shiroCore': 'org.apache.shiro:shiro-core:1.10.0',
+    'snakeYaml': 'org.yaml:snakeyaml:1.33',
     'sparkSql' : 'org.apache.spark:spark-sql_2.11:2.4.8',
     'sparkHive' : 'org.apache.spark:spark-hive_2.11:2.4.8',
     'springBeans': "org.springframework:spring-beans:$springVersion",
@@ -184,6 +191,7 @@ configure(subprojects.findAll {! it.name.startsWith('spark-lineage') }) {
 
   configurations.all {
     exclude group: "io.netty", module: "netty"
+    exclude group: "log4j", module: "log4j"
     exclude group: "org.springframework.boot", module: "spring-boot-starter-logging"
     exclude group: "ch.qos.logback", module: "logback-classic"
     exclude group: "org.apache.logging.log4j", module: "log4j-to-slf4j"
@@ -219,8 +227,8 @@ subprojects {
         implementation('org.apache.commons:commons-compress:1.21')
         implementation('org.apache.velocity:velocity-engine-core:2.3')
         implementation('org.hibernate:hibernate-validator:6.0.20.Final')
-        implementation('com.fasterxml.jackson.core:jackson-databind:2.13.2.2')
-        implementation('com.fasterxml.jackson.core:jackson-dataformat-cbor:2.13.2')
+        implementation("com.fasterxml.jackson.core:jackson-databind:$jacksonVersion.2")
+        implementation("com.fasterxml.jackson.core:jackson-dataformat-cbor:$jacksonVersion")
       }
     }
 
