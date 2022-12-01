@@ -186,7 +186,7 @@ class TableauConnectionConfig(ConfigModel):
             return server
         except ServerResponseError as e:
             raise ValueError(
-                f"Unable to login with credentials provided: {str(e)}"
+                f"Unable to login (invalid credentials or missing permissions): {str(e)}"
             ) from e
         except Exception as e:
             raise ValueError(f"Unable to login: {str(e)}") from e
