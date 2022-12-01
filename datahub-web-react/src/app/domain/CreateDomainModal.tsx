@@ -139,7 +139,7 @@ export default function CreateDomainModal({ onClose, onCreate }: Props) {
                         rules={[{ whitespace: true }, { min: 1, max: 500 }]}
                         hasFeedback
                     >
-                        <Input placeholder="A description for your domain" />
+                        <Input.TextArea placeholder="A description for your domain" />
                     </Form.Item>
                 </Form.Item>
                 <Collapse ghost>
