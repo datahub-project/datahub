@@ -17,12 +17,21 @@ record Upstream {
   }
 
   /**
+   * Audit stamp containing who created the lineage and when.
+   */
+  created: optional AuditStamp
+
+  /**
    * The upstream dataset the lineage points to
    */
   @Relationship = {
     "name": "DownstreamOf",
     "entityTypes": [ "dataset" ],
-    "isLineage": true
+    "isLineage": true,
+    "createdOn": "upstreams/*/created/time"
+    "createdActor": "upstreams/*/created/actor"
+    "updatedOn": "upstreams/*/auditStamp/time"
+    "updatedActor": "upstreams/*/auditStamp/actor"
   }
   @Searchable = {
     "fieldName": "upstreams",
