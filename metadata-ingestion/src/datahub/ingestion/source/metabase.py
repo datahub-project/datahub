@@ -315,7 +315,7 @@ class MetabaseSource(Source):
             return None
 
     def construct_card_from_api_data(self, card_data: dict) -> Optional[ChartSnapshot]:
-        card_id = card_data.get("card_id", "")
+        card_id = card_data.get("id", "")
         card_url = f"{self.config.connect_uri}/api/card/{card_id}"
         try:
             card_response = self.session.get(card_url)
