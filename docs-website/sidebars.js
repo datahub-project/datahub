@@ -108,12 +108,12 @@ module.exports = {
     ],
     "Integration Guides": [
       {
-        "BigQuery": [
+        BigQuery: [
           "docs/quick-ingestion-guides/BigQuery/Overview",
           "docs/quick-ingestion-guides/BigQuery/Setup",
           "docs/quick-ingestion-guides/BigQuery/Configuration",
-        ]
-      }
+        ],
+      },
     ],
     "Ingest Metadata": [
       // The purpose of this section is to provide a deeper understanding of how ingestion works.
