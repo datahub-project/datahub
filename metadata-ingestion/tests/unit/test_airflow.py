@@ -75,11 +75,7 @@ def test_airflow_provider_info():
     assert get_provider_info()
 
 
-@pytest.mark.skipif(
-    AIRFLOW_VERSION < packaging.version.parse("2.0.0"),
-    reason="the examples use list-style lineage, which is only supported on Airflow 2.x",
-)
-def test_dags_load_with_no_errors(pytestconfig):
+def test_dags_load_with_no_errors(pytestconfig: pytest.Config) -> None:
     airflow_examples_folder = (
         pytestconfig.rootpath / "src/datahub_provider/example_dags"
     )
@@ -88,8 +84,10 @@ def test_dags_load_with_no_errors(pytestconfig):
 
     import_errors = dag_bag.import_errors
 
-    assert import_errors == {}
-    assert len(dag_bag.dag_ids) > 0
+    assert len(import_errors) == 1
+    assert "snowflake_sample_dag" in list(import_errors.keys())[0]
+
+    assert dag_bag.size() > 0
 
 
 @contextmanager
