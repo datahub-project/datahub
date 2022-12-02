@@ -311,6 +311,8 @@ def test_kafka_connect_mongosourceconnect_ingest(
                     }
                 }""",
         )
+        r.raise_for_status()
+        assert r.status_code == 201  # Created
 
         # Give time for connectors to process the table data
         time.sleep(60)
