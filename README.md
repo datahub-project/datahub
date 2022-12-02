@@ -131,6 +131,7 @@ Here are the companies that have officially adopted DataHub. Please feel free to
 - [TypeForm](http://typeform.com)
 - [Uphold](https://uphold.com)
 - [Viasat](https://viasat.com)
+- [Wikimedia](https://www.wikimedia.org)
 - [Wolt](https://wolt.com)
 - [Zynga](https://www.zynga.com)
 
