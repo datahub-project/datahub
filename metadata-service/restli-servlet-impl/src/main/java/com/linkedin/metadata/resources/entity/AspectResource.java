@@ -104,6 +104,12 @@ public class AspectResource extends CollectionResourceTaskTemplate<String, Versi
     log.info("GET ASPECT urn: {} aspect: {} version: {}", urnStr, aspectName, version);
     final Urn urn = Urn.createFromString(urnStr);
     return RestliUtil.toTask(() -> {
+      Authentication authentication = AuthenticationContext.getAuthentication();
+      if (Boolean.parseBoolean(System.getenv(REST_API_AUTHORIZATION_ENABLED_ENV))
+          && !isAuthorized(authentication, _authorizer, ImmutableList.of(PoliciesConfig.GET_ENTITY_PRIVILEGE),
+          new ResourceSpec(urn.getEntityType(), urn.toString()))) {
+        throw new RestLiServiceException(HttpStatus.S_401_UNAUTHORIZED, "User is unauthorized to get aspect for " + urn);
+      }
       final VersionedAspect aspect = _entityService.getVersionedAspect(urn, aspectName, version);
       if (aspect == null) {
         throw RestliUtil.resourceNotFoundException(String.format("Did not find urn: %s aspect: %s version: %s", urn, aspectName, version));
@@ -128,6 +134,12 @@ public class AspectResource extends CollectionResourceTaskTemplate<String, Versi
         aspectName, entityName, startTimeMillis, endTimeMillis, limit);
     final Urn urn = Urn.createFromString(urnStr);
     return RestliUtil.toTask(() -> {
+      Authentication authentication = AuthenticationContext.getAuthentication();
+      if (Boolean.parseBoolean(System.getenv(REST_API_AUTHORIZATION_ENABLED_ENV))
+          && !isAuthorized(authentication, _authorizer, ImmutableList.of(PoliciesConfig.GET_TIMESERIES_ASPECT_PRIVILEGE),
+          new ResourceSpec(urn.getEntityType(), urn.toString()))) {
+        throw new RestLiServiceException(HttpStatus.S_401_UNAUTHORIZED, "User is unauthorized to get timeseries aspect for " + urn);
+      }
       GetTimeseriesAspectValuesResponse response = new GetTimeseriesAspectValuesResponse();
       response.setEntityName(entityName);
       response.setAspectName(aspectName);
@@ -164,7 +176,7 @@ public class AspectResource extends CollectionResourceTaskTemplate<String, Versi
     EntitySpec entitySpec = _entityService.getEntityRegistry().getEntitySpec(metadataChangeProposal.getEntityType());
     Urn urn = EntityKeyUtils.getUrnFromProposal(metadataChangeProposal, entitySpec.getKeyAspectSpec());
     if (Boolean.parseBoolean(System.getenv(REST_API_AUTHORIZATION_ENABLED_ENV))
-        && isAuthorized(authentication, _authorizer, ImmutableList.of(PoliciesConfig.EDIT_ENTITY_PRIVILEGE),
+        && !isAuthorized(authentication, _authorizer, ImmutableList.of(PoliciesConfig.EDIT_ENTITY_PRIVILEGE),
         new ResourceSpec(urn.getEntityType(), urn.toString()))) {
       throw new RestLiServiceException(HttpStatus.S_401_UNAUTHORIZED, "User is unauthorized to modify entity " + urn);
     }
@@ -175,15 +187,15 @@ public class AspectResource extends CollectionResourceTaskTemplate<String, Versi
       log.debug("Proposal: {}", metadataChangeProposal);
       try {
         EntityService.IngestProposalResult result = _entityService.ingestProposal(metadataChangeProposal, auditStamp, asyncBool);
-        Urn resultUrn = result.getUrn();
+        Urn responseUrn = result.getUrn();
 
         AspectUtils.getAdditionalChanges(metadataChangeProposal, _entityService)
                 .forEach(proposal -> _entityService.ingestProposal(proposal, auditStamp, asyncBool));
 
         if (!result.isQueued()) {
-          tryIndexRunId(resultUrn, metadataChangeProposal.getSystemMetadata(), _entitySearchService);
+          tryIndexRunId(responseUrn, metadataChangeProposal.getSystemMetadata(), _entitySearchService);
         }
-        return resultUrn.toString();
+        return responseUrn.toString();
       } catch (ValidationException e) {
         throw new RestLiServiceException(HttpStatus.S_422_UNPROCESSABLE_ENTITY, e.getMessage());
       }
@@ -196,6 +208,12 @@ public class AspectResource extends CollectionResourceTaskTemplate<String, Versi
   public Task<Integer> getCount(@ActionParam(PARAM_ASPECT) @Nonnull String aspectName,
                                 @ActionParam(PARAM_URN_LIKE) @Optional @Nullable String urnLike) {
     return RestliUtil.toTask(() -> {
+      Authentication authentication = AuthenticationContext.getAuthentication();
+      if (Boolean.parseBoolean(System.getenv(REST_API_AUTHORIZATION_ENABLED_ENV))
+          && !isAuthorized(authentication, _authorizer, ImmutableList.of(PoliciesConfig.GET_COUNTS_PRIVILEGE),
+          (ResourceSpec) null)) {
+        throw new RestLiServiceException(HttpStatus.S_401_UNAUTHORIZED, "User is unauthorized to get aspect counts.");
+      }
       return _entityService.getCountAspect(aspectName, urnLike);
     }, MetricRegistry.name(this.getClass(), "getCount"));
   }
@@ -210,6 +228,12 @@ public class AspectResource extends CollectionResourceTaskTemplate<String, Versi
                                      @ActionParam("batchSize") @Optional @Nullable Integer batchSize
   ) {
     return RestliUtil.toTask(() -> {
+      Authentication authentication = AuthenticationContext.getAuthentication();
+      if (Boolean.parseBoolean(System.getenv(REST_API_AUTHORIZATION_ENABLED_ENV))
+          && !isAuthorized(authentication, _authorizer, ImmutableList.of(PoliciesConfig.RESTORE_INDICES_PRIVILEGE),
+          (ResourceSpec) null)) {
+        throw new RestLiServiceException(HttpStatus.S_401_UNAUTHORIZED, "User is unauthorized to restore indices.");
+      }
       RestoreIndicesArgs args = new RestoreIndicesArgs()
               .setAspectName(aspectName)
               .setUrnLike(urnLike)

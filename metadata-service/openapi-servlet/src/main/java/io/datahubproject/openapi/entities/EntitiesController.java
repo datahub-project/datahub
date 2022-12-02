@@ -92,6 +92,18 @@ public class EntitiesController {
             .map(URLDecoder::decode)
             .map(UrnUtils::getUrn).collect(Collectors.toSet());
     log.debug("GET ENTITIES {}", entityUrns);
+    Authentication authentication = AuthenticationContext.getAuthentication();
+    String actorUrnStr = authentication.getActor().toUrnStr();
+    DisjunctivePrivilegeGroup orGroup = new DisjunctivePrivilegeGroup(ImmutableList.of(new ConjunctivePrivilegeGroup(
+        ImmutableList.of(PoliciesConfig.GET_ENTITY_PRIVILEGE.getType())
+    )));
+
+    List<Optional<ResourceSpec>> resourceSpecs = entityUrns.stream()
+        .map(urn -> Optional.of(new ResourceSpec(urn.getEntityType(), urn.toString())))
+        .collect(Collectors.toList());
+    if (restApiAuthorizationEnabled && !AuthUtil.isAuthorizedForResources(_authorizerChain, actorUrnStr, resourceSpecs, orGroup)) {
+      throw new UnauthorizedException(actorUrnStr + " is unauthorized to get entities.");
+    }
     if (entityUrns.size() <= 0) {
       return ResponseEntity.ok(UrnResponseMap.builder().responses(Collections.emptyMap()).build());
     }
