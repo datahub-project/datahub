@@ -28,7 +28,8 @@ dependencies {
     implementation 'org.apache.logging.log4j:log4j-1.2-api:2.17.1'
     implementation 'rome:rome:1.0'
     runtimeOnly externalDependency.jna
-    compile externalDependency.lombok
+    implementation externalDependency.slf4jApi
+    compileOnly externalDependency.lombok
 
     annotationProcessor externalDependency.lombok
     testCompile externalDependency.mockito

@@ -10,7 +10,8 @@ dependencies {
   compile externalDependency.graphqlJava
   compile externalDependency.springBeans
   compile externalDependency.springContext
-  compile externalDependency.lombok
+  implementation externalDependency.slf4jApi
+  compileOnly externalDependency.lombok
 
   annotationProcessor externalDependency.lombok
 }
