@@ -55,6 +55,10 @@ dependencies {
     testCompile externalDependency.testContainers
     testCompile externalDependency.httpAsyncClient
 
+    testCompile(externalDependency.kafkaAvroSerializer) {
+      exclude group: "org.apache.avro"
+    }
+
     swaggerCodegen 'io.swagger.codegen.v3:swagger-codegen-cli:3.0.33'
 }
 
@@ -127,7 +131,10 @@ shadowJar {
   relocate 'org.I0Itec.zkclient', 'datahub.shaded.org.I0Itec.zkclient'
   relocate 'net.jpountz', 'datahub.shaded.net.jpountz'
   relocate 'com.github.luben', 'datahub.shaded.com.github.luben'
- 
+  relocate 'common.message', 'datahub.shaded.common.message'
+  relocate 'com.zwitserloot.cmdreader', 'datahub.shaded.com.zwitserloot.cmdreader'
+  relocate 'lombok', 'datahub.shaded.lombok'
+  relocate 'org.objectweb', 'datahub.shaded.org.objectweb'
   finalizedBy checkShadowJar
 }
 

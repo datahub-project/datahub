@@ -1,3 +1,5 @@
+from typing import Optional
+
 from pydantic import Field, validator
 
 from datahub.configuration.common import ConfigModel
@@ -9,7 +11,7 @@ class _KafkaConnectionConfig(ConfigModel):
     bootstrap: str = "localhost:9092"
 
     # schema registry location
-    schema_registry_url: str = None #"http://localhost:8081"
+    schema_registry_url: Optional[str] = None  # "http://localhost:8081"
 
     schema_registry_config: dict = Field(
         default_factory=dict,

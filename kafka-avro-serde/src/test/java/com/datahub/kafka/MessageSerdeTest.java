@@ -1,5 +1,5 @@
 package com.datahub.kafka;
-
+/*
 import com.datahub.kafka.avro.deserializer.KafkaAvroDeserializer;
 import com.datahub.kafka.avro.serializer.KafkaAvroSerializer;
 import com.linkedin.common.urn.Urn;
@@ -54,3 +54,4 @@ public class MessageSerdeTest {
     assertEquals(metadataChangeProposal, gmce);
   }
 }
+*/

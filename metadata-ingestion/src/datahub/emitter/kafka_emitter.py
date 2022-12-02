@@ -10,6 +10,7 @@ from confluent_kafka.serialization import SerializationContext, StringSerializer
 from datahub.configuration.common import ConfigModel
 from datahub.configuration.kafka import KafkaProducerConnectionConfig
 from datahub.configuration.validate_field_rename import pydantic_renamed_field
+from datahub.emitter.internal.schema_registry import InternalSchemaRegistryClient
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.metadata.schema_classes import (
     MetadataChangeEventClass as MetadataChangeEvent,
@@ -19,8 +20,6 @@ from datahub.metadata.schemas import (
     getMetadataChangeEventSchema,
     getMetadataChangeProposalSchema,
 )
-from datahub.emitter.internal.schema_registry import InternalSchemaRegistryClient
-
 
 logger = logging.getLogger(__name__)
 
@@ -70,7 +69,7 @@ class DatahubKafkaEmitter:
         else:
             schema_registry_client = InternalSchemaRegistryClient()
             serializer_conf = {
-                'auto.register.schemas': False,
+                "auto.register.schemas": False,
             }
 
         def convert_mce_to_dict(

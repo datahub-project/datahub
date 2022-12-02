@@ -1,14 +1,23 @@
 apply plugin: 'java'
 
+tasks.withType(JavaCompile).configureEach {
+    javaCompiler = javaToolchains.compilerFor {
+        languageVersion = JavaLanguageVersion.of(8)
+    }
+}
+tasks.withType(Test).configureEach {
+    javaLauncher = javaToolchains.launcherFor {
+        languageVersion = JavaLanguageVersion.of(8)
+    }
+}
+
 dependencies {
     compile project(':metadata-events:mxe-avro-1.7')
-    compile project(':metadata-events:mxe-utils-avro-1.7')
-    compile project(':metadata-utils')
 
     compile externalDependency.lombok
     compile externalDependency.avro_1_7
     compile externalDependency.kafkaClients
-    annotationProcessor externalDependency.lombok
+    compileOnly externalDependency.lombok
 
     testCompile externalDependency.assertJ
 }
