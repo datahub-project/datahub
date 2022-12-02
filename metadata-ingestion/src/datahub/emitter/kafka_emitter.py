@@ -19,7 +19,7 @@ from datahub.metadata.schemas import (
     getMetadataChangeEventSchema,
     getMetadataChangeProposalSchema,
 )
-from datahub.emitter.internal.datahub_kafka_serializer import InternalSchemaRegistryClient
+from datahub.emitter.internal.schema_registry import InternalSchemaRegistryClient
 
 
 logger = logging.getLogger(__name__)
