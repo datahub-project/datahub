@@ -32,10 +32,14 @@ from datahub.metadata.schema_classes import (
     ChartInfoClass,
     ChartTypeClass,
     DashboardInfoClass,
+    OwnerClass,
+    OwnershipClass,
+    OwnershipTypeClass,
+
 )
 from datahub.utilities import config_clean
 
-PAGE_SIZE = 25
+PAGE_SIZE = 50
 
 
 chart_type_from_viz_type = {
@@ -52,6 +56,13 @@ chart_type_from_viz_type = {
     "line_multi": ChartTypeClass.LINE,
     "treemap": ChartTypeClass.AREA,
     "box_plot": ChartTypeClass.BAR,
+    "echarts_timeseries_line": ChartTypeClass.LINE,
+    "echarts_timeseries_bar": ChartTypeClass.BAR,
+    "mixed_timeseries": ChartTypeClass.LINE,
+    "pivot_table_v2": ChartTypeClass.TABLE,
+    "echarts_timeseries_smooth": ChartTypeClass.LINE,
+    "echarts_area": ChartTypeClass.AREA,
+    "echarts_timeseries": ChartTypeClass.LINE,
 }
 
 
@@ -87,6 +98,8 @@ class SupersetConfig(ConfigModel):
             values["display_uri"] = values.get("connect_uri")
         return values
 
+def make_user_urn(username: str) -> str:
+    return f"urn:li:corpuser:{username}"
 
 def get_metric_name(metric):
     if not metric:
@@ -160,7 +173,6 @@ class SupersetSource(Source):
         test_response = self.session.get(f"{self.config.connect_uri}/api/v1/database")
         if test_response.status_code == 200:
             pass
-            # TODO(Gabe): how should we message about this error?
 
     @classmethod
     def create(cls, config_dict: dict, ctx: PipelineContext) -> Source:
@@ -207,6 +219,18 @@ class SupersetSource(Source):
             aspects=[],
         )
 
+        owners_final_list: list[OwnerClass] = []
+        for owner in dashboard_data.get('owners', []):
+            owner_urn = make_user_urn(owner["username"])
+            owners_final_list.append(OwnerClass(
+                    owner=owner_urn,
+                    type=OwnershipTypeClass.DATAOWNER,
+                ))
+                 
+        ownership: OwnershipClass = OwnershipClass(
+            owners= owners_final_list
+        )
+
         modified_actor = f"urn:li:corpuser:{(dashboard_data.get('changed_by') or {}).get('username', 'unknown')}"
         modified_ts = int(
             dp.parse(dashboard_data.get("changed_on_utc", "now")).timestamp() * 1000
@@ -242,6 +266,8 @@ class SupersetSource(Source):
             customProperties={},
         )
         dashboard_snapshot.aspects.append(dashboard_info)
+        dashboard_snapshot.aspects.append(ownership)
+
         return dashboard_snapshot
 
     def emit_dashboard_mces(self) -> Iterable[MetadataWorkUnit]:
@@ -261,14 +287,19 @@ class SupersetSource(Source):
 
             payload = dashboard_response.json()
             for dashboard_data in payload["result"]:
-                dashboard_snapshot = self.construct_dashboard_from_api_data(
-                    dashboard_data
-                )
-                mce = MetadataChangeEvent(proposedSnapshot=dashboard_snapshot)
-                wu = MetadataWorkUnit(id=dashboard_snapshot.urn, mce=mce)
-                self.report.report_workunit(wu)
+                #Ignoring dashboards without title or in Quarantine
+                if dashboard_data["dashboard_title"] != '[ untitled dashboard ]' and dashboard_data["dashboard_title"][0:12] != '[QUARANTINE]' and dashboard_data["dashboard_title"][0:8] != '[DELETE]':
+                    dashboard_snapshot = self.construct_dashboard_from_api_data(
+                        dashboard_data
+                    )
+                    mce = MetadataChangeEvent(proposedSnapshot=dashboard_snapshot)
+                    wu = MetadataWorkUnit(id=dashboard_snapshot.urn, mce=mce)
+                    self.report.report_workunit(wu)
 
-                yield wu
+                    yield wu
+                else:
+                    print(f'Skipped: {dashboard_data["dashboard_title"]}')
+                    pass 
 
     def construct_chart_from_chart_data(self, chart_data):
         chart_urn = f"urn:li:chart:({self.platform},{chart_data['id']})"
@@ -277,11 +308,27 @@ class SupersetSource(Source):
             aspects=[],
         )
 
+        owners_final_list: list[OwnerClass] = []
+        for owner in chart_data.get('owners', []):
+            owner_urn = make_user_urn(owner["username"])
+            owners_final_list.append(OwnerClass(
+                    owner=owner_urn,
+                    type=OwnershipTypeClass.DATAOWNER,
+                ))
+                 
+        ownership: OwnershipClass = OwnershipClass(
+            owners= owners_final_list
+        )
+
         modified_actor = f"urn:li:corpuser:{(chart_data.get('changed_by') or {}).get('username', 'unknown')}"
         modified_ts = int(
             dp.parse(chart_data.get("changed_on_utc", "now")).timestamp() * 1000
         )
         title = chart_data.get("slice_name", "")
+        try: 
+            description = chart_data.get("description_markeddown")
+        except:
+            decription = ""
 
         # note: the API does not currently supply created_by usernames due to a bug, but we are required to
         # provide a created AuditStamp to comply with ChangeAuditStamp model. For now, I sub in the last
@@ -291,6 +338,7 @@ class SupersetSource(Source):
             lastModified=AuditStamp(time=modified_ts, actor=modified_actor),
         )
         chart_type = chart_type_from_viz_type.get(chart_data.get("viz_type", ""))
+
         chart_url = f"{self.config.display_uri}{chart_data.get('url', '')}"
 
         datasource_id = chart_data.get("datasource_id")
@@ -306,36 +354,20 @@ class SupersetSource(Source):
             for filter_obj in params.get("adhoc_filters", [])
         ]
         group_bys = params.get("groupby", []) or []
+
         if isinstance(group_bys, str):
             group_bys = [group_bys]
-        # handling List[Union[str, dict]] case
-        # a dict containing two keys: sqlExpression and label
-        elif isinstance(group_bys, list) and len(group_bys) != 0:
-            temp_group_bys = []
-            for item in group_bys:
-                # if the item is a custom label
-                if isinstance(item, dict):
-                    item_value = item.get("label", "")
-                    if item_value != "":
-                        temp_group_bys.append(f"{item_value}_custom_label")
-                    else:
-                        temp_group_bys.append(str(item))
-
-                # if the item is a string
-                elif isinstance(item, str):
-                    temp_group_bys.append(item)
-
-            group_bys = temp_group_bys
 
         custom_properties = {
+            "Chart Type": chart_type,
             "Metrics": ", ".join(metrics),
             "Filters": ", ".join(filters),
-            "Dimensions": ", ".join(group_bys),
+            "Dimensions": ", ".join(map(str, group_bys)),
         }
 
         chart_info = ChartInfoClass(
             type=chart_type,
-            description="",
+            description=description,
             title=title,
             lastModified=last_modified,
             chartUrl=chart_url,
@@ -343,6 +375,7 @@ class SupersetSource(Source):
             customProperties=custom_properties,
         )
         chart_snapshot.aspects.append(chart_info)
+        chart_snapshot.aspects.append(ownership)
         return chart_snapshot
 
     def emit_chart_mces(self) -> Iterable[MetadataWorkUnit]:
