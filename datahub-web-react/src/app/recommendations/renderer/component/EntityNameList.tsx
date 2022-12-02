@@ -13,7 +13,7 @@ const StyledCheckbox = styled(Checkbox)`
 `;
 
 const StyledList = styled(List)`
-    overflow-y: scroll;
+    overflow-y: auto;
     height: 100%;
     margin-top: -1px;
     box-shadow: ${(props) => props.theme.styles['box-shadow']};
