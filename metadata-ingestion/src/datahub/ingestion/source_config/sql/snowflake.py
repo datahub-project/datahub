@@ -287,6 +287,9 @@ class BaseSnowflakeConfig(BaseTimeWindowConfig):
             if self.private_key is not None:
                 pkey_bytes = self.private_key.replace("\\n", "\n").encode()
             else:
+                assert (
+                    self.private_key_path
+                ), "missing required private key path to read key from"
                 with open(self.private_key_path, "rb") as key:
                     pkey_bytes = key.read()
 
