@@ -12,6 +12,7 @@ import pathlib
 import time
 from typing import Dict, List
 
+from datahub.ingestion.sink.file import write_metadata_file as write_mces
 from datahub.metadata.schema_classes import (
     AuditStampClass,
     CorpUserInfoClass,
@@ -47,12 +48,6 @@ def read_mces(path: os.PathLike) -> List[MetadataChangeEventClass]:
         objs = json.load(f)
         mces = [MetadataChangeEventClass.from_obj(obj) for obj in objs]
     return mces
-
-
-def write_mces(path: os.PathLike, mces: List[MetadataChangeEventClass]) -> None:
-    objs = [mce.to_obj() for mce in mces]
-    with open(path, "w") as f:
-        json.dump(objs, f, indent=4)
 
 
 def parse_directive(row: Dict) -> Directive:

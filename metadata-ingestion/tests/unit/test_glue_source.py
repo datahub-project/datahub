@@ -11,6 +11,7 @@ from datahub.configuration.common import ConfigurationError
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.extractor.schema_util import avro_schema_to_mce_fields
 from datahub.ingestion.run.pipeline import Pipeline
+from datahub.ingestion.sink.file import write_metadata_file
 from datahub.ingestion.source.aws.glue import GlueSource, GlueSourceConfig
 from datahub.ingestion.source.state.checkpoint import Checkpoint
 from datahub.ingestion.source.state.sql_common_state import (
@@ -164,15 +165,12 @@ def test_glue_ingest(
                 },
             )
 
-            mce_objects = [
-                wu.metadata.to_obj() for wu in glue_source_instance.get_workunits()
-            ]
+            mce_objects = [wu.metadata for wu in glue_source_instance.get_workunits()]
 
             glue_stubber.assert_no_pending_responses()
             s3_stubber.assert_no_pending_responses()
 
-            with open(str(tmp_path / mce_file), "w") as f:
-                json.dump(mce_objects, f, indent=2)
+            write_metadata_file(tmp_path / mce_file, mce_objects)
 
     # Verify the output.
     test_resources_dir = pytestconfig.rootpath / "tests/unit/glue"

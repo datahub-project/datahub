@@ -1,8 +1,9 @@
 import dataclasses
 import json
-from typing import TYPE_CHECKING, Union
+from typing import TYPE_CHECKING, Optional, Tuple, Union
 
-from datahub.emitter.serialization_helper import pre_json_transform
+from datahub.emitter.aspect import ASPECT_MAP, TIMESERIES_ASPECT_MAP
+from datahub.emitter.serialization_helper import post_json_transform, pre_json_transform
 from datahub.metadata.schema_classes import (
     ChangeTypeClass,
     DictWrapper,
@@ -26,6 +27,31 @@ def _make_generic_aspect(codegen_obj: DictWrapper) -> GenericAspectClass:
         value=serialized.encode(),
         contentType="application/json",
     )
+
+
+def _try_from_generic_aspect(
+    aspectName: Optional[str],
+    aspect: Optional[GenericAspectClass],
+) -> Tuple[bool, Optional[_Aspect]]:
+    # The first value in the tuple indicates the success of the conversion,
+    # while the second value is the deserialized aspect.
+
+    if aspect is None:
+        return True, None
+    assert aspectName is not None, "aspectName must be set if aspect is set"
+
+    if aspect.contentType != "application/json":
+        return False, None
+
+    if aspectName not in ASPECT_MAP:
+        return False, None
+
+    aspect_cls = ASPECT_MAP[aspectName]
+
+    serialized = aspect.value.decode()
+    obj = post_json_transform(json.loads(serialized))
+
+    return True, aspect_cls.from_obj(obj)
 
 
 @dataclasses.dataclass
@@ -107,13 +133,48 @@ class MetadataChangeProposalWrapper:
     def to_obj(self, tuples: bool = False) -> dict:
         return self.make_mcp().to_obj(tuples=tuples)
 
-    # TODO: add a from_obj method. Implementing this would require us to
-    # inspect the aspectName field to determine which class to deserialize into.
+    @classmethod
+    def from_obj(
+        cls, obj: dict, tuples: bool = False
+    ) -> Union["MetadataChangeProposalWrapper", MetadataChangeProposalClass]:
+        """
+        Attempt to deserialize into an MCPW, but fall back
+        to a standard MCP if we're missing codegen'd classes for the
+        entity key or aspect.
+        """
+
+        mcp = MetadataChangeProposalClass.from_obj(obj, tuples=tuples)
+
+        # We don't know how to deserialize the entity key aspects yet.
+        if mcp.entityKeyAspect is not None:
+            return mcp
+
+        # Try to deserialize the aspect.
+        converted, aspect = _try_from_generic_aspect(mcp.aspectName, mcp.aspect)
+        if converted:
+            return cls(
+                entityType=mcp.entityType,
+                entityUrn=mcp.entityUrn,
+                changeType=mcp.changeType,
+                auditHeader=mcp.auditHeader,
+                aspectName=mcp.aspectName,
+                aspect=aspect,
+                systemMetadata=mcp.systemMetadata,
+            )
+
+        return mcp
 
     def as_workunit(self) -> "MetadataWorkUnit":
         from datahub.ingestion.api.workunit import MetadataWorkUnit
 
-        # TODO: If the aspect is a timeseries aspect, we should do some
-        # customization of the ID here.
+        if self.aspect and self.aspectName in TIMESERIES_ASPECT_MAP:
+            # TODO: Make this a cleaner interface.
+            ts = getattr(self.aspect, "timestampMillis", None)
+            assert ts is not None
+
+            # If the aspect is a timeseries aspect, include the timestampMillis in the ID.
+            return MetadataWorkUnit(
+                id=f"{self.entityUrn}-{self.aspectName}-{ts}", mcp=self
+            )
 
         return MetadataWorkUnit(id=f"{self.entityUrn}-{self.aspectName}", mcp=self)
