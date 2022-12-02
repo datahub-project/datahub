@@ -1,4 +1,5 @@
 import datetime
+import logging
 import os
 from typing import Any, Dict, List, Optional
 
@@ -13,6 +14,8 @@ _PROFILING_FLAGS_TO_REPORT = {
     "query_combiner_enabled",
     # all include_field_ flags are reported.
 }
+
+logger = logging.getLogger(__name__)
 
 
 class GEProfilingConfig(ConfigModel):
@@ -128,14 +131,21 @@ class GEProfilingConfig(ConfigModel):
     catch_exceptions: bool = Field(default=True, description="")
 
     partition_profiling_enabled: bool = Field(default=True, description="")
-    bigquery_temp_table_schema: Optional[str] = Field(
-        default=None,
-        description="On bigquery for profiling partitioned tables needs to create temporary views. You have to define a dataset where these will be created. Views will be cleaned up after profiler runs. (Great expectation tech details about this (https://legacy.docs.greatexpectations.io/en/0.9.0/reference/integrations/bigquery.html#custom-queries-with-sql-datasource).",
-    )
     partition_datetime: Optional[datetime.datetime] = Field(
         default=None,
         description="For partitioned datasets profile only the partition which matches the datetime or profile the latest one if not set. Only Bigquery supports this.",
     )
+
+    @pydantic.root_validator(pre=True)
+    def deprecate_bigquery_temp_table_schema(cls, values):
+        # TODO: Update docs to remove mention of this field.
+        if "bigquery_temp_table_schema" in values:
+            logger.warning(
+                "The bigquery_temp_table_schema config is no longer required. Please remove it from your config.",
+                DeprecationWarning,
+            )
+            del values["bigquery_temp_table_schema"]
+        return values
 
     @pydantic.root_validator()
     def ensure_field_level_settings_are_normalized(
