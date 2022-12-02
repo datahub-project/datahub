@@ -15,6 +15,7 @@ dependencies {
     compile externalDependency.antlr4
     compile externalDependency.guava
 
+    implementation externalDependency.slf4jApi
     compileOnly externalDependency.lombok
     annotationProcessor externalDependency.lombok
 

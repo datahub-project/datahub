@@ -47,6 +47,7 @@ dependencies {
     force = true
   } // required for org.apache.commons.io.Charsets that is used internally
 
+  implementation externalDependency.slf4jApi
   compileOnly externalDependency.lombok
   annotationProcessor externalDependency.lombok
 
@@ -109,6 +110,7 @@ shadowJar {
   exclude('module-info.class', 'META-INF/versions/**')
 
   relocate 'com.fasterxml.jackson', 'datahub.shaded.jackson'
+  relocate 'org.slf4j','datahub.shaded.org.slf4j'
   relocate 'org.apache.http','datahub.spark2.shaded.http'
   relocate 'org.apache.commons.codec', 'datahub.spark2.shaded.o.a.c.codec'
   relocate 'org.apache.commons.compress', 'datahub.spark2.shaded.o.a.c.compress'
