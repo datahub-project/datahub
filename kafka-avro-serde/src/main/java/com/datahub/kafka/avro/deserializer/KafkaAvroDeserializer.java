@@ -12,7 +12,8 @@ import org.apache.avro.io.DecoderFactory;
 import org.apache.kafka.common.header.Headers;
 import org.apache.kafka.common.serialization.Deserializer;
 
-
+// TODO: This class should be able to read messages in a confluent schema compatible way so it can be
+//  used interchangeably with schema registry-enabled serializers.
 public class KafkaAvroDeserializer implements Deserializer<Object> {
 
   private static final InMemorySchemaRegistry REGISTRY = InMemorySchemaRegistry.getInstance();

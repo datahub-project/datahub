@@ -19,6 +19,8 @@ from datahub.metadata.schemas import (
     getMetadataChangeEventSchema,
     getMetadataChangeProposalSchema,
 )
+from datahub.emitter.internal.datahub_kafka_serializer import InternalSchemaRegistryClient
+
 
 logger = logging.getLogger(__name__)
 
@@ -61,7 +63,15 @@ class DatahubKafkaEmitter:
             "url": self.config.connection.schema_registry_url,
             **self.config.connection.schema_registry_config,
         }
-        schema_registry_client = SchemaRegistryClient(schema_registry_conf)
+        serializer_conf = None
+        print(f"Connecting to schema registry {schema_registry_conf}")
+        if schema_registry_conf["url"] is not None:
+            schema_registry_client = SchemaRegistryClient(schema_registry_conf)
+        else:
+            schema_registry_client = InternalSchemaRegistryClient()
+            serializer_conf = {
+                'auto.register.schemas': False,
+            }
 
         def convert_mce_to_dict(
             mce: MetadataChangeEvent, ctx: SerializationContext
@@ -73,6 +83,7 @@ class DatahubKafkaEmitter:
             schema_str=getMetadataChangeEventSchema(),
             schema_registry_client=schema_registry_client,
             to_dict=convert_mce_to_dict,
+            conf=serializer_conf,
         )
 
         def convert_mcp_to_dict(
@@ -86,6 +97,7 @@ class DatahubKafkaEmitter:
             schema_str=getMetadataChangeProposalSchema(),
             schema_registry_client=schema_registry_client,
             to_dict=convert_mcp_to_dict,
+            conf=serializer_conf,
         )
 
         # We maintain a map of producers for each kind of event

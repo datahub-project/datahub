@@ -12,6 +12,8 @@ import org.apache.avro.io.EncoderFactory;
 import org.apache.kafka.common.header.Headers;
 import org.apache.kafka.common.serialization.Serializer;
 
+// TODO: This class should write messages in a confluent schema compatible way so it can be used interchangeably
+// with schema registry configs.
 public class KafkaAvroSerializer implements Serializer<Object> {
 
   private static final InMemorySchemaRegistry REGISTRY = InMemorySchemaRegistry.getInstance();

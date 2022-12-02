@@ -1,6 +1,7 @@
 package com.linkedin.gms.factory.kafka;
 
 import com.datahub.kafka.avro.deserializer.KafkaAvroDeserializer;
+import com.linkedin.gms.factory.kafka.schemaregistry.SchemaRegistryConfig;
 import com.linkedin.gms.factory.spring.YamlPropertySourceFactory;
 import java.time.Duration;
 import java.util.Arrays;
@@ -8,11 +9,13 @@ import java.util.Map;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.avro.generic.GenericRecord;
 import org.apache.kafka.common.serialization.StringDeserializer;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.autoconfigure.kafka.KafkaProperties;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.context.annotation.Lazy;
 import org.springframework.context.annotation.PropertySource;
 import org.springframework.kafka.config.ConcurrentKafkaListenerContainerFactory;
 import org.springframework.kafka.config.KafkaListenerContainerFactory;
@@ -30,6 +33,10 @@ public class KafkaEventConsumerFactory {
 
   @Value("${kafka.listener.concurrency:1}")
   private Integer kafkaListenerConcurrency;
+
+  @Autowired
+  @Lazy
+  private SchemaRegistryConfig schemaRegistryConfig;
 
   // CHANGE THIS
   @Autowired
@@ -65,9 +72,15 @@ public class KafkaEventConsumerFactory {
       consumerProps.setBootstrapServers(Arrays.asList(kafkaBootstrapServers.split(",")));
     } // else we rely on KafkaProperties which defaults to localhost:9092
 
-
     consumerProps.setValueDeserializer(KafkaAvroDeserializer.class);
     Map<String, Object> props = properties.buildConsumerProperties();
+
+    // TODO: Change if using in memory schema registry
+    // Override KafkaProperties with SchemaRegistryConfig only for non-empty values
+    schemaRegistryConfig.getProperties().entrySet()
+        .stream()
+        .filter(entry -> entry.getValue() != null && !entry.getValue().toString().isEmpty())
+        .forEach(entry -> props.put(entry.getKey(), entry.getValue()));
 
     // Override KafkaProperties with SchemaRegistryConfig only for non-empty values
     schemaRegistryConfig.getProperties().entrySet()
