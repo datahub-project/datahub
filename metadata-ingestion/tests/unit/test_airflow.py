@@ -80,13 +80,12 @@ def test_dags_load_with_no_errors(pytestconfig: pytest.Config) -> None:
         pytestconfig.rootpath / "src/datahub_provider/example_dags"
     )
 
+    # Note: the .airflowignore file skips the snowflake DAG.
     dag_bag = DagBag(dag_folder=str(airflow_examples_folder), include_examples=False)
 
     import_errors = dag_bag.import_errors
 
-    assert len(import_errors) == 1
-    assert "snowflake_sample_dag" in list(import_errors.keys())[0]
-
+    assert len(import_errors) == 0
     assert dag_bag.size() > 0
 
 
