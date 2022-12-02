@@ -7,6 +7,7 @@ export const LOOKER_BASE_URL: RecipeField = {
     type: FieldType.TEXT,
     fieldPath: 'source.config.base_url',
     placeholder: 'https://looker.company.com',
+    required: true,
     rules: null,
 };
 
@@ -17,6 +18,7 @@ export const LOOKER_CLIENT_ID: RecipeField = {
     type: FieldType.TEXT,
     fieldPath: 'source.config.client_id',
     placeholder: 'client_id',
+    required: true,
     rules: null,
 };
 
@@ -27,6 +29,7 @@ export const LOOKER_CLIENT_SECRET: RecipeField = {
     type: FieldType.SECRET,
     fieldPath: 'source.config.client_secret',
     placeholder: 'client_secret',
+    required: true,
     rules: null,
 };
 

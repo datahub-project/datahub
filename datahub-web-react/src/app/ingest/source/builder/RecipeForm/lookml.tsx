@@ -12,6 +12,7 @@ export const LOOKML_GITHUB_INFO_REPO: RecipeField = {
     fieldPath: 'source.config.github_info.repo',
     placeholder: 'datahub-project/datahub',
     rules: [{ required: true, message: 'Github Repo is required' }],
+    required: true,
 };
 
 const deployKeyFieldPath = 'source.config.github_info.deploy_key';
@@ -43,6 +44,7 @@ export const DEPLOY_KEY: RecipeField = {
         const valueWithNewLine = `${value}\n`;
         return setFieldValueOnRecipe(recipe, valueWithNewLine, deployKeyFieldPath);
     },
+    required: true,
 };
 
 function validateApiSection(getFieldValue, fieldName) {

@@ -9,6 +9,7 @@ export const REDSHIFT_HOST_PORT: RecipeField = {
     fieldPath: 'source.config.host_port',
     placeholder: 'redshift.company.us-west-1.redshift.amazonaws.com:5439',
     rules: null,
+    required: true,
 };
 
 export const REDSHIFT_DATABASE: RecipeField = {
@@ -19,6 +20,7 @@ export const REDSHIFT_DATABASE: RecipeField = {
     fieldPath: 'source.config.database',
     placeholder: 'database_name',
     rules: null,
+    required: true,
 };
 
 export const REDSHIFT_USERNAME: RecipeField = {
@@ -29,6 +31,7 @@ export const REDSHIFT_USERNAME: RecipeField = {
     fieldPath: 'source.config.username',
     placeholder: 'redshift',
     rules: null,
+    required: true,
 };
 
 export const REDSHIFT_PASSWORD: RecipeField = {
@@ -39,4 +42,5 @@ export const REDSHIFT_PASSWORD: RecipeField = {
     fieldPath: 'source.config.password',
     placeholder: 'password',
     rules: null,
+    required: true,
 };

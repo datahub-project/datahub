@@ -2,12 +2,13 @@ import { RecipeField, FieldType } from './common';
 
 export const BIGQUERY_PROJECT_ID: RecipeField = {
     name: 'project_id',
-    label: 'BigQuery Project ID',
+    label: 'Project ID',
     tooltip: 'Project ID where you have rights to run queries and create tables.',
     placeholder: 'my-project-123',
     type: FieldType.TEXT,
     fieldPath: 'source.config.project_id',
     rules: null,
+    required: true,
 };
 
 export const BIGQUERY_CREDENTIAL_PROJECT_ID: RecipeField = {
@@ -28,6 +29,7 @@ export const BIGQUERY_PRIVATE_KEY_ID: RecipeField = {
     fieldPath: 'source.config.credential.private_key_id',
     placeholder: 'd0121d0000882411234e11166c6aaa23ed5d74e0',
     rules: null,
+    required: true,
 };
 
 export const BIGQUERY_PRIVATE_KEY: RecipeField = {
@@ -38,6 +40,7 @@ export const BIGQUERY_PRIVATE_KEY: RecipeField = {
     type: FieldType.SECRET,
     fieldPath: 'source.config.credential.private_key',
     rules: null,
+    required: true,
 };
 
 export const BIGQUERY_CLIENT_EMAIL: RecipeField = {
@@ -48,6 +51,7 @@ export const BIGQUERY_CLIENT_EMAIL: RecipeField = {
     type: FieldType.TEXT,
     fieldPath: 'source.config.credential.client_email',
     rules: null,
+    required: true,
 };
 
 export const BIGQUERY_CLIENT_ID: RecipeField = {
@@ -58,4 +62,5 @@ export const BIGQUERY_CLIENT_ID: RecipeField = {
     type: FieldType.TEXT,
     fieldPath: 'source.config.credential.client_id',
     rules: null,
+    required: true,
 };

@@ -8,6 +8,7 @@ export const MYSQL_HOST_PORT: RecipeField = {
     type: FieldType.TEXT,
     fieldPath: 'source.config.host_port',
     placeholder: 'mysql:5432',
+    required: true,
     rules: null,
 };
 
@@ -18,6 +19,7 @@ export const MYSQL_USERNAME: RecipeField = {
     type: FieldType.TEXT,
     fieldPath: 'source.config.username',
     placeholder: 'mysql',
+    required: true,
     rules: null,
 };
 
@@ -28,5 +30,6 @@ export const MYSQL_PASSWORD: RecipeField = {
     type: FieldType.SECRET,
     fieldPath: 'source.config.password',
     placeholder: 'password',
+    required: true,
     rules: null,
 };

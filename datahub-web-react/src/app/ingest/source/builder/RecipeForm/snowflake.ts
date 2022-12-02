@@ -9,6 +9,7 @@ export const SNOWFLAKE_ACCOUNT_ID: RecipeField = {
     fieldPath: 'source.config.account_id',
     placeholder: 'xyz123',
     rules: null,
+    required: true,
 };
 
 export const SNOWFLAKE_WAREHOUSE: RecipeField = {
@@ -19,6 +20,7 @@ export const SNOWFLAKE_WAREHOUSE: RecipeField = {
     fieldPath: 'source.config.warehouse',
     placeholder: 'COMPUTE_WH',
     rules: null,
+    required: true,
 };
 
 export const SNOWFLAKE_USERNAME: RecipeField = {
@@ -29,6 +31,7 @@ export const SNOWFLAKE_USERNAME: RecipeField = {
     fieldPath: 'source.config.username',
     placeholder: 'snowflake',
     rules: null,
+    required: true,
 };
 
 export const SNOWFLAKE_PASSWORD: RecipeField = {
@@ -39,6 +42,7 @@ export const SNOWFLAKE_PASSWORD: RecipeField = {
     fieldPath: 'source.config.password',
     placeholder: 'password',
     rules: null,
+    required: true,
 };
 
 export const SNOWFLAKE_ROLE: RecipeField = {
@@ -49,4 +53,5 @@ export const SNOWFLAKE_ROLE: RecipeField = {
     fieldPath: 'source.config.role',
     placeholder: 'datahub_role',
     rules: null,
+    required: true,
 };

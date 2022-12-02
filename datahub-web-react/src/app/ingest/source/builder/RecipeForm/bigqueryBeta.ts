@@ -8,6 +8,7 @@ export const BIGQUERY_BETA_PROJECT_ID: RecipeField = {
     type: FieldType.TEXT,
     fieldPath: 'source.config.credential.project_id',
     rules: null,
+    required: true,
 };
 
 const projectIdAllowFieldPath = 'source.config.project_id_pattern.allow';

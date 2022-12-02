@@ -7,6 +7,7 @@ export const TABLEAU_CONNECTION_URI: RecipeField = {
     type: FieldType.TEXT,
     fieldPath: 'source.config.connect_uri',
     placeholder: 'https://prod-ca-a.online.tableau.com',
+    required: true,
     rules: null,
 };
 
