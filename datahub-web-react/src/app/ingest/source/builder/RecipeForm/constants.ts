@@ -126,8 +126,8 @@ export const RECIPE_FIELDS: RecipeFields = {
             INCLUDE_VIEWS,
             INCLUDE_TABLE_LINEAGE,
             PROFILING_ENABLED,
-            STATEFUL_INGESTION_ENABLED,
             START_TIME,
+            STATEFUL_INGESTION_ENABLED,
         ],
         filterFields: [
             PROJECT_ALLOW,
@@ -149,7 +149,7 @@ export const RECIPE_FIELDS: RecipeFields = {
             BIGQUERY_CLIENT_EMAIL,
             BIGQUERY_CLIENT_ID,
         ],
-        advancedFields: [INCLUDE_TABLE_LINEAGE, PROFILING_ENABLED, STATEFUL_INGESTION_ENABLED, START_TIME],
+        advancedFields: [INCLUDE_TABLE_LINEAGE, PROFILING_ENABLED, START_TIME, STATEFUL_INGESTION_ENABLED],
         filterFields: [
             PROJECT_ALLOW,
             PROJECT_DENY,
@@ -169,8 +169,8 @@ export const RECIPE_FIELDS: RecipeFields = {
             INCLUDE_VIEWS,
             INCLUDE_TABLE_LINEAGE,
             PROFILING_ENABLED,
-            STATEFUL_INGESTION_ENABLED,
             TABLE_LINEAGE_MODE,
+            STATEFUL_INGESTION_ENABLED,
         ],
         filterFields: [SCHEMA_ALLOW, SCHEMA_DENY, TABLE_ALLOW, TABLE_DENY, VIEW_ALLOW, VIEW_DENY],
         filterSectionTooltip: 'Include or exclude specific Schemas, Tables and Views from ingestion.',
@@ -228,7 +228,7 @@ export const RECIPE_FIELDS: RecipeFields = {
     [POSTGRES]: {
         fields: [POSTGRES_HOST_PORT, POSTGRES_USERNAME, POSTGRES_PASSWORD, POSTGRES_DATABASE],
         filterFields: [SCHEMA_ALLOW, SCHEMA_DENY, TABLE_ALLOW, TABLE_DENY, VIEW_ALLOW, VIEW_DENY],
-        advancedFields: [INCLUDE_TABLES, INCLUDE_VIEWS, STATEFUL_INGESTION_ENABLED, PROFILING_ENABLED],
+        advancedFields: [INCLUDE_TABLES, INCLUDE_VIEWS, PROFILING_ENABLED, STATEFUL_INGESTION_ENABLED],
         filterSectionTooltip: 'Include or exclude specific Schemas, Tables and Views from ingestion.',
     },
     [MYSQL]: {
@@ -249,7 +249,7 @@ export const RECIPE_FIELDS: RecipeFields = {
     [HIVE]: {
         fields: [HIVE_HOST_PORT, HIVE_USERNAME, HIVE_PASSWORD, HIVE_DATABASE],
         filterFields: [SCHEMA_ALLOW, SCHEMA_DENY, TABLE_ALLOW, TABLE_DENY, VIEW_ALLOW, VIEW_DENY],
-        advancedFields: [INCLUDE_TABLES, STATEFUL_INGESTION_ENABLED, PROFILING_ENABLED],
+        advancedFields: [INCLUDE_TABLES, PROFILING_ENABLED, STATEFUL_INGESTION_ENABLED],
         filterSectionTooltip: 'Include or exclude specific Schemas, Tables and Views from ingestion.',
     },
 };

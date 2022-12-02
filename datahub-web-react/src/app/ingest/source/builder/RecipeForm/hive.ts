@@ -8,6 +8,7 @@ export const HIVE_HOST_PORT: RecipeField = {
     type: FieldType.TEXT,
     fieldPath: 'source.config.host_port',
     placeholder: 'hive:9083',
+    required: true,
     rules: null,
 };
 
@@ -29,6 +30,7 @@ export const HIVE_USERNAME: RecipeField = {
     type: FieldType.TEXT,
     fieldPath: 'source.config.username',
     placeholder: 'hive',
+    required: true,
     rules: null,
 };
 
@@ -39,5 +41,6 @@ export const HIVE_PASSWORD: RecipeField = {
     type: FieldType.SECRET,
     fieldPath: 'source.config.password',
     placeholder: 'password',
+    required: true,
     rules: null,
 };
