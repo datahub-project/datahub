@@ -110,7 +110,7 @@ export default function TableOfMlFeatures({ features }: Props) {
         width: 125,
         title: 'Terms',
         dataIndex: 'glossaryTerms',
-        key: 'glossarTerms',
+        key: 'glossaryTerms',
         render: (_, feature: MlFeature | MlPrimaryKey, rowIndex: number) => (
             <TagTermGroup
                 editableGlossaryTerms={feature.glossaryTerms}
