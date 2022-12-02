@@ -182,6 +182,7 @@ export const RECIPE_FIELDS: RecipeFields = {
             TABLEAU_SITE,
             TABLEAU_TOKEN_NAME,
             TABLEAU_TOKEN_VALUE,
+            STATEFUL_INGESTION_ENABLED,
             TABLEAU_USERNAME,
             TABLEAU_PASSWORD,
         ],
@@ -191,7 +192,7 @@ export const RECIPE_FIELDS: RecipeFields = {
     [LOOKER]: {
         fields: [LOOKER_BASE_URL, LOOKER_CLIENT_ID, LOOKER_CLIENT_SECRET],
         filterFields: [DASHBOARD_ALLOW, DASHBOARD_DENY, CHART_ALLOW, CHART_DENY],
-        advancedFields: [EXTRACT_USAGE_HISTORY, EXTRACT_OWNERS, SKIP_PERSONAL_FOLDERS],
+        advancedFields: [EXTRACT_USAGE_HISTORY, EXTRACT_OWNERS, SKIP_PERSONAL_FOLDERS, STATEFUL_INGESTION_ENABLED],
         filterSectionTooltip: 'Include or exclude specific Dashboard, Charts from Looker ingestion.',
     },
     [LOOKML]: {
@@ -204,7 +205,7 @@ export const RECIPE_FIELDS: RecipeFields = {
             LOOKML_CLIENT_SECRET,
         ],
         filterFields: [],
-        advancedFields: [PARSE_TABLE_NAMES_FROM_SQL, CONNECTION_TO_PLATFORM_MAP],
+        advancedFields: [PARSE_TABLE_NAMES_FROM_SQL, CONNECTION_TO_PLATFORM_MAP, STATEFUL_INGESTION_ENABLED],
         advancedSectionTooltip:
             'In order to ingest LookML data properly, you must either fill out Looker API client information (Base URL, Client ID, Client Secret) or an offline specification of the connection to platform mapping and the project name (Connection To Platform Map, Project Name).',
         defaultOpenSections: [RecipeSections.Connection, RecipeSections.Advanced],

@@ -32,28 +32,28 @@
         "name": "looker",
         "displayName": "Looker",
         "docsUrl": "https://datahubproject.io/docs/generated/ingestion/sources/looker/",
-        "recipe": "source:\n    type: looker\n    config:\n        # Coordinates\n        base_url: # Your Looker instance URL, e.g. https://company.looker.com:19999\n\n        # Credentials\n        # Add secret in Secrets Tab with relevant names for each variable\n        client_id: null # Your Looker client id, e.g. admin\n"
+        "recipe": "source:\n    type: looker\n    config:\n        # Coordinates\n        base_url: # Your Looker instance URL, e.g. https://company.looker.com:19999\n\n        # Credentials\n        # Add secret in Secrets Tab with relevant names for each variable\n        client_id: null # Your Looker client id, e.g. admin\n        stateful_ingestion:\n            enabled: true"
     },
     {
         "urn": "urn:li:dataPlatform:lookml",
         "name": "lookml",
         "displayName": "LookML",
         "docsUrl": "https://datahubproject.io/docs/generated/ingestion/sources/looker/#module-lookml",
-        "recipe": "source:\n    type: lookml\n    config:\n        parse_table_names_from_sql: true"
+        "recipe": "source:\n    type: lookml\n    config:\n        parse_table_names_from_sql: true\n        stateful_ingestion:\n            enabled: true"
     },
     {
         "urn": "urn:li:dataPlatform:tableau",
         "name": "tableau",
         "displayName": "Tableau",
         "docsUrl": "https://datahubproject.io/docs/generated/ingestion/sources/tableau/",
-        "recipe": "source:\n  type: tableau\n  config:\n    # Coordinates\n    connect_uri: null\n\n"
+        "recipe": "source:\n  type: tableau\n  config:\n    # Coordinates\n    connect_uri: null\n        stateful_ingestion:\n            enabled: true"
     },
     {
         "urn": "urn:li:dataPlatform:mysql",
         "name": "mysql",
         "displayName": "MySQL",
         "docsUrl": "https://datahubproject.io/docs/generated/ingestion/sources/mysql/",
-        "recipe": "source: \n    type: mysql\n    config: \n        # Coordinates\n        host_port: # Your MySQL host and post, e.g. mysql:3306\n        database: # Your MySQL database name, e.g. datahub\n    \n        # Credentials\n        # Add secret in Secrets Tab with relevant names for each variable\n        username: null # Your MySQL username, e.g. admin\n\n        # Options\n        include_tables: true\n        include_views: true\n\n        # Profiling\n        profiling:\n            enabled: false"
+        "recipe": "source: \n    type: mysql\n    config: \n        # Coordinates\n        host_port: # Your MySQL host and post, e.g. mysql:3306\n        database: # Your MySQL database name, e.g. datahub\n    \n        # Credentials\n        # Add secret in Secrets Tab with relevant names for each variable\n        username: null # Your MySQL username, e.g. admin\n\n        # Options\n        include_tables: true\n        include_views: true\n\n        # Profiling\n        profiling:\n            enabled: false\n        stateful_ingestion:\n            enabled: true"
     },
     {
         "urn": "urn:li:dataPlatform:postgres",
