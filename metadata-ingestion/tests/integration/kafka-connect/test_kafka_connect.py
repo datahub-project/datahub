@@ -270,6 +270,15 @@ def test_kafka_connect_mongosourceconnect_ingest(
         str(test_resources_dir / "docker-compose.override.yml"),
     ]
     with docker_compose_runner(docker_compose_file, "kafka-connect") as docker_services:
+        time.sleep(10)
+        # Run the setup.sql file to populate the database.
+        command = 'docker exec test_mongo mongo admin -u admin -p admin --eval "rs.initiate();"'
+        ret = subprocess.run(
+            command, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE
+        )
+        assert ret.returncode == 0
+        time.sleep(10)
+
         wait_for_port(docker_services, "test_broker", 59092, timeout=120)
         wait_for_port(docker_services, "test_connect", 58083, timeout=120)
         docker_services.wait_until_responsive(
@@ -280,6 +289,7 @@ def test_kafka_connect_mongosourceconnect_ingest(
             ).status_code
             == 200,
         )
+
         # Creating MongoDB source
         r = requests.post(
             "http://localhost:58083/connectors",
