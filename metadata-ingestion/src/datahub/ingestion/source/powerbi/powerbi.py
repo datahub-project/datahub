@@ -5,19 +5,18 @@
 #########################################################
 
 import logging
-from dataclasses import dataclass, field as dataclass_field
 from enum import Enum
 from time import sleep
-from typing import Any, Dict, Iterable, List, Optional, Tuple
+from typing import Any, Dict, Iterable, List, Optional, Tuple, Union, cast
 from xmlrpc.client import Boolean
 
 import msal
-import pydantic
 import requests
 
 import datahub.emitter.mce_builder as builder
+from dataclasses import dataclass
 from datahub.configuration.common import ConfigurationError
-from datahub.configuration.source_common import EnvBasedSourceConfigBase
+from datahub.configuration.source_common import DEFAULT_ENV
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.decorators import (
@@ -30,6 +29,7 @@ from datahub.ingestion.api.decorators import (
 )
 from datahub.ingestion.api.source import Source, SourceReport
 from datahub.ingestion.api.workunit import MetadataWorkUnit
+from datahub.ingestion.source.powerbi.m_parser import DataPlatformTable
 from datahub.metadata.com.linkedin.pegasus2avro.common import ChangeAuditStamps
 from datahub.metadata.schema_classes import (
     BrowsePathsClass,
@@ -48,6 +48,8 @@ from datahub.metadata.schema_classes import (
     SubTypesClass, UpstreamClass, DatasetLineageTypeClass, UpstreamLineageClass,
 )
 from datahub.utilities.dedup_list import deduplicate_list
+from datahub.ingestion.source.powerbi import m_parser
+from datahub.ingestion.source.powerbi.config import PowerBiDashboardSourceReport, PowerBiDashboardSourceConfig, PowerBiAPIConfig, PlatformDetail
 
 # Logger instance
 LOGGER = logging.getLogger(__name__)
@@ -105,61 +107,6 @@ class Constant:
     HTTP_RESPONSE_STATUS_CODE = "HttpResponseStatusCode"
 
 
-@dataclass
-class PowerBiDashboardSourceReport(SourceReport):
-    dashboards_scanned: int = 0
-    charts_scanned: int = 0
-    filtered_dashboards: List[str] = dataclass_field(default_factory=list)
-    filtered_charts: List[str] = dataclass_field(default_factory=list)
-
-    def report_dashboards_scanned(self, count: int = 1) -> None:
-        self.dashboards_scanned += count
-
-    def report_charts_scanned(self, count: int = 1) -> None:
-        self.charts_scanned += count
-
-    def report_dashboards_dropped(self, model: str) -> None:
-        self.filtered_dashboards.append(model)
-
-    def report_charts_dropped(self, view: str) -> None:
-        self.filtered_charts.append(view)
-
-
-class PowerBiAPIConfig(EnvBasedSourceConfigBase):
-    # Organsation Identifier
-    tenant_id: str = pydantic.Field(description="PowerBI tenant identifier")
-    # PowerBi workspace identifier
-    workspace_id: str = pydantic.Field(description="PowerBI workspace identifier")
-    # Dataset type mapping
-    dataset_type_mapping: Dict[str, str] = pydantic.Field(
-        description="Mapping of PowerBI datasource type to DataHub supported data-sources. See Quickstart Recipe for mapping"
-    )
-    # Azure app client identifier
-    client_id: str = pydantic.Field(description="Azure app client identifier")
-    # Azure app client secret
-    client_secret: str = pydantic.Field(description="Azure app client secret")
-    # timeout for meta-data scanning
-    scan_timeout: int = pydantic.Field(
-        default=60, description="timeout for PowerBI metadata scanning"
-    )
-    # Enable/Disable extracting ownership information of Dashboard
-    extract_ownership: bool = pydantic.Field(
-        default=True, description="Whether ownership should be ingested"
-    )
-    # Enable/Disable extracting report information
-    extract_reports: bool = pydantic.Field(
-        default=True, description="Whether reports should be ingested"
-    )
-
-
-class PowerBiDashboardSourceConfig(PowerBiAPIConfig):
-    platform_name: str = "powerbi"
-    platform_urn: str = builder.make_data_platform_urn(platform=platform_name)
-    # Not supporting the pattern
-    # dashboard_pattern: AllowDenyPattern = AllowDenyPattern.allow_all()
-    # chart_pattern: AllowDenyPattern = AllowDenyPattern.allow_all()
-
-
 class PowerBiAPI:
     # API endpoints of PowerBi to fetch dashboards, tiles, datasets
     API_ENDPOINTS = {
@@ -215,21 +162,21 @@ class PowerBiAPI:
         def __hash__(self):
             return hash(self.__members())
 
+    @dataclass
+    class Table:
+        name: str
+        full_name: str
+        expression: Optional[str]
+
     # dataclasses for PowerBi Dashboard
     @dataclass
     class PowerBIDataset:
-        @dataclass
-        class Table:
-            name: str
-            full_name: str
-            expression: Optional[str]
-
         id: str
         name: str
         webUrl: Optional[str]
         workspace_id: str
         # Table in datasets
-        tables: List["Table"]
+        tables: List["PowerBiAPI.Table"]
 
         def get_urn_part(self):
             return f"datasets.{self.id}"
@@ -1034,8 +981,9 @@ class Mapper:
         def __hash__(self):
             return id(self.id)
 
-    def __init__(self, config: PowerBiDashboardSourceConfig):
+    def __init__(self, config: PowerBiDashboardSourceConfig, reporter: PowerBiDashboardSourceReport):
         self.__config = config
+        self.__reporter = reporter
 
     def new_mcp(
         self,
@@ -1112,40 +1060,43 @@ class Mapper:
                 aspect_name=Constant.STATUS,
                 aspect=StatusClass(removed=False),
             )
-            if table.name == 'two_source_table':
-                upstreams: List[UpstreamClass] = []
-                upstream_urn = builder.make_dataset_urn_with_platform_instance(
-                    "snowflake",
-                    "GSL_TEST_DB.PUBLIC.SALES_ANALYST_VIEW",
-                    "GSL_TEST_WH",
-                )
+            # Check if upstreams table is available, parse them and create dataset URN for each upstream table
+            upstreams: List[UpstreamClass] = []
+            upstream_tables: List[DataPlatformTable] = m_parser.get_upstream_tables(table.expression, self.__reporter)
+            for upstream_table in upstream_tables:
+                platform: Union[str, PlatformDetail] = self.__config.dataset_type_mapping[upstream_table.platform_type]
+                platform_name: str = None
+                platform_instance_name: str = None
+                platform_env: str = DEFAULT_ENV
+                # Determine if PlatformDetail is provided
+                if isinstance(platform, PlatformDetail):
+                    platform_name = cast(PlatformDetail, platform).platform
+                    platform_instance_name = cast(PlatformDetail, platform).platform_instance
+                    platform_env = cast(PlatformDetail, platform).env
+                else:
+                    platform_name = platform
 
+                upstream_urn = builder.make_dataset_urn_with_platform_instance(
+                    platform=platform_name,
+                    platform_instance=platform_instance_name,
+                    env=platform_env,
+                    name=upstream_table.full_name,
+                )
                 upstream_table = UpstreamClass(
                     upstream_urn,
                     DatasetLineageTypeClass.TRANSFORMED,
                 )
-
                 upstreams.append(upstream_table)
 
-                upstream_urn2 = builder.make_dataset_urn(
-                    "postgres",
-                    "mics.public.order_date",
-                )
-                upstream_table2 = UpstreamClass(
-                    upstream_urn2,
-                    DatasetLineageTypeClass.TRANSFORMED,
-                )
-                upstreams.append(upstream_table2)
-
-                upstream_lineage = UpstreamLineageClass(upstreams=upstreams)
-                mcp = MetadataChangeProposalWrapper(
-                    entityType="dataset",
-                    changeType=ChangeTypeClass.UPSERT,
-                    entityUrn=ds_urn,
-                    aspect=upstream_lineage,
-                )
-
-                dataset_mcps.extend([mcp])
+                if len(upstreams) > 0:
+                    upstream_lineage = UpstreamLineageClass(upstreams=upstreams)
+                    mcp = MetadataChangeProposalWrapper(
+                        entityType="dataset",
+                        changeType=ChangeTypeClass.UPSERT,
+                        entityUrn=ds_urn,
+                        aspect=upstream_lineage,
+                    )
+                    dataset_mcps.extend([mcp])
 
             dataset_mcps.extend([info_mcp, status_mcp])
 
@@ -1681,7 +1632,7 @@ class PowerBiDashboardSource(Source):
         self.reporter = PowerBiDashboardSourceReport()
         self.auth_token = PowerBiAPI(self.source_config).get_access_token()
         self.powerbi_client = PowerBiAPI(self.source_config)
-        self.mapper = Mapper(config)
+        self.mapper = Mapper(config, self.reporter)
 
     @classmethod
     def create(cls, config_dict, ctx):
