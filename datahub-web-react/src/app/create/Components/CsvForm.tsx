@@ -9,8 +9,8 @@ import { useGetAuthenticatedUser } from '../../useGetAuthenticatedUser';
 import { GetMyToken } from '../../entity/dataset/whoAmI';
 import { WhereAmI } from '../../home/whereAmI';
 import { printErrorMsg, printSuccessMsg } from '../../entity/shared/tabs/Dataset/ApiCallUtils';
-import { SetParentContainer } from '../../entity/shared/tabs/Dataset/containerEdit/SetParentContainer';
 import { SpecifyBrowsePath } from './SpecifyBrowsePath';
+import { SetParentContainerRevised } from '../../entity/shared/tabs/Dataset/containerEdit/SetParentContainerRevised';
 
 const SearchResultContainer = styled.div`
     display: flex;
@@ -48,7 +48,6 @@ export const CsvForm = () => {
     const publishUrl = `${urlBase}custom/make_dataset`;
     const [visible, setVisible] = useState(false);
     const [confirmLoading, setConfirmLoading] = useState(false);
-    const [erasePath, setErasePath] = useState(false);
     const user = useGetAuthenticatedUser();
     const userUrn = user?.corpUser?.urn || '';
     const userToken = GetMyToken(userUrn);
@@ -88,7 +87,6 @@ export const CsvForm = () => {
     };
     const onReset = () => {
         form.resetFields();
-        setErasePath(true);
     };
     const handleOnFileLoad = (data) => {
         const headerLine = 0;
@@ -126,18 +124,22 @@ export const CsvForm = () => {
     //     'If dataset is not from an existing database, use FILE. For databases not in list, refer to admin';
     const onSelectMember = (urn: string) => {
         setSelectedPlatform(urn);
+        //  todo remove form.setFieldsValue({ parentContainer: '' });
         form.setFieldsValue({ parentContainer: '' });
+        // set the field value so that the SetParentContainer component will trigger a rerender
+        // to remove the select option set in SetParentContainer component
+        form.setFieldsValue({ parentContainerProps: { platformType: urn, platformContainer: '' } });
     };
     const removeOption = () => {
         setSelectedPlatform('');
+        //  todo why do we need this line?
         form.setFieldsValue({ parentContainer: '' });
     };
     const popupMsg = `Confirm Dataset Name: ${form.getFieldValue('dataset_name')}? 
     This permanently affects the dataset URL`;
     const { TextArea } = Input;
-    const formIsUpdating = () => {
-        setErasePath(false);
-    };
+    const formIsUpdating = () => {};
+    // todo: remove similar variables like parentContainer and platformSelect since we have parentContainerProps object
     return (
         <>
             <Form
@@ -154,6 +156,10 @@ export const CsvForm = () => {
                     dataset_location: '',
                     platformSelect: 'urn:li:dataPlatform:file',
                     parentContainer: '',
+                    parentContainerProps: {
+                        platformType: 'urn:li:dataPlatform:file',
+                        platformContainer: '',
+                    },
                 }}
                 onFieldsChange={formIsUpdating}
             >
@@ -199,7 +205,20 @@ export const CsvForm = () => {
                         </Select>
                     </Form.Item>
                 </Tooltip>
-                <SetParentContainer platformType={selectedPlatform} compulsory={false} clear={erasePath} />
+                <Form.Item
+                    label="Specify a Container(Optional)"
+                    rules={[
+                        {
+                            required: false,
+                            message: 'A container must be specified.',
+                        },
+                    ]}
+                    style={{ marginBottom: '0px' }}
+                >
+                    <Form.Item name="parentContainerProps">
+                        <SetParentContainerRevised />
+                    </Form.Item>
+                </Form.Item>
                 <CommonFields />
                 <SpecifyBrowsePath />
                 <Form.Item label="Dataset Fields" name="fields">
