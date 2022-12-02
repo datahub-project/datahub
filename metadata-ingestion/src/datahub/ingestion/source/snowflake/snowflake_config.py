@@ -100,7 +100,7 @@ class SnowflakeV2Config(SnowflakeConfig, SnowflakeUsageConfig):
 
     def get_sql_alchemy_url(
         self,
-        database: str = None,
+        database: Optional[str] = None,
         username: Optional[str] = None,
         password: Optional[SecretStr] = None,
         role: Optional[str] = None,

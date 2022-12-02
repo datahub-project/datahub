@@ -110,9 +110,9 @@ class DataHubValidationAction(ValidationAction):
             ValidationResultIdentifier, "GXCloudIdentifier"
         ],
         data_asset: Union[Validator, DataAsset, Batch],
-        payload: Any = None,
+        payload: Optional[Any] = None,
         expectation_suite_identifier: Optional[ExpectationSuiteIdentifier] = None,
-        checkpoint_identifier: Any = None,
+        checkpoint_identifier: Optional[Any] = None,
     ) -> Dict:
         datasets = []
         try:
