@@ -247,11 +247,10 @@ export const RECIPE_FIELDS: RecipeFields = {
         filterSectionTooltip: 'Include or exclude specific Databases, Schemas, Tables and Views from ingestion.',
     },
     [HIVE]: {
-        fields: [HIVE_HOST_PORT, HIVE_DATABASE, HIVE_USERNAME, HIVE_PASSWORD],
+        fields: [HIVE_HOST_PORT, HIVE_USERNAME, HIVE_PASSWORD, HIVE_DATABASE],
         filterFields: [SCHEMA_ALLOW, SCHEMA_DENY, TABLE_ALLOW, TABLE_DENY, VIEW_ALLOW, VIEW_DENY],
         advancedFields: [INCLUDE_TABLES, STATEFUL_INGESTION_ENABLED, PROFILING_ENABLED],
-        filterSectionTooltip:
-            'Filter out data assets based on allow/deny regex patterns we match against. Deny patterns take precedence over allow patterns.',
+        filterSectionTooltip: 'Include or exclude specific Schemas, Tables and Views from ingestion.',
     },
 };
 

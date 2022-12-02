@@ -63,6 +63,13 @@
         "recipe": "source: \n    type: postgres\n    config:\n        # Coordinates\n        host_port: # Your Postgres host and port, e.g. postgres:5432\n        database: # Your Postgres Database, e.g. sample_db\n\n        # Credentials\n        # Add secret in Secrets Tab with relevant names for each variable\n        username: null # Your Postgres username, e.g. admin\n\n        # Options\n        include_tables: true\n        include_views: true\n\n        # Profiling\n        profiling:\n            enabled: false\n        stateful_ingestion:\n            enabled: true"
     },
     {
+        "urn": "urn:li:dataPlatform:hive",
+        "name": "hive",
+        "displayName": "Hive",
+        "docsUrl": "https://datahubproject.io/docs/generated/ingestion/sources/hive/",
+        "recipe": "source: \n    type: hive\n    config:\n        # Coordinates\n        host_port: # Your Hive host and port, e.g. hive:10000\n        database: # Your Hive database name, e.g. SampleDatabase (Optional, if not specified, ingests from all databases)\n\n        # Credentials\n        # Add secret in Secrets Tab with relevant names for each variable\n        username: null # Your Hive username, e.g. admin\n        password: null # Your Hive password, e.g. password_01\n        stateful_ingestion:\n            enabled: true"
+    },
+    {
         "urn": "urn:li:dataPlatform:mongodb",
         "name": "mongodb",
         "displayName": "MongoDB",
@@ -96,13 +103,6 @@
         "displayName": "Oracle",
         "docsUrl": "https://datahubproject.io/docs/generated/ingestion/sources/oracle/",
         "recipe": "source: \n    type: oracle\n    config:\n        # Coordinates\n        host_port: # Your Oracle host and port, e.g. oracle:5432\n        database: # Your Oracle database name, e.g. sample_db\n\n        # Credentials\n        # Add secret in Secrets Tab with relevant names for each variable\n        username: \"${ORACLE_USERNAME}\" # Your Oracle username, e.g. admin\n        password: \"${ORACLE_PASSWORD}\" # Your Oracle password, e.g. password_01\n\n        # Optional service name\n        # service_name: # Your service name, e.g. svc # omit database if using this option"
-    },
-    {
-        "urn": "urn:li:dataPlatform:hive",
-        "name": "hive",
-        "displayName": "Hive",
-        "docsUrl": "https://datahubproject.io/docs/generated/ingestion/sources/hive/",
-        "recipe": "source: \n    type: hive\n    config:\n        # Coordinates\n        host_port: # Your Hive host and port, e.g. hive:10000\n        database: # Your Hive database name, e.g. SampleDatabase (Optional, if not specified, ingests from all databases)\n\n        # Credentials\n        # Add secret in Secrets Tab with relevant names for each variable\n        username: \"${HIVE_USERNAME}\" # Your Hive username, e.g. admin\n        password: \"${HIVE_PASSWORD}\"# Your Hive password, e.g. password_01\n        stateful_ingestion:\n            enabled: true"
     },
     {
         "urn": "urn:li:dataPlatform:superset",
