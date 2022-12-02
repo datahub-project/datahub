@@ -44,6 +44,11 @@ class SnowflakeV2Config(SnowflakeConfig, SnowflakeUsageConfig):
         description="For details, refer [Classification](../../../../metadata-ingestion/docs/dev_guides/classification.md).",
     )
 
+    include_external_url: bool = Field(
+        default=True,
+        description="Whether to populate Snowsight url for Snowflake Objects",
+    )
+
     @root_validator(pre=False)
     def validate_unsupported_configs(cls, values: Dict) -> Dict:
 
@@ -95,7 +100,7 @@ class SnowflakeV2Config(SnowflakeConfig, SnowflakeUsageConfig):
 
     def get_sql_alchemy_url(
         self,
-        database: str = None,
+        database: Optional[str] = None,
         username: Optional[str] = None,
         password: Optional[SecretStr] = None,
         role: Optional[str] = None,

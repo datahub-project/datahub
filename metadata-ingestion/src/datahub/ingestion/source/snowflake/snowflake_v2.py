@@ -646,6 +646,14 @@ class SnowflakeV2Source(
             description=table.comment,
             qualifiedName=dataset_name,
             customProperties={**upstream_column_props},
+            externalUrl=self.get_external_url_for_table(
+                table.name,
+                schema_name,
+                db_name,
+                "table" if isinstance(table, SnowflakeTable) else "view",
+            )
+            if self.config.include_external_url
+            else None,
         )
         yield self.wrap_aspect_as_workunit(
             "dataset", dataset_urn, "datasetProperties", dataset_properties
@@ -889,6 +897,9 @@ class SnowflakeV2Source(
             description=database.comment,
             sub_types=[SqlContainerSubTypes.DATABASE],
             domain_urn=domain_urn,
+            external_url=self.get_external_url_for_database(database.name)
+            if self.config.include_external_url
+            else None,
         )
 
         self.stale_entity_removal_handler.add_entity_to_state(
@@ -922,6 +933,9 @@ class SnowflakeV2Source(
             description=schema.comment,
             sub_types=[SqlContainerSubTypes.SCHEMA],
             parent_container_key=database_container_key,
+            external_url=self.get_external_url_for_schema(schema.name, db_name)
+            if self.config.include_external_url
+            else None,
         )
 
         for wu in container_workunits:
@@ -1077,3 +1091,26 @@ class SnowflakeV2Source(
         df = pd.DataFrame(dat, columns=[col.name for col in cur.description])
 
         return df
+
+    # domain is either "view" or "table"
+    def get_external_url_for_table(
+        self, table_name: str, schema_name: str, db_name: str, domain: str
+    ) -> Optional[str]:
+        base_url = self.get_snowsight_base_url()
+        if base_url is not None:
+            return f"{base_url}#/data/databases/{db_name}/schemas/{schema_name}/{domain}/{table_name}/"
+        return None
+
+    def get_external_url_for_schema(
+        self, schema_name: str, db_name: str
+    ) -> Optional[str]:
+        base_url = self.get_snowsight_base_url()
+        if base_url is not None:
+            return f"{base_url}#/data/databases/{db_name}/schemas/{schema_name}/"
+        return None
+
+    def get_external_url_for_database(self, db_name: str) -> Optional[str]:
+        base_url = self.get_snowsight_base_url()
+        if base_url is not None:
+            return f"{base_url}#/data/databases/{db_name}/"
+        return None

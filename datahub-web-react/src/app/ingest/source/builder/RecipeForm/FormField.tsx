@@ -1,5 +1,5 @@
 import React from 'react';
-import { Checkbox, DatePicker, Form, Input, Select, Tooltip } from 'antd';
+import { Checkbox, DatePicker, Form, Input, Select, Tooltip, FormInstance } from 'antd';
 import styled from 'styled-components/macro';
 import Button from 'antd/lib/button';
 import { MinusCircleOutlined, PlusOutlined } from '@ant-design/icons';
@@ -56,6 +56,7 @@ function ListField({ field, removeMargin }: CommonFieldProps) {
 function SelectField({ field, removeMargin }: CommonFieldProps) {
     return (
         <StyledFormItem
+            required={field.required}
             name={field.name}
             label={field.label}
             tooltip={field.tooltip}
@@ -63,7 +64,7 @@ function SelectField({ field, removeMargin }: CommonFieldProps) {
             rules={field.rules || undefined}
         >
             {field.options && (
-                <Select placeholder={field.placeholder}>
+                <Select placeholder={field.placeholder} allowClear={!field.required}>
                     {field.options.map((option) => (
                         <Select.Option value={option.value}>{option.label}</Select.Option>
                     ))}
@@ -76,6 +77,7 @@ function SelectField({ field, removeMargin }: CommonFieldProps) {
 function DateField({ field, removeMargin }: CommonFieldProps) {
     return (
         <StyledFormItem
+            required={field.required}
             name={field.name}
             label={field.label}
             tooltip={field.tooltip}
@@ -92,10 +94,11 @@ interface Props {
     secrets: Secret[];
     refetchSecrets: () => void;
     removeMargin?: boolean;
+    form: FormInstance<any>;
 }
 
 function FormField(props: Props) {
-    const { field, secrets, refetchSecrets, removeMargin } = props;
+    const { field, secrets, refetchSecrets, removeMargin, form } = props;
 
     if (field.type === FieldType.LIST) return <ListField field={field} removeMargin={removeMargin} />;
 
@@ -105,7 +108,13 @@ function FormField(props: Props) {
 
     if (field.type === FieldType.SECRET)
         return (
-            <SecretField field={field} secrets={secrets} removeMargin={removeMargin} refetchSecrets={refetchSecrets} />
+            <SecretField
+                field={field}
+                secrets={secrets}
+                removeMargin={removeMargin}
+                refetchSecrets={refetchSecrets}
+                form={form}
+            />
         );
 
     if (field.type === FieldType.DICT) return <DictField field={field} />;
@@ -113,12 +122,14 @@ function FormField(props: Props) {
     const isBoolean = field.type === FieldType.BOOLEAN;
     let input = <Input placeholder={field.placeholder} />;
     if (isBoolean) input = <Checkbox />;
-    if (field.type === FieldType.TEXTAREA) input = <Input.TextArea placeholder={field.placeholder} />;
+    if (field.type === FieldType.TEXTAREA)
+        input = <Input.TextArea required={field.required} placeholder={field.placeholder} />;
     const valuePropName = isBoolean ? 'checked' : 'value';
     const getValueFromEvent = isBoolean ? undefined : (e) => (e.target.value === '' ? null : e.target.value);
 
     return (
         <StyledFormItem
+            required={field.required}
             style={isBoolean ? { flexDirection: 'row', alignItems: 'center' } : {}}
             label={field.label}
             name={field.name}
