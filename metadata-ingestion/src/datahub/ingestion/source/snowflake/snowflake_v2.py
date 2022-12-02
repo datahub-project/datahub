@@ -651,7 +651,9 @@ class SnowflakeV2Source(
                 schema_name,
                 db_name,
                 "table" if isinstance(table, SnowflakeTable) else "view",
-            ),
+            )
+            if self.config.include_external_url
+            else None,
         )
         yield self.wrap_aspect_as_workunit(
             "dataset", dataset_urn, "datasetProperties", dataset_properties
@@ -895,7 +897,9 @@ class SnowflakeV2Source(
             description=database.comment,
             sub_types=[SqlContainerSubTypes.DATABASE],
             domain_urn=domain_urn,
-            external_url=self.get_external_url_for_database(database.name),
+            external_url=self.get_external_url_for_database(database.name)
+            if self.config.include_external_url
+            else None,
         )
 
         self.stale_entity_removal_handler.add_entity_to_state(
@@ -929,7 +933,9 @@ class SnowflakeV2Source(
             description=schema.comment,
             sub_types=[SqlContainerSubTypes.SCHEMA],
             parent_container_key=database_container_key,
-            external_url=self.get_external_url_for_schema(schema.name, db_name),
+            external_url=self.get_external_url_for_schema(schema.name, db_name)
+            if self.config.include_external_url
+            else None,
         )
 
         for wu in container_workunits:
