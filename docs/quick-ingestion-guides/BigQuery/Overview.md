@@ -1,7 +1,7 @@
 ---
 title: Overview
 ---
-# DataHub BigQuery UI Ingestion Guide: Overview
+# BigQuery Ingestion Guide: Overview
 
 ## What You Will Get Out of This Guide
 

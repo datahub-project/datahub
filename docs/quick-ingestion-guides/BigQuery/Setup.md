@@ -1,7 +1,7 @@
 ---
 title: Setup
 ---
-# DataHub BigQuery UI Ingestion Guide: Setup & Prerequesites
+# BigQuery Ingestion Guide: Setup & Prerequesites
 
 In order to configure ingestion from BigQuery, you'll first have to ensure you have a [Service Account](https://cloud.google.com/iam/docs/creating-managing-service-accounts)
 with the proper permissions set.
