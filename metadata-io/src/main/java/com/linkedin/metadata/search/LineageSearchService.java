@@ -40,6 +40,8 @@ import org.apache.commons.collections.CollectionUtils;
 import org.apache.commons.lang3.tuple.Pair;
 import org.springframework.cache.Cache;
 
+import static com.datahub.util.RecordUtils.*;
+
 
 @RequiredArgsConstructor
 @Slf4j
@@ -88,10 +90,10 @@ public class LineageSearchService {
       maxHops = maxHops != null ? maxHops : 1000;
       lineageResult = _graphService.getLineage(sourceUrn, direction, 0, MAX_RELATIONSHIPS, maxHops);
       if (cacheEnabled) {
-        cache.put(Pair.of(sourceUrn, direction), new CachedEntityLineageResult(lineageResult, System.currentTimeMillis()));
+        cache.put(Pair.of(sourceUrn, direction), new CachedEntityLineageResult(toJsonString(lineageResult), System.currentTimeMillis()));
       }
     } else {
-      lineageResult = cachedLineageResult.getEntityLineageResult();
+      lineageResult = toRecordTemplate(EntityLineageResult.class, cachedLineageResult.getEntityLineageResult());
       if (System.currentTimeMillis() - cachedLineageResult.getTimestamp() > DAY_IN_MS) {
         log.warn("Cached lineage entry for: {} is older than one day.", sourceUrn);
       }
