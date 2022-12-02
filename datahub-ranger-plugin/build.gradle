@@ -30,6 +30,18 @@ dependencies {
     implementation externalDependency.hadoopCommon3
     implementation externalDependency.log4jApi
 
+    constraints {
+        implementation(externalDependency.woodstoxCore) {
+            because("previous versions are vulnerable to CVE-2022-40151 CVE-2022-40152")
+        }
+        implementation(externalDependency.jettyClient) {
+            because("previous versions are vulnerable to CVE-2021-28165")
+        }
+        implementation(externalDependency.jettison) {
+            because("previous versions are vulnerable to CVE-2022-40149 CVE-2022-40150")
+        }
+    }
+
     testCompile externalDependency.testng
 }
 

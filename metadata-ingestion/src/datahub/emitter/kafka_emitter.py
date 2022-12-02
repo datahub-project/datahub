@@ -116,9 +116,9 @@ class DatahubKafkaEmitter:
         callback: Optional[Callable[[Exception, str], None]] = None,
     ) -> None:
         if isinstance(item, (MetadataChangeProposal, MetadataChangeProposalWrapper)):
-            return self.emit_mcp_async(item, callback or _noop_callback)
+            return self.emit_mcp_async(item, callback or _error_reporting_callback)
         else:
-            return self.emit_mce_async(item, callback or _noop_callback)
+            return self.emit_mce_async(item, callback or _error_reporting_callback)
 
     def emit_mce_async(
         self,
@@ -155,5 +155,6 @@ class DatahubKafkaEmitter:
             producer.flush()
 
 
-def _noop_callback(err: Exception, msg: str) -> None:
-    pass
+def _error_reporting_callback(err: Exception, msg: str) -> None:
+    if err:
+        logger.error(f"Failed to emit to kafka: {err} {msg}")

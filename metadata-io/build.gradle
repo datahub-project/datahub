@@ -66,6 +66,9 @@ dependencies {
     implementation(externalDependency.log4jApi) {
         because("previous versions are vulnerable to CVE-2021-45105")
     }
+    implementation(externalDependency.commonsText) {
+      because("previous versions are vulnerable to CVE-2022-42889")
+    }
   }
 }
 

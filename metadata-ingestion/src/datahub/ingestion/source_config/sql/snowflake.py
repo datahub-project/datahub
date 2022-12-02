@@ -306,7 +306,7 @@ class SnowflakeConfig(BaseSnowflakeConfig, SQLAlchemyConfig):
 
     def get_sql_alchemy_url(
         self,
-        database: str = None,
+        database: Optional[str] = None,
         username: Optional[str] = None,
         password: Optional[pydantic.SecretStr] = None,
         role: Optional[str] = None,
