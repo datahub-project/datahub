@@ -10,6 +10,11 @@ dependencies {
   compile externalDependency.jacksonDataFormatYaml
   compile externalDependency.reflections
   compile externalDependency.jsonPatch
+  constraints {
+    implementation(externalDependency.snakeYaml) {
+      because("previous versions are vulnerable to CVE-2022-25857")
+    }
+  }
   dataModel project(':li-utils')
   annotationProcessor externalDependency.lombok
 

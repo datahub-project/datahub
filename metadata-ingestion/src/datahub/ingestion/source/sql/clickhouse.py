@@ -73,6 +73,9 @@ base.ischema_names["Int128"] = INTEGER
 base.ischema_names["Int256"] = INTEGER
 base.ischema_names["UInt128"] = INTEGER
 base.ischema_names["UInt256"] = INTEGER
+# This is needed for clickhouse-sqlalchemy 0.2.3
+base.ischema_names["DateTime"] = DATETIME
+base.ischema_names["DateTime64"] = DATETIME
 
 register_custom_type(custom_types.common.Array, ArrayTypeClass)
 register_custom_type(custom_types.ip.IPv4, NumberTypeClass)

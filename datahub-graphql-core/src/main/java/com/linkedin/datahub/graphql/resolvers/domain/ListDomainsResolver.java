@@ -10,17 +10,19 @@ import com.linkedin.datahub.graphql.generated.ListDomainsInput;
 import com.linkedin.datahub.graphql.generated.ListDomainsResult;
 import com.linkedin.entity.client.EntityClient;
 import com.linkedin.metadata.Constants;
+import com.linkedin.metadata.query.filter.SortCriterion;
+import com.linkedin.metadata.query.filter.SortOrder;
 import com.linkedin.metadata.search.SearchEntity;
 import com.linkedin.metadata.search.SearchResult;
 import graphql.schema.DataFetcher;
 import graphql.schema.DataFetchingEnvironment;
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.stream.Collectors;
 
 import static com.linkedin.datahub.graphql.resolvers.ResolverUtils.*;
+import static com.linkedin.metadata.Constants.*;
 
 
 /**
@@ -56,7 +58,8 @@ public class ListDomainsResolver implements DataFetcher<CompletableFuture<ListDo
           final SearchResult gmsResult = _entityClient.search(
                   Constants.DOMAIN_ENTITY_NAME,
                   query,
-                  Collections.emptyMap(),
+                  null,
+                  new SortCriterion().setField(DOMAIN_CREATED_TIME_INDEX_FIELD_NAME).setOrder(SortOrder.DESCENDING),
                   start,
                   count,
                   context.getAuthentication());
