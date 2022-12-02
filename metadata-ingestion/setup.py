@@ -178,6 +178,8 @@ snowflake_common = {
     # Eventually we should just require snowflake-sqlalchemy>=1.4.3, but I won't do that immediately
     # because it may break Airflow users that need SQLAlchemy 1.3.x.
     "SQLAlchemy<1.4.42",
+    # See https://github.com/snowflakedb/snowflake-connector-python/pull/1348 for why 2.8.2 is blocked
+    "snowflake-connector-python!=2.8.2",
     "pandas",
     "cryptography",
     "msal",

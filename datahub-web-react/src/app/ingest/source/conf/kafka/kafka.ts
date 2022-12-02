@@ -11,6 +11,7 @@ source:
                 sasl.mechanism: "PLAIN"
         stateful_ingestion:
             enabled: true
+
 `;
 
 export const KAFKA = 'kafka';

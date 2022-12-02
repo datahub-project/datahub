@@ -961,7 +961,7 @@ WHERE
         )
 
     def get_profile_args(self) -> Dict:
-        return {"temp_table_db": self.config.project_id}
+        return {}
 
     def is_dataset_eligible_for_profiling(
         self,
