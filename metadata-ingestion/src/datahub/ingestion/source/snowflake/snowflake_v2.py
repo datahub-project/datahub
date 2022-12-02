@@ -1092,6 +1092,7 @@ class SnowflakeV2Source(
 
         return df
 
+    # domain is either "view" or "table"
     def get_external_url_for_table(
         self, table_name: str, schema_name: str, db_name: str, domain: str
     ) -> Optional[str]:
