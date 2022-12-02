@@ -6,7 +6,7 @@ import pathlib
 from dataclasses import dataclass, field
 from enum import auto
 from io import BufferedReader
-from typing import Any, Dict, Iterable, Iterator, Optional, Tuple, Union
+from typing import Any, Dict, Iterable, Iterator, List, Optional, Tuple, Union
 
 import ijson
 from pydantic import validator
@@ -311,22 +311,9 @@ class GenericFileSource(TestableSource):
         ]
     ]:
         for i, obj in self._iterate_file(path):
-            item: Union[
-                MetadataChangeEvent,
-                MetadataChangeProposalWrapper,
-                MetadataChangeProposal,
-                UsageAggregationClass,
-            ]
             try:
                 deserialize_start_time = datetime.datetime.now()
-                if "proposedSnapshot" in obj:
-                    item = MetadataChangeEvent.from_obj(obj)
-                elif "aspect" in obj:
-                    item = MetadataChangeProposalWrapper.from_obj(obj)
-                else:
-                    item = UsageAggregationClass.from_obj(obj)
-                if not item.validate():
-                    raise ValueError(f"failed to parse: {obj} (index {i})")
+                item = _from_obj_for_file(obj)
                 deserialize_duration = datetime.datetime.now() - deserialize_start_time
                 self.report.add_deserialize_time(deserialize_duration)
                 yield i, item
@@ -364,3 +351,48 @@ class GenericFileSource(TestableSource):
             return TestConnectionReport(
                 basic_connectivity=CapabilityReport(capable=True)
             )
+
+
+def _from_obj_for_file(
+    obj: dict,
+) -> Union[
+    MetadataChangeEvent,
+    MetadataChangeProposal,
+    MetadataChangeProposalWrapper,
+    UsageAggregationClass,
+]:
+    item: Union[
+        MetadataChangeEvent,
+        MetadataChangeProposalWrapper,
+        MetadataChangeProposal,
+        UsageAggregationClass,
+    ]
+
+    if "proposedSnapshot" in obj:
+        item = MetadataChangeEvent.from_obj(obj)
+    elif "aspect" in obj:
+        item = MetadataChangeProposalWrapper.from_obj(obj)
+    else:
+        item = UsageAggregationClass.from_obj(obj)
+    if not item.validate():
+        raise ValueError(f"failed to parse: {obj}")
+
+    return item
+
+
+def read_metadata_file(
+    file: pathlib.Path,
+) -> List[
+    Union[
+        MetadataChangeEvent,
+        MetadataChangeProposal,
+        MetadataChangeProposalWrapper,
+        UsageAggregationClass,
+    ]
+]:
+    # This simplified version of the FileSource can be used for testing purposes.
+    records = []
+    with file.open("r") as f:
+        for obj in json.load(f):
+            records.append(_from_obj_for_file(obj))
+    return records

@@ -12,18 +12,8 @@ FROZEN_TIME = "2022-02-03 07:00:00"
 
 def mock_existing_users(*args, **kwargs):
     return OwnershipClass(
-        owners=[
-            OwnerClass.from_obj(
-                {
-                    "owner": "urn:li:corpuser:TEST_USER",
-                    "type": "TECHNICAL_OWNER",
-                    "source": None,
-                }
-            )
-        ],
-        lastModified=AuditStampClass.from_obj(
-            {"time": 0, "actor": "urn:li:corpuser:unknown", "impersonator": None}
-        ),
+        owners=[OwnerClass(owner="urn:li:corpuser:TEST_USER", type="TECHNICAL_OWNER")],
+        lastModified=AuditStampClass(time=0, actor="urn:li:corpuser:unknown"),
     )
 
 
