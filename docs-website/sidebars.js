@@ -477,6 +477,7 @@ module.exports = {
       "docs/CODE_OF_CONDUCT",
       "docs/CONTRIBUTING",
       "docs/links",
+      "docs/rfc",
     ],
 
     "Release History": ["releases"],
