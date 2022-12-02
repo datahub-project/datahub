@@ -1498,13 +1498,22 @@
         "time" : 0
       }
     }, {
+      "name" : "created",
+      "type" : "com.linkedin.common.AuditStamp",
+      "doc" : "Audit stamp containing who created the lineage and when.",
+      "optional" : true
+    }, {
       "name" : "dataset",
       "type" : "com.linkedin.common.DatasetUrn",
       "doc" : "The upstream dataset the lineage points to",
       "Relationship" : {
+        "createdActor" : "upstreams/*/created/actor",
+        "createdOn" : "upstreams/*/created/time",
         "entityTypes" : [ "dataset" ],
         "isLineage" : true,
-        "name" : "DownstreamOf"
+        "name" : "DownstreamOf",
+        "updatedActor" : "upstreams/*/auditStamp/actor",
+        "updatedOn" : "upstreams/*/auditStamp/time"
       },
       "Searchable" : {
         "fieldName" : "upstreams",
