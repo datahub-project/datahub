@@ -221,18 +221,6 @@ class SQLSourceReport(StaleEntityRemovalSourceReport):
         self.query_combiner = query_combiner_report
 
 
-class SQLAlchemyStatefulIngestionConfig(StatefulStaleMetadataRemovalConfig):
-    """
-    Specialization of StatefulStaleMetadataRemovalConfig to adding custom config.
-    This will be used to override the stateful_ingestion config param of StatefulIngestionConfigBase
-    in the SQLAlchemyConfig.
-    """
-
-    _entity_types: List[str] = pydantic.Field(
-        default=["assertion", "container", "table", "view"]
-    )
-
-
 class SQLAlchemyConfig(StatefulIngestionConfigBase):
     options: dict = {}
     # Although the 'table_pattern' enables you to skip everything from certain schemas,
@@ -269,7 +257,7 @@ class SQLAlchemyConfig(StatefulIngestionConfigBase):
 
     profiling: GEProfilingConfig = GEProfilingConfig()
     # Custom Stateful Ingestion settings
-    stateful_ingestion: Optional[SQLAlchemyStatefulIngestionConfig] = None
+    stateful_ingestion: Optional[StatefulStaleMetadataRemovalConfig] = None
 
     @pydantic.root_validator(pre=True)
     def view_pattern_is_table_pattern_unless_specified(
@@ -431,8 +419,8 @@ def get_schema_metadata(
     dataset_name: str,
     platform: str,
     columns: List[dict],
-    pk_constraints: dict = None,
-    foreign_keys: List[ForeignKeyConstraint] = None,
+    pk_constraints: Optional[dict] = None,
+    foreign_keys: Optional[List[ForeignKeyConstraint]] = None,
     canonical_schema: List[SchemaField] = [],
 ) -> SchemaMetadata:
     schema_metadata = SchemaMetadata(
@@ -997,7 +985,7 @@ class SQLAlchemySource(StatefulIngestionSourceBase):
         self,
         dataset_name: str,
         columns: List[dict],
-        pk_constraints: dict = None,
+        pk_constraints: Optional[dict] = None,
         tags: Optional[Dict[str, List[str]]] = None,
     ) -> List[SchemaField]:
         canonical_schema = []
@@ -1015,7 +1003,7 @@ class SQLAlchemySource(StatefulIngestionSourceBase):
         self,
         dataset_name: str,
         column: dict,
-        pk_constraints: dict = None,
+        pk_constraints: Optional[dict] = None,
         tags: Optional[List[str]] = None,
     ) -> List[SchemaField]:
         gtc: Optional[GlobalTagsClass] = None
@@ -1387,6 +1375,3 @@ class SQLAlchemySource(StatefulIngestionSourceBase):
 
     def get_report(self):
         return self.report
-
-    def close(self):
-        self.prepare_for_commit()

@@ -411,6 +411,3 @@ class RedshiftUsageSource(Source):
 
     def get_report(self) -> RedshiftUsageSourceReport:
         return self.report
-
-    def close(self) -> None:
-        pass

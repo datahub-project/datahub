@@ -259,7 +259,7 @@ public class SiblingGraphServiceTest {
     EntityLineageResult expectedResult = mockResult.clone();
     expectedResult.setTotal(3);
     expectedResult.setCount(2);
-    expectedResult.setRelationships(new LineageRelationshipArray(relationship2, relationship1));
+    expectedResult.setRelationships(new LineageRelationshipArray(relationship1, relationship2));
 
     EntityLineageResult upstreamLineage = service.getLineage(datasetFourUrn, LineageDirection.UPSTREAM, 0, 100, 1);
 
@@ -302,7 +302,7 @@ public class SiblingGraphServiceTest {
 
     expectedRelationships.add(relationship2);
     expectedRelationships.add(relationship4);
-    expectedRelationships.add(relationship1);
+    expectedRelationships.add(relationship1); // expect just one relationship1 despite duplicates in sibling lineage
 
     expectedResult.setCount(3);
     expectedResult.setStart(0);
@@ -316,6 +316,7 @@ public class SiblingGraphServiceTest {
 
     siblingRelationships.add(relationship2);
     siblingRelationships.add(relationship4);
+    siblingRelationships.add(relationship1); // duplicate from sibling's lineage, we should not see duplicates in result
     siblingMockResult.setStart(0);
     siblingMockResult.setTotal(2);
     siblingMockResult.setCount(2);

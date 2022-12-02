@@ -44,6 +44,9 @@ WORKDIR /opt/kafka
 RUN ls -la
 COPY --from=confluent_base /usr/share/java/cp-base-new/ /usr/share/java/cp-base-new/
 
+ADD --chown=kafka:kafka https://github.com/aws/aws-msk-iam-auth/releases/download/v1.1.5/aws-msk-iam-auth-1.1.5-all.jar /usr/share/java/cp-base-new
+ADD --chown=kafka:kafka https://github.com/aws/aws-msk-iam-auth/releases/download/v1.1.5/aws-msk-iam-auth-1.1.5-all.jar /opt/kafka/libs
+
 ENV METADATA_AUDIT_EVENT_NAME="MetadataAuditEvent_v4"
 ENV METADATA_CHANGE_EVENT_NAME="MetadataChangeEvent_v4"
 ENV FAILED_METADATA_CHANGE_EVENT_NAME="FailedMetadataChangeEvent_v4"

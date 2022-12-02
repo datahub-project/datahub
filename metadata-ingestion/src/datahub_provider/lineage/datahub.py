@@ -70,7 +70,7 @@ class DatahubLineageBackend(LineageBackend):
         operator: "BaseOperator",
         inlets: Optional[List] = None,  # unused
         outlets: Optional[List] = None,  # unused
-        context: Dict = None,
+        context: Optional[Dict] = None,
     ) -> None:
         config = get_lineage_config()
         if not config.enabled:
