@@ -15,7 +15,6 @@ import com.linkedin.metadata.timeline.TimelineService;
 import com.linkedin.metadata.timeline.data.ChangeCategory;
 import com.linkedin.metadata.timeline.data.ChangeTransaction;
 import io.datahubproject.openapi.exception.UnauthorizedException;
-import io.datahubproject.openapi.util.MappingUtil;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import java.net.URISyntaxException;
 import java.util.List;
