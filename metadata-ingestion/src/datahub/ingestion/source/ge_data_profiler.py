@@ -10,10 +10,20 @@ import threading
 import traceback
 import unittest.mock
 import uuid
-from typing import Any, Callable, Dict, Iterable, Iterator, List, Optional, Tuple, Union
+from typing import (
+    Any,
+    Callable,
+    Dict,
+    Iterable,
+    Iterator,
+    List,
+    Optional,
+    Tuple,
+    Union,
+    cast,
+)
 
 import sqlalchemy as sa
-from great_expectations import __version__ as ge_version
 from great_expectations.core.util import convert_to_json_serializable
 from great_expectations.data_context import BaseDataContext
 from great_expectations.data_context.types.base import (
@@ -30,12 +40,11 @@ from sqlalchemy.engine import Connection, Engine
 from sqlalchemy.exc import ProgrammingError
 from typing_extensions import Concatenate, ParamSpec
 
-from datahub.configuration.common import ConfigurationError
 from datahub.emitter.mce_builder import get_sys_time
 from datahub.ingestion.source.ge_profiling_config import GEProfilingConfig
 from datahub.ingestion.source.profiling.common import (
     Cardinality,
-    _convert_to_cardinality,
+    convert_to_cardinality,
 )
 from datahub.ingestion.source.sql.sql_common import SQLSourceReport
 from datahub.metadata.schema_classes import (
@@ -315,7 +324,7 @@ class _SingleDatasetProfiler(BasicDatasetProfilerBase):
 
         column_spec.unique_count = unique_count
 
-        column_spec.cardinality = _convert_to_cardinality(unique_count, pct_unique)
+        column_spec.cardinality = convert_to_cardinality(unique_count, pct_unique)
 
     @_run_with_query_combiner
     def _get_dataset_rows(self, dataset_profile: DatasetProfileClass) -> None:
@@ -795,16 +804,6 @@ class DatahubGEProfiler:
 
                     self.report.report_from_query_combiner(query_combiner.report)
 
-    def _is_legacy_ge_temp_table_creation(self) -> bool:
-        legacy_ge_bq_temp_table_creation: bool = False
-        (major, minor, patch) = ge_version.split(".")
-        if int(major) == 0 and (
-            int(minor) < 15 or (int(minor) == 15 and int(patch) < 3)
-        ):
-            legacy_ge_bq_temp_table_creation = True
-
-        return legacy_ge_bq_temp_table_creation
-
     def _generate_profile_from_request(
         self,
         query_combiner: SQLAlchemyQueryCombiner,
@@ -819,16 +818,6 @@ class DatahubGEProfiler:
             profiler_args=profiler_args,
             **request.batch_kwargs,
         )
-
-    def _drop_bigquery_temp_table(self, bigquery_temp_table: str) -> None:
-        try:
-            with self.base_engine.connect() as connection:
-                connection.execute(f"drop view if exists `{bigquery_temp_table}`")
-                logger.debug(f"Temp table {bigquery_temp_table} was dropped.")
-        except Exception:
-            logger.warning(
-                f"Unable to delete bigquery temporary table: {bigquery_temp_table}"
-            )
 
     def _drop_trino_temp_table(self, temp_dataset: Dataset) -> None:
         schema = temp_dataset._table.schema
@@ -855,7 +844,6 @@ class DatahubGEProfiler:
         logger.debug(
             f"Received single profile request for {pretty_name} for {schema}, {table}, {custom_sql}"
         )
-        bigquery_temp_table: Optional[str] = None
 
         ge_config = {
             "schema": schema,
@@ -865,46 +853,90 @@ class DatahubGEProfiler:
             **kwargs,
         }
 
-        # We have to create temporary tables if offset or limit or custom sql is set on Bigquery
-        if custom_sql or self.config.limit or self.config.offset:
-            if profiler_args is not None:
-                temp_table_db = profiler_args.get("temp_table_db", schema)
-                if platform is not None and platform == "bigquery":
-                    ge_config["schema"] = None
+        bigquery_temp_table: Optional[str] = None
+        if platform == "bigquery" and (
+            custom_sql or self.config.limit or self.config.offset
+        ):
+            # On BigQuery, we need to bypass GE's mechanism for creating temporary tables because
+            # it requires create/delete table permissions.
+            import google.cloud.bigquery.job.query
+            from google.cloud.bigquery.dbapi.cursor import Cursor as BigQueryCursor
 
-            if self.config.bigquery_temp_table_schema:
-                num_parts = self.config.bigquery_temp_table_schema.split(".")
-                # If we only have 1 part that means the project_id is missing from the table name and we add it
-                if len(num_parts) == 1:
-                    bigquery_temp_table = f"{temp_table_db}.{self.config.bigquery_temp_table_schema}.ge-temp-{uuid.uuid4()}"
-                elif len(num_parts) == 2:
-                    bigquery_temp_table = f"{self.config.bigquery_temp_table_schema}.ge-temp-{uuid.uuid4()}"
+            raw_connection = self.base_engine.raw_connection()
+            try:
+                cursor: "BigQueryCursor" = cast(
+                    "BigQueryCursor", raw_connection.cursor()
+                )
+                if custom_sql is not None:
+                    # Note that limit and offset are not supported for custom SQL.
+                    bq_sql = custom_sql
                 else:
-                    raise ConfigurationError(
-                        f"bigquery_temp_table_schema should be either project.dataset or dataset format but it was: {self.config.bigquery_temp_table_schema}"
-                    )
-            else:
-                assert table
-                table_parts = table.split(".")
-                if len(table_parts) == 2:
-                    bigquery_temp_table = (
-                        f"{temp_table_db}.{table_parts[0]}.ge-temp-{uuid.uuid4()}"
-                    )
+                    bq_sql = f"SELECT * FROM `{table}`"
+                    if self.config.limit:
+                        bq_sql += f" LIMIT {self.config.limit}"
+                    if self.config.offset:
+                        bq_sql += f" OFFSET {self.config.offset}"
 
-            # With this pr there is no option anymore to set the bigquery temp table:
-            # https://github.com/great-expectations/great_expectations/pull/4925
-            # This dirty hack to make it possible to control the temp table to use in Bigquery
-            # otherwise it will expect dataset_id in the connection url which is not option in our case
-            # as we batch these queries.
-            # Currently only with this option is possible to control the temp table which is created:
-            # https://github.com/great-expectations/great_expectations/blob/7e53b615c36a53f78418ce46d6bc91a7011163c0/great_expectations/datasource/sqlalchemy_datasource.py#L397
-            if self._is_legacy_ge_temp_table_creation():
-                ge_config["bigquery_temp_table"] = bigquery_temp_table
-            else:
-                ge_config["snowflake_transient_table"] = bigquery_temp_table
+                cursor.execute(bq_sql)
 
-        if custom_sql is not None:
-            ge_config["query"] = custom_sql
+                # Great Expectations batch v2 API, which is the one we're using, requires
+                # a concrete table name against which profiling is executed. Normally, GE
+                # creates a table with an expiry time of 24 hours. However, we don't want the
+                # temporary tables to stick around that long, so we'd also have to delete them
+                # ourselves. As such, the profiler required create and delete table permissions
+                # on BigQuery.
+                #
+                # It turns out that we can (ab)use the BigQuery cached results feature
+                # to avoid creating temporary tables ourselves. For almost all queries, BigQuery
+                # will store the results in a temporary, cached results table when an explicit
+                # destination table is not provided. These tables are pretty easy to identify
+                # because they live in "anonymous datasets" and have a name that looks like
+                # "project-id._d60e97aec7f471046a960419adb6d44e98300db7.anon10774d0ea85fd20fe9671456c5c53d5f1b85e1b17bedb232dfce91661a219ee3"
+                # These tables are per-user and per-project, so there's no risk of permissions escalation.
+                # As per the docs, the cached results tables typically have a lifetime of 24 hours,
+                # which should be plenty for our purposes.
+                # See https://cloud.google.com/bigquery/docs/cached-results for more details.
+                #
+                # The code below extracts the name of the cached results table from the query job
+                # and points GE to that table for profiling.
+                #
+                # Risks:
+                # 1. If the query results are larger than the maximum response size, BigQuery will
+                #    not cache the results. According to the docs https://cloud.google.com/bigquery/quotas,
+                #    the maximum response size is 10 GB compressed.
+                # 2. The cache lifetime of 24 hours is "best-effort" and hence not guaranteed.
+                # 3. Tables with column-level security may not be cached, and tables with row-level
+                #    security will not be cached.
+                # 4. BigQuery "discourages" using cached results directly, but notes that
+                #    the current semantics do allow it.
+                #
+                # The better long-term solution would be to use a subquery avoid this whole
+                # temporary table dance. However, that would require either a) upgrading to
+                # use GE's batch v3 API or b) bypassing GE altogether.
+
+                query_job: Optional[
+                    "google.cloud.bigquery.job.query.QueryJob"
+                ] = cursor._query_job
+                assert query_job
+                temp_destination_table = query_job.destination
+                bigquery_temp_table = f"{temp_destination_table.project}.{temp_destination_table.dataset_id}.{temp_destination_table.table_id}"
+            finally:
+                raw_connection.close()
+
+        if platform == "bigquery":
+            if bigquery_temp_table:
+                ge_config["table"] = bigquery_temp_table
+                ge_config["schema"] = None
+                ge_config["limit"] = None
+                ge_config["offset"] = None
+
+                bigquery_temp_table = None
+
+            assert not ge_config["limit"]
+            assert not ge_config["offset"]
+        else:
+            if custom_sql is not None:
+                ge_config["query"] = custom_sql
 
         with self._ge_context() as ge_context, PerfTimer() as timer:
             try:
@@ -944,8 +976,6 @@ class DatahubGEProfiler:
             finally:
                 if self.base_engine.engine.name == "trino":
                     self._drop_trino_temp_table(batch)
-                elif bigquery_temp_table:
-                    self._drop_bigquery_temp_table(bigquery_temp_table)
 
     def _get_ge_dataset(
         self,
