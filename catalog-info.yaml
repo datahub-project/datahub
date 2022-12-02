@@ -1,0 +1,14 @@
+apiVersion: backstage.io/v1alpha1
+kind: Component
+metadata:
+  name: datahub
+  description: Loadsmart's Data Catalog tool
+  annotations:
+    github.com/project-slug: loadsmart/datahub
+  tags:
+    - java
+    - python
+spec:
+  type: website
+  lifecycle: production
+  owner: data-engineering
