@@ -15,7 +15,7 @@ export const REDSHIFT_HOST_PORT: RecipeField = {
 export const REDSHIFT_DATABASE: RecipeField = {
     name: 'database',
     label: 'Database',
-    tooltip: 'Ingest metadata from a specific Database.',
+    tooltip: 'Ingest metadata for a specific Database.',
     type: FieldType.TEXT,
     fieldPath: 'source.config.database',
     placeholder: 'database_name',
