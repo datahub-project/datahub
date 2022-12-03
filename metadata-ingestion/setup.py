@@ -385,8 +385,7 @@ mypy_stubs = {
     "types-ujson>=5.2.0",
     "types-termcolor>=1.0.0",
     "types-Deprecated",
-    # Mypy complains with 4.21.0.0 => error: Library stubs not installed for "google.protobuf.descriptor"
-    "types-protobuf<4.21.0.0",
+    "types-protobuf>=4.21.0.1",
 }
 
 base_dev_requirements = {
@@ -399,10 +398,7 @@ base_dev_requirements = {
     "flake8>=3.8.3",
     "flake8-tidy-imports>=4.3.0",
     "isort>=5.7.0",
-    # mypy 0.990 enables namespace packages by default and sets
-    # no implicit optional to True.
-    # FIXME: Enable mypy 0.990 when our codebase is fixed.
-    "mypy>=0.981,<0.990",
+    "mypy==0.991",
     # pydantic 1.8.2 is incompatible with mypy 0.910.
     # See https://github.com/samuelcolvin/pydantic/pull/3175#issuecomment-995382910.
     # Restricting top version to <1.10 until we can fix our types.
@@ -465,8 +461,9 @@ base_dev_requirements = {
 
 dev_requirements = {
     *base_dev_requirements,
+    # Extra requirements for Airflow.
     "apache-airflow[snowflake]>=2.0.2",  # snowflake is used in example dags
-    "snowflake-sqlalchemy<=1.2.4",  # make constraint consistent with extras
+    "virtualenv",  # needed by PythonVirtualenvOperator
 }
 
 full_test_dev_requirements = {
