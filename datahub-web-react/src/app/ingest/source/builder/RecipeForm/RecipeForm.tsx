@@ -60,8 +60,9 @@ function getInitialValues(displayRecipe: string, allFields: any[]) {
     }
     if (recipeObj) {
         allFields.forEach((field) => {
-            initialValues[field.name] =
-                field.getValueFromRecipeOverride?.(recipeObj) || get(recipeObj, field.fieldPath);
+            initialValues[field.name] = field.getValueFromRecipeOverride
+                ? field.getValueFromRecipeOverride(recipeObj)
+                : get(recipeObj, field.fieldPath);
         });
     }
 
@@ -117,15 +118,28 @@ function RecipeForm(props: Props) {
         data?.listSecrets?.secrets.sort((secretA, secretB) => secretA.name.localeCompare(secretB.name)) || [];
     const [form] = Form.useForm();
 
+    function updateFormValue(fieldName, fieldValue) {
+        let updatedValues = YAML.parse(displayRecipe);
+        const recipeField = allFields.find((f) => f.name === fieldName);
+        if (recipeField) {
+            updatedValues = recipeField.setValueOnRecipeOverride
+                ? recipeField.setValueOnRecipeOverride(updatedValues, fieldValue)
+                : setFieldValueOnRecipe(updatedValues, fieldValue, recipeField.fieldPath);
+        }
+        const stagedRecipe = jsonToYaml(JSON.stringify(updatedValues));
+        setStagedRecipe(stagedRecipe);
+        form.setFieldsValue({ [fieldName]: fieldValue });
+    }
+
     function updateFormValues(changedValues: any, allValues: any) {
         let updatedValues = YAML.parse(displayRecipe);
 
         Object.keys(changedValues).forEach((fieldName) => {
             const recipeField = allFields.find((f) => f.name === fieldName);
             if (recipeField) {
-                updatedValues =
-                    recipeField.setValueOnRecipeOverride?.(updatedValues, allValues[fieldName]) ||
-                    setFieldValueOnRecipe(updatedValues, allValues[fieldName], recipeField.fieldPath);
+                updatedValues = recipeField.setValueOnRecipeOverride
+                    ? recipeField.setValueOnRecipeOverride(updatedValues, allValues[fieldName])
+                    : setFieldValueOnRecipe(updatedValues, allValues[fieldName], recipeField.fieldPath);
             }
         });
 
@@ -149,7 +163,7 @@ function RecipeForm(props: Props) {
                             secrets={secrets}
                             refetchSecrets={refetchSecrets}
                             removeMargin={i === fields.length - 1}
-                            form={form}
+                            updateFormValue={updateFormValue}
                         />
                     ))}
                     {CONNECTORS_WITH_TEST_CONNECTION.has(type as string) && (
@@ -187,7 +201,7 @@ function RecipeForm(props: Props) {
                                         secrets={secrets}
                                         refetchSecrets={refetchSecrets}
                                         removeMargin={i === filterFields.length - 1}
-                                        form={form}
+                                        updateFormValue={updateFormValue}
                                     />
                                 </MarginWrapper>
                             </>
@@ -213,7 +227,7 @@ function RecipeForm(props: Props) {
                             secrets={secrets}
                             refetchSecrets={refetchSecrets}
                             removeMargin={i === advancedFields.length - 1}
-                            form={form}
+                            updateFormValue={updateFormValue}
                         />
                     ))}
                 </Collapse.Panel>

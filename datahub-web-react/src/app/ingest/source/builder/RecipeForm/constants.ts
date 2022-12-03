@@ -6,7 +6,7 @@ import { TABLEAU } from '../../conf/tableau/tableau';
 import { KAFKA } from '../../conf/kafka/kafka';
 import {
     INCLUDE_LINEAGE,
-    PROFILING_ENABLED,
+    TABLE_PROFILING_ENABLED,
     STATEFUL_INGESTION_ENABLED,
     INCLUDE_TABLES,
     INCLUDE_VIEWS,
@@ -15,8 +15,6 @@ import {
     TABLE_LINEAGE_MODE,
     INGEST_TAGS,
     INGEST_OWNER,
-    DASHBOARD_ALLOW,
-    DASHBOARD_DENY,
     EXTRACT_USAGE_HISTORY,
     EXTRACT_OWNERS,
     SKIP_PERSONAL_FOLDERS,
@@ -29,6 +27,7 @@ import {
     TABLE_ALLOW,
     SCHEMA_DENY,
     SCHEMA_ALLOW,
+    COLUMN_PROFILING_ENABLED,
 } from './common';
 import {
     SNOWFLAKE_ACCOUNT_ID,
@@ -48,7 +47,15 @@ import {
     TABLEAU_TOKEN_NAME,
     TABLEAU_TOKEN_VALUE,
 } from './tableau';
-import { CHART_ALLOW, CHART_DENY, LOOKER_BASE_URL, LOOKER_CLIENT_ID, LOOKER_CLIENT_SECRET } from './looker';
+import {
+    CHART_ALLOW,
+    CHART_DENY,
+    DASHBOARD_ALLOW as LOOKER_DASHBOARD_ALLOW,
+    DASHBOARD_DENY as LOOKER_DASHBOARD_DENY,
+    LOOKER_BASE_URL,
+    LOOKER_CLIENT_ID,
+    LOOKER_CLIENT_SECRET,
+} from './looker';
 import {
     KAFKA_SASL_USERNAME,
     KAFKA_SASL_PASSWORD,
@@ -100,7 +107,14 @@ interface RecipeFields {
 export const RECIPE_FIELDS: RecipeFields = {
     [SNOWFLAKE]: {
         fields: [SNOWFLAKE_ACCOUNT_ID, SNOWFLAKE_WAREHOUSE, SNOWFLAKE_USERNAME, SNOWFLAKE_PASSWORD, SNOWFLAKE_ROLE],
-        advancedFields: [INCLUDE_TABLES, INCLUDE_VIEWS, INCLUDE_LINEAGE, PROFILING_ENABLED, STATEFUL_INGESTION_ENABLED],
+        advancedFields: [
+            INCLUDE_TABLES,
+            INCLUDE_VIEWS,
+            INCLUDE_LINEAGE,
+            TABLE_PROFILING_ENABLED,
+            COLUMN_PROFILING_ENABLED,
+            STATEFUL_INGESTION_ENABLED,
+        ],
         filterFields: [
             DATABASE_ALLOW,
             DATABASE_DENY,
@@ -125,7 +139,8 @@ export const RECIPE_FIELDS: RecipeFields = {
             INCLUDE_TABLES,
             INCLUDE_VIEWS,
             INCLUDE_TABLE_LINEAGE,
-            PROFILING_ENABLED,
+            TABLE_PROFILING_ENABLED,
+            COLUMN_PROFILING_ENABLED,
             START_TIME,
             STATEFUL_INGESTION_ENABLED,
         ],
@@ -149,7 +164,13 @@ export const RECIPE_FIELDS: RecipeFields = {
             BIGQUERY_CLIENT_EMAIL,
             BIGQUERY_CLIENT_ID,
         ],
-        advancedFields: [INCLUDE_TABLE_LINEAGE, PROFILING_ENABLED, START_TIME, STATEFUL_INGESTION_ENABLED],
+        advancedFields: [
+            INCLUDE_TABLE_LINEAGE,
+            TABLE_PROFILING_ENABLED,
+            COLUMN_PROFILING_ENABLED,
+            START_TIME,
+            STATEFUL_INGESTION_ENABLED,
+        ],
         filterFields: [
             PROJECT_ALLOW,
             PROJECT_DENY,
@@ -168,7 +189,8 @@ export const RECIPE_FIELDS: RecipeFields = {
             INCLUDE_TABLES,
             INCLUDE_VIEWS,
             INCLUDE_TABLE_LINEAGE,
-            PROFILING_ENABLED,
+            TABLE_PROFILING_ENABLED,
+            COLUMN_PROFILING_ENABLED,
             TABLE_LINEAGE_MODE,
             STATEFUL_INGESTION_ENABLED,
         ],
@@ -191,7 +213,7 @@ export const RECIPE_FIELDS: RecipeFields = {
     },
     [LOOKER]: {
         fields: [LOOKER_BASE_URL, LOOKER_CLIENT_ID, LOOKER_CLIENT_SECRET],
-        filterFields: [DASHBOARD_ALLOW, DASHBOARD_DENY, CHART_ALLOW, CHART_DENY],
+        filterFields: [LOOKER_DASHBOARD_ALLOW, LOOKER_DASHBOARD_DENY, CHART_ALLOW, CHART_DENY],
         advancedFields: [EXTRACT_USAGE_HISTORY, EXTRACT_OWNERS, SKIP_PERSONAL_FOLDERS, STATEFUL_INGESTION_ENABLED],
         filterSectionTooltip: 'Include or exclude specific Dashboard, Charts from Looker ingestion.',
     },
@@ -228,7 +250,13 @@ export const RECIPE_FIELDS: RecipeFields = {
     [POSTGRES]: {
         fields: [POSTGRES_HOST_PORT, POSTGRES_USERNAME, POSTGRES_PASSWORD, POSTGRES_DATABASE],
         filterFields: [SCHEMA_ALLOW, SCHEMA_DENY, TABLE_ALLOW, TABLE_DENY, VIEW_ALLOW, VIEW_DENY],
-        advancedFields: [INCLUDE_TABLES, INCLUDE_VIEWS, PROFILING_ENABLED, STATEFUL_INGESTION_ENABLED],
+        advancedFields: [
+            INCLUDE_TABLES,
+            INCLUDE_VIEWS,
+            TABLE_PROFILING_ENABLED,
+            COLUMN_PROFILING_ENABLED,
+            STATEFUL_INGESTION_ENABLED,
+        ],
         filterSectionTooltip: 'Include or exclude specific Schemas, Tables and Views from ingestion.',
     },
     [MYSQL]: {
@@ -243,13 +271,19 @@ export const RECIPE_FIELDS: RecipeFields = {
             VIEW_ALLOW,
             VIEW_DENY,
         ],
-        advancedFields: [INCLUDE_TABLES, INCLUDE_VIEWS, STATEFUL_INGESTION_ENABLED, PROFILING_ENABLED],
+        advancedFields: [
+            INCLUDE_TABLES,
+            INCLUDE_VIEWS,
+            TABLE_PROFILING_ENABLED,
+            COLUMN_PROFILING_ENABLED,
+            STATEFUL_INGESTION_ENABLED,
+        ],
         filterSectionTooltip: 'Include or exclude specific Databases, Schemas, Tables and Views from ingestion.',
     },
     [HIVE]: {
         fields: [HIVE_HOST_PORT, HIVE_USERNAME, HIVE_PASSWORD, HIVE_DATABASE],
         filterFields: [SCHEMA_ALLOW, SCHEMA_DENY, TABLE_ALLOW, TABLE_DENY, VIEW_ALLOW, VIEW_DENY],
-        advancedFields: [INCLUDE_TABLES, PROFILING_ENABLED, STATEFUL_INGESTION_ENABLED],
+        advancedFields: [INCLUDE_TABLES, TABLE_PROFILING_ENABLED, COLUMN_PROFILING_ENABLED, STATEFUL_INGESTION_ENABLED],
         filterSectionTooltip: 'Include or exclude specific Schemas, Tables and Views from ingestion.',
     },
 };
