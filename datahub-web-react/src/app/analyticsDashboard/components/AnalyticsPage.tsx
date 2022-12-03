@@ -10,6 +10,7 @@ import { Message } from '../../shared/Message';
 import { useListDomainsQuery } from '../../../graphql/domain.generated';
 import filterSearchQuery from '../../search/utils/filterSearchQuery';
 import { ANTD_GRAY } from '../../entity/shared/constants';
+import { useGetAuthenticatedUser } from '../../useGetAuthenticatedUser';
 
 const HighlightGroup = styled.div`
     display: flex;
@@ -46,6 +47,8 @@ const StyledSearchBar = styled(Input)`
 `;
 
 export const AnalyticsPage = () => {
+    const me = useGetAuthenticatedUser();
+    const canManageDomains = me?.platformPrivileges?.createDomains;
     const { data: chartData, loading: chartLoading, error: chartError } = useGetAnalyticsChartsQuery();
     const { data: highlightData, loading: highlightLoading, error: highlightError } = useGetHighlightsQuery();
     const {
@@ -53,6 +56,7 @@ export const AnalyticsPage = () => {
         error: domainError,
         data: domainData,
     } = useListDomainsQuery({
+        skip: !canManageDomains,
         variables: {
             input: {
                 start: 0,
@@ -82,12 +86,11 @@ export const AnalyticsPage = () => {
         skip: domain === '' && query === '',
     });
 
+    const isLoading = highlightLoading || chartLoading || domainLoading || metadataAnalyticsLoading;
     return (
         <>
+            {isLoading && <Message type="loading" content="Loading..." style={{ marginTop: '10%' }} />}
             <HighlightGroup>
-                {highlightLoading && (
-                    <Message type="loading" content="Loading Highlights..." style={{ marginTop: '10%' }} />
-                )}
                 {highlightError && (
                     <Alert type="error" message={highlightError?.message || 'Highlights failed to load'} />
                 )}
@@ -96,7 +99,6 @@ export const AnalyticsPage = () => {
                 ))}
             </HighlightGroup>
             <>
-                {chartLoading && <Message type="loading" content="Loading Charts..." style={{ marginTop: '10%' }} />}
                 {chartError && (
                     <Alert type="error" message={metadataAnalyticsError?.message || 'Charts failed to load'} />
                 )}
@@ -107,7 +109,6 @@ export const AnalyticsPage = () => {
                     ))}
             </>
             <>
-                {domainLoading && <Message type="loading" content="Loading Domains..." style={{ marginTop: '10%' }} />}
                 {domainError && (
                     <Alert type="error" message={metadataAnalyticsError?.message || 'Domains failed to load'} />
                 )}
@@ -148,9 +149,6 @@ export const AnalyticsPage = () => {
                 )}
             </>
             <>
-                {metadataAnalyticsLoading && (
-                    <Message type="loading" content="Loading Charts..." style={{ marginTop: '10%' }} />
-                )}
                 {metadataAnalyticsError && (
                     <Alert type="error" message={metadataAnalyticsError?.message || 'Charts failed to load'} />
                 )}
@@ -165,7 +163,6 @@ export const AnalyticsPage = () => {
                       ))}
             </>
             <>
-                {chartLoading && <Message type="loading" content="Loading Charts..." style={{ marginTop: '10%' }} />}
                 {chartError && <Alert type="error" message={chartError?.message || 'Charts failed to load'} />}
                 {!chartLoading &&
                     chartData?.getAnalyticsCharts
