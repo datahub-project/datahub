@@ -15,6 +15,7 @@ type Props = {
     onClose: () => void;
     onUpdate: (newValue: FacetFilterInput) => void;
     loading: boolean;
+    disabled?: boolean;
 };
 
 const FilterContainer = styled.div`
@@ -51,7 +52,7 @@ const FilterFieldLabel = styled.span`
     margin-right: 2px;
 `;
 
-export const AdvancedSearchFilter = ({ facet, filter, onClose, onUpdate, loading }: Props) => {
+export const AdvancedSearchFilter = ({ facet, filter, onClose, onUpdate, loading, disabled = false }: Props) => {
     const [isEditing, setIsEditing] = useState(false);
     return (
         <>
@@ -65,22 +66,24 @@ export const AdvancedSearchFilter = ({ facet, filter, onClose, onUpdate, loading
                         <FilterFieldLabel>{FIELD_TO_LABEL[filter.field]} </FilterFieldLabel>
                         <AdvancedSearchFilterConditionSelect filter={filter} onUpdate={onUpdate} />
                     </FieldFilterSelect>
-                    <CloseSpan
-                        role="button"
-                        onClick={(e) => {
-                            e.preventDefault();
-                            e.stopPropagation();
-                            onClose();
-                        }}
-                        tabIndex={0}
-                        onKeyPress={onClose}
-                    >
-                        <CloseOutlined />
-                    </CloseSpan>
+                    {!disabled && (
+                        <CloseSpan
+                            role="button"
+                            onClick={(e) => {
+                                e.preventDefault();
+                                e.stopPropagation();
+                                onClose();
+                            }}
+                            tabIndex={0}
+                            onKeyPress={onClose}
+                        >
+                            <CloseOutlined />
+                        </CloseSpan>
+                    )}
                 </FieldFilterSection>
                 {!loading && <AdvancedSearchFilterValuesSection filter={filter} facet={facet} />}
             </FilterContainer>
-            {isEditing && (
+            {!disabled && isEditing && (
                 <AdvancedFilterSelectValueModal
                     facet={facet}
                     onCloseModal={() => setIsEditing(false)}

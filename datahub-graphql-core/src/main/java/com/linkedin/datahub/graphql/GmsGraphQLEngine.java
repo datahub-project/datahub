@@ -33,6 +33,7 @@ import com.linkedin.datahub.graphql.generated.Container;
 import com.linkedin.datahub.graphql.generated.CorpGroupInfo;
 import com.linkedin.datahub.graphql.generated.CorpUser;
 import com.linkedin.datahub.graphql.generated.CorpUserInfo;
+import com.linkedin.datahub.graphql.generated.CorpUserViewsSettings;
 import com.linkedin.datahub.graphql.generated.Dashboard;
 import com.linkedin.datahub.graphql.generated.DashboardInfo;
 import com.linkedin.datahub.graphql.generated.DashboardStatsSummary;
@@ -727,6 +728,7 @@ public class GmsGraphQLEngine {
             .dataFetcher("batchGetStepStates", new BatchGetStepStatesResolver(this.entityClient))
             .dataFetcher("listMyViews", new ListMyViewsResolver(this.entityClient))
             .dataFetcher("listGlobalViews", new ListGlobalViewsResolver(this.entityClient))
+            .dataFetcher("globalViewsSettings", new GlobalViewsSettingsResolver(this.settingsService))
         );
     }
 
@@ -854,7 +856,6 @@ public class GmsGraphQLEngine {
             .dataFetcher("createView", new CreateViewResolver(this.viewService))
             .dataFetcher("updateView", new UpdateViewResolver(this.viewService))
             .dataFetcher("deleteView", new DeleteViewResolver(this.viewService))
-            .dataFetcher("globalViewsSettings", new GlobalViewsSettingsResolver(this.settingsService))
             .dataFetcher("updateGlobalViewsSettings", new UpdateGlobalViewsSettingsResolver(this.settingsService))
             .dataFetcher("updateCorpUserViewsSettings", new UpdateCorpUserViewsSettingsResolver(this.settingsService))
         );
@@ -1529,7 +1530,19 @@ public class GmsGraphQLEngine {
                 (env) -> ((ListViewsResult) env.getSource()).getViews().stream()
                     .map(DataHubView::getUrn)
                     .collect(Collectors.toList())))
-        );
+        )
+        .type("CorpUserViewsSettings", typeWiring -> typeWiring
+            .dataFetcher("defaultView", new LoadableTypeResolver<>(
+                dataHubViewType,
+                (env) -> {
+                   final CorpUserViewsSettings settings = env.getSource();
+                   if (settings.getDefaultView() != null) {
+                       return settings.getDefaultView().getUrn();
+                   }
+                   return null;
+                }
+            )
+        ));
     }
 
     private void configureDataProcessInstanceResolvers(final RuntimeWiring.Builder builder) {

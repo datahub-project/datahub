@@ -10,7 +10,7 @@ export const DEFAULT_BUILDER_STATE = {
     definition: {
         entityTypes: [],
         filter: {
-            operator: LogicalOperator.Or,
+            operator: LogicalOperator.And,
             filters: [],
         },
     },

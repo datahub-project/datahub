@@ -1,6 +1,6 @@
 import React from 'react';
-import { Typography } from 'antd';
 import styled from 'styled-components';
+import { Typography } from 'antd';
 import { ViewsList } from './ViewsList';
 
 const PageContainer = styled.div`

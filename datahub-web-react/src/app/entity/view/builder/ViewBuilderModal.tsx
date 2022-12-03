@@ -4,6 +4,7 @@ import { Button, Modal, Typography } from 'antd';
 import { DEFAULT_BUILDER_STATE, ViewBuilderState } from '../types';
 import { ViewBuilderForm } from './ViewBuilderForm';
 import ClickOutside from '../../../shared/ClickOutside';
+import { ViewBuilderMode } from './types';
 
 const modalWidth = 700;
 const modalStyle = { top: 40 };
@@ -25,19 +26,28 @@ const CancelButton = styled(Button)`
 `;
 
 type Props = {
+    mode: ViewBuilderMode;
+    urn?: string;
     initialState?: ViewBuilderState;
     onSubmit: (input: ViewBuilderState) => void;
     onCancel?: () => void;
 };
 
-export const ViewBuilderModal = ({ initialState, onSubmit, onCancel }: Props) => {
+const getTitleText = (mode, urn) => {
+    if (mode === ViewBuilderMode.PREVIEW) {
+        return 'Preview View';
+    }
+    return urn !== undefined ? 'Edit View' : 'Create new View';
+};
+
+export const ViewBuilderModal = ({ mode, urn, initialState, onSubmit, onCancel }: Props) => {
     const [viewBuilderState, setViewBuilderState] = useState<ViewBuilderState>(initialState || DEFAULT_BUILDER_STATE);
 
     useEffect(() => {
         setViewBuilderState(initialState || DEFAULT_BUILDER_STATE);
     }, [initialState]);
 
-    const modalClosePopup = () => {
+    const confirmClose = () => {
         Modal.confirm({
             title: 'Exit View Editor',
             content: `Are you sure you want to exit View editor? All changes will be lost`,
@@ -52,11 +62,10 @@ export const ViewBuilderModal = ({ initialState, onSubmit, onCancel }: Props) =>
     };
 
     const canSave = viewBuilderState.name && viewBuilderState.viewType && viewBuilderState?.definition?.filter;
-    const isEditing = initialState !== undefined;
-    const titleText = isEditing ? 'Edit View' : 'New View';
+    const titleText = getTitleText(mode, urn);
 
     return (
-        <ClickOutside onClickOutside={modalClosePopup} wrapperClassName="test-builder-modal">
+        <ClickOutside onClickOutside={confirmClose} wrapperClassName="test-builder-modal">
             <Modal
                 wrapClassName="view-builder-modal"
                 footer={null}
@@ -71,19 +80,21 @@ export const ViewBuilderModal = ({ initialState, onSubmit, onCancel }: Props) =>
                 width={modalWidth}
                 onCancel={onCancel}
             >
-                <ViewBuilderForm state={viewBuilderState} updateState={setViewBuilderState} />
+                <ViewBuilderForm mode={mode} state={viewBuilderState} updateState={setViewBuilderState} />
                 <SaveButtonContainer>
                     <CancelButton data-testid="view-builder-cancel" onClick={onCancel}>
                         Cancel
                     </CancelButton>
-                    <Button
-                        data-testid="view-builder-save"
-                        type="primary"
-                        disabled={!canSave}
-                        onClick={() => onSubmit(viewBuilderState)}
-                    >
-                        Save
-                    </Button>
+                    {mode === ViewBuilderMode.EDITOR && (
+                        <Button
+                            data-testid="view-builder-save"
+                            type="primary"
+                            disabled={!canSave}
+                            onClick={() => onSubmit(viewBuilderState)}
+                        >
+                            Save
+                        </Button>
+                    )}
                 </SaveButtonContainer>
             </Modal>
         </ClickOutside>

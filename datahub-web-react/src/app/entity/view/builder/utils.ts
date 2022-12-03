@@ -1,4 +1,11 @@
-import { Entity, EntityType, FacetFilterInput, LogicalOperator } from '../../../../types.generated';
+import {
+    DataHubViewType,
+    Entity,
+    EntityType,
+    FacetFilter,
+    FacetFilterInput,
+    LogicalOperator,
+} from '../../../../types.generated';
 import { ENTITY_FILTER_NAME, UnionType } from '../../../search/utils/constants';
 
 /**
@@ -10,6 +17,41 @@ export const extractEntityTypesFilterValues = (filters: Array<FacetFilterInput>)
     return filters
         .filter((filter) => filter.field === ENTITY_FILTER_NAME)
         .flatMap((filter) => filter.values as EntityType[]);
+};
+
+/**
+ * Build an object representation of a View Definition, which consists of a list of entity types +
+ * a set of filters joined in either conjunction or disjunction.
+ *
+ * @param filters a list of Facet Filter Inputs representing the view filters. This can include the entity type filter.
+ * @param operatorType a logical operator to be used when joining the filters into the View definition.
+ */
+export const buildViewDefinition = (filters: Array<FacetFilterInput>, operatorType: LogicalOperator) => {
+    const entityTypes = extractEntityTypesFilterValues(filters);
+    const filteredFilters = filters.filter((filter) => filter.field !== ENTITY_FILTER_NAME);
+    return {
+        entityTypes,
+        filter: {
+            operator: operatorType,
+            filters: (filteredFilters.length > 0 ? filteredFilters : []) as FacetFilter[],
+        },
+    };
+};
+
+/**
+ * Build an object representation of a View Definition, which consists of a list of entity types +
+ * a set of filters joined in either conjunction or disjunction.
+ *
+ * @param filters a list of Facet Filter Inputs representing the view filters. This can include the entity type filter.
+ * @param operatorType a logical operator to be used when joining the filters into the View definition.
+ */
+export const buildInitialViewState = (filters: Array<FacetFilterInput>, operatorType: LogicalOperator) => {
+    return {
+        viewType: DataHubViewType.Personal,
+        name: '',
+        description: null,
+        definition: buildViewDefinition(filters, operatorType),
+    };
 };
 
 /**

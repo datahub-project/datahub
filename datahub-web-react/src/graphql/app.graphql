@@ -58,3 +58,13 @@ query getEntityCounts($input: EntityCountInput) {
         }
     }
 }
+
+query getGlobalViewsSettings {
+    globalViewsSettings {
+        defaultView
+    }
+}
+
+mutation updateGlobalViewsSettings($input: UpdateGlobalViewsSettingsInput!) {
+    updateGlobalViewsSettings(input: $input)
+}

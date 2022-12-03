@@ -30,22 +30,17 @@ public class GlobalViewsSettingsResolver implements
 
   @Override
   public CompletableFuture<GlobalViewsSettings> get(final DataFetchingEnvironment environment) throws Exception {
-
     final QueryContext context = environment.getContext();
-
-    if (AuthorizationUtils.canManageGlobalViews(context)) {
-      return CompletableFuture.supplyAsync(() -> {
-        try {
-          GlobalSettingsInfo globalSettings = _settingsService.getGlobalSettings(context.getAuthentication());
-          return globalSettings != null && globalSettings.hasViews()
-              ? mapGlobalViewsSettings(globalSettings.getViews())
-              : null;
-        } catch (Exception e) {
-          throw new RuntimeException("Failed to retrieve Global Views Settings", e);
-        }
-      });
-    }
-    throw new AuthorizationException("Unauthorized to perform this action. Please contact your DataHub administrator.");
+    return CompletableFuture.supplyAsync(() -> {
+      try {
+        final GlobalSettingsInfo globalSettings = _settingsService.getGlobalSettings(context.getAuthentication());
+        return globalSettings != null && globalSettings.hasViews()
+            ? mapGlobalViewsSettings(globalSettings.getViews())
+            : new GlobalViewsSettings();
+      } catch (Exception e) {
+        throw new RuntimeException("Failed to retrieve Global Views Settings", e);
+      }
+    });
   }
 
   private static GlobalViewsSettings mapGlobalViewsSettings(@Nonnull final com.linkedin.settings.global.GlobalViewsSettings settings) {

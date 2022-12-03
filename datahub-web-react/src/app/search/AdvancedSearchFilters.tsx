@@ -1,7 +1,6 @@
 import * as React from 'react';
 import { useState } from 'react';
 import styled from 'styled-components';
-
 import { FacetFilterInput, FacetMetadata, FilterOperator } from '../../types.generated';
 import { ANTD_GRAY } from '../entity/shared/constants';
 import { AdvancedSearchFilter } from './AdvancedSearchFilter';
@@ -9,23 +8,6 @@ import { AdvancedSearchFilterOverallUnionTypeSelect } from './AdvancedSearchFilt
 import { AdvancedFilterSelectValueModal } from './AdvancedFilterSelectValueModal';
 import { FIELDS_THAT_USE_CONTAINS_OPERATOR, UnionType } from './utils/constants';
 import { AdvancedSearchAddFilterSelect } from './AdvancedSearchAddFilterSelect';
-
-export const SearchFilterWrapper = styled.div`
-    flex: 1;
-    padding: 6px 12px 10px 12px;
-    overflow: auto;
-
-    &::-webkit-scrollbar {
-        height: 12px;
-        width: 1px;
-        background: #f2f2f2;
-    }
-    &::-webkit-scrollbar-thumb {
-        background: #cccccc;
-        -webkit-border-radius: 1ex;
-        -webkit-box-shadow: 0px 1px 2px rgba(0, 0, 0, 0.75);
-    }
-`;
 
 const AnyAllSection = styled.div`
     padding: 6px;
@@ -57,6 +39,7 @@ interface Props {
     unionType?: UnionType;
     loading: boolean;
     direction?: LayoutDirection;
+    disabled?: boolean;
 }
 
 export const AdvancedSearchFilters = ({
@@ -67,6 +50,7 @@ export const AdvancedSearchFilters = ({
     onChangeUnionType,
     loading,
     direction = LayoutDirection.Vertical,
+    disabled = false,
 }: Props) => {
     const [filterField, setFilterField] = useState<null | string>(null);
 
@@ -88,11 +72,13 @@ export const AdvancedSearchFilters = ({
     };
 
     return (
-        <SearchFilterWrapper>
-            <AdvancedSearchAddFilterSelect
-                selectedFilters={selectedFilters}
-                onFilterFieldSelect={onFilterFieldSelect}
-            />
+        <>
+            {!disabled && (
+                <AdvancedSearchAddFilterSelect
+                    selectedFilters={selectedFilters}
+                    onFilterFieldSelect={onFilterFieldSelect}
+                />
+            )}
             <AdvancedSearchFiltersGroup>
                 {selectedFilters.map((filter) => (
                     <AdvancedSearchFilter
@@ -113,6 +99,7 @@ export const AdvancedSearchFilters = ({
                                 }),
                             );
                         }}
+                        disabled={disabled}
                     />
                 ))}
             </AdvancedSearchFiltersGroup>
@@ -130,12 +117,13 @@ export const AdvancedSearchFilters = ({
                     <AdvancedSearchFilterOverallUnionTypeSelect
                         unionType={unionType}
                         onUpdate={(newValue) => onChangeUnionType(newValue)}
+                        disabled={disabled}
                     />
                 </AnyAllSection>
             )}
             {selectedFilters?.length === 0 && direction === LayoutDirection.Vertical && (
                 <EmptyStateSection>No filters applied.</EmptyStateSection>
             )}
-        </SearchFilterWrapper>
+        </>
     );
 };

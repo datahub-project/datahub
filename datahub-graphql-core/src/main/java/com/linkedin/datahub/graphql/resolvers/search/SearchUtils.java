@@ -86,6 +86,7 @@ public class SearchUtils {
 
   /**
    * Returns the intersection of two sets of entity types. (Really just string lists).
+   * If either is empty, consider the entity types list to mean "all" (take the other set).
    *
    * @param baseEntityTypes the entity types to apply the view to
    * @param viewEntityTypes the view info, null if it doesn't exist
@@ -94,6 +95,12 @@ public class SearchUtils {
    */
   @Nonnull
   public static List<String> intersectEntityTypes(@Nonnull final List<String> baseEntityTypes, @Nonnull final List<String> viewEntityTypes) {
+    if (baseEntityTypes.isEmpty()) {
+      return viewEntityTypes;
+    }
+    if (viewEntityTypes.isEmpty()) {
+      return baseEntityTypes;
+    }
     // Join the entity types in intersection.
     return new ArrayList<>(CollectionUtils.intersection(baseEntityTypes, viewEntityTypes));
   }

@@ -100,8 +100,8 @@ public class PoliciesConfig {
 
   public static final Privilege MANAGE_GLOBAL_VIEWS = Privilege.of(
       "MANAGE_GLOBAL_VIEWS",
-      "Manage Global Views",
-      "Create and update Global Views.");
+      "Manage Public Views",
+      "Create, update, and delete any Public (shared) Views.");
 
   public static final List<Privilege> PLATFORM_PRIVILEGES = ImmutableList.of(
       MANAGE_POLICIES_PRIVILEGE,

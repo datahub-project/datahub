@@ -130,7 +130,7 @@ export const SettingsPage = () => {
                     {showViews && (
                         <Menu.ItemGroup title="Manage">
                             <Menu.Item key="views">
-                                <FilterOutlined /> <ItemTitle>Views</ItemTitle>
+                                <FilterOutlined /> <ItemTitle>My Views</ItemTitle>
                             </Menu.Item>
                         </Menu.ItemGroup>
                     )}

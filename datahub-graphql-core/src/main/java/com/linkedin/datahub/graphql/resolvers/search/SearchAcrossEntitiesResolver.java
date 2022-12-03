@@ -99,7 +99,7 @@ public class SearchAcrossEntitiesResolver implements DataFetcher<CompletableFutu
     try {
       DataHubViewInfo maybeViewInfo = _viewService.getViewInfo(viewUrn, authentication);
       if (maybeViewInfo == null) {
-        throw new IllegalArgumentException(String.format("Failed to resolve View with URN %s. View does not exist!", viewUrn));
+        log.warn(String.format("Failed to resolve View with urn %s. View does not exist!", viewUrn));
       }
       return maybeViewInfo;
     } catch (Exception e) {

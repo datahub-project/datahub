@@ -112,6 +112,7 @@ public class CorpUserMapper {
             final DataHubView unresolvedView = new DataHubView();
             unresolvedView.setUrn(viewsSettings.getDefaultView().toString());
             unresolvedView.setType(EntityType.DATAHUB_VIEW);
+            viewsResult.setDefaultView(unresolvedView);
         }
 
         return viewsResult;

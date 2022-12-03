@@ -7,24 +7,25 @@ import { ViewTypeLabel } from '../ViewTypeLabel';
 import { ViewDefinitionBuilder } from './ViewDefinitionBuilder';
 import { ANTD_GRAY } from '../../shared/constants';
 import { useUserContext } from '../../../context/useUserContext';
+import { ViewBuilderMode } from './types';
 
 const StyledFormItem = styled(Form.Item)`
     margin-bottom: 8px;
 `;
 
 type Props = {
+    mode: ViewBuilderMode;
     state: ViewBuilderState;
     updateState: (newState: ViewBuilderState) => void;
 };
 
-export const ViewBuilderForm = ({ state, updateState }: Props) => {
+export const ViewBuilderForm = ({ mode, state, updateState }: Props) => {
+    const userContext = useUserContext();
     const [form] = Form.useForm();
 
     useEffect(() => {
         form.setFieldsValue(state);
     }, [state, form]);
-
-    const userContext = useUserContext();
 
     const setName = (name: string) => {
         updateState({
@@ -66,33 +67,36 @@ export const ViewBuilderForm = ({ state, updateState }: Props) => {
                         ]}
                         hasFeedback
                     >
-                        <Input placeholder="Data Newbie" onChange={(event) => setName(event.target.value)} />
+                        <Input
+                            placeholder="Data Analyst"
+                            onChange={(event) => setName(event.target.value)}
+                            disabled={mode === ViewBuilderMode.PREVIEW}
+                        />
                     </Form.Item>
                 </StyledFormItem>
                 <StyledFormItem label={<Typography.Text strong>Description</Typography.Text>}>
                     <Typography.Paragraph>Write a description for your View.</Typography.Paragraph>
                     <Form.Item name="description" rules={[{ whitespace: true }, { min: 1, max: 500 }]} hasFeedback>
                         <Input.TextArea
-                            placeholder="This View is useful for DataHub beginners"
+                            placeholder="This View is useful for Data Analysts"
                             onChange={(event) => setDescription(event.target.value)}
+                            disabled={mode === ViewBuilderMode.PREVIEW}
                         />
                     </Form.Item>
                 </StyledFormItem>
-                <StyledFormItem label={<Typography.Text strong>Visibility</Typography.Text>}>
-                    <Typography.Paragraph>Select the visibility level for your new View.</Typography.Paragraph>
-                    <Form.Item name="viewType" rules={[{ whitespace: true }, { min: 1, max: 500 }]} hasFeedback>
+                <StyledFormItem label={<Typography.Text strong>Type</Typography.Text>}>
+                    <Typography.Paragraph>Select the type of your new View.</Typography.Paragraph>
+                    <Form.Item name="viewType">
                         <Select
                             onSelect={(value) => setViewType(value as DataHubViewType)}
-                            disabled={!canManageGlobalViews}
+                            disabled={!canManageGlobalViews || mode === ViewBuilderMode.PREVIEW}
                         >
                             <Select.Option value={DataHubViewType.Personal}>
                                 <ViewTypeLabel type={DataHubViewType.Personal} color={ANTD_GRAY[9]} />
                             </Select.Option>
-                            {canManageGlobalViews && (
-                                <Select.Option value={DataHubViewType.Global}>
-                                    <ViewTypeLabel type={DataHubViewType.Global} color={ANTD_GRAY[9]} />
-                                </Select.Option>
-                            )}
+                            <Select.Option value={DataHubViewType.Global}>
+                                <ViewTypeLabel type={DataHubViewType.Global} color={ANTD_GRAY[9]} />
+                            </Select.Option>
                         </Select>
                     </Form.Item>
                 </StyledFormItem>
@@ -103,7 +107,7 @@ export const ViewBuilderForm = ({ state, updateState }: Props) => {
                     </Typography.Paragraph>
                 </StyledFormItem>
             </Form>
-            <ViewDefinitionBuilder state={state} updateState={updateState} />
+            <ViewDefinitionBuilder mode={mode} state={state} updateState={updateState} />
         </>
     );
 };

@@ -5,6 +5,7 @@ import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.data.template.SetMode;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.generated.UpdateCorpUserViewsSettingsInput;
+import com.linkedin.identity.CorpUserAppearanceSettings;
 import com.linkedin.identity.CorpUserSettings;
 import com.linkedin.identity.CorpUserViewsSettings;
 import com.linkedin.metadata.service.SettingsService;
@@ -42,7 +43,7 @@ public class UpdateCorpUserViewsSettingsResolver implements DataFetcher<Completa
         );
 
         final CorpUserSettings newSettings = maybeSettings == null
-            ? new CorpUserSettings()
+            ? new CorpUserSettings().setAppearance(new CorpUserAppearanceSettings().setShowSimplifiedHomepage(false))
             : maybeSettings;
 
         // Patch the new corp user settings. This does a R-M-F.

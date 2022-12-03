@@ -6,6 +6,7 @@ import { AdvancedSearchFilters, LayoutDirection } from '../../../search/Advanced
 import { ENTITY_FILTER_NAME } from '../../../search/utils/constants';
 import { ANTD_GRAY } from '../../shared/constants';
 import { ViewBuilderState } from '../types';
+import { ViewBuilderMode } from './types';
 import {
     buildEntityCache,
     extractEntityTypesFilterValues,
@@ -37,11 +38,12 @@ const FIELDS_FOR_ENTITY_RESOLUTION = [
 ];
 
 type Props = {
+    mode: ViewBuilderMode;
     state: ViewBuilderState;
     updateState: (newState: ViewBuilderState) => void;
 };
 
-export const ViewDefinitionBuilder = ({ state, updateState }: Props) => {
+export const ViewDefinitionBuilder = ({ mode, state, updateState }: Props) => {
     // Stores an URN to the resolved entity.
     const [entityCache, setEntityCache] = useState<Map<string, Entity>>(new Map());
 
@@ -145,6 +147,7 @@ export const ViewDefinitionBuilder = ({ state, updateState }: Props) => {
                 unionType={toUnionType(operatorType)}
                 loading={false}
                 direction={LayoutDirection.Horizontal}
+                disabled={mode === ViewBuilderMode.PREVIEW}
             />
         </Container>
     );

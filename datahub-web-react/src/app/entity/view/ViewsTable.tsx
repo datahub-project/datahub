@@ -1,19 +1,18 @@
 import React from 'react';
 import { Empty } from 'antd';
 import { StyledTable } from '../shared/components/styled/StyledTable';
-import { ActionsColumn, DescriptionColumn, NameColumn, ViewTypeColumn } from './ViewsTableColumns';
+import { ActionsColumn, DescriptionColumn, NameColumn, ViewTypeColumn } from './select/ViewsTableColumns';
 import { DataHubView } from '../../../types.generated';
 
 type ViewsTableProps = {
     views: DataHubView[];
     onEditView: (urn) => void;
-    onDeleteView: (urn) => void;
 };
 
 /**
- * This component renders a table of View table.
+ * This component renders a table of Views.
  */
-export const ViewsTable = ({ views, onEditView, onDeleteView }: ViewsTableProps) => {
+export const ViewsTable = ({ views, onEditView }: ViewsTableProps) => {
     const tableColumns = [
         {
             title: 'Name',
@@ -28,7 +27,7 @@ export const ViewsTable = ({ views, onEditView, onDeleteView }: ViewsTableProps)
             render: (description) => <DescriptionColumn description={description} />,
         },
         {
-            title: 'Visibility',
+            title: 'Type',
             dataIndex: 'viewType',
             key: 'viewType',
             render: (viewType) => <ViewTypeColumn viewType={viewType} />,
@@ -37,7 +36,7 @@ export const ViewsTable = ({ views, onEditView, onDeleteView }: ViewsTableProps)
             title: '',
             dataIndex: '',
             key: 'x',
-            render: (record) => <ActionsColumn record={record} onEditView={onEditView} onDeleteView={onDeleteView} />,
+            render: (record) => <ActionsColumn record={record} />,
         },
     ];
 
@@ -45,10 +44,7 @@ export const ViewsTable = ({ views, onEditView, onDeleteView }: ViewsTableProps)
      * The data for the Views List.
      */
     const tableData = views.map((view) => ({
-        urn: view.urn,
-        name: view.name,
-        description: view.description,
-        viewType: view.viewType,
+        ...view,
     }));
 
     return (

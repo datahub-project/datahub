@@ -1,5 +1,5 @@
 import React from 'react';
-import { CorpUser, DataHubView, PlatformPrivileges } from '../../types.generated';
+import { CorpUser, PlatformPrivileges } from '../../types.generated';
 
 /**
  * Local State is persisted to local storage.
@@ -13,7 +13,11 @@ export type LocalState = {
  */
 export type State = {
     views: {
-        selectedView?: DataHubView | null;
+        globalDefaultViewUrn?: string | null;
+        personalDefaultViewUrn?: string | null;
+        loadedGlobalDefaultViewUrn: boolean;
+        loadedPersonalDefaultViewUrn: boolean;
+        hasSetDefaultView: boolean;
     };
 };
 
@@ -37,7 +41,11 @@ export const DEFAULT_LOCAL_STATE: LocalState = {
 
 export const DEFAULT_STATE: State = {
     views: {
-        selectedView: undefined,
+        globalDefaultViewUrn: undefined,
+        personalDefaultViewUrn: undefined,
+        loadedGlobalDefaultViewUrn: false,
+        loadedPersonalDefaultViewUrn: false,
+        hasSetDefaultView: false,
     },
 };
 
