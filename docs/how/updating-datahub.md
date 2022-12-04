@@ -6,6 +6,8 @@ This file documents any backwards-incompatible changes in DataHub and assists pe
 
 ### Breaking Changes
 
+- `graphql_url` option of `powerbi-report-server` source deprecated as the options is not used.
+
 ### Potential Downtime
 
 ### Deprecations
