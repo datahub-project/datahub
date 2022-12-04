@@ -152,6 +152,11 @@ const companiesByIndustry = [
     name: "And More",
     companies: [
       {
+        name: "Wikimedia Foundation",
+        imageUrl: "/img/logos/companies/wikimedia-foundation.png",
+        imageSize: "medium",
+      },
+      {
         name: "Cabify",
         imageUrl: "/img/logos/companies/cabify.png",
         imageSize: "medium",

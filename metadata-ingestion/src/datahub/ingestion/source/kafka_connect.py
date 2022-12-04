@@ -123,7 +123,9 @@ def remove_prefix(text: str, prefix: str) -> str:
     return text
 
 
-def unquote(string: str, leading_quote: str = '"', trailing_quote: str = None) -> str:
+def unquote(
+    string: str, leading_quote: str = '"', trailing_quote: Optional[str] = None
+) -> str:
     """
     If string starts and ends with a quote, unquote it
     """
