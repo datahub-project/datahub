@@ -70,7 +70,8 @@ public class ApplicationOidcTest extends WithBrowser {
 
     createBrowser();
     startServer();
-    Thread.sleep(2000);
+
+    Thread.sleep(5000);
   }
 
   @AfterAll
