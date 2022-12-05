@@ -15,7 +15,7 @@ dependencies {
   compile externalDependency.gson
   compile externalDependency.kafkaClients
   compile externalDependency.kafkaAvroSerde
-  compile externalDependency.lombok
+  compileOnly externalDependency.lombok
   compile externalDependency.servletApi
   compile externalDependency.springBeans
   compile externalDependency.springBootAutoconfigure
@@ -31,6 +31,7 @@ dependencies {
   compile spec.product.pegasus.restliSpringBridge
 
   testImplementation externalDependency.springBootTest
+
   testCompile externalDependency.mockito
   testCompile externalDependency.testng
 

@@ -55,13 +55,14 @@ dependencies {
   testImplementation externalDependency.playTest
   testCompile externalDependency.testng
 
+  implementation externalDependency.slf4jApi
   compileOnly externalDependency.lombok
   runtime externalDependency.guice
   runtime (externalDependency.playDocs) {
     exclude group: 'com.typesafe.akka', module: 'akka-http-core_2.12'
   }
   runtime externalDependency.playGuice
-  runtime externalDependency.logbackClassic
+  implementation externalDependency.logbackClassic
 
   annotationProcessor externalDependency.lombok
 }

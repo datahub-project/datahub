@@ -13,9 +13,9 @@ dependencies {
   runtime project(':metadata-jobs:mae-consumer')
   runtime project(':metadata-jobs:pe-consumer')
 
+  runtime externalDependency.logbackClassic
   runtime externalDependency.awsSecretsManagerJdbc
   runtime externalDependency.h2
-  runtime externalDependency.logbackClassic
   runtime externalDependency.mariadbConnector
   runtime externalDependency.mysqlConnector
   runtime externalDependency.postgresql
@@ -28,15 +28,15 @@ dependencies {
 }
 
 configurations {
-  jetty8
+  jetty9
 }
 
 dependencies {
-  jetty8 "org.eclipse.jetty:jetty-runner:9.4.46.v20220331"
+  jetty9 "org.eclipse.jetty:jetty-runner:9.4.46.v20220331"
 }
 
 task run(type: JavaExec, dependsOn: build) {
   main = "org.eclipse.jetty.runner.Runner"
   args = [war.archivePath]
-  classpath configurations.jetty8
+  classpath configurations.jetty9
 }
