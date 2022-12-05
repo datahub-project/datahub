@@ -142,6 +142,7 @@ class PowerBiAPIConfig(EnvBasedSourceConfigBase):
     extract_reports: bool = pydantic.Field(
         default=True, description="Whether reports should be ingested"
     )
+    # Enable/Disable ingestion of orphan datasets
     extract_orphan_datasets: bool = pydantic.Field(
         default=False, description="Whether orphan datasets should be ingested"
     )
