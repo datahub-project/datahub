@@ -59,7 +59,7 @@ public class ListDomainsResolver implements DataFetcher<CompletableFuture<ListDo
                   Constants.DOMAIN_ENTITY_NAME,
                   query,
                   null,
-                  new SortCriterion().setField(DOMAIN_CREATED_TIME_INDEX_FIELD_NAME).setOrder(SortOrder.DESCENDING),
+                  new SortCriterion().setField(DOMAIN_NAME_INDEX_FIELD_NAME).setOrder(SortOrder.ASCENDING),
                   start,
                   count,
                   context.getAuthentication());

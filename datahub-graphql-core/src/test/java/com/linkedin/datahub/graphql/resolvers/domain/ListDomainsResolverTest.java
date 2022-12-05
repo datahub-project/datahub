@@ -40,7 +40,7 @@ public class ListDomainsResolverTest {
         Mockito.eq(Constants.DOMAIN_ENTITY_NAME),
         Mockito.eq(""),
         Mockito.eq(null),
-        Mockito.eq(new SortCriterion().setField(DOMAIN_CREATED_TIME_INDEX_FIELD_NAME).setOrder(SortOrder.DESCENDING)),
+        Mockito.eq(new SortCriterion().setField(DOMAIN_NAME_INDEX_FIELD_NAME).setOrder(SortOrder.ASCENDING)),
         Mockito.eq(0),
         Mockito.eq(20),
         Mockito.any(Authentication.class)

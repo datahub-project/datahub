@@ -199,7 +199,7 @@ public class Constants {
   public static final String DOMAIN_KEY_ASPECT_NAME = "domainKey";
   public static final String DOMAIN_PROPERTIES_ASPECT_NAME = "domainProperties";
   public static final String DOMAINS_ASPECT_NAME = "domains";
-  public static final String DOMAIN_CREATED_TIME_INDEX_FIELD_NAME = "createdTime";
+  public static final String DOMAIN_NAME_INDEX_FIELD_NAME = "name";
 
   // Assertion
   public static final String ASSERTION_KEY_ASPECT_NAME = "assertionKey";
