@@ -157,9 +157,9 @@ module.exports = {
     },
     prism: {
       // https://docusaurus.io/docs/markdown-features/code-blocks#theming
-      theme: require("prism-react-renderer/themes/vsLight"),
-      darkTheme: require("prism-react-renderer/themes/vsDark"),
-      additionalLanguages: ["ini", "java", "graphql"],
+      // theme: require("prism-react-renderer/themes/vsLight"),
+      // darkTheme: require("prism-react-renderer/themes/vsDark"),
+      additionalLanguages: ["ini", "java", "graphql", "shell-session"],
     },
     algolia: {
       appId: "RK0UG797F3",
