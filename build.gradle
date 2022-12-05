@@ -10,6 +10,10 @@ buildscript {
   ext.testContainersVersion = '1.17.4'
   ext.jacksonVersion = '2.13.4'
   ext.jettyVersion = '9.4.46.v20220331'
+  ext.log4jVersion = '2.19.0'
+  ext.slf4jVersion = '1.7.32'
+  ext.logbackClassic = '1.2.11'
+
   apply from: './repositories.gradle'
   buildscript.repositories.addAll(project.repositories)
   dependencies {
@@ -112,9 +116,11 @@ project.ext.externalDependency = [
     'kafkaAvroSerde': 'io.confluent:kafka-streams-avro-serde:5.5.1',
     'kafkaAvroSerializer': 'io.confluent:kafka-avro-serializer:5.1.4',
     'kafkaClients': 'org.apache.kafka:kafka-clients:2.3.0',
-    'logbackClassic': 'ch.qos.logback:logback-classic:1.2.9',
-    'log4jCore': 'org.apache.logging.log4j:log4j-core:2.19.0',
-    'log4jApi': 'org.apache.logging.log4j:log4j-api:2.19.0',
+    'logbackClassic': "ch.qos.logback:logback-classic:$logbackClassic",
+    'slf4jApi': "org.slf4j:slf4j-api:$slf4jVersion",
+    'log4jCore': "org.apache.logging.log4j:log4j-core:$log4jVersion",
+    'log4jApi': "org.apache.logging.log4j:log4j-api:$log4jVersion",
+    'log4j12Api': "org.slf4j:log4j-over-slf4j:$slf4jVersion",
     'lombok': 'org.projectlombok:lombok:1.18.12',
     'mariadbConnector': 'org.mariadb.jdbc:mariadb-java-client:2.6.0',
     'mavenArtifact': "org.apache.maven:maven-artifact:$mavenVersion",
@@ -193,15 +199,12 @@ configure(subprojects.findAll {! it.name.startsWith('spark-lineage') }) {
     exclude group: "io.netty", module: "netty"
     exclude group: "log4j", module: "log4j"
     exclude group: "org.springframework.boot", module: "spring-boot-starter-logging"
-    exclude group: "ch.qos.logback", module: "logback-classic"
     exclude group: "org.apache.logging.log4j", module: "log4j-to-slf4j"
     exclude group: "com.vaadin.external.google", module: "android-json"
     exclude group: "org.slf4j", module: "slf4j-reload4j"
     exclude group: "org.slf4j", module: "slf4j-log4j12"
     exclude group: "org.slf4j", module: "slf4j-nop"
     exclude group: "org.slf4j", module: "slf4j-ext"
-    exclude group: "org.slf4j", module: "jul-to-slf4j"
-    exclude group: "org.slf4j", module: "jcl-over-toslf4j"
   }
 }
 

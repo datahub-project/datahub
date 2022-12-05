@@ -19,6 +19,8 @@ dependencies {
   compile spec.product.pegasus.generator
 
   compile externalDependency.dgraph4j exclude group: 'com.google.guava', module: 'guava'
+  implementation externalDependency.slf4jApi
+  runtime externalDependency.logbackClassic
   compileOnly externalDependency.lombok
   implementation externalDependency.commonsCollections
   compile externalDependency.datastaxOssNativeProtocol

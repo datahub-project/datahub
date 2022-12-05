@@ -28,7 +28,7 @@ dependencies {
         exclude group: "org.apache.htrace", module: "htrace-core4"
     }
     implementation externalDependency.hadoopCommon3
-    implementation externalDependency.log4jApi
+    implementation externalDependency.log4j12Api
 
     constraints {
         implementation(externalDependency.woodstoxCore) {

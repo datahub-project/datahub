@@ -14,7 +14,8 @@ dependencies {
   runtimeOnly 'io.jsonwebtoken:jjwt-impl:0.11.2',
       'io.jsonwebtoken:jjwt-jackson:0.11.2'
 
-  compile externalDependency.lombok
+  implementation externalDependency.slf4jApi
+  compileOnly externalDependency.lombok
 
   annotationProcessor externalDependency.lombok
 

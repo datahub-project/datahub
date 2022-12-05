@@ -5,7 +5,8 @@ dependencies {
   compile project(path: ':metadata-service:factories')
 
   compile externalDependency.servletApi
-  compile externalDependency.lombok
+  implementation externalDependency.slf4jApi
+  compileOnly externalDependency.lombok
   compile externalDependency.springWeb
 
   annotationProcessor externalDependency.lombok

@@ -18,6 +18,7 @@ dependencies {
   compile project(':metadata-events:mxe-avro-1.7')
   compile project(':metadata-events:mxe-utils-avro-1.7')
 
+  implementation externalDependency.slf4jApi
   compileOnly externalDependency.lombok
 
   annotationProcessor externalDependency.lombok
