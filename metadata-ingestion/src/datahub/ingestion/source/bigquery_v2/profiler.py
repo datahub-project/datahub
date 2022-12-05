@@ -15,14 +15,11 @@ from datahub.ingestion.source.bigquery_v2.bigquery_schema import (
     BigqueryColumn,
     BigqueryTable,
 )
-from datahub.ingestion.source.ge_data_profiler import (
-    GEProfilerRequest,
-)
+from datahub.ingestion.source.ge_data_profiler import GEProfilerRequest
 from datahub.ingestion.source.sql.sql_generic_profiler import (
     GenericProfiler,
     TableProfilerRequest,
 )
-
 
 logger = logging.getLogger(__name__)
 
