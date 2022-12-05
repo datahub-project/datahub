@@ -466,7 +466,6 @@ class LDAPSource(StatefulIngestionSourceBase):
 
     def close(self) -> None:
         self.ldap_client.unbind()
-        self.prepare_for_commit()
         super().close()
 
 
