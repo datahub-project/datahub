@@ -31,6 +31,9 @@ class BigqueryProfilerRequest(GEProfilerRequest):
 
 
 class BigqueryProfiler(GenericProfiler):
+    config: BigQueryV2Config
+    report: BigQueryV2Report
+
     def __init__(self, config: BigQueryV2Config, report: BigQueryV2Report) -> None:
         super().__init__(config, report, "bigquery")
         self.config = config
@@ -107,8 +110,7 @@ class BigqueryProfiler(GenericProfiler):
                     logger.error(
                         f"Unable to get partition range for partition id: {partition} it failed with exception {e}"
                     )
-                    bq_report = cast(BigQueryV2Report, self.report)
-                    bq_report.invalid_partition_ids[
+                    self.report.invalid_partition_ids[
                         f"{schema}.{table.name}"
                     ] = partition
                     return None, None
@@ -154,8 +156,7 @@ WHERE
 
         # Otherwise, if column level profiling is enabled, use  GE profiler.
         for project in tables.keys():
-            bq_config = cast(BigQueryV2Config, self.config)
-            if not bq_config.project_id_pattern.allowed(project):
+            if not self.config.project_id_pattern.allowed(project):
                 continue
             profile_requests = []
 
