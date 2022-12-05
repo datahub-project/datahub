@@ -2,7 +2,7 @@ import json
 import re
 import time
 import warnings
-from typing import Any, Dict, Generator, List, Tuple
+from typing import Any, Dict, Generator, List, Optional, Tuple
 
 import requests
 import yaml
@@ -47,7 +47,10 @@ def flatten2list(d: dict) -> list:
 
 
 def request_call(
-    url: str, token: str = None, username: str = None, password: str = None
+    url: str,
+    token: Optional[str] = None,
+    username: Optional[str] = None,
+    password: Optional[str] = None,
 ) -> requests.Response:
 
     headers = {"accept": "application/json"}
@@ -66,9 +69,9 @@ def request_call(
 
 def get_swag_json(
     url: str,
-    token: str = None,
-    username: str = None,
-    password: str = None,
+    token: Optional[str] = None,
+    username: Optional[str] = None,
+    password: Optional[str] = None,
     swagger_file: str = "",
 ) -> Dict:
     tot_url = url + swagger_file
