@@ -80,7 +80,7 @@ class OperationalError(PipelineExecutionError):
     message: str
     info: dict
 
-    def __init__(self, message: str, info: dict = None):
+    def __init__(self, message: str, info: Optional[dict] = None):
         self.message = message
         self.info = info or {}
 

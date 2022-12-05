@@ -2,6 +2,21 @@
 
 A list of previous Town Halls, their planned schedule, and the recording of the meeting.
 
+## 12/01/2022
+[Full YouTube video](https://youtu.be/BlCLhG8lGoY)
+
+### Agenda
+
+November Town Hall (in December!)
+
+- Community Case Study - The Pinterest Team will share how they have integrated DataHub + Thrift and extended the Metadata Model with a Data Element entity to capture semantic types.
+- NEW! Ingestion Quickstart Guides - DataHub newbies, this one is for you! We’re rolling out ingestion quickstart guides to help you quickly get up and running with DataHub + Snowflake, BigQuery, and more!
+- NEW! In-App Product Tours - We’re making it easier than ever for end-users to get familiar with all that DataHub has to offer - hear all about the in-product onboarding resources we’re rolling out soon!
+- DataHub UI Navigation and Performance - Learn all about upcoming changes to our user experience to make it easier (and faster!) for end users to work within DataHub.
+- Sneak Peek! Manual Lineage via the UI - The Community asked and we’re delivering! Soon you’ll be able to manually add lineage connections between Entities in DataHub.
+- NEW! Slack + Microsoft Teams Integrations - Send automated alerts to Slack and/or Teams to keep track of critical events and changes within DataHub.
+- Hacktoberfest Winners Announced - We’ll recap this year’s Hacktoberfest and announce three winners of a $250 Amazon gift card & DataHub Swag.
+
 ## 10/27/2022
 [Full YouTube video](https://youtu.be/B74WHxX5EMk)
 

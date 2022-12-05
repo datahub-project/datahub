@@ -103,7 +103,9 @@ class OracleInspectorObjectWrapper:
             for row in cursor
         ]
 
-    def get_table_names(self, schema: str = None, order_by: str = None) -> List[str]:
+    def get_table_names(
+        self, schema: Optional[str] = None, order_by: Optional[str] = None
+    ) -> List[str]:
         """
         skip order_by, we are not using order_by
         """
