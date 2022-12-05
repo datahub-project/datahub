@@ -24,28 +24,22 @@ public class GraphIndexUtils {
 
   @Nullable
   private static List<Urn> getActorList(@Nullable final String path, @Nonnull final RecordTemplate aspect) {
-    List<Urn> actorList = null;
-    if (path != null) {
-      final PathSpec actorPathSpec = new PathSpec(path.split("/"));
-      final Optional<Object> value = RecordUtils.getFieldValue(aspect, actorPathSpec);
-      if (value.isPresent()) {
-        actorList = (List<Urn>) value.get();
-      }
+    if (path == null) {
+      return null;
     }
-    return actorList;
+    final PathSpec actorPathSpec = new PathSpec(path.split("/"));
+    final Optional<Object> value = RecordUtils.getFieldValue(aspect, actorPathSpec);
+    return (List<Urn>) value.orElse(null);
   }
 
   @Nullable
   private static List<Long> getTimestampList(@Nullable final String path, @Nonnull final RecordTemplate aspect) {
-    List<Long> timestampList = null;
-    if (path != null) {
-      final PathSpec timestampPathSpec = new PathSpec(path.split("/"));
-      final Optional<Object> value = RecordUtils.getFieldValue(aspect, timestampPathSpec);
-      if (value.isPresent()) {
-        timestampList = (List<Long>) value.get();
-      }
+    if (path == null) {
+      return null;
     }
-    return timestampList;
+    final PathSpec timestampPathSpec = new PathSpec(path.split("/"));
+    final Optional<Object> value = RecordUtils.getFieldValue(aspect, timestampPathSpec);
+    return (List<Long>) value.orElse(null);
   }
 
   @Nullable

@@ -31,6 +31,7 @@ import java.util.Map;
 
 public class GraphIndexUtilsTest {
 
+  private static final String UPSTREAM_RELATIONSHIP_PATH = "/upstreams/*/dataset";
   private static final long CREATED_EVENT_TIME = 123L;
   private static final long UPDATED_EVENT_TIME = 234L;
   private Urn _datasetUrn;
@@ -65,7 +66,8 @@ public class GraphIndexUtilsTest {
         FieldExtractor.extractFields(upstreamLineage, aspectSpec.getRelationshipFieldSpecs());
 
     for (Map.Entry<RelationshipFieldSpec, List<Object>> entry : extractedFields.entrySet()) {
-      if (entry.getKey().getPath().toString().equals("/upstreams/*/dataset")) {
+      // check specifically for the upstreams relationship entry
+      if (entry.getKey().getPath().toString().equals(UPSTREAM_RELATIONSHIP_PATH)) {
         List<Edge> edgesToAdd = GraphIndexUtils.extractGraphEdges(entry, upstreamLineage, _datasetUrn, event);
         List<Edge> expectedEdgesToAdd = new ArrayList<>();
         // edges contain default created event time and created actor from system metadata
