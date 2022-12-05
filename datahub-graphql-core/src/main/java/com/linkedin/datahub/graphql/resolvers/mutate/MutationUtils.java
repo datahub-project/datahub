@@ -15,6 +15,7 @@ import com.linkedin.schema.SchemaField;
 import com.linkedin.schema.SchemaMetadata;
 import java.util.Optional;
 import lombok.extern.slf4j.Slf4j;
+import org.joda.time.DateTimeUtils;
 
 
 @Slf4j
@@ -70,7 +71,7 @@ public class MutationUtils {
 
   public static AuditStamp getAuditStamp(Urn actor) {
     AuditStamp auditStamp = new AuditStamp();
-    auditStamp.setTime(System.currentTimeMillis());
+    auditStamp.setTime(DateTimeUtils.currentTimeMillis());
     auditStamp.setActor(actor);
     return auditStamp;
   }

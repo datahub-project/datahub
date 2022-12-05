@@ -1,16 +1,10 @@
 package com.linkedin.datahub.graphql.resolvers.lineage;
 
-import com.linkedin.common.urn.DatasetUrn;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.generated.LineageEdge;
 import com.linkedin.datahub.graphql.generated.UpdateLineageInput;
-import com.linkedin.datahub.graphql.resolvers.mutate.MutationUtils;
-import com.linkedin.dataset.DatasetLineageType;
-import com.linkedin.dataset.Upstream;
-import com.linkedin.dataset.UpstreamArray;
-import com.linkedin.dataset.UpstreamLineage;
 import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.mxe.MetadataChangeProposal;
@@ -27,9 +21,9 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
+import java.util.stream.Collectors;
 
 import static com.linkedin.datahub.graphql.resolvers.ResolverUtils.bindArgument;
-import static com.linkedin.datahub.graphql.resolvers.mutate.MutationUtils.getAspectFromEntity;
 import static com.linkedin.datahub.graphql.resolvers.mutate.MutationUtils.getAuditStamp;
 
 @Slf4j
@@ -41,15 +35,17 @@ public class UpdateLineageResolver implements DataFetcher<CompletableFuture<Bool
   @Override
   public CompletableFuture<Boolean> get(DataFetchingEnvironment environment) throws Exception {
     final QueryContext context = environment.getContext();
+    final Urn actor = UrnUtils.getUrn(context.getActorUrn());
     final UpdateLineageInput input = bindArgument(environment.getArgument("input"), UpdateLineageInput.class);
     final List<LineageEdge> edgesToAdd = input.getEdgesToAdd();
     final List<LineageEdge> edgesToRemove = input.getEdgesToRemove();
+
+    // organize data to make updating lineage cleaner
     Map<Urn, List<Urn>> downstreamToUpstreamsToAdd = getDownstreamToUpstreamsMap(edgesToAdd);
     Map<Urn, List<Urn>> downstreamToUpstreamsToRemove = getDownstreamToUpstreamsMap(edgesToRemove);
     Set<Urn> downstreamUrns = new HashSet<>();
     downstreamUrns.addAll(downstreamToUpstreamsToAdd.keySet());
     downstreamUrns.addAll(downstreamToUpstreamsToRemove.keySet());
-    final Urn actor = UrnUtils.getUrn(context.getActorUrn());
 
     return CompletableFuture.supplyAsync(() -> {
       // build MCP for every downstreamUrn
@@ -58,14 +54,23 @@ public class UpdateLineageResolver implements DataFetcher<CompletableFuture<Bool
           throw new IllegalArgumentException(String.format("Cannot upsert lineage as downstream urn %s doesn't exist", downstreamUrn));
         }
 
-        List<Urn> upstreamUrnsToAdd = downstreamToUpstreamsToAdd.getOrDefault(downstreamUrn, new ArrayList<>());
-        List<Urn> upstreamUrnsToRemove = downstreamToUpstreamsToRemove.getOrDefault(downstreamUrn, new ArrayList<>());
+        final List<Urn> upstreamUrnsToAdd = downstreamToUpstreamsToAdd.getOrDefault(downstreamUrn, new ArrayList<>());
+        final List<Urn> upstreamUrnsToRemove = downstreamToUpstreamsToRemove.getOrDefault(downstreamUrn, new ArrayList<>());
 
         if (downstreamUrn.getEntityType().equals(Constants.DATASET_ENTITY_NAME)) {
-          validateDatasetEdges(upstreamUrnsToAdd);
-          // add permissions check here? or have one overall permissions check above
+          // need to filter out upstream dataJob entities as we take care of outputDatasets for DataJobInputOutput separately
+          final List<Urn> filteredUpstreamUrnsToAdd = upstreamUrnsToAdd.stream().filter(
+              upstreamUrn -> !upstreamUrn.getEntityType().equals(Constants.DATA_JOB_ENTITY_NAME)
+          ).collect(Collectors.toList());
+          final List<Urn> filteredUpstreamUrnsToRemove = upstreamUrnsToRemove.stream().filter(
+              upstreamUrn -> !upstreamUrn.getEntityType().equals(Constants.DATA_JOB_ENTITY_NAME)
+          ).collect(Collectors.toList());
+
+          LineageUtils.validateDatasetUrns(filteredUpstreamUrnsToAdd, _entityService);
+          // TODO: add permissions check here for entity type - or have one overall permissions check above
           try {
-            MetadataChangeProposal changeProposal = buildDatasetLineageProposal(downstreamUrn, upstreamUrnsToAdd, upstreamUrnsToRemove, actor);
+            MetadataChangeProposal changeProposal = LineageUtils.buildDatasetLineageProposal(
+                downstreamUrn, filteredUpstreamUrnsToAdd, filteredUpstreamUrnsToRemove, actor, _entityService);
             _entityService.ingestProposal(changeProposal, getAuditStamp(actor), false);
           } catch (Exception e) {
             throw new RuntimeException(String.format("Failed to update dataset lineage for urn %s", downstreamUrn), e);
@@ -88,51 +93,5 @@ public class UpdateLineageResolver implements DataFetcher<CompletableFuture<Bool
       downstreamToUpstreams.put(downstream, upstreams);
     }
     return downstreamToUpstreams;
-  }
-
-  private void validateDatasetEdges(@Nonnull final List<Urn> upstreamUrns) {
-    for (final Urn destinationUrn : upstreamUrns) {
-      if (!destinationUrn.getEntityType().equals(Constants.DATASET_ENTITY_NAME)) {
-        throw new IllegalArgumentException(String.format("Tried to add lineage edge with non-dataset node to dataset. Destination urn: %s", destinationUrn));
-      }
-      validateUrnExists(destinationUrn);
-    }
-  }
-
-  private void validateUrnExists(@Nonnull Urn destinationUrn) {
-    if (!_entityService.exists(destinationUrn)) {
-      throw new IllegalArgumentException(String.format("Cannot add lineage edge as urn %s doesn't exist", destinationUrn));
-    }
-  }
-
-  private MetadataChangeProposal buildDatasetLineageProposal(@Nonnull final Urn downstreamUrn, @Nonnull List<Urn> upstreamUrnsToAdd, @Nonnull List<Urn> upstreamUrnsToRemove, @Nonnull final Urn actor) throws Exception {
-    final UpstreamLineage upstreamLineage = (UpstreamLineage) getAspectFromEntity(downstreamUrn.toString(), Constants.UPSTREAM_LINEAGE_ASPECT_NAME, _entityService, new UpstreamLineage());
-    if (!upstreamLineage.hasUpstreams()) {
-      upstreamLineage.setUpstreams(new UpstreamArray());
-    }
-
-    final UpstreamArray upstreams = upstreamLineage.getUpstreams();
-    final List<Urn> upstreamsToAdd = new ArrayList<>();
-    for (Urn upstreamUrn : upstreamUrnsToAdd) {
-      if (upstreams.stream().anyMatch(upstream -> upstream.getDataset().equals(upstreamUrn))) {
-        continue;
-      }
-      upstreamsToAdd.add(upstreamUrn);
-    }
-
-    for (final Urn upstreamUrn : upstreamsToAdd) {
-      final Upstream newUpstream = new Upstream();
-      newUpstream.setDataset(DatasetUrn.createFromUrn(upstreamUrn));
-      newUpstream.setAuditStamp(MutationUtils.getAuditStamp(actor));
-      newUpstream.setCreatedAuditStamp(MutationUtils.getAuditStamp(actor));
-      newUpstream.setType(DatasetLineageType.TRANSFORMED); // figure this out later
-      upstreams.add(newUpstream);
-    }
-
-    upstreams.removeIf(upstream -> upstreamUrnsToRemove.contains(upstream.getDataset()));
-
-    upstreamLineage.setUpstreams(upstreams);
-
-    return MutationUtils.buildMetadataChangeProposal(downstreamUrn, Constants.UPSTREAM_LINEAGE_ASPECT_NAME, upstreamLineage, actor, _entityService);
   }
 }
