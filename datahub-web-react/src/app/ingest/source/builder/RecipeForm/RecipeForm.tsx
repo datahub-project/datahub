@@ -118,20 +118,6 @@ function RecipeForm(props: Props) {
         data?.listSecrets?.secrets.sort((secretA, secretB) => secretA.name.localeCompare(secretB.name)) || [];
     const [form] = Form.useForm();
 
-    // TODO - Combine this with updateFormValues.
-    function updateFormValue(fieldName, fieldValue) {
-        let updatedValues = YAML.parse(displayRecipe);
-        const recipeField = allFields.find((f) => f.name === fieldName);
-        if (recipeField) {
-            updatedValues = recipeField.setValueOnRecipeOverride
-                ? recipeField.setValueOnRecipeOverride(updatedValues, fieldValue)
-                : setFieldValueOnRecipe(updatedValues, fieldValue, recipeField.fieldPath);
-        }
-        const stagedRecipe = jsonToYaml(JSON.stringify(updatedValues));
-        setStagedRecipe(stagedRecipe);
-        form.setFieldsValue({ [fieldName]: fieldValue });
-    }
-
     function updateFormValues(changedValues: any, allValues: any) {
         let updatedValues = YAML.parse(displayRecipe);
 
@@ -146,6 +132,11 @@ function RecipeForm(props: Props) {
 
         const stagedRecipe = jsonToYaml(JSON.stringify(updatedValues));
         setStagedRecipe(stagedRecipe);
+    }
+
+    function updateFormValue(fieldName, fieldValue) {
+        updateFormValues({ [fieldName]: fieldValue }, { [fieldName]: fieldValue });
+        form.setFieldsValue({ [fieldName]: fieldValue });
     }
 
     return (
