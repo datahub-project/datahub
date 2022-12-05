@@ -9,6 +9,7 @@ dependencies {
 
   compile externalDependency.kafkaClients
 
+  implementation externalDependency.slf4jApi
   compileOnly externalDependency.lombok
 
   annotationProcessor externalDependency.lombok

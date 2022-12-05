@@ -35,6 +35,7 @@ dependencies {
     implementation externalDependency.gson
     implementation externalDependency.commonsCli
 
+    implementation externalDependency.slf4jApi
     compileOnly externalDependency.lombok
     annotationProcessor externalDependency.lombok
     testImplementation externalDependency.junitJupiterApi

@@ -110,6 +110,7 @@ ebean:
   leakTimeMinutes: ${EBEAN_LEAK_TIME_MINUTES:15}
   waitTimeoutMillis: ${EBEAN_WAIT_TIMEOUT_MILLIS:1000}
   autoCreateDdl: ${EBEAN_AUTOCREATE:false}
+  postgresUseIamAuth: ${EBEAN_POSTGRES_USE_AWS_IAM_AUTH:false}
 
 # Only required if entityService.impl is cassandra
 cassandra:
