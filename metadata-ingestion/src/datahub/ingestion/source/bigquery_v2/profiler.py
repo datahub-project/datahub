@@ -115,18 +115,15 @@ class BigqueryProfiler:
                     ] = partition
                     return None, None
 
+                partition_column_type: str = "DATE"
+                for c in table.columns:
+                    if c.is_partition_column:
+                        partition_column_type = c.data_type
+
                 if table.time_partitioning.type_ in ("DAY", "MONTH", "YEAR"):
-                    partition_where_clause = "{column_name} BETWEEN DATE('{partition_id}') AND DATE('{upper_bound_partition_id}')".format(
-                        column_name=table.time_partitioning.field,
-                        partition_id=partition_datetime,
-                        upper_bound_partition_id=upper_bound_partition_datetime,
-                    )
+                    partition_where_clause = f"`{table.time_partitioning.field}` BETWEEN {partition_column_type}('{partition_datetime}') AND {partition_column_type}('{upper_bound_partition_datetime}')"
                 elif table.time_partitioning.type_ in ("HOUR"):
-                    partition_where_clause = "{column_name} BETWEEN '{partition_id}' AND '{upper_bound_partition_id}'".format(
-                        column_name=table.time_partitioning.field,
-                        partition_id=partition_datetime,
-                        upper_bound_partition_id=upper_bound_partition_datetime,
-                    )
+                    partition_where_clause = f"`{table.time_partitioning.field}` BETWEEN '{partition_datetime}' AND '{upper_bound_partition_datetime}'"
                 else:
                     logger.warning(
                         f"Not supported partition type {table.time_partitioning.type_}"
@@ -168,6 +165,16 @@ WHERE
                     continue
 
                 for table in tables[project][dataset]:
+                    for column in table.columns:
+                        # Profiler has issues with complex types (array, struct, geography, json), so we deny those types from profiling
+                        # We also filter columns without data type as it means that column is part of a complex type.
+                        if not column.data_type or any(
+                            word in column.data_type.lower()
+                            for word in ["array", "struct", "geography", "json"]
+                        ):
+                            self.config.profile_pattern.deny.append(
+                                f"^{project}.{dataset}.{table.name}.{column.field_path}$"
+                            )
                     # Emit the profile work unit
                     profile_request = self.get_bigquery_profile_request(
                         project=project, dataset=dataset, table=table
@@ -189,6 +196,13 @@ WHERE
 
                 request = cast(BigqueryProfilerRequest, request)
                 profile.sizeInBytes = request.table.size_in_bytes
+                # If table is partitioned we profile only one partition (if nothing set then the last one)
+                # but for table level we can use the rows_count from the table metadata
+                # This way even though column statistics only reflects one partition data but the rows count
+                # shows the proper count.
+                if profile.partitionSpec and profile.partitionSpec.partition:
+                    profile.rowCount = request.table.rows_count
+
                 dataset_name = request.pretty_name
                 dataset_urn = make_dataset_urn_with_platform_instance(
                     self.platform,
@@ -216,14 +230,10 @@ WHERE
         if not self.is_dataset_eligible_for_profiling(
             dataset_name, table.last_altered, table.size_in_bytes, table.rows_count
         ):
-            # Profile only table level if dataset is filtered from profiling
-            # due to size limits alone
-            if self.is_dataset_eligible_for_profiling(
-                dataset_name, table.last_altered, 0, 0
-            ):
-                profile_table_level_only = True
-            else:
-                skip_profiling = True
+            profile_table_level_only = True
+            self.report.num_tables_not_eligible_profiling[dataset] = (
+                self.report.num_tables_not_eligible_profiling.get(dataset, 0) + 1
+            )
 
         if not table.columns:
             skip_profiling = True
@@ -257,7 +267,10 @@ WHERE
         profile_request = BigqueryProfilerRequest(
             pretty_name=dataset_name,
             batch_kwargs=dict(
-                schema=project, table=f"{dataset}.{table.name}", custom_sql=custom_sql
+                schema=project,
+                table=f"{dataset}.{table.name}",
+                custom_sql=custom_sql,
+                partition=partition,
             ),
             table=table,
             profile_table_level_only=profile_table_level_only,

@@ -123,7 +123,9 @@ def remove_prefix(text: str, prefix: str) -> str:
     return text
 
 
-def unquote(string: str, leading_quote: str = '"', trailing_quote: str = None) -> str:
+def unquote(
+    string: str, leading_quote: str = '"', trailing_quote: Optional[str] = None
+) -> str:
     """
     If string starts and ends with a quote, unquote it
     """
@@ -276,7 +278,8 @@ class ConfluentJDBCSourceConnector:
         url_instance = make_url(url)
         source_platform = get_platform_from_sqlalchemy_uri(str(url_instance))
         database_name = url_instance.database
-        db_connection_url = f"{url_instance.drivername}://{url_instance.host}:{url_instance.port}/{url_instance.database}"
+        assert database_name
+        db_connection_url = f"{url_instance.drivername}://{url_instance.host}:{url_instance.port}/{database_name}"
 
         topic_prefix = self.connector_manifest.config.get("topic.prefix", None)
 

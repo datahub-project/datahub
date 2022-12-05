@@ -1,5 +1,5 @@
 #!/bin/bash
-set -x
+
 # Add default URI (http) scheme if needed
 if ! echo $NEO4J_HOST | grep -q "://" ; then
     NEO4J_HOST="http://$NEO4J_HOST"
@@ -45,7 +45,7 @@ fi
 
 OTEL_AGENT=""
 if [[ $ENABLE_OTEL == true ]]; then
-  OTEL_AGENT="-javaagent:opentelemetry-javaagent-all.jar "
+  OTEL_AGENT="-javaagent:opentelemetry-javaagent.jar "
 fi
 
 PROMETHEUS_AGENT=""

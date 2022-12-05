@@ -322,7 +322,6 @@ export default function LineageVizInsideZoom({
                         selectedEntity={selectedEntity}
                         hoveredEntity={hoveredEntity}
                         setHoveredEntity={setHoveredEntity}
-                        direction={Direction.Downstream}
                         canvasHeight={height}
                         setIsDraggingNode={setIsDraggingNode}
                         draggedNodes={draggedNodes}

@@ -3,6 +3,7 @@ apply plugin: 'java'
 dependencies {
   compile project(path: ':metadata-models')
   compile externalDependency.guava
-  compile externalDependency.lombok
+  implementation externalDependency.slf4jApi
+  compileOnly externalDependency.lombok
   annotationProcessor externalDependency.lombok
 }

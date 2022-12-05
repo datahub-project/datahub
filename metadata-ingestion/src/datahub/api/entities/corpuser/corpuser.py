@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Callable, Iterable, List, Optional, Union, cast
+from typing import Callable, Iterable, List, Optional, Union
 
 import datahub.emitter.mce_builder as builder
 from datahub.emitter.kafka_emitter import DatahubKafkaEmitter
@@ -100,10 +100,4 @@ class CorpUser:
         :param callback: The callback method for KafkaEmitter if it is used
         """
         for mcp in self.generate_mcp():
-            if type(emitter).__name__ == "DatahubKafkaEmitter":
-                assert callback is not None
-                kafka_emitter = cast("DatahubKafkaEmitter", emitter)
-                kafka_emitter.emit(mcp, callback)
-            else:
-                rest_emitter = cast("DatahubRestEmitter", emitter)
-                rest_emitter.emit(mcp)
+            emitter.emit(mcp, callback)

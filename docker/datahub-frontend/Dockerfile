@@ -45,7 +45,7 @@ RUN cd datahub-src \
 FROM base as prod-install
 COPY --from=prod-build /datahub-frontend /datahub-frontend/
 COPY ./docker/monitoring/client-prometheus-config.yaml /datahub-frontend/
-RUN wget https://github.com/open-telemetry/opentelemetry-java-instrumentation/releases/download/v1.4.1/opentelemetry-javaagent-all.jar -O opentelemetry-javaagent-all.jar \
+RUN wget https://github.com/open-telemetry/opentelemetry-java-instrumentation/releases/download/v1.18.0/opentelemetry-javaagent.jar -O opentelemetry-javaagent.jar \
     && wget https://repo1.maven.org/maven2/io/prometheus/jmx/jmx_prometheus_javaagent/0.16.1/jmx_prometheus_javaagent-0.16.1.jar -O jmx_prometheus_javaagent.jar
 RUN chown -R datahub:datahub /datahub-frontend && chmod 755 /datahub-frontend
 

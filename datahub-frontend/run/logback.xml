@@ -5,7 +5,7 @@
 
   <appender name="STDOUT" class="ch.qos.logback.core.ConsoleAppender">
     <layout class="ch.qos.logback.classic.PatternLayout">
-      <pattern>%d{HH:mm:ss} [%thread] %-5level %logger{36} - %msg%n</pattern>
+      <pattern>%date{ISO8601} [%thread] %-5level %logger{36} - %msg%n</pattern>
     </layout>
     <filter class="ch.qos.logback.classic.filter.ThresholdFilter">
       <level>INFO</level>
@@ -27,7 +27,7 @@
       <level>INFO</level>
     </filter>
     <encoder>
-      <pattern>%d{HH:mm:ss} [%thread] %-5level %logger{36} - %msg%n</pattern>
+      <pattern>%date{ISO8601} [%thread] %-5level %logger{36} - %msg%n</pattern>
     </encoder>
   </appender>
 
@@ -48,7 +48,7 @@
       <onMismatch>DENY</onMismatch>
     </filter>
     <encoder>
-      <pattern>%d{HH:mm:ss} [%thread] %-5level %logger{36} - %msg%n</pattern>
+      <pattern>%date{ISO8601} [%thread] %-5level %logger{36} - %msg%n</pattern>
     </encoder>
   </appender>
 
