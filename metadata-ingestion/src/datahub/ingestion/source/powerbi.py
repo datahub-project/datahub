@@ -579,45 +579,52 @@ class PowerBiAPI:
         )
 
     def get_dataset_schema(self, dataset: Dataset) -> Dict[str, List[str]]:
-        dataset_query_endpoint: str = PowerBiAPI.API_ENDPOINTS[
-            Constant.DATASET_EXECUTE_QUERIES_POST
-        ]
-        # Replace place holders
-        dataset_query_endpoint = dataset_query_endpoint.format(
-            POWERBI_BASE_URL=PowerBiAPI.BASE_URL,
-            WORKSPACE_ID=dataset.workspace_id,
-            DATASET_ID=dataset.id,
-        )
-        # Hit PowerBi
-        LOGGER.info(f"Request to query endpoint URL={dataset_query_endpoint}")
-        payload = {
-            "queries": [
-                {
-                    "query": "EVALUATE COLUMNSTATISTICS()",
-                }
-            ],
-            "serializerSettings": {
-                "includeNulls": True,
-            },
-        }
-        response = requests.post(
-            dataset_query_endpoint,
-            json=payload,
-            headers={Constant.Authorization: self.get_access_token()},
-        )
-        response.raise_for_status()
+        try:
+            dataset_query_endpoint: str = PowerBiAPI.API_ENDPOINTS[
+                Constant.DATASET_EXECUTE_QUERIES_POST
+            ]
+            # Replace place holders
+            dataset_query_endpoint = dataset_query_endpoint.format(
+                POWERBI_BASE_URL=PowerBiAPI.BASE_URL,
+                WORKSPACE_ID=dataset.workspace_id,
+                DATASET_ID=dataset.id,
+            )
+            # Hit PowerBi
+            LOGGER.info(f"Request to query endpoint URL={dataset_query_endpoint}")
+            payload = {
+                "queries": [
+                    {
+                        "query": "EVALUATE COLUMNSTATISTICS()",
+                    }
+                ],
+                "serializerSettings": {
+                    "includeNulls": True,
+                },
+            }
+            response = requests.post(
+                dataset_query_endpoint,
+                json=payload,
+                headers={Constant.Authorization: self.get_access_token()},
+            )
+            response.raise_for_status()
 
-        results = {}
-        data = response.json()
-        rows = data["results"][0]["tables"][0]["rows"]
-        for row in rows:
-            table_name = row["[Table Name]"]
-            col_name = row["[Column Name]"]
-            if table_name not in results:
-                results[table_name] = [col_name]
-            else:
-                results[table_name].append(col_name)
-        return results
+            results = {}
+            data = response.json()
+            rows = data["results"][0]["tables"][0]["rows"]
+            for row in rows:
+                table_name = row["[Table Name]"]
+                col_name = row["[Column Name]"]
+                if table_name not in results:
+                    results[table_name] = [col_name]
+                else:
+                    results[table_name].append(col_name)
+            return results
+        except requests.exceptions.RequestException as ex:
+            LOGGER.warning(
+                f"Schema discovery failed for dataset {dataset.id}, with status code {ex.response.status_code}",
+                exc_info=ex,
+            )
+            return {}
 
     @staticmethod
     def format_connection_string(data_source: Optional[Dict]) -> Optional[str]:
