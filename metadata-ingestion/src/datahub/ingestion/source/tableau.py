@@ -186,10 +186,12 @@ class TableauConnectionConfig(ConfigModel):
             return server
         except ServerResponseError as e:
             raise ValueError(
-                f"Unable to login with credentials provided: {str(e)}"
+                f"Unable to login (invalid credentials or missing permissions): {str(e)}"
             ) from e
         except Exception as e:
-            raise ValueError(f"Unable to login: {str(e)}") from e
+            raise ValueError(
+                f"Unable to login (check your Tableau connection and credentials): {str(e)}"
+            ) from e
 
 
 class TableauConfig(
@@ -374,7 +376,9 @@ class TableauSource(StatefulIngestionSourceBase):
         if "errors" in query_data:
             errors = query_data["errors"]
             if all(
-                error.get("extensions", {}).get("severity", None) == "WARNING"
+                # The format of the error messages is highly unpredictable, so we have to
+                # be extra defensive with our parsing.
+                error and (error.get("extensions") or {}).get("severity") == "WARNING"
                 for error in errors
             ):
                 self.report.report_warning(key=connection_type, reason=f"{errors}")
@@ -988,7 +992,10 @@ class TableauSource(StatefulIngestionSourceBase):
         return mcp_workunit
 
     def emit_datasource(
-        self, datasource: dict, workbook: dict = None, is_embedded_ds: bool = False
+        self,
+        datasource: dict,
+        workbook: Optional[dict] = None,
+        is_embedded_ds: bool = False,
     ) -> Iterable[MetadataWorkUnit]:
         datasource_info = workbook
         if not is_embedded_ds:
@@ -996,7 +1003,7 @@ class TableauSource(StatefulIngestionSourceBase):
 
         project = (
             datasource_info.get("projectName", "").replace("/", REPLACE_SLASH_CHAR)
-            if datasource_info
+            if datasource_info and datasource_info.get("projectName", "")
             else ""
         )
         datasource_id = datasource["id"]

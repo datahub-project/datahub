@@ -392,9 +392,8 @@ class SnowflakeLineageExtractor(SnowflakeQueryMixin, SnowflakeCommonMixin):
                 upstream_table_name = self.get_dataset_identifier_from_qualified_name(
                     db_row["UPSTREAM_TABLE_NAME"]
                 )
-                if not (
-                    self._is_dataset_pattern_allowed(key, "table")
-                    or self._is_dataset_pattern_allowed(upstream_table_name, "table")
+                if not self._is_dataset_pattern_allowed(key, "table") or not (
+                    self._is_dataset_pattern_allowed(upstream_table_name, "table")
                 ):
                     continue
 

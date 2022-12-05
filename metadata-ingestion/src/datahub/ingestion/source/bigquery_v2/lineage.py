@@ -631,7 +631,6 @@ timestamp < "{end_time}"
         return None
 
     def test_capability(self, project_id: str) -> None:
-        lineage_metadata: Dict[str, Set[str]]
         if self.config.use_exported_bigquery_audit_metadata:
             bigquery_client: BigQueryClient = BigQueryClient(project=project_id)
             entries = self._get_exported_bigquery_audit_metadata(

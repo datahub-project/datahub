@@ -25,6 +25,7 @@ export interface RecipeField {
     type: FieldType;
     fieldPath: string | string[];
     rules: any[] | null;
+    required?: boolean; // Today, Only makes a difference on Selects
     section?: string;
     options?: Option[];
     buttonLabel?: string;
@@ -55,13 +56,11 @@ function clearFieldAndParents(recipe: any, fieldPath: string | string[]) {
 }
 export function setFieldValueOnRecipe(recipe: any, value: any, fieldPath: string | string[]) {
     const updatedRecipe = { ...recipe };
-    if (value !== undefined) {
-        if (value === null || value === '') {
-            clearFieldAndParents(updatedRecipe, fieldPath);
-            return updatedRecipe;
-        }
-        set(updatedRecipe, fieldPath, value);
+    if (value === null || value === '' || value === undefined) {
+        clearFieldAndParents(updatedRecipe, fieldPath);
+        return updatedRecipe;
     }
+    set(updatedRecipe, fieldPath, value);
     return updatedRecipe;
 }
 
@@ -267,7 +266,7 @@ export const INCLUDE_TABLE_LINEAGE: RecipeField = {
 export const PROFILING_ENABLED: RecipeField = {
     name: 'profiling.enabled',
     label: 'Enable Profiling',
-    tooltip: 'Whether profiling should be done.',
+    tooltip: 'Whether profiling should be performed on the assets extracted from the ingestion source.',
     type: FieldType.BOOLEAN,
     fieldPath: 'source.config.profiling.enabled',
     rules: null,
@@ -276,7 +275,7 @@ export const PROFILING_ENABLED: RecipeField = {
 export const STATEFUL_INGESTION_ENABLED: RecipeField = {
     name: 'stateful_ingestion.enabled',
     label: 'Enable Stateful Ingestion',
-    tooltip: 'Remove stale datasets from datahub once they have been deleted in the source.',
+    tooltip: 'Remove stale assets from DataHub once they have been deleted in the ingestion source.',
     type: FieldType.BOOLEAN,
     fieldPath: 'source.config.stateful_ingestion.enabled',
     rules: null,
@@ -322,7 +321,7 @@ export const TABLE_LINEAGE_MODE: RecipeField = {
 export const INGEST_TAGS: RecipeField = {
     name: 'ingest_tags',
     label: 'Ingest Tags',
-    tooltip: 'Ingest Tags from source. This will override Tags entered from UI',
+    tooltip: 'Ingest Tags from the source. Be careful: This can override Tags entered by users of DataHub.',
     type: FieldType.BOOLEAN,
     fieldPath: 'source.config.ingest_tags',
     rules: null,
@@ -331,7 +330,7 @@ export const INGEST_TAGS: RecipeField = {
 export const INGEST_OWNER: RecipeField = {
     name: 'ingest_owner',
     label: 'Ingest Owner',
-    tooltip: 'Ingest Owner from source. This will override Owner info entered from UI',
+    tooltip: 'Ingest Owner from source. Be careful: This cah override Owners added by users of DataHub.',
     type: FieldType.BOOLEAN,
     fieldPath: 'source.config.ingest_owner',
     rules: null,
@@ -391,7 +390,7 @@ export const START_TIME: RecipeField = {
     name: 'start_time',
     label: 'Start Time',
     tooltip:
-        'Earliest date of audit logs to process for usage, lineage etc. Default: Last full day in UTC or last time DataHub ingested usage (if stateful ingestion is enabled). Tip: Set this to an older date (e.g. 1 month ago) for your first ingestion run, and then uncheck it for future runs.',
+        'Earliest date used when processing audit logs for lineage, usage, and more. Default: Last full day in UTC or last time DataHub ingested usage (if stateful ingestion is enabled). Tip: Set this to an older date (e.g. 1 month ago) to bootstrap your first ingestion run, and then reduce for subsequent runs.',
     placeholder: 'Select date and time',
     type: FieldType.DATE,
     fieldPath: startTimeFieldPath,

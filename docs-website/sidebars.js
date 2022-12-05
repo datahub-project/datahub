@@ -165,6 +165,7 @@ module.exports = {
           // },
           "docs/platform-instances",
           "metadata-ingestion/docs/dev_guides/stateful",
+          "metadata-ingestion/docs/dev_guides/classification",
           "metadata-ingestion/docs/dev_guides/add_stateful_ingestion_to_source",
           "metadata-ingestion/docs/dev_guides/sql_profiles",
         ],
@@ -254,6 +255,7 @@ module.exports = {
       "docs/deploy/gcp",
       "docker/README",
       "docs/deploy/kubernetes",
+      "docs/how/updating-datahub",
       {
         Authentication: [
           "docs/authentication/README",
@@ -286,7 +288,6 @@ module.exports = {
       {
         "Advanced Guides": [
           "docs/how/delete-metadata",
-          "docs/how/updating-datahub",
           "datahub-ranger-plugin/README",
           "docs/how/backup-datahub",
           "docs/how/restore-indices",
@@ -483,6 +484,9 @@ module.exports = {
     ],
 
     "Release History": ["releases"],
+    "Managed DataHub Release History": [
+      "docs/managed-datahub/release-notes/v_0_1_69",
+    ],
 
     // "Candidates for Deprecation": [
     // "README",
