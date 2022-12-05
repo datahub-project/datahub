@@ -38,7 +38,7 @@ export const CHART_ALLOW: RecipeField = {
     name: 'chart_pattern.allow',
     label: 'Allow Patterns',
     tooltip:
-        'Only include specific Charts by providing the numeric id of a Chart, or a Regular Expresssion (REGEX). If not provided, all Charts will be included.',
+        'Only include specific Charts by providing the numeric id of a Chart, or a Regular Expression (REGEX). If not provided, all Charts will be included.',
     type: FieldType.LIST,
     buttonLabel: 'Add pattern',
     fieldPath: chartAllowFieldPath,
@@ -54,7 +54,7 @@ export const CHART_DENY: RecipeField = {
     name: 'chart_pattern.deny',
     label: 'Deny Patterns',
     tooltip:
-        'Exclude specific Charts by providing the numeric id of a Chart, or a Regular Expresssion (REGEX). If not provided, all Charts will be included. Deny patterns always take precendence over Allow patterns.',
+        'Exclude specific Charts by providing the numeric id of a Chart, or a Regular Expression (REGEX). If not provided, all Charts will be included. Deny patterns always take precendence over Allow patterns.',
     type: FieldType.LIST,
     buttonLabel: 'Add pattern',
     fieldPath: chartDenyFieldPath,
@@ -70,7 +70,7 @@ export const DASHBOARD_ALLOW: RecipeField = {
     name: 'dashboard_pattern.allow',
     label: 'Allow Patterns',
     tooltip:
-        'Only include specific Dashboards by providing the numeric id of a Dashboard, or a Regular Expresssion (REGEX). If not provided, all Dashboards will be included.',
+        'Only include specific Dashboards by providing the numeric id of a Dashboard, or a Regular Expression (REGEX). If not provided, all Dashboards will be included.',
     type: FieldType.LIST,
     buttonLabel: 'Add pattern',
     fieldPath: dashboardAllowFieldPath,
@@ -86,7 +86,7 @@ export const DASHBOARD_DENY: RecipeField = {
     name: 'dashboard_pattern.deny',
     label: 'Deny Patterns',
     tooltip:
-        'Exclude specific Dashboards by providing the numeric id of a Dashboard, or a Regular Expresssion (REGEX). If not provided, all Dashboards will be included. Deny patterns always take precendence over Allow patterns.',
+        'Exclude specific Dashboards by providing the numeric id of a Dashboard, or a Regular Expression (REGEX). If not provided, all Dashboards will be included. Deny patterns always take precendence over Allow patterns.',
     type: FieldType.LIST,
     buttonLabel: 'Add pattern',
     fieldPath: dashboardDenyFieldPath,

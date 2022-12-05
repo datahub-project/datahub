@@ -98,7 +98,7 @@ export const DATABASE_ALLOW: RecipeField = {
     name: 'database_pattern.allow',
     label: 'Allow Patterns',
     tooltip:
-        'Only include specific Databases by providing the name of a Database, or a Regular Expresssion (REGEX). If not provided, all Databases will be included.',
+        'Only include specific Databases by providing the name of a Database, or a Regular Expression (REGEX). If not provided, all Databases will be included.',
     placeholder: 'database_name',
     type: FieldType.LIST,
     buttonLabel: 'Add pattern',
@@ -114,7 +114,7 @@ export const DATABASE_DENY: RecipeField = {
     name: 'database_pattern.deny',
     label: 'Deny Patterns',
     tooltip:
-        'Exclude specific Databases by providing the name of a Database, or a Regular Expresssion (REGEX). If not provided, all Databases will be included. Deny patterns always take precedence over Allow patterns.',
+        'Exclude specific Databases by providing the name of a Database, or a Regular Expression (REGEX). If not provided, all Databases will be included. Deny patterns always take precedence over Allow patterns.',
     placeholder: 'database_name',
     type: FieldType.LIST,
     buttonLabel: 'Add pattern',
@@ -130,7 +130,7 @@ export const DASHBOARD_ALLOW: RecipeField = {
     name: 'dashboard_pattern.allow',
     label: 'Allow Patterns',
     tooltip:
-        'Only include specific Dashboards by providing the name of a Dashboard, or a Regular Expresssion (REGEX). If not provided, all Dashboards will be included.',
+        'Only include specific Dashboards by providing the name of a Dashboard, or a Regular Expression (REGEX). If not provided, all Dashboards will be included.',
     type: FieldType.LIST,
     buttonLabel: 'Add pattern',
     fieldPath: dashboardAllowFieldPath,
@@ -146,7 +146,7 @@ export const DASHBOARD_DENY: RecipeField = {
     name: 'dashboard_pattern.deny',
     label: 'Deny Patterns',
     tooltip:
-        'Exclude specific Dashboards by providing the name of a Dashboard, or a Regular Expresssion (REGEX). If not provided, all Dashboards will be included. Deny patterns always take precendence over Allow patterns.',
+        'Exclude specific Dashboards by providing the name of a Dashboard, or a Regular Expression (REGEX). If not provided, all Dashboards will be included. Deny patterns always take precendence over Allow patterns.',
     type: FieldType.LIST,
     buttonLabel: 'Add pattern',
     fieldPath: dashboardDenyFieldPath,
@@ -163,7 +163,7 @@ export const SCHEMA_ALLOW: RecipeField = {
     label: 'Allow Patterns',
     // TODO: Change this to FULLY qualified names once the allow / deny consistency track is completed.
     tooltip:
-        'Only include specific Schemas by providing the name of a Schema, or a Regular Expresssion (REGEX) to include specific Schemas. If not provided, all Schemas inside allowed Databases will be included.',
+        'Only include specific Schemas by providing the name of a Schema, or a Regular Expression (REGEX) to include specific Schemas. If not provided, all Schemas inside allowed Databases will be included.',
     placeholder: 'company_schema',
     type: FieldType.LIST,
     buttonLabel: 'Add pattern',
@@ -179,7 +179,7 @@ export const SCHEMA_DENY: RecipeField = {
     name: 'schema_pattern.deny',
     label: 'Deny Patterns',
     tooltip:
-        'Exclude specific Schemas by providing the name of a Schema, or a Regular Expresssion (REGEX). If not provided, all Schemas inside allowed Databases will be included. Deny patterns always take precedence over Allow patterns.',
+        'Exclude specific Schemas by providing the name of a Schema, or a Regular Expression (REGEX). If not provided, all Schemas inside allowed Databases will be included. Deny patterns always take precedence over Allow patterns.',
     placeholder: 'company_schema',
     type: FieldType.LIST,
     buttonLabel: 'Add pattern',
@@ -195,7 +195,7 @@ export const TABLE_ALLOW: RecipeField = {
     name: 'table_pattern.allow',
     label: 'Allow Patterns',
     tooltip:
-        'Only include Tables with particular names by providing the fully qualified name of a Table, or a Regular Expresssion (REGEX). If not provided, all Tables inside allowed Databases and Schemas will be included in ingestion.',
+        'Only include Tables with particular names by providing the fully qualified name of a Table, or a Regular Expression (REGEX). If not provided, all Tables inside allowed Databases and Schemas will be included in ingestion.',
     placeholder: 'database_name.company_schema.table_name',
     type: FieldType.LIST,
     buttonLabel: 'Add pattern',
@@ -211,7 +211,7 @@ export const TABLE_DENY: RecipeField = {
     name: 'table_pattern.deny',
     label: 'Deny Patterns',
     tooltip:
-        'Exclude Tables with particular names by providing the fully qualified name of a Table, or a Regular Expresssion (REGEX). If not provided, all Tables inside allowed Databases and Schemas will be included in ingestion. Deny patterns always take precedence over Allow patterns.',
+        'Exclude Tables with particular names by providing the fully qualified name of a Table, or a Regular Expression (REGEX). If not provided, all Tables inside allowed Databases and Schemas will be included in ingestion. Deny patterns always take precedence over Allow patterns.',
     placeholder: 'database_name.company_schema.table_name',
     type: FieldType.LIST,
     buttonLabel: 'Add pattern',
@@ -227,7 +227,7 @@ export const VIEW_ALLOW: RecipeField = {
     name: 'view_pattern.allow',
     label: 'Allow Patterns',
     tooltip:
-        'Only include Views with particular names by providing the fully qualified name of a View, or a Regular Expresssion (REGEX). If not provided, all Views inside allowed Databases and Schemas will be included in ingestion.',
+        'Only include Views with particular names by providing the fully qualified name of a View, or a Regular Expression (REGEX). If not provided, all Views inside allowed Databases and Schemas will be included in ingestion.',
     placeholder: 'database_name.company_schema.view_name',
     type: FieldType.LIST,
     buttonLabel: 'Add pattern',
@@ -243,7 +243,7 @@ export const VIEW_DENY: RecipeField = {
     name: 'view_pattern.deny',
     label: 'Deny Patterns',
     tooltip:
-        'Exclude Views with particular names by providing the fully qualified name of a View, or a Regular Expresssion (REGEX). If not provided, all Views inside allowed Databases and Schemas will be included in ingestion. Deny patterns always take precedence over Allow patterns.',
+        'Exclude Views with particular names by providing the fully qualified name of a View, or a Regular Expression (REGEX). If not provided, all Views inside allowed Databases and Schemas will be included in ingestion. Deny patterns always take precedence over Allow patterns.',
     placeholder: 'database_name.company_schema.view_name',
     type: FieldType.LIST,
     buttonLabel: 'Add pattern',

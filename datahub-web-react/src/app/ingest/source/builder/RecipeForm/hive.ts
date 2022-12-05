@@ -15,11 +15,10 @@ export const HIVE_HOST_PORT: RecipeField = {
 export const HIVE_DATABASE: RecipeField = {
     name: 'database',
     label: 'Database',
-    tooltip: 'Ingest metadata for a specific Database.',
+    tooltip: 'Ingest metadata for a specific Database. If left blank, metadata for all databases will be extracted.',
     type: FieldType.TEXT,
     fieldPath: 'source.config.database',
     placeholder: 'my_db',
-    required: true,
     rules: null,
 };
 
