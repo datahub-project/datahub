@@ -2,7 +2,7 @@ import logging
 from collections import defaultdict
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
-from typing import Dict, List, Optional
+from typing import Dict, List, Optional, cast
 
 from google.cloud import bigquery
 from google.cloud.bigquery.table import RowIterator, TableListItem, TimePartitioning
@@ -280,6 +280,8 @@ class BigQueryDataDictionary:
     def get_datasets_for_project_id(
         conn: bigquery.Client, project_id: str, maxResults: Optional[int] = None
     ) -> List[BigqueryDataset]:
+        # FIXME: Due to a bug in BigQuery's type annotations, we need to cast here.
+        maxResults = cast(int, maxResults)
         datasets = conn.list_datasets(project_id, max_results=maxResults)
 
         return [BigqueryDataset(name=d.dataset_id) for d in datasets]

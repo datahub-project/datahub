@@ -25,7 +25,7 @@
         "name": "kafka",
         "displayName": "Kafka",
         "docsUrl": "https://datahubproject.io/docs/generated/ingestion/sources/kafka/",
-        "recipe": "source:\n    type: kafka\n    config:\n        connection:\n            consumer_config:\n                security.protocol: \"SASL_SSL\"\n                sasl.mechanism: \"PLAIN\"\n        stateful_ingestion:\n            enabled: true'"
+        "recipe": "source:\n    type: kafka\n    config:\n        connection:\n            consumer_config:\n                security.protocol: \"PLAINTEXT\"\n        stateful_ingestion:\n            enabled: false"
     },
     {
         "urn": "urn:li:dataPlatform:looker",

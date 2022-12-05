@@ -1,4 +1,5 @@
 from textwrap import dedent
+from typing import Optional
 
 from pydantic.fields import Field
 from pyhive.sqlalchemy_presto import PrestoDialect
@@ -60,7 +61,7 @@ def get_view_definition(self, connection, view_name, schema=None, **kw):
 
 
 def _get_full_table(  # type: ignore
-    self, table_name: str, schema: str = None, quote: bool = True
+    self, table_name: str, schema: Optional[str] = None, quote: bool = True
 ) -> str:
     table_part = (
         self.identifier_preparer.quote_identifier(table_name) if quote else table_name

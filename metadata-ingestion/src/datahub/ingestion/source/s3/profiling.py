@@ -37,7 +37,7 @@ from datahub.configuration.common import AllowDenyPattern, ConfigModel
 from datahub.emitter.mce_builder import get_sys_time
 from datahub.ingestion.source.profiling.common import (
     Cardinality,
-    _convert_to_cardinality,
+    convert_to_cardinality,
 )
 from datahub.ingestion.source.s3.report import DataLakeSourceReport
 from datahub.metadata.schema_classes import (
@@ -303,7 +303,7 @@ class _SingleTableProfiler:
                 )
 
             column_spec.type_ = column_types[column]
-            column_spec.cardinality = _convert_to_cardinality(
+            column_spec.cardinality = convert_to_cardinality(
                 column_distinct_counts[column],
                 column_null_fractions[column],
             )

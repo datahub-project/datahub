@@ -42,7 +42,8 @@ dependencies {
     implementation(externalDependency.kafkaAvroSerializer) {
       exclude group: "org.apache.avro"
     }
-    
+
+    implementation externalDependency.slf4jApi
     compileOnly externalDependency.lombok
     annotationProcessor externalDependency.lombok
     testCompile externalDependency.mockito
