@@ -581,6 +581,11 @@ def post_entity(
         curl_command,
     )
     response = session.post(url, payload)
+    if not response.ok:
+        try:
+            log.info(response.json()["message"].strip())
+        except Exception:
+            log.info(f"post_entity failed: {response.text}")
     response.raise_for_status()
     return response.status_code
 

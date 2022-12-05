@@ -55,7 +55,7 @@ public class ApplicationOidcTest extends WithBrowser {
   private String _wellKnownUrl;
 
   @BeforeAll
-  public void init() throws IOException {
+  public void init() throws IOException, InterruptedException {
     _oauthServer = new MockOAuth2Server();
     _oauthServer.start(InetAddress.getByName("localhost"), 51152);
     _oauthServer.enqueueCallback(
@@ -70,6 +70,7 @@ public class ApplicationOidcTest extends WithBrowser {
 
     createBrowser();
     startServer();
+    Thread.sleep(2000);
   }
 
   @AfterAll
