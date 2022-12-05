@@ -282,8 +282,8 @@ class LDAPSource(StatefulIngestionSourceBase):
                 break
 
             cookie = set_cookie(self.lc, pctrls)
-            # Clean up stale entities at the end
-            yield from self.stale_entity_removal_handler.gen_removed_entity_workunits()
+        # Clean up stale entities at the end
+        yield from self.stale_entity_removal_handler.gen_removed_entity_workunits()
 
     def get_platform_instance_id(self) -> str:
         """
