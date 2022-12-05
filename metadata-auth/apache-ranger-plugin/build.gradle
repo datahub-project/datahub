@@ -22,7 +22,8 @@ dependencies {
         exclude group: "org.apache.htrace", module: "htrace-core4"
     }
     implementation externalDependency.hadoopCommon3
-    implementation externalDependency.lombok
+    implementation externalDependency.slf4jApi
+  
 
     constraints {
         implementation(externalDependency.woodstoxCore) {
@@ -37,6 +38,7 @@ dependencies {
     }
 
     compileOnly project(path: ':metadata-auth:auth-api')
+    compileOnly externalDependency.lombok
 
     testImplementation externalDependency.mockito
     testImplementation project(path: ':metadata-utils')

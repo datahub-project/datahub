@@ -13,8 +13,10 @@ dependencies {
   compile externalDependency.springWebMVC
   compile externalDependency.springBeans
   compile externalDependency.springContext
-  compile externalDependency.lombok
-  compile externalDependency.antlr4
+  implementation externalDependency.slf4jApi
+  compileOnly externalDependency.lombok
+  implementation externalDependency.antlr4Runtime
+  implementation externalDependency.antlr4
 
   annotationProcessor externalDependency.lombok
 

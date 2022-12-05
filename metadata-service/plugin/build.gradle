@@ -3,7 +3,6 @@ apply plugin: 'java'
 dependencies {
 
   implementation 'org.apache.commons:commons-lang3:3.12.0'
-
   implementation project(path: ':metadata-auth:auth-api')
   implementation externalDependency.guava
   implementation externalDependency.jacksonDataBind
@@ -11,7 +10,9 @@ dependencies {
   implementation externalDependency.jacksonJDK8
   implementation externalDependency.jacksonDataPropertyFormat
   implementation externalDependency.logbackClassic;
-  implementation externalDependency.lombok
+  implementation externalDependency.slf4jApi
+  
+  compileOnly externalDependency.lombok
 
   testImplementation externalDependency.mockito
   testImplementation externalDependency.testng
