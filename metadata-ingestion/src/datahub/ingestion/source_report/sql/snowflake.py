@@ -2,7 +2,6 @@ from dataclasses import dataclass, field
 from datetime import datetime
 from typing import Dict, List, Optional
 
-from datahub.ingestion.source.sql.sql_common import SQLSourceReport
 from datahub.ingestion.source.sql.sql_generic_profiler import DetailedProfilerReport
 from datahub.ingestion.source_report.time_window import BaseTimeWindowReport
 
