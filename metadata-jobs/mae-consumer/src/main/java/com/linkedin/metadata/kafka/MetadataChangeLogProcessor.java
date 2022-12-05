@@ -55,6 +55,7 @@ public class MetadataChangeLogProcessor {
     hookMap.put(ingestionSchedulerHook.getClass(), ingestionSchedulerHook);
     hookMap.put(entityChangeEventHook.getClass(), entityChangeEventHook);
     hookMap.put(siblingAssociationHook.getClass(), siblingAssociationHook);
+    hookMap.values().forEach(MetadataChangeLogHook::init);
   }
 
   @KafkaListener(id = "${METADATA_CHANGE_LOG_KAFKA_UPDATE_INDICES_CONSUMER_GROUP_ID:"
