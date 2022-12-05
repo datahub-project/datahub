@@ -15,6 +15,11 @@ dependencies {
     compile project(':metadata-events:mxe-avro-1.7')
 
     compile externalDependency.avro_1_7
+    constraints {
+        implementation('commons-collections:commons-collections:3.2.2') {
+            because 'Vulnerability Issue'
+        }
+    }
     compile externalDependency.kafkaClients
 
     implementation externalDependency.slf4jApi
