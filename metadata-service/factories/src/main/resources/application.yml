@@ -168,9 +168,9 @@ kafka:
     concurrency: ${KAFKA_LISTENER_CONCURRENCY:1}
   bootstrapServers: ${KAFKA_BOOTSTRAP_SERVER:http://localhost:9092}
   producer:
-    retryCount: ${KAFKA_PRODUCER_RETRY_COUNT:20}
-    deliveryTimeout: ${KAFKA_PRODUCER_DELIVERY_TIMEOUT:300000}
-    requestTimeout: ${KAFKA_PRODUCER_REQUEST_TIMEOUT:30000}
+    retryCount: ${KAFKA_PRODUCER_RETRY_COUNT:3}
+    deliveryTimeout: ${KAFKA_PRODUCER_DELIVERY_TIMEOUT:15000}
+    requestTimeout: ${KAFKA_PRODUCER_REQUEST_TIMEOUT:3000}
     backoffTimeout: ${KAFKA_PRODUCER_BACKOFF_TIMEOUT:500}
   schemaRegistry:
     type: ${SCHEMA_REGISTRY_TYPE:KAFKA} # KAFKA or AWS_GLUE
