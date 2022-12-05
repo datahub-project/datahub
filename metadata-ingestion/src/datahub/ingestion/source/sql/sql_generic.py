@@ -45,6 +45,7 @@ class BaseView:
     last_altered: datetime
     view_definition: str
     size_in_bytes: Optional[int] = None
+    rows_count: Optional[int] = None
     columns: Sequence[BaseColumn] = field(default_factory=list)
 
 

@@ -36,29 +36,26 @@ class SnowflakeProfilerRequest(GEProfilerRequest):
     profile_table_level_only: bool = False
 
 
-class SnowflakeProfiler(GenericProfiler, SnowflakeCommonMixin):
+class SnowflakeProfiler(SnowflakeCommonMixin, GenericProfiler):
     def __init__(self, config: SnowflakeV2Config, report: SnowflakeV2Report) -> None:
-        super().__init__(config, report, "snowflake")
+        super().__init__(config, report, self.platform)
         self.config = config
         self.report = report
         self.logger = logger
-        self.platform = "snowflake"
 
     def get_workunits(self, databases: List[SnowflakeDatabase]) -> Iterable[WorkUnit]:
-
+        config = cast(SnowflakeV2Config, self.config)
         # Extra default SQLAlchemy option for better connection pooling and threading.
         # https://docs.sqlalchemy.org/en/14/core/pooling.html#sqlalchemy.pool.QueuePool.params.max_overflow
-        if self.config.profiling.enabled:
-            self.config.options.setdefault(
-                "max_overflow", self.config.profiling.max_workers
-            )
+        if config.profiling.enabled:
+            config.options.setdefault("max_overflow", config.profiling.max_workers)
 
         for db in databases:
-            if not self.config.database_pattern.allowed(db.name):
+            if not config.database_pattern.allowed(db.name):
                 continue
             profile_requests = []
             for schema in db.schemas:
-                if not self.config.schema_pattern.allowed(schema.name):
+                if not config.schema_pattern.allowed(schema.name):
                     continue
                 for table in schema.tables:
 
@@ -76,7 +73,7 @@ class SnowflakeProfiler(GenericProfiler, SnowflakeCommonMixin):
 
             for request, profile in self.generate_profiles(
                 table_profile_requests,
-                self.config.profiling.max_workers,
+                config.profiling.max_workers,
                 db.name,
                 platform=self.platform,
                 profiler_args=self.get_profile_args(),
@@ -90,8 +87,8 @@ class SnowflakeProfiler(GenericProfiler, SnowflakeCommonMixin):
                 dataset_urn = make_dataset_urn_with_platform_instance(
                     self.platform,
                     dataset_name,
-                    self.config.platform_instance,
-                    self.config.env,
+                    config.platform_instance,
+                    config.env,
                 )
                 yield self.wrap_aspect_as_workunit(
                     "dataset",
@@ -106,8 +103,9 @@ class SnowflakeProfiler(GenericProfiler, SnowflakeCommonMixin):
         schema_name: str,
         db_name: str,
     ) -> Optional[SnowflakeProfilerRequest]:
+        config = cast(SnowflakeV2Config, self.config)
         skip_profiling = False
-        profile_table_level_only = self.config.profiling.profile_table_level_only
+        profile_table_level_only = config.profiling.profile_table_level_only
         dataset_name = self.get_dataset_identifier(table.name, schema_name, db_name)
         if not self.is_dataset_eligible_for_profiling(
             dataset_name, table.last_altered, table.size_in_bytes, table.rows_count
@@ -125,7 +123,7 @@ class SnowflakeProfiler(GenericProfiler, SnowflakeCommonMixin):
             skip_profiling = True
 
         if skip_profiling:
-            if self.config.profiling.report_dropped_profiles:
+            if config.profiling.report_dropped_profiles:
                 self.report.report_dropped(f"profile of {dataset_name}")
             return None
 
@@ -143,12 +141,13 @@ class SnowflakeProfiler(GenericProfiler, SnowflakeCommonMixin):
         self, db_name: Optional[str] = None
     ) -> "DatahubGEProfiler":
         assert db_name
+        config = cast(SnowflakeV2Config, self.config)
 
-        url = self.config.get_sql_alchemy_url(
+        url = config.get_sql_alchemy_url(
             database=db_name,
-            username=self.config.username,
-            password=self.config.password,
-            role=self.config.role,
+            username=config.username,
+            password=config.password,
+            role=config.role,
         )
 
         logger.debug(f"sql_alchemy_url={url}")
@@ -156,7 +155,7 @@ class SnowflakeProfiler(GenericProfiler, SnowflakeCommonMixin):
         engine = create_engine(
             url,
             creator=self.callable_for_db_connection(db_name),
-            **self.config.get_options(),
+            **config.get_options(),
         )
         conn = engine.connect()
         inspector = inspect(conn)
@@ -164,13 +163,14 @@ class SnowflakeProfiler(GenericProfiler, SnowflakeCommonMixin):
         return DatahubGEProfiler(
             conn=inspector.bind,
             report=self.report,
-            config=self.config.profiling,
+            config=config.profiling,
             platform=self.platform,
         )
 
     def callable_for_db_connection(self, db_name: str) -> Callable:
         def get_db_connection():
-            conn = self.config.get_connection()
+            config = cast(SnowflakeV2Config, self.config)
+            conn = config.get_connection()
             conn.cursor().execute(SnowflakeQuery.use_database(db_name))
             return conn
 
