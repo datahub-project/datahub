@@ -17,6 +17,8 @@ from datahub_provider.client.airflow_generator import AirflowGenerator
 from datahub_provider.hooks.datahub import DatahubGenericHook
 from datahub_provider.lineage.datahub import DatahubLineageConfig
 
+logger = logging.getLogger(__name__)
+
 
 def get_lineage_config() -> DatahubLineageConfig:
     """Load the lineage config from airflow.cfg."""
@@ -237,8 +239,9 @@ def datahub_pre_execution(context):
 def _wrap_pre_execution(pre_execution):
     def custom_pre_execution(context):
         config = get_lineage_config()
-        context["_datahub_config"] = config
-        datahub_pre_execution(context)
+        if config.enabled:
+            context["_datahub_config"] = config
+            datahub_pre_execution(context)
 
         # Call original policy
         if pre_execution:
@@ -250,14 +253,15 @@ def _wrap_pre_execution(pre_execution):
 def _wrap_on_failure_callback(on_failure_callback):
     def custom_on_failure_callback(context):
         config = get_lineage_config()
-        context["_datahub_config"] = config
-        try:
-            datahub_task_status_callback(context, status=InstanceRunResult.FAILURE)
-        except Exception as e:
-            if not config.graceful_exceptions:
-                raise e
-            else:
-                print(f"Exception: {traceback.format_exc()}")
+        if config.enabled:
+            context["_datahub_config"] = config
+            try:
+                datahub_task_status_callback(context, status=InstanceRunResult.FAILURE)
+            except Exception as e:
+                if not config.graceful_exceptions:
+                    raise e
+                else:
+                    print(f"Exception: {traceback.format_exc()}")
 
         # Call original policy
         if on_failure_callback:
@@ -269,15 +273,17 @@ def _wrap_on_failure_callback(on_failure_callback):
 def _wrap_on_success_callback(on_success_callback):
     def custom_on_success_callback(context):
         config = get_lineage_config()
-        context["_datahub_config"] = config
-        try:
-            datahub_task_status_callback(context, status=InstanceRunResult.SUCCESS)
-        except Exception as e:
-            if not config.graceful_exceptions:
-                raise e
-            else:
-                print(f"Exception: {traceback.format_exc()}")
+        if config.enabled:
+            context["_datahub_config"] = config
+            try:
+                datahub_task_status_callback(context, status=InstanceRunResult.SUCCESS)
+            except Exception as e:
+                if not config.graceful_exceptions:
+                    raise e
+                else:
+                    print(f"Exception: {traceback.format_exc()}")
 
+        # Call original policy
         if on_success_callback:
             on_success_callback(context)
 
@@ -285,7 +291,7 @@ def _wrap_on_success_callback(on_success_callback):
 
 
 def task_policy(task: BaseOperator) -> None:
-    print(f"Setting task policy for Dag: {task.dag_id} Task: {task.task_id}")
+    task.log.debug(f"Setting task policy for Dag: {task.dag_id} Task: {task.task_id}")
     # task.add_inlets(["auto"])
     # task.pre_execute = _wrap_pre_execution(task.pre_execute)
     task.on_failure_callback = _wrap_on_failure_callback(task.on_failure_callback)
@@ -312,7 +318,7 @@ def _patch_policy(settings):
 
 
 def _patch_datahub_policy():
-    print("Patching datahub policy")
+    logger.info("Patching datahub policy")
 
     with contextlib.suppress(ImportError):
         import airflow_local_settings

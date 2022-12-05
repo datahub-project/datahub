@@ -43,7 +43,7 @@ framework_common = {
     "stackprinter>=0.2.6",
     "tabulate",
     "progressbar2",
-    "termcolor>=2.0.0",
+    "termcolor>=1.0.0",
     "psutil>=5.8.0",
     "ratelimiter",
     "Deprecated",
@@ -174,10 +174,16 @@ snowflake_common = {
     # Required for all Snowflake sources.
     # See https://github.com/snowflakedb/snowflake-sqlalchemy/issues/234 for why 1.2.5 is blocked.
     "snowflake-sqlalchemy>=1.2.4, !=1.2.5",
+    # Because of https://github.com/snowflakedb/snowflake-sqlalchemy/issues/350 we need to restrict SQLAlchemy's max version.
+    # Eventually we should just require snowflake-sqlalchemy>=1.4.3, but I won't do that immediately
+    # because it may break Airflow users that need SQLAlchemy 1.3.x.
+    "SQLAlchemy<1.4.42",
+    # See https://github.com/snowflakedb/snowflake-connector-python/pull/1348 for why 2.8.2 is blocked
+    "snowflake-connector-python!=2.8.2",
     "pandas",
     "cryptography",
     "msal",
-    "acryl-datahub-classify>=0.0.3",
+    "acryl-datahub-classify>=0.0.4",
     # spacy version restricted to reduce backtracking, used by acryl-datahub-classify,
     "spacy==3.4.3",
 }
@@ -215,7 +221,7 @@ data_lake_profiling = {
 
 delta_lake = {
     *s3_base,
-    "deltalake>=0.6.3",
+    "deltalake>=0.6.3, != 0.6.4",
 }
 
 powerbi_report_server = {"requests", "requests_ntlm"}
@@ -252,12 +258,15 @@ plugins: Dict[str, Set[str]] = {
     | bigquery_common
     | {"sqlalchemy-bigquery>=1.4.1", "sqllineage==1.3.6", "sqlparse"},
     "bigquery-usage-legacy": bigquery_common | usage_common | {"cachetools"},
-    "bigquery": sql_common | bigquery_common | {"sqllineage==1.3.6", "sql_metadata"},
+    "bigquery": sql_common
+    | bigquery_common
+    | {"sqllineage==1.3.6", "sql_metadata", "sqlalchemy-bigquery>=1.4.1"},
     "bigquery-beta": sql_common
     | bigquery_common
     | {
         "sqllineage==1.3.6",
         "sql_metadata",
+        "sqlalchemy-bigquery>=1.4.1",
     },  # deprecated, but keeping the extra for backwards compatibility
     "clickhouse": sql_common | clickhouse_common,
     "clickhouse-usage": sql_common | usage_common | clickhouse_common,
@@ -376,7 +385,7 @@ mypy_stubs = {
     "types-ujson>=5.2.0",
     "types-termcolor>=1.0.0",
     "types-Deprecated",
-    "types-protobuf",
+    "types-protobuf>=4.21.0.1",
 }
 
 base_dev_requirements = {
@@ -389,10 +398,7 @@ base_dev_requirements = {
     "flake8>=3.8.3",
     "flake8-tidy-imports>=4.3.0",
     "isort>=5.7.0",
-    # mypy 0.990 enables namespace packages by default and sets
-    # no implicit optional to True.
-    # FIXME: Enable mypy 0.990 when our codebase is fixed.
-    "mypy>=0.981,<0.990",
+    "mypy==0.991",
     # pydantic 1.8.2 is incompatible with mypy 0.910.
     # See https://github.com/samuelcolvin/pydantic/pull/3175#issuecomment-995382910.
     # Restricting top version to <1.10 until we can fix our types.
@@ -455,8 +461,9 @@ base_dev_requirements = {
 
 dev_requirements = {
     *base_dev_requirements,
+    # Extra requirements for Airflow.
     "apache-airflow[snowflake]>=2.0.2",  # snowflake is used in example dags
-    "snowflake-sqlalchemy<=1.2.4",  # make constraint consistent with extras
+    "virtualenv",  # needed by PythonVirtualenvOperator
 }
 
 full_test_dev_requirements = {

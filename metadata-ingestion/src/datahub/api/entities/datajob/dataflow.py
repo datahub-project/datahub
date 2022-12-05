@@ -135,10 +135,6 @@ class DataFlow:
         :param emitter: Datahub Emitter to emit the process event
         :param callback: (Optional[Callable[[Exception, str], None]]) the callback method for KafkaEmitter if it is used
         """
-        from datahub.emitter.kafka_emitter import DatahubKafkaEmitter
 
         for mcp in self.generate_mcp():
-            if isinstance(emitter, DatahubKafkaEmitter):
-                emitter.emit(mcp, callback)
-            else:
-                emitter.emit(mcp)
+            emitter.emit(mcp, callback)

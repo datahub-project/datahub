@@ -1,5 +1,5 @@
 import React, { ReactNode } from 'react';
-import { AutoComplete, Divider, Form } from 'antd';
+import { AutoComplete, Divider, Form, FormInstance } from 'antd';
 import styled from 'styled-components/macro';
 import { Secret } from '../../../../../../types.generated';
 import CreateSecretButton from './CreateSecretButton';
@@ -52,6 +52,7 @@ interface SecretFieldProps {
     secrets: Secret[];
     removeMargin?: boolean;
     refetchSecrets: () => void;
+    form: FormInstance<any>;
 }
 
 function SecretFieldTooltip({ tooltipLabel }: { tooltipLabel?: string | ReactNode }) {
@@ -79,11 +80,16 @@ function SecretFieldTooltip({ tooltipLabel }: { tooltipLabel?: string | ReactNod
     );
 }
 
-function SecretField({ field, secrets, removeMargin, refetchSecrets }: SecretFieldProps) {
-    const options = secrets.map((secret) => ({ value: `\${${secret.name}}`, label: secret.name }));
+const encodeSecret = (secretName: string) => {
+    return `\${${secretName}}`;
+};
+
+function SecretField({ field, secrets, removeMargin, form, refetchSecrets }: SecretFieldProps) {
+    const options = secrets.map((secret) => ({ value: encodeSecret(secret.name), label: secret.name }));
 
     return (
         <StyledFormItem
+            required={field.required}
             name={field.name}
             label={field.label}
             rules={field.rules || undefined}
@@ -94,14 +100,22 @@ function SecretField({ field, secrets, removeMargin, refetchSecrets }: SecretFie
             <AutoComplete
                 placeholder={field.placeholder}
                 filterOption={(input, option) => !!option?.value.toLowerCase().includes(input.toLowerCase())}
+                notFoundContent={<>No secrets found</>}
                 options={options}
-                dropdownRender={(menu) => (
-                    <>
-                        {menu}
-                        <StyledDivider />
-                        <CreateSecretButton refetchSecrets={refetchSecrets} />
-                    </>
-                )}
+                dropdownRender={(menu) => {
+                    return (
+                        <>
+                            {menu}
+                            <StyledDivider />
+                            <CreateSecretButton
+                                onSubmit={(state) =>
+                                    form.setFields([{ name: field.name, value: encodeSecret(state.name as string) }])
+                                }
+                                refetchSecrets={refetchSecrets}
+                            />
+                        </>
+                    );
+                }}
             />
         </StyledFormItem>
     );
