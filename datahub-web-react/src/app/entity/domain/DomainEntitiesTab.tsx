@@ -1,7 +1,8 @@
 import React from 'react';
 import { useEntityData } from '../shared/EntityContext';
 import { EntityType } from '../../../types.generated';
-import { EmbeddedListSearch } from '../shared/components/styled/search/EmbeddedListSearch';
+import { EmbeddedListSearchSection } from '../shared/components/styled/search/EmbeddedListSearchSection';
+import { UnionType } from '../../search/utils/constants';
 
 export const DomainEntitiesTab = () => {
     const { urn, entityType } = useEntityData();
@@ -11,13 +12,16 @@ export const DomainEntitiesTab = () => {
     if (entityType === EntityType.Domain) {
         fixedFilter = {
             field: 'domains',
-            value: urn,
+            values: [urn],
         };
     }
 
     return (
-        <EmbeddedListSearch
-            fixedFilter={fixedFilter}
+        <EmbeddedListSearchSection
+            fixedFilters={{
+                unionType: UnionType.AND,
+                filters: [fixedFilter],
+            }}
             emptySearchQuery="*"
             placeholderText="Filter domain entities..."
         />

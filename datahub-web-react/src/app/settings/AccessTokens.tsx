@@ -2,6 +2,7 @@ import React, { useState, useMemo } from 'react';
 import styled from 'styled-components';
 import { Alert, Button, Divider, Empty, message, Modal, Pagination, Typography } from 'antd';
 import { DeleteOutlined, InfoCircleOutlined, PlusOutlined } from '@ant-design/icons';
+import { red } from '@ant-design/colors';
 
 import { FacetFilterInput } from '../../types.generated';
 import { useListAccessTokensQuery, useRevokeAccessTokenMutation } from '../../graphql/auth.generated';
@@ -12,6 +13,8 @@ import { useGetAuthenticatedUser } from '../useGetAuthenticatedUser';
 import CreateTokenModal from './CreateTokenModal';
 import { useAppConfigQuery } from '../../graphql/app.generated';
 import { getLocaleTimezone } from '../shared/time/timeUtils';
+import { scrollToTop } from '../shared/searchUtils';
+import analytics, { EventType } from '../analytics';
 
 const SourceContainer = styled.div`
     width: 100%;
@@ -64,6 +67,10 @@ const PaginationContainer = styled.div`
     justify-content: center;
 `;
 
+const NeverExpireText = styled.span`
+    color: ${red[5]};
+`;
+
 const DEFAULT_PAGE_SIZE = 10;
 
 export const AccessTokens = () => {
@@ -87,7 +94,7 @@ export const AccessTokens = () => {
     const filters: Array<FacetFilterInput> = [
         {
             field: 'ownerUrn',
-            value: currentUserUrn,
+            values: [currentUserUrn],
         },
     ];
 
@@ -124,7 +131,13 @@ export const AccessTokens = () => {
                 // Hack to deal with eventual consistency.
                 const newTokenIds = [...removedTokens, token.id];
                 setRemovedTokens(newTokenIds);
+
                 revokeAccessToken({ variables: { tokenId: token.id } })
+                    .then(({ errors }) => {
+                        if (!errors) {
+                            analytics.event({ type: EventType.RevokeAccessTokenEvent });
+                        }
+                    })
                     .catch((e) => {
                         message.destroy();
                         message.error({ content: `Failed to revoke Token!: \n ${e.message || ''}`, duration: 3 });
@@ -172,6 +185,7 @@ export const AccessTokens = () => {
             dataIndex: 'expiresAt',
             key: 'expiresAt',
             render: (expiresAt: string) => {
+                if (expiresAt === null) return <NeverExpireText>Never</NeverExpireText>;
                 const localeTimezone = getLocaleTimezone();
                 const formattedExpireAt = new Date(expiresAt);
                 return (
@@ -194,6 +208,7 @@ export const AccessTokens = () => {
     ];
 
     const onChangePage = (newPage: number) => {
+        scrollToTop();
         setPage(newPage);
     };
 

@@ -28,7 +28,7 @@
           {
             "com.linkedin.common.BrowsePaths": {
               "paths": [
-                "/spark/spark_spark-master_7077/pythonhdfsin2hdfsout2"
+                "/spark/spark_spark-master_7077"
               ]
             }
           }
@@ -50,11 +50,11 @@
           {
             "com.linkedin.datajob.DataJobInputOutput": {
               "inputDatasets": [
-                "urn:li:dataset:(urn:li:dataPlatform:hdfs,file:/opt/workspace/resources/data/in1.csv,PROD)",
-                "urn:li:dataset:(urn:li:dataPlatform:hdfs,file:/opt/workspace/resources/data/in2.csv,PROD)"
+                "urn:li:dataset:(urn:li:dataPlatform:file,file:/opt/workspace/resources/data/in1.csv,PROD)",
+                "urn:li:dataset:(urn:li:dataPlatform:file,file:/opt/workspace/resources/data/in2.csv,PROD)"
               ],
               "outputDatasets": [
-                "urn:li:dataset:(urn:li:dataPlatform:hdfs,file:/opt/workspace/resources/data/PythonHdfsIn2HdfsOut2/out1.csv,PROD)"
+                "urn:li:dataset:(urn:li:dataPlatform:file,file:/opt/workspace/resources/data/PythonHdfsIn2HdfsOut2/out1.csv,PROD)"
               ]
             }
           },
@@ -80,7 +80,7 @@
           {
             "com.linkedin.common.BrowsePaths": {
               "paths": [
-                "/spark/pythonhdfsin2hdfsout2/queryexecid_4"
+                "/spark/spark_spark-master_7077"
               ]
             }
           }
@@ -102,11 +102,11 @@
           {
             "com.linkedin.datajob.DataJobInputOutput": {
               "inputDatasets": [
-                "urn:li:dataset:(urn:li:dataPlatform:hdfs,file:/opt/workspace/resources/data/in1.csv,PROD)",
-                "urn:li:dataset:(urn:li:dataPlatform:hdfs,file:/opt/workspace/resources/data/in2.csv,PROD)"
+                "urn:li:dataset:(urn:li:dataPlatform:file,file:/opt/workspace/resources/data/in1.csv,PROD)",
+                "urn:li:dataset:(urn:li:dataPlatform:file,file:/opt/workspace/resources/data/in2.csv,PROD)"
               ],
               "outputDatasets": [
-                "urn:li:dataset:(urn:li:dataPlatform:hdfs,file:/opt/workspace/resources/data/PythonHdfsIn2HdfsOut2/out2.csv,PROD)"
+                "urn:li:dataset:(urn:li:dataPlatform:file,file:/opt/workspace/resources/data/PythonHdfsIn2HdfsOut2/out2.csv,PROD)"
               ]
             }
           },
@@ -118,7 +118,7 @@
           {
             "com.linkedin.common.BrowsePaths": {
               "paths": [
-                "/spark/pythonhdfsin2hdfsout2/queryexecid_5"
+                "/spark/spark_spark-master_7077"
               ]
             }
           },

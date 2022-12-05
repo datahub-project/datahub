@@ -4,11 +4,18 @@ dependencies {
   compile spec.product.pegasus.data
   compile spec.product.pegasus.generator
   compile project(path: ':metadata-models')
-  compile externalDependency.lombok
+  implementation externalDependency.slf4jApi
+  compileOnly externalDependency.lombok
   compile externalDependency.guava
   compile externalDependency.jacksonDataBind
   compile externalDependency.jacksonDataFormatYaml
   compile externalDependency.reflections
+  compile externalDependency.jsonPatch
+  constraints {
+    implementation(externalDependency.snakeYaml) {
+      because("previous versions are vulnerable to CVE-2022-25857")
+    }
+  }
   dataModel project(':li-utils')
   annotationProcessor externalDependency.lombok
 

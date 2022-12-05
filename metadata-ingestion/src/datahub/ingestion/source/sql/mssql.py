@@ -1,15 +1,18 @@
+import logging
 import urllib.parse
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, Iterable, List, Optional, Tuple
 
 import pydantic
+import sqlalchemy.dialects.mssql
 
 # This import verifies that the dependencies are available.
 import sqlalchemy_pytds  # noqa: F401
 from pydantic.fields import Field
+from sqlalchemy import create_engine, inspect
 from sqlalchemy.engine.base import Connection
 from sqlalchemy.engine.reflection import Inspector
-from sqlalchemy.engine.result import ResultProxy, RowProxy
 
+from datahub.configuration.common import AllowDenyPattern
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.decorators import (
     SourceCapability,
@@ -22,20 +25,41 @@ from datahub.ingestion.api.decorators import (
 from datahub.ingestion.source.sql.sql_common import (
     BasicSQLAlchemyConfig,
     SQLAlchemySource,
+    make_sqlalchemy_uri,
+    register_custom_type,
 )
+from datahub.metadata.schema_classes import BooleanTypeClass, UnionTypeClass
+
+logger: logging.Logger = logging.getLogger(__name__)
+
+register_custom_type(sqlalchemy.dialects.mssql.BIT, BooleanTypeClass)
+register_custom_type(sqlalchemy.dialects.mssql.SQL_VARIANT, UnionTypeClass)
 
 
 class SQLServerConfig(BasicSQLAlchemyConfig):
     # defaults
     host_port: str = Field(default="localhost:1433", description="MSSQL host URL.")
-    scheme: str = Field(default="mssql+pytds", description="", exclude=True)
+    scheme: str = Field(default="mssql+pytds", description="", hidden_from_schema=True)
     use_odbc: bool = Field(
         default=False,
         description="See https://docs.sqlalchemy.org/en/14/dialects/mssql.html#module-sqlalchemy.dialects.mssql.pyodbc.",
     )
     uri_args: Dict[str, str] = Field(
         default={},
-        desscription="Arguments to URL-encode when connecting. See https://docs.microsoft.com/en-us/sql/connect/odbc/dsn-connection-string-attribute?view=sql-server-ver15.",
+        description="Arguments to URL-encode when connecting. See https://docs.microsoft.com/en-us/sql/connect/odbc/dsn-connection-string-attribute?view=sql-server-ver15.",
+    )
+    database_pattern: AllowDenyPattern = Field(
+        default=AllowDenyPattern.allow_all(),
+        description="Regex patterns for databases to filter in ingestion.",
+    )
+    database: Optional[str] = Field(
+        default=None,
+        description="database (catalog). If set to Null, all databases will be considered for ingestion.",
+    )
+
+    database_alias: Optional[str] = Field(
+        default=None,
+        description="Alias to apply to database when ingesting. Ignored when `database` is not set.",
     )
 
     @pydantic.validator("uri_args")
@@ -46,25 +70,28 @@ class SQLServerConfig(BasicSQLAlchemyConfig):
             raise ValueError("uri_args is not supported when ODBC is disabled")
         return v
 
-    def get_sql_alchemy_url(self, uri_opts: Optional[Dict[str, Any]] = None) -> str:
+    def get_sql_alchemy_url(
+        self,
+        uri_opts: Optional[Dict[str, Any]] = None,
+        current_db: Optional[str] = None,
+    ) -> str:
         if self.use_odbc:
             # Ensure that the import is available.
             import pyodbc  # noqa: F401
 
             self.scheme = "mssql+pyodbc"
 
-        uri: str = super().get_sql_alchemy_url(uri_opts=uri_opts)
+        uri: str = self.sqlalchemy_uri or make_sqlalchemy_uri(
+            self.scheme,  # type: ignore
+            self.username,
+            self.password.get_secret_value() if self.password else None,
+            self.host_port,  # type: ignore
+            current_db if current_db else self.database,
+            uri_opts=uri_opts,
+        )
         if self.use_odbc:
             uri = f"{uri}?{urllib.parse.urlencode(self.uri_args)}"
         return uri
-
-    def get_identifier(self, schema: str, table: str) -> str:
-        regular = f"{schema}.{table}"
-        if self.database_alias:
-            return f"{self.database_alias}.{regular}"
-        if self.database:
-            return f"{self.database}.{regular}"
-        return regular
 
 
 @platform_name("Microsoft SQL Server", id="mssql")
@@ -93,20 +120,37 @@ class SQLServerSource(SQLAlchemySource):
 
     def __init__(self, config: SQLServerConfig, ctx: PipelineContext):
         super().__init__(config, ctx, "mssql")
-
         # Cache the table and column descriptions
+        self.config: SQLServerConfig = config
+        self.current_database = None
         self.table_descriptions: Dict[str, str] = {}
         self.column_descriptions: Dict[str, str] = {}
         for inspector in self.get_inspectors():
             db_name: str = self.get_db_name(inspector)
             with inspector.engine.connect() as conn:
+                if self.config.use_odbc:
+                    self._add_output_converters(conn)
                 self._populate_table_descriptions(conn, db_name)
                 self._populate_column_descriptions(conn, db_name)
+
+    @staticmethod
+    def _add_output_converters(conn: Connection) -> None:
+        def handle_sql_variant_as_string(value):
+            return value.decode("utf-16le")
+
+        # see https://stackoverflow.com/questions/45677374/pandas-pyodbc-odbc-sql-type-150-is-not-yet-supported
+        # and https://stackoverflow.com/questions/11671170/adding-output-converter-to-pyodbc-connection-in-sqlalchemy
+        try:
+            conn.connection.add_output_converter(-150, handle_sql_variant_as_string)
+        except AttributeError as e:
+            logger.debug(
+                f"Failed to mount output converter for MSSQL data type -150 due to {e}"
+            )
 
     def _populate_table_descriptions(self, conn: Connection, db_name: str) -> None:
         # see https://stackoverflow.com/questions/5953330/how-do-i-map-the-id-in-sys-extended-properties-to-an-object-name
         # also see https://www.mssqltips.com/sqlservertip/5384/working-with-sql-server-extended-properties/
-        table_metadata: ResultProxy = conn.execute(
+        table_metadata = conn.execute(
             """
             SELECT
               SCHEMA_NAME(T.SCHEMA_ID) AS schema_name,
@@ -120,13 +164,13 @@ class SQLServerSource(SQLAlchemySource):
               AND EP.CLASS = 1
             """
         )
-        for row in table_metadata:  # type: RowProxy
+        for row in table_metadata:
             self.table_descriptions[
                 f"{db_name}.{row['schema_name']}.{row['table_name']}"
             ] = row["table_description"]
 
     def _populate_column_descriptions(self, conn: Connection, db_name: str) -> None:
-        column_metadata: RowProxy = conn.execute(
+        column_metadata = conn.execute(
             """
             SELECT
               SCHEMA_NAME(T.SCHEMA_ID) AS schema_name,
@@ -143,7 +187,7 @@ class SQLServerSource(SQLAlchemySource):
               AND EP.CLASS = 1
             """
         )
-        for row in column_metadata:  # type: RowProxy
+        for row in column_metadata:
             self.column_descriptions[
                 f"{db_name}.{row['schema_name']}.{row['table_name']}.{row['column_name']}"
             ] = row["column_description"]
@@ -156,10 +200,10 @@ class SQLServerSource(SQLAlchemySource):
     # override to get table descriptions
     def get_table_properties(
         self, inspector: Inspector, schema: str, table: str
-    ) -> Tuple[Optional[str], Optional[Dict[str, str]], Optional[str]]:
+    ) -> Tuple[Optional[str], Dict[str, str], Optional[str]]:
         description, properties, location_urn = super().get_table_properties(
             inspector, schema, table
-        )  # type:Tuple[Optional[str], Optional[Dict[str, str]], Optional[str]]
+        )  # type:Tuple[Optional[str], Dict[str, str], Optional[str]]
         # Update description if available.
         db_name: str = self.get_db_name(inspector)
         description = self.table_descriptions.get(
@@ -183,3 +227,40 @@ class SQLServerSource(SQLAlchemySource):
             if description:
                 column["comment"] = description
         return columns
+
+    def get_inspectors(self) -> Iterable[Inspector]:
+        # This method can be overridden in the case that you want to dynamically
+        # run on multiple databases.
+        url = self.config.get_sql_alchemy_url()
+        logger.debug(f"sql_alchemy_url={url}")
+        engine = create_engine(url, **self.config.options)
+        with engine.connect() as conn:
+            if self.config.database and self.config.database != "":
+                inspector = inspect(conn)
+                yield inspector
+            else:
+                databases = conn.execute(
+                    "SELECT name FROM master.sys.databases WHERE name NOT IN \
+                  ('master', 'model', 'msdb', 'tempdb', 'Resource', \
+                       'distribution' , 'reportserver', 'reportservertempdb'); "
+                )
+                for db in databases:
+                    if self.config.database_pattern.allowed(db["name"]):
+                        url = self.config.get_sql_alchemy_url(current_db=db["name"])
+                        inspector = inspect(
+                            create_engine(url, **self.config.options).connect()
+                        )
+                        self.current_database = db["name"]
+                        yield inspector
+
+    def get_identifier(
+        self, *, schema: str, entity: str, inspector: Inspector, **kwargs: Any
+    ) -> str:
+        regular = f"{schema}.{entity}"
+        if self.config.database:
+            if self.config.database_alias:
+                return f"{self.config.database_alias}.{regular}"
+            return f"{self.config.database}.{regular}"
+        if self.current_database:
+            return f"{self.current_database}.{regular}"
+        return regular

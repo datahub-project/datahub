@@ -451,7 +451,7 @@ class BigQuerySource(SQLAlchemySource):
             f"size_bytes, "
             f"last_modified_time, "
             f"row_count, "
-            f"FROM {schema}.__TABLES__"
+            f"FROM `{schema}.__TABLES__`"
         )
         return base_query
 
@@ -792,8 +792,11 @@ class BigQuerySource(SQLAlchemySource):
             # Bigquery only supports one partition column
             # https://stackoverflow.com/questions/62886213/adding-multiple-partitioned-columns-to-bigquery-table-from-sql-query
             row = result.fetchone()
+            if row and hasattr(row, "_asdict"):
+                # Compat with sqlalchemy 1.4 Row type.
+                row = row._asdict()
             if row:
-                return BigQueryPartitionColumn(**row)
+                return BigQueryPartitionColumn(**row.items())
             return None
 
     def get_shard_from_table(self, table: str) -> Tuple[str, Optional[str]]:
@@ -958,7 +961,7 @@ WHERE
         )
 
     def get_profile_args(self) -> Dict:
-        return {"temp_table_db": self.config.project_id}
+        return {}
 
     def is_dataset_eligible_for_profiling(
         self,
@@ -990,8 +993,8 @@ WHERE
         return cls(config, ctx)
 
     def add_config_to_report(self):
-        self.report.start_time = self.config.start_time
-        self.report.end_time = self.config.end_time
+        self.report.window_start_time = self.config.start_time
+        self.report.window_end_time = self.config.end_time
         self.report.include_table_lineage = self.config.include_table_lineage
         self.report.use_date_sharded_audit_log_tables = (
             self.config.use_date_sharded_audit_log_tables
@@ -1181,18 +1184,16 @@ WHERE
             project_id=db_name,
             dataset_id=schema,
             platform=self.platform,
-            instance=self.config.platform_instance
-            if self.config.platform_instance is not None
-            else self.config.env,
+            instance=self.config.platform_instance,
+            backcompat_instance_for_guid=self.config.env,
         )
 
     def gen_database_key(self, database: str) -> PlatformKey:
         return ProjectIdKey(
             project_id=database,
             platform=self.platform,
-            instance=self.config.platform_instance
-            if self.config.platform_instance is not None
-            else self.config.env,
+            instance=self.config.platform_instance,
+            backcompat_instance_for_guid=self.config.env,
         )
 
     def gen_database_containers(self, database: str) -> Iterable[MetadataWorkUnit]:

@@ -32,4 +32,15 @@ record DataHubActorFilter {
    * Whether the filter should apply to all groups.
    */
   allGroups: boolean = false
+
+  /**
+   * A specific set of roles to apply the policy to (disjunctive).
+   */
+  @Relationship = {
+    "/*": {
+      "name": "IsAssociatedWithRole",
+      "entityTypes": [ "dataHubRole" ]
+    }
+  }
+  roles: optional array[Urn]
 }

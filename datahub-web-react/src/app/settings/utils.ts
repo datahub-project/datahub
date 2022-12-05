@@ -9,6 +9,7 @@ export const ACCESS_TOKEN_DURATIONS = [
     { text: '1 day', duration: AccessTokenDuration.OneDay },
     { text: '1 month', duration: AccessTokenDuration.OneMonth },
     { text: '3 months', duration: AccessTokenDuration.ThreeMonths },
+    { text: 'Never', duration: AccessTokenDuration.NoExpiry },
 ];
 
 const addHours = (hour: number) => {
@@ -23,12 +24,6 @@ const addDays = (days: number) => {
     return `The token will expire on ${result.toLocaleDateString()} at ${result.toLocaleTimeString()}.`;
 };
 
-const addMonths = (month: number) => {
-    const result = new Date();
-    result.setMonth(result.getMonth() + month);
-    return `The token will expire on ${result.toLocaleDateString()} at ${result.toLocaleTimeString()}.`;
-};
-
 export const getTokenExpireDate = (duration: AccessTokenDuration) => {
     switch (duration) {
         case AccessTokenDuration.OneHour:
@@ -36,9 +31,11 @@ export const getTokenExpireDate = (duration: AccessTokenDuration) => {
         case AccessTokenDuration.OneDay:
             return addDays(1);
         case AccessTokenDuration.OneMonth:
-            return addMonths(1);
+            return addDays(30);
         case AccessTokenDuration.ThreeMonths:
-            return addMonths(3);
+            return addDays(90);
+        case AccessTokenDuration.NoExpiry:
+            return 'This token will never expire.';
         default:
             return AccessTokenDuration.OneMonth;
     }

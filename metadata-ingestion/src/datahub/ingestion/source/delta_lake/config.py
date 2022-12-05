@@ -1,7 +1,8 @@
 import logging
-from typing import Any, Dict, Optional
+from typing import Optional
 
 import pydantic
+from cached_property import cached_property
 from pydantic import Field
 
 from datahub.configuration.common import AllowDenyPattern
@@ -10,7 +11,7 @@ from datahub.configuration.source_common import (
     EnvBasedSourceConfigBase,
     PlatformSourceConfigBase,
 )
-from datahub.ingestion.source.aws.aws_common import AwsSourceConfig
+from datahub.ingestion.source.aws.aws_common import AwsConnectionConfig
 from datahub.ingestion.source.aws.s3_util import is_s3_uri
 
 # hide annoying debug errors from py4j
@@ -19,7 +20,9 @@ logger: logging.Logger = logging.getLogger(__name__)
 
 
 class S3(ConfigModel):
-    aws_config: AwsSourceConfig = Field(default=None, description="AWS configuration")
+    aws_config: AwsConnectionConfig = Field(
+        default=None, description="AWS configuration"
+    )
 
     # Whether or not to create in datahub from the s3 bucket
     use_s3_bucket_tags: Optional[bool] = Field(
@@ -33,8 +36,6 @@ class S3(ConfigModel):
 
 
 class DeltaLakeSourceConfig(PlatformSourceConfigBase, EnvBasedSourceConfigBase):
-    class Config:
-        arbitrary_types_allowed = True
 
     base_path: str = Field(
         description="Path to table (s3 or local file system). If path is not a delta table path "
@@ -59,28 +60,37 @@ class DeltaLakeSourceConfig(PlatformSourceConfigBase, EnvBasedSourceConfigBase):
         default=AllowDenyPattern.allow_all(),
         description="regex patterns for tables to filter in ingestion.",
     )
+    version_history_lookback: Optional[int] = Field(
+        default=1,
+        description="Number of previous version histories to be ingested. Defaults to 1. If set to -1 all version history will be ingested.",
+    )
+
+    require_files: Optional[bool] = Field(
+        default=True,
+        description="Whether DeltaTable should track files. "
+        "Consider setting this to `False` for large delta tables, "
+        "resulting in significant memory reduction for ingestion process."
+        "When set to `False`, number_of_files in delta table can not be reported.",
+    )
 
     s3: Optional[S3] = Field()
 
-    # to be set internally
-    _is_s3: bool
-    _complete_path: str
-
+    @cached_property
     def is_s3(self):
-        return self._is_s3
+        return is_s3_uri(self.base_path or "")
 
-    def get_complete_path(self):
-        return self._complete_path
+    @cached_property
+    def complete_path(self):
+        complete_path = self.base_path
+        if self.relative_path is not None:
+            complete_path = (
+                f"{complete_path.rstrip('/')}/{self.relative_path.lstrip('/')}"
+            )
 
-    @pydantic.root_validator()
-    def validate_config(cls, values: Dict) -> Dict[str, Any]:
-        values["_is_s3"] = is_s3_uri(values["base_path"])
-        if values["_is_s3"]:
-            if values["s3"] is None:
-                raise ValueError("s3 config must be set for s3 path")
-        values["_complete_path"] = values["base_path"]
-        if values["relative_path"] is not None:
-            values[
-                "_complete_path"
-            ] = f"{values['_complete_path'].rstrip('/')}/{values['relative_path'].lstrip('/')}"
-        return values
+        return complete_path
+
+    @pydantic.validator("version_history_lookback")
+    def negative_version_history_implies_no_limit(cls, v):
+        if v and v < 0:
+            return None
+        return v

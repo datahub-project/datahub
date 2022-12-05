@@ -1,21 +1,22 @@
 [
 {
-    "auditHeader": null,
     "proposedSnapshot": {
         "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
             "urn": "urn:li:dataset:(urn:li:dataPlatform:file,tests/integration/s3/test_data/local_system/folder_a/folder_aa/folder_aaa/food_parquet,UAT)",
             "aspects": [
+                {
+                    "com.linkedin.pegasus2avro.common.Status": {
+                        "removed": false
+                    }
+                },
                 {
                     "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
                         "customProperties": {
                             "number_of_files": "2",
                             "size_in_bytes": "8412"
                         },
-                        "externalUrl": null,
                         "name": "food_parquet",
-                        "qualifiedName": null,
                         "description": "",
-                        "uri": null,
                         "tags": []
                     }
                 },
@@ -26,17 +27,12 @@
                         "version": 0,
                         "created": {
                             "time": 0,
-                            "actor": "urn:li:corpuser:unknown",
-                            "impersonator": null
+                            "actor": "urn:li:corpuser:unknown"
                         },
                         "lastModified": {
                             "time": 0,
-                            "actor": "urn:li:corpuser:unknown",
-                            "impersonator": null
+                            "actor": "urn:li:corpuser:unknown"
                         },
-                        "deleted": null,
-                        "dataset": null,
-                        "cluster": null,
                         "hash": "",
                         "platformSchema": {
                             "com.linkedin.pegasus2avro.schema.OtherSchema": {
@@ -46,9 +42,7 @@
                         "fields": [
                             {
                                 "fieldPath": "color",
-                                "jsonPath": null,
                                 "nullable": false,
-                                "description": null,
                                 "type": {
                                     "type": {
                                         "com.linkedin.pegasus2avro.schema.StringType": {}
@@ -56,16 +50,11 @@
                                 },
                                 "nativeDataType": "string",
                                 "recursive": false,
-                                "globalTags": null,
-                                "glossaryTerms": null,
-                                "isPartOfKey": false,
-                                "jsonProps": null
+                                "isPartOfKey": false
                             },
                             {
                                 "fieldPath": "healthy",
-                                "jsonPath": null,
                                 "nullable": false,
-                                "description": null,
                                 "type": {
                                     "type": {
                                         "com.linkedin.pegasus2avro.schema.BooleanType": {}
@@ -73,16 +62,11 @@
                                 },
                                 "nativeDataType": "bool",
                                 "recursive": false,
-                                "globalTags": null,
-                                "glossaryTerms": null,
-                                "isPartOfKey": false,
-                                "jsonProps": null
+                                "isPartOfKey": false
                             },
                             {
                                 "fieldPath": "height",
-                                "jsonPath": null,
                                 "nullable": false,
-                                "description": null,
                                 "type": {
                                     "type": {
                                         "com.linkedin.pegasus2avro.schema.NumberType": {}
@@ -90,16 +74,11 @@
                                 },
                                 "nativeDataType": "int64",
                                 "recursive": false,
-                                "globalTags": null,
-                                "glossaryTerms": null,
-                                "isPartOfKey": false,
-                                "jsonProps": null
+                                "isPartOfKey": false
                             },
                             {
                                 "fieldPath": "name",
-                                "jsonPath": null,
                                 "nullable": false,
-                                "description": null,
                                 "type": {
                                     "type": {
                                         "com.linkedin.pegasus2avro.schema.StringType": {}
@@ -107,16 +86,11 @@
                                 },
                                 "nativeDataType": "string",
                                 "recursive": false,
-                                "globalTags": null,
-                                "glossaryTerms": null,
-                                "isPartOfKey": false,
-                                "jsonProps": null
+                                "isPartOfKey": false
                             },
                             {
                                 "fieldPath": "weight",
-                                "jsonPath": null,
                                 "nullable": false,
-                                "description": null,
                                 "type": {
                                     "type": {
                                         "com.linkedin.pegasus2avro.schema.NumberType": {}
@@ -124,34 +98,22 @@
                                 },
                                 "nativeDataType": "int64",
                                 "recursive": false,
-                                "globalTags": null,
-                                "glossaryTerms": null,
-                                "isPartOfKey": false,
-                                "jsonProps": null
+                                "isPartOfKey": false
                             }
-                        ],
-                        "primaryKeys": null,
-                        "foreignKeysSpecs": null,
-                        "foreignKeys": null
+                        ]
                     }
                 }
             ]
         }
     },
-    "proposedDelta": null,
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "folder_no_partition.json",
-        "registryName": null,
-        "registryVersion": null,
-        "properties": null
+        "runId": "folder_no_partition.json"
     }
 },
 {
-    "auditHeader": null,
     "entityType": "container",
     "entityUrn": "urn:li:container:583fb3ef3a2b226ea2630157568eb7dc",
-    "entityKeyAspect": null,
     "changeType": "UPSERT",
     "aspectName": "containerProperties",
     "aspect": {
@@ -160,17 +122,26 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "folder_no_partition.json",
-        "registryName": null,
-        "registryVersion": null,
-        "properties": null
+        "runId": "folder_no_partition.json"
     }
 },
 {
-    "auditHeader": null,
     "entityType": "container",
     "entityUrn": "urn:li:container:583fb3ef3a2b226ea2630157568eb7dc",
-    "entityKeyAspect": null,
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "value": "{\"removed\": false}",
+        "contentType": "application/json"
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "folder_no_partition.json"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:583fb3ef3a2b226ea2630157568eb7dc",
     "changeType": "UPSERT",
     "aspectName": "dataPlatformInstance",
     "aspect": {
@@ -179,17 +150,12 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "folder_no_partition.json",
-        "registryName": null,
-        "registryVersion": null,
-        "properties": null
+        "runId": "folder_no_partition.json"
     }
 },
 {
-    "auditHeader": null,
     "entityType": "container",
     "entityUrn": "urn:li:container:583fb3ef3a2b226ea2630157568eb7dc",
-    "entityKeyAspect": null,
     "changeType": "UPSERT",
     "aspectName": "subTypes",
     "aspect": {
@@ -198,17 +164,12 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "folder_no_partition.json",
-        "registryName": null,
-        "registryVersion": null,
-        "properties": null
+        "runId": "folder_no_partition.json"
     }
 },
 {
-    "auditHeader": null,
     "entityType": "container",
     "entityUrn": "urn:li:container:bc816cf2df9acd90fcefa42dc425d886",
-    "entityKeyAspect": null,
     "changeType": "UPSERT",
     "aspectName": "containerProperties",
     "aspect": {
@@ -217,17 +178,26 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "folder_no_partition.json",
-        "registryName": null,
-        "registryVersion": null,
-        "properties": null
+        "runId": "folder_no_partition.json"
     }
 },
 {
-    "auditHeader": null,
     "entityType": "container",
     "entityUrn": "urn:li:container:bc816cf2df9acd90fcefa42dc425d886",
-    "entityKeyAspect": null,
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "value": "{\"removed\": false}",
+        "contentType": "application/json"
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "folder_no_partition.json"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:bc816cf2df9acd90fcefa42dc425d886",
     "changeType": "UPSERT",
     "aspectName": "dataPlatformInstance",
     "aspect": {
@@ -236,17 +206,12 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "folder_no_partition.json",
-        "registryName": null,
-        "registryVersion": null,
-        "properties": null
+        "runId": "folder_no_partition.json"
     }
 },
 {
-    "auditHeader": null,
     "entityType": "container",
     "entityUrn": "urn:li:container:bc816cf2df9acd90fcefa42dc425d886",
-    "entityKeyAspect": null,
     "changeType": "UPSERT",
     "aspectName": "subTypes",
     "aspect": {
@@ -255,17 +220,12 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "folder_no_partition.json",
-        "registryName": null,
-        "registryVersion": null,
-        "properties": null
+        "runId": "folder_no_partition.json"
     }
 },
 {
-    "auditHeader": null,
     "entityType": "container",
     "entityUrn": "urn:li:container:bc816cf2df9acd90fcefa42dc425d886",
-    "entityKeyAspect": null,
     "changeType": "UPSERT",
     "aspectName": "container",
     "aspect": {
@@ -274,17 +234,12 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "folder_no_partition.json",
-        "registryName": null,
-        "registryVersion": null,
-        "properties": null
+        "runId": "folder_no_partition.json"
     }
 },
 {
-    "auditHeader": null,
     "entityType": "container",
     "entityUrn": "urn:li:container:d20e88ff88a6de6e53e437d342e218f4",
-    "entityKeyAspect": null,
     "changeType": "UPSERT",
     "aspectName": "containerProperties",
     "aspect": {
@@ -293,17 +248,26 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "folder_no_partition.json",
-        "registryName": null,
-        "registryVersion": null,
-        "properties": null
+        "runId": "folder_no_partition.json"
     }
 },
 {
-    "auditHeader": null,
     "entityType": "container",
     "entityUrn": "urn:li:container:d20e88ff88a6de6e53e437d342e218f4",
-    "entityKeyAspect": null,
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "value": "{\"removed\": false}",
+        "contentType": "application/json"
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "folder_no_partition.json"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:d20e88ff88a6de6e53e437d342e218f4",
     "changeType": "UPSERT",
     "aspectName": "dataPlatformInstance",
     "aspect": {
@@ -312,17 +276,12 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "folder_no_partition.json",
-        "registryName": null,
-        "registryVersion": null,
-        "properties": null
+        "runId": "folder_no_partition.json"
     }
 },
 {
-    "auditHeader": null,
     "entityType": "container",
     "entityUrn": "urn:li:container:d20e88ff88a6de6e53e437d342e218f4",
-    "entityKeyAspect": null,
     "changeType": "UPSERT",
     "aspectName": "subTypes",
     "aspect": {
@@ -331,17 +290,12 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "folder_no_partition.json",
-        "registryName": null,
-        "registryVersion": null,
-        "properties": null
+        "runId": "folder_no_partition.json"
     }
 },
 {
-    "auditHeader": null,
     "entityType": "container",
     "entityUrn": "urn:li:container:d20e88ff88a6de6e53e437d342e218f4",
-    "entityKeyAspect": null,
     "changeType": "UPSERT",
     "aspectName": "container",
     "aspect": {
@@ -350,17 +304,12 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "folder_no_partition.json",
-        "registryName": null,
-        "registryVersion": null,
-        "properties": null
+        "runId": "folder_no_partition.json"
     }
 },
 {
-    "auditHeader": null,
     "entityType": "container",
     "entityUrn": "urn:li:container:f6ff9cd64806a7bb00e2e3bf37acca50",
-    "entityKeyAspect": null,
     "changeType": "UPSERT",
     "aspectName": "containerProperties",
     "aspect": {
@@ -369,17 +318,26 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "folder_no_partition.json",
-        "registryName": null,
-        "registryVersion": null,
-        "properties": null
+        "runId": "folder_no_partition.json"
     }
 },
 {
-    "auditHeader": null,
     "entityType": "container",
     "entityUrn": "urn:li:container:f6ff9cd64806a7bb00e2e3bf37acca50",
-    "entityKeyAspect": null,
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "value": "{\"removed\": false}",
+        "contentType": "application/json"
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "folder_no_partition.json"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:f6ff9cd64806a7bb00e2e3bf37acca50",
     "changeType": "UPSERT",
     "aspectName": "dataPlatformInstance",
     "aspect": {
@@ -388,17 +346,12 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "folder_no_partition.json",
-        "registryName": null,
-        "registryVersion": null,
-        "properties": null
+        "runId": "folder_no_partition.json"
     }
 },
 {
-    "auditHeader": null,
     "entityType": "container",
     "entityUrn": "urn:li:container:f6ff9cd64806a7bb00e2e3bf37acca50",
-    "entityKeyAspect": null,
     "changeType": "UPSERT",
     "aspectName": "subTypes",
     "aspect": {
@@ -407,17 +360,12 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "folder_no_partition.json",
-        "registryName": null,
-        "registryVersion": null,
-        "properties": null
+        "runId": "folder_no_partition.json"
     }
 },
 {
-    "auditHeader": null,
     "entityType": "container",
     "entityUrn": "urn:li:container:f6ff9cd64806a7bb00e2e3bf37acca50",
-    "entityKeyAspect": null,
     "changeType": "UPSERT",
     "aspectName": "container",
     "aspect": {
@@ -426,17 +374,12 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "folder_no_partition.json",
-        "registryName": null,
-        "registryVersion": null,
-        "properties": null
+        "runId": "folder_no_partition.json"
     }
 },
 {
-    "auditHeader": null,
     "entityType": "container",
     "entityUrn": "urn:li:container:93525defb812252106d3b0c08a55e39a",
-    "entityKeyAspect": null,
     "changeType": "UPSERT",
     "aspectName": "containerProperties",
     "aspect": {
@@ -445,17 +388,26 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "folder_no_partition.json",
-        "registryName": null,
-        "registryVersion": null,
-        "properties": null
+        "runId": "folder_no_partition.json"
     }
 },
 {
-    "auditHeader": null,
     "entityType": "container",
     "entityUrn": "urn:li:container:93525defb812252106d3b0c08a55e39a",
-    "entityKeyAspect": null,
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "value": "{\"removed\": false}",
+        "contentType": "application/json"
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "folder_no_partition.json"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:93525defb812252106d3b0c08a55e39a",
     "changeType": "UPSERT",
     "aspectName": "dataPlatformInstance",
     "aspect": {
@@ -464,17 +416,12 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "folder_no_partition.json",
-        "registryName": null,
-        "registryVersion": null,
-        "properties": null
+        "runId": "folder_no_partition.json"
     }
 },
 {
-    "auditHeader": null,
     "entityType": "container",
     "entityUrn": "urn:li:container:93525defb812252106d3b0c08a55e39a",
-    "entityKeyAspect": null,
     "changeType": "UPSERT",
     "aspectName": "subTypes",
     "aspect": {
@@ -483,17 +430,12 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "folder_no_partition.json",
-        "registryName": null,
-        "registryVersion": null,
-        "properties": null
+        "runId": "folder_no_partition.json"
     }
 },
 {
-    "auditHeader": null,
     "entityType": "container",
     "entityUrn": "urn:li:container:93525defb812252106d3b0c08a55e39a",
-    "entityKeyAspect": null,
     "changeType": "UPSERT",
     "aspectName": "container",
     "aspect": {
@@ -502,17 +444,12 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "folder_no_partition.json",
-        "registryName": null,
-        "registryVersion": null,
-        "properties": null
+        "runId": "folder_no_partition.json"
     }
 },
 {
-    "auditHeader": null,
     "entityType": "container",
     "entityUrn": "urn:li:container:48a8653fc4afb55b12cd8d0280e09156",
-    "entityKeyAspect": null,
     "changeType": "UPSERT",
     "aspectName": "containerProperties",
     "aspect": {
@@ -521,17 +458,26 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "folder_no_partition.json",
-        "registryName": null,
-        "registryVersion": null,
-        "properties": null
+        "runId": "folder_no_partition.json"
     }
 },
 {
-    "auditHeader": null,
     "entityType": "container",
     "entityUrn": "urn:li:container:48a8653fc4afb55b12cd8d0280e09156",
-    "entityKeyAspect": null,
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "value": "{\"removed\": false}",
+        "contentType": "application/json"
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "folder_no_partition.json"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:48a8653fc4afb55b12cd8d0280e09156",
     "changeType": "UPSERT",
     "aspectName": "dataPlatformInstance",
     "aspect": {
@@ -540,17 +486,12 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "folder_no_partition.json",
-        "registryName": null,
-        "registryVersion": null,
-        "properties": null
+        "runId": "folder_no_partition.json"
     }
 },
 {
-    "auditHeader": null,
     "entityType": "container",
     "entityUrn": "urn:li:container:48a8653fc4afb55b12cd8d0280e09156",
-    "entityKeyAspect": null,
     "changeType": "UPSERT",
     "aspectName": "subTypes",
     "aspect": {
@@ -559,17 +500,12 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "folder_no_partition.json",
-        "registryName": null,
-        "registryVersion": null,
-        "properties": null
+        "runId": "folder_no_partition.json"
     }
 },
 {
-    "auditHeader": null,
     "entityType": "container",
     "entityUrn": "urn:li:container:48a8653fc4afb55b12cd8d0280e09156",
-    "entityKeyAspect": null,
     "changeType": "UPSERT",
     "aspectName": "container",
     "aspect": {
@@ -578,17 +514,12 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "folder_no_partition.json",
-        "registryName": null,
-        "registryVersion": null,
-        "properties": null
+        "runId": "folder_no_partition.json"
     }
 },
 {
-    "auditHeader": null,
     "entityType": "container",
     "entityUrn": "urn:li:container:98a716614da5246426edd48260406364",
-    "entityKeyAspect": null,
     "changeType": "UPSERT",
     "aspectName": "containerProperties",
     "aspect": {
@@ -597,17 +528,26 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "folder_no_partition.json",
-        "registryName": null,
-        "registryVersion": null,
-        "properties": null
+        "runId": "folder_no_partition.json"
     }
 },
 {
-    "auditHeader": null,
     "entityType": "container",
     "entityUrn": "urn:li:container:98a716614da5246426edd48260406364",
-    "entityKeyAspect": null,
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "value": "{\"removed\": false}",
+        "contentType": "application/json"
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "folder_no_partition.json"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:98a716614da5246426edd48260406364",
     "changeType": "UPSERT",
     "aspectName": "dataPlatformInstance",
     "aspect": {
@@ -616,17 +556,12 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "folder_no_partition.json",
-        "registryName": null,
-        "registryVersion": null,
-        "properties": null
+        "runId": "folder_no_partition.json"
     }
 },
 {
-    "auditHeader": null,
     "entityType": "container",
     "entityUrn": "urn:li:container:98a716614da5246426edd48260406364",
-    "entityKeyAspect": null,
     "changeType": "UPSERT",
     "aspectName": "subTypes",
     "aspect": {
@@ -635,17 +570,12 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "folder_no_partition.json",
-        "registryName": null,
-        "registryVersion": null,
-        "properties": null
+        "runId": "folder_no_partition.json"
     }
 },
 {
-    "auditHeader": null,
     "entityType": "container",
     "entityUrn": "urn:li:container:98a716614da5246426edd48260406364",
-    "entityKeyAspect": null,
     "changeType": "UPSERT",
     "aspectName": "container",
     "aspect": {
@@ -654,17 +584,12 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "folder_no_partition.json",
-        "registryName": null,
-        "registryVersion": null,
-        "properties": null
+        "runId": "folder_no_partition.json"
     }
 },
 {
-    "auditHeader": null,
     "entityType": "container",
     "entityUrn": "urn:li:container:a0904d16a673fde8cbc8d0f2e167ecec",
-    "entityKeyAspect": null,
     "changeType": "UPSERT",
     "aspectName": "containerProperties",
     "aspect": {
@@ -673,17 +598,26 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "folder_no_partition.json",
-        "registryName": null,
-        "registryVersion": null,
-        "properties": null
+        "runId": "folder_no_partition.json"
     }
 },
 {
-    "auditHeader": null,
     "entityType": "container",
     "entityUrn": "urn:li:container:a0904d16a673fde8cbc8d0f2e167ecec",
-    "entityKeyAspect": null,
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "value": "{\"removed\": false}",
+        "contentType": "application/json"
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "folder_no_partition.json"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:a0904d16a673fde8cbc8d0f2e167ecec",
     "changeType": "UPSERT",
     "aspectName": "dataPlatformInstance",
     "aspect": {
@@ -692,17 +626,12 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "folder_no_partition.json",
-        "registryName": null,
-        "registryVersion": null,
-        "properties": null
+        "runId": "folder_no_partition.json"
     }
 },
 {
-    "auditHeader": null,
     "entityType": "container",
     "entityUrn": "urn:li:container:a0904d16a673fde8cbc8d0f2e167ecec",
-    "entityKeyAspect": null,
     "changeType": "UPSERT",
     "aspectName": "subTypes",
     "aspect": {
@@ -711,17 +640,12 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "folder_no_partition.json",
-        "registryName": null,
-        "registryVersion": null,
-        "properties": null
+        "runId": "folder_no_partition.json"
     }
 },
 {
-    "auditHeader": null,
     "entityType": "container",
     "entityUrn": "urn:li:container:a0904d16a673fde8cbc8d0f2e167ecec",
-    "entityKeyAspect": null,
     "changeType": "UPSERT",
     "aspectName": "container",
     "aspect": {
@@ -730,17 +654,12 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "folder_no_partition.json",
-        "registryName": null,
-        "registryVersion": null,
-        "properties": null
+        "runId": "folder_no_partition.json"
     }
 },
 {
-    "auditHeader": null,
     "entityType": "dataset",
     "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:file,tests/integration/s3/test_data/local_system/folder_a/folder_aa/folder_aaa/food_parquet,UAT)",
-    "entityKeyAspect": null,
     "changeType": "UPSERT",
     "aspectName": "container",
     "aspect": {
@@ -749,48 +668,41 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "folder_no_partition.json",
-        "registryName": null,
-        "registryVersion": null,
-        "properties": null
+        "runId": "folder_no_partition.json"
     }
 },
 {
-    "auditHeader": null,
     "entityType": "dataset",
     "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:file,tests/integration/s3/test_data/local_system/folder_a/folder_aa/folder_aaa/food_parquet,UAT)",
-    "entityKeyAspect": null,
     "changeType": "UPSERT",
     "aspectName": "datasetProfile",
     "aspect": {
-        "value": "{\"timestampMillis\": 1615443388097, \"partitionSpec\": {\"type\": \"FULL_TABLE\", \"partition\": \"FULL_TABLE_SNAPSHOT\"}, \"rowCount\": 140, \"columnCount\": 5, \"fieldProfiles\": [{\"fieldPath\": \"name\", \"uniqueCount\": 9, \"uniqueProportion\": 0.06521739130434782, \"nullCount\": 2, \"nullProportion\": 0.014285714285714285, \"distinctValueFrequencies\": [{\"value\": \"NullValue\", \"frequency\": 2}, {\"value\": \"apple\", \"frequency\": 14}, {\"value\": \"chicken\", \"frequency\": 14}, {\"value\": \"cookie\", \"frequency\": 12}, {\"value\": \"hamburger\", \"frequency\": 14}, {\"value\": \"lasagna\", \"frequency\": 14}, {\"value\": \"orange\", \"frequency\": 14}, {\"value\": \"pasta\", \"frequency\": 14}, {\"value\": \"spinach\", \"frequency\": 14}, {\"value\": \"sushi\", \"frequency\": 14}, {\"value\": \"water\", \"frequency\": 14}], \"sampleValues\": [\"apple\", \"chicken\", \"cookie\", \"cookie\", \"cookie\", \"cookie\", \"hamburger\", \"lasagna\", \"lasagna\", \"lasagna\", \"pasta\", \"pasta\", \"spinach\", \"spinach\", \"spinach\", \"spinach\", \"spinach\", \"sushi\", \"water\", \"water\"]}, {\"fieldPath\": \"weight\", \"uniqueCount\": 10, \"uniqueProportion\": 0.07142857142857142, \"nullCount\": 0, \"nullProportion\": 0.0, \"distinctValueFrequencies\": [{\"value\": \"10\", \"frequency\": 14}, {\"value\": \"2\", \"frequency\": 14}, {\"value\": \"23\", \"frequency\": 14}, {\"value\": \"32\", \"frequency\": 14}, {\"value\": \"36\", \"frequency\": 14}, {\"value\": \"43\", \"frequency\": 14}, {\"value\": \"49\", \"frequency\": 14}, {\"value\": \"50\", \"frequency\": 14}, {\"value\": \"53\", \"frequency\": 14}, {\"value\": \"72\", \"frequency\": 14}], \"sampleValues\": [\"10\", \"10\", \"10\", \"10\", \"10\", \"2\", \"23\", \"23\", \"23\", \"23\", \"32\", \"32\", \"36\", \"49\", \"49\", \"49\", \"50\", \"53\", \"72\", \"72\"]}, {\"fieldPath\": \"height\", \"uniqueCount\": 4, \"uniqueProportion\": 0.02857142857142857, \"nullCount\": 0, \"nullProportion\": 0.0, \"distinctValueFrequencies\": [{\"value\": \"4\", \"frequency\": 48}, {\"value\": \"5\", \"frequency\": 30}, {\"value\": \"6\", \"frequency\": 46}, {\"value\": \"7\", \"frequency\": 16}], \"sampleValues\": [\"4\", \"4\", \"4\", \"4\", \"4\", \"4\", \"4\", \"4\", \"4\", \"5\", \"5\", \"5\", \"5\", \"6\", \"6\", \"6\", \"6\", \"7\", \"7\", \"7\"]}, {\"fieldPath\": \"color\", \"uniqueCount\": 7, \"uniqueProportion\": 0.05, \"nullCount\": 0, \"nullProportion\": 0.0, \"distinctValueFrequencies\": [{\"value\": \"blue\", \"frequency\": 14}, {\"value\": \"brown\", \"frequency\": 28}, {\"value\": \"green\", \"frequency\": 14}, {\"value\": \"orange\", \"frequency\": 28}, {\"value\": \"red\", \"frequency\": 28}, {\"value\": \"white\", \"frequency\": 14}, {\"value\": \"yellow\", \"frequency\": 14}], \"sampleValues\": [\"blue\", \"blue\", \"brown\", \"brown\", \"brown\", \"brown\", \"brown\", \"green\", \"green\", \"green\", \"green\", \"green\", \"orange\", \"red\", \"red\", \"red\", \"red\", \"white\", \"yellow\", \"yellow\"]}, {\"fieldPath\": \"healthy\", \"uniqueCount\": 2, \"uniqueProportion\": 0.014492753623188406, \"nullCount\": 2, \"nullProportion\": 0.014285714285714285, \"sampleValues\": [\"False\", \"False\", \"False\", \"False\", \"False\", \"False\", \"False\", \"False\", \"False\", \"False\", \"None\", \"True\", \"True\", \"True\", \"True\", \"True\", \"True\", \"True\", \"True\", \"True\"]}]}",
+        "value": "{\"timestampMillis\": 1615443388097, \"partitionSpec\": {\"type\": \"FULL_TABLE\", \"partition\": \"FULL_TABLE_SNAPSHOT\"}, \"rowCount\": 70, \"columnCount\": 5, \"fieldProfiles\": [{\"fieldPath\": \"name\", \"uniqueCount\": 9, \"uniqueProportion\": 0.13043478260869565, \"nullCount\": 1, \"nullProportion\": 0.014285714285714285, \"distinctValueFrequencies\": [{\"value\": \"NullValue\", \"frequency\": 1}, {\"value\": \"apple\", \"frequency\": 7}, {\"value\": \"chicken\", \"frequency\": 7}, {\"value\": \"cookie\", \"frequency\": 6}, {\"value\": \"hamburger\", \"frequency\": 7}, {\"value\": \"lasagna\", \"frequency\": 7}, {\"value\": \"orange\", \"frequency\": 7}, {\"value\": \"pasta\", \"frequency\": 7}, {\"value\": \"spinach\", \"frequency\": 7}, {\"value\": \"sushi\", \"frequency\": 7}, {\"value\": \"water\", \"frequency\": 7}], \"sampleValues\": [\"apple\", \"apple\", \"apple\", \"chicken\", \"cookie\", \"cookie\", \"cookie\", \"lasagna\", \"lasagna\", \"orange\", \"orange\", \"pasta\", \"pasta\", \"pasta\", \"pasta\", \"spinach\", \"spinach\", \"spinach\", \"water\", \"water\"]}, {\"fieldPath\": \"weight\", \"uniqueCount\": 10, \"uniqueProportion\": 0.14285714285714285, \"nullCount\": 0, \"nullProportion\": 0.0, \"distinctValueFrequencies\": [{\"value\": \"10\", \"frequency\": 7}, {\"value\": \"2\", \"frequency\": 7}, {\"value\": \"23\", \"frequency\": 7}, {\"value\": \"32\", \"frequency\": 7}, {\"value\": \"36\", \"frequency\": 7}, {\"value\": \"43\", \"frequency\": 7}, {\"value\": \"49\", \"frequency\": 7}, {\"value\": \"50\", \"frequency\": 7}, {\"value\": \"53\", \"frequency\": 7}, {\"value\": \"72\", \"frequency\": 7}], \"sampleValues\": [\"10\", \"10\", \"10\", \"23\", \"23\", \"23\", \"32\", \"32\", \"36\", \"43\", \"43\", \"49\", \"49\", \"50\", \"50\", \"50\", \"72\", \"72\", \"72\", \"72\"]}, {\"fieldPath\": \"height\", \"uniqueCount\": 4, \"uniqueProportion\": 0.05714285714285714, \"nullCount\": 0, \"nullProportion\": 0.0, \"distinctValueFrequencies\": [{\"value\": \"4\", \"frequency\": 24}, {\"value\": \"5\", \"frequency\": 15}, {\"value\": \"6\", \"frequency\": 23}, {\"value\": \"7\", \"frequency\": 8}], \"sampleValues\": [\"4\", \"4\", \"4\", \"4\", \"4\", \"4\", \"4\", \"5\", \"5\", \"5\", \"5\", \"5\", \"6\", \"6\", \"6\", \"6\", \"6\", \"6\", \"7\", \"7\"]}, {\"fieldPath\": \"color\", \"uniqueCount\": 7, \"uniqueProportion\": 0.1, \"nullCount\": 0, \"nullProportion\": 0.0, \"distinctValueFrequencies\": [{\"value\": \"blue\", \"frequency\": 7}, {\"value\": \"brown\", \"frequency\": 14}, {\"value\": \"green\", \"frequency\": 7}, {\"value\": \"orange\", \"frequency\": 14}, {\"value\": \"red\", \"frequency\": 14}, {\"value\": \"white\", \"frequency\": 7}, {\"value\": \"yellow\", \"frequency\": 7}], \"sampleValues\": [\"blue\", \"blue\", \"brown\", \"brown\", \"brown\", \"green\", \"green\", \"green\", \"orange\", \"orange\", \"red\", \"red\", \"red\", \"red\", \"red\", \"white\", \"yellow\", \"yellow\", \"yellow\", \"yellow\"]}, {\"fieldPath\": \"healthy\", \"uniqueCount\": 2, \"uniqueProportion\": 0.028985507246376812, \"nullCount\": 1, \"nullProportion\": 0.014285714285714285, \"sampleValues\": [\"False\", \"False\", \"False\", \"False\", \"False\", \"False\", \"False\", \"False\", \"False\", \"None\", \"True\", \"True\", \"True\", \"True\", \"True\", \"True\", \"True\", \"True\", \"True\", \"True\"]}]}",
         "contentType": "application/json"
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "folder_no_partition.json",
-        "registryName": null,
-        "registryVersion": null,
-        "properties": null
+        "runId": "folder_no_partition.json"
     }
 },
 {
-    "auditHeader": null,
     "proposedSnapshot": {
         "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
             "urn": "urn:li:dataset:(urn:li:dataPlatform:file,tests/integration/s3/test_data/local_system/folder_a/folder_aa/folder_aaa/food_csv,UAT)",
             "aspects": [
+                {
+                    "com.linkedin.pegasus2avro.common.Status": {
+                        "removed": false
+                    }
+                },
                 {
                     "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
                         "customProperties": {
                             "number_of_files": "2",
                             "size_in_bytes": "3446"
                         },
-                        "externalUrl": null,
                         "name": "food_csv",
-                        "qualifiedName": null,
                         "description": "",
-                        "uri": null,
                         "tags": []
                     }
                 },
@@ -801,17 +713,12 @@
                         "version": 0,
                         "created": {
                             "time": 0,
-                            "actor": "urn:li:corpuser:unknown",
-                            "impersonator": null
+                            "actor": "urn:li:corpuser:unknown"
                         },
                         "lastModified": {
                             "time": 0,
-                            "actor": "urn:li:corpuser:unknown",
-                            "impersonator": null
+                            "actor": "urn:li:corpuser:unknown"
                         },
-                        "deleted": null,
-                        "dataset": null,
-                        "cluster": null,
                         "hash": "",
                         "platformSchema": {
                             "com.linkedin.pegasus2avro.schema.OtherSchema": {
@@ -821,9 +728,7 @@
                         "fields": [
                             {
                                 "fieldPath": "color",
-                                "jsonPath": null,
                                 "nullable": false,
-                                "description": null,
                                 "type": {
                                     "type": {
                                         "com.linkedin.pegasus2avro.schema.StringType": {}
@@ -831,16 +736,11 @@
                                 },
                                 "nativeDataType": "string",
                                 "recursive": false,
-                                "globalTags": null,
-                                "glossaryTerms": null,
-                                "isPartOfKey": false,
-                                "jsonProps": null
+                                "isPartOfKey": false
                             },
                             {
                                 "fieldPath": "healthy",
-                                "jsonPath": null,
                                 "nullable": false,
-                                "description": null,
                                 "type": {
                                     "type": {
                                         "com.linkedin.pegasus2avro.schema.BooleanType": {}
@@ -848,16 +748,11 @@
                                 },
                                 "nativeDataType": "boolean",
                                 "recursive": false,
-                                "globalTags": null,
-                                "glossaryTerms": null,
-                                "isPartOfKey": false,
-                                "jsonProps": null
+                                "isPartOfKey": false
                             },
                             {
                                 "fieldPath": "height",
-                                "jsonPath": null,
                                 "nullable": false,
-                                "description": null,
                                 "type": {
                                     "type": {
                                         "com.linkedin.pegasus2avro.schema.NumberType": {}
@@ -865,16 +760,11 @@
                                 },
                                 "nativeDataType": "integer",
                                 "recursive": false,
-                                "globalTags": null,
-                                "glossaryTerms": null,
-                                "isPartOfKey": false,
-                                "jsonProps": null
+                                "isPartOfKey": false
                             },
                             {
                                 "fieldPath": "name",
-                                "jsonPath": null,
                                 "nullable": false,
-                                "description": null,
                                 "type": {
                                     "type": {
                                         "com.linkedin.pegasus2avro.schema.StringType": {}
@@ -882,16 +772,11 @@
                                 },
                                 "nativeDataType": "string",
                                 "recursive": false,
-                                "globalTags": null,
-                                "glossaryTerms": null,
-                                "isPartOfKey": false,
-                                "jsonProps": null
+                                "isPartOfKey": false
                             },
                             {
                                 "fieldPath": "weight",
-                                "jsonPath": null,
                                 "nullable": false,
-                                "description": null,
                                 "type": {
                                     "type": {
                                         "com.linkedin.pegasus2avro.schema.NumberType": {}
@@ -899,34 +784,22 @@
                                 },
                                 "nativeDataType": "integer",
                                 "recursive": false,
-                                "globalTags": null,
-                                "glossaryTerms": null,
-                                "isPartOfKey": false,
-                                "jsonProps": null
+                                "isPartOfKey": false
                             }
-                        ],
-                        "primaryKeys": null,
-                        "foreignKeysSpecs": null,
-                        "foreignKeys": null
+                        ]
                     }
                 }
             ]
         }
     },
-    "proposedDelta": null,
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "folder_no_partition.json",
-        "registryName": null,
-        "registryVersion": null,
-        "properties": null
+        "runId": "folder_no_partition.json"
     }
 },
 {
-    "auditHeader": null,
     "entityType": "dataset",
     "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:file,tests/integration/s3/test_data/local_system/folder_a/folder_aa/folder_aaa/food_csv,UAT)",
-    "entityKeyAspect": null,
     "changeType": "UPSERT",
     "aspectName": "container",
     "aspect": {
@@ -935,29 +808,21 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "folder_no_partition.json",
-        "registryName": null,
-        "registryVersion": null,
-        "properties": null
+        "runId": "folder_no_partition.json"
     }
 },
 {
-    "auditHeader": null,
     "entityType": "dataset",
     "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:file,tests/integration/s3/test_data/local_system/folder_a/folder_aa/folder_aaa/food_csv,UAT)",
-    "entityKeyAspect": null,
     "changeType": "UPSERT",
     "aspectName": "datasetProfile",
     "aspect": {
-        "value": "{\"timestampMillis\": 1615443388097, \"partitionSpec\": {\"type\": \"FULL_TABLE\", \"partition\": \"FULL_TABLE_SNAPSHOT\"}, \"rowCount\": 140, \"columnCount\": 5, \"fieldProfiles\": [{\"fieldPath\": \"name\", \"uniqueCount\": 9, \"uniqueProportion\": 0.06521739130434782, \"nullCount\": 2, \"nullProportion\": 0.014285714285714285, \"distinctValueFrequencies\": [{\"value\": \"NullValue\", \"frequency\": 2}, {\"value\": \"apple\", \"frequency\": 14}, {\"value\": \"chicken\", \"frequency\": 14}, {\"value\": \"cookie\", \"frequency\": 12}, {\"value\": \"hamburger\", \"frequency\": 14}, {\"value\": \"lasagna\", \"frequency\": 14}, {\"value\": \"orange\", \"frequency\": 14}, {\"value\": \"pasta\", \"frequency\": 14}, {\"value\": \"spinach\", \"frequency\": 14}, {\"value\": \"sushi\", \"frequency\": 14}, {\"value\": \"water\", \"frequency\": 14}], \"sampleValues\": [\"apple\", \"chicken\", \"cookie\", \"cookie\", \"cookie\", \"cookie\", \"hamburger\", \"lasagna\", \"lasagna\", \"lasagna\", \"pasta\", \"pasta\", \"spinach\", \"spinach\", \"spinach\", \"spinach\", \"spinach\", \"sushi\", \"water\", \"water\"]}, {\"fieldPath\": \"weight\", \"uniqueCount\": 9, \"uniqueProportion\": 0.06428571428571428, \"nullCount\": 0, \"nullProportion\": 0.0, \"distinctValueFrequencies\": [{\"value\": \"10\", \"frequency\": 14}, {\"value\": \"2\", \"frequency\": 14}, {\"value\": \"23\", \"frequency\": 14}, {\"value\": \"32\", \"frequency\": 14}, {\"value\": \"36\", \"frequency\": 14}, {\"value\": \"43\", \"frequency\": 14}, {\"value\": \"49\", \"frequency\": 14}, {\"value\": \"50\", \"frequency\": 14}, {\"value\": \"53\", \"frequency\": 14}, {\"value\": \"72\", \"frequency\": 14}], \"sampleValues\": [\"10\", \"10\", \"10\", \"10\", \"10\", \"2\", \"23\", \"23\", \"23\", \"23\", \"32\", \"32\", \"36\", \"49\", \"49\", \"49\", \"50\", \"53\", \"72\", \"72\"]}, {\"fieldPath\": \"height\", \"uniqueCount\": 4, \"uniqueProportion\": 0.02857142857142857, \"nullCount\": 0, \"nullProportion\": 0.0, \"distinctValueFrequencies\": [{\"value\": \"4\", \"frequency\": 48}, {\"value\": \"5\", \"frequency\": 30}, {\"value\": \"6\", \"frequency\": 46}, {\"value\": \"7\", \"frequency\": 16}], \"sampleValues\": [\"4\", \"4\", \"4\", \"4\", \"4\", \"4\", \"4\", \"4\", \"4\", \"5\", \"5\", \"5\", \"5\", \"6\", \"6\", \"6\", \"6\", \"7\", \"7\", \"7\"]}, {\"fieldPath\": \"color\", \"uniqueCount\": 7, \"uniqueProportion\": 0.05, \"nullCount\": 0, \"nullProportion\": 0.0, \"distinctValueFrequencies\": [{\"value\": \"blue\", \"frequency\": 14}, {\"value\": \"brown\", \"frequency\": 28}, {\"value\": \"green\", \"frequency\": 14}, {\"value\": \"orange\", \"frequency\": 28}, {\"value\": \"red\", \"frequency\": 28}, {\"value\": \"white\", \"frequency\": 14}, {\"value\": \"yellow\", \"frequency\": 14}], \"sampleValues\": [\"blue\", \"blue\", \"brown\", \"brown\", \"brown\", \"brown\", \"brown\", \"green\", \"green\", \"green\", \"green\", \"green\", \"orange\", \"red\", \"red\", \"red\", \"red\", \"white\", \"yellow\", \"yellow\"]}, {\"fieldPath\": \"healthy\", \"uniqueCount\": 2, \"uniqueProportion\": 0.014492753623188406, \"nullCount\": 2, \"nullProportion\": 0.014285714285714285, \"sampleValues\": [\"False\", \"False\", \"False\", \"False\", \"False\", \"False\", \"False\", \"False\", \"False\", \"False\", \"None\", \"True\", \"True\", \"True\", \"True\", \"True\", \"True\", \"True\", \"True\", \"True\"]}]}",
+        "value": "{\"timestampMillis\": 1615443388097, \"partitionSpec\": {\"type\": \"FULL_TABLE\", \"partition\": \"FULL_TABLE_SNAPSHOT\"}, \"rowCount\": 70, \"columnCount\": 5, \"fieldProfiles\": [{\"fieldPath\": \"name\", \"uniqueCount\": 9, \"uniqueProportion\": 0.13043478260869565, \"nullCount\": 1, \"nullProportion\": 0.014285714285714285, \"distinctValueFrequencies\": [{\"value\": \"NullValue\", \"frequency\": 1}, {\"value\": \"apple\", \"frequency\": 7}, {\"value\": \"chicken\", \"frequency\": 7}, {\"value\": \"cookie\", \"frequency\": 6}, {\"value\": \"hamburger\", \"frequency\": 7}, {\"value\": \"lasagna\", \"frequency\": 7}, {\"value\": \"orange\", \"frequency\": 7}, {\"value\": \"pasta\", \"frequency\": 7}, {\"value\": \"spinach\", \"frequency\": 7}, {\"value\": \"sushi\", \"frequency\": 7}, {\"value\": \"water\", \"frequency\": 7}], \"sampleValues\": [\"apple\", \"apple\", \"apple\", \"chicken\", \"cookie\", \"cookie\", \"cookie\", \"lasagna\", \"lasagna\", \"orange\", \"orange\", \"pasta\", \"pasta\", \"pasta\", \"pasta\", \"spinach\", \"spinach\", \"spinach\", \"water\", \"water\"]}, {\"fieldPath\": \"weight\", \"uniqueCount\": 9, \"uniqueProportion\": 0.12857142857142856, \"nullCount\": 0, \"nullProportion\": 0.0, \"distinctValueFrequencies\": [{\"value\": \"10\", \"frequency\": 7}, {\"value\": \"2\", \"frequency\": 7}, {\"value\": \"23\", \"frequency\": 7}, {\"value\": \"32\", \"frequency\": 7}, {\"value\": \"36\", \"frequency\": 7}, {\"value\": \"43\", \"frequency\": 7}, {\"value\": \"49\", \"frequency\": 7}, {\"value\": \"50\", \"frequency\": 7}, {\"value\": \"53\", \"frequency\": 7}, {\"value\": \"72\", \"frequency\": 7}], \"sampleValues\": [\"10\", \"10\", \"10\", \"23\", \"23\", \"23\", \"32\", \"32\", \"36\", \"43\", \"43\", \"49\", \"49\", \"50\", \"50\", \"50\", \"72\", \"72\", \"72\", \"72\"]}, {\"fieldPath\": \"height\", \"uniqueCount\": 4, \"uniqueProportion\": 0.05714285714285714, \"nullCount\": 0, \"nullProportion\": 0.0, \"distinctValueFrequencies\": [{\"value\": \"4\", \"frequency\": 24}, {\"value\": \"5\", \"frequency\": 15}, {\"value\": \"6\", \"frequency\": 23}, {\"value\": \"7\", \"frequency\": 8}], \"sampleValues\": [\"4\", \"4\", \"4\", \"4\", \"4\", \"4\", \"4\", \"5\", \"5\", \"5\", \"5\", \"5\", \"6\", \"6\", \"6\", \"6\", \"6\", \"6\", \"7\", \"7\"]}, {\"fieldPath\": \"color\", \"uniqueCount\": 7, \"uniqueProportion\": 0.1, \"nullCount\": 0, \"nullProportion\": 0.0, \"distinctValueFrequencies\": [{\"value\": \"blue\", \"frequency\": 7}, {\"value\": \"brown\", \"frequency\": 14}, {\"value\": \"green\", \"frequency\": 7}, {\"value\": \"orange\", \"frequency\": 14}, {\"value\": \"red\", \"frequency\": 14}, {\"value\": \"white\", \"frequency\": 7}, {\"value\": \"yellow\", \"frequency\": 7}], \"sampleValues\": [\"blue\", \"blue\", \"brown\", \"brown\", \"brown\", \"green\", \"green\", \"green\", \"orange\", \"orange\", \"red\", \"red\", \"red\", \"red\", \"red\", \"white\", \"yellow\", \"yellow\", \"yellow\", \"yellow\"]}, {\"fieldPath\": \"healthy\", \"uniqueCount\": 2, \"uniqueProportion\": 0.028985507246376812, \"nullCount\": 1, \"nullProportion\": 0.014285714285714285, \"sampleValues\": [\"False\", \"False\", \"False\", \"False\", \"False\", \"False\", \"False\", \"False\", \"False\", \"None\", \"True\", \"True\", \"True\", \"True\", \"True\", \"True\", \"True\", \"True\", \"True\", \"True\"]}]}",
         "contentType": "application/json"
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "folder_no_partition.json",
-        "registryName": null,
-        "registryVersion": null,
-        "properties": null
+        "runId": "folder_no_partition.json"
     }
 }
 ]

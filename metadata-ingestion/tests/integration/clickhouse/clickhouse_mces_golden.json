@@ -1,9 +1,7 @@
 [
 {
-    "auditHeader": null,
     "entityType": "container",
     "entityUrn": "urn:li:container:ab016b94aa0d75c5b9205c33260e989c",
-    "entityKeyAspect": null,
     "changeType": "UPSERT",
     "aspectName": "containerProperties",
     "aspect": {
@@ -12,36 +10,40 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "clickhouse-test",
-        "registryName": null,
-        "registryVersion": null,
-        "properties": null
+        "runId": "clickhouse-test"
     }
 },
 {
-    "auditHeader": null,
     "entityType": "container",
     "entityUrn": "urn:li:container:ab016b94aa0d75c5b9205c33260e989c",
-    "entityKeyAspect": null,
     "changeType": "UPSERT",
-    "aspectName": "dataPlatformInstance",
+    "aspectName": "status",
     "aspect": {
-        "value": "{\"platform\": \"urn:li:dataPlatform:clickhouse\"}",
+        "value": "{\"removed\": false}",
         "contentType": "application/json"
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "clickhouse-test",
-        "registryName": null,
-        "registryVersion": null,
-        "properties": null
+        "runId": "clickhouse-test"
     }
 },
 {
-    "auditHeader": null,
     "entityType": "container",
     "entityUrn": "urn:li:container:ab016b94aa0d75c5b9205c33260e989c",
-    "entityKeyAspect": null,
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "value": "{\"platform\": \"urn:li:dataPlatform:clickhouse\", \"instance\": \"urn:li:dataPlatformInstance:(urn:li:dataPlatform:clickhouse,clickhousetestserver)\"}",
+        "contentType": "application/json"
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "clickhouse-test"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:ab016b94aa0d75c5b9205c33260e989c",
     "changeType": "UPSERT",
     "aspectName": "subTypes",
     "aspect": {
@@ -50,17 +52,12 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "clickhouse-test",
-        "registryName": null,
-        "registryVersion": null,
-        "properties": null
+        "runId": "clickhouse-test"
     }
 },
 {
-    "auditHeader": null,
     "entityType": "container",
     "entityUrn": "urn:li:container:1154d1da73a95376c9f33f47694cf1de",
-    "entityKeyAspect": null,
     "changeType": "UPSERT",
     "aspectName": "containerProperties",
     "aspect": {
@@ -69,36 +66,40 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "clickhouse-test",
-        "registryName": null,
-        "registryVersion": null,
-        "properties": null
+        "runId": "clickhouse-test"
     }
 },
 {
-    "auditHeader": null,
     "entityType": "container",
     "entityUrn": "urn:li:container:1154d1da73a95376c9f33f47694cf1de",
-    "entityKeyAspect": null,
     "changeType": "UPSERT",
-    "aspectName": "dataPlatformInstance",
+    "aspectName": "status",
     "aspect": {
-        "value": "{\"platform\": \"urn:li:dataPlatform:clickhouse\"}",
+        "value": "{\"removed\": false}",
         "contentType": "application/json"
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "clickhouse-test",
-        "registryName": null,
-        "registryVersion": null,
-        "properties": null
+        "runId": "clickhouse-test"
     }
 },
 {
-    "auditHeader": null,
     "entityType": "container",
     "entityUrn": "urn:li:container:1154d1da73a95376c9f33f47694cf1de",
-    "entityKeyAspect": null,
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "value": "{\"platform\": \"urn:li:dataPlatform:clickhouse\", \"instance\": \"urn:li:dataPlatformInstance:(urn:li:dataPlatform:clickhouse,clickhousetestserver)\"}",
+        "contentType": "application/json"
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "clickhouse-test"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:1154d1da73a95376c9f33f47694cf1de",
     "changeType": "UPSERT",
     "aspectName": "subTypes",
     "aspect": {
@@ -107,17 +108,12 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "clickhouse-test",
-        "registryName": null,
-        "registryVersion": null,
-        "properties": null
+        "runId": "clickhouse-test"
     }
 },
 {
-    "auditHeader": null,
     "entityType": "container",
     "entityUrn": "urn:li:container:1154d1da73a95376c9f33f47694cf1de",
-    "entityKeyAspect": null,
     "changeType": "UPSERT",
     "aspectName": "container",
     "aspect": {
@@ -126,17 +122,12 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "clickhouse-test",
-        "registryName": null,
-        "registryVersion": null,
-        "properties": null
+        "runId": "clickhouse-test"
     }
 },
 {
-    "auditHeader": null,
     "entityType": "dataset",
     "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:clickhouse,clickhousetestserver.db1.mv_target_table,PROD)",
-    "entityKeyAspect": null,
     "changeType": "UPSERT",
     "aspectName": "container",
     "aspect": {
@@ -145,17 +136,12 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "clickhouse-test",
-        "registryName": null,
-        "registryVersion": null,
-        "properties": null
+        "runId": "clickhouse-test"
     }
 },
 {
-    "auditHeader": null,
     "entityType": "dataset",
     "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:clickhouse,clickhousetestserver.db1.mv_target_table,PROD)",
-    "entityKeyAspect": null,
     "changeType": "UPSERT",
     "aspectName": "upstreamLineage",
     "aspect": {
@@ -164,14 +150,10 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "clickhouse-test",
-        "registryName": null,
-        "registryVersion": null,
-        "properties": null
+        "runId": "clickhouse-test"
     }
 },
 {
-    "auditHeader": null,
     "proposedSnapshot": {
         "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
             "urn": "urn:li:dataset:(urn:li:dataPlatform:clickhouse,clickhousetestserver.db1.mv_target_table,PROD)",
@@ -189,13 +171,15 @@
                             "sorting_key": "col_Int64",
                             "primary_key": "col_Int64",
                             "sampling_key": "",
-                            "storage_policy": "default"
+                            "storage_policy": "default",
+                            "metadata_modification_time": "2022-10-13 04:56:28",
+                            "total_rows": "10",
+                            "total_bytes": "671",
+                            "data_paths": "['/var/lib/clickhouse/store/f12/f12ef1cd-d030-4ce1-aa00-2abe38a0af22/']",
+                            "metadata_path": "/var/lib/clickhouse/store/1df/1df0ba79-5a9d-4f93-8462-1e7056c3aea5/mv_target_table.sql"
                         },
-                        "externalUrl": null,
                         "name": "mv_target_table",
-                        "qualifiedName": null,
                         "description": "This is target table for materialized view",
-                        "uri": null,
                         "tags": []
                     }
                 },
@@ -206,17 +190,12 @@
                         "version": 0,
                         "created": {
                             "time": 0,
-                            "actor": "urn:li:corpuser:unknown",
-                            "impersonator": null
+                            "actor": "urn:li:corpuser:unknown"
                         },
                         "lastModified": {
                             "time": 0,
-                            "actor": "urn:li:corpuser:unknown",
-                            "impersonator": null
+                            "actor": "urn:li:corpuser:unknown"
                         },
-                        "deleted": null,
-                        "dataset": null,
-                        "cluster": null,
                         "hash": "",
                         "platformSchema": {
                             "com.linkedin.pegasus2avro.schema.MySqlDDL": {
@@ -226,7 +205,6 @@
                         "fields": [
                             {
                                 "fieldPath": "col_DateTime",
-                                "jsonPath": null,
                                 "nullable": false,
                                 "description": "",
                                 "type": {
@@ -236,14 +214,10 @@
                                 },
                                 "nativeDataType": "DateTime",
                                 "recursive": false,
-                                "globalTags": null,
-                                "glossaryTerms": null,
-                                "isPartOfKey": false,
-                                "jsonProps": null
+                                "isPartOfKey": false
                             },
                             {
                                 "fieldPath": "col_Int64",
-                                "jsonPath": null,
                                 "nullable": false,
                                 "description": "",
                                 "type": {
@@ -253,14 +227,10 @@
                                 },
                                 "nativeDataType": "Int64",
                                 "recursive": false,
-                                "globalTags": null,
-                                "glossaryTerms": null,
-                                "isPartOfKey": false,
-                                "jsonProps": null
+                                "isPartOfKey": false
                             },
                             {
                                 "fieldPath": "col_Float64",
-                                "jsonPath": null,
                                 "nullable": false,
                                 "description": "",
                                 "type": {
@@ -270,14 +240,10 @@
                                 },
                                 "nativeDataType": "Float64",
                                 "recursive": false,
-                                "globalTags": null,
-                                "glossaryTerms": null,
-                                "isPartOfKey": false,
-                                "jsonProps": null
+                                "isPartOfKey": false
                             },
                             {
                                 "fieldPath": "col_Decimal64",
-                                "jsonPath": null,
                                 "nullable": false,
                                 "description": "",
                                 "type": {
@@ -287,14 +253,10 @@
                                 },
                                 "nativeDataType": "Decimal(18, 5)",
                                 "recursive": false,
-                                "globalTags": null,
-                                "glossaryTerms": null,
-                                "isPartOfKey": false,
-                                "jsonProps": null
+                                "isPartOfKey": false
                             },
                             {
                                 "fieldPath": "col_String",
-                                "jsonPath": null,
                                 "nullable": true,
                                 "description": "",
                                 "type": {
@@ -304,34 +266,22 @@
                                 },
                                 "nativeDataType": "Nullable(String)",
                                 "recursive": false,
-                                "globalTags": null,
-                                "glossaryTerms": null,
-                                "isPartOfKey": false,
-                                "jsonProps": null
+                                "isPartOfKey": false
                             }
-                        ],
-                        "primaryKeys": null,
-                        "foreignKeysSpecs": null,
-                        "foreignKeys": null
+                        ]
                     }
                 }
             ]
         }
     },
-    "proposedDelta": null,
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "clickhouse-test",
-        "registryName": null,
-        "registryVersion": null,
-        "properties": null
+        "runId": "clickhouse-test"
     }
 },
 {
-    "auditHeader": null,
     "entityType": "dataset",
     "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:clickhouse,clickhousetestserver.db1.mv_target_table,PROD)",
-    "entityKeyAspect": null,
     "changeType": "UPSERT",
     "aspectName": "dataPlatformInstance",
     "aspect": {
@@ -340,17 +290,12 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "clickhouse-test",
-        "registryName": null,
-        "registryVersion": null,
-        "properties": null
+        "runId": "clickhouse-test"
     }
 },
 {
-    "auditHeader": null,
     "entityType": "dataset",
     "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:clickhouse,clickhousetestserver.db1.mv_target_table,PROD)",
-    "entityKeyAspect": null,
     "changeType": "UPSERT",
     "aspectName": "subTypes",
     "aspect": {
@@ -359,17 +304,12 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "clickhouse-test",
-        "registryName": null,
-        "registryVersion": null,
-        "properties": null
+        "runId": "clickhouse-test"
     }
 },
 {
-    "auditHeader": null,
     "entityType": "dataset",
     "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:clickhouse,clickhousetestserver.db1.test_data_types,PROD)",
-    "entityKeyAspect": null,
     "changeType": "UPSERT",
     "aspectName": "container",
     "aspect": {
@@ -378,14 +318,10 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "clickhouse-test",
-        "registryName": null,
-        "registryVersion": null,
-        "properties": null
+        "runId": "clickhouse-test"
     }
 },
 {
-    "auditHeader": null,
     "proposedSnapshot": {
         "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
             "urn": "urn:li:dataset:(urn:li:dataPlatform:clickhouse,clickhousetestserver.db1.test_data_types,PROD)",
@@ -403,13 +339,15 @@
                             "sorting_key": "",
                             "primary_key": "",
                             "sampling_key": "",
-                            "storage_policy": "default"
+                            "storage_policy": "default",
+                            "metadata_modification_time": "2022-10-13 04:56:28",
+                            "total_rows": "0",
+                            "total_bytes": "0",
+                            "data_paths": "['/var/lib/clickhouse/store/938/9383ca3f-c98e-4240-9e0d-0f32939d170b/']",
+                            "metadata_path": "/var/lib/clickhouse/store/1df/1df0ba79-5a9d-4f93-8462-1e7056c3aea5/test_data_types.sql"
                         },
-                        "externalUrl": null,
                         "name": "test_data_types",
-                        "qualifiedName": null,
                         "description": "This table has basic types",
-                        "uri": null,
                         "tags": []
                     }
                 },
@@ -420,17 +358,12 @@
                         "version": 0,
                         "created": {
                             "time": 0,
-                            "actor": "urn:li:corpuser:unknown",
-                            "impersonator": null
+                            "actor": "urn:li:corpuser:unknown"
                         },
                         "lastModified": {
                             "time": 0,
-                            "actor": "urn:li:corpuser:unknown",
-                            "impersonator": null
+                            "actor": "urn:li:corpuser:unknown"
                         },
-                        "deleted": null,
-                        "dataset": null,
-                        "cluster": null,
                         "hash": "",
                         "platformSchema": {
                             "com.linkedin.pegasus2avro.schema.MySqlDDL": {
@@ -440,26 +373,19 @@
                         "fields": [
                             {
                                 "fieldPath": "col_Array",
-                                "jsonPath": null,
                                 "nullable": false,
                                 "description": "",
                                 "type": {
                                     "type": {
-                                        "com.linkedin.pegasus2avro.schema.ArrayType": {
-                                            "nestedType": null
-                                        }
+                                        "com.linkedin.pegasus2avro.schema.ArrayType": {}
                                     }
                                 },
                                 "nativeDataType": "Array(String)",
                                 "recursive": false,
-                                "globalTags": null,
-                                "glossaryTerms": null,
-                                "isPartOfKey": false,
-                                "jsonProps": null
+                                "isPartOfKey": false
                             },
                             {
                                 "fieldPath": "col_Bool",
-                                "jsonPath": null,
                                 "nullable": false,
                                 "description": "https://github.com/ClickHouse/ClickHouse/pull/31072",
                                 "type": {
@@ -469,14 +395,10 @@
                                 },
                                 "nativeDataType": "Bool",
                                 "recursive": false,
-                                "globalTags": null,
-                                "glossaryTerms": null,
-                                "isPartOfKey": false,
-                                "jsonProps": null
+                                "isPartOfKey": false
                             },
                             {
                                 "fieldPath": "col_Date",
-                                "jsonPath": null,
                                 "nullable": false,
                                 "description": "",
                                 "type": {
@@ -486,14 +408,10 @@
                                 },
                                 "nativeDataType": "Date",
                                 "recursive": false,
-                                "globalTags": null,
-                                "glossaryTerms": null,
-                                "isPartOfKey": false,
-                                "jsonProps": null
+                                "isPartOfKey": false
                             },
                             {
                                 "fieldPath": "col_Date32",
-                                "jsonPath": null,
                                 "nullable": false,
                                 "description": "this type was added in ClickHouse v21.9",
                                 "type": {
@@ -503,14 +421,10 @@
                                 },
                                 "nativeDataType": "Date32",
                                 "recursive": false,
-                                "globalTags": null,
-                                "glossaryTerms": null,
-                                "isPartOfKey": false,
-                                "jsonProps": null
+                                "isPartOfKey": false
                             },
                             {
                                 "fieldPath": "col_DateTime",
-                                "jsonPath": null,
                                 "nullable": false,
                                 "description": "",
                                 "type": {
@@ -520,14 +434,10 @@
                                 },
                                 "nativeDataType": "DateTime",
                                 "recursive": false,
-                                "globalTags": null,
-                                "glossaryTerms": null,
-                                "isPartOfKey": false,
-                                "jsonProps": null
+                                "isPartOfKey": false
                             },
                             {
                                 "fieldPath": "col_DatetimeTZ",
-                                "jsonPath": null,
                                 "nullable": false,
                                 "description": "",
                                 "type": {
@@ -537,14 +447,10 @@
                                 },
                                 "nativeDataType": "DateTime('Europe/Berlin')",
                                 "recursive": false,
-                                "globalTags": null,
-                                "glossaryTerms": null,
-                                "isPartOfKey": false,
-                                "jsonProps": null
+                                "isPartOfKey": false
                             },
                             {
                                 "fieldPath": "col_DateTime32",
-                                "jsonPath": null,
                                 "nullable": false,
                                 "description": "",
                                 "type": {
@@ -554,14 +460,10 @@
                                 },
                                 "nativeDataType": "DateTime",
                                 "recursive": false,
-                                "globalTags": null,
-                                "glossaryTerms": null,
-                                "isPartOfKey": false,
-                                "jsonProps": null
+                                "isPartOfKey": false
                             },
                             {
                                 "fieldPath": "col_DateTime64",
-                                "jsonPath": null,
                                 "nullable": false,
                                 "description": "",
                                 "type": {
@@ -571,14 +473,10 @@
                                 },
                                 "nativeDataType": "DateTime64(3)",
                                 "recursive": false,
-                                "globalTags": null,
-                                "glossaryTerms": null,
-                                "isPartOfKey": false,
-                                "jsonProps": null
+                                "isPartOfKey": false
                             },
                             {
                                 "fieldPath": "col_DateTime64TZ",
-                                "jsonPath": null,
                                 "nullable": false,
                                 "description": "",
                                 "type": {
@@ -588,14 +486,10 @@
                                 },
                                 "nativeDataType": "DateTime64(2, 'Europe/Berlin')",
                                 "recursive": false,
-                                "globalTags": null,
-                                "glossaryTerms": null,
-                                "isPartOfKey": false,
-                                "jsonProps": null
+                                "isPartOfKey": false
                             },
                             {
                                 "fieldPath": "col_Decimal",
-                                "jsonPath": null,
                                 "nullable": false,
                                 "description": "",
                                 "type": {
@@ -605,14 +499,10 @@
                                 },
                                 "nativeDataType": "Decimal(2, 1)",
                                 "recursive": false,
-                                "globalTags": null,
-                                "glossaryTerms": null,
-                                "isPartOfKey": false,
-                                "jsonProps": null
+                                "isPartOfKey": false
                             },
                             {
                                 "fieldPath": "col_Decimal128",
-                                "jsonPath": null,
                                 "nullable": false,
                                 "description": "",
                                 "type": {
@@ -622,14 +512,10 @@
                                 },
                                 "nativeDataType": "Decimal(38, 2)",
                                 "recursive": false,
-                                "globalTags": null,
-                                "glossaryTerms": null,
-                                "isPartOfKey": false,
-                                "jsonProps": null
+                                "isPartOfKey": false
                             },
                             {
                                 "fieldPath": "col_Decimal256",
-                                "jsonPath": null,
                                 "nullable": false,
                                 "description": "",
                                 "type": {
@@ -639,14 +525,10 @@
                                 },
                                 "nativeDataType": "Decimal(76, 3)",
                                 "recursive": false,
-                                "globalTags": null,
-                                "glossaryTerms": null,
-                                "isPartOfKey": false,
-                                "jsonProps": null
+                                "isPartOfKey": false
                             },
                             {
                                 "fieldPath": "col_Decimal32",
-                                "jsonPath": null,
                                 "nullable": false,
                                 "description": "",
                                 "type": {
@@ -656,14 +538,10 @@
                                 },
                                 "nativeDataType": "Decimal(9, 4)",
                                 "recursive": false,
-                                "globalTags": null,
-                                "glossaryTerms": null,
-                                "isPartOfKey": false,
-                                "jsonProps": null
+                                "isPartOfKey": false
                             },
                             {
                                 "fieldPath": "col_Decimal64",
-                                "jsonPath": null,
                                 "nullable": false,
                                 "description": "",
                                 "type": {
@@ -673,14 +551,10 @@
                                 },
                                 "nativeDataType": "Decimal(18, 5)",
                                 "recursive": false,
-                                "globalTags": null,
-                                "glossaryTerms": null,
-                                "isPartOfKey": false,
-                                "jsonProps": null
+                                "isPartOfKey": false
                             },
                             {
                                 "fieldPath": "col_Enum",
-                                "jsonPath": null,
                                 "nullable": false,
                                 "description": "",
                                 "type": {
@@ -690,14 +564,10 @@
                                 },
                                 "nativeDataType": "Enum8('hello' = 1, 'world' = 2)",
                                 "recursive": false,
-                                "globalTags": null,
-                                "glossaryTerms": null,
-                                "isPartOfKey": false,
-                                "jsonProps": null
+                                "isPartOfKey": false
                             },
                             {
                                 "fieldPath": "col_Enum16",
-                                "jsonPath": null,
                                 "nullable": false,
                                 "description": "",
                                 "type": {
@@ -707,14 +577,10 @@
                                 },
                                 "nativeDataType": "Enum16('hello' = 1, 'world' = 2)",
                                 "recursive": false,
-                                "globalTags": null,
-                                "glossaryTerms": null,
-                                "isPartOfKey": false,
-                                "jsonProps": null
+                                "isPartOfKey": false
                             },
                             {
                                 "fieldPath": "col_Enum8",
-                                "jsonPath": null,
                                 "nullable": false,
                                 "description": "",
                                 "type": {
@@ -724,14 +590,10 @@
                                 },
                                 "nativeDataType": "Enum8('hello' = 1, 'world' = 2)",
                                 "recursive": false,
-                                "globalTags": null,
-                                "glossaryTerms": null,
-                                "isPartOfKey": false,
-                                "jsonProps": null
+                                "isPartOfKey": false
                             },
                             {
                                 "fieldPath": "col_FixedString",
-                                "jsonPath": null,
                                 "nullable": false,
                                 "description": "",
                                 "type": {
@@ -741,14 +603,10 @@
                                 },
                                 "nativeDataType": "FixedString(128)",
                                 "recursive": false,
-                                "globalTags": null,
-                                "glossaryTerms": null,
-                                "isPartOfKey": false,
-                                "jsonProps": null
+                                "isPartOfKey": false
                             },
                             {
                                 "fieldPath": "col_Float32",
-                                "jsonPath": null,
                                 "nullable": false,
                                 "description": "",
                                 "type": {
@@ -758,14 +616,10 @@
                                 },
                                 "nativeDataType": "Float32",
                                 "recursive": false,
-                                "globalTags": null,
-                                "glossaryTerms": null,
-                                "isPartOfKey": false,
-                                "jsonProps": null
+                                "isPartOfKey": false
                             },
                             {
                                 "fieldPath": "col_Float64",
-                                "jsonPath": null,
                                 "nullable": false,
                                 "description": "",
                                 "type": {
@@ -775,14 +629,10 @@
                                 },
                                 "nativeDataType": "Float64",
                                 "recursive": false,
-                                "globalTags": null,
-                                "glossaryTerms": null,
-                                "isPartOfKey": false,
-                                "jsonProps": null
+                                "isPartOfKey": false
                             },
                             {
                                 "fieldPath": "col_IPv4",
-                                "jsonPath": null,
                                 "nullable": false,
                                 "description": "",
                                 "type": {
@@ -792,14 +642,10 @@
                                 },
                                 "nativeDataType": "IPv4",
                                 "recursive": false,
-                                "globalTags": null,
-                                "glossaryTerms": null,
-                                "isPartOfKey": false,
-                                "jsonProps": null
+                                "isPartOfKey": false
                             },
                             {
                                 "fieldPath": "col_IPv6",
-                                "jsonPath": null,
                                 "nullable": false,
                                 "description": "",
                                 "type": {
@@ -809,14 +655,10 @@
                                 },
                                 "nativeDataType": "IPv6",
                                 "recursive": false,
-                                "globalTags": null,
-                                "glossaryTerms": null,
-                                "isPartOfKey": false,
-                                "jsonProps": null
+                                "isPartOfKey": false
                             },
                             {
                                 "fieldPath": "col_Int128",
-                                "jsonPath": null,
                                 "nullable": false,
                                 "description": "",
                                 "type": {
@@ -826,14 +668,10 @@
                                 },
                                 "nativeDataType": "Int128",
                                 "recursive": false,
-                                "globalTags": null,
-                                "glossaryTerms": null,
-                                "isPartOfKey": false,
-                                "jsonProps": null
+                                "isPartOfKey": false
                             },
                             {
                                 "fieldPath": "col_Int16",
-                                "jsonPath": null,
                                 "nullable": false,
                                 "description": "",
                                 "type": {
@@ -843,14 +681,10 @@
                                 },
                                 "nativeDataType": "Int16",
                                 "recursive": false,
-                                "globalTags": null,
-                                "glossaryTerms": null,
-                                "isPartOfKey": false,
-                                "jsonProps": null
+                                "isPartOfKey": false
                             },
                             {
                                 "fieldPath": "col_Int256",
-                                "jsonPath": null,
                                 "nullable": false,
                                 "description": "",
                                 "type": {
@@ -860,14 +694,10 @@
                                 },
                                 "nativeDataType": "Int256",
                                 "recursive": false,
-                                "globalTags": null,
-                                "glossaryTerms": null,
-                                "isPartOfKey": false,
-                                "jsonProps": null
+                                "isPartOfKey": false
                             },
                             {
                                 "fieldPath": "col_Int32",
-                                "jsonPath": null,
                                 "nullable": false,
                                 "description": "",
                                 "type": {
@@ -877,14 +707,10 @@
                                 },
                                 "nativeDataType": "Int32",
                                 "recursive": false,
-                                "globalTags": null,
-                                "glossaryTerms": null,
-                                "isPartOfKey": false,
-                                "jsonProps": null
+                                "isPartOfKey": false
                             },
                             {
                                 "fieldPath": "col_Int64",
-                                "jsonPath": null,
                                 "nullable": false,
                                 "description": "",
                                 "type": {
@@ -894,14 +720,10 @@
                                 },
                                 "nativeDataType": "Int64",
                                 "recursive": false,
-                                "globalTags": null,
-                                "glossaryTerms": null,
-                                "isPartOfKey": false,
-                                "jsonProps": null
+                                "isPartOfKey": false
                             },
                             {
                                 "fieldPath": "col_Int8",
-                                "jsonPath": null,
                                 "nullable": false,
                                 "description": "",
                                 "type": {
@@ -911,34 +733,23 @@
                                 },
                                 "nativeDataType": "Int8",
                                 "recursive": false,
-                                "globalTags": null,
-                                "glossaryTerms": null,
-                                "isPartOfKey": false,
-                                "jsonProps": null
+                                "isPartOfKey": false
                             },
                             {
                                 "fieldPath": "col_Map",
-                                "jsonPath": null,
                                 "nullable": false,
                                 "description": "",
                                 "type": {
                                     "type": {
-                                        "com.linkedin.pegasus2avro.schema.MapType": {
-                                            "keyType": null,
-                                            "valueType": null
-                                        }
+                                        "com.linkedin.pegasus2avro.schema.MapType": {}
                                     }
                                 },
                                 "nativeDataType": "Map(String, Nullable(UInt64))",
                                 "recursive": false,
-                                "globalTags": null,
-                                "glossaryTerms": null,
-                                "isPartOfKey": false,
-                                "jsonProps": null
+                                "isPartOfKey": false
                             },
                             {
                                 "fieldPath": "col_String",
-                                "jsonPath": null,
                                 "nullable": false,
                                 "description": "",
                                 "type": {
@@ -948,33 +759,23 @@
                                 },
                                 "nativeDataType": "String",
                                 "recursive": false,
-                                "globalTags": null,
-                                "glossaryTerms": null,
-                                "isPartOfKey": false,
-                                "jsonProps": null
+                                "isPartOfKey": false
                             },
                             {
                                 "fieldPath": "col_Tuple",
-                                "jsonPath": null,
                                 "nullable": false,
                                 "description": "",
                                 "type": {
                                     "type": {
-                                        "com.linkedin.pegasus2avro.schema.UnionType": {
-                                            "nestedTypes": null
-                                        }
+                                        "com.linkedin.pegasus2avro.schema.UnionType": {}
                                     }
                                 },
                                 "nativeDataType": "Tuple(UInt8, Array(String))",
                                 "recursive": false,
-                                "globalTags": null,
-                                "glossaryTerms": null,
-                                "isPartOfKey": false,
-                                "jsonProps": null
+                                "isPartOfKey": false
                             },
                             {
                                 "fieldPath": "col_UInt128",
-                                "jsonPath": null,
                                 "nullable": false,
                                 "description": "",
                                 "type": {
@@ -984,14 +785,10 @@
                                 },
                                 "nativeDataType": "UInt128",
                                 "recursive": false,
-                                "globalTags": null,
-                                "glossaryTerms": null,
-                                "isPartOfKey": false,
-                                "jsonProps": null
+                                "isPartOfKey": false
                             },
                             {
                                 "fieldPath": "col_UInt16",
-                                "jsonPath": null,
                                 "nullable": false,
                                 "description": "",
                                 "type": {
@@ -1001,14 +798,10 @@
                                 },
                                 "nativeDataType": "UInt16",
                                 "recursive": false,
-                                "globalTags": null,
-                                "glossaryTerms": null,
-                                "isPartOfKey": false,
-                                "jsonProps": null
+                                "isPartOfKey": false
                             },
                             {
                                 "fieldPath": "col_UInt256",
-                                "jsonPath": null,
                                 "nullable": false,
                                 "description": "",
                                 "type": {
@@ -1018,14 +811,10 @@
                                 },
                                 "nativeDataType": "UInt256",
                                 "recursive": false,
-                                "globalTags": null,
-                                "glossaryTerms": null,
-                                "isPartOfKey": false,
-                                "jsonProps": null
+                                "isPartOfKey": false
                             },
                             {
                                 "fieldPath": "col_UInt32",
-                                "jsonPath": null,
                                 "nullable": false,
                                 "description": "",
                                 "type": {
@@ -1035,14 +824,10 @@
                                 },
                                 "nativeDataType": "UInt32",
                                 "recursive": false,
-                                "globalTags": null,
-                                "glossaryTerms": null,
-                                "isPartOfKey": false,
-                                "jsonProps": null
+                                "isPartOfKey": false
                             },
                             {
                                 "fieldPath": "col_UInt64",
-                                "jsonPath": null,
                                 "nullable": false,
                                 "description": "",
                                 "type": {
@@ -1052,14 +837,10 @@
                                 },
                                 "nativeDataType": "UInt64",
                                 "recursive": false,
-                                "globalTags": null,
-                                "glossaryTerms": null,
-                                "isPartOfKey": false,
-                                "jsonProps": null
+                                "isPartOfKey": false
                             },
                             {
                                 "fieldPath": "col_UInt8",
-                                "jsonPath": null,
                                 "nullable": false,
                                 "description": "",
                                 "type": {
@@ -1069,14 +850,10 @@
                                 },
                                 "nativeDataType": "UInt8",
                                 "recursive": false,
-                                "globalTags": null,
-                                "glossaryTerms": null,
-                                "isPartOfKey": false,
-                                "jsonProps": null
+                                "isPartOfKey": false
                             },
                             {
                                 "fieldPath": "col_UUID",
-                                "jsonPath": null,
                                 "nullable": false,
                                 "description": "",
                                 "type": {
@@ -1086,34 +863,22 @@
                                 },
                                 "nativeDataType": "UUID",
                                 "recursive": false,
-                                "globalTags": null,
-                                "glossaryTerms": null,
-                                "isPartOfKey": false,
-                                "jsonProps": null
+                                "isPartOfKey": false
                             }
-                        ],
-                        "primaryKeys": null,
-                        "foreignKeysSpecs": null,
-                        "foreignKeys": null
+                        ]
                     }
                 }
             ]
         }
     },
-    "proposedDelta": null,
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "clickhouse-test",
-        "registryName": null,
-        "registryVersion": null,
-        "properties": null
+        "runId": "clickhouse-test"
     }
 },
 {
-    "auditHeader": null,
     "entityType": "dataset",
     "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:clickhouse,clickhousetestserver.db1.test_data_types,PROD)",
-    "entityKeyAspect": null,
     "changeType": "UPSERT",
     "aspectName": "dataPlatformInstance",
     "aspect": {
@@ -1122,17 +887,12 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "clickhouse-test",
-        "registryName": null,
-        "registryVersion": null,
-        "properties": null
+        "runId": "clickhouse-test"
     }
 },
 {
-    "auditHeader": null,
     "entityType": "dataset",
     "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:clickhouse,clickhousetestserver.db1.test_data_types,PROD)",
-    "entityKeyAspect": null,
     "changeType": "UPSERT",
     "aspectName": "subTypes",
     "aspect": {
@@ -1141,17 +901,12 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "clickhouse-test",
-        "registryName": null,
-        "registryVersion": null,
-        "properties": null
+        "runId": "clickhouse-test"
     }
 },
 {
-    "auditHeader": null,
     "entityType": "dataset",
     "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:clickhouse,clickhousetestserver.db1.test_dict,PROD)",
-    "entityKeyAspect": null,
     "changeType": "UPSERT",
     "aspectName": "container",
     "aspect": {
@@ -1160,17 +915,12 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "clickhouse-test",
-        "registryName": null,
-        "registryVersion": null,
-        "properties": null
+        "runId": "clickhouse-test"
     }
 },
 {
-    "auditHeader": null,
     "entityType": "dataset",
     "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:clickhouse,clickhousetestserver.db1.test_dict,PROD)",
-    "entityKeyAspect": null,
     "changeType": "UPSERT",
     "aspectName": "upstreamLineage",
     "aspect": {
@@ -1179,14 +929,10 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "clickhouse-test",
-        "registryName": null,
-        "registryVersion": null,
-        "properties": null
+        "runId": "clickhouse-test"
     }
 },
 {
-    "auditHeader": null,
     "proposedSnapshot": {
         "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
             "urn": "urn:li:dataset:(urn:li:dataPlatform:clickhouse,clickhousetestserver.db1.test_dict,PROD)",
@@ -1204,13 +950,15 @@
                             "sorting_key": "",
                             "primary_key": "",
                             "sampling_key": "",
-                            "storage_policy": ""
+                            "storage_policy": "",
+                            "metadata_modification_time": "2022-10-13 04:56:28",
+                            "total_rows": "None",
+                            "total_bytes": "None",
+                            "data_paths": "[]",
+                            "metadata_path": "/var/lib/clickhouse/store/1df/1df0ba79-5a9d-4f93-8462-1e7056c3aea5/test_dict.sql"
                         },
-                        "externalUrl": null,
                         "name": "test_dict",
-                        "qualifiedName": null,
                         "description": "",
-                        "uri": null,
                         "tags": []
                     }
                 },
@@ -1221,17 +969,12 @@
                         "version": 0,
                         "created": {
                             "time": 0,
-                            "actor": "urn:li:corpuser:unknown",
-                            "impersonator": null
+                            "actor": "urn:li:corpuser:unknown"
                         },
                         "lastModified": {
                             "time": 0,
-                            "actor": "urn:li:corpuser:unknown",
-                            "impersonator": null
+                            "actor": "urn:li:corpuser:unknown"
                         },
-                        "deleted": null,
-                        "dataset": null,
-                        "cluster": null,
                         "hash": "",
                         "platformSchema": {
                             "com.linkedin.pegasus2avro.schema.MySqlDDL": {
@@ -1241,7 +984,6 @@
                         "fields": [
                             {
                                 "fieldPath": "col_Int64",
-                                "jsonPath": null,
                                 "nullable": false,
                                 "description": "",
                                 "type": {
@@ -1251,14 +993,10 @@
                                 },
                                 "nativeDataType": "UInt64",
                                 "recursive": false,
-                                "globalTags": null,
-                                "glossaryTerms": null,
-                                "isPartOfKey": false,
-                                "jsonProps": null
+                                "isPartOfKey": false
                             },
                             {
                                 "fieldPath": "col_String",
-                                "jsonPath": null,
                                 "nullable": false,
                                 "description": "",
                                 "type": {
@@ -1268,34 +1006,22 @@
                                 },
                                 "nativeDataType": "String",
                                 "recursive": false,
-                                "globalTags": null,
-                                "glossaryTerms": null,
-                                "isPartOfKey": false,
-                                "jsonProps": null
+                                "isPartOfKey": false
                             }
-                        ],
-                        "primaryKeys": null,
-                        "foreignKeysSpecs": null,
-                        "foreignKeys": null
+                        ]
                     }
                 }
             ]
         }
     },
-    "proposedDelta": null,
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "clickhouse-test",
-        "registryName": null,
-        "registryVersion": null,
-        "properties": null
+        "runId": "clickhouse-test"
     }
 },
 {
-    "auditHeader": null,
     "entityType": "dataset",
     "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:clickhouse,clickhousetestserver.db1.test_dict,PROD)",
-    "entityKeyAspect": null,
     "changeType": "UPSERT",
     "aspectName": "dataPlatformInstance",
     "aspect": {
@@ -1304,17 +1030,12 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "clickhouse-test",
-        "registryName": null,
-        "registryVersion": null,
-        "properties": null
+        "runId": "clickhouse-test"
     }
 },
 {
-    "auditHeader": null,
     "entityType": "dataset",
     "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:clickhouse,clickhousetestserver.db1.test_dict,PROD)",
-    "entityKeyAspect": null,
     "changeType": "UPSERT",
     "aspectName": "subTypes",
     "aspect": {
@@ -1323,17 +1044,12 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "clickhouse-test",
-        "registryName": null,
-        "registryVersion": null,
-        "properties": null
+        "runId": "clickhouse-test"
     }
 },
 {
-    "auditHeader": null,
     "entityType": "dataset",
     "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:clickhouse,clickhousetestserver.db1.test_nested_data_types,PROD)",
-    "entityKeyAspect": null,
     "changeType": "UPSERT",
     "aspectName": "container",
     "aspect": {
@@ -1342,14 +1058,10 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "clickhouse-test",
-        "registryName": null,
-        "registryVersion": null,
-        "properties": null
+        "runId": "clickhouse-test"
     }
 },
 {
-    "auditHeader": null,
     "proposedSnapshot": {
         "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
             "urn": "urn:li:dataset:(urn:li:dataPlatform:clickhouse,clickhousetestserver.db1.test_nested_data_types,PROD)",
@@ -1367,13 +1079,15 @@
                             "sorting_key": "",
                             "primary_key": "",
                             "sampling_key": "",
-                            "storage_policy": "default"
+                            "storage_policy": "default",
+                            "metadata_modification_time": "2022-10-13 04:56:28",
+                            "total_rows": "0",
+                            "total_bytes": "0",
+                            "data_paths": "['/var/lib/clickhouse/store/f7f/f7f15fe6-10cc-45d6-928e-6eb4ecc7a502/']",
+                            "metadata_path": "/var/lib/clickhouse/store/1df/1df0ba79-5a9d-4f93-8462-1e7056c3aea5/test_nested_data_types.sql"
                         },
-                        "externalUrl": null,
                         "name": "test_nested_data_types",
-                        "qualifiedName": null,
                         "description": "This table has nested types",
-                        "uri": null,
                         "tags": []
                     }
                 },
@@ -1384,17 +1098,12 @@
                         "version": 0,
                         "created": {
                             "time": 0,
-                            "actor": "urn:li:corpuser:unknown",
-                            "impersonator": null
+                            "actor": "urn:li:corpuser:unknown"
                         },
                         "lastModified": {
                             "time": 0,
-                            "actor": "urn:li:corpuser:unknown",
-                            "impersonator": null
+                            "actor": "urn:li:corpuser:unknown"
                         },
-                        "deleted": null,
-                        "dataset": null,
-                        "cluster": null,
                         "hash": "",
                         "platformSchema": {
                             "com.linkedin.pegasus2avro.schema.MySqlDDL": {
@@ -1404,26 +1113,19 @@
                         "fields": [
                             {
                                 "fieldPath": "col_ArrayArrayInt",
-                                "jsonPath": null,
                                 "nullable": false,
                                 "description": "this is a comment",
                                 "type": {
                                     "type": {
-                                        "com.linkedin.pegasus2avro.schema.ArrayType": {
-                                            "nestedType": null
-                                        }
+                                        "com.linkedin.pegasus2avro.schema.ArrayType": {}
                                     }
                                 },
                                 "nativeDataType": "Array(Array(Int8))",
                                 "recursive": false,
-                                "globalTags": null,
-                                "glossaryTerms": null,
-                                "isPartOfKey": false,
-                                "jsonProps": null
+                                "isPartOfKey": false
                             },
                             {
                                 "fieldPath": "col_LowCardinality",
-                                "jsonPath": null,
                                 "nullable": false,
                                 "description": "",
                                 "type": {
@@ -1433,14 +1135,10 @@
                                 },
                                 "nativeDataType": "LowCardinality(String)",
                                 "recursive": false,
-                                "globalTags": null,
-                                "glossaryTerms": null,
-                                "isPartOfKey": false,
-                                "jsonProps": null
+                                "isPartOfKey": false
                             },
                             {
                                 "fieldPath": "col_AggregateFunction",
-                                "jsonPath": null,
                                 "nullable": false,
                                 "description": "",
                                 "type": {
@@ -1450,14 +1148,10 @@
                                 },
                                 "nativeDataType": "AggregateFunction(avg, Float64)",
                                 "recursive": false,
-                                "globalTags": null,
-                                "glossaryTerms": null,
-                                "isPartOfKey": false,
-                                "jsonProps": null
+                                "isPartOfKey": false
                             },
                             {
                                 "fieldPath": "col_SimpleAggregateFunction",
-                                "jsonPath": null,
                                 "nullable": false,
                                 "description": "",
                                 "type": {
@@ -1467,71 +1161,49 @@
                                 },
                                 "nativeDataType": "SimpleAggregateFunction(max, Decimal(38, 7))",
                                 "recursive": false,
-                                "globalTags": null,
-                                "glossaryTerms": null,
-                                "isPartOfKey": false,
-                                "jsonProps": null
+                                "isPartOfKey": false
                             },
                             {
                                 "fieldPath": "col_Nested.c1",
-                                "jsonPath": null,
                                 "nullable": false,
                                 "description": "",
                                 "type": {
                                     "type": {
-                                        "com.linkedin.pegasus2avro.schema.ArrayType": {
-                                            "nestedType": null
-                                        }
+                                        "com.linkedin.pegasus2avro.schema.ArrayType": {}
                                     }
                                 },
                                 "nativeDataType": "Array(UInt32)",
                                 "recursive": false,
-                                "globalTags": null,
-                                "glossaryTerms": null,
-                                "isPartOfKey": false,
-                                "jsonProps": null
+                                "isPartOfKey": false
                             },
                             {
                                 "fieldPath": "col_Nested.c2",
-                                "jsonPath": null,
                                 "nullable": false,
                                 "description": "",
                                 "type": {
                                     "type": {
-                                        "com.linkedin.pegasus2avro.schema.ArrayType": {
-                                            "nestedType": null
-                                        }
+                                        "com.linkedin.pegasus2avro.schema.ArrayType": {}
                                     }
                                 },
                                 "nativeDataType": "Array(UInt64)",
                                 "recursive": false,
-                                "globalTags": null,
-                                "glossaryTerms": null,
-                                "isPartOfKey": false,
-                                "jsonProps": null
+                                "isPartOfKey": false
                             },
                             {
                                 "fieldPath": "col_Nested.c3.c4",
-                                "jsonPath": null,
                                 "nullable": false,
                                 "description": "",
                                 "type": {
                                     "type": {
-                                        "com.linkedin.pegasus2avro.schema.ArrayType": {
-                                            "nestedType": null
-                                        }
+                                        "com.linkedin.pegasus2avro.schema.ArrayType": {}
                                     }
                                 },
                                 "nativeDataType": "Array(UInt128)",
                                 "recursive": false,
-                                "globalTags": null,
-                                "glossaryTerms": null,
-                                "isPartOfKey": false,
-                                "jsonProps": null
+                                "isPartOfKey": false
                             },
                             {
                                 "fieldPath": "col_Nullable",
-                                "jsonPath": null,
                                 "nullable": true,
                                 "description": "",
                                 "type": {
@@ -1541,33 +1213,23 @@
                                 },
                                 "nativeDataType": "Nullable(Int8)",
                                 "recursive": false,
-                                "globalTags": null,
-                                "glossaryTerms": null,
-                                "isPartOfKey": false,
-                                "jsonProps": null
+                                "isPartOfKey": false
                             },
                             {
                                 "fieldPath": "col_Array_Nullable_String",
-                                "jsonPath": null,
                                 "nullable": false,
                                 "description": "",
                                 "type": {
                                     "type": {
-                                        "com.linkedin.pegasus2avro.schema.ArrayType": {
-                                            "nestedType": null
-                                        }
+                                        "com.linkedin.pegasus2avro.schema.ArrayType": {}
                                     }
                                 },
                                 "nativeDataType": "Array(Nullable(String))",
                                 "recursive": false,
-                                "globalTags": null,
-                                "glossaryTerms": null,
-                                "isPartOfKey": false,
-                                "jsonProps": null
+                                "isPartOfKey": false
                             },
                             {
                                 "fieldPath": "col_LowCardinality_Nullable_String",
-                                "jsonPath": null,
                                 "nullable": true,
                                 "description": "",
                                 "type": {
@@ -1577,34 +1239,22 @@
                                 },
                                 "nativeDataType": "LowCardinality(Nullable(String))",
                                 "recursive": false,
-                                "globalTags": null,
-                                "glossaryTerms": null,
-                                "isPartOfKey": false,
-                                "jsonProps": null
+                                "isPartOfKey": false
                             }
-                        ],
-                        "primaryKeys": null,
-                        "foreignKeysSpecs": null,
-                        "foreignKeys": null
+                        ]
                     }
                 }
             ]
         }
     },
-    "proposedDelta": null,
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "clickhouse-test",
-        "registryName": null,
-        "registryVersion": null,
-        "properties": null
+        "runId": "clickhouse-test"
     }
 },
 {
-    "auditHeader": null,
     "entityType": "dataset",
     "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:clickhouse,clickhousetestserver.db1.test_nested_data_types,PROD)",
-    "entityKeyAspect": null,
     "changeType": "UPSERT",
     "aspectName": "dataPlatformInstance",
     "aspect": {
@@ -1613,17 +1263,12 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "clickhouse-test",
-        "registryName": null,
-        "registryVersion": null,
-        "properties": null
+        "runId": "clickhouse-test"
     }
 },
 {
-    "auditHeader": null,
     "entityType": "dataset",
     "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:clickhouse,clickhousetestserver.db1.test_nested_data_types,PROD)",
-    "entityKeyAspect": null,
     "changeType": "UPSERT",
     "aspectName": "subTypes",
     "aspect": {
@@ -1632,17 +1277,12 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "clickhouse-test",
-        "registryName": null,
-        "registryVersion": null,
-        "properties": null
+        "runId": "clickhouse-test"
     }
 },
 {
-    "auditHeader": null,
     "entityType": "dataset",
     "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:clickhouse,clickhousetestserver.db1.mv_with_target_table,PROD)",
-    "entityKeyAspect": null,
     "changeType": "UPSERT",
     "aspectName": "container",
     "aspect": {
@@ -1651,17 +1291,12 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "clickhouse-test",
-        "registryName": null,
-        "registryVersion": null,
-        "properties": null
+        "runId": "clickhouse-test"
     }
 },
 {
-    "auditHeader": null,
     "entityType": "dataset",
     "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:clickhouse,clickhousetestserver.db1.mv_with_target_table,PROD)",
-    "entityKeyAspect": null,
     "changeType": "UPSERT",
     "aspectName": "upstreamLineage",
     "aspect": {
@@ -1670,14 +1305,10 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "clickhouse-test",
-        "registryName": null,
-        "registryVersion": null,
-        "properties": null
+        "runId": "clickhouse-test"
     }
 },
 {
-    "auditHeader": null,
     "proposedSnapshot": {
         "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
             "urn": "urn:li:dataset:(urn:li:dataPlatform:clickhouse,clickhousetestserver.db1.mv_with_target_table,PROD)",
@@ -1696,14 +1327,16 @@
                             "primary_key": "",
                             "sampling_key": "",
                             "storage_policy": "",
+                            "metadata_modification_time": "2022-10-13 04:56:28",
+                            "total_rows": "None",
+                            "total_bytes": "None",
+                            "data_paths": "['/var/lib/clickhouse/store/f12/f12ef1cd-d030-4ce1-aa00-2abe38a0af22/']",
+                            "metadata_path": "/var/lib/clickhouse/store/1df/1df0ba79-5a9d-4f93-8462-1e7056c3aea5/mv_with_target_table.sql",
                             "view_definition": "",
                             "is_view": "True"
                         },
-                        "externalUrl": null,
                         "name": "mv_with_target_table",
-                        "qualifiedName": null,
                         "description": "",
-                        "uri": null,
                         "tags": []
                     }
                 },
@@ -1714,17 +1347,12 @@
                         "version": 0,
                         "created": {
                             "time": 0,
-                            "actor": "urn:li:corpuser:unknown",
-                            "impersonator": null
+                            "actor": "urn:li:corpuser:unknown"
                         },
                         "lastModified": {
                             "time": 0,
-                            "actor": "urn:li:corpuser:unknown",
-                            "impersonator": null
+                            "actor": "urn:li:corpuser:unknown"
                         },
-                        "deleted": null,
-                        "dataset": null,
-                        "cluster": null,
                         "hash": "",
                         "platformSchema": {
                             "com.linkedin.pegasus2avro.schema.MySqlDDL": {
@@ -1734,7 +1362,6 @@
                         "fields": [
                             {
                                 "fieldPath": "col_DateTime",
-                                "jsonPath": null,
                                 "nullable": false,
                                 "description": "",
                                 "type": {
@@ -1744,14 +1371,10 @@
                                 },
                                 "nativeDataType": "DateTime",
                                 "recursive": false,
-                                "globalTags": null,
-                                "glossaryTerms": null,
-                                "isPartOfKey": false,
-                                "jsonProps": null
+                                "isPartOfKey": false
                             },
                             {
                                 "fieldPath": "col_Int64",
-                                "jsonPath": null,
                                 "nullable": false,
                                 "description": "",
                                 "type": {
@@ -1761,14 +1384,10 @@
                                 },
                                 "nativeDataType": "Int64",
                                 "recursive": false,
-                                "globalTags": null,
-                                "glossaryTerms": null,
-                                "isPartOfKey": false,
-                                "jsonProps": null
+                                "isPartOfKey": false
                             },
                             {
                                 "fieldPath": "col_Float64",
-                                "jsonPath": null,
                                 "nullable": false,
                                 "description": "",
                                 "type": {
@@ -1778,14 +1397,10 @@
                                 },
                                 "nativeDataType": "Float64",
                                 "recursive": false,
-                                "globalTags": null,
-                                "glossaryTerms": null,
-                                "isPartOfKey": false,
-                                "jsonProps": null
+                                "isPartOfKey": false
                             },
                             {
                                 "fieldPath": "col_Decimal64",
-                                "jsonPath": null,
                                 "nullable": false,
                                 "description": "",
                                 "type": {
@@ -1795,14 +1410,10 @@
                                 },
                                 "nativeDataType": "Decimal(18, 5)",
                                 "recursive": false,
-                                "globalTags": null,
-                                "glossaryTerms": null,
-                                "isPartOfKey": false,
-                                "jsonProps": null
+                                "isPartOfKey": false
                             },
                             {
                                 "fieldPath": "col_String",
-                                "jsonPath": null,
                                 "nullable": false,
                                 "description": "",
                                 "type": {
@@ -1812,34 +1423,22 @@
                                 },
                                 "nativeDataType": "String",
                                 "recursive": false,
-                                "globalTags": null,
-                                "glossaryTerms": null,
-                                "isPartOfKey": false,
-                                "jsonProps": null
+                                "isPartOfKey": false
                             }
-                        ],
-                        "primaryKeys": null,
-                        "foreignKeysSpecs": null,
-                        "foreignKeys": null
+                        ]
                     }
                 }
             ]
         }
     },
-    "proposedDelta": null,
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "clickhouse-test",
-        "registryName": null,
-        "registryVersion": null,
-        "properties": null
+        "runId": "clickhouse-test"
     }
 },
 {
-    "auditHeader": null,
     "entityType": "dataset",
     "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:clickhouse,clickhousetestserver.db1.mv_with_target_table,PROD)",
-    "entityKeyAspect": null,
     "changeType": "UPSERT",
     "aspectName": "dataPlatformInstance",
     "aspect": {
@@ -1848,17 +1447,12 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "clickhouse-test",
-        "registryName": null,
-        "registryVersion": null,
-        "properties": null
+        "runId": "clickhouse-test"
     }
 },
 {
-    "auditHeader": null,
     "entityType": "dataset",
     "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:clickhouse,clickhousetestserver.db1.mv_with_target_table,PROD)",
-    "entityKeyAspect": null,
     "changeType": "UPSERT",
     "aspectName": "subTypes",
     "aspect": {
@@ -1867,17 +1461,12 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "clickhouse-test",
-        "registryName": null,
-        "registryVersion": null,
-        "properties": null
+        "runId": "clickhouse-test"
     }
 },
 {
-    "auditHeader": null,
     "entityType": "dataset",
     "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:clickhouse,clickhousetestserver.db1.mv_with_target_table,PROD)",
-    "entityKeyAspect": null,
     "changeType": "UPSERT",
     "aspectName": "viewProperties",
     "aspect": {
@@ -1886,17 +1475,12 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "clickhouse-test",
-        "registryName": null,
-        "registryVersion": null,
-        "properties": null
+        "runId": "clickhouse-test"
     }
 },
 {
-    "auditHeader": null,
     "entityType": "dataset",
     "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:clickhouse,clickhousetestserver.db1.mv_without_target_table,PROD)",
-    "entityKeyAspect": null,
     "changeType": "UPSERT",
     "aspectName": "container",
     "aspect": {
@@ -1905,17 +1489,12 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "clickhouse-test",
-        "registryName": null,
-        "registryVersion": null,
-        "properties": null
+        "runId": "clickhouse-test"
     }
 },
 {
-    "auditHeader": null,
     "entityType": "dataset",
     "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:clickhouse,clickhousetestserver.db1.mv_without_target_table,PROD)",
-    "entityKeyAspect": null,
     "changeType": "UPSERT",
     "aspectName": "upstreamLineage",
     "aspect": {
@@ -1924,14 +1503,10 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "clickhouse-test",
-        "registryName": null,
-        "registryVersion": null,
-        "properties": null
+        "runId": "clickhouse-test"
     }
 },
 {
-    "auditHeader": null,
     "proposedSnapshot": {
         "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
             "urn": "urn:li:dataset:(urn:li:dataPlatform:clickhouse,clickhousetestserver.db1.mv_without_target_table,PROD)",
@@ -1950,14 +1525,16 @@
                             "primary_key": "",
                             "sampling_key": "",
                             "storage_policy": "",
+                            "metadata_modification_time": "2022-10-13 04:56:28",
+                            "total_rows": "0",
+                            "total_bytes": "0",
+                            "data_paths": "['/var/lib/clickhouse/store/6f6/6f6a1b0a-8873-48b2-a370-1fbf5c04eea8/']",
+                            "metadata_path": "/var/lib/clickhouse/store/1df/1df0ba79-5a9d-4f93-8462-1e7056c3aea5/mv_without_target_table.sql",
                             "view_definition": "",
                             "is_view": "True"
                         },
-                        "externalUrl": null,
                         "name": "mv_without_target_table",
-                        "qualifiedName": null,
                         "description": "",
-                        "uri": null,
                         "tags": []
                     }
                 },
@@ -1968,17 +1545,12 @@
                         "version": 0,
                         "created": {
                             "time": 0,
-                            "actor": "urn:li:corpuser:unknown",
-                            "impersonator": null
+                            "actor": "urn:li:corpuser:unknown"
                         },
                         "lastModified": {
                             "time": 0,
-                            "actor": "urn:li:corpuser:unknown",
-                            "impersonator": null
+                            "actor": "urn:li:corpuser:unknown"
                         },
-                        "deleted": null,
-                        "dataset": null,
-                        "cluster": null,
                         "hash": "",
                         "platformSchema": {
                             "com.linkedin.pegasus2avro.schema.MySqlDDL": {
@@ -1988,26 +1560,19 @@
                         "fields": [
                             {
                                 "fieldPath": "col_ArrayArrayInt",
-                                "jsonPath": null,
                                 "nullable": false,
                                 "description": "",
                                 "type": {
                                     "type": {
-                                        "com.linkedin.pegasus2avro.schema.ArrayType": {
-                                            "nestedType": null
-                                        }
+                                        "com.linkedin.pegasus2avro.schema.ArrayType": {}
                                     }
                                 },
                                 "nativeDataType": "Array(Array(Int8))",
                                 "recursive": false,
-                                "globalTags": null,
-                                "glossaryTerms": null,
-                                "isPartOfKey": false,
-                                "jsonProps": null
+                                "isPartOfKey": false
                             },
                             {
                                 "fieldPath": "col_LowCardinality",
-                                "jsonPath": null,
                                 "nullable": false,
                                 "description": "",
                                 "type": {
@@ -2017,14 +1582,10 @@
                                 },
                                 "nativeDataType": "LowCardinality(String)",
                                 "recursive": false,
-                                "globalTags": null,
-                                "glossaryTerms": null,
-                                "isPartOfKey": false,
-                                "jsonProps": null
+                                "isPartOfKey": false
                             },
                             {
                                 "fieldPath": "col_Nullable",
-                                "jsonPath": null,
                                 "nullable": true,
                                 "description": "",
                                 "type": {
@@ -2034,33 +1595,23 @@
                                 },
                                 "nativeDataType": "Nullable(Int8)",
                                 "recursive": false,
-                                "globalTags": null,
-                                "glossaryTerms": null,
-                                "isPartOfKey": false,
-                                "jsonProps": null
+                                "isPartOfKey": false
                             },
                             {
                                 "fieldPath": "col_Array_Nullable_String",
-                                "jsonPath": null,
                                 "nullable": false,
                                 "description": "",
                                 "type": {
                                     "type": {
-                                        "com.linkedin.pegasus2avro.schema.ArrayType": {
-                                            "nestedType": null
-                                        }
+                                        "com.linkedin.pegasus2avro.schema.ArrayType": {}
                                     }
                                 },
                                 "nativeDataType": "Array(Nullable(String))",
                                 "recursive": false,
-                                "globalTags": null,
-                                "glossaryTerms": null,
-                                "isPartOfKey": false,
-                                "jsonProps": null
+                                "isPartOfKey": false
                             },
                             {
                                 "fieldPath": "col_LowCardinality_Nullable_String",
-                                "jsonPath": null,
                                 "nullable": true,
                                 "description": "",
                                 "type": {
@@ -2070,34 +1621,22 @@
                                 },
                                 "nativeDataType": "LowCardinality(Nullable(String))",
                                 "recursive": false,
-                                "globalTags": null,
-                                "glossaryTerms": null,
-                                "isPartOfKey": false,
-                                "jsonProps": null
+                                "isPartOfKey": false
                             }
-                        ],
-                        "primaryKeys": null,
-                        "foreignKeysSpecs": null,
-                        "foreignKeys": null
+                        ]
                     }
                 }
             ]
         }
     },
-    "proposedDelta": null,
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "clickhouse-test",
-        "registryName": null,
-        "registryVersion": null,
-        "properties": null
+        "runId": "clickhouse-test"
     }
 },
 {
-    "auditHeader": null,
     "entityType": "dataset",
     "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:clickhouse,clickhousetestserver.db1.mv_without_target_table,PROD)",
-    "entityKeyAspect": null,
     "changeType": "UPSERT",
     "aspectName": "dataPlatformInstance",
     "aspect": {
@@ -2106,17 +1645,12 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "clickhouse-test",
-        "registryName": null,
-        "registryVersion": null,
-        "properties": null
+        "runId": "clickhouse-test"
     }
 },
 {
-    "auditHeader": null,
     "entityType": "dataset",
     "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:clickhouse,clickhousetestserver.db1.mv_without_target_table,PROD)",
-    "entityKeyAspect": null,
     "changeType": "UPSERT",
     "aspectName": "subTypes",
     "aspect": {
@@ -2125,17 +1659,12 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "clickhouse-test",
-        "registryName": null,
-        "registryVersion": null,
-        "properties": null
+        "runId": "clickhouse-test"
     }
 },
 {
-    "auditHeader": null,
     "entityType": "dataset",
     "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:clickhouse,clickhousetestserver.db1.mv_without_target_table,PROD)",
-    "entityKeyAspect": null,
     "changeType": "UPSERT",
     "aspectName": "viewProperties",
     "aspect": {
@@ -2144,17 +1673,12 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "clickhouse-test",
-        "registryName": null,
-        "registryVersion": null,
-        "properties": null
+        "runId": "clickhouse-test"
     }
 },
 {
-    "auditHeader": null,
     "entityType": "dataset",
     "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:clickhouse,clickhousetestserver.db1.test_view,PROD)",
-    "entityKeyAspect": null,
     "changeType": "UPSERT",
     "aspectName": "container",
     "aspect": {
@@ -2163,17 +1687,12 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "clickhouse-test",
-        "registryName": null,
-        "registryVersion": null,
-        "properties": null
+        "runId": "clickhouse-test"
     }
 },
 {
-    "auditHeader": null,
     "entityType": "dataset",
     "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:clickhouse,clickhousetestserver.db1.test_view,PROD)",
-    "entityKeyAspect": null,
     "changeType": "UPSERT",
     "aspectName": "upstreamLineage",
     "aspect": {
@@ -2182,14 +1701,10 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "clickhouse-test",
-        "registryName": null,
-        "registryVersion": null,
-        "properties": null
+        "runId": "clickhouse-test"
     }
 },
 {
-    "auditHeader": null,
     "proposedSnapshot": {
         "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
             "urn": "urn:li:dataset:(urn:li:dataPlatform:clickhouse,clickhousetestserver.db1.test_view,PROD)",
@@ -2208,14 +1723,16 @@
                             "primary_key": "",
                             "sampling_key": "",
                             "storage_policy": "",
+                            "metadata_modification_time": "2022-10-13 04:56:28",
+                            "total_rows": "None",
+                            "total_bytes": "None",
+                            "data_paths": "[]",
+                            "metadata_path": "/var/lib/clickhouse/store/1df/1df0ba79-5a9d-4f93-8462-1e7056c3aea5/test_view.sql",
                             "view_definition": "",
                             "is_view": "True"
                         },
-                        "externalUrl": null,
                         "name": "test_view",
-                        "qualifiedName": null,
                         "description": "",
-                        "uri": null,
                         "tags": []
                     }
                 },
@@ -2226,17 +1743,12 @@
                         "version": 0,
                         "created": {
                             "time": 0,
-                            "actor": "urn:li:corpuser:unknown",
-                            "impersonator": null
+                            "actor": "urn:li:corpuser:unknown"
                         },
                         "lastModified": {
                             "time": 0,
-                            "actor": "urn:li:corpuser:unknown",
-                            "impersonator": null
+                            "actor": "urn:li:corpuser:unknown"
                         },
-                        "deleted": null,
-                        "dataset": null,
-                        "cluster": null,
                         "hash": "",
                         "platformSchema": {
                             "com.linkedin.pegasus2avro.schema.MySqlDDL": {
@@ -2246,7 +1758,6 @@
                         "fields": [
                             {
                                 "fieldPath": "col_String",
-                                "jsonPath": null,
                                 "nullable": false,
                                 "description": "",
                                 "type": {
@@ -2256,34 +1767,22 @@
                                 },
                                 "nativeDataType": "String",
                                 "recursive": false,
-                                "globalTags": null,
-                                "glossaryTerms": null,
-                                "isPartOfKey": false,
-                                "jsonProps": null
+                                "isPartOfKey": false
                             }
-                        ],
-                        "primaryKeys": null,
-                        "foreignKeysSpecs": null,
-                        "foreignKeys": null
+                        ]
                     }
                 }
             ]
         }
     },
-    "proposedDelta": null,
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "clickhouse-test",
-        "registryName": null,
-        "registryVersion": null,
-        "properties": null
+        "runId": "clickhouse-test"
     }
 },
 {
-    "auditHeader": null,
     "entityType": "dataset",
     "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:clickhouse,clickhousetestserver.db1.test_view,PROD)",
-    "entityKeyAspect": null,
     "changeType": "UPSERT",
     "aspectName": "dataPlatformInstance",
     "aspect": {
@@ -2292,17 +1791,12 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "clickhouse-test",
-        "registryName": null,
-        "registryVersion": null,
-        "properties": null
+        "runId": "clickhouse-test"
     }
 },
 {
-    "auditHeader": null,
     "entityType": "dataset",
     "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:clickhouse,clickhousetestserver.db1.test_view,PROD)",
-    "entityKeyAspect": null,
     "changeType": "UPSERT",
     "aspectName": "subTypes",
     "aspect": {
@@ -2311,17 +1805,12 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "clickhouse-test",
-        "registryName": null,
-        "registryVersion": null,
-        "properties": null
+        "runId": "clickhouse-test"
     }
 },
 {
-    "auditHeader": null,
     "entityType": "dataset",
     "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:clickhouse,clickhousetestserver.db1.test_view,PROD)",
-    "entityKeyAspect": null,
     "changeType": "UPSERT",
     "aspectName": "viewProperties",
     "aspect": {
@@ -2330,10 +1819,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "clickhouse-test",
-        "registryName": null,
-        "registryVersion": null,
-        "properties": null
+        "runId": "clickhouse-test"
     }
 }
 ]

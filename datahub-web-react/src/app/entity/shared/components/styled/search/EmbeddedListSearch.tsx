@@ -1,22 +1,18 @@
 import React, { useState, useEffect } from 'react';
-import * as QueryString from 'query-string';
-import { useHistory, useLocation, useParams } from 'react-router';
-import { message } from 'antd';
 import styled from 'styled-components';
 import { ApolloError } from '@apollo/client';
-import { useEntityRegistry } from '../../../../../useEntityRegistry';
-import { EntityType, FacetFilterInput } from '../../../../../../types.generated';
-import useFilters from '../../../../../search/utils/useFilters';
-import { ENTITY_FILTER_NAME } from '../../../../../search/utils/constants';
+import { EntityType, FacetFilterInput, FacetMetadata } from '../../../../../../types.generated';
+import { ENTITY_FILTER_NAME, UnionType } from '../../../../../search/utils/constants';
 import { SearchCfg } from '../../../../../../conf';
-import { navigateToEntitySearchUrl } from './navigateToEntitySearchUrl';
 import { EmbeddedListSearchResults } from './EmbeddedListSearchResults';
 import EmbeddedListSearchHeader from './EmbeddedListSearchHeader';
 import { useGetSearchResultsForMultipleQuery } from '../../../../../../graphql/search.generated';
-import { GetSearchResultsParams, SearchResultsInterface } from './types';
-import { useEntityQueryParams } from '../../../containers/profile/utils';
+import { FilterSet, GetSearchResultsParams, SearchResultsInterface } from './types';
 import { isListSubset } from '../../../utils';
 import { EntityAndType } from '../../../types';
+import { Message } from '../../../../../shared/Message';
+import { generateOrFilters } from '../../../../../search/utils/generateOrFilters';
+import { mergeFilterSets } from '../../../../../search/utils/filterUtils';
 
 const Container = styled.div`
     display: flex;
@@ -36,6 +32,7 @@ function useWrappedSearchResults(params: GetSearchResultsParams) {
             refetch(refetchParams).then((res) => res.data.searchAcrossEntities),
     };
 }
+
 // the addFixedQuery checks and generate the query as per params pass to embeddedListSearch
 export const addFixedQuery = (baseQuery: string, fixedQuery: string, emptyQuery: string) => {
     let finalQuery = ``;
@@ -51,17 +48,30 @@ export const addFixedQuery = (baseQuery: string, fixedQuery: string, emptyQuery:
     return finalQuery;
 };
 
-type SearchPageParams = {
-    type?: string;
+// Simply remove the fields that were marked as fixed from the facets that the server
+// responds.
+export const removeFixedFiltersFromFacets = (fixedFilters: FilterSet, facets: FacetMetadata[]) => {
+    const fixedFields = fixedFilters.filters.map((filter) => filter.field);
+    return facets.filter((facet) => !fixedFields.includes(facet.field));
 };
 
 type Props = {
+    query: string;
+    page: number;
+    unionType: UnionType;
+    filters: FacetFilterInput[];
+    onChangeQuery: (query) => void;
+    onChangeFilters: (filters) => void;
+    onChangePage: (page) => void;
+    onChangeUnionType: (unionType: UnionType) => void;
     emptySearchQuery?: string | null;
-    fixedFilter?: FacetFilterInput | null;
+    fixedFilters?: FilterSet;
     fixedQuery?: string | null;
     placeholderText?: string | null;
     defaultShowFilters?: boolean;
     defaultFilters?: Array<FacetFilterInput>;
+    searchBarStyle?: any;
+    searchBarInputStyle?: any;
     useGetSearchResults?: (params: GetSearchResultsParams) => {
         data: SearchResultsInterface | undefined | null;
         loading: boolean;
@@ -71,31 +81,44 @@ type Props = {
 };
 
 export const EmbeddedListSearch = ({
+    query,
+    filters,
+    page,
+    unionType,
+    onChangeQuery,
+    onChangeFilters,
+    onChangePage,
+    onChangeUnionType,
     emptySearchQuery,
-    fixedFilter,
+    fixedFilters,
     fixedQuery,
     placeholderText,
     defaultShowFilters,
     defaultFilters,
+    searchBarStyle,
+    searchBarInputStyle,
     useGetSearchResults = useWrappedSearchResults,
 }: Props) => {
-    const history = useHistory();
-    const location = useLocation();
-    const entityRegistry = useEntityRegistry();
-    const baseParams = useEntityQueryParams();
+    // Adjust query based on props
+    const finalQuery: string = addFixedQuery(query as string, fixedQuery as string, emptySearchQuery as string);
 
-    const params = QueryString.parse(location.search, { arrayFormat: 'comma' });
-    const query: string = addFixedQuery(params?.query as string, fixedQuery as string, emptySearchQuery as string);
-    const activeType = entityRegistry.getTypeOrDefaultFromPathName(useParams<SearchPageParams>().type || '', undefined);
-    const page: number = params.page && Number(params.page as string) > 0 ? Number(params.page as string) : 1;
-    const filters: Array<FacetFilterInput> = useFilters(params);
+    // Adjust filters based on props
     const filtersWithoutEntities: Array<FacetFilterInput> = filters.filter(
         (filter) => filter.field !== ENTITY_FILTER_NAME,
     );
-    const finalFilters = (fixedFilter && [...filtersWithoutEntities, fixedFilter]) || filtersWithoutEntities;
+
+    const baseFilters = {
+        unionType,
+        filters: filtersWithoutEntities,
+    };
+
+    const finalFilters =
+        (fixedFilters && mergeFilterSets(fixedFilters, baseFilters)) ||
+        generateOrFilters(unionType, filtersWithoutEntities);
+
     const entityFilters: Array<EntityType> = filters
         .filter((filter) => filter.field === ENTITY_FILTER_NAME)
-        .map((filter) => filter.value.toUpperCase() as EntityType);
+        .flatMap((filter) => filter.values?.map((value) => value?.toUpperCase() as EntityType) || []);
 
     const [showFilters, setShowFilters] = useState(defaultShowFilters || false);
     const [isSelectMode, setIsSelectMode] = useState(false);
@@ -106,10 +129,10 @@ export const EmbeddedListSearch = ({
         variables: {
             input: {
                 types: entityFilters,
-                query,
+                query: finalQuery,
                 start: (page - 1) * SearchCfg.RESULTS_PER_PAGE,
                 count: SearchCfg.RESULTS_PER_PAGE,
-                filters: finalFilters,
+                orFilters: finalFilters,
             },
         },
         skip: true,
@@ -123,10 +146,10 @@ export const EmbeddedListSearch = ({
         variables: {
             input: {
                 types: entityFilters,
-                query,
+                query: finalQuery,
                 start: (page - 1) * numResultsPerPage,
                 count: numResultsPerPage,
-                filters: finalFilters,
+                orFilters: finalFilters,
             },
         },
     });
@@ -135,42 +158,6 @@ export const EmbeddedListSearch = ({
         data?.searchResults?.map((result) => ({ urn: result.entity.urn, type: result.entity.type })) || [];
     const searchResultUrns = searchResultEntities.map((entity) => entity.urn);
     const selectedEntityUrns = selectedEntities.map((entity) => entity.urn);
-
-    const onSearch = (q: string) => {
-        const finalQuery = addFixedQuery(q as string, fixedQuery as string, emptySearchQuery as string);
-        navigateToEntitySearchUrl({
-            baseUrl: location.pathname,
-            baseParams,
-            type: activeType,
-            query: finalQuery,
-            page: 1,
-            history,
-        });
-    };
-
-    const onChangeFilters = (newFilters: Array<FacetFilterInput>) => {
-        navigateToEntitySearchUrl({
-            baseUrl: location.pathname,
-            baseParams,
-            type: activeType,
-            query,
-            page: 1,
-            filters: newFilters,
-            history,
-        });
-    };
-
-    const onChangePage = (newPage: number) => {
-        navigateToEntitySearchUrl({
-            baseUrl: location.pathname,
-            baseParams,
-            type: activeType,
-            query,
-            page: newPage,
-            filters,
-            history,
-        });
-    };
 
     const onToggleFilters = () => {
         setShowFilters(!showFilters);
@@ -199,6 +186,12 @@ export const EmbeddedListSearch = ({
     };
 
     useEffect(() => {
+        if (!isSelectMode) {
+            setSelectedEntities([]);
+        }
+    }, [isSelectMode]);
+
+    useEffect(() => {
         if (defaultFilters) {
             onChangeFilters(defaultFilters);
         }
@@ -206,40 +199,43 @@ export const EmbeddedListSearch = ({
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
 
-    useEffect(() => {
-        if (!isSelectMode) {
-            setSelectedEntities([]);
-        }
-    }, [isSelectMode]);
-
-    // Filter out the persistent filter values
-    const filteredFilters = data?.facets?.filter((facet) => facet.field !== fixedFilter?.field) || [];
+    /**
+     * Compute the final Facet fields that we show in the left hand search Filters (aggregation).
+     *
+     * Do this by filtering out any fields that are included in the fixed filters.
+     */
+    const finalFacets =
+        (fixedFilters && removeFixedFiltersFromFacets(fixedFilters, data?.facets || [])) || data?.facets;
 
     return (
         <Container>
-            {error && message.error(`Failed to complete search: ${error && error.message}`)}
+            {error && <Message type="error" content="Failed to load results! An unexpected error occurred." />}
             <EmbeddedListSearchHeader
-                onSearch={onSearch}
+                onSearch={(q) => onChangeQuery(addFixedQuery(q, fixedQuery as string, emptySearchQuery as string))}
                 placeholderText={placeholderText}
                 onToggleFilters={onToggleFilters}
                 callSearchOnVariables={callSearchOnVariables}
                 entityFilters={entityFilters}
                 filters={finalFilters}
-                query={query}
+                query={finalQuery}
                 isSelectMode={isSelectMode}
                 isSelectAll={selectedEntities.length > 0 && isListSubset(searchResultUrns, selectedEntityUrns)}
                 setIsSelectMode={setIsSelectMode}
                 selectedEntities={selectedEntities}
                 onChangeSelectAll={onChangeSelectAll}
                 refetch={refetch as any}
+                searchBarStyle={searchBarStyle}
+                searchBarInputStyle={searchBarInputStyle}
             />
             <EmbeddedListSearchResults
+                unionType={unionType}
                 loading={loading}
                 searchResponse={data}
-                filters={filteredFilters}
+                filters={finalFacets}
                 selectedFilters={filters}
                 onChangeFilters={onChangeFilters}
                 onChangePage={onChangePage}
+                onChangeUnionType={onChangeUnionType}
                 page={page}
                 showFilters={showFilters}
                 numResultsPerPage={numResultsPerPage}

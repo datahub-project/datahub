@@ -72,7 +72,9 @@ public class DashboardType implements SearchableEntityType<Dashboard, String>, B
         CONTAINER_ASPECT_NAME,
         DOMAINS_ASPECT_NAME,
         DEPRECATION_ASPECT_NAME,
-        DATA_PLATFORM_INSTANCE_ASPECT_NAME
+        DATA_PLATFORM_INSTANCE_ASPECT_NAME,
+        INPUT_FIELDS_ASPECT_NAME,
+        SUB_TYPES_ASPECT_NAME
     );
     private static final Set<String> FACET_FIELDS = ImmutableSet.of("access", "tool");
 
@@ -190,7 +192,7 @@ public class DashboardType implements SearchableEntityType<Dashboard, String>, B
             proposals.forEach(proposal -> proposal.setEntityUrn(UrnUtils.getUrn(urn)));
 
             try {
-                _entityClient.batchIngestProposals(proposals, context.getAuthentication());
+                _entityClient.batchIngestProposals(proposals, context.getAuthentication(), false);
             } catch (RemoteInvocationException e) {
                 throw new RuntimeException(String.format("Failed to write entity with urn %s", urn), e);
             }

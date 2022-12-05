@@ -11,24 +11,33 @@ def read_delta_table(
     delta_table = None
     try:
         opts = {}
-        if delta_lake_config.is_s3():
-            if delta_lake_config.s3 is None:
-                raise ValueError("aws_config not set. Cannot browse s3")
-            if delta_lake_config.s3.aws_config is None:
-                raise ValueError("aws_config not set. Cannot browse s3")
-            opts = {
-                "AWS_ACCESS_KEY_ID": delta_lake_config.s3.aws_config.aws_access_key_id,
-                "AWS_SECRET_ACCESS_KEY": delta_lake_config.s3.aws_config.aws_secret_access_key,
-            }
-        delta_table = DeltaTable(path, storage_options=opts)
+        if delta_lake_config.is_s3:
+            if (
+                delta_lake_config.s3 is not None
+                and delta_lake_config.s3.aws_config is not None
+            ):
+                creds = delta_lake_config.s3.aws_config.get_credentials()
+                opts = {
+                    "AWS_ACCESS_KEY_ID": creds.get("aws_access_key_id", ""),
+                    "AWS_SECRET_ACCESS_KEY": creds.get("aws_secret_access_key", ""),
+                    # Allow http connections, this is required for minio
+                    "AWS_STORAGE_ALLOW_HTTP": "true",
+                }
+                if delta_lake_config.s3.aws_config.aws_region:
+                    opts["AWS_REGION"] = delta_lake_config.s3.aws_config.aws_region
+                if delta_lake_config.s3.aws_config.aws_endpoint_url:
+                    opts[
+                        "AWS_ENDPOINT_URL"
+                    ] = delta_lake_config.s3.aws_config.aws_endpoint_url
+        delta_table = DeltaTable(
+            path,
+            storage_options=opts,
+            without_files=not delta_lake_config.require_files,
+        )
 
     except PyDeltaTableError as e:
         if "Not a Delta table" not in str(e):
-            import pdb
-
-            pdb.set_trace()
             raise e
-
     return delta_table
 
 

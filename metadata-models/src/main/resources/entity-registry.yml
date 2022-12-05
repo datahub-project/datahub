@@ -57,6 +57,8 @@ entities:
       - domains
       - container
       - deprecation
+      - inputFields
+      - chartUsageStatistics
   - name: dashboard
     keyAspect: dashboardKey
     aspects:
@@ -64,6 +66,8 @@ entities:
       - container
       - deprecation
       - dashboardUsageStatistics
+      - inputFields
+      - subTypes
   - name: notebook
     doc: Notebook represents a combination of query, text, chart and etc. This is in BETA version
     keyAspect: notebookKey
@@ -92,6 +96,9 @@ entities:
       - status
       - corpUserCredentials
       - nativeGroupMembership
+      - corpUserSettings
+      - origin
+      - roleMembership
   - name: corpGroup
     doc: CorpGroup represents an identity of a group of users in the enterprise.
     keyAspect: corpGroupKey
@@ -139,6 +146,7 @@ entities:
       - schemaMetadata
       - ownership
       - deprecation
+      - domains
   - name: glossaryNode
     keyAspect: glossaryNodeKey
     aspects:
@@ -170,6 +178,7 @@ entities:
       - assertionInfo
       - dataPlatformInstance
       - assertionRunEvent
+      - status
   - name: dataHubRetention
     category: internal
     keyAspect: dataHubRetentionKey
@@ -179,6 +188,11 @@ entities:
     category: internal
     keyAspect: dataPlatformInstanceKey
     aspects:
+      - dataPlatformInstanceProperties
+      - ownership
+      - globalTags
+      - institutionalMemory
+      - deprecation
       - status
   - name: mlModel
     category: core
@@ -242,4 +256,18 @@ entities:
     keyAspect: inviteTokenKey
     aspects:
       - inviteToken
+  - name: schemaField
+    category: core
+    keyAspect: schemaFieldKey
+    aspects: []
+  - name: dataHubRole
+    category: core
+    keyAspect: dataHubRoleKey
+    aspects:
+      - dataHubRoleInfo
+  - name: post
+    category: core
+    keyAspect: postKey
+    aspects:
+      - postInfo
 events:

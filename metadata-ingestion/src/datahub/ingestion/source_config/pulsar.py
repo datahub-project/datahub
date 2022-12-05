@@ -2,25 +2,17 @@ import re
 from typing import Dict, List, Optional, Union
 from urllib.parse import urlparse
 
-from pydantic import Field, validator
+from pydantic import Field, root_validator, validator
 
 from datahub.configuration.common import AllowDenyPattern, ConfigurationError
 from datahub.configuration.source_common import DEFAULT_ENV, DatasetSourceConfigBase
+from datahub.ingestion.source.state.stale_entity_removal_handler import (
+    StatefulStaleMetadataRemovalConfig,
+)
 from datahub.ingestion.source.state.stateful_ingestion_base import (
-    StatefulIngestionConfig,
     StatefulIngestionConfigBase,
 )
 from datahub.utilities import config_clean
-
-
-class PulsarSourceStatefulIngestionConfig(StatefulIngestionConfig):
-    """
-    Specialization of the basic StatefulIngestionConfig to add custom config.
-    This will be used to override the stateful_ingestion config param of StatefulIngestionConfigBase
-    in the PulsarSourceConfig.
-    """
-
-    remove_stale_metadata: bool = True
 
 
 def _is_valid_hostname(hostname: str) -> bool:
@@ -94,7 +86,7 @@ class PulsarSourceConfig(StatefulIngestionConfigBase, DatasetSourceConfigBase):
         default_factory=dict, description="Domain patterns"
     )
 
-    stateful_ingestion: Optional[PulsarSourceStatefulIngestionConfig] = Field(
+    stateful_ingestion: Optional[StatefulStaleMetadataRemovalConfig] = Field(
         default=None, description="see Stateful Ingestion"
     )
 
@@ -140,3 +132,16 @@ class PulsarSourceConfig(StatefulIngestionConfigBase, DatasetSourceConfigBase):
             )
 
         return config_clean.remove_trailing_slashes(val)
+
+    @root_validator
+    def validate_platform_instance(cls: "PulsarSourceConfig", values: Dict) -> Dict:
+        stateful_ingestion = values.get("stateful_ingestion")
+        if (
+            stateful_ingestion
+            and stateful_ingestion.enabled
+            and not values.get("platform_instance")
+        ):
+            raise ConfigurationError(
+                "Enabling Pulsar stateful ingestion requires to specify a platform instance."
+            )
+        return values

@@ -5,7 +5,7 @@ import { FilterOutlined } from '@ant-design/icons';
 
 import { useEntityRegistry } from '../../../../../useEntityRegistry';
 import { EntityType, FacetFilterInput } from '../../../../../../types.generated';
-import { ENTITY_FILTER_NAME } from '../../../../../search/utils/constants';
+import { ENTITY_FILTER_NAME, UnionType } from '../../../../../search/utils/constants';
 import { SearchCfg } from '../../../../../../conf';
 import { EmbeddedListSearchResults } from './EmbeddedListSearchResults';
 import { useGetSearchResultsForMultipleQuery } from '../../../../../../graphql/search.generated';
@@ -61,13 +61,17 @@ export const SearchSelect = ({ fixedEntityTypes, placeholderText, selectedEntiti
     const [query, setQuery] = useState<string>('');
     const [page, setPage] = useState(1);
     const [filters, setFilters] = useState<Array<FacetFilterInput>>([]);
+    const [unionType, setUnionType] = useState(UnionType.AND);
     const [showFilters, setShowFilters] = useState(false);
     const [numResultsPerPage, setNumResultsPerPage] = useState(SearchCfg.RESULTS_PER_PAGE);
 
     // Compute search filters
+    const filtersWithoutEntities: Array<FacetFilterInput> = filters.filter(
+        (filter) => filter.field !== ENTITY_FILTER_NAME,
+    );
     const entityFilters: Array<EntityType> = filters
         .filter((filter) => filter.field === ENTITY_FILTER_NAME)
-        .map((filter) => filter.value.toUpperCase() as EntityType);
+        .flatMap((filter) => filter.values?.map((value) => value.toUpperCase() as EntityType) || []);
     const finalEntityTypes = (entityFilters.length > 0 && entityFilters) || fixedEntityTypes || [];
 
     // Execute search
@@ -78,7 +82,7 @@ export const SearchSelect = ({ fixedEntityTypes, placeholderText, selectedEntiti
                 query,
                 start: (page - 1) * numResultsPerPage,
                 count: numResultsPerPage,
-                filters,
+                filters: filtersWithoutEntities,
             },
         },
     });
@@ -96,6 +100,7 @@ export const SearchSelect = ({ fixedEntityTypes, placeholderText, selectedEntiti
     };
 
     const onChangeFilters = (newFilters: Array<FacetFilterInput>) => {
+        setPage(1);
         setFilters(newFilters);
     };
 
@@ -162,9 +167,11 @@ export const SearchSelect = ({ fixedEntityTypes, placeholderText, selectedEntiti
                 loading={loading}
                 searchResponse={searchAcrossEntities}
                 filters={facets}
+                unionType={unionType}
                 selectedFilters={filters}
                 onChangeFilters={onChangeFilters}
                 onChangePage={onChangePage}
+                onChangeUnionType={setUnionType}
                 page={page}
                 showFilters={showFilters}
                 numResultsPerPage={numResultsPerPage}

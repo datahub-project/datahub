@@ -80,15 +80,11 @@ class GlossaryNodeEntity implements Entity<GlossaryNode> {
                     },
                     {
                         component: SidebarOwnerSection,
-                        properties: {
-                            hideOwnerType: true,
-                        },
                     },
                 ]}
                 customNavBar={<GlossaryEntitiesPath />}
                 headerDropdownItems={
                     new Set([
-                        EntityMenuItems.COPY_URL,
                         EntityMenuItems.ADD_TERM_GROUP,
                         EntityMenuItems.ADD_TERM,
                         EntityMenuItems.MOVE,
@@ -117,6 +113,7 @@ class GlossaryNodeEntity implements Entity<GlossaryNode> {
         return (
             <Preview
                 urn={data?.urn}
+                parentNodes={data.parentNodes}
                 name={this.displayName(data)}
                 description={data?.properties?.description || ''}
                 owners={data?.ownership?.owners}

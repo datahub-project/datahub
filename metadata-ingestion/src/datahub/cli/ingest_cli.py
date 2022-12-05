@@ -4,14 +4,13 @@ import functools
 import json
 import logging
 import os
-import pathlib
 import sys
 from datetime import datetime
 from typing import Optional
 
 import click
+import click_spinner
 from click_default_group import DefaultGroup
-from pydantic import ValidationError
 from tabulate import tabulate
 
 import datahub as datahub_package
@@ -22,7 +21,6 @@ from datahub.cli.cli_utils import (
     get_session_and_host,
     post_rollback_endpoint,
 )
-from datahub.configuration import SensitiveError
 from datahub.configuration.config_loader import load_config_file
 from datahub.ingestion.run.connection import ConnectionManager
 from datahub.ingestion.run.pipeline import Pipeline
@@ -31,8 +29,6 @@ from datahub.upgrade import upgrade
 from datahub.utilities import memory_leak_detector
 
 logger = logging.getLogger(__name__)
-
-ELASTIC_MAX_PAGE_SIZE = 10000
 
 RUNS_TABLE_COLUMNS = ["runId", "rows", "created at"]
 RUN_TABLE_COLUMNS = ["urn", "aspect name", "created at"]
@@ -48,7 +44,7 @@ def ingest() -> None:
 @click.option(
     "-c",
     "--config",
-    type=click.Path(exists=True, dir_okay=False),
+    type=click.Path(dir_okay=False),
     help="Config file in .toml or .yaml format.",
     required=True,
 )
@@ -79,13 +75,6 @@ def ingest() -> None:
     help="If enabled, ingestion runs with warnings will yield a non-zero error code",
 )
 @click.option(
-    "--suppress-error-logs",
-    type=bool,
-    is_flag=True,
-    default=False,
-    help="Suppress display of variable values in logs by suppressing elaborate stacktrace (stackprinter) during ingestion failures",
-)
-@click.option(
     "--test-source-connection",
     type=bool,
     is_flag=True,
@@ -95,7 +84,18 @@ def ingest() -> None:
 @click.option(
     "--report-to",
     type=str,
-    help="Provide an output file to produce a structured report from the run",
+    default="datahub",
+    help="Provide an destination to send a structured report from the run. The default is 'datahub' and sends the report directly to the datahub server (using the sink configured in your recipe). Use the --no-default-report flag to turn off this default feature. Any other parameter passed to this argument is currently assumed to be a file that you want to write the report to. Supplements the reporting configuration in the recipe",
+)
+@click.option(
+    "--no-default-report",
+    type=bool,
+    is_flag=True,
+    default=False,
+    help="Turn off default reporting of ingestion results to DataHub",
+)
+@click.option(
+    "--no-spinner", type=bool, is_flag=True, default=False, help="Turn off spinner"
 )
 @click.pass_context
 @telemetry.with_telemetry
@@ -107,9 +107,10 @@ def run(
     preview: bool,
     strict_warnings: bool,
     preview_workunits: int,
-    suppress_error_logs: bool,
     test_source_connection: bool,
     report_to: str,
+    no_default_report: bool,
+    no_spinner: bool,
 ) -> None:
     """Ingest metadata into DataHub."""
 
@@ -117,28 +118,22 @@ def run(
         pipeline: Pipeline, structured_report: Optional[str] = None
     ) -> int:
         logger.info("Starting metadata ingestion")
-        try:
-            pipeline.run()
-        except Exception as e:
-            logger.info(
-                f"Source ({pipeline.config.source.type}) report:\n{pipeline.source.get_report().as_string()}"
-            )
-            logger.info(
-                f"Sink ({pipeline.config.sink.type}) report:\n{pipeline.sink.get_report().as_string()}"
-            )
-            # We dont want to log sensitive information in variables if the pipeline fails due to
-            # an unexpected error. Disable printing sensitive info to logs if ingestion is running
-            # with `--suppress-error-logs` flag.
-            if suppress_error_logs:
-                raise SensitiveError() from e
-            else:
+        with click_spinner.spinner(disable=no_spinner):
+            try:
+                pipeline.run()
+            except Exception as e:
+                logger.info(
+                    f"Source ({pipeline.config.source.type}) report:\n{pipeline.source.get_report().as_string()}"
+                )
+                logger.info(
+                    f"Sink ({pipeline.config.sink.type}) report:\n{pipeline.sink.get_report().as_string()}"
+                )
                 raise e
-        else:
-            logger.info("Finished metadata ingestion")
-            pipeline.log_ingestion_stats()
-            pipeline.write_structured_report()
-            ret = pipeline.pretty_print_summary(warnings_as_failure=strict_warnings)
-            return ret
+            else:
+                logger.info("Finished metadata ingestion")
+                pipeline.log_ingestion_stats()
+                ret = pipeline.pretty_print_summary(warnings_as_failure=strict_warnings)
+                return ret
 
     async def run_pipeline_async(pipeline: Pipeline) -> int:
         loop = asyncio._get_running_loop()
@@ -169,23 +164,27 @@ def run(
     # main function begins
     logger.info("DataHub CLI version: %s", datahub_package.nice_version_name())
 
-    config_file = pathlib.Path(config)
-    pipeline_config = load_config_file(config_file)
+    pipeline_config = load_config_file(
+        config,
+        squirrel_original_config=True,
+        squirrel_field="__raw_config",
+        allow_stdin=True,
+    )
+    raw_pipeline_config = pipeline_config.pop("__raw_config")
+
     if test_source_connection:
         _test_source_connection(report_to, pipeline_config)
 
-    try:
-        logger.debug(f"Using config: {pipeline_config}")
-        pipeline = Pipeline.create(
-            pipeline_config, dry_run, preview, preview_workunits, report_to
-        )
-    except ValidationError as e:
-        click.echo(e, err=True)
-        sys.exit(1)
-    except Exception as e:
-        # The pipeline_config may contain sensitive information, so we wrap the exception
-        # in a SensitiveError to prevent detailed variable-level information from being logged.
-        raise SensitiveError() from e
+    # logger.debug(f"Using config: {pipeline_config}")
+    pipeline = Pipeline.create(
+        pipeline_config,
+        dry_run,
+        preview,
+        preview_workunits,
+        report_to,
+        no_default_report,
+        raw_pipeline_config,
+    )
 
     loop = asyncio.get_event_loop()
     loop.run_until_complete(run_func_check_upgrade(pipeline))
@@ -195,7 +194,7 @@ def _test_source_connection(report_to: Optional[str], pipeline_config: dict) -> 
     try:
         connection_report = ConnectionManager().test_source_connection(pipeline_config)
         logger.info(connection_report.as_json())
-        if report_to:
+        if report_to and report_to != "datahub":
             with open(report_to, "w") as out_fp:
                 out_fp.write(connection_report.as_json())
             logger.info(f"Wrote report successfully to {report_to}")
@@ -205,10 +204,6 @@ def _test_source_connection(report_to: Optional[str], pipeline_config: dict) -> 
         if connection_report:
             logger.error(connection_report.as_json())
         sys.exit(1)
-
-
-def get_runs_url(gms_host: str) -> str:
-    return f"{gms_host}/runs?action=rollback"
 
 
 def parse_restli_response(response):

@@ -14,15 +14,16 @@ services:
     - KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR=1
     - KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS=0
     - KAFKA_HEAP_OPTS=-Xms256m -Xmx256m
+    - KAFKA_CONFLUENT_SUPPORT_METRICS_ENABLE=false
     hostname: broker
     image: confluentinc/cp-kafka:5.4.0
     ports:
-    - 29092:29092
-    - 9092:9092
+    - ${DATAHUB_MAPPED_KAFKA_BROKER_PORT:-9092}:9092
   datahub-actions:
     depends_on:
     - datahub-gms
     environment:
+    - DATAHUB_GMS_PROTOCOL=http
     - DATAHUB_GMS_HOST=datahub-gms
     - DATAHUB_GMS_PORT=8080
     - KAFKA_BOOTSTRAP_SERVER=broker:29092
@@ -32,6 +33,16 @@ services:
     - DATAHUB_SYSTEM_CLIENT_ID=__datahub_system
     - DATAHUB_SYSTEM_CLIENT_SECRET=JohnSnowKnowsNothing
     - KAFKA_PROPERTIES_SECURITY_PROTOCOL=PLAINTEXT
+    - DATAHUB_ACTIONS_SLACK_ENABLED
+    - DATAHUB_ACTIONS_SLACK_DATAHUB_BASE_URL
+    - DATAHUB_ACTIONS_SLACK_BOT_TOKEN
+    - DATAHUB_ACTIONS_SLACK_SIGNING_SECRET
+    - DATAHUB_ACTIONS_SLACK_CHANNEL
+    - DATAHUB_ACTIONS_SLACK_SUPPRESS_SYSTEM_ACTIVITY
+    - DATAHUB_ACTIONS_TEAMS_ENABLED
+    - DATAHUB_ACTIONS_TEAMS_DATAHUB_BASE_URL
+    - DATAHUB_ACTIONS_TEAMS_WEBHOOK_URL
+    - DATAHUB_ACTIONS_TEAMS_SUPPRESS_SYSTEM_ACTIVITY
     hostname: actions
     image: acryldata/datahub-actions:${ACTIONS_VERSION:-head}
     restart: on-failure:5
@@ -55,7 +66,7 @@ services:
     hostname: datahub-frontend-react
     image: ${DATAHUB_FRONTEND_IMAGE:-linkedin/datahub-frontend-react}:${DATAHUB_VERSION:-head}
     ports:
-    - 9002:9002
+    - ${DATAHUB_MAPPED_FRONTEND_PORT:-9002}:9002
     volumes:
     - ${HOME}/.datahub/plugins:/etc/datahub/plugins
   datahub-gms:
@@ -65,7 +76,6 @@ services:
     environment:
     - DATAHUB_SERVER_TYPE=${DATAHUB_SERVER_TYPE:-quickstart}
     - DATAHUB_TELEMETRY_ENABLED=${DATAHUB_TELEMETRY_ENABLED:-true}
-    - DATASET_ENABLE_SCSI=false
     - EBEAN_DATASOURCE_USERNAME=datahub
     - EBEAN_DATASOURCE_PASSWORD=datahub
     - EBEAN_DATASOURCE_HOST=mysql:3306
@@ -75,6 +85,8 @@ services:
     - KAFKA_SCHEMAREGISTRY_URL=http://schema-registry:8081
     - ELASTICSEARCH_HOST=elasticsearch
     - ELASTICSEARCH_PORT=9200
+    - ES_BULK_REFRESH_POLICY=WAIT_UNTIL
+    - GRAPH_SERVICE_DIFF_MODE_ENABLED=true
     - GRAPH_SERVICE_IMPL=elasticsearch
     - JAVA_OPTS=-Xms1g -Xmx1g
     - ENTITY_REGISTRY_CONFIG_PATH=/datahub/datahub-gms/resources/entity-registry.yml
@@ -82,14 +94,13 @@ services:
     - MCE_CONSUMER_ENABLED=true
     - PE_CONSUMER_ENABLED=true
     - UI_INGESTION_ENABLED=true
-    - UI_INGESTION_DEFAULT_CLI_VERSION=0.8.42
+    - ENTITY_SERVICE_ENABLE_RETENTION=true
     hostname: datahub-gms
     image: ${DATAHUB_GMS_IMAGE:-linkedin/datahub-gms}:${DATAHUB_VERSION:-head}
     ports:
-    - 8080:8080
+    - ${DATAHUB_MAPPED_GMS_PORT:-8080}:8080
     volumes:
     - ${HOME}/.datahub/plugins:/etc/datahub/plugins
-    - ${HOME}/.datahub/plugins/auth/resources/:/etc/datahub/plugins/auth/resources
   elasticsearch:
     container_name: elasticsearch
     environment:
@@ -107,7 +118,7 @@ services:
     image: elasticsearch:7.9.3
     mem_limit: 1g
     ports:
-    - 9200:9200
+    - ${DATAHUB_MAPPED_ELASTIC_PORT:-9200}:9200
     volumes:
     - esdata:/usr/share/elasticsearch/data
   elasticsearch-setup:
@@ -141,7 +152,7 @@ services:
     hostname: mysql
     image: mysql:5.7
     ports:
-    - 3306:3306
+    - ${DATAHUB_MAPPED_MYSQL_PORT:-3306}:3306
     volumes:
     - ../mysql/init.sql:/docker-entrypoint-initdb.d/init.sql
     - mysqldata:/var/lib/mysql
@@ -168,7 +179,7 @@ services:
     hostname: schema-registry
     image: confluentinc/cp-schema-registry:5.4.0
     ports:
-    - 8081:8081
+    - ${DATAHUB_MAPPED_SCHEMA_REGISTRY_PORT:-8081}:8081
   zookeeper:
     container_name: zookeeper
     environment:
@@ -177,9 +188,9 @@ services:
     hostname: zookeeper
     image: confluentinc/cp-zookeeper:5.4.0
     ports:
-    - 2181:2181
+    - ${DATAHUB_MAPPED_ZK_PORT:-2181}:2181
     volumes:
-    - zkdata:/var/opt/zookeeper
+    - zkdata:/var/lib/zookeeper
 version: '2.3'
 volumes:
   esdata: null

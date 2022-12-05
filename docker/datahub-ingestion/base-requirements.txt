@@ -30,7 +30,7 @@ azure-storage-blob==12.12.0
 azure-storage-file-datalake==12.7.0
 Babel==2.10.3
 backcall==0.2.0
-backports.zoneinfo==0.2.1
+backports.zoneinfo==0.2.1; python_version < "3.9"
 beautifulsoup4==4.11.1
 bleach==5.0.0
 blinker==1.4
@@ -164,7 +164,7 @@ msrest==0.7.1
 multidict==6.0.2
 mypy-extensions==0.4.3
 nbclient==0.6.3
-nbconvert==6.5.0
+nbconvert==6.5.1
 nbformat==5.4.0
 nest-asyncio==1.5.5
 networkx==2.8.4

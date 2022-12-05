@@ -1,8 +1,8 @@
-import { Divider, message, Space, Button, Typography } from 'antd';
+import { Divider, message, Space, Button, Typography, Tag } from 'antd';
 import React, { useState } from 'react';
 import { EditOutlined, MailOutlined, PhoneOutlined, SlackOutlined } from '@ant-design/icons';
 import { useUpdateCorpUserPropertiesMutation } from '../../../graphql/user.generated';
-import { EntityRelationshipsResult } from '../../../types.generated';
+import { EntityRelationship, DataHubRole } from '../../../types.generated';
 import UserEditProfileModal from './UserEditProfileModal';
 import CustomAvatar from '../../shared/avatar/CustomAvatar';
 import { useGetAuthenticatedUser } from '../../useGetAuthenticatedUser';
@@ -16,10 +16,11 @@ import {
     AboutSectionText,
     GroupsSection,
     Name,
-    Role,
+    TitleRole,
     Team,
 } from '../shared/SidebarStyledComponents';
 import EntityGroups from '../shared/EntityGroups';
+import { mapRoleIcon } from '../../identity/user/UserUtils';
 
 const { Paragraph } = Typography;
 
@@ -33,8 +34,9 @@ type SideBarData = {
     slack: string | undefined;
     phone: string | undefined;
     aboutText: string | undefined;
-    groupsDetails: EntityRelationshipsResult;
+    groupsDetails: Array<EntityRelationship>;
     urn: string | undefined;
+    dataHubRoles: Array<EntityRelationship>;
 };
 
 type Props = {
@@ -48,7 +50,8 @@ const AVATAR_STYLE = { marginTop: '14px' };
  * UserInfoSideBar- Sidebar section for users profiles.
  */
 export default function UserInfoSideBar({ sideBarData, refetch }: Props) {
-    const { name, aboutText, avatarName, email, groupsDetails, phone, photoUrl, role, slack, team, urn } = sideBarData;
+    const { name, aboutText, avatarName, email, groupsDetails, phone, photoUrl, role, slack, team, dataHubRoles, urn } =
+        sideBarData;
 
     const [updateCorpUserPropertiesMutation] = useUpdateCorpUserPropertiesMutation();
 
@@ -91,14 +94,17 @@ export default function UserInfoSideBar({ sideBarData, refetch }: Props) {
                 refetch();
             });
     };
+    const dataHubRoleName = dataHubRoles && dataHubRoles.length > 0 && (dataHubRoles[0]?.entity as DataHubRole).name;
+
     return (
         <>
             <SideBar>
                 <SideBarSubSection className={isProfileOwner ? '' : 'fullView'}>
                     <CustomAvatar size={160} photoUrl={photoUrl} name={avatarName} style={AVATAR_STYLE} />
                     <Name>{name || <EmptyValue />}</Name>
-                    {role && <Role>{role}</Role>}
+                    {role && <TitleRole>{role}</TitleRole>}
                     {team && <Team>{team}</Team>}
+                    {dataHubRoleName && <Tag icon={mapRoleIcon(dataHubRoleName)}>{dataHubRoleName}</Tag>}
                     <Divider className="divider-infoSection" />
                     <SocialDetails>
                         <Space>

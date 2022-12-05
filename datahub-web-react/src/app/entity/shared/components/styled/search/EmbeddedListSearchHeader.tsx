@@ -5,7 +5,7 @@ import styled from 'styled-components';
 import TabToolbar from '../TabToolbar';
 import { SearchBar } from '../../../../../search/SearchBar';
 import { useEntityRegistry } from '../../../../../useEntityRegistry';
-import { EntityType, FacetFilterInput, SearchAcrossEntitiesInput } from '../../../../../../types.generated';
+import { EntityType, OrFilter, SearchAcrossEntitiesInput } from '../../../../../../types.generated';
 import { SearchResultsInterface } from './types';
 import SearchExtendedMenu from './SearchExtendedMenu';
 import { SearchSelectBar } from './SearchSelectBar';
@@ -36,7 +36,7 @@ type Props = {
         input: SearchAcrossEntitiesInput;
     }) => Promise<SearchResultsInterface | null | undefined>;
     entityFilters: EntityType[];
-    filters: FacetFilterInput[];
+    filters: OrFilter[];
     query: string;
     isSelectMode: boolean;
     isSelectAll: boolean;
@@ -44,6 +44,8 @@ type Props = {
     setIsSelectMode: (showSelectMode: boolean) => any;
     onChangeSelectAll: (selected: boolean) => void;
     refetch?: () => void;
+    searchBarStyle?: any;
+    searchBarInputStyle?: any;
 };
 
 export default function EmbeddedListSearchHeader({
@@ -60,6 +62,8 @@ export default function EmbeddedListSearchHeader({
     setIsSelectMode,
     onChangeSelectAll,
     refetch,
+    searchBarStyle,
+    searchBarInputStyle,
 }: Props) {
     const entityRegistry = useEntityRegistry();
 
@@ -73,20 +77,26 @@ export default function EmbeddedListSearchHeader({
                     </Button>
                     <SearchAndDownloadContainer>
                         <SearchBar
+                            data-testid="embedded-search-bar"
                             initialQuery=""
                             placeholderText={placeholderText || 'Search entities...'}
                             suggestions={[]}
-                            style={{
-                                maxWidth: 220,
-                                padding: 0,
-                            }}
-                            inputStyle={{
-                                height: 32,
-                                fontSize: 12,
-                            }}
+                            style={
+                                searchBarStyle || {
+                                    maxWidth: 220,
+                                    padding: 0,
+                                }
+                            }
+                            inputStyle={
+                                searchBarInputStyle || {
+                                    height: 32,
+                                    fontSize: 12,
+                                }
+                            }
                             onSearch={onSearch}
                             onQueryChange={onSearch}
                             entityRegistry={entityRegistry}
+                            hideRecommendations
                         />
                         <SearchMenuContainer>
                             <SearchExtendedMenu

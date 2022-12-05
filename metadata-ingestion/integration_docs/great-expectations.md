@@ -39,6 +39,8 @@ This integration does not support
     **Configuration options:**
     - `server_url` (required): URL of DataHub GMS endpoint
     - `env` (optional, defaults to "PROD"): Environment to use in namespace when constructing dataset URNs.
+    - `exclude_dbname` (optional): Exclude dbname / catalog when constructing dataset URNs. (Highly applicable to Trino / Presto where we want to omit catalog e.g. `hive`)
+    - `platform_alias` (optional): Platform alias when constructing dataset URNs. e.g. main data platform is `presto-on-hive` but using `trino` to run the test
     - `platform_instance_map` (optional): Platform instance mapping to use when constructing dataset URNs. Maps the GE 'data source' name to a platform instance on DataHub. e.g. `platform_instance_map: { "datasource_name": "warehouse" }`
     - `graceful_exceptions` (defaults to true): If set to true, most runtime errors in the lineage backend will be suppressed and will not cause the overall checkpoint to fail. Note that configuration issues will still throw exceptions.
     - `token` (optional): Bearer token used for authentication.

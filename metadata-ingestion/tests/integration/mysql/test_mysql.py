@@ -44,11 +44,11 @@ def mysql_runner(docker_compose_runner, pytestconfig, test_resources_dir):
 
 @freeze_time(FROZEN_TIME)
 @pytest.mark.integration
-def test_mysql_ingest(
+def test_mysql_ingest_no_db(
     mysql_runner, pytestconfig, test_resources_dir, tmp_path, mock_time
 ):
     # Run the metadata ingestion pipeline.
-    config_file = (test_resources_dir / "mysql_to_file.yml").resolve()
+    config_file = (test_resources_dir / "mysql_to_file_no_db.yml").resolve()
     run_datahub_cmd(
         ["ingest", "--strict-warnings", "-c", f"{config_file}"], tmp_path=tmp_path
     )
@@ -57,7 +57,26 @@ def test_mysql_ingest(
     mce_helpers.check_golden_file(
         pytestconfig,
         output_path=tmp_path / "mysql_mces.json",
-        golden_path=test_resources_dir / "mysql_mces_golden.json",
+        golden_path=test_resources_dir / "mysql_mces_no_db_golden.json",
+    )
+
+
+@freeze_time(FROZEN_TIME)
+@pytest.mark.integration
+def test_mysql_ingest_with_db(
+    mysql_runner, pytestconfig, test_resources_dir, tmp_path, mock_time
+):
+    # Run the metadata ingestion pipeline.
+    config_file = (test_resources_dir / "mysql_to_file_with_db.yml").resolve()
+    run_datahub_cmd(
+        ["ingest", "--strict-warnings", "-c", f"{config_file}"], tmp_path=tmp_path
+    )
+
+    # Verify the output.
+    mce_helpers.check_golden_file(
+        pytestconfig,
+        output_path=tmp_path / "mysql_mces.json",
+        golden_path=test_resources_dir / "mysql_mces_with_db_golden.json",
     )
 
 

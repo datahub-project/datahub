@@ -27,3 +27,7 @@ export function groupIdTextValidation(str: string) {
     if (str.indexOf(':') > 0) return false;
     return true;
 }
+
+export function pluralize(count: number, noun: string, suffix = 's') {
+    return `${noun}${count !== 1 ? suffix : ''}`;
+}

@@ -1093,7 +1093,7 @@ class NifiSource(Source):
             else dataset_platform
         )
         wu = MetadataWorkUnit(id=f"{platform}.{dataset_name}.{mcp.aspectName}", mcp=mcp)
-        if wu.id not in self.report.workunit_ids:
+        if wu.id not in self.report.event_ids:
             self.report.report_workunit(wu)
             yield wu
 
@@ -1108,6 +1108,6 @@ class NifiSource(Source):
         )
 
         wu = MetadataWorkUnit(id=f"{platform}.{dataset_name}.{mcp.aspectName}", mcp=mcp)
-        if wu.id not in self.report.workunit_ids:
+        if wu.id not in self.report.event_ids:
             self.report.report_workunit(wu)
             yield wu

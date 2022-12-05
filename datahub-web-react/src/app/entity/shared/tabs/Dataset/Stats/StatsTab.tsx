@@ -66,7 +66,9 @@ export default function StatsTab() {
                 lastUpdatedTime={lastUpdatedTime || undefined}
                 lastReportedTime={lastReportedTime || undefined}
             />
-            <ColumnStats columnStats={(latestProfile && latestProfile.fieldProfiles) || []} />
+            {latestProfile?.fieldProfiles && latestProfile?.fieldProfiles?.length > 0 && (
+                <ColumnStats columnStats={(latestProfile && latestProfile.fieldProfiles) || []} />
+            )}
         </>
     );
 

@@ -1,9 +1,9 @@
 import React from 'react';
 import { BookOutlined } from '@ant-design/icons';
-import { Deprecation, EntityType, Owner } from '../../../../types.generated';
+import { Deprecation, Domain, EntityType, Owner, ParentNodesResult } from '../../../../types.generated';
 import DefaultPreviewCard from '../../../preview/DefaultPreviewCard';
 import { useEntityRegistry } from '../../../useEntityRegistry';
-import { IconStyleType } from '../../Entity';
+import { IconStyleType, PreviewType } from '../../Entity';
 
 export const Preview = ({
     urn,
@@ -11,24 +11,34 @@ export const Preview = ({
     description,
     owners,
     deprecation,
+    parentNodes,
+    previewType,
+    domain,
 }: {
     urn: string;
     name: string;
     description?: string | null;
     owners?: Array<Owner> | null;
     deprecation?: Deprecation | null;
+    parentNodes?: ParentNodesResult | null;
+    previewType: PreviewType;
+    domain?: Domain | undefined;
 }): JSX.Element => {
     const entityRegistry = useEntityRegistry();
     return (
         <DefaultPreviewCard
+            previewType={previewType}
             url={entityRegistry.getEntityUrl(EntityType.GlossaryTerm, urn)}
             name={name || ''}
+            urn={urn}
             description={description || ''}
             owners={owners}
             logoComponent={<BookOutlined style={{ fontSize: '20px' }} />}
             type="Glossary Term"
             typeIcon={entityRegistry.getIcon(EntityType.GlossaryTerm, 14, IconStyleType.ACCENT)}
             deprecation={deprecation}
+            parentNodes={parentNodes}
+            domain={domain}
         />
     );
 };

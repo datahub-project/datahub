@@ -1,14 +1,16 @@
-import { Button, Collapse, Form, message, Typography } from 'antd';
+import { Button, Collapse, Form, message, Tooltip, Typography } from 'antd';
 import React from 'react';
 import { get } from 'lodash';
 import YAML from 'yamljs';
-import { ApiOutlined, FilterOutlined, SettingOutlined } from '@ant-design/icons';
+import { ApiOutlined, FilterOutlined, QuestionCircleOutlined, SettingOutlined } from '@ant-design/icons';
 import styled from 'styled-components/macro';
 import { jsonToYaml } from '../../utils';
-import { RecipeField, RECIPE_FIELDS, setFieldValueOnRecipe } from './utils';
+import { CONNECTORS_WITH_TEST_CONNECTION, RecipeSections, RECIPE_FIELDS } from './constants';
 import FormField from './FormField';
 import TestConnectionButton from './TestConnection/TestConnectionButton';
-import { SNOWFLAKE } from '../../conf/snowflake/snowflake';
+import { useListSecretsQuery } from '../../../../../graphql/ingestion.generated';
+import { RecipeField, setFieldValueOnRecipe } from './common';
+import { SourceBuilderState, SourceConfig } from '../types';
 
 export const ControlsContainer = styled.div`
     display: flex;
@@ -40,6 +42,13 @@ const TestConnectionWrapper = styled.div`
     margin-top: 16px;
 `;
 
+const HeaderTooltipWrapper = styled(QuestionCircleOutlined)`
+    margin-left: 5px;
+    font-size: 12px;
+    color: rgba(0, 0, 0, 0.45);
+    cursor: help;
+`;
+
 function getInitialValues(displayRecipe: string, allFields: any[]) {
     const initialValues = {};
     let recipeObj;
@@ -59,11 +68,16 @@ function getInitialValues(displayRecipe: string, allFields: any[]) {
     return initialValues;
 }
 
-function SectionHeader({ icon, text }: { icon: any; text: string }) {
+function SectionHeader({ icon, text, sectionTooltip }: { icon: any; text: string; sectionTooltip?: string }) {
     return (
         <span>
             {icon}
             <HeaderTitle>{text}</HeaderTitle>
+            {sectionTooltip && (
+                <Tooltip placement="top" title={sectionTooltip}>
+                    <HeaderTooltipWrapper />
+                </Tooltip>
+            )}
         </span>
     );
 }
@@ -75,18 +89,33 @@ function shouldRenderFilterSectionHeader(field: RecipeField, index: number, filt
 }
 
 interface Props {
-    type: string;
+    state: SourceBuilderState;
     isEditing: boolean;
     displayRecipe: string;
+    sourceConfigs?: SourceConfig;
     setStagedRecipe: (recipe: string) => void;
     onClickNext: () => void;
     goToPrevious?: () => void;
 }
 
 function RecipeForm(props: Props) {
-    const { type, isEditing, displayRecipe, setStagedRecipe, onClickNext, goToPrevious } = props;
-    const { fields, advancedFields, filterFields } = RECIPE_FIELDS[type];
+    const { state, isEditing, displayRecipe, sourceConfigs, setStagedRecipe, onClickNext, goToPrevious } = props;
+    const { type } = state;
+    const version = state.config?.version;
+    const { fields, advancedFields, filterFields, filterSectionTooltip, advancedSectionTooltip, defaultOpenSections } =
+        RECIPE_FIELDS[type as string];
     const allFields = [...fields, ...advancedFields, ...filterFields];
+    const { data, refetch: refetchSecrets } = useListSecretsQuery({
+        variables: {
+            input: {
+                start: 0,
+                count: 1000, // get all secrets
+            },
+        },
+    });
+    const secrets =
+        data?.listSecrets?.secrets.sort((secretA, secretB) => secretA.name.localeCompare(secretB.name)) || [];
+    const [form] = Form.useForm();
 
     function updateFormValues(changedValues: any, allValues: any) {
         let updatedValues = YAML.parse(displayRecipe);
@@ -109,25 +138,42 @@ function RecipeForm(props: Props) {
             layout="vertical"
             initialValues={getInitialValues(displayRecipe, allFields)}
             onFinish={onClickNext}
+            form={form}
             onValuesChange={updateFormValues}
         >
             <StyledCollapse defaultActiveKey="0">
                 <Collapse.Panel forceRender header={<SectionHeader icon={<ApiOutlined />} text="Connection" />} key="0">
                     {fields.map((field, i) => (
-                        <FormField field={field} removeMargin={i === fields.length - 1} />
+                        <FormField
+                            field={field}
+                            secrets={secrets}
+                            refetchSecrets={refetchSecrets}
+                            removeMargin={i === fields.length - 1}
+                            form={form}
+                        />
                     ))}
-                    {type === SNOWFLAKE && (
+                    {CONNECTORS_WITH_TEST_CONNECTION.has(type as string) && (
                         <TestConnectionWrapper>
-                            <TestConnectionButton type={type} recipe={displayRecipe} />
+                            <TestConnectionButton
+                                recipe={displayRecipe}
+                                sourceConfigs={sourceConfigs}
+                                version={version}
+                            />
                         </TestConnectionWrapper>
                     )}
                 </Collapse.Panel>
             </StyledCollapse>
             {filterFields.length > 0 && (
-                <StyledCollapse>
+                <StyledCollapse defaultActiveKey={defaultOpenSections?.includes(RecipeSections.Filter) ? '1' : ''}>
                     <Collapse.Panel
                         forceRender
-                        header={<SectionHeader icon={<FilterOutlined />} text="Filter" />}
+                        header={
+                            <SectionHeader
+                                icon={<FilterOutlined />}
+                                text="Filter"
+                                sectionTooltip={filterSectionTooltip}
+                            />
+                        }
                         key="1"
                     >
                         {filterFields.map((field, i) => (
@@ -136,21 +182,39 @@ function RecipeForm(props: Props) {
                                     <Typography.Title level={4}>{field.section}</Typography.Title>
                                 )}
                                 <MarginWrapper>
-                                    <FormField field={field} removeMargin={i === filterFields.length - 1} />
+                                    <FormField
+                                        field={field}
+                                        secrets={secrets}
+                                        refetchSecrets={refetchSecrets}
+                                        removeMargin={i === filterFields.length - 1}
+                                        form={form}
+                                    />
                                 </MarginWrapper>
                             </>
                         ))}
                     </Collapse.Panel>
                 </StyledCollapse>
             )}
-            <StyledCollapse>
+            <StyledCollapse defaultActiveKey={defaultOpenSections?.includes(RecipeSections.Advanced) ? '2' : ''}>
                 <Collapse.Panel
                     forceRender
-                    header={<SectionHeader icon={<SettingOutlined />} text="Advanced" />}
+                    header={
+                        <SectionHeader
+                            icon={<SettingOutlined />}
+                            text="Advanced"
+                            sectionTooltip={advancedSectionTooltip}
+                        />
+                    }
                     key="2"
                 >
                     {advancedFields.map((field, i) => (
-                        <FormField field={field} removeMargin={i === advancedFields.length - 1} />
+                        <FormField
+                            field={field}
+                            secrets={secrets}
+                            refetchSecrets={refetchSecrets}
+                            removeMargin={i === advancedFields.length - 1}
+                            form={form}
+                        />
                     ))}
                 </Collapse.Panel>
             </StyledCollapse>

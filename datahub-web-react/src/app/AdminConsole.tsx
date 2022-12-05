@@ -82,9 +82,9 @@ export const AdminConsole = (): JSX.Element => {
                             </Menu.Item>
                         )}
                         {showPolicyBuilder && (
-                            <Menu.Item key="policies" icon={<BankOutlined />}>
-                                <Link onClick={onMenuItemClick} to="/policies">
-                                    Policies
+                            <Menu.Item key="permissions" icon={<BankOutlined />}>
+                                <Link onClick={onMenuItemClick} to="/permissions">
+                                    Permissions
                                 </Link>
                             </Menu.Item>
                         )}

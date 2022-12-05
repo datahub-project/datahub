@@ -1,5 +1,9 @@
 package controllers;
 
+import auth.AuthUtils;
+import auth.JAASConfigs;
+import auth.NativeAuthenticationConfigs;
+import auth.sso.SsoManager;
 import client.AuthServiceClient;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
@@ -8,7 +12,11 @@ import com.linkedin.common.urn.Urn;
 import com.typesafe.config.Config;
 import java.io.UnsupportedEncodingException;
 import java.net.URLEncoder;
+import java.util.HashMap;
+import java.util.Map;
 import java.util.Optional;
+import javax.annotation.Nonnull;
+import javax.inject.Inject;
 import org.apache.commons.lang3.StringUtils;
 import org.pac4j.core.client.Client;
 import org.pac4j.core.context.session.SessionStore;
@@ -21,17 +29,7 @@ import play.libs.Json;
 import play.mvc.Controller;
 import play.mvc.Http;
 import play.mvc.Result;
-import auth.AuthUtils;
-import auth.JAASConfigs;
-import auth.NativeAuthenticationConfigs;
-import auth.sso.SsoManager;
 import security.AuthenticationManager;
-
-import javax.annotation.Nonnull;
-import javax.inject.Inject;
-
-import java.time.Duration;
-import java.time.temporal.ChronoUnit;
 
 import static auth.AuthUtils.*;
 import static org.pac4j.core.client.IndirectClient.*;
@@ -41,6 +39,8 @@ import static org.pac4j.core.client.IndirectClient.*;
 public class AuthenticationController extends Controller {
 
     private static final String AUTH_REDIRECT_URI_PARAM = "redirect_uri";
+    private static final String ERROR_MESSAGE_URI_PARAM = "error_msg";
+    private static final String SSO_DISABLED_ERROR_MESSAGE = "SSO is not configured";
 
     private final Logger _logger = LoggerFactory.getLogger(AuthenticationController.class.getName());
     private final Config _configs;
@@ -70,14 +70,14 @@ public class AuthenticationController extends Controller {
      * Route used to perform authentication, or redirect to log in if authentication fails.
      *
      * If indirect SSO (eg. oidc) is configured, this route will redirect to the identity provider (Indirect auth).
-     * If not, we will fallback to the default username / password login experience (Direct auth).
+     * If not, we will fall back to the default username / password login experience (Direct auth).
      */
     @Nonnull
-    public Result authenticate() {
+    public Result authenticate(Http.Request request) {
 
         // TODO: Call getAuthenticatedUser and then generate a session cookie for the UI if the user is authenticated.
 
-        final Optional<String> maybeRedirectPath = Optional.ofNullable(ctx().request().getQueryString(AUTH_REDIRECT_URI_PARAM));
+        final Optional<String> maybeRedirectPath = Optional.ofNullable(request.getQueryString(AUTH_REDIRECT_URI_PARAM));
         final String redirectPath = maybeRedirectPath.orElse("/");
 
         if (AuthUtils.hasValidSessionCookie(ctx())) {
@@ -98,11 +98,21 @@ public class AuthenticationController extends Controller {
         // 3. If no auth enabled, fallback to using default user account & redirect.
         // Generate GMS session token, TODO:
         final String accessToken = _authClient.generateSessionTokenForUser(DEFAULT_ACTOR_URN.getId());
-        session().put(ACCESS_TOKEN, accessToken);
-        session().put(ACTOR, DEFAULT_ACTOR_URN.toString());
-        return redirect(redirectPath).withCookies(createActorCookie(DEFAULT_ACTOR_URN.toString(), _configs.hasPath(SESSION_TTL_CONFIG_PATH)
-                ? _configs.getInt(SESSION_TTL_CONFIG_PATH)
-                : DEFAULT_SESSION_TTL_HOURS));
+        return redirect(redirectPath).withSession(createSessionMap(DEFAULT_ACTOR_URN.toString(), accessToken))
+            .withCookies(createActorCookie(DEFAULT_ACTOR_URN.toString(),
+                _configs.hasPath(SESSION_TTL_CONFIG_PATH) ? _configs.getInt(SESSION_TTL_CONFIG_PATH)
+                    : DEFAULT_SESSION_TTL_HOURS));
+    }
+
+    /**
+     * Redirect to the identity provider for authentication.
+     */
+    @Nonnull
+    public Result sso() {
+        if (_ssoManager.isSsoEnabled()) {
+            return redirectToIdentityProvider();
+        }
+        return redirect(LOGIN_ROUTE + String.format("?%s=%s", ERROR_MESSAGE_URI_PARAM, SSO_DISABLED_ERROR_MESSAGE));
     }
 
     /**
@@ -111,7 +121,7 @@ public class AuthenticationController extends Controller {
      * TODO: Implement built-in support for LDAP auth. Currently dummy jaas authentication is the default.
      */
     @Nonnull
-    public Result logIn() {
+    public Result logIn(Http.Request request) {
         boolean jaasEnabled = _jaasConfigs.isJAASEnabled();
         _logger.debug(String.format("Jaas authentication enabled: %b", jaasEnabled));
         boolean nativeAuthenticationEnabled = _nativeAuthenticationConfigs.isNativeAuthenticationEnabled();
@@ -124,7 +134,7 @@ public class AuthenticationController extends Controller {
             return badRequest(error);
         }
 
-        final JsonNode json = request().body().asJson();
+        final JsonNode json = request.body().asJson();
         final String username = json.findPath(USER_NAME).textValue();
         final String password = json.findPath(PASSWORD).textValue();
 
@@ -132,8 +142,6 @@ public class AuthenticationController extends Controller {
             JsonNode invalidCredsJson = Json.newObject().put("message", "User name must not be empty.");
             return badRequest(invalidCredsJson);
         }
-
-        ctx().session().clear();
 
         JsonNode invalidCredsJson = Json.newObject().put("message", "Invalid Credentials");
         boolean loginSucceeded = tryLogin(username, password);
@@ -144,21 +152,15 @@ public class AuthenticationController extends Controller {
 
         final Urn actorUrn = new CorpuserUrn(username);
         final String accessToken = _authClient.generateSessionTokenForUser(actorUrn.getId());
-        ctx().session().put(ACTOR, actorUrn.toString());
-        ctx().session().put(ACCESS_TOKEN, accessToken);
-        return ok().withCookies(Http.Cookie.builder(ACTOR, actorUrn.toString())
-            .withHttpOnly(false)
-            .withMaxAge(Duration.of(30, ChronoUnit.DAYS))
-            .build());
+        return createSession(actorUrn.toString(), accessToken);
     }
 
     /**
-     * Sign up a native user based on a name, email, title, and password. The invite token must match the global invite
-     * token stored for the DataHub instance.
+     * Sign up a native user based on a name, email, title, and password. The invite token must match an existing invite token.
      *
      */
     @Nonnull
-    public Result signUp() {
+    public Result signUp(Http.Request request) {
         boolean nativeAuthenticationEnabled = _nativeAuthenticationConfigs.isNativeAuthenticationEnabled();
         _logger.debug(String.format("Native authentication enabled: %b", nativeAuthenticationEnabled));
         if (!nativeAuthenticationEnabled) {
@@ -168,7 +170,7 @@ public class AuthenticationController extends Controller {
             return badRequest(error);
         }
 
-        final JsonNode json = request().body().asJson();
+        final JsonNode json = request.body().asJson();
         final String fullName = json.findPath(FULL_NAME).textValue();
         final String email = json.findPath(EMAIL).textValue();
         final String title = json.findPath(TITLE).textValue();
@@ -200,26 +202,19 @@ public class AuthenticationController extends Controller {
             return badRequest(invalidCredsJson);
         }
 
-        ctx().session().clear();
-
         final Urn userUrn = new CorpuserUrn(email);
         final String userUrnString = userUrn.toString();
-        boolean isNativeUserCreated = _authClient.signUp(userUrnString, fullName, email, title, password, inviteToken);
+        _authClient.signUp(userUrnString, fullName, email, title, password, inviteToken);
         final String accessToken = _authClient.generateSessionTokenForUser(userUrn.getId());
-        ctx().session().put(ACTOR, userUrnString);
-        ctx().session().put(ACCESS_TOKEN, accessToken);
-        return ok().withCookies(Http.Cookie.builder(ACTOR, userUrnString)
-            .withHttpOnly(false)
-            .withMaxAge(Duration.of(30, ChronoUnit.DAYS))
-            .build());
+        return createSession(userUrnString, accessToken);
     }
 
     /**
-     * Create a native user based on a name, email, and password.
+     * Reset a native user's credentials based on a username, old password, and new password.
      *
      */
     @Nonnull
-    public Result resetNativeUserCredentials() {
+    public Result resetNativeUserCredentials(Http.Request request) {
         boolean nativeAuthenticationEnabled = _nativeAuthenticationConfigs.isNativeAuthenticationEnabled();
         _logger.debug(String.format("Native authentication enabled: %b", nativeAuthenticationEnabled));
         if (!nativeAuthenticationEnabled) {
@@ -229,7 +224,7 @@ public class AuthenticationController extends Controller {
             return badRequest(error);
         }
 
-        final JsonNode json = request().body().asJson();
+        final JsonNode json = request.body().asJson();
         final String email = json.findPath(EMAIL).textValue();
         final String password = json.findPath(PASSWORD).textValue();
         final String resetToken = json.findPath(RESET_TOKEN).textValue();
@@ -249,20 +244,11 @@ public class AuthenticationController extends Controller {
             return badRequest(invalidCredsJson);
         }
 
-        ctx().session().clear();
-
         final Urn userUrn = new CorpuserUrn(email);
         final String userUrnString = userUrn.toString();
-        boolean areNativeUserCredentialsReset =
-            _authClient.resetNativeUserCredentials(userUrnString, password, resetToken);
-        _logger.debug(String.format("Are native user credentials reset: %b", areNativeUserCredentialsReset));
+        _authClient.resetNativeUserCredentials(userUrnString, password, resetToken);
         final String accessToken = _authClient.generateSessionTokenForUser(userUrn.getId());
-        ctx().session().put(ACTOR, userUrnString);
-        ctx().session().put(ACCESS_TOKEN, accessToken);
-        return ok().withCookies(Http.Cookie.builder(ACTOR, userUrnString)
-            .withHttpOnly(false)
-            .withMaxAge(Duration.of(30, ChronoUnit.DAYS))
-            .build());
+        return createSession(userUrnString, accessToken);
     }
 
     private Result redirectToIdentityProvider() {
@@ -275,8 +261,17 @@ public class AuthenticationController extends Controller {
             _logger.debug("Found previous login attempt. Removing it manually to prevent unexpected errors.");
             _playSessionStore.set(playWebContext, client.getName() + ATTEMPTED_AUTHENTICATION_SUFFIX, "");
         }
-        final HttpAction action = client.redirect(playWebContext);
-        return new PlayHttpActionAdapter().adapt(action.getCode(), playWebContext);
+
+        try {
+            final HttpAction action = client.redirect(playWebContext);
+            return new PlayHttpActionAdapter().adapt(action.getCode(), playWebContext);
+        } catch (Exception e) {
+            _logger.error("Caught exception while attempting to redirect to SSO identity provider! It's likely that SSO integration is mis-configured", e);
+            return redirect(
+                String.format("/login?error_msg=%s",
+                URLEncoder.encode("Failed to redirect to Single Sign-On provider. Please contact your DataHub Administrator, "
+                    + "or refer to server logs for more information.")));
+        }
     }
 
     private String encodeRedirectUri(final String redirectUri) {
@@ -288,7 +283,6 @@ public class AuthenticationController extends Controller {
     }
 
     private boolean tryLogin(String username, String password) {
-        JsonNode invalidCredsJson = Json.newObject().put("message", "Invalid Credentials");
         boolean loginSucceeded = false;
 
         // First try jaas login, if enabled
@@ -296,10 +290,10 @@ public class AuthenticationController extends Controller {
             try {
                 _logger.debug("Attempting jaas authentication");
                 AuthenticationManager.authenticateJaasUser(username, password);
+                _logger.debug("Jaas authentication successful. Login succeeded");
                 loginSucceeded = true;
-                _logger.debug("Jaas authentication successful");
             } catch (Exception e) {
-                _logger.debug("Jaas authentication error", e);
+                _logger.debug("Jaas authentication error. Login failed", e);
             }
         }
 
@@ -311,5 +305,19 @@ public class AuthenticationController extends Controller {
         }
 
         return loginSucceeded;
+    }
+
+    private Result createSession(String userUrnString, String accessToken) {
+        int ttlInHours = _configs.hasPath(SESSION_TTL_CONFIG_PATH) ? _configs.getInt(SESSION_TTL_CONFIG_PATH)
+            : DEFAULT_SESSION_TTL_HOURS;
+        return ok().withSession(createSessionMap(userUrnString, accessToken))
+            .withCookies(createActorCookie(userUrnString, ttlInHours));
+    }
+
+    private Map<String, String> createSessionMap(final String userUrnStr, final String accessToken) {
+        final Map<String, String> sessionAttributes = new HashMap<>();
+        sessionAttributes.put(ACTOR, userUrnStr);
+        sessionAttributes.put(ACCESS_TOKEN, accessToken);
+        return sessionAttributes;
     }
 }

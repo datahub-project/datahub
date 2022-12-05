@@ -27,7 +27,14 @@ query getUser($urn: String!, $groupsCount: Int!) {
         globalTags {
             ...globalTagsFields
         }
-        relationships(input: { types: ["IsMemberOfGroup"], direction: OUTGOING, start: 0, count: $groupsCount }) {
+        groups: relationships(
+            input: {
+                types: ["IsMemberOfGroup", "IsMemberOfNativeGroup"]
+                direction: OUTGOING
+                start: 0
+                count: $groupsCount
+            }
+        ) {
             start
             count
             total
@@ -42,7 +49,28 @@ query getUser($urn: String!, $groupsCount: Int!) {
                             description
                             email
                         }
-                        relationships(input: { types: ["IsMemberOfGroup"], direction: INCOMING }) {
+                        relationships(
+                            input: { types: ["IsMemberOfGroup", "IsMemberOfNativeGroup"], direction: INCOMING }
+                        ) {
+                            start
+                            count
+                            total
+                        }
+                    }
+                }
+            }
+        }
+        roles: relationships(input: { types: ["IsMemberOfRole"], direction: OUTGOING, start: 0, count: $groupsCount }) {
+            start
+            count
+            total
+            relationships {
+                entity {
+                    ... on DataHubRole {
+                        urn
+                        type
+                        name
+                        relationships(input: { types: ["IsMemberOfRole"], direction: INCOMING }) {
                             start
                             count
                             total
@@ -56,7 +84,14 @@ query getUser($urn: String!, $groupsCount: Int!) {
 
 query getUserGroups($urn: String!, $start: Int!, $count: Int!) {
     corpUser(urn: $urn) {
-        relationships(input: { types: ["IsMemberOfGroup"], direction: OUTGOING, start: $start, count: $count }) {
+        relationships(
+            input: {
+                types: ["IsMemberOfGroup", "IsMemberOfNativeGroup"]
+                direction: OUTGOING
+                start: $start
+                count: $count
+            }
+        ) {
             start
             count
             total
@@ -72,7 +107,7 @@ query getUserGroups($urn: String!, $start: Int!, $count: Int!) {
                             email
                         }
                     }
-                    relationships(input: { types: ["IsMemberOfGroup"], direction: INCOMING }) {
+                    relationships(input: { types: ["IsMemberOfGroup", "IsMemberOfNativeGroup"], direction: INCOMING }) {
                         start
                         count
                         total
@@ -109,6 +144,25 @@ query listUsers($input: ListUsersInput!) {
                 skills
             }
             status
+            roles: relationships(input: { types: ["IsMemberOfRole"], direction: OUTGOING, start: 0 }) {
+                start
+                count
+                total
+                relationships {
+                    entity {
+                        ... on DataHubRole {
+                            urn
+                            type
+                            name
+                            relationships(input: { types: ["IsMemberOfRole"], direction: INCOMING }) {
+                                start
+                                count
+                                total
+                            }
+                        }
+                    }
+                }
+            }
         }
     }
 }
@@ -127,21 +181,8 @@ mutation updateCorpUserProperties($urn: String!, $input: CorpUserUpdateInput!) {
     }
 }
 
-mutation createNativeUserInviteToken {
-    createNativeUserInviteToken {
-        inviteToken
-    }
-}
-
-query getNativeUserInviteToken {
-    getNativeUserInviteToken {
-        inviteToken
-    }
-}
-
-mutation createNativeUserResetToken($input: CreateNativeUserResetTokenInput!)  {
+mutation createNativeUserResetToken($input: CreateNativeUserResetTokenInput!) {
     createNativeUserResetToken(input: $input) {
         resetToken
     }
 }
-

@@ -1,12 +1,17 @@
 import React from 'react';
 import styled from 'styled-components';
-import { Typography, Image, Tooltip } from 'antd';
-import { RightOutlined } from '@ant-design/icons';
+import { Typography, Image } from 'antd';
 import { Maybe } from 'graphql/jsutils/Maybe';
-import { Container } from '../../../../../../../types.generated';
+import { Container, GlossaryNode } from '../../../../../../../types.generated';
 import { ANTD_GRAY } from '../../../../constants';
 import ContainerLink from './ContainerLink';
 import { capitalizeFirstLetterOnly } from '../../../../../../shared/textUtil';
+import ParentNodesView, {
+    StyledRightOutlined,
+    ParentNodesWrapper as ParentContainersWrapper,
+    Ellipsis,
+    StyledTooltip,
+} from './ParentNodesView';
 
 const LogoIcon = styled.span`
     display: flex;
@@ -45,31 +50,6 @@ const PlatformDivider = styled.div`
     vertical-align: text-top;
 `;
 
-const StyledRightOutlined = styled(RightOutlined)`
-    color: ${ANTD_GRAY[7]};
-    font-size: 8px;
-    margin: 0 10px;
-`;
-
-const ParentContainersWrapper = styled.div`
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    flex-direction: row-reverse;
-    display: flex;
-`;
-
-const Ellipsis = styled.span`
-    color: ${ANTD_GRAY[7]};
-    margin-right: 2px;
-`;
-
-const StyledTooltip = styled(Tooltip)`
-    display: flex;
-    white-space: nowrap;
-    overflow: hidden;
-`;
-
 export function getParentContainerNames(containers?: Maybe<Container>[] | null) {
     let parentNames = '';
     if (containers) {
@@ -95,12 +75,14 @@ interface Props {
     typeIcon?: JSX.Element;
     entityType?: string;
     parentContainers?: Maybe<Container>[] | null;
+    parentNodes?: GlossaryNode[] | null;
     parentContainersRef: React.RefObject<HTMLDivElement>;
     areContainersTruncated: boolean;
 }
 
 function PlatformContentView(props: Props) {
     const {
+        parentNodes,
         platformName,
         platformLogoUrl,
         platformNames,
@@ -121,7 +103,9 @@ function PlatformContentView(props: Props) {
         <PlatformContentWrapper>
             {typeIcon && <LogoIcon>{typeIcon}</LogoIcon>}
             <PlatformText>{capitalizeFirstLetterOnly(entityType)}</PlatformText>
-            {(!!platformName || !!instanceId || !!parentContainers?.length) && <PlatformDivider />}
+            {(!!platformName || !!instanceId || !!parentContainers?.length || !!parentNodes?.length) && (
+                <PlatformDivider />
+            )}
             {platformName && (
                 <LogoIcon>
                     {!platformLogoUrl && !platformLogoUrls && entityLogoComponent}
@@ -162,6 +146,7 @@ function PlatformContentView(props: Props) {
                 </ParentContainersWrapper>
                 {directParentContainer && <ContainerLink container={directParentContainer} />}
             </StyledTooltip>
+            <ParentNodesView parentNodes={parentNodes} />
         </PlatformContentWrapper>
     );
 }

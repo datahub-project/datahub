@@ -22,7 +22,7 @@ import java.util.Optional;
 import java.util.stream.Collectors;
 import javax.annotation.Nullable;
 import lombok.extern.slf4j.Slf4j;
-import org.apache.parquet.SemanticVersion;
+import org.apache.maven.artifact.versioning.ComparableVersion;
 
 import static com.linkedin.datahub.graphql.types.timeline.utils.TimelineUtils.*;
 
@@ -33,24 +33,24 @@ import static com.linkedin.datahub.graphql.types.timeline.utils.TimelineUtils.*;
 public class SchemaBlameMapper {
 
   public static GetSchemaBlameResult map(List<ChangeTransaction> changeTransactions, @Nullable String versionCutoff) {
+    GetSchemaBlameResult result = new GetSchemaBlameResult();
     if (changeTransactions.isEmpty()) {
       log.debug("Change transactions are empty");
-      return null;
+      return result;
     }
 
     Map<String, SchemaFieldBlame> schemaBlameMap = new HashMap<>();
-    GetSchemaBlameResult result = new GetSchemaBlameResult();
 
     String latestSemanticVersionString =
         truncateSemanticVersion(changeTransactions.get(changeTransactions.size() - 1).getSemVer());
 
     String semanticVersionFilterString = versionCutoff == null ? latestSemanticVersionString : versionCutoff;
-    Optional<SemanticVersion> semanticVersionFilterOptional = createSemanticVersion(semanticVersionFilterString);
+    Optional<ComparableVersion> semanticVersionFilterOptional = createSemanticVersion(semanticVersionFilterString);
     if (!semanticVersionFilterOptional.isPresent()) {
       return result;
     }
 
-    SemanticVersion semanticVersionFilter = semanticVersionFilterOptional.get();
+    ComparableVersion semanticVersionFilter = semanticVersionFilterOptional.get();
 
     List<ChangeTransaction> reversedChangeTransactions = changeTransactions.stream()
         .map(TimelineUtils::semanticVersionChangeTransactionPair)
@@ -83,7 +83,7 @@ public class SchemaBlameMapper {
 
         SchemaFieldKey schemaFieldKey;
         try {
-          schemaFieldKey = (SchemaFieldKey) EntityKeyUtils.convertUrnToEntityKey(Urn.createFromString(schemaUrn),
+          schemaFieldKey = (SchemaFieldKey) EntityKeyUtils.convertUrnToEntityKeyInternal(Urn.createFromString(schemaUrn),
               new SchemaFieldKey().schema());
         } catch (Exception e) {
           log.debug(String.format("Could not generate schema urn for %s", schemaUrn));

@@ -14,6 +14,7 @@ services:
     - KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR=1
     - KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS=0
     - KAFKA_HEAP_OPTS=-Xms256m -Xmx256m
+    - KAFKA_CONFLUENT_SUPPORT_METRICS_ENABLE=false
     hostname: broker
     image: confluentinc/cp-kafka:5.4.0
     ports:
@@ -24,6 +25,7 @@ services:
     depends_on:
     - datahub-gms
     environment:
+    - DATAHUB_GMS_PROTOCOL=http
     - DATAHUB_GMS_HOST=datahub-gms
     - DATAHUB_GMS_PORT=8080
     - KAFKA_BOOTSTRAP_SERVER=broker:29092
@@ -33,6 +35,16 @@ services:
     - DATAHUB_SYSTEM_CLIENT_ID=__datahub_system
     - DATAHUB_SYSTEM_CLIENT_SECRET=JohnSnowKnowsNothing
     - KAFKA_PROPERTIES_SECURITY_PROTOCOL=PLAINTEXT
+    - DATAHUB_ACTIONS_SLACK_ENABLED
+    - DATAHUB_ACTIONS_SLACK_DATAHUB_BASE_URL
+    - DATAHUB_ACTIONS_SLACK_BOT_TOKEN
+    - DATAHUB_ACTIONS_SLACK_SIGNING_SECRET
+    - DATAHUB_ACTIONS_SLACK_CHANNEL
+    - DATAHUB_ACTIONS_SLACK_SUPPRESS_SYSTEM_ACTIVITY
+    - DATAHUB_ACTIONS_TEAMS_ENABLED
+    - DATAHUB_ACTIONS_TEAMS_DATAHUB_BASE_URL
+    - DATAHUB_ACTIONS_TEAMS_WEBHOOK_URL
+    - DATAHUB_ACTIONS_TEAMS_SUPPRESS_SYSTEM_ACTIVITY
     hostname: actions
     image: acryldata/datahub-actions:${ACTIONS_VERSION:-head}
     restart: on-failure:5
@@ -66,7 +78,6 @@ services:
     environment:
     - DATAHUB_SERVER_TYPE=${DATAHUB_SERVER_TYPE:-quickstart}
     - DATAHUB_TELEMETRY_ENABLED=${DATAHUB_TELEMETRY_ENABLED:-true}
-    - DATASET_ENABLE_SCSI=false
     - EBEAN_DATASOURCE_USERNAME=datahub
     - EBEAN_DATASOURCE_PASSWORD=datahub
     - EBEAN_DATASOURCE_HOST=mysql:3306
@@ -76,18 +87,20 @@ services:
     - KAFKA_SCHEMAREGISTRY_URL=http://schema-registry:8081
     - ELASTICSEARCH_HOST=elasticsearch
     - ELASTICSEARCH_PORT=9200
+    - ES_BULK_REFRESH_POLICY=WAIT_UNTIL
     - NEO4J_HOST=http://neo4j:7474
     - NEO4J_URI=bolt://neo4j
     - NEO4J_USERNAME=neo4j
     - NEO4J_PASSWORD=datahub
     - JAVA_OPTS=-Xms1g -Xmx1g
+    - GRAPH_SERVICE_DIFF_MODE_ENABLED=true
     - GRAPH_SERVICE_IMPL=neo4j
     - ENTITY_REGISTRY_CONFIG_PATH=/datahub/datahub-gms/resources/entity-registry.yml
+    - ENTITY_SERVICE_ENABLE_RETENTION=true
     - MAE_CONSUMER_ENABLED=true
     - MCE_CONSUMER_ENABLED=true
     - PE_CONSUMER_ENABLED=true
     - UI_INGESTION_ENABLED=true
-    - UI_INGESTION_DEFAULT_CLI_VERSION=0.8.42
     hostname: datahub-gms
     image: ${DATAHUB_GMS_IMAGE:-linkedin/datahub-gms}:${DATAHUB_VERSION:-head}
     ports:
@@ -169,7 +182,7 @@ services:
     - NEO4J_dbms_default__database=graph.db
     - NEO4J_dbms_allow__upgrade=true
     hostname: neo4j
-    image: neo4j:4.0.6
+    image: neo4j:4.4.9-community
     ports:
     - ${DATAHUB_MAPPED_NEO4J_HTTP_PORT:-7474}:7474
     - ${DATAHUB_MAPPED_NEO4J_BOLT_PORT:-7687}:7687
@@ -197,7 +210,7 @@ services:
     ports:
     - ${DATAHUB_MAPPED_ZK_PORT:-2181}:2181
     volumes:
-    - zkdata:/var/opt/zookeeper
+    - zkdata:/var/lib/zookeeper
 version: '2.3'
 volumes:
   broker: null

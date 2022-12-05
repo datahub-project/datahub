@@ -18,7 +18,7 @@ def nice_version_name() -> str:
 
 if sys.version_info < (3, 7):
     warnings.warn(
-        "DataHub will require Python 3.7 or newer in a future release. "
+        "DataHub requires Python 3.7 or newer. "
         "Please upgrade your Python version to continue using DataHub.",
         FutureWarning,
     )

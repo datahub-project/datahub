@@ -1,9 +1,15 @@
-import time
-
 import pytest
-import requests
+import tenacity
 
-from tests.utils import get_frontend_url, ingest_file_via_rest, wait_for_healthcheck_util
+from tests.utils import (
+    get_frontend_url,
+    ingest_file_via_rest,
+    wait_for_healthcheck_util,
+    get_sleep_info,
+    get_frontend_session,
+)
+
+sleep_sec, sleep_times = get_sleep_info()
 
 bootstrap_small = "test_resources/bootstrap_single.json"
 bootstrap_small_2 = "test_resources/bootstrap_single2.json"
@@ -17,21 +23,13 @@ def wait_for_healthchecks():
 
 @pytest.fixture(scope="session")
 def frontend_session(wait_for_healthchecks):
-    session = requests.Session()
-
-    headers = {
-        "Content-Type": "application/json",
-    }
-    data = '{"username":"datahub", "password":"datahub"}'
-    response = session.post(f"{get_frontend_url()}/logIn", headers=headers, data=data)
-    response.raise_for_status()
-
-    yield session
+    yield get_frontend_session()
 
 
-def test_ingestion_via_rest_rapid(frontend_session, wait_for_healthchecks):
-    ingest_file_via_rest(bootstrap_small)
-    ingest_file_via_rest(bootstrap_small_2)
+@tenacity.retry(
+    stop=tenacity.stop_after_attempt(sleep_times), wait=tenacity.wait_fixed(sleep_sec)
+)
+def _ensure_dataset_present_correctly(frontend_session):
     urn = "urn:li:dataset:(urn:li:dataPlatform:testPlatform,testDataset,PROD)"
     json = {
         "query": """query getDataset($urn: String!) {\n
@@ -66,8 +64,6 @@ def test_ingestion_via_rest_rapid(frontend_session, wait_for_healthchecks):
             }""",
         "variables": {"urn": urn},
     }
-    #
-    time.sleep(2)
     response = frontend_session.post(f"{get_frontend_url()}/api/v2/graphql", json=json)
     response.raise_for_status()
     res_data = response.json()
@@ -76,5 +72,10 @@ def test_ingestion_via_rest_rapid(frontend_session, wait_for_healthchecks):
     assert res_data["data"]
     assert res_data["data"]["dataset"]
     assert res_data["data"]["dataset"]["urn"] == urn
-    # commenting this out temporarily while we work on fixing this race condition for elasticsearch
-    # assert len(res_data["data"]["dataset"]["outgoing"]["relationships"]) == 1
+    assert len(res_data["data"]["dataset"]["outgoing"]["relationships"]) == 1
+
+
+def test_ingestion_via_rest_rapid(frontend_session, wait_for_healthchecks):
+    ingest_file_via_rest(bootstrap_small)
+    ingest_file_via_rest(bootstrap_small_2)
+    _ensure_dataset_present_correctly(frontend_session)

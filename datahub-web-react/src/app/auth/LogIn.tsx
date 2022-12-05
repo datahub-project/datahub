@@ -1,9 +1,9 @@
 import React, { useCallback, useState } from 'react';
 import * as QueryString from 'query-string';
-import { Input, Button, Form, message, Image } from 'antd';
-import { UserOutlined, LockOutlined } from '@ant-design/icons';
+import { Input, Button, Form, message, Image, Divider } from 'antd';
+import { UserOutlined, LockOutlined, LoginOutlined } from '@ant-design/icons';
 import { useReactiveVar } from '@apollo/client';
-import styled, { useTheme } from 'styled-components';
+import styled, { useTheme } from 'styled-components/macro';
 import { Redirect, useLocation } from 'react-router';
 import styles from './login.module.css';
 import { Message } from '../shared/Message';
@@ -38,11 +38,36 @@ const FormInput = styled(Input)`
     }
 `;
 
+const SsoDivider = styled(Divider)`
+    background-color: white;
+`;
+
+const SsoButton = styled(Button)`
+    &&& {
+        align-self: center;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        padding: 5.6px 11px;
+        gap: 4px;
+    }
+`;
+
+const LoginLogo = styled(LoginOutlined)`
+    padding-top: 7px;
+`;
+
+const SsoTextSpan = styled.span`
+    padding-top: 6px;
+`;
+
 export type LogInProps = Record<string, never>;
 
 export const LogIn: React.VFC<LogInProps> = () => {
     const isLoggedIn = useReactiveVar(isLoggedInVar);
     const location = useLocation();
+    const params = QueryString.parse(location.search);
+    const maybeRedirectError = params.error_msg;
 
     const themeConfig = useTheme();
     const [loading, setLoading] = useState(false);
@@ -69,8 +94,8 @@ export const LogIn: React.VFC<LogInProps> = () => {
                     analytics.event({ type: EventType.LogInEvent });
                     return Promise.resolve();
                 })
-                .catch((error) => {
-                    message.error(`Failed to log in! ${error}`);
+                .catch((_) => {
+                    message.error(`Failed to log in! An unexpected error occurred.`);
                 })
                 .finally(() => setLoading(false));
         },
@@ -78,13 +103,15 @@ export const LogIn: React.VFC<LogInProps> = () => {
     );
 
     if (isLoggedIn) {
-        const params = QueryString.parse(location.search);
         const maybeRedirectUri = params.redirect_uri;
         return <Redirect to={(maybeRedirectUri && decodeURIComponent(maybeRedirectUri as string)) || '/'} />;
     }
 
     return (
         <div className={styles.login_page}>
+            {maybeRedirectError && maybeRedirectError.length > 0 && (
+                <Message type="error" content={maybeRedirectError} />
+            )}
             <div className={styles.login_box}>
                 <div className={styles.login_logo_box}>
                     <Image wrapperClassName={styles.logo_image} src={themeConfig.assets?.logoUrl} preview={false} />
@@ -124,6 +151,12 @@ export const LogIn: React.VFC<LogInProps> = () => {
                             }}
                         </Form.Item>
                     </Form>
+                    <SsoDivider />
+                    <SsoButton type="primary" href="/sso" block htmlType="submit" className={styles.sso_button}>
+                        <LoginLogo />
+                        <SsoTextSpan>Sign in with SSO</SsoTextSpan>
+                        <span />
+                    </SsoButton>
                 </div>
             </div>
         </div>

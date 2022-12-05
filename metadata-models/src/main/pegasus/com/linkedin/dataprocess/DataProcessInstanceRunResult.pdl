@@ -3,7 +3,7 @@ record DataProcessInstanceRunResult
 {
 
     /**
-    *  The final result, e.g. SUCCESS, FAILURE or SKIPPED.
+    *  The final result, e.g. SUCCESS, FAILURE, SKIPPED, or UP_FOR_RETRY.
     */
     type: enum RunResultType {
     /**
@@ -17,7 +17,11 @@ record DataProcessInstanceRunResult
     /**
     *  The Run Skipped
     */
-    SKIPPED
+    SKIPPED,
+    /**
+    *  The Run Failed and will Retry
+    */
+    UP_FOR_RETRY
     },
 
     /**

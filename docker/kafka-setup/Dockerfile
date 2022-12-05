@@ -4,7 +4,7 @@ FROM confluentinc/cp-base-new:6.1.4 as confluent_base
 # Based on https://github.com/blacktop's alpine kafka build
 FROM python:3-alpine
 
-ENV KAFKA_VERSION 2.8.1
+ENV KAFKA_VERSION 2.8.2
 ENV SCALA_VERSION 2.13
 
 # Set the classpath for JARs required by `cub`
@@ -18,7 +18,9 @@ ARG PYTHON_CONFLUENT_DOCKER_UTILS_INSTALL_SPEC="git+https://github.com/confluent
 
 LABEL name="kafka" version=${KAFKA_VERSION}
 
-RUN apk add --no-cache openjdk8-jre bash coreutils
+RUN apk add --no-cache bash coreutils
+RUN apk --no-cache add openjdk11-jre --repository=http://dl-cdn.alpinelinux.org/alpine/edge/community
+
 RUN apk add --no-cache -t .build-deps git curl ca-certificates jq gcc musl-dev libffi-dev zip
 RUN mkdir -p /opt \
   && mirror=$(curl --stderr /dev/null https://www.apache.org/dyn/closer.cgi\?as_json\=1 | jq -r '.preferred') \
@@ -41,6 +43,9 @@ WORKDIR /opt/kafka
 
 RUN ls -la
 COPY --from=confluent_base /usr/share/java/cp-base-new/ /usr/share/java/cp-base-new/
+
+ADD --chown=kafka:kafka https://github.com/aws/aws-msk-iam-auth/releases/download/v1.1.5/aws-msk-iam-auth-1.1.5-all.jar /usr/share/java/cp-base-new
+ADD --chown=kafka:kafka https://github.com/aws/aws-msk-iam-auth/releases/download/v1.1.5/aws-msk-iam-auth-1.1.5-all.jar /opt/kafka/libs
 
 ENV METADATA_AUDIT_EVENT_NAME="MetadataAuditEvent_v4"
 ENV METADATA_CHANGE_EVENT_NAME="MetadataChangeEvent_v4"

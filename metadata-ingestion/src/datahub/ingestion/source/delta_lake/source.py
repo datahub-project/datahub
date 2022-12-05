@@ -1,5 +1,7 @@
 import logging
 import os
+import time
+from datetime import datetime
 from typing import Callable, Iterable, List
 
 from deltalake import DeltaTable
@@ -8,6 +10,7 @@ from datahub.emitter.mce_builder import (
     make_data_platform_urn,
     make_dataset_urn_with_platform_instance,
 )
+from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.common import PipelineContext, WorkUnit
 from datahub.ingestion.api.decorators import (
     SourceCapability,
@@ -25,14 +28,15 @@ from datahub.ingestion.source.aws.s3_util import (
     get_key_prefix,
     strip_s3_prefix,
 )
-from datahub.ingestion.source.data_lake.data_lake_utils import ContainerWUCreator
 from datahub.ingestion.source.delta_lake.config import DeltaLakeSourceConfig
 from datahub.ingestion.source.delta_lake.delta_lake_utils import (
     get_file_count,
     read_delta_table,
 )
 from datahub.ingestion.source.delta_lake.report import DeltaLakeSourceReport
+from datahub.ingestion.source.s3.data_lake_utils import ContainerWUCreator
 from datahub.ingestion.source.schema_inference.csv_tsv import tableschema_type_map
+from datahub.metadata.com.linkedin.pegasus2avro.common import Status
 from datahub.metadata.com.linkedin.pegasus2avro.metadata.snapshot import DatasetSnapshot
 from datahub.metadata.com.linkedin.pegasus2avro.mxe import MetadataChangeEvent
 from datahub.metadata.com.linkedin.pegasus2avro.schema import (
@@ -41,8 +45,11 @@ from datahub.metadata.com.linkedin.pegasus2avro.schema import (
     SchemaMetadata,
 )
 from datahub.metadata.schema_classes import (
+    ChangeTypeClass,
     DatasetPropertiesClass,
     NullTypeClass,
+    OperationClass,
+    OperationTypeClass,
     OtherSchemaClass,
 )
 from datahub.telemetry import telemetry
@@ -53,6 +60,19 @@ logger: logging.Logger = logging.getLogger(__name__)
 config_options_to_report = [
     "platform",
 ]
+
+OPERATION_STATEMENT_TYPES = {
+    "INSERT": OperationTypeClass.INSERT,
+    "UPDATE": OperationTypeClass.UPDATE,
+    "DELETE": OperationTypeClass.DELETE,
+    "MERGE": OperationTypeClass.UPDATE,
+    "CREATE": OperationTypeClass.CREATE,
+    "CREATE_TABLE_AS_SELECT": OperationTypeClass.CREATE,
+    "CREATE_SCHEMA": OperationTypeClass.CREATE,
+    "DROP_TABLE": OperationTypeClass.DROP,
+    "REPLACE TABLE AS SELECT": OperationTypeClass.UPDATE,
+    "COPY INTO": OperationTypeClass.UPDATE,
+}
 
 
 @platform_name("Delta Lake", id="delta-lake")
@@ -122,6 +142,58 @@ class DeltaLakeSource(Source):
 
         return fields
 
+    def _create_operation_aspect_wu(
+        self, delta_table: DeltaTable, dataset_urn: str
+    ) -> Iterable[MetadataWorkUnit]:
+        for hist in delta_table.history(
+            limit=self.source_config.version_history_lookback
+        ):
+
+            # History schema picked up from https://docs.delta.io/latest/delta-utility.html#retrieve-delta-table-history
+            reported_time: int = int(time.time() * 1000)
+            last_updated_timestamp: int = hist["timestamp"]
+            statement_type = OPERATION_STATEMENT_TYPES.get(
+                hist.get("operation"), OperationTypeClass.CUSTOM
+            )
+            custom_type = (
+                hist.get("operation")
+                if statement_type == OperationTypeClass.CUSTOM
+                else None
+            )
+
+            operation_custom_properties = dict()
+            for key, val in sorted(hist.items()):
+                if val is not None:
+                    if isinstance(val, dict):
+                        for k, v in sorted(val.items()):
+                            if v is not None:
+                                operation_custom_properties[f"{key}_{k}"] = str(v)
+                    else:
+                        operation_custom_properties[key] = str(val)
+            operation_custom_properties.pop("timestamp", None)
+            operation_custom_properties.pop("operation", None)
+            operation_aspect = OperationClass(
+                timestampMillis=reported_time,
+                lastUpdatedTimestamp=last_updated_timestamp,
+                operationType=statement_type,
+                customOperationType=custom_type,
+                customProperties=operation_custom_properties,
+            )
+
+            mcp = MetadataChangeProposalWrapper(
+                entityType="dataset",
+                aspectName="operation",
+                changeType=ChangeTypeClass.UPSERT,
+                entityUrn=dataset_urn,
+                aspect=operation_aspect,
+            )
+            operational_wu = MetadataWorkUnit(
+                id=f"{datetime.fromtimestamp(last_updated_timestamp / 1000).isoformat()}-operation-aspect-{dataset_urn}",
+                mcp=mcp,
+            )
+            self.report.report_workunit(operational_wu)
+            yield operational_wu
+
     def ingest_table(
         self, delta_table: DeltaTable, path: str
     ) -> Iterable[MetadataWorkUnit]:
@@ -138,7 +210,7 @@ class DeltaLakeSource(Source):
         logger.debug(f"Ingesting table {table_name} from location {path}")
         if self.source_config.relative_path is None:
             browse_path: str = (
-                strip_s3_prefix(path) if self.source_config.is_s3() else path.strip("/")
+                strip_s3_prefix(path) if self.source_config.is_s3 else path.strip("/")
             )
         else:
             browse_path = path.split(self.source_config.base_path)[1].strip("/")
@@ -153,7 +225,7 @@ class DeltaLakeSource(Source):
         )
         dataset_snapshot = DatasetSnapshot(
             urn=dataset_urn,
-            aspects=[],
+            aspects=[Status(removed=False)],
         )
 
         customProperties = {
@@ -162,13 +234,10 @@ class DeltaLakeSource(Source):
             "table_creation_time": str(delta_table.metadata().created_time),
             "id": str(delta_table.metadata().id),
             "version": str(delta_table.version()),
-            "location": self.source_config.get_complete_path(),
+            "location": self.source_config.complete_path,
         }
-        customProperties.update(delta_table.history()[-1])
-        customProperties["version_creation_time"] = customProperties["timestamp"]
-        del customProperties["timestamp"]
-        for key in customProperties.keys():
-            customProperties[key] = str(customProperties[key])
+        if not self.source_config.require_files:
+            del customProperties["number_of_files"]  # always 0
 
         dataset_properties = DatasetPropertiesClass(
             description=delta_table.metadata().description,
@@ -189,7 +258,7 @@ class DeltaLakeSource(Source):
         dataset_snapshot.aspects.append(schema_metadata)
 
         if (
-            self.source_config.is_s3()
+            self.source_config.is_s3
             and self.source_config.s3
             and (
                 self.source_config.s3.use_s3_bucket_tags
@@ -215,11 +284,13 @@ class DeltaLakeSource(Source):
         yield wu
 
         container_wus = self.container_WU_creator.create_container_hierarchy(
-            browse_path, self.source_config.is_s3(), dataset_urn
+            browse_path, self.source_config.is_s3, dataset_urn
         )
         for wu in container_wus:
             self.report.report_workunit(wu)
             yield wu
+
+        yield from self._create_operation_aspect_wu(delta_table, dataset_urn)
 
     def process_folder(
         self, path: str, get_folders: Callable[[str], Iterable[str]]
@@ -256,17 +327,10 @@ class DeltaLakeSource(Source):
             self.source_config.env,
         )
         get_folders = (
-            self.s3_get_folders
-            if self.source_config.is_s3()
-            else self.local_get_folders
+            self.s3_get_folders if self.source_config.is_s3 else self.local_get_folders
         )
-        for wu in self.process_folder(
-            self.source_config.get_complete_path(), get_folders
-        ):
+        for wu in self.process_folder(self.source_config.complete_path, get_folders):
             yield wu
 
     def get_report(self) -> SourceReport:
         return self.report
-
-    def close(self):
-        pass

@@ -14,7 +14,6 @@ import { SidebarRecommendationsSection } from '../shared/containers/profile/side
 import { SidebarTagsSection } from '../shared/containers/profile/sidebar/SidebarTagsSection';
 import { PropertiesTab } from '../shared/tabs/Properties/PropertiesTab';
 import { SidebarDomainSection } from '../shared/containers/profile/sidebar/Domain/SidebarDomainSection';
-import { EntityMenuItems } from '../shared/EntityDropdown/EntityDropdown';
 
 /**
  * Definition of the DataHub Container entity.
@@ -68,7 +67,6 @@ export class ContainerEntity implements Entity<Container> {
             useEntityQuery={useGetContainerQuery}
             useUpdateQuery={undefined}
             getOverrideProperties={this.getOverridePropertiesFromEntity}
-            headerDropdownItems={new Set([EntityMenuItems.COPY_URL])}
             tabs={[
                 {
                     name: 'Entities',
@@ -121,6 +119,7 @@ export class ContainerEntity implements Entity<Container> {
                 entityCount={data.entities?.total}
                 domain={data.domain?.domain}
                 tags={data.tags}
+                externalUrl={data.properties?.externalUrl}
             />
         );
     };
@@ -134,7 +133,7 @@ export class ContainerEntity implements Entity<Container> {
                 platformName={data.platform.properties?.displayName || data.platform.name}
                 platformLogo={data.platform.properties?.logoUrl}
                 platformInstanceId={data.dataPlatformInstance?.instanceId}
-                description={data.properties?.description}
+                description={data.editableProperties?.description || data.properties?.description}
                 owners={data.ownership?.owners}
                 subTypes={data.subTypes}
                 container={data.container}
@@ -149,7 +148,7 @@ export class ContainerEntity implements Entity<Container> {
     };
 
     displayName = (data: Container) => {
-        return data?.properties?.name || data?.urn;
+        return data?.properties?.name || data?.properties?.qualifiedName || data?.urn;
     };
 
     getOverridePropertiesFromEntity = (data: Container) => {

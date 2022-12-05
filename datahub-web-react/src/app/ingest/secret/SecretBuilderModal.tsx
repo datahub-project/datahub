@@ -3,6 +3,10 @@ import React, { useState } from 'react';
 import { useEnterKeyListener } from '../../shared/useEnterKeyListener';
 import { SecretBuilderState } from './types';
 
+const NAME_FIELD_NAME = 'name';
+const DESCRIPTION_FIELD_NAME = 'description';
+const VALUE_FIELD_NAME = 'value';
+
 type Props = {
     initialState?: SecretBuilderState;
     visible: boolean;
@@ -11,35 +15,17 @@ type Props = {
 };
 
 export const SecretBuilderModal = ({ initialState, visible, onSubmit, onCancel }: Props) => {
-    const [secretBuilderState, setSecretBuilderState] = useState<SecretBuilderState>(initialState || {});
-    const [createButtonEnabled, setCreateButtonEnabled] = useState(true);
+    const [createButtonEnabled, setCreateButtonEnabled] = useState(false);
     const [form] = Form.useForm();
-
-    const setName = (name: string) => {
-        setSecretBuilderState({
-            ...secretBuilderState,
-            name,
-        });
-    };
-
-    const setValue = (value: string) => {
-        setSecretBuilderState({
-            ...secretBuilderState,
-            value,
-        });
-    };
-
-    const setDescription = (description: string) => {
-        setSecretBuilderState({
-            ...secretBuilderState,
-            description,
-        });
-    };
 
     // Handle the Enter press
     useEnterKeyListener({
         querySelectorToExecuteClick: '#createSecretButton',
     });
+
+    function resetValues() {
+        form.resetFields();
+    }
 
     return (
         <Modal
@@ -47,6 +33,7 @@ export const SecretBuilderModal = ({ initialState, visible, onSubmit, onCancel }
             title={<Typography.Text>Create a new Secret</Typography.Text>}
             visible={visible}
             onCancel={onCancel}
+            zIndex={1051} // one higher than other modals - needed for managed ingestion forms
             footer={
                 <>
                     <Button onClick={onCancel} type="text">
@@ -54,8 +41,17 @@ export const SecretBuilderModal = ({ initialState, visible, onSubmit, onCancel }
                     </Button>
                     <Button
                         id="createSecretButton"
-                        onClick={() => onSubmit?.(secretBuilderState, () => setSecretBuilderState({}))}
-                        disabled={createButtonEnabled}
+                        onClick={() =>
+                            onSubmit?.(
+                                {
+                                    name: form.getFieldValue(NAME_FIELD_NAME),
+                                    description: form.getFieldValue(DESCRIPTION_FIELD_NAME),
+                                    value: form.getFieldValue(VALUE_FIELD_NAME),
+                                },
+                                resetValues,
+                            )
+                        }
+                        disabled={!createButtonEnabled}
                     >
                         Create
                     </Button>
@@ -64,10 +60,10 @@ export const SecretBuilderModal = ({ initialState, visible, onSubmit, onCancel }
         >
             <Form
                 form={form}
-                initialValues={{}}
+                initialValues={initialState}
                 layout="vertical"
                 onFieldsChange={() =>
-                    setCreateButtonEnabled(form.getFieldsError().some((field) => field.errors.length > 0))
+                    setCreateButtonEnabled(!form.getFieldsError().some((field) => field.errors.length > 0))
                 }
             >
                 <Form.Item label={<Typography.Text strong>Name</Typography.Text>}>
@@ -75,22 +71,19 @@ export const SecretBuilderModal = ({ initialState, visible, onSubmit, onCancel }
                         Give your secret a name. This is what you&apos;ll use to reference the secret from your recipes.
                     </Typography.Paragraph>
                     <Form.Item
-                        name="name"
+                        name={NAME_FIELD_NAME}
                         rules={[
                             {
                                 required: true,
                                 message: 'Enter a name.',
                             },
-                            { whitespace: true },
+                            { whitespace: false },
                             { min: 1, max: 50 },
+                            { pattern: /^[^\s\t${}\\,'"]+$/, message: 'This secret name is not allowed.' },
                         ]}
                         hasFeedback
                     >
-                        <Input
-                            placeholder="A name for your secret"
-                            value={secretBuilderState.name}
-                            onChange={(event) => setName(event.target.value)}
-                        />
+                        <Input placeholder="A name for your secret" />
                     </Form.Item>
                 </Form.Item>
                 <Form.Item label={<Typography.Text strong>Value</Typography.Text>}>
@@ -98,7 +91,7 @@ export const SecretBuilderModal = ({ initialState, visible, onSubmit, onCancel }
                         The value of your secret, which will be encrypted and stored securely within DataHub.
                     </Typography.Paragraph>
                     <Form.Item
-                        name="value"
+                        name={VALUE_FIELD_NAME}
                         rules={[
                             {
                                 required: true,
@@ -109,23 +102,19 @@ export const SecretBuilderModal = ({ initialState, visible, onSubmit, onCancel }
                         ]}
                         hasFeedback
                     >
-                        <Input
-                            placeholder="The value of your secret"
-                            value={secretBuilderState.value}
-                            onChange={(event) => setValue(event.target.value)}
-                        />
+                        <Input.TextArea placeholder="The value of your secret" autoComplete="false" />
                     </Form.Item>
                 </Form.Item>
                 <Form.Item label={<Typography.Text strong>Description</Typography.Text>}>
                     <Typography.Paragraph>
                         An optional description to help keep track of your secret.
                     </Typography.Paragraph>
-                    <Form.Item name="description" rules={[{ whitespace: true }, { min: 1, max: 500 }]} hasFeedback>
-                        <Input
-                            placeholder="The value of your secret"
-                            value={secretBuilderState.description}
-                            onChange={(event) => setDescription(event.target.value)}
-                        />
+                    <Form.Item
+                        name={DESCRIPTION_FIELD_NAME}
+                        rules={[{ whitespace: true }, { min: 1, max: 500 }]}
+                        hasFeedback
+                    >
+                        <Input.TextArea placeholder="A description for your secret" />
                     </Form.Item>
                 </Form.Item>
             </Form>

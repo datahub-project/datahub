@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Button, Empty, List, message, Pagination, Typography } from 'antd';
+import { Button, Empty, List, Pagination, Typography } from 'antd';
 import { useLocation } from 'react-router';
 import styled from 'styled-components';
 import * as QueryString from 'query-string';
@@ -12,6 +12,8 @@ import TabToolbar from '../entity/shared/components/styled/TabToolbar';
 import DomainListItem from './DomainListItem';
 import { SearchBar } from '../search/SearchBar';
 import { useEntityRegistry } from '../useEntityRegistry';
+import { scrollToTop } from '../shared/searchUtils';
+import { addToListDomainsCache, removeFromListDomainsCache } from './utils';
 
 const DomainsContainer = styled.div``;
 
@@ -50,12 +52,11 @@ export const DomainsList = () => {
 
     const [page, setPage] = useState(1);
     const [isCreatingDomain, setIsCreatingDomain] = useState(false);
-    const [removedUrns, setRemovedUrns] = useState<string[]>([]);
 
     const pageSize = DEFAULT_PAGE_SIZE;
     const start = (page - 1) * pageSize;
 
-    const { loading, error, data, refetch } = useListDomainsQuery({
+    const { loading, error, data, client, refetch } = useListDomainsQuery({
         variables: {
             input: {
                 start,
@@ -63,39 +64,34 @@ export const DomainsList = () => {
                 query,
             },
         },
-        fetchPolicy: 'no-cache',
+        fetchPolicy: 'cache-first',
     });
 
     const totalDomains = data?.listDomains?.total || 0;
     const lastResultIndex = start + pageSize > totalDomains ? totalDomains : start + pageSize;
-    const domains = (data?.listDomains?.domains || []).sort(
-        (a, b) => (b.entities?.total || 0) - (a.entities?.total || 0),
-    );
-    const filteredDomains = domains.filter((domain) => !removedUrns.includes(domain.urn));
+    const domains = data?.listDomains?.domains || [];
 
     const onChangePage = (newPage: number) => {
+        scrollToTop();
         setPage(newPage);
     };
 
     const handleDelete = (urn: string) => {
-        // Hack to deal with eventual consistency.
-        const newRemovedUrns = [...removedUrns, urn];
-        setRemovedUrns(newRemovedUrns);
+        removeFromListDomainsCache(client, urn, page, pageSize, query);
         setTimeout(function () {
             refetch?.();
-        }, 3000);
+        }, 2000);
     };
+
     return (
         <>
             {!data && loading && <Message type="loading" content="Loading domains..." />}
-            {error && message.error({ content: `Failed to load domains: \n ${error.message || ''}`, duration: 3 })}
+            {error && <Message type="error" content="Failed to load domains! An unexpected error occurred." />}
             <DomainsContainer>
                 <TabToolbar>
-                    <div>
-                        <Button type="text" onClick={() => setIsCreatingDomain(true)}>
-                            <PlusOutlined /> New Domain
-                        </Button>
-                    </div>
+                    <Button type="text" onClick={() => setIsCreatingDomain(true)}>
+                        <PlusOutlined /> New Domain
+                    </Button>
                     <SearchBar
                         initialQuery={query || ''}
                         placeholderText="Search domains..."
@@ -111,6 +107,7 @@ export const DomainsList = () => {
                         onSearch={() => null}
                         onQueryChange={(q) => setQuery(q)}
                         entityRegistry={entityRegistry}
+                        hideRecommendations
                     />
                 </TabToolbar>
                 <DomainsStyledList
@@ -118,16 +115,20 @@ export const DomainsList = () => {
                     locale={{
                         emptyText: <Empty description="No Domains!" image={Empty.PRESENTED_IMAGE_SIMPLE} />,
                     }}
-                    dataSource={filteredDomains}
+                    dataSource={domains}
                     renderItem={(item: any) => (
-                        <DomainListItem domain={item as Domain} onDelete={() => handleDelete(item.urn)} />
+                        <DomainListItem
+                            key={item.urn}
+                            domain={item as Domain}
+                            onDelete={() => handleDelete(item.urn)}
+                        />
                     )}
                 />
                 <DomainsPaginationContainer>
                     <PaginationInfo>
                         <b>
                             {lastResultIndex > 0 ? (page - 1) * pageSize + 1 : 0} - {lastResultIndex}
-                        </b>{' '}
+                        </b>
                         of <b>{totalDomains}</b>
                     </PaginationInfo>
                     <Pagination
@@ -143,11 +144,22 @@ export const DomainsList = () => {
                 {isCreatingDomain && (
                     <CreateDomainModal
                         onClose={() => setIsCreatingDomain(false)}
-                        onCreate={() => {
-                            // Hack to deal with eventual consistency.
-                            setTimeout(function () {
-                                refetch?.();
-                            }, 2000);
+                        onCreate={(urn, _, name, description) => {
+                            addToListDomainsCache(
+                                client,
+                                {
+                                    urn,
+                                    properties: {
+                                        name,
+                                        description,
+                                    },
+                                    ownership: null,
+                                    entities: null,
+                                },
+                                pageSize,
+                                query,
+                            );
+                            setTimeout(() => refetch(), 2000);
                         }}
                     />
                 )}

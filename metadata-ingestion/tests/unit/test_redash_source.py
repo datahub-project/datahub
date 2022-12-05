@@ -475,7 +475,7 @@ def redash_source() -> RedashSource:
     )
 
 
-def test_get_dashboard_snapshot():
+def test_get_dashboard_snapshot_before_v10():
     expected = DashboardSnapshot(
         urn="urn:li:dashboard:(redash,3)",
         aspects=[
@@ -501,7 +501,41 @@ def test_get_dashboard_snapshot():
             )
         ],
     )
-    result = redash_source()._get_dashboard_snapshot(mock_dashboard_response)
+    result = redash_source()._get_dashboard_snapshot(
+        mock_dashboard_response, "9.0.0-beta"
+    )
+    assert result == expected
+
+
+def test_get_dashboard_snapshot_after_v10():
+    expected = DashboardSnapshot(
+        urn="urn:li:dashboard:(redash,3)",
+        aspects=[
+            DashboardInfoClass(
+                description="My description",
+                title="My Dashboard",
+                charts=[
+                    "urn:li:chart:(redash,10)",
+                    "urn:li:chart:(redash,9)",
+                    "urn:li:chart:(redash,8)",
+                ],
+                datasets=[],
+                lastModified=ChangeAuditStamps(
+                    created=AuditStamp(
+                        time=1628882055288, actor="urn:li:corpuser:unknown"
+                    ),
+                    lastModified=AuditStamp(
+                        time=1628882055288, actor="urn:li:corpuser:unknown"
+                    ),
+                ),
+                dashboardUrl="http://localhost:5000/dashboards/3",
+                customProperties={},
+            )
+        ],
+    )
+    result = redash_source()._get_dashboard_snapshot(
+        mock_dashboard_response, "10.0.0-beta"
+    )
     assert result == expected
 
 

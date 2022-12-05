@@ -2,6 +2,7 @@ fragment globalTagsFields on GlobalTags {
     tags {
         tag {
             urn
+            type
             name
             description
             properties {
@@ -18,8 +19,8 @@ fragment glossaryNode on GlossaryNode {
     properties {
         name
     }
-    children: relationships(input: { types: ["IsPartOf"], direction: INCOMING, start: 0, count: 1000 }) {
-        count
+    children: relationships(input: { types: ["IsPartOf"], direction: INCOMING, start: 0, count: 10000 }) {
+        total
     }
 }
 
@@ -30,8 +31,19 @@ fragment glossaryTerm on GlossaryTerm {
     hierarchicalName
     properties {
         name
+        description
         definition
         termSource
+        customProperties {
+            key
+            value
+        }
+    }
+    ownership {
+        ...ownershipFields
+    }
+    parentNodes {
+        ...parentNodesFields
     }
 }
 
@@ -61,7 +73,11 @@ fragment parentContainersFields on ParentContainersResult {
 fragment parentNodesFields on ParentNodesResult {
     count
     nodes {
-        ...glossaryNode
+        urn
+        type
+        properties {
+            name
+        }
     }
 }
 
@@ -177,6 +193,7 @@ fragment nonRecursiveDatasetFields on Dataset {
     type
     origin
     uri
+    lastIngested
     platform {
         ...platformFields
     }
@@ -292,6 +309,7 @@ fragment nonRecursiveDataJobFields on DataJob {
 fragment dataJobFields on DataJob {
     urn
     type
+    lastIngested
     dataFlow {
         ...nonRecursiveDataFlowFields
     }
@@ -337,6 +355,7 @@ fragment dataJobFields on DataJob {
 fragment dashboardFields on Dashboard {
     urn
     type
+    lastIngested
     tool
     dashboardId
     properties {
@@ -408,11 +427,18 @@ fragment dashboardFields on Dashboard {
             }
         }
     }
+    inputFields {
+        ...inputFieldsFields
+    }
+    subTypes {
+        typeNames
+    }
 }
 
 fragment nonRecursiveMLFeature on MLFeature {
     urn
     type
+    lastIngested
     name
     featureNamespace
     description
@@ -480,6 +506,7 @@ fragment nonRecursiveMLFeature on MLFeature {
 fragment nonRecursiveMLPrimaryKey on MLPrimaryKey {
     urn
     type
+    lastIngested
     name
     featureNamespace
     description
@@ -547,6 +574,7 @@ fragment nonRecursiveMLPrimaryKey on MLPrimaryKey {
 fragment nonRecursiveMLFeatureTable on MLFeatureTable {
     urn
     type
+    lastIngested
     name
     platform {
         ...platformFields
@@ -594,6 +622,24 @@ fragment nonRecursiveMLFeatureTable on MLFeatureTable {
     }
 }
 
+fragment schemaFieldFields on SchemaField {
+    fieldPath
+    label
+    jsonPath
+    nullable
+    description
+    type
+    nativeDataType
+    recursive
+    isPartOfKey
+    globalTags {
+        ...globalTagsFields
+    }
+    glossaryTerms {
+        ...glossaryTerms
+    }
+}
+
 fragment schemaMetadataFields on SchemaMetadata {
     aspectVersion
     createdAt
@@ -613,20 +659,7 @@ fragment schemaMetadataFields on SchemaMetadata {
         }
     }
     fields {
-        fieldPath
-        jsonPath
-        nullable
-        description
-        type
-        nativeDataType
-        recursive
-        isPartOfKey
-        globalTags {
-            ...globalTagsFields
-        }
-        glossaryTerms {
-            ...glossaryTerms
-        }
+        ...schemaFieldFields
     }
     primaryKeys
     foreignKeys {
@@ -666,6 +699,7 @@ fragment schemaMetadataFields on SchemaMetadata {
 fragment nonRecursiveMLModel on MLModel {
     urn
     type
+    lastIngested
     name
     description
     origin
@@ -681,6 +715,7 @@ fragment nonRecursiveMLModel on MLModel {
     properties {
         description
         date
+        externalUrl
         version
         type
         trainingMetrics {
@@ -725,11 +760,15 @@ fragment nonRecursiveMLModel on MLModel {
     deprecation {
         ...deprecationFields
     }
+    institutionalMemory {
+        ...institutionalMemoryFields
+    }    
 }
 
 fragment nonRecursiveMLModelGroupFields on MLModelGroup {
     urn
     type
+    lastIngested
     name
     description
     origin
@@ -768,6 +807,7 @@ fragment nonRecursiveMLModelGroupFields on MLModelGroup {
 fragment platformFields on DataPlatform {
     urn
     type
+    lastIngested
     name
     properties {
         type
@@ -830,9 +870,20 @@ fragment entityContainer on Container {
 fragment entityDomain on DomainAssociation {
     domain {
         urn
+        type
         properties {
             name
+            description
         }
     }
     associatedUrn
+}
+
+fragment inputFieldsFields on InputFields {
+    fields {
+        schemaFieldUrn
+        schemaField {
+            ...schemaFieldFields
+        }
+    }
 }

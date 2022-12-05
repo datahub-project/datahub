@@ -204,6 +204,9 @@ public class IngestionScheduler {
     public void run() {
       try {
 
+        // First un-schedule all currently scheduled runs (to make sure consistency is maintained)
+        _unscheduleAll.run();
+
         int start = 0;
         int count = 30;
         int total = 30;
@@ -229,9 +232,6 @@ public class IngestionScheduler {
 
             // 3. Reschedule ingestion sources based on the fetched schedules (inside "info")
             log.debug("Received batch of Ingestion Source Info aspects. Attempting to re-schedule execution requests.");
-
-            // First unschedule all currently scheduled runs (to make sure consistency is maintained)
-            _unscheduleAll.run();
 
             // Then schedule the next ingestion runs
             scheduleNextIngestionRuns(new ArrayList<>(ingestionSources.values()));
@@ -283,6 +283,7 @@ public class IngestionScheduler {
     private static final String EXECUTION_REQUEST_SOURCE_NAME = "SCHEDULED_INGESTION_SOURCE";
     private static final String RECIPE_ARGUMENT_NAME = "recipe";
     private static final String VERSION_ARGUMENT_NAME = "version";
+    private static final String DEBUG_MODE_ARG_NAME = "debug_mode";
 
     private final Authentication _systemAuthentication;
     private final EntityClient _entityClient;
@@ -350,6 +351,11 @@ public class IngestionScheduler {
         arguments.put(VERSION_ARGUMENT_NAME, _ingestionSourceInfo.getConfig().hasVersion()
             ? _ingestionSourceInfo.getConfig().getVersion()
             : _ingestionConfiguration.getDefaultCliVersion());
+        String debugMode = "false";
+        if (_ingestionSourceInfo.getConfig().hasDebugMode()) {
+          debugMode = _ingestionSourceInfo.getConfig().isDebugMode() ? "true" : "false";
+        }
+        arguments.put(DEBUG_MODE_ARG_NAME, debugMode);
         input.setArgs(new StringMap(arguments));
 
         proposal.setEntityType(Constants.EXECUTION_REQUEST_ENTITY_NAME);

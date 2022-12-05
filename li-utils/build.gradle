@@ -1,6 +1,17 @@
 apply plugin: 'java'
 apply plugin: 'pegasus'
 
+tasks.withType(JavaCompile).configureEach {
+    javaCompiler = javaToolchains.compilerFor {
+        languageVersion = JavaLanguageVersion.of(8)
+    }
+}
+tasks.withType(Test).configureEach {
+    javaLauncher = javaToolchains.launcherFor {
+        languageVersion = JavaLanguageVersion.of(8)
+    }
+}
+
 dependencies {
     compile spec.product.pegasus.data
     compile externalDependency.commonsLang
@@ -9,6 +20,7 @@ dependencies {
     }
     compile externalDependency.guava
 
+    implementation externalDependency.slf4jApi
     compileOnly externalDependency.lombok
     annotationProcessor externalDependency.lombok
 

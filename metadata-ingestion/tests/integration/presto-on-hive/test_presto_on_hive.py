@@ -1,6 +1,5 @@
 import re
 import subprocess
-import sys
 from typing import Dict
 
 import pytest
@@ -16,9 +15,6 @@ FROZEN_TIME = "2021-09-23 12:00:00"
 data_platform = "presto-on-hive"
 
 
-@pytest.mark.skipif(
-    sys.version_info < (3, 7), reason="presto-on-hive requires Python 3.7+"
-)
 @pytest.fixture(scope="module")
 def presto_on_hive_runner(docker_compose_runner, pytestconfig):
     test_resources_dir = pytestconfig.rootpath / "tests/integration/presto-on-hive"
@@ -49,19 +45,40 @@ def loaded_presto_on_hive(presto_on_hive_runner):
     # Set up the container.
     command = "docker exec hiveserver2 /opt/hive/bin/beeline -u jdbc:hive2://localhost:10000 -f /hive_setup.sql"
     subprocess.run(command, shell=True, check=True)
+    # Create presto view so we can test
+    command = "docker exec presto-cli /usr/bin/presto --server presto:8080 --catalog hivedb --execute 'CREATE VIEW db1.array_struct_test_presto_view as select * from db1.array_struct_test'"
+    subprocess.run(command, shell=True, check=True)
 
 
 @freeze_time(FROZEN_TIME)
 @pytest.mark.integration_batch_1
+@pytest.mark.parametrize(
+    "mode,use_catalog_subtype,use_dataset_pascalcase_subtype,include_catalog_name_in_ids,test_suffix",
+    [
+        ("hive", False, False, False, "_1"),
+        ("presto-on-hive", True, True, False, "_2"),
+        ("hive", False, False, True, "_3"),
+        ("presto-on-hive", True, True, True, "_4"),
+    ],
+)
 def test_presto_on_hive_ingest(
-    loaded_presto_on_hive, test_resources_dir, pytestconfig, tmp_path, mock_time
+    loaded_presto_on_hive,
+    test_resources_dir,
+    pytestconfig,
+    tmp_path,
+    mock_time,
+    mode,
+    use_catalog_subtype,
+    use_dataset_pascalcase_subtype,
+    include_catalog_name_in_ids,
+    test_suffix,
 ):
 
     # Run the metadata ingestion pipeline.
     with fs_helpers.isolated_filesystem(tmp_path):
 
         # Run the metadata ingestion pipeline for presto catalog referring to postgres database
-        mce_out_file = "presto_on_hive_mces.json"
+        mce_out_file = f"presto_on_hive_mces{test_suffix}.json"
         events_file = tmp_path / mce_out_file
 
         pipeline_config: Dict = {
@@ -70,13 +87,18 @@ def test_presto_on_hive_ingest(
                 "type": data_platform,
                 "config": {
                     "host_port": "localhost:5432",
-                    "database": "metastore",
+                    "database": "db1",
+                    "metastore_db_name": "metastore",
                     "database_alias": "hive",
                     "username": "postgres",
                     "scheme": "postgresql+psycopg2",
                     "include_views": True,
                     "include_tables": True,
+                    "include_catalog_name_in_ids": include_catalog_name_in_ids,
                     "schema_pattern": {"allow": ["^public"]},
+                    "mode": mode,
+                    "use_catalog_subtype": use_catalog_subtype,
+                    "use_dataset_pascalcase_subtype": use_dataset_pascalcase_subtype,
                 },
             },
             "sink": {
@@ -100,8 +122,9 @@ def test_presto_on_hive_ingest(
         # Verify the output.
         mce_helpers.check_golden_file(
             pytestconfig,
-            output_path="presto_on_hive_mces.json",
-            golden_path=test_resources_dir / "presto_on_hive_mces_golden.json",
+            output_path=f"presto_on_hive_mces{test_suffix}.json",
+            golden_path=test_resources_dir
+            / f"presto_on_hive_mces_golden{test_suffix}.json",
             ignore_paths=[
                 r"root\[\d+\]\['proposedSnapshot'\]\['com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot'\]\['aspects'\]\[\d+\]\['com.linkedin.pegasus2avro.dataset.DatasetProperties'\]\['customProperties'\]\['transient_lastddltime'\]",
                 r"root\[\d+\]\['proposedSnapshot'\]\['com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot'\]\['aspects'\]\[\d+\]\['com.linkedin.pegasus2avro.dataset.DatasetProperties'\]\['customProperties'\]\['numfiles'\]",

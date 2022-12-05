@@ -2,8 +2,8 @@
 
 ## Introduction
 
-We recently introduced Authentication in the Metadata Service layer. This document will provide a technical overview of the feature aimed at developers
-evaluating or operating DataHub. It will include a characterization of the motivations for the feature, the key components in its design, the new capabilities it provides, & configuration instructions. 
+This document provides a technical overview of the how authentication works in DataHub's backend aimed at developers evaluating or operating DataHub. 
+It includes a characterization of the motivations for the feature, the key components in its design, the new capabilities it provides, & configuration instructions. 
 
 ## Background
 

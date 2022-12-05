@@ -122,8 +122,6 @@ mutation reportOperation($urn: String!, $sourceType: OperationSourceType!, $oper
                         "operationType": operation_type,
                         "partition": partition,
                     }
-                    if filter
-                    else None
                 ),
             },
         )

@@ -2,10 +2,8 @@ import React, { useState } from 'react';
 import { Button, Typography } from 'antd';
 import { PlusOutlined } from '@ant-design/icons';
 import styled from 'styled-components/macro';
-
 import { useGetRootGlossaryNodesQuery, useGetRootGlossaryTermsQuery } from '../../graphql/glossary.generated';
 import TabToolbar from '../entity/shared/components/styled/TabToolbar';
-import GlossaryEntitiesPath from './GlossaryEntitiesPath';
 import GlossaryEntitiesList from './GlossaryEntitiesList';
 import GlossaryBrowser from './GlossaryBrowser/GlossaryBrowser';
 import GlossarySearch from './GlossarySearch';
@@ -37,6 +35,7 @@ const MainContentWrapper = styled.div`
 
 export const BrowserWrapper = styled.div<{ width: number }>`
     max-height: 100%;
+    width: ${(props) => props.width}px;
     min-width: ${(props) => props.width}px;
 `;
 
@@ -45,8 +44,18 @@ export const MIN_BROWSWER_WIDTH = 200;
 
 function BusinessGlossaryPage() {
     const [browserWidth, setBrowserWidth] = useState(window.innerWidth * 0.2);
-    const { data: termsData, refetch: refetchForTerms, loading: termsLoading } = useGetRootGlossaryTermsQuery();
-    const { data: nodesData, refetch: refetchForNodes, loading: nodesLoading } = useGetRootGlossaryNodesQuery();
+    const {
+        data: termsData,
+        refetch: refetchForTerms,
+        loading: termsLoading,
+        error: termsError,
+    } = useGetRootGlossaryTermsQuery();
+    const {
+        data: nodesData,
+        refetch: refetchForNodes,
+        loading: nodesLoading,
+        error: nodesError,
+    } = useGetRootGlossaryNodesQuery();
     const entityRegistry = useEntityRegistry();
 
     const terms = termsData?.getRootGlossaryTerms?.terms.sort((termA, termB) =>
@@ -67,6 +76,9 @@ function BusinessGlossaryPage() {
                 {(termsLoading || nodesLoading) && (
                     <Message type="loading" content="Loading Glossary..." style={{ marginTop: '10%' }} />
                 )}
+                {(termsError || nodesError) && (
+                    <Message type="error" content="Failed to load glossary! An unexpected error occurred." />
+                )}
                 <BrowserWrapper width={browserWidth}>
                     <GlossarySearch />
                     <GlossaryBrowser rootNodes={nodes} rootTerms={terms} />
@@ -79,9 +91,8 @@ function BusinessGlossaryPage() {
                     isSidebarOnLeft
                 />
                 <MainContentWrapper>
-                    <GlossaryEntitiesPath />
                     <HeaderWrapper>
-                        <Typography.Title level={3}>Glossary</Typography.Title>
+                        <Typography.Title level={3}>Business Glossary</Typography.Title>
                         <div>
                             <Button type="text" onClick={() => setIsCreateTermModalVisible(true)}>
                                 <PlusOutlined /> Add Term
@@ -93,7 +104,12 @@ function BusinessGlossaryPage() {
                     </HeaderWrapper>
                     {hasTermsOrNodes && <GlossaryEntitiesList nodes={nodes || []} terms={terms || []} />}
                     {!(termsLoading || nodesLoading) && !hasTermsOrNodes && (
-                        <EmptyGlossarySection refetchForTerms={refetchForTerms} refetchForNodes={refetchForNodes} />
+                        <EmptyGlossarySection
+                            title="Empty Glossary"
+                            description="Create Terms and Term Groups to organize data assets using a shared vocabulary."
+                            refetchForTerms={refetchForTerms}
+                            refetchForNodes={refetchForNodes}
+                        />
                     )}
                 </MainContentWrapper>
             </GlossaryWrapper>

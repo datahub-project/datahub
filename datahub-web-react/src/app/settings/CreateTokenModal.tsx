@@ -1,12 +1,14 @@
 import React, { useState, useEffect } from 'react';
 import { message, Button, Input, Modal, Typography, Form, Select } from 'antd';
 import styled from 'styled-components';
+import { red } from '@ant-design/colors';
 
 import { useEnterKeyListener } from '../shared/useEnterKeyListener';
 import { ACCESS_TOKEN_DURATIONS, getTokenExpireDate } from './utils';
 import { useCreateAccessTokenMutation } from '../../graphql/auth.generated';
 import { AccessTokenDuration, AccessTokenType, CreateAccessTokenInput } from '../../types.generated';
 import { AccessTokenModal } from './AccessTokenModal';
+import analytics, { EventType } from '../analytics';
 
 type Props = {
     currentUserUrn: string;
@@ -25,6 +27,10 @@ const ExpirationDurationSelect = styled(Select)`
         margin-top: 1em;
         margin-bottom: 1em;
     }
+`;
+
+const OptionText = styled.span<{ isRed: boolean }>`
+    ${(props) => props.isRed && `color: ${red[5]};`}
 `;
 
 export default function CreateTokenModal({ currentUserUrn, visible, onClose, onCreateToken }: Props) {
@@ -70,6 +76,15 @@ export default function CreateTokenModal({ currentUserUrn, visible, onClose, onC
             description: tokenDescription,
         };
         createAccessToken({ variables: { input } })
+            .then(({ errors }) => {
+                if (!errors) {
+                    analytics.event({
+                        type: EventType.CreateAccessTokenEvent,
+                        accessTokenType: AccessTokenType.Personal,
+                        duration: selectedTokenDuration,
+                    });
+                }
+            })
             .catch((e) => {
                 message.destroy();
                 message.error({ content: `Failed to create Token!: \n ${e.message || ''}`, duration: 3 });
@@ -92,6 +107,8 @@ export default function CreateTokenModal({ currentUserUrn, visible, onClose, onC
     useEnterKeyListener({
         querySelectorToExecuteClick: '#createTokenButton',
     });
+
+    const hasSelectedNoExpiration = selectedTokenDuration === AccessTokenDuration.NoExpiry;
 
     return (
         <>
@@ -157,11 +174,15 @@ export default function CreateTokenModal({ currentUserUrn, visible, onClose, onC
                         >
                             {ACCESS_TOKEN_DURATIONS.map((duration) => (
                                 <Select.Option key={duration.text} value={duration.duration}>
-                                    {duration.text}
+                                    <OptionText isRed={duration.duration === AccessTokenDuration.NoExpiry}>
+                                        {duration.text}
+                                    </OptionText>
                                 </Select.Option>
                             ))}
                         </ExpirationDurationSelect>
-                        <Typography.Text type="secondary">{getTokenExpireDate(selectedTokenDuration)}</Typography.Text>
+                        <Typography.Text type="secondary" style={hasSelectedNoExpiration ? { color: `${red[5]}` } : {}}>
+                            {getTokenExpireDate(selectedTokenDuration)}
+                        </Typography.Text>
                     </ExpirationSelectContainer>
                 </Form>
             </Modal>

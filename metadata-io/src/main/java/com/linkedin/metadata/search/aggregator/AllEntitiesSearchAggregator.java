@@ -25,6 +25,8 @@ import com.linkedin.metadata.utils.metrics.MetricUtils;
 import com.linkedin.util.Pair;
 import io.opentelemetry.extension.annotations.WithSpan;
 import java.util.ArrayList;
+import java.util.Collections;
+import java.util.Comparator;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -125,7 +127,7 @@ public class AllEntitiesSearchAggregator {
     finalAggregations.put("entity", new AggregationMetadata().setName("entity")
         .setDisplayName("Type")
         .setAggregations(new LongMap(numResultsPerEntity))
-        .setFilterValues(new FilterValueArray(SearchUtil.convertToFilters(numResultsPerEntity))));
+        .setFilterValues(new FilterValueArray(SearchUtil.convertToFilters(numResultsPerEntity, Collections.emptySet()))));
 
     // 4. Rank results across entities
     List<SearchEntity> rankedResult = _searchRanker.rank(matchedResults);
@@ -158,7 +160,6 @@ public class AllEntitiesSearchAggregator {
       searchResults = ConcurrencyUtils.transformAndCollectAsync(entities, entity -> new Pair<>(entity,
           _cachingEntitySearchService.search(entity, input, postFilters, sortCriterion, queryFrom, querySize, searchFlags)))
           .stream()
-          .filter(pair -> pair.getValue().getNumEntities() > 0)
           .collect(Collectors.toMap(Pair::getKey, Pair::getValue));
     }
     return searchResults;
@@ -172,7 +173,8 @@ public class AllEntitiesSearchAggregator {
         entry -> Pair.of(entry.getKey(), new AggregationMetadata()
             .setName(entry.getValue().getName())
             .setDisplayName(entry.getValue().getDisplayName(GetMode.NULL))
-            .setAggregations(entry.getValue().getAggregations())
+            .setAggregations(
+                entry.getValue().getAggregations())
             .setFilterValues(
                 trimFilterValues(entry.getValue().getFilterValues()))
         )
@@ -184,6 +186,8 @@ public class AllEntitiesSearchAggregator {
    */
   private FilterValueArray trimFilterValues(FilterValueArray original) {
     if (original.size() > _maxAggregationValueCount) {
+      // sort so that values that appear in the filter appear first
+      original.sort(Comparator.comparingInt(val -> val.hasFiltered() && val.isFiltered() ? 0 : 1));
       return new FilterValueArray(
           original.subList(0, _maxAggregationValueCount)
       );

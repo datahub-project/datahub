@@ -6,6 +6,7 @@ import com.datahub.authorization.Authorizer;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.authorization.AuthorizationUtils;
+import com.linkedin.datahub.graphql.featureflags.FeatureFlags;
 import com.linkedin.datahub.graphql.generated.AuthenticatedUser;
 import com.linkedin.datahub.graphql.generated.CorpUser;
 import com.linkedin.datahub.graphql.generated.PlatformPrivileges;
@@ -37,9 +38,11 @@ import static com.linkedin.metadata.Constants.*;
 public class MeResolver implements DataFetcher<CompletableFuture<AuthenticatedUser>> {
 
   private final EntityClient _entityClient;
+  private final FeatureFlags _featureFlags;
 
-  public MeResolver(final EntityClient entityClient) {
+  public MeResolver(final EntityClient entityClient, final FeatureFlags featureFlags) {
     _entityClient = entityClient;
+    _featureFlags = featureFlags;
   }
 
   @Override
@@ -51,7 +54,7 @@ public class MeResolver implements DataFetcher<CompletableFuture<AuthenticatedUs
         final Urn userUrn = Urn.createFromString(context.getActorUrn());
         final EntityResponse gmsUser = _entityClient.batchGetV2(CORP_USER_ENTITY_NAME,
                 Collections.singleton(userUrn), null, context.getAuthentication()).get(userUrn);
-        final CorpUser corpUser = CorpUserMapper.map(gmsUser);
+        final CorpUser corpUser = CorpUserMapper.map(gmsUser, _featureFlags);
 
         // 2. Get platform privileges
         final PlatformPrivileges platformPrivileges = new PlatformPrivileges();

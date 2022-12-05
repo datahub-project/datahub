@@ -38,6 +38,7 @@ export const ChartPreview = ({
     createdMs,
     externalUrl,
     parentContainers,
+    snippet,
 }: {
     urn: string;
     platform: string;
@@ -58,6 +59,7 @@ export const ChartPreview = ({
     createdMs?: number | null;
     externalUrl?: string | null;
     parentContainers?: ParentContainersResult | null;
+    snippet?: React.ReactNode | null;
 }): JSX.Element => {
     const entityRegistry = useEntityRegistry();
     const capitalizedPlatform = capitalizeFirstLetter(platform);
@@ -66,6 +68,7 @@ export const ChartPreview = ({
         <DefaultPreviewCard
             url={entityRegistry.getEntityUrl(EntityType.Chart, urn)}
             name={name || ''}
+            urn={urn}
             description={description || ''}
             type="Chart"
             typeIcon={entityRegistry.getIcon(EntityType.Chart, 14, IconStyleType.ACCENT)}
@@ -82,6 +85,7 @@ export const ChartPreview = ({
             parentContainers={parentContainers}
             deprecation={deprecation}
             externalUrl={externalUrl}
+            snippet={snippet}
             subHeader={
                 <ChartStatsSummaryView
                     viewCount={statsSummary?.viewCount}

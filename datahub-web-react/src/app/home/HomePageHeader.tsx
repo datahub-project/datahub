@@ -2,7 +2,7 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { useHistory } from 'react-router';
 import { Typography, Image, Row, Button, Tag } from 'antd';
 import styled, { useTheme } from 'styled-components';
-
+import { RightOutlined } from '@ant-design/icons';
 import { ManageAccount } from '../shared/ManageAccount';
 import { useGetAuthenticatedUser } from '../useGetAuthenticatedUser';
 import { useEntityRegistry } from '../useEntityRegistry';
@@ -68,6 +68,12 @@ const SuggestionsContainer = styled.div`
     align-items: start;
 `;
 
+const SuggestionsHeader = styled.div`
+    display: flex;
+    justify-content: space-between;
+    width: 100%;
+`;
+
 const SuggestionTagContainer = styled.div`
     display: flex;
     justify-content: left;
@@ -102,6 +108,22 @@ const SearchBarContainer = styled.div`
     text-align: center;
 `;
 
+const ExploreAllButton = styled(Button)`
+    && {
+        padding: 0px;
+        margin: 0px;
+        height: 16px;
+    }
+`;
+
+const StyledRightOutlined = styled(RightOutlined)`
+    &&& {
+        font-size: 7px;
+        margin-left: 4px;
+        padding: 0px;
+    }
+`;
+
 function truncate(input, length) {
     if (input.length > length) {
         return `${input.substring(0, length)}...`;
@@ -133,10 +155,9 @@ export const HomePageHeader = () => {
             return;
         }
         analytics.event({
-            type: EventType.SearchEvent,
+            type: EventType.HomePageSearchEvent,
             query,
             pageNumber: 1,
-            originPath: window.location.pathname,
         });
         navigateToSearchUrl({
             type,
@@ -158,6 +179,16 @@ export const HomePageHeader = () => {
         }
     };
 
+    const onClickExploreAll = () => {
+        analytics.event({
+            type: EventType.HomePageExploreAllClickEvent,
+        });
+        navigateToSearchUrl({
+            query: '*',
+            history,
+        });
+    };
+
     // Fetch results
     const { data: searchResultsData } = useGetSearchResultsForMultipleQuery({
         variables: {
@@ -167,6 +198,7 @@ export const HomePageHeader = () => {
                 start: 0,
                 count: 6,
                 filters: [],
+                orFilters: [],
             },
         },
     });
@@ -228,7 +260,12 @@ export const HomePageHeader = () => {
                     />
                     {searchResultsToShow && searchResultsToShow.length > 0 && (
                         <SuggestionsContainer>
-                            <SuggestedQueriesText strong>Try searching for</SuggestedQueriesText>
+                            <SuggestionsHeader>
+                                <SuggestedQueriesText strong>Try searching for</SuggestedQueriesText>
+                                <ExploreAllButton type="link" onClick={onClickExploreAll}>
+                                    Explore all <StyledRightOutlined />
+                                </ExploreAllButton>
+                            </SuggestionsHeader>
                             <SuggestionTagContainer>
                                 {searchResultsToShow.slice(0, 3).map((suggestion) => (
                                     <SuggestionButton

@@ -1,20 +1,14 @@
 import React, { useEffect } from 'react';
 import * as QueryString from 'query-string';
 import { useLocation } from 'react-router';
-import styled from 'styled-components';
-
 import { useSearchAcrossLineageQuery } from '../../../../../graphql/search.generated';
 import { EntityType, FacetFilterInput, LineageDirection } from '../../../../../types.generated';
 import { ENTITY_FILTER_NAME } from '../../../../search/utils/constants';
 import useFilters from '../../../../search/utils/useFilters';
 import { SearchCfg } from '../../../../../conf';
 import analytics, { EventType } from '../../../../analytics';
-import { EmbeddedListSearch } from '../../components/styled/search/EmbeddedListSearch';
 import generateUseSearchResultsViaRelationshipHook from './generateUseSearchResultsViaRelationshipHook';
-
-const ImpactAnalysisWrapper = styled.div`
-    flex: 1;
-`;
+import { EmbeddedListSearchSection } from '../../components/styled/search/EmbeddedListSearchSection';
 
 type Props = {
     urn: string;
@@ -33,7 +27,7 @@ export const ImpactAnalysis = ({ urn, direction }: Props) => {
     );
     const entityFilters: Array<EntityType> = filters
         .filter((filter) => filter.field === ENTITY_FILTER_NAME)
-        .map((filter) => filter.value.toUpperCase() as EntityType);
+        .flatMap((filter) => filter.values?.map((value) => value.toUpperCase() as EntityType) || []);
 
     const { data, loading } = useSearchAcrossLineageQuery({
         variables: {
@@ -60,15 +54,13 @@ export const ImpactAnalysis = ({ urn, direction }: Props) => {
     }, [query, data, loading]);
 
     return (
-        <ImpactAnalysisWrapper>
-            <EmbeddedListSearch
-                useGetSearchResults={generateUseSearchResultsViaRelationshipHook({
-                    urn,
-                    direction,
-                })}
-                defaultShowFilters
-                defaultFilters={[{ field: 'degree', value: '1' }]}
-            />
-        </ImpactAnalysisWrapper>
+        <EmbeddedListSearchSection
+            useGetSearchResults={generateUseSearchResultsViaRelationshipHook({
+                urn,
+                direction,
+            })}
+            defaultShowFilters
+            defaultFilters={[{ field: 'degree', values: ['1'] }]}
+        />
     );
 };

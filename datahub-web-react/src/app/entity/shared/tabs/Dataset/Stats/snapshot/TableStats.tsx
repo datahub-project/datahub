@@ -40,6 +40,16 @@ export default function TableStats({
     // If there are less than 4 items, simply stack the stat views.
     const justifyContent = !queryCount && !users ? 'default' : 'space-between';
     const lastReportedTimeString = lastReportedTime || 'unknown';
+    if (
+        !rowCount &&
+        !columnCount &&
+        !queryCount &&
+        !(users && users.length > 0) &&
+        !lastUpdatedTime &&
+        !lastReportedTime
+    ) {
+        return null;
+    }
     return (
         <StatSection>
             <Typography.Title level={5}>Table Stats</Typography.Title>

@@ -1,9 +1,11 @@
 from typing import Dict, List, Union
 from unittest import mock
 
+from pydantic import ValidationError
+
 from datahub.emitter import mce_builder
 from datahub.ingestion.api.common import PipelineContext
-from datahub.ingestion.source.dbt import DBTConfig, DBTSource
+from datahub.ingestion.source.dbt.dbt_core import DBTCoreConfig, DBTCoreSource
 from datahub.metadata.schema_classes import (
     OwnerClass,
     OwnershipSourceClass,
@@ -29,7 +31,7 @@ def create_owners_list_from_urn_list(
     return owners_list
 
 
-def create_mocked_dbt_source() -> DBTSource:
+def create_mocked_dbt_source() -> DBTCoreSource:
     ctx = PipelineContext("test-run-id")
     graph = mock.MagicMock()
     graph.get_ownership.return_value = mce_builder.make_ownership_aspect_from_urn_list(
@@ -44,7 +46,7 @@ def create_mocked_dbt_source() -> DBTSource:
         ["non_dbt_existing", "dbt:existing"]
     )
     ctx.graph = graph
-    return DBTSource(DBTConfig(**create_base_dbt_config()), ctx, "dbt")
+    return DBTCoreSource(DBTCoreConfig(**create_base_dbt_config()), ctx, "dbt")
 
 
 def create_base_dbt_config() -> Dict:
@@ -168,3 +170,86 @@ def test_dbt_source_patching_terms():
     assert len(transformed_terms) == 3
     for transformed_term in transformed_terms:
         assert transformed_term.urn in expected_terms
+
+
+def test_dbt_entity_emission_configuration():
+    config_dict = {
+        "manifest_path": "dummy_path",
+        "catalog_path": "dummy_path",
+        "target_platform": "dummy_platform",
+        "entities_enabled": {"models": "Only", "seeds": "Only"},
+    }
+    try:
+        DBTCoreConfig.parse_obj(config_dict)
+    except ValidationError as ve:
+        assert len(ve.errors()) == 1
+        assert (
+            "Cannot have more than 1 type of entity emission set to ONLY"
+            in ve.errors()[0]["msg"]
+        )
+    # valid config
+    config_dict = {
+        "manifest_path": "dummy_path",
+        "catalog_path": "dummy_path",
+        "target_platform": "dummy_platform",
+        "entities_enabled": {"models": "Yes", "seeds": "Only"},
+    }
+    DBTCoreConfig.parse_obj(config_dict)
+
+
+def test_dbt_entity_emission_configuration_helpers():
+    config_dict = {
+        "manifest_path": "dummy_path",
+        "catalog_path": "dummy_path",
+        "target_platform": "dummy_platform",
+        "entities_enabled": {
+            "models": "Only",
+        },
+    }
+    config = DBTCoreConfig.parse_obj(config_dict)
+    assert config.entities_enabled.can_emit_node_type("model")
+    assert not config.entities_enabled.can_emit_node_type("source")
+    assert not config.entities_enabled.can_emit_node_type("test")
+    assert not config.entities_enabled.can_emit_test_results
+
+    config_dict = {
+        "manifest_path": "dummy_path",
+        "catalog_path": "dummy_path",
+        "target_platform": "dummy_platform",
+    }
+    config = DBTCoreConfig.parse_obj(config_dict)
+    assert config.entities_enabled.can_emit_node_type("model")
+    assert config.entities_enabled.can_emit_node_type("source")
+    assert config.entities_enabled.can_emit_node_type("test")
+    assert config.entities_enabled.can_emit_test_results
+
+    config_dict = {
+        "manifest_path": "dummy_path",
+        "catalog_path": "dummy_path",
+        "target_platform": "dummy_platform",
+        "entities_enabled": {
+            "test_results": "Only",
+        },
+    }
+    config = DBTCoreConfig.parse_obj(config_dict)
+    assert not config.entities_enabled.can_emit_node_type("model")
+    assert not config.entities_enabled.can_emit_node_type("source")
+    assert not config.entities_enabled.can_emit_node_type("test")
+    assert config.entities_enabled.can_emit_test_results
+
+    config_dict = {
+        "manifest_path": "dummy_path",
+        "catalog_path": "dummy_path",
+        "target_platform": "dummy_platform",
+        "entities_enabled": {
+            "test_results": "Yes",
+            "test_definitions": "Yes",
+            "models": "No",
+            "sources": "No",
+        },
+    }
+    config = DBTCoreConfig.parse_obj(config_dict)
+    assert not config.entities_enabled.can_emit_node_type("model")
+    assert not config.entities_enabled.can_emit_node_type("source")
+    assert config.entities_enabled.can_emit_node_type("test")
+    assert config.entities_enabled.can_emit_test_results

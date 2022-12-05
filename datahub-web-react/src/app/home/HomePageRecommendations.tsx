@@ -1,8 +1,14 @@
 import React, { useEffect, useState } from 'react';
-import styled from 'styled-components';
+import styled from 'styled-components/macro';
 import { Button, Divider, Empty, Typography } from 'antd';
 import { RocketOutlined } from '@ant-design/icons';
-import { EntityType, RecommendationModule as RecommendationModuleType, ScenarioType } from '../../types.generated';
+import {
+    CorpUser,
+    EntityType,
+    RecommendationModule as RecommendationModuleType,
+    RecommendationRenderType,
+    ScenarioType,
+} from '../../types.generated';
 import { useListRecommendationsQuery } from '../../graphql/recommendations.generated';
 import { RecommendationModule } from '../recommendations/RecommendationModule';
 import { BrowseEntityCard } from '../search/BrowseEntityCard';
@@ -10,6 +16,7 @@ import { useEntityRegistry } from '../useEntityRegistry';
 import { useGetEntityCountsQuery } from '../../graphql/app.generated';
 import { GettingStartedModal } from './GettingStartedModal';
 import { ANTD_GRAY } from '../entity/shared/constants';
+import { HomePagePosts } from './HomePagePosts';
 
 const RecommendationsContainer = styled.div`
     margin-top: 32px;
@@ -57,15 +64,33 @@ const NoMetadataContainer = styled.div`
     align-items: center;
 `;
 
+const DomainsRecomendationContainer = styled.div`
+    margin-top: -48px;
+    margin-bottom: 32px;
+    max-width: 1000px;
+    min-width: 750px;
+`;
+
 type Props = {
-    userUrn: string;
+    user: CorpUser;
 };
 
-export const HomePageRecommendations = ({ userUrn }: Props) => {
+const simpleViewEntityTypes = [
+    EntityType.Dataset,
+    EntityType.Chart,
+    EntityType.Dashboard,
+    EntityType.GlossaryNode,
+    EntityType.GlossaryTerm,
+];
+
+export const HomePageRecommendations = ({ user }: Props) => {
     // Entity Types
     const entityRegistry = useEntityRegistry();
     const browseEntityList = entityRegistry.getBrowseEntityTypes();
     const [showGettingStartedModal, setShowGettingStartedModal] = useState(false);
+    const userUrn = user?.urn;
+
+    const showSimplifiedHomepage = user?.settings?.appearance?.showSimplifiedHomepage;
 
     const { data: entityCountData } = useGetEntityCountsQuery({
         variables: {
@@ -75,9 +100,11 @@ export const HomePageRecommendations = ({ userUrn }: Props) => {
         },
     });
 
-    const orderedEntityCounts = entityCountData?.getEntityCounts?.counts?.sort((a, b) => {
-        return browseEntityList.indexOf(a.entityType) - browseEntityList.indexOf(b.entityType);
-    });
+    const orderedEntityCounts = entityCountData?.getEntityCounts?.counts
+        ?.sort((a, b) => {
+            return browseEntityList.indexOf(a.entityType) - browseEntityList.indexOf(b.entityType);
+        })
+        .filter((entityCount) => !showSimplifiedHomepage || simpleViewEntityTypes.indexOf(entityCount.entityType) >= 0);
 
     // Recommendations
     const scenario = ScenarioType.Home;
@@ -106,11 +133,30 @@ export const HomePageRecommendations = ({ userUrn }: Props) => {
         }
     }, [hasLoadedEntityCounts, hasIngestedMetadata]);
 
+    // we want to render the domain module first if it exists
+    const domainRecommendationModule = recommendationModules?.find(
+        (module) => module.renderType === RecommendationRenderType.DomainSearchList,
+    );
+
     return (
         <RecommendationsContainer>
+            <HomePagePosts />
             {orderedEntityCounts && orderedEntityCounts.length > 0 && (
                 <RecommendationContainer>
-                    <RecommendationTitle level={4}>Explore your Metadata</RecommendationTitle>
+                    {domainRecommendationModule && (
+                        <>
+                            <DomainsRecomendationContainer>
+                                <RecommendationTitle level={4}>{domainRecommendationModule.title}</RecommendationTitle>
+                                <ThinDivider />
+                                <RecommendationModule
+                                    module={domainRecommendationModule as RecommendationModuleType}
+                                    scenarioType={scenario}
+                                    showTitle={false}
+                                />
+                            </DomainsRecomendationContainer>
+                        </>
+                    )}
+                    <RecommendationTitle level={4}>Explore your data</RecommendationTitle>
                     <ThinDivider />
                     {hasIngestedMetadata ? (
                         <BrowseCardContainer>
@@ -140,18 +186,20 @@ export const HomePageRecommendations = ({ userUrn }: Props) => {
                 </RecommendationContainer>
             )}
             {recommendationModules &&
-                recommendationModules.map((module) => (
-                    <RecommendationContainer>
-                        <RecommendationTitle level={4}>{module.title}</RecommendationTitle>
-                        <ThinDivider />
-                        <RecommendationModule
-                            key={module.moduleId}
-                            module={module as RecommendationModuleType}
-                            scenarioType={scenario}
-                            showTitle={false}
-                        />
-                    </RecommendationContainer>
-                ))}
+                recommendationModules
+                    .filter((module) => module.renderType !== RecommendationRenderType.DomainSearchList)
+                    .map((module) => (
+                        <RecommendationContainer>
+                            <RecommendationTitle level={4}>{module.title}</RecommendationTitle>
+                            <ThinDivider />
+                            <RecommendationModule
+                                key={module.moduleId}
+                                module={module as RecommendationModuleType}
+                                scenarioType={scenario}
+                                showTitle={false}
+                            />
+                        </RecommendationContainer>
+                    ))}
             <GettingStartedModal onClose={() => setShowGettingStartedModal(false)} visible={showGettingStartedModal} />
         </RecommendationsContainer>
     );

@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { grey } from '@ant-design/colors';
-import { Alert, Button, Divider, message, Typography } from 'antd';
+import { Button, Divider, message, Typography } from 'antd';
 import { useHistory } from 'react-router';
 import { ApolloError } from '@apollo/client';
 import styled from 'styled-components';
@@ -21,6 +21,9 @@ import { EditOwnersModal } from '../entity/shared/containers/profile/sidebar/Own
 import CopyUrn from './CopyUrn';
 import EntityDropdown from '../entity/shared/EntityDropdown';
 import { EntityMenuItems } from '../entity/shared/EntityDropdown/EntityDropdown';
+import { ErrorSection } from './error/ErrorSection';
+import { generateOrFilters } from '../search/utils/generateOrFilters';
+import { UnionType } from '../search/utils/constants';
 
 function useWrappedSearchResults(params: GetSearchResultsParams) {
     const { data, loading, error } = useGetSearchResultsForMultipleQuery(params);
@@ -180,11 +183,27 @@ const generateColor = new ColorHash({
 export default function TagStyleEntity({ urn, useGetSearchResults = useWrappedSearchResults }: Props) {
     const history = useHistory();
     const entityRegistry = useEntityRegistry();
-    const { loading, error, data, refetch } = useGetTagQuery({ variables: { urn } });
+    const { error, data, refetch } = useGetTagQuery({ variables: { urn } });
     const [updateDescription] = useUpdateDescriptionMutation();
     const [setTagColorMutation] = useSetTagColorMutation();
-    const entityAndSchemaQuery = `tags:"${data?.tag?.name}" OR fieldTags:"${data?.tag?.name}" OR editedFieldTags:"${data?.tag?.name}"`;
-    const entityQuery = `tags:"${data?.tag?.name}"`;
+    const entityUrn = data?.tag?.urn;
+    const entityFilters =
+        (entityUrn && [
+            {
+                field: 'tags',
+                values: [entityUrn],
+            },
+        ]) ||
+        [];
+    const entityAndSchemaFilters =
+        (entityUrn && [
+            ...entityFilters,
+            {
+                field: 'fieldTags',
+                values: [entityUrn],
+            },
+        ]) ||
+        [];
 
     const description = data?.tag?.properties?.description || '';
     const [updatedDescription, setUpdatedDescription] = useState('');
@@ -206,10 +225,10 @@ export default function TagStyleEntity({ urn, useGetSearchResults = useWrappedSe
     const { data: facetData, loading: facetLoading } = useGetSearchResults({
         variables: {
             input: {
-                query: entityAndSchemaQuery,
+                query: '*',
                 start: 0,
                 count: 1,
-                filters: [],
+                orFilters: generateOrFilters(UnionType.OR, entityAndSchemaFilters),
             },
         },
     });
@@ -309,12 +328,9 @@ export default function TagStyleEntity({ urn, useGetSearchResults = useWrappedSe
         refetch?.();
     };
 
-    if (error || (!loading && !error && !data)) {
-        return <Alert type="error" message={error?.message || 'Entity failed to load'} />;
-    }
-
     return (
         <>
+            {error && <ErrorSection />}
             {/* Tag Title */}
             <TagHeader>
                 <div>
@@ -334,7 +350,7 @@ export default function TagStyleEntity({ urn, useGetSearchResults = useWrappedSe
                         urn={urn}
                         entityType={EntityType.Tag}
                         entityData={data?.tag}
-                        menuItems={new Set([EntityMenuItems.COPY_URL, EntityMenuItems.DELETE])}
+                        menuItems={new Set([EntityMenuItems.DELETE])}
                     />
                 </ActionButtons>
                 {displayColorPicker && (
@@ -380,10 +396,11 @@ export default function TagStyleEntity({ urn, useGetSearchResults = useWrappedSe
                                         onClick={() =>
                                             navigateToSearchUrl({
                                                 type: aggregation?.value as EntityType,
-                                                query:
+                                                filters:
                                                     aggregation?.value === EntityType.Dataset
-                                                        ? entityAndSchemaQuery
-                                                        : entityQuery,
+                                                        ? entityAndSchemaFilters
+                                                        : entityFilters,
+                                                unionType: UnionType.OR,
                                                 history,
                                             })
                                         }

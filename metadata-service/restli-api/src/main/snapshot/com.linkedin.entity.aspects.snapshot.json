@@ -162,6 +162,11 @@
                       },
                       "doc" : "The condition for the criterion, e.g. EQUAL, START_WITH",
                       "default" : "EQUAL"
+                    }, {
+                      "name" : "negated",
+                      "type" : "boolean",
+                      "doc" : "Whether the condition should be negated",
+                      "default" : false
                     } ]
                   }
                 },
@@ -376,6 +381,11 @@
               "name" : "impersonator",
               "type" : "Urn",
               "doc" : "The entity (e.g. a service URN) which performs the change on behalf of the Actor and must be authorized to act as the Actor.",
+              "optional" : true
+            }, {
+              "name" : "message",
+              "type" : "string",
+              "doc" : "Additional context around how DataHub was informed of the particular change. For example: was the change created by an automated process, or manually.",
               "optional" : true
             } ]
           },
@@ -1146,6 +1156,21 @@
       "name" : "status"
     }
   }, "com.linkedin.common.TagAssociation", "com.linkedin.common.TagUrn", "com.linkedin.common.Time", {
+    "type" : "record",
+    "name" : "TimeStamp",
+    "namespace" : "com.linkedin.common",
+    "doc" : "A standard event timestamp",
+    "fields" : [ {
+      "name" : "time",
+      "type" : "Time",
+      "doc" : "When did the event occur"
+    }, {
+      "name" : "actor",
+      "type" : "Urn",
+      "doc" : "Optional: The actor urn involved in the event.",
+      "optional" : true
+    } ]
+  }, {
     "type" : "typeref",
     "name" : "Uri",
     "namespace" : "com.linkedin.common",
@@ -1277,6 +1302,28 @@
         "fieldType" : "TEXT_PARTIAL",
         "queryByDefault" : false
       }
+    }, {
+      "name" : "created",
+      "type" : "com.linkedin.common.TimeStamp",
+      "doc" : "A timestamp documenting when the asset was created in the source Data Platform (not on DataHub)",
+      "optional" : true,
+      "Searchable" : {
+        "/time" : {
+          "fieldName" : "createdAt",
+          "fieldType" : "DATETIME"
+        }
+      }
+    }, {
+      "name" : "lastModified",
+      "type" : "com.linkedin.common.TimeStamp",
+      "doc" : "A timestamp documenting when the asset was last modified in the source Data Platform (not on DataHub)",
+      "optional" : true,
+      "Searchable" : {
+        "/time" : {
+          "fieldName" : "lastModifiedAt",
+          "fieldType" : "DATETIME"
+        }
+      }
     } ],
     "Aspect" : {
       "name" : "dataFlowInfo"
@@ -1330,6 +1377,28 @@
       "doc" : "DataFlow urn that this job is part of",
       "optional" : true
     }, {
+      "name" : "created",
+      "type" : "com.linkedin.common.TimeStamp",
+      "doc" : "A timestamp documenting when the asset was created in the source Data Platform (not on DataHub)",
+      "optional" : true,
+      "Searchable" : {
+        "/time" : {
+          "fieldName" : "createdAt",
+          "fieldType" : "DATETIME"
+        }
+      }
+    }, {
+      "name" : "lastModified",
+      "type" : "com.linkedin.common.TimeStamp",
+      "doc" : "A timestamp documenting when the asset was last modified in the source Data Platform (not on DataHub)",
+      "optional" : true,
+      "Searchable" : {
+        "/time" : {
+          "fieldName" : "lastModifiedAt",
+          "fieldType" : "DATETIME"
+        }
+      }
+    }, {
       "name" : "status",
       "type" : {
         "type" : "enum",
@@ -1347,8 +1416,9 @@
           "UNKNOWN" : "Jobs with unknown status (either unmappable or unavailable)"
         }
       },
-      "doc" : "Status of the job",
-      "optional" : true
+      "doc" : "Status of the job - Deprecated for Data Process Instance model.",
+      "optional" : true,
+      "deprecated" : "Use Data Process Instance model, instead"
     } ],
     "Aspect" : {
       "name" : "dataJobInfo"
@@ -1620,13 +1690,36 @@
       "doc" : "The abstracted URI such as hdfs:///data/tracking/PageViewEvent, file:///dir/file_name. Uri should not include any environment specific properties. Some datasets might not have a standardized uri, which makes this field optional (i.e. kafka topic).",
       "optional" : true
     }, {
+      "name" : "created",
+      "type" : "com.linkedin.common.TimeStamp",
+      "doc" : "A timestamp documenting when the asset was created in the source Data Platform (not on DataHub)",
+      "optional" : true,
+      "Searchable" : {
+        "/time" : {
+          "fieldName" : "createdAt",
+          "fieldType" : "DATETIME"
+        }
+      }
+    }, {
+      "name" : "lastModified",
+      "type" : "com.linkedin.common.TimeStamp",
+      "doc" : "A timestamp documenting when the asset was last modified in the source Data Platform (not on DataHub)",
+      "optional" : true,
+      "Searchable" : {
+        "/time" : {
+          "fieldName" : "lastModifiedAt",
+          "fieldType" : "DATETIME"
+        }
+      }
+    }, {
       "name" : "tags",
       "type" : {
         "type" : "array",
         "items" : "string"
       },
-      "doc" : "[Legacy] Unstructured tags for the dataset. Structured tags can be applied via the `GlobalTags` aspect.",
-      "default" : [ ]
+      "doc" : "[Legacy] Unstructured tags for the dataset. Structured tags can be applied via the `GlobalTags` aspect.\nThis is now deprecated.",
+      "default" : [ ],
+      "deprecated" : "Use GlobalTags aspect instead."
     } ],
     "Aspect" : {
       "name" : "datasetProperties"
@@ -1645,12 +1738,11 @@
     "fields" : [ {
       "name" : "auditStamp",
       "type" : "com.linkedin.common.AuditStamp",
-      "doc" : "Audit stamp containing who reported the lineage and when.\nWARNING: this field is deprecated and may be removed in a future release.",
+      "doc" : "Audit stamp containing who reported the lineage and when.",
       "default" : {
         "actor" : "urn:li:corpuser:unknown",
         "time" : 0
-      },
-      "deprecated" : "we no longer associate a timestamp per upstream edge"
+      }
     }, {
       "name" : "dataset",
       "type" : "com.linkedin.common.DatasetUrn",
@@ -1749,6 +1841,14 @@
         "fieldName" : "displayName",
         "fieldType" : "TEXT_PARTIAL"
       }
+    }, {
+      "name" : "id",
+      "type" : "string",
+      "doc" : "Optional id for the GlossaryNode",
+      "optional" : true,
+      "Searchable" : {
+        "fieldType" : "TEXT_PARTIAL"
+      }
     } ],
     "Aspect" : {
       "name" : "glossaryNodeInfo"
@@ -1760,6 +1860,14 @@
     "doc" : "Properties associated with a GlossaryTerm",
     "include" : [ "com.linkedin.common.CustomProperties" ],
     "fields" : [ {
+      "name" : "id",
+      "type" : "string",
+      "doc" : "Optional id for the term",
+      "optional" : true,
+      "Searchable" : {
+        "fieldType" : "TEXT_PARTIAL"
+      }
+    }, {
       "name" : "name",
       "type" : "string",
       "doc" : "Display name of the term",
@@ -1886,6 +1994,11 @@
       "Searchable" : {
         "fieldType" : "TEXT_PARTIAL"
       }
+    }, {
+      "name" : "slack",
+      "type" : "string",
+      "doc" : "Slack channel for the group",
+      "optional" : true
     } ],
     "Aspect" : {
       "EntityUrns" : [ "com.linkedin.common.CorpGroupUrn" ],
@@ -2426,6 +2539,16 @@
               "Searchable" : {
                 "boostScore" : 0.1,
                 "fieldName" : "fieldDescriptions",
+                "fieldType" : "TEXT"
+              }
+            }, {
+              "name" : "label",
+              "type" : "string",
+              "doc" : "Label of the field. Provides a more human-readable name for the field than field path. Some sources will\nprovide this metadata but not all sources have the concept of a label. If just one string is associated with\na field in a source, that is most likely a description.",
+              "optional" : true,
+              "Searchable" : {
+                "boostScore" : 0.2,
+                "fieldName" : "fieldLabels",
                 "fieldType" : "TEXT"
               }
             }, {
@@ -3579,6 +3702,17 @@
         } ]
       } ],
       "actions" : [ {
+        "name" : "getCount",
+        "parameters" : [ {
+          "name" : "aspect",
+          "type" : "string"
+        }, {
+          "name" : "urnLike",
+          "type" : "string",
+          "optional" : true
+        } ],
+        "returns" : "int"
+      }, {
         "name" : "getTimeseriesAspectValues",
         "parameters" : [ {
           "name" : "urn",
@@ -3616,6 +3750,34 @@
         "parameters" : [ {
           "name" : "proposal",
           "type" : "com.linkedin.mxe.MetadataChangeProposal"
+        }, {
+          "name" : "async",
+          "type" : "string",
+          "default" : "unset"
+        } ],
+        "returns" : "string"
+      }, {
+        "name" : "restoreIndices",
+        "parameters" : [ {
+          "name" : "aspect",
+          "type" : "string",
+          "optional" : true
+        }, {
+          "name" : "urn",
+          "type" : "string",
+          "optional" : true
+        }, {
+          "name" : "urnLike",
+          "type" : "string",
+          "optional" : true
+        }, {
+          "name" : "start",
+          "type" : "int",
+          "optional" : true
+        }, {
+          "name" : "batchSize",
+          "type" : "int",
+          "optional" : true
         } ],
         "returns" : "string"
       } ],

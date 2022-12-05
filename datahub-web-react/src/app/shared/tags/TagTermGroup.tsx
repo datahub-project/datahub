@@ -3,6 +3,7 @@ import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
 import styled from 'styled-components';
 import { BookOutlined, PlusOutlined } from '@ant-design/icons';
+import Highlight from 'react-highlighter';
 
 import { useEntityRegistry } from '../../useEntityRegistry';
 import {
@@ -20,6 +21,7 @@ import { useRemoveTagMutation, useRemoveTermMutation } from '../../../graphql/mu
 import { DomainLink } from './DomainLink';
 import { TagProfileDrawer } from './TagProfileDrawer';
 import EditTagTermsModal from './AddTagsTermsModal';
+import { HoverEntityTooltip } from '../../recommendations/renderer/component/HoverEntityTooltip';
 
 type Props = {
     uneditableTags?: GlobalTags | null;
@@ -37,6 +39,7 @@ type Props = {
     entityUrn?: string;
     entityType?: EntityType;
     entitySubresource?: string;
+    highlightText?: string;
     refetch?: () => Promise<any>;
 };
 
@@ -61,6 +64,8 @@ const TagText = styled.span`
     margin: 0 7px 0 0;
 `;
 
+const highlightMatchStyle = { background: '#ffe58f', padding: '0' };
+
 export default function TagTermGroup({
     uneditableTags,
     editableTags,
@@ -77,6 +82,7 @@ export default function TagTermGroup({
     entityUrn,
     entityType,
     entitySubresource,
+    highlightText,
     refetch,
 }: Props) {
     const entityRegistry = useEntityRegistry();
@@ -180,46 +186,67 @@ export default function TagTermGroup({
     return (
         <>
             {domain && (
-                <DomainLink urn={domain.urn} name={entityRegistry.getDisplayName(EntityType.Domain, domain) || ''} />
+                <DomainLink domain={domain} name={entityRegistry.getDisplayName(EntityType.Domain, domain) || ''} />
             )}
             {uneditableGlossaryTerms?.terms?.map((term) => {
                 renderedTags += 1;
                 if (maxShow && renderedTags === maxShow + 1)
                     return (
                         <TagText>
-                            {uneditableGlossaryTerms?.terms
-                                ? `+${uneditableGlossaryTerms?.terms?.length - maxShow}`
-                                : null}
+                            <Highlight matchStyle={highlightMatchStyle} search={highlightText}>
+                                {uneditableGlossaryTerms?.terms
+                                    ? `+${uneditableGlossaryTerms?.terms?.length - maxShow}`
+                                    : null}
+                            </Highlight>
                         </TagText>
                     );
                 if (maxShow && renderedTags > maxShow) return null;
 
                 return (
+                    <HoverEntityTooltip entity={term.term}>
+                        <TermLink
+                            to={entityRegistry.getEntityUrl(EntityType.GlossaryTerm, term.term.urn)}
+                            key={term.term.urn}
+                        >
+                            <Tag closable={false} style={{ cursor: 'pointer' }}>
+                                <BookOutlined style={{ marginRight: '3%' }} />
+                                <Highlight
+                                    style={{ marginLeft: 0 }}
+                                    matchStyle={highlightMatchStyle}
+                                    search={highlightText}
+                                >
+                                    {entityRegistry.getDisplayName(EntityType.GlossaryTerm, term.term)}
+                                </Highlight>
+                            </Tag>
+                        </TermLink>
+                    </HoverEntityTooltip>
+                );
+            })}
+            {editableGlossaryTerms?.terms?.map((term) => (
+                <HoverEntityTooltip entity={term.term}>
                     <TermLink
                         to={entityRegistry.getEntityUrl(EntityType.GlossaryTerm, term.term.urn)}
                         key={term.term.urn}
                     >
-                        <Tag closable={false} style={{ cursor: 'pointer' }}>
+                        <Tag
+                            style={{ cursor: 'pointer' }}
+                            closable={canRemove}
+                            onClose={(e) => {
+                                e.preventDefault();
+                                removeTerm(term);
+                            }}
+                        >
                             <BookOutlined style={{ marginRight: '3%' }} />
-                            {entityRegistry.getDisplayName(EntityType.GlossaryTerm, term.term)}
+                            <Highlight
+                                style={{ marginLeft: 0 }}
+                                matchStyle={highlightMatchStyle}
+                                search={highlightText}
+                            >
+                                {entityRegistry.getDisplayName(EntityType.GlossaryTerm, term.term)}
+                            </Highlight>
                         </Tag>
                     </TermLink>
-                );
-            })}
-            {editableGlossaryTerms?.terms?.map((term) => (
-                <TermLink to={entityRegistry.getEntityUrl(EntityType.GlossaryTerm, term.term.urn)} key={term.term.urn}>
-                    <Tag
-                        style={{ cursor: 'pointer' }}
-                        closable={canRemove}
-                        onClose={(e) => {
-                            e.preventDefault();
-                            removeTerm(term);
-                        }}
-                    >
-                        <BookOutlined style={{ marginRight: '3%' }} />
-                        {entityRegistry.getDisplayName(EntityType.GlossaryTerm, term.term)}
-                    </Tag>
-                </TermLink>
+                </HoverEntityTooltip>
             ))}
             {/* uneditable tags are provided by ingestion pipelines exclusively */}
             {uneditableTags?.tags?.map((tag) => {
@@ -230,40 +257,59 @@ export default function TagTermGroup({
                     );
                 if (maxShow && renderedTags > maxShow) return null;
 
+                const displayName = entityRegistry.getDisplayName(EntityType.Tag, tag.tag);
                 return (
-                    <TagLink key={tag?.tag?.urn}>
-                        <StyledTag
-                            style={{ cursor: 'pointer' }}
-                            onClick={() => showTagProfileDrawer(tag?.tag?.urn)}
-                            $colorHash={tag?.tag?.urn}
-                            $color={tag?.tag?.properties?.colorHex}
-                            closable={false}
-                        >
-                            {entityRegistry.getDisplayName(EntityType.Tag, tag.tag)}
-                        </StyledTag>
-                    </TagLink>
+                    <HoverEntityTooltip entity={tag?.tag}>
+                        <TagLink key={tag?.tag?.urn} data-testid={`tag-${displayName}`}>
+                            <StyledTag
+                                style={{ cursor: 'pointer' }}
+                                onClick={() => showTagProfileDrawer(tag?.tag?.urn)}
+                                $colorHash={tag?.tag?.urn}
+                                $color={tag?.tag?.properties?.colorHex}
+                                closable={false}
+                            >
+                                <Highlight
+                                    style={{ marginLeft: 0 }}
+                                    matchStyle={highlightMatchStyle}
+                                    search={highlightText}
+                                >
+                                    {displayName}
+                                </Highlight>
+                            </StyledTag>
+                        </TagLink>
+                    </HoverEntityTooltip>
                 );
             })}
             {/* editable tags may be provided by ingestion pipelines or the UI */}
             {editableTags?.tags?.map((tag) => {
                 renderedTags += 1;
                 if (maxShow && renderedTags > maxShow) return null;
+
+                const displayName = entityRegistry.getDisplayName(EntityType.Tag, tag.tag);
                 return (
-                    <TagLink>
-                        <StyledTag
-                            style={{ cursor: 'pointer' }}
-                            onClick={() => showTagProfileDrawer(tag?.tag?.urn)}
-                            $colorHash={tag?.tag?.urn}
-                            $color={tag?.tag?.properties?.colorHex}
-                            closable={canRemove}
-                            onClose={(e) => {
-                                e.preventDefault();
-                                removeTag(tag);
-                            }}
-                        >
-                            {tag?.tag?.name}
-                        </StyledTag>
-                    </TagLink>
+                    <HoverEntityTooltip entity={tag?.tag}>
+                        <TagLink data-testid={`tag-${displayName}`}>
+                            <StyledTag
+                                style={{ cursor: 'pointer' }}
+                                onClick={() => showTagProfileDrawer(tag?.tag?.urn)}
+                                $colorHash={tag?.tag?.urn}
+                                $color={tag?.tag?.properties?.colorHex}
+                                closable={canRemove}
+                                onClose={(e) => {
+                                    e.preventDefault();
+                                    removeTag(tag);
+                                }}
+                            >
+                                <Highlight
+                                    style={{ marginLeft: 0 }}
+                                    matchStyle={highlightMatchStyle}
+                                    search={highlightText}
+                                >
+                                    {displayName}
+                                </Highlight>
+                            </StyledTag>
+                        </TagLink>
+                    </HoverEntityTooltip>
                 );
             })}
             {tagProfileDrawerVisible && (
@@ -283,7 +329,7 @@ export default function TagTermGroup({
                     {EMPTY_MESSAGES.terms.title}. {EMPTY_MESSAGES.terms.description}
                 </Typography.Paragraph>
             )}
-            {canAddTag && (uneditableTags?.tags?.length || 0) + (editableTags?.tags?.length || 0) < 10 && (
+            {canAddTag && (
                 <NoElementButton
                     type={showEmptyMessage && tagsEmpty ? 'default' : 'text'}
                     onClick={() => {
@@ -296,20 +342,19 @@ export default function TagTermGroup({
                     <span>Add Tags</span>
                 </NoElementButton>
             )}
-            {canAddTerm &&
-                (uneditableGlossaryTerms?.terms?.length || 0) + (editableGlossaryTerms?.terms?.length || 0) < 10 && (
-                    <NoElementButton
-                        type={showEmptyMessage && tagsEmpty ? 'default' : 'text'}
-                        onClick={() => {
-                            setAddModalType(EntityType.GlossaryTerm);
-                            setShowAddModal(true);
-                        }}
-                        {...buttonProps}
-                    >
-                        <PlusOutlined />
-                        <span>Add Terms</span>
-                    </NoElementButton>
-                )}
+            {canAddTerm && (
+                <NoElementButton
+                    type={showEmptyMessage && tagsEmpty ? 'default' : 'text'}
+                    onClick={() => {
+                        setAddModalType(EntityType.GlossaryTerm);
+                        setShowAddModal(true);
+                    }}
+                    {...buttonProps}
+                >
+                    <PlusOutlined />
+                    <span>Add Terms</span>
+                </NoElementButton>
+            )}
             {showAddModal && !!entityUrn && !!entityType && (
                 <EditTagTermsModal
                     type={addModalType}
@@ -326,7 +371,6 @@ export default function TagTermGroup({
                             subResourceType: entitySubresource ? SubResourceType.DatasetField : null,
                         },
                     ]}
-                    entityType={entityType}
                 />
             )}
         </>
