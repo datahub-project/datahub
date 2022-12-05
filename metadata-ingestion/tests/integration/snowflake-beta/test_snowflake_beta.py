@@ -335,7 +335,7 @@ def test_snowflake_basic(pytestconfig, tmp_path, mock_time, mock_datahub_graph):
                 source=SourceConfig(
                     type="snowflake",
                     config=SnowflakeV2Config(
-                        account_id="ABC12345",
+                        account_id="ABC12345.ap-south-1.aws",
                         username="TST_USR",
                         password="TST_PWD",
                         include_views=False,
@@ -361,6 +361,64 @@ def test_snowflake_basic(pytestconfig, tmp_path, mock_time, mock_datahub_graph):
                                     type="datahub", config=datahub_classifier_config
                                 )
                             ],
+                        ),
+                    ),
+                ),
+                sink=DynamicTypedConfig(
+                    type="file", config={"filename": str(output_file)}
+                ),
+            )
+        )
+        pipeline.run()
+        pipeline.pretty_print_summary()
+        pipeline.raise_from_status()
+
+        # Verify the output.
+
+        mce_helpers.check_golden_file(
+            pytestconfig,
+            output_path=output_file,
+            golden_path=golden_file,
+            ignore_paths=[],
+        )
+
+
+@freeze_time(FROZEN_TIME)
+def test_snowflake_private_link(pytestconfig, tmp_path, mock_time, mock_datahub_graph):
+    test_resources_dir = pytestconfig.rootpath / "tests/integration/snowflake-beta"
+
+    # Run the metadata ingestion pipeline.
+    output_file = tmp_path / "snowflake_privatelink_test_events.json"
+    golden_file = test_resources_dir / "snowflake_privatelink_beta_golden.json"
+
+    with mock.patch("snowflake.connector.connect") as mock_connect:
+        sf_connection = mock.MagicMock()
+        sf_cursor = mock.MagicMock()
+        mock_connect.return_value = sf_connection
+        sf_connection.cursor.return_value = sf_cursor
+        sf_cursor.execute.side_effect = default_query_results
+
+        pipeline = Pipeline(
+            config=PipelineConfig(
+                run_id="snowflake-beta-2022_06_07-17_00_00",
+                source=SourceConfig(
+                    type="snowflake",
+                    config=SnowflakeV2Config(
+                        account_id="ABC12345.ap-south-1.privatelink",
+                        username="TST_USR",
+                        password="TST_PWD",
+                        include_views=False,
+                        table_pattern=AllowDenyPattern(allow=["test_db.test_schema.*"]),
+                        include_technical_schema=True,
+                        include_table_lineage=False,
+                        include_view_lineage=False,
+                        include_usage_stats=False,
+                        include_operational_stats=False,
+                        start_time=datetime(2022, 6, 6, 7, 17, 0, 0).replace(
+                            tzinfo=timezone.utc
+                        ),
+                        end_time=datetime(2022, 6, 7, 7, 17, 0, 0).replace(
+                            tzinfo=timezone.utc
                         ),
                     ),
                 ),

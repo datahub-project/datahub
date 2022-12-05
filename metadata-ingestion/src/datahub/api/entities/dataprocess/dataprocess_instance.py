@@ -1,7 +1,7 @@
 import time
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import TYPE_CHECKING, Callable, Dict, Iterable, List, Optional, Union, cast
+from typing import TYPE_CHECKING, Callable, Dict, Iterable, List, Optional, Union
 
 from datahub.api.entities.datajob import DataFlow, DataJob
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
@@ -282,13 +282,7 @@ class DataProcessInstance:
         :param emitter: (Union[DatahubRestEmitter, DatahubKafkaEmitter]) the datahub emitter to emit generated mcps
         :param callback: (Optional[Callable[[Exception, str], None]]) the callback method for KafkaEmitter if it is used
         """
-        if type(emitter).__name__ == "DatahubKafkaEmitter":
-            assert callback is not None
-            kafka_emitter = cast("DatahubKafkaEmitter", emitter)
-            kafka_emitter.emit(mcp, callback)
-        else:
-            rest_emitter = cast("DatahubRestEmitter", emitter)
-            rest_emitter.emit(mcp)
+        emitter.emit(mcp, callback)
 
     def emit(
         self,
