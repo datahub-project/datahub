@@ -282,37 +282,31 @@ export const INCLUDE_TABLE_LINEAGE: RecipeField = {
     rules: null,
 };
 
-const isProfilingEnabled = 'source.config.profiling.enabled';
-const isTableProfilingOnly = 'source.config.profiling.profile_table_level_only';
+const isProfilingEnabledFieldPath = 'source.config.profiling.enabled';
 export const TABLE_PROFILING_ENABLED: RecipeField = {
     name: 'profiling.enabled',
     label: 'Enable Table Profiling',
     tooltip:
         'Generate Data Profiles for extracted Tables. Enabling this may increase the duration of the extraction process.',
     type: FieldType.BOOLEAN,
-    fieldPath: isProfilingEnabled,
+    fieldPath: isProfilingEnabledFieldPath,
     rules: null,
-    getValueFromRecipeOverride: (recipe: any) => {
-        return get(recipe, isProfilingEnabled);
-    },
-    setValueOnRecipeOverride: (recipe: any, value: boolean) => {
-        return setFieldValueOnRecipe(recipe, value, isProfilingEnabled);
-    },
 };
 
+const isTableProfilingOnlyFieldPath = 'source.config.profiling.profile_table_level_only';
 export const COLUMN_PROFILING_ENABLED: RecipeField = {
     name: 'column_profiling.enabled',
     label: 'Enable Column Profiling',
     tooltip:
         'Generate Data Profiles for the Columns in extracted Tables. Enabling this may increase the duration of the extraction process.',
     type: FieldType.BOOLEAN,
-    fieldPath: isTableProfilingOnly,
+    fieldPath: isTableProfilingOnlyFieldPath,
     rules: null,
     getValueFromRecipeOverride: (recipe: any) => {
-        return get(recipe, isProfilingEnabled) && !get(recipe, isTableProfilingOnly);
+        return get(recipe, isProfilingEnabledFieldPath) && !get(recipe, isTableProfilingOnlyFieldPath);
     },
     setValueOnRecipeOverride: (recipe: any, value: boolean) => {
-        return setFieldValueOnRecipe(recipe, !value, isTableProfilingOnly);
+        return setFieldValueOnRecipe(recipe, !value, isTableProfilingOnlyFieldPath);
     },
 };
 

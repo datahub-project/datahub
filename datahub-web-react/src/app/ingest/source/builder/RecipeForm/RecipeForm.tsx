@@ -118,6 +118,7 @@ function RecipeForm(props: Props) {
         data?.listSecrets?.secrets.sort((secretA, secretB) => secretA.name.localeCompare(secretB.name)) || [];
     const [form] = Form.useForm();
 
+    // TODO - Combine this with updateFormValues.
     function updateFormValue(fieldName, fieldValue) {
         let updatedValues = YAML.parse(displayRecipe);
         const recipeField = allFields.find((f) => f.name === fieldName);
