@@ -1,8 +1,9 @@
+from datahub.ingestion.source.sql.sql_generic_profiler import DetailedProfilerReport
 from datahub.ingestion.source_report.sql.snowflake import SnowflakeReport
 from datahub.ingestion.source_report.usage.snowflake_usage import SnowflakeUsageReport
 
 
-class SnowflakeV2Report(SnowflakeReport, SnowflakeUsageReport):
+class SnowflakeV2Report(SnowflakeReport, SnowflakeUsageReport, DetailedProfilerReport):
 
     schemas_scanned: int = 0
     databases_scanned: int = 0

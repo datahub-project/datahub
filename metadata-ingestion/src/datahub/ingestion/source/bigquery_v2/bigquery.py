@@ -783,7 +783,7 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
         )
 
         view = cast(BigqueryView, table)
-        view_definition_string = view.ddl
+        view_definition_string = view.view_definition
         view_properties_aspect = ViewProperties(
             materialized=False, viewLanguage="SQL", viewLogic=view_definition_string
         )
@@ -979,7 +979,7 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
             version=0,
             hash="",
             platformSchema=MySqlDDL(tableSchema=""),
-            fields=self.gen_schema_fields(table.columns),
+            fields=self.gen_schema_fields(cast(List[BigqueryColumn], table.columns)),
         )
         wu = wrap_aspect_as_workunit(
             "dataset", dataset_urn, "schemaMetadata", schema_metadata

@@ -277,7 +277,7 @@ class _SingleDatasetProfiler(BasicDatasetProfilerBase):
         if self.config.max_number_of_fields_to_profile is not None:
             if len(columns_to_profile) > self.config.max_number_of_fields_to_profile:
                 columns_being_dropped = columns_to_profile[
-                    self.config.max_number_of_fields_to_profile :
+                    self.config.max_number_of_fields_to_profile:
                 ]
                 columns_to_profile = columns_to_profile[
                     : self.config.max_number_of_fields_to_profile
