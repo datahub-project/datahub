@@ -48,7 +48,7 @@ def ldap_ingest_common(
             pipeline = Pipeline.create(
                 {
                     "run_id": "ldap-test",
-                    "pipeline_name": "ldap-test-pipeline1",
+                    "pipeline_name": "ldap-test-pipeline",
                     "source": {
                         "type": "ldap",
                         "config": {
