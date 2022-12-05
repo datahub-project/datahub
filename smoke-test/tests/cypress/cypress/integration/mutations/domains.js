@@ -60,7 +60,7 @@ describe("add remove domain", () => {
         });
         cy.clickOptionWithText("Delete");
         cy.clickOptionWithText("Yes");
-        cy.waitTextVisible("Deleted Domain!")
+        cy.ensureTextNotPresent(test_domain)
         
         cy.goToContainer("urn:li:container:348c96555971d3f5c1ffd7dd2e7446cb")
         cy.waitTextVisible("jaffle_shop")

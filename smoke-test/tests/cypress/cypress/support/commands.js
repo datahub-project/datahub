@@ -151,7 +151,7 @@ Cypress.Commands.add('addTermToDataset', (urn, dataset_name, term) => {
 
 Cypress.Commands.add("removeDomainFromDataset", (urn, dataset_name, domain_urn) => {
   cy.goToDataset(urn, dataset_name);
-  cy.get('[class^="EntitySidebar__ContentContainer"] [href="/domain/' + domain_urn + '"] .anticon-close').click();
+  cy.get('.sidebar-domain-section [href="/domain/' + domain_urn + '"] .anticon-close').click();
   cy.clickOptionWithText("Yes");
 })
 
