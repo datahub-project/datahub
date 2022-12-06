@@ -549,7 +549,7 @@ type Mutation {
     """
     createView(
       "Input required to create a new DataHub View"
-      input: CreateViewInput!): String
+      input: CreateViewInput!): DataHubView
 
     """
     Delete a DataHub View (Saved Filter)
@@ -558,7 +558,7 @@ type Mutation {
       "The urn of the View to update"
       urn: String!,
       "Input required to updat an existing DataHub View"
-      input: UpdateViewInput!): Boolean
+      input: UpdateViewInput!): DataHubView
 
     """
     Delete a DataHub View (Saved Filter)

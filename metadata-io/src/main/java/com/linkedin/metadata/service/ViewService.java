@@ -191,19 +191,34 @@ public class ViewService extends BaseService {
   public DataHubViewInfo getViewInfo(@Nonnull final Urn viewUrn, @Nonnull final Authentication authentication) {
     Objects.requireNonNull(viewUrn, "viewUrn must not be null");
     Objects.requireNonNull(authentication, "authentication must not be null");
+    final EntityResponse response = getViewEntityResponse(viewUrn, authentication);
+    if (response != null && response.getAspects().containsKey(Constants.DATAHUB_VIEW_INFO_ASPECT_NAME)) {
+      return new DataHubViewInfo(response.getAspects().get(Constants.DATAHUB_VIEW_INFO_ASPECT_NAME).getValue().data());
+    }
+    // No aspect found
+    return null;
+  }
 
+  /**
+   * Returns an instance of {@link EntityResponse} for the specified View urn,
+   * or null if one cannot be found.
+   *
+   * @param viewUrn the urn of the View
+   * @param authentication the authentication to use
+   *
+   * @return an instance of {@link EntityResponse} for the View, null if it does not exist.
+   */
+  @Nullable
+  public EntityResponse getViewEntityResponse(@Nonnull final Urn viewUrn, @Nonnull final Authentication authentication) {
+    Objects.requireNonNull(viewUrn, "viewUrn must not be null");
+    Objects.requireNonNull(authentication, "authentication must not be null");
     try {
-      EntityResponse response = this.entityClient.getV2(
+      return this.entityClient.getV2(
           Constants.DATAHUB_VIEW_ENTITY_NAME,
           viewUrn,
           ImmutableSet.of(Constants.DATAHUB_VIEW_INFO_ASPECT_NAME),
           authentication
       );
-      if (response != null && response.getAspects().containsKey(Constants.DATAHUB_VIEW_INFO_ASPECT_NAME)) {
-        return new DataHubViewInfo(response.getAspects().get(Constants.DATAHUB_VIEW_INFO_ASPECT_NAME).getValue().data());
-      }
-      // No aspect found
-      return null;
     } catch (Exception e) {
       throw new RuntimeException(String.format("Failed to retrieve View with urn %s", viewUrn), e);
     }

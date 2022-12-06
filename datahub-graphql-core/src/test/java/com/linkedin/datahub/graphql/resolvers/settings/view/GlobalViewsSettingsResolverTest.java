@@ -36,7 +36,8 @@ public class GlobalViewsSettingsResolverTest {
 
     com.linkedin.datahub.graphql.generated.GlobalViewsSettings result = resolver.get(mockEnv).get();
 
-    Assert.assertNull(result);
+    Assert.assertNotNull(result); // Empty settings
+    Assert.assertNull(result.getDefaultView());
   }
 
   @Test

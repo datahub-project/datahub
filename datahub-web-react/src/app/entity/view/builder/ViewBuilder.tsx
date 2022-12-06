@@ -9,6 +9,7 @@ import { convertStateToUpdateInput, DEFAULT_LIST_VIEWS_PAGE_SIZE } from '../util
 import { useUserContext } from '../../../context/useUserContext';
 import { ViewBuilderMode } from './types';
 import analytics, { Event, EventType } from '../../../analytics';
+import { DataHubView } from '../../../../types.generated';
 
 type Props = {
     mode: ViewBuilderMode;
@@ -53,25 +54,25 @@ export const ViewBuilder = ({ mode, urn, initialState, onSubmit, onCancel }: Pro
         });
     };
 
-    const addViewToCaches = (viewUrn: string, state: ViewBuilderState) => {
-        updateListMyViewsCache(viewUrn, state, client, 1, DEFAULT_LIST_VIEWS_PAGE_SIZE, undefined, undefined);
-        updateViewSelectCache(viewUrn, state, client);
+    const addViewToCaches = (viewUrn: string, view: DataHubView) => {
+        updateListMyViewsCache(viewUrn, view, client, 1, DEFAULT_LIST_VIEWS_PAGE_SIZE, undefined, undefined);
+        updateViewSelectCache(viewUrn, view, client);
     };
 
-    const updateViewInCaches = (viewUrn: string, state: ViewBuilderState) => {
-        updateListMyViewsCache(viewUrn, state, client, 1, DEFAULT_LIST_VIEWS_PAGE_SIZE, undefined, undefined);
-        updateViewSelectCache(viewUrn, state, client);
+    const updateViewInCaches = (viewUrn: string, view: DataHubView) => {
+        updateListMyViewsCache(viewUrn, view, client, 1, DEFAULT_LIST_VIEWS_PAGE_SIZE, undefined, undefined);
+        updateViewSelectCache(viewUrn, view, client);
     };
 
     /**
      * Updates the caches that power the Manage My Views and Views Select
      * experiences when a new View has been create or an existing View has been updated.
      */
-    const updateViewCaches = (viewUrn: string, state: ViewBuilderState, isCreate: boolean) => {
+    const updateViewCaches = (viewUrn: string, view: DataHubView, isCreate: boolean) => {
         if (isCreate) {
-            addViewToCaches(viewUrn, state);
+            addViewToCaches(viewUrn, view);
         } else {
-            updateViewInCaches(viewUrn, state);
+            updateViewInCaches(viewUrn, view);
         }
     };
 
@@ -95,10 +96,10 @@ export const ViewBuilder = ({ mode, urn, initialState, onSubmit, onCancel }: Pro
             }) as any
         )
             .then((res) => {
-                const updatedUrn = urn || res.data?.createView || '';
-                emitTrackingEvent(updatedUrn, state, isCreate);
-                updateViewCaches(updatedUrn, state, isCreate);
-                updatedSelectedView(updatedUrn);
+                const updatedView = isCreate ? res.data?.createView : res.data?.updateView;
+                emitTrackingEvent(updatedView.urn, updatedView, isCreate);
+                updateViewCaches(updatedView.urn, updatedView, isCreate);
+                updatedSelectedView(updatedView.urn);
                 onSubmit?.(state);
             })
             .catch((_) => {

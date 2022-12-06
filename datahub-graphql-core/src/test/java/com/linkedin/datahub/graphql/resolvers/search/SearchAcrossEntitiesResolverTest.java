@@ -12,6 +12,7 @@ import com.linkedin.datahub.graphql.generated.EntityType;
 import com.linkedin.datahub.graphql.generated.FacetFilterInput;
 import com.linkedin.datahub.graphql.generated.FilterOperator;
 import com.linkedin.datahub.graphql.generated.SearchAcrossEntitiesInput;
+import com.linkedin.datahub.graphql.resolvers.EntityTypeMapper;
 import com.linkedin.entity.client.EntityClient;
 import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.query.filter.Condition;
@@ -32,11 +33,13 @@ import graphql.schema.DataFetchingEnvironment;
 import java.util.Collections;
 import java.util.List;
 import java.util.concurrent.CompletionException;
+import java.util.stream.Collectors;
 import org.mockito.Mockito;
 import org.testng.Assert;
 import org.testng.annotations.Test;
 
 import static com.linkedin.datahub.graphql.TestUtils.*;
+import static com.linkedin.datahub.graphql.resolvers.search.SearchUtils.*;
 
 
 public class SearchAcrossEntitiesResolverTest {
@@ -365,15 +368,29 @@ public class SearchAcrossEntitiesResolverTest {
   }
 
   @Test
-  public static void testApplyViewViewDoesNotExist() {
-    // When a view does not exist, the endpoint show THROW.
+  public static void testApplyViewViewDoesNotExist() throws Exception {
+    // When a view does not exist, the endpoint should WARN and not apply the view.
 
     ViewService mockService = initMockViewService(
         TEST_VIEW_URN,
         null
     );
 
-    EntityClient mockClient = Mockito.mock(EntityClient.class);
+    List<String> searchEntityTypes = SEARCHABLE_ENTITY_TYPES.stream().map(EntityTypeMapper::getName).collect(Collectors.toList());
+
+    EntityClient mockClient = initMockEntityClient(
+        searchEntityTypes,
+        "",
+        null,
+        0,
+        10,
+        new SearchResult()
+            .setEntities(new SearchEntityArray())
+            .setNumEntities(0)
+            .setFrom(0)
+            .setPageSize(0)
+            .setMetadata(new SearchResultMetadata())
+    );
 
     final SearchAcrossEntitiesResolver resolver = new SearchAcrossEntitiesResolver(mockClient, mockService);
     final SearchAcrossEntitiesInput testInput = new SearchAcrossEntitiesInput(
@@ -390,9 +407,16 @@ public class SearchAcrossEntitiesResolverTest {
     Mockito.when(mockEnv.getArgument(Mockito.eq("input"))).thenReturn(testInput);
     Mockito.when(mockEnv.getContext()).thenReturn(mockContext);
 
-    Assert.assertThrows(CompletionException.class, () -> resolver.get(mockEnv).join());
-    Mockito.verifyZeroInteractions(mockClient);
+    resolver.get(mockEnv).get();
 
+    verifyMockEntityClient(
+        mockClient,
+        searchEntityTypes,
+        "",
+        null,
+        0,
+        10
+    );
   }
 
   @Test

@@ -14,12 +14,13 @@ const StyledFormItem = styled(Form.Item)`
 `;
 
 type Props = {
+    urn?: string;
     mode: ViewBuilderMode;
     state: ViewBuilderState;
     updateState: (newState: ViewBuilderState) => void;
 };
 
-export const ViewBuilderForm = ({ mode, state, updateState }: Props) => {
+export const ViewBuilderForm = ({ urn, mode, state, updateState }: Props) => {
     const userContext = useUserContext();
     const [form] = Form.useForm();
 
@@ -49,6 +50,7 @@ export const ViewBuilderForm = ({ mode, state, updateState }: Props) => {
     };
 
     const canManageGlobalViews = userContext?.platformPrivileges?.manageGlobalViews || false;
+    const isEditing = urn !== undefined;
 
     return (
         <>
@@ -89,7 +91,7 @@ export const ViewBuilderForm = ({ mode, state, updateState }: Props) => {
                     <Form.Item name="viewType">
                         <Select
                             onSelect={(value) => setViewType(value as DataHubViewType)}
-                            disabled={!canManageGlobalViews || mode === ViewBuilderMode.PREVIEW}
+                            disabled={!canManageGlobalViews || isEditing || mode === ViewBuilderMode.PREVIEW}
                         >
                             <Select.Option value={DataHubViewType.Personal}>
                                 <ViewTypeLabel type={DataHubViewType.Personal} color={ANTD_GRAY[9]} />

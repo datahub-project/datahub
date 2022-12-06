@@ -4,9 +4,8 @@ import {
     ListMyViewsDocument,
     ListMyViewsQuery,
 } from '../../../graphql/view.generated';
-import { DataHubViewType } from '../../../types.generated';
-import { ViewBuilderState } from './types';
-import { convertStateToView, DEFAULT_LIST_VIEWS_PAGE_SIZE } from './utils';
+import { DataHubViewType, DataHubView } from '../../../types.generated';
+import { DEFAULT_LIST_VIEWS_PAGE_SIZE } from './utils';
 
 /**
  * This file contains utility classes for manipulating the Apollo Cache
@@ -32,7 +31,7 @@ const addOrUpdateViewInList = (existingViews, newView) => {
 
 export const updateListMyViewsCache = (
     urn: string,
-    state: ViewBuilderState,
+    newView: DataHubView,
     client,
     page,
     pageSize,
@@ -54,8 +53,6 @@ export const updateListMyViewsCache = (
         // If there's no cached data, the first load has not occurred. Let it occur naturally.
         return;
     }
-
-    const newView = convertStateToView(urn, state);
 
     const existingViews = currData?.listMyViews?.views || [];
     const newViews = addOrUpdateViewInList(existingViews, newView);
@@ -85,7 +82,7 @@ export const updateListMyViewsCache = (
     });
 };
 
-const updateListGlobalViewsCache = (urn: string, state: ViewBuilderState, client, page, pageSize, query?: string) => {
+const updateListGlobalViewsCache = (urn: string, newView: DataHubView, client, page, pageSize, query?: string) => {
     // Read the data from our cache for this query.
     const currData: ListGlobalViewsQuery | null = client.readQuery({
         query: ListGlobalViewsDocument,
@@ -100,8 +97,6 @@ const updateListGlobalViewsCache = (urn: string, state: ViewBuilderState, client
         // If there's no cached data, the first load has not occurred. Let it occur naturally.
         return;
     }
-
-    const newView = convertStateToView(urn, state);
 
     const existingViews = currData?.listGlobalViews?.views || [];
     const newViews = addOrUpdateViewInList(existingViews, newView);
@@ -228,25 +223,17 @@ const removeFromListGlobalViewsCache = (urn: string, client, page: number, pageS
  * to power the View Select component.
  *
  * @param urn the urn of the updated view
- * @param state the updated view state
+ * @param view the updated view
  * @param client the Apollo client
  */
-export const updateViewSelectCache = (urn: string, state: ViewBuilderState, client) => {
-    if (state.viewType === DataHubViewType.Personal) {
+export const updateViewSelectCache = (urn: string, view: DataHubView, client) => {
+    if (view.viewType === DataHubViewType.Personal) {
         // Add or Update in Personal Views Cache, remove from the opposite.
-        updateListMyViewsCache(
-            urn,
-            state,
-            client,
-            1,
-            DEFAULT_LIST_VIEWS_PAGE_SIZE,
-            DataHubViewType.Personal,
-            undefined,
-        );
+        updateListMyViewsCache(urn, view, client, 1, DEFAULT_LIST_VIEWS_PAGE_SIZE, DataHubViewType.Personal, undefined);
         removeFromListGlobalViewsCache(urn, client, 1, DEFAULT_LIST_VIEWS_PAGE_SIZE, undefined);
     } else {
         // Add or Update in Global Views Cache, remove from the opposite.
-        updateListGlobalViewsCache(urn, state, client, 1, DEFAULT_LIST_VIEWS_PAGE_SIZE, undefined);
+        updateListGlobalViewsCache(urn, view, client, 1, DEFAULT_LIST_VIEWS_PAGE_SIZE, undefined);
         removeFromListMyViewsCache(urn, client, 1, DEFAULT_LIST_VIEWS_PAGE_SIZE, DataHubViewType.Personal, undefined);
     }
 };

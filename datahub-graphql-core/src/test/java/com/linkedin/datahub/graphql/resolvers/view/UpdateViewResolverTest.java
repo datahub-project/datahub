@@ -2,11 +2,13 @@ package com.linkedin.datahub.graphql.resolvers.view;
 
 import com.datahub.authentication.Authentication;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.linkedin.common.AuditStamp;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.data.template.StringArray;
 import com.linkedin.datahub.graphql.QueryContext;
+import com.linkedin.datahub.graphql.generated.DataHubView;
 import com.linkedin.datahub.graphql.generated.DataHubViewDefinitionInput;
 import com.linkedin.datahub.graphql.generated.DataHubViewFilterInput;
 import com.linkedin.datahub.graphql.generated.EntityType;
@@ -14,6 +16,11 @@ import com.linkedin.datahub.graphql.generated.FacetFilterInput;
 import com.linkedin.datahub.graphql.generated.FilterOperator;
 import com.linkedin.datahub.graphql.generated.LogicalOperator;
 import com.linkedin.datahub.graphql.generated.UpdateViewInput;
+import com.linkedin.entity.Aspect;
+import com.linkedin.entity.AspectType;
+import com.linkedin.entity.EntityResponse;
+import com.linkedin.entity.EnvelopedAspect;
+import com.linkedin.entity.EnvelopedAspectMap;
 import com.linkedin.entity.client.EntityClient;
 import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.query.filter.Condition;
@@ -68,7 +75,11 @@ public class UpdateViewResolverTest {
     Mockito.when(mockEnv.getArgument(Mockito.eq("input"))).thenReturn(TEST_INPUT);
     Mockito.when(mockEnv.getContext()).thenReturn(mockContext);
 
-    assertTrue(resolver.get(mockEnv).get());
+    DataHubView view = resolver.get(mockEnv).get();
+    assertEquals(view.getName(), TEST_INPUT.getName());
+    assertEquals(view.getDescription(), TEST_INPUT.getDescription());
+    assertEquals(view.getViewType(), com.linkedin.datahub.graphql.generated.DataHubViewType.GLOBAL);
+    assertEquals(view.getType(), EntityType.DATAHUB_VIEW);
 
     Mockito.verify(mockService, Mockito.times(1)).updateView(
         Mockito.eq(TEST_URN),
@@ -111,7 +122,11 @@ public class UpdateViewResolverTest {
     Mockito.when(mockEnv.getArgument(Mockito.eq("input"))).thenReturn(TEST_INPUT);
     Mockito.when(mockEnv.getContext()).thenReturn(mockContext);
 
-    assertTrue(resolver.get(mockEnv).get());
+    DataHubView view = resolver.get(mockEnv).get();
+    assertEquals(view.getName(), TEST_INPUT.getName());
+    assertEquals(view.getDescription(), TEST_INPUT.getDescription());
+    assertEquals(view.getViewType(), com.linkedin.datahub.graphql.generated.DataHubViewType.GLOBAL);
+    assertEquals(view.getType(), EntityType.DATAHUB_VIEW);
 
     Mockito.verify(mockService, Mockito.times(1)).updateView(
         Mockito.eq(TEST_URN),
@@ -191,16 +206,32 @@ public class UpdateViewResolverTest {
 
     DataHubViewInfo testInfo = new DataHubViewInfo()
         .setType(viewType)
-        .setName("test-name")
-        .setDescription("test-description")
+        .setName(TEST_INPUT.getName())
+        .setDescription(TEST_INPUT.getDescription())
         .setCreated(new AuditStamp().setActor(TEST_AUTHORIZED_USER).setTime(0L))
         .setLastModified(new AuditStamp().setActor(TEST_AUTHORIZED_USER).setTime(0L))
         .setDefinition(new DataHubViewDefinition().setEntityTypes(new StringArray()).setFilter(new Filter()));
+
+    EntityResponse testEntityResponse = new EntityResponse()
+        .setUrn(TEST_URN)
+        .setEntityName(Constants.DATAHUB_VIEW_ENTITY_NAME)
+        .setAspects(new EnvelopedAspectMap(ImmutableMap.of(
+            Constants.DATAHUB_VIEW_INFO_ASPECT_NAME,
+            new EnvelopedAspect()
+              .setName(Constants.DATAHUB_VIEW_INFO_ASPECT_NAME)
+              .setType(AspectType.VERSIONED)
+              .setValue(new Aspect(testInfo.data()))
+        )));
 
     Mockito.when(mockService.getViewInfo(
         Mockito.eq(TEST_URN),
         Mockito.any(Authentication.class)))
         .thenReturn(testInfo);
+
+    Mockito.when(mockService.getViewEntityResponse(
+        Mockito.eq(TEST_URN),
+        Mockito.any(Authentication.class)))
+        .thenReturn(testEntityResponse);
 
     return mockService;
   }

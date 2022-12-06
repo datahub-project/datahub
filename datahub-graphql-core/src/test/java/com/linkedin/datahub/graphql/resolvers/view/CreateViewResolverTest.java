@@ -7,6 +7,7 @@ import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.data.template.StringArray;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.generated.CreateViewInput;
+import com.linkedin.datahub.graphql.generated.DataHubView;
 import com.linkedin.datahub.graphql.generated.DataHubViewDefinitionInput;
 import com.linkedin.datahub.graphql.generated.DataHubViewFilterInput;
 import com.linkedin.datahub.graphql.generated.DataHubViewType;
@@ -65,7 +66,14 @@ public class CreateViewResolverTest {
     Mockito.when(mockEnv.getArgument(Mockito.eq("input"))).thenReturn(TEST_INPUT);
     Mockito.when(mockEnv.getContext()).thenReturn(mockContext);
 
-    resolver.get(mockEnv).get();
+    DataHubView view = resolver.get(mockEnv).get();
+    assertEquals(view.getName(), TEST_INPUT.getName());
+    assertEquals(view.getDescription(), TEST_INPUT.getDescription());
+    assertEquals(view.getViewType(), TEST_INPUT.getViewType());
+    assertEquals(view.getType(), EntityType.DATAHUB_VIEW);
+    assertEquals(view.getDefinition().getEntityTypes(), TEST_INPUT.getDefinition().getEntityTypes());
+    assertEquals(view.getDefinition().getFilter().getOperator(), TEST_INPUT.getDefinition().getFilter().getOperator());
+    assertEquals(view.getDefinition().getFilter().getFilters().size(), TEST_INPUT.getDefinition().getFilter().getFilters().size());
 
     Mockito.verify(mockService, Mockito.times(1)).createView(
         Mockito.eq(com.linkedin.view.DataHubViewType.PERSONAL),

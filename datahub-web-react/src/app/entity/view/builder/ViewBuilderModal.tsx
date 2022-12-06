@@ -80,7 +80,7 @@ export const ViewBuilderModal = ({ mode, urn, initialState, onSubmit, onCancel }
                 width={modalWidth}
                 onCancel={onCancel}
             >
-                <ViewBuilderForm mode={mode} state={viewBuilderState} updateState={setViewBuilderState} />
+                <ViewBuilderForm urn={urn} mode={mode} state={viewBuilderState} updateState={setViewBuilderState} />
                 <SaveButtonContainer>
                     <CancelButton data-testid="view-builder-cancel" onClick={onCancel}>
                         Cancel

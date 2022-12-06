@@ -1,25 +1,29 @@
+fragment view on DataHubView {
+    urn
+    type
+    viewType
+    name
+    description
+    definition {
+        entityTypes
+        filter {
+            operator
+            filters {
+                field
+                condition
+                values
+                negated
+            }
+        }
+    }
+}
+
 fragment listViewResults on ListViewsResult {
     start
     count
     total
     views {
-        urn
-        type
-        viewType
-        name
-        description
-        definition {
-            entityTypes
-            filter {
-                operator
-                filters {
-                    field
-                    condition
-                    values
-                    negated
-                }
-            }
-        }
+        ...view
     }
 }
 
@@ -36,11 +40,15 @@ query listGlobalViews($start: Int!, $count: Int!, $query: String) {
 }
 
 mutation createView($input: CreateViewInput!) {
-    createView(input: $input)
+    createView(input: $input) {
+        ...view
+    }
 }
 
 mutation updateView($urn: String!, $input: UpdateViewInput!) {
-    updateView(urn: $urn, input: $input)
+    updateView(urn: $urn, input: $input) {
+        ...view
+    }
 }
 
 mutation deleteView($urn: String!) {

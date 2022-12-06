@@ -1,8 +1,6 @@
 package com.linkedin.datahub.graphql.resolvers.settings.view;
 
 import com.linkedin.datahub.graphql.QueryContext;
-import com.linkedin.datahub.graphql.authorization.AuthorizationUtils;
-import com.linkedin.datahub.graphql.exception.AuthorizationException;
 import com.linkedin.datahub.graphql.generated.GlobalViewsSettings;
 import com.linkedin.metadata.service.SettingsService;
 import com.linkedin.settings.global.GlobalSettingsInfo;
