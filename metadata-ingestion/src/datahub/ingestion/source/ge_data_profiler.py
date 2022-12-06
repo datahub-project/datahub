@@ -574,19 +574,22 @@ class _SingleDatasetProfiler(BasicDatasetProfilerBase):
                 self._get_dataset_column_median(column_profile, column)
                 self._get_dataset_column_stdev(column_profile, column)
 
-                self._get_dataset_column_quantiles(column_profile, column)
-                self._get_dataset_column_histogram(column_profile, column)
-
                 if cardinality in [
                     Cardinality.ONE,
                     Cardinality.TWO,
                     Cardinality.VERY_FEW,
-                    Cardinality.FEW,
                 ]:
                     self._get_dataset_column_distinct_value_frequencies(
                         column_profile,
                         column,
                     )
+                if cardinality in {
+                    Cardinality.FEW,
+                    Cardinality.MANY,
+                    Cardinality.VERY_MANY,
+                }:
+                    self._get_dataset_column_quantiles(column_profile, column)
+                    self._get_dataset_column_histogram(column_profile, column)
 
             elif type_ == ProfilerDataType.STRING:
                 if cardinality in [
