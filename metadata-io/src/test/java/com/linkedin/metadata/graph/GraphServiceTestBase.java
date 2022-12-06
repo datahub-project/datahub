@@ -202,17 +202,17 @@ abstract public class GraphServiceTestBase extends AbstractTestNGSpringContextTe
     GraphService service = getGraphService();
 
     List<Edge> edges = Arrays.asList(
-            new Edge(datasetTwoUrn, datasetOneUrn, downstreamOf),
-            new Edge(datasetThreeUrn, datasetTwoUrn, downstreamOf),
-            new Edge(datasetFourUrn, datasetTwoUrn, downstreamOf),
+            new Edge(datasetTwoUrn, datasetOneUrn, downstreamOf, null, null, null, null),
+            new Edge(datasetThreeUrn, datasetTwoUrn, downstreamOf, null, null, null, null),
+            new Edge(datasetFourUrn, datasetTwoUrn, downstreamOf, null, null, null, null),
 
-            new Edge(datasetOneUrn, userOneUrn, hasOwner),
-            new Edge(datasetTwoUrn, userOneUrn, hasOwner),
-            new Edge(datasetThreeUrn, userTwoUrn, hasOwner),
-            new Edge(datasetFourUrn, userTwoUrn, hasOwner),
+            new Edge(datasetOneUrn, userOneUrn, hasOwner, null, null, null, null),
+            new Edge(datasetTwoUrn, userOneUrn, hasOwner, null, null, null, null),
+            new Edge(datasetThreeUrn, userTwoUrn, hasOwner, null, null, null, null),
+            new Edge(datasetFourUrn, userTwoUrn, hasOwner, null, null, null, null),
 
-            new Edge(userOneUrn, userTwoUrn, knowsUser),
-            new Edge(userTwoUrn, userOneUrn, knowsUser)
+            new Edge(userOneUrn, userTwoUrn, knowsUser, null, null, null, null),
+            new Edge(userTwoUrn, userOneUrn, knowsUser, null, null, null, null)
     );
 
     edges.forEach(service::addEdge);
@@ -225,25 +225,25 @@ abstract public class GraphServiceTestBase extends AbstractTestNGSpringContextTe
     GraphService service = getGraphService();
 
     List<Edge> edges = Arrays.asList(
-            new Edge(datasetTwoUrn, datasetOneUrn, downstreamOf),
-            new Edge(datasetThreeUrn, datasetTwoUrn, downstreamOf),
-            new Edge(datasetFourUrn, datasetTwoUrn, downstreamOf),
+            new Edge(datasetTwoUrn, datasetOneUrn, downstreamOf, null, null, null, null),
+            new Edge(datasetThreeUrn, datasetTwoUrn, downstreamOf, null, null, null, null),
+            new Edge(datasetFourUrn, datasetTwoUrn, downstreamOf, null, null, null, null),
 
-            new Edge(datasetOneUrn, userOneUrn, hasOwner),
-            new Edge(datasetTwoUrn, userOneUrn, hasOwner),
-            new Edge(datasetThreeUrn, userTwoUrn, hasOwner),
-            new Edge(datasetFourUrn, userTwoUrn, hasOwner),
+            new Edge(datasetOneUrn, userOneUrn, hasOwner, null, null, null, null),
+            new Edge(datasetTwoUrn, userOneUrn, hasOwner, null, null, null, null),
+            new Edge(datasetThreeUrn, userTwoUrn, hasOwner, null, null, null, null),
+            new Edge(datasetFourUrn, userTwoUrn, hasOwner, null, null, null, null),
 
-            new Edge(userOneUrn, userTwoUrn, knowsUser),
-            new Edge(userTwoUrn, userOneUrn, knowsUser),
+            new Edge(userOneUrn, userTwoUrn, knowsUser, null, null, null, null),
+            new Edge(userTwoUrn, userOneUrn, knowsUser, null, null, null, null),
 
-            new Edge(dataJobOneUrn, datasetOneUrn, consumes),
-            new Edge(dataJobOneUrn, datasetTwoUrn, consumes),
-            new Edge(dataJobOneUrn, datasetThreeUrn, produces),
-            new Edge(dataJobOneUrn, datasetFourUrn, produces),
-            new Edge(dataJobTwoUrn, datasetOneUrn, consumes),
-            new Edge(dataJobTwoUrn, datasetTwoUrn, consumes),
-            new Edge(dataJobTwoUrn, dataJobOneUrn, downstreamOf)
+            new Edge(dataJobOneUrn, datasetOneUrn, consumes, null, null, null, null),
+            new Edge(dataJobOneUrn, datasetTwoUrn, consumes, null, null, null, null),
+            new Edge(dataJobOneUrn, datasetThreeUrn, produces, null, null, null, null),
+            new Edge(dataJobOneUrn, datasetFourUrn, produces, null, null, null, null),
+            new Edge(dataJobTwoUrn, datasetOneUrn, consumes, null, null, null, null),
+            new Edge(dataJobTwoUrn, datasetTwoUrn, consumes, null, null, null, null),
+            new Edge(dataJobTwoUrn, dataJobOneUrn, downstreamOf, null, null, null, null)
     );
 
     edges.forEach(service::addEdge);
@@ -295,24 +295,24 @@ abstract public class GraphServiceTestBase extends AbstractTestNGSpringContextTe
                     Arrays.asList()
             },
             new Object[]{
-                    Arrays.asList(new Edge(datasetOneUrn, datasetTwoUrn, downstreamOf)),
+                    Arrays.asList(new Edge(datasetOneUrn, datasetTwoUrn, downstreamOf, null, null, null, null)),
                     Arrays.asList(downstreamOfDatasetTwoRelatedEntity),
                     Arrays.asList(downstreamOfDatasetOneRelatedEntity)
             },
             new Object[]{
                     Arrays.asList(
-                            new Edge(datasetOneUrn, datasetTwoUrn, downstreamOf),
-                            new Edge(datasetTwoUrn, datasetThreeUrn, downstreamOf)
+                            new Edge(datasetOneUrn, datasetTwoUrn, downstreamOf, null, null, null, null),
+                            new Edge(datasetTwoUrn, datasetThreeUrn, downstreamOf, null, null, null, null)
                     ),
                     Arrays.asList(downstreamOfDatasetTwoRelatedEntity, downstreamOfDatasetThreeRelatedEntity),
                     Arrays.asList(downstreamOfDatasetOneRelatedEntity, downstreamOfDatasetTwoRelatedEntity)
             },
             new Object[]{
                     Arrays.asList(
-                            new Edge(datasetOneUrn, datasetTwoUrn, downstreamOf),
-                            new Edge(datasetOneUrn, userOneUrn, hasOwner),
-                            new Edge(datasetTwoUrn, userTwoUrn, hasOwner),
-                            new Edge(userOneUrn, userTwoUrn, knowsUser)
+                            new Edge(datasetOneUrn, datasetTwoUrn, downstreamOf, null, null, null, null),
+                            new Edge(datasetOneUrn, userOneUrn, hasOwner, null, null, null, null),
+                            new Edge(datasetTwoUrn, userTwoUrn, hasOwner, null, null, null, null),
+                            new Edge(userOneUrn, userTwoUrn, knowsUser, null, null, null, null)
                     ),
                     Arrays.asList(
                             downstreamOfDatasetTwoRelatedEntity,
@@ -328,9 +328,9 @@ abstract public class GraphServiceTestBase extends AbstractTestNGSpringContextTe
             },
             new Object[]{
                     Arrays.asList(
-                            new Edge(userOneUrn, userOneUrn, knowsUser),
-                            new Edge(userOneUrn, userOneUrn, knowsUser),
-                            new Edge(userOneUrn, userOneUrn, knowsUser)
+                            new Edge(userOneUrn, userOneUrn, knowsUser, null, null, null, null),
+                            new Edge(userOneUrn, userOneUrn, knowsUser, null, null, null, null),
+                            new Edge(userOneUrn, userOneUrn, knowsUser, null, null, null, null)
                     ),
                     Arrays.asList(knowsUserOneRelatedEntity),
                     Arrays.asList(knowsUserOneRelatedEntity)
@@ -922,12 +922,12 @@ abstract public class GraphServiceTestBase extends AbstractTestNGSpringContextTe
     doTestFindRelatedEntitiesEntityType(anyType, ImmutableList.of("null"), downstreamOf, outgoingRelationships, service);
     doTestFindRelatedEntitiesEntityType(anyType, null, downstreamOf, outgoingRelationships, service);
 
-    service.addEdge(new Edge(datasetTwoUrn, datasetOneUrn, downstreamOf));
+    service.addEdge(new Edge(datasetTwoUrn, datasetOneUrn, downstreamOf, null, null, null, null));
     syncAfterWrite();
     doTestFindRelatedEntitiesEntityType(anyType, ImmutableList.of("null"), downstreamOf, outgoingRelationships, service);
     doTestFindRelatedEntitiesEntityType(anyType, null, downstreamOf, outgoingRelationships, service, downstreamOfDatasetOneRelatedEntity);
 
-    service.addEdge(new Edge(datasetOneUrn, nullUrn, downstreamOf));
+    service.addEdge(new Edge(datasetOneUrn, nullUrn, downstreamOf, null, null, null, null));
     syncAfterWrite();
     doTestFindRelatedEntitiesEntityType(anyType, ImmutableList.of("null"), downstreamOf, outgoingRelationships, service, nullRelatedEntity);
     doTestFindRelatedEntitiesEntityType(anyType, null, downstreamOf, outgoingRelationships, service, nullRelatedEntity, downstreamOfDatasetOneRelatedEntity);
@@ -944,12 +944,12 @@ abstract public class GraphServiceTestBase extends AbstractTestNGSpringContextTe
     doTestFindRelatedEntitiesEntityType(anyType, ImmutableList.of("null"), downstreamOf, outgoingRelationships, service);
     doTestFindRelatedEntitiesEntityType(anyType, null, downstreamOf, outgoingRelationships, service);
 
-    service.addEdge(new Edge(datasetTwoUrn, datasetOneUrn, downstreamOf));
+    service.addEdge(new Edge(datasetTwoUrn, datasetOneUrn, downstreamOf, null, null, null, null));
     syncAfterWrite();
     doTestFindRelatedEntitiesEntityType(anyType, ImmutableList.of("null"), downstreamOf, outgoingRelationships, service);
     doTestFindRelatedEntitiesEntityType(anyType, null, downstreamOf, outgoingRelationships, service, downstreamOfDatasetOneRelatedEntity);
 
-    service.addEdge(new Edge(datasetOneUrn, nullUrn, downstreamOf));
+    service.addEdge(new Edge(datasetOneUrn, nullUrn, downstreamOf, null, null, null, null));
     syncAfterWrite();
     doTestFindRelatedEntitiesEntityType(anyType, ImmutableList.of("null"), downstreamOf, outgoingRelationships, service, nullRelatedEntity);
     doTestFindRelatedEntitiesEntityType(anyType, null, downstreamOf, outgoingRelationships, service, nullRelatedEntity, downstreamOfDatasetOneRelatedEntity);
@@ -1424,7 +1424,7 @@ abstract public class GraphServiceTestBase extends AbstractTestNGSpringContextTe
                   int destinationType = destinationNode % 3;
                   Urn destination = createFromString("urn:li:type" + destinationType + ":(urn:li:node" + destinationNode + ")");
 
-                  edges.add(new Edge(source, destination, relationship));
+                  edges.add(new Edge(source, destination, relationship, null, null, null, null));
               }
           }
       }

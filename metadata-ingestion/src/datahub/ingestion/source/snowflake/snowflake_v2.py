@@ -7,6 +7,7 @@ import pandas as pd
 import pydantic
 from snowflake.connector import SnowflakeConnection
 
+from datahub.configuration.pattern_utils import is_schema_allowed
 from datahub.emitter.mce_builder import (
     make_container_urn,
     make_data_platform_urn,
@@ -508,7 +509,12 @@ class SnowflakeV2Source(
 
             self.report.report_entity_scanned(snowflake_schema.name, "schema")
 
-            if not self.config.schema_pattern.allowed(snowflake_schema.name):
+            if not is_schema_allowed(
+                self.config.schema_pattern,
+                snowflake_schema.name,
+                db_name,
+                self.config.match_fully_qualified_names,
+            ):
                 self.report.report_dropped(f"{db_name}.{snowflake_schema.name}.*")
                 continue
 

@@ -1,0 +1,6 @@
+source:
+  type: dummy-data
+  config:
+    # This source is a thin wrapper over file source for testing purposes
+    # This path is set in code so set to empty here.
+    path: ""

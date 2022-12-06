@@ -25,7 +25,8 @@ dependencies {
   compile externalDependency.springKafka
   compile externalDependency.springWeb
   compile project(':metadata-service:auth-ranger-impl')
-
+  implementation externalDependency.awsPostgresIamAuth
+  implementation externalDependency.awsRds
   annotationProcessor externalDependency.lombok
 
   compile spec.product.pegasus.restliSpringBridge
