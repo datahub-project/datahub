@@ -245,7 +245,7 @@ class _SingleDatasetProfiler(BasicDatasetProfilerBase):
     query_combiner: SQLAlchemyQueryCombiner
 
     def _get_columns_to_profile(self) -> List[str]:
-        if self.config.profile_table_level_only:
+        if not self.config.any_field_level_metrics_enabled():
             return []
 
         # Compute columns to profile
@@ -543,7 +543,7 @@ class _SingleDatasetProfiler(BasicDatasetProfilerBase):
                         column_profile.nullProportion = min(1, null_count / row_count)
 
             if unique_count is not None:
-                if not self.config.include_field_distinct_count:
+                if self.config.include_field_distinct_count:
                     column_profile.uniqueCount = unique_count
                     if non_null_count is not None and non_null_count > 0:
                         # Sometimes this value is bigger than 1 because of the approx queries

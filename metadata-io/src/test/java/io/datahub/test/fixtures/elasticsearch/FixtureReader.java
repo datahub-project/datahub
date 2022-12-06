@@ -63,6 +63,10 @@ public class FixtureReader {
             }).collect(Collectors.toSet());
         } finally {
             bulkProcessor.flush();
+            try {
+                Thread.sleep(1000);
+            } catch (InterruptedException ignored) {
+            }
         }
     }
 

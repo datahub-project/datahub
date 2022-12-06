@@ -65,6 +65,14 @@ class DeltaLakeSourceConfig(PlatformSourceConfigBase, EnvBasedSourceConfigBase):
         description="Number of previous version histories to be ingested. Defaults to 1. If set to -1 all version history will be ingested.",
     )
 
+    require_files: Optional[bool] = Field(
+        default=True,
+        description="Whether DeltaTable should track files. "
+        "Consider setting this to `False` for large delta tables, "
+        "resulting in significant memory reduction for ingestion process."
+        "When set to `False`, number_of_files in delta table can not be reported.",
+    )
+
     s3: Optional[S3] = Field()
 
     @cached_property

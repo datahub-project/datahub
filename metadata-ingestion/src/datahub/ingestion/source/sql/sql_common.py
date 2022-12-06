@@ -221,18 +221,6 @@ class SQLSourceReport(StaleEntityRemovalSourceReport):
         self.query_combiner = query_combiner_report
 
 
-class SQLAlchemyStatefulIngestionConfig(StatefulStaleMetadataRemovalConfig):
-    """
-    Specialization of StatefulStaleMetadataRemovalConfig to adding custom config.
-    This will be used to override the stateful_ingestion config param of StatefulIngestionConfigBase
-    in the SQLAlchemyConfig.
-    """
-
-    _entity_types: List[str] = pydantic.Field(
-        default=["assertion", "container", "table", "view"]
-    )
-
-
 class SQLAlchemyConfig(StatefulIngestionConfigBase):
     options: dict = {}
     # Although the 'table_pattern' enables you to skip everything from certain schemas,
@@ -269,7 +257,7 @@ class SQLAlchemyConfig(StatefulIngestionConfigBase):
 
     profiling: GEProfilingConfig = GEProfilingConfig()
     # Custom Stateful Ingestion settings
-    stateful_ingestion: Optional[SQLAlchemyStatefulIngestionConfig] = None
+    stateful_ingestion: Optional[StatefulStaleMetadataRemovalConfig] = None
 
     @pydantic.root_validator(pre=True)
     def view_pattern_is_table_pattern_unless_specified(
@@ -455,23 +443,6 @@ config_options_to_report = [
     "include_tables",
 ]
 
-# flags to emit telemetry for
-profiling_flags_to_report = [
-    "turn_off_expensive_profiling_metrics",
-    "profile_table_level_only",
-    "include_field_null_count",
-    "include_field_min_value",
-    "include_field_max_value",
-    "include_field_mean_value",
-    "include_field_median_value",
-    "include_field_stddev_value",
-    "include_field_quantiles",
-    "include_field_distinct_value_frequencies",
-    "include_field_histogram",
-    "include_field_sample_values",
-    "query_combiner_enabled",
-]
-
 
 class SQLAlchemySource(StatefulIngestionSourceBase):
     """A Base class for all SQL Sources that use SQLAlchemy to extend"""
@@ -508,13 +479,9 @@ class SQLAlchemySource(StatefulIngestionSourceBase):
         )
 
         if config.profiling.enabled:
-
             telemetry.telemetry_instance.ping(
                 "sql_profiling_config",
-                {
-                    config_flag: config.profiling.dict().get(config_flag)
-                    for config_flag in profiling_flags_to_report
-                },
+                config.profiling.config_for_telemetry(),
             )
         if self.config.domain:
             self.domain_registry = DomainRegistry(
@@ -1408,6 +1375,3 @@ class SQLAlchemySource(StatefulIngestionSourceBase):
 
     def get_report(self):
         return self.report
-
-    def close(self):
-        self.prepare_for_commit()

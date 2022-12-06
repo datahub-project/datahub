@@ -2,7 +2,7 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { useHistory } from 'react-router';
 import { Typography, Image, Row, Button, Tag } from 'antd';
 import styled, { useTheme } from 'styled-components';
-
+import { RightOutlined } from '@ant-design/icons';
 import { ManageAccount } from '../shared/ManageAccount';
 import { useGetAuthenticatedUser } from '../useGetAuthenticatedUser';
 import { useEntityRegistry } from '../useEntityRegistry';
@@ -68,6 +68,12 @@ const SuggestionsContainer = styled.div`
     align-items: start;
 `;
 
+const SuggestionsHeader = styled.div`
+    display: flex;
+    justify-content: space-between;
+    width: 100%;
+`;
+
 const SuggestionTagContainer = styled.div`
     display: flex;
     justify-content: left;
@@ -100,6 +106,22 @@ const SuggestedQueriesText = styled(Typography.Text)`
 
 const SearchBarContainer = styled.div`
     text-align: center;
+`;
+
+const ExploreAllButton = styled(Button)`
+    && {
+        padding: 0px;
+        margin: 0px;
+        height: 16px;
+    }
+`;
+
+const StyledRightOutlined = styled(RightOutlined)`
+    &&& {
+        font-size: 7px;
+        margin-left: 4px;
+        padding: 0px;
+    }
 `;
 
 function truncate(input, length) {
@@ -155,6 +177,16 @@ export const HomePageHeader = () => {
                 },
             });
         }
+    };
+
+    const onClickExploreAll = () => {
+        analytics.event({
+            type: EventType.HomePageExploreAllClickEvent,
+        });
+        navigateToSearchUrl({
+            query: '*',
+            history,
+        });
     };
 
     // Fetch results
@@ -228,7 +260,12 @@ export const HomePageHeader = () => {
                     />
                     {searchResultsToShow && searchResultsToShow.length > 0 && (
                         <SuggestionsContainer>
-                            <SuggestedQueriesText strong>Try searching for</SuggestedQueriesText>
+                            <SuggestionsHeader>
+                                <SuggestedQueriesText strong>Try searching for</SuggestedQueriesText>
+                                <ExploreAllButton type="link" onClick={onClickExploreAll}>
+                                    Explore all <StyledRightOutlined />
+                                </ExploreAllButton>
+                            </SuggestionsHeader>
                             <SuggestionTagContainer>
                                 {searchResultsToShow.slice(0, 3).map((suggestion) => (
                                     <SuggestionButton

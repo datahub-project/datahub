@@ -1,4 +1,4 @@
-package com.linkedin.metadata.search.elasticsearch;
+package com.linkedin.metadata.search.elasticsearch.fixtures;
 
 import com.linkedin.datahub.graphql.generated.AutoCompleteResults;
 import com.linkedin.datahub.graphql.types.chart.ChartType;
@@ -322,16 +322,18 @@ public class SampleDataFixtureTests extends AbstractTestNGSpringContextTests {
     }
 
     @Test
-    public void testChartAutoComplete() {
+    public void testChartAutoComplete() throws InterruptedException {
         // Two charts exist Baz Chart 1 & Baz Chart 2
-        List.of("B", "Ba", "Baz", "Baz ", "Baz C", "Baz Ch", "Baz Cha", "Baz Char").forEach(query -> {
-            try {
-                AutoCompleteResults result = autocomplete(new ChartType(entityClient), query);
-                assertTrue(result.getEntities().size() == 2, "Expected results for " + query);
-            } catch (Exception e) {
-                throw new RuntimeException(e);
-            }
-        });
+        List.of("B", "Ba", "Baz", "Baz ", "Baz C", "Baz Ch", "Baz Cha", "Baz Char", "Baz Chart", "Baz Chart ")
+                .forEach(query -> {
+                    try {
+                        AutoCompleteResults result = autocomplete(new ChartType(entityClient), query);
+                        assertTrue(result.getEntities().size() == 2,
+                                String.format("Expected 2 results for `%s` found %s", query, result.getEntities().size()));
+                    } catch (Exception e) {
+                        throw new RuntimeException(e);
+                    }
+                });
     }
 
     private Stream<AnalyzeResponse.AnalyzeToken> getTokens(AnalyzeRequest request) throws IOException {

@@ -1,4 +1,4 @@
-package com.linkedin.metadata.search.elasticsearch;
+package com.linkedin.metadata.search.elasticsearch.fixtures;
 
 import com.linkedin.common.urn.Urn;
 import com.linkedin.metadata.ESSearchLineageFixture;

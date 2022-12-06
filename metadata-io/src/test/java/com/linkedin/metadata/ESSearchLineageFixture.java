@@ -35,7 +35,6 @@ import org.springframework.cache.CacheManager;
 import org.springframework.cache.concurrent.ConcurrentMapCacheManager;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Import;
-import org.springframework.context.annotation.Primary;
 
 import javax.annotation.Nonnull;
 import java.io.IOException;
@@ -90,7 +89,6 @@ public class ESSearchLineageFixture {
         return new ElasticSearchService(indexBuilders, searchDAO, browseDAO, writeDAO);
     }
 
-    @Primary
     @Bean(name = "searchLineageESIndexBuilder")
     @Nonnull
     protected ESIndexBuilder esIndexBuilder() {
@@ -98,7 +96,6 @@ public class ESSearchLineageFixture {
                 true, true);
     }
 
-    @Primary
     @Bean(name = "searchLineageGraphService")
     @Nonnull
     protected ElasticSearchGraphService graphService(
@@ -114,7 +111,6 @@ public class ESSearchLineageFixture {
         return graphService;
     }
 
-    @Primary
     @Bean(name = "searchLineageLineageSearchService")
     @Nonnull
     protected LineageSearchService lineageSearchService(
@@ -135,7 +131,6 @@ public class ESSearchLineageFixture {
         return new LineageSearchService(searchService, graphService, null, false);
     }
 
-    @Primary
     @Bean(name = "searchLineageSearchService")
     @Nonnull
     protected SearchService searchService(
@@ -181,7 +176,6 @@ public class ESSearchLineageFixture {
         return service;
     }
 
-    @Primary
     @Bean(name = "searchLineageEntityClient")
     @Nonnull
     protected EntityClient entityClient(

@@ -21,7 +21,7 @@ import static com.linkedin.metadata.ESTestUtils.environmentRestClientBuilder;
 public class ESTestFixtureUtils {
 
     @Test
-    //@Ignore("Fixture capture lineage")
+    @Ignore("Fixture capture lineage")
     /*
      * Run this to capture test fixtures
      * 1. Update environment variables for ELASTICSEARCH_* (see buildEnvironmentClient)

@@ -39,6 +39,9 @@ from datahub.ingestion.source.sql.sql_types import (
     SNOWFLAKE_TYPES_MAP,
     resolve_postgres_modified_type,
 )
+from datahub.ingestion.source.state.stale_entity_removal_handler import (
+    StaleEntityRemovalSourceReport,
+)
 from datahub.metadata.com.linkedin.pegasus2avro.dataset import (
     DatasetLineageTypeClass,
     FineGrainedLineageDownstreamType,
@@ -914,7 +917,7 @@ class StageLatency(Report):
 
 
 @dataclass
-class LookerDashboardSourceReport(SourceReport):
+class LookerDashboardSourceReport(StaleEntityRemovalSourceReport):
     total_dashboards: int = 0
     dashboards_scanned: int = 0
     looks_scanned: int = 0
