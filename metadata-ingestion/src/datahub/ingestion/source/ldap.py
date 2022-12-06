@@ -6,7 +6,6 @@ from typing import Any, Dict, Iterable, List, Optional
 import ldap
 import pydantic
 from ldap.controls import SimplePagedResultsControl
-from pydantic.fields import Field
 
 import datahub.emitter.mce_builder as builder
 from datahub.configuration.common import ConfigurationError
