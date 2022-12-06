@@ -130,8 +130,17 @@ class MetadataChangeProposalWrapper:
             return False
         return True
 
-    def to_obj(self, tuples: bool = False) -> dict:
-        return self.make_mcp().to_obj(tuples=tuples)
+    def to_obj(self, tuples: bool = False, for_file: bool = False) -> dict:
+        obj = self.make_mcp().to_obj(tuples=tuples)
+        if for_file:
+            # Undo the double JSON serialization that happens in the MCP aspect.
+            if (
+                obj.get("aspect")
+                and obj["aspect"].get("contentType") == "application/json"
+            ):
+                obj["aspect"] = {"json": json.loads(obj["aspect"]["value"])}
+            breakpoint()
+        return obj
 
     @classmethod
     def from_obj(
@@ -142,6 +151,14 @@ class MetadataChangeProposalWrapper:
         to a standard MCP if we're missing codegen'd classes for the
         entity key or aspect.
         """
+
+        # Redo the double JSON serialization so that the rest of deserialization
+        # routine works.
+        if obj.get("aspect") and obj["aspect"].get("json"):
+            obj["aspect"] = {
+                "contentType": "application/json",
+                "value": json.dumps(obj["aspect"]["json"]),
+            }
 
         mcp = MetadataChangeProposalClass.from_obj(obj, tuples=tuples)
 

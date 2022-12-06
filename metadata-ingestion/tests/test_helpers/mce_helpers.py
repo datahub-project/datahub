@@ -138,6 +138,7 @@ def check_golden_file(
         golden = load_json_file(output_path)
         shutil.copyfile(str(output_path), str(golden_path))
     else:
+        # TODO: normalize the golden file
         golden = load_json_file(golden_path)
 
     try:
@@ -369,6 +370,7 @@ def assert_for_each_entity(
 def assert_entity_mce_aspect(
     entity_urn: str, aspect: Any, aspect_type: Type, file: str
 ) -> int:
+    # TODO: Replace with read_metadata_file()
     test_output = load_json_file(file)
     entity_type = Urn.create_from_string(entity_urn).get_type()
     assert isinstance(test_output, list)
@@ -391,6 +393,7 @@ def assert_entity_mce_aspect(
 def assert_entity_mcp_aspect(
     entity_urn: str, aspect_field_matcher: Dict[str, Any], aspect_name: str, file: str
 ) -> int:
+    # TODO: Replace with read_metadata_file()
     test_output = load_json_file(file)
     entity_type = Urn.create_from_string(entity_urn).get_type()
     assert isinstance(test_output, list)
@@ -405,6 +408,7 @@ def assert_entity_mcp_aspect(
     for mcp in mcps:
         if mcp.aspectName == aspect_name:
             assert mcp.aspect
+            breakpoint()  # TODO fix this
             aspect_val = json.loads(mcp.aspect.value)
             for f in aspect_field_matcher:
                 assert aspect_field_matcher[f] == _get_element(
@@ -417,6 +421,7 @@ def assert_entity_mcp_aspect(
 def assert_entity_urn_not_like(entity_type: str, regex_pattern: str, file: str) -> int:
     """Assert that there are no entity urns that match the regex pattern passed in. Returns the total number of events in the file"""
 
+    # TODO: Refactor common code with assert_entity_urn_like.
     test_output = load_json_file(file)
     assert isinstance(test_output, list)
     # mce urns

@@ -24,6 +24,8 @@ def _to_obj_for_file(
         UsageAggregation,
     ]
 ) -> dict:
+    if isinstance(obj, MetadataChangeProposalWrapper):
+        return obj.to_obj(for_file=True)
     return obj.to_obj()
 
 
