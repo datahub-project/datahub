@@ -2,6 +2,7 @@ apply plugin: 'java'
 
 dependencies {
   compile project(path: ':metadata-models')
+  compile project(path: ':metadata-auth:auth-api')
   compile externalDependency.guava
   implementation externalDependency.slf4jApi
   compileOnly externalDependency.lombok
