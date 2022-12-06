@@ -979,7 +979,7 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
             version=0,
             hash="",
             platformSchema=MySqlDDL(tableSchema=""),
-            fields=self.gen_schema_fields(cast(List[BigqueryColumn], table.columns)),
+            fields=self.gen_schema_fields(table.columns),
         )
         wu = wrap_aspect_as_workunit(
             "dataset", dataset_urn, "schemaMetadata", schema_metadata

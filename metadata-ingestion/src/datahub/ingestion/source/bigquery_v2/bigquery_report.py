@@ -6,13 +6,16 @@ from typing import Counter, Dict, List, Optional
 
 import pydantic
 
-from datahub.ingestion.source.sql.sql_generic_profiler import DetailedProfilerReport
+from datahub.ingestion.source.sql.sql_generic_profiler import (
+    DetailedProfilerReportMixin,
+    ProfilingSqlReport,
+)
 from datahub.utilities.lossy_collections import LossyDict, LossyList
 from datahub.utilities.stats_collections import TopKDict
 
 
 @dataclass
-class BigQueryV2Report(DetailedProfilerReport):
+class BigQueryV2Report(ProfilingSqlReport):
     num_total_lineage_entries: TopKDict[str, int] = field(default_factory=TopKDict)
     num_skipped_lineage_entries_missing_data: TopKDict[str, int] = field(
         default_factory=TopKDict

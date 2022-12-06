@@ -18,12 +18,16 @@ from datahub.utilities.stats_collections import TopKDict
 
 
 @dataclass
-class DetailedProfilerReport(SQLSourceReport):
+class DetailedProfilerReportMixin:
     profiling_skipped_not_updated: TopKDict[str, int] = field(default_factory=TopKDict)
     profiling_skipped_size_limit: TopKDict[str, int] = field(default_factory=TopKDict)
 
     profiling_skipped_row_limit: TopKDict[str, int] = field(default_factory=TopKDict)
     num_tables_not_eligible_profiling: Dict[str, int] = field(default_factory=TopKDict)
+
+
+class ProfilingSqlReport(DetailedProfilerReportMixin, SQLSourceReport):
+    pass
 
 
 @dataclass
@@ -37,7 +41,7 @@ logger = logging.getLogger(__name__)
 
 class GenericProfiler:
     def __init__(
-        self, config: SQLAlchemyConfig, report: DetailedProfilerReport, platform: str
+        self, config: SQLAlchemyConfig, report: ProfilingSqlReport, platform: str
     ) -> None:
         self.config = config
         self.report = report
