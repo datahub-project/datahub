@@ -2,7 +2,7 @@ import logging
 from collections import defaultdict
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
-from typing import Dict, List, Optional, Sequence, cast
+from typing import Dict, Generic, List, Optional, Sequence, cast
 
 from google.cloud import bigquery
 from google.cloud.bigquery.table import RowIterator, TableListItem, TimePartitioning
@@ -30,12 +30,12 @@ class BigqueryTable(BaseTable):
     active_billable_bytes: Optional[int] = None
     long_term_billable_bytes: Optional[int] = None
     time_partitioning: Optional[TimePartitioning] = None
-    columns: Sequence[BigqueryColumn] = field(default_factory=list)
+    columns: List[BigqueryColumn] = field(default_factory=list)
 
 
 @dataclass
 class BigqueryView(BaseView):
-    columns: Sequence[BigqueryColumn] = field(default_factory=list)
+    columns: List[BigqueryColumn] = field(default_factory=list)
 
 
 @dataclass

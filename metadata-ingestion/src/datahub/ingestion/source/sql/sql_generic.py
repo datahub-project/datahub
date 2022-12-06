@@ -1,6 +1,6 @@
 from dataclasses import dataclass, field
 from datetime import datetime
-from typing import Optional, Sequence
+from typing import Generic, List, Optional, Sequence, TypeVar
 
 from pydantic.fields import Field
 
@@ -25,6 +25,9 @@ class BaseColumn:
     comment: Optional[str]
 
 
+SqlTableColumn = TypeVar("SqlTableColumn", bound="BaseColumn")
+
+
 @dataclass
 class BaseTable:
     name: str
@@ -33,7 +36,7 @@ class BaseTable:
     last_altered: datetime
     size_in_bytes: int
     rows_count: int
-    columns: Sequence[BaseColumn] = field(default_factory=list)
+    columns: List[SqlTableColumn] = field(default_factory=list)
     ddl: Optional[str] = None
 
 
@@ -46,7 +49,7 @@ class BaseView:
     view_definition: str
     size_in_bytes: Optional[int] = None
     rows_count: Optional[int] = None
-    columns: Sequence[BaseColumn] = field(default_factory=list)
+    columns: List[SqlTableColumn] = field(default_factory=list)
 
 
 class SQLAlchemyGenericConfig(SQLAlchemyConfig):
