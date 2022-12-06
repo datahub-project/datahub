@@ -15,6 +15,7 @@ import { useIsSeparateSiblingsMode } from '../entity/shared/siblingUtils';
 import { centerX, centerY, iconHeight, iconWidth, iconX, iconY, textX, width } from './constants';
 import LineageEntityColumns from './LineageEntityColumns';
 import { convertInputFieldsToSchemaFields } from './utils/columnLineageUtils';
+import ManageLineageMenu from './manage/ManageLineageMenu';
 
 const CLICK_DELAY_THRESHOLD = 1000;
 const DRAG_DISTANCE_THRESHOLD = 20;
@@ -269,6 +270,15 @@ export default function LineageEntityNode({
                         {entityRegistry.getIcon(node.data.type, 16, IconStyleType.SVG)}
                     </svg>
                 )}
+                <foreignObject
+                    x={-centerX - 25}
+                    y={centerY + 16}
+                    width={20}
+                    height={20}
+                    onClick={(e) => e.stopPropagation()}
+                >
+                    <ManageLineageMenu entityUrn={node.data.urn || ''} />
+                </foreignObject>
                 <Group>
                     <UnselectableText
                         dy="-1em"
