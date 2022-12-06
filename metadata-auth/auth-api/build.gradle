@@ -9,6 +9,7 @@ jar {
   // Include only required packages from li-utils
   from { configurations.runtimeClasspath.collect { it.isDirectory() ? it : zipTree(it) } } {
     include "com/linkedin/common/urn/"
+    include "com/linkedin/metadata/authorization/"
   }
 }
 
@@ -23,10 +24,14 @@ test {
 
 
 dependencies() {
-  implementation project(path: ':li-utils')
+  compile project(path: ':li-utils')
+  compile project(path: ':metadata-utils')
+ 
   compile externalDependency.guava
   compile externalDependency.lombok
+
   annotationProcessor externalDependency.lombok
+  
   testCompile externalDependency.testng
 }
 
@@ -110,6 +115,17 @@ publishing {
             id = 'datahub'
             name = 'DataHub'
             email = 'datahub@acryl.io'
+          }
+        }
+
+        withXml {
+          Node pomNode = asNode()
+          pomNode.dependencies.'*'.findAll() { 
+            // we don't need these modules in published pom as the 
+            // required packages from these modules are embedded into the published auth-api jar file
+            it.artifactId.text() == 'li-utils' || it.artifactId.text() == 'metadata-utils'
+          }.each() {
+              it.parent().remove(it)
           }
         }
       }
