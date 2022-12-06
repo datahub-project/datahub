@@ -180,6 +180,14 @@ class MetadataChangeProposalWrapper:
 
         return mcp
 
+    @classmethod
+    def from_obj_require_wrapper(
+        cls, obj: dict, tuples: bool = False
+    ) -> "MetadataChangeProposalWrapper":
+        mcp = cls.from_obj(obj, tuples=tuples)
+        assert isinstance(mcp, cls)
+        return mcp
+
     def as_workunit(self) -> "MetadataWorkUnit":
         from datahub.ingestion.api.workunit import MetadataWorkUnit
 

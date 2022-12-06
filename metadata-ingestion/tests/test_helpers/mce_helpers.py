@@ -10,12 +10,10 @@ from typing import Any, Callable, Dict, List, Optional, Set, Tuple, Type, Union
 
 import deepdiff
 
+from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.sink.file import write_metadata_file
 from datahub.ingestion.source.file import read_metadata_file
-from datahub.metadata.schema_classes import (
-    MetadataChangeEventClass,
-    MetadataChangeProposalClass,
-)
+from datahub.metadata.schema_classes import MetadataChangeEventClass
 from datahub.utilities.urns.urn import Urn
 from tests.test_helpers.type_helpers import PytestConfig
 
@@ -348,9 +346,9 @@ def assert_for_each_entity(
     ]:
         if o.get(MCPConstants.ASPECT_NAME) == aspect_name:
             # load the inner aspect payload and assign to this urn
-            aspect_map[o[MCPConstants.ENTITY_URN]] = json.loads(
-                o.get(MCPConstants.ASPECT_VALUE, {}).get("value")
-            )
+            aspect_map[o[MCPConstants.ENTITY_URN]] = o.get(
+                MCPConstants.ASPECT_VALUE, {}
+            ).get("json")
 
     success: List[str] = []
     failures: List[str] = []
@@ -406,8 +404,8 @@ def assert_entity_mcp_aspect(
     entity_type = Urn.create_from_string(entity_urn).get_type()
     assert isinstance(test_output, list)
     # mcps that match entity_urn
-    mcps: List[MetadataChangeProposalClass] = [
-        MetadataChangeProposalClass.from_obj(x)
+    mcps: List[MetadataChangeProposalWrapper] = [
+        MetadataChangeProposalWrapper.from_obj_require_wrapper(x)
         for x in test_output
         if _get_filter(mcp=True, entity_type=entity_type)(x)
         and _get_element(x, _get_mcp_urn_path_spec()) == entity_urn
@@ -416,8 +414,7 @@ def assert_entity_mcp_aspect(
     for mcp in mcps:
         if mcp.aspectName == aspect_name:
             assert mcp.aspect
-            breakpoint()  # TODO fix this
-            aspect_val = json.loads(mcp.aspect.value)
+            aspect_val = mcp.aspect.to_obj()
             for f in aspect_field_matcher:
                 assert aspect_field_matcher[f] == _get_element(
                     aspect_val, [f]
