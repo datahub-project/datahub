@@ -76,6 +76,18 @@ public class ElasticSearchGraphService implements GraphService {
     searchDocument.set("source", sourceObject);
     searchDocument.set("destination", destinationObject);
     searchDocument.put("relationshipType", edge.getRelationshipType());
+    if (edge.getCreatedOn() != null) {
+      searchDocument.put("createdOn", edge.getCreatedOn());
+    }
+    if (edge.getCreatedActor() != null) {
+      searchDocument.put("createdActor", edge.getCreatedActor().toString());
+    }
+    if (edge.getUpdatedOn() != null) {
+      searchDocument.put("updatedOn", edge.getUpdatedOn());
+    }
+    if (edge.getUpdatedActor() != null) {
+      searchDocument.put("updatedActor", edge.getUpdatedActor().toString());
+    }
 
     return searchDocument.toString();
   }

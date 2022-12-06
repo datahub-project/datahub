@@ -40,6 +40,8 @@ dependencies {
   compile project(':metadata-utils')
   compile project(':metadata-io')
   compile spec.product.pegasus.restliServer
+  implementation externalDependency.slf4jApi
+  // This is compile and not compileOnly because of restli
   compile externalDependency.lombok
   compile externalDependency.neo4jJavaDriver
   compile externalDependency.opentelemetryAnnotations
@@ -61,7 +63,6 @@ dependencies {
   modelValidation project(path: ':metadata-models-validator')
   dataModel project(path: ':metadata-models', configuration: 'dataTemplate')
   dataModel project(path: ':li-utils', configuration: 'dataTemplate')
-
 }
 
 task integrationTest(type: Test) {
