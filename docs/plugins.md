@@ -63,7 +63,7 @@ The sample authenticator implementation can be found at [Authenticator Sample](.
 
 4. Bundle your Jar: Use `com.github.johnrengelman.shadow` gradle plugin to create an uber jar. 
 
-   To see an example of building an uber jar, check out the `build.gradle` file for the apache-ranger-plugin file of [Apache Ranger Plugin](../metadata-auth/apache-ranger-plugin) for reference. 
+   To see an example of building an uber jar, check out the `build.gradle` file for the apache-ranger-plugin file of [Apache Ranger Plugin](https://github.com/acryldata/datahub-ranger-auth-plugin/tree/main/apache-ranger-plugin) for reference. 
 
    Exclude datahub plugin dependency and signature classes as shown in below `shadowJar` task.
 
@@ -100,13 +100,13 @@ Custom authorization plugin makes it possible to authorize DataHub users against
 Choose your Access Management System and write custom authorization plugin as per detail mentioned in this section.
 
 
-The sample authorizer implementation can be found at [Authorizer Sample](../metadata-auth/apache-ranger-plugin)
+The sample authorizer implementation can be found at [Authorizer Sample](https://github.com/acryldata/datahub-ranger-auth-plugin/tree/main/apache-ranger-plugin)
 
 ### Implementing an Authorization Plugin
 
 1. Add _datahub-auth-api_ as implementation dependency: Maven coordinates of _datahub-auth-api_ can be found at [Maven](https://mvnrepository.com/artifact/io.acryl/datahub-auth-api)
 
-2. Implement the Authorizer interface: [Authorizer Sample](../metadata-auth/apache-ranger-plugin)
+2. Implement the Authorizer interface: [Authorizer Sample](https://github.com/acryldata/datahub-ranger-auth-plugin/tree/main/apache-ranger-plugin)
 
    <details>
       <summary>Sample class which implements the Authorization interface </summary>
@@ -138,7 +138,7 @@ The sample authorizer implementation can be found at [Authorizer Sample](../meta
 
 4. Bundle your Jar: Use `com.github.johnrengelman.shadow` gradle plugin to create an uber jar. 
 
-   To see an example of building an uber jar, check out the `build.gradle` file for the apache-ranger-plugin file of [Apache Ranger Plugin](../metadata-auth/apache-ranger-plugin) for reference.
+   To see an example of building an uber jar, check out the `build.gradle` file for the apache-ranger-plugin file of [Apache Ranger Plugin](https://github.com/acryldata/datahub-ranger-auth-plugin/tree/main/apache-ranger-plugin) for reference.
 
    Exclude datahub plugin dependency and signature classes as shown in below `shadowJar` task.
 

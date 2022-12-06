@@ -47,7 +47,7 @@ For kubernetes example command, please replace the &lt;ranger-pod-name&gt; and &
     ```bash
    kubectl cp datahub-ranger-plugin-<version>.jar <ranger-pod-name>:/opt/ranger/ranger-2.1.0-admin/ews/webapp/WEB-INF/classes/ranger-plugins/datahub/ -n <namespace>
    ```
-4. Download the [service definition file](../datahub-ranger-plugin/conf/servicedef.json). This service definition is the ranger service definition JSON file for datahub-ranger-plugin-&lt;version&gt;.jar 
+4. Download the [service definition file](https://github.com/acryldata/datahub-ranger-auth-plugin/blob/main/datahub-ranger-plugin/conf/servicedef.json). This service definition is the ranger service definition JSON file for datahub-ranger-plugin-&lt;version&gt;.jar 
 5. Register the downloaded service definition file with Apache Ranger Service. To do this executes the below curl command <br /> 
 Replace variables with corresponding values in curl command
    - &lt;ranger-admin-username&gt;
@@ -67,20 +67,20 @@ Now, you should have the DataHub plugin registered with Apache Ranger. Next, we'
 
       **DATAHUB** plugin and **ranger_datahub** service is shown in below screenshot: <br/>
       
-      ![Privacera Portal DATAHUB screenshot](./doc-images/datahub-plugin.png)
+      ![Privacera Portal DATAHUB screenshot](../imgs/apache-ranger/datahub-plugin.png)
 
 4. Create a new policy under service **ranger_datahub** - this will be used to control DataHub authorization. 
 5. Create a test user & assign them to a policy. We'll use the `datahub` user, which is the default root user inside DataHub.
 
    To do this performs below steps
       - Create a user  **datahub** 
-      - Create a policy under **ranger_datahub** service. To assign [Platform Privileges](../docs/authorization/policies.md) (e.g. Admin privileges), simply use the "platform" resource type which is defined. To test the flow, we can simply assign the **datahub** user all platform privileges that are available through the Ranger UI. This will enable the "datahub" to have full platform admin privileges. 
+      - Create a policy under **ranger_datahub** service. To assign [Platform Privileges](../authorization/policies.md#privileges) (e.g. Admin privileges), simply use the "platform" resource type which is defined. To test the flow, we can simply assign the **datahub** user all platform privileges that are available through the Ranger UI. This will enable the "datahub" to have full platform admin privileges. 
 
-     > To define fine-grained resource privileges, e.g. for DataHub Datasets, Dashboards, Charts, and more, you can simply select the appropriate Resource Type in the Ranger policy builder. You should also see a list of privileges that are supported for each resource type, which correspond to the actions that you can perform. To learn more about supported privileges, check out the DataHub [Policies Guide](../docs/authorization/policies.md). 
+     > To define fine-grained resource privileges, e.g. for DataHub Datasets, Dashboards, Charts, and more, you can simply select the appropriate Resource Type in the Ranger policy builder. You should also see a list of privileges that are supported for each resource type, which correspond to the actions that you can perform. To learn more about supported privileges, check out the DataHub [Policies Guide](../authorization/policies.md#privileges). 
       
       DataHub platform access policy screenshot: <br/>
       
-      ![Privacera Portal DATAHUB screenshot](./doc-images/datahub-platform-access-policy.png)
+      ![Privacera Portal DATAHUB screenshot](../imgs/apache-ranger/datahub-platform-access-policy.png)
 
 Once we've created our first policy, we can set up DataHub to start authorizing requests using Ranger policies. 
 
@@ -89,7 +89,7 @@ Once we've created our first policy, we can set up DataHub to start authorizing 
 
 Perform the following steps to configure DataHub to send incoming requests to Apache Ranger for authorization.
 
-1. Download Apache Ranger security xml [ranger-datahub-security.xml](../datahub-ranger-plugin/conf/ranger-datahub-security.xml)
+1. Download Apache Ranger security xml [ranger-datahub-security.xml](https://github.com/acryldata/datahub-ranger-auth-plugin/blob/main/datahub-ranger-plugin/conf/ranger-datahub-security.xml)
 2. In  **ranger-datahub-security.xml**  edit the value of property  *ranger.plugin.datahub.policy.rest.url*. Sample snippet is shown below
     ```xml
         <property>
@@ -108,17 +108,17 @@ As per your deployment follow either Docker or Kubernetes section below
 1.  Clone DataHub Repo: Clone the DataHub repository
     ```shell
         cd ~/
-        git clone https://github.com/datahub-project/datahub.git
+        git clone https://github.com/acryldata/datahub-ranger-auth-plugin.git
     ```
-2. Go inside the datahub directory: You should be inside the `datahub` directory to execute build command
+2. Go inside the datahub directory: You should be inside the `datahub-ranger-auth-plugin` directory to execute build command
     ```shell
-        cd ~/datahub
+        cd ~/datahub-ranger-auth-plugin/
     ```
 3. Build plugin: Execute below gradle command to build Ranger Authorizer Plugin jar
     ```shell
-      ./gradlew :metadata-auth:apache-ranger-plugin:shadowJar
+      ./gradlew apache-ranger-plugin:shadowJar
     ```
-   This step will generate a jar file i.e. ./metadata-auth/apache-ranger-plugin/build/libs/apache-ranger-plugin-&lt;version&gt;-SNAPSHOT.jar.
+   This step will generate a jar file i.e. ./apache-ranger-plugin/build/libs/apache-ranger-plugin-&lt;version&gt;-SNAPSHOT.jar.
 
     Let's call this jar as ranger-plugin-jar. We need this jar in below step (Configure Ranger Authorizer Plugin)
 
@@ -133,7 +133,7 @@ On the host where `datahub-gms` is deployed, follow these steps:
 2. Copy `ranger-datahub-security.xml` file to `~/.datahub/plugins/auth/apache-ranger-authorizer/`
 3. Copy ranger-plugin-jar: Copy the apache-ranger-plugin-&lt;version&gt;-SNAPSHOT.jar 
      ```bash
-   cp ./metadata-auth/apache-ranger-plugin/build/libs/apache-ranger-plugin-<version>-SNAPSHOT.jar ~/.datahub/plugins/auth/apache-ranger-authorizer/apache-ranger-authorizer.jar
+   cp ./apache-ranger-plugin/build/libs/apache-ranger-plugin-<version>-SNAPSHOT.jar ~/.datahub/plugins/auth/apache-ranger-authorizer/apache-ranger-authorizer.jar
    ```
 4. Create `config.yml`: Create config.yml if not exist
     ```shell
@@ -178,7 +178,7 @@ then follow the below sections to undo the configuration steps you have performe
 
       **ranger_datahub** service is shown in below screenshot: <br/>
 
-      ![Privacera Portal DATAHUB screenshot](./doc-images/datahub-plugin.png)
+      ![Privacera Portal DATAHUB screenshot](../imgs/apache-ranger/datahub-plugin.png)
 
    2. Delete **datahub** plugin: Execute below curl command to delete **datahub** plugin
       Replace variables with corresponding values in curl command

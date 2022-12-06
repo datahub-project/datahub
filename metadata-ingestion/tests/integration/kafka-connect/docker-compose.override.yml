@@ -11,6 +11,7 @@ services:
       - zookeeper
       - broker
       - mysqldb
+      - mongo
     ports:
       - "58083:58083"    
 #    volumes:        
@@ -33,6 +34,8 @@ services:
         confluent-hub install --no-prompt debezium/debezium-connector-mysql:1.7.0
         #
         #confluent-hub install --no-prompt wepay/kafka-connect-bigquery:1.6.8
+        #
+        confluent-hub install --no-prompt mongodb/kafka-connect-mongodb:1.8.0
         #
         curl -k -SL "https://dev.mysql.com/get/Downloads/Connector-J/mysql-connector-java-8.0.27.tar.gz" \
              | tar -xzf - -C /usr/share/confluent-hub-components/confluentinc-kafka-connect-jdbc/lib \
@@ -70,6 +73,22 @@ services:
       - ./../kafka-connect/setup/mysql-setup.sql:/docker-entrypoint-initdb.d/postgres_setup.sql
     ports:
       - "5432:5432"
+
+  mongo:
+    hostname: mongo
+    image: mongo:4.2.9
+    container_name: "test_mongo"
+    ports:
+      - "27017:27017"
+    command: --replSet rs0
+    environment:
+      - MONGO_INITDB_ROOT_USERNAME=admin
+      - MONGO_INITDB_ROOT_PASSWORD=admin
+      - MONGO_INITDB_DATABASE=test_db
+      - MONGO_INITDB_USERNAME=kafka-connector
+      - MONGO_INITDB_PASSWORD=password
+    volumes:
+      - ./../kafka-connect/setup/conf/mongo-init.sh:/docker-entrypoint-initdb.d/mongo-init.sh:ro
 
 volumes:
     test_zkdata:
