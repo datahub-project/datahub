@@ -7,7 +7,7 @@ import java.util.List;
 import java.util.Optional;
 import com.datahub.authorization.AuthorizationRequest;
 import com.datahub.authorization.AuthorizationResult;
-import com.datahub.authorization.Authorizer;
+import com.datahub.plugins.auth.authorization.Authorizer;
 
 public class AuthUtils {
 
