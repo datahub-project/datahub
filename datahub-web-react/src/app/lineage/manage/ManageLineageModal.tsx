@@ -1,10 +1,13 @@
 import { LoadingOutlined } from '@ant-design/icons';
 import { Button, Modal } from 'antd';
-import React from 'react';
+import React, { useState } from 'react';
 import styled from 'styled-components/macro';
 import { useGetEntityLineageQuery } from '../../../graphql/lineage.generated';
 import { Direction } from '../types';
+import AddEntityEdge from './AddEntityEdge';
 import LineageEntityView from './LineageEntityView';
+import LineageEdges from './LineageEdges';
+import { Entity } from '../../../types.generated';
 
 const ModalFooter = styled.div`
     display: flex;
@@ -36,6 +39,9 @@ interface Props {
 }
 
 export default function ManageLineageModal({ entityUrn, lineageDirection, closeModal }: Props) {
+    const [entitiesToAdd, setEntitiesToAdd] = useState<Entity[]>([]);
+    const [urnsToRemove, setUrnsToRemove] = useState<string[]>([]);
+
     const { data, loading } = useGetEntityLineageQuery({
         variables: {
             urn: entityUrn,
@@ -65,9 +71,24 @@ export default function ManageLineageModal({ entityUrn, lineageDirection, closeM
                     <LoadingOutlined />
                 </LoadingWrapper>
             )}
-            {!loading && <>{data?.entity && <LineageEntityView entity={data.entity} />}</>}
-            {/* TODO: Add entity search to add to lineage */}
-            {/* TODO: Add list of entities in lineage */}
+            {!loading && (
+                <>
+                    {data?.entity && <LineageEntityView entity={data.entity} />}
+                    <AddEntityEdge
+                        lineageDirection={lineageDirection}
+                        setEntitiesToAdd={setEntitiesToAdd}
+                        entitiesToAdd={entitiesToAdd}
+                    />
+                    <LineageEdges
+                        entity={data?.entity}
+                        lineageDirection={lineageDirection}
+                        entitiesToAdd={entitiesToAdd}
+                        urnsToRemove={urnsToRemove}
+                        setEntitiesToAdd={setEntitiesToAdd}
+                        setUrnsToRemove={setUrnsToRemove}
+                    />
+                </>
+            )}
         </StyledModal>
     );
 }
