@@ -66,6 +66,12 @@ class BigQueryV2Config(BigQueryConfig, LineageConfig):
         default=None,
         description="[deprecated] Use project_id_pattern instead. You can use this property if you only want to ingest one project and don't want to give project resourcemanager.projects.list to your service account",
     )
+
+    project_on_behalf: Optional[str] = Field(
+        default=None,
+        description="Project ID for the project which the bigquery client acts on behalf of. Will be passed when creating a job. If not passed, falls back to the default inferred from the environment.",
+    )
+
     storage_project_id: None = Field(default=None, hidden_from_schema=True)
 
     lineage_use_sql_parser: bool = Field(

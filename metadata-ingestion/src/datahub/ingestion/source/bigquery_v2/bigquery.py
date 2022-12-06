@@ -55,6 +55,7 @@ from datahub.ingestion.source.bigquery_v2.bigquery_schema import (
     BigqueryTable,
     BigqueryView,
 )
+from datahub.ingestion.source.bigquery_v2.common import get_bigquery_client
 from datahub.ingestion.source.bigquery_v2.lineage import BigqueryLineageExtractor
 from datahub.ingestion.source.bigquery_v2.profiler import BigqueryProfiler
 from datahub.ingestion.source.bigquery_v2.usage import BigQueryUsageExtractor
@@ -224,10 +225,6 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
         config = BigQueryV2Config.parse_obj(config_dict)
         return cls(ctx, config)
 
-    def get_bigquery_client(self) -> bigquery.Client:
-        client_options = self.config.extra_client_options
-        return bigquery.Client(**client_options)
-
     @staticmethod
     def connectivity_test(client: bigquery.Client) -> CapabilityReport:
         ret = client.query("select 1")
@@ -240,12 +237,12 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
 
     @staticmethod
     def metada_read_capability_test(
-        project_ids: List[str], profiling_enabled: bool
+        project_ids: List[str], config: BigQueryV2Config
     ) -> CapabilityReport:
         for project_id in project_ids:
             try:
                 logger.info((f"Metadata read capability test for project {project_id}"))
-                client: bigquery.Client = bigquery.Client(project_id)
+                client: bigquery.Client = get_bigquery_client(config)
                 assert client
                 result = BigQueryDataDictionary.get_datasets_for_project_id(
                     client, project_id, 10
@@ -260,7 +257,7 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
                     project_id=project_id,
                     dataset_name=result[0].name,
                     tables={},
-                    with_data_read_permission=profiling_enabled,
+                    with_data_read_permission=config.profiling.enabled,
                 )
                 if len(tables) == 0:
                     return CapabilityReport(
@@ -329,7 +326,7 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
                 pydantic.Extra.allow
             )  # we are okay with extra fields during this stage
             connection_conf = BigQueryV2Config.parse_obj(config_dict)
-            client: bigquery.Client = bigquery.Client()
+            client: bigquery.Client = get_bigquery_client(connection_conf)
             assert client
 
             test_report.basic_connectivity = BigqueryV2Source.connectivity_test(client)
@@ -346,7 +343,7 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
                     project_ids.append(project.project_id)
 
             metada_read_capability = BigqueryV2Source.metada_read_capability_test(
-                project_ids, connection_conf.profiling.enabled
+                project_ids, connection_conf
             )
             if SourceCapability.SCHEMA_METADATA not in _report:
                 _report[SourceCapability.SCHEMA_METADATA] = metada_read_capability
@@ -489,7 +486,7 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
 
     def get_workunits(self) -> Iterable[WorkUnit]:
         logger.info("Getting projects")
-        conn: bigquery.Client = self.get_bigquery_client()
+        conn: bigquery.Client = get_bigquery_client(self.config)
         self.add_config_to_report()
 
         projects: List[BigqueryProject]

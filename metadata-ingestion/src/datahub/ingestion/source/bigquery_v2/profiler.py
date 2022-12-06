@@ -17,6 +17,7 @@ from datahub.ingestion.source.bigquery_v2.bigquery_schema import (
     BigqueryColumn,
     BigqueryTable,
 )
+from datahub.ingestion.source.bigquery_v2.common import get_sql_alchemy_url
 from datahub.ingestion.source.ge_data_profiler import (
     DatahubGEProfiler,
     GEProfilerRequest,
@@ -329,7 +330,7 @@ WHERE
 
     def get_profiler_instance(self) -> "DatahubGEProfiler":
         logger.debug("Getting profiler instance from bigquery")
-        url = self.config.get_sql_alchemy_url()
+        url = get_sql_alchemy_url(self.config)
 
         logger.debug(f"sql_alchemy_url={url}")
 
