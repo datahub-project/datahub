@@ -1,6 +1,6 @@
 from dataclasses import dataclass, field
 from datetime import datetime
-from typing import Generic, List, Optional, Sequence, TypeVar
+from typing import List, Optional, TypeVar
 
 from pydantic.fields import Field
 
