@@ -33,7 +33,7 @@ dependencies {
   }
 
   compile project(':metadata-service:restli-api')
-  compile project(':metadata-service:auth-api')
+  compile project(':metadata-auth:auth-api')
   compile project(path: ':metadata-service:restli-api', configuration: 'dataTemplate')
   compile project(':li-utils')
   compile project(':metadata-models')

@@ -34,14 +34,6 @@ authorization:
     enabled: ${AUTH_POLICIES_ENABLED:true}
     cacheRefreshIntervalSecs: ${POLICY_CACHE_REFRESH_INTERVAL_SECONDS:120}
 
-  # Optional: A set of custom authorizers, serving in addition to the default DataHub policies-based authorizer.
-  authorizers:
-    - type: com.datahub.authorization.ranger.RangerAuthorizer
-      enabled: ${RANGER_AUTHORIZER_ENABLED:false}
-      configs:
-        username: ${RANGER_USERNAME}
-        password: ${RANGER_PASSWORD}
-
 ingestion:
   enabled: ${UI_INGESTION_ENABLED:true}
   defaultCliVersion: '${UI_INGESTION_DEFAULT_CLI_VERSION:@cliMajorVersion@}'
@@ -65,10 +57,13 @@ datahub:
       protocol: ${DATAHUB_GMS_SSL_PROTOCOL:${GMS_SSL_PROTOCOL:#{null}}}
 
   plugin:
+    pluginSecurityMode: ${PLUGIN_SECURITY_MODE:RESTRICTED} # Possible value RESTRICTED or LENIENT, default to RESTRICTED
     entityRegistry:
-      path: ${ENTITY_REGISTRY_PLUGIN_PATH:/etc/datahub/plugins/models}
+        path: ${ENTITY_REGISTRY_PLUGIN_PATH:/etc/datahub/plugins/models}
     retention:
       path: ${RETENTION_PLUGIN_PATH:/etc/datahub/plugins/retention}
+    auth:
+      path: ${AUTH_PLUGIN_PATH:/etc/datahub/plugins/auth}
 
 entityService:
   impl: ${ENTITY_SERVICE_IMPL:ebean}
