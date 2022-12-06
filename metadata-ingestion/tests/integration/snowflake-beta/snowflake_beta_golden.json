@@ -5,7 +5,7 @@
     "changeType": "UPSERT",
     "aspectName": "containerProperties",
     "aspect": {
-        "value": "{\"customProperties\": {\"platform\": \"snowflake\", \"instance\": \"PROD\", \"database\": \"test_db\"}, \"name\": \"TEST_DB\", \"description\": \"Comment for TEST_DB\"}",
+        "value": "{\"customProperties\": {\"platform\": \"snowflake\", \"instance\": \"PROD\", \"database\": \"test_db\"}, \"externalUrl\": \"https://app.snowflake.com/ap-south-1/abc12345/#/data/databases/TEST_DB/\", \"name\": \"TEST_DB\", \"description\": \"Comment for TEST_DB\"}",
         "contentType": "application/json"
     },
     "systemMetadata": {
@@ -61,7 +61,7 @@
     "changeType": "UPSERT",
     "aspectName": "containerProperties",
     "aspect": {
-        "value": "{\"customProperties\": {\"platform\": \"snowflake\", \"instance\": \"PROD\", \"database\": \"test_db\", \"schema\": \"test_schema\"}, \"name\": \"TEST_SCHEMA\", \"description\": \"comment for TEST_DB.TEST_SCHEMA\"}",
+        "value": "{\"customProperties\": {\"platform\": \"snowflake\", \"instance\": \"PROD\", \"database\": \"test_db\", \"schema\": \"test_schema\"}, \"externalUrl\": \"https://app.snowflake.com/ap-south-1/abc12345/#/data/databases/TEST_DB/schemas/TEST_SCHEMA/\", \"name\": \"TEST_SCHEMA\", \"description\": \"comment for TEST_DB.TEST_SCHEMA\"}",
         "contentType": "application/json"
     },
     "systemMetadata": {
@@ -159,7 +159,7 @@
     "changeType": "UPSERT",
     "aspectName": "datasetProperties",
     "aspect": {
-        "value": "{\"customProperties\": {}, \"name\": \"TABLE_1\", \"qualifiedName\": \"test_db.test_schema.table_1\", \"description\": \"Comment for Table\", \"tags\": []}",
+        "value": "{\"customProperties\": {}, \"externalUrl\": \"https://app.snowflake.com/ap-south-1/abc12345/#/data/databases/TEST_DB/schemas/TEST_SCHEMA/table/TABLE_1/\", \"name\": \"TABLE_1\", \"qualifiedName\": \"test_db.test_schema.table_1\", \"description\": \"Comment for Table\", \"tags\": []}",
         "contentType": "application/json"
     },
     "systemMetadata": {
@@ -243,7 +243,7 @@
     "changeType": "UPSERT",
     "aspectName": "datasetProperties",
     "aspect": {
-        "value": "{\"customProperties\": {}, \"name\": \"TABLE_2\", \"qualifiedName\": \"test_db.test_schema.table_2\", \"description\": \"Comment for Table\", \"tags\": []}",
+        "value": "{\"customProperties\": {}, \"externalUrl\": \"https://app.snowflake.com/ap-south-1/abc12345/#/data/databases/TEST_DB/schemas/TEST_SCHEMA/table/TABLE_2/\", \"name\": \"TABLE_2\", \"qualifiedName\": \"test_db.test_schema.table_2\", \"description\": \"Comment for Table\", \"tags\": []}",
         "contentType": "application/json"
     },
     "systemMetadata": {
@@ -327,7 +327,7 @@
     "changeType": "UPSERT",
     "aspectName": "datasetProperties",
     "aspect": {
-        "value": "{\"customProperties\": {}, \"name\": \"TABLE_3\", \"qualifiedName\": \"test_db.test_schema.table_3\", \"description\": \"Comment for Table\", \"tags\": []}",
+        "value": "{\"customProperties\": {}, \"externalUrl\": \"https://app.snowflake.com/ap-south-1/abc12345/#/data/databases/TEST_DB/schemas/TEST_SCHEMA/table/TABLE_3/\", \"name\": \"TABLE_3\", \"qualifiedName\": \"test_db.test_schema.table_3\", \"description\": \"Comment for Table\", \"tags\": []}",
         "contentType": "application/json"
     },
     "systemMetadata": {
@@ -411,7 +411,7 @@
     "changeType": "UPSERT",
     "aspectName": "datasetProperties",
     "aspect": {
-        "value": "{\"customProperties\": {}, \"name\": \"TABLE_4\", \"qualifiedName\": \"test_db.test_schema.table_4\", \"description\": \"Comment for Table\", \"tags\": []}",
+        "value": "{\"customProperties\": {}, \"externalUrl\": \"https://app.snowflake.com/ap-south-1/abc12345/#/data/databases/TEST_DB/schemas/TEST_SCHEMA/table/TABLE_4/\", \"name\": \"TABLE_4\", \"qualifiedName\": \"test_db.test_schema.table_4\", \"description\": \"Comment for Table\", \"tags\": []}",
         "contentType": "application/json"
     },
     "systemMetadata": {
@@ -495,7 +495,7 @@
     "changeType": "UPSERT",
     "aspectName": "datasetProperties",
     "aspect": {
-        "value": "{\"customProperties\": {}, \"name\": \"TABLE_5\", \"qualifiedName\": \"test_db.test_schema.table_5\", \"description\": \"Comment for Table\", \"tags\": []}",
+        "value": "{\"customProperties\": {}, \"externalUrl\": \"https://app.snowflake.com/ap-south-1/abc12345/#/data/databases/TEST_DB/schemas/TEST_SCHEMA/table/TABLE_5/\", \"name\": \"TABLE_5\", \"qualifiedName\": \"test_db.test_schema.table_5\", \"description\": \"Comment for Table\", \"tags\": []}",
         "contentType": "application/json"
     },
     "systemMetadata": {
@@ -579,7 +579,7 @@
     "changeType": "UPSERT",
     "aspectName": "datasetProperties",
     "aspect": {
-        "value": "{\"customProperties\": {}, \"name\": \"TABLE_6\", \"qualifiedName\": \"test_db.test_schema.table_6\", \"description\": \"Comment for Table\", \"tags\": []}",
+        "value": "{\"customProperties\": {}, \"externalUrl\": \"https://app.snowflake.com/ap-south-1/abc12345/#/data/databases/TEST_DB/schemas/TEST_SCHEMA/table/TABLE_6/\", \"name\": \"TABLE_6\", \"qualifiedName\": \"test_db.test_schema.table_6\", \"description\": \"Comment for Table\", \"tags\": []}",
         "contentType": "application/json"
     },
     "systemMetadata": {
@@ -663,7 +663,7 @@
     "changeType": "UPSERT",
     "aspectName": "datasetProperties",
     "aspect": {
-        "value": "{\"customProperties\": {}, \"name\": \"TABLE_7\", \"qualifiedName\": \"test_db.test_schema.table_7\", \"description\": \"Comment for Table\", \"tags\": []}",
+        "value": "{\"customProperties\": {}, \"externalUrl\": \"https://app.snowflake.com/ap-south-1/abc12345/#/data/databases/TEST_DB/schemas/TEST_SCHEMA/table/TABLE_7/\", \"name\": \"TABLE_7\", \"qualifiedName\": \"test_db.test_schema.table_7\", \"description\": \"Comment for Table\", \"tags\": []}",
         "contentType": "application/json"
     },
     "systemMetadata": {
@@ -747,7 +747,7 @@
     "changeType": "UPSERT",
     "aspectName": "datasetProperties",
     "aspect": {
-        "value": "{\"customProperties\": {}, \"name\": \"TABLE_8\", \"qualifiedName\": \"test_db.test_schema.table_8\", \"description\": \"Comment for Table\", \"tags\": []}",
+        "value": "{\"customProperties\": {}, \"externalUrl\": \"https://app.snowflake.com/ap-south-1/abc12345/#/data/databases/TEST_DB/schemas/TEST_SCHEMA/table/TABLE_8/\", \"name\": \"TABLE_8\", \"qualifiedName\": \"test_db.test_schema.table_8\", \"description\": \"Comment for Table\", \"tags\": []}",
         "contentType": "application/json"
     },
     "systemMetadata": {
@@ -831,7 +831,7 @@
     "changeType": "UPSERT",
     "aspectName": "datasetProperties",
     "aspect": {
-        "value": "{\"customProperties\": {}, \"name\": \"TABLE_9\", \"qualifiedName\": \"test_db.test_schema.table_9\", \"description\": \"Comment for Table\", \"tags\": []}",
+        "value": "{\"customProperties\": {}, \"externalUrl\": \"https://app.snowflake.com/ap-south-1/abc12345/#/data/databases/TEST_DB/schemas/TEST_SCHEMA/table/TABLE_9/\", \"name\": \"TABLE_9\", \"qualifiedName\": \"test_db.test_schema.table_9\", \"description\": \"Comment for Table\", \"tags\": []}",
         "contentType": "application/json"
     },
     "systemMetadata": {
@@ -915,7 +915,7 @@
     "changeType": "UPSERT",
     "aspectName": "datasetProperties",
     "aspect": {
-        "value": "{\"customProperties\": {}, \"name\": \"TABLE_10\", \"qualifiedName\": \"test_db.test_schema.table_10\", \"description\": \"Comment for Table\", \"tags\": []}",
+        "value": "{\"customProperties\": {}, \"externalUrl\": \"https://app.snowflake.com/ap-south-1/abc12345/#/data/databases/TEST_DB/schemas/TEST_SCHEMA/table/TABLE_10/\", \"name\": \"TABLE_10\", \"qualifiedName\": \"test_db.test_schema.table_10\", \"description\": \"Comment for Table\", \"tags\": []}",
         "contentType": "application/json"
     },
     "systemMetadata": {

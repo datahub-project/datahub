@@ -6,6 +6,8 @@ import io.ebean.config.ServerConfig;
 import io.ebean.datasource.DataSourceConfig;
 import io.ebean.datasource.DataSourcePoolListener;
 import java.sql.Connection;
+import java.util.HashMap;
+import java.util.Map;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
@@ -51,6 +53,9 @@ public class LocalEbeanServerConfigFactory {
   @Value("${ebean.autoCreateDdl:false}")
   private Boolean ebeanAutoCreate;
 
+  @Value("${ebean.postgresUseIamAuth:false}")
+  private Boolean postgresUseIamAuth;
+
   private DataSourcePoolListener getListenerToTrackCounts(String metricName) {
     final String counterName = "ebeans_connection_pool_size_" + metricName;
     return new DataSourcePoolListener() {
@@ -79,6 +84,12 @@ public class LocalEbeanServerConfigFactory {
     dataSourceConfig.setLeakTimeMinutes(ebeanLeakTimeMinutes);
     dataSourceConfig.setWaitTimeoutMillis(ebeanWaitTimeoutMillis);
     dataSourceConfig.setListener(getListenerToTrackCounts(dataSourceType));
+    // Adding IAM auth access for AWS Postgres
+    if (postgresUseIamAuth) {
+      Map<String, String> custom = new HashMap<>();
+      custom.put("wrapperPlugins", "iam");
+      dataSourceConfig.setCustomProperties(custom);
+    }
     return dataSourceConfig;
   }
 

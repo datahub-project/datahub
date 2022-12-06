@@ -4,10 +4,10 @@ title: "metadata-jobs:mce-consumer-job"
 
 # Metadata Change Event Consumer Job
 
-The Metadata Change Event Consumer is a [Kafka Streams](https://kafka.apache.org/documentation/streams/) job which can be deployed by itself, or as part of the Metadata Service.
+The Metadata Change Event Consumer is a Spring job which can be deployed by itself, or as part of the Metadata Service.
 
 Its main function is to listen to change proposal events emitted by clients of DataHub which request changes to the Metadata Graph. It then applies
-these requests against DataHub's storage layer: the Metadata Service. 
+these requests against DataHub's storage layer: the Metadata Service.
 
 Today the job consumes from two topics:
 
@@ -62,7 +62,7 @@ listen on port 5005 for a remote debugger.
 ```
 
 ## Endpoints
-Spring boot actuator has been enabled for MCE Application. 
+Spring boot actuator has been enabled for MCE Application.
 `healthcheck`, `metrics` and `info` web endpoints are enabled by default.
 
 `healthcheck` - http://localhost:9090/actuator/health
