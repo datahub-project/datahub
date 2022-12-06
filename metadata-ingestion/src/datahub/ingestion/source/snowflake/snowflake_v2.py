@@ -922,6 +922,8 @@ class SnowflakeV2Source(
     def gen_schema_containers(
         self, schema: SnowflakeSchema, db_name: str
     ) -> Iterable[MetadataWorkUnit]:
+        domain_urn = self._gen_domain_urn(f"{db_name}.{schema.name}")
+
         schema_container_key = self.gen_schema_key(
             self.snowflake_identifier(db_name),
             self.snowflake_identifier(schema.name),
@@ -939,6 +941,7 @@ class SnowflakeV2Source(
             description=schema.comment,
             sub_types=[SqlContainerSubTypes.SCHEMA],
             parent_container_key=database_container_key,
+            domain_urn=domain_urn,
             external_url=self.get_external_url_for_schema(schema.name, db_name)
             if self.config.include_external_url
             else None,
