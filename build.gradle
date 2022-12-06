@@ -197,7 +197,7 @@ allprojects {
   apply plugin: 'checkstyle'
 }
 
-configure(subprojects.findAll {! it.name.startsWith('spark-lineage') && it.name != 'apache-ranger-plugin'}) {
+configure(subprojects.findAll {! it.name.startsWith('spark-lineage')}) {
 
   configurations.all {
     exclude group: "io.netty", module: "netty"
