@@ -116,7 +116,6 @@ function list_markdown_files(): string[] {
     // Keep main docs for kubernetes, but skip the inner docs.
     /^datahub-kubernetes\//,
     // Various other docs/directories to ignore.
-    /^rfc\//, // We want RFC's active on git, but not indexed/searched/in nav docs
     /^metadata-models\/docs\//, // these are used to generate docs, so we don't want to consider them here
     /^metadata-ingestion\/archived\//, // these are archived, so we don't want to consider them here
     /^metadata-ingestion\/docs\/sources\//, // these are used to generate docs, so we don't want to consider them here
