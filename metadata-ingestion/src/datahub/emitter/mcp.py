@@ -139,7 +139,6 @@ class MetadataChangeProposalWrapper:
                 and obj["aspect"].get("contentType") == "application/json"
             ):
                 obj["aspect"] = {"json": json.loads(obj["aspect"]["value"])}
-            breakpoint()
         return obj
 
     @classmethod

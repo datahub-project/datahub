@@ -1,13 +1,17 @@
 import json
 import logging
 import os
+import pathlib
 import pprint
 import re
 import shutil
+import tempfile
 from typing import Any, Callable, Dict, List, Optional, Set, Tuple, Type, Union
 
 import deepdiff
 
+from datahub.ingestion.sink.file import write_metadata_file
+from datahub.ingestion.source.file import read_metadata_file
 from datahub.metadata.schema_classes import (
     MetadataChangeEventClass,
     MetadataChangeProposalClass,
@@ -138,8 +142,12 @@ def check_golden_file(
         golden = load_json_file(output_path)
         shutil.copyfile(str(output_path), str(golden_path))
     else:
-        # TODO: normalize the golden file
-        golden = load_json_file(golden_path)
+        # We have to "normalize" the golden file by reading and writing it back out.
+        # This will clean up nulls, double serialization, and other formatting issues.
+        with tempfile.NamedTemporaryFile() as temp:
+            golden_metadata = read_metadata_file(pathlib.Path(golden_path))
+            write_metadata_file(pathlib.Path(temp.name), golden_metadata)
+            golden = load_json_file(temp.name)
 
     try:
         assert_mces_equal(output, golden, ignore_paths)
