@@ -98,16 +98,6 @@ def set_cookie(
     return bool(cookie)
 
 
-class LDAPSourceStatefulIngestionConfig(StatefulStaleMetadataRemovalConfig):
-    """
-    Specialization of StatefulStaleMetadataRemovalConfig to adding custom config.
-    This will be used to override the stateful_ingestion config param of StatefulIngestionConfigBase
-    in the LDAPSourceConfig.
-    """
-
-    _entity_types: List[str] = pydantic.Field(default=["corpuser"])
-
-
 class LDAPSourceConfig(StatefulIngestionConfigBase):
     """Config used by the LDAP Source."""
 
@@ -117,7 +107,7 @@ class LDAPSourceConfig(StatefulIngestionConfigBase):
     ldap_password: str = Field(description="LDAP password.")
 
     # Custom Stateful Ingestion settings
-    stateful_ingestion: Optional[LDAPSourceStatefulIngestionConfig] = None
+    stateful_ingestion: Optional[StatefulStaleMetadataRemovalConfig] = None
 
     # Extraction configuration.
     base_dn: str = Field(description="LDAP DN.")
