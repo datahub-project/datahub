@@ -6,12 +6,16 @@ from tests.utils import ingest_file_via_rest
 from tests.utils import delete_urns_from_file
 
 
-@pytest.fixture(scope="module", autouse=True)
-def ingest_cleanup_data():
+def ingest_data():
     print("ingesting test data")
     ingest_file_via_rest("tests/cypress/data.json")
     ingest_file_via_rest("tests/cypress/cypress_dbt_data.json")
     ingest_file_via_rest("tests/cypress/schema-blame-data.json")
+
+
+@pytest.fixture(scope="module", autouse=True)
+def ingest_cleanup_data():
+    ingest_data()
     yield
     print("removing test data")
     delete_urns_from_file("tests/cypress/data.json")
